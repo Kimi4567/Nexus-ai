@@ -109,6 +109,16 @@ describe('brandBrainLearningContract', () => {
     expect(campaignRoute).toContain('Campaign status changes are workflow events only')
   })
 
+  it('keeps the daily campaign monitor out of performance learning without analytics', () => {
+    const agentMonitor = readSource('src/app/api/cron/agent-monitor/route.ts')
+
+    expect(agentMonitor).toContain("performanceLearningOwner: 'fetch-analytics'")
+    expect(agentMonitor).toContain('The fetch-analytics cron owns that')
+    expect(agentMonitor).not.toContain('extractLearningsFromCaptions')
+    expect(agentMonitor).not.toMatch(/brandProfile\.update|prisma\.brandProfile\.update/)
+    expect(agentMonitor).not.toContain('learn from every published post')
+  })
+
   it('keeps suggestions approval as reviewed workflow input instead of direct learning', () => {
     const suggestionsRoute = readSource('src/app/api/suggestions/route.ts')
 

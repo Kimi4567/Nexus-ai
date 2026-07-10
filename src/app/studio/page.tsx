@@ -13,9 +13,7 @@ import {
   ArrowUpRight,
   BadgeCheck,
   Brush,
-  ChevronDown,
   Copy,
-  Download,
   Eye,
   FolderOpen,
   ImageIcon,
@@ -24,16 +22,23 @@ import {
   MessageSquare,
   Monitor,
   Palette,
-  Share2,
   Sparkles,
   Type,
   Upload,
-  Wand2,
   Zap,
 } from 'lucide-react'
 
 type VisualStyle = 'premium' | 'cinematic' | 'natural' | 'minimal'
 type CreativeRatio = '1:1' | '4:5' | '16:9' | '9:16'
+
+interface StudioCampaign {
+  id: string
+  name: string
+  goal?: string | null
+  status?: string | null
+  platforms?: string[]
+  updatedAt?: string
+}
 
 const styleLabels: Record<VisualStyle, { ar: string; en: string }> = {
   premium: { ar: 'فخم', en: 'Premium' },
@@ -124,11 +129,12 @@ function StudioCard({
   )
 }
 
-function MiniMetric({ label, value }: { label: string; value: string }) {
+function MiniMetric({ label, value, helper }: { label: string; value: string; helper?: string }) {
   return (
     <div className="rounded-[14px] border border-[#e8edf7] bg-[#f8faff] px-4 py-3 text-center">
       <p className="text-[11px] font-semibold text-[#64708f]">{label}</p>
       <p className="mt-1 text-lg font-black text-[#0c1535]">{value}</p>
+      {helper ? <p className="mt-1 text-[10px] leading-4 text-[#7b87a3]">{helper}</p> : null}
     </div>
   )
 }
@@ -138,11 +144,15 @@ function PlatformRow({
   name,
   spec,
   ready = true,
+  readyLabel,
+  missingLabel,
 }: {
   icon: React.ReactNode
   name: string
   spec: string
   ready?: boolean
+  readyLabel: string
+  missingLabel: string
 }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-[14px] border border-[#edf1f8] bg-[#fbfcff] px-3 py-2.5">
@@ -153,21 +163,24 @@ function PlatformRow({
           <span className="block text-[11px] text-[#7b87a3]">{spec}</span>
         </span>
       </div>
-      <span className={`h-5 w-5 rounded-md ${ready ? 'bg-emerald-500' : 'border border-[#cbd4e6] bg-white'}`} />
+      <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${ready ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+        {ready ? readyLabel : missingLabel}
+      </span>
     </div>
   )
 }
 
 export default function StudioPage() {
-  const { isAuthenticated, loading: authLoading } = useAuth()
+  const { authHeader, isAuthenticated, loading: authLoading } = useAuth()
   const { locale, dir } = useI18n()
   const router = useRouter()
-  const { brand } = useBrandBrain()
+  const { brand, loading: brandLoading } = useBrandBrain()
+  const [campaign, setCampaign] = useState<StudioCampaign | null>(null)
+  const [campaignLoading, setCampaignLoading] = useState(true)
   const [visualStyle, setVisualStyle] = useState<VisualStyle>('premium')
   const [ratio, setRatio] = useState<CreativeRatio>('4:5')
   const [activeThumb, setActiveThumb] = useState(0)
   const [activeSection, setActiveSection] = useState('studio-assets')
-  const [assetTab, setAssetTab] = useState(3)
   const [selectedCopyVariant, setSelectedCopyVariant] = useState(0)
   const [selectedCta, setSelectedCta] = useState(0)
 
@@ -175,10 +188,52 @@ export default function StudioPage() {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
   }, [authLoading, isAuthenticated, router])
 
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return
+
+    let cancelled = false
+    const loadLatestCampaign = async () => {
+      setCampaignLoading(true)
+      try {
+        const response = await fetch('/api/campaigns?limit=20&sort=updatedAt', {
+          headers: { Authorization: authHeader() },
+        })
+        if (!response.ok) return
+        const payload = await response.json()
+        const campaigns = Array.isArray(payload.campaigns) ? payload.campaigns : []
+        if (!cancelled) setCampaign(campaigns[0] ?? null)
+      } catch {
+        if (!cancelled) setCampaign(null)
+      } finally {
+        if (!cancelled) setCampaignLoading(false)
+      }
+    }
+
+    void loadLatestCampaign()
+    return () => {
+      cancelled = true
+    }
+  }, [authHeader, authLoading, isAuthenticated])
+
   const ar = locale === 'ar'
   const copy = (arabic: string, english: string) => (ar ? arabic : english)
-  const brandName = brand?.brandName || copy('منتج العطر الجديد', 'New fragrance product')
+  const brandName = brand?.brandName || copy('علامتك التجارية', 'Your brand')
   const workspaceName = brand?.brandName || copy('نمي أعمال', 'Growth Workspace')
+  const campaignName = campaign?.name || copy('لا توجد حملة محددة', 'No campaign selected')
+  const campaignHref = campaign ? `/campaigns/${campaign.id}?tab=creative` : '/campaigns'
+  const campaignGoal = campaign?.goal || brand?.businessGoal || copy('لم يُحدد بعد في الاستراتيجية', 'Not set in Strategy yet')
+  const audience = brand?.targetAudience || copy('غير مكتمل في Brand Brain', 'Missing from Brand Brain')
+  const tone = brand?.toneKeywords?.length
+    ? brand.toneKeywords.join(' · ')
+    : brand?.writingStyle || copy('غير مكتملة في Brand Brain', 'Missing from Brand Brain')
+  const offer = brand?.primaryOffer || copy('العرض الرئيسي غير محدد', 'Primary offer not specified')
+  const verifiedProofCount = brand?.verifiedProof?.length ?? 0
+  const targetPlatforms = campaign?.platforms?.length ? campaign.platforms : brand?.topPlatforms ?? []
+  const normalizedPlatforms = targetPlatforms.map((platform) => platform.toLowerCase())
+  const hasPlatform = (...aliases: string[]) => normalizedPlatforms.some((platform) => aliases.some((alias) => platform.includes(alias)))
+  const safeBrandColors = (brand?.colorPalette ?? []).filter((color) => /^#[0-9a-f]{6}$/i.test(color)).slice(0, 4)
+  const palette = safeBrandColors.length ? safeBrandColors : ['#071236', '#5E63FF', '#E8ECF7', '#F8FAFC']
+  const usingNeutralPalette = safeBrandColors.length === 0
 
   const thumbnails = useMemo(() => [
     'from-[#342b26] via-[#a9885b] to-[#f4efe5]',
@@ -201,15 +256,21 @@ export default function StudioPage() {
     copy('النص الرئيسي', 'Headline'),
     copy('النص الثانوي', 'Subheading'),
     copy('زر CTA', 'CTA button'),
-    copy('المنتج (العطر)', 'Product'),
-    copy('الخلفية والإضاءة', 'Background and light'),
-    copy('ظلال الأوراق', 'Leaf shadows'),
+    copy('شعار أو اسم العلامة', 'Logo or brand name'),
+    copy('خلفية المسودة', 'Draft background'),
+    copy('مساحة آمنة', 'Safe zone'),
   ]
 
   const copyVariants = [
-    copy('راحة تترك أثرًا', 'A scent that leaves a mark'),
-    copy('فخامة تحكي في كل تفصيلة', 'Luxury in every detail'),
-    copy('حيث تبدأ الحكاية', 'Where the story begins'),
+    brandName,
+    offer,
+    campaignName,
+  ]
+
+  const ctaOptions = [
+    copy('راجع التفاصيل', 'Review details'),
+    copy('اعرف المزيد', 'Learn more'),
+    copy('تواصل معنا', 'Contact us'),
   ]
 
   const aiTools = [
@@ -279,15 +340,6 @@ export default function StudioPage() {
                 <Eye size={17} />
                 {copy('معاينة المنشورات', 'Preview posts')}
               </StudioButton>
-              <StudioButton disabled title={copy('المشاركة تحتاج موافقة نهائية أولاً.', 'Sharing requires final approval first.')}>
-                <Share2 size={17} />
-                {copy('مشاركة لاحقاً', 'Share later')}
-              </StudioButton>
-              <StudioButton tone="primary" disabled title={copy('التصدير يتاح بعد اعتماد الأصل النهائي.', 'Export is available after a final asset is approved.')}>
-                <Download size={17} />
-                {copy('تصدير بعد الاعتماد', 'Export after approval')}
-                <ChevronDown size={16} />
-              </StudioButton>
             </div>
           </header>
 
@@ -324,16 +376,18 @@ export default function StudioPage() {
             >
               <div className="mb-5 flex items-center justify-between">
                 <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700">
-                  {copy('حملة', 'Campaign')}
+                  {campaign ? copy('أحدث حملة محفوظة', 'Latest saved campaign') : copy('السياق غير مكتمل', 'Context incomplete')}
                 </span>
-                <span className="text-[12px] font-semibold text-[#111b3f]">{brandName}</span>
+                <Link href={campaignHref} className="text-[12px] font-semibold text-[#4f46e5] hover:underline">
+                  {campaignLoading || brandLoading ? copy('جارٍ التحميل...', 'Loading...') : campaignName}
+                </Link>
               </div>
               <div className="space-y-5 text-[13px] leading-6">
                 {[
-                  [copy('الهدف', 'Goal'), copy('زيادة الوعي والإطلاق عبر منصات التواصل والإلكتروني.', 'Increase awareness and launch across social and digital channels.')],
-                  [copy('الجمهور المستهدف', 'Audience'), copy('رجال ونساء 25-45، مهتمون بالفخامة والعطور الراقية.', 'Men and women 25-45 interested in premium fragrances.')],
-                  [copy('نبرة الصوت', 'Tone'), copy('راقية، عصرية، ملهمة.', 'Premium, modern, inspiring.')],
-                  [copy('النتائج المتوقعة', 'Expected outcomes'), copy('وصول أقوى، تفاعل أعلى، وتحويل أفضل.', 'Higher reach, stronger engagement, better conversion.')],
+                  [copy('الهدف المحفوظ', 'Saved goal'), campaignGoal],
+                  [copy('الجمهور المستهدف', 'Audience'), audience],
+                  [copy('نبرة الصوت', 'Tone'), tone],
+                  [copy('حدود القياس', 'Measurement boundary'), copy('لا توجد وعود أداء قبل اتصال التحليلات ووجود بيانات حقيقية.', 'No performance promise is shown before analytics are connected and real data exists.')],
                 ].map(([label, value]) => (
                   <div key={label}>
                     <p className="font-bold text-[#111b3f]">{label}</p>
@@ -342,9 +396,21 @@ export default function StudioPage() {
                 ))}
               </div>
               <div className="mt-6 grid grid-cols-3 gap-2">
-                <MiniMetric label={copy('الوصول', 'Reach')} value="250K+" />
-                <MiniMetric label={copy('التفاعل', 'Engagement')} value="8%+" />
-                <MiniMetric label={copy('التحويل', 'Conversion')} value="3%+" />
+                <MiniMetric
+                  label={copy('سياق الحملة', 'Campaign context')}
+                  value={campaign ? copy('متاح', 'Available') : copy('ناقص', 'Missing')}
+                  helper={copy('بيانات محفوظة فقط', 'Saved data only')}
+                />
+                <MiniMetric
+                  label={copy('إثباتات موثقة', 'Verified proof')}
+                  value={String(verifiedProofCount)}
+                  helper={copy('من Brand Brain', 'From Brand Brain')}
+                />
+                <MiniMetric
+                  label={copy('قنوات مستهدفة', 'Target channels')}
+                  value={String(targetPlatforms.length)}
+                  helper={copy('من الحملة أو العلامة', 'Campaign or brand')}
+                />
               </div>
             </StudioCard>
 
@@ -358,19 +424,32 @@ export default function StudioPage() {
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_24%,rgba(255,255,255,0.32),transparent_32%),radial-gradient(circle_at_78%_38%,rgba(255,255,255,0.24),transparent_24%)]" />
                 <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/15 to-transparent" />
                 <div className="absolute start-10 top-16 max-w-[320px] text-white">
+                  <div className="mb-4 flex flex-wrap gap-2 text-[10px] font-bold">
+                    <span className="rounded-full bg-white/16 px-3 py-1.5 backdrop-blur">{copy('مسودة مراجعة', 'Review draft')}</span>
+                    <span className="rounded-full bg-white/16 px-3 py-1.5 backdrop-blur">{ratio}</span>
+                    <span className="rounded-full bg-white/16 px-3 py-1.5 backdrop-blur">{copy(styleLabels[visualStyle].ar, styleLabels[visualStyle].en)}</span>
+                  </div>
                   <p className="text-[38px] font-black leading-tight tracking-[-0.03em]">
-                    {copy('راحة تترك أثرًا', 'A scent that leaves a mark')}
+                    {copyVariants[selectedCopyVariant]}
                   </p>
                   <p className="mt-3 text-sm leading-6 text-white/86">
-                    {copy('اكتشف عطرنا الجديد المستوحى من لحظات لا تُنسى.', 'Discover our new fragrance inspired by unforgettable moments.')}
+                    {brand?.description || copy('معاينة تركيب بصري مبنية على السياق المحفوظ. النص النهائي والصورة النهائية غير مُعتمدين.', 'A composition preview based on saved context. Final copy and final imagery are not approved.')}
                   </p>
                   <span className="mt-6 inline-flex rounded-xl bg-[#071236] px-6 py-3 text-sm font-bold text-white shadow-xl">
-                    {copy('اكتشف الآن', 'Discover now')}
+                    {ctaOptions[selectedCta]}
                   </span>
                 </div>
-                <div className="absolute end-16 top-14 h-56 w-28 rounded-[34px] border border-white/40 bg-gradient-to-b from-white/75 via-[#e0c49b]/75 to-[#785b38]/70 shadow-[0_34px_70px_rgba(0,0,0,0.32)]">
-                  <div className="mx-auto mt-[-18px] h-10 w-14 rounded-t-2xl bg-gradient-to-b from-[#d2b073] to-[#7d552c]" />
-                  <div className="mx-auto mt-8 h-16 w-16 rounded-full bg-white/24 blur-md" />
+                <div className="absolute end-12 top-14 flex h-56 w-44 items-center justify-center rounded-[34px] border border-white/40 bg-white/14 px-5 text-center text-white shadow-[0_34px_70px_rgba(0,0,0,0.24)] backdrop-blur-md">
+                  <div>
+                    {brand?.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={brand.logoUrl} alt={copy(`شعار ${brandName}`, `${brandName} logo`)} className="mx-auto max-h-20 max-w-full object-contain" />
+                    ) : (
+                      <Sparkles className="mx-auto text-white/90" size={42} />
+                    )}
+                    <p className="mt-4 text-sm font-black">{brandName}</p>
+                    <p className="mt-1 text-[10px] text-white/74">{copy('عنصر علامة قابل للاستبدال', 'Replaceable brand layer')}</p>
+                  </div>
                 </div>
               </div>
               <div className="mt-4 flex items-center gap-2">
@@ -400,11 +479,11 @@ export default function StudioPage() {
               <div className="mt-2 rounded-[16px] border border-[#e3e8f3] bg-[#fbfcff] p-4">
                 <p className="text-sm leading-7 text-[#52607d]">
                   {copy(
-                    'صورة فاخرة لعطر جديد على صخرة سوداء مع إضاءة ناعمة وظلال أوراق، طابع فاخر وبسيط، ألوان دافئة وتركيز على الزجاج والانعكاسات.',
-                    'Premium fragrance on black stone with soft light, leaf shadows, warm minimal styling, and focus on glass reflections.',
+                    `مسودة خلفية بصرية لحملة «${campaignName}» وبأسلوب ${styleLabels[visualStyle].ar}. تستخدم ألوان العلامة عند توفرها، وتترك النص والشعار والقياسات كطبقات منفصلة قابلة للمراجعة. لا تتضمن أرقام أداء أو ادعاءات غير موثقة.`,
+                    `Draft visual background for “${campaignName}” in a ${styleLabels[visualStyle].en.toLowerCase()} direction. Use saved brand colors when available; keep copy, logo, and metrics as separate reviewable layers. Do not render unverified performance figures or claims.`,
                   )}
                 </p>
-                <p className="mt-3 text-[11px] text-[#8a95ad]">146/500</p>
+                <p className="mt-3 text-[11px] font-semibold text-[#8a95ad]">{copy('وصف مشتق من السياق الحالي، وليس أمر توليد.', 'Derived from current context; this is not a generation command.')}</p>
               </div>
 
               <div className="mt-5">
@@ -448,47 +527,47 @@ export default function StudioPage() {
                 </div>
               </div>
 
-              <div className="mt-5 space-y-2">
-                <StudioButton tone="primary" className="w-full" disabled>
-                  {copy('مسار توليد مؤكد لاحقاً', 'Confirmed generation flow later')}
-                  <Sparkles size={16} />
-                </StudioButton>
-                <StudioButton className="w-full" disabled>
-                  {copy('تحسين الفكرة لاحقاً', 'Improve prompt later')}
-                  <Wand2 size={16} />
-                </StudioButton>
+              <div className="mt-5 rounded-[15px] border border-[#e3e8f3] bg-[#f8faff] p-3">
+                <p className="text-[11px] font-semibold leading-5 text-[#64708f]">
+                  {copy('التوليد يبدأ من منشور محدد داخل مركز المحتوى بعد مراجعة التكلفة والتأكيد. هذه اللوحة للمعاينة فقط.', 'Generation starts from a specific post in Content Hub after cost review and confirmation. This desk is preview-only.')}
+                </p>
+                <Link href="/content-hub" className="mt-3 inline-flex items-center gap-2 text-[12px] font-black text-[#4f46e5]">
+                  {copy('فتح مركز المحتوى', 'Open Content Hub')}
+                  <ArrowUpRight size={14} />
+                </Link>
               </div>
             </StudioCard>
 
             <StudioCard id="studio-assets" title={copy('الأصول', 'Assets')} icon={<FolderOpen size={18} />} className="col-span-12 scroll-mt-6 lg:col-span-3">
-              <div className="mb-4 flex gap-2 text-[12px] font-semibold text-[#64708f]">
-                {[copy('علامة', 'Brand'), copy('أيقونات', 'Icons'), copy('صور', 'Photos'), copy('مختارة', 'Selected')].map((item, index) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => setAssetTab(index)}
-                    className={`rounded-[10px] px-3 py-2 ${assetTab === index ? 'border border-[#635bff] text-[#4f46e5]' : 'bg-[#f8faff]'}`}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
+              <p className="mb-4 text-[11px] leading-5 text-[#6a7692]">
+                {copy('يعرض هذا القسم أصول Brand Brain الحالية فقط. مكتبة الوسائط هي مصدر ملفات الصور والفيديو.', 'This section shows current Brand Brain assets only. Media Library remains the source for image and video files.')}
+              </p>
               <div className="rounded-[16px] border border-[#e3e8f3] bg-[#fbfcff] p-4">
                 <div className="flex h-24 items-center justify-center rounded-[14px] bg-white">
-                  <div className="text-center">
-                    <p className="text-2xl font-light tracking-[0.35em] text-[#111b3f]">NEXUS</p>
-                    <p className="mt-1 text-[10px] tracking-[0.25em] text-[#7b87a3]">PERFUMES</p>
-                  </div>
+                  {brand?.logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={brand.logoUrl} alt={copy(`شعار ${brandName}`, `${brandName} logo`)} className="max-h-16 max-w-[82%] object-contain" />
+                  ) : (
+                    <div className="text-center">
+                      <p className="text-xl font-black text-[#111b3f]">{brandName}</p>
+                      <p className="mt-1 text-[10px] font-semibold text-[#7b87a3]">{copy('بديل نصي لعدم وجود شعار محفوظ', 'Text fallback: no saved logo')}</p>
+                    </div>
+                  )}
                 </div>
                 <div className="mt-4 flex gap-2">
-                  {['#071236', '#d0a45f', '#be8d45', '#f2ede4'].map((color) => (
+                  {palette.map((color) => (
                     <span key={color} className="h-9 w-9 rounded-lg border border-[#e3e8f3]" style={{ backgroundColor: color }} />
                   ))}
                 </div>
+                <p className="mt-3 text-[10px] font-semibold text-[#7b87a3]">
+                  {usingNeutralPalette
+                    ? copy('ألوان واجهة محايدة مؤقتة؛ لم تُحفظ لوحة ألوان للعلامة.', 'Neutral UI fallback; no brand palette is saved.')
+                    : copy('لوحة الألوان المحفوظة في Brand Brain.', 'Palette saved in Brand Brain.')}
+                </p>
               </div>
               <div className="mt-4 rounded-[16px] border border-[#e3e8f3] bg-white p-4">
                 <p className="text-[34px] font-black text-[#111b3f]">Aa</p>
-                <p className="text-sm font-semibold text-[#64708f]">Cairo / Tajawal</p>
+                <p className="text-sm font-semibold text-[#64708f]">{copy('خط الواجهة الحالي؛ الطباعة الخاصة بالعلامة غير محفوظة.', 'Current UI type; brand typography is not saved.')}</p>
               </div>
               <Link href="/media" className="mt-4 block w-full text-center text-sm font-bold text-[#4f46e5]">
                 {copy('عرض جميع الأصول', 'View all assets')}
@@ -523,20 +602,27 @@ export default function StudioPage() {
                   >
                     <span className="block text-sm font-bold text-[#111b3f]">{variant}</span>
                     <span className="mt-1 block text-[11px] text-[#7b87a3]">
-                      {index === 0 ? copy('اكتشف عطرنا الجديد المستوحى من لحظات لا تُنسى.', 'A refined launch line for the hero creative.') : copy('نسخة بديلة للمراجعة.', 'Alternative review copy.')}
+                      {index === 0
+                        ? copy('اسم العلامة المحفوظ؛ ليس عنوان إعلان نهائياً.', 'Saved brand name; not a final ad headline.')
+                        : index === 1
+                          ? copy('العرض المحفوظ في Brand Brain؛ يحتاج صياغة منشور معتمدة.', 'Saved Brand Brain offer; it still needs approved post copy.')
+                          : copy('اسم أحدث حملة محفوظة؛ يستخدم للسياق فقط.', 'Latest saved campaign name; context only.')}
                     </span>
                   </button>
                 ))}
               </div>
-              <button type="button" disabled className="mt-4 flex w-full cursor-not-allowed items-center justify-center gap-2 text-sm font-bold text-[#8b96ad]">
-                <span>+</span>
-                {copy('إضافة نسخة بعد ربط المراجعة', 'Add after review flow')}
-              </button>
+              <Link href="/content-hub" className="mt-4 flex w-full items-center justify-center gap-2 text-sm font-bold text-[#4f46e5]">
+                {copy('راجع النسخ داخل المنشور', 'Review copy inside the post')}
+                <ArrowUpRight size={14} />
+              </Link>
             </StudioCard>
 
             <StudioCard title={copy('خيارات CTA', 'CTA options')} icon={<MessageSquare size={18} />} className="col-span-12 lg:col-span-2">
+              <p className="mb-3 text-[11px] leading-5 text-[#6a7692]">
+                {copy('خيارات صياغة أولية للمعاينة فقط. CTA النهائي يأتي من الاستراتيجية والمنشور المحدد.', 'Draft preview labels only. Final CTA comes from the strategy and selected post.')}
+              </p>
               <div className="space-y-3">
-                {[copy('اكتشف الآن', 'Discover now'), copy('تسوّق العطر', 'Shop fragrance'), copy('اطلب الآن', 'Order now')].map((cta, index) => (
+                {ctaOptions.map((cta, index) => (
                   <button
                     type="button"
                     key={cta}
@@ -549,37 +635,46 @@ export default function StudioPage() {
                   </button>
                 ))}
               </div>
-              <button type="button" disabled className="mt-4 flex w-full cursor-not-allowed items-center justify-center gap-2 text-sm font-bold text-[#8b96ad]">
-                <span>+</span>
-                {copy('CTA جديد بعد المراجعة', 'New CTA after review')}
-              </button>
+              <Link href="/strategy" className="mt-4 flex w-full items-center justify-center gap-2 text-sm font-bold text-[#4f46e5]">
+                {copy('راجع CTA في الاستراتيجية', 'Review CTA in strategy')}
+                <ArrowUpRight size={14} />
+              </Link>
             </StudioCard>
 
             <StudioCard id="studio-placements" title={copy('أماكن النشر', 'Publishing placements')} icon={<Monitor size={18} />} className="col-span-12 scroll-mt-6 lg:col-span-2">
+              <p className="mb-3 text-[11px] leading-5 text-[#6a7692]">
+                {targetPlatforms.length
+                  ? copy('تُعرض القنوات الموجودة في الحملة أو Brand Brain كنطاق، وليس كحسابات متصلة أو جاهزة للنشر.', 'Campaign or Brand Brain channels are shown as scope, not as connected or publish-ready accounts.')
+                  : copy('لا توجد قنوات مستهدفة محفوظة بعد.', 'No target channels are saved yet.')}
+              </p>
               <div className="grid grid-cols-1 gap-2">
-                <PlatformRow icon={<span className="font-black text-pink-500">◎</span>} name="Instagram Feed" spec="1080x1350" />
-                <PlatformRow icon={<span className="font-black text-black">♪</span>} name="TikTok" spec="1080x1920" />
-                <PlatformRow icon={<span className="font-black text-pink-500">◎</span>} name="Instagram Story" spec="1080x1920" />
-                <PlatformRow icon={<span className="font-black text-[#4285F4]">G</span>} name="Google Ads" spec="1200x628" />
-                <PlatformRow icon={<span className="font-black text-blue-600">f</span>} name="Facebook Feed" spec="1200x1500" />
-                <PlatformRow icon={<Mail className="text-slate-700" size={18} />} name="Email Header" spec="600x200" ready={false} />
+                <PlatformRow icon={<span className="font-black text-pink-500">◎</span>} name="Instagram Feed" spec="1080x1350" ready={hasPlatform('instagram')} readyLabel={copy('ضمن النطاق', 'In scope')} missingLabel={copy('غير محدد', 'Not selected')} />
+                <PlatformRow icon={<span className="font-black text-black">♪</span>} name="TikTok" spec="1080x1920" ready={hasPlatform('tiktok')} readyLabel={copy('ضمن النطاق', 'In scope')} missingLabel={copy('غير محدد', 'Not selected')} />
+                <PlatformRow icon={<span className="font-black text-pink-500">◎</span>} name="Instagram Story" spec="1080x1920" ready={hasPlatform('instagram')} readyLabel={copy('ضمن النطاق', 'In scope')} missingLabel={copy('غير محدد', 'Not selected')} />
+                <PlatformRow icon={<span className="font-black text-[#4285F4]">G</span>} name="Google Ads" spec="1200x628" ready={hasPlatform('google')} readyLabel={copy('ضمن النطاق', 'In scope')} missingLabel={copy('غير محدد', 'Not selected')} />
+                <PlatformRow icon={<span className="font-black text-blue-600">f</span>} name="Facebook Feed" spec="1200x1500" ready={hasPlatform('facebook', 'meta')} readyLabel={copy('ضمن النطاق', 'In scope')} missingLabel={copy('غير محدد', 'Not selected')} />
+                <PlatformRow icon={<Mail className="text-slate-700" size={18} />} name="Email Header" spec="600x200" ready={hasPlatform('email')} readyLabel={copy('ضمن النطاق', 'In scope')} missingLabel={copy('غير محدد', 'Not selected')} />
               </div>
             </StudioCard>
 
             <StudioCard id="studio-tools" title={copy('أدوات الذكاء الاصطناعي', 'AI tools')} icon={<Sparkles size={18} />} className="col-span-12 scroll-mt-6 xl:col-span-10">
+              <p className="mb-4 text-[11px] leading-5 text-[#6a7692]">
+                {copy('هذه قدرات مخططة وليست إجراءات متاحة في هذه الصفحة. تظهر كمعلومات فقط حتى يكتمل لكل أداة مسار تكلفة وتأكيد وحفظ واضح.', 'These are planned capabilities, not actions available on this page. They remain informational until each has an explicit cost, confirmation, and save path.')}
+              </p>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
                 {aiTools.map((tool) => (
-                  <button
-                    type="button"
+                  <div
                     key={tool.title}
-                    disabled
                     title={copy('هذه أداة مخططة وتحتاج مسار تأكيد قبل أي تكلفة أو تعديل.', 'This planned tool needs a confirmation flow before any cost or edit.')}
-                    className="cursor-not-allowed rounded-[18px] border border-[#e8edf7] bg-[#fbfcff] p-4 text-start opacity-80"
+                    className="rounded-[18px] border border-[#e8edf7] bg-[#fbfcff] p-4 text-start"
                   >
                     <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#f1f0ff] text-[#4f46e5]">{tool.icon}</span>
                     <span className="block text-sm font-bold text-[#111b3f]">{tool.title}</span>
                     <span className="mt-1 block text-[11px] leading-5 text-[#7b87a3]">{tool.helper}</span>
-                  </button>
+                    <span className="mt-3 inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">
+                      {copy('مخطط — غير متاح', 'Planned — unavailable')}
+                    </span>
+                  </div>
                 ))}
               </div>
             </StudioCard>

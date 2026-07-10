@@ -23,9 +23,10 @@ describe('marketing intelligence truth copy', () => {
 
   it('keeps content and learning copy analytics-gated', () => {
     expect(intelligenceSource).toContain('publishing decisions and analytics-backed learning are possible')
-    expect(intelligenceSource).toContain('performance learning needs real analytics data')
-    expect(intelligenceSource).toContain('إشارات سير عمل')
-    expect(intelligenceSource).toContain('بيانات تحليلات حقيقية')
+    expect(intelligenceSource).toContain('hasRealPerformanceAnalytics')
+    expect(intelligenceSource).toContain('const hasPerformanceLearning = postsWithAnalytics > 0')
+    expect(intelligenceSource).toContain('Published or manually recorded work is a workflow signal only')
+    expect(intelligenceSource).toContain('المحتوى المنشور أو المسجل يدويًا هو إشارة سير عمل فقط')
 
     expect(intelligenceSource).not.toContain('analytics-backed learning can start')
     expect(intelligenceSource).not.toContain('يمكن للمحتوى المنشور أن يغذي Brand Brain')

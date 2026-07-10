@@ -195,6 +195,13 @@ const Icons = {
       <path d="M2 14.5h12" strokeLinecap="round"/>
     </svg>
   ),
+  learning: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M2.5 2.5h4.25c.7 0 1.25.55 1.25 1.25v9.75c0-.7-.55-1.25-1.25-1.25H2.5V2.5Z" strokeLinejoin="round" />
+      <path d="M13.5 2.5H9.25C8.55 2.5 8 3.05 8 3.75v9.75c0-.7.55-1.25 1.25-1.25h4.25V2.5Z" strokeLinejoin="round" />
+      <path d="M4.25 5.25h2M9.75 5.25h2M4.25 7.75h2M9.75 7.75h2" strokeLinecap="round" />
+    </svg>
+  ),
 }
 
 // ── Main Sidebar ───────────────────────────────────────────────
@@ -206,6 +213,8 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   // locale is used for language toggle button logic
   const [userMenuOpen, setUserMenuOpen] = React.useState(false)
   const [pendingProposals, setPendingProposals] = React.useState(0)
+  const pendingFetchStartedAtRef = React.useRef(0)
+  const pendingFetchInFlightRef = React.useRef(false)
 
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'Account'
   const email = user?.email || ''
@@ -216,6 +225,11 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   // Fetch pending Brain proposals count for sidebar dot
   React.useEffect(() => {
     const fetchPending = async () => {
+      const now = Date.now()
+      if (pendingFetchInFlightRef.current || now - pendingFetchStartedAtRef.current < 60_000) return
+
+      pendingFetchStartedAtRef.current = now
+      pendingFetchInFlightRef.current = true
       try {
         const token = authHeader()
         if (!token) return
@@ -228,6 +242,8 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         setPendingProposals(count)
       } catch {
         // non-critical
+      } finally {
+        pendingFetchInFlightRef.current = false
       }
     }
     fetchPending()
@@ -278,6 +294,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         { href: '/studio', labelAr: 'استوديو الإبداع', labelEn: 'Creative Studio', icon: Icons.media },
         { href: '/publish', labelAr: 'النشر', labelEn: 'Publishing', icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 8.5 14 2 10.5 14 8 9.5 2 8.5Z" strokeLinejoin="round"/><path d="M8 9.5 14 2" strokeLinecap="round"/></svg> },
         { href: '/analytics', labelAr: 'التحليلات', labelEn: 'Analytics', icon: Icons.analytics },
+        { href: '/learning', labelAr: 'التعلّم', labelEn: 'Learning', icon: Icons.learning },
         { href: '/automation', labelAr: 'الأتمتة', labelEn: 'Automation', icon: Icons.settings },
       ],
     },

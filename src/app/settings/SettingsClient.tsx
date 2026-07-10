@@ -31,7 +31,6 @@ import {
   Moon,
   MoreVertical,
   Palette,
-  Plus,
   Save,
   Settings,
   Shield,
@@ -459,10 +458,6 @@ export default function SettingsPage() {
                 </p>
               </div>
             </div>
-            <SettingsButton tone="primary" disabled className="self-start xl:self-auto">
-              <Plus className="h-4 w-4" />
-              {copyText('دعوة عضو', 'Invite member')}
-            </SettingsButton>
           </header>
 
           <section className="mb-6 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,340px)_minmax(0,1fr)_minmax(0,340px)]">
@@ -512,7 +507,6 @@ export default function SettingsPage() {
             <SettingsCard
               title={copyText('الأدوار والصلاحيات', 'Roles and permissions')}
               icon={<Users size={18} />}
-              action={<SettingsButton disabled><Plus className="h-4 w-4" />{copyText('قريباً', 'Soon')}</SettingsButton>}
             >
               <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,240px)]">
                 <div className="rounded-[18px] border border-[#e8edf7] bg-[#fbfcff] px-4">
@@ -525,7 +519,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-3">
                   <p className="text-[12px] font-bold text-[#64708f]">
-                    {copyText('قوالب صلاحيات جاهزة عند تفعيل دعوة الفريق.', 'Permission templates for the future team-invite flow.')}
+                    {copyText('مرجع واضح لنطاق كل دور. دعوات الفريق غير متاحة في هذه الخطة حالياً.', 'A clear reference for each role. Team invitations are not currently available on this plan.')}
                   </p>
                   {roleTemplates.map(([role, helper, tone]) => (
                     <div key={role} className="rounded-[15px] border border-[#e8edf7] bg-white p-3">
@@ -630,7 +624,12 @@ export default function SettingsPage() {
                           className="h-10 w-full rounded-[13px] border border-[#e3e8f3] bg-[#fbfcff] px-3 text-sm outline-none focus:border-[#5366f6]"
                           placeholder={copyText('كلمة مرور جديدة', 'New password')}
                         />
-                        <button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a96ad]">
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((value) => !value)}
+                          aria-label={showPassword ? copyText('إخفاء كلمة المرور', 'Hide password') : copyText('إظهار كلمة المرور', 'Show password')}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a96ad]"
+                        >
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                       </div>

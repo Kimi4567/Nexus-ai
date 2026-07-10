@@ -695,11 +695,11 @@ function CalendarPageInner() {
                 </button>
               ))}
             </div>
-            <button type="button" onClick={prevMonth} className="h-10 w-10 rounded-[14px] border border-[#e3e8f3] bg-white text-[#64708f] shadow-sm">‹</button>
+            <button type="button" onClick={prevMonth} aria-label={locale === 'ar' ? 'الشهر السابق' : 'Previous month'} className="h-10 w-10 rounded-[14px] border border-[#e3e8f3] bg-white text-[#64708f] shadow-sm">‹</button>
             <div className="inline-flex h-10 min-w-[220px] items-center justify-center rounded-[14px] border border-[#e3e8f3] bg-white px-5 text-[14px] font-black text-[#071236] shadow-sm">
               {monthLabel}
             </div>
-            <button type="button" onClick={nextMonth} className="h-10 w-10 rounded-[14px] border border-[#e3e8f3] bg-white text-[#64708f] shadow-sm">›</button>
+            <button type="button" onClick={nextMonth} aria-label={locale === 'ar' ? 'الشهر التالي' : 'Next month'} className="h-10 w-10 rounded-[14px] border border-[#e3e8f3] bg-white text-[#64708f] shadow-sm">›</button>
             <span className="inline-flex h-10 items-center rounded-[14px] border border-[#e3e8f3] bg-white px-5 text-[12px] font-black text-[#64708f] shadow-sm">
               {locale === 'ar' ? 'جميع المنصات' : 'All platforms'}
             </span>
@@ -763,7 +763,7 @@ function CalendarPageInner() {
 
                 {/* Month nav */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-                  <button onClick={prevMonth}
+                  <button type="button" onClick={prevMonth} aria-label={locale === 'ar' ? 'الشهر السابق' : 'Previous month'}
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-950 hover:bg-slate-100 transition-all">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                       <path d="M9 2L4 7l5 5" />
@@ -773,7 +773,7 @@ function CalendarPageInner() {
                     <h2 className="font-bold text-slate-950">{MONTHS[viewMonth]} {viewYear}</h2>
                     {loadingCal && <span className="text-[10px] text-slate-400">Loading…</span>}
                   </div>
-                  <button onClick={nextMonth}
+                  <button type="button" onClick={nextMonth} aria-label={locale === 'ar' ? 'الشهر التالي' : 'Next month'}
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-950 hover:bg-slate-100 transition-all">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                       <path d="M5 2l5 5-5 5" />

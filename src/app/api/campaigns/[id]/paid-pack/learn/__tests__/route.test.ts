@@ -5,7 +5,8 @@
  *   - auth, campaign ownership, paid-pack existence, and metrics validation happen before deduction
  *   - paid-pack learning deducts only immediately before the provider call
  *   - provider/JSON/DB failures after deduction refund the user
- *   - successful learning deducts once and does not refund
+ *   - successful signal extraction deducts once and does not refund
+ *   - manual metrics never update Brand Brain as analytics-backed learning
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -48,16 +49,16 @@ const learningPayload = {
   learnings: {
     executiveSummary: 'Meta produced the strongest signal.',
     campaignScore: 8,
-    winningHooks: ['Stop losing qualified leads'],
-    winningAudience: 'Dubai investors',
-    bestPlatform: 'meta',
-    failedAngles: ['Generic luxury claims'],
+    candidateHooks: ['Stop losing qualified leads'],
+    audienceSignal: 'Dubai investors',
+    platformSignal: 'meta',
+    underperformingAngles: ['Generic luxury claims'],
     keyInsight: 'Specific investment outcomes beat generic lifestyle copy.',
     nextCampaignRecommendation: 'Scale Meta with investment-focused hooks.',
   },
   brandBrainUpdates: {
-    winningHooksToAdd: ['Stop losing qualified leads'],
-    failedAnglesToAdd: ['Generic luxury claims'],
+    hooksToReview: ['Stop losing qualified leads'],
+    anglesToReview: ['Generic luxury claims'],
     topPlatformsUpdate: ['meta'],
     targetAudienceRefinement: 'Dubai investors seeking ready property opportunities.',
     strategicNotesAddition: 'Investment-specific hooks outperformed generic luxury copy.',
@@ -249,18 +250,21 @@ describe('POST /api/campaigns/[id]/paid-pack/learn — RF-4 refund safety', () =
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
 
-  it('success deducts once, updates learning memory, and does not refund', async () => {
+  it('success deducts once, stores a manual review signal, and does not update Brand Brain', async () => {
     const res = await POST(makeReq(), ctx())
     const json = await res.json()
 
     expect(res.status).toBe(200)
     expect(json.success).toBe(true)
     expect(json.learnings).toEqual(learningPayload.learnings)
-    expect(json.brandBrainUpdated).toBe(true)
+    expect(json.brandBrainUpdated).toBe(false)
+    expect(json.analyticsBacked).toBe(false)
+    expect(json.signalLabel).toBe('Manual paid metrics signal saved for review')
     expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'AD_COPY')
     expect(mockCheckAndDeduct).toHaveBeenCalledTimes(1)
-    expect(mockPrisma.paidCampaignPack.update).toHaveBeenCalledTimes(2)
-    expect(mockPrisma.brandProfile.update).toHaveBeenCalledTimes(1)
+    expect(mockPrisma.paidCampaignPack.update).toHaveBeenCalledTimes(1)
+    expect(mockPrisma.brandProfile.update).not.toHaveBeenCalled()
+    expect(mockSnapshotBrandMaturity).not.toHaveBeenCalled()
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })

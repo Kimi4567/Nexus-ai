@@ -4,10 +4,9 @@ import AppShell from '@/components/AppShell'
 import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
-import { getBrandBrainReadiness, getBrandReadinessCopy, type BrandReadinessResult, type BrandReadinessStatus } from '@/lib/brandReadiness'
-import { getBrandMemoryStatusCopy, type PublishingState } from '@/lib/operatingBriefStatus'
+import { getBrandBrainReadiness, type BrandReadinessResult } from '@/lib/brandReadiness'
+import { type PublishingState } from '@/lib/operatingBriefStatus'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
-import { formatCreditDisplay } from '@/lib/creditDisplay'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -22,8 +21,6 @@ import {
   Circle,
   Clock,
   FileText,
-  Gauge,
-  Layers3,
   Megaphone,
   Plus,
   Radio,
@@ -32,7 +29,6 @@ import {
   Sparkles,
   Target,
   Users,
-  WalletCards,
   Zap,
 } from 'lucide-react'
 
@@ -49,6 +45,7 @@ interface Stats {
   publishedPostsTotal: number
   publishedPostsThisMonth: number
   contentPostsTotal: number
+  postsWithAnalytics: number
 }
 
 interface ActivityAlert {
@@ -144,6 +141,9 @@ interface DashboardStatsResponse {
     contentPosts?: {
       total?: number
     }
+    performanceEvidence?: {
+      postsWithAnalytics?: number
+    }
   }
   activities?: Array<{
     id?: string
@@ -168,9 +168,6 @@ interface IntelligenceResponse {
 
 interface BrandResponse {
   brandProfile?: Parameters<typeof getBrandBrainReadiness>[0]
-  maturity?: {
-    status?: BrandReadinessStatus
-  }
 }
 
 type WorkspaceGateState = 'checking' | 'hasWorkspace' | 'noWorkspace' | 'error'
@@ -341,14 +338,6 @@ function MiniIcon({
   return <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tones[tone]}`}>{children}</div>
 }
 
-function ProgressLine({ value, color = '#5E63FF' }: { value: number; color?: string }) {
-  return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-      <div className="h-full rounded-full" style={{ width: `${Math.max(4, Math.min(100, value))}%`, background: color }} />
-    </div>
-  )
-}
-
 export default function DashboardPage() {
   const { authHeader, user, isAuthenticated, loading: authLoading } = useAuth()
   const { locale } = useI18n()
@@ -363,7 +352,6 @@ export default function DashboardPage() {
   const [hasConnections, setHasConnections] = useState<boolean | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
-  const [brandStatus, setBrandStatus] = useState<BrandReadinessStatus | null>(null)
   const [brandName, setBrandName] = useState<string | null>(null)
   const [workspaceGate, setWorkspaceGate] = useState<WorkspaceGateState>('checking')
   const [workspaceGateRetry, setWorkspaceGateRetry] = useState(0)
@@ -438,6 +426,7 @@ export default function DashboardPage() {
           publishedPostsTotal: d.stats?.publishedPosts?.total ?? 0,
           publishedPostsThisMonth: d.stats?.publishedPosts?.thisMonth ?? 0,
           contentPostsTotal: d.stats?.contentPosts?.total ?? 0,
+          postsWithAnalytics: d.stats?.performanceEvidence?.postsWithAnalytics ?? 0,
         })
 
         const seen = new Set<string>()
@@ -501,7 +490,6 @@ export default function DashboardPage() {
       .then((data: BrandResponse | null) => {
         if (!data) return
         setBrandReadiness(getBrandBrainReadiness(data.brandProfile))
-        setBrandStatus(data.maturity?.status ?? null)
         setBrandName(data.brandProfile?.brandName || null)
       })
       .catch(() => {})
@@ -521,24 +509,27 @@ export default function DashboardPage() {
   const contentCount = stats?.contentPostsTotal ?? 0
   const campaignCount = stats?.campaigns ?? campaigns.length
   const publishedCount = stats?.publishedPostsTotal ?? 0
+  const postsWithAnalytics = stats?.postsWithAnalytics ?? 0
   const draftCount = stats?.draftCampaigns ?? campaigns.filter(c => c.status === 'DRAFT').length
-  const creditDisp = formatCreditDisplay({
-    availableCredits: stats?.creditsRemaining ?? 0,
-    monthlyCredits: stats?.isUnlimited ? -1 : (stats?.creditsMonthlyTotal ?? 0),
-    locale: ar ? 'ar' : 'en',
-  })
-  const setupScore = useMemo(() => {
-    const brand = brandScore * 0.35
-    const campaign = Math.min(campaignCount, 3) / 3 * 18
-    const content = Math.min(contentCount, 14) / 14 * 22
-    const publishing = platformConnected ? 15 : publishedCount > 0 ? 10 : 0
-    const learning = publishedCount > 0 ? 10 : 0
-    return Math.round(Math.max(0, Math.min(100, brand + campaign + content + publishing + learning)))
-  }, [brandScore, campaignCount, contentCount, platformConnected, publishedCount])
-
-  const brandCopy = getBrandReadinessCopy(brandStatus, locale, brandName)
-  const brandMemory = getBrandMemoryStatusCopy(brandStatus)
-  const publishingState = intelligence?.publishingState ?? (publishedCount > 0 ? 'live' : contentCount > 0 ? 'pending' : 'none')
+  const brandContextLabel = !brandReadiness
+    ? (ar ? 'بانتظار البيانات' : 'Waiting for data')
+    : brandReadiness.missingRequired.length > 0
+      ? (ar ? 'السياق الأساسي ناقص' : 'Core context incomplete')
+      : brandReadiness.missingRecommended.length > 0
+        ? (ar ? 'السياق الأساسي متاح' : 'Core context available')
+        : (ar ? 'السياق مكتمل' : 'Context complete')
+  const strategyAvailable = intelligence?.loop.strategy ?? false
+  const workflowChecks = [
+    brandReadiness?.ready === true,
+    strategyAvailable,
+    contentCount > 0,
+    platformConnected,
+    postsWithAnalytics > 0,
+  ]
+  const workflowCoverage = Math.round((workflowChecks.filter(Boolean).length / workflowChecks.length) * 100)
+  const requiredBrandFields = 5 - (brandReadiness?.missingRequired.length ?? 5)
+  const recommendedBrandFields = 5 - (brandReadiness?.missingRecommended.length ?? 5)
+  const publishChecklistComplete = [contentCount > 0, platformConnected].filter(Boolean).length
   const nextAction = useMemo(() => {
     if (!brandName) {
       return {
@@ -579,29 +570,6 @@ export default function DashboardPage() {
       cta: ar ? 'فتح التحليلات' : 'Open Analytics',
     }
   }, [ar, brandName, campaignCount, contentCount, platformConnected, publishedCount, topCampaign])
-
-  const checks = [
-    {
-      label: ar ? 'ذاكرة Brand Brain' : 'Brand Brain memory',
-      value: ar ? brandMemory.valueAr : brandMemory.value,
-      good: brandMemory.severity === 'good',
-    },
-    {
-      label: ar ? 'الاستراتيجية' : 'Strategy',
-      value: campaignCount > 0 ? (ar ? 'موجودة' : 'Available') : (ar ? 'لم تبدأ' : 'Not started'),
-      good: campaignCount > 0,
-    },
-    {
-      label: ar ? 'المحتوى' : 'Content',
-      value: contentCount > 0 ? (ar ? `${contentCount} عنصر` : `${contentCount} items`) : (ar ? 'لا يوجد' : 'None'),
-      good: contentCount > 0,
-    },
-    {
-      label: ar ? 'الربط' : 'Connections',
-      value: platformConnected ? (ar ? 'متصل' : 'Connected') : (ar ? 'غير متصل' : 'Not connected'),
-      good: platformConnected,
-    },
-  ]
 
   if (authLoading || workspaceGate === 'checking' || workspaceGate === 'noWorkspace') {
     return <DashboardGateSurface mode="loading" ar={ar} />
@@ -688,8 +656,8 @@ export default function DashboardPage() {
                   </h2>
                   <p className="mt-2 max-w-xl text-[12px] leading-5 text-slate-600">
                     {ar
-                      ? 'جميع الأنظمة تعمل كلوحة قيادة واحدة: استراتيجية، محتوى، إبداع، نشر وتحليلات بدون ادعاءات أداء غير مثبتة.'
-                      : 'All systems work as one command center: strategy, content, creative, publishing, and analytics without unsupported performance claims.'}
+                      ? 'يقرأ NEXUS السجلات المحفوظة عبر Brand Brain والاستراتيجية والمحتوى والربط والتحليلات. كل حالة هنا مرتبطة بدليل فعلي.'
+                      : 'NEXUS reads saved records across Brand Brain, strategy, content, connections, and analytics. Every status here traces to real evidence.'}
                   </p>
                 </div>
               </div>
@@ -697,30 +665,30 @@ export default function DashboardPage() {
               <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
                 <MetricCard
                   icon={<Activity className="h-5 w-5" />}
-                  label={ar ? 'الأداء العام' : 'Overall health'}
-                  value={setupScore}
-                  helper={ar ? 'ممتاز تشغيلياً' : 'Operating score'}
+                  label={ar ? 'اكتمال سياق العلامة' : 'Brand context completeness'}
+                  value={`${brandScore}%`}
+                  helper={brandContextLabel}
                   accent="#10B981"
                 />
                 <MetricCard
                   icon={<Sparkles className="h-5 w-5" />}
                   label={ar ? 'التغطية التشغيلية' : 'Workflow coverage'}
-                  value={`${Math.min(100, Math.max(0, Math.round((contentCount > 0 ? 40 : 0) + (campaignCount > 0 ? 25 : 0) + (platformConnected ? 20 : 0) + (publishedCount > 0 ? 15 : 0))))}%`}
-                  helper={ar ? 'جاهزية المسار' : 'Path readiness'}
+                  value={`${workflowCoverage}%`}
+                  helper={ar ? `${workflowChecks.filter(Boolean).length} من 5 مراحل موثقة` : `${workflowChecks.filter(Boolean).length} of 5 evidenced stages`}
                   accent="#7C3AED"
                 />
                 <MetricCard
                   icon={<Users className="h-5 w-5" />}
-                  label={ar ? 'المهام المكتملة' : 'Completed tasks'}
+                  label={ar ? 'سجلات التشغيل' : 'Operating records'}
                   value={contentCount + campaignCount}
-                  helper={ar ? 'هذا الأسبوع' : 'From system records'}
+                  helper={ar ? `${campaignCount} حملات · ${contentCount} منشورات` : `${campaignCount} campaigns · ${contentCount} posts`}
                   accent="#2563EB"
                 />
                 <MetricCard
                   icon={<Zap className="h-5 w-5" />}
-                  label={ar ? 'التحسينات النشطة' : 'Active improvements'}
+                  label={ar ? 'النشاطات المسجلة' : 'Recorded activities'}
                   value={alerts.length}
-                  helper={ar ? 'نشطة الآن' : 'Active now'}
+                  helper={ar ? 'من سجل النشاط الحقيقي' : 'From the activity ledger'}
                   accent="#F59E0B"
                 />
               </div>
@@ -746,29 +714,29 @@ export default function DashboardPage() {
                 </Link>
                 <div className="text-right">
                   <p className="text-[12px] font-bold text-[#5E63FF]">Brand Brain</p>
-                  <h3 className="mt-1 text-[17px] font-black text-[#0B1028]">{ar ? 'نضج الذاكرة' : 'Memory maturity'}</h3>
+                  <h3 className="mt-1 text-[17px] font-black text-[#0B1028]">{ar ? 'اكتمال سياق العلامة' : 'Brand context completeness'}</h3>
                 </div>
               </div>
               <div className="grid items-center gap-4 md:grid-cols-[124px_1fr]">
                 <div className="flex justify-center">
                   <CircularScore
                     score={brandScore}
-                    label={ar ? 'ممتاز' : 'Excellent'}
+                    label={brandContextLabel}
                     helper=""
                   />
                 </div>
                 <div className="space-y-2 text-right" dir={ar ? 'rtl' : 'ltr'}>
                   {[
-                    { label: ar ? 'هوية العلامة' : 'Brand identity', value: brandScore },
-                    { label: ar ? 'الجمهور والمشاعر' : 'Audience & emotion', value: Math.max(0, Math.min(100, brandScore - (platformConnected ? 4 : 12))) },
-                    { label: ar ? 'الرسائل الرئيسية' : 'Core messages', value: Math.max(0, Math.min(100, brandScore - 6)) },
-                    { label: ar ? 'المحتوى والمعرفة' : 'Content knowledge', value: Math.max(0, Math.min(100, contentCount > 0 ? 88 : 52)) },
-                    { label: ar ? 'الاتجاهات والرؤى' : 'Insights & trends', value: Math.max(0, Math.min(100, publishedCount > 0 ? 84 : 48)) },
+                    { label: ar ? 'الحقول الأساسية' : 'Required context', value: `${requiredBrandFields}/5`, good: requiredBrandFields === 5 },
+                    { label: ar ? 'السياق الداعم' : 'Supporting context', value: `${recommendedBrandFields}/5`, good: recommendedBrandFields === 5 },
+                    { label: ar ? 'وثيقة استراتيجية' : 'Strategy document', value: strategyAvailable ? (ar ? 'متاحة' : 'Available') : (ar ? 'غير متاحة' : 'Missing'), good: strategyAvailable },
+                    { label: ar ? 'حسابات متصلة' : 'Connected accounts', value: platformConnected ? (ar ? 'نعم' : 'Yes') : (ar ? 'لا' : 'No'), good: platformConnected },
+                    { label: ar ? 'دليل أداء' : 'Performance evidence', value: postsWithAnalytics > 0 ? String(postsWithAnalytics) : (ar ? 'بانتظار' : 'Waiting'), good: postsWithAnalytics > 0 },
                   ].map(item => (
-                    <div key={item.label} className="grid grid-cols-[1fr_42px_8px] items-center gap-2 text-[12px]">
+                    <div key={item.label} className="grid grid-cols-[1fr_minmax(42px,auto)_8px] items-center gap-2 text-[12px]">
                       <span className="font-semibold text-slate-600">{item.label}</span>
                       <span className="text-left font-black text-[#0B1028]" dir="ltr">{item.value}</span>
-                      <span className={`h-1.5 w-1.5 rounded-full ${item.value >= 70 ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+                      <span className={`h-1.5 w-1.5 rounded-full ${item.good ? 'bg-emerald-500' : 'bg-amber-400'}`} />
                     </div>
                   ))}
                 </div>
@@ -794,15 +762,15 @@ export default function DashboardPage() {
                     <p className="mt-3 text-[14px] font-bold text-slate-700">{ar ? 'لا توجد حملات بعد' : 'No campaigns yet'}</p>
                     <p className="mt-1 text-[12px] text-slate-500">{ar ? 'ابدأ من الاستراتيجية لتوليد مسار عمل منظم.' : 'Start from strategy to create a coherent workflow.'}</p>
                   </div>
-                ) : campaigns.slice(0, 3).map((campaign, index) => {
+                ) : campaigns.slice(0, 3).map((campaign) => {
                   const status = STATUS_MAP[campaign.status] || STATUS_MAP.DRAFT
                   const platform = getCampaignPlatformSummary(campaign.platforms, locale)
-                  const progress = Math.max(28, Math.min(88, (contentCount > 0 ? 58 : 32) + index * 7 + (publishedCount > 0 ? 12 : 0)))
+                  const updatedLabel = new Date(campaign.createdAt).toLocaleDateString(ar ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric' })
                   return (
                     <Link
                       key={campaign.id}
                       href={`/campaigns/${campaign.id}`}
-                      className="grid grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-3 rounded-[16px] border border-slate-200 bg-white p-2 transition hover:border-[#5E63FF]/30 hover:shadow-[0_12px_32px_rgba(15,23,42,0.07)] md:grid-cols-[42px_minmax(0,1fr)_120px_58px_72px]"
+                      className="grid grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-3 rounded-[16px] border border-slate-200 bg-white p-2 transition hover:border-[#5E63FF]/30 hover:shadow-[0_12px_32px_rgba(15,23,42,0.07)] md:grid-cols-[42px_minmax(0,1fr)_90px_72px]"
                     >
                       <div className="h-[42px] w-[42px] overflow-hidden rounded-[13px]">
                         <EmptyOrImage thumbnail={campaign.thumbnail} label={campaign.name} />
@@ -813,13 +781,9 @@ export default function DashboardPage() {
                           {platform.isEmpty ? platform.emptyLabel : platform.labels.slice(0, 3).join(' · ')}
                         </p>
                       </div>
-                      <div className="hidden min-w-0 items-center gap-2 md:flex">
-                        <ProgressLine value={progress} />
-                        <span className="w-8 text-[11px] font-black text-slate-500" dir="ltr">{progress}%</span>
-                      </div>
                       <div className="hidden text-center md:block">
-                        <p className="text-[9px] font-bold text-slate-400">ROAS</p>
-                        <p className="text-[12px] font-black text-[#0B1028]">--</p>
+                        <p className="text-[9px] font-bold text-slate-400">{ar ? 'أُنشئت' : 'Created'}</p>
+                        <p className="text-[12px] font-black text-[#0B1028]">{updatedLabel}</p>
                       </div>
                       <span className="rounded-full px-2.5 py-1 text-center text-[10px] font-bold" style={{ background: status.bg, color: status.color }}>
                         {ar ? status.ar : status.en}
@@ -863,18 +827,18 @@ export default function DashboardPage() {
             <SoftCard className="p-4" dir={ar ? 'rtl' : 'ltr'}>
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <p className="text-[12px] font-bold text-[#5E63FF]">{ar ? 'قائمة الموافقات' : 'Approvals queue'}</p>
-                  <h3 className="mt-1 text-[18px] font-black text-[#0B1028]">{ar ? 'مواد تحتاج مراجعة' : 'Items needing review'}</h3>
+                  <p className="text-[12px] font-bold text-[#5E63FF]">{ar ? 'نقاط تحقق التشغيل' : 'Operating checkpoints'}</p>
+                  <h3 className="mt-1 text-[18px] font-black text-[#0B1028]">{ar ? 'ما نعرفه وما ينتظر قراراً' : 'Evidence and pending decisions'}</h3>
                 </div>
                 <span className="rounded-full bg-[#EEF2FF] px-2.5 py-1 text-[12px] font-black text-[#5E63FF]" dir="ltr">
-                  {Math.min(contentCount, 8)}
+                  {[contentCount > 0, platformConnected, postsWithAnalytics > 0].filter(Boolean).length}/3
                 </span>
               </div>
               <div className="space-y-3">
                 {[
-                  { title: ar ? 'منشورات الحملة' : 'Campaign posts', meta: ar ? `${contentCount} عنصر للمراجعة` : `${contentCount} items for review`, tone: 'bg-[#EEF2FF] text-[#5E63FF]' },
-                  { title: ar ? 'قرارات الوسائط' : 'Media decisions', meta: ar ? 'اربط الصورة النهائية من Content Hub' : 'Attach final media from Content Hub', tone: 'bg-amber-50 text-amber-600' },
-                  { title: ar ? 'تعلم الأداء' : 'Performance learning', meta: ar ? 'بانتظار Analytics حقيقية' : 'Waiting for real analytics', tone: 'bg-slate-100 text-slate-500' },
+                  { title: ar ? 'حزم المنشورات' : 'Post packages', meta: ar ? `${contentCount} سجل محفوظ في Content Hub` : `${contentCount} records saved in Content Hub`, tone: 'bg-[#EEF2FF] text-[#5E63FF]' },
+                  { title: ar ? 'جاهزية الربط' : 'Connection readiness', meta: platformConnected ? (ar ? 'يوجد حساب متصل واحد على الأقل' : 'At least one account is connected') : (ar ? 'لا توجد حسابات متصلة' : 'No connected accounts'), tone: 'bg-amber-50 text-amber-600' },
+                  { title: ar ? 'دليل الأداء' : 'Performance evidence', meta: postsWithAnalytics > 0 ? (ar ? `${postsWithAnalytics} منشور بتحليلات حقيقية` : `${postsWithAnalytics} posts with real analytics`) : (ar ? 'بانتظار تحليلات حقيقية' : 'Waiting for real analytics'), tone: 'bg-slate-100 text-slate-500' },
                 ].map(item => (
                   <div key={item.title} className="grid grid-cols-[42px_1fr_auto] items-center gap-3 rounded-2xl bg-slate-50 px-3 py-3">
                     <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${item.tone}`}>
@@ -884,7 +848,7 @@ export default function DashboardPage() {
                       <p className="truncate text-[13px] font-black text-[#0B1028]">{item.title}</p>
                       <p className="truncate text-[11px] text-slate-500">{item.meta}</p>
                     </div>
-                    <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-[#5E63FF]">{ar ? 'مراجعة' : 'Review'}</span>
+                    <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-[#5E63FF]">{ar ? 'دليل' : 'Evidence'}</span>
                   </div>
                 ))}
               </div>
@@ -893,17 +857,17 @@ export default function DashboardPage() {
             <SoftCard className="p-4" dir={ar ? 'rtl' : 'ltr'}>
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <p className="text-[12px] font-bold text-[#5E63FF]">{ar ? 'خط أنابيب المحتوى' : 'Content pipeline'}</p>
-                  <h3 className="mt-1 text-[18px] font-black text-[#0B1028]">{ar ? 'من فكرة إلى جاهزية' : 'Idea to readiness'}</h3>
+                  <p className="text-[12px] font-bold text-[#5E63FF]">{ar ? 'سجل مسار المحتوى' : 'Content workflow ledger'}</p>
+                  <h3 className="mt-1 text-[18px] font-black text-[#0B1028]">{ar ? 'حالة السجلات الفعلية' : 'Actual record state'}</h3>
                 </div>
                 <FileText className="h-5 w-5 text-[#5E63FF]" />
               </div>
               <div className="grid grid-cols-4 gap-2">
                 {[
-                  { label: ar ? 'أفكار' : 'Ideas', value: Math.max(0, campaignCount - contentCount) },
-                  { label: ar ? 'تخطيط' : 'Planning', value: campaignCount },
-                  { label: ar ? 'إنتاج' : 'Production', value: contentCount },
-                  { label: ar ? 'جاهز لمراجعة النشر' : 'Publish review', value: publishedCount },
+                  { label: ar ? 'حملات' : 'Campaigns', value: campaignCount },
+                  { label: ar ? 'مسودات حملات' : 'Campaign drafts', value: draftCount },
+                  { label: ar ? 'حزم منشورات' : 'Post packages', value: contentCount },
+                  { label: ar ? 'سجل نشر' : 'Publish records', value: publishedCount },
                 ].map((item, index) => (
                   <div key={item.label} className={`rounded-2xl border px-3 py-4 ${index === 3 ? 'border-[#5E63FF]/30 bg-[#F2F4FF]' : 'border-slate-200 bg-slate-50'}`}>
                     <div className="text-[22px] font-black text-[#0B1028]" dir="ltr">{item.value}</div>
@@ -914,7 +878,7 @@ export default function DashboardPage() {
               <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
                 <div
                   className="h-full rounded-full bg-[linear-gradient(90deg,#5E63FF,#8B5CF6,#10B981)]"
-                  style={{ width: `${Math.max(8, Math.min(100, (contentCount > 0 ? 58 : 18) + (publishedCount > 0 ? 24 : 0) + (platformConnected ? 18 : 0)))}%` }}
+                  style={{ width: `${workflowCoverage}%` }}
                 />
               </div>
               <div className="mt-4 flex items-center justify-between gap-3 text-[12px]">
@@ -927,14 +891,14 @@ export default function DashboardPage() {
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <p className="text-[12px] font-bold text-[#5E63FF]">{ar ? 'جاهزية النشر' : 'Publishing readiness'}</p>
-                  <h3 className="mt-1 text-[18px] font-black text-[#0B1028]">{ar ? 'جاهز لمراجعة النشر' : 'Ready for publish review'}</h3>
+                  <h3 className="mt-1 text-[18px] font-black text-[#0B1028]">{ar ? 'اكتمال قائمة التحقق' : 'Checklist completion'}</h3>
                 </div>
                 <ShieldCheck className="h-5 w-5 text-emerald-500" />
               </div>
               <CircularScore
-                score={Math.round((contentCount > 0 ? 40 : 0) + (platformConnected ? 35 : 0) + (publishedCount > 0 ? 25 : 0))}
-                label={ar ? 'جاهزية' : 'Ready'}
-                helper={ar ? 'نشر المنصات يتطلب ربطاً وتأكيداً صريحاً.' : 'Platform publishing requires connection and explicit confirmation.'}
+                score={publishChecklistComplete * 50}
+                label={ar ? `${publishChecklistComplete}/2 تحقق` : `${publishChecklistComplete}/2 checks`}
+                helper={ar ? 'يجب توفر محتوى وحساب متصل؛ النشر نفسه يحتاج تأكيداً صريحاً.' : 'Content and a connected account are required; publishing still needs explicit confirmation.'}
               />
             </SoftCard>
 

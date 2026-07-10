@@ -84,9 +84,20 @@ export default function AIPresenceBar({ authHeader }: AIPresenceBarProps) {
       <span className="text-[10px] uppercase tracking-widest opacity-50 font-semibold flex-shrink-0">Nexus AI</span>
 
       {/* Message — slides on change */}
-      <span key={current.id} className="flex-1 truncate" style={{ animation: 'slideDown 0.2s ease both' }}>
-        {current.icon} {message}
-      </span>
+      {current.href ? (
+        <Link
+          key={current.id}
+          href={current.href}
+          className="flex-1 truncate transition-opacity hover:opacity-80"
+          style={{ animation: 'slideDown 0.2s ease both' }}
+        >
+          {current.icon} {message}
+        </Link>
+      ) : (
+        <span key={current.id} className="flex-1 truncate" style={{ animation: 'slideDown 0.2s ease both' }}>
+          {current.icon} {message}
+        </span>
+      )}
 
       {/* Pagination dots */}
       {insights.length > 1 && (
@@ -94,7 +105,10 @@ export default function AIPresenceBar({ authHeader }: AIPresenceBarProps) {
           {insights.map((_, i) => (
             <button
               key={i}
+              type="button"
               onClick={e => { e.preventDefault(); setActiveIndex(i) }}
+              aria-label={locale === 'ar' ? `عرض الإشارة ${i + 1}` : `Show insight ${i + 1}`}
+              aria-pressed={i === activeIndex}
               className={`w-1 h-1 rounded-full transition-all ${i === activeIndex ? 'opacity-100 w-3' : 'opacity-30'} ${DOT_STYLE[current.type]}`}
             />
           ))}
@@ -103,6 +117,7 @@ export default function AIPresenceBar({ authHeader }: AIPresenceBarProps) {
 
       {/* Dismiss */}
       <button
+        type="button"
         onClick={() => setVisible(false)}
         className="flex-shrink-0 opacity-30 hover:opacity-70 transition ml-1 text-base leading-none"
         aria-label="Dismiss"
@@ -114,11 +129,7 @@ export default function AIPresenceBar({ authHeader }: AIPresenceBarProps) {
 
   return (
     <div className="border-b border-[#1a1a1a] ai-pulse">
-      {current.href ? (
-        <Link href={current.href} className="block hover:opacity-90 transition-opacity">
-          {content}
-        </Link>
-      ) : content}
+      {content}
     </div>
   )
 }

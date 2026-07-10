@@ -187,11 +187,11 @@ function ProductPreview({ ar }: { ar: boolean }) {
             <div className="rounded-lg border border-slate-200 bg-white p-5">
               <p className="text-[13px] font-semibold text-slate-500">{ar ? 'اقتراح الوكيل' : 'Agent recommendation'}</p>
               <p className="mt-2 text-[17px] font-semibold leading-6 text-slate-950">
-                {ar ? 'راجع الحملة قبل النشر وزوّد الميزانية على أفضل قناة.' : 'Review the campaign and shift budget toward the best-performing channel.'}
+                {ar ? 'راجع الحملة واربط القياس قبل اتخاذ أي قرار بتغيير الميزانية.' : 'Review the campaign and connect measurement before changing budget.'}
               </p>
-              <button className="mt-4 rounded-lg bg-slate-950 px-4 py-2 text-[14px] font-semibold text-white">
-                {ar ? 'تنفيذ' : 'Act now'}
-              </button>
+              <Link href="/analytics" className="mt-4 inline-flex rounded-lg bg-slate-950 px-4 py-2 text-[14px] font-semibold text-white">
+                {ar ? 'راجع القياس' : 'Review measurement'}
+              </Link>
             </div>
           </div>
         </div>

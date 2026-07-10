@@ -36,6 +36,7 @@ function suggestionSpec(actionId: string): {
     case 'connect-platforms':
       return { agent: 'CAMPAIGN_MANAGER', type: 'PLATFORM_ADD', priority: 2 }
     case 'inspect-analytics':
+    case 'connect-performance-evidence':
     case 'review-suggestions':
     default:
       return { agent: 'REPORTING', type: 'CONTENT_SWAP', priority: 3 }

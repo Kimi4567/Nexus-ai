@@ -30,7 +30,30 @@ export default function LuxuryWorkspaceHeader({
   const resolvedSecondaryLabel = secondaryLabel || (ar ? 'ذكاء العلامة' : 'Brand intelligence')
 
   return (
-    <header dir="ltr" className="mb-5 flex flex-col gap-4 border-b border-slate-200/80 pb-4 lg:flex-row lg:items-center lg:justify-between">
+    <>
+      <header dir={ar ? 'rtl' : 'ltr'} className="mb-4 flex items-center justify-between gap-3 border-b border-slate-200/80 pb-3 md:hidden">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#101A4D] text-white shadow-[0_12px_26px_rgba(16,26,77,0.16)]">
+            <Sparkles className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="truncate text-[16px] font-black text-[#0B1028]">
+              {pageTitle || (ar ? 'نظام التسويق الذكي' : 'AI Marketing OS')}
+            </h1>
+            {pageSubtitle ? <p className="mt-0.5 line-clamp-1 text-[10px] font-semibold text-slate-500">{pageSubtitle}</p> : null}
+          </div>
+        </div>
+        <Link
+          href={primaryHref}
+          aria-label={resolvedPrimaryLabel}
+          title={resolvedPrimaryLabel}
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#101A4D] text-white shadow-[0_12px_26px_rgba(16,26,77,0.16)]"
+        >
+          <Plus className="h-4 w-4" />
+        </Link>
+      </header>
+
+      <header dir="ltr" className="mb-5 hidden gap-4 border-b border-slate-200/80 pb-4 md:flex md:flex-col lg:flex-row lg:items-center lg:justify-between">
       <div className="flex items-center gap-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#101A4D] text-white shadow-[0_16px_34px_rgba(16,26,77,0.20)]">
           <Sparkles className="h-5 w-5" />
@@ -79,6 +102,7 @@ export default function LuxuryWorkspaceHeader({
           </div>
         </div>
       </div>
-    </header>
+      </header>
+    </>
   )
 }

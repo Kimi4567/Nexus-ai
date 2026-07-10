@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from '@/components/Sidebar'
 
@@ -81,6 +81,7 @@ vi.mock('@/lib/useBillingStatus', () => ({
 describe('Sidebar credit presentation', () => {
   afterEach(() => {
     cleanup()
+    vi.unstubAllGlobals()
   })
 
   beforeEach(() => {
@@ -104,7 +105,7 @@ describe('Sidebar credit presentation', () => {
   it('shows honest zero-credit copy for a non-paid zero-credit state', () => {
     render(<Sidebar collapsed={false} setCollapsed={() => {}} />)
 
-    expect(screen.getByText('⚠ No credits left')).toBeTruthy()
+    expect(screen.getByText('No credits left')).toBeTruthy()
     expect(screen.queryByText('PRO')).toBeNull()
   })
 
@@ -127,36 +128,48 @@ describe('Sidebar credit presentation', () => {
 
     render(<Sidebar collapsed={false} setCollapsed={() => {}} />)
 
-    expect(screen.getByText('⚠ No credits left')).toBeTruthy()
+    expect(screen.getByText('No credits left')).toBeTruthy()
   })
 
   it('uses workflow navigation labels and keeps future modules out of primary navigation', () => {
     render(<Sidebar collapsed={false} setCollapsed={() => {}} />)
-
-    expect(screen.getByText('Plan')).toBeTruthy()
-    expect(screen.getByText('Produce')).toBeTruthy()
-    expect(screen.getByText('Operate')).toBeTruthy()
-    expect(screen.getByText('Learn')).toBeTruthy()
-    expect(screen.getByText('Account')).toBeTruthy()
 
     expect(screen.getByText('Home')).toBeTruthy()
     expect(screen.getByText('Brand Brain')).toBeTruthy()
     expect(screen.getByText('Strategy')).toBeTruthy()
     expect(screen.getByText('Campaigns')).toBeTruthy()
     expect(screen.getByText('Content Hub')).toBeTruthy()
+    expect(screen.getByText('Creative Studio')).toBeTruthy()
+    expect(screen.getByText('Publishing')).toBeTruthy()
+    expect(screen.getByText('Automation')).toBeTruthy()
+    expect(screen.getByText('Approvals Center')).toBeTruthy()
     expect(screen.getByText('Calendar')).toBeTruthy()
-    expect(screen.getByText('Media Library')).toBeTruthy()
     expect(screen.getByText('Analytics')).toBeTruthy()
-    expect(screen.getByText('Connections')).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Connections Setup' })).toBeTruthy()
-    expect(document.body.textContent).toContain('Connections Setup')
-    expect(screen.getAllByText('Billing').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Settings').length).toBeGreaterThan(0)
+    expect(screen.getByText('Learning')).toBeTruthy()
+    expect(screen.getByText('Integrations')).toBeTruthy()
+    expect(screen.getByText('Settings')).toBeTruthy()
+    expect(document.querySelector('a[href="/billing"]')).toBeTruthy()
 
     expect(screen.queryByText('Templates')).toBeNull()
     expect(screen.queryByText('Score History')).toBeNull()
     expect(screen.queryByText('NEX — Studio')).toBeNull()
     expect(screen.queryByText('VEX — Ads')).toBeNull()
     expect(screen.queryByText('Sentinel — Monitor')).toBeNull()
+  })
+
+  it('deduplicates pending-signal reads when the sidebar rerenders', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ proposals: [{ id: 'proposal-1' }] }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const rendered = render(<Sidebar collapsed={false} setCollapsed={() => {}} />)
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    rendered.rerender(<Sidebar collapsed={false} setCollapsed={() => {}} />)
+    await Promise.resolve()
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })
