@@ -17,6 +17,7 @@ import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
 import { getBudgetTruth } from '@/lib/paidBoundary'
+import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -87,6 +88,16 @@ export async function POST(
     })
     if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+    const strategyScope = resolveStrategyScope(campaign.aiOutput)
+    if (!strategyScope.includesPaid) {
+      return NextResponse.json({
+        error: 'PAID_PLANNING_OUT_OF_SCOPE',
+        message: 'Paid planning requires a Paid or Full strategy. This campaign is organic-only.',
+      }, { status: 409 })
+    }
+
+    const requestedLanguage = req.headers?.get?.('x-output-language') === 'ar' ? 'ar' : 'en'
+
     let brandProfile = null
     try {
       brandProfile = await db.brandProfile.findUnique({
@@ -148,6 +159,8 @@ No ad spend is approved by this pack. No platform launch is approved by this pac
 If a budget value is present but not explicitly confirmed, treat this as a planning budget value only. Do not present it as approved spend.
 
 Do not invent ROI, ROAS, CPA, guaranteed outcomes, expected conversions, benchmark superiority, winning paid creative, or best-performing paid assets. Reach, CPM, and budget values are planning assumptions only.
+
+Write every human-readable planning value in ${requestedLanguage === 'ar' ? 'Arabic' : 'English'}. Keep JSON keys, platform ids, enum values, CTA enum values, and UTM parameters exactly as specified.
 
 Output valid JSON only. No prose, no markdown.`
 

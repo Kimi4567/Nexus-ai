@@ -10,8 +10,6 @@
  * Falls back to a generic dark card for unknown platforms.
  */
 
-import React, { useState } from 'react'
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
@@ -119,10 +117,6 @@ function MediaArea({ assetUrl, visualNote, aspect, className = '' }: {
 
 /** ── INSTAGRAM ── */
 function InstagramCard({ item, locale, brandName }: { item: CalendarPost; locale: string; brandName: string }) {
-  const [liked, setLiked] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const likes = 847 + (item.id ? parseInt(item.id.replace(/\D/g, '').slice(-3) || '0', 10) % 300 : 0)
-
   return (
     <div className="rounded-2xl overflow-hidden w-full"
       style={{ background: '#000', border: '1px solid rgba(255,255,255,0.1)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
@@ -143,7 +137,7 @@ function InstagramCard({ item, locale, brandName }: { item: CalendarPost; locale
           <p className="text-[10px] text-gray-500 mt-0.5">{formatDate(item.date, item.week, 0, locale)}</p>
         </div>
         {/* Dots */}
-        <button className="text-white text-xl leading-none px-1">···</button>
+        <span aria-hidden="true" className="text-white text-xl leading-none px-1">···</span>
       </div>
 
       {/* Image */}
@@ -153,32 +147,24 @@ function InstagramCard({ item, locale, brandName }: { item: CalendarPost; locale
       <div className="px-3 pt-2.5 pb-1">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-4">
-            <button onClick={() => setLiked(l => !l)} className="transition-transform active:scale-110">
-              {liked
-                ? <svg viewBox="0 0 24 24" className="w-6 h-6 fill-red-500"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5 2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.08C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.41 22 8.5c0 3.77-3.4 6.86-8.55 11.53L12 21.35z" /></svg>
-                : <svg viewBox="0 0 24 24" className="w-6 h-6 stroke-white fill-none" strokeWidth="2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5 2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.08C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.41 22 8.5c0 3.77-3.4 6.86-8.55 11.53L12 21.35z" /></svg>
-              }
-            </button>
-            <button>
+            <span aria-hidden="true">
+              <svg viewBox="0 0 24 24" className="w-6 h-6 stroke-white fill-none" strokeWidth="2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5 2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.08C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.41 22 8.5c0 3.77-3.4 6.86-8.55 11.53L12 21.35z" /></svg>
+            </span>
+            <span aria-hidden="true">
               <svg viewBox="0 0 24 24" className="w-6 h-6 stroke-white fill-none" strokeWidth="2">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
-            </button>
-            <button>
+            </span>
+            <span aria-hidden="true">
               <svg viewBox="0 0 24 24" className="w-6 h-6 stroke-white fill-none" strokeWidth="2">
                 <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
               </svg>
-            </button>
+            </span>
           </div>
-          <button onClick={() => setSaved(s => !s)}>
-            {saved
-              ? <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
-              : <svg viewBox="0 0 24 24" className="w-6 h-6 stroke-white fill-none" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
-            }
-          </button>
+          <span aria-hidden="true"><svg viewBox="0 0 24 24" className="w-6 h-6 stroke-white fill-none" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg></span>
         </div>
 
-        <p className="text-[13px] font-semibold text-white mb-1">{(liked ? likes + 1 : likes).toLocaleString()} likes</p>
+        <p className="text-[12px] font-semibold text-gray-500 mb-1">{locale === 'ar' ? 'التحليلات بعد النشر' : 'Analytics after publishing'}</p>
 
         {/* Caption */}
         <p className="text-[13px] text-white leading-snug">
@@ -200,8 +186,7 @@ function InstagramCard({ item, locale, brandName }: { item: CalendarPost; locale
       <div className="px-3 pb-3 flex items-center gap-2">
         <div className="w-5 h-5 rounded-full flex-shrink-0"
           style={{ background: 'linear-gradient(45deg, #6366f1, #ec4899)' }} />
-        <input readOnly value={locale === 'ar' ? 'أضف تعليقاً…' : 'Add a comment…'}
-          className="flex-1 text-[12px] text-gray-600 bg-transparent outline-none cursor-default" />
+        <span className="flex-1 text-[12px] text-gray-600">{locale === 'ar' ? 'معاينة فقط' : 'Preview only'}</span>
       </div>
     </div>
   )
@@ -209,11 +194,6 @@ function InstagramCard({ item, locale, brandName }: { item: CalendarPost; locale
 
 /** ── TIKTOK ── */
 function TikTokCard({ item, locale, brandName }: { item: CalendarPost; locale: string; brandName: string }) {
-  const [liked, setLiked] = useState(false)
-  const likes = 12400 + (item.id ? parseInt(item.id.replace(/\D/g, '').slice(-3) || '0', 10) % 8000 : 0)
-  const comments = 342 + (item.id ? parseInt(item.id.replace(/\D/g, '').slice(-2) || '0', 10) % 200 : 0)
-  const shares = 89 + (item.id ? parseInt(item.id.replace(/\D/g, '').slice(-1) || '0', 10) % 50 : 0)
-
   return (
     <div className="rounded-2xl overflow-hidden w-full relative"
       style={{ background: '#000', border: '1px solid rgba(255,255,255,0.08)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', minHeight: 340 }}>
@@ -230,12 +210,12 @@ function TikTokCard({ item, locale, brandName }: { item: CalendarPost; locale: s
       {/* Top bar */}
       <div className="relative z-10 flex items-center justify-between px-3 pt-3 pb-1">
         <div className="flex gap-4">
-          <button className="text-white text-[13px] font-medium opacity-60">
+          <span className="text-white text-[13px] font-medium opacity-60">
             {locale === 'ar' ? 'متابَعون' : 'Following'}
-          </button>
-          <button className="text-white text-[13px] font-bold border-b-2 border-white pb-0.5">
+          </span>
+          <span className="text-white text-[13px] font-bold border-b-2 border-white pb-0.5">
             {locale === 'ar' ? 'لك' : 'For You'}
-          </button>
+          </span>
         </div>
         <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
           <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
@@ -258,22 +238,19 @@ function TikTokCard({ item, locale, brandName }: { item: CalendarPost; locale: s
         </div>
 
         {/* Like */}
-        <button onClick={() => setLiked(l => !l)} className="flex flex-col items-center gap-0.5">
+        <div className="flex flex-col items-center gap-0.5">
           <div className="w-10 h-10 flex items-center justify-center">
-            {liked
-              ? <svg viewBox="0 0 24 24" className="w-7 h-7 fill-red-500"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5 2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.08C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.41 22 8.5c0 3.77-3.4 6.86-8.55 11.53L12 21.35z" /></svg>
-              : <svg viewBox="0 0 24 24" className="w-7 h-7 fill-white"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5 2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.08C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.41 22 8.5c0 3.77-3.4 6.86-8.55 11.53L12 21.35z" /></svg>
-            }
+            <svg viewBox="0 0 24 24" className="w-7 h-7 fill-white"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5 2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.08C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.41 22 8.5c0 3.77-3.4 6.86-8.55 11.53L12 21.35z" /></svg>
           </div>
-          <span className="text-white text-[11px] font-semibold">{((liked ? likes + 1 : likes) / 1000).toFixed(1)}K</span>
-        </button>
+          <span className="text-white text-[11px] font-semibold">—</span>
+        </div>
 
         {/* Comment */}
         <div className="flex flex-col items-center gap-0.5">
           <div className="w-10 h-10 flex items-center justify-center">
             <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
           </div>
-          <span className="text-white text-[11px] font-semibold">{comments}</span>
+          <span className="text-white text-[11px] font-semibold">—</span>
         </div>
 
         {/* Share */}
@@ -284,7 +261,7 @@ function TikTokCard({ item, locale, brandName }: { item: CalendarPost; locale: s
               <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
             </svg>
           </div>
-          <span className="text-white text-[11px] font-semibold">{shares}</span>
+          <span className="text-white text-[11px] font-semibold">—</span>
         </div>
 
         {/* Spinning record */}
@@ -332,10 +309,6 @@ function TikTokCard({ item, locale, brandName }: { item: CalendarPost; locale: s
 
 /** ── LINKEDIN ── */
 function LinkedInCard({ item, locale, brandName }: { item: CalendarPost; locale: string; brandName: string }) {
-  const [liked, setLiked] = useState(false)
-  const reactions = 234 + (item.id ? parseInt(item.id.replace(/\D/g, '').slice(-2) || '0', 10) % 100 : 0)
-  const comments = 18 + (item.id ? parseInt(item.id.replace(/\D/g, '').slice(-1) || '0', 10) % 20 : 0)
-
   return (
     <div className="rounded-2xl overflow-hidden w-full"
       style={{ background: '#1b1f23', border: '1px solid rgba(255,255,255,0.1)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
@@ -355,11 +328,10 @@ function LinkedInCard({ item, locale, brandName }: { item: CalendarPost; locale:
             {formatDate(item.date, item.week, 0, locale)} · 🌐
           </p>
         </div>
-        {/* Follow button */}
-        <button className="text-[13px] font-semibold px-4 py-1.5 rounded-full border"
+        <span className="text-[13px] font-semibold px-4 py-1.5 rounded-full border"
           style={{ color: '#0077b5', borderColor: '#0077b5' }}>
           + {locale === 'ar' ? 'متابعة' : 'Follow'}
-        </button>
+        </span>
       </div>
 
       {/* Caption */}
@@ -380,39 +352,25 @@ function LinkedInCard({ item, locale, brandName }: { item: CalendarPost; locale:
         <MediaArea assetUrl={item.assetUrl} visualNote={item.visualNote} aspect="aspect-video" className="w-full" />
       )}
 
-      {/* Reaction count */}
+      {/* Performance is intentionally unavailable before real analytics arrive. */}
       <div className="px-4 py-2 flex items-center justify-between border-t border-b"
         style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
-        <div className="flex items-center gap-1.5">
-          <div className="flex -space-x-1">
-            {['👍', '❤️', '💡'].map((e, i) => (
-              <div key={i} className="w-5 h-5 rounded-full flex items-center justify-center text-[10px]"
-                style={{ background: '#2a2f35', border: '1px solid #1b1f23', zIndex: 3 - i }}>
-                {e}
-              </div>
-            ))}
-          </div>
-          <span className="text-[12px] text-gray-500">{liked ? reactions + 1 : reactions}</span>
-        </div>
-        <span className="text-[12px] text-gray-500">
-          {comments} {locale === 'ar' ? 'تعليق' : 'comments'}
-        </span>
+        <span className="text-[12px] text-gray-500">{locale === 'ar' ? 'معاينة المنصة' : 'Platform preview'}</span>
+        <span className="text-[12px] text-gray-500">{locale === 'ar' ? 'التحليلات بعد النشر' : 'Analytics after publishing'}</span>
       </div>
 
       {/* Actions */}
       <div className="px-2 py-1 grid grid-cols-4">
         {[
-          { icon: '👍', label: locale === 'ar' ? 'إعجاب' : 'Like', action: () => setLiked(l => !l), active: liked },
-          { icon: '💬', label: locale === 'ar' ? 'تعليق' : 'Comment', action: () => {}, active: false },
-          { icon: '🔁', label: locale === 'ar' ? 'إعادة نشر' : 'Repost', action: () => {}, active: false },
-          { icon: '📤', label: locale === 'ar' ? 'إرسال' : 'Send', action: () => {}, active: false },
-        ].map(btn => (
-          <button key={btn.label} onClick={btn.action}
-            className="flex flex-col items-center gap-0.5 py-2 rounded-lg text-[11px] transition-colors hover:bg-white/5"
-            style={{ color: btn.active ? '#0077b5' : '#9ca3af' }}>
-            <span className="text-base">{btn.icon}</span>
-            {btn.label}
-          </button>
+          { icon: '👍', label: locale === 'ar' ? 'إعجاب' : 'Like' },
+          { icon: '💬', label: locale === 'ar' ? 'تعليق' : 'Comment' },
+          { icon: '🔁', label: locale === 'ar' ? 'إعادة نشر' : 'Repost' },
+          { icon: '📤', label: locale === 'ar' ? 'إرسال' : 'Send' },
+        ].map(item => (
+          <span key={item.label} className="flex flex-col items-center gap-0.5 py-2 rounded-lg text-[11px] text-gray-400">
+            <span className="text-base">{item.icon}</span>
+            {item.label}
+          </span>
         ))}
       </div>
     </div>
@@ -421,11 +379,6 @@ function LinkedInCard({ item, locale, brandName }: { item: CalendarPost; locale:
 
 /** ── FACEBOOK ── */
 function FacebookCard({ item, locale, brandName }: { item: CalendarPost; locale: string; brandName: string }) {
-  const [liked, setLiked] = useState(false)
-  const reactions = 1200 + (item.id ? parseInt(item.id.replace(/\D/g, '').slice(-3) || '0', 10) % 500 : 0)
-  const comments = 56 + (item.id ? parseInt(item.id.replace(/\D/g, '').slice(-1) || '0', 10) % 30 : 0)
-  const shares = 23 + (item.id ? parseInt(item.id.replace(/\D/g, '').slice(-1) || '0', 10) % 10 : 0)
-
   return (
     <div className="rounded-2xl overflow-hidden w-full"
       style={{ background: '#242526', border: '1px solid rgba(255,255,255,0.1)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
@@ -446,7 +399,7 @@ function FacebookCard({ item, locale, brandName }: { item: CalendarPost; locale:
             </svg>
           </div>
         </div>
-        <button className="text-gray-400 text-xl">···</button>
+        <span aria-hidden="true" className="text-gray-400 text-xl">···</span>
       </div>
 
       {/* Caption */}
@@ -465,38 +418,23 @@ function FacebookCard({ item, locale, brandName }: { item: CalendarPost; locale:
       {/* Image */}
       <MediaArea assetUrl={item.assetUrl} visualNote={item.visualNote} aspect="aspect-video" className="w-full" />
 
-      {/* Reactions row */}
+      {/* Performance is intentionally unavailable before real analytics arrive. */}
       <div className="px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <div className="flex -space-x-0.5">
-            {['👍', '❤️', '😮'].map((e, i) => (
-              <div key={i} className="w-5 h-5 rounded-full text-[12px] flex items-center justify-center"
-                style={{ background: '#3a3b3c', border: '2px solid #242526', zIndex: 3 - i }}>
-                {e}
-              </div>
-            ))}
-          </div>
-          <span className="text-[12px] text-gray-500">{liked ? reactions + 1 : reactions}</span>
-        </div>
-        <div className="flex items-center gap-3 text-[12px] text-gray-500">
-          <span>{comments} {locale === 'ar' ? 'تعليق' : 'comments'}</span>
-          <span>{shares} {locale === 'ar' ? 'مشاركة' : 'shares'}</span>
-        </div>
+        <span className="text-[12px] text-gray-500">{locale === 'ar' ? 'معاينة المنصة' : 'Platform preview'}</span>
+        <span className="text-[12px] text-gray-500">{locale === 'ar' ? 'التحليلات بعد النشر' : 'Analytics after publishing'}</span>
       </div>
 
       {/* Action buttons */}
       <div className="border-t border-b mx-3 grid grid-cols-3 py-1"
         style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
         {[
-          { icon: '👍', label: locale === 'ar' ? 'إعجاب' : 'Like', action: () => setLiked(l => !l), active: liked },
-          { icon: '💬', label: locale === 'ar' ? 'تعليق' : 'Comment', action: () => {}, active: false },
-          { icon: '↗', label: locale === 'ar' ? 'مشاركة' : 'Share', action: () => {}, active: false },
-        ].map(btn => (
-          <button key={btn.label} onClick={btn.action}
-            className="flex items-center justify-center gap-2 py-2 rounded-lg text-[13px] font-semibold transition-colors hover:bg-white/5"
-            style={{ color: btn.active ? '#1877f2' : '#9ca3af' }}>
-            <span>{btn.icon}</span> {btn.label}
-          </button>
+          { icon: '👍', label: locale === 'ar' ? 'إعجاب' : 'Like' },
+          { icon: '💬', label: locale === 'ar' ? 'تعليق' : 'Comment' },
+          { icon: '↗', label: locale === 'ar' ? 'مشاركة' : 'Share' },
+        ].map(item => (
+          <span key={item.label} className="flex items-center justify-center gap-2 py-2 rounded-lg text-[13px] font-semibold text-gray-400">
+            <span>{item.icon}</span> {item.label}
+          </span>
         ))}
       </div>
 
@@ -515,11 +453,6 @@ function FacebookCard({ item, locale, brandName }: { item: CalendarPost; locale:
 
 /** ── YOUTUBE SHORTS ── */
 function YouTubeCard({ item, locale, brandName }: { item: CalendarPost; locale: string; brandName: string }) {
-  const [liked, setLiked] = useState(false)
-  const views = 45000 + (item.id ? parseInt(item.id.replace(/\D/g, '').slice(-3) || '0', 10) % 20000 : 0)
-  const likes = 2300 + (item.id ? parseInt(item.id.replace(/\D/g, '').slice(-2) || '0', 10) % 1000 : 0)
-  const comments = 87 + (item.id ? parseInt(item.id.replace(/\D/g, '').slice(-1) || '0', 10) % 40 : 0)
-
   return (
     <div className="rounded-2xl overflow-hidden w-full relative"
       style={{ background: '#0f0f0f', border: '1px solid rgba(255,255,255,0.08)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', minHeight: 300 }}>
@@ -548,23 +481,22 @@ function YouTubeCard({ item, locale, brandName }: { item: CalendarPost; locale: 
 
       {/* Right sidebar */}
       <div className="absolute right-3 bottom-20 z-10 flex flex-col items-center gap-5">
-        <button onClick={() => setLiked(l => !l)} className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-1">
           <div className="w-10 h-10 rounded-full flex items-center justify-center"
             style={{ background: 'rgba(255,255,255,0.15)' }}>
-            <svg viewBox="0 0 24 24" className="w-5 h-5"
-              fill={liked ? '#ff0000' : 'white'}>
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="white">
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5 2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.08C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.41 22 8.5c0 3.77-3.4 6.86-8.55 11.53L12 21.35z" />
             </svg>
           </div>
-          <span className="text-white text-[11px]">{((liked ? likes + 1 : likes) / 1000).toFixed(1)}K</span>
-        </button>
+          <span className="text-white text-[11px]">—</span>
+        </div>
 
         <div className="flex flex-col items-center gap-1">
           <div className="w-10 h-10 rounded-full flex items-center justify-center"
             style={{ background: 'rgba(255,255,255,0.15)' }}>
             <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
           </div>
-          <span className="text-white text-[11px]">{comments}</span>
+          <span className="text-white text-[11px]">—</span>
         </div>
 
         <div className="flex flex-col items-center gap-1">
@@ -586,7 +518,7 @@ function YouTubeCard({ item, locale, brandName }: { item: CalendarPost; locale: 
           {item.hook || item.topic}
         </p>
         <p className="text-gray-400 text-[11px] mt-1">
-          {(views / 1000).toFixed(0)}K {locale === 'ar' ? 'مشاهدة' : 'views'}
+          {locale === 'ar' ? 'المشاهدات تظهر بعد وصول التحليلات' : 'Views appear after analytics arrive'}
         </p>
       </div>
     </div>
@@ -644,12 +576,6 @@ function SnapchatCard({ item, locale, brandName }: { item: CalendarPost; locale:
 
 /** ── TWITTER / X ── */
 function TwitterCard({ item, locale, brandName }: { item: CalendarPost; locale: string; brandName: string }) {
-  const [liked, setLiked] = useState(false)
-  const [retweeted, setRetweeted] = useState(false)
-  const likes = 847 + (item.id ? parseInt(item.id.replace(/\D/g, '').slice(-2) || '0', 10) % 300 : 0)
-  const retweets = 124 + (item.id ? parseInt(item.id.replace(/\D/g, '').slice(-1) || '0', 10) % 50 : 0)
-  const views = (12 + (item.id ? parseInt(item.id.replace(/\D/g, '').slice(-1) || '0', 10) % 8 : 0)) * 1000
-
   return (
     <div className="rounded-2xl overflow-hidden w-full"
       style={{ background: '#000', border: '1px solid rgba(255,255,255,0.12)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
@@ -700,46 +626,37 @@ function TwitterCard({ item, locale, brandName }: { item: CalendarPost; locale: 
         {/* Engagement bar */}
         <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
           {/* Comment */}
-          <button className="flex items-center gap-2 group text-gray-500 hover:text-blue-400 transition-colors">
-            <div className="p-1.5 rounded-full group-hover:bg-blue-400/10 transition-colors">
+          <span className="flex items-center gap-2 text-gray-500">
+            <span className="p-1.5 rounded-full">
               <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
                 <path d="M1.751 10c0-4.42 3.584-8 8.005-8h4.366c4.49 0 8.129 3.64 8.129 8.13 0 2.96-1.607 5.68-4.196 7.11l-8.054 4.46v-3.69h-.067c-4.49.1-8.183-3.51-8.183-8.01zm8.005-6c-3.317 0-6.005 2.69-6.005 6 0 3.37 2.77 6.08 6.138 6.01l.351-.01h1.761v2.3l5.087-2.81c1.951-1.08 3.163-3.13 3.163-5.36 0-3.39-2.744-6.13-6.129-6.13H9.756z" />
               </svg>
-            </div>
-            <span className="text-[13px]">
-              {(48 + (item.id ? parseInt(item.id.replace(/\D/g, '').slice(-1) || '0', 10) % 20 : 0))}
             </span>
-          </button>
+            <span className="text-[13px]">—</span>
+          </span>
 
           {/* Repost */}
-          <button onClick={() => setRetweeted(r => !r)}
-            className={`flex items-center gap-2 group transition-colors ${retweeted ? 'text-green-400' : 'text-gray-500 hover:text-green-400'}`}>
-            <div className="p-1.5 rounded-full group-hover:bg-green-400/10 transition-colors">
+          <span className="flex items-center gap-2 text-gray-500">
+            <span className="p-1.5 rounded-full">
               <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
                 <path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 7.55V16c0 1.1.896 2 2 2H13v2H7.5c-2.209 0-4-1.79-4-4V7.55L1.432 9.48.068 8.02 4.5 3.88zM16.5 6H11V4h5.5c2.209 0 4 1.79 4 4v8.45l2.068-1.93 1.364 1.46-4.432 4.14-4.432-4.14 1.364-1.46L18.5 16.45V8c0-1.1-.896-2-2-2z" />
               </svg>
-            </div>
-            <span className="text-[13px]">{retweeted ? retweets + 1 : retweets}</span>
-          </button>
+            </span>
+            <span className="text-[13px]">—</span>
+          </span>
 
           {/* Like */}
-          <button onClick={() => setLiked(l => !l)}
-            className={`flex items-center gap-2 group transition-colors ${liked ? 'text-pink-500' : 'text-gray-500 hover:text-pink-500'}`}>
-            <div className="p-1.5 rounded-full group-hover:bg-pink-500/10 transition-colors">
-              {liked
-                ? <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M16.697 5.5c-1.222-.06-2.679.51-3.89 2.16l-.805 1.09-.806-1.09C9.984 6.01 8.526 5.44 7.304 5.5c-1.243.07-2.349.78-2.91 1.91-.552 1.12-.633 2.78.479 4.82 1.074 1.97 3.257 4.27 7.129 6.61 3.87-2.34 6.052-4.64 7.126-6.61 1.111-2.04 1.03-3.7.477-4.82-.561-1.13-1.666-1.84-2.908-1.91zm4.187 7.69c-1.351 2.48-4.001 5.12-8.379 7.67l-.503.3-.504-.3c-4.379-2.55-7.029-5.19-8.382-7.67-1.36-2.5-1.41-4.86-.514-6.67.887-1.79 2.647-2.91 4.601-3.01 1.651-.09 3.368.56 4.798 2.01 1.429-1.45 3.146-2.1 4.796-2.01 1.954.1 3.714 1.22 4.601 3.01.896 1.81.846 4.17-.514 6.67z" /></svg>
-                : <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M16.697 5.5c-1.222-.06-2.679.51-3.89 2.16l-.805 1.09-.806-1.09C9.984 6.01 8.526 5.44 7.304 5.5c-1.243.07-2.349.78-2.91 1.91-.552 1.12-.633 2.78.479 4.82 1.074 1.97 3.257 4.27 7.129 6.61 3.87-2.34 6.052-4.64 7.126-6.61 1.111-2.04 1.03-3.7.477-4.82-.561-1.13-1.666-1.84-2.908-1.91zm4.187 7.69c-1.351 2.48-4.001 5.12-8.379 7.67l-.503.3-.504-.3c-4.379-2.55-7.029-5.19-8.382-7.67-1.36-2.5-1.41-4.86-.514-6.67.887-1.79 2.647-2.91 4.601-3.01 1.651-.09 3.368.56 4.798 2.01 1.429-1.45 3.146-2.1 4.796-2.01 1.954.1 3.714 1.22 4.601 3.01.896 1.81.846 4.17-.514 6.67z" /></svg>
-              }
-            </div>
-            <span className="text-[13px]">{liked ? likes + 1 : likes}</span>
-          </button>
+          <span className="flex items-center gap-2 text-gray-500">
+            <span className="p-1.5 rounded-full"><svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M16.697 5.5c-1.222-.06-2.679.51-3.89 2.16l-.805 1.09-.806-1.09C9.984 6.01 8.526 5.44 7.304 5.5c-1.243.07-2.349.78-2.91 1.91-.552 1.12-.633 2.78.479 4.82 1.074 1.97 3.257 4.27 7.129 6.61 3.87-2.34 6.052-4.64 7.126-6.61 1.111-2.04 1.03-3.7.477-4.82-.561-1.13-1.666-1.84-2.908-1.91zm4.187 7.69c-1.351 2.48-4.001 5.12-8.379 7.67l-.503.3-.504-.3c-4.379-2.55-7.029-5.19-8.382-7.67-1.36-2.5-1.41-4.86-.514-6.67.887-1.79 2.647-2.91 4.601-3.01 1.651-.09 3.368.56 4.798 2.01 1.429-1.45 3.146-2.1 4.796-2.01 1.954.1 3.714 1.22 4.601 3.01.896 1.81.846 4.17-.514 6.67z" /></svg></span>
+            <span className="text-[13px]">—</span>
+          </span>
 
           {/* Views */}
           <div className="flex items-center gap-1.5 text-gray-500">
             <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
               <path d="M8.75 21V3h2v18h-2zM18 21V8.5h2V21h-2zM4 21l.004-10h2L6 21H4zm9.248 0v-7h2v7h-2z" />
             </svg>
-            <span className="text-[13px]">{(views / 1000).toFixed(0)}K</span>
+            <span className="text-[13px]">—</span>
           </div>
         </div>
       </div>

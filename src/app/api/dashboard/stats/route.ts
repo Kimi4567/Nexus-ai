@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { FREE_STARTER_CREDITS, PLANS_CREDITS, getUsageSummary } from '@/lib/credits'
+import { hasRealPerformanceAnalytics } from '@/lib/performanceEvidence'
 
 export async function GET(req: NextRequest) {
   const userId = await getServerUserId(req)
@@ -37,6 +38,7 @@ export async function GET(req: NextRequest) {
       publishedPostsTotal,
       publishedPostsThisMonth,
       contentPostsTotal,
+      analyticsRows,
     ] = await Promise.all([
       prisma.user.findUnique({
         where: { id: userId },
@@ -117,7 +119,21 @@ export async function GET(req: NextRequest) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ? (prisma as any).socialPost.count({ where: { workspaceId } })
         : Promise.resolve(0),
+
+      // Candidate analytics payloads. Meaningful evidence is checked below so
+      // empty objects and workflow metadata cannot masquerade as performance.
+      workspaceId
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? (prisma as any).socialPost.findMany({
+            where: { workspaceId, status: 'PUBLISHED', analyticsData: { not: null } },
+            select: { analyticsData: true },
+          })
+        : Promise.resolve([]),
     ])
+
+    const postsWithAnalytics = analyticsRows.filter((row: { analyticsData: unknown }) =>
+      hasRealPerformanceAnalytics(row.analyticsData)
+    ).length
 
     // AI generations + credits-used from the ledger (shared with analytics).
     const usageSummary = await getUsageSummary(userId)
@@ -204,6 +220,9 @@ export async function GET(req: NextRequest) {
         },
         contentPosts: {
           total: contentPostsTotal,
+        },
+        performanceEvidence: {
+          postsWithAnalytics,
         },
       },
       activities,

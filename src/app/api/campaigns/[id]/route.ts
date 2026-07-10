@@ -29,12 +29,6 @@ export async function GET(req: NextRequest, { params }: Params) {
 
     if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    // Track last viewed (non-blocking)
-    prisma.campaign.update({
-      where: { id: params.id },
-      data: { lastViewedAt: new Date() },
-    }).catch(() => {})
-
     return NextResponse.json({ campaign: { ...campaign, socialPostCount } })
   } catch (err: any) {
     console.error('[campaigns/[id] GET]', err)

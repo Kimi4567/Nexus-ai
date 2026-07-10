@@ -36,10 +36,10 @@ import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import RunFullStrategyModal from '@/components/RunFullStrategyModal'
 import {
   AlertTriangle, ArrowRight, BarChart3, Brain, CalendarDays,
-  CheckCircle2, ClipboardList, Diamond, Download,
+  CheckCircle2, ClipboardList, Diamond,
   Eye, FileText, Gauge, Layers, Lightbulb, Loader2, Megaphone,
   MessageCircle, PieChart, RefreshCw, Rocket,
-  Send, Share2, ShieldCheck, Sparkles, Target, TrendingUp, Users,
+  Send, ShieldCheck, Sparkles, Target, TrendingUp, Users,
 } from 'lucide-react'
 
 interface CampaignLite {
@@ -768,11 +768,11 @@ export default function StrategyPage() {
 	                      <p className="text-[24px] font-black text-[#0B1028]">{executionReadiness}%</p>
                       <ProgressBar value={executionReadiness} />
                     </div>
-                    <div className="col-span-2 flex flex-wrap gap-2">
-                      {'href' in primaryAction ? (
+	                    <div className="col-span-2 flex flex-wrap gap-2">
+	                      {'href' in primaryAction ? (
 	                        <Link href={primaryAction.href} className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#071333] px-4 text-[13px] font-black text-white">
 	                          <CheckCircle2 className="h-4 w-4" />
-	                          {ar ? 'اتخاذ قرار استراتيجي' : 'Make strategy decision'}
+	                          {primaryAction.label}
 	                        </Link>
 	                      ) : (
 	                        <button type="button" onClick={primaryAction.onClick} className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#071333] px-4 text-[13px] font-black text-white">
@@ -780,13 +780,14 @@ export default function StrategyPage() {
 	                          {primaryAction.label}
 	                        </button>
 	                      )}
-	                      <button type="button" disabled className="inline-flex h-11 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-400">
-	                        <Share2 className="h-4 w-4" />
-	                      </button>
-	                      <button type="button" disabled className="inline-flex h-11 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-400">
-	                        <Download className="h-4 w-4" />
-	                      </button>
-                    </div>
+	                      {'href' in primaryAction && (
+	                        <button type="button" onClick={() => setRunStrategyOpen(true)}
+	                          className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 text-[12px] font-black text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-100">
+	                          <Sparkles className="h-4 w-4" />
+	                          {ar ? 'طلب استراتيجية جديد' : 'New strategy request'}
+	                        </button>
+	                      )}
+	                    </div>
                   </div>
                 </div>
               </SoftCard>

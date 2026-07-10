@@ -14,6 +14,7 @@ import {
   Archive,
   ArrowUpRight,
   BadgeCheck,
+  Download,
   Filter,
   FolderKanban,
   Grid2X2,
@@ -255,6 +256,38 @@ export default function CampaignsPage() {
   const latestCampaignStrategyHref = latestCampaign ? `/campaigns/${latestCampaign.id}?tab=strategy` : '/campaigns/new'
   const latestCampaignContentHref = latestCampaign ? `/campaigns/${latestCampaign.id}/content-hub` : '/content-hub'
 
+  const exportCampaigns = () => {
+    if (!campaigns.length) return
+    const escapeCsv = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`
+    const rows = campaigns.map((campaign) => [
+      campaign.name,
+      goalMap[campaign.goal] || campaign.goal,
+      statusMap[campaign.status]?.label || campaign.status,
+      campaign.platforms.join(' | '),
+      campaign.favorite ? copy('نعم', 'Yes') : copy('لا', 'No'),
+      new Date(campaign.createdAt).toLocaleString(dateLocale),
+      new Date(campaign.updatedAt).toLocaleString(dateLocale),
+    ])
+    const header = [
+      copy('الحملة', 'Campaign'),
+      copy('الهدف', 'Goal'),
+      copy('الحالة', 'Status'),
+      copy('المنصات', 'Platforms'),
+      copy('مفضلة', 'Favorite'),
+      copy('تاريخ الإنشاء', 'Created at'),
+      copy('آخر تحديث', 'Last updated'),
+    ]
+    const csv = [header, ...rows].map(row => row.map(escapeCsv).join(',')).join('\n')
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }))
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `nexus-campaigns-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <AppShell>
       <main dir={ar ? 'rtl' : 'ltr'} className="min-h-screen bg-[#f6f8fc] text-[#111b3f]">
@@ -293,9 +326,14 @@ export default function CampaignsPage() {
                 <Grid2X2 size={16} />
                 {copy('لوحة النظام', 'OS board')}
               </Link>
-              <button type="button" disabled className="flex h-11 cursor-not-allowed items-center gap-2 rounded-[14px] border border-[#e3e8f3] bg-white/70 px-4 text-sm font-bold text-[#8b96ad]">
-                {copy('تصدير قريباً', 'Export soon')}
-                <ArrowUpRight size={15} />
+              <button
+                type="button"
+                onClick={exportCampaigns}
+                disabled={loading || campaigns.length === 0}
+                className="flex h-11 items-center gap-2 rounded-[14px] border border-[#e3e8f3] bg-white px-4 text-sm font-bold text-[#111b3f] transition hover:border-[#cbd4ff] disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {copy('تصدير CSV', 'Export CSV')}
+                <Download size={15} />
               </button>
               <Link href="/campaigns/new" className="flex h-11 items-center gap-2 rounded-[14px] bg-[#071236] px-5 text-sm font-bold text-white shadow-[0_16px_34px_rgba(31,41,130,0.22)]">
                 <Plus size={16} />

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -8,13 +8,10 @@ import {
   ArrowUpRight,
   BarChart3,
   BrainCircuit,
-  Check,
-  Copy,
   CreditCard,
   Database,
   Eye,
   Gauge,
-  Info,
   Loader2,
   Megaphone,
   RefreshCw,
@@ -22,22 +19,13 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
-  TrendingUp,
-  Wand2,
-  Zap,
   type LucideIcon,
 } from 'lucide-react'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
-import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
-import { mapBrandIndustryToAnalytics } from '@/lib/analyticsIndustry'
-import { useBrandBrain } from '@/hooks/useBrandBrain'
 import { formatCreditDisplay } from '@/lib/creditDisplay'
-
-type AnalysisType = 'performance' | 'competitors' | 'trends' | 'content' | 'forecast'
-type Period = '7d' | '30d' | '90d' | '6m' | '1y'
 
 interface MonthActivity {
   label: string
@@ -69,6 +57,42 @@ interface OverviewData {
   plan: string
   monthlyActivity: MonthActivity[]
   topCampaigns: TopCampaign[]
+  performance: {
+    hasEvidence: boolean
+    organicEvidenceCount: number
+    paidEvidenceCount: number
+    totalEvidenceRows: number
+    totals: {
+      impressions: number
+      reach: number
+      engagements: number
+      clicks: number
+      conversions: number
+      spend: number
+      organicEngagementRate: number | null
+      paidCtr: number | null
+      paidRoas: number | null
+    }
+    channels: Array<{
+      platform: string
+      evidenceRows: number
+      impressions: number
+      reach: number
+      engagements: number
+      clicks: number
+      conversions: number
+      spend: number
+    }>
+    trend: Array<{
+      date: string
+      impressions: number
+      engagements: number
+      clicks: number
+      conversions: number
+      spend: number
+    }>
+    lastUpdatedAt: string | null
+  }
 }
 
 interface SystemInsight {
@@ -118,31 +142,13 @@ function MetricCard({
       {loading ? (
         <div className="h-8 w-24 animate-pulse rounded-lg bg-[#edf1f8]" />
       ) : (
-        <p className="text-[28px] font-black tracking-[-0.03em] text-[#071236]">{value}</p>
+        <p className="text-[28px] font-black text-[#071236]">{value}</p>
       )}
       <p className="mt-1 text-[12px] font-bold leading-5 text-[#7b87a3]">{helper}</p>
     </div>
   )
 
   return href ? <Link href={href}>{body}</Link> : body
-}
-
-function CopyButton({ text, copiedLabel, copyLabel }: { text: string; copiedLabel: string; copyLabel: string }) {
-  const [copied, setCopied] = useState(false)
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        navigator.clipboard.writeText(text)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 1600)
-      }}
-      className="inline-flex h-9 items-center gap-2 rounded-[13px] border border-[#d7def0] bg-white px-3 text-[12px] font-black text-[#5366f6]"
-    >
-      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-      {copied ? copiedLabel : copyLabel}
-    </button>
-  )
 }
 
 function ActivityChart({ data, loading, emptyCopy }: { data: MonthActivity[]; loading: boolean; emptyCopy: string }) {
@@ -179,23 +185,53 @@ function ActivityChart({ data, loading, emptyCopy }: { data: MonthActivity[]; lo
   )
 }
 
+function EvidenceTrend({
+  data,
+  ar,
+}: {
+  data: OverviewData['performance']['trend']
+  ar: boolean
+}) {
+  const visible = data.slice(-14)
+  const max = Math.max(...visible.map(point => point.impressions), 1)
+
+  if (!visible.length) {
+    return (
+      <div className="flex h-52 items-center justify-center rounded-[18px] border border-dashed border-[#d4dceb] bg-[#fbfcff] px-6 text-center text-[12px] font-bold leading-6 text-[#8792aa]">
+        {ar ? 'لا توجد نقاط زمنية موثقة للرسم بعد.' : 'No verified time-series points are available yet.'}
+      </div>
+    )
+  }
+
+  return (
+    <div className="overflow-x-auto pb-2">
+      <div className="flex h-52 min-w-[540px] items-end gap-2 rounded-[18px] border border-[#edf1f7] bg-[#fbfcff] px-4 pt-5">
+        {visible.map(point => (
+          <div key={point.date} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2">
+            <div className="flex w-full flex-1 items-end">
+              <div
+                className="w-full rounded-t-[9px] bg-[linear-gradient(180deg,#7c83ff,#5366f6)]"
+                style={{ height: `${Math.max(5, (point.impressions / max) * 100)}%` }}
+                title={`${point.date}: ${formatNum(point.impressions)}`}
+              />
+            </div>
+            <span className="pb-3 text-[9px] font-bold text-[#8994aa]">{point.date.slice(5)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function AnalyticsPage() {
   const { isAuthenticated, loading: authLoading, authHeader } = useAuth()
   const { locale, dir } = useI18n()
   const router = useRouter()
   const ar = locale === 'ar'
-  const { brand, brandContext } = useBrandBrain()
 
   const [overview, setOverview] = useState<OverviewData | null>(null)
   const [insights, setInsights] = useState<SystemInsight[]>([])
   const [dataLoading, setDataLoading] = useState(true)
-  const [analysisType, setAnalysisType] = useState<AnalysisType>('performance')
-  const [period, setPeriod] = useState<Period>('30d')
-  const [industry, setIndustry] = useState('')
-  const [industryTouched, setIndustryTouched] = useState(false)
-  const [prompt, setPrompt] = useState('')
-  const [aiLoading, setAiLoading] = useState(false)
-  const [result, setResult] = useState('')
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
@@ -221,63 +257,17 @@ export default function AnalyticsPage() {
     loadAnalytics()
   }, [loadAnalytics])
 
-  useEffect(() => {
-    if (industryTouched) return
-    const mapped = mapBrandIndustryToAnalytics(brand?.industry)
-    if (mapped) setIndustry(mapped)
-  }, [brand, industryTouched])
-
-  const analysisTabs = useMemo(() => ([
-    { id: 'performance', label: ar ? 'الأداء' : 'Performance', icon: BarChart3 },
-    { id: 'competitors', label: ar ? 'المنافسون' : 'Competitors', icon: Target },
-    { id: 'trends', label: ar ? 'الاتجاهات' : 'Trends', icon: TrendingUp },
-    { id: 'content', label: ar ? 'المحتوى' : 'Content', icon: Activity },
-    { id: 'forecast', label: ar ? 'التوقع' : 'Forecast', icon: Zap },
-  ] satisfies Array<{ id: AnalysisType; label: string; icon: LucideIcon }>), [ar])
-
   const creditDisplay = overview ? formatCreditDisplay({
     availableCredits: overview.creditsRemaining,
     monthlyCredits: overview.isUnlimited ? 0 : overview.monthlyTotal,
     locale: ar ? 'ar' : 'en',
   }) : null
 
-  const dataQuality = overview?.publishedPosts
-    ? ar ? 'تحتاج بيانات منصات فعلية' : 'Needs real platform data'
-    : ar ? 'لا توجد بيانات أداء بعد' : 'No performance data yet'
-
-  const sectorForPrompt = industry || brand?.industry || 'not specified'
-  const systemPrompts: Record<AnalysisType, string> = {
-    performance: `${brandContext}You are a careful marketing analyst. Analyze only available information. Period: ${period}. Sector: ${sectorForPrompt}. Do not invent platform metrics. Separate facts, assumptions, and next actions.`,
-    competitors: `${brandContext}You are a competitor intelligence analyst. Sector: ${sectorForPrompt}. Provide practical competitor hypotheses and clearly mark what needs external validation. Do not claim live competitor data unless supplied.`,
-    trends: `${brandContext}You are a market trends analyst. Sector: ${sectorForPrompt}. Give useful trend directions, but separate observed brand facts from general market assumptions.`,
-    content: `${brandContext}You are a content performance analyst. Period: ${period}. Sector: ${sectorForPrompt}. Recommend content tests without claiming performance learning unless analytics data exists.`,
-    forecast: `${brandContext}You are a forecasting analyst. Sector: ${sectorForPrompt}. Forecast scenarios with confidence levels and required data; do not guarantee outcomes.`,
-  }
-
-  const runAnalysis = async () => {
-    if (!prompt.trim() || aiLoading) return
-    setAiLoading(true)
-    setResult('')
-    try {
-      const response = await fetch('/api/ai/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
-        body: JSON.stringify({
-          systemPrompt: systemPrompts[analysisType],
-          userPrompt: prompt,
-          maxTokens: 1400,
-          language: locale,
-        }),
-      })
-      if (!response.ok) throw new Error('AI analysis failed')
-      const data = await response.json()
-      setResult(data.content || data.result || '')
-    } catch {
-      setResult(ar ? 'تعذر تشغيل التحليل الآن. حاول مرة أخرى لاحقاً.' : 'Could not run analysis now. Try again later.')
-    } finally {
-      setAiLoading(false)
-    }
-  }
+  const dataQuality = overview?.performance.hasEvidence
+    ? ar ? 'بيانات أداء موثقة' : 'Verified performance data'
+    : overview?.publishedPosts
+      ? ar ? 'منشور، بانتظار تحليلات المنصة' : 'Published, awaiting platform analytics'
+      : ar ? 'لا توجد بيانات أداء بعد' : 'No performance data yet'
 
   if (authLoading) {
     return (
@@ -304,31 +294,29 @@ export default function AnalyticsPage() {
             secondaryLabel={ar ? 'الحملات' : 'Campaigns'}
           />
 
-          <StrategySpineCard
-            current="performance"
-            nextHref="/campaigns"
-            nextLabel={ar ? 'راجع الحملات' : 'Review campaigns'}
-            title={ar ? 'الأداء يقيس تنفيذ الاستراتيجية فقط عندما توجد بيانات حقيقية' : 'Performance measures strategy execution only when real data exists'}
-            body={ar
-              ? 'لا يوجد تعلم أداء أو أفضل محتوى أو ROAS حقيقي قبل وصول analyticsData أو مقاييس منصة موثوقة. أي تحليل هنا يميز بين الحقائق والافتراضات والخطوات التالية.'
-              : 'There is no performance learning, best content, or true ROAS before analyticsData or trusted platform metrics arrive. Analysis here separates facts, assumptions, and next actions.'}
-            className="mb-5"
-          />
-
-          <header className="mb-6 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <p className="text-[12px] font-bold text-[#64708f]">{ar ? 'قياس حقيقي قبل التعلم' : 'Real measurement before learning'}</p>
-              <h1 className="mt-1 flex items-center gap-2 text-[32px] font-black tracking-[-0.03em] text-[#071236]">
-                {ar ? 'التحليلات والأداء' : 'Analytics and performance'}
-                <Sparkles className="text-[#5366f6]" size={24} />
-              </h1>
-              <p className="mt-2 max-w-3xl text-[14px] leading-7 text-[#64708f]">
-                {ar
-                  ? 'هذه الصفحة تعرض بيانات NEXUS الفعلية وما يصل من المنصات. لا يوجد تعلم أداء أو KPI حقيقي قبل وجود analyticsData أو مقاييس منصة موثوقة.'
-                  : 'This page shows actual NEXUS data and connected platform metrics. No performance learning or true KPI exists before analyticsData or trusted platform metrics.'}
-              </p>
+          <section className="mb-5 flex flex-col gap-4 border-b border-[#e1e7f1] pb-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-[#f1f3ff] text-[#5366f6]">
+                <Sparkles size={21} />
+              </span>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-[23px] font-black text-[#071236]">{ar ? 'قياس حقيقي قبل التعلّم' : 'Real measurement before learning'}</h1>
+                  <span className="rounded-full bg-[#eefaf3] px-2.5 py-1 text-[10px] font-black text-emerald-700">
+                    {ar ? 'بيانات NEXUS متاحة' : 'NEXUS data available'}
+                  </span>
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${overview?.performance.hasEvidence ? 'bg-[#eefaf3] text-emerald-700' : 'bg-[#fff7e8] text-amber-700'}`}>
+                    {overview?.performance.hasEvidence ? (ar ? 'قياس منصة موثوق' : 'Verified platform measurement') : (ar ? 'قياس المنصات منتظر' : 'Platform measurement pending')}
+                  </span>
+                </div>
+                <p className="mt-1 max-w-4xl text-[12px] font-bold leading-6 text-[#6f7b96]">
+                  {ar
+                    ? 'يفصل NEXUS بين سجل التشغيل ونتائج المنصات. لا يظهر KPI أو ROAS أو تعلّم أداء قبل وصول analyticsData أو مقاييس موثوقة.'
+                    : 'NEXUS separates operating records from platform outcomes. KPI, ROAS, and performance learning stay hidden until analyticsData or trusted metrics arrive.'}
+                </p>
+              </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex shrink-0 gap-3">
               <button
                 type="button"
                 onClick={loadAnalytics}
@@ -342,7 +330,39 @@ export default function AnalyticsPage() {
                 {ar ? 'إدارة مصادر البيانات' : 'Manage data sources'}
               </Link>
             </div>
-          </header>
+          </section>
+
+          {dataLoading ? (
+            <section className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              {[1, 2, 3, 4, 5].map(item => <div key={item} className="h-32 animate-pulse rounded-[22px] bg-white" />)}
+            </section>
+          ) : overview?.performance.hasEvidence ? (
+            <section className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              <MetricCard title={ar ? 'مرات الظهور' : 'Impressions'} value={formatNum(overview.performance.totals.impressions)} helper={ar ? `${overview.performance.totalEvidenceRows} صف قياس موثق` : `${overview.performance.totalEvidenceRows} verified measurement rows`} icon={Eye} />
+              <MetricCard title={ar ? 'التفاعلات' : 'Engagements'} value={formatNum(overview.performance.totals.engagements)} helper={overview.performance.totals.organicEngagementRate === null ? (ar ? 'لا يوجد مقام ظهور كافٍ' : 'No impression denominator yet') : `${overview.performance.totals.organicEngagementRate.toFixed(2)}% ${ar ? 'عضوي' : 'organic'}`} icon={Activity} />
+              <MetricCard title={ar ? 'النقرات' : 'Clicks'} value={formatNum(overview.performance.totals.clicks)} helper={overview.performance.totals.paidCtr === null ? (ar ? 'لا توجد CTR مدفوعة موثقة' : 'No verified paid CTR') : `${overview.performance.totals.paidCtr.toFixed(2)}% CTR`} icon={BarChart3} />
+              <MetricCard title={ar ? 'التحويلات' : 'Conversions'} value={formatNum(overview.performance.totals.conversions)} helper={ar ? 'من بيانات منصة موثقة فقط' : 'From trusted platform data only'} icon={Target} />
+              <MetricCard title={ar ? 'العائد على الإنفاق' : 'Paid ROAS'} value={overview.performance.totals.paidRoas === null ? '—' : overview.performance.totals.paidRoas.toFixed(2)} helper={overview.performance.paidEvidenceCount > 0 ? (ar ? `${overview.performance.paidEvidenceCount} لقطة مدفوعة موثقة` : `${overview.performance.paidEvidenceCount} verified paid snapshots`) : (ar ? 'لا يوجد قياس مدفوع' : 'No paid measurement')} icon={ShieldCheck} />
+            </section>
+          ) : (
+            <section className="mb-5 grid gap-5 rounded-[24px] border border-[#dfe6f2] bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.05)] lg:grid-cols-[1fr_auto] lg:items-center">
+              <div className="flex items-start gap-4">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-[#f3f5ff] text-[#5366f6]"><Database className="h-6 w-6" /></span>
+                <div>
+                  <h2 className="text-[18px] font-black text-[#071236]">{ar ? 'بانتظار دليل أداء من المنصات' : 'Waiting for platform performance evidence'}</h2>
+                  <p className="mt-2 max-w-3xl text-[12px] font-bold leading-6 text-[#75819d]">
+                    {overview?.publishedPosts
+                      ? (ar ? `يوجد ${overview.publishedPosts} منشورًا بحالة منشور، لكن لا توجد analyticsData موثقة بعد. لن يعرض NEXUS بطاقات KPI صفرية أو يدّعي تعلّمًا.` : `${overview.publishedPosts} posts are marked published, but no verified analyticsData exists yet. NEXUS will not show zero KPI cards or claim learning.`)
+                      : (ar ? 'ابدأ بالتنفيذ والنشر الموثق ثم اربط مصدر القياس. لن يملأ NEXUS الصفحة بأرقام تقديرية.' : 'Execute and publish through a verified path, then connect measurement. NEXUS will not fill this page with estimated numbers.')}
+                  </p>
+                </div>
+              </div>
+              <Link href="/connections" className="inline-flex h-11 items-center justify-center gap-2 rounded-[14px] bg-[#071236] px-5 text-[12px] font-black text-white">
+                {ar ? 'إدارة مصادر القياس' : 'Manage measurement sources'}
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
+            </section>
+          )}
 
           <section className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <MetricCard title={ar ? 'الحملات' : 'Campaigns'} value={overview?.campaigns ?? 0} helper={overview ? `${overview.activeCampaigns} ${ar ? 'نشطة' : 'active'} · ${overview.draftCampaigns} ${ar ? 'مسودة' : 'drafts'}` : dataQuality} icon={Megaphone} href="/campaigns" loading={dataLoading} />
@@ -366,105 +386,54 @@ export default function AnalyticsPage() {
               </div>
 
               <div className="rounded-[24px] border border-[#e3e8f3] bg-white/90 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
-                <div className="mb-5 flex items-center justify-between">
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-[18px] font-black text-[#071236]">{ar ? 'محرك التحليل الذكي' : 'AI analysis desk'}</h2>
+                    <h2 className="text-[18px] font-black text-[#071236]">{ar ? 'اتجاه الأداء الموثق' : 'Verified performance trend'}</h2>
                     <p className="mt-1 text-[12px] font-bold text-[#64708f]">
-                      {ar ? 'اختياري وقد يستهلك رصيداً. التحليل يفرق بين الحقائق والافتراضات.' : 'Optional and may use credits. Analysis separates facts from assumptions.'}
+                      {ar ? 'كل عمود يأتي من analyticsData أو لقطة منصة موثوقة؛ لا توجد توقعات داخل الرسم.' : 'Every bar comes from analyticsData or a trusted platform snapshot; the chart contains no forecasts.'}
                     </p>
                   </div>
-                  <Wand2 className="h-5 w-5 text-[#5366f6]" />
+                  <BarChart3 className="h-5 w-5 text-[#5366f6]" />
                 </div>
+                <EvidenceTrend data={overview?.performance.trend ?? []} ar={ar} />
 
-                <div className="mb-4 flex flex-wrap gap-2">
-                  {analysisTabs.map(({ id, label, icon: Icon }) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => {
-                        setAnalysisType(id)
-                        setResult('')
-                      }}
-                      className={`inline-flex h-10 items-center gap-2 rounded-[14px] px-4 text-[12px] font-black transition ${analysisType === id ? 'bg-[#5366f6] text-white' : 'border border-[#e3e8f3] bg-white text-[#64708f]'}`}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
-                  <div className="space-y-3 rounded-[20px] border border-[#e8edf7] bg-[#fbfcff] p-4">
-                    <label className="block text-[12px] font-black text-[#64708f]">{ar ? 'المجال' : 'Industry'}</label>
-                    <select
-                      value={industry}
-                      onChange={(event) => {
-                        setIndustry(event.target.value)
-                        setIndustryTouched(true)
-                      }}
-                      className="h-11 w-full rounded-[14px] border border-[#dfe6f2] bg-white px-3 text-[13px] font-bold text-[#111b3f] outline-none"
-                    >
-                      <option value="">{ar ? 'غير محدد' : 'Not specified'}</option>
-                      <option value="ecommerce">{ar ? 'تجارة إلكترونية' : 'E-commerce'}</option>
-                      <option value="food">{ar ? 'مطاعم وأغذية' : 'Food and restaurants'}</option>
-                      <option value="fashion">{ar ? 'أزياء وفخامة' : 'Fashion and luxury'}</option>
-                      <option value="tech">{ar ? 'تقنية و SaaS' : 'Tech and SaaS'}</option>
-                      <option value="health">{ar ? 'صحة وعيادات' : 'Health and clinics'}</option>
-                      <option value="realestate">{ar ? 'عقارات' : 'Real estate'}</option>
-                      <option value="education">{ar ? 'تعليم' : 'Education'}</option>
-                      <option value="services">{ar ? 'خدمات' : 'Services'}</option>
-                    </select>
-                    <label className="block text-[12px] font-black text-[#64708f]">{ar ? 'الفترة' : 'Period'}</label>
-                    <select
-                      value={period}
-                      onChange={(event) => setPeriod(event.target.value as Period)}
-                      className="h-11 w-full rounded-[14px] border border-[#dfe6f2] bg-white px-3 text-[13px] font-bold text-[#111b3f] outline-none"
-                    >
-                      <option value="7d">{ar ? 'آخر 7 أيام' : 'Last 7 days'}</option>
-                      <option value="30d">{ar ? 'آخر 30 يوم' : 'Last 30 days'}</option>
-                      <option value="90d">{ar ? 'آخر 90 يوم' : 'Last 90 days'}</option>
-                      <option value="6m">{ar ? 'آخر 6 أشهر' : 'Last 6 months'}</option>
-                      <option value="1y">{ar ? 'آخر سنة' : 'Last year'}</option>
-                    </select>
-                    <p className="rounded-[14px] bg-white px-3 py-2 text-[11px] font-bold leading-5 text-[#64708f]">
-                      {ar ? 'إذا لم تكن بيانات الأداء موجودة، سيعطي NEXUS فرضيات عمل لا نتائج مؤكدة.' : 'If performance data is missing, NEXUS gives working hypotheses, not confirmed outcomes.'}
-                    </p>
+                <div className="mt-5 border-t border-[#edf1f7] pt-5">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-[14px] font-black text-[#071236]">{ar ? 'الأداء حسب القناة' : 'Performance by channel'}</h3>
+                    <Link href="/learning" className="text-[11px] font-black text-[#5366f6]">{ar ? 'فتح التعلّم' : 'Open learning'}</Link>
                   </div>
-
-                  <div className="space-y-3">
-                    <textarea
-                      value={prompt}
-                      onChange={(event) => setPrompt(event.target.value)}
-                      rows={5}
-                      placeholder={ar ? 'اكتب سؤالاً تحليلياً واضحاً عن الحملة أو السوق...' : 'Ask a clear analytical question about the campaign or market...'}
-                      className="w-full resize-none rounded-[20px] border border-[#dfe6f2] bg-[#fbfcff] p-4 text-[14px] font-semibold leading-7 text-[#111b3f] outline-none focus:border-[#5366f6]"
-                    />
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <p className="inline-flex items-center gap-2 text-[12px] font-bold text-[#8a96ad]">
-                        <Info className="h-4 w-4" />
-                        {ar ? 'لا يتم حفظ التحليل كتعلم أداء بدون analyticsData.' : 'Analysis is not saved as performance learning without analyticsData.'}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={runAnalysis}
-                        disabled={!prompt.trim() || aiLoading}
-                        className="inline-flex h-11 items-center gap-2 rounded-[15px] bg-[#071236] px-5 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,18,54,0.2)] disabled:cursor-not-allowed disabled:bg-[#c4ccdc]"
-                      >
-                        {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                        {aiLoading ? (ar ? 'جاري التحليل...' : 'Analyzing...') : (ar ? 'حلّل بذكاء' : 'Analyze with AI')}
-                      </button>
+                  {overview?.performance.channels.length ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[620px] text-start text-[11px]">
+                        <thead className="text-[#8792aa]">
+                          <tr className="border-b border-[#e9edf5]">
+                            <th className="px-3 py-3 text-start font-black">{ar ? 'القناة' : 'Channel'}</th>
+                            <th className="px-3 py-3 text-start font-black">{ar ? 'الدليل' : 'Evidence'}</th>
+                            <th className="px-3 py-3 text-start font-black">{ar ? 'الظهور' : 'Impressions'}</th>
+                            <th className="px-3 py-3 text-start font-black">{ar ? 'التفاعل' : 'Engagements'}</th>
+                            <th className="px-3 py-3 text-start font-black">{ar ? 'النقرات' : 'Clicks'}</th>
+                            <th className="px-3 py-3 text-start font-black">{ar ? 'التحويلات' : 'Conversions'}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {overview.performance.channels.map(channel => (
+                            <tr key={channel.platform} className="border-b border-[#f0f3f8] last:border-b-0">
+                              <td className="px-3 py-3 font-black text-[#111b3f]">{channel.platform}</td>
+                              <td className="px-3 py-3 font-bold text-[#64708f]">{channel.evidenceRows}</td>
+                              <td className="px-3 py-3 font-bold text-[#64708f]">{formatNum(channel.impressions)}</td>
+                              <td className="px-3 py-3 font-bold text-[#64708f]">{formatNum(channel.engagements)}</td>
+                              <td className="px-3 py-3 font-bold text-[#64708f]">{formatNum(channel.clicks)}</td>
+                              <td className="px-3 py-3 font-bold text-[#64708f]">{formatNum(channel.conversions)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-
-                    {result ? (
-                      <div className="rounded-[20px] border border-[#dfe6f2] bg-[#fbfcff] p-4">
-                        <div className="mb-3 flex items-center justify-between">
-                          <h3 className="text-[13px] font-black text-[#071236]">{ar ? 'نتيجة التحليل' : 'Analysis result'}</h3>
-                          <CopyButton text={result} copyLabel={ar ? 'نسخ' : 'Copy'} copiedLabel={ar ? 'تم النسخ' : 'Copied'} />
-                        </div>
-                        <pre className="max-h-[420px] whitespace-pre-wrap font-sans text-[13px] leading-7 text-[#3d4a66]">{result}</pre>
-                      </div>
-                    ) : null}
-                  </div>
+                  ) : (
+                    <div className="rounded-[17px] border border-dashed border-[#cfd8ee] bg-[#fbfcff] p-5 text-center text-[12px] font-bold text-[#7b87a3]">
+                      {ar ? 'لا توجد قنوات لديها قياس موثق بعد.' : 'No channels have verified measurement yet.'}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -477,8 +446,21 @@ export default function AnalyticsPage() {
                 </div>
                 {[
                   [ar ? 'بيانات NEXUS الداخلية' : 'NEXUS internal records', ar ? 'متاحة' : 'Available', true],
-                  [ar ? 'بيانات منصات منشورة' : 'Published platform metrics', overview?.publishedPosts ? (ar ? 'بانتظار القياس' : 'Waiting') : (ar ? 'غير موجودة بعد' : 'Not available yet'), false],
-                  [ar ? 'تعلم الأداء' : 'Performance learning', ar ? 'مشروط بالتحليلات' : 'Analytics-gated', false],
+                  [
+                    ar ? 'بيانات عضوية موثقة' : 'Verified organic metrics',
+                    (overview?.performance.organicEvidenceCount ?? 0) > 0 ? String(overview?.performance.organicEvidenceCount) : (ar ? 'بانتظار القياس' : 'Waiting'),
+                    (overview?.performance.organicEvidenceCount ?? 0) > 0,
+                  ],
+                  [
+                    ar ? 'لقطات مدفوعة موثقة' : 'Verified paid snapshots',
+                    (overview?.performance.paidEvidenceCount ?? 0) > 0 ? String(overview?.performance.paidEvidenceCount) : (ar ? 'غير متاحة' : 'Not available'),
+                    (overview?.performance.paidEvidenceCount ?? 0) > 0,
+                  ],
+                  [
+                    ar ? 'تعلم الأداء' : 'Performance learning',
+                    overview?.performance.hasEvidence ? (ar ? 'يمكن المراجعة' : 'Reviewable') : (ar ? 'مغلق حتى التحليلات' : 'Locked until analytics'),
+                    overview?.performance.hasEvidence ?? false,
+                  ],
                 ].map(([label, value, ok]) => (
                   <div key={label as string} className="flex items-center justify-between border-b border-[#eef2f8] py-3 last:border-b-0">
                     <span className="text-[12px] font-bold text-[#64708f]">{label}</span>

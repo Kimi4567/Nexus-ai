@@ -593,10 +593,10 @@ export default function ConnectionsPage() {
                               {copy('ربط الآن', 'Connect now')}
                             </ShellButton>
                           ) : (
-                            <ShellButton disabled>
+                            <span className="inline-flex h-10 items-center gap-2 rounded-[13px] border border-[#e3e8f3] bg-[#f8faff] px-4 text-[12px] font-bold text-[#7b87a3]">
                               <Clock3 className="h-4 w-4" />
                               {copy('ليس جاهزاً بعد', 'Not ready yet')}
-                            </ShellButton>
+                            </span>
                           )}
                         </div>
                       </article>
@@ -618,9 +618,9 @@ export default function ConnectionsPage() {
                       <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f1f0ff] text-sm font-black text-[#4f46e5]">{icon}</div>
                       <p className="text-[13px] font-black text-[#111b3f]">{name}</p>
                       <p className="mt-1 min-h-[34px] text-[11px] leading-5 text-[#7b87a3]">{helper}</p>
-                      <ShellButton disabled className="mt-3 w-full">
-                        {copy('قريباً', 'Soon')}
-                      </ShellButton>
+                      <p className="mt-3 rounded-[12px] bg-[#f8faff] px-3 py-2 text-center text-[11px] font-bold text-[#7b87a3]">
+                        {copy('غير متاح للربط حالياً', 'Not currently available to connect')}
+                      </p>
                     </div>
                   ))}
                 </div>

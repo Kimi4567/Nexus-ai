@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { PLANS_CREDITS, getUsageSummary, getMonthlyActivity } from '@/lib/credits'
+import { summarizePerformanceEvidence } from '@/lib/performanceSummary'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -40,12 +41,14 @@ export async function GET(req: Request) {
     const creditsUsedThisMonth = usageSummary.creditsUsedThisMonth
 
     if (!workspace) {
+      const performance = summarizePerformanceEvidence([], [])
       return NextResponse.json({
         campaigns: 0, activeCampaigns: 0, draftCampaigns: 0,
         generations: usageSummary.generationsTotal, publishedPosts: 0,
         creditsRemaining, creditsUsedThisMonth, monthlyTotal, isUnlimited, plan,
         monthlyActivity: [],
         topCampaigns: [],
+        performance,
       })
     }
 
@@ -62,10 +65,53 @@ export async function GET(req: Request) {
     // AI generations = real spend events from the ledger (shared definition).
     const generations = usageSummary.generationsTotal
 
-    // ── Published posts ─────────────────────────────────────────────────────
-    const publishedPosts = await prisma.socialPost.count({
-      where: { workspaceId: workspace.id, status: 'PUBLISHED' },
-    }).catch(() => 0)
+    // ── Published posts + trusted performance evidence ──────────────────────
+    const [publishedPosts, organicAnalyticsRows, paidAnalyticsRows] = await Promise.all([
+      prisma.socialPost.count({
+        where: { workspaceId: workspace.id, status: 'PUBLISHED' },
+      }).catch(() => 0),
+      prisma.socialPost.findMany({
+        where: {
+          workspaceId: workspace.id,
+          status: 'PUBLISHED',
+        },
+        select: {
+          platform: true,
+          analyticsData: true,
+          analyticsUpdatedAt: true,
+        },
+      }).catch(() => []),
+      db.adPerformanceSnapshot?.findMany({
+        where: {
+          adCampaign: { workspaceId: workspace.id },
+          dataSource: { in: ['api', 'meta_api', 'ga4'] },
+        },
+        select: {
+          dataSource: true,
+          date: true,
+          syncedAt: true,
+          impressions: true,
+          reach: true,
+          postEngagements: true,
+          clicks: true,
+          conversions: true,
+          spend: true,
+          ctr: true,
+          roas: true,
+          adCampaign: { select: { platform: true } },
+        },
+        orderBy: { date: 'asc' },
+        take: 180,
+      }).catch(() => []) ?? [],
+    ])
+
+    const performance = summarizePerformanceEvidence(
+      organicAnalyticsRows.map(row => ({ ...row, platform: String(row.platform) })),
+      paidAnalyticsRows.map((row: Record<string, unknown>) => ({
+        ...row,
+        platform: String((row.adCampaign as { platform?: unknown } | null)?.platform ?? 'UNKNOWN'),
+      })),
+    )
 
     // ── Monthly activity (last 6 months) — from the credit ledger ──────────
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -110,9 +156,11 @@ export async function GET(req: Request) {
       plan,
       monthlyActivity,
       topCampaigns,
+      performance,
     })
   } catch (err: unknown) {
     console.warn('[analytics/overview] DB query failed:', err instanceof Error ? err.message : err)
+    const performance = summarizePerformanceEvidence([], [])
     return NextResponse.json({
       campaigns: 0, activeCampaigns: 0, draftCampaigns: 0,
       generations: 0, publishedPosts: 0, visualsCount: 0,
@@ -120,6 +168,7 @@ export async function GET(req: Request) {
       isUnlimited: false, plan: 'FREE',
       monthlyActivity: [],
       topCampaigns: [],
+      performance,
     })
   }
 }

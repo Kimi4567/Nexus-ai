@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
+import { hasRealPerformanceAnalytics } from '@/lib/performanceEvidence'
 
 type Params = { params: { id: string } }
 
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     let totalLikes       = 0
     let totalComments    = 0
     let totalShares      = 0
-    const postsWithData  = publishedPosts.filter(p => p.analyticsData)
+    const postsWithData = publishedPosts.filter(p => hasRealPerformanceAnalytics(p.analyticsData))
 
     for (const post of postsWithData) {
       const d = post.analyticsData as any

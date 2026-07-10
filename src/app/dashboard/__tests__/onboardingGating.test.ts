@@ -1,31 +1,11 @@
-/**
- * Trust Sprint #7 — dashboard wires the onboarding gating and keeps stats/cards.
- *
- * Source-level guard: confirms the dashboard routes first-run surfaces through
- * the visibility helper, and that the existing stats cards + activity were NOT
- * removed by the consolidation.
- */
+/** Dashboard workspace gating and evidence-backed command-center contract. */
 
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const SRC = readFileSync(resolve(process.cwd(), 'src/app/dashboard/page.tsx'), 'utf8')
-const INTELLIGENCE_SRC = readFileSync(resolve(process.cwd(), 'src/lib/marketing-intelligence.ts'), 'utf8')
-
 describe('Dashboard onboarding gating', () => {
-  it('routes first-run dashboard surfaces through getOnboardingVisibility', () => {
-    expect(SRC).toMatch(/getOnboardingVisibility/)
-    expect(SRC).toMatch(/onboarding\.showWelcome/)
-    expect(SRC).toMatch(/onboarding\.showJourneyBar/)
-    expect(SRC).not.toMatch(/<OnboardingChecklist/)
-  })
-
-  it('6. existing dashboard stats cards + activity still render (not removed)', () => {
-    expect(SRC).toMatch(/NexusMetricCard/)
-    expect(SRC).toMatch(/dashboard\.statCampaignLabel/)
-  })
-
   it('D0.3 gates dashboard rendering until workspace check completes', () => {
     expect(SRC).toMatch(/WorkspaceGateState = 'checking' \| 'hasWorkspace' \| 'noWorkspace' \| 'error'/)
     expect(SRC).toMatch(/workspaceGate === 'checking'/)
@@ -40,56 +20,34 @@ describe('Dashboard onboarding gating', () => {
     expect(SRC).toMatch(/إعادة المحاولة/)
   })
 
-  it('D1.1 detects early execution mode from existing dashboard data only', () => {
-    expect(SRC).toMatch(/isEarlyOperatingMode/)
-    expect(SRC).toMatch(/const isEarlyExecutionDashboard = Boolean\(stats && isEarlyOperatingMode/)
-    expect(SRC).toMatch(/const publishingState = intelligence\?\.publishingState \?\? 'none'/)
-    expect(SRC).toMatch(/publishedPostsTotal: stats\.publishedPostsTotal/)
-    expect(SRC).toMatch(/campaignStatuses: campaigns\.map\(c => c\.status\)/)
+  it('uses real stats and explicit evidence stages for the command center', () => {
+    expect(SRC).toMatch(/postsWithAnalytics: d\.stats\?\.performanceEvidence\?\.postsWithAnalytics \?\? 0/)
+    expect(SRC).toMatch(/const workflowChecks = \[/)
+    expect(SRC).toMatch(/brandReadiness\?\.ready === true/)
+    expect(SRC).toMatch(/strategyAvailable/)
+    expect(SRC).toMatch(/postsWithAnalytics > 0/)
+    expect(SRC).toMatch(/Recorded activities/)
   })
 
-  it('D1.1 makes the early operating next step the first major dashboard surface', () => {
-    const focusIndex = SRC.indexOf('Early Operating Mode')
-    const journeyIndex = SRC.indexOf('Marketing Journey Bar')
-    const statsIndex = SRC.indexOf('Stats Row')
-    const briefIndex = SRC.indexOf('Marketing Operating Brief')
-
-    expect(focusIndex).toBeGreaterThan(-1)
-    expect(focusIndex).toBeLessThan(journeyIndex)
-    expect(focusIndex).toBeLessThan(statsIndex)
-    expect(focusIndex).toBeLessThan(briefIndex)
-    expect(SRC).toMatch(/Your next step/)
-    expect(SRC).toMatch(/This is the most useful next step based on what NEXUS currently knows/)
-    expect(SRC).toMatch(/getDashboardStrategyCta/)
-    expect(SRC).toMatch(/dashboardStrategyCta\.labelAr/)
-    expect(SRC).toMatch(/dashboardStrategyCta\.label/)
-    expect(SRC).not.toMatch(/Open strategy workflow/)
-    expect(SRC).not.toMatch(/Open the strategy workflow/)
-    expect(SRC).toMatch(/getFirstRunJourney/)
-    expect(INTELLIGENCE_SRC).toMatch(/'Open the strategy workflow'/)
-    expect(INTELLIGENCE_SRC).toMatch(/'افتح مسار الاستراتيجية'/)
-    expect(INTELLIGENCE_SRC).not.toMatch(/'Run full strategy'/)
-    expect(INTELLIGENCE_SRC).not.toMatch(/'شغّل الاستراتيجية الكاملة'/)
+  it('keeps the first operating action strategy-led and context-aware', () => {
+    expect(SRC).toMatch(/href: '\/strategy'/)
+    expect(SRC).toMatch(/Create a clear operating strategy/)
+    expect(SRC).toMatch(/Review content and media decisions/)
+    expect(SRC).toMatch(/Prepare platform connections/)
+    expect(SRC).toMatch(/Monitor performance when analytics exists/)
   })
 
-  it('D1.1 demotes competing early operating dashboard surfaces', () => {
-    expect(SRC).toMatch(/onboarding\.showJourneyBar && !isEarlyExecutionDashboard/)
-    expect(SRC).toMatch(/!isEarlyExecutionDashboard && \(\s*<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">/)
-    expect(SRC).toMatch(/!isEarlyExecutionDashboard && \(\s*<NexusGlassCard padding="lg">/)
-    expect(SRC).toMatch(/router\.push\(href\)/)
-    expect(SRC).toMatch(/dashboardStrategyCta\.href/)
-    expect(SRC).toMatch(/!isEarlyExecutionDashboard && <BrainLearnedSummary/)
-    expect(SRC).toMatch(/!isEarlyExecutionDashboard && \(\s*<div ref=\{suggestionsSectionRef\}/)
-    expect(SRC).toMatch(/\{!isEarlyExecutionDashboard && <span style=\{\{ color: 'var\(--nx-text-3\)' \}\}> 👋<\/span>\}/)
-    expect(SRC).toMatch(/!isEarlyExecutionDashboard && \(\s*<div className="flex items-center gap-2">/)
-    expect(SRC).toMatch(/Campaign drafts/)
-    expect(SRC).toMatch(/مسودات الحملات/)
+  it('does not render invented operating health, ROAS, or campaign progress', () => {
+    expect(SRC).not.toContain('setupScore')
+    expect(SRC).not.toContain('Overall health')
+    expect(SRC).not.toContain('Operating score')
+    expect(SRC).not.toContain("'ROAS'")
+    expect(SRC).not.toMatch(/const progress = Math\./)
   })
 
-  it('FIRST-PAID-TRUTH1 shows real draft campaign count in early operating summary', () => {
+  it('shows the real draft campaign count in the workflow ledger', () => {
     expect(SRC).toMatch(/draftCampaigns: d\.stats\?\.campaigns\?\.draft \?\? 0/)
-    expect(SRC).toMatch(/const draftCampaignCount = stats\?\.draftCampaigns \?\? campaigns\.filter/)
-    expect(SRC).toMatch(/\{draftCampaignCount\}/)
-    expect(SRC).not.toMatch(/Campaign drafts[\s\S]{0,260}>0<\/span>/)
+    expect(SRC).toMatch(/const draftCount = stats\?\.draftCampaigns \?\? campaigns\.filter/)
+    expect(SRC).toMatch(/label: ar \? 'مسودات حملات' : 'Campaign drafts', value: draftCount/)
   })
 })

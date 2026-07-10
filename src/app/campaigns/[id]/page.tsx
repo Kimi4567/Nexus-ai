@@ -335,10 +335,8 @@ function CampaignDetailPageInner() {
   const isGenerating = searchParams?.get('generating') === 'true'
   // Capture ?new=1 immediately — router.replace() will strip it later
   const isNewCampaign = searchParams?.get('new') === '1'
-  // Capture ?action=generate-plan — from Marketing Brief "Act now" → auto-trigger content plan
-  const actionGeneratePlan = searchParams?.get('action') === 'generate-plan'
   // Capture ?from=brief — show a contextual banner
-  const fromBrief = searchParams?.get('from') === 'brief' || actionGeneratePlan
+  const fromBrief = searchParams?.get('from') === 'brief'
   const { isAuthenticated, loading, authHeader } = useAuth()
   const { t, locale } = useI18n()
   const cdT = t('campaignDetail') as Record<string, string>
@@ -623,23 +621,6 @@ function CampaignDetailPageInner() {
     handleRunEngine()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaign, isNewCampaign, generating, engineRunning, loading])
-
-  // Auto-trigger content plan generation when arriving from Marketing Brief
-  const briefPlanTriggeredRef = useRef(false)
-  useEffect(() => {
-    if (!actionGeneratePlan) return
-    if (!campaign) return                    // wait for campaign to load
-    if (!campaign.aiOutput) return           // strategy must exist first
-    if (launchState !== 'idle') return       // already running
-    if (briefPlanTriggeredRef.current) return
-    if (loading) return
-    if (!authHeader()) return
-    briefPlanTriggeredRef.current = true
-    // Strip the query param to keep URL clean, then trigger
-    router.replace(`/campaigns/${campaignId}`, { scroll: false })
-    handleApproveAndLaunch()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaign, actionGeneratePlan, launchState, loading])
 
   // Poll for AI output when generating=true
   // Stops when strategy is populated OR _generatingAt is cleared (done / error) OR max attempts

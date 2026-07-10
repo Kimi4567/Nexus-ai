@@ -70,24 +70,26 @@ interface WizardData {
 
 // ── Platform data ──────────────────────────────────────────────────────────
 const PLATFORMS = [
-  { id: 'META',     label: 'Meta Ads',    sub: 'Facebook + Instagram', color: '#1877F2', badge: 'Draft + API path' },
-  { id: 'GOOGLE',   label: 'Google Ads',  sub: 'Search, Display, P-Max', color: '#4285F4', badge: 'Planning draft' },
-  { id: 'TIKTOK',   label: 'TikTok Ads',  sub: 'In-Feed, TopView, Spark', color: '#FF0050', badge: 'Planning draft' },
-  { id: 'LINKEDIN', label: 'LinkedIn Ads', sub: 'Sponsored Content, InMail', color: '#0A66C2', badge: 'Planning draft' },
+  { id: 'META', label: 'Meta Ads', subEn: 'Facebook + Instagram', subAr: 'فيسبوك + إنستغرام', color: '#1877F2', badgeEn: 'Draft + API path', badgeAr: 'مسودة + مسار API' },
+  { id: 'GOOGLE', label: 'Google Ads', subEn: 'Search, Display, P-Max', subAr: 'البحث، العرض، Performance Max', color: '#4285F4', badgeEn: 'Planning draft', badgeAr: 'مسودة تخطيط' },
+  { id: 'TIKTOK', label: 'TikTok Ads', subEn: 'In-Feed, TopView, Spark', subAr: 'In-Feed وTopView وSpark', color: '#FF0050', badgeEn: 'Planning draft', badgeAr: 'مسودة تخطيط' },
+  { id: 'LINKEDIN', label: 'LinkedIn Ads', subEn: 'Sponsored Content, InMail', subAr: 'محتوى ممول ورسائل InMail', color: '#0A66C2', badgeEn: 'Planning draft', badgeAr: 'مسودة تخطيط' },
 ]
 
 const OBJECTIVES = [
-  { id: 'TRAFFIC',      label: 'Traffic',      icon: '🔗', desc: 'Drive people to your website' },
-  { id: 'CONVERSIONS',  label: 'Conversions',  icon: '💳', desc: 'Get purchases, sign-ups, form fills' },
-  { id: 'LEAD_GENERATION', label: 'Leads',     icon: '📋', desc: 'Collect leads with instant forms' },
-  { id: 'BRAND_AWARENESS', label: 'Awareness', icon: '📢', desc: 'Reach people likely to remember you' },
-  { id: 'ENGAGEMENT',   label: 'Engagement',   icon: '❤️', desc: 'Boost post likes, comments, shares' },
-  { id: 'VIDEO_VIEWS',  label: 'Video Views',  icon: '▶️', desc: 'Maximize video watch time' },
+  { id: 'TRAFFIC', labelEn: 'Traffic', labelAr: 'الزيارات', icon: '🔗', descEn: 'Drive people to your website', descAr: 'جذب زيارات مؤهلة إلى موقعك' },
+  { id: 'CONVERSIONS', labelEn: 'Conversions', labelAr: 'التحويلات', icon: '💳', descEn: 'Get purchases, sign-ups, form fills', descAr: 'زيادة الشراء أو التسجيل أو إكمال النماذج' },
+  { id: 'LEAD_GENERATION', labelEn: 'Leads', labelAr: 'العملاء المحتملون', icon: '📋', descEn: 'Collect leads with instant forms', descAr: 'جمع بيانات العملاء المحتملين عبر النماذج' },
+  { id: 'BRAND_AWARENESS', labelEn: 'Awareness', labelAr: 'الوعي بالعلامة', icon: '📢', descEn: 'Reach people likely to remember you', descAr: 'الوصول إلى أشخاص يُرجح أن يتذكروا علامتك' },
+  { id: 'ENGAGEMENT', labelEn: 'Engagement', labelAr: 'التفاعل', icon: '❤️', descEn: 'Boost post likes, comments, shares', descAr: 'زيادة الإعجابات والتعليقات والمشاركات' },
+  { id: 'VIDEO_VIEWS', labelEn: 'Video Views', labelAr: 'مشاهدات الفيديو', icon: '▶️', descEn: 'Maximize video watch time', descAr: 'زيادة وقت مشاهدة الفيديو' },
 ]
 
 // ── Step indicator ─────────────────────────────────────────────────────────
-function StepBar({ step, total }: { step: number; total: number }) {
-  const labels = ['Platform', 'Budget', 'Planning', 'Ad Copy', 'Review']
+function StepBar({ step, total, locale }: { step: number; total: number; locale: string }) {
+  const labels = locale === 'ar'
+    ? ['المنصة', 'الميزانية', 'التخطيط', 'نصوص الإعلان', 'المراجعة']
+    : ['Platform', 'Budget', 'Planning', 'Ad Copy', 'Review']
   return (
     <div className="mb-8 rounded-2xl border border-slate-200 bg-white/85 p-3 shadow-sm">
       <div className="flex items-center gap-0">
@@ -130,6 +132,8 @@ export default function NewPaidCampaignPage() {
   const { user, isAuthenticated, loading: authLoading } = useAuth()
   const { locale } = useI18n()
   const router = useRouter()
+  const isArabic = locale === 'ar'
+  const copy = (ar: string, en: string) => isArabic ? ar : en
 
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
@@ -194,7 +198,7 @@ export default function NewPaidCampaignPage() {
 
   const handleStep2 = async () => {
     if (!data.name || !data.platform) {
-      setError('Please fill all required fields.')
+      setError(copy('أكمل جميع الحقول المطلوبة.', 'Please fill all required fields.'))
       return
     }
     setLoading(true)
@@ -218,11 +222,11 @@ export default function NewPaidCampaignPage() {
         }),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error || 'Failed to create planning draft')
+      if (!res.ok) throw new Error(result.error || copy('تعذر إنشاء مسودة التخطيط.', 'Failed to create planning draft'))
       setCampaignId(result.campaign.id)
       setStep(3)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Error creating planning draft')
+      setError(e instanceof Error ? e.message : copy('حدث خطأ أثناء إنشاء مسودة التخطيط.', 'Error creating planning draft'))
     } finally {
       setLoading(false)
     }
@@ -239,7 +243,7 @@ export default function NewPaidCampaignPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error || 'AI suggestion failed')
+      if (!res.ok) throw new Error(result.error || copy('تعذر إنشاء اقتراح التخطيط.', 'AI suggestion failed'))
       set('platform', result.platform || 'META')
       set('objective', result.objective || 'LEAD_GENERATION')
       set('dailyBudget', result.dailyBudget ? String(result.dailyBudget) : '')
@@ -250,7 +254,7 @@ export default function NewPaidCampaignPage() {
       set('aiSuggestionRationale', result.rationale || '')
       setStep(2)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'AI suggestion failed')
+      setError(e instanceof Error ? e.message : copy('تعذر إنشاء اقتراح التخطيط.', 'AI suggestion failed'))
     } finally {
       setAiSuggestLoading(false)
     }
@@ -268,11 +272,11 @@ export default function NewPaidCampaignPage() {
         body: JSON.stringify({ language: data.language }),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error || 'Strategy generation failed')
+      if (!res.ok) throw new Error(result.error || copy('تعذر إنشاء استراتيجية التخطيط المدفوع.', 'Strategy generation failed'))
       set('aiStrategy', result.strategy)
       setStep(4)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Error generating strategy')
+      setError(e instanceof Error ? e.message : copy('حدث خطأ أثناء إنشاء الاستراتيجية.', 'Error generating strategy'))
     } finally {
       setLoading(false)
     }
@@ -290,7 +294,7 @@ export default function NewPaidCampaignPage() {
         body: JSON.stringify({ language: data.language }),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error || 'Copy generation failed')
+      if (!res.ok) throw new Error(result.error || copy('تعذر إنشاء مسودات النصوص الإعلانية.', 'Copy generation failed'))
       const variants = (result.ads || []).map((ad: Record<string, unknown>) => ({
         id: ad.id as string,
         label: ad.name as string,
@@ -305,7 +309,7 @@ export default function NewPaidCampaignPage() {
       set('selectedVariantIds', variants.slice(0, 2).map((v: CopyVariant) => v.id))
       setStep(4)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Error generating copy')
+      setError(e instanceof Error ? e.message : copy('حدث خطأ أثناء إنشاء النصوص الإعلانية.', 'Error generating copy'))
     } finally {
       setLoading(false)
     }
@@ -330,8 +334,12 @@ export default function NewPaidCampaignPage() {
       case 1:
         return (
           <div>
-            <h2 className="text-[18px] font-bold text-slate-950 mb-1">Choose planning platform</h2>
-            <p className="text-slate-500 text-[13px] mb-6">Select the advertising platform for this planning draft.</p>
+            <h2 className="text-[18px] font-bold text-slate-950 mb-1">
+              {copy('اختر منصة التخطيط المدفوع', 'Choose planning platform')}
+            </h2>
+            <p className="text-slate-500 text-[13px] mb-6">
+              {copy('اختر المنصة التي ستُبنى عليها مسودة التخطيط. الاختيار لا ينشئ حملة على المنصة.', 'Select the advertising platform for this planning draft. This does not create a platform campaign.')}
+            </p>
 
             {/* AI Assist Card */}
             <div className="mb-5 p-4 rounded-[14px] relative overflow-hidden"
@@ -340,17 +348,22 @@ export default function NewPaidCampaignPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[14px]">⚡</span>
-                    <span className="text-[13px] font-bold text-slate-950">Let AI Plan This</span>
+                    <span className="text-[13px] font-bold text-slate-950">{copy('اقترح تخطيطاً بالذكاء الاصطناعي', 'Let AI Suggest a Plan')}</span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
-                      style={{ background: '#ede9fe', color: '#6d28d9' }}>FREE</span>
+                      style={{ background: '#ede9fe', color: '#6d28d9' }}>{copy('مجاني', 'FREE')}</span>
                   </div>
                   <p className="text-[11px] text-slate-500 leading-relaxed">
-                    AI reads your Brand Brain and suggests a planning platform, objective, budget assumption, and draft name.
+                    {copy(
+                      'يقرأ الذكاء الاصطناعي سياق Brand Brain ويقترح منصة وهدفاً وافتراض ميزانية واسم مسودة للمراجعة. لا يعتمد ميزانية ولا يطلق إعلاناً.',
+                      'AI reads your Brand Brain and suggests a platform, objective, budget assumption, and draft name for review. It does not approve spend or launch ads.'
+                    )}
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={handleAiSuggest}
                   disabled={aiSuggestLoading}
+                  aria-label={copy('إنشاء اقتراح تخطيط بالذكاء الاصطناعي', 'Generate an AI planning suggestion')}
                   className="flex-shrink-0 px-4 py-2 rounded-xl text-[12px] font-bold text-white transition-all"
                   style={{
                     background: aiSuggestLoading ? '#e5e7eb' : '#6d28d9',
@@ -361,24 +374,26 @@ export default function NewPaidCampaignPage() {
                   {aiSuggestLoading ? (
                     <span className="flex items-center gap-1.5">
                       <span className="w-3.5 h-3.5 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin inline-block" />
-                      Planning...
+                      {copy('جارٍ إعداد الاقتراح...', 'Planning...')}
                     </span>
-                  ) : 'AI Suggest →'}
+                  ) : copy('اقتراح تخطيط', 'AI Suggest')}
                 </button>
               </div>
             </div>
 
             <div className="flex items-center gap-2 mb-4">
               <div className="flex-1 h-px" style={{ background: '#e2e8f0' }} />
-              <span className="text-[11px] text-slate-400">or choose manually</span>
+              <span className="text-[11px] text-slate-400">{copy('أو اختر يدوياً', 'or choose manually')}</span>
               <div className="flex-1 h-px" style={{ background: '#e2e8f0' }} />
             </div>
 
             <div className="grid grid-cols-2 gap-3 mb-6">
               {PLATFORMS.map(p => (
                 <button
+                  type="button"
                   key={p.id}
                   onClick={() => set('platform', p.id)}
+                  aria-pressed={data.platform === p.id}
                   className="relative flex flex-col items-start gap-1.5 p-4 rounded-[14px] text-left transition-all"
                   style={{
                     background: data.platform === p.id
@@ -393,13 +408,13 @@ export default function NewPaidCampaignPage() {
                   {data.platform !== p.id && (
                     <span className="absolute top-2 right-2 text-[9px] px-1.5 py-0.5 rounded"
                       style={{ background: p.id === 'META' ? 'rgba(24,119,242,0.08)' : '#f1f5f9', color: p.id === 'META' ? '#1877F2' : '#64748b' }}>
-                      {p.badge}
+                      {isArabic ? p.badgeAr : p.badgeEn}
                     </span>
                   )}
                   <span className="text-[13px] font-bold" style={{ color: '#0f172a' }}>
                     {p.label}
                   </span>
-                  <span className="text-[11px] text-slate-500">{p.sub}</span>
+                  <span className="text-[11px] text-slate-500">{isArabic ? p.subAr : p.subEn}</span>
                   {data.platform === p.id && (
                     <span className="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded-full font-bold"
                       style={{ background: p.color, color: 'white' }}>✓</span>
@@ -412,16 +427,18 @@ export default function NewPaidCampaignPage() {
             {data.platform && (
               <div>
                 <label className="text-[12px] text-slate-500 block mb-2 font-medium">
-                  Ad Account {accounts.filter(a => a.platform === data.platform).length === 0 && (
-                    <span className="text-orange-600 ml-1">— no connected account yet</span>
+                  {copy('الحساب الإعلاني', 'Ad Account')} {accounts.filter(a => a.platform === data.platform).length === 0 && (
+                    <span className="text-orange-600 ml-1">— {copy('لا يوجد حساب متصل حتى الآن', 'no connected account yet')}</span>
                   )}
                 </label>
                 {accounts.filter(a => a.platform === data.platform).length > 0 ? (
                   <div className="space-y-2">
                     {accounts.filter(a => a.platform === data.platform).map(acc => (
                       <button
+                        type="button"
                         key={acc.id}
                         onClick={() => set('adAccountId', acc.id)}
+                        aria-pressed={data.adAccountId === acc.id}
                         className="w-full flex items-center justify-between p-3 rounded-xl text-left transition-all"
                         style={{
                           background: data.adAccountId === acc.id ? 'rgba(5,150,105,0.06)' : '#fff',
@@ -436,7 +453,7 @@ export default function NewPaidCampaignPage() {
                         </div>
                         {data.adAccountId === acc.id && (
                           <span className="text-[10px] px-2 py-0.5 rounded-full"
-                            style={{ background: '#10B981', color: 'white' }}>Selected</span>
+                            style={{ background: '#10B981', color: 'white' }}>{copy('محدد', 'Selected')}</span>
                         )}
                       </button>
                     ))}
@@ -444,24 +461,27 @@ export default function NewPaidCampaignPage() {
                 ) : (
                   <div className="p-4 rounded-xl text-[12px] text-slate-500"
                     style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.2)' }}>
-                    No {data.platform} ad account connected.{' '}
-                    <button className="text-orange-400 underline" onClick={() => router.push('/connections')}>
-                      Connect one →
+                    {copy(`لا يوجد حساب إعلاني متصل بمنصة ${data.platform}.`, `No ${data.platform} ad account connected.`)}{' '}
+                    <button type="button" className="text-orange-400 underline" onClick={() => router.push('/connections')}>
+                      {copy('افتح التكاملات', 'Connect one')}
                     </button>
                     <br />
-                    <span className="text-[11px] opacity-70">You can still create the planning draft without an account.</span>
+                    <span className="text-[11px] opacity-70">
+                      {copy('يمكنك إعداد مسودة التخطيط الآن، لكن إنشاء مسودة منصة أو تفعيلها سيظل مقفلاً حتى ربط الحساب والتحقق من الصلاحيات.', 'You can prepare the planning draft now, but platform draft creation and activation remain locked until the account and permissions are verified.')}
+                    </span>
                   </div>
                 )}
               </div>
             )}
 
             <div className="flex gap-3 mt-8">
-              <button onClick={() => router.push('/paid-campaigns')}
+              <button type="button" onClick={() => router.push('/paid-campaigns')}
                 className="px-4 py-2.5 rounded-xl text-[13px] font-medium text-slate-500 hover:text-slate-950 transition-all"
                 style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.1)' }}>
-                Cancel
+                {copy('إلغاء', 'Cancel')}
               </button>
               <button
+                type="button"
                 disabled={!data.platform}
                 onClick={() => setStep(2)}
                 className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white transition-all"
@@ -471,7 +491,7 @@ export default function NewPaidCampaignPage() {
                   cursor: data.platform ? 'pointer' : 'not-allowed',
                 }}
               >
-                Continue →
+                {copy('متابعة', 'Continue')}
               </button>
             </div>
           </div>
@@ -485,8 +505,9 @@ export default function NewPaidCampaignPage() {
           TIKTOK: { min: 2, max: 7 }, LINKEDIN: { min: 20, max: 55 },
         }
         const bench = CPM_BENCH[data.platform] || { min: 3, max: 8 }
-        const bud = parseFloat(data.dailyBudget) || 0
-        const totalEst = bud * 14
+        const planningBudget = parseFloat(data.budgetType === 'DAILY' ? data.dailyBudget : data.lifetimeBudget) || 0
+        const totalEst = data.budgetType === 'DAILY' ? planningBudget * 14 : planningBudget
+        const hasComparableBenchmark = data.currency === 'USD'
         const impMin = Math.round((totalEst / bench.max) * 1000)
         const impMax = Math.round((totalEst / bench.min) * 1000)
         const reachMin = Math.round(impMin / 2.5)
@@ -494,14 +515,16 @@ export default function NewPaidCampaignPage() {
 
         return (
           <div>
-            <h2 className="text-[18px] font-bold text-slate-950 mb-1">Planning Draft Details</h2>
-            <p className="text-slate-500 text-[13px] mb-6">Name your paid planning draft and add budget assumptions for review.</p>
+            <h2 className="text-[18px] font-bold text-slate-950 mb-1">{copy('تفاصيل مسودة التخطيط', 'Planning Draft Details')}</h2>
+            <p className="text-slate-500 text-[13px] mb-6">
+              {copy('سمِّ المسودة وأدخل هدفاً وافتراض ميزانية للمراجعة. هذه القيم لا تعني اعتماد الإنفاق.', 'Name the draft and enter an objective and budget assumption for review. These values do not approve spend.')}
+            </p>
 
             {/* AI Suggestion banner */}
             {data.aiSuggested && data.aiSuggestionRationale && (
               <div className="mb-4 p-3 rounded-xl text-[11px]"
                 style={{ background: '#faf5ff', border: '1px solid rgba(109,40,217,0.2)' }}>
-                <span className="font-bold" style={{ color: '#6d28d9' }}>⚡ AI Suggestion: </span>
+                <span className="font-bold" style={{ color: '#6d28d9' }}>⚡ {copy('اقتراح تخطيطي:', 'Planning suggestion:')} </span>
                 <span className="text-slate-500">{data.aiSuggestionRationale}</span>
               </div>
             )}
@@ -509,11 +532,11 @@ export default function NewPaidCampaignPage() {
             <div className="space-y-4">
               {/* Campaign name */}
               <div>
-                <label className="block text-[12px] font-medium text-slate-500 mb-1.5">Planning Draft Name *</label>
+                <label className="block text-[12px] font-medium text-slate-500 mb-1.5">{copy('اسم مسودة التخطيط *', 'Planning Draft Name *')}</label>
                 <input
                   value={data.name}
                   onChange={e => set('name', e.target.value)}
-                  placeholder="e.g. Summer Sale 2025 — Meta"
+                  placeholder={copy('مثال: حملة الصيف 2025 — Meta', 'e.g. Summer Sale 2025 — Meta')}
                   className="w-full px-3 py-2.5 rounded-xl text-[13px] text-slate-950 placeholder:text-slate-400 focus:outline-none transition-all"
                   style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.12)' }}
                 />
@@ -521,12 +544,14 @@ export default function NewPaidCampaignPage() {
 
               {/* Objective */}
               <div>
-                <label className="block text-[12px] font-medium text-slate-500 mb-2">Planning Objective *</label>
+                <label className="block text-[12px] font-medium text-slate-500 mb-2">{copy('هدف التخطيط *', 'Planning Objective *')}</label>
                 <div className="grid grid-cols-3 gap-2">
                   {OBJECTIVES.map(obj => (
                     <button
+                      type="button"
                       key={obj.id}
                       onClick={() => set('objective', obj.id)}
+                      aria-pressed={data.objective === obj.id}
                       className="flex flex-col items-start gap-1 p-3 rounded-xl text-left transition-all"
                       style={{
                         background: data.objective === obj.id ? '#fff7ed' : '#fff',
@@ -534,8 +559,8 @@ export default function NewPaidCampaignPage() {
                       }}
                     >
                       <span className="text-base">{obj.icon}</span>
-                      <span className="text-[12px] font-semibold text-slate-950">{obj.label}</span>
-                      <span className="text-[10px] text-slate-500 leading-tight">{obj.desc}</span>
+                      <span className="text-[12px] font-semibold text-slate-950">{isArabic ? obj.labelAr : obj.labelEn}</span>
+                      <span className="text-[10px] text-slate-500 leading-tight">{isArabic ? obj.descAr : obj.descEn}</span>
                     </button>
                   ))}
                 </div>
@@ -544,20 +569,22 @@ export default function NewPaidCampaignPage() {
               {/* Budget */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[12px] font-medium text-slate-500 mb-1.5">Budget Type</label>
+                  <label className="block text-[12px] font-medium text-slate-500 mb-1.5">{copy('نوع افتراض الميزانية', 'Budget Assumption Type')}</label>
                   <select
                     value={data.budgetType}
                     onChange={e => set('budgetType', e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl text-[13px] text-slate-950 focus:outline-none"
                     style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.12)' }}
                   >
-                    <option value="DAILY">Daily Budget</option>
-                    <option value="LIFETIME">Lifetime Budget</option>
+                    <option value="DAILY">{copy('ميزانية يومية مفترضة', 'Daily budget assumption')}</option>
+                    <option value="LIFETIME">{copy('ميزانية إجمالية مفترضة', 'Lifetime budget assumption')}</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-[12px] font-medium text-slate-500 mb-1.5">
-                    {data.budgetType === 'DAILY' ? 'Daily Budget' : 'Total Budget'}
+                    {data.budgetType === 'DAILY'
+                      ? copy('الميزانية اليومية المفترضة', 'Daily budget assumption')
+                      : copy('الميزانية الإجمالية المفترضة', 'Total budget assumption')}
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-slate-400">{data.currency}</span>
@@ -566,7 +593,7 @@ export default function NewPaidCampaignPage() {
                       min="1"
                       value={data.budgetType === 'DAILY' ? data.dailyBudget : data.lifetimeBudget}
                       onChange={e => set(data.budgetType === 'DAILY' ? 'dailyBudget' : 'lifetimeBudget', e.target.value)}
-                      placeholder="Planning assumption"
+                      placeholder={copy('افتراض للمراجعة', 'Planning assumption')}
                       className="w-full pl-12 pr-3 py-2.5 rounded-xl text-[13px] text-slate-950 focus:outline-none"
                       style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.12)' }}
                     />
@@ -576,45 +603,54 @@ export default function NewPaidCampaignPage() {
 
               {/* Currency */}
               <div>
-                <label className="block text-[12px] font-medium text-slate-500 mb-1.5">Currency</label>
+                <label className="block text-[12px] font-medium text-slate-500 mb-1.5">{copy('العملة', 'Currency')}</label>
                 <select
                   value={data.currency}
                   onChange={e => set('currency', e.target.value)}
                   className="w-full px-3 py-2.5 rounded-xl text-[13px] text-slate-950 focus:outline-none"
                   style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.12)' }}
                 >
-                  <option value="USD">USD — US Dollar</option>
-                  <option value="SAR">SAR — Saudi Riyal</option>
-                  <option value="AED">AED — UAE Dirham</option>
-                  <option value="EGP">EGP — Egyptian Pound</option>
-                  <option value="EUR">EUR — Euro</option>
-                  <option value="GBP">GBP — British Pound</option>
+                  <option value="USD">USD — {copy('دولار أمريكي', 'US Dollar')}</option>
+                  <option value="SAR">SAR — {copy('ريال سعودي', 'Saudi Riyal')}</option>
+                  <option value="AED">AED — {copy('درهم إماراتي', 'UAE Dirham')}</option>
+                  <option value="EGP">EGP — {copy('جنيه مصري', 'Egyptian Pound')}</option>
+                  <option value="EUR">EUR — {copy('يورو', 'Euro')}</option>
+                  <option value="GBP">GBP — {copy('جنيه إسترليني', 'British Pound')}</option>
                 </select>
               </div>
 
               {/* Budget estimate */}
-              {data.dailyBudget && parseFloat(data.dailyBudget) > 0 && (
+              {planningBudget > 0 && (
                 <div className="p-3 rounded-xl"
                   style={{ background: '#fff7ed', border: '1px solid rgba(249,115,22,0.2)' }}>
                   <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#c2410c' }}>
-                    Planning estimate (14 days · benchmark assumptions)
+                    {copy(
+                      data.budgetType === 'DAILY' ? 'تقدير تخطيطي لمدة 14 يوماً — افتراضات مرجعية' : 'تقدير تخطيطي للميزانية الإجمالية — افتراضات مرجعية',
+                      data.budgetType === 'DAILY' ? 'Planning estimate (14 days · benchmark assumptions)' : 'Planning estimate (lifetime budget · benchmark assumptions)'
+                    )}
                   </p>
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div>
-                      <p className="text-[11px] text-slate-500">Reach</p>
-                      <p className="text-[12px] font-bold text-slate-950">{(reachMin/1000).toFixed(0)}K–{(reachMax/1000).toFixed(0)}K</p>
+                  {hasComparableBenchmark ? (
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <p className="text-[11px] text-slate-500">{copy('الوصول التقديري', 'Estimated reach')}</p>
+                        <p className="text-[12px] font-bold text-slate-950">{(reachMin/1000).toFixed(0)}K–{(reachMax/1000).toFixed(0)}K</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-slate-500">{copy('مرات الظهور التقديرية', 'Estimated impressions')}</p>
+                        <p className="text-[12px] font-bold text-slate-950">{(impMin/1000).toFixed(0)}K–{(impMax/1000).toFixed(0)}K</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-slate-500">CPM</p>
+                        <p className="text-[12px] font-bold text-slate-950">${bench.min}–${bench.max}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[11px] text-slate-500">Impressions</p>
-                      <p className="text-[12px] font-bold text-slate-950">{(impMin/1000).toFixed(0)}K–{(impMax/1000).toFixed(0)}K</p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] text-slate-500">CPM</p>
-                      <p className="text-[12px] font-bold text-slate-950">${bench.min}–${bench.max}</p>
-                    </div>
-                  </div>
+                  ) : (
+                    <p className="text-[11px] text-slate-500">
+                      {copy('لن نعرض توقع وصول غير موثوق قبل توفر معيار تكلفة متوافق مع العملة المختارة.', 'Reach projections are withheld until a benchmark matching the selected currency is available.')}
+                    </p>
+                  )}
                   <p className="text-[10px] text-slate-500 mt-2">
-                    This is not approved spend. Confirm budget, tracking, creative, and platform readiness before any ad launch or spend.
+                    {copy('هذا ليس إنفاقاً معتمداً. يجب تأكيد الميزانية والتتبع والإبداع وجاهزية المنصة قبل أي إطلاق أو إنفاق.', 'This is not approved spend. Confirm budget, tracking, creative, and platform readiness before any ad launch or spend.')}
                   </p>
                 </div>
               )}
@@ -622,7 +658,7 @@ export default function NewPaidCampaignPage() {
               {/* Dates */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[12px] font-medium text-slate-500 mb-1.5">Start Date (optional)</label>
+                  <label className="block text-[12px] font-medium text-slate-500 mb-1.5">{copy('تاريخ البدء التخطيطي (اختياري)', 'Planning start date (optional)')}</label>
                   <input
                     type="date"
                     value={data.startDate}
@@ -632,7 +668,7 @@ export default function NewPaidCampaignPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[12px] font-medium text-slate-500 mb-1.5">End Date (optional)</label>
+                  <label className="block text-[12px] font-medium text-slate-500 mb-1.5">{copy('تاريخ الانتهاء التخطيطي (اختياري)', 'Planning end date (optional)')}</label>
                   <input
                     type="date"
                     value={data.endDate}
@@ -646,18 +682,20 @@ export default function NewPaidCampaignPage() {
               {/* AI Output Language */}
               <div>
                 <label className="block text-[12px] font-medium text-slate-500 mb-2">
-                  AI Output Language
-                  <span className="ml-1 text-[10px] text-slate-400">— strategy + ad copy will be written in this language</span>
+                  {copy('لغة مخرجات الذكاء الاصطناعي', 'AI Output Language')}
+                  <span className="ml-1 text-[10px] text-slate-400">— {copy('ستُكتب استراتيجية التخطيط والنصوص بهذه اللغة', 'planning strategy and ad copy will be written in this language')}</span>
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: 'en', label: '🇺🇸 English', desc: 'Global / EN market' },
-                    { id: 'ar', label: '🇸🇦 Arabic', desc: 'MENA / Gulf market' },
-                    { id: 'bilingual', label: '⚡ Bilingual', desc: 'AI decides per post' },
+                    { id: 'en', label: copy('🇺🇸 الإنجليزية', '🇺🇸 English'), desc: copy('للسوق العالمي أو الإنجليزي', 'Global / EN market') },
+                    { id: 'ar', label: copy('🇸🇦 العربية', '🇸🇦 Arabic'), desc: copy('للشرق الأوسط والخليج', 'MENA / Gulf market') },
+                    { id: 'bilingual', label: copy('⚡ ثنائي اللغة', '⚡ Bilingual'), desc: copy('تُحدد اللغة حسب كل نسخة إعلانية', 'Language selected per ad draft') },
                   ].map(lang => (
                     <button
+                      type="button"
                       key={lang.id}
                       onClick={() => set('language', lang.id)}
+                      aria-pressed={data.language === lang.id}
                       className="flex flex-col items-start gap-0.5 p-3 rounded-xl text-left transition-all"
                       style={{
                         background: data.language === lang.id ? 'rgba(5,150,105,0.06)' : '#fff',
@@ -673,12 +711,13 @@ export default function NewPaidCampaignPage() {
             </div>
 
             <div className="flex gap-3 mt-8">
-              <button onClick={() => setStep(1)}
+              <button type="button" onClick={() => setStep(1)}
                 className="px-4 py-2.5 rounded-xl text-[13px] font-medium text-slate-500 hover:text-slate-950 transition-all"
                 style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.1)' }}>
-                ← Back
+                {copy('الرجوع', 'Back')}
               </button>
               <button
+                type="button"
                 disabled={!data.name || loading}
                 onClick={handleStep2}
                 className="flex-1 py-2.5 rounded-xl text-[13px] font-bold transition-all"
@@ -688,7 +727,7 @@ export default function NewPaidCampaignPage() {
                   cursor: data.name && !loading ? 'pointer' : 'not-allowed',
                 }}
               >
-                {loading ? 'Saving...' : 'Save planning draft & continue →'}
+                {loading ? copy('جارٍ حفظ المسودة...', 'Saving...') : copy('حفظ مسودة التخطيط والمتابعة', 'Save planning draft & continue')}
               </button>
             </div>
           </div>
@@ -700,9 +739,12 @@ export default function NewPaidCampaignPage() {
         const strategy = data.aiStrategy
         return (
           <div>
-            <h2 className="text-[18px] font-bold text-slate-950 mb-1">Paid Planning Strategy</h2>
+            <h2 className="text-[18px] font-bold text-slate-950 mb-1">{copy('استراتيجية التخطيط المدفوع', 'Paid Planning Strategy')}</h2>
             <p className="text-slate-500 text-[13px] mb-6">
-              Your Brand Brain is powering a planning draft. This generates audience targeting, budget planning notes, and creative brief.
+              {copy(
+                'يستخدم NEXUS سياق Brand Brain لإعداد استهداف جمهور وملاحظات ميزانية وموجز إبداعي للمراجعة فقط.',
+                'NEXUS uses your Brand Brain context to prepare audience targeting, budget notes, and a creative brief for review only.'
+              )}
             </p>
 
             {!strategy ? (
@@ -714,22 +756,27 @@ export default function NewPaidCampaignPage() {
                     <path d="M10 14h4l3-5" stroke="#F97316" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>
-                <p className="text-slate-950 font-medium mb-2">Ready to generate your paid planning strategy</p>
+                <p className="text-slate-950 font-medium mb-2">{copy('جاهز لإنشاء استراتيجية تخطيط مدفوع', 'Ready to generate your paid planning strategy')}</p>
                 <p className="text-slate-500 text-[12px] mb-6 max-w-xs mx-auto">
-                  Uses your Brand Brain data, campaign objective, budget assumption, and platform to produce a planning strategy for review.
+                  {copy(
+                    'يستخدم بيانات Brand Brain وهدف الحملة وافتراض الميزانية والمنصة لإنتاج استراتيجية قابلة للمراجعة. لا ينشئ حملة منصة ولا يعتمد إنفاقاً.',
+                    'Uses Brand Brain data, campaign objective, budget assumption, and platform to produce a reviewable strategy. It does not create a platform campaign or approve spend.'
+                  )}
                 </p>
                 <button
+                  type="button"
                   disabled={loading}
                   onClick={handleGenerateStrategy}
+                  aria-label={copy('إنشاء استراتيجية التخطيط مقابل رصيدين', 'Generate planning strategy for 2 credits')}
                   className="px-6 py-3 rounded-xl text-[13px] font-bold text-white transition-all"
                   style={{ background: loading ? '#e5e7eb' : '#6d28d9', color: loading ? '#94a3b8' : 'white' }}
                 >
                   {loading ? (
                     <span className="flex items-center gap-2">
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
-                      Generating strategy...
+                      {copy('جارٍ إنشاء الاستراتيجية...', 'Generating strategy...')}
                     </span>
-                  ) : '✨ Generate planning strategy (2 credits)'}
+                  ) : copy('إنشاء استراتيجية التخطيط — رصيدان', 'Generate planning strategy — 2 credits')}
                 </button>
               </div>
             ) : (
@@ -738,7 +785,7 @@ export default function NewPaidCampaignPage() {
                 {(strategy.positioning as Record<string, unknown>) && (
                   <div className="p-4 rounded-[12px]"
                     style={{ background: '#faf5ff', border: '1px solid rgba(109,40,217,0.15)' }}>
-                    <h3 className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#6d28d9' }}>Planning Positioning</h3>
+                    <h3 className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#6d28d9' }}>{copy('التموضع التخطيطي', 'Planning Positioning')}</h3>
                     <p className="text-[13px] text-slate-950 font-medium mb-1">
                       {String((strategy.positioning as Record<string, unknown>)?.core_message || '')}
                     </p>
@@ -752,7 +799,7 @@ export default function NewPaidCampaignPage() {
                 {(strategy.audience as Record<string, unknown>) && (
                   <div className="p-4 rounded-[12px]"
                     style={{ background: 'rgba(5,150,105,0.05)', border: '1px solid rgba(5,150,105,0.15)' }}>
-                    <h3 className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#059669' }}>Target Audience</h3>
+                    <h3 className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#059669' }}>{copy('الجمهور المستهدف', 'Target Audience')}</h3>
                     <p className="text-[13px] text-slate-950 font-medium">
                       {String(((strategy.audience as Record<string, unknown>)?.primary_segment as Record<string, unknown>)?.description || '')}
                     </p>
@@ -763,13 +810,13 @@ export default function NewPaidCampaignPage() {
                 {(strategy.budget_plan as Record<string, unknown>) && (
                   <div className="p-4 rounded-[12px]"
                     style={{ background: '#fff7ed', border: '1px solid rgba(249,115,22,0.2)' }}>
-                    <h3 className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#c2410c' }}>Budget Plan</h3>
+                    <h3 className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#c2410c' }}>{copy('خطة الميزانية الافتراضية', 'Budget Assumption Plan')}</h3>
                     <p className="text-[12px] text-slate-500 mb-2">
                       {String((strategy.budget_plan as Record<string, unknown>)?.expected_results || '')}
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="text-center">
-                        <p className="text-[11px] text-slate-500">Est. Reach</p>
+                        <p className="text-[11px] text-slate-500">{copy('الوصول التقديري', 'Estimated reach')}</p>
                         <p className="text-[13px] font-bold text-slate-950">
                           {(() => {
                             const r = (strategy.budget_plan as Record<string, unknown>)?.estimated_reach as Record<string, number> | undefined
@@ -778,7 +825,7 @@ export default function NewPaidCampaignPage() {
                         </p>
                       </div>
                       <div className="text-center">
-                        <p className="text-[11px] text-slate-500">Est. Impressions</p>
+                        <p className="text-[11px] text-slate-500">{copy('مرات الظهور التقديرية', 'Estimated impressions')}</p>
                         <p className="text-[13px] font-bold text-slate-950">
                           {(() => {
                             const i = (strategy.budget_plan as Record<string, unknown>)?.estimated_impressions as Record<string, number> | undefined
@@ -793,24 +840,26 @@ export default function NewPaidCampaignPage() {
             )}
 
             <div className="flex gap-3 mt-8">
-              <button onClick={() => setStep(2)}
+              <button type="button" onClick={() => setStep(2)}
                 className="px-4 py-2.5 rounded-xl text-[13px] font-medium text-slate-500 hover:text-slate-950 transition-all"
                 style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.1)' }}>
-                ← Back
+                {copy('الرجوع', 'Back')}
               </button>
               {strategy && (
                 <button
+                  type="button"
                   onClick={handleGenerateCopy}
                   disabled={loading}
+                  aria-label={copy('إنشاء مسودات النصوص الإعلانية مقابل رصيدين', 'Generate ad copy drafts for 2 credits')}
                   className="flex-1 py-2.5 rounded-xl text-[13px] font-bold transition-all"
                   style={{ background: loading ? '#e2e8f0' : '#F97316', color: loading ? '#94a3b8' : 'white' }}
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
-                      Generating copy...
+                      {copy('جارٍ إنشاء النصوص...', 'Generating copy...')}
                     </span>
-                ) : '✨ Generate ad copy drafts (2 credits) →'}
+                ) : copy('إنشاء مسودات النصوص الإعلانية — رصيدان', 'Generate ad copy drafts — 2 credits')}
                 </button>
               )}
             </div>
@@ -822,9 +871,12 @@ export default function NewPaidCampaignPage() {
       case 4:
         return (
           <div>
-            <h2 className="text-[18px] font-bold text-slate-950 mb-1">Ad Copy Drafts</h2>
+            <h2 className="text-[18px] font-bold text-slate-950 mb-1">{copy('مسودات النصوص الإعلانية', 'Ad Copy Drafts')}</h2>
             <p className="text-slate-500 text-[13px] mb-6">
-              AI generated {data.copyVariants.length} variants. Select the ones to keep in this planning draft.
+              {copy(
+                `أنشأ الذكاء الاصطناعي ${data.copyVariants.length} مسودة للمراجعة. حدد النسخ التي تريد الاحتفاظ بها داخل مسودة التخطيط.`,
+                `AI generated ${data.copyVariants.length} drafts for review. Select the ones to keep in this planning draft.`
+              )}
             </p>
 
             <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
@@ -866,7 +918,9 @@ export default function NewPaidCampaignPage() {
                         </span>
                         <span className="text-[10px] text-slate-500">{variant.callToAction}</span>
                         <button
+                          type="button"
                           onClick={e => { e.stopPropagation(); setPreviewVariantId(isPreviewing ? null : variant.id) }}
+                          aria-expanded={isPreviewing}
                           className="ml-auto text-[10px] px-2 py-0.5 rounded-full transition-all"
                           style={{
                             background: isPreviewing ? 'rgba(59,130,246,0.1)' : '#f8fafc',
@@ -874,7 +928,7 @@ export default function NewPaidCampaignPage() {
                             border: isPreviewing ? '1px solid rgba(59,130,246,0.25)' : '1px solid rgba(15,23,42,0.08)',
                           }}
                         >
-                          {isPreviewing ? '✕ Hide' : '👁 Preview'}
+                          {isPreviewing ? copy('إخفاء المعاينة', 'Hide preview') : copy('معاينة', 'Preview')}
                         </button>
                       </div>
                     </div>
@@ -883,13 +937,17 @@ export default function NewPaidCampaignPage() {
                     {isPreviewing && (
                       <div style={{ background: '#f8fafc', borderTop: '1px solid rgba(15,23,42,0.06)', padding: '12px 12px 16px' }}>
                         <p className="text-center text-[9px] font-bold uppercase tracking-widest mb-3" style={{ color: '#6B7280' }}>
-                          {data.platform === 'GOOGLE' ? 'Google Search Preview' : data.platform === 'LINKEDIN' ? 'LinkedIn Feed Preview' : 'Facebook Feed Preview'}
+                          {data.platform === 'GOOGLE'
+                            ? copy('معاينة بحث Google', 'Google Search Preview')
+                            : data.platform === 'LINKEDIN'
+                              ? copy('معاينة موجز LinkedIn', 'LinkedIn Feed Preview')
+                              : copy('معاينة موجز Facebook', 'Facebook Feed Preview')}
                         </p>
 
                         {/* Google Search mockup */}
                         {data.platform === 'GOOGLE' ? (
                           <div style={{ background: '#fff', borderRadius: 8, padding: '12px 14px', maxWidth: 320, margin: '0 auto' }}>
-                            <p style={{ fontSize: 10, color: '#006621', margin: '0 0 1px' }}>Ad · yourbrand.com</p>
+                            <p style={{ fontSize: 10, color: '#006621', margin: '0 0 1px' }}>{copy('إعلان', 'Ad')} · yourbrand.com</p>
                             <p style={{ fontSize: 14, color: '#1a0dab', margin: '0 0 2px', fontWeight: 400, textDecoration: 'underline', cursor: 'default' }}>
                               {variant.headline}
                             </p>
@@ -904,8 +962,8 @@ export default function NewPaidCampaignPage() {
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                                 <div style={{ width: 40, height: 40, borderRadius: 8, background: 'linear-gradient(135deg, #0A66C2, #004182)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>N</div>
                                 <div>
-                                  <p style={{ fontSize: 12, fontWeight: 600, color: '#1a1a1a', margin: 0 }}>Your Brand</p>
-                                  <p style={{ fontSize: 10, color: '#666', margin: 0 }}>Promoted · 🌐</p>
+                                  <p style={{ fontSize: 12, fontWeight: 600, color: '#1a1a1a', margin: 0 }}>{copy('علامتك التجارية', 'Your Brand')}</p>
+                                  <p style={{ fontSize: 10, color: '#666', margin: 0 }}>{copy('ممول', 'Promoted')} · 🌐</p>
                                 </div>
                               </div>
                               <p style={{ fontSize: 12, color: '#1a1a1a', margin: '0 0 8px', lineHeight: 1.4 }}>
@@ -933,8 +991,8 @@ export default function NewPaidCampaignPage() {
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                                 <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #F97316, #EF4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>N</div>
                                 <div>
-                                  <p style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Your Brand</p>
-                                  <p style={{ fontSize: 10, color: '#65676b', margin: 0 }}>Sponsored · 🌐</p>
+                                  <p style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a', margin: 0 }}>{copy('علامتك التجارية', 'Your Brand')}</p>
+                                  <p style={{ fontSize: 10, color: '#65676b', margin: 0 }}>{copy('ممول', 'Sponsored')} · 🌐</p>
                                 </div>
                               </div>
                               <p style={{ fontSize: 12, color: '#1a1a1a', margin: 0, lineHeight: 1.4 }}>
@@ -943,7 +1001,7 @@ export default function NewPaidCampaignPage() {
                             </div>
                             <div style={{ height: 160, background: 'linear-gradient(135deg, #e5e7eb, #d1d5db)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                               <span style={{ fontSize: 22 }}>🖼</span>
-                              <span style={{ fontSize: 10, color: '#6b7280' }}>Ad Creative (1080×1080)</span>
+                              <span style={{ fontSize: 10, color: '#6b7280' }}>{copy('مساحة أصل إعلاني', 'Ad creative placeholder')} (1080×1080)</span>
                             </div>
                             <div style={{ background: '#f0f2f5', padding: '8px 12px' }}>
                               <p style={{ fontSize: 11, fontWeight: 700, color: '#1a1a1a', margin: '0 0 2px' }}>{variant.headline}</p>
@@ -964,12 +1022,13 @@ export default function NewPaidCampaignPage() {
             </div>
 
             <div className="flex gap-3 mt-6">
-              <button onClick={() => setStep(3)}
+              <button type="button" onClick={() => setStep(3)}
                 className="px-4 py-2.5 rounded-xl text-[13px] font-medium text-slate-500 hover:text-slate-950 transition-all"
                 style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.1)' }}>
-                ← Back
+                {copy('الرجوع', 'Back')}
               </button>
               <button
+                type="button"
                 onClick={() => setStep(5)}
                 disabled={data.selectedVariantIds.length === 0}
                 className="flex-1 py-2.5 rounded-xl text-[13px] font-bold transition-all"
@@ -978,7 +1037,10 @@ export default function NewPaidCampaignPage() {
                   color: data.selectedVariantIds.length > 0 ? 'white' : '#94a3b8',
                 }}
               >
-                Continue with {data.selectedVariantIds.length} variant{data.selectedVariantIds.length !== 1 ? 's' : ''} →
+                {copy(
+                  `المتابعة مع ${data.selectedVariantIds.length} من مسودات النصوص`,
+                  `Continue with ${data.selectedVariantIds.length} variant${data.selectedVariantIds.length !== 1 ? 's' : ''}`
+                )}
               </button>
             </div>
           </div>
@@ -988,38 +1050,47 @@ export default function NewPaidCampaignPage() {
       case 5:
         return (
           <div>
-            <h2 className="text-[18px] font-bold text-slate-950 mb-1">Review & Setup</h2>
-            <p className="text-slate-500 text-[13px] mb-6">Your paid planning draft is saved for review. NEXUS has not launched ads or approved spend.</p>
+            <h2 className="text-[18px] font-bold text-slate-950 mb-1">{copy('المراجعة والخطوة التالية', 'Review & Next Step')}</h2>
+            <p className="text-slate-500 text-[13px] mb-6">
+              {copy('حُفظت مسودة التخطيط للمراجعة. لم يطلق NEXUS إعلاناً ولم يعتمد أو ينفق ميزانية.', 'Your paid planning draft is saved for review. NEXUS has not launched ads, approved spend, or spent budget.')}
+            </p>
 
             {/* Summary card */}
             <div className="p-4 rounded-[14px] mb-6 space-y-3 bg-white"
               style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
               <div className="flex items-center justify-between">
-                <span className="text-[12px] text-slate-500">Planning draft</span>
+                <span className="text-[12px] text-slate-500">{copy('مسودة التخطيط', 'Planning draft')}</span>
                 <span className="text-[13px] font-semibold text-slate-950">{data.name}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[12px] text-slate-500">Platform</span>
+                <span className="text-[12px] text-slate-500">{copy('المنصة', 'Platform')}</span>
                 <span className="text-[13px] font-semibold text-slate-950">{data.platform}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[12px] text-slate-500">Objective</span>
-                <span className="text-[13px] font-semibold text-slate-950">{data.objective.replace(/_/g, ' ')}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[12px] text-slate-500">Budget</span>
+                <span className="text-[12px] text-slate-500">{copy('الهدف', 'Objective')}</span>
                 <span className="text-[13px] font-semibold text-slate-950">
-                  {data.currency} {data.budgetType === 'DAILY' ? `${data.dailyBudget}/day` : `${data.lifetimeBudget} total`}
+                  {(() => {
+                    const objective = OBJECTIVES.find(item => item.id === data.objective)
+                    return objective ? (isArabic ? objective.labelAr : objective.labelEn) : data.objective.replace(/_/g, ' ')
+                  })()}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[12px] text-slate-500">Ad Variants</span>
-                <span className="text-[13px] font-semibold text-slate-950">{data.selectedVariantIds.length} selected</span>
+                <span className="text-[12px] text-slate-500">{copy('افتراض الميزانية', 'Budget assumption')}</span>
+                <span className="text-[13px] font-semibold text-slate-950">
+                  {data.currency} {data.budgetType === 'DAILY'
+                    ? copy(`${data.dailyBudget} يومياً`, `${data.dailyBudget}/day`)
+                    : copy(`${data.lifetimeBudget} إجمالاً`, `${data.lifetimeBudget} total`)}
+                </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[12px] text-slate-500">AI Strategy</span>
+                <span className="text-[12px] text-slate-500">{copy('مسودات الإعلان', 'Ad drafts')}</span>
+                <span className="text-[13px] font-semibold text-slate-950">{copy(`${data.selectedVariantIds.length} محددة`, `${data.selectedVariantIds.length} selected`)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] text-slate-500">{copy('استراتيجية التخطيط', 'Planning strategy')}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: 'rgba(5,150,105,0.1)', color: '#059669' }}>
-                  ✓ Generated
+                  ✓ {copy('أُنشئت للمراجعة', 'Generated for review')}
                 </span>
               </div>
             </div>
@@ -1027,31 +1098,32 @@ export default function NewPaidCampaignPage() {
             {/* Next steps */}
             <div className="p-4 rounded-[12px] mb-6"
               style={{ background: '#fff7ed', border: '1px solid rgba(249,115,22,0.2)' }}>
-              <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: '#c2410c' }}>Next Steps</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: '#c2410c' }}>{copy('الخطوات التالية', 'Next Steps')}</p>
               <ul className="space-y-1.5 text-[12px] text-slate-500">
-                <li>• Open the paid planning draft detail to review targeting</li>
-                <li>• Upload your creative assets (image / video)</li>
+                <li>• {copy('افتح تفاصيل المسودة لمراجعة الاستهداف والافتراضات', 'Open the planning draft details to review targeting and assumptions')}</li>
+                <li>• {copy('أضف الأصول الإبداعية المطلوبة للمراجعة', 'Add the required creative assets for review')}</li>
                 <li>
                   • {data.platform === 'META'
-                    ? 'Create paused Meta platform drafts only after readiness is confirmed'
-                    : `Export to ${data.platform} Ads Manager until its API connector is enabled`}
+                    ? copy('أنشئ مسودة Meta متوقفة فقط بعد اكتمال الجاهزية', 'Create paused Meta platform drafts only after readiness is confirmed')
+                    : copy(`صدّر المسودة إلى مدير إعلانات ${data.platform} إلى أن يتوفر موصل API معتمد`, `Export to ${data.platform} Ads Manager until its approved API connector is enabled`)}
                 </li>
-                <li>• Track performance only after real platform metrics exist or are manually reported</li>
+                <li>• {copy('ابدأ تتبع الأداء فقط بعد وصول مقاييس حقيقية من المنصة؛ الإدخال اليدوي يبقى تقريراً تشغيلياً لا تعلماً آلياً', 'Track performance only after real platform metrics arrive; manual reporting remains an operational record, not machine learning')}</li>
               </ul>
             </div>
 
             <div className="flex gap-3">
-              <button onClick={() => setStep(4)}
+              <button type="button" onClick={() => setStep(4)}
                 className="px-4 py-2.5 rounded-xl text-[13px] font-medium text-slate-500 hover:text-slate-950 transition-all"
                 style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.1)' }}>
-                ← Back
+                {copy('الرجوع', 'Back')}
               </button>
               <button
+                type="button"
                 onClick={handleOpenDraft}
                 className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white transition-all"
                 style={{ background: '#059669' }}
               >
-                Open paid planning draft →
+                {copy('فتح مسودة التخطيط المدفوع', 'Open paid planning draft')}
               </button>
             </div>
           </div>
@@ -1092,7 +1164,10 @@ export default function NewPaidCampaignPage() {
           {/* Header */}
           <div className="lg:col-span-2 flex flex-wrap items-center justify-between gap-4 rounded-[28px] border border-slate-200/80 bg-white p-5 shadow-[0_22px_70px_rgba(15,23,42,0.08)] sm:p-6">
             <div className="flex items-center gap-4">
-            <button onClick={() => router.push('/paid-campaigns')}
+            <button
+              type="button"
+              onClick={() => router.push('/paid-campaigns')}
+              aria-label={copy('العودة إلى مركز الإعلانات المدفوعة', 'Back to paid campaigns')}
               className="w-10 h-10 rounded-2xl flex items-center justify-center text-slate-500 hover:text-slate-950 transition-all"
               style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.1)' }}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -1128,7 +1203,7 @@ export default function NewPaidCampaignPage() {
 
           <div className="min-w-0">
           {/* Step bar */}
-          <StepBar step={step} total={5} />
+          <StepBar step={step} total={5} locale={locale} />
 
           {/* Card */}
           <div className="rounded-[26px] bg-white p-6 shadow-[0_18px_55px_rgba(15,23,42,0.06)]"

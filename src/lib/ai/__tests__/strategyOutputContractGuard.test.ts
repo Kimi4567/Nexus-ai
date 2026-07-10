@@ -568,7 +568,7 @@ describe('strategy runtime copy contract', () => {
     expect(runtimeCopy).toMatch(/يحدد مستوى تفصيل بريف التخطيط المدفوع فقط/)
   })
 
-  it('discloses strategy credit cost before the first modal action can continue', () => {
+  it('keeps generation and charging behind scope and final cost confirmation', () => {
     const i18n = repoFile('src/lib/i18n-context.tsx')
     const modal = repoFile('src/components/RunFullStrategyModal.tsx')
     const campaignPage = repoFile('src/app/campaigns/[id]/page.tsx')
@@ -578,9 +578,11 @@ describe('strategy runtime copy contract', () => {
     expect(i18n).toContain("langSelectTitle: 'Set up strategy request'")
     expect(i18n).toContain("langSelectTitle: 'إعداد طلب الاستراتيجية'")
     expect(i18n).not.toContain("langSelectTitle: 'Choose Strategy Language'")
-    expect(modal).toContain('Strategy cost review')
-    expect(modal).toContain('No credits are spent here. The next screen shows your balance and final confirmation before generation.')
-    expect(modal).toContain('لا يتم خصم أي كريدت هنا')
+    expect(modal).toContain('Step 1 of 4')
+    expect(modal).toContain('Step 4 of 4')
+    expect(modal).toContain('Nothing is generated or charged until the final confirmation')
+    expect(modal).toContain('لا يبدأ أي توليد أو خصم حتى التأكيد النهائي')
+    expect(modal).toContain('Review cost and confirm')
     expect(modal).toContain('Review cost —')
     expect(modal).not.toContain('{rs.langStartBtn}')
     expect(campaignPage).toContain('guardStrategyOutputContract(guardedAiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms, language: strategyLanguage, strategyType: strategyScope.type })')
@@ -589,8 +591,8 @@ describe('strategy runtime copy contract', () => {
   it('keeps paid-only campaign pages separate from the organic content-plan workflow', () => {
     const campaignPage = repoFile('src/app/campaigns/[id]/page.tsx')
 
-    expect(campaignPage).toContain("label: locale === 'ar' ? 'بريف مدفوع' : 'Paid brief'")
-    expect(campaignPage).toContain("label: locale === 'ar' ? 'جاهزية الإطلاق' : 'Launch readiness'")
+    expect(campaignPage).toContain("uiText('بريف تخطيط مدفوع للمراجعة', 'Paid planning brief for review')")
+    expect(campaignPage).toContain("uiText('مراجعة فقط — لا إطلاق', 'Review only — no launch')")
     expect(campaignPage).toContain("const displayOperatingLabel = isPaidOnlyStrategy")
     expect(campaignPage).toContain("activeTab !== 0 && !isPaidOnlyStrategy && !engineRunning && sentinelStatus === 'passed'")
   })
@@ -604,9 +606,9 @@ describe('strategy runtime copy contract', () => {
     expect(campaignPage).toContain('Not included in this organic run')
     expect(campaignPage).toContain('Paid planning is not included in this organic run')
     expect(strategyPage).toContain('const includesPaidPlanning = strategyScope.includesPaid')
-    expect(strategyPage).toContain('Not included in this organic run')
-    expect(modal).toContain('Paid not included')
-    expect(modal).toContain('This request is organic only')
+    expect(strategyPage).toContain('Paid planning is not included; run Paid or Full later if needed')
+    expect(modal).toContain('This request is organic only. Paid planning, ad launch, and spend are not included in this run.')
+    expect(modal).toContain('هذا طلب عضوي فقط. التخطيط المدفوع وإطلاق الإعلانات والإنفاق غير مشمولة في هذا التشغيل.')
     expect(modal).not.toContain('90/180-day strategies include a full roadmap')
   })
 

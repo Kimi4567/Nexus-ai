@@ -64,7 +64,7 @@ beforeEach(() => {
     workspaceId: 'w1',
     name: 'Paid Growth',
     goal: 'leads',
-    aiOutput: { summary: 'Strategy summary' },
+    aiOutput: { strategyType: 'paid', summary: 'Strategy summary' },
   })
   mockPrisma.brandProfile.findUnique.mockResolvedValue({
     brandName: 'Nexus',
@@ -112,6 +112,25 @@ describe('POST /api/campaigns/[id]/paid-pack/generate — RF-2A refund safety', 
     const res = await POST(makeReq(), ctx('missing'))
     expect(res.status).toBe(404)
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+  })
+
+  it('organic-only campaigns are rejected before credits or provider calls', async () => {
+    mockPrisma.campaign.findFirst.mockResolvedValue({
+      id: 'c1',
+      workspaceId: 'w1',
+      name: 'Organic Growth',
+      goal: 'awareness',
+      aiOutput: { strategyType: 'organic', summary: 'Organic strategy summary' },
+    })
+
+    const res = await POST(makeReq(), ctx())
+    const json = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(json.error).toBe('PAID_PLANNING_OUT_OF_SCOPE')
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+    expect(mockPrisma.paidCampaignPack.findUnique).not.toHaveBeenCalled()
   })
 
   it('context lookup failure before provider call does not deduct or refund', async () => {

@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { derivePublishingState, type PublishingState } from '@/lib/operatingBriefStatus'
+import { hasRealPerformanceAnalytics, numberFromPerformanceMetric } from '@/lib/performanceEvidence'
+import { Prisma } from '@prisma/client'
 
 type SignalSeverity = 'good' | 'watch' | 'risk'
 type ActionPriority = 'high' | 'medium' | 'low'
@@ -86,20 +88,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
 
-function numberFrom(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return null
-}
-
 function averageEngagement(posts: SocialPostSnapshot[]): number | null {
   const rates = posts
     .map(post => {
-      if (!isRecord(post.analyticsData)) return null
-      return numberFrom(post.analyticsData.engagementRate)
+      if (!hasRealPerformanceAnalytics(post.analyticsData) || !isRecord(post.analyticsData)) return null
+      return numberFromPerformanceMetric(post.analyticsData.engagementRate)
     })
     .filter((rate): rate is number => rate !== null)
 
@@ -181,10 +174,6 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
     }
   }
 
-  const startOfMonth = new Date()
-  startOfMonth.setDate(1)
-  startOfMonth.setHours(0, 0, 0, 0)
-
   const db = prisma as unknown as {
     socialPost: {
       findMany(args: unknown): Promise<SocialPostSnapshot[]>
@@ -201,9 +190,8 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
   const [
     brand,
     totalCampaigns,
+    strategyCampaigns,
     activeCampaigns,
-    campaignsThisMonth,
-    generations,
     recentPosts,
     draftPosts,
     scheduledPosts,
@@ -229,9 +217,16 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       },
     }) as Promise<BrandProfileSnapshot | null>,
     prisma.campaign.count({ where: { workspaceId: workspace.id } }),
+    prisma.campaign.count({
+      where: {
+        workspaceId: workspace.id,
+        OR: [
+          { strategy: { not: Prisma.DbNull } },
+          { aiOutput: { not: Prisma.DbNull } },
+        ],
+      },
+    }),
     prisma.campaign.count({ where: { workspaceId: workspace.id, status: 'ACTIVE' } }),
-    prisma.campaign.count({ where: { workspaceId: workspace.id, createdAt: { gte: startOfMonth } } }),
-    prisma.generation.count({ where: { campaign: { workspaceId: workspace.id } } }),
     db.socialPost.findMany({
       where: { workspaceId: workspace.id },
       orderBy: { updatedAt: 'desc' },
@@ -259,10 +254,10 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
   ])
 
   const brandScore = scoreBrandReadiness(brand)
-  const hasStrategy = totalCampaigns > 0 && generations > 0
-  const hasContent = recentPosts.length > 0 || generations > 0
+  const hasStrategy = strategyCampaigns > 0
+  const hasContent = recentPosts.length > 0
   const hasPublishing = publishedPosts > 0 || scheduledPosts > 0 || connectedIntegrations > 0
-  const hasLearning = Boolean(
+  const hasReviewedSignals = Boolean(
     brand &&
     (brand.winningHooks.length > 0 ||
       brand.winningAngles.length > 0 ||
@@ -270,7 +265,9 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       brand.topPlatforms.length > 0 ||
       hasAiInsights(brand.aiInsights))
   )
-  const loop = { strategy: hasStrategy, content: hasContent, publishing: hasPublishing, learning: hasLearning }
+  const postsWithAnalytics = recentPosts.filter(post => hasRealPerformanceAnalytics(post.analyticsData)).length
+  const hasPerformanceLearning = postsWithAnalytics > 0
+  const loop = { strategy: hasStrategy, content: hasContent, publishing: hasPublishing, learning: hasPerformanceLearning }
   const completedLoopCount = Object.values(loop).filter(Boolean).length
   const loopScore = completedLoopCount * 15
   const volumeScore = Math.min(20, totalCampaigns * 4 + publishedPosts * 2 + scheduledPosts)
@@ -284,7 +281,7 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
   // Dynamic hrefs — context-aware routing
   const mostRecentCampaignId = mostRecentCampaign?.id ?? null
   const contentPlanHref = mostRecentCampaignId
-    ? `/campaigns/${mostRecentCampaignId}?action=generate-plan`
+    ? `/campaigns/${mostRecentCampaignId}/content-hub`
     : '/campaigns'
 
   const actions: MarketingAction[] = []
@@ -295,8 +292,8 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       '/brand?from=brief',
       'Complete Brand Brain',
       'أكمل Brand Brain',
-      'The agents need sharper positioning, audience, offer, and reviewed signal memory before they can behave like a senior marketing team.',
-      'الوكلاء يحتاجون تموضعا وجمهورا وعرضا وذاكرة تعلم أوضح حتى يعملوا كفريق تسويق ناضج.'
+      'The agents need sharper positioning, audience, offer, and reviewed signal context before they can behave like a senior marketing team.',
+      'الوكلاء يحتاجون تموضعًا وجمهورًا وعرضًا وسياق إشارات مراجَعًا أوضح حتى يعملوا كفريق تسويق ناضج.'
     ))
   }
   if (totalCampaigns === 0) {
@@ -320,7 +317,7 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
     actions.push(action(
       'run-full-strategy',
       'high',
-      '/dashboard?runStrategy=1',
+      '/strategy',
       'Open the strategy workflow',
       'افتح مسار الاستراتيجية',
       'Campaigns exist, but the strategy loop is not confirmed yet. Review the strategy workflow before approving execution.',
@@ -353,29 +350,29 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
     actions.push(action(
       'schedule-drafts',
       'medium',
-      '/schedule',
+      '/calendar',
       'Schedule draft content',
       'جدول المحتوى المسود',
       'Drafts are waiting in the system; scheduling turns the plan into execution.',
       'المسودات تنتظر داخل النظام؛ الجدولة تحول الخطة إلى تنفيذ.'
     ))
   }
-  if (publishedPosts > 0 && !hasLearning) {
+  if (publishedPosts > 0 && !hasPerformanceLearning) {
     actions.push(action(
-      'capture-learning',
+      'connect-performance-evidence',
       'medium',
-      '/brand?from=brief',
-      'Review published-content signals',
-      'راجع إشارات المحتوى المنشور',
-      'Published or manually recorded work can be reviewed as workflow signals; performance learning needs real analytics data.',
-      'يمكن مراجعة المحتوى المنشور أو المسجل يدوياً كإشارات سير عمل؛ أما تعلم الأداء فيحتاج بيانات تحليلات حقيقية.'
+      '/analytics',
+      'Connect performance evidence',
+      'اربط دليل الأداء',
+      'Published or manually recorded work is a workflow signal only. Connect trusted analytics before NEXUS learns performance patterns.',
+      'المحتوى المنشور أو المسجل يدويًا هو إشارة سير عمل فقط. اربط تحليلات موثوقة قبل أن يتعلم NEXUS أنماط الأداء.'
     ))
   }
   if (publishedPosts >= 2 && !hasAbTests) {
     actions.push(action(
       'create-ab-test',
       'low',
-      '/campaigns',
+      mostRecentCampaignId ? `/campaigns/${mostRecentCampaignId}/content-hub` : '/campaigns',
       'Create an A/B variant',
       'أنشئ اختبار A/B',
       'The next jump in intelligence comes from comparing hooks, angles, and CTAs instead of guessing.',
@@ -430,9 +427,17 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       id: 'learning',
       label: 'Signal evidence',
       labelAr: 'دليل الإشارات',
-      value: hasLearning ? 'Signals saved' : 'Not captured',
-      valueAr: hasLearning ? 'إشارات محفوظة' : 'غير مسجل',
-      severity: hasLearning ? 'good' : 'watch',
+      value: hasReviewedSignals ? 'Reviewed signals saved' : 'Not captured',
+      valueAr: hasReviewedSignals ? 'إشارات مراجَعة محفوظة' : 'غير مسجل',
+      severity: hasReviewedSignals ? 'good' : 'watch',
+    },
+    {
+      id: 'performance-evidence',
+      label: 'Performance evidence',
+      labelAr: 'دليل الأداء',
+      value: hasPerformanceLearning ? `${postsWithAnalytics} post${postsWithAnalytics === 1 ? '' : 's'} with analytics` : 'Waiting for analytics',
+      valueAr: hasPerformanceLearning ? `${postsWithAnalytics} منشور بتحليلات` : 'بانتظار التحليلات',
+      severity: hasPerformanceLearning ? 'good' : 'watch',
     },
   ]
 

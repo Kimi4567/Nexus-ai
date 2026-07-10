@@ -167,6 +167,7 @@ export default function PaidCampaignsPage() {
   const [loading, setLoading] = useState(true)
   const [platformFilter, setPlatformFilter] = useState<string>('ALL')
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
+  const [searchQuery, setSearchQuery] = useState('')
   const [connectingMeta, setConnectingMeta] = useState(false)
 
   const fetchData = useCallback(async () => {
@@ -237,8 +238,13 @@ export default function PaidCampaignsPage() {
   const filteredCampaigns = useMemo(() => campaigns.filter((campaign) => {
     if (platformFilter !== 'ALL' && campaign.platform !== platformFilter) return false
     if (statusFilter !== 'ALL' && campaign.status !== statusFilter) return false
+    if (searchQuery.trim()) {
+      const query = searchQuery.trim().toLocaleLowerCase(locale)
+      const haystack = `${campaign.name} ${campaign.objective} ${PLATFORMS[campaign.platform].label}`.toLocaleLowerCase(locale)
+      if (!haystack.includes(query)) return false
+    }
     return true
-  }), [campaigns, platformFilter, statusFilter])
+  }), [campaigns, locale, platformFilter, searchQuery, statusFilter])
 
   const summary = useMemo(() => {
     const totalSpend = campaigns.reduce((sum, campaign) => sum + campaign.totalSpend, 0)
@@ -317,10 +323,15 @@ export default function PaidCampaignsPage() {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <span className="inline-flex h-10 items-center gap-2 rounded-[14px] border border-[#e3e8f3] bg-[#fbfcff] px-3 text-[12px] font-bold text-[#64708f]">
+                    <label className="inline-flex h-10 min-w-[220px] items-center gap-2 rounded-[14px] border border-[#e3e8f3] bg-[#fbfcff] px-3 text-[12px] font-bold text-[#64708f] focus-within:border-[#8f98ff]">
                       <Search className="h-4 w-4" />
-                      {ar ? 'بحث قريباً' : 'Search soon'}
-                    </span>
+                      <input
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        placeholder={ar ? 'ابحث في التخطيط المدفوع' : 'Search paid planning'}
+                        className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-[#9aa4b8]"
+                      />
+                    </label>
                     <span className="inline-flex h-10 items-center gap-2 rounded-[14px] border border-[#e3e8f3] bg-[#fbfcff] px-3 text-[12px] font-bold text-[#64708f]">
                       <Filter className="h-4 w-4" />
                       {filteredCampaigns.length} / {campaigns.length}
