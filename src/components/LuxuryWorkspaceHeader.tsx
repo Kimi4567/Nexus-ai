@@ -53,12 +53,12 @@ export default function LuxuryWorkspaceHeader({
         </Link>
       </header>
 
-      <header dir="ltr" className="mb-5 hidden gap-4 border-b border-slate-200/80 pb-4 md:flex md:flex-col lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex items-center gap-3">
+      <header dir="ltr" className="mb-5 hidden gap-4 border-b border-slate-200/80 pb-4 md:flex md:flex-col min-[1400px]:flex-row min-[1400px]:items-center min-[1400px]:justify-between">
+      <div className="flex min-w-0 items-center gap-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#101A4D] text-white shadow-[0_16px_34px_rgba(16,26,77,0.20)]">
           <Sparkles className="h-5 w-5" />
         </div>
-        <div dir={ar ? 'rtl' : 'ltr'}>
+        <div className="min-w-0" dir={ar ? 'rtl' : 'ltr'}>
           <p className="text-[12px] font-semibold text-slate-500">{ar ? 'مساحة العمل' : 'Workspace'}</p>
           <h1 className="text-[18px] font-black tracking-normal text-[#0B1028]">
             {pageTitle || (ar ? 'نظام التسويق الذكي' : 'AI Marketing OS')}
@@ -74,8 +74,8 @@ export default function LuxuryWorkspaceHeader({
         </Link>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 lg:max-w-3xl lg:flex-row lg:items-center lg:justify-end">
-        <div className="flex h-11 min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-slate-400 lg:w-[360px]">
+      <div className="flex w-full flex-1 flex-col gap-3 min-[1400px]:max-w-3xl min-[1400px]:flex-row min-[1400px]:items-center min-[1400px]:justify-end">
+        <div className="flex h-11 min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-slate-400 min-[1400px]:w-[360px]">
           <Search className="h-4 w-4 shrink-0" />
           <span className="truncate text-[13px]" dir={ar ? 'rtl' : 'ltr'}>{ar ? 'ابحث في Nexus...' : 'Search in Nexus...'}</span>
           <span className="ms-auto rounded-lg border border-slate-200 px-2 py-0.5 text-[11px] text-slate-400">⌘K</span>
