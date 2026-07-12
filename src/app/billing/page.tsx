@@ -22,78 +22,6 @@ import {
 
 const PLANS = [
   {
-    id: 'free',
-    nameAr: 'مجاني',
-    nameEn: 'Free',
-    price: 0,
-    creditsAr: '10 رصيد — مرة واحدة فقط',
-    creditsEn: '10 credits — one-time only',
-    accentColor: '#6b7280',
-    featured: false,
-    badgeAr: null as string | null,
-    badgeEn: null as string | null,
-    descAr: 'جرّب المنصة، لا بطاقة مطلوبة',
-    descEn: 'Try the platform — no credit card needed',
-    upgradeHintAr: null as string | null,
-    upgradeHintEn: null as string | null,
-    limitsAr: [
-      '10 رصيد AI (مرة واحدة، لا يتجدد)',
-      'مساحة عمل واحدة',
-      'حملة واحدة كحد أقصى',
-      '3 بوستات للتجربة',
-      'منصة اجتماعية واحدة',
-      'علامة مائية على الصادرات',
-      'دعم مجتمعي',
-    ],
-    limitsEn: [
-      '10 AI credits (one-time, never refreshes)',
-      '1 workspace',
-      '1 campaign maximum',
-      '3 posts to try',
-      '1 social platform',
-      'Watermarked exports',
-      'Community support',
-    ],
-  },
-  {
-    id: 'starter',
-    nameAr: 'ستارتر',
-    nameEn: 'Starter',
-    price: 19,
-    creditsAr: '50 رصيد / شهر — يتجدد تلقائياً',
-    creditsEn: '50 credits / month — renews monthly',
-    accentColor: '#3b82f6',
-    featured: false,
-    badgeAr: null as string | null,
-    badgeEn: null as string | null,
-    descAr: 'ابدأ ببناء حضور منتظم على منصتين',
-    descEn: 'Build consistent presence on 1-2 platforms',
-    upgradeHintAr: '10 بوستات/شهر مناسبة للبداية. عندما تحتاج وتيرة أعلى، يمكنك الترقية إلى Growth.' as string | null,
-    upgradeHintEn: '10 posts/month is ideal to start. Upgrade to Growth when you need a higher publishing pace.' as string | null,
-    limitsAr: [
-      '50 رصيد AI / شهر (يتجدد شهرياً)',
-      'مساحة عمل واحدة (براند واحد)',
-      'حملتان / شهر',
-      '10 بوستات / شهر',
-      'منصتان اجتماعيتان',
-      'Brand Brain الكامل + جميع الوكلاء',
-      'ذاكرة الحملات (تعلّم من كل حملة)',
-      'تصدير بدون علامة مائية',
-      'دعم بريد إلكتروني',
-    ],
-    limitsEn: [
-      '50 AI credits / month (renews monthly)',
-      '1 workspace (1 brand)',
-      '2 campaigns / month',
-      '10 AI posts / month',
-      '2 social platforms',
-      'Full Brand Brain + all AI agents',
-      'Campaign Memory (AI learns your brand)',
-      'No-watermark exports',
-      'Email support',
-    ],
-  },
-  {
     id: 'pro',
     nameAr: 'جروث',
     nameEn: 'Growth',
@@ -111,43 +39,43 @@ const PLANS = [
     limitsAr: [
       '150 رصيد AI / شهر (يتجدد شهرياً)',
       '3 مساحات عمل (3 براندات)',
-      '5 حملات / شهر',
+      '10 حملات / شهر',
       '25 بوست / شهر',
       'المنصات المدعومة حسب إعدادات مساحة العمل',
       'Brand Brain الكامل + ذاكرة الحملات',
       'تحميل الميديا + طبقات البراند',
       'اختبار A/B + إعادة كتابة بالـ AI',
       'تحليلات متقدمة',
-      'تصدير PDF + DOCX',
-      'دعم بريد إلكتروني بأولوية',
+      'تصدير HTML قابل للطباعة + JSON',
+      'دعم عبر البريد الإلكتروني حسب التوفر',
     ],
     limitsEn: [
       '150 AI credits / month (renews monthly)',
       '3 workspaces (3 brands)',
-      '5 campaigns / month',
+      '10 campaigns / month',
       '25 AI posts / month',
       'Supported social platforms based on workspace setup',
       'Full Brand Brain + Campaign Memory',
       'Media uploads + Brand overlays',
       'A/B Testing + AI Rewrite',
       'Advanced analytics',
-      'PDF + DOCX export',
-      'Priority email support',
+      'Printable HTML + JSON export',
+      'Email support as available',
     ],
   },
   {
     id: 'business',
-    nameAr: 'وكالة',
-    nameEn: 'Agency',
+    nameAr: 'أوتوبايلوت',
+    nameEn: 'Autopilot',
     price: 99,
     creditsAr: '500 رصيد / شهر — يتجدد تلقائياً',
     creditsEn: '500 credits / month — renews monthly',
     accentColor: '#10b981',
     featured: false,
-    badgeAr: 'للوكالات',
-    badgeEn: 'For agencies',
-    descAr: 'للوكالات التي تدير عدة براندات من مكان واحد',
-    descEn: 'For agencies managing multiple brands from one workspace',
+    badgeAr: 'تشغيل متقدم',
+    badgeEn: 'Advanced operations',
+    descAr: 'لتشغيل عدة براندات مع مراقبة واقتراحات مستمرة',
+    descEn: 'For multi-brand operations with continuous monitoring',
     upgradeHintAr: null as string | null,
     upgradeHintEn: null as string | null,
     limitsAr: [
@@ -155,27 +83,34 @@ const PLANS = [
       '10 مساحات عمل (10 براندات أو عملاء)',
       'حملات غير محدودة / شهر',
       '60 بوست / شهر',
+      'مراقبة مستمرة + قائمة قرارات مبنية على الأدلة',
       'المنصات المدعومة + نشر متعدد الحسابات حسب الإتاحة',
-      'مقعدان للفريق مضمّنان (+$19/إضافي)',
-      'تقارير White-label (شعارك)',
-      'وصول API (حسب إتاحة البيتا)',
+      'قائمة قرارات ومراجعات بشرية قبل التنفيذ',
+      'تصدير HTML قابل للطباعة + JSON',
+      'نشر على المنصات المتصلة حسب موافقات المزود',
       'تحليلات متقدمة',
-      'قنوات دعم أولوية (حسب إتاحة البيتا)',
+      'سجل أدلة ومصدر لكل توصية أداء',
     ],
     limitsEn: [
       '500 AI credits / month (renews monthly)',
       '10 workspaces (10 brands / clients)',
       'Unlimited campaigns / month',
       '60 AI posts / month',
+      'Continuous monitoring + evidence-backed action queue',
       'Supported platforms + multi-account publishing as available',
-      '2 team seats included (+$19/extra)',
-      'White-label reports (your logo)',
-      'API access (as available in beta)',
+      'Human approval queue before execution',
+      'Printable HTML + JSON export',
+      'Publishing to connected platforms as provider access allows',
       'Advanced analytics',
-      'Priority support channels (as available in beta)',
+      'Evidence and provenance trail for performance recommendations',
     ],
   },
 ]
+
+const CREDIT_PACKS = [
+  { id: 'boost-100', credits: 100, price: 29 },
+  { id: 'scale-300', credits: 300, price: 69 },
+] as const
 
 // ─── Credit cost breakdown ────────────────────────────────────────────────────
 // Keep in sync with src/lib/credits.ts → CREDIT_COSTS
@@ -191,11 +126,13 @@ const CREDIT_ACTIONS = [
   },
   {
     icon: Brain,
-    labelAr: 'تشغيل الاستراتيجية الكاملة',
-    labelEn: 'Run full strategy',
-    cost: 8,
-    noteAr: 'كل الوكلاء: NEX + VEX + PULSE + SENTINEL',
-    noteEn: 'All agents: NEX + VEX + PULSE + SENTINEL',
+    labelAr: 'إنشاء الاستراتيجية',
+    labelEn: 'Strategy generation',
+    cost: null,
+    costAr: 'متغير',
+    costEn: 'Varies',
+    noteAr: 'التكلفة تعتمد على نوع الاستراتيجية والمدة وكثافة المحتوى.',
+    noteEn: 'Cost depends on strategy scope, duration, and content intensity.',
   },
   {
     icon: Image,
@@ -251,28 +188,28 @@ const CREDIT_ACTIONS = [
 
 const FAQS = [
   {
-    qAr: 'لماذا Starter أقل من 16 بوست / شهر؟',
-    qEn: 'Why is Starter below 16 posts / month?',
-    aAr: 'هذا مقصود. Starter مناسب لبداية ثابتة على منصة أو منصتين، وGrowth مناسب عندما تحتاج وتيرة نشر أعلى وتغطية قنوات أوسع.',
-    aEn: 'Starter is designed for a steady start on 1-2 platforms. Growth is for teams that need a higher publishing pace and broader channel coverage.',
+    qAr: 'هل التجربة المجانية باقة ثالثة؟',
+    qEn: 'Is the free trial a third plan?',
+    aAr: 'لا. توجد باقتان مدفوعتان فقط: Growth وAutopilot. أرصدة التجربة تساعدك على تقييم المنتج قبل الاشتراك.',
+    aEn: 'No. There are exactly two paid plans: Growth and Autopilot. Trial credits let you evaluate the product before subscribing.',
   },
   {
     qAr: 'هل تتجدد الأرصدة كل شهر؟',
     qEn: 'Do credits renew every month?',
-    aAr: 'نعم، لجميع الخطط المدفوعة (Starter وGrowth وAgency). الخطة المجانية تمنحك 10 أرصدة مرة واحدة فقط لا تتجدد — لتجربة المنصة قبل الالتزام.',
-    aEn: 'Yes, for all paid plans (Starter, Growth, Agency). The Free plan gives you 10 credits once — they never refresh — so you can experience the platform before committing.',
+    aAr: 'نعم، في Growth وAutopilot. أرصدة التجربة لا تتجدد، والأرصدة الإضافية المشتراة صالحة لمدة 12 شهراً.',
+    aEn: 'Yes, on Growth and Autopilot. Trial credits do not renew; purchased credits remain valid for 12 months.',
   },
   {
-    qAr: 'ما الفرق بين Growth وAgency؟',
-    qEn: 'What is the difference between Growth and Agency?',
-    aAr: 'Growth مناسب لبراند واحد يحتاج وتيرة محتوى أسرع. Agency مناسب لفرق تدير عدة عملاء أو براندات من مكان واحد.',
-    aEn: 'Growth is built for one brand with a faster content pace. Agency is built for multi-client teams that manage multiple brands from one place.',
+    qAr: 'ما الفرق بين Growth وAutopilot؟',
+    qEn: 'What is the difference between Growth and Autopilot?',
+    aAr: 'Growth مناسب لتشغيل النمو اليومي، بينما Autopilot يضيف سعة أكبر ومراقبة مستمرة وتشغيل عدة براندات.',
+    aEn: 'Growth covers day-to-day brand growth; Autopilot adds more capacity, continuous monitoring, and multi-brand operations.',
   },
   {
     qAr: 'ماذا يحدث إذا نفدت أرصدتي قبل نهاية الشهر؟',
     qEn: 'What happens if I run out of credits?',
-    aAr: 'ستتوقف عمليات الـ AI حتى تترقى أو يبدأ شهر جديد. يمكنك دائماً عرض حملاتك وبياناتك الموجودة. ستظهر رسالة واضحة مع رابط ترقية.',
-    aEn: 'AI actions pause until you upgrade or your billing cycle renews. You can always view existing campaigns and data. A clear message appears with an upgrade link.',
+    aAr: 'يمكنك شراء حزمة أرصدة إضافية أو الانتظار حتى التجديد. تظل حملاتك وبياناتك متاحة دائماً.',
+    aEn: 'You can buy an additional credit pack or wait for renewal. Existing campaigns and data remain available.',
   },
   {
     qAr: 'هل يمكنني إلغاء اشتراكي في أي وقت؟',
@@ -302,6 +239,14 @@ export default function BillingPage() {
     status: string
     hasActiveSubscription: boolean
     billingEnabled?: boolean
+    creditPacksEnabled?: boolean
+    creditBreakdown?: {
+      monthly: number
+      purchased: number
+      trial: number
+      other: number
+      nextPurchasedExpiry: string | null
+    } | null
     credits: {
       remaining: number
       used: number
@@ -312,6 +257,7 @@ export default function BillingPage() {
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [upgrading, setUpgrading] = useState<string | null>(null)
+  const [buyingPack, setBuyingPack] = useState<string | null>(null)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const [billingMessage, setBillingMessage] = useState<string | null>(null)
   const [showCreditHistory, setShowCreditHistory] = useState(false)
@@ -328,7 +274,10 @@ export default function BillingPage() {
   }, [session])
 
   const handleUpgrade = async (planId: string) => {
-    if (!session?.access_token) return
+    if (!session?.access_token) {
+      window.location.href = `/auth/register?plan=${encodeURIComponent(planId)}`
+      return
+    }
     if (billingStatus?.billingEnabled === false) {
       setBillingMessage(ar
         ? 'الاشتراكات المدفوعة غير مفعلة مؤقتا أثناء مرحلة البيتا. يمكنك استخدام الأرصدة المجانية الآن.'
@@ -365,8 +314,34 @@ export default function BillingPage() {
     } catch (e) { console.error(e) }
   }
 
-  const currentPlan = billingStatus?.plan?.toLowerCase() || 'free'
-  const billingEnabled = billingStatus?.billingEnabled !== false
+  const handleBuyCredits = async (packId: string) => {
+    if (!session?.access_token) return
+    setBuyingPack(packId)
+    setBillingMessage(null)
+    try {
+      const response = await fetch('/api/billing/credits/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ packId }),
+      })
+      const data = await response.json()
+      if (data.url) window.location.href = data.url
+      else setBillingMessage(data.error || (ar ? 'تعذر بدء عملية الشراء.' : 'Could not start checkout.'))
+    } catch (error) {
+      console.error(error)
+      setBillingMessage(ar ? 'تعذر بدء عملية الشراء.' : 'Could not start checkout.')
+    } finally {
+      setBuyingPack(null)
+    }
+  }
+
+  const rawCurrentPlan = billingStatus?.plan?.toLowerCase() || 'free'
+  const currentPlan = rawCurrentPlan === 'starter' ? 'pro' : rawCurrentPlan === 'agency' ? 'business' : rawCurrentPlan
+  const isAuthenticated = Boolean(session?.access_token)
+  const billingEnabled = billingStatus?.billingEnabled === true
   const currentCredits = billingStatus?.credits?.remaining ?? 0
   const monthlyCredits = billingStatus?.credits?.max ?? 20
 
@@ -460,6 +435,13 @@ export default function BillingPage() {
                 {creditDisp.secondary && (
                   <p className="text-[11px] text-slate-400 mt-1 leading-snug">{creditDisp.secondary}</p>
                 )}
+                {billingStatus.creditBreakdown && (
+                  <p className="mt-1 text-[11px] leading-snug text-slate-400">
+                    {ar
+                      ? `شهري ${billingStatus.creditBreakdown.monthly} · مشتَرى ${billingStatus.creditBreakdown.purchased} · تجريبي ${billingStatus.creditBreakdown.trial}`
+                      : `Monthly ${billingStatus.creditBreakdown.monthly} · Purchased ${billingStatus.creditBreakdown.purchased} · Trial ${billingStatus.creditBreakdown.trial}`}
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
@@ -487,16 +469,25 @@ export default function BillingPage() {
         {/* ── Plan cards ─────────────────────────────────────────────────── */}
         <div>
           <h2 className="text-2xl font-bold text-slate-950 mb-2">
-            {ar ? 'اختر الخطة المناسبة لك' : 'Choose the right plan'}
+            {ar ? 'باقتان واضحتان، حسب مستوى التشغيل' : 'Two plans, matched to your operating level'}
           </h2>
           <p className="text-sm text-slate-500 mb-8">
             {ar
-              ? 'جميع الخطط المدفوعة تجدد أرصدتها شهرياً. الفيديو بحصة مستقلة لضمان الاستقرار.'
-              : 'All paid plans refresh monthly. Video generation has a separate quota for pricing stability.'
+              ? 'Growth للتشغيل اليومي، وAutopilot للسعة الأكبر والمراقبة المستمرة. أرصدة التجربة ليست باقة ثالثة.'
+              : 'Growth covers daily execution; Autopilot adds capacity and continuous monitoring. Trial credits are not a third plan.'
             }
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="mb-6 flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4">
+            <Gift className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
+            <p className="text-sm leading-relaxed text-slate-600">
+              {ar
+                ? 'ابدأ بـ10 أرصدة تجريبية لمدة 14 يوماً، بدون بطاقة. بعدها اختر واحدة من الباقتين المدفوعتين.'
+                : 'Start with 10 trial credits for 14 days, with no card. Then choose one of the two paid plans.'}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {PLANS.map((plan) => {
               const isCurrent = currentPlan === plan.id
               const isPopular = plan.featured
@@ -554,7 +545,7 @@ export default function BillingPage() {
                     ))}
                   </ul>
 
-                  {/* Upgrade hint — only for Starter */}
+                  {/* Optional plan-specific upgrade hint */}
                   {(ar ? plan.upgradeHintAr : plan.upgradeHintEn) && (
                     <div className="mb-4 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
                       <p className="text-xs text-amber-300/80 leading-relaxed flex items-start gap-1.5">
@@ -579,7 +570,7 @@ export default function BillingPage() {
                   ) : (
                     <button
                       onClick={() => handleUpgrade(plan.id)}
-                      disabled={upgrading === plan.id || !billingEnabled}
+                      disabled={upgrading === plan.id || (isAuthenticated && !billingEnabled)}
                       className={`w-full py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 ${
                         isPopular
                           ? 'bg-slate-950 hover:bg-slate-800 shadow-[0_12px_28px_rgba(15,23,42,0.16)]'
@@ -588,7 +579,7 @@ export default function BillingPage() {
                     >
                       {upgrading === plan.id
                         ? (ar ? 'جاري التحويل...' : 'Redirecting...')
-                        : !billingEnabled
+                        : isAuthenticated && !billingEnabled
                         ? (ar ? 'قريبا' : 'Coming soon')
                         : (ar ? `ابدأ ${plan.nameAr} — $${plan.price}/شهر` : `Start ${plan.nameEn} — $${plan.price}/mo`)
                       }
@@ -600,6 +591,48 @@ export default function BillingPage() {
           </div>
         </div>
 
+        {/* ── One-time credit wallet ─────────────────────────────────────── */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-600">
+                {ar ? 'محفظة الرصيد' : 'Credit wallet'}
+              </p>
+              <h2 className="mt-1 text-xl font-bold text-slate-950">
+                {ar ? 'أضف رصيداً بدون تغيير باقتك' : 'Add credits without changing your plan'}
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {ar
+                  ? 'الأرصدة المشتراة صالحة 12 شهراً ولا تُمسح عند التجديد أو إلغاء الاشتراك.'
+                  : 'Purchased credits remain valid for 12 months and survive renewal or cancellation.'}
+              </p>
+            </div>
+            {!billingStatus?.creditPacksEnabled && (
+              <span className="w-fit rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+                {ar ? 'بانتظار تفعيل Stripe والمحفظة' : 'Awaiting Stripe + wallet activation'}
+              </span>
+            )}
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            {CREDIT_PACKS.map((pack) => (
+              <div key={pack.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div>
+                  <p className="text-lg font-bold text-slate-950">{pack.credits} {ar ? 'رصيد' : 'credits'}</p>
+                  <p className="text-xs text-slate-500">${pack.price} · {ar ? 'دفعة واحدة' : 'one-time'}</p>
+                </div>
+                <button
+                  onClick={() => handleBuyCredits(pack.id)}
+                  disabled={!billingStatus?.creditPacksEnabled || buyingPack === pack.id}
+                  className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {buyingPack === pack.id ? (ar ? 'جاري التحويل...' : 'Redirecting...') : (ar ? 'اشترِ' : 'Buy')}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* ── Credit cost breakdown ───────────────────────────────────────── */}
         <div>
           <h2 className="text-xl font-bold text-slate-950 mb-1">
@@ -607,8 +640,8 @@ export default function BillingPage() {
           </h2>
           <p className="text-sm text-slate-500 mb-6">
             {ar
-              ? 'قيمة الرصيد: Starter = $0.38/رصيد · Growth = $0.33/رصيد · Agency = $0.20/رصيد (توفر أكثر مع الترقية)'
-              : 'Credit value: Starter = $0.38/cr · Growth = $0.33/cr · Agency = $0.20/cr (better value as you scale)'
+              ? 'قيمة الرصيد الشهري: Growth ≈ $0.33/رصيد · Autopilot ≈ $0.20/رصيد. تكلفة الاستراتيجية متغيرة حسب النطاق.'
+              : 'Monthly credit value: Growth ≈ $0.33/cr · Autopilot ≈ $0.20/cr. Strategy cost varies by scope.'
             }
           </p>
 
@@ -633,7 +666,9 @@ export default function BillingPage() {
                   </div>
                   <div className="text-right shrink-0">
                     <span className="text-sm font-bold text-slate-950 tabular-nums">
-                      {action.cost} <span className="text-slate-500 text-xs font-normal">{ar ? 'رصيد' : 'cr'}</span>
+                      {typeof action.cost === 'number'
+                        ? <>{action.cost} <span className="text-slate-500 text-xs font-normal">{ar ? 'رصيد' : 'cr'}</span></>
+                        : (ar ? action.costAr : action.costEn)}
                     </span>
                   </div>
                 </div>
@@ -648,12 +683,12 @@ export default function BillingPage() {
               <div className="text-sm text-slate-600 leading-relaxed">
                 {ar ? (
                   <>
-                    <span className="text-slate-950 font-semibold">Growth (150 رصيد)</span> = 30 حملة كاملة · أو 50 صورة · أو 18 استراتيجية كاملة · أو أي مزيج —
+                    <span className="text-slate-950 font-semibold">Growth (150 رصيد)</span> = حتى 30 عملية توليد حملة · أو 50 صورة · أو مزيج من الإجراءات. تكلفة الاستراتيجية تتغير حسب نطاقها —
                      {' '}<span className="text-violet-700">وتناسب فرقًا تحتاج وتيرة نشر أعلى عبر قنوات متعددة</span>
                   </>
                 ) : (
                   <>
-                    <span className="text-slate-950 font-semibold">Growth (150 credits)</span> = 30 campaigns · or 50 images · or 18 full strategies · or any mix —
+                    <span className="text-slate-950 font-semibold">Growth (150 credits)</span> = up to 30 campaign generations · or 50 images · or a mix of actions. Strategy cost varies by scope —
                      {' '}<span className="text-violet-700">built for teams that need a higher publishing pace across channels</span>
                   </>
                 )}
@@ -687,18 +722,12 @@ export default function BillingPage() {
                   <th className="text-start pb-3 text-slate-500 font-medium w-[30%]">
                     {ar ? 'الميزة' : 'Feature'}
                   </th>
-                  <th className="text-center pb-3 text-slate-500 font-medium">
-                    {ar ? 'مجاني' : 'Free'}
-                  </th>
-                  <th className="text-center pb-3 text-blue-400 font-medium">
-                    {ar ? 'ستارتر' : 'Starter'} <span className="text-blue-500/70">$19</span>
-                  </th>
                   <th className="text-center pb-3 text-violet-400 font-bold">
                     {ar ? 'جروث' : 'Growth'} <span className="text-violet-500">$49</span>
                     <span className="block text-[10px] text-violet-400/60">{ar ? '★ الأكثر شعبية' : '★ Popular'}</span>
                   </th>
                   <th className="text-center pb-3 text-emerald-400 font-medium">
-                    {ar ? 'وكالة' : 'Agency'} <span className="text-emerald-500/80">$99</span>
+                    {ar ? 'أوتوبايلوت' : 'Autopilot'} <span className="text-emerald-500/80">$99</span>
                   </th>
                 </tr>
               </thead>
@@ -706,54 +735,51 @@ export default function BillingPage() {
                 {[
                   {
                     labelAr: 'أرصدة AI / شهر', labelEn: 'AI credits / month',
-                    free: ar ? '10 (مرة واحدة)' : '10 (one-time)',
-                    starter: '50', pro: '150', biz: '500',
+                    pro: '150', biz: '500',
                   },
                   {
                     labelAr: 'بوستات / شهر', labelEn: 'Posts / month',
-                    free: '3', starter: '10', pro: '25', biz: '60',
+                    pro: '25', biz: '60',
                   },
                   {
                     labelAr: 'حملات / شهر', labelEn: 'Campaigns / month',
-                    free: '1', starter: '2', pro: '5', biz: ar ? 'غير محدود' : 'Unlimited',
+                    pro: '10', biz: ar ? 'غير محدود' : 'Unlimited',
                   },
                   {
                     labelAr: 'مساحات العمل', labelEn: 'Workspaces',
-                    free: '1', starter: '1', pro: '3', biz: '10',
+                    pro: '3', biz: '10',
                   },
                   {
                     labelAr: 'المنصات الاجتماعية', labelEn: 'Social platforms',
-                    free: '1', starter: '2', pro: ar ? 'حسب الإتاحة' : 'As available', biz: ar ? 'حسب الإتاحة' : 'As available',
+                    pro: ar ? 'حسب الإتاحة' : 'As available', biz: ar ? 'حسب الإتاحة' : 'As available',
                   },
                   {
                     labelAr: 'Brand Brain + وكلاء AI', labelEn: 'Brand Brain + AI agents',
-                    free: ar ? 'أساسي' : 'Basic', starter: ar ? 'كامل' : 'Full', pro: ar ? 'كامل' : 'Full', biz: ar ? 'كامل' : 'Full',
+                    pro: ar ? 'كامل' : 'Full', biz: ar ? 'كامل' : 'Full',
                   },
                   {
                     labelAr: 'ذاكرة الحملات', labelEn: 'Campaign Memory',
-                    free: '—', starter: '✓', pro: '✓', biz: '✓',
+                    pro: '✓', biz: '✓',
                   },
                   {
                     labelAr: 'اختبار A/B', labelEn: 'A/B Testing',
-                    free: '—', starter: '—', pro: '✓', biz: '✓',
+                    pro: '✓', biz: '✓',
                   },
                   {
                     labelAr: 'تصدير بدون علامة', labelEn: 'No-watermark exports',
-                    free: '—', starter: '✓', pro: ar ? 'PDF + DOCX' : 'PDF + DOCX', biz: ar ? 'White-label' : 'White-label',
+                    pro: ar ? 'HTML قابل للطباعة + JSON' : 'Printable HTML + JSON', biz: ar ? 'HTML قابل للطباعة + JSON' : 'Printable HTML + JSON',
                   },
                   {
-                    labelAr: 'أعضاء الفريق', labelEn: 'Team seats',
-                    free: '1', starter: '1', pro: '1', biz: '2+',
+                    labelAr: 'قائمة الموافقات', labelEn: 'Approval queue',
+                    pro: '✓', biz: '✓',
                   },
                   {
                     labelAr: 'الدعم', labelEn: 'Support',
-                    free: ar ? 'مجتمعي' : 'Community', starter: ar ? 'إيميل' : 'Email', pro: ar ? 'إيميل أولوية' : 'Priority email', biz: ar ? 'قنوات أولوية (حسب الإتاحة)' : 'Priority channels (as available)',
+                    pro: ar ? 'إيميل حسب التوفر' : 'Email as available', biz: ar ? 'إيميل حسب التوفر' : 'Email as available',
                   },
                 ].map(row => (
                   <tr key={ar ? row.labelAr : row.labelEn}>
                     <td className="py-2.5 text-slate-700">{ar ? row.labelAr : row.labelEn}</td>
-                    <td className="py-2.5 text-center text-slate-500">{row.free}</td>
-                    <td className="py-2.5 text-center text-blue-700">{row.starter}</td>
                     <td className="py-2.5 text-center text-violet-700 font-medium">{row.pro}</td>
                     <td className="py-2.5 text-center text-emerald-700">{row.biz}</td>
                   </tr>
@@ -804,10 +830,13 @@ export default function BillingPage() {
 
         {/* ── Footer note ─────────────────────────────────────────────────── */}
         <p className="text-center text-xs text-slate-400 pb-4">
-          {ar
-            ? 'المدفوعات معالجة بأمان عبر Stripe · يمكن الإلغاء في أي وقت · لا رسوم خفية'
-            : 'Payments processed securely via Stripe · Cancel anytime · No hidden fees'
-          }
+          {billingEnabled
+            ? (ar
+                ? 'المدفوعات معالجة بأمان عبر Stripe · يمكن الإلغاء في أي وقت · لا رسوم خفية'
+                : 'Payments processed securely via Stripe · Cancel anytime · No hidden fees')
+            : (ar
+                ? 'بنية الدفع والمحفظة جاهزة · يتم فتح الشراء بعد تفعيل إعدادات Stripe'
+                : 'Billing and wallet infrastructure is ready · purchasing opens after Stripe configuration')}
         </p>
 
       </div>

@@ -177,7 +177,7 @@ Words/Phrases to NEVER use: ${input.avoidKeywords?.join(', ') || 'none specified
 ${input.region ? `Market / Region: ${input.region}` : ''}
 ${input.competitors ? `Competitors to differentiate from: ${input.competitors}` : ''}
 ${input.painPoints?.length ? `Audience Pain Points — address these directly in hooks:\n${input.painPoints.map(p => `  • ${p}`).join('\n')}` : ''}
-${input.winningHooks?.length ? `Previously winning hooks (match this exact energy and style):\n${input.winningHooks.map(h => `  → "${h}"`).join('\n')}` : ''}
+${input.winningHooks?.length ? `Stored hook candidates (style references only; do not claim they are proven winners):\n${input.winningHooks.map(h => `  → "${h}"`).join('\n')}` : ''}
 
 ━━━ CAMPAIGN STRATEGY ━━━
 Goal: ${input.strategy.goal}

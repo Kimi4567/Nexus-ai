@@ -20,19 +20,27 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { planScheduling } from '@/lib/approvalPlan'
 import { validateTransition, buildStatusHistory } from '@/lib/postStatus'
 import { buildLearningEvents } from '@/lib/brandBrainEvents'
+import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const campaign = await prisma.campaign.findFirst({
       where: { id: params.id, workspace: { ownerId: userId } },
-      select: { id: true, workspaceId: true },
+      select: { id: true, workspaceId: true, status: true },
     })
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+    if (!canMutateCampaignExecution(String(campaign.status))) {
+      return NextResponse.json({
+        error: 'Approve the campaign strategy before scheduling content.',
+        code: 'STRATEGY_APPROVAL_REQUIRED',
+      }, { status: 409 })
+    }
 
     // Build platform → integration map so a scheduled post has publish credentials.
     const connectedIntegrations = await prisma.integration.findMany({
@@ -124,7 +132,8 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

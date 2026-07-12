@@ -6,8 +6,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-export async function GET(_req: NextRequest, { params }: { params: { token: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   try {
+    if (!/^[A-Za-z0-9_-]{16,128}$/.test(params.token)) {
+      return NextResponse.json({ error: 'Invalid share token' }, { status: 400 })
+    }
     const campaign = await prisma.campaign.findFirst({
       where: { shareToken: params.token, isPublic: true },
       select: {
@@ -50,7 +54,7 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
       aiOutput: campaign.aiOutput,
       createdAt: campaign.createdAt,
       workspaceName: campaign.project?.workspace?.name || 'Nexus AI',
-    })
+    }, { headers: { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } })
   } catch (err) {
     console.error('[share/token]', err)
     return NextResponse.json({ error: 'Failed to load shared campaign' }, { status: 500 })

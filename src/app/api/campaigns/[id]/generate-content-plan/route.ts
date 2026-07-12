@@ -26,13 +26,15 @@ import {
 } from '@/lib/contentPlanGeneration'
 import { sendContentPlanReadyEmail } from '@/lib/email/resend'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
+import { canMutateCampaignExecution } from '@/lib/strategyApproval'
+import { readLockedPlannedPostAllowance } from '@/lib/postCommercial'
 
 // Heavy gpt-4o generation (up to 18 posts) + optional media vision can run well
 // past the platform default. Match the sibling routes (engine, /generate) so the
 // function isn't killed mid-generation — the real cause of intermittent 502s.
 export const maxDuration = 60
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // ── Platform distribution helpers ─────────────────────────────────────────────
 
@@ -69,24 +71,10 @@ function toIntegrationType(raw: string): string {
   return map[raw.toUpperCase()] ?? 'META'
 }
 
-// ── Platform-native best posting hours (UTC-agnostic — local-ish heuristic) ───
-
-/**
- * Returns the best posting hour (0–23) for a platform.
- * Research-backed peaks: we cycle through multiple slots so consecutive posts
- * on the same platform hit different windows across the 30-day plan.
- */
-const PLATFORM_BEST_HOURS: Record<string, number[]> = {
-  META:     [11, 15, 20],  // Facebook/Instagram: 11am, 3pm, 8pm
-  LINKEDIN: [8,  12, 17],  // LinkedIn: 8am, 12pm, 5pm (Tue-Thu focused)
-  TIKTOK:   [19, 21, 12],  // TikTok: 7pm, 9pm, 12pm
-  YOUTUBE:  [14, 16, 20],  // YouTube: 2pm, 4pm, 8pm
-}
-
-/** FLC3: Pick platform-optimal posting hour for slot i */
-function bestHourForPlatform(platform: string, slotIndex: number): number {
-  const hours = PLATFORM_BEST_HOURS[platform] ?? [10, 14, 18]
-  return hours[slotIndex % hours.length]
+// Neutral review-time proposals. Nexus does not label a universal hour as
+// "best" without eligible workspace-specific platform evidence.
+function proposedReviewHour(slotIndex: number): number {
+  return [10, 14, 18][slotIndex % 3]
 }
 
 /** Distribute N posts across an array of platforms as evenly as possible */
@@ -117,7 +105,8 @@ function distributePosts(
 
 // ── Main POST handler ──────────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -130,6 +119,12 @@ export async function POST(req: NextRequest, { params }: Params) {
       include: { workspace: true },
     })
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+    if (!canMutateCampaignExecution(String(campaign.status))) {
+      return NextResponse.json({
+        error: 'Approve the campaign strategy before generating content.',
+        code: 'STRATEGY_APPROVAL_REQUIRED',
+      }, { status: 409 })
+    }
 
     const workspaceId = campaign.workspaceId
 
@@ -159,19 +154,22 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
 
     // ── 3. Check plan quota ────────────────────────────────────────────────
-    const dbUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { subscriptionStatus: true },
-    })
-    const subscription = await prisma.subscription.findFirst({
-      where: { userId },
-      select: { plan: true, status: true },
-    })
-
-    const planRaw = subscription?.plan?.toString().toLowerCase() ?? 'free'
-    const isActive = ['ACTIVE', 'active'].includes(subscription?.status?.toString() ?? '')
-    const planName = isActive ? planRaw : 'free'
+    const initialAllowance = await prisma.$transaction((tx) =>
+      readLockedPlannedPostAllowance(tx, userId, params.id),
+    )
+    const planName = initialAllowance.plan.toLowerCase()
     const quota = PLAN_QUOTAS[planName] ?? PLAN_QUOTAS['free']
+    const usedOutsideThisDraft = initialAllowance.used
+    const remainingPostAllowance = initialAllowance.remaining
+    if (remainingPostAllowance === 0) {
+      return NextResponse.json({
+        error: 'POST_LIMIT_REACHED',
+        limit: quota.postsPerMonth,
+        current: usedOutsideThisDraft,
+        resetsAt: initialAllowance.periodEnd.toISOString(),
+        upgradeUrl: '/billing',
+      }, { status: 403 })
+    }
 
     // ── 4. Deduct credits (flat 2 credits per content plan generation) ────
     const creditCheck = await checkAndDeductCredits(userId, 'CONTENT_PLAN_GENERATION')
@@ -296,22 +294,10 @@ export async function POST(req: NextRequest, { params }: Params) {
       }
     }
 
-    // ── 6. Clear any existing DRAFT content plan posts ────────────────────
-    // Delete ALL DRAFT posts (not just PENDING/FAILED) so regeneration is clean.
-    // COMPLETED posts with uploaded images would otherwise persist and duplicate.
-    await (prisma.socialPost as any).deleteMany({
-      where: {
-        campaignId: params.id,
-        workspaceId,
-        status: 'DRAFT',
-        publishedAt: null,
-      },
-    })
-
-    // ── 7. Build slot distribution ─────────────────────────────────────────
-    // Use postsPerCampaign (per-run count) instead of the monthly billing quota
-    const campaignPostCount = quota.postsPerCampaign ?? 12
-    const slots = distributePosts(campaignPostCount, quota.videoSlotsPerMonth, platforms)
+    // ── 6–7. Build a plan that fits both the per-campaign and monthly quota. ──
+    const campaignPostCount = Math.min(quota.postsPerCampaign ?? 12, remainingPostAllowance)
+    const campaignVideoCount = Math.min(quota.videoSlotsPerMonth, Math.max(0, remainingPostAllowance - campaignPostCount))
+    const slots = distributePosts(campaignPostCount, campaignVideoCount, platforms)
 
     // ── 8. Generate all post content via GPT-4o-mini ─────────────────────
     const pillarText = contentPillars.length
@@ -453,8 +439,7 @@ Rules:
 
       const scheduledAt = new Date(now)
       scheduledAt.setDate(now.getDate() + dayOffset)
-      // FLC3: Platform-native best posting hour instead of naive stagger
-      scheduledAt.setHours(bestHourForPlatform(slot.platform, i), 0, 0, 0)
+      scheduledAt.setHours(proposedReviewHour(i), 0, 0, 0)
 
       // Resolve media assignment:
       // 1. GPT may have assigned a specific media asset via assignedMediaIndex
@@ -511,7 +496,16 @@ Rules:
       }
     })
 
-    await (prisma.socialPost as any).createMany({ data: postsToCreate })
+    await prisma.$transaction(async (tx) => {
+      const commitAllowance = await readLockedPlannedPostAllowance(tx, userId, params.id)
+      if (postsToCreate.length > commitAllowance.remaining) {
+        throw new Error(`POST_LIMIT_REACHED:${commitAllowance.limit}:${commitAllowance.periodEnd.toISOString()}`)
+      }
+      await (tx.socialPost as any).deleteMany({
+        where: { campaignId: params.id, workspaceId, status: 'DRAFT', publishedAt: null },
+      })
+      await (tx.socialPost as any).createMany({ data: postsToCreate })
+    })
 
     // ── 9b. Image-matched caption generation for uploaded media posts ────────
     // For posts that have an uploaded image assigned, use GPT Vision to generate
@@ -668,7 +662,7 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
           const dayOffset = Math.max(1, Math.min(30, gen.scheduledDayOffset ?? i + 1))
           const scheduledAt = new Date(now)
           scheduledAt.setDate(now.getDate() + dayOffset)
-          scheduledAt.setHours(bestHourForPlatform(slot.platform, i), 0, 0, 0)
+          scheduledAt.setHours(proposedReviewHour(i), 0, 0, 0)
 
           let uploadedMediaId: string | null = null
           let effectiveMediaSource = mediaSource
@@ -745,13 +739,24 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
     console.error('[generate-content-plan POST]', err)
     // Refund — a failed content-plan generation must not charge the user (skip unlimited plans)
     if (contentPlanCharged) await refundCredits(userId, 'CONTENT_PLAN_GENERATION')
+    if (err instanceof Error && err.message.startsWith('POST_LIMIT_REACHED:')) {
+      const [, limit, ...resetParts] = err.message.split(':')
+      return NextResponse.json({
+        error: 'POST_LIMIT_REACHED',
+        limit: Number(limit),
+        resetsAt: resetParts.join(':'),
+        refunded: contentPlanCharged,
+        upgradeUrl: '/billing',
+      }, { status: 403 })
+    }
     return NextResponse.json({ error: 'Failed to generate content plan', refunded: contentPlanCharged }, { status: 500 })
   }
 }
 
 // ── DELETE: clear pending content plan ────────────────────────────────────────
 
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

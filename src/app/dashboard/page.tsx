@@ -8,7 +8,9 @@ import OnboardingChecklist from '@/components/OnboardingChecklist'
 import { getDashboardStrategyCta, getOnboardingVisibility, isEarlyOperatingMode } from '@/lib/dashboardOnboarding'
 import BrainLearnedSummary from '@/components/brain/BrainLearnedSummary'
 import PlatformReadinessStrip from '@/components/PlatformReadinessStrip'
+import { ExecutionQueuePanel } from '@/components/ExecutionQueuePanel'
 import { derivePlatformReadiness } from '@/lib/platformReadiness'
+import type { WorkspaceExecutionTruth } from '@/lib/executionTruth'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -203,6 +205,7 @@ export default function DashboardPage() {
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [insights, setInsights] = useState<AIInsight[]>([])
   const [intelligence, setIntelligence] = useState<MarketingIntelligenceBrief | null>(null)
+  const [executionTruth, setExecutionTruth] = useState<WorkspaceExecutionTruth | null>(null)
   const [loading, setLoading] = useState(true)
   const [hasConnections, setHasConnections] = useState<boolean | null>(null)
   const [socialAccounts, setSocialAccounts] = useState<any[]>([])
@@ -287,10 +290,11 @@ export default function DashboardPage() {
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
-      const [statsRes, campaignsRes, intelligenceRes] = await Promise.allSettled([
+      const [statsRes, campaignsRes, intelligenceRes, executionRes] = await Promise.allSettled([
         fetch('/api/dashboard/stats', { headers: { Authorization: authHeader() } }),
         fetch('/api/campaigns?limit=5&sort=updatedAt', { headers: { Authorization: authHeader() } }),
         fetch('/api/dashboard/intelligence', { headers: { Authorization: authHeader() } }),
+        fetch('/api/execution/queue', { headers: { Authorization: authHeader() } }),
       ])
       if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
         const d = await statsRes.value.json()
@@ -343,6 +347,10 @@ export default function DashboardPage() {
       if (intelligenceRes.status === 'fulfilled' && intelligenceRes.value.ok) {
         const d = await intelligenceRes.value.json()
         setIntelligence(d.brief || null)
+      }
+      if (executionRes.status === 'fulfilled' && executionRes.value.ok) {
+        const d = await executionRes.value.json()
+        setExecutionTruth(d.truth || null)
       }
       setLastUpdated(new Date())
     } catch {/* silent */}
@@ -400,7 +408,9 @@ export default function DashboardPage() {
       text:   isAr ? 'أنشئ أول حملة — سيساعدك NEXUS على التخطيط وإنشاء مسودات محتوى، وكل خطوة تبقى تحت موافقتك.' : 'Create your first campaign — NEXUS helps you plan and draft content, with your approval at every step.',
       action: isAr ? 'خطة محتوى جديدة' : 'New Content Plan', href: '/campaigns/new' })
     if (stats.creditsRemaining < 15 && stats.plan !== 'ACTIVE') built.push({ id: '3', priority: 'high',
-      text:   isAr ? `متبقي ${stats.creditsRemaining} وحدة AI فقط — الترقية تمنحك إمكانات غير محدودة` : `Only ${stats.creditsRemaining} AI credits left — upgrade for unlimited power`,
+      text: stats.creditsRemaining <= 0
+        ? (isAr ? 'انتهى رصيد الذكاء الاصطناعي — رقّي الخطة أو أضف رصيدًا لمتابعة الإنشاء.' : 'You’re out of AI credits — upgrade or add credits to continue generation.')
+        : (isAr ? 'رصيد الذكاء الاصطناعي أوشك على النفاد — قد تحتاج رصيدًا إضافيًا قريبًا لمتابعة الإنشاء.' : 'AI credits are running low — you may need more credits soon to continue generation.'),
       action: isAr ? 'ترقية الخطة' : 'Upgrade Plan', href: '/billing' })
     if (stats.campaigns > 0 && stats.activeCampaigns === 0) built.push({ id: '4', priority: 'medium',
       text:   isAr ? 'كل حملاتك في وضع المسودة — فعّل PULSE لتحليل أفضل وقت للنشر' : 'All campaigns are drafts — activate PULSE to find the best publishing time',
@@ -680,6 +690,10 @@ export default function DashboardPage() {
             />
           </div>
 
+          {!isEarlyExecutionDashboard && executionTruth && (
+            <ExecutionQueuePanel truth={executionTruth} locale={locale} />
+          )}
+
           {/* ── First-Login Welcome Banner — brand-new users only ── */}
           {onboarding.showWelcome && !welcomeDismissed && !isEarlyExecutionDashboard && (
             <div className="rounded-2xl overflow-hidden bg-white" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
@@ -746,10 +760,14 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <p className="text-sm font-bold" style={{ color: '#F97316' }}>
-                    {ar ? `${stats.creditsRemaining} وحدة AI متبقية فقط` : `Only ${stats.creditsRemaining} AI credits left`}
+                    {stats.creditsRemaining <= 0
+                      ? (ar ? 'انتهى رصيد الذكاء الاصطناعي' : 'You’re out of AI credits')
+                      : (ar ? 'رصيد الذكاء الاصطناعي أوشك على النفاد' : 'AI credits are running low')}
                   </p>
                   <p className="text-xs" style={{ color: 'var(--nx-text-3)' }}>
-                    {ar ? 'قرّب الانتهاء — الترقية تمنحك 200 وحدة / شهر' : 'Running low — upgrade for 200 credits/month'}
+                    {stats.creditsRemaining <= 0
+                      ? (ar ? 'رقّي الخطة أو أضف رصيدًا لمتابعة الإنشاء.' : 'Upgrade or add credits to continue generation.')
+                      : (ar ? 'قد تحتاج رصيدًا إضافيًا قريبًا لمتابعة الإنشاء.' : 'You may need more credits soon to continue generation.')}
                   </p>
                 </div>
               </div>

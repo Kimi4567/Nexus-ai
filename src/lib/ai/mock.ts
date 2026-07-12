@@ -1,356 +1,145 @@
 /**
- * NEXUS AI Engine — Context-aware marketing content generator
- * Used when OPENAI_API_KEY is not set. Generates realistic, valuable marketing content.
+ * Deterministic no-provider fallback.
+ *
+ * This module must never invent customers, performance, benchmarks, scarcity,
+ * testimonials, or financial outcomes. It produces clearly labelled planning
+ * hypotheses so a workspace remains usable while OPENAI_API_KEY is absent.
  */
 
-function pick<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]
+function text(value: unknown, fallback: string, max = 180): string {
+  return typeof value === 'string' && value.trim() ? value.trim().slice(0, max) : fallback
 }
 
-function pickN<T>(arr: T[], n: number): T[] {
-  const shuffled = [...arr].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, n)
+function platformsFor(campaign: any): string[] {
+  return Array.isArray(campaign?.platforms) && campaign.platforms.length
+    ? campaign.platforms.filter((item: unknown): item is string => typeof item === 'string').slice(0, 8)
+    : ['INSTAGRAM']
 }
 
-const HOOK_TEMPLATES = {
-  SALES: [
-    'Stop wasting money on {product} that doesn\'t work.',
-    'I saved ${amount} in 30 days by switching to {brand}.',
-    'The {product} secret that {industry} doesn\'t want you to know.',
-    'Why {number}% of people are doing {topic} completely wrong.',
-    'This one change doubled our {metric} in 2 weeks.',
-    'POV: You finally found a {product} that actually delivers.',
-    'I tested {number} different {products} — this one won.',
-    'The honest truth about {product} nobody tells you.',
-    'Before you spend another dollar on {topic}, watch this.',
-    'From {bad_state} to {good_state} — our customers\' real results.',
-  ],
-  AWARENESS: [
-    'Most people don\'t know this about {topic}.',
-    'The truth about {industry} that changes everything.',
-    '{brand} is rewriting the rules of {industry}.',
-    'What if {benefit} was actually achievable for you?',
-    'We\'re on a mission to {mission}.',
-    'Meet the {product} changing how people {benefit}.',
-    'Behind the scenes of {brand}: how we do things differently.',
-    'The problem with {industry} — and how we\'re fixing it.',
-    '{number} people already discovered this. Have you?',
-    'Something big is coming to {industry}.',
-  ],
-  LEADS: [
-    'Free {resource} reveals how to {benefit}.',
-    'Book your free {service} call today — only {number} spots left.',
-    'Download the exact {resource} we used to {achievement}.',
-    'Get your custom {result} analysis — completely free.',
-    'Join {number}+ {audience} who already use {brand}.',
-    'Limited: Get our {resource} before we take it down.',
-    'We\'ll build your {deliverable} for free — no strings attached.',
-    'Your {benefit} roadmap is one click away.',
-    '{number}-step guide to {goal} — grab it now.',
-    'Real results from real {audience}: see what\'s possible.',
-  ],
-  ENGAGEMENT: [
-    'Hot take: {controversial_opinion}.',
-    'Drop a {emoji} if you\'ve ever dealt with {pain_point}.',
-    'Tell me I\'m not the only one who {relatable_situation}.',
-    'Unpopular opinion about {topic}: {opinion}.',
-    'Would you rather: {option_a} or {option_b}?',
-    'Rate your current {topic} situation 1-10 in the comments.',
-    'This is your sign to finally {action}.',
-    'Nobody talks about this part of {topic}.',
-    'Genuine question: how do you handle {situation}?',
-    'Tag someone who needs to hear this about {topic}.',
-  ],
-  TRAFFIC: [
-    'Click the link to see the full {resource}.',
-    'We broke down exactly how to {benefit} — link in bio.',
-    'The complete guide is on our website — go check it out.',
-    'Everything you need to know about {topic} — link in bio.',
-    'See the full case study: how we helped {audience} achieve {result}.',
-    'Free tool alert: {tool} just launched at {brand}.com',
-    'Our best {content_type} yet just dropped — link in bio.',
-    'Watch the full tutorial on how to {benefit}.',
-    '{number} resources to help you {goal} — all free.',
-    'Your next step: grab our free {resource} at the link below.',
-  ],
-}
-
-const CAPTION_TEMPLATES = {
-  instagram: [
-    '{hook}\n\nHere\'s the thing nobody talks about with {topic} 👇\n\n{point1}\n{point2}\n{point3}\n\nThe result? {outcome}.\n\nSave this for later and share with someone who needs to hear it.\n\n{hashtags}',
-    '{hook} ✨\n\nWe\'ve helped {number}+ {audience} achieve {result}, and here\'s what we learned:\n\n→ {lesson1}\n→ {lesson2}\n→ {lesson3}\n\nWhich one surprised you most? Comment below 👇\n\n{hashtags}',
-    'Real talk: {pain_point} is costing you more than you think. 💭\n\n{brand} exists to change that.\n\n{benefit1} ✅\n{benefit2} ✅\n{benefit3} ✅\n\nLink in bio to get started today.\n\n{hashtags}',
-  ],
-  tiktok: [
-    '{hook} #fyp #viral\n\n{brief_explanation}\n\nFollow for more {topic} tips 🔥',
-    'POV: {scenario} ✨ {outcome} #relatable #{industry}tips',
-    '{hook} — watch till the end 👀 #{topic} #learnontiktok #{industry}',
-  ],
-  facebook: [
-    '{hook}\n\nWe know how frustrating {pain_point} can be. That\'s why we built {brand}.\n\n✅ {benefit1}\n✅ {benefit2}\n✅ {benefit3}\n\nJoin {number}+ satisfied customers. Click "Learn More" to get started.',
-    'Attention {audience}: {hook}\n\nHere\'s what our customers are saying:\n\n"{testimonial}"\n— Happy {brand} customer\n\nSee what {brand} can do for you. Comment "INFO" below and we\'ll reach out.',
-  ],
-  linkedin: [
-    '{hook}\n\nAfter working with {number}+ {industry} professionals, here\'s what I\'ve learned:\n\n1️⃣ {lesson1}\n2️⃣ {lesson2}\n3️⃣ {lesson3}\n\nThe bottom line: {conclusion}\n\nWhat\'s your take? Share in the comments.\n\n#LinkedIn #{industry} #{topic}',
-    'I\'ll be honest about {topic}:\n\n{honest_take}\n\nBut here\'s what actually works:\n\n→ {solution1}\n→ {solution2}\n→ {solution3}\n\nSave this post if it was helpful.\n\n#{industry} #Business #Growth',
-  ],
-}
-
-function fillTemplate(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{(\w+)\}/g, (_, key) => vars[key] || key)
-}
-
-function buildVars(campaign: any, project: any): Record<string, string> {
-  const name = campaign.name || 'your brand'
-  const goal = campaign.goal || 'SALES'
-  const audience = campaign.audience || 'business owners'
-  const industry = project?.businessType || campaign.description || 'your industry'
-
-  return {
-    brand: name,
-    product: name,
-    products: name + ' products',
-    topic: industry,
-    industry: industry,
-    audience: audience,
-    number: String(Math.floor(Math.random() * 9 + 1) * 1000),
-    amount: String(Math.floor(Math.random() * 5 + 1) * 100),
-    metric: pick(['revenue', 'conversions', 'leads', 'engagement', 'sales']),
-    benefit: pick(['grow faster', 'save time', 'increase revenue', 'scale efficiently', 'stand out']),
-    benefit1: pick(['Save hours every week', 'Proven results from day one', 'No experience needed']),
-    benefit2: pick(['Trusted by thousands', 'Works for any business size', 'Full support included']),
-    benefit3: pick(['Cancel anytime', 'See results in 30 days', 'Risk-free guarantee']),
-    result: pick(['more leads', '3x more revenue', 'consistent growth', 'measurable results']),
-    outcome: pick(['consistent growth', 'real results', 'measurable impact', 'scalable success']),
-    pain_point: pick(['inconsistent results', 'wasted ad spend', 'low engagement', 'slow growth']),
-    resource: pick(['guide', 'checklist', 'template', 'blueprint', 'framework']),
-    service: pick(['strategy', 'audit', 'consultation', 'discovery']),
-    achievement: pick(['10x our leads', 'double our revenue', 'cut costs by 40%', 'scale to 6 figures']),
-    deliverable: pick(['strategy', 'roadmap', 'action plan', 'content calendar']),
-    lesson1: 'Consistency beats perfection every time',
-    lesson2: 'Your audience buys outcomes, not features',
-    lesson3: 'The right message to the right person changes everything',
-    mission: 'make ' + industry + ' accessible to everyone',
-    controversial_opinion: 'most ' + industry + ' advice is completely wrong',
-    bad_state: 'struggling',
-    good_state: 'thriving',
-    point1: '→ ' + pick(['It starts with understanding your customer deeply', 'Your positioning determines everything', 'Content strategy should lead, not follow']),
-    point2: '→ ' + pick(['Most businesses skip this critical step', 'The data never lies — but you have to look', 'Simplicity always outperforms complexity']),
-    point3: '→ ' + pick(['Small tweaks compound into massive results', 'Your biggest competitor is customer inertia', 'Trust is the only currency that matters']),
-    conclusion: 'the brands that win focus on value first, sales second',
-    honest_take: 'most ' + industry + ' companies are overcomplicated and underperforming',
-    solution1: 'Start with one clear message',
-    solution2: 'Test fast, optimize faster',
-    solution3: 'Let your customers tell the story',
-    testimonial: 'Switched to ' + name + ' and doubled our results in 60 days',
-    content_type: pick(['case study', 'tutorial', 'breakdown', 'analysis']),
-    tool: name + ' Analyzer',
-    goal: pick(['grow your business', 'generate leads', 'build your brand', 'increase sales']),
-    option_a: 'more budget',
-    option_b: 'better strategy',
-    action: 'invest in your marketing',
-    situation: 'a tough week',
-    relatable_situation: 'felt like giving up on your goals',
-    opinion: 'most people overcomplicate it',
-    emoji: '🙋',
-    scenario: 'You finally crack the code on ' + industry,
-    brief_explanation: 'Here\'s exactly how ' + name + ' makes it simple',
-    hashtags: ['#' + industry.replace(/\s/g, ''), '#marketing', '#business', '#growth', '#entrepreneur'].join(' '),
+function platformGuidance(platform: string): string {
+  const guidance: Record<string, string> = {
+    INSTAGRAM: 'Test a native visual post and a short-form variant; compare only after verified platform metrics are available.',
+    FACEBOOK: 'Test one clear message with a single CTA; do not claim lift until Meta returns an eligible sample.',
+    LINKEDIN: 'Lead with a useful operator insight and keep the CTA specific to the intended professional audience.',
+    TIKTOK: 'Prepare a concise creator-native draft. Direct publishing remains subject to creator settings and explicit consent.',
+    YOUTUBE_SHORTS: 'Prepare a vertical storyboard with an immediate problem statement and a single next action.',
+    SNAPCHAT: 'Prepare a short vertical concept and verify provider publishing availability before scheduling.',
+    TWITTER: 'Prepare a concise thesis and one follow-up variation for user review.',
+    WEBSITE: 'Use a focused landing-page message that matches the approved campaign goal.',
   }
+  return guidance[platform] || 'Prepare a platform-native draft and validate it with verified first-party metrics after publishing.'
 }
 
-export async function callOpenAI(prompt: string): Promise<any> {
-  return { mock: true, content: 'AI generation ready — add OPENAI_API_KEY for real content' }
+export async function callOpenAI(_prompt: string): Promise<any> {
+  return {
+    mock: true,
+    providerConfigured: false,
+    content: 'No AI provider is configured. Nexus returned a deterministic planning draft with no performance claims.',
+  }
 }
 
 export async function generateScript(briefing: string): Promise<string> {
-  return `HOOK (0-3s): "${pick(['Stop scrolling.', 'Wait — before you skip this.', 'This changed everything for us.', 'You need to hear this.'])}"
-
-PROBLEM (3-8s): Most ${briefing.slice(0, 50)} solutions are slow, expensive, and complicated.
-
-SOLUTION (8-20s): That's exactly why we built this. [Show product/service in action]
-Key benefit 1 → Key benefit 2 → Key benefit 3
-
-PROOF (20-25s): Our customers see real results — [testimonial/stat overlay]
-
-CTA (25-30s): Click the link. Try it free. You'll see why thousands trust us.
-
-[TEXT OVERLAY]: ${pick(['Limited time offer', 'Free to start', 'No credit card needed', 'Join 10,000+ users'])}`
+  const subject = text(briefing, 'the approved campaign brief', 240)
+  return `[PLANNING DRAFT — NO PERFORMANCE EVIDENCE]\n\nHOOK (0–3s): State the audience problem in plain language.\n\nCONTEXT (3–10s): Explain why ${subject} matters without using unverified numbers or customer claims.\n\nVALUE (10–22s): Demonstrate the approved value proposition with a concrete product or service detail.\n\nPROOF (22–26s): Insert only proof supplied and approved in Brand Brain; otherwise omit this section.\n\nCTA (26–30s): Use one explicit next action from the campaign brief.\n\nReview the wording, proof, and CTA before scheduling.`
 }
 
-export async function generateCaptions(script: string, platform: string): Promise<string[]> {
-  const captions = []
-  const templates = CAPTION_TEMPLATES[platform as keyof typeof CAPTION_TEMPLATES] || CAPTION_TEMPLATES.instagram
-  for (const template of templates) {
-    captions.push(fillTemplate(template, {
-      hook: pick(HOOK_TEMPLATES.SALES).replace(/\{[\w]+\}/g, 'your brand'),
-      topic: 'marketing',
-      hashtags: '#marketing #growth #business #entrepreneur',
-      pain_point: 'slow growth',
-      brand: 'NEXUS',
-      benefit1: 'AI-powered strategy', benefit2: 'Real results', benefit3: 'Easy to use',
-      number: '5,000', audience: 'businesses', result: '3x more leads',
-      point1: '→ Clarity over complexity', point2: '→ Data-driven decisions', point3: '→ Consistent execution',
-      outcome: 'consistent growth', lesson1: 'Focus on one goal', lesson2: 'Test everything',
-      testimonial: 'Best investment we made this year', industry: 'marketing',
-    }))
-  }
-  return captions
+export async function generateCaptions(_script: string, platform: string): Promise<string[]> {
+  const channel = text(platform, 'the selected platform', 40)
+  return [
+    `[DRAFT — ${channel}] Name the audience problem, explain one approved benefit, and end with one clear CTA. Add only verified proof from Brand Brain.`,
+    `[ALTERNATE DRAFT — ${channel}] Open with a direct question, show the approved product or service detail, and invite the audience to take the campaign's chosen next step.`,
+  ]
 }
 
 export async function generateMarketingStrategy(campaign: any, project: any) {
-  const vars = buildVars(campaign, project)
-  const goal = campaign.goal || 'SALES'
-  const platforms = campaign.platforms || ['INSTAGRAM']
-
-  const platformRecs: Record<string, string> = {}
-  platforms.forEach((p: string) => {
-    const recs: Record<string, string> = {
-      INSTAGRAM: 'Reels 3x/week + Stories daily. Carousel posts for education. Strong visual branding.',
-      TIKTOK: 'Hook in first 2 seconds. Native, authentic content. Trend sounds + original audio.',
-      FACEBOOK: 'Video ads + carousel. Retargeting campaigns. Community building via Groups.',
-      YOUTUBE_SHORTS: 'Vertical shorts repurposed from TikTok/Reels. SEO-optimized titles.',
-      LINKEDIN: 'Thought leadership posts. Case studies. Employee advocacy. B2B focus.',
-      SNAPCHAT: 'Story ads with swipe-up CTA. AR filters for brand awareness.',
-    }
-    platformRecs[p] = recs[p] || 'Consistent posting with platform-native content style.'
-  })
+  const brand = text(campaign?.name, 'This brand')
+  const audience = text(campaign?.audience, 'Audience details are missing; complete Brand Brain before execution.', 500)
+  const industry = text(project?.businessType || campaign?.description, 'the selected market')
+  const goal = text(campaign?.goal, 'AWARENESS', 40)
+  const platforms = platformsFor(campaign)
 
   return {
-    overview: `${campaign.name} is positioned to capture ${vars.audience} who are ready for ${vars.result}. The strategy focuses on ${goal === 'SALES' ? 'conversion-optimized content' : goal === 'AWARENESS' ? 'broad reach and brand recognition' : 'lead generation and nurturing'} across ${platforms.length} platform${platforms.length > 1 ? 's' : ''}.`,
-
-    positioning: `${campaign.name} solves the #1 problem of ${vars.audience}: ${vars.pain_point}. Unlike generic solutions, we deliver ${vars.benefit} with a proven system that gets results.`,
-
-    audience: campaign.audience || `Primary: ${vars.audience} aged 25-45 with disposable income and a desire to ${vars.goal}. Secondary: Decision-makers in ${vars.industry} looking for scalable solutions.`,
-
+    evidenceStatus: 'planning_hypothesis',
+    providerConfigured: false,
+    overview: `Planning hypothesis for ${brand}: organize an approved ${goal.toLowerCase()} message for ${audience}. No reach, conversion, or revenue outcome is predicted.`,
+    positioning: `Hypothesis to review: position ${brand} around one specific, supportable benefit for ${industry}; replace this with the approved Brand Brain positioning before execution.`,
+    audience,
     valueProps: [
-      `${pick(['Saves', 'Recovers', 'Unlocks'])} ${vars.amount} in ${pick(['wasted spend', 'lost time', 'missed revenue'])} per month`,
-      `${pick(['Proven', 'Battle-tested', 'Data-backed'])} system used by ${vars.number}+ ${vars.audience}`,
-      `${pick(['Results in 30 days', 'See ROI fast', 'Quick to implement'])} — no long onboarding`,
-      `${pick(['Full support included', 'Done-with-you', 'Community access'])} for accountability`,
+      'Use only product or service benefits recorded in Brand Brain.',
+      'Pair every numerical or customer claim with approved first-party proof.',
+      'Keep one primary CTA per content item.',
     ],
-
     contentPillars: [
-      'Education: Teach the problem and solution (40%)',
-      'Social Proof: Customer results and testimonials (25%)',
-      'Entertainment: Relatable, viral-friendly content (20%)',
-      'Conversion: Direct offer and CTA-driven posts (15%)',
+      'Education: explain the audience problem and decision criteria.',
+      'Product or service clarity: demonstrate an approved capability.',
+      'Proof: use only verified evidence supplied by the brand.',
+      'Action: connect the message to one explicit next step.',
     ],
-
     angles: [
-      `Problem-Agitate-Solve: Expose ${vars.pain_point} → amplify the cost → present ${campaign.name} as the fix`,
-      `Transformation Story: Before/after of customers who switched to ${campaign.name}`,
-      `Authority Position: Why ${campaign.name} is the only ${vars.industry} solution that actually works`,
-      `FOMO/Urgency: What ${vars.audience} are missing out on by not using ${campaign.name}`,
-      `Curiosity: Counterintuitive truths about ${vars.industry} that only ${campaign.name} users know`,
+      'Problem → approved solution detail',
+      'Common objection → evidence-backed response',
+      'How it works → next action',
     ],
-
-    platformRecommendations: platformRecs,
-
-    contentCalendar: generateContentCalendar(campaign, platforms),
-
+    platformRecommendations: Object.fromEntries(platforms.map((platform) => [platform, platformGuidance(platform)])),
+    contentCalendar: buildCalendar(brand, platforms),
     metrics: {
-      targetCTR: '2.5-4%',
-      targetCPL: '$15-45',
-      targetROAS: '3-5x',
-      expectedReach: `${vars.number} per month`,
-      postingFrequency: `${platforms.length * 3}-${platforms.length * 5} posts/week`,
+      evidenceStatus: 'not_available',
+      message: 'No performance target or benchmark is generated without verified historical evidence and a user-approved objective.',
     },
-
     ctaStrategies: [
-      'Primary CTA: "Start free — no credit card needed"',
-      'Soft CTA: "Save this post for later"',
-      'Engagement CTA: "Comment your biggest challenge with ' + vars.industry + '"',
-      'DM CTA: "DM us \'' + pick(['INFO', 'FREE', 'START', 'YES']) + '\' to get started"',
+      'Choose one CTA that matches the approved campaign goal.',
+      'Do not add urgency, scarcity, pricing, or guarantees unless Brand Brain explicitly confirms them.',
     ],
-
     risks: [
-      'Ad fatigue if same creative runs > 2 weeks — rotate concepts monthly',
-      'Platform algorithm changes — diversify across multiple channels',
-      'Competitor response — monitor and differentiate on unique strengths',
+      'Missing brand proof can make claims unsafe; omit unsupported claims.',
+      'Provider access may limit publishing or analytics availability.',
+      'Treat every recommendation as a hypothesis until eligible platform evidence exists.',
     ],
   }
 }
 
-function generateContentCalendar(campaign: any, platforms: string[]): any[] {
-  const goalMap: Record<string, string[]> = {
-    SALES: ['Offer post', 'Customer result', 'Product demo', 'Objection handler', 'Urgency post'],
-    AWARENESS: ['Brand story', 'Educational post', 'Behind the scenes', 'Team spotlight', 'Mission post'],
-    LEADS: ['Lead magnet', 'Freebie offer', 'Webinar invite', 'Case study', 'Quiz/quiz'],
-    ENGAGEMENT: ['Question post', 'Poll', 'Meme/humor', 'Hot take', 'User content'],
-    TRAFFIC: ['Blog teaser', 'Tutorial clip', 'Resource share', 'Product feature', 'Partnership post'],
-  }
-  const goal = campaign.goal || 'SALES'
-  const types = goalMap[goal] || goalMap.SALES
-  const calendar = []
-
-  for (let week = 1; week <= 4; week++) {
-    const weekPosts = []
-    for (let day = 1; day <= 7; day++) {
-      if (day % 2 === 0 || day === 7) continue // post 3-4x/week
-      const platform = platforms[Math.floor(Math.random() * platforms.length)]
-      const type = types[(week * day) % types.length]
-      weekPosts.push({
-        day: `Week ${week}, Day ${day}`,
-        platform: platform,
-        type: type,
-        topic: `${type}: ${campaign.name} — ${pick(['value post', 'conversion post', 'engagement post'])}`,
-        format: pick(['Reel/Short', 'Carousel', 'Static + Story', 'Video', 'Story Poll']),
-      })
-    }
-    calendar.push({ week: `Week ${week}`, posts: weekPosts })
-  }
-  return calendar
+function buildCalendar(brand: string, platforms: string[]): any[] {
+  return Array.from({ length: 4 }, (_, weekIndex) => ({
+    week: `Week ${weekIndex + 1}`,
+    posts: [0, 1, 2].map((postIndex) => {
+      const platform = platforms[(weekIndex + postIndex) % platforms.length]
+      const types = ['Educational draft', 'Approved benefit draft', 'Objection-handling draft']
+      return {
+        day: `Week ${weekIndex + 1}, item ${postIndex + 1}`,
+        platform,
+        type: types[postIndex],
+        topic: `${brand}: ${types[postIndex].toLowerCase()}`,
+        format: 'Select during review based on available brand assets',
+        status: 'DRAFT',
+      }
+    }),
+  }))
 }
 
-export async function generateAdConcepts(campaign: any, project: any) {
-  const vars = buildVars(campaign, project)
-  const goal = campaign.goal as keyof typeof HOOK_TEMPLATES || 'SALES'
-  const platforms = campaign.platforms || ['INSTAGRAM']
-  const hookPool = HOOK_TEMPLATES[goal] || HOOK_TEMPLATES.SALES
-
-  const conceptNames = [
-    'The Problem Solver',
-    'Social Proof Machine',
-    'The Transformation',
-    'Curiosity Hook',
-    'The Direct Offer',
-  ]
-  const angles = [
-    'Pain Point → Solution',
-    'Before & After / Transformation',
-    'Counterintuitive Truth',
-    'Authority & Trust',
-    'Urgency & Scarcity',
+export async function generateAdConcepts(campaign: any, _project: any) {
+  const brand = text(campaign?.name, 'the brand')
+  const audience = text(campaign?.audience, 'the approved audience', 500)
+  const platforms = platformsFor(campaign)
+  const concepts = [
+    { name: 'Problem clarity', angle: 'Problem → approved solution detail' },
+    { name: 'How it works', angle: 'Process → approved benefit → CTA' },
+    { name: 'Objection response', angle: 'Objection → supportable answer → CTA' },
   ]
 
-  return conceptNames.map((name, i) => {
-    const hook = fillTemplate(hookPool[i % hookPool.length], vars)
-    const platform = platforms[i % platforms.length]
-    const captionTemplates = CAPTION_TEMPLATES[platform.toLowerCase() as keyof typeof CAPTION_TEMPLATES] || CAPTION_TEMPLATES.instagram
-    const rawCaption = captionTemplates[i % captionTemplates.length]
-
-    return {
-      name,
-      description: `A ${angles[i]}-driven concept targeting ${vars.audience} who struggle with ${vars.pain_point}. Designed specifically for ${platform} to maximize ${goal === 'SALES' ? 'conversions' : goal === 'AWARENESS' ? 'reach' : 'leads'}.`,
-      angle: angles[i],
-      hook,
-      script: `HOOK: "${hook}"\n\nBODY: [Show ${vars.pain_point} scenario] → [Introduce ${campaign.name}] → [Demo key benefit in 15 seconds]\n\nPROOF: "${vars.testimonial}" — Real customer result\n\nCTA: "${pick(['Try it free today', 'Get started now', 'Claim your spot', 'See it in action'])}"`,
-      cta: pick([
-        `Try ${campaign.name} free — link in bio`,
-        `Book a free call — DM us "${pick(['START', 'FREE', 'GO'])}"`,
-        `Get instant access — click the link below`,
-        `Join ${vars.number}+ ${vars.audience} — link in bio`,
-      ]),
-      headlines: [
-        hook,
-        fillTemplate(hookPool[(i + 2) % hookPool.length], vars),
-        `${campaign.name}: ${vars.benefit} — starting today`,
-      ],
-      captions: [fillTemplate(rawCaption, vars)],
-      platform,
-      format: pick(['15s Reel', '30s Reel', 'Carousel (5 slides)', 'Story sequence', '60s video']),
-      estimatedReach: `${pick(['8K-15K', '12K-25K', '5K-18K', '20K-50K'])} per post`,
-    }
-  })
+  return concepts.map((concept, index) => ({
+    ...concept,
+    evidenceStatus: 'planning_hypothesis',
+    description: `Draft concept for ${audience}. Review against Brand Brain before use.`,
+    hook: `State one specific reason ${audience} should examine ${brand}, without an unverified outcome claim.`,
+    script: `HOOK: State the approved audience problem.\nBODY: Show one approved ${brand} capability.\nPROOF: Insert verified proof from Brand Brain or omit.\nCTA: Use the campaign's approved next action.`,
+    cta: 'Select the approved campaign CTA during review.',
+    headlines: [
+      `${brand}: one clear way to address the approved audience problem`,
+      `How ${brand} works — reviewable planning draft`,
+    ],
+    captions: [`[DRAFT] Explain the approved value proposition for ${audience}; add no unsupported proof or scarcity.`],
+    platform: platforms[index % platforms.length],
+    format: 'Choose after reviewing available assets and provider requirements',
+    estimatedReach: null,
+  }))
 }

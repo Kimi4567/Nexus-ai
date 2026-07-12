@@ -26,7 +26,7 @@ type LegacyAction = 'video_script' | 'ad_copy' | 'analyze'
 const LEGACY_SYSTEM: Record<LegacyAction, string> = {
   video_script: 'You are NEX, a marketing video producer with 15 years of experience. Write a short marketing video script (15-30 seconds). Specify: scene, script text, audio/music, and pacing. Write in a compelling and persuasive style.',
   ad_copy:      'You are VEX, a professional digital advertising copywriter. Write 3 short ad copy variations (headline + body + CTA), each with a different style and angle.',
-  analyze:      'You are PULSE, a marketing data analyst. Provide a clear analysis and actionable recommendations. Focus on numbers and trends.',
+  analyze:      'You are PULSE, an evidence-first marketing analyst. Use only the data supplied by the user. Never invent metrics, benchmarks, trends, causality, revenue, conversions, or ROI. If data is absent or insufficient, say exactly what is missing and propose a measurement plan. Label all recommendations as hypotheses to test.',
 }
 
 function buildLegacyUserMessage(body: Record<string, unknown>): string {
@@ -45,7 +45,7 @@ function buildLegacyUserMessage(body: Record<string, unknown>): string {
 const DEMO_LEGACY: Record<LegacyAction, string> = {
   video_script: `🎬 سكريبت فيديو — وضع العرض التجريبي\n\n[مشهد ١ - ٥ ثواني]\nنص: "هل سئمت من إدارة التسويق يدوياً؟"\n\n[مشهد ٢ - ١٥ ثانية]\nنص: "NEXUS AI — ٤ وكلاء يُديرون تسويقك ٢٤/٧"\n\n[مشهد ٣ - ٥ ثواني]\nنص: "ابدأ مجاناً الآن"`,
   ad_copy: `📢 نسخ إعلانية — وضع العرض التجريبي\n\n📌 النسخة ١:\nالعنوان: "فريقك التسويقي الكامل في منصة واحدة"\nالنص: NEX يُنتج، VEX يُعلن، PULSE يُحلل، Sentinel يُراقب.\nCTA: جرّب مجاناً ←`,
-  analyze: `📊 تحليل — وضع العرض التجريبي\n\nنسبة النقر: ٤.٢٪ ✅\nتوصيات:\n١. زِد الميزانية على Facebook\n٢. اختبر audience ٢٥-٣٤ سنة`,
+  analyze: `📊 التحليل غير متاح في وضع العرض التجريبي\n\nلم يتم تشغيل نموذج ذكاء اصطناعي، لذلك لن يعرض NEXUS أرقاماً أو نتائج افتراضية. أضف OPENAI_API_KEY وقدّم بيانات موثقة لإجراء تحليل قائم على الأدلة.`,
 }
 
 async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {

@@ -142,7 +142,7 @@ export function getPlanContext(planTier?: string): string {
     advanced:
       'Advanced scope: full 4-week calendar, 3 audience segments, 12+ content angles, multi-platform strategy.',
     agency:
-      'Agency scope: full 4-week calendar, 4 audience segments, 15 content angles, 6 platforms, white-label ready.',
+      'Autopilot scope: full 4-week calendar, 4 audience segments, 15 content angles, and supported connected platforms.',
   }
 
   const lines = [

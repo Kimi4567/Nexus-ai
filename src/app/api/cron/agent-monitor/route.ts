@@ -1,216 +1,126 @@
 /**
  * GET /api/cron/agent-monitor
- * Runs daily at 06:00 UTC.
  *
- * Three jobs in one pass:
- * 1. Campaign Manager agent — checks all active workspaces, creates AgentSuggestion records
- * 2. Brand Brain post-performance learning (FLP) — for any posts published in the last 48 h,
- *    extract hooks + content angles from their captions and merge into the workspace's
- *    Brand Brain (BrandProfile.winningHooks / winningAngles).
- *    Note: once we have real Meta/LinkedIn engagement data we'll gate this on above-average
- *    engagement; for now we learn from every published post.
- * 3. Weekly reports — Mondays only
+ * Low-cost continuous execution monitor. Vercel invokes this hourly, while a
+ * deterministic 24-way workspace shard means each workspace is evaluated once
+ * per UTC day. The dashboard Execution Queue remains real-time on page load.
  *
- * ⚠️  COST TRACKING NOTE (not user-billed):
- * This cron uses gpt-4o-mini for extractLearningsFromCaptions (max_tokens: 300).
- * Estimated cost per workspace with published posts: ~$0.001–$0.002 (gpt-4o-mini)
- * runCampaignMonitor (orchestrator) may use gpt-4o-mini (campaign-manager.ts, max_tokens: 1500)
- * Estimated per workspace: ~$0.003
- *
- * At 1,000 active workspaces per run: ~$3–5/day = ~$90–150/month uncovered COGS.
- * Search Vercel logs for "[agent-monitor] COST" to monitor daily spend.
- * If daily workspaces > 500, consider rate-limiting to workspaces active in last 7 days.
+ * This route never calls an AI model, publishes content, changes budgets, or
+ * invents performance metrics. It only creates approval suggestions backed by
+ * Execution Truth evidence.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { runCampaignMonitor, runReport } from '@/lib/agents/orchestrator'
+import { monitorWorkspaceExecution } from '@/lib/executionMonitorService'
+import { cronAuthError } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
-// ── Brand Brain helpers (mirrors approve-content-plan) ────────────────────────
+type WorkspaceRow = { id: string }
 
-/** Merge incoming strings into existing array, dedup, keep last N */
-function mergeUnique(existing: string[] | null | undefined, incoming: string[], limit = 20): string[] {
-  const current = Array.isArray(existing) ? existing : []
-  const next = incoming.filter(s => typeof s === 'string' && s.trim().length > 0).map(s => s.trim())
-  return Array.from(new Set([...current, ...next])).slice(-limit)
-}
-
-/** Call GPT-4o-mini to extract top hooks + angles from a batch of post captions */
-async function extractLearningsFromCaptions(captions: string[]): Promise<{ hooks: string[]; angles: string[] }> {
-  if (!process.env.OPENAI_API_KEY || captions.length === 0) return { hooks: [], angles: [] }
-
-  const sample = captions.slice(0, 12)
-  const prompt = `Analyze these ${sample.length} published social media post captions and extract the most effective content patterns.
-
-Captions:
-${sample.map((c, i) => `${i + 1}. ${c.slice(0, 300)}`).join('\n\n')}
-
-Return a JSON object with exactly:
-{
-  "hooks": ["hook 1", "hook 2", "hook 3"],
-  "angles": ["angle 1", "angle 2", "angle 3"]
-}
-
-Rules:
-- hooks: the 3 most compelling opening lines / sentence starters extracted verbatim or slightly abstracted
-- angles: the 3 main content themes/angles used across the captions (e.g. "social proof + results")
-- Keep each hook under 15 words, each angle under 8 words
-- Return only the JSON object`
-
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
+async function workspacesForRun(req: NextRequest, now: Date): Promise<{
+  rows: WorkspaceRow[]
+  shard: number | null
+  capped: boolean
+}> {
+  const requestedWorkspaceId = req.nextUrl.searchParams.get('workspaceId')?.trim()
+  if (requestedWorkspaceId) {
+    const workspace = await prisma.workspace.findFirst({
+      where: {
+        id: requestedWorkspaceId,
+        campaigns: { some: { status: { not: 'ARCHIVED' } } },
       },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
-        max_tokens: 300,
-        response_format: { type: 'json_object' },
-      }),
+      select: { id: true },
     })
-    const data = await res.json()
-    const raw = JSON.parse(data.choices?.[0]?.message?.content ?? '{}')
-    return {
-      hooks:  Array.isArray(raw.hooks)  ? raw.hooks.filter((h: any) => typeof h === 'string')  : [],
-      angles: Array.isArray(raw.angles) ? raw.angles.filter((a: any) => typeof a === 'string') : [],
-    }
-  } catch {
-    return { hooks: [], angles: [] }
+    return { rows: workspace ? [workspace] : [], shard: null, capped: false }
   }
-}
 
-// ── Main handler ──────────────────────────────────────────────────────────────
+  const shard = now.getUTCHours()
+  const limit = 100
+  const rows = await prisma.$queryRawUnsafe<WorkspaceRow[]>(
+    `SELECT w."id"
+       FROM "Workspace" w
+      WHERE mod(abs(hashtext(w."id")::bigint), 24) = $1
+        AND EXISTS (
+          SELECT 1
+            FROM "Campaign" c
+           WHERE c."workspaceId" = w."id"
+             AND c."status" <> 'ARCHIVED'
+        )
+      ORDER BY w."id"
+      LIMIT $2`,
+    shard,
+    limit + 1,
+  )
+
+  return { rows: rows.slice(0, limit), shard, capped: rows.length > limit }
+}
 
 export async function GET(req: NextRequest) {
-  // Verify cron secret — matches Vercel's Authorization: Bearer <CRON_SECRET> format
-  const authHeader = req.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret && process.env.NODE_ENV !== 'development') { return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 }) }
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const startedAt = Date.now()
+  const authError = cronAuthError(req)
+  if (authError) return authError
 
-  const results = {
+  const now = new Date()
+  const dryRun = req.nextUrl.searchParams.get('dryRun') === '1'
+  const selection = await workspacesForRun(req, now)
+  const totals = {
+    workspacesSelected: selection.rows.length,
     workspacesChecked: 0,
     campaignsChecked: 0,
+    actionsDetected: 0,
     suggestionsCreated: 0,
-    reportsCreated: 0,
-    brandBrainLearned: { workspaces: 0, hooks: 0, angles: 0 },
+    suggestionsSuppressed: 0,
+    skippedBecauseLocked: 0,
     errors: [] as string[],
   }
 
-  // Get all workspaces that have at least one campaign
-  const workspaces = await prisma.workspace.findMany({
-    where: {
-      campaigns: { some: { status: { in: ['ACTIVE', 'DRAFT'] } } },
-    },
-    select: { id: true },
-  })
-
-  results.workspacesChecked = workspaces.length
-
-  // ── Job 1: Campaign monitor ──────────────────────────────────────────────────
-  for (const ws of workspaces) {
-    try {
-      const monitorResult = await runCampaignMonitor(ws.id)
-      results.campaignsChecked += monitorResult.campaignsChecked
-      results.suggestionsCreated += monitorResult.suggestionsCreated
-      results.errors.push(...monitorResult.errors)
-    } catch (err: any) {
-      results.errors.push(`Workspace ${ws.id}: ${err?.message}`)
-    }
-  }
-
-  // ── Job 2: Brand Brain post-performance learning (FLP) ───────────────────────
-  // Find all posts published in the last 48 hours across all workspaces.
-  // Group by workspace → extract hooks/angles → merge into Brand Brain.
-  try {
-    const since = new Date(Date.now() - 48 * 60 * 60 * 1000)
-
-    const recentPosts = await (prisma.socialPost as any).findMany({
-      where: {
-        status: 'PUBLISHED',
-        publishedAt: { gte: since },
-        caption: { not: null },
-        autoGenerated: true,  // Only learn from AI-generated content
-      },
-      select: { workspaceId: true, caption: true },
-    }) as Array<{ workspaceId: string; caption: string }>
-
-    // Group captions by workspace
-    const byWorkspace = new Map<string, string[]>()
-    for (const post of recentPosts) {
-      if (!post.caption || post.caption.trim().length < 20) continue
-      const arr = byWorkspace.get(post.workspaceId) ?? []
-      arr.push(post.caption)
-      byWorkspace.set(post.workspaceId, arr)
-    }
-
-    for (const [workspaceId, captions] of byWorkspace.entries()) {
-      try {
-        const learnings = await extractLearningsFromCaptions(captions)
-        if (learnings.hooks.length === 0 && learnings.angles.length === 0) continue
-
-        const brand = await prisma.brandProfile.findUnique({
-          where: { workspaceId },
-          select: { winningHooks: true, winningAngles: true },
-        })
-        if (!brand) continue
-
-        await prisma.brandProfile.update({
-          where: { workspaceId },
-          data: {
-            winningHooks:  mergeUnique(brand.winningHooks,  learnings.hooks,  25),
-            winningAngles: mergeUnique(brand.winningAngles, learnings.angles, 25),
-          },
-        })
-
-        results.brandBrainLearned.workspaces++
-        results.brandBrainLearned.hooks  += learnings.hooks.length
-        results.brandBrainLearned.angles += learnings.angles.length
-      } catch (err: any) {
-        results.errors.push(`BrandBrain ${workspaceId}: ${err?.message}`)
+  // Small batches protect the Postgres connection pool while avoiding the old
+  // one-workspace-at-a-time N+1 latency.
+  for (let index = 0; index < selection.rows.length; index += 4) {
+    const batch = selection.rows.slice(index, index + 4)
+    const settled = await Promise.allSettled(
+      batch.map((workspace) => monitorWorkspaceExecution(workspace.id, { now, dryRun })),
+    )
+    settled.forEach((result, offset) => {
+      const workspaceId = batch[offset]?.id ?? 'unknown'
+      if (result.status === 'rejected') {
+        const message = result.reason instanceof Error ? result.reason.message : 'Unknown monitor error'
+        totals.errors.push(`Workspace ${workspaceId}: ${message}`)
+        return
       }
-    }
-  } catch (err: any) {
-    results.errors.push(`FLP scan: ${err?.message}`)
+      totals.workspacesChecked++
+      totals.campaignsChecked += result.value.campaignsChecked
+      totals.actionsDetected += result.value.actionsDetected
+      totals.suggestionsCreated += result.value.suggestionsCreated
+      totals.suggestionsSuppressed += result.value.suggestionsSuppressed
+      if (result.value.skippedBecauseLocked) totals.skippedBecauseLocked++
+    })
   }
 
-  // ── Job 3: Weekly reports (Mondays only) ─────────────────────────────────────
-  const isMonday = new Date().getDay() === 1
-  if (isMonday) {
-    for (const ws of workspaces) {
-      try {
-        await runReport(ws.id, 'weekly')
-        results.reportsCreated++
-      } catch (err: any) {
-        results.errors.push(`Report ${ws.id}: ${err?.message}`)
-      }
-    }
-  }
-
-  // ── Cost summary log — search "[agent-monitor] COST" in Vercel to monitor ─────
-  const estimatedCostUSD = (
-    results.workspacesChecked * 0.003 +   // campaign monitor per workspace
-    results.brandBrainLearned.workspaces * 0.002  // FLP learning per workspace
-  ).toFixed(4)
-  console.log(
-    `[agent-monitor] COST workspaces=${results.workspacesChecked} ` +
-    `learnedWorkspaces=${results.brandBrainLearned.workspaces} ` +
-    `estimatedCostUSD=$${estimatedCostUSD} ts=${new Date().toISOString()}`
-  )
-  // ─────────────────────────────────────────────────────────────────────────────
+  const durationMs = Date.now() - startedAt
+  console.log('[execution-monitor]', JSON.stringify({
+    shard: selection.shard,
+    dryRun,
+    capped: selection.capped,
+    durationMs,
+    ...totals,
+  }))
 
   return NextResponse.json({
-    ok: true,
-    ...results,
-    estimatedCostUSD: parseFloat(estimatedCostUSD),
-    ts: new Date().toISOString(),
+    ok: totals.errors.length === 0,
+    monitor: 'execution-truth',
+    monitorVersion: 1,
+    mode: 'deterministic-no-ai',
+    performanceClaims: false,
+    autoExecution: false,
+    dryRun,
+    shard: selection.shard,
+    capped: selection.capped,
+    durationMs,
+    ...totals,
+    ts: now.toISOString(),
   })
 }

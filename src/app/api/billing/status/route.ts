@@ -5,7 +5,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
-import { isBillingConfigured, PLAN_CREDITS } from '@/lib/stripe'
+import { areCreditPacksConfigured, isBillingConfigured, PLAN_CREDITS } from '@/lib/stripe'
+import { isCreditWalletEnabled } from '@/lib/credits/wallet'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,11 +59,47 @@ export async function GET(req: NextRequest) {
     const maxCredits = PLAN_CREDITS[planName] ?? 10  // 10 = FREE_STARTER_CREDITS default
     const usedCredits = maxCredits === -1 ? 0 : Math.max(0, maxCredits - (dbUser.aiCredits ?? 0))
 
+    const walletEnabled = isCreditWalletEnabled()
+    let creditBreakdown: null | {
+      monthly: number
+      purchased: number
+      trial: number
+      other: number
+      nextPurchasedExpiry: Date | null
+    } = null
+
+    if (walletEnabled) {
+      const now = new Date()
+      const grants = await prisma.creditGrant.findMany({
+        where: {
+          userId: user.id,
+          status: 'ACTIVE',
+          remaining: { gt: 0 },
+          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+        },
+        select: { type: true, remaining: true, expiresAt: true },
+      })
+      creditBreakdown = grants.reduce((summary, grant) => {
+        const amount = Math.max(0, grant.remaining)
+        if (grant.type === 'MONTHLY') summary.monthly += amount
+        else if (grant.type === 'PURCHASED') {
+          summary.purchased += amount
+          if (grant.expiresAt && (!summary.nextPurchasedExpiry || grant.expiresAt < summary.nextPurchasedExpiry)) {
+            summary.nextPurchasedExpiry = grant.expiresAt
+          }
+        } else if (grant.type === 'TRIAL') summary.trial += amount
+        else summary.other += amount
+        return summary
+      }, { monthly: 0, purchased: 0, trial: 0, other: 0, nextPurchasedExpiry: null as Date | null })
+    }
+
     return NextResponse.json({
       plan: planName,
       status: dbUser.subscriptionStatus,
       hasActiveSubscription: isActive,
       billingEnabled: isBillingConfigured(),
+      creditPacksEnabled: walletEnabled && isBillingConfigured() && areCreditPacksConfigured(),
+      creditBreakdown,
       credits: {
         remaining: dbUser.aiCredits ?? 0,
         used: usedCredits,

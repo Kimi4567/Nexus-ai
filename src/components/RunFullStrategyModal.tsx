@@ -471,6 +471,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           form.append('timestamp', String(sigData.timestamp))
           form.append('signature', String(sigData.signature))
           form.append('folder', String(sigData.folder))
+          form.append('public_id', String(sigData.public_id))
+          form.append('overwrite', String(sigData.overwrite))
           form.append('resource_type', String(sigData.resource_type))
           xhr.send(form)
         })

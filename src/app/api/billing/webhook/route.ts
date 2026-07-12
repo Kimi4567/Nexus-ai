@@ -18,10 +18,17 @@ import {
   PLAN_CREDITS,
   planFromPriceId,
 } from '@/lib/stripe'
+import { getCreditPack } from '@/lib/commercialPlans'
+import { isCreditWalletEnabled } from '@/lib/credits/wallet'
 import { sendUpgradeConfirmationEmail } from '@/lib/email/resend'
 // B1d-c-1 — create the cycle's MONTHLY CreditGrant in parallel with the existing
 // aiCredits overwrite (flag-independent, additive; never read while the flag is OFF).
-import { ensureMonthlyGrant, voidNonPurchasedGrants } from '@/lib/credits/creditGrants'
+import {
+  ensureMonthlyGrant,
+  fulfilPurchasedCreditPack,
+  syncCachedWalletBalance,
+  voidNonPurchasedGrants,
+} from '@/lib/credits/creditGrants'
 import Stripe from 'stripe'
 
 /** Credits allocated by plan name */
@@ -64,6 +71,7 @@ async function provisionSubscription(
   // billing cycle when the subscription is ACTIVE. The aiCredits behavior and the
   // ACTIVE-only condition are unchanged.
   await (prisma as any).$transaction(async (tx: any) => {
+    const walletEnabled = isCreditWalletEnabled()
     await tx.subscription.upsert({
       where:  { userId },
       create: {
@@ -100,7 +108,7 @@ async function provisionSubscription(
         subscriptionStatus: statusEnum as 'ACTIVE' | 'PAST_DUE' | 'CANCELLED' | 'EXPIRED' | 'FREE',
         stripeCustomerId:   customerId,
         // Only top-up credits on active subscription
-        ...(statusEnum === 'ACTIVE' && {
+        ...(statusEnum === 'ACTIVE' && (!walletEnabled || credits === -1) && {
           aiCredits: credits === -1 ? 999999 : credits,
         }),
       },
@@ -119,6 +127,7 @@ async function provisionSubscription(
         },
         tx,
       )
+      if (walletEnabled) await syncCachedWalletBalance(userId, tx)
     }
   })
 }
@@ -158,6 +167,39 @@ export async function POST(req: NextRequest) {
       // ── New subscription created via Checkout ──────────────────────────
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
+        if (session.mode === 'payment') {
+          const pack = getCreditPack(session.metadata?.packId)
+          const userId = session.metadata?.userId
+          const isPaid = session.payment_status === 'paid'
+          const expectedSubtotal = pack ? pack.priceUsd * 100 : null
+          const amountMatches = expectedSubtotal !== null && session.amount_subtotal === expectedSubtotal
+
+          if (session.metadata?.kind !== 'credit_pack' || !pack || !userId || !isPaid || !amountMatches) {
+            console.error('[Webhook] Refusing invalid credit-pack checkout', {
+              sessionId: session.id,
+              hasUserId: Boolean(userId),
+              packId: session.metadata?.packId,
+              paymentStatus: session.payment_status,
+              amountSubtotal: session.amount_subtotal,
+            })
+            break
+          }
+
+          const fulfilled = await (prisma as any).$transaction((tx: any) =>
+            fulfilPurchasedCreditPack({
+              userId,
+              checkoutSessionId: session.id,
+              credits: pack.credits,
+              purchasedAt: new Date(session.created * 1000),
+            }, tx),
+          )
+          console.log(
+            `[Webhook] Credit pack fulfilled session=${session.id} userId=${userId} ` +
+            `credits=${pack.credits} created=${fulfilled.created}`,
+          )
+          break
+        }
+
         if (session.mode !== 'subscription') break
 
         const subId = session.subscription as string
@@ -239,15 +281,20 @@ export async function POST(req: NextRequest) {
         // ACTIVE non-PURCHASED grants so a cancelled user has no spendable
         // monthly/trial/referral/manual/migrated balance. PURCHASED untouched.
         await (prisma as any).$transaction(async (tx: any) => {
+          const walletEnabled = isCreditWalletEnabled()
           await tx.subscription.updateMany({
             where: { userId, stripeId: sub.id },
             data:  { status: 'CANCELLED', cancelledAt: new Date() },
           })
           await tx.user.update({
             where: { id: userId },
-            data:  { subscriptionStatus: 'CANCELLED', aiCredits: 0 },
+            data:  {
+              subscriptionStatus: 'CANCELLED',
+              ...(!walletEnabled && { aiCredits: 0 }),
+            },
           })
           await voidNonPurchasedGrants(userId, tx)
+          if (walletEnabled) await syncCachedWalletBalance(userId, tx)
         })
         console.log(`[Webhook] Subscription cancelled for userId=${userId}`)
         break
@@ -280,11 +327,12 @@ export async function POST(req: NextRequest) {
         // before, PLUS a parallel MONTHLY CreditGrant for the renewed cycle. The
         // aiCredits behavior and the forced-ACTIVE status are unchanged.
         await (prisma as any).$transaction(async (tx: any) => {
+          const walletEnabled = isCreditWalletEnabled()
           await tx.user.update({
             where: { id: userId },
             data:  {
               subscriptionStatus: 'ACTIVE',
-              aiCredits: credits === -1 ? 999999 : credits,
+              ...((!walletEnabled || credits === -1) && { aiCredits: credits === -1 ? 999999 : credits }),
             },
           })
           if (wantsGrant) {
@@ -298,6 +346,7 @@ export async function POST(req: NextRequest) {
               },
               tx,
             )
+            if (walletEnabled) await syncCachedWalletBalance(userId, tx)
           }
         })
         console.log(`[Webhook] Credits renewed for userId=${userId} plan=${plan} credits=${credits}`)
@@ -330,8 +379,10 @@ export async function POST(req: NextRequest) {
     }
   } catch (err) {
     console.error('[Webhook] Handler error for', event.type, err)
-    // Return 200 so Stripe doesn't retry — log the error on our end
-    return NextResponse.json({ received: true, warning: 'Handler error logged' })
+    // Billing fulfilment must be retryable. All handled writes use stable Stripe
+    // IDs / grant sources, so returning 500 is safe and prevents paid purchases
+    // or renewals from being silently acknowledged without fulfilment.
+    return NextResponse.json({ received: false, error: 'Webhook processing failed' }, { status: 500 })
   }
 
   return NextResponse.json({ received: true })

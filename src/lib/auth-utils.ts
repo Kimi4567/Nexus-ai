@@ -15,7 +15,7 @@ export interface AuthenticatedUser {
  */
 export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
   try {
-    const headersList = headers()
+    const headersList = await headers()
     const authHeader = headersList.get('authorization') || ''
     const token = authHeader.replace('Bearer ', '').trim()
     if (!token) return null

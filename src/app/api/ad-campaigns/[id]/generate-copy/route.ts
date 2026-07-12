@@ -27,6 +27,7 @@ import {
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
+import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -70,10 +71,8 @@ async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, 
   await refundCredits(userId, 'AD_COPY', reason)
 }
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   let chargedUserId: string | null = null
   let chargedCredit: CreditDeductionOk | null = null
 
@@ -129,17 +128,7 @@ export async function POST(
     const objective = campaign.objective
     const ctaOptions = CTA_OPTIONS[platform as keyof typeof CTA_OPTIONS] || CTA_OPTIONS.META
 
-    const brandCtx = brandProfile ? `
-Brand: ${brandProfile.brandName}
-Industry: ${brandProfile.industry}
-Primary Offer: ${brandProfile.primaryOffer}
-Price Point: ${brandProfile.pricePoint}
-Target Audience: ${brandProfile.targetAudience}
-Brand Tone: ${(brandProfile.toneKeywords || []).join(', ')}
-Unique Advantages: ${(brandProfile.uniqueAdvantages || []).join(', ')}
-Winning Hooks (REUSE these angles): ${(brandProfile.winningHooks || []).slice(0, 5).join(' | ')}
-FAILED Angles (NEVER use): ${(brandProfile.failedAngles || []).slice(0, 3).join(', ')}
-AI Strategy Context: ${JSON.stringify(campaign.aiStrategy || {}).slice(0, 1000)}` : 'No brand profile.'
+    const brandCtx = buildBrandExecutionContext(brandProfile)
 
     // AI Strategy context
     const strategyCtx = campaign.aiStrategy
@@ -152,7 +141,7 @@ Your copy converts. Every word earns its place. You understand platform-native f
 ${langInstruction}
 
 Output ONLY valid JSON. The copy must be SPECIFIC to this brand — never generic.
-Use the winning hooks as inspiration. Never use the failed angles.`
+Treat stored hook/angle memory as candidates unless supported by campaign evidence. Avoid angles explicitly marked to avoid.`
 
     const userPrompt = `Campaign: "${campaign.name}"
 Platform: ${platform}

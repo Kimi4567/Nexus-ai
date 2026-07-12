@@ -35,7 +35,7 @@ vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 import { POST } from '../route'
 
 const makeReq = () => ({}) as any
-const ctx = (id = 'c1') => ({ params: { id } })
+const ctx = (id = 'c1') => ({ params: Promise.resolve({ id }) })
 
 const generatedPack = {
   audienceBrief: { meta: { ageMin: 25, ageMax: 45 } },

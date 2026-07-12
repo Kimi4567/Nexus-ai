@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { PLANS_CREDITS, getUsageSummary, getMonthlyActivity } from '@/lib/credits'
+import { summarizePerformanceEvidence } from '@/lib/performanceEvidence'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -46,6 +47,11 @@ export async function GET(req: Request) {
         creditsRemaining, creditsUsedThisMonth, monthlyTotal, isUnlimited, plan,
         monthlyActivity: [],
         topCampaigns: [],
+        performanceEvidence: {
+          eligiblePosts: 0, insufficientSamplePosts: 0, unverifiedPosts: 0,
+          awaitingCollection: 0, impressions: 0, reach: 0,
+          engagementCount: 0, clicks: 0, engagementRate: 0, byPlatform: {},
+        },
       })
     }
 
@@ -63,9 +69,25 @@ export async function GET(req: Request) {
     const generations = usageSummary.generationsTotal
 
     // ── Published posts ─────────────────────────────────────────────────────
-    const publishedPosts = await prisma.socialPost.count({
-      where: { workspaceId: workspace.id, status: 'PUBLISHED' },
-    }).catch(() => 0)
+    const [publishedPosts, evidenceRows, awaitingCollection] = await Promise.all([
+      prisma.socialPost.count({
+        where: { workspaceId: workspace.id, status: 'PUBLISHED' },
+      }).catch(() => 0),
+      (prisma.socialPost as any).findMany({
+        where: {
+          workspaceId: workspace.id,
+          status: 'PUBLISHED',
+          analyticsFetched: true,
+        },
+        select: { platform: true, analyticsData: true },
+        orderBy: { publishedAt: 'desc' },
+        take: 200,
+      }).catch(() => []),
+      prisma.socialPost.count({
+        where: { workspaceId: workspace.id, status: 'PUBLISHED', analyticsFetched: false },
+      }).catch(() => 0),
+    ])
+    const performanceEvidence = summarizePerformanceEvidence(evidenceRows)
 
     // ── Monthly activity (last 6 months) — from the credit ledger ──────────
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -110,6 +132,10 @@ export async function GET(req: Request) {
       plan,
       monthlyActivity,
       topCampaigns,
+      performanceEvidence: {
+        ...performanceEvidence,
+        awaitingCollection,
+      },
     })
   } catch (err: unknown) {
     console.warn('[analytics/overview] DB query failed:', err instanceof Error ? err.message : err)
@@ -120,6 +146,11 @@ export async function GET(req: Request) {
       isUnlimited: false, plan: 'FREE',
       monthlyActivity: [],
       topCampaigns: [],
+      performanceEvidence: {
+        eligiblePosts: 0, insufficientSamplePosts: 0, unverifiedPosts: 0,
+        awaitingCollection: 0, impressions: 0, reach: 0,
+        engagementCount: 0, clicks: 0, engagementRate: 0, byPlatform: {},
+      },
     })
   }
 }

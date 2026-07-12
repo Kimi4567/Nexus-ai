@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, Suspense, type ReactNode } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
-import { Sparkles, X } from 'lucide-react'
+import { ArrowUpRight, Sparkles, X } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -17,6 +17,8 @@ import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import UpgradeModal from '@/components/UpgradeModal'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 import PlatformNativeCard from '@/components/PlatformNativeCard'
+import type { StrategyApprovalContract } from '@/lib/strategyApproval'
+import type { ExecutionQueueItem } from '@/lib/executionTruth'
 
 interface Activity {
   id: string
@@ -252,6 +254,9 @@ function CampaignDetailPageInner() {
   const [engineRunning, setEngineRunning] = useState(false)
   const [engineError, setEngineError] = useState('')
   const [approvalState, setApprovalState] = useState<'idle' | 'confirming' | 'approving' | 'done'>('idle')
+  const [strategyApproval, setStrategyApproval] = useState<StrategyApprovalContract | null>(null)
+  const [executionAction, setExecutionAction] = useState<ExecutionQueueItem | null>(null)
+  const [revokingStrategy, setRevokingStrategy] = useState(false)
   const [launchState, setLaunchState] = useState<'idle' | 'approving' | 'generating' | 'done'>('idle')
   const [launchError, setLaunchError] = useState('')
   const [sentinelState, setSentinelState] = useState<'idle' | 'reviewing' | 'done'>('idle')
@@ -263,12 +268,13 @@ function CampaignDetailPageInner() {
   const [autopilotQueue, setAutopilotQueue] = useState<AutopilotPost[]>([])
   const [autopilotActivating, setAutopilotActivating] = useState(false)
   const [autopilotError, setAutopilotError] = useState('')
+  const [autopilotNotice, setAutopilotNotice] = useState('')
   const [autopilotPausing, setAutopilotPausing] = useState(false)
 
   // VEX Ad Setup expand/collapse
   const [adSetupOpen, setAdSetupOpen] = useState(false)
 
-  // Performance / ROI Dashboard (Tab 6)
+  // Verified performance evidence (Tab 6)
   const [perfData, setPerfData] = useState<any>(null)
   const [perfLoading, setPerfLoading] = useState(false)
 
@@ -326,6 +332,22 @@ function CampaignDetailPageInner() {
       const d = await res.json()
       if (d.campaign) {
         setCampaign(d.campaign)
+        const [approvalRes, executionRes] = await Promise.all([
+          fetch(`/api/campaigns/${campaignId}/strategy-approval`, {
+            headers: { Authorization: token },
+          }).catch(() => null),
+          fetch(`/api/execution/queue?campaignId=${encodeURIComponent(campaignId)}`, {
+            headers: { Authorization: token },
+          }).catch(() => null),
+        ])
+        if (approvalRes?.ok) {
+          const approvalData = await approvalRes.json().catch(() => null)
+          setStrategyApproval(approvalData?.approval ?? null)
+        }
+        if (executionRes?.ok) {
+          const executionData = await executionRes.json().catch(() => null)
+          setExecutionAction(executionData?.truth?.queue?.[0] ?? null)
+        }
         // Restore sentinel state from stored review so we never show stale errors
         // when the user navigates back to a campaign that already passed
         const storedReview = (d.campaign?.aiOutput as any)?.sentinelReview
@@ -535,27 +557,27 @@ function CampaignDetailPageInner() {
   const handleApprove = async () => {
     const token = authHeader()
     if (!token || !campaign) return
-    const review = (campaign.aiOutput as any)?.sentinelReview
-    const calendarItems = (campaign.aiOutput as any)?.calendarItems || []
-    if (review?.status !== 'passed' || calendarItems.length === 0) {
-      setApprovalState('idle')
-      setEngineError(locale === 'ar'
-        ? 'لا يمكن تجهيز الحملة قبل اكتمال فحص الجودة وبناء التقويم.'
-        : 'Complete the quality check and build the calendar before preparing the campaign.')
-      return
-    }
     setApprovalState('approving')
     try {
-      const res = await fetch(`/api/campaigns/${campaignId}`, {
-        method: 'PATCH',
+      const res = await fetch(`/api/campaigns/${campaignId}/strategy-approval`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: token },
-        body: JSON.stringify({ status: 'ACTIVE' }),
+        body: JSON.stringify({ action: 'approve' }),
       })
       const d = await res.json()
-      if (d.campaign) {
+      if (res.ok && d.approval?.state === 'approved') {
+        setStrategyApproval(d.approval)
         setCampaign(prev => prev ? { ...prev, status: 'ACTIVE' } : prev)
         setApprovalState('done')
+        await fetchCampaign()
       } else {
+        const blocker = Array.isArray(d.blockers) ? d.blockers[0] : null
+        setEngineError(
+          (locale === 'ar' ? blocker?.message?.ar : blocker?.message?.en)
+          || d.message
+          || d.error
+          || (locale === 'ar' ? 'تعذّر اعتماد الاستراتيجية.' : 'Strategy approval failed.'),
+        )
         setApprovalState('idle')
       }
     } catch {
@@ -571,18 +593,25 @@ function CampaignDetailPageInner() {
     setLaunchError('')
     try {
       // Step 1: Approve campaign (set ACTIVE)
-      const approveRes = await fetch(`/api/campaigns/${campaignId}`, {
-        method: 'PATCH',
+      const approveRes = await fetch(`/api/campaigns/${campaignId}/strategy-approval`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: token },
-        body: JSON.stringify({ status: 'ACTIVE' }),
+        body: JSON.stringify({ action: 'approve' }),
       })
       const approveData = await approveRes.json()
-      if (!approveData.campaign) {
+      if (!approveRes.ok || approveData.approval?.state !== 'approved') {
+        const blocker = Array.isArray(approveData.blockers) ? approveData.blockers[0] : null
         setApprovalState('idle')
         setLaunchState('idle')
-        setLaunchError(approveData.message || approveData.error || (locale === 'ar' ? 'فشل الاعتماد، حاول مرة أخرى' : 'Approval failed, please try again'))
+        setLaunchError(
+          (locale === 'ar' ? blocker?.message?.ar : blocker?.message?.en)
+          || approveData.message
+          || approveData.error
+          || (locale === 'ar' ? 'فشل الاعتماد، حاول مرة أخرى' : 'Approval failed, please try again'),
+        )
         return
       }
+      setStrategyApproval(approveData.approval)
       setCampaign(prev => prev ? { ...prev, status: 'ACTIVE' } : prev)
 
       // Step 2: Check if content plan already exists
@@ -624,6 +653,43 @@ function CampaignDetailPageInner() {
     }
   }
 
+  const handleRevokeStrategyApproval = async () => {
+    const token = authHeader()
+    if (!token || !campaign || revokingStrategy || !strategyApproval?.canRevoke) return
+    const confirmed = window.confirm(locale === 'ar'
+      ? 'سيعود اعتماد الاستراتيجية إلى مسودة، ولن يمكن جدولة محتوى جديد حتى اعتمادها مرة أخرى. متابعة؟'
+      : 'This returns the strategy to draft and blocks new scheduling until it is approved again. Continue?')
+    if (!confirmed) return
+
+    setRevokingStrategy(true)
+    setEngineError('')
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/strategy-approval`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: token },
+        body: JSON.stringify({ action: 'revoke' }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        const blocker = Array.isArray(data.blockers) ? data.blockers[0] : null
+        setEngineError(
+          (locale === 'ar' ? blocker?.message?.ar : blocker?.message?.en)
+          || data.error
+          || (locale === 'ar' ? 'تعذّر إلغاء الاعتماد.' : 'Could not revoke approval.'),
+        )
+        return
+      }
+      setStrategyApproval(data.approval)
+      setCampaign(prev => prev ? { ...prev, status: 'DRAFT' } : prev)
+      setApprovalState('idle')
+      await fetchCampaign()
+    } catch {
+      setEngineError(locale === 'ar' ? 'حدث خطأ أثناء إلغاء الاعتماد.' : 'Revocation failed.')
+    } finally {
+      setRevokingStrategy(false)
+    }
+  }
+
   const handleSentinelReview = async () => {
     const token = authHeader()
     if (!token || !campaign) return
@@ -644,6 +710,7 @@ function CampaignDetailPageInner() {
           return { ...prev, aiOutput: { ...existing, sentinelReview: d.sentinelReview } }
         })
         setSentinelState('done')
+        await fetchCampaign()
       } else if (d.error === 'INSUFFICIENT_CREDITS') {
         setUpgradeReason('no_credits')
         setShowUpgrade(true)
@@ -1187,6 +1254,107 @@ function CampaignDetailPageInner() {
         {/* ── Campaign Progress Panel ───────────────────────────────────── */}
         {aiOutput && (
           <div className="mb-6 rounded-[24px] border border-slate-200 bg-white px-5 py-5 shadow-sm">
+
+            {strategyApproval && (
+              <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                        {locale === 'ar' ? 'موجز التشغيل' : 'Operating Brief'}
+                      </p>
+                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                        strategyApproval.state === 'approved'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : strategyApproval.state === 'ready_for_review'
+                            ? 'bg-indigo-100 text-indigo-700'
+                            : strategyApproval.state === 'revoked'
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-slate-200 text-slate-600'
+                      }`}>
+                        {strategyApproval.state === 'approved'
+                          ? (locale === 'ar' ? 'معتمدة' : 'Approved')
+                          : strategyApproval.state === 'ready_for_review'
+                            ? (locale === 'ar' ? 'جاهزة للاعتماد' : 'Ready for approval')
+                            : strategyApproval.state === 'revoked'
+                              ? (locale === 'ar' ? 'تم إلغاء الاعتماد' : 'Approval revoked')
+                              : (locale === 'ar' ? 'تحتاج استكمال' : 'Needs completion')}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {locale === 'ar'
+                        ? 'اعتماد اتجاه الاستراتيجية يسمح ببناء المحتوى فقط؛ لا نشر ولا صرف تلقائي.'
+                        : 'Approving the strategy direction enables content planning only; it never publishes or spends automatically.'}
+                    </p>
+                  </div>
+                  {strategyApproval.state === 'approved' && strategyApproval.canRevoke && (
+                    <button
+                      onClick={handleRevokeStrategyApproval}
+                      disabled={revokingStrategy}
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-amber-200 hover:text-amber-700 disabled:opacity-50"
+                    >
+                      {revokingStrategy
+                        ? (locale === 'ar' ? 'جارٍ الإلغاء…' : 'Revoking…')
+                        : (locale === 'ar' ? 'إلغاء الاعتماد' : 'Revoke approval')}
+                    </button>
+                  )}
+                </div>
+
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  {[
+                    [locale === 'ar' ? 'الهدف' : 'Objective', strategyApproval.operatingBrief.objective],
+                    [locale === 'ar' ? 'الجمهور' : 'Audience', strategyApproval.operatingBrief.audience],
+                    [locale === 'ar' ? 'القنوات' : 'Channels', strategyApproval.operatingBrief.channels.join(', ')],
+                    [locale === 'ar' ? 'المدفوع' : 'Paid', locale === 'ar' ? 'تخطيط فقط' : 'Planning only'],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
+                      <p className="mt-1 line-clamp-2 text-xs font-semibold text-slate-700">{value || (locale === 'ar' ? 'غير محدد' : 'Not specified')}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {strategyApproval.approvalBlockers.length > 0 && strategyApproval.state !== 'approved' && (
+                  <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    {strategyApproval.approvalBlockers.map((blocker) => (
+                      <p key={blocker.code}>• {locale === 'ar' ? blocker.message.ar : blocker.message.en}</p>
+                    ))}
+                  </div>
+                )}
+                {strategyApproval.state === 'approved' && strategyApproval.revokeBlockers.length > 0 && (
+                  <p className="mt-3 text-xs text-slate-500">
+                    {locale === 'ar'
+                      ? strategyApproval.revokeBlockers[0]?.message.ar
+                      : strategyApproval.revokeBlockers[0]?.message.en}
+                  </p>
+                )}
+
+                {executionAction && (
+                  <div className="mt-4 flex flex-col gap-3 rounded-xl border border-indigo-100 bg-indigo-50 px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-indigo-500">
+                        {locale === 'ar' ? 'الإجراء التنفيذي التالي' : 'Next execution action'}
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-slate-900">
+                        {locale === 'ar' ? executionAction.title.ar : executionAction.title.en}
+                      </p>
+                      <p className="mt-0.5 text-xs leading-5 text-slate-600">
+                        {locale === 'ar' ? executionAction.reason.ar : executionAction.reason.en}
+                      </p>
+                    </div>
+                    <Link
+                      href={executionAction.href}
+                      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100"
+                    >
+                      {executionAction.safety === 'monitor_only'
+                        ? (locale === 'ar' ? 'عرض الحالة' : 'View status')
+                        : (locale === 'ar' ? 'فتح الإجراء' : 'Open action')}
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ── 4-step progress stepper ── */}
             <div className="flex items-center gap-0 mb-5 overflow-x-auto pb-1 flex-nowrap">
@@ -2767,8 +2935,8 @@ function CampaignDetailPageInner() {
                       {[
                         { label: locale === 'ar' ? 'استراتيجية مولَّدة' : 'Strategy generated', done: !!aiOutput },
                         { label: locale === 'ar' ? 'خطة تنفيذ أسبوعية' : 'Weekly execution plan', done: weeklyExecutionPlan.length > 0 },
-                        { label: locale === 'ar' ? 'جاهزة لمراجعة المحتوى' : 'Ready for content review', done: campaign.status === 'ACTIVE' || approvalState === 'done' },
-                        { label: locale === 'ar' ? 'منصات اجتماعية متصلة' : 'Social platforms connected', done: true /* checked server-side */ },
+                        { label: locale === 'ar' ? 'الاستراتيجية معتمدة' : 'Strategy approved', done: strategyApproval?.state === 'approved' },
+                        { label: locale === 'ar' ? 'يتم فحص اتصال المنصات عند التحضير' : 'Platform connections are checked on prepare', done: false },
                       ].map((req, i) => (
                         <div key={i} className="flex items-center gap-2 text-xs">
                           <span className={req.done ? 'text-green-600' : 'text-slate-400'}>
@@ -2829,6 +2997,7 @@ function CampaignDetailPageInner() {
                           if (!token || autopilotActivating) return
                           setAutopilotActivating(true)
                           setAutopilotError('')
+                          setAutopilotNotice('')
                           try {
                             const res = await fetch('/api/autopilot/activate', {
                               method: 'POST',
@@ -2837,10 +3006,13 @@ function CampaignDetailPageInner() {
                             })
                             const d = await res.json()
                             if (d.ok) {
-                              setCampaign(prev => prev ? { ...prev, autopilotEnabled: true } : prev)
                               setAutopilotQueue(d.posts || [])
+                              setAutopilotNotice(locale === 'ar'
+                                ? `تم إعداد ${d.postsPrepared || d.posts?.length || 0} مسودة للمراجعة. لم تتم الجدولة أو النشر.`
+                                : `${d.postsPrepared || d.posts?.length || 0} drafts prepared for review. Nothing was scheduled or published.`)
+                              await fetchCampaign()
                             } else {
-                              setAutopilotError(d.error || 'Activation failed')
+                              setAutopilotError(d.error || (locale === 'ar' ? 'تعذر إعداد المسودات' : 'Draft preparation failed'))
                             }
                           } catch {
                             setAutopilotError('Network error — please try again')
@@ -2848,25 +3020,30 @@ function CampaignDetailPageInner() {
                             setAutopilotActivating(false)
                           }
                         }}
-                        disabled={autopilotActivating || !aiOutput || weeklyExecutionPlan.length === 0}
+                        disabled={autopilotActivating || !aiOutput || weeklyExecutionPlan.length === 0 || strategyApproval?.state !== 'approved'}
                         className="px-5 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-40"
                         style={{
-                          background: autopilotActivating || !aiOutput || weeklyExecutionPlan.length === 0
+                          background: autopilotActivating || !aiOutput || weeklyExecutionPlan.length === 0 || strategyApproval?.state !== 'approved'
                             ? '#f1f5f9'
                             : '#f5f3ff',
-                          color: autopilotActivating || !aiOutput || weeklyExecutionPlan.length === 0
+                          color: autopilotActivating || !aiOutput || weeklyExecutionPlan.length === 0 || strategyApproval?.state !== 'approved'
                             ? '#94a3b8' : '#6d28d9',
                           border: '1px solid #ddd6fe',
                         }}>
                         {autopilotActivating
-                          ? (locale === 'ar' ? 'جاري التفعيل…' : 'Enabling…')
-                          : (locale === 'ar' ? 'تفعيل الأوتوبايلوت' : 'Enable Autopilot')}
+                          ? (locale === 'ar' ? 'جاري إعداد المسودات…' : 'Preparing drafts…')
+                          : (locale === 'ar' ? 'إعداد مسودات الأوتوبايلوت' : 'Prepare Autopilot drafts')}
                       </button>
                     )}
                   </div>
 
                   {autopilotError && (
                     <p className="mt-3 text-xs text-red-600">⚠ {autopilotError}</p>
+                  )}
+                  {autopilotNotice && (
+                    <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                      ✓ {autopilotNotice}
+                    </p>
                   )}
                   {!aiOutput && (
                     <p className="mt-3 text-xs text-amber-700">
@@ -2880,6 +3057,13 @@ function CampaignDetailPageInner() {
                       {locale === 'ar'
                         ? '⚠ خطة التنفيذ الأسبوعية غير موجودة في هذه الاستراتيجية — أعد توليد الاستراتيجية'
                         : '⚠ No weekly execution plan found — regenerate the strategy'}
+                    </p>
+                  )}
+                  {aiOutput && weeklyExecutionPlan.length > 0 && strategyApproval?.state !== 'approved' && (
+                    <p className="mt-3 text-xs text-amber-700">
+                      {locale === 'ar'
+                        ? '⚠ اعتمد الاستراتيجية أولاً قبل إعداد مسودات الأوتوبايلوت.'
+                        : '⚠ Approve the strategy before preparing Autopilot drafts.'}
                     </p>
                   )}
                 </div>
@@ -2943,7 +3127,9 @@ function CampaignDetailPageInner() {
                               <p className="line-clamp-2 text-xs text-slate-600">{post.caption}</p>
                               {post.scheduledAt && (
                                 <p className="mt-1 text-xs text-slate-400">
-                                  📅 {new Date(post.scheduledAt).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
+                                  📅 {post.status === 'DRAFT' || post.status === 'APPROVED'
+                                    ? (locale === 'ar' ? 'موعد مقترح: ' : 'Proposed: ')
+                                    : ''}{new Date(post.scheduledAt).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
                                     weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
                                   })}
                                 </p>
@@ -3010,7 +3196,7 @@ function CampaignDetailPageInner() {
               </div>
             )}
 
-            {/* ── Tab 6: Performance / ROI Dashboard ───────────────────── */}
+            {/* ── Tab 6: Verified performance evidence ─────────────────── */}
             {activeTab === 6 && (
               <div className="space-y-4">
                 {perfLoading && (
@@ -3022,8 +3208,8 @@ function CampaignDetailPageInner() {
                 {!perfLoading && !perfData && (
                   <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
                     <div className="text-4xl mb-3">📊</div>
-                    <h3 className="mb-1 text-base font-semibold text-slate-950">No published performance data yet</h3>
-                    <p className="text-sm text-slate-500">Data appears here only after posts are published and analytics are fetched.</p>
+                    <h3 className="mb-1 text-base font-semibold text-slate-950">{locale === 'ar' ? 'لا توجد بيانات أداء منشورة بعد' : 'No published performance data yet'}</h3>
+                    <p className="text-sm text-slate-500">{locale === 'ar' ? 'تظهر البيانات هنا بعد النشر وجمع الدليل من واجهة المنصة.' : 'Data appears here after publishing and platform evidence collection.'}</p>
                   </div>
                 )}
 
@@ -3033,9 +3219,9 @@ function CampaignDetailPageInner() {
                     return (
                       <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
                         <div className="text-4xl mb-3">📊</div>
-                        <h3 className="mb-1 text-base font-semibold text-slate-950">No published performance data yet</h3>
+                        <h3 className="mb-1 text-base font-semibold text-slate-950">{locale === 'ar' ? 'لا توجد بيانات أداء منشورة بعد' : 'No published performance data yet'}</h3>
                         <p className="mx-auto max-w-xl text-sm text-slate-500">
-                          This campaign has planned or draft content, but performance appears only after posts are published and analytics are fetched.
+                          {locale === 'ar' ? 'تحتوي الحملة على محتوى مخطط أو مسودة، لكن قياس الأداء يبدأ بعد النشر وجمع بيانات المنصة.' : 'This campaign has planned or draft content, but performance measurement starts after publishing and platform evidence collection.'}
                         </p>
                       </div>
                     )
@@ -3051,15 +3237,43 @@ function CampaignDetailPageInner() {
                     META: '📘', LINKEDIN: '💼', TIKTOK: '🎵', YOUTUBE: '▶️',
                   }
 
+                  if (Number(s.eligibleEvidencePosts ?? 0) <= 0) {
+                    return (
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center shadow-sm">
+                        <div className="text-4xl mb-3">🧪</div>
+                        <h3 className="mb-1 text-base font-semibold text-amber-950">
+                          {locale === 'ar' ? 'تم النشر، لكن العينة غير مؤهلة بعد' : 'Published, but the evidence is not eligible yet'}
+                        </h3>
+                        <p className="mx-auto max-w-2xl text-sm leading-relaxed text-amber-800">
+                          {locale === 'ar'
+                            ? 'لن يعرض NEXUS أرقاماً قديمة أو عينات صغيرة كأنها نتيجة مؤكدة. يبدأ جمع البيانات بعد 24 ساعة من النشر، ويدخل المنشور في المؤشرات فقط بعد وصول المقام إلى 100 على الأقل.'
+                            : 'NEXUS will not present legacy blobs or tiny samples as proven results. Collection begins after 24 hours, and a post enters KPI totals only after its denominator reaches at least 100.'}
+                        </p>
+                        <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs">
+                          <span className="rounded-full border border-amber-200 bg-white px-3 py-1.5 text-amber-800">
+                            {s.pendingAnalytics ?? 0} {locale === 'ar' ? 'بانتظار الجمع' : 'awaiting collection'}
+                          </span>
+                          <span className="rounded-full border border-amber-200 bg-white px-3 py-1.5 text-amber-800">
+                            {s.insufficientSamplePosts ?? 0} {locale === 'ar' ? 'بعينة صغيرة' : 'small sample'}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  }
+
                   return (
                     <>
+                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 shadow-sm">
+                        <span className="font-semibold">✓ {locale === 'ar' ? 'دليل موثق من المنصة' : 'Verified platform evidence'}</span>
+                        <span className="text-emerald-800"> — {locale === 'ar' ? 'المقارنة داخل كل منصة فقط، والتفاعل ليس دليلاً على التحويل أو الإيراد.' : 'platform-local comparisons only; engagement is not conversion or revenue proof.'}</span>
+                      </div>
                       {/* KPI summary row */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {[
-                          { label: 'Total Reach',      value: s.totalReach.toLocaleString(),       icon: '👥', color: '#22d3ee' },
-                          { label: 'Impressions',      value: s.totalImpressions.toLocaleString(), icon: '👁',  color: '#a78bfa' },
-                          { label: 'Engagements',      value: s.totalEngagements.toLocaleString(), icon: '💬', color: '#34d399' },
-                          { label: 'Avg Engagement',   value: `${s.avgEngagementRate}%`,           icon: '📈', color: '#fb923c' },
+                          { label: locale === 'ar' ? 'الوصول الموثق' : 'Verified Reach', value: s.totalReach.toLocaleString(), icon: '👥', color: '#22d3ee' },
+                          { label: locale === 'ar' ? 'الظهور الموثق' : 'Verified Impressions', value: s.totalImpressions.toLocaleString(), icon: '👁', color: '#a78bfa' },
+                          { label: locale === 'ar' ? 'التفاعلات الموثقة' : 'Verified Engagements', value: s.totalEngagements.toLocaleString(), icon: '💬', color: '#34d399' },
+                          { label: locale === 'ar' ? 'المعدل الموزون' : 'Weighted Rate', value: `${s.avgEngagementRate}%`, icon: '📈', color: '#fb923c' },
                         ].map(kpi => (
                           <div key={kpi.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                             <div className="flex items-center gap-2 mb-2">
@@ -3074,19 +3288,19 @@ function CampaignDetailPageInner() {
                       {/* Posts status row */}
                       <div className="flex flex-wrap gap-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                         {[
-                          ['Total Posts', s.totalPosts, '#9ca3af'],
-                          ['Published',   s.publishedPosts, '#34d399'],
-                          ['Scheduled',   s.scheduledPosts, '#a78bfa'],
-                          ['Awaiting analytics', s.pendingAnalytics, '#fb923c'],
+                          [locale === 'ar' ? 'كل المنشورات' : 'Total Posts', s.totalPosts, '#9ca3af'],
+                          [locale === 'ar' ? 'منشور' : 'Published', s.publishedPosts, '#34d399'],
+                          [locale === 'ar' ? 'مجدول' : 'Scheduled', s.scheduledPosts, '#a78bfa'],
+                          [locale === 'ar' ? 'دليل مؤهل' : 'Eligible evidence', s.eligibleEvidencePosts, '#0f766e'],
                         ].map(([label, val, color]) => (
                           <div key={String(label)} className="text-center">
                             <div className="text-xl font-bold" style={{ color: String(color) }}>{val}</div>
                             <div className="mt-0.5 text-xs text-slate-500">{label}</div>
                           </div>
                         ))}
-                        {s.pendingAnalytics > 0 && (
+                        {s.awaitingEligibleEvidence > 0 && (
                           <p className="ml-auto self-center text-xs text-amber-700">
-                            Analytics are fetched automatically 24-72h after publishing
+                            {locale === 'ar' ? `${s.awaitingEligibleEvidence} منشور لم يدخل المؤشرات بعد` : `${s.awaitingEligibleEvidence} post(s) not yet included in KPIs`}
                           </p>
                         )}
                       </div>
@@ -3094,7 +3308,7 @@ function CampaignDetailPageInner() {
                       {/* Platform breakdown */}
                       {Object.keys(platforms).length > 0 && (
                         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                          <h4 className="mb-4 text-sm font-semibold text-slate-950">Platform Breakdown</h4>
+                          <h4 className="mb-4 text-sm font-semibold text-slate-950">{locale === 'ar' ? 'التفصيل حسب المنصة' : 'Platform Breakdown'}</h4>
                           <div className="space-y-3">
                             {Object.entries(platforms).map(([platform, data]: [string, any]) => {
                               const color = PLATFORM_COLORS[platform] ?? '#6366f1'
@@ -3107,10 +3321,10 @@ function CampaignDetailPageInner() {
                                     <div className="flex items-center gap-2">
                                       <span>{icon}</span>
                                       <span className="text-sm font-medium text-slate-800">{platform}</span>
-                                      <span className="text-xs text-slate-500">{data.posts} posts</span>
+                                      <span className="text-xs text-slate-500">{data.evidencePosts} {locale === 'ar' ? 'بعينة مؤهلة' : 'eligible posts'}</span>
                                     </div>
                                     <div className="flex gap-4 text-xs text-slate-500">
-                                      <span>{data.reach?.toLocaleString()} reach</span>
+                                      <span>{data.reach?.toLocaleString()} {locale === 'ar' ? 'وصول' : 'reach'}</span>
                                       <span className="font-semibold" style={{ color }}>{data.avgEngagementRate}%</span>
                                     </div>
                                   </div>
@@ -3128,7 +3342,7 @@ function CampaignDetailPageInner() {
                       {/* Engagement trend */}
                       {trend.length > 1 && (
                         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                          <h4 className="mb-4 text-sm font-semibold text-slate-950">Engagement Trend</h4>
+                          <h4 className="mb-4 text-sm font-semibold text-slate-950">{locale === 'ar' ? 'مسار التفاعل الموثق' : 'Verified Engagement Trend'}</h4>
                           <div className="flex items-end gap-1 h-20">
                             {(() => {
                               const maxEng = Math.max(...trend.map(t => t.engagements), 1)
@@ -3157,7 +3371,7 @@ function CampaignDetailPageInner() {
                       {/* Top posts */}
                       {topPosts.length > 0 && (
                         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                          <h4 className="mb-4 text-sm font-semibold text-slate-950">🏆 Top Performing Posts</h4>
+                          <h4 className="mb-4 text-sm font-semibold text-slate-950">{locale === 'ar' ? '📊 أعلى المنشورات داخل العينة' : '📊 Highest-rate posts in the eligible sample'}</h4>
                           <div className="space-y-3">
                             {topPosts.map((post, i) => (
                               <div key={post.id} className="flex gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -3183,11 +3397,11 @@ function CampaignDetailPageInner() {
                                 </div>
                                 <div className="text-right flex-shrink-0">
                                   <div className="text-base font-bold text-cyan-400">{post.engagementRate}%</div>
-                                  <div className="text-xs text-gray-600">engagement</div>
+                                  <div className="text-xs text-gray-600">{locale === 'ar' ? 'تفاعل' : 'engagement'}</div>
                                   {post.platformUrl && (
                                     <a href={post.platformUrl} target="_blank" rel="noopener noreferrer"
                                       className="text-xs text-purple-400 hover:text-purple-300 mt-1 block">
-                                      View →
+                                      {locale === 'ar' ? 'عرض ←' : 'View →'}
                                     </a>
                                   )}
                                 </div>

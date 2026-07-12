@@ -13,8 +13,8 @@ const SECTIONS = [
   {
     titleAr: '2. وصف الخدمة',
     titleEn: '2. Description of Service',
-    bodyAr: `NEXUS AI هي منصة تسويق مدعومة بالذكاء الاصطناعي تضم وكلاء متخصصين:\n• NEX — منتج الفيديو\n• VEX — مدير الإعلانات\n• PULSE — التحليلات (قيد التطوير)\n• Sentinel — الحارس الذكي\n\nالخدمة تُقدم بنظام الاشتراك الشهري بمستويات مختلفة (Free, Starter, Growth, Agency).`,
-    bodyEn: 'NEXUS AI is an AI-powered marketing platform featuring specialized agents: NEX (Video), VEX (Ads), PULSE (Analytics — in development), and Sentinel (Monitoring). The Service is offered on a monthly subscription basis with different tiers (Free, Starter, Growth, Agency).',
+    bodyAr: `NEXUS AI هي منصة تشغيل تسويقي مدعومة بالذكاء الاصطناعي تضم وكلاء متخصصين:\n• NEX — مسودات المحتوى والـstoryboards\n• VEX — تخطيط الإعلانات وحمولات التنفيذ\n• PULSE — تحليلات مبنية على الأدلة المتاحة\n• Sentinel — فحوص المراقبة والتنبيهات\n\nتتوفر باقتان مدفوعتان (Growth وAutopilot)، إضافة إلى أرصدة تجربة ليست اشتراكاً مدفوعاً. تعتمد خصائص النشر والتحليلات على صلاحيات المنصات المتصلة وتوفر بيانات مؤهلة.`,
+    bodyEn: 'NEXUS AI is an AI-powered marketing operating platform with specialized agents: NEX (content drafts and storyboards), VEX (ad planning and execution payloads), PULSE (analytics based on available evidence), and Sentinel (scheduled checks and alerts). Two paid plans are offered (Growth and Autopilot), plus trial credits that are not a paid subscription. Publishing and analytics features depend on connected-provider permissions and eligible data availability.',
   },
   {
     titleAr: '3. التسجيل والحساب',

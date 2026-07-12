@@ -99,6 +99,7 @@ function averageEngagement(posts: SocialPostSnapshot[]): number | null {
   const rates = posts
     .map(post => {
       if (!isRecord(post.analyticsData)) return null
+      if (post.analyticsData.source !== 'platform_api' || post.analyticsData.quality !== 'eligible') return null
       return numberFrom(post.analyticsData.engagementRate)
     })
     .filter((rate): rate is number => rate !== null)

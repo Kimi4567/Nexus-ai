@@ -6,11 +6,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { approveCampaignStrategy, StrategyApprovalError } from '@/lib/strategyApprovalService'
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -43,6 +42,35 @@ export async function POST(
       return NextResponse.json({ ok: true, status: 'REJECTED' })
     }
 
+    const suggestionPayload = suggestion.payload && typeof suggestion.payload === 'object'
+      ? suggestion.payload as Record<string, unknown>
+      : {}
+
+    // Execution Monitor suggestions authorize navigation to a guarded workflow,
+    // never a background mutation. The target route performs the real approval.
+    if (suggestionPayload.source === 'execution-monitor') {
+      const nextHref = typeof suggestionPayload.href === 'string' ? suggestionPayload.href : undefined
+      await (prisma as any).agentSuggestion.update({
+        where: { id: params.id },
+        data: {
+          status: 'APPROVED',
+          approvedAt: now,
+          executionResult: {
+            executed: false,
+            autoExecution: false,
+            nextHref,
+            reason: 'GUIDED_WORKFLOW_REQUIRED',
+          },
+        },
+      })
+      return NextResponse.json({
+        ok: true,
+        status: 'APPROVED',
+        executed: false,
+        nextHref,
+      })
+    }
+
     // APPROVE — execute the action
     let executionResult: any = { executed: true }
 
@@ -51,12 +79,16 @@ export async function POST(
       const type = suggestion.type as string
 
       if (type === 'STRATEGY' && payload?.campaignId) {
-        // Activate the campaign
-        await (prisma.campaign as any).update({
-          where: { id: payload.campaignId },
-          data: { status: 'ACTIVE' },
-        })
-        executionResult = { campaignActivated: payload.campaignId }
+        const result = await approveCampaignStrategy(
+          String(payload.campaignId),
+          user.id,
+          'AGENT_SUGGESTION',
+        )
+        executionResult = {
+          strategyApproved: payload.campaignId,
+          unchanged: result.unchanged,
+          approvalState: result.contract.state,
+        }
 
       } else if (type === 'CAMPAIGN_PAUSE' && payload?.campaignId) {
         await (prisma.campaign as any).update({
@@ -97,7 +129,14 @@ export async function POST(
       }
 
     } catch (execErr: any) {
-      executionResult = { error: execErr?.message }
+      if (execErr instanceof StrategyApprovalError) {
+        return NextResponse.json({
+          error: execErr.code,
+          blockers: execErr.blockers,
+        }, { status: execErr.status })
+      }
+      console.error('[agent suggestion execution]', execErr)
+      return NextResponse.json({ error: 'SUGGESTION_EXECUTION_FAILED' }, { status: 500 })
     }
 
     await (prisma as any).agentSuggestion.update({

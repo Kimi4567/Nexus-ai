@@ -13,8 +13,7 @@
  *   DataDeletionRequest.
  * Billing and credits are NOT touched. Platforms stay connected.
  *
- * Confirmation (real reset): send { confirmText: "RESET MY NEXUS WORKSPACE" }
- *   (legacy { confirm: "RESET" } is still accepted so existing UI keeps working).
+ * Confirmation (real reset): send { confirmText: "RESET MY NEXUS WORKSPACE" }.
  * Dry-run: send { dryRun: true } to get the counts that WOULD be deleted/reset
  *   without deleting anything (no confirmation required).
  *
@@ -49,6 +48,11 @@ const BRAND_RESET: Record<string, unknown> = {
   winningHooks: [], winningAngles: [], failedAngles: [], topPlatforms: [],
   competitors: [], competitorNotes: null, strategicNotes: null,
   websiteUrl: null, contentSamples: [], aiInsights: Prisma.JsonNull,
+  businessGoal: null, marketingBudget: null, conversionDestination: null,
+  leadHandling: null, customerObjections: [], complianceNotes: null,
+  averageOrderValue: null, grossMargin: null, customerLifetimeValue: null,
+  salesCycleLength: null, seasonality: null, pastAdResults: null,
+  languagePreference: null, verifiedProof: [],
 }
 
 export async function POST(req: NextRequest) {
@@ -58,7 +62,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}))
     const dryRun = body.dryRun === true
-    const confirmed = body.confirmText === STRONG_CONFIRM || body.confirm === 'RESET'
+    const confirmed = body.confirmText === STRONG_CONFIRM
 
     // A real (non-dry-run) reset requires explicit confirmation.
     if (!dryRun && !confirmed) {
@@ -85,27 +89,28 @@ export async function POST(req: NextRequest) {
     // and Campaign → (AdConcept, Generation, CampaignActivity, Analytics,
     // PaidCampaignPack) cascade via FK, but orphan-prone tables (which do NOT
     // cascade from Campaign) are deleted explicitly here.
-    const RESET_MODELS: {
+    const makeResetModels = (client: any): {
       name: string
       del: () => Promise<{ count: number }>
       count: () => Promise<number>
-    }[] = [
-      { name: 'marketingLearningEvent', del: () => db.marketingLearningEvent.deleteMany({ where }), count: () => db.marketingLearningEvent.count({ where }) },
-      { name: 'brainLearning',          del: () => db.brainLearning.deleteMany({ where }),          count: () => db.brainLearning.count({ where }) },
-      { name: 'brainScoreSnapshot',     del: () => db.brainScoreSnapshot.deleteMany({ where }),     count: () => db.brainScoreSnapshot.count({ where }) },
-      { name: 'campaignMemory',         del: () => db.campaignMemory.deleteMany({ where }),         count: () => db.campaignMemory.count({ where }) },
-      { name: 'agentReport',            del: () => db.agentReport.deleteMany({ where }),            count: () => db.agentReport.count({ where }) },
-      { name: 'agentSuggestion',        del: () => db.agentSuggestion.deleteMany({ where }),        count: () => db.agentSuggestion.count({ where }) },
-      { name: 'agentRun',               del: () => db.agentRun.deleteMany({ where }),               count: () => db.agentRun.count({ where }) },
-      { name: 'generatedVisual',        del: () => db.generatedVisual.deleteMany({ where }),        count: () => db.generatedVisual.count({ where }) },
-      { name: 'socialPost',             del: () => db.socialPost.deleteMany({ where }),             count: () => db.socialPost.count({ where }) },
-      { name: 'export',                 del: () => db.export.deleteMany({ where }),                 count: () => db.export.count({ where }) },
-      { name: 'paidCampaignPack',       del: () => db.paidCampaignPack.deleteMany({ where }),       count: () => db.paidCampaignPack.count({ where }) },
-      { name: 'adCampaign',             del: () => db.adCampaign.deleteMany({ where }),             count: () => db.adCampaign.count({ where }) },
-      { name: 'uploadSession',          del: () => db.uploadSession.deleteMany({ where }),          count: () => db.uploadSession.count({ where }) },
-      { name: 'media',                  del: () => db.media.deleteMany({ where }),                  count: () => db.media.count({ where }) },
-      { name: 'campaign',               del: () => db.campaign.deleteMany({ where }),               count: () => db.campaign.count({ where }) },
+    }[] => [
+      { name: 'marketingLearningEvent', del: () => client.marketingLearningEvent.deleteMany({ where }), count: () => client.marketingLearningEvent.count({ where }) },
+      { name: 'brainLearning',          del: () => client.brainLearning.deleteMany({ where }),          count: () => client.brainLearning.count({ where }) },
+      { name: 'brainScoreSnapshot',     del: () => client.brainScoreSnapshot.deleteMany({ where }),     count: () => client.brainScoreSnapshot.count({ where }) },
+      { name: 'campaignMemory',         del: () => client.campaignMemory.deleteMany({ where }),         count: () => client.campaignMemory.count({ where }) },
+      { name: 'agentReport',            del: () => client.agentReport.deleteMany({ where }),            count: () => client.agentReport.count({ where }) },
+      { name: 'agentSuggestion',        del: () => client.agentSuggestion.deleteMany({ where }),        count: () => client.agentSuggestion.count({ where }) },
+      { name: 'agentRun',               del: () => client.agentRun.deleteMany({ where }),               count: () => client.agentRun.count({ where }) },
+      { name: 'generatedVisual',        del: () => client.generatedVisual.deleteMany({ where }),        count: () => client.generatedVisual.count({ where }) },
+      { name: 'socialPost',             del: () => client.socialPost.deleteMany({ where }),             count: () => client.socialPost.count({ where }) },
+      { name: 'export',                 del: () => client.export.deleteMany({ where }),                 count: () => client.export.count({ where }) },
+      { name: 'paidCampaignPack',       del: () => client.paidCampaignPack.deleteMany({ where }),       count: () => client.paidCampaignPack.count({ where }) },
+      { name: 'adCampaign',             del: () => client.adCampaign.deleteMany({ where }),             count: () => client.adCampaign.count({ where }) },
+      { name: 'uploadSession',          del: () => client.uploadSession.deleteMany({ where }),          count: () => client.uploadSession.count({ where }) },
+      { name: 'media',                  del: () => client.media.deleteMany({ where }),                  count: () => client.media.count({ where }) },
+      { name: 'campaign',               del: () => client.campaign.deleteMany({ where }),               count: () => client.campaign.count({ where }) },
     ]
+    const RESET_MODELS = makeResetModels(db)
 
     // ── Dry-run: count only, delete NOTHING ─────────────────────────────────
     if (dryRun) {
@@ -132,36 +137,31 @@ export async function POST(req: NextRequest) {
     // NOTE: Integration, AdAccount, Project and WorkspaceMember are intentionally
     // NOT deleted (PR-1G) so platform connections / OAuth tokens, ad accounts,
     // and workspace access survive the reset.
-    const deleted: Record<string, number> = {}
-    for (const m of RESET_MODELS) {
-      const res = await m.del()
-      deleted[m.name] = res?.count ?? 0
-    }
-
-    // Reset Brand Brain fields (keep the row so the workspace stays valid).
-    let brandProfileReset = false
-    const existingBrand = await prisma.brandProfile.findUnique({
-      where: { workspaceId: wid },
-      select: { id: true },
+    const outcome = await prisma.$transaction(async (tx) => {
+      await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `workspace-reset:${wid}`)
+      const deleted: Record<string, number> = {}
+      for (const model of makeResetModels(tx)) {
+        const result = await model.del()
+        deleted[model.name] = result?.count ?? 0
+      }
+      const existingBrand = await tx.brandProfile.findUnique({ where: { workspaceId: wid }, select: { id: true } })
+      if (existingBrand) await tx.brandProfile.update({ where: { workspaceId: wid }, data: BRAND_RESET as any })
+      return { deleted, brandProfileReset: Boolean(existingBrand) }
     })
-    if (existingBrand) {
-      await prisma.brandProfile.update({ where: { workspaceId: wid }, data: BRAND_RESET as any })
-      brandProfileReset = true
-    }
 
     return NextResponse.json({
       ok: true,
       message: 'Workspace reset to a fresh start. Account, billing, credits and platform connections were preserved.',
       workspaceId: wid,
       timestamp: new Date().toISOString(),
-      deleted,
-      brandProfileReset,
+      deleted: outcome.deleted,
+      brandProfileReset: outcome.brandProfileReset,
       preserved: PRESERVED,
       creditsUnchanged: true,
       connectionsPreserved: true,
     })
   } catch (err: any) {
     console.error('[POST /api/workspace/reset]', err)
-    return NextResponse.json({ error: 'Reset failed', detail: err.message }, { status: 500 })
+    return NextResponse.json({ error: 'Reset failed' }, { status: 500 })
   }
 }

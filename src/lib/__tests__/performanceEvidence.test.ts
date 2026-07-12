@@ -1,0 +1,89 @@
+import { describe, expect, it } from 'vitest'
+import {
+  buildPerformanceEvidence,
+  planPerformanceLearning,
+  readPerformanceEvidence,
+  summarizePerformanceEvidence,
+} from '@/lib/performanceEvidence'
+
+const now = new Date('2026-07-12T12:00:00.000Z')
+
+function evidence(platform: 'META' | 'LINKEDIN', engagementCount: number, denominator = 1000) {
+  return buildPerformanceEvidence({
+    platform,
+    platformPostId: `${platform}-${engagementCount}`,
+    collectedAt: now,
+    metrics: platform === 'META'
+      ? { likes: 0, comments: 0, shares: 0, impressions: denominator, reach: denominator, engagedUsers: engagementCount }
+      : { likes: engagementCount, comments: 0, shares: 0, clicks: 0, impressions: denominator, reach: 0 },
+  })
+}
+
+describe('performance evidence contract', () => {
+  it('stores provenance and computes rates server-side', () => {
+    const result = evidence('META', 25, 1000)
+    expect(result).toMatchObject({
+      schemaVersion: 1,
+      source: 'platform_api',
+      platform: 'META',
+      engagementCount: 25,
+      engagementRate: 2.5,
+      quality: 'eligible',
+    })
+  })
+
+  it('marks tiny samples as insufficient and rejects legacy unproven blobs', () => {
+    expect(evidence('META', 2, 50).quality).toBe('insufficient_sample')
+    expect(readPerformanceEvidence({ engagementRate: 99, impressions: 1 })).toBeNull()
+  })
+
+  it('requires five comparable posts and three above-baseline posts on the same platform', () => {
+    const posts = [10, 10, 10, 20, 20, 20].map((count, index) => ({
+      id: `m${index}`,
+      caption: index < 3 ? `Baseline message number ${index}` : `Proven opening candidate number ${index}`,
+      platform: 'META',
+      analyticsData: evidence('META', count),
+    }))
+
+    const [plan] = planPerformanceLearning(posts)
+    expect(plan).toMatchObject({
+      platform: 'META',
+      eligiblePostCount: 6,
+      baselineEngagementRate: 1.5,
+      thresholdEngagementRate: 1.8,
+    })
+    expect(plan.evidencePostIds).toEqual(['m3', 'm4', 'm5'])
+    expect(plan.candidateHooks).toHaveLength(3)
+  })
+
+  it('never mixes Meta and LinkedIn samples to manufacture significance', () => {
+    const posts = [
+      ...[10, 20, 20].map((count, index) => ({
+        id: `m${index}`, caption: `Meta candidate message ${index}`, platform: 'META', analyticsData: evidence('META', count),
+      })),
+      ...[10, 20, 20].map((count, index) => ({
+        id: `l${index}`, caption: `LinkedIn candidate message ${index}`, platform: 'LINKEDIN', analyticsData: evidence('LINKEDIN', count),
+      })),
+    ]
+    expect(planPerformanceLearning(posts)).toEqual([])
+  })
+
+  it('keeps insufficient and legacy records out of KPI totals', () => {
+    const summary = summarizePerformanceEvidence([
+      { platform: 'META', analyticsData: evidence('META', 40, 400) },
+      { platform: 'META', analyticsData: evidence('META', 10, 50) },
+      { platform: 'META', analyticsData: { reach: 999999, engagementRate: 99 } },
+    ])
+
+    expect(summary).toMatchObject({
+      eligiblePosts: 1,
+      insufficientSamplePosts: 1,
+      unverifiedPosts: 1,
+      reach: 400,
+      impressions: 400,
+      engagementCount: 40,
+      denominator: 400,
+      engagementRate: 10,
+    })
+  })
+})

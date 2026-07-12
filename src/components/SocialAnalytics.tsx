@@ -1,8 +1,8 @@
 /**
- * SocialAnalytics — Real post performance from Meta Insights API.
+ * SocialAnalytics — verified post performance evidence.
  *
  * Shows campaign-level totals (reach, impressions, engagement)
- * + per-post breakdown pulled live from Meta Graph API.
+ * + per-post breakdown from the canonical platform evidence store.
  *
  * Sprint S
  */
@@ -21,6 +21,8 @@ interface PostInsights {
   reach: number
   engagement: number
   clicks: number
+  engagementRate?: number
+  source?: 'platform_api'
 }
 
 interface PostData {
@@ -41,6 +43,9 @@ interface Totals {
   engagement: number
   clicks: number
   posts: number
+  eligiblePosts: number
+  insufficientSamplePosts: number
+  awaitingCollection: number
 }
 
 interface SocialAnalyticsProps {
@@ -155,7 +160,7 @@ export default function SocialAnalytics({ campaignId }: SocialAnalyticsProps) {
               {ar ? 'أداء المنشورات' : 'Post Performance'}
             </h3>
             <p className="mt-0.5 text-xs text-slate-500">
-              {ar ? 'بيانات من Meta عند توفرها' : 'Meta performance data when available'}
+              {ar ? 'بيانات موثقة من واجهات المنصات عند توفر عينة كافية' : 'Verified platform API data when the sample is sufficient'}
               {lastRefreshed && (
                 <span className="mx-1">·</span>
               )}
@@ -203,7 +208,13 @@ export default function SocialAnalytics({ campaignId }: SocialAnalyticsProps) {
       </div>
 
       <p className="text-center text-xs text-slate-500">
-        {totals.posts} {ar ? 'منشور' : 'post(s)'} · {ar ? 'إجمالي الحملة' : 'campaign total'}
+        {totals.eligiblePosts} / {totals.posts} {ar ? 'منشور داخل المؤشرات' : 'posts included in KPIs'}
+        {totals.insufficientSamplePosts > 0 && (
+          <span> · {totals.insufficientSamplePosts} {ar ? 'بعينة صغيرة' : 'small sample'}</span>
+        )}
+        {totals.awaitingCollection > 0 && (
+          <span> · {totals.awaitingCollection} {ar ? 'بانتظار الجمع' : 'awaiting collection'}</span>
+        )}
       </p>
 
       {/* Per-post breakdown */}
@@ -228,7 +239,7 @@ export default function SocialAnalytics({ campaignId }: SocialAnalyticsProps) {
                 <p className="line-clamp-2 text-sm text-slate-700">{post.caption}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs text-slate-500">
-                    {post.pageName} ·{' '}
+                    {post.pageName ? `${post.pageName} · ` : ''}
                     {post.publishedAt
                       ? new Date(post.publishedAt).toLocaleDateString(ar ? 'ar-SA' : 'en-US')
                       : ''}
@@ -266,10 +277,9 @@ export default function SocialAnalytics({ campaignId }: SocialAnalyticsProps) {
               </div>
             ) : (
               <p className="text-xs text-gray-600 italic">
-                {post.insightsError
-                  ? (ar ? `تعذر تحميل البيانات: ${post.insightsError}` : `Could not load: ${post.insightsError}`)
-                  : (ar ? 'البيانات غير متاحة بعد' : 'Data not available yet')
-                }
+                {post.insightsError === 'INSUFFICIENT_SAMPLE'
+                  ? (ar ? 'تم جمع البيانات، لكن العينة أصغر من الحد المطلوب لإدخالها في المؤشرات.' : 'Data was collected, but the sample is below the threshold required for KPIs.')
+                  : (ar ? 'بانتظار جمع بيانات المنصة.' : 'Awaiting platform evidence collection.')}
               </p>
             )}
           </div>

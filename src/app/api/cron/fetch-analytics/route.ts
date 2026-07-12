@@ -1,295 +1,291 @@
 /**
  * GET /api/cron/fetch-analytics
- * Runs daily at 08:00 UTC.
  *
- * FL2-B: Real Analytics Feedback Loop
- * For every post published 24-72 hours ago that hasn't had analytics fetched yet:
- *   1. Fetch engagement data from Meta Insights API or LinkedIn Analytics
- *   2. Store in SocialPost.analyticsData
- *   3. Compare to workspace average engagement rate
- *   4. Posts with above-average engagement → extract hook → feed Brand Brain
- *
- * This closes the real performance loop: actual results → Brand Brain → better future content.
+ * Collects real post metrics from connected platform APIs and turns only
+ * sufficiently large, platform-local samples into reviewed Brand Brain hook
+ * proposals. No AI model is called and nothing is promoted to durable memory
+ * until the user accepts a proposal.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { decryptToken } from '@/lib/tokenCrypto'
-import { runBrainLearning } from '@/lib/brain-learning'
-import { snapshotBrandMaturity } from '@/lib/brandMaturity'
+import {
+  buildPerformanceEvidence,
+  planPerformanceLearning,
+  type EvidencePlatform,
+  type RawPlatformMetrics,
+} from '@/lib/performanceEvidence'
+import { cronAuthError } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
-// ── Analytics helpers ─────────────────────────────────────────────────────────
+const META_GRAPH_VERSION = process.env.META_GRAPH_API_VERSION || 'v21.0'
+const LINKEDIN_VERSION = process.env.LINKEDIN_API_VERSION || '202603'
 
-interface PostMetrics {
-  likes: number
-  comments: number
-  shares: number
-  impressions: number
-  reach: number
-  engagementRate: number  // (likes+comments+shares) / reach * 100
+function metricValue(data: unknown, name: string): number {
+  const list = data && typeof data === 'object' && Array.isArray((data as any).data)
+    ? (data as any).data
+    : []
+  const item = list.find((entry: any) => entry?.name === name)
+  const raw = item?.values?.[0]?.value ?? item?.value ?? 0
+  if (typeof raw === 'number') return raw
+  if (raw && typeof raw === 'object') {
+    return Object.values(raw as Record<string, unknown>)
+      .reduce<number>((sum, value) => sum + (Number(value) || 0), 0)
+  }
+  return Number(raw) || 0
 }
 
-/** Fetch Meta post insights via Graph API */
-async function fetchMetaInsights(
-  platformPostId: string,
-  pageToken: string,
-): Promise<PostMetrics | null> {
+async function fetchMetaInsights(platformPostId: string, pageToken: string): Promise<RawPlatformMetrics | null> {
   try {
-    const fields = 'likes.summary(true),comments.summary(true),shares,impressions,reach'
-    const res = await fetch(
-      `https://graph.facebook.com/v19.0/${platformPostId}?fields=${fields}&access_token=${pageToken}`,
-    )
-    if (!res.ok) return null
-    const data = await res.json()
-    if (data.error) return null
+    const base = `https://graph.facebook.com/${META_GRAPH_VERSION}/${encodeURIComponent(platformPostId)}`
+    const [insightsRes, actionsRes] = await Promise.all([
+      fetch(`${base}/insights?metric=post_impressions,post_impressions_unique,post_engaged_users,post_clicks&access_token=${encodeURIComponent(pageToken)}`),
+      fetch(`${base}?fields=likes.summary(true),comments.summary(true),shares&access_token=${encodeURIComponent(pageToken)}`),
+    ])
+    if (!insightsRes.ok) return null
 
-    const likes    = data.likes?.summary?.total_count     ?? 0
-    const comments = data.comments?.summary?.total_count  ?? 0
-    const shares   = data.shares?.count                   ?? 0
-    const impressions = data.impressions ?? 0
-    const reach       = data.reach ?? Math.max(impressions, 1)
-    const engagementRate = reach > 0
-      ? parseFloat((((likes + comments + shares) / reach) * 100).toFixed(2))
-      : 0
+    const insights = await insightsRes.json()
+    const actions = actionsRes.ok ? await actionsRes.json() : {}
+    if (insights?.error) return null
 
-    return { likes, comments, shares, impressions, reach, engagementRate }
+    return {
+      likes: actions?.likes?.summary?.total_count ?? 0,
+      comments: actions?.comments?.summary?.total_count ?? 0,
+      shares: actions?.shares?.count ?? 0,
+      impressions: metricValue(insights, 'post_impressions'),
+      reach: metricValue(insights, 'post_impressions_unique'),
+      clicks: metricValue(insights, 'post_clicks'),
+      engagedUsers: metricValue(insights, 'post_engaged_users'),
+    }
   } catch {
     return null
   }
 }
 
-/** Fetch LinkedIn post stats via UGC API */
+function linkedinUrn(prefix: 'organization' | 'share', value: string): string {
+  return value.startsWith('urn:li:') ? value : `urn:li:${prefix}:${value}`
+}
+
 async function fetchLinkedInInsights(
   platformPostId: string,
+  organizationId: string,
   accessToken: string,
-): Promise<PostMetrics | null> {
+): Promise<RawPlatformMetrics | null> {
   try {
-    const res = await fetch(
-      `https://api.linkedin.com/v2/socialActions/${encodeURIComponent(platformPostId)}`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'X-Restli-Protocol-Version': '2.0.0',
-        },
+    const organizationUrn = linkedinUrn('organization', organizationId)
+    const shareUrn = linkedinUrn('share', platformPostId)
+    const query = new URLSearchParams({
+      q: 'organizationalEntity',
+      organizationalEntity: organizationUrn,
+      shares: `List(${shareUrn})`,
+    })
+    const res = await fetch(`https://api.linkedin.com/rest/organizationalEntityShareStatistics?${query.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Linkedin-Version': LINKEDIN_VERSION,
+        'X-Restli-Protocol-Version': '2.0.0',
+        'Content-Type': 'application/json',
       },
-    )
+    })
     if (!res.ok) return null
     const data = await res.json()
-    if (data.serviceErrorCode) return null
+    const stats = data?.elements?.[0]?.totalShareStatistics
+    if (!stats) return null
 
-    const likes    = data.likesSummary?.totalLikes    ?? 0
-    const comments = data.commentsSummary?.totalFirstLevelComments ?? 0
-    const shares   = data.shareStatistics?.shareCount ?? 0
-    const impressions = data.shareStatistics?.impressionCount ?? 0
-    const reach       = impressions
-    const engagementRate = reach > 0
-      ? parseFloat((((likes + comments + shares) / reach) * 100).toFixed(2))
-      : 0
-
-    return { likes, comments, shares, impressions, reach, engagementRate }
+    return {
+      likes: stats.likeCount ?? 0,
+      comments: stats.commentCount ?? 0,
+      shares: stats.shareCount ?? 0,
+      clicks: stats.clickCount ?? 0,
+      impressions: stats.impressionCount ?? 0,
+      reach: stats.uniqueImpressionsCount ?? 0,
+    }
   } catch {
     return null
   }
 }
 
-/** Extract the opening hook (first sentence or ≤100 chars) from a caption */
-function extractHook(caption: string): string {
-  const first = caption.split(/[.!?\n]/)[0]?.trim() ?? ''
-  return first.slice(0, 100)
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : []
 }
-
-/** Merge incoming strings into existing array, dedup, keep last N */
-function mergeUnique(existing: string[] | null | undefined, incoming: string[], limit = 25): string[] {
-  const current = Array.isArray(existing) ? existing : []
-  const next = incoming.filter(s => typeof s === 'string' && s.trim().length > 0)
-  return Array.from(new Set([...current, ...next])).slice(-limit)
-}
-
-// ── Main handler ──────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret && process.env.NODE_ENV !== 'development') {
-    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
-  }
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = cronAuthError(req)
+  if (authError) return authError
 
   const results = {
     postsChecked: 0,
     analyticsStored: 0,
-    brandBrainUpdates: 0,
-    aboveAveragePosts: 0,
+    analyticsRetryable: 0,
+    learningProposalsCreated: 0,
+    aboveBaselinePosts: 0,
     errors: [] as string[],
   }
 
   try {
     const now = new Date()
-    const min24h = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-    const max72h = new Date(now.getTime() - 72 * 60 * 60 * 1000)
+    const olderThan24h = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    const newerThan14d = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
+    const retryBefore = new Date(now.getTime() - 12 * 60 * 60 * 1000)
 
-    // Posts published 24-72h ago that haven't had analytics fetched
     const posts = await (prisma.socialPost as any).findMany({
       where: {
         status: 'PUBLISHED',
-        publishedAt: { gte: max72h, lte: min24h },
+        publishedAt: { gte: newerThan14d, lte: olderThan24h },
         analyticsFetched: false,
         platformPostId: { not: null },
+        platform: { in: ['META', 'LINKEDIN'] },
+        OR: [{ analyticsUpdatedAt: null }, { analyticsUpdatedAt: { lte: retryBefore } }],
       },
       include: { integration: true },
+      orderBy: { publishedAt: 'asc' },
       take: 50,
     }) as Array<{
       id: string
       workspaceId: string
-      platform: string
+      platform: EvidencePlatform
       platformPostId: string
-      caption: string
       integration: any
       pageId: string | null
     }>
 
     results.postsChecked = posts.length
-
-    // Process each post
-    const workspaceBrainUpdates = new Map<string, string[]>()
+    const affected = new Map<string, Set<EvidencePlatform>>()
 
     for (const post of posts) {
       try {
         const integration = post.integration
-        if (!integration?.accessToken) continue
+        if (!integration?.accessToken) {
+          results.analyticsRetryable++
+          continue
+        }
 
         const pages: any[] = (integration.config as any)?.pages ?? []
-        const page = pages.find((p: any) => p.id === post.pageId)
+        const page = pages.find((entry: any) => entry.id === post.pageId)
         const rawToken = page?.accessToken ?? integration.accessToken
         const token = decryptToken(rawToken) ?? rawToken
 
-        let metrics: PostMetrics | null = null
-        const platformStr = String(post.platform)
+        const metrics = post.platform === 'META'
+          ? await fetchMetaInsights(post.platformPostId, token)
+          : post.pageId
+            ? await fetchLinkedInInsights(post.platformPostId, post.pageId, token)
+            : null
 
-        if (platformStr === 'META') {
-          metrics = await fetchMetaInsights(post.platformPostId, token)
-        } else if (platformStr === 'LINKEDIN') {
-          metrics = await fetchLinkedInInsights(post.platformPostId, token)
+        if (!metrics) {
+          await (prisma.socialPost as any).update({
+            where: { id: post.id },
+            data: { analyticsUpdatedAt: now },
+          })
+          results.analyticsRetryable++
+          continue
         }
 
-        // Store whatever we got (even null marks it as fetched)
+        const evidence = buildPerformanceEvidence({
+          platform: post.platform,
+          platformPostId: post.platformPostId,
+          collectedAt: now,
+          metrics,
+        })
         await (prisma.socialPost as any).update({
           where: { id: post.id },
           data: {
-            analyticsData: metrics ?? undefined,
-            analyticsUpdatedAt: new Date(),
+            analyticsData: evidence,
+            analyticsUpdatedAt: now,
             analyticsFetched: true,
           },
         })
-
-        if (metrics) results.analyticsStored++
-      } catch (err: any) {
-        results.errors.push(`Post ${post.id}: ${err.message}`)
+        results.analyticsStored++
+        const platforms = affected.get(post.workspaceId) ?? new Set<EvidencePlatform>()
+        platforms.add(post.platform)
+        affected.set(post.workspaceId, platforms)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown analytics error'
+        results.errors.push(`Post ${post.id}: ${message}`)
       }
     }
 
-    // ── Compute workspace averages + identify above-average posts ──────────────
-    // Only run if we stored some analytics
-    if (results.analyticsStored > 0) {
-      // Re-query posts that now have analytics, grouped by workspace
-      const analyticsGroups = await (prisma.socialPost as any).groupBy({
-        by: ['workspaceId'],
-        where: {
-          status: 'PUBLISHED',
-          analyticsFetched: true,
-          analyticsData: { not: null },
-        },
-        _count: { id: true },
-      }) as Array<{ workspaceId: string; _count: { id: number } }>
-
-      for (const group of analyticsGroups) {
-        const wsId = group.workspaceId
-        try {
-          // Get all posts with analytics for this workspace
-          const wsPosts = await (prisma.socialPost as any).findMany({
+    for (const [workspaceId, platforms] of affected) {
+      try {
+        const since = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
+        const [evidencePosts, existingProposals, brandProfile] = await Promise.all([
+          (prisma.socialPost as any).findMany({
             where: {
-              workspaceId: wsId,
+              workspaceId,
+              platform: { in: [...platforms] },
               status: 'PUBLISHED',
               analyticsFetched: true,
-              analyticsData: { not: null },
             },
+            orderBy: { publishedAt: 'desc' },
+            take: 200,
             select: { id: true, caption: true, platform: true, analyticsData: true },
-          }) as Array<{ id: string; caption: string; platform: string; analyticsData: any }>
-
-          if (wsPosts.length < 2) continue // need at least 2 posts to compute average
-
-          // Compute average engagement rate
-          const rates = wsPosts
-            .map(p => (p.analyticsData as any)?.engagementRate ?? 0)
-            .filter(r => r > 0)
-          if (rates.length === 0) continue
-
-          const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length
-          const threshold = avgRate * 1.2  // 20% above average = "winning"
-
-          // Extract hooks from winning posts
-          const winningHooks: string[] = wsPosts
-            .filter(p => ((p.analyticsData as any)?.engagementRate ?? 0) >= threshold)
-            .map(p => extractHook(p.caption))
-            .filter(h => h.length > 15)
-
-          if (winningHooks.length === 0) continue
-
-          // ── Direct fast-path update: merge winning hooks into Brand Brain ──────
-          // This is the silent fast path — always runs, no user review needed.
-          const brand = await prisma.brandProfile.findUnique({
-            where: { workspaceId: wsId },
-            select: { winningHooks: true },
-          })
-          if (!brand) continue
-
-          await prisma.brandProfile.update({
-            where: { workspaceId: wsId },
-            data: { winningHooks: mergeUnique(brand.winningHooks, winningHooks, 25) },
-          })
-          snapshotBrandMaturity(prisma as any, wsId).catch(() => null)
-
-          results.brandBrainUpdates++
-          results.aboveAveragePosts += winningHooks.length
-
-          workspaceBrainUpdates.set(wsId, winningHooks)
-
-          // ── PL4: Rich Performance Intelligence Loop via proposal system ────────
-          // Runs alongside the fast path — uses GPT-4o to analyse WHICH patterns
-          // correlated with above-average engagement and propose specific Brand Brain
-          // updates across ALL fields (not just hooks). User reviews in BrainLearningPanel.
-          const allPostsForAnalysis = wsPosts.map(p => ({
-            caption: typeof p.caption === 'string' ? p.caption.slice(0, 400) : '',
-            platform: String(p.platform),
-            metrics: p.analyticsData ?? {},
-            performance: ((p.analyticsData as any)?.engagementRate ?? 0) >= threshold
-              ? 'above_average'
-              : 'average',
-          })).filter(p => p.caption.length > 10)
-
-          if (allPostsForAnalysis.length >= 2) {
-            runBrainLearning({
-              workspaceId: wsId,
+          }),
+          (prisma.brainLearning as any).findMany({
+            where: {
+              workspaceId,
               trigger: 'post_performance',
-              payload: {
-                posts: allPostsForAnalysis,
-                avgEngagementRate: avgRate,
-                threshold,
-              },
-            }).catch(() => null) // fire-and-forget — never block the cron
-          }
-        } catch (err: any) {
-          results.errors.push(`Workspace ${wsId}: ${err.message}`)
-        }
+              field: 'winningHooks',
+              status: { in: ['pending', 'accepted'] },
+              createdAt: { gte: since },
+            },
+            select: { proposed: true },
+            take: 100,
+          }),
+          prisma.brandProfile.findUnique({
+            where: { workspaceId },
+            select: { winningHooks: true },
+          }),
+        ])
+
+        const knownHooks = new Set<string>([
+          ...(brandProfile?.winningHooks ?? []),
+          ...existingProposals.flatMap((proposal: { proposed: unknown }) => stringArray(proposal.proposed)),
+        ].map((hook) => hook.trim().toLocaleLowerCase()))
+
+        const plans = planPerformanceLearning(evidencePosts)
+          .map((plan) => ({
+            ...plan,
+            candidateHooks: plan.candidateHooks.filter((hook) => !knownHooks.has(hook.trim().toLocaleLowerCase())),
+          }))
+          .filter((plan) => plan.candidateHooks.length > 0)
+
+        if (plans.length === 0) continue
+        await (prisma.brainLearning as any).createMany({
+          data: plans.map((plan) => ({
+            workspaceId,
+            campaignId: null,
+            trigger: 'post_performance',
+            field: 'winningHooks',
+            displayName: 'Evidence-backed Hook Candidates',
+            icon: '📊',
+            current: brandProfile?.winningHooks ?? [],
+            proposed: plan.candidateHooks,
+            reason: plan.reason,
+            status: 'pending',
+          })),
+        })
+        results.learningProposalsCreated += plans.length
+        results.aboveBaselinePosts += plans.reduce((sum, plan) => sum + plan.evidencePostIds.length, 0)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown evidence planning error'
+        results.errors.push(`Workspace ${workspaceId}: ${message}`)
       }
     }
-  } catch (err: any) {
-    results.errors.push(`Top-level: ${err.message}`)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown analytics job error'
+    results.errors.push(`Top-level: ${message}`)
   }
 
-  return NextResponse.json({ ok: true, ...results, ts: new Date().toISOString() })
+  return NextResponse.json({
+    ok: results.errors.length === 0,
+    source: 'platform-api-evidence',
+    aiUsed: false,
+    autoLearningApplied: false,
+    ...results,
+    ts: new Date().toISOString(),
+  })
 }

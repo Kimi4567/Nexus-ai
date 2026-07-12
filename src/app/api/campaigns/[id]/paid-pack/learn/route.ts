@@ -2,7 +2,7 @@
  * POST /api/campaigns/[id]/paid-pack/learn
  *
  * AI analyzes the campaign metrics + copy variants + audience brief
- * and extracts structured learnings, then auto-updates Brand Brain:
+ * and extracts structured learnings as reviewed Brand Brain proposals:
  *   - winningHooks   ← highest CTR copy angles
  *   - targetAudience ← refined audience description
  *   - topPlatforms   ← platform with best ROAS
@@ -18,7 +18,6 @@ import {
   refundCreditsForTransaction,
   type CreditDeductionOk,
 } from '@/lib/credits'
-import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -49,10 +48,8 @@ async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, 
   await refundCredits(userId, 'AD_COPY', reason)
 }
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   let chargedUserId: string | null = null
   let chargedCredit: CreditDeductionOk | null = null
 
@@ -169,45 +166,64 @@ Extract learnings as JSON:
       },
     })
 
-    // Apply updates to Brand Brain
-    let brandBrainUpdated = false
+    // Convert model output to reviewable proposals. Metrics are evidence, but
+    // the model's interpretation still requires user approval before durable
+    // Brand Brain truth changes.
     const updates = parsed.brandBrainUpdates
+    let proposalsCreated = 0
     if (updates && brandProfile) {
-      const existingHooks: string[] = brandProfile.winningHooks ?? []
-      const existingFailed: string[] = brandProfile.failedAngles ?? []
-      const existingStrategic = brandProfile.strategicNotes ?? ''
+      const reason = typeof parsed.learnings?.executiveSummary === 'string'
+        ? parsed.learnings.executiveSummary
+        : `Observed paid campaign metrics for ${campaign.name}`
+      const proposals: Array<Record<string, unknown>> = []
+      const pushArrayProposal = (field: string, displayName: string, icon: string, current: unknown, proposed: unknown) => {
+        if (!Array.isArray(proposed) || proposed.length === 0) return
+        proposals.push({
+          workspaceId: campaign.workspaceId,
+          campaignId: campaign.id,
+          trigger: 'post_performance',
+          field,
+          displayName,
+          icon,
+          current,
+          proposed,
+          reason,
+          status: 'pending',
+        })
+      }
 
-      const newHooks = [...new Set([...existingHooks, ...(updates.winningHooksToAdd ?? [])])]
-      const newFailed = [...new Set([...existingFailed, ...(updates.failedAnglesToAdd ?? [])])]
-      const newStrategic = updates.strategicNotesAddition
-        ? `${existingStrategic}\n\n[${new Date().toLocaleDateString()}] ${updates.strategicNotesAddition}`.trim()
-        : existingStrategic
+      pushArrayProposal('winningHooks', 'Hook candidates', '🎣', brandProfile.winningHooks ?? [], updates.winningHooksToAdd)
+      pushArrayProposal('failedAngles', 'Angles to avoid', '⚠️', brandProfile.failedAngles ?? [], updates.failedAnglesToAdd)
+      pushArrayProposal('topPlatforms', 'Priority channels', '📊', brandProfile.topPlatforms ?? [], updates.topPlatformsUpdate)
 
-      await db.brandProfile.update({
-        where: { workspaceId: campaign.workspaceId },
-        data: {
-          winningHooks: newHooks.slice(0, 20), // cap at 20 to avoid bloat
-          failedAngles: newFailed.slice(0, 20),
-          ...(updates.topPlatformsUpdate?.length && { topPlatforms: updates.topPlatformsUpdate }),
-          ...(updates.targetAudienceRefinement && { targetAudience: updates.targetAudienceRefinement }),
-          strategicNotes: newStrategic,
-        },
-      })
-      snapshotBrandMaturity(db, campaign.workspaceId).catch(() => null)
+      const strategicNotes = [updates.strategicNotesAddition, updates.targetAudienceRefinement
+        ? `Audience refinement to review: ${updates.targetAudienceRefinement}`
+        : null].filter(Boolean).join('\n')
+      if (strategicNotes) {
+        proposals.push({
+          workspaceId: campaign.workspaceId,
+          campaignId: campaign.id,
+          trigger: 'post_performance',
+          field: 'strategicNotes',
+          displayName: 'Strategic notes',
+          icon: '🧠',
+          current: brandProfile.strategicNotes ?? null,
+          proposed: strategicNotes,
+          reason,
+          status: 'pending',
+        })
+      }
 
-      await db.paidCampaignPack.update({
-        where: { campaignId: params.id },
-        data: {
-          brandBrainUpdated: true,
-          brandBrainUpdatedAt: new Date(),
-        },
-      })
-      brandBrainUpdated = true
+      if (proposals.length > 0) {
+        const result = await db.brainLearning.createMany({ data: proposals })
+        proposalsCreated = Number(result?.count ?? proposals.length)
+      }
     }
 
     return NextResponse.json({
       learnings: parsed.learnings,
-      brandBrainUpdated,
+      brandBrainUpdated: false,
+      proposalsCreated,
       brandBrainUpdates: parsed.brandBrainUpdates,
       success: true,
     })

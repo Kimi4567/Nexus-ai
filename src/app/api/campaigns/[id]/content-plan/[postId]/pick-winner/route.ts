@@ -8,33 +8,20 @@
  *  2. Look up the variantGroup of the winning post
  *  3. Mark the winning post: variantWinner = true
  *  4. Delete the losing sibling variant (same variantGroup, different id)
- *  5. Feed the winner's opening hook into Brand Brain (winningHooks)
+ *  5. Record a user preference and prepare reviewable learning proposals
  *
- * Returns: { ok: true, winnerId, loserDeleted, hookLearned }
+ * Returns: { ok: true, winnerId, loserDeleted, learningProposalQueued }
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { runBrainLearning } from '@/lib/brain-learning'
-import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 
-type Params = { params: { id: string; postId: string } }
+type Params = { params: Promise<{ id: string; postId: string }> }
 
-/** Extract the opening hook (first sentence or ≤120 chars) from a caption */
-function extractHook(caption: string): string {
-  const first = caption.split(/[.!?\n]/)[0]?.trim() ?? ''
-  return first.slice(0, 120)
-}
-
-/** Merge incoming strings into existing array, dedup, keep last N */
-function mergeUnique(existing: string[] | null | undefined, incoming: string[], limit = 25): string[] {
-  const current = Array.isArray(existing) ? existing : []
-  const next = incoming.filter(s => typeof s === 'string' && s.trim().length > 15)
-  return Array.from(new Set([...current, ...next])).slice(-limit)
-}
-
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -86,74 +73,69 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       select: { id: true, caption: true, platform: true, variantLabel: true },
     }) as { id: string; caption: string; platform: string; variantLabel: string | null } | null
 
-    // ── 4. Mark winner + delete loser in parallel ────────────────────────
-    const [, deleteResult] = await Promise.all([
-      (prisma.socialPost as any).update({
+    // ── 4. Apply selection + audit atomically ─────────────────────────────
+    await prisma.$transaction(async (tx) => {
+      const txDb = tx as any
+      await txDb.socialPost.update({
         where: { id: winner.id },
         data: {
           variantWinner: true,
           variantGroup: null, // clear group — it's no longer part of an active A/B test
         },
-      }),
-      loser
-        ? (prisma.socialPost as any).delete({ where: { id: loser.id } })
-        : Promise.resolve(null),
-    ])
-
-    // ── 5. Fast path: feed winner hook into Brand Brain directly ────────────
-    // Silent, always runs — keeps Brand Brain current even if user never reviews proposals.
-    let hookLearned = false
-    try {
-      const hook = extractHook(winner.caption)
-      if (hook.length > 15) {
-        const brand = await prisma.brandProfile.findUnique({
-          where: { workspaceId: campaign.workspaceId },
-          select: { winningHooks: true },
-        })
-        if (brand) {
-          await prisma.brandProfile.update({
-            where: { workspaceId: campaign.workspaceId },
-            data: {
-              winningHooks: mergeUnique(brand.winningHooks, [hook], 25),
-            },
-          })
-          snapshotBrandMaturity(prisma as any, campaign.workspaceId).catch(() => null)
-          hookLearned = true
-        }
-      }
-    } catch (brandErr) {
-      console.warn('[pick-winner] Brand Brain fast-path update failed:', brandErr)
-    }
-
-    // ── 6. Rich path: GPT-4o A/B analysis → Brain Brain proposals ──────────
-    // Compares winner vs loser to extract WHY the winner resonated.
-    // Creates pending proposals the user reviews in BrainLearningPanel.
-    // Requires loser data — only runs if we captured it before deletion.
-    if (loser && loser.caption && loser.caption.trim().length > 10) {
-      runBrainLearning({
-        workspaceId: campaign.workspaceId,
-        campaignId: campaign.id,
-        trigger: 'ab_winner',
-        payload: {
-          winner: {
-            caption: winner.caption,
-            platform: String(winner.platform),
-            variantLabel: winner.variantLabel ?? 'A',
-          },
-          loser: {
-            caption: loser.caption,
-            platform: String(loser.platform),
-            variantLabel: loser.variantLabel ?? 'B',
+      })
+      if (loser) await txDb.socialPost.delete({ where: { id: loser.id } })
+      await tx.marketingLearningEvent.create({
+        data: {
+          workspaceId: campaign.workspaceId,
+          campaignId: campaign.id,
+          socialPostId: winner.id,
+          eventType: 'AB_VARIANT_SELECTED',
+          source: 'CONTENT_REVIEW',
+          actor: 'USER',
+          metadata: {
+            selectedVariant: winner.variantLabel ?? 'A',
+            rejectedVariant: loser?.variantLabel ?? null,
+            selectionBasis: 'USER_PREFERENCE',
+            performanceClaim: false,
           },
         },
-      }).catch(() => null) // fire-and-forget — never block the pick action
+      })
+    })
+
+    // ── 5. Proposal path: compare the selected draft with the rejected draft ──
+    let learningProposalQueued = false
+    if (loser && loser.caption && loser.caption.trim().length > 10) {
+      try {
+        const proposed = await runBrainLearning({
+          workspaceId: campaign.workspaceId,
+          campaignId: campaign.id,
+          trigger: 'ab_winner',
+          payload: {
+            selectionBasis: 'USER_PREFERENCE',
+            winner: {
+              caption: winner.caption,
+              platform: String(winner.platform),
+              variantLabel: winner.variantLabel ?? 'A',
+            },
+            loser: {
+              caption: loser.caption,
+              platform: String(loser.platform),
+              variantLabel: loser.variantLabel ?? 'B',
+            },
+          },
+        })
+        learningProposalQueued = proposed > 0
+      } catch {
+        // The user's selection remains valid; proposal generation can be retried.
+      }
     }
 
     return NextResponse.json({
       ok: true,
       winnerId: winner.id,
       loserDeleted: !!loser,
-      hookLearned,
+      hookLearned: false,
+      learningProposalQueued,
     })
   } catch (err: any) {
     console.error('[pick-winner PATCH]', err)

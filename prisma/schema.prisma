@@ -801,6 +801,7 @@ enum BillingCycle {
 }
 
 enum ExportFormat {
+  HTML
   PDF
   VIDEO
   IMAGES

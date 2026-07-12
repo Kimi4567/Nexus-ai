@@ -19,7 +19,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createHmac } from 'crypto'
+import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
 import { prisma } from '@/lib/prisma'
 
 // Meta signs requests using base64url (replaces + with -, / with _)
@@ -49,13 +49,7 @@ function parseSignedRequest(
       .update(encodedPayload)
       .digest()
 
-    // Constant-time comparison to prevent timing attacks
-    if (sig.length !== expectedSig.length) return null
-    let mismatch = 0
-    for (let i = 0; i < sig.length; i++) {
-      mismatch |= sig[i] ^ expectedSig[i]
-    }
-    if (mismatch !== 0) {
+    if (sig.length !== expectedSig.length || !timingSafeEqual(sig, expectedSig)) {
       console.error('[Meta Data Deletion] Signature mismatch — possible forgery')
       return null
     }
@@ -75,13 +69,8 @@ function parseSignedRequest(
 /**
  * Generate a unique confirmation code for tracking
  */
-function generateConfirmationCode(fbUserId: string): string {
-  const ts = Date.now().toString(36)
-  const hash = createHmac('sha256', fbUserId)
-    .update(ts)
-    .digest('hex')
-    .slice(0, 12)
-  return `del_${hash}_${ts}`
+function generateConfirmationCode(): string {
+  return `del_${randomBytes(24).toString('base64url')}`
 }
 
 export async function POST(req: NextRequest) {
@@ -122,10 +111,13 @@ export async function POST(req: NextRequest) {
     }
 
     const { userId: fbUserId, issuedAt } = payload
+    if (!fbUserId || payload.algorithm.toUpperCase() !== 'HMAC-SHA256') {
+      return NextResponse.json({ error: 'Invalid signed_request payload' }, { status: 400 })
+    }
 
     // Reject stale requests (> 1 hour old)
     const ageSeconds = Math.floor(Date.now() / 1000) - issuedAt
-    if (ageSeconds > 3600) {
+    if (ageSeconds < -60 || ageSeconds > 3600) {
       console.warn('[Meta Data Deletion] Stale request rejected, age:', ageSeconds, 's')
       return NextResponse.json({ error: 'Request too old' }, { status: 400 })
     }
@@ -138,7 +130,7 @@ export async function POST(req: NextRequest) {
       orderBy: { requestedAt: 'desc' },
     }).catch(() => null)
 
-    if (existing?.status === 'completed') {
+    if (existing && ['completed', 'not_found'].includes(existing.status)) {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nexus-grow.com'
       return NextResponse.json({
         url: `${baseUrl}/data-deletion?id=${existing.confirmationCode}`,
@@ -147,43 +139,48 @@ export async function POST(req: NextRequest) {
     }
 
     // Generate confirmation code
-    const confirmationCode = generateConfirmationCode(fbUserId)
+    const confirmationCode = existing?.confirmationCode || generateConfirmationCode()
 
-    // --- Data Deletion ---
-    // Try to find internal user by matching Meta FB user ID stored in Integration table
-    let internalUserId: string | undefined
-
-    // Look for the user via their Meta Integration token
-    // We match by checking which workspace has a META integration
-    // (we don't store fbUserId directly, but can try to find via adAccount)
-    const adAccount = await (prisma as any).adAccount.findFirst({
-      where: {
-        platform: 'META',
-        // We can't directly match fbUserId here since we don't store it in AdAccount
-        // Best effort: log + create the deletion request, admin must process
-      },
-    }).catch(() => null)
-
-    // Create deletion request record
-    await (prisma as any).dataDeletionRequest.create({
-      data: {
-        fbUserId,
-        userId: internalUserId || null,
-        status: 'pending',
-        confirmationCode,
-        requestedAt: new Date(),
+    // Meta callback accountId is stored during OAuth, so the request can be
+    // mapped without inspecting or guessing from unrelated ad accounts.
+    const integrations = await prisma.integration.findMany({
+      where: { type: 'META', accountId: fbUserId },
+      select: {
+        id: true,
+        workspaceId: true,
+        workspace: { select: { ownerId: true } },
       },
     })
+    const workspaceIds = [...new Set(integrations.map((integration) => integration.workspaceId))]
+    const internalUserId = integrations[0]?.workspace.ownerId || null
+    const finalStatus = integrations.length > 0 ? 'completed' : 'not_found'
+    const completedAt = new Date()
 
-    // Attempt automatic data deletion:
-    // Remove Meta Ads ad accounts linked to this FB user ID
-    // (Since we can't 100% match fbUserId → our userId without storing it,
-    //  we mark as pending and handle via admin or background job)
-    //
-    // What we CAN clean up immediately: any Integration records for META platform
-    // where we'd need to cross-reference. This is a best-effort immediate deletion.
-    // Full deletion is tracked via the DataDeletionRequest and confirmed at /data-deletion
-    console.log(`[Meta Data Deletion] Created deletion request ${confirmationCode} for FB user ${fbUserId}`)
+    await prisma.$transaction(async (tx) => {
+      if (workspaceIds.length > 0) {
+        await tx.integration.deleteMany({ where: { id: { in: integrations.map((integration) => integration.id) } } })
+        await (tx as any).adAccount.deleteMany({ where: { workspaceId: { in: workspaceIds }, platform: 'META' } })
+      }
+      if (existing) {
+        await (tx as any).dataDeletionRequest.update({
+          where: { id: existing.id },
+          data: { userId: internalUserId, status: finalStatus, completedAt },
+        })
+      } else {
+        await (tx as any).dataDeletionRequest.create({
+          data: {
+            fbUserId,
+            userId: internalUserId,
+            status: finalStatus,
+            confirmationCode,
+            requestedAt: new Date(),
+            completedAt,
+          },
+        })
+      }
+    })
+
+    console.log(`[Meta Data Deletion] ${finalStatus} request ${confirmationCode} for FB user ${fbUserId}`)
 
     // Return the required response format
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nexus-grow.com'
@@ -200,10 +197,22 @@ export async function POST(req: NextRequest) {
 // GET handler — Meta may ping this during App Review verification
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
+  const mode = searchParams.get('hub.mode')
+  const suppliedToken = searchParams.get('hub.verify_token')
   const challenge = searchParams.get('hub.challenge')
 
-  if (challenge) {
-    // Webhook verification challenge
+  if (mode || suppliedToken || challenge) {
+    const expectedToken = process.env.META_WEBHOOK_VERIFY_TOKEN
+    if (!expectedToken) {
+      console.error('[Meta Data Deletion] META_WEBHOOK_VERIFY_TOKEN not configured')
+      return NextResponse.json({ error: 'Webhook verification is not configured' }, { status: 503 })
+    }
+    const supplied = Buffer.from(suppliedToken || '')
+    const expected = Buffer.from(expectedToken)
+    const tokenMatches = supplied.length === expected.length && timingSafeEqual(supplied, expected)
+    if (mode !== 'subscribe' || !challenge || !tokenMatches) {
+      return NextResponse.json({ error: 'Webhook verification failed' }, { status: 403 })
+    }
     return new NextResponse(challenge, { status: 200 })
   }
 

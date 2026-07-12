@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
-import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 async function ownsCampaign(campaignId: string, userId: string) {
   return prisma.campaign.findFirst({
@@ -11,16 +10,11 @@ async function ownsCampaign(campaignId: string, userId: string) {
   })
 }
 
-function mergeUnique(existing: string[] | null | undefined, incoming: unknown[], limit = 20): string[] {
-  const current = Array.isArray(existing) ? existing : []
-  const next = incoming
-    .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-    .map(item => item.trim())
-  return Array.from(new Set([...current, ...next])).slice(-limit)
-}
+const CAMPAIGN_STATUSES = new Set(['DRAFT', 'SCHEDULED', 'ACTIVE', 'PAUSED', 'COMPLETED', 'ARCHIVED'])
 
 // GET /api/campaigns/[id] — full campaign detail + activities
-export async function GET(req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -52,7 +46,8 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 // PATCH /api/campaigns/[id] — update fields + auto-log activity
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -67,50 +62,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       if (key in body) data[key] = body[key]
     }
 
-    if (body.status === 'ACTIVE') {
-      const aiOutput = (existing.aiOutput as any) || {}
-      const sentinelPassed = aiOutput.sentinelReview?.status === 'passed'
-      if (!sentinelPassed) {
-        return NextResponse.json({
-          error: 'ENGINE_NOT_READY',
-          message: 'Run NEXUS Engine and pass Sentinel review before approval.',
-        }, { status: 409 })
-      }
+    if ('status' in body && !CAMPAIGN_STATUSES.has(String(body.status))) {
+      return NextResponse.json({ error: 'Invalid campaign status' }, { status: 400 })
     }
 
-    const updated = await prisma.campaign.update({ where: { id: params.id }, data })
-
     if (body.status === 'ACTIVE') {
-      const aiOutput = (existing.aiOutput as any) || {}
-      const strategy = aiOutput.strategy || {}
-      const hooks = [
-        ...(Array.isArray(aiOutput.topHooks) ? aiOutput.topHooks.slice(0, 5) : []),
-        ...(Array.isArray(strategy.topHooks) ? strategy.topHooks.slice(0, 5) : []),
-      ]
-      const angles = [
-        ...(Array.isArray(strategy.contentAngles) ? strategy.contentAngles.slice(0, 5) : []),
-        ...(Array.isArray(strategy.contentPillars) ? strategy.contentPillars.slice(0, 5).map((p: any) => typeof p === 'string' ? p : p?.pillar || p?.title || p?.topic) : []),
-      ]
-      const platforms = Array.isArray(existing.platforms) ? existing.platforms.map(String) : []
-
-      const brand = await prisma.brandProfile.findUnique({ where: { workspaceId: existing.workspaceId } })
-      if (brand) {
-        await prisma.brandProfile.update({
-          where: { workspaceId: existing.workspaceId },
-          data: {
-            winningHooks: mergeUnique(brand.winningHooks, hooks),
-            winningAngles: mergeUnique(brand.winningAngles, angles),
-            topPlatforms: mergeUnique(brand.topPlatforms, platforms, 12),
-            aiInsights: {
-              ...((brand.aiInsights as any) || {}),
-              lastApprovedCampaignId: existing.id,
-              lastApprovedAt: new Date().toISOString(),
-              lastApprovedPositioning: strategy.positioning || existing.description || undefined,
-            },
-          },
-        }).catch(() => null)
-        snapshotBrandMaturity(prisma as any, existing.workspaceId).catch(() => null)
-      }
+      return NextResponse.json({
+        error: 'USE_STRATEGY_APPROVAL_ENDPOINT',
+        message: 'Approve strategy through /strategy-approval so the decision is validated and audited.',
+      }, { status: 409 })
     }
 
     // Auto-log activity
@@ -126,9 +86,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       activityDesc = `Renamed to "${body.name}"`
     }
 
-    prisma.campaignActivity.create({
-      data: { campaignId: params.id, type: activityType, description: activityDesc },
-    }).catch(() => {})
+    const updated = await prisma.$transaction(async (tx) => {
+      const campaign = await tx.campaign.update({ where: { id: params.id }, data })
+      await tx.campaignActivity.create({
+        data: { campaignId: params.id, type: activityType, description: activityDesc },
+      })
+
+      return campaign
+    })
 
     return NextResponse.json({ campaign: updated })
   } catch (err: any) {
@@ -138,7 +103,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 // DELETE /api/campaigns/[id] — hard delete
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

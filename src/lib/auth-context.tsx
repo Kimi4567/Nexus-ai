@@ -45,14 +45,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true
     // resolved prevents double-setting state from two async sources
     let resolved = false
+    let authTimeout: ReturnType<typeof setTimeout> | null = null
 
     const resolveAuth = (sess: Session | null) => {
       if (!mounted || resolved) return
       resolved = true
+      if (authTimeout) clearTimeout(authTimeout)
       setSession(sess)
       setUser(sess?.user ?? null)
       setLoading(false)
     }
+
+    // A provider/network outage must not trap every protected page on an
+    // infinite spinner. Auth state events can still restore a later session.
+    authTimeout = setTimeout(() => resolveAuth(null), 8_000)
 
     // ── Source 1: getSession() ────────────────────────────────────────────────
     // Reads from localStorage, auto-refreshes access token if expired,
@@ -95,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false
+      if (authTimeout) clearTimeout(authTimeout)
       subscription.unsubscribe()
     }
   }, [])

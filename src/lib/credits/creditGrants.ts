@@ -6,7 +6,9 @@
  * matching grant. THIS MODULE IS NOT WIRED INTO ANY RUNTIME PATH YET.
  *
  * Strict boundaries (enforced by design + tests):
- *   - NEVER mutates User.aiCredits.
+ *   - Grant builders/writers never mutate unrelated billing/subscription data.
+ *   - `syncCachedWalletBalance` is the only helper here allowed to update the
+ *     derived User.aiCredits cache.
  *   - NEVER writes a CreditTransaction.
  *   - NEVER touches Subscription / billing data.
  *   - Only inserts/updates CreditGrant rows.
@@ -41,6 +43,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 /** Free/trial starter allowance + its expiry window (policy: trial expires in 14 days). */
 export const STARTER_CREDITS = 10
 export const STARTER_EXPIRY_DAYS = 14
+export const PURCHASED_VALIDITY_MONTHS = 12
 
 /** A transaction client (or the base prisma) — helpers run inside or outside a txn. */
 type GrantClient = { creditGrant: { createMany: Function; updateMany: Function } }
@@ -85,6 +88,11 @@ export function referralSource(referrerId: string, referredId: string): string {
  */
 export function manualSource(actionId: string): string {
   return `manual:${actionId}`
+}
+
+/** Stripe Checkout session IDs are globally unique and safe idempotency keys. */
+export function purchaseSource(checkoutSessionId: string): string {
+  return `stripe:checkout:${checkoutSessionId}`
 }
 
 // ── Grant shape builders (pure) ─────────────────────────────────────────────
@@ -164,6 +172,26 @@ export function buildBonusGrant(
     remaining: amount,
     expiresAt: null,
     source,
+    status: 'ACTIVE',
+  }
+}
+
+/** One-time purchased credits, valid for 12 calendar months. */
+export function buildPurchasedGrant(
+  userId: string,
+  checkoutSessionId: string,
+  amount: number,
+  purchasedAt: Date = new Date(),
+): GrantInput {
+  const expiresAt = new Date(purchasedAt)
+  expiresAt.setUTCMonth(expiresAt.getUTCMonth() + PURCHASED_VALIDITY_MONTHS)
+  return {
+    userId,
+    type: 'PURCHASED',
+    amount,
+    remaining: amount,
+    expiresAt,
+    source: purchaseSource(checkoutSessionId),
     status: 'ACTIVE',
   }
 }
@@ -278,4 +306,67 @@ export async function voidNonPurchasedGrants(
     data: { status: 'VOID', remaining: 0 },
   })
   return { voidCount: ((res as { count?: number })?.count ?? 0) }
+}
+
+/**
+ * Recompute the legacy User.aiCredits cache from valid wallet grants. This must
+ * run inside the same transaction as renewal, cancellation, or pack fulfilment.
+ */
+export async function syncCachedWalletBalance(
+  userId: string,
+  tx: unknown,
+  now: Date = new Date(),
+): Promise<number> {
+  const db = tx as any
+  const aggregate = await db.creditGrant.aggregate({
+    where: {
+      userId,
+      status: 'ACTIVE',
+      remaining: { gt: 0 },
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    },
+    _sum: { remaining: true },
+  })
+  const balance = Math.max(0, aggregate?._sum?.remaining ?? 0)
+  await db.user.update({ where: { id: userId }, data: { aiCredits: balance } })
+  return balance
+}
+
+/** Idempotently fulfil one verified Stripe credit-pack checkout. */
+export async function fulfilPurchasedCreditPack(
+  args: {
+    userId: string
+    checkoutSessionId: string
+    credits: number
+    purchasedAt?: Date
+  },
+  tx: unknown,
+): Promise<{ created: boolean; balance: number }> {
+  if (!Number.isInteger(args.credits) || args.credits <= 0) {
+    throw new Error('Purchased credit amount must be a positive integer')
+  }
+  const { created } = await ensureGrant(
+    buildPurchasedGrant(
+      args.userId,
+      args.checkoutSessionId,
+      args.credits,
+      args.purchasedAt ?? new Date(),
+    ),
+    tx,
+  )
+  if (created) {
+    const db = tx as any
+    await db.creditTransaction.create({
+      data: {
+        userId: args.userId,
+        action: 'CREDIT_PACK_PURCHASE',
+        description: `${args.credits} purchased credits`,
+        amount: args.credits,
+        entityId: args.checkoutSessionId,
+        entityType: 'credit_pack',
+      },
+    })
+  }
+  const balance = await syncCachedWalletBalance(args.userId, tx)
+  return { created, balance }
 }

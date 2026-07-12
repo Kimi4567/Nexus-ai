@@ -11,12 +11,9 @@
  * Triggers:
  *   - 'strategy'          : After campaign strategy is generated
  *   - 'approved_content'  : After user approves a content plan
- *   - 'post_performance'  : After published posts get real engagement data.
- *                           The post_performance writeback runs AUTOMATICALLY in the
- *                           analytics cron (src/app/api/cron/fetch-analytics) via
- *                           lib/brain-learning.runBrainLearning — that is where the
- *                           live performance → Brand Brain loop is closed. This route
- *                           handles the user-triggered 'strategy' and 'approved_content'.
+ * Verified post-performance proposals are created only by the analytics cron
+ * after platform provenance and sample-size checks. This user route accepts
+ * strategy and approved-content preference signals only.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -49,6 +46,15 @@ export async function POST(req: NextRequest) {
 
     if (!trigger || !payload) {
       return NextResponse.json({ error: 'Missing trigger or payload' }, { status: 400 })
+    }
+    if (trigger === 'post_performance') {
+      return NextResponse.json({
+        error: 'Verified performance learning can only be created from connected platform analytics.',
+        code: 'VERIFIED_ANALYTICS_REQUIRED',
+      }, { status: 409 })
+    }
+    if (!['strategy', 'approved_content'].includes(trigger)) {
+      return NextResponse.json({ error: 'Unsupported learning trigger' }, { status: 400 })
     }
 
     // Get workspace
@@ -94,13 +100,17 @@ export async function POST(req: NextRequest) {
     // ── Build the extraction prompt based on trigger ──────────────────────────
     const systemPrompt = `You are a Brand Intelligence Extractor for NEXUS AI.
 
-Your job: analyse AI-generated marketing outputs and extract SPECIFIC, ACTIONABLE learnings
-that should be saved to a brand's permanent memory (Brand Brain).
+Your job: analyse marketing outputs and extract SPECIFIC, ACTIONABLE candidates
+that the user may choose to save to Brand Brain.
 
 You must ONLY extract concrete, specific insights — not generic marketing advice.
 Bad: "Use engaging content" (useless, generic)
 Good: "Use questions that challenge conventional wisdom" (specific hook pattern)
-Good: "Audience responds to 'before/after transformation' narratives" (specific angle)
+Good: "The current strategy uses 'before/after transformation' narratives" (observable angle)
+
+Never claim an idea, hook, or angle won, converted, or performed unless verified
+platform evidence is provided. Strategy generation and content approval are
+planning/preference signals only.
 
 Return ONLY a valid JSON array. No prose, no explanation.`
 
@@ -130,8 +140,8 @@ STRATEGY OUTPUT:
 ${JSON.stringify(strategy, null, 2)}
 
 Extract ONLY NEW insights not already in Brand Brain. For each field, propose additions/updates:
-- winningHooks: specific hook formulas the strategy identified (e.g. "Use 'Most people don't know...' opener")
-- winningAngles: content angles with proven appeal for this audience
+- winningHooks: hook formulas proposed by the strategy (e.g. "Test 'Most people don't know...' opener")
+- winningAngles: content-angle hypotheses to test with this audience
 - toneKeywords: tone/style words that define this brand's voice
 - audiencePainPoints: specific problems/frustrations of this audience
 - audienceDesires: specific aspirations/desires of this audience
@@ -142,7 +152,7 @@ Return a JSON array of proposals. Each proposal:
 {
   "field": "winningHooks",           // one of the 7 field names above
   "proposed": ["hook1", "hook2"],    // NEW values to ADD (for arrays) or replace (for string)
-  "reason": "The strategy identified these hook patterns as high-conversion for this audience segment."
+  "reason": "The strategy proposed these hook patterns for testing with this audience segment."
 }
 
 Rules:
@@ -164,10 +174,10 @@ Analyse these posts to extract brand voice patterns and content preferences.
 APPROVED POSTS SAMPLE:
 ${JSON.stringify(Array.isArray(posts) ? posts.slice(0, 10) : posts, null, 2)}
 
-Extract learnings about:
+Extract user-preference candidates about:
 - toneKeywords: tone/style patterns repeated across approved posts (e.g. "uses emoji sparingly", "direct CTA style", "storytelling format")
-- winningAngles: content angles/formats that appear in approved posts
-- winningHooks: opening lines / hook structures that appear
+- winningAngles: content angles/formats the user approved for testing
+- winningHooks: opening lines / hook structures the user approved for testing
 
 Return JSON array same format as above. Only extract if you see clear patterns (3+ posts showing the same characteristic).
 Return [] if not enough signal.

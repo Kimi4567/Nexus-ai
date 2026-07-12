@@ -8,7 +8,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ensureDbUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { chatRateLimitDb } from '@/lib/dbRateLimit'
-import { checkAndDeductCredits } from '@/lib/credits'
+import {
+  checkAndDeductCredits,
+  refundCredits,
+  refundCreditsForTransaction,
+  CREDIT_COSTS,
+  type CreditDeductionOk,
+} from '@/lib/credits'
+import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
+import { PUBLIC_PAID_PLANS } from '@/lib/commercialPlans'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -16,36 +24,22 @@ const db = prisma as any
 // ── Build system prompt from user context ──────────────────────
 function buildSystemPrompt(ctx: {
   userName: string | null
-  brandName: string | null
-  industry: string | null
-  brandDescription: string | null
-  targetAudience: string | null
-  primaryOffer: string | null
-  toneKeywords: string[]
-  topPlatforms: string[]
+  brandContext: string
   campaignCount: number
   aiCredits: number
   plan: string
   page: string
 }): string {
   const {
-    userName, brandName, industry, brandDescription, targetAudience,
-    primaryOffer, toneKeywords, topPlatforms,
+    userName, brandContext,
     campaignCount, aiCredits, plan, page,
   } = ctx
 
-  const brandSection = brandName
-    ? `
-## User's Brand
-- Brand: ${brandName}
-- Industry: ${industry || 'not specified'}
-- Description: ${brandDescription || 'not specified'}
-- Target Audience: ${targetAudience || 'not specified'}
-- Primary Offer: ${primaryOffer || 'not specified'}
-- Brand Tone: ${toneKeywords.length ? toneKeywords.join(', ') : 'not specified'}
-- Active Platforms: ${topPlatforms.length ? topPlatforms.join(', ') : 'not specified'}
-`
+  const brandSection = brandContext
+    ? `\n## User's governed Brand Brain\n${brandContext}\n`
     : `\n## User's Brand\n- No Brand Brain configured yet. Encourage them to set it up at /brand.\n`
+
+  const [growth, autopilot] = PUBLIC_PAID_PLANS
 
   const accountSection = `
 ## User's Account
@@ -76,9 +70,9 @@ Nexus is an AI-powered marketing operating system. Here's what it can do:
 
 **Analytics** (/analytics): Track campaign performance and AI-generated insights.
 
-**Billing** (/billing): Manage subscription plan. Plans: FREE (10 credits), Starter ($19/mo, 50 credits), Growth ($49/mo, 150 credits), Agency ($99/mo, 500 credits).
+**Billing** (/billing): Manage subscription and credits. There are exactly two public paid plans: ${growth.name} ($${growth.priceUsd}/month, ${growth.monthlyCredits} monthly credits) and ${autopilot.name} ($${autopilot.priceUsd}/month, ${autopilot.monthlyCredits} monthly credits). The 10-credit, 14-day trial is onboarding, not a third paid plan. Legacy plan names may exist only for existing accounts.
 
-**AI Credits**: Every AI generation costs credits. Full strategy costs 8 credits, campaign generation costs 5 credits, content plan costs 2 credits, images cost 3 credits each. Credits reset monthly.
+**AI Credits**: Current fixed costs are full strategy ${CREDIT_COSTS.RUN_FULL_STRATEGY}, campaign generation ${CREDIT_COSTS.CAMPAIGN_GENERATION}, content plan ${CREDIT_COSTS.CONTENT_PLAN_GENERATION}, image ${CREDIT_COSTS.IMAGE_GENERATION}, and chat ${CREDIT_COSTS.CHAT_MESSAGE}. Some strategy runs can show a variable cost before execution. Monthly subscription credits refresh with the billing cycle; purchased credits have separate validity and are not monthly allowance.
 
 **Settings** (/settings): Account preferences, language (Arabic/English), notifications.
 
@@ -121,6 +115,8 @@ You do NOT:
 
 If asked something outside scope, politely redirect: "I'm focused on helping you with your marketing on Nexus. Let me know how I can help with your campaigns or brand strategy!"
 
+Never present AI inference, generated copy, a publication event, or an approval as measured marketing performance. State what is known, what is assumed, and what requires connected analytics.
+
 ## Tone
 - Warm, intelligent, direct
 - Bilingual: respond in the same language the user writes in (Arabic or English)
@@ -129,6 +125,15 @@ If asked something outside scope, politely redirect: "I'm focused on helping you
 - Be concise — 2-4 sentences max unless a detailed answer is genuinely needed
 - Use specific, actionable advice — never generic filler
 ${brandSection}${accountSection}${platformKnowledge}`
+}
+
+async function refundChatCredit(userId: string, credit: CreditDeductionOk, reason: string) {
+  if (credit.creditsUsed <= 0) return
+  if (credit.transactionId) {
+    await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
+    return
+  }
+  await refundCredits(userId, 'CHAT_MESSAGE', reason)
 }
 
 // ── Main handler ───────────────────────────────────────────────
@@ -196,13 +201,7 @@ export async function POST(req: NextRequest) {
     // ── Build context ────────────────────────────────────────────
     const systemPrompt = buildSystemPrompt({
       userName: user?.name ?? null,
-      brandName: brandProfile?.brandName as string | null ?? null,
-      industry: brandProfile?.industry as string | null ?? null,
-      brandDescription: brandProfile?.description as string | null ?? null,
-      targetAudience: brandProfile?.targetAudience as string | null ?? null,
-      primaryOffer: brandProfile?.primaryOffer as string | null ?? null,
-      toneKeywords: (brandProfile?.toneKeywords as string[]) ?? [],
-      topPlatforms: (brandProfile?.topPlatforms as string[]) ?? [],
+      brandContext: buildBrandExecutionContext(brandProfile),
       campaignCount,
       aiCredits: user?.aiCredits ?? 0,
       plan: subscription?.plan ?? 'FREE',
@@ -210,28 +209,35 @@ export async function POST(req: NextRequest) {
     })
 
     // ── Streaming OpenAI call ────────────────────────────────────
-    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        stream: true,
-        max_tokens: 400,
-        temperature: 0.7,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          // Keep last 10 messages max for context window efficiency
-          ...messages.slice(-10),
-        ],
-      }),
-    })
+    let openaiRes: Response
+    try {
+      openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          stream: true,
+          max_tokens: 400,
+          temperature: 0.7,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            // Keep last 10 messages max for context window efficiency
+            ...messages.slice(-10),
+          ],
+        }),
+      })
+    } catch (error) {
+      await refundChatCredit(authUser.id, credit, 'Chat provider request failed')
+      throw error
+    }
 
     if (!openaiRes.ok) {
       const errText = await openaiRes.text()
       console.error('[chat] OpenAI error:', openaiRes.status, errText)
+      await refundChatCredit(authUser.id, credit, `Chat provider returned ${openaiRes.status}`)
       return NextResponse.json(
         { error: `AI service error (${openaiRes.status})` },
         { status: 502 },

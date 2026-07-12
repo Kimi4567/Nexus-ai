@@ -162,7 +162,7 @@ export function CampaignWizard({ projectId, workspaceId }: { projectId: string; 
     try {
       if (campaignId) {
         await saveDraftCampaign()
-        router.push(`/campaign/${campaignId}`)
+        router.push(`/campaigns/${campaignId}`)
         return
       }
 
@@ -183,7 +183,7 @@ export function CampaignWizard({ projectId, workspaceId }: { projectId: string; 
       if (!response.ok) throw new Error('Failed to create campaign')
 
       const campaign = await response.json()
-      router.push(`/campaign/${campaign.id}`)
+      router.push(`/campaigns/${campaign.id}`)
     } catch (error) {
       console.error('Campaign creation error:', error)
     } finally {

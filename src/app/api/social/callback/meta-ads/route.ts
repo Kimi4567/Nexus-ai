@@ -22,6 +22,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { encryptToken } from '@/lib/tokenCrypto'
+import { verifyOAuthState } from '@/lib/oauthState'
 
 export const maxDuration = 30
 
@@ -57,14 +58,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${baseUrl}/paid-campaigns?error=missing_params`)
   }
 
-  // Decode state
   let userId: string
   try {
-    const decoded = JSON.parse(Buffer.from(state, 'base64url').toString())
-    userId = decoded.userId
-    if (Date.now() - decoded.ts > 60 * 60 * 1000) throw new Error('stale')
+    userId = verifyOAuthState(state, 'meta_ads').userId
   } catch (e) {
-    console.error('[Meta Ads OAuth] State decode failed:', e)
+    console.error('[Meta Ads OAuth] State verification failed:', e)
     return NextResponse.redirect(`${baseUrl}/paid-campaigns?error=invalid_state`)
   }
 

@@ -60,8 +60,8 @@ const PLAN_NAMES: Record<string, { en: string; ar: string }> = {
   starter:  { en: 'Starter', ar: 'ستارتر' },
   pro:      { en: 'Growth',  ar: 'جروث' },   // internal Stripe id 'pro' = Growth
   growth:   { en: 'Growth',  ar: 'جروث' },
-  business: { en: 'Agency',  ar: 'وكالة' },
-  agency:   { en: 'Agency',  ar: 'وكالة' },
+  business: { en: 'Autopilot', ar: 'أوتوبايلوت' },
+  agency:   { en: 'Autopilot', ar: 'أوتوبايلوت' },
   active:   { en: 'Growth',  ar: 'جروث' },   // legacy status fallback → Growth tier
 }
 
@@ -108,8 +108,8 @@ export function formatCreditDisplay(input: CreditDisplayInput): CreditDisplay {
     return {
       primary: compact ? `${avail}` : ar ? `${avail} كريدت متاح` : `${avail} credits available`,
       secondary: ar
-        ? `خطتك تمنحك ${monthly} كريدت شهريًا. الرصيد الإضافي قد يكون من رصيد سابق أو تعويضات أو كريدت إضافي.`
-        : `Your plan grants ${monthly} credits/month. Extra credits may include rollover, bonuses, or refunds.`,
+        ? `خطتك تمنحك ${monthly} كريدت شهريًا. الرصيد الإضافي قد يكون مشتَرى أو مكافآت أو تعويضات.`
+        : `Your plan grants ${monthly} credits/month. Extra credits may be purchased credits, bonuses, or refunds.`,
       percent: 100,
       isUnlimited: false,
       overGrant: true,

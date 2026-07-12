@@ -13,7 +13,8 @@ const { mockPrisma, tx, stripe, mockStripeHelpers } = vi.hoisted(() => {
   const tx = {
     subscription: { upsert: vi.fn(), updateMany: vi.fn() },
     user: { update: vi.fn() },
-    creditGrant: { createMany: vi.fn(), updateMany: vi.fn() },
+    creditGrant: { createMany: vi.fn(), updateMany: vi.fn(), aggregate: vi.fn() },
+    creditTransaction: { create: vi.fn() },
   }
   const stripe = {
     webhooks: { constructEvent: vi.fn() },
@@ -72,6 +73,8 @@ beforeEach(() => {
   tx.user.update.mockResolvedValue({})
   tx.creditGrant.createMany.mockResolvedValue({ count: 1 })
   tx.creditGrant.updateMany.mockResolvedValue({ count: 0 })
+  tx.creditGrant.aggregate.mockResolvedValue({ _sum: { remaining: 125 } })
+  tx.creditTransaction.create.mockResolvedValue({ id: 'ct_pack' })
   tx.subscription.updateMany.mockResolvedValue({ count: 1 })
   mockPrisma.user.update.mockResolvedValue({})
   mockPrisma.subscription.updateMany.mockResolvedValue({ count: 1 })
@@ -152,6 +155,51 @@ describe('billing webhook — B1d-c-1 MONTHLY grant on provision', () => {
     const data = (tx.user.update.mock.calls[0][0] as any).data
     expect(data.aiCredits).toBeUndefined()
     expect(data.subscriptionStatus).toBe('PAST_DUE')
+  })
+})
+
+describe('billing webhook — one-time credit packs', () => {
+  it('fulfils a paid trusted pack idempotently into PURCHASED credits', async () => {
+    stripe.webhooks.constructEvent.mockReturnValue({
+      type: 'checkout.session.completed', id: 'evt_pack',
+      data: { object: {
+        id: 'cs_pack_1',
+        mode: 'payment',
+        payment_status: 'paid',
+        amount_subtotal: 2900,
+        created: SECS_START,
+        metadata: { kind: 'credit_pack', userId: 'u1', packId: 'boost-100' },
+      } },
+    })
+
+    await POST(makeReq())
+
+    expect(tx.creditGrant.createMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: [expect.objectContaining({
+        userId: 'u1', type: 'PURCHASED', amount: 100, remaining: 100,
+        source: 'stripe:checkout:cs_pack_1', status: 'ACTIVE',
+      })],
+      skipDuplicates: true,
+    }))
+    expect(tx.creditTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ action: 'CREDIT_PACK_PURCHASE', amount: 100 }),
+    }))
+    expect(tx.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { aiCredits: 125 } })
+  })
+
+  it('refuses an unpaid or amount-mismatched pack', async () => {
+    stripe.webhooks.constructEvent.mockReturnValue({
+      type: 'checkout.session.completed', id: 'evt_bad_pack',
+      data: { object: {
+        id: 'cs_bad', mode: 'payment', payment_status: 'unpaid', amount_subtotal: 1,
+        created: SECS_START,
+        metadata: { kind: 'credit_pack', userId: 'u1', packId: 'boost-100' },
+      } },
+    })
+
+    await POST(makeReq())
+    expect(tx.creditGrant.createMany).not.toHaveBeenCalled()
+    expect(tx.creditTransaction.create).not.toHaveBeenCalled()
   })
 })
 

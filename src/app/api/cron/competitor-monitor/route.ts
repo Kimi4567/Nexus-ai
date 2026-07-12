@@ -6,16 +6,15 @@
  *
  * For every workspace that has competitors[] in their Brand Brain:
  *   1. Fetch recent news/activity for each competitor via Google News RSS (free, no API key)
- *   2. GPT-4o analyzes findings → what are competitors doing? any gaps/opportunities?
- *   3. Creates Brain Brain proposals via runBrainLearning(competitor_monitor)
+ *   2. Stores a source-linked research alert for user review
  *
  * No external API key required — uses Google News public RSS feed.
- * Cost: ~$0.02-0.05 per workspace per day (GPT-4o analysis only).
+ * No model call, no automatic Brand Brain mutation, and no performance claim.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { runBrainLearning } from '@/lib/brain-learning'
+import { cronAuthError } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -28,6 +27,7 @@ interface NewsItem {
   snippet: string
   source: string
   publishedAt: string
+  url: string
 }
 
 /** Fetch recent Google News RSS for a competitor name */
@@ -58,6 +58,7 @@ async function fetchCompetitorNews(competitorName: string): Promise<NewsItem[]> 
                           item.match(/<description>(.*?)<\/description>/)
       const sourceMatch = item.match(/<source[^>]*>(.*?)<\/source>/)
       const dateMatch   = item.match(/<pubDate>(.*?)<\/pubDate>/)
+      const linkMatch   = item.match(/<link>(.*?)<\/link>/)
 
       const title = titleMatch?.[1]?.trim() ?? ''
       if (!title || title.length < 10) continue
@@ -72,6 +73,7 @@ async function fetchCompetitorNews(competitorName: string): Promise<NewsItem[]> 
         snippet,
         source: sourceMatch?.[1]?.trim() ?? 'Unknown',
         publishedAt: dateMatch?.[1]?.trim() ?? '',
+        url: linkMatch?.[1]?.trim() ?? '',
       })
     }
 
@@ -84,20 +86,14 @@ async function fetchCompetitorNews(competitorName: string): Promise<NewsItem[]> 
 // ── Main handler ───────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret && process.env.NODE_ENV !== 'development') {
-    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
-  }
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = cronAuthError(req)
+  if (authError) return authError
 
   const results = {
     workspacesChecked: 0,
     workspacesWithCompetitors: 0,
     newsItemsFetched: 0,
-    proposalsCreated: 0,
+    researchAlertsCreated: 0,
     errors: [] as string[],
   }
 
@@ -129,32 +125,50 @@ export async function GET(req: NextRequest) {
 
       try {
         // Fetch news for each competitor (max 5 competitors per workspace to control cost)
-        const allFindings: NewsItem[] = []
         const competitorsToCheck = profile.competitors.slice(0, 5)
-
-        for (const competitor of competitorsToCheck) {
-          const items = await fetchCompetitorNews(competitor)
-          allFindings.push(...items)
-          // Small delay to avoid rate limits
-          await new Promise(r => setTimeout(r, 500))
-        }
+        const allFindings = (await Promise.all(
+          competitorsToCheck.map((competitor) => fetchCompetitorNews(competitor)),
+        )).flat()
 
         results.newsItemsFetched += allFindings.length
 
         if (allFindings.length === 0) continue
 
-        // Run Brain Brain learning with competitor findings
-        const proposed = await runBrainLearning({
-          workspaceId: profile.workspaceId,
-          trigger: 'competitor_monitor',
-          payload: {
-            competitors: competitorsToCheck,
-            findings: allFindings,
-            brandName: profile.brandName ?? 'Unknown',
+        const db = prisma as any
+        const existing = await db.agentSuggestion.findFirst({
+          where: {
+            workspaceId: profile.workspaceId,
+            status: 'PENDING',
+            payload: { path: ['source'], equals: 'market-research-monitor' },
+          },
+          select: { id: true },
+        })
+        if (existing) continue
+
+        await db.agentSuggestion.create({
+          data: {
+            workspaceId: profile.workspaceId,
+            agent: 'REPORTING',
+            type: 'STRATEGY',
+            status: 'PENDING',
+            priority: 3,
+            title: `Competitor research: ${allFindings.length} source headline${allFindings.length === 1 ? '' : 's'} to review`,
+            reasoning: `Recent Google News RSS results matched ${competitorsToCheck.join(', ')}. Headlines are research leads only; open the original sources before using them in strategy.`,
+            impact: null,
+            payload: {
+              source: 'market-research-monitor',
+              researchKind: 'competitor',
+              titleAr: `بحث المنافسين: ${allFindings.length} عنواناً للمراجعة`,
+              reasoningAr: `نتائج RSS حديثة طابقت ${competitorsToCheck.join('، ')}. هذه إشارات للبحث فقط؛ افتح المصادر الأصلية قبل استخدامها في الاستراتيجية.`,
+              competitors: competitorsToCheck,
+              items: allFindings.slice(0, 12),
+              performanceClaim: false,
+              autoLearningApplied: false,
+            },
+            expiresAt: new Date(Date.now() + 3 * 86_400_000),
           },
         })
-
-        results.proposalsCreated += proposed
+        results.researchAlertsCreated++
       } catch (err: any) {
         results.errors.push(`Workspace ${profile.workspaceId}: ${err.message}`)
       }
@@ -165,6 +179,9 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    mode: 'source-linked-no-ai',
+    aiUsed: false,
+    autoLearningApplied: false,
     ...results,
     ts: new Date().toISOString(),
   })

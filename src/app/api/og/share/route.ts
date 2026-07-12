@@ -11,15 +11,20 @@ const GOAL_LABELS: Record<string, string> = {
   TRAFFIC: 'Traffic', ENGAGEMENT: 'Engagement', BRAND_BUILDING: 'Brand Building',
 }
 
-const PLATFORM_ICONS: Record<string, string> = {
-  INSTAGRAM: '📸', TIKTOK: '🎵', FACEBOOK: '👥',
-  YOUTUBE_SHORTS: '▶', LINKEDIN: '💼', SNAPCHAT: '👻',
+function escapeXml(value: unknown): string {
+  return String(value ?? '').replace(/[<>&"']/g, (character) => ({
+    '<': '&lt;',
+    '>': '&gt;',
+    '&': '&amp;',
+    '"': '&quot;',
+    "'": '&apos;',
+  })[character] || character)
 }
 
 export async function GET(req: NextRequest) {
   try {
   const token = req.nextUrl.searchParams.get('token')
-  if (!token) return new NextResponse('Missing token', { status: 400 })
+  if (!token || !/^[A-Za-z0-9_-]{16,128}$/.test(token)) return new NextResponse('Invalid token', { status: 400 })
 
   const campaign = await prisma.campaign.findFirst({
     where: { shareToken: token, isPublic: true },
@@ -29,16 +34,10 @@ export async function GET(req: NextRequest) {
     },
   }).catch(() => null)
 
-  const name = campaign?.name || 'AI Marketing Campaign'
+  const name = escapeXml(campaign?.name || 'AI Marketing Campaign')
   const goal = GOAL_LABELS[campaign?.goal || ''] || 'Campaign'
-  const workspace = campaign?.project?.workspace?.name || 'Nexus AI'
+  const workspace = escapeXml(campaign?.project?.workspace?.name || 'Nexus AI')
   const platforms = (campaign?.platforms || []).slice(0, 3)
-  const tone = campaign?.tone || ''
-
-  // Build platform chips HTML
-  const platformChips = platforms
-    .map(p => `<span style="background:rgba(255,149,0,0.12);border:1px solid rgba(255,149,0,0.3);color:#FF9500;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:600;">${(PLATFORM_ICONS[p] || '')} ${p.replace('_', ' ')}</span>`)
-    .join(' ')
 
   const svg = `<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -109,7 +108,9 @@ export async function GET(req: NextRequest) {
   return new NextResponse(svg, {
     headers: {
       'Content-Type': 'image/svg+xml',
-      'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+      'Cache-Control': 'public, max-age=300, s-maxage=300',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
     },
   })
   } catch (err) {

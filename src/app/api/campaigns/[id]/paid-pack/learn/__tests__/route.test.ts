@@ -27,6 +27,7 @@ const {
     campaign: { findFirst: vi.fn() },
     paidCampaignPack: { findUnique: vi.fn(), update: vi.fn() },
     brandProfile: { findUnique: vi.fn(), update: vi.fn() },
+    brainLearning: { createMany: vi.fn() },
   },
 }))
 
@@ -42,7 +43,7 @@ vi.mock('@/lib/brandMaturity', () => ({ snapshotBrandMaturity: mockSnapshotBrand
 import { POST } from '../route'
 
 const makeReq = () => ({}) as any
-const ctx = (id = 'c1') => ({ params: { id } })
+const ctx = (id = 'c1') => ({ params: Promise.resolve({ id }) })
 
 const learningPayload = {
   learnings: {
@@ -98,6 +99,7 @@ beforeEach(() => {
     audienceBrief: { meta: { locations: ['Dubai'] } },
     budgetInsights: { recommendation: 'Scale Meta first.' },
   })
+  mockPrisma.brainLearning.createMany.mockResolvedValue({ count: 4 })
   mockPrisma.brandProfile.findUnique.mockResolvedValue({
     workspaceId: 'w1',
     winningHooks: ['Old hook'],
@@ -249,18 +251,20 @@ describe('POST /api/campaigns/[id]/paid-pack/learn — RF-4 refund safety', () =
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
 
-  it('success deducts once, updates learning memory, and does not refund', async () => {
+  it('success deducts once, creates review proposals, and does not mutate Brand Brain', async () => {
     const res = await POST(makeReq(), ctx())
     const json = await res.json()
 
     expect(res.status).toBe(200)
     expect(json.success).toBe(true)
     expect(json.learnings).toEqual(learningPayload.learnings)
-    expect(json.brandBrainUpdated).toBe(true)
+    expect(json.brandBrainUpdated).toBe(false)
+    expect(json.proposalsCreated).toBe(4)
     expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'AD_COPY')
     expect(mockCheckAndDeduct).toHaveBeenCalledTimes(1)
-    expect(mockPrisma.paidCampaignPack.update).toHaveBeenCalledTimes(2)
-    expect(mockPrisma.brandProfile.update).toHaveBeenCalledTimes(1)
+    expect(mockPrisma.paidCampaignPack.update).toHaveBeenCalledTimes(1)
+    expect(mockPrisma.brandProfile.update).not.toHaveBeenCalled()
+    expect(mockPrisma.brainLearning.createMany).toHaveBeenCalledTimes(1)
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })

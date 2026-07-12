@@ -8,17 +8,13 @@
 import { prisma } from '@/lib/prisma'
 import { runStrategistAgent, BusinessBrief, StrategyOutput } from './strategist'
 import { runContentDirectorAgent, ContentDirectorInput, ContentDirectorOutput } from './content-director'
-import {
-  runCampaignManagerAgent,
-  buildMetricsFromCampaign,
-  CampaignManagerOutput,
-} from './campaign-manager'
-import { runReportingAgent, getPeriodLabel, ReportingInput } from './reporting'
 import { saveCampaignMemory } from '@/lib/campaign-memory'
 import { getStrategyCapabilities } from '@/lib/brandReadiness'
 import { applyServerReadiness, collectMissingKeys } from '@/lib/strategyNormalize'
 import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
 import type { StrategyReadinessContext } from './strategist'
+import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
+import { readLockedCampaignAllowance } from '@/lib/campaignCommercial'
 
 // Re-export for API routes
 export type { BusinessBrief }
@@ -69,7 +65,7 @@ export async function runFullAgency(
       where: { id: workspaceId },
       select: { owner: { select: { subscriptionStatus: true } } },
     })
-    const planTier = (workspace?.owner?.subscriptionStatus || 'starter').toLowerCase()
+    const planTier = (workspace?.owner?.subscriptionStatus || 'free').toLowerCase()
 
     // Inject plan tier into brief so agents can scale output depth
     if (!brief.planTier) {
@@ -78,43 +74,7 @@ export async function runFullAgency(
 
     // 1. Brand context — inject ALL Brand Brain fields
     const brandProfile = await prisma.brandProfile.findUnique({ where: { workspaceId } })
-    const brandContext = brandProfile
-      ? [
-          `Brand: ${brandProfile.brandName || 'Unknown'}`,
-          brandProfile.industry ? `Industry: ${brandProfile.industry}` : '',
-          brandProfile.description ? `Business Description: ${brandProfile.description}` : '',
-          brandProfile.primaryOffer ? `Core Offer: ${brandProfile.primaryOffer}` : '',
-          brandProfile.pricePoint ? `Price Positioning: ${brandProfile.pricePoint}` : '',
-          brandProfile.uniqueAdvantages?.length ? `Unique Advantages: ${brandProfile.uniqueAdvantages.join(', ')}` : '',
-          brandProfile.targetAudience ? `Target Audience: ${brandProfile.targetAudience}` : '',
-          brandProfile.audienceAge ? `Audience Age Range: ${brandProfile.audienceAge}` : '',
-          brandProfile.audienceLocation ? `Market / Region: ${brandProfile.audienceLocation}` : '',
-          brandProfile.audiencePainPoints?.length ? `Audience Pain Points: ${brandProfile.audiencePainPoints.join(', ')}` : '',
-          brandProfile.audienceDesires?.length ? `Audience Desires: ${brandProfile.audienceDesires.join(', ')}` : '',
-          brandProfile.toneKeywords?.length ? `Brand Tone: ${brandProfile.toneKeywords.join(', ')}` : '',
-          brandProfile.writingStyle ? `Writing Style: ${brandProfile.writingStyle}` : '',
-          brandProfile.avoidKeywords?.length ? `Never use these words: ${brandProfile.avoidKeywords.join(', ')}` : '',
-          brandProfile.topPlatforms?.length ? `Best Platforms: ${brandProfile.topPlatforms.join(', ')}` : '',
-          brandProfile.winningHooks?.length ? `Winning Hooks (use as style reference): ${brandProfile.winningHooks.slice(0, 3).join(' | ')}` : '',
-          brandProfile.winningAngles?.length ? `Winning Angles: ${brandProfile.winningAngles.slice(0, 3).join(', ')}` : '',
-          brandProfile.competitorNotes ? `Competitor Notes: ${brandProfile.competitorNotes}` : '',
-          (brandProfile as any).competitors?.length ? `Named Competitors (use ONLY these — never invent others): ${(brandProfile as any).competitors.join(', ')}` : '',
-          brandProfile.strategicNotes ? `Strategic Notes: ${brandProfile.strategicNotes}` : '',
-          // PR-2B1 — wire the PR-2A strategy-data fields into the strategist context.
-          (brandProfile as any).businessGoal ? `Business Goal: ${(brandProfile as any).businessGoal}` : '',
-          (brandProfile as any).marketingBudget ? `Marketing Budget (band): ${(brandProfile as any).marketingBudget}` : '',
-          (brandProfile as any).conversionDestination ? `Conversion Destination: ${(brandProfile as any).conversionDestination}` : '',
-          (brandProfile as any).leadHandling ? `Lead Handling / Sales Process: ${(brandProfile as any).leadHandling}` : '',
-          (brandProfile as any).customerObjections?.length ? `Customer Objections: ${(brandProfile as any).customerObjections.join(', ')}` : '',
-          (brandProfile as any).complianceNotes ? `Compliance Notes: ${(brandProfile as any).complianceNotes}` : '',
-          (brandProfile as any).averageOrderValue ? `Average Order Value: ${(brandProfile as any).averageOrderValue}` : '',
-          (brandProfile as any).grossMargin ? `Gross Margin: ${(brandProfile as any).grossMargin}` : '',
-          (brandProfile as any).customerLifetimeValue ? `Customer Lifetime Value: ${(brandProfile as any).customerLifetimeValue}` : '',
-          (brandProfile as any).salesCycleLength ? `Sales Cycle Length: ${(brandProfile as any).salesCycleLength}` : '',
-          (brandProfile as any).seasonality ? `Seasonality: ${(brandProfile as any).seasonality}` : '',
-          (brandProfile as any).pastAdResults ? `Past Ad Results (historical data): ${(brandProfile as any).pastAdResults}` : '',
-        ].filter(Boolean).join('\n')
-      : ''
+    const brandContext = buildBrandExecutionContext(brandProfile as unknown as Record<string, unknown> | null)
 
     // 1b. PR-2B1 — compute capability readiness server-side (single source of truth)
     //     and build the compact readiness context passed into the strategist.
@@ -154,7 +114,6 @@ export async function runFullAgency(
     //     numbers from KPI targets / success metrics / estimated results, keeping
     //     only user/analytics-provided numbers (allowedNumbers) and calendar timeframes.
     strategy = guardStrategyKpis(strategy as unknown as Record<string, unknown>, allowedNumbers) as unknown as StrategyOutput
-    strategyCreated = true
 
     // 3. Content Director REMOVED from runFullAgency to avoid Vercel 60s timeout.
     //    Strategy-only run: campaign is created from strategy output.
@@ -168,26 +127,10 @@ export async function runFullAgency(
       scriptTemplate: '',
       captionFormulas: [],
     }
-    contentCreated = true  // Content Director runs separately — mark as ok
 
-    // 4. Find or create project
-    let project = await db.project.findFirst({
-      where: { workspaceId },
-      orderBy: { createdAt: 'desc' },
-    })
-    if (!project) {
-      project = await db.project.create({
-        data: {
-          workspaceId,
-          name: `${brief.companyName} Marketing`,
-          description: brief.targetAudience,
-          businessType: brief.businessType,
-          status: 'ACTIVE',
-        },
-      })
-    }
-
-    // 5. Create campaign
+    // 4–5. Create the project/campaign under the same commercial lock used by
+    // every other campaign creation path. The expensive strategy above remains
+    // refundable if another concurrent request consumed the final allowance.
     // ── Null-safe field extraction ────────────────────────────────────────────
     const campaignName = strategy.campaignName
       || strategy.goal
@@ -215,33 +158,56 @@ export async function runFullAgency(
     })
     // ─────────────────────────────────────────────────────────────────────────
 
-    const campaign = await db.campaign.create({
-      data: {
-        workspaceId,
-        projectId: project.id,
-        name: campaignName,
-        description: campaignDesc,
-        goal: mapGoal(strategy.goal),
-        audience: campaignAudience,
-        tone: 'MODERN',
-        platforms: mapPlatforms(rawPlatforms),
-        status: 'DRAFT',
-        aiOutput: {
-          strategy,
-          contentCalendar: content.calendar,
-          topHooks: content.topHooks?.length ? content.topHooks : (strategy as any).topHooks || [],
-          ctaVariations: content.ctaVariations?.length ? content.ctaVariations : (strategy as any).ctaVariations || [],
-          captionFormulas: content.captionFormulas || [],
-          scriptTemplate: content.scriptTemplate || '',
-          contentPillars: content.contentPillars?.length ? content.contentPillars : strategy.contentPillars || [],
-          // Persist language so all downstream agents (content plan, images) use the same language
-          language: brief.language || 'ar',
-          selectedMediaIds: Array.isArray((brief as any).selectedMediaIds) ? (brief as any).selectedMediaIds : [],
-          generatedAt: new Date().toISOString(),
-          generatedByAgents: true,
+    const campaign = await prisma.$transaction(async (tx) => {
+      const workspaceRecord = await tx.workspace.findUnique({ where: { id: workspaceId }, select: { ownerId: true } })
+      if (!workspaceRecord) throw new Error('Workspace not found')
+      const allowance = await readLockedCampaignAllowance(tx, workspaceRecord.ownerId)
+      if (allowance.limit !== 999 && allowance.current >= allowance.limit) {
+        throw new Error(`CAMPAIGN_LIMIT_REACHED:${allowance.limit}:${allowance.periodEnd.toISOString()}`)
+      }
+
+      let project = await tx.project.findFirst({ where: { workspaceId }, orderBy: { createdAt: 'desc' } })
+      if (!project) {
+        project = await tx.project.create({
+          data: {
+            workspaceId,
+            name: `${brief.companyName.slice(0, 90)} Marketing`,
+            description: brief.targetAudience?.slice(0, 500),
+            businessType: brief.businessType?.slice(0, 120),
+            status: 'ACTIVE',
+          },
+        })
+      }
+
+      return tx.campaign.create({
+        data: {
+          workspaceId,
+          projectId: project.id,
+          name: String(campaignName).slice(0, 120),
+          description: String(campaignDesc).slice(0, 2_000),
+          goal: mapGoal(strategy.goal) as any,
+          audience: String(campaignAudience).slice(0, 1_000),
+          tone: 'MODERN',
+          platforms: mapPlatforms(rawPlatforms) as any,
+          status: 'DRAFT',
+          aiOutput: {
+            strategy,
+            contentCalendar: content.calendar,
+            topHooks: content.topHooks?.length ? content.topHooks : (strategy as any).topHooks || [],
+            ctaVariations: content.ctaVariations?.length ? content.ctaVariations : (strategy as any).ctaVariations || [],
+            captionFormulas: content.captionFormulas || [],
+            scriptTemplate: content.scriptTemplate || '',
+            contentPillars: content.contentPillars?.length ? content.contentPillars : strategy.contentPillars || [],
+            language: brief.language || 'ar',
+            selectedMediaIds: Array.isArray((brief as any).selectedMediaIds) ? (brief as any).selectedMediaIds : [],
+            generatedAt: new Date().toISOString(),
+            generatedByAgents: true,
+          } as any,
         },
-      },
+      })
     })
+    strategyCreated = true
+    contentCreated = true // Content Director is a later, separate workflow.
 
     // 5b. Save campaign memory (non-blocking)
     saveCampaignMemory({
@@ -278,8 +244,8 @@ export async function runFullAgency(
         status: 'PENDING',
         priority: 1,
         title: `Strategy ready: ${strategy.campaignName}`,
-        reasoning: `Based on your brief, I've built a ${strategy.goal.toLowerCase()} campaign targeting ${strategy.targetAudienceRefined}. ${strategy.estimatedResults}`,
-        impact: strategy.estimatedResults,
+        reasoning: `Planning hypothesis based on the approved brief for ${strategy.goal.toLowerCase()} and the stated audience. Review the strategy, evidence requirements, and execution package before approval.`,
+        impact: 'Potential impact is not estimated until eligible platform evidence is available.',
         payload: { strategy, campaignId: campaign.id },
         campaignId: campaign.id,
         expiresAt: new Date(Date.now() + 7 * 86_400_000),
@@ -308,149 +274,6 @@ export async function runFullAgency(
   }
 
   return { agentRunId: agentRun.id, strategyCreated, contentCreated, suggestions: suggestionsCount, errors }
-}
-
-/**
- * Campaign Manager — monitors all ACTIVE campaigns for a workspace
- */
-export async function runCampaignMonitor(workspaceId: string): Promise<{
-  campaignsChecked: number
-  suggestionsCreated: number
-  errors: string[]
-}> {
-  const errors: string[] = []
-  let suggestionsCreated = 0
-
-  const campaigns = await db.campaign.findMany({
-    where: { workspaceId, status: { in: ['ACTIVE', 'DRAFT'] }, aiOutput: { not: null } },
-    orderBy: { createdAt: 'desc' },
-    take: 10,
-  })
-
-  for (const campaign of campaigns) {
-    try {
-      const agentRun = await db.agentRun.create({
-        data: { workspaceId, agent: 'CAMPAIGN_MANAGER', status: 'RUNNING', triggeredBy: 'cron' },
-      })
-
-      const metrics = buildMetricsFromCampaign(campaign)
-      const analysis: CampaignManagerOutput = await runCampaignManagerAgent(metrics)
-
-      if (analysis.healthScore < 75) {
-        for (const suggestion of analysis.suggestions) {
-          const existing = await db.agentSuggestion.findFirst({
-            where: { workspaceId, campaignId: campaign.id, type: suggestion.type, status: 'PENDING' },
-          })
-          if (existing) continue
-
-          await db.agentSuggestion.create({
-            data: {
-              workspaceId,
-              agentRunId: agentRun.id,
-              agent: 'CAMPAIGN_MANAGER',
-              type: suggestion.type,
-              status: 'PENDING',
-              priority: suggestion.priority,
-              title: suggestion.title,
-              reasoning: suggestion.reasoning,
-              impact: suggestion.impact,
-              payload: suggestion.payload,
-              campaignId: campaign.id,
-              expiresAt: new Date(Date.now() + 3 * 86_400_000),
-            },
-          })
-          suggestionsCreated++
-        }
-      }
-
-      await db.agentRun.update({
-        where: { id: agentRun.id },
-        data: { status: 'COMPLETED', outputData: analysis, completedAt: new Date() },
-      })
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error'
-      errors.push(`Campaign ${campaign.id}: ${message}`)
-    }
-  }
-
-  return { campaignsChecked: campaigns.length, suggestionsCreated, errors }
-}
-
-/**
- * Reporting Agent — generates a report for a workspace
- */
-export async function runReport(
-  workspaceId: string,
-  type: 'daily' | 'weekly' | 'monthly'
-): Promise<void> {
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: workspaceId },
-    select: { owner: { select: { company: true, email: true } } },
-  })
-
-  const campaigns = await db.campaign.findMany({
-    where: { workspaceId, status: { in: ['ACTIVE', 'DRAFT'] } },
-    take: 5,
-    orderBy: { updatedAt: 'desc' },
-  })
-
-  if (!campaigns.length) return
-
-  const agentRun = await db.agentRun.create({
-    data: { workspaceId, agent: 'REPORTING', status: 'RUNNING', triggeredBy: 'cron' },
-  })
-
-  try {
-    const metrics = campaigns.map(buildMetricsFromCampaign)
-    const periodLabel = getPeriodLabel(type)
-
-    const reportInput: ReportingInput = {
-      businessName: workspace?.owner?.company || 'Your Business',
-      period: type,
-      periodLabel,
-      campaigns: metrics,
-    }
-
-    const reportOutput = await runReportingAgent(reportInput)
-
-    const now = new Date()
-    const periodStart = new Date()
-    const periodEnd = new Date()
-
-    if (type === 'daily') {
-      periodStart.setHours(0, 0, 0, 0)
-      periodEnd.setHours(23, 59, 59, 999)
-    } else if (type === 'weekly') {
-      periodStart.setDate(now.getDate() - 7)
-    } else {
-      periodStart.setDate(1)
-      periodStart.setMonth(now.getMonth() - 1)
-    }
-
-    await db.agentReport.create({
-      data: {
-        workspaceId,
-        agentRunId: agentRun.id,
-        type: type.toUpperCase(),
-        title: reportOutput.title,
-        summary: reportOutput.summary,
-        body: reportOutput,
-        periodStart,
-        periodEnd,
-      },
-    })
-
-    await db.agentRun.update({
-      where: { id: agentRun.id },
-      data: { status: 'COMPLETED', completedAt: new Date() },
-    })
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
-    await db.agentRun.update({
-      where: { id: agentRun.id },
-      data: { status: 'FAILED', error: message, completedAt: new Date() },
-    })
-  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────

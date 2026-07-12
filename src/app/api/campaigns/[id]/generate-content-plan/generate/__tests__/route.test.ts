@@ -48,7 +48,7 @@ vi.mock('@/lib/ai/falGen', () => ({
 }))
 
 const makeReq = (body: unknown = {}) => ({ json: async () => body }) as any
-const params = { params: { id: 'campaign_1' } }
+const params = { params: Promise.resolve({ id: 'campaign_1' }) }
 
 const campaign = {
   id: 'campaign_1',

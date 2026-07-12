@@ -7,6 +7,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { addCredits } from '@/lib/credits'
+import { isCreditWalletEnabled } from '@/lib/credits/wallet'
+import { randomUUID } from 'crypto'
 
 async function requireAdmin(req: NextRequest) {
   const authUser = await getAuthUser(req)
@@ -19,10 +22,8 @@ async function requireAdmin(req: NextRequest) {
   return authUser
 }
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const admin = await requireAdmin(req)
   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
@@ -31,23 +32,38 @@ export async function PATCH(
   try {
     const body = await req.json()
     delta = Number(body.delta)
-    if (isNaN(delta) || delta === 0) throw new Error()
+    if (!Number.isSafeInteger(delta) || delta === 0 || Math.abs(delta) > 10_000) throw new Error()
   } catch {
     return NextResponse.json({ error: 'Invalid delta value' }, { status: 400 })
   }
 
   try {
-    const target = await prisma.user.findUnique({
-      where: { id },
-      select: { aiCredits: true, email: true },
-    })
+    const target = await prisma.user.findUnique({ where: { id }, select: { aiCredits: true, email: true } })
     if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    if (delta < 0 && isCreditWalletEnabled()) {
+      return NextResponse.json({
+        error: 'Wallet-backed manual debits require a source-allocation workflow; use account reset for destructive removal.',
+        code: 'WALLET_MANUAL_DEBIT_UNSUPPORTED',
+      }, { status: 409 })
+    }
 
-    const newCredits = Math.max(0, target.aiCredits + delta)
-
-    const updated = await prisma.user.update({
+    if (delta > 0) {
+      const reason = `Admin ${admin.id}: manual credit grant`
+      await addCredits(id, delta, reason, 'admin_manual', `manual:admin:${randomUUID()}`)
+    } else {
+      await prisma.$transaction(async (tx) => {
+        await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `admin-credit:${id}`)
+        const current = await tx.user.findUnique({ where: { id }, select: { aiCredits: true } })
+        if (!current) throw new Error('USER_NOT_FOUND')
+        const deduction = Math.min(current.aiCredits, Math.abs(delta))
+        await tx.user.update({ where: { id }, data: { aiCredits: { decrement: deduction } } })
+        await tx.creditTransaction.create({
+          data: { userId: id, action: 'ADMIN_DEBIT', description: `Admin ${admin.id}: manual debit`, amount: -deduction, entityType: 'admin_manual' },
+        })
+      })
+    }
+    const updated = await prisma.user.findUnique({
       where: { id },
-      data: { aiCredits: newCredits },
       select: { id: true, email: true, aiCredits: true },
     })
 

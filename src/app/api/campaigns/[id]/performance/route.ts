@@ -1,22 +1,24 @@
 /**
  * GET /api/campaigns/[id]/performance
  *
- * FL2-C: ROI Dashboard
- * Returns aggregate performance data for a campaign:
- * - Total reach, impressions, engagement
- * - Per-platform breakdown
- * - Top 5 performing posts (by engagementRate)
- * - Engagement trend over time (daily)
- * - Posts without analytics yet (pending)
+ * Returns only platform-API evidence that passes the minimum sample contract.
+ * Legacy analytics blobs and tiny samples remain visible as status counts but
+ * never enter KPI totals, rankings, trends, or learning prompts.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
+import {
+  readPerformanceEvidence,
+  summarizePerformanceEvidence,
+  type PerformanceEvidence,
+} from '@/lib/performanceEvidence'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
-export async function GET(req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, props: Params) {
+  const params = await props.params
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -27,155 +29,144 @@ export async function GET(req: NextRequest, { params }: Params) {
     })
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
 
-    // Load all published posts with analytics
-    const publishedPosts = await (prisma.socialPost as any).findMany({
-      where: {
-        campaignId: params.id,
-        workspaceId: campaign.workspaceId,
-        status: 'PUBLISHED',
-      },
-      select: {
-        id: true,
-        platform: true,
-        caption: true,
-        imageUrl: true,
-        publishedAt: true,
-        platformUrl: true,
-        analyticsData: true,
-        analyticsFetched: true,
-        variantLabel: true,
-      },
-      orderBy: { publishedAt: 'desc' },
-    }) as Array<{
+    const [publishedPosts, allPosts, scheduledPosts] = await Promise.all([
+      (prisma.socialPost as any).findMany({
+        where: {
+          campaignId: params.id,
+          workspaceId: campaign.workspaceId,
+          status: 'PUBLISHED',
+        },
+        select: {
+          id: true,
+          platform: true,
+          caption: true,
+          imageUrl: true,
+          publishedAt: true,
+          platformUrl: true,
+          analyticsData: true,
+          analyticsFetched: true,
+          variantLabel: true,
+        },
+        orderBy: { publishedAt: 'desc' },
+      }),
+      (prisma.socialPost as any).count({
+        where: { campaignId: params.id, workspaceId: campaign.workspaceId },
+      }),
+      (prisma.socialPost as any).count({
+        where: { campaignId: params.id, workspaceId: campaign.workspaceId, status: 'SCHEDULED' },
+      }),
+    ]) as [Array<{
       id: string
       platform: string
       caption: string
       imageUrl: string | null
-      publishedAt: string | null
+      publishedAt: Date | null
       platformUrl: string | null
-      analyticsData: any
+      analyticsData: unknown
       analyticsFetched: boolean
       variantLabel: string | null
-    }>
+    }>, number, number]
 
-    // ── Aggregate totals ──────────────────────────────────────────────────────
-    let totalReach       = 0
-    let totalImpressions = 0
-    let totalLikes       = 0
-    let totalComments    = 0
-    let totalShares      = 0
-    const postsWithData  = publishedPosts.filter(p => p.analyticsData)
+    const evidenceSummary = summarizePerformanceEvidence(publishedPosts)
+    const eligiblePosts = publishedPosts
+      .map((post) => ({ post, evidence: readPerformanceEvidence(post.analyticsData) }))
+      .filter((item): item is { post: typeof publishedPosts[number]; evidence: PerformanceEvidence } => (
+        item.evidence?.quality === 'eligible' && item.evidence.platform === item.post.platform
+      ))
 
-    for (const post of postsWithData) {
-      const d = post.analyticsData as any
-      totalReach       += d.reach       ?? 0
-      totalImpressions += d.impressions ?? 0
-      totalLikes       += d.likes       ?? 0
-      totalComments    += d.comments    ?? 0
-      totalShares      += d.shares      ?? 0
+    let totalLikes = 0
+    let totalComments = 0
+    let totalShares = 0
+    for (const { evidence } of eligiblePosts) {
+      totalLikes += evidence.likes
+      totalComments += evidence.comments
+      totalShares += evidence.shares
     }
 
-    const totalEngagements = totalLikes + totalComments + totalShares
-    const avgEngagementRate = totalReach > 0
-      ? parseFloat(((totalEngagements / totalReach) * 100).toFixed(2))
-      : 0
-
-    // ── Platform breakdown ────────────────────────────────────────────────────
-    const platformMap = new Map<string, {
-      posts: number
-      reach: number
-      impressions: number
-      engagements: number
-      avgEngagementRate: number
-    }>()
-
+    const publishedByPlatform = new Map<string, number>()
     for (const post of publishedPosts) {
-      const key = String(post.platform)
-      const existing = platformMap.get(key) ?? {
-        posts: 0, reach: 0, impressions: 0, engagements: 0, avgEngagementRate: 0,
-      }
-      existing.posts++
-      if (post.analyticsData) {
-        const d = post.analyticsData as any
-        existing.reach       += d.reach       ?? 0
-        existing.impressions += d.impressions ?? 0
-        existing.engagements += (d.likes ?? 0) + (d.comments ?? 0) + (d.shares ?? 0)
-      }
-      platformMap.set(key, existing)
+      publishedByPlatform.set(post.platform, (publishedByPlatform.get(post.platform) ?? 0) + 1)
     }
+    const platformBreakdown = Object.fromEntries(
+      Object.entries(evidenceSummary.byPlatform).map(([platform, data]) => [platform, {
+        publishedPosts: publishedByPlatform.get(platform) ?? 0,
+        evidencePosts: data?.posts ?? 0,
+        reach: data?.reach ?? 0,
+        impressions: data?.impressions ?? 0,
+        engagements: data?.engagementCount ?? 0,
+        clicks: data?.clicks ?? 0,
+        avgEngagementRate: data?.engagementRate ?? 0,
+      }]),
+    )
 
-    // Compute avg engagement rate per platform
-    for (const [key, val] of platformMap.entries()) {
-      val.avgEngagementRate = val.reach > 0
-        ? parseFloat(((val.engagements / val.reach) * 100).toFixed(2))
-        : 0
-      platformMap.set(key, val)
-    }
-
-    const platformBreakdown = Object.fromEntries(platformMap)
-
-    // ── Top 5 posts by engagement rate ────────────────────────────────────────
-    const topPosts = postsWithData
-      .map(p => ({
-        id:              p.id,
-        platform:        p.platform,
-        caption:         p.caption.slice(0, 200),
-        imageUrl:        p.imageUrl,
-        publishedAt:     p.publishedAt,
-        platformUrl:     p.platformUrl,
-        engagementRate:  (p.analyticsData as any)?.engagementRate ?? 0,
-        likes:           (p.analyticsData as any)?.likes           ?? 0,
-        comments:        (p.analyticsData as any)?.comments        ?? 0,
-        shares:          (p.analyticsData as any)?.shares          ?? 0,
-        reach:           (p.analyticsData as any)?.reach           ?? 0,
-        variantLabel:    p.variantLabel,
+    const topPosts = eligiblePosts
+      .map(({ post, evidence }) => ({
+        id: post.id,
+        platform: post.platform,
+        caption: post.caption.slice(0, 200),
+        imageUrl: post.imageUrl,
+        publishedAt: post.publishedAt,
+        platformUrl: post.platformUrl,
+        engagementRate: evidence.engagementRate,
+        engagementCount: evidence.engagementCount,
+        likes: evidence.likes,
+        comments: evidence.comments,
+        shares: evidence.shares,
+        clicks: evidence.clicks,
+        reach: evidence.reach,
+        impressions: evidence.impressions,
+        denominator: evidence.denominator,
+        variantLabel: post.variantLabel,
+        source: evidence.source,
       }))
       .sort((a, b) => b.engagementRate - a.engagementRate)
       .slice(0, 5)
 
-    // ── Daily engagement trend ────────────────────────────────────────────────
     const trendMap = new Map<string, { date: string; engagements: number; posts: number }>()
-    for (const post of postsWithData) {
+    for (const { post, evidence } of eligiblePosts) {
       if (!post.publishedAt) continue
-      const day = post.publishedAt.toString().slice(0, 10)  // YYYY-MM-DD
+      const day = post.publishedAt.toISOString().slice(0, 10)
       const existing = trendMap.get(day) ?? { date: day, engagements: 0, posts: 0 }
-      const d = post.analyticsData as any
-      existing.engagements += (d.likes ?? 0) + (d.comments ?? 0) + (d.shares ?? 0)
+      existing.engagements += evidence.engagementCount
       existing.posts++
       trendMap.set(day, existing)
     }
-    const trend = Array.from(trendMap.values()).sort((a, b) => a.date.localeCompare(b.date))
 
-    // ── Status summary ────────────────────────────────────────────────────────
-    const allPosts = await (prisma.socialPost as any).count({
-      where: { campaignId: params.id, workspaceId: campaign.workspaceId },
-    })
-    const scheduledPosts = await (prisma.socialPost as any).count({
-      where: { campaignId: params.id, workspaceId: campaign.workspaceId, status: 'SCHEDULED' },
-    })
-    const pendingAnalytics = publishedPosts.filter(p => !p.analyticsFetched).length
+    const pendingAnalytics = publishedPosts.filter((post) => !post.analyticsFetched).length
+    const awaitingEligibleEvidence = Math.max(0, publishedPosts.length - evidenceSummary.eligiblePosts)
 
     return NextResponse.json({
-      campaignId:   params.id,
+      campaignId: params.id,
       campaignName: campaign.name,
+      evidenceContract: {
+        source: 'platform_api',
+        minimumDenominator: 100,
+        crossPlatformComparison: false,
+        conversionOrRevenueAttribution: false,
+      },
       summary: {
-        totalPosts:        allPosts,
-        publishedPosts:    publishedPosts.length,
+        totalPosts: allPosts,
+        publishedPosts: publishedPosts.length,
         scheduledPosts,
         pendingAnalytics,
-        totalReach,
-        totalImpressions,
+        awaitingEligibleEvidence,
+        eligibleEvidencePosts: evidenceSummary.eligiblePosts,
+        insufficientSamplePosts: evidenceSummary.insufficientSamplePosts,
+        unverifiedLegacyPosts: evidenceSummary.unverifiedPosts,
+        totalReach: evidenceSummary.reach,
+        totalImpressions: evidenceSummary.impressions,
         totalLikes,
         totalComments,
         totalShares,
-        totalEngagements,
-        avgEngagementRate,
+        totalClicks: evidenceSummary.clicks,
+        totalEngagements: evidenceSummary.engagementCount,
+        avgEngagementRate: evidenceSummary.engagementRate,
       },
       platformBreakdown,
       topPosts,
-      trend,
+      trend: Array.from(trendMap.values()).sort((a, b) => a.date.localeCompare(b.date)),
     })
-  } catch (err: any) {
+  } catch (err) {
     console.error('[performance GET]', err)
     return NextResponse.json({ error: 'Failed to load performance data' }, { status: 500 })
   }

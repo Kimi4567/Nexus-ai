@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
+import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -65,13 +66,11 @@ function estimateReach(
 }
 
 function buildSlug(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40)
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40);
 }
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -105,24 +104,7 @@ export async function POST(
     const currency = existingPack?.currency ?? 'USD'
 
     // Build brand context string
-    const brandContext = brandProfile ? `
-Brand: ${brandProfile.brandName ?? 'Unknown'}
-Industry: ${brandProfile.industry ?? 'Unknown'}
-Description: ${brandProfile.description ?? ''}
-Primary Offer: ${brandProfile.primaryOffer ?? ''}
-Price Point: ${brandProfile.pricePoint ?? ''}
-Target Audience: ${brandProfile.targetAudience ?? ''}
-Audience Age: ${brandProfile.audienceAge ?? ''}
-Audience Location: ${brandProfile.audienceLocation ?? ''}
-Audience Pain Points: ${(brandProfile.audiencePainPoints ?? []).join(', ')}
-Audience Desires: ${(brandProfile.audienceDesires ?? []).join(', ')}
-Brand Tone: ${(brandProfile.toneKeywords ?? []).join(', ')}
-Unique Advantages: ${(brandProfile.uniqueAdvantages ?? []).join(', ')}
-Top Platforms: ${(brandProfile.topPlatforms ?? []).join(', ')}
-Winning Hooks: ${(brandProfile.winningHooks ?? []).join(' | ')}
-Failed Angles: ${(brandProfile.failedAngles ?? []).join(', ')}
-Competitor Notes: ${brandProfile.competitorNotes ?? ''}
-` : 'No brand profile available.'
+    const brandContext = buildBrandExecutionContext(brandProfile)
 
     const campaignStrategy = campaign.aiOutput
       ? JSON.stringify(campaign.aiOutput).slice(0, 2000)

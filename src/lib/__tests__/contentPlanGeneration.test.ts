@@ -113,7 +113,7 @@ describe('generateContentPlanWithRetry', () => {
   // ── 2. Retry after failure does not duplicate ────────────────────────────────
   it('2. retries a transient failure then succeeds — returns ONE post set, never doubled', async () => {
     const doFetch = vi
-      .fn<[], Promise<FetchLikeResponse>>()
+      .fn<() => Promise<FetchLikeResponse>>()
       .mockResolvedValueOnce(httpErr(429))     // transient first
       .mockResolvedValueOnce(okResp(makePosts(18)))
     const { result, attempts } = await generateContentPlanWithRetry(doFetch, FAST)
@@ -127,7 +127,7 @@ describe('generateContentPlanWithRetry', () => {
 
   it('recovers from a thrown network error on the first attempt', async () => {
     const doFetch = vi
-      .fn<[], Promise<FetchLikeResponse>>()
+      .fn<() => Promise<FetchLikeResponse>>()
       .mockRejectedValueOnce(new Error('ECONNRESET'))
       .mockResolvedValueOnce(okResp(makePosts(12)))
     const { result, attempts } = await generateContentPlanWithRetry(doFetch, FAST)

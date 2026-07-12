@@ -157,7 +157,7 @@ export function buildBrandContextBlock(brand: BrandContextData): string {
     brand.writingStyle       && `Writing Style: ${brand.writingStyle}`,
     brand.avoidKeywords?.length      && `NEVER use these words/phrases: ${brand.avoidKeywords.join(', ')}`,
     brand.topPlatforms?.length       && `Active Platforms: ${brand.topPlatforms.join(', ')}`,
-    brand.winningHooks?.length       && `Winning Hooks (style reference): ${brand.winningHooks.slice(0, 3).join(' | ')}`,
+    brand.winningHooks?.length       && `Stored Hook Candidates (style reference, not proof): ${brand.winningHooks.slice(0, 3).join(' | ')}`,
     brand.winningAngles?.length      && `Winning Angles: ${brand.winningAngles.slice(0, 3).join(', ')}`,
     brand.competitorNotes    && `Key Competitors: ${brand.competitorNotes}`,
     brand.strategicNotes     && `Strategic Notes: ${brand.strategicNotes}`,

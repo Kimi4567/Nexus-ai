@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { applyBrandOverlayFromProfile, platformToOverlay } from '@/lib/cloudinaryOverlay'
 import { generateWithFlux, platformToFluxSize } from '@/lib/ai/falGen'
 import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
+import { cronAuthError } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -144,10 +145,13 @@ async function refundImageReservation(
 }
 
 export async function GET(req: NextRequest) {
-  // Verify cron secret
-  const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const authError = cronAuthError(req)
+  if (authError) return authError
+  if (!CLOUDINARY_CLOUD || !CLOUDINARY_KEY || !CLOUDINARY_SECRET) {
+    return NextResponse.json({ error: 'Cloudinary not configured' }, { status: 503 })
+  }
+  if (!process.env.FAL_KEY && !process.env.OPENAI_API_KEY) {
+    return NextResponse.json({ error: 'No image provider configured' }, { status: 503 })
   }
 
   const now = new Date()
@@ -187,22 +191,22 @@ export async function GET(req: NextRequest) {
         // ── Credit gate: deduct IMAGE_GENERATION from workspace owner ───────
         // Autopilot images cost the same as manual image generation.
         // If the user is out of credits, skip this image and log the failure.
-        if (ownerId) {
-          const creditResult = await checkAndDeductCredits(ownerId, 'IMAGE_GENERATION')
-          if (!creditResult.ok) {
-            console.warn(`[Cron generate-images] Skipped post ${post.id} — user ${ownerId} has insufficient credits (${creditResult.currentCredits} remaining, need ${creditResult.requiredCredits})`)
-            return { postId: post.id, status: 'skipped_no_credits', creditsRemaining: creditResult.currentCredits }
-          }
-          creditReservation = {
-            userId: ownerId,
-            creditsUsed: creditResult.creditsUsed,
-            transactionId: creditResult.transactionId,
-            refunded: false,
-          }
-          console.log(`[Cron generate-images] Deducted IMAGE_GENERATION credits from ${ownerId} — ${creditResult.creditsRemaining} remaining`)
-        } else {
-          console.warn(`[Cron generate-images] No ownerId found for post ${post.id} — generating without credit deduction`)
+        if (!ownerId) {
+          console.warn(`[Cron generate-images] Skipped post ${post.id} — workspace owner missing`)
+          return { postId: post.id, status: 'skipped_missing_owner' }
         }
+        const creditResult = await checkAndDeductCredits(ownerId, 'IMAGE_GENERATION')
+        if (!creditResult.ok) {
+          console.warn(`[Cron generate-images] Skipped post ${post.id} — user ${ownerId} has insufficient credits (${creditResult.currentCredits} remaining, need ${creditResult.requiredCredits})`)
+          return { postId: post.id, status: 'skipped_no_credits', creditsRemaining: creditResult.currentCredits }
+        }
+        creditReservation = {
+          userId: ownerId,
+          creditsUsed: creditResult.creditsUsed,
+          transactionId: creditResult.transactionId,
+          refunded: false,
+        }
+        console.log(`[Cron generate-images] Deducted IMAGE_GENERATION credits from ${ownerId} — ${creditResult.creditsRemaining} remaining`)
         // ────────────────────────────────────────────────────────────────────
 
         // 1. Generate image — auto-routes to Flux Pro Ultra if FAL_KEY set, else gpt-image-1 high
@@ -210,14 +214,7 @@ export async function GET(req: NextRequest) {
         const dataUri = await generateImage(prompt, platform)
 
         // 2. Upload to Cloudinary for permanence (accepts data URI directly)
-        let finalUrl = dataUri
-        try {
-          finalUrl = await uploadToCloudinary(dataUri, post.id)
-        } catch (uploadErr) {
-          console.warn(`[Cron generate-images] Cloudinary upload failed for ${post.id}:`, uploadErr)
-          // Fall back to data URI — ephemeral but better than nothing
-          finalUrl = dataUri
-        }
+        let finalUrl = await uploadToCloudinary(dataUri, post.id)
 
         // 3. Apply brand overlay (Cloudinary URL transformation — zero extra cost)
         const brand = post.workspace?.brandProfile

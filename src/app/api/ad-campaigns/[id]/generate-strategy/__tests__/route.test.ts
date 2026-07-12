@@ -30,7 +30,7 @@ vi.mock('@/lib/ai/langHelper', () => ({ getLanguageInstruction: () => 'Respond i
 import { POST } from '../route'
 
 const makeReq = (body: unknown = {}) => ({ json: async () => body }) as any
-const params = { params: { id: 'adcamp_1' } }
+const params = { params: Promise.resolve({ id: 'adcamp_1' }) }
 
 const campaign = {
   id: 'adcamp_1',

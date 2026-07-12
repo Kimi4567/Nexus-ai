@@ -11,7 +11,7 @@ import {
   Loader2, BarChart2, Wand2, Sparkles, TrendingUp,
   Copy, Check, ChevronDown, Zap, Target,
   Activity, ArrowUpRight, Megaphone, Image, Send,
-  BrainCircuit, RefreshCw
+  BrainCircuit, RefreshCw, ShieldCheck, Clock3
 } from 'lucide-react'
 import { useBrandBrain } from '@/hooks/useBrandBrain'
 import { formatCreditDisplay } from '@/lib/creditDisplay'
@@ -62,6 +62,27 @@ interface OverviewData {
   plan: string
   monthlyActivity: MonthActivity[]
   topCampaigns: TopCampaign[]
+  performanceEvidence: {
+    eligiblePosts: number
+    insufficientSamplePosts: number
+    unverifiedPosts: number
+    awaitingCollection: number
+    impressions: number
+    reach: number
+    engagementCount: number
+    clicks: number
+    denominator: number
+    engagementRate: number
+    byPlatform: Record<string, {
+      posts: number
+      impressions: number
+      reach: number
+      engagementCount: number
+      clicks: number
+      denominator: number
+      engagementRate: number
+    }>
+  }
 }
 
 interface SystemInsight {
@@ -291,12 +312,27 @@ export default function PulsePage() {
   // PR-1L: pass a truthful sector to the analyst — the selected sector, else the
   // real brand industry, else "not specified". Never a hardcoded "ecommerce".
   const sectorForPrompt = industry || brand?.industry || 'not specified'
+  const evidenceSnapshot = overview?.performanceEvidence ?? {
+    eligiblePosts: 0,
+    insufficientSamplePosts: 0,
+    unverifiedPosts: 0,
+    awaitingCollection: overview?.publishedPosts ?? 0,
+    impressions: 0,
+    reach: 0,
+    engagementCount: 0,
+    clicks: 0,
+    denominator: 0,
+    engagementRate: 0,
+    byPlatform: {},
+  }
+  const evidenceRules = `\nVERIFIED PERFORMANCE EVIDENCE (platform APIs only): ${JSON.stringify(evidenceSnapshot)}
+Evidence rules: Use only this JSON for performance claims. If eligiblePosts is 0, state that no statistically eligible performance evidence exists yet. Never invent conversions, revenue, ROI, market benchmarks, causal claims, trends, or competitor facts. Never compare engagement rates across platforms because metric definitions differ. Label recommendations as hypotheses to test.`
   const systemPrompts: Record<AnalysisType, string> = {
-    performance: `${brandContext}You are PULSE, an expert marketing analyst. Period: ${period}. Sector: ${sectorForPrompt}. Analyze the brand's campaign performance and provide: key KPIs, strengths, weaknesses, and specific actionable recommendations.`,
-    competitors:  `${brandContext}You are PULSE, a competitor intelligence expert. Sector: ${sectorForPrompt}. Provide a competitor analysis for the brand above: who their real competitors are, their strengths and weaknesses, and differentiation opportunities.`,
-    trends:       `${brandContext}You are PULSE, a market trends analyst. Sector: ${sectorForPrompt}. Reveal the most relevant trends for the brand above: content trends, ad formats, audience behavior, and upcoming seasonal opportunities.`,
-    content:      `${brandContext}You are PULSE, a content performance analyst. Sector: ${sectorForPrompt}. Period: ${period}. Analyze the optimal content strategy for this brand: best posting times, content types, effective hashtags, and platform-specific tactics.`,
-    forecast:     `${brandContext}You are PULSE, a marketing forecasting specialist. Sector: ${sectorForPrompt}. Based on the brand data above, forecast performance for the next 3 months and provide a proactive action plan.`,
+    performance: `${brandContext}You are PULSE, an evidence-first marketing analyst. Period requested: ${period}. Sector: ${sectorForPrompt}.${evidenceRules} Explain the verified KPIs, data gaps, and the next measurable experiments.`,
+    competitors: `${brandContext}You are PULSE, a positioning planner. Sector: ${sectorForPrompt}.${evidenceRules} You have no live web or competitor database in this request. Use only competitors explicitly present in the Brand Brain; otherwise ask for competitor names or URLs. Produce differentiation hypotheses, not claims about current competitor activity.`,
+    trends: `${brandContext}You are PULSE, a marketing planning assistant. Sector: ${sectorForPrompt}.${evidenceRules} You have no live trend feed in this request. Do not present any trend as current fact; propose a trend-research checklist and testable content hypotheses.`,
+    content: `${brandContext}You are PULSE, an evidence-first content planner. Sector: ${sectorForPrompt}. Period requested: ${period}.${evidenceRules} Recommend a testing plan. Do not claim universal best posting times, hashtags, or formats without supplied evidence.`,
+    forecast: `${brandContext}You are PULSE, a scenario planner. Sector: ${sectorForPrompt}.${evidenceRules} Provide conditional scenarios and leading indicators, never a guaranteed prediction or fabricated numeric forecast.`,
   }
 
   async function generate() {
@@ -367,8 +403,8 @@ export default function PulsePage() {
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
               style={{ background: '#ECFDF5', border: '1px solid #BBF7D0', color: '#047857' }}>
-              <Sparkles size={12} />
-              <span>{t('analytics.gptActive')}</span>
+              <ShieldCheck size={12} />
+              <span>{ar ? 'تحليل مقيد بالأدلة' : 'Evidence-bounded analysis'}</span>
             </div>
           </div>
 
@@ -411,6 +447,65 @@ export default function PulsePage() {
               loading={dataLoading}
             />
           </div>
+
+          {/* ── Verified performance evidence ───────────────────────────── */}
+          {!dataLoading && overview && (
+            <div className="rounded-2xl p-5" style={glassCard}>
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                    <ShieldCheck size={19} />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold text-slate-900">
+                      {ar ? 'دليل الأداء الموثق' : 'Verified performance evidence'}
+                    </h2>
+                    <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-500">
+                      {overview.performanceEvidence.eligiblePosts > 0
+                        ? (ar
+                          ? 'الأرقام أدناه قادمة من واجهات المنصات فقط. المقارنة تتم داخل كل منصة، ولا نعتبر التفاعل دليلاً على التحويل أو الإيراد.'
+                          : 'These figures come only from platform APIs. Comparisons stay within each platform, and engagement is not treated as conversion or revenue proof.')
+                        : (ar
+                          ? 'لا توجد عينة مؤهلة بعد. سيظل PULSE صريحاً بشأن نقص البيانات ولن يصنع أرقاماً أو نتائج.'
+                          : 'No eligible sample yet. PULSE will expose the data gap instead of manufacturing metrics or outcomes.')}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-medium text-emerald-700">
+                    {overview.performanceEvidence.eligiblePosts} {ar ? 'منشور مؤهل' : 'eligible posts'}
+                  </span>
+                  {overview.performanceEvidence.awaitingCollection > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-amber-700">
+                      <Clock3 size={12} />
+                      {overview.performanceEvidence.awaitingCollection} {ar ? 'بانتظار الجمع' : 'awaiting collection'}
+                    </span>
+                  )}
+                  {overview.performanceEvidence.insufficientSamplePosts > 0 && (
+                    <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-slate-600">
+                      {overview.performanceEvidence.insufficientSamplePosts} {ar ? 'عينة صغيرة' : 'small sample'}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {overview.performanceEvidence.eligiblePosts > 0 && (
+                <div className="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-5 md:grid-cols-4">
+                  {[
+                    { label: ar ? 'الوصول الموثق' : 'Verified reach', value: overview.performanceEvidence.reach.toLocaleString() },
+                    { label: ar ? 'الظهور الموثق' : 'Verified impressions', value: overview.performanceEvidence.impressions.toLocaleString() },
+                    { label: ar ? 'التفاعلات الموثقة' : 'Verified engagements', value: overview.performanceEvidence.engagementCount.toLocaleString() },
+                    { label: ar ? 'معدل موزون' : 'Weighted rate', value: `${overview.performanceEvidence.engagementRate}%` },
+                  ].map(item => (
+                    <div key={item.label} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                      <p className="text-[11px] text-slate-500">{item.label}</p>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── Activity Chart + System Insights ─────────────────────────── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -515,8 +610,8 @@ export default function PulsePage() {
                   </p>
                   <p className="text-[11px] text-slate-400 leading-relaxed max-w-[240px]">
                     {ar
-                      ? 'منشوراتك منشورة. بمجرد أن تجمع تفاعلاً، سيتعلم Brand Brain من النتائج تلقائياً ويحسّن حملتك التالية.'
-                      : 'Your posts are published. Once they gather engagement, your Brand Brain learns from the results automatically and improves your next campaign.'}
+                      ? 'منشوراتك منشورة. بعد وصول عينة كافية، سيقترح النظام تعلّماً مدعوماً بالدليل لتراجعه قبل تحديث Brand Brain.'
+                      : 'Your posts are published. Once the sample is sufficient, the system will propose evidence-backed learning for your review before Brand Brain changes.'}
                   </p>
                 </div>
               ) : (
@@ -650,15 +745,15 @@ export default function PulsePage() {
                     <h3 className="text-xs font-semibold text-slate-500 mb-3">{t('analytics.quickQuestions')}</h3>
                     <div className="space-y-2">
                       {(ar ? [
-                        'ما هي أفضل أوقات النشر على Instagram؟',
-                        'كيف أحسّن معدل التحويل في إعلاناتي؟',
-                        'ما الاتجاهات السائدة في قطاعي هذا الشهر؟',
-                        'كيف تقارن حملتي بالمعايير المعتادة في السوق؟',
+                        'ما البيانات الموثقة المتاحة الآن وما الذي ينقصها؟',
+                        'صمّم تجربة قابلة للقياس لتحسين الرسالة التسويقية.',
+                        'ما خطة البحث المطلوبة للتحقق من ترندات قطاعي؟',
+                        'ما الفرضيات التي يمكن اختبارها في الحملة القادمة؟',
                       ] : [
-                        'What are the best times to post on Instagram?',
-                        'How do I improve my ad conversion rate?',
-                        'What are the top trends in my industry this month?',
-                        'How does my campaign compare to market benchmarks?',
+                        'What verified evidence is available and what is missing?',
+                        'Design a measurable test to improve the marketing message.',
+                        'What research plan would validate trends in my sector?',
+                        'Which hypotheses should the next campaign test?',
                       ]).map((q, i) => (
                         <button key={i} onClick={() => setPrompt(q)}
                           className={`w-full text-xs px-3 py-2 rounded-lg transition-all hover:text-blue-700 ${ar ? 'text-right' : 'text-left'}`}

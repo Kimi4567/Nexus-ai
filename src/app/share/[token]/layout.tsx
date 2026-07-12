@@ -16,9 +16,8 @@ const GOAL_LABELS: Record<string, string> = {
   BRAND_BUILDING: 'Brand Building Campaign',
 }
 
-export async function generateMetadata(
-  { params }: { params: { token: string } }
-): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ token: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const campaign = await prisma.campaign.findFirst({
     where: { shareToken: params.token, isPublic: true },
     select: {

@@ -1,139 +1,108 @@
 /**
  * GET /api/social/analytics?campaignId=xxx
  *
- * Pulls real post-level insights from Meta Graph API for all published
- * SocialPosts belonging to the given campaign.
- *
- * Per post: impressions, reach, engaged_users (from post insights endpoint)
- * Returns campaign totals + per-post breakdown.
- *
- * Sprint S — Real Analytics
+ * Reads the canonical evidence stored by the analytics collector. This route
+ * does not make a second set of live provider calls, so dashboard totals,
+ * campaign performance, and Brand Brain learning share one definition.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
-import { decryptToken } from '@/lib/tokenCrypto'
+import { getServerUserId } from '@/lib/apiAuth'
+import { readPerformanceEvidence } from '@/lib/performanceEvidence'
 
-export const revalidate = 0 // always fresh
+export const revalidate = 0
 
 export async function GET(req: NextRequest) {
   try {
-  const token = req.headers.get('authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const userId = await getServerUserId(req)
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: { user }, error } = await adminClient.auth.getUser(token)
-  if (error || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const campaignId = req.nextUrl.searchParams.get('campaignId')
+    if (!campaignId) return NextResponse.json({ error: 'campaignId required' }, { status: 400 })
 
-  const { searchParams } = new URL(req.url)
-  const campaignId = searchParams.get('campaignId')
-  if (!campaignId) return NextResponse.json({ error: 'campaignId required' }, { status: 400 })
+    const campaign = await prisma.campaign.findFirst({
+      where: { id: campaignId, workspace: { ownerId: userId } },
+      select: { id: true, workspaceId: true },
+    })
+    if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
 
-  // Verify campaign belongs to user
-  const campaign = await prisma.campaign.findFirst({
-    where: { id: campaignId, workspace: { ownerId: user.id } },
-  })
-  if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+    const posts = await (prisma.socialPost as any).findMany({
+      where: { campaignId, workspaceId: campaign.workspaceId, status: 'PUBLISHED' },
+      select: {
+        id: true,
+        platform: true,
+        pageName: true,
+        caption: true,
+        imageUrl: true,
+        platformUrl: true,
+        publishedAt: true,
+        analyticsData: true,
+        analyticsFetched: true,
+      },
+      orderBy: { publishedAt: 'desc' },
+      take: 50,
+    })
 
-  // Get all published posts for this campaign
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const posts = await (prisma as any).socialPost.findMany({
-    where: { campaignId, status: 'PUBLISHED' },
-    include: { integration: { select: { accessToken: true, config: true } } },
-    orderBy: { publishedAt: 'desc' },
-    take: 20,
-  })
+    const totals = {
+      impressions: 0,
+      reach: 0,
+      engagement: 0,
+      clicks: 0,
+      posts: posts.length,
+      eligiblePosts: 0,
+      insufficientSamplePosts: 0,
+      awaitingCollection: 0,
+    }
 
-  if (posts.length === 0) {
-    return NextResponse.json({ posts: [], totals: { impressions: 0, reach: 0, engagement: 0, posts: 0 } })
-  }
-
-  // Fetch insights for each post from Meta Graph API
-  const postsWithInsights = await Promise.all(
-    posts.map(async (post: any) => {
-      if (!post.platformPostId || !post.integration?.accessToken) {
-        return { ...post, insights: null }
+    const responsePosts = posts.map((post: any) => {
+      const evidence = readPerformanceEvidence(post.analyticsData)
+      const isEligible = evidence?.quality === 'eligible' && evidence.platform === post.platform
+      if (isEligible && evidence) {
+        totals.impressions += evidence.impressions
+        totals.reach += evidence.reach
+        totals.engagement += evidence.engagementCount
+        totals.clicks += evidence.clicks ?? 0
+        totals.eligiblePosts++
+      } else if (evidence?.quality === 'insufficient_sample' && evidence.platform === post.platform) {
+        totals.insufficientSamplePosts++
+      } else {
+        totals.awaitingCollection++
       }
 
-      // Find the page access token from config — decrypt if stored encrypted
-      const pages: any[] = post.integration.config?.pages || []
-      const page = pages.find((p: any) => p.id === post.pageId)
-      const rawToken = page?.accessToken || post.integration.accessToken
-      const pageToken = decryptToken(rawToken) ?? rawToken
-
-      try {
-        const insightsRes = await fetch(
-          `https://graph.facebook.com/v19.0/${post.platformPostId}/insights` +
-          `?metric=post_impressions,post_impressions_unique,post_engaged_users,post_clicks` +
-          `&access_token=${pageToken}`,
-          { next: { revalidate: 300 } } // cache 5 min
-        )
-
-        if (!insightsRes.ok) {
-          const errData = await insightsRes.json().catch(() => ({}))
-          console.warn('[analytics] Insights fetch failed for post', post.platformPostId, errData?.error?.message)
-          return { ...post, insights: null, insightsError: errData?.error?.message }
-        }
-
-        const insightsData = await insightsRes.json()
-        const metrics: Record<string, number> = {}
-
-        for (const item of insightsData.data || []) {
-          const val = item.values?.[0]?.value ?? item.value ?? 0
-          metrics[item.name] = typeof val === 'object' ? Object.values(val as Record<string, number>).reduce((a, b) => a + b, 0) : val
-        }
-
-        return {
-          id: post.id,
-          platform: post.platform,
-          pageId: post.pageId,
-          pageName: post.pageName,
-          caption: post.caption,
-          imageUrl: post.imageUrl,
-          platformPostId: post.platformPostId,
-          platformUrl: post.platformUrl,
-          publishedAt: post.publishedAt,
-          insights: {
-            impressions: metrics['post_impressions'] || 0,
-            reach: metrics['post_impressions_unique'] || 0,
-            engagement: metrics['post_engaged_users'] || 0,
-            clicks: metrics['post_clicks'] || 0,
-          },
-        }
-      } catch (err: any) {
-        console.error('[analytics] Error fetching insights:', err.message)
-        return {
-          id: post.id,
-          platform: post.platform,
-          pageName: post.pageName,
-          caption: post.caption,
-          imageUrl: post.imageUrl,
-          platformUrl: post.platformUrl,
-          publishedAt: post.publishedAt,
-          insights: null,
-        }
+      return {
+        id: post.id,
+        platform: post.platform,
+        pageName: post.pageName,
+        caption: post.caption,
+        imageUrl: post.imageUrl,
+        platformUrl: post.platformUrl,
+        publishedAt: post.publishedAt,
+        insights: isEligible && evidence ? {
+          impressions: evidence.impressions,
+          reach: evidence.reach,
+          engagement: evidence.engagementCount,
+          clicks: evidence.clicks ?? 0,
+          engagementRate: evidence.engagementRate,
+          source: evidence.source,
+        } : null,
+        insightsError: evidence?.quality === 'insufficient_sample'
+          ? 'INSUFFICIENT_SAMPLE'
+          : 'AWAITING_COLLECTION',
       }
     })
-  )
 
-  // Compute totals
-  const totals = postsWithInsights.reduce(
-    (acc, p) => {
-      if (p.insights) {
-        acc.impressions += p.insights.impressions
-        acc.reach += p.insights.reach
-        acc.engagement += p.insights.engagement
-        acc.clicks += p.insights.clicks || 0
-      }
-      acc.posts += 1
-      return acc
-    },
-    { impressions: 0, reach: 0, engagement: 0, clicks: 0, posts: 0 }
-  )
-
-  return NextResponse.json({ posts: postsWithInsights, totals })
-  } catch (err: any) {
-    console.error('[social/analytics]', err?.message)
-    return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 })
+    return NextResponse.json({
+      posts: responsePosts,
+      totals,
+      evidenceContract: {
+        source: 'platform_api',
+        minimumDenominator: 100,
+        conversionOrRevenueAttribution: false,
+      },
+    })
+  } catch (err) {
+    console.error('[social/analytics]', err)
+    return NextResponse.json({ error: 'Failed to load analytics evidence' }, { status: 500 })
   }
 }

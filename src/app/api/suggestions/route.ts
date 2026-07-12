@@ -33,14 +33,19 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(Number(url.searchParams.get('limit') || '10'), 20)
     // By default show only PENDING (the inbox model — acted-on items disappear)
     // Pass ?status=all to see everything
-    const statusFilter = url.searchParams.get('status') === 'all'
+    const showAll = url.searchParams.get('status') === 'all'
+    const statusFilter = showAll
       ? undefined
       : { status: 'PENDING' }
 
     // Fetch suggestions ordered by priority then date
     // Over-fetch so we can deduplicate before trimming to limit
     const rawAll = await db.agentSuggestion.findMany({
-      where: { workspaceId: workspace.id, ...statusFilter },
+      where: {
+        workspaceId: workspace.id,
+        ...statusFilter,
+        ...(!showAll ? { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] } : {}),
+      },
       orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
       take: limit * 5, // over-fetch for deduplication
     })
@@ -76,23 +81,53 @@ export async function GET(req: NextRequest) {
       campaigns.map((c: { id: string; name: string }) => [c.id, c.name])
     )
 
-    const suggestions = raw.map((s: any) => ({
-      id:           s.id,
-      agent:        s.agent,
-      type:         s.type,
-      status:       s.status,
-      priority:     s.priority,
-      title:        s.title,
-      reasoning:    s.reasoning,
-      impact:       s.impact ?? null,
-      campaignId:   s.campaignId ?? null,
-      campaignName: s.campaignId ? (campaignMap[s.campaignId] ?? null) : null,
-      approvedAt:   s.approvedAt ?? null,
-      rejectedAt:   s.rejectedAt ?? null,
-      executedAt:   s.executedAt ?? null,
-      expiresAt:    s.expiresAt ?? null,
-      createdAt:    s.createdAt,
-    }))
+    const suggestions = raw.map((s: any) => {
+      const payload = s.payload && typeof s.payload === 'object' && !Array.isArray(s.payload)
+        ? s.payload as Record<string, unknown>
+        : {}
+      const isResearch = ['market-research-monitor', 'industry-research-monitor'].includes(String(payload.source ?? ''))
+      const researchItems = isResearch && Array.isArray(payload.items)
+        ? payload.items.slice(0, 15).flatMap((item) => {
+            if (!item || typeof item !== 'object' || Array.isArray(item)) return []
+            const record = item as Record<string, unknown>
+            const url = typeof record.url === 'string' && /^https:\/\//i.test(record.url) ? record.url : ''
+            const title = typeof record.title === 'string' ? record.title.slice(0, 200) : ''
+            if (!title || !url) return []
+            return [{
+              title,
+              url,
+              source: typeof record.source === 'string' ? record.source.slice(0, 100) : '',
+              publishedAt: typeof record.publishedAt === 'string' ? record.publishedAt : '',
+            }]
+          })
+        : []
+      return {
+        id:           s.id,
+        agent:        s.agent,
+        type:         s.type,
+        status:       s.status,
+        priority:     s.priority,
+        title:        s.title,
+        titleAr:      typeof payload.titleAr === 'string' ? payload.titleAr : null,
+        reasoning:    s.reasoning,
+        reasoningAr:  typeof payload.reasoningAr === 'string'
+          ? payload.reasoningAr
+          : typeof payload.reasonAr === 'string' ? payload.reasonAr : null,
+        impact:       s.impact ?? null,
+        campaignId:   s.campaignId ?? null,
+        campaignName: s.campaignId ? (campaignMap[s.campaignId] ?? null) : null,
+        approvedAt:   s.approvedAt ?? null,
+        rejectedAt:   s.rejectedAt ?? null,
+        executedAt:   s.executedAt ?? null,
+        expiresAt:    s.expiresAt ?? null,
+        createdAt:    s.createdAt,
+        research: isResearch ? {
+          kind: payload.researchKind === 'competitor' ? 'competitor' : 'industry',
+          items: researchItems,
+          autoLearningApplied: false,
+        } : null,
+      }
+    })
 
     return NextResponse.json({ suggestions })
   } catch (err: any) {
@@ -141,11 +176,15 @@ function mergeAiInsights(
   }
 }
 
-function getBriefExecutionTarget(payload: unknown): { nextHref?: string; executionLabel?: string } {
+function getSuggestionExecutionTarget(payload: unknown): { nextHref?: string; executionLabel?: string } {
   const p = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {}
-  if (p.source !== 'marketing-operating-brief') return {}
+  if (!['marketing-operating-brief', 'execution-monitor'].includes(String(p.source ?? ''))) return {}
 
   const href = typeof p.href === 'string' && p.href.trim() ? p.href : undefined
+  if (p.source === 'execution-monitor') {
+    const actionKind = typeof p.actionKind === 'string' ? p.actionKind : 'recommended workflow'
+    return { nextHref: href, executionLabel: `Open ${actionKind.toLowerCase().replace(/_/g, ' ')}` }
+  }
   const actionId = typeof p.actionId === 'string' ? p.actionId : ''
 
   const labelMap: Record<string, string> = {
@@ -168,122 +207,16 @@ function getBriefExecutionTarget(payload: unknown): { nextHref?: string; executi
 }
 
 /**
- * Apply Brand Brain learning when a suggestion is APPROVED.
- * Returns which BrandProfile fields were updated (empty = no-op).
- *
- * Supported:
- *  STRATEGY        → winningAngles (contentPillars), winningHooks (campaign.topHooks),
- *                    topPlatforms (channelMix), aiInsights (positioning + contentPillars)
- *  Any other type  → winningHooks / winningAngles if explicitly in payload.hooks / payload.angles
+ * AgentSuggestion approval is an operational decision, never performance
+ * evidence. Strategy drafts, monitor reminders, and research alerts therefore
+ * cannot write "winning" Brand Brain fields. Verified learning uses the
+ * BrainLearning proposal route, whose producer enforces platform provenance.
  */
 async function applyBrandBrainLearning(
-  workspaceId: string,
-  suggestion: { type: string; payload: unknown; campaignId: string | null }
+  _workspaceId: string,
+  _suggestion: { type: string; payload: unknown; campaignId: string | null }
 ): Promise<{ brandBrainUpdated: boolean; updatedFields: string[] }> {
-  const updatedFields: string[] = []
-
-  try {
-    const brandProfile = await prisma.brandProfile.findUnique({ where: { workspaceId } })
-    if (!brandProfile) return { brandBrainUpdated: false, updatedFields: [] }
-
-    const payload = suggestion.payload && typeof suggestion.payload === 'object'
-      ? suggestion.payload as Record<string, unknown>
-      : {}
-
-    // ── Accumulated update object ───────────────────────────────────────────
-    let newWinningHooks:  string[] | undefined
-    let newWinningAngles: string[] | undefined
-    let newTopPlatforms:  string[] | undefined
-    let newAiInsights:    ReturnType<typeof mergeAiInsights> | undefined
-
-    if (suggestion.type === 'STRATEGY') {
-      const strategy = payload.strategy && typeof payload.strategy === 'object'
-        ? payload.strategy as Record<string, unknown>
-        : null
-
-      if (strategy) {
-        // 1. winningAngles ← strategy.contentPillars
-        const pillars = Array.isArray(strategy.contentPillars)
-          ? (strategy.contentPillars as string[]).filter(Boolean)
-          : []
-        if (pillars.length > 0) {
-          newWinningAngles = mergeArraySafe(brandProfile.winningAngles, pillars, 20)
-          updatedFields.push('winningAngles')
-        }
-
-        // 2. topPlatforms ← strategy.channelMix[].platform
-        if (Array.isArray(strategy.channelMix)) {
-          const platforms = (strategy.channelMix as Array<Record<string, unknown>>)
-            .map(c => String(c.platform || '').trim())
-            .filter(Boolean)
-          if (platforms.length > 0) {
-            newTopPlatforms = mergeArraySafe(brandProfile.topPlatforms, platforms, 8)
-            updatedFields.push('topPlatforms')
-          }
-        }
-
-        // 3. aiInsights ← positioning + contentPillars
-        const positioning = typeof strategy.positioning === 'string' ? strategy.positioning : ''
-        if (positioning || pillars.length > 0) {
-          newAiInsights = mergeAiInsights(brandProfile.aiInsights, positioning, pillars)
-          updatedFields.push('aiInsights')
-        }
-      }
-
-      // 4. winningHooks ← Campaign.aiOutput.topHooks (if campaignId present)
-      if (suggestion.campaignId) {
-        const campaign = await db.campaign.findUnique({
-          where: { id: suggestion.campaignId },
-          select: { aiOutput: true },
-        })
-        const aiOutput = campaign?.aiOutput && typeof campaign.aiOutput === 'object'
-          ? campaign.aiOutput as Record<string, unknown>
-          : null
-        const topHooks = Array.isArray(aiOutput?.topHooks)
-          ? (aiOutput!.topHooks as string[]).filter(Boolean)
-          : []
-        if (topHooks.length > 0) {
-          newWinningHooks = mergeArraySafe(brandProfile.winningHooks, topHooks, 20)
-          updatedFields.push('winningHooks')
-        }
-      }
-    } else {
-      // Generic: extract hooks/angles if the payload exposes them explicitly
-      if (Array.isArray(payload.hooks)) {
-        const hooks = (payload.hooks as unknown[]).map(String).filter(Boolean)
-        if (hooks.length > 0) {
-          newWinningHooks = mergeArraySafe(brandProfile.winningHooks, hooks, 20)
-          updatedFields.push('winningHooks')
-        }
-      }
-      if (Array.isArray(payload.angles)) {
-        const angles = (payload.angles as unknown[]).map(String).filter(Boolean)
-        if (angles.length > 0) {
-          newWinningAngles = mergeArraySafe(brandProfile.winningAngles, angles, 20)
-          updatedFields.push('winningAngles')
-        }
-      }
-    }
-
-    if (updatedFields.length === 0) return { brandBrainUpdated: false, updatedFields: [] }
-
-    // ── Single atomic BrandProfile update ───────────────────────────────────
-    await prisma.brandProfile.update({
-      where: { workspaceId },
-      data: {
-        ...(newWinningHooks  !== undefined ? { winningHooks:  newWinningHooks  } : {}),
-        ...(newWinningAngles !== undefined ? { winningAngles: newWinningAngles } : {}),
-        ...(newTopPlatforms  !== undefined ? { topPlatforms:  newTopPlatforms  } : {}),
-        ...(newAiInsights    !== undefined ? { aiInsights:    newAiInsights    } : {}),
-      },
-    })
-
-    return { brandBrainUpdated: true, updatedFields }
-  } catch (err) {
-    console.error('[applyBrandBrainLearning]', err)
-    // Never let a learning error block the approval itself
-    return { brandBrainUpdated: false, updatedFields: [] }
-  }
+  return { brandBrainUpdated: false, updatedFields: [] }
 }
 
 // ── PATCH /api/suggestions ───────────────────────────────────────────────────
@@ -343,7 +276,7 @@ export async function PATCH(req: NextRequest) {
       brandBrainUpdated = learning.brandBrainUpdated
       updatedFields     = learning.updatedFields
 
-      const target = getBriefExecutionTarget(existing.payload)
+      const target = getSuggestionExecutionTarget(existing.payload)
       nextHref = target.nextHref
       executionLabel = target.executionLabel
     }

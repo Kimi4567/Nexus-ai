@@ -26,15 +26,18 @@ const { mockAuth, prismaMock, RESET_MODELS, FORBIDDEN_MODELS } = vi.hoisted(() =
   for (const m of [...RESET_MODELS, ...FORBIDDEN_MODELS]) {
     models[m] = { deleteMany: vi.fn().mockResolvedValue({ count: 1 }), count: vi.fn().mockResolvedValue(1) }
   }
+  const prismaMock = {
+    ...models,
+    workspace: { findFirst: vi.fn().mockResolvedValue({ id: 'ws1' }) },
+    brandProfile: { findUnique: vi.fn().mockResolvedValue({ id: 'bp1' }), update: vi.fn().mockResolvedValue({}) },
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+  } as Record<string, any>
+  prismaMock.$transaction = vi.fn(async (callback: (tx: typeof prismaMock) => unknown) => callback(prismaMock))
   return {
     RESET_MODELS,
     FORBIDDEN_MODELS,
     mockAuth: vi.fn(),
-    prismaMock: {
-      ...models,
-      workspace: { findFirst: vi.fn().mockResolvedValue({ id: 'ws1' }) },
-      brandProfile: { findUnique: vi.fn().mockResolvedValue({ id: 'bp1' }), update: vi.fn().mockResolvedValue({}) },
-    } as Record<string, any>,
+    prismaMock,
   }
 })
 
@@ -89,11 +92,10 @@ describe('POST /api/workspace/reset (PR-1G)', () => {
     }
   })
 
-  it('still accepts the legacy confirm token (does not break existing UI)', async () => {
+  it('rejects the legacy weak confirm token', async () => {
     const res = await POST(req({ confirm: 'RESET' }))
-    const data = await res.json()
-    expect(data.ok).toBe(true)
-    expect(prismaMock.campaign.deleteMany).toHaveBeenCalled()
+    expect(res.status).toBe(400)
+    expect(prismaMock.campaign.deleteMany).not.toHaveBeenCalled()
   })
 
   it('dry-run deletes nothing and returns counts', async () => {

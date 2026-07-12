@@ -128,7 +128,7 @@ function FeatureCard({ icon: Icon, title, body, href, cta }: { icon: ElementType
 function ProductPreview({ ar }: { ar: boolean }) {
   const rows = [
     { label: ar ? 'الاستراتيجية' : 'Strategy', value: ar ? 'جاهزة' : 'Ready', icon: Target },
-    { label: ar ? 'المحتوى' : 'Content', value: ar ? '30 منشور' : '30 posts', icon: Layers },
+    { label: ar ? 'المحتوى' : 'Content', value: ar ? 'مسودات للمراجعة' : 'Drafts to review', icon: Layers },
     { label: ar ? 'النشر' : 'Publishing', value: ar ? 'مجدول' : 'Scheduled', icon: Calendar },
   ]
 
@@ -187,10 +187,10 @@ function ProductPreview({ ar }: { ar: boolean }) {
             <div className="rounded-lg border border-slate-200 bg-white p-5">
               <p className="text-[13px] font-semibold text-slate-500">{ar ? 'اقتراح الوكيل' : 'Agent recommendation'}</p>
               <p className="mt-2 text-[17px] font-semibold leading-6 text-slate-950">
-                {ar ? 'راجع الحملة قبل النشر وزوّد الميزانية على أفضل قناة.' : 'Review the campaign and shift budget toward the best-performing channel.'}
+                {ar ? 'راجع أهلية بيانات الأداء قبل اقتراح أي تغيير في الميزانية.' : 'Review performance-evidence eligibility before proposing any budget change.'}
               </p>
               <button className="mt-4 rounded-lg bg-slate-950 px-4 py-2 text-[14px] font-semibold text-white">
-                {ar ? 'تنفيذ' : 'Act now'}
+                {ar ? 'مراجعة' : 'Review'}
               </button>
             </div>
           </div>
@@ -270,7 +270,7 @@ export default function LandingPage() {
     {
       icon: Brain,
       title: ar ? 'Brand Brain' : 'Brand Brain',
-      body: ar ? 'ذاكرة البراند التي تحفظ الصناعة، الجمهور، النبرة، الزوايا الناجحة، والمنافسين.' : 'A brand memory that stores industry, audience, voice, winning angles, and competitors.',
+      body: ar ? 'ذاكرة البراند التي تحفظ الصناعة، الجمهور، النبرة، الزوايا المعتمدة، والمنافسين، ومقترحات التعلم القابلة للمراجعة.' : 'A brand memory for industry, audience, voice, approved angles, competitors, and reviewable learning proposals.',
       href: '/brand',
       cta: ar ? 'افتح Brand Brain' : 'Open Brand Brain',
     },
@@ -291,7 +291,7 @@ export default function LandingPage() {
     {
       icon: MonitorCheck,
       title: ar ? 'التعلم والتحسين' : 'Learning and improvement',
-      body: ar ? 'النظام يتابع أداء منشوراتك ويغذّي النتائج في ذاكرة العلامة لتتحسن كل حملة تالية.' : 'The system tracks how your posts perform and feeds results back into your brand memory, so each campaign improves.',
+      body: ar ? 'النظام يجلب الأداء المتاح من المنصات، يتحقق من كفاية العينة، ثم ينشئ مقترحات تعلم لا تُطبق قبل مراجعتك.' : 'The system fetches available platform performance, checks sample eligibility, and creates learning proposals that require your review.',
       href: '/analytics',
       cta: ar ? 'عرض التحليلات' : 'View analytics',
     },
@@ -363,7 +363,7 @@ export default function LandingPage() {
             index="04"
             icon={BarChart3}
             title={ar ? 'تعلم من النتائج' : 'Learn from results'}
-            body={ar ? 'بعد الاعتماد والأداء، Brand Brain يتغذى على hooks وزوايا ناجحة ليحسن الحملات القادمة.' : 'After approval and performance, Brand Brain learns winning hooks and angles to improve future campaigns.'}
+            body={ar ? 'بعد النشر وتوفر عينة مؤهلة، ينشئ النظام مقترحات تعلم مرتبطة بالمصدر؛ لا يعدّل Brand Brain تلقائياً.' : 'After publishing and an eligible sample, Nexus creates source-linked learning proposals; it does not silently rewrite Brand Brain.'}
           />
         </div>
       </section>
@@ -391,11 +391,12 @@ export default function LandingPage() {
             title={ar ? 'خطط واضحة وكريدت مفهوم.' : 'Clear plans. Understandable credits.'}
             body={ar ? 'التسعير مبني على استخدام فعلي: استراتيجية، محتوى، صور، وتحليل. بدون مفاجآت.' : 'Pricing maps to real work: strategy, content, visuals, and analysis. No mystery meter.'}
           />
-          <div className="grid gap-4 md:grid-cols-4">
-            <PriceCard ar={ar} name="Free" price="$0" credits={ar ? '10 كريدت مرة واحدة' : '10 one-time credits'} posts={ar ? '3 منشورات للتجربة' : '3 trial posts'} cta={ar ? 'ابدأ' : 'Start'} />
-            <PriceCard ar={ar} name="Starter" price="$19" credits={ar ? '50 كريدت شهريا' : '50 credits monthly'} posts={ar ? '10 منشورات شهريا' : '10 posts monthly'} cta={ar ? 'اختيار Starter' : 'Choose Starter'} />
+          <div className="mb-5 rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600">
+            {ar ? 'ابدأ بـ10 أرصدة تجريبية لمدة 14 يوماً بدون بطاقة. بعدها اختر واحدة من باقتين مدفوعتين.' : 'Start with 10 trial credits for 14 days, no card required. Then choose one of two paid plans.'}
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
             <PriceCard ar={ar} name="Growth" price="$49" credits={ar ? '150 كريدت شهريا' : '150 credits monthly'} posts={ar ? '25 منشور شهريا' : '25 posts monthly'} featured cta={ar ? 'اختيار Growth' : 'Choose Growth'} />
-            <PriceCard ar={ar} name="Agency" price="$99" credits={ar ? '500 كريدت شهريا' : '500 credits monthly'} posts={ar ? '60 منشور شهريا' : '60 posts monthly'} cta={ar ? 'اختيار Agency' : 'Choose Agency'} />
+            <PriceCard ar={ar} name="Autopilot" price="$99" credits={ar ? '500 كريدت شهريا' : '500 credits monthly'} posts={ar ? '60 منشور شهريا + مراقبة مستمرة' : '60 posts monthly + continuous monitoring'} cta={ar ? 'اختيار Autopilot' : 'Choose Autopilot'} />
           </div>
         </div>
       </section>
@@ -405,7 +406,7 @@ export default function LandingPage() {
           <h2 className="mb-6 text-3xl font-semibold tracking-tight text-slate-950">{ar ? 'أسئلة مهمة' : 'Important questions'}</h2>
           <FAQItem
             q={ar ? 'هل Nexus بديل وكالة تسويق كاملة؟' : 'Is Nexus a full agency replacement?'}
-            a={ar ? 'هو يتحرك في هذا الاتجاه: استراتيجية، محتوى، تنفيذ، تعلم، وتقارير. لكنه يحتاج ربط منصات وبيانات أداء حقيقية ليصبح بديلا كاملا في الإنتاج.' : 'It is moving in that direction: strategy, content, execution, learning, and reporting. It becomes a true replacement once platform connections and performance data loops are fully active.'}
+            a={ar ? 'Nexus ينظم عمل القسم: الاستراتيجية، المسودات، الموافقات، الجدولة، المراقبة، والتعلم. لكنه لا يلغي مسؤولية المراجعة البشرية، وتظل إمكانات النشر والتحليل مرتبطة بصلاحيات المنصات والبيانات المتاحة.' : 'Nexus organizes the department workflow: strategy, drafts, approvals, scheduling, monitoring, and learning. Human review remains required, and publishing or analytics depend on provider permissions and available data.'}
           />
           <FAQItem
             q={ar ? 'هل الكريدت واضح؟' : 'Are credits clear?'}

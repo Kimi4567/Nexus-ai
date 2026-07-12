@@ -7,7 +7,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { PLAN_CREDITS as STRIPE_PLAN_CREDITS } from '@/lib/stripe'
-import { ensureMonthlyGrant } from '@/lib/credits/creditGrants'
+import { ensureMonthlyGrant, syncCachedWalletBalance } from '@/lib/credits/creditGrants'
+import { isCreditWalletEnabled } from '@/lib/credits/wallet'
+import { cronAuthError } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,13 +26,8 @@ function isValidDate(value: Date | null | undefined): value is Date {
 }
 
 export async function GET(req: NextRequest) {
-  // Verify cron secret to prevent abuse
-  const authHeader = req.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret && process.env.NODE_ENV !== 'development') { return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 }) }
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = cronAuthError(req)
+  if (authError) return authError
 
   let resetCount = 0
   let errorCount = 0
@@ -60,17 +57,39 @@ export async function GET(req: NextRequest) {
     for (const sub of activeSubs) {
       const credits = PLAN_CREDITS[sub.plan] ?? sub.monthlyCredits
       try {
-        await prisma.user.update({
-          where: { id: sub.userId },
-          data: { aiCredits: credits },
-        })
-        resetCount++
-
         const canCreateMonthlyGrant =
           credits > 0 &&
           Boolean(sub.stripeId) &&
           isValidDate(sub.currentPeriodStart) &&
           isValidDate(sub.currentPeriodEnd)
+
+        if (isCreditWalletEnabled()) {
+          if (!canCreateMonthlyGrant) {
+            grantSkippedCount++
+            continue
+          }
+          const { created } = await (prisma as any).$transaction(async (tx: any) => {
+            const grant = await ensureMonthlyGrant(sub.userId, {
+              stripeSubscriptionId: sub.stripeId as string,
+              currentPeriodStart: sub.currentPeriodStart as Date,
+              currentPeriodEnd: sub.currentPeriodEnd as Date,
+              amount: credits,
+            }, tx)
+            await syncCachedWalletBalance(sub.userId, tx)
+            return grant
+          })
+          resetCount++
+          if (created) grantCreatedCount++
+          else grantSkippedCount++
+          continue
+        }
+
+        // Legacy scalar path remains available until the wallet flag is enabled.
+        await prisma.user.update({
+          where: { id: sub.userId },
+          data: { aiCredits: credits },
+        })
+        resetCount++
 
         if (!canCreateMonthlyGrant) {
           grantSkippedCount++

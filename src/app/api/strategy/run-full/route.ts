@@ -272,6 +272,22 @@ export async function POST(req: NextRequest) {
     }
     // ──────────────────────────────────────────────────────────────────────
 
+    const limitError = !success
+      ? result.errors.find((message: string) => message.startsWith('CAMPAIGN_LIMIT_REACHED:'))
+      : undefined
+    if (limitError) {
+      const [, limit, ...resetParts] = limitError.split(':')
+      return NextResponse.json({
+        ok: false,
+        error: 'CAMPAIGN_LIMIT_REACHED',
+        limit: Number(limit),
+        resetsAt: resetParts.join(':'),
+        creditsRemaining: credit.creditsRemaining + credit.creditsUsed,
+        creditsUsed: 0,
+        upgradeUrl: '/billing',
+      }, { status: 403 })
+    }
+
     return NextResponse.json({
       ok: success,
       agentRunId: result.agentRunId,
