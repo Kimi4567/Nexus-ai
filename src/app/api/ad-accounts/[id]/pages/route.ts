@@ -16,7 +16,8 @@ import { decryptToken } from '@/lib/tokenCrypto'
 const db = prisma as any
 
 // GET — list available Facebook Pages
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -56,7 +57,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // PATCH — save selected Facebook Page
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

@@ -15,9 +15,10 @@ import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { hasRealPerformanceAnalytics } from '@/lib/performanceEvidence'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
-export async function GET(req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, props: Params) {
+  const params = await props.params
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

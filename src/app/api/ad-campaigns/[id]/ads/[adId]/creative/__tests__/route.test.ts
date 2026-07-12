@@ -13,7 +13,7 @@ vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 
 import { PATCH } from '../route'
 
-const params = { params: { id: 'campaign_1', adId: 'ad_1' } }
+const params = { params: Promise.resolve({ id: 'campaign_1', adId: 'ad_1' }) }
 const makeReq = (body: unknown) => ({ json: async () => body }) as any
 const safeMedia = {
   id: 'media_1',

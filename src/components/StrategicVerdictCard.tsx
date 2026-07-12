@@ -144,7 +144,7 @@ export function deriveTopDecisions(input: VerdictInput): Decision[] {
   return out.slice(0, 3)
 }
 
-interface Props extends VerdictInput {}
+type Props = VerdictInput
 
 export default function StrategicVerdictCard(props: Props) {
   const lo = props.locale

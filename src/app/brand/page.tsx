@@ -5,6 +5,7 @@ import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import StrategySpineCard from '@/components/StrategySpineCard'
 import { BrainTimeline } from '@/components/brain/BrainTimeline'
 import { useState, useEffect, Suspense } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -12,6 +13,7 @@ import { useBrandBrain, getBrandCompleteness, normalizeBrandProfile, type BrandP
 import { getStrategyCapabilities } from '@/lib/brandReadiness'
 import { getBrandBrainGenerationFieldLabel, getBrandBrainGenerationSafety } from '@/lib/brandBrainGenerationSafety'
 import { getBrandIndicators, type BrandIndicators } from '@/lib/brandIndicators'
+import type { BrandBrainContract } from '@/lib/brandBrainContract'
 import ReviewSuggestions, { type AssistSuggestion, type SuggestionSource } from '@/components/brand/ReviewSuggestions'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
@@ -213,9 +215,22 @@ function SuggestionCard({ suggestion, onAccept, onDismiss, accent, locale }: {
   )
 }
 
-function BrandStatusPanel({ indicators, locale }: { indicators: BrandIndicators; locale: string }) {
+function BrandStatusPanel({ indicators, locale, contract }: {
+  indicators: BrandIndicators
+  locale: string
+  contract?: BrandBrainContract | null
+}) {
   const ar = locale === 'ar'
   const rows = [
+    ...(contract ? [{
+      label: ar ? 'إصدار الذاكرة' : 'Memory revision',
+      value: `v${contract.revision.number}`,
+      helper: contract.revision.lastChangedFields.length
+        ? (ar
+            ? `آخر تحديث: ${contract.revision.lastChangedFields.length} حقول`
+            : `Last update: ${contract.revision.lastChangedFields.length} field${contract.revision.lastChangedFields.length === 1 ? '' : 's'}`)
+        : (ar ? 'سجل تغييرات قابل للتتبع' : 'Traceable change history'),
+    }] : []),
     {
       label: ar ? 'اكتمال العلامة' : 'Brand completeness',
       value: `${indicators.brandCompleteness.score}%`,
@@ -254,6 +269,25 @@ function BrandStatusPanel({ indicators, locale }: { indicators: BrandIndicators;
           </div>
         ))}
       </div>
+      {contract && (contract.pendingLearning.count > 0 || contract.inference.available) && (
+        <div className="mt-2 rounded-xl px-3 py-2 text-[11px] leading-relaxed text-slate-600"
+          style={{ background:'#FFFBEB', border:'1px solid rgba(245,158,11,0.20)' }}>
+          {contract.pendingLearning.count > 0 && (
+            <p>
+              {ar
+                ? `${contract.pendingLearning.count} اقتراح تعلم ينتظر مراجعتك؛ لن يدخل كحقيقة قبل موافقتك.`
+                : `${contract.pendingLearning.count} learning proposal${contract.pendingLearning.count === 1 ? '' : 's'} await review; none become truth before approval.`}
+            </p>
+          )}
+          {contract.inference.available && (
+            <p className={contract.pendingLearning.count > 0 ? 'mt-1' : ''}>
+              {ar
+                ? 'توجد استنتاجات AI محفوظة، لكنها مستبعدة من حقائق التنفيذ.'
+                : 'Stored AI inferences exist, but they are excluded from execution truth.'}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -434,11 +468,11 @@ function BrandSummaryCard({
         <div className="px-6 pb-6 flex items-center gap-3">
           {/* PR-D: strategy-first CTA now routes to the real /strategy page (the
               official next stage after Brand Brain), not the run-full modal. */}
-          <a href="/strategy"
+          <Link href="/strategy"
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
             style={{ background: '#111827', color: '#FFFFFF' }}>
             <Sparkles size={15}/> {t('brand.summaryCtaLabel')}
-          </a>
+          </Link>
           <button onClick={onClose}
             className="px-4 py-3 rounded-xl text-sm font-semibold transition-all"
             style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)', color: '#64748b' }}>
@@ -468,7 +502,7 @@ function BrandBrainInner() {
   const searchParams = useSearchParams()
   const fromBrief = searchParams?.get('from') === 'brief'
   const { locale, dir, t } = useI18n()
-  const { brand, loading, error, saving, saveBrand, refetch } = useBrandBrain()
+  const { brand, contract, loading, error, saving, saveBrand, refetch } = useBrandBrain()
   // PR-1D: track whether a loaded brand has been applied to the form, so we never
   // flash the "Needs Data" empty state between load-complete and form hydration.
   const [hydrated, setHydrated] = useState(false)
@@ -1830,7 +1864,7 @@ function BrandBrainInner() {
               <p className="text-sm text-slate-500 mb-4">
                 {locale === 'ar' ? 'هذا ما تعرفه NEXUS عن علامتك حتى الآن.' : 'Here’s what NEXUS knows about your brand so far.'}
               </p>
-              <BrandStatusPanel indicators={brandIndicators} locale={locale} />
+              <BrandStatusPanel indicators={brandIndicators} locale={locale} contract={contract} />
               <div className="mt-5">
                 {brandIndicators.organicReadiness.ready ? (
                   <button onClick={() => router.push('/strategy')}
@@ -2227,7 +2261,7 @@ function BrandBrainInner() {
               </nav>
               {/* Readiness summary */}
               <div className="rounded-2xl p-3" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
-                <BrandStatusPanel indicators={brandIndicators} locale={locale} />
+                <BrandStatusPanel indicators={brandIndicators} locale={locale} contract={contract} />
               </div>
               {/* Save (always reachable) */}
               <button onClick={handleSave} disabled={saving}
@@ -2763,7 +2797,7 @@ function BrandBrainInner() {
 
                         <div className="rounded-xl p-4" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)' }}>
                           <p className="text-sm font-bold text-slate-950 mb-3">{ar ? 'الجاهزية الحالية' : 'Current readiness'}</p>
-                          <BrandStatusPanel indicators={brandIndicators} locale={locale} />
+                          <BrandStatusPanel indicators={brandIndicators} locale={locale} contract={contract} />
                         </div>
                       </div>
                     </div>

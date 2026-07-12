@@ -8,100 +8,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendWeeklyBrief } from '@/lib/email/resend'
+import { cronAuthError } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 
-// Cron auth
-function isAuthorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET
-  if (!secret) return true // dev — no secret configured
-  const authHeader = req.headers.get('authorization')
-  return authHeader === `Bearer ${secret}`
-}
-
-// Generate content ideas using OpenAI — fast, cheap, high-value
+// Deterministic weekly prompts avoid uncovered per-user background model spend.
+// They are planning hypotheses, never claims about trends or performance.
 async function generateWeeklyIdeas(brandName: string, industry: string, topPlatform: string): Promise<string[]> {
-  if (!process.env.OPENAI_API_KEY) {
-    return [
-      `Share a behind-the-scenes look at how ${brandName} creates its products`,
-      `Post a client success story or testimonial this week`,
-      `Create a "how we do it differently" comparison post`,
-    ]
-  }
-
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{
-          role: 'user',
-          content: `Generate exactly 3 specific content ideas for a ${industry} brand called "${brandName}" to post on ${topPlatform} this week.
-
-Each idea should be concrete, actionable, and designed to drive engagement.
-Format: Return a JSON array of 3 strings. Each string is one content idea, max 15 words.
-Example: ["Post a before/after transformation showing your process", "Share a customer quote that explains why they chose you", "Create a quick tips reel about common mistakes in your industry"]`,
-        }],
-        temperature: 0.8,
-        max_tokens: 300,
-        response_format: { type: 'json_object' },
-      }),
-    })
-    const data = await res.json()
-    const parsed = JSON.parse(data.choices?.[0]?.message?.content || '{}')
-    const ideas = parsed.ideas || parsed.content || parsed.suggestions || Object.values(parsed)[0]
-    if (Array.isArray(ideas) && ideas.length >= 3) return ideas.slice(0, 3)
-  } catch (e) {
-    console.error('[Weekly Brief] OpenAI error:', e)
-  }
-
   return [
-    `Share a behind-the-scenes look at how ${brandName} operates`,
-    `Post a client success story or testimonial`,
-    `Create educational content about your industry this week`,
+    `Answer one recurring ${industry} customer question on ${topPlatform}`,
+    `Show one behind-the-scenes step in how ${brandName} works`,
+    `Test a customer story with a clear source and approval`,
   ]
 }
 
-// Generate strategy focus
+// Planning focus based only on known campaign count; no prediction or benchmark.
 async function generateStrategyFocus(brandName: string, campaignsCount: number): Promise<string> {
-  if (!process.env.OPENAI_API_KEY) {
-    return `Focus this week on deepening audience trust for ${brandName}. Consistency in posting — even 2-3 times — builds more loyalty than any single viral post.`
-  }
-
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{
-          role: 'user',
-          content: `Write a 1-sentence strategic marketing focus for a brand called "${brandName}" that has run ${campaignsCount} campaigns.
-Make it specific and actionable — what should their marketing focus on THIS week?
-Return plain text only, no quotes, max 25 words.`,
-        }],
-        temperature: 0.7,
-        max_tokens: 60,
-      }),
-    })
-    const data = await res.json()
-    return data.choices?.[0]?.message?.content?.trim() || `Keep building momentum for ${brandName} with consistent, valuable content this week.`
-  } catch {
-    return `Keep building momentum for ${brandName} with consistent, valuable content this week.`
-  }
+  return campaignsCount > 1
+    ? `Choose one message for ${brandName}, test it consistently this week, and review platform evidence before changing direction.`
+    : `Use the first campaign as a measured baseline for ${brandName}; publish only approved content and document what the platform reports.`
 }
 
 export async function GET(req: NextRequest) {
-  if (!isAuthorized(req)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = cronAuthError(req)
+  if (authError) return authError
 
   if (!process.env.RESEND_API_KEY) {
     console.log('[Weekly Brief] RESEND_API_KEY not set — skipping')

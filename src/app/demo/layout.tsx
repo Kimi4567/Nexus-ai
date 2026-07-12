@@ -6,4 +6,5 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 }
 
-export { default } from './page'
+export { /* @next-codemod-error `default` export is re-exported. Check if this component uses `params` or `searchParams`*/
+default } from './page'

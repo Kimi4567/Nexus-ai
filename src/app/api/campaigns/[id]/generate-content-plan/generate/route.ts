@@ -25,7 +25,7 @@ import {
 
 export const maxDuration = 60 // Vercel Pro — 60s max
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 type ImageCreditReservation = {
   postId: string
   creditsUsed: number
@@ -132,7 +132,8 @@ async function refundImageReservation(
 
 // ── Main handler ───────────────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

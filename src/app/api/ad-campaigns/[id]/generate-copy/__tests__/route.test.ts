@@ -33,7 +33,7 @@ import { POST } from '../route'
 const makeReq = (body: Record<string, unknown> = {}) => ({
   json: async () => ({ destinationUrl: 'https://nexus-grow.com/paid-offer', ...body }),
 }) as any
-const params = { params: { id: 'adcamp_1' } }
+const params = { params: Promise.resolve({ id: 'adcamp_1' }) }
 
 const campaign = {
   id: 'adcamp_1',

@@ -1,117 +1,102 @@
 /**
  * GET /api/cron/daily-digest
- * Runs every morning at 08:00 UTC.
- * For each active user with a campaign that has an aiOutput content calendar,
- * sends a "here's what to post today" email.
+ * Sends reminders only for real SocialPost rows that the user approved and
+ * scheduled for the current UTC day. Generated strategy calendars and drafts
+ * never enter this email path.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendDailyDigest } from '@/lib/email/resend'
+import { cronAuthError } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 
-const DAY_ORDER = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
-
-function getDayName(): string {
-  const d = new Date().getDay()
-  return DAY_ORDER[d === 0 ? 6 : d - 1]
-}
-
-function flattenCalendar(contentCalendar: any[]): any[] {
-  const posts: any[] = []
-  for (const week of contentCalendar || []) {
-    for (const post of week.posts || []) {
-      posts.push({ ...post, week: week.week })
-    }
-  }
-  return posts
-}
-
 export async function GET(req: NextRequest) {
-  // Verify cron secret — matches Vercel's Authorization: Bearer <CRON_SECRET> format
-  const authHeader = req.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret && process.env.NODE_ENV !== 'development') { return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 }) }
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = cronAuthError(req)
+  if (authError) return authError
 
   if (!process.env.RESEND_API_KEY) {
     return NextResponse.json({ skipped: true, reason: 'No RESEND_API_KEY' })
   }
 
-  const todayName = getDayName()
-  const results = { sent: 0, skipped: 0, errors: 0 }
+  const now = new Date()
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
+  const results = { checked: 0, sent: 0, skipped: 0, errors: 0 }
 
-  // Get all workspaces that have a campaign with aiOutput
-  const workspaces = await prisma.workspace.findMany({
-    select: {
-      id: true,
-      ownerId: true,
-      owner: { select: { email: true, name: true, subscriptionStatus: true } },
-    },
-  })
+  try {
+    const posts = await (prisma.socialPost as any).findMany({
+      where: {
+        status: 'SCHEDULED',
+        approvedAt: { not: null },
+        scheduledAt: { gte: start, lt: end },
+      },
+      select: {
+        id: true,
+        workspaceId: true,
+        campaignId: true,
+        caption: true,
+        platform: true,
+        pageName: true,
+        scheduledAt: true,
+        workspace: { select: { owner: { select: { email: true, name: true } } } },
+      },
+      orderBy: { scheduledAt: 'asc' },
+      take: 200,
+    }) as Array<any>
+    results.checked = posts.length
 
-  for (const ws of workspaces) {
-    try {
-      // Find most recent campaign with AI output
-      const campaign = await (prisma.campaign as any).findFirst({
-        where: {
-          workspaceId: ws.id,
-          aiOutput: { not: null },
-          status: { in: ['ACTIVE', 'DRAFT'] },
-        },
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          name: true,
-          platforms: true,
-          aiOutput: true,
-          createdAt: true,
-        },
-      })
+    const campaignIds = [...new Set(posts.map((post) => post.campaignId).filter(Boolean))] as string[]
+    const campaigns = campaignIds.length > 0
+      ? await prisma.campaign.findMany({
+          where: { id: { in: campaignIds } },
+          select: { id: true, name: true },
+        })
+      : []
+    const campaignNames = new Map(campaigns.map((campaign) => [campaign.id, campaign.name]))
 
-      if (!campaign?.aiOutput) { results.skipped++; continue }
-
-      const aiOutput = campaign.aiOutput as any
-      const contentCalendar: any[] = aiOutput?.strategy?.contentCalendar || []
-      if (!contentCalendar.length) { results.skipped++; continue }
-
-      const daysSince = Math.floor(
-        (Date.now() - new Date(campaign.createdAt).getTime()) / 86_400_000
-      )
-      const allPosts = flattenCalendar(contentCalendar)
-      if (!allPosts.length) { results.skipped++; continue }
-
-      // Find today's post by day name, fallback to index
-      let post = allPosts.find(p => p.day === todayName)
-      if (!post) post = allPosts[daysSince % allPosts.length]
-      if (!post) { results.skipped++; continue }
-
-      await sendDailyDigest(ws.owner.email, {
-        name: ws.owner.name || ws.owner.email.split('@')[0],
-        campaignName: campaign.name,
-        day: post.day || todayName,
-        platform: post.platform || (campaign.platforms[0] || 'INSTAGRAM'),
-        type: post.type || 'Content Post',
-        topic: post.topic || '',
-        caption: post.caption || '',
-        campaignId: campaign.id,
-        postIndex: allPosts.indexOf(post) + 1,
-        totalPosts: allPosts.length,
-      })
-
-      results.sent++
-    } catch (err: any) {
-      results.errors++
-      console.error(`[daily-digest] error for workspace ${ws.id}:`, err?.message)
+    // One concise reminder per workspace per day. Additional scheduled posts
+    // remain visible in the dashboard instead of generating email bursts.
+    const sentWorkspaces = new Set<string>()
+    for (const post of posts) {
+      const owner = post.workspace?.owner
+      if (!owner?.email || sentWorkspaces.has(post.workspaceId)) {
+        results.skipped++
+        continue
+      }
+      try {
+        const workspacePosts = posts.filter((item) => item.workspaceId === post.workspaceId)
+        await sendDailyDigest(owner.email, {
+          name: owner.name || owner.email.split('@')[0],
+          campaignName: campaignNames.get(post.campaignId) || 'Approved campaign',
+          day: post.scheduledAt
+            ? new Date(post.scheduledAt).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })
+            : 'Today',
+          platform: String(post.platform),
+          type: 'Approved scheduled post',
+          topic: post.pageName || campaignNames.get(post.campaignId) || '',
+          caption: post.caption,
+          campaignId: post.campaignId || '',
+          postIndex: 1,
+          totalPosts: workspacePosts.length,
+        })
+        sentWorkspaces.add(post.workspaceId)
+        results.sent++
+      } catch (error) {
+        results.errors++
+        console.error(`[daily-digest] workspace ${post.workspaceId}:`, error)
+      }
     }
-  }
 
-  return NextResponse.json({
-    ok: true,
-    workspacesChecked: workspaces.length,
-    ...results,
-    ts: new Date().toISOString(),
-  })
+    return NextResponse.json({
+      ok: results.errors === 0,
+      source: 'approved-scheduled-posts',
+      draftsIncluded: false,
+      ...results,
+      ts: new Date().toISOString(),
+    })
+  } catch (error) {
+    console.error('[daily-digest] fatal:', error)
+    return NextResponse.json({ error: 'Daily digest failed' }, { status: 500 })
+  }
 }

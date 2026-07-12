@@ -11,8 +11,10 @@ import {
   getSafeFileName,
   isValidUploadMime,
   validateUploadSize,
+  MAX_IMAGE_SIZE_BYTES,
 } from '@/lib/uploadValidation'
 import { createRateLimiter } from '@/lib/dbRateLimit'
+import { assertWorkspaceAccess, assertProjectInWorkspace } from '@/lib/workspaceAccess'
 
 // Use /tmp on Vercel (read-only FS outside /tmp), local .storage otherwise.
 // Lazy-initialised inside each request to avoid module-level crash on cold start.
@@ -54,6 +56,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(createUploadError(401, 'Unauthorized', 'UNAUTHORIZED'), { status: 401 })
   }
 
+  if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      createUploadError(503, 'Local uploads are disabled in production; use the signed Cloudinary flow', 'CLOUDINARY_REQUIRED'),
+      { status: 503 },
+    )
+  }
+
   const ip = getClientIp(req)
   const userLimit = perUserRateLimit(userId)
   if (!userLimit.ok) {
@@ -86,14 +95,30 @@ export async function POST(req: NextRequest) {
     }
     finalWorkspaceId = defaultWorkspace.id
   }
+  try {
+    await assertWorkspaceAccess(finalWorkspaceId, userId)
+    if (projectId) await assertProjectInWorkspace(projectId, finalWorkspaceId, userId)
+  } catch {
+    return NextResponse.json(createUploadError(403, 'Upload scope access denied', 'ACCESS_DENIED'), { status: 403 })
+  }
 
   if (!isValidUploadMime(mimeType)) {
     return NextResponse.json(createUploadError(415, 'Unsupported file type', 'UNSUPPORTED_TYPE'), { status: 415 })
   }
+  if (mimeType.startsWith('video/')) {
+    return NextResponse.json(createUploadError(400, 'Videos require signed direct upload', 'DIRECT_UPLOAD_REQUIRED'), { status: 400 })
+  }
+  if (typeof dataBase64 !== 'string' || dataBase64.length > Math.ceil(MAX_IMAGE_SIZE_BYTES * 4 / 3) + 8) {
+    return NextResponse.json(createUploadError(413, 'Image payload too large', 'FILE_TOO_LARGE'), { status: 413 })
+  }
+  const normalizedBase64 = dataBase64.replace(/\s/g, '')
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(normalizedBase64) || normalizedBase64.length % 4 === 1) {
+    return NextResponse.json(createUploadError(400, 'Invalid file payload', 'INVALID_PAYLOAD'), { status: 400 })
+  }
 
   let buffer: Buffer
   try {
-    buffer = Buffer.from(dataBase64, 'base64')
+    buffer = Buffer.from(normalizedBase64, 'base64')
   } catch (err) {
     console.error('Invalid base64 payload', err)
     return NextResponse.json(createUploadError(400, 'Invalid file payload', 'INVALID_PAYLOAD'), { status: 400 })
@@ -151,4 +176,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(createUploadError(500, 'Upload failed', 'DB_FAILED'), { status: 500 })
   }
 }
-

@@ -73,8 +73,9 @@ async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, 
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
+  const params = await props.params
   let chargedUserId: string | null = null
   let chargedCredit: CreditDeductionOk | null = null
 

@@ -16,11 +16,12 @@ import {
 } from '@/lib/agents/visual-director'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
-export async function GET(req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -43,7 +44,8 @@ export async function GET(req: NextRequest, { params }: Params) {
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

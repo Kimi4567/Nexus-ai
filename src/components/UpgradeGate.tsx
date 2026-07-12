@@ -56,7 +56,7 @@ export default function UpgradeGate({ feature, description, onClose, inline = fa
             </button>
           )}
         </div>
-        <div className="mt-4 text-xs text-slate-400">7-day money-back guarantee · Cancel anytime</div>
+        <div className="mt-4 text-xs text-slate-400">Cancel anytime · Access continues through the paid period</div>
       </div>
     </div>
   )

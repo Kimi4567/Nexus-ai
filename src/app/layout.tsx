@@ -48,9 +48,9 @@ const jsonLd = {
   offers: {
     '@type': 'AggregateOffer',
     priceCurrency: 'USD',
-    lowPrice: '29',
-    highPrice: '199',
-    offerCount: '3',
+    lowPrice: '49',
+    highPrice: '99',
+    offerCount: '2',
   },
 }
 
@@ -60,7 +60,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

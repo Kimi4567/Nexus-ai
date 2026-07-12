@@ -9,7 +9,11 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 
 const { mockPrisma, tx, mockGetUser } = vi.hoisted(() => {
-  const tx = { user: { update: vi.fn() }, creditGrant: { createMany: vi.fn() } }
+  const tx = {
+    $queryRawUnsafe: vi.fn(),
+    user: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    creditGrant: { createMany: vi.fn() },
+  }
   return {
     tx,
     mockGetUser: vi.fn(),
@@ -26,19 +30,21 @@ vi.mock('@/lib/stripe', () => ({ REFERRAL_BONUS_CREDITS: 20 }))
 
 import { POST } from '../route'
 
-const makeReq = (body: Record<string, unknown> = { referralCode: 'ABC' }) =>
+const makeReq = (body: Record<string, unknown> = { referralCode: 'NEXUS-ABC234' }) =>
   ({ headers: { get: () => 'Bearer tok' }, json: async () => body }) as any
 
 beforeEach(() => {
   vi.clearAllMocks()
   mockGetUser.mockResolvedValue({ data: { user: { id: 'newUser' } } })
+  tx.$queryRawUnsafe.mockResolvedValue([])
   tx.user.update.mockResolvedValue({})
+  tx.user.updateMany.mockResolvedValue({ count: 1 })
   tx.creditGrant.createMany.mockResolvedValue({ count: 1 })
 })
 
 describe('POST /api/referral/claim — B1d-b grants', () => {
   it('increments both users by 20 AND creates two side-specific REFERRAL grants', async () => {
-    mockPrisma.user.findUnique
+    tx.user.findUnique
       .mockResolvedValueOnce({ referredById: null, aiCredits: 0 }) // claimer
       .mockResolvedValueOnce({ id: 'refUser', aiCredits: 5, referralCreditsEarned: 0 }) // referrer
 
@@ -50,8 +56,8 @@ describe('POST /api/referral/claim — B1d-b grants', () => {
     expect(json.bonusCredits).toBe(20)
 
     // Both bonuses applied inside the transaction.
-    expect(tx.user.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: 'newUser' },
+    expect(tx.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'newUser', referredById: null },
       data: expect.objectContaining({ referredById: 'refUser', aiCredits: { increment: 20 } }),
     }))
     expect(tx.user.update).toHaveBeenCalledWith(expect.objectContaining({
@@ -71,34 +77,34 @@ describe('POST /api/referral/claim — B1d-b grants', () => {
     }
   })
 
-  it('already-claimed referral → 409, no transaction, no grants', async () => {
-    mockPrisma.user.findUnique.mockResolvedValueOnce({ referredById: 'someone', aiCredits: 0 })
+  it('already-claimed referral → 409, no grants', async () => {
+    tx.user.findUnique.mockResolvedValueOnce({ referredById: 'someone' })
 
     const res = await POST(makeReq())
     expect(res.status).toBe(409)
-    expect(mockPrisma.$transaction).not.toHaveBeenCalled()
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1)
     expect(tx.creditGrant.createMany).not.toHaveBeenCalled()
   })
 
   it('invalid referral code → 404, no grants', async () => {
-    mockPrisma.user.findUnique
-      .mockResolvedValueOnce({ referredById: null, aiCredits: 0 })
+    tx.user.findUnique
+      .mockResolvedValueOnce({ referredById: null })
       .mockResolvedValueOnce(null) // referrer not found
 
     const res = await POST(makeReq())
     expect(res.status).toBe(404)
-    expect(mockPrisma.$transaction).not.toHaveBeenCalled()
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1)
     expect(tx.creditGrant.createMany).not.toHaveBeenCalled()
   })
 
   it('self-referral → 400, no grants', async () => {
-    mockPrisma.user.findUnique
-      .mockResolvedValueOnce({ referredById: null, aiCredits: 0 })
-      .mockResolvedValueOnce({ id: 'newUser', aiCredits: 5, referralCreditsEarned: 0 }) // same as claimer
+    tx.user.findUnique
+      .mockResolvedValueOnce({ referredById: null })
+      .mockResolvedValueOnce({ id: 'newUser' }) // same as claimer
 
     const res = await POST(makeReq())
     expect(res.status).toBe(400)
-    expect(mockPrisma.$transaction).not.toHaveBeenCalled()
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1)
     expect(tx.creditGrant.createMany).not.toHaveBeenCalled()
   })
 })

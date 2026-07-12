@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { buildStrategyPrompt, guardGeneratedStrategy, extractAllowedNumbers } from '@/lib/ai/strategyGenerateGuard'
+import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
 
 async function callOpenAI(prompt: string): Promise<any> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -53,15 +54,7 @@ export async function POST(req: NextRequest) {
       const brand = await prisma.brandProfile.findFirst({
         where: { workspaceId: workspace.id },
       })
-      if (brand) {
-        brandContext = `
-Brand: ${brand.brandName || 'Not specified'}
-Industry: ${brand.industry || 'Not specified'}
-Target Audience: ${brand.targetAudience || 'Not specified'}
-Brand Tone: ${brand.toneKeywords?.join(', ') || 'Professional'}
-Description: ${brand.description || 'Not specified'}
-        `.trim()
-      }
+      brandContext = buildBrandExecutionContext(brand as unknown as Record<string, unknown> | null)
     }
 
     const days = timeframe === '30' ? 30 : timeframe === '60' ? 60 : 90

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { ensureDbUser, getServerUserId } from '@/lib/apiAuth'
-import { PLAN_CAMPAIGN_LIMIT } from '@/lib/stripe'
-import type { Platform, UserRole } from '@prisma/client'
+import { readLockedCampaignAllowance } from '@/lib/campaignCommercial'
+import { randomUUID } from 'crypto'
+import type { BrandTone, CampaignGoal, Platform, Prisma } from '@prisma/client'
 
 // Map display names → Prisma Platform enum values
 const PLATFORM_MAP: Record<string, string> = {
@@ -28,120 +29,112 @@ const PLATFORM_MAP: Record<string, string> = {
 
 function normalizePlatforms(raw: string[]): Platform[] {
   const valid = new Set(Object.values(PLATFORM_MAP))
-  return raw
+  return [...new Set(raw
     .map((p) => PLATFORM_MAP[p] ?? PLATFORM_MAP[p.toLowerCase()] ?? null)
-    .filter((p): p is string => p !== null && valid.has(p)) as Platform[]
+    .filter((p): p is string => p !== null && valid.has(p)))] as Platform[]
 }
 
-// Helper — get or create default workspace+project for a user
-// userId + email both required so we can ensure the User row exists first
-async function getOrCreateDefaultProject(userId: string, email: string): Promise<{ workspaceId: string; projectId: string } | null> {
-  try {
-    // Ensure User row exists before creating workspace (FK constraint)
-    await prisma.user.upsert({
-      where: { id: userId },
-      update: { email },
-      create: { id: userId, email },
-    })
+const GOALS = new Set<CampaignGoal>(['SALES', 'AWARENESS', 'LEADS', 'TRAFFIC', 'ENGAGEMENT', 'BRAND_BUILDING'])
+const TONES = new Set<BrandTone>(['LUXURY', 'MODERN', 'ENERGETIC', 'CORPORATE', 'MINIMAL', 'AGGRESSIVE_SALES', 'FRIENDLY', 'PROFESSIONAL'])
 
-    let workspace = await prisma.workspace.findFirst({ where: { ownerId: userId } })
-    if (!workspace) {
-      workspace = await prisma.workspace.create({
-        data: { name: 'My Workspace', slug: `workspace-${userId.slice(0, 8)}-${Date.now()}`, ownerId: userId },
-      })
-    }
-    let project = await prisma.project.findFirst({ where: { workspaceId: workspace.id } })
-    if (!project) {
-      project = await prisma.project.create({
-        data: { name: 'My Project', workspaceId: workspace.id },
-      })
-    }
-    return { workspaceId: workspace.id, projectId: project.id }
-  } catch {
-    return null
+function cleanText(value: unknown, max: number): string {
+  return typeof value === 'string' ? value.trim().slice(0, max) : ''
+}
+
+async function getOrCreateDefaultProject(
+  tx: Prisma.TransactionClient,
+  userId: string,
+): Promise<{ workspaceId: string; projectId: string }> {
+  // Share the workspace lock used by POST /api/workspaces. This prevents a
+  // first-campaign request racing a first-workspace request on a free account.
+  await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `workspace-limit:${userId}`)
+  let workspace = await tx.workspace.findFirst({ where: { ownerId: userId }, orderBy: { createdAt: 'asc' } })
+  if (!workspace) {
+    workspace = await tx.workspace.create({
+      data: {
+        name: 'My Workspace',
+        slug: `workspace-${userId.slice(0, 8)}-${randomUUID().slice(0, 8)}`,
+        ownerId: userId,
+      },
+    })
   }
+  let project = await tx.project.findFirst({ where: { workspaceId: workspace.id }, orderBy: { createdAt: 'asc' } })
+  if (!project) {
+    project = await tx.project.create({ data: { name: 'My Project', workspaceId: workspace.id } })
+  }
+  return { workspaceId: workspace.id, projectId: project.id }
 }
 
 // POST /api/campaigns — save a campaign with full AI output
 export async function POST(req: NextRequest) {
   const authUser = await ensureDbUser(req)
   if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { id: userId, email: userEmail } = authUser
+  const { id: userId } = authUser
 
   try {
     const body = await req.json()
-    const { name, goal, audience, tone, platforms, description, aiOutput } = body
+    const name = cleanText(body.name, 120)
+    const description = cleanText(body.description, 2_000)
+    const audience = cleanText(body.audience, 1_000)
+    const requestedGoal = cleanText(body.goal, 40).toUpperCase() as CampaignGoal
+    const requestedTone = cleanText(body.tone, 40).toUpperCase() as BrandTone
+    const goal = GOALS.has(requestedGoal) ? requestedGoal : 'SALES'
+    const tone = TONES.has(requestedTone) ? requestedTone : 'MODERN'
+    const normalizedPlatforms = normalizePlatforms(Array.isArray(body.platforms) ? body.platforms.slice(0, 20) : [])
+    const aiOutput = body.aiOutput ?? null
 
-    if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 })
-
-    // ── Enforce campaign limit per plan ──────────────────────────────────────
-    // Check both user status and subscription plan for accurate limit
-    const [dbUser, subscription] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userId }, select: { subscriptionStatus: true, role: true } }),
-      (prisma as any).subscription.findUnique({ where: { userId }, select: { plan: true, status: true } }),
-    ])
-
-    // ADMIN users bypass all limits
-    const isAdmin = dbUser?.role === ('ADMIN' as UserRole)
-    if (!isAdmin) {
-      const status = dbUser?.subscriptionStatus || 'FREE'
-      // Derive plan: use subscription.plan if ACTIVE, else fall back to status
-      const planKey = (
-        subscription?.status === 'ACTIVE' && subscription?.plan
-          ? subscription.plan
-          : status
-      ).toUpperCase()
-      const limit = PLAN_CAMPAIGN_LIMIT[planKey] ?? PLAN_CAMPAIGN_LIMIT['FREE']
-
-      if (limit !== 999) {
-        const workspace = await prisma.workspace.findFirst({ where: { ownerId: userId }, select: { id: true } })
-        if (workspace) {
-          const existing = await prisma.campaign.count({ where: { workspaceId: workspace.id } })
-          if (existing >= limit) {
-            return NextResponse.json({
-              error: 'CAMPAIGN_LIMIT_REACHED',
-              message: `Your plan allows up to ${limit} campaign${limit === 1 ? '' : 's'}. Upgrade to create more.`,
-              upgradeUrl: '/billing',
-            }, { status: 402 })
-          }
-        }
-      }
+    if (name.length < 2) return NextResponse.json({ error: 'A valid campaign name is required' }, { status: 400 })
+    if (aiOutput !== null && JSON.stringify(aiOutput).length > 1_000_000) {
+      return NextResponse.json({ error: 'Campaign output is too large' }, { status: 413 })
     }
-    // ─────────────────────────────────────────────────────────────────────────
-
-    const ids = await getOrCreateDefaultProject(userId, userEmail)
-    if (!ids) return NextResponse.json({ error: 'Could not create workspace' }, { status: 500 })
 
     const THUMBNAILS = ['🚀', '⚡', '🎯', '🔥', '💡', '🌟', '📣', '🎪', '💎', '🎨']
     const thumbnail = THUMBNAILS[Math.floor(Math.random() * THUMBNAILS.length)]
 
-    // Normalize display names → Prisma enum values (e.g. 'Facebook' → 'FACEBOOK')
-    const normalizedPlatforms = normalizePlatforms(Array.isArray(platforms) ? platforms : [])
+    const result = await prisma.$transaction(async (tx) => {
+      const ids = await getOrCreateDefaultProject(tx, userId)
+      const allowance = await readLockedCampaignAllowance(tx, userId)
+      if (allowance.limit !== 999 && allowance.current >= allowance.limit) {
+        return { limitReached: true as const, allowance }
+      }
 
-    const campaign = await prisma.campaign.create({
-      data: {
-        name,
-        description,
-        goal: goal || 'SALES',
-        audience: audience || '',
-        tone: tone || 'MODERN',
-        platforms: normalizedPlatforms,
-        workspaceId: ids.workspaceId,
-        projectId: ids.projectId,
-        status: 'DRAFT',
-        aiOutput: aiOutput || null,
-        thumbnail,
-        activities: {
-          create: {
-            type: 'created',
-            description: `Campaign "${name}" created as a draft`,
+      const campaign = await tx.campaign.create({
+        data: {
+          name,
+          description,
+          goal,
+          audience,
+          tone,
+          platforms: normalizedPlatforms,
+          workspaceId: ids.workspaceId,
+          projectId: ids.projectId,
+          status: 'DRAFT',
+          aiOutput,
+          thumbnail,
+          activities: {
+            create: {
+              type: 'created',
+              description: `Campaign "${name}" created as a draft`,
+            },
           },
         },
-      },
-      include: { activities: true },
+        include: { activities: true },
+      })
+      return { campaign, allowance }
     })
 
-    return NextResponse.json({ id: campaign.id, campaign })
+    if ('limitReached' in result) {
+      return NextResponse.json({
+        error: 'CAMPAIGN_LIMIT_REACHED',
+        message: `Your plan allows ${result.allowance.limit} campaign creation${result.allowance.limit === 1 ? '' : 's'} per billing month.`,
+        limit: result.allowance.limit,
+        current: result.allowance.current,
+        resetsAt: result.allowance.periodEnd.toISOString(),
+        upgradeUrl: '/billing',
+      }, { status: 403 })
+    }
+
+    return NextResponse.json({ id: result.campaign.id, campaign: result.campaign }, { status: 201 })
   } catch (err: any) {
     console.error('[campaigns POST]', err)
     return NextResponse.json({ error: err.message || 'Failed to save campaign' }, { status: 500 })

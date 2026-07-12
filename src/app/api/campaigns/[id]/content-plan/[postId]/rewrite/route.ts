@@ -17,7 +17,7 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { validateRewriteConfirmation } from '@/lib/contentHubActionSafety'
 
-type Params = { params: { id: string; postId: string } }
+type Params = { params: Promise<{ id: string; postId: string }> }
 
 // Platform character limits
 const PLATFORM_LIMITS: Record<string, number> = {
@@ -39,7 +39,8 @@ const PLATFORM_STYLE: Record<string, string> = {
   YOUTUBE:   'YouTube: keyword-rich description, call to action, timestamps optional',
 }
 
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

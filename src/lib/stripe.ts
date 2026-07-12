@@ -1,26 +1,25 @@
 /**
  * Nexus AI — Stripe client + Plan definitions
  *
- * Pricing (Research-backed — June 2025):
- *   Free    — $0      — 10 credits (one-time) — 1 workspace, 1 campaign, 3 posts
- *   Starter — $19/mo  — 50 credits/month      — 1 workspace, 2 campaigns, 10 posts/mo
- *   Growth  — $49/mo  — 150 credits/month     — 3 workspaces, 5 campaigns, 25 posts/mo  ← crosses 16+ post threshold
- *   Agency  — $99/mo  — 500 credits/month     — 10 workspaces, unlimited campaigns, 60 posts/mo
+ * Public pricing (July 2026): exactly two paid subscriptions.
+ *   Trial     — $0      — 10 credits (one-time, 14 days)
+ *   Growth    — $49/mo  — 150 credits/month
+ *   Autopilot — $99/mo  — 500 credits/month
  *
- * Research basis:
- *   - 16+ posts/month = 4.5x more leads (HubSpot State of Marketing)
- *   - Starter is deliberately below this threshold → natural upgrade pressure to Growth
- *   - Growth (25 posts) crosses the 16+ threshold for 2-3 active platforms
- *   - Agency (60 posts) covers 3-4 clients at the 16-20/mo optimal level each
- *
- * Display names: Starter (id: starter), Growth (id: pro), Agency (id: business)
- * Plan IDs kept backward compatible for Stripe price ID lookups.
+ * Internal IDs `pro` and `business` stay stable for Stripe and the database.
+ * Legacy `starter` subscriptions remain supported but are no longer sold.
  *
  * Credit costs per action: see src/lib/credits.ts → CREDIT_COSTS
  * Referral bonus: +20 credits for both referrer and new user on signup
  */
 
 import Stripe from 'stripe'
+import {
+  CREDIT_PACKS,
+  PUBLIC_PAID_PLANS,
+  getCreditPack,
+  type CreditPackId,
+} from '@/lib/commercialPlans'
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY
 const billingFlag = process.env.NEXT_PUBLIC_BILLING_ENABLED
@@ -59,7 +58,7 @@ export function billingNotConfiguredResponse() {
 export interface PlanDefinition {
   id: string
   name: string
-  displayName: string     // Human-facing name (Growth, Agency)
+  displayName: string     // Human-facing name (Growth, Autopilot)
   price: number
   credits: number
   postsPerMonth: number   // Research-backed content volume
@@ -82,7 +81,7 @@ export const PLANS: PlanDefinition[] = [
     cta: 'Get Started Free',
     researchNote: 'Enough to experience the product — not enough for real marketing results',
     features: [
-      '10 AI credits — one-time (never refreshes)',
+      '10 AI credits — 14-day trial',
       '1 workspace',
       '1 campaign maximum',
       '3 AI posts to try',
@@ -92,73 +91,51 @@ export const PLANS: PlanDefinition[] = [
     ],
   },
   {
-    id: 'starter',
-    name: 'Starter',
-    displayName: 'Starter',
-    price: 19,
-    credits: 50,
-    postsPerMonth: 10,
-    stripePriceEnvKey: 'STRIPE_PRICE_STARTER',
-    cta: 'Start Starter — $19/mo',
-    researchNote: '10 posts/mo = consistent presence on 1-2 platforms. Below the lead-gen threshold by design.',
-    features: [
-      '50 AI credits / month (refreshes monthly)',
-      '1 workspace (1 brand)',
-      '2 campaigns / month',
-      '10 AI posts / month',
-      '2 social platforms',
-      'Full Campaign Wizard',
-      'Brand Brain (memory across campaigns)',
-      'No-watermark exports',
-      'Email support',
-    ],
-  },
-  {
     id: 'pro',
     name: 'Growth',
     displayName: 'Growth',
-    price: 49,
-    credits: 150,
-    postsPerMonth: 25,
+    price: PUBLIC_PAID_PLANS[0].priceUsd,
+    credits: PUBLIC_PAID_PLANS[0].monthlyCredits,
+    postsPerMonth: PUBLIC_PAID_PLANS[0].postsPerMonth,
     stripePriceEnvKey: 'STRIPE_PRICE_PRO',
     highlight: 'Most Popular',
     cta: 'Start Growth — $49/mo',
-    researchNote: '25 posts/mo crosses the research-proven 16+ threshold = 4.5x more leads (HubSpot)',
+    researchNote: 'Built for a founder or small team operating up to three brands.',
     features: [
       '150 AI credits / month (refreshes monthly)',
       '3 workspaces (3 brands)',
-      '5 campaigns / month',
-      '25 AI posts / month — crosses the 16+ leads threshold',
-      'All social platforms (unlimited)',
+      '10 campaigns / month',
+      '25 planned posts / month',
+      'Supported platforms based on connected provider access',
       'Campaign Memory — reviewed signals across campaigns',
       'Media uploads + Brand overlays',
       'A/B Testing + AI Rewrite',
-      'Analytics + ROI Dashboard',
-      'PDF + DOCX export',
-      'Priority email support',
+      'Verified platform analytics when eligible evidence is available',
+      'Printable HTML + JSON export',
+      'Human approval controls before publishing',
     ],
   },
   {
     id: 'business',
-    name: 'Agency',
-    displayName: 'Agency',
-    price: 99,
-    credits: 500,
-    postsPerMonth: 60,
+    name: 'Autopilot',
+    displayName: 'Autopilot',
+    price: PUBLIC_PAID_PLANS[1].priceUsd,
+    credits: PUBLIC_PAID_PLANS[1].monthlyCredits,
+    postsPerMonth: PUBLIC_PAID_PLANS[1].postsPerMonth,
     stripePriceEnvKey: 'STRIPE_PRICE_BUSINESS',
-    cta: 'Start Agency — $99/mo',
-    researchNote: '60 posts/mo = 3-4 clients each at the optimal 16-20 posts/month level',
+    cta: 'Start Autopilot — $99/mo',
+    researchNote: 'Built for multi-brand operators who need monitoring and higher execution capacity.',
     features: [
       '500 AI credits / month (refreshes monthly)',
       '10 workspaces (10 brands / clients)',
       'Unlimited campaigns / month',
       '60 AI posts / month',
-      'All social platforms + multi-account publishing',
-      '2 team seats included (+$19/extra)',
-      'White-label reports (your logo)',
-      'API access',
-      'Advanced analytics',
-      'Dedicated Slack support + onboarding call',
+      'Supported platform publishing when provider access allows',
+      'Human approval queue before execution',
+      'Printable HTML + JSON export',
+      'Evidence-backed performance analytics',
+      'Always-on scheduled monitoring and action queue',
+      'Provenance trail for performance recommendations',
     ],
   },
 ]
@@ -191,15 +168,15 @@ export const PLAN_VIDEO_QUOTA: Record<string, number> = {
 // Growth: 5 (3 brands × 1-2 campaigns each). Agency: unlimited (10 clients).
 
 export const PLAN_CAMPAIGN_LIMIT: Record<string, number> = {
-  FREE:     3,    // Raised to 3 — users need room to test the product
-  STARTER:  5,
+  FREE:     1,
+  STARTER:  2,    // legacy plan; no longer sold
   PRO:      10,
   GROWTH:   10,   // Alias for PRO display name
   BUSINESS: 999,
   AGENCY:   999,
   ADMIN:    999,  // Admin / founder — unlimited
-  free:     3,
-  starter:  5,
+  free:     1,
+  starter:  2,
   pro:      10,
   growth:   10,
   business: 999,
@@ -218,6 +195,23 @@ export const STRIPE_PRICES: Record<string, string> = {
   agency:   process.env.STRIPE_PRICE_BUSINESS || '',
 }
 
+/** One-time credit-pack prices. Empty until the matching Stripe Price exists. */
+export const STRIPE_CREDIT_PACK_PRICES: Record<CreditPackId, string> = {
+  'boost-100': process.env.STRIPE_PRICE_CREDITS_100 || '',
+  'scale-300': process.env.STRIPE_PRICE_CREDITS_300 || '',
+}
+
+export function getConfiguredCreditPack(packId: unknown) {
+  const pack = getCreditPack(packId)
+  if (!pack) return null
+  const priceId = STRIPE_CREDIT_PACK_PRICES[pack.id]
+  return priceId ? { ...pack, priceId } : null
+}
+
+export function areCreditPacksConfigured(): boolean {
+  return CREDIT_PACKS.every((pack) => Boolean(STRIPE_CREDIT_PACK_PRICES[pack.id]))
+}
+
 // ── Plan → monthly credit allocation ──────────────────────────────────────────
 // Matches PLANS array exactly. Credits refresh monthly on paid plans.
 // Free credits are one-time (never refresh) — creates upgrade pressure.
@@ -232,7 +226,6 @@ export const PLAN_CREDITS: Record<string, number> = {
   pro:      150,
   business: 500,
   agency:   500,
-  active:   150,
   ACTIVE:   150,
   ADMIN:    9999,
   admin:    9999,
@@ -284,8 +277,7 @@ export function planFromPriceId(priceId: string): string {
 
 export function planFromStatus(status: string): PlanDefinition {
   const normalized = status?.toUpperCase()
-  if (normalized === 'BUSINESS' || normalized === 'AGENCY') return PLANS[3]
-  if (normalized === 'PRO' || normalized === 'ACTIVE') return PLANS[2]
-  if (normalized === 'STARTER') return PLANS[1]
+  if (normalized === 'BUSINESS' || normalized === 'AGENCY') return PLANS[2]
+  if (normalized === 'PRO' || normalized === 'ACTIVE' || normalized === 'STARTER') return PLANS[1]
   return PLANS[0]
 }

@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendIntegrationExpiryEmail } from '@/lib/email/resend'
+import { cronAuthError } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,14 +62,8 @@ function daysUntilExpiry(integration: {
 }
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret && process.env.NODE_ENV !== 'development') {
-    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
-  }
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = cronAuthError(req)
+  if (authError) return authError
 
   const results = {
     workspacesChecked: 0,

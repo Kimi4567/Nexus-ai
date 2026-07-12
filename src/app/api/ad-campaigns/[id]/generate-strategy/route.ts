@@ -27,6 +27,7 @@ import {
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
+import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -102,10 +103,8 @@ async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, 
   await refundCredits(userId, 'AD_COPY', reason)
 }
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   let chargedUserId: string | null = null
   let chargedCredit: CreditDeductionOk | null = null
 
@@ -170,28 +169,10 @@ export async function POST(
     const reachEstimate = estimateReach(dailyBudget, durationDays, platformLabel, isMENA)
 
     // Build brand context
-    const brandCtx = brandProfile ? `
-BRAND PROFILE:
-Brand Name: ${brandProfile.brandName || 'Unknown'}
-Industry: ${brandProfile.industry || 'Unknown'}
-Description: ${brandProfile.description || ''}
-Primary Offer: ${brandProfile.primaryOffer || ''}
-Price Point: ${brandProfile.pricePoint || ''}
-Target Audience: ${brandProfile.targetAudience || ''}
-Audience Age: ${brandProfile.audienceAge || ''}
-Audience Location: ${brandProfile.audienceLocation || ''}
-Audience Pain Points: ${(brandProfile.audiencePainPoints || []).join(', ')}
-Audience Desires: ${(brandProfile.audienceDesires || []).join(', ')}
-Brand Tone: ${(brandProfile.toneKeywords || []).join(', ')}
-Unique Advantages: ${(brandProfile.uniqueAdvantages || []).join(', ')}
-Winning Hooks (from past campaigns): ${(brandProfile.winningHooks || []).slice(0, 5).join(' | ')}
-Failed Angles (DO NOT use): ${(brandProfile.failedAngles || []).slice(0, 3).join(', ')}
-Top Platforms by ROAS: ${(brandProfile.topPlatforms || []).join(', ')}
-Competitor Notes: ${brandProfile.competitorNotes || 'None'}
-Strategic Notes: ${(brandProfile.strategicNotes || '').slice(0, 500)}` : 'No Brand Profile available — generate a generic strategy.'
+    const brandCtx = buildBrandExecutionContext(brandProfile)
 
     const memoriesCtx = memories.length > 0
-      ? `\nPAST CAMPAIGN LEARNINGS:\n${memories.map((m: any) => JSON.stringify(m.learnings)).join('\n')}`
+      ? `\nPAST STRATEGY MEMORY CANDIDATES — NOT VERIFIED PERFORMANCE:\n${memories.map((m: any) => JSON.stringify(m.learnings)).join('\n')}`
       : ''
 
     const systemPrompt = `You are a world-class performance marketing strategist with 20+ years of experience.

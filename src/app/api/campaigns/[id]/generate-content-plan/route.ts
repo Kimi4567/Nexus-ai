@@ -39,22 +39,17 @@ import {
   validateContentPlanDraftForSave,
 } from '@/lib/contentPlanStructuredRenderer'
 import { resolveContentPlanBrandName } from '@/lib/contentPlanBrandContext'
+import { canMutateCampaignExecution } from '@/lib/strategyApproval'
+import { readLockedPlannedPostAllowance } from '@/lib/postCommercial'
 
 // Heavy gpt-4o generation (up to 18 posts) + optional media vision can run well
 // past the platform default. Match the sibling routes (engine, /generate) so the
 // function isn't killed mid-generation — the real cause of intermittent 502s.
 export const maxDuration = 60
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // ── Platform distribution helpers ─────────────────────────────────────────────
-
-const PLATFORM_LABELS: Record<string, string> = {
-  META:      'Facebook / Instagram',
-  LINKEDIN:  'LinkedIn',
-  TIKTOK:    'TikTok',
-  YOUTUBE:   'YouTube',
-}
 
 /**
  * Map any user-facing platform string to a valid IntegrationType enum value.
@@ -82,24 +77,10 @@ function toIntegrationType(raw: string): string {
   return map[raw.toUpperCase()] ?? 'META'
 }
 
-// ── Platform-native best posting hours (UTC-agnostic — local-ish heuristic) ───
-
-/**
- * Returns the best posting hour (0–23) for a platform.
- * Research-backed peaks: we cycle through multiple slots so consecutive posts
- * on the same platform hit different windows across the 30-day plan.
- */
-const PLATFORM_BEST_HOURS: Record<string, number[]> = {
-  META:     [11, 15, 20],  // Facebook/Instagram: 11am, 3pm, 8pm
-  LINKEDIN: [8,  12, 17],  // LinkedIn: 8am, 12pm, 5pm (Tue-Thu focused)
-  TIKTOK:   [19, 21, 12],  // TikTok: 7pm, 9pm, 12pm
-  YOUTUBE:  [14, 16, 20],  // YouTube: 2pm, 4pm, 8pm
-}
-
-/** FLC3: Pick platform-optimal posting hour for slot i */
-function bestHourForPlatform(platform: string, slotIndex: number): number {
-  const hours = PLATFORM_BEST_HOURS[platform] ?? [10, 14, 18]
-  return hours[slotIndex % hours.length]
+// Neutral review-time proposals. Nexus does not label a universal hour as
+// "best" without eligible workspace-specific platform evidence.
+function proposedReviewHour(slotIndex: number): number {
+  return [10, 14, 18][slotIndex % 3]
 }
 
 /** Distribute N posts across an array of platforms as evenly as possible */
@@ -130,7 +111,8 @@ function distributePosts(
 
 // ── Main POST handler ──────────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -149,6 +131,12 @@ export async function POST(req: NextRequest, { params }: Params) {
       },
     })
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+    if (!canMutateCampaignExecution(String(campaign.status))) {
+      return NextResponse.json({
+        error: 'Approve the campaign strategy before generating content.',
+        code: 'STRATEGY_APPROVAL_REQUIRED',
+      }, { status: 409 })
+    }
 
     const workspaceId = campaign.workspaceId
 
@@ -180,18 +168,10 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
 
     // ── 3. Check plan quota ────────────────────────────────────────────────
-    const dbUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { subscriptionStatus: true },
-    })
-    const subscription = await prisma.subscription.findFirst({
-      where: { userId },
-      select: { plan: true, status: true },
-    })
-
-    const planRaw = subscription?.plan?.toString().toLowerCase() ?? 'free'
-    const isActive = ['ACTIVE', 'active'].includes(subscription?.status?.toString() ?? '')
-    const planName = isActive ? planRaw : 'free'
+    const initialAllowance = await prisma.$transaction((tx) =>
+      readLockedPlannedPostAllowance(tx, userId, params.id),
+    )
+    const planName = initialAllowance.plan.toLowerCase()
     const quota = PLAN_QUOTAS[planName] ?? PLAN_QUOTAS['free']
 
     // Strategy-order runs are binding. Resolve this before credit deduction so
@@ -210,6 +190,16 @@ export async function POST(req: NextRequest, { params }: Params) {
         },
         { status: 422 },
       )
+    }
+    if (slotScope.totalSlots > initialAllowance.remaining) {
+      return NextResponse.json({
+        error: 'POST_LIMIT_REACHED',
+        limit: initialAllowance.limit,
+        current: initialAllowance.used,
+        requested: slotScope.totalSlots,
+        resetsAt: initialAllowance.periodEnd.toISOString(),
+        upgradeUrl: '/billing',
+      }, { status: 403 })
     }
 
     // ── 4. Deduct credits (flat 2 credits per content plan generation) ────
@@ -346,6 +336,26 @@ export async function POST(req: NextRequest, { params }: Params) {
     const pillarText = contentPillars.length
       ? contentPillars.slice(0, 5).join(', ')
       : 'brand awareness, engagement, conversion'
+    const operatingStrategyContext = JSON.stringify({
+      diagnosis: strategyForContent.diagnosis ?? null,
+      differentiation: strategyForContent.differentiation ?? null,
+      audienceSegments: Array.isArray(strategyForContent.audienceSegmentsDetailed)
+        ? strategyForContent.audienceSegmentsDetailed.slice(0, 4)
+        : [],
+      contentAngles: Array.isArray(strategyForContent.contentAnglesDetailed)
+        ? strategyForContent.contentAnglesDetailed.slice(0, 8)
+        : [],
+      funnelStages: Array.isArray(strategyForContent.funnelStages)
+        ? strategyForContent.funnelStages.slice(0, 5)
+        : [],
+      offerCTA: strategyForContent.offerCTAStrategy ?? null,
+      weeklyExecutionPlan: Array.isArray(strategyForContent.weeklyExecutionPlan)
+        ? strategyForContent.weeklyExecutionPlan.slice(0, 6)
+        : [],
+      risks: Array.isArray(strategyForContent.riskNotes)
+        ? strategyForContent.riskNotes.slice(0, 8)
+        : [],
+    }, null, 2).slice(0, 12_000)
 
     // Build language instruction — use the smart helper (bilingual = per-platform smart assignment, never mixed)
     const languageInstruction = getLanguageInstruction(bodyLanguage || undefined)
@@ -372,6 +382,8 @@ Target audience: ${targetAudience}
 Content pillars: ${pillarText}
 Tone: ${tone}
 Offer/CTA: ${offer}
+Agency-grade operating strategy context:
+${operatingStrategyContext}
 ${mediaContext}
 ${languageInstruction}
 ${proofPolicy}
@@ -397,6 +409,13 @@ Generate platform-native social media posts. Each post must:
 - Have a clear hook in the first sentence
 - Include a call to action
 - Follow the language rule above strictly
+- Advance one coherent campaign narrative instead of behaving like unrelated tips: establish the problem, explain the mechanism, handle objections/proof gaps, then invite the next conversion step.
+- Use a meaningfully different hook structure, audience pain, message angle, and CTA from every other post. Rephrasing the same advice does not count as a new post.
+- Ground the post in one detailed audience segment, content angle, or funnel stage from the operating strategy context when available.
+- Match the CTA to the funnel handoff. If the strategy says the team must reply, qualify, book, or send an offer, make that next step clear without inventing a destination.
+- Adapt the idea to the platform rather than copying one caption across channels. LinkedIn should lead with operational insight; Instagram should lead with a visual/saveable idea; short-form video should lead with a scene and retention hook.
+- Mention the brand only when it strengthens the message or CTA. Do not repeat the brand name mechanically in every post.
+- Treat missing proof, competitor data, tracking, or conversion details as a content/review gap. Never convert a gap into a factual claim.
 
 Return a JSON array of exactly ${slots.length} post objects:
 [
@@ -521,8 +540,7 @@ Rules:
 
       const scheduledAt = new Date(now)
       scheduledAt.setDate(now.getDate() + dayOffset)
-      // FLC3: Platform-native best posting hour instead of naive stagger
-      scheduledAt.setHours(bestHourForPlatform(slot.platform, i), 0, 0, 0)
+      scheduledAt.setHours(proposedReviewHour(i), 0, 0, 0)
 
       // Resolve media assignment:
       // 1. GPT may have assigned a specific media asset via assignedMediaIndex
@@ -603,18 +621,18 @@ Rules:
       )
     }
 
-    // Delete existing DRAFT posts only after the new plan has generated and
-    // passed the save gate, so a failed run cannot wipe the current review plan.
-    await (prisma.socialPost as any).deleteMany({
-      where: {
-        campaignId: params.id,
-        workspaceId,
-        status: 'DRAFT',
-        publishedAt: null,
-      },
+    // Recheck under an advisory lock at commit time. Concurrent generations
+    // cannot consume more planned-post allowance than the owner's plan permits.
+    await prisma.$transaction(async (tx) => {
+      const commitAllowance = await readLockedPlannedPostAllowance(tx, userId, params.id)
+      if (postsToCreate.length > commitAllowance.remaining) {
+        throw new Error(`POST_LIMIT_REACHED:${commitAllowance.limit}:${commitAllowance.periodEnd.toISOString()}`)
+      }
+      await (tx.socialPost as any).deleteMany({
+        where: { campaignId: params.id, workspaceId, status: 'DRAFT', publishedAt: null },
+      })
+      await (tx.socialPost as any).createMany({ data: postsToCreate })
     })
-
-    await (prisma.socialPost as any).createMany({ data: postsToCreate })
 
     // ── 9b. Image-matched caption generation for uploaded media posts ────────
     // For posts that have an uploaded image assigned, use GPT Vision to generate
@@ -789,7 +807,7 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
           const dayOffset = Math.max(1, Math.min(30, gen.scheduledDayOffset ?? i + 1))
           const scheduledAt = new Date(now)
           scheduledAt.setDate(now.getDate() + dayOffset)
-          scheduledAt.setHours(bestHourForPlatform(slot.platform, i), 0, 0, 0)
+          scheduledAt.setHours(proposedReviewHour(i), 0, 0, 0)
 
           let uploadedMediaId: string | null = null
           let effectiveMediaSource = mediaSource
@@ -875,13 +893,24 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
     console.error('[generate-content-plan POST]', err)
     // Refund — a failed content-plan generation must not charge the user (skip unlimited plans)
     if (contentPlanCharged) await refundCredits(userId, 'CONTENT_PLAN_GENERATION')
+    if (err instanceof Error && err.message.startsWith('POST_LIMIT_REACHED:')) {
+      const [, limit, ...resetParts] = err.message.split(':')
+      return NextResponse.json({
+        error: 'POST_LIMIT_REACHED',
+        limit: Number(limit),
+        resetsAt: resetParts.join(':'),
+        refunded: contentPlanCharged,
+        upgradeUrl: '/billing',
+      }, { status: 403 })
+    }
     return NextResponse.json({ error: 'Failed to generate content plan', refunded: contentPlanCharged }, { status: 500 })
   }
 }
 
 // ── DELETE: clear pending content plan ────────────────────────────────────────
 
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, props: Params) {
+  const params = await props.params
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

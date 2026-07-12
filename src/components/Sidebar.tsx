@@ -213,7 +213,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
 
   const { status: billingStatus, creditsRemaining, creditsMax, isUnlimited, loading: billingLoading } = useBillingStatus()
 
-  // Fetch pending Brain proposals count for sidebar dot
+  // Fetch the unified pending decision count for the sidebar badge.
   React.useEffect(() => {
     const fetchPending = async () => {
       const now = Date.now()
@@ -224,12 +224,19 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       try {
         const token = authHeader()
         if (!token) return
-        const res = await fetch('/api/brain/proposals?status=pending', {
-          headers: { Authorization: token },
-        })
-        if (!res.ok) return
-        const data = await res.json()
-        const count = Array.isArray(data.proposals) ? data.proposals.length : 0
+        const [brainResult, agentResult] = await Promise.allSettled([
+          fetch('/api/brain/proposals?status=pending', { headers: { Authorization: token } }),
+          fetch('/api/agents/suggestions?status=PENDING&limit=100', { headers: { Authorization: token } }),
+        ])
+        let count = 0
+        if (brainResult.status === 'fulfilled' && brainResult.value.ok) {
+          const data = await brainResult.value.json()
+          count += typeof data.total === 'number' ? data.total : Array.isArray(data.proposals) ? data.proposals.length : 0
+        }
+        if (agentResult.status === 'fulfilled' && agentResult.value.ok) {
+          const data = await agentResult.value.json()
+          count += typeof data.total === 'number' ? data.total : Array.isArray(data.suggestions) ? data.suggestions.length : 0
+        }
         setPendingProposals(count)
       } catch {
         // non-critical
@@ -269,29 +276,18 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
     {
       key: 'primary',
       items: [
-        { href: '/dashboard', labelAr: 'الصفحة الرئيسية', labelEn: 'Home', icon: Icons.dashboard },
-        { href: '/brand', labelAr: 'Brand Brain', labelEn: 'Brand Brain', icon: Icons.brain, dot: pendingProposals > 0 ? '#f59e0b' : undefined },
-        { href: '/strategy', labelAr: 'الاستراتيجية', labelEn: 'Strategy', icon: Icons.strategy },
+        { href: '/dashboard', labelAr: 'اليوم', labelEn: 'Today', icon: Icons.dashboard },
+        { href: '/approvals', labelAr: 'القرارات', labelEn: 'Decisions', icon: Icons.settings, badgeKey: pendingProposals > 0 ? `count:${pendingProposals}` : undefined, badgeColor: '#8B5CF6' },
         { href: '/campaigns', labelAr: 'الحملات', labelEn: 'Campaigns', icon: Icons.campaigns },
-        {
-          href: '/content-hub',
-          labelAr: 'مركز المحتوى',
-          labelEn: 'Content Hub',
-          icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="3" width="14" height="10" rx="2"/><path d="M5 7h6M5 10h4"/></svg>,
-        },
-        { href: '/studio', labelAr: 'استوديو الإبداع', labelEn: 'Creative Studio', icon: Icons.media },
-        { href: '/publish', labelAr: 'النشر', labelEn: 'Publishing', icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 8.5 14 2 10.5 14 8 9.5 2 8.5Z" strokeLinejoin="round"/><path d="M8 9.5 14 2" strokeLinecap="round"/></svg> },
-        { href: '/analytics', labelAr: 'التحليلات', labelEn: 'Analytics', icon: Icons.analytics },
-        { href: '/learning', labelAr: 'التعلّم', labelEn: 'Learning', icon: Icons.learning },
-        { href: '/automation', labelAr: 'الأتمتة', labelEn: 'Automation', icon: Icons.settings },
+        { href: '/analytics', labelAr: 'النتائج', labelEn: 'Results', icon: Icons.analytics },
+        { href: '/brand', labelAr: 'Brand Brain', labelEn: 'Brand Brain', icon: Icons.brain },
       ],
     },
     {
       key: 'secondary',
       separatorBefore: true,
       items: [
-        { href: '/approvals', labelAr: 'مركز الموافقات', labelEn: 'Approvals Center', icon: Icons.settings, badgeKey: pendingProposals > 0 ? `count:${pendingProposals}` : undefined, badgeColor: '#8B5CF6' },
-        { href: '/calendar', labelAr: 'التقويم', labelEn: 'Calendar', icon: Icons.calendar },
+        { href: '/automation', labelAr: 'غرفة التشغيل', labelEn: 'Operations', icon: Icons.strategy },
         { href: '/connections', labelAr: 'التكاملات', labelEn: 'Integrations', icon: Icons.connections },
         { href: '/settings', labelAr: 'الإعدادات', labelEn: 'Settings', icon: Icons.settings },
       ],

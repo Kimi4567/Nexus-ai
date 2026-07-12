@@ -353,6 +353,7 @@ model Campaign {
   @@index([lastViewedAt])
   @@index([shareToken])
   @@index([updatedAt])   // dashboard recent-campaigns ordering
+  @@index([workspaceId, status, updatedAt]) // active execution-monitor selection
 }
 
 model CampaignActivity {
@@ -801,6 +802,7 @@ enum BillingCycle {
 }
 
 enum ExportFormat {
+  HTML
   PDF
   VIDEO
   IMAGES
@@ -934,6 +936,7 @@ model SocialPost {
   @@index([scheduledAt])           // publish cron: find posts due for publishing
   @@index([status, scheduledAt])   // composite: WHERE status='SCHEDULED' AND scheduledAt<=NOW()
   @@index([publishMode])           // future: cron filters publishMode = AUTO
+  @@index([workspaceId, status, analyticsFetched]) // execution + analytics monitor selection
 }
 
 // Publishing Sprint PR1 — append-only audit trail of post lifecycle transitions.

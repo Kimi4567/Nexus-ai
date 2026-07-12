@@ -6,7 +6,7 @@ import { resolve } from 'path'
 export default defineConfig({
   // Use the automatic JSX runtime (matches Next.js) so component tests don't
   // need an explicit React import.
-  esbuild: { jsx: 'automatic' },
+  oxc: { jsx: { runtime: 'automatic' } },
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),

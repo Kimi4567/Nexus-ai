@@ -40,7 +40,7 @@ const PLAN_DISPLAY: Record<string, string> = {
   FREE: 'Free',       free: 'Free',
   STARTER: 'Starter', starter: 'Starter',
   PRO: 'Growth',      pro: 'Growth',
-  BUSINESS: 'Agency', business: 'Agency',
+  BUSINESS: 'Autopilot', business: 'Autopilot',
   ACTIVE: 'Growth',
 }
 
@@ -269,6 +269,8 @@ function NewCampaignPageInner() {
           form.append('timestamp', String(sigData.timestamp))
           form.append('signature', String(sigData.signature))
           form.append('folder', String(sigData.folder))
+          form.append('public_id', String(sigData.public_id))
+          form.append('overwrite', String(sigData.overwrite))
           form.append('resource_type', String(sigData.resource_type))
           xhr.send(form)
         })

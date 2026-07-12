@@ -1,99 +1,148 @@
 /**
  * GET /api/cron/agent-monitor
- * Runs daily at 06:00 UTC.
  *
- * Two jobs in one pass:
- * 1. Campaign Manager agent — checks all active workspaces, creates AgentSuggestion records
- * 2. Weekly reports — Mondays only
+ * Low-cost continuous execution monitor. Vercel invokes this hourly. Workspaces
+ * with recent campaign activity, scheduled/failed posts, or published posts
+ * waiting for analytics are evaluated every run; quiet workspaces remain on a
+ * deterministic once-daily shard. The dashboard queue is still real-time.
  *
- * Performance learning intentionally does not run here. The fetch-analytics cron owns that
- * path because it can require real platform analytics before proposing or storing a pattern.
- *
- * ⚠️  COST TRACKING NOTE (not user-billed):
- * runCampaignMonitor (orchestrator) may use gpt-4o-mini (campaign-manager.ts, max_tokens: 1500)
- * Estimated per workspace: ~$0.003
- *
- * At 1,000 active workspaces per run: ~$3–5/day = ~$90–150/month uncovered COGS.
- * Search Vercel logs for "[agent-monitor] COST" to monitor daily spend.
- * If daily workspaces > 500, consider rate-limiting to workspaces active in last 7 days.
+ * This route never calls an AI model, publishes content, changes budgets, or
+ * invents performance metrics. It only creates approval suggestions backed by
+ * Execution Truth evidence.
+ * The fetch-analytics cron owns that performance-learning path; this monitor
+ * only reports its owner as metadata for operational visibility.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { runCampaignMonitor, runReport } from '@/lib/agents/orchestrator'
+import { monitorWorkspaceExecution } from '@/lib/executionMonitorService'
+import { cronAuthError } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
-// ── Main handler ──────────────────────────────────────────────────────────────
+type WorkspaceRow = { id: string }
 
-export async function GET(req: NextRequest) {
-  // Verify cron secret — matches Vercel's Authorization: Bearer <CRON_SECRET> format
-  const authHeader = req.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret && process.env.NODE_ENV !== 'development') { return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 }) }
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+async function workspacesForRun(req: NextRequest, now: Date): Promise<{
+  rows: WorkspaceRow[]
+  shard: number | null
+  capped: boolean
+}> {
+  const requestedWorkspaceId = req.nextUrl.searchParams.get('workspaceId')?.trim()
+  if (requestedWorkspaceId) {
+    const workspace = await prisma.workspace.findFirst({
+      where: {
+        id: requestedWorkspaceId,
+        campaigns: { some: { status: { not: 'ARCHIVED' } } },
+      },
+      select: { id: true },
+    })
+    return { rows: workspace ? [workspace] : [], shard: null, capped: false }
   }
 
-  const results = {
+  const shard = now.getUTCHours()
+  const limit = 100
+  const rows = await prisma.$queryRawUnsafe<WorkspaceRow[]>(
+    `SELECT w."id"
+       FROM "Workspace" w
+      WHERE EXISTS (
+          SELECT 1
+            FROM "Campaign" c
+           WHERE c."workspaceId" = w."id"
+             AND c."status" <> 'ARCHIVED'
+        )
+        AND (
+          mod(abs(hashtext(w."id")::bigint), 24) = $1
+          OR EXISTS (
+            SELECT 1
+              FROM "Campaign" recent_campaign
+             WHERE recent_campaign."workspaceId" = w."id"
+               AND recent_campaign."status" <> 'ARCHIVED'
+               AND recent_campaign."updatedAt" >= NOW() - INTERVAL '48 hours'
+          )
+          OR EXISTS (
+            SELECT 1
+              FROM "SocialPost" active_post
+             WHERE active_post."workspaceId" = w."id"
+               AND (
+                 active_post."status" IN ('FAILED', 'SCHEDULED')
+                 OR (active_post."status" = 'PUBLISHED' AND active_post."analyticsFetched" = false)
+               )
+          )
+        )
+      ORDER BY w."id"
+      LIMIT $2`,
+    shard,
+    limit + 1,
+  )
+
+  return { rows: rows.slice(0, limit), shard, capped: rows.length > limit }
+}
+
+export async function GET(req: NextRequest) {
+  const startedAt = Date.now()
+  const authError = cronAuthError(req)
+  if (authError) return authError
+
+  const now = new Date()
+  const dryRun = req.nextUrl.searchParams.get('dryRun') === '1'
+  const selection = await workspacesForRun(req, now)
+  const totals = {
+    workspacesSelected: selection.rows.length,
     workspacesChecked: 0,
     campaignsChecked: 0,
+    actionsDetected: 0,
     suggestionsCreated: 0,
-    reportsCreated: 0,
-    performanceLearningOwner: 'fetch-analytics',
+    suggestionsSuppressed: 0,
+    skippedBecauseLocked: 0,
     errors: [] as string[],
   }
 
-  // Get all workspaces that have at least one campaign
-  const workspaces = await prisma.workspace.findMany({
-    where: {
-      campaigns: { some: { status: { in: ['ACTIVE', 'DRAFT'] } } },
-    },
-    select: { id: true },
-  })
-
-  results.workspacesChecked = workspaces.length
-
-  // ── Job 1: Campaign monitor ──────────────────────────────────────────────────
-  for (const ws of workspaces) {
-    try {
-      const monitorResult = await runCampaignMonitor(ws.id)
-      results.campaignsChecked += monitorResult.campaignsChecked
-      results.suggestionsCreated += monitorResult.suggestionsCreated
-      results.errors.push(...monitorResult.errors)
-    } catch (err: any) {
-      results.errors.push(`Workspace ${ws.id}: ${err?.message}`)
-    }
-  }
-
-  // ── Job 2: Weekly reports (Mondays only) ─────────────────────────────────────
-  const isMonday = new Date().getDay() === 1
-  if (isMonday) {
-    for (const ws of workspaces) {
-      try {
-        await runReport(ws.id, 'weekly')
-        results.reportsCreated++
-      } catch (err: any) {
-        results.errors.push(`Report ${ws.id}: ${err?.message}`)
+  // Small batches protect the Postgres connection pool while avoiding the old
+  // one-workspace-at-a-time N+1 latency.
+  for (let index = 0; index < selection.rows.length; index += 4) {
+    const batch = selection.rows.slice(index, index + 4)
+    const settled = await Promise.allSettled(
+      batch.map((workspace) => monitorWorkspaceExecution(workspace.id, { now, dryRun })),
+    )
+    settled.forEach((result, offset) => {
+      const workspaceId = batch[offset]?.id ?? 'unknown'
+      if (result.status === 'rejected') {
+        const message = result.reason instanceof Error ? result.reason.message : 'Unknown monitor error'
+        totals.errors.push(`Workspace ${workspaceId}: ${message}`)
+        return
       }
-    }
+      totals.workspacesChecked++
+      totals.campaignsChecked += result.value.campaignsChecked
+      totals.actionsDetected += result.value.actionsDetected
+      totals.suggestionsCreated += result.value.suggestionsCreated
+      totals.suggestionsSuppressed += result.value.suggestionsSuppressed
+      if (result.value.skippedBecauseLocked) totals.skippedBecauseLocked++
+    })
   }
 
-  // ── Cost summary log — search "[agent-monitor] COST" in Vercel to monitor ─────
-  const estimatedCostUSD = (
-    results.workspacesChecked * 0.003 // campaign monitor per workspace
-  ).toFixed(4)
-  console.log(
-    `[agent-monitor] COST workspaces=${results.workspacesChecked} ` +
-    `performanceLearningOwner=fetch-analytics ` +
-    `estimatedCostUSD=$${estimatedCostUSD} ts=${new Date().toISOString()}`
-  )
-  // ─────────────────────────────────────────────────────────────────────────────
+  const durationMs = Date.now() - startedAt
+  console.log('[execution-monitor]', JSON.stringify({
+    shard: selection.shard,
+    dryRun,
+    capped: selection.capped,
+    durationMs,
+    ...totals,
+  }))
 
   return NextResponse.json({
-    ok: true,
-    ...results,
-    estimatedCostUSD: parseFloat(estimatedCostUSD),
-    ts: new Date().toISOString(),
+    ok: totals.errors.length === 0,
+    monitor: 'execution-truth',
+    monitorVersion: 1,
+    mode: 'deterministic-no-ai',
+    performanceClaims: false,
+    autoExecution: false,
+    performanceLearningOwner: 'fetch-analytics',
+    dryRun,
+    shard: selection.shard,
+    capped: selection.capped,
+    durationMs,
+    ...totals,
+    ts: now.toISOString(),
   })
 }

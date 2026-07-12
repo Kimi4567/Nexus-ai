@@ -22,6 +22,7 @@ import {
   sendReEngagementEmail,
 } from '@/lib/email/resend'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
+import { cronAuthError } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,14 +54,8 @@ async function markSent(userId: string, prefs: any, key: string) {
 }
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret && process.env.NODE_ENV !== 'development') {
-    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
-  }
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = cronAuthError(req)
+  if (authError) return authError
 
   const results = {
     usersChecked: 0,

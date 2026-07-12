@@ -24,26 +24,19 @@ interface Props {
 
 const PLANS = [
   {
-    id: 'starter',
-    name: 'Starter',
-    price: '$19',
-    color: '#5E5CE6',
-    features: ['50 AI credits / month', '2 campaigns / month', '1 workspace', '10 AI posts / month'],
-  },
-  {
     id: 'pro',
     name: 'Growth',
     price: '$49',
     color: '#2563EB',
     popular: true,
-    features: ['150 AI credits / month', '5 campaigns / month', '3 workspaces', '25 AI posts / month', 'Analytics + exports'],
+    features: ['150 AI credits / month', '10 campaigns / month', '3 workspaces', '25 planned posts / month', 'Analytics + exports'],
   },
   {
     id: 'business',
-    name: 'Agency',
+    name: 'Autopilot',
     price: '$99',
     color: '#059669',
-    features: ['500 AI credits / month', 'Unlimited campaigns', '10 workspaces', '60 AI posts / month', 'White-label reports'],
+    features: ['500 AI credits / month', 'Unlimited campaigns', '10 workspaces', '60 planned posts / month', 'Continuous monitoring'],
   },
 ]
 
@@ -63,7 +56,7 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
   const subline =
     reason === 'no_credits'      ? "Upgrade now to keep generating campaigns, content, and strategies." :
     reason === 'low_credits'     ? "Don't get interrupted mid-campaign. Upgrade for more credits." :
-    reason === 'first_campaign'  ? "You've seen what Nexus AI can do. Upgrade to run unlimited campaigns with deeper AI every month." :
+    reason === 'first_campaign'  ? "You've seen what Nexus AI can do. Upgrade for more monthly campaign capacity and deeper AI workflows." :
     "Run strategy, content, images, and reporting with clear monthly credits."
 
   const handleUpgrade = async (planId: string) => {
@@ -109,9 +102,9 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
         </div>
 
         {/* Plans */}
-        <div className="p-6 grid grid-cols-3 gap-3">
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
           {message && (
-            <div className="col-span-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <div className="sm:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               {message}
             </div>
           )}

@@ -27,7 +27,7 @@ vi.mock('@/lib/credits', () => ({
   },
 }))
 
-const params = { params: { id: 'campaign_1', postId: 'post_1' } }
+const params = { params: Promise.resolve({ id: 'campaign_1', postId: 'post_1' }) }
 const makeReq = (body: unknown = {}) => ({ json: async () => body }) as any
 
 async function loadRoute() {

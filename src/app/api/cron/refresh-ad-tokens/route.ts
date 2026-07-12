@@ -20,15 +20,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { encryptToken, decryptToken } from '@/lib/tokenCrypto'
+import { cronAuthError } from '@/lib/cronAuth'
 
 export const maxDuration = 30
 
 export async function GET(req: NextRequest) {
-  // Verify cron secret
-  const cronSecret = req.headers.get('x-cron-secret') || req.nextUrl.searchParams.get('secret')
-  if (cronSecret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = cronAuthError(req)
+  if (authError) return authError
 
   const now = new Date()
   const fifteenDaysFromNow = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000)

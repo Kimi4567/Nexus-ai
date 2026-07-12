@@ -19,7 +19,7 @@
  *
  * After reset the user is restored to:
  *  - subscriptionStatus: FREE
- *  - aiCredits: 30 (free starter)
+ *  - aiCredits: 0 (the normal 10-credit trial is granted atomically on first use)
  *  - monthlyGenerations: 0
  *  - stripeCustomerId: null
  *  - referralCode: kept (non-sensitive)
@@ -28,8 +28,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
-
-const FREE_STARTER_CREDITS = 30
 
 export async function POST(req: NextRequest) {
   // ── Admin guard ────────────────────────────────────────────────────────────
@@ -60,48 +58,58 @@ export async function POST(req: NextRequest) {
   })
   if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
-  const log: string[] = []
-
   try {
-    // 1. Delete all workspaces — cascades everything beneath them
-    //    (campaigns, brand profiles, social posts, media, integrations,
-    //     agent runs, suggestions, reports, visuals, uploads, etc.)
-    const wsResult = await prisma.workspace.deleteMany({ where: { ownerId: userId } })
-    log.push(`Deleted ${wsResult.count} workspace(s) + all cascaded data`)
-
-    // 2. Delete Subscription row
-    const subResult = await prisma.subscription.deleteMany({ where: { userId } })
-    log.push(`Deleted ${subResult.count} subscription row(s)`)
-
-    // 3. Delete Usage rows
-    const usageResult = await (prisma as any).usage.deleteMany({ where: { userId } }).catch(() => ({ count: 0 }))
-    log.push(`Deleted ${usageResult.count} usage row(s)`)
-
-    // 4. Delete RateLimitEntry rows for this user
-    const rlResult = await (prisma as any).rateLimitEntry.deleteMany({
-      where: { key: { startsWith: `ai:${userId}` } },
-    }).catch(() => ({ count: 0 }))
-    const rlChat = await (prisma as any).rateLimitEntry.deleteMany({
-      where: { key: { startsWith: `chat:${userId}` } },
-    }).catch(() => ({ count: 0 }))
-    const rlCheckout = await (prisma as any).rateLimitEntry.deleteMany({
-      where: { key: { startsWith: `checkout:${userId}` } },
-    }).catch(() => ({ count: 0 }))
-    log.push(`Deleted ${rlResult.count + rlChat.count + rlCheckout.count} rate-limit entry/entries`)
-
-    // 5. Reset User to clean FREE state
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        subscriptionStatus: 'FREE',
-        aiCredits:          FREE_STARTER_CREDITS,
-        monthlyGenerations: 0,
-        stripeCustomerId:   null,
-        lastLoginAt:        null,
-        preferences:        {},
-      },
+    const summary = await prisma.$transaction(async (tx) => {
+      await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `account-reset:${userId}`)
+      const memberships = await tx.workspaceMember.deleteMany({ where: { userId } })
+      await tx.uploadSession.deleteMany({ where: { userId } })
+      const workspaces = await tx.workspace.deleteMany({ where: { ownerId: userId } })
+      const subscriptions = await tx.subscription.deleteMany({ where: { userId } })
+      const usage = await tx.usage.deleteMany({ where: { userId } })
+      // Delete debit transactions first; allocation rows cascade. Then remove
+      // all grant buckets so purchased/referral balances cannot reappear.
+      const creditTransactions = await tx.creditTransaction.deleteMany({ where: { userId } })
+      const creditGrants = await tx.creditGrant.deleteMany({ where: { userId } })
+      const rateLimits = await tx.rateLimitRecord.deleteMany({
+        where: {
+          OR: [
+            { key: { startsWith: `ai:${userId}` } },
+            { key: { startsWith: `chat:${userId}` } },
+            { key: { startsWith: `checkout:${userId}` } },
+            { key: { startsWith: `upload-session:${userId}` } },
+          ],
+        },
+      })
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          subscriptionStatus: 'FREE',
+          aiCredits: 0,
+          monthlyGenerations: 0,
+          stripeCustomerId: null,
+          lastLoginAt: null,
+          preferences: {},
+        },
+      })
+      return {
+        workspaces: workspaces.count,
+        memberships: memberships.count,
+        subscriptions: subscriptions.count,
+        usage: usage.count,
+        creditTransactions: creditTransactions.count,
+        creditGrants: creditGrants.count,
+        rateLimits: rateLimits.count,
+      }
     })
-    log.push(`Reset user to FREE / ${FREE_STARTER_CREDITS} credits`)
+
+    const log = [
+      `Deleted ${summary.workspaces} workspace(s) and cascaded workspace data`,
+      `Removed ${summary.memberships} membership(s) from other workspaces and cleared pending uploads`,
+      `Deleted ${summary.subscriptions} subscription row(s) and ${summary.usage} usage row(s)`,
+      `Deleted ${summary.creditTransactions} credit transaction(s) and ${summary.creditGrants} grant bucket(s)`,
+      `Deleted ${summary.rateLimits} rate-limit record(s)`,
+      'Reset user to FREE / 0 cached credits; the standard 10-credit trial is created on first use',
+    ]
 
     return NextResponse.json({
       ok:     true,
@@ -113,6 +121,6 @@ export async function POST(req: NextRequest) {
 
   } catch (err: any) {
     console.error('[admin/reset-account]', err)
-    return NextResponse.json({ error: err.message, log }, { status: 500 })
+    return NextResponse.json({ error: 'Account reset failed' }, { status: 500 })
   }
 }

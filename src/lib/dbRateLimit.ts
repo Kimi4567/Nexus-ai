@@ -150,27 +150,9 @@ export async function suggestRateLimitDb(userId: string) {
   return dbRateLimit(`suggest:${userId}`, { limit: 30, windowMs: 60 * 60_000 })
 }
 
-/**
- * Background Brand Brain learning — COGS guard.
- *
- * Brain-learning calls are NOT billed to user credits, so without a cap they
- * are uncovered cost that scales with activity (~$0.015 / gpt-4o call). This
- * limits background learning to a sane number per workspace per day so a busy
- * or abusive workspace can't run unbounded system AI spend.
- *
- * Default: 30 / workspace / day. Adjust BRAIN_LEARNING_DAILY_CAP env to tune
- * without a deploy.
- */
-export const BRAIN_LEARNING_DAILY_CAP = (() => {
-  const n = parseInt(process.env.BRAIN_LEARNING_DAILY_CAP || '', 10)
-  return Number.isFinite(n) && n > 0 ? n : 30
-})()
-
-export async function brainLearningCapDb(workspaceId: string) {
-  return dbRateLimit(`brainlearn:${workspaceId}`, {
-    limit: BRAIN_LEARNING_DAILY_CAP,
-    windowMs: 24 * 60 * 60_000,
-  })
+/** Signed upload sessions — limits orphaned Cloudinary assets and DB spam. */
+export async function uploadSessionRateLimitDb(userId: string) {
+  return dbRateLimit(`upload-session:${userId}`, { limit: 30, windowMs: 60 * 60_000 })
 }
 
 // ── Sync in-memory presets (backward-compat aliases) ─────────────────────────

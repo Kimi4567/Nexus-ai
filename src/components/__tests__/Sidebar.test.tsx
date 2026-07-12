@@ -131,25 +131,25 @@ describe('Sidebar credit presentation', () => {
     expect(screen.getByText('No credits left')).toBeTruthy()
   })
 
-  it('uses workflow navigation labels and keeps future modules out of primary navigation', () => {
+  it('uses the operator navigation and keeps specialist modules inside campaign flows', () => {
     render(<Sidebar collapsed={false} setCollapsed={() => {}} />)
 
-    expect(screen.getByText('Home')).toBeTruthy()
-    expect(screen.getByText('Brand Brain')).toBeTruthy()
-    expect(screen.getByText('Strategy')).toBeTruthy()
+    expect(screen.getByText('Today')).toBeTruthy()
+    expect(screen.getByText('Decisions')).toBeTruthy()
     expect(screen.getByText('Campaigns')).toBeTruthy()
-    expect(screen.getByText('Content Hub')).toBeTruthy()
-    expect(screen.getByText('Creative Studio')).toBeTruthy()
-    expect(screen.getByText('Publishing')).toBeTruthy()
-    expect(screen.getByText('Automation')).toBeTruthy()
-    expect(screen.getByText('Approvals Center')).toBeTruthy()
-    expect(screen.getByText('Calendar')).toBeTruthy()
-    expect(screen.getByText('Analytics')).toBeTruthy()
-    expect(screen.getByText('Learning')).toBeTruthy()
+    expect(screen.getByText('Results')).toBeTruthy()
+    expect(screen.getByText('Brand Brain')).toBeTruthy()
+    expect(screen.getByText('Operations')).toBeTruthy()
     expect(screen.getByText('Integrations')).toBeTruthy()
     expect(screen.getByText('Settings')).toBeTruthy()
     expect(document.querySelector('a[href="/billing"]')).toBeTruthy()
 
+    expect(screen.queryByText('Strategy')).toBeNull()
+    expect(screen.queryByText('Content Hub')).toBeNull()
+    expect(screen.queryByText('Creative Studio')).toBeNull()
+    expect(screen.queryByText('Publishing')).toBeNull()
+    expect(screen.queryByText('Learning')).toBeNull()
+    expect(screen.queryByText('Calendar')).toBeNull()
     expect(screen.queryByText('Templates')).toBeNull()
     expect(screen.queryByText('Score History')).toBeNull()
     expect(screen.queryByText('NEX — Studio')).toBeNull()
@@ -157,7 +157,7 @@ describe('Sidebar credit presentation', () => {
     expect(screen.queryByText('Sentinel — Monitor')).toBeNull()
   })
 
-  it('deduplicates pending-signal reads when the sidebar rerenders', async () => {
+  it('deduplicates unified pending-decision reads when the sidebar rerenders', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ proposals: [{ id: 'proposal-1' }] }),
@@ -165,11 +165,11 @@ describe('Sidebar credit presentation', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const rendered = render(<Sidebar collapsed={false} setCollapsed={() => {}} />)
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
 
     rendered.rerender(<Sidebar collapsed={false} setCollapsed={() => {}} />)
     await Promise.resolve()
 
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 })

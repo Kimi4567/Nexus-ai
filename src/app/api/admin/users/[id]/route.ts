@@ -15,7 +15,8 @@ async function requireAdmin(req: NextRequest) {
   return authUser
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const admin = await requireAdmin(req)
   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
@@ -34,7 +35,8 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const admin = await requireAdmin(req)
   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 

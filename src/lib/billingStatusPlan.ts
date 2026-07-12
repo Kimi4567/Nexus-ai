@@ -2,7 +2,7 @@ const ACTIVE_BILLING_STATUSES = new Set(['active', 'trialing', 'current', 'valid
 
 function normalizePlanName(value: unknown): string {
   const raw = typeof value === 'string' ? value.trim().toLowerCase() : ''
-  if (!raw) return 'active'
+  if (!raw || raw === 'active') return 'pro'
   if (raw === 'growth') return 'pro'
   if (raw === 'agency') return 'business'
   return raw

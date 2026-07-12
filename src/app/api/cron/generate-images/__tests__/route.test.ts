@@ -80,10 +80,10 @@ async function loadRoute() {
   vi.stubEnv('NODE_ENV', 'production')
   vi.stubEnv('CRON_SECRET', 'cron_secret')
   vi.stubEnv('FAL_KEY', 'fal_test_key')
-  vi.stubEnv('CLOUDINARY_CLOUD_NAME', '')
+  vi.stubEnv('CLOUDINARY_CLOUD_NAME', 'test-cloud')
   vi.stubEnv('NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME', '')
-  vi.stubEnv('CLOUDINARY_API_KEY', '')
-  vi.stubEnv('CLOUDINARY_API_SECRET', '')
+  vi.stubEnv('CLOUDINARY_API_KEY', 'test-key')
+  vi.stubEnv('CLOUDINARY_API_SECRET', 'test-secret')
   return import('../route')
 }
 
@@ -102,7 +102,9 @@ beforeEach(() => {
   mockGenerateWithFlux.mockResolvedValue({ imageUrl: 'https://fal.cdn/image-a.png' })
   mockApplyOverlay.mockImplementation((url: string) => `${url}?overlay=1`)
   mockPlatformToOverlay.mockReturnValue('square')
-  vi.stubGlobal('fetch', vi.fn())
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+    json: async () => ({ secure_url: 'https://res.cloudinary.com/test/image.png' }),
+  }))
 })
 
 afterEach(() => {
@@ -266,14 +268,14 @@ describe('GET /api/cron/generate-images — RF-6B refund safety', () => {
     expect(json).toEqual({
       processed: 1,
       results: [
-        { postId: 'post_a', status: 'ok', url: 'https://fal.cdn/image-a.png' },
+        { postId: 'post_a', status: 'ok', url: 'https://res.cloudinary.com/test/image.png' },
       ],
       runAt: expect.any(String),
     })
     expect(mockCheckAndDeduct).toHaveBeenCalledWith('user_1', 'IMAGE_GENERATION')
     expect(mockPrisma.socialPost.update).toHaveBeenCalledWith({
       where: { id: 'post_a' },
-      data: { imageUrl: 'https://fal.cdn/image-a.png' },
+      data: { imageUrl: 'https://res.cloudinary.com/test/image.png' },
     })
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()

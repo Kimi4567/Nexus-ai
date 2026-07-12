@@ -4,6 +4,7 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { createUploadError, getMediaTypeFromMime, getSafeFileName, isValidUploadMime, validateUploadSize } from '@/lib/uploadValidation'
 import { createRateLimiter } from '@/lib/dbRateLimit'
+import { assertWorkspaceAccess } from '@/lib/workspaceAccess'
 
 const perUserRateLimit = createRateLimiter(60 * 1000, 20)
 const perIpRateLimit = createRateLimiter(60 * 1000, 50)
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // If Cloudinary not configured, tell client to fallback to local
-  if (!process.env.CLOUDINARY_CLOUD_NAME) {
+  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
     return NextResponse.json({ fallback: true })
   }
 
@@ -66,10 +67,21 @@ export async function POST(req: Request) {
       }
       finalWorkspaceId = defaultWorkspace.id
     }
+    try {
+      await assertWorkspaceAccess(finalWorkspaceId, userId)
+    } catch {
+      return NextResponse.json(createUploadError(403, 'Workspace access denied', 'ACCESS_DENIED'), { status: 403 })
+    }
 
     const mime = file.type || 'application/octet-stream'
     if (!isValidUploadMime(mime)) {
       return NextResponse.json(createUploadError(415, 'Unsupported file type', 'UNSUPPORTED_TYPE'), { status: 415 })
+    }
+    if (mime.startsWith('video/')) {
+      return NextResponse.json(
+        createUploadError(400, 'Videos require the signed direct-upload session flow', 'DIRECT_UPLOAD_REQUIRED'),
+        { status: 400 },
+      )
     }
 
     const size = typeof file.size === 'number' ? file.size : null
@@ -123,4 +135,3 @@ export async function POST(req: Request) {
     return NextResponse.json(createUploadError(500, 'Upload failed', 'UPLOAD_FAILED'), { status: 500 })
   }
 }
-

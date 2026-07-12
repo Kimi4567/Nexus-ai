@@ -108,9 +108,9 @@ describe('getPlanDisplayName (PR-1H — one plan-name truth)', () => {
     expect(getPlanDisplayName('pro', 'ar')).toBe('جروث')
   })
 
-  it('maps "business" to Agency', () => {
-    expect(getPlanDisplayName('business', 'en')).toBe('Agency')
-    expect(getPlanDisplayName('business', 'ar')).toBe('وكالة')
+  it('maps "business" to Autopilot', () => {
+    expect(getPlanDisplayName('business', 'en')).toBe('Autopilot')
+    expect(getPlanDisplayName('business', 'ar')).toBe('أوتوبايلوت')
   })
 
   it('maps free + starter consistently', () => {
@@ -121,13 +121,13 @@ describe('getPlanDisplayName (PR-1H — one plan-name truth)', () => {
 
   it('accepts legacy aliases (growth/agency/active) → same names', () => {
     expect(getPlanDisplayName('growth', 'en')).toBe('Growth')
-    expect(getPlanDisplayName('agency', 'en')).toBe('Agency')
+    expect(getPlanDisplayName('agency', 'en')).toBe('Autopilot')
     expect(getPlanDisplayName('active', 'en')).toBe('Growth')
   })
 
   it('is case/whitespace insensitive', () => {
     expect(getPlanDisplayName('  PRO ', 'en')).toBe('Growth')
-    expect(getPlanDisplayName('Business', 'en')).toBe('Agency')
+    expect(getPlanDisplayName('Business', 'en')).toBe('Autopilot')
   })
 
   // The SAME id renders the SAME name regardless of which surface calls it.

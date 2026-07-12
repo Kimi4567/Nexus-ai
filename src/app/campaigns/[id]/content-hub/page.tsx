@@ -38,6 +38,7 @@ import { derivePostCreativeRequirement } from '@/lib/creativeRequirements'
 import { getDefaultTemplateForPlatform } from '@/lib/creativeTemplates'
 import AppShell from '@/components/AppShell'
 import StrategySpineCard from '@/components/StrategySpineCard'
+import { PostPlatformPublisher } from '@/components/publishing/PostPlatformPublisher'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1929,6 +1930,7 @@ export default function ContentHubPage() {
             <PostCard
               key={post.id}
               post={post}
+              campaignId={campaignId}
               pendingEdit={getPendingEdit(post.id)}
               brandName={brandProfile.brandName ?? campaign?.name ?? 'your_brand'}
               brandLogo={brandProfile.logoUrl ?? null}
@@ -1957,6 +1959,7 @@ export default function ContentHubPage() {
               onRewrite={(instruction) => requestRewrite(post.id, instruction)}
               onPickWinner={post.variantGroup ? () => pickVariant(post.id) : undefined}
               onManualPublish={() => openManualPublishModal(post)}
+              onPlatformPublished={() => loadData().then(() => undefined)}
             />
           )
 
@@ -2993,6 +2996,7 @@ function scoreCaption(caption: string, platform: string): { grade: 'A+' | 'A' | 
 
 interface PostCardProps {
   post: ContentPost
+  campaignId: string
   pendingEdit: Partial<ContentPost>
   brandName: string
   brandLogo: string | null
@@ -3018,10 +3022,12 @@ interface PostCardProps {
   onRewrite: (instruction: string) => Promise<void>
   onPickWinner?: () => void
   onManualPublish?: () => void
+  onPlatformPublished: () => void | Promise<void>
 }
 
 function PostCard({
   post,
+  campaignId,
   pendingEdit,
   brandName,
   brandLogo,
@@ -3043,6 +3049,7 @@ function PostCard({
   onRewrite,
   onPickWinner,
   onManualPublish,
+  onPlatformPublished,
 }: PostCardProps) {
   const { t, locale } = useI18n()
   const isAr = locale === 'ar'
@@ -3240,6 +3247,15 @@ function PostCard({
           )}
         </div>
       )}
+
+      <PostPlatformPublisher
+        postId={post.id}
+        campaignId={campaignId}
+        platform={post.platform}
+        status={post.status}
+        hasMedia={Boolean(post.imageUrl)}
+        onPublished={onPlatformPublished}
+      />
 
       {hasImage && (
         <div className="px-3 pb-3 pt-2" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
