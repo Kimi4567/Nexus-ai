@@ -108,6 +108,8 @@ export function canActivatePlatformCampaign({
   explicitPlatformActivationConfirmed,
   explicitSpendActivationConfirmed,
   explicitBudgetConfirmed,
+  explicitExecutionReadinessConfirmed,
+  executionReady,
 }: {
   platform: unknown
   localStatus: unknown
@@ -117,6 +119,8 @@ export function canActivatePlatformCampaign({
   explicitPlatformActivationConfirmed: unknown
   explicitSpendActivationConfirmed: unknown
   explicitBudgetConfirmed: unknown
+  explicitExecutionReadinessConfirmed: unknown
+  executionReady: unknown
 }): boolean {
   return (
     platform === 'META' &&
@@ -127,18 +131,29 @@ export function canActivatePlatformCampaign({
     adAccountHasApiAccess === true &&
     explicitPlatformActivationConfirmed === true &&
     explicitSpendActivationConfirmed === true &&
-    explicitBudgetConfirmed === true
+    explicitBudgetConfirmed === true &&
+    explicitExecutionReadinessConfirmed === true &&
+    executionReady === true
   )
 }
 
 export function canCreatePlatformDraft({
   explicitPlatformDraftConfirmed,
   explicitBudgetConfirmed,
+  explicitExecutionReadinessConfirmed,
+  executionReady,
 }: {
   explicitPlatformDraftConfirmed: unknown
   explicitBudgetConfirmed: unknown
+  explicitExecutionReadinessConfirmed: unknown
+  executionReady: unknown
 }): boolean {
-  return explicitPlatformDraftConfirmed === true && explicitBudgetConfirmed === true
+  return (
+    explicitPlatformDraftConfirmed === true &&
+    explicitBudgetConfirmed === true &&
+    explicitExecutionReadinessConfirmed === true &&
+    executionReady === true
+  )
 }
 
 export function paidMetricsSignalCopy(source: unknown) {

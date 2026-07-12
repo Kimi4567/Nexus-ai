@@ -26,6 +26,10 @@ import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { createMetaAdsApi, nexusToMetaTargeting, NEXUS_TO_META_OBJECTIVE } from '@/lib/adPlatforms/metaAdsApi'
 import { canCreatePlatformDraft, getBudgetTruth, mapPausedPlatformPushStatus } from '@/lib/paidBoundary'
+import {
+  evaluatePaidExecutionReadiness,
+  normalizePaidDestinationUrl,
+} from '@/lib/paidExecutionReadiness'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -85,18 +89,30 @@ export async function POST(
 // ── Meta push handler ──────────────────────────────────────────────────────
 async function handleMetaPush(campaign: Record<string, unknown>, body: Record<string, unknown>) {
   const adAccount = campaign.adAccount as Record<string, unknown> | null
+  const adSets = (campaign.adSets || []) as Array<Record<string, unknown>>
+  const allAds = adSets.flatMap(adSet => (adSet.ads as Array<Record<string, unknown>>) || [])
+  const readiness = evaluatePaidExecutionReadiness({
+    platform: campaign.platform,
+    budgetType: campaign.budgetType,
+    dailyBudget: campaign.dailyBudget,
+    lifetimeBudget: campaign.lifetimeBudget,
+    ads: allAds,
+    pageId: adAccount?.pageId,
+    requireMetaPage: adAccount?.hasApiAccess === true,
+  })
 
   // ── Dry-run if no API access ─────────────────────────────────────────
   if (!adAccount || !adAccount.hasApiAccess) {
     const api = createMetaAdsApi('dry_run_token', 'act_0')
-    const adSets = campaign.adSets as Array<Record<string, unknown>>
-    const allAds = adSets.flatMap(s => (s.ads as Array<Record<string, unknown>>) || [])
 
     const budgetTruth = getBudgetTruth({
-      amount: typeof campaign.dailyBudget === 'number' ? campaign.dailyBudget : null,
+      amount: readiness.budgetAmount,
       fallbackAmount: 50,
       explicitBudgetConfirmed: false,
     })
+    const destinationUrl = allAds
+      .map(ad => normalizePaidDestinationUrl(ad.destinationUrl))
+      .find(Boolean) || undefined
 
     const payload = api.buildDryRunPayload({
       campaignName: String(campaign.name),
@@ -110,7 +126,8 @@ async function handleMetaPush(campaign: Record<string, unknown>, body: Record<st
         primaryText: String(ad.primaryText || ''),
         cta: String(ad.callToAction || 'LEARN_MORE'),
       })),
-      destinationUrl: String(campaign.utmCampaign || ''),
+      destinationUrl,
+      pageId: typeof adAccount?.pageId === 'string' ? adAccount.pageId : undefined,
     })
 
     return NextResponse.json({
@@ -119,6 +136,8 @@ async function handleMetaPush(campaign: Record<string, unknown>, body: Record<st
       budgetSource: budgetTruth.budgetSource,
       budgetConfirmed: budgetTruth.budgetConfirmed,
       budgetValuePresent: budgetTruth.budgetValuePresent,
+      executionReady: readiness.ready,
+      blockers: readiness.blockers,
       payload,
       instructions: [
         'Go to Meta Ads Manager (business.facebook.com)',
@@ -132,7 +151,7 @@ async function handleMetaPush(campaign: Record<string, unknown>, body: Record<st
   // ── Paused platform draft creation ───────────────────────────────────
   try {
     const campaignBudgetTruth = getBudgetTruth({
-      amount: typeof campaign.dailyBudget === 'number' ? campaign.dailyBudget : null,
+      amount: readiness.budgetAmount,
       fallbackAmount: 50,
       explicitBudgetConfirmed: body.explicitBudgetConfirmed,
     })
@@ -140,15 +159,29 @@ async function handleMetaPush(campaign: Record<string, unknown>, body: Record<st
     if (!canCreatePlatformDraft({
       explicitPlatformDraftConfirmed: body.explicitPlatformDraftConfirmed,
       explicitBudgetConfirmed: body.explicitBudgetConfirmed,
+      explicitExecutionReadinessConfirmed: body.explicitExecutionReadinessConfirmed,
+      executionReady: readiness.ready,
     })) {
       return NextResponse.json({
-        error: 'Creating platform draft objects requires explicit confirmation. No ads were launched or changed.',
+        error: readiness.ready
+          ? 'Creating platform draft objects requires explicit confirmation. No ads were launched or changed.'
+          : 'The paid execution brief is incomplete. No Meta request was sent.',
+        mode: 'platform_draft_blocked',
+        blockers: readiness.blockers,
         budgetSource: campaignBudgetTruth.budgetSource,
         budgetValuePresent: campaignBudgetTruth.budgetValuePresent,
         budgetConfirmed: campaignBudgetTruth.budgetConfirmed,
         explicitPlatformDraftConfirmed: body.explicitPlatformDraftConfirmed === true,
         explicitBudgetConfirmed: body.explicitBudgetConfirmed === true,
-      }, { status: 400 })
+        explicitExecutionReadinessConfirmed: body.explicitExecutionReadinessConfirmed === true,
+      }, { status: readiness.ready ? 400 : 409 })
+    }
+
+    if (!adAccount.accessToken || !adAccount.platformAccountId || !adAccount.pageId) {
+      return NextResponse.json({
+        error: 'Meta account credentials or the verified Facebook Page are missing. No Meta request was sent.',
+        mode: 'platform_draft_blocked',
+      }, { status: 409 })
     }
 
     const api = createMetaAdsApi(
@@ -186,7 +219,7 @@ async function handleMetaPush(campaign: Record<string, unknown>, body: Record<st
     await sleep(300) // Rate limit buffer
 
     // 2. Create Ad Sets
-    const adSets = campaign.adSets as Array<Record<string, unknown>>
+    const uploadedImageHashes = new Map<string, string>()
     for (const adSet of adSets) {
       try {
         const targeting = adSet.targeting
@@ -220,21 +253,33 @@ async function handleMetaPush(campaign: Record<string, unknown>, body: Record<st
         const ads = adSet.ads as Array<Record<string, unknown>>
         for (const ad of ads) {
           try {
+            const destinationUrl = normalizePaidDestinationUrl(ad.destinationUrl)
+            const imageUrl = String(ad.imageUrl || '')
+            if (!destinationUrl || !imageUrl) {
+              throw new Error('Execution preflight failed for destination or reviewed image.')
+            }
+
+            let imageHash = uploadedImageHashes.get(imageUrl)
+            if (!imageHash) {
+              imageHash = await api.uploadAdImageFromUrl(imageUrl)
+              uploadedImageHashes.set(imageUrl, imageHash)
+            }
+
             // Creative first
             const creativeId = await api.createAdCreative({
               name: `Creative — ${ad.headline}`,
               object_story_spec: {
-                page_id: String(adAccount.pageId || '[[PAGE_ID_REQUIRED]]'),
+                page_id: String(adAccount.pageId),
                 link_data: {
                   message: String(ad.primaryText || ''),
-                  link: String(campaign.utmCampaign || 'https://example.com'),
+                  link: destinationUrl,
                   caption: String(ad.description || ''),
                   description: String(ad.description || ''),
                   call_to_action: {
                     type: String(ad.callToAction || 'LEARN_MORE'),
-                    value: { link: String(campaign.utmCampaign || 'https://example.com') },
+                    value: { link: destinationUrl },
                   },
-                  ...(ad.imageUrl ? { image_hash: String(ad.imageUrl) } : {}),
+                  image_hash: imageHash,
                 },
               },
             })
@@ -253,7 +298,11 @@ async function handleMetaPush(campaign: Record<string, unknown>, body: Record<st
 
             await db.ad.update({
               where: { id: String(ad.id) },
-              data: { platformAdId: metaAdId, status: 'PAUSED' },
+              data: {
+                platformAdId: metaAdId,
+                platformCreativeId: creativeId,
+                status: 'PAUSED',
+              },
             })
 
             await sleep(200)
@@ -270,7 +319,8 @@ async function handleMetaPush(campaign: Record<string, unknown>, body: Record<st
 
     return NextResponse.json({
       mode: 'platform_paused_draft',
-      success: true,
+      success: results.errors!.length === 0,
+      partial: results.errors!.length > 0,
       results,
       note: results.errors!.length > 0
         ? 'Some ads had errors — check results.errors for details'

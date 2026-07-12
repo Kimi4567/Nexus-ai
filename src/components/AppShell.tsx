@@ -1,12 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Sidebar from './Sidebar'
 import { useI18n } from '@/lib/i18n-context'
 
 interface AppShellProps {
   children: React.ReactNode
 }
+
+const SIDEBAR_PREFERENCE_KEY = 'nexus.sidebar.collapsed'
+const COMPACT_SIDEBAR_BREAKPOINT = 1680
 
 /**
  * AppShell — authenticated layout.
@@ -22,14 +25,48 @@ interface AppShellProps {
  *   - NO md:static / md:translate tricks that break fixed positioning
  */
 export default function AppShell({ children }: AppShellProps) {
-  const [collapsed, setCollapsed] = useState(false)
+  // Start compact so the first authenticated paint never squeezes the
+  // workspace before the real viewport and saved preference are available.
+  const [collapsed, setCollapsed] = useState(true)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [compactViewport, setCompactViewport] = useState(false)
   const { dir, t } = useI18n()
 
-  const sidebarW = collapsed ? 'w-16' : 'w-60'
+  useEffect(() => {
+    const applyResponsiveSidebar = () => {
+      const isCompact = window.innerWidth < COMPACT_SIDEBAR_BREAKPOINT
+      setCompactViewport(isCompact)
+
+      if (isCompact) {
+        setCollapsed(true)
+        return
+      }
+
+      const savedPreference = window.localStorage.getItem(SIDEBAR_PREFERENCE_KEY)
+      setCollapsed(savedPreference === 'true')
+    }
+
+    applyResponsiveSidebar()
+    window.addEventListener('resize', applyResponsiveSidebar)
+    return () => window.removeEventListener('resize', applyResponsiveSidebar)
+  }, [])
+
+  const setCollapsedWithPreference: typeof setCollapsed = (nextValue) => {
+    setCollapsed((currentValue) => {
+      const resolvedValue = typeof nextValue === 'function' ? nextValue(currentValue) : nextValue
+      if (!compactViewport || resolvedValue) {
+        window.localStorage.setItem(SIDEBAR_PREFERENCE_KEY, String(resolvedValue))
+      }
+      return resolvedValue
+    })
+  }
+
+  const layoutSidebarCollapsed = collapsed || compactViewport
+  const sidebarW = layoutSidebarCollapsed ? 'w-16' : 'w-60'
+  const displayedSidebarCollapsed = mobileOpen ? false : collapsed
 
   return (
-    <div dir="ltr" className="min-h-screen flex bg-[#F4F7FB]">
+    <div dir="ltr" className="nx-os-shell flex min-h-screen">
 
       {/* Mobile overlay */}
       {mobileOpen && (
@@ -37,6 +74,17 @@ export default function AppShell({ children }: AppShellProps) {
           aria-hidden="true"
           className="fixed inset-0 z-20 bg-slate-950/20 backdrop-blur-sm md:hidden"
           onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* On medium desktop widths the expanded sidebar behaves as a temporary
+          drawer, so viewport breakpoints cannot squeeze workspace card grids. */}
+      {compactViewport && !collapsed && !mobileOpen && (
+        <button
+          type="button"
+          aria-label={t('sidebar.collapse')}
+          className="fixed inset-0 z-20 hidden bg-slate-950/20 backdrop-blur-[1px] md:block"
+          onClick={() => setCollapsedWithPreference(true)}
         />
       )}
 
@@ -88,9 +136,12 @@ export default function AppShell({ children }: AppShellProps) {
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         <Sidebar
-          collapsed={collapsed}
-          setCollapsed={setCollapsed}
-          onMobileClose={() => setMobileOpen(false)}
+          collapsed={displayedSidebarCollapsed}
+          setCollapsed={setCollapsedWithPreference}
+          onMobileClose={() => {
+            setMobileOpen(false)
+            if (compactViewport) setCollapsed(true)
+          }}
         />
       </div>
 
@@ -101,7 +152,7 @@ export default function AppShell({ children }: AppShellProps) {
       <div className={`hidden md:block flex-shrink-0 transition-all duration-200 ${sidebarW}`} />
 
       {/* Main content — dir driven by locale from useI18n() */}
-      <main dir={dir} className="min-w-0 flex-1 min-h-screen overflow-y-visible transition-all duration-200 pt-12 md:pt-0">
+      <main dir={dir} className="nx-os-main min-h-screen min-w-0 flex-1 overflow-y-visible pt-12 transition-all duration-200 md:pt-0">
         {children}
       </main>
     </div>

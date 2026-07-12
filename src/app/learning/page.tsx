@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   Activity,
+  AlertTriangle,
   ArrowUpRight,
   BarChart3,
   BookOpen,
@@ -13,6 +14,7 @@ import {
   Clock3,
   Database,
   FileCheck2,
+  ExternalLink,
   GitBranch,
   Loader2,
   RefreshCw,
@@ -32,6 +34,15 @@ interface LearningSignal {
   field: string
   displayName: string
   reason: string
+  trigger: string | null
+  traceability: 'analytics_evidence' | 'campaign_record' | 'external_sources' | 'source_not_attached' | 'internal_signal'
+  sourceRefs: Array<{
+    url: string
+    title?: string
+    publisher?: string
+    publishedAt?: string
+  }>
+  canAccept: boolean
   campaignId: string | null
   at: string | null
 }
@@ -82,6 +93,7 @@ interface LearningOverview {
     analyticsBackedLessons: number
     workflowSignals: number
     performanceEvidenceRows: number
+    untraceableExternalSignals: number
   }
   recentSignals: LearningSignal[]
   recentWorkflowSignals: WorkflowSignal[]
@@ -155,7 +167,7 @@ function SummaryCard({
     slate: 'bg-slate-100 text-slate-600',
   }
   return (
-    <div className="rounded-[20px] border border-[#e3e8f3] bg-white p-4 shadow-[0_16px_42px_rgba(15,23,42,0.045)]">
+    <div className="nx-os-card p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-bold text-[#75819d]">{title}</p>
@@ -240,8 +252,8 @@ export default function LearningPage() {
 
   return (
     <AppShell>
-      <main dir={dir} className="min-h-screen bg-[#f6f8fc] text-[#071236]">
-        <div className="mx-auto max-w-[1540px] px-4 py-6 sm:px-6 lg:px-8">
+      <main dir={dir} className="nx-os-page">
+        <div className="nx-os-container">
           <LuxuryWorkspaceHeader
             pageTitle={ar ? 'التعلّم' : 'Learning'}
             pageSubtitle={ar ? 'ذاكرة موثقة من إشارات المراجعة ونتائج الأداء الحقيقية.' : 'A traceable memory of reviewed signals and real performance results.'}
@@ -251,7 +263,7 @@ export default function LearningPage() {
             secondaryLabel={ar ? 'فتح التحليلات' : 'Open analytics'}
           />
 
-          <section className="mb-5 overflow-hidden rounded-[26px] border border-[#dfe5f2] bg-white shadow-[0_22px_70px_rgba(15,23,42,0.055)]">
+          <section className="nx-os-panel mb-5 overflow-hidden">
             <div className="grid gap-5 bg-[radial-gradient(circle_at_88%_30%,rgba(124,99,255,0.16),transparent_34%),linear-gradient(135deg,#ffffff_0%,#f8f7ff_100%)] p-5 md:grid-cols-[1fr_auto] md:items-center lg:p-7">
               <div className="flex items-start gap-4">
                 <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] border border-violet-100 bg-white text-violet-600 shadow-[0_18px_45px_rgba(91,76,255,0.14)]">
@@ -277,7 +289,7 @@ export default function LearningPage() {
           </section>
 
           {error ? (
-            <section className="rounded-[24px] border border-rose-100 bg-white p-8 text-center shadow-sm">
+            <section className="nx-os-card border-rose-100 p-8 text-center">
               <p className="text-[15px] font-black text-[#071236]">{ar ? 'تعذر قراءة ذاكرة التعلم الآن.' : 'Learning memory could not be read.'}</p>
               <button type="button" onClick={load} className="mt-4 inline-flex h-11 items-center gap-2 rounded-[14px] bg-[#071236] px-5 text-[12px] font-black text-white">
                 <RefreshCw className="h-4 w-4" />
@@ -296,7 +308,7 @@ export default function LearningPage() {
 
               <section className="grid gap-5 xl:grid-cols-[1fr_390px]">
                 <div className="space-y-5">
-                  <div className="rounded-[24px] border border-[#e3e8f3] bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.05)]">
+                  <div className="nx-os-card p-5">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <h2 className="text-[18px] font-black">{ar ? 'آخر إشارات الذاكرة' : 'Recent memory signals'}</h2>
@@ -308,23 +320,65 @@ export default function LearningPage() {
                       </Link>
                     </div>
 
+                    {(overview?.counts.untraceableExternalSignals ?? 0) > 0 ? (
+                      <div className="mt-4 flex items-start gap-3 rounded-[16px] border border-amber-200 bg-amber-50 p-4">
+                        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                        <div>
+                          <p className="text-[12px] font-black text-amber-900">
+                            {ar ? 'إشارات خارجية محجوبة لغياب المصدر' : 'External signals withheld because their sources are missing'}
+                          </p>
+                          <p className="mt-1 text-[10px] font-bold leading-5 text-amber-700">
+                            {ar
+                              ? 'لن نعرض الادعاء كحقيقة ولن نسمح بتطبيقه على Brand Brain حتى يُرفق رابط المصدر.'
+                              : 'The claim is not shown as fact and cannot be applied to Brand Brain until a source URL is attached.'}
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
+
                     <div className="mt-5 divide-y divide-[#edf1f7]">
                       {loading ? [1, 2, 3, 4].map(item => <div key={item} className="my-3 h-16 animate-pulse rounded-[15px] bg-[#f0f3f8]" />) : overview?.recentSignals.length ? overview.recentSignals.map(signal => (
                         <div key={signal.id} className="grid gap-3 py-4 md:grid-cols-[auto_1fr_auto] md:items-center">
-                          <span className={`flex h-10 w-10 items-center justify-center rounded-[14px] ${signal.source === 'analytics' ? 'bg-emerald-50 text-emerald-600' : 'bg-violet-50 text-violet-600'}`}>
-                            {signal.source === 'analytics' ? <BarChart3 className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
+                          <span className={`flex h-10 w-10 items-center justify-center rounded-[14px] ${signal.traceability === 'source_not_attached' ? 'bg-amber-50 text-amber-600' : signal.source === 'analytics' ? 'bg-emerald-50 text-emerald-600' : 'bg-violet-50 text-violet-600'}`}>
+                            {signal.traceability === 'source_not_attached' ? <AlertTriangle className="h-5 w-5" /> : signal.source === 'analytics' ? <BarChart3 className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
                           </span>
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="text-[13px] font-black text-[#111b3f]">{fieldLabel(signal, ar)}</p>
-                              <span className={`rounded-full px-2 py-1 text-[10px] font-black ${signal.source === 'analytics' ? 'bg-emerald-50 text-emerald-700' : 'bg-violet-50 text-violet-700'}`}>
-                                {signal.source === 'analytics' ? (ar ? 'مدعوم بتحليلات' : 'Analytics-backed') : (ar ? 'إشارة مراجعة' : 'Review signal')}
+                              <span className={`rounded-full px-2 py-1 text-[10px] font-black ${signal.traceability === 'source_not_attached' ? 'bg-amber-50 text-amber-700' : signal.source === 'analytics' ? 'bg-emerald-50 text-emerald-700' : 'bg-violet-50 text-violet-700'}`}>
+                                {signal.traceability === 'source_not_attached'
+                                  ? (ar ? 'المصدر غير مرفق' : 'Source not attached')
+                                  : signal.source === 'analytics'
+                                    ? (ar ? 'مدعوم بتحليلات' : 'Analytics-backed')
+                                    : signal.traceability === 'external_sources'
+                                      ? (ar ? 'مصادر خارجية مرفقة' : 'External sources attached')
+                                      : (ar ? 'إشارة مراجعة' : 'Review signal')}
                               </span>
                               <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600">
                                 {signal.status === 'pending' ? (ar ? 'مقترح' : 'Suggested') : signal.status === 'accepted' ? (ar ? 'مطبق' : 'Applied') : (ar ? 'مرفوض' : 'Dismissed')}
                               </span>
                             </div>
-                            <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-5 text-[#77839d]">{signal.reason || (ar ? 'لا يوجد تفسير محفوظ لهذه الإشارة.' : 'No rationale was saved for this signal.')}</p>
+                            <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-5 text-[#77839d]">
+                              {signal.traceability === 'source_not_attached'
+                                ? (ar ? 'تم حجب الادعاء الخارجي لأنه غير قابل للتتبع. يمكن رفض الإشارة، ولا يمكن تطبيقها.' : 'The external claim is withheld because it is not traceable. It may be dismissed but cannot be applied.')
+                                : signal.reason || (ar ? 'لا يوجد تفسير محفوظ لهذه الإشارة.' : 'No rationale was saved for this signal.')}
+                            </p>
+                            {signal.sourceRefs.length > 0 ? (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {signal.sourceRefs.slice(0, 3).map((source, index) => (
+                                  <a
+                                    key={`${source.url}-${index}`}
+                                    href={source.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 rounded-full border border-[#dbe2f0] bg-white px-2 py-1 text-[9px] font-black text-[#5366f6]"
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                    {source.publisher || source.title || (ar ? `المصدر ${index + 1}` : `Source ${index + 1}`)}
+                                  </a>
+                                ))}
+                              </div>
+                            ) : null}
                           </div>
                           <div className="flex items-center gap-3 text-[10px] font-bold text-[#96a0b4] md:block md:text-end">
                             <span>{formatDate(signal.at, ar)}</span>
@@ -342,7 +396,7 @@ export default function LearningPage() {
                   </div>
 
                   <div className="grid gap-5 lg:grid-cols-2">
-                    <div className="rounded-[24px] border border-[#e3e8f3] bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.05)]">
+                    <div className="nx-os-card p-5">
                       <div className="flex items-center justify-between">
                         <h2 className="text-[16px] font-black">{ar ? 'أحداث التشغيل المحفوظة' : 'Saved workflow events'}</h2>
                         <Activity className="h-5 w-5 text-[#5366f6]" />
@@ -360,7 +414,7 @@ export default function LearningPage() {
                       </div>
                     </div>
 
-                    <div className="rounded-[24px] border border-[#e3e8f3] bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.05)]">
+                    <div className="nx-os-card p-5">
                       <div className="flex items-center justify-between">
                         <h2 className="text-[16px] font-black">{ar ? 'دليل الأداء' : 'Performance evidence'}</h2>
                         <ShieldCheck className="h-5 w-5 text-[#5366f6]" />
@@ -398,7 +452,7 @@ export default function LearningPage() {
                 </div>
 
                 <aside className="space-y-5">
-                  <div className="rounded-[24px] border border-[#e3e8f3] bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.05)]">
+                  <div className="nx-os-card p-5">
                     <div className="flex items-center justify-between">
                       <h2 className="text-[16px] font-black">{ar ? 'قواعد الثقة' : 'Trust rules'}</h2>
                       <ShieldCheck className="h-5 w-5 text-emerald-600" />
@@ -418,7 +472,7 @@ export default function LearningPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-[24px] border border-[#e3e8f3] bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.05)]">
+                  <div className="nx-os-card p-5">
                     <div className="flex items-center justify-between">
                       <h2 className="text-[16px] font-black">{ar ? 'الخطوة التالية الموثوقة' : 'Next trusted step'}</h2>
                       <Target className="h-5 w-5 text-[#5366f6]" />
@@ -444,7 +498,7 @@ export default function LearningPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-[24px] border border-[#e3e8f3] bg-[#071236] p-5 text-white shadow-[0_22px_55px_rgba(7,18,54,0.22)]">
+                  <div className="rounded-[14px] border border-[#e3e8f3] bg-[#071236] p-5 text-white shadow-[0_18px_44px_rgba(7,18,54,0.18)]">
                     <Sparkles className="h-6 w-6 text-[#a7b3ff]" />
                     <h2 className="mt-4 text-[17px] font-black">Brand Brain</h2>
                     <p className="mt-2 text-[11px] font-bold leading-6 text-slate-300">{ar ? 'ذاكرة العلامة تحتفظ بالسياق والإشارات التي راجعتها؛ نتائج الأداء لا تدخلها إلا من مسار موثّق.' : 'Brand memory stores context and reviewed signals; performance results enter only through a verified path.'}</p>

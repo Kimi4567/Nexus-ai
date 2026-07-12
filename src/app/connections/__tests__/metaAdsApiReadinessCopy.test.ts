@@ -17,9 +17,8 @@ describe('/connections Meta Ads API readiness copy', () => {
   it('keeps API readiness as a read-only operator-reviewed state for users', () => {
     expect(i18nSource).toContain('admin-only path after Meta approval evidence')
     expect(i18nSource).toContain('مسار إداري فقط بعد دليل موافقة Meta')
-    expect(connectionsSource).toContain('Read-only until execution')
-    expect(connectionsSource).toContain('No automatic change')
-    expect(connectionsSource).toContain('Review Meta Ads')
+    expect(connectionsSource).toContain('Read-only until an explicit action')
+    expect(connectionsSource).toContain('Connect Meta Ads permissions')
     expect(connectionsSource).toContain('Analytics become learning input only after real performance data arrives.')
     expect(connectionsSource).not.toContain('CONFIRM_META_APP_REVIEW_APPROVED')
     expect(connectionsSource).not.toContain('/api/admin/ad-accounts')

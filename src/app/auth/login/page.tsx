@@ -89,7 +89,7 @@ function LoginForm() {
         const brandReadiness = getBrandBrainReadiness(brandProfile)
         const campaignCount = statsData?.stats?.campaigns?.total ?? 0
         const contentPostsTotal = statsData?.stats?.contentPosts?.total ?? 0
-        const publishedPostsTotal = statsData?.stats?.publishedPosts?.total ?? 0
+        const approvedOrLaterPosts = statsData?.stats?.contentPosts?.approvedOrLater ?? 0
         const strategyState: StrategyState = campaignCount === 0 ? 'none' : (contentPostsTotal > 0 ? 'approved' : 'draft')
         const journey = getFirstRunJourney({
           hasWorkspace: true,
@@ -98,7 +98,7 @@ function LoginForm() {
           strategyState,
           hasCampaignOrContent: campaignCount > 0 || contentPostsTotal > 0,
           hasContent: contentPostsTotal > 0,
-          contentApproved: publishedPostsTotal > 0,
+          contentApproved: approvedOrLaterPosts > 0,
         })
 
         window.location.href = journey.state === 'execution_ready_later' ? '/dashboard' : journey.href

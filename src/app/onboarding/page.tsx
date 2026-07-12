@@ -227,6 +227,7 @@ export default function OnboardingPage() {
   const [firstIntent, setFirstIntent] = useState('')
   const [businessName, setBusinessName] = useState('')
   const [industry, setIndustry] = useState('')
+  const [businessDescription, setBusinessDescription] = useState('')
   const [region, setRegion] = useState('')
   const [customerLanguage, setCustomerLanguage] = useState<'ar' | 'en' | 'both' | ''>('')
   const [offer, setOffer] = useState('')
@@ -283,12 +284,24 @@ export default function OnboardingPage() {
     const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Date.now()
 
     try {
-      // 1) Ensure a workspace exists for this user.
-      await fetch('/api/workspaces', {
-        method: 'POST',
-        headers: { Authorization: token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, slug, description: industry }),
+      if (!token) throw new Error('Missing authenticated session')
+
+      // 1) Ensure a workspace exists for this user. Every response is checked so
+      // onboarding can never show a saved state when persistence failed.
+      const workspaceListResponse = await fetch('/api/workspaces', {
+        headers: { Authorization: token },
       })
+      if (!workspaceListResponse.ok) throw new Error('Unable to verify workspace')
+      const workspaces = await workspaceListResponse.json()
+
+      if (!Array.isArray(workspaces) || workspaces.length === 0) {
+        const workspaceResponse = await fetch('/api/workspaces', {
+          method: 'POST',
+          headers: { Authorization: token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, slug, description: businessDescription.trim() }),
+        })
+        if (!workspaceResponse.ok) throw new Error('Unable to create workspace')
+      }
 
       // 2) Save the starter fields as Brand Brain memory. No strategy is created.
       const strategicNotes = buildOnboardingStrategicNotes({
@@ -298,12 +311,13 @@ export default function OnboardingPage() {
         locale: ar ? 'ar' : 'en',
       })
 
-      await fetch('/api/brand', {
+      const brandResponse = await fetch('/api/brand', {
         method: 'POST',
         headers: { Authorization: token, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           brandName: name,
           industry: industry || 'other',
+          description: businessDescription.trim(),
           audienceLocation: region.trim() || null,
           languagePreference: customerLanguage || null,
           primaryOffer: offer.trim() || null,
@@ -314,6 +328,9 @@ export default function OnboardingPage() {
           strategicNotes,
         }),
       })
+      if (!brandResponse.ok) throw new Error('Unable to save Brand Brain')
+      const savedBrand = await brandResponse.json()
+      if (!savedBrand?.success || savedBrand?.pending) throw new Error('Brand Brain was not persisted')
 
       // Preserve existing first-run referral behavior (credit logic untouched).
       const pendingRef = typeof window !== 'undefined' ? localStorage.getItem('pendingReferralCode') : null
@@ -456,6 +473,7 @@ export default function OnboardingPage() {
     push(ar ? 'أول مساعدة مطلوبة' : 'First requested help', intentLabel ? (ar ? intentLabel.ar : intentLabel.en) : '')
     push(ar ? 'اسم النشاط' : 'Business name', businessName)
     push(ar ? 'المجال' : 'Industry', industryLabel ? (ar ? industryLabel.ar : industryLabel.en) : '')
+    push(ar ? 'وصف النشاط' : 'Business description', businessDescription)
     push(ar ? 'المنطقة / السوق' : 'Region / market', region)
     push(ar ? 'لغة العملاء' : 'Customer language', langLabel ? (ar ? langLabel.ar : langLabel.en) : '')
     push(ar ? 'المنتج أو الخدمة' : 'Product or service', offer)
@@ -472,7 +490,7 @@ export default function OnboardingPage() {
     const starterReadiness = getBrandBrainReadiness({
       brandName: businessName.trim() || undefined,
       industry: industry || undefined,
-      description: undefined,
+      description: businessDescription.trim() || undefined,
       targetAudience: idealCustomer.trim() || undefined,
       topPlatforms: platforms.filter(p => p !== 'none'),
     })
@@ -595,7 +613,21 @@ export default function OnboardingPage() {
   // STEPS 1–4
   // ════════════════════════════════════════════════════════════════════════
   const canContinueStep1 = firstIntent.length > 0
-  const canContinueStep2 = businessName.trim().length > 0 && industry.length > 0
+  const canContinueStep2 = businessName.trim().length > 0
+    && industry.length > 0
+    && businessDescription.trim().length >= 12
+  const canContinueStep3 = customerLanguage.length > 0 && goal.length > 0
+  const canContinueStep4 = offer.trim().length > 0 && idealCustomer.trim().length > 0
+  const canContinueStep5 = marketingStatus.length > 0 && platforms.length > 0
+  const currentStepReady = step === 1
+    ? canContinueStep1
+    : step === 2
+      ? canContinueStep2
+      : step === 3
+        ? canContinueStep3
+        : step === 4
+          ? canContinueStep4
+          : canContinueStep5
   const goNext = () => {
     if (step < TOTAL_STEPS) setStep(step + 1)
     else handleSaveBrandBrain()
@@ -671,6 +703,17 @@ export default function OnboardingPage() {
                 <option value="">{ar ? 'اختر المجال' : 'Select an industry'}</option>
                 {INDUSTRIES.map(i => <option key={i.value} value={i.value}>{ar ? i.ar : i.en}</option>)}
               </select>
+            </div>
+            <div>
+              <FieldLabel>{ar ? 'وصف مختصر للنشاط' : 'Short business description'}</FieldLabel>
+              <Helper>
+                {ar
+                  ? 'اشرح بوضوح ما الذي تبيعه أو تقدمه. هذا الوصف يدخل مباشرة في سياق الاستراتيجية.'
+                  : 'Explain clearly what you sell or provide. This description becomes direct strategy context.'}
+              </Helper>
+              <textarea className={inputClass} style={{ ...inputStyle, minHeight: 84, resize: 'none' }} value={businessDescription}
+                onChange={e => setBusinessDescription(e.target.value)}
+                placeholder={ar ? 'مثال: منصة تساعد العيادات على تنظيم المواعيد ومتابعة المرضى.' : 'e.g. A platform that helps clinics manage appointments and patient follow-up.'} />
             </div>
             <div>
               <FieldLabel>{ar ? 'المنطقة أو السوق المستهدف' : 'Region / target market'}</FieldLabel>
@@ -769,7 +812,7 @@ export default function OnboardingPage() {
 
         {/* Navigation */}
         <div className="mt-7">
-          <PrimaryButton onClick={goNext} disabled={saving || (step === 1 && !canContinueStep1) || (step === 2 && !canContinueStep2)}>
+          <PrimaryButton onClick={goNext} disabled={saving || !currentStepReady}>
             {saving
               ? (ar ? 'جارٍ الحفظ…' : 'Saving…')
               : step < TOTAL_STEPS

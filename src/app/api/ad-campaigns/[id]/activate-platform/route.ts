@@ -12,6 +12,7 @@ import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { createMetaAdsApi } from '@/lib/adPlatforms/metaAdsApi'
 import { canActivatePlatformCampaign } from '@/lib/paidBoundary'
+import { evaluatePaidExecutionReadiness } from '@/lib/paidExecutionReadiness'
 
 export const maxDuration = 30
 
@@ -40,6 +41,16 @@ export async function POST(
 
     const body = await req.json().catch(() => ({}))
     const adAccount = campaign.adAccount as Record<string, unknown> | null
+    const adSets = (campaign.adSets || []) as Array<Record<string, unknown> & {
+      ads?: Array<Record<string, unknown>>
+    }>
+    const readiness = evaluatePaidExecutionReadiness({
+      platform: campaign.platform,
+      budgetType: campaign.budgetType,
+      dailyBudget: campaign.dailyBudget,
+      lifetimeBudget: campaign.lifetimeBudget,
+      ads: adSets.flatMap(adSet => adSet.ads || []),
+    })
 
     if (campaign.platform !== 'META') {
       return NextResponse.json({
@@ -57,12 +68,17 @@ export async function POST(
       explicitPlatformActivationConfirmed: body.explicitPlatformActivationConfirmed,
       explicitSpendActivationConfirmed: body.explicitSpendActivationConfirmed,
       explicitBudgetConfirmed: body.explicitBudgetConfirmed,
+      explicitExecutionReadinessConfirmed: body.explicitExecutionReadinessConfirmed,
+      executionReady: readiness.ready,
     })
 
     if (!activationAllowed) {
       return NextResponse.json({
-        error: 'Paid activation requires a paused platform draft, approved API access, confirmed budget, and explicit launch/spend approval. No platform action was taken.',
+        error: readiness.ready
+          ? 'Paid activation requires a paused platform draft, approved API access, confirmed budget, and explicit launch/spend approval. No platform action was taken.'
+          : 'Paid execution readiness is incomplete. No platform action was taken.',
         mode: 'activation_blocked',
+        blockers: readiness.blockers,
         gates: {
           platform: campaign.platform,
           localStatus: campaign.status,
@@ -72,6 +88,8 @@ export async function POST(
           explicitPlatformActivationConfirmed: body.explicitPlatformActivationConfirmed === true,
           explicitSpendActivationConfirmed: body.explicitSpendActivationConfirmed === true,
           explicitBudgetConfirmed: body.explicitBudgetConfirmed === true,
+          explicitExecutionReadinessConfirmed: body.explicitExecutionReadinessConfirmed === true,
+          executionReady: readiness.ready,
         },
       }, { status: 400 })
     }
@@ -83,9 +101,6 @@ export async function POST(
       }, { status: 409 })
     }
 
-    const adSets = (campaign.adSets || []) as Array<Record<string, unknown> & {
-      ads?: Array<Record<string, unknown>>
-    }>
     const missingPlatformObjects: string[] = []
 
     if (!campaign.platformCampaignId) missingPlatformObjects.push('campaign.platformCampaignId')

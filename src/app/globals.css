@@ -10,7 +10,7 @@
 @layer base {
   :root {
     /* ── Core surfaces ── */
-    --nx-base:      #F5F5F7;
+    --nx-base:      #F6F8FC;
     --nx-surface:   #FFFFFF;
     --nx-surface-2: #F8FAFC;
     --nx-elevated:  #F9FAFB;
@@ -69,6 +69,14 @@
     --shadow-card:       0 1px 2px rgba(15,23,42,0.04), 0 10px 30px rgba(15,23,42,0.06);
     --shadow-card-hover: 0 2px 4px rgba(15,23,42,0.05), 0 16px 42px rgba(15,23,42,0.09);
     --shadow-panel:      0 12px 36px rgba(15,23,42,0.08);
+
+    /* ── Operating workspace geometry ── */
+    --nx-page-max: 1540px;
+    --nx-page-gutter: clamp(16px, 2vw, 32px);
+    --nx-card-radius: 14px;
+    --nx-panel-radius: 16px;
+    --nx-control-radius: 10px;
+    --nx-divider: rgba(15, 23, 42, 0.075);
 
     /* ── Agent colors ── */
     --agent-brain:      #5E5CE6;
@@ -284,13 +292,13 @@
 
   .nx-page-inner {
     width: 100%;
-    max-width: 1120px;
+    max-width: var(--nx-page-max);
     margin: 0 auto;
-    padding: 32px 16px;
+    padding: 24px var(--nx-page-gutter);
   }
 
   @media (min-width: 640px) {
-    .nx-page-inner { padding: 40px 24px; }
+    .nx-page-inner { padding-top: 28px; padding-bottom: 32px; }
   }
 
   .nx-page-header {
@@ -330,6 +338,124 @@
     border: 1px solid var(--nx-border);
     border-radius: 14px;
     box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+  }
+
+  /* ── Marketing OS workspace primitives ───────────────────── */
+  .nx-os-shell,
+  .nx-os-main,
+  .nx-os-page {
+    background: var(--nx-base);
+  }
+
+  .nx-os-page {
+    min-height: 100vh;
+    color: #0B1028;
+  }
+
+  .nx-os-container {
+    width: 100%;
+    max-width: var(--nx-page-max);
+    margin-inline: auto;
+    padding: 20px var(--nx-page-gutter) 32px;
+  }
+
+  .nx-os-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .nx-os-card {
+    min-width: 0;
+    border: 1px solid var(--nx-divider);
+    border-radius: var(--nx-card-radius);
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 1px 2px rgba(15,23,42,0.025), 0 10px 30px rgba(15,23,42,0.04);
+  }
+
+  .nx-os-card-interactive {
+    transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  }
+
+  .nx-os-card-interactive:hover {
+    transform: translateY(-1px);
+    border-color: rgba(94, 99, 255, 0.20);
+    box-shadow: 0 2px 4px rgba(15,23,42,0.035), 0 16px 38px rgba(15,23,42,0.065);
+  }
+
+  .nx-os-panel {
+    min-width: 0;
+    border: 1px solid var(--nx-divider);
+    border-radius: var(--nx-panel-radius);
+    background: #FFFFFF;
+    box-shadow: 0 14px 38px rgba(15,23,42,0.045);
+  }
+
+  .nx-os-section-head {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .nx-os-section-title {
+    color: #0B1028;
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1.35;
+    letter-spacing: 0;
+  }
+
+  .nx-os-section-copy {
+    margin-top: 3px;
+    max-width: 68ch;
+    color: #64748B;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.6;
+  }
+
+  .nx-os-icon {
+    display: inline-flex;
+    height: 36px;
+    width: 36px;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: #EEF2FF;
+    color: #5E63FF;
+  }
+
+  .nx-os-action-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border: 1px solid var(--nx-divider);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.96);
+    padding: 10px 12px;
+    box-shadow: 0 10px 30px rgba(15,23,42,0.045);
+  }
+
+  .nx-os-muted-band {
+    border: 1px solid rgba(94, 99, 255, 0.12);
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(238,242,255,0.80), rgba(248,250,252,0.92));
+  }
+
+  .nx-os-rule {
+    border-color: var(--nx-divider);
+  }
+
+  @media (max-width: 767px) {
+    .nx-os-container {
+      padding-top: 14px;
+      padding-bottom: 24px;
+    }
   }
 
   /* ── Trust / safety note compatibility ── */

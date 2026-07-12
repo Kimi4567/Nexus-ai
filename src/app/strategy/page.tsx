@@ -61,6 +61,9 @@ type StrategyPrimaryAction =
 function asArray(v: unknown): unknown[] {
   return Array.isArray(v) ? v : []
 }
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return Boolean(v && typeof v === 'object' && !Array.isArray(v))
+}
 function pillarLabel(p: unknown): string {
   if (typeof p === 'string') return p
   if (p && typeof p === 'object') {
@@ -101,6 +104,19 @@ function firstString(...values: unknown[]): string {
     }
   }
   return ''
+}
+
+function funnelStageLabel(value: unknown, ar: boolean): string {
+  const stage = typeof value === 'string' ? value.trim().toLowerCase() : ''
+  const labels: Record<string, [string, string]> = {
+    awareness: ['Awareness', 'الوعي'],
+    consideration: ['Consideration', 'الاعتبار'],
+    conversion: ['Conversion', 'التحويل'],
+    followup: ['Follow-up', 'المتابعة'],
+    'follow-up': ['Follow-up', 'المتابعة'],
+    retention: ['Retention', 'الاحتفاظ'],
+  }
+  return labels[stage]?.[ar ? 1 : 0] ?? (typeof value === 'string' ? value.trim() : '')
 }
 
 function clampPercent(value: number): number {
@@ -233,11 +249,11 @@ export default function StrategyPage() {
   }, [authLoading, isAuthenticated, router])
 
   // ── Derived, truthful state (no invention) ──────────────────────────────────
-  const hasStrategy = total > 0
   const recent = selectStrategyWorkbenchCampaign(campaigns, brandName)
-  const hasDraftStrategy = Boolean(recent?.status && recent.status.toLowerCase() === 'draft')
   const rawAi = (recent?.aiOutput ?? null) as Record<string, unknown> | null
   const rawStrat = (rawAi?.strategy ?? rawAi ?? null) as Record<string, unknown> | null
+  const hasStrategy = Boolean(recent && isRecord(rawStrat) && Object.keys(rawStrat).length > 0)
+  const hasDraftStrategy = Boolean(hasStrategy && recent?.status && recent.status.toLowerCase() === 'draft')
   const strategyScope = resolveStrategyScope(rawAi)
   const includesPaidPlanning = strategyScope.includesPaid
   const displayGuardContext = {
@@ -442,74 +458,91 @@ export default function StrategyPage() {
     : includesPaidPlanning
       ? (ar ? 'استراتيجية شاملة' : 'Full strategy')
       : (ar ? 'استراتيجية نمو عضوي' : 'Organic growth strategy')
-  const campaignGoal = firstString(
+  const savedCampaignGoal = firstString(
     recent?.goal,
     strat?.goal,
     strat?.campaignGoal,
     strat?.strategicGoal,
     ai?.goal,
     ai?.campaignGoal,
-  ) || (ar ? 'زيادة الوعي والتحويل عبر مسار تسويقي واضح.' : 'Increase awareness and conversion through a clear marketing path.')
-  const campaignPositioning = firstString(
+  )
+  const campaignGoal = savedCampaignGoal || (ar ? 'لا يوجد هدف محفوظ في الاستراتيجية الحالية.' : 'No goal is saved in the current strategy.')
+  const savedCampaignPositioning = firstString(
     strat?.positioning,
     strat?.brandPositioning,
     strat?.valueProposition,
     ai?.positioning,
     ai?.valueProposition,
-  ) || (ar ? 'تموضع واضح يربط وعد العلامة باحتياج الجمهور.' : 'A clear position that connects the brand promise to audience demand.')
-  const audienceLabels = uniqueLabels([
+  )
+  const campaignPositioning = savedCampaignPositioning || (ar ? 'لا يوجد بيان تموضع محفوظ في الاستراتيجية الحالية.' : 'No positioning statement is saved in the current strategy.')
+  const strategyAudienceLabels = uniqueLabels([
+    firstString(strat?.targetAudienceRefined),
     ...asArray(strat?.targetAudience),
     ...asArray(strat?.audiences),
+    ...asArray(strat?.audienceSegments),
+    ...asArray(strat?.audienceSegmentsDetailed).map((item) => firstString(
+      isRecord(item) ? item.segment : item,
+      item,
+    )),
     ...asArray(ai?.targetAudience),
     ...asArray(ai?.audiences),
-  ].map(textLabel).filter(Boolean)).slice(0, 4)
-  const safeAudiences = audienceLabels.length > 0 ? audienceLabels : [
-    ar ? 'الجمهور الأساسي' : 'Primary audience',
-    ar ? 'صناع القرار' : 'Decision makers',
-    ar ? 'مستخدمون يبحثون عن حل واضح' : 'Users seeking a clear solution',
-  ]
-  const safePillars = pillars.length > 0 ? pillars : [
-    ar ? 'التثقيف والثقة' : 'Education and trust',
-    ar ? 'حلول عملية' : 'Practical solutions',
-    ar ? 'إثبات ونتائج' : 'Proof and results',
-    ar ? 'مجتمع وعروض' : 'Community and offers',
-  ]
+    ...asArray(ai?.audienceSegments),
+    ...asArray(ai?.audienceSegmentsDetailed).map((item) => firstString(
+      isRecord(item) ? item.segment : item,
+      item,
+    )),
+  ].map((item) => typeof item === 'string' ? item : textLabel(item)).filter(Boolean)).slice(0, 4)
+  const brandAudienceFallback = firstString(brandProfile?.targetAudience)
+  const audienceLabels = strategyAudienceLabels.length > 0
+    ? strategyAudienceLabels
+    : brandAudienceFallback
+      ? [brandAudienceFallback]
+      : []
+  const audienceUsesBrandFallback = strategyAudienceLabels.length === 0 && Boolean(brandAudienceFallback)
+  const safeAudiences = audienceLabels.length > 0 ? audienceLabels : [ar ? 'لا توجد شرائح جمهور محفوظة.' : 'No audience segments are saved.']
+  const safePillars = pillars.length > 0 ? pillars : [ar ? 'لا توجد ركائز محتوى محفوظة.' : 'No content pillars are saved.']
   const safeMessages = uniqueLabels([...hooks, ...ctas]).slice(0, 4)
-  const messageCards = (safeMessages.length > 0 ? safeMessages : [
-    ar ? 'ابدأ برسالة واضحة ومحددة.' : 'Start with a clear, specific message.',
-    ar ? 'اربط الوعد بما يهم الجمهور.' : 'Connect the promise to what the audience cares about.',
-    ar ? 'اختم بخطوة عملية واحدة.' : 'End with one practical next step.',
-  ]).slice(0, 3)
+  const messageCards = (safeMessages.length > 0 ? safeMessages : [ar ? 'لا توجد رسائل أساسية محفوظة.' : 'No core messages are saved.']).slice(0, 3)
 
-  const dataConfidence = clampPercent(
-    35
-    + (brandActive ? 12 : 4)
-    + (hasStrategy ? 16 : 0)
-    + (hasCurrentBrandOrganicData ? 14 : 0)
-    + (!platformSummary.isEmpty ? 10 : 0)
-    + (includesPaidPlanning ? 3 : 0),
+  const coveragePercent = (checks: boolean[]) => Math.round((checks.filter(Boolean).length / checks.length) * 100)
+  const dataConfidence = coveragePercent([
+    brandActive,
+    hasStrategy,
+    hasCurrentBrandOrganicData,
+    !platformSummary.isEmpty,
+    !strategyBrandMismatch,
+  ])
+  const executionReadiness = coveragePercent([
+    hasStrategy,
+    pillars.length > 0,
+    safeMessages.length > 0,
+    !platformSummary.isEmpty,
+    !strategyBrandMismatch,
+  ])
+  const positioningClarity = coveragePercent([
+    Boolean(savedCampaignGoal),
+    Boolean(savedCampaignPositioning),
+    audienceLabels.length > 0,
+  ])
+  const messageStrength = coveragePercent([
+    hooks.length > 0,
+    ctas.length > 0,
+    pillars.length > 0,
+  ])
+  const contentDirectionReady = Boolean(
+    hasStrategy &&
+    !strategyBrandMismatch &&
+    !strategyScope.paidOnly &&
+    audienceLabels.length > 0 &&
+    pillars.length > 0 &&
+    safeMessages.length > 0 &&
+    !platformSummary.isEmpty
   )
-  const executionReadiness = clampPercent(
-    28
-    + (hasStrategy ? 18 : 0)
-    + (safePillars.length >= 3 ? 10 : 0)
-    + (!platformSummary.isEmpty ? 10 : 0)
-    + (!strategyBrandMismatch ? 12 : -16)
-    + (hasDraftStrategy ? 4 : 0),
-  )
-  const positioningClarity = clampPercent(70 + (campaignPositioning ? 12 : 0) + (safeAudiences.length > 2 ? 6 : 0))
-  const messageStrength = clampPercent(68 + (messageCards.length >= 3 ? 12 : 0) + (safePillars.length >= 4 ? 8 : 0))
 
   const channelRows = platformSummary.isEmpty
-    ? [
-        { label: 'Instagram', value: 35, color: '#5E63FF' },
-        { label: 'TikTok', value: 25, color: '#22C55E' },
-        { label: 'LinkedIn', value: 20, color: '#0A66C2' },
-        { label: ar ? 'أخرى' : 'Other', value: 20, color: '#F59E0B' },
-      ]
+    ? [{ label: ar ? 'لا توجد قنوات محفوظة' : 'No channels saved', color: '#94A3B8' }]
     : platformSummary.labels.slice(0, 5).map((label, index) => ({
         label,
-        value: [35, 25, 20, 10, 10][index] ?? 10,
         color: ['#5E63FF', '#22C55E', '#0A66C2', '#F59E0B', '#EF4444'][index] ?? '#64748B',
       }))
 
@@ -525,7 +558,7 @@ export default function StrategyPage() {
       icon: Users,
       title: ar ? 'شرائح الجمهور' : 'Audience segments',
       value: safeAudiences.slice(0, 2).join(' · '),
-      score: safeAudiences.length >= 3 ? 88 : 70,
+      score: audienceLabels.length > 0 ? 100 : 0,
       tone: '#2563EB',
     },
     {
@@ -546,7 +579,7 @@ export default function StrategyPage() {
       icon: Layers,
       title: ar ? 'ركائز المحتوى' : 'Content pillars',
       value: safePillars.slice(0, 2).join(' · '),
-      score: safePillars.length >= 4 ? 86 : 72,
+      score: pillars.length > 0 ? 100 : 0,
       tone: '#F59E0B',
     },
   ]
@@ -562,8 +595,8 @@ export default function StrategyPage() {
   const workflowSteps = [
     { label: 'Brand Brain', number: '01', icon: Brain, status: ar ? 'تم' : 'Done', href: '/brand' },
     { label: ar ? 'الاستراتيجية' : 'Strategy', number: '02', icon: Target, status: ar ? 'الحالي' : 'Current', href: '/strategy' },
-    { label: ar ? 'المحتوى' : 'Content', number: '03', icon: FileText, status: ar ? 'التالي' : 'Next', href: recentContentHubHref },
-    { label: ar ? 'الإبداع' : 'Creative', number: '04', icon: Lightbulb, status: ar ? 'جاهزية' : 'Ready', href: recent?.id ? `/campaigns/${recent.id}?tab=creative` : '/studio' },
+    { label: ar ? 'المحتوى' : 'Content', number: '03', icon: FileText, status: contentDirectionReady ? (ar ? 'جاهز للمراجعة' : 'Ready for review') : (ar ? 'يحتاج مدخلات' : 'Needs inputs'), href: recentContentHubHref },
+    { label: ar ? 'الإبداع' : 'Creative', number: '04', icon: Lightbulb, status: contentDirectionReady ? (ar ? 'بعد بريف المحتوى' : 'After content brief') : (ar ? 'مقفل' : 'Locked'), href: recent?.id ? `/campaigns/${recent.id}?tab=creative` : '/studio' },
     { label: ar ? 'النشر' : 'Publish', number: '05', icon: Send, status: ar ? 'مقفل' : 'Locked', href: recentPublishHref },
     { label: ar ? 'الأداء' : 'Performance', number: '06', icon: BarChart3, status: ar ? 'بعد البيانات' : 'After data', href: recentPerformanceHref },
   ]
@@ -579,24 +612,58 @@ export default function StrategyPage() {
     { label: ar ? '08 المخاطر' : '08 Risks', href: '#strategy-risks' },
   ]
 
-  const phaseCards = [
-    { number: '01', title: ar ? 'بناء الوعي' : 'Build awareness', detail: ar ? 'رسائل أساسية وتعريف واضح.' : 'Core messages and a clear introduction.', cta: ar ? 'اكتشف' : 'Discover' },
-    { number: '02', title: ar ? 'اعتبار وتفاعل' : 'Consideration', detail: ar ? 'إثبات، مقارنة، وتجربة.' : 'Proof, comparison, and experience.', cta: ar ? 'شاهد' : 'Watch' },
-    { number: '03', title: ar ? 'تحويل' : 'Conversion', detail: ar ? 'عرض محدد وخطوة واحدة.' : 'Specific offer and one next step.', cta: ar ? 'اطلب' : 'Request' },
-    { number: '04', title: ar ? 'ولاء وتكرار' : 'Retention', detail: ar ? 'متابعة وتحفيز للرجوع.' : 'Follow-up and reasons to return.', cta: ar ? 'تابع' : 'Follow' },
+  const rawExecutionStages = [
+    ...asArray(strat?.funnelStages),
+    ...asArray(ai?.funnelStages),
   ]
+  const rawWeeklyStages = rawExecutionStages.length > 0
+    ? []
+    : [...asArray(strat?.weeklyExecutionPlan), ...asArray(strat?.weeklyPlan)]
+  const mappedExecutionStages = (rawExecutionStages.length > 0 ? rawExecutionStages : rawWeeklyStages)
+    .slice(0, 4)
+    .map((item) => {
+      const record = isRecord(item) ? item : null
+      const stageTitle = funnelStageLabel(record?.stage, ar)
+      return {
+        sourceKey: firstString(record?.stage, record?.week, record?.objective, record?.title, record?.name, item).toLowerCase(),
+        title: stageTitle || firstString(record?.objective, record?.title, record?.name, item),
+        detail: firstString(record?.message, record?.userMindset, record?.keyMessage, record?.nextStep, record?.contentType),
+        cta: firstString(record?.cta),
+      }
+    })
+    .filter((stage) => stage.title || stage.detail || stage.cta)
+  const executionStageKeys = new Set<string>()
+  const executionStages = mappedExecutionStages
+    .filter((stage) => {
+      const key = stage.sourceKey || stage.title.trim().toLowerCase()
+      if (!key || executionStageKeys.has(key)) return false
+      executionStageKeys.add(key)
+      return true
+    })
+    .map((stage, index) => ({ ...stage, number: String(index + 1).padStart(2, '0') }))
+  const duplicateExecutionStageCount = mappedExecutionStages.length - executionStages.length
 
   const sidebarSteps = [
     { number: '01', title: ar ? 'مراجعة الاستراتيجية' : 'Review strategy', state: ar ? 'الحالي' : 'Current', detail: ar ? 'راجع المنطق قبل الانتقال إلى الإنتاج.' : 'Review logic before moving to production.' },
-    { number: '02', title: ar ? 'تحويل إلى مركز المحتوى' : 'Move to Content Hub', state: ar ? 'جاهز' : 'Ready', detail: ar ? 'حوّل الركائز والرسائل إلى منشورات.' : 'Turn pillars and messages into posts.' },
-    { number: '03', title: ar ? 'فتح استوديو الإبداع' : 'Open Creative Studio', state: ar ? 'في الانتظار' : 'Pending', detail: ar ? 'أنتج الأصول البصرية بعد بريف واضح.' : 'Produce assets after a clear creative brief.' },
+    { number: '02', title: ar ? 'تحويل إلى مركز المحتوى' : 'Move to Content Hub', state: contentDirectionReady ? (ar ? 'جاهز للمراجعة' : 'Ready for review') : (ar ? 'يحتاج مدخلات' : 'Needs inputs'), detail: contentDirectionReady ? (ar ? 'حوّل الركائز والرسائل إلى مسودات للمراجعة.' : 'Turn pillars and messages into review drafts.') : (ar ? 'أكمل الجمهور والرسائل والركائز والقنوات أولاً.' : 'Complete audience, messages, pillars, and channels first.') },
+    { number: '03', title: ar ? 'فتح استوديو الإبداع' : 'Open Creative Studio', state: contentDirectionReady ? (ar ? 'بعد بريف المحتوى' : 'After content brief') : (ar ? 'مقفل' : 'Locked'), detail: ar ? 'أنتج الأصول البصرية بعد بريف محتوى واضح.' : 'Produce assets after a clear content brief.' },
     { number: '04', title: ar ? 'التحقق من جاهزية النشر' : 'Check publish readiness', state: ar ? 'في الانتظار' : 'Pending', detail: ar ? 'حسابات، صلاحيات، وموافقة صريحة.' : 'Accounts, permissions, and explicit approval.' },
   ]
+  const strategyInputChecks = [
+    Boolean(savedCampaignGoal),
+    audienceLabels.length > 0,
+    Boolean(savedCampaignPositioning),
+    safeMessages.length > 0,
+    pillars.length > 0,
+    !platformSummary.isEmpty,
+  ]
+  const savedStrategyInputCount = strategyInputChecks.filter(Boolean).length
+  const missingStrategyInputCount = strategyInputChecks.length - savedStrategyInputCount
   const readinessCards = [
-    { title: ar ? 'وضوح التموقع' : 'Positioning clarity', value: positioningClarity, label: ar ? 'وعد واضح' : 'Clear promise', icon: Diamond, color: '#22C55E' },
-    { title: ar ? 'قوة الرسائل' : 'Message strength', value: messageStrength, label: ar ? 'قوي جداً' : 'Very strong', icon: MessageCircle, color: '#5E63FF' },
-    { title: ar ? 'جاهزية التنفيذ' : 'Execution readiness', value: executionReadiness, label: ar ? 'جاهز للمراجعة' : 'Ready to review', icon: Rocket, color: '#7C3AED' },
-    { title: ar ? 'ثقة البيانات' : 'Data trust', value: dataConfidence, label: ar ? 'موثوقة' : 'Reliable', icon: BarChart3, color: '#F59E0B' },
+    { title: ar ? 'تغطية التموقع' : 'Positioning coverage', value: positioningClarity, label: ar ? 'مدخلات محفوظة' : 'Saved inputs', icon: Diamond, color: '#22C55E' },
+    { title: ar ? 'تغطية الرسائل' : 'Message coverage', value: messageStrength, label: ar ? 'مدخلات محفوظة' : 'Saved inputs', icon: MessageCircle, color: '#5E63FF' },
+    { title: ar ? 'تغطية مدخلات التنفيذ' : 'Execution input coverage', value: executionReadiness, label: ar ? 'ليست وعد أداء' : 'Not a performance score', icon: Rocket, color: '#7C3AED' },
+    { title: ar ? 'تغطية المصادر' : 'Source coverage', value: dataConfidence, label: ar ? 'ليست ثقة إحصائية' : 'Not statistical confidence', icon: BarChart3, color: '#F59E0B' },
   ]
   const currentTruthRows = [
     {
@@ -676,7 +743,7 @@ export default function StrategyPage() {
 	                      {campaignTitle}
 	                    </h1>
                     <span className="rounded-full bg-emerald-50 px-3 py-1 text-[12px] font-black text-emerald-600">
-                      {hasStrategy && !strategyBrandMismatch ? (ar ? 'نشطة' : 'Active') : (ar ? 'تحتاج مراجعة' : 'Needs review')}
+	                      {hasStrategy && !strategyBrandMismatch ? (ar ? 'سجل استراتيجية محفوظ' : 'Strategy record saved') : (ar ? 'تحتاج مراجعة' : 'Needs review')}
                     </span>
                   </div>
                   <p className="mt-1 max-w-2xl text-[13px] font-semibold leading-6 text-slate-500">{campaignGoal}</p>
@@ -729,9 +796,9 @@ export default function StrategyPage() {
 	                    </h2>
 	                    <div id="strategy-diagnosis" className="mt-3 grid scroll-mt-6 gap-2 sm:grid-cols-3">
 	                      {[
-	                        [ar ? 'القيمة الاستراتيجية' : 'Strategic value', ar ? 'جديدة جداً' : 'Very new'],
-	                        [ar ? 'جاهزية التوقع' : 'Forecast readiness', `${dataConfidence}%`],
-                        [ar ? 'مستوى الثقة' : 'Confidence', ar ? 'مرتفع' : 'High'],
+	                        [ar ? 'سجل الاستراتيجية' : 'Strategy record', hasStrategy ? (ar ? 'محفوظ' : 'Saved') : (ar ? 'مفقود' : 'Missing')],
+	                        [ar ? 'تغطية المصادر' : 'Source coverage', `${dataConfidence}%`],
+                        [ar ? 'نطاق الاستراتيجية' : 'Strategy scope', campaignSubtitle],
                       ].map(([label, value]) => (
                         <div key={label} className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
                           <p className="text-[11px] font-black text-slate-400">{label}</p>
@@ -761,10 +828,10 @@ export default function StrategyPage() {
                   </div>
 	                  <div className="grid grid-cols-2 gap-2" dir={ar ? 'rtl' : 'ltr'}>
 	                    <div className="rounded-[18px] border border-slate-200 bg-white p-2 text-center">
-	                      <ReadinessRing value={dataConfidence} label={ar ? 'ثقة البيانات' : 'Data trust'} size="sm" />
+	                      <ReadinessRing value={dataConfidence} label={ar ? 'تغطية المصادر' : 'Source coverage'} size="sm" />
 	                    </div>
 	                    <div className="space-y-2 rounded-[18px] border border-slate-200 bg-white p-3">
-	                      <p className="text-[12px] font-black text-slate-500">{ar ? 'مستوى الجاهزية' : 'Readiness'}</p>
+	                      <p className="text-[12px] font-black text-slate-500">{ar ? 'تغطية التنفيذ' : 'Execution coverage'}</p>
 	                      <p className="text-[24px] font-black text-[#0B1028]">{executionReadiness}%</p>
                       <ProgressBar value={executionReadiness} />
                     </div>
@@ -840,10 +907,14 @@ export default function StrategyPage() {
                           <div key={audience} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
                             <div className="flex items-center justify-between">
                               <p className="text-[14px] font-black text-[#0B1028]">{audience}</p>
-                              <span className="rounded-full bg-white px-2 py-1 text-[11px] font-black text-[#5E63FF]">{[40, 30, 20, 10][index] ?? 10}%</span>
+                              <span className="rounded-full bg-white px-2 py-1 text-[11px] font-black text-[#5E63FF]">{String(index + 1).padStart(2, '0')}</span>
                             </div>
                             <p className="mt-2 text-[12px] font-semibold leading-5 text-slate-500">
-                              {ar ? 'احتياج واضح، اعتراضات محددة، ورسالة يجب اختبارها قبل التنفيذ.' : 'Clear need, specific objections, and a message to test before execution.'}
+                              {audienceLabels.length > 0
+                                ? audienceUsesBrandFallback
+                                  ? (ar ? 'سياق جمهور محفوظ في Brand Brain؛ لم يفترض NEXUS حجمه أو أولويته.' : 'Audience context saved in Brand Brain; NEXUS has not inferred its size or priority.')
+                                  : (ar ? 'شريحة محفوظة من الاستراتيجية؛ لم يفترض NEXUS حجمها أو أولويتها.' : 'Saved strategy segment; NEXUS has not inferred its size or priority.')
+                                : (ar ? 'أكمل شريحة الجمهور قبل تحويل الاستراتيجية إلى تنفيذ.' : 'Complete the audience segment before moving strategy into execution.')}
                             </p>
                           </div>
                         ))}
@@ -869,7 +940,9 @@ export default function StrategyPage() {
                           {safePillars.slice(0, 5).map((pillar, index) => (
                             <div key={pillar} className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
                               <span className="text-[13px] font-bold text-slate-700">{pillar}</span>
-                              <span className="rounded-full px-2 py-1 text-[11px] font-black" style={{ background: ['#ECFDF5', '#EEF2FF', '#FEF3C7', '#FCE7F3', '#F1F5F9'][index], color: ['#059669', '#5E63FF', '#D97706', '#BE185D', '#64748B'][index] }}>{[25, 25, 20, 15, 15][index] ?? 10}%</span>
+                              <span className="rounded-full px-2 py-1 text-[11px] font-black" style={{ background: ['#ECFDF5', '#EEF2FF', '#FEF3C7', '#FCE7F3', '#F1F5F9'][index], color: ['#059669', '#5E63FF', '#D97706', '#BE185D', '#64748B'][index] }}>
+                                {pillars.length > 0 ? (ar ? 'ضمن النطاق' : 'In scope') : (ar ? 'مفقود' : 'Missing')}
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -879,13 +952,13 @@ export default function StrategyPage() {
 
                   <div className="space-y-4">
                     <div id="strategy-measurement" className="scroll-mt-6 rounded-[20px] border border-slate-200 bg-white p-4">
-                      <h3 className="mb-4 flex items-center gap-2 text-[15px] font-black text-[#0B1028]"><PieChart className="h-4 w-4 text-[#5E63FF]" />{ar ? 'مزيج القنوات' : 'Channel mix'}</h3>
+                      <h3 className="mb-4 flex items-center gap-2 text-[15px] font-black text-[#0B1028]"><PieChart className="h-4 w-4 text-[#5E63FF]" />{ar ? 'نطاق القنوات' : 'Channel scope'}</h3>
                       <div className="grid gap-4 sm:grid-cols-[130px_minmax(0,1fr)] sm:items-center">
                         <div className="flex justify-center">
-                          <div className="flex h-28 w-28 items-center justify-center rounded-full bg-[conic-gradient(#5E63FF_0_35%,#22C55E_35%_60%,#0A66C2_60%_80%,#F59E0B_80%_100%)]">
+                          <div className="flex h-28 w-28 items-center justify-center rounded-full border-[12px] border-[#E8EBFF] bg-white">
                             <div className="flex h-20 w-20 flex-col items-center justify-center rounded-full bg-white text-center">
-                              <span className="text-[18px] font-black text-[#0B1028]">{ar ? 'تقديري' : 'Draft'}</span>
-                              <span className="text-[10px] font-bold text-slate-400">{ar ? 'حسب النطاق' : 'by scope'}</span>
+                              <span className="text-[24px] font-black text-[#0B1028]">{platformSummary.labels.length}</span>
+                              <span className="text-[10px] font-bold text-slate-400">{ar ? 'قنوات محفوظة' : 'saved channels'}</span>
                             </div>
                           </div>
                         </div>
@@ -893,7 +966,7 @@ export default function StrategyPage() {
                           {channelRows.map((row) => (
                             <div key={row.label} className="flex items-center justify-between gap-3">
                               <PlatformDot label={row.label} color={row.color} />
-                              <span className="text-[12px] font-black text-slate-500">{row.value}%</span>
+                              <span className="text-[12px] font-black text-slate-500">{platformSummary.isEmpty ? (ar ? 'مفقود' : 'Missing') : (ar ? 'ضمن النطاق' : 'In scope')}</span>
                             </div>
                           ))}
                         </div>
@@ -901,13 +974,13 @@ export default function StrategyPage() {
                     </div>
 
                     <div className="rounded-[20px] border border-slate-200 bg-white p-4">
-                      <h3 className="mb-4 flex items-center gap-2 text-[15px] font-black text-[#0B1028]"><BarChart3 className="h-4 w-4 text-[#5E63FF]" />{ar ? 'مؤشرات القياس' : 'Measurement indicators'}</h3>
+                      <h3 className="mb-4 flex items-center gap-2 text-[15px] font-black text-[#0B1028]"><BarChart3 className="h-4 w-4 text-[#5E63FF]" />{ar ? 'مؤشرات تغطية المدخلات' : 'Input coverage indicators'}</h3>
                       <div className="space-y-3">
                         {[
-                          [ar ? 'ثقة البيانات' : 'Data confidence', dataConfidence],
-                          [ar ? 'جاهزية التنفيذ' : 'Execution readiness', executionReadiness],
-                          [ar ? 'وضوح الرسالة' : 'Message clarity', messageStrength],
-                          [ar ? 'وضوح التموقع' : 'Positioning clarity', positioningClarity],
+                          [ar ? 'تغطية المصادر' : 'Source coverage', dataConfidence],
+                          [ar ? 'تغطية التنفيذ' : 'Execution coverage', executionReadiness],
+                          [ar ? 'تغطية الرسائل' : 'Message coverage', messageStrength],
+                          [ar ? 'تغطية التموقع' : 'Positioning coverage', positioningClarity],
                         ].map(([label, value]) => (
                           <div key={String(label)}>
                             <div className="mb-1 flex items-center justify-between text-[12px] font-bold text-slate-600">
@@ -925,17 +998,34 @@ export default function StrategyPage() {
 
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
                 <SoftCard id="strategy-execution" className="scroll-mt-6 p-4">
-                  <h3 className="mb-4 flex items-center gap-2 text-[16px] font-black text-[#0B1028]"><Rocket className="h-4 w-4 text-[#5E63FF]" />{ar ? 'خطة التنفيذ الأسبوعية على 4 مراحل' : 'Weekly execution plan in 4 stages'}</h3>
-                  <div className="grid gap-3 md:grid-cols-4">
-                    {phaseCards.map((phase) => (
+                  <h3 className="mb-4 flex items-center gap-2 text-[16px] font-black text-[#0B1028]"><Rocket className="h-4 w-4 text-[#5E63FF]" />{ar ? 'مراحل التنفيذ المحفوظة' : 'Saved execution stages'}</h3>
+                  {duplicateExecutionStageCount > 0 ? (
+                    <div className="mb-3 flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <p className="text-[12px] font-semibold leading-5">
+                        {ar
+                          ? `تم استبعاد ${duplicateExecutionStageCount} مرحلة مكررة من الملخص. راجع البريف الكامل قبل التنفيذ.`
+                          : `${duplicateExecutionStageCount} duplicate saved stage ${duplicateExecutionStageCount === 1 ? 'was' : 'were'} omitted from this summary. Review the full brief before execution.`}
+                      </p>
+                    </div>
+                  ) : null}
+                  {executionStages.length > 0 ? (
+                    <div className={`grid gap-3 ${executionStages.length >= 4 ? 'md:grid-cols-4' : executionStages.length === 3 ? 'md:grid-cols-3' : executionStages.length === 2 ? 'md:grid-cols-2' : ''}`}>
+                    {executionStages.map((phase) => (
                       <div key={phase.number} className="rounded-[18px] border border-slate-200 bg-slate-50/60 p-4">
                         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#5E63FF] text-[12px] font-black text-white">{phase.number}</span>
                         <h4 className="mt-3 text-[14px] font-black text-[#0B1028]">{phase.title}</h4>
-                        <p className="mt-2 min-h-[44px] text-[12px] font-semibold leading-5 text-slate-500">{phase.detail}</p>
-                        <span className="mt-3 inline-flex rounded-full bg-white px-3 py-1 text-[11px] font-black text-[#5E63FF]">{phase.cta}</span>
+                        {phase.detail ? <p className="mt-2 min-h-[44px] text-[12px] font-semibold leading-5 text-slate-500">{phase.detail}</p> : null}
+                        {phase.cta ? <span className="mt-3 inline-flex rounded-full bg-white px-3 py-1 text-[11px] font-black text-[#5E63FF]">{phase.cta}</span> : null}
                       </div>
                     ))}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-[18px] border border-dashed border-slate-300 bg-slate-50/70 p-5">
+                      <p className="text-[13px] font-black text-[#0B1028]">{ar ? 'لا توجد مراحل تنفيذ محفوظة.' : 'No execution stages are saved.'}</p>
+                      <p className="mt-1 text-[12px] font-semibold text-slate-500">{ar ? 'افتح بريف الحملة لمراجعة الخطة الكاملة؛ لن يفترض NEXUS مراحل غير موجودة.' : 'Open the campaign brief to review the full plan; NEXUS will not invent missing stages.'}</p>
+                    </div>
+                  )}
                 </SoftCard>
 
                 <SoftCard id="strategy-risks" className="scroll-mt-6 p-4">
@@ -1006,7 +1096,7 @@ export default function StrategyPage() {
                 <div className="space-y-3 text-[12px] font-semibold">
                   <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
                     <span className="text-slate-500">{ar ? 'الحالة' : 'Status'}</span>
-                    <span className="font-black text-emerald-600">{hasStrategy && !strategyBrandMismatch ? (ar ? 'نشطة' : 'Active') : (ar ? 'تحتاج مراجعة' : 'Needs review')}</span>
+                    <span className="font-black text-emerald-600">{hasStrategy && !strategyBrandMismatch ? (ar ? 'محفوظة' : 'Saved') : (ar ? 'تحتاج مراجعة' : 'Needs review')}</span>
                   </div>
                   <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
                     <span className="text-slate-500">{ar ? 'النطاق' : 'Scope'}</span>
@@ -1025,7 +1115,7 @@ export default function StrategyPage() {
                   {ar ? 'جاهزية التنفيذ' : 'Execution readiness'}
                 </h2>
                 <div className="flex justify-center">
-                  <ReadinessRing value={executionReadiness} label={ar ? 'جاهز' : 'Ready'} />
+                <ReadinessRing value={executionReadiness} label={ar ? 'تغطية مدخلات' : 'Input coverage'} />
                 </div>
                 <div className="mt-4 space-y-2">
                   {capRows.slice(0, 4).map((row) => (
@@ -1042,26 +1132,38 @@ export default function StrategyPage() {
                   <Rocket className="h-4 w-4 text-[#5E63FF]" />
                   {ar ? 'الخطوة التالية الموصى بها' : 'Recommended next step'}
                 </h2>
-                <p className="text-[13px] font-semibold leading-6 text-slate-500">{nextSteps[0]}</p>
-                <Link href={recentContentHubHref} className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#071333] px-4 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,19,51,0.22)]">
-                  {ar ? 'الانتقال إلى مركز المحتوى' : 'Go to Content Hub'}
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
+                <p className="text-[13px] font-semibold leading-6 text-slate-500">{contentDirectionReady ? (ar ? 'الانتقال إلى Content Hub لمراجعة المسودات.' : 'Move to Content Hub to review the draft content.') : nextSteps[0]}</p>
+                {contentDirectionReady ? (
+                  <Link href={recentContentHubHref} className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#071333] px-4 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,19,51,0.22)]">
+                    {ar ? 'الانتقال إلى مركز المحتوى' : 'Go to Content Hub'}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                ) : 'href' in primaryAction ? (
+                  <Link href={primaryAction.href} className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#071333] px-4 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,19,51,0.22)]">
+                    {primaryAction.label}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                ) : (
+                  <button type="button" onClick={primaryAction.onClick} className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#071333] px-4 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,19,51,0.22)]">
+                    {primaryAction.label}
+                    <Sparkles className="h-4 w-4" />
+                  </button>
+                )}
               </SoftCard>
 
               <SoftCard className="p-4">
                 <h2 className="mb-3 flex items-center gap-2 text-[15px] font-black text-[#0B1028]">
                   <ClipboardList className="h-4 w-4 text-[#5E63FF]" />
-                  {ar ? 'المعتمد / يحتاج مراجعة' : 'Approved / needs review'}
+                  {ar ? 'مراجعة مدخلات الاستراتيجية' : 'Strategy input review'}
                 </h2>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between rounded-2xl bg-emerald-50 px-3 py-2">
-                    <span className="text-[12px] font-bold text-emerald-700">{ar ? 'معتمد' : 'Approved'}</span>
-                    <span className="text-[12px] font-black text-emerald-700">{hasStrategy && !strategyBrandMismatch ? 5 : 0}</span>
+                    <span className="text-[12px] font-bold text-emerald-700">{ar ? 'مدخلات محفوظة' : 'Saved inputs'}</span>
+                    <span className="text-[12px] font-black text-emerald-700">{savedStrategyInputCount}</span>
                   </div>
                   <div className="flex items-center justify-between rounded-2xl bg-amber-50 px-3 py-2">
-                    <span className="text-[12px] font-bold text-amber-700">{ar ? 'يحتاج مراجعة' : 'Needs review'}</span>
-                    <span className="text-[12px] font-black text-amber-700">{strategyBrandMismatch || !hasStrategy ? 3 : 2}</span>
+                    <span className="text-[12px] font-bold text-amber-700">{ar ? 'مدخلات ناقصة' : 'Missing inputs'}</span>
+                    <span className="text-[12px] font-black text-amber-700">{missingStrategyInputCount}</span>
                   </div>
                 </div>
               </SoftCard>

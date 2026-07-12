@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { snapshotBrandMaturity } from '@/lib/brandMaturity'
+import { inspectBrainSignalProvenance } from '@/lib/brainSignalProvenance'
 
 const db = prisma as any  // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -39,18 +40,39 @@ export async function GET(req: NextRequest) {
     const status = url.searchParams.get('status') || 'pending'
 
     let proposals: unknown[] = []
+    let total = 0
     try {
-      proposals = await db.brainLearning.findMany({
-        where: { workspaceId: workspace.id, status },
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-      })
+      const where = { workspaceId: workspace.id, status }
+      ;[proposals, total] = await Promise.all([
+        db.brainLearning.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          take: 100,
+        }),
+        db.brainLearning.count({ where }),
+      ])
     } catch {
       // Table may not exist yet (before prisma db push)
-      return NextResponse.json({ proposals: [] })
+      return NextResponse.json({ proposals: [], total: 0 })
     }
 
-    return NextResponse.json({ proposals })
+    const traceableProposals = proposals.map(raw => {
+      const proposal = raw as Record<string, unknown>
+      const provenance = inspectBrainSignalProvenance({
+        trigger: typeof proposal.trigger === 'string' ? proposal.trigger : null,
+        reason: typeof proposal.reason === 'string' ? proposal.reason : null,
+        campaignId: typeof proposal.campaignId === 'string' ? proposal.campaignId : null,
+      })
+      return {
+        ...proposal,
+        reason: provenance.displayReason,
+        traceability: provenance.traceability,
+        sourceRefs: provenance.sourceRefs,
+        canAccept: provenance.canAccept,
+      }
+    })
+
+    return NextResponse.json({ proposals: traceableProposals, total })
   } catch (error) {
     console.error('[brain/proposals GET]', error)
     return NextResponse.json({ error: 'Failed to load proposals' }, { status: 500 })
@@ -67,7 +89,7 @@ export async function PATCH(req: NextRequest) {
       action: 'accept' | 'dismiss'
     }
 
-    if (!proposalId || !action) {
+    if (!proposalId || !['accept', 'dismiss'].includes(action)) {
       return NextResponse.json({ error: 'Missing proposalId or action' }, { status: 400 })
     }
 
@@ -95,6 +117,18 @@ export async function PATCH(req: NextRequest) {
         data: { status: 'dismissed' },
       })
       return NextResponse.json({ success: true, action: 'dismissed' })
+    }
+
+    const provenance = inspectBrainSignalProvenance({
+      trigger: typeof proposal.trigger === 'string' ? proposal.trigger : null,
+      reason: typeof proposal.reason === 'string' ? proposal.reason : null,
+      campaignId: typeof proposal.campaignId === 'string' ? proposal.campaignId : null,
+    })
+    if (!provenance.canAccept) {
+      return NextResponse.json({
+        error: 'This external signal cannot be applied because no traceable source is attached.',
+        code: 'SOURCE_REQUIRED',
+      }, { status: 409 })
     }
 
     // ── ACCEPT: apply to Brand Brain ─────────────────────────────────────────

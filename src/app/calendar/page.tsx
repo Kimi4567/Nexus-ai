@@ -13,6 +13,7 @@ import { isAutoPublished } from '@/lib/postVisibility'
 import { getPublishingStateSummary } from '@/lib/contentCounts'
 import { getPostClaimRisk } from '@/lib/ai/claimGuard'
 import { getCalendarMonthTruth, getCalendarTruthText, isRealCalendarPost } from '@/lib/calendarTruth'
+import { AlertCircle, Trash2, X } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -370,6 +371,8 @@ function CalendarPageInner() {
   const [loadingQueue, setLoadingQueue] = useState(true)
   const [showModal, setShowModal]       = useState(false)
   const [deletingId, setDeletingId]     = useState<string | null>(null)
+  const [pendingDeletePost, setPendingDeletePost] = useState<ScheduledPost | null>(null)
+  const [queueActionError, setQueueActionError] = useState('')
 
   // Modal form state
   const [caption, setCaption]                   = useState('')
@@ -501,13 +504,20 @@ function CalendarPageInner() {
     { label: 'Snapchat', count: platformBreakdown.Snapchat || platformBreakdown.SNAPCHAT || 0, color: '#facc15' },
   ]
 
-  const reviewCount = posts.filter(p => p.status === 'DRAFT' || p.status === 'APPROVED').length
-  const lateCount = posts.filter(p => p.status === 'FAILED').length
+  const isPostInViewedMonth = (post: ScheduledPost) => {
+    const date = new Date(post.scheduledAt)
+    return Number.isFinite(date.getTime()) && date.getMonth() === viewMonth && date.getFullYear() === viewYear
+  }
+  const monthReviewPosts = posts.filter(p =>
+    (p.status === 'DRAFT' || p.status === 'APPROVED') && isPostInViewedMonth(p)
+  )
+  const reviewCount = monthReviewPosts.length
+  const lateCount = posts.filter(p => p.status === 'FAILED' && isPostInViewedMonth(p)).length
   const taskRows = [
-    { label: locale === 'ar' ? 'مكتملة' : 'Complete', count: calStats.published, tone: 'text-emerald-600', dot: 'bg-emerald-500', delta: '+12%' },
-    { label: locale === 'ar' ? 'قيد التنفيذ' : 'In progress', count: calStats.scheduled, tone: 'text-blue-600', dot: 'bg-blue-500', delta: '+5%' },
-    { label: locale === 'ar' ? 'قيد المراجعة' : 'In review', count: reviewCount, tone: 'text-amber-600', dot: 'bg-amber-500', delta: reviewCount ? '-8%' : '0%' },
-    { label: locale === 'ar' ? 'متأخرة' : 'Late', count: lateCount, tone: 'text-red-600', dot: 'bg-red-500', delta: lateCount ? '-20%' : '0%' },
+    { label: locale === 'ar' ? 'منشورة' : 'Published', count: calStats.published, dot: 'bg-emerald-500' },
+    { label: locale === 'ar' ? 'مجدولة' : 'Scheduled', count: calStats.scheduled, dot: 'bg-blue-500' },
+    { label: locale === 'ar' ? 'قيد المراجعة' : 'In review', count: reviewCount, dot: 'bg-amber-500' },
+    { label: locale === 'ar' ? 'فشل التنفيذ' : 'Failed', count: lateCount, dot: 'bg-red-500' },
   ]
 
   const upcomingEvents = monthPosts
@@ -515,11 +525,37 @@ function CalendarPageInner() {
     .sort((a, b) => a.day - b.day)
     .slice(0, 3)
 
-  const urgentTasks = [
-    locale === 'ar' ? 'مراجعة محتوى الحملة الجديدة' : 'Review new campaign content',
-    locale === 'ar' ? 'تحديث خطة النشر الأسبوعية' : 'Update weekly publishing plan',
-    locale === 'ar' ? 'اعتماد التصميمات قبل النشر' : 'Approve creatives before publish',
-  ]
+  const reviewTasks = monthReviewPosts
+    .slice()
+    .sort((a, b) => {
+      const aTime = new Date(a.scheduledAt).getTime()
+      const bTime = new Date(b.scheduledAt).getTime()
+      if (!Number.isFinite(aTime)) return 1
+      if (!Number.isFinite(bTime)) return -1
+      return aTime - bTime
+    })
+    .slice(0, 3)
+
+  const reviewDateLabel = (post: ScheduledPost) => {
+    const date = new Date(post.scheduledAt)
+    if (!Number.isFinite(date.getTime())) {
+      return locale === 'ar' ? 'لا يوجد موعد مسجل' : 'No recorded target date'
+    }
+    return new Intl.DateTimeFormat(intlLocale, { day: 'numeric', month: 'short', year: 'numeric' }).format(date)
+  }
+
+  const contentDistributionTotal = contentDistribution.reduce((total, item) => total + item.count, 0)
+  const contentDistributionGradient = contentDistributionTotal === 0
+    ? '#e8edf5'
+    : `conic-gradient(${contentDistribution
+        .filter(item => item.count > 0)
+        .reduce((segments, item) => {
+          const start = segments.total
+          const end = start + (item.count / contentDistributionTotal) * 100
+          segments.parts.push(`${item.color} ${start}% ${end}%`)
+          segments.total = end
+          return segments
+        }, { parts: [] as string[], total: 0 }).parts.join(',')})`
 
   // ── Queue derived state ────────────────────────────────────────────────────
   // PR7 honesty: the Published Queue is the integration / auto-publish surface.
@@ -535,19 +571,35 @@ function CalendarPageInner() {
   // content that has no schedule yet — it must never read as scheduled or published.
   const queueSummary = getPublishingStateSummary(posts)
 
-  const handleDelete = async (id: string) => {
-    setDeletingId(id)
-    await fetch(`/api/schedule?id=${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: authHeader() },
-    })
-    setPosts(prev => prev.filter(p => p.id !== id))
-    setDeletingId(null)
+  const handleDelete = async (post: ScheduledPost) => {
+    const operation = post.status === 'FAILED' ? 'dismiss_failed_record' : 'cancel_scheduled_post'
+    setDeletingId(post.id)
+    setQueueActionError('')
+    try {
+      const response = await fetch(`/api/schedule?id=${post.id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: authHeader(),
+          'X-Nexus-Confirm-Operation': operation,
+        },
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data.error || (locale === 'ar' ? 'تعذر تحديث سجل الجدولة.' : 'Could not update the scheduling record.'))
+      }
+      setPosts(prev => prev.filter(item => item.id !== post.id))
+      setPendingDeletePost(null)
+    } catch (error) {
+      setQueueActionError(error instanceof Error ? error.message : (locale === 'ar' ? 'تعذر تحديث سجل الجدولة.' : 'Could not update the scheduling record.'))
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   const handleSchedule = async () => {
     if (!caption || !selectedIntegration || !selectedPage || !scheduledAt) return
     setSubmitting(true)
+    setQueueActionError('')
     try {
       const res = await fetch('/api/schedule', {
         method: 'POST',
@@ -562,18 +614,19 @@ function CalendarPageInner() {
           scheduledAt,
         }),
       })
-      const data = await res.json()
-      if (data.post) {
-        setPosts(prev => [data.post, ...prev])
-        setShowModal(false)
-        setCaption('')
-        setScheduledAt('')
-        setImageUrl('')
-        setSelectedIntegration('')
-        setSelectedPage('')
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.post) {
+        throw new Error(data.error || (scT?.errSchedule as string) || 'Failed to schedule post')
       }
-    } catch {
-      alert(scT?.errSchedule as string || 'Failed to schedule post')
+      setPosts(prev => [data.post, ...prev])
+      setShowModal(false)
+      setCaption('')
+      setScheduledAt('')
+      setImageUrl('')
+      setSelectedIntegration('')
+      setSelectedPage('')
+    } catch (error) {
+      setQueueActionError(error instanceof Error ? error.message : ((scT?.errSchedule as string) || 'Failed to schedule post'))
     } finally {
       setSubmitting(false)
     }
@@ -618,8 +671,8 @@ function CalendarPageInner() {
 
   return (
     <AppShell>
-      <main className="min-h-screen bg-[#f6f8fc] text-[#071236]" dir={dir}>
-      <div className="mx-auto max-w-[1540px] px-6 py-7 lg:px-8 page-enter">
+      <main className="nx-os-page" dir={dir}>
+      <div className="nx-os-container page-enter">
         <LuxuryWorkspaceHeader
           pageTitle={locale === 'ar' ? 'التقويم التنفيذي' : 'Execution calendar'}
           pageSubtitle={locale === 'ar' ? 'جدول المحتوى والحملات والمواعيد من مكان واحد.' : 'Content timing, campaign work, and deadlines in one place.'}
@@ -641,7 +694,7 @@ function CalendarPageInner() {
         />
 
         {/* Header */}
-        <div className="mb-6 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">
+        <div className="nx-os-panel mb-5 flex flex-col gap-4 p-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <div className="mb-2 flex items-center gap-2 text-[12px] font-bold text-[#64708f]">
               <span>NEXUS</span><span>/</span>
@@ -700,17 +753,17 @@ function CalendarPageInner() {
               {monthLabel}
             </div>
             <button type="button" onClick={nextMonth} aria-label={locale === 'ar' ? 'الشهر التالي' : 'Next month'} className="h-10 w-10 rounded-[14px] border border-[#e3e8f3] bg-white text-[#64708f] shadow-sm">›</button>
-            <span className="inline-flex h-10 items-center rounded-[14px] border border-[#e3e8f3] bg-white px-5 text-[12px] font-black text-[#64708f] shadow-sm">
-              {locale === 'ar' ? 'جميع المنصات' : 'All platforms'}
+            <span className="inline-flex h-10 cursor-default items-center rounded-full bg-[#f2f5fa] px-4 text-[12px] font-black text-[#64708f]">
+              ✓ {locale === 'ar' ? 'النطاق: كل المنصات' : 'Scope: all platforms'}
             </span>
-            <span className="inline-flex h-10 items-center rounded-[14px] border border-[#e3e8f3] bg-white px-5 text-[12px] font-black text-[#64708f] shadow-sm">
-              {locale === 'ar' ? 'كل الحملات' : 'All campaigns'}
+            <span className="inline-flex h-10 cursor-default items-center rounded-full bg-[#f2f5fa] px-4 text-[12px] font-black text-[#64708f]">
+              ✓ {locale === 'ar' ? 'النطاق: كل الحملات' : 'Scope: all campaigns'}
             </span>
           </div>
           <button
             onClick={() => setActiveTab('queue')}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-[15px] bg-[#071236] px-5 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,18,54,0.2)] transition hover:bg-[#111f4b]">
-            + {locale === 'ar' ? 'إضافة حدث' : 'Add event'}
+            {locale === 'ar' ? 'فتح قائمة المراجعة' : 'Open review queue'}
           </button>
         </div>
 
@@ -745,7 +798,7 @@ function CalendarPageInner() {
                 { label: locale === 'ar' ? 'منشور' : 'Published', value: calStats.published, dot: 'bg-emerald-500', pill: 'bg-emerald-50 text-emerald-700' },
                 { label: locale === 'ar' ? 'مجدول' : 'Scheduled', value: calStats.scheduled, dot: 'bg-[#5366f6]', pill: 'bg-[#eef0ff] text-[#5366f6]' },
                 { label: locale === 'ar' ? 'قيد المراجعة' : 'In review', value: reviewCount, dot: 'bg-amber-500', pill: 'bg-amber-50 text-amber-700' },
-                { label: locale === 'ar' ? 'مسودة' : 'Draft', value: monthStrategyIdeas.length, dot: 'bg-slate-400', pill: 'bg-white text-[#64708f] border border-[#e3e8f3]' },
+                { label: locale === 'ar' ? 'أفكار الخطة' : 'Plan ideas', value: monthStrategyIdeas.length, dot: 'bg-slate-400', pill: 'bg-white text-[#64708f] border border-[#e3e8f3]' },
                 { label: locale === 'ar' ? 'متأخر' : 'Late', value: lateCount, dot: 'bg-red-500', pill: 'bg-red-50 text-red-600' },
               ].map(item => (
                 <div key={item.label} className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-black ${item.pill}`}>
@@ -843,7 +896,7 @@ function CalendarPageInner() {
 
               {/* Calendar operations rail */}
               <div className="space-y-4">
-                <div className="rounded-[26px] border border-[#e3e8f3] bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+                <div className="nx-os-card p-6">
                   <h3 className="text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'جاهزية النشر' : 'Publishing readiness'}</h3>
                   <div className="mt-5 flex items-center gap-5">
                     <div
@@ -870,7 +923,7 @@ function CalendarPageInner() {
                   </button>
                 </div>
 
-                <div className="rounded-[26px] border border-[#e3e8f3] bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+                <div className="nx-os-card p-6">
                   <div className="mb-4 flex items-center justify-between">
                     <h3 className="text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'الأحداث القادمة' : 'Upcoming events'}</h3>
                     <span className="text-[12px] font-bold text-[#5366f6]">{locale === 'ar' ? 'عرض الكل' : 'View all'}</span>
@@ -896,25 +949,30 @@ function CalendarPageInner() {
                   </div>
                 </div>
 
-                <div className="rounded-[26px] border border-[#e3e8f3] bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+                <div className="nx-os-card p-6">
                   <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'المواعيد النهائية' : 'Deadlines'}</h3>
-                    <span className="text-[12px] font-bold text-[#5366f6]">{locale === 'ar' ? 'عرض الكل' : 'View all'}</span>
+                    <h3 className="text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'طابور المراجعة' : 'Review queue'}</h3>
+                    <button type="button" onClick={() => setActiveTab('queue')} className="text-[12px] font-bold text-[#5366f6]">{locale === 'ar' ? 'عرض الكل' : 'View all'}</button>
                   </div>
                   <div className="space-y-3">
-                    {urgentTasks.map((task, index) => (
-                      <div key={task} className="flex items-center justify-between rounded-[16px] border border-[#eef2f8] bg-white p-3">
+                    {reviewTasks.map(task => (
+                      <div key={task.id} className="flex items-center justify-between gap-3 rounded-[16px] border border-[#eef2f8] bg-white p-3">
                         <div>
-                          <div className="text-[13px] font-black text-[#071236]">{task}</div>
-                          <div className="text-[11px] font-bold text-[#64708f]">
-                            {index === 0 ? (locale === 'ar' ? 'اليوم' : 'Today') : index === 1 ? (locale === 'ar' ? 'غدًا' : 'Tomorrow') : (locale === 'ar' ? '3 أيام' : '3 days')}
-                          </div>
+                          <div className="line-clamp-2 text-[13px] font-black text-[#071236]">{task.caption || (locale === 'ar' ? 'منشور بلا عنوان' : 'Untitled post')}</div>
+                          <div className="text-[11px] font-bold text-[#64708f]">{reviewDateLabel(task)} · {task.platform}</div>
                         </div>
-                        <span className={`rounded-full px-3 py-1 text-[11px] font-black ${index === 2 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-600'}`}>
-                          {index === 2 ? (locale === 'ar' ? 'متوسط' : 'Medium') : (locale === 'ar' ? 'عاجل' : 'Urgent')}
+                        <span className="shrink-0 rounded-full bg-amber-50 px-3 py-1 text-[11px] font-black text-amber-700">
+                          {task.status === 'APPROVED'
+                            ? (locale === 'ar' ? 'معتمد، غير مجدول' : 'Approved, unscheduled')
+                            : (locale === 'ar' ? 'مسودة للمراجعة' : 'Draft review')}
                         </span>
                       </div>
                     ))}
+                    {reviewTasks.length === 0 && (
+                      <p className="rounded-[16px] bg-[#fbfcff] p-4 text-[13px] font-bold text-[#64708f]">
+                        {locale === 'ar' ? 'لا توجد مواعيد مراجعة موثقة في السجلات الحالية.' : 'No review dates are recorded in the current data.'}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1168,10 +1226,10 @@ function CalendarPageInner() {
             </div>
 
             <div className="mt-6 grid gap-4 lg:grid-cols-3">
-              <div className="rounded-[26px] border border-[#e3e8f3] bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
-                <h3 className="mb-5 text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'التوزيع الزمني للمحتوى' : 'Content timing mix'}</h3>
+              <div className="nx-os-card p-6">
+                <h3 className="mb-5 text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'توزيع المنصات' : 'Platform distribution'}</h3>
                 <div className="flex items-center gap-6">
-                  <div className="grid h-32 w-32 place-items-center rounded-full bg-[conic-gradient(#6366f1_0_32%,#071236_32%_53%,#3b82f6_53%_71%,#38bdf8_71%_85%,#ef4444_85%_96%,#facc15_96%_100%)]">
+                  <div className="grid h-32 w-32 place-items-center rounded-full" style={{ background: contentDistributionGradient }}>
                     <div className="grid h-20 w-20 place-items-center rounded-full bg-white text-center">
                       <div>
                         <div className="text-[26px] font-black text-[#071236]">{calStats.total}</div>
@@ -1194,7 +1252,7 @@ function CalendarPageInner() {
                 <Link href="/analytics" className="mt-5 block w-full text-center text-[13px] font-black text-[#5366f6]">{locale === 'ar' ? 'عرض تفاصيل التحليل' : 'View analysis details'}</Link>
               </div>
 
-              <div className="rounded-[26px] border border-[#e3e8f3] bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+              <div className="nx-os-card p-6">
                 <h3 className="mb-5 text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'حالة المهام' : 'Task status'}</h3>
                 <div className="space-y-4">
                   {taskRows.map(row => (
@@ -1204,25 +1262,29 @@ function CalendarPageInner() {
                         {row.label}
                       </span>
                       <span className="text-[15px] font-black text-[#071236]">{row.count}</span>
-                      <span className={`text-[12px] font-black ${row.tone}`}>{row.delta}</span>
                     </div>
                   ))}
                 </div>
                 <button type="button" onClick={() => setActiveTab('queue')} className="mt-5 w-full text-[13px] font-black text-[#5366f6]">{locale === 'ar' ? 'عرض جميع المهام' : 'View all tasks'}</button>
               </div>
 
-              <div className="rounded-[26px] border border-[#e3e8f3] bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
-                <h3 className="mb-5 text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'المهام العاجلة' : 'Urgent tasks'}</h3>
+              <div className="nx-os-card p-6">
+                <h3 className="mb-5 text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'محتوى يحتاج مراجعة' : 'Content requiring review'}</h3>
                 <div className="space-y-3">
-                  {urgentTasks.map((task, index) => (
-                    <div key={`bottom-${task}`} className="flex items-center justify-between rounded-[16px] border border-[#eef2f8] bg-[#fbfcff] p-3">
+                  {reviewTasks.map(task => (
+                    <div key={`bottom-${task.id}`} className="flex items-center justify-between gap-3 rounded-[16px] border border-[#eef2f8] bg-[#fbfcff] p-3">
                       <div className="min-w-0">
-                        <div className="truncate text-[13px] font-black text-[#071236]">{task}</div>
-                        <div className="text-[11px] font-bold text-[#64708f]">{index === 0 ? (locale === 'ar' ? 'اليوم' : 'Today') : (locale === 'ar' ? `${index + 1} يوم` : `${index + 1} days`)}</div>
+                        <div className="line-clamp-2 text-[13px] font-black text-[#071236]">{task.caption || (locale === 'ar' ? 'منشور بلا عنوان' : 'Untitled post')}</div>
+                        <div className="text-[11px] font-bold text-[#64708f]">{reviewDateLabel(task)}</div>
                       </div>
-                      <span className="rounded-full bg-red-50 px-3 py-1 text-[11px] font-black text-red-600">{locale === 'ar' ? 'عاجل' : 'Urgent'}</span>
+                      <span className="shrink-0 rounded-full bg-amber-50 px-3 py-1 text-[11px] font-black text-amber-700">{locale === 'ar' ? 'يتطلب مراجعة' : 'Review required'}</span>
                     </div>
                   ))}
+                  {reviewTasks.length === 0 && (
+                    <p className="rounded-[16px] bg-[#fbfcff] p-4 text-[13px] font-bold text-[#64708f]">
+                      {locale === 'ar' ? 'لا يوجد محتوى موثق ينتظر المراجعة.' : 'No verified content is waiting for review.'}
+                    </p>
+                  )}
                 </div>
                 <button type="button" onClick={() => setActiveTab('queue')} className="mt-5 w-full text-[13px] font-black text-[#5366f6]">{locale === 'ar' ? 'عرض جميع المهام' : 'View all tasks'}</button>
               </div>
@@ -1317,7 +1379,10 @@ function CalendarPageInner() {
                         </div>
                       </div>
                       <button
-                        onClick={() => handleDelete(post.id)}
+                        onClick={() => {
+                          setQueueActionError('')
+                          setPendingDeletePost(post)
+                        }}
                         disabled={deletingId === post.id}
                         className="shrink-0 text-xs px-3 py-1.5 rounded-lg transition-all disabled:opacity-40 text-slate-500 hover:text-red-500"
                         style={{ border: '1px solid rgba(15,23,42,0.1)' }}>
@@ -1385,10 +1450,15 @@ function CalendarPageInner() {
                           <p className="text-xs text-red-500">{post.errorMessage}</p>
                         )}
                       </div>
-                      <button onClick={() => handleDelete(post.id)}
-                        className="shrink-0 text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:text-red-500 transition-all"
+                      <button
+                        onClick={() => {
+                          setQueueActionError('')
+                          setPendingDeletePost(post)
+                        }}
+                        disabled={deletingId === post.id}
+                        className="shrink-0 text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:text-red-500 transition-all disabled:opacity-40"
                         style={{ border: '1px solid rgba(15,23,42,0.1)' }}>
-                        {scT?.btnDismiss as string || 'Dismiss'}
+                        {deletingId === post.id ? '...' : (scT?.btnDismiss as string || 'Dismiss')}
                       </button>
                     </div>
                   ))}
@@ -1404,7 +1474,7 @@ function CalendarPageInner() {
                 <p className="text-sm text-slate-500 mb-6">
                   {getCalendarTruthText('scheduledEmpty', locale)}
                 </p>
-                <button onClick={() => setShowModal(true)}
+                <button onClick={() => { setQueueActionError(''); setShowModal(true) }}
                   className="px-5 py-2.5 bg-accent text-white font-bold rounded-xl text-sm hover:bg-accent/90 transition-all">
                   {scT?.emptyBtn as string || '+ Schedule a Post'}
                 </button>
@@ -1449,6 +1519,12 @@ function CalendarPageInner() {
             </div>
 
             <div className="p-6 space-y-5">
+              {queueActionError && (
+                <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{queueActionError}</span>
+                </div>
+              )}
               {/* Caption */}
               <div>
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 block">
@@ -1562,6 +1638,55 @@ function CalendarPageInner() {
                 disabled={!caption || !selectedIntegration || !selectedPage || !scheduledAt || submitting}
                 className="flex-1 py-3 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                 {submitting ? (scT?.modalSubmitting as string || 'Scheduling…') : (scT?.modalSubmitBtn as string || 'Schedule Post')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingDeletePost && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4" style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(5px)' }}>
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" dir={dir} style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600">
+                  <Trash2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-slate-950">
+                    {pendingDeletePost.status === 'FAILED'
+                      ? (locale === 'ar' ? 'إخفاء سجل التنفيذ الفاشل؟' : 'Dismiss failed execution record?')
+                      : (locale === 'ar' ? 'إلغاء الجدولة؟' : 'Cancel scheduled post?')}
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    {pendingDeletePost.status === 'FAILED'
+                      ? (locale === 'ar' ? 'سيُحذف سجل الفشل من NEXUS فقط. لا يرسل هذا الإجراء أي طلب إلى المنصة.' : 'This removes the failed record from NEXUS only. It sends no request to the platform.')
+                      : (locale === 'ar' ? 'سيُلغى هذا الموعد داخل NEXUS فقط. لا يعني ذلك حذف أي منشور حي من المنصة.' : 'This cancels the NEXUS schedule only. It does not delete any live platform post.')}
+                  </p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setPendingDeletePost(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label={locale === 'ar' ? 'إغلاق' : 'Close'}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {queueActionError && (
+              <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{queueActionError}</span>
+              </div>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setPendingDeletePost(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                {locale === 'ar' ? 'رجوع' : 'Go back'}
+              </button>
+              <button type="button" onClick={() => handleDelete(pendingDeletePost)} disabled={deletingId === pendingDeletePost.id} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50">
+                {deletingId === pendingDeletePost.id
+                  ? (locale === 'ar' ? 'جارٍ التنفيذ...' : 'Working...')
+                  : pendingDeletePost.status === 'FAILED'
+                    ? (locale === 'ar' ? 'إخفاء السجل' : 'Dismiss record')
+                    : (locale === 'ar' ? 'إلغاء الجدولة' : 'Cancel schedule')}
               </button>
             </div>
           </div>

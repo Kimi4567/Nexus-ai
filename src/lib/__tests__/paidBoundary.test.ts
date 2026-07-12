@@ -110,18 +110,32 @@ describe('paidBoundary', () => {
     expect(canCreatePlatformDraft({
       explicitPlatformDraftConfirmed: true,
       explicitBudgetConfirmed: true,
+      explicitExecutionReadinessConfirmed: true,
+      executionReady: true,
     })).toBe(true)
     expect(canCreatePlatformDraft({
       explicitPlatformDraftConfirmed: false,
       explicitBudgetConfirmed: true,
+      explicitExecutionReadinessConfirmed: true,
+      executionReady: true,
     })).toBe(false)
     expect(canCreatePlatformDraft({
       explicitPlatformDraftConfirmed: true,
       explicitBudgetConfirmed: false,
+      explicitExecutionReadinessConfirmed: true,
+      executionReady: true,
     })).toBe(false)
     expect(canCreatePlatformDraft({
       explicitPlatformDraftConfirmed: undefined,
       explicitBudgetConfirmed: undefined,
+      explicitExecutionReadinessConfirmed: undefined,
+      executionReady: undefined,
+    })).toBe(false)
+    expect(canCreatePlatformDraft({
+      explicitPlatformDraftConfirmed: true,
+      explicitBudgetConfirmed: true,
+      explicitExecutionReadinessConfirmed: true,
+      executionReady: false,
     })).toBe(false)
   })
 
@@ -135,6 +149,8 @@ describe('paidBoundary', () => {
       explicitPlatformActivationConfirmed: true,
       explicitSpendActivationConfirmed: true,
       explicitBudgetConfirmed: true,
+      explicitExecutionReadinessConfirmed: true,
+      executionReady: true,
     }
 
     expect(canActivatePlatformCampaign(ready)).toBe(true)
@@ -144,6 +160,8 @@ describe('paidBoundary', () => {
     expect(canActivatePlatformCampaign({ ...ready, adAccountHasApiAccess: false })).toBe(false)
     expect(canActivatePlatformCampaign({ ...ready, explicitPlatformActivationConfirmed: false })).toBe(false)
     expect(canActivatePlatformCampaign({ ...ready, explicitSpendActivationConfirmed: false })).toBe(false)
+    expect(canActivatePlatformCampaign({ ...ready, explicitExecutionReadinessConfirmed: false })).toBe(false)
+    expect(canActivatePlatformCampaign({ ...ready, executionReady: false })).toBe(false)
     expect(canActivatePlatformCampaign({ ...ready, explicitBudgetConfirmed: false })).toBe(false)
   })
 
@@ -157,6 +175,8 @@ describe('paidBoundary', () => {
     expect(canCreatePlatformDraft({
       explicitPlatformDraftConfirmed: true,
       explicitBudgetConfirmed: undefined,
+      explicitExecutionReadinessConfirmed: true,
+      executionReady: true,
     })).toBe(false)
   })
 
@@ -190,7 +210,11 @@ describe('paidBoundary', () => {
     expect(pushRoute).not.toContain('live push')
     expect(pushRoute).toContain('Platform draft objects were created in Meta in PAUSED state')
     expect(pushRoute).toContain("data: { platformAdSetId: metaAdSetId, status: 'PAUSED' }")
-    expect(pushRoute).toContain("data: { platformAdId: metaAdId, status: 'PAUSED' }")
+    expect(pushRoute).toContain('platformAdId: metaAdId')
+    expect(pushRoute).toContain('platformCreativeId: creativeId')
+    expect(pushRoute).toContain("status: 'PAUSED'")
+    expect(pushRoute).toContain('uploadAdImageFromUrl')
+    expect(pushRoute).not.toContain("'https://example.com'")
     expect(pushRoute).not.toContain('platformAdSetId: metaAdSetId, platformStatus')
     expect(pushRoute).not.toContain('platformAdId: metaAdId, platformStatus')
 

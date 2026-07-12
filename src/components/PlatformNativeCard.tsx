@@ -76,11 +76,12 @@ function truncate(str: string | undefined | null, len: number): string {
 // Media placeholder
 // ─────────────────────────────────────────────────────────────────────────────
 
-function MediaArea({ assetUrl, visualNote, aspect, className = '' }: {
+function MediaArea({ assetUrl, visualNote, aspect, className = '', locale }: {
   assetUrl?: string | null
   visualNote?: string
   aspect?: string
   className?: string
+  locale: string
 }) {
   if (assetUrl) {
     const isVideo = /\.(mp4|mov|webm|m4v)(\?|$)/i.test(assetUrl)
@@ -104,7 +105,7 @@ function MediaArea({ assetUrl, visualNote, aspect, className = '' }: {
       <div className="text-center px-4 py-2">
         <div className="text-3xl mb-2 opacity-40">🎨</div>
         <p className="text-[10px] text-gray-500 leading-relaxed line-clamp-3">
-          {truncate(visualNote, 80) || 'AI visual planned'}
+          {truncate(visualNote, 80) || (locale === 'ar' ? 'لم يتم إرفاق وسيط بعد' : 'Media not attached yet')}
         </p>
       </div>
     </div>
@@ -141,7 +142,7 @@ function InstagramCard({ item, locale, brandName }: { item: CalendarPost; locale
       </div>
 
       {/* Image */}
-      <MediaArea assetUrl={item.assetUrl} visualNote={item.visualNote} aspect="aspect-square" className="w-full" />
+      <MediaArea assetUrl={item.assetUrl} visualNote={item.visualNote} aspect="aspect-square" className="w-full" locale={locale} />
 
       {/* Action bar */}
       <div className="px-3 pt-2.5 pb-1">
@@ -200,7 +201,7 @@ function TikTokCard({ item, locale, brandName }: { item: CalendarPost; locale: s
 
       {/* Background media — full card */}
       <div className="absolute inset-0">
-        <MediaArea assetUrl={item.assetUrl} visualNote={item.visualNote} aspect="" className="absolute inset-0 w-full h-full" />
+        <MediaArea assetUrl={item.assetUrl} visualNote={item.visualNote} aspect="" className="absolute inset-0 w-full h-full" locale={locale} />
         {/* Gradient overlay */}
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.85) 100%)' }} />
         {/* Top gradient */}
@@ -349,7 +350,7 @@ function LinkedInCard({ item, locale, brandName }: { item: CalendarPost; locale:
 
       {/* Image */}
       {(item.assetUrl || item.visualNote) && (
-        <MediaArea assetUrl={item.assetUrl} visualNote={item.visualNote} aspect="aspect-video" className="w-full" />
+        <MediaArea assetUrl={item.assetUrl} visualNote={item.visualNote} aspect="aspect-video" className="w-full" locale={locale} />
       )}
 
       {/* Performance is intentionally unavailable before real analytics arrive. */}
@@ -416,7 +417,7 @@ function FacebookCard({ item, locale, brandName }: { item: CalendarPost; locale:
       </div>
 
       {/* Image */}
-      <MediaArea assetUrl={item.assetUrl} visualNote={item.visualNote} aspect="aspect-video" className="w-full" />
+      <MediaArea assetUrl={item.assetUrl} visualNote={item.visualNote} aspect="aspect-video" className="w-full" locale={locale} />
 
       {/* Performance is intentionally unavailable before real analytics arrive. */}
       <div className="px-4 py-2 flex items-center justify-between">
@@ -459,7 +460,7 @@ function YouTubeCard({ item, locale, brandName }: { item: CalendarPost; locale: 
 
       {/* Background */}
       <div className="absolute inset-0">
-        <MediaArea assetUrl={item.assetUrl} visualNote={item.visualNote} aspect="" className="absolute inset-0 w-full h-full" />
+        <MediaArea assetUrl={item.assetUrl} visualNote={item.visualNote} aspect="" className="absolute inset-0 w-full h-full" locale={locale} />
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.9) 100%)' }} />
       </div>
 
@@ -532,7 +533,7 @@ function SnapchatCard({ item, locale, brandName }: { item: CalendarPost; locale:
       style={{ background: '#000', border: '1px solid rgba(255,255,255,0.08)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', minHeight: 260 }}>
 
       <div className="absolute inset-0">
-        <MediaArea assetUrl={item.assetUrl} visualNote={item.visualNote} aspect="" className="absolute inset-0 w-full h-full" />
+        <MediaArea assetUrl={item.assetUrl} visualNote={item.visualNote} aspect="" className="absolute inset-0 w-full h-full" locale={locale} />
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, transparent 30%, transparent 60%, rgba(0,0,0,0.7) 100%)' }} />
       </div>
 
@@ -619,7 +620,7 @@ function TwitterCard({ item, locale, brandName }: { item: CalendarPost; locale: 
         {/* Attached image */}
         {(item.assetUrl || item.visualNote) && (
           <div className="rounded-xl overflow-hidden mb-3">
-            <MediaArea assetUrl={item.assetUrl} visualNote={item.visualNote} aspect="aspect-video" />
+            <MediaArea assetUrl={item.assetUrl} visualNote={item.visualNote} aspect="aspect-video" locale={locale} />
           </div>
         )}
 
@@ -721,7 +722,7 @@ function GenericCard({ item, locale, brandName }: { item: CalendarPost; locale: 
         <span className="text-[13px] font-bold text-white capitalize">{platform}</span>
         <span className="ml-auto text-[11px] text-gray-500">{formatDate(item.date, item.week, 0, locale)}</span>
       </div>
-      <MediaArea assetUrl={item.assetUrl} visualNote={item.visualNote} aspect="aspect-video" className="w-full" />
+      <MediaArea assetUrl={item.assetUrl} visualNote={item.visualNote} aspect="aspect-video" className="w-full" locale={locale} />
       <div className="p-4">
         <p className="text-[14px] font-semibold text-white mb-1">{item.topic}</p>
         {item.hook && <p className="text-[13px] text-purple-300 mb-2">"{item.hook}"</p>}

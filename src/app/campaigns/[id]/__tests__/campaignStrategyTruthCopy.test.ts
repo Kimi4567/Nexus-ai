@@ -116,7 +116,7 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).not.toContain('Strategy map')
     expect(campaignRoomSource).toContain('sticky top-0 z-30')
     expect(campaignRoomSource).toContain('activeTab === 0 && strategySectionNavItems.length > 0')
-    expect(appShellSource).toContain('min-w-0 flex-1 min-h-screen overflow-y-visible')
+    expect(appShellSource).toContain('min-h-screen min-w-0 flex-1 overflow-y-visible')
     expect(appShellSource).toContain('overflow-y-visible')
     expect(appShellSource).not.toContain('min-h-screen overflow-y-auto transition-all')
   })

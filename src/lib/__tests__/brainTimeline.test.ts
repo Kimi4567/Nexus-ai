@@ -5,6 +5,7 @@ import {
   fieldLabel,
   type RawLearning,
 } from '@/lib/brainTimeline'
+import { attachBrainSignalSources } from '@/lib/brainSignalProvenance'
 
 const pendingRow: RawLearning = {
   id: 'p1',
@@ -162,6 +163,34 @@ describe('CTA gating', () => {
     expect(withCampaign.canViewCampaign).toBe(true)
     const [without] = deriveBrainTimeline([pendingRow], [])
     expect(without.canViewCampaign).toBe(false)
+  })
+
+  it('blocks acceptance but keeps dismiss available for an unsourced external signal', () => {
+    const [item] = deriveBrainTimeline([{
+      id: 'external-missing',
+      trigger: 'competitor_monitor',
+      status: 'pending',
+      reason: 'An external market claim.',
+    }], [])
+
+    expect(item.traceability).toBe('source_not_attached')
+    expect(item.reason).toBe('')
+    expect(item.canAccept).toBe(false)
+    expect(item.canDismiss).toBe(true)
+  })
+
+  it('allows a sourced external signal to enter explicit review', () => {
+    const [item] = deriveBrainTimeline([{
+      id: 'external-sourced',
+      trigger: 'industry_trend',
+      status: 'pending',
+      reason: attachBrainSignalSources('A traceable market signal.', [{ url: 'https://example.com/report' }]),
+    }], [])
+
+    expect(item.traceability).toBe('external_sources')
+    expect(item.reason).toBe('A traceable market signal.')
+    expect(item.canAccept).toBe(true)
+    expect(item.sourceRefs).toHaveLength(1)
   })
 })
 

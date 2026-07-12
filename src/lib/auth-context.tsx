@@ -47,14 +47,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true
     // resolved prevents double-setting state from two async sources
     let resolved = false
+    let bootTimeout: ReturnType<typeof setTimeout> | null = null
 
     const resolveAuth = (sess: Session | null) => {
       if (!mounted || resolved) return
       resolved = true
+      if (bootTimeout) clearTimeout(bootTimeout)
       setSession(sess)
       setUser(sess?.user ?? null)
       setLoading(false)
     }
+
+    // Supabase session recovery can wait on a cross-tab refresh lock. Never leave
+    // the whole application behind an infinite loading screen if that lock stalls.
+    bootTimeout = setTimeout(() => resolveAuth(null), 10_000)
 
     // ── Source 1: getSession() ────────────────────────────────────────────────
     // Reads from localStorage, auto-refreshes access token if expired,
@@ -97,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false
+      if (bootTimeout) clearTimeout(bootTimeout)
       subscription.unsubscribe()
     }
   }, [])
@@ -129,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const brandReadiness = getBrandBrainReadiness(brandProfile)
         const campaignCount = statsData?.stats?.campaigns?.total ?? 0
         const contentPostsTotal = statsData?.stats?.contentPosts?.total ?? 0
-        const publishedPostsTotal = statsData?.stats?.publishedPosts?.total ?? 0
+        const approvedOrLaterPosts = statsData?.stats?.contentPosts?.approvedOrLater ?? 0
         const strategyState: StrategyState = campaignCount === 0 ? 'none' : (contentPostsTotal > 0 ? 'approved' : 'draft')
         const journey = getFirstRunJourney({
           hasWorkspace: true,
@@ -138,7 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           strategyState,
           hasCampaignOrContent: campaignCount > 0 || contentPostsTotal > 0,
           hasContent: contentPostsTotal > 0,
-          contentApproved: publishedPostsTotal > 0,
+          contentApproved: approvedOrLaterPosts > 0,
         })
         router.push(journey.state === 'execution_ready_later' ? '/dashboard' : journey.href)
       } catch {

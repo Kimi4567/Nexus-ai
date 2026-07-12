@@ -12,7 +12,7 @@ const {
   mockRefund: vi.fn(),
   mockRefundForTxn: vi.fn(),
   mockPrisma: {
-    adCampaign: { findFirst: vi.fn() },
+    adCampaign: { findFirst: vi.fn(), update: vi.fn() },
     adSet: { findFirst: vi.fn(), create: vi.fn() },
     brandProfile: { findUnique: vi.fn() },
     ad: { create: vi.fn() },
@@ -30,7 +30,9 @@ vi.mock('@/lib/ai/langHelper', () => ({ getLanguageInstruction: () => 'Respond i
 
 import { POST } from '../route'
 
-const makeReq = (body: unknown = {}) => ({ json: async () => body }) as any
+const makeReq = (body: Record<string, unknown> = {}) => ({
+  json: async () => ({ destinationUrl: 'https://nexus-grow.com/paid-offer', ...body }),
+}) as any
 const params = { params: { id: 'adcamp_1' } }
 
 const campaign = {
@@ -60,6 +62,7 @@ beforeEach(() => {
   mockRefund.mockResolvedValue(undefined)
   mockRefundForTxn.mockResolvedValue(undefined)
   mockPrisma.adCampaign.findFirst.mockResolvedValue(campaign)
+  mockPrisma.adCampaign.update.mockResolvedValue(campaign)
   mockPrisma.adSet.findFirst.mockResolvedValue({ id: 'adset_1' })
   mockPrisma.adSet.create.mockResolvedValue({ id: 'adset_1' })
   mockPrisma.brandProfile.findUnique.mockResolvedValue(null)
@@ -75,6 +78,16 @@ describe('POST /api/ad-campaigns/[id]/generate-copy — RF-3 refund safety', () 
 
     expect(res.status).toBe(404)
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockRefund).not.toHaveBeenCalled()
+    expect(mockRefundForTxn).not.toHaveBeenCalled()
+  })
+
+  it('invalid conversion destination is rejected before credits are deducted', async () => {
+    const res = await POST(makeReq({ destinationUrl: 'http://localhost:3000/lead' }), params)
+
+    expect(res.status).toBe(400)
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockPrisma.adCampaign.update).not.toHaveBeenCalled()
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })

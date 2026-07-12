@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 const GOAL_LABELS: Record<string, string> = {
   SALES: 'Sales', AWARENESS: 'Brand Awareness', LEADS: 'Lead Generation',
   TRAFFIC: 'Traffic', ENGAGEMENT: 'Engagement', BRAND_BUILDING: 'Brand Building',

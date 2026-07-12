@@ -132,7 +132,7 @@ function MetricCard({
   href?: string
 }) {
   const body = (
-    <div className="h-full rounded-[22px] border border-[#e3e8f3] bg-white/90 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.06)] transition hover:border-[#cbd5ef]">
+    <div className="nx-os-card nx-os-card-interactive h-full p-5">
       <div className="mb-4 flex items-center justify-between">
         <p className="text-[12px] font-bold text-[#64708f]">{title}</p>
         <span className="flex h-10 w-10 items-center justify-center rounded-[15px] bg-[#f4f6ff] text-[#5366f6]">
@@ -283,8 +283,8 @@ export default function AnalyticsPage() {
 
   return (
     <AppShell>
-      <main dir={dir} className="min-h-screen bg-[#f6f8fc] text-[#071236]">
-        <div className="mx-auto max-w-[1540px] px-6 py-7 lg:px-8">
+      <main dir={dir} className="nx-os-page">
+        <div className="nx-os-container">
           <LuxuryWorkspaceHeader
             pageTitle={ar ? 'التحليلات والأداء' : 'Analytics and performance'}
             pageSubtitle={ar ? 'قياس يعتمد على بيانات NEXUS وما يصل من المنصات فقط.' : 'Measurement based only on NEXUS records and connected platform data.'}
@@ -345,7 +345,7 @@ export default function AnalyticsPage() {
               <MetricCard title={ar ? 'العائد على الإنفاق' : 'Paid ROAS'} value={overview.performance.totals.paidRoas === null ? '—' : overview.performance.totals.paidRoas.toFixed(2)} helper={overview.performance.paidEvidenceCount > 0 ? (ar ? `${overview.performance.paidEvidenceCount} لقطة مدفوعة موثقة` : `${overview.performance.paidEvidenceCount} verified paid snapshots`) : (ar ? 'لا يوجد قياس مدفوع' : 'No paid measurement')} icon={ShieldCheck} />
             </section>
           ) : (
-            <section className="mb-5 grid gap-5 rounded-[24px] border border-[#dfe6f2] bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.05)] lg:grid-cols-[1fr_auto] lg:items-center">
+            <section className="nx-os-card mb-5 grid gap-5 p-5 lg:grid-cols-[1fr_auto] lg:items-center">
               <div className="flex items-start gap-4">
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-[#f3f5ff] text-[#5366f6]"><Database className="h-6 w-6" /></span>
                 <div>
@@ -374,7 +374,7 @@ export default function AnalyticsPage() {
 
           <section className="grid gap-5 xl:grid-cols-[1fr_380px]">
             <div className="space-y-5">
-              <div className="rounded-[24px] border border-[#e3e8f3] bg-white/90 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
+              <div className="nx-os-card p-5">
                 <div className="mb-5 flex items-center justify-between">
                   <div>
                     <h2 className="text-[18px] font-black text-[#071236]">{ar ? 'نشاط NEXUS الشهري' : 'Monthly NEXUS activity'}</h2>
@@ -385,7 +385,7 @@ export default function AnalyticsPage() {
                 <ActivityChart data={overview?.monthlyActivity ?? []} loading={dataLoading} emptyCopy={ar ? 'لا توجد نشاطات توليد بعد.' : 'No generation activity yet.'} />
               </div>
 
-              <div className="rounded-[24px] border border-[#e3e8f3] bg-white/90 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
+              <div className="nx-os-card p-5">
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="text-[18px] font-black text-[#071236]">{ar ? 'اتجاه الأداء الموثق' : 'Verified performance trend'}</h2>
@@ -439,7 +439,7 @@ export default function AnalyticsPage() {
             </div>
 
             <aside className="space-y-5">
-              <div className="rounded-[24px] border border-[#e3e8f3] bg-white/90 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
+              <div className="nx-os-card p-5">
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-[16px] font-black text-[#071236]">{ar ? 'حالة الثقة في البيانات' : 'Data confidence'}</h2>
                   <ShieldCheck className="h-5 w-5 text-[#5366f6]" />
@@ -469,7 +469,7 @@ export default function AnalyticsPage() {
                 ))}
               </div>
 
-              <div className="rounded-[24px] border border-[#e3e8f3] bg-white/90 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
+              <div className="nx-os-card p-5">
                 <h2 className="text-[16px] font-black text-[#071236]">{ar ? 'رؤى النظام' : 'System insights'}</h2>
                 <div className="mt-4 space-y-3">
                   {dataLoading ? [1, 2, 3].map((item) => (
@@ -491,7 +491,7 @@ export default function AnalyticsPage() {
                 </div>
               </div>
 
-              <div className="rounded-[24px] border border-[#e3e8f3] bg-white/90 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
+              <div className="nx-os-card p-5">
                 <h2 className="text-[16px] font-black text-[#071236]">{ar ? 'الحملات الأخيرة' : 'Recent campaigns'}</h2>
                 <div className="mt-4 space-y-3">
                   {dataLoading ? [1, 2, 3].map((item) => (

@@ -92,6 +92,7 @@ export default function SocialPublisher({
   const [showSuggestions, setShowSuggestions] = useState(false)
   // Remove-from-history (Nexus-only; never touches the platform)
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const [pendingRecordRemoval, setPendingRecordRemoval] = useState<PublishedPost | null>(null)
 
   // Schedule
   const [mode, setMode] = useState<'now' | 'schedule'>('now')
@@ -152,22 +153,25 @@ export default function SocialPublisher({
     }
   }, [authHeader, campaignId])
 
-  // Remove a post from Nexus history ONLY. This deletes the local SocialPost
-  // record; it does NOT delete the post from Facebook/the platform. The user
-  // must delete on the platform manually if they want it removed there.
-  const handleRemoveFromHistory = useCallback(async (id: string) => {
-    const msg = ar
-      ? 'إزالة من سجل Nexus فقط — لن يتم حذف المنشور من فيسبوك. احذفه يدويًا على فيسبوك إذا أردت ذلك. متابعة؟'
-      : 'Remove from Nexus history only — this will NOT delete the post from Facebook. Delete it on Facebook manually if you want it gone there. Continue?'
-    if (!window.confirm(msg)) return
-    setRemovingId(id)
+  const handleRemoveFromHistory = useCallback(async (post: PublishedPost) => {
+    const operation = post.status === 'FAILED' ? 'dismiss_failed_record' : 'cancel_scheduled_post'
+    setRemovingId(post.id)
+    setResult(null)
     try {
-      await fetch(`/api/schedule?id=${id}`, {
+      const response = await fetch(`/api/schedule?id=${post.id}`, {
         method: 'DELETE',
-        headers: { Authorization: authHeader() },
+        headers: {
+          Authorization: authHeader(),
+          'X-Nexus-Confirm-Operation': operation,
+        },
       })
-      setPosts(prev => prev.filter(p => p.id !== id))
-    } catch { /* silent */ }
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || (ar ? 'تعذر تحديث سجل النشر.' : 'Could not update publishing history.'))
+      setPosts(prev => prev.filter(p => p.id !== post.id))
+      setPendingRecordRemoval(null)
+    } catch (error) {
+      setResult({ ok: false, error: error instanceof Error ? error.message : (ar ? 'تعذر تحديث سجل النشر.' : 'Could not update publishing history.') })
+    }
     finally { setRemovingId(null) }
   }, [authHeader, ar])
 
@@ -705,8 +709,8 @@ export default function SocialPublisher({
           </p>
           <p className="text-[11px] leading-snug text-slate-500">
             {ar
-              ? 'السجل يفرّق بين النشر اليدوي الذي أكده المستخدم والنشر عبر API. "إزالة" تحذف من NEXUS فقط ولا تحذف من المنصة.'
-              : 'This history separates user-confirmed manual publishing from platform/API publishing. "Remove" clears it from NEXUS only, not from the platform.'}
+              ? 'السجل يفرّق بين النشر اليدوي الذي أكده المستخدم والنشر عبر API. السجلات المنشورة محفوظة كدليل تشغيل، ويمكن فقط إلغاء الموعد أو إخفاء سجل فشل.'
+              : 'This history separates user-confirmed manual publishing from platform/API publishing. Published records are retained as execution evidence; only schedules or failed records can be removed.'}
           </p>
           <div className="space-y-2">
             {posts.map(post => (
@@ -750,16 +754,22 @@ export default function SocialPublisher({
                         {ar ? 'عرض' : 'View'} <ExternalLink className="w-2.5 h-2.5" />
                       </a>
                     )}
-                    <button
-                      onClick={() => handleRemoveFromHistory(post.id)}
-                      disabled={removingId === post.id}
-                      title={ar
-                        ? 'إزالة من سجل Nexus فقط — لا يحذف من فيسبوك'
-                        : 'Remove from Nexus history only — does NOT delete from Facebook'}
-                      className="text-xs text-gray-500 hover:text-red-400 transition-colors disabled:opacity-40"
-                    >
-                      {removingId === post.id ? (ar ? '...' : '...') : (ar ? 'إزالة' : 'Remove')}
-                    </button>
+                    {(post.status === 'SCHEDULED' || post.status === 'FAILED') && (
+                      <button
+                        onClick={() => setPendingRecordRemoval(post)}
+                        disabled={removingId === post.id}
+                        title={post.status === 'FAILED'
+                          ? (ar ? 'إخفاء سجل الفشل من NEXUS فقط' : 'Dismiss the failed NEXUS record only')
+                          : (ar ? 'إلغاء موعد NEXUS فقط' : 'Cancel the NEXUS schedule only')}
+                        className="text-xs text-gray-500 hover:text-red-400 transition-colors disabled:opacity-40"
+                      >
+                        {removingId === post.id
+                          ? '...'
+                          : post.status === 'FAILED'
+                            ? (ar ? 'إخفاء الفشل' : 'Dismiss failure')
+                            : (ar ? 'إلغاء الموعد' : 'Cancel schedule')}
+                      </button>
+                    )}
                   </div>
                   {post.errorMessage && (
                     <p className="text-xs text-red-400 mt-1">{post.errorMessage}</p>
@@ -767,6 +777,42 @@ export default function SocialPublisher({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {pendingRecordRemoval && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center px-4" style={{ background: 'rgba(15,23,42,0.52)', backdropFilter: 'blur(5px)' }}>
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 text-slate-950 shadow-2xl" dir={dir}>
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600">
+                <AlertCircle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-bold">
+                  {pendingRecordRemoval.status === 'FAILED'
+                    ? (ar ? 'إخفاء سجل الفشل؟' : 'Dismiss failed record?')
+                    : (ar ? 'إلغاء الموعد؟' : 'Cancel schedule?')}
+                </h3>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  {pendingRecordRemoval.status === 'FAILED'
+                    ? (ar ? 'سيُحذف سجل الفشل من NEXUS فقط، ولن يتغير أي شيء على المنصة.' : 'This removes the failed NEXUS record only and changes nothing on the platform.')
+                    : (ar ? 'سيُلغى الموعد داخل NEXUS فقط. لا يحذف هذا الإجراء منشورًا حيًا من المنصة.' : 'This cancels the NEXUS schedule only. It does not delete a live platform post.')}
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setPendingRecordRemoval(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                {ar ? 'رجوع' : 'Go back'}
+              </button>
+              <button type="button" onClick={() => handleRemoveFromHistory(pendingRecordRemoval)} disabled={removingId === pendingRecordRemoval.id} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50">
+                {removingId === pendingRecordRemoval.id
+                  ? (ar ? 'جارٍ التنفيذ...' : 'Working...')
+                  : pendingRecordRemoval.status === 'FAILED'
+                    ? (ar ? 'إخفاء السجل' : 'Dismiss record')
+                    : (ar ? 'إلغاء الجدولة' : 'Cancel schedule')}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -262,6 +262,53 @@ export class MetaAdsApi {
   }
 
   /**
+   * Import a reviewed HTTPS image into the connected Meta ad account and
+   * return the real image hash required by object_story_spec.link_data.
+   * A Cloudinary URL is not itself a Meta image hash.
+   */
+  async uploadAdImageFromUrl(imageUrl: string): Promise<string> {
+    const parsed = new URL(imageUrl)
+    if (parsed.protocol !== 'https:') {
+      throw new Error('Meta creative images must use a public HTTPS URL.')
+    }
+
+    const imageResponse = await fetch(parsed.toString(), { redirect: 'follow' })
+    if (!imageResponse.ok) {
+      throw new Error(`Could not fetch the reviewed creative image (${imageResponse.status}).`)
+    }
+
+    const contentType = imageResponse.headers.get('content-type') || ''
+    if (!contentType.toLowerCase().startsWith('image/')) {
+      throw new Error('The reviewed creative URL did not return an image.')
+    }
+
+    const declaredSize = Number(imageResponse.headers.get('content-length') || 0)
+    const maxBytes = 8 * 1024 * 1024
+    if (declaredSize > maxBytes) {
+      throw new Error('The reviewed creative image exceeds the 8 MB upload limit.')
+    }
+
+    const buffer = Buffer.from(await imageResponse.arrayBuffer())
+    if (buffer.length === 0 || buffer.length > maxBytes) {
+      throw new Error('The reviewed creative image is empty or exceeds the 8 MB upload limit.')
+    }
+
+    const response = await this.metaPost<{
+      images?: Record<string, { hash?: string }>
+    }>(`${this.adAccountId}/adimages`, {
+      bytes: buffer.toString('base64'),
+      name: `nexus-reviewed-${Date.now()}`,
+    })
+
+    const imageHash = Object.values(response.images || {})[0]?.hash
+    if (!imageHash) {
+      throw new Error('Meta did not return an image hash for the reviewed creative.')
+    }
+
+    return imageHash
+  }
+
+  /**
    * Create an ad (binds ad set + creative)
    */
   async createAd(payload: MetaAdPayload): Promise<string> {

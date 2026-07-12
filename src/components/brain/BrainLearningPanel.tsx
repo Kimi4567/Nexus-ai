@@ -27,6 +27,9 @@ interface Proposal {
   reason: string
   status: string
   createdAt: string
+  traceability?: 'analytics_evidence' | 'campaign_record' | 'external_sources' | 'source_not_attached' | 'internal_signal'
+  sourceRefs?: Array<{ url: string; title?: string; publisher?: string }>
+  canAccept?: boolean
 }
 
 interface BrainLearningPanelProps {
@@ -134,9 +137,12 @@ function ProposalCard({
   onDismiss: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
+  const sourceMissing = proposal.traceability === 'source_not_attached'
 
   // Format the proposed value for display
-  const proposedDisplay = Array.isArray(proposal.proposed)
+  const proposedDisplay = sourceMissing
+    ? <span className="text-xs font-semibold text-amber-700">External claim withheld because no traceable source URL is attached.</span>
+    : Array.isArray(proposal.proposed)
     ? (proposal.proposed as string[]).slice(0, 3).map((v, i) => (
         <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-300 text-xs border border-violet-500/20 mr-1 mb-1">
           {v}
@@ -167,27 +173,51 @@ function ProposalCard({
       </div>
 
       {/* Reason (collapsible) */}
-      <button
-        className="text-xs text-[var(--nx-muted)] hover:text-[var(--nx-text)] transition-colors mb-3 text-left"
-        onClick={() => setExpanded(e => !e)}
-      >
-        {expanded ? '▲ Less' : '▼ Why?'}
-      </button>
-      {expanded && (
+      {!sourceMissing ? (
+        <button
+          className="text-xs text-[var(--nx-muted)] hover:text-[var(--nx-text)] transition-colors mb-3 text-left"
+          onClick={() => setExpanded(e => !e)}
+        >
+          {expanded ? '▲ Less' : '▼ Why?'}
+        </button>
+      ) : null}
+      {expanded && !sourceMissing && (
         <p className="text-xs text-[var(--nx-muted)] bg-[var(--nx-bg)] rounded-lg px-3 py-2 mb-3 border border-[var(--nx-border)]">
           {proposal.reason}
         </p>
       )}
 
+      {proposal.sourceRefs?.length ? (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {proposal.sourceRefs.slice(0, 3).map((source, index) => (
+            <a
+              key={`${source.url}-${index}`}
+              href={source.url}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full border border-[var(--nx-border)] px-2 py-1 text-[10px] font-semibold text-violet-400"
+            >
+              {source.publisher || source.title || `Source ${index + 1}`}
+            </a>
+          ))}
+        </div>
+      ) : null}
+
       {/* Actions */}
       <div className="flex gap-2">
-        <button
-          disabled={acting}
-          onClick={onAccept}
-          className="flex-1 py-1.5 rounded-lg text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white transition-colors disabled:opacity-50"
-        >
-          {acting ? 'Applying…' : '✓ Accept'}
-        </button>
+        {proposal.canAccept !== false ? (
+          <button
+            disabled={acting}
+            onClick={onAccept}
+            className="flex-1 py-1.5 rounded-lg text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white transition-colors disabled:opacity-50"
+          >
+            {acting ? 'Applying…' : '✓ Accept'}
+          </button>
+        ) : (
+          <span className="flex-1 rounded-lg bg-amber-50 px-3 py-1.5 text-center text-xs font-semibold text-amber-700">
+            Source required before applying
+          </span>
+        )}
         <button
           disabled={acting}
           onClick={onDismiss}

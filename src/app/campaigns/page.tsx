@@ -11,6 +11,7 @@ import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import { resolveCampaignCounts, type CampaignCounts } from '@/lib/campaignSummary'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  AlertTriangle,
   Archive,
   ArrowUpRight,
   BadgeCheck,
@@ -29,6 +30,7 @@ import {
   Target,
   Trash2,
   Wand2,
+  X,
 } from 'lucide-react'
 
 interface Campaign {
@@ -113,6 +115,12 @@ export default function CampaignsPage() {
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [decisionCampaign, setDecisionCampaign] = useState<{
+    id: string
+    name: string
+    kind: 'archive' | 'delete'
+  } | null>(null)
+  const [decisionError, setDecisionError] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
 
   const statusMap: Record<string, { label: string; dot: string; pill: string }> = {
@@ -122,7 +130,7 @@ export default function CampaignsPage() {
       pill: 'bg-slate-50 text-slate-600 border-slate-200',
     },
     ACTIVE: {
-      label: cT?.statusActive || copy('نشطة', 'Active'),
+      label: copy('استراتيجية معتمدة', 'Strategy approved'),
       dot: 'bg-emerald-500',
       pill: 'bg-emerald-50 text-emerald-700 border-emerald-100',
     },
@@ -200,11 +208,12 @@ export default function CampaignsPage() {
   const toggleFavorite = async (id: string, current: boolean) => {
     setTogglingId(id)
     try {
-      await fetch(`/api/campaigns/${id}`, {
+      const res = await fetch(`/api/campaigns/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
         body: JSON.stringify({ favorite: !current }),
       })
+      if (!res.ok) return
       setCampaigns((prev) => prev.map((campaign) => campaign.id === id ? { ...campaign, favorite: !current } : campaign))
     } finally {
       setTogglingId(null)
@@ -212,30 +221,50 @@ export default function CampaignsPage() {
   }
 
   const archiveCampaign = async (id: string) => {
-    if (!window.confirm(copy('أرشفة هذه الحملة؟ ستخرج من التشغيل اليومي بدون حذف بياناتها.', 'Archive this campaign? It will leave daily operations without deleting its data.'))) return
-    setOpenMenuId(null)
+    setDecisionError('')
+    setDeletingId(id)
     try {
-      await fetch(`/api/campaigns/${id}`, {
+      const res = await fetch(`/api/campaigns/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
         body: JSON.stringify({ status: 'ARCHIVED' }),
       })
+      if (!res.ok) throw new Error('archive_failed')
       setCampaigns((prev) => prev.map((campaign) => campaign.id === id ? { ...campaign, status: 'ARCHIVED' } : campaign))
+      setDecisionCampaign(null)
     } catch {
-      // Keep the visible state unchanged if the request fails.
+      setDecisionError(copy('تعذر أرشفة الحملة. لم تتغير حالتها.', 'Could not archive the campaign. Its state was not changed.'))
+    } finally {
+      setDeletingId(null)
     }
   }
 
   const deleteCampaign = async (id: string) => {
-    if (!window.confirm(cT?.menuDeleteConfirm || copy('حذف هذه الحملة نهائياً؟', 'Delete this campaign permanently?'))) return
+    setDecisionError('')
     setDeletingId(id)
-    setOpenMenuId(null)
     try {
-      await fetch(`/api/campaigns/${id}`, {
+      const res = await fetch(`/api/campaigns/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: authHeader() },
+        headers: {
+          Authorization: authHeader(),
+          'X-Nexus-Confirm-Campaign-Delete': id,
+        },
       })
+      const responseBody = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (responseBody?.error === 'CAMPAIGN_HAS_CONTENT') {
+          setDecisionError(copy(
+            `لا يمكن حذف هذه الحملة لأن لديها ${responseBody.socialPostCount || 1} منشورًا في Content Hub. استخدم الأرشفة للحفاظ على سجل التشغيل.`,
+            `This campaign has ${responseBody.socialPostCount || 1} Content Hub post(s) and cannot be permanently deleted. Archive it to preserve the operating record.`,
+          ))
+          return
+        }
+        throw new Error('delete_failed')
+      }
       setCampaigns((prev) => prev.filter((campaign) => campaign.id !== id))
+      setDecisionCampaign(null)
+    } catch {
+      setDecisionError(copy('تعذر حذف الحملة. لم تُحذف أي بيانات.', 'Could not delete the campaign. No data was deleted.'))
     } finally {
       setDeletingId(null)
     }
@@ -250,6 +279,61 @@ export default function CampaignsPage() {
     const health = total > 0 ? Math.round(((active + completed) / total) * 100) : 0
     return { total, active, draft, completed, archived, health }
   }, [campaigns, counts])
+
+  const platformDistribution = useMemo(() => {
+    const totals = new Map<string, number>()
+    let campaignsWithPlatforms = 0
+
+    campaigns.forEach((campaign) => {
+      const summary = getCampaignPlatformSummary(campaign.platforms, locale)
+      if (!summary.isEmpty) campaignsWithPlatforms += 1
+      summary.labels.forEach((label) => totals.set(label, (totals.get(label) || 0) + 1))
+    })
+
+    const assignments = Array.from(totals.values()).reduce((sum, count) => sum + count, 0)
+    const entries = Array.from(totals.entries())
+      .map(([label, count]) => ({
+        label,
+        count,
+        percentage: assignments ? Math.round((count / assignments) * 100) : 0,
+      }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+      .slice(0, 5)
+
+    return {
+      entries,
+      coverage: campaigns.length ? Math.round((campaignsWithPlatforms / campaigns.length) * 100) : 0,
+    }
+  }, [campaigns, locale])
+
+  const goalDistribution = useMemo(() => {
+    const totals = new Map<string, number>()
+    campaigns.forEach((campaign) => {
+      const key = campaign.goal?.trim()
+      if (key) totals.set(key, (totals.get(key) || 0) + 1)
+    })
+
+    return Array.from(totals.entries())
+      .map(([goal, count]) => ({
+        label: goalMap[goal] || goal,
+        count,
+        percentage: campaigns.length ? Math.round((count / campaigns.length) * 100) : 0,
+      }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+      .slice(0, 3)
+  }, [campaigns, goalMap])
+
+  const campaignBriefCoverage = useMemo(() => {
+    if (!campaigns.length) return 0
+    const completedFields = campaigns.reduce((total, campaign) => {
+      return total
+        + Number(Boolean(campaign.name?.trim()))
+        + Number(Boolean(campaign.description?.trim()))
+        + Number(Boolean(campaign.goal?.trim()))
+        + Number(Boolean(campaign.platforms?.length))
+    }, 0)
+    return Math.round((completedFields / (campaigns.length * 4)) * 100)
+  }, [campaigns])
 
   const dateLocale = locale === 'ar' ? 'ar-EG' : 'en-US'
   const latestCampaign = campaigns[0]
@@ -290,8 +374,8 @@ export default function CampaignsPage() {
 
   return (
     <AppShell>
-      <main dir={ar ? 'rtl' : 'ltr'} className="min-h-screen bg-[#f6f8fc] text-[#111b3f]">
-        <div className="mx-auto max-w-[1540px] px-6 py-7 lg:px-8">
+      <main dir={ar ? 'rtl' : 'ltr'} className="nx-os-page">
+        <div className="nx-os-container">
           <LuxuryWorkspaceHeader
             pageTitle={copy('الحملات', 'Campaigns')}
             pageSubtitle={copy('محفظة الحملات: النطاق، المرحلة، الجاهزية، والقرار التالي. الإنتاج التفصيلي يعيش داخل Content Hub.', 'Campaign portfolio: scope, stage, readiness, and next decision. Detailed production lives inside Content Hub.')}
@@ -301,28 +385,21 @@ export default function CampaignsPage() {
             secondaryLabel={copy('الربط والتكاملات', 'Connections')}
           />
 
-          <header className="mb-7 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-end xl:justify-between">
-            <div>
-              <p className="text-[12px] font-semibold text-[#7b87a3]">{copy('لوحة تشغيل الحملات', 'Campaign command board')}</p>
-              <h1 className="mt-2 flex items-center gap-2 text-[32px] font-black tracking-[-0.03em] text-[#071236]">
-                {copy('محفظة الحملات', 'Campaign Portfolio')}
-                <Sparkles className="text-[#4f46e5]" size={26} />
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#60708f]">
-                {copy('هذه الصفحة لا تحل محل مركز المحتوى. هنا تختار أي حملة تقودها، ما حالتها، وما القرار التالي. Content Hub هو مكان المنشورات النهائية والوسائط والمراجعات.', 'This page does not replace Content Hub. Use it to choose which campaign to operate, understand its state, and pick the next decision. Content Hub is for final posts, media, and reviews.')}
-              </p>
+          <div className="nx-os-action-strip mb-4">
+            <div className="min-w-0">
+              <p className="nx-os-section-title">{copy('تحكم محفظة الحملات', 'Campaign portfolio controls')}</p>
+              <p className="nx-os-section-copy">{copy('التصفية والتحديث والتصدير لا تغيّر أي حالة تشغيلية.', 'Filtering, refresh, and export do not change operating state.')}</p>
             </div>
-
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={load}
-                className="flex h-11 w-11 items-center justify-center rounded-[14px] border border-[#e3e8f3] bg-white text-[#53617f] transition hover:border-[#cbd4ff]"
+                className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-[#e3e8f3] bg-white text-[#53617f] transition hover:border-[#cbd4ff]"
                 aria-label={copy('تحديث الحملات', 'Refresh campaigns')}
               >
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               </button>
-              <Link href="/dashboard" className="flex h-11 items-center gap-2 rounded-[14px] border border-[#e3e8f3] bg-white px-4 text-sm font-bold text-[#111b3f]">
+              <Link href="/dashboard" className="flex h-10 items-center gap-2 rounded-[10px] border border-[#e3e8f3] bg-white px-3 text-[12px] font-bold text-[#111b3f]">
                 <Grid2X2 size={16} />
                 {copy('لوحة النظام', 'OS board')}
               </Link>
@@ -330,17 +407,13 @@ export default function CampaignsPage() {
                 type="button"
                 onClick={exportCampaigns}
                 disabled={loading || campaigns.length === 0}
-                className="flex h-11 items-center gap-2 rounded-[14px] border border-[#e3e8f3] bg-white px-4 text-sm font-bold text-[#111b3f] transition hover:border-[#cbd4ff] disabled:cursor-not-allowed disabled:opacity-45"
+                className="flex h-10 items-center gap-2 rounded-[10px] border border-[#e3e8f3] bg-white px-3 text-[12px] font-bold text-[#111b3f] transition hover:border-[#cbd4ff] disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {copy('تصدير CSV', 'Export CSV')}
                 <Download size={15} />
               </button>
-              <Link href="/campaigns/new" className="flex h-11 items-center gap-2 rounded-[14px] bg-[#071236] px-5 text-sm font-bold text-white shadow-[0_16px_34px_rgba(31,41,130,0.22)]">
-                <Plus size={16} />
-                {cT?.btnNewCampaign || copy('حملة جديدة', 'New campaign')}
-              </Link>
             </div>
-          </header>
+          </div>
 
           <div className="mb-5 flex flex-wrap items-center gap-3">
             <div className="flex h-10 items-center gap-2 rounded-[13px] border border-[#e3e8f3] bg-white px-4 text-sm font-semibold text-[#53617f]">
@@ -381,11 +454,11 @@ export default function CampaignsPage() {
 
           <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-6">
             <MetricCard title={copy('إجمالي الحملات', 'Total campaigns')} value={String(summary.total)} helper={copy('كل الحملات المحفوظة', 'All saved campaigns')} icon={<FolderKanban size={18} />} />
-            <MetricCard title={copy('الحملات النشطة', 'Active campaigns')} value={String(summary.active)} helper={copy('حملات قيد التشغيل', 'Currently active')} icon={<BadgeCheck size={18} />} />
+            <MetricCard title={copy('استراتيجيات معتمدة', 'Approved strategies')} value={String(summary.active)} helper={copy('اعتماد سير عمل، وليس دليلاً على نشر أو صرف', 'Workflow approval, not proof of publishing or spend')} icon={<BadgeCheck size={18} />} />
             <MetricCard title={copy('المسودات', 'Drafts')} value={String(summary.draft)} helper={copy('تحتاج إكمال أو مراجعة', 'Need completion or review')} icon={<Wand2 size={18} />} />
             <MetricCard title={copy('المكتملة', 'Completed')} value={String(summary.completed)} helper={copy('أغلقت أو اكتملت', 'Closed or completed')} icon={<Target size={18} />} />
             <MetricCard title={copy('المؤرشفة', 'Archived')} value={String(summary.archived)} helper={copy('مخفية من التشغيل اليومي', 'Hidden from daily operation')} icon={<Archive size={18} />} />
-            <MetricCard title="Brand Brain" value={summary.total ? copy('متصل', 'Linked') : copy('ينتظر', 'Waiting')} helper={copy('المحاذاة تظهر حسب بيانات كل حملة', 'Alignment depends on campaign data')} icon={<Sparkles size={18} />} />
+            <MetricCard title="Brand Brain" value={summary.total ? copy('سياق متاح', 'Context available') : copy('ينتظر', 'Waiting')} helper={copy('يُراجع الارتباط الفعلي داخل كل حملة، وليس من رقم أداء افتراضي.', 'Actual linkage is reviewed per campaign, not inferred from a performance score.')} icon={<Sparkles size={18} />} />
           </div>
 
           <StrategySpineCard
@@ -430,7 +503,7 @@ export default function CampaignsPage() {
               <Link
                 key={item.title}
                 href={item.href}
-                className="group rounded-[20px] border border-[#e5eaf5] bg-white p-4 shadow-[0_16px_42px_rgba(13,24,63,0.045)] transition hover:-translate-y-0.5 hover:border-[#cbd4ff]"
+                className="nx-os-card nx-os-card-interactive group p-4"
               >
                 <p className="text-[13px] font-black text-[#071236]">{item.title}</p>
                 <p className="mt-2 min-h-[44px] text-[12px] leading-5 text-[#687692]">{item.body}</p>
@@ -448,16 +521,16 @@ export default function CampaignsPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-12 gap-5">
-            <section className="col-span-12 rounded-[22px] border border-[#e5eaf5] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)] xl:col-span-3">
+          <div className="grid grid-cols-12 items-start gap-5">
+            <section className="nx-os-card col-span-12 self-start p-5 xl:col-span-3">
               <h2 className="mb-4 flex items-center justify-between text-[15px] font-black text-[#111b3f]">
-                {copy('صحة الحملات', 'Campaign health')}
+                {copy('تقدم محفظة الحملات', 'Campaign portfolio progress')}
                 <Sparkles size={18} className="text-[#4f46e5]" />
               </h2>
-              <Donut value={summary.health} label={copy('صحية', 'Healthy')} />
+              <Donut value={summary.health} label={copy('معتمدة أو مكتملة', 'Approved or complete')} />
               <div className="mt-5 space-y-2">
                 {[
-                  [copy('نشطة', 'Active'), summary.active, 'bg-emerald-500'],
+                  [copy('استراتيجية معتمدة', 'Strategy approved'), summary.active, 'bg-emerald-500'],
                   [copy('تحتاج مراجعة', 'Needs review'), summary.draft, 'bg-amber-500'],
                   [copy('مكتملة', 'Completed'), summary.completed, 'bg-blue-500'],
                   [copy('مؤرشفة', 'Archived'), summary.archived, 'bg-slate-300'],
@@ -470,44 +543,57 @@ export default function CampaignsPage() {
               </div>
             </section>
 
-            <section className="col-span-12 rounded-[22px] border border-[#e5eaf5] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)] xl:col-span-3">
+            <section className="nx-os-card col-span-12 self-start p-5 xl:col-span-3">
               <h2 className="mb-4 text-[15px] font-black text-[#111b3f]">{copy('توزيع المنصات', 'Platform mix')}</h2>
-              <Donut value={campaigns.length ? 74 : 0} label={copy('مخطط', 'Mapped')} />
+              <Donut value={platformDistribution.coverage} label={copy('تغطية الحملات', 'Campaign coverage')} />
               <div className="mt-4 space-y-2">
-                {['Instagram', 'TikTok', 'Google Ads', 'LinkedIn', 'YouTube'].map((platform, index) => (
-                  <div key={platform} className="flex items-center justify-between text-sm">
-                    <span className="text-[#53617f]">{platform}</span>
-                    <span className="font-bold text-[#111b3f]">{[35, 25, 20, 12, 8][index]}%</span>
+                {platformDistribution.entries.map((platform) => (
+                  <div key={platform.label} className="flex items-center justify-between text-sm">
+                    <span className="text-[#53617f]">{platform.label}</span>
+                    <span className="font-bold text-[#111b3f]">{platform.percentage}%</span>
                   </div>
                 ))}
+                {!platformDistribution.entries.length ? (
+                  <p className="rounded-[12px] bg-[#fbfcff] px-3 py-3 text-xs leading-5 text-[#7b87a3]">
+                    {copy('لا توجد منصات محفوظة في بريفات الحملات بعد.', 'No platforms are saved in campaign briefs yet.')}
+                  </p>
+                ) : null}
               </div>
               <p className="mt-4 text-xs leading-5 text-[#7b87a3]">
                 {copy('هذا توزيع تخطيطي من إعدادات الحملات وليس إنفاقاً فعلياً.', 'This is a planning mix from campaign setup, not actual spend.')}
               </p>
             </section>
 
-            <section className="col-span-12 rounded-[22px] border border-[#e5eaf5] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)] xl:col-span-4">
+            <section className="nx-os-card col-span-12 self-start p-5 xl:col-span-4">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-[15px] font-black text-[#111b3f]">{copy('أهداف الحملات', 'Campaign goals')}</h2>
                 <Link href="/strategy" className="text-xs font-bold text-[#4f46e5]">{copy('عرض منطق الاستراتيجية', 'View strategy logic')}</Link>
               </div>
               <div className="space-y-3">
-                {[copy('زيادة الوعي بالعلامة التجارية', 'Increase brand awareness'), copy('زيادة المبيعات', 'Increase sales'), copy('توليد عملاء محتملين', 'Generate leads')].map((goal, index) => (
-                  <div key={goal} className="grid grid-cols-[1fr_90px] items-center gap-3 rounded-[14px] border border-[#edf1f8] bg-[#fbfcff] px-4 py-3">
-                    <span className="text-sm font-bold text-[#111b3f]">{goal}</span>
-                    <div className="h-2 overflow-hidden rounded-full bg-[#e8edf7]">
-                      <div className="h-full rounded-full bg-gradient-to-r from-[#4f46e5] to-[#63a4ff]" style={{ width: `${[78, 65, 42][index]}%` }} />
+                {goalDistribution.map((goal) => (
+                  <div key={goal.label} className="grid grid-cols-[1fr_120px] items-center gap-3 rounded-[14px] border border-[#edf1f8] bg-[#fbfcff] px-4 py-3">
+                    <span className="text-sm font-bold text-[#111b3f]">{goal.label}</span>
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#e8edf7]">
+                        <div className="h-full rounded-full bg-gradient-to-r from-[#4f46e5] to-[#63a4ff]" style={{ width: `${goal.percentage}%` }} />
+                      </div>
+                      <span className="w-8 text-end text-[11px] font-black text-[#53617f]">{goal.percentage}%</span>
                     </div>
                   </div>
                 ))}
+                {!goalDistribution.length ? (
+                  <p className="rounded-[14px] border border-[#edf1f8] bg-[#fbfcff] px-4 py-4 text-xs leading-5 text-[#7b87a3]">
+                    {copy('لا توجد أهداف حملات محفوظة بعد.', 'No campaign goals are saved yet.')}
+                  </p>
+                ) : null}
               </div>
               <p className="mt-4 text-xs text-[#7b87a3]">
                 {copy('الأهداف هنا للتنظيم والمراجعة، ولا تعني نتائج أداء منشورة.', 'Goals here organize review and do not imply published performance results.')}
               </p>
             </section>
 
-            <aside className="col-span-12 space-y-5 xl:col-span-2">
-              <section className="rounded-[22px] border border-[#e5eaf5] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)]">
+            <aside className="col-span-12 self-start space-y-5 xl:col-span-2">
+              <section className="nx-os-card p-5">
                 <h2 className="mb-4 flex items-center gap-2 text-[15px] font-black text-[#111b3f]">
                   <Sparkles size={18} className="text-[#4f46e5]" />
                   {copy('الخطوة التالية الموصى بها', 'Recommended next step')}
@@ -523,23 +609,9 @@ export default function CampaignsPage() {
                 </div>
               </section>
 
-              <section className="rounded-[22px] border border-[#e5eaf5] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)]">
-                <h2 className="mb-4 text-[15px] font-black text-[#111b3f]">{copy('معلومات ذكية من NEXUS', 'NEXUS intelligence')}</h2>
-                <div className="space-y-3">
-                  {[
-                    copy('أفضل وقت للنشر يظهر بعد ربط المنصات ووجود بيانات.', 'Best posting time appears after platform data exists.'),
-                    copy('فرص المحتوى تعتمد على الاستراتيجية وسجلات Content Hub.', 'Content opportunities depend on strategy and Content Hub records.'),
-                    copy('تعلم الأداء يتطلب analyticsData حقيقية.', 'Performance learning requires real analyticsData.'),
-                  ].map((note) => (
-                    <div key={note} className="rounded-[14px] border border-[#edf1f8] bg-[#fbfcff] p-3 text-xs leading-5 text-[#5f6d89]">
-                      {note}
-                    </div>
-                  ))}
-                </div>
-              </section>
             </aside>
 
-            <section className="col-span-12 rounded-[24px] border border-[#e5eaf5] bg-white p-5 shadow-[0_20px_60px_rgba(13,24,63,0.055)] xl:col-span-10">
+            <section className="nx-os-card col-span-12 p-5 xl:col-span-10">
               <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="relative max-w-md flex-1">
                   <Search className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa5bb]" />
@@ -605,7 +677,7 @@ export default function CampaignsPage() {
                             {status.label}
                           </span>
                           <span className="w-max rounded-full bg-[#f3f1ff] px-3 py-1 text-xs font-bold text-[#4f46e5]">
-                            {campaign.status === 'ACTIVE' ? copy('تشغيل', 'Run') : campaign.status === 'DRAFT' ? copy('تخطيط', 'Plan') : copy('مراجعة', 'Review')}
+                            {campaign.status === 'ACTIVE' ? copy('اعتماد', 'Approved') : campaign.status === 'DRAFT' ? copy('تخطيط', 'Plan') : copy('مراجعة', 'Review')}
                           </span>
                           <span className="flex flex-wrap gap-1">
                             {platforms.isEmpty ? (
@@ -636,11 +708,27 @@ export default function CampaignsPage() {
                                   <Star size={14} />
                                   {campaign.favorite ? copy('إزالة من المفضلة', 'Unfavorite') : cT?.btnFavorites || copy('المفضلة', 'Favorite')}
                                 </button>
-                                <button type="button" onClick={() => archiveCampaign(campaign.id)} className="flex w-full items-center gap-2 px-4 py-3 text-xs font-bold text-[#53617f] hover:bg-[#fbfcff]">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null)
+                                    setDecisionError('')
+                                    setDecisionCampaign({ id: campaign.id, name: campaign.name, kind: 'archive' })
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-3 text-xs font-bold text-[#53617f] hover:bg-[#fbfcff]"
+                                >
                                   <Archive size={14} />
                                   {cT?.menuArchive || copy('أرشفة', 'Archive')}
                                 </button>
-                                <button type="button" onClick={() => deleteCampaign(campaign.id)} className="flex w-full items-center gap-2 px-4 py-3 text-xs font-bold text-rose-500 hover:bg-rose-50">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null)
+                                    setDecisionError('')
+                                    setDecisionCampaign({ id: campaign.id, name: campaign.name, kind: 'delete' })
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-3 text-xs font-bold text-rose-500 hover:bg-rose-50"
+                                >
                                   <Trash2 size={14} />
                                   {cT?.menuDelete || copy('حذف', 'Delete')}
                                 </button>
@@ -656,15 +744,30 @@ export default function CampaignsPage() {
             </section>
 
             <aside className="col-span-12 space-y-5 xl:col-span-2">
-              <section className="rounded-[22px] border border-[#e5eaf5] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)]">
-                <h2 className="mb-4 text-[15px] font-black text-[#111b3f]">Brand Brain Alignment</h2>
-                <Donut value={summary.total ? 92 : 0} label={copy('محاذاة', 'Aligned')} />
+              <section className="nx-os-card p-5">
+                <h2 className="mb-4 text-[15px] font-black text-[#111b3f]">{copy('معلومات ذكية من NEXUS', 'NEXUS intelligence')}</h2>
+                <div className="space-y-3">
+                  {[
+                    copy('أفضل وقت للنشر يظهر بعد ربط المنصات ووجود بيانات.', 'Best posting time appears after platform data exists.'),
+                    copy('فرص المحتوى تعتمد على الاستراتيجية وسجلات Content Hub.', 'Content opportunities depend on strategy and Content Hub records.'),
+                    copy('تعلم الأداء يتطلب analyticsData حقيقية.', 'Performance learning requires real analyticsData.'),
+                  ].map((note) => (
+                    <div key={note} className="rounded-[14px] border border-[#edf1f8] bg-[#fbfcff] p-3 text-xs leading-5 text-[#5f6d89]">
+                      {note}
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="nx-os-card p-5">
+                <h2 className="mb-4 text-[15px] font-black text-[#111b3f]">{copy('تغطية بريف الحملة', 'Campaign brief coverage')}</h2>
+                <Donut value={campaignBriefCoverage} label={copy('حقول محفوظة', 'Fields saved')} />
                 <p className="mt-4 text-center text-xs leading-5 text-[#7b87a3]">
-                  {copy('المحاذاة مؤشر تنظيمي من بيانات الحملة، وليست نتيجة أداء.', 'Alignment is an operational signal, not a performance result.')}
+                  {copy('تقيس اكتمال الاسم والوصف والهدف والمنصات في الحملات المحملة؛ وليست نتيجة أداء أو ادعاء محاذاة دلالية.', 'Measures saved campaign name, description, goal, and platforms; it is not performance or a semantic-alignment claim.')}
                 </p>
               </section>
 
-              <section className="rounded-[22px] border border-[#e5eaf5] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)]">
+              <section className="nx-os-card p-5">
                 <h2 className="mb-4 flex items-center gap-2 text-[15px] font-black text-[#111b3f]">
                   <Info size={17} className="text-[#4f46e5]" />
                   {copy('حدود الحقيقة', 'Truth boundary')}
@@ -679,6 +782,75 @@ export default function CampaignsPage() {
             </aside>
           </div>
         </div>
+
+        {decisionCampaign && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#071236]/45 p-4 backdrop-blur-sm" role="presentation">
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="campaign-decision-title"
+              className="w-full max-w-lg rounded-[18px] border border-white/70 bg-white p-6 shadow-[0_30px_90px_rgba(7,18,54,0.28)]"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] ${decisionCampaign.kind === 'delete' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-700'}`}>
+                  {decisionCampaign.kind === 'delete' ? <Trash2 size={20} /> : <Archive size={20} />}
+                </span>
+                <button
+                  type="button"
+                  aria-label={copy('إغلاق', 'Close')}
+                  onClick={() => { setDecisionCampaign(null); setDecisionError('') }}
+                  disabled={deletingId === decisionCampaign.id}
+                  className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-[#e3e8f3] text-[#64748b] disabled:opacity-40"
+                >
+                  <X size={17} />
+                </button>
+              </div>
+
+              <h2 id="campaign-decision-title" className="mt-5 text-xl font-black text-[#071236]">
+                {decisionCampaign.kind === 'delete'
+                  ? copy('حذف الحملة نهائيًا؟', 'Permanently delete campaign?')
+                  : copy('أرشفة الحملة؟', 'Archive campaign?')}
+              </h2>
+              <p className="mt-2 text-sm font-bold text-[#334155]">{decisionCampaign.name}</p>
+              <p className="mt-3 text-sm leading-6 text-[#64748b]">
+                {decisionCampaign.kind === 'delete'
+                  ? copy('هذا حذف دائم للحملة وسجلها المرتبط. لا علاقة له بإيقاف إعلان على منصة خارجية، ولا يمكن التراجع عنه من الواجهة.', 'This permanently deletes the campaign and its related record. It does not stop any external platform ad, and it cannot be undone from this interface.')
+                  : copy('ستخرج الحملة من محفظة العمل اليومية مع الاحتفاظ ببياناتها. الأرشفة لا توقف نشرًا أو إعلانًا على منصة خارجية.', 'The campaign leaves the daily portfolio while its data is retained. Archiving does not stop publishing or ads on an external platform.')}
+              </p>
+
+              <div className="mt-4 flex items-start gap-2 rounded-[12px] border border-amber-200 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-900">
+                <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                {copy('راجع الحسابات والمنصات المتصلة بشكل منفصل قبل تغيير أي تشغيل خارجي.', 'Review connected accounts and platforms separately before changing any external execution.')}
+              </div>
+
+              {decisionError && (
+                <p className="mt-4 rounded-[12px] border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">{decisionError}</p>
+              )}
+
+              <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => { setDecisionCampaign(null); setDecisionError('') }}
+                  disabled={deletingId === decisionCampaign.id}
+                  className="h-11 flex-1 rounded-[12px] border border-[#dfe5f0] bg-white text-sm font-black text-[#53617f] disabled:opacity-40"
+                >
+                  {copy('إلغاء', 'Cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => decisionCampaign.kind === 'delete'
+                    ? deleteCampaign(decisionCampaign.id)
+                    : archiveCampaign(decisionCampaign.id)}
+                  disabled={deletingId === decisionCampaign.id}
+                  className={`flex h-11 flex-[1.4] items-center justify-center gap-2 rounded-[12px] text-sm font-black text-white disabled:opacity-55 ${decisionCampaign.kind === 'delete' ? 'bg-rose-600' : 'bg-[#071236]'}`}
+                >
+                  {deletingId === decisionCampaign.id ? <Loader2 size={16} className="animate-spin" /> : null}
+                  {decisionCampaign.kind === 'delete' ? copy('تأكيد الحذف الدائم', 'Confirm permanent delete') : copy('تأكيد الأرشفة', 'Confirm archive')}
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
       </main>
     </AppShell>
   )

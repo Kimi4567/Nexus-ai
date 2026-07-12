@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
       publishedPostsTotal,
       publishedPostsThisMonth,
       contentPostsTotal,
+      approvedOrLaterPostsTotal,
       analyticsRows,
     ] = await Promise.all([
       prisma.user.findUnique({
@@ -118,6 +119,16 @@ export async function GET(req: NextRequest) {
       workspaceId
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ? (prisma as any).socialPost.count({ where: { workspaceId } })
+        : Promise.resolve(0),
+
+      // Approval is a workflow decision, distinct from publishing. Login and
+      // first-run routing use this count so approved-but-unpublished work is not
+      // incorrectly sent back to content review.
+      workspaceId
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? (prisma as any).socialPost.count({
+            where: { workspaceId, status: { in: ['APPROVED', 'SCHEDULED', 'PUBLISHED'] } },
+          })
         : Promise.resolve(0),
 
       // Candidate analytics payloads. Meaningful evidence is checked below so
@@ -220,6 +231,7 @@ export async function GET(req: NextRequest) {
         },
         contentPosts: {
           total: contentPostsTotal,
+          approvedOrLater: approvedOrLaterPostsTotal,
         },
         performanceEvidence: {
           postsWithAnalytics,

@@ -100,7 +100,7 @@ export default function RegisterPage() {
               <p className="text-sm text-slate-500 mb-6">
                 {done === 'verify'
                   ? authT?.verifyCheck
-                  : (isRTL ? 'إذا لم تنتقل تلقائيًا، استخدم الزر بالأسفل لبدء إعداد Brand Brain.' : 'If you are not redirected automatically, use the button below to start Brand Brain setup.')}
+                  : (isRTL ? 'استخدم الزر بالأسفل لبدء إعداد Brand Brain.' : 'Use the button below to start Brand Brain setup.')}
               </p>
               {/* Next steps hint */}
               <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 mb-6 text-start">
