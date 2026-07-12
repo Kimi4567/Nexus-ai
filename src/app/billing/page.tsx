@@ -118,11 +118,11 @@ const CREDIT_PACKS = [
 const CREDIT_ACTIONS = [
   {
     icon: Rocket,
-    labelAr: 'توليد الحملة الكاملة',
-    labelEn: 'Full campaign generation',
-    cost: 5,
-    noteAr: 'استراتيجية + محتوى + خطة تنفيذ',
-    noteEn: 'Strategy + content + execution plan',
+    labelAr: 'المسار الأساسي من الاستراتيجية إلى المسودات',
+    labelEn: 'Core strategy-to-drafts workflow',
+    cost: 12,
+    noteAr: '8 للاستراتيجية + 2 لفحص الجودة + 2 لمسودات المحتوى. الصور اختيارية وتكلفتها منفصلة.',
+    noteEn: '8 strategy + 2 quality review + 2 content drafts. Optional images are charged separately.',
   },
   {
     icon: Brain,
@@ -683,12 +683,12 @@ export default function BillingPage() {
               <div className="text-sm text-slate-600 leading-relaxed">
                 {ar ? (
                   <>
-                    <span className="text-slate-950 font-semibold">Growth (150 رصيد)</span> = حتى 30 عملية توليد حملة · أو 50 صورة · أو مزيج من الإجراءات. تكلفة الاستراتيجية تتغير حسب نطاقها —
+                    <span className="text-slate-950 font-semibold">Growth (150 رصيد)</span> = حتى 12 مسارًا أساسيًا من الاستراتيجية إلى المسودات (12 رصيدًا لكل مسار) · أو 50 صورة · أو مزيج من الإجراءات. النطاقات الأكبر قد تكلف أكثر —
                      {' '}<span className="text-violet-700">وتناسب فرقًا تحتاج وتيرة نشر أعلى عبر قنوات متعددة</span>
                   </>
                 ) : (
                   <>
-                    <span className="text-slate-950 font-semibold">Growth (150 credits)</span> = up to 30 campaign generations · or 50 images · or a mix of actions. Strategy cost varies by scope —
+                    <span className="text-slate-950 font-semibold">Growth (150 credits)</span> = up to 12 core strategy-to-drafts workflows (12 credits each) · or 50 images · or a mix of actions. Larger strategy scopes may cost more —
                      {' '}<span className="text-violet-700">built for teams that need a higher publishing pace across channels</span>
                   </>
                 )}
@@ -787,6 +787,11 @@ export default function BillingPage() {
               </tbody>
             </table>
           </div>
+          <p className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
+            {ar
+              ? 'الكريدت يحدد عدد عمليات AI التي يمكنك تشغيلها، وحد المنشورات يحدد عدد مسودات المنشورات التي يمكن حفظها في Content Hub خلال الشهر. تتوقف العملية عند الوصول إلى أي حد منهما أولاً، ويعرض NEXUS السبب قبل التنفيذ.'
+              : 'Credits limit how many AI actions you can run; the post allowance limits how many post drafts can be saved to Content Hub each month. The first limit reached blocks the action, and NEXUS shows which requirement is missing before execution.'}
+          </p>
 
           {/* Research footnote */}
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">

@@ -34,6 +34,7 @@ import {
 import { deriveContentPlanOrderReview } from '@/lib/contentPlanOrderContract'
 import { deriveContentHubFirstScreenTruth } from '@/lib/contentHubFirstScreenTruth'
 import { deriveStrategyFulfillmentSummary, type StrategyFulfillmentTone } from '@/lib/strategyFulfillment'
+import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { derivePostCreativeRequirement } from '@/lib/creativeRequirements'
 import { getDefaultTemplateForPlatform } from '@/lib/creativeTemplates'
 import AppShell from '@/components/AppShell'
@@ -516,6 +517,8 @@ export default function ContentHubPage() {
   })
   const imageGenerationLocked = !billingLoading && !imageGenerationTruth.canAfford
   const contentPlanLocked = !billingLoading && !contentPlanTruth.canAfford
+  const strategyApprovalRequired = Boolean(campaign && !canMutateCampaignExecution(String(campaign.status ?? '')))
+  const strategyApprovalRequiredLabel = isAr ? 'راجع واعتمد الاستراتيجية أولاً' : 'Review and approve strategy first'
   const addCreditsForImagesLabel = isAr ? 'أضف رصيداً لتوليد الصور' : 'Add credits to generate images'
   const contentPlanCostLabel = isAr
     ? `${contentPlanTruth.cost} كريديت`
@@ -673,9 +676,9 @@ export default function ContentHubPage() {
   })()
   const productionTiles = [
     {
-      label: isAr ? 'مطابقة وعد الاستراتيجية' : 'Strategy promise match',
-      value: contentPlanOrderMismatch ? (isAr ? 'تحتاج إصلاح' : 'Needs fix') : posts.length > 0 ? (isAr ? 'متطابقة' : 'Matched') : (isAr ? 'بانتظار الخطة' : 'Waiting for plan'),
-      helper: isAr ? 'العدد والنوع يجب أن يطابقا أمر الاستراتيجية.' : 'Count and type must match the strategy order.',
+      label: isAr ? 'مطابقة عدد الطلب' : 'Order count match',
+      value: contentPlanOrderMismatch ? (isAr ? 'تحتاج إصلاح' : 'Needs fix') : posts.length > 0 ? (isAr ? 'العدد مطابق' : 'Count matched') : (isAr ? 'بانتظار الخطة' : 'Waiting for plan'),
+      helper: isAr ? 'هذا يتحقق من العدد والنوع فقط؛ جودة واتساق النصوص لهما مراجعة منفصلة.' : 'This checks count and type only; copy quality and alignment are reviewed separately.',
       tone: contentPlanOrderMismatch ? 'text-rose-600 bg-rose-50 border-rose-200' : 'text-emerald-600 bg-emerald-50 border-emerald-200',
     },
     {
@@ -754,6 +757,10 @@ export default function ContentHubPage() {
 
   async function generatePlan(mediaSource: 'GENERATE' | 'MIXED' = 'GENERATE') {
     if (!isAuthenticated) return
+    if (strategyApprovalRequired) {
+      router.push(`/campaigns/${campaignId}?tab=strategy`)
+      return
+    }
     if (contentPlanLocked) {
       setError(addCreditsForDraftPlanLabel)
       return
@@ -796,6 +803,10 @@ export default function ContentHubPage() {
   }
 
   function openGeneratePlanConfirm() {
+    if (strategyApprovalRequired) {
+      router.push(`/campaigns/${campaignId}?tab=strategy`)
+      return
+    }
     setGeneratePlanAcknowledged(false)
     setShowGeneratePlanConfirm(true)
   }
@@ -814,6 +825,10 @@ export default function ContentHubPage() {
   }
 
   function openRegenerateConfirm() {
+    if (strategyApprovalRequired) {
+      router.push(`/campaigns/${campaignId}?tab=strategy`)
+      return
+    }
     setRegenerateAcknowledged(false)
     setShowRegenerateConfirm(true)
   }
@@ -1477,12 +1492,12 @@ export default function ContentHubPage() {
                 </button>
                 <div className="flex max-w-sm flex-col items-start gap-1 sm:items-end">
                   <button
-                    onClick={contentPlanLocked ? () => router.push('/billing') : openRegenerateConfirm}
+                    onClick={strategyApprovalRequired ? () => router.push(`/campaigns/${campaignId}?tab=strategy`) : contentPlanLocked ? () => router.push('/billing') : openRegenerateConfirm}
                     disabled={generatingPlan}
                     className="max-w-full min-w-0 rounded-xl border px-4 py-2 text-center text-sm leading-tight transition-all whitespace-normal break-words"
                     style={{ borderColor: contentPlanLocked ? 'rgba(239,68,68,0.18)' : 'rgba(15,23,42,0.14)', color: contentPlanLocked ? '#B91C1C' : '#374151', background: contentPlanLocked ? '#FEF2F2' : '#FFFFFF' }}
                   >
-                    {generatingPlan ? t('contentHub.regenerating') : contentPlanLocked ? addCreditsForRegenerateDraftPlanLabel : `↻ ${regenerateDraftPlanLabel}`}
+                    {generatingPlan ? t('contentHub.regenerating') : strategyApprovalRequired ? strategyApprovalRequiredLabel : contentPlanLocked ? addCreditsForRegenerateDraftPlanLabel : `↻ ${regenerateDraftPlanLabel}`}
                   </button>
                   <p className="text-xs leading-relaxed text-slate-500 sm:text-right">
                     {contentPlanLocked ? `${contentPlanRequirementDisclosure} ` : ''}{contentPlanDisclosure} {contentPlanAutopilotDisclosure}
@@ -1512,7 +1527,7 @@ export default function ContentHubPage() {
                 </button>
                 <div className="flex max-w-sm flex-col items-start gap-1 sm:items-end">
                   <button
-                    onClick={contentPlanLocked ? () => router.push('/billing') : openGeneratePlanConfirm}
+                    onClick={strategyApprovalRequired ? () => router.push(`/campaigns/${campaignId}?tab=strategy`) : contentPlanLocked ? () => router.push('/billing') : openGeneratePlanConfirm}
                     disabled={generatingPlan}
                     className="flex max-w-full min-w-0 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-center text-sm font-semibold leading-tight transition-all whitespace-normal break-words"
                     style={{
@@ -1527,7 +1542,7 @@ export default function ContentHubPage() {
                         <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                         {t('contentHub.buildingPlanShort')}
                       </>
-                    ) : contentPlanLocked ? addCreditsForDraftPlanLabel : `✨ ${draftPlanLabel}`}
+                    ) : strategyApprovalRequired ? strategyApprovalRequiredLabel : contentPlanLocked ? addCreditsForDraftPlanLabel : `✨ ${draftPlanLabel}`}
                   </button>
                   <p className="text-xs leading-relaxed text-slate-500 sm:text-right">
                     {contentPlanLocked ? `${contentPlanRequirementDisclosure} ` : ''}{contentPlanDisclosure} {contentPlanAutopilotDisclosure}
@@ -1851,14 +1866,14 @@ export default function ContentHubPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={contentPlanLocked ? () => router.push('/billing') : openGeneratePlanConfirm}
+                    onClick={strategyApprovalRequired ? () => router.push(`/campaigns/${campaignId}?tab=strategy`) : contentPlanLocked ? () => router.push('/billing') : openGeneratePlanConfirm}
                     disabled={generatingPlan}
                     className="rounded-xl px-4 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-60"
                     style={{
                       background: contentPlanLocked ? '#B91C1C' : '#111827',
                     }}
                   >
-                    {contentPlanLocked ? addCreditsForDraftPlanLabel : preContentGenerateCta}
+                    {strategyApprovalRequired ? strategyApprovalRequiredLabel : contentPlanLocked ? addCreditsForDraftPlanLabel : preContentGenerateCta}
                   </button>
                 </div>
               </div>

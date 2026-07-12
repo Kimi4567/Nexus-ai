@@ -5,6 +5,7 @@ import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { ApprovalDecisionCard } from '@/components/approvals/ApprovalDecisionCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
+import type { ExecutionQueueItem, WorkspaceExecutionTruth } from '@/lib/executionTruth'
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -80,6 +81,7 @@ export default function ApprovalsPage() {
   const copy = useCallback((arabic: string, english: string) => (ar ? arabic : english), [ar])
   const [proposals, setProposals] = useState<BrainProposal[]>([])
   const [suggestions, setSuggestions] = useState<AgentSuggestion[]>([])
+  const [liveApprovalActions, setLiveApprovalActions] = useState<ExecutionQueueItem[]>([])
   const [proposalHistory, setProposalHistory] = useState<BrainProposal[]>([])
   const [suggestionHistory, setSuggestionHistory] = useState<AgentSuggestion[]>([])
   const [busyKey, setBusyKey] = useState<string | null>(null)
@@ -100,18 +102,20 @@ export default function ApprovalsPage() {
     async function loadDecisionQueue() {
       setDataLoading(true)
       try {
-        const [proposalRes, suggestionRes, proposalHistoryRes, suggestionHistoryRes] = await Promise.all([
+        const [proposalRes, suggestionRes, proposalHistoryRes, suggestionHistoryRes, executionRes] = await Promise.all([
           fetch('/api/brain/proposals?status=pending', { headers: { Authorization: token } }),
           fetch('/api/agents/suggestions?status=PENDING&limit=50', { headers: { Authorization: token } }),
           fetch('/api/brain/proposals?status=all', { headers: { Authorization: token } }),
           fetch('/api/agents/suggestions?status=all&limit=100', { headers: { Authorization: token } }),
+          fetch('/api/execution/queue', { headers: { Authorization: token } }),
         ])
         if (cancelled) return
-        const [proposalData, suggestionData, proposalHistoryData, suggestionHistoryData] = await Promise.all([
+        const [proposalData, suggestionData, proposalHistoryData, suggestionHistoryData, executionData] = await Promise.all([
           proposalRes.json().catch(() => ({})),
           suggestionRes.json().catch(() => ({})),
           proposalHistoryRes.json().catch(() => ({})),
           suggestionHistoryRes.json().catch(() => ({})),
+          executionRes.json().catch(() => ({})),
         ])
         setProposals(Array.isArray(proposalData.proposals) ? proposalData.proposals : [])
         setSuggestions(Array.isArray(suggestionData.suggestions) ? suggestionData.suggestions : [])
@@ -120,6 +124,15 @@ export default function ApprovalsPage() {
           : [])
         setSuggestionHistory(Array.isArray(suggestionHistoryData.suggestions)
           ? suggestionHistoryData.suggestions.filter((item: AgentSuggestion) => item.status !== 'PENDING')
+          : [])
+        const executionTruth = executionData.truth as WorkspaceExecutionTruth | undefined
+        const persistedCampaignIds = new Set(
+          (Array.isArray(suggestionData.suggestions) ? suggestionData.suggestions : [])
+            .map((item: AgentSuggestion) => item.campaignId)
+            .filter((id: string | null | undefined): id is string => typeof id === 'string' && id.length > 0),
+        )
+        setLiveApprovalActions(Array.isArray(executionTruth?.queue)
+          ? executionTruth.queue.filter(action => action.requiresApproval && !persistedCampaignIds.has(action.campaignId))
           : [])
       } catch {
         if (!cancelled) setNotice({ tone: 'error', text: copy('تعذر تحميل قائمة القرارات.', 'Could not load the decision queue.') })
@@ -136,7 +149,7 @@ export default function ApprovalsPage() {
     () => proposals.filter(proposal => proposal.traceability === 'source_not_attached' || proposal.canAccept === false).length,
     [proposals],
   )
-  const actionableCount = suggestions.length + proposals.length - blockedCount
+  const actionableCount = suggestions.length + liveApprovalActions.length + proposals.length - blockedCount
   const historyRows = useMemo(() => [
     ...proposalHistory.map(item => ({
       id: `brain-${item.id}`,
@@ -285,7 +298,7 @@ export default function ApprovalsPage() {
 
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {[
-              [copy('بانتظار قرار', 'Awaiting decision'), suggestions.length + proposals.length, Clock3, 'text-amber-600 bg-amber-50'],
+              [copy('بانتظار قرار', 'Awaiting decision'), suggestions.length + liveApprovalActions.length + proposals.length, Clock3, 'text-amber-600 bg-amber-50'],
               [copy('قابل للتنفيذ', 'Actionable'), actionableCount, CheckCircle2, 'text-emerald-600 bg-emerald-50'],
               [copy('محجوب بلا دليل', 'Blocked without evidence'), blockedCount, AlertTriangle, 'text-amber-600 bg-amber-50'],
               [copy('قرارات مسجلة', 'Recorded decisions'), historyRows.length, ShieldCheck, 'text-[#5366f6] bg-[#f1f0ff]'],
@@ -309,9 +322,29 @@ export default function ApprovalsPage() {
                 <p className="mt-1 text-[12px] font-semibold text-[#7b87a3]">{copy('أنشأها مراقب التنفيذ من حالة العمل الفعلية.', 'Created by the execution monitor from verified workflow state.')}</p>
               </div>
               <div className="space-y-3">
-                {dataLoading ? <div className="h-32 animate-pulse rounded-[20px] bg-[#edf1f8]" /> : suggestions.length === 0 ? (
+                {dataLoading ? <div className="h-32 animate-pulse rounded-[20px] bg-[#edf1f8]" /> : suggestions.length === 0 && liveApprovalActions.length === 0 ? (
                   <div className="rounded-[20px] border border-dashed border-[#d7def0] p-6 text-center text-[12px] font-semibold text-[#7b87a3]">{copy('لا توجد قرارات تشغيلية معلقة.', 'No operational decisions are pending.')}</div>
-                ) : suggestions.map(suggestion => {
+                ) : <>
+                  {liveApprovalActions.map(action => (
+                    <ApprovalDecisionCard
+                      key={`live-${action.id}`}
+                      title={ar ? action.title.ar : action.title.en}
+                      reason={ar ? action.reason.ar : action.reason.en}
+                      badge={copy('حالة حية', 'Live state')}
+                      badgeTone="amber"
+                      meta={`${action.stage} · ${action.campaignName}`}
+                      actions={(
+                        <Link href={action.href} className="inline-flex h-9 items-center gap-2 rounded-[12px] bg-[#071236] px-3 text-[11px] font-black text-white">
+                          {copy('افتح المراجعة المحمية', 'Open guarded review')}<ArrowUpRight size={14} />
+                        </Link>
+                      )}
+                    >
+                      <p className="text-[11px] font-semibold text-[#7b87a3]">
+                        {copy('مستمد مباشرة من حالة الحملة الحالية؛ لا يُنفذ أي إجراء من هذه البطاقة.', 'Derived directly from current campaign state; this card executes nothing by itself.')}
+                      </p>
+                    </ApprovalDecisionCard>
+                  ))}
+                  {suggestions.map(suggestion => {
                   const title = ar ? suggestion.payload?.titleAr || suggestion.title : suggestion.title
                   const reason = ar ? suggestion.payload?.reasoningAr || suggestion.reasoning : suggestion.reasoning
                   const evidenceCount = Array.isArray(suggestion.payload?.evidence) ? suggestion.payload.evidence.length : 0
@@ -328,7 +361,8 @@ export default function ApprovalsPage() {
                       {sourceItems.length > 0 && <div className="flex flex-wrap gap-2">{sourceItems.slice(0, 4).map((source, index) => <a key={`${source.url}-${index}`} href={source.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full border border-[#dbe2f0] bg-white px-2 py-1 text-[10px] font-black text-[#5366f6]"><ExternalLink size={11} />{source.source || source.title || copy(`المصدر ${index + 1}`, `Source ${index + 1}`)}</a>)}</div>}
                     </ApprovalDecisionCard>
                   )
-                })}
+                  })}
+                </>}
               </div>
             </div>
 

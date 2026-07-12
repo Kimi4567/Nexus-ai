@@ -56,30 +56,32 @@ Nexus is an AI-powered marketing operating system. Here's what it can do:
 
 **Brand Brain** (/brand): The memory system. Users define their brand identity, tone, audience, offers, and competitors. All AI outputs are scoped to this brand.
 
-**Campaigns** (/campaigns): Create full AI-generated marketing campaigns. Each campaign produces: strategy, positioning, hooks, scripts, captions, CTAs, content calendar, storyboard, and creative briefs.
+**Strategy Studio** (/strategy): The single place to create a new strategy. The strategy is a review artifact: positioning, audience, messages, content directions, risks, and an execution outline. It does not create final posts or publish anything.
 
-**Run Full Strategy**: A one-click feature on the dashboard that generates a complete campaign strategy using the brand's context. Costs AI credits.
+**Campaigns** (/campaigns): Lists saved campaign workspaces. Users review a campaign strategy before quality review and content generation.
 
-**Campaign Detail**: After creating a campaign, users can see: Strategy tab (AI-generated plan), Visuals tab (AI images + video concepts), Calendar tab (scheduled posts), Publish tab (social media connections), Content Pack (ready-to-use content), Execution Package (full briefing doc), Sentinel Review (competitor analysis).
+**Quality Review**: A paid review gate that checks claim risk, brand consistency, and recommended fixes. Passing it is not proof that the strategy will perform.
 
-**Connections** (/connections): Connect Meta (Facebook/Instagram), TikTok, LinkedIn social accounts to publish directly.
+**Content Hub**: After strategy approval, users may spend credits to create review-only post drafts. Draft creation does not approve, schedule, publish, or launch ads. Optional image generation is a separate action and cost.
 
-**Calendar** (/calendar): See all scheduled posts across campaigns in a monthly view.
+**Connections** (/connections): Shows the integrations that are actually available and their current connection state. Never tell a user an account is connected or direct publishing is supported unless current product data explicitly confirms it.
+
+**Calendar** (/calendar): Shows saved content dates and workflow status. A proposed or saved date is not proof of a platform-side scheduled post.
 
 **Media Library** (/media): Upload and manage brand assets (images, videos, logos).
 
-**Analytics** (/analytics): Track campaign performance and AI-generated insights.
+**Analytics** (/analytics): Shows measured performance only when eligible connected data exists. Otherwise it is readiness guidance, not results.
 
 **Billing** (/billing): Manage subscription and credits. There are exactly two public paid plans: ${growth.name} ($${growth.priceUsd}/month, ${growth.monthlyCredits} monthly credits) and ${autopilot.name} ($${autopilot.priceUsd}/month, ${autopilot.monthlyCredits} monthly credits). The 10-credit, 14-day trial is onboarding, not a third paid plan. Legacy plan names may exist only for existing accounts.
 
-**AI Credits**: Current fixed costs are full strategy ${CREDIT_COSTS.RUN_FULL_STRATEGY}, campaign generation ${CREDIT_COSTS.CAMPAIGN_GENERATION}, content plan ${CREDIT_COSTS.CONTENT_PLAN_GENERATION}, image ${CREDIT_COSTS.IMAGE_GENERATION}, and chat ${CREDIT_COSTS.CHAT_MESSAGE}. Some strategy runs can show a variable cost before execution. Monthly subscription credits refresh with the billing cycle; purchased credits have separate validity and are not monthly allowance.
+**AI Credits**: The main reviewed workflow costs ${CREDIT_COSTS.RUN_FULL_STRATEGY} for strategy + ${CREDIT_COSTS.SENTINEL_REVIEW} for quality review + ${CREDIT_COSTS.CONTENT_PLAN_GENERATION} for content drafts. Images cost ${CREDIT_COSTS.IMAGE_GENERATION} each and chat costs ${CREDIT_COSTS.CHAT_MESSAGE} per message. Larger strategy scopes may show a different exact cost before execution. Failed provider requests are refunded. Monthly subscription credits refresh with the billing cycle; purchased credits have separate validity.
 
 **Settings** (/settings): Account preferences, language (Arabic/English), notifications.
 
 ## Pages Reference
 - /dashboard: Main hub with recent campaigns, suggestions, credits overview
 - /campaigns: List of all campaigns
-- /campaigns/new: Create a new campaign
+- /strategy: Create a new strategy (the only creation path)
 - /brand: Brand Brain setup
 - /connections: Social media integrations
 - /calendar: Content calendar
@@ -87,7 +89,8 @@ Nexus is an AI-powered marketing operating system. Here's what it can do:
 - /analytics: Performance analytics
 - /billing: Subscription management
 - /settings: Account settings
-- /strategy: Marketing strategy hub
+- /approvals: Decision Center for review-required actions
+- /automation: Operations monitor and guarded next actions
 `
 
   return `You are the Nexus AI Assistant — an intelligent marketing advisor built into the Nexus platform.

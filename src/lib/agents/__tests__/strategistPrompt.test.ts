@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildStrategistPrompts, type BusinessBrief } from '@/lib/agents/strategist'
+import { buildStrategistCountRepairPrompt, buildStrategistPrompts, type BusinessBrief, type StrategyOutput } from '@/lib/agents/strategist'
 import { getStrategyDeliverables } from '@/lib/strategy/deliverablesContract'
 import type { StrategyOrder, StrategyType, ContentIntensity, DurationPreset } from '@/lib/strategy/strategyOrder'
 
@@ -41,6 +41,21 @@ const briefWith = (o: StrategyOrder, postsPerMonth?: number): BusinessBrief => {
     planCapApplied: d.planCapApplied,
   }
 }
+
+describe('buildStrategistCountRepairPrompt', () => {
+  it('binds the exact reviewed count without authorizing new facts', () => {
+    const prompt = buildStrategistCountRepairPrompt({
+      campaignName: 'Dental consultation plan',
+      contentAnglesDetailed: [{ title: 'Consultation questions' }],
+      weeklyExecutionPlan: [],
+    } as unknown as StrategyOutput, 16)
+
+    expect(prompt).toContain('exactly 16 contentAnglesDetailed entries')
+    expect(prompt).toContain('add up to exactly 16 countable post directions')
+    expect(prompt).toContain('Do not invent proof, services, prices, languages')
+    expect(prompt).toContain('Dental consultation plan')
+  })
+})
 
 const sys = (b: BusinessBrief) => buildStrategistPrompts(b).systemPrompt
 const user = (b: BusinessBrief) => buildStrategistPrompts(b).userPrompt

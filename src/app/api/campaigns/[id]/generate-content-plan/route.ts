@@ -38,6 +38,7 @@ import {
   renderContentPlanDraftImagePrompt,
   validateContentPlanDraftForSave,
 } from '@/lib/contentPlanStructuredRenderer'
+import { validateContentPlanSemanticAlignment } from '@/lib/contentPlanSemanticGuard'
 import { resolveContentPlanBrandName } from '@/lib/contentPlanBrandContext'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { readLockedPlannedPostAllowance } from '@/lib/postCommercial'
@@ -125,7 +126,16 @@ export async function POST(req: NextRequest, props: Params) {
       include: {
         workspace: {
           include: {
-            brandProfile: { select: { brandName: true, verifiedProof: true } },
+            brandProfile: {
+              select: {
+                brandName: true,
+                description: true,
+                primaryOffer: true,
+                uniqueAdvantages: true,
+                complianceNotes: true,
+                verifiedProof: true,
+              },
+            },
           },
         },
       },
@@ -214,6 +224,15 @@ export async function POST(req: NextRequest, props: Params) {
 
     const brandName    = resolveContentPlanBrandName(campaign)
     const campaignName = campaign.name ?? 'Campaign'
+    const brandProfile = campaign.workspace?.brandProfile
+    const explicitBrandFacts = [
+      brandProfile?.brandName,
+      brandProfile?.description,
+      brandProfile?.primaryOffer,
+      brandProfile?.uniqueAdvantages ?? [],
+      brandProfile?.complianceNotes,
+      brandProfile?.verifiedProof ?? [],
+    ]
 
     // FL2: Prefer connected platforms from Integration table over wizard selection.
     // This ensures the content plan targets channels the user actually has connected.
@@ -336,15 +355,16 @@ export async function POST(req: NextRequest, props: Params) {
     const pillarText = contentPillars.length
       ? contentPillars.slice(0, 5).join(', ')
       : 'brand awareness, engagement, conversion'
+    const strategyAngles: any[] = Array.isArray(strategyForContent.contentAnglesDetailed)
+      ? strategyForContent.contentAnglesDetailed
+      : []
     const operatingStrategyContext = JSON.stringify({
       diagnosis: strategyForContent.diagnosis ?? null,
       differentiation: strategyForContent.differentiation ?? null,
       audienceSegments: Array.isArray(strategyForContent.audienceSegmentsDetailed)
         ? strategyForContent.audienceSegmentsDetailed.slice(0, 4)
         : [],
-      contentAngles: Array.isArray(strategyForContent.contentAnglesDetailed)
-        ? strategyForContent.contentAnglesDetailed.slice(0, 8)
-        : [],
+      contentAngles: strategyAngles.slice(0, 8),
       funnelStages: Array.isArray(strategyForContent.funnelStages)
         ? strategyForContent.funnelStages.slice(0, 5)
         : [],
@@ -439,8 +459,15 @@ Rules:
 - scheduledDayOffset: spread posts across 30 days (1–30). With ${slots.length} posts that's roughly ${Math.ceil(slots.length / 4)} per week — aim for consistent spacing (every 2-3 days). Avoid bunching too many on the same day.
 - This saved Content Hub run is bound to the reviewed strategy/order scope. Do not add extra posts beyond the provided slot list.`
 
-    const userMsg = `Generate content plan for ${slots.length} posts. Slots: ${JSON.stringify(
-      slots.map(s => ({ index: s.index, platform: s.platform, isVideoPost: s.isVideoPost })),
+    const userMsg = `Generate content plan for ${slots.length} posts. Each slot is bound to its expectedStrategyAngle; keep that post's hook, pain, message, and CTA grounded in that angle. Slots: ${JSON.stringify(
+      slots.map((s, index) => ({
+        index: s.index,
+        platform: s.platform,
+        isVideoPost: s.isVideoPost,
+        expectedStrategyAngle: strategyAngles.length > 0
+          ? strategyAngles[index % strategyAngles.length]
+          : null,
+      })),
     )}`
 
     // Single content-plan request body (rebuilt fresh for every retry attempt).
@@ -621,6 +648,31 @@ Rules:
       )
     }
 
+    const semanticGate = validateContentPlanSemanticAlignment(
+      postsToCreate,
+      strategyForContent,
+      { brandFacts: explicitBrandFacts },
+    )
+
+    if (!semanticGate.ok) {
+      if (contentPlanCharged) {
+        await refundCredits(userId, 'CONTENT_PLAN_GENERATION', 'Content plan drifted from reviewed strategy')
+      }
+      console.error('[generate-content-plan] blocked strategy drift before save', {
+        alignedPosts: semanticGate.alignedPosts,
+        requiredAlignedPosts: semanticGate.requiredAlignedPosts,
+        issues: semanticGate.issues.slice(0, 8),
+      })
+      return NextResponse.json(
+        {
+          error: 'The generated drafts did not stay aligned with the reviewed brand and strategy. No posts were saved, and any charged credits were restored.',
+          code: 'CONTENT_PLAN_STRATEGY_DRIFT',
+          refunded: contentPlanCharged,
+        },
+        { status: 502 },
+      )
+    }
+
     // Recheck under an advisory lock at commit time. Concurrent generations
     // cannot consume more planned-post allowance than the owner's plan permits.
     await prisma.$transaction(async (tx) => {
@@ -650,7 +702,7 @@ Rules:
             publishedAt: null,
             imageUrl: { not: null },
           },
-          select: { id: true, imageUrl: true, platform: true, caption: true },
+          select: { id: true, imageUrl: true, platform: true, caption: true, contentPlanIndex: true },
         })
 
         // For each image post, generate a vision-driven caption
@@ -705,7 +757,16 @@ Write ONLY the caption text. No explanations. No prefixes.`,
                 vData.choices?.[0]?.message?.content?.trim(),
                 proofContext,
               )
-              if (newCaption && newCaption.length > 20) {
+              const expectedAngle = strategyAngles.length > 0
+                ? strategyAngles[Math.max(0, Number(post.contentPlanIndex ?? 1) - 1) % strategyAngles.length]
+                : null
+              const visionSaveGate = validateContentPlanDraftForSave({ caption: newCaption })
+              const visionSemanticGate = validateContentPlanSemanticAlignment(
+                [{ caption: newCaption }],
+                { ...strategyForContent, contentAnglesDetailed: expectedAngle ? [expectedAngle] : [] },
+                { brandFacts: explicitBrandFacts },
+              )
+              if (newCaption && newCaption.length > 20 && visionSaveGate.ok && visionSemanticGate.ok) {
                 await (prisma.socialPost as any).update({
                   where: { id: post.id },
                   data: { caption: newCaption },
@@ -843,7 +904,13 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
           }).issues.map(issue => ({ index: index + 1, ...issue })),
         )
 
-        if (bVariantIssues.length > 0) {
+        const bVariantSemanticGate = validateContentPlanSemanticAlignment(
+          bVariantsToCreate,
+          strategyForContent,
+          { brandFacts: explicitBrandFacts },
+        )
+
+        if (bVariantIssues.length > 0 || !bVariantSemanticGate.ok) {
           console.warn('[generate-content-plan] skipped unsafe B variants before save', bVariantIssues.slice(0, 8))
         } else if (bVariantsToCreate.length > 0) {
           await (prisma.socialPost as any).createMany({ data: bVariantsToCreate })

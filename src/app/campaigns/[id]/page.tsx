@@ -14,7 +14,9 @@ import BrandDNABadge, { type BrandDNAData } from '@/components/BrandDNABadge'
 import CampaignProofOfWork from '@/components/campaign/CampaignProofOfWork'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import UpgradeModal from '@/components/UpgradeModal'
+import CreditConfirmModal from '@/components/CreditConfirmModal'
 import { useBillingStatus } from '@/lib/useBillingStatus'
+import { getCreditActionTruth } from '@/lib/creditActionTruth'
 import PlatformNativeCard from '@/components/PlatformNativeCard'
 import {
   deriveCampaignOperatingState,
@@ -363,6 +365,7 @@ function CampaignDetailPageInner() {
   const [launchError, setLaunchError] = useState('')
   const [sentinelState, setSentinelState] = useState<'idle' | 'reviewing' | 'done'>('idle')
   const [sentinelError, setSentinelError] = useState('')
+  const [showSentinelConfirm, setShowSentinelConfirm] = useState(false)
   const [showUpgrade, setShowUpgrade] = useState(false)
   const [briefBannerDismissed, setBriefBannerDismissed] = useState(false)
   const [upgradeReason, setUpgradeReason] = useState<'no_credits' | 'first_campaign'>('no_credits')
@@ -1353,10 +1356,13 @@ function CampaignDetailPageInner() {
   // This page does not fetch platform readiness. Keep Autopilot conservative
   // instead of implying connected publishing accounts from campaign state alone.
   const hasVerifiedPublishingConnection = false
+  const hasReviewedContent = campaignPosts.length > 0 && campaignPosts.every(post =>
+    post.status === 'APPROVED' || post.status === 'SCHEDULED' || post.status === 'PUBLISHED',
+  )
   const autopilotRequirementsMet = Boolean(
     aiOutput &&
     weeklyExecutionPlan.length > 0 &&
-    (campaign.status === 'ACTIVE' || approvalState === 'done') &&
+    hasReviewedContent &&
     hasVerifiedPublishingConnection,
   )
   const publishTabSummary = derivePublishTabReadinessSummary({
@@ -1551,6 +1557,10 @@ function CampaignDetailPageInner() {
     ? campaignCommandFlow.nextAction.labelAr
     : campaignCommandFlow.nextAction.labelEn
   const strategyHeaderNextActionHref = campaignCommandFlow.nextAction.href
+  const sentinelCreditCost = getCreditActionTruth({
+    action: 'SENTINEL_REVIEW',
+    creditsRemaining: 0,
+  }).cost
   const showFullCampaignOperatingFlow = activeTab !== 0
   const firstViewportHref = (href: string) => (
     !showFullCampaignOperatingFlow && href === '#campaign-operating-flow'
@@ -2687,7 +2697,7 @@ function CampaignDetailPageInner() {
                 {/* Primary CTA — context aware, one at a time */}
                 {activeTab !== 0 && !engineRunning && operatingState.stage === 'strategy_review_needed' && (
                   <button
-                    onClick={handleSentinelReview}
+                    onClick={() => setShowSentinelConfirm(true)}
                     disabled={sentinelState === 'reviewing'}
                     className="px-4 py-2 rounded-xl text-sm font-semibold transition disabled:opacity-60"
                     style={{ background: '#2563eb', color: '#fff' }}
@@ -2696,7 +2706,9 @@ function CampaignDetailPageInner() {
                       ? '⏳...'
                       : sentinelStatus === 'needs_attention'
                         ? (locale === 'ar' ? '🔄 أعد المراجعة' : '🔄 Re-review')
-                        : (locale === 'ar' ? '🔍 فحص الجودة' : '🔍 Review quality')}
+                        : (locale === 'ar'
+                          ? `🔍 فحص الجودة — ${sentinelCreditCost} كريديت`
+                          : `🔍 Review quality — ${sentinelCreditCost} credits`)}
                   </button>
                 )}
 
@@ -3095,12 +3107,28 @@ function CampaignDetailPageInner() {
                         </p>
                       </div>
                       <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
-                        <Link
-                          href={strategyHeaderNextActionHref}
-                          className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-                        >
-                          {strategyHeaderNextActionLabel}
-                        </Link>
+                        {!engineRunning && operatingState.stage === 'strategy_review_needed' ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowSentinelConfirm(true)}
+                            disabled={sentinelState === 'reviewing'}
+                            className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+                          >
+                            {sentinelState === 'reviewing'
+                              ? uiText('جارٍ فحص الجودة...', 'Reviewing quality...')
+                              : uiText(
+                                `فحص الجودة — ${sentinelCreditCost} كريديت`,
+                                `Review quality — ${sentinelCreditCost} credits`,
+                              )}
+                          </button>
+                        ) : (
+                          <Link
+                            href={strategyHeaderNextActionHref}
+                            className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                          >
+                            {strategyHeaderNextActionLabel}
+                          </Link>
+                        )}
                         <button
                           type="button"
                           onClick={() => scrollToStrategySection('strategy-executive')}
@@ -4852,7 +4880,7 @@ function CampaignDetailPageInner() {
                       {[
                         { label: locale === 'ar' ? 'استراتيجية مولَّدة' : 'Strategy generated', done: !!aiOutput },
                         { label: locale === 'ar' ? 'خطة تنفيذ أسبوعية' : 'Weekly execution plan', done: weeklyExecutionPlan.length > 0 },
-                        { label: locale === 'ar' ? 'مراجعة المحتوى مكتملة أو جاهزة صراحةً' : 'Content review complete or explicitly ready', done: campaign.status === 'ACTIVE' || approvalState === 'done' },
+                        { label: locale === 'ar' ? 'تمت مراجعة كل مسودات المحتوى' : 'All content drafts reviewed', done: hasReviewedContent },
                         { label: locale === 'ar' ? 'حساب نشر متصل' : 'Publishing account connected', done: hasVerifiedPublishingConnection },
                       ].map((req, i) => (
                         <div key={i} className="flex items-center gap-2 text-xs">
@@ -5546,6 +5574,19 @@ function CampaignDetailPageInner() {
         </div>
       </div>
     )}
+
+    <CreditConfirmModal
+      isOpen={showSentinelConfirm}
+      onClose={() => setShowSentinelConfirm(false)}
+      onConfirm={handleSentinelReview}
+      cost={sentinelCreditCost}
+      actionTitle={uiText('فحص جودة الاستراتيجية', 'Strategy quality review')}
+      authHeader={authHeader}
+      locale={locale}
+      includedItems={uiIsArabic
+        ? ['مخاطر الادعاءات', 'اتساق البراند', 'إصلاحات مقترحة', 'لا نشر تلقائي']
+        : ['Claim risks', 'Brand alignment', 'Recommended fixes', 'No automatic publishing']}
+    />
 
     <UpgradeModal
       open={showUpgrade}

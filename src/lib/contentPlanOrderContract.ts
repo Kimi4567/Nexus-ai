@@ -97,11 +97,6 @@ export function resolveContentPlanOrderScope(aiOutput: unknown): ContentPlanOrde
   const deliverables = isRecord(aiOutput.strategyDeliverables) ? aiOutput.strategyDeliverables : null
   const strategy = isRecord(aiOutput.strategy) ? aiOutput.strategy : null
 
-  const strategyType =
-    normalizeStrategyType(aiOutput.strategyType) ??
-    normalizeStrategyType(order?.strategyType) ??
-    normalizeStrategyType(strategy?.strategyType)
-
   const expectedDirections = firstCount(
     deliverables?.organicPostCount,
     deliverables?.requestedOrganicPostCount,
@@ -109,6 +104,17 @@ export function resolveContentPlanOrderScope(aiOutput: unknown): ContentPlanOrde
     order?.customOrganicPostCount,
     order?.organicPostCount,
   )
+
+  // The reviewed order is more authoritative than legacy duplicated labels.
+  // A positive, saved organic deliverable can never truthfully be "paid only";
+  // treat a stale paid label as organic scope instead of hiding valid posts.
+  const savedType =
+    normalizeStrategyType(order?.strategyType) ??
+    normalizeStrategyType(aiOutput.strategyType) ??
+    normalizeStrategyType(strategy?.strategyType)
+  const strategyType = savedType === 'paid' && (expectedDirections ?? 0) > 0
+    ? 'organic'
+    : savedType
 
   const bound = Boolean(
     order ||

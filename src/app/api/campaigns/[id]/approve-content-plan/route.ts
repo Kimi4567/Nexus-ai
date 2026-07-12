@@ -25,6 +25,7 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { planApproval, planRevert, type ApprovalMode } from '@/lib/approvalPlan'
 import { buildLearningEvents } from '@/lib/brandBrainEvents'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
+import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -41,7 +42,27 @@ export async function POST(req: NextRequest, props: Params) {
     // Verify campaign ownership
     const campaign = await prisma.campaign.findFirst({
       where: { id: params.id, workspace: { ownerId: userId } },
-      select: { id: true, workspaceId: true, name: true, status: true },
+      select: {
+        id: true,
+        workspaceId: true,
+        name: true,
+        status: true,
+        aiOutput: true,
+        workspace: {
+          select: {
+            brandProfile: {
+              select: {
+                brandName: true,
+                description: true,
+                primaryOffer: true,
+                uniqueAdvantages: true,
+                complianceNotes: true,
+                verifiedProof: true,
+              },
+            },
+          },
+        },
+      },
     })
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
     if (!canMutateCampaignExecution(String(campaign.status))) {
@@ -78,11 +99,41 @@ export async function POST(req: NextRequest, props: Params) {
         status: 'DRAFT',
         publishedAt: null,
       },
-      select: { id: true, platform: true, caption: true },
+      select: {
+        id: true,
+        platform: true,
+        caption: true,
+        imagePrompt: true,
+        videoPrompt: true,
+        contentPlanIndex: true,
+      },
     })
 
     if (draftPosts.length === 0) {
       return NextResponse.json({ success: true, approved: 0, message: 'No draft posts to approve' })
+    }
+
+    const aiOutput = (campaign.aiOutput && typeof campaign.aiOutput === 'object')
+      ? campaign.aiOutput as Record<string, any>
+      : {}
+    const strategy = aiOutput.strategy ?? aiOutput
+    const brand = campaign.workspace?.brandProfile
+    const brandFacts = [
+      brand?.brandName,
+      brand?.description,
+      brand?.primaryOffer,
+      brand?.uniqueAdvantages ?? [],
+      brand?.complianceNotes,
+      brand?.verifiedProof ?? [],
+    ]
+    const approvalReview = reviewContentPlanForApproval(draftPosts, strategy, brandFacts)
+
+    if (!approvalReview.ok) {
+      return NextResponse.json({
+        error: 'Content approval is blocked because one or more drafts do not remain safely aligned with the reviewed brand and strategy. Regenerate or edit the drafts, then review again.',
+        code: 'CONTENT_QUALITY_REVIEW_REQUIRED',
+        issues: approvalReview.issues.slice(0, 12),
+      }, { status: 422 })
     }
 
     // Decide the honest transitions (pure, fully tested in approvalPlan.test.ts):

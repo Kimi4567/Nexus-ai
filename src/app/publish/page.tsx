@@ -238,7 +238,7 @@ export default function PublishPage() {
               <div className="overflow-hidden rounded-[18px] border border-[#e7ecf6]">
                 {[
                   [copy('محتوى جاهز للمراجعة', 'Content ready for review'), copy('يتطلب موافقة نهائية قبل النشر', 'Requires final approval before publishing'), copy('قيد المراجعة', 'In review')],
-                  [copy('منشورات مجدولة في NEXUS', 'Scheduled in NEXUS'), copy('الجدولة الداخلية لا تعني نشرًا على المنصة', 'Internal scheduling does not mean platform publishing'), copy('محفوظ', 'Saved')],
+                  [copy('التحقق من الجدولة داخل NEXUS', 'Check NEXUS scheduling'), copy('هذه خطوة تحقق عامة؛ حالة المنشورات الفعلية تظهر داخل Content Hub', 'This is a general verification step; actual post state appears in Content Hub'), copy('غير مقيّم هنا', 'Not evaluated here')],
                   [copy('نشر عبر API', 'API publish'), copy('مغلق حتى اكتمال الربط والصلاحيات والتأكيد', 'Locked until connection, permissions, and confirmation are complete'), copy('مغلق', 'Locked')],
                 ].map((row, index) => (
                   <div key={row[0]} className="grid gap-3 border-b border-[#eef2f8] px-4 py-4 last:border-b-0 md:grid-cols-[1fr_1fr_auto] md:items-center">

@@ -96,7 +96,7 @@ function getQuickReplies(path: string, isAr: boolean): string[] {
 export default memo(function ChatWidget() {
   const { t, locale } = useI18n();
   const cwT = t("chatWidget");
-  const { authHeader } = useAuth();
+  const { authHeader, user } = useAuth();
   const pathname = usePathname();
   const isAr = locale === "ar";
 
@@ -107,11 +107,15 @@ export default memo(function ChatWidget() {
   const [hasGreeted, setHasGreeted] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const chatStorageKey = user?.id ? `nexus_chat_v3:${user.id}` : null;
 
   /* load history from localStorage */
   useEffect(() => {
+    setMessages([]);
+    setHasGreeted(false);
+    if (!chatStorageKey) return;
     try {
-      const raw = localStorage.getItem("nexus_chat_v2");
+      const raw = localStorage.getItem(chatStorageKey);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -120,15 +124,24 @@ export default memo(function ChatWidget() {
         }
       }
     } catch { /* ignore */ }
-  }, []);
+  }, [chatStorageKey]);
 
   /* persist history — only save non-streaming messages */
   useEffect(() => {
-    if (messages.length > 0) {
+    if (chatStorageKey && messages.length > 0) {
       const toSave = messages.filter((m) => !m.streaming).slice(-20); // keep last 20
-      localStorage.setItem("nexus_chat_v2", JSON.stringify(toSave));
+      localStorage.setItem(chatStorageKey, JSON.stringify(toSave));
     }
-  }, [messages]);
+  }, [chatStorageKey, messages]);
+
+  useEffect(() => {
+    const clearForWorkspaceReset = () => {
+      setMessages([]);
+      setHasGreeted(false);
+    };
+    window.addEventListener("nexus:workspace-reset", clearForWorkspaceReset);
+    return () => window.removeEventListener("nexus:workspace-reset", clearForWorkspaceReset);
+  }, []);
 
   /* greet on first open */
   useEffect(() => {
@@ -159,10 +172,23 @@ export default memo(function ChatWidget() {
   }
 
   const handleClear = useCallback(() => {
-    setMessages([]);
-    setHasGreeted(false);
-    localStorage.removeItem("nexus_chat_v2");
-  }, []);
+    if (chatStorageKey) localStorage.removeItem(chatStorageKey);
+    if (!open) {
+      setMessages([]);
+      setHasGreeted(false);
+      return;
+    }
+    const greeting = getPageGreeting(pathname || "", isAr);
+    const replies = getQuickReplies(pathname || "", isAr);
+    setMessages([{
+      id: Math.random().toString(36).slice(2),
+      role: "assistant",
+      content: greeting,
+      quickReplies: replies,
+      timestamp: Date.now(),
+    } as ChatMessage & { quickReplies?: string[] }]);
+    setHasGreeted(true);
+  }, [chatStorageKey, isAr, open, pathname]);
 
   const handleSend = useCallback(async (text?: string) => {
     const content = (text || input).trim();
@@ -212,10 +238,15 @@ export default memo(function ChatWidget() {
 
       if (!res.ok || !res.body) {
         const errData = await res.json().catch(() => ({ error: "Unknown error" }));
+        const failureMessage = res.status === 402
+          ? (isAr ? "رصيدك لا يكفي لهذه الرسالة. أضف كريديت من صفحة الفوترة." : "You do not have enough credits for this message. Add credits from Billing.")
+          : (typeof errData.error === "string" && errData.error !== "Unknown error"
+            ? errData.error
+            : (isAr ? "عذراً، حدث خطأ. حاول مرة أخرى." : "Sorry, something went wrong. Please try again."));
         setMessages((prev) =>
           prev.map((m) =>
             m.id === streamId
-              ? { ...m, content: isAr ? "عذراً، حدث خطأ. حاول مرة أخرى." : "Sorry, something went wrong. Please try again.", streaming: false }
+              ? { ...m, content: failureMessage, streaming: false }
               : m
           )
         );
@@ -420,35 +451,40 @@ export default memo(function ChatWidget() {
 
           {/* Input */}
           <div
-            className="shrink-0 px-4 py-3 flex items-center gap-2"
+            className="shrink-0 px-4 py-3"
             style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
           >
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-              placeholder={(cwT?.placeholder as string) || (isAr ? "اكتب سؤالك..." : "Ask anything...")}
-              disabled={isStreaming}
-              className="flex-1 px-4 py-2.5 rounded-xl text-sm text-white placeholder-white/30 outline-none disabled:opacity-50"
-              style={{
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                direction: isAr ? "rtl" : "ltr",
-              }}
-            />
-            <button
-              onClick={() => handleSend()}
-              disabled={isStreaming || !input.trim()}
-              className="w-9 h-9 rounded-xl grid place-items-center shrink-0 hover:brightness-110 transition disabled:opacity-40"
-              style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)" }}
-            >
-              {isStreaming ? (
-                <Loader2 className="w-4 h-4 text-black animate-spin" />
-              ) : (
-                <Send className="w-4 h-4 text-black" />
-              )}
-            </button>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                placeholder={(cwT?.placeholder as string) || (isAr ? "اكتب سؤالك..." : "Ask anything...")}
+                disabled={isStreaming}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm text-white placeholder-white/30 outline-none disabled:opacity-50"
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  direction: isAr ? "rtl" : "ltr",
+                }}
+              />
+              <button
+                onClick={() => handleSend()}
+                disabled={isStreaming || !input.trim()}
+                className="w-9 h-9 rounded-xl grid place-items-center shrink-0 hover:brightness-110 transition disabled:opacity-40"
+                style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)" }}
+              >
+                {isStreaming ? (
+                  <Loader2 className="w-4 h-4 text-black animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4 text-black" />
+                )}
+              </button>
+            </div>
+            <p className="mt-1.5 text-center text-[10px] text-white/35">
+              {isAr ? 'كل رسالة AI تكلف 1 كريديت؛ تُعاد عند فشل الخدمة.' : 'Each AI message costs 1 credit; failed requests are refunded.'}
+            </p>
           </div>
         </div>
       )}

@@ -135,6 +135,30 @@ describe('strategyProofGuard', () => {
     expect(joined).not.toContain('every visit')
   })
 
+  it('removes unsupported service-policy claims that were not saved in Brand Brain', () => {
+    const guarded = guardStrategyProof({
+      positioning: 'Family-friendly bilingual care with transparent pricing and no hidden fees.',
+      ctaVariations: ['Book a clinic tour', 'Choose pain-free care'],
+      arabic: 'خدمة ثنائية اللغة مناسبة للعائلات بدون رسوم خفية. احجز جولة في العيادة.',
+    }, {
+      verifiedProof: [],
+      allowedClaimText: ['Noura Dental Studio offers dental consultations and treatment planning.'],
+    })
+    const joined = JSON.stringify(guarded)
+
+    expect(joined).not.toMatch(/family-friendly|bilingual care|transparent pricing|no hidden fees|clinic tour|pain-free/i)
+    expect(joined).not.toMatch(/ثنائية اللغة|مناسبة للعائلات|بدون رسوم خفية|جولة في العيادة/i)
+    expect(joined).toContain('pricing details')
+    expect(joined).toContain('book a consultation')
+  })
+
+  it('preserves an explicit bilingual service fact from Brand Brain', () => {
+    const text = 'Bilingual service is available in Arabic and English.'
+    expect(guardStrategyProofText(text, {
+      allowedClaimText: ['We provide bilingual dental service in Arabic and English.'],
+    })).toBe(text)
+  })
+
   it('rewrites team-always wording without leaving an awkward sentence fragment', () => {
     const out = guardStrategyProofText('Ensure your team always has access to great coffee.', {
       verifiedProof: [],

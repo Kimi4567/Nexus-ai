@@ -94,6 +94,20 @@ describe('content plan order contract', () => {
     })
   })
 
+  it('does not mislabel a positive reviewed organic order as paid-only when a legacy label is stale', () => {
+    const scope = resolveContentPlanOrderScope({
+      strategyType: 'paid',
+      strategyOrder: { strategyType: 'organic', organicPostCount: 4 },
+      strategyDeliverables: { organicPostCount: 4 },
+    })
+
+    expect(scope).toEqual({
+      bound: true,
+      expectedDirections: 4,
+      strategyType: 'organic',
+    })
+  })
+
   it('does not bind legacy campaigns without a saved order or deliverables', () => {
     const review = deriveContentPlanOrderReview({}, posts(12))
 

@@ -39,8 +39,16 @@ export interface ContentPlanSaveGateResult {
 
 const ARABIC_RE = /[\u0600-\u06ff]/
 
+// A clinic may be either the business being marketed (dentist, medical centre,
+// etc.) or the customer of an operations product. The old detector treated any
+// healthcare word — and even "bilingual" — as proof that the brand sold clinic
+// software. That replaced valid provider copy with unrelated front-desk SaaS
+// templates. Require both sides of the classification before using them.
 const CLINIC_CONTEXT_RE =
-  /clinic|healthcare|medical|patient|appointment|follow[-\s]?up|bilingual|عياد|طبي|صحي|مرضى|مريض|مواعيد|متابعة|رعاية|ثنائي اللغة/i
+  /clinic|dental|dentist|healthcare|medical|patient|appointment|عياد|أسنان|طبيب|طبي|صحي|مرضى|مريض|مواعيد|رعاية/i
+
+const CLINIC_OPERATIONS_PRODUCT_RE =
+  /saas|software|platform|dashboard|workflow|clinicflow|clinic\s+management|practice\s+management|appointment\s+management|patient\s+management|operations?\s+(?:app|system|tool|platform)|(?:app|system|tool|platform)\s+for\s+(?:clinics?|healthcare)|برنامج|منصة|تطبيق|نظام|لوحة\s+تحكم|سير\s+العمل|إدارة\s+(?:العيادات|المراكز|المواعيد|المرضى)|تشغيل\s+العيادات/i
 
 const CLINIC_TOPIC_PATTERNS: Array<{ re: RegExp; ar: string; en: string }> = [
   { re: /appointment|schedule|booking|مواعيد|جدولة/i, ar: 'تنظيم المواعيد', en: 'appointment organization' },
@@ -85,7 +93,8 @@ function contextText(ctx: ContentPlanRenderContext, gen: GeneratedContentPlanPos
 }
 
 export function isClinicOperationalSaasContent(ctx: ContentPlanRenderContext, gen: GeneratedContentPlanPostLike = {}): boolean {
-  return CLINIC_CONTEXT_RE.test(contextText(ctx, gen))
+  const text = contextText(ctx, gen)
+  return CLINIC_CONTEXT_RE.test(text) && CLINIC_OPERATIONS_PRODUCT_RE.test(text)
 }
 
 function inferClinicTopic(ctx: ContentPlanRenderContext, gen: GeneratedContentPlanPostLike): { ar: string; en: string } {

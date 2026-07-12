@@ -33,6 +33,29 @@ describe('contentPlanStructuredRenderer', () => {
     }, {})).toBe(false)
   })
 
+  it('keeps a dental provider campaign as service marketing instead of clinic SaaS operations', () => {
+    const providerCtx: ContentPlanRenderContext = {
+      isArabic: false,
+      brand: 'Noura Dental Studio',
+      campaignName: 'Confident smile consultation',
+      keyMessage: 'Clear dental consultation and treatment options',
+      targetAudience: 'Adults looking for a trusted local dentist',
+      contentPillars: ['dental education', 'consultation preparation', 'treatment options'],
+      offer: 'Book a consultation',
+      platform: 'META',
+      postIndex: 0,
+      verifiedProof: [],
+    }
+
+    const generated = {
+      caption: 'Not sure what to ask at your first dental consultation? Save these three questions, then book a consultation with Noura Dental Studio to discuss your options.',
+    }
+
+    expect(isClinicOperationalSaasContent(providerCtx, generated)).toBe(false)
+    expect(renderContentPlanDraftCaption(generated, providerCtx)).toBe(generated.caption)
+    expect(renderContentPlanDraftCaption(generated, providerCtx)).not.toMatch(/front desk|handoff|leadership|team meeting/i)
+  })
+
   it('renders Arabic clinic drafts from a conservative operational template instead of risky model copy', () => {
     const caption = renderContentPlanDraftCaption({
       caption: 'ClinicFlow AI يساعدك في تنظيم المواعيد وتحسين كفاءة العمليات. تواصل فعال وسهل مع مرضاك لتحسين الخدمة وزيادة رضاهم وثقتهم.',

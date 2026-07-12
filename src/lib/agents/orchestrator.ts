@@ -166,6 +166,13 @@ export async function runFullAgency(
     const proofContext = {
       verifiedProof: (bp.verifiedProof as string[] | undefined) || [],
       budgetText: typeof bp.marketingBudget === 'string' ? bp.marketingBudget : null,
+      allowedClaimText: [
+        bp.description,
+        bp.primaryOffer,
+        ...((bp.uniqueAdvantages as string[] | undefined) || []),
+        bp.complianceNotes,
+        ...((bp.verifiedProof as string[] | undefined) || []),
+      ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
     }
 
     // 2. Strategist agent

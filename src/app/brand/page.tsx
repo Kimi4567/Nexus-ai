@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { useBrandBrain, getBrandCompleteness, normalizeBrandProfile, type BrandProfile } from '@/hooks/useBrandBrain'
-import { getStrategyCapabilities } from '@/lib/brandReadiness'
+import { getBrandBrainReadiness, getStrategyCapabilities } from '@/lib/brandReadiness'
 import { getBrandBrainGenerationFieldLabel, getBrandBrainGenerationSafety } from '@/lib/brandBrainGenerationSafety'
 import { getBrandIndicators, type BrandIndicators } from '@/lib/brandIndicators'
 import type { BrandBrainContract } from '@/lib/brandBrainContract'
@@ -96,9 +96,9 @@ const getStepCopy = (step: Step, locale: string) => {
     : { label: copy.label.en, desc: copy.desc.en }
 }
 
-const INDUSTRIES_AR = ['تجارة إلكترونية','مطاعم وأغذية','موضة وأزياء','صحة وجمال','تقنية وتطبيقات','عقارات','تعليم وتدريب','خدمات مهنية','سياحة وسفر','رياضة ولياقة','ديكور وأثاث','سيارات','آخر']
-const INDUSTRIES_EN = ['E-commerce','Restaurants & Food','Fashion & Apparel','Health & Beauty','Tech & Apps','Real Estate','Education & Training','Professional Services','Travel & Tourism','Sports & Fitness','Home & Furniture','Automotive','Other']
-const PLATFORMS_LIST = ['Instagram','TikTok','Facebook','WhatsApp','Snapchat','YouTube','LinkedIn','X / Twitter','Pinterest']
+const INDUSTRIES_AR = ['تجارة إلكترونية','مطاعم وأغذية','موضة وأزياء','رعاية صحية وطب','عيادات وطب أسنان','صحة وجمال','تقنية وتطبيقات','عقارات','تعليم وتدريب','خدمات مهنية','سياحة وسفر','رياضة ولياقة','ديكور وأثاث','سيارات','آخر']
+const INDUSTRIES_EN = ['E-commerce','Restaurants & Food','Fashion & Apparel','Healthcare & Medical','Dental & Clinics','Health & Beauty','Tech & Apps','Real Estate','Education & Training','Professional Services','Travel & Tourism','Sports & Fitness','Home & Furniture','Automotive','Other']
+const PLATFORMS_LIST = ['Instagram','TikTok','Facebook','Snapchat','YouTube','LinkedIn','X / Twitter','Pinterest']
 const TONE_OPTIONS_AR = ['حماسي','احترافي','مرح','عاطفي','جريء','هادئ','ملهم','مباشر','راقي','شبابي']
 const TONE_OPTIONS_EN = ['Energetic','Professional','Playful','Emotional','Bold','Calm','Inspiring','Direct','Upscale','Youthful']
 const PRICE_OPTIONS = [
@@ -1051,6 +1051,7 @@ function BrandBrainInner() {
   }
 
   const { score, missing } = getBrandCompleteness(form, locale)
+  const coreBrandReady = getBrandBrainReadiness(form).ready
   // PR-J — separated, honest indicators (same source the campaign Strategy panel uses).
   const brandIndicators = getBrandIndicators(form, {
     acceptedLearningCount: typeof form?.acceptedLearningCount === 'number' ? form.acceptedLearningCount : 0,
@@ -1061,6 +1062,16 @@ function BrandBrainInner() {
   )
   const currentStepIdx = STEPS.findIndex(s => s.id === step)
   const currentStep    = STEPS[currentStepIdx] ?? STEPS[0]
+  const currentStepMissingRequired = (() => {
+    const hasText = (value: unknown) => typeof value === 'string' && value.trim().length > 0
+    if (step === 'identity') {
+      return [form.brandName, form.industry, form.description].filter(value => !hasText(value)).length
+    }
+    if (step === 'product') return hasText(form.primaryOffer) ? 0 : 1
+    if (step === 'audience') return hasText(form.targetAudience) ? 0 : 1
+    if (step === 'platforms') return Array.isArray(form.topPlatforms) && form.topPlatforms.length > 0 ? 0 : 1
+    return 0
+  })()
   const scoreColor     = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#64748B'
   const hasExistingBrandMemory = Boolean(
     form.brandName?.trim() ||
@@ -1130,8 +1141,10 @@ function BrandBrainInner() {
           <LuxuryWorkspaceHeader
             pageTitle="Brand Brain"
             pageSubtitle={locale === 'ar' ? 'المصدر المركزي لذاكرة العلامة وإشارات المراجعة قبل الاستراتيجية والمحتوى.' : 'The central memory source for brand context and review signals before strategy and content.'}
-            primaryHref="/strategy"
-            primaryLabel={locale === 'ar' ? 'ابدأ استراتيجية' : 'Start strategy'}
+            primaryHref={coreBrandReady ? '/strategy' : '#brand-profile-workspace'}
+            primaryLabel={coreBrandReady
+              ? (locale === 'ar' ? 'ابدأ استراتيجية' : 'Start strategy')
+              : (locale === 'ar' ? 'أكمل الحقول الأساسية' : 'Complete core fields')}
             secondaryHref="/campaigns"
             secondaryLabel={locale === 'ar' ? 'الحملات' : 'Campaigns'}
           />
@@ -2273,7 +2286,7 @@ function BrandBrainInner() {
             </aside>
 
             {/* ── Right workspace content (active step) ── */}
-            <div className="min-w-0 space-y-5">
+            <div id="brand-profile-workspace" className="min-w-0 scroll-mt-24 space-y-5">
 
           {/* ══════════════════════════════════════════════════════
               STEP CONTENT CARD
@@ -2840,8 +2853,15 @@ function BrandBrainInner() {
               })()}
 
               {/* ── Navigation ─────────────────────────────────── */}
+              {currentStepMissingRequired > 0 && currentStepIdx < STEPS.length - 1 && (
+                <p className="pt-4 text-xs font-semibold text-amber-700" style={{ borderTop:'1px solid rgba(15,23,42,0.08)' }}>
+                  {locale === 'ar'
+                    ? 'أكمل الحقول الأساسية الظاهرة في هذه الخطوة قبل المتابعة.'
+                    : 'Complete the required fields shown in this step before continuing.'}
+                </p>
+              )}
               <div className="flex items-center justify-between pt-5"
-                style={{ borderTop:'1px solid rgba(15,23,42,0.08)' }}>
+                style={{ borderTop: currentStepMissingRequired > 0 ? 'none' : '1px solid rgba(15,23,42,0.08)' }}>
 
                 <button
                   onClick={() => currentStepIdx > 0 && setStep(STEPS[currentStepIdx-1].id)}
@@ -2861,8 +2881,8 @@ function BrandBrainInner() {
                 </div>
 
                 {currentStepIdx < STEPS.length - 1 ? (
-                  <button onClick={() => setStep(STEPS[currentStepIdx+1].id)}
-                    className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all"
+                  <button onClick={() => setStep(STEPS[currentStepIdx+1].id)} disabled={currentStepMissingRequired > 0}
+                    className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-45"
                     style={{ color:currentStep.color, background:`${currentStep.color}10`, border:`1px solid ${currentStep.color}28`, boxShadow:`0 0 14px ${currentStep.color}10` }}>
                     {t('brand.navNext')} <ArrowLeft size={14}/>
                   </button>
@@ -2951,7 +2971,7 @@ function BrandBrainInner() {
               </div>
             )
             return (
-              <details className="group rounded-2xl overflow-hidden" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
+              <details id="strategy-readiness" className="group scroll-mt-24 rounded-2xl overflow-hidden" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
                 <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 px-5 py-4">
                   <span className="flex items-center gap-2 min-w-0">
                     <BarChart2 size={16} style={{ color: '#5E5CE6' }} />

@@ -9,6 +9,8 @@
 export interface StrategyProofContext {
   verifiedProof?: string[] | null
   budgetText?: string | null
+  /** User-authored factual Brand Brain fields that may support service-policy claims. */
+  allowedClaimText?: string[] | null
 }
 
 interface ProofAvailability {
@@ -95,6 +97,57 @@ function guardUnsupportedBudgetAssumptions(text: string): string {
     .replace(/\bmonthly\s+paid\s+budget\s+of\s+(?:\$|USD\s*)[\d,]+(?:\s*USD)?\b/gi, 'paid budget needs user confirmation')
     .replace(/\b(?:\$|USD\s*)[\d,]+(?:\s*USD)?\s+(?:ad\s+)?budget\b/gi, 'paid budget needs user confirmation')
     .replace(/\b(?:allocate|spend)\s+(?:\$|USD\s*)[\d,]+(?:\s*USD)?\s+(?:to|on|for)\s+([^.,;!?]+)/gi, 'Paid allocation needs confirmation before allocating spend to $1')
+}
+
+function allowedClaimsText(context: StrategyProofContext): string {
+  return Array.isArray(context.allowedClaimText)
+    ? context.allowedClaimText.filter((item): item is string => typeof item === 'string').join(' ')
+    : ''
+}
+
+function softenUnsupportedServiceClaims(text: string, context: StrategyProofContext): string {
+  const allowed = allowedClaimsText(context)
+  let guarded = text
+
+  if (!/no hidden|transparent pricing|pricing transparency|بدون (?:رسوم|تكاليف) خفية|لا توجد (?:رسوم|تكاليف) خفية|شفاف(?:ة|ية) الأسعار/i.test(allowed)) {
+    guarded = guarded
+      .replace(/\bno hidden (?:costs?|fees?|charges?)\b/gi, 'pricing details to review before booking')
+      .replace(/\btransparent pricing\b/gi, 'pricing details available to discuss')
+      .replace(/بدون (?:رسوم|تكاليف) خفية/gi, 'تفاصيل أسعار للمراجعة قبل الحجز')
+      .replace(/لا توجد (?:رسوم|تكاليف) خفية/gi, 'راجع تفاصيل الأسعار قبل الحجز')
+      .replace(/شفاف(?:ة|ية) الأسعار/gi, 'وضوح تفاصيل الأسعار قبل الحجز')
+  }
+
+  if (!/bilingual|arabic and english|english and arabic|ثنائي(?:ة)? اللغة|العربية والإنجليزية|الإنجليزية والعربية/i.test(allowed)) {
+    guarded = guarded
+      .replace(/\bbilingual (?:care|service|support|communication|team)\b/gi, 'clear communication')
+      .replace(/\b(?:Arabic and English|English and Arabic) (?:care|service|support|communication)\b/gi, 'clear communication')
+      .replace(/(?:رعاية|خدمة|دعم|تواصل) ثنائي(?:ة)? اللغة/gi, 'تواصل واضح')
+      .replace(/(?:خدمة|دعم|تواصل) (?:بالعربية والإنجليزية|بالإنجليزية والعربية)/gi, 'تواصل واضح')
+  }
+
+  if (!/family[-\s]?friendly|children|kids|pediatric|عائلات|عائلي|الأطفال|طب أسنان الأطفال/i.test(allowed)) {
+    guarded = guarded
+      .replace(/\bfamily[-\s]?friendly\b/gi, 'welcoming')
+      .replace(/مناسب(?:ة)? للعائلات/gi, 'مرحّب')
+      .replace(/صديق(?:ة)? للعائلة/gi, 'مرحّب')
+  }
+
+  if (!/pain[-\s]?free|stress[-\s]?free|without pain|بدون ألم|بلا ألم|خالية? من التوتر/i.test(allowed)) {
+    guarded = guarded
+      .replace(/\bpain[-\s]?free\b/gi, 'with comfort options to discuss')
+      .replace(/\bstress[-\s]?free\b/gi, 'with clear next steps')
+      .replace(/بدون ألم|بلا ألم/gi, 'مع خيارات راحة يمكن مناقشتها')
+      .replace(/خالي(?:ة)? من التوتر/gi, 'بخطوات واضحة')
+  }
+
+  if (!/tour|facility visit|office visit|جولة|زيارة المنشأة|زيارة العيادة/i.test(allowed)) {
+    guarded = guarded
+      .replace(/\b(?:book|schedule|request) (?:a |your )?(?:clinic |facility |office )?tour\b/gi, 'book a consultation')
+      .replace(/(?:احجز|اطلب|حدد) جولة(?: في العيادة)?/gi, 'احجز استشارة')
+  }
+
+  return guarded
 }
 
 function keyImpliesStatus(key: string): boolean {
@@ -199,7 +252,10 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
   }
 
   guarded = guardUnsupportedBudgetAssumptions(
-    softenAbsoluteOutcomeClaims(guardUnsafeStatusLanguage(guarded)),
+    softenUnsupportedServiceClaims(
+      softenAbsoluteOutcomeClaims(guardUnsafeStatusLanguage(guarded)),
+      context,
+    ),
   )
     .replace(/\s{2,}/g, ' ')
     .trim()

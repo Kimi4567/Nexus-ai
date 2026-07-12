@@ -176,6 +176,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const logout = useCallback(async () => {
+    if (typeof window !== 'undefined') {
+      Object.keys(localStorage)
+        .filter((key) => key === 'nexus_chat_v2' || key.startsWith('nexus_chat_v3:'))
+        .forEach((key) => localStorage.removeItem(key))
+    }
     await supabase.auth.signOut()
     setUser(null)
     setSession(null)

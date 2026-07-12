@@ -355,6 +355,9 @@ export default function SettingsPage() {
 
   const handleSignOut = async () => {
     setSigningOut(true)
+    Object.keys(localStorage)
+      .filter((key) => key === 'nexus_chat_v2' || key.startsWith('nexus_chat_v3:'))
+      .forEach((key) => localStorage.removeItem(key))
     await supabase.auth.signOut()
     router.push('/')
   }
@@ -375,6 +378,10 @@ export default function SettingsPage() {
         throw new Error(`${copyText('تعذر إكمال إعادة الضبط. لم يتم حذف أي بيانات.', 'Reset could not complete. No data was changed.')}${reference}`)
       }
       setResetMessage({ type: 'success', text: copyText('تمت إعادة ضبط مساحة العمل.', 'Workspace reset completed.') })
+      Object.keys(localStorage)
+        .filter((key) => key === 'nexus_chat_v2' || key.startsWith('nexus_chat_v3:'))
+        .forEach((key) => localStorage.removeItem(key))
+      window.dispatchEvent(new Event('nexus:workspace-reset'))
       setResetConfirmOpen(false)
       setResetConfirmInput('')
       setTimeout(() => router.push('/dashboard'), 1500)
@@ -749,7 +756,10 @@ export default function SettingsPage() {
               <div className="rounded-[16px] border border-rose-100 bg-rose-50/60 p-4">
                 <p className="text-[13px] font-black text-rose-700">{copyText('إعادة ضبط مساحة العمل', 'Reset workspace')}</p>
                 <p className="mt-1 text-[12px] leading-6 text-rose-600">
-                  {copyText('إجراء حساس يمس بيانات التجربة. يحتاج كتابة RESET قبل التنفيذ.', 'Sensitive action that affects trial data. Requires typing RESET before execution.')}
+                  {copyText(
+                    'يحذف Brand Brain والحملات والمحتوى والوسائط والتعلّم، لكنه يحافظ على الحساب والاشتراك وسجل الكريدت وعمليات الشراء والاتصالات. يحتاج كتابة RESET.',
+                    'Deletes Brand Brain, campaigns, content, media, and learning. Account, subscription, credit/purchase ledger, and connections are preserved. Type RESET to continue.',
+                  )}
                 </p>
                 {!resetConfirmOpen ? (
                   <SettingsButton tone="danger" onClick={() => setResetConfirmOpen(true)} className="mt-4">

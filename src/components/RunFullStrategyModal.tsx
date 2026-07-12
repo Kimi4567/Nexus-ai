@@ -31,6 +31,7 @@ import { formatStrategyDeliverableForLocale, getStrategyDeliverables } from '@/l
 // server-side before deduction, so the displayed price equals the charged price.
 import { getStrategyCreditCost } from '@/lib/strategy/strategyPricing'
 import type { StrategyOrder, ContentIntensity } from '@/lib/strategy/strategyOrder'
+import { intensityForOrganicPostCount } from '@/lib/strategy/strategyPostCount'
 import {
   intensityLabel,
   strategyIntensityHelperCopy,
@@ -885,7 +886,12 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 {(['light', 'standard', 'growth', 'daily'] as const).map((value) => {
                   const selected = contentIntensity === value
                   return (
-                    <button type="button" key={value} aria-pressed={selected} onClick={() => setContentIntensity(value)}
+                    <button type="button" key={value} aria-pressed={selected} onClick={() => {
+                      setContentIntensity(value)
+                      if (useCustomPostCount) {
+                        setCustomOrganicPostCount({ light: 8, standard: 12, growth: 20, daily: 30 }[value])
+                      }
+                    }}
                       className="relative min-h-[76px] rounded-2xl p-3 text-center transition"
                       style={selected ? SELECTED_OPTION_STYLE : UNSELECTED_OPTION_STYLE}>
                       <span className="block text-sm font-black text-slate-950">{intensityLabel(value, locale)}</span>
@@ -901,13 +907,24 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               {strategyType !== 'paid' && (
                 <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
                   <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                    <input type="checkbox" checked={useCustomPostCount} onChange={(event) => setUseCustomPostCount(event.target.checked)} />
+                    <input type="checkbox" checked={useCustomPostCount} onChange={(event) => {
+                      const checked = event.target.checked
+                      setUseCustomPostCount(checked)
+                      if (checked) {
+                        const nextCount = { light: 8, standard: 12, growth: 20, daily: 30 }[contentIntensity]
+                        setCustomOrganicPostCount(nextCount)
+                      }
+                    }} />
                     {locale === 'ar' ? 'تحديد عدد دقيق لاتجاهات المنشورات في أول 30 يوم' : 'Set an exact post-direction count for the first 30 days'}
                   </label>
                   {useCustomPostCount && (
                     <input type="number" min={1} max={30} value={customOrganicPostCount}
                       aria-label={locale === 'ar' ? 'عدد اتجاهات المنشورات' : 'Post direction count'}
-                      onChange={(event) => setCustomOrganicPostCount(Math.min(30, Math.max(1, Math.floor(Number(event.target.value) || 1))))}
+                      onChange={(event) => {
+                        const nextCount = Math.min(30, Math.max(1, Math.floor(Number(event.target.value) || 1)))
+                        setCustomOrganicPostCount(nextCount)
+                        setContentIntensity(intensityForOrganicPostCount(nextCount))
+                      }}
                       className="mt-3 w-28 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm text-slate-950 outline-none focus:border-indigo-500"
                       dir="ltr" />
                   )}
@@ -1162,13 +1179,23 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   <ArrowUpRight className="h-4 w-4" />
                   {locale === 'ar' ? 'إدارة الرصيد' : 'Manage credits'}
                 </button>
-              ) : (
+              ) : strategyBriefLoading ? (
                 <button type="button" disabled
                   className="flex min-h-12 cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-slate-200 px-4 text-sm font-black text-slate-500">
                   <AlertTriangle className="h-4 w-4" />
-                  {strategyBriefLoading
-                    ? (locale === 'ar' ? 'جارٍ فحص الجاهزية' : 'Checking readiness')
-                    : (locale === 'ar' ? 'أكمل بيانات البريف أولاً' : 'Complete brief inputs first')}
+                  {locale === 'ar' ? 'جارٍ فحص الجاهزية' : 'Checking readiness'}
+                </button>
+              ) : !strategyReadinessPreview.canGenerate ? (
+                <Link href="/brand#strategy-readiness" onClick={onClose}
+                  className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-sm font-black text-white transition hover:bg-amber-700">
+                  <PencilLine className="h-4 w-4" />
+                  {locale === 'ar' ? 'أضف بيانات النطاق في Brand Brain' : 'Add scope inputs in Brand Brain'}
+                </Link>
+              ) : (
+                <button type="button" onClick={() => setScopeConfirmed(false)}
+                  className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-200 px-4 text-sm font-black text-slate-600">
+                  <AlertTriangle className="h-4 w-4" />
+                  {locale === 'ar' ? 'عدّل النطاق للمتابعة' : 'Adjust scope to continue'}
                 </button>
               )}
             </div>

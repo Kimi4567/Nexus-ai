@@ -35,11 +35,20 @@ function sanitizeStrategyRunError(error: string | undefined, language: unknown):
   if (!error) return undefined
 
   if (/Strategy OS contract/i.test(error)) {
+    if (/count:/i.test(error)) {
+      return isArabicLanguage(language)
+        ? 'أوقف NEXUS الحفظ لأن مولّد الاستراتيجية لم يُكمل العدد الذي راجعته من اتجاهات المحتوى والخطة الأسبوعية. لم تُحفظ حملة جديدة وتمت إعادة الكريدت إن خُصمت. أعد المحاولة؛ سيحاول النظام إصلاح العدد تلقائيًا قبل الحفظ.'
+        : 'NEXUS blocked saving because the strategy generator did not complete the reviewed number of content directions and weekly deliverables. No campaign was saved and charged credits were restored. Retry; the system will attempt a count repair before saving.'
+    }
     if (isArabicLanguage(language)) {
-      return 'أوقف NEXUS حفظ هذه الاستراتيجية لأن النص الناتج لم يطابق اللغة أو جودة المراجعة المطلوبة. لم يتم حفظ حملة جديدة وتمت إعادة كريدت الاستراتيجية إن تم خصمها. حاول مرة أخرى، أو اختر الإنجليزية إذا أردت الاستراتيجية بالإنجليزية.'
+      return /language:/i.test(error)
+        ? 'أوقف NEXUS حفظ هذه الاستراتيجية لأن لغة المخرجات لم تطابق اللغة المختارة. لم يتم حفظ حملة جديدة وتمت إعادة الكريدت إن خُصمت. حاول مرة أخرى مع نفس اللغة أو اختر الإنجليزية إذا أردت المخرجات بالإنجليزية.'
+        : 'أوقف NEXUS حفظ هذه الاستراتيجية لأن الوثيقة لم تجتز عقد الجودة البنيوي. لم يتم حفظ حملة جديدة وتمت إعادة الكريدت إن خُصمت. حاول مرة أخرى.'
     }
 
-    return 'NEXUS blocked this strategy because the generated draft did not match the selected language or review-quality requirements. No new campaign was saved, and strategy credits were not charged or were restored if already charged. Please try again, or choose English if you want the brief in English.'
+    return /language:/i.test(error)
+      ? 'NEXUS blocked saving because the output language did not match the selected language. No campaign was saved and charged credits were restored. Retry with the same language, or choose English for English output.'
+      : 'NEXUS blocked saving because the strategy document did not pass the structural quality contract. No campaign was saved and charged credits were restored. Please retry.'
   }
 
   return error
