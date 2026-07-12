@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     const result = await prisma.$transaction(async (tx) => {
       // Serialize workspace creation per owner so concurrent requests cannot
       // both pass the count check and exceed the commercial allowance.
-      await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `workspace-limit:${user.id}`)
+      await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `workspace-limit:${user.id}`)
 
       const dbUser = await tx.user.findUnique({
         where: { id: user.id },

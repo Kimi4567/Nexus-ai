@@ -4,7 +4,7 @@ import { readLockedPlannedPostAllowance } from '@/lib/postCommercial'
 describe('planned-post commercial allowance', () => {
   it('does not count B variants and subtracts replaceable campaign drafts', async () => {
     const tx = {
-      $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+      $executeRawUnsafe: vi.fn().mockResolvedValue(1),
       user: { findUnique: vi.fn().mockResolvedValue({ subscriptionStatus: 'PRO', role: 'USER' }) },
       subscription: { findUnique: vi.fn().mockResolvedValue(null) },
       socialPost: { count: vi.fn().mockResolvedValueOnce(20).mockResolvedValueOnce(4) },

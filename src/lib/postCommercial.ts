@@ -22,7 +22,7 @@ export async function readLockedPlannedPostAllowance(
   replaceableCampaignId?: string,
   now = new Date(),
 ): Promise<PlannedPostAllowance> {
-  await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `post-limit:${ownerId}`)
+  await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `post-limit:${ownerId}`)
   const [user, subscription] = await Promise.all([
     tx.user.findUnique({ where: { id: ownerId }, select: { subscriptionStatus: true, role: true } }),
     tx.subscription.findUnique({

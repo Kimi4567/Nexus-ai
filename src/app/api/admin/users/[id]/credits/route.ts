@@ -52,7 +52,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       await addCredits(id, delta, reason, 'admin_manual', `manual:admin:${randomUUID()}`)
     } else {
       await prisma.$transaction(async (tx) => {
-        await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `admin-credit:${id}`)
+        await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `admin-credit:${id}`)
         const current = await tx.user.findUnique({ where: { id }, select: { aiCredits: true } })
         if (!current) throw new Error('USER_NOT_FOUND')
         const deduction = Math.min(current.aiCredits, Math.abs(delta))

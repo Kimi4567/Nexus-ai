@@ -23,6 +23,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
+import { randomUUID } from 'crypto'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 
@@ -138,7 +139,11 @@ export async function POST(req: NextRequest) {
     // NOT deleted (PR-1G) so platform connections / OAuth tokens, ad accounts,
     // and workspace access survive the reset.
     const outcome = await prisma.$transaction(async (tx) => {
-      await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `workspace-reset:${wid}`)
+      // Advisory locks return Postgres `void`. `$queryRawUnsafe` attempts to
+      // deserialize that value and fails with Prisma P2010 on current Supabase
+      // Postgres. Execute the statement instead so only the lock side effect is
+      // observed and the transaction can continue.
+      await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `workspace-reset:${wid}`)
       const deleted: Record<string, number> = {}
       for (const model of makeResetModels(tx)) {
         const result = await model.del()
@@ -161,7 +166,12 @@ export async function POST(req: NextRequest) {
       connectionsPreserved: true,
     })
   } catch (err: any) {
-    console.error('[POST /api/workspace/reset]', err)
-    return NextResponse.json({ error: 'Reset failed' }, { status: 500 })
+    const reference = randomUUID().slice(0, 8)
+    console.error('[POST /api/workspace/reset]', { reference, code: err?.code, message: err?.message, stack: err?.stack })
+    return NextResponse.json({
+      error: 'Reset could not complete. No workspace data was changed.',
+      code: 'WORKSPACE_RESET_FAILED',
+      reference,
+    }, { status: 500 })
   }
 }

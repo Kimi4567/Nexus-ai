@@ -370,13 +370,21 @@ export default function SettingsPage() {
         body: JSON.stringify({ confirmText: 'RESET MY NEXUS WORKSPACE' }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Reset failed')
+      if (!res.ok) {
+        const reference = typeof data.reference === 'string' ? ` (${data.reference})` : ''
+        throw new Error(`${copyText('تعذر إكمال إعادة الضبط. لم يتم حذف أي بيانات.', 'Reset could not complete. No data was changed.')}${reference}`)
+      }
       setResetMessage({ type: 'success', text: copyText('تمت إعادة ضبط مساحة العمل.', 'Workspace reset completed.') })
       setResetConfirmOpen(false)
       setResetConfirmInput('')
       setTimeout(() => router.push('/dashboard'), 1500)
-    } catch {
-      setResetMessage({ type: 'error', text: copyText('تعذر تنفيذ إعادة الضبط.', 'Could not reset workspace.') })
+    } catch (error) {
+      setResetMessage({
+        type: 'error',
+        text: error instanceof Error
+          ? error.message
+          : copyText('تعذر تنفيذ إعادة الضبط. لم يتم حذف أي بيانات.', 'Could not reset workspace. No data was changed.'),
+      })
     } finally {
       setResetting(false)
     }

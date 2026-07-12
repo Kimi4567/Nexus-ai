@@ -43,7 +43,7 @@ beforeEach(() => {
   mocks.workspaceFind.mockResolvedValue(null)
   mocks.workspaceCreate.mockResolvedValue({ id: 'workspace-1', name: 'Brand', slug: 'brand' })
   mocks.transaction.mockImplementation(async (callback: any) => callback({
-    $queryRawUnsafe: mocks.lock,
+    $executeRawUnsafe: mocks.lock,
     user: { findUnique: mocks.userFind },
     workspace: {
       count: mocks.workspaceCount,
