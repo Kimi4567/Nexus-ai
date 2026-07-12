@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 
 const mocks = vi.hoisted(() => {
   const tx = {
-    $queryRawUnsafe: vi.fn(),
+    $executeRawUnsafe: vi.fn(),
     user: { findUnique: vi.fn() },
     subscription: { findUnique: vi.fn() },
     campaign: { updateMany: vi.fn() },
@@ -101,7 +101,7 @@ beforeEach(() => {
   mocks.rateLimit.mockResolvedValue({ ok: true })
   mocks.deduct.mockResolvedValue({ ok: true, creditsUsed: 8, creditsRemaining: 92, isUnlimited: false })
   mocks.tx.campaign.updateMany.mockResolvedValue({ count: 1 })
-  mocks.tx.$queryRawUnsafe.mockResolvedValue([])
+  mocks.tx.$executeRawUnsafe.mockResolvedValue(1)
   mocks.tx.user.findUnique.mockResolvedValue({ subscriptionStatus: 'BUSINESS', role: 'USER' })
   mocks.tx.subscription.findUnique.mockResolvedValue(null)
   mocks.tx.socialPost.count.mockResolvedValue(0)

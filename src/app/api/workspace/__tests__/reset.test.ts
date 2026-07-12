@@ -30,7 +30,7 @@ const { mockAuth, prismaMock, RESET_MODELS, FORBIDDEN_MODELS } = vi.hoisted(() =
     ...models,
     workspace: { findFirst: vi.fn().mockResolvedValue({ id: 'ws1' }) },
     brandProfile: { findUnique: vi.fn().mockResolvedValue({ id: 'bp1' }), update: vi.fn().mockResolvedValue({}) },
-    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    $executeRawUnsafe: vi.fn().mockResolvedValue(1),
   } as Record<string, any>
   prismaMock.$transaction = vi.fn(async (callback: (tx: typeof prismaMock) => unknown) => callback(prismaMock))
   return {
@@ -83,6 +83,10 @@ describe('POST /api/workspace/reset (PR-1G)', () => {
     expect(data.connectionsPreserved).toBe(true)
     expect(data.creditsUnchanged).toBe(true)
     expect(data.preserved).toEqual(expect.arrayContaining(['Integration', 'AdAccount', 'CreditTransaction']))
+    expect(prismaMock.$executeRawUnsafe).toHaveBeenCalledWith(
+      'SELECT pg_advisory_xact_lock(hashtext($1))',
+      'workspace-reset:ws1',
+    )
   })
 
   it('NEVER deletes connections / access / account models', async () => {

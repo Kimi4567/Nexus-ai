@@ -25,7 +25,7 @@ export async function readLockedCampaignAllowance(
   ownerId: string,
   now = new Date(),
 ): Promise<CampaignAllowance> {
-  await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `campaign-limit:${ownerId}`)
+  await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `campaign-limit:${ownerId}`)
 
   const [user, subscription] = await Promise.all([
     tx.user.findUnique({

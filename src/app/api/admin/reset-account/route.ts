@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const summary = await prisma.$transaction(async (tx) => {
-      await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `account-reset:${userId}`)
+      await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `account-reset:${userId}`)
       const memberships = await tx.workspaceMember.deleteMany({ where: { userId } })
       await tx.uploadSession.deleteMany({ where: { userId } })
       const workspaces = await tx.workspace.deleteMany({ where: { ownerId: userId } })

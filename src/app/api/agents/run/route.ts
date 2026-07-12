@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     // Get or create the first workspace under the same lock as /api/workspaces.
     const workspace = await prisma.$transaction(async (tx) => {
-      await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `workspace-limit:${user.id}`)
+      await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `workspace-limit:${user.id}`)
       const existing = await tx.workspace.findFirst({ where: { ownerId: user.id }, orderBy: { createdAt: 'asc' } })
       if (existing) return existing
       const baseSlug = companyName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'workspace'

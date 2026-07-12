@@ -47,7 +47,7 @@ async function getOrCreateDefaultProject(
 ): Promise<{ workspaceId: string; projectId: string }> {
   // Share the workspace lock used by POST /api/workspaces. This prevents a
   // first-campaign request racing a first-workspace request on a free account.
-  await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `workspace-limit:${userId}`)
+  await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `workspace-limit:${userId}`)
   let workspace = await tx.workspace.findFirst({ where: { ownerId: userId }, orderBy: { createdAt: 'asc' } })
   if (!workspace) {
     workspace = await tx.workspace.create({

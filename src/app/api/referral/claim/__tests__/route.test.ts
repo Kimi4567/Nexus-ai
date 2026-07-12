@@ -10,7 +10,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest'
 
 const { mockPrisma, tx, mockGetUser } = vi.hoisted(() => {
   const tx = {
-    $queryRawUnsafe: vi.fn(),
+    $executeRawUnsafe: vi.fn(),
     user: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     creditGrant: { createMany: vi.fn() },
   }
@@ -36,7 +36,7 @@ const makeReq = (body: Record<string, unknown> = { referralCode: 'NEXUS-ABC234' 
 beforeEach(() => {
   vi.clearAllMocks()
   mockGetUser.mockResolvedValue({ data: { user: { id: 'newUser' } } })
-  tx.$queryRawUnsafe.mockResolvedValue([])
+  tx.$executeRawUnsafe.mockResolvedValue(1)
   tx.user.update.mockResolvedValue({})
   tx.user.updateMany.mockResolvedValue({ count: 1 })
   tx.creditGrant.createMany.mockResolvedValue({ count: 1 })

@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     const result = await (prisma as any).$transaction(async (tx: any) => {
       // Serialize claims per referred user. The conditional update below is the
       // final race guard; the lock also prevents awarding two referrers.
-      await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `referral-claim:${user.id}`)
+      await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `referral-claim:${user.id}`)
       const dbUser = await tx.user.findUnique({
         where: { id: user.id },
         select: { referredById: true },
