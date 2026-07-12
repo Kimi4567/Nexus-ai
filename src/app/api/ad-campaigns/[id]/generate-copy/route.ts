@@ -27,6 +27,7 @@ import {
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
+import { buildTrackedPaidDestinationUrl } from '@/lib/paidExecutionReadiness'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -90,6 +91,36 @@ export async function POST(
       include: { workspace: true },
     })
     if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+    const storedTracking = campaign.trackingUrls && typeof campaign.trackingUrls === 'object'
+      ? campaign.trackingUrls as Record<string, unknown>
+      : {}
+    const destinationUrl = buildTrackedPaidDestinationUrl({
+      destinationUrl: body.destinationUrl || storedTracking.baseDestinationUrl,
+      platform: campaign.platform,
+      campaignSlug: String(body.utmCampaign || campaign.utmCampaign || campaign.name),
+    })
+    if (!destinationUrl) {
+      return NextResponse.json({
+        error: 'A public HTTPS conversion destination is required before generating paid ad drafts. No credits were used.',
+        code: 'INVALID_PAID_DESTINATION',
+      }, { status: 400 })
+    }
+
+    const destination = new URL(destinationUrl)
+    await db.adCampaign.update({
+      where: { id: campaign.id },
+      data: {
+        utmSource: destination.searchParams.get('utm_source'),
+        utmMedium: destination.searchParams.get('utm_medium'),
+        utmCampaign: destination.searchParams.get('utm_campaign'),
+        trackingUrls: {
+          ...storedTracking,
+          baseDestinationUrl: body.destinationUrl || storedTracking.baseDestinationUrl,
+          [String(campaign.platform).toLowerCase()]: destinationUrl,
+        },
+      },
+    })
 
     // Fetch or create the first AdSet
     let adSet = await db.adSet.findFirst({
@@ -159,6 +190,7 @@ Platform: ${platform}
 Objective: ${objective}
 Available CTAs: ${ctaOptions.join(', ')}
 Daily Budget: ${campaign.currency} ${campaign.dailyBudget || 50}
+Conversion Destination: ${destinationUrl}
 
 ${brandCtx}
 ${strategyCtx}
@@ -276,6 +308,7 @@ Generate 5 review-ready ad copy variants in JSON:
           headline: String(v.headline || ''),
           description: String(v.description || ''),
           callToAction: String(v.callToAction || 'LEARN_MORE'),
+          destinationUrl,
           aiGenerated: true,
           aiAngle: String(v.angle || ''),
           aiHook: String(v.hook || ''),

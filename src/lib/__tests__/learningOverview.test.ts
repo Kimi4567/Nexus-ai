@@ -41,4 +41,22 @@ describe('summarizeLearningEvidence', () => {
     expect(summary.counts.analyticsBackedLessons).toBe(1)
     expect(summary.recentSignals[0].source).toBe('analytics')
   })
+
+  it('withholds untraceable external claims and counts them explicitly', () => {
+    const summary = summarizeLearningEvidence({
+      learningSignals: [{
+        id: 'external',
+        trigger: 'competitor_monitor',
+        status: 'pending',
+        reason: 'A competitor is allegedly growing quickly.',
+      }],
+      workflowSignals: [],
+      performanceEvidenceRows: 0,
+    })
+
+    expect(summary.counts.untraceableExternalSignals).toBe(1)
+    expect(summary.recentSignals[0].traceability).toBe('source_not_attached')
+    expect(summary.recentSignals[0].canAccept).toBe(false)
+    expect(summary.recentSignals[0].reason).toBe('')
+  })
 })

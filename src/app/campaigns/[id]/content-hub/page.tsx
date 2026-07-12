@@ -270,6 +270,8 @@ export default function ContentHubPage() {
   const [manualPublishConfirmed, setManualPublishConfirmed] = useState(false)
   const [captionCopied, setCaptionCopied] = useState(false)
   const [showApproveConfirm, setShowApproveConfirm] = useState(false)
+  const [showScheduleConfirm, setShowScheduleConfirm] = useState(false)
+  const [scheduleAcknowledged, setScheduleAcknowledged] = useState(false)
   const [approveResult, setApproveResult] = useState<{
     kind: 'approved' | 'scheduled'
     approved: number
@@ -401,6 +403,15 @@ export default function ContentHubPage() {
   const progress = totalImagePosts > 0 ? Math.round((doneCount / totalImagePosts) * 100) : 0
   const draftCount = posts.filter(p => p.status === 'DRAFT').length
   const approvedCount = posts.filter(p => p.status === 'APPROVED').length
+  const approvedPostsWithDates = posts.filter(p => p.status === 'APPROVED' && hasValidDate(p.scheduledAt))
+  const approvedPostsMissingDates = approvedCount - approvedPostsWithDates.length
+  const approvedScheduleDates = approvedPostsWithDates.map(p => new Date(p.scheduledAt!).getTime()).sort((a, b) => a - b)
+  const approvedScheduleRange = approvedScheduleDates.length > 0
+    ? {
+        first: new Date(approvedScheduleDates[0]).toLocaleDateString(isAr ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        last: new Date(approvedScheduleDates[approvedScheduleDates.length - 1]).toLocaleDateString(isAr ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      }
+    : null
   const scheduledCount = posts.filter(p => p.status === 'SCHEDULED' && hasValidDate(p.scheduledAt)).length
   const publishedCount = posts.filter(p => p.status === 'PUBLISHED').length
   const manuallyPublishedCount = posts.filter(isUserConfirmedManualPublished).length
@@ -1027,7 +1038,7 @@ export default function ContentHubPage() {
   // ── Schedule approved posts → SCHEDULED (separate decision from approval) ──────
 
   async function scheduleAll() {
-    if (!isAuthenticated) return
+    if (!isAuthenticated || !scheduleAcknowledged) return
     setScheduling(true)
     setError(null)
     try {
@@ -1056,6 +1067,8 @@ export default function ContentHubPage() {
         totalImages: 0,
         videoSlots: 0,
       })
+      setShowScheduleConfirm(false)
+      setScheduleAcknowledged(false)
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -1404,7 +1417,10 @@ export default function ContentHubPage() {
                   </button>
                 ) : approvedCount > 0 ? (
                   <button
-                    onClick={scheduleAll}
+                    onClick={() => {
+                      setScheduleAcknowledged(false)
+                      setShowScheduleConfirm(true)
+                    }}
                     disabled={scheduling}
                     className="flex max-w-full min-w-0 items-center justify-center gap-2 rounded-xl px-4 py-2 text-center text-sm font-semibold leading-tight transition-all whitespace-normal break-words"
                     style={{
@@ -2038,6 +2054,114 @@ export default function ContentHubPage() {
                   }}
                 >
                   ✓ {t('contentHub.approveConfirmYes')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Schedule approved posts confirm dialog ─────────────────── */}
+        {showScheduleConfirm && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(15,23,42,0.30)', backdropFilter: 'blur(10px)' }}
+            onClick={() => {
+              if (!scheduling) {
+                setShowScheduleConfirm(false)
+                setScheduleAcknowledged(false)
+              }
+            }}
+          >
+            <div
+              className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+              style={{ border: '1px solid rgba(15,23,42,0.10)' }}
+              onClick={event => event.stopPropagation()}
+            >
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-[#5E63FF]">
+                    {isAr ? 'قرار جدولة منفصل' : 'Separate scheduling decision'}
+                  </p>
+                  <h3 className="mt-1 text-lg font-bold text-slate-950">
+                    {isAr ? `جدولة ${approvedPostsWithDates.length} منشور معتمد` : `Schedule ${approvedPostsWithDates.length} approved posts`}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                    {isAr
+                      ? 'سيحوّل NEXUS المنشورات المعتمدة ذات التواريخ المحفوظة إلى حالة «مجدول». لن ينشر أي منشور الآن ولن يتصل بأي منصة من هذا القرار.'
+                      : 'NEXUS will move approved posts with saved dates to Scheduled. Nothing is published now and no platform call is made by this decision.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={scheduling}
+                  onClick={() => {
+                    setShowScheduleConfirm(false)
+                    setScheduleAcknowledged(false)
+                  }}
+                  className="text-xl leading-none text-slate-400 hover:text-slate-700 disabled:opacity-40"
+                  aria-label={isAr ? 'إغلاق' : 'Close'}
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
+                <div>
+                  <p className="text-xs font-semibold text-slate-400">{isAr ? 'النطاق' : 'Range'}</p>
+                  <p className="mt-1 font-bold text-slate-900" dir="ltr">
+                    {approvedScheduleRange ? `${approvedScheduleRange.first} - ${approvedScheduleRange.last}` : (isAr ? 'لا توجد تواريخ صالحة' : 'No valid dates')}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-400">{isAr ? 'التكلفة' : 'Cost'}</p>
+                  <p className="mt-1 font-bold text-slate-900">{isAr ? '0 كريديت' : '0 credits'}</p>
+                </div>
+              </div>
+
+              {approvedPostsMissingDates > 0 && (
+                <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+                  {isAr
+                    ? `${approvedPostsMissingDates} منشور معتمد بلا تاريخ صالح سيبقى معتمدًا ولن تتم جدولته.`
+                    : `${approvedPostsMissingDates} approved posts have no valid date and will remain approved.`}
+                </p>
+              )}
+
+              <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm leading-5 text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={scheduleAcknowledged}
+                  disabled={scheduling || approvedPostsWithDates.length === 0}
+                  onChange={event => setScheduleAcknowledged(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#5E63FF]"
+                />
+                <span>
+                  {isAr
+                    ? 'راجعت عدد المنشورات والتواريخ، وأفهم أن الجدولة تحفظ قرار التنفيذ داخل NEXUS فقط ولا تعني النشر.'
+                    : 'I reviewed the post count and dates, and understand that scheduling records the execution plan in NEXUS only; it does not mean publishing.'}
+                </span>
+              </label>
+
+              <div className="mt-5 flex gap-3">
+                <button
+                  type="button"
+                  disabled={scheduling}
+                  onClick={() => {
+                    setShowScheduleConfirm(false)
+                    setScheduleAcknowledged(false)
+                  }}
+                  className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  {t('contentHub.cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={scheduleAll}
+                  disabled={scheduling || !scheduleAcknowledged || approvedPostsWithDates.length === 0}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#4F46E5] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {scheduling
+                    ? t('contentHub.scheduling')
+                    : (isAr ? `تأكيد جدولة ${approvedPostsWithDates.length} منشور` : `Confirm scheduling ${approvedPostsWithDates.length} posts`)}
                 </button>
               </div>
             </div>

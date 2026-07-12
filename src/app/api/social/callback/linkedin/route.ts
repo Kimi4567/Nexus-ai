@@ -8,6 +8,7 @@ import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { encryptToken } from '@/lib/tokenCrypto'
 
+export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 export async function GET(req: NextRequest) {

@@ -39,7 +39,7 @@ function Panel({
   className?: string
 }) {
   return (
-    <section className={`rounded-[24px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)] ${className}`}>
+    <section className={`nx-os-card p-5 ${className}`}>
       {children}
     </section>
   )
@@ -76,25 +76,6 @@ function StatusCard({
         <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-[18px] ${toneClass}`}>{icon}</span>
       </div>
     </Panel>
-  )
-}
-
-function ReadinessRing({ value, label }: { value: number; label: string }) {
-  const safeValue = Math.max(0, Math.min(100, value))
-  return (
-    <div className="flex items-center gap-5">
-      <div
-        className="grid h-36 w-36 place-items-center rounded-full"
-        style={{ background: `conic-gradient(#5366f6 ${safeValue * 3.6}deg, #e9edf7 0deg)` }}
-      >
-        <div className="grid h-28 w-28 place-items-center rounded-full bg-white text-center">
-          <div>
-            <p className="text-4xl font-black tracking-[-0.05em] text-[#071236]">{safeValue}%</p>
-            <p className="mt-1 text-[12px] font-bold text-[#64708f]">{label}</p>
-          </div>
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -137,7 +118,7 @@ export default function PublishPage() {
     () => accounts.filter((account) => account.isActive !== false),
     [accounts],
   )
-  const readiness = activeAccounts.length > 0 ? 68 : 34
+  const hasVerifiedAccount = activeAccounts.length > 0
 
   if (loading || !isAuthenticated) {
     return (
@@ -153,8 +134,8 @@ export default function PublishPage() {
 
   return (
     <AppShell>
-      <main dir={dir} className="min-h-screen bg-[#f6f8fc] px-4 py-6 text-[#071236] sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-[1540px] space-y-6">
+      <main dir={dir} className="nx-os-page">
+        <div className="nx-os-container nx-os-stack">
           <LuxuryWorkspaceHeader
             pageTitle={copy('النشر', 'Publishing')}
             pageSubtitle={copy('جاهزية الحسابات والجدولة والتأكيد قبل أي نشر فعلي.', 'Account readiness, scheduling, and confirmation before real publishing.')}
@@ -175,17 +156,17 @@ export default function PublishPage() {
             )}
           />
 
-          <header className="flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] lg:flex-row lg:items-center lg:justify-between">
+          <header className="nx-os-panel flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-100 bg-violet-50 px-3 py-1.5 text-[12px] font-black text-violet-700">
                 <Send size={14} />
                 {copy('جاهزية نشر فقط', 'Publishing readiness only')}
               </div>
-              <h1 className="flex items-center gap-3 text-3xl font-black tracking-[-0.04em] text-[#071236] lg:text-4xl">
+              <h1 className="flex items-center gap-3 text-[22px] font-black text-[#071236]">
                 {copy('مركز النشر', 'Publishing Center')}
                 <Sparkles className="text-[#5366f6]" size={24} />
               </h1>
-              <p className="mt-2 max-w-3xl text-[14px] font-semibold leading-7 text-[#64708f]">
+              <p className="mt-1 max-w-3xl text-[12px] font-semibold leading-6 text-[#64708f]">
                 {copy(
                   'تحكم مركزي في جاهزية الحسابات، الموافقات، الجدولة، وحدود النشر. لا يبدأ NEXUS أي نشر تلقائي أو API publish بدون حساب متصل وتأكيد صريح.',
                   'A central readiness desk for accounts, approvals, scheduling, and publishing limits. NEXUS does not publish automatically or via API without connected accounts and explicit confirmation.',
@@ -213,10 +194,10 @@ export default function PublishPage() {
           <section className="grid gap-4 lg:grid-cols-4">
             <StatusCard
               title={copy('جاهزية النشر', 'Publishing readiness')}
-              value={`${readiness}%`}
-              helper={copy('تقيس اكتمال الحسابات، الموافقات، الوسائط، والحدود قبل أي تنفيذ.', 'Measures accounts, approvals, media, and limits before execution.')}
+              value={accountsLoading ? '...' : hasVerifiedAccount ? copy('تحتاج مراجعة', 'Review required') : copy('مقفلة', 'Blocked')}
+              helper={copy('لا تُعلن الجاهزية إلا بعد توثيق الحساب والمحتوى والوسائط والموافقة.', 'Ready is shown only after account, content, media, and approval are verified.')}
               icon={<ShieldCheck size={22} />}
-              tone={activeAccounts.length > 0 ? 'green' : 'violet'}
+              tone={hasVerifiedAccount ? 'amber' : 'violet'}
             />
             <StatusCard
               title={copy('الحسابات المتصلة', 'Connected accounts')}
@@ -244,9 +225,9 @@ export default function PublishPage() {
             <Panel>
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-black tracking-[-0.03em] text-[#071236]">{copy('الصفوف المجدولة', 'Scheduled rows')}</h2>
+                  <h2 className="text-xl font-black tracking-[-0.03em] text-[#071236]">{copy('مسار جاهزية النشر', 'Publishing readiness path')}</h2>
                   <p className="mt-1 text-[12px] font-semibold text-[#7b87a3]">
-                    {copy('تظهر هنا العناصر بعد مراجعة Content Hub والوسائط والحسابات. لا يوجد نشر تلقائي من هذه القائمة.', 'Items appear here after Content Hub, media, and account review. This list never auto-publishes.')}
+                    {copy('هذه مراحل تحقق توضيحية وليست صفوف نشر منفذة. يبدأ التنفيذ فقط بعد مراجعة Content Hub والوسائط والحسابات والتأكيد الصريح.', 'These are explanatory verification stages, not executed publishing rows. Execution begins only after Content Hub, media, account review, and explicit confirmation.')}
                   </p>
                 </div>
                 <span className="rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-[12px] font-black text-amber-700">
@@ -280,7 +261,15 @@ export default function PublishPage() {
                     {copy('مصدر الحقيقة هو صفحة الربط والصلاحيات.', 'Connections and permissions are the source of truth.')}
                   </p>
                 </div>
-                <ReadinessRing value={readiness} label={copy('جاهزية', 'Ready')} />
+                <div className={`flex min-w-[150px] items-center gap-3 rounded-[14px] border px-4 py-3 ${hasVerifiedAccount ? 'border-amber-100 bg-amber-50' : 'border-rose-100 bg-rose-50'}`}>
+                  <ShieldCheck className={`h-6 w-6 ${hasVerifiedAccount ? 'text-amber-600' : 'text-rose-600'}`} />
+                  <div>
+                    <p className={`text-lg font-black ${hasVerifiedAccount ? 'text-amber-700' : 'text-rose-700'}`}>
+                      {accountsLoading ? '...' : String(activeAccounts.length)}
+                    </p>
+                    <p className="text-[10px] font-black text-[#64708f]">{copy('حساب موثق', 'verified accounts')}</p>
+                  </div>
+                </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 {platformNames.map((platform) => {
@@ -307,14 +296,21 @@ export default function PublishPage() {
             <Panel>
               <h2 className="mb-4 text-lg font-black text-[#071236]">{copy('قائمة التحقق قبل النشر', 'Pre-publish checklist')}</h2>
               {[
-                copy('مراجعة النصوص والمطالبات', 'Review copy and claims'),
-                copy('مراجعة الوسائط والمقاسات', 'Review media and dimensions'),
-                copy('تأكيد الحساب والصلاحيات', 'Confirm account and permissions'),
-                copy('تأكيد يدوي قبل التنفيذ', 'Manual confirmation before execution'),
+                { label: copy('مراجعة النصوص والمطالبات', 'Review copy and claims'), status: copy('غير موثق', 'Not verified'), ready: false },
+                { label: copy('مراجعة الوسائط والمقاسات', 'Review media and dimensions'), status: copy('غير موثق', 'Not verified'), ready: false },
+                {
+                  label: copy('تأكيد الحساب والصلاحيات', 'Confirm account and permissions'),
+                  status: hasVerifiedAccount ? copy('يوجد حساب', 'Account found') : copy('مفقود', 'Missing'),
+                  ready: hasVerifiedAccount,
+                },
+                { label: copy('تأكيد يدوي قبل التنفيذ', 'Manual confirmation before execution'), status: copy('مطلوب لاحقًا', 'Required later'), ready: false },
               ].map((item) => (
-                <div key={item} className="flex items-center gap-3 border-b border-[#eef2f8] py-3 last:border-b-0">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                  <span className="text-[13px] font-bold text-[#53617f]">{item}</span>
+                <div key={item.label} className="flex items-center gap-3 border-b border-[#eef2f8] py-3 last:border-b-0">
+                  {item.ready ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /> : <Clock3 className="h-4 w-4 shrink-0 text-amber-500" />}
+                  <span className="min-w-0 flex-1 text-[13px] font-bold text-[#53617f]">{item.label}</span>
+                  <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black ${item.ready ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                    {item.status}
+                  </span>
                 </div>
               ))}
             </Panel>

@@ -29,12 +29,10 @@ import {
   LogOut,
   Mail,
   Moon,
-  MoreVertical,
   Palette,
   Save,
   Settings,
   Shield,
-  Sparkles,
   Sun,
   Trash2,
   User,
@@ -67,7 +65,7 @@ function SettingsCard({
   action?: ReactNode
 }) {
   return (
-    <section className={`min-w-0 overflow-hidden rounded-[22px] border border-[#e5eaf5] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)] ${className}`}>
+    <section className={`nx-os-card min-w-0 overflow-hidden p-5 ${className}`}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-[15px] font-black text-[#111b3f]">
           {icon ? <span className="text-[#4f46e5]">{icon}</span> : null}
@@ -159,7 +157,7 @@ function RoleRow({
   role: string
 }) {
   return (
-    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-[#eef2f8] py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_minmax(120px,180px)_auto]">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-[#eef2f8] py-3 last:border-b-0">
       <div className="flex min-w-0 items-center gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f1f0ff] text-sm font-black text-[#4f46e5]">
           {name.charAt(0)}
@@ -169,8 +167,7 @@ function RoleRow({
           <span className="block truncate text-[11px] text-[#7b87a3]">{email}</span>
         </span>
       </div>
-      <span className="hidden truncate text-[12px] font-bold text-[#64708f] sm:block">{role}</span>
-      <MoreVertical className="h-4 w-4 text-[#9aa6bb]" />
+      <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-black text-violet-700">{role}</span>
     </div>
   )
 }
@@ -197,6 +194,7 @@ export default function SettingsPage() {
   const [socialConnecting, setSocialConnecting] = useState(false)
   const [socialMessage, setSocialMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
+  const [disconnectConfirmId, setDisconnectConfirmId] = useState<string | null>(null)
 
   const [billingStatus, setBillingStatus] = useState<{
     plan: string
@@ -336,12 +334,18 @@ export default function SettingsPage() {
     if (!token) return
     setDisconnecting(integrationId)
     try {
-      await fetch('/api/social/accounts', {
+      const response = await fetch('/api/social/accounts', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json', Authorization: token },
         body: JSON.stringify({ integrationId }),
       })
+      if (!response.ok) throw new Error('Disconnect failed')
       setSocialAccounts((prev) => prev.filter((account) => account.id !== integrationId))
+      setDisconnectConfirmId(null)
+      setSocialMessage({
+        type: 'success',
+        text: copyText('تم فصل الحساب. لن يستخدمه NEXUS في النشر العضوي.', 'Account disconnected. NEXUS will not use it for organic publishing.'),
+      })
     } catch {
       setSocialMessage({ type: 'error', text: copyText('تعذر فصل الحساب.', 'Could not disconnect account.') })
     } finally {
@@ -419,8 +423,8 @@ export default function SettingsPage() {
 
   return (
     <AppShell>
-      <main dir={dir} className="min-h-screen overflow-x-hidden bg-[#f6f8fc] text-[#111b3f]">
-        <div className="mx-auto w-full max-w-[1540px] px-4 py-7 sm:px-6 lg:px-8">
+      <main dir={dir} className="nx-os-page overflow-x-hidden">
+        <div className="nx-os-container">
           <LuxuryWorkspaceHeader
             pageTitle={copyText('الإعدادات', 'Settings')}
             pageSubtitle={copyText('إدارة حسابك، فريقك، صلاحياتك، وتفضيلات النظام من مكان واحد.', 'Manage account, team, permissions, and system preferences from one place.')}
@@ -431,7 +435,6 @@ export default function SettingsPage() {
           />
 
           <StrategySpineCard
-            current="brand"
             nextHref="/strategy"
             nextLabel={copyText('راجع مسار الاستراتيجية', 'Review strategy path')}
             title={copyText('الإعدادات تضبط نظام التشغيل ولا تغيّر وعد الحملة', 'Settings configure the operating system without changing campaign promises')}
@@ -442,26 +445,8 @@ export default function SettingsPage() {
             className="mb-6"
           />
 
-          <header className="mb-7 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex min-w-0 items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-[#071236] text-white shadow-[0_18px_40px_rgba(13,24,63,0.22)]">
-                <Settings size={25} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[12px] font-bold text-[#64708f]">{copyText('نظرة عامة', 'Overview')}</p>
-                <h1 className="mt-1 flex flex-wrap items-center gap-2 text-[30px] font-black tracking-[-0.02em] text-[#071236]">
-                  {copyText('الإعدادات', 'Settings')}
-                  <Sparkles className="text-[#4f46e5]" size={23} />
-                </h1>
-                <p className="mt-1 text-sm text-[#60708f]">
-                  {copyText('إدارة حسابك، فريقك، صلاحياتك، وتفضيلات نظام NEXUS.', 'Manage your account, team, permissions, and NEXUS preferences.')}
-                </p>
-              </div>
-            </div>
-          </header>
-
-          <section className="mb-6 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,340px)_minmax(0,1fr)_minmax(0,340px)]">
-            <SettingsCard title={copyText('الحساب', 'Account')} icon={<User size={18} />}>
+          <section className="mb-6 grid min-w-0 items-start gap-4 xl:grid-cols-12">
+            <SettingsCard title={copyText('الحساب', 'Account')} icon={<User size={18} />} className="xl:col-span-3">
               <div className="flex items-center gap-5">
                 <div className="relative flex h-28 w-28 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#eff2ff] to-white p-2">
                   <div className="flex h-full w-full items-center justify-center rounded-full bg-[#071236] text-4xl font-black text-white">
@@ -507,8 +492,9 @@ export default function SettingsPage() {
             <SettingsCard
               title={copyText('الأدوار والصلاحيات', 'Roles and permissions')}
               icon={<Users size={18} />}
+              className="xl:col-span-6"
             >
-              <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,240px)]">
+              <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
                 <div className="rounded-[18px] border border-[#e8edf7] bg-[#fbfcff] px-4">
                   <p className="border-b border-[#eef2f8] py-3 text-[12px] font-bold text-[#64708f]">
                     {copyText('الفريق الحالي الفعلي في مساحة العمل.', 'Actual current workspace team.')}
@@ -517,10 +503,11 @@ export default function SettingsPage() {
                     <RoleRow key={row.email} {...row} />
                   ))}
                 </div>
-                <div className="space-y-3">
+                <div className="grid content-start gap-3 sm:grid-cols-2">
                   <p className="text-[12px] font-bold text-[#64708f]">
                     {copyText('مرجع واضح لنطاق كل دور. دعوات الفريق غير متاحة في هذه الخطة حالياً.', 'A clear reference for each role. Team invitations are not currently available on this plan.')}
                   </p>
+                  <span className="hidden sm:block" />
                   {roleTemplates.map(([role, helper, tone]) => (
                     <div key={role} className="rounded-[15px] border border-[#e8edf7] bg-white p-3">
                       <p className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-black ${tone}`}>{role}</p>
@@ -531,7 +518,7 @@ export default function SettingsPage() {
               </div>
             </SettingsCard>
 
-            <SettingsCard title={copyText('الفوترة والخطة', 'Billing and plan')} icon={<CreditCard size={18} />}>
+            <SettingsCard title={copyText('الفوترة والخطة', 'Billing and plan')} icon={<CreditCard size={18} />} className="xl:col-span-3">
               <div className="rounded-[18px] border border-[#e8edf7] bg-[#fbfcff] p-4 text-center">
                 <p className="inline-flex rounded-full bg-[#fff7db] px-3 py-1 text-[11px] font-black text-[#a66b00]">NEXUS PRO</p>
                 <h3 className="mt-3 text-lg font-black text-[#071236]">{planLabel}</h3>
@@ -674,7 +661,7 @@ export default function SettingsPage() {
                 <div className="rounded-[16px] border border-[#e8edf7] bg-[#fbfcff] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-[13px] font-black text-[#111b3f]">Meta Ads</p>
+                      <p className="text-[13px] font-black text-[#111b3f]">{copyText('Meta — النشر العضوي', 'Meta — organic publishing')}</p>
                       <p className="mt-1 text-[11px] text-[#7b87a3]">
                         {metaAccount
                           ? copyText(`متصل كـ ${metaAccount.accountName}`, `Connected as ${metaAccount.accountName}`)
@@ -689,7 +676,7 @@ export default function SettingsPage() {
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {metaAccount ? (
-                      <SettingsButton tone="danger" onClick={() => handleDisconnect(metaAccount.id)} loading={disconnecting === metaAccount.id}>
+                      <SettingsButton tone="danger" onClick={() => setDisconnectConfirmId(metaAccount.id)} loading={disconnecting === metaAccount.id}>
                         <Lock className="h-4 w-4" />
                         {copyText('فصل الحساب', 'Disconnect')}
                       </SettingsButton>
@@ -703,12 +690,35 @@ export default function SettingsPage() {
                       {copyText('إدارة كل التكاملات', 'Manage all')}
                     </Link>
                   </div>
+                  {metaAccount && disconnectConfirmId === metaAccount.id ? (
+                    <div className="mt-3 rounded-[14px] border border-rose-100 bg-rose-50/70 p-3">
+                      <p className="text-[12px] font-bold leading-5 text-rose-700">
+                        {copyText(
+                          'سيوقف الفصل استخدام هذا الحساب في النشر العضوي داخل NEXUS. لن يحذف الحساب أو محتواه من Meta.',
+                          'Disconnecting stops NEXUS from using this account for organic publishing. It does not delete the account or its Meta content.',
+                        )}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <SettingsButton onClick={() => setDisconnectConfirmId(null)}>
+                          {copyText('إلغاء', 'Cancel')}
+                        </SettingsButton>
+                        <SettingsButton tone="danger" onClick={() => handleDisconnect(metaAccount.id)} loading={disconnecting === metaAccount.id}>
+                          {copyText('تأكيد الفصل', 'Confirm disconnect')}
+                        </SettingsButton>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="rounded-[16px] border border-[#e8edf7] bg-white p-4">
                   <p className="mb-2 text-[13px] font-black text-[#111b3f]">API Keys</p>
-                  <div className="flex min-w-0 items-center gap-2 rounded-[13px] border border-[#e8edf7] bg-[#fbfcff] px-3 py-2 text-[12px] font-mono text-[#64708f]">
-                    <span className="min-w-0 truncate">nx_••••••••••••••••••••</span>
+                  <div className="flex min-w-0 items-center gap-2 rounded-[13px] border border-[#e8edf7] bg-[#fbfcff] px-3 py-2 text-[12px] text-[#64708f]">
+                    <span className="min-w-0 flex-1">
+                      {copyText('لم يتم إصدار مفتاح مطوّر لمساحة العمل هذه.', 'No developer key has been issued for this workspace.')}
+                    </span>
+                    <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600">
+                      {copyText('غير متاح بعد', 'Not available yet')}
+                    </span>
                     <button
                       type="button"
                       disabled

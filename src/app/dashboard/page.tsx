@@ -1,6 +1,7 @@
 'use client'
 
 import AppShell from '@/components/AppShell'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -14,7 +15,6 @@ import {
   Activity,
   ArrowUpRight,
   BarChart3,
-  Bell,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
@@ -22,9 +22,7 @@ import {
   Clock,
   FileText,
   Megaphone,
-  Plus,
   Radio,
-  Search,
   ShieldCheck,
   Sparkles,
   Target,
@@ -235,7 +233,7 @@ function SoftCard({
 } & React.HTMLAttributes<HTMLElement>) {
   return (
     <section
-      className={`rounded-[20px] border border-slate-200/80 bg-white/90 shadow-[0_14px_42px_rgba(15,23,42,0.055)] ${className}`}
+      className={`nx-os-card ${className}`}
       {...props}
     >
       {children}
@@ -338,8 +336,19 @@ function MiniIcon({
   return <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tones[tone]}`}>{children}</div>
 }
 
+async function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = 12_000) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 export default function DashboardPage() {
-  const { authHeader, user, isAuthenticated, loading: authLoading } = useAuth()
+  const { authHeader, isAuthenticated, loading: authLoading } = useAuth()
   const { locale } = useI18n()
   const ar = locale === 'ar'
   const router = useRouter()
@@ -349,6 +358,7 @@ export default function DashboardPage() {
   const [alerts, setAlerts] = useState<ActivityAlert[]>([])
   const [intelligence, setIntelligence] = useState<MarketingIntelligenceBrief | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [hasConnections, setHasConnections] = useState<boolean | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
@@ -375,7 +385,7 @@ export default function DashboardPage() {
     let cancelled = false
     setWorkspaceGate('checking')
 
-    fetch('/api/workspaces', { headers: { Authorization: token } })
+    fetchWithTimeout('/api/workspaces', { headers: { Authorization: token } }, 10_000)
       .then(r => {
         if (!r.ok) throw new Error('workspace-check-failed')
         return r.json()
@@ -403,15 +413,19 @@ export default function DashboardPage() {
   const load = useCallback(async (silent = false) => {
     const token = authHeader()
     if (!token) return
-    if (!silent) setLoading(true)
+    if (!silent) {
+      setLoading(true)
+      setLoadError(false)
+    }
     try {
       const [statsRes, campaignsRes, intelligenceRes] = await Promise.allSettled([
-        fetch('/api/dashboard/stats', { headers: { Authorization: token } }),
-        fetch('/api/campaigns?limit=5&sort=updatedAt', { headers: { Authorization: token } }),
-        fetch('/api/dashboard/intelligence', { headers: { Authorization: token } }),
+        fetchWithTimeout('/api/dashboard/stats', { headers: { Authorization: token } }),
+        fetchWithTimeout('/api/campaigns?limit=5&sort=updatedAt', { headers: { Authorization: token } }),
+        fetchWithTimeout('/api/dashboard/intelligence', { headers: { Authorization: token } }),
       ])
 
-      if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
+      const statsReady = statsRes.status === 'fulfilled' && statsRes.value.ok
+      if (statsReady) {
         const d = await statsRes.value.json() as DashboardStatsResponse
         setStats({
           campaigns: d.stats?.campaigns?.total ?? 0,
@@ -449,6 +463,7 @@ export default function DashboardPage() {
           campaign: a.campaign || '',
         })))
       }
+      if (!silent) setLoadError(!statsReady)
 
       if (campaignsRes.status === 'fulfilled' && campaignsRes.value.ok) {
         const d = await campaignsRes.value.json() as CampaignsResponse
@@ -470,7 +485,7 @@ export default function DashboardPage() {
     if (workspaceGate !== 'hasWorkspace') return
     const token = authHeader()
     if (!token) return
-    fetch('/api/social/accounts', { headers: { Authorization: token } })
+    fetchWithTimeout('/api/social/accounts', { headers: { Authorization: token } })
       .then(r => r.json())
       .then((d: { accounts?: unknown[] }) => setHasConnections((d.accounts || []).length > 0))
       .catch(() => setHasConnections(false))
@@ -485,7 +500,7 @@ export default function DashboardPage() {
     if (!isAuthenticated || workspaceGate !== 'hasWorkspace') return
     const token = authHeader()
     if (!token) return
-    fetch('/api/brand', { headers: { Authorization: token } })
+    fetchWithTimeout('/api/brand', { headers: { Authorization: token } })
       .then(r => r.ok ? r.json() : null)
       .then((data: BrandResponse | null) => {
         if (!data) return
@@ -501,7 +516,6 @@ export default function DashboardPage() {
     return () => clearInterval(iv)
   }, [load, workspaceGate])
 
-  const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const timeStr = lastUpdated.toLocaleTimeString(ar ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' })
   const topCampaign = campaigns[0]
   const platformConnected = hasConnections === true
@@ -585,55 +599,22 @@ export default function DashboardPage() {
     return <DashboardGateSurface mode="loading" ar={ar} />
   }
 
+  if (loadError) {
+    return <DashboardGateSurface mode="error" ar={ar} onRetry={() => load()} />
+  }
+
   return (
     <AppShell>
-      <div className="min-h-screen bg-[#F4F7FB] text-[#0B1028]">
-        <div className="mx-auto flex w-full max-w-[1620px] flex-col gap-4 px-4 py-4 sm:px-6 lg:px-7">
-          <header dir="ltr" className="flex flex-col gap-4 border-b border-slate-200/80 pb-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#101A4D] text-white shadow-[0_16px_34px_rgba(16,26,77,0.20)]">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <div dir={ar ? 'rtl' : 'ltr'}>
-                <p className="text-[12px] font-semibold text-slate-500">{ar ? 'مساحة العمل' : 'Workspace'}</p>
-                <h1 className="text-[18px] font-black tracking-normal text-[#0B1028]">
-                  {ar ? 'نظام التسويق الذكي' : 'AI Marketing OS'}
-                </h1>
-              </div>
-              <Link href="/settings" aria-label={ar ? 'إعدادات مساحة العمل' : 'Workspace settings'} className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 md:flex">
-                <ChevronDown className="h-4 w-4" />
-              </Link>
-            </div>
-
-            <div className="flex flex-1 flex-col gap-3 lg:max-w-3xl lg:flex-row lg:items-center lg:justify-end">
-              <div className="flex h-11 min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-slate-400 lg:w-[360px]">
-                <Search className="h-4 w-4 shrink-0" />
-                <span className="truncate text-[13px]" dir={ar ? 'rtl' : 'ltr'}>{ar ? 'ابحث في Nexus...' : 'Search in Nexus...'}</span>
-                <span className="ms-auto rounded-lg border border-slate-200 px-2 py-0.5 text-[11px] text-slate-400">⌘K</span>
-              </div>
-              <Link href="/strategy" className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#101A4D] px-4 text-[13px] font-bold text-white shadow-[0_16px_34px_rgba(16,26,77,0.18)]">
-                <Plus className="h-4 w-4" />
-                {ar ? 'عمل جديد' : 'New work'}
-              </Link>
-              <Link href="/brand" className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-[#5E63FF]">
-                <Sparkles className="h-4 w-4" />
-              </Link>
-              <Link href="/analytics" className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500">
-                <Bell className="h-4 w-4" />
-              </Link>
-              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2" dir={ar ? 'rtl' : 'ltr'}>
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#EEF2FF] text-[13px] font-black text-[#5E63FF]">
-                  {(displayName || 'N').charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] font-bold text-[#0B1028]">
-                    {displayName ? (ar ? `مرحباً ${displayName}` : `Hi, ${displayName}`) : (ar ? 'مرحباً' : 'Welcome')}
-                  </p>
-                  <p className="truncate text-[11px] text-slate-500">{ar ? 'مدير النمو' : 'Growth operator'}</p>
-                </div>
-              </div>
-            </div>
-          </header>
+      <div className="nx-os-page">
+        <div className="nx-os-container nx-os-stack">
+          <LuxuryWorkspaceHeader
+            pageTitle={ar ? 'نظام التسويق الذكي' : 'AI Marketing OS'}
+            pageSubtitle={ar ? 'قرارات واضحة مبنية على سياق العلامة وسجلات التشغيل الحقيقية.' : 'Clear decisions grounded in brand context and real operating records.'}
+            primaryHref="/strategy"
+            primaryLabel={ar ? 'عمل جديد' : 'New work'}
+            secondaryHref="/brand"
+            secondaryLabel={ar ? 'ذكاء العلامة' : 'Brand intelligence'}
+          />
 
           <SoftCard className="relative overflow-hidden p-4">
             <Link
@@ -696,7 +677,6 @@ export default function DashboardPage() {
           </SoftCard>
 
           <StrategySpineCard
-            current="strategy"
             nextHref={campaigns[0] ? `/campaigns/${campaigns[0].id}?tab=strategy` : '/strategy'}
             nextLabel={ar ? 'افتح القرار التالي' : 'Open next decision'}
             title={ar ? 'الداشبورد يقرأ حالة النظام من مسار الاستراتيجية' : 'Dashboard reads the system through the strategy path'}
@@ -836,9 +816,9 @@ export default function DashboardPage() {
               </div>
               <div className="space-y-3">
                 {[
-                  { title: ar ? 'حزم المنشورات' : 'Post packages', meta: ar ? `${contentCount} سجل محفوظ في Content Hub` : `${contentCount} records saved in Content Hub`, tone: 'bg-[#EEF2FF] text-[#5E63FF]' },
-                  { title: ar ? 'جاهزية الربط' : 'Connection readiness', meta: platformConnected ? (ar ? 'يوجد حساب متصل واحد على الأقل' : 'At least one account is connected') : (ar ? 'لا توجد حسابات متصلة' : 'No connected accounts'), tone: 'bg-amber-50 text-amber-600' },
-                  { title: ar ? 'دليل الأداء' : 'Performance evidence', meta: postsWithAnalytics > 0 ? (ar ? `${postsWithAnalytics} منشور بتحليلات حقيقية` : `${postsWithAnalytics} posts with real analytics`) : (ar ? 'بانتظار تحليلات حقيقية' : 'Waiting for real analytics'), tone: 'bg-slate-100 text-slate-500' },
+                  { title: ar ? 'حزم المنشورات' : 'Post packages', meta: ar ? `${contentCount} سجل محفوظ في Content Hub` : `${contentCount} records saved in Content Hub`, tone: 'bg-[#EEF2FF] text-[#5E63FF]', state: contentCount > 0 ? (ar ? 'سجل موثق' : 'Verified record') : (ar ? 'لا توجد سجلات' : 'No records'), stateTone: contentCount > 0 ? 'text-emerald-700' : 'text-slate-500' },
+                  { title: ar ? 'جاهزية الربط' : 'Connection readiness', meta: platformConnected ? (ar ? 'يوجد حساب متصل واحد على الأقل' : 'At least one account is connected') : (ar ? 'لا توجد حسابات متصلة' : 'No connected accounts'), tone: 'bg-amber-50 text-amber-600', state: platformConnected ? (ar ? 'موثق' : 'Verified') : (ar ? 'مفقود' : 'Missing'), stateTone: platformConnected ? 'text-emerald-700' : 'text-amber-700' },
+                  { title: ar ? 'دليل الأداء' : 'Performance evidence', meta: postsWithAnalytics > 0 ? (ar ? `${postsWithAnalytics} منشور بتحليلات حقيقية` : `${postsWithAnalytics} posts with real analytics`) : (ar ? 'بانتظار تحليلات حقيقية' : 'Waiting for real analytics'), tone: 'bg-slate-100 text-slate-500', state: postsWithAnalytics > 0 ? (ar ? 'موثق' : 'Verified') : (ar ? 'بانتظار البيانات' : 'Waiting for data'), stateTone: postsWithAnalytics > 0 ? 'text-emerald-700' : 'text-slate-500' },
                 ].map(item => (
                   <div key={item.title} className="grid grid-cols-[42px_1fr_auto] items-center gap-3 rounded-2xl bg-slate-50 px-3 py-3">
                     <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${item.tone}`}>
@@ -848,7 +828,7 @@ export default function DashboardPage() {
                       <p className="truncate text-[13px] font-black text-[#0B1028]">{item.title}</p>
                       <p className="truncate text-[11px] text-slate-500">{item.meta}</p>
                     </div>
-                    <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-[#5E63FF]">{ar ? 'دليل' : 'Evidence'}</span>
+                    <span className={`rounded-full bg-white px-2.5 py-1 text-[11px] font-bold ${item.stateTone}`}>{item.state}</span>
                   </div>
                 ))}
               </div>

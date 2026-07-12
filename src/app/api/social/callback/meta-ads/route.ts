@@ -23,6 +23,7 @@ import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { encryptToken } from '@/lib/tokenCrypto'
 
+export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

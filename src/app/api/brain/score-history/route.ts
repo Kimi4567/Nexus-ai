@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 
+export const dynamic = 'force-dynamic'
+
 const db = prisma as any // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export async function GET(req: NextRequest) {

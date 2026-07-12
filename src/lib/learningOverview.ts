@@ -1,3 +1,5 @@
+import { inspectBrainSignalProvenance } from '@/lib/brainSignalProvenance'
+
 export interface LearningSignalRecord {
   id: string
   trigger?: string | null
@@ -48,6 +50,9 @@ export function summarizeLearningEvidence({
   const dismissed = signals.filter(signal => signal.status === 'dismissed')
   const analyticsBacked = accepted.filter(signal => signal.trigger === 'post_performance' && hasPerformanceEvidence)
   const reviewedSignals = accepted.filter(signal => signal.trigger !== 'post_performance')
+  const untraceableExternalSignals = signals.filter(signal => (
+    inspectBrainSignalProvenance(signal).traceability === 'source_not_attached'
+  ))
 
   const stage = analyticsBacked.length > 0
     ? 'analytics_backed'
@@ -58,18 +63,25 @@ export function summarizeLearningEvidence({
   const recentSignals = [...signals]
     .sort((a, b) => timestamp(b.updatedAt ?? b.createdAt) - timestamp(a.updatedAt ?? a.createdAt))
     .slice(0, 8)
-    .map(signal => ({
-      id: signal.id,
-      status: signal.status || 'unknown',
-      source: signal.trigger === 'post_performance' && hasPerformanceEvidence
-        ? 'analytics'
-        : 'review_signal',
-      field: signal.field || '',
-      displayName: signal.displayName || '',
-      reason: signal.reason || '',
-      campaignId: signal.campaignId || null,
-      at: iso(signal.updatedAt ?? signal.createdAt),
-    }))
+    .map(signal => {
+      const provenance = inspectBrainSignalProvenance(signal)
+      return {
+        id: signal.id,
+        status: signal.status || 'unknown',
+        source: signal.trigger === 'post_performance' && hasPerformanceEvidence
+          ? 'analytics'
+          : 'review_signal',
+        trigger: signal.trigger || null,
+        field: signal.field || '',
+        displayName: signal.displayName || '',
+        reason: provenance.displayReason,
+        traceability: provenance.traceability,
+        sourceRefs: provenance.sourceRefs,
+        canAccept: provenance.canAccept,
+        campaignId: signal.campaignId || null,
+        at: iso(signal.updatedAt ?? signal.createdAt),
+      }
+    })
 
   const recentWorkflowSignals = [...workflow]
     .sort((a, b) => timestamp(b.createdAt) - timestamp(a.createdAt))
@@ -92,6 +104,7 @@ export function summarizeLearningEvidence({
       analyticsBackedLessons: analyticsBacked.length,
       workflowSignals: workflow.length,
       performanceEvidenceRows: Math.max(0, performanceEvidenceRows),
+      untraceableExternalSignals: untraceableExternalSignals.length,
     },
     recentSignals,
     recentWorkflowSignals,

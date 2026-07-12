@@ -31,9 +31,9 @@ export default function LuxuryWorkspaceHeader({
 
   return (
     <>
-      <header dir={ar ? 'rtl' : 'ltr'} className="mb-4 flex items-center justify-between gap-3 border-b border-slate-200/80 pb-3 md:hidden">
+      <header dir={ar ? 'rtl' : 'ltr'} className="nx-os-rule mb-4 flex items-center justify-between gap-3 border-b pb-3 md:hidden">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#101A4D] text-white shadow-[0_12px_26px_rgba(16,26,77,0.16)]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#101A4D] text-white shadow-[0_10px_24px_rgba(16,26,77,0.14)]">
             <Sparkles className="h-4 w-4" />
           </span>
           <div className="min-w-0">
@@ -47,15 +47,15 @@ export default function LuxuryWorkspaceHeader({
           href={primaryHref}
           aria-label={resolvedPrimaryLabel}
           title={resolvedPrimaryLabel}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#101A4D] text-white shadow-[0_12px_26px_rgba(16,26,77,0.16)]"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#101A4D] text-white shadow-[0_10px_24px_rgba(16,26,77,0.14)]"
         >
           <Plus className="h-4 w-4" />
         </Link>
       </header>
 
-      <header dir="ltr" className="mb-5 hidden gap-4 border-b border-slate-200/80 pb-4 md:flex md:flex-col min-[1400px]:flex-row min-[1400px]:items-center min-[1400px]:justify-between">
+      <header dir="ltr" className="nx-os-workspace-header nx-os-rule mb-5 hidden gap-4 border-b pb-4 md:flex md:flex-col min-[1400px]:flex-row min-[1400px]:items-center min-[1400px]:justify-between">
       <div className="flex min-w-0 items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#101A4D] text-white shadow-[0_16px_34px_rgba(16,26,77,0.20)]">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#101A4D] text-white shadow-[0_12px_28px_rgba(16,26,77,0.16)]">
           <Sparkles className="h-5 w-5" />
         </div>
         <div className="min-w-0" dir={ar ? 'rtl' : 'ltr'}>
@@ -68,30 +68,30 @@ export default function LuxuryWorkspaceHeader({
         <Link
           href="/settings"
           aria-label={ar ? 'إعدادات مساحة العمل' : 'Workspace settings'}
-          className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 md:flex"
+          className="hidden h-10 w-10 items-center justify-center rounded-[10px] border border-slate-200 bg-white text-slate-500 md:flex"
         >
           <ChevronDown className="h-4 w-4" />
         </Link>
       </div>
 
       <div className="flex w-full flex-1 flex-col gap-3 min-[1400px]:max-w-3xl min-[1400px]:flex-row min-[1400px]:items-center min-[1400px]:justify-end">
-        <div className="flex h-11 min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-slate-400 min-[1400px]:w-[360px]">
+        <div className="flex h-10 min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-slate-400 min-[1400px]:w-[340px]">
           <Search className="h-4 w-4 shrink-0" />
           <span className="truncate text-[13px]" dir={ar ? 'rtl' : 'ltr'}>{ar ? 'ابحث في Nexus...' : 'Search in Nexus...'}</span>
           <span className="ms-auto rounded-lg border border-slate-200 px-2 py-0.5 text-[11px] text-slate-400">⌘K</span>
         </div>
-        <Link href={primaryHref} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#101A4D] px-4 text-[13px] font-bold text-white shadow-[0_16px_34px_rgba(16,26,77,0.18)]">
+        <Link href={primaryHref} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#101A4D] px-4 text-[12px] font-bold text-white shadow-[0_12px_28px_rgba(16,26,77,0.16)]">
           <Plus className="h-4 w-4" />
           {resolvedPrimaryLabel}
         </Link>
-        <Link href={secondaryHref} aria-label={resolvedSecondaryLabel} className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-[#5E63FF]">
+        <Link href={secondaryHref} aria-label={resolvedSecondaryLabel} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-[#5E63FF]">
           <Sparkles className="h-4 w-4" />
         </Link>
-        <Link href="/analytics" aria-label={ar ? 'التنبيهات والتحليلات' : 'Notifications and analytics'} className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500">
+        <Link href="/analytics" aria-label={ar ? 'التنبيهات والتحليلات' : 'Notifications and analytics'} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500">
           <Bell className="h-4 w-4" />
         </Link>
-        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2" dir={ar ? 'rtl' : 'ltr'}>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#EEF2FF] text-[13px] font-black text-[#5E63FF]">
+        <div className="flex min-h-10 items-center gap-3 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5" dir={ar ? 'rtl' : 'ltr'}>
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#EEF2FF] text-[12px] font-black text-[#5E63FF]">
             {(displayName || 'N').charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">

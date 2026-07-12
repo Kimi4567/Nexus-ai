@@ -7,7 +7,7 @@ import { useI18n } from '@/lib/i18n-context'
 type SpineStep = 'brand' | 'strategy' | 'content' | 'creative' | 'publish' | 'performance'
 
 interface StrategySpineCardProps {
-  current: SpineStep
+  current?: SpineStep
   title?: string
   body?: string
   nextHref?: string
@@ -46,7 +46,7 @@ export default function StrategySpineCard({
   return (
     <section
       dir={ar ? 'rtl' : 'ltr'}
-      className={`rounded-[24px] border border-[#dfe6f5] bg-white/92 p-4 shadow-[0_18px_52px_rgba(13,24,63,0.055)] ${className}`}
+      className={`nx-os-panel bg-white/92 p-4 ${className}`}
     >
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0">

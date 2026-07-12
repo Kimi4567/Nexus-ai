@@ -27,12 +27,20 @@ const CAMPAIGN_SRC = readFileSync(
 )
 
 describe('Content Hub operating-state copy', () => {
-  it('does not call generation-only overview progress complete', () => {
+  it('classifies overview media from the saved source without calling it complete', () => {
     expect(OVERVIEW_SRC).not.toContain(`'${completeWord}'`)
     expect(OVERVIEW_SRC).not.toContain(`"${completeWord}"`)
     expect(OVERVIEW_SRC).not.toContain(`\`${completeWord}\``)
-    expect(OVERVIEW_SRC).toMatch(/Media generated/)
-    expect(OVERVIEW_SRC).toMatch(/media generated/)
+    expect(OVERVIEW_SRC).toMatch(/Generated review background/)
+    expect(OVERVIEW_SRC).toMatch(/Attached uploaded asset/)
+    expect(OVERVIEW_SRC).toMatch(/No media attached/)
+    expect(OVERVIEW_SRC).toMatch(/publishing is a separate state/)
+  })
+
+  it('does not invent generic CTA choices outside campaign and post evidence', () => {
+    expect(OVERVIEW_SRC).toContain('CTA is reviewed per post')
+    expect(OVERVIEW_SRC).toContain('NEXUS does not assume a generic CTA here')
+    expect(OVERVIEW_SRC).not.toContain("['Shop now', 'Explore collection', 'Book a consultation']")
   })
 
   it('does not use generic ready copy for generationStatus DONE', () => {

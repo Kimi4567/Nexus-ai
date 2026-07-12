@@ -15,8 +15,15 @@
  *   - source 'post_performance' ONLY when trigger === 'post_performance'
  *   - Raw `field`, `proposed` JSON, and trigger enums are NEVER exposed; we return
  *     i18n KEYS + a human field label so the UI renders EN/AR plain-business copy.
+ *   - External market-intelligence proposals require stored source URLs before acceptance.
  *   - Zero rows → zero items (the UI then shows an honest empty state).
  */
+
+import {
+  inspectBrainSignalProvenance,
+  type BrainSignalSourceRef,
+  type BrainSignalTraceability,
+} from '@/lib/brainSignalProvenance'
 
 export type TimelineStatus = 'suggested' | 'applied' | 'dismissed'
 
@@ -42,6 +49,9 @@ export interface RawLearning {
   campaignId?: string | null
   createdAt?: string | null
   updatedAt?: string | null
+  traceability?: BrainSignalTraceability
+  sourceRefs?: BrainSignalSourceRef[]
+  canAccept?: boolean
 }
 
 export interface TimelineItem {
@@ -66,6 +76,10 @@ export interface TimelineItem {
   at: string | null
   /** true only for suggested items → enables Accept / Dismiss */
   canAccept: boolean
+  /** true for any pending item, including an untraceable item that may only be dismissed */
+  canDismiss: boolean
+  traceability: BrainSignalTraceability
+  sourceRefs: BrainSignalSourceRef[]
   /** true only when a real campaignId exists → enables "View related campaign" */
   canViewCampaign: boolean
 }
@@ -138,6 +152,12 @@ function toItem(raw: RawLearning): TimelineItem | null {
 
   const source = mapSource(raw.trigger)
   const campaignId = typeof raw.campaignId === 'string' && raw.campaignId.length > 0 ? raw.campaignId : null
+  const provenance = inspectBrainSignalProvenance({
+    trigger: raw.trigger,
+    reason: raw.reason,
+    campaignId,
+    sourceRefs: raw.sourceRefs,
+  })
   // history items carry updatedAt; pending items carry createdAt
   const at = (status === 'suggested' ? raw.createdAt : raw.updatedAt) || raw.updatedAt || raw.createdAt || null
 
@@ -149,11 +169,14 @@ function toItem(raw: RawLearning): TimelineItem | null {
     sourceKey: source === 'unknown' ? null : `${B}.source.${source}`,
     field: raw.field || '',
     displayName: raw.displayName || '',
-    reason: raw.reason || '',
+    reason: provenance.displayReason,
     icon: raw.icon ?? null,
     campaignId,
     at,
-    canAccept: status === 'suggested',
+    canAccept: status === 'suggested' && provenance.canAccept,
+    canDismiss: status === 'suggested',
+    traceability: provenance.traceability,
+    sourceRefs: provenance.sourceRefs,
     canViewCampaign: campaignId !== null,
   }
 }

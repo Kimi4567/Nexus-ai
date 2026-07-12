@@ -116,7 +116,7 @@ function StudioCard({
   action?: React.ReactNode
 }) {
   return (
-    <section id={id} className={`rounded-[22px] border border-[#e5eaf5] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)] ${className}`}>
+    <section id={id} className={`nx-os-card p-5 ${className}`}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-[15px] font-bold text-[#111b3f]">
           {icon ? <span className="text-[#4f46e5]">{icon}</span> : null}
@@ -155,15 +155,15 @@ function PlatformRow({
   missingLabel: string
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-[14px] border border-[#edf1f8] bg-[#fbfcff] px-3 py-2.5">
-      <div className="flex items-center gap-3">
-        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white shadow-sm">{icon}</span>
-        <span>
-          <span className="block text-[13px] font-bold text-[#14204a]">{name}</span>
+    <div className="rounded-[14px] border border-[#edf1f8] bg-[#fbfcff] px-3 py-2.5">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">{icon}</span>
+        <span className="min-w-0">
+          <span className="block truncate text-[12px] font-bold text-[#14204a]">{name}</span>
           <span className="block text-[11px] text-[#7b87a3]">{spec}</span>
         </span>
       </div>
-      <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${ready ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+      <span className={`mt-2 block w-full rounded-full px-2 py-1 text-center text-[10px] font-bold ${ready ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
         {ready ? readyLabel : missingLabel}
       </span>
     </div>
@@ -180,7 +180,7 @@ export default function StudioPage() {
   const [visualStyle, setVisualStyle] = useState<VisualStyle>('premium')
   const [ratio, setRatio] = useState<CreativeRatio>('4:5')
   const [activeThumb, setActiveThumb] = useState(0)
-  const [activeSection, setActiveSection] = useState('studio-assets')
+  const [activeSection, setActiveSection] = useState('studio-overview')
   const [selectedCopyVariant, setSelectedCopyVariant] = useState(0)
   const [selectedCta, setSelectedCta] = useState(0)
 
@@ -218,7 +218,6 @@ export default function StudioPage() {
   const ar = locale === 'ar'
   const copy = (arabic: string, english: string) => (ar ? arabic : english)
   const brandName = brand?.brandName || copy('علامتك التجارية', 'Your brand')
-  const workspaceName = brand?.brandName || copy('نمي أعمال', 'Growth Workspace')
   const campaignName = campaign?.name || copy('لا توجد حملة محددة', 'No campaign selected')
   const campaignHref = campaign ? `/campaigns/${campaign.id}?tab=creative` : '/campaigns'
   const campaignGoal = campaign?.goal || brand?.businessGoal || copy('لم يُحدد بعد في الاستراتيجية', 'Not set in Strategy yet')
@@ -295,8 +294,8 @@ export default function StudioPage() {
 
   return (
     <AppShell>
-      <main dir={dir} className="min-h-screen bg-[#f6f8fc] text-[#111b3f]">
-        <div className="mx-auto max-w-[1540px] px-6 py-7 lg:px-8">
+      <main dir={dir} className="nx-os-page">
+        <div className="nx-os-container">
           <LuxuryWorkspaceHeader
             pageTitle={copy('استوديو الإبداع', 'Creative Studio')}
             pageSubtitle={copy('تحويل الاستراتيجية والأصول إلى اتجاهات إبداعية قابلة للمراجعة.', 'Turn strategy and assets into reviewable creative directions.')}
@@ -318,32 +317,7 @@ export default function StudioPage() {
             className="mb-5"
           />
 
-          <header id="studio-overview" className="mb-7 scroll-mt-6 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#071236] text-white shadow-[0_14px_28px_rgba(13,24,63,0.2)]">
-                <Sparkles size={22} />
-              </div>
-              <div>
-                <p className="text-[12px] font-semibold text-[#6c7897]">{workspaceName}</p>
-                <h1 className="mt-1 flex items-center gap-2 text-[28px] font-black tracking-[-0.02em] text-[#071236]">
-                  {copy('استوديو الإبداع', 'Creative Studio')}
-                  <Sparkles className="text-[#4f46e5]" size={24} />
-                </h1>
-                <p className="mt-1 text-sm text-[#60708f]">
-                  {copy('مساحة تخطيط ومعاينة إبداعية فقط. التوليد أو الإرفاق النهائي يتم لاحقاً عبر مسار واضح ومؤكد.', 'A planning and preview surface only. Final generation or attachment happens later through an explicit confirmed flow.')}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <StudioButton href="/content-hub">
-                <Eye size={17} />
-                {copy('معاينة المنشورات', 'Preview posts')}
-              </StudioButton>
-            </div>
-          </header>
-
-          <nav className="mb-5 flex overflow-x-auto rounded-[18px] border border-[#e1e8f4] bg-white px-2 shadow-sm">
+          <nav id="studio-overview" className="nx-os-card mb-5 flex scroll-mt-6 overflow-x-auto px-2">
             {[
               { id: 'studio-overview', label: copy('نظرة عامة', 'Overview') },
               { id: 'studio-brief', label: copy('الموجز', 'Brief') },
@@ -367,7 +341,7 @@ export default function StudioPage() {
             ))}
           </nav>
 
-          <div className="grid grid-cols-12 gap-5">
+          <div className="grid grid-cols-12 items-start gap-5">
             <StudioCard
               id="studio-brief"
               title={copy('موجز الإبداع', 'Creative brief')}
@@ -378,7 +352,7 @@ export default function StudioPage() {
                 <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700">
                   {campaign ? copy('أحدث حملة محفوظة', 'Latest saved campaign') : copy('السياق غير مكتمل', 'Context incomplete')}
                 </span>
-                <Link href={campaignHref} className="text-[12px] font-semibold text-[#4f46e5] hover:underline">
+                <Link href={campaignHref} dir="auto" className="text-[12px] font-semibold text-[#4f46e5] hover:underline">
                   {campaignLoading || brandLoading ? copy('جارٍ التحميل...', 'Loading...') : campaignName}
                 </Link>
               </div>
@@ -391,7 +365,7 @@ export default function StudioPage() {
                 ].map(([label, value]) => (
                   <div key={label}>
                     <p className="font-bold text-[#111b3f]">{label}</p>
-                    <p className="mt-1 text-[#6a7692]">{value}</p>
+                    <p className="mt-1 line-clamp-4 text-[#6a7692]" title={value}>{value}</p>
                   </div>
                 ))}
               </div>
@@ -429,10 +403,10 @@ export default function StudioPage() {
                     <span className="rounded-full bg-white/16 px-3 py-1.5 backdrop-blur">{ratio}</span>
                     <span className="rounded-full bg-white/16 px-3 py-1.5 backdrop-blur">{copy(styleLabels[visualStyle].ar, styleLabels[visualStyle].en)}</span>
                   </div>
-                  <p className="text-[38px] font-black leading-tight tracking-[-0.03em]">
+                  <p className="line-clamp-2 break-words text-[34px] font-black leading-tight tracking-[-0.03em]">
                     {copyVariants[selectedCopyVariant]}
                   </p>
-                  <p className="mt-3 text-sm leading-6 text-white/86">
+                  <p className="mt-3 line-clamp-3 max-w-[300px] text-[13px] leading-6 text-white/86">
                     {brand?.description || copy('معاينة تركيب بصري مبنية على السياق المحفوظ. النص النهائي والصورة النهائية غير مُعتمدين.', 'A composition preview based on saved context. Final copy and final imagery are not approved.')}
                   </p>
                   <span className="mt-6 inline-flex rounded-xl bg-[#071236] px-6 py-3 text-sm font-bold text-white shadow-xl">
@@ -600,7 +574,7 @@ export default function StudioPage() {
                       selectedCopyVariant === index ? 'border-[#635bff] bg-[#f6f4ff]' : 'border-[#e5eaf5] bg-white'
                     }`}
                   >
-                    <span className="block text-sm font-bold text-[#111b3f]">{variant}</span>
+                    <span className="line-clamp-4 block text-sm font-bold text-[#111b3f]" title={variant}>{variant}</span>
                     <span className="mt-1 block text-[11px] text-[#7b87a3]">
                       {index === 0
                         ? copy('اسم العلامة المحفوظ؛ ليس عنوان إعلان نهائياً.', 'Saved brand name; not a final ad headline.')
@@ -679,7 +653,7 @@ export default function StudioPage() {
               </div>
             </StudioCard>
 
-            <aside className="col-span-12 flex items-center justify-between rounded-[22px] border border-[#dce4f5] bg-[#071236] p-5 text-white shadow-[0_18px_44px_rgba(7,18,54,0.22)] xl:col-span-2 xl:flex-col xl:items-start">
+            <aside className="col-span-12 flex items-center justify-between rounded-[14px] border border-[#dce4f5] bg-[#071236] p-5 text-white shadow-[0_18px_44px_rgba(7,18,54,0.22)] xl:col-span-2 xl:flex-col xl:items-start">
               <div>
                 <p className="text-lg font-black">Nexus {copy('مساعد', 'Assistant')}</p>
                 <p className="mt-1 text-sm text-white/72">{copy('جاهز لمساعدتك في الإبداع.', 'Ready to help with creative work.')}</p>

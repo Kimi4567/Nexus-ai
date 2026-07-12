@@ -182,7 +182,31 @@ function Row({
             <p className="mt-1.5 text-sm text-[var(--nx-text-2)] leading-relaxed">{item.reason}</p>
           )}
 
-          {(item.canAccept || item.canViewCampaign) && (
+          {item.traceability === 'source_not_attached' && (
+            <p className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold leading-relaxed text-amber-800">
+              {locale === 'ar'
+                ? 'تم حجب الادعاء الخارجي لأن رابط المصدر غير مرفق. يمكن رفض الإشارة، ولا يمكن تطبيقها.'
+                : 'The external claim is withheld because its source URL is missing. It may be dismissed but cannot be applied.'}
+            </p>
+          )}
+
+          {item.sourceRefs.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {item.sourceRefs.slice(0, 3).map((source, index) => (
+                <a
+                  key={`${source.url}-${index}`}
+                  href={source.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full border border-[var(--nx-border)] px-2 py-1 text-[11px] font-semibold text-accent"
+                >
+                  {source.publisher || source.title || (locale === 'ar' ? `المصدر ${index + 1}` : `Source ${index + 1}`)}
+                </a>
+              ))}
+            </div>
+          )}
+
+          {(item.canAccept || item.canDismiss || item.canViewCampaign) && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {item.canAccept && (
                 <>
@@ -193,14 +217,16 @@ function Row({
                   >
                     {acting ? tt('brain.timeline.applying') : tt('brain.timeline.accept')}
                   </button>
-                  <button
-                    disabled={acting}
-                    onClick={onDismiss}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[var(--nx-border)] text-[var(--nx-text-2)] hover:border-[var(--nx-border-hi)] transition-colors disabled:opacity-50"
-                  >
-                    {tt('brain.timeline.dismiss')}
-                  </button>
                 </>
+              )}
+              {item.canDismiss && (
+                <button
+                  disabled={acting}
+                  onClick={onDismiss}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[var(--nx-border)] text-[var(--nx-text-2)] hover:border-[var(--nx-border-hi)] transition-colors disabled:opacity-50"
+                >
+                  {tt('brain.timeline.dismiss')}
+                </button>
               )}
               {item.canViewCampaign && onViewCampaign && (
                 <button

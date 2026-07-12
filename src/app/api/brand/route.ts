@@ -155,10 +155,11 @@ export async function POST(req: NextRequest) {
         create: { workspaceId: workspace.id, ...profileData },
       })
     } catch (upsertError) {
-      console.error('BrandProfile upsert error (table may not exist yet):', upsertError)
-      // Return success with the data we have — table will be created on next prisma push
-      const maturity = calculateBrandMaturity(profileData)
-      return NextResponse.json({ brandProfile: profileData, maturity, success: true, pending: true })
+      console.error('BrandProfile upsert error:', upsertError)
+      return NextResponse.json(
+        { error: 'Brand Brain could not be saved. No success state was recorded.' },
+        { status: 500 },
+      )
     }
 
     const maturity = await snapshotBrandMaturity(db, workspace.id)

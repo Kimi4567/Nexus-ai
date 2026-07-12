@@ -58,7 +58,7 @@ function ReadinessCard({
   }[tone]
 
   return (
-    <div className="rounded-[22px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)]">
+    <div className="nx-os-card p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-[12px] font-bold text-[#64708f]">{title}</p>
@@ -83,7 +83,7 @@ function FlowStep({
   status: string
 }) {
   return (
-    <div className="rounded-[20px] border border-[#e6ebf6] bg-[#fbfcff] p-4">
+    <div className="nx-os-card bg-[#fbfcff] p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <span className="grid h-10 w-10 place-items-center rounded-[15px] bg-white text-[#5366f6] shadow-sm">{icon}</span>
         <span className="rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700">{status}</span>
@@ -181,8 +181,8 @@ export default function AutomationPage() {
 
   return (
     <AppShell>
-      <main dir={dir} className="min-h-screen bg-[#f6f8fc] px-4 py-6 text-[#071236] sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-[1540px] space-y-6">
+      <main dir={dir} className="nx-os-page">
+        <div className="nx-os-container nx-os-stack">
           <LuxuryWorkspaceHeader
             pageTitle={copy('الأتمتة', 'Automation')}
             pageSubtitle={copy('جاهزية Autopilot ومسارات التشغيل بدون تفعيل تلقائي.', 'Autopilot readiness and automation paths without automatic activation.')}
@@ -193,7 +193,6 @@ export default function AutomationPage() {
           />
 
           <StrategySpineCard
-            current="publish"
             nextHref="/publish"
             nextLabel={copy('راجع جاهزية النشر', 'Review publishing readiness')}
             title={copy('الأتمتة تأتي بعد الاستراتيجية والجاهزية، وليست اختصاراً للتنفيذ', 'Automation comes after strategy and readiness, not as an execution shortcut')}
@@ -203,7 +202,7 @@ export default function AutomationPage() {
             )}
           />
 
-          <section className="relative overflow-hidden rounded-[30px] border border-[#e3e8f3] bg-white p-6 shadow-[0_24px_70px_rgba(13,24,63,0.07)] lg:p-8">
+          <section className="nx-os-panel relative overflow-hidden p-6 lg:p-8">
             <div
               className="absolute inset-y-0 start-0 w-1/2 opacity-70"
               style={{
@@ -227,7 +226,7 @@ export default function AutomationPage() {
                   )}
                 </p>
               </div>
-              <div className="rounded-[24px] border border-[#e6ebf6] bg-[#fbfcff] p-5">
+              <div className="nx-os-card bg-[#fbfcff] p-5">
                 <div className="mb-4 flex items-center gap-3">
                   <span className="grid h-12 w-12 place-items-center rounded-[18px] bg-[#071236] text-white">
                     <Workflow size={20} />
@@ -283,7 +282,7 @@ export default function AutomationPage() {
           </section>
 
           <section className="grid gap-5 xl:grid-cols-[1fr_380px]">
-            <div className="rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)]">
+            <div className="nx-os-card p-5">
               <div className="mb-5 flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-[18px] font-black text-[#071236]">{copy('منشئ مسار الأتمتة', 'Automation path builder')}</h2>
@@ -309,7 +308,7 @@ export default function AutomationPage() {
             </div>
 
             <aside className="space-y-5">
-              <div className="rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)]">
+              <div className="nx-os-card p-5">
                 <h2 className="text-[16px] font-black text-[#071236]">{copy('قواعد الأمان', 'Safety rules')}</h2>
                 <div className="mt-4 space-y-3">
                   {[
@@ -326,7 +325,7 @@ export default function AutomationPage() {
                 </div>
               </div>
 
-              <div className="rounded-[26px] border border-violet-100 bg-violet-50/70 p-5">
+              <div className="nx-os-card border-violet-100 bg-violet-50/70 p-5">
                 <div className="flex items-center gap-3">
                   <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-violet-600">
                     <GitBranch size={19} />
@@ -348,7 +347,7 @@ export default function AutomationPage() {
                 </div>
               </div>
 
-              <div className="rounded-[22px] border border-[#e3e8f3] bg-white p-4 text-[12px] font-semibold leading-6 text-[#7b87a3]">
+              <div className="nx-os-card p-4 text-[12px] font-semibold leading-6 text-[#7b87a3]">
                 <Clock3 className="mb-2 h-4 w-4 text-[#5366f6]" />
                 {copy(
                   'هذه الصفحة لا تعرض أرقام أداء وهمية. أي حالة أداء أو تعلم تظهر فقط بعد بيانات منصة حقيقية.',

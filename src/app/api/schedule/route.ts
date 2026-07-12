@@ -60,6 +60,14 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const scheduledDate = new Date(scheduledAt)
+    if (!Number.isFinite(scheduledDate.getTime()) || scheduledDate.getTime() <= Date.now()) {
+      return NextResponse.json(
+        { error: 'A valid future schedule time is required' },
+        { status: 400 }
+      )
+    }
+
     const workspace = await prisma.workspace.findFirst({ where: { ownerId: user.id } })
     if (!workspace) return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
 
@@ -79,7 +87,7 @@ export async function POST(req: NextRequest) {
         caption,
         imageUrl: imageUrl || null,
         status: 'SCHEDULED',
-        scheduledAt: new Date(scheduledAt),
+        scheduledAt: scheduledDate,
       },
     })
 
@@ -103,9 +111,32 @@ export async function DELETE(req: NextRequest) {
     const workspace = await prisma.workspace.findFirst({ where: { ownerId: user.id } })
     if (!workspace) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    await prisma.socialPost.deleteMany({
+    const post = await prisma.socialPost.findFirst({
       where: { id: postId, workspaceId: workspace.id },
+      select: { id: true, status: true },
     })
+    if (!post) return NextResponse.json({ error: 'Scheduled record not found' }, { status: 404 })
+
+    if (post.status !== 'SCHEDULED' && post.status !== 'FAILED') {
+      return NextResponse.json({
+        error: 'Published posts and review records are retained as immutable history. Only scheduled or failed records can be removed here.',
+        mode: 'history_retained',
+      }, { status: 409 })
+    }
+
+    const expectedConfirmation = post.status === 'FAILED'
+      ? 'dismiss_failed_record'
+      : 'cancel_scheduled_post'
+    if (req.headers.get('x-nexus-confirm-operation') !== expectedConfirmation) {
+      return NextResponse.json({
+        error: post.status === 'FAILED'
+          ? 'Explicit failed-record dismissal confirmation is required.'
+          : 'Explicit schedule cancellation confirmation is required.',
+        mode: 'confirmation_required',
+      }, { status: 400 })
+    }
+
+    await prisma.socialPost.delete({ where: { id: post.id } })
 
     return NextResponse.json({ success: true })
   } catch (err: any) {

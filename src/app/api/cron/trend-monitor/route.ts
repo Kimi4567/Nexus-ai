@@ -26,6 +26,16 @@ interface NewsItem {
   snippet: string
   source: string
   publishedAt: string
+  url: string
+}
+
+function decodeXmlText(value: string): string {
+  return value
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
 }
 
 /** Fetch recent Google News RSS for an industry / topic keyword */
@@ -54,9 +64,11 @@ async function fetchIndustryNews(industryKeyword: string): Promise<NewsItem[]> {
                           item.match(/<description>(.*?)<\/description>/)
       const sourceMatch = item.match(/<source[^>]*>(.*?)<\/source>/)
       const dateMatch   = item.match(/<pubDate>(.*?)<\/pubDate>/)
+      const linkMatch   = item.match(/<link>(.*?)<\/link>/)
 
       const title = titleMatch?.[1]?.trim() ?? ''
-      if (!title || title.length < 10) continue
+      const itemUrl = decodeXmlText(linkMatch?.[1]?.trim() ?? '')
+      if (!title || title.length < 10 || !itemUrl.startsWith('http')) continue
 
       const rawSnippet = descMatch?.[1] ?? ''
       const snippet = rawSnippet.replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, ' ').trim().slice(0, 300)
@@ -67,6 +79,7 @@ async function fetchIndustryNews(industryKeyword: string): Promise<NewsItem[]> {
         snippet,
         source: sourceMatch?.[1]?.trim() ?? 'Unknown',
         publishedAt: dateMatch?.[1]?.trim() ?? '',
+        url: itemUrl,
       })
     }
 

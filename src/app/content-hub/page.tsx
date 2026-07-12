@@ -1,6 +1,7 @@
 'use client'
 
 import AppShell from '@/components/AppShell'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
@@ -8,16 +9,13 @@ import { useI18n } from '@/lib/i18n-context'
 import {
   ArrowUpRight,
   BarChart3,
-  Bell,
   CheckCircle2,
   ChevronDown,
-  Eye,
   Image as ImageIcon,
   LayoutGrid,
   Loader2,
   Pencil,
   Plus,
-  Search,
   Send,
   Sparkles,
   Users,
@@ -115,7 +113,7 @@ function SoftPanel({
   return (
     <section
       dir={dir}
-      className={`rounded-[20px] border border-slate-200/80 bg-white/92 shadow-[0_14px_42px_rgba(15,23,42,0.055)] ${className}`}
+      className={`nx-os-card ${className}`}
     >
       {children}
     </section>
@@ -167,7 +165,7 @@ function safeSnippet(text: string | undefined, fallback: string) {
 
 export default function ContentHubPage() {
   const router = useRouter()
-  const { authHeader, isAuthenticated, loading: authLoading, user } = useAuth()
+  const { authHeader, isAuthenticated, loading: authLoading } = useAuth()
   const { locale } = useI18n()
   const isAr = locale === 'ar'
 
@@ -238,15 +236,18 @@ export default function ContentHubPage() {
 
   const stats = useMemo(() => {
     const total = posts.length
-    const approved = posts.filter(post => ['APPROVED', 'SCHEDULED', 'PUBLISHED'].includes(String(post.status || '').toUpperCase())).length
+    const approved = posts.filter(post => String(post.status || '').toUpperCase() === 'APPROVED').length
     const scheduled = posts.filter(post => String(post.status || '').toUpperCase() === 'SCHEDULED' && post.scheduledAt).length
     const published = posts.filter(post => String(post.status || '').toUpperCase() === 'PUBLISHED').length
     const mediaReady = posts.filter(post => String(post.generationStatus || '').toUpperCase() === 'DONE' && Boolean(post.imageUrl || post.uploadedMediaId)).length
-    const needsReview = posts.filter(post => ['DRAFT', 'APPROVED'].includes(String(post.status || 'DRAFT').toUpperCase())).length
-    const inCreation = posts.filter(post => String(post.status || 'DRAFT').toUpperCase() === 'DRAFT').length
-    const inReview = Math.max(0, needsReview - approved)
-    const readyForPublishReview = Math.max(0, scheduled + posts.filter(post => String(post.status || '').toUpperCase() === 'APPROVED').length)
-    const readiness = total === 0 ? 0 : Math.round(((approved * 0.28) + (mediaReady * 0.36) + (scheduled * 0.22) + (published * 0.14)) / Math.max(total, 1) * 100)
+    const copyReady = posts.filter(post => Boolean(String(post.caption || '').trim())).length
+    const platformAssigned = posts.filter(post => Boolean(String(post.platform || '').trim())).length
+    const drafts = posts.filter(post => String(post.status || 'DRAFT').toUpperCase() === 'DRAFT').length
+    const needsReview = drafts
+    const reviewed = approved + scheduled + published
+    const productionProgress = total === 0
+      ? 0
+      : Math.round(((copyReady + mediaReady + reviewed) / (total * 3)) * 100)
 
     return {
       total,
@@ -254,24 +255,20 @@ export default function ContentHubPage() {
       scheduled,
       published,
       mediaReady,
+      copyReady,
+      platformAssigned,
+      reviewed,
       needsReview,
-      inCreation,
-      inReview,
-      readyForPublishReview,
-      readiness: Math.max(0, Math.min(100, readiness)),
+      drafts,
+      productionProgress: Math.max(0, Math.min(100, productionProgress)),
     }
   }, [posts])
 
   const filteredPosts = useMemo(() => {
     if (activeFormat === 'all') return posts
     return posts.filter(post => {
-      const platform = String(post.platform || '').toUpperCase()
-      const caption = String(post.caption || '').toLowerCase()
       if (activeFormat === 'videos') return Boolean(post.isVideoPost)
       if (activeFormat === 'posts') return !post.isVideoPost
-      if (activeFormat === 'reels') return Boolean(post.isVideoPost) && (platform.includes('TIKTOK') || platform.includes('INSTAGRAM') || platform.includes('YOUTUBE'))
-      if (activeFormat === 'stories') return platform.includes('INSTAGRAM') && (caption.includes('story') || caption.includes('قصة'))
-      if (activeFormat === 'ads') return platform.includes('META') || platform.includes('FACEBOOK') || platform.includes('GOOGLE')
       return false
     })
   }, [activeFormat, posts])
@@ -283,9 +280,32 @@ export default function ContentHubPage() {
   const samplePost = filteredPosts.find(post => post.imageUrl) ?? filteredPosts[0] ?? posts.find(post => post.imageUrl) ?? posts[0]
   const recentPosts = filteredPosts.slice(0, 5)
   const visualPosts = filteredPosts.filter(post => post.imageUrl).slice(0, 4)
-  const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
-  const mediaGeneratedText = isAr ? 'وسائط مولّدة' : 'Media generated'
-  const mediaGeneratedHelper = isAr ? 'هذه حالة وسائط فقط وليست نشرًا.' : 'media generated only, not published.'
+  const sampleMediaState = (() => {
+    if (!samplePost?.imageUrl) {
+      return {
+        label: isAr ? 'لا توجد وسائط مرفقة' : 'No media attached',
+        helper: isAr ? 'المعاينة نصية فقط ولم يحدث نشر.' : 'Text-only preview; nothing has been published.',
+      }
+    }
+
+    const source = String(samplePost.mediaSource || '').toUpperCase()
+    if (source === 'GENERATE') {
+      return {
+        label: isAr ? 'خلفية مولّدة للمراجعة' : 'Generated review background',
+        helper: isAr ? 'أصل بصري للمراجعة فقط، وليس إعلانًا نهائيًا أو نشرًا.' : 'A review asset only, not final creative or a publish event.',
+      }
+    }
+    if (samplePost.uploadedMediaId || source === 'UPLOAD' || source === 'UPLOADED') {
+      return {
+        label: isAr ? 'أصل مرفوع ومرفق' : 'Attached uploaded asset',
+        helper: isAr ? 'مرفق بمعاينة المنشور فقط ولم يتم نشره.' : 'Attached to the post preview only; not published.',
+      }
+    }
+    return {
+      label: isAr ? 'وسائط المنشور' : 'Post media',
+      helper: isAr ? 'وسائط مرتبطة بالمنشور؛ حالة النشر منفصلة.' : 'Media linked to this post; publishing is a separate state.',
+    }
+  })()
 
   const platformRows = useMemo(() => {
     const map = new Map<string, { platform: string; count: number; ready: number }>()
@@ -302,20 +322,15 @@ export default function ContentHubPage() {
   const campaignSummary = campaigns[0] ? getCampaignPlatformSummary(campaigns[0].platforms ?? [], locale) : null
   const formatChips = [
     { key: 'all', label: isAr ? 'الكل' : 'All' },
-    { key: 'ads', label: isAr ? 'إعلانات' : 'Ads' },
-    { key: 'posts', label: isAr ? 'منشورات' : 'Posts' },
-    { key: 'reels', label: isAr ? 'ريلز' : 'Reels' },
-    { key: 'stories', label: isAr ? 'قصص' : 'Stories' },
-    { key: 'videos', label: isAr ? 'فيديوهات' : 'Videos' },
-    { key: 'presentations', label: isAr ? 'عروض تقديمية' : 'Presentations', disabled: true },
-    { key: 'email', label: isAr ? 'بريد إلكتروني' : 'Email', disabled: true },
+    { key: 'posts', label: isAr ? 'منشورات ثابتة' : 'Static posts' },
+    { key: 'videos', label: isAr ? 'منشورات فيديو' : 'Video posts' },
   ]
 
   if (authLoading || loading) {
     return (
       <AppShell>
-        <div className="flex min-h-screen items-center justify-center bg-[#F4F7FB]">
-          <div className="rounded-[24px] border border-slate-200 bg-white px-7 py-6 text-center shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
+        <div className="nx-os-page flex min-h-screen items-center justify-center">
+          <div className="nx-os-card px-7 py-6 text-center">
             <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#5E63FF]" />
             <p className="mt-3 text-[13px] font-bold text-slate-500">{isAr ? 'جار تجهيز مركز المحتوى...' : 'Preparing Content Hub...'}</p>
           </div>
@@ -326,53 +341,16 @@ export default function ContentHubPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen bg-[#F4F7FB] text-[#0B1028]">
-        <div className="mx-auto flex w-full max-w-[1620px] flex-col gap-4 px-4 py-4 sm:px-6 lg:px-7">
-          <header dir="ltr" className="flex flex-col gap-4 border-b border-slate-200/80 pb-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#101A4D] text-white shadow-[0_16px_34px_rgba(16,26,77,0.20)]">
-                <LayoutGrid className="h-5 w-5" />
-              </div>
-              <div dir={isAr ? 'rtl' : 'ltr'}>
-                <p className="text-[12px] font-semibold text-slate-500">{isAr ? 'مساحة الإنتاج' : 'Production workspace'}</p>
-                <h1 className="text-[18px] font-black tracking-normal text-[#0B1028]">
-                  {isAr ? 'مركز إنتاج المحتوى' : 'Content Production Hub'}
-                </h1>
-              </div>
-              <Link href="/campaigns" aria-label={isAr ? 'العودة إلى محفظة الحملات' : 'Back to campaign portfolio'} className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 md:flex">
-                <ChevronDown className="h-4 w-4" />
-              </Link>
-            </div>
-
-            <div className="flex flex-1 flex-col gap-3 lg:max-w-3xl lg:flex-row lg:items-center lg:justify-end">
-              <div className="flex h-11 min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-slate-400 lg:w-[360px]">
-                <Search className="h-4 w-4 shrink-0" />
-                <span className="truncate text-[13px]" dir={isAr ? 'rtl' : 'ltr'}>{isAr ? 'ابحث في Nexus...' : 'Search in Nexus...'}</span>
-                <span className="ms-auto rounded-lg border border-slate-200 px-2 py-0.5 text-[11px] text-slate-400">⌘K</span>
-              </div>
-              <Link href={latestCampaignContentHref} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-[13px] font-bold text-[#101A4D]">
-                <Eye className="h-4 w-4" />
-                {isAr ? 'مراجعة الإنتاج' : 'Review production'}
-              </Link>
-              <Link href="/campaigns" className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-[#5E63FF]">
-                <Sparkles className="h-4 w-4" />
-              </Link>
-              <Link href="/analytics" className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500">
-                <Bell className="h-4 w-4" />
-              </Link>
-              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2" dir={isAr ? 'rtl' : 'ltr'}>
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#EEF2FF] text-[13px] font-black text-[#5E63FF]">
-                  {(displayName || 'N').charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] font-bold text-[#0B1028]">
-                    {displayName ? (isAr ? `مرحباً ${displayName}` : `Hi, ${displayName}`) : (isAr ? 'مرحباً' : 'Welcome')}
-                  </p>
-                  <p className="truncate text-[11px] text-slate-500">{isAr ? 'مدير النمو' : 'Growth operator'}</p>
-                </div>
-              </div>
-            </div>
-          </header>
+      <div className="nx-os-page">
+        <div className="nx-os-container nx-os-stack">
+          <LuxuryWorkspaceHeader
+            pageTitle={isAr ? 'مركز إنتاج المحتوى' : 'Content Production Hub'}
+            pageSubtitle={isAr ? 'حوّل الاستراتيجية إلى منشورات ووسائط قابلة للمراجعة قبل النشر.' : 'Turn strategy into reviewable posts and media before publishing.'}
+            primaryHref={latestCampaignContentHref}
+            primaryLabel={isAr ? 'مراجعة الإنتاج' : 'Review production'}
+            secondaryHref="/campaigns"
+            secondaryLabel={isAr ? 'محفظة الحملات' : 'Campaign portfolio'}
+          />
 
           {error && (
             <SoftPanel className="p-4 text-[13px] font-bold text-rose-600" dir={isAr ? 'rtl' : 'ltr'}>
@@ -410,24 +388,21 @@ export default function ContentHubPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr_auto_1fr_auto_1fr]">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-6">
               {[
-                { icon: <Sparkles className="h-4 w-4" />, title: isAr ? 'أفكار معتمدة' : 'Approved ideas', value: campaigns.length, tone: 'amber' as Tone },
-                { icon: <Pencil className="h-4 w-4" />, title: isAr ? 'قيد الإنشاء' : 'In creation', value: stats.inCreation, tone: 'violet' as Tone },
-                { icon: <Eye className="h-4 w-4" />, title: isAr ? 'قيد المراجعة' : 'In review', value: stats.inReview, tone: 'amber' as Tone },
+                { icon: <Sparkles className="h-4 w-4" />, title: isAr ? 'مسارات حملات' : 'Campaign workstreams', value: campaigns.length, tone: 'blue' as Tone },
+                { icon: <Pencil className="h-4 w-4" />, title: isAr ? 'مسودات منشورات' : 'Post drafts', value: stats.drafts, tone: 'violet' as Tone },
                 { icon: <CheckCircle2 className="h-4 w-4" />, title: isAr ? 'موافق عليه' : 'Approved', value: stats.approved, tone: 'green' as Tone },
-                { icon: <Send className="h-4 w-4" />, title: isAr ? 'جاهز لمراجعة النشر' : 'Ready for publish review', value: stats.readyForPublishReview, tone: 'green' as Tone },
+                { icon: <Send className="h-4 w-4" />, title: isAr ? 'مجدول' : 'Scheduled', value: stats.scheduled, tone: 'green' as Tone },
                 { icon: <BarChart3 className="h-4 w-4" />, title: isAr ? 'منشور' : 'Published', value: stats.published, tone: 'blue' as Tone },
-              ].map((stage, index, list) => (
-                <div key={stage.title} className="contents">
-                  <div className="flex min-h-[72px] items-center gap-3 rounded-[16px] border border-slate-200 bg-white px-4 py-3">
-                    <MiniIcon tone={stage.tone}>{stage.icon}</MiniIcon>
-                    <div className="min-w-0 text-right" dir={isAr ? 'rtl' : 'ltr'}>
-                      <p className="truncate text-[12px] font-bold text-slate-600">{stage.title}</p>
-                      <p className="mt-1 text-[20px] font-black text-[#0B1028]" dir="ltr">{stage.value}</p>
-                    </div>
+                { icon: <ImageIcon className="h-4 w-4" />, title: isAr ? 'وسائط جاهزة' : 'Media ready', value: stats.mediaReady, tone: 'blue' as Tone },
+              ].map(stage => (
+                <div key={stage.title} className="flex min-h-[72px] min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3">
+                  <MiniIcon tone={stage.tone}>{stage.icon}</MiniIcon>
+                  <div className="min-w-0 text-right" dir={isAr ? 'rtl' : 'ltr'}>
+                    <p className="line-clamp-2 text-[11px] font-bold leading-4 text-slate-600">{stage.title}</p>
+                    <p className="mt-1 text-[19px] font-black text-[#0B1028]" dir="ltr">{stage.value}</p>
                   </div>
-                  {index < list.length - 1 && <div className="hidden items-center justify-center text-slate-300 xl:flex">•••</div>}
                 </div>
               ))}
             </div>
@@ -438,14 +413,11 @@ export default function ContentHubPage() {
               <button
                 type="button"
                 key={chip.key}
-                disabled={Boolean(chip.disabled)}
                 aria-pressed={activeFormat === chip.key}
-                onClick={() => {
-                  if (!chip.disabled) setActiveFormat(chip.key)
-                }}
+                onClick={() => setActiveFormat(chip.key)}
                 className={`inline-flex h-9 items-center gap-2 rounded-xl border px-4 text-[12px] font-bold transition ${
                   activeFormat === chip.key ? 'border-[#5E63FF]/25 bg-[#F2F4FF] text-[#5E63FF]' : 'border-slate-200 bg-white text-slate-600'
-                } ${chip.disabled ? 'cursor-not-allowed opacity-45' : 'hover:border-[#5E63FF]/30 hover:text-[#5E63FF]'}`}
+                } hover:border-[#5E63FF]/30 hover:text-[#5E63FF]`}
               >
                 {chip.label}
               </button>
@@ -506,7 +478,7 @@ export default function ContentHubPage() {
                         {samplePost?.isVideoPost ? (isAr ? 'فيديو' : 'Video') : (isAr ? 'صورة / منشور' : 'Post asset')}
                       </div>
                       <div className="absolute bottom-3 right-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-black text-[#5E63FF]">
-                        {mediaGeneratedText}
+                        {sampleMediaState.label}
                       </div>
                     </div>
                     <div className="flex items-center justify-between px-4 py-3">
@@ -515,7 +487,7 @@ export default function ContentHubPage() {
                           <span key={item} className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-[#EEF2FF] text-[10px] font-black text-[#5E63FF]">N</span>
                         ))}
                       </div>
-                      <p className="text-[12px] font-bold text-slate-500">{mediaGeneratedHelper}</p>
+                      <p className="text-[12px] font-bold text-slate-500">{sampleMediaState.helper}</p>
                     </div>
                   </Link>
                 </SoftPanel>
@@ -568,13 +540,15 @@ export default function ContentHubPage() {
                     <Link href={latestCampaignStrategyHref} className="text-[12px] font-bold text-[#5E63FF]">{isAr ? 'عرض منطق CTA' : 'View CTA logic'}</Link>
                     <h2 className="text-[15px] font-black text-[#0B1028]">{isAr ? 'خيارات CTA' : 'CTA options'}</h2>
                   </div>
-                  <div className="space-y-2">
-                    {(isAr ? ['تسوّق الآن', 'اكتشف المجموعة', 'احجز استشارة'] : ['Shop now', 'Explore collection', 'Book a consultation']).map(item => (
-                      <div key={item} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3">
-                        <span className="text-[12px] font-black text-[#0B1028]">{item}</span>
-                        <ArrowUpRight className="h-4 w-4 text-[#5E63FF]" />
-                      </div>
-                    ))}
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                    <p className="text-[12px] font-black text-[#0B1028]">
+                      {isAr ? 'تُراجع الدعوة للإجراء داخل كل منشور' : 'CTA is reviewed per post'}
+                    </p>
+                    <p className="mt-1 text-[11px] font-semibold leading-5 text-slate-500">
+                      {isAr
+                        ? 'لا يفترض NEXUS دعوة عامة هنا؛ النص النهائي يجب أن يأتي من استراتيجية الحملة وحزمة المنشور.'
+                        : 'NEXUS does not assume a generic CTA here; final wording must come from campaign strategy and the post package.'}
+                    </p>
                   </div>
                   <Link href={latestCampaignStrategyHref} className="mt-4 inline-flex w-full items-center justify-center gap-2 text-[12px] font-black text-[#5E63FF]">
                     <ArrowUpRight className="h-3.5 w-3.5" />
@@ -636,7 +610,7 @@ export default function ContentHubPage() {
             <div className="grid grid-cols-1 gap-4">
               <SoftPanel className="p-4" dir={isAr ? 'rtl' : 'ltr'}>
                 <h2 className="text-[15px] font-black text-[#0B1028]">{isAr ? 'ملخص المحتوى' : 'Content summary'}</h2>
-                <p className="mt-1 text-[11px] font-bold text-slate-400">{isAr ? 'آخر 7 أيام' : 'Last 7 days'}</p>
+                <p className="mt-1 text-[11px] font-bold text-slate-400">{isAr ? 'لقطة مساحة العمل الحالية' : 'Current workspace snapshot'}</p>
                 <div className="mt-4 space-y-3">
                   {[
                     { label: isAr ? 'إجمالي المحتويات' : 'Total content', value: stats.total, tone: 'green' as Tone },
@@ -653,40 +627,43 @@ export default function ContentHubPage() {
               </SoftPanel>
 
               <SoftPanel className="p-4" dir={isAr ? 'rtl' : 'ltr'}>
-                <h2 className="text-[15px] font-black text-[#0B1028]">{isAr ? 'جاهزية النشر' : 'Publishing readiness'}</h2>
+                <h2 className="text-[15px] font-black text-[#0B1028]">{isAr ? 'تقدم الإنتاج' : 'Production progress'}</h2>
+                <p className="mt-1 text-[10px] font-semibold leading-4 text-slate-400">
+                  {isAr ? 'محسوب من اكتمال النص والوسائط والمراجعة فقط، وليس جاهزية حسابات النشر.' : 'Based on copy, media, and review state only; not publishing-account readiness.'}
+                </p>
                 <div className="mt-4 flex items-center gap-4">
                   <div
                     className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full"
-                    style={{ background: `conic-gradient(#5E63FF ${stats.readiness * 3.6}deg, #E9EDF7 0deg)` }}
+                    style={{ background: `conic-gradient(#5E63FF ${stats.productionProgress * 3.6}deg, #E9EDF7 0deg)` }}
                   >
                     <div className="absolute inset-2 rounded-full bg-white" />
                     <div className="relative text-center">
-                      <p className="text-[24px] font-black text-[#0B1028]" dir="ltr">{stats.readiness}%</p>
-                      <p className="text-[10px] font-bold text-slate-500">{isAr ? 'جاهزية' : 'Ready'}</p>
+                      <p className="text-[24px] font-black text-[#0B1028]" dir="ltr">{stats.productionProgress}%</p>
+                      <p className="text-[10px] font-bold text-slate-500">{isAr ? 'إنتاج' : 'Production'}</p>
                     </div>
                   </div>
                   <div className="space-y-2 text-[12px] font-semibold text-slate-600">
-                    <p>{isAr ? 'النصوص' : 'Copy'} <CheckCircle2 className="inline h-3.5 w-3.5 text-emerald-500" /></p>
-                    <p>{isAr ? 'الصور' : 'Media'} <CheckCircle2 className={`inline h-3.5 w-3.5 ${stats.mediaReady > 0 ? 'text-emerald-500' : 'text-slate-300'}`} /></p>
-                    <p>{isAr ? 'المقاسات' : 'Formats'} <CheckCircle2 className="inline h-3.5 w-3.5 text-emerald-500" /></p>
-                    <p>{isAr ? 'التحسين' : 'Optimization'} <span className="text-amber-500">△</span></p>
+                    <p>{isAr ? 'نص مكتمل' : 'Copy complete'} <span dir="ltr">{stats.copyReady}/{stats.total}</span></p>
+                    <p>{isAr ? 'وسائط مؤكدة' : 'Confirmed media'} <span dir="ltr">{stats.mediaReady}/{stats.total}</span></p>
+                    <p>{isAr ? 'تمت مراجعته' : 'Reviewed'} <span dir="ltr">{stats.reviewed}/{stats.total}</span></p>
+                    <p>{isAr ? 'منصة محددة' : 'Platform assigned'} <span dir="ltr">{stats.platformAssigned}/{stats.total}</span></p>
                   </div>
                 </div>
                 <Link href={latestCampaignPublishHref} className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-xl border border-slate-200 text-[12px] font-black text-[#5E63FF]">
-                  {isAr ? 'عرض التفاصيل' : 'View details'}
+                  {isAr ? 'تحقق من جاهزية النشر الفعلية' : 'Check actual publishing readiness'}
                 </Link>
               </SoftPanel>
 
               <SoftPanel className="p-4" dir={isAr ? 'rtl' : 'ltr'}>
                 <div className="mb-3 flex items-center justify-between">
-                  <Link href="/campaigns" className="text-[12px] font-bold text-[#5E63FF]">{isAr ? 'عرض الكل' : 'View all'}</Link>
-                  <h2 className="text-[15px] font-black text-[#0B1028]">{isAr ? 'ملاحظات المراجعين' : 'Reviewer notes'}</h2>
+                  <Link href="/campaigns" className="text-[12px] font-bold text-[#5E63FF]">{isAr ? 'عرض الحملات' : 'View campaigns'}</Link>
+                  <h2 className="text-[15px] font-black text-[#0B1028]">{isAr ? 'حدود التشغيل' : 'Operating boundaries'}</h2>
                 </div>
                 <div className="space-y-3">
                   {[
-                    isAr ? 'مراجعة الوسائط قبل النشر.' : 'Review media before publishing.',
-                    isAr ? 'لا توجد بيانات أداء منشورة بعد.' : 'No published performance data yet.',
-                    isAr ? 'الأصول النهائية ترتبط من Content Hub فقط.' : 'Final assets attach from Content Hub only.',
+                    isAr ? 'الاستراتيجية تحدد الوعد والنطاق؛ مركز المحتوى لا يعيد اختراعهما.' : 'Strategy owns the promise and scope; Content Hub does not reinvent them.',
+                    isAr ? 'هنا تتم مراجعة حزمة المنشور النهائية وربط وسائطه بتأكيد صريح.' : 'Final post packages and media are reviewed here with explicit confirmation.',
+                    isAr ? 'الحسابات والصلاحيات والجدولة تُفحص في جاهزية النشر قبل التنفيذ.' : 'Accounts, permissions, and scheduling are checked in publishing readiness before execution.',
                   ].map((note, index) => (
                     <div key={note} className="grid grid-cols-[32px_1fr] items-center gap-3">
                       <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#EEF2FF] text-[10px] font-black text-[#5E63FF]">{index + 1}</span>

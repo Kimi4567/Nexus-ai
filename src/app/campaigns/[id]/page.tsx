@@ -386,6 +386,9 @@ function CampaignDetailPageInner() {
   const pollRef = useRef<NodeJS.Timeout | null>(null)
   // UX: header overflow menu
   const [showHeaderMenu, setShowHeaderMenu] = useState(false)
+  const [campaignAction, setCampaignAction] = useState<'duplicate' | 'archive' | 'restore' | null>(null)
+  const [campaignActionBusy, setCampaignActionBusy] = useState(false)
+  const [campaignActionError, setCampaignActionError] = useState('')
   const [showEngineRebuildModal, setShowEngineRebuildModal] = useState(false)
   const [engineRebuildAcknowledged, setEngineRebuildAcknowledged] = useState(false)
 
@@ -673,18 +676,30 @@ function CampaignDetailPageInner() {
     return () => window.clearTimeout(timer)
   }, [activeTab, campaign?.aiOutput, fetching, loading, scrollToStrategySection])
 
-  const updateCampaign = async (data: Partial<Campaign>) => {
+  const updateCampaign = async (data: Partial<Campaign>): Promise<boolean> => {
     const token = authHeader()
-    if (!token || !campaign) return
+    if (!token || !campaign) return false
     setSaving(true)
-    const res = await fetch(`/api/campaigns/${campaignId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: token },
-      body: JSON.stringify(data),
-    })
-    const d = await res.json()
-    if (d.campaign) setCampaign(prev => prev ? { ...prev, ...d.campaign } : prev)
-    setSaving(false)
+    setCampaignActionError('')
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: token },
+        body: JSON.stringify(data),
+      })
+      const d = await res.json()
+      if (!res.ok || !d.campaign) {
+        setCampaignActionError(d.message || d.error || (locale === 'ar' ? 'تعذر تحديث الحملة.' : 'Could not update the campaign.'))
+        return false
+      }
+      setCampaign(prev => prev ? { ...prev, ...d.campaign } : prev)
+      return true
+    } catch {
+      setCampaignActionError(locale === 'ar' ? 'تعذر الاتصال. لم تتغير الحملة.' : 'Could not connect. The campaign was not changed.')
+      return false
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleRunEngine = async (
@@ -741,53 +756,45 @@ function CampaignDetailPageInner() {
     }
   }
 
-  const duplicate = async () => {
+  const duplicate = async (): Promise<boolean> => {
     const token = authHeader()
-    if (!token) return
-    const res = await fetch(`/api/campaigns/${campaignId}/duplicate`, { method: 'POST', headers: { Authorization: token } })
-    const d = await res.json()
-    if (d.campaign) router.push(`/campaigns/${d.campaign.id}`)
-  }
-
-  const handleApprove = async () => {
-    const token = authHeader()
-    if (!token || !campaign) return
-    const review = (campaign.aiOutput as any)?.sentinelReview
-    const calendarItems = (campaign.aiOutput as any)?.calendarItems || []
-    if (review?.status !== 'passed' || calendarItems.length === 0) {
-      setApprovalState('idle')
-      setEngineError(locale === 'ar'
-        ? 'لا يمكن تجهيز الحملة قبل اكتمال فحص الجودة وبناء التقويم.'
-        : 'Complete the quality check and build the calendar before preparing the campaign.')
-      return
-    }
-    setApprovalState('approving')
+    if (!token) return false
+    setCampaignActionError('')
     try {
-      const res = await fetch(`/api/campaigns/${campaignId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: token },
-        body: JSON.stringify({ status: 'ACTIVE' }),
-      })
+      const res = await fetch(`/api/campaigns/${campaignId}/duplicate`, { method: 'POST', headers: { Authorization: token } })
       const d = await res.json()
-      if (d.campaign) {
-        setCampaign(prev => prev ? { ...prev, status: 'ACTIVE' } : prev)
-        setApprovalState('done')
-      } else {
-        setApprovalState('idle')
+      if (!res.ok || !d.campaign) {
+        setCampaignActionError(d.message || d.error || (locale === 'ar' ? 'تعذر إنشاء نسخة مسودة.' : 'Could not create a draft copy.'))
+        return false
       }
+      router.push(`/campaigns/${d.campaign.id}`)
+      return true
     } catch {
-      setApprovalState('idle')
+      setCampaignActionError(locale === 'ar' ? 'تعذر الاتصال. لم يتم إنشاء نسخة.' : 'Could not connect. No copy was created.')
+      return false
     }
   }
 
-  const handleApproveAndLaunch = async () => {
+  const confirmCampaignAction = async () => {
+    if (!campaignAction || campaignActionBusy) return
+    setCampaignActionBusy(true)
+    setCampaignActionError('')
+    const succeeded = campaignAction === 'duplicate'
+      ? await duplicate()
+      : await updateCampaign({ status: campaignAction === 'archive' ? 'ARCHIVED' : 'DRAFT' })
+    setCampaignActionBusy(false)
+    if (succeeded) setCampaignAction(null)
+  }
+
+  const handleApproveAndBuildContent = async () => {
     const token = authHeader()
     if (!token || !campaign) return
     setApprovalState('approving')
     setLaunchState('approving')
     setLaunchError('')
     try {
-      // Step 1: Approve campaign (set ACTIVE)
+      // Step 1: save strategy workflow approval (legacy ACTIVE value).
+      // This is not a live campaign, platform launch, or publishing event.
       const approveRes = await fetch(`/api/campaigns/${campaignId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: token },
@@ -2498,10 +2505,16 @@ function CampaignDetailPageInner() {
                           className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-slate-50"
                           style={{ color: campaign.favorite ? '#ca8a04' : '#334155' }}
                         >
-                          {campaign.favorite ? `★ ${cdT?.btnSaved || 'Saved'}` : `☆ ${cdT?.btnSave || 'Save'}`}
+                          {campaign.favorite
+                            ? (locale === 'ar' ? '★ إزالة من المفضلة' : '★ Remove from favorites')
+                            : (locale === 'ar' ? '☆ إضافة إلى المفضلة' : '☆ Add to favorites')}
                         </button>
                         <button
-                          onClick={() => { duplicate(); setShowHeaderMenu(false) }}
+                          onClick={() => {
+                            setCampaignActionError('')
+                            setCampaignAction('duplicate')
+                            setShowHeaderMenu(false)
+                          }}
                           className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-slate-50"
                           style={{ color: '#334155' }}
                         >
@@ -2516,7 +2529,11 @@ function CampaignDetailPageInner() {
                         </button>
                         <div className="h-px mx-3 bg-slate-100" />
                         <button
-                          onClick={() => { updateCampaign({ status: campaign.status === 'ARCHIVED' ? 'DRAFT' : 'ARCHIVED' }); setShowHeaderMenu(false) }}
+                          onClick={() => {
+                            setCampaignActionError('')
+                            setCampaignAction(campaign.status === 'ARCHIVED' ? 'restore' : 'archive')
+                            setShowHeaderMenu(false)
+                          }}
                           disabled={saving}
                           className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-slate-50"
                           style={{ color: campaign.status === 'ARCHIVED' ? '#4f46e5' : '#64748b' }}
@@ -2685,7 +2702,10 @@ function CampaignDetailPageInner() {
 
                 {activeTab !== 0 && !isPaidOnlyStrategy && !engineRunning && sentinelStatus === 'passed' && operatingState.stage === 'content_plan_missing' && (
                   <button
-                    onClick={handleApproveAndLaunch}
+                    onClick={() => {
+                      setLaunchError('')
+                      setApprovalState('confirming')
+                    }}
                     disabled={approvalState === 'approving' || launchState === 'approving' || launchState === 'generating'}
                     className="px-4 py-2 rounded-xl text-sm font-semibold transition disabled:opacity-60"
                     style={{ background: '#059669', color: '#fff' }}
@@ -2807,19 +2827,30 @@ function CampaignDetailPageInner() {
                     </p>
                     <p className="text-xs text-slate-500 mb-3">
                       {locale === 'ar'
-                        ? 'سيتم إنشاء خطة محتوى كاملة ثم انتقالك إلى Content Hub للمراجعة. لا يتم نشر شيء من هنا.'
-                        : 'This will generate the full content plan and take you to Content Hub for review. Nothing publishes from here.'}
+                        ? 'سيتم اعتماد وثيقة الاستراتيجية كسير عمل وخصم 2 رصيد لإنشاء مسودات Content Hub للمراجعة. لا يتم نشر أو جدولة أو تشغيل إعلان من هنا.'
+                        : 'This saves strategy workflow approval and spends 2 credits to create Content Hub drafts for review. Nothing is published, scheduled, or launched from here.'}
                     </p>
+                    <div className="mb-3 grid gap-2 sm:grid-cols-3">
+                      {[
+                        locale === 'ar' ? 'التكلفة: 2 رصيد' : 'Cost: 2 credits',
+                        locale === 'ar' ? 'الناتج: مسودات محتوى' : 'Output: content drafts',
+                        locale === 'ar' ? 'التنفيذ الخارجي: غير مشمول' : 'External execution: not included',
+                      ].map((item) => (
+                        <span key={item} className="rounded-lg border border-green-200 bg-white px-2 py-2 text-center text-[11px] font-semibold text-green-800">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
                     {launchError && (
                       <p className="text-xs text-red-400 mb-2">⚠️ {launchError}</p>
                     )}
                     <div className="flex gap-2">
                       <button
-                        onClick={handleApproveAndLaunch}
+                        onClick={handleApproveAndBuildContent}
                         className="px-4 py-2 bg-green-500 text-xs font-bold rounded-xl hover:bg-green-600 transition"
                         style={{ color: '#fff' }}
                       >
-                        {locale === 'ar' ? 'نعم، إنشاء خطة المحتوى' : 'Yes, build content plan'}
+                        {locale === 'ar' ? 'تأكيد وإنشاء الخطة — 2 رصيد' : 'Confirm and build plan — 2 credits'}
                       </button>
                       <button
                         onClick={() => setApprovalState('idle')}
@@ -5295,6 +5326,112 @@ function CampaignDetailPageInner() {
         )}
       </div>
     </AppShell>
+
+    {campaignAction && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="campaign-action-title"
+      >
+        <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
+          <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-indigo-600">
+                {locale === 'ar' ? 'قرار في سجل الحملة' : 'Campaign record decision'}
+              </p>
+              <h3 id="campaign-action-title" className="mt-1 text-lg font-bold text-slate-950">
+                {campaignAction === 'duplicate'
+                  ? (locale === 'ar' ? 'إنشاء نسخة مسودة مستقلة؟' : 'Create an independent draft copy?')
+                  : campaignAction === 'archive'
+                    ? (locale === 'ar' ? 'أرشفة الحملة؟' : 'Archive this campaign?')
+                    : (locale === 'ar' ? 'إعادة الحملة إلى مساحة العمل؟' : 'Return this campaign to the workspace?')}
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setCampaignAction(null)
+                setCampaignActionError('')
+              }}
+              disabled={campaignActionBusy}
+              className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+              aria-label={locale === 'ar' ? 'إغلاق' : 'Close'}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="space-y-4 px-6 py-5">
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm leading-6 text-indigo-950">
+              {campaignAction === 'duplicate'
+                ? (locale === 'ar'
+                  ? 'ينشئ NEXUS نسخة DRAFT من إعدادات ووثيقة الحملة الحالية. لا ينسخ منشورات Content Hub أو الموافقات أو الجداول أو حالات النشر، ولا يخصم رصيداً.'
+                  : 'NEXUS creates a DRAFT copy of the current campaign settings and document. It does not copy Content Hub posts, approvals, schedules, or publishing states, and it spends no credits.')
+                : campaignAction === 'archive'
+                  ? (locale === 'ar'
+                    ? 'تخرج الحملة من العمل اليومي مع الاحتفاظ بوثيقتها ومنشوراتها وسجلها. الأرشفة داخل NEXUS لا توقف إعلاناً أو نشراً يعمل على منصة خارجية.'
+                    : 'The campaign leaves daily work while its document, posts, and history are retained. Archiving inside NEXUS does not stop ads or publishing running on an external platform.')
+                  : (locale === 'ar'
+                    ? 'تعود الحملة إلى مساحة العمل كمسودة للمراجعة. تظل حالات منشورات Content Hub الحالية كما هي، ولا يُستأنف نشر أو إعلان تلقائياً.'
+                    : 'The campaign returns to the workspace as a draft for review. Existing Content Hub post states stay unchanged, and publishing or ads do not resume automatically.')}
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-3">
+              {(campaignAction === 'duplicate'
+                ? [
+                  locale === 'ar' ? 'التكلفة: 0 رصيد' : 'Cost: 0 credits',
+                  locale === 'ar' ? 'الحالة الجديدة: مسودة' : 'New state: Draft',
+                  locale === 'ar' ? 'تنفيذ خارجي: لا شيء' : 'External execution: none',
+                ]
+                : [
+                  locale === 'ar' ? 'البيانات: محفوظة' : 'Data: retained',
+                  locale === 'ar' ? 'المنشورات: بلا تغيير' : 'Posts: unchanged',
+                  locale === 'ar' ? 'المنصات: بلا إجراء' : 'Platforms: no action',
+                ]).map((item) => (
+                  <span key={item} className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-center text-[11px] font-semibold text-slate-700">
+                    {item}
+                  </span>
+                ))}
+            </div>
+
+            {campaignActionError && (
+              <p className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {campaignActionError}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col-reverse gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setCampaignAction(null)
+                setCampaignActionError('')
+              }}
+              disabled={campaignActionBusy}
+              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+            >
+              {locale === 'ar' ? 'إلغاء' : 'Cancel'}
+            </button>
+            <button
+              type="button"
+              onClick={confirmCampaignAction}
+              disabled={campaignActionBusy}
+              className={`rounded-xl px-4 py-2 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${campaignAction === 'archive' ? 'bg-slate-700 hover:bg-slate-800' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+            >
+              {campaignActionBusy
+                ? (locale === 'ar' ? 'جارٍ التنفيذ...' : 'Working...')
+                : campaignAction === 'duplicate'
+                  ? (locale === 'ar' ? 'إنشاء نسخة مسودة' : 'Create draft copy')
+                  : campaignAction === 'archive'
+                    ? (locale === 'ar' ? 'تأكيد الأرشفة' : 'Confirm archive')
+                    : (locale === 'ar' ? 'إعادة كمسودة' : 'Return as draft')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {showEngineRebuildModal && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6">

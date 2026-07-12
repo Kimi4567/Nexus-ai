@@ -22,6 +22,11 @@
 
 import { prisma } from '@/lib/prisma'
 import { brainLearningCapDb, BRAIN_LEARNING_DAILY_CAP } from '@/lib/dbRateLimit'
+import {
+  attachBrainSignalSources,
+  collectExternalSignalSources,
+  isExternalSignalTrigger,
+} from '@/lib/brainSignalProvenance'
 
 async function callOpenAI(messages: Array<{ role: string; content: string }>, maxTokens = 800): Promise<string> {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -78,6 +83,12 @@ interface Proposal {
 export async function runBrainLearning(params: BrainLearningParams): Promise<number> {
   const { workspaceId, campaignId, trigger, payload } = params
   const startMs = Date.now()
+  const externalSources = collectExternalSignalSources(trigger, payload)
+
+  if (isExternalSignalTrigger(trigger) && externalSources.length === 0) {
+    console.warn(`[brain-learning] SKIP trigger=${trigger} workspace=${workspaceId} reason=no_traceable_sources`)
+    return 0
+  }
 
   // ── COGS guard: daily per-workspace cap ──────────────────────────────────────
   // Background learning is NOT billed to user credits, so it's uncovered cost.
@@ -400,7 +411,12 @@ Rules:
             icon: FIELD_META[p.field].icon,
             current: current ? JSON.parse(JSON.stringify(current)) : null,
             proposed: JSON.parse(JSON.stringify(p.proposed)),
-            reason: p.reason || 'NEXUS identified this as a useful brand insight.',
+            reason: isExternalSignalTrigger(trigger)
+              ? attachBrainSignalSources(
+                  p.reason || 'NEXUS identified a market-intelligence signal for review.',
+                  externalSources,
+                )
+              : p.reason || 'NEXUS identified this as a useful brand insight.',
             status: 'pending',
           },
         })

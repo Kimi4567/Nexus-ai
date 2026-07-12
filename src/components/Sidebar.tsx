@@ -58,15 +58,6 @@ function NexusLogo() {
   )
 }
 
-// ── Section label ──────────────────────────────────────────────
-function SectionLabel({ children }: { children: string }) {
-  return (
-    <div className="px-3 pb-2 pt-5 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
-      {children}
-    </div>
-  )
-}
-
 // ── Nav item ──────────────────────────────────────────────────
 interface NavItemProps {
   href: string
@@ -102,7 +93,7 @@ function NavItem({ href, label, labelEn, icon, badge, badgeColor, dot, pathname,
   return (
     <Link href={href} onClick={onClick}
       aria-label={badge ? `${label} ${badge}` : label}
-      className={`relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[14px] font-bold transition-all duration-150
+      className={`relative flex h-9 items-center gap-2.5 rounded-xl px-3 text-[13px] font-bold transition-all duration-150
         ${isActive ? 'text-white' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}
       style={isActive ? { background: 'linear-gradient(135deg, rgba(94,99,255,0.95), rgba(124,58,237,0.85))', boxShadow: '0 14px 34px rgba(94,99,255,0.24), inset 0 0 0 1px rgba(255,255,255,0.14)' } : {}}
     >
@@ -274,9 +265,6 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   })
 
   const isPaid = billingTruth.showManageSubscription
-  const cardBg = billingTruth.isZeroCredits ? '#FEF2F2' : billingTruth.isLowCredits ? '#FFFBEB' : isPaid ? '#ECFDF5' : '#F5F3FF'
-  const cardBorder = billingTruth.isZeroCredits ? '1px solid rgba(239,68,68,0.22)' : billingTruth.isLowCredits ? '1px solid rgba(245,158,11,0.24)' : isPaid ? '1px solid rgba(16,185,129,0.18)' : '1px solid rgba(94,92,230,0.18)'
-  const titleColor = billingTruth.isZeroCredits ? '#EF4444' : billingTruth.isLowCredits ? '#F59E0B' : isPaid ? '#10B981' : '#8B5CF6'
   const navGroups: NavGroupConfig[] = [
     {
       key: 'primary',
@@ -323,15 +311,15 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
     >
 
       {/* Logo */}
-      <div className={`flex items-center gap-3 px-5 py-6 flex-shrink-0 ${collapsed ? 'justify-center px-0' : ''}`}
+      <div className={`flex h-[74px] flex-shrink-0 items-center gap-3 px-4 ${collapsed ? 'justify-center px-0' : ''}`}
         style={{ borderBottom: '1px solid rgba(148,163,184,0.12)' }}>
         <NexusLogo />
         {!collapsed && (
           <div className="min-w-0">
-            <div className="font-heading text-[24px] font-black leading-none tracking-[0.22em] text-white">
+            <div className="font-heading text-[20px] font-black leading-none tracking-[0.2em] text-white">
               NEXUS
             </div>
-            <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.28em] text-slate-500">
+            <div className="mt-1 text-[8px] font-bold uppercase tracking-[0.24em] text-slate-500">
               AI MARKETING OS
             </div>
           </div>
@@ -339,10 +327,10 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       </div>
 
       {/* Scrollable nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-3" aria-label={t('sidebar.primaryNavigation')}>
+      <nav className="flex-1 overflow-y-auto px-3 py-2" aria-label={t('sidebar.primaryNavigation')}>
         {navGroups.map((group) => (
-          <div key={group.key}>
-            {group.separatorBefore && <div className="mx-2 my-4 h-px bg-white/10" />}
+          <div key={group.key} className="space-y-0.5">
+            {group.separatorBefore && <div className="mx-2 my-2.5 h-px bg-white/10" />}
             {group.items.map((item) => (
               <NavItem
                 key={`${item.href}-${item.labelKey || item.labelEn || item.labelAr}`}
@@ -363,60 +351,63 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       </nav>
 
       {/* Bottom section */}
-      <div className="flex-shrink-0 space-y-2 px-3 pb-4"
-        style={{ borderTop: '1px solid rgba(148,163,184,0.12)', paddingTop: '14px' }}>
+      <div className="flex-shrink-0 space-y-1 px-3 pb-2.5"
+        style={{ borderTop: '1px solid rgba(148,163,184,0.12)', paddingTop: '10px' }}>
 
         {/* Credits indicator / Upgrade CTA */}
         {!collapsed && billingLoading && (
           <Link href="/billing"
-            className="mb-2 flex flex-col gap-2.5 rounded-[18px] px-4 py-4 transition-all hover:bg-white/10"
+            data-ui="compact-billing-card"
+            className="mb-1 flex flex-col gap-2 rounded-xl px-3 py-2.5 transition-all hover:bg-white/10"
             style={{
               background: 'linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.055))',
               border: '1px solid rgba(148,163,184,0.20)',
-              boxShadow: '0 18px 40px rgba(2,6,23,0.24)',
+              boxShadow: '0 10px 28px rgba(2,6,23,0.20)',
             }}>
             <div className="flex items-center justify-between">
-              <span className="text-[12px] font-black text-amber-200">NEXUS PRO</span>
+              <span className="text-[11px] font-black text-amber-200">NEXUS PRO</span>
               <span className="rounded-md bg-white/10 px-2 py-0.5 text-[9px] font-black text-white">...</span>
             </div>
-            <div className="text-[11px] font-semibold leading-5 text-slate-300">
-              {locale === 'ar' ? 'جار تحميل حالة الخطة' : 'Loading plan status'}
+            <div className="flex items-center justify-between text-[10px] font-semibold text-slate-300">
+              <span>{locale === 'ar' ? 'جار تحميل حالة الخطة' : 'Loading plan status'}</span>
+              <span>{locale === 'ar' ? 'إدارة' : 'Manage'}</span>
             </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+            <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
               <div className="h-full w-2/3 rounded-full bg-[linear-gradient(90deg,#7C83FF,#A78BFA)]" />
             </div>
-            <span className="mt-1 inline-flex h-8 w-full items-center justify-center rounded-xl border border-[#7C83FF]/60 bg-[#0B1028]/70 text-[11px] font-black text-white">
-              {locale === 'ar' ? 'إدارة الخطة' : 'Manage plan'}
-            </span>
           </Link>
         )}
         {!collapsed && !billingLoading && (
           <Link href="/billing"
-            className="mb-2 flex flex-col gap-2.5 rounded-[18px] px-4 py-4 transition-all hover:bg-white/10"
+            data-ui="compact-billing-card"
+            className="mb-1 flex flex-col gap-2 rounded-xl px-3 py-2.5 transition-all hover:bg-white/10"
             style={{
               background: 'linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.055))',
               border: '1px solid rgba(148,163,184,0.20)',
-              boxShadow: '0 18px 40px rgba(2,6,23,0.24)',
+              boxShadow: '0 10px 28px rgba(2,6,23,0.20)',
             }}>
             <div className="flex items-center justify-between">
-              <span className="text-[12px] font-black text-amber-200">
+              <span className="text-[11px] font-black text-amber-200">
                 {isPaid ? 'NEXUS PRO' : (locale === 'ar' ? 'خطة NEXUS' : 'NEXUS Plan')}
               </span>
               {billingTruth.showUpgrade && !billingTruth.isUnknown && <span className="rounded-md bg-white/10 px-2 py-0.5 text-[9px] font-black text-white">Upgrade</span>}
             </div>
-            <div className="text-[11px] font-semibold leading-5 text-slate-300">
-              {billingTruth.isUnknown
-                ? (locale === 'ar' ? 'حالة الخطة غير متاحة الآن' : 'Plan status unavailable')
-                : isUnlimited
-                ? (locale === 'ar' ? 'رصيد غير محدود' : 'Unlimited credits')
-                : billingTruth.isLowCredits
-                ? (locale === 'ar' ? `${creditsRemaining} رصيد متبقٍ` : `${creditsRemaining} credits left`)
-                : billingTruth.isZeroCredits
-                ? (locale === 'ar' ? 'لا يوجد رصيد' : 'No credits left')
-                : (locale === 'ar' ? `${creditsRemaining} رصيد متبقٍ` : `${creditsRemaining} credits left`)}
+            <div className="flex items-center justify-between gap-3 text-[10px] font-semibold text-slate-300">
+              <span className="truncate">
+                {billingTruth.isUnknown
+                  ? (locale === 'ar' ? 'حالة الخطة غير متاحة الآن' : 'Plan status unavailable')
+                  : isUnlimited
+                  ? (locale === 'ar' ? 'رصيد غير محدود' : 'Unlimited credits')
+                  : billingTruth.isZeroCredits
+                  ? (locale === 'ar' ? 'لا يوجد رصيد' : 'No credits left')
+                  : (locale === 'ar' ? `${creditsRemaining} رصيد متبقٍ` : `${creditsRemaining} credits left`)}
+              </span>
+              <span className="shrink-0 font-black text-white">
+                {isPaid ? (locale === 'ar' ? 'إدارة' : 'Manage') : (locale === 'ar' ? 'ترقية' : 'Upgrade')}
+              </span>
             </div>
             {!isUnlimited && (
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+              <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
                 <div className="h-full rounded-full transition-all duration-500"
                   style={{
                     width: `${Math.max(0, Math.min(100, (creditsRemaining / Math.max(creditsMax, 1)) * 100))}%`,
@@ -424,16 +415,12 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
                   }} />
               </div>
             )}
-            <div className="text-[10px] leading-4 text-slate-500">{billingTruth.creditHelper}</div>
-            <span className="mt-1 inline-flex h-8 w-full items-center justify-center rounded-xl border border-[#7C83FF]/60 bg-[#0B1028]/70 text-[11px] font-black text-white transition-colors hover:bg-[#111A4D]">
-              {isPaid ? (locale === 'ar' ? 'إدارة الخطة' : 'Manage plan') : (locale === 'ar' ? 'ترقية الخطة' : 'Upgrade plan')}
-            </span>
           </Link>
         )}
 
         {/* Collapse toggle */}
         <button onClick={() => setCollapsed(c => !c)}
-          className="mt-1 flex h-10 w-full items-center justify-center rounded-xl text-slate-400 transition-all duration-150 hover:bg-white/10 hover:text-white"
+          className="mt-0.5 flex h-8 w-full items-center justify-center rounded-lg text-slate-400 transition-all duration-150 hover:bg-white/10 hover:text-white"
           title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}>
           <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
             className={`transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`}>
@@ -447,7 +434,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
             type="button"
             aria-label={locale === 'ar' ? 'Switch to English' : 'Switch to Arabic'}
             onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')}
-            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-400 transition-all hover:bg-white/10 hover:text-white">
+            className="flex h-8 w-full items-center gap-2 rounded-lg px-3 text-[10px] font-bold text-slate-400 transition-all hover:bg-white/10 hover:text-white">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
               <circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
             </svg>
@@ -458,15 +445,15 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         {/* User menu */}
         <div className="relative mt-0.5">
           <button onClick={() => setUserMenuOpen(o => !o)}
-            className={`w-full flex items-center gap-2.5 rounded-xl px-2 py-2 transition-all duration-150 hover:bg-white/10 ${collapsed ? 'justify-center' : ''}`}>
+            className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2 transition-all duration-150 hover:bg-white/10 ${collapsed ? 'justify-center' : ''}`}>
             <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-black"
               style={{ background: 'rgba(124,131,255,0.18)', border: '1px solid rgba(165,180,252,0.24)', color: '#C7D2FE' }}>
               {initial}
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <div className="truncate text-[12px] font-black text-white">{displayName}</div>
-                <div className="truncate text-[10px] text-slate-500">{email}</div>
+                <div className="truncate text-[11px] font-black text-white">{displayName}</div>
+                <div className="truncate text-[9px] text-slate-500">{email}</div>
               </div>
             )}
           </button>

@@ -18,6 +18,7 @@ import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabaseClient'
 import { useI18n } from '@/lib/i18n-context'
+import { normalizePaidDestinationUrl } from '@/lib/paidExecutionReadiness'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface AdAccount {
@@ -201,6 +202,13 @@ export default function NewPaidCampaignPage() {
       setError(copy('أكمل جميع الحقول المطلوبة.', 'Please fill all required fields.'))
       return
     }
+    if (!normalizePaidDestinationUrl(data.destinationUrl)) {
+      setError(copy(
+        'أدخل رابط تحويل عام يبدأ بـ https://. الروابط المحلية أو التجريبية غير مسموحة.',
+        'Enter a public HTTPS conversion destination. Local or placeholder URLs are not allowed.'
+      ))
+      return
+    }
     setLoading(true)
     setError('')
     try {
@@ -219,6 +227,8 @@ export default function NewPaidCampaignPage() {
           currency: data.currency,
           startDate: data.startDate || undefined,
           endDate: data.endDate || undefined,
+          destinationUrl: data.destinationUrl,
+          utmCampaign: data.utmCampaign || undefined,
         }),
       })
       const result = await res.json()
@@ -269,7 +279,11 @@ export default function NewPaidCampaignPage() {
       const res = await fetch(`/api/ad-campaigns/${campaignId}/generate-strategy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ language: data.language }),
+        body: JSON.stringify({
+          language: data.language,
+          destinationUrl: data.destinationUrl,
+          utmCampaign: data.utmCampaign || data.name,
+        }),
       })
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || copy('تعذر إنشاء استراتيجية التخطيط المدفوع.', 'Strategy generation failed'))
@@ -619,6 +633,45 @@ export default function NewPaidCampaignPage() {
                 </select>
               </div>
 
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div>
+                  <label className="block text-[12px] font-medium text-slate-500 mb-1.5">
+                    {copy('وجهة التحويل', 'Conversion destination')} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="url"
+                    inputMode="url"
+                    value={data.destinationUrl}
+                    onChange={event => set('destinationUrl', event.target.value)}
+                    placeholder="https://your-domain.com/book"
+                    className="w-full px-3 py-2.5 rounded-xl text-[13px] text-slate-950 focus:outline-none"
+                    style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.12)' }}
+                  />
+                  <p className="mt-1.5 text-[10px] leading-relaxed text-slate-500">
+                    {copy(
+                      'الرابط الحقيقي الذي يصل إليه العميل. يضيف NEXUS تتبّع UTM لمسودة الإعلان، ولا يطلق الحملة.',
+                      'The real customer destination. NEXUS adds UTM tracking to the ad draft; it does not launch the campaign.'
+                    )}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-[12px] font-medium text-slate-500 mb-1.5">
+                    {copy('اسم حملة التتبّع (اختياري)', 'Tracking campaign name (optional)')}
+                  </label>
+                  <input
+                    type="text"
+                    value={data.utmCampaign}
+                    onChange={event => set('utmCampaign', event.target.value)}
+                    placeholder={data.name || 'spring_campaign'}
+                    className="w-full px-3 py-2.5 rounded-xl text-[13px] text-slate-950 focus:outline-none"
+                    style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.12)' }}
+                  />
+                  <p className="mt-1.5 text-[10px] leading-relaxed text-slate-500">
+                    {copy('يُستخدم فقط داخل UTM لقياس الزيارات والتحويلات.', 'Used only in UTM parameters to attribute visits and conversions.')}
+                  </p>
+                </div>
+              </div>
+
               {/* Budget estimate */}
               {planningBudget > 0 && (
                 <div className="p-3 rounded-xl"
@@ -718,13 +771,13 @@ export default function NewPaidCampaignPage() {
               </button>
               <button
                 type="button"
-                disabled={!data.name || loading}
+                disabled={!data.name || !normalizePaidDestinationUrl(data.destinationUrl) || loading}
                 onClick={handleStep2}
                 className="flex-1 py-2.5 rounded-xl text-[13px] font-bold transition-all"
                 style={{
-                  background: data.name ? '#F97316' : '#e2e8f0',
-                  color: data.name ? 'white' : '#94a3b8',
-                  cursor: data.name && !loading ? 'pointer' : 'not-allowed',
+                  background: data.name && normalizePaidDestinationUrl(data.destinationUrl) ? '#F97316' : '#e2e8f0',
+                  color: data.name && normalizePaidDestinationUrl(data.destinationUrl) ? 'white' : '#94a3b8',
+                  cursor: data.name && normalizePaidDestinationUrl(data.destinationUrl) && !loading ? 'pointer' : 'not-allowed',
                 }}
               >
                 {loading ? copy('جارٍ حفظ المسودة...', 'Saving...') : copy('حفظ مسودة التخطيط والمتابعة', 'Save planning draft & continue')}

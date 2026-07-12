@@ -59,12 +59,12 @@ interface PlatformDef {
 const PLATFORMS: PlatformDef[] = [
   {
     id: 'META',
-    name: { ar: 'Meta Ads', en: 'Meta Ads' },
+    name: { ar: 'Meta — Facebook وInstagram', en: 'Meta — Facebook & Instagram' },
     helper: {
-      ar: 'فيسبوك وإنستغرام للنشر العضوي وتجهيز الإعلانات بعد التصاريح.',
-      en: 'Facebook and Instagram for organic publishing and ads after permissions.',
+      ar: 'ربط صفحات Facebook وحسابات Instagram للنشر العضوي بعد مراجعة الصلاحيات.',
+      en: 'Connect Facebook Pages and Instagram accounts for organic publishing after permission review.',
     },
-    scope: { ar: 'نشر عضوي + إعلانات بعد الموافقة', en: 'Organic + ads after approval' },
+    scope: { ar: 'نشر عضوي بعد الموافقة', en: 'Organic publishing after approval' },
     available: true,
     accent: '#2563eb',
     icon: '∞',
@@ -187,7 +187,7 @@ function Panel({
   action?: ReactNode
 }) {
   return (
-    <section className={`rounded-[22px] border border-[#e5eaf5] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)] ${className}`}>
+    <section className={`nx-os-card p-5 ${className}`}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-[15px] font-black text-[#111b3f]">
           {icon ? <span className="text-[#4f46e5]">{icon}</span> : null}
@@ -221,7 +221,7 @@ function StatCard({
   }[tone]
 
   return (
-    <div className="rounded-[20px] border border-[#e6ebf5] bg-white p-4 shadow-[0_16px_42px_rgba(13,24,63,0.035)]">
+    <div className="nx-os-card p-4">
       <div className="mb-4 flex items-center justify-between">
         <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${toneClass}`}>{icon}</span>
         <span className="h-2 w-2 rounded-full bg-emerald-400" />
@@ -258,6 +258,7 @@ export default function ConnectionsPage() {
   const [loadingAccounts, setLoadingAccounts] = useState(true)
   const [connecting, setConnecting] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
+  const [disconnectConfirmId, setDisconnectConfirmId] = useState<string | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const fetchAccounts = useCallback(async () => {
@@ -359,12 +360,14 @@ export default function ConnectionsPage() {
   const handleDisconnect = async (integrationId: string) => {
     setDisconnecting(integrationId)
     try {
-      await fetch('/api/social/accounts', {
+      const response = await fetch('/api/social/accounts', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
         body: JSON.stringify({ integrationId }),
       })
+      if (!response.ok) throw new Error('Disconnect failed')
       setAccounts((prev) => prev.filter((account) => account.id !== integrationId))
+      setDisconnectConfirmId(null)
       setMessage({
         type: 'success',
         text: copy('تم فصل الحساب. لن يستخدمه NEXUS في النشر أو التنفيذ.', 'Account disconnected. NEXUS will not use it for publishing or execution.'),
@@ -409,19 +412,18 @@ export default function ConnectionsPage() {
 
   return (
     <AppShell>
-      <main dir={dir} className="min-h-screen bg-[#f6f8fc] text-[#111b3f]">
-        <div className="mx-auto max-w-[1540px] px-6 py-7 lg:px-8">
+      <main dir={dir} className="nx-os-page">
+        <div className="nx-os-container">
           <LuxuryWorkspaceHeader
             pageTitle={copy('التكاملات', 'Integrations')}
             pageSubtitle={copy('حسابات المنصات والصلاحيات قبل أي نشر أو إنفاق.', 'Platform accounts and permissions before publishing or spend.')}
-            primaryHref="/connections"
+            primaryHref="/connections#available-integrations"
             primaryLabel={copy('استكشف مجلد التكاملات', 'Explore integrations')}
             secondaryHref="/settings"
             secondaryLabel={copy('الإعدادات', 'Settings')}
           />
 
           <StrategySpineCard
-            current="publish"
             nextHref="/publish"
             nextLabel={copy('افتح جاهزية النشر', 'Open publish readiness')}
             title={copy('الربط يفتح القدرة التنفيذية، لكنه لا ينفّذ الاستراتيجية وحده', 'Connections unlock execution capability, but do not execute strategy alone')}
@@ -432,9 +434,9 @@ export default function ConnectionsPage() {
             className="mb-5"
           />
 
-          <header className="mb-7 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">
+          <header className="nx-os-panel mb-5 flex flex-col gap-4 p-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-[#071236] text-white shadow-[0_18px_40px_rgba(13,24,63,0.22)]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[12px] bg-[#071236] text-white shadow-[0_14px_30px_rgba(13,24,63,0.18)]">
                 <Link2 size={27} />
               </div>
               <div>
@@ -516,6 +518,7 @@ export default function ConnectionsPage() {
                 icon={<Plug size={18} />}
                 action={<span className="text-[12px] font-bold text-[#64708f]">{copy('كل إجراء يحتاج موافقة منفصلة', 'Every execution still needs approval')}</span>}
               >
+                <span id="available-integrations" className="sr-only" aria-hidden="true" />
                 <div className="grid gap-4 lg:grid-cols-2">
                   {PLATFORMS.map((platform) => {
                     const connectedAccount = accounts.find((account) => account.platform === platform.id)
@@ -524,7 +527,7 @@ export default function ConnectionsPage() {
                     const isDisconnecting = disconnecting === connectedAccount?.id
 
                     return (
-                      <article key={platform.id} className="rounded-[20px] border border-[#e8edf7] bg-[#fbfcff] p-4">
+                      <article key={platform.id} className="nx-os-card bg-[#fbfcff] p-4">
                         <div className="mb-4 flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3">
                             <span
@@ -582,7 +585,7 @@ export default function ConnectionsPage() {
                                 <RefreshCw className="h-4 w-4" />
                                 {copy('تحديث الربط', 'Refresh')}
                               </ShellButton>
-                              <ShellButton tone="danger" onClick={() => handleDisconnect(connectedAccount.id)} loading={isDisconnecting}>
+                              <ShellButton tone="danger" onClick={() => setDisconnectConfirmId(connectedAccount.id)} loading={isDisconnecting}>
                                 <Unplug className="h-4 w-4" />
                                 {copy('فصل', 'Disconnect')}
                               </ShellButton>
@@ -599,6 +602,24 @@ export default function ConnectionsPage() {
                             </span>
                           )}
                         </div>
+                        {connectedAccount && disconnectConfirmId === connectedAccount.id ? (
+                          <div className="mt-3 rounded-[14px] border border-rose-100 bg-rose-50/70 p-3">
+                            <p className="text-[12px] font-bold leading-5 text-rose-700">
+                              {copy(
+                                'سيوقف الفصل استخدام هذا الحساب في النشر عبر NEXUS. لن يحذف الحساب أو محتواه من المنصة.',
+                                'Disconnecting stops NEXUS from publishing through this account. It does not delete the platform account or its content.',
+                              )}
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <ShellButton onClick={() => setDisconnectConfirmId(null)}>
+                                {copy('إلغاء', 'Cancel')}
+                              </ShellButton>
+                              <ShellButton tone="danger" onClick={() => handleDisconnect(connectedAccount.id)} loading={isDisconnecting}>
+                                {copy('تأكيد الفصل', 'Confirm disconnect')}
+                              </ShellButton>
+                            </div>
+                          </div>
+                        ) : null}
                       </article>
                     )
                   })}
@@ -647,16 +668,16 @@ export default function ConnectionsPage() {
                 </div>
                 <ShellButton className="w-full" onClick={() => handleConnect('META_ADS')} loading={connecting === 'META_ADS'}>
                   <KeyRound className="h-4 w-4" />
-                  {copy('مراجعة Meta Ads', 'Review Meta Ads')}
+                  {copy('ربط صلاحيات Meta Ads', 'Connect Meta Ads permissions')}
                 </ShellButton>
               </Panel>
 
               <Panel title={copy('نظرة عامة على مزامنة البيانات', 'Data sync overview')} icon={<RefreshCw size={18} />}>
                 <div className="space-y-3">
                   {[
-                    [copy('آخر مزامنة ناجحة', 'Last successful sync'), loadingAccounts ? '…' : copy('بعد التحديث', 'After refresh')],
-                    [copy('حالة البيانات', 'Data state'), copy('قراءة فقط حتى التنفيذ', 'Read-only until execution')],
-                    [copy('سجلات اليوم', 'Records today'), copy('لا تغيير تلقائي', 'No automatic change')],
+                    [copy('قراءة حالة الربط', 'Connection status read'), loadingAccounts ? '…' : copy('تم التحقق الآن', 'Checked now')],
+                    [copy('حالة التنفيذ', 'Execution state'), copy('قراءة فقط حتى إجراء صريح', 'Read-only until an explicit action')],
+                    [copy('مزامنة تحليلات المنصة', 'Platform analytics sync'), connectedCount > 0 ? copy('حسب جاهزية كل تكامل', 'Depends on each integration') : copy('لا توجد مزامنة موثقة', 'No verified sync')],
                   ].map(([label, value]) => (
                     <div key={label} className="flex items-center justify-between rounded-[14px] border border-[#e8edf7] bg-[#fbfcff] px-3 py-3">
                       <span className="text-[12px] font-bold text-[#64708f]">{label}</span>
@@ -683,7 +704,7 @@ export default function ConnectionsPage() {
             </aside>
           </div>
 
-          <footer className="mt-6 flex flex-col gap-3 rounded-[22px] border border-[#e5eaf5] bg-white p-4 text-[12px] text-[#65718e] shadow-[0_18px_50px_rgba(13,24,63,0.035)] sm:flex-row sm:items-center sm:justify-between">
+          <footer className="nx-os-card mt-5 flex flex-col gap-3 p-4 text-[12px] text-[#65718e] sm:flex-row sm:items-center sm:justify-between">
             <span>
               {copy(
                 'تحتاج تكاملاً مخصصاً؟ جهزه كطلب تقني منفصل قبل أن يظهر كجاهز في NEXUS.',

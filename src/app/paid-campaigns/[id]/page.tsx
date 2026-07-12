@@ -19,16 +19,22 @@ import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { supabase } from '@/lib/supabaseClient'
+import { evaluatePaidExecutionReadiness } from '@/lib/paidExecutionReadiness'
+import NextImage from 'next/image'
+import { AlertTriangle, CheckCircle2, ExternalLink, Image as ImageIcon, X } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Ad {
   id: string
+  platformAdId?: string
+  platformCreativeId?: string
   name: string
   status: string
   format: string
   primaryText: string
   headline: string
   callToAction: string
+  destinationUrl?: string
   imageUrl?: string
   videoUrl?: string
   impressions: number
@@ -42,6 +48,8 @@ interface Ad {
   variantLabel: string
   isWinner: boolean
   reviewStatus?: string
+  specsValidated?: boolean
+  specsErrors?: string[]
 }
 
 interface AdSet {
@@ -53,6 +61,17 @@ interface AdSet {
   bidStrategy: string
   targeting?: Record<string, unknown>
   ads: Ad[]
+}
+
+interface MediaAsset {
+  id: string
+  fileName: string
+  type: string
+  mimeType: string
+  url: string
+  width?: number | null
+  height?: number | null
+  size: number
 }
 
 interface Campaign {
@@ -79,6 +98,7 @@ interface Campaign {
   aiBudgetPlan?: Record<string, unknown>
   brandBrainSnapshot?: Record<string, unknown>
   utmCampaign?: string
+  trackingUrls?: Record<string, string>
   platformCampaignId?: string
   platformStatus?: string
   adSets: AdSet[]
@@ -89,6 +109,7 @@ interface Campaign {
     currency: string
     status: string
     hasApiAccess: boolean
+    pageId?: string
   }
 }
 
@@ -143,6 +164,15 @@ export default function CampaignDetailPage() {
   const [spendActivationAcknowledged, setSpendActivationAcknowledged] = useState(false)
   const [activationBudgetAcknowledged, setActivationBudgetAcknowledged] = useState(false)
   const [activateLoading, setActivateLoading] = useState(false)
+  const [actionError, setActionError] = useState('')
+  const [showCreativeAttach, setShowCreativeAttach] = useState(false)
+  const [creativeTargetAd, setCreativeTargetAd] = useState<Ad | null>(null)
+  const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([])
+  const [mediaLoading, setMediaLoading] = useState(false)
+  const [selectedMediaId, setSelectedMediaId] = useState('')
+  const [creativeDraftAcknowledged, setCreativeDraftAcknowledged] = useState(false)
+  const [creativeRightsAcknowledged, setCreativeRightsAcknowledged] = useState(false)
+  const [creativeAttachLoading, setCreativeAttachLoading] = useState(false)
 
   const getToken = async () => {
     const { data: session } = await supabase.auth.getSession()
@@ -168,27 +198,110 @@ export default function CampaignDetailPage() {
 
   useEffect(() => { load() }, [load])
 
+  const closeCreativeAttach = (force = false) => {
+    if (creativeAttachLoading && !force) return
+    setShowCreativeAttach(false)
+    setCreativeTargetAd(null)
+    setSelectedMediaId('')
+    setCreativeDraftAcknowledged(false)
+    setCreativeRightsAcknowledged(false)
+  }
+
+  const openCreativeAttach = async (ad: Ad) => {
+    if (ad.platformAdId || ad.platformCreativeId) {
+      setActionError(ar
+        ? 'هذا الإعلان مرتبط بالفعل بمسودة على المنصة. يتطلب تغيير الأصل مسار إصدار جديد، وليس استبدالًا محليًا.'
+        : 'This ad already has a platform draft. Creative changes require a platform revision workflow, not a local overwrite.')
+      return
+    }
+
+    setActionError('')
+    setCreativeTargetAd(ad)
+    setSelectedMediaId('')
+    setCreativeDraftAcknowledged(false)
+    setCreativeRightsAcknowledged(false)
+    setShowCreativeAttach(true)
+    setMediaLoading(true)
+    try {
+      const token = await getToken()
+      const response = await fetch('/api/media?type=IMAGE&limit=50', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'Could not load Media Library images.')
+      const assets = Array.isArray(data.media) ? data.media : []
+      setMediaAssets(assets)
+      const current = assets.find((asset: MediaAsset) => asset.url === ad.imageUrl)
+      if (current) setSelectedMediaId(current.id)
+    } catch (error) {
+      setMediaAssets([])
+      setActionError(error instanceof Error ? error.message : 'Could not load Media Library images.')
+    } finally {
+      setMediaLoading(false)
+    }
+  }
+
+  const handleAttachCreative = async () => {
+    if (!creativeTargetAd || !selectedMediaId || !creativeDraftAcknowledged || !creativeRightsAcknowledged) return
+    setCreativeAttachLoading(true)
+    setActionError('')
+    try {
+      const token = await getToken()
+      const response = await fetch(`/api/ad-campaigns/${id}/ads/${creativeTargetAd.id}/creative`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mediaId: selectedMediaId,
+          explicitCreativeAttachConfirmed: true,
+          reviewedAssetRightsConfirmed: true,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        const detail = Array.isArray(data.errors) && data.errors.length > 0 ? ` ${data.errors.join(' ')}` : ''
+        throw new Error(`${data.error || 'Could not attach creative.'}${detail}`)
+      }
+      await load()
+      closeCreativeAttach(true)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not attach creative.')
+    } finally {
+      setCreativeAttachLoading(false)
+    }
+  }
+
   const handleStatusChange = async (newStatus: string) => {
     if (!campaign) return
     if (newStatus === 'ACTIVE') {
-      alert('NEXUS cannot mark a paid campaign active without platform-side confirmation.')
+      setActionError('NEXUS cannot mark a paid campaign active without platform-side confirmation.')
       return
     }
-    const token = await getToken()
-    await fetch(`/api/ad-campaigns/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ status: newStatus }),
-    })
-    await load()
+    setActionError('')
+    try {
+      const token = await getToken()
+      const response = await fetch(`/api/ad-campaigns/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Status update failed')
+      await load()
+    } catch (statusError) {
+      setActionError(statusError instanceof Error ? statusError.message : 'Status update failed')
+    }
   }
 
   const handlePushToMeta = async () => {
     if (!campaign) return
     if (!platformDraftAcknowledged || !budgetReadinessAcknowledged) {
-      alert('Confirm paused draft creation and budget/readiness review before creating platform drafts.')
+      setActionError('Confirm paused draft creation and execution-readiness review before creating platform drafts.')
       return
     }
+    setActionError('')
     setPushLoading(true)
     try {
       const token = await getToken()
@@ -198,16 +311,20 @@ export default function CampaignDetailPage() {
         body: JSON.stringify({
           explicitPlatformDraftConfirmed: platformDraftAcknowledged === true,
           explicitBudgetConfirmed: budgetReadinessAcknowledged === true,
+          explicitExecutionReadinessConfirmed: budgetReadinessAcknowledged === true,
         }),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error)
+      const blockerText = Array.isArray(result.blockers)
+        ? result.blockers.map((blocker: { message?: string }) => blocker.message).filter(Boolean).join(' ')
+        : ''
+      if (!res.ok || result.success === false) throw new Error(blockerText || result.error || 'Platform draft creation failed')
       setShowPlatformDraftConfirm(false)
       setPlatformDraftAcknowledged(false)
       setBudgetReadinessAcknowledged(false)
       await load()
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Push failed')
+      setActionError(e instanceof Error ? e.message : 'Push failed')
     } finally {
       setPushLoading(false)
       setPlatformDraftAcknowledged(false)
@@ -218,9 +335,10 @@ export default function CampaignDetailPage() {
   const handleActivatePlatform = async () => {
     if (!campaign) return
     if (!platformActivationAcknowledged || !spendActivationAcknowledged || !activationBudgetAcknowledged) {
-      alert('Confirm platform activation, budget, and spend approval before activating paid ads.')
+      setActionError('Confirm platform activation, execution readiness, and spend approval before activating paid ads.')
       return
     }
+    setActionError('')
     setActivateLoading(true)
     try {
       const token = await getToken()
@@ -231,17 +349,21 @@ export default function CampaignDetailPage() {
           explicitPlatformActivationConfirmed: platformActivationAcknowledged === true,
           explicitSpendActivationConfirmed: spendActivationAcknowledged === true,
           explicitBudgetConfirmed: activationBudgetAcknowledged === true,
+          explicitExecutionReadinessConfirmed: activationBudgetAcknowledged === true,
         }),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error)
+      const blockerText = Array.isArray(result.blockers)
+        ? result.blockers.map((blocker: { message?: string }) => blocker.message).filter(Boolean).join(' ')
+        : ''
+      if (!res.ok) throw new Error(blockerText || result.error || 'Activation failed')
       setShowPlatformActivationConfirm(false)
       setPlatformActivationAcknowledged(false)
       setSpendActivationAcknowledged(false)
       setActivationBudgetAcknowledged(false)
       await load()
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Activation failed')
+      setActionError(e instanceof Error ? e.message : 'Activation failed')
     } finally {
       setActivateLoading(false)
       setPlatformActivationAcknowledged(false)
@@ -324,9 +446,30 @@ export default function CampaignDetailPage() {
   const statusStyle = STATUS_STYLES[campaign.status] || STATUS_STYLES.DRAFT
   const platformColor = PLATFORM_COLORS[campaign.platform] || '#8B5CF6'
   const totalAds = campaign.adSets.reduce((acc, s) => acc + s.ads.length, 0)
+  const executionReadiness = evaluatePaidExecutionReadiness({
+    platform: campaign.platform,
+    budgetType: campaign.budgetType,
+    dailyBudget: campaign.dailyBudget,
+    lifetimeBudget: campaign.lifetimeBudget,
+    ads: campaign.adSets.flatMap(adSet => adSet.ads),
+    pageId: campaign.adAccount?.pageId,
+    requireMetaPage: campaign.platform === 'META',
+  })
   const strategy = campaign.aiStrategy
   const hasPausedPlatformDraft = Boolean(campaign.platformCampaignId && campaign.platformStatus === 'PAUSED')
-  const canRequestPlatformActivation = campaign.status === 'PAUSED' && hasPausedPlatformDraft && campaign.adAccount?.hasApiAccess
+  const canCreatePausedPlatformDraft = Boolean(
+    campaign.status === 'DRAFT' &&
+    campaign.adAccount?.hasApiAccess &&
+    executionReadiness.ready
+  )
+  const canRequestPlatformActivation = Boolean(
+    campaign.status === 'PAUSED' &&
+    hasPausedPlatformDraft &&
+    campaign.adAccount?.hasApiAccess &&
+    executionReadiness.ready
+  )
+  const hasPerformanceEvidence = campaign.performanceSnapshots.length > 0
+  const selectedMedia = mediaAssets.find(asset => asset.id === selectedMediaId) || null
   const executionLabel = campaign.status === 'ACTIVE'
     ? 'Paid execution · platform active'
     : hasPausedPlatformDraft
@@ -412,14 +555,18 @@ export default function CampaignDetailPage() {
                   setBudgetReadinessAcknowledged(false)
                   setShowPlatformDraftConfirm(true)
                 }}
-                disabled={pushLoading}
+                disabled={pushLoading || !canCreatePausedPlatformDraft}
                 className="px-3 py-2 rounded-xl text-[12px] font-bold text-white flex items-center gap-1.5"
-                style={{ background: pushLoading ? 'rgba(255,255,255,0.06)' : `linear-gradient(135deg, ${platformColor}, ${platformColor}bb)` }}
+                style={{
+                  background: !pushLoading && canCreatePausedPlatformDraft ? `linear-gradient(135deg, ${platformColor}, ${platformColor}bb)` : '#e2e8f0',
+                  color: !pushLoading && canCreatePausedPlatformDraft ? 'white' : '#64748b',
+                  cursor: !pushLoading && canCreatePausedPlatformDraft ? 'pointer' : 'not-allowed',
+                }}
               >
                 {pushLoading ? (
                   <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : '→'}
-                {pushLoading ? 'Creating paused draft...' : `Create ${campaign.platform} draft`}
+                {pushLoading ? 'Creating paused draft...' : canCreatePausedPlatformDraft ? `Create paused ${campaign.platform} draft` : 'Platform draft blocked'}
               </button>
             )}
             {campaign.status === 'ACTIVE' && (
@@ -463,7 +610,38 @@ export default function CampaignDetailPage() {
           </div>
         </div>
 
+        {(actionError || !executionReadiness.ready || !campaign.adAccount?.hasApiAccess) && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-[12px] text-amber-950">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-bold">Paid execution gate</p>
+                <p className="mt-1 text-amber-800">
+                  {actionError || (
+                    !campaign.adAccount?.hasApiAccess
+                      ? 'Platform API access is not approved. Planning and export remain available; no platform object can be created.'
+                      : 'Complete the following inputs before NEXUS can create or activate a paid platform draft.'
+                  )}
+                </p>
+                {executionReadiness.blockers.length > 0 && (
+                  <ul className="mt-2 grid gap-1 sm:grid-cols-2">
+                    {executionReadiness.blockers.map((blocker, index) => (
+                      <li key={`${blocker.code}-${blocker.adId || index}`} className="flex gap-2">
+                        <span aria-hidden="true">•</span>
+                        <span>{blocker.message}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              {actionError && (
+                <button type="button" onClick={() => setActionError('')} className="font-bold text-amber-900" aria-label="Dismiss error">×</button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── KPI Bar ────────────────────────────────────────────────── */}
+        {hasPerformanceEvidence ? (
         <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
           <div className="col-span-2">
             <KpiCard
@@ -484,6 +662,14 @@ export default function CampaignDetailPage() {
             accent={campaign.avgROAS >= 2 ? '#10B981' : campaign.avgROAS >= 1 ? '#F97316' : '#EF4444'}
           />
         </div>
+        ) : (
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-[13px] font-bold text-slate-950">No reported paid performance yet</p>
+            <p className="mt-1 text-[12px] text-slate-500">
+              Spend, impressions, clicks, conversions, CPC, and ROAS stay hidden until a real platform sync or clearly labeled manual report exists.
+            </p>
+          </div>
+        )}
 
         {/* ── Tabs ───────────────────────────────────────────────────── */}
         <div className="mb-6 flex w-fit flex-wrap gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
@@ -670,6 +856,49 @@ export default function CampaignDetailPage() {
                                 style={{ background: STATUS_STYLES[ad.status]?.bg, color: STATUS_STYLES[ad.status]?.color }}>
                                 {ad.status}
                               </span>
+                            </div>
+
+                            <div className="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                              {ad.imageUrl ? (
+                                <div className="relative aspect-[4/3] bg-slate-100">
+                                  <NextImage
+                                    src={ad.imageUrl}
+                                    alt={ad.headline || ad.name}
+                                    fill
+                                    unoptimized
+                                    className="object-cover"
+                                    sizes="(max-width: 768px) 100vw, 50vw"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="flex aspect-[4/3] flex-col items-center justify-center gap-2 px-4 text-center text-slate-500">
+                                  <ImageIcon className="h-6 w-6" />
+                                  <span className="text-[11px] font-semibold">
+                                    {ar ? 'لا يوجد أصل إعلاني تمت مراجعته' : 'No reviewed ad creative attached'}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="flex items-center justify-between gap-2 border-t border-slate-200 bg-white px-3 py-2">
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-semibold ${ad.specsValidated ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                  {ad.specsValidated ? <CheckCircle2 className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+                                  {ad.specsValidated
+                                    ? (ar ? 'فحص الأصل مكتمل' : 'Asset preflight passed')
+                                    : (ar ? 'يحتاج أصلًا صالحًا' : 'Creative required')}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => openCreativeAttach(ad)}
+                                  disabled={Boolean(ad.platformAdId || ad.platformCreativeId)}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 px-2.5 py-1 text-[10px] font-bold text-indigo-700 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+                                >
+                                  <ImageIcon className="h-3 w-3" />
+                                  {ad.platformAdId || ad.platformCreativeId
+                                    ? (ar ? 'مرتبط بالمنصة' : 'Platform creative linked')
+                                    : ad.imageUrl
+                                      ? (ar ? 'استبدال قبل الإرسال' : 'Replace before push')
+                                      : (ar ? 'إرفاق أصل تمت مراجعته' : 'Attach reviewed asset')}
+                                </button>
+                              </div>
                             </div>
 
                             <p className="text-[13px] font-semibold text-white mb-1">{ad.headline}</p>
@@ -894,7 +1123,9 @@ export default function CampaignDetailPage() {
                   <p className="text-[13px] font-semibold text-white mb-2">📤 Create paused {campaign.platform} platform draft</p>
                   <p className="text-[12px] text-text-muted mb-3">
                     {campaign.adAccount?.hasApiAccess
-                      ? `Connected to "${campaign.adAccount.platformAccountName}" — creates paused platform objects for review only. Confirm budget, tracking, creative, and platform readiness before launch or spend.`
+                      ? executionReadiness.ready
+                        ? `Connected to "${campaign.adAccount.platformAccountName}". The execution brief is complete enough to request paused platform objects for review.`
+                        : 'Platform access exists, but the execution brief is incomplete. Resolve the paid execution gate above before creating any platform object.'
                       : `API access not yet approved. Export as JSON for manual review, or connect your ${campaign.platform} ad account after ads permissions are ready.`}
                   </p>
                   <button
@@ -903,14 +1134,14 @@ export default function CampaignDetailPage() {
                       setBudgetReadinessAcknowledged(false)
                       setShowPlatformDraftConfirm(true)
                     }}
-                    disabled={pushLoading || !campaign.adAccount?.hasApiAccess}
+                    disabled={pushLoading || !canCreatePausedPlatformDraft}
                     className="px-4 py-2 rounded-xl text-[12px] font-bold text-white"
                     style={{
-                      background: campaign.adAccount?.hasApiAccess ? `linear-gradient(135deg, ${platformColor}, ${platformColor}bb)` : 'rgba(255,255,255,0.06)',
-                      cursor: campaign.adAccount?.hasApiAccess ? 'pointer' : 'not-allowed',
+                      background: canCreatePausedPlatformDraft ? `linear-gradient(135deg, ${platformColor}, ${platformColor}bb)` : 'rgba(255,255,255,0.06)',
+                      cursor: canCreatePausedPlatformDraft ? 'pointer' : 'not-allowed',
                       opacity: pushLoading ? 0.6 : 1,
                     }}>
-                    {pushLoading ? 'Creating paused draft...' : `Create paused ${campaign.platform} draft →`}
+                    {pushLoading ? 'Creating paused draft...' : canCreatePausedPlatformDraft ? `Create paused ${campaign.platform} draft →` : 'Platform draft blocked'}
                   </button>
                 </div>
 
@@ -919,7 +1150,7 @@ export default function CampaignDetailPage() {
                   <p className="text-[13px] font-semibold text-white mb-2">🚦 Activate after final approval</p>
                   <p className="text-[12px] text-text-muted mb-3">
                     {canRequestPlatformActivation
-                      ? `A paused ${campaign.platform} platform draft exists. Activate only after the client approves launch, spend, budget, and platform readiness.`
+                      ? `A paused ${campaign.platform} platform draft and a complete execution brief exist. Activation still requires the client’s explicit launch and spend approval.`
                       : 'Activation unlocks only after a paused platform draft exists, API access is approved, and the campaign is still paused in NEXUS and on the platform.'}
                   </p>
                   <button
@@ -936,7 +1167,7 @@ export default function CampaignDetailPage() {
                       cursor: canRequestPlatformActivation && !activateLoading ? 'pointer' : 'not-allowed',
                       opacity: canRequestPlatformActivation && !activateLoading ? 1 : 0.62,
                     }}>
-                    {activateLoading ? 'Activating platform campaign...' : `Activate ${campaign.platform} campaign →`}
+                    {activateLoading ? 'Activating platform campaign...' : canRequestPlatformActivation ? `Review activation decision →` : 'Activation blocked'}
                   </button>
                 </div>
               </div>
@@ -976,7 +1207,8 @@ export default function CampaignDetailPage() {
               </p>
             )}
 
-            {/* Aggregate KPI bar (duplicate of header for in-tab context) */}
+            {/* Aggregate KPI bar is shown only when reported evidence exists. */}
+            {hasPerformanceEvidence && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
                 { label: 'Reported Spend', value: `${campaign.currency} ${(campaign.totalSpend || 0).toFixed(2)}`, accent: '#F97316' },
@@ -991,6 +1223,7 @@ export default function CampaignDetailPage() {
                 </div>
               ))}
             </div>
+            )}
 
             {/* SVG sparkline chart */}
             {campaign.performanceSnapshots.length > 0 && (
@@ -1114,6 +1347,119 @@ export default function CampaignDetailPage() {
                 </div>
               </details>
             )}
+          </div>
+        )}
+
+        {showCreativeAttach && creativeTargetAd && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6" style={{ background: 'rgba(2,6,23,0.68)', backdropFilter: 'blur(6px)' }}>
+            <div className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl" dir={ar ? 'rtl' : 'ltr'}>
+              <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
+                <div>
+                  <div className="mb-1 flex items-center gap-2 text-indigo-600">
+                    <ImageIcon className="h-4 w-4" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider">{ar ? 'أصل إعلاني لمسودة مدفوعة' : 'Paid draft creative asset'}</span>
+                  </div>
+                  <h3 className="text-lg font-black text-slate-950">
+                    {ar ? 'إرفاق صورة تمت مراجعتها' : 'Attach a reviewed image'}
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    {ar
+                      ? 'هذا يربط أصل مكتبة الوسائط بمسودة الإعلان داخل NEXUS فقط. لا ينشئ كائن منصة، ولا يطلق إعلانًا، ولا ينفق ميزانية.'
+                      : 'This links a Media Library asset to the local NEXUS ad draft only. It creates no platform object, launches no ad, and spends no budget.'}
+                  </p>
+                </div>
+                <button type="button" onClick={() => closeCreativeAttach()} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label={ar ? 'إغلاق' : 'Close'}>
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="overflow-y-auto px-5 py-5 sm:px-6">
+                {mediaLoading ? (
+                  <div className="flex min-h-48 items-center justify-center text-sm text-slate-500">
+                    <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
+                    {ar ? 'جارٍ تحميل الأصول...' : 'Loading assets...'}
+                  </div>
+                ) : mediaAssets.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+                    <ImageIcon className="mx-auto h-8 w-8 text-slate-400" />
+                    <p className="mt-3 text-sm font-bold text-slate-900">{ar ? 'لا توجد صور صالحة في مكتبة الوسائط' : 'No image assets are available in Media Library'}</p>
+                    <p className="mt-1 text-xs text-slate-500">{ar ? 'ارفع أو أنشئ الأصل أولًا، ثم عد لاختياره ومراجعته هنا.' : 'Upload or create the asset first, then return to select and review it here.'}</p>
+                    <div className="mt-4 flex flex-wrap justify-center gap-2">
+                      <button type="button" onClick={() => router.push('/media')} className="inline-flex items-center gap-1.5 rounded-xl bg-[#071236] px-4 py-2 text-xs font-bold text-white">
+                        {ar ? 'افتح مكتبة الوسائط' : 'Open Media Library'} <ExternalLink className="h-3 w-3" />
+                      </button>
+                      <button type="button" onClick={() => router.push('/studio')} className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
+                        {ar ? 'افتح استوديو الإبداع' : 'Open Creative Studio'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                      {mediaAssets.map(asset => {
+                        const selected = selectedMediaId === asset.id
+                        return (
+                          <button
+                            type="button"
+                            key={asset.id}
+                            onClick={() => setSelectedMediaId(asset.id)}
+                            className={`overflow-hidden rounded-2xl border bg-white text-start transition-all ${selected ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-300'}`}
+                          >
+                            <div className="relative aspect-square bg-slate-100">
+                              <NextImage src={asset.url} alt={asset.fileName} fill unoptimized className="object-cover" sizes="(max-width: 640px) 50vw, 180px" />
+                              {selected && (
+                                <span className="absolute end-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-white shadow">
+                                  <CheckCircle2 className="h-4 w-4" />
+                                </span>
+                              )}
+                            </div>
+                            <div className="p-2.5">
+                              <p className="truncate text-[11px] font-bold text-slate-900">{asset.fileName}</p>
+                              <p className="mt-0.5 text-[10px] text-slate-500">{asset.width || '?'} × {asset.height || '?'} · {Math.max(0.1, asset.size / 1024 / 1024).toFixed(1)} MB</p>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {selectedMedia && (
+                      <div className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-xs text-indigo-950">
+                        <p className="font-bold">{ar ? 'الأصل المحدد' : 'Selected asset'}: {selectedMedia.fileName}</p>
+                        <p className="mt-1 text-indigo-700">{ar ? 'سيتحقق الخادم من الملكية والنوع والحجم والأبعاد ونسبة العرض قبل الإرفاق.' : 'The server will verify ownership, type, size, dimensions, and aspect ratio before attachment.'}</p>
+                      </div>
+                    )}
+
+                    <div className="mt-5 space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <label className="flex items-start gap-3 text-xs leading-5 text-slate-700">
+                        <input type="checkbox" checked={creativeDraftAcknowledged} onChange={event => setCreativeDraftAcknowledged(event.target.checked)} className="mt-0.5 h-4 w-4" />
+                        <span>{ar ? 'أؤكد أن هذا الإرفاق لمسودة الإعلان داخل NEXUS فقط، ولا يعني إنشاء منصة أو إطلاقًا أو إنفاقًا.' : 'I confirm this attachment is for the local NEXUS ad draft only and does not create a platform object, launch, or spend.'}</span>
+                      </label>
+                      <label className="flex items-start gap-3 text-xs leading-5 text-slate-700">
+                        <input type="checkbox" checked={creativeRightsAcknowledged} onChange={event => setCreativeRightsAcknowledged(event.target.checked)} className="mt-0.5 h-4 w-4" />
+                        <span>{ar ? 'أؤكد أن الأصل تمت مراجعته للاستخدام الإعلاني وأن مساحة العمل تملك حق استخدامه.' : 'I confirm the asset was reviewed for paid use and this workspace has the right to use it.'}</span>
+                      </label>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
+                <p className="text-[11px] text-slate-500">{ar ? 'التكلفة: 0 رصيد · لا يوجد اتصال بمنصة' : 'Cost: 0 credits · no platform call'}</p>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => closeCreativeAttach()} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">
+                    {ar ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAttachCreative}
+                    disabled={!selectedMediaId || !creativeDraftAcknowledged || !creativeRightsAcknowledged || creativeAttachLoading}
+                    className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  >
+                    {creativeAttachLoading ? (ar ? 'جارٍ التحقق والإرفاق...' : 'Validating and attaching...') : (ar ? 'إرفاق الأصل بالمسودة' : 'Attach asset to draft')}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

@@ -6,6 +6,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
+import {
+  buildTrackedPaidDestinationUrl,
+  normalizePaidDestinationUrl,
+} from '@/lib/paidExecutionReadiness'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -70,12 +74,34 @@ export async function POST(req: NextRequest) {
       endDate,
       utmCampaign,
       utmMedium,
+      destinationUrl,
       isAbTest = false,
     } = body
 
     if (!name || !platform) {
       return NextResponse.json({ error: 'name and platform are required' }, { status: 400 })
     }
+
+    const baseDestinationUrl = normalizePaidDestinationUrl(destinationUrl)
+    if (!baseDestinationUrl) {
+      return NextResponse.json({
+        error: 'A public HTTPS conversion destination is required. Placeholder, local, and non-HTTPS URLs are not allowed.',
+        code: 'INVALID_PAID_DESTINATION',
+      }, { status: 400 })
+    }
+
+    const campaignSlug = typeof utmCampaign === 'string' && utmCampaign.trim()
+      ? utmCampaign.trim()
+      : name
+    const trackedDestinationUrl = buildTrackedPaidDestinationUrl({
+      destinationUrl: baseDestinationUrl,
+      platform,
+      campaignSlug,
+    })
+    if (!trackedDestinationUrl) {
+      return NextResponse.json({ error: 'Could not create a tracked conversion destination.' }, { status: 400 })
+    }
+    const trackedUrl = new URL(trackedDestinationUrl)
 
     // Validate ad account belongs to this workspace if provided
     if (adAccountId) {
@@ -102,8 +128,13 @@ export async function POST(req: NextRequest) {
         currency,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
-        utmCampaign: utmCampaign || name.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40),
-        utmMedium: utmMedium || 'paid_social',
+        utmSource: trackedUrl.searchParams.get('utm_source'),
+        utmCampaign: trackedUrl.searchParams.get('utm_campaign'),
+        utmMedium: utmMedium || trackedUrl.searchParams.get('utm_medium') || 'paid_social',
+        trackingUrls: {
+          baseDestinationUrl,
+          [String(platform).toLowerCase()]: trackedDestinationUrl,
+        },
         isAbTest,
       },
       include: {
