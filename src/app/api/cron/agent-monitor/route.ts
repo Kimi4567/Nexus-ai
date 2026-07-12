@@ -1,9 +1,10 @@
 /**
  * GET /api/cron/agent-monitor
  *
- * Low-cost continuous execution monitor. Vercel invokes this hourly, while a
- * deterministic 24-way workspace shard means each workspace is evaluated once
- * per UTC day. The dashboard Execution Queue remains real-time on page load.
+ * Low-cost continuous execution monitor. Vercel invokes this hourly. Workspaces
+ * with recent campaign activity, scheduled/failed posts, or published posts
+ * waiting for analytics are evaluated every run; quiet workspaces remain on a
+ * deterministic once-daily shard. The dashboard queue is still real-time.
  *
  * This route never calls an AI model, publishes content, changes budgets, or
  * invents performance metrics. It only creates approval suggestions backed by
@@ -44,12 +45,30 @@ async function workspacesForRun(req: NextRequest, now: Date): Promise<{
   const rows = await prisma.$queryRawUnsafe<WorkspaceRow[]>(
     `SELECT w."id"
        FROM "Workspace" w
-      WHERE mod(abs(hashtext(w."id")::bigint), 24) = $1
-        AND EXISTS (
+      WHERE EXISTS (
           SELECT 1
             FROM "Campaign" c
            WHERE c."workspaceId" = w."id"
              AND c."status" <> 'ARCHIVED'
+        )
+        AND (
+          mod(abs(hashtext(w."id")::bigint), 24) = $1
+          OR EXISTS (
+            SELECT 1
+              FROM "Campaign" recent_campaign
+             WHERE recent_campaign."workspaceId" = w."id"
+               AND recent_campaign."status" <> 'ARCHIVED'
+               AND recent_campaign."updatedAt" >= NOW() - INTERVAL '48 hours'
+          )
+          OR EXISTS (
+            SELECT 1
+              FROM "SocialPost" active_post
+             WHERE active_post."workspaceId" = w."id"
+               AND (
+                 active_post."status" IN ('FAILED', 'SCHEDULED')
+                 OR (active_post."status" = 'PUBLISHED' AND active_post."analyticsFetched" = false)
+               )
+          )
         )
       ORDER BY w."id"
       LIMIT $2`,

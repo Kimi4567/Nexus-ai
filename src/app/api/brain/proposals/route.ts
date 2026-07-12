@@ -54,7 +54,9 @@ export async function GET(req: NextRequest) {
     let proposals: unknown[] = []
     let total = 0
     try {
-      const where = { workspaceId: workspace.id, status }
+      const where = status.toLowerCase() === 'all'
+        ? { workspaceId: workspace.id }
+        : { workspaceId: workspace.id, status }
       ;[proposals, total] = await Promise.all([
         db.brainLearning.findMany({
           where,
@@ -97,11 +99,11 @@ export async function PATCH(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { proposalId, action } = await req.json() as {
-      proposalId: string
-      action: 'accept' | 'dismiss'
+      proposalId?: string
+      action: 'accept' | 'dismiss' | 'dismiss_blocked'
     }
 
-    if (!proposalId || !['accept', 'dismiss'].includes(action)) {
+    if (!['accept', 'dismiss', 'dismiss_blocked'].includes(action) || (action !== 'dismiss_blocked' && !proposalId)) {
       return NextResponse.json({ error: 'Missing proposalId or action' }, { status: 400 })
     }
 
@@ -111,11 +113,39 @@ export async function PATCH(req: NextRequest) {
     })
     if (!workspace) return NextResponse.json({ error: 'No workspace' }, { status: 404 })
 
+    if (action === 'dismiss_blocked') {
+      const pending = await db.brainLearning.findMany({
+        where: { workspaceId: workspace.id, status: 'pending' },
+        select: { id: true, trigger: true, reason: true, campaignId: true },
+        take: 250,
+      }) as Array<{ id: string; trigger: string; reason: string; campaignId: string | null }>
+      const blocked = pending.filter(item => !inspectBrainSignalProvenance(item).canAccept)
+      if (blocked.length === 0) return NextResponse.json({ success: true, action: 'dismissed_blocked', count: 0 })
+
+      await prisma.$transaction(async (tx) => {
+        await (tx as any).brainLearning.updateMany({
+          where: { id: { in: blocked.map(item => item.id) }, workspaceId: workspace.id, status: 'pending' },
+          data: { status: 'dismissed' },
+        })
+        await tx.marketingLearningEvent.createMany({
+          data: blocked.map(item => ({
+            workspaceId: workspace.id,
+            campaignId: item.campaignId,
+            eventType: 'BRAND_LEARNING_DISMISSED',
+            source: 'BRAIN_PROPOSAL',
+            actor: 'USER',
+            metadata: { proposalId: item.id, reason: 'SOURCE_REQUIRED' },
+          })),
+        })
+      })
+      return NextResponse.json({ success: true, action: 'dismissed_blocked', count: blocked.length })
+    }
+
     // Load the proposal
     let proposal: Record<string, unknown> | null = null
     try {
       proposal = await db.brainLearning.findFirst({
-        where: { id: proposalId, workspaceId: workspace.id, status: 'pending' },
+        where: { id: proposalId!, workspaceId: workspace.id, status: 'pending' },
       })
     } catch {
       return NextResponse.json({ error: 'BrainLearning table not ready — run prisma db push' }, { status: 503 })
@@ -124,9 +154,21 @@ export async function PATCH(req: NextRequest) {
     if (!proposal) return NextResponse.json({ error: 'Proposal not found or already actioned' }, { status: 404 })
 
     if (action === 'dismiss') {
-      await db.brainLearning.update({
-        where: { id: proposalId },
-        data: { status: 'dismissed' },
+      await prisma.$transaction(async (tx) => {
+        await (tx as any).brainLearning.update({
+          where: { id: proposalId! },
+          data: { status: 'dismissed' },
+        })
+        await tx.marketingLearningEvent.create({
+          data: {
+            workspaceId: workspace.id,
+            campaignId: typeof proposal.campaignId === 'string' ? proposal.campaignId : null,
+            eventType: 'BRAND_LEARNING_DISMISSED',
+            source: 'BRAIN_PROPOSAL',
+            actor: 'USER',
+            metadata: { proposalId: proposalId! },
+          },
+        })
       })
       return NextResponse.json({ success: true, action: 'dismissed' })
     }
@@ -196,7 +238,7 @@ export async function PATCH(req: NextRequest) {
       }
 
       await txDb.brainLearning.update({
-        where: { id: proposalId },
+          where: { id: proposalId! },
         data: { status: 'accepted' },
       })
 
@@ -208,7 +250,7 @@ export async function PATCH(req: NextRequest) {
           source: 'BRAIN_PROPOSAL',
           actor: 'USER',
           metadata: {
-            proposalId,
+            proposalId: proposalId!,
             trigger: typeof proposal.trigger === 'string' ? proposal.trigger : 'unknown',
             changedFields: [field],
           },

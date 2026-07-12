@@ -22,25 +22,30 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status') || 'PENDING'
-    const limit = Number(searchParams.get('limit') || '20')
+    const requestedLimit = Number(searchParams.get('limit') || '20')
+    const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(100, requestedLimit)) : 20
+    const statusFilter = status.toLowerCase() === 'all' ? {} : { status }
 
-    const suggestions = await (prisma as any).agentSuggestion.findMany({
-      where: {
-        workspaceId: workspace.id,
-        status,
-        OR: [
-          { expiresAt: null },
-          { expiresAt: { gt: new Date() } },
+    const where = {
+      workspaceId: workspace.id,
+      ...statusFilter,
+      ...(status.toLowerCase() === 'all'
+        ? {}
+        : { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }),
+    }
+    const [suggestions, total] = await Promise.all([
+      (prisma as any).agentSuggestion.findMany({
+        where,
+        orderBy: [
+          { priority: 'asc' },
+          { createdAt: 'desc' },
         ],
-      },
-      orderBy: [
-        { priority: 'asc' },
-        { createdAt: 'desc' },
-      ],
-      take: limit,
-    })
+        take: limit,
+      }),
+      (prisma as any).agentSuggestion.count({ where }),
+    ])
 
-    return NextResponse.json({ suggestions })
+    return NextResponse.json({ suggestions, total })
   } catch (err: any) {
     console.error('[api/agents/suggestions]', err)
     return NextResponse.json({ error: err?.message }, { status: 500 })

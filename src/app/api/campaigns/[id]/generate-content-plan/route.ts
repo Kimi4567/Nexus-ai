@@ -51,13 +51,6 @@ type Params = { params: Promise<{ id: string }> }
 
 // ── Platform distribution helpers ─────────────────────────────────────────────
 
-const PLATFORM_LABELS: Record<string, string> = {
-  META:      'Facebook / Instagram',
-  LINKEDIN:  'LinkedIn',
-  TIKTOK:    'TikTok',
-  YOUTUBE:   'YouTube',
-}
-
 /**
  * Map any user-facing platform string to a valid IntegrationType enum value.
  * The Prisma enum only knows: META | LINKEDIN | TIKTOK | YOUTUBE | GOOGLE | STRIPE | CLOUDINARY | SLACK
@@ -343,6 +336,26 @@ export async function POST(req: NextRequest, props: Params) {
     const pillarText = contentPillars.length
       ? contentPillars.slice(0, 5).join(', ')
       : 'brand awareness, engagement, conversion'
+    const operatingStrategyContext = JSON.stringify({
+      diagnosis: strategyForContent.diagnosis ?? null,
+      differentiation: strategyForContent.differentiation ?? null,
+      audienceSegments: Array.isArray(strategyForContent.audienceSegmentsDetailed)
+        ? strategyForContent.audienceSegmentsDetailed.slice(0, 4)
+        : [],
+      contentAngles: Array.isArray(strategyForContent.contentAnglesDetailed)
+        ? strategyForContent.contentAnglesDetailed.slice(0, 8)
+        : [],
+      funnelStages: Array.isArray(strategyForContent.funnelStages)
+        ? strategyForContent.funnelStages.slice(0, 5)
+        : [],
+      offerCTA: strategyForContent.offerCTAStrategy ?? null,
+      weeklyExecutionPlan: Array.isArray(strategyForContent.weeklyExecutionPlan)
+        ? strategyForContent.weeklyExecutionPlan.slice(0, 6)
+        : [],
+      risks: Array.isArray(strategyForContent.riskNotes)
+        ? strategyForContent.riskNotes.slice(0, 8)
+        : [],
+    }, null, 2).slice(0, 12_000)
 
     // Build language instruction — use the smart helper (bilingual = per-platform smart assignment, never mixed)
     const languageInstruction = getLanguageInstruction(bodyLanguage || undefined)
@@ -369,6 +382,8 @@ Target audience: ${targetAudience}
 Content pillars: ${pillarText}
 Tone: ${tone}
 Offer/CTA: ${offer}
+Agency-grade operating strategy context:
+${operatingStrategyContext}
 ${mediaContext}
 ${languageInstruction}
 ${proofPolicy}
@@ -394,6 +409,13 @@ Generate platform-native social media posts. Each post must:
 - Have a clear hook in the first sentence
 - Include a call to action
 - Follow the language rule above strictly
+- Advance one coherent campaign narrative instead of behaving like unrelated tips: establish the problem, explain the mechanism, handle objections/proof gaps, then invite the next conversion step.
+- Use a meaningfully different hook structure, audience pain, message angle, and CTA from every other post. Rephrasing the same advice does not count as a new post.
+- Ground the post in one detailed audience segment, content angle, or funnel stage from the operating strategy context when available.
+- Match the CTA to the funnel handoff. If the strategy says the team must reply, qualify, book, or send an offer, make that next step clear without inventing a destination.
+- Adapt the idea to the platform rather than copying one caption across channels. LinkedIn should lead with operational insight; Instagram should lead with a visual/saveable idea; short-form video should lead with a scene and retention hook.
+- Mention the brand only when it strengthens the message or CTA. Do not repeat the brand name mechanically in every post.
+- Treat missing proof, competitor data, tracking, or conversion details as a content/review gap. Never convert a gap into a factual claim.
 
 Return a JSON array of exactly ${slots.length} post objects:
 [

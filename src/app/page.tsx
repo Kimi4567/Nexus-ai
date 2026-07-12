@@ -23,6 +23,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { useTranslation } from '@/i18n'
+import { PUBLIC_PAID_PLANS } from '@/lib/commercialPlans'
 
 const blue = '#0071e3'
 
@@ -217,7 +218,7 @@ function WorkflowStep({ index, icon: Icon, title, body }: { index: string; icon:
   )
 }
 
-function PriceCard({ name, price, credits, posts, featured, cta, ar }: { name: string; price: string; credits: string; posts: string; featured?: boolean; cta: string; ar: boolean }) {
+function PriceCard({ name, price, credits, posts, workspaces, featured, cta, href, ar }: { name: string; price: string; credits: string; posts: string; workspaces: string; featured?: boolean; cta: string; href: string; ar: boolean }) {
   return (
     <div className={`rounded-lg border p-6 ${featured ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-950'}`}>
       <p className={`text-[15px] font-semibold ${featured ? 'text-white' : 'text-slate-950'}`}>{name}</p>
@@ -228,9 +229,10 @@ function PriceCard({ name, price, credits, posts, featured, cta, ar }: { name: s
       <div className={`mt-5 space-y-3 text-[15px] ${featured ? 'text-slate-200' : 'text-slate-600'}`}>
         <p className="flex items-center gap-2"><Check className="h-4 w-4" /> {credits}</p>
         <p className="flex items-center gap-2"><Check className="h-4 w-4" /> {posts}</p>
+        <p className="flex items-center gap-2"><Check className="h-4 w-4" /> {workspaces}</p>
         <p className="flex items-center gap-2"><Check className="h-4 w-4" /> {ar ? 'سجل كريدت واضح' : 'Clear credit history'}</p>
       </div>
-      <Link href="/billing" className={`mt-6 block rounded-lg px-4 py-2.5 text-center text-[14px] font-semibold ${featured ? 'bg-white text-slate-950' : 'bg-slate-950 text-white'}`}>
+      <Link href={href} className={`mt-6 block rounded-lg px-4 py-2.5 text-center text-[14px] font-semibold ${featured ? 'bg-white text-slate-950' : 'bg-slate-950 text-white'}`}>
         {cta}
       </Link>
     </div>
@@ -258,7 +260,7 @@ export default function LandingPage() {
   const copy = {
     navCta: ar ? 'ابدأ' : 'Get started',
     heroEyebrow: ar ? 'نظام تشغيل للتسويق بالذكاء الاصطناعي' : 'AI marketing operating system',
-    heroTitle: ar ? 'ابن حملة كاملة من الفكرة إلى النشر.' : 'Build a complete campaign from idea to publish.',
+    heroTitle: ar ? 'حوّل موجز البراند إلى حملة جاهزة للمراجعة والتنفيذ.' : 'Turn your brand brief into a review-ready campaign.',
     heroBody: ar
       ? 'Nexus يجمع الاستراتيجية، Brand Brain، المحتوى، الصور، الجدولة، والتحليل في تجربة واحدة واضحة تشبه منتجات Apple: بسيطة، مرتبة، ومباشرة.'
       : 'Nexus brings strategy, Brand Brain, content, visuals, scheduling, and analytics into one calm, structured workspace inspired by Apple-like product thinking.',
@@ -388,14 +390,31 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl">
           <SectionTitle
             eyebrow={ar ? 'الأسعار' : 'Pricing'}
-            title={ar ? 'خطط واضحة وكريدت مفهوم.' : 'Clear plans. Understandable credits.'}
-            body={ar ? 'التسعير مبني على استخدام فعلي: استراتيجية، محتوى، صور، وتحليل. بدون مفاجآت.' : 'Pricing maps to real work: strategy, content, visuals, and analysis. No mystery meter.'}
+            title={ar ? 'باقتان فقط. وكريدت مفهوم.' : 'Two plans. Understandable credits.'}
+            body={ar ? 'ابدأ بـ10 أرصدة تجريبية بدون بطاقة، ثم اختر Growth أو Autopilot. التجربة ليست باقة ثالثة.' : 'Start with 10 trial credits without a card, then choose Growth or Autopilot. The trial is not a third plan.'}
           />
-          <div className="grid gap-4 md:grid-cols-4">
-            <PriceCard ar={ar} name="Free" price="$0" credits={ar ? '10 كريدت مرة واحدة' : '10 one-time credits'} posts={ar ? '3 منشورات للتجربة' : '3 trial posts'} cta={ar ? 'ابدأ' : 'Start'} />
-            <PriceCard ar={ar} name="Starter" price="$19" credits={ar ? '50 كريدت شهريا' : '50 credits monthly'} posts={ar ? '10 منشورات شهريا' : '10 posts monthly'} cta={ar ? 'اختيار Starter' : 'Choose Starter'} />
-            <PriceCard ar={ar} name="Growth" price="$49" credits={ar ? '150 كريدت شهريا' : '150 credits monthly'} posts={ar ? '25 منشور شهريا' : '25 posts monthly'} featured cta={ar ? 'اختيار Growth' : 'Choose Growth'} />
-            <PriceCard ar={ar} name="Agency" price="$99" credits={ar ? '500 كريدت شهريا' : '500 credits monthly'} posts={ar ? '60 منشور شهريا' : '60 posts monthly'} cta={ar ? 'اختيار Agency' : 'Choose Agency'} />
+          <div className="mx-auto grid max-w-4xl gap-4 md:grid-cols-2">
+            <PriceCard
+              ar={ar}
+              name="Growth"
+              price={`$${PUBLIC_PAID_PLANS[0].priceUsd}`}
+              credits={ar ? `${PUBLIC_PAID_PLANS[0].monthlyCredits} كريدت شهرياً` : `${PUBLIC_PAID_PLANS[0].monthlyCredits} credits monthly`}
+              posts={ar ? `${PUBLIC_PAID_PLANS[0].postsPerMonth} منشوراً مخططاً شهرياً` : `${PUBLIC_PAID_PLANS[0].postsPerMonth} planned posts monthly`}
+              workspaces={ar ? `${PUBLIC_PAID_PLANS[0].workspaces} مساحات عمل` : `${PUBLIC_PAID_PLANS[0].workspaces} workspaces`}
+              featured
+              cta={ar ? 'ابدأ Growth' : 'Start Growth'}
+              href="/auth/register?plan=growth"
+            />
+            <PriceCard
+              ar={ar}
+              name="Autopilot"
+              price={`$${PUBLIC_PAID_PLANS[1].priceUsd}`}
+              credits={ar ? `${PUBLIC_PAID_PLANS[1].monthlyCredits} كريدت شهرياً` : `${PUBLIC_PAID_PLANS[1].monthlyCredits} credits monthly`}
+              posts={ar ? `${PUBLIC_PAID_PLANS[1].postsPerMonth} منشوراً مخططاً شهرياً` : `${PUBLIC_PAID_PLANS[1].postsPerMonth} planned posts monthly`}
+              workspaces={ar ? `${PUBLIC_PAID_PLANS[1].workspaces} مساحات عمل` : `${PUBLIC_PAID_PLANS[1].workspaces} workspaces`}
+              cta={ar ? 'ابدأ Autopilot' : 'Start Autopilot'}
+              href="/auth/register?plan=autopilot"
+            />
           </div>
         </div>
       </section>
@@ -409,7 +428,7 @@ export default function LandingPage() {
           />
           <FAQItem
             q={ar ? 'هل الكريدت واضح؟' : 'Are credits clear?'}
-            a={ar ? 'نعم. كل إجراء له تكلفة ثابتة وسجل معاملات يوضح الخصم والإضافة.' : 'Yes. Each action has a fixed cost and a transaction history shows every deduction and grant.'}
+            a={ar ? 'نعم. تظهر تكلفة كل إجراء قبل التأكيد، وتختلف الاستراتيجية حسب النطاق، ويعرض سجل المعاملات كل خصم وإضافة.' : 'Yes. Every action shows its cost before confirmation, strategy cost varies by scope, and the ledger shows every deduction and grant.'}
           />
           <FAQItem
             q={ar ? 'لماذا التصميم بسيط؟' : 'Why is the design so simple?'}

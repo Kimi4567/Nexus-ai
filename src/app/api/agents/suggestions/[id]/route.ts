@@ -35,9 +35,21 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
     const now = new Date()
 
     if (action === 'reject') {
-      await (prisma as any).agentSuggestion.update({
-        where: { id: params.id },
-        data: { status: 'REJECTED', rejectedAt: now },
+      await prisma.$transaction(async (tx) => {
+        await (tx as any).agentSuggestion.update({
+          where: { id: params.id },
+          data: { status: 'REJECTED', rejectedAt: now },
+        })
+        await tx.marketingLearningEvent.create({
+          data: {
+            workspaceId: workspace.id,
+            campaignId: suggestion.campaignId,
+            eventType: 'AGENT_SUGGESTION_REJECTED',
+            source: 'APPROVAL_CENTER',
+            actor: 'USER',
+            metadata: { suggestionId: suggestion.id, suggestionType: suggestion.type },
+          },
+        })
       })
       return NextResponse.json({ ok: true, status: 'REJECTED' })
     }
@@ -48,20 +60,44 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
 
     // Execution Monitor suggestions authorize navigation to a guarded workflow,
     // never a background mutation. The target route performs the real approval.
-    if (suggestionPayload.source === 'execution-monitor') {
-      const nextHref = typeof suggestionPayload.href === 'string' ? suggestionPayload.href : undefined
-      await (prisma as any).agentSuggestion.update({
-        where: { id: params.id },
-        data: {
-          status: 'APPROVED',
-          approvedAt: now,
-          executionResult: {
-            executed: false,
-            autoExecution: false,
-            nextHref,
-            reason: 'GUIDED_WORKFLOW_REQUIRED',
+    const suggestionSource = typeof suggestionPayload.source === 'string' ? suggestionPayload.source : ''
+    const guidedResearchReview = suggestionSource.endsWith('research-monitor')
+    if (suggestionSource === 'execution-monitor' || guidedResearchReview) {
+      const nextHref = typeof suggestionPayload.href === 'string'
+        ? suggestionPayload.href
+        : guidedResearchReview
+          ? '/strategy'
+          : undefined
+      await prisma.$transaction(async (tx) => {
+        await (tx as any).agentSuggestion.update({
+          where: { id: params.id },
+          data: {
+            status: 'APPROVED',
+            approvedAt: now,
+            executionResult: {
+              executed: false,
+              autoExecution: false,
+              nextHref,
+              reason: guidedResearchReview ? 'RESEARCH_REVIEW_REQUIRED' : 'GUIDED_WORKFLOW_REQUIRED',
+            },
           },
-        },
+        })
+        await tx.marketingLearningEvent.create({
+          data: {
+            workspaceId: workspace.id,
+            campaignId: suggestion.campaignId,
+            eventType: 'AGENT_SUGGESTION_APPROVED',
+            source: 'APPROVAL_CENTER',
+            actor: 'USER',
+            metadata: {
+              suggestionId: suggestion.id,
+              suggestionType: suggestion.type,
+              suggestionSource,
+              executed: false,
+              nextHref,
+            },
+          },
+        })
       })
       return NextResponse.json({
         ok: true,
@@ -139,14 +175,30 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'SUGGESTION_EXECUTION_FAILED' }, { status: 500 })
     }
 
-    await (prisma as any).agentSuggestion.update({
-      where: { id: params.id },
-      data: {
-        status: 'EXECUTED',
-        approvedAt: now,
-        executedAt: now,
-        executionResult,
-      },
+    await prisma.$transaction(async (tx) => {
+      await (tx as any).agentSuggestion.update({
+        where: { id: params.id },
+        data: {
+          status: 'EXECUTED',
+          approvedAt: now,
+          executedAt: now,
+          executionResult,
+        },
+      })
+      await tx.marketingLearningEvent.create({
+        data: {
+          workspaceId: workspace.id,
+          campaignId: suggestion.campaignId,
+          eventType: 'AGENT_SUGGESTION_EXECUTED',
+          source: 'APPROVAL_CENTER',
+          actor: 'USER',
+          metadata: {
+            suggestionId: suggestion.id,
+            suggestionType: suggestion.type,
+            executionResult,
+          },
+        },
+      })
     })
 
     return NextResponse.json({ ok: true, status: 'EXECUTED', result: executionResult })

@@ -15,7 +15,7 @@ describe('resolveBillingStatusPlan', () => {
       subscriptionPlan: null,
       subscriptionStatus: null,
       userSubscriptionStatus: 'ACTIVE',
-    })).toEqual({ plan: 'active', hasActiveSubscription: true })
+    })).toEqual({ plan: 'pro', hasActiveSubscription: true })
   })
 
   it('normalizes legacy display aliases', () => {

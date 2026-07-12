@@ -6,7 +6,11 @@ const mocks = vi.hoisted(() => ({
   workspaceFindFirst: vi.fn(),
   integrationFindFirst: vi.fn(),
   campaignFindFirst: vi.fn(),
+  socialPostFindFirst: vi.fn(),
   socialPostCreate: vi.fn(),
+  socialPostUpdate: vi.fn(),
+  postStatusHistoryCreate: vi.fn(),
+  learningEventCreate: vi.fn(),
   decrypt: vi.fn(),
   publish: vi.fn(),
 }))
@@ -19,7 +23,12 @@ vi.mock('@/lib/prisma', () => ({
     workspace: { findFirst: mocks.workspaceFindFirst },
     integration: { findFirst: mocks.integrationFindFirst },
     campaign: { findFirst: mocks.campaignFindFirst },
-    socialPost: { create: mocks.socialPostCreate },
+    socialPost: { findFirst: mocks.socialPostFindFirst, create: mocks.socialPostCreate },
+    $transaction: (callback: (tx: unknown) => unknown) => callback({
+      socialPost: { update: mocks.socialPostUpdate },
+      postStatusHistory: { create: mocks.postStatusHistoryCreate },
+      marketingLearningEvent: { create: mocks.learningEventCreate },
+    }),
   },
 }))
 
@@ -59,6 +68,7 @@ beforeEach(() => {
   mocks.decrypt.mockReturnValue('plain-token')
   mocks.publish.mockResolvedValue({ platformPostId: 'page_post_1', platformUrl: 'https://facebook.com/page_post_1' })
   mocks.socialPostCreate.mockResolvedValue({ id: 'post-1', status: 'PUBLISHED' })
+  mocks.socialPostUpdate.mockResolvedValue({ id: 'approved-post-1', status: 'PUBLISHED' })
 })
 
 describe('POST /api/social/publish', () => {
@@ -128,6 +138,45 @@ describe('POST /api/social/publish', () => {
     expect(body).toMatchObject({
       reconciliationRequired: true,
       platformPostId: 'page_post_1',
+    })
+  })
+
+  it('publishes the saved approved Content Hub post without creating a duplicate row', async () => {
+    mocks.socialPostFindFirst.mockResolvedValue({
+      id: 'approved-post-1',
+      campaignId: 'campaign-1',
+      platform: 'META',
+      status: 'APPROVED',
+      caption: 'Saved approved caption',
+      imageUrl: 'https://cdn.example.com/approved.jpg',
+      approvedAt: new Date('2026-07-12T10:00:00.000Z'),
+    })
+
+    const response = await POST(request({
+      ...validBody,
+      socialPostId: 'approved-post-1',
+      caption: 'Browser-tampered caption',
+    }))
+
+    expect(response.status).toBe(200)
+    expect(mocks.publish).toHaveBeenCalledWith(expect.objectContaining({
+      caption: 'Saved approved caption',
+      imageUrl: 'https://cdn.example.com/approved.jpg',
+    }))
+    expect(mocks.socialPostCreate).not.toHaveBeenCalled()
+    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
+      where: { id: 'approved-post-1' },
+      data: expect.objectContaining({
+        status: 'PUBLISHED',
+        platformPostId: 'page_post_1',
+      }),
+    })
+    expect(mocks.learningEventCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        eventType: 'POST_API_PUBLISHED',
+        source: 'CONTENT_HUB',
+        actor: 'USER',
+      }),
     })
   })
 })

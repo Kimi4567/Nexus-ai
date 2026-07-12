@@ -1,28 +1,26 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ArrowUpRight,
-  Bell,
+  AlertTriangle,
   CheckCircle2,
   Clock3,
   Database,
   GitBranch,
   LockKeyhole,
-  PlugZap,
-  ShieldCheck,
   Sparkles,
   Workflow,
-  Zap,
 } from 'lucide-react'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
+import type { WorkspaceExecutionTruth } from '@/lib/executionTruth'
 
 type ConnectionState = 'loading' | 'ready' | 'error'
 
@@ -71,29 +69,6 @@ function ReadinessCard({
   )
 }
 
-function FlowStep({
-  icon,
-  title,
-  helper,
-  status,
-}: {
-  icon: ReactNode
-  title: string
-  helper: string
-  status: string
-}) {
-  return (
-    <div className="nx-os-card bg-[#fbfcff] p-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <span className="grid h-10 w-10 place-items-center rounded-[15px] bg-white text-[#5366f6] shadow-sm">{icon}</span>
-        <span className="rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700">{status}</span>
-      </div>
-      <h3 className="text-[14px] font-black text-[#111b3f]">{title}</h3>
-      <p className="mt-2 text-[12px] font-semibold leading-5 text-[#7b87a3]">{helper}</p>
-    </div>
-  )
-}
-
 export default function AutomationPage() {
   const { isAuthenticated, loading, authHeader } = useAuth()
   const { locale, dir } = useI18n()
@@ -102,6 +77,7 @@ export default function AutomationPage() {
   const [connectionState, setConnectionState] = useState<ConnectionState>('loading')
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([])
   const [adAccounts, setAdAccounts] = useState<AdAccount[]>([])
+  const [executionTruth, setExecutionTruth] = useState<WorkspaceExecutionTruth | null>(null)
 
   useEffect(() => {
     if (!loading && !isAuthenticated) router.push('/auth/login')
@@ -116,9 +92,10 @@ export default function AutomationPage() {
     async function loadConnections() {
       setConnectionState('loading')
       try {
-        const [socialRes, adRes] = await Promise.allSettled([
+        const [socialRes, adRes, executionRes] = await Promise.allSettled([
           fetch('/api/social/accounts', { headers: { Authorization: token } }),
           fetch('/api/ad-accounts', { headers: { Authorization: token } }),
+          fetch('/api/execution/queue', { headers: { Authorization: token } }),
         ])
 
         if (cancelled) return
@@ -133,6 +110,11 @@ export default function AutomationPage() {
           setAdAccounts(Array.isArray(data.accounts) ? data.accounts : [])
         }
 
+        if (executionRes.status === 'fulfilled' && executionRes.value.ok) {
+          const data = await executionRes.value.json().catch(() => ({}))
+          setExecutionTruth(data.truth && typeof data.truth === 'object' ? data.truth : null)
+        }
+
         setConnectionState('ready')
       } catch {
         if (!cancelled) setConnectionState('error')
@@ -144,29 +126,6 @@ export default function AutomationPage() {
   }, [authHeader, isAuthenticated])
 
   const copy = (arabic: string, english: string) => (ar ? arabic : english)
-
-  const automationRows = useMemo(() => [
-    {
-      icon: <ShieldCheck size={18} />,
-      title: copy('مراجعة المحتوى قبل النشر', 'Content review before publishing'),
-      helper: copy('يتطلب عناصر محتوى جاهزة ومراجعة صريحة قبل أي نشر أو جدولة.', 'Requires ready content and explicit review before publishing or scheduling.'),
-    },
-    {
-      icon: <PlugZap size={18} />,
-      title: copy('نشر عبر API بعد الموافقة', 'API publishing after approval'),
-      helper: copy('يتطلب حسابات متصلة وصلاحيات صفحة/منصة وتأكيد نشر واضح.', 'Requires connected accounts, page/platform permissions, and an explicit publish confirmation.'),
-    },
-    {
-      icon: <Database size={18} />,
-      title: copy('تعلم من الأداء الحقيقي', 'Learning from real performance'),
-      helper: copy('لا يتم تعلم أنماط الأداء إلا بعد وصول analyticsData أو مقاييس منصة موثوقة.', 'Performance learning only starts after analyticsData or trusted platform metrics exist.'),
-    },
-    {
-      icon: <Bell size={18} />,
-      title: copy('تنبيهات تشغيلية', 'Operational alerts'),
-      helper: copy('تنبهك عند وجود نقص في الوسائط أو الموافقات أو الحسابات قبل التنفيذ.', 'Flags missing media, approvals, or accounts before execution.'),
-    },
-  ], [ar])
 
   if (loading || !isAuthenticated) {
     return (
@@ -184,12 +143,12 @@ export default function AutomationPage() {
       <main dir={dir} className="nx-os-page">
         <div className="nx-os-container nx-os-stack">
           <LuxuryWorkspaceHeader
-            pageTitle={copy('الأتمتة', 'Automation')}
-            pageSubtitle={copy('جاهزية Autopilot ومسارات التشغيل بدون تفعيل تلقائي.', 'Autopilot readiness and automation paths without automatic activation.')}
-            primaryHref="/connections"
-            primaryLabel={copy('راجع التكاملات', 'Review integrations')}
-            secondaryHref="/campaigns"
-            secondaryLabel={copy('الحملات', 'Campaigns')}
+            pageTitle={copy('غرفة التشغيل', 'Operations Room')}
+            pageSubtitle={copy('مراقبة حالة الحملات وتوجيه القرار التالي من بيانات التشغيل الفعلية.', 'Monitor campaign state and route the next decision from verified execution data.')}
+            primaryHref="/approvals"
+            primaryLabel={copy('افتح القرارات', 'Open decisions')}
+            secondaryHref="/connections"
+            secondaryLabel={copy('التكاملات', 'Integrations')}
           />
 
           <StrategySpineCard
@@ -214,15 +173,15 @@ export default function AutomationPage() {
               <div>
                 <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-violet-100 bg-violet-50 px-3 py-1.5 text-[12px] font-black text-violet-700">
                   <Sparkles size={14} />
-                  {copy('جاهزية الأتمتة فقط', 'Automation readiness only')}
+                  {copy('مراقب التنفيذ يعمل', 'Execution monitor active')}
                 </div>
                 <h1 className="text-3xl font-black tracking-[-0.03em] text-[#071236] lg:text-4xl">
-                  {copy('Nexus Autopilot™ جاهزية الأتمتة', 'Nexus Autopilot™ Automation readiness')}
+                  {copy('Nexus Autopilot™ غرفة التشغيل', 'Nexus Autopilot™ Operations Room')}
                 </h1>
                 <p className="mt-3 max-w-3xl text-[14px] font-semibold leading-7 text-[#64708f]">
                   {copy(
-                    'هذه الصفحة تنظم مسارات Autopilot والتشغيل الآلي بدون تفعيل تلقائي. لا نشر، لا إنفاق، ولا تعلم أداء بدون بيانات وموافقة وحدود واضحة.',
-                    'This page organizes Autopilot and automation paths without activating them automatically. No publishing, spend, or performance learning happens without data, approval, and clear boundaries.'
+                    'يراقب NEXUS مراحل الحملات ويحوّل الفجوات المثبتة إلى خطوات وقرارات. لا نشر، لا إنفاق، ولا تعلم أداء بدون بيانات وموافقة وحدود واضحة.',
+                    'NEXUS monitors campaign stages and turns verified workflow gaps into actions and decisions. No publishing, spend, or performance learning happens without data, approval, and clear boundaries.'
                   )}
                 </p>
               </div>
@@ -234,7 +193,9 @@ export default function AutomationPage() {
                   <div>
                     <p className="text-[13px] font-black text-[#111b3f]">{copy('حالة التشغيل الآن', 'Current execution state')}</p>
                     <p className="text-[12px] font-semibold text-[#7b87a3]">
-                      {copy('غير مفعّل افتراضيًا لكل حملة', 'Not enabled by default for any campaign')}
+                      {executionTruth
+                        ? copy(`${executionTruth.summary.campaigns} حملة تحت المراقبة`, `${executionTruth.summary.campaigns} campaigns monitored`)
+                        : copy('جار تحميل سجل التشغيل', 'Loading execution state')}
                     </p>
                   </div>
                 </div>
@@ -254,28 +215,29 @@ export default function AutomationPage() {
 
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <ReadinessCard
-              title={copy('حالة Autopilot', 'Autopilot state')}
-              value={copy('غير مفعّل', 'Not enabled')}
-              helper={copy('يُفعّل لاحقًا لكل حملة بعد جاهزية المحتوى والحسابات والموافقات.', 'Enabled later per campaign after content, accounts, and approvals are ready.')}
-              tone="warning"
+              title={copy('تحتاج انتباه', 'Needs attention')}
+              value={executionTruth ? String(executionTruth.summary.needsAttention) : '...'}
+              helper={copy('تعثرات مؤكدة تظهر أولاً في قائمة التشغيل.', 'Verified failures rise to the top of the execution queue.')}
+              tone={executionTruth?.summary.needsAttention ? 'warning' : 'ready'}
+              icon={<AlertTriangle size={20} />}
+            />
+            <ReadinessCard
+              title={copy('بانتظار موافقة', 'Awaiting approval')}
+              value={executionTruth ? String(executionTruth.summary.awaitingApproval) : '...'}
+              helper={copy('تظهر في مركز القرارات قبل أي تنفيذ.', 'Routed to the Decision Center before execution.')}
+              tone={executionTruth?.summary.awaitingApproval ? 'warning' : 'ready'}
               icon={<LockKeyhole size={20} />}
             />
             <ReadinessCard
-              title={copy('حسابات النشر', 'Publishing accounts')}
-              value={connectionState === 'loading' ? '...' : String(activeSocialCount)}
-              helper={copy('الربط وحده لا يعني نشرًا تلقائيًا.', 'Connection alone does not mean automatic publishing.')}
-              icon={<PlugZap size={20} />}
+              title={copy('منشورات مجدولة', 'Scheduled posts')}
+              value={executionTruth ? String(executionTruth.summary.scheduledPosts) : '...'}
+              helper={copy('الجدولة داخل NEXUS لا تعني النشر قبل التنفيذ المؤكد.', 'Scheduling in NEXUS is not publishing until confirmed execution.')}
+              icon={<Clock3 size={20} />}
             />
             <ReadinessCard
-              title={copy('حسابات الإعلانات', 'Ad accounts')}
-              value={connectionState === 'loading' ? '...' : String(activeAdCount)}
-              helper={copy('الإنفاق يحتاج ميزانية وموافقة وتشغيل صريح.', 'Spend requires budget, approval, and explicit activation.')}
-              icon={<Zap size={20} />}
-            />
-            <ReadinessCard
-              title={copy('تعلم الأداء', 'Performance learning')}
-              value={copy('مشروط', 'Gated')}
-              helper={copy('يتطلب تحليلات حقيقية، وليس موافقة أو نشرًا يدويًا فقط.', 'Requires real analytics, not approval or manual publishing alone.')}
+              title={copy('منشورات منفذة', 'Published posts')}
+              value={executionTruth ? String(executionTruth.summary.publishedPosts) : '...'}
+              helper={copy('لا تدخل التعلّم إلا بعد وصول بيانات أداء موثقة.', 'They enter learning only after verified performance data arrives.')}
               tone="ready"
               icon={<Database size={20} />}
             />
@@ -285,24 +247,40 @@ export default function AutomationPage() {
             <div className="nx-os-card p-5">
               <div className="mb-5 flex items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-[18px] font-black text-[#071236]">{copy('منشئ مسار الأتمتة', 'Automation path builder')}</h2>
+                  <h2 className="text-[18px] font-black text-[#071236]">{copy('قائمة التشغيل الحية', 'Live execution queue')}</h2>
                   <p className="mt-1 text-[13px] font-semibold text-[#7b87a3]">
-                    {copy('كل مسار يبدأ كمراجعة أو تنبيه. لا يوجد تنفيذ نهائي من هذه الصفحة.', 'Each path starts as review or alerting. No final execution happens from this page.')}
+                    {copy('مرتبة حسب الخطورة وحالة العمل الفعلية، بدون افتراض نتائج أداء.', 'Ordered by severity and verified workflow state without inferred performance outcomes.')}
                   </p>
                 </div>
                 <Link href="/connections" className="inline-flex h-10 items-center gap-2 rounded-[14px] border border-[#d9e1f2] bg-white px-4 text-[12px] font-black text-[#5366f6]">
                   {copy('راجع التكاملات', 'Review integrations')} <ArrowUpRight size={14} />
                 </Link>
               </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                {automationRows.map(row => (
-                  <FlowStep
-                    key={row.title}
-                    icon={row.icon}
-                    title={row.title}
-                    helper={row.helper}
-                    status={copy('يتطلب إعداد', 'Needs setup')}
-                  />
+              <div className="space-y-3">
+                {!executionTruth ? (
+                  <div className="h-32 animate-pulse rounded-[20px] bg-[#edf1f8]" />
+                ) : executionTruth.queue.length === 0 ? (
+                  <div className="rounded-[20px] border border-dashed border-[#d7def0] p-8 text-center text-[13px] font-semibold text-[#7b87a3]">
+                    {copy('لا توجد خطوات تشغيل معلقة الآن.', 'No execution actions are pending right now.')}
+                  </div>
+                ) : executionTruth.queue.slice(0, 10).map(action => (
+                  <div key={action.id} className="rounded-[18px] border border-[#e7ecf6] bg-[#fbfcff] p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${action.priority === 'critical' ? 'bg-rose-50 text-rose-700' : action.priority === 'high' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>{action.priority}</span>
+                          <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8a96ad]">{action.stage}</span>
+                        </div>
+                        <h3 className="mt-2 text-[14px] font-black text-[#111b3f]">{ar ? action.title.ar : action.title.en}</h3>
+                        <p className="mt-1 text-[12px] font-semibold leading-5 text-[#64708f]">{ar ? action.reason.ar : action.reason.en}</p>
+                        <p className="mt-2 text-[10px] font-bold text-[#8a96ad]">{action.campaignName}</p>
+                      </div>
+                      <Link href={action.requiresApproval ? '/approvals' : action.href} className="inline-flex h-10 shrink-0 items-center gap-2 rounded-[13px] bg-[#071236] px-4 text-[11px] font-black text-white">
+                        {action.requiresApproval ? copy('راجع القرار', 'Review decision') : copy('افتح الخطوة', 'Open step')}
+                        <ArrowUpRight size={13} />
+                      </Link>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>

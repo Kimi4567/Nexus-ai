@@ -5,6 +5,7 @@ import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import StrategySpineCard from '@/components/StrategySpineCard'
 import { BrainTimeline } from '@/components/brain/BrainTimeline'
 import { useState, useEffect, Suspense } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -467,11 +468,11 @@ function BrandSummaryCard({
         <div className="px-6 pb-6 flex items-center gap-3">
           {/* PR-D: strategy-first CTA now routes to the real /strategy page (the
               official next stage after Brand Brain), not the run-full modal. */}
-          <a href="/strategy"
+          <Link href="/strategy"
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
             style={{ background: '#111827', color: '#FFFFFF' }}>
             <Sparkles size={15}/> {t('brand.summaryCtaLabel')}
-          </a>
+          </Link>
           <button onClick={onClose}
             className="px-4 py-3 rounded-xl text-sm font-semibold transition-all"
             style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)', color: '#64748b' }}>

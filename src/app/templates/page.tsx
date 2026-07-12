@@ -126,7 +126,7 @@ export default function TemplatesPage() {
   }
   if (!isAuthenticated) return null
 
-  const useTemplate = (tpl: typeof TEMPLATES[0]) => {
+  const applyTemplate = (tpl: typeof TEMPLATES[0]) => {
     const params = new URLSearchParams({
       goal: tpl.goal,
       platforms: tpl.platforms.join(','),
@@ -257,7 +257,7 @@ export default function TemplatesPage() {
 
               {/* CTA */}
               <button
-                onClick={() => useTemplate(tpl)}
+                onClick={() => applyTemplate(tpl)}
                 className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white transition-all hover:opacity-90"
                 style={{ background: tpl.color, boxShadow: `0 10px 24px ${tpl.color}24` }}
               >

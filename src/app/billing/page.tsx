@@ -14,7 +14,7 @@ import { getBillingDisplayTruth } from '@/lib/billingDisplayTruth'
 import Link from 'next/link'
 import {
   Sparkles, CheckCircle2, Settings2,
-  Rocket, Brain, BarChart3, Shield, Globe, Image,
+  Rocket, Brain, Shield, Globe, Image,
   MessageSquare, FileText, Gift, TrendingUp, Zap, History,
 } from 'lucide-react'
 
@@ -32,8 +32,8 @@ const PLANS = [
     featured: true,
     badgeAr: 'الأكثر شعبية',
     badgeEn: 'Most Popular',
-    descAr: 'للفرق التي تنشر باستمرار عبر أكثر من قناة',
-    descEn: 'For teams publishing consistently across channels',
+    descAr: 'للفرق التي تخطط وتنتج وتراجع المحتوى باستمرار',
+    descEn: 'For teams planning, producing, and reviewing content consistently',
     upgradeHintAr: null as string | null,
     upgradeHintEn: null as string | null,
     limitsAr: [
@@ -41,11 +41,11 @@ const PLANS = [
       '3 مساحات عمل (3 براندات)',
       '10 حملات / شهر',
       '25 بوست / شهر',
-      'المنصات المدعومة حسب إعدادات مساحة العمل',
+      'ربط المنصات المدعومة حسب صلاحيات المزود',
       'Brand Brain الكامل + ذاكرة الحملات',
       'تحميل الميديا + طبقات البراند',
-      'اختبار A/B + إعادة كتابة بالـ AI',
-      'تحليلات متقدمة',
+      'اختبار A/B + إعادة كتابة بالـ AI داخل مساحة العمل',
+      'تحليلات موثقة عند وصول بيانات منصة مؤهلة',
       'تصدير HTML قابل للطباعة + JSON',
       'دعم عبر البريد الإلكتروني حسب التوفر',
     ],
@@ -54,11 +54,11 @@ const PLANS = [
       '3 workspaces (3 brands)',
       '10 campaigns / month',
       '25 AI posts / month',
-      'Supported social platforms based on workspace setup',
+      'Supported platform connections subject to provider permissions',
       'Full Brand Brain + Campaign Memory (reviewed signals across campaigns)',
       'Media uploads + Brand overlays',
-      'A/B Testing + AI Rewrite',
-      'Advanced analytics',
+      'Workspace A/B testing + AI Rewrite',
+      'Verified analytics when eligible platform data arrives',
       'Printable HTML + JSON export',
       'Email support as available',
     ],
@@ -74,8 +74,8 @@ const PLANS = [
     featured: false,
     badgeAr: 'تشغيل متقدم',
     badgeEn: 'Advanced operations',
-    descAr: 'لتشغيل عدة براندات مع مراقبة واقتراحات مستمرة',
-    descEn: 'For multi-brand operations with continuous monitoring',
+    descAr: 'لتشغيل عدة براندات مع مراقبة مجدولة وقائمة قرارات',
+    descEn: 'For multi-brand operations with scheduled monitoring and an action queue',
     upgradeHintAr: null as string | null,
     upgradeHintEn: null as string | null,
     limitsAr: [
@@ -83,12 +83,12 @@ const PLANS = [
       '10 مساحات عمل (10 براندات أو عملاء)',
       'حملات غير محدودة / شهر',
       '60 بوست / شهر',
-      'مراقبة مستمرة + قائمة قرارات مبنية على الأدلة',
+      'مراقبة مجدولة + قائمة قرارات مبنية على الأدلة',
       'المنصات المدعومة + نشر متعدد الحسابات حسب الإتاحة',
       'قائمة قرارات ومراجعات بشرية قبل التنفيذ',
       'تصدير HTML قابل للطباعة + JSON',
       'نشر على المنصات المتصلة حسب موافقات المزود',
-      'تحليلات متقدمة',
+      'تحليلات موثقة بعد وصول بيانات الأداء الحقيقية',
       'سجل أدلة ومصدر لكل توصية أداء',
     ],
     limitsEn: [
@@ -96,12 +96,12 @@ const PLANS = [
       '10 workspaces (10 brands / clients)',
       'Unlimited campaigns / month',
       '60 AI posts / month',
-      'Continuous monitoring + evidence-backed action queue',
+      'Scheduled monitoring + evidence-backed action queue',
       'Supported platforms + multi-account publishing as available',
       'Human approval queue before execution',
       'Printable HTML + JSON export',
       'Publishing to connected platforms as provider access allows',
-      'Advanced analytics',
+      'Verified analytics after real performance data arrives',
       'Evidence and provenance trail for performance recommendations',
     ],
   },
@@ -202,8 +202,8 @@ const FAQS = [
   {
     qAr: 'ما الفرق بين Growth وAutopilot؟',
     qEn: 'What is the difference between Growth and Autopilot?',
-    aAr: 'Growth مناسب لتشغيل النمو اليومي، بينما Autopilot يضيف سعة أكبر ومراقبة مستمرة وتشغيل عدة براندات.',
-    aEn: 'Growth covers day-to-day brand growth; Autopilot adds more capacity, continuous monitoring, and multi-brand operations.',
+    aAr: 'Growth مناسب للتخطيط والإنتاج اليومي، بينما Autopilot يضيف سعة أكبر ومراقبة مجدولة وقائمة قرارات وتشغيل عدة براندات.',
+    aEn: 'Growth covers day-to-day planning and production; Autopilot adds more capacity, scheduled monitoring, an action queue, and multi-brand operations.',
   },
   {
     qAr: 'ماذا يحدث إذا نفدت أرصدتي قبل نهاية الشهر؟',
@@ -473,8 +473,8 @@ export default function BillingPage() {
           </h2>
           <p className="text-sm text-slate-500 mb-8">
             {ar
-              ? 'Growth للتشغيل اليومي، وAutopilot للسعة الأكبر والمراقبة المستمرة. أرصدة التجربة ليست باقة ثالثة.'
-              : 'Growth covers daily execution; Autopilot adds capacity and continuous monitoring. Trial credits are not a third plan.'
+              ? 'Growth للتخطيط والإنتاج اليومي، وAutopilot للسعة الأكبر والمراقبة المجدولة. أرصدة التجربة ليست باقة ثالثة.'
+              : 'Growth covers daily planning and production; Autopilot adds capacity and scheduled monitoring. Trial credits are not a third plan.'
             }
           </p>
 
