@@ -49,7 +49,7 @@ vi.mock('@/lib/prisma', () => ({
 
 import { POST } from '../route'
 
-const ctx = { params: { id: 'c1' } }
+const ctx = { params: Promise.resolve({ id: 'c1' }) }
 const makeReq = (body: Record<string, unknown> = {}) => ({ json: async () => body }) as any
 
 const ownedCampaignWithBrand = {

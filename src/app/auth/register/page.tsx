@@ -56,12 +56,9 @@ export default function RegisterPage() {
     try {
       const result = await signup(email, password, { name })
       localStorage.setItem('nexus_consent', JSON.stringify({ terms: true, privacy: true, cookies: true, timestamp: new Date().toISOString(), email }))
-      // Fire welcome email — non-blocking, never fails registration
-      fetch('/api/auth/welcome', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name }),
-      }).catch(() => {})
+      // Supabase owns the confirmation email. Product welcome messages are sent
+      // only after an authenticated session exists; registration never invokes
+      // an unauthenticated arbitrary-email endpoint.
       setDone(result.needsEmailConfirmation ? 'verify' : 'active')
     } catch (err: unknown) {
       warnRegisterSignupFailure(err)

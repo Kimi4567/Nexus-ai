@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { decryptToken } from '@/lib/tokenCrypto'
 import { autoPublishWhere, skippedManualWhere, isAutoPublishEligible } from '@/lib/publishGate'
+import { cronAuthError } from '@/lib/cronAuth'
+import { isRetryableSocialPublishError, publishSocialPost } from '@/lib/socialPublishers'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,26 +20,6 @@ export const dynamic = 'force-dynamic'
  *   This gives hourly precision on Vercel Hobby plan at zero cost.
  */
 
-// ── Auth helper ────────────────────────────────────────────────
-async function isAuthorized(req: NextRequest): Promise<boolean> {
-  const secret = process.env.CRON_SECRET
-  // SEC-05 fix: require auth — open only in dev when secret is explicitly not set
-  if (!secret) return process.env.NODE_ENV === 'development'
-
-  const authHeader = req.headers.get('authorization')
-  if (authHeader === `Bearer ${secret}`) return true
-
-  // POST: also allow secret in body (fallback for cron services that can't set headers)
-  if (req.method === 'POST') {
-    try {
-      const body = await req.clone().json().catch(() => ({}))
-      if ((body as any).secret === secret) return true
-    } catch { /* ignore */ }
-  }
-
-  return false
-}
-
 // ── Core publish logic ─────────────────────────────────────────
 async function runPublishJob() {
   const now = new Date()
@@ -51,7 +33,14 @@ async function runPublishJob() {
   // can never reach the publishing code through either path.
   const duePosts = (await prisma.socialPost.findMany({
     where: autoPublishWhere(now) as any,
-    include: { integration: true },
+    include: {
+      integration: true,
+      statusHistory: {
+        where: { actor: 'CRON', toStatus: 'SCHEDULED', note: { startsWith: '[PUBLISH_RETRY]' } },
+        orderBy: { createdAt: 'desc' },
+        take: 3,
+      },
+    },
     take: 20,
   })).filter((p: any) => isAutoPublishEligible(p, now))
 
@@ -65,153 +54,109 @@ async function runPublishJob() {
 
   const results = await Promise.allSettled(
     duePosts.map(async (post) => {
+      let providerResult: Awaited<ReturnType<typeof publishSocialPost>> | null = null
       try {
         // BUG-01 fix: no optimistic write — only write PUBLISHED after platform confirms
         const integration = post.integration
         if (!integration?.accessToken) throw new Error('No access token')
 
-        // Get page-level token from integration config — always decrypt
+        // Resolve a page-level token where Meta supplied one. Match either the
+        // Facebook Page ID or its linked Instagram account ID.
         const pages: any[] = (integration.config as any)?.pages || []
-        const page = pages.find((p: any) => p.id === post.pageId)
+        const page = pages.find((p: any) => p.id === post.pageId || p.igAccountId === post.pageId)
         const rawPageToken = page?.accessToken || integration.accessToken
-        const pageToken = decryptToken(rawPageToken) ?? rawPageToken
+        const accessToken = decryptToken(rawPageToken) ?? rawPageToken
+        providerResult = await publishSocialPost({
+          platform: String(post.platform),
+          caption: post.caption,
+          imageUrl: post.imageUrl,
+          pageId: post.pageId,
+          accountId: integration.accountId,
+          accessToken,
+          integrationConfig: integration.config as Record<string, unknown> | null,
+        })
 
-        // Determine platform + sub-platform
-        const platformStr = String(post.platform)
-        const igAccountId = page?.igAccountId || null
-        const isInstagram = !!(igAccountId && post.pageId === igAccountId)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown publishing failure'
+        const previousRetries = Array.isArray((post as any).statusHistory) ? (post as any).statusHistory.length : 0
+        const shouldRetry = isRetryableSocialPublishError(err) && previousRetries < 2
+        console.error(`[Cron:publish] Provider failed for ${post.id}:`, message)
 
-        // ── META (Facebook or Instagram) ──────────────────────────────────
-        if (platformStr === 'META' || platformStr === 'FACEBOOK' || platformStr === 'INSTAGRAM') {
-          if (isInstagram) {
-            // Instagram Graph API: create container then publish
-            const containerRes = await fetch(
-              `https://graph.facebook.com/v19.0/${post.pageId}/media`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  caption:     post.caption,
-                  access_token: pageToken,
-                  media_type:  'IMAGE',
-                  image_url:   post.imageUrl || 'https://placehold.co/1080x1080/111/FF9500?text=Nexus',
-                }),
-              }
-            )
-            const container = await containerRes.json()
-            if (container.error) throw new Error(container.error.message)
-
-            const publishRes = await fetch(
-              `https://graph.facebook.com/v19.0/${post.pageId}/media_publish`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ creation_id: container.id, access_token: pageToken }),
-              }
-            )
-            const published = await publishRes.json()
-            if (published.error) throw new Error(published.error.message)
-
-            await prisma.socialPost.update({
-              where: { id: post.id },
-              data: { status: 'PUBLISHED', publishedAt: now, platformPostId: published.id },
-            })
-          } else {
-            // Facebook Pages API
-            const fbBody: any = { message: post.caption, access_token: pageToken }
-            if (post.imageUrl) fbBody.url = post.imageUrl
-
-            const endpoint = post.imageUrl
-              ? `https://graph.facebook.com/v19.0/${post.pageId}/photos`
-              : `https://graph.facebook.com/v19.0/${post.pageId}/feed`
-
-            const res  = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fbBody) })
-            const data = await res.json()
-            if (data.error) throw new Error(data.error.message)
-
-            await prisma.socialPost.update({
-              where: { id: post.id },
-              data: { status: 'PUBLISHED', publishedAt: now, platformPostId: data.id, platformUrl: `https://facebook.com/${data.id}` },
-            })
-          }
-
-        // ── LINKEDIN ───────────────────────────────────────────────────────
-        } else if (platformStr === 'LINKEDIN') {
-          const linkedinToken = decryptToken(integration.accessToken) ?? integration.accessToken
-          const personId = integration.accountId || ''
-          // FLOW-05 fix: use ARTICLE with originalUrl for image posts (not IMAGE + empty media[])
-          const liShareContent: any = {
-            shareCommentary:    { text: post.caption },
-            shareMediaCategory: post.imageUrl ? 'ARTICLE' : 'NONE',
-          }
-          if (post.imageUrl) {
-            liShareContent.media = [{ status: 'READY', originalUrl: post.imageUrl }]
-          }
-          const liBody: any = {
-            author:  `urn:li:person:${personId}`,
-            lifecycleState: 'PUBLISHED',
-            specificContent: { 'com.linkedin.ugc.ShareContent': liShareContent },
-            visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
-          }
-
-          const res  = await fetch('https://api.linkedin.com/v2/ugcPosts', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${linkedinToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(liBody),
-          })
-          const data = await res.json()
-          if (data.status >= 400) throw new Error(data.message || 'LinkedIn publish failed')
-
+        if (shouldRetry) {
           await prisma.socialPost.update({
             where: { id: post.id },
-            data: { status: 'PUBLISHED', publishedAt: now, platformPostId: data.id },
-          })
-
-        // ── TIKTOK ────────────────────────────────────────────────────────
-        } else if (platformStr === 'TIKTOK') {
-          if (!post.imageUrl) throw new Error('TikTok requires a video URL')
-          const tiktokToken = decryptToken(integration.accessToken) ?? integration.accessToken
-
-          const res  = await fetch('https://open.tiktokapis.com/v2/post/publish/video/init/', {
-            method:  'POST',
-            headers: { Authorization: `Bearer ${tiktokToken}`, 'Content-Type': 'application/json' },
-            body:    JSON.stringify({
-              post_info:   { title: post.caption, privacy_level: 'PUBLIC_TO_EVERYONE' },
-              source_info: { source: 'PULL_FROM_URL', video_url: post.imageUrl },
-            }),
-          })
-          const data = await res.json()
-          if (data.error?.code !== 'ok') throw new Error(data.error?.message || 'TikTok publish failed')
-
-          await prisma.socialPost.update({
-            where: { id: post.id },
-            data: { status: 'PUBLISHED', publishedAt: now, platformPostId: data.data?.publish_id },
-          })
-
-        } else {
-          throw new Error(`Unsupported platform: ${platformStr}`)
+            data: { errorMessage: message },
+          }).catch(() => {})
+          await prisma.postStatusHistory.create({
+            data: {
+              socialPostId: post.id,
+              workspaceId: post.workspaceId,
+              fromStatus: 'SCHEDULED',
+              toStatus: 'SCHEDULED',
+              actor: 'CRON',
+              note: `[PUBLISH_RETRY] ${message}`.slice(0, 500),
+            },
+          }).catch(() => {})
+          return { id: post.id, success: false, retryScheduled: true, error: message }
         }
 
-        return { id: post.id, success: true }
-      } catch (err: any) {
-        console.error(`[Cron:publish] Failed post ${post.id}:`, err.message)
         await prisma.socialPost.update({
           where: { id: post.id },
-          data: { status: 'FAILED', errorMessage: err.message },
+          data: { status: 'FAILED', errorMessage: message },
         }).catch(() => {})
-        return { id: post.id, success: false, error: err.message }
+        await prisma.postStatusHistory.create({
+          data: {
+            socialPostId: post.id,
+            workspaceId: post.workspaceId,
+            fromStatus: 'SCHEDULED',
+            toStatus: 'FAILED',
+            actor: 'CRON',
+            note: `[PUBLISH_FAILED] ${message}`.slice(0, 500),
+          },
+        }).catch(() => {})
+        return { id: post.id, success: false, retryScheduled: false, error: message }
+      }
+
+      try {
+        await prisma.socialPost.update({
+          where: { id: post.id },
+          data: {
+            status: 'PUBLISHED',
+            publishedAt: now,
+            platformPostId: providerResult.platformPostId,
+            platformUrl: providerResult.platformUrl ?? null,
+            errorMessage: null,
+          },
+        })
+        return { id: post.id, success: true }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Database persistence failed'
+        const reconciliationMessage = `RECONCILIATION_REQUIRED: platform confirmed ${providerResult.platformPostId}, but local persistence failed: ${message}`
+        console.error(`[Cron:publish] ${reconciliationMessage}`)
+        await prisma.socialPost.update({
+          where: { id: post.id },
+          data: {
+            status: 'FAILED',
+            platformPostId: providerResult.platformPostId,
+            platformUrl: providerResult.platformUrl ?? null,
+            errorMessage: reconciliationMessage.slice(0, 500),
+          },
+        }).catch(() => {})
+        return { id: post.id, success: false, reconciliationRequired: true, error: reconciliationMessage }
       }
     })
   )
 
   const succeeded = results.filter(r => r.status === 'fulfilled' && (r.value as any).success).length
-  const failed    = results.length - succeeded
+  const retriesScheduled = results.filter(r => r.status === 'fulfilled' && (r.value as any).retryScheduled).length
+  const failed = results.length - succeeded - retriesScheduled
 
   console.log(`[Cron:publish] Done — ${succeeded} published, ${failed} failed.`)
   return {
     processed: results.length,
     succeeded,
     failed,
+    retriesScheduled,
     // Safe counts (auto-publish gate observability)
     autoEligibleCount,
     publishedCount: succeeded,
@@ -224,9 +169,8 @@ async function runPublishJob() {
 
 /** Vercel cron calls GET */
 export async function GET(req: NextRequest) {
-  if (!await isAuthorized(req)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = cronAuthError(req)
+  if (authError) return authError
   try {
     const result = await runPublishJob()
     return NextResponse.json({ ok: true, ...result })
@@ -238,9 +182,8 @@ export async function GET(req: NextRequest) {
 
 /** External cron services (cron-job.org) call POST */
 export async function POST(req: NextRequest) {
-  if (!await isAuthorized(req)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = cronAuthError(req)
+  if (authError) return authError
   try {
     const result = await runPublishJob()
     return NextResponse.json({ ok: true, ...result })

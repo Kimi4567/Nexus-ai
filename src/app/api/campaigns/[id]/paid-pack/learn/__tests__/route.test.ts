@@ -43,7 +43,7 @@ vi.mock('@/lib/brandMaturity', () => ({ snapshotBrandMaturity: mockSnapshotBrand
 import { POST } from '../route'
 
 const makeReq = () => ({}) as any
-const ctx = (id = 'c1') => ({ params: { id } })
+const ctx = (id = 'c1') => ({ params: Promise.resolve({ id }) })
 
 const learningPayload = {
   learnings: {

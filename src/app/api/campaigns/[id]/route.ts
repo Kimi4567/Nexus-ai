@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 async function ownsCampaign(campaignId: string, userId: string) {
   return prisma.campaign.findFirst({
@@ -11,7 +11,8 @@ async function ownsCampaign(campaignId: string, userId: string) {
 }
 
 // GET /api/campaigns/[id] — full campaign detail + activities
-export async function GET(req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, props: Params) {
+  const params = await props.params
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -37,7 +38,8 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 // PATCH /api/campaigns/[id] — update fields + auto-log activity
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(req: NextRequest, props: Params) {
+  const params = await props.params
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -93,7 +95,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 // DELETE /api/campaigns/[id] — hard delete
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, props: Params) {
+  const params = await props.params
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

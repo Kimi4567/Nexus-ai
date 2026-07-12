@@ -14,6 +14,7 @@ import {
   sendNurtureDay5,
   sendNurtureDay7,
 } from '@/lib/email/resend'
+import { cronAuthError } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,13 +28,8 @@ const STAGES = [
 ]
 
 export async function GET(req: NextRequest) {
-  // Verify cron secret — matches Vercel's Authorization: Bearer <CRON_SECRET> format
-  const authHeader = req.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret && process.env.NODE_ENV !== 'development') { return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 }) }
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = cronAuthError(req)
+  if (authError) return authError
 
   if (!process.env.RESEND_API_KEY) {
     return NextResponse.json({ skipped: true, reason: 'No RESEND_API_KEY' })

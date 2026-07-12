@@ -26,6 +26,7 @@ import {
   getBrandBrainGenerationSafety,
 } from '@/lib/brandBrainGenerationSafety'
 import type { StrategyReadinessContext } from './strategist'
+import { readLockedCampaignAllowance } from '@/lib/campaignCommercial'
 
 // Re-export for API routes
 export type { BusinessBrief }
@@ -210,8 +211,6 @@ export async function runFullAgency(
       await options.beforePersistStrategy()
     }
 
-    strategyCreated = true
-
     // 3. Content Director REMOVED from runFullAgency to avoid Vercel 60s timeout.
     //    Strategy-only run: campaign is created from strategy output.
     //    Content plan is generated separately via /api/campaigns/[id]/generate-content-plan
@@ -226,24 +225,9 @@ export async function runFullAgency(
     }
     contentCreated = true  // Content Director runs separately — mark as ok
 
-    // 4. Find or create project
-    let project = await db.project.findFirst({
-      where: { workspaceId },
-      orderBy: { createdAt: 'desc' },
-    })
-    if (!project) {
-      project = await db.project.create({
-        data: {
-          workspaceId,
-          name: `${brief.companyName} Marketing`,
-          description: brief.targetAudience,
-          businessType: brief.businessType,
-          status: 'ACTIVE',
-        },
-      })
-    }
-
-    // 5. Create campaign
+    // 4–5. Create project and campaign under the same commercial lock used by
+    // the other campaign creation paths. Concurrent requests cannot exceed the
+    // workspace owner's monthly allowance.
     // ── Null-safe field extraction ────────────────────────────────────────────
     const campaignName = strategy.campaignName
       || strategy.goal
@@ -272,39 +256,68 @@ export async function runFullAgency(
     })
     // ─────────────────────────────────────────────────────────────────────────
 
-    const campaign = await db.campaign.create({
-      data: {
-        workspaceId,
-        projectId: project.id,
-        name: campaignName,
-        description: campaignDesc,
-        goal: mapGoal(strategy.goal),
-        audience: campaignAudience,
-        tone: 'MODERN',
-        platforms: mapPlatforms(rawPlatforms),
-        status: 'DRAFT',
-        aiOutput: {
-          strategy,
-          contentCalendar: content.calendar,
-          topHooks: content.topHooks?.length ? content.topHooks : (strategy as any).topHooks || [],
-          ctaVariations: content.ctaVariations?.length ? content.ctaVariations : (strategy as any).ctaVariations || [],
-          captionFormulas: content.captionFormulas || [],
-          scriptTemplate: content.scriptTemplate || '',
-          contentPillars: content.contentPillars?.length ? content.contentPillars : strategy.contentPillars || [],
-          strategyType: brief.strategyType || 'organic',
-          strategyDuration: brief.strategyDuration || '90',
-          strategyOrder: (brief as any).strategyOrder || null,
-          strategyDeliverables: (brief as any).strategyDeliverables || null,
-          organicPostCount: typeof (brief as any).organicPostCount === 'number' ? (brief as any).organicPostCount : null,
-          detailedCalendarDays: typeof (brief as any).detailedCalendarDays === 'number' ? (brief as any).detailedCalendarDays : null,
-          // Persist language so all downstream agents (content plan, images) use the same language
-          language: brief.language || 'ar',
-          selectedMediaIds: Array.isArray((brief as any).selectedMediaIds) ? (brief as any).selectedMediaIds : [],
-          generatedAt: new Date().toISOString(),
-          generatedByAgents: true,
+    const campaign = await prisma.$transaction(async (tx) => {
+      const workspaceRecord = await tx.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { ownerId: true },
+      })
+      if (!workspaceRecord) throw new Error('Workspace not found')
+
+      const allowance = await readLockedCampaignAllowance(tx, workspaceRecord.ownerId)
+      if (allowance.limit !== 999 && allowance.current >= allowance.limit) {
+        throw new Error(`CAMPAIGN_LIMIT_REACHED:${allowance.limit}:${allowance.periodEnd.toISOString()}`)
+      }
+
+      let project = await tx.project.findFirst({
+        where: { workspaceId },
+        orderBy: { createdAt: 'desc' },
+      })
+      if (!project) {
+        project = await tx.project.create({
+          data: {
+            workspaceId,
+            name: `${brief.companyName.slice(0, 90)} Marketing`,
+            description: brief.targetAudience?.slice(0, 500),
+            businessType: brief.businessType?.slice(0, 120),
+            status: 'ACTIVE',
+          },
+        })
+      }
+
+      return tx.campaign.create({
+        data: {
+          workspaceId,
+          projectId: project.id,
+          name: String(campaignName).slice(0, 120),
+          description: String(campaignDesc).slice(0, 2_000),
+          goal: mapGoal(strategy.goal) as any,
+          audience: String(campaignAudience).slice(0, 1_000),
+          tone: 'MODERN',
+          platforms: mapPlatforms(rawPlatforms) as any,
+          status: 'DRAFT',
+          aiOutput: {
+            strategy,
+            contentCalendar: content.calendar,
+            topHooks: content.topHooks?.length ? content.topHooks : (strategy as any).topHooks || [],
+            ctaVariations: content.ctaVariations?.length ? content.ctaVariations : (strategy as any).ctaVariations || [],
+            captionFormulas: content.captionFormulas || [],
+            scriptTemplate: content.scriptTemplate || '',
+            contentPillars: content.contentPillars?.length ? content.contentPillars : strategy.contentPillars || [],
+            strategyType: brief.strategyType || 'organic',
+            strategyDuration: brief.strategyDuration || '90',
+            strategyOrder: (brief as any).strategyOrder || null,
+            strategyDeliverables: (brief as any).strategyDeliverables || null,
+            organicPostCount: typeof (brief as any).organicPostCount === 'number' ? (brief as any).organicPostCount : null,
+            detailedCalendarDays: typeof (brief as any).detailedCalendarDays === 'number' ? (brief as any).detailedCalendarDays : null,
+            language: brief.language || 'ar',
+            selectedMediaIds: Array.isArray((brief as any).selectedMediaIds) ? (brief as any).selectedMediaIds : [],
+            generatedAt: new Date().toISOString(),
+            generatedByAgents: true,
+          } as any,
         },
-      },
+      })
     })
+    strategyCreated = true
 
     // 5b. Save campaign memory (non-blocking)
     saveCampaignMemory({
@@ -341,8 +354,8 @@ export async function runFullAgency(
         status: 'PENDING',
         priority: 1,
         title: `Strategy ready: ${strategy.campaignName}`,
-        reasoning: `Based on your brief, I've built a ${strategy.goal.toLowerCase()} campaign targeting ${strategy.targetAudienceRefined}. ${strategy.estimatedResults}`,
-        impact: strategy.estimatedResults,
+        reasoning: `Planning hypothesis based on the approved brief for ${strategy.goal.toLowerCase()} and the stated audience. Review the strategy, evidence requirements, and execution package before approval.`,
+        impact: 'Potential impact is not estimated until eligible platform evidence is available.',
         payload: { strategy, campaignId: campaign.id },
         campaignId: campaign.id,
         expiresAt: new Date(Date.now() + 7 * 86_400_000),

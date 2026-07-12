@@ -12,7 +12,8 @@
  * - Assigns integrationId + pageId per platform (FL2A) so a later schedule/publish
  *   has credentials.
  * - Records every transition in PostStatusHistory (actor USER).
- * - Records approval as workflow/review signals only. Approval is not analytics-backed learning.
+ * - Creates reviewed learning proposals. Approval alone never writes "winning"
+ *   memory because approval is preference, not performance evidence.
  *
  * DELETE /api/campaigns/[id]/approve-content-plan
  * Reverts all APPROVED or SCHEDULED posts (that haven't published yet) back to DRAFT.
@@ -21,18 +22,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
-import { runBrainLearning } from '@/lib/brain-learning'
 import { planApproval, planRevert, type ApprovalMode } from '@/lib/approvalPlan'
 import { buildLearningEvents } from '@/lib/brandBrainEvents'
-import { getBrandBrainLearningCopy } from '@/lib/brandBrainLearningContract'
-import {
-  buildContentPlanOrderMismatchMessage,
-  deriveContentPlanOrderReview,
-} from '@/lib/contentPlanOrderContract'
+import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -44,9 +41,15 @@ export async function POST(req: NextRequest, { params }: Params) {
     // Verify campaign ownership
     const campaign = await prisma.campaign.findFirst({
       where: { id: params.id, workspace: { ownerId: userId } },
-      select: { id: true, workspaceId: true, name: true, aiOutput: true },
+      select: { id: true, workspaceId: true, name: true, status: true },
     })
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+    if (!canMutateCampaignExecution(String(campaign.status))) {
+      return NextResponse.json({
+        error: 'Approve the campaign strategy before approving content.',
+        code: 'STRATEGY_APPROVAL_REQUIRED',
+      }, { status: 409 })
+    }
 
     // FL2A: Build platform → integration map so the publish cron has credentials
     const connectedIntegrations = await prisma.integration.findMany({
@@ -67,7 +70,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       integrationMap[key] = { integrationId: intg.id, pageId }
     }
 
-    // Load draft posts (include caption for optional approval-signal extraction)
+    // Load draft posts (include caption for Brand Brain learning)
     const draftPosts = await (prisma.socialPost as any).findMany({
       where: {
         campaignId: params.id,
@@ -80,29 +83,6 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     if (draftPosts.length === 0) {
       return NextResponse.json({ success: true, approved: 0, message: 'No draft posts to approve' })
-    }
-
-    const contentPlanPosts = await (prisma.socialPost as any).findMany({
-      where: {
-        campaignId: params.id,
-        workspaceId: campaign.workspaceId,
-      },
-      select: { contentPlanIndex: true, variantGroup: true },
-    })
-
-    const orderReview = deriveContentPlanOrderReview(campaign.aiOutput, contentPlanPosts)
-    const orderMismatchMessage = buildContentPlanOrderMismatchMessage(orderReview)
-    if (orderMismatchMessage) {
-      return NextResponse.json(
-        {
-          error: orderMismatchMessage,
-          code: 'CONTENT_PLAN_ORDER_MISMATCH',
-          expectedDirections: orderReview.expectedDirections,
-          actualDirections: orderReview.actualDirections,
-          reason: orderReview.reason,
-        },
-        { status: 409 },
-      )
     }
 
     // Decide the honest transitions (pure, fully tested in approvalPlan.test.ts):
@@ -137,7 +117,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         .catch((e: any) => console.error('[approve-content-plan] history write failed', e?.message))
     }
 
-    // Brand Brain (PR1): capture one workflow signal per ACTUAL transition. Derived from
+    // Brand Brain (PR1): capture one learning event per ACTUAL transition. Derived from
     // plan.history so re-approving a non-DRAFT post (empty plan) writes nothing — no
     // duplicates, no events for invalid transitions. Non-blocking: never fails approval.
     const approveEvents = buildLearningEvents(
@@ -156,41 +136,22 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (approveEvents.length > 0) {
       await (prisma as any).marketingLearningEvent
         .createMany({ data: approveEvents })
-        .catch((e: any) => console.error('[approve-content-plan] workflow signal write failed', e?.message))
+        .catch((e: any) => console.error('[approve-content-plan] learning event write failed', e?.message))
     }
 
     const approvedIds = new Set(updateById.keys())
     const linked   = draftPosts.filter((p: any) => approvedIds.has(p.id) && !!integrationMap[String(p.platform)]).length
     const unlinked = approved - linked
 
-    const captions: string[] = draftPosts
-      .map((p: any) => p.caption)
-      .filter((c: any): c is string => typeof c === 'string' && c.trim().length > 10)
-
-    // ── BL3: Brain signal proposal system (non-blocking) ─────────────────────────
-    // Creates pending review-signal proposals (tone, pain points, desires)
-    // that the user reviews in BrainLearningPanel (accept/dismiss).
-    if (captions.length >= 3) {
-      const allPosts = draftPosts
-        .filter((p: any) => typeof p.caption === 'string' && p.caption.trim().length > 10)
-        .map((p: any) => ({ platform: String(p.platform), caption: p.caption }))
-
-      runBrainLearning({
-        workspaceId: campaign.workspaceId,
-        campaignId: campaign.id,
-        trigger: 'approved_content',
-        payload: { posts: allPosts },
-      }).catch(() => null) // fire-and-forget — never block approval
-    }
+    // Bulk approval is recorded in MarketingLearningEvent as a user decision,
+    // but generated copy is not treated as audience-performance evidence.
+    const learningProposalQueued = false
 
     // Build human-readable message (honest about what actually happened)
     const verb = mode === 'approve_and_schedule' ? 'scheduled' : 'approved'
     let message = `${approved} post${approved !== 1 ? 's' : ''} ${verb}`
     if (linked > 0)         message += ` (${linked} linked to connected platforms)`
-    if (approveEvents.length > 0) {
-      const approvalCopy = getBrandBrainLearningCopy('approval')
-      message += ` · ${approvalCopy.label}`
-    }
+    if (learningProposalQueued) message += ' · learning proposals ready for review'
 
     return NextResponse.json({
       success: true,
@@ -198,10 +159,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       approved,
       linked,
       unlinked,
-      signals: {
-        approvalEvents: approveEvents.length,
-        description: getBrandBrainLearningCopy('approval').description,
-      },
+      learningProposalQueued,
       message,
     })
   } catch (err: any) {
@@ -210,7 +168,8 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -250,7 +209,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
         .catch((e: any) => console.error('[approve-content-plan revert] history write failed', e?.message))
     }
 
-    // Brand Brain (PR1): capture unschedule / revert workflow signals from the actual transitions.
+    // Brand Brain (PR1): capture unschedule / revert events from the actual transitions.
     const revertEvents = buildLearningEvents(
       plan.history.map((h: any) => ({
         workspaceId: h.workspaceId,
@@ -265,7 +224,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     if (revertEvents.length > 0) {
       await (prisma as any).marketingLearningEvent
         .createMany({ data: revertEvents })
-        .catch((e: any) => console.error('[approve-content-plan revert] workflow signal write failed', e?.message))
+        .catch((e: any) => console.error('[approve-content-plan revert] learning event write failed', e?.message))
     }
 
     return NextResponse.json({ success: true, reverted: plan.changed })

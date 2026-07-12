@@ -13,14 +13,15 @@ import {
   isMediaAttachmentConfirmationComplete,
 } from '@/lib/contentHubMediaAttachment'
 
-type Params = { params: { id: string; postId: string } }
+type Params = { params: Promise<{ id: string; postId: string }> }
 
 const ALLOWED_FIELDS = [
   'caption', 'imagePrompt', 'videoPrompt', 'mediaSource',
   'uploadedMediaId', 'imageUrl', 'generationStatus', 'scheduledAt',
 ] as const
 
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

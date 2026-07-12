@@ -48,7 +48,7 @@ function req(body: unknown) {
   } as any
 }
 
-const params = { params: { id: 'ad_account_1' } }
+const params = { params: Promise.resolve({ id: 'ad_account_1' }) }
 
 const connectedMetaAdAccount = {
   id: 'ad_account_1',

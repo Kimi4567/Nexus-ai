@@ -10,13 +10,13 @@ import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { runSentinelReview, SentinelReviewInput } from '@/lib/agents/sentinel-reviewer'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
-import { runBrainLearning } from '@/lib/brain-learning'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
-export async function GET(req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -38,7 +38,8 @@ export async function GET(req: NextRequest, { params }: Params) {
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -132,22 +133,6 @@ export async function POST(req: NextRequest, { params }: Params) {
       where: { id: params.id },
       data: { aiOutput: updatedOutput },
     })
-
-    // ── Brain Brain learning from Sentinel insights (fire-and-forget) ──────────
-    // Extracts competitive positioning gaps + validated angles → proposals
-    const brandCompetitors = Array.isArray((brand as any)?.competitors)
-      ? (brand as any).competitors
-      : []
-
-    runBrainLearning({
-      workspaceId: campaign.workspace.id,
-      campaignId: params.id,
-      trigger: 'sentinel_insight',
-      payload: {
-        sentinelReview,
-        competitors: brandCompetitors,
-      },
-    }).catch(() => null) // never block the sentinel review response
 
     // Log activity (non-blocking)
     prisma.campaignActivity.create({

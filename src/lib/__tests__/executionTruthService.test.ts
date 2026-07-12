@@ -1,0 +1,82 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const { prismaMock } = vi.hoisted(() => ({
+  prismaMock: {
+    workspace: { findFirst: vi.fn() },
+    campaign: { findMany: vi.fn() },
+    socialPost: { groupBy: vi.fn() },
+    marketingLearningEvent: { findMany: vi.fn() },
+    adCampaign: { groupBy: vi.fn() },
+  },
+}))
+
+vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
+
+import { getWorkspaceExecutionTruth } from '@/lib/executionTruthService'
+
+const campaignBase = {
+  goal: 'LEADS',
+  audience: 'Founders',
+  platforms: ['META'],
+  updatedAt: new Date('2026-07-12T12:00:00.000Z'),
+  aiOutput: {
+    strategy: { positioning: 'Clear value' },
+    sentinelReview: { status: 'passed' },
+  },
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  prismaMock.workspace.findFirst.mockResolvedValue({ id: 'w1' })
+  prismaMock.socialPost.groupBy
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([])
+  prismaMock.marketingLearningEvent.findMany.mockResolvedValue([])
+  prismaMock.adCampaign.groupBy.mockResolvedValue([])
+})
+
+describe('execution truth service', () => {
+  it('aggregates campaign and post states into one queue without loading post bodies', async () => {
+    prismaMock.campaign.findMany.mockResolvedValue([
+      { ...campaignBase, id: 'c1', name: 'Draft strategy', status: 'DRAFT' },
+      { ...campaignBase, id: 'c2', name: 'Content ready', status: 'ACTIVE' },
+    ])
+    prismaMock.socialPost.groupBy
+      .mockReset()
+      .mockResolvedValueOnce([
+        { campaignId: 'c2', status: 'DRAFT', _count: { _all: 2 } },
+      ])
+      .mockResolvedValueOnce([])
+
+    const result = await getWorkspaceExecutionTruth('u1')
+
+    expect(result.campaigns).toHaveLength(2)
+    expect(result.campaigns.find((campaign) => campaign.campaignId === 'c1')?.stage).toBe('STRATEGY_REVIEW')
+    expect(result.campaigns.find((campaign) => campaign.campaignId === 'c2')?.stage).toBe('CONTENT_REVIEW')
+    expect(prismaMock.socialPost.groupBy).toHaveBeenCalledTimes(2)
+    expect(prismaMock.campaign.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 100 }))
+  })
+
+  it('scopes a campaign truth request to the requested owned campaign', async () => {
+    prismaMock.campaign.findMany.mockResolvedValue([
+      { ...campaignBase, id: 'c2', name: 'Content ready', status: 'ACTIVE' },
+    ])
+
+    await getWorkspaceExecutionTruth('u1', { campaignId: 'c2' })
+
+    expect(prismaMock.campaign.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { workspaceId: 'w1', id: 'c2' },
+      take: 1,
+    }))
+  })
+
+  it('returns an empty truth contract when the user has no workspace', async () => {
+    prismaMock.workspace.findFirst.mockResolvedValue(null)
+
+    const result = await getWorkspaceExecutionTruth('u1')
+
+    expect(result.summary.campaigns).toBe(0)
+    expect(result.queue).toEqual([])
+    expect(prismaMock.campaign.findMany).not.toHaveBeenCalled()
+  })
+})

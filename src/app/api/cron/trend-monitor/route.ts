@@ -4,16 +4,16 @@
  *
  * For every workspace that has an industry set in Brand Brain:
  *   1. Fetch recent industry news via Google News RSS (free, no API key)
- *   2. GPT-4o analyzes findings → what's trending? audience pain shifts? opportunities?
- *   3. Creates Brand Brain proposals via runBrainLearning(industry_trend)
+ *   2. Stores a source-linked research alert for user review
  *
  * Complements competitor-monitor (daily) with broader industry intelligence (weekly).
- * Cost: ~$0.02-0.05 per workspace per week.
+ * No model call, no automatic Brand Brain mutation, and no claim that a topic
+ * is a trend merely because it appeared in search results.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { runBrainLearning } from '@/lib/brain-learning'
+import { cronAuthError } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -27,15 +27,6 @@ interface NewsItem {
   source: string
   publishedAt: string
   url: string
-}
-
-function decodeXmlText(value: string): string {
-  return value
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
 }
 
 /** Fetch recent Google News RSS for an industry / topic keyword */
@@ -67,8 +58,7 @@ async function fetchIndustryNews(industryKeyword: string): Promise<NewsItem[]> {
       const linkMatch   = item.match(/<link>(.*?)<\/link>/)
 
       const title = titleMatch?.[1]?.trim() ?? ''
-      const itemUrl = decodeXmlText(linkMatch?.[1]?.trim() ?? '')
-      if (!title || title.length < 10 || !itemUrl.startsWith('http')) continue
+      if (!title || title.length < 10) continue
 
       const rawSnippet = descMatch?.[1] ?? ''
       const snippet = rawSnippet.replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, ' ').trim().slice(0, 300)
@@ -79,7 +69,7 @@ async function fetchIndustryNews(industryKeyword: string): Promise<NewsItem[]> {
         snippet,
         source: sourceMatch?.[1]?.trim() ?? 'Unknown',
         publishedAt: dateMatch?.[1]?.trim() ?? '',
-        url: itemUrl,
+        url: linkMatch?.[1]?.trim() ?? '',
       })
     }
 
@@ -97,7 +87,7 @@ function buildIndustryQueries(industry: string): string[] {
   const queries: string[] = [base]
 
   // Add contextual trend queries
-  queries.push(`${base} trends 2025`)
+  queries.push(`${base} trends ${new Date().getUTCFullYear()}`)
   queries.push(`${base} marketing`)
 
   return queries.slice(0, 3) // max 3 queries per workspace
@@ -106,20 +96,14 @@ function buildIndustryQueries(industry: string): string[] {
 // ── Main handler ───────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret && process.env.NODE_ENV !== 'development') {
-    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
-  }
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = cronAuthError(req)
+  if (authError) return authError
 
   const results = {
     workspacesChecked: 0,
     workspacesWithIndustry: 0,
     newsItemsFetched: 0,
-    proposalsCreated: 0,
+    researchAlertsCreated: 0,
     errors: [] as string[],
   }
 
@@ -151,13 +135,9 @@ export async function GET(req: NextRequest) {
 
       try {
         const queries = buildIndustryQueries(profile.industry)
-        const allFindings: NewsItem[] = []
-
-        for (const query of queries) {
-          const items = await fetchIndustryNews(query)
-          allFindings.push(...items)
-          await new Promise(r => setTimeout(r, 500))
-        }
+        const allFindings = (await Promise.all(
+          queries.map((query) => fetchIndustryNews(query)),
+        )).flat()
 
         // Deduplicate by title
         const seen = new Set<string>()
@@ -172,17 +152,42 @@ export async function GET(req: NextRequest) {
 
         if (uniqueFindings.length === 0) continue
 
-        const proposed = await runBrainLearning({
-          workspaceId: profile.workspaceId,
-          trigger: 'industry_trend',
-          payload: {
-            industry: profile.industry,
-            findings: uniqueFindings,
-            brandName: profile.brandName ?? 'Unknown',
+        const db = prisma as any
+        const existing = await db.agentSuggestion.findFirst({
+          where: {
+            workspaceId: profile.workspaceId,
+            status: 'PENDING',
+            payload: { path: ['source'], equals: 'industry-research-monitor' },
+          },
+          select: { id: true },
+        })
+        if (existing) continue
+
+        await db.agentSuggestion.create({
+          data: {
+            workspaceId: profile.workspaceId,
+            agent: 'REPORTING',
+            type: 'STRATEGY',
+            status: 'PENDING',
+            priority: 3,
+            title: `Industry research: ${uniqueFindings.length} source headline${uniqueFindings.length === 1 ? '' : 's'} to verify`,
+            reasoning: `Recent RSS results matched “${profile.industry}”. Frequency in search is not proof of a market trend; review the linked sources before creating a hypothesis or campaign.`,
+            impact: null,
+            payload: {
+              source: 'industry-research-monitor',
+              researchKind: 'industry',
+              titleAr: `بحث القطاع: ${uniqueFindings.length} عنواناً للتحقق`,
+              reasoningAr: `نتائج RSS حديثة طابقت «${profile.industry}». تكرار العناوين ليس دليلاً على ترند؛ راجع المصادر قبل بناء فرضية أو حملة.`,
+              industry: profile.industry,
+              queries,
+              items: uniqueFindings.slice(0, 15),
+              performanceClaim: false,
+              autoLearningApplied: false,
+            },
+            expiresAt: new Date(Date.now() + 7 * 86_400_000),
           },
         })
-
-        results.proposalsCreated += proposed
+        results.researchAlertsCreated++
       } catch (err: any) {
         results.errors.push(`Workspace ${profile.workspaceId}: ${err.message}`)
       }
@@ -193,6 +198,9 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    mode: 'source-linked-no-ai',
+    aiUsed: false,
+    autoLearningApplied: false,
     ...results,
     ts: new Date().toISOString(),
   })

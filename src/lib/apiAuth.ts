@@ -5,9 +5,14 @@
 import { verifySupabaseToken } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 
+function getBearerToken(req: Request): string | null {
+  const header = req.headers.get('authorization') || ''
+  const match = header.match(/^Bearer\s+([^\s]+)$/i)
+  return match?.[1] || null
+}
+
 export async function getServerUserId(req: Request): Promise<string | null> {
-  const authHeader = req.headers.get('authorization') || ''
-  const token = authHeader.replace('Bearer ', '').trim()
+  const token = getBearerToken(req)
   if (!token) return null
   const user = await verifySupabaseToken(token)
   return user?.id ?? null
@@ -15,8 +20,7 @@ export async function getServerUserId(req: Request): Promise<string | null> {
 
 /** Returns the full user object (id + email) from the Authorization header */
 export async function getAuthUser(req: Request): Promise<{ id: string; email?: string } | null> {
-  const authHeader = req.headers.get('authorization') || ''
-  const token = authHeader.replace('Bearer ', '').trim()
+  const token = getBearerToken(req)
   if (!token) return null
   const user = await verifySupabaseToken(token)
   if (!user?.id) return null
@@ -29,8 +33,7 @@ export async function getAuthUser(req: Request): Promise<{ id: string; email?: s
  * Returns { id, email } or null if unauthenticated.
  */
 export async function ensureDbUser(req: Request): Promise<{ id: string; email: string } | null> {
-  const authHeader = req.headers.get('authorization') || ''
-  const token = authHeader.replace('Bearer ', '').trim()
+  const token = getBearerToken(req)
   if (!token) return null
 
   const sbUser = await verifySupabaseToken(token)

@@ -32,7 +32,9 @@ interface Suggestion {
   status: SuggestionStatus
   priority: number
   title: string
+  titleAr: string | null
   reasoning: string
+  reasoningAr: string | null
   impact: string | null
   campaignId: string | null
   campaignName: string | null
@@ -41,6 +43,11 @@ interface Suggestion {
   executedAt: string | null
   expiresAt: string | null
   createdAt: string
+  research: {
+    kind: 'competitor' | 'industry'
+    items: Array<{ title: string; url: string; source: string; publishedAt: string }>
+    autoLearningApplied: false
+  } | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -285,13 +292,35 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                     className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
                     style={{ background: pc }}
                   />
-                  <p className="text-sm font-semibold flex-1 leading-snug" style={{ color: 'var(--nx-text-1)' }}>{clean(s.title)}</p>
+                  <p className="text-sm font-semibold flex-1 leading-snug" style={{ color: 'var(--nx-text-1)' }}>{clean(locale === 'ar' ? (s.titleAr || s.title) : s.title)}</p>
                 </div>
 
                 {/* Row 2: reasoning (truncated) */}
                 <p className="text-[11px] leading-relaxed mb-2 line-clamp-2" style={{ color: 'var(--nx-text-3)' }}>
-                  {clean(s.reasoning)}
+                  {clean(locale === 'ar' ? (s.reasoningAr || s.reasoning) : s.reasoning)}
                 </p>
+
+                {s.research && s.research.items.length > 0 && (
+                  <div className="mb-3 space-y-1.5 rounded-lg border border-slate-200 bg-white p-2.5">
+                    {s.research.items.slice(0, 3).map((item) => (
+                      <a
+                        key={`${item.url}:${item.title}`}
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-start gap-1.5 text-[11px] leading-snug text-slate-600 hover:text-indigo-700"
+                      >
+                        <ExternalLink className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                        <span className="line-clamp-2">
+                          {clean(item.title)}{item.source ? ` · ${item.source}` : ''}
+                        </span>
+                      </a>
+                    ))}
+                    <p className="pt-1 text-[10px] text-slate-400">
+                      {locale === 'ar' ? 'مصادر للمراجعة — لا تُحدّث Brand Brain تلقائياً' : 'Sources for review — never auto-applied to Brand Brain'}
+                    </p>
+                  </div>
+                )}
 
                 {/* Approval feedback */}
                 {justActed && (
@@ -353,7 +382,9 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                       ? <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin inline-block" />
                       : <CheckCircle2 className="w-3 h-3" />
                     }
-                    {sg.btnApprove}
+                    {s.research
+                      ? (locale === 'ar' ? 'تمت المراجعة' : 'Mark reviewed')
+                      : sg.btnApprove}
                   </button>
                   {/* Quiet "Dismiss" — label/styling only. Underlying behavior is
                       UNCHANGED from the old Reject: it records the decision as

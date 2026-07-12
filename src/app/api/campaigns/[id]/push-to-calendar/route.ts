@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
@@ -213,7 +213,8 @@ function buildCalendarItems(campaignId: string, aiOutput: any): CalendarItem[] {
 }
 
 // ── POST /api/campaigns/[id]/push-to-calendar ─────────────────────────────────
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -277,7 +278,8 @@ export async function POST(req: NextRequest, { params }: Params) {
 }
 
 // ── DELETE /api/campaigns/[id]/push-to-calendar — remove pushed items ─────────
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useI18n } from '@/lib/i18n-context'
+import { useAuth } from '@/lib/auth-context'
 
 interface MediaRecord {
   id: string
@@ -41,6 +42,7 @@ function getStorageKey(projectId?: string, campaignId?: string) {
 
 export function UploadPanel({ workspaceId, projectId, campaignId, initialMedia = [], onMediaAdded }: UploadPanelProps) {
   const { t } = useI18n()
+  const { authHeader } = useAuth()
   const upT = t('uploadPanel')
 
   const STATUS_LABELS: Record<UploadStatus, string> = {
@@ -99,7 +101,7 @@ export function UploadPanel({ workspaceId, projectId, campaignId, initialMedia =
   const createUploadSession = async (file: File) => {
     const response = await fetch('/api/uploads/session', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
       body: JSON.stringify({
         workspaceId,
         projectId,
@@ -119,7 +121,7 @@ export function UploadPanel({ workspaceId, projectId, campaignId, initialMedia =
   const getCloudinarySignature = async (sessionToken: string) => {
     const response = await fetch('/api/uploads/cloudinary/signature', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
       body: JSON.stringify({ sessionToken }),
     })
     const payload = await response.json()
@@ -132,7 +134,7 @@ export function UploadPanel({ workspaceId, projectId, campaignId, initialMedia =
   const notifyCloudinaryUpload = async (taskId: string, responseData: any, sessionToken: string) => {
     const response = await fetch('/api/uploads/cloudinary/notify', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
       body: JSON.stringify({
         fileName: responseData.original_filename || responseData.public_id,
         mimeType: responseData.resource_type === 'video' ? `video/${responseData.format}` : `image/${responseData.format}`,
@@ -201,6 +203,8 @@ export function UploadPanel({ workspaceId, projectId, campaignId, initialMedia =
         form.append('timestamp', String(signatureData.timestamp))
         form.append('signature', String(signatureData.signature))
         form.append('folder', String(signatureData.folder))
+        form.append('public_id', String(signatureData.public_id))
+        form.append('overwrite', String(signatureData.overwrite))
         form.append('resource_type', String(signatureData.resource_type))
         xhr.send(form)
       })

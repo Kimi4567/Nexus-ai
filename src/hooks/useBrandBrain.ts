@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { calculateBrandMaturity, type BrandMaturityResult } from '@/lib/brandMaturity'
+import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
+import type { BrandBrainContract } from '@/lib/brandBrainContract'
 
 /* ═══════════════════════════════════════════════════════════════
    useBrandBrain — الذاكرة المشتركة لكل الوكلاء الذكيين
@@ -125,54 +127,7 @@ export function normalizeBrandProfile(profile: BrandProfile | null | undefined):
  * injected at the top of every AI system prompt.
  */
 export function buildBrandContext(brand: BrandProfile | null): string {
-  if (!brand || !brand.brandName) return ''
-
-  const lines: string[] = ['═══ ذاكرة العلامة التجارية — Brand Memory ═══']
-
-  if (brand.brandName)
-    lines.push(`• الاسم: ${brand.brandName}`)
-  if (brand.industry)
-    lines.push(`• القطاع: ${brand.industry}`)
-  if (brand.description)
-    lines.push(`• الوصف: ${brand.description}`)
-  if (brand.primaryOffer)
-    lines.push(`• المنتج/الخدمة الرئيسية: ${brand.primaryOffer}`)
-  if (brand.pricePoint)
-    lines.push(`• مستوى السعر: ${brand.pricePoint}`)
-  if (brand.uniqueAdvantages?.length)
-    lines.push(`• المميزات الفريدة: ${brand.uniqueAdvantages.join('، ')}`)
-  if (brand.targetAudience)
-    lines.push(`• الجمهور المستهدف: ${brand.targetAudience}`)
-  if (brand.audienceAge)
-    lines.push(`• الفئة العمرية: ${brand.audienceAge}`)
-  if (brand.audienceLocation)
-    lines.push(`• الموقع الجغرافي: ${brand.audienceLocation}`)
-  if (brand.audiencePainPoints?.length)
-    lines.push(`• نقاط الألم: ${brand.audiencePainPoints.join('، ')}`)
-  if (brand.audienceDesires?.length)
-    lines.push(`• الرغبات والتطلعات: ${brand.audienceDesires.join('، ')}`)
-  if (brand.toneKeywords?.length)
-    lines.push(`• نبرة الصوت المطلوبة: ${brand.toneKeywords.join('، ')}`)
-  if (brand.writingStyle)
-    lines.push(`• أسلوب الكتابة: ${brand.writingStyle}`)
-  if (brand.avoidKeywords?.length)
-    lines.push(`• يُمنع استخدام: ${brand.avoidKeywords.join('، ')}`)
-  if (brand.topPlatforms?.length)
-    lines.push(`• المنصات الرئيسية: ${brand.topPlatforms.join('، ')}`)
-  if (brand.winningHooks?.length)
-    lines.push(`• إشارات خطافات مراجعة: ${brand.winningHooks.join(' | ')}`)
-  if (brand.competitors?.length)
-    lines.push(`• المنافسون المرصودون: ${brand.competitors.join('، ')}`)
-  if (brand.competitorNotes)
-    lines.push(`• ملاحظات المنافسين: ${brand.competitorNotes}`)
-  if (brand.strategicNotes)
-    lines.push(`• ملاحظات استراتيجية: ${brand.strategicNotes}`)
-
-  lines.push('═══════════════════════════════════════')
-  lines.push('⚠️ استخدم هذه المعلومات في كل ما تولّده. اجعل كل output مخصصاً تماماً لهذه العلامة التجارية.')
-  lines.push('')
-
-  return lines.join('\n')
+  return buildBrandExecutionContext(brand as unknown as Record<string, unknown> | null)
 }
 
 /**
@@ -194,6 +149,7 @@ export function useBrandBrain() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [maturity, setMaturity] = useState<BrandMaturityResult | null>(null)
+  const [contract, setContract] = useState<BrandBrainContract | null>(null)
   const requestSeq = useRef(0)
 
   const fetchBrand = useCallback(async () => {
@@ -213,6 +169,7 @@ export function useBrandBrain() {
     if (gate.status === 'skip-unauthenticated') {
       setBrand(null)
       setMaturity(null)
+      setContract(null)
       setLoading(false)
       setError(null)
       return
@@ -249,6 +206,7 @@ export function useBrandBrain() {
         if (retryGate.status === 'skip-unauthenticated') {
           setBrand(null)
           setMaturity(null)
+          setContract(null)
           setLoading(false)
           setError(null)
           return
@@ -266,6 +224,7 @@ export function useBrandBrain() {
       const normalized = normalizeBrandProfile(data.brandProfile)
       setBrand(normalized)
       setMaturity(data.maturity ?? (normalized ? calculateBrandMaturity(normalized) : null))
+      setContract(data.contract ?? null)
     } catch {
       if (seq === requestSeq.current) {
         setError('تعذّر تحميل بيانات العلامة التجارية')
@@ -296,6 +255,7 @@ export function useBrandBrain() {
       const normalized = normalizeBrandProfile(result.brandProfile)
       setBrand(normalized)
       setMaturity(result.maturity ?? (normalized ? calculateBrandMaturity(normalized) : null))
+      setContract(result.contract ?? null)
       return true
     } catch {
       setError('تعذّر حفظ البيانات. حاول مجدداً.')
@@ -316,6 +276,7 @@ export function useBrandBrain() {
     brandContext,   // inject this into every AI system prompt
     completeness: score,
     maturity: derivedMaturity,
+    contract,
     missingFields: missing,
     loading,
     saving,

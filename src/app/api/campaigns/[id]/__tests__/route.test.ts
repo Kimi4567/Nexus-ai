@@ -32,7 +32,7 @@ describe('GET /api/campaigns/[id]', () => {
   })
 
   it('loads campaign detail without mutating the campaign row', async () => {
-    const response = await GET({} as never, { params: { id: 'campaign-1' } })
+    const response = await GET({} as never, { params: Promise.resolve({ id: 'campaign-1' }) })
     const body = await response.json()
 
     expect(response.status).toBe(200)
@@ -57,7 +57,7 @@ describe('DELETE /api/campaigns/[id]', () => {
   }) as never
 
   it('requires an explicit campaign-id confirmation before permanent deletion', async () => {
-    const response = await DELETE(request(), { params: { id: 'campaign-1' } })
+    const response = await DELETE(request(), { params: Promise.resolve({ id: 'campaign-1' }) })
 
     expect(response.status).toBe(400)
     expect(mockPrisma.campaign.delete).not.toHaveBeenCalled()
@@ -66,7 +66,7 @@ describe('DELETE /api/campaigns/[id]', () => {
   it('blocks permanent deletion when Content Hub posts exist', async () => {
     mockPrisma.socialPost.count.mockResolvedValue(3)
 
-    const response = await DELETE(request('campaign-1'), { params: { id: 'campaign-1' } })
+    const response = await DELETE(request('campaign-1'), { params: Promise.resolve({ id: 'campaign-1' }) })
     const body = await response.json()
 
     expect(response.status).toBe(409)
@@ -75,7 +75,7 @@ describe('DELETE /api/campaigns/[id]', () => {
   })
 
   it('deletes an early empty campaign only after explicit confirmation', async () => {
-    const response = await DELETE(request('campaign-1'), { params: { id: 'campaign-1' } })
+    const response = await DELETE(request('campaign-1'), { params: Promise.resolve({ id: 'campaign-1' }) })
 
     expect(response.status).toBe(200)
     expect(mockPrisma.campaign.delete).toHaveBeenCalledWith({ where: { id: 'campaign-1' } })

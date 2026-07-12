@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { calculateBrandMaturity, snapshotBrandMaturity } from '@/lib/brandMaturity'
-
-// Use 'any' cast until prisma generate runs with the new BrandProfile model
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = prisma as any
+import { buildBrandBrainContract, getChangedBrandFields } from '@/lib/brandBrainContract'
 
 function toStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -18,13 +15,59 @@ function toStringArray(value: unknown): string[] {
 }
 
 async function getAcceptedLearningCount(workspaceId: string): Promise<number> {
-  try {
-    return await db.brainLearning.count({
+  return prisma.brainLearning.count({
+    where: { workspaceId, status: 'accepted' },
+  })
+}
+
+function metadataChangedFields(metadata: unknown): string[] {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return []
+  const value = (metadata as Record<string, unknown>).changedFields
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : []
+}
+
+async function buildContract(workspaceId: string, brandProfile: Record<string, unknown> | null) {
+  const revisionEvents = ['BRAND_PROFILE_UPDATED', 'BRAND_LEARNING_ACCEPTED']
+  const [acceptedLearningCount, learnedFields, acceptedLearningEvents, pendingFields, revisionNumber, latestRevision] = await Promise.all([
+    getAcceptedLearningCount(workspaceId),
+    prisma.brainLearning.findMany({
       where: { workspaceId, status: 'accepted' },
-    })
-  } catch {
-    return 0
-  }
+      select: { field: true },
+      distinct: ['field'],
+    }),
+    prisma.marketingLearningEvent.findMany({
+      where: { workspaceId, eventType: 'BRAND_LEARNING_ACCEPTED' },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      select: { metadata: true },
+    }),
+    prisma.brainLearning.findMany({
+      where: { workspaceId, status: 'pending' },
+      select: { field: true },
+      distinct: ['field'],
+    }),
+    prisma.marketingLearningEvent.count({
+      where: { workspaceId, eventType: { in: revisionEvents } },
+    }),
+    prisma.marketingLearningEvent.findFirst({
+      where: { workspaceId, eventType: { in: revisionEvents } },
+      orderBy: { createdAt: 'desc' },
+      select: { metadata: true },
+    }),
+  ])
+
+  return buildBrandBrainContract(brandProfile, {
+    revisionNumber,
+    learnedFields: Array.from(new Set([
+      ...learnedFields.map((item) => item.field),
+      ...acceptedLearningEvents.flatMap((event) => metadataChangedFields(event.metadata)),
+    ])),
+    pendingLearningFields: pendingFields.map((item) => item.field),
+    acceptedLearningCount,
+    lastChangedFields: metadataChangedFields(latestRevision?.metadata),
+  })
 }
 
 // GET /api/brand — fetch brand profile for user's primary workspace
@@ -43,14 +86,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ brandProfile: null })
     }
 
-    let brandProfile = null
-    try {
-      brandProfile = await db.brandProfile.findUnique({
-        where: { workspaceId: workspace.id },
-      })
-    } catch {
-      // Model may not exist in DB yet — return null gracefully
-    }
+    const brandProfile = await prisma.brandProfile.findUnique({
+      where: { workspaceId: workspace.id },
+    })
 
     const acceptedLearningCount = await getAcceptedLearningCount(workspace.id)
     const maturity = calculateBrandMaturity(brandProfile, { acceptedLearningCount })
@@ -58,7 +96,12 @@ export async function GET(req: NextRequest) {
       ? { ...brandProfile, acceptedLearningCount }
       : null
 
-    return NextResponse.json({ brandProfile: profileWithMaturity, workspaceId: workspace.id, maturity })
+    const contract = await buildContract(
+      workspace.id,
+      profileWithMaturity as Record<string, unknown> | null,
+    )
+
+    return NextResponse.json({ brandProfile: profileWithMaturity, workspaceId: workspace.id, maturity, contract })
   } catch (error) {
     console.error('GET /api/brand error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -147,29 +190,48 @@ export async function POST(req: NextRequest) {
       verifiedProof: toStringArray(verifiedProof),
     }
 
-    let brandProfile = null
-    try {
-      brandProfile = await db.brandProfile.upsert({
-        where: { workspaceId: workspace.id },
-        update: profileData,
-        create: { workspaceId: workspace.id, ...profileData },
-      })
-    } catch (upsertError) {
-      console.error('BrandProfile upsert error:', upsertError)
-      return NextResponse.json(
-        { error: 'Brand Brain could not be saved. No success state was recorded.' },
-        { status: 500 },
-      )
-    }
+    const previous = await prisma.brandProfile.findUnique({
+      where: { workspaceId: workspace.id },
+    })
+    const changedFields = getChangedBrandFields(
+      previous as unknown as Record<string, unknown> | null,
+      profileData,
+    )
 
-    const maturity = await snapshotBrandMaturity(db, workspace.id)
+    const brandProfile = changedFields.length === 0 && previous
+      ? previous
+      : await prisma.$transaction(async (tx) => {
+          const saved = await tx.brandProfile.upsert({
+            where: { workspaceId: workspace.id },
+            update: profileData,
+            create: { workspaceId: workspace.id, ...profileData },
+          })
+
+          await tx.marketingLearningEvent.create({
+            data: {
+              workspaceId: workspace.id,
+              eventType: 'BRAND_PROFILE_UPDATED',
+              source: 'BRAND_BRAIN',
+              actor: 'USER',
+              metadata: {
+                changedFields,
+                profileUpdatedAt: saved.updatedAt.toISOString(),
+              },
+            },
+          })
+          return saved
+        })
+
+    const maturity = await snapshotBrandMaturity(prisma, workspace.id)
       ?? calculateBrandMaturity(brandProfile as Record<string, unknown>)
     const profileWithMaturity = {
       ...(brandProfile as Record<string, unknown>),
       acceptedLearningCount: maturity.acceptedLearningCount,
     }
 
-    return NextResponse.json({ brandProfile: profileWithMaturity, maturity, success: true })
+    const contract = await buildContract(workspace.id, profileWithMaturity)
+
+    return NextResponse.json({ brandProfile: profileWithMaturity, maturity, contract, success: true })
   } catch (error) {
     console.error('POST /api/brand error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

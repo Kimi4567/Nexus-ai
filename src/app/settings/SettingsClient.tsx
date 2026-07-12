@@ -367,7 +367,7 @@ export default function SettingsPage() {
       const res = await fetch('/api/workspace/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
-        body: JSON.stringify({ confirm: 'RESET' }),
+        body: JSON.stringify({ confirmText: 'RESET MY NEXUS WORKSPACE' }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Reset failed')

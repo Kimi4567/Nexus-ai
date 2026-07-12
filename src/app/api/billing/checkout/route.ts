@@ -2,7 +2,7 @@
  * POST /api/billing/checkout
  * Creates a Stripe Checkout Session and returns the URL.
  *
- * Body: { plan: 'starter' | 'pro' | 'business' }
+ * Body: { plan: 'growth' | 'autopilot' | 'pro' | 'business' }
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
@@ -14,6 +14,7 @@ import {
   STRIPE_PRICES,
 } from '@/lib/stripe'
 import { checkoutRateLimit } from '@/lib/dbRateLimit'
+import { normalizePublicPaidPlan } from '@/lib/commercialPlans'
 
 function getBaseUrl() {
   return (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')
@@ -42,18 +43,26 @@ export async function POST(req: NextRequest) {
     if (!checkoutRateLimit(user.id)) return NextResponse.json({ error: 'Too many requests. Try again in a minute.' }, { status: 429 })
 
     // ── Parse body ──────────────────────────────────────────────────────────
-    let plan: string
+    let requestedPlan: unknown
     try {
       const body = await req.json()
-      plan = (body.plan as string)?.toLowerCase()
+      requestedPlan = body.plan
     } catch {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    }
+
+    const plan = normalizePublicPaidPlan(requestedPlan)
+    if (!plan) {
+      return NextResponse.json(
+        { error: 'Unknown plan. Available paid plans: growth and autopilot.' },
+        { status: 400 },
+      )
     }
 
     const priceId = STRIPE_PRICES[plan]
     if (!priceId) {
       return NextResponse.json(
-        { error: `Unknown or unconfigured plan "${plan}". Valid configured plans: starter, pro, business` },
+        { error: `The ${plan === 'pro' ? 'Growth' : 'Autopilot'} Stripe price is not configured.` },
         { status: 400 }
       )
     }

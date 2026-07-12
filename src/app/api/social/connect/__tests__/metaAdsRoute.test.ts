@@ -26,6 +26,7 @@ describe('Meta Ads connect route', () => {
     vi.clearAllMocks()
     process.env.META_APP_ID = '123456789'
     process.env.NEXT_PUBLIC_APP_URL = 'https://nexus-grow.com'
+    process.env.OAUTH_STATE_SECRET = 'test-oauth-state-secret-at-least-32-characters'
     mockGetUser.mockResolvedValue({
       data: { user: { id: 'user_123' } },
       error: null,

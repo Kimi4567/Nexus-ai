@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { applyBrandOverlayFromProfile, type OverlayPlatform } from '@/lib/cloudinaryOverlay'
+import { useRouter } from 'next/navigation'
 
 // ── Upload limits ──────────────────────────────────────────────────────────────
 // Local path goes through Next.js JSON body: file is base64-encoded → 33% overhead.
@@ -568,6 +569,7 @@ function MediaCard({
 // ── Main Page ──────────────────────────────────────────────────────────────────
 export default function MediaLibraryPage() {
   const { isAuthenticated, loading, authHeader } = useAuth()
+  const router = useRouter()
   const { t, locale } = useI18n()
   const mT = t('media') as Record<string, string>
 
@@ -595,6 +597,10 @@ export default function MediaLibraryPage() {
   const dropRef = useRef<HTMLDivElement | null>(null)
 
   const canUseCloudinary = useMemo(() => Boolean(CLOUD_NAME), [])
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) router.replace('/auth/login')
+  }, [loading, isAuthenticated, router])
 
   const loadMedia = useCallback(async (currentPage = 1, currentQuery = '', currentType = 'ALL') => {
     setIsLoadingMedia(true)
@@ -697,18 +703,32 @@ export default function MediaLibraryPage() {
     updateTask(taskId, { status: 'UPLOADING', progress: 0 })
 
     try {
-      // 1. Get signed upload parameters
+      // 1. Create a short-lived, workspace-bound upload session
+      const sessionRes = await fetch('/api/uploads/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+        body: JSON.stringify({
+          resourceType: isVideo ? 'video' : 'auto',
+          fileName: file.name,
+        }),
+      })
+      const { ok: sessionOk, data: sessionData, errorMsg: sessionErr } = await safeJson(sessionRes)
+      if (!sessionOk || !sessionData?.sessionToken) {
+        throw new Error(sessionErr || 'Could not create upload session')
+      }
+
+      // 2. Get signed upload parameters for that exact session
       const sigRes = await fetch('/api/uploads/cloudinary/signature', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
-        body: JSON.stringify({ folder: 'nexus/default' }),
+        body: JSON.stringify({ sessionToken: sessionData.sessionToken }),
       })
       const { ok: sigOk, data: sigData, errorMsg: sigErr } = await safeJson(sigRes)
       if (!sigOk || !sigData?.signature) {
         throw new Error(sigErr || 'Could not get upload credentials')
       }
 
-      // 2. Upload directly to Cloudinary via XHR (supports progress + large files)
+      // 3. Upload directly to Cloudinary via XHR (supports progress + large files)
       const resourceType = isVideo ? 'video' : 'auto'
       const form = new FormData()
       form.append('file', file)
@@ -716,6 +736,8 @@ export default function MediaLibraryPage() {
       form.append('timestamp', String(sigData.timestamp))
       form.append('signature', sigData.signature)
       form.append('folder', sigData.folder)
+      form.append('public_id', sigData.public_id)
+      form.append('overwrite', String(sigData.overwrite))
       form.append('resource_type', resourceType)
 
       const cloudinaryResponse = await new Promise<any>((resolve, reject) => {
@@ -745,7 +767,7 @@ export default function MediaLibraryPage() {
         xhr.send(form)
       })
 
-      // 3. Register in DB
+      // 4. Register in DB after server-side Cloudinary verification
       updateTask(taskId, { progress: 95 })
       const mimeGuess = file.type ||
         (cloudinaryResponse.resource_type === 'video' ? `video/${cloudinaryResponse.format}` : `image/${cloudinaryResponse.format}`)
@@ -760,7 +782,7 @@ export default function MediaLibraryPage() {
           publicId: cloudinaryResponse.public_id,
           bytes: cloudinaryResponse.bytes,
           resourceType: cloudinaryResponse.resource_type,
-          workspaceId: '',
+          sessionToken: sessionData.sessionToken,
         }),
       })
       const { ok: notifyOk, data: notifyData, errorMsg: notifyErr } = await safeJson(notifyRes)

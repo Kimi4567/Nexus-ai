@@ -78,6 +78,19 @@ function card(content: string): string {
   return `<div style="background:#101010;border:1px solid #1a1a18;border-radius:12px;padding:20px 24px;margin:20px 0;">${content}</div>`
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function safeHeaderText(value: string): string {
+  return value.replace(/[\r\n]+/g, ' ').trim()
+}
+
 // ── 1. WELCOME EMAIL ──────────────────────────────────────────────────
 
 export async function sendWelcomeEmail(to: string, name: string) {
@@ -144,12 +157,12 @@ export async function sendCreditsLowEmail(to: string, name: string, creditsRemai
   const content = `
     ${h1('Your AI credits are running low.')}
     ${p(`${firstName}, you have <strong style="color:#f59e0b;">${creditsRemaining} credits left</strong> — that's ${Math.floor(creditsRemaining / 10)} more campaign generation${Math.floor(creditsRemaining / 10) !== 1 ? 's' : ''}.`)}
-    ${p('Upgrade to Growth to keep your momentum going — 150 credits/month, unlimited campaigns, and your weekly marketing brief every Monday.')}
+    ${p('Upgrade to Growth for 150 credits/month, up to 10 campaign creations per billing month, and your weekly planning brief.')}
 
     ${card(`
       <div style="font-size:13px;font-weight:700;color:#e8e8f5;margin-bottom:12px;">What you get with Growth:</div>
       <div style="display:flex;flex-direction:column;gap:8px;">
-        ${['200 AI credits every month', 'Unlimited campaigns', 'Weekly strategy brief in your inbox', 'Social publishing to Instagram & Facebook', 'PDF campaign reports'].map(f =>
+        ${['150 AI credits every month', 'Up to 10 campaign creations per billing month', 'Weekly planning brief in your inbox', 'Publishing when a supported provider account is connected', 'Printable HTML and JSON campaign exports'].map(f =>
           `<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#b8b8d8;">
             <span style="color:#FF9500;font-weight:700;">✓</span> ${f}
           </div>`
@@ -158,7 +171,7 @@ export async function sendCreditsLowEmail(to: string, name: string, creditsRemai
     `)}
 
     ${btn('Upgrade to Growth — $49/month →', `${APP_URL}/billing`)}
-    ${p('7-day money-back guarantee. Cancel anytime.', true)}
+    ${p('Cancel anytime. Access continues through the end of the paid billing period.', true)}
   `
 
   return resend.emails.send({
@@ -271,27 +284,32 @@ const PLATFORM_EMOJI: Record<string, string> = {
 }
 
 export async function sendDailyDigest(to: string, data: DailyDigestData) {
-  const firstName = data.name?.split(' ')[0] || 'there'
+  const firstName = escapeHtml(data.name?.split(' ')[0] || 'there')
+  const campaignName = escapeHtml(data.campaignName)
+  const day = escapeHtml(data.day)
+  const type = escapeHtml(data.type)
+  const topic = escapeHtml(data.topic || data.campaignName)
+  const caption = escapeHtml(data.caption || '')
   const platformEmoji = PLATFORM_EMOJI[data.platform] || '📱'
-  const platformName = data.platform.charAt(0) + data.platform.slice(1).toLowerCase().replace('_', ' ')
+  const platformName = escapeHtml(data.platform.charAt(0) + data.platform.slice(1).toLowerCase().replace('_', ' '))
 
   const content = `
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#FF9500;margin-bottom:8px;">
-      Today · ${data.day}
+      Today · ${day}
     </div>
     ${h1(`${firstName}, here's what to post today.`)}
-    ${p(`From your <strong style="color:#e8e8f5;">${data.campaignName}</strong> campaign — post ${data.postIndex} of ${data.totalPosts}.`)}
+    ${p(`From your <strong style="color:#e8e8f5;">${campaignName}</strong> campaign — post ${data.postIndex} of ${data.totalPosts}.`)}
 
     ${card(`
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
         <span style="font-size:18px;">${platformEmoji}</span>
         <div>
-          <div style="font-size:13px;font-weight:700;color:#e8e8f5;">${data.type}</div>
-          <div style="font-size:11px;color:#6a6a8a;">${platformName} · ${data.topic || data.campaignName}</div>
+          <div style="font-size:13px;font-weight:700;color:#e8e8f5;">${type}</div>
+          <div style="font-size:11px;color:#6a6a8a;">${platformName} · ${topic}</div>
         </div>
       </div>
-      ${data.caption ? `
-        <div style="background:#0a0a0c;border:1px solid #1a1a18;border-radius:10px;padding:16px;font-size:13px;color:#b8b8d8;line-height:1.7;white-space:pre-wrap;">${data.caption}</div>
+      ${caption ? `
+        <div style="background:#0a0a0c;border:1px solid #1a1a18;border-radius:10px;padding:16px;font-size:13px;color:#b8b8d8;line-height:1.7;white-space:pre-wrap;">${caption}</div>
       ` : ''}
     `)}
 
@@ -316,7 +334,7 @@ export async function sendDailyDigest(to: string, data: DailyDigestData) {
 
   return resend.emails.send({
     from: FROM, replyTo: REPLY_TO, to,
-    subject: `Today on ${platformName}: ${data.type} — ${data.campaignName}`,
+    subject: safeHeaderText(`Today on ${platformName}: ${data.type} — ${data.campaignName}`),
     html: emailShell(content),
   })
 }
@@ -413,7 +431,7 @@ export async function sendNurtureDay5(to: string, name: string) {
 
     <div style="margin-top:24px;padding:16px 20px;background:#101010;border:1px solid #1a1a18;border-radius:10px;">
       <div style="font-size:12px;color:#5C5448;margin-bottom:6px;">After your free campaigns are used:</div>
-      <div style="font-size:13px;color:#9A9080;">Upgrade to Growth for $49/month — unlimited campaigns, your weekly strategy brief, and social publishing. <a href="${APP_URL}/billing" style="color:#FF9500;">See plans →</a></div>
+      <div style="font-size:13px;color:#9A9080;">Upgrade to Growth for $49/month — 150 credits, up to 10 monthly campaign creations, and a weekly planning brief. <a href="${APP_URL}/billing" style="color:#FF9500;">See plans →</a></div>
     </div>
 
     <div style="margin-top:20px;">${p('— Raouf', true)}</div>
@@ -457,13 +475,13 @@ export async function sendNurtureDay7(to: string, name: string) {
       </div>
     `)}
 
-    ${p('Nexus Growth gives you unlimited campaigns, your weekly strategy brief every Monday, social publishing, and a brand memory that gets smarter every time you use it.')}
+    ${p('Nexus Growth gives you up to 10 campaign creations per billing month, a weekly planning brief, supported-platform publishing after connection, and reviewable Brand Brain learning proposals.')}
     ${p('If you run even one campaign a week that converts — the tool pays for itself in the first sale.')}
 
     ${btn('Upgrade to Growth — $49/month →', `${APP_URL}/billing`)}
 
     <div style="margin-top:16px;text-align:center;">
-      ${p('7-day money-back guarantee. No questions asked. <a href="${APP_URL}/billing">See all plans →</a>', true)}
+      ${p('Cancel anytime; access continues through the end of the paid period. <a href="${APP_URL}/billing">See all plans →</a>', true)}
     </div>
 
     <div style="margin-top:28px;padding-top:20px;border-top:1px solid #1a1a18;">
@@ -483,6 +501,10 @@ export async function sendNurtureDay7(to: string, name: string) {
 
 export async function sendUpgradeConfirmationEmail(to: string, name: string, plan: string) {
   const firstName = name?.split(' ')[0] || 'there'
+  const isAutopilot = /autopilot|business|agency/i.test(plan)
+  const activatedFeatures = isAutopilot
+    ? ['500 AI credits per billing month', 'Unlimited monthly campaign creation', 'Continuous scheduled monitoring', 'Supported-platform publishing after connection and approval', 'Printable HTML and JSON exports', 'Evidence-backed action queue']
+    : ['150 AI credits per billing month', 'Up to 10 campaign creations per billing month', 'Weekly planning brief', 'Supported-platform publishing after connection and approval', 'Printable HTML and JSON exports', 'Reviewable Brand Brain learning proposals']
 
   const content = `
     ${h1(`You're on ${plan}. Let's build.`)}
@@ -491,7 +513,7 @@ export async function sendUpgradeConfirmationEmail(to: string, name: string, pla
     ${card(`
       <div style="font-size:13px;font-weight:700;color:#e8e8f5;margin-bottom:12px;">What's now available to you:</div>
       <div style="display:flex;flex-direction:column;gap:8px;">
-        ${['Unlimited AI credits', 'Unlimited campaign generation', 'Social publishing to all platforms', 'Weekly intelligence brief every Monday', 'PDF campaign reports', 'Priority support'].map(f =>
+        ${activatedFeatures.map(f =>
           `<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#b8b8d8;">
             <span style="color:#FF9500;font-weight:700;">✓</span> ${f}
           </div>`

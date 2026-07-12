@@ -16,6 +16,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
+import { createOAuthState } from '@/lib/oauthState'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,12 +35,7 @@ export async function GET(req: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const redirectUri = `${baseUrl}/api/social/callback/meta-ads`
 
-    // State encodes userId + intent to route back correctly
-    const state = Buffer.from(JSON.stringify({
-      userId: user.id,
-      intent: 'meta_ads',
-      ts: Date.now(),
-    })).toString('base64url')
+    const state = createOAuthState(user.id, 'meta_ads')
 
     // Ads-specific scopes (separate from organic publishing scopes)
     // NOTE: ads_management + business_management require Meta App Review.

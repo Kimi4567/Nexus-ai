@@ -24,6 +24,7 @@ import {
   ensureGrant,
   buildStarterGrant,
   buildBonusGrant,
+  STARTER_CREDITS,
 } from '@/lib/credits/creditGrants'
 
 // ── Credit cost map ────────────────────────────────────────────────────────────
@@ -93,7 +94,7 @@ export const CREDIT_COSTS = {
    * Routes: /api/campaigns/suggest, /api/brand/suggest, /api/ai/generate,
    *         /api/ad-campaigns/[id]/generate-strategy, /api/ad-campaigns/[id]/generate-copy,
    *         /api/campaigns/[id]/paid-pack/learn
-   * Model: gpt-4o-mini (campaign-manager.ts, max_tokens: 1500)
+   * Model: gpt-4o-mini (paid-campaign and ad-copy generation routes)
    * Input: ~800 tokens | Output: ~1,500 tokens
    * API cost: ~$0.001 (gpt-4o-mini @ $0.15/M in, $0.60/M out)
    * Revenue @ Agency: 2 × $0.198 = $0.396 | Margin: ~99%
@@ -174,7 +175,7 @@ export type CreditAction = keyof typeof CREDIT_COSTS
 // 15 credits = 3× CAMPAIGN_GENERATION or 3× RUN_FULL_STRATEGY, or a mix of actions.
 // Adjust here to change the free tier without touching any route.
 
-export const FREE_STARTER_CREDITS = 10
+export const FREE_STARTER_CREDITS = STARTER_CREDITS
 
 // ── Monthly credit totals per plan ─────────────────────────────────────────────
 // Used by the dashboard credit progress bar.

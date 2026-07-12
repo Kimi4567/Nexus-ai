@@ -19,6 +19,18 @@ import { inspectBrainSignalProvenance } from '@/lib/brainSignalProvenance'
 
 const db = prisma as any  // eslint-disable-line @typescript-eslint/no-explicit-any
 
+const ACCEPTABLE_LEARNING_FIELDS = new Set([
+  'winningHooks',
+  'winningAngles',
+  'failedAngles',
+  'toneKeywords',
+  'audiencePainPoints',
+  'audienceDesires',
+  'uniqueAdvantages',
+  'topPlatforms',
+  'strategicNotes',
+])
+
 function mergeUnique(current: string[], incoming: string[], maxLen = 30): string[] {
   const seen = new Set(current.map(s => s.toLowerCase().trim()))
   const additions = incoming.filter(s => typeof s === 'string' && !seen.has(s.toLowerCase().trim()))
@@ -135,6 +147,10 @@ export async function PATCH(req: NextRequest) {
     const field = proposal.field as string
     const proposed = proposal.proposed
 
+    if (!ACCEPTABLE_LEARNING_FIELDS.has(field)) {
+      return NextResponse.json({ error: 'Unsupported Brand Brain learning field' }, { status: 400 })
+    }
+
     // Get current Brand Brain (or null)
     let brandBrain: Record<string, unknown> | null = null
     try {
@@ -145,7 +161,7 @@ export async function PATCH(req: NextRequest) {
     const updateData: Record<string, unknown> = {}
 
     // Array fields → merge unique
-    const arrayFields = ['winningHooks', 'winningAngles', 'toneKeywords', 'audiencePainPoints', 'audienceDesires', 'uniqueAdvantages']
+    const arrayFields = ['winningHooks', 'winningAngles', 'failedAngles', 'toneKeywords', 'audiencePainPoints', 'audienceDesires', 'uniqueAdvantages', 'topPlatforms']
     if (arrayFields.includes(field)) {
       const current = brandBrain ? (brandBrain[field] as string[] || []) : []
       const incoming = Array.isArray(proposed) ? proposed as string[] : []
@@ -161,25 +177,43 @@ export async function PATCH(req: NextRequest) {
       updateData[field] = proposed
     }
 
-    // Upsert Brand Brain
-    if (brandBrain) {
-      await db.brandProfile.update({
-        where: { workspaceId: workspace.id },
-        data: updateData,
+    // Apply, mark accepted, and append the revision event atomically. A failed
+    // event write must never leave the profile changed without provenance.
+    await prisma.$transaction(async (tx) => {
+      const txDb = tx as any // dynamic allowlisted BrandProfile field
+      if (brandBrain) {
+        await txDb.brandProfile.update({
+          where: { workspaceId: workspace.id },
+          data: updateData,
+        })
+      } else {
+        await txDb.brandProfile.create({
+          data: {
+            workspaceId: workspace.id,
+            ...updateData,
+          },
+        })
+      }
+
+      await txDb.brainLearning.update({
+        where: { id: proposalId },
+        data: { status: 'accepted' },
       })
-    } else {
-      await db.brandProfile.create({
+
+      await tx.marketingLearningEvent.create({
         data: {
           workspaceId: workspace.id,
-          ...updateData,
+          campaignId: typeof proposal.campaignId === 'string' ? proposal.campaignId : null,
+          eventType: 'BRAND_LEARNING_ACCEPTED',
+          source: 'BRAIN_PROPOSAL',
+          actor: 'USER',
+          metadata: {
+            proposalId,
+            trigger: typeof proposal.trigger === 'string' ? proposal.trigger : 'unknown',
+            changedFields: [field],
+          },
         },
       })
-    }
-
-    // Mark proposal as accepted
-    await db.brainLearning.update({
-      where: { id: proposalId },
-      data: { status: 'accepted' },
     })
 
     const maturity = await snapshotBrandMaturity(db, workspace.id)

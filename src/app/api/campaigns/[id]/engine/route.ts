@@ -14,9 +14,10 @@ import {
 // a slower-but-valid Arabic response completes instead of being killed mid-run.
 export const maxDuration = 60
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
-export async function GET(req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -28,7 +29,8 @@ export async function GET(req: NextRequest, { params }: Params) {
   return NextResponse.json({ engine: deriveCampaignEngineState(campaign) })
 }
 
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

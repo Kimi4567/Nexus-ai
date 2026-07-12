@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     const isUnlimited = freshUser.aiCredits === -1
     const isFree = freshUser.subscriptionStatus === 'FREE'
 
-    // First-time free user — display the starter balance that is granted on first spend.
+    // First-time free user — the atomic grant is created on first paid action.
     const creditsToShow = isFree && freshUser.aiCredits === 0 && freshUser.monthlyGenerations === 0
       ? FREE_STARTER_CREDITS
       : freshUser.aiCredits

@@ -4,26 +4,54 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { assertWorkspaceAccess, assertProjectInWorkspace, assertCampaignInWorkspace } from '@/lib/workspaceAccess'
 import { createUploadError } from '@/lib/uploadValidation'
 import { logUploadEvent } from '@/lib/auditLogger'
+import { uploadSessionRateLimitDb } from '@/lib/dbRateLimit'
 
 export async function POST(req: Request) {
   const userId = await getServerUserId(req)
   if (!userId) {
     return NextResponse.json(createUploadError(401, 'Unauthorized', 'UNAUTHORIZED'), { status: 401 })
   }
+  const rateLimit = await uploadSessionRateLimitDb(userId)
+  if (!rateLimit.ok) {
+    return NextResponse.json(createUploadError(429, rateLimit.message, 'RATE_LIMITED'), { status: 429 })
+  }
 
   try {
     const body = await req.json().catch(() => ({}))
     let { workspaceId, projectId, campaignId, resourceType, fileName } = body
+    workspaceId = typeof workspaceId === 'string' ? workspaceId : ''
+    projectId = typeof projectId === 'string' ? projectId : ''
+    campaignId = typeof campaignId === 'string' ? campaignId : ''
+    resourceType = ['auto', 'image', 'video'].includes(resourceType) ? resourceType : 'auto'
+    fileName = typeof fileName === 'string' ? fileName.trim().slice(0, 255) : null
 
     if (!workspaceId) {
       if (projectId) {
-        const project = await prisma.project.findUnique({ where: { id: projectId } })
-        if (project) workspaceId = project.workspaceId
+        const project = await prisma.project.findFirst({
+          where: {
+            id: projectId,
+            workspace: { OR: [{ ownerId: userId }, { members: { some: { userId } } }] },
+          },
+          select: { workspaceId: true },
+        })
+        if (!project) {
+          return NextResponse.json(createUploadError(403, 'Project access denied', 'ACCESS_DENIED'), { status: 403 })
+        }
+        workspaceId = project.workspaceId
       }
 
       if (!workspaceId && campaignId) {
-        const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } })
-        if (campaign) workspaceId = campaign.workspaceId
+        const campaign = await prisma.campaign.findFirst({
+          where: {
+            id: campaignId,
+            workspace: { OR: [{ ownerId: userId }, { members: { some: { userId } } }] },
+          },
+          select: { workspaceId: true },
+        })
+        if (!campaign) {
+          return NextResponse.json(createUploadError(403, 'Campaign access denied', 'ACCESS_DENIED'), { status: 403 })
+        }
+        workspaceId = campaign.workspaceId
       }
     }
 
@@ -73,6 +101,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ sessionToken: token, expiresAt: expiresAt.toISOString() })
   } catch (err: unknown) {
     console.error('[uploads/session POST]', err)
+    if (err instanceof Error && /access denied|not found/i.test(err.message)) {
+      return NextResponse.json(createUploadError(403, 'Upload scope access denied', 'ACCESS_DENIED'), { status: 403 })
+    }
     return NextResponse.json(createUploadError(500, 'Failed to create upload session', 'SERVER_ERROR'), { status: 500 })
   }
 }

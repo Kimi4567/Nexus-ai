@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { getServerUserId } from '@/lib/apiAuth'
+import { prisma } from '@/lib/prisma'
 
 // Map common extensions to MIME types for correct Content-Type header
 function mimeFromExt(ext: string): string {
@@ -19,48 +21,51 @@ function mimeFromExt(ext: string): string {
   return map[ext.toLowerCase()] || 'application/octet-stream'
 }
 
-export async function GET(req: Request, { params }: { params: { file: string[] } }) {
+export async function GET(req: Request, props: { params: Promise<{ file: string[] }> }) {
+  const params = await props.params;
   try {
+    const userId = await getServerUserId(req)
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const parts = params.file
     if (!parts || parts.length === 0) {
       return NextResponse.json({ error: 'File required' }, { status: 400 })
     }
 
     const rel = parts.join('/')
+    const mediaUrl = `/api/storage/${rel}`
+    const media = await prisma.media.findFirst({
+      where: {
+        url: mediaUrl,
+        workspace: {
+          OR: [{ ownerId: userId }, { members: { some: { userId } } }],
+        },
+      },
+      select: { id: true },
+    })
+    if (!media) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     // Primary location: <cwd>/.storage/<rel>
     const base = path.resolve(process.cwd(), '.storage')
-    const full = path.join(base, rel)
+    const full = path.resolve(base, rel)
     // Guard against path traversal
-    if (!full.startsWith(base)) {
+    if (!full.startsWith(`${base}${path.sep}`)) {
       return NextResponse.json({ error: 'Invalid path' }, { status: 400 })
     }
 
-    // Resolve actual file path — check primary, then Vercel /tmp fallback
-    let filePath = full
-    if (!fs.existsSync(full)) {
-      // On Vercel, local uploads are written to /tmp/nexus_uploads/<filename>
-      const fileName = path.basename(rel)
-      const tmpPath = path.join('/tmp/nexus_uploads', fileName)
-      if (fs.existsSync(tmpPath)) {
-        filePath = tmpPath
-      } else {
-        return NextResponse.json({ error: 'Not found' }, { status: 404 })
-      }
-    }
+    if (!fs.existsSync(full)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const stat = fs.statSync(filePath)
-    const ext = path.extname(filePath)
+    const stat = fs.statSync(full)
+    const ext = path.extname(full)
     const contentType = mimeFromExt(ext)
 
     const headers: Record<string, string> = {
       'Content-Length': String(stat.size),
       'Content-Type': contentType,
-      // Allow browsers to cache static uploads
-      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
     }
 
-    const stream = fs.createReadStream(filePath)
+    const stream = fs.createReadStream(full)
     return new NextResponse(stream as any, { headers })
   } catch (err) {
     console.error('Storage serve error', err)

@@ -1,16 +1,15 @@
 /**
  * B1d-a — CreditGrant helper foundation tests.
  *
- * Pure source/shape builders + idempotent ensureGrant / resetNonPurchasedGrants.
- * Prisma is mocked; no DB. These helpers must NEVER touch User.aiCredits or
- * CreditTransaction (asserted via a fully-mocked prisma surface).
+ * Pure source/shape builders + idempotent grant writes and wallet-cache sync.
+ * Prisma is mocked; no DB.
  */
 
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
-    creditGrant: { createMany: vi.fn(), updateMany: vi.fn() },
+    creditGrant: { createMany: vi.fn(), updateMany: vi.fn(), aggregate: vi.fn() },
     // Present so we can assert helpers NEVER touch these.
     user: { update: vi.fn(), findUnique: vi.fn() },
     creditTransaction: { create: vi.fn() },
@@ -24,13 +23,16 @@ import {
   starterSource,
   referralSource,
   manualSource,
+  purchaseSource,
   buildStarterGrant,
   buildMonthlyGrant,
   buildBonusGrant,
+  buildPurchasedGrant,
   ensureGrant,
   resetNonPurchasedGrants,
   ensureMonthlyGrant,
   voidNonPurchasedGrants,
+  fulfilPurchasedCreditPack,
   STARTER_CREDITS,
 } from '@/lib/credits/creditGrants'
 
@@ -61,6 +63,10 @@ describe('source builders', () => {
 
   it('manualSource embeds the action id', () => {
     expect(manualSource('topup_42')).toBe('manual:topup_42')
+  })
+
+  it('purchaseSource is deterministic per Stripe Checkout session', () => {
+    expect(purchaseSource('cs_123')).toBe('stripe:checkout:cs_123')
   })
 })
 
@@ -96,6 +102,58 @@ describe('grant shape builders', () => {
     expect(ref).toMatchObject({ userId: 'u1', type: 'REFERRAL', amount: 20, remaining: 20, expiresAt: null, source: 'referral:a:b', status: 'ACTIVE' })
     const man = buildBonusGrant('u1', 'MANUAL', 100, manualSource('x'))
     expect(man).toMatchObject({ type: 'MANUAL', amount: 100, remaining: 100, expiresAt: null })
+  })
+
+  it('buildPurchasedGrant → PURCHASED with 12-calendar-month expiry', () => {
+    const g = buildPurchasedGrant('u1', 'cs_123', 100, NOW)
+    expect(g).toMatchObject({
+      userId: 'u1', type: 'PURCHASED', amount: 100, remaining: 100,
+      source: 'stripe:checkout:cs_123', status: 'ACTIVE',
+    })
+    expect(g.expiresAt?.toISOString()).toBe('2027-06-19T12:00:00.000Z')
+  })
+})
+
+describe('fulfilPurchasedCreditPack', () => {
+  it('creates one purchased grant, transaction, and synchronized cache balance', async () => {
+    const tx = {
+      creditGrant: {
+        createMany: vi.fn().mockResolvedValue({ count: 1 }),
+        updateMany: vi.fn(),
+        aggregate: vi.fn().mockResolvedValue({ _sum: { remaining: 140 } }),
+      },
+      creditTransaction: { create: vi.fn().mockResolvedValue({ id: 'ct_1' }) },
+      user: { update: vi.fn().mockResolvedValue({}) },
+    }
+
+    const result = await fulfilPurchasedCreditPack({
+      userId: 'u1', checkoutSessionId: 'cs_123', credits: 100, purchasedAt: NOW,
+    }, tx)
+
+    expect(result).toEqual({ created: true, balance: 140 })
+    expect(tx.creditTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ amount: 100, entityId: 'cs_123', entityType: 'credit_pack' }),
+    }))
+    expect(tx.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { aiCredits: 140 } })
+  })
+
+  it('is idempotent: duplicate session does not duplicate the transaction', async () => {
+    const tx = {
+      creditGrant: {
+        createMany: vi.fn().mockResolvedValue({ count: 0 }),
+        updateMany: vi.fn(),
+        aggregate: vi.fn().mockResolvedValue({ _sum: { remaining: 100 } }),
+      },
+      creditTransaction: { create: vi.fn() },
+      user: { update: vi.fn().mockResolvedValue({}) },
+    }
+
+    const result = await fulfilPurchasedCreditPack({
+      userId: 'u1', checkoutSessionId: 'cs_123', credits: 100, purchasedAt: NOW,
+    }, tx)
+
+    expect(result.created).toBe(false)
+    expect(tx.creditTransaction.create).not.toHaveBeenCalled()
   })
 })
 
