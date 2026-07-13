@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
@@ -312,6 +313,7 @@ function StatusPill({ children, tone }: { children: ReactNode; tone: 'ready' | '
 
 export default function ConnectionsPage() {
   const { isAuthenticated, loading, authHeader, session } = useAuth()
+  const router = useRouter()
   const { locale, dir } = useI18n()
   const ar = locale === 'ar'
   const copy = useCallback((arabic: string, english: string) => (ar ? arabic : english), [ar])
@@ -326,7 +328,10 @@ export default function ConnectionsPage() {
 
   const fetchAccounts = useCallback(async () => {
     const token = authHeader()
-    if (!token) return
+    if (!token) {
+      setLoadingAccounts(false)
+      return
+    }
     setLoadingAccounts(true)
     try {
       const [socialRes, adRes] = await Promise.all([
@@ -377,6 +382,13 @@ export default function ConnectionsPage() {
   useEffect(() => {
     if (!loading && isAuthenticated && session?.access_token) fetchAccounts()
   }, [fetchAccounts, isAuthenticated, loading, session])
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      setLoadingAccounts(false)
+      router.push('/auth/login')
+    }
+  }, [isAuthenticated, loading, router])
 
   const handleConnect = async (platformId: string) => {
     const route = CONNECT_ROUTES[platformId]
@@ -454,7 +466,7 @@ export default function ConnectionsPage() {
 
   const connectedCount = accounts.length + metaAdAccounts.length
 
-  if (loading) {
+  if (loading || !isAuthenticated) {
     return (
       <AppShell>
         <div className="flex min-h-screen items-center justify-center bg-[#f6f8fc]">

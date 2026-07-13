@@ -107,12 +107,14 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).not.toContain('يحتاج مراجعة')
   })
 
-  it('keeps campaign tabs and the strategy map visible in one operating navigation surface', () => {
+  it('keeps campaign navigation focused while preserving the strategy outline on demand', () => {
     expect(campaignRoomSource).toContain('Campaign Room')
-    expect(campaignRoomSource).toContain('Current workspace:')
-    expect(campaignRoomSource).toContain('Operating navigation')
-    expect(campaignRoomSource).toContain('Strategy document outline')
-    expect(campaignRoomSource).toContain('فهرس وثيقة الاستراتيجية')
+    expect(campaignRoomSource).toContain('Current campaign workspace')
+    expect(campaignRoomSource).toContain('Switch campaign workspace')
+    expect(campaignRoomSource).toContain('Strategy document sections')
+    expect(campaignRoomSource).toContain('أقسام وثيقة الاستراتيجية')
+    expect(campaignRoomSource).toContain('<select')
+    expect(campaignRoomSource).toContain('<details')
     expect(campaignRoomSource).not.toContain('Strategy map')
     expect(campaignRoomSource).toContain('sticky top-0 z-30')
     expect(campaignRoomSource).toContain('activeTab === 0 && strategySectionNavItems.length > 0')

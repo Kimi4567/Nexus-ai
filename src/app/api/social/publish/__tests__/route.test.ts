@@ -119,6 +119,32 @@ describe('POST /api/social/publish', () => {
     expect(mocks.publish).not.toHaveBeenCalled()
   })
 
+  it('blocks generic legacy copy even when the post was approved previously', async () => {
+    mocks.socialPostFindFirst.mockResolvedValue({
+      id: 'approved-post-1',
+      campaignId: 'campaign-1',
+      platform: 'META',
+      status: 'APPROVED',
+      caption: 'هل تعلم أن التسويق الذكي يمكن أن يغير مسار شركتك؟',
+      imagePrompt: 'Abstract marketing image',
+      imageUrl: 'https://cdn.example.com/approved.jpg',
+      uploadedMediaId: null,
+      mediaSource: 'GENERATE',
+      generationStatus: 'DONE',
+      approvedAt: new Date('2026-07-12T10:00:00.000Z'),
+    })
+
+    const response = await POST(request(validBody))
+    const body = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(body.code).toBe('CONTENT_REVIEW_REQUIRED')
+    expect(body.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ reason: 'generic_hook_formula' }),
+    ]))
+    expect(mocks.publish).not.toHaveBeenCalled()
+  })
+
   it('scopes integration and campaign lookup to the authenticated workspace', async () => {
     const response = await POST(request(validBody))
     expect(response.status).toBe(200)

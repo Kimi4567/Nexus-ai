@@ -57,7 +57,11 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
   const [tiktokOptions, setTikTokOptions] = useState({ privacyLevel: '', disableComment: false, disableDuet: false, disableStitch: false, brandContentToggle: false, brandOrganicToggle: true, isAigc: false })
   const [result, setResult] = useState<{ ok: boolean; message: string; url?: string } | null>(null)
 
-  const eligible = status === 'APPROVED' || status === 'SCHEDULED'
+  // A scheduled post already has an explicit execution decision. Showing a
+  // second "publish now" path beside manual/automatic scheduling creates two
+  // competing actions and can bypass the reviewed schedule. Immediate provider
+  // publishing is therefore available only while the post is APPROVED.
+  const eligible = status === 'APPROVED'
   const matchingAccounts = useMemo(() => (accounts || []).filter(account => account.platform.toUpperCase() === targetPlatform), [accounts, targetPlatform])
   const selectedAccount = matchingAccounts.find(account => account.id === accountId) || matchingAccounts[0] || null
   const pages = selectedAccount?.pages || []

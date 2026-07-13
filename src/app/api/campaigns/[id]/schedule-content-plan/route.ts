@@ -25,6 +25,7 @@ import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState
 import { decryptToken } from '@/lib/tokenCrypto'
 import { queryTikTokCreatorInfo } from '@/lib/tiktokPublishing'
 import { hasVerifiedProviderScope } from '@/lib/socialPlatformConfig'
+import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -86,6 +87,9 @@ export async function POST(req: NextRequest, props: Params) {
         publishTarget: true,
         integrationId: true,
         scheduledAt: true,
+        caption: true,
+        imagePrompt: true,
+        videoPrompt: true,
         imageUrl: true,
         uploadedMediaId: true,
         mediaSource: true,
@@ -105,6 +109,17 @@ export async function POST(req: NextRequest, props: Params) {
         error: 'Complete media review for every approved post before scheduling.',
         code: 'MEDIA_REVIEW_REQUIRED',
         pendingMedia: postsNeedingMedia.length,
+      }, { status: 409 })
+    }
+
+    const contentIssues = approvedPosts.flatMap((post: any, index: number) =>
+      reviewContentPostForPublishing(post, index + 1),
+    )
+    if (contentIssues.length > 0) {
+      return NextResponse.json({
+        error: 'Review or regenerate the approved copy before scheduling it.',
+        code: 'CONTENT_REVIEW_REQUIRED',
+        issues: contentIssues,
       }, { status: 409 })
     }
 

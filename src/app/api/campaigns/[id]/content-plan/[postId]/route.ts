@@ -12,6 +12,12 @@ import {
   isMediaAllowedForPost,
   isMediaAttachmentConfirmationComplete,
 } from '@/lib/contentHubMediaAttachment'
+import {
+  CONTENT_REVISION_HISTORY_NOTE,
+  contentReviewResetData,
+  isImmutableExecutionPost,
+  reopensContentReview,
+} from '@/lib/contentPostRevision'
 
 type Params = { params: Promise<{ id: string; postId: string }> }
 
@@ -36,6 +42,13 @@ export async function PATCH(req: NextRequest, props: Params) {
       },
     })
     if (!post) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+    if (isImmutableExecutionPost(post.status)) {
+      return NextResponse.json({
+        error: 'Published or provider-processing posts are immutable. Create a new draft for any revision.',
+        code: 'PUBLISHED_POST_IMMUTABLE',
+      }, { status: 409 })
+    }
 
     const body = await req.json()
     if (SERVER_CONTROLLED_MEDIA_FIELDS.some((field) => field in body)) {
@@ -156,18 +169,42 @@ export async function PATCH(req: NextRequest, props: Params) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
 
-    const updated = await (prisma.socialPost as any).update({
-      where: { id: params.postId },
-      data,
-      select: {
-        id: true,
-        caption: true,
-        imagePrompt: true,
-        imageUrl: true,
-        mediaSource: true,
-        uploadedMediaId: true,
-        generationStatus: true,
-      },
+    const reopensReview = reopensContentReview(post.status)
+    Object.assign(data, contentReviewResetData(post.status))
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const next = await (tx.socialPost as any).update({
+        where: { id: params.postId },
+        data,
+        select: {
+          id: true,
+          status: true,
+          caption: true,
+          imagePrompt: true,
+          imageUrl: true,
+          mediaSource: true,
+          uploadedMediaId: true,
+          generationStatus: true,
+          approvedAt: true,
+          publishMode: true,
+          integrationId: true,
+          pageId: true,
+          pageName: true,
+        },
+      })
+      if (reopensReview) {
+        await tx.postStatusHistory.create({
+          data: {
+            socialPostId: post.id,
+            workspaceId: post.workspaceId,
+            fromStatus: post.status,
+            toStatus: 'DRAFT',
+            actor: 'USER',
+            note: CONTENT_REVISION_HISTORY_NOTE,
+          },
+        })
+      }
+      return next
     })
 
     return NextResponse.json({ post: updated })

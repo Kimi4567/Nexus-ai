@@ -17,6 +17,14 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { validateRewriteConfirmation } from '@/lib/contentHubActionSafety'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { guardContentDraftText } from '@/lib/ai/contentDraftTruthGuard'
+import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
+import {
+  CONTENT_REVISION_HISTORY_NOTE,
+  contentReviewResetData,
+  isImmutableExecutionPost,
+  reopensContentReview,
+} from '@/lib/contentPostRevision'
 
 type Params = { params: Promise<{ id: string; postId: string }> }
 
@@ -67,6 +75,7 @@ export async function POST(req: NextRequest, props: Params) {
         caption: true,
         imagePrompt: true,
         platform: true,
+        status: true,
         workspaceId: true,
         campaign: {
           select: {
@@ -79,6 +88,12 @@ export async function POST(req: NextRequest, props: Params) {
       },
     })
     if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+    if (isImmutableExecutionPost(post.status)) {
+      return NextResponse.json({
+        error: 'Published or provider-processing posts are immutable. Create a new draft for a revision.',
+        code: 'PUBLISHED_POST_IMMUTABLE',
+      }, { status: 409 })
+    }
 
     const confirmation = validateRewriteConfirmation({
       confirmed: explicitRewriteConfirmed,
@@ -115,6 +130,10 @@ export async function POST(req: NextRequest, props: Params) {
         winningHooks: true,
         uniqueAdvantages: true,
         primaryOffer: true,
+        verifiedProof: true,
+        description: true,
+        complianceNotes: true,
+        conversionDestination: true,
       },
     })
 
@@ -149,7 +168,9 @@ Rewrite rules:
 - Apply the brand voice and tone faithfully
 - Stay within the character limit
 - Keep relevant hashtags (update or replace if needed)
-- The hook (first line) must grab attention immediately
+- The hook (first line) must name the audience situation, task, tension, or objection
+- Never start with Did you know / هل تعلم / Imagine if / What if, and never claim that analytics, numbers, or smart marketing transform a business
+- Do not invent customer proof, performance, guarantees, awards, results, or platform status
 - Return ONLY the new caption text — no explanations, no formatting markers`
 
     const userMsg = `Original caption:
@@ -190,12 +211,52 @@ ${post.caption}${instruction ? `\n\nRewrite instruction: ${instruction}` : '\n\n
     const truncated = newCaption.length > charLimit
       ? newCaption.slice(0, charLimit).replace(/\s+\S*$/, '…')
       : newCaption
+    const guardedCaption = guardContentDraftText(truncated, {
+      verifiedProof: brand?.verifiedProof,
+      hasConversionDestination: Boolean(brand?.conversionDestination),
+      brandFacts: [
+        brand?.brandName,
+        brand?.description,
+        brand?.primaryOffer,
+        brand?.uniqueAdvantages,
+        brand?.complianceNotes,
+      ],
+    })
+    const publishReview = reviewContentPostForPublishing({ caption: guardedCaption })
+    if (publishReview.length > 0) {
+      if (rewriteCharged) {
+        await refundCredits(userId, 'AI_POST_REWRITE')
+        rewriteCharged = false
+      }
+      return NextResponse.json({
+        error: 'The rewrite did not pass the saved-content quality gate. No revised copy was saved.',
+        code: 'CONTENT_REVIEW_REQUIRED',
+        issues: publishReview,
+        refunded: true,
+      }, { status: 422 })
+    }
 
     // ── 6. Persist updated caption ─────────────────────────────────────────
-    const updated = await (prisma.socialPost as any).update({
-      where: { id: params.postId },
-      data: { caption: truncated },
-      select: { id: true, caption: true, imagePrompt: true },
+    const reopensReview = reopensContentReview(post.status)
+    const updated = await prisma.$transaction(async (tx) => {
+      const next = await (tx.socialPost as any).update({
+        where: { id: params.postId },
+        data: { caption: guardedCaption, ...contentReviewResetData(post.status) },
+        select: { id: true, caption: true, imagePrompt: true, status: true, approvedAt: true, publishMode: true },
+      })
+      if (reopensReview) {
+        await tx.postStatusHistory.create({
+          data: {
+            socialPostId: post.id,
+            workspaceId: post.workspaceId,
+            fromStatus: post.status,
+            toStatus: 'DRAFT',
+            actor: 'USER',
+            note: CONTENT_REVISION_HISTORY_NOTE,
+          },
+        })
+      }
+      return next
     })
 
     return NextResponse.json({ post: updated })

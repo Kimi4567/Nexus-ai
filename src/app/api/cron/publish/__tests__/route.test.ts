@@ -123,6 +123,26 @@ describe('GET /api/cron/publish', () => {
     expect(mocks.update).not.toHaveBeenCalled()
   })
 
+  it('fails closed before provider delivery when scheduled legacy copy is generic', async () => {
+    mocks.findMany.mockResolvedValue([{
+      ...duePost(),
+      caption: 'Did you know analytics can transform your business?',
+    }])
+
+    const response = await GET(request())
+    const body = await response.json()
+
+    expect(body).toMatchObject({ ok: true, processed: 1, succeeded: 0, failed: 1 })
+    expect(mocks.publish).not.toHaveBeenCalled()
+    expect(mocks.update).toHaveBeenCalledWith({
+      where: { id: 'post-1' },
+      data: expect.objectContaining({
+        status: 'FAILED',
+        errorMessage: expect.stringContaining('CONTENT_REVIEW_REQUIRED'),
+      }),
+    })
+  })
+
   it('records provider failure without claiming publication', async () => {
     mocks.publish.mockRejectedValue(new Error('LinkedIn publish failed: permission denied'))
     const response = await GET(request())

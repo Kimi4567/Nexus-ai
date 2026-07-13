@@ -34,6 +34,16 @@ describe('contentPlanApprovalGuard', () => {
     expect(review.issues.some(issue => issue.reason.includes('guarantee'))).toBe(true)
   })
 
+  it('blocks generic legacy hook formulas before approval or publishing', () => {
+    const review = reviewContentPlanForApproval([
+      { contentPlanIndex: 1, caption: 'هل تعلم أن التسويق الذكي يمكن أن يغير مسار شركتك؟' },
+      { contentPlanIndex: 2, caption: 'Did you know analytics can transform your business?' },
+    ], strategy, facts)
+
+    expect(review.ok).toBe(false)
+    expect(review.issues.filter(issue => issue.reason === 'generic_hook_formula')).toHaveLength(2)
+  })
+
   it('allows aligned, review-safe drafts', () => {
     const review = reviewContentPlanForApproval([
       { contentPlanIndex: 1, caption: 'Save three questions to ask your dentist during a dental consultation.' },

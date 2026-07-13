@@ -7,14 +7,20 @@ const mocks = vi.hoisted(() => ({
   postUpdate: vi.fn(),
   visualFindFirst: vi.fn(),
   mediaFindUnique: vi.fn(),
+  historyCreate: vi.fn(),
 }))
 
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mocks.getUserId }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     socialPost: { findFirst: mocks.postFindFirst, update: mocks.postUpdate },
+    postStatusHistory: { create: mocks.historyCreate },
     generatedVisual: { findFirst: mocks.visualFindFirst },
     media: { findUnique: mocks.mediaFindUnique },
+    $transaction: vi.fn(async (callback: (tx: any) => Promise<unknown>) => callback({
+      socialPost: { update: mocks.postUpdate },
+      postStatusHistory: { create: mocks.historyCreate },
+    })),
   },
 }))
 
@@ -37,6 +43,7 @@ beforeEach(() => {
     id: 'post-1',
     workspaceId: 'workspace-1',
     campaignId: 'campaign-1',
+    status: 'DRAFT',
     imagePrompt: 'Original prompt',
     imageUrl: null,
     uploadedMediaId: null,
@@ -123,6 +130,7 @@ describe('PATCH Content Hub post media integrity', () => {
       id: 'post-1',
       workspaceId: 'workspace-1',
       campaignId: 'campaign-1',
+      status: 'DRAFT',
       imagePrompt: 'Original prompt',
       imageUrl: 'https://res.cloudinary.com/demo/old.jpg',
       uploadedMediaId: null,
@@ -141,5 +149,57 @@ describe('PATCH Content Hub post media integrity', () => {
         generationStatus: 'PENDING',
       }),
     }))
+  })
+
+  it('reopens scheduled content as a draft when copy changes', async () => {
+    mocks.postFindFirst.mockResolvedValue({
+      id: 'post-1',
+      workspaceId: 'workspace-1',
+      campaignId: 'campaign-1',
+      status: 'SCHEDULED',
+      imagePrompt: 'Original prompt',
+      imageUrl: 'https://res.cloudinary.com/demo/approved.jpg',
+      uploadedMediaId: null,
+      mediaSource: 'GENERATE',
+      generationStatus: 'DONE',
+    })
+
+    const response = await PATCH(request({ caption: 'Revised copy for a new review cycle' }), params)
+
+    expect(response.status).toBe(200)
+    expect(mocks.postUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        caption: 'Revised copy for a new review cycle',
+        status: 'DRAFT',
+        approvedAt: null,
+        publishMode: 'MANUAL',
+        integrationId: null,
+        autoPublishConsentAt: null,
+      }),
+    }))
+    expect(mocks.historyCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        socialPostId: 'post-1',
+        fromStatus: 'SCHEDULED',
+        toStatus: 'DRAFT',
+        actor: 'USER',
+      }),
+    })
+  })
+
+  it('keeps published and provider-processing records immutable', async () => {
+    mocks.postFindFirst.mockResolvedValue({
+      id: 'post-1',
+      workspaceId: 'workspace-1',
+      campaignId: 'campaign-1',
+      status: 'PUBLISHED',
+    })
+
+    const response = await PATCH(request({ caption: 'Changed after publication' }), params)
+    const body = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(body.code).toBe('PUBLISHED_POST_IMMUTABLE')
+    expect(mocks.postUpdate).not.toHaveBeenCalled()
   })
 })

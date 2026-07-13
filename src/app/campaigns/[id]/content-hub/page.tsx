@@ -536,6 +536,10 @@ export default function ContentHubPage() {
       ? contentPlanOrderReview
       : null
   const approvalBlockedByOrderMismatch = Boolean(contentPlanOrderMismatch)
+  const contentReviewPosts = useMemo(
+    () => posts.filter(post => ['DRAFT', 'APPROVED', 'SCHEDULED'].includes(post.status)),
+    [posts],
+  )
   const contentApprovalPreflight = useMemo(() => {
     const aiOutput = campaign?.aiOutput && typeof campaign.aiOutput === 'object'
       ? campaign.aiOutput as Record<string, unknown>
@@ -544,7 +548,7 @@ export default function ContentHubPage() {
       ? aiOutput.strategy
       : aiOutput
     return reviewContentPlanForApproval(
-      posts.filter(post => post.status === 'DRAFT'),
+      contentReviewPosts,
       strategy,
       [
         brandProfile.brandName,
@@ -556,8 +560,20 @@ export default function ContentHubPage() {
         brandProfile.verifiedProof,
       ],
     )
-  }, [brandProfile, campaign?.aiOutput, posts])
-  const approvalBlockedByTruthReview = draftCount > 0 && !contentApprovalPreflight.ok
+  }, [brandProfile, campaign?.aiOutput, contentReviewPosts])
+  const contentIssueCountByPostId = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const issue of contentApprovalPreflight.issues) {
+      const post = contentReviewPosts[issue.index - 1]
+      if (!post) continue
+      counts.set(post.id, (counts.get(post.id) ?? 0) + 1)
+    }
+    return counts
+  }, [contentApprovalPreflight.issues, contentReviewPosts])
+  const contentReviewRequired = contentReviewPosts.length > 0 && !contentApprovalPreflight.ok
+  const approvalBlockedByTruthReview = draftCount > 0 && contentReviewRequired
+  const schedulingBlockedByTruthReview = approvedCount > 0 && contentReviewRequired
+  const schedulingBlocked = schedulingBlockedByMedia || schedulingBlockedByTruthReview
   const approvalBlocked = approvalBlockedByOrderMismatch || approvalBlockedByTruthReview
   const contentHubFulfillmentSummary = deriveStrategyFulfillmentSummary({
     aiOutput: campaign?.aiOutput,
@@ -855,12 +871,21 @@ export default function ContentHubPage() {
   const pendingAttachmentPost = pendingMediaAttachment
     ? posts.find(p => p.id === pendingMediaAttachment.postId)
     : null
+  const pendingAttachmentReopensReview = Boolean(
+    pendingAttachmentPost && ['APPROVED', 'SCHEDULED', 'FAILED'].includes(pendingAttachmentPost.status),
+  )
   const mediaRemovalPost = mediaRemovalPostId
     ? posts.find(p => p.id === mediaRemovalPostId)
     : null
+  const mediaRemovalReopensReview = Boolean(
+    mediaRemovalPost && ['APPROVED', 'SCHEDULED', 'FAILED'].includes(mediaRemovalPost.status),
+  )
   const imageGenerationConfirmPost = imageGenerationConfirmPostId
     ? posts.find(p => p.id === imageGenerationConfirmPostId)
     : null
+  const imageGenerationReopensReview = Boolean(
+    imageGenerationConfirmPost && ['APPROVED', 'SCHEDULED', 'FAILED'].includes(imageGenerationConfirmPost.status),
+  )
   const bulkImageButtonLabel = isAr
     ? `توليد ${pendingImageCount} صور منشورات — ${bulkImageCreditCost} كريديت`
     : `Generate ${pendingImageCount} post images — ${bulkImageCreditCost} credits total`
@@ -868,12 +893,16 @@ export default function ContentHubPage() {
     ? `اعتماد نصوص ${draftCount} مسودات`
     : `Approve copy for ${draftCount} draft${draftCount === 1 ? '' : 's'}`
   const scheduleApprovedLabel = isAr
-    ? schedulingBlockedByMedia
-      ? `أكمل وسائط ${approvedPostsNeedingMediaCount} منشورات قبل الجدولة`
-      : `جدولة ${approvedCount} منشورات معتمدة`
-    : schedulingBlockedByMedia
-      ? `Complete media for ${approvedPostsNeedingMediaCount} post${approvedPostsNeedingMediaCount === 1 ? '' : 's'} before scheduling`
-      : `Schedule ${approvedCount} approved post${approvedCount === 1 ? '' : 's'}`
+    ? schedulingBlockedByTruthReview
+      ? 'راجع جودة النصوص قبل الجدولة'
+      : schedulingBlockedByMedia
+        ? `أكمل وسائط ${approvedPostsNeedingMediaCount} منشورات قبل الجدولة`
+        : `جدولة ${approvedCount} منشورات معتمدة`
+    : schedulingBlockedByTruthReview
+      ? 'Review copy quality before scheduling'
+      : schedulingBlockedByMedia
+        ? `Complete media for ${approvedPostsNeedingMediaCount} post${approvedPostsNeedingMediaCount === 1 ? '' : 's'} before scheduling`
+        : `Schedule ${approvedCount} approved post${approvedCount === 1 ? '' : 's'}`
   const formatStatusSummaryChip = (count: number, label: string) => {
     if (isAr || count === 1) return `${count} ${label}`
     const pluralLabels: Record<string, string> = {
@@ -1199,6 +1228,15 @@ export default function ContentHubPage() {
 
   async function scheduleAll() {
     if (!isAuthenticated || !scheduleAcknowledged) return
+    if (schedulingBlockedByTruthReview) {
+      setShowScheduleConfirm(false)
+      setScheduleAcknowledged(false)
+      setError(isAr
+        ? 'راجع أو أعد توليد النصوص التي تحمل ملاحظات جودة قبل الجدولة.'
+        : 'Review or regenerate copy with quality findings before scheduling.')
+      document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
     if (schedulingBlockedByMedia) {
       setShowScheduleConfirm(false)
       setScheduleAcknowledged(false)
@@ -1340,7 +1378,7 @@ export default function ContentHubPage() {
         return
       }
       // Update caption in state immediately (no re-fetch needed)
-      setPosts(prev => prev.map(p => p.id === postId ? { ...p, caption: data.post.caption } : p))
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, ...data.post } : p))
       // Clear any pending edit for this post so it shows the fresh caption
       setPendingEdits(prev => {
         const next = { ...prev }
@@ -1597,7 +1635,7 @@ export default function ContentHubPage() {
                 ) : approvedCount > 0 ? (
                   <button
                     onClick={() => {
-                      if (schedulingBlockedByMedia) {
+                      if (schedulingBlocked) {
                         document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                         return
                       }
@@ -1607,9 +1645,9 @@ export default function ContentHubPage() {
                     disabled={scheduling}
                     className="flex max-w-full min-w-0 items-center justify-center gap-2 rounded-xl px-4 py-2 text-center text-sm font-semibold leading-tight transition-all whitespace-normal break-words"
                     style={{
-                      background: schedulingBlockedByMedia ? '#FFFBEB' : '#4F46E5',
-                      color: schedulingBlockedByMedia ? '#92400E' : 'white',
-                      border: schedulingBlockedByMedia ? '1px solid #FDE68A' : '1px solid transparent',
+                      background: schedulingBlocked ? '#FFFBEB' : '#4F46E5',
+                      color: schedulingBlocked ? '#92400E' : 'white',
+                      border: schedulingBlocked ? '1px solid #FDE68A' : '1px solid transparent',
                       opacity: scheduling ? 0.6 : 1,
                     }}
                   >
@@ -1620,7 +1658,7 @@ export default function ContentHubPage() {
                       </>
                     ) : (
                       <>
-                        {schedulingBlockedByMedia ? '⚠️' : '🗓'} {scheduleApprovedLabel}
+                        {schedulingBlocked ? '⚠️' : '🗓'} {scheduleApprovedLabel}
                       </>
                     )}
                   </button>
@@ -1885,15 +1923,15 @@ export default function ContentHubPage() {
           </div>
         )}
 
-        {approvalBlockedByTruthReview && (
+        {contentReviewRequired && (
           <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-950">
             <p className="text-sm font-semibold">
               {isAr ? 'مراجعة تطابق المحتوى مطلوبة' : 'Content alignment review required'}
             </p>
             <p className="mt-1 text-sm leading-relaxed">
               {isAr
-                ? `وجد NEXUS ${contentApprovalPreflight.issues.length} ملاحظة في المسودات الحالية، تشمل ادعاءات غير مثبتة أو انجرافاً عن Brand Brain والاستراتيجية. الاعتماد مقفل حتى التعديل أو إعادة التوليد.`
-                : `NEXUS found ${contentApprovalPreflight.issues.length} issue${contentApprovalPreflight.issues.length === 1 ? '' : 's'} in the current drafts, including unsupported claims or drift from Brand Brain and the strategy. Approval stays locked until the drafts are edited or regenerated.`}
+                ? `وجد NEXUS ${contentApprovalPreflight.issues.length} ملاحظة في المحتوى الحالي، تشمل صياغات عامة ضعيفة أو ادعاءات غير مثبتة أو انجرافاً عن Brand Brain والاستراتيجية. الاعتماد والجدولة الآلية مقفلان حتى التعديل أو إعادة التوليد.`
+                : `NEXUS found ${contentApprovalPreflight.issues.length} issue${contentApprovalPreflight.issues.length === 1 ? '' : 's'} in the current content, including generic hook formulas, unsupported claims, or drift from Brand Brain and the strategy. Approval and automatic scheduling stay locked until the content is edited or regenerated.`}
             </p>
           </div>
         )}
@@ -2141,7 +2179,8 @@ export default function ContentHubPage() {
               }))}
               onRewrite={(instruction) => requestRewrite(post.id, instruction)}
               onPickWinner={post.variantGroup ? () => pickVariant(post.id) : undefined}
-              onManualPublish={() => openManualPublishModal(post)}
+              onManualPublish={contentIssueCountByPostId.has(post.id) ? undefined : () => openManualPublishModal(post)}
+              qualityIssueCount={contentIssueCountByPostId.get(post.id) ?? 0}
               onPlatformPublished={() => loadData().then(() => undefined)}
             />
           )
@@ -2447,11 +2486,19 @@ export default function ContentHubPage() {
                 </p>
               )}
 
+              {schedulingBlockedByTruthReview && (
+                <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-5 text-rose-900">
+                  {isAr
+                    ? 'يحتوي المحتوى المعتمد على صياغات عامة أو ملاحظات جودة. أعده للمراجعة أو أعد توليده قبل الجدولة.'
+                    : 'Approved content contains generic wording or other quality findings. Reopen or regenerate it before scheduling.'}
+                </p>
+              )}
+
               <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm leading-5 text-slate-600">
                 <input
                   type="checkbox"
                   checked={scheduleAcknowledged}
-                  disabled={scheduling || approvedPostsWithDates.length === 0 || schedulingBlockedByMedia}
+                  disabled={scheduling || approvedPostsWithDates.length === 0 || schedulingBlocked}
                   onChange={event => setScheduleAcknowledged(event.target.checked)}
                   className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#5E63FF]"
                 />
@@ -2481,7 +2528,7 @@ export default function ContentHubPage() {
                 <button
                   type="button"
                   onClick={scheduleAll}
-                  disabled={scheduling || !scheduleAcknowledged || approvedPostsWithDates.length === 0 || schedulingBlockedByMedia}
+                  disabled={scheduling || !scheduleAcknowledged || approvedPostsWithDates.length === 0 || schedulingBlocked}
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#4F46E5] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   {scheduling
@@ -2836,9 +2883,13 @@ export default function ContentHubPage() {
 
                 <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
                   <p>
-                    {isAr
-                      ? 'سيؤدي ذلك إلى تحديث وسائط معاينة المنشور داخل مركز المحتوى. لا ينشر ولا يضيف جدولة ولا يغير حالة النشر اليدوي أو النشر عبر API.'
-                      : 'This will update the post preview media in Content Hub. It does not publish, schedule, or change manual/API publish status.'}
+                    {pendingAttachmentReopensReview
+                      ? (isAr
+                          ? 'سيؤدي تغيير الوسائط إلى إعادة المنشور لمسودة وإلغاء اعتماده وقرار تنفيذه حتى يراجع مرة أخرى.'
+                          : 'Changing media reopens this post as a draft and clears approval and execution assignment until it is reviewed again.')
+                      : (isAr
+                          ? 'سيؤدي ذلك إلى تحديث وسائط معاينة المنشور داخل مركز المحتوى دون نشره أو جدولته.'
+                          : 'This updates the post preview media in Content Hub without publishing or scheduling it.')}
                   </p>
                   {pendingMediaAttachment.action === 'replace' && (
                     <p>
@@ -2857,9 +2908,13 @@ export default function ContentHubPage() {
                     onChange={e => setMediaAttachmentAcknowledged(e.target.checked)}
                   />
                   <span className="text-xs leading-5 text-slate-600">
-                    {isAr
-                      ? 'أفهم أن هذا يغيّر وسائط معاينة المنشور فقط داخل Content Hub.'
-                      : 'I understand this changes only the post preview media inside Content Hub.'}
+                    {pendingAttachmentReopensReview
+                      ? (isAr
+                          ? 'أفهم أن تغيير الوسائط يعيد المنشور للمراجعة ويلغي قرار التنفيذ السابق.'
+                          : 'I understand that changing media reopens the post for review and clears its previous execution decision.')
+                      : (isAr
+                          ? 'أفهم أن هذا يغيّر وسائط معاينة المنشور فقط داخل Content Hub.'
+                          : 'I understand this changes only the post preview media inside Content Hub.')}
                   </span>
                 </label>
 
@@ -2901,9 +2956,13 @@ export default function ContentHubPage() {
 
                 <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
                   <p>
-                    {isAr
-                      ? 'سيؤدي ذلك إلى إزالة الوسائط المرتبطة بالمنشور في مركز المحتوى. لا يحذف الأصل من مكتبة الوسائط ولا يغيّر حالة النشر.'
-                      : 'This will clear the post-linked media in Content Hub. It does not delete the asset from Media Library and does not change publishing status.'}
+                    {mediaRemovalReopensReview
+                      ? (isAr
+                          ? 'ستعيد إزالة الوسائط المنشور لمسودة وتلغي اعتماده وقرار تنفيذه. الأصل نفسه لن يُحذف من مكتبة الوسائط.'
+                          : 'Removing media reopens the post as a draft and clears approval and execution assignment. The asset itself stays in Media Library.')
+                      : (isAr
+                          ? 'سيؤدي ذلك إلى إزالة الوسائط المرتبطة بالمنشور في مركز المحتوى دون حذف الأصل من مكتبة الوسائط.'
+                          : 'This clears the post-linked media in Content Hub without deleting the asset from Media Library.')}
                   </p>
                   <p>
                     {isAr
@@ -2920,9 +2979,13 @@ export default function ContentHubPage() {
                     onChange={e => setMediaRemovalAcknowledged(e.target.checked)}
                   />
                   <span className="text-xs leading-5 text-slate-600">
-                    {isAr
-                      ? 'أفهم أن هذا يزيل الوسائط من معاينة المنشور فقط.'
-                      : 'I understand this removes media only from this post preview.'}
+                    {mediaRemovalReopensReview
+                      ? (isAr
+                          ? 'أفهم أن إزالة الوسائط تعيد المنشور للمراجعة وتلغي قرار التنفيذ السابق.'
+                          : 'I understand that removing media reopens the post for review and clears its previous execution decision.')
+                      : (isAr
+                          ? 'أفهم أن هذا يزيل الوسائط من معاينة المنشور فقط.'
+                          : 'I understand this removes media only from this post preview.')}
                   </span>
                 </label>
 
@@ -2964,7 +3027,13 @@ export default function ContentHubPage() {
                 </div>
                 <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
                   <p>{isAr ? 'الصورة المولّدة ستحدّث وسائط معاينة هذا المنشور إذا نجح التوليد.' : 'The generated image will update this post preview media if generation succeeds.'}</p>
-                  <p>{isAr ? 'لا يتم النشر أو الجدولة أو تغيير حالة النشر اليدوي أو النشر عبر API.' : 'This does not publish, schedule, or change manual/API publish status.'}</p>
+                  <p>{imageGenerationReopensReview
+                    ? (isAr
+                        ? 'عند ربط الصورة الجديدة سيعود المنشور لمسودة ويلغى اعتماده وقرار تنفيذه حتى تراجعه من جديد.'
+                        : 'Attaching the new image reopens this post as a draft and clears approval and execution assignment until it is reviewed again.')
+                    : (isAr
+                        ? 'لا يتم النشر أو إنشاء جدولة من توليد الصورة.'
+                        : 'Image generation does not publish or create a schedule.')}</p>
                   <p>{isAr ? 'لا يتم تحديث إشارات Brand Brain من توليد الصورة.' : 'This does not update Brand Brain signals.'}</p>
                   <p>{isAr ? 'يتم رد تكلفة عمليات التوليد الفاشلة عندما تدعمها آلية المنتج الحالية.' : 'Failed generations are refunded when the existing product refund logic supports it.'}</p>
                 </div>
@@ -3295,6 +3364,7 @@ interface PostCardProps {
   onRewrite: (instruction: string) => Promise<void>
   onPickWinner?: () => void
   onManualPublish?: () => void
+  qualityIssueCount: number
   onPlatformPublished: () => void | Promise<void>
 }
 
@@ -3322,6 +3392,7 @@ function PostCard({
   onRewrite,
   onPickWinner,
   onManualPublish,
+  qualityIssueCount,
   onPlatformPublished,
 }: PostCardProps) {
   const { t, locale } = useI18n()
@@ -3335,6 +3406,9 @@ function PostCard({
   const isVideo = post.isVideoPost
   const status = post.generationStatus
   const mediaState = deriveContentHubMediaState(post)
+  const postImmutable = post.status === 'PUBLISHED' || post.status === 'PROCESSING'
+  const editReopensReview = ['APPROVED', 'SCHEDULED', 'FAILED'].includes(post.status)
+  const executionBlockedByQuality = qualityIssueCount > 0
 
   const statusColor = {
     PENDING: '#f59e0b', GENERATING: '#6366f1', DONE: '#10b981',
@@ -3488,6 +3562,15 @@ function PostCard({
         </div>
       </div>
 
+      {executionBlockedByQuality && (
+        <div className="border-t border-rose-200 bg-rose-50 px-3 py-3 text-[11px] leading-5 text-rose-800">
+          <p className="font-black">{isAr ? 'يحتاج مراجعة النص قبل التنفيذ' : 'Copy review required before execution'}</p>
+          <p>{isAr
+            ? `رصد NEXUS ${qualityIssueCount} ملاحظة جودة. عدّل النص أو أعد صياغته؛ لن يظهر مسار النشر حتى ينجح الفحص.`
+            : `NEXUS found ${qualityIssueCount} quality finding${qualityIssueCount === 1 ? '' : 's'}. Edit or rewrite the copy; publishing stays hidden until the review passes.`}</p>
+        </div>
+      )}
+
       {/* ── Manual publishing (PR4): only for MANUAL + SCHEDULED posts ───── */}
       {post.status === 'SCHEDULED' && post.publishMode !== 'AUTO' && onManualPublish && (
         <div className="px-3 pb-3 pt-2" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
@@ -3515,17 +3598,19 @@ function PostCard({
         </div>
       )}
 
-      <PostPlatformPublisher
-        postId={post.id}
-        campaignId={campaignId}
-        platform={post.platform}
-        status={post.status}
-        hasMedia={Boolean(post.imageUrl)}
-        isVideoPost={post.isVideoPost}
-        onPublished={onPlatformPublished}
-      />
+      {!executionBlockedByQuality && (
+        <PostPlatformPublisher
+          postId={post.id}
+          campaignId={campaignId}
+          platform={post.platform}
+          status={post.status}
+          hasMedia={Boolean(post.imageUrl)}
+          isVideoPost={post.isVideoPost}
+          onPublished={onPlatformPublished}
+        />
+      )}
 
-      {hasImage && (
+      {hasImage && !postImmutable && (
         <div className="px-3 pb-3 pt-2" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
           <button
             onClick={onRemoveMedia}
@@ -3535,7 +3620,9 @@ function PostCard({
             {isAr ? 'إزالة الوسائط من المنشور' : 'Remove media from post'}
           </button>
           <p className="text-[10px] text-slate-400 mt-1 text-center">
-            {isAr ? 'يزيل الوسائط من المعاينة فقط، ولا يحذف الأصل من مكتبة الوسائط.' : 'Clears preview media only; the asset stays in Media Library.'}
+            {editReopensReview
+              ? (isAr ? 'إزالة الوسائط تعيد المنشور لمسودة وتلغي اعتماده وجدولة تنفيذه؛ الأصل يبقى في المكتبة.' : 'Removing media reopens the post as a draft and clears approval/execution scheduling; the asset stays in the library.')
+              : (isAr ? 'يزيل الوسائط من المعاينة فقط، ولا يحذف الأصل من مكتبة الوسائط.' : 'Clears preview media only; the asset stays in Media Library.')}
           </p>
         </div>
       )}
@@ -3615,13 +3702,15 @@ function PostCard({
       )}
 
       {/* ── Review-safe post actions ─────── */}
-      <div className="border-t px-3 py-3 space-y-2" style={{ borderColor: 'rgba(15,23,42,0.08)' }}>
+      {!postImmutable && <div className="border-t px-3 py-3 space-y-2" style={{ borderColor: 'rgba(15,23,42,0.08)' }}>
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
             {t('contentHub.postActions')}
           </p>
           <p className="text-[10px] leading-snug text-slate-500">
-            {t('contentHub.postActionsSafety')}
+            {editReopensReview
+              ? (isAr ? 'أي تعديل يعيد المنشور لمسودة ويلغي الاعتماد وقرار التنفيذ حتى تراجعه من جديد.' : 'Any edit reopens this post as a draft and clears approval and execution assignment until it is reviewed again.')
+              : t('contentHub.postActionsSafety')}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -3690,7 +3779,7 @@ function PostCard({
           </button>
         )}
         </div>
-      </div>
+      </div>}
     </div>
   )
 }

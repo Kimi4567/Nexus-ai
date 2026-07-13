@@ -70,6 +70,39 @@ describe('guardStrategyOutputContract', () => {
     expect(out.weeklyExecutionPlan[0].platforms).toEqual(['Instagram'])
   })
 
+  it('upgrades generic legacy hooks to a grounded audience need at display time', () => {
+    const out = guardStrategyOutputContract({
+      audienceSegmentsDetailed: [
+        {
+          segment: 'مؤسسو الشركات الخدمية الصغيرة',
+          situation: 'يديرون التسويق دون فريق داخلي',
+          pain: 'صعوبة تحويل الخطة إلى تنفيذ أسبوعي واضح',
+          desiredOutcome: 'مسار تنفيذ قابل للمراجعة',
+          objection: 'القلق من جدوى الاستعانة بخدمة خارجية',
+          message: 'ابدأ من مسار قابل للمراجعة',
+          platform: 'Instagram',
+          format: 'Carousel',
+          cta: 'راجع المسار',
+        },
+      ],
+      topHooks: ['هل تعلم أن التسويق الذكي يمكن أن يغير مسار شركتك؟'],
+      contentAnglesDetailed: [
+        {
+          title: 'تحويل الخطة إلى أسبوع عمل',
+          platform: 'Instagram',
+          format: 'Carousel',
+          hook: 'هل تعلم أن التحليلات يمكن أن تغير عملك؟',
+          cta: 'راجع المسار',
+        },
+      ],
+    }, { allowedPlatforms: ['INSTAGRAM'], language: 'ar', organicPostCount: 1 })
+
+    expect(JSON.stringify(out)).not.toMatch(/هل\s+تعلم|تغير\s+(?:مسار|عملك|شركتك)/)
+    expect(out.topHooks[0]).toContain('مؤسسو الشركات الخدمية الصغيرة')
+    expect(out.topHooks[0]).toContain('صعوبة تحويل الخطة إلى تنفيذ أسبوعي واضح')
+    expect(out.contentAnglesDetailed[0].hook).toBe(out.topHooks[0])
+  })
+
   it('rebuilds a count-correct but week-short plan into the required four-week window', () => {
     const out = guardStrategyOutputContract({
       contentAnglesDetailed: Array.from({ length: 4 }, (_, index) => ({

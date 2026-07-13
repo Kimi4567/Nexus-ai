@@ -6,6 +6,8 @@ import { cronAuthError } from '@/lib/cronAuth'
 import { isRetryableSocialPublishError, publishSocialPost } from '@/lib/socialPublishers'
 import { hasVerifiedProviderScope } from '@/lib/socialPlatformConfig'
 import { buildLearningEvent } from '@/lib/brandBrainEvents'
+import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState'
+import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -57,6 +59,13 @@ async function runPublishJob() {
         // BUG-01 fix: no optimistic write — only write PUBLISHED after platform confirms
         const integration = post.integration
         if (!integration?.accessToken) throw new Error('No access token')
+        if (!isContentPostMediaReadyForScheduling(post)) {
+          throw new Error('CONTENT_REVIEW_REQUIRED: scheduled media is no longer ready for publishing')
+        }
+        const publishReview = reviewContentPostForPublishing(post)
+        if (publishReview.length > 0) {
+          throw new Error(`CONTENT_REVIEW_REQUIRED: ${publishReview.map(issue => issue.reason).join(', ')}`)
+        }
         const target = String(post.publishTarget || post.platform)
         const requiredScope = target === 'FACEBOOK'
           ? 'pages_manage_posts'

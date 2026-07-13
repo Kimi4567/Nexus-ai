@@ -510,6 +510,57 @@ function guardContentAnglesOperationalDepth(list: unknown, language?: string | n
   })
 }
 
+function isGenericStrategyHook(value: unknown): boolean {
+  if (typeof value !== 'string') return false
+  const text = value.trim()
+  if (!text) return false
+  return /(?:هل\s+تعلم|هل\s+فكرت|تخي[ّ]?ل\s+(?:لو|أن)|did\s+you\s+know|have\s+you\s+ever\s+wondered|imagine\s+if|what\s+if)|(?:التسويق\s+الذكي|التحليلات|الأرقام).{0,28}(?:يغي[ّ]?ر|تغي[ّ]?ر).{0,24}(?:مسار|عملك|شركتك)|(?:analytics|numbers|smart\s+marketing).{0,32}(?:change|transform).{0,24}(?:business|company)/i.test(text)
+}
+
+function firstAudienceNeed(output: JsonObject): { segment: string; pain: string } | null {
+  const segments = Array.isArray(output.audienceSegmentsDetailed)
+    ? output.audienceSegmentsDetailed
+    : []
+  for (const item of segments) {
+    if (!isObject(item)) continue
+    const segment = typeof item.segment === 'string' ? item.segment.trim() : ''
+    const pain = typeof item.pain === 'string' ? item.pain.trim() : ''
+    if (segment && pain) return { segment, pain }
+  }
+  return null
+}
+
+function groundedHookFallback(output: JsonObject, language?: string | null): string {
+  const audienceNeed = firstAudienceNeed(output)
+  if (audienceNeed) {
+    return isArabicLanguage(language)
+      ? `ابدأ من احتياج ${audienceNeed.segment}: ${audienceNeed.pain}`
+      : `Lead with the documented need for ${audienceNeed.segment}: ${audienceNeed.pain}`
+  }
+  return isArabicLanguage(language)
+    ? 'اربط الرسالة بموقف الشريحة واعتراضها المحدد قبل تقديم العرض.'
+    : 'Tie the message to the segment’s specific situation and objection before presenting the offer.'
+}
+
+function guardGenericStrategyHooks(output: JsonObject, language?: string | null): void {
+  const fallback = groundedHookFallback(output, language)
+  const guardHookItem = (item: unknown): unknown => {
+    if (typeof item === 'string') return isGenericStrategyHook(item) ? fallback : item
+    if (!isObject(item)) return item
+    const guarded = { ...item }
+    for (const key of ['hook', 'text', 'message']) {
+      if (isGenericStrategyHook(guarded[key])) guarded[key] = fallback
+    }
+    return guarded
+  }
+
+  if (Array.isArray(output.topHooks)) output.topHooks = output.topHooks.map(guardHookItem)
+  if (Array.isArray(output.hooks)) output.hooks = output.hooks.map(guardHookItem)
+  if (Array.isArray(output.contentAnglesDetailed)) {
+    output.contentAnglesDetailed = output.contentAnglesDetailed.map(guardHookItem)
+  }
+}
+
 function hasKpiMinimum(list: unknown): boolean {
   return Array.isArray(list) && list.length >= 2
 }
@@ -1412,6 +1463,7 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
   output.contentAnglesDetailed = guardContentAnglesOperationalDepth(output.contentAnglesDetailed, context.language)
   output.audienceSegmentsDetailed = ensureAudienceSegmentsMinimum(output.audienceSegmentsDetailed, ctx, context.language)
   output.audienceSegmentsDetailed = guardPlatformObjectList(output.audienceSegmentsDetailed, ctx, context.language)
+  guardGenericStrategyHooks(output, context.language)
   output.funnelStages = guardPlatformObjectList(output.funnelStages, ctx, context.language)
   output.channelStrategy = guardPlatformObjectList(output.channelStrategy, ctx, context.language)
   output.weeklyExecutionPlan = guardWeeklyExecutionPlan(output.weeklyExecutionPlan, ctx)

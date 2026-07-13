@@ -169,8 +169,7 @@ export default function AutomationPage() {
             pageSubtitle={copy('يحلل NEXUS حالة العمل المثبتة ويوجّه القرار التالي.', 'NEXUS analyzes verified workflow state and routes the next decision.')}
             primaryHref="/approvals"
             primaryLabel={copy('مراجعة الموافقات', 'Review approvals')}
-            secondaryHref="/connections"
-            secondaryLabel={copy('الربط', 'Connections')}
+            secondaryHref={null}
           />
 
           <section className="nx-os-action-strip">

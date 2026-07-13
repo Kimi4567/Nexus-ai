@@ -5,6 +5,7 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { publishSocialPost } from '@/lib/socialPublishers'
 import { hasVerifiedProviderScope } from '@/lib/socialPlatformConfig'
 import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState'
+import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
 
 type RequestedPlatform = 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK'
 
@@ -76,6 +77,8 @@ export async function POST(req: NextRequest) {
           publishTarget: true,
           status: true,
           caption: true,
+          imagePrompt: true,
+          videoPrompt: true,
           imageUrl: true,
           uploadedMediaId: true,
           mediaSource: true,
@@ -113,6 +116,14 @@ export async function POST(req: NextRequest) {
   campaignId = existingPost.campaignId
   if (!caption) {
     return NextResponse.json({ error: 'Approved post caption is required' }, { status: 400 })
+  }
+  const publishReview = reviewContentPostForPublishing(existingPost)
+  if (publishReview.length > 0) {
+    return NextResponse.json({
+      error: 'This saved post needs copy review before it can be sent to a platform.',
+      code: 'CONTENT_REVIEW_REQUIRED',
+      issues: publishReview,
+    }, { status: 409 })
   }
 
   const integration = await prisma.integration.findFirst({

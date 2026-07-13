@@ -2753,75 +2753,51 @@ function CampaignDetailPageInner() {
         {aiOutput && (
           <>
             {/* NEXUS tab navigation */}
-            <div id="campaign-room-workspace" data-strategy-operating-nav className="sticky top-0 z-30 mb-6 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div id="campaign-room-workspace" data-strategy-operating-nav className="sticky top-0 z-30 mb-6 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
-                    {locale === 'ar' ? 'غرفة الحملة' : 'Campaign Room'}
+                    {locale === 'ar' ? 'مساحة الحملة الحالية' : 'Current campaign workspace'}
                   </p>
-                  <p className="text-xs font-semibold text-slate-700">
-                    {locale === 'ar'
-                      ? `المساحة الحالية: ${AGENT_TABS[activeTab]?.label || cdT?.tabStrategy || 'Strategy'}`
-                      : `Current workspace: ${AGENT_TABS[activeTab]?.label || cdT?.tabStrategy || 'Strategy'}`}
+                  <p className="mt-1 text-sm font-bold text-slate-800">
+                    <span className="me-1.5 text-xs">{AGENT_TABS[activeTab]?.icon}</span>
+                    {AGENT_TABS[activeTab]?.label || cdT?.tabStrategy || 'Strategy'}
                   </p>
                 </div>
-                <span className="w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500">
-                  {locale === 'ar' ? 'تنقّل تشغيلي' : 'Operating navigation'}
-                </span>
-              </div>
-              <div className="mt-2 flex gap-1.5 overflow-x-auto rounded-xl bg-slate-100/80 p-1">
-                {AGENT_TABS.map((tab, i) => tab.hidden ? null : (
-                  <button
-                    key={i}
-                    onClick={() => handleCampaignRoomTabClick(i)}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all"
-                    style={activeTab === i ? {
-                      background: '#fff',
-                      border: '1px solid rgb(199,210,254)',
-                      color: '#3730a3',
-                      boxShadow: '0 1px 2px rgba(15,23,42,0.08)',
-                    } : {
-                      background: 'transparent',
-                      border: '1px solid transparent',
-                      color: '#64748b',
-                    }}
-                    onMouseEnter={e => {
-                      if (activeTab !== i) (e.currentTarget as HTMLButtonElement).style.color = '#334155'
-                    }}
-                    onMouseLeave={e => {
-                      if (activeTab !== i) (e.currentTarget as HTMLButtonElement).style.color = '#64748b'
-                    }}
+                <label className="flex min-w-0 items-center gap-2 text-xs font-semibold text-slate-500 sm:min-w-[260px]">
+                  <span className="whitespace-nowrap">{locale === 'ar' ? 'تغيير المساحة' : 'Switch workspace'}</span>
+                  <select
+                    aria-label={locale === 'ar' ? 'تغيير مساحة الحملة' : 'Switch campaign workspace'}
+                    value={activeTab}
+                    onChange={(event) => handleCampaignRoomTabClick(Number(event.target.value))}
+                    className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white"
                   >
-                    <span className="text-xs">{tab.icon}</span>
-                    {tab.label}
-                  </button>
-                ))}
+                    {AGENT_TABS.map((tab, index) => tab.hidden ? null : (
+                      <option key={index} value={index}>{tab.icon} {tab.label}</option>
+                    ))}
+                  </select>
+                </label>
               </div>
 
               {activeTab === 0 && strategySectionNavItems.length > 0 && (
-                <div className="mt-2 border-t border-slate-200 pt-2">
-                  <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
-                    <div className="flex flex-shrink-0 items-center gap-2 px-1">
-                      <span className="h-2 w-2 rounded-full bg-indigo-500" />
-                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
-                        {strategyDocText('فهرس وثيقة الاستراتيجية', 'Strategy document outline')}
-                      </span>
-                    </div>
-                    <div className="flex gap-1.5 overflow-x-auto">
-                      {strategySectionNavItems.map(({ num, label, id }) => (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => scrollToStrategySection(id)}
-                          className="inline-flex flex-shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
-                        >
-                          <span className="text-[10px] text-slate-400">{num}</span>
-                          {label}
-                        </button>
-                      ))}
-                    </div>
+                <details className="mt-3 border-t border-slate-200 pt-3">
+                  <summary className="cursor-pointer text-xs font-bold text-indigo-700">
+                    {strategyDocText(`أقسام وثيقة الاستراتيجية (${strategySectionNavItems.length})`, `Strategy document sections (${strategySectionNavItems.length})`)}
+                  </summary>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {strategySectionNavItems.map(({ num, label, id }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => scrollToStrategySection(id)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                      >
+                        <span className="text-[10px] text-slate-400">{num}</span>
+                        {label}
+                      </button>
+                    ))}
                   </div>
-                </div>
+                </details>
               )}
             </div>
 
