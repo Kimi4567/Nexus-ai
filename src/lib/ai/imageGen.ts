@@ -90,7 +90,7 @@ export const TEXT_FREE_BACKGROUND_IMAGE_CONSTRAINTS = `TEXT-FREE BACKGROUND CONT
 - Leave clean negative space for later editable/composited headline, CTA, logo, badge, and proof layers.
 - This generated asset is a draft background visual for review, not final ad creative, not a published post, and not a platform-ready ad.`
 
-const NON_RASTER_SAFE_CONCEPT_PATTERN = /\b(?:ui|screen|interface|dashboard|chart|graph|infographic|icon|metric card|data visualization|glass board|signage|sign|logo|word|letter|number|typography)\b|(?:واجهة|شاشة|لوحة\s*معلومات|مخطط|رسم\s*بياني|إنفوجرافيك|انفوجرافيك|أيقونات|ايقونات|رموز|نص|شعار|حروف|أرقام)/i
+const NON_RASTER_SAFE_CONCEPT_PATTERN = /\b(?:ui|screens?|interfaces?|dashboards?|charts?|graphs?|infographics?|icons?|metric\s*cards?|data\s*visualizations?|glass\s*boards?|signage|signs?|logos?|words?|letters?|numbers?|typography|reports?|laptops?|computers?|digital\s*devices?)\b|(?:واجهة|واجهات|شاشة|شاشات|لوحة\s*معلومات|لوحات\s*معلومات|مخطط|مخططات|رسم\s*بياني|رسوم\s*بيانية|إنفوجرافيك|انفوجرافيك|أيقونات|ايقونات|رموز|تقارير|حاسوب|كمبيوتر|لابتوب|أجهزة\s*رقمية|نص|نصوص|شعار|شعارات|حروف|أرقام)/i
 
 /**
  * Image models often turn dashboards, charts, and infographic requests into
@@ -105,16 +105,16 @@ export function normalizeTextFreeCentralElement(
   if (clean && !NON_RASTER_SAFE_CONCEPT_PATTERN.test(clean)) return clean
 
   if (category === 'saas_ai_tech' || category === 'agency_consultancy') {
-    return 'focused marketing and product team collaborating around a clean table with blank color-coded planning cards and luminous physical connection nodes, premium workspace, no screens or visible writing'
+    return 'focused marketing and product team collaborating around a clean table, arranging blank color-coded wooden tiles and luminous physical connection nodes into an orderly path, premium uncluttered workspace'
   }
   if (category === 'finance') {
-    return 'precise ascending architectural forms in brushed gold beside a confident advisor in a refined dark environment, no charts, screens, or visible writing'
+    return 'precise ascending architectural forms in brushed gold beside a confident advisor in a refined dark environment, polished tactile materials and generous negative space'
   }
   if (category === 'education') {
-    return 'mentor and learner arranging tactile building blocks in a bright modern studio, warm natural light, no screens or visible writing'
+    return 'mentor and learner arranging tactile building blocks in a bright modern studio, warm natural light and generous negative space'
   }
 
-  return 'people using tangible real-world objects in a polished professional environment to express progress and collaboration, no screens or visible writing'
+  return 'people arranging blank tactile geometric objects in a polished professional environment to express progress and collaboration, uncluttered surfaces and generous negative space'
 }
 
 // ─── Brand category detection ─────────────────────────────────────────────────
@@ -234,11 +234,11 @@ const INDUSTRY_STYLES: Record<string, IndustryStyle> = {
     benchmark:   "Sotheby's International Realty, Emaar Properties, Airbnb Luxe advertising",
   },
   saas_ai_tech: {
-    photography: 'clean minimal premium tech brand advertising, abstract soft gradient background — NO complex dashboard UI, NO floating widgets, NO data charts, NO computer screens',
+    photography: 'clean minimal premium tech brand advertising built from tactile geometric forms, luminous physical connection nodes, and an abstract soft gradient background',
     lighting:    'cinematic soft gradient light with brand color depth, subtle atmospheric glow, generous negative space',
     mood:        'powerful, innovative, empowering, intelligent, premium, elegant',
-    atmosphere:  'clean dark gradient background with subtle abstract geometric light shapes, professional open space for text — pure premium brand visual, not a technology screenshot',
-    benchmark:   'Stripe, Linear, Notion, Figma, Vercel — clean minimal premium campaign advertising quality',
+    atmosphere:  'clean dark gradient background with subtle abstract geometric light shapes and professional open negative space',
+    benchmark:   'award-winning minimal premium software campaign advertising with precise art direction',
   },
   retail_fashion: {
     photography: 'editorial fashion photography or luxury product hero shot',
@@ -248,11 +248,11 @@ const INDUSTRY_STYLES: Record<string, IndustryStyle> = {
     benchmark:   'Vogue editorial, Gucci, Balenciaga, Zara premium campaign advertising',
   },
   agency_consultancy: {
-    photography: 'clean minimal premium brand advertising with abstract editorial depth — NO stock office photos, NO generic workspace imagery',
+    photography: 'clean minimal premium brand advertising with purposeful human collaboration, tactile planning objects, and abstract editorial depth',
     lighting:    'dramatic soft directional light, creative depth, bold contrast with generous negative space',
     mood:        'intelligent, results-driven, creative, confident, premium',
-    atmosphere:  'clean minimal abstract background with strategic visual metaphors, premium editorial negative space for bold typography',
-    benchmark:   'Wieden+Kennedy, Ogilvy, BBDO, Apple — premium agency campaign advertising',
+    atmosphere:  'clean minimal abstract background with strategic visual metaphors and premium editorial negative space',
+    benchmark:   'award-winning global creative agency campaign advertising with disciplined editorial art direction',
   },
   education: {
     photography: 'inspiring learning environment or knowledge journey editorial photography',
@@ -380,14 +380,13 @@ function buildEnglishAdPrompt(
   colorMood: string,
   style: IndustryStyle
 ): string {
-  const brandName    = ctx.brandName || 'Brand'
   const platformHint = getPlatformHint(ctx.platform)
   const toneWords    = (ctx.brandToneWords || []).slice(0, 3).join(', ')
   const requirementHint = buildCreativeRequirementHint(ctx.creativeRequirement)
   const templateHint = buildTemplateHint(ctx.creativeTemplate)
   const roleHint = buildRoleHint(ctx.assetRole)
 
-  return wrapPromptWithTextFreeBackgroundContract(`Create a world-class professional advertising BACKGROUND VISUAL for ${brandName}.
+  return wrapPromptWithTextFreeBackgroundContract(`Create a world-class professional advertising BACKGROUND VISUAL.
 Text, headlines, and brand copy will be composited as a separate layer — DO NOT include any
 text, words, letters, numbers, logos, or typography anywhere in the image.
 
@@ -439,14 +438,13 @@ function buildArabicAdPrompt(
   colorMood: string,
   style: IndustryStyle
 ): string {
-  const brandName    = ctx.brandName || 'Brand'
   const platformHint = getPlatformHint(ctx.platform)
   const toneWords    = (ctx.brandToneWords || []).slice(0, 3).join(', ')
   const requirementHint = buildCreativeRequirementHint(ctx.creativeRequirement)
   const templateHint = buildTemplateHint(ctx.creativeTemplate)
   const roleHint = buildRoleHint(ctx.assetRole)
 
-  return wrapPromptWithTextFreeBackgroundContract(`Create a world-class professional advertising BACKGROUND VISUAL for ${brandName}.
+  return wrapPromptWithTextFreeBackgroundContract(`Create a world-class professional advertising BACKGROUND VISUAL.
 This image is for an Arabic-language advertisement targeting Arabic-speaking audiences.
 Typography and Arabic text will be composited as a separate layer — DO NOT include any text,
 words, letters, or typography anywhere in the image.
@@ -477,7 +475,7 @@ EMOTIONAL TONE: ${concept.emotion}${toneWords ? `. Brand voice: ${toneWords}` : 
 ${requirementHint}${templateHint}${roleHint}
 
 QUALITY BAR: ${style.benchmark} background visual.
-Reference aesthetic: Emaar, Emirates Airlines, Aldar Properties — premium Middle Eastern brand advertising backgrounds.`)
+Reference aesthetic: premium Middle Eastern campaign photography with disciplined art direction and uncluttered editorial composition.`)
 }
 
 // ─── Brand-level fallback (no caption) ───────────────────────────────────────
@@ -488,7 +486,6 @@ function buildBrandLevelPrompt(
   style: IndustryStyle,
   language: 'ar' | 'en'
 ): string {
-  const brandName    = ctx.brandName || 'Brand'
   const platformHint = getPlatformHint(ctx.platform)
   const offer        = ctx.primaryOffer || ctx.positioning || ctx.keyMessage || ''
   const requirementHint = buildCreativeRequirementHint(ctx.creativeRequirement)
@@ -496,7 +493,7 @@ function buildBrandLevelPrompt(
   const roleHint = buildRoleHint(ctx.assetRole)
 
   if (language === 'ar') {
-    return wrapPromptWithTextFreeBackgroundContract(`Create a premium brand advertising BACKGROUND VISUAL for ${brandName}.
+    return wrapPromptWithTextFreeBackgroundContract(`Create a premium brand advertising BACKGROUND VISUAL.
 ${offer ? `Brand context: ${offer}` : ''}
 Style: ${style.photography}. ${style.lighting}.
 Atmosphere: ${colorMood}. ${style.atmosphere}.
@@ -506,7 +503,7 @@ ${requirementHint}${templateHint}${roleHint}
 Create a polished hero scene with clean negative space for later editable Arabic headline, CTA, logo, and proof layers.`)
   }
 
-  return wrapPromptWithTextFreeBackgroundContract(`Create a premium brand advertising BACKGROUND VISUAL for ${brandName}.
+  return wrapPromptWithTextFreeBackgroundContract(`Create a premium brand advertising BACKGROUND VISUAL.
 ${offer ? `Brand context: "${offer}"` : ''}
 Style: ${style.photography}. ${style.lighting}.
 Atmosphere: ${colorMood}. ${style.atmosphere}.
@@ -616,6 +613,7 @@ export async function generateWithDallE(
       size,
       quality: 'high',
     }),
+    signal: AbortSignal.timeout(35_000),
   })
 
   if (!response.ok) {
@@ -666,7 +664,7 @@ export async function uploadToCloudinary(imageUrl: string, publicId: string): Pr
 
   const uploadRes = await fetch(
     `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-    { method: 'POST', body: formData }
+    { method: 'POST', body: formData, signal: AbortSignal.timeout(10_000) }
   )
 
   if (!uploadRes.ok) {

@@ -42,7 +42,7 @@ vi.mock('@/lib/credits', () => ({
 }))
 vi.mock('@/lib/ai/falGen', () => ({
   generateWithFlux: mockGenerateWithFlux,
-  platformToFluxSize: () => 'landscape_4_3',
+  platformToFluxAspectRatio: () => '3:2',
 }))
 vi.mock('@/lib/cloudinaryOverlay', () => ({
   applyBrandOverlayFromProfile: mockApplyOverlay,

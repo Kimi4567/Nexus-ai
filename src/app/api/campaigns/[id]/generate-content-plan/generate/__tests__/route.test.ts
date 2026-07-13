@@ -3,9 +3,8 @@
  *
  * Guarantees:
  *   - auth, ownership, and pending-post loading happen before deduction
- *   - each requested image keeps the existing IMAGE_GENERATION cost
- *   - each image charge is tracked separately for transaction-aware refunds
- *   - failed images are refunded without refunding successful images
+ *   - each request owns exactly one IMAGE_GENERATION charge
+ *   - failed images receive a transaction-aware refund
  *   - no live image provider calls are made in tests
  */
 
@@ -52,7 +51,8 @@ vi.mock('@/lib/credits', () => ({
 }))
 vi.mock('@/lib/ai/falGen', () => ({
   generateWithFlux: mockGenerateWithFlux,
-  platformToFluxSize: () => 'landscape_4_3',
+  platformToFluxAspectRatio: () => '3:2',
+  platformToOpenAISize: (platform: string) => platform === 'YOUTUBE' ? '1024x1536' : '1024x1024',
 }))
 vi.mock('@/lib/ai/imageGen', () => ({
   buildImagePrompt: mockBuildImagePrompt,
@@ -82,8 +82,8 @@ const postB = {
 
 const confirmedBody = {
   explicitBulkImageGenerationConfirmed: true,
-  acknowledgedImageCount: 2,
-  acknowledgedCreditCost: 6,
+  acknowledgedImageCount: 1,
+  acknowledgedCreditCost: 3,
 }
 
 async function loadRoute(withProvider = true) {
@@ -104,10 +104,9 @@ beforeEach(() => {
   mockPrisma.user.findUnique.mockResolvedValue({ subscriptionStatus: 'PRO' })
   mockPrisma.generatedVisual.create
     .mockResolvedValueOnce({ id: 'visual_a' })
-    .mockResolvedValueOnce({ id: 'visual_b' })
   mockPrisma.generatedVisual.update.mockResolvedValue({})
   mockPrisma.socialPost.findMany.mockResolvedValue([postA, postB])
-  mockPrisma.socialPost.updateMany.mockResolvedValue({ count: 2 })
+  mockPrisma.socialPost.updateMany.mockResolvedValue({ count: 1 })
   mockPrisma.socialPost.update.mockResolvedValue({})
   mockPrisma.socialPost.count.mockResolvedValue(0)
   mockPrisma.$transaction.mockImplementation(async (callback: (tx: any) => unknown) => callback({
@@ -121,7 +120,6 @@ beforeEach(() => {
   }))
   mockCheckAndDeduct
     .mockResolvedValueOnce({ ok: true, creditsUsed: 3, creditsRemaining: 27, transactionId: 'txn_a' })
-    .mockResolvedValueOnce({ ok: true, creditsUsed: 3, creditsRemaining: 24, transactionId: 'txn_b' })
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input)
     if (url.includes('cloudinary.com')) {
@@ -183,10 +181,9 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
   })
 
-  it('refunds prior image reservations if a later batch credit check fails', async () => {
+  it('does not mutate or refund when the single credit reservation fails', async () => {
     mockCheckAndDeduct
       .mockReset()
-      .mockResolvedValueOnce({ ok: true, creditsUsed: 3, creditsRemaining: 1, transactionId: 'txn_a' })
       .mockResolvedValueOnce({ ok: false, error: 'INSUFFICIENT_CREDITS' })
     const { POST } = await loadRoute()
 
@@ -197,11 +194,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     expect(json).toMatchObject({ code: 'INSUFFICIENT_CREDITS', generated: 0 })
     expect(mockPrisma.socialPost.updateMany).not.toHaveBeenCalled()
     expect(fetch).not.toHaveBeenCalled()
-    expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
-      userId: 'user_1',
-      transactionId: 'txn_a',
-      reason: 'Batch image credit reservation failed',
-    }))
+    expect(mockRefundForTxn).not.toHaveBeenCalled()
     expect(mockRefund).not.toHaveBeenCalled()
   })
 
@@ -214,8 +207,8 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     expect(res.status).toBe(400)
     expect(json).toMatchObject({
       code: 'CONFIRMATION_REQUIRED',
-      expectedImageCount: 2,
-      expectedCreditCost: 6,
+      expectedImageCount: 1,
+      expectedCreditCost: 3,
     })
     expect(json.error).toContain('No credits were spent')
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
@@ -223,15 +216,15 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('rejects a batch larger than the remaining daily image allowance before deduction', async () => {
-    mockCheckDailyImageCap.mockResolvedValue({ allowed: true, used: 2, cap: 3, remaining: 1 })
+  it('rejects the image when the daily image allowance is exhausted before deduction', async () => {
+    mockCheckDailyImageCap.mockResolvedValue({ allowed: false, used: 3, cap: 3, remaining: 0 })
     const { POST } = await loadRoute()
 
     const res = await POST(makeReq(confirmedBody), params)
     const json = await res.json()
 
     expect(res.status).toBe(429)
-    expect(json).toMatchObject({ error: 'DAILY_IMAGE_LIMIT', requested: 2, remaining: 1 })
+    expect(json).toMatchObject({ error: 'DAILY_IMAGE_LIMIT', requested: 1, remaining: 0 })
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
     expect(fetch).not.toHaveBeenCalled()
   })
@@ -265,15 +258,10 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     expect(requestBody.prompt).not.toContain('square 1:1 composition')
   })
 
-  it('refunds only the failed image transaction when another image succeeds', async () => {
-    let providerCalls = 0
+  it('refunds the exact failed image transaction', async () => {
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
-      if (String(input).includes('cloudinary.com')) {
-        return { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/a.jpg' }) }
-      }
-      providerCalls += 1
-      if (providerCalls === 2) throw new Error('provider down for B')
-      return { ok: true, json: async () => ({ data: [{ b64_json: 'raw-a' }] }) }
+      if (!String(input).includes('cloudinary.com')) throw new Error('provider down for A')
+      return { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/a.jpg' }) }
     })
     vi.stubGlobal('fetch', fetchMock)
     const { POST } = await loadRoute()
@@ -282,25 +270,22 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     const json = await res.json()
 
     expect(res.status).toBe(200)
-    expect(json.generated).toBe(1)
+    expect(json.generated).toBe(0)
     expect(json.failed).toBe(1)
     expect(json.results).toEqual([
-      expect.objectContaining({ id: 'post_a', success: true }),
-      expect.objectContaining({ id: 'post_b', success: false }),
+      expect.objectContaining({ id: 'post_a', success: false }),
     ])
     expect(mockRefundForTxn).toHaveBeenCalledTimes(1)
     expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'user_1',
-      transactionId: 'txn_b',
-      reason: 'provider down for B',
+      transactionId: 'txn_a',
+      reason: 'provider down for A',
     }))
-    expect(mockRefundForTxn).not.toHaveBeenCalledWith(expect.objectContaining({ transactionId: 'txn_a' }))
     expect(mockRefund).not.toHaveBeenCalled()
   })
 
   it('DB persistence failure after deduction refunds that image transaction', async () => {
     mockPrisma.socialPost.update
-      .mockResolvedValueOnce({})
       .mockRejectedValueOnce(new Error('done update failed'))
       .mockResolvedValueOnce({})
     const { POST } = await loadRoute()
@@ -309,11 +294,11 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     const json = await res.json()
 
     expect(res.status).toBe(200)
-    expect(json.generated).toBe(1)
+    expect(json.generated).toBe(0)
     expect(json.failed).toBe(1)
     expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'user_1',
-      transactionId: 'txn_b',
+      transactionId: 'txn_a',
       reason: 'done update failed',
     }))
   })
@@ -322,15 +307,9 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     mockCheckAndDeduct
       .mockReset()
       .mockResolvedValueOnce({ ok: true, creditsUsed: 3, creditsRemaining: 27 })
-      .mockResolvedValueOnce({ ok: true, creditsUsed: 3, creditsRemaining: 24 })
-    let providerCalls = 0
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
-      if (String(input).includes('cloudinary.com')) {
-        return { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/a.jpg' }) }
-      }
-      providerCalls += 1
-      if (providerCalls === 2) throw new Error('provider failed without txn')
-      return { ok: true, json: async () => ({ data: [{ b64_json: 'raw-a' }] }) }
+      if (!String(input).includes('cloudinary.com')) throw new Error('provider failed without txn')
+      return { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/a.jpg' }) }
     }))
     const { POST } = await loadRoute()
 
@@ -345,15 +324,9 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     mockCheckAndDeduct
       .mockReset()
       .mockResolvedValueOnce({ ok: true, creditsUsed: 0, creditsRemaining: -1, isUnlimited: true, transactionId: 'txn_a' })
-      .mockResolvedValueOnce({ ok: true, creditsUsed: 0, creditsRemaining: -1, isUnlimited: true, transactionId: 'txn_b' })
-    let providerCalls = 0
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
-      if (String(input).includes('cloudinary.com')) {
-        return { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/a.jpg' }) }
-      }
-      providerCalls += 1
-      if (providerCalls === 2) throw new Error('provider failed')
-      return { ok: true, json: async () => ({ data: [{ b64_json: 'raw-a' }] }) }
+      if (!String(input).includes('cloudinary.com')) throw new Error('provider failed')
+      return { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/a.jpg' }) }
     }))
     const { POST } = await loadRoute()
 
@@ -364,7 +337,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
 
-  it('successful batch preserves response shape and does not refund', async () => {
+  it('successful single-image request preserves response shape and does not refund', async () => {
     const { POST } = await loadRoute()
 
     const res = await POST(makeReq({ ...confirmedBody, postIds: ['post_a', 'post_b'] }), params)
@@ -373,15 +346,14 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     expect(res.status).toBe(200)
     expect(json).toEqual({
       success: true,
-      generated: 2,
+      generated: 1,
       failed: 0,
       remaining: 0,
       results: [
         expect.objectContaining({ id: 'post_a', success: true, imageUrl: expect.any(String) }),
-        expect.objectContaining({ id: 'post_b', success: true, imageUrl: expect.any(String) }),
       ],
     })
-    expect(mockCheckAndDeduct).toHaveBeenCalledTimes(2)
+    expect(mockCheckAndDeduct).toHaveBeenCalledTimes(1)
     expect(mockCheckAndDeduct).toHaveBeenCalledWith('user_1', 'IMAGE_GENERATION')
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()

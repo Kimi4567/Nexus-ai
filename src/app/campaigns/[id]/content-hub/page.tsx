@@ -1003,8 +1003,10 @@ export default function ContentHubPage() {
     setGenerating(true)
     setError(null)
     try {
-      for (let index = 0; index < imagePostIds.length; index += 5) {
-        const batchIds = imagePostIds.slice(index, index + 5)
+      // The user confirms the whole action once, while the server processes one
+      // paid image per request so a slow provider can never strand a batch.
+      for (let index = 0; index < imagePostIds.length; index += 1) {
+        const batchIds = imagePostIds.slice(index, index + 1)
         const res = await fetch(`/api/campaigns/${campaignId}/generate-content-plan/generate`, {
           method: 'POST',
           headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },

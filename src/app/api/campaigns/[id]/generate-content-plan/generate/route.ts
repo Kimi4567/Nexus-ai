@@ -5,7 +5,7 @@
  * Accepts a list of postIds and generates images for PENDING image posts.
  *
  * Processing model:
- * - Max 5 posts per call (stay within Vercel's 60s timeout)
+ * - Exactly 1 post per call so provider latency cannot strand a paid batch
  * - Each post: generate image → upload to Cloudinary → update DB
  * - Frontend polls and re-triggers for remaining posts
  * - Deducts 1 IMAGE_GENERATION credit per image (3 credits = safe margin)
@@ -20,7 +20,7 @@ import {
   refundCredits,
   refundCreditsForTransaction,
 } from '@/lib/credits'
-import { generateWithFlux, platformToFluxSize } from '@/lib/ai/falGen'
+import { generateWithFlux, platformToFluxAspectRatio, platformToOpenAISize } from '@/lib/ai/falGen'
 import { buildImagePrompt, type VisualContext } from '@/lib/ai/imageGen'
 import { normalizeContentHubImagePromptForPlatform } from '@/lib/contentHubImageFormat'
 import {
@@ -48,6 +48,9 @@ type ImageCreditReservation = {
 const CLOUDINARY_CLOUD  = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
 const CLOUDINARY_KEY    = process.env.CLOUDINARY_API_KEY
 const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET
+const MAX_IMAGES_PER_REQUEST = 1
+const IMAGE_PROVIDER_TIMEOUT_MS = 35_000
+const MEDIA_UPLOAD_TIMEOUT_MS = 10_000
 
 // ── Image generation (mirrors cron/generate-images logic) ─────────────────────
 
@@ -58,23 +61,13 @@ async function generateImage(prompt: string, platform: string): Promise<string> 
   const safePrompt = normalizeContentHubImagePromptForPlatform(prompt, platform)
 
   if (process.env.FAL_KEY) {
-    const fluxSize = platformToFluxSize(platform)
-    const result = await generateWithFlux({ prompt: safePrompt, imageSize: fluxSize })
+    const aspectRatio = platformToFluxAspectRatio(platform)
+    const result = await generateWithFlux({ prompt: safePrompt, aspectRatio })
     return result.imageUrl
   }
 
   // Fallback: gpt-image-1 high quality
-  const sizeMap: Record<string, '1024x1024' | '1024x1536' | '1536x1024'> = {
-    TIKTOK:    '1024x1536',
-    YOUTUBE:   '1024x1536',
-    YOUTUBE_SHORTS: '1024x1536',
-    INSTAGRAM: '1024x1024',
-    META:      '1536x1024',
-    LINKEDIN:  '1536x1024',
-    X:         '1536x1024',
-    TWITTER:   '1536x1024',
-  }
-  const size = sizeMap[platform?.toUpperCase()] ?? '1536x1024'
+  const size = platformToOpenAISize(platform)
 
   const res = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
@@ -90,6 +83,7 @@ async function generateImage(prompt: string, platform: string): Promise<string> 
       quality: 'high',
       output_format: 'b64_json',
     }),
+    signal: AbortSignal.timeout(IMAGE_PROVIDER_TIMEOUT_MS),
   })
 
   const data = await res.json()
@@ -176,6 +170,7 @@ async function uploadToCloudinary(imageUrl: string, postId: string): Promise<str
   const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
     method: 'POST',
     body: form,
+    signal: AbortSignal.timeout(MEDIA_UPLOAD_TIMEOUT_MS),
   })
   const uploadData = await uploadRes.json()
   if (uploadData.error) throw new Error(`Cloudinary: ${uploadData.error.message}`)
@@ -219,7 +214,7 @@ export async function POST(req: NextRequest, props: Params) {
     const requestedIds: string[] = body.postIds ?? []
 
     // Load posts that need generation
-    const postsToGenerate = await (prisma.socialPost as any).findMany({
+    const pendingPosts = await (prisma.socialPost as any).findMany({
       where: {
         campaignId: params.id,
         workspaceId: campaign.workspaceId,
@@ -229,8 +224,11 @@ export async function POST(req: NextRequest, props: Params) {
         imagePrompt: { not: null },
         ...(requestedIds.length ? { id: { in: requestedIds } } : {}),
       },
-      take: 5, // max 5 per call — respect Vercel timeout
+      take: MAX_IMAGES_PER_REQUEST,
     })
+    // Keep the invariant in application code as well as Prisma. This also
+    // protects tests/adapters that do not implement Prisma's `take` option.
+    const postsToGenerate = pendingPosts.slice(0, MAX_IMAGES_PER_REQUEST)
 
     if (postsToGenerate.length === 0) {
       return NextResponse.json({ success: true, generated: 0, message: 'No pending posts to generate' })
@@ -281,7 +279,7 @@ export async function POST(req: NextRequest, props: Params) {
     // Reserve one IMAGE_GENERATION charge per post. Keep each transaction tied
     // to its post so a partial batch failure refunds only the failed image.
     const reservationsByPostId = new Map<string, ImageCreditReservation>()
-    for (let i = 0; i < Math.min(postsToGenerate.length, 5); i++) {
+    for (let i = 0; i < postsToGenerate.length; i++) {
       const post = postsToGenerate[i]
       const creditCheck = await checkAndDeductCredits(userId, 'IMAGE_GENERATION')
       if (!creditCheck.ok) {

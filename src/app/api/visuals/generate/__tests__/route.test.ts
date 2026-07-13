@@ -58,7 +58,7 @@ vi.mock('@/lib/ai/imageGen', () => ({
 }))
 vi.mock('@/lib/ai/falGen', () => ({
   generateWithFlux: vi.fn(),
-  platformToFluxSize: () => 'landscape_4_3',
+  platformToFluxAspectRatio: () => '3:2',
   platformToOpenAISize: () => '1536x1024',
 }))
 vi.mock('@/lib/cloudinaryOverlay', () => ({ platformToOverlay: () => 'square' }))

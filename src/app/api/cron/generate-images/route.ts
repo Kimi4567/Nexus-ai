@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { applyBrandOverlayFromProfile, platformToOverlay } from '@/lib/cloudinaryOverlay'
-import { generateWithFlux, platformToFluxSize } from '@/lib/ai/falGen'
+import { generateWithFlux, platformToFluxAspectRatio } from '@/lib/ai/falGen'
 import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
 import { cronAuthError } from '@/lib/cronAuth'
 
@@ -48,9 +48,9 @@ async function generateImage(
 ): Promise<string> {
   // Auto-detect provider — FAL_KEY presence is the only signal
   if (process.env.FAL_KEY) {
-    const fluxSize = platformToFluxSize(platform)
-    console.log(`[Cron generate-images] Using Flux Pro Ultra — size: ${fluxSize}`)
-    const result = await generateWithFlux({ prompt, imageSize: fluxSize })
+    const aspectRatio = platformToFluxAspectRatio(platform)
+    console.log(`[Cron generate-images] Using Flux Pro Ultra — aspect ratio: ${aspectRatio}`)
+    const result = await generateWithFlux({ prompt, aspectRatio })
     return result.imageUrl // Hosted CDN URL — no base64 needed
   }
 

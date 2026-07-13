@@ -3,7 +3,7 @@ import {
   isContentHubYouTubeShortsPlatform,
   normalizeContentHubImagePromptForPlatform,
 } from '../contentHubImageFormat'
-import { platformToFluxSize, platformToOpenAISize } from '../ai/falGen'
+import { platformToFluxAspectRatio, platformToOpenAISize } from '../ai/falGen'
 
 describe('Content Hub image format normalization', () => {
   it('treats persisted YOUTUBE content-plan posts as YouTube Shorts', () => {
@@ -33,14 +33,19 @@ describe('Content Hub image format normalization', () => {
   })
 
   it('maps YouTube image providers to portrait sizes', () => {
-    expect(platformToFluxSize('YOUTUBE')).toBe('portrait_16_9')
-    expect(platformToFluxSize('YOUTUBE_SHORTS')).toBe('portrait_16_9')
+    expect(platformToFluxAspectRatio('YOUTUBE')).toBe('9:16')
+    expect(platformToFluxAspectRatio('YOUTUBE_SHORTS')).toBe('9:16')
     expect(platformToOpenAISize('YOUTUBE')).toBe('1024x1536')
     expect(platformToOpenAISize('YOUTUBE_SHORTS')).toBe('1024x1536')
   })
 
   it('maps Content Hub META feed visuals to the square preview used by the UI', () => {
-    expect(platformToFluxSize('META')).toBe('square_hd')
+    expect(platformToFluxAspectRatio('META')).toBe('1:1')
     expect(platformToOpenAISize('META')).toBe('1024x1024')
+  })
+
+  it('maps landscape feeds to the Ultra API 3:2 aspect ratio', () => {
+    expect(platformToFluxAspectRatio('LINKEDIN')).toBe('3:2')
+    expect(platformToFluxAspectRatio('X')).toBe('3:2')
   })
 })

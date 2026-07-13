@@ -34,7 +34,7 @@ import {
   VisualType,
 } from '@/lib/ai/imageGen'
 import type { VisualAssetRole } from '@/lib/ai/imageGen'
-import { generateWithFlux, platformToFluxSize, platformToOpenAISize } from '@/lib/ai/falGen'
+import { generateWithFlux, platformToFluxAspectRatio, platformToOpenAISize } from '@/lib/ai/falGen'
 import { platformToOverlay } from '@/lib/cloudinaryOverlay'
 import { composeBrandedPost, bufferToDataUri } from '@/lib/brandComposite'
 import {
@@ -276,9 +276,9 @@ export async function POST(req: NextRequest) {
 
     if (useFlux) {
       // Flux 1.1 Pro Ultra — best photorealism, returns hosted CDN URL
-      const fluxSize = platformToFluxSize(platform)
-      console.log(`[visuals/generate] Using Flux Pro Ultra — size: ${fluxSize}`)
-      const fluxResult = await generateWithFlux({ prompt, imageSize: fluxSize })
+      const aspectRatio = platformToFluxAspectRatio(platform)
+      console.log(`[visuals/generate] Using Flux Pro Ultra — aspect ratio: ${aspectRatio}`)
+      const fluxResult = await generateWithFlux({ prompt, aspectRatio })
       rawImageUrl = fluxResult.imageUrl
     } else {
       // gpt-image-1 high quality — returns base64 data URI

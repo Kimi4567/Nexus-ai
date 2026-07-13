@@ -116,6 +116,7 @@ IMPORTANT: Be specific and visual. The AI needs to see exactly what to draw.`
         temperature: 0.4,
         response_format: { type: 'json_object' },
       }),
+      signal: AbortSignal.timeout(10_000),
     })
 
     if (!response.ok) throw new Error(`GPT-4o mini responded ${response.status}`)
@@ -187,7 +188,7 @@ function buildFallbackConcept(
 
   if (check.match(/saas|software|platform|app|tech|ai|automation|digital|data|analytics|startup|crm/)) {
     return {
-      centralElement: 'focused product and marketing team in a premium dark workspace arranging luminous violet-blue physical nodes into a clear connected workflow, no screens or visible writing',
+      centralElement: 'focused product and marketing team in a premium dark workspace arranging luminous violet-blue physical nodes into a clear connected path across an uncluttered table',
       emotion:        'powerful, innovative, empowering',
       headline:       isAr ? 'حوّل بياناتك إلى نتائج' : 'Transform Data Into Growth',
       cta:            isAr ? 'ابدأ مجاناً' : 'Start Free',
@@ -207,7 +208,7 @@ function buildFallbackConcept(
 
   if (check.match(/marketing|agency|consultancy|advertising|branding|strategy|تسويق|وكالة|استراتيجية/)) {
     return {
-      centralElement: 'premium creative agency team collaborating around a clean table with blank color-coded planning cards and tactile campaign objects, dramatic accent lighting, no screens or visible writing',
+      centralElement: 'premium creative agency team collaborating around a clean table with blank color-coded wooden tiles and tactile campaign objects, dramatic accent lighting and generous negative space',
       emotion:        'intelligent, results-driven, creative',
       headline:       isAr ? 'نحوّل رؤيتك إلى نجاح' : 'Turn Vision Into Results',
       cta:            isAr ? 'ابدأ الآن' : 'Get Started',
@@ -227,7 +228,7 @@ function buildFallbackConcept(
 
   if (check.match(/finance|investment|banking|fintech|wealth|استثمار|مالية|بنك|ثروة/)) {
     return {
-      centralElement: 'precise ascending architectural forms in brushed gold beside a confident advisor in a refined dark environment, communicating disciplined financial growth without charts or visible writing',
+      centralElement: 'precise ascending architectural forms in brushed gold beside a confident advisor in a refined dark environment, communicating disciplined financial growth through tactile scale and balance',
       emotion:        'trustworthy, premium, growth-focused',
       headline:       isAr ? 'ثروتك تستحق الأفضل' : 'Your Wealth, Expertly Managed',
       cta:            isAr ? 'تواصل معنا' : 'Talk to an Expert',

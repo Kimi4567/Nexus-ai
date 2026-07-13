@@ -28,8 +28,22 @@ describe('imageGen prompt contract', () => {
     )
 
     expect(normalized).toContain('marketing and product team')
-    expect(normalized).toContain('no screens or visible writing')
+    expect(normalized).toContain('blank color-coded wooden tiles')
     expect(normalized).not.toContain('إنفوجرافيك')
+  })
+
+  it('catches plural reports, charts, laptops, and digital devices before provider generation', () => {
+    const unsafeScenes = [
+      'owner analyzing colorful charts and graphs across printed reports',
+      'team reviewing campaign reports beside laptops',
+      'professionals gathered around digital devices',
+    ]
+
+    for (const scene of unsafeScenes) {
+      const normalized = normalizeTextFreeCentralElement(scene, 'agency_consultancy')
+      expect(normalized).toContain('blank color-coded wooden tiles')
+      expect(normalized).not.toBe(scene)
+    }
   })
 
   it('keeps an already tangible text-free scene intact', () => {
@@ -105,6 +119,9 @@ describe('imageGen prompt contract', () => {
 
     expect(concept?.centralElement).toContain('marketing and product team')
     expect(prompt).not.toContain('floating analytics dashboard')
+    expect(prompt).not.toContain('Nexus')
+    expect(prompt).not.toContain('Stripe')
+    expect(prompt).not.toContain('Linear')
   })
 
   it('uses CreativeRequirement hints when provided', async () => {
