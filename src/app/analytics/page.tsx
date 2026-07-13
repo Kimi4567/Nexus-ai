@@ -286,15 +286,15 @@ export default function AnalyticsPage() {
       <main dir={dir} className="nx-os-page">
         <div className="nx-os-container">
           <LuxuryWorkspaceHeader
-            pageTitle={ar ? 'التحليلات والأداء' : 'Analytics and performance'}
-            pageSubtitle={ar ? 'قياس يعتمد على بيانات NEXUS وما يصل من المنصات فقط.' : 'Measurement based only on NEXUS records and connected platform data.'}
+            pageTitle={ar ? 'النتائج' : 'Results'}
+            pageSubtitle={ar ? 'أداء موثّق من المنصات، وما الذي يجب تغييره بعد ذلك.' : 'Verified platform performance and what to change next.'}
             primaryHref="/connections"
             primaryLabel={ar ? 'إدارة مصادر البيانات' : 'Manage data sources'}
             secondaryHref="/campaigns"
             secondaryLabel={ar ? 'الحملات' : 'Campaigns'}
           />
 
-          <section className="mb-5 flex flex-col gap-4 border-b border-[#e1e7f1] pb-5 lg:flex-row lg:items-center lg:justify-between">
+          <section className="hidden">
             <div className="flex items-start gap-3">
               <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-[#f1f3ff] text-[#5366f6]">
                 <Sparkles size={21} />
@@ -349,11 +349,11 @@ export default function AnalyticsPage() {
               <div className="flex items-start gap-4">
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-[#f3f5ff] text-[#5366f6]"><Database className="h-6 w-6" /></span>
                 <div>
-                  <h2 className="text-[18px] font-black text-[#071236]">{ar ? 'بانتظار دليل أداء من المنصات' : 'Waiting for platform performance evidence'}</h2>
+                  <h2 className="text-[18px] font-black text-[#071236]">{ar ? 'اربط مصدر قياس لعرض النتائج' : 'Connect a measurement source to see results'}</h2>
                   <p className="mt-2 max-w-3xl text-[12px] font-bold leading-6 text-[#75819d]">
                     {overview?.publishedPosts
-                      ? (ar ? `يوجد ${overview.publishedPosts} منشورًا بحالة منشور، لكن لا توجد analyticsData موثقة بعد. لن يعرض NEXUS بطاقات KPI صفرية أو يدّعي تعلّمًا.` : `${overview.publishedPosts} posts are marked published, but no verified analyticsData exists yet. NEXUS will not show zero KPI cards or claim learning.`)
-                      : (ar ? 'ابدأ بالتنفيذ والنشر الموثق ثم اربط مصدر القياس. لن يملأ NEXUS الصفحة بأرقام تقديرية.' : 'Execute and publish through a verified path, then connect measurement. NEXUS will not fill this page with estimated numbers.')}
+                      ? (ar ? `يوجد ${overview.publishedPosts} منشورًا بحالة منشور، لكن لم تصل نتائج موثقة من المنصة بعد.` : `${overview.publishedPosts} posts are marked published, but verified platform results have not arrived yet.`)
+                      : (ar ? 'بعد النشر، اربط حسابات القياس ليعرض NEXUS النتائج الحقيقية ويقترح القرار التالي.' : 'After publishing, connect measurement accounts so NEXUS can show real results and recommend the next decision.')}
                   </p>
                 </div>
               </div>
@@ -364,7 +364,7 @@ export default function AnalyticsPage() {
             </section>
           )}
 
-          <section className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <section className="hidden">
             <MetricCard title={ar ? 'الحملات' : 'Campaigns'} value={overview?.campaigns ?? 0} helper={overview ? `${overview.activeCampaigns} ${ar ? 'نشطة' : 'active'} · ${overview.draftCampaigns} ${ar ? 'مسودة' : 'drafts'}` : dataQuality} icon={Megaphone} href="/campaigns" loading={dataLoading} />
             <MetricCard title={ar ? 'منشورات منشورة' : 'Published posts'} value={overview?.publishedPosts ?? 0} helper={ar ? 'لا يعني وجود بيانات أداء تلقائياً' : 'Does not imply analytics automatically'} icon={Send} href="/content-hub" loading={dataLoading} />
             <MetricCard title={ar ? 'توليدات AI' : 'AI generations'} value={overview?.generations ?? 0} helper={ar ? 'كل الوقت، من سجل NEXUS' : 'All-time, from NEXUS records'} icon={BrainCircuit} loading={dataLoading} />
@@ -374,7 +374,7 @@ export default function AnalyticsPage() {
 
           <section className="grid gap-5 xl:grid-cols-[1fr_380px]">
             <div className="space-y-5">
-              <div className="nx-os-card p-5">
+              <div className="hidden">
                 <div className="mb-5 flex items-center justify-between">
                   <div>
                     <h2 className="text-[18px] font-black text-[#071236]">{ar ? 'نشاط NEXUS الشهري' : 'Monthly NEXUS activity'}</h2>
@@ -390,7 +390,7 @@ export default function AnalyticsPage() {
                   <div>
                     <h2 className="text-[18px] font-black text-[#071236]">{ar ? 'اتجاه الأداء الموثق' : 'Verified performance trend'}</h2>
                     <p className="mt-1 text-[12px] font-bold text-[#64708f]">
-                      {ar ? 'كل عمود يأتي من analyticsData أو لقطة منصة موثوقة؛ لا توجد توقعات داخل الرسم.' : 'Every bar comes from analyticsData or a trusted platform snapshot; the chart contains no forecasts.'}
+                      {ar ? 'كل عمود يأتي من تحليلات موثقة أو لقطة منصة حقيقية؛ لا توجد توقعات داخل الرسم.' : 'Every bar comes from verified analytics or a trusted platform snapshot; the chart contains no forecasts.'}
                     </p>
                   </div>
                   <BarChart3 className="h-5 w-5 text-[#5366f6]" />
@@ -491,7 +491,7 @@ export default function AnalyticsPage() {
                 </div>
               </div>
 
-              <div className="nx-os-card p-5">
+              <div className="hidden">
                 <h2 className="text-[16px] font-black text-[#071236]">{ar ? 'الحملات الأخيرة' : 'Recent campaigns'}</h2>
                 <div className="mt-4 space-y-3">
                   {dataLoading ? [1, 2, 3].map((item) => (

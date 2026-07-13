@@ -33,6 +33,8 @@ interface NavConfigItem {
 
 interface NavGroupConfig {
   key: string
+  labelAr?: string
+  labelEn?: string
   separatorBefore?: boolean
   items: NavConfigItem[]
 }
@@ -274,21 +276,36 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   const isPaid = billingTruth.showManageSubscription
   const navGroups: NavGroupConfig[] = [
     {
-      key: 'primary',
+      key: 'overview',
+      labelAr: 'مساحة العمل',
+      labelEn: 'Workspace',
       items: [
         { href: '/dashboard', labelAr: 'اليوم', labelEn: 'Today', icon: Icons.dashboard },
-        { href: '/approvals', labelAr: 'القرارات', labelEn: 'Decisions', icon: Icons.settings, badgeKey: pendingProposals > 0 ? `count:${pendingProposals}` : undefined, badgeColor: '#8B5CF6' },
-        { href: '/campaigns', labelAr: 'الحملات', labelEn: 'Campaigns', icon: Icons.campaigns },
-        { href: '/analytics', labelAr: 'النتائج', labelEn: 'Results', icon: Icons.analytics },
-        { href: '/brand', labelAr: 'Brand Brain', labelEn: 'Brand Brain', icon: Icons.brain },
+        { href: '/approvals', labelAr: 'الموافقات', labelEn: 'Approvals', icon: Icons.settings, badgeKey: pendingProposals > 0 ? `count:${pendingProposals}` : undefined, badgeColor: '#8B5CF6' },
       ],
     },
     {
-      key: 'secondary',
+      key: 'workflow',
+      labelAr: 'مسار التسويق',
+      labelEn: 'Marketing workflow',
       separatorBefore: true,
       items: [
-        { href: '/automation', labelAr: 'غرفة التشغيل', labelEn: 'Operations', icon: Icons.strategy },
-        { href: '/connections', labelAr: 'التكاملات', labelEn: 'Integrations', icon: Icons.connections },
+        { href: '/brand', labelAr: 'Brand Brain', labelEn: 'Brand Brain', icon: Icons.brain },
+        { href: '/strategy', labelAr: 'الاستراتيجية', labelEn: 'Strategy', icon: Icons.strategy },
+        { href: '/campaigns', labelAr: 'الحملات', labelEn: 'Campaigns', icon: Icons.campaigns },
+        { href: '/content-hub', labelAr: 'المحتوى', labelEn: 'Content', icon: Icons.media },
+        { href: '/publish', labelAr: 'النشر', labelEn: 'Publish', icon: Icons.calendar },
+        { href: '/analytics', labelAr: 'النتائج', labelEn: 'Results', icon: Icons.analytics },
+      ],
+    },
+    {
+      key: 'system',
+      labelAr: 'النظام',
+      labelEn: 'System',
+      separatorBefore: true,
+      items: [
+        { href: '/automation', labelAr: 'الأتمتة', labelEn: 'Automation', icon: Icons.learning },
+        { href: '/connections', labelAr: 'الربط', labelEn: 'Connections', icon: Icons.connections },
         { href: '/settings', labelAr: 'الإعدادات', labelEn: 'Settings', icon: Icons.settings },
       ],
     },
@@ -327,6 +344,11 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         {navGroups.map((group) => (
           <div key={group.key} className="space-y-0.5">
             {group.separatorBefore && <div className="mx-2 my-2.5 h-px bg-white/10" />}
+            {!collapsed && group.labelEn ? (
+              <p className="px-3 pb-1.5 pt-1 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">
+                {locale === 'ar' ? group.labelAr : group.labelEn}
+              </p>
+            ) : null}
             {group.items.map((item) => (
               <NavItem
                 key={`${item.href}-${item.labelKey || item.labelEn || item.labelAr}`}

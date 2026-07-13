@@ -1140,7 +1140,7 @@ function BrandBrainInner() {
         <div className="relative z-10 max-w-[1540px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-5">
           <LuxuryWorkspaceHeader
             pageTitle="Brand Brain"
-            pageSubtitle={locale === 'ar' ? 'المصدر المركزي لذاكرة العلامة وإشارات المراجعة قبل الاستراتيجية والمحتوى.' : 'The central memory source for brand context and review signals before strategy and content.'}
+            pageSubtitle={locale === 'ar' ? 'مرجع واحد معتمد لكل ما سينتجه NEXUS لعلامتك.' : 'One approved source of truth for everything NEXUS creates for your brand.'}
             primaryHref={coreBrandReady ? '/strategy' : '#brand-profile-workspace'}
             primaryLabel={coreBrandReady
               ? (locale === 'ar' ? 'ابدأ استراتيجية' : 'Start strategy')
@@ -1152,11 +1152,11 @@ function BrandBrainInner() {
           <StrategySpineCard
             current="brand"
             nextHref="/strategy"
-            nextLabel={locale === 'ar' ? 'ابدأ من الاستراتيجية' : 'Start with strategy'}
-            title={locale === 'ar' ? 'Brand Brain يغذي الاستراتيجية، ولا يدّعي التعلم من الأداء وحده' : 'Brand Brain feeds strategy and does not claim performance learning by itself'}
+            nextLabel={locale === 'ar' ? 'الانتقال للاستراتيجية' : 'Continue to strategy'}
+            title={locale === 'ar' ? 'الخطوة ١: ثبّت أساس العلامة' : 'Step 1: Confirm the brand foundation'}
             body={locale === 'ar'
-              ? 'هذه الصفحة تحفظ سياق العلامة وإشارات المراجعة. الأداء الحقيقي لا يتحول إلى تعلم إلا بعد وجود analyticsData أو مقاييس منصة موثوقة.'
-              : 'This page stores brand context and review signals. Real performance becomes learning only after analyticsData or trusted platform metrics exist.'}
+              ? 'الاستراتيجية والمحتوى والإبداع سيعتمدون فقط على المعلومات التي تراجعها وتحفظها هنا.'
+              : 'Strategy, content, and creative work use only the information you review and save here.'}
           />
 
           {/* ── Marketing Brief Focus Banner ───────────────────── */}
@@ -1209,50 +1209,35 @@ function BrandBrainInner() {
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h1 className="text-2xl font-black text-slate-950 tracking-tight">Brand Brain</h1>
+                      <h1 className="text-2xl font-black text-slate-950 tracking-tight">
+                        {locale === 'ar' ? 'ملف العلامة' : 'Brand profile'}
+                      </h1>
                       <span className="text-sm font-semibold text-slate-500">
-                        {locale === 'ar' ? 'ملف ذاكرة علامتك التسويقية' : 'Your marketing memory file'}
+                        {locale === 'ar' ? 'المعلومات التي يعتمد عليها NEXUS' : 'The information NEXUS relies on'}
                       </span>
-                      {/* PX-2B.1 — name the concept explicitly so the number is read as
-                          memory maturity (depth), never as setup completeness. */}
-                      <span className="text-[11px] font-semibold text-slate-400">{locale === 'ar' ? 'نضج الذاكرة' : 'Memory maturity'}</span>
-                      {/* PR-N1 — stage-first: lead with the maturity STAGE; the 45/100
-                          number is secondary/muted. Chip tooltip + the "Why?" disclosure
-                          below explain that maturity = depth (setup + reviewed signal memory),
-                          NOT setup completeness and NOT organic readiness. Math unchanged. */}
                       <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold inline-flex items-center gap-1.5"
-                        style={{ background: `${scoreColor}14`, color: scoreColor, border: `1px solid ${scoreColor}33` }}
-                        title={locale === 'ar'
-                          ? 'نضج ذاكرة العلامة: عمق طويل المدى (إعدادك المحفوظ + إشارات Brand Brain بمرور الوقت). ليس اكتمال الإعداد وليس جاهزية المحتوى العضوي.'
-                          : 'Brand Brain maturity: long-term depth — your saved setup plus Brand Brain signals over time. Not setup completeness, not organic readiness.'}>
-                        {score >= 80 ? (locale === 'ar' ? 'ناضجة' : 'Mature') : score >= 50 ? (locale === 'ar' ? 'قيد التطور' : 'Developing') : (locale === 'ar' ? 'مبكرة' : 'Early')}
-                        <span className="font-semibold tabular-nums opacity-60">{score}/100</span>
+                        style={{ background: '#ECFDF5', color: '#047857', border: '1px solid rgba(16,185,129,0.24)' }}>
+                        {locale === 'ar' ? 'اكتمال الملف' : 'Profile completeness'}
+                        <span className="font-semibold tabular-nums">{brandIndicators.brandCompleteness.score}%</span>
                       </span>
                     </div>
                     <p className="text-sm text-slate-500 mt-1 max-w-3xl">
                       {locale === 'ar'
-                        ? 'يستخدم NEXUS هذا الملف لتوجيه الاستراتيجية والمحتوى والاتجاه الإبداعي وإشارات Brand Brain مع الوقت.'
-                        : 'NEXUS uses this file to guide strategy, content, creative direction, and signals over time.'}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      {(() => {
-                        const o = brandIndicators.organicReadiness, p = brandIndicators.paidReadiness, m = brandIndicators.memoryRichness
-                        const memLvl = m.level === 'high' ? (locale === 'ar' ? 'غنية' : 'rich') : m.level === 'medium' ? (locale === 'ar' ? 'تتكوّن' : 'building') : (locale === 'ar' ? 'مبكرة' : 'early')
-                        return [
-                          o.ready ? (locale === 'ar' ? 'العضوي جاهز لموجز أولي' : 'Organic ready for an initial brief') : (locale === 'ar' ? 'العضوي غير مكتمل' : 'Organic incomplete'),
-                          p.ready ? (locale === 'ar' ? 'المدفوع جاهز للمراجعة' : 'Paid review ready') : (locale === 'ar' ? 'المدفوع يحتاج متطلبات' : 'Paid needs prerequisites'),
-                          (locale === 'ar' ? 'الذاكرة ' : 'Memory ') + memLvl,
-                        ].join('  ·  ')
-                      })()}
+                        ? 'راجع التفاصيل مرة واحدة، ثم استخدمها كأساس ثابت لكل قرار تسويقي.'
+                        : 'Review the details once, then use them as the stable foundation for every marketing decision.'}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <button onClick={handleSave} disabled={saving}
+                  <button onClick={wizardStage === 'edit' ? handleSave : () => setWizardStage('edit')} disabled={saving}
                     className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold transition-all duration-200 disabled:opacity-60"
                     style={{ background: saved ? 'rgba(16,185,129,0.15)' : '#071236', color: saved ? '#10b981' : '#FFFFFF', border: saved ? '1px solid rgba(16,185,129,0.35)' : '1px solid rgba(7,18,54,0.9)', boxShadow: saved ? 'none' : '0 14px 30px rgba(7,18,54,0.18)' }}>
-                    {saving ? <Loader2 size={15} className="animate-spin"/> : saved ? <CheckCircle2 size={15}/> : <Save size={15}/>}
-                    {saving ? t('brand.savingBtn') : saved ? t('brand.savedBtn') : t('brand.saveAllBtn')}
+                    {wizardStage === 'edit'
+                      ? (saving ? <Loader2 size={15} className="animate-spin"/> : saved ? <CheckCircle2 size={15}/> : <Save size={15}/>)
+                      : <Brain size={15} />}
+                    {wizardStage === 'edit'
+                      ? (saving ? t('brand.savingBtn') : saved ? t('brand.savedBtn') : t('brand.saveAllBtn'))
+                      : (locale === 'ar' ? 'مراجعة الملف' : 'Review profile')}
                   </button>
                   <button onClick={() => router.push('/brand/score-history')}
                     className="flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-semibold transition-all hover:opacity-80"
@@ -1656,17 +1641,17 @@ function BrandBrainInner() {
             <div className="rounded-2xl p-6 sm:p-8" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
               <h2 className="text-lg font-bold text-slate-950">
                 {hasExistingBrandMemory
-                  ? (locale === 'ar' ? 'تم بدء Brand Brain بالفعل.' : 'Your Brand Brain is already started.')
-                  : (locale === 'ar' ? 'ابنِ Brand Brain الخاص بك' : 'Build your Brand Brain')}
+                  ? (locale === 'ar' ? 'كيف تريد تحديث ملف العلامة؟' : 'How would you like to update the brand profile?')
+                  : (locale === 'ar' ? 'أنشئ ملف علامتك' : 'Create your brand profile')}
               </h2>
               <p className="text-sm text-slate-500 mt-1">
                 {hasExistingBrandMemory
                   ? (locale === 'ar'
-                      ? 'راجع المناطق الناقصة، أو دع NEXUS يقترح تحديثات من مصادر تختارها.'
-                      : 'Review missing areas, or let NEXUS suggest updates from sources you choose.')
+                      ? 'راجع المعلومات بنفسك أو اطلب اقتراحات من موقعك ومحتواك. لن يُحفظ أي اقتراح قبل موافقتك.'
+                      : 'Review it yourself or request suggestions from your website and content. Nothing is saved before your approval.')
                   : (locale === 'ar' ? 'ابدأ يدوياً أو دع NEXUS يجهز مسودة من موقعك أو محتواك.' : 'Start manually or let NEXUS draft from your website/content.')}
               </p>
-              <div className="mt-4 grid sm:grid-cols-4 gap-2">
+              <div className="hidden">
                 {[
                   [locale === 'ar' ? 'اكتمال العلامة' : 'Brand completeness', `${brandIndicators.brandCompleteness.score}%`],
                   [locale === 'ar' ? 'العضوي' : 'Organic', brandIndicators.organicReadiness.ready ? (locale === 'ar' ? 'جاهز لموجز' : 'Ready for brief') : (locale === 'ar' ? 'يحتاج بيانات' : 'Needs data')],

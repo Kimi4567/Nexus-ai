@@ -387,8 +387,13 @@ export default function CampaignsPage() {
 
           <div className="nx-os-action-strip mb-4">
             <div className="min-w-0">
-              <p className="nx-os-section-title">{copy('تحكم محفظة الحملات', 'Campaign portfolio controls')}</p>
-              <p className="nx-os-section-copy">{copy('التصفية والتحديث والتصدير لا تغيّر أي حالة تشغيلية.', 'Filtering, refresh, and export do not change operating state.')}</p>
+              <p className="nx-os-section-title">{copy(`${summary.total} حملة في مساحة العمل`, `${summary.total} campaigns in this workspace`)}</p>
+              <p className="nx-os-section-copy">
+                {copy(
+                  `${summary.active} معتمدة و${summary.draft} تحتاج مراجعة.`,
+                  `${summary.active} approved and ${summary.draft} need review.`,
+                )}
+              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -399,10 +404,6 @@ export default function CampaignsPage() {
               >
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               </button>
-              <Link href="/dashboard" className="flex h-10 items-center gap-2 rounded-[10px] border border-[#e3e8f3] bg-white px-3 text-[12px] font-bold text-[#111b3f]">
-                <Grid2X2 size={16} />
-                {copy('لوحة النظام', 'OS board')}
-              </Link>
               <button
                 type="button"
                 onClick={exportCampaigns}
@@ -415,11 +416,15 @@ export default function CampaignsPage() {
             </div>
           </div>
 
-          <div className="mb-5 flex flex-wrap items-center gap-3">
-            <div className="flex h-10 items-center gap-2 rounded-[13px] border border-[#e3e8f3] bg-white px-4 text-sm font-semibold text-[#53617f]">
-              <Filter size={15} />
-              {copy('تصفية متقدمة', 'Advanced filter')}
-              <span className="rounded-full bg-[#edeaff] px-2 py-0.5 text-[11px] font-black text-[#4f46e5]">{statusFilter ? '1' : '3'}</span>
+          <div className="mb-5 flex flex-wrap items-center gap-3 rounded-[16px] border border-[#e3e8f3] bg-white p-3">
+            <div className="relative min-w-[240px] flex-1">
+              <Search className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa5bb]" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={cT?.searchPlaceholder || copy('ابحث باسم الحملة أو الهدف', 'Search by campaign or goal')}
+                className="h-10 w-full rounded-[12px] border border-[#e3e8f3] bg-[#fbfcff] px-11 text-sm font-semibold text-[#111b3f] outline-none transition focus:border-[#b8c2ff]"
+              />
             </div>
             <select
               value={statusFilter}
@@ -452,7 +457,7 @@ export default function CampaignsPage() {
             </button>
           </div>
 
-          <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-6">
+          <div className="hidden">
             <MetricCard title={copy('إجمالي الحملات', 'Total campaigns')} value={String(summary.total)} helper={copy('كل الحملات المحفوظة', 'All saved campaigns')} icon={<FolderKanban size={18} />} />
             <MetricCard title={copy('استراتيجيات معتمدة', 'Approved strategies')} value={String(summary.active)} helper={copy('اعتماد سير عمل، وليس دليلاً على نشر أو صرف', 'Workflow approval, not proof of publishing or spend')} icon={<BadgeCheck size={18} />} />
             <MetricCard title={copy('المسودات', 'Drafts')} value={String(summary.draft)} helper={copy('تحتاج إكمال أو مراجعة', 'Need completion or review')} icon={<Wand2 size={18} />} />
@@ -473,7 +478,7 @@ export default function CampaignsPage() {
             className="mb-5"
           />
 
-          <section className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-4">
+          <section className="hidden">
             {[
               {
                 title: copy('١. اختر الحملة', '1. Choose campaign'),
@@ -522,7 +527,7 @@ export default function CampaignsPage() {
           )}
 
           <div className="grid grid-cols-12 items-start gap-5">
-            <section className="nx-os-card col-span-12 self-start p-5 xl:col-span-3">
+            <section className="hidden">
               <h2 className="mb-4 flex items-center justify-between text-[15px] font-black text-[#111b3f]">
                 {copy('تقدم محفظة الحملات', 'Campaign portfolio progress')}
                 <Sparkles size={18} className="text-[#4f46e5]" />
@@ -543,7 +548,7 @@ export default function CampaignsPage() {
               </div>
             </section>
 
-            <section className="nx-os-card col-span-12 self-start p-5 xl:col-span-3">
+            <section className="hidden">
               <h2 className="mb-4 text-[15px] font-black text-[#111b3f]">{copy('توزيع المنصات', 'Platform mix')}</h2>
               <Donut value={platformDistribution.coverage} label={copy('تغطية الحملات', 'Campaign coverage')} />
               <div className="mt-4 space-y-2">
@@ -564,7 +569,7 @@ export default function CampaignsPage() {
               </p>
             </section>
 
-            <section className="nx-os-card col-span-12 self-start p-5 xl:col-span-4">
+            <section className="hidden">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-[15px] font-black text-[#111b3f]">{copy('أهداف الحملات', 'Campaign goals')}</h2>
                 <Link href="/strategy" className="text-xs font-bold text-[#4f46e5]">{copy('عرض منطق الاستراتيجية', 'View strategy logic')}</Link>
@@ -592,7 +597,7 @@ export default function CampaignsPage() {
               </p>
             </section>
 
-            <aside className="col-span-12 self-start space-y-5 xl:col-span-2">
+            <aside className="hidden">
               <section className="nx-os-card p-5">
                 <h2 className="mb-4 flex items-center gap-2 text-[15px] font-black text-[#111b3f]">
                   <Sparkles size={18} className="text-[#4f46e5]" />
@@ -611,16 +616,11 @@ export default function CampaignsPage() {
 
             </aside>
 
-            <section className="nx-os-card col-span-12 p-5 xl:col-span-10">
+            <section className="nx-os-card col-span-12 p-5">
               <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div className="relative max-w-md flex-1">
-                  <Search className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa5bb]" />
-                  <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder={cT?.searchPlaceholder || copy('بحث في الحملات...', 'Search campaigns...')}
-                    className="h-11 w-full rounded-[14px] border border-[#e3e8f3] bg-[#fbfcff] px-11 text-sm font-semibold text-[#111b3f] outline-none transition focus:border-[#b8c2ff]"
-                  />
+                <div>
+                  <h2 className="text-[15px] font-black text-[#111b3f]">{copy('قائمة الحملات', 'Campaign list')}</h2>
+                  <p className="mt-1 text-xs text-[#7b87a3]">{copy('اختر حملة لمراجعة الاستراتيجية والقرار التالي.', 'Choose a campaign to review its strategy and next decision.')}</p>
                 </div>
                 <p className="text-xs font-semibold text-[#7b87a3]">
                   {copy(`عرض ${campaigns.length} حملة`, `Showing ${campaigns.length} campaigns`)}
@@ -743,7 +743,7 @@ export default function CampaignsPage() {
               )}
             </section>
 
-            <aside className="col-span-12 space-y-5 xl:col-span-2">
+            <aside className="hidden">
               <section className="nx-os-card p-5">
                 <h2 className="mb-4 text-[15px] font-black text-[#111b3f]">{copy('معلومات ذكية من NEXUS', 'NEXUS intelligence')}</h2>
                 <div className="space-y-3">

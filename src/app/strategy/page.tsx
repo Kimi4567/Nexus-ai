@@ -33,6 +33,7 @@ import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuar
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
+import StrategySpineCard from '@/components/StrategySpineCard'
 import RunFullStrategyModal from '@/components/RunFullStrategyModal'
 import {
   AlertTriangle, ArrowRight, BarChart3, Brain, CalendarDays,
@@ -728,14 +729,26 @@ export default function StrategyPage() {
       <div className="min-h-screen bg-[#F8FAFF]">
         <div className="mx-auto max-w-[1580px] px-3 py-5 sm:px-5 lg:px-7">
           <LuxuryWorkspaceHeader
-            pageTitle={brandName || (ar ? 'نمو أعمال' : 'Growth workspace')}
+            pageTitle={ar ? 'الاستراتيجية' : 'Strategy'}
+            pageSubtitle={ar ? `الحملة: ${campaignTitle}` : `Campaign: ${campaignTitle}`}
             primaryHref={recentContentHubHref}
-            primaryLabel={ar ? 'افتح مركز المحتوى' : 'Open Content Hub'}
+            primaryLabel={ar ? 'الانتقال إلى المحتوى' : 'Continue to content'}
             secondaryHref="/brand"
             secondaryLabel={ar ? 'Brand Brain' : 'Brand Brain'}
           />
 
-          <div className="mb-4 flex flex-wrap items-center gap-2 text-[12px] font-bold text-slate-500">
+          <StrategySpineCard
+            current="strategy"
+            nextHref={recentContentHubHref}
+            nextLabel={ar ? 'الانتقال إلى المحتوى' : 'Continue to content'}
+            title={ar ? 'الخطوة ٢: راجع الاتجاه قبل الإنتاج' : 'Step 2: Review direction before production'}
+            body={ar
+              ? 'تأكد من الهدف والجمهور والتمركز والرسائل. بعد اعتماد الاتجاه يحول Content Hub الاستراتيجية إلى مسودات قابلة للمراجعة.'
+              : 'Confirm the goal, audience, positioning, and messages. Once direction is approved, Content Hub turns the strategy into reviewable drafts.'}
+            className="mb-4"
+          />
+
+          <div className="hidden">
             <Link href="/campaigns" className="hover:text-[#5E63FF]">{ar ? 'الحملات' : 'Campaigns'}</Link>
             <span>›</span>
             <span>{campaignTitle}</span>
@@ -746,7 +759,7 @@ export default function StrategyPage() {
           <SoftCard className="mb-4 overflow-hidden p-4" dir="ltr">
             <div className="grid gap-5 xl:grid-cols-[minmax(0,620px)_1fr] xl:items-center">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-	                <div className="h-32 w-full shrink-0 overflow-hidden rounded-[18px] bg-[radial-gradient(circle_at_25%_20%,rgba(94,99,255,0.25),transparent_35%),linear-gradient(135deg,#E8EEF9,#FFFFFF)] sm:w-44">
+	                <div className="hidden">
 	                  {recent?.thumbnail ? (
 	                    // eslint-disable-next-line @next/next/no-img-element
 	                    <img src={recent.thumbnail} alt={campaignTitle} className="h-full w-full object-cover" />
@@ -785,7 +798,7 @@ export default function StrategyPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-6 xl:gap-2" dir={ar ? 'rtl' : 'ltr'}>
+              <div className="hidden" dir={ar ? 'rtl' : 'ltr'}>
                 {workflowSteps.map((step, index) => {
                   const Icon = step.icon
                   const active = index === 1
@@ -812,8 +825,8 @@ export default function StrategyPage() {
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]" dir="ltr">
             <div className="space-y-4" dir={ar ? 'rtl' : 'ltr'}>
               <SoftCard id="strategy-executive" className="scroll-mt-6 overflow-hidden border-[#C7D2FE] bg-[linear-gradient(135deg,#FFFFFF,#F6F5FF)] p-4" dir="ltr">
-	                <div className="grid gap-4 lg:grid-cols-[124px_minmax(0,1fr)_310px] lg:items-center">
-	                  <div className="flex justify-center lg:justify-start">
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_310px] lg:items-center">
+	                  <div className="hidden">
 	                    <div className="relative flex h-28 w-28 items-center justify-center rounded-full bg-[radial-gradient(circle,#C7D2FE_0%,#7C83FF_38%,#EEF2FF_64%,transparent_70%)] shadow-[0_24px_62px_rgba(94,99,255,0.24)]">
 	                      <Sparkles className="h-10 w-10 text-white drop-shadow" />
 	                    </div>
@@ -826,7 +839,7 @@ export default function StrategyPage() {
 	                    <div id="strategy-diagnosis" className="mt-3 grid scroll-mt-6 gap-2 sm:grid-cols-3">
 	                      {[
 	                        [ar ? 'سجل الاستراتيجية' : 'Strategy record', hasStrategy ? (ar ? 'محفوظ' : 'Saved') : (ar ? 'مفقود' : 'Missing')],
-	                        [ar ? 'تغطية المصادر' : 'Source coverage', `${dataConfidence}%`],
+                        [ar ? 'المصدر' : 'Source', 'Brand Brain'],
                         [ar ? 'نطاق الاستراتيجية' : 'Strategy scope', campaignSubtitle],
                       ].map(([label, value]) => (
                         <div key={label} className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
@@ -835,7 +848,7 @@ export default function StrategyPage() {
                         </div>
                       ))}
                     </div>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="hidden">
                       {readinessCards.map((card) => {
                         const Icon = card.icon
                         return (
@@ -855,16 +868,16 @@ export default function StrategyPage() {
                       })}
                     </div>
                   </div>
-	                  <div className="grid grid-cols-2 gap-2" dir={ar ? 'rtl' : 'ltr'}>
-	                    <div className="rounded-[18px] border border-slate-200 bg-white p-2 text-center">
+	                  <div className="flex flex-wrap justify-end gap-2" dir={ar ? 'rtl' : 'ltr'}>
+	                    <div className="hidden">
 	                      <ReadinessRing value={dataConfidence} label={ar ? 'تغطية المصادر' : 'Source coverage'} size="sm" />
 	                    </div>
-	                    <div className="space-y-2 rounded-[18px] border border-slate-200 bg-white p-3">
+	                    <div className="hidden">
 	                      <p className="text-[12px] font-black text-slate-500">{ar ? 'تغطية التنفيذ' : 'Execution coverage'}</p>
 	                      <p className="text-[24px] font-black text-[#0B1028]">{executionReadiness}%</p>
                       <ProgressBar value={executionReadiness} />
                     </div>
-	                    <div className="col-span-2 flex flex-wrap gap-2">
+	                    <div className="flex flex-wrap gap-2">
 	                      {'href' in primaryAction ? (
 	                        <Link href={primaryAction.href} className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#071333] px-4 text-[13px] font-black text-white">
 	                          <CheckCircle2 className="h-4 w-4" />
@@ -888,7 +901,7 @@ export default function StrategyPage() {
                 </div>
               </SoftCard>
 
-	              <div id="strategy-goal" className="grid scroll-mt-6 gap-3 md:grid-cols-2 xl:grid-cols-5">
+	              <div id="strategy-goal" className="hidden">
 	                {strategicCards.map((item, index) => {
 	                  const Icon = item.icon
 	                  return (
@@ -1002,7 +1015,7 @@ export default function StrategyPage() {
                       </div>
                     </div>
 
-                    <div className="rounded-[20px] border border-slate-200 bg-white p-4">
+                    <div className="hidden">
                       <h3 className="mb-4 flex items-center gap-2 text-[15px] font-black text-[#0B1028]"><BarChart3 className="h-4 w-4 text-[#5E63FF]" />{ar ? 'مؤشرات تغطية المدخلات' : 'Input coverage indicators'}</h3>
                       <div className="space-y-3">
                         {[
@@ -1064,7 +1077,7 @@ export default function StrategyPage() {
                       ar ? 'لا صرف إعلاني قبل موافقة صريحة.' : 'No ad spend before explicit approval.',
                       ar ? 'لا نشر قبل ربط الحسابات والصلاحيات.' : 'No publishing before account and permission readiness.',
                       ar ? 'الأرقام هنا جاهزية تشغيلية، وليست أداء فعلي.' : 'Numbers here are operational readiness, not actual performance.',
-                      ar ? 'التعلم من الأداء يحتاج analyticsData حقيقية.' : 'Performance learning requires real analyticsData.',
+                      ar ? 'التعلم من الأداء يحتاج تحليلات موثقة من المنصات.' : 'Performance learning requires verified platform analytics.',
                     ].map((item, index) => (
                       <div key={item} className="flex items-start gap-2 rounded-2xl bg-slate-50 px-3 py-2">
                         <span className={`mt-1 h-2 w-2 rounded-full ${index < 2 ? 'bg-amber-400' : 'bg-slate-300'}`} />
@@ -1075,7 +1088,7 @@ export default function StrategyPage() {
                 </SoftCard>
               </div>
 
-              <SoftCard className="p-4">
+              <SoftCard className="hidden">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <h3 className="text-[16px] font-black text-[#0B1028]">{ar ? 'كيف تغذي هذه الاستراتيجية بقية النظام' : 'How this strategy feeds the rest of the system'}</h3>
@@ -1096,8 +1109,8 @@ export default function StrategyPage() {
 
             </div>
 
-            <aside className="space-y-4" dir={ar ? 'rtl' : 'ltr'}>
-              <SoftCard className="p-4">
+            <aside className="flex flex-col gap-4" dir={ar ? 'rtl' : 'ltr'}>
+              <SoftCard className="hidden">
                 <p className="mb-1 text-[11px] font-black text-[#5E63FF]">
                   {ar ? 'الخطوات الاستراتيجية التالية' : 'Next strategic steps'}
                 </p>
@@ -1117,7 +1130,7 @@ export default function StrategyPage() {
                 </div>
               </SoftCard>
 
-              <SoftCard className="p-4">
+              <SoftCard className="order-2 p-4">
                 <h2 className="mb-4 flex items-center gap-2 text-[15px] font-black text-[#0B1028]">
                   <ShieldCheck className="h-4 w-4 text-[#5E63FF]" />
                   {ar ? 'ملخص الحملة' : 'Campaign summary'}
@@ -1138,7 +1151,7 @@ export default function StrategyPage() {
                 </div>
               </SoftCard>
 
-              <SoftCard className="p-4">
+              <SoftCard className="hidden">
                 <h2 className="mb-4 flex items-center gap-2 text-[15px] font-black text-[#0B1028]">
                   <Gauge className="h-4 w-4 text-[#5E63FF]" />
                   {ar ? 'جاهزية التنفيذ' : 'Execution readiness'}
@@ -1156,7 +1169,7 @@ export default function StrategyPage() {
                 </div>
               </SoftCard>
 
-              <SoftCard className="p-4">
+              <SoftCard className="order-first p-4">
                 <h2 className="mb-4 flex items-center gap-2 text-[15px] font-black text-[#0B1028]">
                   <Rocket className="h-4 w-4 text-[#5E63FF]" />
                   {ar ? 'الخطوة التالية الموصى بها' : 'Recommended next step'}
@@ -1180,7 +1193,7 @@ export default function StrategyPage() {
                 )}
               </SoftCard>
 
-              <SoftCard className="p-4">
+              <SoftCard className="hidden">
                 <h2 className="mb-3 flex items-center gap-2 text-[15px] font-black text-[#0B1028]">
                   <ClipboardList className="h-4 w-4 text-[#5E63FF]" />
                   {ar ? 'مراجعة مدخلات الاستراتيجية' : 'Strategy input review'}
@@ -1197,7 +1210,7 @@ export default function StrategyPage() {
                 </div>
               </SoftCard>
 
-              <SoftCard className="p-4">
+              <SoftCard className="hidden">
                 <h2 className="mb-3 flex items-center gap-2 text-[15px] font-black text-[#0B1028]">
                   <Eye className="h-4 w-4 text-[#5E63FF]" />
                   {ar ? 'الحقيقة التشغيلية' : 'Operating truth'}
@@ -1212,7 +1225,7 @@ export default function StrategyPage() {
                 </div>
               </SoftCard>
 
-              <SoftCard className="p-4">
+              <SoftCard className="hidden">
                 <h2 className="mb-3 flex items-center gap-2 text-[15px] font-black text-[#0B1028]">
                   <Eye className="h-4 w-4 text-[#5E63FF]" />
                   {ar ? 'روابط سريعة' : 'Quick links'}

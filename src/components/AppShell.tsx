@@ -9,7 +9,10 @@ interface AppShellProps {
 }
 
 const SIDEBAR_PREFERENCE_KEY = 'nexus.sidebar.collapsed'
-const COMPACT_SIDEBAR_BREAKPOINT = 1680
+// Keep labels visible on normal laptop screens. The previous 1680px threshold
+// collapsed the navigation for almost every real user and reduced the entire
+// product to an unexplained column of icons.
+const COMPACT_SIDEBAR_BREAKPOINT = 1120
 
 /**
  * AppShell — authenticated layout.

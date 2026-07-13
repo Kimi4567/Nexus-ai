@@ -131,23 +131,23 @@ describe('Sidebar credit presentation', () => {
     expect(screen.getByText('No credits left')).toBeTruthy()
   })
 
-  it('uses the operator navigation and keeps specialist modules inside campaign flows', () => {
+  it('mirrors the marketing workflow in the primary navigation', () => {
     render(<Sidebar collapsed={false} setCollapsed={() => {}} />)
 
     expect(screen.getByText('Today')).toBeTruthy()
-    expect(screen.getByText('Decisions')).toBeTruthy()
-    expect(screen.getByText('Campaigns')).toBeTruthy()
-    expect(screen.getByText('Results')).toBeTruthy()
+    expect(screen.getByText('Approvals')).toBeTruthy()
     expect(screen.getByText('Brand Brain')).toBeTruthy()
-    expect(screen.getByText('Operations')).toBeTruthy()
-    expect(screen.getByText('Integrations')).toBeTruthy()
+    expect(screen.getByText('Strategy')).toBeTruthy()
+    expect(screen.getByText('Campaigns')).toBeTruthy()
+    expect(screen.getByText('Content')).toBeTruthy()
+    expect(screen.getByText('Publish')).toBeTruthy()
+    expect(screen.getByText('Results')).toBeTruthy()
+    expect(screen.getByText('Automation')).toBeTruthy()
+    expect(screen.getByText('Connections')).toBeTruthy()
     expect(screen.getByText('Settings')).toBeTruthy()
     expect(document.querySelector('a[href="/billing"]')).toBeTruthy()
 
-    expect(screen.queryByText('Strategy')).toBeNull()
-    expect(screen.queryByText('Content Hub')).toBeNull()
     expect(screen.queryByText('Creative Studio')).toBeNull()
-    expect(screen.queryByText('Publishing')).toBeNull()
     expect(screen.queryByText('Learning')).toBeNull()
     expect(screen.queryByText('Calendar')).toBeNull()
     expect(screen.queryByText('Templates')).toBeNull()

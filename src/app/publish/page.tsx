@@ -148,15 +148,15 @@ export default function PublishPage() {
           <StrategySpineCard
             current="publish"
             nextHref="/connections"
-            nextLabel={copy('راجع الربط والصلاحيات', 'Review connections')}
-            title={copy('النشر هو بوابة جاهزية بعد الاستراتيجية والمحتوى', 'Publishing is a readiness gate after strategy and content')}
+            nextLabel={copy('ربط الحسابات', 'Connect accounts')}
+            title={copy('الخطوة ٥: تحقق ثم انشر', 'Step 5: Verify, then publish')}
             body={copy(
-              'هذه الصفحة لا تنشئ محتوى ولا تغير الاستراتيجية. دورها التأكد من الحسابات، الصلاحيات، الوسائط، الموافقات، والتأكيد الصريح قبل أي نشر منصة.',
-              'This page does not create content or change strategy. Its role is account, permission, media, approval, and explicit-confirmation readiness before platform publishing.',
+              'لن يتم نشر أي محتوى قبل اكتمال الحسابات والوسائط والموافقة النهائية. ستشاهد سبب المنع بوضوح إذا كان شيء ناقصًا.',
+              'Nothing is published until accounts, media, and final approval are ready. If something is missing, the blocker is shown clearly.',
             )}
           />
 
-          <header className="nx-os-panel flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
+          <header className="hidden">
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-100 bg-violet-50 px-3 py-1.5 text-[12px] font-black text-violet-700">
                 <Send size={14} />
@@ -191,7 +191,7 @@ export default function PublishPage() {
             </div>
           </header>
 
-          <section className="grid gap-4 lg:grid-cols-4">
+          <section className="grid gap-4 lg:grid-cols-2">
             <StatusCard
               title={copy('جاهزية النشر', 'Publishing readiness')}
               value={accountsLoading ? '...' : hasVerifiedAccount ? copy('تحتاج مراجعة', 'Review required') : copy('مقفلة', 'Blocked')}
@@ -206,23 +206,10 @@ export default function PublishPage() {
               icon={<Link2 size={22} />}
               tone="blue"
             />
-            <StatusCard
-              title={copy('بوابة الموافقة', 'Approval gate')}
-              value={copy('مطلوبة', 'Required')}
-              helper={copy('النشر يحتاج مراجعة محتوى وتأكيد تنفيذ واضح.', 'Publishing requires content review and explicit confirmation.')}
-              icon={<CheckCircle2 size={22} />}
-              tone="amber"
-            />
-            <StatusCard
-              title={copy('النشر التلقائي', 'Autopublish')}
-              value={copy('غير مفعل', 'Disabled')}
-              helper={copy('Autopilot يبقى منفصلاً ولا يفعّل النشر من هذه الصفحة.', 'Autopilot remains separate and is not enabled from this page.')}
-              icon={<LockKeyhole size={22} />}
-            />
           </section>
 
-          <section className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
-            <Panel>
+          <section className="grid gap-5">
+            <Panel className="hidden">
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-black tracking-[-0.03em] text-[#071236]">{copy('مسار جاهزية النشر', 'Publishing readiness path')}</h2>
@@ -292,8 +279,8 @@ export default function PublishPage() {
             </Panel>
           </section>
 
-          <section className="grid gap-5 lg:grid-cols-3">
-            <Panel>
+          <section className="grid gap-5">
+            <Panel className="hidden">
               <h2 className="mb-4 text-lg font-black text-[#071236]">{copy('قائمة التحقق قبل النشر', 'Pre-publish checklist')}</h2>
               {[
                 { label: copy('مراجعة النصوص والمطالبات', 'Review copy and claims'), status: copy('غير موثق', 'Not verified'), ready: false },
@@ -314,7 +301,7 @@ export default function PublishPage() {
                 </div>
               ))}
             </Panel>
-            <Panel>
+            <Panel className="hidden">
               <h2 className="mb-4 text-lg font-black text-[#071236]">{copy('خيارات التنفيذ', 'Execution options')}</h2>
               <div className="space-y-3">
                 {[copy('حفظ كمسودة', 'Save as draft'), copy('جدولة داخل NEXUS', 'Schedule inside NEXUS'), copy('نشر عبر API بعد الربط', 'API publish after connection')].map((item, index) => (
@@ -337,7 +324,7 @@ export default function PublishPage() {
             </Panel>
           </section>
 
-          <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-[20px] border border-[#dfe6f2] bg-white/95 p-3 shadow-[0_18px_60px_rgba(13,24,63,0.12)] backdrop-blur">
+          <div className="hidden">
             <p className="text-[12px] font-bold text-[#64708f]">
               {copy('النشر الحقيقي يبقى مقفلاً حتى الربط والموافقة والتأكيد الصريح.', 'Real publishing remains locked until connection, approval, and explicit confirmation.')}
             </p>

@@ -1388,8 +1388,8 @@ export default function ContentHubPage() {
                 <p className="text-sm text-slate-500 mt-0.5">
                   {contentStatusSummary}
                 </p>
-                <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">{contentStatusExplainer}</p>
-                <div className="mt-3 inline-flex max-w-2xl items-start gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left shadow-sm">
+                <p className="hidden">{contentStatusExplainer}</p>
+                <div className="hidden">
                   <span className="mt-0.5 h-2 w-2 rounded-full bg-violet-500" />
                   <span>
                     <span className="block text-xs font-semibold text-slate-800">{operatingLabel}</span>
@@ -1555,7 +1555,7 @@ export default function ContentHubPage() {
         </div>
 
         {posts.length > 0 && (
-          <section className="mb-5 overflow-hidden rounded-[28px] border border-[#DDE2FF] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.07)]">
+          <section className="hidden">
             <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_340px]">
               <div className="p-5 sm:p-6">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -1661,18 +1661,18 @@ export default function ContentHubPage() {
 
         <StrategySpineCard
           current="content"
-          nextHref={`/campaigns/${campaignId}?tab=strategy`}
-          nextLabel={isAr ? 'راجع الاستراتيجية' : 'Review strategy'}
-          title={isAr ? 'Content Hub ينفذ وعد الاستراتيجية فقط' : 'Content Hub fulfils the strategy promise only'}
+          nextHref="/studio"
+          nextLabel={isAr ? 'فتح الاستوديو' : 'Open Studio'}
+          title={isAr ? 'الخطوة ٣: راجع المنشورات والوسائط' : 'Step 3: Review posts and media'}
           body={
             isAr
-              ? 'هذه الصفحة هي مصدر الحقيقة للمنشورات والوسائط المرتبطة بها. لا تنشر، لا تجدول، ولا تغيّر حالة النشر أو التعلم إلا عبر إجراءات صريحة في أماكنها الصحيحة.'
-              : 'This page is the source of truth for posts and post-linked media. It does not publish, schedule, or change publishing or learning state except through explicit actions in the correct surfaces.'
+              ? 'راجع النص والمنصة والوسيط لكل منشور، ثم اعتمد المسودات. لن يتم النشر من دون خطوة تأكيد مستقلة.'
+              : 'Review the copy, platform, and media for each post, then approve the drafts. Publishing always requires a separate confirmation.'
           }
           className="mb-5"
         />
 
-        <section className="mb-5">
+        <section className="hidden">
           <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
@@ -1699,7 +1699,7 @@ export default function ContentHubPage() {
         </section>
 
         {posts.length > 0 && (
-          <div className="mb-5 rounded-2xl border border-violet-200 bg-violet-50/70 p-4">
+          <div className="hidden">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-violet-900">{finalPreviewTitle}</p>

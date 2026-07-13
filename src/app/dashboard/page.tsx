@@ -608,15 +608,106 @@ export default function DashboardPage() {
       <div className="nx-os-page">
         <div className="nx-os-container nx-os-stack">
           <LuxuryWorkspaceHeader
-            pageTitle={ar ? 'نظام التسويق الذكي' : 'AI Marketing OS'}
-            pageSubtitle={ar ? 'قرارات واضحة مبنية على سياق العلامة وسجلات التشغيل الحقيقية.' : 'Clear decisions grounded in brand context and real operating records.'}
-            primaryHref="/strategy"
-            primaryLabel={ar ? 'عمل جديد' : 'New work'}
-            secondaryHref="/brand"
-            secondaryLabel={ar ? 'ذكاء العلامة' : 'Brand intelligence'}
+            pageTitle={ar ? 'اليوم' : 'Today'}
+            pageSubtitle={ar ? 'قرار واحد واضح الآن، ثم يتحرك NEXUS معك إلى الخطوة التالية.' : 'One clear decision now, then NEXUS moves with you to the next step.'}
+            primaryHref={nextAction.href}
+            primaryLabel={nextAction.cta}
+            secondaryHref="/approvals"
+            secondaryLabel={ar ? 'الموافقات' : 'Approvals'}
           />
 
-          <SoftCard className="relative overflow-hidden p-4">
+          <SoftCard className="overflow-hidden border-[#D9DEFF] bg-[linear-gradient(135deg,#FFFFFF_0%,#F7F7FF_62%,#EEF2FF_100%)] p-5 sm:p-6">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center">
+              <div dir={ar ? 'rtl' : 'ltr'}>
+                <div className="inline-flex items-center gap-2 rounded-full border border-[#D8DDFF] bg-white/80 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#5E63FF]">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {ar ? 'قرارك التالي' : 'Your next decision'}
+                </div>
+                <h2 className="mt-3 max-w-3xl text-[24px] font-black leading-tight tracking-[-0.025em] text-[#0B1028] sm:text-[30px]">
+                  {nextAction.title}
+                </h2>
+                <p className="mt-2 max-w-2xl text-[13px] font-medium leading-6 text-slate-600">
+                  {nextAction.body}
+                </p>
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  <Link
+                    href={nextAction.href}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#101A4D] px-5 text-[13px] font-black text-white shadow-[0_16px_34px_rgba(16,26,77,0.18)] transition hover:bg-[#18245B]"
+                  >
+                    {nextAction.cta}
+                    <ArrowUpRight className="h-4 w-4" />
+                  </Link>
+                  <span className="text-[11px] font-semibold text-slate-400">
+                    {ar ? `آخر تحديث ${timeStr}` : `Updated ${timeStr}`}
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-[20px] border border-white/80 bg-white/85 p-4 shadow-[0_14px_36px_rgba(15,23,42,0.07)]" dir={ar ? 'rtl' : 'ltr'}>
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-black text-slate-500">{ar ? 'تغطية مسار العمل' : 'Workflow evidence'}</p>
+                    <p className="mt-1 text-[11px] text-slate-400">{ar ? 'مراحل تستند إلى سجلات حقيقية' : 'Stages backed by real records'}</p>
+                  </div>
+                  <span className="text-[28px] font-black leading-none text-[#0B1028]" dir="ltr">{workflowCoverage}%</span>
+                </div>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-[linear-gradient(90deg,#5E63FF,#8B5CF6)]" style={{ width: `${workflowCoverage}%` }} />
+                </div>
+                <div className="mt-4 grid grid-cols-5 gap-2" aria-label={ar ? 'حالة مراحل مسار العمل' : 'Workflow stage status'}>
+                  {workflowChecks.map((ready, index) => (
+                    <span
+                      key={index}
+                      className={`h-2 rounded-full ${ready ? 'bg-emerald-500' : 'bg-slate-200'}`}
+                      title={ready ? (ar ? 'موثق' : 'Evidenced') : (ar ? 'بانتظار بيانات' : 'Waiting for data')}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </SoftCard>
+
+          <StrategySpineCard
+            nextHref={nextAction.href}
+            nextLabel={nextAction.cta}
+            title={ar ? 'من ذاكرة العلامة إلى نتائج قابلة للقياس' : 'From brand memory to measurable results'}
+            body={ar
+              ? 'اتبع المراحل بالترتيب؛ كل مرحلة تستخدم ما تم اعتماده في المرحلة السابقة.'
+              : 'Follow the stages in order; each stage uses what was approved before it.'}
+          />
+
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <MetricCard
+              icon={<Activity className="h-5 w-5" />}
+              label={ar ? 'سياق العلامة' : 'Brand context'}
+              value={`${brandScore}%`}
+              helper={brandContextLabel}
+              accent="#10B981"
+            />
+            <MetricCard
+              icon={<Megaphone className="h-5 w-5" />}
+              label={ar ? 'الحملات' : 'Campaigns'}
+              value={campaignCount}
+              helper={ar ? `${draftCount} مسودة تحتاج مراجعة` : `${draftCount} drafts need review`}
+              accent="#5E63FF"
+            />
+            <MetricCard
+              icon={<FileText className="h-5 w-5" />}
+              label={ar ? 'سجلات المحتوى' : 'Content records'}
+              value={contentCount}
+              helper={ar ? `${publishedCount} سجل نشر` : `${publishedCount} publish records`}
+              accent="#2563EB"
+            />
+            <MetricCard
+              icon={<Zap className="h-5 w-5" />}
+              label={ar ? 'النشاطات المسجلة' : 'Recorded activities'}
+              value={alerts.length}
+              helper={ar ? 'من سجل النشاط الحقيقي' : 'From the activity ledger'}
+              accent="#F59E0B"
+            />
+          </div>
+
+          <SoftCard className="hidden">
             <Link
               href="/analytics"
               className="absolute right-5 top-4 hidden items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-[12px] font-bold text-slate-600 shadow-sm transition hover:border-[#5E63FF]/30 xl:inline-flex"
@@ -676,17 +767,8 @@ export default function DashboardPage() {
             </div>
           </SoftCard>
 
-          <StrategySpineCard
-            nextHref={campaigns[0] ? `/campaigns/${campaigns[0].id}?tab=strategy` : '/strategy'}
-            nextLabel={ar ? 'افتح القرار التالي' : 'Open next decision'}
-            title={ar ? 'الداشبورد يقرأ حالة النظام من مسار الاستراتيجية' : 'Dashboard reads the system through the strategy path'}
-            body={ar
-              ? 'هذه ليست لوحة أرقام عامة. كل توصية أو حالة هنا يجب أن ترتبط بسياق Brand Brain أو استراتيجية أو محتوى أو جاهزية نشر أو بيانات أداء حقيقية.'
-              : 'This is not a generic metrics board. Every recommendation or status here must trace back to Brand Brain context, strategy, content, publish readiness, or real performance data.'}
-          />
-
-          <div dir="ltr" className="grid grid-cols-1 gap-4 xl:grid-cols-[1.06fr_1.48fr_1fr]">
-            <SoftCard className="p-4" dir="ltr">
+          <div dir="ltr" className="grid grid-cols-1 gap-4">
+            <SoftCard className="hidden" dir="ltr">
               <div className="mb-3 flex items-center justify-between">
                 <Link href="/brand" className="inline-flex items-center gap-2 text-[12px] font-bold text-[#5E63FF]">
                   {ar ? 'عرض تفاصيل Brand Brain' : 'View Brand Brain'}
@@ -723,7 +805,7 @@ export default function DashboardPage() {
               </div>
             </SoftCard>
 
-            <SoftCard className="overflow-hidden p-4" dir="ltr">
+            <SoftCard className="overflow-hidden p-4 sm:p-5" dir="ltr">
               <div className="flex items-start justify-between gap-4">
                 <Link href="/campaigns" className="inline-flex items-center gap-2 text-[12px] font-bold text-[#5E63FF]">
                   {ar ? 'عرض الكل' : 'View all'}
@@ -774,7 +856,7 @@ export default function DashboardPage() {
               </div>
             </SoftCard>
 
-            <SoftCard id="approvals" className="scroll-mt-6 p-4" dir={ar ? 'rtl' : 'ltr'}>
+            <SoftCard id="approvals" className="hidden scroll-mt-6 p-4" dir={ar ? 'rtl' : 'ltr'}>
               <div className="mb-2 flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEF2FF] text-[#5E63FF]">
                   <Zap className="h-5 w-5" />
@@ -803,7 +885,7 @@ export default function DashboardPage() {
             </SoftCard>
           </div>
 
-          <div dir="ltr" className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[1fr_1fr_0.86fr_0.86fr]">
+          <div dir="ltr" className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
             <SoftCard className="p-4" dir={ar ? 'rtl' : 'ltr'}>
               <div className="mb-4 flex items-center justify-between">
                 <div>
@@ -811,11 +893,13 @@ export default function DashboardPage() {
                   <h3 className="mt-1 text-[18px] font-black text-[#0B1028]">{ar ? 'ما نعرفه وما ينتظر قراراً' : 'Evidence and pending decisions'}</h3>
                 </div>
                 <span className="rounded-full bg-[#EEF2FF] px-2.5 py-1 text-[12px] font-black text-[#5E63FF]" dir="ltr">
-                  {[contentCount > 0, platformConnected, postsWithAnalytics > 0].filter(Boolean).length}/3
+                  {workflowChecks.filter(Boolean).length}/5
                 </span>
               </div>
               <div className="space-y-3">
                 {[
+                  { title: 'Brand Brain', meta: brandReadiness?.ready ? (ar ? 'السياق الأساسي جاهز' : 'Core context is ready') : (ar ? 'يحتاج استكمال السياق الأساسي' : 'Core context needs completion'), tone: 'bg-emerald-50 text-emerald-600', state: brandReadiness?.ready ? (ar ? 'جاهز' : 'Ready') : (ar ? 'يحتاج إدخالاً' : 'Needs input'), stateTone: brandReadiness?.ready ? 'text-emerald-700' : 'text-amber-700' },
+                  { title: ar ? 'الاستراتيجية' : 'Strategy', meta: strategyAvailable ? (ar ? 'يوجد سجل استراتيجية محفوظ' : 'A saved strategy record exists') : (ar ? 'لا يوجد سجل استراتيجية بعد' : 'No strategy record yet'), tone: 'bg-violet-50 text-violet-600', state: strategyAvailable ? (ar ? 'موثق' : 'Evidenced') : (ar ? 'الخطوة التالية' : 'Next step'), stateTone: strategyAvailable ? 'text-emerald-700' : 'text-violet-700' },
                   { title: ar ? 'حزم المنشورات' : 'Post packages', meta: ar ? `${contentCount} سجل محفوظ في Content Hub` : `${contentCount} records saved in Content Hub`, tone: 'bg-[#EEF2FF] text-[#5E63FF]', state: contentCount > 0 ? (ar ? 'سجل موثق' : 'Verified record') : (ar ? 'لا توجد سجلات' : 'No records'), stateTone: contentCount > 0 ? 'text-emerald-700' : 'text-slate-500' },
                   { title: ar ? 'جاهزية الربط' : 'Connection readiness', meta: platformConnected ? (ar ? 'يوجد حساب متصل واحد على الأقل' : 'At least one account is connected') : (ar ? 'لا توجد حسابات متصلة' : 'No connected accounts'), tone: 'bg-amber-50 text-amber-600', state: platformConnected ? (ar ? 'موثق' : 'Verified') : (ar ? 'مفقود' : 'Missing'), stateTone: platformConnected ? 'text-emerald-700' : 'text-amber-700' },
                   { title: ar ? 'دليل الأداء' : 'Performance evidence', meta: postsWithAnalytics > 0 ? (ar ? `${postsWithAnalytics} منشور بتحليلات حقيقية` : `${postsWithAnalytics} posts with real analytics`) : (ar ? 'بانتظار تحليلات حقيقية' : 'Waiting for real analytics'), tone: 'bg-slate-100 text-slate-500', state: postsWithAnalytics > 0 ? (ar ? 'موثق' : 'Verified') : (ar ? 'بانتظار البيانات' : 'Waiting for data'), stateTone: postsWithAnalytics > 0 ? 'text-emerald-700' : 'text-slate-500' },
@@ -834,7 +918,7 @@ export default function DashboardPage() {
               </div>
             </SoftCard>
 
-            <SoftCard className="p-4" dir={ar ? 'rtl' : 'ltr'}>
+            <SoftCard className="hidden" dir={ar ? 'rtl' : 'ltr'}>
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <p className="text-[12px] font-bold text-[#5E63FF]">{ar ? 'سجل مسار المحتوى' : 'Content workflow ledger'}</p>
@@ -867,7 +951,7 @@ export default function DashboardPage() {
               </div>
             </SoftCard>
 
-            <SoftCard className="p-4" dir={ar ? 'rtl' : 'ltr'}>
+            <SoftCard className="hidden" dir={ar ? 'rtl' : 'ltr'}>
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <p className="text-[12px] font-bold text-[#5E63FF]">{ar ? 'جاهزية النشر' : 'Publishing readiness'}</p>
@@ -914,7 +998,7 @@ export default function DashboardPage() {
             </SoftCard>
           </div>
 
-          <div dir="ltr" className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr_1fr_1fr_260px]">
+          <div dir="ltr" className="hidden">
             {[
               { icon: <CalendarDays className="h-5 w-5" />, label: ar ? 'أفضل وقت للنشر اليوم' : 'Best posting time today', value: ar ? 'بانتظار بيانات نشر' : 'Waiting for publish data' },
               { icon: <BarChart3 className="h-5 w-5" />, label: ar ? 'منصات تحقق أفضل أداء' : 'Best-performing platforms', value: ar ? 'تظهر بعد Analytics' : 'Shown after analytics' },
