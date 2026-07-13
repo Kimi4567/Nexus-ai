@@ -49,7 +49,7 @@ interface TierConfig {
 const TIER_CONFIGS: Record<string, TierConfig> = {
   free: {
     label: 'Free (Trial)',
-    postsPerMonth: 3,
+    postsPerMonth: 4,
     calendarWeeks: 1,
     platformCount: 1,
     audienceSegments: 1,

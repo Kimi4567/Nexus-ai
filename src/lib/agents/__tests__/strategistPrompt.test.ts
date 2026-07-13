@@ -52,6 +52,8 @@ describe('buildStrategistCountRepairPrompt', () => {
 
     expect(prompt).toContain('exactly 16 contentAnglesDetailed entries')
     expect(prompt).toContain('add up to exactly 16 countable post directions')
+    expect(prompt).toContain('at least 2 distinct audienceSegmentsDetailed entries')
+    expect(prompt).toContain('exactly 4 weeklyExecutionPlan entries')
     expect(prompt).toContain('Do not invent proof, services, prices, languages')
     expect(prompt).toContain('Dental consultation plan')
   })

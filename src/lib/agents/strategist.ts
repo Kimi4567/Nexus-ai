@@ -724,8 +724,10 @@ Return JSON with these exact fields — all specific to this brand:
 export function buildStrategistCountRepairPrompt(output: StrategyOutput, expectedCount: number): string {
   return [
     'REPAIR THE JSON CONTRACT. Return the complete corrected strategy JSON only.',
+    'Return at least 2 distinct audienceSegmentsDetailed entries. Each must keep every required operational field and must be framed as a reviewable audience hypothesis when the Brand Brain does not prove it.',
     `The reviewed order requires exactly ${expectedCount} contentAnglesDetailed entries.`,
     `weeklyExecutionPlan.deliverables must also add up to exactly ${expectedCount} countable post directions across the first detailed window.`,
+    'Return exactly 4 weeklyExecutionPlan entries for a 30-day detailed window. Every week must include at least one countable deliverable, assetsNeeded, executionNote, and reviewPoints.',
     'Preserve the brand, facts, language, strategy type, platforms, proof gaps, and every valid field already present.',
     'Add distinct, executable angles grounded in the same audience, offer, goal, and content pillars. Do not duplicate or merely paraphrase an existing angle.',
     'Do not invent proof, services, prices, languages, guarantees, competitors, performance numbers, budgets, or execution status while repairing the count.',
@@ -745,21 +747,27 @@ export async function runStrategistAgent(
 
   let output = normalizeStrategyOutput(await callOpenAI(systemPrompt, userPrompt, 7500)) as StrategyOutput
 
-  // Models sometimes stop at the schema example's minimum of four angles even
-  // when the reviewed order asks for more. Repair once before the commercial
-  // contract rejects/refunds the run; never pad by cloning generic angles.
-  if (typeof brief.organicPostCount === 'number' && brief.organicPostCount > 0) {
-    const countReport = validateCampaignStrategyContract(output, {
-      language: language ?? brief.language,
-      expectedOrganicPostCount: brief.organicPostCount,
-    })
-    if (countReport.countViolations.length > 0) {
-      output = normalizeStrategyOutput(await callOpenAI(
-        `${systemPrompt}\n\nYou are repairing a previously generated JSON document. The repair instructions and reviewed order are binding.`,
-        buildStrategistCountRepairPrompt(output, Math.floor(brief.organicPostCount)),
-        9500,
-      )) as StrategyOutput
-    }
+  // Models sometimes miss the reviewed count or return too few audience/week
+  // records. Repair once before the commercial contract rejects/refunds the
+  // run; never pad by cloning generic angles.
+  const contractPreview = validateCampaignStrategyContract(output, {
+    language: language ?? brief.language,
+    expectedOrganicPostCount: brief.organicPostCount,
+  })
+  const structuralRepairNeeded = contractPreview.weakFields.some(field => (
+    field === 'audienceSegmentsDetailed' ||
+    field === 'contentAnglesDetailed' ||
+    field === 'weeklyExecutionPlan'
+  ))
+  if (contractPreview.countViolations.length > 0 || structuralRepairNeeded) {
+    const repairDirectionCount = typeof brief.organicPostCount === 'number' && brief.organicPostCount > 0
+      ? Math.floor(brief.organicPostCount)
+      : 4
+    output = normalizeStrategyOutput(await callOpenAI(
+      `${systemPrompt}\n\nYou are repairing a previously generated JSON document. The repair instructions and reviewed order are binding.`,
+      buildStrategistCountRepairPrompt(output, repairDirectionCount),
+      9500,
+    )) as StrategyOutput
   }
 
   // ── Quality guardrail: log if output is too generic ───────────────────────

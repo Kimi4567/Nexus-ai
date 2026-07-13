@@ -20,6 +20,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { Brain, CheckCircle2, Loader2, ShieldCheck, Sparkles, Workflow } from 'lucide-react'
@@ -600,9 +601,12 @@ export default function OnboardingPage() {
             <p className="text-[13px] leading-relaxed mb-4" style={{ color: '#475569' }}>
               {ar ? recommendedStep.helperAr : recommendedStep.helper}
             </p>
-            <PrimaryButton onClick={() => router.push(recommendedStep.href)}>
+            <Link
+              href={recommendedStep.href}
+              className="block w-full rounded-xl bg-[#5E5CE6] py-3 text-center text-[14px] font-semibold text-white transition-all hover:bg-[#4F46E5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5E5CE6] focus-visible:ring-offset-2"
+            >
               {ar ? recommendedStep.buttonAr : recommendedStep.button}
-            </PrimaryButton>
+            </Link>
           </div>
         </div>
       </Shell>

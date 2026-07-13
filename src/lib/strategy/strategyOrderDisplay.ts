@@ -77,7 +77,9 @@ export function strategyIntensityHelperCopy(strategyType: StrategyType, locale?:
  * (no cap applied) rather than guessing.
  */
 const TIER_POSTS_PER_MONTH: Record<string, number> = {
-  free: 3,
+  // Four keeps the free strategy contract internally coherent: the strategy
+  // produces a four-week outline with one reviewable direction per week.
+  free: 4,
   starter: 10,
   pro: 25,
   growth: 25,

@@ -203,11 +203,13 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   const [selectedLanguage, setSelectedLanguage] = useState<'ar' | 'en' | 'bilingual'>('ar')
   const [brandConfirmed, setBrandConfirmed] = useState(false)
   const [langConfirmed, setLangConfirmed] = useState(false)
-  // PR-I — generation-time strategy intent (not persisted; defaults Organic / 90 days).
+  // PR-I — generation-time strategy intent (not persisted). The default must
+  // fit inside the 10-credit trial so a new user can complete the first
+  // strategy and still run the required 2-credit review.
   const [strategyType, setStrategyType] = useState<'organic' | 'paid' | 'full'>('organic')
-  const [strategyDuration, setStrategyDuration] = useState<'30' | '90' | '180' | 'custom'>('90')
+  const [strategyDuration, setStrategyDuration] = useState<'30' | '90' | '180' | 'custom'>('30')
   // PR-S1b/S1c — content intensity and optional exact organic direction count.
-  const [contentIntensity, setContentIntensity] = useState<ContentIntensity>('standard')
+  const [contentIntensity, setContentIntensity] = useState<ContentIntensity>('light')
   const [useCustomPostCount, setUseCustomPostCount] = useState(false)
   const [customOrganicPostCount, setCustomOrganicPostCount] = useState<number>(12)
   // PR-S1b — custom horizon in days, only used when strategyDuration === 'custom'.
@@ -622,10 +624,39 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
     avoidKeywords?: string[] | null
   }
   const brandTone = strategyBrandRecord.writingStyle
-    || strategyBrandRecord.languagePreference
     || strategyBrandRecord.toneKeywords?.filter(Boolean).slice(0, 3).join(' · ')
     || (locale === 'ar' ? 'لم تُحدد بعد' : 'Not set yet')
   const brandPlatforms = strategyBrandRecord.topPlatforms?.filter(Boolean).slice(0, 4) ?? []
+  const industryLabels: Record<string, { ar: string; en: string }> = {
+    ecommerce: { ar: 'تجارة إلكترونية', en: 'E-commerce' },
+    saas: { ar: 'برمجيات وتقنية', en: 'Software & Tech' },
+    agency: { ar: 'وكالة تسويق', en: 'Marketing Agency' },
+    fitness: { ar: 'لياقة وصحة', en: 'Fitness & Health' },
+    food: { ar: 'أغذية ومشروبات', en: 'Food & Beverage' },
+    real_estate: { ar: 'عقارات', en: 'Real Estate' },
+    beauty: { ar: 'جمال وعناية', en: 'Beauty & Care' },
+    consulting: { ar: 'استشارات', en: 'Consulting' },
+    education: { ar: 'تعليم وتدريب', en: 'Education & Training' },
+    healthcare: { ar: 'رعاية صحية', en: 'Healthcare' },
+    other: { ar: 'أخرى', en: 'Other' },
+  }
+  const languageLabels: Record<string, { ar: string; en: string }> = {
+    ar: { ar: 'العربية', en: 'Arabic' },
+    en: { ar: 'الإنجليزية', en: 'English' },
+    both: { ar: 'العربية والإنجليزية', en: 'Arabic and English' },
+  }
+  const industryKey = typeof strategyBrandRecord.industry === 'string'
+    ? strategyBrandRecord.industry.toLowerCase()
+    : ''
+  const languageKey = typeof strategyBrandRecord.languagePreference === 'string'
+    ? strategyBrandRecord.languagePreference.toLowerCase()
+    : ''
+  const brandIndustry = industryLabels[industryKey]
+    ? industryLabels[industryKey][locale === 'ar' ? 'ar' : 'en']
+    : strategyBrandRecord.industry
+  const brandLanguage = languageLabels[languageKey]
+    ? languageLabels[languageKey][locale === 'ar' ? 'ar' : 'en']
+    : strategyBrandRecord.languagePreference
   const includesPaidPreview = strategyType === 'paid' || strategyType === 'full'
   const isUnlimitedPreview = creditBalance === -1
   const projectedBalance = strategyCostPreview === null || creditBalance === null
@@ -711,9 +742,10 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             <div className="mb-4 grid gap-3 sm:grid-cols-2">
               {[
                 { icon: Target, label: locale === 'ar' ? 'العلامة التجارية' : 'Brand', value: strategyBrandRecord.brandName },
-                { icon: ListChecks, label: locale === 'ar' ? 'المجال' : 'Industry', value: strategyBrandRecord.industry },
+                { icon: ListChecks, label: locale === 'ar' ? 'المجال' : 'Industry', value: brandIndustry },
                 { icon: Users, label: locale === 'ar' ? 'الجمهور' : 'Audience', value: strategyBrandRecord.targetAudience, wide: true },
                 { icon: PencilLine, label: locale === 'ar' ? 'النبرة والأسلوب' : 'Tone and style', value: brandTone },
+                { icon: Globe, label: locale === 'ar' ? 'لغة العملاء' : 'Customer language', value: brandLanguage },
                 { icon: Globe, label: locale === 'ar' ? 'القنوات المستهدفة' : 'Target channels', value: brandPlatforms.join(' · ') },
               ].map(({ icon: Icon, label, value, wide }) => (
                 <div key={label} className={`rounded-2xl border border-slate-200 bg-white p-4 ${wide ? 'sm:col-span-2' : ''}`}>

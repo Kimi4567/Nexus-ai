@@ -453,11 +453,13 @@ export default function StrategyPage() {
   ]
 
   const campaignTitle = recent?.name || brandName || (ar ? 'حملة استراتيجية جديدة' : 'New strategy campaign')
-  const campaignSubtitle = strategyScope.paidOnly
-    ? (ar ? 'بريف تخطيط مدفوع' : 'Paid planning brief')
-    : includesPaidPlanning
-      ? (ar ? 'استراتيجية شاملة' : 'Full strategy')
-      : (ar ? 'استراتيجية نمو عضوي' : 'Organic growth strategy')
+  const campaignSubtitle = !hasStrategy
+    ? (ar ? 'لم يتم اختيار النطاق بعد' : 'Scope not selected yet')
+    : strategyScope.paidOnly
+      ? (ar ? 'بريف تخطيط مدفوع' : 'Paid planning brief')
+      : includesPaidPlanning
+        ? (ar ? 'استراتيجية شاملة' : 'Full strategy')
+        : (ar ? 'استراتيجية نمو عضوي' : 'Organic growth strategy')
   const savedCampaignGoal = firstString(
     recent?.goal,
     strat?.goal,
@@ -644,11 +646,23 @@ export default function StrategyPage() {
   const duplicateExecutionStageCount = mappedExecutionStages.length - executionStages.length
 
   const sidebarSteps = [
-    { number: '01', title: ar ? 'مراجعة الاستراتيجية' : 'Review strategy', state: ar ? 'الحالي' : 'Current', detail: ar ? 'راجع المنطق قبل الانتقال إلى الإنتاج.' : 'Review logic before moving to production.' },
+    !hasStrategy
+      ? { number: '01', title: ar ? 'إنشاء الاستراتيجية' : 'Create strategy', state: ar ? 'الخطوة الحالية' : 'Current step', detail: ar ? 'أنشئ أول استراتيجية من Brand Brain بعد مراجعة النطاق والتكلفة.' : 'Create the first strategy from Brand Brain after reviewing scope and cost.' }
+      : { number: '01', title: ar ? 'مراجعة الاستراتيجية' : 'Review strategy', state: ar ? 'الحالي' : 'Current', detail: ar ? 'راجع المنطق قبل الانتقال إلى الإنتاج.' : 'Review logic before moving to production.' },
     { number: '02', title: ar ? 'تحويل إلى مركز المحتوى' : 'Move to Content Hub', state: contentDirectionReady ? (ar ? 'جاهز للمراجعة' : 'Ready for review') : (ar ? 'يحتاج مدخلات' : 'Needs inputs'), detail: contentDirectionReady ? (ar ? 'حوّل الركائز والرسائل إلى مسودات للمراجعة.' : 'Turn pillars and messages into review drafts.') : (ar ? 'أكمل الجمهور والرسائل والركائز والقنوات أولاً.' : 'Complete audience, messages, pillars, and channels first.') },
     { number: '03', title: ar ? 'فتح استوديو الإبداع' : 'Open Creative Studio', state: contentDirectionReady ? (ar ? 'بعد بريف المحتوى' : 'After content brief') : (ar ? 'مقفل' : 'Locked'), detail: ar ? 'أنتج الأصول البصرية بعد بريف محتوى واضح.' : 'Produce assets after a clear content brief.' },
     { number: '04', title: ar ? 'التحقق من جاهزية النشر' : 'Check publish readiness', state: ar ? 'في الانتظار' : 'Pending', detail: ar ? 'حسابات، صلاحيات، وموافقة صريحة.' : 'Accounts, permissions, and explicit approval.' },
   ]
+  const strategyRecordLabel = hasStrategy && !strategyBrandMismatch
+    ? (ar ? 'سجل استراتيجية محفوظ' : 'Strategy record saved')
+    : strategyBrandMismatch
+      ? (ar ? 'تحتاج تحديثًا' : 'Needs update')
+      : (ar ? 'لم تُنشأ بعد' : 'Not created yet')
+  const strategySummaryLabel = hasStrategy && !strategyBrandMismatch
+    ? (ar ? 'محفوظة' : 'Saved')
+    : strategyBrandMismatch
+      ? (ar ? 'تحتاج تحديثًا' : 'Needs update')
+      : (ar ? 'لم تُنشأ' : 'Not created')
   const strategyInputChecks = [
     Boolean(savedCampaignGoal),
     audienceLabels.length > 0,
@@ -742,8 +756,8 @@ export default function StrategyPage() {
 	                    <h1 className="max-w-full overflow-hidden text-[22px] font-black leading-8 tracking-normal text-[#0B1028] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] sm:text-[24px]">
 	                      {campaignTitle}
 	                    </h1>
-                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-[12px] font-black text-emerald-600">
-	                      {hasStrategy && !strategyBrandMismatch ? (ar ? 'سجل استراتيجية محفوظ' : 'Strategy record saved') : (ar ? 'تحتاج مراجعة' : 'Needs review')}
+                    <span className={`rounded-full px-3 py-1 text-[12px] font-black ${hasStrategy && !strategyBrandMismatch ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600'}`}>
+	                      {strategyRecordLabel}
                     </span>
                   </div>
                   <p className="mt-1 max-w-2xl text-[13px] font-semibold leading-6 text-slate-500">{campaignGoal}</p>
@@ -1096,7 +1110,7 @@ export default function StrategyPage() {
                 <div className="space-y-3 text-[12px] font-semibold">
                   <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
                     <span className="text-slate-500">{ar ? 'الحالة' : 'Status'}</span>
-                    <span className="font-black text-emerald-600">{hasStrategy && !strategyBrandMismatch ? (ar ? 'محفوظة' : 'Saved') : (ar ? 'تحتاج مراجعة' : 'Needs review')}</span>
+                    <span className={`font-black ${hasStrategy && !strategyBrandMismatch ? 'text-emerald-600' : 'text-slate-600'}`}>{strategySummaryLabel}</span>
                   </div>
                   <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
                     <span className="text-slate-500">{ar ? 'النطاق' : 'Scope'}</span>

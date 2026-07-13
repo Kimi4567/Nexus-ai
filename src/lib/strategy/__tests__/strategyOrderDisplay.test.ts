@@ -3,6 +3,7 @@ import {
   strategyIntensityHelperCopy,
   strategyIntensitySecondaryLabel,
   strategyIntensitySectionLabel,
+  tierToPostsPerMonth,
 } from '../strategyOrderDisplay'
 
 describe('strategyOrderDisplay', () => {
@@ -28,5 +29,9 @@ describe('strategyOrderDisplay', () => {
 
     expect(strategyIntensityHelperCopy('organic', 'ar')).toContain('اتجاهات منشورات عضوية')
     expect(strategyIntensityHelperCopy('full', 'en')).toContain('Organic post directions')
+  })
+
+  it('keeps the free strategy quota compatible with a four-week execution outline', () => {
+    expect(tierToPostsPerMonth('free')).toBe(4)
   })
 })

@@ -116,9 +116,9 @@ describe('RunFullStrategyModal preflight', () => {
     expect(screen.getByText('Not included')).toBeTruthy()
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Review cost — 14 credits' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Review cost — 8 credits' }))
     expect(await screen.findByRole('heading', { name: 'Review cost and confirm' })).toBeTruthy()
-    expect(screen.getByText('175')).toBeTruthy()
+    expect(screen.getByText('181')).toBeTruthy()
     expect(screen.getByText(/only action that starts generation/i)).toBeTruthy()
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
   })
@@ -128,9 +128,9 @@ describe('RunFullStrategyModal preflight', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Set up strategy request' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Review strategy scope' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Review cost — 14 credits' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Review cost — 8 credits' }))
 
-    const finalAction = await screen.findByRole('button', { name: 'Confirm and generate strategy — 14 credits' })
+    const finalAction = await screen.findByRole('button', { name: 'Confirm and generate strategy — 8 credits' })
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0)
     fireEvent.click(finalAction)
 

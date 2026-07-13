@@ -76,7 +76,7 @@ export const PLANS: PlanDefinition[] = [
     displayName: 'Free',
     price: 0,
     credits: 10,
-    postsPerMonth: 3,
+    postsPerMonth: 4,
     stripePriceEnvKey: '',
     cta: 'Get Started Free',
     researchNote: 'Enough to experience the product — not enough for real marketing results',
@@ -246,11 +246,11 @@ export interface PlanQuota {
 }
 
 export const PLAN_QUOTAS: Record<string, PlanQuota> = {
-  FREE:     { postsPerMonth: 3,   videoSlotsPerMonth: 0,  postsPerCampaign: 8  },
+  FREE:     { postsPerMonth: 4,   videoSlotsPerMonth: 0,  postsPerCampaign: 8  },
   STARTER:  { postsPerMonth: 10,  videoSlotsPerMonth: 0,  postsPerCampaign: 12 },
   PRO:      { postsPerMonth: 25,  videoSlotsPerMonth: 2,  postsPerCampaign: 16 },
   BUSINESS: { postsPerMonth: 60,  videoSlotsPerMonth: 5,  postsPerCampaign: 20 },
-  free:     { postsPerMonth: 3,   videoSlotsPerMonth: 0,  postsPerCampaign: 8  },
+  free:     { postsPerMonth: 4,   videoSlotsPerMonth: 0,  postsPerCampaign: 8  },
   starter:  { postsPerMonth: 10,  videoSlotsPerMonth: 0,  postsPerCampaign: 12 },
   pro:      { postsPerMonth: 25,  videoSlotsPerMonth: 2,  postsPerCampaign: 16 },
   business: { postsPerMonth: 60,  videoSlotsPerMonth: 5,  postsPerCampaign: 20 },
