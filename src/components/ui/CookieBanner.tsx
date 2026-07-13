@@ -3,13 +3,14 @@
 import { useState, useEffect } from 'react'
 import { Cookie, X, Check } from 'lucide-react'
 import Link from 'next/link'
+import { COOKIE_CONSENT_EVENT, COOKIE_CONSENT_KEY } from '@/components/ConsentAwareTelemetry'
 
 export default function CookieBanner() {
   const [visible, setVisible] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    const consent = localStorage.getItem('nexus_cookie_consent')
+    const consent = localStorage.getItem(COOKIE_CONSENT_KEY)
     if (!consent) {
       const timer = setTimeout(() => setVisible(true), 2000)
       return () => clearTimeout(timer)
@@ -21,22 +22,24 @@ export default function CookieBanner() {
   }, [visible])
 
   const acceptAll = () => {
-    localStorage.setItem('nexus_cookie_consent', JSON.stringify({
+    localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify({
       essential: true,
       functional: true,
       analytics: true,
       timestamp: new Date().toISOString(),
     }))
+    window.dispatchEvent(new Event(COOKIE_CONSENT_EVENT))
     setVisible(false)
   }
 
   const acceptEssential = () => {
-    localStorage.setItem('nexus_cookie_consent', JSON.stringify({
+    localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify({
       essential: true,
-      functional: false,
+      functional: true,
       analytics: false,
       timestamp: new Date().toISOString(),
     }))
+    window.dispatchEvent(new Event(COOKIE_CONSENT_EVENT))
     setVisible(false)
   }
 
@@ -69,7 +72,7 @@ export default function CookieBanner() {
             <span className="text-sm font-bold text-slate-950">ملفات تعريف الارتباط</span>
           </div>
           <p className="text-xs text-slate-500 leading-relaxed">
-            نستخدم ملفات تعريف الارتباط لتحسين تجربتك — الحفاظ على جلستك، تذكر تفضيلاتك، وتحليل الاستخدام المجهول.
+            نستخدم التخزين الأساسي للحفاظ على جلستك. لا تعمل تحليلات الاستخدام والأداء الاختيارية إلا إذا اخترت «أوافق على الكل».
             {' '}
             <Link href="/cookies" className="text-amber-500 hover:text-amber-400 underline">سياسة ملفات تعريف الارتباط</Link>
             {' • '}

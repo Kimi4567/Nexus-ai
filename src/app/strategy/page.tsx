@@ -271,6 +271,15 @@ export default function StrategyPage() {
   const includesPaidPlanning = strategyScope.includesPaid
   const displayGuardContext = {
     verifiedProof: Array.isArray(brandProfile?.verifiedProof) ? brandProfile.verifiedProof : [],
+    allowedClaimText: [
+      brandProfile?.description,
+      brandProfile?.primaryOffer,
+      brandProfile?.pricePoint,
+      brandProfile?.languagePreference,
+      ...(Array.isArray(brandProfile?.uniqueAdvantages) ? brandProfile.uniqueAdvantages : []),
+      brandProfile?.complianceNotes,
+      ...(Array.isArray(brandProfile?.verifiedProof) ? brandProfile.verifiedProof : []),
+    ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
   }
   const displayAllowedPlatforms = (recent?.platforms?.length ? recent.platforms : brandProfile?.topPlatforms) ?? []
   const ai = rawAi

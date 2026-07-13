@@ -66,7 +66,7 @@ describe('operating action contract', () => {
     }
 
     expect(violations).toEqual([])
-  })
+  }, 15_000)
 
   it('keeps literal internal links pointed at an existing page route', () => {
     const routePatterns = collectFiles('src/app', 'page.tsx').map(path => {

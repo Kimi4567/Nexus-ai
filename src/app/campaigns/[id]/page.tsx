@@ -5043,7 +5043,7 @@ function CampaignDetailPageInner() {
                         ))}
                         {s.pendingAnalytics > 0 && (
                           <p className="ml-auto self-center text-xs text-amber-700">
-                            Analytics are fetched automatically 24-72h after publishing
+                            Awaiting provider-backed analytics; no performance is inferred while evidence is unavailable.
                           </p>
                         )}
                       </div>

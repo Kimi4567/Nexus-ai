@@ -295,7 +295,7 @@ export default function SharePage() {
           </div>
           <h2 className="text-2xl font-bold mb-2">Build a reviewed campaign workflow from your Brand Brain</h2>
           <p className="text-gray-400 text-sm mb-6 max-w-sm mx-auto">
-            Strategy, hooks, scripts, captions, and a 30-day content calendar — all powered by AI. Free to start.
+            Create Brand Brain-grounded strategy and content drafts, then review every claim before execution.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
@@ -311,7 +311,7 @@ export default function SharePage() {
               Learn more
             </Link>
           </div>
-          <p className="text-xs text-gray-600 mt-4">No credit card needed · 3 free campaigns</p>
+          <p className="text-xs text-gray-600 mt-4">No credit card needed · 12 trial credits valid for 14 days</p>
         </div>
       </div>
 

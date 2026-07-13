@@ -823,7 +823,7 @@ export default function PaidLaunchPage() {
             {pack.utmParams && (
               <Section title={copy('معلمات تتبع UTM', 'UTM Tracking Parameters')} icon={<Link2 size={16} color="#2563eb" />} defaultOpen={false}>
                 <p style={{ color: '#64748b', fontSize: 12, margin: '0 0 14px' }}>
-                  {copy('أضف هذه المعلمات إلى رابط الوجهة داخل منصة الإعلان لتتبع الأداء في Google Analytics.', 'Add these parameters to the destination URL in the ad platform to track performance in Google Analytics.')}
+                  {copy('أضف هذه المعلمات إلى رابط الوجهة داخل منصة الإعلان لتتبع الأداء في أداة تحليلات متوافقة مثل Google Analytics عند إعدادها.', 'Add these parameters to the destination URL in the ad platform for a compatible analytics tool such as Google Analytics when configured.')}
                 </p>
                 <div style={{ display: 'grid', gap: 10 }}>
                   {Object.entries(pack.utmParams.examples ?? {}).map(([p, utm]) => {

@@ -2,8 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { Providers } from './providers'
 import { LanguageProvider } from '@/contexts/LanguageContext'
-import { Analytics } from '@vercel/analytics/next'
-import { SpeedInsights } from '@vercel/speed-insights/next'
+import ConsentAwareTelemetry from '@/components/ConsentAwareTelemetry'
 
 export const metadata: Metadata = {
   title: 'NEXUS AI | Marketing Operating System',
@@ -78,8 +77,7 @@ export default function RootLayout({
             {children}
           </LanguageProvider>
         </Providers>
-        <Analytics />
-        <SpeedInsights />
+        <ConsentAwareTelemetry />
       </body>
     </html>
   )

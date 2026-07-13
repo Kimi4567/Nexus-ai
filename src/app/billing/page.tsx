@@ -36,8 +36,8 @@ const PLANS = [
     creditsEn: '150 credits / month — renews monthly',
     accentColor: '#8b5cf6',
     featured: true,
-    badgeAr: 'الأكثر شعبية',
-    badgeEn: 'Most Popular',
+    badgeAr: 'الخطة الأساسية',
+    badgeEn: 'Core plan',
     descAr: 'للفرق التي تخطط وتنتج وتراجع المحتوى باستمرار',
     descEn: 'For teams planning, producing, and reviewing content consistently',
     limitsAr: [
@@ -112,8 +112,8 @@ const CREDIT_ACTIONS = [
     labelAr: 'توليد صورة AI',
     labelEn: 'AI image generation',
     cost: 3,
-    noteAr: '1024×1024، جودة عالية، مرتبطة بهوية البراند',
-    noteEn: '1024×1024, brand-aware, high quality',
+    noteAr: '1024×1024، مبنية على السياق البصري المحفوظ وتحتاج مراجعتك',
+    noteEn: '1024×1024, based on saved visual context and subject to your review',
   },
   {
     icon: FileText,

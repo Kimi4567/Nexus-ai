@@ -12,7 +12,7 @@
  * - Progress bar showing generation status
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -36,6 +36,7 @@ import { deriveContentPlanOrderReview } from '@/lib/contentPlanOrderContract'
 import { deriveContentHubFirstScreenTruth } from '@/lib/contentHubFirstScreenTruth'
 import { deriveStrategyFulfillmentSummary, type StrategyFulfillmentTone } from '@/lib/strategyFulfillment'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
+import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { derivePostCreativeRequirement } from '@/lib/creativeRequirements'
 import { getDefaultTemplateForPlatform } from '@/lib/creativeTemplates'
 import AppShell from '@/components/AppShell'
@@ -98,6 +99,12 @@ interface BrandProfile {
   brandName: string | null
   logoUrl: string | null
   colorPalette: string[]
+  industry: string | null
+  description: string | null
+  primaryOffer: string | null
+  uniqueAdvantages: string[]
+  complianceNotes: string | null
+  verifiedProof: string[]
 }
 
 interface StrategyHandoff {
@@ -245,7 +252,17 @@ export default function ContentHubPage() {
   const isAr = locale === 'ar'
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
-  const [brandProfile, setBrandProfile] = useState<BrandProfile>({ brandName: null, logoUrl: null, colorPalette: [] })
+  const [brandProfile, setBrandProfile] = useState<BrandProfile>({
+    brandName: null,
+    logoUrl: null,
+    colorPalette: [],
+    industry: null,
+    description: null,
+    primaryOffer: null,
+    uniqueAdvantages: [],
+    complianceNotes: null,
+    verifiedProof: [],
+  })
   const [posts, setPosts] = useState<ContentPost[]>([])
   const [mediaLibrary, setMediaLibrary] = useState<MediaItem[]>([])
   const [activePlatform, setActivePlatform] = useState<Platform>('ALL')
@@ -351,6 +368,12 @@ export default function ContentHubPage() {
             brandName: bData.brandProfile.brandName ?? null,
             logoUrl: bData.brandProfile.logoUrl ?? null,
             colorPalette: bData.brandProfile.colorPalette ?? [],
+            industry: bData.brandProfile.industry ?? null,
+            description: bData.brandProfile.description ?? null,
+            primaryOffer: bData.brandProfile.primaryOffer ?? null,
+            uniqueAdvantages: bData.brandProfile.uniqueAdvantages ?? [],
+            complianceNotes: bData.brandProfile.complianceNotes ?? null,
+            verifiedProof: bData.brandProfile.verifiedProof ?? [],
           })
         }
       }
@@ -432,6 +455,29 @@ export default function ContentHubPage() {
       ? contentPlanOrderReview
       : null
   const approvalBlockedByOrderMismatch = Boolean(contentPlanOrderMismatch)
+  const contentApprovalPreflight = useMemo(() => {
+    const aiOutput = campaign?.aiOutput && typeof campaign.aiOutput === 'object'
+      ? campaign.aiOutput as Record<string, unknown>
+      : {}
+    const strategy = aiOutput.strategy && typeof aiOutput.strategy === 'object'
+      ? aiOutput.strategy
+      : aiOutput
+    return reviewContentPlanForApproval(
+      posts.filter(post => post.status === 'DRAFT'),
+      strategy,
+      [
+        brandProfile.brandName,
+        brandProfile.industry,
+        brandProfile.description,
+        brandProfile.primaryOffer,
+        brandProfile.uniqueAdvantages,
+        brandProfile.complianceNotes,
+        brandProfile.verifiedProof,
+      ],
+    )
+  }, [brandProfile, campaign?.aiOutput, posts])
+  const approvalBlockedByTruthReview = draftCount > 0 && !contentApprovalPreflight.ok
+  const approvalBlocked = approvalBlockedByOrderMismatch || approvalBlockedByTruthReview
   const contentHubFulfillmentSummary = deriveStrategyFulfillmentSummary({
     aiOutput: campaign?.aiOutput,
     posts: posts.map(post => ({
@@ -1009,6 +1055,13 @@ export default function ContentHubPage() {
       setShowApproveConfirm(false)
       return
     }
+    if (approvalBlockedByTruthReview) {
+      setError(isAr
+        ? 'تم إيقاف الاعتماد لأن مسودة أو أكثر لا تطابق Brand Brain والاستراتيجية بأمان. عدّل المسودات أو أعد توليدها ثم راجعها مجددًا.'
+        : 'Approval is blocked because one or more drafts are not safely aligned with Brand Brain and the strategy. Edit or regenerate the drafts, then review again.')
+      setShowApproveConfirm(false)
+      return
+    }
     setApproving(true)
     setShowApproveConfirm(false)
     setError(null)
@@ -1427,14 +1480,14 @@ export default function ContentHubPage() {
                 {draftCount > 0 ? (
                   <button
                     onClick={() => {
-                      if (!approvalBlockedByOrderMismatch) setShowApproveConfirm(true)
+                      if (!approvalBlocked) setShowApproveConfirm(true)
                     }}
-                    disabled={approving || approvalBlockedByOrderMismatch}
+                    disabled={approving || approvalBlocked}
                     className="flex max-w-full min-w-0 items-center justify-center gap-2 rounded-xl px-4 py-2 text-center text-sm font-semibold leading-tight transition-all whitespace-normal break-words"
                     style={{
                       background: '#059669',
                       color: 'white',
-                      opacity: approving || approvalBlockedByOrderMismatch ? 0.6 : 1,
+                      opacity: approving || approvalBlocked ? 0.6 : 1,
                     }}
                   >
                     {approving ? (
@@ -1736,6 +1789,19 @@ export default function ContentHubPage() {
                   : `Expected: ${orderMismatchExpectedLabel} · Current: ${contentPlanOrderMismatch.actualDirections}`}
               </div>
             </div>
+          </div>
+        )}
+
+        {approvalBlockedByTruthReview && (
+          <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-950">
+            <p className="text-sm font-semibold">
+              {isAr ? 'مراجعة تطابق المحتوى مطلوبة' : 'Content alignment review required'}
+            </p>
+            <p className="mt-1 text-sm leading-relaxed">
+              {isAr
+                ? `وجد NEXUS ${contentApprovalPreflight.issues.length} ملاحظة في المسودات الحالية، تشمل ادعاءات غير مثبتة أو انجرافاً عن Brand Brain والاستراتيجية. الاعتماد مقفل حتى التعديل أو إعادة التوليد.`
+                : `NEXUS found ${contentApprovalPreflight.issues.length} issue${contentApprovalPreflight.issues.length === 1 ? '' : 's'} in the current drafts, including unsupported claims or drift from Brand Brain and the strategy. Approval stays locked until the drafts are edited or regenerated.`}
+            </p>
           </div>
         )}
 
@@ -2068,6 +2134,13 @@ export default function ContentHubPage() {
                   {orderMismatchBody}
                 </div>
               )}
+              {approvalBlockedByTruthReview && (
+                <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-relaxed text-rose-900">
+                  {isAr
+                    ? 'لا يمكن اعتماد هذه المسودات قبل معالجة ملاحظات تطابق المحتوى الظاهرة في الصفحة.'
+                    : 'These drafts cannot be approved until the content-alignment findings shown on the page are resolved.'}
+                </div>
+              )}
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowApproveConfirm(false)}
@@ -2078,13 +2151,13 @@ export default function ContentHubPage() {
                 </button>
                 <button
                   onClick={approveAll}
-                  disabled={approvalBlockedByOrderMismatch}
+                  disabled={approvalBlocked}
                   className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all flex items-center justify-center gap-2"
                   style={{
-                    background: approvalBlockedByOrderMismatch
+                    background: approvalBlocked
                       ? '#94A3B8'
                       : 'linear-gradient(135deg, #059669, #047857)',
-                    opacity: approvalBlockedByOrderMismatch ? 0.7 : 1,
+                    opacity: approvalBlocked ? 0.7 : 1,
                   }}
                 >
                   ✓ {t('contentHub.approveConfirmYes')}
@@ -2980,66 +3053,7 @@ export default function ContentHubPage() {
   )
 }
 
-// ── Caption Quality Scorer ────────────────────────────────────────────────────
-// Pure client-side — no API call. Returns grade + score + breakdown for tooltip.
-
-const PLATFORM_IDEAL_LEN: Record<string, [number, number]> = {
-  TIKTOK:    [60,  150],
-  INSTAGRAM: [125, 300],
-  META:      [100, 250],
-  FACEBOOK:  [100, 250],
-  LINKEDIN:  [200, 500],
-  X:         [80,  230],
-  TWITTER:   [80,  230],
-  GENERAL:   [100, 300],
-}
-
-function scoreCaption(caption: string, platform: string): { grade: 'A+' | 'A' | 'B' | 'C'; score: number; color: string; tip: string } {
-  if (!caption || caption.length < 10) return { grade: 'C', score: 0, color: '#ef4444', tip: 'Caption is too short' }
-
-  let score = 0
-  const tips: string[] = []
-  const p = platform?.toUpperCase() || 'GENERAL'
-  const first = caption.split('\n')[0] || caption.slice(0, 100)
-
-  // ── Hook quality (25 pts) — compelling opening ─────────────────────────���───
-  const hookPatterns = [/^[🔥💡⚡🚀🎯✨💪🙌👇]/u, /\?/, /^[0-9]/, /\b(how|why|what|top|best|secret|truth|want|need|stop|start|never|always|warning|attention|breaking|introducing|announcing)\b/i]
-  const hookScore = hookPatterns.filter(p => p.test(first)).length
-  if (hookScore >= 2) score += 25
-  else if (hookScore === 1) { score += 12; tips.push('Strengthen your opening hook') }
-  else tips.push('Add a compelling hook to the first line')
-
-  // ── CTA presence (25 pts) ───────────────────────��─────────────────────────
-  const ctaPatterns = /\b(click|tap|swipe|comment|follow|save|share|like|tag|visit|check|learn|get|sign up|subscribe|dm|message|link in bio|try|buy|order|book|register)\b/i
-  if (ctaPatterns.test(caption)) score += 25
-  else tips.push('Add a clear call-to-action')
-
-  // ── Length appropriateness (20 pts) ──────────────────────────────────────
-  const [minLen, maxLen] = PLATFORM_IDEAL_LEN[p] ?? [100, 300]
-  const len = caption.length
-  if (len >= minLen && len <= maxLen) score += 20
-  else if (len < minLen) { score += 8; tips.push(`Caption is short for ${p}`) }
-  else { score += 12; tips.push('Consider trimming for better reach') }
-
-  // ── Emoji presence (15 pts) ───────────────────────────────────────────────
-  const emojiCount = (caption.match(/\p{Emoji}/gu) || []).length
-  if (emojiCount >= 1 && emojiCount <= 5) score += 15
-  else if (emojiCount > 5) { score += 8; tips.push('Too many emojis — aim for 1-5') }
-  else tips.push('Add 1-2 emojis to increase engagement')
-
-  // ── Hashtags (15 pts) ─────────────────────────────────────────────────────
-  const hashCount = (caption.match(/#\w+/g) || []).length
-  if (hashCount >= 2 && hashCount <= 10) score += 15
-  else if (hashCount === 1) { score += 8; tips.push('Add 3-5 relevant hashtags') }
-  else if (hashCount > 10) { score += 10; tips.push('Too many hashtags — aim for 3-7') }
-  else tips.push('Add relevant hashtags')
-
-  const clampedScore = Math.min(100, score)
-  const grade = clampedScore >= 85 ? 'A+' : clampedScore >= 70 ? 'A' : clampedScore >= 50 ? 'B' : 'C'
-  const color = clampedScore >= 85 ? '#10b981' : clampedScore >= 70 ? '#06b6d4' : clampedScore >= 50 ? '#f59e0b' : '#ef4444'
-  const tip = tips.length > 0 ? tips[0] : grade === 'A+' ? 'Excellent post quality!' : 'Good post'
-  return { grade, score: clampedScore, color, tip }
-}
+// ── Post card ─────────────────────────────────────────────────────────────────
 
 // ── PostCard Component ─────────────────────────────────────────────────────────
 
@@ -3110,7 +3124,6 @@ function PostCard({
   const hasImage = !!post.imageUrl
   const isVideo = post.isVideoPost
   const status = post.generationStatus
-  const quality = caption.length > 20 ? scoreCaption(caption, platform) : null
   const mediaState = deriveContentHubMediaState(post)
 
   const statusColor = {
@@ -3198,15 +3211,6 @@ function PostCard({
           )}
         </div>
         <div className="flex items-center gap-1.5">
-          {/* Quality Score Badge */}
-          {quality && (
-            <span
-              title={quality.tip}
-              className="text-[10px] font-black px-1.5 py-0.5 rounded-md cursor-help"
-              style={{ background: `${quality.color}15`, color: quality.color, border: `1px solid ${quality.color}35`, letterSpacing: '0.02em' }}>
-              {quality.grade}
-            </span>
-          )}
           {lifecycleBadge && (
             <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
               style={{ background: `${lifecycleBadge.color}14`, color: lifecycleBadge.color, border: `1px solid ${lifecycleBadge.color}2E` }}>

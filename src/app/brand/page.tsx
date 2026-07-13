@@ -3042,11 +3042,11 @@ function BrandBrainInner() {
               are replaced by one quiet footer line. They were decorative, visually
               noisy, and mildly overclaimed; this keeps the "what it powers" signal
               without the decoration. order:60 keeps it last, below the enrichment group. */}
-          <p style={{ order: 60 }} className="text-center text-[11px] text-slate-400 pt-1 pb-2">
-            {locale === 'ar'
-              ? 'توجّه Brand Brain الاستراتيجية والمحتوى والاتجاه الإبداعي، وتحتفظ بإشارات Brand Brain بمرور الوقت. إشارات المراجعة محفوظة، وتعلّم الأداء يحتاج تحليلات حقيقية. يبدأ تعلّم الأداء فقط بعد توفر تحليلات حقيقية.'
-              : 'Your Brand Brain guides strategy, content, and creative direction, and keeps Brand Brain signals over time. Review signals are saved; performance learning needs real analytics. Performance learning starts only after real analytics are available.'}
-          </p>
+           <p style={{ order: 60 }} className="text-center text-[11px] text-slate-400 pt-1 pb-2">
+             {locale === 'ar'
+               ? 'توجّه Brand Brain الاستراتيجية والمحتوى والاتجاه الإبداعي. إشارات Brand Brain بمرور الوقت تأتي من مراجعاتك المعتمدة فقط؛ إشارات المراجعة محفوظة، وتعلّم الأداء يحتاج تحليلات حقيقية.'
+               : 'Your Brand Brain guides strategy, content, and creative direction. Brand Brain signals over time come only from your approved reviews. Review signals are saved; performance learning needs real analytics. Performance learning starts only after real analytics are available.'}
+           </p>
 
         </div>
       </div>

@@ -11,7 +11,7 @@
     },
     {
       "path": "/api/cron/reset-credits",
-      "schedule": "5 0 1 * *"
+      "schedule": "5 0 * * *"
     },
     {
       "path": "/api/cron/generate-images",

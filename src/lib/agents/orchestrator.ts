@@ -164,6 +164,8 @@ export async function runFullAgency(
       allowedClaimText: [
         bp.description,
         bp.primaryOffer,
+        bp.pricePoint,
+        bp.languagePreference,
         ...((bp.uniqueAdvantages as string[] | undefined) || []),
         bp.complianceNotes,
         ...((bp.verifiedProof as string[] | undefined) || []),

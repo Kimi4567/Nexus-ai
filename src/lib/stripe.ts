@@ -105,7 +105,7 @@ export const PLANS: PlanDefinition[] = [
     credits: PUBLIC_PAID_PLANS[0].monthlyCredits,
     postsPerMonth: PUBLIC_PAID_PLANS[0].postsPerMonth,
     stripePriceEnvKey: 'STRIPE_PRICE_PRO',
-    highlight: 'Most Popular',
+    highlight: 'Core plan',
     cta: 'Start Growth — $49/mo',
     researchNote: 'Built for a founder or small team operating up to three brands.',
     features: [

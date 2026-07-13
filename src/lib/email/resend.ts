@@ -115,21 +115,21 @@ export async function sendWelcomeEmail(to: string, name: string) {
           <div style="width:22px;height:22px;background:#FF9500;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#080807;flex-shrink:0;">1</div>
           <div>
             <div style="font-size:13px;font-weight:600;color:#e8e8f5;">Set up your brand memory</div>
-            <div style="font-size:12px;color:#6a6a8a;margin-top:2px;">Tell Nexus about your business once — it remembers forever.</div>
+            <div style="font-size:12px;color:#6a6a8a;margin-top:2px;">Save confirmed business context, then update or remove it whenever your brand changes.</div>
           </div>
         </div>
         <div style="display:flex;align-items:flex-start;gap:12px;">
           <div style="width:22px;height:22px;background:#FF9500;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#080807;flex-shrink:0;">2</div>
           <div>
             <div style="font-size:13px;font-weight:600;color:#e8e8f5;">Generate your first campaign</div>
-            <div style="font-size:12px;color:#6a6a8a;margin-top:2px;">Generate a draft strategy, hooks, scripts, and a content calendar for your review.</div>
+            <div style="font-size:12px;color:#6a6a8a;margin-top:2px;">Choose a scope and generate a grounded strategy draft. Content drafts are created separately after review.</div>
           </div>
         </div>
         <div style="display:flex;align-items:flex-start;gap:12px;">
           <div style="width:22px;height:22px;background:#FF9500;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#080807;flex-shrink:0;">3</div>
           <div>
-            <div style="font-size:13px;font-weight:600;color:#e8e8f5;">Publish to Instagram or Facebook</div>
-            <div style="font-size:12px;color:#6a6a8a;margin-top:2px;">Connect your accounts and go live directly from Nexus.</div>
+            <div style="font-size:13px;font-weight:600;color:#e8e8f5;">Review publishing readiness</div>
+            <div style="font-size:12px;color:#6a6a8a;margin-top:2px;">Connect a supported provider account. Available actions still depend on approved permissions and your explicit confirmation.</div>
           </div>
         </div>
       </div>
@@ -164,13 +164,13 @@ export async function sendCreditsLowEmail(to: string, name: string, creditsRemai
 
   const content = `
     ${h1('Your AI credits are running low.')}
-    ${p(`${firstName}, you have <strong style="color:#f59e0b;">${creditsRemaining} credits left</strong> — that's ${Math.floor(creditsRemaining / 10)} more campaign generation${Math.floor(creditsRemaining / 10) !== 1 ? 's' : ''}.`)}
+    ${p(`${firstName}, you have <strong style="color:#f59e0b;">${creditsRemaining} credits left</strong>. Action costs vary by scope and are shown before confirmation.`)}
     ${p('Upgrade to Growth for 150 credits/month, up to 10 campaign creations per billing month, and your weekly planning brief.')}
 
     ${card(`
       <div style="font-size:13px;font-weight:700;color:#e8e8f5;margin-bottom:12px;">What you get with Growth:</div>
       <div style="display:flex;flex-direction:column;gap:8px;">
-        ${['150 AI credits every month', 'Up to 10 campaign creations per billing month', 'Weekly planning brief in your inbox', 'Publishing when a supported provider account is connected', 'Printable HTML and JSON campaign exports'].map(f =>
+        ${['150 AI credits every month', 'Up to 10 campaign creations per billing month', 'Weekly planning brief in your inbox', 'Supported-provider publishing after permission checks and explicit approval', 'Printable HTML and JSON campaign exports'].map(f =>
           `<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#b8b8d8;">
             <span style="color:#FF9500;font-weight:700;">✓</span> ${f}
           </div>`
@@ -361,7 +361,7 @@ export async function sendNurtureDay1(to: string, name: string) {
     ${card(`
       <div style="font-size:12px;color:#FF9500;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">🧠 What Brand Memory stores</div>
       <div style="display:flex;flex-direction:column;gap:8px;">
-        ${['Your brand tone and writing style', 'Your target audience', 'Approved hooks and tested angles', 'What to avoid in your content', 'Your primary offer and positioning'].map(f =>
+        ${['Your brand tone and writing style', 'Your target audience', 'Reviewed hook and content-direction signals', 'What to avoid in your content', 'Your primary offer and positioning'].map(f =>
           `<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#b8b8d8;">
             <span style="color:#FF9500;">→</span> ${f}
           </div>`
@@ -393,16 +393,16 @@ export async function sendNurtureDay3(to: string, name: string) {
       <div style="font-size:13px;color:#e8e8f5;font-weight:700;margin-bottom:14px;">What a Nexus campaign gives you:</div>
       <div style="display:flex;flex-direction:column;gap:10px;">
         <div style="font-size:13px;color:#b8b8d8;padding-left:12px;border-left:2px solid #FF9500;">
-          <strong style="color:#e8e8f5;">Full marketing strategy</strong> — positioning, audience breakdown, platform playbook
+          <strong style="color:#e8e8f5;">Scope-based strategy draft</strong> — positioning, audience context, and a platform playbook for review
         </div>
         <div style="font-size:13px;color:#b8b8d8;padding-left:12px;border-left:2px solid #FF9500;">
-          <strong style="color:#e8e8f5;">5 ready-to-record ad hooks</strong> — different angles, different tones, all specific to your product
+          <strong style="color:#e8e8f5;">Reviewable hook directions</strong> — the exact count follows the scope you confirm
         </div>
         <div style="font-size:13px;color:#b8b8d8;padding-left:12px;border-left:2px solid #FF9500;">
-          <strong style="color:#e8e8f5;">Complete captions</strong> — with hashtags, ready to copy and post
+          <strong style="color:#e8e8f5;">Content directions</strong> — draft copy is created separately in Content Hub for review
         </div>
         <div style="font-size:13px;color:#b8b8d8;padding-left:12px;border-left:2px solid #FF9500;">
-          <strong style="color:#e8e8f5;">30-day content calendar</strong> — what to post, when, and why
+          <strong style="color:#e8e8f5;">Execution outline</strong> — its duration and depth follow the scope you review
         </div>
       </div>
     `)}
@@ -693,12 +693,12 @@ export async function sendContentAwaitingApprovalEmail(
 
   const content = `
     ${h1(`${firstName}, your content plan has been waiting ${draftDays} days`)}
-    ${p(`You have <strong style="color:#FF9500">${postCount} posts ready</strong> for "${campaignName}" — but they haven't been approved yet, so nothing has been scheduled or published.`)}
+    ${p(`You have <strong style="color:#FF9500">${postCount} post drafts waiting for review</strong> for "${campaignName}". They have not been approved, so nothing has been scheduled or published.`)}
     ${card(`
       <div style="font-size:13px;color:#9A9080;margin-bottom:8px;">Review before scheduling:</div>
       ${[
         'Review the AI-generated captions',
-        'Approve all → posts get scheduled automatically',
+        'Approve drafts → choose scheduling separately',
         'Generate images → visuals enter the configured generation queue',
         'Monitor the queue → approved posts publish only through verified connected providers',
       ].map((step, i) => `

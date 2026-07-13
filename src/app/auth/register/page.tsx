@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import Link from 'next/link'
-import { Shield, Cookie, Eye, EyeOff } from 'lucide-react'
+import { Shield, Eye, EyeOff } from 'lucide-react'
 import { getRegisterErrorCopy, getRegisterErrorMetadata } from './registerErrors'
 import LuxuryAuthShell from '@/components/auth/LuxuryAuthShell'
 
@@ -31,7 +31,6 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [agreeTerms, setAgreeTerms] = useState(false)
-  const [agreeCookies, setAgreeCookies] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState<'idle' | 'verify' | 'active'>('idle')
@@ -51,11 +50,15 @@ export default function RegisterPage() {
     if (password.length < 8) { setError(errorsT?.passwordLength || ''); return }
     if (password !== confirmPassword) { setError(errorsT?.passwordMatch || ''); return }
     if (!agreeTerms) { setError(errorsT?.termsRequired || ''); return }
-    if (!agreeCookies) { setError(errorsT?.cookiesRequired || ''); return }
     setLoading(true)
     try {
       const result = await signup(email, password, { name })
-      localStorage.setItem('nexus_consent', JSON.stringify({ terms: true, privacy: true, cookies: true, timestamp: new Date().toISOString(), email }))
+      localStorage.setItem('nexus_consent', JSON.stringify({
+        terms: true,
+        privacy: true,
+        termsVersion: '2026-07-13',
+        timestamp: new Date().toISOString(),
+      }))
       // Supabase owns the confirmation email. Product welcome messages are sent
       // only after an authenticated session exists; registration never invokes
       // an unauthenticated arbitrary-email endpoint.
@@ -186,15 +189,6 @@ export default function RegisterPage() {
                       <Link href="/terms" target="_blank" className="text-indigo-600 hover:underline">{authT?.termsLink}</Link>{' '}
                       <Link href="/privacy" target="_blank" className="text-indigo-600 hover:underline">{authT?.privacyLink}</Link>{' '}
                       <Link href="/refund" target="_blank" className="text-indigo-600 hover:underline">{authT?.refundLink}</Link>
-                    </span>
-                  </label>
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <input type="checkbox" checked={agreeCookies} onChange={e => setAgreeCookies(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 rounded border-slate-300 bg-white accent-indigo-600 cursor-pointer shrink-0" />
-                    <span className="text-xs text-text-secondary leading-relaxed">
-                      <Cookie className="w-3 h-3 inline text-indigo-600 ml-1" />
-                      {authT?.cookieConsent}{' '}
-                      <Link href="/cookies" target="_blank" className="text-indigo-600 hover:underline">{authT?.cookieLink}</Link>
                     </span>
                   </label>
                 </div>

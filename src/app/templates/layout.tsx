@@ -1,8 +1,8 @@
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Templates — Nexus AI',
-  description: 'Browse structured marketing campaign templates and adapt them to your brand, industry, and reviewed strategy.',
+  title: 'Strategy Studio — Nexus AI',
+  description: 'Create a strategy draft grounded in your saved Brand Brain and review it before execution.',
   robots: { index: false, follow: false },
 }
 

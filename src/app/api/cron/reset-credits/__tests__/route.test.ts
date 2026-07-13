@@ -1,8 +1,6 @@
 /**
- * B1d-d — credit reset cron creates parallel MONTHLY grants.
- *
- * The scalar User.aiCredits overwrite remains the live production balance and
- * still runs first. The CreditGrant writes are additive/idempotent only.
+ * Billing-cycle reconciliation creates one idempotent MONTHLY grant and updates
+ * the legacy scalar cache only when a genuinely new Stripe cycle is observed.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -12,6 +10,7 @@ const { mockPrisma, mockStripeHelpers } = vi.hoisted(() => ({
     subscription: { findMany: vi.fn() },
     user: { update: vi.fn() },
     creditGrant: { createMany: vi.fn(), updateMany: vi.fn() },
+    $transaction: vi.fn(),
   },
   mockStripeHelpers: {
     PLAN_CREDITS: { starter: 50, pro: 150, business: 500, agency: 500 } as Record<string, number>,
@@ -45,6 +44,8 @@ const activeSub = (overrides: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   vi.clearAllMocks()
   process.env.CRON_SECRET = 'cron_secret'
+  delete process.env.CREDIT_WALLET_ENABLED
+  mockPrisma.$transaction.mockImplementation(async (fn: (tx: typeof mockPrisma) => unknown) => fn(mockPrisma))
   mockPrisma.subscription.findMany.mockResolvedValue([activeSub()])
   mockPrisma.user.update.mockResolvedValue({})
   mockPrisma.creditGrant.createMany.mockResolvedValue({ count: 1 })
@@ -96,9 +97,10 @@ describe('cron/reset-credits — B1d-d grant-aware reset', () => {
     const res = await GET(makeReq())
     const body = await res.json()
 
-    expect(body).toMatchObject({ ok: true, reset: 1, grantsCreated: 0 })
+    expect(body).toMatchObject({ ok: true, reset: 0, grantsCreated: 0, grantsSkipped: 1 })
     expect(mockPrisma.creditGrant.createMany).toHaveBeenCalledTimes(1)
     expect(mockPrisma.creditGrant.updateMany).not.toHaveBeenCalled()
+    expect(mockPrisma.user.update).not.toHaveBeenCalled()
   })
 
   it('leaves PURCHASED grants untouched by resetting only non-purchased grants', async () => {
@@ -115,19 +117,17 @@ describe('cron/reset-credits — B1d-d grant-aware reset', () => {
     expect(mockPrisma.creditGrant.updateMany).toHaveBeenCalledTimes(1)
 
     vi.clearAllMocks()
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: typeof mockPrisma) => unknown) => fn(mockPrisma))
     mockPrisma.subscription.findMany.mockResolvedValue([activeSub()])
     mockPrisma.user.update.mockResolvedValue({})
     mockPrisma.creditGrant.createMany.mockResolvedValue({ count: 0 })
 
     await GET(makeReq())
-    expect(mockPrisma.user.update).toHaveBeenCalledWith({
-      where: { id: 'u1' },
-      data: { aiCredits: 150 },
-    })
+    expect(mockPrisma.user.update).not.toHaveBeenCalled()
     expect(mockPrisma.creditGrant.updateMany).not.toHaveBeenCalled()
   })
 
-  it('skips grant creation safely when period data is missing while preserving scalar reset', async () => {
+  it('skips reconciliation when Stripe period data is missing without inventing a reset date', async () => {
     mockPrisma.subscription.findMany.mockResolvedValueOnce([
       activeSub({ currentPeriodStart: null, currentPeriodEnd: null }),
     ])
@@ -135,27 +135,21 @@ describe('cron/reset-credits — B1d-d grant-aware reset', () => {
     const res = await GET(makeReq())
     const body = await res.json()
 
-    expect(body).toMatchObject({ ok: true, reset: 1, errors: 0, grantsSkipped: 1 })
-    expect(mockPrisma.user.update).toHaveBeenCalledWith({
-      where: { id: 'u1' },
-      data: { aiCredits: 150 },
-    })
+    expect(body).toMatchObject({ ok: true, reset: 0, errors: 0, grantsSkipped: 1 })
+    expect(mockPrisma.user.update).not.toHaveBeenCalled()
     expect(mockPrisma.creditGrant.createMany).not.toHaveBeenCalled()
     expect(mockPrisma.creditGrant.updateMany).not.toHaveBeenCalled()
   })
 
-  it('keeps scalar behavior when grant creation fails while CREDIT_WALLET_ENABLED stays OFF', async () => {
+  it('fails safely when cycle-ledger reconciliation fails instead of minting scalar credit', async () => {
     delete process.env.CREDIT_WALLET_ENABLED
     mockPrisma.creditGrant.createMany.mockRejectedValueOnce(new Error('ledger unavailable'))
 
     const res = await GET(makeReq())
     const body = await res.json()
 
-    expect(body).toMatchObject({ ok: true, reset: 1, errors: 0, grantErrors: 1 })
-    expect(mockPrisma.user.update).toHaveBeenCalledWith({
-      where: { id: 'u1' },
-      data: { aiCredits: 150 },
-    })
+    expect(body).toMatchObject({ ok: true, reset: 0, errors: 1, grantErrors: 1 })
+    expect(mockPrisma.user.update).not.toHaveBeenCalled()
   })
 
   it('does not change the existing active paid subscription selection', async () => {

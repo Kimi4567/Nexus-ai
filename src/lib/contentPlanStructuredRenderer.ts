@@ -92,25 +92,13 @@ function stringifyContextValue(value: unknown): string {
   return ''
 }
 
-function contextText(ctx: ContentPlanRenderContext, gen: GeneratedContentPlanPostLike): string {
-  return [
-    ctx.brand,
-    ctx.campaignName,
-    ctx.keyMessage,
-    ctx.targetAudience,
-    ctx.offer,
-    ...(ctx.contentPillars ?? []),
-    normalizeText(gen.caption),
-    normalizeText(gen.videoCaption),
-    normalizeText(gen.text),
-    normalizeText(gen.imagePrompt),
-    stringifyContextValue(ctx.brandFacts ?? []),
-  ].join(' ')
-}
-
-export function isClinicOperationalSaasContent(ctx: ContentPlanRenderContext, gen: GeneratedContentPlanPostLike = {}): boolean {
-  const text = contextText(ctx, gen)
-  return CLINIC_CONTEXT_RE.test(text) && CLINIC_OPERATIONS_PRODUCT_RE.test(text)
+export function isClinicOperationalSaasContent(ctx: ContentPlanRenderContext, _gen: GeneratedContentPlanPostLike = {}): boolean {
+  // Product classification must come from user-confirmed Brand Brain facts.
+  // Generated copy and strategy prose are not evidence: if the model drifts into
+  // "workflow/platform" language for a dental provider, it must not activate the
+  // clinic-SaaS renderer and amplify that drift across every post.
+  const explicitFacts = stringifyContextValue(ctx.brandFacts ?? [])
+  return CLINIC_CONTEXT_RE.test(explicitFacts) && CLINIC_OPERATIONS_PRODUCT_RE.test(explicitFacts)
 }
 
 export function isCustomerWorkflowSaasContent(ctx: ContentPlanRenderContext): boolean {

@@ -550,7 +550,7 @@ export function generateCampaignPDF(result: CampaignResult): void {
     ${calendarHtml ? `
     <div class="section page-break-before">
       <div class="section-label">07 — Execution</div>
-      <div class="section-title">30-Day Content Calendar</div>
+      <div class="section-title">Saved Content Calendar</div>
       ${calendarHtml}
     </div>` : ''}
 

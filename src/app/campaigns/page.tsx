@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import { resolveCampaignCounts, type CampaignCounts } from '@/lib/campaignSummary'
+import { guardStrategyProofText } from '@/lib/ai/strategyProofGuard'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
@@ -654,7 +655,11 @@ export default function CampaignsPage() {
                             </span>
                             <span className="min-w-0">
                               <span className="block truncate text-sm font-black text-[#111b3f]">{campaign.name}</span>
-                              <span className="mt-1 block truncate text-xs text-[#7b87a3]">{campaign.description || goalMap[campaign.goal] || campaign.goal}</span>
+                              <span className="mt-1 block truncate text-xs text-[#7b87a3]">
+                                {campaign.description
+                                  ? guardStrategyProofText(campaign.description)
+                                  : goalMap[campaign.goal] || campaign.goal}
+                              </span>
                             </span>
                           </Link>
                           <span className={`inline-flex w-max items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold ${status.pill}`}>
