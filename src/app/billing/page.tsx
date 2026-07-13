@@ -371,6 +371,11 @@ export default function BillingPage() {
   const currentCredits = billingStatus?.credits?.remaining ?? 0
   const monthlyCredits = billingStatus?.credits?.max ?? 20
   const creditPurchaseQuote = quoteCreditPurchase(creditQuantity)
+  const nextPurchasedExpiry = billingStatus?.creditBreakdown?.nextPurchasedExpiry
+    ? new Intl.DateTimeFormat(ar ? 'ar-EG' : 'en-US', { dateStyle: 'medium' }).format(
+        new Date(billingStatus.creditBreakdown.nextPurchasedExpiry),
+      )
+    : null
 
   const billingDisplay = getBillingDisplayTruth({
     plan: billingStatus?.plan,
@@ -475,11 +480,20 @@ export default function BillingPage() {
                   <p className="text-[11px] text-slate-400 mt-1 leading-snug">{creditDisp.secondary}</p>
                 )}
                 {billingStatus.creditBreakdown && (
-                  <p className="mt-1 text-[11px] leading-snug text-slate-400">
-                    {ar
-                      ? `شهري ${billingStatus.creditBreakdown.monthly} · مشتَرى ${billingStatus.creditBreakdown.purchased} · تجريبي ${billingStatus.creditBreakdown.trial}`
-                      : `Monthly ${billingStatus.creditBreakdown.monthly} · Purchased ${billingStatus.creditBreakdown.purchased} · Trial ${billingStatus.creditBreakdown.trial}`}
-                  </p>
+                  <div className="mt-1 space-y-0.5 text-[11px] leading-snug text-slate-400">
+                    <p>
+                      {ar
+                        ? `شهري ${billingStatus.creditBreakdown.monthly} · مشتَرى ${billingStatus.creditBreakdown.purchased} · تجريبي ${billingStatus.creditBreakdown.trial}`
+                        : `Monthly ${billingStatus.creditBreakdown.monthly} · Purchased ${billingStatus.creditBreakdown.purchased} · Trial ${billingStatus.creditBreakdown.trial}`}
+                    </p>
+                    {nextPurchasedExpiry && billingStatus.creditBreakdown.purchased > 0 && (
+                      <p>
+                        {ar
+                          ? `أقرب انتهاء للرصيد المشترى: ${nextPurchasedExpiry}`
+                          : `Next purchased-credit expiry: ${nextPurchasedExpiry}`}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 
