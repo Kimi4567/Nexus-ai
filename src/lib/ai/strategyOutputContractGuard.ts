@@ -604,7 +604,7 @@ function guardGenericStrategyHooks(output: JsonObject, language?: string | null)
     if (typeof item === 'string') return isGenericStrategyHook(item) ? nextFallback() : item
     if (!isObject(item)) return item
     const guarded = { ...item }
-    for (const key of ['hook', 'text', 'message', 'coreMessage']) {
+    for (const key of ['hook', 'text', 'message', 'coreMessage', 'keyMessage']) {
       if (isGenericStrategyHook(guarded[key])) guarded[key] = nextFallback()
     }
     if (isGenericStrategyHook(guarded.cta)) guarded.cta = nextCtaFallback()
