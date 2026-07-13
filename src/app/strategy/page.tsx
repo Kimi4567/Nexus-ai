@@ -119,6 +119,19 @@ function funnelStageLabel(value: unknown, ar: boolean): string {
   return labels[stage]?.[ar ? 1 : 0] ?? (typeof value === 'string' ? value.trim() : '')
 }
 
+function campaignGoalLabel(value: string, ar: boolean): string {
+  const key = value.trim().toUpperCase().replace(/[\s-]+/g, '_')
+  const labels: Record<string, [string, string]> = {
+    SALES: ['Sales', 'زيادة المبيعات'],
+    AWARENESS: ['Awareness', 'بناء الوعي'],
+    LEADS: ['Lead generation', 'توليد عملاء محتملين'],
+    TRAFFIC: ['Traffic', 'زيادة الزيارات'],
+    ENGAGEMENT: ['Engagement', 'زيادة التفاعل'],
+    BRAND_BUILDING: ['Brand building', 'بناء العلامة التجارية'],
+  }
+  return labels[key]?.[ar ? 1 : 0] ?? value
+}
+
 function clampPercent(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)))
 }
@@ -468,7 +481,9 @@ export default function StrategyPage() {
     ai?.goal,
     ai?.campaignGoal,
   )
-  const campaignGoal = savedCampaignGoal || (ar ? 'لا يوجد هدف محفوظ في الاستراتيجية الحالية.' : 'No goal is saved in the current strategy.')
+  const campaignGoal = savedCampaignGoal
+    ? campaignGoalLabel(savedCampaignGoal, ar)
+    : (ar ? 'لا يوجد هدف محفوظ في الاستراتيجية الحالية.' : 'No goal is saved in the current strategy.')
   const savedCampaignPositioning = firstString(
     strat?.positioning,
     strat?.brandPositioning,

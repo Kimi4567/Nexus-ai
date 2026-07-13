@@ -122,7 +122,7 @@ function softenUnsupportedServiceClaims(text: string, context: StrategyProofCont
       .replace(/\bin the heart of\s+/gi, 'in ')
       .replace(/في\s+قلب\s+/gi, 'في ')
       .replace(/\b(?:prime|distinguished) location\b/gi, 'stated location')
-      .replace(/موقعنا (?:المتميز|الاستثنائي)/gi, 'موقعنا داخل المنطقة المحددة')
+      .replace(/موقع(?:نا| العيادة) (?:المتميز|الاستثنائي)/gi, 'موقع العيادة داخل المنطقة المحددة')
       .replace(/موقع (?:متميز|استثنائي)/gi, 'موقع داخل المنطقة المحددة')
       .replace(/الموقع (?:المتميز|الاستثنائي)/gi, 'الموقع داخل المنطقة المحددة')
   }

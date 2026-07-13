@@ -347,6 +347,7 @@ describe('strategyProofGuard', () => {
         'احجز موعدك في دقائق مع العيادة.',
         'رعاية أسنان موثوقة ومريحة في قلب دبي.',
         'موقعنا المتميز في دبي.',
+        'التعريف بموقع العيادة المتميز.',
       ],
     }, {
       verifiedProof: [],
@@ -354,8 +355,8 @@ describe('strategyProofGuard', () => {
     })
     const joined = JSON.stringify(guarded)
 
-    expect(joined).not.toMatch(/في دقائق|في قلب دبي|موقعنا المتميز|موثوقة ومريحة/)
-    expect(joined).toMatch(/احجز موعدك مع العيادة|رعاية أسنان بخطوات واضحة في دبي|موقعنا داخل المنطقة المحددة/)
+    expect(joined).not.toMatch(/في دقائق|في قلب دبي|موقعنا المتميز|موقع العيادة المتميز|موثوقة ومريحة/)
+    expect(joined).toMatch(/احجز موعدك مع العيادة|رعاية أسنان بخطوات واضحة في دبي|موقع العيادة داخل المنطقة المحددة/)
   })
 
   it('preserves those service claims when the user explicitly supplied them', () => {
