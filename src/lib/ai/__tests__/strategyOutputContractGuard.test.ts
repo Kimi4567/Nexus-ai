@@ -86,6 +86,7 @@ describe('guardStrategyOutputContract', () => {
         },
       ],
       topHooks: ['هل تعلم أن التسويق الذكي يمكن أن يغير مسار شركتك؟'],
+      ctaVariations: ['اكتشف كيف يمكننا مساعدتك'],
       contentAnglesDetailed: [
         {
           title: 'تحويل الخطة إلى أسبوع عمل',
@@ -93,6 +94,16 @@ describe('guardStrategyOutputContract', () => {
           format: 'Carousel',
           hook: 'هل تعلم أن التحليلات يمكن أن تغير عملك؟',
           cta: 'راجع المسار',
+        },
+      ],
+      weeklyExecutionPlan: [
+        {
+          week: 1,
+          theme: 'تحويل الخطة إلى أسبوع عمل',
+          platforms: ['Instagram'],
+          coreMessage: 'التحليلات ليست مجرد أرقام، بل هي مفتاح النجاح!',
+          cta: 'اكتشف كيف يمكننا مساعدتك',
+          posts: ['1 منشور اجتماعي قصير: تحويل الخطة إلى أسبوع عمل'],
         },
       ],
     }, { allowedPlatforms: ['INSTAGRAM'], language: 'ar', organicPostCount: 1 })
@@ -103,6 +114,9 @@ describe('guardStrategyOutputContract', () => {
     expect(out.contentAnglesDetailed[0].hook).toContain('مؤسسو الشركات الخدمية الصغيرة')
     expect(out.contentAnglesDetailed[0].hook).toContain('صعوبة تحويل الخطة إلى تنفيذ أسبوعي واضح')
     expect(out.contentAnglesDetailed[0].hook).not.toBe(out.topHooks[0])
+    expect(out.ctaVariations[0]).not.toContain('اكتشف كيف يمكننا مساعدتك')
+    expect(out.weeklyExecutionPlan[0].coreMessage).not.toContain('التحليلات ليست مجرد أرقام')
+    expect(out.weeklyExecutionPlan[0].cta).not.toContain('اكتشف كيف يمكننا مساعدتك')
   })
 
   it('rebuilds a count-correct but week-short plan into the required four-week window', () => {

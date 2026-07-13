@@ -569,23 +569,60 @@ function groundedHookFallback(output: JsonObject, language?: string | null, ordi
     : 'Tie the message to the segment’s specific situation and objection before presenting the offer.'
 }
 
+function groundedCtaFallback(output: JsonObject, language?: string | null, ordinal = 0): string {
+  const audienceNeed = firstAudienceNeed(output)
+  if (!audienceNeed) return safeReviewCta(String(ordinal), language)
+
+  const arFallbacks = [
+    `راجع أثر ${audienceNeed.pain} في سير العمل الحالي.`,
+    audienceNeed.desiredOutcome
+      ? `قارن المسار الحالي بالنتيجة المطلوبة: ${audienceNeed.desiredOutcome}`
+      : 'قارن المسار الحالي بالخطوة المقترحة.',
+    `احفظ قائمة التحقق الخاصة بـ ${audienceNeed.pain}.`,
+    'راجع ما يتضمنه العرض قبل اتخاذ الخطوة التالية.',
+    `أكّد ملاءمة هذا المسار لـ ${audienceNeed.segment}.`,
+  ]
+  const enFallbacks = [
+    `Review how ${audienceNeed.pain} affects the current workflow.`,
+    audienceNeed.desiredOutcome
+      ? `Compare the current workflow with the desired outcome: ${audienceNeed.desiredOutcome}`
+      : 'Compare the current workflow with the proposed next step.',
+    `Save the checklist for ${audienceNeed.pain}.`,
+    'Review what the offer includes before taking the next step.',
+    `Confirm whether this path fits ${audienceNeed.segment}.`,
+  ]
+  const fallbacks = isArabicLanguage(language) ? arFallbacks : enFallbacks
+  return fallbacks[ordinal % fallbacks.length]
+}
+
 function guardGenericStrategyHooks(output: JsonObject, language?: string | null): void {
   let genericOrdinal = 0
+  let genericCtaOrdinal = 0
   const nextFallback = () => groundedHookFallback(output, language, genericOrdinal++)
+  const nextCtaFallback = () => groundedCtaFallback(output, language, genericCtaOrdinal++)
   const guardHookItem = (item: unknown): unknown => {
     if (typeof item === 'string') return isGenericStrategyHook(item) ? nextFallback() : item
     if (!isObject(item)) return item
     const guarded = { ...item }
-    for (const key of ['hook', 'text', 'message']) {
+    for (const key of ['hook', 'text', 'message', 'coreMessage']) {
       if (isGenericStrategyHook(guarded[key])) guarded[key] = nextFallback()
     }
+    if (isGenericStrategyHook(guarded.cta)) guarded.cta = nextCtaFallback()
     return guarded
   }
 
   if (Array.isArray(output.topHooks)) output.topHooks = output.topHooks.map(guardHookItem)
   if (Array.isArray(output.hooks)) output.hooks = output.hooks.map(guardHookItem)
+  if (Array.isArray(output.ctaVariations)) {
+    output.ctaVariations = output.ctaVariations.map(item => (
+      isGenericStrategyHook(item) ? nextCtaFallback() : item
+    ))
+  }
   if (Array.isArray(output.contentAnglesDetailed)) {
     output.contentAnglesDetailed = output.contentAnglesDetailed.map(guardHookItem)
+  }
+  if (Array.isArray(output.weeklyExecutionPlan)) {
+    output.weeklyExecutionPlan = output.weeklyExecutionPlan.map(guardHookItem)
   }
 }
 
