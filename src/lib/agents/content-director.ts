@@ -41,8 +41,13 @@ async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 
   })
   if (!response.ok) throw new Error(`OpenAI error: ${response.status}`)
   const data = await response.json()
-  const content = data.choices?.[0]?.message?.content || '{}'
-  return JSON.parse(content)
+  const content = data.choices?.[0]?.message?.content?.trim()
+  if (!content) throw new Error('OpenAI returned no content direction')
+  try {
+    return JSON.parse(content)
+  } catch {
+    throw new Error('OpenAI returned invalid content direction JSON')
+  }
 }
 
 export interface ContentDirectorInput {
@@ -237,6 +242,9 @@ Return JSON with exactly these fields:
   // Free=3posts→1250, Starter=10posts→2300, Growth=25posts→4550, Agency=60posts→8000
   const maxOutputTokens = Math.min(8000, Math.max(2500, planLimits.postsPerMonth * 150 + 800))
   const output = await callOpenAI(systemPrompt, userPrompt, maxOutputTokens) as ContentDirectorOutput
+  if (!Array.isArray(output.calendar) || output.calendar.length === 0 || !Array.isArray(output.contentPillars)) {
+    throw new Error('OpenAI returned an incomplete content direction')
+  }
   checkAndLog('content-director', JSON.stringify(output), {
     brandName: input.brandName,
     targetAudience: input.strategy.targetAudienceRefined,
@@ -261,5 +269,9 @@ ${input.existingCaptions?.length ? `Already used (avoid similarity):\n${input.ex
 
 Return JSON: { "week": ${weekNumber}, "theme": string, "posts": [...] }`
 
-  return callOpenAI(systemPrompt, userPrompt, 1500) as Promise<ContentCalendarWeek>
+  const week = await callOpenAI(systemPrompt, userPrompt, 1500) as ContentCalendarWeek
+  if (!Array.isArray(week.posts) || week.posts.length === 0) {
+    throw new Error('OpenAI returned an incomplete refreshed content week')
+  }
+  return week
 }

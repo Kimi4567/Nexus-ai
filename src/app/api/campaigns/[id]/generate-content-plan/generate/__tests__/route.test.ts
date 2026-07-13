@@ -9,7 +9,7 @@
  *   - no live image provider calls are made in tests
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockGetServerUserId,
@@ -74,9 +74,10 @@ const confirmedBody = {
   acknowledgedCreditCost: 6,
 }
 
-async function loadRoute() {
+async function loadRoute(withProvider = true) {
   vi.resetModules()
   delete process.env.FAL_KEY
+  vi.stubEnv('OPENAI_API_KEY', withProvider ? 'test-openai-key' : '')
   delete process.env.CLOUDINARY_CLOUD_NAME
   delete process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
   delete process.env.CLOUDINARY_API_KEY
@@ -100,7 +101,24 @@ beforeEach(() => {
   })))
 })
 
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
+})
+
 describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refund safety', () => {
+  it('missing image providers returns 503 before reserving any credits', async () => {
+    const { POST } = await loadRoute(false)
+
+    const res = await POST(makeReq(confirmedBody), params)
+    const json = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(json).toMatchObject({ code: 'IMAGE_PROVIDER_UNAVAILABLE', creditsCharged: false })
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
   it('auth failure happens before any deduction', async () => {
     mockGetServerUserId.mockResolvedValue(null)
     const { POST } = await loadRoute()

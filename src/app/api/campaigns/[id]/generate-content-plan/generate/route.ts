@@ -22,6 +22,7 @@ import {
   getBulkImageGenerationCost,
   validateBulkImageGenerationConfirmation,
 } from '@/lib/contentHubActionSafety'
+import { getImageProviderUnavailablePayload, isImageProviderConfigured } from '@/lib/ai/provider'
 
 export const maxDuration = 60 // Vercel Pro — 60s max
 
@@ -179,6 +180,10 @@ export async function POST(req: NextRequest, props: Params) {
         expectedImageCount: postsToGenerate.length,
         expectedCreditCost: getBulkImageGenerationCost(postsToGenerate.length),
       }, { status: 400 })
+    }
+
+    if (!isImageProviderConfigured()) {
+      return NextResponse.json(getImageProviderUnavailablePayload(body.language), { status: 503 })
     }
 
     // Reserve one IMAGE_GENERATION charge per post. Keep each transaction tied

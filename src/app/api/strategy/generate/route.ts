@@ -5,6 +5,7 @@ import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { buildStrategyPrompt, guardGeneratedStrategy, extractAllowedNumbers } from '@/lib/ai/strategyGenerateGuard'
 import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 async function callOpenAI(prompt: string): Promise<any> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -43,6 +44,10 @@ export async function POST(req: NextRequest) {
 
     const { goal, timeframe, platform, budget, language } = await req.json()
 
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(language), { status: 503 })
+    }
+
     // Get brand profile for context
     const workspace = await prisma.workspace.findFirst({
       where: { ownerId: user.id },
@@ -73,6 +78,9 @@ export async function POST(req: NextRequest) {
     let strategy
     try {
       strategy = await callOpenAI(prompt)
+      if (!strategy || typeof strategy !== 'object' || Object.keys(strategy).length === 0) {
+        throw new Error('OpenAI returned an incomplete strategy')
+      }
     } catch (genErr) {
       // Refund — failed generation must not charge the user (skip unlimited plans)
       if (credit.creditsUsed > 0) await refundCredits(user.id, 'CAMPAIGN_GENERATION')

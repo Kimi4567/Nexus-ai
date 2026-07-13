@@ -28,6 +28,7 @@ import {
 } from '@/lib/credits'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { buildTrackedPaidDestinationUrl } from '@/lib/paidExecutionReadiness'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -52,7 +53,9 @@ async function callGPT(system: string, user: string): Promise<string> {
   })
   if (!res.ok) throw new Error(`OpenAI error: ${res.status}`)
   const data = await res.json()
-  return data.choices?.[0]?.message?.content ?? '{}'
+  const content = data.choices?.[0]?.message?.content?.trim()
+  if (!content) throw new Error('OpenAI returned no ad copy')
+  return content
 }
 
 const CTA_OPTIONS = {
@@ -106,6 +109,10 @@ export async function POST(
         error: 'A public HTTPS conversion destination is required before generating paid ad drafts. No credits were used.',
         code: 'INVALID_PAID_DESTINATION',
       }, { status: 400 })
+    }
+
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(requestedLang), { status: 503 })
     }
 
     const destination = new URL(destinationUrl)
@@ -287,6 +294,9 @@ Generate 5 review-ready ad copy variants in JSON:
     let generated: { variants?: unknown[]; ab_test_recommendation?: unknown; creative_specs?: unknown }
     try {
       generated = JSON.parse(raw)
+      if (!Array.isArray(generated.variants) || generated.variants.length === 0) {
+        throw new Error('Incomplete ad copy response')
+      }
     } catch {
       await refundDeductedCredits(user.id, creditResult, 'AI returned invalid JSON')
       return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })
@@ -295,7 +305,7 @@ Generate 5 review-ready ad copy variants in JSON:
     // Save each variant as an Ad record
     const savedAds = []
     const variantGroupId = `vg_${params.id}_${Date.now()}`
-    const variants = (generated.variants || []) as Array<Record<string, unknown>>
+    const variants = generated.variants as Array<Record<string, unknown>>
 
     for (let i = 0; i < variants.length; i++) {
       const v = variants[i]

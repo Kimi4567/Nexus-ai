@@ -14,6 +14,7 @@ import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { aiRateLimit } from '@/lib/dbRateLimit'
 import { validateOutputObject, logQualityReport } from '@/lib/ai/outputValidator'
 import { randomUUID } from 'crypto'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,6 +36,10 @@ export async function POST(req: NextRequest) {
         { error: 'companyName, businessType, targetAudience, and monthlyBudget are required' },
         { status: 400 }
       )
+    }
+
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(body.language), { status: 503 })
     }
 
     // Get or create the first workspace under the same lock as /api/workspaces.

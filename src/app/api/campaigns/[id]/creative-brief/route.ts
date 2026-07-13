@@ -14,7 +14,8 @@ import {
   CampaignContext,
   AssetItem,
 } from '@/lib/agents/visual-director'
-import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCredits, type CreditDeductionOk } from '@/lib/credits'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -49,13 +50,7 @@ export async function POST(req: NextRequest, props: Params) {
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // -- Unified credit check + deduction --------------------------------------
-  const credit = await checkAndDeductCredits(userId, 'CREATIVE_BRIEF')
-  if (!credit.ok) {
-    return NextResponse.json(credit, { status: 402 })
-  }
-  // --------------------------------------------------------------------------
-
+  let chargedCredit: CreditDeductionOk | null = null
   try {
     const body = await req.json()
     const mode: 'asset' | 'concept' = body.mode === 'asset' ? 'asset' : 'concept'
@@ -116,24 +111,40 @@ export async function POST(req: NextRequest, props: Params) {
       },
     }
 
-    let creativeBrief
-
+    let selectedMedia: any[] = []
     if (mode === 'asset') {
       // NOTE: Media uploaded via the Media Library has campaignId = null — it's workspace-level.
       // campaign.media (campaign-linked) is always empty for workspace uploads.
       // Fix: query workspace media directly, optionally filtered by the selected mediaIds.
       const mediaFilter: any = { workspaceId: campaign.workspaceId }
       if (mediaIds.length > 0) mediaFilter.id = { in: mediaIds }
-      const selectedMedia = await prisma.media.findMany({ where: mediaFilter, take: 20 })
+      selectedMedia = await prisma.media.findMany({ where: mediaFilter, take: 20 })
 
       if (selectedMedia.length === 0) {
-        // Charged but no work performed — refund (skip unlimited plans)
-        if (credit.creditsUsed > 0) await refundCredits(userId, 'CREATIVE_BRIEF', 'No media to analyze')
         return NextResponse.json(
           { error: 'No media found. Upload assets to your workspace first, then select them for analysis.' },
           { status: 400 }
         )
       }
+      if (!selectedMedia.some((item) => item.type === 'IMAGE' || item.type === 'LOGO')) {
+        return NextResponse.json({
+          error: 'Asset analysis currently supports images and logos. Select at least one image or logo; no credits were used.',
+          code: 'NO_ANALYZABLE_VISUAL_ASSETS',
+        }, { status: 422 })
+      }
+    }
+
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(ctx.language), { status: 503 })
+    }
+
+    const credit = await checkAndDeductCredits(userId, 'CREATIVE_BRIEF')
+    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
+    chargedCredit = credit
+
+    let creativeBrief
+
+    if (mode === 'asset') {
 
       const assets: AssetItem[] = selectedMedia.map(m => ({
         mediaId: m.id,
@@ -171,11 +182,11 @@ export async function POST(req: NextRequest, props: Params) {
       },
     }).catch(() => {})
 
-    return NextResponse.json({ creativeBrief, creativeMode: mode, creditsRemaining: credit.creditsRemaining })
+    return NextResponse.json({ creativeBrief, creativeMode: mode, creditsRemaining: chargedCredit.creditsRemaining })
   } catch (err: any) {
     console.error('[creative-brief POST]', err)
     // Refund — failed generation must not charge the user (skip unlimited plans)
-    if (credit.creditsUsed > 0) await refundCredits(userId, 'CREATIVE_BRIEF')
-    return NextResponse.json({ error: err.message || 'Generation failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
+    if (chargedCredit?.creditsUsed) await refundCredits(userId, 'CREATIVE_BRIEF')
+    return NextResponse.json({ error: err.message || 'Generation failed', refunded: Boolean(chargedCredit?.creditsUsed) }, { status: 500 })
   }
 }

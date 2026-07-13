@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockGetAuthUser,
@@ -43,6 +43,7 @@ const makeReq = (body: unknown) => ({ json: async () => body }) as any
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.stubEnv('OPENAI_API_KEY', 'test-openai-key')
   mockGetAuthUser.mockResolvedValue({ id: 'u1' })
   mockSuggestRateLimitDb.mockResolvedValue({ ok: true })
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 2, creditsRemaining: 18 })
@@ -54,6 +55,11 @@ beforeEach(() => {
     ok: true,
     json: async () => ({ choices: [{ message: { content: 'Launch sprint' } }] }),
   }))
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
 })
 
 describe('POST /api/campaigns/suggest — RF-2 refund safety', () => {

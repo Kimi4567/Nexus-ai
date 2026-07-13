@@ -16,6 +16,7 @@ import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { UNSUPPORTED_CLAIMS_RULES } from '@/lib/ai/promptRules'
 import { guardExtracted } from '@/lib/ai/brandTruthGuard'
 import { buildAssistSuggestions } from '@/lib/ai/assistSuggestions'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -72,10 +73,14 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const { url } = body as { url?: string }
+    const { url, language, locale } = body as { url?: string; language?: string; locale?: string }
 
     if (!url?.trim()) {
       return NextResponse.json({ error: 'Website URL is required' }, { status: 400 })
+    }
+
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(locale || language), { status: 503 })
     }
 
     // Deduct 3 credits for website scan
@@ -168,7 +173,11 @@ Return JSON with this exact structure:
     }
 
     const openaiData = await openaiRes.json()
-    const raw = openaiData.choices?.[0]?.message?.content?.trim() || '{}'
+    const raw = openaiData.choices?.[0]?.message?.content?.trim()
+    if (!raw) {
+      if (chargedUserId) await refundCredits(chargedUserId, 'WEBSITE_SCAN', 'Empty AI response')
+      return NextResponse.json({ error: 'AI returned no website analysis', refunded: !!chargedUserId }, { status: 502 })
+    }
 
     let extracted: Record<string, unknown> = {}
     try {
@@ -178,6 +187,10 @@ Return JSON with this exact structure:
     } catch {
       if (chargedUserId) await refundCredits(chargedUserId, 'WEBSITE_SCAN', 'Unparseable AI response')
       return NextResponse.json({ error: 'Failed to parse AI response', refunded: !!chargedUserId }, { status: 500 })
+    }
+    if (Object.keys(extracted).length === 0) {
+      if (chargedUserId) await refundCredits(chargedUserId, 'WEBSITE_SCAN', 'Incomplete AI response')
+      return NextResponse.json({ error: 'AI returned an incomplete website analysis', refunded: !!chargedUserId }, { status: 502 })
     }
 
     // PR-G: deterministic truth guard. The website text (`combined`) is the

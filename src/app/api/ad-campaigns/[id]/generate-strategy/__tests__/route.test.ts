@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockGetAuthUser,
@@ -59,10 +59,12 @@ const strategyJson = JSON.stringify({
   positioning: { core_message: 'Clear message' },
   targeting: { locations: ['Dubai'] },
   budget_plan: { daily_budget: 50 },
+  creative_brief: { visual_direction: 'Product in context' },
 })
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.stubEnv('OPENAI_API_KEY', 'test-openai-key')
   mockGetAuthUser.mockResolvedValue({ id: 'u1' })
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 2, creditsRemaining: 18 })
   mockRefund.mockResolvedValue(undefined)
@@ -72,6 +74,11 @@ beforeEach(() => {
   mockPrisma.brandProfile.findUnique.mockResolvedValue(null)
   mockPrisma.campaignMemory.findMany.mockResolvedValue([])
   mockProvider(strategyJson)
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
 })
 
 describe('POST /api/ad-campaigns/[id]/generate-strategy — RF-3 refund safety', () => {

@@ -18,6 +18,7 @@ import { getAuthUser } from '@/lib/apiAuth'
 import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
 import { getBudgetTruth } from '@/lib/paidBoundary'
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -36,7 +37,9 @@ async function callGPT(system: string, user: string): Promise<string> {
   })
   if (!res.ok) throw new Error(`OpenAI error: ${res.status}`)
   const data = await res.json()
-  return data.choices?.[0]?.message?.content ?? '{}'
+  const content = data.choices?.[0]?.message?.content?.trim()
+  if (!content) throw new Error('OpenAI returned no paid planning pack')
+  return content
 }
 
 function buildSlug(name: string): string {
@@ -146,6 +149,11 @@ export async function POST(
         code: 'PAID_DURATION_REQUIRED',
       }, { status: 422 })
     }
+
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(requestedLanguage), { status: 503 })
+    }
+
     const currency = existingPack?.currency ?? 'USD'
 
     // Build brand context string
@@ -404,7 +412,11 @@ Generate a complete paid campaign pack as JSON with this exact structure:
       }
 
       try {
-        generated = enforcePaidPackTruth(JSON.parse(raw))
+        const parsed = JSON.parse(raw) as typeof generated
+        if (!parsed.audienceBrief || !Array.isArray(parsed.copyVariants) || parsed.copyVariants.length === 0) {
+          throw new Error('Incomplete paid planning pack')
+        }
+        generated = enforcePaidPackTruth(parsed)
       } catch {
         await refundPaidPack()
         return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })

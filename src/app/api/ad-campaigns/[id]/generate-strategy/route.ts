@@ -28,6 +28,7 @@ import {
 } from '@/lib/credits'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -52,7 +53,9 @@ async function callGPT(system: string, user: string): Promise<string> {
   })
   if (!res.ok) throw new Error(`OpenAI error: ${res.status}`)
   const data = await res.json()
-  return data.choices?.[0]?.message?.content ?? '{}'
+  const content = data.choices?.[0]?.message?.content?.trim()
+  if (!content) throw new Error('OpenAI returned no paid strategy')
+  return content
 }
 
 function positiveNumber(value: unknown): number | null {
@@ -189,6 +192,11 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
         code: 'PAID_BUDGET_REQUIRED',
       }, { status: 422 })
     }
+
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(requestedLang || detectedLang), { status: 503 })
+    }
+
     const totalBudget = lifetimeBudget ?? (dailyBudget as number) * durationDays
 
     // Build brand context
@@ -338,7 +346,11 @@ Generate a complete paid campaign strategy as JSON with EXACTLY this structure:
     const raw = await callGPT(systemPrompt, userPrompt)
     let strategy: Record<string, unknown>
     try {
-      strategy = enforceForecastBoundary(JSON.parse(raw), {
+      const parsed = JSON.parse(raw) as Record<string, unknown>
+      if (!parsed.positioning || !parsed.targeting || !parsed.creative_brief) {
+        throw new Error('Incomplete paid strategy response')
+      }
+      strategy = enforceForecastBoundary(parsed, {
         dailyBudget,
         lifetimeBudget,
         totalBudget,

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockGetAuthUser,
@@ -38,6 +38,7 @@ const makeReq = (body: unknown) => ({ json: async () => body }) as any
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.stubEnv('OPENAI_API_KEY', 'test-openai-key')
   mockGetAuthUser.mockResolvedValue({ id: 'u1' })
   mockSuggestRateLimitDb.mockResolvedValue({ ok: true })
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 2, creditsRemaining: 18 })
@@ -49,7 +50,24 @@ beforeEach(() => {
   }))
 })
 
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
+})
+
 describe('POST /api/brand/suggest — RF-2 refund safety', () => {
+  it('missing provider returns 503 before credit deduction', async () => {
+    vi.stubEnv('OPENAI_API_KEY', '')
+
+    const res = await POST(makeReq({ field: 'description', brandName: 'Nexus', locale: 'en' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(json).toMatchObject({ code: 'AI_PROVIDER_UNAVAILABLE', creditsCharged: false })
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
   it('unknown field does not deduct credits', async () => {
     const res = await POST(makeReq({ field: 'unknownField', locale: 'en' }))
 

@@ -232,8 +232,13 @@ async function callOpenAI(
   })
   if (!response.ok) throw new Error(`OpenAI error: ${response.status}`)
   const data = await response.json()
-  const raw = data.choices?.[0]?.message?.content || '{}'
-  try { return JSON.parse(raw) } catch { return {} }
+  const raw = data.choices?.[0]?.message?.content?.trim()
+  if (!raw) throw new Error('OpenAI returned no Sentinel review')
+  try {
+    return JSON.parse(raw)
+  } catch {
+    throw new Error('OpenAI returned invalid Sentinel review JSON')
+  }
 }
 
 // ─── Main Function ────────────────────────────────────────────────────────────
@@ -383,6 +388,9 @@ Return JSON with exactly these fields:
 If the campaign passes all checks cleanly: riskScore should be under 25, brandConsistencyScore above 80, complianceWarnings should be an empty array, and recommendedFixes should be an empty array.`
 
   const result = await callOpenAI(systemPrompt, userPrompt, 2000)
+  if (!Number.isFinite(Number(result.riskScore)) || !Number.isFinite(Number(result.brandConsistencyScore))) {
+    throw new Error('OpenAI returned an incomplete Sentinel review')
+  }
   checkAndLog('sentinel-reviewer', JSON.stringify(result), {
     brandName: input.brand?.name,
     industry: input.brand?.businessType,

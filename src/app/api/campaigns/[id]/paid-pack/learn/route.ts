@@ -17,6 +17,7 @@ import {
 import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 import { paidMetricsSignalCopy } from '@/lib/paidBoundary'
 import { paidMetricsCompleteness } from '@/lib/paidMetrics'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -35,7 +36,9 @@ async function callGPT(system: string, user: string): Promise<string> {
   })
   if (!res.ok) throw new Error(`OpenAI error: ${res.status}`)
   const data = await res.json()
-  return data.choices?.[0]?.message?.content ?? '{}'
+  const content = data.choices?.[0]?.message?.content?.trim()
+  if (!content) throw new Error('OpenAI returned no paid metrics analysis')
+  return content
 }
 
 async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
@@ -135,6 +138,10 @@ export async function POST(
       })
     }
 
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(), { status: 503 })
+    }
+
     const systemPrompt = `You are a senior performance marketing analyst. Your job is to summarize paid campaign metrics as a review signal.
 
 If the metrics source is manual, treat the output as a manually reported metrics signal pending review. Do not call it Brand Brain learning, a winner, best-performing, or analytics-backed proof.
@@ -216,6 +223,9 @@ Extract a paid metrics signal as JSON:
 
     try {
       parsed = JSON.parse(raw)
+      if (!parsed.learnings || typeof parsed.learnings !== 'object') {
+        throw new Error('Incomplete paid metrics analysis')
+      }
     } catch {
       await refundDeductedCredits(user.id, creditResult, 'AI returned invalid JSON')
       return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })

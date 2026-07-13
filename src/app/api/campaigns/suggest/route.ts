@@ -16,6 +16,7 @@ import {
   refundCreditsForTransaction,
   type CreditDeductionOk,
 } from '@/lib/credits'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 /* ═══════════════════════════════════════════════════════════════
    POST /api/campaigns/suggest
@@ -144,6 +145,10 @@ Rules:
     const prompt = prompts[field]
     if (!prompt) return NextResponse.json({ error: 'Unknown field' }, { status: 400 })
 
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(locale), { status: 503 })
+    }
+
     // FLOW-03 fix: deduct 1 credit per AI suggest call
     const credit = await checkAndDeductCredits(user.id, 'AD_COPY')
     if (!credit.ok) return NextResponse.json(credit, { status: 402 })
@@ -175,6 +180,10 @@ Rules:
 
     const completion = await res.json()
     const rawSuggestion: string = completion.choices?.[0]?.message?.content?.trim() || ''
+    if (!rawSuggestion) {
+      await refundDeductedCredits(user.id, credit, 'OpenAI returned no suggestion')
+      return NextResponse.json({ error: 'AI returned no suggestion' }, { status: 502 })
+    }
     const allowedClaims = [
       name,
       description,

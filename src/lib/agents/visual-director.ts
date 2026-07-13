@@ -139,8 +139,13 @@ async function callGPT4oVision(
   })
   if (!response.ok) throw new Error(`OpenAI vision error: ${response.status}`)
   const data = await response.json()
-  const raw = data.choices?.[0]?.message?.content || '{}'
-  try { return JSON.parse(raw) } catch { return {} }
+  const raw = data.choices?.[0]?.message?.content?.trim()
+  if (!raw) throw new Error('OpenAI returned no asset analysis')
+  try {
+    return JSON.parse(raw)
+  } catch {
+    throw new Error('OpenAI returned invalid asset analysis JSON')
+  }
 }
 
 async function callOpenAI(
@@ -167,8 +172,13 @@ async function callOpenAI(
   })
   if (!response.ok) throw new Error(`OpenAI error: ${response.status}`)
   const data = await response.json()
-  const raw = data.choices?.[0]?.message?.content || '{}'
-  try { return JSON.parse(raw) } catch { return {} }
+  const raw = data.choices?.[0]?.message?.content?.trim()
+  if (!raw) throw new Error('OpenAI returned no visual direction')
+  try {
+    return JSON.parse(raw)
+  } catch {
+    throw new Error('OpenAI returned invalid visual direction JSON')
+  }
 }
 
 // ─── Context Builder ──────────────────────────────────────────────────────────
@@ -244,6 +254,7 @@ Always output valid JSON.`
 
   // ── Per-asset vision analysis ──
   const assetAnalyses: AssetAnalysis[] = []
+  let successfulImageAnalyses = 0
 
   for (const asset of imageAssets) {
     const userText = `Analyze this asset for the following campaign:
@@ -276,6 +287,7 @@ Return JSON with exactly these fields:
         adCopyHook: result.adCopyHook || '',
         captionSuggestion: result.captionSuggestion || '',
       })
+      successfulImageAnalyses += 1
     } catch (err) {
       console.error(`[visual-director] Asset analysis failed for ${asset.mediaId}:`, err)
       assetAnalyses.push({
@@ -292,6 +304,10 @@ Return JSON with exactly these fields:
         captionSuggestion: '',
       })
     }
+  }
+
+  if (imageAssets.length > 0 && successfulImageAnalyses === 0) {
+    throw new Error('No selected assets could be analyzed')
   }
 
   // ── Video stubs (vision not supported for video in V1) ──
@@ -369,16 +385,15 @@ Return JSON with exactly these fields:
   ]
 }`
 
-    try {
-      const result = await callOpenAI(overallSystemPrompt, overallPrompt, 1800)
-      overallCreativeDirection = result.overallCreativeDirection || ''
-      adCopyVariants = Array.isArray(result.adCopyVariants) ? result.adCopyVariants : []
-      captionFormulas = Array.isArray(result.captionFormulas) ? result.captionFormulas : []
-      topAssetsForCampaign = Array.isArray(result.topAssetsForCampaign) ? result.topAssetsForCampaign : []
-      assetBasedScripts = Array.isArray(result.assetBasedScripts) ? result.assetBasedScripts : []
-    } catch (err) {
-      console.error('[visual-director] Overall creative direction generation failed:', err)
+    const result = await callOpenAI(overallSystemPrompt, overallPrompt, 1800)
+    if (typeof result.overallCreativeDirection !== 'string' || !result.overallCreativeDirection.trim()) {
+      throw new Error('OpenAI returned an incomplete asset-based creative direction')
     }
+    overallCreativeDirection = result.overallCreativeDirection || ''
+    adCopyVariants = Array.isArray(result.adCopyVariants) ? result.adCopyVariants : []
+    captionFormulas = Array.isArray(result.captionFormulas) ? result.captionFormulas : []
+    topAssetsForCampaign = Array.isArray(result.topAssetsForCampaign) ? result.topAssetsForCampaign : []
+    assetBasedScripts = Array.isArray(result.assetBasedScripts) ? result.assetBasedScripts : []
   }
 
   return {
@@ -481,6 +496,13 @@ Return JSON with exactly these fields:
 Generate 6 imagePrompts and 5 storyboardScenes.`
 
   const result = await callOpenAI(systemPrompt, userPrompt, 3200)
+  if (
+    !Array.isArray(result.imagePrompts) || result.imagePrompts.length === 0 ||
+    !Array.isArray(result.storyboardScenes) || result.storyboardScenes.length === 0 ||
+    typeof result.productionBrief !== 'string' || !result.productionBrief.trim()
+  ) {
+    throw new Error('OpenAI returned an incomplete visual concept package')
+  }
   checkAndLog('visual-director', JSON.stringify(result), {
     brandName: ctx.brand?.name,
     industry: ctx.brand?.businessType,

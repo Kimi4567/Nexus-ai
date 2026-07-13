@@ -15,6 +15,7 @@ import {
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { guardBrandText, guardBrandList } from '@/lib/ai/brandTruthGuard'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 /* ═══════════════════════════════════════════════════════════════
    POST /api/brand/suggest
@@ -259,6 +260,10 @@ Rules:
       return NextResponse.json({ error: 'Unknown field' }, { status: 400 })
     }
 
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(locale), { status: 503 })
+    }
+
     // FLOW-03 fix: deduct 1 credit per AI suggest call (AD_COPY tier — same as VEX)
     const credit = await checkAndDeductCredits(user.id, 'AD_COPY')
     if (!credit.ok) return NextResponse.json(credit, { status: 402 })
@@ -285,6 +290,10 @@ Rules:
       }
       const completion = await res.json()
       const rawSuggestion: string = completion.choices?.[0]?.message?.content?.trim() || ''
+      if (!rawSuggestion) {
+        await refundDeductedCredits(user.id, credit, 'OpenAI returned no suggestion')
+        return NextResponse.json({ error: 'AI returned no suggestion' }, { status: 502 })
+      }
       // PR-G: deterministic truth guard — scrub invented metrics, downgrade fake
       // proof / overclaimed automation before it can be saved as brand truth.
       const suggestion = guardBrandText(rawSuggestion, allowedClaims)
@@ -310,7 +319,11 @@ Rules:
     }
     const completion = await res.json()
 
-    const raw: string = completion.choices?.[0]?.message?.content?.trim() || '[]'
+    const raw: string = completion.choices?.[0]?.message?.content?.trim() || ''
+    if (!raw) {
+      await refundDeductedCredits(user.id, credit, 'OpenAI returned no suggestions')
+      return NextResponse.json({ error: 'AI returned no suggestions' }, { status: 502 })
+    }
     const cleaned = raw.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim()
     let suggestions: string[] = []
     try {
@@ -333,6 +346,10 @@ Rules:
       }
     } catch {
       suggestions = []
+    }
+    if (suggestions.length === 0) {
+      await refundDeductedCredits(user.id, credit, 'OpenAI returned no usable suggestions')
+      return NextResponse.json({ error: 'AI returned no usable suggestions' }, { status: 502 })
     }
 
     // PR-G: same deterministic truth guard for array suggestions (hooks, angles,

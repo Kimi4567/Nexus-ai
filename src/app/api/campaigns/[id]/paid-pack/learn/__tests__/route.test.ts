@@ -76,6 +76,7 @@ function mockOpenAiJson(payload: unknown = learningPayload) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.stubEnv('OPENAI_API_KEY', 'test-openai-key')
   mockGetAuthUser.mockResolvedValue({ id: 'u1' })
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 2, creditsRemaining: 18 })
   mockRefund.mockResolvedValue(undefined)
@@ -119,6 +120,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
 })
 
 describe('POST /api/campaigns/[id]/paid-pack/learn — RF-4 refund safety', () => {

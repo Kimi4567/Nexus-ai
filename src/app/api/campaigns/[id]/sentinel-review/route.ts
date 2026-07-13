@@ -9,11 +9,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { runSentinelReview, SentinelReviewInput } from '@/lib/agents/sentinel-reviewer'
-import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCredits, type CreditDeductionOk } from '@/lib/credits'
 import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -47,13 +48,7 @@ export async function POST(req: NextRequest, props: Params) {
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // -- Unified credit check + deduction --------------------------------------
-  const credit = await checkAndDeductCredits(userId, 'SENTINEL_REVIEW')
-  if (!credit.ok) {
-    return NextResponse.json(credit, { status: 402 })
-  }
-  // --------------------------------------------------------------------------
-
+  let chargedCredit: CreditDeductionOk | null = null
   try {
     const body = await req.json().catch(() => ({}))
     const language: string = body.language || 'ar'
@@ -67,11 +62,7 @@ export async function POST(req: NextRequest, props: Params) {
         },
       },
     })
-    if (!campaign) {
-      // Charged but no work performed — refund (skip unlimited plans)
-      if (credit.creditsUsed > 0) await refundCredits(userId, 'SENTINEL_REVIEW', 'Campaign not found')
-      return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    }
+    if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const brand = campaign.workspace?.brandProfile
     const aiOutput = (campaign.aiOutput as any) || {}
@@ -145,6 +136,14 @@ export async function POST(req: NextRequest, props: Params) {
         undefined,
     }
 
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(language), { status: 503 })
+    }
+
+    const credit = await checkAndDeductCredits(userId, 'SENTINEL_REVIEW')
+    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
+    chargedCredit = credit
+
     const sentinelReview = await runSentinelReview(input)
 
     // Save to aiOutput.sentinelReview
@@ -169,11 +168,11 @@ export async function POST(req: NextRequest, props: Params) {
       },
     }).catch(() => {})
 
-    return NextResponse.json({ sentinelReview, creditsRemaining: credit.creditsRemaining })
+    return NextResponse.json({ sentinelReview, creditsRemaining: chargedCredit.creditsRemaining })
   } catch (err: any) {
     console.error('[sentinel-review POST]', err)
     // Refund — failed review must not charge the user (skip unlimited plans)
-    if (credit.creditsUsed > 0) await refundCredits(userId, 'SENTINEL_REVIEW')
-    return NextResponse.json({ error: err.message || 'Review failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
+    if (chargedCredit?.creditsUsed) await refundCredits(userId, 'SENTINEL_REVIEW')
+    return NextResponse.json({ error: err.message || 'Review failed', refunded: Boolean(chargedCredit?.creditsUsed) }, { status: 500 })
   }
 }

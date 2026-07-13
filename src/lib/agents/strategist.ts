@@ -390,8 +390,13 @@ async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 
   })
   if (!response.ok) throw new Error(`OpenAI error: ${response.status}`)
   const data = await response.json()
-  const content = data.choices?.[0]?.message?.content || '{}'
-  return JSON.parse(content)
+  const content = data.choices?.[0]?.message?.content?.trim()
+  if (!content) throw new Error('OpenAI returned no strategy')
+  try {
+    return JSON.parse(content)
+  } catch {
+    throw new Error('OpenAI returned invalid strategy JSON')
+  }
 }
 
 // ── Prompt builder (pure) ─────────────────────────────────────────────────────

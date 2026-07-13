@@ -16,6 +16,7 @@ import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { UNSUPPORTED_CLAIMS_RULES } from '@/lib/ai/promptRules'
 import { guardExtracted } from '@/lib/ai/brandTruthGuard'
 import { buildAssistSuggestions } from '@/lib/ai/assistSuggestions'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 export async function POST(req: NextRequest) {
   // Hoisted so any failure below the deduction refunds the user.
@@ -25,10 +26,14 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const { samples } = body as { samples?: string[] }
+    const { samples, language, locale } = body as { samples?: string[]; language?: string; locale?: string }
 
     if (!Array.isArray(samples) || samples.filter(s => s?.trim()).length === 0) {
       return NextResponse.json({ error: 'At least one content sample is required' }, { status: 400 })
+    }
+
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(locale || language), { status: 503 })
     }
 
     // Deduct 2 credits for content analysis
@@ -94,7 +99,11 @@ Return JSON with this exact structure:
     }
 
     const openaiData = await openaiRes.json()
-    const raw = openaiData.choices?.[0]?.message?.content?.trim() || '{}'
+    const raw = openaiData.choices?.[0]?.message?.content?.trim()
+    if (!raw) {
+      if (chargedUserId) await refundCredits(chargedUserId, 'CONTENT_ANALYSIS', 'Empty AI response')
+      return NextResponse.json({ error: 'AI returned no analysis', refunded: !!chargedUserId }, { status: 502 })
+    }
 
     let extracted: Record<string, unknown> = {}
     try {
@@ -103,6 +112,10 @@ Return JSON with this exact structure:
     } catch {
       if (chargedUserId) await refundCredits(chargedUserId, 'CONTENT_ANALYSIS', 'Unparseable AI response')
       return NextResponse.json({ error: 'Failed to parse AI response', refunded: !!chargedUserId }, { status: 500 })
+    }
+    if (Object.keys(extracted).length === 0) {
+      if (chargedUserId) await refundCredits(chargedUserId, 'CONTENT_ANALYSIS', 'Incomplete AI response')
+      return NextResponse.json({ error: 'AI returned an incomplete analysis', refunded: !!chargedUserId }, { status: 502 })
     }
 
     // PR-G: deterministic truth guard. The submitted samples are the allowed

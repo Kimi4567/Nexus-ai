@@ -27,6 +27,7 @@ import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { getBrandBrainGenerationSafety } from '@/lib/brandBrainGenerationSafety'
 import { readLockedCampaignAllowance, type CampaignAllowance } from '@/lib/campaignCommercial'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 // Strategy generation can legitimately need a second contract-repair pass before
 // anything is charged or persisted. The old 60s ceiling killed successful runs
@@ -392,6 +393,10 @@ export async function POST(req: NextRequest) {
       (body?.language as string | undefined) ||
       userPrefs?.language ||
       'ar'
+
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(language), { status: 503 })
+    }
 
     // ── PR-S1c-3 — deterministic deliverables contract → BINDING generation scope ──
     // Reuse the SAME validated order that priced the run (charge.order), enrich its

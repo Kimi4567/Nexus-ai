@@ -27,6 +27,7 @@ import {
 } from '@/lib/contentPlanGeneration'
 import { sendContentPlanReadyEmail } from '@/lib/email/resend'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { buildProofPolicyPrompt, guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import {
   buildContentDraftTruthPolicyPrompt,
@@ -226,6 +227,13 @@ export async function POST(req: NextRequest, props: Params) {
       }, { status: 403 })
     }
 
+    const body = await req.json().catch(() => ({}))
+    const bodyLanguage: string = body.language ?? aiOutput?.language ?? ''
+
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(bodyLanguage), { status: 503 })
+    }
+
     // ── 4. Deduct credits (flat 2 credits per content plan generation) ────
     const creditCheck = await checkAndDeductCredits(userId, 'CONTENT_PLAN_GENERATION')
     if (!creditCheck.ok) {
@@ -266,7 +274,6 @@ export async function POST(req: NextRequest, props: Params) {
     const offer = strategyForContent.primaryOffer ?? strategyForContent.cta ?? ''
 
     // ── 5. Check for uploaded media the user wants to use ─────────────────
-    const body = await req.json().catch(() => ({}))
     const mediaSource: 'GENERATE' | 'UPLOAD' | 'MIXED' = body.mediaSource ?? 'GENERATE'
     const hasExplicitMediaSelection = Array.isArray(body.selectedMediaIds) || Array.isArray(aiOutput?.selectedMediaIds)
     const persistedSelectedMediaIds = Array.isArray(aiOutput?.selectedMediaIds)
@@ -278,7 +285,6 @@ export async function POST(req: NextRequest, props: Params) {
     const enableABTesting: boolean = body.enableABTesting ?? false
 
     // OC3: Accept language + contentMix from organic content wizard
-    const bodyLanguage: string = body.language ?? aiOutput?.language ?? ''            // 'ar' | 'en' | 'bilingual'
     const contentMix: { educational?: number; promotional?: number; engagement?: number } =
       body.contentMix ?? {}
     const educationalPct  = contentMix.educational  ?? 35
@@ -843,6 +849,8 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
             response_format: { type: 'json_object' },
           }),
         })
+        if (!bRes.ok) throw new Error(`OpenAI B-variant generation failed (${bRes.status})`)
+
         const bData = await bRes.json()
         let bPosts: any[] = []
         try {
@@ -852,11 +860,14 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
             proofContext,
           )
         } catch { bPosts = [] }
+        if (bPosts.length !== imageSlotsWithAB.length) {
+          throw new Error('OpenAI returned an incomplete B-variant set')
+        }
 
         const bVariantsToCreate = imageSlotsWithAB.map(({ slot, i }, bIdx) => {
           const gen = generatedPosts[i] ?? generatedPosts.find((g: any) => g.index === slot.index) ?? {}
           const bGen = bPosts[bIdx] ?? bPosts.find((b: any) => b.index === i) ?? {}
-          const caption = guardContentDraftText(bGen.caption ?? gen.caption ?? `B Variant Post ${i + 1}`, proofContext)
+          const caption = guardContentDraftText(bGen.caption, proofContext)
           const imagePrompt = renderContentPlanDraftImagePrompt(gen, {
             ...proofContext,
             isArabic,

@@ -22,6 +22,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 const db = prisma as any  // eslint-disable-line @typescript-eslint/no-explicit-any
 
 // ─── Field definitions — legacy storage fields with safe user-facing labels ───
@@ -49,6 +50,12 @@ export async function POST(req: NextRequest) {
 
     if (!trigger || !payload) {
       return NextResponse.json({ error: 'Missing trigger or payload' }, { status: 400 })
+    }
+    if (trigger !== 'strategy' && trigger !== 'approved_content') {
+      return NextResponse.json({
+        error: 'This endpoint accepts only strategy or approved_content review signals.',
+        code: 'UNSUPPORTED_LEARNING_TRIGGER',
+      }, { status: 400 })
     }
 
     // Get workspace
@@ -80,6 +87,10 @@ export async function POST(req: NextRequest) {
       }
     } catch { /* non-fatal — proceed if count fails */ }
     // ─────────────────────────────────────────────────────────────────────────
+
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(body.language), { status: 503 })
+    }
 
     // ── Cost log (gpt-4o, max_tokens: 1200, ~$0.015/call) ────────────────────
     console.log(`[brain/learn] COST trigger=${trigger} workspace=${workspace.id} model=gpt-4o estimated=$0.015`)
@@ -199,14 +210,17 @@ Return [] if not enough signal.
           response_format: { type: 'json_object' },
         }),
       })
+      if (!aiRes.ok) throw new Error(`OpenAI signal extraction failed (${aiRes.status})`)
+
       const aiData = await aiRes.json() as { choices?: Array<{ message?: { content?: string } }> }
 
-      const raw = aiData.choices?.[0]?.message?.content || '{}'
+      const raw = aiData.choices?.[0]?.message?.content?.trim()
+      if (!raw) throw new Error('OpenAI returned no Brand Brain signals')
       let parsed: unknown
       try {
         parsed = JSON.parse(raw)
       } catch {
-        parsed = {}
+        throw new Error('OpenAI returned invalid Brand Brain signal JSON')
       }
 
       // Handle both { proposals: [...] } and direct array
@@ -214,10 +228,16 @@ Return [] if not enough signal.
         proposals = parsed
       } else if (parsed && typeof parsed === 'object' && 'proposals' in parsed && Array.isArray((parsed as Record<string, unknown>).proposals)) {
         proposals = (parsed as { proposals: Array<{ field: string; proposed: unknown; reason: string }> }).proposals
+      } else {
+        throw new Error('OpenAI returned an incomplete Brand Brain signal response')
       }
     } catch (aiErr) {
       console.error('[brain/learn] AI extraction failed:', aiErr)
-      return NextResponse.json({ proposals: [], message: 'AI extraction failed' })
+      return NextResponse.json({
+        error: 'Brand Brain signal extraction failed. No learning was saved.',
+        code: 'AI_SIGNAL_EXTRACTION_FAILED',
+        proposals: [],
+      }, { status: 502 })
     }
 
     // ── Validate and filter proposals ────────────────────────────────────────

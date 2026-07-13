@@ -103,6 +103,7 @@ const campaign = {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.stubEnv('OPENAI_API_KEY', 'test-openai-key')
   delete process.env.FAL_KEY
   mockGetServerUserId.mockResolvedValue('u1')
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 3, creditsRemaining: 17 })
@@ -133,9 +134,23 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
 })
 
 describe('POST /api/visuals/generate — RF-5 refund safety', () => {
+  it('missing image providers returns 503 before credit deduction', async () => {
+    vi.stubEnv('OPENAI_API_KEY', '')
+    vi.stubEnv('FAL_KEY', '')
+
+    const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(json).toMatchObject({ code: 'IMAGE_PROVIDER_UNAVAILABLE', creditsCharged: false })
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockGenerateWithDallE).not.toHaveBeenCalled()
+  })
+
   it('unauthenticated request does not deduct credits', async () => {
     mockGetServerUserId.mockResolvedValue(null)
 

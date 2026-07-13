@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockGetAuthUser,
@@ -57,6 +57,7 @@ function mockProvider(content: string, ok = true, status = 200) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.stubEnv('OPENAI_API_KEY', 'test-openai-key')
   mockGetAuthUser.mockResolvedValue({ id: 'u1' })
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 2, creditsRemaining: 18 })
   mockRefund.mockResolvedValue(undefined)
@@ -68,6 +69,11 @@ beforeEach(() => {
   mockPrisma.brandProfile.findUnique.mockResolvedValue(null)
   mockPrisma.ad.create.mockResolvedValue({ id: 'ad_1' })
   mockProvider(JSON.stringify({ variants: [{ id: 'v1', label: 'Variant', primaryText: 'Copy' }] }))
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
 })
 
 describe('POST /api/ad-campaigns/[id]/generate-copy — RF-3 refund safety', () => {

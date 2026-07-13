@@ -12,7 +12,7 @@
  * (auth, prisma, orchestrator, rate limit, readiness, memory) is mocked.
  */
 
-import { vi, describe, it, expect, beforeEach } from 'vitest'
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 
 const {
   mockGetAuthUser, mockAiRateLimitDb, mockCheckAndDeduct, mockRefundForTxn, mockIsWalletEnabled,
@@ -68,6 +68,7 @@ const makeReq = (body: Record<string, unknown> = {}) => ({ json: async () => bod
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.stubEnv('OPENAI_API_KEY', 'test-openai-key')
   mockGetAuthUser.mockResolvedValue({ id: 'u1' })
   mockAiRateLimitDb.mockResolvedValue({ ok: true })
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 14, creditsRemaining: 86, isUnlimited: false })
@@ -116,7 +117,25 @@ beforeEach(() => {
   })
 })
 
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
+
 describe('POST /api/strategy/run-full — variable charge', () => {
+  it('missing provider returns 503 before orchestration or credit deduction', async () => {
+    vi.stubEnv('OPENAI_API_KEY', '')
+
+    const res = await POST(makeReq({
+      language: 'en', strategyType: 'organic', strategyDuration: '90', contentIntensity: 'standard',
+    }))
+    const json = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(json).toMatchObject({ code: 'AI_PROVIDER_UNAVAILABLE', creditsCharged: false })
+    expect(mockRunFullAgency).not.toHaveBeenCalled()
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+  })
+
   it('6. blocks unsupported custom > 180 days with 422 BEFORE any deduction', async () => {
     const res = await POST(makeReq({
       strategyType: 'organic', strategyDuration: 'custom', customDurationDays: 365, contentIntensity: 'standard',

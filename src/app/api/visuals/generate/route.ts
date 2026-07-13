@@ -37,6 +37,7 @@ import type { VisualAssetRole } from '@/lib/ai/imageGen'
 import { generateWithFlux, platformToFluxSize, platformToOpenAISize } from '@/lib/ai/falGen'
 import { platformToOverlay } from '@/lib/cloudinaryOverlay'
 import { composeBrandedPost, bufferToDataUri } from '@/lib/brandComposite'
+import { getImageProviderUnavailablePayload, isImageProviderConfigured } from '@/lib/ai/provider'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -213,6 +214,10 @@ export async function POST(req: NextRequest) {
   // future editable/template composition, not trusted inside AI raster output.
   const { prompt, language, concept } = await buildImagePrompt(ctx)
 
+  if (!isImageProviderConfigured()) {
+    return NextResponse.json(getImageProviderUnavailablePayload(language), { status: 503 })
+  }
+
   // ── Deduct credits before expensive DALL-E call ───────────────────────────
   const credit = await checkAndDeductCredits(userId, 'IMAGE_GENERATION')
   if (!credit.ok) return NextResponse.json(credit, { status: 402 })
@@ -243,11 +248,13 @@ export async function POST(req: NextRequest) {
     console.error('[visuals/generate] DB create error (table may not exist yet):', dbErr)
     // Proceed without DB persistence — useful during schema migrations
     try {
-      const dalleUrl = await generateWithDallE(prompt)
+      const fallbackUrl = process.env.FAL_KEY
+        ? (await generateWithFlux({ prompt, imageSize: platformToFluxSize(platform) })).imageUrl
+        : await generateWithDallE(prompt, platformToOpenAISize(platform))
       return NextResponse.json({
         visual: {
           id: `temp-${Date.now()}`,
-          imageUrl: dalleUrl,
+          imageUrl: fallbackUrl,
           status: 'COMPLETED',
           visualType,
           visualStyle,

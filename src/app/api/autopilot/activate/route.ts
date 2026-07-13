@@ -5,6 +5,7 @@ import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } fro
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { getStrategyApprovalContract, StrategyApprovalError } from '@/lib/strategyApprovalService'
 import { readLockedPlannedPostAllowance } from '@/lib/postCommercial'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 /* ═══════════════════════════════════════════════════════════════════════════
    POST /api/autopilot/activate
@@ -60,28 +61,28 @@ CTA: ${cta}
 
 Write a ready-to-publish caption. Output ONLY the caption text, no labels or explanation.`
 
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: 200,
-        temperature: 0.75,
-      }),
-    })
-    const data = await res.json()
-    return data.choices?.[0]?.message?.content?.trim() || `${keyMessage}\n\n${cta}`
-  } catch {
-    return `${keyMessage}\n\n${cta}`
-  }
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: 200,
+      temperature: 0.75,
+    }),
+  })
+  if (!res.ok) throw new Error(`OpenAI caption generation failed (${res.status})`)
+
+  const data = await res.json()
+  const caption = data.choices?.[0]?.message?.content?.trim()
+  if (!caption) throw new Error('OpenAI returned no caption')
+  return caption
 }
 
 export async function POST(req: NextRequest) {
@@ -192,6 +193,10 @@ export async function POST(req: NextRequest) {
         resetsAt: initialPostAllowance.periodEnd.toISOString(),
         upgradeUrl: '/billing',
       }, { status: 403 })
+    }
+
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(language), { status: 503 })
     }
 
     // Rate-limit and charge only after every no-cost validation has passed.

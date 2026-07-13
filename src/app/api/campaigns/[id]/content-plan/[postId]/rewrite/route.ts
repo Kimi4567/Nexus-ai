@@ -16,6 +16,7 @@ import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { validateRewriteConfirmation } from '@/lib/contentHubActionSafety'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 type Params = { params: Promise<{ id: string; postId: string }> }
 
@@ -47,10 +48,11 @@ export async function POST(req: NextRequest, props: Params) {
   // Hoisted so the catch can refund a charged-but-failed rewrite.
   let rewriteCharged = false
   try {
-    const { instruction, explicitRewriteConfirmed, acknowledgedCreditCost } = await req.json().catch(() => ({
+    const { instruction, explicitRewriteConfirmed, acknowledgedCreditCost, language } = await req.json().catch(() => ({
       instruction: '',
       explicitRewriteConfirmed: false,
       acknowledgedCreditCost: undefined,
+      language: undefined,
     }))
 
     // ── 1. Verify post ownership ───────────────────────────────────────────
@@ -84,6 +86,11 @@ export async function POST(req: NextRequest, props: Params) {
     })
     if (!confirmation.ok) {
       return NextResponse.json({ error: confirmation.error, code: 'CONFIRMATION_REQUIRED' }, { status: 400 })
+    }
+
+    if (!isAiProviderConfigured()) {
+      const outputLanguage = language || (post.campaign as any)?.aiOutput?.language
+      return NextResponse.json(getAiProviderUnavailablePayload(outputLanguage), { status: 503 })
     }
 
     // ── 2. Deduct 1 credit ─────────────────────────────────────────────────
@@ -169,14 +176,14 @@ ${post.caption}${instruction ? `\n\nRewrite instruction: ${instruction}` : '\n\n
     if (!chatRes.ok) {
       const errText = await chatRes.text()
       console.error('[rewrite] OpenAI error:', errText)
-      return NextResponse.json({ error: 'AI generation failed' }, { status: 502 })
+      throw new Error(`OpenAI rewrite failed (${chatRes.status})`)
     }
 
     const chatData = await chatRes.json()
     const newCaption = chatData.choices?.[0]?.message?.content?.trim()
 
     if (!newCaption) {
-      return NextResponse.json({ error: 'AI returned empty response' }, { status: 502 })
+      throw new Error('OpenAI returned an empty rewrite')
     }
 
     // Enforce character limit (graceful truncation at word boundary)

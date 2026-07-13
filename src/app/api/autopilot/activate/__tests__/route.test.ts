@@ -92,6 +92,7 @@ const campaign = {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.stubEnv('OPENAI_API_KEY', 'test-openai-key')
   mocks.adminGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
   mocks.workspaceFindFirst.mockResolvedValue(workspace)
   mocks.campaignFindFirst.mockResolvedValue(campaign)
@@ -108,12 +109,14 @@ beforeEach(() => {
   mocks.tx.socialPost.create.mockImplementation(async ({ data }) => ({ id: 'post-1', ...data }))
   mocks.tx.campaignActivity.create.mockResolvedValue({})
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+    ok: true,
     json: async () => ({ choices: [{ message: { content: 'Prepared caption' } }] }),
   }))
 })
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
 })
 
 describe('POST /api/autopilot/activate', () => {

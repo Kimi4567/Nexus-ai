@@ -13,6 +13,7 @@ import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { suggestRateLimitDb } from '@/lib/dbRateLimit'
 import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -37,7 +38,9 @@ async function callGPT(system: string, user: string): Promise<string> {
   })
   if (!res.ok) throw new Error(`OpenAI error: ${res.status}`)
   const data = await res.json()
-  return data.choices?.[0]?.message?.content ?? '{}'
+  const content = data.choices?.[0]?.message?.content?.trim()
+  if (!content) throw new Error('OpenAI returned no campaign suggestion')
+  return content
 }
 
 export async function POST(req: NextRequest) {
@@ -87,7 +90,13 @@ export async function POST(req: NextRequest) {
         missingBrandBrain: true,
         requiresBudgetConfirmation: true,
         requiresCurrencyConfirmation: true,
+        providerGenerated: false,
+        recommendationSource: 'deterministic_onboarding_default',
       })
+    }
+
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(isMENA ? 'ar' : 'en'), { status: 503 })
     }
 
     const brandCtx = buildBrandExecutionContext(brandProfile)
@@ -122,7 +131,16 @@ Return JSON:
     try {
       suggestion = JSON.parse(raw)
     } catch {
-      // Fallback if GPT returns invalid JSON
+      suggestion = {}
+    }
+
+    const providerSuggestionComplete =
+      typeof suggestion.platform === 'string' &&
+      typeof suggestion.objective === 'string' &&
+      typeof suggestion.name === 'string' &&
+      typeof suggestion.rationale === 'string'
+
+    if (!providerSuggestionComplete) {
       return NextResponse.json({
         platform: 'META',
         objective: 'LEAD_GENERATION',
@@ -133,19 +151,23 @@ Return JSON:
         rationale: 'Planning recommendation based on confirmed Brand Brain inputs. Budget and currency still require confirmation.',
         requiresBudgetConfirmation: true,
         requiresCurrencyConfirmation: true,
+        providerGenerated: false,
+        recommendationSource: 'deterministic_brand_defaults',
       })
     }
 
     return NextResponse.json({
-      platform: suggestion.platform || 'META',
-      objective: suggestion.objective || 'LEAD_GENERATION',
+      platform: suggestion.platform,
+      objective: suggestion.objective,
       dailyBudget: null,
       currency: String(suggestion.currency || 'USD'),
-      name: String(suggestion.name || `${brandProfile.brandName} Campaign`),
+      name: suggestion.name,
       language: String(suggestion.language || 'en'),
-      rationale: String(suggestion.rationale || ''),
+      rationale: suggestion.rationale,
       requiresBudgetConfirmation: true,
       requiresCurrencyConfirmation: true,
+      providerGenerated: true,
+      recommendationSource: 'openai',
     })
   } catch (err) {
     console.error('[ai-suggest]', err)
