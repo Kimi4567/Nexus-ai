@@ -864,17 +864,17 @@ export async function getUsageSummary(userId: string): Promise<UsageSummary> {
       db.creditTransaction.count({ where: { userId, amount: { lt: 0 } } }).catch(() => 0),
       db.creditTransaction.findMany({
         where: { userId, createdAt: { gte: start } },
-        select: { amount: true, entityType: true },
+        select: { action: true, amount: true, entityType: true },
       }).catch(() => []),
     ])
 
     let generationsThisMonth = 0
     let creditsUsedThisMonth = 0
-    for (const t of monthTxns as Array<{ amount: number; entityType: string | null }>) {
+    for (const t of monthTxns as Array<{ action?: string; amount: number; entityType: string | null }>) {
       if (t.amount < 0) {
         generationsThisMonth += 1
         creditsUsedThisMonth += -t.amount
-      } else if (t.entityType === 'refund') {
+      } else if (t.action === 'REFUND' || t.entityType === 'refund') {
         // A refund cancels a failed attempt — don't count it as a generation or as used credit.
         generationsThisMonth -= 1
         creditsUsedThisMonth -= t.amount
@@ -903,11 +903,11 @@ export async function getMonthlyActivity(
   const now = new Date()
   const start = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1)
   const db = prisma as any
-  const txns: Array<{ amount: number; entityType: string | null; createdAt: Date }> =
+  const txns: Array<{ action?: string; amount: number; entityType: string | null; createdAt: Date }> =
     await db.creditTransaction
       .findMany({
         where: { userId, createdAt: { gte: start } },
-        select: { amount: true, entityType: true, createdAt: true },
+        select: { action: true, amount: true, entityType: true, createdAt: true },
       })
       .catch(() => [])
 
@@ -917,7 +917,7 @@ export async function getMonthlyActivity(
     const key = `${d.getFullYear()}-${d.getMonth() + 1}`
     const b = buckets.get(key) ?? { generations: 0, creditsUsed: 0 }
     if (t.amount < 0) { b.generations += 1; b.creditsUsed += -t.amount }
-    else if (t.entityType === 'refund') { b.generations -= 1; b.creditsUsed -= t.amount }
+    else if (t.action === 'REFUND' || t.entityType === 'refund') { b.generations -= 1; b.creditsUsed -= t.amount }
     buckets.set(key, b)
   }
 
