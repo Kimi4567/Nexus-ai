@@ -27,6 +27,13 @@ import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { getBrandBrainGenerationSafety } from '@/lib/brandBrainGenerationSafety'
 
+// Strategy generation can legitimately need a second contract-repair pass before
+// anything is charged or persisted. The old 60s ceiling killed successful runs
+// after the contract had passed but before the campaign transaction could start.
+// Vercel Fluid Compute supports this duration on every current plan; keep enough
+// headroom for the AI call, the atomic credit charge, and the persistence work.
+export const maxDuration = 180
+
 function isArabicLanguage(language: unknown): boolean {
   return typeof language === 'string' && language.toLowerCase().startsWith('ar')
 }

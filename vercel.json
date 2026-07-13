@@ -102,7 +102,7 @@
       "maxDuration": 60
     },
     "src/app/api/strategy/run-full/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 180
     },
     "src/app/api/campaigns/[id]/generate-content-plan/route.ts": {
       "maxDuration": 60

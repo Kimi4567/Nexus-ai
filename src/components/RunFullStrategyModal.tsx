@@ -445,7 +445,12 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
         .catch(() => {
           if (!cancelled) {
             setPhase('error')
-            setResult({ ok: false, error: 'Network error. Please check your connection.' })
+            setResult({
+              ok: false,
+              error: locale === 'ar'
+                ? 'تعذر اكتمال الاتصال أثناء إنشاء الاستراتيجية. لم تُحفظ استراتيجية جديدة. تحقق من رصيدك ثم أعد المحاولة.'
+                : 'The connection ended before strategy creation completed. No new strategy was saved. Check your credit balance, then retry.',
+            })
           }
         })
     }
