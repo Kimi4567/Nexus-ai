@@ -212,6 +212,7 @@ export default function BillingPage() {
     status: string
     hasActiveSubscription: boolean
     billingEnabled?: boolean
+    billingMode?: 'disabled' | 'sandbox' | 'live'
     creditPurchasesEnabled?: boolean
     creditBreakdown?: {
       monthly: number
@@ -413,19 +414,24 @@ export default function BillingPage() {
         />
 
         {/* ── Current plan status ─────────────────────────────────────────── */}
-        {!loading && !billingEnabled && (
+        {!loading && (billingStatus?.billingMode === 'sandbox' || !billingEnabled) && (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <div className="flex items-start gap-3">
               <Shield className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold text-amber-900">
-                  {ar ? 'وضع البيتا مفعّل' : 'Beta billing mode'}
+                  {billingStatus?.billingMode === 'sandbox'
+                    ? ar ? 'وضع Stripe التجريبي مفعّل' : 'Stripe Sandbox is active'
+                    : ar ? 'وضع البيتا مفعّل' : 'Beta billing mode'}
                 </p>
                 <p className="text-sm text-amber-800 mt-1">
-                  {ar
-                    ? 'الدفع الحقيقي غير مفعّل حتى اكتمال الإعدادات القانونية وStripe. الحسابات المجانية والأرصدة التجريبية تعمل بشكل طبيعي.'
-                    : 'Live payments are disabled until legal and Stripe setup is complete. Free accounts and trial credits continue to work normally.'
-                  }
+                  {billingStatus?.billingMode === 'sandbox'
+                    ? ar
+                      ? 'كل عمليات الدفع هنا تجريبية ولا تخصم أموالاً حقيقية. استخدم بيانات اختبار Stripe فقط.'
+                      : 'All payments here are tests and no real money is charged. Use Stripe test payment details only.'
+                    : ar
+                      ? 'الدفع الحقيقي غير مفعّل حتى اكتمال الإعدادات القانونية وStripe. الحسابات المجانية والأرصدة التجريبية تعمل بشكل طبيعي.'
+                      : 'Live payments are disabled until legal and Stripe setup is complete. Free accounts and trial credits continue to work normally.'}
                 </p>
               </div>
             </div>

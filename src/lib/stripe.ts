@@ -33,6 +33,11 @@ export function isBillingConfigured(): boolean {
   return billingFlag !== 'false' && Boolean(stripeSecretKey)
 }
 
+export function getBillingMode(): 'disabled' | 'sandbox' | 'live' {
+  if (!isBillingConfigured()) return 'disabled'
+  return stripeSecretKey?.includes('_test_') ? 'sandbox' : 'live'
+}
+
 export function getStripeClient(): Stripe {
   if (!stripeSecretKey) {
     throw new Error('Stripe billing is not configured. Missing STRIPE_SECRET_KEY.')

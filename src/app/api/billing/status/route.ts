@@ -5,7 +5,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
-import { isBillingConfigured, isCreditWalletPurchaseConfigured, PLAN_CREDITS } from '@/lib/stripe'
+import {
+  getBillingMode,
+  isBillingConfigured,
+  isCreditWalletPurchaseConfigured,
+  PLAN_CREDITS,
+} from '@/lib/stripe'
 import { resolveBillingStatusPlan } from '@/lib/billingStatusPlan'
 import { FREE_STARTER_CREDITS } from '@/lib/credits'
 import { isCreditWalletEnabled } from '@/lib/credits/wallet'
@@ -143,6 +148,7 @@ export async function GET(req: NextRequest) {
       status: dbUser.subscriptionStatus,
       hasActiveSubscription: isActive,
       billingEnabled: isBillingConfigured(),
+      billingMode: getBillingMode(),
       creditPurchasesEnabled:
         walletEnabled && isBillingConfigured() && isCreditWalletPurchaseConfigured(),
       creditBreakdown,
