@@ -635,16 +635,16 @@ export async function generateWithDallE(
 
 /**
  * Upload a data URI or URL to Cloudinary for permanent storage.
- * Falls back gracefully if Cloudinary is not configured.
+ * Fails closed: callers must never persist a base64 payload or provider-
+ * temporary URL as if it were durable media.
  */
 export async function uploadToCloudinary(imageUrl: string, publicId: string): Promise<string> {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
   const apiKey    = process.env.CLOUDINARY_API_KEY
   const apiSecret = process.env.CLOUDINARY_API_SECRET
 
   if (!cloudName || !apiKey || !apiSecret) {
-    console.warn('[imageGen] Cloudinary not configured — image will be ephemeral')
-    return imageUrl
+    throw new Error('Cloudinary permanent media storage is not configured')
   }
 
   const timestamp = Math.round(Date.now() / 1000)
@@ -670,9 +670,14 @@ export async function uploadToCloudinary(imageUrl: string, publicId: string): Pr
   if (!uploadRes.ok) {
     const cloudErr = await uploadRes.json().catch(() => ({}))
     console.error('[imageGen] Cloudinary upload failed:', cloudErr)
-    return imageUrl
+    const message = (cloudErr as { error?: { message?: string } })?.error?.message
+    throw new Error(message ? `Cloudinary upload failed: ${message}` : `Cloudinary upload failed: ${uploadRes.status}`)
   }
 
   const uploadData = await uploadRes.json()
-  return (uploadData as { secure_url?: string }).secure_url || imageUrl
+  const secureUrl = (uploadData as { secure_url?: unknown }).secure_url
+  if (typeof secureUrl !== 'string' || !secureUrl.startsWith('https://')) {
+    throw new Error('Cloudinary upload returned no permanent HTTPS URL')
+  }
+  return secureUrl
 }

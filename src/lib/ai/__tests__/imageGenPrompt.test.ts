@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const { mockExtractVisualConcept } = vi.hoisted(() => ({
   mockExtractVisualConcept: vi.fn(),
@@ -17,8 +17,14 @@ import {
   IMAGE_OUTPUT_CLASSIFICATION,
   normalizeTextFreeCentralElement,
   TEXT_FREE_BACKGROUND_IMAGE_CONSTRAINTS,
+  uploadToCloudinary,
   wrapPromptWithTextFreeBackgroundContract,
 } from '@/lib/ai/imageGen'
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+  vi.unstubAllGlobals()
+})
 
 describe('imageGen prompt contract', () => {
   it('converts dashboard and infographic directions into a raster-safe physical scene', () => {
@@ -231,5 +237,45 @@ describe('imageGen prompt contract', () => {
     expect(wrapped).toContain('Coffee background')
     expect(wrapped).toContain('Do not include logos')
     expect(IMAGE_OUTPUT_CLASSIFICATION).toBe('draft_background_for_review')
+  })
+})
+
+describe('imageGen permanent media contract', () => {
+  it('fails closed when Cloudinary is not configured', async () => {
+    vi.stubEnv('CLOUDINARY_CLOUD_NAME', '')
+    vi.stubEnv('NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME', '')
+    vi.stubEnv('CLOUDINARY_API_KEY', '')
+    vi.stubEnv('CLOUDINARY_API_SECRET', '')
+
+    await expect(uploadToCloudinary('data:image/png;base64,raw', 'visual_1'))
+      .rejects.toThrow('permanent media storage is not configured')
+  })
+
+  it('never falls back to a provider URL when Cloudinary rejects the upload', async () => {
+    vi.stubEnv('CLOUDINARY_CLOUD_NAME', 'test-cloud')
+    vi.stubEnv('CLOUDINARY_API_KEY', 'test-key')
+    vi.stubEnv('CLOUDINARY_API_SECRET', 'test-secret')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: async () => ({ error: { message: 'storage unavailable' } }),
+    }))
+
+    await expect(uploadToCloudinary('https://temporary.provider/image.jpg', 'visual_2'))
+      .rejects.toThrow('Cloudinary upload failed: storage unavailable')
+  })
+
+  it('requires a permanent HTTPS URL in a successful Cloudinary response', async () => {
+    vi.stubEnv('CLOUDINARY_CLOUD_NAME', 'test-cloud')
+    vi.stubEnv('CLOUDINARY_API_KEY', 'test-key')
+    vi.stubEnv('CLOUDINARY_API_SECRET', 'test-secret')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+    }))
+
+    await expect(uploadToCloudinary('data:image/png;base64,raw', 'visual_3'))
+      .rejects.toThrow('no permanent HTTPS URL')
   })
 })

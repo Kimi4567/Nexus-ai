@@ -275,6 +275,36 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     expect(mockRefund).not.toHaveBeenCalled()
   })
 
+  it('permanent storage failure never persists a provider URL and refunds exactly once', async () => {
+    mockCheckAndDeduct.mockResolvedValue({
+      ok: true,
+      creditsUsed: 3,
+      creditsRemaining: 17,
+      transactionId: 'txn_storage',
+    })
+    mockUploadToCloudinary.mockReset().mockRejectedValue(new Error('Cloudinary upload failed'))
+
+    const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(500)
+    expect(json).toMatchObject({ error: 'Cloudinary upload failed', refunded: true })
+    expect(mockPrisma.generatedVisual.update).toHaveBeenCalledWith({
+      where: { id: 'visual_1' },
+      data: { status: 'FAILED', errorMessage: 'Cloudinary upload failed' },
+    })
+    expect(mockPrisma.generatedVisual.update).not.toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: 'COMPLETED' }),
+    }))
+    expect(mockRefundForTxn).toHaveBeenCalledTimes(1)
+    expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      transactionId: 'txn_storage',
+      reason: 'Cloudinary upload failed',
+    }))
+    expect(mockRefund).not.toHaveBeenCalled()
+  })
+
   it('DB create failure refunds via transactionId without creating an untracked image', async () => {
     mockCheckAndDeduct.mockResolvedValue({
       ok: true,
