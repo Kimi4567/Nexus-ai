@@ -17,7 +17,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest'
 const {
   mockGetAuthUser, mockAiRateLimitDb, mockCheckAndDeduct, mockRefundForTxn, mockIsWalletEnabled,
   mockRunFullAgency, mockReadiness, mockGetMemories, mockFormatMemories,
-  mockPrisma,
+  mockPrisma, mockReadCampaignAllowance,
 } = vi.hoisted(() => ({
   mockGetAuthUser: vi.fn(),
   mockAiRateLimitDb: vi.fn(),
@@ -28,7 +28,9 @@ const {
   mockReadiness: vi.fn(),
   mockGetMemories: vi.fn(),
   mockFormatMemories: vi.fn(),
+  mockReadCampaignAllowance: vi.fn(),
   mockPrisma: {
+    $transaction: vi.fn(),
     workspace: { findFirst: vi.fn() },
     brandProfile: { findUnique: vi.fn() },
     user: { findUnique: vi.fn(), update: vi.fn() },
@@ -57,6 +59,7 @@ vi.mock('@/lib/ai/strategyKpiGuard', () => ({
   normalizeStrategyIntent: () => ({ strategyType: 'organic', strategyDuration: '90' }),
 }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
+vi.mock('@/lib/campaignCommercial', () => ({ readLockedCampaignAllowance: mockReadCampaignAllowance }))
 // NOTE: resolveStrategyCharge is NOT mocked — real pricing runs.
 
 import { POST } from '../route'
@@ -73,6 +76,14 @@ beforeEach(() => {
   mockReadiness.mockReturnValue({ ready: true, missingRequired: [], score: 80 })
   mockGetMemories.mockResolvedValue([])
   mockFormatMemories.mockReturnValue(undefined)
+  mockReadCampaignAllowance.mockResolvedValue({
+    limit: 10,
+    current: 0,
+    periodStart: new Date('2026-07-01T00:00:00.000Z'),
+    periodEnd: new Date('2026-08-01T00:00:00.000Z'),
+    plan: 'ACTIVE',
+  })
+  mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma))
   mockPrisma.workspace.findFirst.mockResolvedValue({ id: 'w1', ownerId: 'u1' })
   mockPrisma.brandProfile.findUnique.mockResolvedValue({
     brandName: 'B',
@@ -171,6 +182,31 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     expect(json.currentCredits).toBe(7)
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
     expect(mockRunFullAgency).not.toHaveBeenCalled()
+  })
+
+  it('blocks the campaign limit before AI generation, charging, or persistence', async () => {
+    mockReadCampaignAllowance.mockResolvedValue({
+      limit: 1,
+      current: 1,
+      periodStart: new Date('2026-07-01T00:00:00.000Z'),
+      periodEnd: new Date('2026-08-01T00:00:00.000Z'),
+      plan: 'FREE',
+    })
+
+    const res = await POST(makeReq({
+      language: 'ar',
+      strategyType: 'organic',
+      strategyDuration: '30',
+      contentIntensity: 'light',
+    }))
+    const json = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(json.error).toBe('CAMPAIGN_LIMIT_REACHED')
+    expect(json.message).toMatch(/لم يبدأ التوليد ولم يُخصم أي كريديت/)
+    expect(json.upgradeUrl).toBe('/billing')
+    expect(mockRunFullAgency).not.toHaveBeenCalled()
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
   })
 
   it('13. refund-on-failure refunds the EXACT deducted amount (credit.creditsUsed)', async () => {

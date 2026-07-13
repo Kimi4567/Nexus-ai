@@ -58,6 +58,8 @@ interface RunResult {
   creditsUsed?: number
   errors?: string[]
   error?: string
+  message?: string
+  code?: string
   upgradeUrl?: string
   redirectUrl?: string
   requiredCredits?: number
@@ -404,7 +406,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           // API finishes in the background, the result is saved to sessionStorage.
           // Next time they open the modal, loadResultCache() finds it and shows success
           // immediately without re-running the strategy.
-          const errorMsg = d.error || (Array.isArray(d.errors) && d.errors.length > 0 ? d.errors[0] : null)
+          const errorCode = d.error
+          const errorMsg = d.message || d.error || (Array.isArray(d.errors) && d.errors.length > 0 ? d.errors[0] : null)
           if (ok && !errorMsg && d.campaignId) {
             saveResultCache(d)
             saveStrategyHandoff(d.campaignId, {
@@ -416,7 +419,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           if (cancelled) return
 
           if (!ok || errorMsg) {
-            setResult({ ...d, error: errorMsg || d.error })
+            setResult({ ...d, code: errorCode, error: errorMsg || d.error })
             if (errorMsg === 'INSUFFICIENT_CREDITS' || errorMsg === 'CREDITS_EXHAUSTED' || d.error === 'INSUFFICIENT_CREDITS') {
               setPhase('credits')
             } else if (d.error === 'NO_BRAND_PROFILE' || d.error === 'NO_WORKSPACE') {
@@ -1504,11 +1507,19 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 style={{ borderColor: 'rgba(139,92,246,0.2)' }}>
                 {rs.errorClose}
               </button>
-              <button onClick={retry}
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-950 btn-gradient">
-                <Sparkles className="w-4 h-4" />
-                {rs.errorRetry}
-              </button>
+              {result?.code === 'CAMPAIGN_LIMIT_REACHED' ? (
+                <Link href={result.upgradeUrl || '/billing'} onClick={onClose}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-950 btn-gradient">
+                  <ArrowUpRight className="w-4 h-4" />
+                  {locale === 'ar' ? 'عرض الباقات' : 'View plans'}
+                </Link>
+              ) : (
+                <button onClick={retry}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-950 btn-gradient">
+                  <Sparkles className="w-4 h-4" />
+                  {rs.errorRetry}
+                </button>
+              )}
             </div>
           </div>
         )}

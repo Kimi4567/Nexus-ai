@@ -26,6 +26,7 @@ import { getStrategyBriefReadiness } from '@/lib/strategyBriefReadiness'
 import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from '@/lib/campaign-memory'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { getBrandBrainGenerationSafety } from '@/lib/brandBrainGenerationSafety'
+import { readLockedCampaignAllowance, type CampaignAllowance } from '@/lib/campaignCommercial'
 
 // Strategy generation can legitimately need a second contract-repair pass before
 // anything is charged or persisted. The old 60s ceiling killed successful runs
@@ -67,6 +68,39 @@ function genericStrategyRunFailureMessage(language: unknown): string {
   }
 
   return 'Strategy generation could not be completed before a new campaign was saved. Credits for this attempt were restored if they were charged. Please try again.'
+}
+
+function campaignLimitPayload(allowance: CampaignAllowance, language: unknown) {
+  const resetDate = allowance.periodEnd.toLocaleDateString(
+    isArabicLanguage(language) ? 'ar-EG' : 'en-US',
+    { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' },
+  )
+  return {
+    error: 'CAMPAIGN_LIMIT_REACHED' as const,
+    message: isArabicLanguage(language)
+      ? `وصلت إلى حد إنشاء ${allowance.limit} حملة في باقتك خلال دورة الفوترة الحالية. يمكنك إنشاء حملة جديدة بعد ${resetDate} أو ترقية الباقة الآن. لم يبدأ التوليد ولم يُخصم أي كريديت.`
+      : `You reached your plan limit of ${allowance.limit} campaign creation${allowance.limit === 1 ? '' : 's'} for the current billing cycle. You can create another campaign after ${resetDate}, or upgrade now. Generation did not start and no credits were charged.`,
+    limit: allowance.limit,
+    current: allowance.current,
+    resetsAt: allowance.periodEnd.toISOString(),
+    upgradeUrl: '/billing',
+    creditsUsed: 0,
+  }
+}
+
+function parseCampaignLimitError(error: string | undefined): CampaignAllowance | null {
+  if (!error?.startsWith('CAMPAIGN_LIMIT_REACHED:')) return null
+  const [, rawLimit, ...resetParts] = error.split(':')
+  const periodEnd = new Date(resetParts.join(':'))
+  const limit = Number(rawLimit)
+  if (!Number.isFinite(limit) || Number.isNaN(periodEnd.getTime())) return null
+  return {
+    limit,
+    current: limit,
+    periodStart: new Date(0),
+    periodEnd,
+    plan: 'UNKNOWN',
+  }
 }
 
 type DeductedStrategyCredit = {
@@ -325,6 +359,20 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Reject an impossible new campaign before the expensive strategist call.
+    // The orchestrator repeats this check under the same advisory lock at
+    // persistence time, so this fast preflight improves UX without weakening
+    // the concurrency-safe commercial boundary.
+    const campaignAllowance = await prisma.$transaction((tx) => (
+      readLockedCampaignAllowance(tx, user.id)
+    ))
+    if (campaignAllowance.limit !== 999 && campaignAllowance.current >= campaignAllowance.limit) {
+      return NextResponse.json(
+        campaignLimitPayload(campaignAllowance, body?.language),
+        { status: 403 },
+      )
+    }
+
     // -- Credit preflight only (no mutation) ---------------------------------
     // Strategy generation can run long enough for provider/platform disconnects.
     // Do not debit credits before AI + deterministic contract guards produce a
@@ -492,6 +540,16 @@ export async function POST(req: NextRequest) {
     // ──────────────────────────────────────────────────────────────────────
 
     const rawError = !success && result.errors.length > 0 ? result.errors[0] : undefined
+    const lateCampaignLimit = parseCampaignLimitError(rawError)
+    if (lateCampaignLimit) {
+      return NextResponse.json({
+        ...campaignLimitPayload(lateCampaignLimit, body?.language),
+        refunded,
+        creditsRemaining: finalDeductedCredit
+          ? finalDeductedCredit.creditsRemaining + (refunded ? finalDeductedCredit.creditsUsed : 0)
+          : preflightVisibleCredits,
+      }, { status: 403 })
+    }
     const publicError = sanitizeStrategyRunError(rawError, body?.language)
     const publicErrors = result.errors.map(error => sanitizeStrategyRunError(error, body?.language) || error)
 
