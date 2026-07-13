@@ -50,7 +50,7 @@ const PATTERNS: { category: ClaimCategory; re: RegExp }[] = [
   // Arabic guarantee verbs must be standalone words. Without these Unicode
   // boundaries, ordinary phrases such as "ما يتضمنه العرض" (what the offer
   // includes) are incorrectly read as a guarantee and block approval.
-  { category: 'guarantee', re: /(?<![\p{L}\p{M}])(?:تضمن|يضمن)(?:\s+لك)?(?![\p{L}\p{M}])|نتائج\s+مضمونة|تحميك\s+من\s+(?:مشاكل|أمراض)|يغير\s+تجربتك\s+الصحية\s+بالكامل/giu },
+  { category: 'guarantee', re: /(?<![\p{L}\p{M}])(?:تضمن|يضمن|نضمن|أضمن)(?:\s+لك)?(?![\p{L}\p{M}])|نتائج\s+مضمونة|تحميك\s+من\s+(?:مشاكل|أمراض)|يغير\s+تجربتك\s+الصحية\s+بالكامل/giu },
   // Social proof without a cited source.
   { category: 'socialProof', re: /\b(?:trusted|used|loved)\s+by\s+(?:thousands|millions|hundreds|leading|top|over\s+\d+)\b/gi },
   { category: 'socialProof', re: /\b(?:thousands|millions)\s+of\s+(?:customers|users|businesses|companies|brands)\b/gi },
@@ -84,7 +84,7 @@ function isNegatedSafetyInstruction(
   const before = text.slice(Math.max(0, matchIndex - 100), matchIndex)
     .toLocaleLowerCase()
     .replace(/\s+/g, ' ')
-  return /(?:\b(?:do not|don't|never|avoid|without|cannot|can't|must not|should not|is not|are not|no)\s+(?:(?:promise|claim|state|imply|implying|use|offer|make|present|suggest)\s+)?(?:any\s+)?|(?:لا|ليس|بدون|تجنب|تجنّب|يجب ألا)\s*(?:(?:تعد|تَعِد|تدعي|تستخدم|تقدم|توحي|تذكر)\s+)?)$/i.test(before)
+  return /(?:\b(?:do not|don't|never|avoid|without|cannot|can't|must not|should not|is not|are not|no)\s+(?:(?:promise|claim|state|imply|implying|use|offer|make|present|suggest)\s+)?(?:any\s+)?|(?:لا|لن|ليس|غير|بدون|تجنب|تجنّب|يجب ألا)\s*(?:(?:تعد|تَعِد|تدعي|تستخدم|تقدم|توحي|تذكر)\s+)?)$/i.test(before)
 }
 
 /**

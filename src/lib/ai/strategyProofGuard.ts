@@ -65,6 +65,8 @@ function softenAbsoluteOutcomeClaims(text: string): string {
     // inclusion wording such as "ما يتضمنه العرض" while softening real promises.
     .replace(/(?<![\p{L}\p{M}])تضمن(?:\s+لك)?(?![\p{L}\p{M}])/giu, 'تدعم')
     .replace(/(?<![\p{L}\p{M}])يضمن(?:\s+لك)?(?![\p{L}\p{M}])/giu, 'يدعم')
+    .replace(/(?<![\p{L}\p{M}])نضمن(?:\s+لك)?(?![\p{L}\p{M}])/giu, 'نسعى إلى دعم')
+    .replace(/(?<![\p{L}\p{M}])أضمن(?:\s+لك)?(?![\p{L}\p{M}])/giu, 'أهدف إلى دعم')
     .replace(/اختر\s+خيارات\s+صديقة\s+للبيئة\s+لمنزل\s+أكثر\s+صحة\.?/gi, 'استفسر عن خيارات تنظيف صديقة للبيئة عند توفرها.')
     .replace(/خيارات\s+صديقة\s+للبيئة\s+لمنزل\s+أكثر\s+صحة/gi, 'خيارات تنظيف صديقة للبيئة عند توفرها')
     .replace(/منزل\s+أكثر\s+صحة/gi, 'منزل يلائم احتياجاتك')

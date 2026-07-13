@@ -30,6 +30,8 @@ describe('detectUnsupportedClaims (PR-1K)', () => {
     expect(result.hasUnsupportedClaims).toBe(false)
     expect(result.findings).toEqual([])
     expect(cats('هذه الخطة تضمن لك نتائج أفضل')).toContain('guarantee')
+    expect(cats('نضمن لك خدمات عالية الجودة')).toContain('guarantee')
+    expect(cats('أضمن لك النجاح')).toContain('guarantee')
   })
 
   it('flags an unsupported percentage claim ("30% productivity gain")', () => {
@@ -103,6 +105,8 @@ describe('detectUnsupportedClaims (PR-1K)', () => {
       'Avoid proven results unless evidence is on file.',
       'We cannot guarantee an outcome.',
       'لا تستخدم نتائج مضمونة بدون دليل.',
+      'لا نضمن النتائج.',
+      'لن نضمن لك نتيجة.',
     ])
 
     expect(result.hasUnsupportedClaims).toBe(false)

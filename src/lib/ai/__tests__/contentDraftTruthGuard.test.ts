@@ -735,6 +735,24 @@ describe('contentDraftTruthGuard', () => {
     expect(out).not.toContain('المثالية كل مرة')
   })
 
+  it('softens first-person Arabic guarantees observed in a generated draft', () => {
+    const out = guardContentDraftText(
+      'في عالم يتطلب الثقة والتميز، نضمن لك خدمات عالية الجودة. اكتشف كيف نضمن الجودة في كل خطوة.',
+    )
+
+    expect(out).toContain('نسعى إلى تقديم خدمات عالية الجودة')
+    expect(out).toContain('نسعى إلى دعم الجودة')
+    expect(out).not.toContain('نضمن')
+  })
+
+  it('preserves negative and inclusion wording while softening guarantees', () => {
+    const out = guardContentDraftText('لا نضمن النتائج. راجع ما يتضمنه العرض. نضمن لك المتابعة.')
+
+    expect(out).toContain('لا نضمن النتائج')
+    expect(out).toContain('ما يتضمنه العرض')
+    expect(out).toContain('نسعى إلى تقديم المتابعة')
+  })
+
   it('still softens risky Arabic stock absolutes', () => {
     const out = guardContentDraftText('المكتب مليان قهوة دائمًا')
 

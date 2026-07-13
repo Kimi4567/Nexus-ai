@@ -71,7 +71,7 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'unsupported_absolute_claim',
-    re: /(?:الحل الأمثل|مفتاح النجاح|تحقيق النجاح|يغير منظورك|يضمن|تضمن|مضمون|دائمًا|كل مرة|أفضل|مثالي|مثالية|لا تقاوم)|(?:guarantee|guaranteed|ensure|ensures|perfect|best|ultimate|game[-\s]?changer|irresistible|unmatched|extraordinary)/i,
+    re: /(?:الحل الأمثل|مفتاح النجاح|تحقيق النجاح|يغير منظورك|يضمن|تضمن|نضمن|أضمن|مضمون|دائمًا|كل مرة|أفضل|مثالي|مثالية|لا تقاوم)|(?:guarantee|guaranteed|ensure|ensures|perfect|best|ultimate|game[-\s]?changer|irresistible|unmatched|extraordinary)/i,
   },
   {
     reason: 'unsupported_fake_product_visual',
