@@ -47,7 +47,7 @@ export default function CookieBanner() {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-[90] px-4 py-4 md:px-6 cookie-banner"
+      className="cookie-banner fixed inset-x-3 bottom-3 z-[90] sm:inset-x-4 sm:bottom-4 md:start-6 md:end-auto md:w-[min(480px,calc(50vw-3rem))]"
       style={{
         transform: visible ? 'translateY(0)' : 'translateY(120%)',
         opacity: visible ? 1 : 0,
@@ -56,7 +56,7 @@ export default function CookieBanner() {
       }}
     >
       <div
-        className="max-w-4xl mx-auto p-5 flex flex-col md:flex-row items-start md:items-center gap-4"
+        className="mx-auto flex flex-col items-start gap-3 p-4 sm:p-5"
         style={{
           background: 'rgba(255,255,255,0.96)',
           border: '1px solid rgba(15,23,42,0.08)',
@@ -80,10 +80,10 @@ export default function CookieBanner() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex w-full flex-wrap items-center gap-2">
           <button
             onClick={acceptAll}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 transition-all hover:scale-[1.02]"
+            className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white transition-all hover:scale-[1.01]"
             style={{ background: '#111827' }}
           >
             <Check className="w-3.5 h-3.5" />
@@ -91,14 +91,15 @@ export default function CookieBanner() {
           </button>
           <button
             onClick={acceptEssential}
-            className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 border border-slate-200 hover:border-slate-300 transition-all"
+            className="min-h-10 flex-1 rounded-xl border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 transition-all hover:border-slate-300"
             style={{ background: '#FFFFFF' }}
           >
             أساسية فقط
           </button>
           <button
             onClick={() => setVisible(false)}
-            className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+            aria-label="إغلاق إشعار ملفات تعريف الارتباط"
+            className="grid min-h-10 min-w-10 place-items-center rounded-lg transition-colors hover:bg-slate-100"
           >
             <X className="w-4 h-4 text-slate-500" />
           </button>

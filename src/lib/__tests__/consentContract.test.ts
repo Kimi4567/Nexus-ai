@@ -20,6 +20,12 @@ describe('optional analytics consent contract', () => {
     expect(banner).toContain('analytics: true')
   })
 
+  it('keeps the consent card compact on desktop so it does not block primary forms', () => {
+    expect(banner).toContain('md:w-[min(480px,calc(50vw-3rem))]')
+    expect(banner).not.toContain('max-w-4xl')
+    expect(banner).toContain('aria-label="إغلاق إشعار ملفات تعريف الارتباط"')
+  })
+
   it('does not require optional cookie consent to create an account', () => {
     expect(register).not.toContain('agreeCookies')
     expect(register).not.toContain('cookies: true')
