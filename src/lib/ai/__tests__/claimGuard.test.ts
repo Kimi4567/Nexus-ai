@@ -85,6 +85,26 @@ describe('detectUnsupportedClaims (PR-1K)', () => {
     }
   })
 
+  it('does not flag explicit safety instructions that reject guarantee language', () => {
+    const result = detectUnsupportedClaims([
+      'Do not promise guaranteed results.',
+      'Make the next step clear without implying guaranteed outcomes.',
+      'Avoid proven results unless evidence is on file.',
+      'We cannot guarantee an outcome.',
+      'لا تستخدم نتائج مضمونة بدون دليل.',
+    ])
+
+    expect(result.hasUnsupportedClaims).toBe(false)
+    expect(result.findings).toEqual([])
+  })
+
+  it('still flags guarantee copy when a nearby no does not negate the claim', () => {
+    const result = detectUnsupportedClaims('No risk — guaranteed results for every customer.')
+
+    expect(result.hasUnsupportedClaims).toBe(true)
+    expect(result.findings.some((finding) => finding.category === 'guarantee')).toBe(true)
+  })
+
   it('mixed copy: flags only the risky sentence, not the safe one', () => {
     const r = detectUnsupportedClaims([
       'Designed to help teams save time.',

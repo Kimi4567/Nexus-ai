@@ -72,6 +72,18 @@ function makeExcerpt(text: string, index: number, matchLen: number): string {
   return (prefix + text.slice(start, end).trim() + suffix).replace(/\s+/g, ' ')
 }
 
+function isNegatedSafetyInstruction(
+  category: ClaimCategory,
+  text: string,
+  matchIndex: number,
+): boolean {
+  if (category !== 'guarantee') return false
+  const before = text.slice(Math.max(0, matchIndex - 100), matchIndex)
+    .toLocaleLowerCase()
+    .replace(/\s+/g, ' ')
+  return /(?:\b(?:do not|don't|never|avoid|without|cannot|can't|must not|should not|is not|are not|no)\s+(?:(?:promise|claim|state|imply|implying|use|offer|make|present|suggest)\s+)?(?:any\s+)?|(?:لا|ليس|بدون|تجنب|تجنّب|يجب ألا)\s*(?:(?:تعد|تَعِد|تدعي|تستخدم|تقدم|توحي|تذكر)\s+)?)$/i.test(before)
+}
+
 /**
  * Scan text (or an array of strings) for unsupported marketing claims.
  * Returns every distinct finding with its category and a short excerpt.
@@ -87,6 +99,10 @@ export function detectUnsupportedClaims(input: string | Array<string | null | un
       re.lastIndex = 0
       let m: RegExpExecArray | null
       while ((m = re.exec(part)) !== null) {
+        if (isNegatedSafetyInstruction(category, part, m.index)) {
+          if (m.index === re.lastIndex) re.lastIndex++
+          continue
+        }
         const match = m[0].trim()
         const key = `${category}::${match.toLowerCase()}::${m.index}::${part.slice(0, 12)}`
         if (seen.has(key)) continue
