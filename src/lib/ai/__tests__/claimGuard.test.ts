@@ -4,7 +4,7 @@
  * soft capability language must stay allowed; hard unsourced claims must be flagged.
  */
 import { describe, it, expect } from 'vitest'
-import { detectUnsupportedClaims, buildClaimWarnings, getPostClaimRisk } from '@/lib/ai/claimGuard'
+import { detectUnsupportedClaims, buildClaimFixes, buildClaimWarnings, getPostClaimRisk } from '@/lib/ai/claimGuard'
 
 const cats = (text: string) =>
   detectUnsupportedClaims(text).findings.map(f => f.category)
@@ -19,6 +19,17 @@ describe('detectUnsupportedClaims (PR-1K)', () => {
 
     expect(result.hasUnsupportedClaims).toBe(true)
     expect(result.findings.map(f => f.category)).toEqual(expect.arrayContaining(['guarantee', 'award']))
+  })
+
+  it('does not confuse Arabic inclusion wording with a guarantee', () => {
+    const result = detectUnsupportedClaims([
+      'راجع ما يتضمنه العرض.',
+      'يقارن بين البدائل ويحتاج فهم ما يتضمنه العرض وما لا يتضمنه.',
+    ])
+
+    expect(result.hasUnsupportedClaims).toBe(false)
+    expect(result.findings).toEqual([])
+    expect(cats('هذه الخطة تضمن لك نتائج أفضل')).toContain('guarantee')
   })
 
   it('flags an unsupported percentage claim ("30% productivity gain")', () => {
@@ -130,6 +141,16 @@ describe('detectUnsupportedClaims (PR-1K)', () => {
     expect(warnings.length).toBeGreaterThan(0)
     expect(warnings.every(w => /needs evidence/i.test(w))).toBe(true)
     expect(warnings.some(w => w.includes('30%'))).toBe(true)
+  })
+
+  it('returns contextual Arabic warnings and actionable fixes', () => {
+    const result = detectUnsupportedClaims('هذه الخطة تضمن لك نتائج أفضل.')
+    const warnings = buildClaimWarnings(result, 'ar')
+    const fixes = buildClaimFixes(result, 'ar')
+
+    expect(warnings[0]).toContain('ادعاء غير مدعوم')
+    expect(warnings[0]).toContain('هذه الخطة تضمن لك نتائج أفضل')
+    expect(fixes[0]).toContain('تهدف إلى')
   })
 })
 

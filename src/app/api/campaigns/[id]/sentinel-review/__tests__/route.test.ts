@@ -100,6 +100,17 @@ describe('POST /api/campaigns/[id]/sentinel-review — provider and credit order
     expect(json.creditsRemaining).toBe(18)
     expect(mockCheckAndDeduct).toHaveBeenCalledWith('user_1', 'SENTINEL_REVIEW')
     expect(mockRunSentinelReview).toHaveBeenCalledTimes(1)
+    expect(mockRunSentinelReview).toHaveBeenCalledWith(expect.objectContaining({
+      strategyReviewSource: campaign.aiOutput.strategy,
+    }))
+    expect(mockPrisma.campaign.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: {
+        aiOutput: expect.objectContaining({
+          strategy: campaign.aiOutput.strategy,
+          sentinelReview: expect.objectContaining({ status: 'passed' }),
+        }),
+      },
+    }))
     expect(mockRefund).not.toHaveBeenCalled()
   })
 })

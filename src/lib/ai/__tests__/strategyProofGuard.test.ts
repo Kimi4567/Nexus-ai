@@ -417,6 +417,18 @@ describe('strategyProofGuard', () => {
     expect(joined).toMatch(/فهم الخطوات قبل البدء|فرضية تحتاج إلى بيانات فعلية|عدم توسيع القنوات/)
   })
 
+  it('softens standalone Arabic guarantees but preserves inclusion wording', () => {
+    const guarded = guardStrategyProof([
+      'هذه العملية تضمن نتائج أفضل.',
+      'هذا النظام يضمن لك النجاح.',
+      'راجع ما يتضمنه العرض وما لا يتضمنه.',
+    ], { verifiedProof: [] })
+
+    expect(guarded[0]).toContain('تدعم نتائج أفضل')
+    expect(guarded[1]).toContain('يدعم النجاح')
+    expect(guarded[2]).toBe('راجع ما يتضمنه العرض وما لا يتضمنه.')
+  })
+
   it('builds explicit proof-policy prompt text', () => {
     const prompt = buildProofPolicyPrompt({ verifiedProof: [] })
 

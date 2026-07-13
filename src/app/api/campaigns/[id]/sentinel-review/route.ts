@@ -134,6 +134,7 @@ export async function POST(req: NextRequest, props: Params) {
         creativeBrief?.overallCreativeDirection ||
         creativeBrief?.moodDescription ||
         undefined,
+      strategyReviewSource: strategy,
     }
 
     if (!isAiProviderConfigured()) {
@@ -149,6 +150,14 @@ export async function POST(req: NextRequest, props: Params) {
     // Save to aiOutput.sentinelReview
     const updatedOutput = {
       ...aiOutput,
+      // Persist exactly the guarded package that Sentinel reviewed. Legacy
+      // strategies may predate current truth guards; approval must never expose
+      // a riskier raw version than the reviewed version.
+      strategy,
+      topHooks: content.topHooks,
+      ctaVariations: content.ctaVariations,
+      captionFormulas: content.captionFormulas,
+      scriptTemplate: content.scriptTemplate,
       sentinelReview,
     }
 

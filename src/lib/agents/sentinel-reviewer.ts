@@ -17,7 +17,7 @@
 
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { checkAndLog } from '@/lib/outputGuardrails'
-import { detectUnsupportedClaims, buildClaimWarnings } from '@/lib/ai/claimGuard'
+import { detectUnsupportedClaims, buildClaimFixes, buildClaimWarnings } from '@/lib/ai/claimGuard'
 
 // ─── Input ────────────────────────────────────────────────────────────────────
 
@@ -63,6 +63,8 @@ export interface SentinelReviewInput {
   }
   calendar?: any[] // contentCalendar entries
   creativeBriefDirection?: string // from creativeBrief.overallCreativeDirection or moodDescription
+  /** Full guarded strategy used by the deterministic claim scan and grounding. */
+  strategyReviewSource?: Record<string, unknown>
 }
 
 // ─── Output ───────────────────────────────────────────────────────────────────
@@ -147,7 +149,8 @@ export function normalizeSentinelAssessment(
     : []
   const groundedWarnings = rawWarnings.filter((item) => hasCampaignEvidenceQuote(item, sourceText))
   const groundedFixes = rawFixes.filter((item) => hasCampaignEvidenceQuote(item, sourceText))
-  const claimWarnings = buildClaimWarnings(claimScan)
+  const claimWarnings = buildClaimWarnings(claimScan, language)
+  const claimFixes = buildClaimFixes(claimScan, language)
   const allWarnings = [...groundedWarnings, ...claimWarnings]
   const hasGroundedLlmFinding = groundedWarnings.length > 0 || groundedFixes.length > 0
 
@@ -201,7 +204,7 @@ export function normalizeSentinelAssessment(
     claimSafetyNotes,
     toneConsistencyNotes,
     complianceWarnings: allWarnings,
-    recommendedFixes: groundedFixes,
+    recommendedFixes: [...groundedFixes, ...claimFixes],
     reviewedAt: new Date().toISOString(),
   }
 }
@@ -277,6 +280,10 @@ export async function runSentinelReview(input: SentinelReviewInput): Promise<Sen
   const adSetupSummary = s.adSetupPlan
     ? `Objective: ${s.adSetupPlan.objective || ''} | Platform: ${s.adSetupPlan.platformPriority || ''} | Budget: ${s.adSetupPlan.testBudget || ''} | Target: ${s.adSetupPlan.targeting || ''}`
     : ''
+  const strategyReviewSample = collectTextLeaves(input.strategyReviewSource)
+    .slice(0, 40)
+    .join('\n')
+    .slice(0, 4_000)
 
   const systemPrompt = `${langInstruction}
 
@@ -350,6 +357,7 @@ ${doNotDoYet ? `- Do NOT do yet (flagged by strategy):\n${doNotDoYet}` : ''}
 ${readinessIncomplete ? `- Incomplete readiness items:\n${readinessIncomplete}` : ''}
 ${funnelStagesSample ? `- Funnel stages:\n${funnelStagesSample}` : ''}
 ${adSetupSummary ? `- Ad setup plan: ${adSetupSummary}` : ''}
+${strategyReviewSample ? `- Extended guarded strategy text:\n${strategyReviewSample}` : ''}
 
 CONTENT SAMPLE:
 ${hooksSample || 'No hooks found'}
@@ -444,6 +452,7 @@ If the campaign passes all checks cleanly: riskScore should be under 25, brandCo
     ...(s.doNotDoYet || []),
     ...(s.executionAssumptions || []),
     ...(s.assumptions || []),
+    ...collectTextLeaves(input.strategyReviewSource),
     ...((input.calendar || []).flatMap((p: any) => [p?.hook, p?.caption, p?.cta])),
   ])
 

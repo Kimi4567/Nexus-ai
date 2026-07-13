@@ -61,6 +61,10 @@ function softenAbsoluteOutcomeClaims(text: string): string {
     .replace(/المحتوى\s+التوضيحي\s+سيكون\s+كافي(?:ًا|ا)\s+لزيادة\s+التفاعل\.?/gi, 'أثر المحتوى التوضيحي على التفاعل فرضية تحتاج إلى بيانات فعلية.')
     .replace(/الجمهور\s+المستهدف\s+يستخدم\s+Instagram\s+بشكل\s+نشط\.?/gi, 'استخدام الجمهور المستهدف لـ Instagram فرضية تحتاج إلى بيانات فعلية.')
     .replace(/عدم\s+التركيز\s+على\s+منصات\s+غير\s+فعالة/gi, 'عدم توسيع القنوات قبل توفر بيانات أداء فعلية')
+    // Generic standalone guarantee verbs. Unicode boundaries preserve ordinary
+    // inclusion wording such as "ما يتضمنه العرض" while softening real promises.
+    .replace(/(?<![\p{L}\p{M}])تضمن(?:\s+لك)?(?![\p{L}\p{M}])/giu, 'تدعم')
+    .replace(/(?<![\p{L}\p{M}])يضمن(?:\s+لك)?(?![\p{L}\p{M}])/giu, 'يدعم')
     .replace(/اختر\s+خيارات\s+صديقة\s+للبيئة\s+لمنزل\s+أكثر\s+صحة\.?/gi, 'استفسر عن خيارات تنظيف صديقة للبيئة عند توفرها.')
     .replace(/خيارات\s+صديقة\s+للبيئة\s+لمنزل\s+أكثر\s+صحة/gi, 'خيارات تنظيف صديقة للبيئة عند توفرها')
     .replace(/منزل\s+أكثر\s+صحة/gi, 'منزل يلائم احتياجاتك')

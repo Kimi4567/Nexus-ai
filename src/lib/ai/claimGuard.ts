@@ -47,7 +47,10 @@ const PATTERNS: { category: ClaimCategory; re: RegExp }[] = [
   { category: 'performance', re: /\b(?:boost|increase|grow|double|triple|skyrocket|maximi[sz]e|cut|slash|reduce)\s+(?:your\s+)?(?:sales|revenue|profits?|roi|conversions?|leads?|traffic|income|costs?)\b/gi },
   // Guarantees / proof language.
   { category: 'guarantee', re: /\b(?:guarantee[ds]?|guaranteed\s+results|proven\s+results|proven\s+to|risk[-\s]?free|will\s+deliver(?:\s+results)?|100%\s+guaranteed)\b/gi },
-  { category: 'guarantee', re: /(?<!لا\s)(?:تضمن|يضمن)(?:\s+لك)?|نتائج\s+مضمونة|تحميك\s+من\s+(?:مشاكل|أمراض)|يغير\s+تجربتك\s+الصحية\s+بالكامل/gi },
+  // Arabic guarantee verbs must be standalone words. Without these Unicode
+  // boundaries, ordinary phrases such as "ما يتضمنه العرض" (what the offer
+  // includes) are incorrectly read as a guarantee and block approval.
+  { category: 'guarantee', re: /(?<![\p{L}\p{M}])(?:تضمن|يضمن)(?:\s+لك)?(?![\p{L}\p{M}])|نتائج\s+مضمونة|تحميك\s+من\s+(?:مشاكل|أمراض)|يغير\s+تجربتك\s+الصحية\s+بالكامل/giu },
   // Social proof without a cited source.
   { category: 'socialProof', re: /\b(?:trusted|used|loved)\s+by\s+(?:thousands|millions|hundreds|leading|top|over\s+\d+)\b/gi },
   { category: 'socialProof', re: /\b(?:thousands|millions)\s+of\s+(?:customers|users|businesses|companies|brands)\b/gi },
@@ -130,13 +133,41 @@ export function claimCategoryLabel(category: ClaimCategory): string {
   }
 }
 
+function claimCategoryLabelAr(category: ClaimCategory): string {
+  switch (category) {
+    case 'percentage':     return 'نسبة غير موثقة'
+    case 'multiplier':     return 'مضاعفة غير موثقة'
+    case 'performance':    return 'ادعاء أداء أو عائد غير موثق'
+    case 'guarantee':      return 'ضمان أو إثبات غير موثق'
+    case 'socialProof':    return 'دليل اجتماعي بلا مصدر'
+    case 'award':          return 'جائزة أو ترتيب غير موثق'
+    case 'caseStudy':      return 'نتيجة دراسة حالة غير موثقة'
+    case 'platformStatus': return 'حالة منصة غير مؤكدة'
+  }
+}
+
+function isArabicLanguage(language: string | null | undefined): boolean {
+  return typeof language === 'string' && language.toLowerCase().startsWith('ar')
+}
+
 /**
  * Build short, deterministic compliance-warning strings from findings, suitable
  * for appending to Sentinel's complianceWarnings. Each says WHY it was flagged.
  */
-export function buildClaimWarnings(result: ClaimScanResult): string[] {
-  return result.findings.map(
-    f => `Unsupported claim — needs evidence before it can be used (${claimCategoryLabel(f.category)}): "${f.match}"`,
+export function buildClaimWarnings(result: ClaimScanResult, language?: string | null): string[] {
+  const arabic = isArabicLanguage(language)
+  return result.findings.map((finding) => arabic
+    ? `ادعاء غير مدعوم — يحتاج إلى دليل أو صياغة أكثر تحفظاً (${claimCategoryLabelAr(finding.category)}): «${finding.excerpt}»`
+    : `Unsupported claim — needs evidence or safer wording (${claimCategoryLabel(finding.category)}): "${finding.excerpt}"`,
+  )
+}
+
+/** Deterministic, actionable remediation paired with every claim warning. */
+export function buildClaimFixes(result: ClaimScanResult, language?: string | null): string[] {
+  const arabic = isArabicLanguage(language)
+  return result.findings.map((finding) => arabic
+    ? `استبدل «${finding.excerpt}» بصياغة احتمالية قابلة للقياس مثل «تهدف إلى» أو «قد تساعد على»، أو أرفق دليلاً موثقاً قبل الاستخدام.`
+    : `Replace "${finding.excerpt}" with measurable, qualified wording such as "aims to" or "may help", or attach verified evidence before use.`,
   )
 }
 

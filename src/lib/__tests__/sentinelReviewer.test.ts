@@ -67,5 +67,20 @@ describe('Sentinel evidence grounding', () => {
     expect(review.status).toBe('needs_attention')
     expect(review.riskScore).toBe(40)
     expect(review.complianceWarnings.length).toBeGreaterThan(0)
+    expect(review.recommendedFixes.length).toBeGreaterThan(0)
+  })
+
+  it('reviews the complete guarded strategy source, not only selected summary fields', () => {
+    const source = 'Expected result: guaranteed results for every founder.'
+    const review = normalizeSentinelAssessment({
+      riskScore: 5,
+      brandConsistencyScore: 90,
+      complianceWarnings: [],
+      recommendedFixes: [],
+    }, source, detectUnsupportedClaims(source), 'en')
+
+    expect(review.status).toBe('needs_attention')
+    expect(review.complianceWarnings[0]).toContain('guaranteed results')
+    expect(review.recommendedFixes[0]).toContain('aims to')
   })
 })
