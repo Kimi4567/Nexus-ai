@@ -8,6 +8,43 @@ import {
 } from '../contentDraftTruthGuard'
 
 describe('contentDraftTruthGuard', () => {
+  it('grounds setup-time precision and removes unsupported direct-response CTAs', () => {
+    const out = guardContentDraftText(
+      'ابدأ باستخدام النظام في دقائق معدودة! لن تحتاج لوقت طويل لإعداد الأنظمة الجديدة. استمتع بإعداد سريع وفعال. جرب النظام الآن!',
+      { hasConversionDestination: false },
+    )
+
+    expect(out).toContain('ابدأ بخطوات إعداد بسيطة وواضحة')
+    expect(out).toContain('مراجعة خطوات الإعداد دون تعقيد تقني')
+    expect(out).toContain('إعداد سريع ومنظم')
+    expect(out).toContain('تعرّف على طريقة عمل الحل')
+    expect(out).not.toMatch(/دقائق معدودة|جرب النظام الآن|سريع وفعال/)
+  })
+
+  it('preserves a direct CTA only when the brand has a conversion destination', () => {
+    expect(guardContentDraftText('جرب النظام الآن!', { hasConversionDestination: true }))
+      .toContain('جرب النظام الآن')
+  })
+
+  it('grounds sales outcome copy and removes invented product UI from image directions', () => {
+    const copy = guardContentDraftText(
+      'نظام NEXUS يقدم لك خيار عملي! تابع عملاءك بسهولة وبدون تعقيد تقني. إدارة المبيعات أصبحت أسهل وأسرع. تعرف على كيفية تحسين مبيعاتك الآن! واجهة عربية مصممة خصيصًا لك.',
+      { hasConversionDestination: false },
+    )
+    const image = guardContentDraftText(
+      'رجل أعمال أمام حاسوب، يظهر على الشاشة واجهة إعداد نظام NEXUS بشكل بسيط، مع ساعة جدارية تشير إلى وقت قصير.',
+    )
+
+    expect(copy).toContain('يقدم مسارًا عمليًا')
+    expect(copy).toContain('نظّم متابعة عملائك بخطوات واضحة')
+    expect(copy).toContain('تنظيم متابعة المبيعات بخطوات أوضح')
+    expect(copy).toContain('طريقة تنظيم متابعة المبيعات')
+    expect(copy).not.toMatch(/تحسين مبيعاتك|أسهل وأسرع|مصممة خصيصًا لك/)
+    expect(image).toContain('شاشة محايدة غير مقروءة')
+    expect(image).toContain('دون إيحاء بزمن إعداد محدد')
+    expect(image).not.toMatch(/واجهة إعداد نظام|وقت قصير/)
+  })
+
   it('softens luxury and perfection claims in draft captions', () => {
     const luxury = guardContentDraftText('ensuring every coffee break is a moment of luxury')
     expect(luxury).toContain('helping make coffee breaks feel more considered and enjoyable')

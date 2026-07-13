@@ -10,9 +10,7 @@
  *
  * Approval and scheduling are SEPARATE decisions (the agency "client approval
  * before scheduling" step). Approval never schedules and never sets scheduledAt;
- * scheduling never re-approves. A clearly-named legacy `approve_and_schedule`
- * compound mode is preserved for any flow that still needs the old one-click
- * behaviour — but it is explicit, never the default.
+ * scheduling never re-approves. There is deliberately no compound transition.
  *
  * This module touches NO database and imports only from postStatus, so the whole
  * decision surface (which transitions happen, which timestamps are written, what
@@ -32,7 +30,7 @@ import {
   type StatusHistoryRow,
 } from './postStatus'
 
-export type ApprovalMode = 'approve' | 'approve_and_schedule'
+export type ApprovalMode = 'approve'
 
 /** Minimal shape the planners need from a SocialPost row. */
 export interface PlanPostInput {
@@ -83,17 +81,13 @@ export function hasValidPlannedDate(value: Date | string | null | undefined): bo
 /**
  * Plan approval of DRAFT posts.
  *
- *  - mode 'approve' (default): DRAFT → APPROVED only. Sets approvedAt. Never sets
+ *  - DRAFT → APPROVED only. Sets approvedAt. Never sets
  *    scheduledAt. Records DRAFT → APPROVED.
- *  - mode 'approve_and_schedule' (legacy, explicit): the old one-click behaviour —
- *    DRAFT → APPROVED → SCHEDULED in a single step. Sets approvedAt, records BOTH
- *    transitions, and tags the schedule step as legacy. Still never writes
- *    scheduledAt (the planned date is kept).
  *
  * Posts that are not DRAFT are skipped (prevents double-approval).
  */
-export function planApproval(posts: PlanPostInput[], opts: PlanOpts & { mode?: ApprovalMode } = {}): ApprovalPlan {
-  const mode: ApprovalMode = opts.mode ?? 'approve'
+export function planApproval(posts: PlanPostInput[], opts: PlanOpts = {}): ApprovalPlan {
+  const mode: ApprovalMode = 'approve'
   const now = opts.now ?? new Date()
   const actor: StatusActor = opts.actor ?? 'USER'
 
@@ -110,19 +104,8 @@ export function planApproval(posts: PlanPostInput[], opts: PlanOpts & { mode?: A
       continue
     }
 
-    if (mode === 'approve_and_schedule') {
-      // Legacy compound step. Both transitions must be individually legal.
-      if (!validateTransition('APPROVED', 'SCHEDULED').ok) {
-        skipped++
-        continue
-      }
-      updates.push({ id: p.id, data: { status: 'SCHEDULED', approvedAt: now } })
-      history.push(buildStatusHistory({ socialPostId: p.id, workspaceId: p.workspaceId, fromStatus: 'DRAFT', toStatus: 'APPROVED', actor }))
-      history.push(buildStatusHistory({ socialPostId: p.id, workspaceId: p.workspaceId, fromStatus: 'APPROVED', toStatus: 'SCHEDULED', actor, note: 'legacy approve_and_schedule' }))
-    } else {
-      updates.push({ id: p.id, data: { status: 'APPROVED', approvedAt: now } })
-      history.push(buildStatusHistory({ socialPostId: p.id, workspaceId: p.workspaceId, fromStatus: 'DRAFT', toStatus: 'APPROVED', actor }))
-    }
+    updates.push({ id: p.id, data: { status: 'APPROVED', approvedAt: now } })
+    history.push(buildStatusHistory({ socialPostId: p.id, workspaceId: p.workspaceId, fromStatus: 'DRAFT', toStatus: 'APPROVED', actor }))
     changed++
   }
 

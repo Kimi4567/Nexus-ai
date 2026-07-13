@@ -7,6 +7,7 @@ export type ExecutionStage =
   | 'STRATEGY_REVIEW'
   | 'CONTENT_PLANNING'
   | 'CONTENT_REVIEW'
+  | 'MEDIA_REVIEW'
   | 'SCHEDULING'
   | 'IN_FLIGHT'
   | 'LEARNING'
@@ -19,6 +20,7 @@ export type ExecutionActionKind =
   | 'REVIEW_STRATEGY'
   | 'GENERATE_CONTENT'
   | 'REVIEW_CONTENT'
+  | 'REVIEW_MEDIA'
   | 'SCHEDULE_CONTENT'
   | 'RESOLVE_FAILURE'
   | 'MONITOR_SCHEDULE'
@@ -31,6 +33,7 @@ export type ExecutionSafety = 'review_required' | 'manual_action' | 'monitor_onl
 export interface ExecutionPostCounts {
   draft: number
   approved: number
+  approvedMissingMedia?: number
   scheduled: number
   published: number
   failed: number
@@ -241,6 +244,22 @@ export function buildCampaignExecutionTruth(snapshot: CampaignExecutionSnapshot)
         {
           en: `${snapshot.posts.draft} draft${snapshot.posts.draft === 1 ? '' : 's'} must be approved before scheduling.`,
           ar: `${snapshot.posts.draft} مسودة تحتاج اعتماداً قبل الجدولة.`,
+        },
+      )
+    } else if ((snapshot.posts.approvedMissingMedia ?? 0) > 0) {
+      const pendingMedia = snapshot.posts.approvedMissingMedia ?? 0
+      stage = 'MEDIA_REVIEW'
+      nextAction = item(
+        snapshot,
+        stage,
+        'REVIEW_MEDIA',
+        'high',
+        'manual_action',
+        contentHref,
+        { en: 'Complete approved post media', ar: 'أكمل وسائط المحتوى المعتمد' },
+        {
+          en: `${pendingMedia} approved post${pendingMedia === 1 ? '' : 's'} still need confirmed media before scheduling.`,
+          ar: `${pendingMedia} منشور معتمد ما زال يحتاج وسائط مؤكدة قبل الجدولة.`,
         },
       )
     } else if (snapshot.posts.approved > 0) {

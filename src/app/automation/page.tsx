@@ -138,7 +138,7 @@ export default function AutomationPage() {
         <div className="nx-os-container nx-os-stack">
           <LuxuryWorkspaceHeader
             pageTitle={copy('الأتمتة', 'Automation')}
-            pageSubtitle={copy('يراقب NEXUS عوائق العمل المثبتة ويوجّه القرار التالي.', 'NEXUS monitors verified workflow blockers and routes the next decision.')}
+            pageSubtitle={copy('يحلل NEXUS حالة العمل المثبتة ويوجّه القرار التالي.', 'NEXUS analyzes verified workflow state and routes the next decision.')}
             primaryHref="/approvals"
             primaryLabel={copy('مراجعة الموافقات', 'Review approvals')}
             secondaryHref="/connections"
@@ -149,10 +149,10 @@ export default function AutomationPage() {
             <div className="flex min-w-0 items-center gap-3">
               <span className="nx-os-icon-box"><Workflow size={17} /></span>
               <div className="min-w-0">
-                <p className="text-[13px] font-black text-[#111b3f]">{copy('مراقب التنفيذ يعمل', 'Execution monitor active')}</p>
+                <p className="text-[13px] font-black text-[#111b3f]">{copy('لقطة التنفيذ الحالية', 'Current execution snapshot')}</p>
                 <p className="text-[11px] font-semibold text-[#7b87a3]">
                   {executionTruth
-                    ? copy(`${executionTruth.summary.campaigns} حملة تحت المراقبة`, `${executionTruth.summary.campaigns} campaigns monitored`)
+                    ? copy(`تم تحليل حالة ${executionTruth.summary.campaigns} حملة من البيانات الحالية`, `Current data analyzed for ${executionTruth.summary.campaigns} campaigns`)
                     : copy('جار تحميل حالة التشغيل', 'Loading execution state')}
                 </p>
               </div>
@@ -184,7 +184,7 @@ export default function AutomationPage() {
             <div className="nx-os-card p-5">
               <div className="mb-5 flex items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-[18px] font-black text-[#071236]">{copy('قائمة التشغيل الحية', 'Live execution queue')}</h2>
+                  <h2 className="text-[18px] font-black text-[#071236]">{copy('قائمة قرارات التنفيذ', 'Execution decision queue')}</h2>
                   <p className="mt-1 text-[13px] font-semibold text-[#7b87a3]">
                     {copy('مرتبة حسب الخطورة وحالة العمل الفعلية، بدون افتراض نتائج أداء.', 'Ordered by severity and verified workflow state without inferred performance outcomes.')}
                   </p>

@@ -9,12 +9,17 @@
  * Pure and dependency-free so the gate is fully unit-testable without a database or
  * any network. The cron route uses `autoPublishWhere` for the DB query AND
  * `isAutoPublishEligible` as a belt-and-suspenders in-code filter, so a MANUAL post
- * can never reach the publishing code path through either layer.
+ * or a post without confirmed media can never reach the publishing code path.
  */
+
+import {
+  isContentPostMediaReadyForScheduling,
+  type ContentHubMediaStateInput,
+} from './contentHubMediaState'
 
 export type PublishModeValue = 'MANUAL' | 'AUTO'
 
-export interface CronPostLike {
+export interface CronPostLike extends ContentHubMediaStateInput {
   status: string
   /** May be missing/null on legacy rows — anything that is not exactly 'AUTO' is MANUAL. */
   publishMode?: string | null
@@ -23,12 +28,14 @@ export interface CronPostLike {
 
 /**
  * The single source of truth for "may the cron auto-publish this post right now?".
- * Returns true ONLY when: status SCHEDULED + publishMode AUTO + a valid, due scheduledAt.
+ * Returns true ONLY when: status SCHEDULED + publishMode AUTO + confirmed media +
+ * a valid, due scheduledAt.
  * Default/unknown/legacy publishMode is treated as MANUAL → never eligible.
  */
 export function isAutoPublishEligible(post: CronPostLike, now: Date): boolean {
   if (post.status !== 'SCHEDULED') return false
   if (post.publishMode !== 'AUTO') return false           // MANUAL / null / legacy → blocked
+  if (!isContentPostMediaReadyForScheduling(post)) return false
   if (!post.scheduledAt) return false
   const due = new Date(post.scheduledAt as any)
   if (isNaN(due.getTime())) return false
@@ -43,6 +50,8 @@ export function autoPublishWhere(now: Date) {
   return {
     status: 'SCHEDULED' as const,
     publishMode: 'AUTO' as const,
+    generationStatus: 'DONE' as const,
+    imageUrl: { not: null },
     scheduledAt: { lte: now },
   }
 }

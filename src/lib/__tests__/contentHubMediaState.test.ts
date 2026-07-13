@@ -2,10 +2,25 @@ import { describe, expect, it } from 'vitest'
 import {
   CONTENT_HUB_UPLOADED_MEDIA_SOURCE,
   deriveContentHubMediaState,
+  isContentPostMediaReadyForScheduling,
   summarizeContentHubMediaReadiness,
 } from '../contentHubMediaState'
 
 describe('Content Hub media readiness state', () => {
+  it('uses the same confirmed-media rule as the scheduling gate', () => {
+    expect(isContentPostMediaReadyForScheduling({
+      imageUrl: null,
+      mediaSource: 'GENERATE',
+      generationStatus: 'PENDING',
+    })).toBe(false)
+
+    expect(isContentPostMediaReadyForScheduling({
+      imageUrl: 'https://cdn.example.com/final.jpg',
+      mediaSource: 'GENERATE',
+      generationStatus: 'DONE',
+    })).toBe(true)
+  })
+
   it('treats posts without imageUrl as no media and not ready', () => {
     const state = deriveContentHubMediaState({
       imageUrl: null,

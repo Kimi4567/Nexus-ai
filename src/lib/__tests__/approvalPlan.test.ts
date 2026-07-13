@@ -8,7 +8,7 @@
  *   - scheduling requires an existing valid scheduledAt/planned date
  *   - status history is recorded for every transition
  *   - re-approving an already-approved post is a no-op (no double approval)
- *   - the legacy approve_and_schedule compound mode is explicit and audited
+ *   - no compound approval-and-scheduling transition exists
  */
 
 import { describe, it, expect } from 'vitest'
@@ -112,21 +112,6 @@ describe('planScheduling — APPROVED → SCHEDULED only', () => {
   })
 })
 
-describe('legacy approve_and_schedule (explicit compound)', () => {
-  it('9. moves DRAFT → SCHEDULED in one step, sets approvedAt, audits BOTH transitions', () => {
-    const now = new Date('2026-06-13T10:00:00Z')
-    const plan = planApproval([draft('p1')], { mode: 'approve_and_schedule', now })
-    expect(plan.mode).toBe('approve_and_schedule')
-    expect(plan.updates).toHaveLength(1)
-    expect(plan.updates[0].data.status).toBe('SCHEDULED')
-    expect(plan.updates[0].data.approvedAt).toBe(now)
-    expect(noScheduledAt(plan.updates)).toBe(true)
-    // two history rows: DRAFT→APPROVED then APPROVED→SCHEDULED (tagged legacy)
-    expect(plan.history.map(h => `${h.fromStatus}->${h.toStatus}`)).toEqual(['DRAFT->APPROVED', 'APPROVED->SCHEDULED'])
-    expect(plan.history[1].note).toMatch(/legacy/)
-  })
-})
-
 describe('planRevert — un-approve / un-schedule', () => {
   it('10. APPROVED → DRAFT clears approvedAt and audits the transition', () => {
     const plan = planRevert([approved('p1')])
@@ -156,5 +141,15 @@ describe('schedule-content-plan route response counts', () => {
     expect(routeSource).toContain('scheduledIds.has(p.id) && !!integrationMap[String(p.platform)]')
     expect(routeSource).not.toContain('const linked = approvedPosts.filter((p: any) => !!integrationMap[String(p.platform)]).length')
     expect(routeSource).toContain('skipped because planned dates were missing or invalid')
+    expect(routeSource).toContain("code: 'MEDIA_REVIEW_REQUIRED'")
+    expect(routeSource).toContain('isContentPostMediaReadyForScheduling(post)')
+  })
+
+  it('rejects the removed compound approval and scheduling bypass', () => {
+    const routeSource = readFileSync('src/app/api/campaigns/[id]/approve-content-plan/route.ts', 'utf8')
+
+    expect(routeSource).toContain("code: 'SEPARATE_SCHEDULING_REQUIRED'")
+    expect(routeSource).toContain("body?.mode === 'approve_and_schedule'")
+    expect(routeSource).not.toContain("{ mode, actor: 'USER' }")
   })
 })

@@ -134,6 +134,7 @@ export async function POST(req: NextRequest, props: Params) {
                 uniqueAdvantages: true,
                 complianceNotes: true,
                 verifiedProof: true,
+                conversionDestination: true,
               },
             },
           },
@@ -149,11 +150,24 @@ export async function POST(req: NextRequest, props: Params) {
     }
 
     const workspaceId = campaign.workspaceId
+    const brandProfile = campaign.workspace?.brandProfile
+    const explicitBrandFacts = [
+      brandProfile?.brandName,
+      brandProfile?.description,
+      brandProfile?.primaryOffer,
+      brandProfile?.uniqueAdvantages ?? [],
+      brandProfile?.complianceNotes,
+      brandProfile?.verifiedProof ?? [],
+    ]
 
     // ── 2. Require real strategy evidence before spending credits ──────────
     const aiOutput = campaign.aiOutput as any
     const strategy = aiOutput?.strategy ?? aiOutput ?? {}
-    const proofContext = { verifiedProof: campaign.workspace?.brandProfile?.verifiedProof ?? [] }
+    const proofContext = {
+      verifiedProof: brandProfile?.verifiedProof ?? [],
+      hasConversionDestination: Boolean(brandProfile?.conversionDestination),
+      brandFacts: explicitBrandFacts,
+    }
     const strategyForContent = guardStrategyProof(strategy, proofContext)
 
     const hasRealStrategyEvidence =
@@ -224,15 +238,6 @@ export async function POST(req: NextRequest, props: Params) {
 
     const brandName    = resolveContentPlanBrandName(campaign)
     const campaignName = campaign.name ?? 'Campaign'
-    const brandProfile = campaign.workspace?.brandProfile
-    const explicitBrandFacts = [
-      brandProfile?.brandName,
-      brandProfile?.description,
-      brandProfile?.primaryOffer,
-      brandProfile?.uniqueAdvantages ?? [],
-      brandProfile?.complianceNotes,
-      brandProfile?.verifiedProof ?? [],
-    ]
 
     // FL2: Prefer connected platforms from Integration table over wizard selection.
     // This ensures the content plan targets channels the user actually has connected.

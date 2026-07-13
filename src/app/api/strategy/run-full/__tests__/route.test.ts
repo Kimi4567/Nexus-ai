@@ -44,7 +44,7 @@ vi.mock('@/lib/apiAuth', () => ({ getAuthUser: mockGetAuthUser }))
 vi.mock('@/lib/dbRateLimit', () => ({ aiRateLimitDb: mockAiRateLimitDb }))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
-  FREE_STARTER_CREDITS: 10,
+  FREE_STARTER_CREDITS: 12,
   refundCreditsForTransaction: mockRefundForTxn,
 }))
 vi.mock('@/lib/credits/wallet', () => ({ isCreditWalletEnabled: mockIsWalletEnabled }))

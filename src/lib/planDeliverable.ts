@@ -22,7 +22,7 @@ export interface CampaignDeliverable {
 }
 
 const PER_CAMPAIGN: Record<string, { imagePosts: number; videoSlots: number }> = {
-  FREE:     { imagePosts: 8,  videoSlots: 0 },
+  FREE:     { imagePosts: 3,  videoSlots: 0 },
   STARTER:  { imagePosts: 12, videoSlots: 0 },
   PRO:      { imagePosts: 16, videoSlots: 2 },
   GROWTH:   { imagePosts: 16, videoSlots: 2 }, // display alias of PRO

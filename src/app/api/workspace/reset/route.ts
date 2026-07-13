@@ -30,6 +30,7 @@ import { prisma } from '@/lib/prisma'
 const db = prisma as any
 
 const STRONG_CONFIRM = 'RESET MY NEXUS WORKSPACE'
+const RESET_TRANSACTION_TIMEOUT_MS = 60_000
 
 // Account infrastructure + platform connections that are NEVER touched.
 const PRESERVED = [
@@ -152,6 +153,14 @@ export async function POST(req: NextRequest) {
       const existingBrand = await tx.brandProfile.findUnique({ where: { workspaceId: wid }, select: { id: true } })
       if (existingBrand) await tx.brandProfile.update({ where: { workspaceId: wid }, data: BRAND_RESET as any })
       return { deleted, brandProfileReset: Boolean(existingBrand) }
+    }, {
+      // Supabase is remote and this reset intentionally performs FK-safe,
+      // sequential deletes. Prisma's 5s interactive-transaction default can
+      // expire before the final BrandProfile reset even though every query is
+      // healthy, producing P2028 and a full rollback. Give this explicit admin-
+      // style operation enough time while keeping it bounded.
+      maxWait: 10_000,
+      timeout: RESET_TRANSACTION_TIMEOUT_MS,
     })
 
     return NextResponse.json({

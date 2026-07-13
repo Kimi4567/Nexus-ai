@@ -44,58 +44,18 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST — schedule a new post
+// POST — legacy free-form scheduling is deliberately closed. Scheduling must
+// start from an approved, media-ready campaign post in Content Hub so Brand
+// Brain, review history, and execution gates cannot be bypassed.
 export async function POST(req: NextRequest) {
-  try {
-    const user = await getUser(req)
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await getUser(req)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const body = await req.json()
-    const { integrationId, pageId, pageName, caption, imageUrl, platform, campaignId, scheduledAt } = body
-
-    if (!integrationId || !pageId || !caption || !scheduledAt) {
-      return NextResponse.json(
-        { error: 'integrationId, pageId, caption, and scheduledAt are required' },
-        { status: 400 }
-      )
-    }
-
-    const scheduledDate = new Date(scheduledAt)
-    if (!Number.isFinite(scheduledDate.getTime()) || scheduledDate.getTime() <= Date.now()) {
-      return NextResponse.json(
-        { error: 'A valid future schedule time is required' },
-        { status: 400 }
-      )
-    }
-
-    const workspace = await prisma.workspace.findFirst({ where: { ownerId: user.id } })
-    if (!workspace) return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
-
-    const integration = await prisma.integration.findFirst({
-      where: { id: integrationId, workspaceId: workspace.id },
-    })
-    if (!integration) return NextResponse.json({ error: 'Integration not found' }, { status: 404 })
-
-    const post = await prisma.socialPost.create({
-      data: {
-        workspaceId: workspace.id,
-        campaignId: campaignId || null,
-        integrationId,
-        platform: platform as any,
-        pageId,
-        pageName: pageName || '',
-        caption,
-        imageUrl: imageUrl || null,
-        status: 'SCHEDULED',
-        scheduledAt: scheduledDate,
-      },
-    })
-
-    return NextResponse.json({ post })
-  } catch (err: any) {
-    console.error('[Schedule POST] Error:', err?.message || err)
-    return NextResponse.json({ error: 'Failed to schedule post' }, { status: 500 })
-  }
+  return NextResponse.json({
+    error: 'Free-form scheduling is no longer supported. Approve copy, confirm media, and schedule the campaign post from Content Hub.',
+    code: 'CONTENT_HUB_SCHEDULING_REQUIRED',
+    href: '/content-hub',
+  }, { status: 410 })
 }
 
 // DELETE — cancel a scheduled post

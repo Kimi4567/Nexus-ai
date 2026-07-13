@@ -3,6 +3,10 @@
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
+import {
+  deriveContentHubMediaState,
+  isContentPostMediaReadyForScheduling,
+} from '@/lib/contentHubMediaState'
 import { useI18n } from '@/lib/i18n-context'
 import {
   ArrowUpRight,
@@ -189,12 +193,20 @@ export default function ContentHubPage() {
     const approved = posts.filter(post => String(post.status || '').toUpperCase() === 'APPROVED').length
     const scheduled = posts.filter(post => String(post.status || '').toUpperCase() === 'SCHEDULED' && post.scheduledAt).length
     const published = posts.filter(post => String(post.status || '').toUpperCase() === 'PUBLISHED').length
-    const mediaReady = posts.filter(post => String(post.generationStatus || '').toUpperCase() === 'DONE' && Boolean(post.imageUrl || post.uploadedMediaId)).length
+    const mediaReady = posts.filter(isContentPostMediaReadyForScheduling).length
     const copyReady = posts.filter(post => Boolean(String(post.caption || '').trim())).length
     const platformAssigned = posts.filter(post => Boolean(String(post.platform || '').trim())).length
     const drafts = posts.filter(post => String(post.status || 'DRAFT').toUpperCase() === 'DRAFT').length
-    const needsReview = drafts
-    const reviewed = approved + scheduled + published
+    const needsReview = posts.filter(post => {
+      const status = String(post.status || 'DRAFT').toUpperCase()
+      if (status === 'PUBLISHED') return false
+      return status === 'DRAFT' || !isContentPostMediaReadyForScheduling(post)
+    }).length
+    const reviewed = posts.filter(post => {
+      const status = String(post.status || 'DRAFT').toUpperCase()
+      return ['APPROVED', 'SCHEDULED', 'PUBLISHED'].includes(status)
+        && isContentPostMediaReadyForScheduling(post)
+    }).length
     const productionProgress = total === 0
       ? 0
       : Math.round(((copyReady + mediaReady + reviewed) / (total * 3)) * 100)
@@ -226,33 +238,12 @@ export default function ContentHubPage() {
   const latestCampaign = campaigns[0]
   const latestCampaignContentHref = latestCampaign ? `/campaigns/${latestCampaign.id}/content-hub` : '/content-hub'
   const samplePost = filteredPosts.find(post => post.imageUrl) ?? filteredPosts[0] ?? posts.find(post => post.imageUrl) ?? posts[0]
-  const recentPosts = filteredPosts.slice(0, 5)
-  const sampleMediaState = (() => {
-    if (!samplePost?.imageUrl) {
-      return {
-        label: isAr ? 'لا توجد وسائط مرفقة' : 'No media attached',
-        helper: isAr ? 'المعاينة نصية فقط ولم يحدث نشر.' : 'Text-only preview; nothing has been published.',
-      }
-    }
-
-    const source = String(samplePost.mediaSource || '').toUpperCase()
-    if (source === 'GENERATE') {
-      return {
-        label: isAr ? 'خلفية مولّدة للمراجعة' : 'Generated review background',
-        helper: isAr ? 'أصل بصري للمراجعة فقط، وليس إعلانًا نهائيًا أو نشرًا.' : 'A review asset only, not final creative or a publish event.',
-      }
-    }
-    if (samplePost.uploadedMediaId || source === 'UPLOAD' || source === 'UPLOADED') {
-      return {
-        label: isAr ? 'أصل مرفوع ومرفق' : 'Attached uploaded asset',
-        helper: isAr ? 'مرفق بمعاينة المنشور فقط ولم يتم نشره.' : 'Attached to the post preview only; not published.',
-      }
-    }
-    return {
-      label: isAr ? 'وسائط المنشور' : 'Post media',
-      helper: isAr ? 'وسائط مرتبطة بالمنشور؛ حالة النشر منفصلة.' : 'Media linked to this post; publishing is a separate state.',
-    }
-  })()
+  const recentPosts = filteredPosts.filter(post => {
+    const status = String(post.status || 'DRAFT').toUpperCase()
+    if (status === 'PUBLISHED') return false
+    return status === 'DRAFT' || !isContentPostMediaReadyForScheduling(post)
+  }).slice(0, 5)
+  const sampleMediaState = deriveContentHubMediaState(samplePost ?? {})
 
   const platformRows = useMemo(() => {
     const map = new Map<string, { platform: string; count: number; ready: number }>()
@@ -260,7 +251,7 @@ export default function ContentHubPage() {
       const key = String(post.platform || 'UNKNOWN').toUpperCase()
       const row = map.get(key) ?? { platform: key, count: 0, ready: 0 }
       row.count += 1
-      if (String(post.generationStatus || '').toUpperCase() === 'DONE') row.ready += 1
+      if (isContentPostMediaReadyForScheduling(post)) row.ready += 1
       map.set(key, row)
     })
     return Array.from(map.values()).slice(0, 5)
@@ -310,7 +301,7 @@ export default function ContentHubPage() {
                 {isAr ? `${stats.needsReview} منشورات تحتاج قرارك` : `${stats.needsReview} posts need your decision`}
               </p>
               <p className="mt-1 text-[11px] font-bold text-slate-500">
-                {isAr ? `${stats.total} إجمالي · ${stats.approved} معتمد · ${stats.scheduled} مجدول` : `${stats.total} total · ${stats.approved} approved · ${stats.scheduled} scheduled`}
+                {isAr ? `${stats.total} إجمالي · ${stats.approved} نصوص معتمدة · ${stats.mediaReady} وسائط مؤكدة · ${stats.scheduled} مجدول` : `${stats.total} total · ${stats.approved} copy approved · ${stats.mediaReady} media confirmed · ${stats.scheduled} scheduled`}
               </p>
               <p className="mt-1 text-[10px] font-semibold text-slate-400">
                 {isAr ? 'تُراجع CTA داخل كل منشور؛ لا يفترض NEXUS دعوة عامة من دون دليل.' : 'CTA is reviewed per post; NEXUS does not assume a generic CTA here.'}
@@ -345,13 +336,18 @@ export default function ContentHubPage() {
                   <div className="mb-4 flex items-center justify-between">
                     <Link href="/campaigns" className="text-[12px] font-bold text-[#5E63FF]">{isAr ? 'عرض الكل' : 'View all'}</Link>
                     <div className="text-right">
-                      <p className="text-[12px] font-bold text-[#5E63FF]">{isAr ? 'قائمة الموافقات' : 'Approvals queue'}</p>
-                      <h2 className="text-[17px] font-black text-[#0B1028]">{isAr ? 'طلبات تحتاج مراجعة' : 'Review queue'}</h2>
+                      <p className="text-[12px] font-bold text-[#5E63FF]">{isAr ? 'قائمة قرارات الإنتاج' : 'Production decisions'}</p>
+                      <h2 className="text-[17px] font-black text-[#0B1028]">{isAr ? 'عناصر غير مكتملة' : 'Incomplete items'}</h2>
                     </div>
                     <span className="rounded-full bg-[#EEF2FF] px-2.5 py-1 text-[12px] font-black text-[#5E63FF]" dir="ltr">{stats.needsReview}</span>
                   </div>
                   <div className="space-y-2.5">
-                    {(recentPosts.length ? recentPosts : posts.slice(0, 3)).slice(0, 3).map((post, index) => (
+                    {recentPosts.slice(0, 3).map(post => {
+                      const status = String(post.status || 'DRAFT').toUpperCase()
+                      const decisionLabel = status === 'DRAFT'
+                        ? (isAr ? 'راجع النص' : 'Review copy')
+                        : (isAr ? 'أكمل الوسائط' : 'Complete media')
+                      return (
                       <Link
                         key={post.id}
                         href={`/campaigns/${post.campaignId}/content-hub`}
@@ -364,11 +360,12 @@ export default function ContentHubPage() {
                           <p className="truncate text-[13px] font-black text-[#0B1028]">{safeSnippet(post.caption, post.campaignName)}</p>
                           <p className="mt-1 truncate text-[11px] text-slate-500">{post.isVideoPost ? (isAr ? 'فيديو قصير' : 'Short video') : (isAr ? 'منشور / صورة' : 'Post / image')} · {post.campaignName}</p>
                         </div>
-                        <span className={`rounded-lg px-2.5 py-1 text-[10px] font-black ${index === 0 ? toneClasses.amber : toneClasses.violet}`}>
-                          {isAr ? 'مراجعة' : 'Review'}
+                        <span className={`rounded-lg px-2.5 py-1 text-[10px] font-black ${status === 'DRAFT' ? toneClasses.violet : toneClasses.amber}`}>
+                          {decisionLabel}
                         </span>
                       </Link>
-                    ))}
+                      )
+                    })}
                     {recentPosts.length === 0 && (
                       <div className="rounded-[16px] bg-slate-50 px-4 py-6 text-center text-[12px] font-bold text-slate-500">
                         {isAr ? 'لا توجد منشورات للمراجعة بعد.' : 'No posts ready for review yet.'}
@@ -392,7 +389,7 @@ export default function ContentHubPage() {
                         {samplePost?.isVideoPost ? (isAr ? 'فيديو' : 'Video') : (isAr ? 'صورة / منشور' : 'Post asset')}
                       </div>
                       <div className="absolute bottom-3 right-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-black text-[#5E63FF]">
-                        {sampleMediaState.label}
+                        {isAr ? sampleMediaState.badgeLabel.ar : sampleMediaState.badgeLabel.en}
                       </div>
                     </div>
                     <div className="flex items-center justify-between px-4 py-3">
@@ -401,7 +398,7 @@ export default function ContentHubPage() {
                           <span key={item} className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-[#EEF2FF] text-[10px] font-black text-[#5E63FF]">N</span>
                         ))}
                       </div>
-                      <p className="text-[12px] font-bold text-slate-500">{sampleMediaState.helper}</p>
+                      <p className="text-[12px] font-bold text-slate-500">{isAr ? sampleMediaState.explanatoryCopy.ar : sampleMediaState.explanatoryCopy.en}</p>
                     </div>
                   </Link>
                 </SoftPanel>

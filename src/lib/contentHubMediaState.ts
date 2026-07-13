@@ -123,6 +123,17 @@ export function deriveContentHubMediaState(input: ContentHubMediaStateInput): Co
   }
 }
 
+/**
+ * Scheduling is an execution-readiness state, so a post may enter it only when
+ * its final linked media is confirmed ready. Keep this shared between the UI
+ * and API so a client cannot bypass the media review gate.
+ */
+export function isContentPostMediaReadyForScheduling(
+  input: ContentHubMediaStateInput,
+): boolean {
+  return deriveContentHubMediaState(input).countsAsReady
+}
+
 export function summarizeContentHubMediaReadiness(
   posts: ContentHubMediaStateInput[],
 ): ContentHubMediaReadinessSummary {

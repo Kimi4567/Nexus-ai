@@ -275,7 +275,11 @@ describe('GET /api/cron/generate-images — RF-6B refund safety', () => {
     expect(mockCheckAndDeduct).toHaveBeenCalledWith('user_1', 'IMAGE_GENERATION')
     expect(mockPrisma.socialPost.update).toHaveBeenCalledWith({
       where: { id: 'post_a' },
-      data: { imageUrl: 'https://res.cloudinary.com/test/image.png' },
+      data: {
+        imageUrl: 'https://res.cloudinary.com/test/image.png',
+        generationStatus: 'DONE',
+        mediaSource: 'GENERATE',
+      },
     })
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()

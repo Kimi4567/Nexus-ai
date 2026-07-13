@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { decryptToken } from '@/lib/tokenCrypto'
 import { getServerUserId } from '@/lib/apiAuth'
 import { publishSocialPost } from '@/lib/socialPublishers'
+import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState'
 
 type RequestedPlatform = 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK'
 
@@ -47,6 +48,12 @@ export async function POST(req: NextRequest) {
   if (['FACEBOOK', 'INSTAGRAM'].includes(platform) && !pageId) {
     return NextResponse.json({ error: 'A connected Meta page/account is required' }, { status: 400 })
   }
+  if (!socialPostId) {
+    return NextResponse.json({
+      error: 'Platform publishing must reference an approved, media-ready Content Hub post.',
+      code: 'CONTENT_HUB_POST_REQUIRED',
+    }, { status: 400 })
+  }
 
   const workspace = await prisma.workspace.findFirst({
     where: { ownerId: userId },
@@ -55,8 +62,7 @@ export async function POST(req: NextRequest) {
   })
   if (!workspace) return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
 
-  const existingPost = socialPostId
-    ? await prisma.socialPost.findFirst({
+  const existingPost = await prisma.socialPost.findFirst({
         where: { id: socialPostId, workspaceId: workspace.id },
         select: {
           id: true,
@@ -65,28 +71,34 @@ export async function POST(req: NextRequest) {
           status: true,
           caption: true,
           imageUrl: true,
+          uploadedMediaId: true,
+          mediaSource: true,
+          generationStatus: true,
           approvedAt: true,
         },
       })
-    : null
 
-  if (socialPostId && !existingPost) {
+  if (!existingPost) {
     return NextResponse.json({ error: 'Content Hub post not found' }, { status: 404 })
   }
-  if (existingPost) {
-    if (!['APPROVED', 'SCHEDULED'].includes(existingPost.status)) {
-      return NextResponse.json({ error: 'The Content Hub post must be approved before platform publishing' }, { status: 409 })
-    }
-    if (dbPlatform(platform) !== existingPost.platform) {
-      return NextResponse.json({ error: 'Selected platform does not match the approved post platform' }, { status: 409 })
-    }
-    if (campaignId && existingPost.campaignId && campaignId !== existingPost.campaignId) {
-      return NextResponse.json({ error: 'Campaign does not match the approved post' }, { status: 409 })
-    }
-    caption = existingPost.caption
-    imageUrl = existingPost.imageUrl
-    campaignId = existingPost.campaignId
+  if (!['APPROVED', 'SCHEDULED'].includes(existingPost.status)) {
+    return NextResponse.json({ error: 'The Content Hub post must be approved before platform publishing' }, { status: 409 })
   }
+  if (!isContentPostMediaReadyForScheduling(existingPost)) {
+    return NextResponse.json({
+      error: 'Complete and confirm this post media before platform publishing.',
+      code: 'MEDIA_REVIEW_REQUIRED',
+    }, { status: 409 })
+  }
+  if (dbPlatform(platform) !== existingPost.platform) {
+    return NextResponse.json({ error: 'Selected platform does not match the approved post platform' }, { status: 409 })
+  }
+  if (campaignId && existingPost.campaignId && campaignId !== existingPost.campaignId) {
+    return NextResponse.json({ error: 'Campaign does not match the approved post' }, { status: 409 })
+  }
+  caption = existingPost.caption
+  imageUrl = existingPost.imageUrl
+  campaignId = existingPost.campaignId
   if (!caption) {
     return NextResponse.json({ error: 'Approved post caption is required' }, { status: 400 })
   }
@@ -144,8 +156,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    if (existingPost) {
-      const nextStatus = published ? 'PUBLISHED' : 'FAILED'
+    const nextStatus = published ? 'PUBLISHED' : 'FAILED'
       const now = new Date()
       const updated = await prisma.$transaction(async (tx) => {
         const socialPost = await tx.socialPost.update({
@@ -196,42 +207,6 @@ export async function POST(req: NextRequest) {
 
       if (!published) return NextResponse.json({ error: publishError, socialPost: updated }, { status: 502 })
       return NextResponse.json({ ok: true, socialPost: updated, platformUrl: published.platformUrl ?? null })
-    }
-
-    const socialPost = await prisma.socialPost.create({
-      data: {
-        workspaceId: workspace.id,
-        campaignId,
-        integrationId,
-        platform: dbPlatform(platform),
-        pageId: pageId || null,
-        pageName: pageName || page?.name || integration.accountName || null,
-        caption,
-        imageUrl,
-        link,
-        platformPostId: published?.platformPostId ?? null,
-        platformUrl: published?.platformUrl ?? null,
-        status: published ? 'PUBLISHED' : 'FAILED',
-        errorMessage: publishError,
-        publishMode: 'MANUAL',
-        approvedAt: new Date(),
-        publishedAt: published ? new Date() : null,
-        statusHistory: {
-          create: {
-            workspaceId: workspace.id,
-            fromStatus: null,
-            toStatus: published ? 'PUBLISHED' : 'FAILED',
-            actor: 'USER',
-            note: published ? 'Published by explicit user action' : publishError?.slice(0, 500),
-          },
-        },
-      },
-    })
-
-    if (!published) {
-      return NextResponse.json({ error: publishError, socialPost }, { status: 502 })
-    }
-    return NextResponse.json({ ok: true, socialPost, platformUrl: published.platformUrl ?? null })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Persistence failed'
     if (published) {

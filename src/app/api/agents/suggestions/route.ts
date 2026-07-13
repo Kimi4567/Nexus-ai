@@ -8,6 +8,14 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { monitorSignature } from '@/lib/executionMonitor'
+import { getWorkspaceExecutionTruthByWorkspaceId } from '@/lib/executionTruthService'
+
+function payloadRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {}
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -33,17 +41,44 @@ export async function GET(req: NextRequest) {
         ? {}
         : { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }),
     }
-    const [suggestions, total] = await Promise.all([
-      (prisma as any).agentSuggestion.findMany({
-        where,
-        orderBy: [
-          { priority: 'asc' },
-          { createdAt: 'desc' },
-        ],
-        take: limit,
-      }),
-      (prisma as any).agentSuggestion.count({ where }),
-    ])
+    const candidates = await (prisma as any).agentSuggestion.findMany({
+      where,
+      orderBy: [
+        { priority: 'asc' },
+        { createdAt: 'desc' },
+      ],
+      // The first 200 are filtered against current execution truth below. This
+      // prevents a superseded monitor suggestion from replacing today's action.
+      take: Math.max(limit, 200),
+    })
+
+    let currentSuggestions = candidates
+    if (status.toUpperCase() === 'PENDING') {
+      const truth = await getWorkspaceExecutionTruthByWorkspaceId(workspace.id)
+      const currentExecutionSignatures = new Set(truth.queue.map(monitorSignature))
+      const truthByCampaign = new Map(truth.campaigns.map(campaign => [campaign.campaignId, campaign]))
+      currentSuggestions = candidates.filter((suggestion: any) => {
+        const payload = payloadRecord(suggestion.payload)
+        if (payload.source === 'execution-monitor') {
+          return typeof payload.signature === 'string' && currentExecutionSignatures.has(payload.signature)
+        }
+
+        // A one-time generated-strategy approval card is obsolete once that
+        // campaign's strategy is already approved. Evidence-review suggestions
+        // from research monitors remain valid and are handled separately.
+        const researchReview = typeof payload.source === 'string' && payload.source.endsWith('research-monitor')
+        const campaignTruth = typeof suggestion.campaignId === 'string'
+          ? truthByCampaign.get(suggestion.campaignId)
+          : undefined
+        if (suggestion.type === 'STRATEGY' && campaignTruth?.strategyApprovalState === 'approved' && !researchReview) {
+          return false
+        }
+        return true
+      })
+    }
+
+    const suggestions = currentSuggestions.slice(0, limit)
+    const total = currentSuggestions.length
 
     return NextResponse.json({ suggestions, total })
   } catch (err: any) {

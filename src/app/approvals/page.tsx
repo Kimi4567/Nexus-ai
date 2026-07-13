@@ -297,7 +297,7 @@ export default function ApprovalsPage() {
             <div className="nx-os-card p-5">
               <div className="mb-5">
                 <h2 className="text-xl font-black text-[#071236]">{copy('قرارات التشغيل', 'Operational decisions')}</h2>
-                <p className="mt-1 text-[12px] font-semibold text-[#7b87a3]">{copy('أنشأها مراقب التنفيذ من حالة العمل الفعلية.', 'Created by the execution monitor from verified workflow state.')}</p>
+                <p className="mt-1 text-[12px] font-semibold text-[#7b87a3]">{copy('مشتقة من حالة العمل الحالية؛ تُخفى الاقتراحات التي تجاوزتها الحالة.', 'Derived from current workflow state; superseded suggestions are hidden.')}</p>
               </div>
               <div className="space-y-3">
                 {dataLoading ? <div className="h-32 animate-pulse rounded-[20px] bg-[#edf1f8]" /> : suggestions.length === 0 && liveApprovalActions.length === 0 ? (

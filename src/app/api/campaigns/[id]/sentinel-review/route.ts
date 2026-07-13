@@ -10,6 +10,10 @@ import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { runSentinelReview, SentinelReviewInput } from '@/lib/agents/sentinel-reviewer'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
+import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
+import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
+import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -71,12 +75,29 @@ export async function POST(req: NextRequest, props: Params) {
 
     const brand = campaign.workspace?.brandProfile
     const aiOutput = (campaign.aiOutput as any) || {}
-    const strategy = aiOutput.strategy || {}
+    const rawStrategy = aiOutput.strategy || {}
+    const strategyScope = resolveStrategyScope(aiOutput)
+    const proofContext = {
+      verifiedProof: Array.isArray(brand?.verifiedProof) ? brand.verifiedProof : [],
+    }
+    const strategy = guardStrategyKpis(
+      guardStrategyOutputContract(
+        guardStrategyProof(rawStrategy, proofContext) as Record<string, unknown>,
+        {
+          allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms : [],
+          language: language || (aiOutput.language as string | undefined) || 'ar',
+          strategyType: strategyScope.type,
+          hasConversionDestination: Boolean(brand?.conversionDestination),
+        },
+      ) as Record<string, unknown>,
+      [],
+      { language: language || (aiOutput.language as string | undefined) || 'ar' },
+    ) as any
     const content = {
-      topHooks: aiOutput.topHooks || strategy.topHooks || [],
-      ctaVariations: aiOutput.ctaVariations || strategy.ctaVariations || [],
-      captionFormulas: aiOutput.captionFormulas || [],
-      scriptTemplate: aiOutput.scriptTemplate || '',
+      topHooks: strategy.topHooks || guardStrategyProof(aiOutput.topHooks || [], proofContext),
+      ctaVariations: strategy.ctaVariations || guardStrategyProof(aiOutput.ctaVariations || [], proofContext),
+      captionFormulas: guardStrategyProof(aiOutput.captionFormulas || [], proofContext),
+      scriptTemplate: guardStrategyProof(aiOutput.scriptTemplate || '', proofContext),
       contentAngles: strategy.contentAngles || [],
       adCopyVariants: aiOutput.creativeBrief?.adCopyVariants || [],
     }

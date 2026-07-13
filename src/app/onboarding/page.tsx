@@ -28,21 +28,10 @@ import type { ReactNode } from 'react'
 import { FIRST_INTENTS, buildOnboardingStrategicNotes } from '@/lib/onboardingContinuity'
 import { getFirstRunJourney } from '@/lib/firstUserJourney'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
+import { ONBOARDING_INDUSTRY_OPTIONS } from '@/lib/brandIndustries'
 
 // ── Option lists (no emojis) ────────────────────────────────────────────────
-const INDUSTRIES: { value: string; ar: string; en: string }[] = [
-  { value: 'ecommerce',   ar: 'تجارة إلكترونية',  en: 'E-commerce' },
-  { value: 'saas',        ar: 'برمجيات وتقنية',    en: 'Software & Tech' },
-  { value: 'agency',      ar: 'وكالة تسويق',        en: 'Marketing Agency' },
-  { value: 'fitness',     ar: 'لياقة وصحة',          en: 'Fitness & Health' },
-  { value: 'food',        ar: 'أغذية ومشروبات',     en: 'Food & Beverage' },
-  { value: 'real_estate', ar: 'عقارات',              en: 'Real Estate' },
-  { value: 'beauty',      ar: 'جمال وعناية',         en: 'Beauty & Care' },
-  { value: 'consulting',  ar: 'استشارات',            en: 'Consulting' },
-  { value: 'education',   ar: 'تعليم وتدريب',        en: 'Education & Training' },
-  { value: 'healthcare',  ar: 'رعاية صحية',          en: 'Healthcare' },
-  { value: 'other',       ar: 'أخرى',                en: 'Other' },
-]
+const INDUSTRIES = ONBOARDING_INDUSTRY_OPTIONS
 
 const LANGUAGES: { value: 'ar' | 'en' | 'both'; ar: string; en: string }[] = [
   { value: 'ar',   ar: 'العربية',                en: 'Arabic' },

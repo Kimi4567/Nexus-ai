@@ -7,7 +7,7 @@ import { useI18n } from '@/lib/i18n-context'
 interface LuxuryWorkspaceHeaderProps {
   pageTitle?: string
   pageSubtitle?: string
-  primaryHref?: string
+  primaryHref?: string | null
   primaryLabel?: string
   secondaryHref?: string
   secondaryLabel?: string
@@ -65,13 +65,15 @@ export default function LuxuryWorkspaceHeader({
               {resolvedSecondaryLabel}
             </Link>
           ) : null}
-          <Link
-            href={primaryHref}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#101A4D] px-4 text-[12px] font-black text-white shadow-[0_12px_28px_rgba(16,26,77,0.16)] transition hover:bg-[#18245B]"
-          >
-            {resolvedPrimaryLabel}
-            <ArrowUpRight className="h-3.5 w-3.5 opacity-70" />
-          </Link>
+          {primaryHref ? (
+            <Link
+              href={primaryHref}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#101A4D] px-4 text-[12px] font-black text-white shadow-[0_12px_28px_rgba(16,26,77,0.16)] transition hover:bg-[#18245B]"
+            >
+              {resolvedPrimaryLabel}
+              <ArrowUpRight className="h-3.5 w-3.5 opacity-70" />
+            </Link>
+          ) : null}
         </div>
       </div>
     </header>

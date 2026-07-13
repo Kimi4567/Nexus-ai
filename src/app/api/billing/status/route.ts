@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
     const planName = planStatus.plan
     const isActive = planStatus.hasActiveSubscription
 
-    const maxCredits = PLAN_CREDITS[planName] ?? 10  // 10 = FREE_STARTER_CREDITS default
+    const maxCredits = PLAN_CREDITS[planName] ?? FREE_STARTER_CREDITS
     const storedCredits = dbUser.aiCredits ?? 0
     const isFreeStarterEligible =
       !isActive &&

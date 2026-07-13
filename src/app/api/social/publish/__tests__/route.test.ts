@@ -43,6 +43,7 @@ function request(body: Record<string, unknown>) {
 }
 
 const validBody = {
+  socialPostId: 'approved-post-1',
   integrationId: 'integration-1',
   pageId: 'page-1',
   pageName: 'Page',
@@ -67,11 +68,53 @@ beforeEach(() => {
   mocks.campaignFindFirst.mockResolvedValue({ id: 'campaign-1' })
   mocks.decrypt.mockReturnValue('plain-token')
   mocks.publish.mockResolvedValue({ platformPostId: 'page_post_1', platformUrl: 'https://facebook.com/page_post_1' })
-  mocks.socialPostCreate.mockResolvedValue({ id: 'post-1', status: 'PUBLISHED' })
+  mocks.socialPostFindFirst.mockResolvedValue({
+    id: 'approved-post-1',
+    campaignId: 'campaign-1',
+    platform: 'META',
+    status: 'APPROVED',
+    caption: 'Saved approved caption',
+    imageUrl: 'https://cdn.example.com/approved.jpg',
+    uploadedMediaId: null,
+    mediaSource: 'GENERATE',
+    generationStatus: 'DONE',
+    approvedAt: new Date('2026-07-12T10:00:00.000Z'),
+  })
   mocks.socialPostUpdate.mockResolvedValue({ id: 'approved-post-1', status: 'PUBLISHED' })
 })
 
 describe('POST /api/social/publish', () => {
+  it('rejects free-form publishing that does not reference Content Hub', async () => {
+    const response = await POST(request({ ...validBody, socialPostId: undefined }))
+    const body = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(body.code).toBe('CONTENT_HUB_POST_REQUIRED')
+    expect(mocks.publish).not.toHaveBeenCalled()
+  })
+
+  it('blocks publishing until saved post media is confirmed ready', async () => {
+    mocks.socialPostFindFirst.mockResolvedValue({
+      id: 'approved-post-1',
+      campaignId: 'campaign-1',
+      platform: 'META',
+      status: 'APPROVED',
+      caption: 'Saved approved caption',
+      imageUrl: null,
+      uploadedMediaId: null,
+      mediaSource: 'GENERATE',
+      generationStatus: 'PENDING',
+      approvedAt: new Date('2026-07-12T10:00:00.000Z'),
+    })
+
+    const response = await POST(request(validBody))
+    const body = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(body.code).toBe('MEDIA_REVIEW_REQUIRED')
+    expect(mocks.publish).not.toHaveBeenCalled()
+  })
+
   it('scopes integration and campaign lookup to the authenticated workspace', async () => {
     const response = await POST(request(validBody))
     expect(response.status).toBe(200)
@@ -96,31 +139,29 @@ describe('POST /api/social/publish', () => {
       accessToken: 'plain-token',
       pageId: 'page-1',
     }))
-    expect(mocks.socialPostCreate).toHaveBeenCalledWith({
+    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
+      where: { id: 'approved-post-1' },
       data: expect.objectContaining({
-        workspaceId: 'workspace-1',
         status: 'PUBLISHED',
         platformPostId: 'page_post_1',
         publishMode: 'MANUAL',
-        statusHistory: {
-          create: expect.objectContaining({
-            actor: 'USER',
-            toStatus: 'PUBLISHED',
-          }),
-        },
       }),
+    })
+    expect(mocks.postStatusHistoryCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ actor: 'USER', toStatus: 'PUBLISHED' }),
     })
   })
 
   it('records a failed attempt without claiming publication', async () => {
     mocks.publish.mockRejectedValue(new Error('Facebook publish failed: permission denied'))
-    mocks.socialPostCreate.mockResolvedValue({ id: 'post-failed', status: 'FAILED' })
+    mocks.socialPostUpdate.mockResolvedValue({ id: 'approved-post-1', status: 'FAILED' })
     const response = await POST(request(validBody))
     const body = await response.json()
 
     expect(response.status).toBe(502)
     expect(body.socialPost.status).toBe('FAILED')
-    expect(mocks.socialPostCreate).toHaveBeenCalledWith({
+    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
+      where: { id: 'approved-post-1' },
       data: expect.objectContaining({
         status: 'FAILED',
         platformPostId: null,
@@ -130,7 +171,7 @@ describe('POST /api/social/publish', () => {
   })
 
   it('returns a reconciliation contract if the provider succeeds but DB persistence fails', async () => {
-    mocks.socialPostCreate.mockRejectedValue(new Error('database unavailable'))
+    mocks.socialPostUpdate.mockRejectedValue(new Error('database unavailable'))
     const response = await POST(request(validBody))
     const body = await response.json()
 
@@ -149,6 +190,9 @@ describe('POST /api/social/publish', () => {
       status: 'APPROVED',
       caption: 'Saved approved caption',
       imageUrl: 'https://cdn.example.com/approved.jpg',
+      uploadedMediaId: null,
+      mediaSource: 'GENERATE',
+      generationStatus: 'DONE',
       approvedAt: new Date('2026-07-12T10:00:00.000Z'),
     })
 

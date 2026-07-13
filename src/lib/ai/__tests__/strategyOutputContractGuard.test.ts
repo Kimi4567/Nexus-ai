@@ -583,6 +583,38 @@ describe('guardStrategyOutputContract', () => {
     expect(out.contentAnglesDetailed[0].responseHandoff)
       .toBe('فريق الاستقبال يتابع مع العملاء لتأكيد المواعيد')
   })
+
+  it('repairs broken Arabic phrases and removes unsupported conversion CTAs', () => {
+    const out = guardStrategyOutputContract({
+      positioning: 'منصة للمتابعة دون تعقيد التقنيات اليدوية',
+      topHooks: [
+        'ابدأ باستخدام النظام معدودة',
+        'لا تفقد أي فرصة بيع بعد اليوم',
+      ],
+      ctaVariations: ['جرب النظام الآن', 'احصل على عرض توضيحي', 'تعرف على كيفية تحسين مبيعاتك الآن', 'تعرف على المزيد'],
+      businessObjective: {
+        conversionAction: 'طلب عرض توضيحي',
+        expectedUserAction: 'ابدأ الآن',
+      },
+      contentAnglesDetailed: [{ cta: 'سجل الآن', hook: 'لا تفقد أي فرصة بيع بعد اليوم' }],
+      funnelStages: [{ cta: 'اطلب تجربة', userMindset: 'الاستعداد للتسجيل واستخدام النظام', successMetric: 'عدد التحويلات' }],
+      weeklyExecutionPlan: [{ cta: 'تواصل عبر واتساب', successMetric: 'عدد النقرات على الرابط' }],
+    }, {
+      language: 'ar',
+      hasConversionDestination: false,
+    })
+    const joined = JSON.stringify(out)
+
+    expect(joined).toContain('دون تشتت الأدوات اليدوية')
+    expect(joined).toContain('ابدأ بخطوات إعداد بسيطة وواضحة')
+    expect(joined).toContain('نظّم متابعة فرص البيع بدل تركها بين الأدوات')
+    expect(joined).not.toMatch(/جرب النظام|عرض توضيحي|سجل الآن|اطلب تجربة|واتساب|تحسين مبيعاتك/)
+    expect(out.ctaVariations).toContain('تعرف على المزيد')
+    expect(out.businessObjective.conversionAction).toContain('لم تُحدَّد وجهة التحويل')
+    expect(out.funnelStages[0].userMindset).toContain('لم يحدد بعد معايير الاختيار')
+    expect(out.funnelStages[0].successMetric).toContain('يحتاج إلى خط أساس')
+    expect(out.weeklyExecutionPlan[0].successMetric).toContain('يحتاج إلى خط أساس')
+  })
 })
 
 describe('selectStrategyCampaignPlatforms', () => {
@@ -650,7 +682,8 @@ describe('strategy runtime copy contract', () => {
     expect(modal).toContain('Review cost and confirm')
     expect(modal).toContain('Review cost —')
     expect(modal).not.toContain('{rs.langStartBtn}')
-    expect(campaignPage).toContain('guardStrategyOutputContract(guardedAiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms, language: strategyLanguage, strategyType: strategyScope.type })')
+    expect(campaignPage).toContain('guardStrategyOutputContract(guardedAiOutput?.strategy || {}, {')
+    expect(campaignPage).toContain('hasConversionDestination: Boolean((brandDNA as any)?.conversionDestination)')
   })
 
   it('keeps paid-only campaign pages separate from the organic content-plan workflow', () => {

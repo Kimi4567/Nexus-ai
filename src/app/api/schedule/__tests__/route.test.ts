@@ -52,10 +52,12 @@ beforeEach(() => {
 })
 
 describe('schedule mutation safety', () => {
-  it('rejects invalid or past schedule times before creating a post', async () => {
+  it('closes legacy free-form scheduling in favor of Content Hub', async () => {
     const response = await POST(makePost('2020-01-01T10:00:00Z'))
+    const body = await response.json()
 
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(410)
+    expect(body.code).toBe('CONTENT_HUB_SCHEDULING_REQUIRED')
     expect(mockPrisma.socialPost.create).not.toHaveBeenCalled()
   })
 

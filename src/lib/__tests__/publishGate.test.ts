@@ -14,7 +14,15 @@ const now = new Date('2026-06-13T12:00:00Z')
 const due = '2026-06-13T11:00:00Z'    // past → due
 const future = '2026-06-14T11:00:00Z' // not due
 
-const post = (over: Partial<CronPostLike>): CronPostLike => ({ status: 'SCHEDULED', publishMode: 'AUTO', scheduledAt: due, ...over })
+const post = (over: Partial<CronPostLike>): CronPostLike => ({
+  status: 'SCHEDULED',
+  publishMode: 'AUTO',
+  scheduledAt: due,
+  imageUrl: 'https://cdn.example.com/post.jpg',
+  generationStatus: 'DONE',
+  mediaSource: 'GENERATE',
+  ...over,
+})
 
 describe('isAutoPublishEligible — only AUTO posts may auto-publish', () => {
   it('1. SCHEDULED + MANUAL + due is NOT selected', () => {
@@ -52,6 +60,12 @@ describe('isAutoPublishEligible — only AUTO posts may auto-publish', () => {
     expect(isAutoPublishEligible(post({ scheduledAt: null }), now)).toBe(false)
     expect(isAutoPublishEligible(post({ scheduledAt: 'not-a-date' }), now)).toBe(false)
   })
+
+  it('blocks automatic publishing until media is explicitly confirmed ready', () => {
+    expect(isAutoPublishEligible(post({ imageUrl: null }), now)).toBe(false)
+    expect(isAutoPublishEligible(post({ generationStatus: 'PENDING' }), now)).toBe(false)
+    expect(isAutoPublishEligible(post({ generationStatus: 'FAILED' }), now)).toBe(false)
+  })
 })
 
 describe('autoPublishWhere — DB query only targets AUTO posts', () => {
@@ -59,6 +73,8 @@ describe('autoPublishWhere — DB query only targets AUTO posts', () => {
     const w = autoPublishWhere(now)
     expect(w.status).toBe('SCHEDULED')
     expect(w.publishMode).toBe('AUTO')
+    expect(w.generationStatus).toBe('DONE')
+    expect(w.imageUrl).toEqual({ not: null })
     expect(w.scheduledAt).toEqual({ lte: now })
   })
 

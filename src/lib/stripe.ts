@@ -2,7 +2,7 @@
  * Nexus AI — Stripe client + Plan definitions
  *
  * Public pricing (July 2026): exactly two paid subscriptions.
- *   Trial     — $0      — 10 credits (one-time, 14 days)
+ *   Trial     — $0      — 12 credits (one-time, 14 days)
  *   Growth    — $49/mo  — 150 credits/month
  *   Autopilot — $99/mo  — 500 credits/month
  *
@@ -16,6 +16,8 @@
 import Stripe from 'stripe'
 import {
   CREDIT_PACKS,
+  FREE_TRIAL_CREDITS,
+  FREE_TRIAL_POSTS,
   PUBLIC_PAID_PLANS,
   getCreditPack,
   type CreditPackId,
@@ -75,13 +77,13 @@ export const PLANS: PlanDefinition[] = [
     name: 'Free',
     displayName: 'Free',
     price: 0,
-    credits: 10,
-    postsPerMonth: 4,
+    credits: FREE_TRIAL_CREDITS,
+    postsPerMonth: FREE_TRIAL_POSTS,
     stripePriceEnvKey: '',
     cta: 'Get Started Free',
     researchNote: 'Enough to experience the product — not enough for real marketing results',
     features: [
-      '10 AI credits — 14-day trial',
+      `${FREE_TRIAL_CREDITS} AI credits — 14-day trial`,
       '1 workspace',
       '1 campaign maximum',
       '3 AI posts to try',
@@ -246,11 +248,11 @@ export interface PlanQuota {
 }
 
 export const PLAN_QUOTAS: Record<string, PlanQuota> = {
-  FREE:     { postsPerMonth: 4,   videoSlotsPerMonth: 0,  postsPerCampaign: 8  },
+  FREE:     { postsPerMonth: FREE_TRIAL_POSTS, videoSlotsPerMonth: 0, postsPerCampaign: FREE_TRIAL_POSTS },
   STARTER:  { postsPerMonth: 10,  videoSlotsPerMonth: 0,  postsPerCampaign: 12 },
   PRO:      { postsPerMonth: 25,  videoSlotsPerMonth: 2,  postsPerCampaign: 16 },
   BUSINESS: { postsPerMonth: 60,  videoSlotsPerMonth: 5,  postsPerCampaign: 20 },
-  free:     { postsPerMonth: 4,   videoSlotsPerMonth: 0,  postsPerCampaign: 8  },
+  free:     { postsPerMonth: FREE_TRIAL_POSTS, videoSlotsPerMonth: 0, postsPerCampaign: FREE_TRIAL_POSTS },
   starter:  { postsPerMonth: 10,  videoSlotsPerMonth: 0,  postsPerCampaign: 12 },
   pro:      { postsPerMonth: 25,  videoSlotsPerMonth: 2,  postsPerCampaign: 16 },
   business: { postsPerMonth: 60,  videoSlotsPerMonth: 5,  postsPerCampaign: 20 },

@@ -23,6 +23,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
+import { FREE_TRIAL_CREDITS } from '@/lib/commercialPlans'
 
 // CreditGrant enums are kept as plain string unions so this module never has to
 // import the generated Prisma client types (consistent with wallet.ts).
@@ -41,7 +42,7 @@ export type CreditGrantStatusName = 'ACTIVE' | 'EXPIRED' | 'RESET' | 'VOID'
 const DAY_MS = 24 * 60 * 60 * 1000
 
 /** Free/trial starter allowance + its expiry window (policy: trial expires in 14 days). */
-export const STARTER_CREDITS = 10
+export const STARTER_CREDITS = FREE_TRIAL_CREDITS
 export const STARTER_EXPIRY_DAYS = 14
 export const PURCHASED_VALIDITY_MONTHS = 12
 

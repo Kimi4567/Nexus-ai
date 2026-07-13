@@ -111,7 +111,7 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
     }
   }
 
-  if (!eligible || !targetPlatform) return null
+  if (!eligible || !targetPlatform || !hasMedia) return null
 
   return (
     <div className="border-t border-slate-200 px-3 pb-3 pt-2">
@@ -158,7 +158,6 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
                   </div>
                 </>
               )}
-              {!hasMedia && targetPlatform === 'META' && <p className="rounded-lg bg-amber-50 px-2 py-1.5 text-[10px] font-semibold text-amber-700">{copy('قد تتطلب المنصة وسائط صالحة لهذا النوع من المنشورات.', 'The platform may require valid media for this post type.')}</p>}
               <button type="button" onClick={publish} disabled={publishing || !selectedAccount || (targetPlatform === 'META' && !selectedPage)} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40">
                 {publishing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                 {copy('تأكيد النشر الآن', 'Confirm publish now')}

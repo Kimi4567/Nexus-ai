@@ -224,6 +224,7 @@ export default function StrategyPage() {
   const [brandProfile, setBrandProfile] = useState<any>(null)
   const [campaigns, setCampaigns] = useState<CampaignLite[]>([])
   const [runStrategyOpen, setRunStrategyOpen] = useState(false)
+  const [startFreshStrategyRequest, setStartFreshStrategyRequest] = useState(false)
 
   const load = useCallback(async () => {
     if (!isAuthenticated) return
@@ -266,6 +267,7 @@ export default function StrategyPage() {
   const hasStrategy = Boolean(recent && isRecord(rawStrat) && Object.keys(rawStrat).length > 0)
   const hasDraftStrategy = Boolean(hasStrategy && recent?.status && recent.status.toLowerCase() === 'draft')
   const strategyScope = resolveStrategyScope(rawAi)
+  const strategyLanguage = typeof rawAi?.language === 'string' ? rawAi.language : locale
   const includesPaidPlanning = strategyScope.includesPaid
   const displayGuardContext = {
     verifiedProof: Array.isArray(brandProfile?.verifiedProof) ? brandProfile.verifiedProof : [],
@@ -274,13 +276,23 @@ export default function StrategyPage() {
   const ai = rawAi
     ? guardStrategyOutputContract(
         guardStrategyProof(rawAi, displayGuardContext),
-        { allowedPlatforms: displayAllowedPlatforms, strategyType: strategyScope.type },
+        {
+          allowedPlatforms: displayAllowedPlatforms,
+          language: strategyLanguage,
+          strategyType: strategyScope.type,
+          hasConversionDestination: Boolean(brandProfile?.conversionDestination),
+        },
       ) as Record<string, unknown>
     : null
   const strat = rawStrat
     ? guardStrategyOutputContract(
         guardStrategyProof(rawStrat, displayGuardContext),
-        { allowedPlatforms: displayAllowedPlatforms, strategyType: strategyScope.type },
+        {
+          allowedPlatforms: displayAllowedPlatforms,
+          language: strategyLanguage,
+          strategyType: strategyScope.type,
+          hasConversionDestination: Boolean(brandProfile?.conversionDestination),
+        },
       ) as Record<string, unknown>
     : null
 
@@ -322,7 +334,10 @@ export default function StrategyPage() {
           : (ar
             ? 'سيتم تأكيد التكلفة قبل صرف أي رصيد.'
             : 'Cost is confirmed before any credits are spent.'),
-        onClick: () => setRunStrategyOpen(true),
+        onClick: () => {
+          setStartFreshStrategyRequest(hasStrategy)
+          setRunStrategyOpen(true)
+        },
       }
     : hasDraftStrategy
       ? {
@@ -547,7 +562,7 @@ export default function StrategyPage() {
   )
 
   const channelRows = platformSummary.isEmpty
-    ? [{ label: ar ? 'لا توجد قنوات محفوظة' : 'No channels saved', color: '#94A3B8' }]
+    ? [{ label: ar ? 'لم تُحدَّد قنوات في الاستراتيجية بعد' : 'No strategy channels selected yet', color: '#94A3B8' }]
     : platformSummary.labels.slice(0, 5).map((label, index) => ({
         label,
         color: ['#5E63FF', '#22C55E', '#0A66C2', '#F59E0B', '#EF4444'][index] ?? '#64748B',
@@ -710,8 +725,10 @@ export default function StrategyPage() {
         <div className="mx-auto max-w-[1580px] px-3 py-5 sm:px-5 lg:px-7">
           <LuxuryWorkspaceHeader
             pageTitle={ar ? 'الاستراتيجية' : 'Strategy'}
-            pageSubtitle={ar ? `الحملة: ${campaignTitle}` : `Campaign: ${campaignTitle}`}
-            primaryHref={recentContentHubHref}
+            pageSubtitle={hasStrategy
+              ? (ar ? `استراتيجية الحملة: ${campaignTitle}` : `Campaign strategy: ${campaignTitle}`)
+              : (ar ? `العلامة المرجعية: ${brandName || 'Brand Brain'}` : `Source brand: ${brandName || 'Brand Brain'}`)}
+            primaryHref={hasStrategy && contentDirectionReady ? recentContentHubHref : null}
             primaryLabel={ar ? 'الانتقال إلى المحتوى' : 'Continue to content'}
             secondaryHref="/brand"
             secondaryLabel={ar ? 'Brand Brain' : 'Brand Brain'}
@@ -750,9 +767,9 @@ export default function StrategyPage() {
 	                </div>
                 <div className="min-w-0 flex-1" dir={ar ? 'rtl' : 'ltr'}>
                   <div className="flex flex-wrap items-center gap-2">
-	                    <h1 className="max-w-full overflow-hidden text-[22px] font-black leading-8 tracking-normal text-[#0B1028] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] sm:text-[24px]">
+	                    <h2 className="max-w-full overflow-hidden text-[22px] font-black leading-8 tracking-normal text-[#0B1028] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] sm:text-[24px]">
 	                      {campaignTitle}
-	                    </h1>
+	                    </h2>
                     <span className={`rounded-full px-3 py-1 text-[12px] font-black ${hasStrategy && !strategyBrandMismatch ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600'}`}>
 	                      {strategyStatusText}
                     </span>
@@ -808,7 +825,7 @@ export default function StrategyPage() {
 	                    <div id="strategy-diagnosis" className="mt-3 grid scroll-mt-6 gap-2 sm:grid-cols-3">
 	                      {[
 	                        [ar ? 'سجل الاستراتيجية' : 'Strategy record', hasStrategy ? (ar ? 'محفوظ' : 'Saved') : (ar ? 'مفقود' : 'Missing')],
-                        [ar ? 'المصدر' : 'Source', 'Brand Brain'],
+	                        [ar ? 'مصدر المدخلات' : 'Input source', 'Brand Brain'],
                         [ar ? 'نطاق الاستراتيجية' : 'Strategy scope', campaignSubtitle],
                       ].map(([label, value]) => (
                         <div key={label} className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
@@ -859,7 +876,10 @@ export default function StrategyPage() {
 	                        </button>
 	                      )}
 	                      {'href' in primaryAction && (
-	                        <button type="button" onClick={() => setRunStrategyOpen(true)}
+	                        <button type="button" onClick={() => {
+	                          setStartFreshStrategyRequest(true)
+	                          setRunStrategyOpen(true)
+	                        }}
 	                          className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 text-[12px] font-black text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-100">
 	                          <Sparkles className="h-4 w-4" />
 	                          {ar ? 'طلب استراتيجية جديد' : 'New strategy request'}
@@ -947,13 +967,13 @@ export default function StrategyPage() {
 
                   <div className="space-y-4">
                     <div id="strategy-measurement" className="scroll-mt-6 rounded-[20px] border border-slate-200 bg-white p-4">
-                      <h3 className="mb-4 flex items-center gap-2 text-[15px] font-black text-[#0B1028]"><PieChart className="h-4 w-4 text-[#5E63FF]" />{ar ? 'نطاق القنوات' : 'Channel scope'}</h3>
+	                      <h3 className="mb-4 flex items-center gap-2 text-[15px] font-black text-[#0B1028]"><PieChart className="h-4 w-4 text-[#5E63FF]" />{ar ? 'قنوات الاستراتيجية' : 'Strategy channels'}</h3>
                       <div className="grid gap-4 sm:grid-cols-[130px_minmax(0,1fr)] sm:items-center">
                         <div className="flex justify-center">
                           <div className="flex h-28 w-28 items-center justify-center rounded-full border-[12px] border-[#E8EBFF] bg-white">
                             <div className="flex h-20 w-20 flex-col items-center justify-center rounded-full bg-white text-center">
                               <span className="text-[24px] font-black text-[#0B1028]">{platformSummary.labels.length}</span>
-                              <span className="text-[10px] font-bold text-slate-400">{ar ? 'قنوات محفوظة' : 'saved channels'}</span>
+	                              <span className="text-[10px] font-bold text-slate-400">{ar ? 'قنوات الاستراتيجية' : 'strategy channels'}</span>
                             </div>
                           </div>
                         </div>
@@ -1206,9 +1226,9 @@ export default function StrategyPage() {
       </div>
       <RunFullStrategyModal
         isOpen={runStrategyOpen}
+        startFresh={startFreshStrategyRequest}
         onClose={() => setRunStrategyOpen(false)}
         onSuccess={() => {
-          setRunStrategyOpen(false)
           load()
         }}
       />

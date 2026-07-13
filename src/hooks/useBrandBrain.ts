@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth-context'
 import { calculateBrandMaturity, type BrandMaturityResult } from '@/lib/brandMaturity'
 import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
 import type { BrandBrainContract } from '@/lib/brandBrainContract'
+import { normalizeBrandIndustry } from '@/lib/brandIndustries'
 
 /* ═══════════════════════════════════════════════════════════════
    useBrandBrain — الذاكرة المشتركة لكل الوكلاء الذكيين
@@ -115,7 +116,10 @@ function toStringArray(value: unknown): string[] {
 
 export function normalizeBrandProfile(profile: BrandProfile | null | undefined): BrandProfile | null {
   if (!profile) return null
-  const normalized: BrandProfile = { ...profile }
+  const normalized: BrandProfile = {
+    ...profile,
+    industry: normalizeBrandIndustry(profile.industry),
+  }
   for (const field of ARRAY_FIELDS) {
     ;(normalized as Record<string, unknown>)[field] = toStringArray((profile as Record<string, unknown>)[field])
   }

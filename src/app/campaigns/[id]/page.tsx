@@ -298,6 +298,122 @@ function StrategyDocList({
   )
 }
 
+function ContentPlanApprovalDialog({
+  open,
+  locale,
+  launchState,
+  launchError,
+  onConfirm,
+  onClose,
+}: {
+  open: boolean
+  locale: string
+  launchState: 'idle' | 'approving' | 'generating' | 'done'
+  launchError: string
+  onConfirm: () => void
+  onClose: () => void
+}) {
+  if (!open) return null
+  const isArabic = locale === 'ar'
+  const isWorking = launchState === 'approving' || launchState === 'generating'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6" role="dialog" aria-modal="true" aria-labelledby="content-plan-approval-title">
+      <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" dir={isArabic ? 'rtl' : 'ltr'}>
+        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">
+              {isArabic ? 'بوابة الانتقال إلى المحتوى' : 'Content workflow gate'}
+            </p>
+            <h3 id="content-plan-approval-title" className="mt-1 text-lg font-bold text-slate-950">
+              {isWorking
+                ? (isArabic ? 'يجري إعداد خطة المحتوى' : 'Preparing the content plan')
+                : (isArabic ? 'اعتماد الاستراتيجية وإنشاء خطة المحتوى؟' : 'Approve strategy and build the content plan?')}
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isWorking}
+            className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label={isArabic ? 'إغلاق' : 'Close'}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-6 py-5">
+          {!isWorking ? (
+            <>
+              <p className="text-sm leading-6 text-slate-600">
+                {isArabic
+                  ? 'سيحفظ NEXUS اعتماد وثيقة الاستراتيجية كسير عمل، ثم يخصم 2 كريديت لإنشاء مسودات Content Hub للمراجعة. لا يتم نشر أو جدولة أو تشغيل إعلان.'
+                  : 'NEXUS will save workflow approval for the strategy, then spend 2 credits to create Content Hub drafts for review. Nothing is published, scheduled, or launched.'}
+              </p>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {[
+                  isArabic ? 'التكلفة: 2 كريديت' : 'Cost: 2 credits',
+                  isArabic ? 'الناتج: مسودات محتوى' : 'Output: content drafts',
+                  isArabic ? 'التنفيذ الخارجي: لا شيء' : 'External execution: none',
+                ].map(item => (
+                  <span key={item} className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-2 text-center text-[11px] font-semibold text-emerald-800">
+                    {item}
+                  </span>
+                ))}
+              </div>
+              {launchError && (
+                <p className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">{launchError}</p>
+              )}
+            </>
+          ) : (
+            <div className="space-y-3">
+              {[
+                {
+                  label: isArabic ? 'حفظ اعتماد سير عمل الاستراتيجية' : 'Save strategy workflow approval',
+                  state: launchState === 'approving' ? 'active' : 'done',
+                },
+                {
+                  label: isArabic ? 'إنشاء مسودات Content Hub' : 'Generate Content Hub drafts',
+                  state: launchState === 'generating' ? 'active' : 'pending',
+                },
+                {
+                  label: isArabic ? 'فتح مساحة مراجعة المحتوى' : 'Open the content review workspace',
+                  state: 'pending',
+                },
+              ].map(step => (
+                <div key={step.label} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  {step.state === 'active' ? (
+                    <span className="h-4 w-4 flex-shrink-0 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+                  ) : step.state === 'done' ? (
+                    <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center text-xs font-bold text-emerald-600">✓</span>
+                  ) : (
+                    <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center text-xs text-slate-400">○</span>
+                  )}
+                  <p className={`text-sm ${step.state === 'active' ? 'font-semibold text-emerald-700' : 'text-slate-600'}`}>{step.label}</p>
+                </div>
+              ))}
+              <p className="text-xs leading-5 text-slate-500">
+                {isArabic ? 'قد يستغرق إنشاء المسودات نحو 20–30 ثانية.' : 'Draft generation may take about 20–30 seconds.'}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {!isWorking && (
+          <div className="flex flex-col-reverse gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:justify-end">
+            <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">
+              {isArabic ? 'إلغاء' : 'Cancel'}
+            </button>
+            <button type="button" onClick={onConfirm} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700">
+              {isArabic ? 'تأكيد وإنشاء الخطة — 2 كريديت' : 'Confirm and build plan — 2 credits'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function sanitizeStrategyLimitText(text: string): string {
   if (!text) return text
   return text
@@ -341,7 +457,7 @@ function CampaignDetailPageInner() {
   const { isAuthenticated, loading, authHeader } = useAuth()
   const { t, locale } = useI18n()
   const cdT = t('campaignDetail') as Record<string, string>
-  const { isPaid, status: billingStatus } = useBillingStatus()
+  const { isPaid, status: billingStatus, invalidate: refreshBillingStatus } = useBillingStatus()
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [campaignPosts, setCampaignPosts] = useState<CampaignOperatingPost[]>([])
@@ -804,7 +920,7 @@ function CampaignDetailPageInner() {
       })
       const approveData = await approveRes.json()
       if (!approveData.campaign) {
-        setApprovalState('idle')
+        setApprovalState('confirming')
         setLaunchState('idle')
         setLaunchError(approveData.message || approveData.error || (locale === 'ar' ? 'فشل الاعتماد، حاول مرة أخرى' : 'Approval failed, please try again'))
         return
@@ -827,16 +943,21 @@ function CampaignDetailPageInner() {
         })
         const genData = await genRes.json()
         if (!genRes.ok) {
-          setApprovalState('idle')
+          setApprovalState('confirming')
           setLaunchState('idle')
           if (genData.code === 'INSUFFICIENT_CREDITS') {
             setUpgradeReason('no_credits')
             setShowUpgrade(true)
+          } else if (genData.error === 'POST_LIMIT_REACHED') {
+            setLaunchError(locale === 'ar'
+              ? `وصلت إلى حد الخطة الشهري (${genData.limit ?? 0} منشورات). استُخدم ${genData.current ?? 0}، بينما تحتاج هذه الخطة ${genData.requested ?? 0}. راجع الباقة قبل إعادة المحاولة.`
+              : `Your monthly plan limit is ${genData.limit ?? 0} posts. ${genData.current ?? 0} are already used and this plan needs ${genData.requested ?? 0}. Review your plan before retrying.`)
           } else {
             setLaunchError(genData.error ?? (locale === 'ar' ? 'فشل توليد خطة المحتوى' : 'Failed to generate content plan'))
           }
           return
         }
+        await refreshBillingStatus()
       }
 
       // Step 3: Navigate to Content Hub
@@ -844,7 +965,7 @@ function CampaignDetailPageInner() {
       setLaunchState('done')
       router.push(`/campaigns/${campaignId}/content-hub`)
     } catch {
-      setApprovalState('idle')
+      setApprovalState('confirming')
       setLaunchState('idle')
       setLaunchError(locale === 'ar' ? 'حدث خطأ، حاول مرة أخرى' : 'Something went wrong, please try again')
     }
@@ -997,12 +1118,17 @@ function CampaignDetailPageInner() {
   }
   const guardedAiOutput = guardStrategyProof(aiOutput || {}, proofContext) as any
   const strategy = guardStrategyKpis(
-    guardStrategyOutputContract(guardedAiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms, language: strategyLanguage, strategyType: strategyScope.type }) as Record<string, unknown>,
+    guardStrategyOutputContract(guardedAiOutput?.strategy || {}, {
+      allowedPlatforms: campaign.platforms,
+      language: strategyLanguage,
+      strategyType: strategyScope.type,
+      hasConversionDestination: Boolean((brandDNA as any)?.conversionDestination),
+    }) as Record<string, unknown>,
     [],
     { language: strategyLanguage },
   ) as any
-  const topHooks: string[] = guardedAiOutput?.topHooks || strategy.topHooks || []
-  const ctaVariations: string[] = guardedAiOutput?.ctaVariations || strategy.ctaVariations || []
+  const topHooks: string[] = strategy.topHooks || guardedAiOutput?.topHooks || []
+  const ctaVariations: string[] = strategy.ctaVariations || guardedAiOutput?.ctaVariations || []
   const captionFormulas: string[] = guardedAiOutput?.captionFormulas || []
   const scriptTemplate: string = guardedAiOutput?.scriptTemplate || ''
   const contentCalendar: any[] = guardedAiOutput?.contentCalendar || strategy.contentCalendar || []
@@ -2029,7 +2155,7 @@ function CampaignDetailPageInner() {
                       {campaign.name}
                     </h1>
                     <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                      {campaign.description || strategy.positioning || strategy.keyMessage || displayOperatingHelper}
+                      {strategy.positioning || strategy.keyMessage || campaign.description || displayOperatingHelper}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500">
                       <span>{uiText('أُنشئت', 'Created')}: {timeAgo(campaign.createdAt)}</span>
@@ -2575,93 +2701,6 @@ function CampaignDetailPageInner() {
               <p className="mt-2 text-xs text-red-400">⚠️ {sentinelError}</p>
             )}
 
-            {/* Content planning confirmation dialog */}
-            {approvalState === 'confirming' && (
-              <div className="mt-4 p-4 bg-green-500/5 border border-green-500/25 rounded-xl">
-                {/* ── Idle: confirm prompt ── */}
-                {launchState === 'idle' && (
-                  <>
-                    <p className="text-sm font-semibold text-green-700 mb-1">
-                      {locale === 'ar' ? 'هل أنت جاهز لإنشاء خطة المحتوى؟' : 'Ready to build the content plan?'}
-                    </p>
-                    <p className="text-xs text-slate-500 mb-3">
-                      {locale === 'ar'
-                        ? 'سيتم اعتماد وثيقة الاستراتيجية كسير عمل وخصم 2 رصيد لإنشاء مسودات Content Hub للمراجعة. لا يتم نشر أو جدولة أو تشغيل إعلان من هنا.'
-                        : 'This saves strategy workflow approval and spends 2 credits to create Content Hub drafts for review. Nothing is published, scheduled, or launched from here.'}
-                    </p>
-                    <div className="mb-3 grid gap-2 sm:grid-cols-3">
-                      {[
-                        locale === 'ar' ? 'التكلفة: 2 رصيد' : 'Cost: 2 credits',
-                        locale === 'ar' ? 'الناتج: مسودات محتوى' : 'Output: content drafts',
-                        locale === 'ar' ? 'التنفيذ الخارجي: غير مشمول' : 'External execution: not included',
-                      ].map((item) => (
-                        <span key={item} className="rounded-lg border border-green-200 bg-white px-2 py-2 text-center text-[11px] font-semibold text-green-800">
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                    {launchError && (
-                      <p className="text-xs text-red-400 mb-2">⚠️ {launchError}</p>
-                    )}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleApproveAndBuildContent}
-                        className="px-4 py-2 bg-green-500 text-xs font-bold rounded-xl hover:bg-green-600 transition"
-                        style={{ color: '#fff' }}
-                      >
-                        {locale === 'ar' ? 'تأكيد وإنشاء الخطة — 2 رصيد' : 'Confirm and build plan — 2 credits'}
-                      </button>
-                      <button
-                        onClick={() => setApprovalState('idle')}
-                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
-                      >
-                        {cdT?.approveCancelBtn || 'Cancel'}
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                {/* ── In-progress: step tracker ── */}
-                {(launchState === 'approving' || launchState === 'generating') && (
-                  <div>
-                    <p className="text-sm font-semibold text-green-700 mb-3">
-                      {locale === 'ar' ? '⏳ يجري إعداد خطة المحتوى...' : '⏳ Preparing the content plan...'}
-                    </p>
-                    <div className="space-y-2">
-                      {/* Step 1 */}
-                      <div className="flex items-center gap-3">
-                        {launchState === 'approving' ? (
-                          <span className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                        ) : (
-                          <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-green-400 font-bold text-xs">✓</span>
-                        )}
-                        <p className={`text-xs ${launchState === 'approving' ? 'text-green-400 font-semibold' : 'text-gray-500'}`}>
-                          {locale === 'ar' ? 'تجهيز الحملة لتخطيط المحتوى' : 'Preparing campaign for content planning'}
-                        </p>
-                      </div>
-                      {/* Step 2 */}
-                      <div className="flex items-center gap-3">
-                        {launchState === 'generating' ? (
-                          <span className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                        ) : (
-                          <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-gray-600 text-xs">○</span>
-                        )}
-                        <p className={`text-xs ${launchState === 'generating' ? 'text-green-400 font-semibold' : 'text-gray-600'}`}>
-                          {locale === 'ar' ? 'إنشاء خطة المحتوى (قد يستغرق 20-30 ثانية)' : 'Generating content plan (may take 20-30s)'}
-                        </p>
-                      </div>
-                      {/* Step 3 */}
-                      <div className="flex items-center gap-3">
-                        <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-gray-600 text-xs">○</span>
-                        <p className="text-xs text-gray-600">
-                          {locale === 'ar' ? 'الانتقال إلى Content Hub' : 'Redirecting to Content Hub'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         )}
 
@@ -2802,6 +2841,16 @@ function CampaignDetailPageInner() {
                           <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-600">
                             {strategyScopeTruth}
                           </span>
+                          {sentinelStatus === 'passed' && (
+                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
+                              {uiText('✓ فحص الجودة مكتمل', '✓ Quality review complete')}
+                            </span>
+                          )}
+                          {sentinelStatus === 'needs_attention' && (
+                            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700">
+                              {uiText('فحص الجودة يحتاج معالجة', 'Quality findings need attention')}
+                            </span>
+                          )}
                         </div>
                         <h1 className="mt-4 max-w-3xl text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
                           {uiText('مكتب مراجعة الاستراتيجية', 'Strategy review desk')}
@@ -2867,6 +2916,18 @@ function CampaignDetailPageInner() {
                                 `فحص الجودة — ${sentinelCreditCost} كريديت`,
                                 `Review quality — ${sentinelCreditCost} credits`,
                               )}
+                          </button>
+                        ) : !engineRunning && !isPaidOnlyStrategy && sentinelStatus === 'passed' && operatingState.stage === 'content_plan_missing' ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLaunchError('')
+                              setApprovalState('confirming')
+                            }}
+                            disabled={approvalState === 'approving' || launchState === 'approving' || launchState === 'generating'}
+                            className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                          >
+                            {uiText('اعتمد الاستراتيجية وأنشئ الخطة', 'Approve strategy and build plan')}
                           </button>
                         ) : (
                           <Link
@@ -5333,6 +5394,19 @@ function CampaignDetailPageInner() {
       includedItems={uiIsArabic
         ? ['مخاطر الادعاءات', 'اتساق البراند', 'إصلاحات مقترحة', 'لا نشر تلقائي']
         : ['Claim risks', 'Brand alignment', 'Recommended fixes', 'No automatic publishing']}
+    />
+
+    <ContentPlanApprovalDialog
+      open={approvalState === 'confirming' || approvalState === 'approving'}
+      locale={locale}
+      launchState={launchState}
+      launchError={launchError}
+      onConfirm={handleApproveAndBuildContent}
+      onClose={() => {
+        if (launchState === 'approving' || launchState === 'generating') return
+        setApprovalState('idle')
+        setLaunchError('')
+      }}
     />
 
     <UpgradeModal

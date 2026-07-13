@@ -59,6 +59,16 @@ describe('execution truth', () => {
     expect(scheduled.nextAction).toMatchObject({ kind: 'MONITOR_SCHEDULE', safety: 'monitor_only' })
   })
 
+  it('routes approved posts with missing media to media review before scheduling', () => {
+    const result = buildCampaignExecutionTruth(snapshot({
+      posts: { draft: 0, approved: 3, approvedMissingMedia: 3, scheduled: 0, published: 0, failed: 0, publishedWithoutAnalytics: 0 },
+    }))
+
+    expect(result.stage).toBe('MEDIA_REVIEW')
+    expect(result.nextAction).toMatchObject({ kind: 'REVIEW_MEDIA', href: '/campaigns/campaign-1/content-hub' })
+    expect(result.nextAction?.reason.en).toContain('confirmed media before scheduling')
+  })
+
   it('requires analytics evidence before claiming the learning loop is ready', () => {
     const result = buildCampaignExecutionTruth(snapshot({
       posts: { draft: 0, approved: 0, scheduled: 0, published: 3, failed: 0, publishedWithoutAnalytics: 2 },

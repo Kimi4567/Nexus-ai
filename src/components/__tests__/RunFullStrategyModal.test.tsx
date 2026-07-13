@@ -103,7 +103,8 @@ describe('RunFullStrategyModal preflight', () => {
     render(<RunFullStrategyModal isOpen onClose={() => {}} />)
 
     expect(await screen.findByText('What NEXUS understands about your brand')).toBeTruthy()
-    expect(screen.getByText('88%')).toBeTruthy()
+    expect(screen.getByText('Core context is ready for an organic request')).toBeTruthy()
+    expect(screen.getByText('Ready for organic request')).toBeTruthy()
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
 
     fireEvent.click(screen.getByRole('button', { name: 'Set up strategy request' }))

@@ -108,6 +108,12 @@ function isEnglishHeavyForArabicOutput(value: string): boolean {
   return latin >= 32 && latin > arabic * 2
 }
 
+function hasBrokenArabicStrategyPhrase(value: string): boolean {
+  return /ابدأ\s+باستخدام\s+(?:النظام|المنصة|الخدمة)\s+معدودة/i.test(value)
+    || /دون\s+تعقيد\s+التقنيات\s+اليدوية/i.test(value)
+    || /لا\s+تفقد\s+أي\s+فرصة\s+بيع\s+بعد\s+اليوم/i.test(value)
+}
+
 const NON_LANGUAGE_USER_KEYS = new Set([
   'goal',
   'businessStage',
@@ -128,7 +134,7 @@ const NON_LANGUAGE_USER_KEYS = new Set([
 
 function collectArabicLanguageViolations(value: unknown, path = 'strategy'): string[] {
   if (typeof value === 'string') {
-    return isEnglishHeavyForArabicOutput(value) ? [path] : []
+    return isEnglishHeavyForArabicOutput(value) || hasBrokenArabicStrategyPhrase(value) ? [path] : []
   }
 
   if (Array.isArray(value)) {

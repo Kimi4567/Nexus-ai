@@ -24,7 +24,7 @@ type AdCampaignCountRow = {
 }
 
 function emptyCounts(): ExecutionPostCounts {
-  return { draft: 0, approved: 0, scheduled: 0, published: 0, failed: 0, publishedWithoutAnalytics: 0 }
+  return { draft: 0, approved: 0, approvedMissingMedia: 0, scheduled: 0, published: 0, failed: 0, publishedWithoutAnalytics: 0 }
 }
 
 function normalizeStatus(status: string): keyof Omit<ExecutionPostCounts, 'publishedWithoutAnalytics'> | null {
@@ -82,12 +82,25 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
 
   const campaignIds = campaigns.map((campaign) => campaign.id)
   const db = prisma as any
-  const [statusCounts, eligibleEvidenceCounts, decisionEvents, activeAdCounts] = await Promise.all([
+  const [statusCounts, approvedMissingMediaCounts, eligibleEvidenceCounts, decisionEvents, activeAdCounts] = await Promise.all([
     db.socialPost.groupBy({
       by: ['campaignId', 'status'],
       where: { workspaceId, campaignId: { in: campaignIds } },
       _count: { _all: true },
     }) as Promise<StatusCountRow[]>,
+    db.socialPost.groupBy({
+      by: ['campaignId'],
+      where: {
+        workspaceId,
+        campaignId: { in: campaignIds },
+        status: 'APPROVED',
+        OR: [
+          { imageUrl: null },
+          { generationStatus: { not: 'DONE' } },
+        ],
+      },
+      _count: { _all: true },
+    }) as Promise<CampaignCountRow[]>,
     db.socialPost.groupBy({
       by: ['campaignId'],
       where: {
@@ -122,6 +135,11 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
     const key = normalizeStatus(row.status)
     const counts = countsByCampaign.get(row.campaignId)
     if (key && counts) counts[key] = row._count._all
+  }
+  for (const row of approvedMissingMediaCounts) {
+    if (!row.campaignId) continue
+    const counts = countsByCampaign.get(row.campaignId)
+    if (counts) counts.approvedMissingMedia = row._count._all
   }
   for (const counts of countsByCampaign.values()) {
     counts.publishedWithoutAnalytics = counts.published

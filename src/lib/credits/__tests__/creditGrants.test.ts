@@ -163,7 +163,7 @@ describe('ensureGrant', () => {
     expect(res.created).toBe(true)
     expect(mockPrisma.creditGrant.createMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: [expect.objectContaining({ userId: 'u1', type: 'TRIAL', amount: 10, remaining: 10, source: 'starter:initial', status: 'ACTIVE' })],
+        data: [expect.objectContaining({ userId: 'u1', type: 'TRIAL', amount: STARTER_CREDITS, remaining: STARTER_CREDITS, source: 'starter:initial', status: 'ACTIVE' })],
         skipDuplicates: true,
       }),
     )

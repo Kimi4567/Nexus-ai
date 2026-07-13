@@ -29,6 +29,7 @@ import {
 import { derivePostMediaSource } from '@/lib/contentHubMediaAttachment'
 import {
   deriveContentHubMediaState,
+  isContentPostMediaReadyForScheduling,
   summarizeContentHubMediaReadiness,
 } from '@/lib/contentHubMediaState'
 import { deriveContentPlanOrderReview } from '@/lib/contentPlanOrderContract'
@@ -405,6 +406,11 @@ export default function ContentHubPage() {
   const draftCount = posts.filter(p => p.status === 'DRAFT').length
   const approvedCount = posts.filter(p => p.status === 'APPROVED').length
   const approvedPostsWithDates = posts.filter(p => p.status === 'APPROVED' && hasValidDate(p.scheduledAt))
+  const approvedPostsNeedingMedia = posts.filter(
+    p => p.status === 'APPROVED' && !isContentPostMediaReadyForScheduling(p),
+  )
+  const approvedPostsNeedingMediaCount = approvedPostsNeedingMedia.length
+  const schedulingBlockedByMedia = approvedPostsNeedingMediaCount > 0
   const approvedPostsMissingDates = approvedCount - approvedPostsWithDates.length
   const approvedScheduleDates = approvedPostsWithDates.map(p => new Date(p.scheduledAt!).getTime()).sort((a, b) => a - b)
   const approvedScheduleRange = approvedScheduleDates.length > 0
@@ -732,11 +738,15 @@ export default function ContentHubPage() {
     ? `توليد ${pendingImageCount} صور منشورات — ${bulkImageCreditCost} كريديت`
     : `Generate ${pendingImageCount} post images — ${bulkImageCreditCost} credits total`
   const approveDraftsLabel = isAr
-    ? `اعتماد ${draftCount} مسودات`
-    : `Approve ${draftCount} draft${draftCount === 1 ? '' : 's'}`
+    ? `اعتماد نصوص ${draftCount} مسودات`
+    : `Approve copy for ${draftCount} draft${draftCount === 1 ? '' : 's'}`
   const scheduleApprovedLabel = isAr
-    ? `جدولة ${approvedCount} منشورات معتمدة`
-    : `Schedule ${approvedCount} approved post${approvedCount === 1 ? '' : 's'}`
+    ? schedulingBlockedByMedia
+      ? `أكمل وسائط ${approvedPostsNeedingMediaCount} منشورات قبل الجدولة`
+      : `جدولة ${approvedCount} منشورات معتمدة`
+    : schedulingBlockedByMedia
+      ? `Complete media for ${approvedPostsNeedingMediaCount} post${approvedPostsNeedingMediaCount === 1 ? '' : 's'} before scheduling`
+      : `Schedule ${approvedCount} approved post${approvedCount === 1 ? '' : 's'}`
   const formatStatusSummaryChip = (count: number, label: string) => {
     if (isAr || count === 1) return `${count} ${label}`
     const pluralLabels: Record<string, string> = {
@@ -1022,9 +1032,8 @@ export default function ContentHubPage() {
         .sort()
       const platformsUsed = [...new Set(approvedPosts.map(p => p.platform.toUpperCase()))]
       const totalFreshImagePosts = freshPosts.filter(p => !p.isVideoPost).length
-      const pendingFreshImages = freshPosts.filter(p =>
-        !p.isVideoPost &&
-        (p.generationStatus === 'PENDING' || p.generationStatus === 'AWAITING_UPLOAD' || p.generationStatus === 'FAILED')
+      const pendingFreshImages = freshPosts.filter(
+        p => !p.isVideoPost && !isContentPostMediaReadyForScheduling(p),
       ).length
 
       setApproveResult({
@@ -1054,6 +1063,15 @@ export default function ContentHubPage() {
 
   async function scheduleAll() {
     if (!isAuthenticated || !scheduleAcknowledged) return
+    if (schedulingBlockedByMedia) {
+      setShowScheduleConfirm(false)
+      setScheduleAcknowledged(false)
+      setError(isAr
+        ? `أكمل مراجعة وسائط ${approvedPostsNeedingMediaCount} منشورات قبل الجدولة.`
+        : `Complete media review for ${approvedPostsNeedingMediaCount} post${approvedPostsNeedingMediaCount === 1 ? '' : 's'} before scheduling.`)
+      document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
     setScheduling(true)
     setError(null)
     try {
@@ -1433,14 +1451,19 @@ export default function ContentHubPage() {
                 ) : approvedCount > 0 ? (
                   <button
                     onClick={() => {
+                      if (schedulingBlockedByMedia) {
+                        document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                        return
+                      }
                       setScheduleAcknowledged(false)
                       setShowScheduleConfirm(true)
                     }}
                     disabled={scheduling}
                     className="flex max-w-full min-w-0 items-center justify-center gap-2 rounded-xl px-4 py-2 text-center text-sm font-semibold leading-tight transition-all whitespace-normal break-words"
                     style={{
-                      background: '#4F46E5',
-                      color: 'white',
+                      background: schedulingBlockedByMedia ? '#FFFBEB' : '#4F46E5',
+                      color: schedulingBlockedByMedia ? '#92400E' : 'white',
+                      border: schedulingBlockedByMedia ? '1px solid #FDE68A' : '1px solid transparent',
                       opacity: scheduling ? 0.6 : 1,
                     }}
                   >
@@ -1451,7 +1474,7 @@ export default function ContentHubPage() {
                       </>
                     ) : (
                       <>
-                        🗓 {scheduleApprovedLabel}
+                        {schedulingBlockedByMedia ? '⚠️' : '🗓'} {scheduleApprovedLabel}
                       </>
                     )}
                   </button>
@@ -2033,6 +2056,13 @@ export default function ContentHubPage() {
               <p className="text-sm text-slate-500 mb-6">
                 {t('contentHub.approveConfirmBody2')}
               </p>
+              {pendingImageCount > 0 && (
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+                  {isAr
+                    ? `هذا اعتماد للنصوص فقط. ما زالت ${pendingImageCount} مسودات تحتاج قرار وسائط، ولن تصبح جاهزة للجدولة أو النشر حتى تكتمل مراجعة الوسائط.`
+                    : `This approves copy only. ${pendingImageCount} draft${pendingImageCount === 1 ? '' : 's'} still need a media decision and will not be ready for scheduling or publishing until media review is complete.`}
+                </div>
+              )}
               {contentPlanOrderMismatch && (
                 <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
                   {orderMismatchBody}
@@ -2130,11 +2160,19 @@ export default function ContentHubPage() {
                 </p>
               )}
 
+              {schedulingBlockedByMedia && (
+                <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+                  {isAr
+                    ? `${approvedPostsNeedingMediaCount} منشورات ما زالت بلا وسائط مؤكدة. أغلق هذه النافذة وأكمل قرار الوسائط لكل منشور قبل الجدولة.`
+                    : `${approvedPostsNeedingMediaCount} post${approvedPostsNeedingMediaCount === 1 ? '' : 's'} still lack confirmed media. Close this dialog and complete each media decision before scheduling.`}
+                </p>
+              )}
+
               <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm leading-5 text-slate-600">
                 <input
                   type="checkbox"
                   checked={scheduleAcknowledged}
-                  disabled={scheduling || approvedPostsWithDates.length === 0}
+                  disabled={scheduling || approvedPostsWithDates.length === 0 || schedulingBlockedByMedia}
                   onChange={event => setScheduleAcknowledged(event.target.checked)}
                   className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#5E63FF]"
                 />
@@ -2160,7 +2198,7 @@ export default function ContentHubPage() {
                 <button
                   type="button"
                   onClick={scheduleAll}
-                  disabled={scheduling || !scheduleAcknowledged || approvedPostsWithDates.length === 0}
+                  disabled={scheduling || !scheduleAcknowledged || approvedPostsWithDates.length === 0 || schedulingBlockedByMedia}
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#4F46E5] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   {scheduling
@@ -2219,22 +2257,22 @@ export default function ContentHubPage() {
                   <div className="rounded-xl p-3 text-center"
                     style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
                     <div className="text-2xl font-bold text-slate-950">{approveResult.approved}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">Posts</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{isAr ? 'منشورات' : 'Posts'}</div>
                   </div>
                   <div className="rounded-xl p-3 text-center"
                     style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
                     <div className="text-2xl font-bold text-emerald-600">{approveResult.linked}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">Linked</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{isAr ? 'مرتبطة' : 'Linked'}</div>
                   </div>
                   <div className="rounded-xl p-3 text-center"
                     style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
                     <div className="text-2xl font-bold text-[#5E5CE6]">{approveResult.platforms.length}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">Platforms</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{isAr ? 'منصات' : 'Platforms'}</div>
                   </div>
                   <div className="rounded-xl p-3 text-center"
                     style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
                     <div className="text-2xl font-bold text-cyan-600">{approveResult.pendingImages}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">Images left</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{isAr ? 'وسائط ناقصة' : 'Media left'}</div>
                   </div>
                 </div>
 
@@ -2250,7 +2288,8 @@ export default function ContentHubPage() {
                     <div className="flex flex-wrap gap-2">
                       {approveResult.platforms.map(p => {
                         const cfg = getPlatformConfig(p)
-                        const count = posts.filter(post => post.platform.toUpperCase() === p && post.status === 'SCHEDULED').length
+                        const resultStatus = approveResult.kind === 'scheduled' ? 'SCHEDULED' : 'APPROVED'
+                        const count = posts.filter(post => post.platform.toUpperCase() === p && post.status === resultStatus).length
                         return (
                           <div key={p} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
                             style={{ background: `${cfg.color}18`, border: `1px solid ${cfg.color}35`, color: cfg.color }}>
@@ -2318,44 +2357,44 @@ export default function ContentHubPage() {
                 {/* Next best action */}
                 <div className="rounded-xl p-3 mb-5 flex items-start gap-3"
                   style={{
-                    background: approveResult.kind === 'approved'
-                      ? '#F8FAFC'
-                      : approveResult.pendingImages > 0
+                    background: approveResult.pendingImages > 0
                       ? '#F5F3FF'
+                      : approveResult.kind === 'approved'
+                      ? '#F8FAFC'
                       : approveResult.unlinked > 0
                       ? '#FFFBEB'
                       : '#ECFDF5',
-                    border: approveResult.kind === 'approved'
-                      ? '1px solid rgba(15,23,42,0.10)'
-                      : approveResult.pendingImages > 0
+                    border: approveResult.pendingImages > 0
                       ? '1px solid rgba(94,92,230,0.18)'
+                      : approveResult.kind === 'approved'
+                      ? '1px solid rgba(15,23,42,0.10)'
                       : approveResult.unlinked > 0
                       ? '1px solid rgba(245,158,11,0.2)'
                       : '1px solid rgba(5,150,105,0.22)',
                   }}>
                   <span className="text-lg mt-0.5">
-                    {approveResult.kind === 'approved' ? '📝' : approveResult.pendingImages > 0 ? '✨' : approveResult.unlinked > 0 ? '🔌' : '📅'}
+                    {approveResult.pendingImages > 0 ? '⚠️' : approveResult.kind === 'approved' ? '📝' : approveResult.unlinked > 0 ? '🔌' : '📅'}
                   </span>
                   <div>
                     <p className="text-sm font-semibold mb-0.5"
-                      style={{ color: approveResult.kind === 'approved' ? '#334155' : approveResult.pendingImages > 0 ? '#5E5CE6' : approveResult.unlinked > 0 ? '#B45309' : '#047857' }}>
-                      {approveResult.kind === 'approved'
+                      style={{ color: approveResult.pendingImages > 0 ? '#5E5CE6' : approveResult.kind === 'approved' ? '#334155' : approveResult.unlinked > 0 ? '#B45309' : '#047857' }}>
+                      {approveResult.pendingImages > 0
+                        ? (isAr ? 'مطلوب: أكمل وسائط المنشورات قبل الجدولة' : 'Required: complete post media before scheduling')
+                        : approveResult.kind === 'approved'
                         ? (isAr ? 'التالي: راجع الخطة قبل الجدولة' : 'Next: review the plan before scheduling')
-                        : approveResult.pendingImages > 0
-                        ? (isAr ? 'اختياري: جهز صور المسودات' : 'Optional: prepare draft visuals')
                         : approveResult.unlinked > 0
                         ? (isAr ? 'قبل النشر: اربط منصات النشر' : 'Before publishing: connect platforms')
                         : (isAr ? 'التالي: راجع المحتوى المجدول' : 'Next: review scheduled content')}
                     </p>
                     <p className="text-xs text-slate-600 leading-relaxed">
-                      {approveResult.kind === 'approved'
+                      {approveResult.pendingImages > 0
+                        ? (isAr
+                          ? `${approveResult.pendingImages} من ${approveResult.totalImages} خانات صور ما زالت تحتاج وسائط مؤكدة. لن يسمح NEXUS بجدولتها أو نشرها قبل اكتمال مراجعة الوسائط.`
+                          : `${approveResult.pendingImages} of ${approveResult.totalImages} image slots still need confirmed media. NEXUS will not allow scheduling or publishing until media review is complete.`)
+                        : approveResult.kind === 'approved'
                         ? (isAr
                           ? 'تم اعتماد المسودات فقط. ما زالت المنشورات تحتاج جدولة قبل النشر، والنشر التلقائي يحتاج تفعيلًا صريحًا منفصلًا.'
                           : 'Drafts are approved only. Approved posts still need scheduling before publishing, and automatic publishing requires a separate explicit opt-in.')
-                        : approveResult.pendingImages > 0
-                        ? (isAr
-                          ? `${approveResult.pendingImages} من ${approveResult.totalImages} خانات صور ما زالت تحتاج وسائط. الصور تبقى للمراجعة ولا تنشر تلقائيًا.`
-                          : `${approveResult.pendingImages} of ${approveResult.totalImages} image slots still need visuals. Visuals remain for review and are not published automatically.`)
                         : approveResult.unlinked > 0
                         ? (isAr
                           ? `${approveResult.unlinked} منشورات مجدولة غير مرتبطة بحساب نشر بعد. اربط المنصات قبل أي نشر.`
@@ -2374,13 +2413,14 @@ export default function ContentHubPage() {
                     <span className="text-base mt-0.5">⚠️</span>
                     <div>
                       <p className="text-xs text-amber-700">
-                        {approveResult.unlinked} post{approveResult.unlinked !== 1 ? 's have' : ' has'} no connected platform yet.
-                        Connect your social accounts in{' '}
+                        {isAr
+                          ? `${approveResult.unlinked} منشورات بلا حساب نشر متصل حتى الآن. اربط الحسابات من `
+                          : `${approveResult.unlinked} post${approveResult.unlinked !== 1 ? 's have' : ' has'} no connected platform yet. Connect your social accounts in `}
                         <button
                           onClick={() => { setApproveResult(null); router.push('/connections') }}
                           className="underline hover:no-underline"
-                        >Connections</button>{' '}
-                        before scheduling or publishing.
+                        >{isAr ? 'الاتصالات' : 'Connections'}</button>{' '}
+                        {isAr ? 'قبل أي نشر.' : 'before publishing.'}
                       </p>
                     </div>
                   </div>
@@ -2392,12 +2432,18 @@ export default function ContentHubPage() {
                     <button
                       onClick={() => {
                         setApproveResult(null)
+                        if (imageGenerationLocked) {
+                          router.push('/billing')
+                          return
+                        }
                         openBulkImageConfirm()
                       }}
                       className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
-                      style={{ background: '#111827' }}
+                      style={{ background: imageGenerationLocked ? '#B45309' : '#111827' }}
                     >
-                      ✨ Generate {approveResult.pendingImages} Images
+                      ✨ {imageGenerationLocked
+                        ? (isAr ? 'أضف رصيداً لتوليد الوسائط' : 'Add credits to generate media')
+                        : (isAr ? `توليد ${approveResult.pendingImages} صور` : `Generate ${approveResult.pendingImages} images`)}
                     </button>
                   ) : approveResult.unlinked > 0 ? (
                     <button
@@ -2405,7 +2451,7 @@ export default function ContentHubPage() {
                       className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
                       style={{ background: '#B45309' }}
                     >
-                      🔌 Connect Platforms
+                      🔌 {isAr ? 'ربط المنصات' : 'Connect platforms'}
                     </button>
                   ) : null}
                   <button
@@ -2413,9 +2459,11 @@ export default function ContentHubPage() {
                     className={`${approveResult.pendingImages > 0 || approveResult.unlinked > 0 ? 'flex-1' : 'w-full'} px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border`}
                     style={{ borderColor: 'rgba(5,150,105,0.24)', color: '#047857', background: '#FFFFFF' }}
                   >
-                    📅 {approveResult.kind === 'approved'
-                      ? (isAr ? 'مراجعة خطة المحتوى' : 'Review content plan')
-                      : (isAr ? 'عرض الجدول' : 'View schedule')}
+                    {approveResult.pendingImages > 0 ? '🖼️' : '📅'} {approveResult.pendingImages > 0
+                      ? (isAr ? 'العودة لمراجعة الوسائط' : 'Return to media review')
+                      : approveResult.kind === 'approved'
+                        ? (isAr ? 'مراجعة خطة المحتوى' : 'Review content plan')
+                        : (isAr ? 'عرض الجدول' : 'View schedule')}
                   </button>
                 </div>
               </div>

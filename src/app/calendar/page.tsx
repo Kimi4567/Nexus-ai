@@ -368,20 +368,9 @@ function CalendarPageInner() {
   const [posts, setPosts]               = useState<ScheduledPost[]>([])
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [loadingQueue, setLoadingQueue] = useState(true)
-  const [showModal, setShowModal]       = useState(false)
   const [deletingId, setDeletingId]     = useState<string | null>(null)
   const [pendingDeletePost, setPendingDeletePost] = useState<ScheduledPost | null>(null)
   const [queueActionError, setQueueActionError] = useState('')
-
-  // Modal form state
-  const [caption, setCaption]                   = useState('')
-  const [selectedIntegration, setSelectedIntegration] = useState('')
-  const [selectedPage, setSelectedPage]         = useState('')
-  const [selectedPageName, setSelectedPageName] = useState('')
-  const [selectedPlatform, setSelectedPlatform] = useState('')
-  const [scheduledAt, setScheduledAt]           = useState('')
-  const [imageUrl, setImageUrl]                 = useState('')
-  const [submitting, setSubmitting]             = useState(false)
 
   // ── Fetch calendar data ────────────────────────────────────────────────────
   useEffect(() => {
@@ -539,48 +528,6 @@ function CalendarPageInner() {
     }
   }
 
-  const handleSchedule = async () => {
-    if (!caption || !selectedIntegration || !selectedPage || !scheduledAt) return
-    setSubmitting(true)
-    setQueueActionError('')
-    try {
-      const res = await fetch('/api/schedule', {
-        method: 'POST',
-        headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          integrationId: selectedIntegration,
-          pageId: selectedPage,
-          pageName: selectedPageName,
-          caption,
-          imageUrl: imageUrl || undefined,
-          platform: selectedPlatform,
-          scheduledAt,
-        }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data.post) {
-        throw new Error(data.error || (scT?.errSchedule as string) || 'Failed to schedule post')
-      }
-      setPosts(prev => [data.post, ...prev])
-      setShowModal(false)
-      setCaption('')
-      setScheduledAt('')
-      setImageUrl('')
-      setSelectedIntegration('')
-      setSelectedPage('')
-    } catch (error) {
-      setQueueActionError(error instanceof Error ? error.message : ((scT?.errSchedule as string) || 'Failed to schedule post'))
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const getPages = (integrationId: string) => {
-    const integ = integrations.find(i => i.id === integrationId)
-    if (!integ) return []
-    return integ.config?.pages || []
-  }
-
   function formatDate(iso: string) {
     const d = new Date(iso)
     return d.toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
@@ -603,8 +550,6 @@ function CalendarPageInner() {
     return (scT?.timeMinute as string)?.replace('{m}', String(m)) ?? `${m}m`
   }
 
-  const minDateTime = new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16)
-
   if (loading) return (
     <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
       <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
@@ -618,7 +563,7 @@ function CalendarPageInner() {
       <div className="nx-os-container page-enter">
         <LuxuryWorkspaceHeader
           pageTitle={locale === 'ar' ? 'التقويم التنفيذي' : 'Execution calendar'}
-          pageSubtitle={locale === 'ar' ? 'راجع مواعيد المحتوى، ثم انتقل إلى مركز المحتوى للموافقة والنشر.' : 'Review content timing, then use Content Hub for approval and publishing.'}
+          pageSubtitle={locale === 'ar' ? 'راقب المواعيد وحالة التنفيذ هنا. اعتماد النصوص والوسائط والجدولة يبدأ من مركز المحتوى.' : 'Monitor timing and execution state here. Copy, media, and scheduling decisions start in Content Hub.'}
           primaryHref="/content-hub"
           primaryLabel={locale === 'ar' ? 'افتح مركز المحتوى' : 'Open Content Hub'}
           secondaryHref="/campaigns"
@@ -653,13 +598,12 @@ function CalendarPageInner() {
             <button type="button" onClick={nextMonth} aria-label={locale === 'ar' ? 'الشهر التالي' : 'Next month'} className="h-10 w-10 rounded-[14px] border border-[#e3e8f3] bg-white text-[#64708f] shadow-sm">›</button>
           </div>
           {activeTab === 'queue' ? (
-            <button
-              type="button"
-              onClick={() => setShowModal(true)}
+            <Link
+              href="/content-hub"
               className="inline-flex h-10 items-center gap-2 rounded-[14px] bg-[#071236] px-4 text-[12px] font-black text-white"
             >
-              {scT?.btnSchedule as string || '+ Schedule Post'}
-            </button>
+              {locale === 'ar' ? 'افتح مركز المحتوى' : 'Open Content Hub'}
+            </Link>
           ) : null}
         </div>
 
@@ -1058,16 +1002,18 @@ function CalendarPageInner() {
                 <span className="text-2xl">⚠️</span>
                 <div>
                   <div className="font-semibold text-yellow-700 mb-1">
-                    {scT?.noIntegrationsTitle as string || 'No social accounts connected'}
+                    {locale === 'ar' ? 'لا توجد حسابات نشر متصلة' : 'No publishing accounts connected'}
                   </div>
                   <p className="text-sm text-slate-600">
-                    {scT?.noIntegrationsDesc as string || 'Connect your social accounts in Settings to start scheduling posts.'}
+                    {locale === 'ar'
+                      ? 'اربط الحسابات من صفحة الاتصالات قبل النشر عبر المنصة. الربط وحده لا يجدول أو ينشر أي شيء.'
+                      : 'Connect accounts from Connections before platform publishing. Connecting alone never schedules or publishes anything.'}
                   </p>
                 </div>
-                <Link href="/settings"
+                <Link href="/connections"
                   className={`${isRTL ? 'mr-auto' : 'ml-auto'} shrink-0 px-4 py-2 rounded-lg text-sm font-semibold transition-all`}
                   style={{ background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)', color: '#92400e' }}>
-                  {scT?.btnConnectAccount as string || 'Connect Account'}
+                  {locale === 'ar' ? 'مراجعة الاتصالات' : 'Review Connections'}
                 </Link>
               </div>
             )}
@@ -1207,10 +1153,10 @@ function CalendarPageInner() {
                 <p className="text-sm text-slate-500 mb-6">
                   {getCalendarTruthText('scheduledEmpty', locale)}
                 </p>
-                <button onClick={() => { setQueueActionError(''); setShowModal(true) }}
+                <Link href="/content-hub"
                   className="px-5 py-2.5 bg-accent text-white font-bold rounded-xl text-sm hover:bg-accent/90 transition-all">
-                  {scT?.emptyBtn as string || '+ Schedule a Post'}
-                </button>
+                  {locale === 'ar' ? 'راجع المحتوى الجاهز' : 'Review ready content'}
+                </Link>
               </div>
             )}
 
@@ -1234,148 +1180,6 @@ function CalendarPageInner() {
         )}
       </div>
       </main>
-
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      {/* SCHEDULE MODAL                                                        */}
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
-          style={{ background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)' }}>
-          <div className="w-full max-w-lg rounded-2xl bg-white overflow-hidden"
-            dir={dir}
-            style={{ border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 24px 48px rgba(15,23,42,0.12)' }}>
-
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <h2 className="font-bold text-slate-950">{scT?.modalTitle as string || 'Schedule a Post'}</h2>
-              <button onClick={() => setShowModal(false)}
-                className="text-slate-400 hover:text-slate-950 transition-all text-xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100">×</button>
-            </div>
-
-            <div className="p-6 space-y-5">
-              {queueActionError && (
-                <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>{queueActionError}</span>
-                </div>
-              )}
-              {/* Caption */}
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 block">
-                  {scT?.modalCaptionLabel as string || 'Caption'}
-                </label>
-                <textarea
-                  value={caption}
-                  onChange={e => setCaption(e.target.value)}
-                  placeholder={scT?.modalCaptionPlaceholder as string || 'Write your post caption…'}
-                  rows={4}
-                  className="w-full px-4 py-3 rounded-xl bg-[#f5f5f7] text-slate-950 placeholder-slate-400 text-sm focus:outline-none transition-all resize-none"
-                  style={{ border: '1px solid rgba(15,23,42,0.1)' }}
-                  autoFocus
-                />
-                <div className="text-xs text-slate-400 mt-1 text-left">{caption.length}/2200</div>
-              </div>
-
-              {/* Account */}
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 block">
-                  {scT?.modalAccountLabel as string || 'Account'}
-                </label>
-                {integrations.length === 0 ? (
-                  <div className="p-3 rounded-xl text-sm text-yellow-700" style={{ background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.2)' }}>
-                    {scT?.modalNoAccounts as string || 'No accounts connected.'}{' '}
-                    <Link href="/settings" className="underline font-medium">
-                      {scT?.modalConnectLink as string || 'Connect one'}
-                    </Link>
-                  </div>
-                ) : (
-                  <select
-                    value={selectedIntegration}
-                    onChange={e => { setSelectedIntegration(e.target.value); setSelectedPage('') }}
-                    className="w-full px-4 py-3 rounded-xl bg-[#f5f5f7] text-slate-950 text-sm focus:outline-none transition-all"
-                    style={{ border: '1px solid rgba(15,23,42,0.1)' }}>
-                    <option value="">{scT?.modalAccountPlaceholder as string || 'Select account…'}</option>
-                    {integrations.map(i => (
-                      <option key={i.id} value={i.id}>{i.accountName || i.platform}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {/* Page / Profile */}
-              {selectedIntegration && getPages(selectedIntegration).length > 0 && (
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 block">
-                    {scT?.modalPageLabel as string || 'Page / Profile'}
-                  </label>
-                  <select
-                    value={selectedPage}
-                    onChange={e => {
-                      const pages = getPages(selectedIntegration)
-                      const page = pages.find((p: any) => p.id === e.target.value)
-                      setSelectedPage(e.target.value)
-                      setSelectedPageName(page?.name || '')
-                      setSelectedPlatform(page?.type === 'instagram' ? 'INSTAGRAM' : 'FACEBOOK')
-                    }}
-                    className="w-full px-4 py-3 rounded-xl bg-[#f5f5f7] text-slate-950 text-sm focus:outline-none transition-all"
-                    style={{ border: '1px solid rgba(15,23,42,0.1)' }}>
-                    <option value="">{scT?.modalPagePlaceholder as string || 'Select page…'}</option>
-                    {getPages(selectedIntegration).map((p: any) => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.type || 'facebook'})</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Date/Time */}
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 block">
-                  {scT?.modalDateLabel as string || 'Schedule Date & Time'}
-                </label>
-                <input
-                  type="datetime-local"
-                  value={scheduledAt}
-                  min={minDateTime}
-                  onChange={e => setScheduledAt(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-[#f5f5f7] text-slate-950 text-sm focus:outline-none transition-all"
-                  style={{ border: '1px solid rgba(15,23,42,0.1)' }}
-                />
-              </div>
-
-              {/* Image URL */}
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 block">
-                  {scT?.modalImageLabel as string || 'Image URL'}{' '}
-                  <span className="text-slate-400 normal-case font-normal">
-                    {scT?.modalImageOptional as string || '(optional)'}
-                  </span>
-                </label>
-                <input
-                  type="url"
-                  value={imageUrl}
-                  onChange={e => setImageUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="w-full px-4 py-3 rounded-xl bg-[#f5f5f7] text-slate-950 placeholder-slate-400 text-sm focus:outline-none transition-all"
-                  style={{ border: '1px solid rgba(15,23,42,0.1)' }}
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 px-6 py-4 border-t border-slate-100">
-              <button onClick={() => setShowModal(false)}
-                className="flex-1 py-3 rounded-xl text-sm font-medium text-slate-600 hover:text-slate-950 hover:bg-slate-50 transition-all"
-                style={{ border: '1px solid rgba(15,23,42,0.1)' }}>
-                {scT?.btnCancel as string || 'Cancel'}
-              </button>
-              <button
-                onClick={handleSchedule}
-                disabled={!caption || !selectedIntegration || !selectedPage || !scheduledAt || submitting}
-                className="flex-1 py-3 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                {submitting ? (scT?.modalSubmitting as string || 'Scheduling…') : (scT?.modalSubmitBtn as string || 'Schedule Post')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {pendingDeletePost && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center px-4" style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(5px)' }}>

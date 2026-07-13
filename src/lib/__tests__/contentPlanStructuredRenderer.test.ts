@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   isClinicOperationalSaasContent,
+  isCustomerWorkflowSaasContent,
   renderContentPlanDraftCaption,
   renderContentPlanDraftImagePrompt,
   validateContentPlanDraftForSave,
@@ -170,5 +171,40 @@ describe('contentPlanStructuredRenderer', () => {
     })
 
     expect(caption).toBe('Choose the right grind size for your brewing method.')
+  })
+
+  it('renders explicit customer-workflow SaaS facts with safe captions and neutral visuals', () => {
+    const ctx: ContentPlanRenderContext = {
+      isArabic: true,
+      brand: 'NEXUS Demo',
+      keyMessage: 'تنظيم متابعة العملاء وفرص البيع',
+      targetAudience: 'أصحاب الشركات الصغيرة',
+      contentPillars: ['متابعة العملاء', 'وضوح العمل'],
+      offer: 'نظام بسيط لإدارة طلبات العملاء',
+      platform: 'LINKEDIN',
+      postIndex: 2,
+      verifiedProof: [],
+      hasConversionDestination: false,
+      brandFacts: [
+        'منصة تساعد الشركات الصغيرة على تنظيم طلبات العملاء ومتابعة المبيعات',
+        'إعداد سريع، واجهة عربية، ومتابعة واضحة دون تعقيد تقني',
+      ],
+    }
+
+    expect(isCustomerWorkflowSaasContent(ctx)).toBe(true)
+    const caption = renderContentPlanDraftCaption({
+      caption: 'إدارة المبيعات أصبحت أسهل وأسرع. جرب النظام الآن.',
+    }, ctx)
+    const prompt = renderContentPlanDraftImagePrompt({
+      imagePrompt: 'واجهة مستخدم لنظام إدارة مبيعات على الشاشة',
+    }, ctx)
+
+    expect(caption).toContain('الواجهة العربية')
+    expect(caption).toContain('طلبات العملاء')
+    expect(caption).not.toMatch(/أسهل وأسرع|جرب النظام الآن|زيادة فرص البيع/)
+    expect(prompt).toContain('screens turned away')
+    expect(prompt).toContain('no visible software UI')
+    expect(prompt).not.toContain('واجهة مستخدم')
+    expect(validateContentPlanDraftForSave({ caption, imagePrompt: prompt }).ok).toBe(true)
   })
 })

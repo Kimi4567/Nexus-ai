@@ -8,6 +8,11 @@
 
 export type PublicPaidPlanId = 'pro' | 'business'
 
+// One complete activation journey: strategy (8) + quality review (2) +
+// Content Hub plan (2). Keep the post sample deliberately small.
+export const FREE_TRIAL_CREDITS = 12
+export const FREE_TRIAL_POSTS = 3
+
 export interface PublicPaidPlan {
   id: PublicPaidPlanId
   slug: 'growth' | 'autopilot'

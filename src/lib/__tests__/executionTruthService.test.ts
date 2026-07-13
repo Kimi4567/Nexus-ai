@@ -31,6 +31,7 @@ beforeEach(() => {
   prismaMock.socialPost.groupBy
     .mockResolvedValueOnce([])
     .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([])
   prismaMock.marketingLearningEvent.findMany.mockResolvedValue([])
   prismaMock.adCampaign.groupBy.mockResolvedValue([])
 })
@@ -47,14 +48,35 @@ describe('execution truth service', () => {
         { campaignId: 'c2', status: 'DRAFT', _count: { _all: 2 } },
       ])
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
 
     const result = await getWorkspaceExecutionTruth('u1')
 
     expect(result.campaigns).toHaveLength(2)
     expect(result.campaigns.find((campaign) => campaign.campaignId === 'c1')?.stage).toBe('STRATEGY_REVIEW')
     expect(result.campaigns.find((campaign) => campaign.campaignId === 'c2')?.stage).toBe('CONTENT_REVIEW')
-    expect(prismaMock.socialPost.groupBy).toHaveBeenCalledTimes(2)
+    expect(prismaMock.socialPost.groupBy).toHaveBeenCalledTimes(3)
     expect(prismaMock.campaign.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 100 }))
+  })
+
+  it('counts approved posts missing media as a media-review action', async () => {
+    prismaMock.campaign.findMany.mockResolvedValue([
+      { ...campaignBase, id: 'c2', name: 'Content ready', status: 'ACTIVE' },
+    ])
+    prismaMock.socialPost.groupBy
+      .mockReset()
+      .mockResolvedValueOnce([
+        { campaignId: 'c2', status: 'APPROVED', _count: { _all: 3 } },
+      ])
+      .mockResolvedValueOnce([
+        { campaignId: 'c2', _count: { _all: 3 } },
+      ])
+      .mockResolvedValueOnce([])
+
+    const result = await getWorkspaceExecutionTruth('u1')
+
+    expect(result.campaigns[0].stage).toBe('MEDIA_REVIEW')
+    expect(result.queue[0].kind).toBe('REVIEW_MEDIA')
   })
 
   it('scopes a campaign truth request to the requested owned campaign', async () => {

@@ -72,7 +72,7 @@ Nexus is an AI-powered marketing operating system. Here's what it can do:
 
 **Analytics** (/analytics): Shows measured performance only when eligible connected data exists. Otherwise it is readiness guidance, not results.
 
-**Billing** (/billing): Manage subscription and credits. There are exactly two public paid plans: ${growth.name} ($${growth.priceUsd}/month, ${growth.monthlyCredits} monthly credits) and ${autopilot.name} ($${autopilot.priceUsd}/month, ${autopilot.monthlyCredits} monthly credits). The 10-credit, 14-day trial is onboarding, not a third paid plan. Legacy plan names may exist only for existing accounts.
+**Billing** (/billing): Manage subscription and credits. There are exactly two public paid plans: ${growth.name} ($${growth.priceUsd}/month, ${growth.monthlyCredits} monthly credits) and ${autopilot.name} ($${autopilot.priceUsd}/month, ${autopilot.monthlyCredits} monthly credits). The 12-credit, 14-day trial is onboarding, not a third paid plan. Legacy plan names may exist only for existing accounts.
 
 **AI Credits**: The main reviewed workflow costs ${CREDIT_COSTS.RUN_FULL_STRATEGY} for strategy + ${CREDIT_COSTS.SENTINEL_REVIEW} for quality review + ${CREDIT_COSTS.CONTENT_PLAN_GENERATION} for content drafts. Images cost ${CREDIT_COSTS.IMAGE_GENERATION} each and chat costs ${CREDIT_COSTS.CHAT_MESSAGE} per message. Larger strategy scopes may show a different exact cost before execution. Failed provider requests are refunded. Monthly subscription credits refresh with the billing cycle; purchased credits have separate validity.
 

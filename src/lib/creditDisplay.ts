@@ -9,7 +9,7 @@
  *   - available ≤ monthly grant → "87 / 150 credits available this month"
  *   - available > monthly grant → "246 credits available" (+ a helper line that
  *     explains the extra is rollover / bonus / refund — never "246 / 150")
- *   - no monthly grant (≤ 0)    → "10 credits available" (no denominator)
+ *   - no monthly grant (≤ 0)    → "12 credits available" (no denominator)
  *   - unlimited (-1)            → "Unlimited" / "غير محدود"
  *   - progress percent is ALWAYS clamped to 0..100 so bars can't overflow.
  *

@@ -398,10 +398,12 @@ export default function DashboardPage() {
       setLoadError(false)
     }
     try {
-      const [statsRes, campaignsRes, intelligenceRes] = await Promise.allSettled([
+      const [statsRes, campaignsRes, intelligenceRes, brandRes, connectionsRes] = await Promise.allSettled([
         fetchWithTimeout('/api/dashboard/stats', { headers: { Authorization: token } }),
         fetchWithTimeout('/api/campaigns?limit=5&sort=updatedAt', { headers: { Authorization: token } }),
         fetchWithTimeout('/api/dashboard/intelligence', { headers: { Authorization: token } }),
+        fetchWithTimeout('/api/brand', { headers: { Authorization: token } }),
+        fetchWithTimeout('/api/social/accounts', { headers: { Authorization: token } }),
       ])
 
       const statsReady = statsRes.status === 'fulfilled' && statsRes.value.ok
@@ -455,6 +457,17 @@ export default function DashboardPage() {
         setIntelligence(d.brief || null)
       }
 
+      if (brandRes.status === 'fulfilled' && brandRes.value.ok) {
+        const data = await brandRes.value.json() as BrandResponse
+        setBrandReadiness(getBrandBrainReadiness(data.brandProfile))
+        setBrandName(data.brandProfile?.brandName || null)
+      }
+
+      if (connectionsRes.status === 'fulfilled' && connectionsRes.value.ok) {
+        const data = await connectionsRes.value.json() as { accounts?: unknown[] }
+        setHasConnections(Array.isArray(data.accounts) && data.accounts.length > 0)
+      }
+
       setLastUpdated(new Date())
     } finally {
       setLoading(false)
@@ -463,32 +476,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (workspaceGate !== 'hasWorkspace') return
-    const token = authHeader()
-    if (!token) return
-    fetchWithTimeout('/api/social/accounts', { headers: { Authorization: token } })
-      .then(r => r.json())
-      .then((d: { accounts?: unknown[] }) => setHasConnections((d.accounts || []).length > 0))
-      .catch(() => setHasConnections(false))
-  }, [authHeader, workspaceGate])
-
-  useEffect(() => {
-    if (workspaceGate !== 'hasWorkspace') return
     load()
   }, [load, workspaceGate])
-
-  useEffect(() => {
-    if (!isAuthenticated || workspaceGate !== 'hasWorkspace') return
-    const token = authHeader()
-    if (!token) return
-    fetchWithTimeout('/api/brand', { headers: { Authorization: token } })
-      .then(r => r.ok ? r.json() : null)
-      .then((data: BrandResponse | null) => {
-        if (!data) return
-        setBrandReadiness(getBrandBrainReadiness(data.brandProfile))
-        setBrandName(data.brandProfile?.brandName || null)
-      })
-      .catch(() => {})
-  }, [authHeader, isAuthenticated, workspaceGate])
 
   useEffect(() => {
     if (workspaceGate !== 'hasWorkspace') return

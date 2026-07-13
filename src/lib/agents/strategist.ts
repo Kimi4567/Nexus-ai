@@ -528,6 +528,8 @@ ANTI-HALLUCINATION RULES (strict — these override any urge to sound complete):
 22. Organic count is binding when provided. contentAnglesDetailed must contain exactly the specified number of entries, and weeklyExecutionPlan.deliverables must distribute exactly that many countable post directions across the first detailed window.
 23. Do not invent a downloadable asset. Avoid "Download now" unless the brief explicitly includes a download, app, lead magnet, or file.
 24. Audience preferences, tone, positioning, or common industry practice are not proof of a service policy. Never invent no-hidden-fee or transparent-pricing promises, bilingual service, family/children services, pain-free or stress-free care, or clinic/facility tours unless that exact fact appears in Brand Context.
+25. Before returning JSON, perform a final fluency pass on every user-facing value. Reject sentence fragments, missing nouns, literal translations, and malformed Arabic. Every hook, CTA, positioning line, funnel message, and weekly key message must be a complete natural sentence or phrase.
+26. If no conversion destination is provided, do not invent trials, demos, bookings, registrations, downloads, purchases, WhatsApp, or contact paths. Use review-safe awareness actions that the content itself can satisfy, and keep the conversion destination explicitly unresolved.
 
 Return ONLY valid JSON. No markdown outside the JSON.`
 

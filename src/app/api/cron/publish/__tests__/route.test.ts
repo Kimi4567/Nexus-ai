@@ -43,7 +43,9 @@ function duePost() {
     workspaceId: 'workspace-1',
     platform: 'LINKEDIN',
     caption: 'Approved copy',
-    imageUrl: null,
+    imageUrl: 'https://cdn.example.com/approved.jpg',
+    generationStatus: 'DONE',
+    mediaSource: 'GENERATE',
     pageId: null,
     status: 'SCHEDULED',
     publishMode: 'AUTO',
@@ -103,6 +105,17 @@ describe('GET /api/cron/publish', () => {
         errorMessage: null,
       },
     })
+  })
+
+  it('does not call the platform adapter when media readiness is incomplete', async () => {
+    mocks.findMany.mockResolvedValue([{ ...duePost(), generationStatus: 'PENDING' }])
+
+    const response = await GET(request())
+    const body = await response.json()
+
+    expect(body).toMatchObject({ ok: true, processed: 0, succeeded: 0 })
+    expect(mocks.publish).not.toHaveBeenCalled()
+    expect(mocks.update).not.toHaveBeenCalled()
   })
 
   it('records provider failure without claiming publication', async () => {

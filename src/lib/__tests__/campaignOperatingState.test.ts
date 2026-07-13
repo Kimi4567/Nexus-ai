@@ -79,6 +79,24 @@ describe('deriveCampaignOperatingState', () => {
     expect(state.stage).toBe('content_approved_not_scheduled')
     expect(state.counts.approvedPosts).toBe(1)
     expect(state.truthFlags.hasScheduledContent).toBe(false)
+    expect(state.stageLabelAr).toBe('النصوص معتمدة والوسائط غير مكتملة')
+    expect(state.blockers).toContain('media_review')
+  })
+
+  it('APPROVED posts with confirmed media are ready for a separate scheduling decision', () => {
+    const state = deriveCampaignOperatingState({
+      campaign: strategyCampaign,
+      posts: [{
+        status: 'APPROVED',
+        approvedAt: '2026-01-01T00:00:00Z',
+        imageUrl: 'https://cdn.example.com/final.jpg',
+        mediaSource: 'GENERATE',
+        generationStatus: 'DONE',
+      }],
+    })
+    expect(state.stage).toBe('content_approved_not_scheduled')
+    expect(state.stageLabelAr).toBe('المحتوى معتمد وغير مجدول')
+    expect(state.blockers).not.toContain('media_review')
   })
 
   it('SCHEDULED with scheduledAt + MANUAL -> scheduled_manual', () => {

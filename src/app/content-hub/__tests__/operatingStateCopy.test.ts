@@ -26,15 +26,22 @@ const CAMPAIGN_SRC = readFileSync(
   'utf8',
 )
 
+const MEDIA_STATE_SRC = readFileSync(
+  resolve(process.cwd(), 'src/lib/contentHubMediaState.ts'),
+  'utf8',
+)
+
 describe('Content Hub operating-state copy', () => {
   it('classifies overview media from the saved source without calling it complete', () => {
     expect(OVERVIEW_SRC).not.toContain(`'${completeWord}'`)
     expect(OVERVIEW_SRC).not.toContain(`"${completeWord}"`)
     expect(OVERVIEW_SRC).not.toContain(`\`${completeWord}\``)
-    expect(OVERVIEW_SRC).toMatch(/Generated review background/)
-    expect(OVERVIEW_SRC).toMatch(/Attached uploaded asset/)
-    expect(OVERVIEW_SRC).toMatch(/No media attached/)
-    expect(OVERVIEW_SRC).toMatch(/publishing is a separate state/)
+    expect(OVERVIEW_SRC).toContain('deriveContentHubMediaState')
+    expect(OVERVIEW_SRC).toContain('isContentPostMediaReadyForScheduling')
+    expect(MEDIA_STATE_SRC).toMatch(/Generated image/)
+    expect(MEDIA_STATE_SRC).toMatch(/Uploaded asset/)
+    expect(MEDIA_STATE_SRC).toMatch(/No media/)
+    expect(MEDIA_STATE_SRC).toMatch(/needs a media decision/)
   })
 
   it('does not invent generic CTA choices outside campaign and post evidence', () => {

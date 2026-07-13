@@ -395,7 +395,7 @@ export default function SettingsPage() {
 
             <SettingsCard title={copyText('الفوترة والخطة', 'Billing and plan')} icon={<CreditCard size={18} />} className="xl:col-span-5">
               <div className="rounded-[18px] border border-[#e8edf7] bg-[#fbfcff] p-4 text-center">
-                <p className="inline-flex rounded-full bg-[#fff7db] px-3 py-1 text-[11px] font-black text-[#a66b00]">NEXUS PRO</p>
+                <p className="inline-flex rounded-full bg-[#fff7db] px-3 py-1 text-[11px] font-black text-[#a66b00]">{copyText('خطة الحساب', 'Account plan')}</p>
                 <h3 className="mt-3 text-lg font-black text-[#071236]">{planLabel}</h3>
                 <p className="mt-1 text-[12px] text-[#64708f]">
                   {billingStatus?.hasActiveSubscription

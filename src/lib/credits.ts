@@ -172,7 +172,8 @@ export type CreditAction = keyof typeof CREDIT_COSTS
 
 // ── Free plan starter credits ──────────────────────────────────────────────────
 // Granted on first AI action to brand-new FREE accounts.
-// 15 credits = 3× CAMPAIGN_GENERATION or 3× RUN_FULL_STRATEGY, or a mix of actions.
+// 12 credits = one activation journey: strategy (8), quality review (2),
+// and one small Content Hub plan (2).
 // Adjust here to change the free tier without touching any route.
 
 export const FREE_STARTER_CREDITS = STARTER_CREDITS
@@ -180,10 +181,10 @@ export const FREE_STARTER_CREDITS = STARTER_CREDITS
 // ── Monthly credit totals per plan ─────────────────────────────────────────────
 // Used by the dashboard credit progress bar.
 // Must stay in sync with PLAN_CREDITS in src/lib/stripe.ts.
-// Free=10 (one-time), Starter=50/mo, Growth(PRO)=150/mo, Agency(BUSINESS)=500/mo
+// Free=12 (one-time), Starter=50/mo, Growth(PRO)=150/mo, Agency(BUSINESS)=500/mo
 
 export const PLANS_CREDITS: Record<string, number> = {
-  FREE:      FREE_STARTER_CREDITS, // 10 (one-time, never refreshes)
+  FREE:      FREE_STARTER_CREDITS, // 12 (one-time, never refreshes)
   STARTER:   50,
   PRO:       150,  // Growth plan
   GROWTH:    150,  // alias

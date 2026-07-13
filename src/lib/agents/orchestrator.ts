@@ -206,6 +206,7 @@ export async function runFullAgency(
       strategyType: brief.strategyType,
       organicPostCount: brief.organicPostCount,
       hasLeadHandling: Boolean(bp.leadHandling),
+      hasConversionDestination: Boolean(bp.conversionDestination),
     })
     const contractReport = assertCampaignStrategyContract(strategy, {
       language: brief.language,

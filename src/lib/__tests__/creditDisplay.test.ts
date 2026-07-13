@@ -51,12 +51,12 @@ describe('formatCreditDisplay', () => {
 
   // 5. Free / zero monthly grant → no denominator, no "/0"
   it('shows no denominator when monthly grant is 0 (free one-time credits)', () => {
-    const r = formatCreditDisplay({ availableCredits: 10, monthlyCredits: 0, locale: 'en' })
-    expect(r.primary).toBe('10 credits available')
+    const r = formatCreditDisplay({ availableCredits: 12, monthlyCredits: 0, locale: 'en' })
+    expect(r.primary).toBe('12 credits available')
     expect(r.primary).not.toContain('/')
     expect(r.percent).toBe(100)
-    const rAr = formatCreditDisplay({ availableCredits: 10, monthlyCredits: 0, locale: 'ar' })
-    expect(rAr.primary).toBe('10 كريدت متاح')
+    const rAr = formatCreditDisplay({ availableCredits: 12, monthlyCredits: 0, locale: 'ar' })
+    expect(rAr.primary).toBe('12 كريدت متاح')
   })
 
   // 6. null / missing values do not crash

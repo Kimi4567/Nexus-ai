@@ -1,3 +1,5 @@
+import { isContentPostMediaReadyForScheduling } from './contentHubMediaState'
+
 export type CampaignStatusLike =
   | 'DRAFT'
   | 'ACTIVE'
@@ -41,6 +43,9 @@ export interface CampaignOperatingInput {
   posts?: Array<{
     status?: SocialPostStatusLike | null
     generationStatus?: string | null
+    imageUrl?: string | null
+    uploadedMediaId?: string | null
+    mediaSource?: string | null
     scheduledAt?: string | Date | null
     approvedAt?: string | Date | null
     publishedAt?: string | Date | null
@@ -315,9 +320,14 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
   }
 
   const blockers: string[] = []
+  const approvedMediaPending = posts.some(post =>
+    String(post.status ?? '').toUpperCase() === 'APPROVED' &&
+    !isContentPostMediaReadyForScheduling(post),
+  )
   if (!hasStrategy) blockers.push('strategy')
   if (counts.totalPosts === 0) blockers.push('content_plan')
   if (counts.draftPosts > 0) blockers.push('content_review')
+  if (approvedMediaPending) blockers.push('media_review')
   if (malformedScheduledPosts > 0) blockers.push('scheduled_time')
   if (counts.publishedPosts > 0 && counts.analyticsReadyPosts === 0) blockers.push('analytics')
   if (pendingLearningCount > 0) blockers.push('learning_review')
@@ -356,7 +366,15 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     stage = 'strategy_review_needed'
   }
 
-  const copy = STAGE_COPY[stage]
+  const copy = stage === 'content_approved_not_scheduled' && approvedMediaPending
+    ? {
+        stageLabel: 'Copy approved, media pending',
+        stageLabelAr: 'النصوص معتمدة والوسائط غير مكتملة',
+        stageHelper: 'Approved copy is waiting for confirmed post media before scheduling.',
+        stageHelperAr: 'النصوص المعتمدة تنتظر وسائط مؤكدة لكل منشور قبل الجدولة.',
+        primaryAction: { label: 'Complete media review', labelAr: 'أكمل مراجعة الوسائط', href: '/content-hub' },
+      }
+    : STAGE_COPY[stage]
   return {
     stage,
     ...copy,

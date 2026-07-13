@@ -10,7 +10,7 @@
  * the modal shows a gate screen (hard block) before spending any credits.
  *
  * States: running -> success | no_campaign | credits | no_brand | gate | error
- * Progress is simulated with timed steps while the API call runs (~15-25s).
+ * Progress is simulated with timed steps while the API call runs.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -25,6 +25,7 @@ import {
   type StrategyBriefProfileLike,
 } from '@/lib/strategyBriefReadiness'
 import { useBillingStatus } from '@/lib/useBillingStatus'
+import { getBrandIndustryLabel } from '@/lib/brandIndustries'
 // PR-S1b — deterministic Strategy Order Review (display-only; no generation change).
 import { formatStrategyDeliverableForLocale, getStrategyDeliverables } from '@/lib/strategy/deliverablesContract'
 // PR-S1c-2 — variable strategy pricing (display side). The SAME pure function runs
@@ -83,6 +84,8 @@ interface Props {
   isOpen: boolean
   onClose: () => void
   onSuccess?: () => void
+  /** Skip any cached success when the caller explicitly requested a new run. */
+  startFresh?: boolean
 }
 
 // -- Progress steps ----------------------------------------------------------
@@ -161,7 +164,7 @@ function saveStrategyHandoff(campaignId: string, data: { language: string; selec
 
 // -- Component ---------------------------------------------------------------
 
-export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Props) {
+export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, startFresh = false }: Props) {
   const { authHeader } = useAuth()
   const { t, dir, locale } = useI18n()
   // PR-S1b — current plan tier (for the deterministic Order Review's plan-cap). Display only.
@@ -174,11 +177,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   }
 
   // Start a new strategy run from the success screen.
-  // Routes back through the cost-confirmation gate so a second run can never
-  // silently spend more credits — the user must re-confirm the (variable) cost first.
-  // The phase is set EXPLICITLY to 'cost_confirm' (not inferred from a cleared
-  // result / reset flag). No generation starts and no credits are spent here;
-  // the run only begins after the user re-confirms on the cost screen.
+  // Routes back through every request gate so a second run can never silently
+  // spend more credits. No generation starts until the final cost confirmation.
   const handleRunAgain = () => {
     clearResultCache()
     setResult(null)
@@ -206,7 +206,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   const [brandConfirmed, setBrandConfirmed] = useState(false)
   const [langConfirmed, setLangConfirmed] = useState(false)
   // PR-I — generation-time strategy intent (not persisted). The default must
-  // fit inside the 10-credit trial so a new user can complete the first
+  // fit inside the 12-credit trial so a new user can complete the first
   // strategy and still run the required 2-credit review.
   const [strategyType, setStrategyType] = useState<'organic' | 'paid' | 'full'>('organic')
   const [strategyDuration, setStrategyDuration] = useState<'30' | '90' | '180' | 'custom'>('30')
@@ -321,11 +321,15 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
     // ── Check cache first — avoid re-running if user just closed and reopened ──
     // Only restore a cached successful run; other phases always re-run.
-    const cached = loadResultCache()
-    if (cached?.campaignId) {
-      setResult(cached)
-      setPhase('success')
-      return
+    if (!startFresh) {
+      const cached = loadResultCache()
+      if (cached?.campaignId) {
+        setResult(cached)
+        setPhase('success')
+        return
+      }
+    } else {
+      clearResultCache()
     }
 
     // Every new request passes through four explicit, read-only gates before
@@ -516,6 +520,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
     customOrganicPostCount,
     strategyDuration,
     useCustomPostCount,
+    startFresh,
   ])
 
   if (!isOpen) return null
@@ -635,33 +640,18 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
     || strategyBrandRecord.toneKeywords?.filter(Boolean).slice(0, 3).join(' · ')
     || (locale === 'ar' ? 'لم تُحدد بعد' : 'Not set yet')
   const brandPlatforms = strategyBrandRecord.topPlatforms?.filter(Boolean).slice(0, 4) ?? []
-  const industryLabels: Record<string, { ar: string; en: string }> = {
-    ecommerce: { ar: 'تجارة إلكترونية', en: 'E-commerce' },
-    saas: { ar: 'برمجيات وتقنية', en: 'Software & Tech' },
-    agency: { ar: 'وكالة تسويق', en: 'Marketing Agency' },
-    fitness: { ar: 'لياقة وصحة', en: 'Fitness & Health' },
-    food: { ar: 'أغذية ومشروبات', en: 'Food & Beverage' },
-    real_estate: { ar: 'عقارات', en: 'Real Estate' },
-    beauty: { ar: 'جمال وعناية', en: 'Beauty & Care' },
-    consulting: { ar: 'استشارات', en: 'Consulting' },
-    education: { ar: 'تعليم وتدريب', en: 'Education & Training' },
-    healthcare: { ar: 'رعاية صحية', en: 'Healthcare' },
-    other: { ar: 'أخرى', en: 'Other' },
-  }
   const languageLabels: Record<string, { ar: string; en: string }> = {
     ar: { ar: 'العربية', en: 'Arabic' },
     en: { ar: 'الإنجليزية', en: 'English' },
     both: { ar: 'العربية والإنجليزية', en: 'Arabic and English' },
   }
-  const industryKey = typeof strategyBrandRecord.industry === 'string'
-    ? strategyBrandRecord.industry.toLowerCase()
-    : ''
   const languageKey = typeof strategyBrandRecord.languagePreference === 'string'
     ? strategyBrandRecord.languagePreference.toLowerCase()
     : ''
-  const brandIndustry = industryLabels[industryKey]
-    ? industryLabels[industryKey][locale === 'ar' ? 'ar' : 'en']
-    : strategyBrandRecord.industry
+  const brandIndustry = getBrandIndustryLabel(
+    strategyBrandRecord.industry,
+    locale === 'ar' ? 'ar' : 'en',
+  )
   const brandLanguage = languageLabels[languageKey]
     ? languageLabels[languageKey][locale === 'ar' ? 'ar' : 'en']
     : strategyBrandRecord.languagePreference
@@ -735,15 +725,19 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                     </p>
                   </div>
                 </div>
-                <div className="flex min-w-[220px] items-center gap-3">
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200">
-                    <div className="h-full rounded-full bg-gradient-to-r from-indigo-600 to-violet-500 transition-all"
-                      style={{ width: `${strategyBriefLoading ? 0 : brandReadinessPreview.score}%` }} />
-                  </div>
-                  <span className="text-2xl font-black text-indigo-600">
-                    {strategyBriefLoading ? '--' : `${brandReadinessPreview.score}%`}
-                  </span>
-                </div>
+                <span className={`rounded-full px-3 py-1.5 text-xs font-black ${
+                  strategyBriefLoading
+                    ? 'bg-slate-100 text-slate-500'
+                    : brandReadinessPreview.ready
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : 'bg-amber-50 text-amber-700'
+                }`}>
+                  {strategyBriefLoading
+                    ? (locale === 'ar' ? 'جارٍ التحقق' : 'Checking')
+                    : brandReadinessPreview.ready
+                      ? (locale === 'ar' ? 'جاهز للطلب العضوي' : 'Ready for organic request')
+                      : (locale === 'ar' ? 'تحتاج بيانات أساسية' : 'Needs core inputs')}
+                </span>
               </div>
             </div>
 

@@ -50,6 +50,12 @@ const CLINIC_CONTEXT_RE =
 const CLINIC_OPERATIONS_PRODUCT_RE =
   /saas|software|platform|dashboard|workflow|clinicflow|clinic\s+management|practice\s+management|appointment\s+management|patient\s+management|operations?\s+(?:app|system|tool|platform)|(?:app|system|tool|platform)\s+for\s+(?:clinics?|healthcare)|برنامج|منصة|تطبيق|نظام|لوحة\s+تحكم|سير\s+العمل|إدارة\s+(?:العيادات|المراكز|المواعيد|المرضى)|تشغيل\s+العيادات/i
 
+const CUSTOMER_WORKFLOW_PRODUCT_RE =
+  /saas|software|platform|workflow|crm|customer\s+(?:request|follow[-\s]?up|management)|lead\s+(?:follow[-\s]?up|management)|sales\s+(?:pipeline|opportunit)|منصة|برنامج|تطبيق|نظام|سير\s+العمل/i
+
+const CUSTOMER_WORKFLOW_DOMAIN_RE =
+  /customer|client|lead|sales|pipeline|crm|طلبات\s+العملاء|متابعة\s+العملاء|العملاء|فرص\s+البيع|إدارة\s+المبيعات|متابعة\s+المبيعات/i
+
 const CLINIC_TOPIC_PATTERNS: Array<{ re: RegExp; ar: string; en: string }> = [
   { re: /appointment|schedule|booking|مواعيد|جدولة/i, ar: 'تنظيم المواعيد', en: 'appointment organization' },
   { re: /follow[-\s]?up|متابعة/i, ar: 'متابعة المرضى إداريًا', en: 'administrative patient follow-up' },
@@ -69,12 +75,21 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'unsupported_fake_product_visual',
-    re: /(?:واجهة\s+(?:تطبيق|المستخدم)|لوحة\s+تحكم|شاشة\s+(?:تعرض|توضح)|تطبيق\s+\S+\s+(?:على|في)\s+(?:هاتف|جهاز|شاشة)|(?:app|software|product)\s+(?:interface|dashboard|screen)|dashboard\s+(?:showing|displaying)|screen\s+(?:showing|displaying))/i,
+    re: /(?:يظهر\s+على\s+الشاشة\s+واجهة|واجهة\s+(?:إعداد|نظام|منصة|تطبيق|المستخدم)|لوحة\s+تحكم|شاشة\s+(?:تعرض|توضح)|تطبيق\s+\S+\s+(?:على|في)\s+(?:هاتف|جهاز|شاشة)|(?:app|software|product)\s+(?:interface|dashboard|screen)|dashboard\s+(?:showing|displaying)|screen\s+(?:showing|displaying))/i,
   },
 ]
 
 function normalizeText(value: unknown): string {
   return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : ''
+}
+
+function stringifyContextValue(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) return value.map(stringifyContextValue).join(' ')
+  if (value && typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>).map(stringifyContextValue).join(' ')
+  }
+  return ''
 }
 
 function contextText(ctx: ContentPlanRenderContext, gen: GeneratedContentPlanPostLike): string {
@@ -89,12 +104,18 @@ function contextText(ctx: ContentPlanRenderContext, gen: GeneratedContentPlanPos
     normalizeText(gen.videoCaption),
     normalizeText(gen.text),
     normalizeText(gen.imagePrompt),
+    stringifyContextValue(ctx.brandFacts ?? []),
   ].join(' ')
 }
 
 export function isClinicOperationalSaasContent(ctx: ContentPlanRenderContext, gen: GeneratedContentPlanPostLike = {}): boolean {
   const text = contextText(ctx, gen)
   return CLINIC_CONTEXT_RE.test(text) && CLINIC_OPERATIONS_PRODUCT_RE.test(text)
+}
+
+export function isCustomerWorkflowSaasContent(ctx: ContentPlanRenderContext): boolean {
+  const explicitFacts = stringifyContextValue(ctx.brandFacts ?? [])
+  return CUSTOMER_WORKFLOW_PRODUCT_RE.test(explicitFacts) && CUSTOMER_WORKFLOW_DOMAIN_RE.test(explicitFacts)
 }
 
 function inferClinicTopic(ctx: ContentPlanRenderContext, gen: GeneratedContentPlanPostLike): { ar: string; en: string } {
@@ -184,6 +205,67 @@ function renderClinicImagePrompt(ctx: ContentPlanRenderContext, gen: GeneratedCo
   ].join(' ')
 }
 
+function renderCustomerWorkflowCaption(ctx: ContentPlanRenderContext): string {
+  const brand = ctx.brand.trim() || (ctx.isArabic ? 'المنصة' : 'the platform')
+  const facts = stringifyContextValue(ctx.brandFacts ?? [])
+  const hasArabicInterface = /واجهة\s+عربية|Arabic\s+interface/i.test(facts)
+  const hasFastSetup = /إعداد\s+سريع|fast\s+setup|quick\s+setup/i.test(facts)
+  const slot = ctx.postIndex % 8
+
+  if (ctx.isArabic) {
+    const templates = [
+      'حين تتوزع متابعة العملاء بين الرسائل والجداول، يصعب معرفة آخر تحديث. ابدأ بمراجعة ثلاثة حقول: العميل، المسؤول، والخطوة التالية. ' + brand + ' يساعد على تنظيم هذه المتابعة في مسار أوضح. راجع أسبوعًا واحدًا وحدد أين تنقطع المعلومة. #متابعة_العملاء #تنظيم_المبيعات',
+      'قبل إضافة أداة جديدة، ارسم مسار فرصة البيع الحالية: كيف دخل الطلب؟ من يتابعه؟ وما الحالة الآن؟ استخدم ' + brand + ' لتنظيم المسار ومراجعته دون تحويل كل رسالة إلى مهمة منفصلة. احفظ القائمة وجرّبها على خمس فرص قائمة. #فرص_البيع #سير_العمل',
+      hasArabicInterface
+        ? 'الواجهة العربية لا تعني ترجمة الأزرار فقط؛ قيمتها في أن تكون الحالة والمسؤول والخطوة التالية واضحة للفريق. ' + brand + ' يدعم سير عمل عربيًا لتنظيم طلبات العملاء. راجع تسمية ثلاث حالات قبل اعتمادها. #واجهة_عربية #متابعة_العملاء'
+        : 'وضوح اللغة يبدأ من تسمية الحالات والخطوات بطريقة يفهمها الفريق. مع ' + brand + ' يمكن تنظيم طلبات العملاء في مسار قابل للمراجعة. اختر ثلاث حالات واكتب معنى كل حالة قبل التوسع. #سير_العمل #طلبات_العملاء',
+      hasFastSetup
+        ? 'الإعداد السريع لا يعني تخطي المراجعة. ابدأ في ' + brand + ' بمسار واحد، ومسؤول واحد، وقاعدة واضحة للخطوة التالية. بعد أسبوع، راجع ما نجح وما يحتاج تعديلًا قبل إضافة مزيد من المراحل. #إعداد_سريع #تنظيم_العمل'
+        : 'ابدأ بمسار متابعة واحد بدل نقل كل العمل دفعة واحدة. حدّد المسؤول والحالة والخطوة التالية في ' + brand + '، ثم راجع التجربة بعد أسبوع قبل التوسع. #تنظيم_العمل #متابعة_العملاء',
+      'ليست كل فرصة بيع جاهزة لنفس الإجراء. قسّم المتابعة إلى: طلب جديد، يحتاج معلومات، قيد المراجعة، وخطوة تالية محددة. ' + brand + ' يساعد على إبقاء هذه الحالات واضحة دون وعود بنتائج غير مثبتة. راجع التعريفات مع الفريق. #إدارة_المبيعات',
+      'مراجعة المبيعات الأسبوعية تصبح أوضح عندما يبدأ الفريق من السجل نفسه: ما الذي تغيّر؟ من المسؤول؟ وما الخطوة التالية؟ استخدم ' + brand + ' كمرجع للمتابعة، ثم دوّن أي بيانات ما زالت ناقصة. #مراجعة_المبيعات #وضوح_العمل',
+      'إذا لم يكن للطلب مسؤول وخطوة تالية، فهو معرض للنسيان مهما كانت الأداة. اجعل كل سجل في ' + brand + ' يحمل هذين القرارين بوضوح، وراجع السجلات المفتوحة قبل نهاية الأسبوع. #طلبات_العملاء #متابعة_واضحة',
+      'عندما تتكرر نفس مشكلة المتابعة، راجع العملية قبل لوم الفريق. اختر نقطة واحدة في مسار العملاء، وثّق حالتها الحالية، ثم جرّب تعديلًا صغيرًا في ' + brand + '. قارن الملاحظات في المراجعة التالية. #تحسين_العمليات #فرص_البيع',
+    ]
+    return templates[slot]
+  }
+
+  const templates = [
+    'When customer follow-up is split across messages and spreadsheets, the latest update becomes hard to see. Start with customer, owner, and next step. Use ' + brand + ' to organize one reviewable workflow, then audit a single week.',
+    'Before adding another tool, map the current sales opportunity path: how did the request arrive, who owns it, and what is its status? Use ' + brand + ' to keep that path reviewable.',
+    'Clear workflow language starts with states the team understands. Use ' + brand + ' to organize customer requests around a small set of defined stages, then review the names before expanding.',
+    'Fast setup should not skip review. Start in ' + brand + ' with one workflow, one owner, and one clear next-step rule. Review the first week before adding more stages.',
+    'Not every sales opportunity needs the same action. Separate new requests, information gaps, items under review, and confirmed next steps. Use ' + brand + ' to keep those states visible without promising outcomes.',
+    'A weekly sales review is clearer when everyone starts from the same record: what changed, who owns it, and what comes next? Use ' + brand + ' as the follow-up reference.',
+    'A request without an owner and a next step can be forgotten regardless of the tool. Make those two decisions explicit in ' + brand + ', then review open records.',
+    'When the same follow-up issue repeats, review the process before blaming the team. Pick one point in the customer journey and test one small workflow change in ' + brand + '.',
+  ]
+  return templates[slot] + ' #CustomerFollowUp #SalesWorkflow'
+}
+
+function renderCustomerWorkflowImagePrompt(ctx: ContentPlanRenderContext): string {
+  const platform = platformLabel(ctx.platform)
+  const format = platform === 'LinkedIn'
+    ? 'wide horizontal 1.91:1 composition'
+    : platform === 'YouTube Shorts'
+      ? 'vertical 9:16 composition'
+      : 'vertical 4:5 composition'
+  const scenes = [
+    'small business owner reviewing blank customer follow-up cards on a tidy desk, laptop screen turned away',
+    'paper workflow with neutral blank cards for request, owner, status, and next step, no readable text',
+    'small team reviewing a printed follow-up checklist, devices closed or screens turned away',
+    'organized desk with blank pipeline cards, notebook, and pen, no charts or performance numbers',
+    'customer request notes being sorted into neutral color-coded folders, no readable text',
+    'weekly review setup with blank checklist sheets and a closed laptop, calm professional workspace',
+  ]
+  return [
+    format + '; ' + scenes[ctx.postIndex % scenes.length] + '.',
+    'Review-only background visual for customer follow-up workflow organization.',
+    'No readable text, no logos, no brand marks, no visible software UI, no charts, no metrics, no arrows implying growth, and no before-after result claim.',
+    'Realistic professional photography, calm neutral colors, generous negative space for later editable headline and CTA layers.',
+  ].join(' ')
+}
+
 export function renderContentPlanDraftCaption(
   gen: GeneratedContentPlanPostLike,
   ctx: ContentPlanRenderContext,
@@ -195,6 +277,10 @@ export function renderContentPlanDraftCaption(
 
   if (isClinicOperationalSaasContent(ctx, gen)) {
     return guardContentDraftText(renderClinicCaption(ctx, gen), ctx)
+  }
+
+  if (isCustomerWorkflowSaasContent(ctx)) {
+    return guardContentDraftText(renderCustomerWorkflowCaption(ctx), ctx)
   }
 
   return guardedSource || guardContentDraftText(
@@ -211,6 +297,10 @@ export function renderContentPlanDraftImagePrompt(
 ): string {
   if (isClinicOperationalSaasContent(ctx, gen)) {
     return guardContentDraftText(renderClinicImagePrompt(ctx, gen), ctx)
+  }
+
+  if (isCustomerWorkflowSaasContent(ctx)) {
+    return guardContentDraftText(renderCustomerWorkflowImagePrompt(ctx), ctx)
   }
 
   return guardContentDraftText(normalizeText(gen.imagePrompt), ctx)

@@ -12,6 +12,7 @@ import CreditHistoryModal from '@/components/CreditHistoryModal'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { formatCreditDisplay } from '@/lib/creditDisplay'
 import { getBillingDisplayTruth } from '@/lib/billingDisplayTruth'
+import { FREE_TRIAL_CREDITS } from '@/lib/commercialPlans'
 import Link from 'next/link'
 import {
   Sparkles, CheckCircle2, Settings2,
@@ -463,8 +464,8 @@ export default function BillingPage() {
             <Gift className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
             <p className="text-sm leading-relaxed text-slate-600">
               {ar
-                ? 'ابدأ بـ10 أرصدة تجريبية لمدة 14 يوماً، بدون بطاقة. بعدها اختر واحدة من الباقتين المدفوعتين.'
-                : 'Start with 10 trial credits for 14 days, with no card. Then choose one of the two paid plans.'}
+                ? `ابدأ بـ${FREE_TRIAL_CREDITS} رصيداً تجريبياً لمدة 14 يوماً، بدون بطاقة. بعدها اختر واحدة من الباقتين المدفوعتين.`
+                : `Start with ${FREE_TRIAL_CREDITS} trial credits for 14 days, with no card. Then choose one of the two paid plans.`}
             </p>
           </div>
 

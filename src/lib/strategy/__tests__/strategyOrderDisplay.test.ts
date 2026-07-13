@@ -32,6 +32,6 @@ describe('strategyOrderDisplay', () => {
   })
 
   it('keeps the free strategy quota compatible with a four-week execution outline', () => {
-    expect(tierToPostsPerMonth('free')).toBe(4)
+    expect(tierToPostsPerMonth('free')).toBe(3)
   })
 })

@@ -3,6 +3,7 @@
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
+import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState'
 import { useI18n } from '@/lib/i18n-context'
 import {
   ArrowUpRight,
@@ -24,6 +25,28 @@ interface SocialAccount {
   accountName?: string | null
   pageName?: string | null
   isActive?: boolean
+}
+
+interface CampaignRecord {
+  id: string
+  name: string
+}
+
+interface PublishingPost {
+  id: string
+  campaignId: string
+  campaignName: string
+  platform: string
+  status?: string | null
+  publishMode?: string | null
+  scheduledAt?: string | null
+  publishedAt?: string | null
+  manuallyPublishedAt?: string | null
+  platformUrl?: string | null
+  imageUrl?: string | null
+  uploadedMediaId?: string | null
+  mediaSource?: string | null
+  generationStatus?: string | null
 }
 
 const platformNames = ['Instagram', 'TikTok', 'Facebook', 'X', 'LinkedIn', 'Snapchat']
@@ -83,6 +106,7 @@ export default function PublishPage() {
   const ar = locale === 'ar'
   const copy = (arabic: string, english: string) => (ar ? arabic : english)
   const [accounts, setAccounts] = useState<SocialAccount[]>([])
+  const [posts, setPosts] = useState<PublishingPost[]>([])
   const [accountsLoading, setAccountsLoading] = useState(true)
 
   useEffect(() => {
@@ -95,19 +119,44 @@ export default function PublishPage() {
     if (!token) return
     let cancelled = false
 
-    async function loadAccounts() {
+    async function loadPublishingState() {
       setAccountsLoading(true)
       try {
-        const res = await fetch('/api/social/accounts', { headers: { Authorization: token } })
-        if (!res.ok) return
-        const data = await res.json().catch(() => ({}))
-        if (!cancelled) setAccounts(Array.isArray(data.accounts) ? data.accounts : [])
+        const [accountRes, campaignRes] = await Promise.all([
+          fetch('/api/social/accounts', { headers: { Authorization: token } }),
+          fetch('/api/campaigns?limit=20&sort=updatedAt', { headers: { Authorization: token } }),
+        ])
+        const [accountData, campaignData] = await Promise.all([
+          accountRes.json().catch(() => ({})),
+          campaignRes.json().catch(() => ({})),
+        ])
+        if (cancelled) return
+        setAccounts(accountRes.ok && Array.isArray(accountData.accounts) ? accountData.accounts : [])
+
+        const campaigns: CampaignRecord[] = campaignRes.ok && Array.isArray(campaignData.campaigns)
+          ? campaignData.campaigns
+          : []
+        const planResults = await Promise.allSettled(campaigns.slice(0, 12).map(async campaign => {
+          const response = await fetch(`/api/campaigns/${campaign.id}/content-plan`, {
+            headers: { Authorization: token },
+          })
+          if (!response.ok) return []
+          const data = await response.json().catch(() => ({}))
+          return (Array.isArray(data.posts) ? data.posts : []).map((post: Omit<PublishingPost, 'campaignId' | 'campaignName'>) => ({
+            ...post,
+            campaignId: campaign.id,
+            campaignName: campaign.name,
+          }))
+        }))
+        if (!cancelled) {
+          setPosts(planResults.flatMap(result => result.status === 'fulfilled' ? result.value : []))
+        }
       } finally {
         if (!cancelled) setAccountsLoading(false)
       }
     }
 
-    loadAccounts()
+    loadPublishingState()
     return () => { cancelled = true }
   }, [authHeader, isAuthenticated])
 
@@ -115,7 +164,53 @@ export default function PublishPage() {
     () => accounts.filter((account) => account.isActive !== false),
     [accounts],
   )
-  const hasVerifiedAccount = activeAccounts.length > 0
+  const hasConnectedAccount = activeAccounts.length > 0
+  const publishingState = useMemo(() => {
+    const normalizeStatus = (post: PublishingPost) => String(post.status || 'DRAFT').toUpperCase()
+    const drafts = posts.filter(post => normalizeStatus(post) === 'DRAFT').length
+    const approved = posts.filter(post => normalizeStatus(post) === 'APPROVED').length
+    const mediaConfirmed = posts.filter(isContentPostMediaReadyForScheduling).length
+    const approvedMissingMedia = posts.filter(post => (
+      normalizeStatus(post) === 'APPROVED' && !isContentPostMediaReadyForScheduling(post)
+    )).length
+    const readyToSchedule = posts.filter(post => (
+      normalizeStatus(post) === 'APPROVED' && isContentPostMediaReadyForScheduling(post)
+    )).length
+    const scheduled = posts.filter(post => (
+      normalizeStatus(post) === 'SCHEDULED'
+      && Boolean(post.scheduledAt && !Number.isNaN(new Date(post.scheduledAt).getTime()))
+    )).length
+    const publishedPosts = posts
+      .filter(post => normalizeStatus(post) === 'PUBLISHED')
+      .sort((a, b) => String(b.publishedAt || b.manuallyPublishedAt || '').localeCompare(String(a.publishedAt || a.manuallyPublishedAt || '')))
+
+    return {
+      total: posts.length,
+      drafts,
+      approved,
+      mediaConfirmed,
+      approvedMissingMedia,
+      readyToSchedule,
+      scheduled,
+      publishedPosts,
+    }
+  }, [posts])
+
+  const readinessLabel = accountsLoading
+    ? '...'
+    : !hasConnectedAccount
+      ? copy('مقفلة', 'Blocked')
+      : publishingState.total === 0
+        ? copy('بانتظار المحتوى', 'Waiting for content')
+        : publishingState.approvedMissingMedia > 0
+          ? copy('أكمل الوسائط', 'Complete media')
+          : publishingState.readyToSchedule > 0
+            ? copy('قرار جدولة', 'Scheduling decision')
+            : publishingState.drafts > 0
+              ? copy('موافقة مطلوبة', 'Approval required')
+              : publishingState.scheduled > 0
+                ? copy('مجدول', 'Scheduled')
+                : copy('تحتاج مراجعة', 'Review required')
 
   if (loading || !isAuthenticated) {
     return (
@@ -135,7 +230,7 @@ export default function PublishPage() {
         <div className="nx-os-container nx-os-stack">
           <LuxuryWorkspaceHeader
             pageTitle={copy('النشر', 'Publishing')}
-            pageSubtitle={copy('جاهزية الحسابات والجدولة والتأكيد قبل أي نشر فعلي.', 'Account readiness, scheduling, and confirmation before real publishing.')}
+            pageSubtitle={copy('حالة فعلية للمحتوى والوسائط والجدولة والحسابات قبل أي نشر.', 'Verified content, media, scheduling, and account state before any publishing.')}
             primaryHref="/connections"
             primaryLabel={copy('راجع الحسابات', 'Review accounts')}
             secondaryHref="/content-hub"
@@ -177,20 +272,34 @@ export default function PublishPage() {
             </div>
           </header>
 
-          <section className="grid gap-4 lg:grid-cols-2">
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <StatusCard
               title={copy('جاهزية النشر', 'Publishing readiness')}
-              value={accountsLoading ? '...' : hasVerifiedAccount ? copy('تحتاج مراجعة', 'Review required') : copy('مقفلة', 'Blocked')}
-              helper={copy('لا تُعلن الجاهزية إلا بعد توثيق الحساب والمحتوى والوسائط والموافقة.', 'Ready is shown only after account, content, media, and approval are verified.')}
+              value={readinessLabel}
+              helper={copy('الحالة محسوبة من المنشورات الحالية والحسابات المتصلة؛ ولا تعني أن نشرًا حدث.', 'Calculated from current posts and connected accounts; it never implies publishing occurred.')}
               icon={<ShieldCheck size={22} />}
-              tone={hasVerifiedAccount ? 'amber' : 'violet'}
+              tone={hasConnectedAccount ? 'amber' : 'violet'}
             />
             <StatusCard
               title={copy('الحسابات المتصلة', 'Connected accounts')}
               value={accountsLoading ? '...' : String(activeAccounts.length)}
-              helper={copy('لا يتم اعتبار أي منصة جاهزة إلا بعد توثيق الحساب والصلاحيات.', 'A platform is ready only after account and permission checks pass.')}
+              helper={copy('الاتصال المسجل لا يثبت وحده صلاحية نشر كل منشور.', 'A saved connection alone does not prove each post can publish.')}
               icon={<Link2 size={22} />}
               tone="blue"
+            />
+            <StatusCard
+              title={copy('وسائط مؤكدة', 'Confirmed media')}
+              value={accountsLoading ? '...' : `${publishingState.mediaConfirmed}/${publishingState.total}`}
+              helper={copy(`${publishingState.approvedMissingMedia} نص معتمد ما زال يحتاج وسائط.`, `${publishingState.approvedMissingMedia} approved copy items still need media.`)}
+              icon={<Sparkles size={22} />}
+              tone={publishingState.approvedMissingMedia > 0 ? 'amber' : 'green'}
+            />
+            <StatusCard
+              title={copy('المنشورات المجدولة', 'Scheduled posts')}
+              value={accountsLoading ? '...' : String(publishingState.scheduled)}
+              helper={copy(`${publishingState.readyToSchedule} منشور جاهز لقرار الجدولة، لا للنشر التلقائي.`, `${publishingState.readyToSchedule} posts await a scheduling decision, not automatic publishing.`)}
+              icon={<Clock3 size={22} />}
+              tone={publishingState.scheduled > 0 ? 'green' : 'violet'}
             />
           </section>
 
@@ -234,13 +343,13 @@ export default function PublishPage() {
                     {copy('مصدر الحقيقة هو صفحة الربط والصلاحيات.', 'Connections and permissions are the source of truth.')}
                   </p>
                 </div>
-                <div className={`flex min-w-[150px] items-center gap-3 rounded-[14px] border px-4 py-3 ${hasVerifiedAccount ? 'border-amber-100 bg-amber-50' : 'border-rose-100 bg-rose-50'}`}>
-                  <ShieldCheck className={`h-6 w-6 ${hasVerifiedAccount ? 'text-amber-600' : 'text-rose-600'}`} />
+                <div className={`flex min-w-[150px] items-center gap-3 rounded-[14px] border px-4 py-3 ${hasConnectedAccount ? 'border-amber-100 bg-amber-50' : 'border-rose-100 bg-rose-50'}`}>
+                  <ShieldCheck className={`h-6 w-6 ${hasConnectedAccount ? 'text-amber-600' : 'text-rose-600'}`} />
                   <div>
-                    <p className={`text-lg font-black ${hasVerifiedAccount ? 'text-amber-700' : 'text-rose-700'}`}>
+                    <p className={`text-lg font-black ${hasConnectedAccount ? 'text-amber-700' : 'text-rose-700'}`}>
                       {accountsLoading ? '...' : String(activeAccounts.length)}
                     </p>
-                    <p className="text-[10px] font-black text-[#64708f]">{copy('حساب موثق', 'verified accounts')}</p>
+                    <p className="text-[10px] font-black text-[#64708f]">{copy('حساب متصل', 'connected accounts')}</p>
                   </div>
                 </div>
               </div>
@@ -273,8 +382,8 @@ export default function PublishPage() {
                 { label: copy('مراجعة الوسائط والمقاسات', 'Review media and dimensions'), status: copy('غير موثق', 'Not verified'), ready: false },
                 {
                   label: copy('تأكيد الحساب والصلاحيات', 'Confirm account and permissions'),
-                  status: hasVerifiedAccount ? copy('يوجد حساب', 'Account found') : copy('مفقود', 'Missing'),
-                  ready: hasVerifiedAccount,
+                  status: hasConnectedAccount ? copy('يوجد حساب', 'Account found') : copy('مفقود', 'Missing'),
+                  ready: hasConnectedAccount,
                 },
                 { label: copy('تأكيد يدوي قبل التنفيذ', 'Manual confirmation before execution'), status: copy('مطلوب لاحقًا', 'Required later'), ready: false },
               ].map((item) => (
@@ -300,13 +409,35 @@ export default function PublishPage() {
             </Panel>
             <Panel>
               <h2 className="mb-4 text-lg font-black text-[#071236]">{copy('سجل النشر', 'Publishing log')}</h2>
-              <div className="rounded-[16px] border border-dashed border-[#d7def0] bg-[#fbfcff] p-5 text-center">
-                <Clock3 className="mx-auto mb-3 h-7 w-7 text-[#8a96ad]" />
-                <p className="text-[13px] font-black text-[#111b3f]">{copy('لا توجد أحداث نشر API مؤكدة هنا', 'No confirmed API publish events here')}</p>
-                <p className="mt-2 text-[12px] font-semibold leading-5 text-[#7b87a3]">
-                  {copy('الأحداث ستظهر فقط بعد تنفيذ نشر حقيقي بتأكيد واضح.', 'Events appear only after real publishing with explicit confirmation.')}
-                </p>
-              </div>
+              {publishingState.publishedPosts.length === 0 ? (
+                <div className="rounded-[16px] border border-dashed border-[#d7def0] bg-[#fbfcff] p-5 text-center">
+                  <Clock3 className="mx-auto mb-3 h-7 w-7 text-[#8a96ad]" />
+                  <p className="text-[13px] font-black text-[#111b3f]">{copy('لا توجد أحداث نشر مؤكدة', 'No confirmed publishing events')}</p>
+                  <p className="mt-2 text-[12px] font-semibold leading-5 text-[#7b87a3]">
+                    {copy('لن يظهر سجل إلا بعد تأكيد نشر حقيقي عبر API أو بواسطة المستخدم.', 'A log appears only after real API publishing or user-confirmed manual publishing.')}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {publishingState.publishedPosts.slice(0, 6).map(post => (
+                    <div key={post.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-[#e7ecf6] bg-[#fbfcff] p-4">
+                      <div>
+                        <p className="text-[13px] font-black text-[#111b3f]">{post.campaignName}</p>
+                        <p className="mt-1 text-[11px] font-semibold text-[#7b87a3]">
+                          {post.platform} · {post.manuallyPublishedAt ? copy('أكده المستخدم يدويًا', 'User-confirmed manual publish') : copy('أكدته المنصة عبر API', 'Platform-confirmed API publish')}
+                        </p>
+                      </div>
+                      {post.platformUrl ? (
+                        <a href={post.platformUrl} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-2 rounded-[12px] border border-[#d7def0] bg-white px-3 text-[11px] font-black text-[#5366f6]">
+                          {copy('فتح المنشور', 'Open post')}<ArrowUpRight size={13} />
+                        </a>
+                      ) : (
+                        <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black text-emerald-700">{copy('مؤكد بلا رابط', 'Confirmed without URL')}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </Panel>
           </section>
 

@@ -8,8 +8,9 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
-import { useBrandBrain, getBrandCompleteness, normalizeBrandProfile, type BrandProfile } from '@/hooks/useBrandBrain'
-import { getBrandBrainReadiness, getStrategyCapabilities } from '@/lib/brandReadiness'
+import { useBrandBrain, normalizeBrandProfile, type BrandProfile } from '@/hooks/useBrandBrain'
+import { BRAND_INDUSTRY_OPTIONS, getBrandIndustryLabel, getBrandIndustryOption, normalizeBrandIndustry } from '@/lib/brandIndustries'
+import { getStrategyCapabilities } from '@/lib/brandReadiness'
 import { getBrandBrainGenerationFieldLabel, getBrandBrainGenerationSafety } from '@/lib/brandBrainGenerationSafety'
 import { getBrandIndicators, type BrandIndicators } from '@/lib/brandIndicators'
 import type { BrandBrainContract } from '@/lib/brandBrainContract'
@@ -95,8 +96,6 @@ const getStepCopy = (step: Step, locale: string) => {
     : { label: copy.label.en, desc: copy.desc.en }
 }
 
-const INDUSTRIES_AR = ['تجارة إلكترونية','مطاعم وأغذية','موضة وأزياء','رعاية صحية وطب','عيادات وطب أسنان','صحة وجمال','تقنية وتطبيقات','عقارات','تعليم وتدريب','خدمات مهنية','سياحة وسفر','رياضة ولياقة','ديكور وأثاث','سيارات','آخر']
-const INDUSTRIES_EN = ['E-commerce','Restaurants & Food','Fashion & Apparel','Healthcare & Medical','Dental & Clinics','Health & Beauty','Tech & Apps','Real Estate','Education & Training','Professional Services','Travel & Tourism','Sports & Fitness','Home & Furniture','Automotive','Other']
 const PLATFORMS_LIST = ['Instagram','TikTok','Facebook','Snapchat','YouTube','LinkedIn','X / Twitter','Pinterest']
 const TONE_OPTIONS_AR = ['حماسي','احترافي','مرح','عاطفي','جريء','هادئ','ملهم','مباشر','راقي','شبابي']
 const TONE_OPTIONS_EN = ['Energetic','Professional','Playful','Emotional','Bold','Calm','Inspiring','Direct','Upscale','Youthful']
@@ -366,10 +365,16 @@ function RadioGroup({ options, value, onChange, color }: {
 
 /* ── Brand Summary Card (post-save moment of delight) ────────── */
 function BrandSummaryCard({
-  form, score, locale, t, onClose
+  form, locale, t, onClose, onComplete
 }: {
-  form: BrandProfile; score: number; locale: string; t: (k: string) => string; onClose: () => void
+  form: BrandProfile
+  locale: string
+  t: (k: string) => string
+  onClose: () => void
+  onComplete: (firstMissingField?: string) => void
 }) {
+  const ar = locale === 'ar'
+  const readiness = getBrandIndicators(form).organicReadiness
   const chips = [
     form.toneKeywords?.slice(0, 3),
     form.topPlatforms?.slice(0, 3),
@@ -398,11 +403,12 @@ function BrandSummaryCard({
               </div>
               <div>
                 <h2 className="text-lg font-black text-slate-950">{t('brand.summaryTitle')}</h2>
-                {/* PR-A: status-aware subtitle — never claims "ready" while the
-                    Brand Brain is still Building (score < 80). Uses the same score
-                    shown on this page (getBrandCompleteness) so copy matches the bar. */}
                 <p className="text-xs mt-0.5 text-slate-500">
-                  {score >= 80 ? t('brand.summarySubtitleActive') : t('brand.summarySubtitleBuilding')}
+                  {readiness.ready
+                    ? t('brand.summarySubtitleActive')
+                    : (ar
+                        ? 'تم حفظ التغييرات. أكمل الحقول الأساسية قبل طلب أول موجز استراتيجية.'
+                        : 'Your changes are saved. Complete the core fields before requesting your first strategy brief.')}
                 </p>
               </div>
             </div>
@@ -411,22 +417,45 @@ function BrandSummaryCard({
             </button>
           </div>
 
-          {/* Score banner */}
+          {/* Functional readiness is a gate, not a second competing score. */}
           <div className="flex items-center gap-3 px-4 py-3 rounded-2xl mb-5"
             style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
             <div className="flex items-center gap-2 flex-1">
               <Brain size={16} style={{ color: '#8b5cf6' }}/>
-              <span className="text-sm font-semibold text-slate-950">Brand Brain</span>
+              <span className="text-sm font-semibold text-slate-950">
+                {ar ? 'الجاهزية العضوية' : 'Organic readiness'}
+              </span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="h-1.5 w-32 rounded-full overflow-hidden" style={{ background: 'rgba(139,92,246,0.12)' }}>
-                <div className="h-full rounded-full transition-all duration-700"
-                  style={{ width: `${score}%`, background: score >= 80 ? 'linear-gradient(90deg,#10b981,#059669)' : 'linear-gradient(90deg,#f59e0b,#d97706)' }}/>
-              </div>
-              <span className="text-sm font-black tabular-nums"
-                style={{ color: score >= 80 ? '#10b981' : '#f59e0b' }}>{score}%</span>
-            </div>
+            <span className="rounded-full px-3 py-1 text-xs font-bold"
+              style={{
+                color: readiness.ready ? '#047857' : '#b45309',
+                background: readiness.ready ? '#ECFDF5' : '#FFFBEB',
+                border: `1px solid ${readiness.ready ? 'rgba(5,150,105,0.18)' : 'rgba(245,158,11,0.22)'}`,
+              }}>
+              {readiness.ready
+                ? (ar ? 'جاهزة لموجز أولي' : 'Ready for an initial brief')
+                : (ar ? 'تحتاج الحقول الأساسية' : 'Needs core fields')}
+            </span>
           </div>
+
+          {!readiness.ready && readiness.missingKeys.length > 0 && (
+            <p className="-mt-2 mb-5 text-xs text-amber-700">
+              {ar ? 'المطلوب الآن: ' : 'Required now: '}
+              {readiness.missingKeys.map(key => {
+                const labels: Record<string, { ar: string; en: string }> = {
+                  brandName: { ar: 'اسم العلامة', en: 'brand name' },
+                  industry: { ar: 'المجال', en: 'industry' },
+                  description: { ar: 'وصف النشاط', en: 'business description' },
+                  primaryOffer: { ar: 'العرض الأساسي', en: 'primary offer' },
+                  targetAudience: { ar: 'الجمهور المستهدف', en: 'target audience' },
+                  audiencePainPoints: { ar: 'نقاط ألم الجمهور', en: 'audience pain points' },
+                  businessGoal: { ar: 'الهدف التجاري', en: 'business goal' },
+                  topPlatforms: { ar: 'المنصات', en: 'platforms' },
+                }
+                return labels[key]?.[ar ? 'ar' : 'en'] ?? key
+              }).join(ar ? '، ' : ', ')}
+            </p>
+          )}
 
           {/* Brand details grid */}
           <div className="grid grid-cols-2 gap-3">
@@ -439,7 +468,7 @@ function BrandSummaryCard({
             {form.industry && (
               <div className="px-4 py-3 rounded-xl" style={{ background: '#ECFEFF', border: '1px solid rgba(8,145,178,0.18)' }}>
                 <p className="text-[10px] font-mono mb-1" style={{ color: 'rgba(6,182,212,0.5)' }}>{t('brand.summaryIndustry')}</p>
-                <p className="text-sm font-bold text-slate-950 truncate">{form.industry}</p>
+                <p className="text-sm font-bold text-slate-950 truncate">{getBrandIndustryLabel(form.industry, ar ? 'ar' : 'en')}</p>
               </div>
             )}
             {form.targetAudience && (
@@ -465,18 +494,26 @@ function BrandSummaryCard({
 
         {/* CTA footer */}
         <div className="px-6 pb-6 flex items-center gap-3">
-          {/* PR-D: strategy-first CTA now routes to the real /strategy page (the
-              official next stage after Brand Brain), not the run-full modal. */}
-          <Link href="/strategy"
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
-            style={{ background: '#111827', color: '#FFFFFF' }}>
-            <Sparkles size={15}/> {t('brand.summaryCtaLabel')}
-          </Link>
-          <button onClick={onClose}
-            className="px-4 py-3 rounded-xl text-sm font-semibold transition-all"
-            style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)', color: '#64748b' }}>
-            {t('brand.summaryDismiss')}
-          </button>
+          {readiness.ready ? (
+            <>
+              <Link href="/strategy"
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
+                style={{ background: '#111827', color: '#FFFFFF' }}>
+                <Sparkles size={15}/> {t('brand.summaryCtaLabel')}
+              </Link>
+              <button onClick={onClose}
+                className="px-4 py-3 rounded-xl text-sm font-semibold transition-all"
+                style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)', color: '#64748b' }}>
+                {t('brand.summaryDismiss')}
+              </button>
+            </>
+          ) : (
+            <button onClick={() => onComplete(readiness.missingKeys[0])}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
+              style={{ background: '#111827', color: '#FFFFFF' }}>
+              {ar ? 'أكمل الحقول الأساسية' : 'Complete core fields'}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -808,7 +845,7 @@ function BrandBrainInner() {
     setForm(f => ({
       ...f,
       brandName:         r.brandName         ? String(r.brandName)         : f.brandName,
-      industry:          r.industry          ? String(r.industry)          : f.industry,
+      industry:          r.industry          ? normalizeBrandIndustry(String(r.industry)) : f.industry,
       description:       r.description       ? String(r.description)       : f.description,
       targetAudience:    r.targetAudience    ? String(r.targetAudience)    : f.targetAudience,
       primaryOffer:      r.primaryOffer      ? String(r.primaryOffer)      : f.primaryOffer,
@@ -1049,12 +1086,11 @@ function BrandBrainInner() {
     }
   }
 
-  const { score } = getBrandCompleteness(form, locale)
-  const coreBrandReady = getBrandBrainReadiness(form).ready
   // PR-J — separated, honest indicators (same source the campaign Strategy panel uses).
   const brandIndicators = getBrandIndicators(form, {
     acceptedLearningCount: typeof form?.acceptedLearningCount === 'number' ? form.acceptedLearningCount : 0,
   })
+  const coreBrandReady = brandIndicators.organicReadiness.ready
   const generationSafety = getBrandBrainGenerationSafety(form)
   const generationSafetyLabels = generationSafety.excludedFields.map(field =>
     getBrandBrainGenerationFieldLabel(field, locale === 'ar' ? 'ar' : 'en')
@@ -1122,9 +1158,25 @@ function BrandBrainInner() {
     <AppShell>
       {showSummary && (
         <BrandSummaryCard
-          form={form} score={score} locale={locale}
+          form={form} locale={locale}
           t={t as (k: string) => string}
           onClose={() => setShowSummary(false)}
+          onComplete={(firstMissingField) => {
+            const stepForField: Record<string, StepId> = {
+              brandName: 'identity',
+              industry: 'identity',
+              description: 'identity',
+              businessGoal: 'goals',
+              primaryOffer: 'product',
+              targetAudience: 'audience',
+              audiencePainPoints: 'audience',
+              topPlatforms: 'platforms',
+            }
+            setShowSummary(false)
+            if (firstMissingField && stepForField[firstMissingField]) {
+              setStep(stepForField[firstMissingField])
+            }
+          }}
         />
       )}
       <div className="relative min-h-screen bg-[#f6f8fc] text-[#071236]" dir={dir}>
@@ -1197,9 +1249,9 @@ function BrandBrainInner() {
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h1 className="text-2xl font-black text-slate-950 tracking-tight">
+                      <h2 className="text-2xl font-black text-slate-950 tracking-tight">
                         {locale === 'ar' ? 'ملف العلامة' : 'Brand profile'}
-                      </h1>
+                      </h2>
                       <span className="text-sm font-semibold text-slate-500">
                         {locale === 'ar' ? 'المعلومات التي يعتمد عليها NEXUS' : 'The information NEXUS relies on'}
                       </span>
@@ -2330,12 +2382,15 @@ function BrandBrainInner() {
                   </Field>
                   <Field label={t('brand.identityIndustryLabel')}>
                       <div className="relative">
-                      <select value={form.industry||''} onChange={e=>set('industry',e.target.value)}
+                      <select value={normalizeBrandIndustry(form.industry)} onChange={e=>set('industry',e.target.value)}
                         className="w-full appearance-none px-4 py-3 rounded-xl text-sm focus:outline-none transition-all"
                         style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.10)', color:form.industry?'#0F172A':'#94A3B8' }}>
                         <option value="">{t('brand.identityIndustryPlaceholder')}</option>
-                        {(locale==='ar'?INDUSTRIES_AR:INDUSTRIES_EN).map((ind,idx)=>(
-                          <option key={idx} value={ind}>{ind}</option>
+                        {form.industry && !getBrandIndustryOption(form.industry) ? (
+                          <option value={form.industry}>{form.industry}</option>
+                        ) : null}
+                        {BRAND_INDUSTRY_OPTIONS.map(option => (
+                          <option key={option.value} value={option.value}>{locale === 'ar' ? option.ar : option.en}</option>
                         ))}
                       </select>
                       <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{color:'#4b5563'}}/>

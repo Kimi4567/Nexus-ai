@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useI18n } from '@/lib/i18n-context'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 import { getBillingDisplayTruth } from '@/lib/billingDisplayTruth'
+import { getPlanDisplayName } from '@/lib/creditDisplay'
 import React from 'react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -383,7 +384,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
               boxShadow: '0 10px 28px rgba(2,6,23,0.20)',
             }}>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-black text-amber-200">NEXUS PRO</span>
+              <span className="text-[11px] font-black text-amber-200">{locale === 'ar' ? 'خطة NEXUS' : 'NEXUS Plan'}</span>
               <span className="rounded-md bg-white/10 px-2 py-0.5 text-[9px] font-black text-white">...</span>
             </div>
             <div className="flex items-center justify-between text-[10px] font-semibold text-slate-300">
@@ -406,7 +407,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
             }}>
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-black text-amber-200">
-                {isPaid ? 'NEXUS PRO' : (locale === 'ar' ? 'خطة NEXUS' : 'NEXUS Plan')}
+                {isPaid ? getPlanDisplayName(billingStatus?.plan, locale) : (locale === 'ar' ? 'خطة NEXUS' : 'NEXUS Plan')}
               </span>
               {billingTruth.showUpgrade && !billingTruth.isUnknown && <span className="rounded-md bg-white/10 px-2 py-0.5 text-[9px] font-black text-white">Upgrade</span>}
             </div>

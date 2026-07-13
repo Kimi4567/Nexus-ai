@@ -13,6 +13,7 @@
  */
 
 import type { ContentIntensity, StrategyType } from './strategyOrder'
+import { FREE_TRIAL_POSTS } from '@/lib/commercialPlans'
 
 /** User-friendly post-per-month band per intensity (display only). */
 export const INTENSITY_RANGE_LABEL: Record<ContentIntensity, string> = {
@@ -77,9 +78,9 @@ export function strategyIntensityHelperCopy(strategyType: StrategyType, locale?:
  * (no cap applied) rather than guessing.
  */
 const TIER_POSTS_PER_MONTH: Record<string, number> = {
-  // Four keeps the free strategy contract internally coherent: the strategy
-  // produces a four-week outline with one reviewable direction per week.
-  free: 4,
+  // The trial promises the same small sample that the monthly execution gate
+  // can actually save.
+  free: FREE_TRIAL_POSTS,
   starter: 10,
   pro: 25,
   growth: 25,

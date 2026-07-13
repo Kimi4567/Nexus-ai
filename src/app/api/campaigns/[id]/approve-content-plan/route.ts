@@ -6,9 +6,6 @@
  * - Default (mode 'approve'):  DRAFT → APPROVED only. Sets approvedAt. Does NOT
  *   schedule and does NOT touch scheduledAt. Scheduling happens later via
  *   POST /api/campaigns/[id]/schedule-content-plan.
- * - Legacy (mode 'approve_and_schedule'): the old one-click behaviour — DRAFT →
- *   SCHEDULED in one step. Kept explicit for any flow that still needs it; never
- *   the default.
  * - Assigns integrationId + pageId per platform (FL2A) so a later schedule/publish
  *   has credentials.
  * - Records every transition in PostStatusHistory (actor USER).
@@ -22,7 +19,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
-import { planApproval, planRevert, type ApprovalMode } from '@/lib/approvalPlan'
+import { planApproval, planRevert } from '@/lib/approvalPlan'
 import { buildLearningEvents } from '@/lib/brandBrainEvents'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
@@ -34,9 +31,14 @@ export async function POST(req: NextRequest, props: Params) {
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // mode: 'approve' (default, DRAFT→APPROVED) | 'approve_and_schedule' (legacy, DRAFT→SCHEDULED)
   const body = await req.json().catch(() => ({} as any))
-  const mode: ApprovalMode = body?.mode === 'approve_and_schedule' ? 'approve_and_schedule' : 'approve'
+  if (body?.mode === 'approve_and_schedule') {
+    return NextResponse.json({
+      error: 'Combined approval and scheduling has been removed. Approve copy first, confirm media, then schedule in a separate decision.',
+      code: 'SEPARATE_SCHEDULING_REQUIRED',
+    }, { status: 410 })
+  }
+  const mode = 'approve' as const
 
   try {
     // Verify campaign ownership
@@ -137,11 +139,10 @@ export async function POST(req: NextRequest, props: Params) {
     }
 
     // Decide the honest transitions (pure, fully tested in approvalPlan.test.ts):
-    //  - 'approve' (default): DRAFT → APPROVED  (sets approvedAt, never schedules)
-    //  - 'approve_and_schedule' (legacy): DRAFT → SCHEDULED in one explicit step
+    //  - DRAFT → APPROVED (sets approvedAt, never schedules)
     const plan = planApproval(
       draftPosts.map((p: any) => ({ id: p.id, workspaceId: campaign.workspaceId, status: 'DRAFT' as const })),
-      { mode, actor: 'USER' }
+      { actor: 'USER' }
     )
     const updateById = new Map(plan.updates.map(u => [u.id, u.data]))
     const platformById = new Map(draftPosts.map((p: any) => [p.id, String(p.platform)]))
@@ -199,8 +200,7 @@ export async function POST(req: NextRequest, props: Params) {
     const learningProposalQueued = false
 
     // Build human-readable message (honest about what actually happened)
-    const verb = mode === 'approve_and_schedule' ? 'scheduled' : 'approved'
-    let message = `${approved} post${approved !== 1 ? 's' : ''} ${verb}`
+    let message = `${approved} post${approved !== 1 ? 's' : ''} approved`
     if (linked > 0)         message += ` (${linked} linked to connected platforms)`
     if (learningProposalQueued) message += ' · learning proposals ready for review'
 

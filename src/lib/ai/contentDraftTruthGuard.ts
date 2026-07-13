@@ -8,6 +8,8 @@
 
 export interface ContentDraftTruthContext {
   verifiedProof?: string[] | null
+  hasConversionDestination?: boolean
+  brandFacts?: unknown[] | null
 }
 
 interface ProofAvailability {
@@ -501,13 +503,45 @@ function guardPaidAndStatusClaims(text: string): string {
     .replace(/\ballocate spend\b/gi, 'confirm paid budget before allocation')
 }
 
+function guardSaasActivationClaims(text: string, context: ContentDraftTruthContext): string {
+  let guarded = text
+    .replace(/ابدأ باستخدام النظام في دقائق معدودة[!！.]?/g, 'ابدأ بخطوات إعداد بسيطة وواضحة.')
+    .replace(/لن تحتاج لوقت طويل لإعداد الأنظمة الجديدة\.?/g, 'يمكنك مراجعة خطوات الإعداد دون تعقيد تقني.')
+    .replace(/لن تواجه صعوبة التعامل مع الأنظمة غير العربية بعد الآن\.?/g, 'يمكن أن تساعد الواجهة العربية على تقليل احتكاك العمل مع الأنظمة غير العربية.')
+    .replace(/إعداد سريع وفعال/g, 'إعداد سريع ومنظم')
+    .replace(/نظام\s+([^.!؟]+)\s+يقدم لك خيار عملي/g, 'نظام $1 يقدم مسارًا عمليًا')
+    .replace(/تابع عملاءك بسهولة وبدون تعقيد تقني/g, 'نظّم متابعة عملائك بخطوات واضحة ودون تعقيد تقني')
+    .replace(/إدارة المبيعات أصبحت أسهل وأسرع/g, 'يمكن تنظيم متابعة المبيعات بخطوات أوضح')
+    .replace(/(?:تعرّف|تعرف) على كيفية تحسين مبيعاتك الآن[!！.]?/g, 'تعرّف على طريقة تنظيم متابعة المبيعات.')
+    .replace(/واجهة عربية مصممة خصيصًا لك/g, 'واجهة عربية تدعم سير عمل واضحًا')
+    .replace(/يظهر على الشاشة واجهة[^،.]+/g, 'مع شاشة محايدة غير مقروءة دون واجهة منتج مخترعة')
+    .replace(/ساعة جدارية تشير إلى وقت قصير/g, 'عناصر مكتبية محايدة دون إيحاء بزمن إعداد محدد')
+    .replace(/setup in (?:just )?(?:a few )?minutes[.!]?/gi, 'a clear, reviewable setup flow.')
+    .replace(/you(?:'|’)ll be (?:up and running|ready) in minutes[.!]?/gi, 'you can review the setup steps before activation.')
+
+  if (!context.hasConversionDestination) {
+    guarded = guarded
+      .replace(/(?:جرّب|جرب)\s+(?:النظام|المنصة|الخدمة)(?:\s+الآن|\s+اليوم)?[!！.]?/g, 'تعرّف على طريقة عمل الحل.')
+      .replace(/سجّل\s+الآن[!！.]?/g, 'راجع التفاصيل المتاحة.')
+      .replace(/سجل\s+الآن[!！.]?/g, 'راجع التفاصيل المتاحة.')
+      .replace(/اطلب\s+(?:عرضًا|عرضاً|عرضا)\s+(?:توضيحيًا|توضيحياً|توضيحيا)(?:\s+الآن)?[!！.]?/g, 'راجع ما تحتاجه قبل تحديد خطوة التواصل.')
+      .replace(/ابدأ\s+(?:الآن|اليوم)[!！.]?/g, 'راجع الخطوة التالية.')
+      .replace(/\bTry\s+(?:the\s+)?(?:system|platform|service)(?:\s+now|\s+today)?[.!]?/gi, 'Learn how the solution works.')
+      .replace(/\bSign\s+up\s+now[.!]?/gi, 'Review the available details.')
+      .replace(/\bRequest\s+(?:a\s+)?demo(?:\s+now)?[.!]?/gi, 'Review what you need before choosing a contact step.')
+      .replace(/\bStart\s+(?:now|today)[.!]?/gi, 'Review the next step.')
+  }
+
+  return guarded
+}
+
 export function guardContentDraftText(
   text: unknown,
   context: ContentDraftTruthContext = {},
 ): string {
   if (typeof text !== 'string' || !text.trim()) return typeof text === 'string' ? text : ''
 
-  return guardPaidAndStatusClaims(
+  return guardSaasActivationClaims(guardPaidAndStatusClaims(
     guardCoffeeComplianceClaims(
       guardDeliveryClaims(
         guardOutcomeClaims(
@@ -526,7 +560,7 @@ export function guardContentDraftText(
         ),
       ),
     ),
-  )
+  ), context)
     .replace(/\s{2,}/g, ' ')
     .trim()
 }
@@ -555,6 +589,10 @@ export function buildContentDraftTruthPolicyPrompt(): string {
   return [
     'CONTENT DRAFT TRUTH POLICY (strict):',
     '- Generated posts are draft content for review only. Nothing is approved, scheduled, published, or active.',
+    '- Do not invent setup-time precision such as "in minutes" from a general "fast setup" claim.',
+    '- If no verified conversion destination is provided, do not use direct-response CTAs such as try now, sign up, request a demo, WhatsApp, or start now. Use review-safe awareness actions instead.',
+    '- Do not turn workflow software into sales-growth promises. Describe organization, follow-up, and clarity rather than improved sales, easier/faster sales, or business growth.',
+    '- Image prompts must not invent a product screen, dashboard, setup interface, readable UI, or a clock that implies a specific setup time. Keep device screens neutral, turned away, or unreadable.',
     '- Do not claim perfect, finest, best, premium-every-time, luxury-every-time, guaranteed, ensured, always-stocked, never-run-out, or immediate outcomes unless the user provided exact proof.',
     '- Prefer grounded phrasing such as balanced blend, more consistent brew, carefully selected coffee, quality-focused beans, or a better coffee routine.',
     '- Avoid "Perfect for...", "perfect choice", "perfect fit", and "perfect way to" style fit claims. Use practical, well-suited, helpful, or designed-for language instead.',

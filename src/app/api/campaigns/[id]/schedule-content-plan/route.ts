@@ -21,6 +21,7 @@ import { hasValidPlannedDate, planScheduling } from '@/lib/approvalPlan'
 import { validateTransition, buildStatusHistory } from '@/lib/postStatus'
 import { buildLearningEvents } from '@/lib/brandBrainEvents'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
+import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -42,7 +43,43 @@ export async function POST(req: NextRequest, props: Params) {
       }, { status: 409 })
     }
 
-    // Build platform → integration map so a scheduled post has publish credentials.
+    const approvedPosts = await (prisma.socialPost as any).findMany({
+      where: {
+        campaignId: params.id,
+        workspaceId: campaign.workspaceId,
+        status: 'APPROVED',
+        publishedAt: null,
+      },
+      select: {
+        id: true,
+        platform: true,
+        integrationId: true,
+        scheduledAt: true,
+        imageUrl: true,
+        uploadedMediaId: true,
+        mediaSource: true,
+        generationStatus: true,
+      },
+    })
+
+    if (approvedPosts.length === 0) {
+      return NextResponse.json({ success: true, scheduled: 0, message: 'No approved posts to schedule' })
+    }
+
+    const postsNeedingMedia = approvedPosts.filter(
+      (post: any) => !isContentPostMediaReadyForScheduling(post),
+    )
+    if (postsNeedingMedia.length > 0) {
+      return NextResponse.json({
+        error: 'Complete media review for every approved post before scheduling.',
+        code: 'MEDIA_REVIEW_REQUIRED',
+        pendingMedia: postsNeedingMedia.length,
+      }, { status: 409 })
+    }
+
+    // Build platform → integration map only after execution readiness passes. A
+    // connection is still not required for internal scheduling, but it is
+    // reported truthfully so publishing remains blocked until connected.
     const connectedIntegrations = await prisma.integration.findMany({
       where: {
         workspaceId: campaign.workspaceId,
@@ -57,20 +94,6 @@ export async function POST(req: NextRequest, props: Params) {
       if (integrationMap[key]) continue
       const pages: any[] = (intg.config as any)?.pages ?? []
       integrationMap[key] = { integrationId: intg.id, pageId: pages[0]?.id ?? intg.accountId ?? null }
-    }
-
-    const approvedPosts = await (prisma.socialPost as any).findMany({
-      where: {
-        campaignId: params.id,
-        workspaceId: campaign.workspaceId,
-        status: 'APPROVED',
-        publishedAt: null,
-      },
-      select: { id: true, platform: true, integrationId: true, scheduledAt: true },
-    })
-
-    if (approvedPosts.length === 0) {
-      return NextResponse.json({ success: true, scheduled: 0, message: 'No approved posts to schedule' })
     }
 
     const skippedInvalidDate = approvedPosts.filter((p: any) => !hasValidPlannedDate(p.scheduledAt)).length

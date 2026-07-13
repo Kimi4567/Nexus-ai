@@ -128,7 +128,7 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).toContain('Planned, not scheduled')
     expect(campaignRoomSource).toContain('Execution rhythm for review — not scheduled posts')
     expect(campaignRoomSource).toContain('No Content Hub posts are scheduled or published until a content plan is built and explicitly reviewed.')
-    expect(campaignRoomSource).not.toContain('Content workflow')
+    expect(campaignRoomSource).toContain('Content workflow gate')
     expect(campaignRoomSource).not.toContain('Drafts and hooks for review')
     expect(campaignRoomSource).not.toContain('Campaign calendar')
   })

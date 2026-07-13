@@ -15,6 +15,7 @@ export interface StrategyOutputContractContext {
   strategyType?: 'organic' | 'paid' | 'full' | string | null
   organicPostCount?: number | null
   hasLeadHandling?: boolean
+  hasConversionDestination?: boolean
 }
 
 interface NormalizedPlatformContext {
@@ -176,12 +177,33 @@ function guardBroadStrategyHypeText(value: string): string {
     .replace(/المثالي\s+ل/g, 'المناسب ل')
     .replace(/مثالية\s+ل/g, 'مناسبة ل')
     .replace(/مثالي\s+ل/g, 'مناسب ل')
+    .replace(/يسه[ّ]?ل\s+عليك\s+متابعة\s+العملاء\s+وزيادة\s+فرص\s+البيع\s+بكفاءة/gi, 'يساعدك على تنظيم متابعة العملاء وفرص البيع في مسار أوضح')
+    .replace(/يوفر\s+لك\s+الوقت\s+والجهد\s+بتكلفة\s+مناسبة/gi, 'يركّز على تنظيم المتابعة وتقليل تشتت العمل اليدوي')
+    .replace(/\b([A-Za-z][A-Za-z\s-]{1,30})\s+هو\s+المنصة\s+المثلى\s+للوصول\s+إلى/gi, '$1 قناة مختارة في Brand Brain للوصول إلى')
+    .replace(/إعداد\s+المحتوى\s+الأولي\s+للنشر\s+على/gi, 'مراجعة أول اتجاهات المحتوى على')
+    .replace(/\bprepare\s+initial\s+content\s+for\s+publishing\s+on\b/gi, 'review the first content directions for')
+}
+
+function guardArabicFluencyText(value: string): string {
+  return value
+    // A model can occasionally drop the noun after "معدودة" and leave a
+    // grammatically broken promise. Keep the grounded setup idea, not the
+    // malformed wording.
+    .replace(/ابدأ\s+باستخدام\s+(?:النظام|المنصة|الخدمة)\s+معدودة/gi, 'ابدأ بخطوات إعداد بسيطة وواضحة')
+    // "manual technologies" is a literal translation that reads unnaturally in
+    // Arabic. The saved pain is tool fragmentation, so express that directly.
+    .replace(/دون\s+تعقيد\s+التقنيات\s+اليدوية/gi, 'دون تشتت الأدوات اليدوية')
+    // Avoid an absolute sales-outcome promise when the product only supports a
+    // clearer follow-up workflow.
+    .replace(/لا\s+تفقد\s+أي\s+فرصة\s+بيع\s+بعد\s+اليوم/gi, 'نظّم متابعة فرص البيع بدل تركها بين الأدوات')
 }
 
 function guardText(value: string, ctx: NormalizedPlatformContext, language?: string | null): string {
   const hypeGuarded = guardBroadStrategyHypeText(value)
   const platformGuarded = replaceUnsupportedCtaText(replaceUnsupportedPlatformText(hypeGuarded, ctx))
-  return isArabicLanguage(language) ? normalizeArabicFormatText(platformGuarded) : platformGuarded
+  return isArabicLanguage(language)
+    ? guardArabicFluencyText(normalizeArabicFormatText(platformGuarded))
+    : platformGuarded
 }
 
 function guardValue(value: unknown, ctx: NormalizedPlatformContext, language?: string | null): unknown {
@@ -217,6 +239,95 @@ function guardUnverifiedLeadHandling(value: unknown, language?: string | null): 
       continue
     }
     output[key] = guardUnverifiedLeadHandling(child, language)
+  }
+  return output
+}
+
+const CONVERSION_CTA_KEYS = new Set(['cta', 'primaryCTA', 'secondaryCTA'])
+const CONVERSION_ACTION_KEYS = new Set(['conversionAction', 'expectedUserAction'])
+const CONVERSION_METRIC_KEYS = new Set(['metric', 'target', 'successMetric'])
+
+function unsupportedConversionAction(value: string): boolean {
+  return /\b(?:try|start now|get started|sign up|register|book|schedule|request|contact|call|message|whatsapp|buy|purchase|order|download|demo)\b/i.test(value)
+    || /(?:جرّب|جرب|ابدأ الآن|سجّل|سجل الآن|احجز|اطلب|تواصل|راسل|واتساب|اشتر|حمّل|حمل الآن|احصل على (?:عرض|استشارة|تجربة)|استفسر)/i.test(value)
+    || /(?:تحسين|زيادة)\s+(?:ال)?مبيعات(?:ك|كم|هم|ها)?/i.test(value)
+}
+
+function safeReviewCta(source: string, language?: string | null): string {
+  const ar = isArabicLanguage(language)
+  const choices = ar
+    ? [
+        'تعرّف على طريقة عمل الحل',
+        'راجع خطوات سير العمل',
+        'قارن الطريقة الحالية بالمسار المقترح',
+        'احفظ الفكرة للمراجعة',
+        'اطّلع على تفاصيل العرض',
+      ]
+    : [
+        'Learn how the solution works',
+        'Review the workflow steps',
+        'Compare the current workflow with the proposed path',
+        'Save this idea for review',
+        'Review the offer details',
+      ]
+  const index = Array.from(source).reduce((sum, char) => sum + char.charCodeAt(0), 0) % choices.length
+  return choices[index]
+}
+
+function unsupportedConversionMetric(value: string): boolean {
+  return /(?:نقرات?\s+على\s+(?:الرابط|الروابط)|عدد\s+التحويلات|زيادة\s+التحويلات|معدل\s+التحويل)/i.test(value)
+    || /\b(?:link clicks?|number of conversions?|conversion rate)\b/i.test(value)
+}
+
+function unresolvedConversionMetric(language?: string | null): string {
+  return isArabicLanguage(language)
+    ? 'يحتاج إلى خط أساس بعد تأكيد وجهة التحويل وظهور بيانات فعلية.'
+    : 'Needs a baseline after the conversion destination is confirmed and real data exists.'
+}
+
+function guardUnverifiedConversionActions(value: unknown, language?: string | null): unknown {
+  if (Array.isArray(value)) return value.map(item => guardUnverifiedConversionActions(item, language))
+  if (!isObject(value)) return value
+
+  const output: JsonObject = {}
+  for (const [key, child] of Object.entries(value)) {
+    if (key === 'ctaVariations' && Array.isArray(child)) {
+      output[key] = child.map(item => (
+        typeof item === 'string' && unsupportedConversionAction(item)
+          ? safeReviewCta(item, language)
+          : guardUnverifiedConversionActions(item, language)
+      ))
+      continue
+    }
+    if (CONVERSION_CTA_KEYS.has(key) && typeof child === 'string' && unsupportedConversionAction(child)) {
+      output[key] = safeReviewCta(child, language)
+      continue
+    }
+    if (CONVERSION_ACTION_KEYS.has(key) && typeof child === 'string') {
+      output[key] = isArabicLanguage(language)
+        ? 'لم تُحدَّد وجهة التحويل بعد؛ أكّدها قبل التنفيذ.'
+        : 'The conversion destination is not set yet; confirm it before execution.'
+      continue
+    }
+    if (key === 'userMindset' && typeof child === 'string' && unsupportedConversionAction(child)) {
+      output[key] = isArabicLanguage(language)
+        ? 'مقارنة الحل بالطريقة الحالية والبحث عن خطوة تالية واضحة.'
+        : 'Comparing the solution with the current workflow and looking for a clear next step.'
+      continue
+    }
+    if (CONVERSION_METRIC_KEYS.has(key) && typeof child === 'string' && unsupportedConversionMetric(child)) {
+      output[key] = unresolvedConversionMetric(language)
+      continue
+    }
+    if (key === 'successMetrics' && Array.isArray(child)) {
+      output[key] = child.map(item => (
+        typeof item === 'string' && unsupportedConversionMetric(item)
+          ? unresolvedConversionMetric(language)
+          : item
+      ))
+      continue
+    }
+    output[key] = guardUnverifiedConversionActions(child, language)
   }
   return output
 }
@@ -1085,9 +1196,12 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
   if (!isObject(input)) return input
   const ctx = buildPlatformContext(context.allowedPlatforms)
   const guardedValue = guardValue(input, ctx, context.language)
-  const output = (context.hasLeadHandling === false
+  const leadGuardedValue = context.hasLeadHandling === false
     ? guardUnverifiedLeadHandling(guardedValue, context.language)
-    : guardedValue) as JsonObject
+    : guardedValue
+  const output = (context.hasConversionDestination === false
+    ? guardUnverifiedConversionActions(leadGuardedValue, context.language)
+    : leadGuardedValue) as JsonObject
   output.campaignName = guardCampaignName(output.campaignName, context.strategyType, context.language)
 
   if (context.strategyType === 'paid') {

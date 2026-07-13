@@ -23,7 +23,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { useTranslation } from '@/i18n'
-import { PUBLIC_PAID_PLANS } from '@/lib/commercialPlans'
+import { FREE_TRIAL_CREDITS, PUBLIC_PAID_PLANS } from '@/lib/commercialPlans'
 
 const blue = '#0071e3'
 
@@ -128,9 +128,10 @@ function FeatureCard({ icon: Icon, title, body, href, cta }: { icon: ElementType
 
 function ProductPreview({ ar }: { ar: boolean }) {
   const rows = [
-    { label: ar ? 'الاستراتيجية' : 'Strategy', value: ar ? 'جاهزة' : 'Ready', icon: Target },
-    { label: ar ? 'المحتوى' : 'Content', value: ar ? '30 منشور' : '30 posts', icon: Layers },
-    { label: ar ? 'النشر' : 'Publishing', value: ar ? 'مجدول' : 'Scheduled', icon: Calendar },
+    { label: 'Brand Brain', value: ar ? 'مدخلات يراجعها المستخدم' : 'User-reviewed inputs', icon: Brain },
+    { label: ar ? 'الاستراتيجية' : 'Strategy', value: ar ? 'مسودة للمراجعة' : 'Reviewable draft', icon: Target },
+    { label: ar ? 'المحتوى' : 'Content', value: ar ? 'موافقة لكل منشور' : 'Per-post approval', icon: Layers },
+    { label: ar ? 'النشر' : 'Publishing', value: ar ? 'مقفل حتى الربط' : 'Locked until connected', icon: ShieldCheck },
   ]
 
   return (
@@ -150,11 +151,11 @@ function ProductPreview({ ar }: { ar: boolean }) {
           <div className="rounded-lg border border-slate-200 bg-white p-5">
             <div className="mb-5 flex items-start justify-between">
               <div>
-                <p className="text-[13px] font-semibold text-slate-500">{ar ? 'موجز التشغيل' : 'Operating brief'}</p>
-                <h3 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">{ar ? 'حملة شهرية جاهزة' : 'Monthly campaign ready'}</h3>
+                <p className="text-[13px] font-semibold text-slate-500">{ar ? 'كيف يعمل المسار' : 'How the workflow works'}</p>
+                <h3 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">{ar ? 'من بيانات البراند إلى قرار واضح' : 'From brand inputs to a clear decision'}</h3>
               </div>
-              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-semibold text-emerald-700">
-                {ar ? 'معاينة تجريبية' : 'Demo preview'}
+              <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[12px] font-semibold text-blue-700">
+                {ar ? 'مسار توضيحي' : 'Illustrative flow'}
               </span>
             </div>
 
@@ -175,23 +176,20 @@ function ProductPreview({ ar }: { ar: boolean }) {
 
           <div className="grid gap-4">
             <div className="rounded-lg border border-slate-200 bg-white p-5">
-              <p className="text-[13px] font-semibold text-slate-500">{ar ? 'اكتمال ذاكرة العلامة' : 'Brand memory completeness'}</p>
-              <div className="mt-4 flex items-end gap-3">
-                <span className="text-5xl font-semibold tracking-tight text-slate-950">92</span>
-                <span className="mb-2 text-[15px] text-slate-500">/ 100</span>
-              </div>
-              <div className="mt-4 h-2 rounded-full bg-slate-100">
-                <div className="h-full w-[92%] rounded-full" style={{ background: blue }} />
-              </div>
+              <p className="text-[13px] font-semibold text-slate-500">{ar ? 'مصدر الحقيقة' : 'Source of truth'}</p>
+              <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">Brand Brain</p>
+              <p className="mt-2 text-[14px] leading-6 text-slate-600">
+                {ar ? 'يستخدم النظام ما حفظته وراجعته، ولا يعرض نتائج أداء قبل وصول تحليلات حقيقية.' : 'The system uses what you saved and reviewed, and shows no performance result before real analytics arrive.'}
+              </p>
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-white p-5">
-              <p className="text-[13px] font-semibold text-slate-500">{ar ? 'اقتراح الوكيل' : 'Agent recommendation'}</p>
+              <p className="text-[13px] font-semibold text-slate-500">{ar ? 'القرار التالي' : 'Next decision'}</p>
               <p className="mt-2 text-[17px] font-semibold leading-6 text-slate-950">
-                {ar ? 'راجع الحملة واربط القياس قبل اتخاذ أي قرار بتغيير الميزانية.' : 'Review the campaign and connect measurement before changing budget.'}
+                {ar ? 'راجع اتجاه الحملة أولاً. يظل النشر والإنفاق مقفلين حتى الربط والموافقة الصريحة.' : 'Review campaign direction first. Publishing and spend stay locked until connection and explicit approval.'}
               </p>
-              <Link href="/analytics" className="mt-4 inline-flex rounded-lg bg-slate-950 px-4 py-2 text-[14px] font-semibold text-white">
-                {ar ? 'راجع القياس' : 'Review measurement'}
+              <Link href="/auth/register" className="mt-4 inline-flex rounded-lg bg-slate-950 px-4 py-2 text-[14px] font-semibold text-white">
+                {ar ? 'ابدأ ببيانات البراند' : 'Start with brand inputs'}
               </Link>
             </div>
           </div>
@@ -260,10 +258,10 @@ export default function LandingPage() {
   const copy = {
     navCta: ar ? 'ابدأ' : 'Get started',
     heroEyebrow: ar ? 'نظام تشغيل للتسويق بالذكاء الاصطناعي' : 'AI marketing operating system',
-    heroTitle: ar ? 'حوّل موجز البراند إلى حملة جاهزة للمراجعة والتنفيذ.' : 'Turn your brand brief into a review-ready campaign.',
+    heroTitle: ar ? 'حوّل موجز البراند إلى استراتيجية ومحتوى قابلين للمراجعة.' : 'Turn your brand brief into reviewable strategy and content.',
     heroBody: ar
-      ? 'Nexus يجمع الاستراتيجية، Brand Brain، المحتوى، الصور، الجدولة، والتحليل في تجربة واحدة واضحة تشبه منتجات Apple: بسيطة، مرتبة، ومباشرة.'
-      : 'Nexus brings strategy, Brand Brain, content, visuals, scheduling, and analytics into one calm, structured workspace inspired by Apple-like product thinking.',
+      ? 'كل قرار يبدأ من بيانات تحفظها وتراجعها في Brand Brain. يساعدك Nexus على التخطيط والإنتاج والمراجعة، ولا ينشر أو ينفق أو يتعلم من الأداء قبل الربط والموافقة ووجود بيانات حقيقية.'
+      : 'Every decision starts with inputs you save and review in Brand Brain. Nexus helps plan, produce, and review, but does not publish, spend, or learn from performance before connection, approval, and real data.',
     primary: ar ? 'ابدأ مجانا' : 'Start free',
     secondary: ar ? 'شاهد طريقة العمل' : 'See workflow',
   }
@@ -328,7 +326,7 @@ export default function LandingPage() {
           <SectionTitle
             eyebrow={ar ? 'الأدوات الأساسية' : 'Core tools'}
             title={ar ? 'كل جزء له وظيفة واضحة.' : 'Every tool has a clear job.'}
-            body={ar ? 'نفس فكرة Apple Developer: أقسام قليلة، مرتبة، وكل كارت يفتح مسار عمل حقيقي.' : 'Like Apple Developer, the experience is organized into focused paths, not a noisy feature wall.'}
+            body={ar ? 'أقسام قليلة ومنظمة؛ كل قسم يفتح خطوة محددة داخل رحلة التسويق.' : 'A small set of organized areas; each one opens a specific step in the marketing journey.'}
           />
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {features.map((feature) => <FeatureCard key={feature.title} {...feature} />)}
@@ -391,7 +389,7 @@ export default function LandingPage() {
           <SectionTitle
             eyebrow={ar ? 'الأسعار' : 'Pricing'}
             title={ar ? 'باقتان فقط. وكريدت مفهوم.' : 'Two plans. Understandable credits.'}
-            body={ar ? 'ابدأ بـ10 أرصدة تجريبية بدون بطاقة، ثم اختر Growth أو Autopilot. التجربة ليست باقة ثالثة.' : 'Start with 10 trial credits without a card, then choose Growth or Autopilot. The trial is not a third plan.'}
+            body={ar ? `ابدأ بـ${FREE_TRIAL_CREDITS} رصيداً تجريبياً بدون بطاقة، ثم اختر Growth أو Autopilot. التجربة ليست باقة ثالثة.` : `Start with ${FREE_TRIAL_CREDITS} trial credits without a card, then choose Growth or Autopilot. The trial is not a third plan.`}
           />
           <div className="mx-auto grid max-w-4xl gap-4 md:grid-cols-2">
             <PriceCard

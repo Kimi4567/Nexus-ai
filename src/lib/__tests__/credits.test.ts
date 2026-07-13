@@ -269,14 +269,14 @@ describe('checkAndDeductCredits — B1d-b starter grant', () => {
     const res = await checkAndDeductCredits('u1', 'CHAT_MESSAGE') // cost 1
 
     expect(res.ok).toBe(true)
-    // aiCredits behavior identical: starts 10, deducts 1 → 9
+    // The cached balance mirrors the canonical starter grant, then deducts once.
     if (res.ok) expect(res.creditsRemaining).toBe(FREE_STARTER_CREDITS - CREDIT_COSTS.CHAT_MESSAGE)
     // Grant created in a transaction with the right shape.
     expect(mockPrisma.$transaction).toHaveBeenCalled()
     expect(mockPrisma.creditGrant.createMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: [expect.objectContaining({
-          userId: 'u1', type: 'TRIAL', amount: 10, remaining: 10,
+          userId: 'u1', type: 'TRIAL', amount: FREE_STARTER_CREDITS, remaining: FREE_STARTER_CREDITS,
           source: 'starter:initial', status: 'ACTIVE',
         })],
         skipDuplicates: true,

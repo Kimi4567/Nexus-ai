@@ -14,6 +14,8 @@
  *   - Growth plan crosses the 16/mo threshold — this is the pitch to Starter users
  */
 
+import { FREE_TRIAL_POSTS } from '@/lib/commercialPlans'
+
 // ── Platform frequency science (injectable into prompts) ─────────────────────
 
 export const PLATFORM_FREQUENCY_SCIENCE = `
@@ -49,7 +51,7 @@ interface TierConfig {
 const TIER_CONFIGS: Record<string, TierConfig> = {
   free: {
     label: 'Free (Trial)',
-    postsPerMonth: 4,
+    postsPerMonth: FREE_TRIAL_POSTS,
     calendarWeeks: 1,
     platformCount: 1,
     audienceSegments: 1,

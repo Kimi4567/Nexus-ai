@@ -227,7 +227,11 @@ export async function GET(req: NextRequest) {
         // 4. Update the post
         await prisma.socialPost.update({
           where: { id: post.id },
-          data: { imageUrl: finalUrl },
+          data: {
+            imageUrl: finalUrl,
+            generationStatus: 'DONE',
+            mediaSource: 'GENERATE',
+          },
         })
 
         return { postId: post.id, status: 'ok', url: finalUrl }
