@@ -10,7 +10,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
-import { FREE_STARTER_CREDITS, PLANS_CREDITS, getUsageSummary } from '@/lib/credits'
+import { getUsageSummary } from '@/lib/credits'
+import { getCreditAccountSnapshot } from '@/lib/credits/accountSnapshot'
 import { hasRealPerformanceAnalytics } from '@/lib/performanceEvidence'
 
 export async function GET(req: NextRequest) {
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
     const workspaceId = workspace?.id
 
     const [
-      user,
+      creditAccount,
       totalCampaigns,
       campaignsThisMonth,
       campaignsLastMonth,
@@ -41,10 +42,7 @@ export async function GET(req: NextRequest) {
       approvedOrLaterPostsTotal,
       analyticsRows,
     ] = await Promise.all([
-      prisma.user.findUnique({
-        where: { id: userId },
-        select: { aiCredits: true, subscriptionStatus: true, name: true, monthlyGenerations: true },
-      }),
+      getCreditAccountSnapshot(userId),
 
       // Total campaigns
       workspaceId
@@ -199,12 +197,13 @@ export async function GET(req: NextRequest) {
       timeEn: getRelativeTimeEn(a.createdAt),
     }))
 
-    // Monthly credit total for progress bar (plan-based)
-    const plan = user?.subscriptionStatus ?? 'FREE'
-    const creditsMonthlyTotal = plan === 'FREE' ? FREE_STARTER_CREDITS
-      : (PLANS_CREDITS[plan as keyof typeof PLANS_CREDITS] ?? FREE_STARTER_CREDITS)
-    const creditsRemaining = user?.aiCredits ?? 0
-    const isUnlimited = creditsRemaining === -1
+    if (!creditAccount) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+    const plan = creditAccount.user.subscriptionStatus ?? 'FREE'
+    const creditsMonthlyTotal = creditAccount.credits.max
+    const creditsRemaining = creditAccount.credits.remaining
+    const isUnlimited = creditAccount.credits.isUnlimited
 
     return NextResponse.json({
       stats: {
