@@ -109,6 +109,33 @@ function softenUnsupportedServiceClaims(text: string, context: StrategyProofCont
   const allowed = allowedClaimsText(context)
   let guarded = text
 
+  if (!/\b(?:in minutes|in seconds|instant booking|book instantly)\b|في (?:دقائق|ثوان(?:ٍ|ي)?)|حجز فوري/i.test(allowed)) {
+    guarded = guarded
+      .replace(/\s+في\s+(?:دقائق|ثوان(?:ٍ|ي)?)(?=\s|[،,.!?]|$)/gi, '')
+      .replace(/\s+in\s+(?:minutes|seconds)\b/gi, '')
+      .replace(/\binstant booking\b/gi, 'booking steps to confirm')
+      .replace(/\bbook instantly\b/gi, 'review booking steps')
+  }
+
+  if (!/\b(?:in the heart of|prime location|distinguished location)\b|في قلب|موقع(?:نا)? (?:متميز|استثنائي)|الموقع (?:المتميز|الاستثنائي)/i.test(allowed)) {
+    guarded = guarded
+      .replace(/\bin the heart of\s+/gi, 'in ')
+      .replace(/في\s+قلب\s+/gi, 'في ')
+      .replace(/\b(?:prime|distinguished) location\b/gi, 'stated location')
+      .replace(/موقعنا (?:المتميز|الاستثنائي)/gi, 'موقعنا داخل المنطقة المحددة')
+      .replace(/موقع (?:متميز|استثنائي)/gi, 'موقع داخل المنطقة المحددة')
+      .replace(/الموقع (?:المتميز|الاستثنائي)/gi, 'الموقع داخل المنطقة المحددة')
+  }
+
+  if (!/\btrusted (?:care|service|provider)\b|رعاية موثوقة|خدمة موثوقة|مزود موثوق/i.test(allowed)) {
+    guarded = guarded
+      .replace(/\btrusted and convenient care\b/gi, 'care with clear next steps')
+      .replace(/\btrusted (?:care|service)\b/gi, 'service with clear next steps')
+      .replace(/رعاية\s+أسنان\s+موثوقة\s+ومريحة/gi, 'رعاية أسنان بخطوات واضحة')
+      .replace(/رعاية\s+أسنان\s+موثوقة/gi, 'رعاية أسنان بخطوات واضحة')
+      .replace(/خدمة\s+موثوقة\s+ومريحة/gi, 'خدمة بخطوات واضحة')
+  }
+
   if (!/no hidden|transparent pricing|pricing transparency|بدون (?:رسوم|تكاليف) خفية|لا توجد (?:رسوم|تكاليف) خفية|شفاف(?:ة|ية) الأسعار/i.test(allowed)) {
     guarded = guarded
       .replace(/\bno hidden (?:costs?|fees?|charges?)\b/gi, 'pricing details to review before booking')

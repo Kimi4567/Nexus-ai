@@ -14,6 +14,7 @@ export interface StrategyOutputContractContext {
   language?: string | null
   strategyType?: 'organic' | 'paid' | 'full' | string | null
   organicPostCount?: number | null
+  hasLeadHandling?: boolean
 }
 
 interface NormalizedPlatformContext {
@@ -187,6 +188,31 @@ function guardValue(value: unknown, ctx: NormalizedPlatformContext, language?: s
   const output: JsonObject = {}
   for (const [key, child] of Object.entries(value)) {
     output[key] = guardValue(child, ctx, language)
+  }
+  return output
+}
+
+function mentionsUnverifiedOperatingOwner(value: string): boolean {
+  return /\b(?:marketing|sales|reception|support|customer success)\s+(?:team|department|staff)\b|\b(?:team|department)\s+(?:handles|follows|responds|replies)\b|(?:فريق|قسم)\s+(?:التسويق|المبيعات|الاستقبال|الدعم|خدمة العملاء)|(?:موظف|مسؤول)\s+(?:الاستقبال|المبيعات|التسويق)/i.test(value)
+}
+
+function guardUnverifiedLeadHandling(value: unknown, language?: string | null): unknown {
+  if (Array.isArray(value)) return value.map(item => guardUnverifiedLeadHandling(item, language))
+  if (!isObject(value)) return value
+
+  const output: JsonObject = {}
+  for (const [key, child] of Object.entries(value)) {
+    if (key === 'responseHandoff' && typeof child === 'string') {
+      output[key] = fallbackOperationalText('responseHandoff', language)
+      continue
+    }
+    if ((key === 'executionNote' || key === 'nextStep') && typeof child === 'string' && mentionsUnverifiedOperatingOwner(child)) {
+      output[key] = key === 'executionNote'
+        ? fallbackOperationalText('executionNote', language)
+        : fallbackOperationalText('responseHandoff', language)
+      continue
+    }
+    output[key] = guardUnverifiedLeadHandling(child, language)
   }
   return output
 }
@@ -1054,7 +1080,10 @@ export function selectStrategyCampaignPlatforms(
 export function guardStrategyOutputContract<T>(input: T, context: StrategyOutputContractContext = {}): T {
   if (!isObject(input)) return input
   const ctx = buildPlatformContext(context.allowedPlatforms)
-  const output = guardValue(input, ctx, context.language) as JsonObject
+  const guardedValue = guardValue(input, ctx, context.language)
+  const output = (context.hasLeadHandling === false
+    ? guardUnverifiedLeadHandling(guardedValue, context.language)
+    : guardedValue) as JsonObject
   output.campaignName = guardCampaignName(output.campaignName, context.strategyType, context.language)
 
   if (context.strategyType === 'paid') {

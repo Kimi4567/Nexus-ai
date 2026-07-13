@@ -528,6 +528,44 @@ describe('guardStrategyOutputContract', () => {
     expect(report.languageViolations).toEqual([])
     expect(report.weakFields).toEqual([])
   })
+
+  it('does not invent response owners when Brand Brain has no lead-handling process', () => {
+    const out = guardStrategyOutputContract({
+      contentAnglesDetailed: [{
+        title: 'فائدة المواعيد المسائية',
+        responseHandoff: 'فريق الاستقبال يتابع مع العملاء لتأكيد المواعيد',
+      }],
+      weeklyExecutionPlan: [{
+        executionNote: 'فريق التسويق يتابع التفاعل ويرد على الاستفسارات',
+      }],
+      funnelStages: [{
+        nextStep: 'قسم المبيعات يتواصل مع العميل بعد الطلب',
+      }],
+    }, {
+      language: 'ar',
+      hasLeadHandling: false,
+    })
+    const joined = JSON.stringify(out)
+
+    expect(joined).not.toMatch(/فريق الاستقبال|فريق التسويق|قسم المبيعات/)
+    expect(joined).toMatch(/تأكيد مسؤول الرد|أكّد تسليم الرد/)
+  })
+
+  it('preserves supplied response ownership when lead handling exists', () => {
+    const source = {
+      contentAnglesDetailed: [{
+        responseHandoff: 'فريق الاستقبال يتابع مع العملاء لتأكيد المواعيد',
+      }],
+    }
+
+    const out = guardStrategyOutputContract(source, {
+      language: 'ar',
+      hasLeadHandling: true,
+    })
+
+    expect(out.contentAnglesDetailed[0].responseHandoff)
+      .toBe('فريق الاستقبال يتابع مع العملاء لتأكيد المواعيد')
+  })
 })
 
 describe('selectStrategyCampaignPlatforms', () => {

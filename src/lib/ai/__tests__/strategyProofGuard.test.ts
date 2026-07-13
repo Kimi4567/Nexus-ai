@@ -341,6 +341,31 @@ describe('strategyProofGuard', () => {
     expect(guardStrategyProof(safe, { verifiedProof: [] })).toEqual(safe)
   })
 
+  it('removes unprovided speed, prime-location, and trust claims from service strategy text', () => {
+    const guarded = guardStrategyProof({
+      hooks: [
+        'احجز موعدك في دقائق مع العيادة.',
+        'رعاية أسنان موثوقة ومريحة في قلب دبي.',
+        'موقعنا المتميز في دبي.',
+      ],
+    }, {
+      verifiedProof: [],
+      allowedClaimText: ['عيادة أسنان في دبي تقدم مواعيد مسائية.'],
+    })
+    const joined = JSON.stringify(guarded)
+
+    expect(joined).not.toMatch(/في دقائق|في قلب دبي|موقعنا المتميز|موثوقة ومريحة/)
+    expect(joined).toMatch(/احجز موعدك مع العيادة|رعاية أسنان بخطوات واضحة في دبي|موقعنا داخل المنطقة المحددة/)
+  })
+
+  it('preserves those service claims when the user explicitly supplied them', () => {
+    const text = 'احجز موعدك في دقائق من موقعنا المتميز في قلب دبي مع رعاية موثوقة.'
+
+    expect(guardStrategyProofText(text, {
+      allowedClaimText: ['حجز فوري في دقائق من موقعنا المتميز في قلب دبي مع رعاية موثوقة.'],
+    })).toBe(text)
+  })
+
   it('builds explicit proof-policy prompt text', () => {
     const prompt = buildProofPolicyPrompt({ verifiedProof: [] })
 
