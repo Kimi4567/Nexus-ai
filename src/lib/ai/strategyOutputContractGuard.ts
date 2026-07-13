@@ -621,6 +621,9 @@ function guardGenericStrategyHooks(output: JsonObject, language?: string | null)
   if (Array.isArray(output.contentAnglesDetailed)) {
     output.contentAnglesDetailed = output.contentAnglesDetailed.map(guardHookItem)
   }
+  if (Array.isArray(output.audienceSegmentsDetailed)) {
+    output.audienceSegmentsDetailed = output.audienceSegmentsDetailed.map(guardHookItem)
+  }
   if (Array.isArray(output.weeklyExecutionPlan)) {
     output.weeklyExecutionPlan = output.weeklyExecutionPlan.map(guardHookItem)
   }
@@ -1528,7 +1531,6 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
   output.contentAnglesDetailed = guardContentAnglesOperationalDepth(output.contentAnglesDetailed, context.language)
   output.audienceSegmentsDetailed = ensureAudienceSegmentsMinimum(output.audienceSegmentsDetailed, ctx, context.language)
   output.audienceSegmentsDetailed = guardPlatformObjectList(output.audienceSegmentsDetailed, ctx, context.language)
-  guardGenericStrategyHooks(output, context.language)
   output.funnelStages = guardPlatformObjectList(output.funnelStages, ctx, context.language)
   output.channelStrategy = guardPlatformObjectList(output.channelStrategy, ctx, context.language)
   output.weeklyExecutionPlan = guardWeeklyExecutionPlan(output.weeklyExecutionPlan, ctx)
@@ -1544,6 +1546,10 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
   output.assetRequirements = guardAssetRequirements(output.assetRequirements, context.language)
   output.readinessChecklist = guardReadinessChecklist(output.readinessChecklist, context.language)
   guardAgencyOperatingSections(output, context.language, context.allowedCompetitors)
+  // Run copy specificity last: weekly alignment and fallback construction can
+  // reuse legacy messages, so the final document must be checked after every
+  // structural transformation has completed.
+  guardGenericStrategyHooks(output, context.language)
 
   return output as T
 }
