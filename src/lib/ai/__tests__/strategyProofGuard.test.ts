@@ -367,6 +367,21 @@ describe('strategyProofGuard', () => {
     })).toBe(text)
   })
 
+  it('softens Arabic guarantee, medical-outcome, and unsupported channel assumptions', () => {
+    const guarded = guardStrategyProof([
+      'خطط علاج واضحة تضمن لك راحة البال.',
+      'الفحوصات المنتظمة تحميك من مشاكل الأسنان الكبيرة.',
+      'اختيار العيادة المناسبة يمكن أن يغير تجربتك الصحية بالكامل.',
+      'المحتوى التوضيحي سيكون كافيًا لزيادة التفاعل.',
+      'الجمهور المستهدف يستخدم Instagram بشكل نشط.',
+      'عدم التركيز على منصات غير فعالة',
+    ], { verifiedProof: [] })
+    const joined = guarded.join(' ')
+
+    expect(joined).not.toMatch(/تضمن لك|تحميك من|يغير تجربتك الصحية بالكامل|سيكون كافيًا|يستخدم Instagram بشكل نشط|منصات غير فعالة/)
+    expect(joined).toMatch(/فهم الخطوات قبل البدء|فرضية تحتاج إلى بيانات فعلية|عدم توسيع القنوات/)
+  })
+
   it('builds explicit proof-policy prompt text', () => {
     const prompt = buildProofPolicyPrompt({ verifiedProof: [] })
 

@@ -405,6 +405,23 @@ describe('guardStrategyOutputContract', () => {
     expect(out.positioning).not.toContain('المثالية')
   })
 
+  it('does not present a selected social channel as the most effective without evidence', () => {
+    const out = guardStrategyOutputContract({
+      channelMix: [{
+        platform: 'Instagram',
+        effortSharePercent: 100,
+        rationale: 'Instagram هو المنصة الأكثر فعالية للوصول إلى الجمهور المستهدف في دبي.',
+      }],
+    }, {
+      allowedPlatforms: ['INSTAGRAM'],
+      language: 'ar',
+      strategyType: 'organic',
+    })
+
+    expect(out.channelMix[0].rationale).toContain('قناة مختارة في Brand Brain')
+    expect(out.channelMix[0].rationale).not.toMatch(/الأكثر (?:فعالية|فاعلية)/)
+  })
+
   it('aligns weekly deliverables to the paid exact organic post count', () => {
     const out = guardStrategyOutputContract({
       contentAnglesDetailed: [

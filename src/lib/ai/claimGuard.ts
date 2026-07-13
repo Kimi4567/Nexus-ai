@@ -47,6 +47,7 @@ const PATTERNS: { category: ClaimCategory; re: RegExp }[] = [
   { category: 'performance', re: /\b(?:boost|increase|grow|double|triple|skyrocket|maximi[sz]e|cut|slash|reduce)\s+(?:your\s+)?(?:sales|revenue|profits?|roi|conversions?|leads?|traffic|income|costs?)\b/gi },
   // Guarantees / proof language.
   { category: 'guarantee', re: /\b(?:guarantee[ds]?|guaranteed\s+results|proven\s+results|proven\s+to|risk[-\s]?free|will\s+deliver(?:\s+results)?|100%\s+guaranteed)\b/gi },
+  { category: 'guarantee', re: /(?<!لا\s)(?:تضمن|يضمن)(?:\s+لك)?|نتائج\s+مضمونة|تحميك\s+من\s+(?:مشاكل|أمراض)|يغير\s+تجربتك\s+الصحية\s+بالكامل/gi },
   // Social proof without a cited source.
   { category: 'socialProof', re: /\b(?:trusted|used|loved)\s+by\s+(?:thousands|millions|hundreds|leading|top|over\s+\d+)\b/gi },
   { category: 'socialProof', re: /\b(?:thousands|millions)\s+of\s+(?:customers|users|businesses|companies|brands)\b/gi },
@@ -55,6 +56,7 @@ const PATTERNS: { category: ClaimCategory; re: RegExp }[] = [
   // Awards / superlative rankings.
   { category: 'award', re: /(?:^|[^\w])#1\b/gi },
   { category: 'award', re: /\b(?:award[-\s]?winning|best[-\s]?in[-\s]?class|industry[-\s]?leading|world[-\s]?class|top[-\s]?rated|number\s+one)\b/gi },
+  { category: 'award', re: /الأكثر\s+(?:فعالية|فاعلية)|(?:الأفضل|رقم\s+واحد)(?=\s|[،,.!?]|$)/gi },
   // Case-study style outcome claims.
   { category: 'caseStudy', re: /\bhelped\s+(?:companies|businesses|clients|teams|brands)\s+(?:achieve|grow|increase|save|boost|double|triple)\b/gi },
   { category: 'caseStudy', re: /\b(?:real\s+customers\s+achieved|our\s+clients\s+(?:saw|achieved|grew))\b/gi },

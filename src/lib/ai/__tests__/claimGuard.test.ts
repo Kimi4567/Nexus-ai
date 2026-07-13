@@ -10,6 +10,17 @@ const cats = (text: string) =>
   detectUnsupportedClaims(text).findings.map(f => f.category)
 
 describe('detectUnsupportedClaims (PR-1K)', () => {
+  it('detects Arabic guarantee, health-outcome, and unsupported superiority claims', () => {
+    const result = detectUnsupportedClaims([
+      'خطط علاج واضحة تضمن لك راحة البال.',
+      'الفحوصات المنتظمة تحميك من مشاكل الأسنان الكبيرة.',
+      'Instagram هو المنصة الأكثر فعالية للوصول إلى الجمهور.',
+    ])
+
+    expect(result.hasUnsupportedClaims).toBe(true)
+    expect(result.findings.map(f => f.category)).toEqual(expect.arrayContaining(['guarantee', 'award']))
+  })
+
   it('flags an unsupported percentage claim ("30% productivity gain")', () => {
     const r = detectUnsupportedClaims('30% productivity gain')
     expect(r.hasUnsupportedClaims).toBe(true)

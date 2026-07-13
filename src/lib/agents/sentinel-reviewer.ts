@@ -49,6 +49,9 @@ export interface SentinelReviewInput {
     adSetupPlan?: any
     funnelStages?: any[]
     contentAnglesDetailed?: any[]
+    weeklyExecutionPlan?: any[]
+    executionAssumptions?: string[]
+    assumptions?: string[]
   }
   content?: {
     topHooks?: string[]
@@ -285,6 +288,38 @@ If the campaign passes all checks cleanly: riskScore should be under 25, brandCo
     s.keyMessage,
     s.positioning,
     s.differentiation,
+    ...((s.funnelStages || []).flatMap((stage: any) => [
+      stage?.userMindset,
+      stage?.message,
+      stage?.contentType,
+      stage?.cta,
+      stage?.successMetric,
+      stage?.nextStep,
+    ])),
+    ...((s.contentAnglesDetailed || []).flatMap((angle: any) => [
+      angle?.title,
+      angle?.hook,
+      angle?.pain,
+      angle?.desiredOutcome,
+      angle?.objection,
+      angle?.message,
+      angle?.cta,
+      angle?.proofNeeded,
+      angle?.responseHandoff,
+      angle?.reviewPoint,
+    ])),
+    ...((s.weeklyExecutionPlan || []).flatMap((week: any) => [
+      week?.objective,
+      week?.keyMessage,
+      ...(week?.deliverables || []),
+      week?.cta,
+      week?.successMetric,
+      week?.executionNote,
+      ...(week?.reviewPoints || []),
+    ])),
+    ...(s.doNotDoYet || []),
+    ...(s.executionAssumptions || []),
+    ...(s.assumptions || []),
     ...((input.calendar || []).flatMap((p: any) => [p?.hook, p?.caption, p?.cta])),
   ])
 

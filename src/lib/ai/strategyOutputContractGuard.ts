@@ -148,6 +148,10 @@ function normalizeArabicFormatText(value: string): string {
 
 function guardBroadStrategyHypeText(value: string): string {
   return value
+    .replace(/\b(?:the\s+)?most\s+effective\s+(?:platform|channel)\b/gi, 'the selected channel')
+    .replace(/(?:هو|هي)\s+المنصة\s+الأكثر\s+(?:فعالية|فاعلية)/g, 'قناة مختارة في Brand Brain')
+    .replace(/المنصة\s+الأكثر\s+(?:فعالية|فاعلية)/g, 'القناة المختارة في Brand Brain')
+    .replace(/القناة\s+الأكثر\s+(?:فعالية|فاعلية)/g, 'القناة المختارة في Brand Brain')
     .replace(/\bthe\s+perfect\s+solution\s+for\b/gi, 'a practical solution for')
     .replace(/\bperfect\s+solution\s+for\b/gi, 'practical solution for')
     .replace(/\bthe\s+best\s+solution\s+for\b/gi, 'a practical solution for')
