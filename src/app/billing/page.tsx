@@ -238,15 +238,32 @@ export default function BillingPage() {
   const [showCreditHistory, setShowCreditHistory] = useState(false)
 
   useEffect(() => {
-    if (!session?.access_token) { setLoading(false); return }
+    const token = session?.access_token
+    if (!token) {
+      setBillingStatus(null)
+      setLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setBillingStatus(null)
+    setLoading(true)
     fetch('/api/billing/status', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
+      headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())
-      .then(d => { if (d.plan) setBillingStatus(d) })
+      .then(d => {
+        if (!cancelled && d.plan) setBillingStatus(d)
+      })
       .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [session])
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [session?.access_token])
 
   useEffect(() => {
     const token = session?.access_token
@@ -619,7 +636,7 @@ export default function BillingPage() {
                   ) : (
                     <button
                       onClick={() => handleUpgrade(plan.id)}
-                      disabled={upgrading === plan.id || (isAuthenticated && !billingEnabled)}
+                      disabled={upgrading === plan.id || (isAuthenticated && (loading || !billingEnabled))}
                       className={`w-full py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 ${
                         isPopular
                           ? 'bg-slate-950 hover:bg-slate-800 shadow-[0_12px_28px_rgba(15,23,42,0.16)]'
@@ -628,6 +645,8 @@ export default function BillingPage() {
                     >
                       {upgrading === plan.id
                         ? (ar ? 'جاري التحويل...' : 'Redirecting...')
+                        : isAuthenticated && loading
+                        ? (ar ? 'جارٍ التحقق من حالة الدفع...' : 'Checking billing status...')
                         : isAuthenticated && !billingEnabled
                         ? (ar ? 'قريبا' : 'Coming soon')
                         : (ar ? `ابدأ ${plan.nameAr} — $${plan.price}/شهر` : `Start ${plan.nameEn} — $${plan.price}/mo`)
@@ -656,7 +675,7 @@ export default function BillingPage() {
                   : 'Purchased credits remain valid for 12 months and survive renewal or cancellation.'}
               </p>
             </div>
-            {!billingStatus?.creditPurchasesEnabled && (
+            {!loading && !billingStatus?.creditPurchasesEnabled && (
               <span className="w-fit rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
                 {ar ? 'بانتظار تفعيل Stripe والمحفظة' : 'Awaiting Stripe + wallet activation'}
               </span>
@@ -733,7 +752,7 @@ export default function BillingPage() {
                 )}
                 <button
                   onClick={handleBuyCredits}
-                  disabled={!billingStatus?.creditPurchasesEnabled || buyingCredits || !creditPurchaseQuote}
+                  disabled={loading || !billingStatus?.creditPurchasesEnabled || buyingCredits || !creditPurchaseQuote}
                   className="mt-4 w-full rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {buyingCredits ? (ar ? 'جاري التحويل...' : 'Redirecting...') : (ar ? 'المتابعة إلى الدفع' : 'Continue to checkout')}
@@ -838,7 +857,11 @@ export default function BillingPage() {
 
         {/* ── Footer note ─────────────────────────────────────────────────── */}
         <p className="text-center text-xs text-slate-400 pb-4">
-          {billingEnabled
+          {loading
+            ? (ar
+                ? 'جارٍ التحقق من حالة Stripe والمحفظة...'
+                : 'Checking Stripe and wallet status...')
+            : billingEnabled
             ? (ar
                 ? 'المدفوعات معالجة بأمان عبر Stripe · يمكن الإلغاء في أي وقت · لا رسوم خفية'
                 : 'Payments processed securely via Stripe · Cancel anytime · No hidden fees')

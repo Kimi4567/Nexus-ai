@@ -22,4 +22,12 @@ describe('billing plan copy truth', () => {
     expect(STRIPE_SRC).not.toContain('AI learns your brand')
     expect(BILLING_SRC).not.toContain('تعلّم من كل حملة')
   })
+
+  it('does not present billing as disabled while authenticated status is still loading', () => {
+    expect(BILLING_SRC).toContain('setLoading(true)')
+    expect(BILLING_SRC).toContain("'Checking billing status...'")
+    expect(BILLING_SRC).toContain("'Checking Stripe and wallet status...'")
+    expect(BILLING_SRC).toContain("{!loading && !billingStatus?.creditPurchasesEnabled && (")
+    expect(BILLING_SRC).toContain('disabled={loading || !billingStatus?.creditPurchasesEnabled')
+  })
 })
