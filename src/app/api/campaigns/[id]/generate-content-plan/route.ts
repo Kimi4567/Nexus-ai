@@ -238,7 +238,10 @@ export async function POST(req: NextRequest, props: Params) {
     const creditCheck = await checkAndDeductCredits(userId, 'CONTENT_PLAN_GENERATION')
     if (!creditCheck.ok) {
       return NextResponse.json(
-        { error: creditCheck.error ?? 'Insufficient credits', code: 'INSUFFICIENT_CREDITS' },
+        {
+          ...creditCheck,
+          code: creditCheck.error ?? 'INSUFFICIENT_CREDITS',
+        },
         { status: 402 },
       )
     }

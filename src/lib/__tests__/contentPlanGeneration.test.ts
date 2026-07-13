@@ -276,4 +276,11 @@ describe('resolveContentPlanSlotScope', () => {
     expect(creditIndex).toBeGreaterThan(-1)
     expect(scopeIndex).toBeLessThan(creditIndex)
   })
+
+  it('returns the complete credit shortfall contract to the Content Hub', () => {
+    const routeSource = readFileSync('src/app/api/campaigns/[id]/generate-content-plan/route.ts', 'utf8')
+
+    expect(routeSource).toContain('...creditCheck')
+    expect(routeSource).toContain("code: creditCheck.error ?? 'INSUFFICIENT_CREDITS'")
+  })
 })
