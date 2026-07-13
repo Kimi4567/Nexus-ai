@@ -11,6 +11,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
+    "credits:wallet-cutover": "node scripts/reconcile-credit-wallet-cutover.mjs",
     "type-check": "tsc --noEmit",
     "test": "vitest run"
   },

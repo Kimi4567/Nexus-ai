@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
-import { areCreditPacksConfigured, isBillingConfigured, PLAN_CREDITS } from '@/lib/stripe'
+import { isBillingConfigured, isCreditWalletPurchaseConfigured, PLAN_CREDITS } from '@/lib/stripe'
 import { resolveBillingStatusPlan } from '@/lib/billingStatusPlan'
 import { FREE_STARTER_CREDITS } from '@/lib/credits'
 import { isCreditWalletEnabled } from '@/lib/credits/wallet'
@@ -73,13 +73,13 @@ export async function GET(req: NextRequest) {
       String(dbUser.subscriptionStatus ?? '').toUpperCase() === 'FREE' &&
       storedCredits === 0 &&
       (dbUser.monthlyGenerations ?? 0) === 0
-    const displayCredits =
+    let displayCredits =
       storedCredits > 0
         ? storedCredits
         : isFreeStarterEligible
           ? FREE_STARTER_CREDITS
           : 0
-    const usedCredits = maxCredits === -1 ? 0 : Math.max(0, maxCredits - displayCredits)
+    let usedCredits = maxCredits === -1 ? 0 : Math.max(0, maxCredits - displayCredits)
 
     const walletEnabled = isCreditWalletEnabled()
     let creditBreakdown: null | {
@@ -113,6 +113,29 @@ export async function GET(req: NextRequest) {
         else summary.other += amount
         return summary
       }, { monthly: 0, purchased: 0, trial: 0, other: 0, nextPurchasedExpiry: null as Date | null })
+
+      // The ledger is authoritative when the wallet is enabled. Deriving the
+      // response here prevents an expired grant from lingering in the scalar
+      // cache and being shown as spendable.
+      const ledgerBalance =
+        creditBreakdown.monthly +
+        creditBreakdown.purchased +
+        creditBreakdown.trial +
+        creditBreakdown.other
+      const pendingStarterCredits = isFreeStarterEligible && ledgerBalance === 0
+
+      displayCredits = pendingStarterCredits ? FREE_STARTER_CREDITS : ledgerBalance
+      const renewableRemaining = pendingStarterCredits
+        ? FREE_STARTER_CREDITS
+        : isActive
+          ? creditBreakdown.monthly
+          : creditBreakdown.trial
+      usedCredits = maxCredits === -1 ? 0 : Math.max(0, maxCredits - renewableRemaining)
+
+      // The starter grant is created lazily on the first AI action. Keep the
+      // wallet breakdown hidden until it exists so the UI does not claim that
+      // an uncreated ledger grant is already spendable.
+      if (pendingStarterCredits) creditBreakdown = null
     }
 
     return NextResponse.json({
@@ -120,7 +143,8 @@ export async function GET(req: NextRequest) {
       status: dbUser.subscriptionStatus,
       hasActiveSubscription: isActive,
       billingEnabled: isBillingConfigured(),
-      creditPacksEnabled: walletEnabled && isBillingConfigured() && areCreditPacksConfigured(),
+      creditPurchasesEnabled:
+        walletEnabled && isBillingConfigured() && isCreditWalletPurchaseConfigured(),
       creditBreakdown,
       credits: {
         remaining: displayCredits,

@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { FREE_STARTER_CREDITS } from '@/lib/credits'
+import { isCreditWalletEnabled } from '@/lib/credits/wallet'
 
 export async function GET(req: NextRequest) {
   try {
@@ -30,10 +31,24 @@ export async function GET(req: NextRequest) {
     const isUnlimited = freshUser.aiCredits === -1
     const isFree = freshUser.subscriptionStatus === 'FREE'
 
+    let authoritativeCredits = freshUser.aiCredits
+    if (!isUnlimited && isCreditWalletEnabled()) {
+      const aggregate = await prisma.creditGrant.aggregate({
+        where: {
+          userId: user.id,
+          status: 'ACTIVE',
+          remaining: { gt: 0 },
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+        },
+        _sum: { remaining: true },
+      })
+      authoritativeCredits = Math.max(0, aggregate._sum.remaining ?? 0)
+    }
+
     // First-time free user — the atomic grant is created on first paid action.
-    const creditsToShow = isFree && freshUser.aiCredits === 0 && freshUser.monthlyGenerations === 0
+    const creditsToShow = isFree && authoritativeCredits === 0 && freshUser.monthlyGenerations === 0
       ? FREE_STARTER_CREDITS
-      : freshUser.aiCredits
+      : authoritativeCredits
 
     return NextResponse.json({
       creditsRemaining: isUnlimited ? -1 : creditsToShow,

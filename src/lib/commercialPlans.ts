@@ -94,6 +94,70 @@ export function getPlannedPostLimit(plan: unknown, role?: unknown): number {
   return 3
 }
 
+// ── One-time credit wallet purchases ────────────────────────────────────────
+
+/**
+ * Versioned, server-enforced pricing policy for one-time wallet purchases.
+ * Progressive blocks keep the total monotonic: buying one more block can never
+ * make the whole purchase cheaper. The 100/300 reference points preserve the
+ * original $29/$69 commercial offer while allowing any 10-credit increment.
+ */
+export const CREDIT_PURCHASE_POLICY = {
+  version: '2026-07-v1',
+  currency: 'usd',
+  minimum: 50,
+  maximum: 5_000,
+  step: 10,
+  validityMonths: 12,
+  tiers: [
+    { upTo: 100, unitAmountCents: 29 },
+    { upTo: 300, unitAmountCents: 20 },
+    { upTo: 1_000, unitAmountCents: 17 },
+    { upTo: 5_000, unitAmountCents: 14 },
+  ],
+} as const
+
+export interface CreditPurchaseQuote {
+  credits: number
+  amountCents: number
+  amountUsd: number
+  effectiveUnitAmountCents: number
+  validityMonths: number
+  pricingVersion: string
+}
+
+/** Returns null for fractional, out-of-range, or off-step quantities. */
+export function quoteCreditPurchase(value: unknown): CreditPurchaseQuote | null {
+  const credits = typeof value === 'number' ? value : Number(value)
+  if (
+    !Number.isSafeInteger(credits) ||
+    credits < CREDIT_PURCHASE_POLICY.minimum ||
+    credits > CREDIT_PURCHASE_POLICY.maximum ||
+    credits % CREDIT_PURCHASE_POLICY.step !== 0
+  ) {
+    return null
+  }
+
+  let amountCents = 0
+  let pricedThrough = 0
+  for (const tier of CREDIT_PURCHASE_POLICY.tiers) {
+    const creditsInTier = Math.max(0, Math.min(credits, tier.upTo) - pricedThrough)
+    amountCents += creditsInTier * tier.unitAmountCents
+    pricedThrough = tier.upTo
+    if (credits <= tier.upTo) break
+  }
+
+  return {
+    credits,
+    amountCents,
+    amountUsd: amountCents / 100,
+    effectiveUnitAmountCents: Math.round(amountCents / credits),
+    validityMonths: CREDIT_PURCHASE_POLICY.validityMonths,
+    pricingVersion: CREDIT_PURCHASE_POLICY.version,
+  }
+}
+
+/** @deprecated Kept only to fulfil any pre-deployment Stripe Checkout session. */
 export type CreditPackId = 'boost-100' | 'scale-300'
 
 export interface CreditPackDefinition {

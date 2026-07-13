@@ -12,6 +12,7 @@ import { prisma } from '@/lib/prisma'
 import { sendCreditsLowEmail } from '@/lib/email/resend'
 import {
   isCreditWalletEnabled,
+  isGrantEligible,
   selectGrantsToSpend,
   planRefundToSource,
   type SpendableGrant,
@@ -442,7 +443,9 @@ async function _deductFromGrants(
   // transaction back (no partial writes) and propagates — exactly like the
   // scalar path's awaited updateMany. `prisma as any` keeps this independent of
   // the generated client types (matching the rest of this file's ledger calls).
-  const outcome: { ok: true; newCredits: number; transactionId: string } | { ok: false } =
+  const outcome:
+    | { ok: true; newCredits: number; transactionId: string }
+    | { ok: false; availableCredits: number } =
     await (prisma as any).$transaction(async (tx: any) => {
       const now = new Date()
 
@@ -461,10 +464,21 @@ async function _deductFromGrants(
 
       const plan = selectGrantsToSpend(rows, cost, now)
       if (!plan.ok) {
-        // Not enough eligible credit — return WITHOUT any write (transaction
-        // commits with no changes).
-        return { ok: false as const }
+        // Expired grants can make the scalar cache stale. Repair that cache even
+        // on an insufficient attempt so every subsequent surface shows truth.
+        if (currentCredits !== plan.eligibleRemaining) {
+          await tx.user.update({
+            where: { id: userId },
+            data: { aiCredits: plan.eligibleRemaining },
+          })
+        }
+        return { ok: false as const, availableCredits: plan.eligibleRemaining }
       }
+
+      const availableBefore = rows
+        .filter((grant) => isGrantEligible(grant, now))
+        .reduce((sum, grant) => sum + Math.max(0, grant.remaining), 0)
+      const newCredits = Math.max(0, availableBefore - cost)
 
       // Decrement each drawn grant by its slice.
       for (const a of plan.allocations) {
@@ -474,11 +488,12 @@ async function _deductFromGrants(
         })
       }
 
-      // Keep the User.aiCredits cache in exact sync, and bump generations as today.
+      // Set (not decrement) the cache from the locked grant truth. This also
+      // removes any expired-credit drift discovered during this transaction.
       await tx.user.update({
         where: { id: userId },
         data: {
-          aiCredits: { decrement: cost },
+          aiCredits: newCredits,
           monthlyGenerations: { increment: 1 },
         },
       })
@@ -506,11 +521,11 @@ async function _deductFromGrants(
         })
       }
 
-      return { ok: true as const, newCredits: Math.max(0, currentCredits - cost), transactionId: txn.id }
+      return { ok: true as const, newCredits, transactionId: txn.id }
     })
 
   if (!outcome.ok) {
-    return _insufficient(cost, currentCredits, isFree)
+    return _insufficient(cost, outcome.availableCredits, isFree)
   }
 
   // ── Track usage (non-blocking, same as scalar path) ────────────────────────

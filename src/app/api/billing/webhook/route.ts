@@ -18,7 +18,10 @@ import {
   PLAN_CREDITS,
   planFromPriceId,
 } from '@/lib/stripe'
-import { getCreditPack } from '@/lib/commercialPlans'
+import {
+  getCreditPack,
+  quoteCreditPurchase,
+} from '@/lib/commercialPlans'
 import { isCreditWalletEnabled } from '@/lib/credits/wallet'
 import { sendUpgradeConfirmationEmail } from '@/lib/email/resend'
 // B1d-c-1 — create the cycle's MONTHLY CreditGrant in parallel with the existing
@@ -168,6 +171,52 @@ export async function POST(req: NextRequest) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
         if (session.mode === 'payment') {
+          if (session.metadata?.kind === 'credit_wallet_purchase') {
+            const userId = session.metadata.userId
+            const quote = quoteCreditPurchase(session.metadata.credits)
+            const metadataAmount = Number(session.metadata.amountCents)
+            const valid = Boolean(
+              userId &&
+              quote &&
+              session.client_reference_id === userId &&
+              session.payment_status === 'paid' &&
+              session.currency === 'usd' &&
+              session.amount_subtotal === quote?.amountCents &&
+              session.amount_total === quote?.amountCents &&
+              metadataAmount === quote?.amountCents &&
+              session.metadata.pricingVersion === quote?.pricingVersion,
+            )
+
+            if (!valid || !userId || !quote) {
+              console.error('[Webhook] Refusing invalid credit wallet purchase', {
+                sessionId: session.id,
+                hasUserId: Boolean(userId),
+                paymentStatus: session.payment_status,
+                currency: session.currency,
+                amountSubtotal: session.amount_subtotal,
+                amountTotal: session.amount_total,
+                pricingVersion: session.metadata.pricingVersion,
+              })
+              break
+            }
+
+            const fulfilled = await (prisma as any).$transaction((tx: any) =>
+              fulfilPurchasedCreditPack({
+                userId,
+                checkoutSessionId: session.id,
+                credits: quote.credits,
+                purchasedAt: new Date(session.created * 1000),
+              }, tx),
+            )
+            console.log(
+              `[Webhook] Credit wallet purchase fulfilled session=${session.id} ` +
+              `credits=${quote.credits} created=${fulfilled.created}`,
+            )
+            break
+          }
+
+          // Backwards compatibility for fixed-pack Checkout sessions created
+          // before the custom-quantity wallet was deployed.
           const pack = getCreditPack(session.metadata?.packId)
           const userId = session.metadata?.userId
           const isPaid = session.payment_status === 'paid'
@@ -276,10 +325,9 @@ export async function POST(req: NextRequest) {
           break
         }
 
-        // Interactive transaction (B1d-c-3): the EXACT same cancel behavior as
-        // before (status CANCELLED, aiCredits = 0), PLUS voiding the user's
-        // ACTIVE non-PURCHASED grants so a cancelled user has no spendable
-        // monthly/trial/referral/manual/migrated balance. PURCHASED untouched.
+        // Cancellation voids every renewable/promotional bucket while leaving
+        // purchased credit intact until its own expiry. The scalar cache is then
+        // rebuilt from the remaining eligible wallet grants.
         await (prisma as any).$transaction(async (tx: any) => {
           const walletEnabled = isCreditWalletEnabled()
           await tx.subscription.updateMany({
@@ -323,9 +371,9 @@ export async function POST(req: NextRequest) {
           Number.isFinite(startSec) && Number.isFinite(endSec)
         const wantsGrant = credits > 0 && periodValid
 
-        // Interactive transaction (B1d-c-2): the EXACT same aiCredits overwrite as
-        // before, PLUS a parallel MONTHLY CreditGrant for the renewed cycle. The
-        // aiCredits behavior and the forced-ACTIVE status are unchanged.
+        // Renewal creates exactly one MONTHLY grant for the new cycle, resets
+        // prior non-purchased credit, and preserves valid purchased credit. The
+        // scalar balance remains a derived compatibility cache.
         await (prisma as any).$transaction(async (tx: any) => {
           const walletEnabled = isCreditWalletEnabled()
           await tx.user.update({

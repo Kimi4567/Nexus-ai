@@ -3,7 +3,7 @@
  *
  * Verifies the grant-based path: grants are read (FOR UPDATE), drawn down in
  * order, allocation rows written, the User.aiCredits cache kept in exact sync,
- * and no writes happen when grants are insufficient. Prisma + email are mocked;
+ * and insufficient attempts only repair a stale scalar cache. Prisma + email are mocked;
  * no DB/network is touched. The pure ordering logic is covered in wallet.test.ts.
  *
  * Flag-OFF (default) behaviour stays covered byte-for-byte by credits.test.ts.
@@ -109,7 +109,7 @@ describe('checkAndDeductCredits — wallet flag ON', () => {
     })
   })
 
-  it('3. decrements the User.aiCredits cache by the exact cost', async () => {
+  it('3. sets User.aiCredits from locked grant truth after the exact deduction', async () => {
     asStarter(50)
     tx.$queryRawUnsafe.mockResolvedValue([row({ id: 'g1', remaining: 50 })])
 
@@ -117,7 +117,7 @@ describe('checkAndDeductCredits — wallet flag ON', () => {
 
     expect(tx.user.update).toHaveBeenCalledWith({
       where: { id: 'u1' },
-      data: { aiCredits: { decrement: 8 }, monthlyGenerations: { increment: 1 } },
+      data: { aiCredits: 42, monthlyGenerations: { increment: 1 } },
     })
   })
 
@@ -152,16 +152,22 @@ describe('checkAndDeductCredits — wallet flag ON', () => {
     ])
   })
 
-  it('6. insufficient grants → no writes, returns INSUFFICIENT_CREDITS', async () => {
+  it('6. insufficient grants → no debit and stale scalar cache is repaired', async () => {
     asStarter(50) // cache lies high; the grants are the source of truth
     tx.$queryRawUnsafe.mockResolvedValue([row({ id: 'g1', remaining: 2 })])
 
     const res = await checkAndDeductCredits('u1', 'RUN_FULL_STRATEGY') // cost 8
 
     expect(res.ok).toBe(false)
-    if (!res.ok) expect(res.error).toBe('INSUFFICIENT_CREDITS')
+    if (!res.ok) {
+      expect(res.error).toBe('INSUFFICIENT_CREDITS')
+      expect(res.currentCredits).toBe(2)
+    }
     expect(tx.creditGrant.update).not.toHaveBeenCalled()
-    expect(tx.user.update).not.toHaveBeenCalled()
+    expect(tx.user.update).toHaveBeenCalledWith({
+      where: { id: 'u1' },
+      data: { aiCredits: 2 },
+    })
     expect(tx.creditTransaction.create).not.toHaveBeenCalled()
     expect(tx.creditTransactionGrantAllocation.createMany).not.toHaveBeenCalled()
   })

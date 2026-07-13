@@ -1914,15 +1914,13 @@ model RateLimitRecord {
 }
 
 // ============================================================================
-// CREDIT WALLET LEDGER (B1b — foundation only)
+// CREDIT WALLET LEDGER
 // ============================================================================
 // Design reference: docs/CREDIT_WALLET_LEDGER_POLICY.md
 //
-// B1b adds the ledger TABLE only. NOTHING reads or writes CreditGrant at runtime
-// yet — checkAndDeductCredits, the billing webhook, and the reset cron are
-// unchanged, and User.aiCredits stays the authoritative live balance. The table
-// is populated by the manual, idempotent backfill (scripts/backfill-credit-grants.ts),
-// and grant-based spending/renewal/expiry arrive in B1c/B1d.
+// CreditGrant is the authoritative source for wallet-enabled accounts. Runtime
+// deduction, renewal, cancellation, referral/admin grants, and Stripe purchase
+// fulfilment update this ledger. User.aiCredits is a derived compatibility cache.
 //
 // Apply the schema to the database via prisma/migrations/credit_grant_ledger.sql
 // in the Supabase SQL Editor (this repo does NOT use prisma migrate for prod).
@@ -1935,7 +1933,7 @@ enum CreditGrantType {
   REFUND     // credits returned on a failed/cancelled action
   MANUAL     // admin top-up
   MIGRATED   // backfilled from the legacy User.aiCredits balance
-  UNLIMITED  // reserved for unlimited plans (not created in B1b)
+  UNLIMITED  // reserved for unlimited plans; finite debits remain bypassed
 }
 
 enum CreditGrantStatus {
@@ -1945,9 +1943,8 @@ enum CreditGrantStatus {
   VOID
 }
 
-// One row per credit grant. Live balance is derived (later) as the sum of
-// `remaining` over ACTIVE, non-expired grants; deduction will spend
-// soonest-expiry-first (see policy doc). Foundation only in B1b.
+// One row per credit grant. Live balance is the sum of `remaining` over ACTIVE,
+// non-expired grants; deduction spends soonest-expiry-first (see policy doc).
 model CreditGrant {
   id             String            @id @default(cuid())
 
@@ -1956,7 +1953,7 @@ model CreditGrant {
 
   type           CreditGrantType
   amount         Int                                  // original grant size
-  remaining      Int                                  // decremented as spent (B1c+)
+  remaining      Int                                  // decremented as spent
   expiresAt      DateTime?                            // null = never expires
   source         String?                              // e.g. "migration:initial-aiCredits", "stripe:in_123", "pack:500"
   billingCycleId String?                              // links a MONTHLY grant to its invoice/period (B1d idempotency)
@@ -1965,7 +1962,7 @@ model CreditGrant {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
-  // B1c-a — debits that drew down this grant (foundation only; no reader until B1c-b).
+  // Debits that drew down this grant, used for source-aware refunds and audit.
   transactionAllocations CreditTransactionGrantAllocation[]
 
   // Idempotency: at most one grant per (user, source) — makes the backfill and

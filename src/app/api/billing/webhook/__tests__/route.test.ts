@@ -159,6 +159,61 @@ describe('billing webhook — B1d-c-1 MONTHLY grant on provision', () => {
 })
 
 describe('billing webhook — one-time credit packs', () => {
+  it('fulfils a server-priced custom wallet purchase', async () => {
+    stripe.webhooks.constructEvent.mockReturnValue({
+      type: 'checkout.session.completed', id: 'evt_wallet',
+      data: { object: {
+        id: 'cs_wallet_1',
+        mode: 'payment',
+        client_reference_id: 'u1',
+        payment_status: 'paid',
+        currency: 'usd',
+        amount_subtotal: 6_900,
+        amount_total: 6_900,
+        created: SECS_START,
+        metadata: {
+          kind: 'credit_wallet_purchase',
+          userId: 'u1',
+          credits: '300',
+          amountCents: '6900',
+          pricingVersion: '2026-07-v1',
+        },
+      } },
+    })
+
+    await POST(makeReq())
+
+    expect(tx.creditGrant.createMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: [expect.objectContaining({
+        userId: 'u1', type: 'PURCHASED', amount: 300, remaining: 300,
+        source: 'stripe:checkout:cs_wallet_1', status: 'ACTIVE',
+      })],
+      skipDuplicates: true,
+    }))
+    expect(tx.creditTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ action: 'CREDIT_PACK_PURCHASE', amount: 300 }),
+    }))
+  })
+
+  it('refuses custom wallet purchases when the paid total does not match the signed quote', async () => {
+    stripe.webhooks.constructEvent.mockReturnValue({
+      type: 'checkout.session.completed', id: 'evt_wallet_bad',
+      data: { object: {
+        id: 'cs_wallet_bad', mode: 'payment', client_reference_id: 'u1',
+        payment_status: 'paid', currency: 'usd', amount_subtotal: 6_900,
+        amount_total: 1, created: SECS_START,
+        metadata: {
+          kind: 'credit_wallet_purchase', userId: 'u1', credits: '300',
+          amountCents: '6900', pricingVersion: '2026-07-v1',
+        },
+      } },
+    })
+
+    await POST(makeReq())
+    expect(tx.creditGrant.createMany).not.toHaveBeenCalled()
+    expect(tx.creditTransaction.create).not.toHaveBeenCalled()
+  })
+
   it('fulfils a paid trusted pack idempotently into PURCHASED credits', async () => {
     stripe.webhooks.constructEvent.mockReturnValue({
       type: 'checkout.session.completed', id: 'evt_pack',

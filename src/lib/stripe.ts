@@ -15,6 +15,7 @@
 
 import Stripe from 'stripe'
 import {
+  CREDIT_PURCHASE_POLICY,
   CREDIT_PACKS,
   FREE_TRIAL_CREDITS,
   FREE_TRIAL_POSTS,
@@ -197,7 +198,7 @@ export const STRIPE_PRICES: Record<string, string> = {
   agency:   process.env.STRIPE_PRICE_BUSINESS || '',
 }
 
-/** One-time credit-pack prices. Empty until the matching Stripe Price exists. */
+/** Legacy fixed packs, retained only for already-created Checkout sessions. */
 export const STRIPE_CREDIT_PACK_PRICES: Record<CreditPackId, string> = {
   'boost-100': process.env.STRIPE_PRICE_CREDITS_100 || '',
   'scale-300': process.env.STRIPE_PRICE_CREDITS_300 || '',
@@ -211,7 +212,41 @@ export function getConfiguredCreditPack(packId: unknown) {
 }
 
 export function areCreditPacksConfigured(): boolean {
-  return CREDIT_PACKS.every((pack) => Boolean(STRIPE_CREDIT_PACK_PRICES[pack.id]))
+  return isCreditWalletPurchaseConfigured()
+}
+
+/**
+ * Immutable one-time Stripe prices for each progressive wallet block. The
+ * server splits a requested quantity across these prices, avoiding both client-
+ * supplied amounts and one-off Price object creation on every checkout.
+ */
+export const STRIPE_CREDIT_WALLET_TIER_PRICES = [
+  process.env.STRIPE_PRICE_CREDIT_WALLET_TIER_1 || '',
+  process.env.STRIPE_PRICE_CREDIT_WALLET_TIER_2 || '',
+  process.env.STRIPE_PRICE_CREDIT_WALLET_TIER_3 || '',
+  process.env.STRIPE_PRICE_CREDIT_WALLET_TIER_4 || '',
+] as const
+
+export function isCreditWalletPurchaseConfigured(): boolean {
+  return STRIPE_CREDIT_WALLET_TIER_PRICES.every(Boolean)
+}
+
+export function getCreditWalletLineItems(credits: number): Array<{ price: string; quantity: number }> | null {
+  if (!isCreditWalletPurchaseConfigured()) return null
+  const lineItems: Array<{ price: string; quantity: number }> = []
+  let pricedThrough = 0
+
+  for (let index = 0; index < CREDIT_PURCHASE_POLICY.tiers.length; index++) {
+    const tier = CREDIT_PURCHASE_POLICY.tiers[index]
+    const quantity = Math.max(0, Math.min(credits, tier.upTo) - pricedThrough)
+    if (quantity > 0) {
+      lineItems.push({ price: STRIPE_CREDIT_WALLET_TIER_PRICES[index], quantity })
+    }
+    pricedThrough = tier.upTo
+    if (credits <= tier.upTo) break
+  }
+
+  return lineItems.length > 0 ? lineItems : null
 }
 
 // ── Plan → monthly credit allocation ──────────────────────────────────────────
@@ -219,11 +254,11 @@ export function areCreditPacksConfigured(): boolean {
 // Free credits are one-time (never refresh) — creates upgrade pressure.
 
 export const PLAN_CREDITS: Record<string, number> = {
-  FREE:     10,
+  FREE:     FREE_TRIAL_CREDITS,
   STARTER:  50,
   PRO:      150,
   BUSINESS: 500,
-  free:     10,
+  free:     FREE_TRIAL_CREDITS,
   starter:  50,
   pro:      150,
   business: 500,

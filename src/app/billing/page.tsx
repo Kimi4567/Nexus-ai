@@ -12,7 +12,11 @@ import CreditHistoryModal from '@/components/CreditHistoryModal'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { formatCreditDisplay } from '@/lib/creditDisplay'
 import { getBillingDisplayTruth } from '@/lib/billingDisplayTruth'
-import { FREE_TRIAL_CREDITS } from '@/lib/commercialPlans'
+import {
+  CREDIT_PURCHASE_POLICY,
+  FREE_TRIAL_CREDITS,
+  quoteCreditPurchase,
+} from '@/lib/commercialPlans'
 import Link from 'next/link'
 import {
   Sparkles, CheckCircle2, Settings2,
@@ -80,11 +84,6 @@ const PLANS = [
     ],
   },
 ]
-
-const CREDIT_PACKS = [
-  { id: 'boost-100', credits: 100, price: 29 },
-  { id: 'scale-300', credits: 300, price: 69 },
-] as const
 
 // ─── Credit cost breakdown ────────────────────────────────────────────────────
 // Keep in sync with src/lib/credits.ts → CREDIT_COSTS
@@ -182,8 +181,8 @@ const FAQS = [
   {
     qAr: 'ماذا يحدث إذا نفدت أرصدتي قبل نهاية الشهر؟',
     qEn: 'What happens if I run out of credits?',
-    aAr: 'يمكنك شراء حزمة أرصدة إضافية أو الانتظار حتى التجديد. تظل حملاتك وبياناتك متاحة دائماً.',
-    aEn: 'You can buy an additional credit pack or wait for renewal. Existing campaigns and data remain available.',
+    aAr: 'يمكنك شراء العدد الذي تحتاجه من محفظة الرصيد أو الانتظار حتى التجديد. الرصيد المشترى لا يُمسح مع رصيد الباقة.',
+    aEn: 'Buy the exact amount you need from the credit wallet or wait for renewal. Purchased credits are not cleared with plan credits.',
   },
   {
     qAr: 'هل يمكنني إلغاء اشتراكي في أي وقت؟',
@@ -213,7 +212,7 @@ export default function BillingPage() {
     status: string
     hasActiveSubscription: boolean
     billingEnabled?: boolean
-    creditPacksEnabled?: boolean
+    creditPurchasesEnabled?: boolean
     creditBreakdown?: {
       monthly: number
       purchased: number
@@ -231,7 +230,8 @@ export default function BillingPage() {
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [upgrading, setUpgrading] = useState<string | null>(null)
-  const [buyingPack, setBuyingPack] = useState<string | null>(null)
+  const [creditQuantity, setCreditQuantity] = useState(100)
+  const [buyingCredits, setBuyingCredits] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const [billingMessage, setBillingMessage] = useState<string | null>(null)
   const [showCreditHistory, setShowCreditHistory] = useState(false)
@@ -288,18 +288,27 @@ export default function BillingPage() {
     } catch (e) { console.error(e) }
   }
 
-  const handleBuyCredits = async (packId: string) => {
+  const handleBuyCredits = async () => {
     if (!session?.access_token) return
-    setBuyingPack(packId)
+    const quote = quoteCreditPurchase(creditQuantity)
+    if (!quote) {
+      setBillingMessage(ar
+        ? 'اختر كمية صحيحة بين 50 و5,000 رصيد، بزيادة 10 أرصدة.'
+        : 'Choose a valid quantity from 50 to 5,000 credits in increments of 10.')
+      return
+    }
+    setBuyingCredits(true)
     setBillingMessage(null)
     try {
+      const requestId = globalThis.crypto?.randomUUID?.()
+        ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
       const response = await fetch('/api/billing/credits/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ packId }),
+        body: JSON.stringify({ credits: quote.credits, requestId }),
       })
       const data = await response.json()
       if (data.url) window.location.href = data.url
@@ -308,7 +317,7 @@ export default function BillingPage() {
       console.error(error)
       setBillingMessage(ar ? 'تعذر بدء عملية الشراء.' : 'Could not start checkout.')
     } finally {
-      setBuyingPack(null)
+      setBuyingCredits(false)
     }
   }
 
@@ -318,6 +327,7 @@ export default function BillingPage() {
   const billingEnabled = billingStatus?.billingEnabled === true
   const currentCredits = billingStatus?.credits?.remaining ?? 0
   const monthlyCredits = billingStatus?.credits?.max ?? 20
+  const creditPurchaseQuote = quoteCreditPurchase(creditQuantity)
 
   const billingDisplay = getBillingDisplayTruth({
     plan: billingStatus?.plan,
@@ -579,29 +589,90 @@ export default function BillingPage() {
                   : 'Purchased credits remain valid for 12 months and survive renewal or cancellation.'}
               </p>
             </div>
-            {!billingStatus?.creditPacksEnabled && (
+            {!billingStatus?.creditPurchasesEnabled && (
               <span className="w-fit rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
                 {ar ? 'بانتظار تفعيل Stripe والمحفظة' : 'Awaiting Stripe + wallet activation'}
               </span>
             )}
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            {CREDIT_PACKS.map((pack) => (
-              <div key={pack.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <div>
-                  <p className="text-lg font-bold text-slate-950">{pack.credits} {ar ? 'رصيد' : 'credits'}</p>
-                  <p className="text-xs text-slate-500">${pack.price} · {ar ? 'دفعة واحدة' : 'one-time'}</p>
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+            <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
+              <div>
+                <div className="flex items-center justify-between gap-4">
+                  <label htmlFor="credit-quantity" className="text-sm font-semibold text-slate-800">
+                    {ar ? 'عدد الكريدت' : 'Credit amount'}
+                  </label>
+                  <div className="flex items-center gap-2" dir="ltr">
+                    <input
+                      id="credit-quantity"
+                      type="number"
+                      min={CREDIT_PURCHASE_POLICY.minimum}
+                      max={CREDIT_PURCHASE_POLICY.maximum}
+                      step={CREDIT_PURCHASE_POLICY.step}
+                      value={creditQuantity}
+                      onChange={(event) => setCreditQuantity(Number(event.target.value))}
+                      className="w-28 rounded-xl border border-slate-300 bg-white px-3 py-2 text-right text-lg font-bold tabular-nums text-slate-950 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                    />
+                    <span className="text-sm text-slate-500">{ar ? 'رصيد' : 'credits'}</span>
+                  </div>
                 </div>
+                <input
+                  type="range"
+                  min={CREDIT_PURCHASE_POLICY.minimum}
+                  max={CREDIT_PURCHASE_POLICY.maximum}
+                  step={CREDIT_PURCHASE_POLICY.step}
+                  value={Math.min(CREDIT_PURCHASE_POLICY.maximum, Math.max(CREDIT_PURCHASE_POLICY.minimum, creditQuantity || CREDIT_PURCHASE_POLICY.minimum))}
+                  onChange={(event) => setCreditQuantity(Number(event.target.value))}
+                  className="mt-4 h-2 w-full cursor-pointer accent-violet-600"
+                  aria-label={ar ? 'اختر عدد الكريدت' : 'Choose credit amount'}
+                />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {[100, 300, 500, 1000].map((quantity) => (
+                    <button
+                      key={quantity}
+                      type="button"
+                      onClick={() => setCreditQuantity(quantity)}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${creditQuantity === quantity ? 'border-violet-300 bg-violet-100 text-violet-800' : 'border-slate-200 bg-white text-slate-600 hover:border-violet-200'}`}
+                    >
+                      {quantity.toLocaleString(ar ? 'ar-EG' : 'en-US')}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs leading-relaxed text-slate-500">
+                  {ar
+                    ? `الحد من ${CREDIT_PURCHASE_POLICY.minimum} إلى ${CREDIT_PURCHASE_POLICY.maximum.toLocaleString('ar-EG')} بزيادة ${CREDIT_PURCHASE_POLICY.step}. خصم تلقائي تدريجي للكميات الأكبر.`
+                    : `${CREDIT_PURCHASE_POLICY.minimum}–${CREDIT_PURCHASE_POLICY.maximum.toLocaleString()} credits in ${CREDIT_PURCHASE_POLICY.step}-credit increments. Progressive volume pricing is applied automatically.`}
+                </p>
+              </div>
+
+              <div className="min-w-56 rounded-xl border border-violet-200 bg-white p-4">
+                {creditPurchaseQuote ? (
+                  <>
+                    <p className="text-xs text-slate-500">{ar ? 'الإجمالي — دفعة واحدة' : 'Total — one-time'}</p>
+                    <p className="mt-1 text-3xl font-black tabular-nums text-slate-950" dir="ltr">
+                      ${creditPurchaseQuote.amountUsd.toFixed(2)}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {ar
+                        ? `${creditPurchaseQuote.effectiveUnitAmountCents}¢ متوسط الكريدت · صالح 12 شهراً`
+                        : `${creditPurchaseQuote.effectiveUnitAmountCents}¢ average / credit · valid 12 months`}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm font-medium text-rose-600">
+                    {ar ? 'أدخل كمية صحيحة بزيادة 10.' : 'Enter a valid 10-credit increment.'}
+                  </p>
+                )}
                 <button
-                  onClick={() => handleBuyCredits(pack.id)}
-                  disabled={!billingStatus?.creditPacksEnabled || buyingPack === pack.id}
-                  className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                  onClick={handleBuyCredits}
+                  disabled={!billingStatus?.creditPurchasesEnabled || buyingCredits || !creditPurchaseQuote}
+                  className="mt-4 w-full rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {buyingPack === pack.id ? (ar ? 'جاري التحويل...' : 'Redirecting...') : (ar ? 'اشترِ' : 'Buy')}
+                  {buyingCredits ? (ar ? 'جاري التحويل...' : 'Redirecting...') : (ar ? 'المتابعة إلى الدفع' : 'Continue to checkout')}
                 </button>
               </div>
-            ))}
+            </div>
           </div>
         </div>
 

@@ -1,15 +1,15 @@
 /**
  * Nexus AI — CreditGrant write helpers (B1d-a foundation)
  * ─────────────────────────────────────────────────────────────────────────────
- * Idempotent helpers for CREATING and RESETTING CreditGrant rows, so that — in a
- * later step (B1d-b/c/d) — every place that writes User.aiCredits can create a
- * matching grant. THIS MODULE IS NOT WIRED INTO ANY RUNTIME PATH YET.
+ * Idempotent helpers for creating, renewing, cancelling, and fulfilling wallet
+ * grants. Runtime billing, cron, admin, referral, and debit paths use this
+ * ledger while User.aiCredits remains a derived compatibility cache.
  *
  * Strict boundaries (enforced by design + tests):
  *   - Grant builders/writers never mutate unrelated billing/subscription data.
  *   - `syncCachedWalletBalance` is the only helper here allowed to update the
  *     derived User.aiCredits cache.
- *   - NEVER writes a CreditTransaction.
+ *   - Fulfilment writes one CreditTransaction only when a grant is newly created.
  *   - NEVER touches Subscription / billing data.
  *   - Only inserts/updates CreditGrant rows.
  *   - Idempotency rides on the existing @@unique([userId, source]) constraint —
@@ -155,10 +155,9 @@ export function buildMonthlyGrant(userId: string, sub: MonthlyGrantArgs): GrantI
 }
 
 /**
- * Referral / manual bonus grant. Policy decision (B1d): REFERRAL and MANUAL are
+ * Referral / manual bonus grant. REFERRAL and MANUAL are
  * non-expiring but are treated as NON-PURCHASED, so they are RESET on the next
- * monthly renewal — matching today's aiCredits-overwrite semantics. PURCHASED is
- * deliberately NOT supported here (that's B1e).
+ * monthly renewal. Purchased credit has its own 12-month builder below.
  */
 export function buildBonusGrant(
   userId: string,
