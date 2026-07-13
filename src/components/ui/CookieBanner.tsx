@@ -47,7 +47,7 @@ export default function CookieBanner() {
 
   return (
     <div
-      className="cookie-banner fixed inset-x-3 bottom-3 z-[90] sm:inset-x-4 sm:bottom-4 md:start-6 md:end-auto md:w-[min(480px,calc(50vw-3rem))]"
+      className="cookie-banner fixed inset-x-3 bottom-20 z-[90] sm:inset-x-4 lg:inset-x-auto lg:start-[max(1.5rem,calc((100vw-1180px)/2+1.5rem))] lg:end-auto lg:bottom-6 lg:w-[min(480px,calc(50vw-3rem))]"
       style={{
         transform: visible ? 'translateY(0)' : 'translateY(120%)',
         opacity: visible ? 1 : 0,

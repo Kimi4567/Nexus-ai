@@ -21,7 +21,9 @@ describe('optional analytics consent contract', () => {
   })
 
   it('keeps the consent card compact on desktop so it does not block primary forms', () => {
-    expect(banner).toContain('md:w-[min(480px,calc(50vw-3rem))]')
+    expect(banner).toContain('lg:w-[min(480px,calc(50vw-3rem))]')
+    expect(banner).toContain('lg:start-[max(1.5rem,calc((100vw-1180px)/2+1.5rem))]')
+    expect(banner).toContain('bottom-20')
     expect(banner).not.toContain('max-w-4xl')
     expect(banner).toContain('aria-label="إغلاق إشعار ملفات تعريف الارتباط"')
   })
