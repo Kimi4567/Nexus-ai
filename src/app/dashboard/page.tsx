@@ -2,7 +2,6 @@
 
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
-import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { getBrandBrainReadiness, type BrandReadinessResult } from '@/lib/brandReadiness'
@@ -16,12 +15,10 @@ import {
   ArrowUpRight,
   BarChart3,
   CalendarDays,
-  CheckCircle2,
   ChevronDown,
   Circle,
   Clock,
   FileText,
-  Megaphone,
   Radio,
   ShieldCheck,
   Sparkles,
@@ -317,23 +314,6 @@ function EmptyOrImage({ thumbnail, label }: { thumbnail?: string; label: string 
       {thumbnail || '✦'}
     </div>
   )
-}
-
-function MiniIcon({
-  children,
-  tone = 'violet',
-}: {
-  children: React.ReactNode
-  tone?: 'violet' | 'blue' | 'amber' | 'green' | 'slate'
-}) {
-  const tones = {
-    violet: 'bg-[#EEF2FF] text-[#5E63FF]',
-    blue: 'bg-blue-50 text-blue-600',
-    amber: 'bg-amber-50 text-amber-600',
-    green: 'bg-emerald-50 text-emerald-600',
-    slate: 'bg-slate-100 text-slate-500',
-  }
-  return <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tones[tone]}`}>{children}</div>
 }
 
 async function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = 12_000) {
@@ -666,46 +646,6 @@ export default function DashboardPage() {
               </div>
             </div>
           </SoftCard>
-
-          <StrategySpineCard
-            nextHref={nextAction.href}
-            nextLabel={nextAction.cta}
-            title={ar ? 'من ذاكرة العلامة إلى نتائج قابلة للقياس' : 'From brand memory to measurable results'}
-            body={ar
-              ? 'اتبع المراحل بالترتيب؛ كل مرحلة تستخدم ما تم اعتماده في المرحلة السابقة.'
-              : 'Follow the stages in order; each stage uses what was approved before it.'}
-          />
-
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <MetricCard
-              icon={<Activity className="h-5 w-5" />}
-              label={ar ? 'سياق العلامة' : 'Brand context'}
-              value={`${brandScore}%`}
-              helper={brandContextLabel}
-              accent="#10B981"
-            />
-            <MetricCard
-              icon={<Megaphone className="h-5 w-5" />}
-              label={ar ? 'الحملات' : 'Campaigns'}
-              value={campaignCount}
-              helper={ar ? `${draftCount} مسودة تحتاج مراجعة` : `${draftCount} drafts need review`}
-              accent="#5E63FF"
-            />
-            <MetricCard
-              icon={<FileText className="h-5 w-5" />}
-              label={ar ? 'سجلات المحتوى' : 'Content records'}
-              value={contentCount}
-              helper={ar ? `${publishedCount} سجل نشر` : `${publishedCount} publish records`}
-              accent="#2563EB"
-            />
-            <MetricCard
-              icon={<Zap className="h-5 w-5" />}
-              label={ar ? 'النشاطات المسجلة' : 'Recorded activities'}
-              value={alerts.length}
-              helper={ar ? 'من سجل النشاط الحقيقي' : 'From the activity ledger'}
-              accent="#F59E0B"
-            />
-          </div>
 
           <SoftCard className="hidden">
             <Link

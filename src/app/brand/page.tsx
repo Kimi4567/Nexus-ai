@@ -2,7 +2,6 @@
 
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
-import StrategySpineCard from '@/components/StrategySpineCard'
 import { BrainTimeline } from '@/components/brain/BrainTimeline'
 import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
@@ -24,8 +23,8 @@ import { commitTag } from '@/lib/tagInput'
 import {
   Loader2, Brain, Check, ChevronDown, Save,
   Target, Mic, Package, Users, Globe, BarChart2, AlertTriangle,
-  CheckCircle2, ArrowLeft, ArrowRight, Zap, Sparkles, Wand2, X,
-  Upload, ImageIcon, Link2, FileText, ScanSearch, ChevronRight, ShieldCheck, Heart
+  CheckCircle2, ArrowLeft, ArrowRight, Sparkles, Wand2, X,
+  Upload, ImageIcon, Link2, ScanSearch, ChevronRight
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1050,7 +1049,7 @@ function BrandBrainInner() {
     }
   }
 
-  const { score, missing } = getBrandCompleteness(form, locale)
+  const { score } = getBrandCompleteness(form, locale)
   const coreBrandReady = getBrandBrainReadiness(form).ready
   // PR-J — separated, honest indicators (same source the campaign Strategy panel uses).
   const brandIndicators = getBrandIndicators(form, {
@@ -1072,7 +1071,6 @@ function BrandBrainInner() {
     if (step === 'platforms') return Array.isArray(form.topPlatforms) && form.topPlatforms.length > 0 ? 0 : 1
     return 0
   })()
-  const scoreColor     = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#64748B'
   const hasExistingBrandMemory = Boolean(
     form.brandName?.trim() ||
     form.industry?.trim() ||
@@ -1149,16 +1147,6 @@ function BrandBrainInner() {
             secondaryLabel={locale === 'ar' ? 'الحملات' : 'Campaigns'}
           />
 
-          <StrategySpineCard
-            current="brand"
-            nextHref="/strategy"
-            nextLabel={locale === 'ar' ? 'الانتقال للاستراتيجية' : 'Continue to strategy'}
-            title={locale === 'ar' ? 'الخطوة ١: ثبّت أساس العلامة' : 'Step 1: Confirm the brand foundation'}
-            body={locale === 'ar'
-              ? 'الاستراتيجية والمحتوى والإبداع سيعتمدون فقط على المعلومات التي تراجعها وتحفظها هنا.'
-              : 'Strategy, content, and creative work use only the information you review and save here.'}
-          />
-
           {/* ── Marketing Brief Focus Banner ───────────────────── */}
           {fromBrief && !briefBannerDismissed && (
             <div className="rounded-2xl overflow-hidden"
@@ -1226,6 +1214,16 @@ function BrandBrainInner() {
                         ? 'راجع التفاصيل مرة واحدة، ثم استخدمها كأساس ثابت لكل قرار تسويقي.'
                         : 'Review the details once, then use them as the stable foundation for every marketing decision.'}
                     </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${brandIndicators.organicReadiness.ready ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                        {locale === 'ar' ? 'العضوي: ' : 'Organic: '}
+                        {brandIndicators.organicReadiness.ready ? (locale === 'ar' ? 'جاهز' : 'Ready') : (locale === 'ar' ? 'يحتاج بيانات' : 'Needs data')}
+                      </span>
+                      <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${brandIndicators.paidReadiness.ready ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                        {locale === 'ar' ? 'المدفوع: ' : 'Paid: '}
+                        {brandIndicators.paidReadiness.ready ? (locale === 'ar' ? 'جاهز للمراجعة' : 'Review ready') : (locale === 'ar' ? 'يحتاج متطلبات' : 'Needs prerequisites')}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -1247,70 +1245,6 @@ function BrandBrainInner() {
                   </button>
                 </div>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-                {[
-                  {
-                    label: locale === 'ar' ? 'درجة قوة العلامة' : 'Brand strength',
-                    value: `${score}`,
-                    helper: score >= 80 ? (locale === 'ar' ? 'ممتاز' : 'Excellent') : score >= 50 ? (locale === 'ar' ? 'جيد ويتطور' : 'Good, still building') : (locale === 'ar' ? 'قيد البناء' : 'Building'),
-                    color: '#5E5CE6',
-                    icon: Heart,
-                  },
-                  {
-                    label: locale === 'ar' ? 'اكتمال الملف' : 'Profile completeness',
-                    value: `${brandIndicators.brandCompleteness.score}%`,
-                    helper: brandIndicators.brandCompleteness.score >= 80 ? (locale === 'ar' ? 'الأساس محفوظ بوضوح' : 'Core profile is clear') : (locale === 'ar' ? 'يحتاج حقولاً أساسية' : 'Needs core fields'),
-                    color: '#10B981',
-                    icon: BarChart2,
-                  },
-                  {
-                    label: locale === 'ar' ? 'جاهزية العضوي' : 'Organic readiness',
-                    value: brandIndicators.organicReadiness.ready ? (locale === 'ar' ? 'جاهز' : 'Ready') : (locale === 'ar' ? 'ناقص' : 'Needs data'),
-                    helper: brandIndicators.organicReadiness.ready ? (locale === 'ar' ? 'مناسب لموجز أولي' : 'Ready for an initial brief') : (locale === 'ar' ? 'أكمل الحقول الأساسية' : 'Complete core fields'),
-                    color: brandIndicators.organicReadiness.ready ? '#10B981' : '#F59E0B',
-                    icon: Sparkles,
-                  },
-                  {
-                    label: locale === 'ar' ? 'جاهزية المدفوع' : 'Paid readiness',
-                    value: brandIndicators.paidReadiness.ready ? (locale === 'ar' ? 'للمراجعة' : 'Review ready') : (locale === 'ar' ? 'يحتاج متطلبات' : 'Needs inputs'),
-                    helper: locale === 'ar' ? 'لا إطلاق ولا إنفاق تلقائي' : 'No automatic launch or spend',
-                    color: '#F59E0B',
-                    icon: ShieldCheck,
-                  },
-                ].map((metric) => {
-                  const Icon = metric.icon
-                  return (
-                    <div key={metric.label} className="rounded-2xl px-4 py-3" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 10px 32px rgba(15,23,42,0.04)' }}>
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-bold text-slate-500">{metric.label}</p>
-                          <p className="mt-1 text-2xl font-black text-slate-950 tabular-nums">{metric.value}</p>
-                          <p className="mt-1 text-[12px] text-slate-500 truncate">{metric.helper}</p>
-                        </div>
-                        <div className="h-11 w-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: `${metric.color}12`, color: metric.color, border: `1px solid ${metric.color}22` }}>
-                          <Icon size={18} />
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* PR-N1 — compact "Why this?" disclosure for the maturity stage. Collapsed
-                  by default (no clutter); explains 45-vs-100% so it never reads as a
-                  contradiction. Display/copy only — no math. */}
-              <details className="group">
-                <summary className="cursor-pointer select-none list-none inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-700">
-                  <span>{locale === 'ar' ? 'لماذا النضج «مبكر» مع اكتمال 100%؟' : 'Why is maturity “Early” when completeness is 100%?'}</span>
-                  <ChevronDown size={12} className="transition-transform group-open:rotate-180" />
-                </summary>
-                <p className="mt-2 text-[12px] text-slate-500 leading-relaxed" style={{ maxWidth: '72ch' }}>
-                  {locale === 'ar'
-                    ? 'النضج يقيس العمق طويل المدى — إعدادك المحفوظ + إشارات Brand Brain بمرور الوقت. لذلك قد يكون اكتمال إعداد علامتك 100% بينما يبقى النضج «مبكراً»، لأن الذاكرة تنمو من إشارات الحملات والنشر والنتائج الحقيقية. تعلّم الأداء يبدأ فقط بعد توفر تحليلات حقيقية. كما يمكن أن تكون استراتيجيتك العضوية «جاهزة» بينما ذاكرتك طويلة المدى لا تزال تتكوّن. النضج ليس اكتمال الإعداد وليس جاهزية المحتوى العضوي.'
-                    : 'Maturity measures long-term depth — your saved setup plus Brand Brain signals over time. So your brand setup can be 100% complete while maturity stays “Early,” because memory grows from campaign, publishing, and real-results signals. Performance learning starts only after real analytics are available. Likewise your organic strategy can be ready for an initial brief while long-term memory is still building. Maturity is not setup completeness and not organic readiness.'}
-                </p>
-              </details>
 
               {generationSafetyLabels.length > 0 && (
                 <div
@@ -3028,8 +2962,8 @@ function BrandBrainInner() {
               without the decoration. order:60 keeps it last, below the enrichment group. */}
           <p style={{ order: 60 }} className="text-center text-[11px] text-slate-400 pt-1 pb-2">
             {locale === 'ar'
-              ? 'توجّه Brand Brain الاستراتيجية والمحتوى والاتجاه الإبداعي. إشارات المراجعة محفوظة، وتعلّم الأداء يحتاج تحليلات حقيقية.'
-              : 'Your Brand Brain guides strategy, content, and creative direction. Review signals are saved; performance learning needs real analytics.'}
+              ? 'توجّه Brand Brain الاستراتيجية والمحتوى والاتجاه الإبداعي، وتحتفظ بإشارات Brand Brain بمرور الوقت. إشارات المراجعة محفوظة، وتعلّم الأداء يحتاج تحليلات حقيقية. يبدأ تعلّم الأداء فقط بعد توفر تحليلات حقيقية.'
+              : 'Your Brand Brain guides strategy, content, and creative direction, and keeps Brand Brain signals over time. Review signals are saved; performance learning needs real analytics. Performance learning starts only after real analytics are available.'}
           </p>
 
         </div>

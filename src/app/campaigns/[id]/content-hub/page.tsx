@@ -38,7 +38,6 @@ import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { derivePostCreativeRequirement } from '@/lib/creativeRequirements'
 import { getDefaultTemplateForPlatform } from '@/lib/creativeTemplates'
 import AppShell from '@/components/AppShell'
-import StrategySpineCard from '@/components/StrategySpineCard'
 import { PostPlatformPublisher } from '@/components/publishing/PostPlatformPublisher'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -1658,19 +1657,6 @@ export default function ContentHubPage() {
             </div>
           </section>
         )}
-
-        <StrategySpineCard
-          current="content"
-          nextHref="/studio"
-          nextLabel={isAr ? 'فتح الاستوديو' : 'Open Studio'}
-          title={isAr ? 'الخطوة ٣: راجع المنشورات والوسائط' : 'Step 3: Review posts and media'}
-          body={
-            isAr
-              ? 'راجع النص والمنصة والوسيط لكل منشور، ثم اعتمد المسودات. لن يتم النشر من دون خطوة تأكيد مستقلة.'
-              : 'Review the copy, platform, and media for each post, then approve the drafts. Publishing always requires a separate confirmation.'
-          }
-          className="mb-5"
-        />
 
         <section className="hidden">
           <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">

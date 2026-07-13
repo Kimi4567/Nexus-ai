@@ -2,7 +2,6 @@
 
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
-import StrategySpineCard from '@/components/StrategySpineCard'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
@@ -16,9 +15,7 @@ import {
   ArrowUpRight,
   BadgeCheck,
   Download,
-  Filter,
   FolderKanban,
-  Grid2X2,
   Info,
   Loader2,
   MoreHorizontal,
@@ -465,18 +462,6 @@ export default function CampaignsPage() {
             <MetricCard title={copy('المؤرشفة', 'Archived')} value={String(summary.archived)} helper={copy('مخفية من التشغيل اليومي', 'Hidden from daily operation')} icon={<Archive size={18} />} />
             <MetricCard title="Brand Brain" value={summary.total ? copy('سياق متاح', 'Context available') : copy('ينتظر', 'Waiting')} helper={copy('يُراجع الارتباط الفعلي داخل كل حملة، وليس من رقم أداء افتراضي.', 'Actual linkage is reviewed per campaign, not inferred from a performance score.')} icon={<Sparkles size={18} />} />
           </div>
-
-          <StrategySpineCard
-            current="strategy"
-            nextHref={latestCampaignStrategyHref}
-            nextLabel={copy('فتح المسار الاستراتيجي التالي', 'Open next strategy path')}
-            title={copy('الحملات هي طبقة قيادة الاستراتيجية', 'Campaigns are the strategy command layer')}
-            body={copy(
-              'هذه الصفحة تختار أي حملة نراجعها وتوضح الحالة والقرار التالي. الإنتاج التفصيلي، الوسائط، والنصوص النهائية تبقى داخل Content Hub؛ والنشر أو الإعلانات لا تبدأ إلا بعد جاهزية وحسابات وموافقة صريحة.',
-              'This page chooses which campaign to review and shows state and next decision. Detailed production, media, and final post copy remain in Content Hub; publishing or ads start only after readiness, connected accounts, and explicit approval.',
-            )}
-            className="mb-5"
-          />
 
           <section className="hidden">
             {[

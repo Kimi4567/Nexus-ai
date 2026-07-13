@@ -2,7 +2,6 @@
 
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
-import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { useBrandBrain } from '@/hooks/useBrandBrain'
@@ -170,23 +169,14 @@ export default function StudioPage() {
         <div className="nx-os-container">
           <LuxuryWorkspaceHeader
             pageTitle={copy('استوديو الإبداع', 'Creative Studio')}
-            pageSubtitle={copy('راجع الاتجاه البصري وأصول العلامة قبل إرفاق الوسائط بالمنشورات.', 'Review visual direction and brand assets before attaching media to posts.')}
+            pageSubtitle={copy(
+              'راجع الاتجاه البصري وأصول العلامة قبل إرفاق الوسائط بالمنشورات. أكّد الاتجاه الإبداعي هنا؛ ويظل التوليد داخل مركز المحتوى.',
+              'Review visual direction and brand assets before attaching media to posts. Confirm the creative direction here; generation remains in Content Hub.',
+            )}
             primaryHref="/content-hub"
             primaryLabel={copy('مراجعة المحتوى', 'Review content')}
             secondaryHref="/media"
             secondaryLabel={copy('مكتبة الوسائط', 'Media library')}
-          />
-
-          <StrategySpineCard
-            current="creative"
-            nextHref="/publish"
-            nextLabel={copy('الانتقال إلى النشر', 'Continue to publishing')}
-            title={copy('الخطوة 4: تأكيد الاتجاه الإبداعي', 'Step 4: Confirm the creative direction')}
-            body={copy(
-              'استخدم سياق الحملة وأصول Brand Brain لمراجعة شكل المحتوى قبل النشر.',
-              'Use campaign context and Brand Brain assets to review how content should look before publishing.',
-            )}
-            className="mb-5"
           />
 
           <div className="grid grid-cols-12 items-start gap-5">

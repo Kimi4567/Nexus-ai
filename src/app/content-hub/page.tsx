@@ -2,24 +2,14 @@
 
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
-import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
-import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import { useI18n } from '@/lib/i18n-context'
 import {
   ArrowUpRight,
-  BarChart3,
   CheckCircle2,
-  ChevronDown,
-  Image as ImageIcon,
   LayoutGrid,
   Loader2,
-  Pencil,
-  Plus,
-  Send,
   Sparkles,
-  Users,
-  Video,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -56,15 +46,6 @@ interface SocialPostRecord {
   platformUrl?: string | null
 }
 
-interface MediaRecord {
-  id: string
-  fileName: string
-  type: string
-  mimeType?: string | null
-  url: string
-  createdAt?: string
-}
-
 interface CampaignsResponse {
   campaigns?: CampaignRecord[]
 }
@@ -73,19 +54,9 @@ interface ContentPlanResponse {
   posts?: Omit<SocialPostRecord, 'campaignId' | 'campaignName'>[]
 }
 
-interface MediaResponse {
-  media?: MediaRecord[]
-}
-
-type Tone = 'blue' | 'violet' | 'amber' | 'green' | 'slate' | 'rose'
-
-const toneClasses: Record<Tone, string> = {
-  blue: 'bg-blue-50 text-blue-600',
+const toneClasses = {
   violet: 'bg-[#EEF2FF] text-[#5E63FF]',
   amber: 'bg-amber-50 text-amber-600',
-  green: 'bg-emerald-50 text-emerald-600',
-  slate: 'bg-slate-100 text-slate-500',
-  rose: 'bg-rose-50 text-rose-600',
 }
 
 const platformColors: Record<string, string> = {
@@ -117,18 +88,6 @@ function SoftPanel({
     >
       {children}
     </section>
-  )
-}
-
-function MiniIcon({ children, tone = 'violet' }: { children: React.ReactNode; tone?: Tone }) {
-  return <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${toneClasses[tone]}`}>{children}</div>
-}
-
-function ProgressLine({ value, color = '#5E63FF' }: { value: number; color?: string }) {
-  return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-      <div className="h-full rounded-full" style={{ width: `${Math.max(4, Math.min(100, value))}%`, background: color }} />
-    </div>
   )
 }
 
@@ -171,7 +130,6 @@ export default function ContentHubPage() {
 
   const [campaigns, setCampaigns] = useState<CampaignRecord[]>([])
   const [posts, setPosts] = useState<SocialPostRecord[]>([])
-  const [media, setMedia] = useState<MediaRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeFormat, setActiveFormat] = useState('all')
@@ -184,23 +142,15 @@ export default function ContentHubPage() {
     setError(null)
 
     try {
-      const [campaignRes, mediaRes] = await Promise.all([
-        fetch('/api/campaigns?limit=20&sort=updatedAt', { headers: { Authorization: token } }),
-        fetch('/api/media?limit=8', { headers: { Authorization: token } }),
-      ])
+      const campaignRes = await fetch('/api/campaigns?limit=20&sort=updatedAt', {
+        headers: { Authorization: token },
+      })
 
       if (!campaignRes.ok) throw new Error(isAr ? 'تعذر تحميل الحملات' : 'Failed to load campaigns')
 
       const campaignData = (await campaignRes.json()) as CampaignsResponse
       const campaignList = campaignData.campaigns ?? []
       setCampaigns(campaignList)
-
-      if (mediaRes.ok) {
-        const mediaData = (await mediaRes.json()) as MediaResponse
-        setMedia(mediaData.media ?? [])
-      } else {
-        setMedia([])
-      }
 
       const planResults = await Promise.allSettled(
         campaignList.slice(0, 12).map(async campaign => {
@@ -274,12 +224,9 @@ export default function ContentHubPage() {
   }, [activeFormat, posts])
 
   const latestCampaign = campaigns[0]
-  const latestCampaignStrategyHref = latestCampaign ? `/campaigns/${latestCampaign.id}?tab=strategy` : '/strategy'
   const latestCampaignContentHref = latestCampaign ? `/campaigns/${latestCampaign.id}/content-hub` : '/content-hub'
-  const latestCampaignPublishHref = latestCampaign ? `/campaigns/${latestCampaign.id}?tab=publish` : '/publish'
   const samplePost = filteredPosts.find(post => post.imageUrl) ?? filteredPosts[0] ?? posts.find(post => post.imageUrl) ?? posts[0]
   const recentPosts = filteredPosts.slice(0, 5)
-  const visualPosts = filteredPosts.filter(post => post.imageUrl).slice(0, 4)
   const sampleMediaState = (() => {
     if (!samplePost?.imageUrl) {
       return {
@@ -319,7 +266,6 @@ export default function ContentHubPage() {
     return Array.from(map.values()).slice(0, 5)
   }, [posts])
 
-  const campaignSummary = campaigns[0] ? getCampaignPlatformSummary(campaigns[0].platforms ?? [], locale) : null
   const formatChips = [
     { key: 'all', label: isAr ? 'الكل' : 'All' },
     { key: 'posts', label: isAr ? 'منشورات ثابتة' : 'Static posts' },
@@ -358,55 +304,23 @@ export default function ContentHubPage() {
             </SoftPanel>
           )}
 
-          <StrategySpineCard
-            current="content"
-            nextHref={latestCampaignContentHref}
-            nextLabel={isAr ? 'افتح إنتاج الحملة الأحدث' : 'Open latest campaign production'}
-            title={isAr ? 'مركز المحتوى هو طبقة الإنتاج بعد الاستراتيجية' : 'Content Hub is the production layer after strategy'}
-            body={
-              isAr
-                ? 'هنا تتحول الاستراتيجية إلى منشورات ووسائط للمراجعة. هذه الصفحة لا تنشر ولا تتعلم من الأداء ولا تغيّر وعد الحملة؛ Content Hub يحافظ على الحقيقة النهائية للمنشور قبل أي نشر.'
-                : 'Here strategy becomes posts and media for review. This page does not publish, learn from performance, or change the campaign promise; Content Hub preserves final post truth before publishing.'
-            }
-          />
-
-          <SoftPanel className="overflow-hidden p-4" dir="ltr">
-            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <Link href="/campaigns" className="inline-flex items-center gap-2 text-[12px] font-bold text-[#5E63FF]">
-                <ChevronDown className="h-3.5 w-3.5" />
-                {isAr ? 'محفظة الحملات تحدد المسار؛ هنا يتم إنتاج المنشورات' : 'Campaign portfolio chooses the path; this page produces the posts'}
-              </Link>
-              <div className="flex flex-wrap items-center gap-3">
-                <Link href={latestCampaignPublishHref} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-[12px] font-bold text-[#5E63FF]">
-                  <Sparkles className="h-4 w-4" />
-                  {isAr ? 'جاهزية النشر' : 'Publishing readiness'}
-                </Link>
-                <Link href={latestCampaignStrategyHref} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#101A4D] px-4 text-[12px] font-black text-white shadow-[0_16px_34px_rgba(16,26,77,0.16)]">
-                  <ArrowUpRight className="h-4 w-4" />
-                  {isAr ? 'ابدأ من الاستراتيجية' : 'Start from strategy'}
-                </Link>
-              </div>
+          <div className="nx-os-action-strip" dir={isAr ? 'rtl' : 'ltr'}>
+            <div>
+              <p className="text-[13px] font-black text-[#0B1028]">
+                {isAr ? `${stats.needsReview} منشورات تحتاج قرارك` : `${stats.needsReview} posts need your decision`}
+              </p>
+              <p className="mt-1 text-[11px] font-bold text-slate-500">
+                {isAr ? `${stats.total} إجمالي · ${stats.approved} معتمد · ${stats.scheduled} مجدول` : `${stats.total} total · ${stats.approved} approved · ${stats.scheduled} scheduled`}
+              </p>
+              <p className="mt-1 text-[10px] font-semibold text-slate-400">
+                {isAr ? 'تُراجع CTA داخل كل منشور؛ لا يفترض NEXUS دعوة عامة من دون دليل.' : 'CTA is reviewed per post; NEXUS does not assume a generic CTA here.'}
+              </p>
             </div>
-
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-6">
-              {[
-                { icon: <Sparkles className="h-4 w-4" />, title: isAr ? 'مسارات حملات' : 'Campaign workstreams', value: campaigns.length, tone: 'blue' as Tone },
-                { icon: <Pencil className="h-4 w-4" />, title: isAr ? 'مسودات منشورات' : 'Post drafts', value: stats.drafts, tone: 'violet' as Tone },
-                { icon: <CheckCircle2 className="h-4 w-4" />, title: isAr ? 'موافق عليه' : 'Approved', value: stats.approved, tone: 'green' as Tone },
-                { icon: <Send className="h-4 w-4" />, title: isAr ? 'مجدول' : 'Scheduled', value: stats.scheduled, tone: 'green' as Tone },
-                { icon: <BarChart3 className="h-4 w-4" />, title: isAr ? 'منشور' : 'Published', value: stats.published, tone: 'blue' as Tone },
-                { icon: <ImageIcon className="h-4 w-4" />, title: isAr ? 'وسائط جاهزة' : 'Media ready', value: stats.mediaReady, tone: 'blue' as Tone },
-              ].map(stage => (
-                <div key={stage.title} className="flex min-h-[72px] min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3">
-                  <MiniIcon tone={stage.tone}>{stage.icon}</MiniIcon>
-                  <div className="min-w-0 text-right" dir={isAr ? 'rtl' : 'ltr'}>
-                    <p className="line-clamp-2 text-[11px] font-bold leading-4 text-slate-600">{stage.title}</p>
-                    <p className="mt-1 text-[19px] font-black text-[#0B1028]" dir="ltr">{stage.value}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </SoftPanel>
+            <Link href={latestCampaignContentHref} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#101A4D] px-4 text-[12px] font-black text-white">
+              <ArrowUpRight className="h-4 w-4" />
+              {isAr ? 'فتح إنتاج الحملة' : 'Open campaign production'}
+            </Link>
+          </div>
 
           <SoftPanel className="flex flex-wrap items-center justify-end gap-2 p-3" dir="rtl">
             {formatChips.map(chip => (
@@ -424,7 +338,7 @@ export default function ContentHubPage() {
             ))}
           </SoftPanel>
 
-          <div dir="ltr" className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
+          <div dir="ltr">
             <div className="flex min-w-0 flex-col gap-4">
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.95fr_1.25fr_1fr]">
                 <SoftPanel className="p-4" dir={isAr ? 'rtl' : 'ltr'}>
@@ -515,7 +429,7 @@ export default function ContentHubPage() {
                 </SoftPanel>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.85fr_0.65fr_0.9fr_1.2fr]">
+              {/* Duplicate copy, CTA, studio, and asset modules were removed from the rendered overview.
                 <SoftPanel className="p-4" dir={isAr ? 'rtl' : 'ltr'}>
                   <div className="mb-3 flex items-center justify-between">
                     <Link href={samplePost ? `/campaigns/${samplePost.campaignId}/content-hub` : latestCampaignContentHref} className="text-[12px] font-bold text-[#5E63FF]">{isAr ? 'عرض المنشورات' : 'View posts'}</Link>
@@ -604,10 +518,10 @@ export default function ContentHubPage() {
                     })}
                   </div>
                 </SoftPanel>
-              </div>
+              */}
             </div>
 
-            <div className="grid grid-cols-1 gap-4">
+            {/* Duplicate summary, progress, and operating-boundary modules were removed from the rendered overview.
               <SoftPanel className="p-4" dir={isAr ? 'rtl' : 'ltr'}>
                 <h2 className="text-[15px] font-black text-[#0B1028]">{isAr ? 'ملخص المحتوى' : 'Content summary'}</h2>
                 <p className="mt-1 text-[11px] font-bold text-slate-400">{isAr ? 'لقطة مساحة العمل الحالية' : 'Current workspace snapshot'}</p>
@@ -672,7 +586,7 @@ export default function ContentHubPage() {
                   ))}
                 </div>
               </SoftPanel>
-            </div>
+            */}
           </div>
 
         </div>

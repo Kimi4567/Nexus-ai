@@ -33,7 +33,6 @@ import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuar
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
-import StrategySpineCard from '@/components/StrategySpineCard'
 import RunFullStrategyModal from '@/components/RunFullStrategyModal'
 import {
   AlertTriangle, ArrowRight, BarChart3, Brain, CalendarDays,
@@ -224,7 +223,6 @@ export default function StrategyPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [brandProfile, setBrandProfile] = useState<any>(null)
   const [campaigns, setCampaigns] = useState<CampaignLite[]>([])
-  const [total, setTotal] = useState(0)
   const [runStrategyOpen, setRunStrategyOpen] = useState(false)
 
   const load = useCallback(async () => {
@@ -237,7 +235,6 @@ export default function StrategyPage() {
       if (cRes.ok) {
         const d = await cRes.json()
         setCampaigns(Array.isArray(d.campaigns) ? d.campaigns : [])
-        setTotal(d.counts?.total ?? (Array.isArray(d.campaigns) ? d.campaigns.length : 0))
       }
       if (bRes.ok) {
         const d = await bRes.json()
@@ -430,14 +427,6 @@ export default function StrategyPage() {
     { label: ar ? 'أتمتة النشر' : 'Publishing automation', value: ar ? 'غير مفعّلة' : 'Not enabled' },
   ]
 
-  const strategyStatusText = !hasStrategy
-    ? (ar ? 'لم يتم إنشاء استراتيجية بعد' : 'Strategy not created yet')
-    : strategyBrandMismatch
-      ? (ar ? 'مسودة قديمة لا تطابق Brand Brain الحالي' : 'Existing draft may not match current Brand Brain')
-    : recent?.status === 'DRAFT'
-      ? (ar ? 'مسودة استراتيجية جاهزة للمراجعة' : 'Draft strategy ready for review')
-      : (ar ? `استراتيجية مرتبطة بحملة: ${recent?.name}` : `Strategy linked to campaign: ${recent?.name}`)
-
   const operatingModelSteps = [
     {
       label: ar ? 'Brand Brain' : 'Brand Brain',
@@ -619,17 +608,6 @@ export default function StrategyPage() {
     { label: ar ? 'الأداء' : 'Performance', number: '06', icon: BarChart3, status: ar ? 'بعد البيانات' : 'After data', href: recentPerformanceHref },
   ]
 
-  const indexTabs = [
-    { label: ar ? '01 التنفيذي' : '01 Executive', href: '#strategy-executive' },
-    { label: ar ? '02 التشخيص' : '02 Diagnosis', href: '#strategy-diagnosis' },
-    { label: ar ? '03 الهدف' : '03 Goal', href: '#strategy-goal' },
-    { label: ar ? '04 الجمهور' : '04 Audience', href: '#strategy-audience' },
-    { label: ar ? '05 المحتوى' : '05 Content', href: '#strategy-content' },
-    { label: ar ? '06 التنفيذ' : '06 Execution', href: '#strategy-execution' },
-    { label: ar ? '07 القياس' : '07 Measurement', href: '#strategy-measurement' },
-    { label: ar ? '08 المخاطر' : '08 Risks', href: '#strategy-risks' },
-  ]
-
   const rawExecutionStages = [
     ...asArray(strat?.funnelStages),
     ...asArray(ai?.funnelStages),
@@ -669,11 +647,13 @@ export default function StrategyPage() {
     { number: '03', title: ar ? 'فتح استوديو الإبداع' : 'Open Creative Studio', state: contentDirectionReady ? (ar ? 'بعد بريف المحتوى' : 'After content brief') : (ar ? 'مقفل' : 'Locked'), detail: ar ? 'أنتج الأصول البصرية بعد بريف محتوى واضح.' : 'Produce assets after a clear content brief.' },
     { number: '04', title: ar ? 'التحقق من جاهزية النشر' : 'Check publish readiness', state: ar ? 'في الانتظار' : 'Pending', detail: ar ? 'حسابات، صلاحيات، وموافقة صريحة.' : 'Accounts, permissions, and explicit approval.' },
   ]
-  const strategyRecordLabel = hasStrategy && !strategyBrandMismatch
-    ? (ar ? 'سجل استراتيجية محفوظ' : 'Strategy record saved')
+  const strategyStatusText = !hasStrategy
+    ? (ar ? 'لم يتم إنشاء استراتيجية بعد' : 'Strategy not created yet')
     : strategyBrandMismatch
-      ? (ar ? 'تحتاج تحديثًا' : 'Needs update')
-      : (ar ? 'لم تُنشأ بعد' : 'Not created yet')
+      ? (ar ? 'المسودة الحالية قد لا تطابق Brand Brain الحالي' : 'Existing draft may not match current Brand Brain')
+      : hasDraftStrategy
+        ? (ar ? 'مسودة استراتيجية جاهزة للمراجعة' : 'Draft strategy ready for review')
+        : (ar ? `استراتيجية مرتبطة بحملة: ${recent?.name}` : `Strategy linked to campaign: ${recent?.name}`)
   const strategySummaryLabel = hasStrategy && !strategyBrandMismatch
     ? (ar ? 'محفوظة' : 'Saved')
     : strategyBrandMismatch
@@ -737,17 +717,6 @@ export default function StrategyPage() {
             secondaryLabel={ar ? 'Brand Brain' : 'Brand Brain'}
           />
 
-          <StrategySpineCard
-            current="strategy"
-            nextHref={recentContentHubHref}
-            nextLabel={ar ? 'الانتقال إلى المحتوى' : 'Continue to content'}
-            title={ar ? 'الخطوة ٢: راجع الاتجاه قبل الإنتاج' : 'Step 2: Review direction before production'}
-            body={ar
-              ? 'تأكد من الهدف والجمهور والتمركز والرسائل. بعد اعتماد الاتجاه يحول Content Hub الاستراتيجية إلى مسودات قابلة للمراجعة.'
-              : 'Confirm the goal, audience, positioning, and messages. Once direction is approved, Content Hub turns the strategy into reviewable drafts.'}
-            className="mb-4"
-          />
-
           <div className="hidden">
             <Link href="/campaigns" className="hover:text-[#5E63FF]">{ar ? 'الحملات' : 'Campaigns'}</Link>
             <span>›</span>
@@ -785,7 +754,7 @@ export default function StrategyPage() {
 	                      {campaignTitle}
 	                    </h1>
                     <span className={`rounded-full px-3 py-1 text-[12px] font-black ${hasStrategy && !strategyBrandMismatch ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600'}`}>
-	                      {strategyRecordLabel}
+	                      {strategyStatusText}
                     </span>
                   </div>
                   <p className="mt-1 max-w-2xl text-[13px] font-semibold leading-6 text-slate-500">{campaignGoal}</p>
@@ -822,7 +791,7 @@ export default function StrategyPage() {
             </div>
           </SoftCard>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]" dir="ltr">
+          <div dir="ltr">
             <div className="space-y-4" dir={ar ? 'rtl' : 'ltr'}>
               <SoftCard id="strategy-executive" className="scroll-mt-6 overflow-hidden border-[#C7D2FE] bg-[linear-gradient(135deg,#FFFFFF,#F6F5FF)] p-4" dir="ltr">
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_310px] lg:items-center">
@@ -921,22 +890,6 @@ export default function StrategyPage() {
               </div>
 
               <SoftCard className="overflow-hidden">
-                <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/80 p-3">
-                  <span className="me-2 flex items-center gap-2 rounded-full bg-[#F5F3FF] px-3 py-2 text-[12px] font-black text-[#5E63FF]">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    {ar ? 'فهرس وثيقة الاستراتيجية' : 'Strategy document index'}
-                  </span>
-                  {indexTabs.map((tab, index) => (
-                    <a
-                      key={tab.href}
-                      href={tab.href}
-                      className={`rounded-full border px-4 py-2 text-[12px] font-black ${index === 0 ? 'border-[#5E63FF] bg-[#F7F5FF] text-[#5E63FF]' : 'border-slate-200 bg-white text-slate-500'}`}
-                    >
-                      {tab.label}
-                    </a>
-                  ))}
-                </div>
-
                 <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
                   <div className="space-y-4">
                     <div id="strategy-audience" className="scroll-mt-6">
@@ -1109,7 +1062,7 @@ export default function StrategyPage() {
 
             </div>
 
-            <aside className="flex flex-col gap-4" dir={ar ? 'rtl' : 'ltr'}>
+            <aside className="hidden" dir={ar ? 'rtl' : 'ltr'}>
               <SoftCard className="hidden">
                 <p className="mb-1 text-[11px] font-black text-[#5E63FF]">
                   {ar ? 'الخطوات الاستراتيجية التالية' : 'Next strategic steps'}

@@ -12,7 +12,6 @@ import {
 } from 'lucide-react'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
-import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import type { WorkspaceExecutionTruth } from '@/lib/executionTruth'
@@ -144,16 +143,6 @@ export default function AutomationPage() {
             primaryLabel={copy('مراجعة الموافقات', 'Review approvals')}
             secondaryHref="/connections"
             secondaryLabel={copy('الربط', 'Connections')}
-          />
-
-          <StrategySpineCard
-            nextHref="/approvals"
-            nextLabel={copy('راجع القرارات', 'Review decisions')}
-            title={copy('NEXUS يراقب، وأنت توافق', 'NEXUS monitors; you approve')}
-            body={copy(
-              'يحوّل النظام العوائق الفعلية إلى قرارات واضحة. النشر والإنفاق يظلان بحاجة إلى تأكيد صريح.',
-              'The system turns real blockers into clear decisions. Publishing and spend still require explicit confirmation.',
-            )}
           />
 
           <section className="nx-os-action-strip">

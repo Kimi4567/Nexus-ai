@@ -2,17 +2,14 @@
 
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
-import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import {
   ArrowUpRight,
-  CalendarClock,
   CheckCircle2,
   Clock3,
   Link2,
   Loader2,
-  LockKeyhole,
   Send,
   ShieldCheck,
   Sparkles,
@@ -143,17 +140,6 @@ export default function PublishPage() {
             primaryLabel={copy('راجع الحسابات', 'Review accounts')}
             secondaryHref="/content-hub"
             secondaryLabel={copy('مركز المحتوى', 'Content Hub')}
-          />
-
-          <StrategySpineCard
-            current="publish"
-            nextHref="/connections"
-            nextLabel={copy('ربط الحسابات', 'Connect accounts')}
-            title={copy('الخطوة ٥: تحقق ثم انشر', 'Step 5: Verify, then publish')}
-            body={copy(
-              'لن يتم نشر أي محتوى قبل اكتمال الحسابات والوسائط والموافقة النهائية. ستشاهد سبب المنع بوضوح إذا كان شيء ناقصًا.',
-              'Nothing is published until accounts, media, and final approval are ready. If something is missing, the blocker is shown clearly.',
-            )}
           />
 
           <header className="hidden">
