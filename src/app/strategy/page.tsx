@@ -597,7 +597,7 @@ export default function StrategyPage() {
   const workflowSteps = [
     { label: 'Brand Brain', number: '01', icon: Brain, status: ar ? 'تم' : 'Done', href: '/brand' },
     { label: ar ? 'الاستراتيجية' : 'Strategy', number: '02', icon: Target, status: ar ? 'الحالي' : 'Current', href: '/strategy' },
-    { label: ar ? 'المحتوى' : 'Content', number: '03', icon: FileText, status: contentDirectionReady ? (ar ? 'جاهز للمراجعة' : 'Ready for review') : (ar ? 'يحتاج مدخلات' : 'Needs inputs'), href: recentContentHubHref },
+    { label: ar ? 'المحتوى' : 'Content', number: '03', icon: FileText, status: contentDirectionReady ? (ar ? 'جاهز للإنشاء' : 'Ready to create') : (ar ? 'يحتاج مدخلات' : 'Needs inputs'), href: recentContentHubHref },
     { label: ar ? 'الإبداع' : 'Creative', number: '04', icon: Lightbulb, status: contentDirectionReady ? (ar ? 'بعد بريف المحتوى' : 'After content brief') : (ar ? 'مقفل' : 'Locked'), href: recent?.id ? `/campaigns/${recent.id}?tab=creative` : '/studio' },
     { label: ar ? 'النشر' : 'Publish', number: '05', icon: Send, status: ar ? 'مقفل' : 'Locked', href: recentPublishHref },
     { label: ar ? 'الأداء' : 'Performance', number: '06', icon: BarChart3, status: ar ? 'بعد البيانات' : 'After data', href: recentPerformanceHref },
@@ -649,7 +649,7 @@ export default function StrategyPage() {
     !hasStrategy
       ? { number: '01', title: ar ? 'إنشاء الاستراتيجية' : 'Create strategy', state: ar ? 'الخطوة الحالية' : 'Current step', detail: ar ? 'أنشئ أول استراتيجية من Brand Brain بعد مراجعة النطاق والتكلفة.' : 'Create the first strategy from Brand Brain after reviewing scope and cost.' }
       : { number: '01', title: ar ? 'مراجعة الاستراتيجية' : 'Review strategy', state: ar ? 'الحالي' : 'Current', detail: ar ? 'راجع المنطق قبل الانتقال إلى الإنتاج.' : 'Review logic before moving to production.' },
-    { number: '02', title: ar ? 'تحويل إلى مركز المحتوى' : 'Move to Content Hub', state: contentDirectionReady ? (ar ? 'جاهز للمراجعة' : 'Ready for review') : (ar ? 'يحتاج مدخلات' : 'Needs inputs'), detail: contentDirectionReady ? (ar ? 'حوّل الركائز والرسائل إلى مسودات للمراجعة.' : 'Turn pillars and messages into review drafts.') : (ar ? 'أكمل الجمهور والرسائل والركائز والقنوات أولاً.' : 'Complete audience, messages, pillars, and channels first.') },
+    { number: '02', title: ar ? 'تحويل إلى مركز المحتوى' : 'Move to Content Hub', state: contentDirectionReady ? (ar ? 'جاهز للإنشاء' : 'Ready to create') : (ar ? 'يحتاج مدخلات' : 'Needs inputs'), detail: contentDirectionReady ? (ar ? 'حوّل الركائز والرسائل إلى مسودات للمراجعة.' : 'Turn pillars and messages into review drafts.') : (ar ? 'أكمل الجمهور والرسائل والركائز والقنوات أولاً.' : 'Complete audience, messages, pillars, and channels first.') },
     { number: '03', title: ar ? 'فتح استوديو الإبداع' : 'Open Creative Studio', state: contentDirectionReady ? (ar ? 'بعد بريف المحتوى' : 'After content brief') : (ar ? 'مقفل' : 'Locked'), detail: ar ? 'أنتج الأصول البصرية بعد بريف محتوى واضح.' : 'Produce assets after a clear content brief.' },
     { number: '04', title: ar ? 'التحقق من جاهزية النشر' : 'Check publish readiness', state: ar ? 'في الانتظار' : 'Pending', detail: ar ? 'حسابات، صلاحيات، وموافقة صريحة.' : 'Accounts, permissions, and explicit approval.' },
   ]
@@ -1146,7 +1146,7 @@ export default function StrategyPage() {
                   <Rocket className="h-4 w-4 text-[#5E63FF]" />
                   {ar ? 'الخطوة التالية الموصى بها' : 'Recommended next step'}
                 </h2>
-                <p className="text-[13px] font-semibold leading-6 text-slate-500">{contentDirectionReady ? (ar ? 'الانتقال إلى Content Hub لمراجعة المسودات.' : 'Move to Content Hub to review the draft content.') : nextSteps[0]}</p>
+                <p className="text-[13px] font-semibold leading-6 text-slate-500">{contentDirectionReady ? (ar ? 'الانتقال إلى Content Hub لإنشاء مسودات قابلة للمراجعة.' : 'Move to Content Hub to create reviewable drafts.') : nextSteps[0]}</p>
                 {contentDirectionReady ? (
                   <Link href={recentContentHubHref} className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#071333] px-4 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,19,51,0.22)]">
                     {ar ? 'الانتقال إلى مركز المحتوى' : 'Go to Content Hub'}

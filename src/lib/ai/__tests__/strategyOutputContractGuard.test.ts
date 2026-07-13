@@ -266,7 +266,8 @@ describe('guardStrategyOutputContract', () => {
     expect(out.kpis).toHaveLength(2)
     expect(JSON.stringify(out.kpis)).toMatch(/تحديد خط أساس/)
     expect(out.funnelStages).toHaveLength(4)
-    expect(JSON.stringify(out.funnelStages)).toMatch(/عرض توضيحي/)
+    expect(JSON.stringify(out.funnelStages)).toMatch(/تعرّف على التفاصيل/)
+    expect(JSON.stringify(out.funnelStages)).not.toMatch(/عرض توضيحي|سير العمل/)
     expect(JSON.stringify(out)).not.toMatch(/Campaign active|published|scheduled|guaranteed|ROI|ROAS/)
 
     const report = validateCampaignStrategyContract(out, { language: 'ar' })
@@ -393,6 +394,15 @@ describe('guardStrategyOutputContract', () => {
     expect(out.keyMessage).toContain('حل عملي')
     expect(out.weeklyExecutionPlan[0].keyMessage).toContain('حل عملي')
     expect(out.weeklyExecutionPlan[0].deliverables.join(' ')).toMatch(/practical solution/i)
+  })
+
+  it('softens broad Arabic ideal-fit claims for non-software brands', () => {
+    const out = guardStrategyOutputContract({
+      positioning: 'عيادة نور دبي للأسنان هي العيادة المثالية للعائلات في دبي.',
+    }, { language: 'ar', strategyType: 'organic' })
+
+    expect(out.positioning).toContain('العيادة المناسبة للعائلات')
+    expect(out.positioning).not.toContain('المثالية')
   })
 
   it('aligns weekly deliverables to the paid exact organic post count', () => {

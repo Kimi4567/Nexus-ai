@@ -125,7 +125,7 @@ function replaceUnsupportedPlatformText(text: string, ctx: NormalizedPlatformCon
 function replaceUnsupportedCtaText(text: string): string {
   return text
     .replace(/\bDownload\s+now\b/gi, 'Request more information')
-    .replace(/\bDownload\s+the\s+demo\b/gi, 'Request a demo')
+    .replace(/\bDownload\s+the\s+demo\b/gi, 'Request more information')
 }
 
 function normalizeArabicFormatText(value: string): string {
@@ -167,6 +167,10 @@ function guardBroadStrategyHypeText(value: string): string {
     .replace(/الحل\s+الأمثل/g, 'حل عملي')
     .replace(/حل\s+مثالي\s+ل/g, 'حل عملي ل')
     .replace(/حل\s+مثالي/g, 'حل عملي')
+    .replace(/المثالية\s+ل/g, 'المناسبة ل')
+    .replace(/المثالي\s+ل/g, 'المناسب ل')
+    .replace(/مثالية\s+ل/g, 'مناسبة ل')
+    .replace(/مثالي\s+ل/g, 'مناسب ل')
 }
 
 function guardText(value: string, ctx: NormalizedPlatformContext, language?: string | null): string {
@@ -319,8 +323,8 @@ function fallbackOperationalText(key: string, language?: string | null): string 
       ar: 'اعتراض المشتري يحتاج تحققًا قبل الإنتاج.',
     },
     proofNeeded: {
-      en: 'Not enough data: collect a real demo detail, screenshot, customer quote, or compliance-safe proof before using stronger claims.',
-      ar: 'لا توجد بيانات كافية: اجمع تفصيل عرض حقيقي، لقطة شاشة، اقتباس عميل، أو إثباتًا آمنًا قبل استخدام ادعاءات أقوى.',
+      en: 'Not enough data: collect a real offer detail, service example, product visual, customer quote, or compliance-safe proof before using stronger claims.',
+      ar: 'لا توجد بيانات كافية: اجمع تفصيلًا حقيقيًا للعرض أو مثال خدمة أو أصل منتج أو اقتباس عميل أو إثباتًا آمنًا قبل استخدام ادعاءات أقوى.',
     },
     responseHandoff: {
       en: 'Confirm the response owner, qualification question, and follow-up message before sending leads to this CTA.',
@@ -331,8 +335,8 @@ function fallbackOperationalText(key: string, language?: string | null): string 
       ar: 'مراجعة وضوح الرسالة، توفر الإثبات، وجودة الطلبات قبل التكرار أو التوسيع.',
     },
     asset: {
-      en: 'Real product/process visual or demo screenshot needed before production.',
-      ar: 'أصل بصري حقيقي للمنتج أو سير العمل، أو لقطة عرض توضيحي قبل الإنتاج.',
+      en: 'A real visual of the offer, service, product, or customer context is needed before production.',
+      ar: 'يلزم أصل بصري حقيقي للعرض أو الخدمة أو المنتج أو سياق العميل قبل الإنتاج.',
     },
     executionNote: {
       en: 'Keep this as a reviewable planning direction; confirm response handoff before production.',
@@ -504,13 +508,13 @@ function defaultOrganicKpis(language?: string | null): JsonObject[] {
   if (isArabicLanguage(language)) {
     return [
       {
-        metric: 'طلبات عروض توضيحية مؤهلة',
+        metric: 'إجراءات تحويل مؤهلة',
         target: 'تحديد خط أساس بعد أول ٣٠ يومًا',
         timeframe: 'أول ٣٠ يومًا',
         isHypothesis: true,
       },
       {
-        metric: 'تفاعل مع محتوى سير العمل',
+        metric: 'تفاعل مع محتوى العرض',
         target: 'تحديد خط أساس بعد مراجعة أول شهر',
         timeframe: 'أول ٣٠ يومًا',
         isHypothesis: true,
@@ -520,13 +524,13 @@ function defaultOrganicKpis(language?: string | null): JsonObject[] {
 
   return [
     {
-      metric: 'Qualified demo requests',
+      metric: 'Qualified conversion actions',
       target: 'Baseline needed after the first 30 days',
       timeframe: 'First 30 days',
       isHypothesis: true,
     },
     {
-      metric: 'Workflow-content engagement',
+      metric: 'Offer-content engagement',
       target: 'Baseline needed after first-month review',
       timeframe: 'First 30 days',
       isHypothesis: true,
@@ -541,44 +545,44 @@ function defaultFunnelStages(ctx: NormalizedPlatformContext, language?: string |
     return [
       {
         stage: 'awareness',
-        userMindset: 'يعرف المشكلة اليومية لكنه لم يربطها بعد بنظام تشغيل واضح.',
-        message: 'حوّل الفوضى التشغيلية إلى سير عمل يمكن مراجعته قبل التنفيذ.',
+        userMindset: 'يعرف الاحتياج العام لكنه لم يحدد بعد معايير الاختيار المناسبة.',
+        message: 'اشرح المشكلة أو الاحتياج بلغة واضحة دون وعود أو نتائج غير مثبتة.',
         contentType: 'منشور تعليمي قصير',
         platform,
-        cta: 'راجع سير العمل',
+        cta: 'تعرّف على التفاصيل',
         successMetric: 'تفاعل نوعي يحتاج إلى خط أساس',
-        nextStep: 'توجيه المهتم إلى مثال عملي أو عرض توضيحي بعد مراجعة الرسالة.',
-        productArea: 'تثقيف وتشخيص المشكلة',
+        nextStep: 'توجيه المهتم إلى شرح واضح للعرض أو الخدمة بعد مراجعة الرسالة.',
+        productArea: 'التوعية بالاحتياج',
       },
       {
         stage: 'consideration',
-        userMindset: 'يقارن بين العمل اليدوي وأداة منظمة لكنه يحتاج إثبات ملاءمة.',
-        message: 'اعرض كيف تصبح المتابعة، المسؤوليات، والردود أوضح بدون ادعاء نتائج مضمونة.',
-        contentType: 'كاروسيل أو فيديو قصير',
+        userMindset: 'يقارن بين البدائل ويحتاج فهم ما يتضمنه العرض وما لا يتضمنه.',
+        message: 'اشرح تفاصيل العرض ومعايير الملاءمة والقيود دون ادعاء تفوق مطلق.',
+        contentType: 'كاروسيل أو منشور مقارنة تعليمية',
         platform,
-        cta: 'اطلب عرضًا توضيحيًا',
-        successMetric: 'طلبات اهتمام مؤهلة تحتاج إلى خط أساس',
-        nextStep: 'تأهيل الطلب بسؤال عن حجم الفريق ومسار المتابعة الحالي.',
-        productArea: 'شرح الحل وتأهيل الطلب',
+        cta: 'راجع ما يتضمنه العرض',
+        successMetric: 'اهتمام مؤهل يحتاج إلى خط أساس',
+        nextStep: 'تأهيل الاستفسار بسؤال واحد مرتبط بالاحتياج الفعلي للعميل.',
+        productArea: 'شرح العرض وتأهيل الاهتمام',
       },
       {
         stage: 'conversion',
-        userMindset: 'يريد معرفة ما سيحدث بعد طلب العرض قبل مشاركة بياناته.',
-        message: 'اجعل الخطوة التالية واضحة: عرض سير عمل، مراجعة الاحتياج، ثم قرار متابعة.',
+        userMindset: 'يريد معرفة الخطوة التالية بوضوح قبل التواصل أو الحجز أو الشراء.',
+        message: 'اجعل إجراء التحويل وما سيحدث بعده واضحين دون خلق التزام أو نتيجة غير مضمونة.',
         contentType: 'منشور CTA واضح',
         platform,
-        cta: 'احجز عرضًا توضيحيًا',
-        successMetric: 'طلبات عروض توضيحية تحتاج إلى خط أساس',
-        nextStep: 'تحديد مسؤول الرد، رسالة التأكيد، وموعد المتابعة قبل توسيع الحملة.',
+        cta: 'استفسر عن الخطوة التالية',
+        successMetric: 'إجراءات تحويل تحتاج إلى خط أساس',
+        nextStep: 'تحديد مسؤول الرد ورسالة التأكيد وخطوة المتابعة قبل توسيع النشاط.',
         productArea: 'تحويل ومتابعة',
       },
       {
         stage: 'followUp',
         userMindset: 'تفاعل سابقًا لكنه يحتاج تذكيرًا عمليًا لا ضغطًا بيعيًا.',
-        message: 'ذكّره بفجوة تشغيلية واحدة وبالخطوة الصغيرة التالية لمراجعتها.',
+        message: 'ذكّره بالاحتياج أو الفائدة العملية وبالخطوة التالية دون ضغط أو وعود.',
         contentType: 'رسالة متابعة أو منشور إعادة تذكير',
         platform,
-        cta: 'راجع نقطة التشغيل هذه',
+        cta: 'تابع المعلومات',
         successMetric: 'استجابات متابعة تحتاج إلى خط أساس',
         nextStep: 'تصنيف الردود حسب الجاهزية ثم تحديد المتابعة اليدوية المناسبة.',
         productArea: 'متابعة ما بعد الاهتمام',
@@ -589,44 +593,44 @@ function defaultFunnelStages(ctx: NormalizedPlatformContext, language?: string |
   return [
     {
       stage: 'awareness',
-      userMindset: 'Aware of the daily operational pain but not yet linking it to a clearer system.',
-      message: 'Turn scattered work into a workflow the team can review before execution.',
+      userMindset: 'Aware of the general need but has not yet defined the right selection criteria.',
+      message: 'Explain the need clearly without unsupported promises or outcomes.',
       contentType: 'Short educational post',
       platform,
-      cta: 'Review the workflow',
+      cta: 'Learn the details',
       successMetric: 'Qualitative engagement needs a baseline',
-      nextStep: 'Send interested users to a practical example or demo after reviewing the message.',
-      productArea: 'Problem education',
+      nextStep: 'Send interested users to a clear explanation of the offer after reviewing the message.',
+      productArea: 'Need education',
     },
     {
       stage: 'consideration',
-      userMindset: 'Comparing manual work against a more organized tool and needs fit proof.',
-      message: 'Show how follow-up, ownership, and responses become clearer without guaranteed-result claims.',
-      contentType: 'Carousel or short video',
+      userMindset: 'Comparing alternatives and needs clarity on what the offer includes and excludes.',
+      message: 'Explain the offer, fit criteria, and constraints without absolute superiority claims.',
+      contentType: 'Educational comparison post',
       platform,
-      cta: 'Request a demo',
+      cta: 'Review what is included',
       successMetric: 'Qualified interest needs a baseline',
-      nextStep: 'Qualify the request with team size and current follow-up workflow questions.',
-      productArea: 'Solution explanation',
+      nextStep: 'Qualify the inquiry with one question tied to the customer need.',
+      productArea: 'Offer explanation',
     },
     {
       stage: 'conversion',
-      userMindset: 'Wants to know what happens after requesting a demo before sharing details.',
-      message: 'Make the next step clear: workflow walkthrough, need review, then a follow-up decision.',
+      userMindset: 'Wants to know the next step before contacting, booking, or buying.',
+      message: 'Make the conversion action and follow-up clear without implying guaranteed outcomes.',
       contentType: 'Clear CTA post',
       platform,
-      cta: 'Book a demo',
-      successMetric: 'Demo requests need a baseline',
-      nextStep: 'Confirm response owner, confirmation message, and follow-up timing before scaling.',
+      cta: 'Ask about the next step',
+      successMetric: 'Conversion actions need a baseline',
+      nextStep: 'Confirm response owner, confirmation message, and follow-up step before scaling.',
       productArea: 'Conversion and handoff',
     },
     {
       stage: 'followUp',
       userMindset: 'Previously engaged and needs a practical reminder rather than sales pressure.',
-      message: 'Remind them of one operational gap and the small next step to review it.',
+      message: 'Remind them of the practical need or benefit and the next step without pressure.',
       contentType: 'Follow-up message or reminder post',
       platform,
-      cta: 'Review this workflow point',
+      cta: 'Continue learning',
       successMetric: 'Follow-up responses need a baseline',
       nextStep: 'Classify responses by readiness and choose the appropriate manual follow-up.',
       productArea: 'Post-interest follow-up',
@@ -809,21 +813,21 @@ function guardAssetRequirements(value: unknown, language?: string | null): unkno
     const ar = isArabicLanguage(language)
     const defaults = ar
       ? {
-          mustHave: ['لقطات شاشة أو مثال عرض توضيحي حقيقي قبل تحويل الاتجاهات إلى مسودات.'],
-          niceToHave: ['مقارنة قبل/بعد آمنة أو مخطط سير عمل قابل للمراجعة.'],
+          mustHave: ['أصل بصري حقيقي للعرض أو الخدمة أو المنتج قبل تحويل الاتجاهات إلى مسودات.'],
+          niceToHave: ['شرح بصري قابل للمراجعة يوضح ما يتضمنه العرض دون ادعاءات غير مثبتة.'],
           forAds: ['أصول مدفوعة لاحقة فقط بعد تأكيد الميزانية، التتبع، والحسابات المتصلة.'],
           forOrganic: ['خلفيات أو صور عملية لكل اتجاه منشور في أول 30 يومًا.'],
           forProof: ['إثباتات موثقة أو ملاحظات عملاء حقيقية قبل أي ادعاء أداء.'],
-          nextToCreate: ['تجهيز مثال عرض توضيحي ومكتبة لقطات سير عمل قبل الإنتاج.'],
+          nextToCreate: ['تجهيز مثال حقيقي للعرض ومكتبة أصول بصرية مرتبطة بالخدمة أو المنتج قبل الإنتاج.'],
           canStartWithoutNote: 'يمكن بدء التخطيط العضوي، لكن الإنتاج يحتاج أصولًا وإثباتات مراجعة.',
         }
       : {
-          mustHave: ['Real screenshot, demo example, or workflow visual before turning directions into drafts.'],
-          niceToHave: ['Safe before/after comparison or reviewable workflow diagram.'],
+          mustHave: ['A real offer, service, product, or customer-context visual before turning directions into drafts.'],
+          niceToHave: ['A reviewable visual explanation of what the offer includes without unsupported claims.'],
           forAds: ['Paid assets only after budget, tracking, and connected-account readiness are confirmed.'],
           forOrganic: ['Backgrounds or practical visuals for each first-30-day post direction.'],
           forProof: ['Verified proof or real customer feedback before any performance or testimonial claim.'],
-          nextToCreate: ['Prepare a demo example and workflow screenshot library before production.'],
+          nextToCreate: ['Prepare a real offer example and a service- or product-specific visual library before production.'],
           canStartWithoutNote: 'Organic planning can start, but production needs reviewable assets and proof.',
         }
 
@@ -851,8 +855,8 @@ function paidPlanningFallbackStrings(kind: 'pillars' | 'hooks' | 'ctas', languag
       : ['Which operating problem should be tested first?', 'Which message deserves a limited paid test?', 'What proof is needed before scaling?', 'Which objection must the ad answer?']
   }
   return ar
-    ? ['راجع العرض المدفوع', 'اختبر الرسالة', 'اطلب عرضًا توضيحيًا', 'راجع مسار التحويل']
-    : ['Review the paid offer', 'Test the message', 'Request a demo', 'Review the conversion path']
+    ? ['راجع العرض المدفوع', 'اختبر الرسالة', 'استفسر عن العرض', 'راجع مسار التحويل']
+    : ['Review the paid offer', 'Test the message', 'Ask about the offer', 'Review the conversion path']
 }
 
 function ensureMinStringArray(list: unknown, fallback: string[], min: number): unknown {
@@ -883,7 +887,7 @@ function paidPlanningContentAngles(list: unknown, ctx: NormalizedPlatformContext
           format: 'إعلان صورة أو فيديو قصير للمراجعة',
           platform,
           cta: 'راجع مسار التحويل',
-          asset: 'لقطة شاشة أو عرض توضيحي حقيقي قبل الإنتاج.',
+          asset: 'أصل بصري حقيقي للعرض أو الخدمة أو المنتج قبل الإنتاج.',
           funnelStage: 'consideration',
           proofNeeded: 'لا توجد بيانات كافية: اجمع دليلًا أو مثالًا عمليًا قبل ادعاءات أقوى.',
           responseHandoff: 'تأكيد مسؤول الرد وسؤال التأهيل قبل أي اختبار مدفوع.',
@@ -897,7 +901,7 @@ function paidPlanningContentAngles(list: unknown, ctx: NormalizedPlatformContext
           objection: 'هل الحل مناسب قبل مشاركة بيانات التواصل؟',
           format: 'نسخة إعلان قصيرة للمراجعة',
           platform,
-          cta: 'اطلب عرضًا توضيحيًا',
+          cta: 'استفسر عن العرض',
           asset: 'مثال استخدام أو لقطة منتج قابلة للمراجعة.',
           funnelStage: 'conversion',
           proofNeeded: 'إثبات موثق أو ملاحظة عميل حقيقية قبل استخدام ادعاءات أقوى.',
@@ -945,9 +949,9 @@ function paidPlanningContentAngles(list: unknown, ctx: NormalizedPlatformContext
           format: 'Image or short-video ad concept for review',
           platform,
           cta: 'Review the conversion path',
-          asset: 'Real screenshot or demo detail before production.',
+          asset: 'A real visual or detail of the offer, service, or product before production.',
           funnelStage: 'consideration',
-          proofNeeded: 'Not enough data: collect proof or demo details before stronger claims.',
+          proofNeeded: 'Not enough data: collect real offer details or verified proof before stronger claims.',
           responseHandoff: 'Confirm response owner and qualification question before any paid test.',
           reviewPoint: 'Review message clarity and conversion path before launching ads.',
         },
@@ -959,11 +963,11 @@ function paidPlanningContentAngles(list: unknown, ctx: NormalizedPlatformContext
           objection: 'Is this right for me before I share contact details?',
           format: 'Short ad-copy variation for review',
           platform,
-          cta: 'Request a demo',
+          cta: 'Ask about the offer',
           asset: 'Use-case example or product screenshot.',
           funnelStage: 'conversion',
           proofNeeded: 'Verified proof or real feedback before stronger claims.',
-          responseHandoff: 'Define the follow-up message after demo request.',
+          responseHandoff: 'Define the follow-up message after an offer inquiry.',
           reviewPoint: 'Measure lead quality only after real data exists.',
         },
         {
@@ -1011,13 +1015,13 @@ function paidPlanningWeeklyPlan(list: unknown, ctx: NormalizedPlatformContext, l
     ? [
         { week: 1, objective: 'تأكيد هدف الحملة ومسار التحويل', keyMessage: 'التخطيط المدفوع يبدأ من وضوح التحويل قبل الإنفاق.', deliverables: ['1 مهمة تخطيط: مراجعة هدف الحملة ووجهة التحويل'], platforms: [platform], assetsNeeded: ['وجهة تحويل ومسؤول رد واضحان'], cta: 'راجع مسار التحويل', successMetric: 'جاهزية تحتاج تحققًا قبل الإنفاق', executionNote: 'لا إطلاق ولا صرف ميزانية من هذا البريف.', reviewPoints: ['تأكيد الوجهة ومسؤول المتابعة'] },
         { week: 2, objective: 'تحديد فرضيات الجمهور', keyMessage: 'اختبر شريحة محددة بدل استهداف واسع.', deliverables: ['1 مهمة تخطيط: صياغة فرضية جمهور مدفوعة'], platforms: [platform], assetsNeeded: ['وصف الشريحة والاعتراض الأساسي'], cta: 'راجع الملاءمة', successMetric: 'فرضيات جاهزة للمراجعة', executionNote: 'تظل الفرضيات غير مثبتة حتى تظهر بيانات حقيقية.', reviewPoints: ['هل الشريحة محددة وقابلة للتأهيل؟'] },
-        { week: 3, objective: 'تحضير زوايا ورسائل الإعلان', keyMessage: 'كل زاوية يجب أن تختبر وعدًا واحدًا بلا مبالغة.', deliverables: ['1 مهمة تخطيط: مراجعة زوايا الإعلان والنسخ'], platforms: [platform], assetsNeeded: ['أصل بصري أو لقطة عرض توضيحي'], cta: 'اطلب عرضًا توضيحيًا', successMetric: 'رسائل جاهزة للمراجعة', executionNote: 'لا تستخدم ادعاءات أداء أو إثباتًا غير موثق.', reviewPoints: ['وضوح الرسالة وغياب الادعاءات غير المثبتة'] },
+        { week: 3, objective: 'تحضير زوايا ورسائل الإعلان', keyMessage: 'كل زاوية يجب أن تختبر وعدًا واحدًا بلا مبالغة.', deliverables: ['1 مهمة تخطيط: مراجعة زوايا الإعلان والنسخ'], platforms: [platform], assetsNeeded: ['أصل بصري حقيقي للعرض أو الخدمة أو المنتج'], cta: 'استفسر عن العرض', successMetric: 'رسائل جاهزة للمراجعة', executionNote: 'لا تستخدم ادعاءات أداء أو إثباتًا غير موثق.', reviewPoints: ['وضوح الرسالة وغياب الادعاءات غير المثبتة'] },
         { week: 4, objective: 'مراجعة عوائق الإطلاق', keyMessage: 'لا يوجد إطلاق حتى تكتمل الجاهزية والتأكيد الصريح.', deliverables: ['1 مهمة تخطيط: مراجعة عوائق الإطلاق والتتبع'], platforms: [platform], assetsNeeded: ['قائمة تحقق للتتبع والحسابات'], cta: 'أكمل متطلبات الجاهزية', successMetric: 'قائمة عوائق واضحة', executionNote: 'هذا بريف تخطيط فقط وليس تنفيذًا مدفوعًا.', reviewPoints: ['التتبع، الحسابات، الموافقة، والأصول'] },
       ]
     : [
         { week: 1, objective: 'Confirm campaign objective and conversion path', keyMessage: 'Paid planning starts with conversion clarity before spend.', deliverables: ['1 planning task: review campaign objective and conversion destination'], platforms: [platform], assetsNeeded: ['Clear conversion destination and response owner'], cta: 'Review the conversion path', successMetric: 'Readiness needs validation before spend', executionNote: 'No launch or ad spend happens from this brief.', reviewPoints: ['Confirm destination and response owner'] },
         { week: 2, objective: 'Define audience hypotheses', keyMessage: 'Test a narrow segment instead of broad targeting.', deliverables: ['1 planning task: write paid audience hypothesis'], platforms: [platform], assetsNeeded: ['Segment description and main objection'], cta: 'Review fit', successMetric: 'Hypotheses ready for review', executionNote: 'Hypotheses remain unproven until real data exists.', reviewPoints: ['Is the segment specific and qualifiable?'] },
-        { week: 3, objective: 'Prepare ad angles and copy', keyMessage: 'Each angle should test one claim without exaggeration.', deliverables: ['1 planning task: review ad angles and copy'], platforms: [platform], assetsNeeded: ['Visual asset or demo screenshot'], cta: 'Request a demo', successMetric: 'Messages ready for review', executionNote: 'Do not use unverified proof or performance claims.', reviewPoints: ['Message clarity and claim safety'] },
+        { week: 3, objective: 'Prepare ad angles and copy', keyMessage: 'Each angle should test one claim without exaggeration.', deliverables: ['1 planning task: review ad angles and copy'], platforms: [platform], assetsNeeded: ['A real visual of the offer, service, or product'], cta: 'Ask about the offer', successMetric: 'Messages ready for review', executionNote: 'Do not use unverified proof or performance claims.', reviewPoints: ['Message clarity and claim safety'] },
         { week: 4, objective: 'Review launch blockers', keyMessage: 'No launch happens until readiness and explicit confirmation exist.', deliverables: ['1 planning task: review launch blockers and tracking'], platforms: [platform], assetsNeeded: ['Tracking and account-readiness checklist'], cta: 'Complete readiness requirements', successMetric: 'Clear blocker list', executionNote: 'This is a planning brief only, not paid execution.', reviewPoints: ['Tracking, accounts, approval, and assets'] },
       ]
 

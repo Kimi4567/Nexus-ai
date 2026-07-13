@@ -25,6 +25,9 @@ describe('/strategy workbench source-of-truth copy', () => {
     expect(source).toContain("const recentContentHubHref = recent?.id ? `/campaigns/${recent.id}/content-hub` : '/content-hub'")
     expect(source).toContain('primaryHref={recentContentHubHref}')
     expect(source).toContain('Open Content Hub')
+    expect(source).toContain('Ready to create')
+    expect(source).toContain('Move to Content Hub to create reviewable drafts.')
+    expect(source).not.toContain('Move to Content Hub to review the draft content.')
   })
 
   it('keeps strategy update copy tied to cost review before credits are spent', () => {
