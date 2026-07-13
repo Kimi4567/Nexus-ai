@@ -90,6 +90,33 @@ export const TEXT_FREE_BACKGROUND_IMAGE_CONSTRAINTS = `TEXT-FREE BACKGROUND CONT
 - Leave clean negative space for later editable/composited headline, CTA, logo, badge, and proof layers.
 - This generated asset is a draft background visual for review, not final ad creative, not a published post, and not a platform-ready ad.`
 
+const NON_RASTER_SAFE_CONCEPT_PATTERN = /\b(?:ui|screen|interface|dashboard|chart|graph|infographic|icon|metric card|data visualization|glass board|signage|sign|logo|word|letter|number|typography)\b|(?:واجهة|شاشة|لوحة\s*معلومات|مخطط|رسم\s*بياني|إنفوجرافيك|انفوجرافيك|أيقونات|ايقونات|رموز|نص|شعار|حروف|أرقام)/i
+
+/**
+ * Image models often turn dashboards, charts, and infographic requests into
+ * invented raster text or fake metrics. Convert those directions into a
+ * tangible scene before the provider ever sees them.
+ */
+export function normalizeTextFreeCentralElement(
+  centralElement: string,
+  category: BrandCategory,
+): string {
+  const clean = centralElement.replace(/\s+/g, ' ').trim()
+  if (clean && !NON_RASTER_SAFE_CONCEPT_PATTERN.test(clean)) return clean
+
+  if (category === 'saas_ai_tech' || category === 'agency_consultancy') {
+    return 'focused marketing and product team collaborating around a clean table with blank color-coded planning cards and luminous physical connection nodes, premium workspace, no screens or visible writing'
+  }
+  if (category === 'finance') {
+    return 'precise ascending architectural forms in brushed gold beside a confident advisor in a refined dark environment, no charts, screens, or visible writing'
+  }
+  if (category === 'education') {
+    return 'mentor and learner arranging tactile building blocks in a bright modern studio, warm natural light, no screens or visible writing'
+  }
+
+  return 'people using tangible real-world objects in a polished professional environment to express progress and collaboration, no screens or visible writing'
+}
+
 // ─── Brand category detection ─────────────────────────────────────────────────
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
@@ -314,7 +341,9 @@ function buildTemplateHint(template?: Partial<CreativeTemplateSpec>): string {
 function buildCreativeRequirementHint(requirement?: Partial<CreativeRequirement>): string {
   if (!requirement) return ''
   const lines = [
-    requirement.visualConcept && `Visual concept: ${requirement.visualConcept}`,
+    requirement.visualConcept
+      && !NON_RASTER_SAFE_CONCEPT_PATTERN.test(requirement.visualConcept)
+      && `Visual concept: ${requirement.visualConcept}`,
     requirement.objective && `Campaign objective: ${requirement.objective}`,
     requirement.funnelStage && `Funnel stage: ${requirement.funnelStage}`,
     requirement.contentAngle && `Content angle: ${requirement.contentAngle}`,
@@ -533,12 +562,16 @@ export async function buildImagePrompt(ctx: VisualContext): Promise<{
   }
 
   // 6. Extract visual concept from caption via GPT-4o mini
-  const concept = await extractVisualConcept({
+  const extractedConcept = await extractVisualConcept({
     text:      captionText,
     industry:  ctx.industry || category,
     brandName: ctx.brandName || 'Brand',
     language,
   })
+  const concept: VisualConcept = {
+    ...extractedConcept,
+    centralElement: normalizeTextFreeCentralElement(extractedConcept.centralElement, category),
+  }
 
   if (process.env.NODE_ENV !== 'production') {
     console.log(`[imageGen] headline="${concept.headline}" | scene="${concept.centralElement.slice(0, 80)}..."`)

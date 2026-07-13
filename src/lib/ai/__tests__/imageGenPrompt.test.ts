@@ -15,11 +15,28 @@ vi.mock('@/lib/ai/conceptExtractor', async () => {
 import {
   buildImagePrompt,
   IMAGE_OUTPUT_CLASSIFICATION,
+  normalizeTextFreeCentralElement,
   TEXT_FREE_BACKGROUND_IMAGE_CONSTRAINTS,
   wrapPromptWithTextFreeBackgroundContract,
 } from '@/lib/ai/imageGen'
 
 describe('imageGen prompt contract', () => {
+  it('converts dashboard and infographic directions into a raster-safe physical scene', () => {
+    const normalized = normalizeTextFreeCentralElement(
+      'إنفوجرافيك مع مخططات وأيقونات تحليل البيانات',
+      'saas_ai_tech',
+    )
+
+    expect(normalized).toContain('marketing and product team')
+    expect(normalized).toContain('no screens or visible writing')
+    expect(normalized).not.toContain('إنفوجرافيك')
+  })
+
+  it('keeps an already tangible text-free scene intact', () => {
+    const scene = 'three strategists arranging blank planning cards around a clean table'
+    expect(normalizeTextFreeCentralElement(scene, 'agency_consultancy')).toBe(scene)
+  })
+
   it('brand-level fallback stays background-only and does not ask for text or logos', async () => {
     const { prompt } = await buildImagePrompt({
       visualType: 'HERO',
@@ -65,6 +82,29 @@ describe('imageGen prompt contract', () => {
     expect(prompt).toContain('no Arabic raster text')
     expect(prompt).toContain('CTA')
     expect(prompt).toContain('draft background visual for review')
+  })
+
+  it('sanitizes an extracted dashboard concept before sending it to the image provider', async () => {
+    mockExtractVisualConcept.mockResolvedValueOnce({
+      centralElement: 'floating analytics dashboard with metric cards and charts',
+      emotion: 'clear, intelligent',
+      headline: 'Understand performance clearly',
+      cta: 'Review insights',
+      visualMood: 'Premium strategic atmosphere',
+    })
+
+    const { prompt, concept } = await buildImagePrompt({
+      visualType: 'SOCIAL_PREVIEW',
+      visualStyle: 'Premium',
+      brandName: 'Nexus',
+      industry: 'AI marketing SaaS',
+      postCaption: 'Use analytics to improve marketing decisions.',
+      platform: 'META',
+      assetRole: 'post_background',
+    })
+
+    expect(concept?.centralElement).toContain('marketing and product team')
+    expect(prompt).not.toContain('floating analytics dashboard')
   })
 
   it('uses CreativeRequirement hints when provided', async () => {

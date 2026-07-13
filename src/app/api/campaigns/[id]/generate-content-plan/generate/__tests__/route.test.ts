@@ -18,6 +18,7 @@ const {
   mockRefund,
   mockRefundForTxn,
   mockGenerateWithFlux,
+  mockBuildImagePrompt,
   mockPrisma,
 } = vi.hoisted(() => ({
   mockGetServerUserId: vi.fn(),
@@ -26,6 +27,7 @@ const {
   mockRefund: vi.fn(),
   mockRefundForTxn: vi.fn(),
   mockGenerateWithFlux: vi.fn(),
+  mockBuildImagePrompt: vi.fn(),
   mockPrisma: {
     campaign: { findFirst: vi.fn() },
     user: { findUnique: vi.fn() },
@@ -51,6 +53,9 @@ vi.mock('@/lib/credits', () => ({
 vi.mock('@/lib/ai/falGen', () => ({
   generateWithFlux: mockGenerateWithFlux,
   platformToFluxSize: () => 'landscape_4_3',
+}))
+vi.mock('@/lib/ai/imageGen', () => ({
+  buildImagePrompt: mockBuildImagePrompt,
 }))
 
 const makeReq = (body: unknown = {}) => ({ json: async () => body }) as any
@@ -110,6 +115,10 @@ beforeEach(() => {
     generatedVisual: mockPrisma.generatedVisual,
   }))
   mockCheckDailyImageCap.mockResolvedValue({ allowed: true, used: 0, cap: 60, remaining: 60 })
+  mockBuildImagePrompt.mockImplementation(async (context: any) => ({
+    prompt: `Prepared visual for ${context.platform}: ${context.postCaption ?? ''}`,
+    language: 'en',
+  }))
   mockCheckAndDeduct
     .mockResolvedValueOnce({ ok: true, creditsUsed: 3, creditsRemaining: 27, transactionId: 'txn_a' })
     .mockResolvedValueOnce({ ok: true, creditsUsed: 3, creditsRemaining: 24, transactionId: 'txn_b' })

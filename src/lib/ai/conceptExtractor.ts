@@ -81,7 +81,8 @@ Return this JSON object:
 }
 
 Rules for each field:
-- centralElement: SPECIFIC and CINEMATIC scene (e.g. "steaming carbonara pasta with golden parmesan, candlelit table" NOT "food image"). Describe what's physically in the frame.
+- centralElement: SPECIFIC and CINEMATIC text-free scene (e.g. "steaming carbonara pasta with golden parmesan, candlelit table" NOT "food image"). Describe tangible people, objects, and environment physically in the frame.
+- centralElement must NEVER request text, lettering, numbers, signs, infographics, icons, charts, graphs, dashboards, interfaces, screens, logos, watermarks, or UI. If the caption or creative direction asks for any of those, translate its meaning into one tangible photographic scene or visual metaphor instead.
 - emotion: 2-3 emotion words the image must evoke (e.g. "indulgent, warm, authentic")
 - headline: 4-7 word bold ad headline in the SAME LANGUAGE as the caption. Derive from the caption's main benefit or promise.
 - cta: 2-4 word call-to-action in the SAME LANGUAGE as the caption (e.g. "Order Now" in English, "اطلب الآن" in Arabic)
@@ -91,7 +92,7 @@ Industry-specific guidance:
 - restaurant/food: hero dish close-up, warm candlelit ambiance, steam, bokeh, Michelin-star plating
 - real estate: specific property type (luxury penthouse, villa pool, modern apartment), time of day, lifestyle
 - medical/clinic: modern clean clinical environment, warm professional lighting, hope and precision
-- saas/tech: glowing dark interface, floating UI elements, data visualization, premium dark background
+- saas/tech: human team, physical workflow objects, or abstract luminous connections that communicate intelligence without screens, interfaces, charts, or text
 - fashion/retail: editorial product shot, dramatic lighting, aspirational lifestyle
 - fitness/gym: dynamic action, strong contrast, energy and motion
 - education: bright inspiring space, learning journey, knowledge and growth
@@ -186,7 +187,7 @@ function buildFallbackConcept(
 
   if (check.match(/saas|software|platform|app|tech|ai|automation|digital|data|analytics|startup|crm/)) {
     return {
-      centralElement: 'sleek dark interface with glowing violet-blue analytics dashboard, floating metric cards showing growth, deep navy background with premium luminous data visualization',
+      centralElement: 'focused product and marketing team in a premium dark workspace arranging luminous violet-blue physical nodes into a clear connected workflow, no screens or visible writing',
       emotion:        'powerful, innovative, empowering',
       headline:       isAr ? 'حوّل بياناتك إلى نتائج' : 'Transform Data Into Growth',
       cta:            isAr ? 'ابدأ مجاناً' : 'Start Free',
@@ -206,7 +207,7 @@ function buildFallbackConcept(
 
   if (check.match(/marketing|agency|consultancy|advertising|branding|strategy|تسويق|وكالة|استراتيجية/)) {
     return {
-      centralElement: 'premium creative agency workspace with dramatic accent lighting, strategy visualization on glass board, dynamic professional atmosphere',
+      centralElement: 'premium creative agency team collaborating around a clean table with blank color-coded planning cards and tactile campaign objects, dramatic accent lighting, no screens or visible writing',
       emotion:        'intelligent, results-driven, creative',
       headline:       isAr ? 'نحوّل رؤيتك إلى نجاح' : 'Turn Vision Into Results',
       cta:            isAr ? 'ابدأ الآن' : 'Get Started',
@@ -226,7 +227,7 @@ function buildFallbackConcept(
 
   if (check.match(/finance|investment|banking|fintech|wealth|استثمار|مالية|بنك|ثروة/)) {
     return {
-      centralElement: 'premium wealth management visual — abstract growth chart with gold accents on deep dark background, financial precision and exclusivity',
+      centralElement: 'precise ascending architectural forms in brushed gold beside a confident advisor in a refined dark environment, communicating disciplined financial growth without charts or visible writing',
       emotion:        'trustworthy, premium, growth-focused',
       headline:       isAr ? 'ثروتك تستحق الأفضل' : 'Your Wealth, Expertly Managed',
       cta:            isAr ? 'تواصل معنا' : 'Talk to an Expert',

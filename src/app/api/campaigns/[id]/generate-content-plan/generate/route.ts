@@ -21,7 +21,7 @@ import {
   refundCreditsForTransaction,
 } from '@/lib/credits'
 import { generateWithFlux, platformToFluxSize } from '@/lib/ai/falGen'
-import { wrapPromptWithTextFreeBackgroundContract } from '@/lib/ai/imageGen'
+import { buildImagePrompt, type VisualContext } from '@/lib/ai/imageGen'
 import { normalizeContentHubImagePromptForPlatform } from '@/lib/contentHubImageFormat'
 import {
   getBulkImageGenerationCost,
@@ -52,8 +52,10 @@ const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET
 // ── Image generation (mirrors cron/generate-images logic) ─────────────────────
 
 async function generateImage(prompt: string, platform: string): Promise<string> {
-  const platformPrompt = normalizeContentHubImagePromptForPlatform(prompt, platform)
-  const safePrompt = wrapPromptWithTextFreeBackgroundContract(platformPrompt)
+  // The prompt is already produced by the shared Visual Intelligence builder,
+  // including its text-free draft-background contract. Keep only the final
+  // platform normalization here so bulk and single generation stay identical.
+  const safePrompt = normalizeContentHubImagePromptForPlatform(prompt, platform)
 
   if (process.env.FAL_KEY) {
     const fluxSize = platformToFluxSize(platform)
@@ -97,6 +99,57 @@ async function generateImage(prompt: string, platform: string): Promise<string> 
   const b64 = data?.data?.[0]?.b64_json
   if (!b64) throw new Error('Image generation returned no data')
   return `data:image/png;base64,${b64}`
+}
+
+async function buildContentHubPostPrompt(campaign: any, post: any): Promise<string> {
+  const brand = campaign.workspace?.brandProfile ?? {}
+  const aiOutput = campaign.aiOutput && typeof campaign.aiOutput === 'object'
+    ? campaign.aiOutput as Record<string, any>
+    : {}
+  const strategy = aiOutput.strategy && typeof aiOutput.strategy === 'object'
+    ? aiOutput.strategy as Record<string, any>
+    : aiOutput
+  const postContext = [
+    post.caption,
+    post.imagePrompt ? `Creative direction: ${post.imagePrompt}` : null,
+  ].filter(Boolean).join('\n')
+
+  const context: VisualContext = {
+    visualType: 'SOCIAL_PREVIEW',
+    visualStyle: 'Premium',
+    campaignName: campaign.name ?? undefined,
+    campaignGoal: campaign.goal ?? undefined,
+    campaignTone: campaign.tone ?? undefined,
+    audience: campaign.audience ?? undefined,
+    brandName: brand.brandName ?? undefined,
+    brandToneWords: Array.isArray(brand.toneKeywords) ? brand.toneKeywords : [],
+    primaryOffer: brand.primaryOffer ?? undefined,
+    industry: brand.industry ?? undefined,
+    colorPalette: Array.isArray(brand.colorPalette)
+      ? brand.colorPalette.join(', ')
+      : brand.colorPalette ?? undefined,
+    visualStylePref: brand.visualStyle ?? undefined,
+    uniqueAdvantages: Array.isArray(brand.uniqueAdvantages)
+      ? brand.uniqueAdvantages.slice(0, 4).join(', ')
+      : undefined,
+    positioning: strategy.positioning ?? undefined,
+    visualDirection: strategy.visualDirection ?? undefined,
+    differentiation: strategy.differentiation ?? undefined,
+    keyMessage: strategy.keyMessage ?? undefined,
+    postCaption: postContext,
+    platform: post.platform,
+    creativeRequirement: {
+      objective: campaign.goal ?? undefined,
+      platform: post.platform,
+      sourcePreference: 'generated',
+      textOverlayNeeded: true,
+      logoNeeded: true,
+    },
+    assetRole: 'post_background',
+  }
+
+  const result = await buildImagePrompt(context)
+  return normalizeContentHubImagePromptForPlatform(result.prompt, post.platform)
 }
 
 async function uploadToCloudinary(imageUrl: string, postId: string): Promise<string> {
@@ -268,6 +321,7 @@ export async function POST(req: NextRequest, props: Params) {
       const reservation = reservationsByPostId.get(post.id)
       let visualId: string | null = null
       try {
+        const preparedPrompt = await buildContentHubPostPrompt(campaign, post)
         const visual = await (prisma.generatedVisual as any).create({
           data: {
             workspaceId: campaign.workspaceId,
@@ -275,7 +329,7 @@ export async function POST(req: NextRequest, props: Params) {
             visualType: 'SOCIAL_PREVIEW',
             visualStyle: 'Content Hub',
             prompt: post.imagePrompt!,
-            enhancedPrompt: normalizeContentHubImagePromptForPlatform(post.imagePrompt!, post.platform),
+            enhancedPrompt: preparedPrompt,
             campaignName: campaign.name,
             brandName: campaign.workspace?.brandProfile?.brandName ?? null,
             status: 'GENERATING',
@@ -284,7 +338,7 @@ export async function POST(req: NextRequest, props: Params) {
         })
         visualId = visual.id
 
-        const rawUrl = await generateImage(post.imagePrompt!, post.platform)
+        const rawUrl = await generateImage(preparedPrompt, post.platform)
         // Content Hub media must be durable. Never put a provider-temporary URL
         // or a base64 payload in SocialPost.imageUrl.
         const finalUrl = await uploadToCloudinary(rawUrl, post.id)

@@ -38,4 +38,9 @@ describe('Content Hub image format normalization', () => {
     expect(platformToOpenAISize('YOUTUBE')).toBe('1024x1536')
     expect(platformToOpenAISize('YOUTUBE_SHORTS')).toBe('1024x1536')
   })
+
+  it('maps Content Hub META feed visuals to the square preview used by the UI', () => {
+    expect(platformToFluxSize('META')).toBe('square_hd')
+    expect(platformToOpenAISize('META')).toBe('1024x1024')
+  })
 })

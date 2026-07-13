@@ -35,28 +35,28 @@ export interface FluxGenerateResult {
  * Map platform string to best Flux image size.
  * Platform-native sizing:
  *   TIKTOK/YOUTUBE_SHORTS/YOUTUBE → portrait_16_9  (9:16 vertical short-form)
- *   INSTAGRAM   → square_hd      (1:1 feed square)
- *   All others  → landscape_4_3  (LinkedIn/Facebook/Twitter landscape)
+ *   META/INSTAGRAM → square_hd      (1:1 feed square)
+ *   All others     → landscape_4_3  (LinkedIn/Facebook/Twitter landscape)
  */
 export function platformToFluxSize(platform: string): FluxImageSize {
   const p = platform.toUpperCase()
   if (p === 'TIKTOK' || p === 'YOUTUBE' || p === 'YOUTUBE_SHORTS') return 'portrait_16_9'      // 9:16 portrait for short-form
-  if (p === 'INSTAGRAM') return 'square_hd'        // 1:1 square for Instagram feed
-  return 'landscape_4_3'                           // landscape for LinkedIn/META/X/Twitter
+  if (p === 'META' || p === 'INSTAGRAM') return 'square_hd' // Content Hub renders META as a square feed post
+  return 'landscape_4_3'                           // landscape for LinkedIn/Facebook/X/Twitter
 }
 
 /**
  * Map platform string to gpt-image-1 size string.
  * Platform-native sizing:
  *   TIKTOK/YOUTUBE_SHORTS/YOUTUBE → 1024×1536 (portrait)
- *   INSTAGRAM   → 1024×1024 (square 1:1)
+ *   META/INSTAGRAM → 1024×1024 (square 1:1)
  *   All others  → 1536×1024 (landscape 3:2 — LinkedIn, Facebook, Twitter/X)
  */
 export function platformToOpenAISize(platform: string): '1024x1024' | '1024x1536' | '1536x1024' {
   const p = platform.toUpperCase()
   if (p === 'TIKTOK' || p === 'YOUTUBE' || p === 'YOUTUBE_SHORTS') return '1024x1536'       // portrait short-form
-  if (p === 'INSTAGRAM') return '1024x1024'    // square
-  return '1536x1024'                            // landscape for LinkedIn/META/X/Twitter/default
+  if (p === 'META' || p === 'INSTAGRAM') return '1024x1024' // square Content Hub feed
+  return '1536x1024'                            // landscape for LinkedIn/Facebook/X/Twitter/default
 }
 
 /**
