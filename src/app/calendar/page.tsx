@@ -4,7 +4,6 @@ import { useAuth } from '@/lib/auth-context'
 import { useEffect, useState, useMemo, useRef, Suspense } from 'react'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
-import StrategySpineCard from '@/components/StrategySpineCard'
 import Link from 'next/link'
 import { useI18n } from '@/lib/i18n-context'
 import { useSearchParams } from 'next/navigation'
@@ -469,13 +468,13 @@ function CalendarPageInner() {
     setSelectedDay(null)
   }
 
+  // Kept for the hidden legacy detail panel until its scheduling actions are migrated.
   const selectedDayPosts = selectedDay ? getPostsForDay(selectedDay) : []
   const selectedDayStrategyIdeas = selectedDay
     ? monthStrategyIdeas.filter(p => p.day === selectedDay)
     : []
-
-  const platformBreakdown = monthPosts.reduce((acc, p) => {
-    acc[p.platform] = (acc[p.platform] || 0) + 1
+  const platformBreakdown = monthPosts.reduce((acc, post) => {
+    acc[post.platform] = (acc[post.platform] || 0) + 1
     return acc
   }, {} as Record<string, number>)
 
@@ -488,21 +487,8 @@ function CalendarPageInner() {
     campaigns: new Set(monthPosts.map(p => p.campaignId)).size,
   }
 
-  const readinessPercent = calStats.total > 0
-    ? Math.round(((calStats.scheduled + calStats.published) / calStats.total) * 100)
-    : 0
-
   const monthLabel = new Intl.DateTimeFormat(intlLocale, { month: 'long', year: 'numeric' })
     .format(new Date(viewYear, viewMonth, 1))
-
-  const contentDistribution = [
-    { label: 'Instagram', count: platformBreakdown.Instagram || platformBreakdown.INSTAGRAM || 0, color: '#6366f1' },
-    { label: 'TikTok', count: platformBreakdown.TikTok || platformBreakdown.TIKTOK || 0, color: '#071236' },
-    { label: 'Facebook', count: platformBreakdown.Facebook || platformBreakdown.FACEBOOK || 0, color: '#3b82f6' },
-    { label: 'LinkedIn', count: platformBreakdown.LinkedIn || platformBreakdown.LINKEDIN || 0, color: '#38bdf8' },
-    { label: 'YouTube', count: platformBreakdown.YouTube || platformBreakdown.YOUTUBE || 0, color: '#ef4444' },
-    { label: 'Snapchat', count: platformBreakdown.Snapchat || platformBreakdown.SNAPCHAT || 0, color: '#facc15' },
-  ]
 
   const isPostInViewedMonth = (post: ScheduledPost) => {
     const date = new Date(post.scheduledAt)
@@ -513,49 +499,6 @@ function CalendarPageInner() {
   )
   const reviewCount = monthReviewPosts.length
   const lateCount = posts.filter(p => p.status === 'FAILED' && isPostInViewedMonth(p)).length
-  const taskRows = [
-    { label: locale === 'ar' ? 'منشورة' : 'Published', count: calStats.published, dot: 'bg-emerald-500' },
-    { label: locale === 'ar' ? 'مجدولة' : 'Scheduled', count: calStats.scheduled, dot: 'bg-blue-500' },
-    { label: locale === 'ar' ? 'قيد المراجعة' : 'In review', count: reviewCount, dot: 'bg-amber-500' },
-    { label: locale === 'ar' ? 'فشل التنفيذ' : 'Failed', count: lateCount, dot: 'bg-red-500' },
-  ]
-
-  const upcomingEvents = monthPosts
-    .slice()
-    .sort((a, b) => a.day - b.day)
-    .slice(0, 3)
-
-  const reviewTasks = monthReviewPosts
-    .slice()
-    .sort((a, b) => {
-      const aTime = new Date(a.scheduledAt).getTime()
-      const bTime = new Date(b.scheduledAt).getTime()
-      if (!Number.isFinite(aTime)) return 1
-      if (!Number.isFinite(bTime)) return -1
-      return aTime - bTime
-    })
-    .slice(0, 3)
-
-  const reviewDateLabel = (post: ScheduledPost) => {
-    const date = new Date(post.scheduledAt)
-    if (!Number.isFinite(date.getTime())) {
-      return locale === 'ar' ? 'لا يوجد موعد مسجل' : 'No recorded target date'
-    }
-    return new Intl.DateTimeFormat(intlLocale, { day: 'numeric', month: 'short', year: 'numeric' }).format(date)
-  }
-
-  const contentDistributionTotal = contentDistribution.reduce((total, item) => total + item.count, 0)
-  const contentDistributionGradient = contentDistributionTotal === 0
-    ? '#e8edf5'
-    : `conic-gradient(${contentDistribution
-        .filter(item => item.count > 0)
-        .reduce((segments, item) => {
-          const start = segments.total
-          const end = start + (item.count / contentDistributionTotal) * 100
-          segments.parts.push(`${item.color} ${start}% ${end}%`)
-          segments.total = end
-          return segments
-        }, { parts: [] as string[], total: 0 }).parts.join(',')})`
 
   // ── Queue derived state ────────────────────────────────────────────────────
   // PR7 honesty: the Published Queue is the integration / auto-publish surface.
@@ -675,60 +618,15 @@ function CalendarPageInner() {
       <div className="nx-os-container page-enter">
         <LuxuryWorkspaceHeader
           pageTitle={locale === 'ar' ? 'التقويم التنفيذي' : 'Execution calendar'}
-          pageSubtitle={locale === 'ar' ? 'جدول المحتوى والحملات والمواعيد من مكان واحد.' : 'Content timing, campaign work, and deadlines in one place.'}
+          pageSubtitle={locale === 'ar' ? 'راجع مواعيد المحتوى، ثم انتقل إلى مركز المحتوى للموافقة والنشر.' : 'Review content timing, then use Content Hub for approval and publishing.'}
           primaryHref="/content-hub"
           primaryLabel={locale === 'ar' ? 'افتح مركز المحتوى' : 'Open Content Hub'}
           secondaryHref="/campaigns"
           secondaryLabel={locale === 'ar' ? 'الحملات' : 'Campaigns'}
         />
 
-        <StrategySpineCard
-          current="content"
-          nextHref="/content-hub"
-          nextLabel={locale === 'ar' ? 'راجع المنشورات' : 'Review posts'}
-          title={locale === 'ar' ? 'التقويم يعرض توقيت تنفيذ الاستراتيجية، وليس نشر المنصة تلقائياً' : 'Calendar shows strategy execution timing, not automatic platform publishing'}
-          body={locale === 'ar'
-            ? 'الأحداث هنا تأتي من خطة المحتوى والجدولة الداخلية. لا تصبح منشورًا حيًا إلا بعد جاهزية النشر والحسابات والتأكيد الصريح.'
-            : 'Events here come from the content plan and internal scheduling. They become live posts only after publishing readiness, accounts, and explicit confirmation.'}
-          className="mb-6"
-        />
-
-        {/* Header */}
-        <div className="nx-os-panel mb-5 flex flex-col gap-4 p-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <div className="mb-2 flex items-center gap-2 text-[12px] font-bold text-[#64708f]">
-              <span>NEXUS</span><span>/</span>
-              <span>{locale === 'ar' ? 'التقويم التنفيذي' : 'Execution calendar'}</span>
-            </div>
-            <h1 className="flex items-center gap-2 text-[32px] font-black tracking-[-0.03em] text-[#071236]">
-              <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-white shadow-sm ring-1 ring-[#e3e8f3]">📅</span>
-              {locale === 'ar' ? 'التقويم التنفيذي' : 'Execution calendar'}
-            </h1>
-            <p className="mt-2 max-w-3xl text-[14px] leading-7 text-[#64708f]">
-              {locale === 'ar'
-                ? 'عرض وإدارة جدول النشر والمحتوى عبر المنصات والحملات من مكان واحد.'
-                : 'Plan and review publishing activity, content timing, and campaign workload in one operational calendar.'}
-            </p>
-          </div>
-
-          {/* Action button */}
-          {activeTab === 'timeline' ? (
-            <Link href="/campaigns/new"
-              className="inline-flex h-11 items-center gap-2 rounded-[15px] bg-[#071236] px-5 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,18,54,0.2)] transition hover:bg-[#111f4b]">
-              + {locale === 'ar' ? 'حملة جديدة' : 'New campaign'}
-            </Link>
-          ) : (
-            <button
-              onClick={() => setShowModal(true)}
-              className="inline-flex h-11 items-center gap-2 rounded-[15px] bg-[#071236] px-5 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,18,54,0.2)] transition hover:bg-[#111f4b]"
-  >
-              {scT?.btnSchedule as string || '+ Schedule Post'}
-            </button>
-          )}
-        </div>
-
         {/* Calendar controls */}
-        <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="nx-os-action-strip mb-5">
           <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex items-center gap-1 rounded-[16px] border border-[#e3e8f3] bg-white p-1 shadow-sm">
               {[
@@ -753,18 +651,16 @@ function CalendarPageInner() {
               {monthLabel}
             </div>
             <button type="button" onClick={nextMonth} aria-label={locale === 'ar' ? 'الشهر التالي' : 'Next month'} className="h-10 w-10 rounded-[14px] border border-[#e3e8f3] bg-white text-[#64708f] shadow-sm">›</button>
-            <span className="inline-flex h-10 cursor-default items-center rounded-full bg-[#f2f5fa] px-4 text-[12px] font-black text-[#64708f]">
-              ✓ {locale === 'ar' ? 'النطاق: كل المنصات' : 'Scope: all platforms'}
-            </span>
-            <span className="inline-flex h-10 cursor-default items-center rounded-full bg-[#f2f5fa] px-4 text-[12px] font-black text-[#64708f]">
-              ✓ {locale === 'ar' ? 'النطاق: كل الحملات' : 'Scope: all campaigns'}
-            </span>
           </div>
-          <button
-            onClick={() => setActiveTab('queue')}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-[15px] bg-[#071236] px-5 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,18,54,0.2)] transition hover:bg-[#111f4b]">
-            {locale === 'ar' ? 'فتح قائمة المراجعة' : 'Open review queue'}
-          </button>
+          {activeTab === 'queue' ? (
+            <button
+              type="button"
+              onClick={() => setShowModal(true)}
+              className="inline-flex h-10 items-center gap-2 rounded-[14px] bg-[#071236] px-4 text-[12px] font-black text-white"
+            >
+              {scT?.btnSchedule as string || '+ Schedule Post'}
+            </button>
+          ) : null}
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════════ */}
@@ -809,30 +705,11 @@ function CalendarPageInner() {
               ))}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div>
 
               {/* Calendar Grid */}
-              <div className="lg:col-span-2 rounded-2xl overflow-hidden" style={{ background: 'white', border: '1px solid rgba(15,23,42,0.08)' }}>
-
-                {/* Month nav */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-                  <button type="button" onClick={prevMonth} aria-label={locale === 'ar' ? 'الشهر السابق' : 'Previous month'}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-950 hover:bg-slate-100 transition-all">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                      <path d="M9 2L4 7l5 5" />
-                    </svg>
-                  </button>
-                  <div className="text-center">
-                    <h2 className="font-bold text-slate-950">{MONTHS[viewMonth]} {viewYear}</h2>
-                    {loadingCal && <span className="text-[10px] text-slate-400">Loading…</span>}
-                  </div>
-                  <button type="button" onClick={nextMonth} aria-label={locale === 'ar' ? 'الشهر التالي' : 'Next month'}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-950 hover:bg-slate-100 transition-all">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                      <path d="M5 2l5 5-5 5" />
-                    </svg>
-                  </button>
-                </div>
+              <div className="overflow-hidden rounded-2xl" style={{ background: 'white', border: '1px solid rgba(15,23,42,0.08)' }}>
+                {loadingCal ? <div className="border-b border-slate-100 px-5 py-3 text-center text-[11px] font-bold text-slate-400">{locale === 'ar' ? 'جارٍ تحديث التقويم…' : 'Updating calendar…'}</div> : null}
 
                 {/* Day headers */}
                 <div className="grid grid-cols-7 border-b border-slate-100">
@@ -854,10 +731,13 @@ function CalendarPageInner() {
                     const isToday    = isCurrentMonth && day === todayDate
                     const isSelected = selectedDay === day
                     return (
-                      <div
+                      <button
+                        type="button"
                         key={day}
                         onClick={() => setSelectedDay(isSelected ? null : day)}
-                        className={`h-20 border-b border-r border-slate-100 p-1.5 cursor-pointer transition-all
+                        aria-pressed={isSelected}
+                        aria-label={`${day} ${monthLabel}, ${dayPosts.length} ${locale === 'ar' ? 'عناصر' : 'items'}`}
+                        className={`h-20 cursor-pointer border-b border-r border-slate-100 p-1.5 text-start transition-all
                           ${isSelected ? 'bg-orange-50' : 'hover:bg-slate-50'}`}>
                         <div className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold mb-1
                           ${isToday ? 'bg-accent text-white' : isSelected ? 'text-accent' : 'text-slate-400'}`}>
@@ -888,92 +768,9 @@ function CalendarPageInner() {
                             <div className="text-[9px] text-slate-400">+{dayPosts.length - 2} more</div>
                           )}
                         </div>
-                      </div>
+                      </button>
                     )
                   })}
-                </div>
-              </div>
-
-              {/* Calendar operations rail */}
-              <div className="space-y-4">
-                <div className="nx-os-card p-6">
-                  <h3 className="text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'جاهزية النشر' : 'Publishing readiness'}</h3>
-                  <div className="mt-5 flex items-center gap-5">
-                    <div
-                      className="grid h-32 w-32 place-items-center rounded-full"
-                      style={{ background: `conic-gradient(#5366f6 ${readinessPercent * 3.6}deg, #e8edf7 0deg)` }}>
-                      <div className="grid h-24 w-24 place-items-center rounded-full bg-white text-center shadow-inner">
-                        <div>
-                          <div className="text-[32px] font-black text-[#071236]">{readinessPercent}%</div>
-                          <div className="text-[11px] font-bold text-[#64708f]">{locale === 'ar' ? 'مراجعة النشر' : 'review ready'}</div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex-1 space-y-3 text-[13px] font-bold text-[#33415f]">
-                      <div className="flex items-center justify-between"><span>{locale === 'ar' ? 'منشور' : 'Published'}</span><span>{calStats.published}</span></div>
-                      <div className="flex items-center justify-between"><span>{locale === 'ar' ? 'مجدول' : 'Scheduled'}</span><span>{calStats.scheduled}</span></div>
-                      <div className="flex items-center justify-between"><span>{locale === 'ar' ? 'قيد المراجعة' : 'In review'}</span><span>{reviewCount}</span></div>
-                      <div className="flex items-center justify-between"><span>{locale === 'ar' ? 'متأخر' : 'Late'}</span><span>{lateCount}</span></div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setActiveTab('queue')}
-                    className="mt-5 h-11 w-full rounded-[15px] border border-[#e3e8f3] text-[13px] font-black text-[#5366f6]">
-                    {locale === 'ar' ? 'عرض تفاصيل الجاهزية' : 'View readiness details'}
-                  </button>
-                </div>
-
-                <div className="nx-os-card p-6">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'الأحداث القادمة' : 'Upcoming events'}</h3>
-                    <span className="text-[12px] font-bold text-[#5366f6]">{locale === 'ar' ? 'عرض الكل' : 'View all'}</span>
-                  </div>
-                  <div className="space-y-3">
-                    {(upcomingEvents.length > 0 ? upcomingEvents : monthStrategyIdeas.slice(0, 3)).map((event, index) => (
-                      <Link key={`${event.id}-${index}`} href={`/campaigns/${event.campaignId}`}
-                        className="flex items-center gap-3 rounded-[16px] border border-[#eef2f8] bg-[#fbfcff] p-3">
-                        <div className="grid h-11 w-11 place-items-center rounded-[14px] bg-[#eef0ff] text-[13px] font-black text-[#5366f6]">
-                          {event.day}<span className="text-[9px]">{MONTHS[event.month]?.slice(0, 3)}</span>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-[13px] font-black text-[#071236]">{event.topic}</div>
-                          <div className="text-[11px] font-bold text-[#64708f]">{event.platform} · {event.campaignName}</div>
-                        </div>
-                      </Link>
-                    ))}
-                    {upcomingEvents.length === 0 && monthStrategyIdeas.length === 0 && (
-                      <p className="rounded-[16px] bg-[#fbfcff] p-4 text-[13px] font-bold text-[#64708f]">
-                        {getCalendarTruthText('noGeneratedScheduled', locale)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="nx-os-card p-6">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'طابور المراجعة' : 'Review queue'}</h3>
-                    <button type="button" onClick={() => setActiveTab('queue')} className="text-[12px] font-bold text-[#5366f6]">{locale === 'ar' ? 'عرض الكل' : 'View all'}</button>
-                  </div>
-                  <div className="space-y-3">
-                    {reviewTasks.map(task => (
-                      <div key={task.id} className="flex items-center justify-between gap-3 rounded-[16px] border border-[#eef2f8] bg-white p-3">
-                        <div>
-                          <div className="line-clamp-2 text-[13px] font-black text-[#071236]">{task.caption || (locale === 'ar' ? 'منشور بلا عنوان' : 'Untitled post')}</div>
-                          <div className="text-[11px] font-bold text-[#64708f]">{reviewDateLabel(task)} · {task.platform}</div>
-                        </div>
-                        <span className="shrink-0 rounded-full bg-amber-50 px-3 py-1 text-[11px] font-black text-amber-700">
-                          {task.status === 'APPROVED'
-                            ? (locale === 'ar' ? 'معتمد، غير مجدول' : 'Approved, unscheduled')
-                            : (locale === 'ar' ? 'مسودة للمراجعة' : 'Draft review')}
-                        </span>
-                      </div>
-                    ))}
-                    {reviewTasks.length === 0 && (
-                      <p className="rounded-[16px] bg-[#fbfcff] p-4 text-[13px] font-bold text-[#64708f]">
-                        {locale === 'ar' ? 'لا توجد مواعيد مراجعة موثقة في السجلات الحالية.' : 'No review dates are recorded in the current data.'}
-                      </p>
-                    )}
-                  </div>
                 </div>
               </div>
 
@@ -1225,70 +1022,6 @@ function CalendarPageInner() {
               </div>
             </div>
 
-            <div className="mt-6 grid gap-4 lg:grid-cols-3">
-              <div className="nx-os-card p-6">
-                <h3 className="mb-5 text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'توزيع المنصات' : 'Platform distribution'}</h3>
-                <div className="flex items-center gap-6">
-                  <div className="grid h-32 w-32 place-items-center rounded-full" style={{ background: contentDistributionGradient }}>
-                    <div className="grid h-20 w-20 place-items-center rounded-full bg-white text-center">
-                      <div>
-                        <div className="text-[26px] font-black text-[#071236]">{calStats.total}</div>
-                        <div className="text-[10px] font-bold text-[#64708f]">{locale === 'ar' ? 'إجمالي المنشورات' : 'posts'}</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    {contentDistribution.map(item => (
-                      <div key={item.label} className="flex items-center justify-between text-[12px] font-bold text-[#33415f]">
-                        <span className="inline-flex items-center gap-2">
-                          <span className="h-2 w-2 rounded-full" style={{ background: item.color }} />
-                          {item.label}
-                        </span>
-                        <span>{item.count}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <Link href="/analytics" className="mt-5 block w-full text-center text-[13px] font-black text-[#5366f6]">{locale === 'ar' ? 'عرض تفاصيل التحليل' : 'View analysis details'}</Link>
-              </div>
-
-              <div className="nx-os-card p-6">
-                <h3 className="mb-5 text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'حالة المهام' : 'Task status'}</h3>
-                <div className="space-y-4">
-                  {taskRows.map(row => (
-                    <div key={row.label} className="flex items-center justify-between">
-                      <span className="inline-flex items-center gap-2 text-[13px] font-bold text-[#33415f]">
-                        <span className={`h-2.5 w-2.5 rounded-full ${row.dot}`} />
-                        {row.label}
-                      </span>
-                      <span className="text-[15px] font-black text-[#071236]">{row.count}</span>
-                    </div>
-                  ))}
-                </div>
-                <button type="button" onClick={() => setActiveTab('queue')} className="mt-5 w-full text-[13px] font-black text-[#5366f6]">{locale === 'ar' ? 'عرض جميع المهام' : 'View all tasks'}</button>
-              </div>
-
-              <div className="nx-os-card p-6">
-                <h3 className="mb-5 text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'محتوى يحتاج مراجعة' : 'Content requiring review'}</h3>
-                <div className="space-y-3">
-                  {reviewTasks.map(task => (
-                    <div key={`bottom-${task.id}`} className="flex items-center justify-between gap-3 rounded-[16px] border border-[#eef2f8] bg-[#fbfcff] p-3">
-                      <div className="min-w-0">
-                        <div className="line-clamp-2 text-[13px] font-black text-[#071236]">{task.caption || (locale === 'ar' ? 'منشور بلا عنوان' : 'Untitled post')}</div>
-                        <div className="text-[11px] font-bold text-[#64708f]">{reviewDateLabel(task)}</div>
-                      </div>
-                      <span className="shrink-0 rounded-full bg-amber-50 px-3 py-1 text-[11px] font-black text-amber-700">{locale === 'ar' ? 'يتطلب مراجعة' : 'Review required'}</span>
-                    </div>
-                  ))}
-                  {reviewTasks.length === 0 && (
-                    <p className="rounded-[16px] bg-[#fbfcff] p-4 text-[13px] font-bold text-[#64708f]">
-                      {locale === 'ar' ? 'لا يوجد محتوى موثق ينتظر المراجعة.' : 'No verified content is waiting for review.'}
-                    </p>
-                  )}
-                </div>
-                <button type="button" onClick={() => setActiveTab('queue')} className="mt-5 w-full text-[13px] font-black text-[#5366f6]">{locale === 'ar' ? 'عرض جميع المهام' : 'View all tasks'}</button>
-              </div>
-            </div>
           </>
         )}
 

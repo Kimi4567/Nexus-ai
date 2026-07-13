@@ -913,43 +913,34 @@ export default function MediaLibraryPage() {
 
           <LuxuryWorkspaceHeader
             pageTitle={locale === 'ar' ? 'مكتبة الوسائط' : 'Media Library'}
-            pageSubtitle={locale === 'ar' ? 'تخزين وإدارة الأصول فقط. الإرفاق النهائي يتم من Content Hub بتأكيد صريح.' : 'Store and manage assets only. Final attachment happens from Content Hub with explicit confirmation.'}
+            pageSubtitle={locale === 'ar' ? 'ارفع الصور والفيديوهات، ثم اربطها بالمنشور المناسب من مركز المحتوى.' : 'Upload images and videos, then attach them to the right post from Content Hub.'}
             primaryHref="/content-hub"
-            primaryLabel={locale === 'ar' ? 'افتح مركز المحتوى' : 'Open Content Hub'}
+            primaryLabel={locale === 'ar' ? 'مراجعة المحتوى' : 'Review content'}
             secondaryHref="/studio"
             secondaryLabel={locale === 'ar' ? 'استوديو الإبداع' : 'Creative Studio'}
           />
 
-          {/* Header */}
-          <div className="mb-6 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <div className="mb-2 flex items-center gap-2">
-                <span className="text-[12px] font-bold tracking-wider text-[#64708f]">NEXUS MEDIA</span>
+          <div className="nx-os-action-strip mb-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="nx-os-icon-box" aria-hidden="true">🖼️</span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-black text-[#111b3f]">{locale === 'ar' ? `${media.length} أصل ظاهر` : `${media.length} visible assets`}</p>
+                <p className="text-[11px] font-semibold text-[#7b87a3]">{locale === 'ar' ? 'الإرفاق النهائي يتم من مركز المحتوى.' : 'Final attachment happens in Content Hub.'}</p>
               </div>
-              <h1 className="flex items-center gap-2 text-[32px] font-black tracking-[-0.03em] text-[#071236]">
-                <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-white shadow-sm ring-1 ring-[#e3e8f3]">🖼️</span>
-                {mT?.pageTitle}
-              </h1>
-              <p className="mt-2 max-w-3xl text-[14px] leading-7 text-[#64708f]">
-                {mT?.pageSubtitle}
-                <span className="block text-[12px] font-bold text-[#8a96ad]">
-                  {locale === 'ar'
-                    ? 'مكتبة الوسائط تخزن الأصول فقط. ربط أي أصل بمنشور يتم لاحقاً بتأكيد صريح من Content Hub.'
-                    : 'Media Library stores assets only. Attaching an asset to a post happens later through explicit Content Hub confirmation.'}
-                </span>
-              </p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={mT?.searchPlaceholder}
+                aria-label={mT?.searchPlaceholder}
                 className="h-11 rounded-[15px] px-4 text-[13px] font-bold text-[#111b3f] outline-none transition-all placeholder:text-[#8a96ad]" style={{ background: '#FFFFFF', border: '1px solid #dfe6f2' }}
               />
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
+                aria-label={locale === 'ar' ? 'نوع الوسائط' : 'Media type'}
                 className="h-11 rounded-[15px] px-4 text-[13px] font-bold text-[#111b3f] outline-none transition-all" style={{ background: '#FFFFFF', border: '1px solid #dfe6f2' }}
               >
                 <option value="ALL">{mT?.filterAll}</option>

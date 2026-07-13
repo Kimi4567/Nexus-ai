@@ -10,17 +10,12 @@ import {
   BarChart3,
   BookOpen,
   BrainCircuit,
-  CheckCircle2,
-  Clock3,
   Database,
-  FileCheck2,
   ExternalLink,
-  GitBranch,
   Loader2,
   RefreshCw,
   ShieldCheck,
   Sparkles,
-  Target,
 } from 'lucide-react'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
@@ -146,42 +141,6 @@ function workflowLabel(eventType: string, ar: boolean): string {
   return labels[eventType]?.[ar ? 0 : 1] || (ar ? 'إشارة سير عمل محفوظة' : 'Saved workflow signal')
 }
 
-function SummaryCard({
-  title,
-  value,
-  helper,
-  icon: Icon,
-  tone,
-}: {
-  title: string
-  value: string
-  helper: string
-  icon: typeof BookOpen
-  tone: 'violet' | 'green' | 'blue' | 'amber' | 'slate'
-}) {
-  const tones = {
-    violet: 'bg-violet-50 text-violet-600',
-    green: 'bg-emerald-50 text-emerald-600',
-    blue: 'bg-sky-50 text-sky-600',
-    amber: 'bg-amber-50 text-amber-600',
-    slate: 'bg-slate-100 text-slate-600',
-  }
-  return (
-    <div className="nx-os-card p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-bold text-[#75819d]">{title}</p>
-          <p className="mt-2 text-[27px] font-black text-[#071236]">{value}</p>
-        </div>
-        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[15px] ${tones[tone]}`}>
-          <Icon className="h-5 w-5" />
-        </span>
-      </div>
-      <p className="mt-2 text-[11px] font-bold leading-5 text-[#8792aa]">{helper}</p>
-    </div>
-  )
-}
-
 export default function LearningPage() {
   const { isAuthenticated, loading: authLoading, authHeader } = useAuth()
   const { locale, dir } = useI18n()
@@ -263,29 +222,22 @@ export default function LearningPage() {
             secondaryLabel={ar ? 'فتح التحليلات' : 'Open analytics'}
           />
 
-          <section className="nx-os-panel mb-5 overflow-hidden">
-            <div className="grid gap-5 bg-[radial-gradient(circle_at_88%_30%,rgba(124,99,255,0.16),transparent_34%),linear-gradient(135deg,#ffffff_0%,#f8f7ff_100%)] p-5 md:grid-cols-[1fr_auto] md:items-center lg:p-7">
-              <div className="flex items-start gap-4">
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] border border-violet-100 bg-white text-violet-600 shadow-[0_18px_45px_rgba(91,76,255,0.14)]">
-                  <BookOpen className="h-7 w-7" />
-                </span>
-                <div>
-                  <p className="text-[11px] font-black text-[#6d66dc]">{ar ? 'ذاكرة قابلة للتدقيق' : 'Auditable memory'}</p>
-                  <h1 className="mt-1 text-[28px] font-black text-[#071236] sm:text-[34px]">
-                    {ar ? 'نتعلّم فقط مما يمكن إثباته' : 'Learn only from what can be proven'}
-                  </h1>
-                  <p className="mt-2 max-w-3xl text-[13px] font-semibold leading-7 text-[#687590]">
-                    {ar
-                      ? 'الموافقة والجدولة والاختيار إشارات سلوك للمراجعة. أنماط الأداء لا تصبح دروسًا إلا بعد وصول analyticsData أو مقاييس منصة موثوقة.'
-                      : 'Approval, scheduling, and selection are reviewable behavior signals. Performance patterns become lessons only after analyticsData or trusted platform metrics arrive.'}
-                  </p>
-                </div>
-              </div>
-              <div className={`rounded-[18px] border px-4 py-3 ${stage.tone}`}>
+          <section className="nx-os-action-strip mb-5">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[15px] bg-violet-50 text-violet-600">
+                <BookOpen className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
                 <p className="text-[12px] font-black">{stage.label}</p>
-                <p className="mt-1 max-w-[310px] text-[11px] font-bold leading-5 opacity-80">{stage.helper}</p>
+                <p className="mt-1 text-[11px] font-bold leading-5 text-[#687590]">{stage.helper}</p>
               </div>
-            </div>
+              <div className="flex flex-wrap gap-2">
+                <span className={`rounded-full border px-3 py-1.5 text-[10px] font-black ${stage.tone}`}>
+                  {loading ? '—' : `${overview?.counts.pendingReview ?? 0} ${ar ? 'بانتظار المراجعة' : 'pending review'}`}
+                </span>
+                <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[10px] font-black text-emerald-700">
+                  {loading ? '—' : `${overview?.counts.performanceEvidenceRows ?? 0} ${ar ? 'أدلة أداء' : 'performance rows'}`}
+                </span>
+              </div>
           </section>
 
           {error ? (
@@ -298,15 +250,7 @@ export default function LearningPage() {
             </section>
           ) : (
             <>
-              <section className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                <SummaryCard title={ar ? 'بانتظار المراجعة' : 'Pending review'} value={loading ? '—' : String(overview?.counts.pendingReview ?? 0)} helper={ar ? 'لا يغيّر Brand Brain قبل قبولك' : 'Does not change Brand Brain before acceptance'} icon={Clock3} tone="amber" />
-                <SummaryCard title={ar ? 'إشارات مراجَعة مطبقة' : 'Applied review signals'} value={loading ? '—' : String(overview?.counts.reviewedSignals ?? 0)} helper={ar ? 'تفضيلات وسياق، وليست نتائج أداء' : 'Preferences and context, not performance results'} icon={FileCheck2} tone="violet" />
-                <SummaryCard title={ar ? 'إشارات سير العمل' : 'Workflow signals'} value={loading ? '—' : String(overview?.counts.workflowSignals ?? 0)} helper={ar ? 'اعتماد وجدولة ونشر موثق' : 'Approval, scheduling, and recorded publishing'} icon={GitBranch} tone="blue" />
-                <SummaryCard title={ar ? 'صفوف أداء موثقة' : 'Verified performance rows'} value={loading ? '—' : String(overview?.counts.performanceEvidenceRows ?? 0)} helper={ar ? 'analyticsData أو مصدر منصة موثوق' : 'analyticsData or a trusted platform source'} icon={Database} tone="green" />
-                <SummaryCard title={ar ? 'دروس أداء مطبقة' : 'Applied performance lessons'} value={loading ? '—' : String(overview?.counts.analyticsBackedLessons ?? 0)} helper={ar ? 'لا تُفتح إلا بدليل أداء حقيقي' : 'Unlocked only by real performance evidence'} icon={BrainCircuit} tone="slate" />
-              </section>
-
-              <section className="grid gap-5 xl:grid-cols-[1fr_390px]">
+              <section>
                 <div className="space-y-5">
                   <div className="nx-os-card p-5">
                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -450,64 +394,6 @@ export default function LearningPage() {
                     </div>
                   </div>
                 </div>
-
-                <aside className="space-y-5">
-                  <div className="nx-os-card p-5">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-[16px] font-black">{ar ? 'قواعد الثقة' : 'Trust rules'}</h2>
-                      <ShieldCheck className="h-5 w-5 text-emerald-600" />
-                    </div>
-                    <div className="mt-4 divide-y divide-[#edf1f7]">
-                      {[
-                        ar ? 'الموافقة تحفظ تفضيلًا، لا فائزًا.' : 'Approval saves a preference, not a winner.',
-                        ar ? 'الجدولة إشارة تشغيل، لا نتيجة.' : 'Scheduling is an execution signal, not a result.',
-                        ar ? 'النشر اليدوي سجل مستخدم، لا إثبات منصة.' : 'Manual publish is a user record, not platform proof.',
-                        ar ? 'التعلم من الأداء يحتاج تحليلات موثقة.' : 'Performance learning requires verified analytics.',
-                      ].map(rule => (
-                        <div key={rule} className="flex items-start gap-3 py-3">
-                          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                          <p className="text-[11px] font-bold leading-5 text-[#687590]">{rule}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="nx-os-card p-5">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-[16px] font-black">{ar ? 'الخطوة التالية الموثوقة' : 'Next trusted step'}</h2>
-                      <Target className="h-5 w-5 text-[#5366f6]" />
-                    </div>
-                    <div className="mt-4 space-y-3">
-                      {(overview?.counts.pendingReview ?? 0) > 0 ? (
-                        <Link href="/approvals" className="block rounded-[17px] border border-violet-100 bg-violet-50 p-4">
-                          <p className="text-[12px] font-black text-violet-800">{ar ? 'راجع الإشارات المعلّقة' : 'Review pending signals'}</p>
-                          <p className="mt-1 text-[10px] font-bold leading-5 text-violet-600">{ar ? 'لن يحدّث شيء Brand Brain دون قرارك.' : 'Nothing updates Brand Brain without your decision.'}</p>
-                        </Link>
-                      ) : null}
-                      {!overview?.performance.hasEvidence ? (
-                        <Link href="/connections" className="block rounded-[17px] border border-sky-100 bg-sky-50 p-4">
-                          <p className="text-[12px] font-black text-sky-800">{ar ? 'اربط مصدر قياس' : 'Connect a measurement source'}</p>
-                          <p className="mt-1 text-[10px] font-bold leading-5 text-sky-600">{ar ? 'بدون بيانات منصة لا توجد قرارات تحسين موثوقة.' : 'Without platform data there are no trustworthy optimization decisions.'}</p>
-                        </Link>
-                      ) : (
-                        <Link href="/analytics" className="block rounded-[17px] border border-emerald-100 bg-emerald-50 p-4">
-                          <p className="text-[12px] font-black text-emerald-800">{ar ? 'راجع النتائج قبل التطبيق' : 'Review results before applying'}</p>
-                          <p className="mt-1 text-[10px] font-bold leading-5 text-emerald-600">{ar ? 'افصل الإشارة عن المصادفة ثم اعتمد التحسين.' : 'Separate signal from coincidence before approving an optimization.'}</p>
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="rounded-[14px] border border-[#e3e8f3] bg-[#071236] p-5 text-white shadow-[0_18px_44px_rgba(7,18,54,0.18)]">
-                    <Sparkles className="h-6 w-6 text-[#a7b3ff]" />
-                    <h2 className="mt-4 text-[17px] font-black">Brand Brain</h2>
-                    <p className="mt-2 text-[11px] font-bold leading-6 text-slate-300">{ar ? 'ذاكرة العلامة تحتفظ بالسياق والإشارات التي راجعتها؛ نتائج الأداء لا تدخلها إلا من مسار موثّق.' : 'Brand memory stores context and reviewed signals; performance results enter only through a verified path.'}</p>
-                    <Link href="/brand" className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-[13px] bg-white text-[11px] font-black text-[#071236]">
-                      {ar ? 'فتح Brand Brain' : 'Open Brand Brain'}
-                      <ArrowUpRight className="h-4 w-4" />
-                    </Link>
-                  </div>
-                </aside>
               </section>
             </>
           )}

@@ -9,7 +9,6 @@ import { useI18n } from '@/lib/i18n-context'
 import AppShell from '@/components/AppShell'
 import VisualGenerator from '@/components/VisualGenerator'
 import SocialAnalytics from '@/components/SocialAnalytics'
-import AIPresenceBar from '@/components/AIPresenceBar'
 import BrandDNABadge, { type BrandDNAData } from '@/components/BrandDNABadge'
 import CampaignProofOfWork from '@/components/campaign/CampaignProofOfWork'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
@@ -1154,20 +1153,6 @@ function CampaignDetailPageInner() {
   const sentinelReview = aiOutput?.sentinelReview || null
   const sentinelStatus: 'not_reviewed' | 'passed' | 'needs_attention' =
     sentinelReview ? sentinelReview.status : 'not_reviewed'
-  // Sprint H — calendar push state from stored aiOutput
-  const storedCalendarPushedAt: string | null = aiOutput?.calendarPushedAt || null
-  const storedCalendarCount: number = (aiOutput?.calendarItems ?? []).length
-  const engineState = aiOutput?.nexusEngine || null
-  const engineScore: number = engineState?.score ?? Math.round(([
-    !!strategy && Object.keys(strategy).length > 0,
-    topHooks.length > 0 || contentCalendar.length > 0 || weeklyExecutionPlan.length > 0,
-    !!creativeBrief,
-    sentinelStatus === 'passed',
-    storedCalendarCount > 0,
-    campaign.status === 'ACTIVE' || campaign.status === 'SCHEDULED',
-    campaign.autopilotEnabled || campaign.status === 'SCHEDULED',
-  ].filter(Boolean).length / 7) * 100)
-  const engineBlocked = sentinelStatus === 'needs_attention'
   const operatingState = deriveCampaignOperatingState({
     campaign: {
       status: campaign.status,
@@ -1853,78 +1838,6 @@ function CampaignDetailPageInner() {
         : uiText('بانتظار بيانات حقيقية', 'Awaiting real data'),
     },
   ]
-  const luxuryPrimaryObjective = strategy.objective || businessObjective?.objective || businessObjective?.goal || campaign.goal
-  const luxuryObjectiveMetric = businessObjective?.successMetric || businessObjective?.kpi || strategy.successMetric || successMetricsDetailed[0]?.metric || successMetrics[0]
-  const luxuryAudiencePreview = audienceSegmentsDetailed.length > 0
-    ? audienceSegmentsDetailed.slice(0, 3).map((segment: any) => ({
-      title: segment.name || segment.segment || segment.label || strategyDocDisplayValue(segment.audience || ''),
-      helper: segment.situation || segment.pain || segment.desiredOutcome || segment.message || '',
-    }))
-    : audienceSegments.slice(0, 3).map((segment: string) => ({ title: segment, helper: '' }))
-  const luxuryMessages = uniqueCleanList([
-    strategy.keyMessage,
-    ...(Array.isArray(strategy.mainMessages) ? strategy.mainMessages : []),
-    ...(Array.isArray(strategy.keyMessages) ? strategy.keyMessages : []),
-    ...topHooks,
-  ].filter(Boolean).map((item: string) => sanitizeStrategyLimitText(String(item)))).slice(0, 3)
-  const luxuryPillars = (Array.isArray(strategy.contentPillars) ? strategy.contentPillars : [])
-    .slice(0, 4)
-    .map((pillar: any, index: number) => ({
-      label: typeof pillar === 'string' ? pillar : pillar.name || pillar.title || pillar.pillar || strategyDocText('ركن محتوى', 'Content pillar'),
-      helper: typeof pillar === 'string' ? '' : pillar.description || pillar.angle || pillar.goal || '',
-      share: [35, 30, 20, 15][index] || 10,
-    }))
-  const luxuryAngles = luxuryPillars.length > 0
-    ? luxuryPillars
-    : contentAnglesDetailed.slice(0, 4).map((angle: any, index: number) => ({
-      label: angle.angle || angle.title || angle.name || String(angle),
-      helper: angle.reason || angle.message || angle.description || '',
-      share: [35, 30, 20, 15][index] || 10,
-    }))
-  const luxuryChannels = (channelStrategy.length > 0 ? channelStrategy : campaign.platforms.map((platform) => ({ platform })))
-    .slice(0, 5)
-    .map((item: any, index: number) => ({
-      label: formatStrategyPlatformLabel(item.platform || item.channel || item.name || item) || String(item.platform || item.channel || item.name || item),
-      share: Number(item.share || item.weight || item.percentage || [35, 25, 20, 10, 5][index] || 5),
-    }))
-  const luxuryWeeklyPlan = (weeklyExecutionPlan.length > 0 ? weeklyExecutionPlan : weeklyPlan)
-    .slice(0, 4)
-    .map((week: any, index: number) => ({
-      label: week.week ? `${strategyDocText('أسبوع', 'Week')} ${week.week}` : `${strategyDocText('أسبوع', 'Week')} ${index + 1}`,
-      title: week.theme || week.focus || week.objective || week.title || strategyDocText('مراجعة وتنفيذ', 'Review and execute'),
-      helper: week.deliverables?.[0] || week.message || week.goal || '',
-    }))
-  const luxuryRisks = uniqueCleanList([
-    ...riskNotes,
-    ...doNotDoYet,
-    ...missingDataLabels.map((label) => uiText(`مدخل ناقص: ${label}`, `Missing input: ${label}`)),
-  ].filter(Boolean).map((item: string) => sanitizeStrategyLimitText(String(item)))).slice(0, 4)
-  const luxuryNextSteps = campaignCommandFlow.steps
-    .filter((step) => step.status === 'current' || step.status === 'review' || step.status === 'blocked')
-    .slice(0, 4)
-  const luxuryCampaignFacts = [
-    {
-      label: uiText('نوع الاستراتيجية', 'Strategy type'),
-      value: strategyScopeTruth,
-    },
-    {
-      label: uiText('الهدف', 'Goal'),
-      value: strategyDocDisplayValue(campaign.goal),
-    },
-    {
-      label: uiText('المحتوى', 'Content'),
-      value: operatingState.truthFlags.hasContentPlan
-        ? uiText(`${operatingState.counts.totalPosts} عنصر محفوظ`, `${operatingState.counts.totalPosts} saved items`)
-        : uiText('لم يُبن بعد', 'Not built yet'),
-    },
-    {
-      label: uiText('الميزانية', 'Budget'),
-      value: includesPaidPlanningStrategy
-        ? (hasPaidPlanningGaps ? uiText('تحتاج تأكيداً', 'Needs confirmation') : uiText('تخطيط فقط', 'Planning only'))
-        : uiText('غير مشمولة', 'Not included'),
-    },
-  ]
-
   // ── Empty section component ──────────────────────────────────────────────
   function EmptySection({ icon, message }: { icon: string; message: string }) {
     return (
@@ -2064,7 +1977,6 @@ function CampaignDetailPageInner() {
   return (
     <>
     <AppShell>
-      <AIPresenceBar authHeader={authHeader} />
       <div className="max-w-[1200px] mx-auto px-6 py-8 page-enter">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-slate-500 mb-6">
@@ -2100,19 +2012,10 @@ function CampaignDetailPageInner() {
         })()}
 
         {aiOutput && activeTab === 0 && (
-          <section className="mb-6 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.07)]">
-            <div className="border-b border-slate-100 bg-gradient-to-b from-white to-slate-50/80 p-5 lg:p-6">
-              <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
-                  <div className="h-36 w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-inner lg:w-48">
-                    {typeof campaign.thumbnail === 'string' && campaign.thumbnail.startsWith('http') ? (
-                      <img src={campaign.thumbnail} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_30%_25%,rgba(99,102,241,0.22),transparent_34%),linear-gradient(135deg,#f8fafc,#e0e7ff)]">
-                        <span className="text-5xl">{campaign.thumbnail || '🎯'}</span>
-                      </div>
-                    )}
-                  </div>
+          <section className="mb-5 overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.05)]">
+            <div className="p-4 lg:p-5">
+              <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex min-w-0 flex-1 items-center gap-4">
                   <div className="min-w-0">
                     <div className="mb-3 flex flex-wrap items-center gap-2 text-xs font-semibold">
                       <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">
@@ -2122,13 +2025,13 @@ function CampaignDetailPageInner() {
                         {strategyScopeTruth}
                       </span>
                     </div>
-                    <h1 className="max-w-3xl text-2xl font-semibold tracking-tight text-slate-950 lg:text-3xl">
+                    <h1 className="max-w-3xl text-xl font-semibold tracking-tight text-slate-950 lg:text-2xl">
                       {campaign.name}
                     </h1>
                     <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
                       {campaign.description || strategy.positioning || strategy.keyMessage || displayOperatingHelper}
                     </p>
-                    <div className="mt-4 flex flex-wrap gap-4 text-xs text-slate-500">
+                    <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500">
                       <span>{uiText('أُنشئت', 'Created')}: {timeAgo(campaign.createdAt)}</span>
                       <span>{uiText('الهدف', 'Goal')}: {strategyDocDisplayValue(campaign.goal)}</span>
                       <span>{uiText('المنصات', 'Platforms')}: {campaign.platforms.map((p) => formatStrategyPlatformLabel(p) || p).join(' · ') || uiText('غير محددة', 'Not set')}</span>
@@ -2136,12 +2039,12 @@ function CampaignDetailPageInner() {
                   </div>
                 </div>
 
-                <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-5 xl:min-w-[520px]">
+                <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-5 xl:min-w-[500px]">
                   {luxuryStrategySteps.map((step) => (
                     <Link
                       key={step.number}
                       href={step.href}
-                      className={`relative rounded-2xl border p-3 text-center transition hover:-translate-y-0.5 hover:shadow-sm ${
+                      className={`relative rounded-[14px] border p-2.5 text-center transition hover:-translate-y-0.5 hover:shadow-sm ${
                         step.active
                           ? 'border-indigo-300 bg-indigo-50 text-indigo-800 shadow-[0_0_0_1px_rgba(99,102,241,0.08)]'
                           : 'border-slate-200 bg-white text-slate-600'
@@ -2160,162 +2063,6 @@ function CampaignDetailPageInner() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 p-5 lg:grid-cols-12 lg:p-6">
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-3">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-bold text-slate-950">{uiText('الهدف الاستراتيجي', 'Strategic objective')}</h3>
-                  <span className="text-indigo-500">◎</span>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-4 text-center">
-                  <p className="text-sm font-semibold text-slate-950">{strategyDocDisplayValue(luxuryPrimaryObjective)}</p>
-                  <p className="mt-2 text-xs leading-5 text-slate-500">
-                    {luxuryObjectiveMetric
-                      ? strategyDocDisplayValue(luxuryObjectiveMetric)
-                      : uiText('المؤشرات هنا للمراجعة وليست نتائج أداء منشورة.', 'Metrics here are for review, not published performance results.')}
-                  </p>
-                </div>
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-indigo-400" style={{ width: `${Math.min(100, Math.max(15, engineScore))}%` }} />
-                </div>
-                <p className="mt-2 text-xs text-slate-500">{uiText('نضج الحزمة', 'Package maturity')}: {engineScore}%</p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-3">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-bold text-slate-950">{uiText('شرائح الجمهور المستهدفة', 'Target audience segments')}</h3>
-                  <span className="text-blue-500">♙</span>
-                </div>
-                <div className="space-y-2">
-                  {(luxuryAudiencePreview.length > 0 ? luxuryAudiencePreview : [{ title: campaign.audience || uiText('الجمهور يحتاج تحديداً أدق', 'Audience needs sharper definition'), helper: '' }]).map((segment, index) => (
-                    <div key={`${segment.title}-${index}`} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-                      <p className="text-sm font-semibold text-slate-900">{strategyDocDisplayValue(segment.title)}</p>
-                      {segment.helper && <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{strategyDocDisplayValue(segment.helper)}</p>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-3">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-bold text-slate-950">{uiText('التموضع', 'Positioning')}</h3>
-                  <span className="text-violet-500">◇</span>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-sm font-semibold leading-6 text-slate-950">
-                    {strategyDocDisplayValue(strategy.positioning || strategy.differentiation || strategy.keyMessage || strategyScopeTruth)}
-                  </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {[
-                      strategy.differentiation,
-                      campaignToneLabel,
-                      includesPaidPlanningStrategy ? uiText('تخطيط مدفوع', 'Paid planning') : uiText('عضوي', 'Organic'),
-                    ].filter(Boolean).slice(0, 3).map((tag: string) => (
-                      <span key={tag} className="rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
-                        {strategyDocDisplayValue(tag)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-3">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-bold text-slate-950">{uiText('الرسائل الرئيسية', 'Key messages')}</h3>
-                  <span className="text-sky-500">☷</span>
-                </div>
-                <div className="space-y-2">
-                  {(luxuryMessages.length > 0 ? luxuryMessages : [strategyDocGuidanceCopy.hint]).slice(0, 3).map((message, index) => (
-                    <div key={`${message}-${index}`} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-                      <p className="text-sm font-semibold leading-5 text-slate-900">{strategyDocDisplayValue(message)}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-3">
-                <h3 className="mb-3 text-sm font-bold text-slate-950">{uiText('أركان المحتوى', 'Content pillars')}</h3>
-                <div className="space-y-2">
-                  {(luxuryAngles.length > 0 ? luxuryAngles : [{ label: strategyDocStateCopy.contentPlanStatusValue, helper: strategyDocGuidanceCopy.hint, share: 100 }]).map((pillar: { label: string; helper: string; share: number }, index: number) => (
-                    <div key={`${pillar.label}-${index}`} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-semibold text-slate-900">{strategyDocDisplayValue(pillar.label)}</p>
-                        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-emerald-600">{pillar.share}%</span>
-                      </div>
-                      {pillar.helper && <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{strategyDocDisplayValue(pillar.helper)}</p>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-3">
-                <h3 className="mb-3 text-sm font-bold text-slate-950">{uiText('مزيج القنوات', 'Channel mix')}</h3>
-                <div className="flex items-center gap-4">
-                  <div className="flex h-28 w-28 flex-shrink-0 items-center justify-center rounded-full border-[12px] border-indigo-200 bg-white text-center">
-                    <span className="text-xs font-bold text-slate-700">{uiText('توزيع تخطيطي', 'Planning mix')}</span>
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-2">
-                    {luxuryChannels.map((channel, index) => (
-                      <div key={`${channel.label}-${index}`} className="flex items-center justify-between gap-3 text-xs">
-                        <span className="truncate font-semibold text-slate-700">{channel.label}</span>
-                        <span className="text-slate-500">{channel.share}%</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <p className="mt-3 text-xs leading-5 text-slate-500">
-                  {uiText('هذا توزيع تخطيطي من الاستراتيجية، وليس صرفاً أو نشرًا فعليًا.', 'This is planning distribution, not actual spend or publishing.')}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-6">
-                <h3 className="mb-4 text-sm font-bold text-slate-950">{uiText('خطة التنفيذ الأسبوعية', 'Weekly execution plan')}</h3>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                  {(luxuryWeeklyPlan.length > 0 ? luxuryWeeklyPlan : [{ label: uiText('التالي', 'Next'), title: strategyHeaderNextActionTitle, helper: strategyHeaderNextActionHelper }]).map((week, index) => (
-                    <div key={`${week.label}-${index}`} className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
-                      <p className="text-[11px] font-bold text-indigo-500">{week.label}</p>
-                      <p className="mt-2 text-sm font-semibold leading-5 text-slate-950">{strategyDocDisplayValue(week.title)}</p>
-                      {week.helper && <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-500">{strategyDocDisplayValue(week.helper)}</p>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-4">
-                <h3 className="mb-3 text-sm font-bold text-slate-950">{uiText('المخاطر والافتراضات', 'Risks and assumptions')}</h3>
-                <div className="space-y-2">
-                  {(luxuryRisks.length > 0 ? luxuryRisks : [uiText('لا توجد مخاطر مثبتة؛ راجع الافتراضات قبل التنفيذ.', 'No confirmed risks listed; review assumptions before execution.')]).map((risk, index) => (
-                    <div key={`${risk}-${index}`} className="flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2">
-                      <span className="text-amber-500">⚠</span>
-                      <p className="text-xs leading-5 text-amber-900">{strategyDocDisplayValue(risk)}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-4">
-                <h3 className="mb-3 text-sm font-bold text-slate-950">{uiText('الخطوات الاستراتيجية التالية', 'Next strategic steps')}</h3>
-                <div className="space-y-2">
-                  {(luxuryNextSteps.length > 0 ? luxuryNextSteps : campaignCommandFlow.steps.slice(0, 3)).map((step, index) => (
-                    <Link key={`${step.id}-${index}`} href={step.href} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 transition hover:border-indigo-200 hover:bg-indigo-50">
-                      <span className="text-xs font-semibold text-slate-800">{uiIsArabic ? step.titleAr : step.titleEn}</span>
-                      <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500">{commandFlowStatusLabel(step.status)}</span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-4">
-                <h3 className="mb-3 text-sm font-bold text-slate-950">{uiText('ملخص الحملة', 'Campaign summary')}</h3>
-                <div className="space-y-2">
-                  {luxuryCampaignFacts.map((fact) => (
-                    <div key={fact.label} className="flex items-start justify-between gap-3 border-b border-slate-100 pb-2 last:border-0 last:pb-0">
-                      <span className="text-xs font-semibold text-slate-500">{fact.label}</span>
-                      <span className="max-w-[62%] text-right text-xs font-bold leading-5 text-slate-900">{fact.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
           </section>
         )}
 
