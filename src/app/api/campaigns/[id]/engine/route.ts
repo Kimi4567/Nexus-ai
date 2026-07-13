@@ -9,6 +9,7 @@ import {
   deriveEngineRebuildAvailability,
   ENGINE_REBUILD_CREDIT_COST,
 } from '@/lib/campaignDangerActions'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 // Strategy generation makes two GPT-4o-mini calls; give the function headroom so
 // a slower-but-valid Arabic response completes instead of being killed mid-run.
@@ -126,6 +127,10 @@ export async function POST(req: NextRequest, props: Params) {
         { status: 409 },
       )
     }
+  }
+
+  if (!isAiProviderConfigured()) {
+    return NextResponse.json(getAiProviderUnavailablePayload(language), { status: 503 })
   }
 
   const credit = await checkAndDeductCredits(userId, 'RUN_FULL_STRATEGY')

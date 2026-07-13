@@ -1,31 +1,29 @@
 import * as realAI from './openai'
-import * as mockAI from './mock'
-
-const useMock = !process.env.OPENAI_API_KEY
+import { assertAiProviderConfigured } from './provider'
 
 export const generateScript = async (briefing: string) => {
-  if (useMock) return mockAI.generateScript(briefing)
+  assertAiProviderConfigured()
   return realAI.generateScript(briefing)
 }
 
 export const generateCaptions = async (script: string, platform: string) => {
-  if (useMock) return mockAI.generateCaptions(script, platform)
+  assertAiProviderConfigured()
   return realAI.generateCaptions(script, platform)
 }
 
 export const callOpenAI = async (prompt: string) => {
-  if (useMock) return mockAI.callOpenAI(prompt)
+  assertAiProviderConfigured()
   return realAI.callOpenAI(prompt)
 }
 
 export const generateMarketingStrategy = async (campaign: any, project: any) => {
-  if (useMock) return mockAI.generateMarketingStrategy(campaign, project)
+  assertAiProviderConfigured()
   // realAI strategy is implemented in strategy.ts and calls openai directly
   return realAI.generateMarketingStrategy(campaign as any, project as any)
 }
 
 export const generateAdConcepts = async (campaign: any, project: any) => {
-  if (useMock) return mockAI.generateAdConcepts(campaign, project)
+  assertAiProviderConfigured()
   return realAI.generateAdConcepts(campaign as any, project as any)
 }
 

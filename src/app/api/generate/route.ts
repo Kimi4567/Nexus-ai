@@ -7,6 +7,7 @@ import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } fro
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { validateOutputObject, logQualityReport } from '@/lib/ai/outputValidator'
 import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from '@/lib/campaign-memory'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 export async function POST(req: NextRequest) {
   const userId = await getServerUserId(req)
@@ -39,6 +40,10 @@ export async function POST(req: NextRequest) {
 
   const project = await prisma.project.findUnique({ where: { id: campaign.projectId }, include: { media: true } })
   if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+
+  if (!isAiProviderConfigured()) {
+    return NextResponse.json(getAiProviderUnavailablePayload(language), { status: 503 })
+  }
 
   // Attach language preference so AI functions use the correct output language
   // Falls back to 'ar' (Arabic) to preserve behaviour for existing users
@@ -96,14 +101,14 @@ export async function POST(req: NextRequest) {
         data: {
           campaignId: campaign.id, type: 'SOCIAL_POST', prompt: 'marketing strategy',
           params: {}, status: 'COMPLETED', output: JSON.stringify(strategy),
-          provider: process.env.OPENAI_API_KEY ? 'openai' : 'mock',
+          provider: 'openai',
         },
       }).catch(() => null),
       prisma.generation.create({
         data: {
           campaignId: campaign.id, type: 'SOCIAL_POST', prompt: 'ad concepts',
           params: {}, status: 'COMPLETED', output: JSON.stringify(concepts),
-          provider: process.env.OPENAI_API_KEY ? 'openai' : 'mock',
+          provider: 'openai',
         },
       }).catch(() => null),
     ])

@@ -8,6 +8,7 @@ import {
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 /* ═══════════════════════════════════════════════════════════════
    /api/ai/generate
@@ -42,12 +43,6 @@ function buildLegacyUserMessage(body: Record<string, unknown>): string {
   }
 }
 
-const DEMO_LEGACY: Record<LegacyAction, string> = {
-  video_script: `🎬 سكريبت فيديو — وضع العرض التجريبي\n\n[مشهد ١ - ٥ ثواني]\nنص: "هل تتشتت خطتك التسويقية بين أدوات متعددة؟"\n\n[مشهد ٢ - ١٥ ثانية]\nنص: "NEXUS AI يربط Brand Brain بالاستراتيجية والمحتوى والموافقات في مسار واحد."\n\n[مشهد ٣ - ٥ ثواني]\nنص: "ابدأ تجربة ١٤ يوماً"`,
-  ad_copy: `📢 نسخ إعلانية — وضع العرض التجريبي\n\n📌 النسخة ١:\nالعنوان: "فريقك التسويقي الكامل في منصة واحدة"\nالنص: NEX يُنتج، VEX يُعلن، PULSE يُحلل، Sentinel يُراقب.\nCTA: جرّب مجاناً ←`,
-  analyze: `📊 التحليل غير متاح في وضع العرض التجريبي\n\nلم يتم تشغيل نموذج ذكاء اصطناعي، لذلك لن يعرض NEXUS أرقاماً أو نتائج افتراضية. أضف OPENAI_API_KEY وقدّم بيانات موثقة لإجراء تحليل قائم على الأدلة.`,
-}
-
 async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
   if (credit.creditsUsed <= 0) return
   if (credit.transactionId) {
@@ -67,8 +62,10 @@ export async function POST(req: NextRequest) {
   const rl = await aiRateLimitDb(userId)
   if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 })
 
-  const body = await req.json() as Record<string, unknown>
-  const apiKey = process.env.OPENAI_API_KEY
+  const body = await req.json().catch(() => null) as Record<string, unknown> | null
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
 
   // Determine call convention
   const isNew    = typeof body.systemPrompt === 'string' && typeof body.userPrompt === 'string'
@@ -101,22 +98,16 @@ export async function POST(req: NextRequest) {
     maxTokens     = 1500
   }
 
-  // ── Credit deduction (before OpenAI call) ─────────────────────
-  let credit: CreditDeductionOk | null = null
-  if (apiKey) {
-    const creditResult = await checkAndDeductCredits(userId, 'AD_COPY')
-    if (!creditResult.ok) return NextResponse.json(creditResult, { status: 402 })
-    credit = creditResult
+  if (!isAiProviderConfigured()) {
+    return NextResponse.json(getAiProviderUnavailablePayload(language), { status: 503 })
   }
 
-  // No API key → demo/mock mode
-  if (!apiKey) {
-    if (isNew) {
-      const mock = `[وضع تجريبي — أضف OPENAI_API_KEY لتفعيل الذكاء الاصطناعي]\n\nالطلب وصلنا:\n"${(userMessage as string).slice(0, 120)}..."\n\nعند إضافة المفتاح سيولّد النظام محتوى احترافياً كاملاً هنا.`
-      return NextResponse.json({ content: mock, result: mock })
-    }
-    return NextResponse.json({ result: DEMO_LEGACY[body.action as LegacyAction] })
-  }
+  const apiKey = process.env.OPENAI_API_KEY!.trim()
+
+  // ── Credit deduction (before OpenAI call) ─────────────────────
+  const creditResult = await checkAndDeductCredits(userId, 'AD_COPY')
+  if (!creditResult.ok) return NextResponse.json(creditResult, { status: 402 })
+  const credit: CreditDeductionOk = creditResult
 
   // Real OpenAI call
   try {

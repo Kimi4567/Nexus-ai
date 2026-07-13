@@ -20,6 +20,7 @@ const {
   mockCampaignFindFirst,
   mockSocialPostCount,
   mockGetBrandBrainReadiness,
+  mockIsAiProviderConfigured,
 } = vi.hoisted(() => ({
   mockGetServerUserId: vi.fn(),
   mockAiRateLimitDb: vi.fn(),
@@ -29,6 +30,7 @@ const {
   mockCampaignFindFirst: vi.fn(),
   mockSocialPostCount: vi.fn(),
   mockGetBrandBrainReadiness: vi.fn(),
+  mockIsAiProviderConfigured: vi.fn(),
 }))
 
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
@@ -36,6 +38,10 @@ vi.mock('@/lib/dbRateLimit', () => ({ aiRateLimitDb: mockAiRateLimitDb }))
 vi.mock('@/lib/credits', () => ({ checkAndDeductCredits: mockCheckAndDeduct, refundCredits: mockRefund }))
 vi.mock('@/lib/campaign-engine', () => ({ runCampaignEngine: mockRunEngine, deriveCampaignEngineState: vi.fn() }))
 vi.mock('@/lib/brandReadiness', () => ({ getBrandBrainReadiness: mockGetBrandBrainReadiness }))
+vi.mock('@/lib/ai/provider', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/ai/provider')>()
+  return { ...actual, isAiProviderConfigured: mockIsAiProviderConfigured }
+})
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     campaign: {
@@ -74,6 +80,7 @@ beforeEach(() => {
   mockGetBrandBrainReadiness.mockReturnValue({ ready: true, missingRequired: [], score: 100 })
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 8, creditsRemaining: 100 })
   mockRefund.mockResolvedValue(undefined)
+  mockIsAiProviderConfigured.mockReturnValue(true)
 })
 
 describe('POST /api/campaigns/[id]/engine', () => {
@@ -133,6 +140,19 @@ describe('POST /api/campaigns/[id]/engine', () => {
     expect(json.engine.status).toBe('ready_for_approval')
     expect(json.creditsUsed).toBe(8)
     expect(mockRefund).not.toHaveBeenCalled()
+  })
+
+  it('provider misconfiguration returns 503 before credit deduction', async () => {
+    mockIsAiProviderConfigured.mockReturnValue(false)
+
+    const res = await POST(makeReq({ language: 'en' }), ctx)
+    const json = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(json.code).toBe('AI_PROVIDER_UNAVAILABLE')
+    expect(json.creditsCharged).toBe(false)
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockRunEngine).not.toHaveBeenCalled()
   })
 
   it('force engine rebuild requires explicit confirmation before credit deduction', async () => {

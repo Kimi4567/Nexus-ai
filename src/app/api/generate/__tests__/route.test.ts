@@ -14,6 +14,7 @@ const {
   mockGetServerUserId, mockAiRateLimitDb, mockCheckAndDeduct, mockRefund, mockRefundForTxn,
   mockPrisma, mockGenerateStrategy, mockGenerateConcepts, mockValidateOutput,
   mockLogQualityReport, mockGetMemories, mockFormatMemories, mockSaveMemory,
+  mockIsAiProviderConfigured,
 } = vi.hoisted(() => ({
   mockGetServerUserId: vi.fn(),
   mockAiRateLimitDb: vi.fn(),
@@ -33,6 +34,7 @@ const {
   mockGetMemories: vi.fn(),
   mockFormatMemories: vi.fn(),
   mockSaveMemory: vi.fn(),
+  mockIsAiProviderConfigured: vi.fn(),
 }))
 
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
@@ -47,6 +49,10 @@ vi.mock('@/lib/ai/adapter', () => ({
   generateMarketingStrategy: mockGenerateStrategy,
   generateAdConcepts: mockGenerateConcepts,
 }))
+vi.mock('@/lib/ai/provider', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/ai/provider')>()
+  return { ...actual, isAiProviderConfigured: mockIsAiProviderConfigured }
+})
 vi.mock('@/lib/ai/outputValidator', () => ({
   validateOutputObject: mockValidateOutput,
   logQualityReport: mockLogQualityReport,
@@ -87,6 +93,7 @@ beforeEach(() => {
   mockGetMemories.mockResolvedValue([])
   mockFormatMemories.mockReturnValue(undefined)
   mockSaveMemory.mockReturnValue(Promise.resolve())
+  mockIsAiProviderConfigured.mockReturnValue(true)
 })
 
 describe('POST /api/generate — RF-1 refund safety', () => {
@@ -122,6 +129,19 @@ describe('POST /api/generate — RF-1 refund safety', () => {
     const res = await POST(makeReq({ campaignId: 'c1' }))
     expect(res.status).toBe(404)
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+  })
+
+  it('provider misconfiguration returns 503 before credit deduction', async () => {
+    mockIsAiProviderConfigured.mockReturnValue(false)
+
+    const res = await POST(makeReq({ campaignId: 'c1', language: 'en' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(json.code).toBe('AI_PROVIDER_UNAVAILABLE')
+    expect(json.creditsCharged).toBe(false)
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockGenerateStrategy).not.toHaveBeenCalled()
   })
 
   it('AI/provider failure after deduction triggers scalar refund', async () => {
