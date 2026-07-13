@@ -44,6 +44,18 @@ describe('contentPlanApprovalGuard', () => {
     expect(review.issues.filter(issue => issue.reason === 'generic_hook_formula')).toHaveLength(2)
   })
 
+  it('blocks polished but non-specific analytics, quality, and help formulas', () => {
+    const review = reviewContentPlanForApproval([
+      { contentPlanIndex: 1, caption: 'التحليلات ليست مجرد أرقام، بل هي مفتاح النجاح!' },
+      { contentPlanIndex: 2, caption: 'الجودة تبدأ من هنا: الموافقات البشرية.' },
+      { contentPlanIndex: 3, caption: 'اكتشف كيف يمكننا مساعدتك في النمو.' },
+      { contentPlanIndex: 4, caption: 'Analytics are more than just numbers; they are the key to success.' },
+    ], strategy, facts)
+
+    expect(review.ok).toBe(false)
+    expect(review.issues.filter(issue => issue.reason === 'generic_hook_formula')).toHaveLength(4)
+  })
+
   it('allows aligned, review-safe drafts', () => {
     const review = reviewContentPlanForApproval([
       { contentPlanIndex: 1, caption: 'Save three questions to ask your dentist during a dental consultation.' },

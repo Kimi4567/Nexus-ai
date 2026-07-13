@@ -1,3 +1,5 @@
+import { hasGenericMarketingHook } from '@/lib/marketingCopyGuard'
+
 /**
  * Strategy output contract guard.
  *
@@ -511,13 +513,15 @@ function guardContentAnglesOperationalDepth(list: unknown, language?: string | n
 }
 
 function isGenericStrategyHook(value: unknown): boolean {
-  if (typeof value !== 'string') return false
-  const text = value.trim()
-  if (!text) return false
-  return /(?:هل\s+تعلم|هل\s+فكرت|تخي[ّ]?ل\s+(?:لو|أن)|did\s+you\s+know|have\s+you\s+ever\s+wondered|imagine\s+if|what\s+if)|(?:التسويق\s+الذكي|التحليلات|الأرقام).{0,28}(?:يغي[ّ]?ر|تغي[ّ]?ر).{0,24}(?:مسار|عملك|شركتك)|(?:analytics|numbers|smart\s+marketing).{0,32}(?:change|transform).{0,24}(?:business|company)/i.test(text)
+  return hasGenericMarketingHook(value)
 }
 
-function firstAudienceNeed(output: JsonObject): { segment: string; pain: string } | null {
+function firstAudienceNeed(output: JsonObject): {
+  segment: string
+  pain: string
+  objection: string
+  desiredOutcome: string
+} | null {
   const segments = Array.isArray(output.audienceSegmentsDetailed)
     ? output.audienceSegmentsDetailed
     : []
@@ -525,17 +529,40 @@ function firstAudienceNeed(output: JsonObject): { segment: string; pain: string 
     if (!isObject(item)) continue
     const segment = typeof item.segment === 'string' ? item.segment.trim() : ''
     const pain = typeof item.pain === 'string' ? item.pain.trim() : ''
-    if (segment && pain) return { segment, pain }
+    const objection = typeof item.objection === 'string' ? item.objection.trim() : ''
+    const desiredOutcome = typeof item.desiredOutcome === 'string' ? item.desiredOutcome.trim() : ''
+    if (segment && pain) return { segment, pain, objection, desiredOutcome }
   }
   return null
 }
 
-function groundedHookFallback(output: JsonObject, language?: string | null): string {
+function groundedHookFallback(output: JsonObject, language?: string | null, ordinal = 0): string {
   const audienceNeed = firstAudienceNeed(output)
   if (audienceNeed) {
-    return isArabicLanguage(language)
-      ? `ابدأ من احتياج ${audienceNeed.segment}: ${audienceNeed.pain}`
-      : `Lead with the documented need for ${audienceNeed.segment}: ${audienceNeed.pain}`
+    const arFallbacks = [
+      `ابدأ من احتياج ${audienceNeed.segment}: ${audienceNeed.pain}`,
+      `وضّح كيف يعالج سير العمل مشكلة ${audienceNeed.pain} لدى ${audienceNeed.segment} دون وعد بنتيجة غير مثبتة.`,
+      audienceNeed.objection
+        ? `جاوب بوضوح عن اعتراض ${audienceNeed.segment}: ${audienceNeed.objection}`
+        : `حوّل مشكلة ${audienceNeed.pain} إلى قائمة تحقق عملية قابلة للحفظ.`,
+      audienceNeed.desiredOutcome
+        ? `قارن الوضع الحالي بالنتيجة المطلوبة لدى ${audienceNeed.segment}: ${audienceNeed.desiredOutcome}`
+        : `قارن الوضع الحالي بالمسار المقترح لدى ${audienceNeed.segment}.`,
+      `اشرح الخطوة التالية التي يستطيع ${audienceNeed.segment} مراجعتها بعد مواجهة ${audienceNeed.pain}.`,
+    ]
+    const enFallbacks = [
+      `Lead with the documented need for ${audienceNeed.segment}: ${audienceNeed.pain}`,
+      `Explain how the workflow addresses ${audienceNeed.pain} for ${audienceNeed.segment} without promising an unverified result.`,
+      audienceNeed.objection
+        ? `Answer the documented objection from ${audienceNeed.segment}: ${audienceNeed.objection}`
+        : `Turn ${audienceNeed.pain} into a practical checklist worth saving.`,
+      audienceNeed.desiredOutcome
+        ? `Compare the current workflow with the outcome ${audienceNeed.segment} wants: ${audienceNeed.desiredOutcome}`
+        : `Compare the current workflow with the proposed path for ${audienceNeed.segment}.`,
+      `Explain the next reviewable step ${audienceNeed.segment} can take after encountering ${audienceNeed.pain}.`,
+    ]
+    const fallbacks = isArabicLanguage(language) ? arFallbacks : enFallbacks
+    return fallbacks[ordinal % fallbacks.length]
   }
   return isArabicLanguage(language)
     ? 'اربط الرسالة بموقف الشريحة واعتراضها المحدد قبل تقديم العرض.'
@@ -543,13 +570,14 @@ function groundedHookFallback(output: JsonObject, language?: string | null): str
 }
 
 function guardGenericStrategyHooks(output: JsonObject, language?: string | null): void {
-  const fallback = groundedHookFallback(output, language)
+  let genericOrdinal = 0
+  const nextFallback = () => groundedHookFallback(output, language, genericOrdinal++)
   const guardHookItem = (item: unknown): unknown => {
-    if (typeof item === 'string') return isGenericStrategyHook(item) ? fallback : item
+    if (typeof item === 'string') return isGenericStrategyHook(item) ? nextFallback() : item
     if (!isObject(item)) return item
     const guarded = { ...item }
     for (const key of ['hook', 'text', 'message']) {
-      if (isGenericStrategyHook(guarded[key])) guarded[key] = fallback
+      if (isGenericStrategyHook(guarded[key])) guarded[key] = nextFallback()
     }
     return guarded
   }

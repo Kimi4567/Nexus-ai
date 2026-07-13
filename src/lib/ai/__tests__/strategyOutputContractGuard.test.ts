@@ -100,7 +100,9 @@ describe('guardStrategyOutputContract', () => {
     expect(JSON.stringify(out)).not.toMatch(/هل\s+تعلم|تغير\s+(?:مسار|عملك|شركتك)/)
     expect(out.topHooks[0]).toContain('مؤسسو الشركات الخدمية الصغيرة')
     expect(out.topHooks[0]).toContain('صعوبة تحويل الخطة إلى تنفيذ أسبوعي واضح')
-    expect(out.contentAnglesDetailed[0].hook).toBe(out.topHooks[0])
+    expect(out.contentAnglesDetailed[0].hook).toContain('مؤسسو الشركات الخدمية الصغيرة')
+    expect(out.contentAnglesDetailed[0].hook).toContain('صعوبة تحويل الخطة إلى تنفيذ أسبوعي واضح')
+    expect(out.contentAnglesDetailed[0].hook).not.toBe(out.topHooks[0])
   })
 
   it('rebuilds a count-correct but week-short plan into the required four-week window', () => {

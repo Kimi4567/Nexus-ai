@@ -4,6 +4,7 @@ import {
   type ContentPlanSemanticPost,
 } from '@/lib/contentPlanSemanticGuard'
 import { validateContentPlanDraftForSave } from '@/lib/contentPlanStructuredRenderer'
+import { hasGenericMarketingHook } from '@/lib/marketingCopyGuard'
 
 export interface ContentPlanApprovalIssue {
   index: number
@@ -16,10 +17,7 @@ export interface ContentPlanApprovalReview {
 }
 
 export function hasGenericHookFormula(value: unknown): boolean {
-  if (typeof value !== 'string') return false
-  const text = value.trim()
-  if (!text) return false
-  return /(?:هل\s+تعلم|هل\s+فكرت|تخي[ّ]?ل\s+(?:لو|أن)|did\s+you\s+know|have\s+you\s+ever\s+wondered|imagine\s+if|what\s+if)|(?:التسويق\s+الذكي|التحليلات|الأرقام).{0,28}(?:يغي[ّ]?ر|تغي[ّ]?ر).{0,24}(?:مسار|عملك|شركتك)|(?:analytics|numbers|smart\s+marketing).{0,32}(?:change|transform).{0,24}(?:business|company)/i.test(text)
+  return hasGenericMarketingHook(value)
 }
 
 export function reviewContentPostForPublishing(
