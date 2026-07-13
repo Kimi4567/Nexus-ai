@@ -9,13 +9,14 @@ import { useI18n } from '@/lib/i18n-context'
 import { useEffect, useState } from 'react'
 import AppShell from '@/components/AppShell'
 import CreditHistoryModal from '@/components/CreditHistoryModal'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { formatCreditDisplay } from '@/lib/creditDisplay'
 import { getBillingDisplayTruth } from '@/lib/billingDisplayTruth'
 import Link from 'next/link'
 import {
   Sparkles, CheckCircle2, Settings2,
   Rocket, Brain, Shield, Globe, Image,
-  MessageSquare, FileText, Gift, TrendingUp, Zap, History,
+  MessageSquare, FileText, Gift, Zap, History,
 } from 'lucide-react'
 
 // ─── Plan definitions ───────────────────────────────────────────────────────────
@@ -34,33 +35,19 @@ const PLANS = [
     badgeEn: 'Most Popular',
     descAr: 'للفرق التي تخطط وتنتج وتراجع المحتوى باستمرار',
     descEn: 'For teams planning, producing, and reviewing content consistently',
-    upgradeHintAr: null as string | null,
-    upgradeHintEn: null as string | null,
     limitsAr: [
       '150 رصيد AI / شهر (يتجدد شهرياً)',
       '3 مساحات عمل (3 براندات)',
       '10 حملات / شهر',
       '25 بوست / شهر',
-      'ربط المنصات المدعومة حسب صلاحيات المزود',
       'Brand Brain الكامل + ذاكرة الحملات',
-      'تحميل الميديا + طبقات البراند',
-      'اختبار A/B + إعادة كتابة بالـ AI داخل مساحة العمل',
-      'تحليلات موثقة عند وصول بيانات منصة مؤهلة',
-      'تصدير HTML قابل للطباعة + JSON',
-      'دعم عبر البريد الإلكتروني حسب التوفر',
     ],
     limitsEn: [
       '150 AI credits / month (renews monthly)',
       '3 workspaces (3 brands)',
       '10 campaigns / month',
       '25 AI posts / month',
-      'Supported platform connections subject to provider permissions',
       'Full Brand Brain + Campaign Memory (reviewed signals across campaigns)',
-      'Media uploads + Brand overlays',
-      'Workspace A/B testing + AI Rewrite',
-      'Verified analytics when eligible platform data arrives',
-      'Printable HTML + JSON export',
-      'Email support as available',
     ],
   },
   {
@@ -76,20 +63,12 @@ const PLANS = [
     badgeEn: 'Advanced operations',
     descAr: 'لتشغيل عدة براندات مع مراقبة مجدولة وقائمة قرارات',
     descEn: 'For multi-brand operations with scheduled monitoring and an action queue',
-    upgradeHintAr: null as string | null,
-    upgradeHintEn: null as string | null,
     limitsAr: [
       '500 رصيد AI / شهر (يتجدد شهرياً)',
       '10 مساحات عمل (10 براندات أو عملاء)',
       'حملات غير محدودة / شهر',
       '60 بوست / شهر',
       'مراقبة مجدولة + قائمة قرارات مبنية على الأدلة',
-      'المنصات المدعومة + نشر متعدد الحسابات حسب الإتاحة',
-      'قائمة قرارات ومراجعات بشرية قبل التنفيذ',
-      'تصدير HTML قابل للطباعة + JSON',
-      'نشر على المنصات المتصلة حسب موافقات المزود',
-      'تحليلات موثقة بعد وصول بيانات الأداء الحقيقية',
-      'سجل أدلة ومصدر لكل توصية أداء',
     ],
     limitsEn: [
       '500 AI credits / month (renews monthly)',
@@ -97,12 +76,6 @@ const PLANS = [
       'Unlimited campaigns / month',
       '60 AI posts / month',
       'Scheduled monitoring + evidence-backed action queue',
-      'Supported platforms + multi-account publishing as available',
-      'Human approval queue before execution',
-      'Printable HTML + JSON export',
-      'Publishing to connected platforms as provider access allows',
-      'Verified analytics after real performance data arrives',
-      'Evidence and provenance trail for performance recommendations',
     ],
   },
 ]
@@ -371,6 +344,14 @@ export default function BillingPage() {
   return (
     <AppShell>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-10">
+        <LuxuryWorkspaceHeader
+          pageTitle={ar ? 'الفوترة والكريدت' : 'Billing & credits'}
+          pageSubtitle={ar ? 'اعرف باقتك ورصيدك وتكلفة كل إجراء قبل التشغيل.' : 'Understand your plan, balance, and action costs before you run anything.'}
+          primaryHref="/settings"
+          primaryLabel={ar ? 'إعدادات الحساب' : 'Account settings'}
+          secondaryHref="/dashboard"
+          secondaryLabel={ar ? 'العودة للرئيسية' : 'Back to Today'}
+        />
 
         {/* ── Current plan status ─────────────────────────────────────────── */}
         {!loading && !billingEnabled && (
@@ -545,16 +526,6 @@ export default function BillingPage() {
                     ))}
                   </ul>
 
-                  {/* Optional plan-specific upgrade hint */}
-                  {(ar ? plan.upgradeHintAr : plan.upgradeHintEn) && (
-                    <div className="mb-4 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
-                      <p className="text-xs text-amber-300/80 leading-relaxed flex items-start gap-1.5">
-                        <TrendingUp className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" />
-                        {ar ? plan.upgradeHintAr : plan.upgradeHintEn}
-                      </p>
-                    </div>
-                  )}
-
                   {/* CTA */}
                   {isCurrent ? (
                     <div className="w-full py-2.5 rounded-xl text-center text-sm font-semibold border border-slate-200 text-slate-500 bg-slate-50">
@@ -696,113 +667,6 @@ export default function BillingPage() {
             </div>
           </div>
 
-          {/* Referral bonus */}
-          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-            <div className="flex items-start gap-3">
-              <Gift className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
-              <p className="text-sm text-slate-600">
-                {ar
-                  ? <><span className="text-slate-950 font-semibold">اربح أرصدة إضافية!</span> ادعُ صديقاً واحصلا معاً على <span className="text-emerald-700 font-semibold">+20 رصيد</span> مجاناً. <Link href="/settings#referral" className="text-emerald-700 underline">احصل على رابط الإحالة →</Link></>
-                  : <><span className="text-slate-950 font-semibold">Earn free credits!</span> Refer a friend and you both get <span className="text-emerald-700 font-semibold">+20 credits</span> free. <Link href="/settings#referral" className="text-emerald-700 underline">Get your referral link →</Link></>
-                }
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Plan comparison table ───────────────────────────────────────── */}
-        <div>
-          <h2 className="text-xl font-bold text-slate-950 mb-6">
-            {ar ? 'مقارنة الخطط' : 'Plan comparison'}
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-start pb-3 text-slate-500 font-medium w-[30%]">
-                    {ar ? 'الميزة' : 'Feature'}
-                  </th>
-                  <th className="text-center pb-3 text-violet-400 font-bold">
-                    {ar ? 'جروث' : 'Growth'} <span className="text-violet-500">$49</span>
-                    <span className="block text-[10px] text-violet-400/60">{ar ? '★ الأكثر شعبية' : '★ Popular'}</span>
-                  </th>
-                  <th className="text-center pb-3 text-emerald-400 font-medium">
-                    {ar ? 'أوتوبايلوت' : 'Autopilot'} <span className="text-emerald-500/80">$99</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {[
-                  {
-                    labelAr: 'أرصدة AI / شهر', labelEn: 'AI credits / month',
-                    pro: '150', biz: '500',
-                  },
-                  {
-                    labelAr: 'بوستات / شهر', labelEn: 'Posts / month',
-                    pro: '25', biz: '60',
-                  },
-                  {
-                    labelAr: 'حملات / شهر', labelEn: 'Campaigns / month',
-                    pro: '10', biz: ar ? 'غير محدود' : 'Unlimited',
-                  },
-                  {
-                    labelAr: 'مساحات العمل', labelEn: 'Workspaces',
-                    pro: '3', biz: '10',
-                  },
-                  {
-                    labelAr: 'المنصات الاجتماعية', labelEn: 'Social platforms',
-                    pro: ar ? 'حسب الإتاحة' : 'As available', biz: ar ? 'حسب الإتاحة' : 'As available',
-                  },
-                  {
-                    labelAr: 'Brand Brain + وكلاء AI', labelEn: 'Brand Brain + AI agents',
-                    pro: ar ? 'كامل' : 'Full', biz: ar ? 'كامل' : 'Full',
-                  },
-                  {
-                    labelAr: 'ذاكرة الحملات', labelEn: 'Campaign Memory',
-                    pro: '✓', biz: '✓',
-                  },
-                  {
-                    labelAr: 'اختبار A/B', labelEn: 'A/B Testing',
-                    pro: '✓', biz: '✓',
-                  },
-                  {
-                    labelAr: 'تصدير بدون علامة', labelEn: 'No-watermark exports',
-                    pro: ar ? 'HTML قابل للطباعة + JSON' : 'Printable HTML + JSON', biz: ar ? 'HTML قابل للطباعة + JSON' : 'Printable HTML + JSON',
-                  },
-                  {
-                    labelAr: 'قائمة الموافقات', labelEn: 'Approval queue',
-                    pro: '✓', biz: '✓',
-                  },
-                  {
-                    labelAr: 'الدعم', labelEn: 'Support',
-                    pro: ar ? 'إيميل حسب التوفر' : 'Email as available', biz: ar ? 'إيميل حسب التوفر' : 'Email as available',
-                  },
-                ].map(row => (
-                  <tr key={ar ? row.labelAr : row.labelEn}>
-                    <td className="py-2.5 text-slate-700">{ar ? row.labelAr : row.labelEn}</td>
-                    <td className="py-2.5 text-center text-violet-700 font-medium">{row.pro}</td>
-                    <td className="py-2.5 text-center text-emerald-700">{row.biz}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
-            {ar
-              ? 'الكريدت يحدد عدد عمليات AI التي يمكنك تشغيلها، وحد المنشورات يحدد عدد مسودات المنشورات التي يمكن حفظها في Content Hub خلال الشهر. تتوقف العملية عند الوصول إلى أي حد منهما أولاً، ويعرض NEXUS السبب قبل التنفيذ.'
-              : 'Credits limit how many AI actions you can run; the post allowance limits how many post drafts can be saved to Content Hub each month. The first limit reached blocks the action, and NEXUS shows which requirement is missing before execution.'}
-          </p>
-
-          {/* Research footnote */}
-          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
-            <TrendingUp className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
-            <p className="text-sm text-slate-600">
-              {ar
-                ? <><span className="text-amber-800 font-semibold">ملاحظة عن وتيرة النشر:</span> زيادة وتيرة المحتوى قد تحسن النتائج، لكن الأداء يختلف حسب السوق وجودة المحتوى والقنوات.</>
-                : <><span className="text-amber-800 font-semibold">Publishing pace note:</span> A higher posting cadence can improve outcomes, but results vary by market, channel mix, and content quality.</>
-              }
-            </p>
-          </div>
         </div>
 
         {/* ── FAQ ────────────────────────────────────────────────────────── */}

@@ -1,42 +1,28 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
-import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { supabase } from '@/lib/supabaseClient'
 import { formatCreditDisplay, getPlanDisplayName } from '@/lib/creditDisplay'
 import {
   AlertTriangle,
-  Bell,
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  Copy,
   CreditCard,
-  Database,
   Eye,
   EyeOff,
-  Globe2,
   KeyRound,
   Link2,
   Loader2,
   Lock,
   LogOut,
-  Mail,
-  Moon,
-  Palette,
   Save,
-  Settings,
   Shield,
-  Sun,
   Trash2,
   User,
-  Users,
   Zap,
 } from 'lucide-react'
 
@@ -113,65 +99,6 @@ function SettingsButton({
   )
 }
 
-function ToggleRow({
-  title,
-  helper,
-  enabled = true,
-}: {
-  title: string
-  helper: string
-  enabled?: boolean
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 border-b border-[#eef2f8] py-3 last:border-b-0">
-      <div>
-        <p className="text-[13px] font-black text-[#111b3f]">{title}</p>
-        <p className="mt-1 text-[11px] leading-5 text-[#7b87a3]">{helper}</p>
-      </div>
-      <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${enabled ? 'bg-[#5366f6]' : 'bg-[#d8e0ee]'}`}>
-        <span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition ${enabled ? 'left-6' : 'left-1'}`} />
-      </span>
-    </div>
-  )
-}
-
-function SelectShell({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between rounded-[15px] border border-[#e8edf7] bg-[#fbfcff] px-4 py-3">
-      <span>
-        <span className="block text-[11px] font-bold text-[#7b87a3]">{label}</span>
-        <span className="mt-1 block text-[13px] font-black text-[#111b3f]">{value}</span>
-      </span>
-      <ChevronDown className="h-4 w-4 text-[#8a96ad]" />
-    </div>
-  )
-}
-
-function RoleRow({
-  name,
-  email,
-  role,
-}: {
-  name: string
-  email: string
-  role: string
-}) {
-  return (
-    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-[#eef2f8] py-3 last:border-b-0">
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f1f0ff] text-sm font-black text-[#4f46e5]">
-          {name.charAt(0)}
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate text-[13px] font-black text-[#111b3f]">{name}</span>
-          <span className="block truncate text-[11px] text-[#7b87a3]">{email}</span>
-        </span>
-      </div>
-      <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-black text-violet-700">{role}</span>
-    </div>
-  )
-}
-
 export default function SettingsPage() {
   const router = useRouter()
   const { user, isAuthenticated, loading, authHeader } = useAuth()
@@ -190,7 +117,6 @@ export default function SettingsPage() {
   const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([])
-  const [socialLoading, setSocialLoading] = useState(false)
   const [socialConnecting, setSocialConnecting] = useState(false)
   const [socialMessage, setSocialMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
@@ -211,15 +137,12 @@ export default function SettingsPage() {
   const fetchSocialAccounts = useCallback(async () => {
     const token = authHeader()
     if (!token) return
-    setSocialLoading(true)
     try {
       const res = await fetch('/api/social/accounts', { headers: { Authorization: token } })
       const data = await res.json()
       setSocialAccounts(data.accounts || [])
     } catch {
       setSocialAccounts([])
-    } finally {
-      setSocialLoading(false)
     }
   }, [authHeader])
 
@@ -281,8 +204,8 @@ export default function SettingsPage() {
       if (error) throw error
       setNameMessage({ type: 'success', text: copyText('تم تحديث الاسم.', 'Name updated.') })
       setTimeout(() => setNameMessage(null), 3000)
-    } catch (error: any) {
-      setNameMessage({ type: 'error', text: error.message || copyText('تعذر تحديث الاسم.', 'Could not update name.') })
+    } catch (error: unknown) {
+      setNameMessage({ type: 'error', text: error instanceof Error ? error.message : copyText('تعذر تحديث الاسم.', 'Could not update name.') })
     } finally {
       setSavingName(false)
     }
@@ -306,8 +229,8 @@ export default function SettingsPage() {
       setNewPassword('')
       setConfirmPassword('')
       setTimeout(() => setPasswordMessage(null), 3000)
-    } catch (error: any) {
-      setPasswordMessage({ type: 'error', text: error.message || copyText('تعذر تحديث كلمة المرور.', 'Could not update password.') })
+    } catch (error: unknown) {
+      setPasswordMessage({ type: 'error', text: error instanceof Error ? error.message : copyText('تعذر تحديث كلمة المرور.', 'Could not update password.') })
     } finally {
       setSavingPassword(false)
     }
@@ -409,21 +332,6 @@ export default function SettingsPage() {
     locale,
   })
 
-  const roleRows = useMemo(() => [
-    {
-      name: displayName || copyText('أحمد محمد', 'Ahmed Mohamed'),
-      email: email || 'owner@nexus-grow.com',
-      role: copyText('مالك', 'Owner'),
-    },
-  ], [copyText, displayName, email])
-
-  const roleTemplates = useMemo(() => [
-    [copyText('مالك', 'Owner'), copyText('الوصول الكامل لجميع الإعدادات.', 'Full access to all settings.'), 'bg-violet-50 text-violet-700'],
-    [copyText('مدير', 'Manager'), copyText('إدارة الحملات والفريق والمحتوى.', 'Manage campaigns, team, and content.'), 'bg-blue-50 text-blue-700'],
-    [copyText('محرر', 'Editor'), copyText('إنشاء وتحرير المحتوى والحملات بدون صلاحيات حساسة.', 'Create and edit content and campaigns without sensitive permissions.'), 'bg-amber-50 text-amber-700'],
-    [copyText('مشاهد', 'Viewer'), copyText('عرض التقارير والمحتوى فقط.', 'Reports and content view only.'), 'bg-slate-50 text-slate-600'],
-  ], [copyText])
-
   if (loading) {
     return (
       <AppShell>
@@ -442,39 +350,20 @@ export default function SettingsPage() {
         <div className="nx-os-container">
           <LuxuryWorkspaceHeader
             pageTitle={copyText('الإعدادات', 'Settings')}
-            pageSubtitle={copyText('إدارة حسابك، فريقك، صلاحياتك، وتفضيلات النظام من مكان واحد.', 'Manage account, team, permissions, and system preferences from one place.')}
+            pageSubtitle={copyText('إدارة الحساب والأمان والربط وخطة العمل.', 'Manage your account, security, connections, and plan.')}
             primaryHref="/connections"
-            primaryLabel={copyText('راجع التكاملات', 'Review integrations')}
+            primaryLabel={copyText('إدارة الربط', 'Manage connections')}
             secondaryHref="/billing"
             secondaryLabel={copyText('الفوترة والخطة', 'Billing and plan')}
           />
 
-          <StrategySpineCard
-            nextHref="/strategy"
-            nextLabel={copyText('راجع مسار الاستراتيجية', 'Review strategy path')}
-            title={copyText('الإعدادات تضبط نظام التشغيل ولا تغيّر وعد الحملة', 'Settings configure the operating system without changing campaign promises')}
-            body={copyText(
-              'الحساب، الفريق، اللغة، الصلاحيات، والتكاملات تؤثر على جاهزية التنفيذ. لكنها لا تولّد استراتيجية أو محتوى ولا تنشر أو تصرف ميزانية بدون مسار واضح وتأكيد لاحق.',
-              'Account, team, language, permissions, and integrations affect execution readiness. They do not generate strategy or content, publish, or spend budget without a clear later flow and confirmation.',
-            )}
-            className="mb-6"
-          />
-
           <section className="mb-6 grid min-w-0 items-start gap-4 xl:grid-cols-12">
-            <SettingsCard title={copyText('الحساب', 'Account')} icon={<User size={18} />} className="xl:col-span-3">
+            <SettingsCard title={copyText('الحساب', 'Account')} icon={<User size={18} />} className="xl:col-span-7">
               <div className="flex items-center gap-5">
-                <div className="relative flex h-28 w-28 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#eff2ff] to-white p-2">
+                <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#eff2ff] to-white p-2">
                   <div className="flex h-full w-full items-center justify-center rounded-full bg-[#071236] text-4xl font-black text-white">
                     {(displayName || email || 'N').charAt(0).toUpperCase()}
                   </div>
-                  <button
-                    type="button"
-                    disabled
-                    title={copyText('تغيير الصورة الشخصية غير متاح في هذه المرحلة.', 'Profile photo editing is not available in this phase.')}
-                    className="absolute bottom-2 right-2 flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-full border border-[#e3e8f3] bg-white text-[#8b96ad] opacity-80 shadow-sm"
-                  >
-                    <Palette className="h-4 w-4" />
-                  </button>
                 </div>
                 <div className="min-w-0">
                   <p className="text-xl font-black text-[#071236]">{displayName || copyText('مستخدم NEXUS', 'NEXUS user')}</p>
@@ -504,36 +393,7 @@ export default function SettingsPage() {
               </div>
             </SettingsCard>
 
-            <SettingsCard
-              title={copyText('الأدوار والصلاحيات', 'Roles and permissions')}
-              icon={<Users size={18} />}
-              className="xl:col-span-6"
-            >
-              <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-                <div className="rounded-[18px] border border-[#e8edf7] bg-[#fbfcff] px-4">
-                  <p className="border-b border-[#eef2f8] py-3 text-[12px] font-bold text-[#64708f]">
-                    {copyText('الفريق الحالي الفعلي في مساحة العمل.', 'Actual current workspace team.')}
-                  </p>
-                  {roleRows.map((row) => (
-                    <RoleRow key={row.email} {...row} />
-                  ))}
-                </div>
-                <div className="grid content-start gap-3 sm:grid-cols-2">
-                  <p className="text-[12px] font-bold text-[#64708f]">
-                    {copyText('مرجع واضح لنطاق كل دور. دعوات الفريق غير متاحة في هذه الخطة حالياً.', 'A clear reference for each role. Team invitations are not currently available on this plan.')}
-                  </p>
-                  <span className="hidden sm:block" />
-                  {roleTemplates.map(([role, helper, tone]) => (
-                    <div key={role} className="rounded-[15px] border border-[#e8edf7] bg-white p-3">
-                      <p className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-black ${tone}`}>{role}</p>
-                      <p className="mt-2 text-[11px] leading-5 text-[#64708f]">{helper}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </SettingsCard>
-
-            <SettingsCard title={copyText('الفوترة والخطة', 'Billing and plan')} icon={<CreditCard size={18} />} className="xl:col-span-3">
+            <SettingsCard title={copyText('الفوترة والخطة', 'Billing and plan')} icon={<CreditCard size={18} />} className="xl:col-span-5">
               <div className="rounded-[18px] border border-[#e8edf7] bg-[#fbfcff] p-4 text-center">
                 <p className="inline-flex rounded-full bg-[#fff7db] px-3 py-1 text-[11px] font-black text-[#a66b00]">NEXUS PRO</p>
                 <h3 className="mt-3 text-lg font-black text-[#071236]">{planLabel}</h3>
@@ -567,43 +427,6 @@ export default function SettingsPage() {
           </section>
 
           <section className="grid min-w-0 gap-6 xl:grid-cols-3">
-            <SettingsCard title={copyText('الإشعارات', 'Notifications')} icon={<Bell size={18} />}>
-              <p className="mb-2 rounded-[14px] bg-[#fbfcff] px-3 py-2 text-[11px] font-bold leading-5 text-[#64708f]">
-                {copyText('عرض لسياسة الإشعارات الحالية. تعديل التفضيلات التفصيلية سيضاف لاحقاً.', 'Read-only view of the current notification policy. Detailed preference editing is coming later.')}
-              </p>
-              <ToggleRow title={copyText('إشعارات النظام', 'System alerts')} helper={copyText('تحديثات النظام والتنبيهات العامة.', 'System updates and general alerts.')} />
-              <ToggleRow title={copyText('أداء الحملات والتقارير', 'Campaign performance')} helper={copyText('تقارير الأداء اليومية والأسبوعية.', 'Daily and weekly performance reports.')} />
-              <ToggleRow title={copyText('موافقات المحتوى', 'Content approvals')} helper={copyText('طلبات الموافقة والتنبيهات.', 'Approval requests and alerts.')} />
-              <ToggleRow title={copyText('التنبيهات الذكية', 'Smart alerts')} helper={copyText('تنبيهات مقدمة بالذكاء الاصطناعي.', 'AI-assisted alerts.')} enabled={false} />
-            </SettingsCard>
-
-            <SettingsCard title={copyText('اللغة والمنطقة', 'Language and region')} icon={<Globe2 size={18} />}>
-              <div className="space-y-3">
-                <SelectShell label={copyText('اللغة', 'Language')} value={ar ? 'العربية (Arabic)' : 'English'} />
-                <SelectShell label={copyText('المنطقة الزمنية', 'Time zone')} value={copyText('الرياض (GMT +3)', 'Riyadh (GMT +3)')} />
-                <SelectShell label={copyText('تنسيق التاريخ', 'Date format')} value="YYYY / MM / DD" />
-                <SelectShell label={copyText('تنسيق الأرقام', 'Number format')} value="01,234.56" />
-              </div>
-              <p className="mt-4 flex items-center gap-2 text-[12px] font-bold text-emerald-600">
-                <CheckCircle2 className="h-4 w-4" />
-                {copyText('هذه القيم تعرض حالة الواجهة الحالية ولا تغيّر إعدادات الحساب بعد.', 'These values show the current interface state and do not change account settings yet.')}
-              </p>
-            </SettingsCard>
-
-            <SettingsCard title={copyText('تفضيلات النظام', 'System preferences')} icon={<Settings size={18} />}>
-              <p className="mb-2 rounded-[14px] bg-[#fbfcff] px-3 py-2 text-[11px] font-bold leading-5 text-[#64708f]">
-                {copyText('تفضيلات عرض فقط حالياً؛ لا يتم حفظ تغيير جديد من هذه البطاقة.', 'Display-only preferences for now; this card does not save new changes.')}
-              </p>
-              <ToggleRow title={copyText('الوضع الداكن', 'Dark mode')} helper={copyText('تخصيص مظهر النظام.', 'Customize system appearance.')} enabled={false} />
-              <ToggleRow title={copyText('عرض الكثافة', 'Compact density')} helper={copyText('تحكم في كثافة البطاقات.', 'Control card density.')} />
-              <ToggleRow title={copyText('الرسوم المتحركة', 'Motion')} helper={copyText('تأثيرات واجهة المستخدم.', 'Interface motion effects.')} />
-              <ToggleRow title={copyText('نصائح داخل التطبيق', 'In-app tips')} helper={copyText('عرض الإرشادات والنصائح.', 'Show guidance and tips.')} />
-              <div className="mt-3 flex gap-2 text-[#5366f6]">
-                <Sun className="h-4 w-4" />
-                <Moon className="h-4 w-4" />
-              </div>
-            </SettingsCard>
-
             <SettingsCard title={copyText('الأمان', 'Security')} icon={<Shield size={18} />}>
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-[15px] border border-[#e8edf7] bg-[#fbfcff] px-4 py-3">
@@ -666,7 +489,7 @@ export default function SettingsPage() {
               </div>
             </SettingsCard>
 
-            <SettingsCard title={copyText('التكاملات وواجهات برمجة التطبيقات', 'Integrations and API')} icon={<Link2 size={18} />}>
+            <SettingsCard title={copyText('الربط', 'Connections')} icon={<Link2 size={18} />}>
               {socialMessage ? (
                 <p className={`mb-3 rounded-[13px] px-3 py-2 text-[12px] font-bold ${socialMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
                   {socialMessage.text}
@@ -725,25 +548,6 @@ export default function SettingsPage() {
                   ) : null}
                 </div>
 
-                <div className="rounded-[16px] border border-[#e8edf7] bg-white p-4">
-                  <p className="mb-2 text-[13px] font-black text-[#111b3f]">API Keys</p>
-                  <div className="flex min-w-0 items-center gap-2 rounded-[13px] border border-[#e8edf7] bg-[#fbfcff] px-3 py-2 text-[12px] text-[#64708f]">
-                    <span className="min-w-0 flex-1">
-                      {copyText('لم يتم إصدار مفتاح مطوّر لمساحة العمل هذه.', 'No developer key has been issued for this workspace.')}
-                    </span>
-                    <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600">
-                      {copyText('غير متاح بعد', 'Not available yet')}
-                    </span>
-                    <button
-                      type="button"
-                      disabled
-                      title={copyText('نسخ مفاتيح API يتطلب عرض مفتاح حقيقي من إعدادات المطورين.', 'Copying API keys requires a real developer key view.')}
-                      className="ms-auto cursor-not-allowed text-[#8b96ad]"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
               </div>
             </SettingsCard>
 

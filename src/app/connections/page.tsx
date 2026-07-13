@@ -1,29 +1,20 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
-import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
-import { derivePlatformReadiness } from '@/lib/platformReadiness'
 import {
   AlertCircle,
-  ArrowRight,
-  BadgeCheck,
   CheckCircle2,
   Clock3,
-  Database,
   KeyRound,
   Link2,
   Loader2,
-  MoreVertical,
   Plug,
   RefreshCw,
-  Shield,
-  Sparkles,
   Unplug,
-  Zap,
 } from 'lucide-react'
 
 interface ConnectedAccount {
@@ -200,39 +191,6 @@ function Panel({
   )
 }
 
-function StatCard({
-  label,
-  value,
-  helper,
-  icon,
-  tone = 'indigo',
-}: {
-  label: string
-  value: string
-  helper: string
-  icon: ReactNode
-  tone?: 'indigo' | 'emerald' | 'amber' | 'blue'
-}) {
-  const toneClass = {
-    indigo: 'bg-[#f0efff] text-[#4f46e5]',
-    emerald: 'bg-emerald-50 text-emerald-600',
-    amber: 'bg-amber-50 text-amber-600',
-    blue: 'bg-blue-50 text-blue-600',
-  }[tone]
-
-  return (
-    <div className="nx-os-card p-4">
-      <div className="mb-4 flex items-center justify-between">
-        <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${toneClass}`}>{icon}</span>
-        <span className="h-2 w-2 rounded-full bg-emerald-400" />
-      </div>
-      <p className="text-[12px] font-bold text-[#65718e]">{label}</p>
-      <p className="mt-1 text-[28px] font-black tracking-[-0.03em] text-[#071236]">{value}</p>
-      <p className="mt-1 text-[11px] leading-5 text-[#7d89a3]">{helper}</p>
-    </div>
-  )
-}
-
 function StatusPill({ children, tone }: { children: ReactNode; tone: 'ready' | 'needs' | 'planned' }) {
   const toneClass = {
     ready: 'bg-emerald-50 text-emerald-700 border-emerald-100',
@@ -251,7 +209,7 @@ export default function ConnectionsPage() {
   const { isAuthenticated, loading, authHeader, session } = useAuth()
   const { locale, dir } = useI18n()
   const ar = locale === 'ar'
-  const copy = (arabic: string, english: string) => (ar ? arabic : english)
+  const copy = useCallback((arabic: string, english: string) => (ar ? arabic : english), [ar])
 
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([])
   const [adAccounts, setAdAccounts] = useState<ConnectedAdAccount[]>([])
@@ -387,18 +345,7 @@ export default function ConnectionsPage() {
     account.platform?.toUpperCase() === 'META' && account.status?.toUpperCase() !== 'DISCONNECTED',
   )
 
-  const readinessStates = useMemo(() => derivePlatformReadiness(accounts as any, adAccounts), [accounts, adAccounts])
   const connectedCount = accounts.length + metaAdAccounts.length
-  const connectedOrganicCount = accounts.length
-  const apiReadyCount = [
-    accounts.some((account) => account.platform === 'META'),
-    accounts.some((account) => account.platform === 'LINKEDIN'),
-    accounts.some((account) => account.platform === 'TIKTOK'),
-    metaAdAccounts.some((account) => account.hasApiAccess),
-  ].filter(Boolean).length
-  const needsActionCount = readinessStates.filter((state) =>
-    state.status === 'needs_setup' || state.status === 'not_connected' || state.status === 'permission_unverified',
-  ).length
 
   if (loading) {
     return (
@@ -415,42 +362,24 @@ export default function ConnectionsPage() {
       <main dir={dir} className="nx-os-page">
         <div className="nx-os-container">
           <LuxuryWorkspaceHeader
-            pageTitle={copy('التكاملات', 'Integrations')}
-            pageSubtitle={copy('حسابات المنصات والصلاحيات قبل أي نشر أو إنفاق.', 'Platform accounts and permissions before publishing or spend.')}
-            primaryHref="/connections#available-integrations"
-            primaryLabel={copy('استكشف مجلد التكاملات', 'Explore integrations')}
+            pageTitle={copy('الربط', 'Connections')}
+            pageSubtitle={copy('اربط الحسابات التي سيستخدمها NEXUS للنشر والقياس.', 'Connect the accounts NEXUS can use for publishing and measurement.')}
+            primaryHref="/publish"
+            primaryLabel={copy('فحص جاهزية النشر', 'Check publishing readiness')}
             secondaryHref="/settings"
             secondaryLabel={copy('الإعدادات', 'Settings')}
           />
 
-          <StrategySpineCard
-            nextHref="/publish"
-            nextLabel={copy('افتح جاهزية النشر', 'Open publish readiness')}
-            title={copy('الربط يفتح القدرة التنفيذية، لكنه لا ينفّذ الاستراتيجية وحده', 'Connections unlock execution capability, but do not execute strategy alone')}
-            body={copy(
-              'كل منصة متصلة تصبح مدخلًا للنشر أو القياس أو الإعلانات بعد الاستراتيجية والمحتوى والموافقة. الربط لا يعني نشرًا تلقائيًا ولا صرف ميزانية.',
-              'Each connected platform becomes an input for publishing, measurement, or ads after strategy, content, and approval. Connection does not mean automatic publishing or budget spend.',
-            )}
-            className="mb-5"
-          />
-
-          <header className="nx-os-panel mb-5 flex flex-col gap-4 p-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[12px] bg-[#071236] text-white shadow-[0_14px_30px_rgba(13,24,63,0.18)]">
-                <Link2 size={27} />
-              </div>
-              <div>
-                <p className="text-[12px] font-bold text-[#64708f]">{copy('نظام التشغيل التسويقي', 'Marketing operating system')}</p>
-                <h1 className="mt-1 flex items-center gap-2 text-[30px] font-black tracking-[-0.02em] text-[#071236]">
-                  {copy('التكاملات', 'Integrations')}
-                  <Sparkles className="text-[#4f46e5]" size={24} />
-                </h1>
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-[#60708f]">
-                  {copy(
-                    'اربط المنصات التي ستستخدمها NEXUS لاحقاً في النشر، القياس، والإعلانات. الربط لا يعني نشر أو إنفاق تلقائي.',
-                    'Connect the platforms NEXUS can later use for publishing, measurement, and ads. Connecting never means automatic publishing or spend.',
-                  )}
+          <section className="nx-os-action-strip mb-5">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="nx-os-icon-box"><Link2 size={17} /></span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-black text-[#111b3f]">
+                  {loadingAccounts
+                    ? copy('جار فحص الحسابات', 'Checking accounts')
+                    : copy(`${connectedCount} اتصال محفوظ`, `${connectedCount} saved connections`)}
                 </p>
+                <p className="text-[11px] font-semibold text-[#7b87a3]">{copy('الربط وحده لا ينشر أو يصرف ميزانية.', 'A connection never publishes or spends by itself.')}</p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-3">
@@ -460,10 +389,14 @@ export default function ConnectionsPage() {
               </ShellButton>
               <ShellButton tone="primary" onClick={() => handleConnect('META')} loading={connecting === 'META'}>
                 <Plug className="h-4 w-4" />
-                {copy('ابدأ بربط Meta', 'Start with Meta')}
+                {copy('ربط Meta', 'Connect Meta')}
+              </ShellButton>
+              <ShellButton onClick={() => handleConnect('META_ADS')} loading={connecting === 'META_ADS'}>
+                <KeyRound className="h-4 w-4" />
+                {copy('ربط حساب إعلانات', 'Connect ad account')}
               </ShellButton>
             </div>
-          </header>
+          </section>
 
           {message ? (
             <div
@@ -481,46 +414,15 @@ export default function ConnectionsPage() {
             </div>
           ) : null}
 
-          <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              label={copy('التكاملات المتصلة', 'Connected integrations')}
-              value={loadingAccounts ? '…' : String(connectedCount)}
-              helper={copy('حسابات عضوية ومدفوعة محفوظة.', 'Saved organic and paid connections.')}
-              icon={<BadgeCheck size={21} />}
-              tone="emerald"
-            />
-            <StatCard
-              label={copy('جاهزية الصلاحيات', 'Permission readiness')}
-              value={loadingAccounts ? '…' : `${apiReadyCount}/4`}
-              helper={copy('صلاحيات يمكن استخدامها بعد المراجعة.', 'Permissions available after review.')}
-              icon={<KeyRound size={21} />}
-            />
-            <StatCard
-              label={copy('تحتاج إجراء', 'Needs action')}
-              value={loadingAccounts ? '…' : String(needsActionCount)}
-              helper={copy('حالات غير جاهزة أو قيد التصاريح.', 'Not-ready or permission-pending states.')}
-              icon={<AlertCircle size={21} />}
-              tone="amber"
-            />
-            <StatCard
-              label={copy('مصادر البيانات', 'Data sources')}
-              value={loadingAccounts ? '…' : `${connectedOrganicCount}`}
-              helper={copy('مداخل يمكن أن تدعم النشر والتحليل لاحقاً.', 'Inputs that can later support publishing and analytics.')}
-              icon={<Database size={21} />}
-              tone="blue"
-            />
-          </section>
-
-          <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-            <div className="space-y-6">
+          <div>
               <Panel
-                title={copy('التكاملات المتصلة والقابلة للربط', 'Connected and available integrations')}
+                title={copy('حسابات المنصات', 'Platform accounts')}
                 icon={<Plug size={18} />}
-                action={<span className="text-[12px] font-bold text-[#64708f]">{copy('كل إجراء يحتاج موافقة منفصلة', 'Every execution still needs approval')}</span>}
+                action={<span className="text-[12px] font-bold text-[#64708f]">{copy('النشر يحتاج موافقة', 'Publishing requires approval')}</span>}
               >
                 <span id="available-integrations" className="sr-only" aria-hidden="true" />
-                <div className="grid gap-4 lg:grid-cols-2">
-                  {PLATFORMS.map((platform) => {
+                <div className="grid gap-4 lg:grid-cols-3">
+                  {PLATFORMS.filter(platform => platform.available).map((platform) => {
                     const connectedAccount = accounts.find((account) => account.platform === platform.id)
                     const isConnected = Boolean(connectedAccount)
                     const isConnecting = connecting === platform.id
@@ -625,97 +527,7 @@ export default function ConnectionsPage() {
                   })}
                 </div>
               </Panel>
-
-              <Panel title={copy('اتصالات موصى بها', 'Recommended connections')} icon={<Sparkles size={18} />}>
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-                  {[
-                    ['WhatsApp Business', copy('رسائل العملاء', 'Customer messaging'), 'W'],
-                    ['Email Marketing', copy('نشرات وتسلسلات', 'Newsletters and flows'), '✉'],
-                    ['Klaviyo', copy('تجارة إلكترونية', 'Commerce CRM'), 'K'],
-                    ['CRM Integration', copy('إدارة العملاء', 'Customer records'), 'CRM'],
-                    ['HubSpot', copy('مبيعات وتسويق', 'Sales and marketing'), 'H'],
-                  ].map(([name, helper, icon]) => (
-                    <div key={name} className="rounded-[18px] border border-[#e8edf7] bg-white p-4">
-                      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f1f0ff] text-sm font-black text-[#4f46e5]">{icon}</div>
-                      <p className="text-[13px] font-black text-[#111b3f]">{name}</p>
-                      <p className="mt-1 min-h-[34px] text-[11px] leading-5 text-[#7b87a3]">{helper}</p>
-                      <p className="mt-3 rounded-[12px] bg-[#f8faff] px-3 py-2 text-center text-[11px] font-bold text-[#7b87a3]">
-                        {copy('غير متاح للربط حالياً', 'Not currently available to connect')}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </Panel>
-            </div>
-
-            <aside className="space-y-6">
-              <Panel title={copy('الأذونات والصلاحيات', 'Access and permissions')} icon={<Shield size={18} />}>
-                <div className="mb-5 flex items-center gap-4">
-                  <div
-                    className="flex h-28 w-28 shrink-0 items-center justify-center rounded-full"
-                    style={{ background: `conic-gradient(#4f46e5 ${Math.min(100, apiReadyCount * 25) * 3.6}deg, #e8edf7 0deg)` }}
-                  >
-                    <div className="flex h-22 w-22 flex-col items-center justify-center rounded-full bg-white text-center">
-                      <span className="text-[25px] font-black text-[#071236]">{apiReadyCount * 25}%</span>
-                      <span className="text-[10px] font-bold text-[#64708f]">{copy('جاهزية', 'Ready')}</span>
-                    </div>
-                  </div>
-                  <div className="space-y-3 text-[12px] text-[#64708f]">
-                    <p>{copy('صلاحيات كاملة', 'Full permissions')} <strong className="text-[#071236]">{apiReadyCount}</strong></p>
-                    <p>{copy('تحتاج مراجعة', 'Needs review')} <strong className="text-[#071236]">{Math.max(0, 4 - apiReadyCount)}</strong></p>
-                    <p>{copy('حاجة لتحديث', 'Needs update')} <strong className="text-[#071236]">0</strong></p>
-                  </div>
-                </div>
-                <ShellButton className="w-full" onClick={() => handleConnect('META_ADS')} loading={connecting === 'META_ADS'}>
-                  <KeyRound className="h-4 w-4" />
-                  {copy('ربط صلاحيات Meta Ads', 'Connect Meta Ads permissions')}
-                </ShellButton>
-              </Panel>
-
-              <Panel title={copy('نظرة عامة على مزامنة البيانات', 'Data sync overview')} icon={<RefreshCw size={18} />}>
-                <div className="space-y-3">
-                  {[
-                    [copy('قراءة حالة الربط', 'Connection status read'), loadingAccounts ? '…' : copy('تم التحقق الآن', 'Checked now')],
-                    [copy('حالة التنفيذ', 'Execution state'), copy('قراءة فقط حتى إجراء صريح', 'Read-only until an explicit action')],
-                    [copy('مزامنة تحليلات المنصة', 'Platform analytics sync'), connectedCount > 0 ? copy('حسب جاهزية كل تكامل', 'Depends on each integration') : copy('لا توجد مزامنة موثقة', 'No verified sync')],
-                  ].map(([label, value]) => (
-                    <div key={label} className="flex items-center justify-between rounded-[14px] border border-[#e8edf7] bg-[#fbfcff] px-3 py-3">
-                      <span className="text-[12px] font-bold text-[#64708f]">{label}</span>
-                      <span className="text-[12px] font-black text-[#111b3f]">{value}</span>
-                    </div>
-                  ))}
-                </div>
-              </Panel>
-
-              <Panel title={copy('حدود التنفيذ', 'Execution boundary')} icon={<Zap size={18} />}>
-                <div className="space-y-3">
-                  {[
-                    copy('الربط لا ينشر أي منشور تلقائياً.', 'Connecting does not publish anything automatically.'),
-                    copy('الإعلانات المدفوعة تحتاج تصريح منصة، ميزانية معتمدة، وموافقة إطلاق صريحة.', 'Paid ads require platform permission, approved budget, and explicit launch approval.'),
-                    copy('التحليلات تصبح مصدر تعلم فقط بعد وصول بيانات أداء حقيقية.', 'Analytics become learning input only after real performance data arrives.'),
-                  ].map((item) => (
-                    <div key={item} className="flex gap-3 rounded-[14px] border border-[#eef2f8] bg-white px-3 py-3 text-[12px] leading-6 text-[#64708f]">
-                      <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-500" />
-                      <span>{item}</span>
-                    </div>
-                  ))}
-                </div>
-              </Panel>
-            </aside>
           </div>
-
-          <footer className="nx-os-card mt-5 flex flex-col gap-3 p-4 text-[12px] text-[#65718e] sm:flex-row sm:items-center sm:justify-between">
-            <span>
-              {copy(
-                'تحتاج تكاملاً مخصصاً؟ جهزه كطلب تقني منفصل قبل أن يظهر كجاهز في NEXUS.',
-                'Need a custom integration? Treat it as a separate technical request before NEXUS shows it as ready.',
-              )}
-            </span>
-            <a href="mailto:support@nexus-grow.com" className="inline-flex items-center gap-2 font-black text-[#4f46e5]">
-              {copy('تواصل مع الدعم', 'Contact support')}
-              <ArrowRight className="h-4 w-4" />
-            </a>
-          </footer>
         </div>
       </main>
     </AppShell>

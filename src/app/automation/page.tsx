@@ -7,12 +7,7 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowUpRight,
   AlertTriangle,
-  CheckCircle2,
-  Clock3,
-  Database,
-  GitBranch,
   LockKeyhole,
-  Sparkles,
   Workflow,
 } from 'lucide-react'
 import AppShell from '@/components/AppShell'
@@ -143,77 +138,43 @@ export default function AutomationPage() {
       <main dir={dir} className="nx-os-page">
         <div className="nx-os-container nx-os-stack">
           <LuxuryWorkspaceHeader
-            pageTitle={copy('غرفة التشغيل', 'Operations Room')}
-            pageSubtitle={copy('مراقبة حالة الحملات وتوجيه القرار التالي من بيانات التشغيل الفعلية.', 'Monitor campaign state and route the next decision from verified execution data.')}
+            pageTitle={copy('الأتمتة', 'Automation')}
+            pageSubtitle={copy('يراقب NEXUS عوائق العمل المثبتة ويوجّه القرار التالي.', 'NEXUS monitors verified workflow blockers and routes the next decision.')}
             primaryHref="/approvals"
-            primaryLabel={copy('افتح القرارات', 'Open decisions')}
+            primaryLabel={copy('مراجعة الموافقات', 'Review approvals')}
             secondaryHref="/connections"
-            secondaryLabel={copy('التكاملات', 'Integrations')}
+            secondaryLabel={copy('الربط', 'Connections')}
           />
 
           <StrategySpineCard
-            nextHref="/publish"
-            nextLabel={copy('راجع جاهزية النشر', 'Review publishing readiness')}
-            title={copy('الأتمتة تأتي بعد الاستراتيجية والجاهزية، وليست اختصاراً للتنفيذ', 'Automation comes after strategy and readiness, not as an execution shortcut')}
+            nextHref="/approvals"
+            nextLabel={copy('راجع القرارات', 'Review decisions')}
+            title={copy('NEXUS يراقب، وأنت توافق', 'NEXUS monitors; you approve')}
             body={copy(
-              'Autopilot يستخدم الاستراتيجية والمحتوى والربط كمدخلات، لكنه لا يفعّل نشرًا أو صرفًا أو تعلم أداء بدون موافقة وحدود واضحة وبيانات حقيقية.',
-              'Autopilot uses strategy, content, and connections as inputs, but it does not enable publishing, spend, or performance learning without approval, clear limits, and real data.',
+              'يحوّل النظام العوائق الفعلية إلى قرارات واضحة. النشر والإنفاق يظلان بحاجة إلى تأكيد صريح.',
+              'The system turns real blockers into clear decisions. Publishing and spend still require explicit confirmation.',
             )}
           />
 
-          <section className="nx-os-panel relative overflow-hidden p-6 lg:p-8">
-            <div
-              className="absolute inset-y-0 start-0 w-1/2 opacity-70"
-              style={{
-                background:
-                  'radial-gradient(circle at 20% 30%, rgba(83,102,246,0.16), transparent 34%), radial-gradient(circle at 62% 72%, rgba(16,185,129,0.12), transparent 30%)',
-              }}
-            />
-            <div className="relative z-10 grid gap-6 lg:grid-cols-[1fr_0.82fr] lg:items-center">
-              <div>
-                <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-violet-100 bg-violet-50 px-3 py-1.5 text-[12px] font-black text-violet-700">
-                  <Sparkles size={14} />
-                  {copy('مراقب التنفيذ يعمل', 'Execution monitor active')}
-                </div>
-                <h1 className="text-3xl font-black tracking-[-0.03em] text-[#071236] lg:text-4xl">
-                  {copy('Nexus Autopilot™ غرفة التشغيل', 'Nexus Autopilot™ Operations Room')}
-                </h1>
-                <p className="mt-3 max-w-3xl text-[14px] font-semibold leading-7 text-[#64708f]">
-                  {copy(
-                    'يراقب NEXUS مراحل الحملات ويحوّل الفجوات المثبتة إلى خطوات وقرارات. لا نشر، لا إنفاق، ولا تعلم أداء بدون بيانات وموافقة وحدود واضحة.',
-                    'NEXUS monitors campaign stages and turns verified workflow gaps into actions and decisions. No publishing, spend, or performance learning happens without data, approval, and clear boundaries.'
-                  )}
+          <section className="nx-os-action-strip">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="nx-os-icon-box"><Workflow size={17} /></span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-black text-[#111b3f]">{copy('مراقب التنفيذ يعمل', 'Execution monitor active')}</p>
+                <p className="text-[11px] font-semibold text-[#7b87a3]">
+                  {executionTruth
+                    ? copy(`${executionTruth.summary.campaigns} حملة تحت المراقبة`, `${executionTruth.summary.campaigns} campaigns monitored`)
+                    : copy('جار تحميل حالة التشغيل', 'Loading execution state')}
                 </p>
               </div>
-              <div className="nx-os-card bg-[#fbfcff] p-5">
-                <div className="mb-4 flex items-center gap-3">
-                  <span className="grid h-12 w-12 place-items-center rounded-[18px] bg-[#071236] text-white">
-                    <Workflow size={20} />
-                  </span>
-                  <div>
-                    <p className="text-[13px] font-black text-[#111b3f]">{copy('حالة التشغيل الآن', 'Current execution state')}</p>
-                    <p className="text-[12px] font-semibold text-[#7b87a3]">
-                      {executionTruth
-                        ? copy(`${executionTruth.summary.campaigns} حملة تحت المراقبة`, `${executionTruth.summary.campaigns} campaigns monitored`)
-                        : copy('جار تحميل سجل التشغيل', 'Loading execution state')}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid gap-2 text-[12px] font-bold text-[#53617f]">
-                  <div className="flex items-center justify-between rounded-2xl bg-white px-3 py-2">
-                    <span>{copy('حسابات نشر عضوي متصلة', 'Organic publishing accounts')}</span>
-                    <span>{connectionState === 'loading' ? '...' : activeSocialCount}</span>
-                  </div>
-                  <div className="flex items-center justify-between rounded-2xl bg-white px-3 py-2">
-                    <span>{copy('حسابات إعلانات متصلة', 'Paid ad accounts')}</span>
-                    <span>{connectionState === 'loading' ? '...' : activeAdCount}</span>
-                  </div>
-                </div>
-              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 text-[11px] font-bold text-[#53617f]">
+              <span className="rounded-full bg-[#f3f5fb] px-3 py-1.5">{copy('حسابات النشر', 'Publishing accounts')}: {connectionState === 'loading' ? '...' : activeSocialCount}</span>
+              <span className="rounded-full bg-[#f3f5fb] px-3 py-1.5">{copy('حسابات الإعلانات', 'Ad accounts')}: {connectionState === 'loading' ? '...' : activeAdCount}</span>
             </div>
           </section>
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="grid gap-4 md:grid-cols-2">
             <ReadinessCard
               title={copy('تحتاج انتباه', 'Needs attention')}
               value={executionTruth ? String(executionTruth.summary.needsAttention) : '...'}
@@ -228,22 +189,9 @@ export default function AutomationPage() {
               tone={executionTruth?.summary.awaitingApproval ? 'warning' : 'ready'}
               icon={<LockKeyhole size={20} />}
             />
-            <ReadinessCard
-              title={copy('منشورات مجدولة', 'Scheduled posts')}
-              value={executionTruth ? String(executionTruth.summary.scheduledPosts) : '...'}
-              helper={copy('الجدولة داخل NEXUS لا تعني النشر قبل التنفيذ المؤكد.', 'Scheduling in NEXUS is not publishing until confirmed execution.')}
-              icon={<Clock3 size={20} />}
-            />
-            <ReadinessCard
-              title={copy('منشورات منفذة', 'Published posts')}
-              value={executionTruth ? String(executionTruth.summary.publishedPosts) : '...'}
-              helper={copy('لا تدخل التعلّم إلا بعد وصول بيانات أداء موثقة.', 'They enter learning only after verified performance data arrives.')}
-              tone="ready"
-              icon={<Database size={20} />}
-            />
           </section>
 
-          <section className="grid gap-5 xl:grid-cols-[1fr_380px]">
+          <section>
             <div className="nx-os-card p-5">
               <div className="mb-5 flex items-center justify-between gap-4">
                 <div>
@@ -285,54 +233,6 @@ export default function AutomationPage() {
               </div>
             </div>
 
-            <aside className="space-y-5">
-              <div className="nx-os-card p-5">
-                <h2 className="text-[16px] font-black text-[#071236]">{copy('قواعد الأمان', 'Safety rules')}</h2>
-                <div className="mt-4 space-y-3">
-                  {[
-                    copy('لا نشر بدون زر تأكيد صريح.', 'No publishing without explicit confirmation.'),
-                    copy('لا إنفاق إعلاني بدون ميزانية وموافقة.', 'No ad spend without budget and approval.'),
-                    copy('لا تعلم أداء بدون analyticsData.', 'No performance learning without analyticsData.'),
-                    copy('لا تشغيل Autopilot لحملة ناقصة الوسائط أو الموافقات.', 'No Autopilot for campaigns missing media or approvals.'),
-                  ].map(item => (
-                    <div key={item} className="flex items-start gap-2 rounded-2xl bg-[#f8faff] px-3 py-2 text-[12px] font-bold leading-5 text-[#53617f]">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-500" />
-                      <span>{item}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="nx-os-card border-violet-100 bg-violet-50/70 p-5">
-                <div className="flex items-center gap-3">
-                  <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-violet-600">
-                    <GitBranch size={19} />
-                  </span>
-                  <div>
-                    <h2 className="text-[15px] font-black text-[#071236]">{copy('الخطوة الصحيحة التالية', 'Correct next step')}</h2>
-                    <p className="mt-1 text-[12px] font-semibold leading-5 text-[#64708f]">
-                      {copy('ابدأ من حملة محددة، ثم فعّل Autopilot داخلها بعد اكتمال المحتوى والنشر.', 'Start from a specific campaign, then enable Autopilot inside it after content and publishing readiness.')}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-4 grid gap-2">
-                  <Link href="/campaigns" className="inline-flex h-11 items-center justify-center gap-2 rounded-[15px] bg-[#071236] px-4 text-[13px] font-black text-white">
-                    {copy('افتح الحملات', 'Open campaigns')} <ArrowUpRight size={15} />
-                  </Link>
-                  <Link href="/connections" className="inline-flex h-11 items-center justify-center gap-2 rounded-[15px] border border-[#d9e1f2] bg-white px-4 text-[13px] font-black text-[#5366f6]">
-                    {copy('راجع الربط والصلاحيات', 'Review connections and permissions')}
-                  </Link>
-                </div>
-              </div>
-
-              <div className="nx-os-card p-4 text-[12px] font-semibold leading-6 text-[#7b87a3]">
-                <Clock3 className="mb-2 h-4 w-4 text-[#5366f6]" />
-                {copy(
-                  'هذه الصفحة لا تعرض أرقام أداء وهمية. أي حالة أداء أو تعلم تظهر فقط بعد بيانات منصة حقيقية.',
-                  'This page does not show fake performance numbers. Any performance or learning state appears only after real platform data exists.'
-                )}
-              </div>
-            </aside>
           </section>
         </div>
       </main>

@@ -7,15 +7,12 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import type { ExecutionQueueItem, WorkspaceExecutionTruth } from '@/lib/executionTruth'
 import {
-  AlertTriangle,
   ArrowUpRight,
   CheckCircle2,
-  Clock3,
   ExternalLink,
   Loader2,
   RefreshCw,
   ShieldCheck,
-  Sparkles,
   XCircle,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -149,7 +146,7 @@ export default function ApprovalsPage() {
     () => proposals.filter(proposal => proposal.traceability === 'source_not_attached' || proposal.canAccept === false).length,
     [proposals],
   )
-  const actionableCount = suggestions.length + liveApprovalActions.length + proposals.length - blockedCount
+  const pendingTotal = suggestions.length + liveApprovalActions.length + proposals.length
   const historyRows = useMemo(() => [
     ...proposalHistory.map(item => ({
       id: `brain-${item.id}`,
@@ -254,27 +251,27 @@ export default function ApprovalsPage() {
       <main dir={dir} className="nx-os-page">
         <div className="nx-os-container nx-os-stack">
           <LuxuryWorkspaceHeader
-            pageTitle={copy('مركز القرارات', 'Decision Center')}
-            pageSubtitle={copy('وافق أو ارفض أو افتح خطوة التنفيذ التالية، مع سجل تدقيق لكل قرار.', 'Approve, reject, or open the next guarded execution step with an audit trail for every decision.')}
-            primaryHref="/content-hub"
-            primaryLabel={copy('راجع المحتوى', 'Review content')}
-            secondaryHref="/brand"
-            secondaryLabel="Brand Brain"
+            pageTitle={copy('الموافقات', 'Approvals')}
+            pageSubtitle={copy('راجع فقط القرارات التي تحتاج تأكيدك.', 'Review only the decisions that need your confirmation.')}
+            primaryHref="/automation"
+            primaryLabel={copy('عرض الأتمتة', 'View automation')}
+            secondaryHref="/content-hub"
+            secondaryLabel={copy('مراجعة المحتوى', 'Review content')}
           />
 
-          <section className="nx-os-panel flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-100 bg-violet-50 px-3 py-1.5 text-[12px] font-black text-violet-700">
-                <ShieldCheck size={14} />
-                {copy('قرار بشري قبل التنفيذ', 'Human decision before execution')}
+          <section className="nx-os-action-strip">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="nx-os-icon-box"><ShieldCheck size={17} /></span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-black text-[#111b3f]">
+                  {pendingTotal > 0
+                    ? copy(`${pendingTotal} قرار بانتظار المراجعة`, `${pendingTotal} decisions need review`)
+                    : copy('لا توجد قرارات معلقة', 'Nothing is waiting for review')}
+                </p>
+                <p className="text-[11px] font-semibold text-[#7b87a3]">
+                  {copy('لن ينفذ NEXUS أي قرار من دون موافقتك.', 'NEXUS will not execute a decision without your approval.')}
+                </p>
               </div>
-              <h1 className="flex items-center gap-3 text-[24px] font-black text-[#071236]">
-                {copy('قائمة قرار واحدة لكل وكلاء NEXUS', 'One decision queue for every NEXUS agent')}
-                <Sparkles className="text-[#5366f6]" size={24} />
-              </h1>
-              <p className="mt-2 max-w-3xl text-[12px] font-semibold leading-6 text-[#64708f]">
-                {copy('الموافقة قد تطبق إشارة Brand Brain أو تنقلك إلى خطوة تنفيذ محمية. لا يحدث نشر أو صرف إلا من مساره النهائي وبعد تأكيد منفصل.', 'Approval may apply a Brand Brain signal or route you to a guarded workflow. Publishing or spend still requires its final path and a separate confirmation.')}
-              </p>
             </div>
             <div className="flex flex-wrap gap-2">
               {blockedCount > 0 && (
@@ -296,26 +293,7 @@ export default function ApprovalsPage() {
             </div>
           )}
 
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {[
-              [copy('بانتظار قرار', 'Awaiting decision'), suggestions.length + liveApprovalActions.length + proposals.length, Clock3, 'text-amber-600 bg-amber-50'],
-              [copy('قابل للتنفيذ', 'Actionable'), actionableCount, CheckCircle2, 'text-emerald-600 bg-emerald-50'],
-              [copy('محجوب بلا دليل', 'Blocked without evidence'), blockedCount, AlertTriangle, 'text-amber-600 bg-amber-50'],
-              [copy('قرارات مسجلة', 'Recorded decisions'), historyRows.length, ShieldCheck, 'text-[#5366f6] bg-[#f1f0ff]'],
-            ].map(([label, value, Icon, tone]) => {
-              const MetricIcon = Icon as typeof Clock3
-              return (
-                <div key={String(label)} className="nx-os-card p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div><p className="text-[12px] font-bold text-[#64708f]">{String(label)}</p><p className="mt-2 text-3xl font-black text-[#071236]">{String(value)}</p></div>
-                    <span className={`grid h-11 w-11 place-items-center rounded-[16px] ${String(tone)}`}><MetricIcon size={20} /></span>
-                  </div>
-                </div>
-              )
-            })}
-          </section>
-
-          <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(300px,0.7fr)]">
+          <section className="grid gap-5 xl:grid-cols-2">
             <div className="nx-os-card p-5">
               <div className="mb-5">
                 <h2 className="text-xl font-black text-[#071236]">{copy('قرارات التشغيل', 'Operational decisions')}</h2>
@@ -390,30 +368,22 @@ export default function ApprovalsPage() {
               </div>
             </div>
 
-            <aside className="space-y-5">
-              <div className="nx-os-card p-5">
+          </section>
+
+          {historyRows.length > 0 && (
+            <section className="nx-os-card p-5">
                 <h2 className="text-lg font-black text-[#071236]">{copy('سجل القرارات', 'Decision ledger')}</h2>
                 <p className="mt-1 text-[12px] font-semibold leading-5 text-[#7b87a3]">{copy('آخر القرارات المنفذة أو المرفوضة في مساحة العمل.', 'Latest applied or rejected workspace decisions.')}</p>
-                <div className="mt-4 space-y-2">
-                  {historyRows.length === 0 ? <p className="rounded-[14px] border border-dashed border-[#d7def0] p-4 text-center text-[11px] font-semibold text-[#8a96ad]">{copy('لا يوجد سجل بعد.', 'No ledger entries yet.')}</p> : historyRows.map(row => (
+                <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                  {historyRows.slice(0, 6).map(row => (
                     <div key={row.id} className="rounded-[14px] border border-[#e7ecf6] bg-[#fbfcff] p-3">
                       <div className="flex items-start justify-between gap-2"><p className="text-[11px] font-black leading-4 text-[#111b3f]">{row.label}</p><span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-black text-slate-600">{row.status}</span></div>
                       <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#8a96ad]">{row.kind}</p>
                     </div>
                   ))}
                 </div>
-              </div>
-              <div className="nx-os-card p-5">
-                <h2 className="text-lg font-black text-[#071236]">{copy('حدود التنفيذ', 'Execution boundary')}</h2>
-                <div className="mt-4 space-y-2 text-[11px] font-semibold leading-5 text-[#64708f]">
-                  <p>• {copy('اعتماد إشارة Brand Brain يحدّث الحقل المحدد فقط.', 'Accepting a Brand Brain signal updates only its allowlisted field.')}</p>
-                  <p>• {copy('قرار المشغّل يفتح مسارًا محميًا أو ينفذ إجراءً محدودًا مسجلاً.', 'An operator decision opens a guarded path or executes a bounded logged action.')}</p>
-                  <p>• {copy('النشر والصرف يحتاجان تأكيدهما النهائي داخل المسار المخصص.', 'Publishing and spend require final confirmation in their dedicated flow.')}</p>
-                </div>
-                <Link href="/automation" className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-[13px] bg-[#071236] text-[12px] font-black text-white">{copy('افتح مراقب التنفيذ', 'Open execution monitor')}<ArrowUpRight size={14} /></Link>
-              </div>
-            </aside>
-          </section>
+            </section>
+          )}
         </div>
       </main>
     </AppShell>

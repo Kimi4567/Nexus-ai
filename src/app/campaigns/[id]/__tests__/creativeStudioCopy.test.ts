@@ -100,20 +100,20 @@ describe('CS-1 creative IA copy', () => {
 
   it('identifies studio as a review-only creative workspace with locked execution', () => {
     expect(STUDIO_SRC).toMatch(/Creative Studio/)
-    expect(STUDIO_SRC).toMatch(/This page turns goal, audience, and messages into a reviewable visual direction/)
-    expect(STUDIO_SRC).toMatch(/does not generate, attach, or publish final assets/)
+    expect(STUDIO_SRC).toMatch(/Review visual direction and brand assets before attaching media to posts/)
+    expect(STUDIO_SRC).toMatch(/Confirm the creative direction/)
     expect(STUDIO_SRC).toMatch(/Generation starts from a specific post in Content Hub after cost review and confirmation/)
     expect(STUDIO_SRC).toMatch(/This desk is preview-only/)
     expect(STUDIO_SRC).not.toMatch(/Confirmed generation flow later/)
-    expect(STUDIO_SRC).toMatch(/This planned tool needs a confirmation flow before any cost or edit/)
+    expect(STUDIO_SRC).not.toMatch(/Planned — unavailable/)
   })
 
   it('keeps the global studio tied to saved brand and campaign truth instead of a fragrance demo', () => {
     expect(STUDIO_SRC).toContain("fetch('/api/campaigns?limit=20&sort=updatedAt'")
     expect(STUDIO_SRC).toContain('No performance promise is shown before analytics are connected and real data exists.')
     expect(STUDIO_SRC).toContain('Saved data only')
-    expect(STUDIO_SRC).toContain('not as connected or publish-ready accounts')
-    expect(STUDIO_SRC).toContain('Planned — unavailable')
+    expect(STUDIO_SRC).toContain('Campaign or brand')
+    expect(STUDIO_SRC).not.toContain('Planned — unavailable')
     expect(STUDIO_SRC).not.toMatch(/New fragrance product|premium fragrances|NEXUS PERFUMES|Shop fragrance/)
     expect(STUDIO_SRC).not.toMatch(/250K\+|8%\+|3%\+/)
   })
