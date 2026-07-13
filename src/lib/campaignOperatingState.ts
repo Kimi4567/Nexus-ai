@@ -4,6 +4,7 @@ export type CampaignStatusLike =
   | 'DRAFT'
   | 'ACTIVE'
   | 'SCHEDULED'
+  | 'PROCESSING'
   | 'PAUSED'
   | 'COMPLETED'
   | 'ARCHIVED'
@@ -28,6 +29,7 @@ export type CampaignOperatingStage =
   | 'scheduled_manual'
   | 'scheduled_auto'
   | 'auto_publish_enabled'
+  | 'publishing_processing'
   | 'published_waiting_for_analytics'
   | 'performance_ready'
   | 'learning_review_needed'
@@ -79,6 +81,7 @@ export interface CampaignOperatingState {
     scheduledPosts: number
     autoScheduledPosts: number
     manualScheduledPosts: number
+    processingPosts: number
     publishedPosts: number
     apiPublishedPosts: number
     manualPublishedPosts: number
@@ -93,6 +96,7 @@ export interface CampaignOperatingState {
     hasApprovedContent: boolean
     hasScheduledContent: boolean
     hasAutoScheduledContent: boolean
+    hasProcessingContent: boolean
     hasPublishedContent: boolean
     hasApiPublishedContent: boolean
     hasManualPublishedContent: boolean
@@ -164,6 +168,13 @@ const STAGE_COPY: Record<CampaignOperatingStage, StageCopy> = {
     stageHelper: 'Automatic publishing is enabled only for scheduled posts explicitly marked AUTO.',
     stageHelperAr: 'النشر التلقائي مفعّل فقط للمنشورات المجدولة والمعلّمة صراحةً AUTO.',
     primaryAction: { label: 'Review queue', labelAr: 'راجع القائمة', href: '#autopilot' },
+  },
+  publishing_processing: {
+    stageLabel: 'Awaiting platform confirmation',
+    stageLabelAr: 'بانتظار تأكيد المنصة',
+    stageHelper: 'A provider accepted the media and is still processing or moderating it. NEXUS has not marked it published.',
+    stageHelperAr: 'استلمت المنصة الوسائط وما زالت تعالجها أو تراجعها. لم يعتبرها NEXUS منشورة بعد.',
+    primaryAction: { label: 'Review publishing queue', labelAr: 'راجع قائمة النشر', href: '#autopilot' },
   },
   published_waiting_for_analytics: {
     stageLabel: 'Published, waiting for analytics',
@@ -259,6 +270,7 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     scheduledPosts: 0,
     autoScheduledPosts: 0,
     manualScheduledPosts: 0,
+    processingPosts: 0,
     publishedPosts: 0,
     apiPublishedPosts: 0,
     manualPublishedPosts: 0,
@@ -281,6 +293,7 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     if (postStatus === 'DRAFT') counts.draftPosts += 1
     if (postStatus === 'APPROVED') counts.approvedPosts += 1
     if (postStatus === 'FAILED') counts.failedPosts += 1
+    if (postStatus === 'PROCESSING') counts.processingPosts += 1
     if (['PENDING', 'GENERATING', 'AWAITING_UPLOAD'].includes(generationStatus)) {
       counts.pendingGenerationPosts += 1
     }
@@ -310,6 +323,7 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     hasApprovedContent: counts.approvedPosts > 0,
     hasScheduledContent: counts.scheduledPosts > 0,
     hasAutoScheduledContent: counts.autoScheduledPosts > 0,
+    hasProcessingContent: counts.processingPosts > 0,
     hasPublishedContent: counts.publishedPosts > 0,
     hasApiPublishedContent: counts.apiPublishedPosts > 0,
     hasManualPublishedContent: counts.manualPublishedPosts > 0,
@@ -341,6 +355,8 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     stage = 'performance_ready'
   } else if (truthFlags.hasPublishedContent) {
     stage = 'published_waiting_for_analytics'
+  } else if (truthFlags.hasProcessingContent) {
+    stage = 'publishing_processing'
   } else if (truthFlags.autoPublishEnabled && truthFlags.workflowEnabled) {
     stage = 'auto_publish_enabled'
   } else if (truthFlags.hasAutoScheduledContent) {

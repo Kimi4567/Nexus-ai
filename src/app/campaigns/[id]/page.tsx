@@ -1442,6 +1442,7 @@ function CampaignDetailPageInner() {
     scheduled_manual: 'border-violet-200 bg-violet-50 text-violet-700',
     scheduled_auto: 'border-violet-200 bg-violet-50 text-violet-700',
     auto_publish_enabled: 'border-violet-200 bg-violet-50 text-violet-700',
+    publishing_processing: 'border-violet-200 bg-violet-50 text-violet-700',
     published_waiting_for_analytics: 'border-sky-200 bg-sky-50 text-sky-700',
     performance_ready: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     learning_review_needed: 'border-purple-200 bg-purple-50 text-purple-700',

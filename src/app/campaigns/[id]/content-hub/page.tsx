@@ -61,7 +61,7 @@ interface ContentPost {
   uploadedMediaId: string | null
   contentPlanIndex: number
   scheduledAt: string | null
-  status: 'DRAFT' | 'APPROVED' | 'SCHEDULED' | 'PUBLISHED' | 'FAILED'
+  status: 'DRAFT' | 'APPROVED' | 'SCHEDULED' | 'PROCESSING' | 'PUBLISHED' | 'FAILED'
   // Publishing lifecycle (manual publishing checklist — PR4)
   publishMode?: 'MANUAL' | 'AUTO' | null
   manuallyPublishedAt?: string | null
@@ -77,6 +77,15 @@ interface MediaItem {
   url: string
   fileName: string
   type: string
+}
+
+interface ScheduleAccount {
+  id: string
+  platform: string
+  accountName?: string | null
+  pages?: Array<{ id: string; name: string; igAccountId?: string | null; accessToken?: string }>
+  organizations?: Array<{ id: string; name: string }>
+  selectedOrganizationId?: string | null
 }
 
 interface PendingMediaAttachment {
@@ -291,6 +300,15 @@ export default function ContentHubPage() {
   const [showApproveConfirm, setShowApproveConfirm] = useState(false)
   const [showScheduleConfirm, setShowScheduleConfirm] = useState(false)
   const [scheduleAcknowledged, setScheduleAcknowledged] = useState(false)
+  const [scheduleMode, setScheduleMode] = useState<'MANUAL' | 'AUTO'>('MANUAL')
+  const [scheduleAccounts, setScheduleAccounts] = useState<ScheduleAccount[]>([])
+  const [scheduleAccountsLoading, setScheduleAccountsLoading] = useState(false)
+  const [destinationByTarget, setDestinationByTarget] = useState<Record<string, { integrationId: string; pageId?: string; pageName?: string }>>({})
+  const [tiktokCreator, setTikTokCreator] = useState<{ privacyLevelOptions: string[]; commentDisabled: boolean; duetDisabled: boolean; stitchDisabled: boolean } | null>(null)
+  const [tiktokOptions, setTikTokOptions] = useState({
+    privacyLevel: '', disableComment: false, disableDuet: false, disableStitch: false,
+    brandContentToggle: false, brandOrganicToggle: true, isAigc: false,
+  })
   const [approveResult, setApproveResult] = useState<{
     kind: 'approved' | 'scheduled'
     approved: number
@@ -389,6 +407,67 @@ export default function ContentHubPage() {
     if (!authLoading && isAuthenticated) loadData()
   }, [authLoading, isAuthenticated, loadData])
 
+  useEffect(() => {
+    if (!showScheduleConfirm || scheduleMode !== 'AUTO' || scheduleAccountsLoading || scheduleAccounts.length > 0) return
+    let cancelled = false
+    setScheduleAccountsLoading(true)
+    fetch('/api/social/accounts', { headers: { Authorization: authHeader() } })
+      .then(response => response.ok ? response.json() : Promise.reject(new Error('connections')))
+      .then(async data => {
+        if (cancelled) return
+        const accounts = Array.isArray(data.accounts) ? data.accounts as ScheduleAccount[] : []
+        setScheduleAccounts(accounts)
+        const next: Record<string, { integrationId: string; pageId?: string; pageName?: string }> = {}
+        const targets = new Set(approvedPostsWithDates.map(post => post.platform.toUpperCase()))
+        const meta = accounts.find(account => account.platform === 'META')
+        for (const target of targets) {
+          if (target === 'FACEBOOK' && meta) {
+            const page = (meta.pages || []).find(item => item.id)
+            if (page) next[target] = { integrationId: meta.id, pageId: page.id, pageName: page.name }
+          } else if (target === 'INSTAGRAM' && meta) {
+            const page = (meta.pages || []).find(item => item.igAccountId)
+            if (page?.igAccountId) next[target] = { integrationId: meta.id, pageId: page.igAccountId, pageName: page.name }
+          } else if (target === 'LINKEDIN') {
+            const linkedIn = accounts.find(account => account.platform === 'LINKEDIN')
+            if (linkedIn) {
+              const organization = (linkedIn.organizations || []).find(item => item.id === linkedIn.selectedOrganizationId)
+                || (linkedIn.organizations || [])[0]
+              next[target] = { integrationId: linkedIn.id, pageId: organization?.id, pageName: organization?.name || linkedIn.accountName || undefined }
+            }
+          } else if (target === 'TIKTOK') {
+            const tiktok = accounts.find(account => account.platform === 'TIKTOK')
+            if (tiktok) next[target] = { integrationId: tiktok.id, pageName: tiktok.accountName || undefined }
+          }
+        }
+        setDestinationByTarget(next)
+        const tiktok = accounts.find(account => account.platform === 'TIKTOK')
+        if (targets.has('TIKTOK') && tiktok) {
+          const response = await fetch(`/api/social/tiktok/creator-info?integrationId=${encodeURIComponent(tiktok.id)}`, {
+            headers: { Authorization: authHeader() },
+          })
+          const creatorData = await response.json().catch(() => ({}))
+          if (!cancelled && response.ok && creatorData.creator) {
+            setTikTokCreator(creatorData.creator)
+            const privacyLevel = creatorData.creator.privacyLevelOptions?.includes('SELF_ONLY')
+              ? 'SELF_ONLY'
+              : creatorData.creator.privacyLevelOptions?.[0] || ''
+            setTikTokOptions(current => ({
+              ...current,
+              privacyLevel,
+              disableComment: Boolean(creatorData.creator.commentDisabled),
+              disableDuet: Boolean(creatorData.creator.duetDisabled),
+              disableStitch: Boolean(creatorData.creator.stitchDisabled),
+            }))
+          }
+        }
+      })
+      .catch(() => { if (!cancelled) setScheduleAccounts([]) })
+      .finally(() => { if (!cancelled) setScheduleAccountsLoading(false) })
+    return () => { cancelled = true }
+  // approved posts are intentionally captured when the decision modal opens.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showScheduleConfirm, scheduleMode])
+
   // ── Poll generating status ────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -429,6 +508,8 @@ export default function ContentHubPage() {
   const draftCount = posts.filter(p => p.status === 'DRAFT').length
   const approvedCount = posts.filter(p => p.status === 'APPROVED').length
   const approvedPostsWithDates = posts.filter(p => p.status === 'APPROVED' && hasValidDate(p.scheduledAt))
+  const approvedAutoTargets = Array.from(new Set(approvedPostsWithDates.map(post => post.platform.toUpperCase())))
+  const unsupportedAutoTargets = approvedAutoTargets.filter(target => !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK'].includes(target))
   const approvedPostsNeedingMedia = posts.filter(
     p => p.status === 'APPROVED' && !isContentPostMediaReadyForScheduling(p),
   )
@@ -1132,7 +1213,13 @@ export default function ContentHubPage() {
     try {
       const res = await fetch(`/api/campaigns/${campaignId}/schedule-content-plan`, {
         method: 'POST',
-        headers: { Authorization: authHeader() },
+        headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          publishMode: scheduleMode,
+          explicitAutoPublishConfirmed: scheduleMode === 'AUTO' && scheduleAcknowledged,
+          destinationByTarget,
+          tiktokOptions,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Scheduling failed')
@@ -2199,9 +2286,13 @@ export default function ContentHubPage() {
                     {isAr ? `جدولة ${approvedPostsWithDates.length} منشور معتمد` : `Schedule ${approvedPostsWithDates.length} approved posts`}
                   </h3>
                   <p className="mt-2 text-sm leading-6 text-slate-500">
-                    {isAr
-                      ? 'سيحوّل NEXUS المنشورات المعتمدة ذات التواريخ المحفوظة إلى حالة «مجدول». لن ينشر أي منشور الآن ولن يتصل بأي منصة من هذا القرار.'
-                      : 'NEXUS will move approved posts with saved dates to Scheduled. Nothing is published now and no platform call is made by this decision.'}
+                    {scheduleMode === 'AUTO'
+                      ? (isAr
+                          ? 'سيحفظ NEXUS التواريخ والوجهات، ثم يرسل كل منشور معتمد إلى المنصة في موعده. لا يعتبر المنشور منشورًا إلا بعد تأكيد المنصة.'
+                          : 'NEXUS will save dates and exact destinations, then send each approved post at its scheduled time. A post is not marked published until the platform confirms it.')
+                      : (isAr
+                          ? 'سيحفظ NEXUS الجدول للتنفيذ اليدوي فقط. لن يرسل أي محتوى إلى المنصات.'
+                          : 'NEXUS will save an execution schedule only. No content will be sent to a platform.')}
                   </p>
                 </div>
                 <button
@@ -2217,6 +2308,115 @@ export default function ContentHubPage() {
                   ×
                 </button>
               </div>
+
+              <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1.5">
+                <button
+                  type="button"
+                  onClick={() => { setScheduleMode('MANUAL'); setScheduleAcknowledged(false) }}
+                  className={`rounded-lg px-3 py-2 text-xs font-bold ${scheduleMode === 'MANUAL' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`}
+                >{isAr ? 'جدولة للتنفيذ اليدوي' : 'Manual execution'}</button>
+                <button
+                  type="button"
+                  onClick={() => { setScheduleMode('AUTO'); setScheduleAcknowledged(false) }}
+                  className={`rounded-lg px-3 py-2 text-xs font-bold ${scheduleMode === 'AUTO' ? 'bg-[#4F46E5] text-white shadow-sm' : 'text-slate-500'}`}
+                >{isAr ? 'نشر تلقائي في الموعد' : 'Auto-publish on time'}</button>
+              </div>
+
+              {scheduleMode === 'AUTO' && (
+                <div className="mb-4 max-h-72 space-y-3 overflow-y-auto rounded-xl border border-indigo-100 bg-indigo-50/40 p-3">
+                  <div>
+                    <p className="text-xs font-black text-slate-900">{isAr ? 'وجهات النشر الدقيقة' : 'Exact publishing destinations'}</p>
+                    <p className="mt-1 text-[11px] leading-5 text-slate-500">{isAr ? 'كل منصة تحتاج حسابًا وصلاحية ووجهة مؤكدة. لن يخمّن NEXUS الصفحة.' : 'Every channel needs an authorized account and exact destination. NEXUS will not guess a Page.'}</p>
+                  </div>
+
+                  {scheduleAccountsLoading && <p className="text-xs font-semibold text-indigo-700">{isAr ? 'جارٍ التحقق من الصلاحيات…' : 'Checking permissions…'}</p>}
+
+                  {unsupportedAutoTargets.length > 0 && (
+                    <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-5 text-amber-900">
+                      {isAr ? `النشر التلقائي غير متاح حاليًا لهذه الوجهات: ${unsupportedAutoTargets.join('، ')}. غيّرها أو استخدم التنفيذ اليدوي.` : `Auto-publishing is not enabled for: ${unsupportedAutoTargets.join(', ')}. Change them or use manual execution.`}
+                    </p>
+                  )}
+
+                  {approvedAutoTargets.filter(target => ['FACEBOOK', 'INSTAGRAM'].includes(target)).map(target => {
+                    const account = scheduleAccounts.find(item => item.platform === 'META')
+                    const pages = (account?.pages || []).filter(page => target === 'INSTAGRAM' ? Boolean(page.igAccountId) : Boolean(page.id))
+                    const selected = destinationByTarget[target]?.pageId || ''
+                    return (
+                      <label key={target} className="block text-[11px] font-bold text-slate-700">
+                        {target}
+                        <select
+                          value={selected}
+                          onChange={event => {
+                            const page = pages.find(item => item.id === event.target.value || item.igAccountId === event.target.value)
+                            if (!account || !page) return
+                            setDestinationByTarget(current => ({ ...current, [target]: { integrationId: account.id, pageId: target === 'INSTAGRAM' ? page.igAccountId || '' : page.id, pageName: page.name } }))
+                          }}
+                          className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs"
+                        >
+                          <option value="">{isAr ? 'اختر الوجهة' : 'Select destination'}</option>
+                          {pages.map(page => <option key={`${target}-${page.id}`} value={target === 'INSTAGRAM' ? page.igAccountId || '' : page.id}>{page.name}</option>)}
+                        </select>
+                      </label>
+                    )
+                  })}
+
+                  {approvedAutoTargets.includes('LINKEDIN') && (() => {
+                    const account = scheduleAccounts.find(item => item.platform === 'LINKEDIN')
+                    const organizations = account?.organizations || []
+                    const selected = destinationByTarget.LINKEDIN?.pageId || 'MEMBER'
+                    return (
+                      <label className="block text-[11px] font-bold text-slate-700">
+                        LinkedIn
+                        <select
+                          value={selected}
+                          onChange={event => {
+                            if (!account) return
+                            const organization = organizations.find(item => item.id === event.target.value)
+                            setDestinationByTarget(current => ({ ...current, LINKEDIN: { integrationId: account.id, pageId: organization?.id, pageName: organization?.name || account.accountName || undefined } }))
+                          }}
+                          className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs"
+                        >
+                          <option value="MEMBER">{isAr ? `الحساب الشخصي — ${account?.accountName || 'غير متصل'}` : `Member profile — ${account?.accountName || 'not connected'}`}</option>
+                          {organizations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                        </select>
+                      </label>
+                    )
+                  })()}
+
+                  {approvedAutoTargets.includes('TIKTOK') && (
+                    <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-3">
+                      <label className="block text-[11px] font-bold text-slate-700">
+                        {isAr ? 'خصوصية TikTok' : 'TikTok privacy'}
+                        <select value={tiktokOptions.privacyLevel} onChange={event => setTikTokOptions(current => ({ ...current, privacyLevel: event.target.value }))} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs">
+                          <option value="">{isAr ? 'اختر الخصوصية' : 'Select privacy'}</option>
+                          {(tiktokCreator?.privacyLevelOptions || []).map(option => <option key={option} value={option}>{option}</option>)}
+                        </select>
+                      </label>
+                      <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-600">
+                        {([
+                          ['disableComment', isAr ? 'تعطيل التعليقات' : 'Disable comments'],
+                          ['disableDuet', isAr ? 'تعطيل Duet' : 'Disable Duet'],
+                          ['disableStitch', isAr ? 'تعطيل Stitch' : 'Disable Stitch'],
+                          ['isAigc', isAr ? 'محتوى مولّد بالذكاء' : 'AI-generated label'],
+                        ] as const).map(([key, label]) => (
+                          <label key={key} className="flex items-center gap-2"><input type="checkbox" checked={tiktokOptions[key]} disabled={Boolean(tiktokCreator?.[key === 'disableComment' ? 'commentDisabled' : key === 'disableDuet' ? 'duetDisabled' : key === 'disableStitch' ? 'stitchDisabled' : 'commentDisabled'] && key !== 'isAigc')} onChange={event => setTikTokOptions(current => ({ ...current, [key]: event.target.checked }))} />{label}</label>
+                        ))}
+                      </div>
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-[10px] text-slate-600">
+                        <p className="font-black text-slate-700">{isAr ? 'إفصاح المحتوى التجاري' : 'Commercial content disclosure'}</p>
+                        <label className="mt-2 flex items-start gap-2">
+                          <input type="checkbox" checked={tiktokOptions.brandOrganicToggle} onChange={event => setTikTokOptions(current => ({ ...current, brandOrganicToggle: event.target.checked }))} />
+                          {isAr ? 'المحتوى يروّج لعلامتي أو نشاطي التجاري' : 'The content promotes my own brand or business'}
+                        </label>
+                        <label className="mt-2 flex items-start gap-2">
+                          <input type="checkbox" checked={tiktokOptions.brandContentToggle} onChange={event => setTikTokOptions(current => ({ ...current, brandContentToggle: event.target.checked }))} />
+                          {isAr ? 'تعاون مدفوع أو ترويج لطرف ثالث' : 'Paid partnership or third-party promotion'}
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
                 <div>
@@ -2257,8 +2457,12 @@ export default function ContentHubPage() {
                 />
                 <span>
                   {isAr
-                    ? 'راجعت عدد المنشورات والتواريخ، وأفهم أن الجدولة تحفظ قرار التنفيذ داخل NEXUS فقط ولا تعني النشر.'
-                    : 'I reviewed the post count and dates, and understand that scheduling records the execution plan in NEXUS only; it does not mean publishing.'}
+                    ? (scheduleMode === 'AUTO'
+                        ? 'راجعت المحتوى والتواريخ والوجهات، وأوافق صراحةً أن يرسل NEXUS المنشورات المعتمدة إلى المنصات في مواعيدها.'
+                        : 'راجعت عدد المنشورات والتواريخ، وأفهم أن هذه جدولة للتنفيذ اليدوي ولا تعني النشر.')
+                    : (scheduleMode === 'AUTO'
+                        ? 'I reviewed the content, dates, and destinations, and explicitly authorize NEXUS to send these approved posts at their scheduled times.'
+                        : 'I reviewed the post count and dates, and understand this is a manual execution schedule, not publishing.')}
                 </span>
               </label>
 
@@ -3175,6 +3379,10 @@ function PostCard({
       label: isAr ? 'مجدول' : 'Scheduled',
       color: '#6366f1',
     },
+    PROCESSING: {
+      label: isAr ? 'قيد تأكيد المنصة' : 'Awaiting platform confirmation',
+      color: '#7c3aed',
+    },
     PUBLISHED: {
       label: isAr ? 'منشور' : 'Published',
       color: '#10b981',
@@ -3313,6 +3521,7 @@ function PostCard({
         platform={post.platform}
         status={post.status}
         hasMedia={Boolean(post.imageUrl)}
+        isVideoPost={post.isVideoPost}
         onPublished={onPlatformPublished}
       />
 

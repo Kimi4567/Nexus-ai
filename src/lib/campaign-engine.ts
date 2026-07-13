@@ -3,6 +3,9 @@ import * as ai from '@/lib/ai/adapter'
 import { type CampaignContext } from '@/lib/agents/visual-director'
 import { type SentinelReviewInput } from '@/lib/agents/sentinel-reviewer'
 import { validateOutputObject, logQualityReport } from '@/lib/ai/outputValidator'
+import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
+import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
+import { assertCampaignStrategyContract } from '@/lib/campaignStrategyContract'
 
 const db = prisma as any
 
@@ -396,10 +399,30 @@ export async function runCampaignEngine(params: {
     // Creative Brief and Sentinel Review run via their own separate API routes.
     if (needsStrategy) {
       const campaignWithLang = { ...campaign, language: aiOutput.language }
-      const [strategy, concepts] = await Promise.all([
+      let [strategy, concepts] = await Promise.all([
         ai.generateMarketingStrategy(campaignWithLang, campaign.project),
         ai.generateAdConcepts(campaignWithLang, campaign.project),
       ])
+      strategy = guardStrategyOutputContract(
+        guardStrategyProof(strategy, {
+          verifiedProof: brand?.verifiedProof || [],
+          allowedClaimText: [
+            brand?.description,
+            brand?.primaryOffer,
+            ...(brand?.uniqueAdvantages || []),
+            ...(brand?.verifiedProof || []),
+          ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
+        }),
+        {
+          allowedPlatforms: campaign.platforms || [],
+          allowedCompetitors: brand?.competitors || [],
+          language: aiOutput.language,
+          strategyType: 'full',
+          hasLeadHandling: Boolean(brand?.leadHandling),
+          hasConversionDestination: Boolean(brand?.conversionDestination),
+        },
+      )
+      assertCampaignStrategyContract(strategy, { language: aiOutput.language })
 
       const qualityReport = validateOutputObject(strategy, {
         brandName: brand?.brandName || campaign.name,

@@ -29,6 +29,8 @@ describe('status transitions', () => {
     expect(canTransition('DRAFT', 'APPROVED')).toBe(true)
     expect(canTransition('APPROVED', 'SCHEDULED')).toBe(true)
     expect(canTransition('SCHEDULED', 'PUBLISHED')).toBe(true)
+    expect(canTransition('SCHEDULED', 'PROCESSING')).toBe(true)
+    expect(canTransition('PROCESSING', 'PUBLISHED')).toBe(true)
     expect(canTransition('SCHEDULED', 'FAILED')).toBe(true)
     expect(canTransition('APPROVED', 'PUBLISHED')).toBe(true) // manual publish-now
     expect(canTransition('FAILED', 'SCHEDULED')).toBe(true)   // retry
@@ -102,6 +104,12 @@ describe('derived display state — honest publishing', () => {
     expect(row.note).toBe('Meta API: token expired')
   })
 
+  it('provider processing is not displayed as published', () => {
+    const state = deriveDisplayState({ status: 'PROCESSING', publishMode: 'AUTO', platformPostId: 'ticket-1' })
+    expect(state).toBe('processing')
+    expect(isPublished(state)).toBe(false)
+  })
+
   it('10. legacy / unknown statuses derive safely — never a false "published"', () => {
     // legacy PUBLISHED with no publishMode → MANUAL, honest "published_manual"
     expect(deriveDisplayState({ status: 'PUBLISHED' })).toBe('published_manual')
@@ -121,7 +129,7 @@ describe('derived display state — honest publishing', () => {
 })
 
 describe('9. i18n status labels exist in ar + en', () => {
-  const KEYS = ['draft','approved','scheduledManual','scheduledAuto','publishedManually','publishedAuto','failed','readyToPublish','manualPublishing','autoPublishing']
+  const KEYS = ['draft','approved','scheduledManual','scheduledAuto','processing','publishedManually','publishedAuto','failed','readyToPublish','manualPublishing','autoPublishing']
 
   it('every status key is a non-empty string in BOTH locales', () => {
     for (const k of KEYS) {

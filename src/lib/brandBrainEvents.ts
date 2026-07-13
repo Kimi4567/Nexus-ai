@@ -40,7 +40,7 @@ export function executionEventType(
   }
   if (to === 'SCHEDULED') return from === 'APPROVED' ? 'POST_SCHEDULED' : null
   if (to === 'PUBLISHED') {
-    if (from !== 'SCHEDULED') return null            // honesty guard: only SCHEDULED → PUBLISHED
+    if (from !== 'SCHEDULED' && from !== 'PROCESSING') return null
     return mode === 'AUTO' ? 'POST_AUTO_PUBLISHED' : 'POST_MANUALLY_PUBLISHED'
   }
   if (to === 'DRAFT') return from === 'APPROVED' || from === 'SCHEDULED' ? 'POST_REVERTED_TO_DRAFT' : null

@@ -47,6 +47,9 @@ const REQUIRED_OBJECT_FIELDS = [
   'diagnosisDetails',
   'confidenceReport',
   'assetRequirements',
+  'measurementPlan',
+  'operatingCadence',
+  'competitorFrame',
 ]
 
 const REQUIRED_ARRAY_FIELDS: Array<{ key: string; min: number }> = [
@@ -62,6 +65,9 @@ const REQUIRED_ARRAY_FIELDS: Array<{ key: string; min: number }> = [
   { key: 'riskNotes', min: 1 },
   { key: 'assumptions', min: 1 },
   { key: 'missingData', min: 0 },
+  { key: 'experimentBacklog', min: 3 },
+  { key: 'decisionRules', min: 3 },
+  { key: 'roadmap30_60_90', min: 3 },
 ]
 
 function requiredArrayMinimum(
@@ -370,6 +376,31 @@ function hasOperationalWeeklyPlan(value: unknown): boolean {
   })
 }
 
+function hasOperationalAgencySystem(strategy: StrategyRecord): boolean {
+  const measurement = strategy.measurementPlan
+  const cadence = strategy.operatingCadence
+  const competitor = strategy.competitorFrame
+  if (!objectHasUsefulFields(measurement, ['primaryOutcome', 'baselineStatus', 'attributionRule', 'reportingCadence', 'owner', 'noDataDecision'])) return false
+  if (!isRecord(measurement) || !Array.isArray(measurement.eventsToTrack) || measurement.eventsToTrack.length === 0) return false
+  if (!objectHasUsefulFields(cadence, ['approvalSla', 'responseSla'])) return false
+  if (!isRecord(cadence) || !['daily', 'weekly', 'monthly', 'owners'].every(key => Array.isArray(cadence[key]) && (cadence[key] as unknown[]).length > 0)) return false
+  if (!isRecord(competitor) || !hasUsefulText(competitor.analysisStatus)) return false
+  if (!Array.isArray(competitor.providedCompetitors) || !Array.isArray(competitor.differentiationHypotheses) || !Array.isArray(competitor.researchNeeded)) return false
+
+  const experiments = strategy.experimentBacklog
+  if (!Array.isArray(experiments) || !experiments.every(item => objectHasUsefulFields(item, ['hypothesis', 'audience', 'variable', 'successSignal', 'minimumEvidence', 'decisionRule', 'priority', 'dependency']))) return false
+  const rules = strategy.decisionRules
+  if (!Array.isArray(rules) || !rules.every(item => objectHasUsefulFields(item, ['signal', 'continueWhen', 'iterateWhen', 'stopWhen', 'nextAction']))) return false
+  const roadmap = strategy.roadmap30_60_90
+  if (!Array.isArray(roadmap) || !roadmap.every(item => (
+    objectHasUsefulFields(item, ['phase', 'objective', 'exitGate'])
+    && isRecord(item)
+    && Array.isArray(item.deliverables)
+    && item.deliverables.length > 0
+  ))) return false
+  return true
+}
+
 export function detectLegacyCampaignEngineStrategy(strategy: unknown): boolean {
   if (!isRecord(strategy)) return false
   const keys = Object.keys(strategy)
@@ -437,6 +468,10 @@ export function validateCampaignStrategyContract(
 
   if ('weeklyExecutionPlan' in strategy && !hasOperationalWeeklyPlan(strategy.weeklyExecutionPlan)) {
     weakFields.push('weeklyExecutionPlan.countableDeliverables')
+  }
+
+  if (!hasOperationalAgencySystem(strategy)) {
+    weakFields.push('agencyOperatingSystem.operationalDepth')
   }
 
   if (isArabicLanguage(options.language)) {

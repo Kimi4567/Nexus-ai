@@ -9,7 +9,7 @@ interface LuxuryWorkspaceHeaderProps {
   pageSubtitle?: string
   primaryHref?: string | null
   primaryLabel?: string
-  secondaryHref?: string
+  secondaryHref?: string | null
   secondaryLabel?: string
 }
 

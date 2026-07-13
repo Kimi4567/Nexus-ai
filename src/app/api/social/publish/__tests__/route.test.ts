@@ -63,7 +63,11 @@ beforeEach(() => {
     accessToken: 'encrypted',
     accountId: 'account-1',
     accountName: 'Account',
-    config: { pages: [{ id: 'page-1', name: 'Page', accessToken: 'page-encrypted' }] },
+    config: {
+      scopeEvidence: 'provider_response',
+      scopes: ['pages_manage_posts'],
+      pages: [{ id: 'page-1', name: 'Page', accessToken: 'page-encrypted' }],
+    },
   })
   mocks.campaignFindFirst.mockResolvedValue({ id: 'campaign-1' })
   mocks.decrypt.mockReturnValue('plain-token')

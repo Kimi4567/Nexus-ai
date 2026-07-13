@@ -4,6 +4,8 @@ import { decryptToken } from '@/lib/tokenCrypto'
 import { autoPublishWhere, skippedManualWhere, isAutoPublishEligible } from '@/lib/publishGate'
 import { cronAuthError } from '@/lib/cronAuth'
 import { isRetryableSocialPublishError, publishSocialPost } from '@/lib/socialPublishers'
+import { hasVerifiedProviderScope } from '@/lib/socialPlatformConfig'
+import { buildLearningEvent } from '@/lib/brandBrainEvents'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -55,6 +57,17 @@ async function runPublishJob() {
         // BUG-01 fix: no optimistic write — only write PUBLISHED after platform confirms
         const integration = post.integration
         if (!integration?.accessToken) throw new Error('No access token')
+        const target = String(post.publishTarget || post.platform)
+        const requiredScope = target === 'FACEBOOK'
+          ? 'pages_manage_posts'
+          : target === 'INSTAGRAM'
+            ? 'instagram_content_publish'
+            : target === 'LINKEDIN'
+              ? (post.pageId ? 'w_organization_social' : 'w_member_social')
+              : 'video.publish'
+        if (!hasVerifiedProviderScope(integration.config, requiredScope)) {
+          throw new Error(`Verified ${requiredScope} permission is unavailable; reconnect before publishing`)
+        }
 
         // Resolve a page-level token where Meta supplied one. Match either the
         // Facebook Page ID or its linked Instagram account ID.
@@ -63,13 +76,14 @@ async function runPublishJob() {
         const rawPageToken = page?.accessToken || integration.accessToken
         const accessToken = decryptToken(rawPageToken) ?? rawPageToken
         providerResult = await publishSocialPost({
-          platform: String(post.platform),
+          platform: target,
           caption: post.caption,
           imageUrl: post.imageUrl,
           pageId: post.pageId,
           accountId: integration.accountId,
           accessToken,
           integrationConfig: integration.config as Record<string, unknown> | null,
+          platformOptions: post.platformOptions as Record<string, unknown> | null,
         })
 
       } catch (err) {
@@ -110,21 +124,63 @@ async function runPublishJob() {
             note: `[PUBLISH_FAILED] ${message}`.slice(0, 500),
           },
         }).catch(() => {})
+        const failedEvent = buildLearningEvent({
+          workspaceId: post.workspaceId,
+          campaignId: post.campaignId,
+          socialPostId: post.id,
+          from: 'SCHEDULED',
+          to: 'FAILED',
+          actor: 'CRON',
+          publishMode: 'AUTO',
+          platform: String(post.publishTarget || post.platform),
+          scheduledAt: post.scheduledAt,
+        })
+        if (failedEvent) await prisma.marketingLearningEvent.create({ data: failedEvent as any }).catch(() => {})
         return { id: post.id, success: false, retryScheduled: false, error: message }
       }
 
       try {
+        const processing = providerResult.state === 'PROCESSING'
         await prisma.socialPost.update({
           where: { id: post.id },
           data: {
-            status: 'PUBLISHED',
-            publishedAt: now,
+            status: processing ? 'PROCESSING' : 'PUBLISHED',
+            publishedAt: processing ? null : now,
+            publishAttemptedAt: now,
             platformPostId: providerResult.platformPostId,
             platformUrl: providerResult.platformUrl ?? null,
             errorMessage: null,
           },
         })
-        return { id: post.id, success: true }
+        await prisma.postStatusHistory.create({
+          data: {
+            socialPostId: post.id,
+            workspaceId: post.workspaceId,
+            fromStatus: 'SCHEDULED',
+            toStatus: processing ? 'PROCESSING' : 'PUBLISHED',
+            actor: 'CRON',
+            note: processing
+              ? '[PUBLISH_PROCESSING] Provider accepted the upload; awaiting final confirmation'
+              : '[PUBLISH_CONFIRMED] Provider confirmed publication',
+          },
+        }).catch(() => {})
+        if (!processing) {
+          const event = buildLearningEvent({
+            workspaceId: post.workspaceId,
+            campaignId: post.campaignId,
+            socialPostId: post.id,
+            from: 'SCHEDULED',
+            to: 'PUBLISHED',
+            actor: 'CRON',
+            publishMode: 'AUTO',
+            platform: String(post.publishTarget || post.platform),
+            scheduledAt: post.scheduledAt,
+            publishedAt: now,
+            platformUrl: providerResult.platformUrl ?? null,
+          })
+          if (event) await prisma.marketingLearningEvent.create({ data: event as any }).catch(() => {})
+        }
+        return { id: post.id, success: true, processing }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Database persistence failed'
         const reconciliationMessage = `RECONCILIATION_REQUIRED: platform confirmed ${providerResult.platformPostId}, but local persistence failed: ${message}`

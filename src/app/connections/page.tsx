@@ -20,8 +20,24 @@ import {
 interface ConnectedAccount {
   id: string
   platform: string
+  status: string
   accountName: string
   pages: Array<{ id: string; name: string; igAccountId: string | null }>
+  organizations?: Array<{ id: string; name: string }>
+  selectedOrganizationId?: string | null
+  scopes?: string[]
+  expiresAt?: string | null
+  refreshExpiresAt?: string | null
+  lastSyncedAt?: string | null
+  capabilities?: {
+    facebookPublishing?: boolean
+    instagramPublishing?: boolean
+    linkedInMemberPublishing?: boolean
+    linkedInOrganizationPublishing?: boolean
+    tikTokDirectPosting?: boolean
+    tikTokCreatorInfoVerified?: boolean
+    tokenRefresh?: boolean
+  }
   connectedAt: string
 }
 
@@ -53,9 +69,9 @@ const PLATFORMS: PlatformDef[] = [
     name: { ar: 'Meta — Facebook وInstagram', en: 'Meta — Facebook & Instagram' },
     helper: {
       ar: 'ينشر Facebook بعد تحقق الصفحة والصلاحيات. يظهر حساب Instagram للربط والمراجعة، ولا يُعتمد نشره حتى نجاح فحص الصلاحيات.',
-      en: 'Facebook can publish after Page and permission checks. Instagram is connected for review and is not treated as publish-ready until permission verification passes.',
+      en: 'Facebook and Instagram readiness are checked separately against the selected Page and professional Instagram identity.',
     },
-    scope: { ar: 'Facebook جاهز بشروط · Instagram قيد التحقق', en: 'Facebook conditional · Instagram verification pending' },
+    scope: { ar: 'نشر Facebook وInstagram', en: 'Facebook & Instagram publishing' },
     available: true,
     accent: '#2563eb',
     icon: '∞',
@@ -64,10 +80,10 @@ const PLATFORMS: PlatformDef[] = [
     id: 'LINKEDIN',
     name: { ar: 'LinkedIn', en: 'LinkedIn' },
     helper: {
-      ar: 'مسار النشر المهني مبني، لكن هذا الاتصال يظل قيد التحقق حتى اعتماد الصلاحيات فعلياً للحساب.',
-      en: 'The professional publishing path is implemented, but the connection remains unverified until the account permissions are proven.',
+      ar: 'يفحص NEXUS النشر باسم العضو وصفحات الشركات كلٌ على حدة، ولا يعتبر صفحة شركة متاحة دون صلاحية إدارة مثبتة.',
+      en: 'NEXUS checks member and Company Page publishing separately and never treats an organization as available without proven admin access.',
     },
-    scope: { ar: 'اتصال للمراجعة · الإذن غير مثبت', en: 'Review connection · permission unverified' },
+    scope: { ar: 'عضو وصفحات شركات', en: 'Member & Company Pages' },
     available: true,
     accent: '#0a66c2',
     icon: 'in',
@@ -76,10 +92,10 @@ const PLATFORMS: PlatformDef[] = [
     id: 'TIKTOK',
     name: { ar: 'TikTok', en: 'TikTok' },
     helper: {
-      ar: 'يمكن ربط الحساب لمراجعة التطبيق. النشر المباشر متوقف حتى اكتمال creator-info والتحقق من الخصوصية.',
-      en: 'Connect the account for app review. Direct posting is paused until creator-info and privacy validation are complete.',
+      ar: 'النشر المباشر يظل مقفلاً حتى نجاح فحص creator-info واختيار الخصوصية والإفصاحات وموافقة المستخدم الصريحة.',
+      en: 'Direct posting stays locked until creator-info, privacy, disclosures, and explicit user consent are verified.',
     },
-    scope: { ar: 'ربط تجريبي · النشر متوقف', en: 'Review connection · publishing paused' },
+    scope: { ar: 'فيديو Direct Post', en: 'Video Direct Post' },
     available: true,
     accent: '#111827',
     icon: '♪',
@@ -120,7 +136,96 @@ const PLATFORMS: PlatformDef[] = [
     accent: '#ef4444',
     icon: '▶',
   },
+  {
+    id: 'X',
+    name: { ar: 'X', en: 'X' },
+    helper: { ar: 'مخطط للنشر العضوي بعد توفير مشروع مطور وصلاحية الكتابة المناسبة.', en: 'Planned for organic publishing after a developer project and write access are available.' },
+    scope: { ar: 'مخطط', en: 'Planned' },
+    available: false,
+    accent: '#111827',
+    icon: 'X',
+  },
+  {
+    id: 'PINTEREST',
+    name: { ar: 'Pinterest', en: 'Pinterest' },
+    helper: { ar: 'مخطط لنشر Pins بعد اعتماد تطبيق Pinterest وصلاحيات المحتوى.', en: 'Planned for Pin publishing after Pinterest app review and content permissions.' },
+    scope: { ar: 'مخطط', en: 'Planned' },
+    available: false,
+    accent: '#e11d48',
+    icon: 'P',
+  },
+  {
+    id: 'WHATSAPP',
+    name: { ar: 'WhatsApp Business', en: 'WhatsApp Business' },
+    helper: { ar: 'مخطط لتسليم العملاء والرسائل المعتمدة؛ ليس قناة نشر اجتماعي عادية.', en: 'Planned for lead handoff and approved templates; it is not a standard social publishing channel.' },
+    scope: { ar: 'مخطط', en: 'Planned' },
+    available: false,
+    accent: '#16a34a',
+    icon: 'W',
+  },
 ]
+
+function connectionTruth(account: ConnectedAccount, ar: boolean): {
+  tone: 'ready' | 'needs'
+  label: string
+  checks: Array<{ ok: boolean; text: string }>
+} {
+  const capability = account.capabilities || {}
+  if (account.status !== 'CONNECTED') {
+    return {
+      tone: 'needs',
+      label: account.status === 'EXPIRED'
+        ? (ar ? 'انتهت الصلاحية · أعد الربط' : 'Expired · reconnect')
+        : (ar ? 'خطأ في الاتصال · أعد الربط' : 'Connection error · reconnect'),
+      checks: [{ ok: false, text: ar ? 'رمز وصول صالح مطلوب قبل أي نشر' : 'A valid access token is required before publishing' }],
+    }
+  }
+  if (account.platform === 'META') {
+    const facebook = capability.facebookPublishing === true
+    const instagram = capability.instagramPublishing === true
+    return {
+      tone: facebook && instagram ? 'ready' : 'needs',
+      label: facebook && instagram
+        ? (ar ? 'النشر جاهز للوجهتين' : 'Both destinations ready')
+        : facebook
+          ? (ar ? 'Facebook جاهز · Instagram ناقص' : 'Facebook ready · Instagram missing')
+          : (ar ? 'إعداد الوجهة مطلوب' : 'Destination setup required'),
+      checks: [
+        { ok: facebook, text: ar ? 'صفحة Facebook مخولة للنشر' : 'Facebook Page authorized for publishing' },
+        { ok: instagram, text: ar ? 'حساب Instagram احترافي مربوط بالصفحة' : 'Professional Instagram account linked to the Page' },
+      ],
+    }
+  }
+  if (account.platform === 'LINKEDIN') {
+    const member = capability.linkedInMemberPublishing === true
+    const organization = capability.linkedInOrganizationPublishing === true
+    return {
+      tone: member || organization ? 'ready' : 'needs',
+      label: organization
+        ? (ar ? 'نشر العضو وصفحة الشركة متاح' : 'Member and Company Page ready')
+        : member
+          ? (ar ? 'نشر العضو جاهز · لا صفحة شركة' : 'Member ready · no Company Page')
+          : (ar ? 'صلاحية النشر غير مثبتة' : 'Publishing permission unverified'),
+      checks: [
+        { ok: member, text: ar ? 'هوية العضو متاحة للنشر' : 'Member publishing identity available' },
+        { ok: organization, text: ar ? 'صفحة شركة بإدارة مثبتة' : 'Admin-authorized Company Page available' },
+      ],
+    }
+  }
+  const directPost = capability.tikTokDirectPosting === true
+  const creator = capability.tikTokCreatorInfoVerified === true
+  return {
+    tone: directPost && creator ? 'ready' : 'needs',
+    label: directPost && creator
+      ? (ar ? 'Direct Post جاهز للمراجعة' : 'Direct Post review-ready')
+      : (ar ? 'إعادة الربط أو التحقق مطلوبة' : 'Reconnect or verification required'),
+    checks: [
+      { ok: directPost, text: ar ? 'صلاحية video.publish موجودة' : 'video.publish scope granted' },
+      { ok: creator, text: ar ? 'creator-info والخصوصية تم التحقق منهما' : 'Creator info and privacy options verified' },
+      { ok: capability.tokenRefresh === true, text: ar ? 'رمز تحديث محفوظ للتجديد' : 'Refresh token stored for renewal' },
+    ],
+  }
+}
 
 const CONNECT_ROUTES: Record<string, string> = {
   META: '/api/social/connect/meta',
@@ -242,6 +347,7 @@ export default function ConnectionsPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    let messageTimeout: ReturnType<typeof setTimeout> | undefined
     const params = new URLSearchParams(window.location.search)
     const social = params.get('social')
     const platform = params.get('platform')
@@ -253,7 +359,7 @@ export default function ConnectionsPage() {
         text: copy(`تم ربط ${platformName}. راجع الصلاحيات قبل أي تشغيل.`, `${platformName} connected. Review permissions before execution.`),
       })
       window.history.replaceState({}, '', '/connections')
-      setTimeout(() => setMessage(null), 5000)
+      messageTimeout = setTimeout(() => setMessage(null), 5000)
     } else if (social === 'error' || social === 'denied') {
       const rawMsg = params.get('msg')
       setMessage({
@@ -263,8 +369,9 @@ export default function ConnectionsPage() {
           : copy('تعذر إكمال الربط. حاول مرة أخرى بعد مراجعة إعدادات المنصة.', 'Connection failed. Review platform settings and try again.'),
       })
       window.history.replaceState({}, '', '/connections')
-      setTimeout(() => setMessage(null), 9000)
+      messageTimeout = setTimeout(() => setMessage(null), 9000)
     }
+    return () => { if (messageTimeout) clearTimeout(messageTimeout) }
   }, [copy])
 
   useEffect(() => {
@@ -364,10 +471,8 @@ export default function ConnectionsPage() {
           <LuxuryWorkspaceHeader
             pageTitle={copy('الربط', 'Connections')}
             pageSubtitle={copy('اربط الحسابات ثم راجع القدرة المثبتة لكل منصة قبل النشر أو القياس.', 'Connect accounts, then review the proven capability for each platform before publishing or measurement.')}
-            primaryHref="/publish"
-            primaryLabel={copy('فحص جاهزية النشر', 'Check publishing readiness')}
-            secondaryHref="/settings"
-            secondaryLabel={copy('الإعدادات', 'Settings')}
+            primaryHref={null}
+            secondaryHref={null}
           />
 
           <section className="nx-os-action-strip mb-5">
@@ -386,14 +491,6 @@ export default function ConnectionsPage() {
               <ShellButton onClick={fetchAccounts} loading={loadingAccounts}>
                 <RefreshCw className="h-4 w-4" />
                 {copy('تحديث الحالة', 'Refresh status')}
-              </ShellButton>
-              <ShellButton tone="primary" onClick={() => handleConnect('META')} loading={connecting === 'META'}>
-                <Plug className="h-4 w-4" />
-                {copy('ربط Meta', 'Connect Meta')}
-              </ShellButton>
-              <ShellButton onClick={() => handleConnect('META_ADS')} loading={connecting === 'META_ADS'}>
-                <KeyRound className="h-4 w-4" />
-                {copy('ربط حساب إعلانات', 'Connect ad account')}
               </ShellButton>
             </div>
           </section>
@@ -424,7 +521,8 @@ export default function ConnectionsPage() {
                 <div className="grid gap-4 lg:grid-cols-3">
                   {PLATFORMS.filter(platform => platform.available).map((platform) => {
                     const connectedAccount = accounts.find((account) => account.platform === platform.id)
-                    const isConnected = Boolean(connectedAccount)
+                    const isConnected = connectedAccount?.status === 'CONNECTED'
+                    const truth = connectedAccount ? connectionTruth(connectedAccount, ar) : null
                     const isConnecting = connecting === platform.id
                     const isDisconnecting = disconnecting === connectedAccount?.id
 
@@ -444,9 +542,9 @@ export default function ConnectionsPage() {
                             </div>
                           </div>
                           {isConnected ? (
-                            <StatusPill tone="needs">
+                            <StatusPill tone={truth?.tone || 'needs'}>
                               <CheckCircle2 className="h-3.5 w-3.5" />
-                              {copy('اتصال محفوظ', 'Connection saved')}
+                              {truth?.label || copy('اتصال محفوظ', 'Connection saved')}
                             </StatusPill>
                           ) : platform.available ? (
                             <StatusPill tone="needs">
@@ -463,8 +561,8 @@ export default function ConnectionsPage() {
                         <p className="min-h-[48px] text-[13px] leading-6 text-[#64708f]">{copy(platform.helper.ar, platform.helper.en)}</p>
 
                         {connectedAccount ? (
-                          <div className="mt-4 rounded-[16px] border border-emerald-100 bg-emerald-50/70 p-3">
-                            <p className="text-[11px] font-bold text-emerald-700">{copy('الحساب المتصل', 'Connected account')}</p>
+                          <div className="mt-4 rounded-[16px] border border-slate-200 bg-white p-3">
+                            <p className="text-[11px] font-bold text-slate-500">{copy('الحساب المتصل', 'Connected account')}</p>
                             <p className="mt-1 text-sm font-black text-[#10203f]">{connectedAccount.accountName}</p>
                             {connectedAccount.pages?.length ? (
                               <div className="mt-2 space-y-1">
@@ -476,6 +574,32 @@ export default function ConnectionsPage() {
                                   </p>
                                 ))}
                               </div>
+                            ) : null}
+                            {connectedAccount.organizations?.length ? (
+                              <div className="mt-2 space-y-1">
+                                {connectedAccount.organizations.slice(0, 3).map((organization) => (
+                                  <p key={organization.id} className="flex items-center gap-2 text-[11px] text-[#586684]">
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                    {organization.name}
+                                  </p>
+                                ))}
+                              </div>
+                            ) : null}
+                            {truth ? (
+                              <div className="mt-3 space-y-1.5 border-t border-slate-100 pt-3">
+                                {truth.checks.map((check) => (
+                                  <p key={check.text} className={`flex items-start gap-2 text-[11px] font-semibold ${check.ok ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                    {check.ok ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
+                                    {check.text}
+                                  </p>
+                                ))}
+                              </div>
+                            ) : null}
+                            {connectedAccount.expiresAt ? (
+                              <p className="mt-3 text-[10px] font-semibold text-slate-400">
+                                {copy('انتهاء رمز الوصول:', 'Access token expiry:')} {' '}
+                                <span dir="ltr">{new Date(connectedAccount.expiresAt).toLocaleString(ar ? 'ar-EG' : 'en-US')}</span>
+                              </p>
                             ) : null}
                           </div>
                         ) : null}
@@ -540,6 +664,10 @@ export default function ConnectionsPage() {
                     <p className="mt-1 text-[11px] font-semibold text-[#7b87a3]">
                       {copy('يمكنك إعداد مسودات التخطيط بدون حساب؛ الإطلاق والقياس من Meta يتطلبان API access مثبتاً.', 'Planning drafts can be prepared without an account; Meta launch and measurement require proven API access.')}
                     </p>
+                    <ShellButton className="mt-4" tone="primary" onClick={() => handleConnect('META_ADS')} loading={connecting === 'META_ADS'}>
+                      <KeyRound className="h-4 w-4" />
+                      {copy('ربط حساب إعلانات Meta', 'Connect Meta ad account')}
+                    </ShellButton>
                   </div>
                 ) : (
                   <div className="grid gap-3 lg:grid-cols-2">

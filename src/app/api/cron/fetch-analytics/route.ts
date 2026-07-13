@@ -17,12 +17,10 @@ import {
   type RawPlatformMetrics,
 } from '@/lib/performanceEvidence'
 import { cronAuthError } from '@/lib/cronAuth'
+import { linkedInHeaders, metaGraphUrl } from '@/lib/socialPlatformConfig'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
-
-const META_GRAPH_VERSION = process.env.META_GRAPH_API_VERSION || 'v21.0'
-const LINKEDIN_VERSION = process.env.LINKEDIN_API_VERSION || '202603'
 
 function metricValue(data: unknown, name: string): number {
   const list = data && typeof data === 'object' && Array.isArray((data as any).data)
@@ -40,7 +38,7 @@ function metricValue(data: unknown, name: string): number {
 
 async function fetchMetaInsights(platformPostId: string, pageToken: string): Promise<RawPlatformMetrics | null> {
   try {
-    const base = `https://graph.facebook.com/${META_GRAPH_VERSION}/${encodeURIComponent(platformPostId)}`
+    const base = metaGraphUrl(encodeURIComponent(platformPostId))
     const [insightsRes, actionsRes] = await Promise.all([
       fetch(`${base}/insights?metric=post_impressions,post_impressions_unique,post_engaged_users,post_clicks&access_token=${encodeURIComponent(pageToken)}`),
       fetch(`${base}?fields=likes.summary(true),comments.summary(true),shares&access_token=${encodeURIComponent(pageToken)}`),
@@ -83,12 +81,7 @@ async function fetchLinkedInInsights(
       shares: `List(${shareUrn})`,
     })
     const res = await fetch(`https://api.linkedin.com/rest/organizationalEntityShareStatistics?${query.toString()}`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Linkedin-Version': LINKEDIN_VERSION,
-        'X-Restli-Protocol-Version': '2.0.0',
-        'Content-Type': 'application/json',
-      },
+      headers: linkedInHeaders(accessToken),
     })
     if (!res.ok) return null
     const data = await res.json()
@@ -102,6 +95,37 @@ async function fetchLinkedInInsights(
       clicks: stats.clickCount ?? 0,
       impressions: stats.impressionCount ?? 0,
       reach: stats.uniqueImpressionsCount ?? 0,
+    }
+  } catch {
+    return null
+  }
+}
+
+async function fetchTikTokInsights(platformPostId: string, accessToken: string): Promise<RawPlatformMetrics | null> {
+  try {
+    const fields = 'id,share_url,like_count,comment_count,share_count,view_count'
+    const res = await fetch(`https://open.tiktokapis.com/v2/video/query/?fields=${encodeURIComponent(fields)}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ filters: { video_ids: [platformPostId] } }),
+      cache: 'no-store',
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || (data?.error?.code && data.error.code !== 'ok')) return null
+    const video = Array.isArray(data?.data?.videos)
+      ? data.data.videos.find((item: any) => String(item?.id) === platformPostId) || data.data.videos[0]
+      : null
+    if (!video) return null
+    const views = Number(video.view_count) || 0
+    return {
+      likes: Number(video.like_count) || 0,
+      comments: Number(video.comment_count) || 0,
+      shares: Number(video.share_count) || 0,
+      impressions: views,
+      reach: views,
     }
   } catch {
     return null
@@ -139,7 +163,7 @@ export async function GET(req: NextRequest) {
         publishedAt: { gte: newerThan14d, lte: olderThan24h },
         analyticsFetched: false,
         platformPostId: { not: null },
-        platform: { in: ['META', 'LINKEDIN'] },
+        platform: { in: ['META', 'LINKEDIN', 'TIKTOK'] },
         OR: [{ analyticsUpdatedAt: null }, { analyticsUpdatedAt: { lte: retryBefore } }],
       },
       include: { integration: true },
@@ -166,15 +190,17 @@ export async function GET(req: NextRequest) {
         }
 
         const pages: any[] = (integration.config as any)?.pages ?? []
-        const page = pages.find((entry: any) => entry.id === post.pageId)
+        const page = pages.find((entry: any) => entry.id === post.pageId || entry.igAccountId === post.pageId)
         const rawToken = page?.accessToken ?? integration.accessToken
         const token = decryptToken(rawToken) ?? rawToken
 
         const metrics = post.platform === 'META'
           ? await fetchMetaInsights(post.platformPostId, token)
-          : post.pageId
-            ? await fetchLinkedInInsights(post.platformPostId, post.pageId, token)
-            : null
+          : post.platform === 'TIKTOK'
+            ? await fetchTikTokInsights(post.platformPostId, token)
+            : post.pageId
+              ? await fetchLinkedInInsights(post.platformPostId, post.pageId, token)
+              : null
 
         if (!metrics) {
           await (prisma.socialPost as any).update({

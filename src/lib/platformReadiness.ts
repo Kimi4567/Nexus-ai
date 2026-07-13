@@ -6,9 +6,8 @@
  * conservative per-platform readiness state.
  *
  * Non-negotiable honesty rules (enforced here, asserted in tests):
- *   - "ready" is ALLOW-LISTED to Facebook with a connected Page, plus Meta paid
- *     execution only when an AdAccount has API access and a publishing Page.
- *   - Instagram / TikTok / LinkedIn are CAPPED at "permission_unverified" — never "ready" in PR-1A.
+ *   - "ready" requires provider-specific capability evidence returned by the
+ *     server; a generic CONNECTED row is never enough.
  *   - Paid ads is never inferred from a social connection. It depends on AdAccount
  *     readiness, API access, and explicit approval-gated activation routes.
  *   - YouTube Shorts / Google / Snapchat / WhatsApp are "not_available" (no integration exists) — no connect CTA.
@@ -71,6 +70,15 @@ export interface SocialAccount {
   status?: string | null    // 'CONNECTED' | ...
   accountName?: string | null
   pages?: Array<{ id?: string | null; name?: string | null; igAccountId?: string | null }> | null
+  capabilities?: {
+    facebookPublishing?: boolean
+    instagramPublishing?: boolean
+    linkedInMemberPublishing?: boolean
+    linkedInOrganizationPublishing?: boolean
+    tikTokDirectPosting?: boolean
+    tikTokCreatorInfoVerified?: boolean
+    tokenRefresh?: boolean
+  } | null
 }
 
 /** Minimal safe shape from GET /api/ad-accounts (tokens stripped by the route). */
@@ -148,6 +156,8 @@ export function derivePlatformReadiness(
   const metaPages = meta?.pages ?? []
   const hasPage = metaPages.some((p) => !!p?.id)
   const hasIg = metaPages.some((p) => !!p?.igAccountId)
+  const facebookReady = meta?.capabilities?.facebookPublishing ?? hasPage
+  const instagramReady = meta?.capabilities?.instagramPublishing === true
   const tiktok = find(list, 'TIKTOK')
   const linkedin = find(list, 'LINKEDIN')
   const metaAdAccount = findActiveAdAccount(adList, 'META')
@@ -159,8 +169,10 @@ export function derivePlatformReadiness(
     out.push(mk('facebook', 'not_connected', `${R}.line.facebookNotConnected`, 'connect-meta', `${R}.action.connectMeta`))
   } else if (!hasPage) {
     out.push(mk('facebook', 'needs_setup', `${R}.line.facebookNeedsPage`, 'select-page', `${R}.action.selectPage`))
-  } else {
+  } else if (facebookReady) {
     out.push(mk('facebook', 'ready', `${R}.line.facebookReady`, 'open-connections', `${R}.action.reviewSetup`))
+  } else {
+    out.push(mk('facebook', 'permission_unverified', `${R}.line.facebookUnverified`, 'open-connections', `${R}.action.reviewSetup`))
   }
 
   // Instagram — capped at permission_unverified; never "ready" in PR-1A
@@ -168,6 +180,8 @@ export function derivePlatformReadiness(
     out.push(mk('instagram', 'not_connected', `${R}.line.instagramNotConnected`, 'connect-meta', `${R}.action.connectMeta`))
   } else if (!hasIg) {
     out.push(mk('instagram', 'needs_setup', `${R}.line.instagramNeedsBusiness`, 'link-instagram', `${R}.action.linkInstagram`))
+  } else if (instagramReady) {
+    out.push(mk('instagram', 'ready', `${R}.line.instagramReady`, 'open-connections', `${R}.action.reviewSetup`))
   } else {
     out.push(mk('instagram', 'permission_unverified', `${R}.line.instagramUnverified`, 'open-connections', `${R}.action.reviewSetup`))
   }
@@ -175,6 +189,8 @@ export function derivePlatformReadiness(
   // TikTok — capped at permission_unverified
   if (!tiktok) {
     out.push(mk('tiktok', 'not_connected', `${R}.line.tiktokNotConnected`, 'connect-tiktok', `${R}.action.connectTikTok`))
+  } else if (tiktok.capabilities?.tikTokDirectPosting && tiktok.capabilities?.tikTokCreatorInfoVerified) {
+    out.push(mk('tiktok', 'ready', `${R}.line.tiktokReady`, 'open-connections', `${R}.action.reviewSetup`))
   } else {
     out.push(mk('tiktok', 'permission_unverified', `${R}.line.tiktokUnverified`, 'open-connections', `${R}.action.reviewSetup`))
   }
@@ -182,6 +198,8 @@ export function derivePlatformReadiness(
   // LinkedIn — capped at permission_unverified
   if (!linkedin) {
     out.push(mk('linkedin', 'not_connected', `${R}.line.linkedinNotConnected`, 'connect-linkedin', `${R}.action.connectLinkedIn`))
+  } else if (linkedin.capabilities?.linkedInMemberPublishing || linkedin.capabilities?.linkedInOrganizationPublishing) {
+    out.push(mk('linkedin', 'ready', `${R}.line.linkedinReady`, 'open-connections', `${R}.action.reviewSetup`))
   } else {
     out.push(mk('linkedin', 'permission_unverified', `${R}.line.linkedinUnverified`, 'open-connections', `${R}.action.reviewSetup`))
   }

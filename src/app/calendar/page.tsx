@@ -34,7 +34,7 @@ type CalendarPost = {
   visualNote?: string
   source?: 'campaign_ai_output' | 'legacy' | 'scheduled' | 'published'
   scheduledAt?: string  // ISO string for scheduled posts
-  publishStatus?: 'SCHEDULED' | 'PUBLISHED' | 'FAILED' | 'DRAFT' | 'APPROVED'
+  publishStatus?: 'SCHEDULED' | 'PROCESSING' | 'PUBLISHED' | 'FAILED' | 'DRAFT' | 'APPROVED'
   // PR5 honest display: manual vs auto distinction + platform proof
   publishMode?: 'MANUAL' | 'AUTO' | null
   platformUrl?: string | null
@@ -47,7 +47,7 @@ type ScheduledPost = {
   platform: string
   pageName: string
   imageUrl?: string
-  status: 'SCHEDULED' | 'PUBLISHED' | 'FAILED' | 'DRAFT' | 'APPROVED'
+  status: 'SCHEDULED' | 'PROCESSING' | 'PUBLISHED' | 'FAILED' | 'DRAFT' | 'APPROVED'
   scheduledAt: string
   publishedAt?: string
   platformUrl?: string | null
@@ -108,6 +108,7 @@ const PLATFORM_ICONS_SCH: Record<string, string> = {
 
 const STATUS_STYLES: Record<string, string> = {
   SCHEDULED: 'bg-orange-50 text-orange-600 border border-orange-200',
+  PROCESSING: 'bg-violet-50 text-violet-700 border border-violet-200',
   PUBLISHED: 'bg-green-50 text-green-700 border border-green-200',
   FAILED: 'bg-red-50 text-red-600 border border-red-200',
   DRAFT: 'bg-yellow-50 text-yellow-700 border border-yellow-200',

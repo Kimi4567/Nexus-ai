@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { decryptToken } from '@/lib/tokenCrypto'
 import { getServerUserId } from '@/lib/apiAuth'
 import { publishSocialPost } from '@/lib/socialPublishers'
+import { hasVerifiedProviderScope } from '@/lib/socialPlatformConfig'
 import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState'
 
 type RequestedPlatform = 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK'
@@ -16,6 +17,7 @@ interface PublishRequest {
   imageUrl?: unknown
   link?: unknown
   platform?: unknown
+  platformOptions?: unknown
   campaignId?: unknown
 }
 
@@ -41,6 +43,9 @@ export async function POST(req: NextRequest) {
   const link = text(body.link, 2_000) || null
   let campaignId = text(body.campaignId, 100) || null
   const platform = text(body.platform, 30) as RequestedPlatform
+  const platformOptions = body.platformOptions && typeof body.platformOptions === 'object' && !Array.isArray(body.platformOptions)
+    ? body.platformOptions as Record<string, unknown>
+    : null
 
   if (!integrationId || !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK'].includes(platform)) {
     return NextResponse.json({ error: 'Valid integrationId and platform are required' }, { status: 400 })
@@ -68,6 +73,7 @@ export async function POST(req: NextRequest) {
           id: true,
           campaignId: true,
           platform: true,
+          publishTarget: true,
           status: true,
           caption: true,
           imageUrl: true,
@@ -92,6 +98,12 @@ export async function POST(req: NextRequest) {
   }
   if (dbPlatform(platform) !== existingPost.platform) {
     return NextResponse.json({ error: 'Selected platform does not match the approved post platform' }, { status: 409 })
+  }
+  if (existingPost.publishTarget && existingPost.publishTarget !== 'META' && existingPost.publishTarget !== platform) {
+    return NextResponse.json({ error: 'Selected destination does not match the approved post destination' }, { status: 409 })
+  }
+  if (platform === 'TIKTOK' && platformOptions?.explicitConsent !== true) {
+    return NextResponse.json({ error: 'TikTok requires explicit consent and reviewed publishing options' }, { status: 400 })
   }
   if (campaignId && existingPost.campaignId && campaignId !== existingPost.campaignId) {
     return NextResponse.json({ error: 'Campaign does not match the approved post' }, { status: 409 })
@@ -126,6 +138,19 @@ export async function POST(req: NextRequest) {
   const config = integration.config && typeof integration.config === 'object' && !Array.isArray(integration.config)
     ? integration.config as Record<string, unknown>
     : {}
+  const requiredScope = platform === 'FACEBOOK'
+    ? 'pages_manage_posts'
+    : platform === 'INSTAGRAM'
+      ? 'instagram_content_publish'
+      : platform === 'LINKEDIN'
+        ? (pageId ? 'w_organization_social' : 'w_member_social')
+        : 'video.publish'
+  if (!hasVerifiedProviderScope(config, requiredScope)) {
+    return NextResponse.json({
+      error: `Reconnect ${platform} and grant the verified ${requiredScope} permission before publishing.`,
+      code: 'PLATFORM_SCOPE_REQUIRED',
+    }, { status: 409 })
+  }
   const pages = Array.isArray(config.pages) ? config.pages as Array<Record<string, any>> : []
   const page = pages.find((entry) => entry.id === pageId || entry.igAccountId === pageId)
   if (['FACEBOOK', 'INSTAGRAM'].includes(platform) && !page) {
@@ -148,6 +173,7 @@ export async function POST(req: NextRequest) {
       accountId: integration.accountId,
       accessToken,
       integrationConfig: config,
+      platformOptions,
       link,
     })
   } catch (error) {
@@ -156,7 +182,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const nextStatus = published ? 'PUBLISHED' : 'FAILED'
+    const nextStatus = published
+      ? (published.state === 'PROCESSING' ? 'PROCESSING' : 'PUBLISHED')
+      : 'FAILED'
       const now = new Date()
       const updated = await prisma.$transaction(async (tx) => {
         const socialPost = await tx.socialPost.update({
@@ -164,6 +192,7 @@ export async function POST(req: NextRequest) {
           data: {
             integrationId,
             platform: dbPlatform(platform),
+            publishTarget: platform,
             pageId: pageId || null,
             pageName: pageName || page?.name || integration.accountName || null,
             platformPostId: published?.platformPostId ?? null,
@@ -175,7 +204,10 @@ export async function POST(req: NextRequest) {
             // PUBLISHED, so it can never enter the scheduled cron queue.
             publishMode: 'AUTO',
             approvedAt: existingPost.approvedAt ?? now,
-            publishedAt: published ? now : null,
+            platformOptions: platformOptions as any,
+            autoPublishConsentAt: platformOptions?.explicitConsent === true ? now : null,
+            publishAttemptedAt: now,
+            publishedAt: nextStatus === 'PUBLISHED' ? now : null,
           },
         })
         await tx.postStatusHistory.create({
@@ -185,7 +217,11 @@ export async function POST(req: NextRequest) {
             fromStatus: existingPost.status,
             toStatus: nextStatus,
             actor: 'USER',
-            note: published ? 'Published by explicit Content Hub API action' : publishError?.slice(0, 500),
+            note: published
+              ? (nextStatus === 'PROCESSING'
+                  ? 'Provider accepted the explicit Content Hub upload; awaiting publication confirmation'
+                  : 'Published by explicit Content Hub API action')
+              : publishError?.slice(0, 500),
           },
         })
         await tx.marketingLearningEvent.create({
@@ -193,7 +229,9 @@ export async function POST(req: NextRequest) {
             workspaceId: workspace.id,
             campaignId,
             socialPostId: existingPost.id,
-            eventType: published ? 'POST_API_PUBLISHED' : 'POST_FAILED',
+            eventType: published
+              ? (nextStatus === 'PROCESSING' ? 'POST_API_PROCESSING' : 'POST_API_PUBLISHED')
+              : 'POST_FAILED',
             source: 'CONTENT_HUB',
             actor: 'USER',
             metadata: {
@@ -209,7 +247,15 @@ export async function POST(req: NextRequest) {
       })
 
       if (!published) return NextResponse.json({ error: publishError, socialPost: updated }, { status: 502 })
-      return NextResponse.json({ ok: true, socialPost: updated, platformUrl: published.platformUrl ?? null })
+      return NextResponse.json(
+        {
+          ok: true,
+          processing: nextStatus === 'PROCESSING',
+          socialPost: updated,
+          platformUrl: published.platformUrl ?? null,
+        },
+        { status: nextStatus === 'PROCESSING' ? 202 : 200 },
+      )
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Persistence failed'
     if (published) {

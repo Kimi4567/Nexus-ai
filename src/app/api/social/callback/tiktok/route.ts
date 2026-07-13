@@ -147,6 +147,15 @@ export async function GET(req: NextRequest) {
     const expiresAt    = tokenData.expires_in
       ? new Date(Date.now() + (tokenData.expires_in as number) * 1000)
       : null
+    const refreshExpiresAt = tokenData.refresh_expires_in
+      ? new Date(Date.now() + Number(tokenData.refresh_expires_in) * 1000)
+      : null
+    const scopes = typeof tokenData.scope === 'string' && tokenData.scope.trim()
+      ? tokenData.scope.split(/[ ,]+/).filter(Boolean)
+      : []
+    const scopeEvidence = typeof tokenData.scope === 'string' && tokenData.scope.trim()
+      ? 'provider_response'
+      : 'unavailable'
 
     // ── Fetch TikTok user info ──────────────────────────────────────────────
     let displayName = 'TikTok User'
@@ -207,7 +216,10 @@ export async function GET(req: NextRequest) {
         config: {
           openId,
           avatarUrl,
+          scopes,
+          scopeEvidence,
           expiresAt:   expiresAt?.toISOString() ?? null,
+          refreshExpiresAt: refreshExpiresAt?.toISOString() ?? null,
           connectedAt: new Date().toISOString(),
         },
         lastSyncedAt: new Date(),
@@ -219,7 +231,15 @@ export async function GET(req: NextRequest) {
         accountId:    openId,
         accountName:  displayName,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        config: { openId, avatarUrl, expiresAt: expiresAt?.toISOString() ?? null, connectedAt: new Date().toISOString() } as any,
+        config: {
+          openId,
+          avatarUrl,
+          scopes,
+          scopeEvidence,
+          expiresAt: expiresAt?.toISOString() ?? null,
+          refreshExpiresAt: refreshExpiresAt?.toISOString() ?? null,
+          connectedAt: new Date().toISOString(),
+        } as any,
         lastSyncedAt: new Date(),
       },
     })

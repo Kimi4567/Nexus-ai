@@ -59,9 +59,8 @@ type Params = { params: Promise<{ id: string }> }
 // ── Platform distribution helpers ─────────────────────────────────────────────
 
 /**
- * Map any user-facing platform string to a valid IntegrationType enum value.
- * The Prisma enum only knows: META | LINKEDIN | TIKTOK | YOUTUBE | GOOGLE | STRIPE | CLOUDINARY | SLACK
- * Instagram, Facebook, Twitter, X, Snapchat, Pinterest all collapse to META.
+ * Map a destination to its provider integration. The exact destination is
+ * persisted separately as publishTarget and must never be inferred from META.
  */
 function toIntegrationType(raw: string): string {
   const map: Record<string, string> = {
@@ -95,22 +94,22 @@ function distributePosts(
   totalPosts: number,
   totalVideoSlots: number,
   platforms: string[],
-): Array<{ platform: string; isVideoPost: boolean; index: number }> {
+): Array<{ platform: string; publishTarget: string; isVideoPost: boolean; index: number }> {
   if (!platforms.length) platforms = ['META']
 
-  const slots: Array<{ platform: string; isVideoPost: boolean; index: number }> = []
+  const slots: Array<{ platform: string; publishTarget: string; isVideoPost: boolean; index: number }> = []
   let idx = 0
 
-  // Interleave posts across platforms — normalize to valid IntegrationType
+  // Interleave posts across destinations while retaining the exact channel.
   for (let i = 0; i < totalPosts; i++) {
-    const platform = toIntegrationType(platforms[i % platforms.length])
-    slots.push({ platform, isVideoPost: false, index: idx++ })
+    const publishTarget = String(platforms[i % platforms.length] || 'META').toUpperCase()
+    slots.push({ platform: toIntegrationType(publishTarget), publishTarget, isVideoPost: false, index: idx++ })
   }
 
-  // Distribute video slots — normalize to valid IntegrationType
+  // Distribute video slots with the same destination contract.
   for (let i = 0; i < totalVideoSlots; i++) {
-    const platform = toIntegrationType(platforms[i % platforms.length])
-    slots.push({ platform, isVideoPost: true, index: idx++ })
+    const publishTarget = String(platforms[i % platforms.length] || 'META').toUpperCase()
+    slots.push({ platform: toIntegrationType(publishTarget), publishTarget, isVideoPost: true, index: idx++ })
   }
 
   return slots
@@ -496,7 +495,7 @@ Rules:
     const userMsg = `Generate content plan for ${slots.length} posts. Each slot is bound to its expectedStrategyAngle; keep that post's hook, pain, message, and CTA grounded in that angle. Slots: ${JSON.stringify(
       slots.map((s, index) => ({
         index: s.index,
-        platform: s.platform,
+        platform: s.publishTarget,
         isVideoPost: s.isVideoPost,
         expectedStrategyAngle: strategyAngles.length > 0
           ? strategyAngles[index % strategyAngles.length]
@@ -578,7 +577,7 @@ Rules:
         targetAudience,
         contentPillars,
         offer,
-        platform: slot.platform,
+        platform: slot.publishTarget,
         postIndex: i,
       }) || guardContentDraftText(
         resolvePostCaption(gen, { isArabic, brand: brandName, hint: keyMessage || offer || campaignName }),
@@ -593,7 +592,7 @@ Rules:
         targetAudience,
         contentPillars,
         offer,
-        platform: slot.platform,
+        platform: slot.publishTarget,
         postIndex: i,
       })
       const videoPrompt = guardContentDraftText(gen.videoScript ?? gen.videoCaption ?? '', proofContext)
@@ -639,6 +638,7 @@ Rules:
         workspaceId,
         campaignId: params.id,
         platform: slot.platform as any,
+        publishTarget: slot.publishTarget,
         caption,
         imagePrompt: slot.isVideoPost ? null : imagePrompt,
         videoPrompt: slot.isVideoPost ? videoPrompt : null,
@@ -852,7 +852,7 @@ Return a JSON array of caption objects (same count as input):
 Slots:
 ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
   index: i,
-  platform: slot.platform,
+  platform: slot.publishTarget,
   hookStyle: HOOK_STYLES[i % HOOK_STYLES.length],
 })).join('\n')}`
 
@@ -900,7 +900,7 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
             targetAudience,
             contentPillars,
             offer,
-            platform: slot.platform,
+            platform: slot.publishTarget,
             postIndex: i,
           }) // reuse the same safe image prompt for B
 
@@ -919,6 +919,7 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
             workspaceId,
             campaignId: params.id,
             platform: slot.platform as any,
+            publishTarget: slot.publishTarget,
             caption,
             imagePrompt,
             videoPrompt: null,

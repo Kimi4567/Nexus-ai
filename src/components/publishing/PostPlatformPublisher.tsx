@@ -17,6 +17,8 @@ interface ConnectedAccount {
   platform: string
   accountName?: string | null
   pages?: ConnectedPage[]
+  organizations?: Array<{ id: string; name: string }>
+  selectedOrganizationId?: string | null
 }
 
 interface PostPlatformPublisherProps {
@@ -25,6 +27,7 @@ interface PostPlatformPublisherProps {
   platform: string
   status: string
   hasMedia: boolean
+  isVideoPost: boolean
   onPublished: () => void | Promise<void>
 }
 
@@ -36,7 +39,7 @@ function normalizedPlatform(value: string): 'META' | 'LINKEDIN' | 'TIKTOK' | nul
   return null
 }
 
-export function PostPlatformPublisher({ postId, campaignId, platform, status, hasMedia, onPublished }: PostPlatformPublisherProps) {
+export function PostPlatformPublisher({ postId, campaignId, platform, status, hasMedia, isVideoPost, onPublished }: PostPlatformPublisherProps) {
   const { authHeader } = useAuth()
   const { locale } = useI18n()
   const ar = locale === 'ar'
@@ -48,6 +51,10 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
   const [pageId, setPageId] = useState('')
   const [metaChannel, setMetaChannel] = useState<'FACEBOOK' | 'INSTAGRAM'>('INSTAGRAM')
   const [publishing, setPublishing] = useState(false)
+  const [linkedInOrganizationId, setLinkedInOrganizationId] = useState('')
+  const [tiktokCreator, setTikTokCreator] = useState<{ privacyLevelOptions: string[]; commentDisabled: boolean; duetDisabled: boolean; stitchDisabled: boolean } | null>(null)
+  const [tiktokConsent, setTikTokConsent] = useState(false)
+  const [tiktokOptions, setTikTokOptions] = useState({ privacyLevel: '', disableComment: false, disableDuet: false, disableStitch: false, brandContentToggle: false, brandOrganicToggle: true, isAigc: false })
   const [result, setResult] = useState<{ ok: boolean; message: string; url?: string } | null>(null)
 
   const eligible = status === 'APPROVED' || status === 'SCHEDULED'
@@ -68,10 +75,28 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
         const first = next.find((account: ConnectedAccount) => account.platform.toUpperCase() === targetPlatform)
         if (first) {
           setAccountId(first.id)
+          setLinkedInOrganizationId(first.selectedOrganizationId || '')
           const firstPage = first.pages?.[0]
           if (firstPage) {
             setPageId(firstPage.igAccountId || firstPage.id)
             setMetaChannel(firstPage.igAccountId ? 'INSTAGRAM' : 'FACEBOOK')
+          }
+          if (targetPlatform === 'TIKTOK') {
+            fetch(`/api/social/tiktok/creator-info?integrationId=${encodeURIComponent(first.id)}`, { headers: { Authorization: authHeader() } })
+              .then(response => response.ok ? response.json() : Promise.reject(new Error('creator')))
+              .then(creatorData => {
+                if (cancelled || !creatorData.creator) return
+                const creator = creatorData.creator
+                setTikTokCreator(creator)
+                setTikTokOptions(current => ({
+                  ...current,
+                  privacyLevel: creator.privacyLevelOptions?.includes('SELF_ONLY') ? 'SELF_ONLY' : creator.privacyLevelOptions?.[0] || '',
+                  disableComment: Boolean(creator.commentDisabled),
+                  disableDuet: Boolean(creator.duetDisabled),
+                  disableStitch: Boolean(creator.stitchDisabled),
+                }))
+              })
+              .catch(() => {})
           }
         }
       })
@@ -87,7 +112,7 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
       const requestedPlatform = targetPlatform === 'META' ? metaChannel : targetPlatform
       const requestedPageId = targetPlatform === 'META'
         ? (metaChannel === 'INSTAGRAM' ? selectedPage?.igAccountId || '' : selectedPage?.id || '')
-        : ''
+        : targetPlatform === 'LINKEDIN' ? linkedInOrganizationId : ''
       const response = await fetch('/api/social/publish', {
         method: 'POST',
         headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
@@ -98,11 +123,20 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
           pageId: requestedPageId,
           pageName: selectedPage?.name || selectedAccount.accountName,
           platform: requestedPlatform,
+          platformOptions: targetPlatform === 'TIKTOK'
+            ? { ...tiktokOptions, explicitConsent: tiktokConsent }
+            : null,
         }),
       })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.error || copy('تعذر النشر عبر المنصة.', 'Platform publishing failed.'))
-      setResult({ ok: true, message: copy('أكدت المنصة النشر وتم تحديث سجل المنشور.', 'Platform confirmed publication and the post ledger was updated.'), url: data.platformUrl })
+      setResult({
+        ok: true,
+        message: data.processing
+          ? copy('استلمت المنصة الفيديو. سيظل قيد المعالجة حتى تؤكد TikTok النشر.', 'TikTok accepted the video. It remains processing until TikTok confirms publication.')
+          : copy('أكدت المنصة النشر وتم تحديث سجل المنشور.', 'Platform confirmed publication and the post ledger was updated.'),
+        url: data.platformUrl,
+      })
       await onPublished()
     } catch (error) {
       setResult({ ok: false, message: error instanceof Error ? error.message : copy('تعذر النشر عبر المنصة.', 'Platform publishing failed.') })
@@ -111,7 +145,7 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
     }
   }
 
-  if (!eligible || !targetPlatform || !hasMedia) return null
+  if (!eligible || !targetPlatform || !hasMedia || (targetPlatform === 'TIKTOK' && !isVideoPost)) return null
 
   return (
     <div className="border-t border-slate-200 px-3 pb-3 pt-2">
@@ -158,7 +192,46 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
                   </div>
                 </>
               )}
-              <button type="button" onClick={publish} disabled={publishing || !selectedAccount || (targetPlatform === 'META' && !selectedPage)} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40">
+              {targetPlatform === 'LINKEDIN' && (selectedAccount?.organizations?.length || 0) > 0 && (
+                <label className="block text-[10px] font-black uppercase tracking-wide text-slate-500">
+                  {copy('هوية النشر', 'Publishing identity')}
+                  <select value={linkedInOrganizationId} onChange={event => setLinkedInOrganizationId(event.target.value)} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800">
+                    <option value="">{copy('الحساب الشخصي', 'Member profile')}</option>
+                    {(selectedAccount?.organizations || []).map(organization => <option key={organization.id} value={organization.id}>{organization.name}</option>)}
+                  </select>
+                </label>
+              )}
+              {targetPlatform === 'TIKTOK' && (
+                <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-2">
+                  <label className="block text-[10px] font-black uppercase tracking-wide text-slate-500">
+                    {copy('الخصوصية', 'Privacy')}
+                    <select value={tiktokOptions.privacyLevel} onChange={event => setTikTokOptions(current => ({ ...current, privacyLevel: event.target.value }))} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800">
+                      <option value="">{copy('اختر الخصوصية', 'Select privacy')}</option>
+                      {(tiktokCreator?.privacyLevelOptions || []).map(option => <option key={option} value={option}>{option}</option>)}
+                    </select>
+                  </label>
+                  <label className="flex items-start gap-2 text-[10px] leading-4 text-slate-600">
+                    <input type="checkbox" checked={tiktokOptions.isAigc} onChange={event => setTikTokOptions(current => ({ ...current, isAigc: event.target.checked }))} className="mt-0.5" />
+                    {copy('وضع علامة أن الوسائط مولّدة بالذكاء الاصطناعي', 'Label the media as AI-generated')}
+                  </label>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                    <p className="text-[10px] font-black text-slate-700">{copy('إفصاح المحتوى التجاري', 'Commercial content disclosure')}</p>
+                    <label className="mt-2 flex items-start gap-2 text-[10px] leading-4 text-slate-600">
+                      <input type="checkbox" checked={tiktokOptions.brandOrganicToggle} onChange={event => setTikTokOptions(current => ({ ...current, brandOrganicToggle: event.target.checked }))} className="mt-0.5" />
+                      {copy('هذا المحتوى يروّج لعلامتي أو نشاطي التجاري', 'This content promotes my own brand or business')}
+                    </label>
+                    <label className="mt-2 flex items-start gap-2 text-[10px] leading-4 text-slate-600">
+                      <input type="checkbox" checked={tiktokOptions.brandContentToggle} onChange={event => setTikTokOptions(current => ({ ...current, brandContentToggle: event.target.checked }))} className="mt-0.5" />
+                      {copy('هذا تعاون مدفوع أو يروّج لطرف ثالث', 'This is paid partnership content or promotes a third party')}
+                    </label>
+                  </div>
+                  <label className="flex items-start gap-2 text-[10px] font-semibold leading-4 text-slate-700">
+                    <input type="checkbox" checked={tiktokConsent} onChange={event => setTikTokConsent(event.target.checked)} className="mt-0.5" />
+                    {copy('أوافق صراحةً على إرسال هذا الفيديو والنص إلى TikTok الآن.', 'I explicitly consent to sending this video and caption to TikTok now.')}
+                  </label>
+                </div>
+              )}
+              <button type="button" onClick={publish} disabled={publishing || !selectedAccount || (targetPlatform === 'META' && !selectedPage) || (targetPlatform === 'TIKTOK' && (!tiktokConsent || !tiktokOptions.privacyLevel))} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40">
                 {publishing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                 {copy('تأكيد النشر الآن', 'Confirm publish now')}
               </button>

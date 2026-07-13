@@ -290,6 +290,7 @@ export default function StrategyPage() {
           language: strategyLanguage,
           strategyType: strategyScope.type,
           hasConversionDestination: Boolean(brandProfile?.conversionDestination),
+          allowedCompetitors: Array.isArray(brandProfile?.competitors) ? brandProfile.competitors : [],
         },
       ) as Record<string, unknown>
     : null
@@ -301,6 +302,7 @@ export default function StrategyPage() {
           language: strategyLanguage,
           strategyType: strategyScope.type,
           hasConversionDestination: Boolean(brandProfile?.conversionDestination),
+          allowedCompetitors: Array.isArray(brandProfile?.competitors) ? brandProfile.competitors : [],
         },
       ) as Record<string, unknown>
     : null
@@ -532,8 +534,27 @@ export default function StrategyPage() {
   const audienceUsesBrandFallback = strategyAudienceLabels.length === 0 && Boolean(brandAudienceFallback)
   const safeAudiences = audienceLabels.length > 0 ? audienceLabels : [ar ? 'لا توجد شرائح جمهور محفوظة.' : 'No audience segments are saved.']
   const safePillars = pillars.length > 0 ? pillars : [ar ? 'لا توجد ركائز محتوى محفوظة.' : 'No content pillars are saved.']
-  const safeMessages = uniqueLabels([...hooks, ...ctas]).slice(0, 4)
+  const strategyAngleHooks = asArray(strat?.contentAnglesDetailed).map(item => firstString(isRecord(item) ? item.hook : item))
+  const safeMessages = uniqueLabels([
+    firstString(strat?.keyMessage, ai?.keyMessage),
+    firstString(strat?.differentiation, ai?.differentiation),
+    ...strategyAngleHooks,
+    ...hooks,
+    ...ctas,
+  ]).slice(0, 4)
   const messageCards = (safeMessages.length > 0 ? safeMessages : [ar ? 'لا توجد رسائل أساسية محفوظة.' : 'No core messages are saved.']).slice(0, 3)
+  const audienceDetails = asArray(strat?.audienceSegmentsDetailed)
+    .filter(isRecord)
+    .slice(0, 4)
+  const measurementPlan = isRecord(strat?.measurementPlan) ? strat.measurementPlan : null
+  const operatingCadence = isRecord(strat?.operatingCadence) ? strat.operatingCadence : null
+  const experimentBacklog = asArray(strat?.experimentBacklog).filter(isRecord).slice(0, 3)
+  const decisionRules = asArray(strat?.decisionRules).filter(isRecord).slice(0, 3)
+  const roadmapPhases = asArray(strat?.roadmap30_60_90).filter(isRecord).slice(0, 3)
+  const savedRiskNotes = uniqueLabels([
+    ...asArray(strat?.riskNotes).map(textLabel),
+    ...asArray(strat?.assumptions).map(textLabel),
+  ]).slice(0, 6)
 
   const coveragePercent = (checks: boolean[]) => Math.round((checks.filter(Boolean).length / checks.length) * 100)
   const dataConfidence = coveragePercent([
@@ -737,10 +758,8 @@ export default function StrategyPage() {
             pageSubtitle={hasStrategy
               ? (ar ? `استراتيجية الحملة: ${campaignTitle}` : `Campaign strategy: ${campaignTitle}`)
               : (ar ? `العلامة المرجعية: ${brandName || 'Brand Brain'}` : `Source brand: ${brandName || 'Brand Brain'}`)}
-            primaryHref={hasStrategy && contentDirectionReady ? recentContentHubHref : null}
-            primaryLabel={ar ? 'الانتقال إلى المحتوى' : 'Continue to content'}
-            secondaryHref="/brand"
-            secondaryLabel={ar ? 'Brand Brain' : 'Brand Brain'}
+            primaryHref={null}
+            secondaryHref={null}
           />
 
           <div className="hidden">
@@ -843,6 +862,9 @@ export default function StrategyPage() {
                         </div>
                       ))}
                     </div>
+                    <p className="mt-2 text-[10px] font-semibold text-slate-400">
+                      {ar ? 'أي نسب جاهزية هنا تقيس اكتمال المدخلات والتشغيل، وليست أداءً فعليًا أو وعدًا بالنتائج.' : 'Numbers here are operational readiness, not actual performance.'}
+                    </p>
                     <div className="hidden">
                       {readinessCards.map((card) => {
                         const Icon = card.icon
@@ -927,21 +949,32 @@ export default function StrategyPage() {
                         <h3 className="text-[17px] font-black text-[#0B1028]">{ar ? 'شرائح الجمهور' : 'Audience segments'}</h3>
                       </div>
                       <div className="grid gap-3 md:grid-cols-2">
-                        {safeAudiences.slice(0, 4).map((audience, index) => (
-                          <div key={audience} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-                            <div className="flex items-center justify-between">
-                              <p className="text-[14px] font-black text-[#0B1028]">{audience}</p>
-                              <span className="rounded-full bg-white px-2 py-1 text-[11px] font-black text-[#5E63FF]">{String(index + 1).padStart(2, '0')}</span>
+                        {(audienceDetails.length > 0 ? audienceDetails : safeAudiences.slice(0, 4)).map((item, index) => {
+                          const detail = isRecord(item) ? item : null
+                          const audience = firstString(detail?.segment, item)
+                          return (
+                            <div key={`${audience}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="text-[14px] font-black text-[#0B1028]">{audience}</p>
+                                <span className="rounded-full bg-white px-2 py-1 text-[11px] font-black text-[#5E63FF]">{String(index + 1).padStart(2, '0')}</span>
+                              </div>
+                              {detail ? (
+                                <div className="mt-3 space-y-2 text-[12px] leading-5">
+                                  <p><span className="font-black text-slate-700">{ar ? 'الموقف: ' : 'Situation: '}</span><span className="font-semibold text-slate-500">{firstString(detail.situation)}</span></p>
+                                  <p><span className="font-black text-slate-700">{ar ? 'الألم: ' : 'Pain: '}</span><span className="font-semibold text-slate-500">{firstString(detail.pain)}</span></p>
+                                  <p><span className="font-black text-slate-700">{ar ? 'الاعتراض: ' : 'Objection: '}</span><span className="font-semibold text-slate-500">{firstString(detail.objection)}</span></p>
+                                  <p className="rounded-xl bg-white px-3 py-2 font-bold text-[#4F46E5]">{firstString(detail.message, detail.cta)}</p>
+                                </div>
+                              ) : (
+                                <p className="mt-2 text-[12px] font-semibold leading-5 text-slate-500">
+                                  {audienceUsesBrandFallback
+                                    ? (ar ? 'سياق محفوظ في Brand Brain؛ يحتاج تفصيلًا تشغيليًا داخل الاستراتيجية.' : 'Saved Brand Brain context; operational detail is still needed in strategy.')
+                                    : (ar ? 'شريحة محفوظة؛ لم يفترض NEXUS حجمها أو أولويتها.' : 'Saved segment; NEXUS has not inferred its size or priority.')}
+                                </p>
+                              )}
                             </div>
-                            <p className="mt-2 text-[12px] font-semibold leading-5 text-slate-500">
-                              {audienceLabels.length > 0
-                                ? audienceUsesBrandFallback
-                                  ? (ar ? 'سياق جمهور محفوظ في Brand Brain؛ لم يفترض NEXUS حجمه أو أولويته.' : 'Audience context saved in Brand Brain; NEXUS has not inferred its size or priority.')
-                                  : (ar ? 'شريحة محفوظة من الاستراتيجية؛ لم يفترض NEXUS حجمها أو أولويتها.' : 'Saved strategy segment; NEXUS has not inferred its size or priority.')
-                                : (ar ? 'أكمل شريحة الجمهور قبل تحويل الاستراتيجية إلى تنفيذ.' : 'Complete the audience segment before moving strategy into execution.')}
-                            </p>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
 
@@ -1020,6 +1053,97 @@ export default function StrategyPage() {
                 </div>
               </SoftCard>
 
+              {hasStrategy && (
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <SoftCard id="strategy-operating-system" className="scroll-mt-6 p-4">
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="flex items-center gap-2 text-[16px] font-black text-[#0B1028]"><Gauge className="h-4 w-4 text-[#5E63FF]" />{ar ? 'نظام القياس والتشغيل' : 'Measurement & operating system'}</h3>
+                        <p className="mt-1 text-[12px] font-semibold leading-5 text-slate-500">{ar ? 'ما الذي نقيسه، وكيف نراجع، ومن يملك القرار. لا توجد أهداف أداء مخترعة.' : 'What gets measured, how reviews run, and who owns the decision. No invented performance targets.'}</p>
+                      </div>
+                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black text-emerald-700">{ar ? 'تشغيلي' : 'Operational'}</span>
+                    </div>
+                    <div className="space-y-3">
+                      {[
+                        [ar ? 'النتيجة الأساسية' : 'Primary outcome', firstString(measurementPlan?.primaryOutcome)],
+                        [ar ? 'حالة خط الأساس' : 'Baseline status', firstString(measurementPlan?.baselineStatus)],
+                        [ar ? 'قاعدة الإسناد' : 'Attribution rule', firstString(measurementPlan?.attributionRule)],
+                        [ar ? 'وتيرة المراجعة' : 'Review cadence', firstString(measurementPlan?.reportingCadence)],
+                      ].map(([label, value]) => (
+                        <div key={label} className="rounded-2xl bg-slate-50 px-3 py-2">
+                          <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+                          <p className="mt-1 text-[12px] font-semibold leading-5 text-slate-700">{value || (ar ? 'يحتاج تأكيدًا' : 'Needs confirmation')}</p>
+                        </div>
+                      ))}
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        {[
+                          [ar ? 'يوميًا' : 'Daily', asArray(operatingCadence?.daily)],
+                          [ar ? 'أسبوعيًا' : 'Weekly', asArray(operatingCadence?.weekly)],
+                          [ar ? 'شهريًا' : 'Monthly', asArray(operatingCadence?.monthly)],
+                        ].map(([label, items]) => (
+                          <div key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-3">
+                            <p className="text-[11px] font-black text-[#5E63FF]">{String(label)}</p>
+                            <p className="mt-2 text-[11px] font-semibold leading-5 text-slate-600">{firstString(...(items as unknown[])) || (ar ? 'يحتاج اتفاقًا تشغيليًا' : 'Needs an operating agreement')}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </SoftCard>
+
+                  <SoftCard id="strategy-decision-rules" className="scroll-mt-6 p-4">
+                    <h3 className="flex items-center gap-2 text-[16px] font-black text-[#0B1028]"><ShieldCheck className="h-4 w-4 text-[#5E63FF]" />{ar ? 'قواعد القرار' : 'Decision rules'}</h3>
+                    <p className="mt-1 text-[12px] font-semibold leading-5 text-slate-500">{ar ? 'متى نستمر، نعدّل، أو نوقف — قبل أن تتحول المراقبة إلى تغيير عشوائي.' : 'When to continue, iterate, or stop—before monitoring turns into random changes.'}</p>
+                    <div className="mt-4 space-y-3">
+                      {decisionRules.map((rule, index) => (
+                        <div key={`${firstString(rule.signal)}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                          <p className="text-[12px] font-black text-[#0B1028]">{firstString(rule.signal)}</p>
+                          <div className="mt-2 grid gap-2 text-[11px] leading-5 sm:grid-cols-3">
+                            <p className="rounded-xl bg-emerald-50 px-2 py-1.5 font-semibold text-emerald-800"><span className="font-black">{ar ? 'استمر: ' : 'Continue: '}</span>{firstString(rule.continueWhen)}</p>
+                            <p className="rounded-xl bg-amber-50 px-2 py-1.5 font-semibold text-amber-800"><span className="font-black">{ar ? 'عدّل: ' : 'Iterate: '}</span>{firstString(rule.iterateWhen)}</p>
+                            <p className="rounded-xl bg-rose-50 px-2 py-1.5 font-semibold text-rose-800"><span className="font-black">{ar ? 'أوقف: ' : 'Stop: '}</span>{firstString(rule.stopWhen)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </SoftCard>
+                </div>
+              )}
+
+              {hasStrategy && (
+                <SoftCard id="strategy-experiments" className="scroll-mt-6 p-4">
+                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <h3 className="flex items-center gap-2 text-[16px] font-black text-[#0B1028]"><Lightbulb className="h-4 w-4 text-[#5E63FF]" />{ar ? 'قائمة التجارب وخارطة 30/60/90' : 'Experiment backlog & 30/60/90 roadmap'}</h3>
+                      <p className="mt-1 text-[12px] font-semibold text-slate-500">{ar ? 'اختبار متغير واحد ثم الانتقال عند بوابة دليل واضحة.' : 'Test one variable at a time and advance through evidence gates.'}</p>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+                    <div className="grid gap-3 md:grid-cols-3">
+                      {experimentBacklog.map((experiment, index) => (
+                        <div key={`${firstString(experiment.hypothesis)}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-black uppercase text-[#5E63FF]">{firstString(experiment.priority) || (ar ? 'لاحقًا' : 'later')}</span>
+                            <span className="text-[10px] font-bold text-slate-400">{String(index + 1).padStart(2, '0')}</span>
+                          </div>
+                          <p className="mt-2 text-[12px] font-black leading-5 text-[#0B1028]">{firstString(experiment.hypothesis)}</p>
+                          <p className="mt-2 text-[11px] font-semibold leading-5 text-slate-500"><span className="font-black text-slate-700">{ar ? 'المتغير: ' : 'Variable: '}</span>{firstString(experiment.variable)}</p>
+                          <p className="mt-1 text-[11px] font-semibold leading-5 text-slate-500"><span className="font-black text-slate-700">{ar ? 'قاعدة القرار: ' : 'Decision: '}</span>{firstString(experiment.decisionRule)}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="space-y-2">
+                      {roadmapPhases.map((phase, index) => (
+                        <div key={`${firstString(phase.phase)}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-3">
+                          <p className="text-[10px] font-black uppercase tracking-wide text-[#5E63FF]">{firstString(phase.phase).replace(/_/g, ' ')}</p>
+                          <p className="mt-1 text-[12px] font-black text-[#0B1028]">{firstString(phase.objective)}</p>
+                          <p className="mt-1 text-[11px] font-semibold leading-5 text-slate-500"><span className="font-black">{ar ? 'بوابة الانتقال: ' : 'Exit gate: '}</span>{firstString(phase.exitGate)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </SoftCard>
+              )}
+
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
                 <SoftCard id="strategy-execution" className="scroll-mt-6 p-4">
                   <h3 className="mb-4 flex items-center gap-2 text-[16px] font-black text-[#0B1028]"><Rocket className="h-4 w-4 text-[#5E63FF]" />{ar ? 'مراحل التنفيذ المحفوظة' : 'Saved execution stages'}</h3>
@@ -1055,17 +1179,17 @@ export default function StrategyPage() {
                 <SoftCard id="strategy-risks" className="scroll-mt-6 p-4">
                   <h3 className="mb-4 flex items-center gap-2 text-[16px] font-black text-[#0B1028]"><AlertTriangle className="h-4 w-4 text-amber-500" />{ar ? 'المخاطر والافتراضات' : 'Risks and assumptions'}</h3>
                   <div className="space-y-2">
-                    {[
-                      ar ? 'لا صرف إعلاني قبل موافقة صريحة.' : 'No ad spend before explicit approval.',
-                      ar ? 'لا نشر قبل ربط الحسابات والصلاحيات.' : 'No publishing before account and permission readiness.',
-                      ar ? 'الأرقام هنا جاهزية تشغيلية، وليست أداء فعلي.' : 'Numbers here are operational readiness, not actual performance.',
-                      ar ? 'التعلم من الأداء يحتاج تحليلات موثقة من المنصات.' : 'Performance learning requires verified platform analytics.',
-                    ].map((item, index) => (
+                    {(savedRiskNotes.length > 0 ? savedRiskNotes : [
+                      ar ? 'لا توجد مخاطر محفوظة؛ يحتاج البريف إلى مراجعة قبل التنفيذ.' : 'No risks are saved; the brief needs review before execution.',
+                    ]).map((item, index) => (
                       <div key={item} className="flex items-start gap-2 rounded-2xl bg-slate-50 px-3 py-2">
-                        <span className={`mt-1 h-2 w-2 rounded-full ${index < 2 ? 'bg-amber-400' : 'bg-slate-300'}`} />
+                        <span className={`mt-1 h-2 w-2 rounded-full ${index < 3 ? 'bg-amber-400' : 'bg-slate-300'}`} />
                         <p className="text-[12px] font-semibold leading-5 text-slate-600">{item}</p>
                       </div>
                     ))}
+                    <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 px-3 py-2 text-[11px] font-semibold leading-5 text-indigo-800">
+                      {ar ? 'حدود ثابتة: لا نشر أو صرف أو توسيع دون صلاحية وموافقة ودليل قابل للمراجعة.' : 'Fixed boundary: no publishing, spend, or scaling without permission, approval, and reviewable evidence.'}
+                    </div>
                   </div>
                 </SoftCard>
               </div>

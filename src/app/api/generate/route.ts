@@ -8,6 +8,9 @@ import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { validateOutputObject, logQualityReport } from '@/lib/ai/outputValidator'
 import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from '@/lib/campaign-memory'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
+import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
+import { assertCampaignStrategyContract } from '@/lib/campaignStrategyContract'
 
 export async function POST(req: NextRequest) {
   const userId = await getServerUserId(req)
@@ -40,6 +43,7 @@ export async function POST(req: NextRequest) {
 
   const project = await prisma.project.findUnique({ where: { id: campaign.projectId }, include: { media: true } })
   if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+  const brandProfile = await prisma.brandProfile.findUnique({ where: { workspaceId: workspace.id } })
 
   if (!isAiProviderConfigured()) {
     return NextResponse.json(getAiProviderUnavailablePayload(language), { status: 503 })
@@ -57,6 +61,7 @@ export async function POST(req: NextRequest) {
     ...(campaign as any),
     language: language || 'ar',
     pastLearnings,
+    brandProfile,
   }
 
   // ── Unified credit check + deduction ────────────────────────────────────────
@@ -70,10 +75,34 @@ export async function POST(req: NextRequest) {
 
   try {
     // Run both AI calls in parallel — halves execution time vs sequential
-    const [strategy, concepts] = await Promise.all([
+    let [strategy, concepts] = await Promise.all([
       ai.generateMarketingStrategy(campaignWithLang, project as any),
       ai.generateAdConcepts(campaignWithLang, project as any),
     ])
+
+    // Legacy campaign generation now passes through the same persistence
+    // contract as Strategy OS. This route may remain for old campaigns, but it
+    // can no longer overwrite a campaign with the weaker legacy shape.
+    strategy = guardStrategyOutputContract(
+      guardStrategyProof(strategy, {
+        verifiedProof: brandProfile?.verifiedProof || [],
+        allowedClaimText: [
+          brandProfile?.description,
+          brandProfile?.primaryOffer,
+          ...(brandProfile?.uniqueAdvantages || []),
+          ...(brandProfile?.verifiedProof || []),
+        ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
+      }),
+      {
+        allowedPlatforms: campaign.platforms || [],
+        allowedCompetitors: brandProfile?.competitors || [],
+        language: language || 'ar',
+        strategyType: 'full',
+        hasLeadHandling: Boolean(brandProfile?.leadHandling),
+        hasConversionDestination: Boolean(brandProfile?.conversionDestination),
+      },
+    )
+    assertCampaignStrategyContract(strategy, { language: language || 'ar' })
 
     // AD3: Post-generation quality validation (non-blocking — logs only)
     const qualityReport = validateOutputObject(strategy, {

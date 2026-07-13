@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   count: vi.fn(),
   update: vi.fn(),
   historyCreate: vi.fn(),
+  learningCreate: vi.fn(),
   publish: vi.fn(),
   retryable: vi.fn(),
   decrypt: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock('@/lib/prisma', () => ({
       update: mocks.update,
     },
     postStatusHistory: { create: mocks.historyCreate },
+    marketingLearningEvent: { create: mocks.learningCreate },
   },
 }))
 vi.mock('@/lib/socialPublishers', () => ({
@@ -41,6 +43,7 @@ function duePost() {
   return {
     id: 'post-1',
     workspaceId: 'workspace-1',
+    campaignId: 'campaign-1',
     platform: 'LINKEDIN',
     caption: 'Approved copy',
     imageUrl: 'https://cdn.example.com/approved.jpg',
@@ -54,7 +57,7 @@ function duePost() {
     integration: {
       accessToken: 'encrypted-token',
       accountId: 'person-1',
-      config: { personId: 'person-1' },
+      config: { personId: 'person-1', scopeEvidence: 'provider_response', scopes: ['w_member_social'] },
     },
     statusHistory: [],
   }
@@ -67,6 +70,7 @@ beforeEach(() => {
   mocks.count.mockResolvedValue(0)
   mocks.update.mockResolvedValue({})
   mocks.historyCreate.mockResolvedValue({})
+  mocks.learningCreate.mockResolvedValue({})
   mocks.decrypt.mockReturnValue('plain-token')
   mocks.publish.mockResolvedValue({ platformPostId: 'urn:li:share:1' })
   mocks.retryable.mockImplementation((error: Error) => /429|rate limit/i.test(error.message))
@@ -100,6 +104,7 @@ describe('GET /api/cron/publish', () => {
       data: {
         status: 'PUBLISHED',
         publishedAt: expect.any(Date),
+        publishAttemptedAt: expect.any(Date),
         platformPostId: 'urn:li:share:1',
         platformUrl: null,
         errorMessage: null,

@@ -37,6 +37,7 @@ const ARRAY_FIELDS = [
   'successMetrics', 'riskNotes', 'audienceSegmentsDetailed', 'funnelStages',
   'contentAnglesDetailed', 'weeklyExecutionPlan', 'readinessChecklist',
   'doNotDoYet', 'successMetricsDetailed', 'executionAssumptions',
+  'experimentBacklog', 'decisionRules', 'roadmap30_60_90',
   'assumptions', 'missingData',
 ] as const
 
@@ -44,6 +45,7 @@ const ARRAY_FIELDS = [
 const OBJECT_FIELDS = [
   'offerCTAStrategy', 'funnelStrategy', 'businessObjective', 'diagnosisDetails',
   'assetRequirements', 'adSetupPlan', 'confidenceReport', 'marketContext',
+  'measurementPlan', 'operatingCadence', 'competitorFrame',
 ] as const
 
 /**

@@ -25,6 +25,7 @@ const {
     workspace: { findFirst: vi.fn() },
     campaign: { findFirst: vi.fn(), update: vi.fn() },
     project: { findUnique: vi.fn() },
+    brandProfile: { findUnique: vi.fn() },
     generation: { create: vi.fn() },
   },
   mockGenerateStrategy: vi.fn(),
@@ -62,6 +63,9 @@ vi.mock('@/lib/campaign-memory', () => ({
   formatMemoriesForPrompt: mockFormatMemories,
   saveCampaignMemory: mockSaveMemory,
 }))
+vi.mock('@/lib/campaignStrategyContract', () => ({
+  assertCampaignStrategyContract: vi.fn(),
+}))
 
 import { POST } from '../route'
 
@@ -85,6 +89,7 @@ beforeEach(() => {
     audience: 'SMBs',
   })
   mockPrisma.project.findUnique.mockResolvedValue({ id: 'p1', media: [] })
+  mockPrisma.brandProfile.findUnique.mockResolvedValue(null)
   mockPrisma.campaign.update.mockResolvedValue({})
   mockPrisma.generation.create.mockResolvedValue({})
   mockGenerateStrategy.mockResolvedValue({ headline: 'Strategy' })
@@ -181,7 +186,7 @@ describe('POST /api/generate — RF-1 refund safety', () => {
     const res = await POST(makeReq({ campaignId: 'c1', language: 'en' }))
     const json = await res.json()
     expect(res.status).toBe(200)
-    expect(json.strategy).toEqual({ headline: 'Strategy' })
+    expect(json.strategy).toEqual(expect.objectContaining({ headline: 'Strategy' }))
     expect(json.creditsRemaining).toBe(95)
     expect(mockCheckAndDeduct).toHaveBeenCalledTimes(1)
     expect(mockRefund).not.toHaveBeenCalled()

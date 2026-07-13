@@ -839,6 +839,7 @@ enum SocialPostStatus {
   DRAFT
   APPROVED
   SCHEDULED
+  PROCESSING
   PUBLISHED
   FAILED
 }
@@ -877,6 +878,10 @@ model SocialPost {
   integration   Integration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
 
   platform      IntegrationType   // META, TIKTOK, etc.
+  // Exact user-facing destination. `platform` identifies the provider
+  // integration; publishTarget prevents Facebook/Instagram (and unsupported
+  // channels) from being collapsed into one ambiguous META destination.
+  publishTarget String?           // FACEBOOK | INSTAGRAM | LINKEDIN | TIKTOK | ...
   pageId        String?           // Facebook page ID or IG account ID
   pageName      String?
 
@@ -902,6 +907,9 @@ model SocialPost {
   publishMode         PublishMode @default(MANUAL)
   approvedAt          DateTime?   // when DRAFT → APPROVED
   manuallyPublishedAt DateTime?   // when the user confirmed they published it by hand
+  platformOptions     Json?       // reviewed provider options (privacy, interactions, disclosure)
+  autoPublishConsentAt DateTime?  // explicit user consent for provider API delivery
+  publishAttemptedAt  DateTime?   // provider request accepted/attempted; not proof of publication
   statusHistory       PostStatusHistory[]
 
   // Autopilot fields
@@ -943,6 +951,8 @@ model SocialPost {
   @@index([scheduledAt])           // publish cron: find posts due for publishing
   @@index([status, scheduledAt])   // composite: WHERE status='SCHEDULED' AND scheduledAt<=NOW()
   @@index([publishMode])           // future: cron filters publishMode = AUTO
+  @@index([publishTarget])
+  @@index([status, publishAttemptedAt]) // async provider reconciliation
   @@index([workspaceId, status, analyticsFetched]) // execution + analytics monitor selection
 }
 

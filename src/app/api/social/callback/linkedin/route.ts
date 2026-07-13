@@ -8,6 +8,10 @@ import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { encryptToken } from '@/lib/tokenCrypto'
 import { verifyOAuthState } from '@/lib/oauthState'
+import {
+  LINKEDIN_API_VERSION,
+  linkedInHeaders,
+} from '@/lib/socialPlatformConfig'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -97,6 +101,55 @@ export async function GET(req: NextRequest) {
   const email      = profile.email || `${userId}@placeholder.nexus`
   const pictureUrl = profile.picture || null
 
+  // Company Page identities are separate from the member identity. This call
+  // succeeds for approved Community Management scopes and degrades to an empty
+  // list during pre-approval development without breaking member publishing.
+  const organizations: Array<{ id: string; name: string; urn: string }> = []
+  try {
+    const aclUrl = new URL('https://api.linkedin.com/rest/organizationAcls')
+    aclUrl.searchParams.set('q', 'roleAssignee')
+    aclUrl.searchParams.set('role', 'ADMINISTRATOR')
+    aclUrl.searchParams.set('state', 'APPROVED')
+    aclUrl.searchParams.set('count', '25')
+    const aclRes = await fetch(aclUrl, { headers: linkedInHeaders(accessToken), cache: 'no-store' })
+    if (aclRes.ok) {
+      const aclData = await aclRes.json()
+      const urns = Array.from(new Set<string>(
+        (Array.isArray(aclData?.elements) ? aclData.elements : [])
+          .map((entry: any) => entry?.organizationTarget || entry?.organization)
+          .filter((value: unknown): value is string => typeof value === 'string' && value.includes('urn:li:organization:')),
+      )).slice(0, 25)
+      const details = await Promise.all(urns.map(async (urn) => {
+        const id = urn.split(':').pop() || ''
+        if (!id) return null
+        try {
+          const organizationRes = await fetch(
+            `https://api.linkedin.com/rest/organizations/${encodeURIComponent(id)}`,
+            { headers: linkedInHeaders(accessToken), cache: 'no-store' },
+          )
+          const organization = organizationRes.ok ? await organizationRes.json() : null
+          const localizedName = organization?.localizedName
+            || Object.values(organization?.name?.localized || {})[0]
+            || `LinkedIn Page ${id}`
+          return { id, urn, name: String(localizedName) }
+        } catch {
+          return { id, urn, name: `LinkedIn Page ${id}` }
+        }
+      }))
+      organizations.push(...details.filter((item): item is { id: string; name: string; urn: string } => Boolean(item)))
+    }
+  } catch (organizationError) {
+    console.warn('[LinkedIn OAuth] Organization discovery unavailable:', organizationError)
+  }
+
+  const grantedScopes = typeof tokenData.scope === 'string' && tokenData.scope.trim()
+    ? tokenData.scope.split(/[ ,]+/).filter(Boolean)
+    : []
+  const scopeEvidence = typeof tokenData.scope === 'string' && tokenData.scope.trim()
+    ? 'provider_response'
+    : 'unavailable'
+  const defaultOrganizationId = organizations.length === 1 ? organizations[0].id : null
+
   console.log('[LinkedIn OAuth] userId:', userId, '| personId:', personId, '| name:', name)
 
   // ── Ensure User + Workspace exist ────────────────────────────────────────
@@ -142,6 +195,11 @@ export async function GET(req: NextRequest) {
           personId,
           pictureUrl,
           email,
+          scopes: grantedScopes,
+          scopeEvidence,
+          apiVersion: LINKEDIN_API_VERSION,
+          organizations,
+          organizationId: defaultOrganizationId,
           expiresAt: expiresAt?.toISOString() || null,
           connectedAt: new Date().toISOString(),
         },
@@ -156,6 +214,11 @@ export async function GET(req: NextRequest) {
           personId,
           pictureUrl,
           email,
+          scopes: grantedScopes,
+          scopeEvidence,
+          apiVersion: LINKEDIN_API_VERSION,
+          organizations,
+          organizationId: defaultOrganizationId,
           expiresAt: expiresAt?.toISOString() || null,
           connectedAt: new Date().toISOString(),
         } as any,

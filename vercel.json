@@ -10,6 +10,14 @@
       "schedule": "5 * * * *"
     },
     {
+      "path": "/api/cron/reconcile-social-publishing",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/refresh-social-tokens",
+      "schedule": "20 * * * *"
+    },
+    {
       "path": "/api/cron/reset-credits",
       "schedule": "5 0 * * *"
     },
@@ -78,6 +86,12 @@
       "maxDuration": 60
     },
     "src/app/api/cron/publish/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/reconcile-social-publishing/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/refresh-social-tokens/route.ts": {
       "maxDuration": 60
     },
     "src/app/api/campaigns/[id]/engine/route.ts": {

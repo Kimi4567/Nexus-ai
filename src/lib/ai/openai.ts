@@ -143,7 +143,7 @@ Rules:
   ],
   "contentPillars": ["4-5 specific pillars"],
   "contentAnglesDetailed": [
-    { "title": "string", "pain": "string", "format": "string", "hook": "string", "platform": "string", "cta": "string", "asset": "string", "funnelStage": "awareness|consideration|conversion" }
+    { "title": "string", "pain": "string", "desiredOutcome": "string", "objection": "string", "format": "string", "hook": "string", "platform": "string", "cta": "string", "asset": "string", "funnelStage": "awareness|consideration|conversion", "proofNeeded": "proof or Not enough data", "responseHandoff": "owner and next response or confirmation required", "reviewPoint": "what to check before repeating" }
   ],
   "funnelStages": [
     { "stage": "awareness|consideration|conversion|followUp", "userMindset": "string", "message": "string", "contentType": "string", "platform": "string", "cta": "string", "successMetric": "string", "nextStep": "string", "productArea": "string" }
@@ -151,6 +151,50 @@ Rules:
   "weeklyExecutionPlan": [
     { "week": 1, "objective": "string", "keyMessage": "string", "deliverables": ["specific deliverable"], "platforms": ["string"], "assetsNeeded": ["string"], "cta": "string", "successMetric": "string", "executionNote": "string", "reviewPoints": ["string"] }
   ],
+  "assetRequirements": {
+    "mustHave": ["assets required before production"],
+    "niceToHave": ["useful supporting assets"],
+    "forAds": ["paid assets or explicit planning gaps"],
+    "forOrganic": ["organic production assets"],
+    "forProof": ["evidence needed before proof claims"],
+    "canStartWithout": true,
+    "canStartWithoutNote": "what can start safely and what remains blocked",
+    "nextToCreate": ["next asset to prepare"]
+  },
+  "measurementPlan": {
+    "primaryOutcome": "outcome to validate",
+    "baselineStatus": "existing baseline or state that first cycle establishes it",
+    "eventsToTrack": ["observable event"],
+    "attributionRule": "how an inquiry or conversion is tied to a source",
+    "reportingCadence": "review cadence",
+    "owner": "role or owner confirmation required",
+    "noDataDecision": "what to do when evidence is insufficient"
+  },
+  "operatingCadence": {
+    "daily": ["monitoring or response task"],
+    "weekly": ["review and optimization task"],
+    "monthly": ["strategy and Brand Brain learning task"],
+    "approvalSla": "proposed approval SLA, not a current-team claim",
+    "responseSla": "proposed response SLA",
+    "owners": ["role ownership or unconfirmed owner"]
+  },
+  "experimentBacklog": [
+    { "hypothesis": "string", "audience": "string", "variable": "one variable", "successSignal": "observable signal", "minimumEvidence": "evidence needed without invented threshold", "decisionRule": "string", "priority": "now|next|later", "dependency": "string" }
+  ],
+  "decisionRules": [
+    { "signal": "string", "continueWhen": "string", "iterateWhen": "string", "stopWhen": "string", "nextAction": "string" }
+  ],
+  "roadmap30_60_90": [
+    { "phase": "days_1_30", "objective": "string", "deliverables": ["string"], "exitGate": "evidence gate" },
+    { "phase": "days_31_60", "objective": "string", "deliverables": ["string"], "exitGate": "evidence gate" },
+    { "phase": "days_61_90", "objective": "string", "deliverables": ["string"], "exitGate": "evidence gate" }
+  ],
+  "competitorFrame": {
+    "analysisStatus": "complete|incomplete",
+    "providedCompetitors": ["only user-provided competitor names"],
+    "differentiationHypotheses": ["hypothesis to validate"],
+    "researchNeeded": ["evidence needed to complete comparison"]
+  },
   "channelMix": [
     { "platform": "string", "budgetPercent": 0, "rationale": "organic/planning role, no ad spend claim", "contentFrequency": "string" }
   ],
@@ -205,10 +249,14 @@ Minimum completeness:
 - Exactly 4 weeklyExecutionPlan items
 - Every audience segment must include segment, situation, pain, desiredOutcome, objection, message, platform, format, and CTA.
 - Every content angle must include title, hook, pain, format, platform, CTA, asset, and funnelStage.
+- Every content angle must also include desiredOutcome, objection, proofNeeded, responseHandoff, and reviewPoint.
 - Every weekly deliverable must be countable and concrete, not generic planning filler.
 - At least 3 funnelStages
 - At least 3 readinessChecklist items
 - At least 2 KPIs, all hypotheses unless real analytics were provided
+- At least 3 single-variable experiments, 3 evidence-based decision rules, and all 3 roadmap phases.
+- Include a measurement plan and operating cadence; mark unconfirmed owners instead of inventing a team.
+- Competitor names may appear only when supplied above. Otherwise keep competitor analysis incomplete.
 - Leave budgetBreakdown out unless a budget was explicitly provided.
 Be specific to the brand. Real operating guidance, not generic placeholders.
 ${getLanguageInstruction(campaign.language)}`

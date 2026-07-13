@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { encryptToken, decryptToken } from '@/lib/tokenCrypto'
 import { cronAuthError } from '@/lib/cronAuth'
+import { metaGraphUrl } from '@/lib/socialPlatformConfig'
 
 export const maxDuration = 30
 
@@ -86,7 +87,7 @@ export async function GET(req: NextRequest) {
 
         // Attempt to exchange for a fresh long-lived token
         const refreshRes = await fetch(
-          `https://graph.facebook.com/v21.0/oauth/access_token` +
+          `${metaGraphUrl('oauth/access_token')}` +
           `?grant_type=fb_exchange_token` +
           `&client_id=${appId}` +
           `&client_secret=${appSecret}` +

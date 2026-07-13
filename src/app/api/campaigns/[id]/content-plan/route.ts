@@ -31,6 +31,7 @@ export async function GET(req: NextRequest, props: Params) {
       select: {
         id: true,
         platform: true,
+        publishTarget: true,
         caption: true,
         imageUrl: true,
         imagePrompt: true,
@@ -56,7 +57,15 @@ export async function GET(req: NextRequest, props: Params) {
       },
     })
 
-    return NextResponse.json({ posts })
+    return NextResponse.json({
+      posts: posts.map((post: any) => ({
+        ...post,
+        providerPlatform: post.platform,
+        // Legacy META rows remain explicitly ambiguous; the UI must ask for a
+        // channel instead of silently claiming Instagram or Facebook.
+        platform: post.publishTarget || post.platform,
+      })),
+    })
   } catch (err: any) {
     console.error('[content-plan GET]', err)
     return NextResponse.json({ error: 'Failed to load content plan' }, { status: 500 })

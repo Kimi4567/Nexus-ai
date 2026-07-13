@@ -23,7 +23,7 @@
 
 // ── Core types (kept as string unions, decoupled from the Prisma client) ──────
 
-export type PostStatus = 'DRAFT' | 'APPROVED' | 'SCHEDULED' | 'PUBLISHED' | 'FAILED'
+export type PostStatus = 'DRAFT' | 'APPROVED' | 'SCHEDULED' | 'PROCESSING' | 'PUBLISHED' | 'FAILED'
 export type PublishMode = 'MANUAL' | 'AUTO'
 export type StatusActor = 'USER' | 'SYSTEM' | 'CRON'
 
@@ -33,6 +33,7 @@ export type DisplayState =
   | 'approved'
   | 'scheduled_manual'
   | 'scheduled_auto'
+  | 'processing'
   | 'published_manual'
   | 'published_auto'
   | 'failed'
@@ -43,7 +44,8 @@ export type DisplayState =
 const TRANSITIONS: Record<PostStatus, readonly PostStatus[]> = {
   DRAFT:     ['APPROVED'],                       // approve only — never jump to published
   APPROVED:  ['SCHEDULED', 'PUBLISHED', 'DRAFT'], // schedule, publish-now (manual), or un-approve/reject
-  SCHEDULED: ['PUBLISHED', 'FAILED', 'APPROVED'], // publish, fail, or unschedule
+  SCHEDULED: ['PROCESSING', 'PUBLISHED', 'FAILED', 'APPROVED'], // submit, publish, fail, or unschedule
+  PROCESSING: ['PUBLISHED', 'FAILED'],             // async provider confirmation
   PUBLISHED: ['FAILED'],                          // a confirmed publish can only be corrected to FAILED
   FAILED:    ['SCHEDULED', 'APPROVED', 'DRAFT'],  // retry / reset
 }
@@ -96,6 +98,8 @@ export function deriveDisplayState(input: PostStateInput): DisplayState {
       return 'approved'
     case 'SCHEDULED':
       return mode === 'AUTO' ? 'scheduled_auto' : 'scheduled_manual'
+    case 'PROCESSING':
+      return 'processing'
     case 'PUBLISHED':
       return mode === 'AUTO' && hasPlatformRef ? 'published_auto' : 'published_manual'
     case 'FAILED':
@@ -128,6 +132,7 @@ const DISPLAY_LABEL_KEY: Record<DisplayState, string> = {
   approved:         'status.approved',
   scheduled_manual: 'status.scheduledManual',
   scheduled_auto:   'status.scheduledAuto',
+  processing:       'status.processing',
   published_manual: 'status.publishedManually',
   published_auto:   'status.publishedAuto',
   failed:           'status.failed',
@@ -199,6 +204,7 @@ export function learningEventForTransition(
 ): BrandBrainEvent | null {
   if (to === 'APPROVED') return from === 'DRAFT' ? 'post_approved' : 'post_reset'
   if (to === 'SCHEDULED') return 'post_scheduled'
+  if (to === 'PROCESSING') return null
   if (to === 'PUBLISHED') return mode === 'AUTO' ? 'post_published_auto' : 'post_published_manual'
   if (to === 'FAILED') return 'post_failed'
   if (to === 'DRAFT') return from === 'APPROVED' ? 'post_rejected' : 'post_reset'

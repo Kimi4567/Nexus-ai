@@ -42,7 +42,7 @@ describe('Meta Ads connect route', () => {
     const scopes = url.searchParams.get('scope')?.split(',') ?? []
 
     expect(url.origin).toBe('https://www.facebook.com')
-    expect(url.pathname).toBe('/v21.0/dialog/oauth')
+    expect(url.pathname).toBe('/v25.0/dialog/oauth')
     expect(url.searchParams.get('redirect_uri')).toBe('https://nexus-grow.com/api/social/callback/meta-ads')
     expect(scopes).toEqual([
       'public_profile',

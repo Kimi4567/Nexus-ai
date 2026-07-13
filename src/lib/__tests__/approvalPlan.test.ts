@@ -138,7 +138,7 @@ describe('schedule-content-plan route response counts', () => {
     const routeSource = readFileSync('src/app/api/campaigns/[id]/schedule-content-plan/route.ts', 'utf8')
 
     expect(routeSource).toContain('const scheduledIds = new Set(plan.updates.map((u) => u.id))')
-    expect(routeSource).toContain('scheduledIds.has(p.id) && !!integrationMap[String(p.platform)]')
+    expect(routeSource).toContain('scheduledIds.has(p.id) && assignmentById.has(p.id)')
     expect(routeSource).not.toContain('const linked = approvedPosts.filter((p: any) => !!integrationMap[String(p.platform)]).length')
     expect(routeSource).toContain('skipped because planned dates were missing or invalid')
     expect(routeSource).toContain("code: 'MEDIA_REVIEW_REQUIRED'")

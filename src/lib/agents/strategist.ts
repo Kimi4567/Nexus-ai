@@ -269,6 +269,58 @@ export interface SuccessMetricDetailed {
   isHypothesis?: boolean
 }
 
+export interface MeasurementPlan {
+  primaryOutcome: string
+  baselineStatus: string
+  eventsToTrack: string[]
+  attributionRule: string
+  reportingCadence: string
+  owner: string
+  noDataDecision: string
+}
+
+export interface OperatingCadence {
+  daily: string[]
+  weekly: string[]
+  monthly: string[]
+  approvalSla: string
+  responseSla: string
+  owners: string[]
+}
+
+export interface ExperimentBacklogItem {
+  hypothesis: string
+  audience: string
+  variable: string
+  successSignal: string
+  minimumEvidence: string
+  decisionRule: string
+  priority: 'now' | 'next' | 'later'
+  dependency: string
+}
+
+export interface DecisionRule {
+  signal: string
+  continueWhen: string
+  iterateWhen: string
+  stopWhen: string
+  nextAction: string
+}
+
+export interface RoadmapPhase {
+  phase: 'days_1_30' | 'days_31_60' | 'days_61_90'
+  objective: string
+  deliverables: string[]
+  exitGate: string
+}
+
+export interface CompetitorFrame {
+  analysisStatus: 'complete' | 'incomplete'
+  providedCompetitors: string[]
+  differentiationHypotheses: string[]
+  researchNeeded: string[]
+}
+
 // ── PR-2B1 — honesty scaffold (all optional, server-authoritative where noted) ──
 
 export type StrategyConfidenceLevel = 'high' | 'medium' | 'low'
@@ -358,6 +410,12 @@ export interface StrategyOutput {
   doNotDoYet?: string[]
   successMetricsDetailed?: SuccessMetricDetailed[]
   executionAssumptions?: string[]
+  measurementPlan?: MeasurementPlan
+  operatingCadence?: OperatingCadence
+  experimentBacklog?: ExperimentBacklogItem[]
+  decisionRules?: DecisionRule[]
+  roadmap30_60_90?: RoadmapPhase[]
+  competitorFrame?: CompetitorFrame
 
   // PR-2B1 — honesty scaffold (all optional; *server-authoritative fields are
   // overwritten by the orchestrator from getStrategyCapabilities()).
@@ -452,6 +510,9 @@ export function buildStrategistPrompts(
     '- If lead handling, conversion destination, proof, analytics, competitors, or budget are missing, turn them into explicit operating gaps and review tasks. Never fill those gaps with invented facts.',
     '- Include practical proof/compliance boundaries: what claims cannot be made yet, what proof assets must be collected, and which messages should stay educational until evidence exists.',
     '- Use sober, implementation-ready language. Prefer "validate", "review", "prepare", "collect", "test message clarity", and "follow up" over hype or certainty.',
+    '- Do not use generic hook formulas such as "Did you know…?", "هل تعلم…؟", "Imagine if…", or empty claims that analytics/numbers change a business. Hooks must name the specific audience situation, tension, objection, or task from this brief.',
+    '- Do not return overlapping broad segments. Every segment needs a distinct trigger situation, buying role, objection, and qualification implication.',
+    '- Include a measurement plan, operating cadence, prioritized experiment backlog, explicit continue/iterate/stop rules, and a 30/60/90 roadmap. A strategy without decision rules is not operational.',
     '- Avoid broad absolute solution claims such as "perfect solution", "best solution", "ideal solution", "الحل الأمثل", or "حل مثالي". Prefer practical, reviewable language such as "practical solution", "clearer workflow", or "حل عملي".',
   ].join('\n')
 
@@ -587,7 +648,9 @@ Return ONLY valid JSON. No markdown outside the JSON.`
         `- Competitors provided: ${readiness.hasCompetitors ? 'yes' : 'no'}`,
         `- Historical performance data: ${readiness.hasHistoricalData ? 'yes' : 'no'}`,
         `- Pixel/analytics connected: ${readiness.hasPixel ? 'yes' : 'no'}`,
-        readiness.missingKeys.length ? `- Missing inputs (echo these into "missingData" and write "Not enough data" where they block a section): ${readiness.missingKeys.join(', ')}` : '- No critical inputs missing.',
+        readiness.missingKeys.length
+          ? `- Missing inputs (echo these into "missingData" and write ${isArabicOutput ? '"لا توجد بيانات كافية"' : '"Not enough data"'} where they block a section): ${readiness.missingKeys.join(', ')}`
+          : '- No critical inputs missing.',
         'Capability readiness: ' + readiness.capabilities.map(c => `${c.id}=${c.confidence}`).join(', '),
       ].join('\n')
     : ''
@@ -712,6 +775,40 @@ Return JSON with these exact fields — all specific to this brand:
   "successMetricsDetailed": [
     { "category": "lead|engagement|conversion|operational", "metric": "string", "target": "string — NO invented numbers", "timeframe": "string", "isHypothesis": true }
   ],
+  "measurementPlan": {
+    "primaryOutcome": "string — the business outcome this plan is trying to validate",
+    "baselineStatus": "string — state what baseline exists; if none, say the first cycle establishes it",
+    "eventsToTrack": ["string — observable events, not invented performance targets"],
+    "attributionRule": "string — how an inquiry/conversion is tied to source",
+    "reportingCadence": "string",
+    "owner": "string — use a role or mark owner confirmation as required",
+    "noDataDecision": "string — what to do when signal volume is insufficient"
+  },
+  "operatingCadence": {
+    "daily": ["string — monitoring/response task"],
+    "weekly": ["string — review/approval/optimization task"],
+    "monthly": ["string — strategy and Brand Brain learning task"],
+    "approvalSla": "string — proposed operating SLA, not a claim about the current team",
+    "responseSla": "string — proposed lead/community response SLA",
+    "owners": ["string — role ownership; mark unconfirmed owners as a gap"]
+  },
+  "experimentBacklog": [
+    { "hypothesis": "string", "audience": "string", "variable": "string — test one variable only", "successSignal": "string", "minimumEvidence": "string — decision evidence, no invented numeric threshold", "decisionRule": "string", "priority": "now|next|later", "dependency": "string" }
+  ],
+  "decisionRules": [
+    { "signal": "string", "continueWhen": "string", "iterateWhen": "string", "stopWhen": "string", "nextAction": "string" }
+  ],
+  "roadmap30_60_90": [
+    { "phase": "days_1_30", "objective": "string", "deliverables": ["string"], "exitGate": "string — evidence required before moving on" },
+    { "phase": "days_31_60", "objective": "string", "deliverables": ["string"], "exitGate": "string" },
+    { "phase": "days_61_90", "objective": "string", "deliverables": ["string"], "exitGate": "string" }
+  ],
+  "competitorFrame": {
+    "analysisStatus": "complete|incomplete",
+    "providedCompetitors": ["string — only user-provided competitor names"],
+    "differentiationHypotheses": ["string — hypotheses to validate, never invented competitor facts"],
+    "researchNeeded": ["string — exact evidence needed to complete the comparison"]
+  },
   "readinessChecklist": [
     { "label": "string — concrete pre-execution readiness item 1; not a result claim", "done": false },
     { "label": "string — concrete pre-execution readiness item 2; not a result claim", "done": false },

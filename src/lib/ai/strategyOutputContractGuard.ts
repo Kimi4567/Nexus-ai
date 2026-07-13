@@ -16,6 +16,7 @@ export interface StrategyOutputContractContext {
   organicPostCount?: number | null
   hasLeadHandling?: boolean
   hasConversionDestination?: boolean
+  allowedCompetitors?: string[] | null
 }
 
 interface NormalizedPlatformContext {
@@ -1082,6 +1083,89 @@ function guardAssetRequirements(value: unknown, language?: string | null): unkno
   return guardAssetRequirements({}, language)
 }
 
+function guardAgencyOperatingSections(
+  output: JsonObject,
+  language?: string | null,
+  allowedCompetitors?: string[] | null,
+): void {
+  const ar = isArabicLanguage(language)
+  const gap = ar ? 'لا توجد بيانات كافية؛ يحتاج هذا العنصر إلى تأكيد قبل التنفيذ.' : 'Not enough data; confirm this item before execution.'
+
+  const measurement = isObject(output.measurementPlan) ? { ...output.measurementPlan } : {}
+  output.measurementPlan = {
+    ...measurement,
+    primaryOutcome: hasUsefulText(measurement.primaryOutcome) ? measurement.primaryOutcome : (ar ? 'التحقق من جودة الطلب أو الإجراء التجاري الأساسي.' : 'Validate the quality of the primary commercial action.'),
+    baselineStatus: hasUsefulText(measurement.baselineStatus) ? measurement.baselineStatus : (ar ? 'لا يوجد خط أساس موثق؛ الدورة الأولى تنشئ خط الأساس.' : 'No verified baseline exists; the first cycle establishes it.'),
+    eventsToTrack: Array.isArray(measurement.eventsToTrack) && measurement.eventsToTrack.length ? measurement.eventsToTrack : [ar ? 'مصدر الطلب والإجراء التالي وحالة المتابعة.' : 'Inquiry source, next action, and follow-up status.'],
+    attributionRule: hasUsefulText(measurement.attributionRule) ? measurement.attributionRule : (ar ? 'يُربط كل طلب بآخر مصدر يمكن إثباته دون افتراض.' : 'Tie each inquiry to the last verifiable source without guessing.'),
+    reportingCadence: hasUsefulText(measurement.reportingCadence) ? measurement.reportingCadence : (ar ? 'مراجعة تشغيلية أسبوعية وملخص شهري.' : 'Weekly operating review and monthly summary.'),
+    owner: hasUsefulText(measurement.owner) ? measurement.owner : gap,
+    noDataDecision: hasUsefulText(measurement.noDataDecision) ? measurement.noDataDecision : (ar ? 'استمر في جمع خط الأساس ولا توسّع أو تلغي بناءً على عينة غير كافية.' : 'Keep collecting a baseline; do not scale or cancel from insufficient evidence.'),
+  }
+
+  const cadence = isObject(output.operatingCadence) ? { ...output.operatingCadence } : {}
+  output.operatingCadence = {
+    ...cadence,
+    daily: Array.isArray(cadence.daily) && cadence.daily.length ? cadence.daily : [ar ? 'مراقبة الردود والتعليقات وحالات فشل النشر.' : 'Monitor replies, comments, and publishing failures.'],
+    weekly: Array.isArray(cadence.weekly) && cadence.weekly.length ? cadence.weekly : [ar ? 'مراجعة جودة الإشارات والاعتراضات وحالة الأصول قبل تعديل الخطة.' : 'Review signal quality, objections, and asset readiness before changing the plan.'],
+    monthly: Array.isArray(cadence.monthly) && cadence.monthly.length ? cadence.monthly : [ar ? 'اعتماد التعلمات الموثقة فقط وتحديث Brand Brain بعد المراجعة.' : 'Approve only evidenced learnings and update Brand Brain after review.'],
+    approvalSla: hasUsefulText(cadence.approvalSla) ? cadence.approvalSla : (ar ? 'يحتاج زمن الموافقة إلى اتفاق تشغيلي.' : 'Approval timing needs an operating agreement.'),
+    responseSla: hasUsefulText(cadence.responseSla) ? cadence.responseSla : (ar ? 'يحتاج زمن الرد إلى اتفاق مع مسؤول المتابعة.' : 'Response timing needs agreement with the follow-up owner.'),
+    owners: Array.isArray(cadence.owners) && cadence.owners.length ? cadence.owners : [gap],
+  }
+
+  const experiments = Array.isArray(output.experimentBacklog) ? output.experimentBacklog.filter(isObject) : []
+  const fallbackExperiments: JsonObject[] = ar
+    ? [
+        { hypothesis: 'تحديد شريحة واحدة سيجعل جودة الردود أسهل في التقييم.', audience: 'الشريحة الأولى في الاستراتيجية', variable: 'صياغة الرسالة', successSignal: 'ردود مرتبطة بالمشكلة المقصودة', minimumEvidence: 'إشارات حقيقية قابلة للمراجعة قبل القرار', decisionRule: 'استمر عند وضوح الملاءمة؛ عدّل الرسالة عند تكرار الالتباس.', priority: 'now', dependency: 'تأكيد الشريحة ومسؤول الرد' },
+        { hypothesis: 'معالجة اعتراض واحد ستوضح سبب التردد.', audience: 'شريحة لديها اعتراض موثق أو فرضية اعتراض', variable: 'الاعتراض المعالج', successSignal: 'أسئلة أو ردود تظهر فهم العرض', minimumEvidence: 'ردود حقيقية لا افتراضات', decisionRule: 'احتفظ بالزاوية إذا تحسن وضوح الأسئلة؛ أوقفها إذا ظلت غير مرتبطة بالعرض.', priority: 'next', dependency: 'توثيق الاعتراض' },
+        { hypothesis: 'إضافة أصل حقيقي ستجعل الرسالة أكثر قابلية للتصديق.', audience: 'الجمهور ذي فجوة الثقة', variable: 'الأصل البصري أو الإثبات', successSignal: 'تفاعل نوعي أو طلب معلومات مرتبطة بالأصل', minimumEvidence: 'أصل موثق وردود فعل قابلة للمراجعة', decisionRule: 'كرر الأصل إذا دعم أسئلة مؤهلة؛ استبدله إذا سبب التباسًا.', priority: 'later', dependency: 'تجهيز أصل حقيقي ومراجعته' },
+      ]
+    : [
+        { hypothesis: 'A single specific segment will make response quality easier to evaluate.', audience: 'The first strategy segment', variable: 'Message framing', successSignal: 'Replies connected to the intended problem', minimumEvidence: 'Reviewable real signals before a decision', decisionRule: 'Continue when fit is clear; revise when confusion repeats.', priority: 'now', dependency: 'Confirm the segment and response owner' },
+        { hypothesis: 'Addressing one objection will clarify why prospects hesitate.', audience: 'A segment with a documented or explicitly hypothetical objection', variable: 'Objection addressed', successSignal: 'Questions or replies that show offer understanding', minimumEvidence: 'Real replies, not assumptions', decisionRule: 'Keep the angle when questions become clearer; stop when replies remain unrelated.', priority: 'next', dependency: 'Confirm the objection' },
+        { hypothesis: 'A real asset will make the message more credible.', audience: 'The segment with the clearest trust gap', variable: 'Visual or proof asset', successSignal: 'Qualitative engagement or asset-specific inquiries', minimumEvidence: 'A verified asset and reviewable response', decisionRule: 'Reuse when it supports qualified questions; replace when it causes confusion.', priority: 'later', dependency: 'Prepare and review a real asset' },
+      ]
+  output.experimentBacklog = [...experiments, ...fallbackExperiments].slice(0, Math.max(3, experiments.length))
+
+  const rules = Array.isArray(output.decisionRules) ? output.decisionRules.filter(isObject) : []
+  const fallbackRules: JsonObject[] = ar
+    ? [
+        { signal: 'جودة الردود أو الطلبات', continueWhen: 'الردود مرتبطة بالشريحة والمشكلة المقصودة.', iterateWhen: 'تتكرر أسئلة توضح غموض الرسالة أو العرض.', stopWhen: 'تظل الردود غير مرتبطة بعد تعديل موثق.', nextAction: 'حدّث الرسالة أو التأهيل ثم راقب دورة أخرى.' },
+        { signal: 'سلامة النشر والأصول', continueWhen: 'تؤكد المنصة النشر وتظهر الوسائط صحيحة.', iterateWhen: 'توجد مشكلة تنسيق أو فشل يمكن إصلاحه.', stopWhen: 'تفشل الصلاحية أو الموافقة أو سلامة الادعاء.', nextAction: 'أوقف الوجهة المتأثرة واطلب مراجعة بشرية.' },
+        { signal: 'كفاية بيانات القرار', continueWhen: 'توجد إشارات حقيقية قابلة للمراجعة.', iterateWhen: 'الإشارة ضعيفة لكن الاختبار سليم.', stopWhen: 'لا يمكن قياس النتيجة أو نسبها إلى مصدر.', nextAction: 'أصلح القياس قبل التوسع.' },
+      ]
+    : [
+        { signal: 'Reply or inquiry quality', continueWhen: 'Replies match the intended segment and problem.', iterateWhen: 'Repeated questions reveal message or offer confusion.', stopWhen: 'Replies remain unrelated after a documented revision.', nextAction: 'Revise the message or qualification step, then observe another cycle.' },
+        { signal: 'Publishing and asset integrity', continueWhen: 'The platform confirms publication and media renders correctly.', iterateWhen: 'A fixable format or delivery error appears.', stopWhen: 'Permission, approval, or claim-safety checks fail.', nextAction: 'Pause the affected destination and request human review.' },
+        { signal: 'Decision evidence', continueWhen: 'Reviewable real signals exist.', iterateWhen: 'Signal is weak but the test ran correctly.', stopWhen: 'The outcome cannot be measured or attributed.', nextAction: 'Repair measurement before scaling.' },
+      ]
+  output.decisionRules = [...rules, ...fallbackRules].slice(0, Math.max(3, rules.length))
+
+  const roadmap = Array.isArray(output.roadmap30_60_90) ? output.roadmap30_60_90.filter(isObject) : []
+  const phases = ['days_1_30', 'days_31_60', 'days_61_90'] as const
+  output.roadmap30_60_90 = phases.map((phase, index) => roadmap.find(item => item.phase === phase) || {
+    phase,
+    objective: ar ? ['إنشاء خط أساس وتشغيل أول دورة مراجعة.', 'تحسين الرسائل والأصول بناءً على إشارات موثقة.', 'توسيع ما ثبت فقط مع الحفاظ على بوابات الموافقة.'][index] : ['Establish a baseline and run the first review cycle.', 'Improve messages and assets from evidenced signals.', 'Scale only validated work while keeping approval gates.'][index],
+    deliverables: [ar ? 'مخرجات تشغيلية قابلة للمراجعة وليست نتيجة مضمونة.' : 'Reviewable operating outputs, not a guaranteed result.'],
+    exitGate: ar ? 'لا انتقال للمرحلة التالية دون دليل وموافقة موثقين.' : 'Do not advance without documented evidence and approval.',
+  })
+
+  const competitor = isObject(output.competitorFrame) ? { ...output.competitorFrame } : {}
+  const allowed = (allowedCompetitors || []).filter(value => typeof value === 'string' && value.trim()).map(value => value.trim())
+  output.competitorFrame = {
+    ...competitor,
+    analysisStatus: allowed.length > 0 ? 'complete' : 'incomplete',
+    providedCompetitors: allowed,
+    differentiationHypotheses: Array.isArray(competitor.differentiationHypotheses) && competitor.differentiationHypotheses.length
+      ? competitor.differentiationHypotheses
+      : [ar ? 'فرضية التمايز تحتاج مقارنة موثقة قبل اعتمادها.' : 'The differentiation hypothesis needs documented comparison before adoption.'],
+    researchNeeded: Array.isArray(competitor.researchNeeded) && competitor.researchNeeded.length
+      ? competitor.researchNeeded
+      : [ar ? 'جمع رسائل المنافسين وعروضهم وتجربة التحويل من مصادر علنية أو مدخلة من المستخدم.' : 'Collect competitor messaging, offers, and conversion experience from public or user-provided sources.'],
+  }
+}
+
 function paidPlanningFallbackStrings(kind: 'pillars' | 'hooks' | 'ctas', language?: string | null): string[] {
   const ar = isArabicLanguage(language)
   if (kind === 'pillars') {
@@ -1342,6 +1426,7 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
   output.weeklyExecutionPlan = guardWeeklyExecutionOperationalDepth(output.weeklyExecutionPlan, context.language)
   output.assetRequirements = guardAssetRequirements(output.assetRequirements, context.language)
   output.readinessChecklist = guardReadinessChecklist(output.readinessChecklist, context.language)
+  guardAgencyOperatingSections(output, context.language, context.allowedCompetitors)
 
   return output as T
 }

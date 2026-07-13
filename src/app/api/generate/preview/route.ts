@@ -5,9 +5,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { generateMarketingStrategy, generateAdConcepts } from '@/lib/ai/adapter'
-import { prisma } from '@/lib/prisma'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
+import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
+import { assertCampaignStrategyContract } from '@/lib/campaignStrategyContract'
 
 // Simple in-memory rate limiter: 5 generations per user per minute
 const rateMap = new Map<string, { count: number; reset: number }>()
@@ -69,10 +71,31 @@ export async function POST(req: NextRequest) {
     }
     const projectData = { businessType: description || name }
 
-    const [strategy, concepts] = await Promise.all([
+    let [strategy, concepts] = await Promise.all([
       generateMarketingStrategy(campaignData, projectData),
       generateAdConcepts(campaignData, projectData),
     ])
+    const verifiedProof = Array.isArray(brandProfile?.verifiedProof) ? brandProfile.verifiedProof : []
+    strategy = guardStrategyOutputContract(
+      guardStrategyProof(strategy, {
+        verifiedProof,
+        allowedClaimText: [
+          brandProfile?.description,
+          brandProfile?.primaryOffer,
+          ...(Array.isArray(brandProfile?.uniqueAdvantages) ? brandProfile.uniqueAdvantages : []),
+          ...verifiedProof,
+        ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
+      }),
+      {
+        allowedPlatforms: Array.isArray(platforms) ? platforms : [],
+        allowedCompetitors: Array.isArray(brandProfile?.competitors) ? brandProfile.competitors : [],
+        language: campaignData.language,
+        strategyType: 'full',
+        hasLeadHandling: Boolean(brandProfile?.leadHandling),
+        hasConversionDestination: Boolean(brandProfile?.conversionDestination),
+      },
+    )
+    assertCampaignStrategyContract(strategy, { language: campaignData.language })
 
     return NextResponse.json({
       campaign: campaignData,

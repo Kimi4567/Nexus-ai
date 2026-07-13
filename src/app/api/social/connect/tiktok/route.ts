@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { createOAuthState } from '@/lib/oauthState'
+import { TIKTOK_CONTENT_SCOPES } from '@/lib/socialPlatformConfig'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,8 +31,7 @@ export async function GET(req: NextRequest) {
     const params = new URLSearchParams({
       client_key:    clientKey,
       response_type: 'code',
-      // video.upload is for chunk uploads — we use PULL_FROM_URL, so only video.publish needed
-      scope:         'user.info.basic,video.publish',
+      scope:         TIKTOK_CONTENT_SCOPES.join(','),
       redirect_uri:  redirectUri,
       state,
     })
