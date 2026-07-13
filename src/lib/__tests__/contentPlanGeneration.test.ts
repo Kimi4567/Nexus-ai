@@ -283,4 +283,12 @@ describe('resolveContentPlanSlotScope', () => {
     expect(routeSource).toContain('...creditCheck')
     expect(routeSource).toContain("code: creditCheck.error ?? 'INSUFFICIENT_CREDITS'")
   })
+
+  it('refunds wallet deductions to their source transaction on generation failure', () => {
+    const routeSource = readFileSync('src/app/api/campaigns/[id]/generate-content-plan/route.ts', 'utf8')
+
+    expect(routeSource).toContain('refundCreditsForTransaction')
+    expect(routeSource).toContain('transactionId: charge.transactionId')
+    expect(routeSource).toContain('refundContentPlanCharge(userId, contentPlanCharge')
+  })
 })

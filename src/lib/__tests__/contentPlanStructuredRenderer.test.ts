@@ -178,6 +178,14 @@ describe('contentPlanStructuredRenderer', () => {
     expect(result.issues.map(issue => issue.reason)).toContain('unsupported_absolute_claim')
   })
 
+  it('save gate preserves Arabic inclusion wording', () => {
+    const result = validateContentPlanDraftForSave({
+      imagePrompt: 'تصميم يوضح ما يتضمنه العرض وما لا يتضمنه.',
+    })
+
+    expect(result.ok).toBe(true)
+  })
+
   it('save gate blocks fake generated SaaS product screens before SocialPost persistence', () => {
     const result = validateContentPlanDraftForSave({
       caption: 'راجع تنظيم المواعيد في العيادة بخطوات أوضح.',

@@ -17,7 +17,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
-import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import {
+  checkAndDeductCredits,
+  refundCredits,
+  refundCreditsForTransaction,
+  type CreditDeductionOk,
+} from '@/lib/credits'
 import { PLAN_QUOTAS } from '@/lib/stripe'
 import { resolvePostCaption } from '@/lib/contentPlanCaption'
 import {
@@ -113,6 +118,19 @@ function distributePosts(
 
 // ── Main POST handler ──────────────────────────────────────────────────────────
 
+async function refundContentPlanCharge(
+  userId: string,
+  charge: CreditDeductionOk | null,
+  reason: string,
+): Promise<void> {
+  if (!charge || charge.creditsUsed <= 0) return
+  if (charge.transactionId) {
+    await refundCreditsForTransaction({ userId, transactionId: charge.transactionId, reason })
+    return
+  }
+  await refundCredits(userId, 'CONTENT_PLAN_GENERATION', reason)
+}
+
 export async function POST(req: NextRequest, props: Params) {
   const params = await props.params
   const userId = await getServerUserId(req)
@@ -120,6 +138,7 @@ export async function POST(req: NextRequest, props: Params) {
 
   // Hoisted so any failure below the deduction (incl. the outer catch) can refund.
   let contentPlanCharged = false
+  let contentPlanCharge: CreditDeductionOk | null = null
   try {
     // ── 1. Load campaign ───────────────────────────────────────────────────
     const campaign = await prisma.campaign.findFirst({
@@ -246,6 +265,7 @@ export async function POST(req: NextRequest, props: Params) {
       )
     }
     contentPlanCharged = creditCheck.creditsUsed > 0 // skip refund for unlimited plans
+    contentPlanCharge = creditCheck
 
     const brandName    = resolveContentPlanBrandName(campaign)
     const campaignName = campaign.name ?? 'Campaign'
@@ -514,7 +534,7 @@ Rules:
       // No usable content after retries — refund (skip unlimited plans) and
       // surface a clear, user-safe failure instead of a silent empty plan.
       if (contentPlanCharged) {
-        await refundCredits(userId, 'CONTENT_PLAN_GENERATION', `No content generated (${planResult.reason})`)
+        await refundContentPlanCharge(userId, contentPlanCharge, `No content generated (${planResult.reason})`)
       }
       console.error(
         `[generate-content-plan] failed after ${planAttempts} attempt(s): ${planResult.reason}`,
@@ -648,7 +668,7 @@ Rules:
 
     if (saveGateIssues.length > 0) {
       if (contentPlanCharged) {
-        await refundCredits(userId, 'CONTENT_PLAN_GENERATION', 'Unsafe content plan draft blocked before save')
+        await refundContentPlanCharge(userId, contentPlanCharge, 'Unsafe content plan draft blocked before save')
       }
       console.error('[generate-content-plan] blocked unsafe content before save', saveGateIssues.slice(0, 8))
       return NextResponse.json(
@@ -670,7 +690,7 @@ Rules:
 
     if (!semanticGate.ok) {
       if (contentPlanCharged) {
-        await refundCredits(userId, 'CONTENT_PLAN_GENERATION', 'Content plan drifted from reviewed strategy')
+        await refundContentPlanCharge(userId, contentPlanCharge, 'Content plan drifted from reviewed strategy')
       }
       console.error('[generate-content-plan] blocked strategy drift before save', {
         alignedPosts: semanticGate.alignedPosts,
@@ -978,7 +998,9 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
   } catch (err: any) {
     console.error('[generate-content-plan POST]', err)
     // Refund — a failed content-plan generation must not charge the user (skip unlimited plans)
-    if (contentPlanCharged) await refundCredits(userId, 'CONTENT_PLAN_GENERATION')
+    if (contentPlanCharged) {
+      await refundContentPlanCharge(userId, contentPlanCharge, 'Content plan generation failed')
+    }
     if (err instanceof Error && err.message.startsWith('POST_LIMIT_REACHED:')) {
       const [, limit, ...resetParts] = err.message.split(':')
       return NextResponse.json({
