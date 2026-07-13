@@ -14,7 +14,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
-import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
+import {
+  checkAndDeductCredits,
+  checkDailyImageCap,
+  refundCredits,
+  refundCreditsForTransaction,
+} from '@/lib/credits'
 import { generateWithFlux, platformToFluxSize } from '@/lib/ai/falGen'
 import { wrapPromptWithTextFreeBackgroundContract } from '@/lib/ai/imageGen'
 import { normalizeContentHubImagePromptForPlatform } from '@/lib/contentHubImageFormat'
@@ -22,7 +27,12 @@ import {
   getBulkImageGenerationCost,
   validateBulkImageGenerationConfirmation,
 } from '@/lib/contentHubActionSafety'
-import { getImageProviderUnavailablePayload, isImageProviderConfigured } from '@/lib/ai/provider'
+import {
+  getImageProviderUnavailablePayload,
+  getMediaStorageUnavailablePayload,
+  isImageProviderConfigured,
+  isMediaStorageConfigured,
+} from '@/lib/ai/provider'
 
 export const maxDuration = 60 // Vercel Pro — 60s max
 
@@ -32,6 +42,7 @@ type ImageCreditReservation = {
   creditsUsed: number
   transactionId?: string
   refunded: boolean
+  consumed: boolean
 }
 
 const CLOUDINARY_CLOUD  = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
@@ -80,6 +91,9 @@ async function generateImage(prompt: string, platform: string): Promise<string> 
   })
 
   const data = await res.json()
+  if (!res.ok) {
+    throw new Error(data?.error?.message || `Image API error: ${res.status}`)
+  }
   const b64 = data?.data?.[0]?.b64_json
   if (!b64) throw new Error('Image generation returned no data')
   return `data:image/png;base64,${b64}`
@@ -120,7 +134,7 @@ async function refundImageReservation(
   reservation: ImageCreditReservation | undefined,
   reason: string,
 ) {
-  if (!reservation || reservation.refunded || reservation.creditsUsed <= 0) return
+  if (!reservation || reservation.refunded || reservation.consumed || reservation.creditsUsed <= 0) return
   reservation.refunded = true
 
   if (reservation.transactionId) {
@@ -137,6 +151,8 @@ export async function POST(req: NextRequest, props: Params) {
   const params = await props.params;
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const creditReservations: ImageCreditReservation[] = []
 
   try {
     // Verify campaign ownership
@@ -185,10 +201,32 @@ export async function POST(req: NextRequest, props: Params) {
     if (!isImageProviderConfigured()) {
       return NextResponse.json(getImageProviderUnavailablePayload(body.language), { status: 503 })
     }
+    if (!isMediaStorageConfigured()) {
+      return NextResponse.json(getMediaStorageUnavailablePayload(body.language), { status: 503 })
+    }
+
+    // The single-image route and the bulk route share the same daily abuse cap.
+    // Check the whole confirmed batch before any credit reservation or provider
+    // call so a partial batch can never exceed the user's remaining daily quota.
+    const planUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { subscriptionStatus: true },
+    })
+    const imageCap = await checkDailyImageCap(campaign.workspaceId, planUser?.subscriptionStatus)
+    if (!imageCap.allowed || (imageCap.remaining !== -1 && postsToGenerate.length > imageCap.remaining)) {
+      return NextResponse.json({
+        error: 'DAILY_IMAGE_LIMIT',
+        message: `This batch needs ${postsToGenerate.length} image slot${postsToGenerate.length === 1 ? '' : 's'}, but only ${Math.max(0, imageCap.remaining)} remain today. No credits were spent.`,
+        requested: postsToGenerate.length,
+        used: imageCap.used,
+        cap: imageCap.cap,
+        remaining: imageCap.remaining,
+        upgradeUrl: '/billing',
+      }, { status: 429 })
+    }
 
     // Reserve one IMAGE_GENERATION charge per post. Keep each transaction tied
     // to its post so a partial batch failure refunds only the failed image.
-    const creditReservations: ImageCreditReservation[] = []
     const reservationsByPostId = new Map<string, ImageCreditReservation>()
     for (let i = 0; i < Math.min(postsToGenerate.length, 5); i++) {
       const post = postsToGenerate[i]
@@ -211,6 +249,7 @@ export async function POST(req: NextRequest, props: Params) {
         creditsUsed: creditCheck.creditsUsed,
         transactionId: creditCheck.transactionId,
         refunded: false,
+        consumed: false,
       }
       creditReservations.push(reservation)
       reservationsByPostId.set(post.id, reservation)
@@ -227,27 +266,52 @@ export async function POST(req: NextRequest, props: Params) {
 
     for (const post of postsToGenerate) {
       const reservation = reservationsByPostId.get(post.id)
+      let visualId: string | null = null
       try {
+        const visual = await (prisma.generatedVisual as any).create({
+          data: {
+            workspaceId: campaign.workspaceId,
+            campaignId: campaign.id,
+            visualType: 'SOCIAL_PREVIEW',
+            visualStyle: 'Content Hub',
+            prompt: post.imagePrompt!,
+            enhancedPrompt: normalizeContentHubImagePromptForPlatform(post.imagePrompt!, post.platform),
+            campaignName: campaign.name,
+            brandName: campaign.workspace?.brandProfile?.brandName ?? null,
+            status: 'GENERATING',
+            parentId: `social-post:${post.id}`,
+          },
+        })
+        visualId = visual.id
+
         const rawUrl = await generateImage(post.imagePrompt!, post.platform)
+        // Content Hub media must be durable. Never put a provider-temporary URL
+        // or a base64 payload in SocialPost.imageUrl.
+        const finalUrl = await uploadToCloudinary(rawUrl, post.id)
 
-        let finalUrl = rawUrl
-        // Upload to Cloudinary if configured (avoids base64 in DB)
-        if (CLOUDINARY_CLOUD && CLOUDINARY_KEY && CLOUDINARY_SECRET) {
-          try {
-            finalUrl = await uploadToCloudinary(rawUrl, post.id)
-          } catch (uploadErr) {
-            console.warn(`[Content Hub] Cloudinary upload failed for ${post.id}:`, uploadErr)
-            // Fall back to raw URL (base64 or CDN URL from Flux)
-          }
-        }
-
-        await (prisma.socialPost as any).update({ where: { id: post.id }, data: { imageUrl: finalUrl, generationStatus: 'DONE' } })
+        await prisma.$transaction(async (tx) => {
+          await (tx.socialPost as any).update({
+            where: { id: post.id },
+            data: { imageUrl: finalUrl, generationStatus: 'DONE', mediaSource: 'GENERATE' },
+          })
+          await (tx.generatedVisual as any).update({
+            where: { id: visualId! },
+            data: { imageUrl: finalUrl, status: 'COMPLETED' },
+          })
+        })
+        if (reservation) reservation.consumed = true
 
         results.push({ id: post.id, success: true, imageUrl: finalUrl })
       } catch (err: any) {
         console.error(`[Content Hub] Image generation failed for ${post.id}:`, err)
         // Refund this post's image credit — a failed image must not be charged
         await refundImageReservation(userId, reservation, err.message ?? 'Image generation failed')
+        if (visualId) {
+          await (prisma.generatedVisual as any).update({
+            where: { id: visualId },
+            data: { status: 'FAILED', errorMessage: String(err.message ?? 'Image generation failed').slice(0, 500) },
+          }).catch(() => {})
+        }
         await (prisma.socialPost as any).update({ where: { id: post.id }, data: { generationStatus: 'FAILED' } })
         results.push({ id: post.id, success: false, error: err.message })
       }
@@ -274,6 +338,11 @@ export async function POST(req: NextRequest, props: Params) {
     })
   } catch (err: any) {
     console.error('[generate-content-plan/generate POST]', err)
+    await Promise.all(
+      creditReservations.map((reservation) =>
+        refundImageReservation(userId, reservation, err.message ?? 'Batch image generation failed'),
+      ),
+    )
     return NextResponse.json({ error: 'Generation failed' }, { status: 500 })
   }
 }

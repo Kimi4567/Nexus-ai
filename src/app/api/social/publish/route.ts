@@ -170,7 +170,10 @@ export async function POST(req: NextRequest) {
             platformUrl: published?.platformUrl ?? null,
             status: nextStatus,
             errorMessage: publishError,
-            publishMode: 'MANUAL',
+            // This route publishes through a provider API. AUTO is the existing
+            // persisted mode for API-confirmed publication; the post is already
+            // PUBLISHED, so it can never enter the scheduled cron queue.
+            publishMode: 'AUTO',
             approvedAt: existingPost.approvedAt ?? now,
             publishedAt: published ? now : null,
           },

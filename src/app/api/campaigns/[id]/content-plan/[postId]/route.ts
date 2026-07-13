@@ -16,9 +16,10 @@ import {
 type Params = { params: Promise<{ id: string; postId: string }> }
 
 const ALLOWED_FIELDS = [
-  'caption', 'imagePrompt', 'videoPrompt', 'mediaSource',
-  'uploadedMediaId', 'imageUrl', 'generationStatus', 'scheduledAt',
+  'caption', 'imagePrompt', 'videoPrompt', 'scheduledAt',
 ] as const
+
+const SERVER_CONTROLLED_MEDIA_FIELDS = ['imageUrl', 'generationStatus', 'mediaSource'] as const
 
 export async function PATCH(req: NextRequest, props: Params) {
   const params = await props.params;
@@ -37,6 +38,13 @@ export async function PATCH(req: NextRequest, props: Params) {
     if (!post) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const body = await req.json()
+    if (SERVER_CONTROLLED_MEDIA_FIELDS.some((field) => field in body)) {
+      return NextResponse.json({
+        error: 'Media readiness cannot be set directly. Attach an owned upload or a completed generated visual.',
+        code: 'SERVER_CONTROLLED_MEDIA_STATE',
+      }, { status: 400 })
+    }
+
     const data: Record<string, any> = {}
     for (const field of ALLOWED_FIELDS) {
       if (field in body) data[field] = body[field]
@@ -92,6 +100,56 @@ export async function PATCH(req: NextRequest, props: Params) {
       } else {
         return NextResponse.json({ error: 'Invalid uploadedMediaId' }, { status: 400 })
       }
+    }
+
+    if ('generatedVisualId' in body) {
+      if (
+        typeof body.generatedVisualId !== 'string'
+        || !body.generatedVisualId.trim()
+        || body.explicitGeneratedMediaAttachConfirmed !== true
+      ) {
+        return NextResponse.json({
+          error: 'Attaching generated media requires a completed visual and explicit confirmation.',
+          code: 'GENERATED_MEDIA_CONFIRMATION_REQUIRED',
+        }, { status: 400 })
+      }
+
+      const visual = await (prisma.generatedVisual as any).findFirst({
+        where: {
+          id: body.generatedVisualId.trim(),
+          workspaceId: post.workspaceId,
+          campaignId: params.id,
+          status: 'COMPLETED',
+          imageUrl: { not: null },
+          isArchived: false,
+        },
+        select: { id: true, imageUrl: true },
+      })
+      if (!visual?.imageUrl) {
+        return NextResponse.json({
+          error: 'Completed generated media was not found in this campaign.',
+          code: 'GENERATED_MEDIA_NOT_FOUND',
+        }, { status: 404 })
+      }
+
+      data.uploadedMediaId = null
+      data.imageUrl = visual.imageUrl
+      data.mediaSource = 'GENERATE'
+      data.generationStatus = 'DONE'
+    }
+
+    // A changed prompt no longer describes an existing generated image. Clear
+    // that image and require generation/review again instead of preserving a
+    // misleading DONE state. Uploaded media remains independent of the prompt.
+    if (
+      'imagePrompt' in data
+      && data.imagePrompt !== post.imagePrompt
+      && post.mediaSource === 'GENERATE'
+      && !('generatedVisualId' in body)
+    ) {
+      data.imageUrl = null
+      data.uploadedMediaId = null
+      data.generationStatus = 'PENDING'
     }
 
     if (Object.keys(data).length === 0) {

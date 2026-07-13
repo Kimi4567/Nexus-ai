@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   mockGetServerUserId,
   mockCheckAndDeduct,
+  mockCheckDailyImageCap,
   mockRefund,
   mockRefundForTxn,
   mockGenerateWithFlux,
@@ -21,17 +22,21 @@ const {
 } = vi.hoisted(() => ({
   mockGetServerUserId: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
+  mockCheckDailyImageCap: vi.fn(),
   mockRefund: vi.fn(),
   mockRefundForTxn: vi.fn(),
   mockGenerateWithFlux: vi.fn(),
   mockPrisma: {
     campaign: { findFirst: vi.fn() },
+    user: { findUnique: vi.fn() },
+    generatedVisual: { create: vi.fn(), update: vi.fn() },
     socialPost: {
       findMany: vi.fn(),
       updateMany: vi.fn(),
       update: vi.fn(),
       count: vi.fn(),
     },
+    $transaction: vi.fn(),
   },
 }))
 
@@ -39,6 +44,7 @@ vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
+  checkDailyImageCap: mockCheckDailyImageCap,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
 }))
@@ -52,6 +58,7 @@ const params = { params: Promise.resolve({ id: 'campaign_1' }) }
 
 const campaign = {
   id: 'campaign_1',
+  name: 'Launch campaign',
   workspaceId: 'workspace_1',
   workspace: { brandProfile: null },
 }
@@ -79,9 +86,9 @@ async function loadRoute(withProvider = true) {
   delete process.env.FAL_KEY
   vi.stubEnv('OPENAI_API_KEY', withProvider ? 'test-openai-key' : '')
   delete process.env.CLOUDINARY_CLOUD_NAME
-  delete process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
-  delete process.env.CLOUDINARY_API_KEY
-  delete process.env.CLOUDINARY_API_SECRET
+  vi.stubEnv('NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME', 'test-cloud')
+  vi.stubEnv('CLOUDINARY_API_KEY', 'test-key')
+  vi.stubEnv('CLOUDINARY_API_SECRET', 'test-secret')
   return import('../route')
 }
 
@@ -89,16 +96,30 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockGetServerUserId.mockResolvedValue('user_1')
   mockPrisma.campaign.findFirst.mockResolvedValue(campaign)
+  mockPrisma.user.findUnique.mockResolvedValue({ subscriptionStatus: 'PRO' })
+  mockPrisma.generatedVisual.create
+    .mockResolvedValueOnce({ id: 'visual_a' })
+    .mockResolvedValueOnce({ id: 'visual_b' })
+  mockPrisma.generatedVisual.update.mockResolvedValue({})
   mockPrisma.socialPost.findMany.mockResolvedValue([postA, postB])
   mockPrisma.socialPost.updateMany.mockResolvedValue({ count: 2 })
   mockPrisma.socialPost.update.mockResolvedValue({})
   mockPrisma.socialPost.count.mockResolvedValue(0)
+  mockPrisma.$transaction.mockImplementation(async (callback: (tx: any) => unknown) => callback({
+    socialPost: mockPrisma.socialPost,
+    generatedVisual: mockPrisma.generatedVisual,
+  }))
+  mockCheckDailyImageCap.mockResolvedValue({ allowed: true, used: 0, cap: 60, remaining: 60 })
   mockCheckAndDeduct
     .mockResolvedValueOnce({ ok: true, creditsUsed: 3, creditsRemaining: 27, transactionId: 'txn_a' })
     .mockResolvedValueOnce({ ok: true, creditsUsed: 3, creditsRemaining: 24, transactionId: 'txn_b' })
-  vi.stubGlobal('fetch', vi.fn(async () => ({
-    json: async () => ({ data: [{ b64_json: 'raw-image' }] }),
-  })))
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+    const url = String(input)
+    if (url.includes('cloudinary.com')) {
+      return { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/image.jpg' }) }
+    }
+    return { ok: true, json: async () => ({ data: [{ b64_json: 'raw-image' }] }) }
+  }))
 })
 
 afterEach(() => {
@@ -193,6 +214,19 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     expect(fetch).not.toHaveBeenCalled()
   })
 
+  it('rejects a batch larger than the remaining daily image allowance before deduction', async () => {
+    mockCheckDailyImageCap.mockResolvedValue({ allowed: true, used: 2, cap: 3, remaining: 1 })
+    const { POST } = await loadRoute()
+
+    const res = await POST(makeReq(confirmedBody), params)
+    const json = await res.json()
+
+    expect(res.status).toBe(429)
+    expect(json).toMatchObject({ error: 'DAILY_IMAGE_LIMIT', requested: 2, remaining: 1 })
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
   it('normalizes persisted YOUTUBE square prompts to vertical portrait generation', async () => {
     mockPrisma.socialPost.findMany.mockResolvedValue([{
       id: 'post_youtube',
@@ -202,9 +236,9 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     mockCheckAndDeduct
       .mockReset()
       .mockResolvedValueOnce({ ok: true, creditsUsed: 3, creditsRemaining: 27, transactionId: 'txn_youtube' })
-    const fetchMock = vi.fn(async () => ({
-      json: async () => ({ data: [{ b64_json: 'raw-youtube' }] }),
-    }))
+    const fetchMock = vi.fn(async (input: string | URL | Request) => String(input).includes('cloudinary.com')
+      ? { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/youtube.jpg' }) }
+      : { ok: true, json: async () => ({ data: [{ b64_json: 'raw-youtube' }] }) })
     vi.stubGlobal('fetch', fetchMock)
     const { POST } = await loadRoute()
 
@@ -223,9 +257,15 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
   })
 
   it('refunds only the failed image transaction when another image succeeds', async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce({ json: async () => ({ data: [{ b64_json: 'raw-a' }] }) })
-      .mockRejectedValueOnce(new Error('provider down for B'))
+    let providerCalls = 0
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      if (String(input).includes('cloudinary.com')) {
+        return { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/a.jpg' }) }
+      }
+      providerCalls += 1
+      if (providerCalls === 2) throw new Error('provider down for B')
+      return { ok: true, json: async () => ({ data: [{ b64_json: 'raw-a' }] }) }
+    })
     vi.stubGlobal('fetch', fetchMock)
     const { POST } = await loadRoute()
 
@@ -274,9 +314,15 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
       .mockReset()
       .mockResolvedValueOnce({ ok: true, creditsUsed: 3, creditsRemaining: 27 })
       .mockResolvedValueOnce({ ok: true, creditsUsed: 3, creditsRemaining: 24 })
-    vi.stubGlobal('fetch', vi.fn()
-      .mockResolvedValueOnce({ json: async () => ({ data: [{ b64_json: 'raw-a' }] }) })
-      .mockRejectedValueOnce(new Error('provider failed without txn')))
+    let providerCalls = 0
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      if (String(input).includes('cloudinary.com')) {
+        return { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/a.jpg' }) }
+      }
+      providerCalls += 1
+      if (providerCalls === 2) throw new Error('provider failed without txn')
+      return { ok: true, json: async () => ({ data: [{ b64_json: 'raw-a' }] }) }
+    }))
     const { POST } = await loadRoute()
 
     const res = await POST(makeReq(confirmedBody), params)
@@ -291,9 +337,15 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
       .mockReset()
       .mockResolvedValueOnce({ ok: true, creditsUsed: 0, creditsRemaining: -1, isUnlimited: true, transactionId: 'txn_a' })
       .mockResolvedValueOnce({ ok: true, creditsUsed: 0, creditsRemaining: -1, isUnlimited: true, transactionId: 'txn_b' })
-    vi.stubGlobal('fetch', vi.fn()
-      .mockResolvedValueOnce({ json: async () => ({ data: [{ b64_json: 'raw-a' }] }) })
-      .mockRejectedValueOnce(new Error('provider failed')))
+    let providerCalls = 0
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      if (String(input).includes('cloudinary.com')) {
+        return { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/a.jpg' }) }
+      }
+      providerCalls += 1
+      if (providerCalls === 2) throw new Error('provider failed')
+      return { ok: true, json: async () => ({ data: [{ b64_json: 'raw-a' }] }) }
+    }))
     const { POST } = await loadRoute()
 
     const res = await POST(makeReq(confirmedBody), params)

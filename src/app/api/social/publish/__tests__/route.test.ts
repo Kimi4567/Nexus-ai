@@ -144,7 +144,7 @@ describe('POST /api/social/publish', () => {
       data: expect.objectContaining({
         status: 'PUBLISHED',
         platformPostId: 'page_post_1',
-        publishMode: 'MANUAL',
+        publishMode: 'AUTO',
       }),
     })
     expect(mocks.postStatusHistoryCreate).toHaveBeenCalledWith({

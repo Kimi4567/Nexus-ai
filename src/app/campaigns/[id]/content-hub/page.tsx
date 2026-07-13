@@ -1362,9 +1362,13 @@ export default function ContentHubPage() {
 
       const data = await res.json()
       const imageUrl = data?.visual?.imageUrl
-      if (!imageUrl) throw new Error('No image URL returned')
+      const generatedVisualId = data?.visual?.id
+      if (!imageUrl || !generatedVisualId) throw new Error('No durable generated media returned')
 
-      await savePostEdit(postId, { imageUrl, mediaSource: 'GENERATE', generationStatus: 'DONE' })
+      await savePostEdit(postId, {
+        generatedVisualId,
+        explicitGeneratedMediaAttachConfirmed: true,
+      })
       await refreshBillingStatus()
       setImageGenerationConfirmPostId(null)
       setImageGenerationAcknowledged(false)
