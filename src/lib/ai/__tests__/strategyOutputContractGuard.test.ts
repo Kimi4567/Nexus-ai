@@ -70,6 +70,38 @@ describe('guardStrategyOutputContract', () => {
     expect(out.weeklyExecutionPlan[0].platforms).toEqual(['Instagram'])
   })
 
+  it('rebuilds a count-correct but week-short plan into the required four-week window', () => {
+    const out = guardStrategyOutputContract({
+      contentAnglesDetailed: Array.from({ length: 4 }, (_, index) => ({
+        title: `Direction ${index + 1}`,
+        platform: 'Instagram',
+        format: 'Post',
+      })),
+      weeklyExecutionPlan: [
+        { week: 1, deliverables: ['2 posts'], platforms: ['Instagram'] },
+        { week: 2, deliverables: ['2 posts'], platforms: ['Instagram'] },
+      ],
+    }, { allowedPlatforms: ['INSTAGRAM'], organicPostCount: 4 })
+
+    expect(out.weeklyExecutionPlan).toHaveLength(4)
+    expect(weeklyCount(out.weeklyExecutionPlan)).toBe(4)
+  })
+
+  it('supports an exact one-direction reviewed order without inventing four directions', () => {
+    const out = guardStrategyOutputContract({
+      contentAnglesDetailed: [],
+      weeklyExecutionPlan: [],
+    }, { allowedPlatforms: ['INSTAGRAM'], organicPostCount: 1 })
+
+    expect(out.contentAnglesDetailed).toHaveLength(1)
+    expect(out.weeklyExecutionPlan).toHaveLength(1)
+    expect(weeklyCount(out.weeklyExecutionPlan)).toBe(1)
+    expect(JSON.stringify(out.contentAnglesDetailed)).toMatch(/hypothesis|not enough evidence/i)
+
+    const report = validateCampaignStrategyContract(out, { expectedOrganicPostCount: 1 })
+    expect(report.countViolations).toEqual([])
+  })
+
   it('forces generated readiness checklist items to review-safe not-done states', () => {
     const out = guardStrategyOutputContract({
       readinessChecklist: [

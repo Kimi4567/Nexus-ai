@@ -88,6 +88,30 @@ interface Props {
   startFresh?: boolean
 }
 
+export function strategyDefaultsFromBrand(profile: StrategyBriefProfileLike | null | undefined): {
+  strategyType: 'organic' | 'paid' | 'full'
+  strategyDuration: '30' | '90' | '180' | 'custom'
+  selectedLanguage: 'ar' | 'en' | 'bilingual'
+  customDurationDays: number
+} {
+  const strategyType = profile?.strategyType === 'paid' || profile?.strategyType === 'full'
+    ? profile.strategyType
+    : 'organic'
+  const strategyDuration = ['30', '90', '180', 'custom'].includes(profile?.strategyDuration || '')
+    ? profile?.strategyDuration as '30' | '90' | '180' | 'custom'
+    : '30'
+  const selectedLanguage = profile?.languagePreference === 'en'
+    ? 'en'
+    : profile?.languagePreference === 'both'
+      ? 'bilingual'
+      : 'ar'
+  const customDurationDays = Number.isInteger(profile?.strategyCustomDays)
+    ? Math.max(1, Math.min(180, Number(profile?.strategyCustomDays)))
+    : 45
+
+  return { strategyType, strategyDuration, selectedLanguage, customDurationDays }
+}
+
 // -- Progress steps ----------------------------------------------------------
 
 // Five honest steps that reflect what actually runs: a single strategist agent
@@ -267,7 +291,13 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
         { creditsRemaining?: number } | null,
       ]) => {
         if (cancelled) return
-        setStrategyBrandProfile(brandData?.brandProfile ?? null)
+        const profile = brandData?.brandProfile ?? null
+        setStrategyBrandProfile(profile)
+        const defaults = strategyDefaultsFromBrand(profile)
+        setStrategyType(defaults.strategyType)
+        setStrategyDuration(defaults.strategyDuration)
+        setSelectedLanguage(defaults.selectedLanguage)
+        setCustomDurationDays(defaults.customDurationDays)
         if (creditData?.creditsRemaining !== undefined) {
           setCreditBalance(creditData.creditsRemaining)
         }
@@ -395,6 +425,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
           strategyDuration,
           contentIntensity,
           customDurationDays,
+          goal: strategyBrandProfile?.campaignObjective || strategyBrandProfile?.businessGoal || undefined,
           customOrganicPostCount: strategyType !== 'paid' && useCustomPostCount
             ? customOrganicPostCount
             : null,
@@ -519,6 +550,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
     customDurationDays,
     customOrganicPostCount,
     strategyDuration,
+    strategyBrandProfile,
     useCustomPostCount,
     startFresh,
   ])

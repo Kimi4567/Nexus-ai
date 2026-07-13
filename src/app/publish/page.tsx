@@ -5,6 +5,7 @@ import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState'
 import { useI18n } from '@/lib/i18n-context'
+import { derivePlatformReadiness, type PlatformKey } from '@/lib/platformReadiness'
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -25,6 +26,8 @@ interface SocialAccount {
   accountName?: string | null
   pageName?: string | null
   isActive?: boolean
+  status?: string | null
+  pages?: Array<{ id?: string | null; name?: string | null; igAccountId?: string | null }> | null
 }
 
 interface CampaignRecord {
@@ -48,8 +51,6 @@ interface PublishingPost {
   mediaSource?: string | null
   generationStatus?: string | null
 }
-
-const platformNames = ['Instagram', 'TikTok', 'Facebook', 'X', 'LinkedIn', 'Snapchat']
 
 function Panel({
   children,
@@ -101,7 +102,7 @@ function StatusCard({
 
 export default function PublishPage() {
   const { isAuthenticated, loading, authHeader } = useAuth()
-  const { locale, dir } = useI18n()
+  const { locale, dir, t } = useI18n()
   const router = useRouter()
   const ar = locale === 'ar'
   const copy = (arabic: string, english: string) => (ar ? arabic : english)
@@ -164,7 +165,13 @@ export default function PublishPage() {
     () => accounts.filter((account) => account.isActive !== false),
     [accounts],
   )
+  const platformStates = useMemo(() => derivePlatformReadiness(activeAccounts), [activeAccounts])
+  const publishingPlatforms = useMemo(() => {
+    const order: PlatformKey[] = ['facebook', 'instagram', 'tiktok', 'linkedin', 'youtube']
+    return order.map(key => platformStates.find(state => state.key === key)).filter(Boolean)
+  }, [platformStates])
   const hasConnectedAccount = activeAccounts.length > 0
+  const hasVerifiedPublisher = platformStates.some(state => state.status === 'ready' && state.key !== 'paid')
   const publishingState = useMemo(() => {
     const normalizeStatus = (post: PublishingPost) => String(post.status || 'DRAFT').toUpperCase()
     const drafts = posts.filter(post => normalizeStatus(post) === 'DRAFT').length
@@ -198,7 +205,7 @@ export default function PublishPage() {
 
   const readinessLabel = accountsLoading
     ? '...'
-    : !hasConnectedAccount
+    : !hasVerifiedPublisher
       ? copy('مقفلة', 'Blocked')
       : publishingState.total === 0
         ? copy('بانتظار المحتوى', 'Waiting for content')
@@ -278,7 +285,7 @@ export default function PublishPage() {
               value={readinessLabel}
               helper={copy('الحالة محسوبة من المنشورات الحالية والحسابات المتصلة؛ ولا تعني أن نشرًا حدث.', 'Calculated from current posts and connected accounts; it never implies publishing occurred.')}
               icon={<ShieldCheck size={22} />}
-              tone={hasConnectedAccount ? 'amber' : 'violet'}
+              tone={hasVerifiedPublisher ? 'amber' : 'violet'}
             />
             <StatusCard
               title={copy('الحسابات المتصلة', 'Connected accounts')}
@@ -354,18 +361,20 @@ export default function PublishPage() {
                 </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                {platformNames.map((platform) => {
-                  const account = activeAccounts.find((item) => item.platform?.toLowerCase().includes(platform.toLowerCase()))
+                {publishingPlatforms.map((state) => {
+                  if (!state) return null
+                  const ready = state.status === 'ready'
+                  const blocked = state.status === 'not_available'
                   return (
-                    <div key={platform} className="rounded-[16px] border border-[#e7ecf6] bg-[#fbfcff] p-4">
+                    <div key={state.key} className="rounded-[16px] border border-[#e7ecf6] bg-[#fbfcff] p-4">
                       <div className="flex items-center justify-between gap-3">
-                        <p className="text-[13px] font-black text-[#111b3f]">{platform}</p>
-                        <span className={`rounded-full px-2 py-1 text-[10px] font-black ${account ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                          {account ? copy('متصل', 'Connected') : copy('غير متصل', 'Not connected')}
+                        <p className="text-[13px] font-black text-[#111b3f]">{String(t(state.nameKey))}</p>
+                        <span className={`rounded-full px-2 py-1 text-[10px] font-black ${ready ? 'bg-emerald-50 text-emerald-700' : blocked ? 'bg-slate-100 text-slate-500' : 'bg-amber-50 text-amber-700'}`}>
+                          {String(t(state.chipKey))}
                         </span>
                       </div>
-                      <p className="mt-2 truncate text-[11px] font-semibold text-[#7b87a3]">
-                        {account?.pageName || account?.accountName || copy('اربط الحساب قبل أي نشر منصة.', 'Connect before platform publishing.')}
+                      <p className="mt-2 text-[11px] font-semibold leading-5 text-[#7b87a3]">
+                        {String(t(state.lineKey))}
                       </p>
                     </div>
                   )

@@ -10,9 +10,10 @@ export const dynamic = 'force-dynamic'
 /* ═══════════════════════════════════════════════════════════════════════════
    GET /api/cron/generate-images
 
-   Vercel Cron Job — runs every hour.
+   Vercel Cron Job — runs twice daily at 03:00 and 10:00 UTC.
    Configure in vercel.json:
-     { "path": "/api/cron/generate-images", "schedule": "0 * * * *" }
+     { "path": "/api/cron/generate-images", "schedule": "0 3 * * *" }
+     { "path": "/api/cron/generate-images", "schedule": "0 10 * * *" }
 
    Logic:
    - Find SocialPost records where:

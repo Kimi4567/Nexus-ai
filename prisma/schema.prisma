@@ -648,6 +648,13 @@ model BrandProfile {
   languagePreference    String?              // "en" | "ar" | "both" — chosen by the user, NOT the UI locale
   verifiedProof         String[]  @default([]) // user-confirmed proof points only (no AI-suggested/fake testimonials)
 
+  // User-reviewed defaults for every future strategy order. These are explicit
+  // preferences, never AI-inferred, and can be overridden in the review modal.
+  strategyType          String?              // "organic" | "paid" | "full"
+  strategyDuration      String?              // "30" | "90" | "180" | "custom"
+  strategyCustomDays    Int?                 // 1..180 when strategyDuration = "custom"
+  campaignObjective     String?              // "leads" | "sales" | "awareness" | "traffic"
+
   // Website & content intelligence (auto-scanned)
   websiteUrl    String?                          // brand's main website URL
   contentSamples String[]  @default([])          // up to 3 pasted best-performing content pieces

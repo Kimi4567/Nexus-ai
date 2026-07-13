@@ -191,6 +191,9 @@ describe('paidBoundary', () => {
     expect(metricsRoute).toContain('canRecordExternalPaidLaunch')
     expect(metricsRoute).toContain('explicitExternalLaunchConfirmed')
     expect(metricsRoute).toContain('Manual paid metrics cannot mark paid content launched')
+    expect(metricsRoute).toContain("metricsSource: 'manual'")
+    expect(metricsRoute).toContain('normalizeManualPaidMetrics')
+    expect(metricsRoute).not.toContain("metricsSource = 'manual'")
   })
 
   it('keeps Meta platform creation paused and non-active in source', () => {

@@ -6,18 +6,14 @@ import { cronAuthError } from '@/lib/cronAuth'
 import { isRetryableSocialPublishError, publishSocialPost } from '@/lib/socialPublishers'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 /**
- * GET  /api/cron/publish  — triggered by Vercel cron (daily at 10:00 UTC — Hobby plan backup)
- * POST /api/cron/publish  — triggered by external cron service every hour for precise scheduling
+ * GET  /api/cron/publish  — triggered by Vercel cron every hour at minute 5.
+ * POST /api/cron/publish  — authenticated manual/backup trigger using the same job.
  *
- * External cron setup (cron-job.org — FREE, no account needed):
- *   1. Go to https://cron-job.org → Create free account
- *   2. New cronjob → URL: https://nexus-grow.com/api/cron/publish
- *   3. Schedule: every 60 minutes
- *   4. Request method: POST
- *   5. Headers → Add header: Authorization: Bearer <CRON_SECRET value from Vercel env>
- *   This gives hourly precision on Vercel Hobby plan at zero cost.
+ * This is hourly scheduling, not real-time delivery. The UI must never promise
+ * minute-level publishing precision.
  */
 
 // ── Core publish logic ─────────────────────────────────────────

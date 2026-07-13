@@ -1,8 +1,9 @@
 'use client'
 /**
  * global-error.tsx — catches unhandled errors in the App Router root layout.
- * Logs to console in production. Sentry reporting commented out until
- * @sentry/nextjs is installed (npm install @sentry/nextjs).
+ * Records a privacy-safe client error signal. Vercel Web Analytics and Speed
+ * Insights are enabled separately; external error forwarding remains disabled
+ * until a real provider integration is configured.
  */
 import { useEffect } from 'react'
 
@@ -14,8 +15,14 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    // TODO: replace with Sentry.captureException(error) after npm install @sentry/nextjs
-    console.error('[GlobalError]', error)
+    console.error(JSON.stringify({
+      level: 'error',
+      message: 'Unhandled App Router error',
+      errorName: error.name,
+      errorMessage: error.message,
+      digest: error.digest ?? null,
+      occurredAt: new Date().toISOString(),
+    }))
   }, [error])
 
   return (
@@ -24,7 +31,7 @@ export default function GlobalError({
         <div style={{ fontSize: '32px' }}>⚠️</div>
         <h2 style={{ fontSize: '20px', fontWeight: 700 }}>Something went wrong</h2>
         <p style={{ fontSize: '13px', color: '#888', textAlign: 'center', maxWidth: '400px' }}>
-          Our team has been notified. Please try again or contact support if the issue persists.
+          The error was recorded in this browser session. Please try again or contact support if it persists.
         </p>
         <button
           onClick={reset}

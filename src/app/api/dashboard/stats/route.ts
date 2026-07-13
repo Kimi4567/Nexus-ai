@@ -1,6 +1,6 @@
 /**
  * GET /api/dashboard/stats
- * Returns real-time dashboard stats for the current user:
+ * Returns current dashboard stats for the authenticated user at request time:
  * - campaign counts (total, active, this month)
  * - generation counts
  * - published posts count

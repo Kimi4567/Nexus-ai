@@ -221,6 +221,7 @@ describe('POST /api/strategy/run-full — variable charge', () => {
       strategyType: 'organic', strategyDuration: 'custom', customDurationDays: 160, contentIntensity: 'standard', // = 18
     }))
     const json = await res.json()
+    expect(res.status).toBe(502)
     expect(json.ok).toBe(false)
     // Exact refund of the variable amount actually deducted (18), not fixed 8.
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
@@ -356,6 +357,7 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     }))
     const json = await res.json()
 
+    expect(res.status).toBe(502)
     expect(json.ok).toBe(false)
     expect(json.refunded).toBe(false)
     expect(json.creditsUsed).toBe(0)

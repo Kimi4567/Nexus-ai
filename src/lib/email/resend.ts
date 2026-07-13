@@ -4,7 +4,15 @@
  */
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+let resendClient: Resend | null = null
+
+function getResend(): Resend {
+  if (resendClient) return resendClient
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) throw new Error('Email provider configuration is unavailable')
+  resendClient = new Resend(apiKey)
+  return resendClient
+}
 
 const FROM = 'Nexus AI <hello@nexus-grow.com>'
 const REPLY_TO = 'support@nexus-grow.com'
@@ -49,7 +57,7 @@ function emailShell(content: string): string {
 
     <!-- Footer -->
     <div style="margin-top:48px;padding-top:24px;border-top:1px solid #1a1a18;font-size:11px;color:#5C5448;line-height:1.6;">
-      <p>Nexus AI — Your AI marketing department.</p>
+      <p>Nexus AI — Your marketing operating workspace.</p>
       <p style="margin-top:4px;">
         <a href="${APP_URL}/settings" style="color:#5C5448;">Manage preferences</a>
         &nbsp;·&nbsp;
@@ -114,7 +122,7 @@ export async function sendWelcomeEmail(to: string, name: string) {
           <div style="width:22px;height:22px;background:#FF9500;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#080807;flex-shrink:0;">2</div>
           <div>
             <div style="font-size:13px;font-weight:600;color:#e8e8f5;">Generate your first campaign</div>
-            <div style="font-size:12px;color:#6a6a8a;margin-top:2px;">Full strategy, hooks, scripts, and content calendar in 60 seconds.</div>
+            <div style="font-size:12px;color:#6a6a8a;margin-top:2px;">Generate a draft strategy, hooks, scripts, and a content calendar for your review.</div>
           </div>
         </div>
         <div style="display:flex;align-items:flex-start;gap:12px;">
@@ -128,19 +136,19 @@ export async function sendWelcomeEmail(to: string, name: string) {
     `)}
 
     <div style="background:#101010;border:1px solid #2a2a4a;border-radius:10px;padding:16px 20px;margin:20px 0;">
-      <div style="font-size:12px;color:#FF9500;font-weight:700;margin-bottom:4px;">⚡ You have 15 free AI credits</div>
-      <div style="font-size:13px;color:#b8b8d8;">That's 3 full campaign generations to get started. No credit card needed.</div>
+      <div style="font-size:12px;color:#FF9500;font-weight:700;margin-bottom:4px;">⚡ Your trial includes 12 AI credits for 14 days</div>
+      <div style="font-size:13px;color:#b8b8d8;">Credit costs are shown before each action. No credit card is required to start.</div>
     </div>
 
     ${btn('Open your dashboard →', `${APP_URL}/dashboard`)}
 
     <div style="margin-top:32px;padding-top:20px;border-top:1px solid #1a1a18;">
-      ${p('If you have any questions, just reply to this email — I read every one.', true)}
+      ${p('If you have a question, reply to this email and the support inbox will receive it.', true)}
       ${p('— Raouf, founder of Nexus', true)}
     </div>
   `
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to,
@@ -174,7 +182,7 @@ export async function sendCreditsLowEmail(to: string, name: string, creditsRemai
     ${p('Cancel anytime. Access continues through the end of the paid billing period.', true)}
   `
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to,
@@ -241,7 +249,7 @@ export async function sendWeeklyBrief(to: string, data: WeeklyBriefData) {
     ${btn('Generate this week\'s content →', `${APP_URL}/campaigns/new`)}
 
     <div style="margin-top:20px;">
-      ${p('Your weekly brief is generated every Monday based on your brand memory and past campaigns. The more you use Nexus, the smarter it gets.', true)}
+      ${p('Your weekly brief is prepared every Monday from your saved brand profile and campaign activity. Recommendations remain reviewable hypotheses until platform evidence supports them.', true)}
       <div style="margin-top:16px;padding-top:16px;border-top:1px solid #1a1a18;">
         <div style="display:flex;align-items:center;gap:10px;">
           <div style="width:32px;height:32px;background:#6366F1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;">🧠</div>
@@ -254,7 +262,7 @@ export async function sendWeeklyBrief(to: string, data: WeeklyBriefData) {
     </div>
   `
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to,
@@ -332,7 +340,7 @@ export async function sendDailyDigest(to: string, data: DailyDigestData) {
     </div>
   `
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM, replyTo: REPLY_TO, to,
     subject: safeHeaderText(`Today on ${platformName}: ${data.type} — ${data.campaignName}`),
     html: emailShell(content),
@@ -348,12 +356,12 @@ export async function sendNurtureDay1(to: string, name: string) {
   const content = `
     ${h1(`${firstName}, your AI is missing something.`)}
     ${p('You created your account yesterday. But before the AI can write content that actually sounds like <em>you</em>, it needs to know your brand.')}
-    ${p('Right now Nexus is generating generic output. Take 3 minutes to set up your Brand Memory — after that, every campaign, every hook, every caption will be written in your voice, for your audience.')}
+    ${p('Without a saved brand profile, Nexus has less context for its drafts. Add your tone, audience, offer, and constraints so future outputs can use that information as their starting point.')}
 
     ${card(`
       <div style="font-size:12px;color:#FF9500;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">🧠 What Brand Memory stores</div>
       <div style="display:flex;flex-direction:column;gap:8px;">
-        ${['Your brand tone and writing style', 'Your target audience (once — never again)', 'Your winning hooks and angles', 'What to avoid in your content', 'Your primary offer and positioning'].map(f =>
+        ${['Your brand tone and writing style', 'Your target audience', 'Approved hooks and tested angles', 'What to avoid in your content', 'Your primary offer and positioning'].map(f =>
           `<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#b8b8d8;">
             <span style="color:#FF9500;">→</span> ${f}
           </div>`
@@ -361,12 +369,12 @@ export async function sendNurtureDay1(to: string, name: string) {
       </div>
     `)}
 
-    ${p('Once it\'s set, every campaign you generate will be on-brand automatically. No more re-explaining who you are.')}
+    ${p('Once saved, Nexus uses this profile as context for campaign drafts. You remain responsible for reviewing tone, accuracy, and claims before approval.')}
     ${btn('Set up Brand Memory — 3 minutes →', `${APP_URL}/brand`)}
     <div style="margin-top:20px;">${p('— Raouf', true)}</div>
   `
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM, replyTo: REPLY_TO, to,
     subject: `${firstName}, your AI doesn't know your brand yet`,
     html: emailShell(content),
@@ -399,47 +407,47 @@ export async function sendNurtureDay3(to: string, name: string) {
       </div>
     `)}
 
-    ${p('Takes 60 seconds. You have 2 free campaigns left.')}
+    ${p('The draft is generated for your review. Your current balance and the action cost are shown inside Nexus before generation.')}
     ${btn('Generate a campaign now →', `${APP_URL}/campaigns/new`)}
     <div style="margin-top:20px;">${p('— Raouf', true)}</div>
   `
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM, replyTo: REPLY_TO, to,
-    subject: `You have 2 free campaigns left on Nexus`,
+    subject: `Create a focused campaign with your Nexus trial credits`,
     html: emailShell(content),
   })
 }
 
-// Day 5 — Urgency: 1 campaign left
+// Day 5 — Trial activation reminder
 export async function sendNurtureDay5(to: string, name: string) {
   const firstName = name?.split(' ')[0] || 'there'
 
   const content = `
-    ${h1('1 free campaign left.')}
-    ${p(`${firstName} — your free plan includes 3 complete campaigns. You have <strong style="color:#f59e0b;">1 left</strong>.`)}
-    ${p('Use it today. Generate a campaign for your best product, your most important launch, or the audience you\'ve been meaning to target.')}
+    ${h1('Use your trial credits on a focused campaign.')}
+    ${p(`${firstName} — your live credit balance is available in Nexus. Choose one important product, launch, or audience and review the action cost before generating.`)}
+    ${p('Nexus prepares a draft for approval. Nothing is published outside the permissions and approvals shown in the product.')}
 
     <div style="background:#1a1000;border:1px solid #3a2800;border-radius:12px;padding:20px 24px;margin:20px 0;">
-      <div style="font-size:13px;color:#f59e0b;font-weight:700;margin-bottom:8px;">⚡ Use your last free campaign on something that matters</div>
+      <div style="font-size:13px;color:#f59e0b;font-weight:700;margin-bottom:8px;">⚡ Use trial credits on something measurable</div>
       <div style="font-size:13px;color:#c8a060;line-height:1.6;">
         Pick your highest-value product or service. Set your goal to Sales or Leads. Let Nexus build the full strategy — then take the hooks and start posting today.
       </div>
     </div>
 
-    ${btn('Use my last free campaign →', `${APP_URL}/campaigns/new`)}
+    ${btn('Review credits and create a campaign →', `${APP_URL}/campaigns/new`)}
 
     <div style="margin-top:24px;padding:16px 20px;background:#101010;border:1px solid #1a1a18;border-radius:10px;">
-      <div style="font-size:12px;color:#5C5448;margin-bottom:6px;">After your free campaigns are used:</div>
+      <div style="font-size:12px;color:#5C5448;margin-bottom:6px;">When you need more capacity:</div>
       <div style="font-size:13px;color:#9A9080;">Upgrade to Growth for $49/month — 150 credits, up to 10 monthly campaign creations, and a weekly planning brief. <a href="${APP_URL}/billing" style="color:#FF9500;">See plans →</a></div>
     </div>
 
     <div style="margin-top:20px;">${p('— Raouf', true)}</div>
   `
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM, replyTo: REPLY_TO, to,
-    subject: `${firstName}, you have 1 free Nexus campaign left`,
+    subject: `${firstName}, choose one focused campaign for your Nexus trial`,
     html: emailShell(content),
   })
 }
@@ -490,7 +498,7 @@ export async function sendNurtureDay7(to: string, name: string) {
     </div>
   `
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM, replyTo: REPLY_TO, to,
     subject: `Is Nexus worth $49/month? Here's the honest answer`,
     html: emailShell(content),
@@ -529,7 +537,7 @@ export async function sendUpgradeConfirmationEmail(to: string, name: string, pla
     ${btn('Go to your dashboard →', `${APP_URL}/dashboard`)}
   `
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to,
@@ -564,9 +572,9 @@ export async function sendContentPlanReadyEmail(
       <div style="display:flex;flex-direction:column;gap:10px;">
         ${[
           ['Review captions', 'Read each post — edit or AI-rewrite any you want to improve'],
-          ['Approve & Schedule', 'Hit "Approve All" to auto-schedule every post at optimal times'],
+          ['Approve & Schedule', 'Approve posts, then review the proposed schedule before publishing'],
           ['Generate images', 'Click "Generate Images" to create AI visuals for each post'],
-          ['Watch it publish', 'Posts go live automatically — no manual posting needed'],
+          ['Monitor publishing', 'Approved posts publish only when the selected provider connection is verified and the schedule is active'],
         ].map(([step, desc], i) =>
           `<div style="display:flex;gap:12px;align-items:flex-start;">
             <div style="width:22px;height:22px;min-width:22px;background:#FF9500;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#080807;margin-top:1px;">${i + 1}</div>
@@ -584,7 +592,7 @@ export async function sendContentPlanReadyEmail(
     ${p('Posts are saved as drafts until you approve them — nothing goes live without your sign-off.', true)}
   `
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to,
@@ -624,7 +632,7 @@ export async function sendIntegrationExpiryEmail(
     ${p('If you need help, reply to this email and we\'ll sort it out.', true)}
   `
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to,
@@ -646,10 +654,10 @@ export async function sendBrandBrainIncompleteEmail(to: string, name: string, co
     ${card(`
       <div style="font-size:13px;color:#9A9080;margin-bottom:16px;">A complete Brand Brain unlocks:</div>
       ${[
-        ['🎯', 'Captions that sound exactly like you'],
-        ['🧠', 'Strategy that targets your real audience'],
+        ['🎯', 'Captions guided by your saved tone'],
+        ['🧠', 'Strategy drafts informed by your stated audience'],
         ['✨', 'Images aligned to your brand aesthetic'],
-        ['📈', 'Better engagement from day one'],
+        ['📈', 'A consistent baseline you can measure and improve'],
       ].map(([icon, text]) => `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
           <span style="font-size:16px;">${icon}</span>
@@ -658,10 +666,10 @@ export async function sendBrandBrainIncompleteEmail(to: string, name: string, co
       `).join('')}
     `)}
     ${btn('Complete Brand Brain →', `${APP_URL}/brand`)}
-    ${p('Takes about 3 minutes. Pays off in every campaign after that.', true)}
+    ${p('You can update the profile whenever the brand, offer, or evidence changes.', true)}
   `
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to,
@@ -687,12 +695,12 @@ export async function sendContentAwaitingApprovalEmail(
     ${h1(`${firstName}, your content plan has been waiting ${draftDays} days`)}
     ${p(`You have <strong style="color:#FF9500">${postCount} posts ready</strong> for "${campaignName}" — but they haven't been approved yet, so nothing has been scheduled or published.`)}
     ${card(`
-      <div style="font-size:13px;color:#9A9080;margin-bottom:8px;">Approving takes 60 seconds:</div>
+      <div style="font-size:13px;color:#9A9080;margin-bottom:8px;">Review before scheduling:</div>
       ${[
         'Review the AI-generated captions',
         'Approve all → posts get scheduled automatically',
-        'Generate images → visuals are created overnight',
-        'Sit back → Nexus publishes on the optimal schedule',
+        'Generate images → visuals enter the configured generation queue',
+        'Monitor the queue → approved posts publish only through verified connected providers',
       ].map((step, i) => `
         <div style="display:flex;align-items:center;gap:12px;padding:8px 0;">
           <div style="width:22px;height:22px;border-radius:50%;background:rgba(255,149,0,0.15);border:1px solid rgba(255,149,0,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#FF9500;flex-shrink:0;">${i + 1}</div>
@@ -703,7 +711,7 @@ export async function sendContentAwaitingApprovalEmail(
     ${btn(`Review ${postCount} posts →`, hubUrl)}
   `
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to,
@@ -737,7 +745,7 @@ export async function sendReEngagementEmail(to: string, name: string, daysSinceA
     ${p('Consistency is the biggest factor in social media growth. Let Nexus handle the heavy lifting.', true)}
   `
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to,

@@ -23,7 +23,7 @@ import CreditConfirmModal from '@/components/CreditConfirmModal'
 const PAID_PACK_COST = 6
 import {
   Target, Zap, Users, DollarSign, Copy, ExternalLink,
-  CheckCircle, TrendingUp, Brain, ChevronDown, ChevronUp,
+  CheckCircle, Brain, ChevronDown, ChevronUp,
   RefreshCw, AlertCircle, BarChart3, ArrowLeft,
   Link2, BookOpen
 } from 'lucide-react'
@@ -47,7 +47,7 @@ interface AudienceBrief {
     ageMin: number; ageMax: number; genders: string[]; locations: string[]
     interests: string[]; behaviors: string[]; exclusions: string[]
     customAudienceSuggestions: string[]; placementRecommendation: string
-    bidStrategy: string; estimatedAudienceSize: string
+    bidStrategy: string; estimatedAudienceSize: string | null
   }
   google?: {
     campaignType: string; keywords: string[]; negativeKeywords: string[]
@@ -63,16 +63,12 @@ interface AudienceBrief {
   }
 }
 
-interface EstimatedReach {
-  [platform: string]: { impressionsMin: number; impressionsMax: number; cpmMin: number; cpmMax: number }
-}
-
 interface BudgetInsights {
   recommendation: string
   splitSuggestion: Record<string, number>
   phasingSuggestion: string
-  competitorBenchmark: string
-  expectedResults: string
+  competitorBenchmark: string | null
+  expectedResults: string | null
 }
 
 interface PaidPack {
@@ -86,7 +82,7 @@ interface PaidPack {
   currency: string
   audienceBrief: AudienceBrief | null
   copyVariants: CopyVariant[] | null
-  estimatedReach: EstimatedReach | null
+  estimatedReach: unknown
   utmParams: { examples: Record<string, string>; campaign: string } | null
   platformGuides: Record<string, string[]> | null
   budgetInsights: BudgetInsights | null
@@ -286,20 +282,28 @@ export default function PaidLaunchPage() {
   const handleSaveMetrics = async () => {
     setSavingMetrics(true)
     try {
+      const optionalMetric = (value: string) => value.trim() === '' ? undefined : Number(value)
       const res = await fetch(`/api/campaigns/${id}/paid-pack/metrics`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
         body: JSON.stringify({
-          impressions: parseFloat(metricsForm.impressions) || 0,
-          reach: parseFloat(metricsForm.reach) || 0,
-          clicks: parseFloat(metricsForm.clicks) || 0,
-          spend: parseFloat(metricsForm.spend) || 0,
-          conversions: parseFloat(metricsForm.conversions) || 0,
-          roas: parseFloat(metricsForm.roas) || 0,
-          metricsSource: 'manual',
+          impressions: optionalMetric(metricsForm.impressions),
+          reach: optionalMetric(metricsForm.reach),
+          clicks: optionalMetric(metricsForm.clicks),
+          spend: optionalMetric(metricsForm.spend),
+          conversions: optionalMetric(metricsForm.conversions),
+          roas: optionalMetric(metricsForm.roas),
         }),
       })
-      if (res.ok) { const data = await res.json(); setPack(data.pack); setShowMetricsForm(false) }
+      const result = await res.json()
+      if (res.ok) {
+        setPack(result.pack)
+        setShowMetricsForm(false)
+      } else {
+        setError(result.error ?? copy('تعذر حفظ المقاييس اليدوية.', 'Could not save manual metrics.'))
+      }
+    } catch {
+      setError(copy('تعذر حفظ المقاييس اليدوية.', 'Could not save manual metrics.'))
     } finally { setSavingMetrics(false) }
   }
 
@@ -589,41 +593,22 @@ export default function PaidLaunchPage() {
         {/* ═══ GENERATED CONTENT ═══ */}
         {hasGenerated && pack && (
           <>
-            {/* Estimated Reach */}
-            {pack.estimatedReach && (
-              <Section title={copy('تقدير الوصول التخطيطي', 'Planning Reach Estimate')} icon={<TrendingUp size={16} color="#2563eb" />}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
-                  {Object.entries(pack.estimatedReach as Record<string, { impressionsMin?: number; impressionsMax?: number; cpmMin?: number; cpmMax?: number }>).map(([p, r]) => {
-                    const plat = PLATFORMS.find(x => x.value === p)
-                    const impMin = r?.impressionsMin ?? 0
-                    const impMax = r?.impressionsMax ?? 0
-                    const cpmMin = r?.cpmMin ?? 0
-                    const cpmMax = r?.cpmMax ?? 0
-                    return (
-                      <div key={p} style={{ padding: '14px', borderRadius: 10, background: `${plat?.bg ?? '#f8fafc'}`, border: `1px solid ${plat?.color ?? '#334155'}30` }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: plat?.color ?? '#94a3b8', marginBottom: 8 }}>
-                          {plat?.icon} {plat?.label ?? p}
-                        </div>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: '#0f172a' }}>
-                          {(impMin / 1000).toFixed(0)}K – {(impMax / 1000).toFixed(0)}K
-                        </div>
-                        <div style={{ color: '#64748b', fontSize: 10, marginTop: 2 }}>
-                          {copy('مرات ظهور تخطيطية', 'planning impressions')} · {copy('افتراض CPM', 'CPM assumption')} ${cpmMin}–${cpmMax}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
+            {/* Forecast truth boundary */}
+            <Section title={copy('توفر توقعات المنصة', 'Platform Forecast Availability')} icon={<AlertCircle size={16} color="#d97706" />}>
+              <p style={{ margin: 0, color: '#334155', fontSize: 13, lineHeight: 1.65 }}>
+                {copy(
+                  'لا يعرض NEXUS أرقام وصول أو CPM أو نتائج مقدّرة من جداول عامة. ستظهر التوقعات فقط بعد جلب Forecast حقيقي من الحساب الإعلاني المتصل أو توفر تاريخ أداء موثوق.',
+                  'NEXUS does not show estimated reach, CPM, or outcomes from generic tables. Forecasts appear only after a real account-level platform forecast is fetched or verified performance history exists.'
+                )}
+              </p>
                 {pack.budgetInsights && (
                   <div style={{ marginTop: 16, padding: '14px', borderRadius: 10, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
                     <div style={{ color: '#c2410c', fontWeight: 700, fontSize: 13, marginBottom: 6 }}>💡 {copy('ملاحظات تخطيط الميزانية', 'Budget Planning Notes')}</div>
                     <p style={{ margin: '0 0 8px', color: '#334155', fontSize: 13, lineHeight: 1.6 }}>{pack.budgetInsights.recommendation}</p>
                     <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: 12 }}><strong style={{ color: '#0f172a' }}>{copy('مراحل الميزانية:', 'Phasing:')}</strong> {pack.budgetInsights.phasingSuggestion}</p>
-                    <p style={{ margin: 0, color: '#64748b', fontSize: 12 }}><strong style={{ color: '#0f172a' }}>{copy('افتراض تخطيطي:', 'Planning assumption:')}</strong> {pack.budgetInsights.expectedResults}</p>
                   </div>
                 )}
-              </Section>
-            )}
+            </Section>
 
             {/* Audience Brief */}
             {pack.audienceBrief && (
@@ -660,7 +645,9 @@ export default function PaidLaunchPage() {
                         <div style={{ padding: 12, borderRadius: 8, background: '#f8fafc', border: '1px solid rgba(15,23,42,0.06)' }}>
                           <div style={{ color: '#64748b', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>{copy('مواضع الظهور · استراتيجية المزايدة', 'PLACEMENTS · BID STRATEGY')}</div>
                           <div style={{ color: '#0f172a', fontSize: 12 }}>{m.placementRecommendation}</div>
-                          <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>{m.bidStrategy} · {copy('حجم الجمهور:', 'Audience:')} {m.estimatedAudienceSize}</div>
+                          <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>
+                            {m.bidStrategy} · {copy('حجم الجمهور: غير متاح حتى Forecast المنصة', 'Audience size: unavailable until platform forecast')}
+                          </div>
                         </div>
                       </div>
                       <div style={{ padding: 12, borderRadius: 8, background: '#f8fafc', border: '1px solid rgba(15,23,42,0.06)' }}>

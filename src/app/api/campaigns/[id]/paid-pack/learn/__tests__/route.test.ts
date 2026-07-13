@@ -94,7 +94,12 @@ beforeEach(() => {
     durationDays: 30,
     dailyBudget: 50,
     currency: 'USD',
-    metrics: { ctr: 2.4, roas: 3.1 },
+    metrics: {
+      ctr: 2.4,
+      roas: 3.1,
+      byCreative: { v1: { ctr: 2.4, roas: 3.1 } },
+    },
+    metricsSource: 'meta_api',
     copyVariants: [{ id: 'v1', hook: 'Stop losing qualified leads' }],
     audienceBrief: { meta: { locations: ['Dubai'] } },
     budgetInsights: { recommendation: 'Scale Meta first.' },
@@ -250,18 +255,36 @@ describe('POST /api/campaigns/[id]/paid-pack/learn — RF-4 refund safety', () =
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
 
-  it('success deducts once, stores a manual review signal, and does not update Brand Brain', async () => {
+  it('manual aggregate metrics create a free deterministic review signal and never update Brand Brain', async () => {
+    mockPrisma.paidCampaignPack.findUnique.mockResolvedValue({
+      campaignId: 'c1',
+      objective: 'LEAD_GENERATION',
+      platforms: ['meta'],
+      durationDays: 30,
+      dailyBudget: 50,
+      currency: 'USD',
+      metrics: { ctr: 2.4, roas: 3.1 },
+      metricsSource: 'manual',
+      copyVariants: [{ id: 'v1', hook: 'Stop losing qualified leads' }],
+      audienceBrief: { meta: { locations: ['Dubai'] } },
+      budgetInsights: {},
+    })
+
     const res = await POST(makeReq(), ctx())
     const json = await res.json()
 
     expect(res.status).toBe(200)
     expect(json.success).toBe(true)
-    expect(json.learnings).toEqual(learningPayload.learnings)
+    expect(json.learnings.measurementCompleteness).toBe('partial')
+    expect(json.learnings.candidateHooks).toEqual([])
+    expect(json.learnings.keyInsight).toMatch(/cannot establish/i)
     expect(json.brandBrainUpdated).toBe(false)
     expect(json.analyticsBacked).toBe(false)
+    expect(json.attributionReady).toBe(false)
+    expect(json.creditsUsed).toBe(0)
     expect(json.signalLabel).toBe('Manual paid metrics signal saved for review')
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'AD_COPY')
-    expect(mockCheckAndDeduct).toHaveBeenCalledTimes(1)
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(globalThis.fetch).not.toHaveBeenCalled()
     expect(mockPrisma.paidCampaignPack.update).toHaveBeenCalledTimes(1)
     expect(mockPrisma.brandProfile.update).not.toHaveBeenCalled()
     expect(mockSnapshotBrandMaturity).not.toHaveBeenCalled()

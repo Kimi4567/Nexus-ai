@@ -36,7 +36,7 @@ const PLANS = [
     name: 'Autopilot',
     price: '$99',
     color: '#059669',
-    features: ['500 AI credits / month', 'Unlimited campaigns', '10 workspaces', '60 planned posts / month', 'Continuous monitoring'],
+    features: ['500 AI credits / month', 'Unlimited campaign creation', '10 workspaces', '60 planned posts / month', 'Scheduled monitoring + action queue'],
   },
 ]
 
@@ -50,7 +50,7 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
   const headline =
     reason === 'no_credits'      ? "You've used all your credits" :
     reason === 'low_credits'     ? "Running low on credits" :
-    reason === 'first_campaign'  ? "🎉 Your campaign is live!" :
+    reason === 'first_campaign'  ? "🎉 Your campaign draft is ready" :
     "Unlock the full power of Nexus AI"
 
   const subline =
@@ -164,7 +164,7 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
         {/* Footer */}
         <div className="px-6 pb-5 text-center space-y-2">
           <p className="text-[11px] text-text-muted">
-            Secure payment via Stripe · 7-day refund guarantee · Cancel any time
+            Stripe Sandbox during testing · Qualified first payments have a 14-day refund window · Cancel any time
           </p>
           <button onClick={onClose}
             className="text-[11px] text-text-muted hover:text-text-secondary transition-colors underline underline-offset-2">

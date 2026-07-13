@@ -45,6 +45,10 @@ export interface StrategyBriefProfileLike {
   leadHandling?: string | null
   audienceLocation?: string | null
   verifiedProof?: string[] | null
+  strategyType?: StrategyBriefMode | null
+  strategyDuration?: '30' | '90' | '180' | 'custom' | null
+  strategyCustomDays?: number | null
+  campaignObjective?: 'leads' | 'sales' | 'awareness' | 'traffic' | null
 }
 
 export interface StrategyBriefPlatformSummary {

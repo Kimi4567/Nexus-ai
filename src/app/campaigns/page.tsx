@@ -733,7 +733,7 @@ export default function CampaignsPage() {
                 <h2 className="mb-4 text-[15px] font-black text-[#111b3f]">{copy('معلومات ذكية من NEXUS', 'NEXUS intelligence')}</h2>
                 <div className="space-y-3">
                   {[
-                    copy('أفضل وقت للنشر يظهر بعد ربط المنصات ووجود بيانات.', 'Best posting time appears after platform data exists.'),
+                    copy('وقت النشر المقترح يظهر بعد ربط المنصات ووجود بيانات.', 'A suggested posting time appears after platform data exists.'),
                     copy('فرص المحتوى تعتمد على الاستراتيجية وسجلات Content Hub.', 'Content opportunities depend on strategy and Content Hub records.'),
                     copy('تعلم الأداء يتطلب analyticsData حقيقية.', 'Performance learning requires real analyticsData.'),
                   ].map((note) => (

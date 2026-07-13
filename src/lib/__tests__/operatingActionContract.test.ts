@@ -141,9 +141,10 @@ describe('operating action contract', () => {
 
     expect(source).toContain("copy('اختر منصة التخطيط المدفوع', 'Choose planning platform')")
     expect(source).toContain("copy('نوع افتراض الميزانية', 'Budget Assumption Type')")
-    expect(source).toContain("copy('هذا ليس إنفاقاً معتمداً.")
-    expect(source).toContain('hasComparableBenchmark')
-    expect(source).toContain("data.currency === 'USD'")
+    expect(source).toContain("copy('حدود التوقعات', 'Forecast boundary')")
+    expect(source).toContain('لن يخمّن NEXUS الوصول أو مرات الظهور أو CPM')
+    expect(source).not.toContain('CPM_BENCH')
+    expect(source).not.toContain('hasComparableBenchmark')
     expect(source).toContain("aria-label={copy('العودة إلى مركز الإعلانات المدفوعة'")
     expect(source).not.toContain('>Choose planning platform</h2>')
     expect(source).not.toContain('>Planning Draft Details</h2>')

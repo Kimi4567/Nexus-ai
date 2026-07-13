@@ -52,10 +52,10 @@ const PLATFORMS: PlatformDef[] = [
     id: 'META',
     name: { ar: 'Meta — Facebook وInstagram', en: 'Meta — Facebook & Instagram' },
     helper: {
-      ar: 'ربط صفحات Facebook وحسابات Instagram للنشر العضوي بعد مراجعة الصلاحيات.',
-      en: 'Connect Facebook Pages and Instagram accounts for organic publishing after permission review.',
+      ar: 'ينشر Facebook بعد تحقق الصفحة والصلاحيات. يظهر حساب Instagram للربط والمراجعة، ولا يُعتمد نشره حتى نجاح فحص الصلاحيات.',
+      en: 'Facebook can publish after Page and permission checks. Instagram is connected for review and is not treated as publish-ready until permission verification passes.',
     },
-    scope: { ar: 'نشر عضوي بعد الموافقة', en: 'Organic publishing after approval' },
+    scope: { ar: 'Facebook جاهز بشروط · Instagram قيد التحقق', en: 'Facebook conditional · Instagram verification pending' },
     available: true,
     accent: '#2563eb',
     icon: '∞',
@@ -64,10 +64,10 @@ const PLATFORMS: PlatformDef[] = [
     id: 'LINKEDIN',
     name: { ar: 'LinkedIn', en: 'LinkedIn' },
     helper: {
-      ar: 'منشورات مهنية وصفحات شركات، مع مراجعة الصلاحيات قبل أي نشر.',
-      en: 'Professional posts and company pages with permission checks before publishing.',
+      ar: 'مسار النشر المهني مبني، لكن هذا الاتصال يظل قيد التحقق حتى اعتماد الصلاحيات فعلياً للحساب.',
+      en: 'The professional publishing path is implemented, but the connection remains unverified until the account permissions are proven.',
     },
-    scope: { ar: 'نشر عضوي مهني', en: 'Professional organic publishing' },
+    scope: { ar: 'اتصال للمراجعة · الإذن غير مثبت', en: 'Review connection · permission unverified' },
     available: true,
     accent: '#0a66c2',
     icon: 'in',
@@ -76,10 +76,10 @@ const PLATFORMS: PlatformDef[] = [
     id: 'TIKTOK',
     name: { ar: 'TikTok', en: 'TikTok' },
     helper: {
-      ar: 'فيديوهات قصيرة ومحتوى اجتماعي، لا يتم النشر إلا بعد موافقة صريحة.',
-      en: 'Short-form social content, published only after explicit approval.',
+      ar: 'يمكن ربط الحساب لمراجعة التطبيق. النشر المباشر متوقف حتى اكتمال creator-info والتحقق من الخصوصية.',
+      en: 'Connect the account for app review. Direct posting is paused until creator-info and privacy validation are complete.',
     },
-    scope: { ar: 'محتوى قصير', en: 'Short-form content' },
+    scope: { ar: 'ربط تجريبي · النشر متوقف', en: 'Review connection · publishing paused' },
     available: true,
     accent: '#111827',
     icon: '♪',
@@ -363,7 +363,7 @@ export default function ConnectionsPage() {
         <div className="nx-os-container">
           <LuxuryWorkspaceHeader
             pageTitle={copy('الربط', 'Connections')}
-            pageSubtitle={copy('اربط الحسابات التي سيستخدمها NEXUS للنشر والقياس.', 'Connect the accounts NEXUS can use for publishing and measurement.')}
+            pageSubtitle={copy('اربط الحسابات ثم راجع القدرة المثبتة لكل منصة قبل النشر أو القياس.', 'Connect accounts, then review the proven capability for each platform before publishing or measurement.')}
             primaryHref="/publish"
             primaryLabel={copy('فحص جاهزية النشر', 'Check publishing readiness')}
             secondaryHref="/settings"
@@ -444,9 +444,9 @@ export default function ConnectionsPage() {
                             </div>
                           </div>
                           {isConnected ? (
-                            <StatusPill tone="ready">
+                            <StatusPill tone="needs">
                               <CheckCircle2 className="h-3.5 w-3.5" />
-                              {copy('متصل', 'Connected')}
+                              {copy('اتصال محفوظ', 'Connection saved')}
                             </StatusPill>
                           ) : platform.available ? (
                             <StatusPill tone="needs">
@@ -525,6 +525,65 @@ export default function ConnectionsPage() {
                       </article>
                     )
                   })}
+                </div>
+              </Panel>
+
+              <Panel
+                title={copy('جاهزية حسابات الإعلانات', 'Ad account readiness')}
+                icon={<KeyRound size={18} />}
+                className="mt-5"
+                action={<span className="text-[12px] font-bold text-[#64708f]">{copy('لا إنفاق بدون اعتماد', 'No spend without approval')}</span>}
+              >
+                {metaAdAccounts.length === 0 ? (
+                  <div className="rounded-[18px] border border-dashed border-[#d7def0] p-6 text-center">
+                    <p className="text-[13px] font-black text-[#111b3f]">{copy('لا يوجد حساب إعلانات محفوظ', 'No saved ad account')}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-[#7b87a3]">
+                      {copy('يمكنك إعداد مسودات التخطيط بدون حساب؛ الإطلاق والقياس من Meta يتطلبان API access مثبتاً.', 'Planning drafts can be prepared without an account; Meta launch and measurement require proven API access.')}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    {metaAdAccounts.map((account) => (
+                      <article key={account.id} className="rounded-[18px] border border-[#e7ecf6] bg-[#fbfcff] p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[13px] font-black text-[#111b3f]">{account.platformAccountName || account.platformAccountId}</p>
+                            {account.businessName ? <p className="mt-1 text-[11px] font-semibold text-[#7b87a3]">{account.businessName}</p> : null}
+                          </div>
+                          <StatusPill tone={account.hasApiAccess ? 'ready' : 'needs'}>
+                            {account.hasApiAccess ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Clock3 className="h-3.5 w-3.5" />}
+                            {account.hasApiAccess ? copy('API مثبت', 'API verified') : copy('مراجعة فقط', 'Review only')}
+                          </StatusPill>
+                        </div>
+                        <p className="mt-3 text-[11px] font-semibold leading-5 text-[#64708f]">
+                          {account.hasApiAccess
+                            ? copy('الحساب مؤهل لخطوات التنفيذ التي يراجعها المستخدم؛ تظل حالة كل حملة والصلاحيات مطلوبة.', 'The account is eligible for user-reviewed execution steps; campaign state and permissions are still required.')
+                            : copy('يظل التخطيط متاحاً، لكن NEXUS لن يدّعي إطلاق إعلان أو مزامنة نتائج من هذا الحساب.', 'Planning remains available, but NEXUS will not claim to launch ads or sync results from this account.')}
+                        </p>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </Panel>
+
+              <Panel
+                title={copy('تكاملات ضمن خريطة الطريق', 'Roadmap integrations')}
+                icon={<Clock3 size={18} />}
+                className="mt-5"
+                action={<StatusPill tone="planned">{copy('غير تشغيلية', 'Not operational')}</StatusPill>}
+              >
+                <div className="grid gap-3 md:grid-cols-3">
+                  {PLATFORMS.filter((platform) => !platform.available).map((platform) => (
+                    <article key={platform.id} className="rounded-[18px] border border-[#e7ecf6] bg-[#fbfcff] p-4">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-[13px] bg-white text-sm font-black" style={{ color: platform.accent }}>
+                          {platform.icon}
+                        </span>
+                        <p className="text-[13px] font-black text-[#111b3f]">{copy(platform.name.ar, platform.name.en)}</p>
+                      </div>
+                      <p className="mt-3 text-[11px] font-semibold leading-5 text-[#7b87a3]">{copy(platform.helper.ar, platform.helper.en)}</p>
+                    </article>
+                  ))}
                 </div>
               </Panel>
           </div>

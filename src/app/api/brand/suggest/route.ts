@@ -210,7 +210,7 @@ Rules:
 Rules:
 - Each advantage must be something a competitor CANNOT easily copy or claim
 - Write from the buyer's benefit perspective — not feature descriptions
-- Be concrete: time saved, cost reduced, outcome guaranteed, risk removed
+- Be concrete about a reviewable buyer benefit, but never invent time saved, cost reduction, guaranteed outcomes, or removed risk
 - AVOID: "experienced team", "great service", "holistic approach", "tailored solutions"
 - Return ONLY a JSON array of short phrases (4-10 words each) in ${lang}. Example: ["advantage 1"]`,
 

@@ -16,6 +16,7 @@ import {
 } from '@/lib/credits'
 import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 import { paidMetricsSignalCopy } from '@/lib/paidBoundary'
+import { paidMetricsCompleteness } from '@/lib/paidMetrics'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -44,6 +45,38 @@ async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, 
     return
   }
   await refundCredits(userId, 'AD_COPY', reason)
+}
+
+function hasAttributionBreakdown(metrics: unknown): boolean {
+  if (!metrics || typeof metrics !== 'object' || Array.isArray(metrics)) return false
+  const record = metrics as Record<string, unknown>
+  return ['byCreative', 'byAudience', 'byPlatform'].some((key) => {
+    const value = record[key]
+    if (Array.isArray(value)) return value.length > 0
+    return Boolean(value && typeof value === 'object' && Object.keys(value as Record<string, unknown>).length > 0)
+  })
+}
+
+function aggregateMetricsSignal(metrics: unknown) {
+  const record = metrics && typeof metrics === 'object' && !Array.isArray(metrics)
+    ? metrics as Record<string, unknown>
+    : {}
+  const observed = Object.entries(record)
+    .filter(([, value]) => typeof value === 'number' && Number.isFinite(value))
+    .map(([key, value]) => `${key}: ${value}`)
+
+  return {
+    executiveSummary: observed.length
+      ? `Reported aggregate metrics: ${observed.join(', ')}. These totals do not identify which creative, audience, or platform caused the result.`
+      : 'The saved metrics do not contain enough numeric campaign data for a reliable analysis.',
+    measurementCompleteness: paidMetricsCompleteness(record),
+    candidateHooks: [],
+    audienceSignal: 'No audience-level attribution breakdown is available.',
+    platformSignal: 'No platform-level attribution breakdown is available.',
+    underperformingAngles: [],
+    keyInsight: 'Aggregate campaign totals cannot establish creative, audience, or platform winners.',
+    nextCampaignRecommendation: 'Collect provider-backed metrics split by creative, audience, or platform before updating Brand Brain.',
+  }
 }
 
 export async function POST(
@@ -78,10 +111,34 @@ export async function POST(
     } catch { /* ok */ }
 
     const signalTruth = paidMetricsSignalCopy(pack.metricsSource)
+    const attributionReady = signalTruth.canUpdateBrandBrain && hasAttributionBreakdown(pack.metrics)
+
+    if (!attributionReady) {
+      const learnings = aggregateMetricsSignal(pack.metrics)
+      await db.paidCampaignPack.update({
+        where: { campaignId: params.id },
+        data: { learnings, brandBrainUpdated: false },
+      })
+      const signalLabel = signalTruth.canUpdateBrandBrain
+        ? 'Analytics-backed aggregate metrics saved; attribution breakdown is required for Brand Brain updates'
+        : signalTruth.label
+
+      return NextResponse.json({
+        learnings,
+        brandBrainUpdated: false,
+        brandBrainUpdates: null,
+        signalLabel,
+        analyticsBacked: signalTruth.canUpdateBrandBrain,
+        attributionReady: false,
+        creditsUsed: 0,
+        success: true,
+      })
+    }
 
     const systemPrompt = `You are a senior performance marketing analyst. Your job is to summarize paid campaign metrics as a review signal.
 
 If the metrics source is manual, treat the output as a manually reported metrics signal pending review. Do not call it Brand Brain learning, a winner, best-performing, or analytics-backed proof.
+Compare only values that are present in this campaign's supplied metrics. Do not use or invent industry benchmarks. Do not create a campaign score.
 
 Be specific. Use real numbers from the metrics. Never be generic. Output valid JSON only.`
 
@@ -121,7 +178,7 @@ Extract a paid metrics signal as JSON:
 {
   "learnings": {
     "executiveSummary": "2-3 sentence plain-language summary of what worked, what didn't, and the #1 insight",
-    "campaignScore": "1-10 rating based on industry benchmarks",
+    "measurementCompleteness": "complete|partial|insufficient, based only on whether the supplied metrics can support the requested analysis",
     "candidateHooks": ["exact hooks / angles that appear promising based on this signal"],
     "audienceSignal": "refined audience signal from the reported metrics",
     "platformSignal": "platform name with stronger reported CTR or ROAS if supported by the metrics",
@@ -164,11 +221,15 @@ Extract a paid metrics signal as JSON:
       return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })
     }
 
+    const safeLearnings = { ...(parsed.learnings ?? {}) }
+    delete safeLearnings.campaignScore
+    safeLearnings.measurementCompleteness = paidMetricsCompleteness(pack.metrics)
+
     // Save learnings to pack
     await db.paidCampaignPack.update({
       where: { campaignId: params.id },
       data: {
-        learnings: parsed.learnings ?? {},
+        learnings: safeLearnings,
         brandBrainUpdated: false,
       },
     })
@@ -176,7 +237,7 @@ Extract a paid metrics signal as JSON:
     // Apply updates to Brand Brain only when metrics are analytics-backed.
     let brandBrainUpdated = false
     const updates = parsed.brandBrainUpdates
-    if (updates && brandProfile && signalTruth.canUpdateBrandBrain) {
+    if (updates && brandProfile && attributionReady) {
       const existingHooks: string[] = brandProfile.winningHooks ?? []
       const existingFailed: string[] = brandProfile.failedAngles ?? []
       const existingStrategic = brandProfile.strategicNotes ?? ''
@@ -210,11 +271,12 @@ Extract a paid metrics signal as JSON:
     }
 
     return NextResponse.json({
-      learnings: parsed.learnings,
+      learnings: safeLearnings,
       brandBrainUpdated,
       brandBrainUpdates: parsed.brandBrainUpdates,
       signalLabel: signalTruth.label,
       analyticsBacked: signalTruth.canUpdateBrandBrain,
+      attributionReady,
       success: true,
     })
   } catch (err) {

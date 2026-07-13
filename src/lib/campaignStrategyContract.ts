@@ -64,6 +64,23 @@ const REQUIRED_ARRAY_FIELDS: Array<{ key: string; min: number }> = [
   { key: 'missingData', min: 0 },
 ]
 
+function requiredArrayMinimum(
+  key: string,
+  defaultMinimum: number,
+  expectedOrganicPostCount: number | null | undefined,
+): number {
+  if (
+    typeof expectedOrganicPostCount !== 'number' ||
+    !Number.isFinite(expectedOrganicPostCount) ||
+    expectedOrganicPostCount <= 0
+  ) return defaultMinimum
+
+  const expected = Math.floor(expectedOrganicPostCount)
+  if (key === 'contentAnglesDetailed') return expected
+  if (key === 'weeklyExecutionPlan') return Math.min(4, expected)
+  return defaultMinimum
+}
+
 function isRecord(value: unknown): value is StrategyRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -401,8 +418,9 @@ export function validateCampaignStrategyContract(
   }
 
   for (const field of REQUIRED_ARRAY_FIELDS) {
+    const minimum = requiredArrayMinimum(field.key, field.min, options.expectedOrganicPostCount)
     if (!(field.key in strategy)) missingFields.push(field.key)
-    else if (!hasArray(strategy[field.key], field.min)) weakFields.push(field.key)
+    else if (!hasArray(strategy[field.key], minimum)) weakFields.push(field.key)
   }
 
   if ('audienceSegmentsDetailed' in strategy && !hasOperationalAudienceSegments(strategy.audienceSegmentsDetailed)) {

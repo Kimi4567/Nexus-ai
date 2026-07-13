@@ -72,7 +72,7 @@ function getPageGreeting(path: string, isAr: boolean): string {
 function getQuickReplies(path: string, isAr: boolean): string[] {
   if (isAr) {
     if (path.includes("campaign"))
-      return ["كيف أحسّن استراتيجيتي؟", "ما أفضل وقت للنشر؟", "كيف أستخدم Brand Brain؟"];
+      return ["كيف أحسّن استراتيجيتي؟", "كيف أقترح وقت النشر من بياناتي؟", "كيف أستخدم Brand Brain؟"];
     if (path.includes("brand"))
       return ["كيف أملأ Brand Brain؟", "ما أهمية Tone Keywords؟", "كيف تؤثر على الحملات؟"];
     if (path.includes("billing"))
@@ -80,7 +80,7 @@ function getQuickReplies(path: string, isAr: boolean): string[] {
     return ["كيف أبدأ؟", "ما هي الكريديتس؟", "كيف أُنشئ حملة؟"];
   } else {
     if (path.includes("campaign"))
-      return ["How do I improve my strategy?", "What's the best time to post?", "How to use Brand Brain?"];
+      return ["How do I improve my strategy?", "How is a posting time suggested from my data?", "How to use Brand Brain?"];
     if (path.includes("brand"))
       return ["How to fill Brand Brain?", "What are Tone Keywords?", "How does it affect campaigns?"];
     if (path.includes("billing"))

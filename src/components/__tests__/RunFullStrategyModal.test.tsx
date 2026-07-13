@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import RunFullStrategyModal from '@/components/RunFullStrategyModal'
+import RunFullStrategyModal, { strategyDefaultsFromBrand } from '@/components/RunFullStrategyModal'
 
 const fetchMock = vi.fn()
 
@@ -140,5 +140,35 @@ describe('RunFullStrategyModal preflight', () => {
     })
     const generationCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')
     expect(String(generationCall?.[0])).toBe('/api/strategy/run-full')
+  })
+})
+
+describe('strategyDefaultsFromBrand', () => {
+  it('hydrates the strategy request from saved Brand Brain preferences', () => {
+    expect(strategyDefaultsFromBrand({
+      strategyType: 'full',
+      strategyDuration: 'custom',
+      strategyCustomDays: 120,
+      languagePreference: 'both',
+    })).toEqual({
+      strategyType: 'full',
+      strategyDuration: 'custom',
+      selectedLanguage: 'bilingual',
+      customDurationDays: 120,
+    })
+  })
+
+  it('uses safe defaults and clamps invalid custom horizons', () => {
+    expect(strategyDefaultsFromBrand({
+      strategyType: 'unknown',
+      strategyDuration: 'unknown',
+      strategyCustomDays: 999,
+      languagePreference: 'unknown',
+    } as unknown as Parameters<typeof strategyDefaultsFromBrand>[0])).toEqual({
+      strategyType: 'organic',
+      strategyDuration: '30',
+      selectedLanguage: 'ar',
+      customDurationDays: 180,
+    })
   })
 })

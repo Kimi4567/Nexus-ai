@@ -40,8 +40,9 @@ const campaign = {
   objective: 'LEADS',
   currency: 'USD',
   dailyBudget: 50,
-  startDate: null,
-  endDate: null,
+  lifetimeBudget: null,
+  startDate: new Date('2026-08-01T00:00:00.000Z'),
+  endDate: new Date('2026-08-15T00:00:00.000Z'),
   workspace: { id: 'w1', ownerId: 'u1' },
   adAccount: null,
 }
@@ -139,6 +140,11 @@ describe('POST /api/ad-campaigns/[id]/generate-strategy — RF-3 refund safety',
 
     expect(res.status).toBe(200)
     expect(json.success).toBe(true)
+    expect(json.reachEstimate).toBeNull()
+    expect(json.forecastStatus).toBe('unavailable_until_platform_forecast')
+    expect(json.strategy.budget_plan.estimated_reach).toBeNull()
+    expect(json.strategy.budget_plan.estimated_cpm).toBeNull()
+    expect(json.strategy.budget_plan.expected_results).toBeNull()
     expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'AD_COPY')
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()

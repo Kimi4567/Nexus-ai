@@ -513,19 +513,7 @@ export default function NewPaidCampaignPage() {
 
       // ── STEP 2: Budget + Objective ─────────────────────────────────────
       case 2: {
-        // Client-side budget estimate (MENA CPM benchmarks)
-        const CPM_BENCH: Record<string, { min: number; max: number }> = {
-          META: { min: 1.5, max: 5 }, GOOGLE: { min: 0.8, max: 3.5 },
-          TIKTOK: { min: 2, max: 7 }, LINKEDIN: { min: 20, max: 55 },
-        }
-        const bench = CPM_BENCH[data.platform] || { min: 3, max: 8 }
         const planningBudget = parseFloat(data.budgetType === 'DAILY' ? data.dailyBudget : data.lifetimeBudget) || 0
-        const totalEst = data.budgetType === 'DAILY' ? planningBudget * 14 : planningBudget
-        const hasComparableBenchmark = data.currency === 'USD'
-        const impMin = Math.round((totalEst / bench.max) * 1000)
-        const impMax = Math.round((totalEst / bench.min) * 1000)
-        const reachMin = Math.round(impMin / 2.5)
-        const reachMax = Math.round(impMax / 1.5)
 
         return (
           <div>
@@ -672,38 +660,18 @@ export default function NewPaidCampaignPage() {
                 </div>
               </div>
 
-              {/* Budget estimate */}
+              {/* Forecast boundary */}
               {planningBudget > 0 && (
                 <div className="p-3 rounded-xl"
                   style={{ background: '#fff7ed', border: '1px solid rgba(249,115,22,0.2)' }}>
                   <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#c2410c' }}>
-                    {copy(
-                      data.budgetType === 'DAILY' ? 'تقدير تخطيطي لمدة 14 يوماً — افتراضات مرجعية' : 'تقدير تخطيطي للميزانية الإجمالية — افتراضات مرجعية',
-                      data.budgetType === 'DAILY' ? 'Planning estimate (14 days · benchmark assumptions)' : 'Planning estimate (lifetime budget · benchmark assumptions)'
-                    )}
+                    {copy('حدود التوقعات', 'Forecast boundary')}
                   </p>
-                  {hasComparableBenchmark ? (
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div>
-                        <p className="text-[11px] text-slate-500">{copy('الوصول التقديري', 'Estimated reach')}</p>
-                        <p className="text-[12px] font-bold text-slate-950">{(reachMin/1000).toFixed(0)}K–{(reachMax/1000).toFixed(0)}K</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] text-slate-500">{copy('مرات الظهور التقديرية', 'Estimated impressions')}</p>
-                        <p className="text-[12px] font-bold text-slate-950">{(impMin/1000).toFixed(0)}K–{(impMax/1000).toFixed(0)}K</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] text-slate-500">CPM</p>
-                        <p className="text-[12px] font-bold text-slate-950">${bench.min}–${bench.max}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-[11px] text-slate-500">
-                      {copy('لن نعرض توقع وصول غير موثوق قبل توفر معيار تكلفة متوافق مع العملة المختارة.', 'Reach projections are withheld until a benchmark matching the selected currency is available.')}
-                    </p>
-                  )}
-                  <p className="text-[10px] text-slate-500 mt-2">
-                    {copy('هذا ليس إنفاقاً معتمداً. يجب تأكيد الميزانية والتتبع والإبداع وجاهزية المنصة قبل أي إطلاق أو إنفاق.', 'This is not approved spend. Confirm budget, tracking, creative, and platform readiness before any ad launch or spend.')}
+                  <p className="text-[11px] leading-relaxed text-slate-600">
+                    {copy(
+                      'لن يخمّن NEXUS الوصول أو مرات الظهور أو CPM من جداول عامة. تظهر التوقعات فقط عندما يوفر الحساب الإعلاني المتصل Forecast حقيقياً. هذه الميزانية تخطيطية وغير معتمدة للصرف.',
+                      'NEXUS does not guess reach, impressions, or CPM from generic tables. Forecasts appear only when the connected ad account provides a real platform forecast. This budget is for planning and is not approved spend.'
+                    )}
                   </p>
                 </div>
               )}
@@ -864,29 +832,12 @@ export default function NewPaidCampaignPage() {
                   <div className="p-4 rounded-[12px]"
                     style={{ background: '#fff7ed', border: '1px solid rgba(249,115,22,0.2)' }}>
                     <h3 className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#c2410c' }}>{copy('خطة الميزانية الافتراضية', 'Budget Assumption Plan')}</h3>
-                    <p className="text-[12px] text-slate-500 mb-2">
-                      {String((strategy.budget_plan as Record<string, unknown>)?.expected_results || '')}
+                    <p className="text-[12px] leading-relaxed text-slate-600">
+                      {copy(
+                        'التوزيع والمراحل مقترحات للمراجعة. توقعات الوصول وCPM والنتائج محجوبة حتى تتوفر بيانات حقيقية من المنصة أو سجل أداء موثوق.',
+                        'Allocation and phasing are review suggestions. Reach, CPM, and outcome forecasts stay withheld until real platform data or verified performance history is available.'
+                      )}
                     </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="text-center">
-                        <p className="text-[11px] text-slate-500">{copy('الوصول التقديري', 'Estimated reach')}</p>
-                        <p className="text-[13px] font-bold text-slate-950">
-                          {(() => {
-                            const r = (strategy.budget_plan as Record<string, unknown>)?.estimated_reach as Record<string, number> | undefined
-                            return r ? `${(r.min / 1000).toFixed(0)}K – ${(r.max / 1000).toFixed(0)}K` : '—'
-                          })()}
-                        </p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-[11px] text-slate-500">{copy('مرات الظهور التقديرية', 'Estimated impressions')}</p>
-                        <p className="text-[13px] font-bold text-slate-950">
-                          {(() => {
-                            const i = (strategy.budget_plan as Record<string, unknown>)?.estimated_impressions as Record<string, number> | undefined
-                            return i ? `${(i.min / 1000).toFixed(0)}K – ${(i.max / 1000).toFixed(0)}K` : '—'
-                          })()}
-                        </p>
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>

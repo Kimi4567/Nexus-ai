@@ -585,24 +585,115 @@ function distributeAnglesAcrossWeeks(angles: unknown[], targetCount: number): un
   return buckets
 }
 
+function fallbackContentAngle(index: number, ctx: NormalizedPlatformContext, language?: string | null): JsonObject {
+  const ar = isArabicLanguage(language)
+  const platform = firstPlatformLabel(ctx)
+  return ar
+    ? {
+        title: `فرضية اتجاه المحتوى ${index + 1}`,
+        hook: `ما الرسالة التي يجب التحقق منها في اتجاه المحتوى ${index + 1}؟`,
+        pain: 'لا توجد بيانات كافية لاعتماد مشكلة إضافية كحقيقة؛ يلزم تأكيدها مع الجمهور.',
+        desiredOutcome: 'تحويل هذه الفرضية إلى اتجاه واضح قابل للمراجعة قبل إنشاء المسودة.',
+        objection: 'اعتراض المشتري يحتاج إلى تحقق قبل الإنتاج.',
+        format: 'منشور اجتماعي قصير للمراجعة',
+        platform,
+        cta: 'راجع ملاءمة الرسالة',
+        asset: 'أصل بصري حقيقي للعرض أو الخدمة أو المنتج قبل الإنتاج.',
+        funnelStage: 'awareness',
+        proofNeeded: 'لا توجد بيانات كافية: اجمع تفصيلًا حقيقيًا أو إثباتًا موثقًا قبل استخدام ادعاء أقوى.',
+        responseHandoff: 'تأكيد مسؤول الرد وخطوة المتابعة قبل توجيه أي طلبات إلى هذا الاتجاه.',
+        reviewPoint: 'مراجعة وضوح الرسالة وتوفر الإثبات وردود الجمهور الفعلية قبل التكرار.',
+      }
+    : {
+        title: `Content direction hypothesis ${index + 1}`,
+        hook: `Which message should direction ${index + 1} validate?`,
+        pain: 'There is not enough evidence to state another audience problem as fact; validate it with the audience.',
+        desiredOutcome: 'Turn this hypothesis into a clear, reviewable direction before draft creation.',
+        objection: 'The buyer objection still needs validation before production.',
+        format: 'Short social post for review',
+        platform,
+        cta: 'Review message fit',
+        asset: 'A real offer, service, or product visual before production.',
+        funnelStage: 'awareness',
+        proofNeeded: 'Not enough data: collect a real offer detail or verified proof before making a stronger claim.',
+        responseHandoff: 'Confirm the response owner and follow-up step before sending inquiries to this direction.',
+        reviewPoint: 'Review message clarity, proof availability, and real audience response before repeating it.',
+      }
+}
+
+function alignContentAnglesToCount(
+  value: unknown,
+  ctx: NormalizedPlatformContext,
+  targetCount: number,
+  exact: boolean,
+  language?: string | null,
+): unknown[] {
+  const output = Array.isArray(value) ? value.filter(isObject) : []
+  if (exact && output.length > targetCount) output.length = targetCount
+  while (output.length < targetCount) {
+    output.push(fallbackContentAngle(output.length, ctx, language))
+  }
+  return output
+}
+
+function fallbackAudienceSegment(index: number, ctx: NormalizedPlatformContext, language?: string | null): JsonObject {
+  const ar = isArabicLanguage(language)
+  const platform = firstPlatformLabel(ctx)
+  return ar
+    ? {
+        segment: `شريحة جمهور مفترضة ${index + 1} للمراجعة`,
+        situation: 'تفاصيل هذه الشريحة غير مكتملة في Brand Brain وتحتاج إلى مقابلات أو بيانات فعلية.',
+        pain: 'المشكلة المحددة لهذه الشريحة تحتاج إلى تحقق قبل اعتمادها.',
+        desiredOutcome: 'تحديد احتياج عملي ورسالة مناسبة بعد التحقق.',
+        objection: 'الاعتراض الشرائي غير مؤكد بعد.',
+        message: 'رسالة تعليمية محايدة تُراجع قبل تحويلها إلى محتوى.',
+        platform,
+        format: 'منشور تعليمي قصير',
+        cta: 'راجع ملاءمة الرسالة',
+      }
+    : {
+        segment: `Audience hypothesis ${index + 1} to review`,
+        situation: 'This segment is not fully described in Brand Brain and needs interviews or real data.',
+        pain: 'The segment-specific problem needs validation before it is treated as fact.',
+        desiredOutcome: 'Confirm a practical need and suitable message after validation.',
+        objection: 'The buying objection is not verified yet.',
+        message: 'A neutral educational message to review before content production.',
+        platform,
+        format: 'Short educational post',
+        cta: 'Review message fit',
+      }
+}
+
+function ensureAudienceSegmentsMinimum(
+  value: unknown,
+  ctx: NormalizedPlatformContext,
+  language?: string | null,
+): unknown[] {
+  const output = Array.isArray(value) ? value.filter(isObject) : []
+  while (output.length < 2) output.push(fallbackAudienceSegment(output.length, ctx, language))
+  return output
+}
+
 function alignWeeklyExecutionPlanToOrganicCount(
   weeklyPlan: unknown,
   contentAngles: unknown,
   ctx: NormalizedPlatformContext,
   targetCount?: number | null,
+  exactCount = false,
   language?: string | null,
 ): unknown {
   if (!targetCount || targetCount <= 0 || !Array.isArray(contentAngles) || contentAngles.length === 0) {
     return weeklyPlan
   }
   const currentCount = weeklyDeliverableCount(weeklyPlan)
-  if (currentCount === targetCount) return weeklyPlan
+  const requiredWeekCount = Math.min(4, targetCount)
+  if (currentCount === targetCount && Array.isArray(weeklyPlan) && weeklyPlan.length >= requiredWeekCount) return weeklyPlan
 
   const ar = isArabicLanguage(language)
   const existingWeeks = Array.isArray(weeklyPlan) ? weeklyPlan.filter(isObject) : []
   const buckets = distributeAnglesAcrossWeeks(contentAngles, targetCount)
 
-  return buckets.map((bucket, index) => {
+  const generatedWeeks = buckets.map((bucket, index) => {
     const existing = existingWeeks[index] ?? {}
     const platforms = uniqueStrings(bucket.map(angle => anglePlatform(angle, ctx.fallbackLabel)))
     const deliverables = bucket.map((angle, angleIndex) => {
@@ -643,6 +734,14 @@ function alignWeeklyExecutionPlanToOrganicCount(
         : [fallbackOperationalText('reviewPoint', language)],
     }
   })
+
+  if (exactCount || existingWeeks.length === 0) return generatedWeeks
+  if (existingWeeks.length >= requiredWeekCount) return existingWeeks
+
+  return [
+    ...existingWeeks,
+    ...generatedWeeks.slice(existingWeeks.length, requiredWeekCount),
+  ]
 }
 
 function defaultOrganicKpis(language?: string | null): JsonObject[] {
@@ -1211,8 +1310,23 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
   output.channelMix = guardChannelMix(output.channelMix, ctx, context.strategyType)
   output.kpis = guardKpisMinimum(output.kpis, context.language)
   output.funnelStages = guardFunnelStagesMinimum(output.funnelStages, ctx, context.language)
+  const bindingPostCount = typeof context.organicPostCount === 'number'
+    && Number.isFinite(context.organicPostCount)
+    && context.organicPostCount > 0
+    ? Math.floor(context.organicPostCount)
+    : null
+  const existingAngleCount = Array.isArray(output.contentAnglesDetailed) ? output.contentAnglesDetailed.length : 0
+  const planningDirectionCount = bindingPostCount ?? Math.max(4, existingAngleCount)
+  output.contentAnglesDetailed = alignContentAnglesToCount(
+    output.contentAnglesDetailed,
+    ctx,
+    planningDirectionCount,
+    bindingPostCount !== null,
+    context.language,
+  )
   output.contentAnglesDetailed = guardPlatformObjectList(output.contentAnglesDetailed, ctx, context.language)
   output.contentAnglesDetailed = guardContentAnglesOperationalDepth(output.contentAnglesDetailed, context.language)
+  output.audienceSegmentsDetailed = ensureAudienceSegmentsMinimum(output.audienceSegmentsDetailed, ctx, context.language)
   output.audienceSegmentsDetailed = guardPlatformObjectList(output.audienceSegmentsDetailed, ctx, context.language)
   output.funnelStages = guardPlatformObjectList(output.funnelStages, ctx, context.language)
   output.channelStrategy = guardPlatformObjectList(output.channelStrategy, ctx, context.language)
@@ -1221,7 +1335,8 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
     output.weeklyExecutionPlan,
     output.contentAnglesDetailed,
     ctx,
-    context.organicPostCount,
+    planningDirectionCount,
+    bindingPostCount !== null,
     context.language,
   )
   output.weeklyExecutionPlan = guardWeeklyExecutionOperationalDepth(output.weeklyExecutionPlan, context.language)

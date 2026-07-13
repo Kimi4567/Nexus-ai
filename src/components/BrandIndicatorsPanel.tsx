@@ -7,7 +7,7 @@
  * (getBrandIndicators). Used on BOTH the Brand Brain page and the campaign
  * Strategy panel so the same concept can never show two different numbers again.
  *
- *   1. Brand completeness   (core durable fields)
+ *   1. Core profile completeness (core durable fields only)
  *   2. Organic readiness    (minimum organic strategy set)
  *   3. Paid readiness       (approval-gated until prerequisites + tracking exist)
  *   4. Memory richness       (saved signals/memory — NOT readiness)
@@ -83,10 +83,10 @@ export default function BrandIndicatorsPanel({ indicators, locale = 'en', theme 
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        {/* 1. Brand completeness */}
+        {/* 1. Core profile completeness */}
         <Cell>
           <div className="flex items-center justify-between">
-            <Label>{ar ? 'اكتمال العلامة' : 'Brand completeness'}</Label>
+            <Label>{ar ? 'اكتمال الملف الأساسي' : 'Core profile completeness'}</Label>
             <span className="text-[11px] font-black tabular-nums" style={{ color: barColor(c.score) }}>{c.score}%</span>
           </div>
           <Bar score={c.score} />
@@ -153,8 +153,8 @@ export default function BrandIndicatorsPanel({ indicators, locale = 'en', theme 
         <div className="mt-2 space-y-2 text-[11px] leading-relaxed" style={{ color: textSub }}>
           {([
             ar
-              ? ['اكتمال العلامة', 'يتأثر بحقول علامتك الأساسية المحفوظة فقط. لا تؤثر فيه اقتراحات الذكاء الاصطناعي أو الماسح أو المحلّل إلا إذا حفظتها بنفسك.']
-              : ['Brand completeness', 'affected by your saved core Brand Brain fields only. AI suggestions, Scanner, or Analyzer don’t change it unless you save them.'],
+              ? ['اكتمال الملف الأساسي', 'يقيس الحقول الأساسية المحفوظة فقط، وليس كل بيانات التسويق الممكنة. لا تؤثر فيه اقتراحات الذكاء الاصطناعي أو الماسح أو المحلّل إلا إذا حفظتها بنفسك.']
+              : ['Core profile completeness', 'measures saved core fields only, not every possible marketing input. AI suggestions, Scanner, or Analyzer don’t change it unless you save them.'],
             ar
               ? ['جاهزية المحتوى العضوي', 'تتأثر بالحد الأدنى لحقول الاستراتيجية العضوية. لا تعني أن الإعلانات المدفوعة جاهزة، ولا تَعِد بأي أداء.']
               : ['Organic readiness', 'affected by the minimum organic field set. It does not mean paid ads can execute, and promises no performance.'],

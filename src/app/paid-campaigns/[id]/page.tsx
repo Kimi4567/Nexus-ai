@@ -994,7 +994,7 @@ export default function CampaignDetailPage() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {Object.entries((strategy.targeting as Record<string, unknown>) || {})
-                    .filter(([, v]) => v && (Array.isArray(v) ? (v as unknown[]).length > 0 : true))
+                    .filter(([key, v]) => key !== 'platformValidationRequired' && v && (Array.isArray(v) ? (v as unknown[]).length > 0 : true))
                     .map(([k, v]) => {
                       const isArr = Array.isArray(v)
                       return (
@@ -1015,6 +1015,9 @@ export default function CampaignDetailPage() {
                       )
                     })}
                 </div>
+                <p className="mt-4 text-[11px] leading-relaxed text-amber-300">
+                  Targeting values are review hypotheses. Validate availability and policy eligibility inside the connected ad account before creating any platform draft.
+                </p>
               </div>
             ) : null}
 
@@ -1023,27 +1026,9 @@ export default function CampaignDetailPage() {
               <div className="p-5 rounded-[14px]"
                 style={{ background: 'rgba(24,119,242,0.06)', border: '1px solid rgba(24,119,242,0.15)' }}>
                 <h3 className="text-[11px] font-bold uppercase tracking-wider mb-4" style={{ color: '#60A5FA' }}>Budget Planning</h3>
-                <p className="text-[13px] text-white mb-3">
-                  Planning assumption: {String((strategy.budget_plan as Record<string, unknown>)?.expected_results || '')}
+                <p className="text-[13px] leading-relaxed text-white mb-3">
+                  Reach, impressions, CPM, and outcome forecasts are unavailable until the connected platform returns an account-level forecast or verified performance history exists.
                 </p>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { label: 'Reach', key: 'estimated_reach' },
-                    { label: 'Impressions', key: 'estimated_impressions' },
-                    { label: 'CPM', key: 'estimated_cpm' },
-                  ].map(item => {
-                    const r = (strategy.budget_plan as Record<string, unknown>)?.[item.key] as Record<string, number> | undefined
-                    return (
-                      <div key={item.label} className="text-center p-3 rounded-xl"
-                        style={{ background: 'rgba(255,255,255,0.04)' }}>
-                        <p className="text-[11px] text-text-muted mb-1">{item.label}</p>
-                        <p className="text-[13px] font-bold text-white">
-                          {r ? `${(r.min / 1000).toFixed(0)}K – ${(r.max / 1000).toFixed(0)}K` : '—'}
-                        </p>
-                      </div>
-                    )
-                  })}
-                </div>
                 {/* Phasing */}
                 {(strategy.budget_plan as Record<string, unknown>)?.phasing ? (
                   <div className="mt-3 space-y-1.5">

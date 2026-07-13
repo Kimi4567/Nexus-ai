@@ -1,19 +1,13 @@
 /**
  * Agent Orchestrator
  *
- * Coordinates all 4 agents for a workspace.
- * Called by /api/agents/run and the cron jobs.
+ * Runs the production strategy workflow for a workspace.
+ * Called by the strategy API and scheduled monitoring entrypoints.
  */
 
 import { prisma } from '@/lib/prisma'
 import { runStrategistAgent, BusinessBrief, StrategyOutput } from './strategist'
-import { runContentDirectorAgent, ContentDirectorInput, ContentDirectorOutput } from './content-director'
-import {
-  runCampaignManagerAgent,
-  buildMetricsFromCampaign,
-  CampaignManagerOutput,
-} from './campaign-manager'
-import { runReportingAgent, getPeriodLabel, ReportingInput } from './reporting'
+import type { ContentDirectorOutput } from './content-director'
 import { saveCampaignMemory } from '@/lib/campaign-memory'
 import { getStrategyCapabilities } from '@/lib/brandReadiness'
 import { applyServerReadiness, collectMissingKeys } from '@/lib/strategyNormalize'
@@ -60,6 +54,7 @@ export async function runFullAgency(
   brief: BusinessBrief,
   options: RunFullAgencyOptions = {},
 ): Promise<OrchestratorResult> {
+  const startedAt = Date.now()
   const errors: string[] = []
   let strategyCreated = false
   let contentCreated = false
@@ -88,7 +83,7 @@ export async function runFullAgency(
       where: { id: workspaceId },
       select: { owner: { select: { subscriptionStatus: true } } },
     })
-    const planTier = (workspace?.owner?.subscriptionStatus || 'starter').toLowerCase()
+    const planTier = (workspace?.owner?.subscriptionStatus || 'free').toLowerCase()
 
     // Inject plan tier into brief so agents can scale output depth
     if (!brief.planTier) {
@@ -378,6 +373,7 @@ export async function runFullAgency(
         status: 'COMPLETED',
         outputData: { strategyCreated, contentCreated, campaignId: campaign.id },
         completedAt: new Date(),
+        durationMs: Date.now() - startedAt,
       },
     })
 
@@ -388,154 +384,11 @@ export async function runFullAgency(
     errors.push(message)
     await db.agentRun.update({
       where: { id: agentRun.id },
-      data: { status: 'FAILED', error: message, completedAt: new Date() },
+      data: { status: 'FAILED', error: message, completedAt: new Date(), durationMs: Date.now() - startedAt },
     }).catch(() => {})  // Don't let agentRun update failure mask the real error
   }
 
   return { agentRunId: agentRun.id, strategyCreated, contentCreated, suggestions: suggestionsCount, errors }
-}
-
-/**
- * Campaign Manager — monitors all ACTIVE campaigns for a workspace
- */
-export async function runCampaignMonitor(workspaceId: string): Promise<{
-  campaignsChecked: number
-  suggestionsCreated: number
-  errors: string[]
-}> {
-  const errors: string[] = []
-  let suggestionsCreated = 0
-
-  const campaigns = await db.campaign.findMany({
-    where: { workspaceId, status: { in: ['ACTIVE', 'DRAFT'] }, aiOutput: { not: null } },
-    orderBy: { createdAt: 'desc' },
-    take: 10,
-  })
-
-  for (const campaign of campaigns) {
-    try {
-      const agentRun = await db.agentRun.create({
-        data: { workspaceId, agent: 'CAMPAIGN_MANAGER', status: 'RUNNING', triggeredBy: 'cron' },
-      })
-
-      const metrics = buildMetricsFromCampaign(campaign)
-      const analysis: CampaignManagerOutput = await runCampaignManagerAgent(metrics)
-
-      if (analysis.healthScore < 75) {
-        for (const suggestion of analysis.suggestions) {
-          const existing = await db.agentSuggestion.findFirst({
-            where: { workspaceId, campaignId: campaign.id, type: suggestion.type, status: 'PENDING' },
-          })
-          if (existing) continue
-
-          await db.agentSuggestion.create({
-            data: {
-              workspaceId,
-              agentRunId: agentRun.id,
-              agent: 'CAMPAIGN_MANAGER',
-              type: suggestion.type,
-              status: 'PENDING',
-              priority: suggestion.priority,
-              title: suggestion.title,
-              reasoning: suggestion.reasoning,
-              impact: suggestion.impact,
-              payload: suggestion.payload,
-              campaignId: campaign.id,
-              expiresAt: new Date(Date.now() + 3 * 86_400_000),
-            },
-          })
-          suggestionsCreated++
-        }
-      }
-
-      await db.agentRun.update({
-        where: { id: agentRun.id },
-        data: { status: 'COMPLETED', outputData: analysis, completedAt: new Date() },
-      })
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error'
-      errors.push(`Campaign ${campaign.id}: ${message}`)
-    }
-  }
-
-  return { campaignsChecked: campaigns.length, suggestionsCreated, errors }
-}
-
-/**
- * Reporting Agent — generates a report for a workspace
- */
-export async function runReport(
-  workspaceId: string,
-  type: 'daily' | 'weekly' | 'monthly'
-): Promise<void> {
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: workspaceId },
-    select: { owner: { select: { company: true, email: true } } },
-  })
-
-  const campaigns = await db.campaign.findMany({
-    where: { workspaceId, status: { in: ['ACTIVE', 'DRAFT'] } },
-    take: 5,
-    orderBy: { updatedAt: 'desc' },
-  })
-
-  if (!campaigns.length) return
-
-  const agentRun = await db.agentRun.create({
-    data: { workspaceId, agent: 'REPORTING', status: 'RUNNING', triggeredBy: 'cron' },
-  })
-
-  try {
-    const metrics = campaigns.map(buildMetricsFromCampaign)
-    const periodLabel = getPeriodLabel(type)
-
-    const reportInput: ReportingInput = {
-      businessName: workspace?.owner?.company || 'Your Business',
-      period: type,
-      periodLabel,
-      campaigns: metrics,
-    }
-
-    const reportOutput = await runReportingAgent(reportInput)
-
-    const now = new Date()
-    const periodStart = new Date()
-    const periodEnd = new Date()
-
-    if (type === 'daily') {
-      periodStart.setHours(0, 0, 0, 0)
-      periodEnd.setHours(23, 59, 59, 999)
-    } else if (type === 'weekly') {
-      periodStart.setDate(now.getDate() - 7)
-    } else {
-      periodStart.setDate(1)
-      periodStart.setMonth(now.getMonth() - 1)
-    }
-
-    await db.agentReport.create({
-      data: {
-        workspaceId,
-        agentRunId: agentRun.id,
-        type: type.toUpperCase(),
-        title: reportOutput.title,
-        summary: reportOutput.summary,
-        body: reportOutput,
-        periodStart,
-        periodEnd,
-      },
-    })
-
-    await db.agentRun.update({
-      where: { id: agentRun.id },
-      data: { status: 'COMPLETED', completedAt: new Date() },
-    })
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
-    await db.agentRun.update({
-      where: { id: agentRun.id },
-      data: { status: 'FAILED', error: message, completedAt: new Date() },
-    })
-  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────

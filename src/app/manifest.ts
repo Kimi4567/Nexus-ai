@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Nexus AI — Your AI Marketing Department',
     short_name: 'Nexus AI',
-    description: 'Generate complete marketing campaigns in 60 seconds — strategy, hooks, scripts, captions, and 30-day content calendar.',
+    description: 'Build reviewed marketing strategy, hooks, scripts, captions, and a first-30-day content direction plan from one Brand Brain.',
     start_url: '/dashboard',
     display: 'standalone',
     background_color: '#0c0c0a',

@@ -255,7 +255,7 @@ export async function POST(req: NextRequest) {
     }
 
     body = await req.json().catch(() => ({}))
-    const goalOverride = (body?.goal as string | undefined) || 'leads'
+    const requestedGoal = (body?.goal as string | undefined)?.trim()
     const selectedMediaIds = Array.isArray(body?.mediaIds)
       ? (body.mediaIds as unknown[]).filter((id): id is string => typeof id === 'string' && id.length > 0)
       : undefined
@@ -401,7 +401,11 @@ export async function POST(req: NextRequest) {
     // — never from the AI. (Custom > 180 was already 422-blocked above, so the contract
     // here is always supported; the unsupported branch returns DO-NOT-GENERATE anyway.)
     const safeBrandProfile = getBrandBrainGenerationSafety(brandProfile as any).safeProfile as any
-    const order = { ...charge.order, goal: charge.order.goal || safeBrandProfile.businessGoal || goalOverride }
+    const goalOverride = requestedGoal
+      || safeBrandProfile.campaignObjective
+      || safeBrandProfile.businessGoal
+      || 'leads'
+    const order = { ...charge.order, goal: charge.order.goal || goalOverride }
     const postsPerMonth = tierToPostsPerMonth(freshUser?.subscriptionStatus)
     const deliverables = getStrategyDeliverables(
       order,
@@ -569,7 +573,7 @@ export async function POST(req: NextRequest) {
       // Both formats for frontend compatibility
       errors: publicErrors,
       error: publicError,
-    })
+    }, { status: success ? 200 : 502 })
   } catch (err: any) {
     console.error('[api/strategy/run-full]', err)
     if (lateCreditFailure && !deductedCredit) {

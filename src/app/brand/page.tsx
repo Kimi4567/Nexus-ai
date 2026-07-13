@@ -230,7 +230,7 @@ function BrandStatusPanel({ indicators, locale, contract }: {
         : (ar ? 'سجل تغييرات قابل للتتبع' : 'Traceable change history'),
     }] : []),
     {
-      label: ar ? 'اكتمال العلامة' : 'Brand completeness',
+      label: ar ? 'اكتمال الملف الأساسي' : 'Core profile completeness',
       value: `${indicators.brandCompleteness.score}%`,
       helper: ar ? 'حقول أساسية مؤكدة' : 'Core confirmed fields',
     },
@@ -601,13 +601,12 @@ function BrandBrainInner() {
     salesCycleLength: '', seasonality: '', pastAdResults: '',
     // PR-H2 — Brand Brain v2 (persisted)
     languagePreference: '', verifiedProof: [],
+    strategyType: 'organic', strategyDuration: '90', strategyCustomDays: 45,
+    campaignObjective: null,
   })
-  // PR-H2 — Strategy intent (visible choices). UI-only in PR-H2 — NOT wired to
-  // generation (that is PR-I) and NOT persisted to a DB column yet.
   const [strategyType, setStrategyType] = useState<'organic' | 'paid' | 'full'>('organic')
   const [strategyDuration, setStrategyDuration] = useState<'30' | '90' | '180' | 'custom'>('90')
-  // PR-H2: campaign objective is UI-only here (no Brand Brain column; persistence/
-  // wiring deferred to PR-I per scope).
+  const [strategyCustomDays, setStrategyCustomDays] = useState(45)
   const [campaignObjective, setCampaignObjective] = useState<'leads' | 'sales' | 'awareness' | 'traffic' | ''>('')
   const [logoUploading, setLogoUploading] = useState(false)
   const [logoError, setLogoError]         = useState<string | null>(null)
@@ -630,7 +629,13 @@ function BrandBrainInner() {
     if (brand === null) return // not loaded yet, or a genuinely empty account
     try {
       const normalized = normalizeBrandProfile(brand)
-      if (normalized) setForm(b => ({ ...b, ...normalized }))
+      if (normalized) {
+        setForm(b => ({ ...b, ...normalized }))
+        if (normalized.strategyType) setStrategyType(normalized.strategyType)
+        if (normalized.strategyDuration) setStrategyDuration(normalized.strategyDuration)
+        if (typeof normalized.strategyCustomDays === 'number') setStrategyCustomDays(normalized.strategyCustomDays)
+        if (normalized.campaignObjective) setCampaignObjective(normalized.campaignObjective)
+      }
     } catch (err) {
       console.error('[BrandBrain] normalizeBrandProfile failed:', err)
     } finally {
@@ -650,7 +655,13 @@ function BrandBrainInner() {
   const set = (k: keyof BrandProfile, v: unknown) => setForm(f => ({ ...f, [k]: v }))
 
   const handleSave = async () => {
-    const ok = await saveBrand(form)
+    const ok = await saveBrand({
+      ...form,
+      strategyType,
+      strategyDuration,
+      strategyCustomDays: strategyDuration === 'custom' ? strategyCustomDays : null,
+      campaignObjective: campaignObjective || null,
+    })
     if (ok) {
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -1216,8 +1227,8 @@ function BrandBrainInner() {
                     </p>
                     <p className="text-xs leading-relaxed text-slate-500">
                       {locale === 'ar'
-                        ? 'اكتمال Brand Brain يساعد NEXUS على إبقاء الاستراتيجية والمحتوى أكثر اتساقاً.'
-                        : 'A complete Brand Brain helps NEXUS keep strategy and content more consistent.'}
+                        ? 'اكتمال الحقول الأساسية يساعد NEXUS على إبقاء الاستراتيجية والمحتوى أكثر اتساقاً؛ ولا يعني أن كل بيانات التسويق مكتملة.'
+                        : 'Completing the core fields helps NEXUS keep strategy and content consistent; it does not mean every marketing input is complete.'}
                     </p>
                   </div>
                 </div>
@@ -1257,7 +1268,7 @@ function BrandBrainInner() {
                       </span>
                       <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold inline-flex items-center gap-1.5"
                         style={{ background: '#ECFDF5', color: '#047857', border: '1px solid rgba(16,185,129,0.24)' }}>
-                        {locale === 'ar' ? 'اكتمال الملف' : 'Profile completeness'}
+                        {locale === 'ar' ? 'اكتمال الملف الأساسي' : 'Core profile completeness'}
                         <span className="font-semibold tabular-nums">{brandIndicators.brandCompleteness.score}%</span>
                       </span>
                     </div>
@@ -1639,7 +1650,7 @@ function BrandBrainInner() {
               </p>
               <div className="hidden">
                 {[
-                  [locale === 'ar' ? 'اكتمال العلامة' : 'Brand completeness', `${brandIndicators.brandCompleteness.score}%`],
+                  [locale === 'ar' ? 'اكتمال الملف الأساسي' : 'Core profile completeness', `${brandIndicators.brandCompleteness.score}%`],
                   [locale === 'ar' ? 'العضوي' : 'Organic', brandIndicators.organicReadiness.ready ? (locale === 'ar' ? 'جاهز لموجز' : 'Ready for brief') : (locale === 'ar' ? 'يحتاج بيانات' : 'Needs data')],
                   [locale === 'ar' ? 'المدفوع' : 'Paid', brandIndicators.paidReadiness.ready ? (locale === 'ar' ? 'جاهز لمراجعة المدفوع' : 'Paid review ready') : (locale === 'ar' ? 'يحتاج متطلبات' : 'Needs prerequisites')],
                   [locale === 'ar' ? 'ثراء الذاكرة' : 'Memory richness', brandIndicators.memoryRichness.level === 'high' ? (locale === 'ar' ? 'غنية' : 'Rich') : brandIndicators.memoryRichness.level === 'medium' ? (locale === 'ar' ? 'تتكوّن' : 'Building') : (locale === 'ar' ? 'مبكرة' : 'Early')],
@@ -2548,8 +2559,8 @@ function BrandBrainInner() {
                     />
                     <p className="mt-1.5 text-[11px]" style={{ color: '#334155' }}>
                       {locale === 'ar'
-                        ? 'أضف المنافسين الذين تريد أن يأخذهم NEXUS في الاعتبار عند التخطيط وتحديد الموقع. المتابعة التلقائية للمنافسين ليست مفعّلة بعد.'
-                        : 'Add competitors you want NEXUS to consider when planning strategy and positioning. Automatic competitor monitoring is not enabled yet.'}
+                        ? 'أضف المنافسين الذين تريد أن يأخذهم NEXUS في الاعتبار. يجري النظام مسح أخبار يومياً بمصادر وروابط عند حفظ أسماء المنافسين، لكنه لا يغيّر Brand Brain تلقائياً.'
+                        : 'Add competitors you want NEXUS to consider. A daily source-linked news scan runs when competitor names are saved, but it never changes Brand Brain automatically.'}
                     </p>
                   </div>
 
@@ -2606,6 +2617,22 @@ function BrandBrainInner() {
                         ))}
                       </div>
                       <p className="text-[11px] text-slate-400 mt-1.5">{ar ? 'موصى به: 90 يوماً مع أول 30 يوماً قابلة للتنفيذ.' : 'Recommended: 90 days, with the first 30 days actionable.'}</p>
+                      {strategyDuration === 'custom' && (
+                        <div className="mt-2 max-w-[220px]">
+                          <NxInput
+                            value={String(strategyCustomDays)}
+                            onChange={value => {
+                              const days = Number(value)
+                              if (Number.isInteger(days)) setStrategyCustomDays(Math.max(1, Math.min(180, days)))
+                            }}
+                            placeholder={ar ? 'من 1 إلى 180 يوماً' : '1 to 180 days'}
+                            accentColor="#5E5CE6"
+                          />
+                          <p className="mt-1 text-[10px] text-slate-400">
+                            {ar ? 'الحد المتاح حالياً 180 يوماً.' : 'The current supported maximum is 180 days.'}
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -2647,7 +2674,7 @@ function BrandBrainInner() {
                               </button>
                             ))}
                           </div>
-                          <p className="text-[10px] text-slate-400 mt-1">{ar ? 'يُحفظ مع الاستراتيجية لاحقاً.' : 'Saved with the strategy later.'}</p>
+                          <p className="text-[10px] text-slate-400 mt-1">{ar ? 'يُحفظ في Brand Brain كاختيار افتراضي ويمكن مراجعته قبل كل تشغيل.' : 'Saved in Brand Brain as a default and reviewed before every run.'}</p>
                         </div>
                         <div className="rounded-lg px-3 py-2" style={{ background:'rgba(245,158,11,0.06)', border:'1px solid rgba(245,158,11,0.2)' }}>
                           <p className="text-[12px] font-semibold" style={{ color:'#b45309' }}>{ar ? 'يتطلب موافقة قبل التشغيل' : 'Approval required before running'}</p>

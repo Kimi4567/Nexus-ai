@@ -1,36 +1,26 @@
 /**
- * planContext.ts — Research-backed plan context injected into every agent prompt.
+ * planContext.ts — Commercial capacity context injected into agent prompts.
  *
  * Why this exists:
  *   Agents must not generate a 60-post calendar for a Starter user who only gets
  *   10 posts/month. Every agent must be aware of the user's plan so that output
  *   volume, depth, and calendar scope match what the user can actually execute.
  *
- * Research basis (Nexus AI Pricing Study, June 2025):
- *   - HubSpot State of Marketing: 16+ posts/month = 4.5× more leads
- *   - SproutSocial: Instagram 12-20/mo, LinkedIn 8-12/mo, TikTok 8-20/mo optimal
- *   - Hootsuite: Facebook 3-7×/week, Twitter/X 5×/week, YouTube Shorts 2-3×/week
- *   - Starter plan is intentionally below 16/mo threshold — natural upgrade pressure
- *   - Growth plan crosses the 16/mo threshold — this is the pitch to Starter users
+ * Quotas are product limits, not performance claims. Cadence must be selected
+ * from the brand's capacity, platform fit, and observed results.
  */
 
 import { FREE_TRIAL_POSTS } from '@/lib/commercialPlans'
 
-// ── Platform frequency science (injectable into prompts) ─────────────────────
+// ── Platform cadence guidance (injectable into prompts) ──────────────────────
 
 export const PLATFORM_FREQUENCY_SCIENCE = `
-PLATFORM POSTING FREQUENCY — Research-Backed (HubSpot / SproutSocial / Hootsuite 2024):
-• Instagram:      12-20 posts/month | Reels 8-12/mo | Stories daily | 3-5×/week optimal
-• LinkedIn:       8-12 posts/month  | 3×/week sweet spot | Quality > quantity here
-• TikTok:         8-20 posts/month  | 3-5×/week | Algorithm rewards consistency
-• Facebook:       12-15 posts/month | 3-4×/week | Engagement drops above 2×/day
-• Twitter/X:      15-20 posts/month | 5×/week | High-frequency, high-noise
-• YouTube Shorts: 8-12 videos/month | 2-3×/week for algorithmic amplification
-• Pinterest:      15-25 posts/month | Daily posting ideal
-
-KEY FINDING: 16+ posts/month = 4.5× more leads (HubSpot State of Marketing).
-Brands below this threshold plateau regardless of content quality.
-Optimal: 20 posts/month across 2 active platforms = max ROI for solopreneurs.
+PLATFORM CADENCE GUIDANCE — hypotheses to validate, not universal performance rules:
+• Select only platforms supported by the saved brand context and execution capacity.
+• Prefer a sustainable review-and-publish cadence over volume the team cannot maintain.
+• Reuse an approved idea across suitable formats only when the platform and audience context still fit.
+• Change cadence from real reach, engagement, conversion, and workload evidence — never from an invented benchmark.
+• Do not promise leads, reach, algorithmic amplification, or ROI from posting frequency alone.
 `
 
 // ── Per-tier strategy depth config ───────────────────────────────────────────
@@ -58,8 +48,7 @@ const TIER_CONFIGS: Record<string, TierConfig> = {
     contentAngles: 3,
     depth: 'basic',
     upgradeNote:
-      'Note: upgrading to Starter unlocks 10 posts/month and 2 campaigns. ' +
-      'Mention this if the strategy would benefit from higher volume.',
+      'Growth unlocks a larger execution allowance. Mention it only when the requested deliverables exceed the current quota; never imply that upgrading guarantees performance.',
   },
   starter: {
     label: 'Starter ($19/month)',
@@ -70,8 +59,7 @@ const TIER_CONFIGS: Record<string, TierConfig> = {
     contentAngles: 8,
     depth: 'standard',
     upgradeNote:
-      'UPGRADE TRIGGER: This user is below the 16-posts/month lead-gen threshold. ' +
-      'If 16+ posts would meaningfully accelerate results, note it in estimatedResults or nextBestAction.',
+      'This is a legacy plan. Mention Growth only when the requested deliverables exceed the current quota; never claim that more volume guarantees results.',
   },
   pro: {
     label: 'Growth ($49/month)',
@@ -116,11 +104,11 @@ const TIER_CONFIGS: Record<string, TierConfig> = {
 }
 
 function normalizeTier(planTier?: string): string {
-  const raw = planTier?.toLowerCase()?.trim() || 'starter'
+  const raw = planTier?.toLowerCase()?.trim() || 'free'
   // Handle 'ACTIVE' — treat as Growth-level
   if (raw === 'active') return 'pro'
   if (raw === 'admin') return 'agency'
-  return TIER_CONFIGS[raw] ? raw : 'starter'
+  return TIER_CONFIGS[raw] ? raw : 'free'
 }
 
 // ── Main export: getPlanContext ───────────────────────────────────────────────
@@ -128,7 +116,7 @@ function normalizeTier(planTier?: string): string {
 /**
  * Returns a formatted plan context block ready to inject into any agent prompt.
  * Includes: plan tier, content quota, calendar depth, platform count, and
- * research-backed frequency guidance.
+ * evidence-aware cadence guidance.
  *
  * @param planTier  User's subscription tier: 'free' | 'starter' | 'pro' | 'growth' | 'business' | 'agency'
  */

@@ -29,6 +29,7 @@ import { FIRST_INTENTS, buildOnboardingStrategicNotes } from '@/lib/onboardingCo
 import { getFirstRunJourney } from '@/lib/firstUserJourney'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import { ONBOARDING_INDUSTRY_OPTIONS } from '@/lib/brandIndustries'
+import { businessGoalLabel, campaignObjectiveForGoal } from '@/lib/businessGoals'
 
 // ── Option lists (no emojis) ────────────────────────────────────────────────
 const INDUSTRIES = ONBOARDING_INDUSTRY_OPTIONS
@@ -311,7 +312,10 @@ export default function OnboardingPage() {
           audienceLocation: region.trim() || null,
           languagePreference: customerLanguage || null,
           primaryOffer: offer.trim() || null,
-          businessGoal: goal || null,
+          businessGoal: businessGoalLabel(goal, 'en') || null,
+          campaignObjective: campaignObjectiveForGoal(goal),
+          strategyType: 'organic',
+          strategyDuration: '30',
           targetAudience: idealCustomer.trim() || null,
           uniqueAdvantages: whyChoose.trim() ? [whyChoose.trim()] : [],
           topPlatforms: platforms.filter(p => p !== 'none'),
@@ -325,13 +329,14 @@ export default function OnboardingPage() {
       // Preserve existing first-run referral behavior (credit logic untouched).
       const pendingRef = typeof window !== 'undefined' ? localStorage.getItem('pendingReferralCode') : null
       if (pendingRef) {
-        try {
-          await fetch('/api/referral/claim', {
-            method: 'POST',
-            headers: { Authorization: token, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ referralCode: pendingRef }),
-          })
-        } catch { /* non-blocking */ }
+        // Referral credit is independent from Brand Brain persistence. Do not
+        // hold the onboarding success screen behind a slow third-party/network
+        // request after the user's profile is already safely stored.
+        void fetch('/api/referral/claim', {
+          method: 'POST',
+          headers: { Authorization: token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ referralCode: pendingRef }),
+        }).catch(() => {})
         localStorage.removeItem('pendingReferralCode')
       }
     } catch {

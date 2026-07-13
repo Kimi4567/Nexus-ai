@@ -7,15 +7,7 @@
   "crons": [
     {
       "path": "/api/cron/publish",
-      "schedule": "0 12 * * *"
-    },
-    {
-      "path": "/api/cron/publish",
-      "schedule": "0 15 * * *"
-    },
-    {
-      "path": "/api/cron/publish",
-      "schedule": "0 19 * * *"
+      "schedule": "5 * * * *"
     },
     {
       "path": "/api/cron/reset-credits",
@@ -87,6 +79,9 @@
       "maxDuration": 60
     },
     "src/app/api/cron/generate-images/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/publish/route.ts": {
       "maxDuration": 60
     },
     "src/app/api/campaigns/[id]/engine/route.ts": {

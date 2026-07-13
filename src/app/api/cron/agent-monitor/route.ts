@@ -4,7 +4,7 @@
  * Low-cost continuous execution monitor. Vercel invokes this hourly. Workspaces
  * with recent campaign activity, scheduled/failed posts, or published posts
  * waiting for analytics are evaluated every run; quiet workspaces remain on a
- * deterministic once-daily shard. The dashboard queue is still real-time.
+ * deterministic once-daily shard. The dashboard queue shows current stored state.
  *
  * This route never calls an AI model, publishes content, changes budgets, or
  * invents performance metrics. It only creates approval suggestions backed by

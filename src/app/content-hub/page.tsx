@@ -393,9 +393,15 @@ export default function ContentHubPage() {
                       </div>
                     </div>
                     <div className="flex items-center justify-between px-4 py-3">
-                      <div className="flex -space-x-2 rtl:space-x-reverse">
-                        {[0, 1, 2].map(item => (
-                          <span key={item} className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-[#EEF2FF] text-[10px] font-black text-[#5E63FF]">N</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { ar: 'نص', en: 'Copy' },
+                          { ar: 'وسائط', en: 'Media' },
+                          { ar: 'مراجعة', en: 'Review' },
+                        ].map(stage => (
+                          <span key={stage.en} className="rounded-full border border-[#DDE2FF] bg-[#EEF2FF] px-2 py-1 text-[9px] font-black text-[#5E63FF]">
+                            {isAr ? stage.ar : stage.en}
+                          </span>
                         ))}
                       </div>
                       <p className="text-[12px] font-bold text-slate-500">{isAr ? sampleMediaState.explanatoryCopy.ar : sampleMediaState.explanatoryCopy.en}</p>
@@ -409,7 +415,7 @@ export default function ContentHubPage() {
                     <h2 className="text-[17px] font-black text-[#0B1028]">{isAr ? 'تجهيزات الصيغ' : 'Format readiness'}</h2>
                   </div>
                   <div className="space-y-3">
-                    {(platformRows.length ? platformRows : [{ platform: 'META', count: 0, ready: 0 }, { platform: 'TIKTOK', count: 0, ready: 0 }, { platform: 'LINKEDIN', count: 0, ready: 0 }]).map(row => {
+                    {platformRows.map(row => {
                       const pct = row.count ? Math.round((row.ready / row.count) * 100) : 0
                       return (
                         <div key={row.platform} className="grid grid-cols-[28px_1fr_auto] items-center gap-3">
@@ -422,6 +428,11 @@ export default function ContentHubPage() {
                         </div>
                       )
                     })}
+                    {platformRows.length === 0 && (
+                      <div className="rounded-[16px] bg-slate-50 px-4 py-5 text-center text-[12px] font-bold text-slate-500">
+                        {isAr ? 'ستظهر جاهزية الصيغ بعد إنشاء خطة محتوى مرتبطة بمنصات الحملة.' : 'Format readiness appears after a content plan is created for the campaign platforms.'}
+                      </div>
+                    )}
                   </div>
                 </SoftPanel>
               </div>
