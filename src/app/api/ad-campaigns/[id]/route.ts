@@ -119,13 +119,6 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       utmCampaign,
       platformCampaignId,
       platformStatus,
-      totalSpend,
-      totalImpressions,
-      totalClicks,
-      totalConversions,
-      avgCTR,
-      avgCPC,
-      avgROAS,
     } = body
 
     if (status === 'ACTIVE' || platformStatus === 'ACTIVE') {
@@ -155,13 +148,6 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
         ...(utmCampaign !== undefined && { utmCampaign }),
         ...(platformCampaignId !== undefined && { platformCampaignId }),
         ...(platformStatus !== undefined && { platformStatus }),
-        ...(totalSpend !== undefined && { totalSpend }),
-        ...(totalImpressions !== undefined && { totalImpressions }),
-        ...(totalClicks !== undefined && { totalClicks }),
-        ...(totalConversions !== undefined && { totalConversions }),
-        ...(avgCTR !== undefined && { avgCTR }),
-        ...(avgCPC !== undefined && { avgCPC }),
-        ...(avgROAS !== undefined && { avgROAS }),
       },
     })
 

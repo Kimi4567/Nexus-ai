@@ -90,9 +90,9 @@ interface Campaign {
   totalImpressions: number
   totalClicks: number
   totalConversions: number
-  avgCTR: number
-  avgCPC: number
-  avgROAS: number
+  avgCTR: number | null
+  avgCPC: number | null
+  avgROAS: number | null
   aiStrategy?: Record<string, unknown>
   aiAudienceBrief?: Record<string, unknown>
   aiBudgetPlan?: Record<string, unknown>
@@ -102,7 +102,7 @@ interface Campaign {
   platformCampaignId?: string
   platformStatus?: string
   adSets: AdSet[]
-  performanceSnapshots: Array<{ date: string; spend: number; impressions: number; clicks: number; roas: number }>
+  performanceSnapshots: Array<{ date: string; spend: number; impressions: number; clicks: number; roas: number | null }>
   adAccount?: {
     platformAccountName: string
     businessName?: string
@@ -652,14 +652,14 @@ export default function CampaignDetailPage() {
             />
           </div>
           <KpiCard label="Impressions" value={fmt(campaign.totalImpressions)} sub="Total served" />
-          <KpiCard label="Clicks" value={fmt(campaign.totalClicks)} sub={`CTR ${(campaign.avgCTR || 0).toFixed(2)}%`} />
+          <KpiCard label="Clicks" value={fmt(campaign.totalClicks)} sub={campaign.avgCTR == null ? 'CTR not reported' : `CTR ${campaign.avgCTR.toFixed(2)}%`} />
           <KpiCard label="Conversions" value={fmt(campaign.totalConversions)} sub="Reported" />
-          <KpiCard label="Avg CPC" value={`${campaign.currency} ${(campaign.avgCPC || 0).toFixed(2)}`} sub="Per click" />
+          <KpiCard label="Avg CPC" value={campaign.avgCPC == null ? '—' : `${campaign.currency} ${campaign.avgCPC.toFixed(2)}`} sub={campaign.avgCPC == null ? 'Not reported' : 'Per click'} />
           <KpiCard
             label="ROAS"
-            value={`${(campaign.avgROAS || 0).toFixed(2)}x`}
+            value={campaign.avgROAS == null ? '—' : `${campaign.avgROAS.toFixed(2)}x`}
             sub="Reported return on ad spend"
-            accent={campaign.avgROAS >= 2 ? '#10B981' : campaign.avgROAS >= 1 ? '#F97316' : '#EF4444'}
+            accent={campaign.avgROAS == null ? '#64748B' : campaign.avgROAS >= 2 ? '#10B981' : campaign.avgROAS >= 1 ? '#F97316' : '#EF4444'}
           />
         </div>
         ) : (
@@ -783,8 +783,8 @@ export default function CampaignDetailPage() {
                           <td className="py-2 pr-4 text-white">{fmt(snap.impressions)}</td>
                           <td className="py-2 pr-4 text-white">{fmt(snap.clicks)}</td>
                           <td className="py-2 pr-4 font-bold"
-                            style={{ color: snap.roas >= 2 ? '#10B981' : snap.roas >= 1 ? '#F97316' : '#EF4444' }}>
-                            {(snap.roas || 0).toFixed(2)}x
+                            style={{ color: snap.roas == null ? '#94A3B8' : snap.roas >= 2 ? '#10B981' : snap.roas >= 1 ? '#F97316' : '#EF4444' }}>
+                            {snap.roas == null ? '—' : `${snap.roas.toFixed(2)}x`}
                           </td>
                         </tr>
                       ))}
@@ -1199,7 +1199,7 @@ export default function CampaignDetailPage() {
                 { label: 'Reported Spend', value: `${campaign.currency} ${(campaign.totalSpend || 0).toFixed(2)}`, accent: '#F97316' },
                 { label: 'Impressions', value: fmt(campaign.totalImpressions) },
                 { label: 'Clicks', value: fmt(campaign.totalClicks) },
-                { label: 'ROAS', value: `${(campaign.avgROAS || 0).toFixed(2)}x`, accent: campaign.avgROAS >= 2 ? '#10B981' : campaign.avgROAS >= 1 ? '#F97316' : '#EF4444' },
+                { label: 'ROAS', value: campaign.avgROAS == null ? '—' : `${campaign.avgROAS.toFixed(2)}x`, accent: campaign.avgROAS == null ? '#64748B' : campaign.avgROAS >= 2 ? '#10B981' : campaign.avgROAS >= 1 ? '#F97316' : '#EF4444' },
               ].map(k => (
                 <div key={k.label} className="p-4 rounded-[12px]"
                   style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -1246,8 +1246,8 @@ export default function CampaignDetailPage() {
                           <td className="px-5 py-3 text-text-muted">—</td>
                           <td className="px-5 py-3 text-text-muted">—</td>
                           <td className="px-5 py-3 font-bold"
-                            style={{ color: snap.roas >= 2 ? '#10B981' : snap.roas >= 1 ? '#F97316' : '#EF4444' }}>
-                            {(snap.roas || 0).toFixed(2)}x
+                            style={{ color: snap.roas == null ? '#94A3B8' : snap.roas >= 2 ? '#10B981' : snap.roas >= 1 ? '#F97316' : '#EF4444' }}>
+                            {snap.roas == null ? '—' : `${snap.roas.toFixed(2)}x`}
                           </td>
                         </tr>
                       ))}
@@ -1654,7 +1654,7 @@ function PerformanceChart({
   snapshots,
   currency,
 }: {
-  snapshots: Array<{ date: string; spend: number; impressions: number; clicks: number; roas: number }>
+  snapshots: Array<{ date: string; spend: number; impressions: number; clicks: number; roas: number | null }>
   currency: string
 }) {
   const W = 800; const H = 200; const PAD = 40
@@ -1662,7 +1662,8 @@ function PerformanceChart({
   const spends = snapshots.map(s => s.spend || 0)
   const maxSpend = Math.max(...spends, 1)
 
-  const roas = snapshots.map(s => s.roas || 0)
+  const hasCompleteRoas = snapshots.every(s => s.roas !== null && Number.isFinite(s.roas))
+  const roas = snapshots.map(s => s.roas ?? 0)
   const maxRoas = Math.max(...roas, 1)
 
   const xStep = (W - PAD * 2) / Math.max(snapshots.length - 1, 1)
@@ -1691,7 +1692,7 @@ function PerformanceChart({
         <h4 className="text-[12px] font-bold text-white">Spend & ROAS Trend</h4>
         <div className="flex items-center gap-4 text-[11px] text-text-muted">
           <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 inline-block rounded" style={{ background: '#F97316' }} /> Spend ({currency})</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 inline-block rounded" style={{ background: '#10B981' }} /> ROAS</span>
+          {hasCompleteRoas && <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 inline-block rounded" style={{ background: '#10B981' }} /> ROAS</span>}
         </div>
       </div>
       <div className="px-2 py-2">
@@ -1712,7 +1713,7 @@ function PerformanceChart({
           {/* Spend line */}
           <polyline points={spendPts} fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           {/* ROAS line */}
-          <polyline points={roasPts} fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5,3" />
+          {hasCompleteRoas && <polyline points={roasPts} fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5,3" />}
           {/* X-axis date labels (every nth) */}
           {snapshots.map((s, i) => {
             if (snapshots.length > 10 && i % Math.ceil(snapshots.length / 7) !== 0) return null

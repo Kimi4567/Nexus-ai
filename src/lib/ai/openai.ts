@@ -176,7 +176,7 @@ Rules:
 }
 
 CAMPAIGN: ${campaign.name} | Goal: ${campaign.goal} | Tone: ${campaign.tone}
-Audience: ${campaign.audience || 'General'}
+Audience: ${campaign.audience || 'Not provided — do not infer audience details'}
 Platforms: ${(campaign.platforms || []).join(', ')}
 ${campaign.description ? `Description: ${campaign.description}` : ''}
 ${brand?.brandName ? `Brand: ${brand.brandName}` : ''}

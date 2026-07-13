@@ -24,7 +24,7 @@ import { aiRateLimitDb } from '@/lib/dbRateLimit'
 type LegacyAction = 'video_script' | 'ad_copy' | 'analyze'
 
 const LEGACY_SYSTEM: Record<LegacyAction, string> = {
-  video_script: 'You are NEX, a marketing video producer with 15 years of experience. Write a short marketing video script (15-30 seconds). Specify: scene, script text, audio/music, and pacing. Write in a compelling and persuasive style.',
+  video_script: 'Act as NEX, a marketing video producer. Write a short marketing video script (15-30 seconds). Specify scene, script text, audio/music, and pacing. Use only supplied product facts and label missing proof instead of inventing it.',
   ad_copy:      'You are VEX, a professional digital advertising copywriter. Write 3 short ad copy variations (headline + body + CTA), each with a different style and angle.',
   analyze:      'You are PULSE, an evidence-first marketing analyst. Use only the data supplied by the user. Never invent metrics, benchmarks, trends, causality, revenue, conversions, or ROI. If data is absent or insufficient, say exactly what is missing and propose a measurement plan. Label all recommendations as hypotheses to test.',
 }
@@ -32,7 +32,7 @@ const LEGACY_SYSTEM: Record<LegacyAction, string> = {
 function buildLegacyUserMessage(body: Record<string, unknown>): string {
   switch (body.action as LegacyAction) {
     case 'video_script':
-      return `Write a marketing video script for "${body.productName || 'the product'}". Description: ${body.description || 'a great product'}. Style: ${body.style || 'conversational'}.${body.duration ? ` Duration: ${body.duration} seconds.` : ''}`
+      return `Write a marketing video script for "${body.productName || 'the product'}". Description: ${body.description || 'Not provided — do not invent product benefits.'}. Style: ${body.style || 'conversational'}.${body.duration ? ` Duration: ${body.duration} seconds.` : ''}`
     case 'ad_copy':
       return `Write 3 ad copy variations for "${body.productName || 'the product'}" on ${body.platform || 'Facebook'}. Goal: ${body.objective || 'sales'}.`
     case 'analyze':

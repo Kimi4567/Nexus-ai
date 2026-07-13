@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { createMetaAdsApi } from '@/lib/adPlatforms/metaAdsApi'
+import { normalizeManualPaidMetrics, paidMetricsCompleteness } from '@/lib/paidMetrics'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -66,9 +67,17 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
     // ── Manual entry mode (no API access or no platform ID) ───────────────
     if (!adAccount || !adAccount.hasApiAccess || !campaign.platformCampaignId) {
       const body = await req.json().catch(() => ({}))
-      const { date, spend, impressions, clicks, conversions, roas } = body
+      const date = typeof body.date === 'string' ? body.date.trim() : ''
+      const { metrics, invalidKeys } = normalizeManualPaidMetrics(body)
 
-      if (!date || spend === undefined) {
+      if (invalidKeys.length > 0) {
+        return NextResponse.json({
+          error: `Invalid non-negative metrics: ${invalidKeys.join(', ')}`,
+          mode: 'manual',
+        }, { status: 400 })
+      }
+
+      if (!date || metrics.spend === undefined) {
         return NextResponse.json({
           error: 'date and spend are required for manual entry',
           mode: 'manual',
@@ -76,6 +85,25 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
       }
 
       const dateObj = new Date(date)
+      const endOfToday = new Date()
+      endOfToday.setHours(23, 59, 59, 999)
+      if (Number.isNaN(dateObj.getTime()) || dateObj > endOfToday) {
+        return NextResponse.json({
+          error: 'Manual metric date must be a valid date that is not in the future',
+          mode: 'manual',
+        }, { status: 400 })
+      }
+
+      const integerKeys = ['impressions', 'clicks', 'conversions'] as const
+      const fractionalCountKeys = integerKeys.filter((key) => (
+        metrics[key] !== undefined && !Number.isInteger(metrics[key])
+      ))
+      if (fractionalCountKeys.length > 0) {
+        return NextResponse.json({
+          error: `Count metrics must be whole numbers: ${fractionalCountKeys.join(', ')}`,
+          mode: 'manual',
+        }, { status: 400 })
+      }
 
       // Find-then-update or create (handles nullable unique constraint)
       const existing = await db.adPerformanceSnapshot.findFirst({
@@ -88,11 +116,11 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
       })
 
       const data = {
-        spend: parseFloat(spend) || 0,
-        impressions: parseInt(impressions) || 0,
-        clicks: parseInt(clicks) || 0,
-        conversions: parseInt(conversions) || 0,
-        roas: parseFloat(roas) || 0,
+        spend: metrics.spend,
+        impressions: metrics.impressions ?? 0,
+        clicks: metrics.clicks ?? 0,
+        conversions: metrics.conversions ?? 0,
+        roas: metrics.roas ?? null,
         dataSource: 'manual',
         syncedAt: new Date(),
       }
@@ -117,7 +145,9 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
       return NextResponse.json({
         mode: 'manual',
         snapshot: snap,
-        message: 'Manual paid metrics signal recorded for review. This is not analytics-backed learning.',
+        reportedFields: Object.keys(metrics),
+        measurementCompleteness: paidMetricsCompleteness(metrics),
+        message: 'Manual paid metrics recorded as user-reported evidence. This is not platform-synced analytics.',
       })
     }
 
@@ -206,13 +236,13 @@ async function recalcAggregates(campaignId: string) {
   const totalImpressions = snaps.reduce((s: number, r: { impressions: number }) => s + (r.impressions || 0), 0)
   const totalClicks = snaps.reduce((s: number, r: { clicks: number }) => s + (r.clicks || 0), 0)
   const totalConversions = snaps.reduce((s: number, r: { conversions: number }) => s + (r.conversions || 0), 0)
-  const avgCTR = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0
-  const avgCPC = totalClicks > 0 ? totalSpend / totalClicks : 0
+  const avgCTR = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : null
+  const avgCPC = totalClicks > 0 ? totalSpend / totalClicks : null
 
   const roasSnaps = snaps.filter((r: { roas: number | null }) => (r.roas || 0) > 0)
   const avgROAS = roasSnaps.length > 0
     ? roasSnaps.reduce((s: number, r: { roas: number }) => s + r.roas, 0) / roasSnaps.length
-    : 0
+    : null
 
   await db.adCampaign.update({
     where: { id: campaignId },

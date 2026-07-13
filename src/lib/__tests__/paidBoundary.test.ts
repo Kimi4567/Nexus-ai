@@ -252,6 +252,10 @@ describe('paidBoundary', () => {
 
     expect(updateRoute).toContain('activation_route_required')
     expect(updateRoute).toContain('Use the explicit platform activation route after final approval')
+    expect(updateRoute).not.toContain('...(totalSpend !== undefined')
+    expect(updateRoute).not.toContain('...(totalImpressions !== undefined')
+    expect(updateRoute).not.toContain('...(avgCTR !== undefined')
+    expect(updateRoute).not.toContain('...(avgROAS !== undefined')
     expect(adSetUpdateRoute).toContain('activation_route_required')
     expect(adSetUpdateRoute).toContain('Ad sets cannot be marked active through generic updates')
     expect(adSetUpdateRoute).not.toContain('platformStatus')

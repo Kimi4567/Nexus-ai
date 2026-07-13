@@ -11,13 +11,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { REFERRAL_BONUS_CREDITS } from '@/lib/stripe'
+import { randomInt } from 'crypto'
 
 // ── Generate a short unique referral code ─────────────────────────────────────
 function generateCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let code = 'NEXUS-'
   for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)]
+    code += chars[randomInt(chars.length)]
   }
   return code
 }

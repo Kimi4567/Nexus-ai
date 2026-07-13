@@ -5,9 +5,11 @@ import { prisma } from '@/lib/prisma'
 import {
   BANNED_PHRASES,
   SPECIFICITY_RULES,
+  UNSUPPORTED_CLAIMS_RULES,
   buildBrandContextBlock,
   type BrandContextData,
 } from '@/lib/ai/promptRules'
+import { guardBrandText } from '@/lib/ai/brandTruthGuard'
 import {
   checkAndDeductCredits,
   refundCredits,
@@ -93,10 +95,12 @@ ${BANNED_PHRASES}
 
 ${SPECIFICITY_RULES}
 
+${UNSUPPORTED_CLAIMS_RULES}
+
 REASONING REQUIREMENT — before writing anything, silently complete this analysis:
-1. What is the brand's stage and primary growth constraint right now?
-2. Who is the ONE buyer most likely to convert from this campaign?
-3. What single message will make that buyer stop scrolling?
+1. Which brand stage and constraint are explicitly supported, and which remain unknown?
+2. Which buyer details are confirmed in Brand Brain or this campaign?
+3. What message can be written using only the confirmed offer, audience, and proof?
 4. What would make this campaign blend into generic noise — and how do I avoid it?
 
 ${contextBlock}
@@ -113,7 +117,7 @@ Return ONLY what was requested — no intro, no preamble, no explanation.`
 Rules:
 - Max 6 words — punchy, specific, memorable
 - Must reflect the campaign's actual goal and the audience's desire
-- Use action words, numbers, or power phrases that create urgency or curiosity
+- Use clear action language or curiosity without inventing numbers, deadlines, scarcity, discounts, or urgency
 - NEVER use: "Power", "Impact", "Transform", "Elevate", "Boost", "Scale", "Ignite" (overused)
 - Must sound like a real campaign name a creative director would approve
 - Return ONLY the campaign name as plain text, no quotes. Language: ${lang}`,
@@ -121,18 +125,18 @@ Rules:
       description: `Write a campaign product/service description for ${brandRef}.
 Rules:
 - 1-2 sentences, max 40 words
-- Open with WHAT it is and WHO it is for — specific buyer profile
-- Include the #1 outcome the buyer gets — concrete, not vague
-- If the brand has a price point or delivery model, hint at it
+- Open with WHAT it is and WHO it is for using confirmed details only
+- Include a qualitative outcome only when the brand context supports it; otherwise label it as a positioning hypothesis
+- Mention price or delivery model only when it is supplied
 - NEVER use: "innovative", "powerful", "comprehensive", "seamless", "robust"
 - Return ONLY the description text. Language: ${lang}`,
 
       audience: `Write a target audience description for ${brandRef}'s campaign.
 Rules:
 - 2-3 sentences, max 60 words
-- Sentence 1: Demographics — job title or life situation, age, income/budget level
-- Sentence 2: Behavior — what they're currently doing or using that isn't working
-- Sentence 3: Trigger — the specific frustration or ambition that makes them act NOW
+- Use only confirmed job, situation, age, income/budget, location, behavior, and pain details
+- Do not infer demographics or behavior from the industry, offer, or campaign goal
+- If details are missing, write a clearly labelled audience hypothesis and list the missing inputs to confirm
 - NEVER write: "business owners", "entrepreneurs", "anyone who wants", "people looking for"
 - Return ONLY the audience description. Language: ${lang}`,
     }
@@ -146,9 +150,7 @@ Rules:
     chargedUserId = user.id
     chargedCredit = credit
 
-    // Add variation tag so the AI always produces a fresh result
-    const variationTag = `[Variation ${Math.floor(Math.random() * 9999)}]`
-    const freshPrompt = `${prompt}\n\n${variationTag}`
+    const freshPrompt = `${prompt}\n\nProduce an alternate wording while preserving every supplied fact and uncertainty label.`
 
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -172,7 +174,22 @@ Rules:
     }
 
     const completion = await res.json()
-    const suggestion: string = completion.choices?.[0]?.message?.content?.trim() || ''
+    const rawSuggestion: string = completion.choices?.[0]?.message?.content?.trim() || ''
+    const allowedClaims = [
+      name,
+      description,
+      goal,
+      brandData.brandName,
+      brandData.industry,
+      brandData.description,
+      brandData.primaryOffer,
+      brandData.targetAudience,
+      brandData.audienceLocation,
+      ...(brandData.uniqueAdvantages || []),
+      ...(brandData.audiencePainPoints || []),
+      brandData.competitorNotes,
+    ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    const suggestion = guardBrandText(rawSuggestion, allowedClaims)
 
     // Prevent any edge caching
     return NextResponse.json({ suggestion }, {

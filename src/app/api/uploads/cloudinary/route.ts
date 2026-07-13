@@ -2,7 +2,13 @@ import { NextResponse } from 'next/server'
 import { v2 as cloudinary } from 'cloudinary'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
-import { createUploadError, getMediaTypeFromMime, getSafeFileName, isValidUploadMime, validateUploadSize } from '@/lib/uploadValidation'
+import {
+  createUploadError,
+  getMediaTypeFromMime,
+  isValidUploadMime,
+  normalizeMediaMetric,
+  validateUploadSize,
+} from '@/lib/uploadValidation'
 import { createRateLimiter } from '@/lib/dbRateLimit'
 import { assertWorkspaceAccess } from '@/lib/workspaceAccess'
 
@@ -118,16 +124,10 @@ export async function POST(req: Request) {
       url: res.secure_url,
       cloudinaryId: res.public_id,
       size: res.bytes || 0,
-      duration: res.duration || null,
+      width: normalizeMediaMetric(res.width, 'dimension'),
+      height: normalizeMediaMetric(res.height, 'dimension'),
+      duration: normalizeMediaMetric(res.duration, 'duration'),
     }})
-
-    if (media.type === 'VIDEO') {
-      try {
-        await import('@/lib/uploadProcessor').then((m) => m.scheduleProcessingForMedia(media.id))
-      } catch (err) {
-        console.warn('Failed to schedule processing for media', err)
-      }
-    }
 
     return NextResponse.json({ media })
   } catch (err) {

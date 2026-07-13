@@ -30,7 +30,11 @@ vi.mock('@/lib/credits', () => ({
 vi.mock('@/lib/ai/promptRules', () => ({
   BANNED_PHRASES: '',
   SPECIFICITY_RULES: '',
+  UNSUPPORTED_CLAIMS_RULES: '',
   buildBrandContextBlock: () => 'brand context',
+}))
+vi.mock('@/lib/ai/brandTruthGuard', () => ({
+  guardBrandText: (value: string) => value,
 }))
 
 import { POST } from '../route'
