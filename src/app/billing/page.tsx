@@ -247,6 +247,49 @@ export default function BillingPage() {
       .finally(() => setLoading(false))
   }, [session])
 
+  useEffect(() => {
+    const token = session?.access_token
+    if (!token || typeof window === 'undefined') return
+
+    const params = new URLSearchParams(window.location.search)
+    const checkoutResult = params.get('credits')
+    if (checkoutResult !== 'success' && checkoutResult !== 'cancelled') return
+
+    setBillingMessage(
+      checkoutResult === 'success'
+        ? ar
+          ? 'تم الدفع في Stripe بنجاح. تتم مزامنة رصيدك الآن.'
+          : 'Stripe payment succeeded. Your wallet is syncing now.'
+        : ar
+          ? 'تم إلغاء الدفع ولم يتم خصم أي مبلغ أو إضافة رصيد.'
+          : 'Checkout was cancelled. No payment was taken and no credits were added.',
+    )
+    window.history.replaceState({}, '', window.location.pathname)
+
+    if (checkoutResult !== 'success') return
+
+    let cancelled = false
+    const refreshStatus = async () => {
+      try {
+        const response = await fetch('/api/billing/status', {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        })
+        const data = await response.json()
+        if (!cancelled && data.plan) setBillingStatus(data)
+      } catch (error) {
+        console.error(error)
+      }
+    }
+    const timers = [0, 1_000, 2_500, 5_000].map((delay) =>
+      window.setTimeout(refreshStatus, delay),
+    )
+    return () => {
+      cancelled = true
+      timers.forEach((timer) => window.clearTimeout(timer))
+    }
+  }, [session?.access_token, ar])
+
   const handleUpgrade = async (planId: string) => {
     if (!session?.access_token) {
       window.location.href = `/auth/register?plan=${encodeURIComponent(planId)}`
@@ -385,7 +428,11 @@ export default function BillingPage() {
         )}
 
         {billingMessage && (
-          <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-800">
+          <div
+            className="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-800"
+            role="status"
+            aria-live="polite"
+          >
             {billingMessage}
           </div>
         )}
