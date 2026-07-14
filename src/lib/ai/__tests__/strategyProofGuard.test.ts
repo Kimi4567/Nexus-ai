@@ -47,6 +47,12 @@ describe('strategyProofGuard', () => {
       valuePropositions: ['Fresh weekly roasting for optimal flavor.'],
       ctaVariations: ['See our quality promise'],
       contentPillars: ['customer stories to collect', 'customer story to collect to collect to collect visuals'],
+      topHooks: [
+        'Your perfect cup, delivered.',
+        'The ultimate coffee routine.',
+        'Unmatched flavor for subscribers.',
+        'The finest beans for home brewing.',
+      ],
     }, {
       verifiedProof: [],
       allowedClaimText: ['Specialty coffee with fresh weekly roasting.'],
@@ -58,7 +64,8 @@ describe('strategyProofGuard', () => {
     expect(joined).toContain('See the product details')
     expect(joined).toContain('customer stories to collect')
     expect(joined).toContain('customer story to collect visuals')
-    expect(joined).not.toMatch(/freshest|premium|high-quality|optimal|to collect to collect/i)
+    expect(joined).toContain('Your cup, delivered.')
+    expect(joined).not.toMatch(/freshest|premium|high-quality|optimal|perfect|ultimate|unmatched|finest|to collect to collect/i)
   })
 
   it('preserves explicitly supplied premium and freshest positioning', () => {

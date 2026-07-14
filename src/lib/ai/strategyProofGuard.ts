@@ -149,13 +149,14 @@ function softenUnsupportedQualityClaims(text: string, context: StrategyProofCont
   if (!hasAffirmedClaim(allowed, /\bpremium\b|فاخر|فاخرة/i)) {
     guarded = guarded
       .replace(/\bpremium\s*,\s*/gi, '')
-      .replace(/\bpremium\s+/gi, '')
-      .replace(/(?:قهوة|حبوب|منتج|خدمة)\s+(?:فاخرة|فاخر)/gi, '$1')
+      .replace(/\bpremium\b\s*/gi, '')
+      .replace(/(قهوة|حبوب|منتج|خدمة)\s+(?:فاخرة|فاخر)/gi, '$1')
   }
 
   if (!hasAffirmedClaim(allowed, /\bhigh[-\s]?quality\b|عالي(?:ة)?\s+الجودة/i)) {
     guarded = guarded
       .replace(/\bhigh[-\s]?quality\s+/gi, '')
+      .replace(/\bhigh[-\s]?quality\b/gi, '')
       .replace(/عالي(?:ة)?\s+الجودة\s*/gi, '')
   }
 
@@ -163,7 +164,16 @@ function softenUnsupportedQualityClaims(text: string, context: StrategyProofCont
     guarded = guarded
       .replace(/\s+for\s+optimal\s+(?:flavou?r|results?|performance)\b/gi, '')
       .replace(/\boptimal\s+(?:flavou?r|results?|performance)\b/gi, 'the intended outcome')
+      .replace(/\boptimal\b/gi, '')
+      .replace(/(?:الأمثل|مثالي|مثالية)\s*/gi, '')
   }
+
+  if (!hasAffirmedClaim(allowed, /\bperfect\b/i)) guarded = guarded.replace(/\bperfect\b\s*/gi, '')
+  if (!hasAffirmedClaim(allowed, /\bfinest\b/i)) guarded = guarded.replace(/\bfinest\b\s*/gi, '')
+  if (!hasAffirmedClaim(allowed, /\bultimate\b/i)) guarded = guarded.replace(/\bultimate\b\s*/gi, '')
+  if (!hasAffirmedClaim(allowed, /\bunmatched\b/i)) guarded = guarded.replace(/\bunmatched\b\s*/gi, '')
+  if (!hasAffirmedClaim(allowed, /\bunrival(?:l)?ed\b/i)) guarded = guarded.replace(/\bunrival(?:l)?ed\b\s*/gi, '')
+  if (!hasAffirmedClaim(allowed, /الأفضل/i)) guarded = guarded.replace(/الأفضل\s*/gi, '')
 
   const cleaned = guarded
     .replace(/\bsee\s+our\s+quality\s+promise\b/gi, 'See the product details')
