@@ -29,6 +29,13 @@ const analyticsInsightsRouteSource = readFileSync(
 const strategyRuntimeCopySource = `${campaignRoomSource}\n${strategyRoomStateCopySource}`
 
 describe('Campaign Room strategy truth copy', () => {
+  it('shows the campaign platforms in media readiness instead of a stale hardcoded subset', () => {
+    expect(campaignRoomSource).toContain('campaign.platforms.length > 0 ? campaign.platforms.map')
+    expect(campaignRoomSource).toContain("THREADS: '@'")
+    expect(campaignRoomSource).toContain("PINTEREST: '📌'")
+    expect(campaignRoomSource).not.toContain("['📘 Facebook', '📸 Instagram', '💼 LinkedIn', '✕ X', '🎵 TikTok']")
+  })
+
   it('does not tell progressed campaigns to turn strategy into content again', () => {
     expect(campaignRoomSource).not.toContain('Review strategy quality before turning it into content.')
     expect(campaignRoomSource).not.toContain('before turning it into content planning')

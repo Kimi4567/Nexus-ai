@@ -97,8 +97,17 @@ const ACTIVITY_ICONS: Record<string, string> = {
 }
 
 const PLATFORM_ICONS: Record<string, string> = {
-  INSTAGRAM: '📸', TIKTOK: '🎵', FACEBOOK: '👥',
-  YOUTUBE_SHORTS: '▶️', LINKEDIN: '💼', SNAPCHAT: '👻',
+  META: '👥', FACEBOOK: '👥', INSTAGRAM: '📸', THREADS: '@',
+  TIKTOK: '🎵', LINKEDIN: '💼', X: '𝕏', TWITTER: '𝕏',
+  YOUTUBE: '▶️', YOUTUBE_SHORTS: '▶️', PINTEREST: '📌',
+  SNAPCHAT: '👻', WEBSITE: '🌐',
+}
+
+const PLATFORM_COLORS: Record<string, string> = {
+  META: '#1877F2', FACEBOOK: '#1877F2', INSTAGRAM: '#C13584',
+  THREADS: '#111111', TIKTOK: '#010101', LINKEDIN: '#0A66C2',
+  X: '#111111', TWITTER: '#111111', YOUTUBE: '#FF0000',
+  YOUTUBE_SHORTS: '#FF0000', PINTEREST: '#E60023', SNAPCHAT: '#EAB308',
 }
 
 function formatCampaignToneLabel(tone: string | null | undefined): string {
@@ -1996,6 +2005,26 @@ function CampaignDetailPageInner() {
       key: 'LINKEDIN', label: 'LinkedIn', icon: '💼', accent: '#60a5fa',
       bg: 'linear-gradient(145deg, rgba(37,99,235,0.16), rgba(14,165,233,0.06))',
       border: 'rgba(96,165,250,0.26)',
+    }
+    if (platform.includes('THREADS')) return {
+      key: 'THREADS', label: 'Threads', icon: '@', accent: '#111827',
+      bg: 'linear-gradient(145deg, rgba(17,24,39,0.12), rgba(99,102,241,0.06))',
+      border: 'rgba(17,24,39,0.22)',
+    }
+    if (platform === 'X' || platform.includes('TWITTER')) return {
+      key: 'X', label: 'X', icon: '𝕏', accent: '#111827',
+      bg: 'linear-gradient(145deg, rgba(17,24,39,0.12), rgba(71,85,105,0.06))',
+      border: 'rgba(17,24,39,0.22)',
+    }
+    if (platform.includes('YOUTUBE')) return {
+      key: 'YOUTUBE', label: platform.includes('SHORT') ? 'YouTube Shorts' : 'YouTube', icon: '▶️', accent: '#ef4444',
+      bg: 'linear-gradient(145deg, rgba(239,68,68,0.12), rgba(248,113,113,0.05))',
+      border: 'rgba(239,68,68,0.22)',
+    }
+    if (platform.includes('PINTEREST')) return {
+      key: 'PINTEREST', label: 'Pinterest', icon: '📌', accent: '#e60023',
+      bg: 'linear-gradient(145deg, rgba(230,0,35,0.11), rgba(244,63,94,0.05))',
+      border: 'rgba(230,0,35,0.22)',
     }
     if (platform.includes('FACEBOOK') || platform.includes('META')) return {
       key: 'FACEBOOK', label: 'Facebook', icon: '👥', accent: '#818cf8',
@@ -4395,9 +4424,20 @@ function CampaignDetailPageInner() {
                     </div>
                   )}
                   <div className="flex gap-2 mb-4 flex-wrap">
-                    {['📘 Facebook', '📸 Instagram', '💼 LinkedIn', '✕ X', '🎵 TikTok'].map(p => (
-                      <span key={p} className="rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">{p}</span>
-                    ))}
+                    {campaign.platforms.length > 0 ? campaign.platforms.map((rawPlatform) => {
+                      const platformKey = rawPlatform.trim().toUpperCase() === 'TWITTER'
+                        ? 'X'
+                        : rawPlatform.trim().toUpperCase()
+                      return (
+                        <span key={platformKey} className="rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">
+                          {PLATFORM_ICONS[platformKey] || '🌐'} {formatStrategyPlatformLabel(rawPlatform) || rawPlatform}
+                        </span>
+                      )
+                    }) : (
+                      <span className="rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
+                        {locale === 'ar' ? 'لم يتم تحديد المنصات' : 'Platforms not set'}
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={() => window.open(`/campaigns/${campaign.id}/content-hub`, '_blank')}
@@ -4977,13 +5017,6 @@ function CampaignDetailPageInner() {
                   const platforms: Record<string, any> = perfData.platformBreakdown ?? {}
                   const topPosts: any[] = perfData.topPosts ?? []
                   const trend: any[] = perfData.trend ?? []
-
-                  const PLATFORM_COLORS: Record<string, string> = {
-                    META: '#1877F2', LINKEDIN: '#0A66C2', TIKTOK: '#010101', YOUTUBE: '#FF0000',
-                  }
-                  const PLATFORM_ICONS: Record<string, string> = {
-                    META: '📘', LINKEDIN: '💼', TIKTOK: '🎵', YOUTUBE: '▶️',
-                  }
 
                   return (
                     <>

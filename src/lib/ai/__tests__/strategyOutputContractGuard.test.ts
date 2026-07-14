@@ -70,6 +70,21 @@ describe('guardStrategyOutputContract', () => {
     expect(out.weeklyExecutionPlan[0].platforms).toEqual(['Instagram'])
   })
 
+  it('treats Threads as a known platform and removes it when the user did not select it', () => {
+    const out = guardStrategyOutputContract({
+      contentAnglesDetailed: [
+        { title: 'Threads discussion', platform: 'Threads', format: 'Text post', hook: 'Join the discussion', cta: 'Reply now' },
+      ],
+      weeklyExecutionPlan: [
+        { week: 1, deliverables: ['Create a Threads discussion'], platforms: ['Threads'] },
+      ],
+    }, { allowedPlatforms: allowed })
+
+    expect(out.contentAnglesDetailed[0].platform).toBe('Instagram')
+    expect(out.weeklyExecutionPlan[0].platforms).toEqual(['Instagram'])
+    expect(JSON.stringify(out)).not.toMatch(/Threads/i)
+  })
+
   it('upgrades generic legacy hooks to a grounded audience need at display time', () => {
     const out = guardStrategyOutputContract({
       audienceSegmentsDetailed: [
@@ -721,6 +736,11 @@ describe('formatStrategyPlatformLabel', () => {
     expect(formatStrategyPlatformLabel('youtube_shorts')).toBe('YouTube Shorts')
     expect(formatStrategyPlatformLabel('Youtube_shorts')).toBe('YouTube Shorts')
     expect(formatStrategyPlatformLabel('youtube shorts')).toBe('YouTube Shorts')
+  })
+
+  it('formats Threads consistently for runtime display', () => {
+    expect(formatStrategyPlatformLabel('threads')).toBe('Threads')
+    expect(formatStrategyPlatformLabel('THREADS')).toBe('Threads')
   })
 })
 

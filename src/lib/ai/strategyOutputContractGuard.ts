@@ -37,6 +37,7 @@ const PLATFORM_ALIASES: Record<string, string[]> = {
   snapchat: ['snapchat'],
   website: ['website', 'site', 'blog'],
   pinterest: ['pinterest', 'pin'],
+  threads: ['threads'],
 }
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -49,6 +50,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   snapchat: 'Snapchat',
   website: 'Website',
   pinterest: 'Pinterest',
+  threads: 'Threads',
 }
 
 const KNOWN_PLATFORM_KEYS = Object.keys(PLATFORM_ALIASES)
