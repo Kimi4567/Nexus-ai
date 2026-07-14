@@ -192,7 +192,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
   const { authHeader } = useAuth()
   const { t, dir, locale } = useI18n()
   // PR-S1b — current plan tier (for the deterministic Order Review's plan-cap). Display only.
-  const { status: billingStatus } = useBillingStatus()
+  const { status: billingStatus, invalidate: refreshBillingStatus } = useBillingStatus()
 
   // Close from success screen — clear cache so next open starts a fresh run
   const handleCloseFromSuccess = () => {
@@ -451,6 +451,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
             setPhase('no_campaign')
           } else {
             setPhase('success')
+            void refreshBillingStatus()
             onSuccess?.()
           }
         })
@@ -526,6 +527,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
     strategyBrandProfile,
     useCustomPostCount,
     startFresh,
+    refreshBillingStatus,
   ])
 
   if (!isOpen) return null

@@ -120,6 +120,63 @@ function allowedClaimsText(context: StrategyProofContext): string {
     : ''
 }
 
+function hasAffirmedClaim(text: string, pattern: RegExp): boolean {
+  const flags = pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`
+  const scanner = new RegExp(pattern.source, flags)
+  let match: RegExpExecArray | null
+  while ((match = scanner.exec(text)) !== null) {
+    const before = text.slice(Math.max(0, match.index - 48), match.index)
+    if (!/(?:\b(?:avoid|never|not|no|without|do\s+not\s+use|must\s+not\s+use)\s+|(?:تجنب|تجنّب|لا\s+تستخدم|بدون|غير)\s*)$/i.test(before)) return true
+  }
+  return false
+}
+
+function softenUnsupportedQualityClaims(text: string, context: StrategyProofContext): string {
+  const allowed = allowedClaimsText(context)
+  const startedCapitalized = /^[A-Z]/.test(text.trimStart())
+  let guarded = text
+
+  // Comparative and luxury adjectives assert a market position. Keep them
+  // only when Brand Brain contains the same user-supplied positioning.
+  if (!hasAffirmedClaim(allowed, /\bfreshest\b|الأطزج|الأكثر\s+طزاجة/i)) {
+    guarded = guarded
+      .replace(/\bthe\s+freshest\s+coffee\b/gi, 'freshly roasted coffee')
+      .replace(/\bfreshest\s+coffee\b/gi, 'freshly roasted coffee')
+      .replace(/\bfreshest\b/gi, 'fresh')
+      .replace(/الأكثر\s+طزاجة|الأطزج/gi, 'طازج')
+  }
+
+  if (!hasAffirmedClaim(allowed, /\bpremium\b|فاخر|فاخرة/i)) {
+    guarded = guarded
+      .replace(/\bpremium\s*,\s*/gi, '')
+      .replace(/\bpremium\s+/gi, '')
+      .replace(/(?:قهوة|حبوب|منتج|خدمة)\s+(?:فاخرة|فاخر)/gi, '$1')
+  }
+
+  if (!hasAffirmedClaim(allowed, /\bhigh[-\s]?quality\b|عالي(?:ة)?\s+الجودة/i)) {
+    guarded = guarded
+      .replace(/\bhigh[-\s]?quality\s+/gi, '')
+      .replace(/عالي(?:ة)?\s+الجودة\s*/gi, '')
+  }
+
+  if (!hasAffirmedClaim(allowed, /\boptimal\b|مثالي|مثالية|الأمثل/i)) {
+    guarded = guarded
+      .replace(/\s+for\s+optimal\s+(?:flavou?r|results?|performance)\b/gi, '')
+      .replace(/\boptimal\s+(?:flavou?r|results?|performance)\b/gi, 'the intended outcome')
+  }
+
+  const cleaned = guarded
+    .replace(/\bsee\s+our\s+quality\s+promise\b/gi, 'See the product details')
+    .replace(/\bquality\s+promise\b/gi, 'product details')
+  return startedCapitalized ? cleaned.replace(/^([a-z])/, char => char.toUpperCase()) : cleaned
+}
+
+function cleanProofCollectionArtifacts(text: string): string {
+  return text
+    .replace(/\b((?:(?:customer|client)\s+stories?|customer\s+proof|customer\s+reviews?|star\s+ratings?|ratings?|proof(?:\s+examples?)?)\s+to\s+collect)(?:\s+to\s+collect)+\b/gi, '$1')
+    .replace(/\s+([,.;!?])/g, '$1')
+}
+
 function softenUnsupportedServiceClaims(text: string, context: StrategyProofContext): string {
   const allowed = allowedClaimsText(context)
   let guarded = text
@@ -303,12 +360,15 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
       .replace(/\bcertified\b/gi, 'to be verified')
   }
 
-  guarded = guardUnsupportedBudgetAssumptions(
-    softenUnsupportedServiceClaims(
-      softenAbsoluteOutcomeClaims(guardUnsafeStatusLanguage(guarded)),
+  guarded = cleanProofCollectionArtifacts(guardUnsupportedBudgetAssumptions(
+    softenUnsupportedQualityClaims(
+      softenUnsupportedServiceClaims(
+        softenAbsoluteOutcomeClaims(guardUnsafeStatusLanguage(guarded)),
+        context,
+      ),
       context,
     ),
-  )
+  ))
     .replace(/\s{2,}/g, ' ')
     .trim()
 

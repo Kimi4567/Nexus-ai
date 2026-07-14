@@ -224,12 +224,15 @@ export async function POST(req: NextRequest, props: Params) {
       brandProfile?.complianceNotes,
       brandProfile?.verifiedProof ?? [],
     ]
+      .flatMap(value => Array.isArray(value) ? value : [value])
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
 
     // ── 2. Require real strategy evidence before spending credits ──────────
     const aiOutput = campaign.aiOutput as any
     const strategy = aiOutput?.strategy ?? aiOutput ?? {}
     const proofContext = {
       verifiedProof: brandProfile?.verifiedProof ?? [],
+      allowedClaimText: explicitBrandFacts,
       hasConversionDestination: Boolean(brandProfile?.conversionDestination),
       brandFacts: explicitBrandFacts,
     }

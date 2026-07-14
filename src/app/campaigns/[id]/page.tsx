@@ -1024,6 +1024,7 @@ function CampaignDetailPageInner() {
             },
           }
         })
+        await refreshBillingStatus()
         setSentinelState('done')
       } else if (d.error === 'INSUFFICIENT_CREDITS') {
         setUpgradeReason('no_credits')
@@ -1180,6 +1181,14 @@ function CampaignDetailPageInner() {
   const uiText = (ar: string, en: string): string => uiIsArabic ? ar : en
   const proofContext = {
     verifiedProof: Array.isArray((brandDNA as any)?.verifiedProof) ? (brandDNA as any).verifiedProof : [],
+    allowedClaimText: [
+      (brandDNA as any)?.description,
+      (brandDNA as any)?.primaryOffer,
+      (brandDNA as any)?.pricePoint,
+      ...(Array.isArray((brandDNA as any)?.uniqueAdvantages) ? (brandDNA as any).uniqueAdvantages : []),
+      (brandDNA as any)?.complianceNotes,
+      ...(Array.isArray((brandDNA as any)?.verifiedProof) ? (brandDNA as any).verifiedProof : []),
+    ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
   }
   const guardedAiOutput = guardStrategyProof(aiOutput || {}, proofContext) as any
   const strategy = guardStrategyKpis(

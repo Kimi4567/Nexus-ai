@@ -87,6 +87,27 @@ describe('useBillingStatus revalidation', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
   })
 
+  it('5b. invalidate() refreshes every mounted balance consumer', async () => {
+    let remaining = 271
+    fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ...billingResponse, credits: { ...billingResponse.credits, remaining } }),
+    }))
+    ;(window as unknown as { fetch: unknown }).fetch = fetchMock
+    const useBillingStatus = await loadHook()
+    const first = renderHook(() => useBillingStatus())
+    const second = renderHook(() => useBillingStatus())
+    await waitFor(() => expect(first.result.current.creditsRemaining).toBe(271))
+    await waitFor(() => expect(second.result.current.creditsRemaining).toBe(271))
+
+    remaining = 269
+    await act(async () => { await first.result.current.invalidate() })
+
+    await waitFor(() => expect(first.result.current.creditsRemaining).toBe(269))
+    await waitFor(() => expect(second.result.current.creditsRemaining).toBe(269))
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it('6. throttles rapid focus events into a single refetch (no storm)', async () => {
     const useBillingStatus = await loadHook()
     renderHook(() => useBillingStatus())

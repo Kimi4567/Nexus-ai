@@ -514,6 +514,7 @@ export function buildStrategistPrompts(
     '- Do not return overlapping broad segments. Every segment needs a distinct trigger situation, buying role, objection, and qualification implication.',
     '- Include a measurement plan, operating cadence, prioritized experiment backlog, explicit continue/iterate/stop rules, and a 30/60/90 roadmap. A strategy without decision rules is not operational.',
     '- Avoid broad absolute solution claims such as "perfect solution", "best solution", "ideal solution", "الحل الأمثل", or "حل مثالي". Prefer practical, reviewable language such as "practical solution", "clearer workflow", or "حل عملي".',
+    '- Treat quality superlatives and luxury positioning as factual claims: never write freshest, finest, premium, high-quality, optimal, الأطزج, الأفضل, فاخر, or مثالي unless the user supplied that exact positioning or verified proof. Prefer the user\'s factual offer details.',
   ].join('\n')
 
   // ── PR-S1c-3 — binding scope from the deterministic deliverables contract. The
