@@ -302,9 +302,12 @@ export default function PublishPage() {
               tone={publishingState.approvedMissingMedia > 0 ? 'amber' : 'green'}
             />
             <StatusCard
-              title={copy('المنشورات المجدولة', 'Scheduled posts')}
+              title={copy('خطة NEXUS الزمنية', 'NEXUS schedule records')}
               value={accountsLoading ? '...' : String(publishingState.scheduled)}
-              helper={copy(`${publishingState.readyToSchedule} منشور جاهز لقرار الجدولة، لا للنشر التلقائي.`, `${publishingState.readyToSchedule} posts await a scheduling decision, not automatic publishing.`)}
+              helper={copy(
+                `${publishingState.scheduled} سجل محفوظ في تقويم NEXUS ولم يُنشر عبر منصة؛ ${publishingState.readyToSchedule} ينتظر قرار الجدولة.`,
+                `${publishingState.scheduled} saved in the NEXUS calendar and not published to a platform; ${publishingState.readyToSchedule} await a scheduling decision.`,
+              )}
               icon={<Clock3 size={22} />}
               tone={publishingState.scheduled > 0 ? 'green' : 'violet'}
             />
