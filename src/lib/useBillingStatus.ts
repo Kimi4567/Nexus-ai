@@ -28,6 +28,7 @@ export interface BillingStatus {
 
 const CACHE_TTL = 60_000          // serve cache for 60s on normal reads
 const REVALIDATE_THROTTLE = 8_000 // min gap between focus/visibility/path revalidations (storm guard)
+export const BILLING_STATUS_INVALIDATED_EVENT = 'nexus:billing-status-invalidated'
 
 let _cache: { data: BillingStatus; ts: number; userId: string } | null = null
 let _inflight: Promise<void> | null = null
@@ -134,10 +135,20 @@ export function useBillingStatus() {
     }
   }, [revalidate])
 
+  // Credit-spending actions and the Sidebar usually mount separate hook
+  // instances. Broadcast invalidation so every visible balance updates from
+  // the same authoritative response without waiting for route navigation.
+  useEffect(() => {
+    const onInvalidated = () => { void fetchStatus(true) }
+    window.addEventListener(BILLING_STATUS_INVALIDATED_EVENT, onInvalidated)
+    return () => window.removeEventListener(BILLING_STATUS_INVALIDATED_EVENT, onInvalidated)
+  }, [fetchStatus])
+
   /** Call after a successful credit-spending action to refresh immediately. */
   const invalidate = useCallback(() => {
     _cache = null
     _lastRevalidate = 0
+    window.dispatchEvent(new Event(BILLING_STATUS_INVALIDATED_EVENT))
     return fetchStatus(true)
   }, [fetchStatus])
 

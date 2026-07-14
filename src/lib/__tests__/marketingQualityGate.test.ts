@@ -101,6 +101,43 @@ describe('marketingQualityGate', () => {
     expect(report.blockers.map(item => item.code)).toContain('platform_outside_reviewed_scope')
   })
 
+  it('blocks an unsupported quality superlative before paid review or approval', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        keyMessage: 'Experience the freshest premium care in Abu Dhabi.',
+      },
+      brand: dentalBrand,
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-14T00:00:00.000Z',
+    })
+
+    expect(report.status).toBe('blocked')
+    expect(report.blockers.filter(item => item.code === 'unsupported_quality_superlative')).toHaveLength(2)
+  })
+
+  it('preserves a user-supplied premium position', () => {
+    const report = reviewStrategyGrounding({
+      strategy: { ...groundedStrategy, positioning: 'Premium consultation guidance for adults.' },
+      brand: { ...dentalBrand, description: 'A premium dental consultation studio.' },
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-14T00:00:00.000Z',
+    })
+
+    expect(report.blockers.map(item => item.code)).not.toContain('unsupported_quality_superlative')
+  })
+
+  it('does not treat a negated premium statement as approved positioning', () => {
+    const report = reviewStrategyGrounding({
+      strategy: { ...groundedStrategy, positioning: 'Premium consultation guidance for adults.' },
+      brand: { ...dentalBrand, description: 'A local clinic, not premium positioning.' },
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-14T00:00:00.000Z',
+    })
+
+    expect(report.blockers.map(item => item.code)).toContain('unsupported_quality_superlative')
+  })
+
   it('allows workflow language when the saved offer is operations software', () => {
     const report = reviewStrategyGrounding({
       strategy: {

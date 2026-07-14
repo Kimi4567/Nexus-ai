@@ -117,6 +117,7 @@ const DOMAIN_SIGNATURES: Array<{
 ]
 
 const GENERIC_COMPETITOR_RE = /^(?:premium|leading|local|top|best)?\s*(?:dental|medical|beauty|marketing|real estate|coffee|software|saas)?\s*(?:clinics?|companies|agencies|providers|businesses|brands|stores|shops|firms)(?:\s+in\s+.+)?$/i
+const UNSUPPORTED_QUALITY_SUPERLATIVE_RE = /\b(?:freshest|finest|premium|high[-\s]?quality|optimal|perfect|ultimate|unmatched|unrival(?:l)?ed)\b|(?:الأطزج|الأفضل|الأمثل|مثالي|مثالية|فاخر|فاخرة|عالي(?:ة)?\s+الجودة)/gi
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -131,6 +132,18 @@ function stringify(value: unknown): string {
 
 function normalizedText(value: unknown): string {
   return stringify(value).trim().replace(/\s+/g, ' ')
+}
+
+function containsAffirmedClaim(text: string, claim: string): boolean {
+  let cursor = 0
+  while (cursor < text.length) {
+    const index = text.indexOf(claim, cursor)
+    if (index < 0) return false
+    const before = text.slice(Math.max(0, index - 48), index)
+    if (!/(?:\b(?:avoid|never|not|no|without|do\s+not\s+use|must\s+not\s+use)\s+|(?:تجنب|تجنّب|لا\s+تستخدم|بدون|غير)\s*)$/i.test(before)) return true
+    cursor = index + claim.length
+  }
+  return false
 }
 
 function tokens(value: unknown): Set<string> {
@@ -344,6 +357,28 @@ export function reviewStrategyGrounding(input: StrategyQualityInput): MarketingQ
   }
 
   const strategyPublicText = publicFields.map(field => normalizedText(field.value)).join(' ')
+  const approvedClaimText = normalizedText([
+    input.brand?.brandName,
+    input.brand?.description,
+    input.brand?.primaryOffer,
+    input.brand?.uniqueAdvantages,
+    input.brand?.verifiedProof,
+  ]).toLocaleLowerCase()
+  publicFields.forEach(({ path, value }) => {
+    const text = normalizedText(value)
+    UNSUPPORTED_QUALITY_SUPERLATIVE_RE.lastIndex = 0
+    let match: RegExpExecArray | null
+    while ((match = UNSUPPORTED_QUALITY_SUPERLATIVE_RE.exec(text)) !== null) {
+      const claim = match[0].toLocaleLowerCase()
+      if (containsAffirmedClaim(approvedClaimText, claim)) continue
+      blockers.push(finding(
+        'unsupported_quality_superlative',
+        'blocker',
+        path,
+        `The strategy uses the unverified quality claim "${match[0]}". Use factual Brand Brain wording or add verified proof.`,
+      ))
+    }
+  })
   for (const audienceClaim of AUDIENCE_CLAIMS) {
     if (audienceClaim.re.test(strategyPublicText) && !audienceClaim.re.test(brandText)) {
       blockers.push(finding(

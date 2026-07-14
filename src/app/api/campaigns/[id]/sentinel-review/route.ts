@@ -76,6 +76,14 @@ export async function POST(req: NextRequest, props: Params) {
     const strategyScope = resolveStrategyScope(aiOutput)
     const proofContext = {
       verifiedProof: Array.isArray(brand?.verifiedProof) ? brand.verifiedProof : [],
+      allowedClaimText: [
+        brand?.description,
+        brand?.primaryOffer,
+        brand?.pricePoint,
+        ...(Array.isArray(brand?.uniqueAdvantages) ? brand.uniqueAdvantages : []),
+        brand?.complianceNotes,
+        ...(Array.isArray(brand?.verifiedProof) ? brand.verifiedProof : []),
+      ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
     }
     const strategy = guardStrategyKpis(
       guardStrategyOutputContract(

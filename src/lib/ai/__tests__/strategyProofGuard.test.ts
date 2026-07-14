@@ -39,6 +39,40 @@ describe('strategyProofGuard', () => {
     expect(JSON.stringify(guarded)).toContain('premium dental clinic')
     expect(JSON.stringify(guarded)).toContain('preferred language')
   })
+
+  it('softens unsupported coffee superlatives and repeated proof-collection suffixes', () => {
+    const guarded = guardStrategyProof({
+      keyMessage: 'Experience the freshest coffee with weekly roasted beans.',
+      positioning: 'Access premium, freshly roasted coffee from high-quality beans.',
+      valuePropositions: ['Fresh weekly roasting for optimal flavor.'],
+      ctaVariations: ['See our quality promise'],
+      contentPillars: ['customer stories to collect'],
+    }, {
+      verifiedProof: [],
+      allowedClaimText: ['Specialty coffee with fresh weekly roasting.'],
+    })
+
+    const joined = JSON.stringify(guarded)
+    expect(joined).toContain('freshly roasted coffee')
+    expect(joined).toContain('Fresh weekly roasting.')
+    expect(joined).toContain('See the product details')
+    expect(joined).toContain('customer stories to collect')
+    expect(joined).not.toMatch(/freshest|premium|high-quality|optimal|to collect to collect/i)
+  })
+
+  it('preserves explicitly supplied premium and freshest positioning', () => {
+    const text = 'The freshest premium coffee for local subscribers.'
+    expect(guardStrategyProofText(text, {
+      allowedClaimText: ['Brand positioning: freshest premium coffee.'],
+    })).toBe(text)
+  })
+
+  it('does not treat an avoid instruction as support for a quality claim', () => {
+    expect(guardStrategyProofText('Premium coffee for local subscribers.', {
+      allowedClaimText: ['Avoid premium wording in public copy.'],
+    })).toBe('Coffee for local subscribers.')
+  })
+
   it('rewrites unsupported testimonial and customer-story language when verified proof is empty', () => {
     const strategy = {
       contentPillars: ['Education', 'Customer Testimonials'],
