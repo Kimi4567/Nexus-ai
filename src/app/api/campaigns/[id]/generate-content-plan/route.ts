@@ -714,7 +714,7 @@ Rules:
 
     if (saveGateIssues.length > 0) {
       const refunded = await refundAllRequestedContent('Unsafe content plan draft blocked before save')
-      console.error('[generate-content-plan] blocked unsafe content before save', saveGateIssues.slice(0, 8))
+      console.warn('[generate-content-plan] blocked unsafe content before save', saveGateIssues.slice(0, 8))
       return NextResponse.json(
         {
           error: 'Content plan draft failed safety review before save. Please try again.',
@@ -734,7 +734,7 @@ Rules:
 
     if (!semanticGate.ok) {
       const refunded = await refundAllRequestedContent('Content plan drifted from reviewed strategy')
-      console.error('[generate-content-plan] blocked strategy drift before save', {
+      console.warn('[generate-content-plan] blocked strategy drift before save', {
         alignedPosts: semanticGate.alignedPosts,
         requiredAlignedPosts: semanticGate.requiredAlignedPosts,
         issues: semanticGate.issues.slice(0, 8),
