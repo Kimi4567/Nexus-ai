@@ -289,6 +289,8 @@ describe('contentPlanStructuredRenderer', () => {
     expect(prompts[1]).toContain('blank comparison checklist')
     expect(prompts[2]).toContain('overhead home-brewing setup')
     expect(prompts.join('\n')).toContain('no logos')
+    expect(prompts.join('\n')).toContain('no staged buyer reaction')
+    expect(prompts.join('\n')).not.toContain('proof to collect cue')
     expect(prompts.join('\n')).not.toMatch(/NEXUS E2E Coffee logo|happy customer|branded roastery|expert barista/i)
     expect(prompts.every(imagePrompt => validateContentPlanDraftForSave({ imagePrompt }).ok)).toBe(true)
   })
