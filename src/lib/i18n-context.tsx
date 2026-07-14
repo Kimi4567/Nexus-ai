@@ -5,6 +5,8 @@ const LOCALE_STORAGE_KEYS = ['nexus-lang', 'nexus_locale'] as const;
 
 interface I18nContextType {
   locale: Locale;
+  /** True after the persisted browser locale has been restored. */
+  localeReady: boolean;
   setLocale: (locale: Locale) => void;
   t: (key: string) => any;
   isRTL: boolean;
@@ -47,6 +49,7 @@ export function writeStoredLocale(storage: Pick<Storage, 'setItem'> | null | und
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('ar');
+  const [localeReady, setLocaleReady] = useState(false);
 
   useEffect(() => {
     const saved = readStoredLocale(typeof window !== 'undefined' ? window.localStorage : null);
@@ -56,10 +59,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       // Default to Arabic for Middle East
       setLocaleState('ar');
     }
+    setLocaleReady(true);
   }, []);
 
   const setLocale = useCallback((newLocale: Locale) => {
     setLocaleState(newLocale);
+    setLocaleReady(true);
     writeStoredLocale(typeof window !== 'undefined' ? window.localStorage : null, newLocale);
     if (typeof document !== 'undefined') {
       document.documentElement.lang = newLocale;
@@ -94,7 +99,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const dir = isRTL ? 'rtl' : 'ltr';
 
   return (
-    <I18nContext.Provider value={{ locale, setLocale, t, isRTL, dir }}>
+    <I18nContext.Provider value={{ locale, localeReady, setLocale, t, isRTL, dir }}>
       {children}
     </I18nContext.Provider>
   );

@@ -455,7 +455,7 @@ function StatusPill({ children, tone }: { children: ReactNode; tone: 'ready' | '
 export default function ConnectionsPage() {
   const { isAuthenticated, loading, authHeader, session } = useAuth()
   const router = useRouter()
-  const { locale, dir } = useI18n()
+  const { locale, localeReady, dir } = useI18n()
   const ar = locale === 'ar'
   const copy = useCallback((arabic: string, english: string) => (ar ? arabic : english), [ar])
 
@@ -495,7 +495,10 @@ export default function ConnectionsPage() {
   }, [authHeader])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    // Wait for the persisted interface language before converting OAuth query
+    // parameters into a visible message. Otherwise the provider's SSR-safe
+    // Arabic default can briefly win even when the saved interface is English.
+    if (!localeReady || typeof window === 'undefined') return
     let messageTimeout: ReturnType<typeof setTimeout> | undefined
     const params = new URLSearchParams(window.location.search)
     const social = params.get('social')
@@ -527,7 +530,7 @@ export default function ConnectionsPage() {
       messageTimeout = setTimeout(() => setMessage(null), 9000)
     }
     return () => { if (messageTimeout) clearTimeout(messageTimeout) }
-  }, [copy])
+  }, [copy, localeReady])
 
   useEffect(() => {
     if (!loading && isAuthenticated && session?.access_token) fetchAccounts()
