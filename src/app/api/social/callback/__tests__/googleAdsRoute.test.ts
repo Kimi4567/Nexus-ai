@@ -130,4 +130,57 @@ describe('GET /api/social/callback/google-ads', () => {
       }),
     })
   })
+
+  it('marks a CLOSED Google test advertiser executable under TEST access', async () => {
+    process.env.GOOGLE_ADS_ACCESS_TIER = 'TEST'
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        access_token: 'access-token',
+        refresh_token: 'refresh-token',
+        expires_in: 3600,
+        scope: 'https://www.googleapis.com/auth/adwords',
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        resourceNames: ['customers/5510208607'],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        results: [
+          { customerClient: {
+            id: '5510208607', level: '0', manager: true,
+            descriptiveName: 'NEXUS AI Test Manager', status: 'ENABLED', testAccount: true,
+          } },
+          { customerClient: {
+            id: '4066002888', level: '1', manager: false,
+            descriptiveName: 'NEXUS AI Search Sandbox', currencyCode: 'AED',
+            timeZone: 'Asia/Dubai', status: 'CLOSED', testAccount: true,
+          } },
+        ],
+      }), { status: 200 })) as typeof fetch
+
+    const nonce = 'test-google-ads-closed-account-nonce'
+    const state = createOAuthState('user-1', 'google_ads', googleAdsOAuthNonceHash(nonce))
+    const response = await GET(new NextRequest(
+      `https://preview.nexus.test/api/social/callback/google-ads?code=code-2&state=${encodeURIComponent(state)}`,
+      { headers: { cookie: `nexus_google_ads_oauth=${nonce}` } },
+    ))
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe(
+      'https://preview.nexus.test/connections?social=connected&platform=google_ads&accounts=1',
+    )
+    expect(mocks.adAccountUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({
+        platform: 'GOOGLE',
+        platformAccountId: '4066002888',
+        platformAccountName: 'NEXUS AI Search Sandbox',
+        loginCustomerId: '5510208607',
+        hasApiAccess: true,
+        lastError: null,
+      }),
+      update: expect.objectContaining({
+        hasApiAccess: true,
+        lastError: null,
+      }),
+    }))
+  })
 })

@@ -860,7 +860,7 @@ export default function ConnectionsPage() {
                             <>
                               <ShellButton onClick={() => handleConnect(platform.id)} loading={isConnecting}>
                                 <RefreshCw className="h-4 w-4" />
-                                {copy('تحديث الربط', 'Refresh')}
+                                {copy('إعادة الربط', 'Reconnect')}
                               </ShellButton>
                               <ShellButton tone="danger" onClick={() => setDisconnectConfirmId(connectedAccount.id)} loading={isDisconnecting}>
                                 <Unplug className="h-4 w-4" />
@@ -1044,7 +1044,7 @@ export default function ConnectionsPage() {
                         <div className="mt-3 flex flex-wrap gap-2">
                           <ShellButton onClick={() => handleConnect(account.platform === 'GOOGLE' ? 'GOOGLE_ADS' : 'META_ADS')} loading={connecting === (account.platform === 'GOOGLE' ? 'GOOGLE_ADS' : 'META_ADS')}>
                             <RefreshCw className="h-4 w-4" />
-                            {copy('تحديث الربط', 'Refresh')}
+                            {copy('إعادة الربط والتحقق', 'Reconnect & verify')}
                           </ShellButton>
                           <ShellButton tone="danger" onClick={() => setDisconnectConfirmId(account.id)} loading={disconnecting === account.id}>
                             <Unplug className="h-4 w-4" />

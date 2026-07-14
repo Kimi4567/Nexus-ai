@@ -128,5 +128,8 @@ describe('exchangeGoogleAdsAuthorizationCode', () => {
     expect(googleAdsAccountExecutionBlocker(false, 'SUSPENDED')).toContain('status SUSPENDED')
     process.env.GOOGLE_ADS_ACCESS_TIER = 'TEST'
     expect(googleAdsAccountExecutionBlocker(false, 'ENABLED')).toContain('GOOGLE_ADS_ACCESS_TIER=TEST')
+    expect(googleAdsAccountExecutionBlocker(true, 'CLOSED')).toBeNull()
+    expect(googleAdsAccountExecutionBlocker(false, 'CLOSED')).toContain('status CLOSED')
+    expect(googleAdsAccountExecutionBlocker(true, 'SUSPENDED')).toContain('status SUSPENDED')
   })
 })

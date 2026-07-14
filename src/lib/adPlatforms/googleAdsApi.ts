@@ -169,7 +169,12 @@ export function googleAdsAccountExecutionBlocker(
   accountStatus: string,
 ): string | null {
   const normalizedStatus = accountStatus.trim().toUpperCase() || 'UNKNOWN'
-  if (normalizedStatus !== 'ENABLED') {
+  // Google reports API test clients as CLOSED because they can never serve
+  // live ads. That is the expected executable state for a proven test account,
+  // not a suspension or an incomplete production advertiser.
+  const statusAllowsExecution = normalizedStatus === 'ENABLED'
+    || (testAccount && normalizedStatus === 'CLOSED')
+  if (!statusAllowsExecution) {
     return `Connection verified, but Google Ads reports account status ${normalizedStatus}. Complete or reactivate the Google Ads account before execution.`
   }
   if (!googleAdsAccountCanExecute(testAccount)) {
