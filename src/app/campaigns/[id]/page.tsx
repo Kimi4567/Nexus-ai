@@ -3033,10 +3033,15 @@ function CampaignDetailPageInner() {
                           >
                             {sentinelState === 'reviewing'
                               ? uiText('جارٍ فحص الجودة...', 'Reviewing quality...')
-                              : uiText(
-                                `فحص الجودة — ${sentinelCreditCost} كريديت`,
-                                `Review quality — ${sentinelCreditCost} credits`,
-                              )}
+                              : sentinelStatus === 'needs_attention'
+                                ? uiText(
+                                  `أعد الفحص بعد المعالجة — ${sentinelCreditCost} كريديت`,
+                                  `Re-review after fixes — ${sentinelCreditCost} credits`,
+                                )
+                                : uiText(
+                                  `فحص الجودة — ${sentinelCreditCost} كريديت`,
+                                  `Review quality — ${sentinelCreditCost} credits`,
+                                )}
                           </button>
                         ) : !engineRunning && !isPaidOnlyStrategy && sentinelStatus === 'passed' && operatingState.stage === 'content_plan_missing' ? (
                           <button
