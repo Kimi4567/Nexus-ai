@@ -29,6 +29,16 @@ describe('signed OAuth state', () => {
     expect(() => verifyOAuthState(state, 'tiktok')).toThrow('payload')
   })
 
+  it('binds X PKCE evidence into signed state without cross-provider reuse', () => {
+    const state = createOAuthState('user-x', 'x', 'pkce-verifier-hash')
+    expect(verifyOAuthState(state, 'x')).toMatchObject({
+      provider: 'x',
+      userId: 'user-x',
+      context: 'pkce-verifier-hash',
+    })
+    expect(() => verifyOAuthState(state, 'youtube')).toThrow('payload')
+  })
+
   it('rejects tampering and cross-provider replay', () => {
     const state = createOAuthState('user-1', 'meta')
     const [payload, signature] = state.split('.')

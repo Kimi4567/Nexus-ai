@@ -4,7 +4,7 @@ import { decryptToken } from '@/lib/tokenCrypto'
 import { autoPublishWhere, skippedManualWhere, isAutoPublishEligible } from '@/lib/publishGate'
 import { cronAuthError } from '@/lib/cronAuth'
 import { isRetryableSocialPublishError, publishSocialPost } from '@/lib/socialPublishers'
-import { hasVerifiedProviderScope } from '@/lib/socialPlatformConfig'
+import { hasVerifiedProviderScope, X_CONTENT_SCOPES } from '@/lib/socialPlatformConfig'
 import { buildLearningEvent } from '@/lib/brandBrainEvents'
 import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState'
 import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
@@ -68,18 +68,28 @@ async function runPublishJob() {
           throw new Error(`CONTENT_REVIEW_REQUIRED: ${publishReview.map(issue => issue.reason).join(', ')}`)
         }
         const rawTarget = String(post.publishTarget || post.platform).toUpperCase()
-        const target = rawTarget === 'YOUTUBE_SHORTS' ? 'YOUTUBE' : rawTarget
-        const requiredScope = target === 'FACEBOOK'
-          ? 'pages_manage_posts'
+        const target = rawTarget === 'YOUTUBE_SHORTS'
+          ? 'YOUTUBE'
+          : rawTarget === 'TWITTER'
+            ? 'X'
+            : rawTarget
+        if (target === 'X' && post.isVideoPost) {
+          throw new Error('X_VIDEO_NOT_SUPPORTED: scheduled X publishing supports reviewed text and images only')
+        }
+        const requiredScopes = target === 'FACEBOOK'
+          ? ['pages_manage_posts']
           : target === 'INSTAGRAM'
-            ? 'instagram_content_publish'
+            ? ['instagram_content_publish']
             : target === 'LINKEDIN'
-              ? (post.pageId ? 'w_organization_social' : 'w_member_social')
+              ? [post.pageId ? 'w_organization_social' : 'w_member_social']
               : target === 'TIKTOK'
-                ? 'video.publish'
-                : YOUTUBE_UPLOAD_SCOPE
-        if (!hasVerifiedProviderScope(integration.config, requiredScope)) {
-          throw new Error(`Verified ${requiredScope} permission is unavailable; reconnect before publishing`)
+                ? ['video.publish']
+                : target === 'X'
+                  ? [...X_CONTENT_SCOPES]
+                  : [YOUTUBE_UPLOAD_SCOPE]
+        const missingScope = requiredScopes.find(scope => !hasVerifiedProviderScope(integration.config, scope))
+        if (missingScope) {
+          throw new Error(`Verified ${missingScope} permission is unavailable; reconnect before publishing`)
         }
         if (target === 'YOUTUBE' && !hasVerifiedProviderScope(integration.config, YOUTUBE_READ_SCOPE)) {
           throw new Error(`Verified ${YOUTUBE_READ_SCOPE} permission is unavailable; reconnect before publishing`)

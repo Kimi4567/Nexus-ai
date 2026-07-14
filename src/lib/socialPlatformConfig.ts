@@ -53,6 +53,14 @@ export const YOUTUBE_CONTENT_SCOPES = [
   'https://www.googleapis.com/auth/youtube.readonly',
 ] as const
 
+export const X_CONTENT_SCOPES = [
+  'tweet.read',
+  'tweet.write',
+  'users.read',
+  'media.write',
+  'offline.access',
+] as const
+
 export function metaGraphUrl(path: string): string {
   return `https://graph.facebook.com/${META_GRAPH_VERSION}/${path.replace(/^\//, '')}`
 }

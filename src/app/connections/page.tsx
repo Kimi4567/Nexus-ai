@@ -31,6 +31,7 @@ interface ConnectedAccount {
   refreshExpiresAt?: string | null
   lastSyncedAt?: string | null
   channelUrl?: string | null
+  profileUrl?: string | null
   capabilities?: {
     facebookPublishing?: boolean
     instagramPublishing?: boolean
@@ -40,6 +41,9 @@ interface ConnectedAccount {
     tikTokCreatorInfoVerified?: boolean
     youtubeVideoPublishing?: boolean
     youtubeReadback?: boolean
+    xPublishing?: boolean
+    xMediaPublishing?: boolean
+    xReadback?: boolean
     tokenRefresh?: boolean
   }
   connectedAt: string
@@ -143,9 +147,12 @@ const PLATFORMS: PlatformDef[] = [
   {
     id: 'X',
     name: { ar: 'X', en: 'X' },
-    helper: { ar: 'مخطط للنشر العضوي بعد توفير مشروع مطور وصلاحية الكتابة المناسبة.', en: 'Planned for organic publishing after a developer project and write access are available.' },
-    scope: { ar: 'مخطط', en: 'Planned' },
-    available: false,
+    helper: {
+      ar: 'ينشر النص والصورة المعتمدة فقط بعد موافقة صريحة، ثم يجلب مقاييس المنشور المتاحة من X بدون اختلاق وصول أو تحويلات.',
+      en: 'Publishes approved text and image only after explicit consent, then reads available X post metrics without inventing reach or conversions.',
+    },
+    scope: { ar: 'نص وصورة معتمدة', en: 'Approved text & image' },
+    available: true,
     accent: '#111827',
     icon: 'X',
   },
@@ -232,6 +239,24 @@ function connectionTruth(account: ConnectedAccount, ar: boolean): {
       ],
     }
   }
+  if (account.platform === 'X') {
+    const publishing = capability.xPublishing === true
+    const media = capability.xMediaPublishing === true
+    const readback = capability.xReadback === true
+    const refresh = capability.tokenRefresh === true
+    return {
+      tone: publishing && media && readback && refresh ? 'ready' : 'needs',
+      label: publishing && media && readback && refresh
+        ? (ar ? 'النشر والقياس جاهزان للمراجعة' : 'Publishing and measurement review-ready')
+        : (ar ? 'صلاحيات X غير مكتملة' : 'X permissions incomplete'),
+      checks: [
+        { ok: publishing, text: ar ? 'صلاحية إنشاء المنشورات مثبتة' : 'Post creation permission verified' },
+        { ok: media, text: ar ? 'صلاحية رفع الصور مثبتة' : 'Image upload permission verified' },
+        { ok: readback, text: ar ? 'قراءة المنشور والمقاييس مثبتة' : 'Post and metrics readback verified' },
+        { ok: refresh, text: ar ? 'رمز تحديث محفوظ للجدولة' : 'Refresh token stored for scheduling' },
+      ],
+    }
+  }
   const directPost = capability.tikTokDirectPosting === true
   const creator = capability.tikTokCreatorInfoVerified === true
   return {
@@ -253,6 +278,7 @@ const CONNECT_ROUTES: Record<string, string> = {
   LINKEDIN: '/api/social/connect/linkedin',
   TIKTOK: '/api/social/connect/tiktok',
   YOUTUBE: '/api/social/connect/youtube',
+  X: '/api/social/connect/x',
 }
 
 function ShellButton({

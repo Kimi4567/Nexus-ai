@@ -133,6 +133,13 @@ interface StrategyHandoff {
 
 const STRATEGY_HANDOFF_KEY = 'nexus_strategy_handoff'
 
+function normalizeAutoPublishTarget(platform: string): string {
+  const target = platform.toUpperCase()
+  if (target === 'YOUTUBE_SHORTS') return 'YOUTUBE'
+  if (target === 'TWITTER') return 'X'
+  return target
+}
+
 function loadStrategyHandoff(campaignId: string): StrategyHandoff | null {
   if (typeof window === 'undefined') return null
   try {
@@ -437,7 +444,7 @@ export default function ContentHubPage() {
         const accounts = Array.isArray(data.accounts) ? data.accounts as ScheduleAccount[] : []
         setScheduleAccounts(accounts)
         const next: Record<string, { integrationId: string; pageId?: string; pageName?: string }> = {}
-        const targets = new Set(approvedPostsWithDates.map(post => post.platform.toUpperCase()))
+        const targets = new Set(approvedPostsWithDates.map(post => normalizeAutoPublishTarget(post.platform)))
         const meta = accounts.find(account => account.platform === 'META')
         for (const target of targets) {
           if (target === 'FACEBOOK' && meta) {
@@ -456,7 +463,10 @@ export default function ContentHubPage() {
           } else if (target === 'TIKTOK') {
             const tiktok = accounts.find(account => account.platform === 'TIKTOK')
             if (tiktok) next[target] = { integrationId: tiktok.id, pageName: tiktok.accountName || undefined }
-          } else if (target === 'YOUTUBE' || target === 'YOUTUBE_SHORTS') {
+          } else if (target === 'X') {
+            const x = accounts.find(account => account.platform === 'X')
+            if (x) next.X = { integrationId: x.id, pageName: x.accountName || undefined }
+          } else if (target === 'YOUTUBE') {
             const youtube = accounts.find(account => account.platform === 'YOUTUBE')
             if (youtube) next.YOUTUBE = { integrationId: youtube.id, pageName: youtube.accountName || undefined }
           }
@@ -530,16 +540,17 @@ export default function ContentHubPage() {
   const draftCount = posts.filter(p => p.status === 'DRAFT').length
   const approvedCount = posts.filter(p => p.status === 'APPROVED').length
   const approvedPostsWithDates = posts.filter(p => p.status === 'APPROVED' && hasValidDate(p.scheduledAt))
-  const approvedAutoTargets = Array.from(new Set(approvedPostsWithDates.map(post => {
-    const target = post.platform.toUpperCase()
-    return target === 'YOUTUBE_SHORTS' ? 'YOUTUBE' : target
-  })))
-  const unsupportedAutoTargets = approvedAutoTargets.filter(target => !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK', 'YOUTUBE'].includes(target))
+  const approvedAutoTargets = Array.from(new Set(approvedPostsWithDates.map(post => normalizeAutoPublishTarget(post.platform))))
+  const unsupportedAutoTargets = approvedAutoTargets.filter(target => !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE'].includes(target))
   const approvedYouTubePosts = approvedPostsWithDates.filter(post => ['YOUTUBE', 'YOUTUBE_SHORTS'].includes(post.platform.toUpperCase()))
   const youtubeAutoReviewIncomplete = scheduleMode === 'AUTO' && approvedYouTubePosts.some(post => {
     const options = youtubeOptionsByPostId[post.id]
     return !options?.title.trim() || !options.madeForKids || !options.syntheticMedia
   })
+  const approvedXPosts = approvedPostsWithDates.filter(post => ['X', 'TWITTER'].includes(post.platform.toUpperCase()))
+  const xAutoReviewIncomplete = scheduleMode === 'AUTO' && approvedXPosts.some(post =>
+    post.isVideoPost || Array.from(post.caption.trim()).length === 0 || Array.from(post.caption.trim()).length > 280,
+  )
   const approvedPostsNeedingMedia = posts.filter(
     p => p.status === 'APPROVED' && !isContentPostMediaReadyForScheduling(p),
   )
@@ -605,7 +616,7 @@ export default function ContentHubPage() {
   const schedulingBlockedByTruthReview = approvedCount > 0 && contentReviewRequired
   const schedulingBlocked = schedulingBlockedByMedia || schedulingBlockedByTruthReview
   const schedulingDecisionBlocked = schedulingBlocked
-    || (scheduleMode === 'AUTO' && (unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete))
+    || (scheduleMode === 'AUTO' && (unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete || xAutoReviewIncomplete))
   const approvalBlocked = approvalBlockedByOrderMismatch || approvalBlockedByTruthReview
   const contentHubFulfillmentSummary = deriveStrategyFulfillmentSummary({
     aiOutput: campaign?.aiOutput,
@@ -1278,10 +1289,10 @@ export default function ContentHubPage() {
       document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return
     }
-    if (scheduleMode === 'AUTO' && (unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete)) {
+    if (scheduleMode === 'AUTO' && (unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete || xAutoReviewIncomplete)) {
       setError(isAr
-        ? 'أكمل إعدادات كل فيديو YouTube أو استخدم التنفيذ اليدوي للوجهات غير المدعومة.'
-        : 'Complete every YouTube video setting or use manual execution for unsupported destinations.')
+        ? 'أكمل إعدادات YouTube، وتأكد أن منشورات X نص أو صورة فقط ولا تتجاوز 280 حرفًا، أو استخدم التنفيذ اليدوي.'
+        : 'Complete YouTube settings and ensure X posts are text or image only and no longer than 280 characters, or use manual execution.')
       return
     }
     setScheduling(true)
@@ -2516,6 +2527,24 @@ export default function ContentHubPage() {
                     </div>
                   )}
 
+                  {approvedAutoTargets.includes('X') && (
+                    <div className="rounded-lg border border-slate-200 bg-white p-3">
+                      <p className="text-[11px] font-black text-slate-800">X</p>
+                      <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                        {scheduleAccounts.find(account => account.platform === 'X')
+                          ? (isAr
+                              ? `الحساب: ${scheduleAccounts.find(account => account.platform === 'X')?.accountName || 'X'}`
+                              : `Account: ${scheduleAccounts.find(account => account.platform === 'X')?.accountName || 'X'}`)
+                          : (isAr ? 'لا يوجد حساب X متصل بصلاحيات النشر والقراءة.' : 'No X account is connected with publish and read permissions.')}
+                      </p>
+                      <p className="mt-2 rounded-md bg-slate-50 p-2 text-[10px] font-semibold leading-4 text-slate-700">
+                        {isAr
+                          ? 'النشر التلقائي الحالي يدعم النصوص والصور المعتمدة فقط بحد أقصى 280 حرفًا. فيديو X غير مدعوم ولن يتم إرساله.'
+                          : 'Current auto-publishing supports approved text and image posts up to 280 characters. X video is not supported and will not be sent.'}
+                      </p>
+                    </div>
+                  )}
+
                   {approvedAutoTargets.includes('YOUTUBE') && (
                     <div className="space-y-3 rounded-lg border border-red-100 bg-white p-3">
                       <div>
@@ -2589,6 +2618,14 @@ export default function ContentHubPage() {
                   {youtubeAutoReviewIncomplete && (
                     <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-5 text-amber-900">
                       {isAr ? 'راجع عنوان كل فيديو وتصنيف الأطفال وإفصاح المحتوى المعدل أو الاصطناعي.' : 'Review each video title, made-for-kids setting, and altered or synthetic media disclosure.'}
+                    </p>
+                  )}
+
+                  {xAutoReviewIncomplete && (
+                    <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-5 text-amber-900">
+                      {isAr
+                        ? 'واحد أو أكثر من منشورات X يحتوي فيديو أو نصًا فارغًا أو يتجاوز 280 حرفًا. عدّل المنشور أو استخدم التنفيذ اليدوي.'
+                        : 'One or more X posts contains video, empty copy, or copy over 280 characters. Edit the post or use manual execution.'}
                     </p>
                   )}
                 </div>
@@ -3743,6 +3780,7 @@ function PostCard({
           status={post.status}
           hasMedia={Boolean(post.imageUrl)}
           isVideoPost={post.isVideoPost}
+          captionLength={Array.from(post.caption.trim()).length}
           onPublished={onPlatformPublished}
         />
       )}

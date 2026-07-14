@@ -10,6 +10,7 @@
  *     server; a generic CONNECTED row is never enough.
  *   - Paid ads is never inferred from a social connection. It depends on AdAccount
  *     readiness, API access, and explicit approval-gated activation routes.
+ *   - X readiness requires verified publish, media, readback, and refresh evidence.
  *   - YouTube readiness requires upload, readback, and offline-refresh evidence.
  *   - Google Ads / Snapchat / WhatsApp stay "not_available" until real connectors exist.
  *   - Unknown / missing data → "needs_setup" or "not_connected", NEVER "ready".
@@ -22,6 +23,7 @@ export type PlatformKey =
   | 'instagram'
   | 'tiktok'
   | 'linkedin'
+  | 'x'
   | 'youtube'
   | 'google'
   | 'snapchat'
@@ -43,6 +45,7 @@ export type ReadinessAction =
   | 'link-instagram'
   | 'connect-tiktok'
   | 'connect-linkedin'
+  | 'connect-x'
   | 'connect-youtube'
   | 'open-paid-ads'
   | 'open-connections'
@@ -68,7 +71,7 @@ export interface PlatformState {
 
 /** Minimal shape of an entry from GET /api/social/accounts (tokens already stripped). */
 export interface SocialAccount {
-  platform?: string | null // 'META' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE'
+  platform?: string | null // 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE'
   status?: string | null    // 'CONNECTED' | ...
   accountName?: string | null
   pages?: Array<{ id?: string | null; name?: string | null; igAccountId?: string | null }> | null
@@ -79,6 +82,9 @@ export interface SocialAccount {
     linkedInOrganizationPublishing?: boolean
     tikTokDirectPosting?: boolean
     tikTokCreatorInfoVerified?: boolean
+    xPublishing?: boolean
+    xMediaPublishing?: boolean
+    xReadback?: boolean
     youtubeVideoPublishing?: boolean
     youtubeReadback?: boolean
     tokenRefresh?: boolean
@@ -164,12 +170,13 @@ export function derivePlatformReadiness(
   const instagramReady = meta?.capabilities?.instagramPublishing === true
   const tiktok = find(list, 'TIKTOK')
   const linkedin = find(list, 'LINKEDIN')
+  const x = find(list, 'X')
   const youtube = find(list, 'YOUTUBE')
   const metaAdAccount = findActiveAdAccount(adList, 'META')
 
   const out: PlatformState[] = []
 
-  // Facebook — the ONLY platform allowed to reach "ready" in PR-1A
+  // Facebook
   if (!meta) {
     out.push(mk('facebook', 'not_connected', `${R}.line.facebookNotConnected`, 'connect-meta', `${R}.action.connectMeta`))
   } else if (!hasPage) {
@@ -180,7 +187,7 @@ export function derivePlatformReadiness(
     out.push(mk('facebook', 'permission_unverified', `${R}.line.facebookUnverified`, 'open-connections', `${R}.action.reviewSetup`))
   }
 
-  // Instagram — capped at permission_unverified; never "ready" in PR-1A
+  // Instagram
   if (!meta) {
     out.push(mk('instagram', 'not_connected', `${R}.line.instagramNotConnected`, 'connect-meta', `${R}.action.connectMeta`))
   } else if (!hasIg) {
@@ -191,7 +198,7 @@ export function derivePlatformReadiness(
     out.push(mk('instagram', 'permission_unverified', `${R}.line.instagramUnverified`, 'open-connections', `${R}.action.reviewSetup`))
   }
 
-  // TikTok — capped at permission_unverified
+  // TikTok
   if (!tiktok) {
     out.push(mk('tiktok', 'not_connected', `${R}.line.tiktokNotConnected`, 'connect-tiktok', `${R}.action.connectTikTok`))
   } else if (tiktok.capabilities?.tikTokDirectPosting && tiktok.capabilities?.tikTokCreatorInfoVerified) {
@@ -200,13 +207,26 @@ export function derivePlatformReadiness(
     out.push(mk('tiktok', 'permission_unverified', `${R}.line.tiktokUnverified`, 'open-connections', `${R}.action.reviewSetup`))
   }
 
-  // LinkedIn — capped at permission_unverified
+  // LinkedIn
   if (!linkedin) {
     out.push(mk('linkedin', 'not_connected', `${R}.line.linkedinNotConnected`, 'connect-linkedin', `${R}.action.connectLinkedIn`))
   } else if (linkedin.capabilities?.linkedInMemberPublishing || linkedin.capabilities?.linkedInOrganizationPublishing) {
     out.push(mk('linkedin', 'ready', `${R}.line.linkedinReady`, 'open-connections', `${R}.action.reviewSetup`))
   } else {
     out.push(mk('linkedin', 'permission_unverified', `${R}.line.linkedinUnverified`, 'open-connections', `${R}.action.reviewSetup`))
+  }
+
+  if (!x) {
+    out.push(mk('x', 'not_connected', `${R}.line.xNotConnected`, 'connect-x', `${R}.action.connectX`))
+  } else if (
+    x.capabilities?.xPublishing
+    && x.capabilities?.xMediaPublishing
+    && x.capabilities?.xReadback
+    && x.capabilities?.tokenRefresh
+  ) {
+    out.push(mk('x', 'ready', `${R}.line.xReady`, 'open-connections', `${R}.action.reviewSetup`))
+  } else {
+    out.push(mk('x', 'permission_unverified', `${R}.line.xUnverified`, 'open-connections', `${R}.action.reviewSetup`))
   }
 
   if (!youtube) {
@@ -245,7 +265,7 @@ export function derivePlatformReadiness(
 
 /** Compact summary for the dashboard strip (subset + short chips). */
 export function summarizeForStrip(states: PlatformState[]): PlatformState[] {
-  const order: PlatformKey[] = ['facebook', 'instagram', 'tiktok', 'linkedin', 'youtube', 'paid']
+  const order: PlatformKey[] = ['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'youtube', 'paid']
   return order
     .map((k) => states.find((s) => s.key === k))
     .filter((s): s is PlatformState => !!s)

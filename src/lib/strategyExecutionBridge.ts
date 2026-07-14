@@ -55,6 +55,8 @@ const PLATFORM_READINESS_KEY_BY_CAMPAIGN_PLATFORM: Record<string, PlatformKey> =
   INSTAGRAM: 'instagram',
   TIKTOK: 'tiktok',
   LINKEDIN: 'linkedin',
+  X: 'x',
+  TWITTER: 'x',
   YOUTUBE: 'youtube',
   YOUTUBE_SHORTS: 'youtube',
   GOOGLE: 'google',

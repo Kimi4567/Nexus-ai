@@ -186,4 +186,30 @@ describe('publishSocialPost', () => {
       platformOptions: { title: 'Title', privacyStatus: 'private' },
     })).rejects.toThrow('explicit consent')
   })
+
+  it('publishes approved X text through the v2 create-post endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { id: 'x-post-1' } }), {
+      status: 201,
+      headers: { 'content-type': 'application/json' },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await publishSocialPost({
+      platform: 'X',
+      caption: 'Reviewed X post',
+      accessToken: 'x-token',
+      integrationConfig: { username: 'nexus' },
+      platformOptions: { explicitConsent: true },
+    })
+
+    expect(result).toEqual({
+      platformPostId: 'x-post-1',
+      platformUrl: 'https://x.com/nexus/status/x-post-1',
+      state: 'PUBLISHED',
+    })
+    expect(fetchMock).toHaveBeenCalledWith('https://api.x.com/2/tweets', expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ Authorization: 'Bearer x-token' }),
+    }))
+  })
 })

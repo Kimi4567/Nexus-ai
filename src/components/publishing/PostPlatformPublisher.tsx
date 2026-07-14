@@ -28,19 +28,21 @@ interface PostPlatformPublisherProps {
   status: string
   hasMedia: boolean
   isVideoPost: boolean
+  captionLength: number
   onPublished: () => void | Promise<void>
 }
 
-function normalizedPlatform(value: string): 'META' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | null {
+function normalizedPlatform(value: string): 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | null {
   const platform = value.toUpperCase()
   if (['META', 'FACEBOOK', 'INSTAGRAM'].includes(platform)) return 'META'
   if (platform === 'LINKEDIN') return 'LINKEDIN'
   if (platform === 'TIKTOK') return 'TIKTOK'
+  if (platform === 'X' || platform === 'TWITTER') return 'X'
   if (platform === 'YOUTUBE' || platform === 'YOUTUBE_SHORTS') return 'YOUTUBE'
   return null
 }
 
-export function PostPlatformPublisher({ postId, campaignId, platform, status, hasMedia, isVideoPost, onPublished }: PostPlatformPublisherProps) {
+export function PostPlatformPublisher({ postId, campaignId, platform, status, hasMedia, isVideoPost, captionLength, onPublished }: PostPlatformPublisherProps) {
   const { authHeader } = useAuth()
   const { locale } = useI18n()
   const ar = locale === 'ar'
@@ -57,6 +59,7 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
   const [tiktokConsent, setTikTokConsent] = useState(false)
   const [tiktokOptions, setTikTokOptions] = useState({ privacyLevel: '', disableComment: false, disableDuet: false, disableStitch: false, brandContentToggle: false, brandOrganicToggle: true, isAigc: false })
   const [youtubeConsent, setYouTubeConsent] = useState(false)
+  const [xConsent, setXConsent] = useState(false)
   const [youtubeOptions, setYouTubeOptions] = useState<{
     title: string
     privacyStatus: 'private' | 'unlisted' | 'public'
@@ -138,6 +141,8 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
           platform: requestedPlatform,
           platformOptions: targetPlatform === 'TIKTOK'
             ? { ...tiktokOptions, explicitConsent: tiktokConsent }
+            : targetPlatform === 'X'
+              ? { explicitConsent: xConsent }
             : targetPlatform === 'YOUTUBE'
               ? {
                   title: youtubeOptions.title.trim(),
@@ -170,7 +175,7 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
     }
   }
 
-  if (!eligible || !targetPlatform || !hasMedia || (['TIKTOK', 'YOUTUBE'].includes(targetPlatform) && !isVideoPost)) return null
+  if (!eligible || !targetPlatform || !hasMedia || (['TIKTOK', 'YOUTUBE'].includes(targetPlatform) && !isVideoPost) || (targetPlatform === 'X' && isVideoPost)) return null
 
   return (
     <div className="border-t border-slate-200 px-3 pb-3 pt-2">
@@ -256,6 +261,25 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
                   </label>
                 </div>
               )}
+              {targetPlatform === 'X' && (
+                <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-2">
+                  <p className="text-[10px] font-semibold leading-4 text-slate-600">
+                    {copy(
+                      `سيُنشر النص والصورة المعتمدان فقط. طول النص ${captionLength} من 280 حرفًا، وفيديو X غير مدعوم حاليًا.`,
+                      `Only the approved copy and image will be published. Copy length is ${captionLength} of 280 characters; X video is not currently supported.`,
+                    )}
+                  </p>
+                  {captionLength > 280 && (
+                    <p className="rounded-lg bg-amber-50 p-2 text-[10px] font-semibold leading-4 text-amber-800">
+                      {copy('اختصر النص إلى 280 حرفًا أو أقل قبل النشر.', 'Shorten the copy to 280 characters or fewer before publishing.')}
+                    </p>
+                  )}
+                  <label className="flex items-start gap-2 text-[10px] font-semibold leading-4 text-slate-700">
+                    <input type="checkbox" checked={xConsent} disabled={captionLength === 0 || captionLength > 280} onChange={event => setXConsent(event.target.checked)} className="mt-0.5" />
+                    {copy('أوافق صراحةً على إرسال هذا النص والصورة المعتمدين إلى حساب X الآن.', 'I explicitly consent to sending this approved copy and image to my X account now.')}
+                  </label>
+                </div>
+              )}
               {targetPlatform === 'YOUTUBE' && (
                 <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-2">
                   <label className="block text-[10px] font-black uppercase tracking-wide text-slate-500">
@@ -299,7 +323,7 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
                   </label>
                 </div>
               )}
-              <button type="button" onClick={publish} disabled={publishing || !selectedAccount || (targetPlatform === 'META' && !selectedPage) || (targetPlatform === 'TIKTOK' && (!tiktokConsent || !tiktokOptions.privacyLevel)) || (targetPlatform === 'YOUTUBE' && (!youtubeConsent || !youtubeOptions.title.trim() || !youtubeOptions.madeForKids || !youtubeOptions.syntheticMedia))} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40">
+              <button type="button" onClick={publish} disabled={publishing || !selectedAccount || (targetPlatform === 'META' && !selectedPage) || (targetPlatform === 'TIKTOK' && (!tiktokConsent || !tiktokOptions.privacyLevel)) || (targetPlatform === 'X' && (!xConsent || captionLength === 0 || captionLength > 280)) || (targetPlatform === 'YOUTUBE' && (!youtubeConsent || !youtubeOptions.title.trim() || !youtubeOptions.madeForKids || !youtubeOptions.syntheticMedia))} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40">
                 {publishing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                 {copy('تأكيد النشر الآن', 'Confirm publish now')}
               </button>

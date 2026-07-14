@@ -1,8 +1,9 @@
 import { linkedInHeaders, metaGraphUrl } from './socialPlatformConfig'
 import { initializeTikTokVideoPost, type TikTokPostOptions } from './tiktokPublishing'
 import { parseYouTubePostOptions, uploadYouTubeVideo } from './youtubePublishing'
+import { createXPost } from './xPublishing'
 
-export type PublishPlatform = 'META' | 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE'
+export type PublishPlatform = 'META' | 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | 'X'
 
 export type SocialPublishInput = {
   platform: PublishPlatform | string
@@ -270,6 +271,22 @@ async function publishYouTube(input: SocialPublishInput): Promise<SocialPublishR
   }
 }
 
+async function publishX(input: SocialPublishInput): Promise<SocialPublishResult> {
+  const options = input.platformOptions || {}
+  const published = await createXPost({
+    accessToken: input.accessToken,
+    text: input.caption,
+    imageUrl: input.imageUrl,
+    username: String(input.integrationConfig?.username || ''),
+    explicitConsent: options.explicitConsent === true,
+  })
+  return {
+    platformPostId: published.postId,
+    platformUrl: published.platformUrl,
+    state: 'PUBLISHED',
+  }
+}
+
 export async function publishSocialPost(input: SocialPublishInput): Promise<SocialPublishResult> {
   if (!input.caption.trim()) throw new Error('Post caption is empty')
   if (!input.accessToken) throw new Error('Platform access token is missing')
@@ -285,6 +302,8 @@ export async function publishSocialPost(input: SocialPublishInput): Promise<Soci
       return publishTikTok(input)
     case 'YOUTUBE':
       return publishYouTube(input)
+    case 'X':
+      return publishX(input)
     default:
       throw new Error(`Unsupported publishing platform: ${input.platform}`)
   }

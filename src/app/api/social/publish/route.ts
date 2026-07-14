@@ -3,14 +3,14 @@ import { prisma } from '@/lib/prisma'
 import { decryptToken } from '@/lib/tokenCrypto'
 import { getServerUserId } from '@/lib/apiAuth'
 import { publishSocialPost } from '@/lib/socialPublishers'
-import { hasVerifiedProviderScope } from '@/lib/socialPlatformConfig'
+import { hasVerifiedProviderScope, X_CONTENT_SCOPES } from '@/lib/socialPlatformConfig'
 import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState'
 import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
 import { YOUTUBE_UPLOAD_SCOPE } from '@/lib/youtubePublishing'
 
 export const maxDuration = 180
 
-type RequestedPlatform = 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE'
+type RequestedPlatform = 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE'
 
 interface PublishRequest {
   socialPostId?: unknown
@@ -29,9 +29,10 @@ function text(value: unknown, max: number): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : ''
 }
 
-function dbPlatform(platform: RequestedPlatform): 'META' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' {
+function dbPlatform(platform: RequestedPlatform): 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' {
   if (platform === 'LINKEDIN') return 'LINKEDIN'
   if (platform === 'TIKTOK') return 'TIKTOK'
+  if (platform === 'X') return 'X'
   if (platform === 'YOUTUBE') return 'YOUTUBE'
   return 'META'
 }
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
     ? body.platformOptions as Record<string, unknown>
     : null
 
-  if (!integrationId || !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK', 'YOUTUBE'].includes(platform)) {
+  if (!integrationId || !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE'].includes(platform)) {
     return NextResponse.json({ error: 'Valid integrationId and platform are required' }, { status: 400 })
   }
   if (['FACEBOOK', 'INSTAGRAM'].includes(platform) && !pageId) {
@@ -109,12 +110,24 @@ export async function POST(req: NextRequest) {
   if (dbPlatform(platform) !== existingPost.platform) {
     return NextResponse.json({ error: 'Selected platform does not match the approved post platform' }, { status: 409 })
   }
-  const approvedTarget = existingPost.publishTarget === 'YOUTUBE_SHORTS' ? 'YOUTUBE' : existingPost.publishTarget
+  const approvedTarget = existingPost.publishTarget === 'YOUTUBE_SHORTS'
+    ? 'YOUTUBE'
+    : existingPost.publishTarget === 'TWITTER'
+      ? 'X'
+      : existingPost.publishTarget
   if (approvedTarget && approvedTarget !== 'META' && approvedTarget !== platform) {
     return NextResponse.json({ error: 'Selected destination does not match the approved post destination' }, { status: 409 })
   }
   if (platform === 'TIKTOK' && platformOptions?.explicitConsent !== true) {
     return NextResponse.json({ error: 'TikTok requires explicit consent and reviewed publishing options' }, { status: 400 })
+  }
+  if (platform === 'X' && (existingPost.isVideoPost || platformOptions?.explicitConsent !== true)) {
+    return NextResponse.json({
+      error: existingPost.isVideoPost
+        ? 'X video publishing is not supported yet. Use an approved text or image post.'
+        : 'X requires explicit consent for this reviewed post.',
+      code: existingPost.isVideoPost ? 'X_VIDEO_NOT_SUPPORTED' : 'X_REVIEW_REQUIRED',
+    }, { status: 400 })
   }
   if (platform === 'YOUTUBE' && (!existingPost.isVideoPost || platformOptions?.explicitConsent !== true)) {
     return NextResponse.json({
@@ -165,18 +178,21 @@ export async function POST(req: NextRequest) {
   const config = integration.config && typeof integration.config === 'object' && !Array.isArray(integration.config)
     ? integration.config as Record<string, unknown>
     : {}
-  const requiredScope = platform === 'FACEBOOK'
-    ? 'pages_manage_posts'
+  const requiredScopes = platform === 'FACEBOOK'
+    ? ['pages_manage_posts']
     : platform === 'INSTAGRAM'
-      ? 'instagram_content_publish'
+      ? ['instagram_content_publish']
       : platform === 'LINKEDIN'
-        ? (pageId ? 'w_organization_social' : 'w_member_social')
+        ? [pageId ? 'w_organization_social' : 'w_member_social']
         : platform === 'TIKTOK'
-          ? 'video.publish'
-          : YOUTUBE_UPLOAD_SCOPE
-  if (!hasVerifiedProviderScope(config, requiredScope)) {
+          ? ['video.publish']
+          : platform === 'X'
+            ? [...X_CONTENT_SCOPES]
+            : [YOUTUBE_UPLOAD_SCOPE]
+  const missingScope = requiredScopes.find(scope => !hasVerifiedProviderScope(config, scope))
+  if (missingScope) {
     return NextResponse.json({
-      error: `Reconnect ${platform} and grant the verified ${requiredScope} permission before publishing.`,
+      error: `Reconnect ${platform} and grant the verified ${missingScope} permission before publishing.`,
       code: 'PLATFORM_SCOPE_REQUIRED',
     }, { status: 409 })
   }

@@ -31,6 +31,13 @@ import {
   YOUTUBE_READ_SCOPE,
   YOUTUBE_UPLOAD_SCOPE,
 } from '@/lib/youtubePublishing'
+import {
+  X_MEDIA_WRITE_SCOPE,
+  X_OFFLINE_SCOPE,
+  X_TWEET_READ_SCOPE,
+  X_TWEET_WRITE_SCOPE,
+  X_USERS_READ_SCOPE,
+} from '@/lib/xPublishing'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -50,14 +57,17 @@ type ScheduleRequest = {
 
 function normalizedTarget(target: string): string {
   const value = target.toUpperCase()
-  return value === 'YOUTUBE_SHORTS' ? 'YOUTUBE' : value
+  if (value === 'YOUTUBE_SHORTS') return 'YOUTUBE'
+  if (value === 'TWITTER') return 'X'
+  return value
 }
 
-function providerForTarget(target: string): 'META' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | null {
+function providerForTarget(target: string): 'META' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | 'X' | null {
   if (target === 'FACEBOOK' || target === 'INSTAGRAM') return 'META'
   if (target === 'LINKEDIN') return 'LINKEDIN'
   if (target === 'TIKTOK') return 'TIKTOK'
   if (target === 'YOUTUBE') return 'YOUTUBE'
+  if (target === 'X') return 'X'
   return null
 }
 
@@ -157,10 +167,10 @@ export async function POST(req: NextRequest, props: Params) {
 
     const assignmentById = new Map<string, {
       integrationId: string
-    pageId: string | null
-    pageName: string | null
-    platformOptions: Record<string, unknown> | null
-    publishTarget: string
+      pageId: string | null
+      pageName: string | null
+      platformOptions: Record<string, unknown> | null
+      publishTarget: string
     }>()
     const blockers: Array<{ code: string; target: string; postId: string; message: string }> = []
     let tiktokCreator: Awaited<ReturnType<typeof queryTikTokCreatorInfo>> | null = null
@@ -324,6 +334,46 @@ export async function POST(req: NextRequest, props: Params) {
             message: error instanceof Error ? error.message : 'Review the YouTube video settings.',
           })
           continue
+        }
+      } else if (target === 'X') {
+        if (publishMode === 'AUTO' && post.isVideoPost) {
+          blockers.push({
+            code: 'X_VIDEO_NOT_SUPPORTED', target, postId: post.id,
+            message: 'X automatic publishing currently supports reviewed text and image posts, not video uploads.',
+          })
+          continue
+        }
+        const requiredScopes = [
+          X_TWEET_READ_SCOPE,
+          X_TWEET_WRITE_SCOPE,
+          X_USERS_READ_SCOPE,
+          X_MEDIA_WRITE_SCOPE,
+          X_OFFLINE_SCOPE,
+        ]
+        if (publishMode === 'AUTO' && requiredScopes.some(scope => !hasVerifiedProviderScope(config, scope))) {
+          blockers.push({
+            code: 'PLATFORM_SCOPE_REQUIRED', target, postId: post.id,
+            message: 'Reconnect X and grant verified post, media, readback, and offline permissions.',
+          })
+          continue
+        }
+        if (publishMode === 'AUTO' && (!integration.accountId || !integration.refreshToken)) {
+          blockers.push({
+            code: 'X_OFFLINE_ACCESS_REQUIRED', target, postId: post.id,
+            message: 'Reconnect X with offline access before scheduled publishing.',
+          })
+          continue
+        }
+        const copyLength = Array.from(String(post.caption || '').trim()).length
+        if (publishMode === 'AUTO' && (copyLength === 0 || copyLength > 280)) {
+          blockers.push({
+            code: 'X_COPY_REVIEW_REQUIRED', target, postId: post.id,
+            message: 'Review the X post so it contains copy of 1 to 280 characters before automatic publishing.',
+          })
+          continue
+        }
+        platformOptions = {
+          explicitConsent: publishMode === 'AUTO' && requestBody.explicitAutoPublishConfirmed === true,
         }
       }
       assignmentById.set(post.id, { integrationId: integration.id, pageId, pageName, platformOptions, publishTarget: target })

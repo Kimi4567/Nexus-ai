@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
       where: {
         workspaceId: workspace.id,
         status: { in: ['CONNECTED', 'EXPIRED', 'ERROR'] },
-        type: { in: ['META', 'LINKEDIN', 'TIKTOK', 'YOUTUBE'] as any[] },
+        type: { in: ['META', 'LINKEDIN', 'TIKTOK', 'YOUTUBE', 'X'] as any[] },
       },
       select: {
         id: true,
@@ -66,6 +66,9 @@ export async function GET(req: NextRequest) {
         tikTokCreatorInfoVerified: i.type === 'TIKTOK' && Boolean(config.creatorInfoVerifiedAt),
         youtubeVideoPublishing: i.type === 'YOUTUBE' && scopesVerified && scopes.includes('https://www.googleapis.com/auth/youtube.upload') && Boolean(i.accountId),
         youtubeReadback: i.type === 'YOUTUBE' && scopesVerified && scopes.includes('https://www.googleapis.com/auth/youtube.readonly') && Boolean(i.accountId),
+        xPublishing: i.type === 'X' && scopesVerified && scopes.includes('tweet.write') && Boolean(i.accountId),
+        xMediaPublishing: i.type === 'X' && scopesVerified && scopes.includes('media.write') && Boolean(i.accountId),
+        xReadback: i.type === 'X' && scopesVerified && scopes.includes('tweet.read') && scopes.includes('users.read') && Boolean(i.accountId),
         tokenRefresh: Boolean(i.refreshToken),
       }
       return {
@@ -79,6 +82,7 @@ export async function GET(req: NextRequest) {
         selectedOrganizationId: config.organizationId || null,
         pictureUrl: config.pictureUrl || null,
         channelUrl: config.channelUrl || null,
+        profileUrl: config.profileUrl || null,
         scopes,
         expiresAt: config.expiresAt || null,
         refreshExpiresAt: config.refreshExpiresAt || null,

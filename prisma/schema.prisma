@@ -829,6 +829,7 @@ enum IntegrationType {
   LINKEDIN
   TIKTOK
   YOUTUBE
+  X
   GOOGLE
   STRIPE
   CLOUDINARY

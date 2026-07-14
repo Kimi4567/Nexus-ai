@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
 
-export type OAuthProvider = 'meta' | 'meta_ads' | 'linkedin' | 'tiktok' | 'youtube'
+export type OAuthProvider = 'meta' | 'meta_ads' | 'linkedin' | 'tiktok' | 'youtube' | 'x'
 
 type OAuthStatePayload = {
   v: 1
@@ -8,6 +8,7 @@ type OAuthStatePayload = {
   userId: string
   issuedAt: number
   nonce: string
+  context?: string
 }
 
 const MAX_AGE_MS = 10 * 60 * 1000
@@ -24,14 +25,16 @@ function sign(encodedPayload: string): string {
   return createHmac('sha256', stateSecret()).update(encodedPayload).digest('base64url')
 }
 
-export function createOAuthState(userId: string, provider: OAuthProvider): string {
+export function createOAuthState(userId: string, provider: OAuthProvider, context?: string): string {
   if (!userId) throw new Error('OAuth state requires a userId')
+  if (context && context.length > 160) throw new Error('OAuth state context is too long')
   const payload: OAuthStatePayload = {
     v: 1,
     provider,
     userId,
     issuedAt: Date.now(),
     nonce: randomBytes(16).toString('base64url'),
+    ...(context ? { context } : {}),
   }
   const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url')
   return `${encoded}.${sign(encoded)}`
@@ -57,6 +60,7 @@ export function verifyOAuthState(state: string, provider: OAuthProvider): OAuthS
     || !payload.userId
     || typeof payload.issuedAt !== 'number'
     || typeof payload.nonce !== 'string'
+    || (payload.context !== undefined && typeof payload.context !== 'string')
   ) throw new Error('Invalid OAuth state payload')
 
   const age = Date.now() - payload.issuedAt

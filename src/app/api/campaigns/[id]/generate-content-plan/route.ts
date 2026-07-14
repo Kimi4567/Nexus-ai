@@ -66,8 +66,8 @@ function toIntegrationType(raw: string): string {
   const map: Record<string, string> = {
     INSTAGRAM: 'META',
     FACEBOOK:  'META',
-    TWITTER:   'META',
-    X:         'META',
+    TWITTER:   'X',
+    X:         'X',
     SNAPCHAT:  'META',
     PINTEREST: 'META',
     REELS:     'META',
@@ -81,6 +81,11 @@ function toIntegrationType(raw: string): string {
     GOOGLE:    'GOOGLE',
   }
   return map[raw.toUpperCase()] ?? 'META'
+}
+
+function normalizedPublishTarget(raw: string): string {
+  const target = raw.toUpperCase()
+  return target === 'TWITTER' ? 'X' : target
 }
 
 // Neutral review-time proposals. Nexus does not label a universal hour as
@@ -102,13 +107,13 @@ function distributePosts(
 
   // Interleave posts across destinations while retaining the exact channel.
   for (let i = 0; i < totalPosts; i++) {
-    const publishTarget = String(platforms[i % platforms.length] || 'META').toUpperCase()
+    const publishTarget = normalizedPublishTarget(String(platforms[i % platforms.length] || 'META'))
     slots.push({ platform: toIntegrationType(publishTarget), publishTarget, isVideoPost: false, index: idx++ })
   }
 
   // Distribute video slots with the same destination contract.
   for (let i = 0; i < totalVideoSlots; i++) {
-    const publishTarget = String(platforms[i % platforms.length] || 'META').toUpperCase()
+    const publishTarget = normalizedPublishTarget(String(platforms[i % platforms.length] || 'META'))
     slots.push({ platform: toIntegrationType(publishTarget), publishTarget, isVideoPost: true, index: idx++ })
   }
 

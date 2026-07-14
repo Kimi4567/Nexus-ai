@@ -159,6 +159,34 @@ async function fetchYouTubeInsights(platformPostId: string, accessToken: string)
   }
 }
 
+async function fetchXInsights(platformPostId: string, accessToken: string): Promise<RawPlatformMetrics | null> {
+  try {
+    const query = new URLSearchParams({
+      'tweet.fields': 'public_metrics,non_public_metrics,organic_metrics',
+    })
+    const res = await fetch(`https://api.x.com/2/tweets/${encodeURIComponent(platformPostId)}?${query.toString()}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || !data?.data) return null
+    const publicMetrics = data.data.public_metrics ?? {}
+    const privateMetrics = data.data.organic_metrics ?? data.data.non_public_metrics ?? {}
+    // X does not expose unique reach or conversions on this endpoint. Preserve
+    // those as zero instead of deriving or inventing them from impressions.
+    return {
+      likes: Number(publicMetrics.like_count) || 0,
+      comments: Number(publicMetrics.reply_count) || 0,
+      shares: (Number(publicMetrics.retweet_count) || 0) + (Number(publicMetrics.quote_count) || 0),
+      impressions: Number(privateMetrics.impression_count ?? publicMetrics.impression_count) || 0,
+      reach: 0,
+      clicks: (Number(privateMetrics.url_link_clicks) || 0) + (Number(privateMetrics.user_profile_clicks) || 0),
+    }
+  } catch {
+    return null
+  }
+}
+
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
@@ -190,7 +218,7 @@ export async function GET(req: NextRequest) {
         publishedAt: { gte: newerThan14d, lte: olderThan24h },
         analyticsFetched: false,
         platformPostId: { not: null },
-        platform: { in: ['META', 'LINKEDIN', 'TIKTOK', 'YOUTUBE'] },
+        platform: { in: ['META', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE'] },
         OR: [{ analyticsUpdatedAt: null }, { analyticsUpdatedAt: { lte: retryBefore } }],
       },
       include: { integration: true },
@@ -225,6 +253,8 @@ export async function GET(req: NextRequest) {
           ? await fetchMetaInsights(post.platformPostId, token)
           : post.platform === 'TIKTOK'
             ? await fetchTikTokInsights(post.platformPostId, token)
+            : post.platform === 'X'
+              ? await fetchXInsights(post.platformPostId, token)
             : post.platform === 'YOUTUBE'
               ? await fetchYouTubeInsights(post.platformPostId, token)
               : post.pageId

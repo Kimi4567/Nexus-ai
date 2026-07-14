@@ -41,7 +41,8 @@ export function normalizeCampaignPlatforms(
   const out: string[] = []
   for (const p of platforms) {
     if (typeof p !== 'string' || !p.trim()) continue
-    const key = p.trim().toUpperCase()
+    const rawKey = p.trim().toUpperCase()
+    const key = rawKey === 'TWITTER' ? 'X' : rawKey
     if (seen.has(key)) continue
     seen.add(key)
     out.push(key)

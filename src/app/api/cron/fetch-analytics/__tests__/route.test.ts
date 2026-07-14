@@ -189,4 +189,46 @@ describe('GET /api/cron/fetch-analytics', () => {
       },
     })
   })
+
+  it('stores available X metrics without fabricating reach or conversions', async () => {
+    mocks.socialPostFindMany
+      .mockResolvedValueOnce([{
+        id: 'x-post',
+        workspaceId: 'workspace-1',
+        platform: 'X',
+        platformPostId: 'x-provider-1',
+        pageId: null,
+        integration: { accessToken: 'x-token', config: {} },
+      }])
+      .mockResolvedValueOnce([])
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      data: {
+        id: 'x-provider-1',
+        public_metrics: { like_count: 30, reply_count: 4, retweet_count: 5, quote_count: 2 },
+        organic_metrics: { impression_count: 1000, url_link_clicks: 20, user_profile_clicks: 6 },
+      },
+    }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch
+
+    const response = await GET(request('cron-secret'))
+    const body = await response.json()
+
+    expect(body).toMatchObject({ analyticsStored: 1, analyticsRetryable: 0 })
+    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
+      where: { id: 'x-post' },
+      data: {
+        analyticsUpdatedAt: expect.any(Date),
+        analyticsFetched: true,
+        analyticsData: expect.objectContaining({
+          platform: 'X',
+          impressions: 1000,
+          reach: 0,
+          likes: 30,
+          comments: 4,
+          shares: 7,
+          clicks: 26,
+          engagementCount: 67,
+        }),
+      },
+    })
+  })
 })

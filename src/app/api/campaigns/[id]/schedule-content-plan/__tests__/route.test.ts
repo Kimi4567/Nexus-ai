@@ -49,6 +49,18 @@ function request() {
   })
 }
 
+function xRequest() {
+  return new NextRequest('http://localhost/api/campaigns/campaign-1/schedule-content-plan', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer session', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      publishMode: 'AUTO',
+      explicitAutoPublishConfirmed: true,
+      destinationByTarget: { X: { integrationId: 'x-integration' } },
+    }),
+  })
+}
+
 function approvedYouTubePost() {
   return {
     id: 'youtube-post',
@@ -132,5 +144,51 @@ describe('POST schedule-content-plan — YouTube', () => {
       expect.objectContaining({ code: 'PLATFORM_SCOPE_REQUIRED', target: 'YOUTUBE' }),
     ]))
     expect(mocks.socialPostUpdate).not.toHaveBeenCalled()
+  })
+
+  it('normalizes legacy Twitter posts and schedules X only with complete verified permissions', async () => {
+    mocks.socialPostFindMany.mockResolvedValue([{
+      id: 'x-post',
+      platform: 'X',
+      publishTarget: 'TWITTER',
+      integrationId: null,
+      scheduledAt: new Date(Date.now() + 60_000),
+      caption: 'A reviewed X post announcing the approved July product workflow.',
+      imagePrompt: 'Approved product workflow image',
+      videoPrompt: null,
+      imageUrl: 'https://res.cloudinary.com/demo/image/upload/x-post.png',
+      uploadedMediaId: 'media-x',
+      mediaSource: 'UPLOAD',
+      generationStatus: 'DONE',
+      isVideoPost: false,
+    }])
+    mocks.integrationFindMany.mockResolvedValue([{
+      id: 'x-integration',
+      type: 'X',
+      accountId: 'x-user-1',
+      accountName: 'NEXUS on X',
+      accessToken: 'encrypted-access',
+      refreshToken: 'encrypted-refresh',
+      config: {
+        scopeEvidence: 'provider_response',
+        scopes: ['tweet.read', 'tweet.write', 'users.read', 'media.write', 'offline.access'],
+      },
+    }])
+
+    const response = await POST(xRequest(), { params: Promise.resolve({ id: 'campaign-1' }) })
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body).toMatchObject({ success: true, scheduled: 1, linked: 1, publishMode: 'AUTO' })
+    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
+      where: { id: 'x-post' },
+      data: expect.objectContaining({
+        status: 'SCHEDULED',
+        publishMode: 'AUTO',
+        integrationId: 'x-integration',
+        publishTarget: 'X',
+        platformOptions: { explicitConsent: true },
+      }),
+    })
   })
 })

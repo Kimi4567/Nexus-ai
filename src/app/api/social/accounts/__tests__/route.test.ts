@@ -93,4 +93,40 @@ describe('GET /api/social/accounts', () => {
       },
     })
   })
+
+  it('reports X publish, image, readback, and offline renewal without leaking tokens', async () => {
+    mocks.integrationFindMany.mockResolvedValue([{
+      id: 'x-1',
+      type: 'X',
+      status: 'CONNECTED',
+      accountId: 'x-user-1',
+      accountName: 'NEXUS on X',
+      refreshToken: 'encrypted-x-refresh',
+      lastSyncedAt: new Date(),
+      createdAt: new Date(),
+      config: {
+        scopeEvidence: 'provider_response',
+        scopes: ['tweet.read', 'tweet.write', 'users.read', 'media.write', 'offline.access'],
+        username: 'nexus',
+        profileUrl: 'https://x.com/nexus',
+      },
+    }])
+
+    const response = await GET(new NextRequest('http://localhost/api/social/accounts', {
+      headers: { Authorization: 'Bearer session' },
+    }))
+    const body = await response.json()
+
+    expect(body.accounts[0]).toMatchObject({
+      platform: 'X',
+      profileUrl: 'https://x.com/nexus',
+      capabilities: {
+        xPublishing: true,
+        xMediaPublishing: true,
+        xReadback: true,
+        tokenRefresh: true,
+      },
+    })
+    expect(JSON.stringify(body)).not.toContain('encrypted-x-refresh')
+  })
 })

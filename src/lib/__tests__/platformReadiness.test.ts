@@ -39,6 +39,7 @@ describe('derivePlatformReadiness — honesty rules', () => {
     expect(get(s, 'instagram').status).toBe('not_connected')
     expect(get(s, 'tiktok').status).toBe('not_connected')
     expect(get(s, 'linkedin').status).toBe('not_connected')
+    expect(get(s, 'x').status).toBe('not_connected')
     expect(s.every((x) => x.status !== 'ready')).toBe(true)
   })
 
@@ -107,6 +108,27 @@ describe('derivePlatformReadiness — honesty rules', () => {
     expect(get(withoutRefresh, 'youtube').status).toBe('permission_unverified')
   })
 
+  it('X becomes ready only with publishing, image, readback, and refresh evidence', () => {
+    const ready = derivePlatformReadiness([{
+      platform: 'X',
+      status: 'CONNECTED',
+      capabilities: {
+        xPublishing: true,
+        xMediaPublishing: true,
+        xReadback: true,
+        tokenRefresh: true,
+      },
+    }])
+    expect(get(ready, 'x').status).toBe('ready')
+
+    const noReadback = derivePlatformReadiness([{
+      platform: 'X',
+      status: 'CONNECTED',
+      capabilities: { xPublishing: true, xMediaPublishing: true, xReadback: false, tokenRefresh: true },
+    }])
+    expect(get(noReadback, 'x').status).toBe('permission_unverified')
+  })
+
   it('Paid ads without a Meta ad account asks for Meta Ads connection', () => {
     const s = derivePlatformReadiness([metaWithPageAndIg])
     expect(get(s, 'paid').status).toBe('not_connected')
@@ -155,11 +177,11 @@ describe('derivePlatformReadiness — honesty rules', () => {
   it('null/undefined input does not crash', () => {
     expect(() => derivePlatformReadiness(null)).not.toThrow()
     expect(() => derivePlatformReadiness(undefined)).not.toThrow()
-    expect(derivePlatformReadiness(null).length).toBe(9)
+    expect(derivePlatformReadiness(null).length).toBe(10)
   })
 
-  it('summarizeForStrip returns FB, IG, TikTok, LinkedIn, YouTube, Paid in order', () => {
+  it('summarizeForStrip returns organic publishers and Paid in canonical order', () => {
     const s = summarizeForStrip(derivePlatformReadiness([metaWithPageAndIg]))
-    expect(s.map((x) => x.key)).toEqual(['facebook', 'instagram', 'tiktok', 'linkedin', 'youtube', 'paid'])
+    expect(s.map((x) => x.key)).toEqual(['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'youtube', 'paid'])
   })
 })

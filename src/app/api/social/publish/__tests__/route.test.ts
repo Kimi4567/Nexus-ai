@@ -318,4 +318,58 @@ describe('POST /api/social/publish', () => {
       }),
     })
   })
+
+  it('publishes a saved X image post only with verified scopes and explicit consent', async () => {
+    mocks.integrationFindFirst.mockResolvedValue({
+      id: 'x-integration',
+      type: 'X',
+      status: 'CONNECTED',
+      accessToken: 'encrypted-x-token',
+      refreshToken: 'encrypted-refresh',
+      accountId: 'x-user-1',
+      accountName: 'NEXUS on X',
+      config: {
+        username: 'nexus',
+        scopeEvidence: 'provider_response',
+        scopes: ['tweet.read', 'tweet.write', 'users.read', 'media.write', 'offline.access'],
+      },
+    })
+    mocks.socialPostFindFirst.mockResolvedValue({
+      id: 'x-post',
+      campaignId: 'campaign-1',
+      platform: 'X',
+      publishTarget: 'TWITTER',
+      status: 'APPROVED',
+      caption: 'A reviewed X post with a specific approved offer.',
+      imageUrl: 'https://res.cloudinary.com/demo/image/upload/x-post.png',
+      imagePrompt: 'Approved product image',
+      videoPrompt: null,
+      uploadedMediaId: 'media-x',
+      mediaSource: 'UPLOAD',
+      generationStatus: 'DONE',
+      isVideoPost: false,
+      approvedAt: new Date('2026-07-12T10:00:00.000Z'),
+    })
+    mocks.publish.mockResolvedValue({ platformPostId: 'x-provider-post', platformUrl: 'https://x.com/nexus/status/x-provider-post' })
+    mocks.socialPostUpdate.mockResolvedValue({ id: 'x-post', status: 'PUBLISHED' })
+
+    const response = await POST(request({
+      socialPostId: 'x-post',
+      integrationId: 'x-integration',
+      platform: 'X',
+      campaignId: 'campaign-1',
+      platformOptions: { explicitConsent: true },
+    }))
+
+    expect(response.status).toBe(200)
+    expect(mocks.publish).toHaveBeenCalledWith(expect.objectContaining({
+      platform: 'X',
+      caption: 'A reviewed X post with a specific approved offer.',
+      platformOptions: { explicitConsent: true },
+    }))
+    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
+      where: { id: 'x-post' },
+      data: expect.objectContaining({ platform: 'X', publishTarget: 'X', status: 'PUBLISHED' }),
+    })
+  })
 })
