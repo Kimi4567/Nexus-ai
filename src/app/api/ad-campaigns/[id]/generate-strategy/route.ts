@@ -1,8 +1,8 @@
 /**
  * POST /api/ad-campaigns/[id]/generate-strategy
  *
- * AI-powered paid campaign strategy engine.
- * Combines Brand Brain + campaign brief + platform intelligence to produce:
+ * AI-powered paid execution-plan engine.
+ * Translates an approved Paid/Full strategy + Brand Brain into platform inputs:
  *   - Full campaign positioning
  *   - Target audience analysis
  *   - Budget allocation plan
@@ -10,7 +10,7 @@
  *   - Platform-specific audience targeting specs
  *   - Forecast-readiness status (real forecasts require platform data)
  *
- * This is the "brain" of the paid campaign system.
+ * The approved source strategy remains the marketing brain and source of truth.
  * The output feeds directly into generate-audience (targeting params)
  * and generate-copy (creative concepts).
  *
@@ -30,6 +30,15 @@ import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { extractGoogleSearchTargeting } from '@/lib/adPlatforms/googleAdsApi'
+import {
+  getPaidStrategySourceForUser,
+  PaidStrategySourceError,
+} from '@/lib/paidStrategySourceServer'
+import { getStrategyBriefReadiness } from '@/lib/strategyBriefReadiness'
+import {
+  googleSearchBiddingMode,
+  paidOptimizationGoal,
+} from '@/lib/paidExecutionObjective'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -139,6 +148,24 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
       },
     })
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+    if (campaign.status !== 'DRAFT' || campaign.platformCampaignId) {
+      return NextResponse.json({
+        error: 'PAID_DRAFT_NOT_EDITABLE',
+        code: 'PAID_DRAFT_NOT_EDITABLE',
+      }, { status: 409 })
+    }
+
+    const paidSource = await getPaidStrategySourceForUser({
+      campaignId: typeof campaign.organicCampaignId === 'string' ? campaign.organicCampaignId : '',
+      userId: user.id,
+    })
+    if (campaign.objective !== paidSource.truth.executionObjective) {
+      return NextResponse.json({
+        error: 'PAID_OBJECTIVE_STRATEGY_MISMATCH',
+        code: 'PAID_OBJECTIVE_STRATEGY_MISMATCH',
+        expectedObjective: paidSource.truth.executionObjective,
+      }, { status: 422 })
+    }
 
     // Fetch Brand Brain
     let brandProfile = null
@@ -147,6 +174,14 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
         where: { workspaceId: campaign.workspaceId },
       })
     } catch { /* ok */ }
+    const brandBrief = getStrategyBriefReadiness({ mode: 'paid', brandProfile })
+    if (!brandBrief.canGeneratePaidPlan) {
+      return NextResponse.json({
+        error: 'PAID_BRAND_BRIEF_INCOMPLETE',
+        code: 'PAID_BRAND_BRIEF_INCOMPLETE',
+        missingFields: brandBrief.missingRequiredFields,
+      }, { status: 422 })
+    }
 
     // Fetch recent campaign memories for context
     let memories: unknown[] = []
@@ -207,9 +242,11 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
       ? `\nPAST STRATEGY MEMORY CANDIDATES — NOT VERIFIED PERFORMANCE:\n${memories.map((m: any) => JSON.stringify(m.learnings)).join('\n')}`
       : ''
 
-    const systemPrompt = `You are a senior paid campaign planning strategist.
+    const systemPrompt = `You are a senior paid media execution planner.
 
-Your job: Generate a precise, brand-specific paid campaign plan for review.
+Your job: Translate the APPROVED SOURCE STRATEGY into a precise, platform-specific execution plan for review.
+Do not create a second strategy. Do not change the approved audience, positioning, offer, funnel, or message hierarchy.
+If the platform cannot execute part of the approved strategy, expose a blocker or review hypothesis instead of silently changing the strategy.
 Every output must be SPECIFIC to this brand — never generic. Use exact brand terminology.
 Do not invent performance history, competitor spend, audience size, CPM, reach, impressions, conversions, ROI, ROAS, CPA, or guaranteed outcomes.
 Treat interest, behavior, keyword, placement, and bid options as review hypotheses that must be validated in the user's live platform account. Never claim an option exists in Ads Manager unless live platform data proves it.
@@ -220,42 +257,41 @@ ${langInstruction}
 
 Output ONLY valid JSON. No prose, no markdown, no explanation outside JSON.`
 
-    const userPrompt = `Campaign: "${campaign.name}"
+    const userPrompt = `APPROVED SOURCE STRATEGY: "${paidSource.campaign.name}"
+${paidSource.executionContext}
+
+PLATFORM EXECUTION DRAFT: "${campaign.name}"
 Platform: ${platformLabel}
 Objective: ${objective}
 Daily Budget: ${dailyBudget ? `${currency} ${dailyBudget}` : 'Not applicable — lifetime budget supplied'}
 Lifetime Budget: ${lifetimeBudget ? `${currency} ${lifetimeBudget}` : 'Not supplied'}
 Campaign Duration: ${durationDays} days
 Total Budget: ${currency} ${totalBudget}
-Market: ${isMENA ? 'MENA / Gulf' : 'Global'}
+Confirmed Market: ${brandProfile.audienceLocation || 'Not provided'}
 
 ${brandCtx}
 ${memoriesCtx}
 
-Generate a complete paid campaign strategy as JSON with EXACTLY this structure:
+Generate a complete paid execution plan as JSON with EXACTLY this structure:
 {
   "positioning": {
-    "core_message": "The single most compelling statement about the brand — 1 sentence, brand-specific",
-    "value_proposition": "What makes this offer uniquely worth paying attention to RIGHT NOW",
-    "differentiation": "What separates this from competitors — be specific",
-    "emotional_hook": "The emotional trigger that drives action for THIS audience"
+    "core_message": "One brand-specific statement grounded only in the approved strategy and confirmed Brand Brain facts",
+    "value_proposition": "The confirmed offer value, without invented urgency or unverified superiority",
+    "differentiation": "Only a supplied advantage or competitor distinction; otherwise state that differentiation needs user review",
+    "emotional_hook": "A review hypothesis grounded in a confirmed audience pain point or desire"
   },
   "audience": {
     "primary_segment": {
-      "description": "Detailed description of the #1 audience segment",
-      "ageRange": "e.g. 25-44",
-      "gender": "male|female|all",
-      "psychographics": ["trait 1", "trait 2", "trait 3"],
-      "buyingTriggers": ["trigger 1", "trigger 2"],
+      "description": "The approved primary audience description, without expanding it",
+      "ageRange": "confirmed range or null",
+      "gender": "confirmed value or null",
+      "psychographics": ["confirmed traits or clearly labeled review hypotheses"],
+      "buyingTriggers": ["confirmed triggers or clearly labeled review hypotheses"],
       "estimatedSize": null,
       "estimateStatus": "unavailable_until_platform_forecast"
     },
-    "secondary_segment": {
-      "description": "Second best audience segment",
-      "ageRange": "string",
-      "gender": "male|female|all"
-    },
-    "exclusions": ["audiences to EXCLUDE for better efficiency"]
+    "secondary_segment": "approved secondary segment object or null",
+    "exclusions": ["review hypotheses only; empty when unsupported"]
   },
   "targeting": {
     "locations": ["specific cities or countries"],
@@ -266,7 +302,7 @@ Generate a complete paid campaign strategy as JSON with EXACTLY this structure:
     "meta_custom_audience_prerequisites": ["Only first-party audiences the workspace actually has or can lawfully create"],
     "meta_placements": ["Facebook Feed", "Instagram Reels", "Stories"],
     "meta_bid_strategy": "LOWEST_COST_WITHOUT_CAP",
-    "meta_optimization_goal": "LINK_CLICKS|CONVERSIONS|LEAD_GENERATION|REACH"
+    "meta_optimization_goal": "${paidOptimizationGoal(objective)}"
     ` : ''}
     ${platformLabel === 'GOOGLE' ? `
     "google_campaign_type": "SEARCH",
@@ -283,7 +319,7 @@ Generate a complete paid campaign strategy as JSON with EXACTLY this structure:
     ],
     "google_location_presence": "PRESENCE|PRESENCE_OR_INTEREST",
     "google_audience_hypotheses": ["review hypotheses — validate availability in the connected account"],
-    "google_bid_strategy": "MAXIMIZE_CLICKS",
+    "google_bid_strategy": "${googleSearchBiddingMode(objective)}",
     "google_network_scope": "GOOGLE_SEARCH_ONLY"
     ` : ''}
     ${platformLabel === 'TIKTOK' ? `
@@ -328,8 +364,8 @@ Generate a complete paid campaign strategy as JSON with EXACTLY this structure:
       "Value proof (middle section)",
       "CTA (closing)"
     ],
-    "recommended_formats": ["best ad formats for this platform + objective"],
-    "a_b_test_suggestion": "Which 2 angles to A/B test and why",
+    "recommended_formats": ["formats supported by the current execution path; label anything else as export-only"],
+    "a_b_test_suggestion": "Two distinct message hypotheses to review; never call either one best or a winner",
     "creative_risk": "A creative risk to review as a hypothesis; do not claim it failed historically unless verified data says so"
   },
   "utm_tracking": {
@@ -386,6 +422,9 @@ Generate a complete paid campaign strategy as JSON with EXACTLY this structure:
       targetAudience: brandProfile.targetAudience,
       toneKeywords: brandProfile.toneKeywords,
       winningHooks: brandProfile.winningHooks,
+      sourceStrategyId: paidSource.campaign.id,
+      sourceStrategyName: paidSource.campaign.name,
+      sourceStrategyUpdatedAt: paidSource.truth.updatedAt,
       snapshotAt: new Date().toISOString(),
     } : null
 
@@ -409,6 +448,9 @@ Generate a complete paid campaign strategy as JSON with EXACTLY this structure:
     console.error('[generate-strategy]', err)
     if (chargedUserId && chargedCredit) {
       await refundDeductedCredits(chargedUserId, chargedCredit, 'Strategy generation failed')
+    }
+    if (err instanceof PaidStrategySourceError) {
+      return NextResponse.json({ error: err.code, code: err.code }, { status: err.status })
     }
     return NextResponse.json({ error: 'Strategy generation failed' }, { status: 500 })
   }

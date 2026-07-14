@@ -29,6 +29,13 @@ import {
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { buildTrackedPaidDestinationUrl } from '@/lib/paidExecutionReadiness'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
+import {
+  getPaidStrategySourceForUser,
+  PaidStrategySourceError,
+} from '@/lib/paidStrategySourceServer'
+import { getStrategyBriefReadiness } from '@/lib/strategyBriefReadiness'
+import { paidOptimizationGoal } from '@/lib/paidExecutionObjective'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -109,6 +116,24 @@ export async function POST(
       include: { workspace: true },
     })
     if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (campaign.status !== 'DRAFT' || campaign.platformCampaignId) {
+      return NextResponse.json({
+        error: 'PAID_DRAFT_NOT_EDITABLE',
+        code: 'PAID_DRAFT_NOT_EDITABLE',
+      }, { status: 409 })
+    }
+
+    const paidSource = await getPaidStrategySourceForUser({
+      campaignId: typeof campaign.organicCampaignId === 'string' ? campaign.organicCampaignId : '',
+      userId: user.id,
+    })
+    if (campaign.objective !== paidSource.truth.executionObjective) {
+      return NextResponse.json({
+        error: 'PAID_OBJECTIVE_STRATEGY_MISMATCH',
+        code: 'PAID_OBJECTIVE_STRATEGY_MISMATCH',
+        expectedObjective: paidSource.truth.executionObjective,
+      }, { status: 422 })
+    }
 
     const storedTracking = campaign.trackingUrls && typeof campaign.trackingUrls === 'object'
       ? campaign.trackingUrls as Record<string, unknown>
@@ -144,7 +169,25 @@ export async function POST(
       },
     })
 
-    // Fetch or create the first AdSet
+    // Brand Brain
+    let brandProfile = null
+    try {
+      brandProfile = await db.brandProfile.findUnique({
+        where: { workspaceId: campaign.workspaceId },
+      })
+    } catch { /* ok */ }
+    const brandBrief = getStrategyBriefReadiness({ mode: 'paid', brandProfile })
+    if (!brandBrief.canGeneratePaidPlan) {
+      return NextResponse.json({
+        error: 'PAID_BRAND_BRIEF_INCOMPLETE',
+        code: 'PAID_BRAND_BRIEF_INCOMPLETE',
+        missingFields: brandBrief.missingRequiredFields,
+      }, { status: 422 })
+    }
+
+    // Create the execution unit only after every source-of-truth gate passes.
+    // Its optimization goal must inherit the approved strategy objective.
+    const optimizationGoal = paidOptimizationGoal(paidSource.truth.executionObjective)
     let adSet = await db.adSet.findFirst({
       where: { adCampaignId: params.id },
       orderBy: { createdAt: 'asc' },
@@ -156,19 +199,16 @@ export async function POST(
           name: `${campaign.name} — Ad Set 1`,
           status: 'DRAFT',
           bidStrategy: 'LOWEST_COST',
-          optimizationGoal: 'LINK_CLICKS',
+          optimizationGoal,
           billingEvent: 'IMPRESSIONS',
         },
       })
-    }
-
-    // Brand Brain
-    let brandProfile = null
-    try {
-      brandProfile = await db.brandProfile.findUnique({
-        where: { workspaceId: campaign.workspaceId },
+    } else if (adSet.optimizationGoal !== optimizationGoal && !adSet.platformAdSetId) {
+      adSet = await db.adSet.update({
+        where: { id: adSet.id },
+        data: { optimizationGoal },
       })
-    } catch { /* ok */ }
+    }
 
     // Language — client override takes priority, then location-based detection
     const detectedLang = brandProfile?.audienceLocation &&
@@ -182,36 +222,34 @@ export async function POST(
     const objective = campaign.objective
     const ctaOptions = CTA_OPTIONS[platform as keyof typeof CTA_OPTIONS] || CTA_OPTIONS.META
 
-    const brandCtx = brandProfile ? `
-Brand: ${brandProfile.brandName}
-Industry: ${brandProfile.industry}
-Primary Offer: ${brandProfile.primaryOffer}
-Price Point: ${brandProfile.pricePoint}
-Target Audience: ${brandProfile.targetAudience}
-Brand Tone: ${(brandProfile.toneKeywords || []).join(', ')}
-Unique Advantages: ${(brandProfile.uniqueAdvantages || []).join(', ')}
-Reviewed Hook Signals (style references; do not call them winners): ${(brandProfile.winningHooks || []).slice(0, 5).join(' | ')}
-FAILED Angles (NEVER use): ${(brandProfile.failedAngles || []).slice(0, 3).join(', ')}
-AI Strategy Context: ${JSON.stringify(campaign.aiStrategy || {}).slice(0, 1000)}` : 'No brand profile.'
+    const brandCtx = buildBrandExecutionContext(brandProfile)
 
     // AI Strategy context
     const strategyCtx = campaign.aiStrategy
       ? `\nCampaign Positioning: ${JSON.stringify((campaign.aiStrategy as Record<string, unknown>).positioning || {})}`
       : ''
 
-    const systemPrompt = `You are an elite direct-response copywriter preparing paid ad drafts for review.
+    const systemPrompt = `You are a senior, brand-safe paid copywriter preparing ad drafts for review.
+The approved source strategy is authoritative. Execute its audience, positioning, offer, funnel, and message hierarchy without inventing or replacing them.
 Your copy should be specific, clear, and platform-native. Do not claim winners, proven performance, or guaranteed conversion unless real analytics are provided.
+Never invent testimonials, customer counts, ratings, awards, certifications, discounts, deadlines, scarcity, pricing, or product capabilities.
+If a requested fact is absent, write around the confirmed offer or process; never fill the gap with a plausible claim.
 
 ${langInstruction}
 
 Output ONLY valid JSON. The copy must be SPECIFIC to this brand — never generic.
 Use reviewed hook signals as style references. Never use the failed angles.`
 
-    const userPrompt = `Campaign: "${campaign.name}"
+    const userPrompt = `APPROVED SOURCE STRATEGY: "${paidSource.campaign.name}"
+${paidSource.executionContext}
+
+PLATFORM EXECUTION DRAFT: "${campaign.name}"
 Platform: ${platform}
 Objective: ${objective}
 Available CTAs: ${ctaOptions.join(', ')}
-Daily Budget: ${campaign.currency} ${campaign.dailyBudget || 50}
+Budget Assumption: ${campaign.dailyBudget
+  ? `${campaign.currency} ${campaign.dailyBudget} per day`
+  : `${campaign.currency} ${campaign.lifetimeBudget} total`}
 Conversion Destination: ${destinationUrl}
 
 ${brandCtx}
@@ -242,8 +280,8 @@ Generate 5 review-ready ad copy variants in JSON:
     },
     {
       "id": "v2",
-      "angle": "social_proof",
-      "label": "Social Proof — [specific credibility angle]",
+      "angle": "evidence_or_process",
+      "label": "Evidence or Process — use verified proof only; if none exists, explain the confirmed process transparently",
       "primaryText": "...",
       "headline": "...",
       "description": "...",
@@ -259,8 +297,8 @@ Generate 5 review-ready ad copy variants in JSON:
     },
     {
       "id": "v3",
-      "angle": "benefit_led",
-      "label": "Benefit Led — [the transformation you deliver]",
+      "angle": "offer_value",
+      "label": "Offer Value — describe the confirmed offer benefit without promising a result",
       "primaryText": "...",
       "headline": "...",
       "description": "...",
@@ -276,8 +314,8 @@ Generate 5 review-ready ad copy variants in JSON:
     },
     {
       "id": "v4",
-      "angle": "curiosity",
-      "label": "Curiosity / Pattern Interrupt",
+      "angle": "objection_handling",
+      "label": "Objection Handling — answer a confirmed customer objection; otherwise ask a useful informational question",
       "primaryText": "...",
       "headline": "...",
       "description": "...",
@@ -293,8 +331,8 @@ Generate 5 review-ready ad copy variants in JSON:
     },
     {
       "id": "v5",
-      "angle": "urgency_scarcity",
-      "label": "Urgency / Limited Offer",
+      "angle": "direct_next_step",
+      "label": "Direct Next Step — clear CTA with no urgency, scarcity, discount, or deadline unless explicitly supplied",
       "primaryText": "...",
       "headline": "...",
       "description": "...",
@@ -309,16 +347,10 @@ Generate 5 review-ready ad copy variants in JSON:
       "googlePath2": "optional"` : ''}
     }
   ],
-  "ab_test_recommendation": {
+  "review_pairing": {
     "pair_1": ["v1", "v3"],
     "pair_2": ["v2", "v4"],
-    "reasoning": "Why these are the best pairs to A/B test"
-  },
-  "creative_specs": {
-    "platform": "${platform}",
-    "recommended_image_sizes": ["1080x1080 for Feed", "1080x1920 for Stories/Reels"],
-    "video_specs": "If video: 9:16 for Reels/Stories, 4:5 for Feed",
-    "max_text_overlay": "20% for Meta (Advantage+ ignores this but be safe)"
+    "reasoning": "Why these pairs isolate distinct message hypotheses for user review; never call a variant best or a winner"
   }
 }`
 
@@ -330,11 +362,20 @@ Generate 5 review-ready ad copy variants in JSON:
     chargedCredit = creditResult
 
     const raw = await callGPT(systemPrompt, userPrompt)
-    let generated: { variants?: unknown[]; ab_test_recommendation?: unknown; creative_specs?: unknown }
+    let generated: { variants?: unknown[]; review_pairing?: unknown }
     try {
       generated = JSON.parse(raw)
-      if (!Array.isArray(generated.variants) || generated.variants.length === 0) {
+      if (!Array.isArray(generated.variants) || generated.variants.length !== 5) {
         throw new Error('Incomplete ad copy response')
+      }
+      for (const rawVariant of generated.variants) {
+        const variant = rawVariant && typeof rawVariant === 'object'
+          ? rawVariant as Record<string, unknown>
+          : {}
+        const requiredText = ['label', 'primaryText', 'headline', 'description', 'hook']
+        if (requiredText.some(key => typeof variant[key] !== 'string' || !String(variant[key]).trim())) {
+          throw new Error('Incomplete ad copy response')
+        }
       }
       if (platform === 'GOOGLE') {
         for (const rawVariant of generated.variants) {
@@ -378,7 +419,9 @@ Generate 5 review-ready ad copy variants in JSON:
           primaryText: String(v.primaryText || ''),
           headline: String(v.headline || ''),
           description: String(v.description || ''),
-          callToAction: String(v.callToAction || 'LEARN_MORE'),
+          callToAction: ctaOptions.includes(String(v.callToAction))
+            ? String(v.callToAction)
+            : ctaOptions[0],
           destinationUrl,
           creativeSpecs: platform === 'GOOGLE'
             ? {
@@ -403,8 +446,12 @@ Generate 5 review-ready ad copy variants in JSON:
     return NextResponse.json({
       ads: savedAds,
       adSetId: adSet.id,
-      abTestRecommendation: generated.ab_test_recommendation,
-      creativeSpecs: generated.creative_specs,
+      reviewPairing: generated.review_pairing,
+      capability: platform === 'GOOGLE'
+        ? 'Reviewed responsive Search ad text; server validates provider character and asset-count limits.'
+        : platform === 'META'
+          ? 'Copy draft only; a reviewed image and live Meta preflight are required before platform creation.'
+          : 'Export-only copy package; automated platform draft creation is not available for this platform yet.',
       variantGroupId,
       success: true,
     })
@@ -412,6 +459,9 @@ Generate 5 review-ready ad copy variants in JSON:
     console.error('[generate-copy]', err)
     if (chargedUserId && chargedCredit) {
       await refundDeductedCredits(chargedUserId, chargedCredit, 'Copy generation failed')
+    }
+    if (err instanceof PaidStrategySourceError) {
+      return NextResponse.json({ error: err.code, code: err.code }, { status: err.status })
     }
     return NextResponse.json({ error: 'Copy generation failed' }, { status: 500 })
   }

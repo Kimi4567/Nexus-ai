@@ -18,7 +18,7 @@ describe('paid planning suggestion truth guards', () => {
       locale: 'en',
     })
 
-    expect(rationale).toContain('Google Ads is the suggested planning channel')
+    expect(rationale).toContain('Google Ads is the suggested execution channel')
     expect(rationale).not.toMatch(/META|LINKEDIN/i)
   })
 
@@ -27,6 +27,16 @@ describe('paid planning suggestion truth guards', () => {
       platform: 'GOOGLE',
       rationale: 'Google Ads supports a search-led planning test for this brief.',
     })).toBe('Google Ads supports a search-led planning test for this brief.')
+  })
+
+  it('replaces a rationale that contradicts the approved objective', () => {
+    const rationale = normalizePaidPlanningRationale({
+      platform: 'GOOGLE',
+      objective: 'LEAD_GENERATION',
+      rationale: 'Google Ads should optimize purchases and checkout sales.',
+    })
+    expect(rationale).toContain('for Lead generation')
+    expect(rationale).not.toMatch(/purchases|checkout sales/i)
   })
 
   it('auto-selects only one active account for the suggested platform', () => {

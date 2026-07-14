@@ -136,10 +136,12 @@ describe('operating action contract', () => {
     expect(intelligence).not.toContain("'/schedule'")
   })
 
-  it('keeps the paid planning wizard localized and explicit about spend assumptions', () => {
+  it('keeps paid execution strategy-linked, localized, and explicit about spend assumptions', () => {
     const source = readSource('src/app/paid-campaigns/new/page.tsx')
 
-    expect(source).toContain("copy('اختر منصة التخطيط المدفوع', 'Choose planning platform')")
+    expect(source).toContain("copy('اختر مصدر الاستراتيجية ثم منصة التنفيذ', 'Choose strategy source, then execution platform')")
+    expect(source).toContain('approved Paid or Full strategy')
+    expect(source).toContain("copy('من الاستراتيجية', 'From strategy')")
     expect(source).toContain("copy('نوع افتراض الميزانية', 'Budget Assumption Type')")
     expect(source).toContain("copy('حدود التوقعات', 'Forecast boundary')")
     expect(source).toContain('لن يخمّن NEXUS الوصول أو مرات الظهور أو CPM')
@@ -149,5 +151,6 @@ describe('operating action contract', () => {
     expect(source).not.toContain('>Choose planning platform</h2>')
     expect(source).not.toContain('>Planning Draft Details</h2>')
     expect(source).not.toContain('>Let AI Plan This</span>')
+    expect(source).not.toContain("objective: 'VIDEO_VIEWS'")
   })
 })

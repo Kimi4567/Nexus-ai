@@ -1,4 +1,8 @@
 import { decryptToken } from '@/lib/tokenCrypto'
+import {
+  googleSearchBiddingMode,
+  type PaidExecutionObjective,
+} from '@/lib/paidExecutionObjective'
 
 export const GOOGLE_ADS_SCOPE = 'https://www.googleapis.com/auth/adwords'
 
@@ -82,6 +86,7 @@ export interface GoogleSearchDraftAdGroup {
 export interface GoogleSearchDraftInput {
   customerId: string
   campaignName: string
+  objective: PaidExecutionObjective
   budgetAmount: number
   startDate?: Date | string | null
   endDate?: Date | string | null
@@ -612,6 +617,8 @@ export function buildGoogleSearchDraftMutations(input: GoogleSearchDraftInput): 
   if (input.adGroups.length < 1 || input.adGroups.some(group => group.ads.length < 1 || group.keywords.length < 1)) {
     throw new Error('Google Search requires at least one ad group with keywords and responsive search ads')
   }
+  const biddingMode = googleSearchBiddingMode(input.objective)
+  if (!biddingMode) throw new Error('The approved objective is not supported by the Google Search execution path')
 
   let nextTempId = -1
   const temp = () => nextTempId--
@@ -637,7 +644,9 @@ export function buildGoogleSearchDraftMutations(input: GoogleSearchDraftInput): 
           status: 'PAUSED',
           advertisingChannelType: 'SEARCH',
           campaignBudget: budgetResourceName,
-          targetSpend: {},
+          ...(biddingMode === 'MAXIMIZE_CONVERSIONS'
+            ? { maximizeConversions: {} }
+            : { targetSpend: {} }),
           networkSettings: {
             targetGoogleSearch: true,
             targetSearchNetwork: false,

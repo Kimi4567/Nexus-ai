@@ -56,6 +56,7 @@ describe('Google Ads execution foundation', () => {
     const draft = buildGoogleSearchDraftMutations({
       customerId: '123-456-7890',
       campaignName: 'NEXUS Search Review',
+      objective: 'LEAD_GENERATION',
       budgetAmount: 25,
       locationPresence: 'PRESENCE',
       euPoliticalAdvertisingDeclaration: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
@@ -86,7 +87,13 @@ describe('Google Ads execution foundation', () => {
 
     expect(draft.mutateOperations[0]).toHaveProperty('campaignBudgetOperation.create')
     expect(draft.mutateOperations[1]).toMatchObject({
-      campaignOperation: { create: { status: 'PAUSED', advertisingChannelType: 'SEARCH' } },
+      campaignOperation: {
+        create: {
+          status: 'PAUSED',
+          advertisingChannelType: 'SEARCH',
+          maximizeConversions: {},
+        },
+      },
     })
     expect(JSON.stringify(draft.mutateOperations)).toContain('targetSearchNetwork')
     expect(JSON.stringify(draft.mutateOperations)).toContain('DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING')

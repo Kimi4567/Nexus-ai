@@ -5,12 +5,14 @@ const {
   mockCheckAndDeduct,
   mockRefund,
   mockRefundForTxn,
+  mockGetPaidStrategySource,
   mockPrisma,
 } = vi.hoisted(() => ({
   mockGetAuthUser: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
   mockRefund: vi.fn(),
   mockRefundForTxn: vi.fn(),
+  mockGetPaidStrategySource: vi.fn(),
   mockPrisma: {
     adCampaign: { findFirst: vi.fn(), update: vi.fn() },
     brandProfile: { findUnique: vi.fn() },
@@ -26,6 +28,10 @@ vi.mock('@/lib/credits', () => ({
   refundCreditsForTransaction: mockRefundForTxn,
 }))
 vi.mock('@/lib/ai/langHelper', () => ({ getLanguageInstruction: () => 'Respond in English.' }))
+vi.mock('@/lib/paidStrategySourceServer', () => ({
+  getPaidStrategySourceForUser: mockGetPaidStrategySource,
+  PaidStrategySourceError: class PaidStrategySourceError extends Error {},
+}))
 
 import { POST } from '../route'
 
@@ -34,10 +40,13 @@ const params = { params: Promise.resolve({ id: 'adcamp_1' }) }
 
 const campaign = {
   id: 'adcamp_1',
+  organicCampaignId: 'source_1',
   workspaceId: 'w1',
   name: 'Launch',
+  status: 'DRAFT',
+  platformCampaignId: null,
   platform: 'META',
-  objective: 'LEADS',
+  objective: 'LEAD_GENERATION',
   currency: 'USD',
   dailyBudget: 50,
   lifetimeBudget: null,
@@ -62,16 +71,36 @@ const strategyJson = JSON.stringify({
   creative_brief: { visual_direction: 'Product in context' },
 })
 
+const paidBrandProfile = {
+  brandName: 'NEXUS',
+  industry: 'Marketing software',
+  description: 'Marketing execution platform',
+  primaryOffer: 'AI marketing workspace',
+  targetAudience: 'Small business owners',
+  businessGoal: 'Qualified leads',
+  topPlatforms: ['GOOGLE'],
+  writingStyle: 'Clear',
+  marketingBudget: 'AED 1000 monthly',
+  conversionDestination: 'https://nexus-grow.com/paid-offer',
+  leadHandling: 'Sales callback',
+  audienceLocation: 'Dubai',
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.stubEnv('OPENAI_API_KEY', 'test-openai-key')
   mockGetAuthUser.mockResolvedValue({ id: 'u1' })
+  mockGetPaidStrategySource.mockResolvedValue({
+    campaign: { id: 'source_1', name: 'Approved paid strategy' },
+    truth: { scope: 'paid', executionObjective: 'LEAD_GENERATION', updatedAt: '2026-07-14T00:00:00.000Z' },
+    executionContext: '{"positioning":"Clear message"}',
+  })
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 2, creditsRemaining: 18 })
   mockRefund.mockResolvedValue(undefined)
   mockRefundForTxn.mockResolvedValue(undefined)
   mockPrisma.adCampaign.findFirst.mockResolvedValue(campaign)
   mockPrisma.adCampaign.update.mockResolvedValue({})
-  mockPrisma.brandProfile.findUnique.mockResolvedValue(null)
+  mockPrisma.brandProfile.findUnique.mockResolvedValue(paidBrandProfile)
   mockPrisma.campaignMemory.findMany.mockResolvedValue([])
   mockProvider(strategyJson)
 })
@@ -91,6 +120,17 @@ describe('POST /api/ad-campaigns/[id]/generate-strategy — RF-3 refund safety',
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()
+  })
+
+  it('incomplete Brand Brain blocks generation before credits', async () => {
+    mockPrisma.brandProfile.findUnique.mockResolvedValue(null)
+
+    const res = await POST(makeReq(), params)
+    const json = await res.json()
+
+    expect(res.status).toBe(422)
+    expect(json.code).toBe('PAID_BRAND_BRIEF_INCOMPLETE')
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
   })
 
   it('provider failure after deduction uses transaction-aware refund', async () => {

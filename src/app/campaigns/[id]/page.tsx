@@ -1786,9 +1786,9 @@ function CampaignDetailPageInner() {
           : (uiIsArabic
             ? 'حضّر أول خطة محتوى بعد مراجعة القرار والافتراضات.'
             : 'Prepare the first content plan after reviewing the decision and assumptions.'),
-      href: isPaidOnlyStrategy ? `/campaigns/${campaign.id}/paid-launch` : `/campaigns/${campaign.id}/content-hub`,
+      href: isPaidOnlyStrategy ? `/paid-campaigns/new?sourceCampaignId=${campaign.id}` : `/campaigns/${campaign.id}/content-hub`,
       cta: isPaidOnlyStrategy
-        ? uiText('افتح بريف التخطيط', 'Open planning brief')
+        ? uiText('ابدأ تنفيذ الاستراتيجية', 'Start strategy execution')
         : strategyRoomStateCopy.contentHubCta,
       tone: operatingState.truthFlags.hasContentPlan || isPaidOnlyStrategy ? 'positive' : 'muted',
     },
@@ -4488,10 +4488,10 @@ function CampaignDetailPageInner() {
                         ))}
                       </div>
                       <button
-                        onClick={() => window.open(`/campaigns/${campaign.id}/paid-launch`, '_blank')}
+                        onClick={() => window.open(`/paid-campaigns/new?sourceCampaignId=${campaign.id}`, '_blank')}
                         className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100"
                       >
-                        {locale === 'ar' ? 'راجع موجز التخطيط المدفوع' : 'Review paid planning brief'}
+                        {locale === 'ar' ? 'ابدأ تنفيذ الاستراتيجية المدفوعة' : 'Start paid strategy execution'}
                         <span className="text-xs text-slate-400">↗</span>
                       </button>
                     </>

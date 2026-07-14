@@ -36,6 +36,14 @@ import {
   evaluatePaidExecutionReadiness,
   normalizePaidDestinationUrl,
 } from '@/lib/paidExecutionReadiness'
+import {
+  getPaidStrategySourceForUser,
+  PaidStrategySourceError,
+} from '@/lib/paidStrategySourceServer'
+import {
+  googleSearchBiddingMode,
+  paidPlatformSupportsObjective,
+} from '@/lib/paidExecutionObjective'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -60,6 +68,23 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
     })
 
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+
+    const paidSource = await getPaidStrategySourceForUser({
+      campaignId: typeof campaign.organicCampaignId === 'string' ? campaign.organicCampaignId : '',
+      userId: user.id,
+    })
+    if (campaign.objective !== paidSource.truth.executionObjective) {
+      return NextResponse.json({
+        error: 'PAID_OBJECTIVE_STRATEGY_MISMATCH',
+        code: 'PAID_OBJECTIVE_STRATEGY_MISMATCH',
+      }, { status: 422 })
+    }
+    if (!paidPlatformSupportsObjective(campaign.platform, paidSource.truth.executionObjective)) {
+      return NextResponse.json({
+        error: 'PAID_PLATFORM_OBJECTIVE_UNSUPPORTED',
+        code: 'PAID_PLATFORM_OBJECTIVE_UNSUPPORTED',
+      }, { status: 422 })
+    }
 
     const body = await req.json().catch(() => ({}))
 
@@ -88,6 +113,9 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
       },
     })
   } catch (err) {
+    if (err instanceof PaidStrategySourceError) {
+      return NextResponse.json({ error: err.code, code: err.code }, { status: err.status })
+    }
     console.error('[push-to-platform]', err)
     const message = err instanceof Error ? err.message : 'Push failed'
     return NextResponse.json({ error: message }, { status: 500 })
@@ -152,7 +180,7 @@ async function handleGooglePush(campaign: Record<string, unknown>, body: Record<
       averageDailyBudget: readiness.budgetAmount,
       currency: campaign.currency,
       network: 'GOOGLE_SEARCH_ONLY',
-      bidding: 'MAXIMIZE_CLICKS_WITHIN_REVIEWED_DAILY_BUDGET',
+      bidding: googleSearchBiddingMode(campaign.objective),
     },
     targeting: groupTargeting,
     adGroups: adSets.map(adSet => ({
@@ -229,6 +257,7 @@ async function handleGooglePush(campaign: Record<string, unknown>, body: Record<
     const resolvedLocations = await api.suggestGeoTargets(primaryTargeting.locations)
     const created = await api.createPausedSearchDraft({
       campaignName: String(campaign.name),
+      objective: campaign.objective as 'TRAFFIC' | 'CONVERSIONS' | 'LEAD_GENERATION',
       budgetAmount: readiness.budgetAmount!,
       startDate: campaign.startDate as Date | string | null,
       endDate: campaign.endDate as Date | string | null,

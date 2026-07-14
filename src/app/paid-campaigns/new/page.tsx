@@ -1,12 +1,12 @@
 'use client'
 
 /**
- * /paid-campaigns/new — Paid Planning Draft Builder
+ * /paid-campaigns/new — Strategy-linked Paid Execution Draft Builder
  *
  * 5-step wizard:
- *   1. Platform + Ad Account selection
+ *   1. Approved strategy + Platform + Ad Account selection
  *   2. Objective + Budget + Planning Dates
- *   3. Paid planning strategy (Brand Brain powered)
+ *   3. Platform execution plan (approved strategy + Brand Brain powered)
  *   4. Ad copy drafts
  *   5. Review + Setup
  */
@@ -19,11 +19,13 @@ import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabaseClient'
 import { useI18n } from '@/lib/i18n-context'
 import { normalizePaidDestinationUrl } from '@/lib/paidExecutionReadiness'
+import { paidExecutionErrorMessage } from '@/lib/paidExecutionErrorMessage'
 import {
   normalizePaidPlanningPlatform,
   normalizePaidPlanningRationale,
   selectSinglePaidPlanningAccount,
 } from '@/lib/paidPlanningSuggestion'
+import { paidPlatformSupportsObjective } from '@/lib/paidExecutionObjective'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface AdAccount {
@@ -34,6 +36,19 @@ interface AdAccount {
   businessName: string | null
   currency: string
   status: string
+}
+
+interface PaidStrategySource {
+  id: string
+  name: string
+  goal: string
+  executionObjective: 'TRAFFIC' | 'CONVERSIONS' | 'LEAD_GENERATION' | 'BRAND_AWARENESS' | 'ENGAGEMENT'
+  status: string
+  scope: 'organic' | 'paid' | 'full'
+  approvalState: 'draft' | 'blocked' | 'ready_for_review' | 'approved' | 'revoked'
+  eligible: boolean
+  reason: 'READY' | 'STRATEGY_MISSING' | 'PAID_SCOPE_REQUIRED' | 'QUALITY_REVIEW_REQUIRED' | 'APPROVAL_REQUIRED'
+  updatedAt: string | null
 }
 
 interface CopyVariant {
@@ -78,8 +93,8 @@ interface WizardData {
 const PLATFORMS = [
   { id: 'META', label: 'Meta Ads', subEn: 'Facebook + Instagram', subAr: 'فيسبوك + إنستغرام', color: '#1877F2', badgeEn: 'Draft + API path', badgeAr: 'مسودة + مسار API' },
   { id: 'GOOGLE', label: 'Google Ads', subEn: 'Search only · paused review flow', subAr: 'البحث فقط · مسار مراجعة متوقف', color: '#4285F4', badgeEn: 'Draft + API path', badgeAr: 'مسودة + مسار API' },
-  { id: 'TIKTOK', label: 'TikTok Ads', subEn: 'In-Feed, TopView, Spark', subAr: 'In-Feed وTopView وSpark', color: '#FF0050', badgeEn: 'Planning draft', badgeAr: 'مسودة تخطيط' },
-  { id: 'LINKEDIN', label: 'LinkedIn Ads', subEn: 'Sponsored Content, InMail', subAr: 'محتوى ممول ورسائل InMail', color: '#0A66C2', badgeEn: 'Planning draft', badgeAr: 'مسودة تخطيط' },
+  { id: 'TIKTOK', label: 'TikTok Ads', subEn: 'In-Feed, TopView, Spark', subAr: 'In-Feed وTopView وSpark', color: '#FF0050', badgeEn: 'Export package', badgeAr: 'حزمة تصدير' },
+  { id: 'LINKEDIN', label: 'LinkedIn Ads', subEn: 'Sponsored Content, InMail', subAr: 'محتوى ممول ورسائل InMail', color: '#0A66C2', badgeEn: 'Export package', badgeAr: 'حزمة تصدير' },
 ]
 
 const OBJECTIVES = [
@@ -88,14 +103,13 @@ const OBJECTIVES = [
   { id: 'LEAD_GENERATION', labelEn: 'Leads', labelAr: 'العملاء المحتملون', icon: '📋', descEn: 'Collect leads with instant forms', descAr: 'جمع بيانات العملاء المحتملين عبر النماذج' },
   { id: 'BRAND_AWARENESS', labelEn: 'Awareness', labelAr: 'الوعي بالعلامة', icon: '📢', descEn: 'Reach people likely to remember you', descAr: 'الوصول إلى أشخاص يُرجح أن يتذكروا علامتك' },
   { id: 'ENGAGEMENT', labelEn: 'Engagement', labelAr: 'التفاعل', icon: '❤️', descEn: 'Boost post likes, comments, shares', descAr: 'زيادة الإعجابات والتعليقات والمشاركات' },
-  { id: 'VIDEO_VIEWS', labelEn: 'Video Views', labelAr: 'مشاهدات الفيديو', icon: '▶️', descEn: 'Maximize video watch time', descAr: 'زيادة وقت مشاهدة الفيديو' },
 ]
 
 // ── Step indicator ─────────────────────────────────────────────────────────
 function StepBar({ step, total, locale }: { step: number; total: number; locale: string }) {
   const labels = locale === 'ar'
-    ? ['المنصة', 'الميزانية', 'التخطيط', 'نصوص الإعلان', 'المراجعة']
-    : ['Platform', 'Budget', 'Planning', 'Ad Copy', 'Review']
+    ? ['المصدر والمنصة', 'الميزانية', 'التنفيذ', 'نصوص الإعلان', 'المراجعة']
+    : ['Source & platform', 'Budget', 'Execution', 'Ad Copy', 'Review']
   return (
     <div className="mb-8 rounded-2xl border border-slate-200 bg-white/85 p-3 shadow-sm">
       <div className="flex items-center gap-0">
@@ -145,10 +159,22 @@ export default function NewPaidCampaignPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [accounts, setAccounts] = useState<AdAccount[]>([])
+  const [strategySources, setStrategySources] = useState<PaidStrategySource[]>([])
+  const [selectedStrategyId, setSelectedStrategyId] = useState('')
+  const [strategySourcesLoading, setStrategySourcesLoading] = useState(true)
   const [campaignId, setCampaignId] = useState<string | null>(null)
 
   const [previewVariantId, setPreviewVariantId] = useState<string | null>(null)
   const [aiSuggestLoading, setAiSuggestLoading] = useState(false)
+
+  const selectedStrategy = strategySources.find(source => source.id === selectedStrategyId) ?? null
+  const strategyReasonLabel = (source: PaidStrategySource) => {
+    if (source.reason === 'READY') return copy('معتمدة وجاهزة للتنفيذ', 'Approved and execution-ready')
+    if (source.reason === 'PAID_SCOPE_REQUIRED') return copy('استراتيجية Organic فقط', 'Organic-only strategy')
+    if (source.reason === 'QUALITY_REVIEW_REQUIRED') return copy('تحتاج مراجعة جودة ناجحة', 'Quality review required')
+    if (source.reason === 'APPROVAL_REQUIRED') return copy('تحتاج مراجعة واعتماد', 'Review and approval required')
+    return copy('لا توجد استراتيجية مكتملة', 'Strategy output missing')
+  }
 
   const [data, setData] = useState<WizardData>({
     platform: '',
@@ -178,22 +204,47 @@ export default function NewPaidCampaignPage() {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
   }, [authLoading, isAuthenticated, router])
 
-  // Fetch ad accounts
+  // Fetch platform accounts and the only allowed paid source: an approved
+  // Paid/Full strategy. A query-string source is honored only when eligible.
   useEffect(() => {
     if (!user) return
     ;(async () => {
       const { data: session } = await supabase.auth.getSession()
       const token = session.session?.access_token
-      if (!token) return
+      if (!token) {
+        setStrategySourcesLoading(false)
+        return
+      }
       try {
-        const res = await fetch('/api/ad-accounts', { headers: { Authorization: `Bearer ${token}` } })
-        if (res.ok) {
-          const d = await res.json()
-          setAccounts(d.accounts || [])
+        const headers = { Authorization: `Bearer ${token}` }
+        const [accountsRes, sourcesRes] = await Promise.all([
+          fetch('/api/ad-accounts', { headers }),
+          fetch('/api/paid-strategy-sources', { headers }),
+        ])
+        if (accountsRes.ok) {
+          const accountsData = await accountsRes.json()
+          setAccounts(accountsData.accounts || [])
         }
-      } catch { /* ok */ }
+        if (sourcesRes.ok) {
+          const sourcesData = await sourcesRes.json()
+          const sources = (sourcesData.sources || []) as PaidStrategySource[]
+          setStrategySources(sources)
+          const requestedId = new URLSearchParams(window.location.search).get('sourceCampaignId')
+          const requested = sources.find(source => source.id === requestedId && source.eligible)
+          const eligible = sources.filter(source => source.eligible)
+          const initialSource = requested || (eligible.length === 1 ? eligible[0] : null)
+          setSelectedStrategyId(initialSource?.id || '')
+          if (initialSource) {
+            setData(previous => ({ ...previous, objective: initialSource.executionObjective }))
+          }
+        }
+      } catch {
+        setError(copy('تعذر تحميل مصادر الاستراتيجية أو حسابات المنصات.', 'Could not load strategy sources or platform accounts.'))
+      } finally {
+        setStrategySourcesLoading(false)
+      }
     })()
-  }, [user])
+  }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const getToken = async () => {
     const { data: session } = await supabase.auth.getSession()
@@ -202,6 +253,7 @@ export default function NewPaidCampaignPage() {
 
   const handlePlatformSelect = (platformValue: string) => {
     const platform = normalizePaidPlanningPlatform(platformValue)
+    if (!selectedStrategy || !paidPlatformSupportsObjective(platform, selectedStrategy.executionObjective)) return
     const selectedAccount = selectSinglePaidPlanningAccount(accounts, platform)
 
     setData(previous => ({
@@ -210,6 +262,27 @@ export default function NewPaidCampaignPage() {
       adAccountId: selectedAccount?.id || '',
       currency: selectedAccount?.currency || previous.currency,
       // A manual platform change invalidates the channel-specific AI rationale.
+      aiSuggested: false,
+      aiSuggestionRationale: '',
+    }))
+  }
+
+  const handleStrategySelect = (sourceId: string) => {
+    const source = strategySources.find(item => item.id === sourceId)
+    if (!source?.eligible) return
+
+    setSelectedStrategyId(sourceId)
+    setCampaignId(null)
+    setStep(1)
+    setData(previous => ({
+      ...previous,
+      platform: '',
+      adAccountId: '',
+      name: '',
+      objective: source.executionObjective,
+      aiStrategy: null,
+      copyVariants: [],
+      selectedVariantIds: [],
       aiSuggested: false,
       aiSuggestionRationale: '',
     }))
@@ -236,8 +309,25 @@ export default function NewPaidCampaignPage() {
   // ── Step handlers ──────────────────────────────────────────────────────
 
   const handleStep2 = async () => {
+    if (!selectedStrategyId) {
+      setError(copy('اختر استراتيجية Paid أو Full معتمدة أولاً.', 'Choose an approved Paid or Full strategy first.'))
+      return
+    }
     if (!data.name || !data.platform) {
       setError(copy('أكمل جميع الحقول المطلوبة.', 'Please fill all required fields.'))
+      return
+    }
+    if (!data.adAccountId) {
+      setError(copy('اربط حساباً إعلانياً نشطاً للمنصة قبل بدء التنفيذ.', 'Connect an active ad account for this platform before execution.'))
+      return
+    }
+    const budgetValue = Number(data.budgetType === 'DAILY' ? data.dailyBudget : data.lifetimeBudget)
+    if (!Number.isFinite(budgetValue) || budgetValue <= 0) {
+      setError(copy('أدخل قيمة ميزانية تخطيطية موجبة قبل المتابعة.', 'Enter a positive planning budget before continuing.'))
+      return
+    }
+    if (!data.startDate || !data.endDate || new Date(data.endDate).getTime() <= new Date(data.startDate).getTime()) {
+      setError(copy('أدخل تاريخ بدء وانتهاء صحيحين؛ يجب أن يكون الانتهاء بعد البدء.', 'Enter valid start and end dates; the end must be after the start.'))
       return
     }
     if (!normalizePaidDestinationUrl(data.destinationUrl)) {
@@ -257,6 +347,7 @@ export default function NewPaidCampaignPage() {
         body: JSON.stringify({
           name: data.name,
           platform: data.platform,
+          organicCampaignId: selectedStrategyId,
           adAccountId: data.adAccountId || undefined,
           objective: data.objective,
           budgetType: data.budgetType,
@@ -270,18 +361,26 @@ export default function NewPaidCampaignPage() {
         }),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error || copy('تعذر إنشاء مسودة التخطيط.', 'Failed to create planning draft'))
+      if (!res.ok) throw new Error(paidExecutionErrorMessage(
+        result.code || result.error,
+        isArabic ? 'ar' : 'en',
+        copy('تعذر إنشاء مسودة التنفيذ.', 'Failed to create execution draft.'),
+      ))
       setCampaignId(result.campaign.id)
       setStep(3)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : copy('حدث خطأ أثناء إنشاء مسودة التخطيط.', 'Error creating planning draft'))
+      setError(e instanceof Error ? e.message : copy('حدث خطأ أثناء إنشاء مسودة التنفيذ.', 'Error creating execution draft'))
     } finally {
       setLoading(false)
     }
   }
 
-  // ── AI Assist: let AI plan the campaign from Brand Brain ──────────────────
+  // ── AI Assist: translate the approved strategy into a platform suggestion ──
   const handleAiSuggest = async () => {
+    if (!selectedStrategyId) {
+      setError(copy('اختر استراتيجية Paid أو Full معتمدة أولاً.', 'Choose an approved Paid or Full strategy first.'))
+      return
+    }
     setAiSuggestLoading(true)
     setError('')
     try {
@@ -289,14 +388,22 @@ export default function NewPaidCampaignPage() {
       const res = await fetch('/api/ad-campaigns/ai-suggest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ sourceCampaignId: selectedStrategyId }),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error || copy('تعذر إنشاء اقتراح التخطيط.', 'AI suggestion failed'))
+      if (!res.ok) throw new Error(paidExecutionErrorMessage(
+        result.code || result.error,
+        isArabic ? 'ar' : 'en',
+        copy('تعذر إنشاء اقتراح التنفيذ.', 'Execution suggestion failed.'),
+      ))
       const platform = normalizePaidPlanningPlatform(result.platform)
-      const selectedAccount = selectSinglePaidPlanningAccount(accounts, platform)
-      const objective = OBJECTIVES.some(item => item.id === result.objective)
-        ? result.objective
-        : 'LEAD_GENERATION'
+      const selectedAccount = result.suggestedAdAccountId
+        ? accounts.find(account => account.id === result.suggestedAdAccountId) ?? null
+        : selectSinglePaidPlanningAccount(accounts, platform)
+      const objective = selectedStrategy?.executionObjective || result.sourceStrategy?.executionObjective
+      if (!OBJECTIVES.some(item => item.id === objective)) {
+        throw new Error(copy('تعذر التحقق من الهدف المعتمد.', 'Could not verify the approved strategy objective.'))
+      }
       const language = ['ar', 'en', 'bilingual'].includes(result.language)
         ? result.language
         : 'en'
@@ -312,13 +419,14 @@ export default function NewPaidCampaignPage() {
         aiSuggested: true,
         aiSuggestionRationale: normalizePaidPlanningRationale({
           platform,
+          objective,
           rationale: result.rationale,
           locale: isArabic ? 'ar' : 'en',
         }),
       }))
       setStep(2)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : copy('تعذر إنشاء اقتراح التخطيط.', 'AI suggestion failed'))
+      setError(e instanceof Error ? e.message : copy('تعذر إنشاء اقتراح التنفيذ.', 'Execution suggestion failed'))
     } finally {
       setAiSuggestLoading(false)
     }
@@ -340,11 +448,15 @@ export default function NewPaidCampaignPage() {
         }),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error || copy('تعذر إنشاء استراتيجية التخطيط المدفوع.', 'Strategy generation failed'))
+      if (!res.ok) throw new Error(paidExecutionErrorMessage(
+        result.code || result.error,
+        isArabic ? 'ar' : 'en',
+        copy('تعذر إنشاء خطة التنفيذ المدفوع.', 'Execution plan generation failed.'),
+      ))
       set('aiStrategy', result.strategy)
       setStep(4)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : copy('حدث خطأ أثناء إنشاء الاستراتيجية.', 'Error generating strategy'))
+      setError(e instanceof Error ? e.message : copy('حدث خطأ أثناء إنشاء خطة التنفيذ.', 'Error generating execution plan'))
     } finally {
       setLoading(false)
     }
@@ -362,7 +474,11 @@ export default function NewPaidCampaignPage() {
         body: JSON.stringify({ language: data.language }),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error || copy('تعذر إنشاء مسودات النصوص الإعلانية.', 'Copy generation failed'))
+      if (!res.ok) throw new Error(paidExecutionErrorMessage(
+        result.code || result.error,
+        isArabic ? 'ar' : 'en',
+        copy('تعذر إنشاء مسودات النصوص الإعلانية.', 'Copy generation failed.'),
+      ))
       const variants = (result.ads || []).map((ad: Record<string, unknown>) => ({
         id: ad.id as string,
         label: ad.name as string,
@@ -398,16 +514,79 @@ export default function NewPaidCampaignPage() {
   // ── Render steps ───────────────────────────────────────────────────────
   const renderStep = () => {
     switch (step) {
-      // ── STEP 1: Platform + Account ─────────────────────────────────────
+      // ── STEP 1: Approved strategy + platform + account ─────────────────
       case 1:
         return (
           <div>
             <h2 className="text-[18px] font-bold text-slate-950 mb-1">
-              {copy('اختر منصة التخطيط المدفوع', 'Choose planning platform')}
+              {copy('اختر مصدر الاستراتيجية ثم منصة التنفيذ', 'Choose strategy source, then execution platform')}
             </h2>
             <p className="text-slate-500 text-[13px] mb-6">
-              {copy('اختر المنصة التي ستُبنى عليها مسودة التخطيط. الاختيار لا ينشئ حملة على المنصة.', 'Select the advertising platform for this planning draft. This does not create a platform campaign.')}
+              {copy(
+                'لا ينشئ NEXUS استراتيجية ثانية هنا. يجب أن تبدأ الحملة من استراتيجية Paid أو Full معتمدة، ثم تتحول إلى إعداد منصة قابل للمراجعة.',
+                'NEXUS does not create a second strategy here. Paid execution must start from an approved Paid or Full strategy, then translate it into a reviewable platform setup.'
+              )}
             </p>
+
+            <div className="mb-5 rounded-[16px] border border-slate-200 bg-slate-50/70 p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-[12px] font-black uppercase tracking-[0.14em] text-indigo-700">
+                    {copy('مصدر القرار التسويقي', 'Marketing decision source')}
+                  </p>
+                  <p className="mt-1 text-[11px] leading-5 text-slate-500">
+                    {copy('Brand Brain يحدد الحقيقة، والاستراتيجية المعتمدة تحدد الاتجاه، وهذه الصفحة تنفذ فقط.', 'Brand Brain defines truth, the approved strategy defines direction, and this page only executes it.')}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => router.push('/strategy')}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700"
+                >
+                  {copy('فتح الاستراتيجية', 'Open Strategy')}
+                </button>
+              </div>
+
+              {strategySourcesLoading ? (
+                <div className="h-16 animate-pulse rounded-xl bg-white" />
+              ) : strategySources.length === 0 ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12px] leading-6 text-amber-800">
+                  {copy('لا توجد استراتيجية بعد. أكمل Brand Brain ثم أنشئ Paid أو Full Strategy وراجعها واعتمدها.', 'No strategy exists yet. Complete Brand Brain, create a Paid or Full strategy, review it, and approve it first.')}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {strategySources.map(source => {
+                    const selected = selectedStrategyId === source.id
+                    return (
+                      <button
+                        type="button"
+                        key={source.id}
+                        onClick={() => handleStrategySelect(source.id)}
+                        disabled={!source.eligible}
+                        aria-pressed={selected}
+                        className="flex w-full items-center justify-between gap-3 rounded-xl p-3 text-left transition-all"
+                        style={{
+                          background: selected ? 'rgba(79,70,229,0.07)' : '#fff',
+                          border: selected ? '1px solid #4f46e5' : '1px solid rgba(15,23,42,0.08)',
+                          cursor: source.eligible ? 'pointer' : 'not-allowed',
+                          opacity: source.eligible ? 1 : 0.68,
+                        }}
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-bold text-slate-950">{source.name}</p>
+                          <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            {source.scope} · {source.goal.replace(/_/g, ' ')}
+                          </p>
+                        </div>
+                        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${source.eligible ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                          {selected ? copy('محددة', 'Selected') : strategyReasonLabel(source)}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
 
             {/* AI Assist Card */}
             <div className="mb-5 p-4 rounded-[14px] relative overflow-hidden"
@@ -416,35 +595,35 @@ export default function NewPaidCampaignPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[14px]">⚡</span>
-                    <span className="text-[13px] font-bold text-slate-950">{copy('اقترح تخطيطاً بالذكاء الاصطناعي', 'Let AI Suggest a Plan')}</span>
+                    <span className="text-[13px] font-bold text-slate-950">{copy('اقترح تنفيذًا بالذكاء الاصطناعي', 'Let AI Suggest Execution')}</span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
                       style={{ background: '#ede9fe', color: '#6d28d9' }}>{copy('مجاني', 'FREE')}</span>
                   </div>
                   <p className="text-[11px] text-slate-500 leading-relaxed">
                     {copy(
-                      'يقرأ الذكاء الاصطناعي سياق Brand Brain ويقترح منصة وهدفاً وافتراض ميزانية واسم مسودة للمراجعة. لا يعتمد ميزانية ولا يطلق إعلاناً.',
-                      'AI reads your Brand Brain and suggests a platform, objective, budget assumption, and draft name for review. It does not approve spend or launch ads.'
+                      'يقرأ الذكاء الاستراتيجية المعتمدة وBrand Brain ليقترح منصة واسم مسودة حول الهدف الثابت، بدون تغيير الاستراتيجية أو اختراع ميزانية.',
+                      'AI reads the approved strategy and Brand Brain to suggest a platform and draft name around the fixed objective without changing strategy or inventing budget.'
                     )}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={handleAiSuggest}
-                  disabled={aiSuggestLoading}
-                  aria-label={copy('إنشاء اقتراح تخطيط بالذكاء الاصطناعي', 'Generate an AI planning suggestion')}
+                  disabled={aiSuggestLoading || !selectedStrategyId}
+                  aria-label={copy('إنشاء اقتراح تنفيذ بالذكاء الاصطناعي', 'Generate an AI execution suggestion')}
                   className="flex-shrink-0 px-4 py-2 rounded-xl text-[12px] font-bold text-white transition-all"
                   style={{
-                    background: aiSuggestLoading ? '#e5e7eb' : '#6d28d9',
-                    color: aiSuggestLoading ? '#94a3b8' : 'white',
-                    cursor: aiSuggestLoading ? 'wait' : 'pointer',
+                    background: aiSuggestLoading || !selectedStrategyId ? '#e5e7eb' : '#6d28d9',
+                    color: aiSuggestLoading || !selectedStrategyId ? '#94a3b8' : 'white',
+                    cursor: aiSuggestLoading ? 'wait' : selectedStrategyId ? 'pointer' : 'not-allowed',
                   }}
                 >
                   {aiSuggestLoading ? (
                     <span className="flex items-center gap-1.5">
                       <span className="w-3.5 h-3.5 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin inline-block" />
-                      {copy('جارٍ إعداد الاقتراح...', 'Planning...')}
+                      {copy('جارٍ إعداد التنفيذ...', 'Preparing...')}
                     </span>
-                  ) : copy('اقتراح تخطيط', 'AI Suggest')}
+                  ) : copy('اقتراح تنفيذ', 'AI Suggest')}
                 </button>
               </div>
             </div>
@@ -456,11 +635,17 @@ export default function NewPaidCampaignPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 mb-6">
-              {PLATFORMS.map(p => (
+              {PLATFORMS.map(p => {
+                const compatible = Boolean(
+                  selectedStrategy
+                  && paidPlatformSupportsObjective(p.id, selectedStrategy.executionObjective)
+                )
+                return (
                 <button
                   type="button"
                   key={p.id}
                   onClick={() => handlePlatformSelect(p.id)}
+                  disabled={!selectedStrategyId || !compatible}
                   aria-pressed={data.platform === p.id}
                   className="relative flex flex-col items-start gap-1.5 p-4 rounded-[14px] text-left transition-all"
                   style={{
@@ -470,7 +655,8 @@ export default function NewPaidCampaignPage() {
                     border: data.platform === p.id
                       ? `1px solid ${p.color}`
                       : '1px solid rgba(15,23,42,0.08)',
-                    cursor: 'pointer',
+                    cursor: selectedStrategyId && compatible ? 'pointer' : 'not-allowed',
+                    opacity: selectedStrategyId && compatible ? 1 : 0.55,
                   }}
                 >
                   {data.platform !== p.id && (
@@ -483,25 +669,31 @@ export default function NewPaidCampaignPage() {
                     {p.label}
                   </span>
                   <span className="text-[11px] text-slate-500">{isArabic ? p.subAr : p.subEn}</span>
+                  {selectedStrategyId && !compatible && (
+                    <span className="text-[10px] font-semibold text-amber-700">
+                      {copy('غير متوافق مع الهدف المعتمد', 'Not compatible with approved objective')}
+                    </span>
+                  )}
                   {data.platform === p.id && (
                     <span className="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded-full font-bold"
                       style={{ background: p.color, color: 'white' }}>✓</span>
                   )}
                 </button>
-              ))}
+                )
+              })}
             </div>
 
             {/* Ad Account selection */}
-            {data.platform && (
+            {selectedStrategyId && data.platform && (
               <div>
                 <label className="text-[12px] text-slate-500 block mb-2 font-medium">
-                  {copy('الحساب الإعلاني', 'Ad Account')} {accounts.filter(a => a.platform === data.platform).length === 0 && (
-                    <span className="text-orange-600 ml-1">— {copy('لا يوجد حساب متصل حتى الآن', 'no connected account yet')}</span>
+                  {copy('الحساب الإعلاني', 'Ad Account')} {accounts.filter(a => a.platform === data.platform && a.status === 'ACTIVE').length === 0 && (
+                    <span className="text-orange-600 ml-1">— {copy('لا يوجد حساب نشط متصل', 'no active connected account')}</span>
                   )}
                 </label>
-                {accounts.filter(a => a.platform === data.platform).length > 0 ? (
+                {accounts.filter(a => a.platform === data.platform && a.status === 'ACTIVE').length > 0 ? (
                   <div className="space-y-2">
-                    {accounts.filter(a => a.platform === data.platform).map(acc => (
+                    {accounts.filter(a => a.platform === data.platform && a.status === 'ACTIVE').map(acc => (
                       <button
                         type="button"
                         key={acc.id}
@@ -539,7 +731,7 @@ export default function NewPaidCampaignPage() {
                     </button>
                     <br />
                     <span className="text-[11px] opacity-70">
-                      {copy('يمكنك إعداد مسودة التخطيط الآن، لكن إنشاء مسودة منصة أو تفعيلها سيظل مقفلاً حتى ربط الحساب والتحقق من الصلاحيات.', 'You can prepare the planning draft now, but platform draft creation and activation remain locked until the account and permissions are verified.')}
+                      {copy('تنفيذ المنصة مقفول حتى ربط حساب نشط والتحقق من الصلاحيات. تظل الاستراتيجية محفوظة ويمكن العودة إليها.', 'Platform execution is locked until an active account and permissions are verified. The strategy remains saved and reviewable.')}
                     </span>
                   </div>
                 )}
@@ -554,13 +746,13 @@ export default function NewPaidCampaignPage() {
               </button>
               <button
                 type="button"
-                disabled={!data.platform}
+                disabled={!selectedStrategyId || !data.platform || !data.adAccountId}
                 onClick={() => setStep(2)}
                 className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white transition-all"
                 style={{
-                  background: data.platform ? '#F97316' : '#e2e8f0',
-                  color: data.platform ? 'white' : '#94a3b8',
-                  cursor: data.platform ? 'pointer' : 'not-allowed',
+                  background: selectedStrategyId && data.platform && data.adAccountId ? '#F97316' : '#e2e8f0',
+                  color: selectedStrategyId && data.platform && data.adAccountId ? 'white' : '#94a3b8',
+                  cursor: selectedStrategyId && data.platform && data.adAccountId ? 'pointer' : 'not-allowed',
                 }}
               >
                 {copy('متابعة', 'Continue')}
@@ -572,19 +764,45 @@ export default function NewPaidCampaignPage() {
       // ── STEP 2: Budget + Objective ─────────────────────────────────────
       case 2: {
         const planningBudget = parseFloat(data.budgetType === 'DAILY' ? data.dailyBudget : data.lifetimeBudget) || 0
+        const approvedObjective = OBJECTIVES.find(objective => objective.id === data.objective) ?? null
+        const datesValid = Boolean(
+          data.startDate
+          && data.endDate
+          && new Date(data.endDate).getTime() > new Date(data.startDate).getTime()
+        )
+        const detailsReady = Boolean(
+          selectedStrategyId
+          && data.adAccountId
+          && data.name.trim()
+          && planningBudget > 0
+          && datesValid
+          && normalizePaidDestinationUrl(data.destinationUrl)
+        )
 
         return (
           <div>
-            <h2 className="text-[18px] font-bold text-slate-950 mb-1">{copy('تفاصيل مسودة التخطيط', 'Planning Draft Details')}</h2>
+            <h2 className="text-[18px] font-bold text-slate-950 mb-1">{copy('تفاصيل مسودة التنفيذ', 'Execution Draft Details')}</h2>
             <p className="text-slate-500 text-[13px] mb-6">
-              {copy('سمِّ المسودة وأدخل هدفاً وافتراض ميزانية للمراجعة. هذه القيم لا تعني اعتماد الإنفاق.', 'Name the draft and enter an objective and budget assumption for review. These values do not approve spend.')}
+              {copy('سمِّ المسودة، راجع الهدف الموروث، وأدخل افتراض ميزانية للمراجعة. هذه القيم لا تعني اعتماد الإنفاق.', 'Name the draft, review the inherited objective, and enter a budget assumption. These values do not approve spend.')}
             </p>
+
+            {selectedStrategy && (
+              <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-indigo-50 p-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-indigo-700">{copy('تنفيذ الاستراتيجية المعتمدة', 'Executing approved strategy')}</p>
+                  <p className="mt-1 truncate text-[12px] font-bold text-slate-950">{selectedStrategy.name}</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-indigo-700">
+                  {selectedStrategy.scope.toUpperCase()}
+                </span>
+              </div>
+            )}
 
             {/* AI Suggestion banner */}
             {data.aiSuggested && data.aiSuggestionRationale && (
               <div className="mb-4 p-3 rounded-xl text-[11px]"
                 style={{ background: '#faf5ff', border: '1px solid rgba(109,40,217,0.2)' }}>
-                <span className="font-bold" style={{ color: '#6d28d9' }}>⚡ {copy('اقتراح تخطيطي:', 'Planning suggestion:')} </span>
+                <span className="font-bold" style={{ color: '#6d28d9' }}>⚡ {copy('اقتراح تنفيذ:', 'Execution suggestion:')} </span>
                 <span className="text-slate-500">{data.aiSuggestionRationale}</span>
               </div>
             )}
@@ -592,11 +810,11 @@ export default function NewPaidCampaignPage() {
             <div className="space-y-4">
               {/* Campaign name */}
               <div>
-                <label className="block text-[12px] font-medium text-slate-500 mb-1.5">{copy('اسم مسودة التخطيط *', 'Planning Draft Name *')}</label>
+                <label className="block text-[12px] font-medium text-slate-500 mb-1.5">{copy('اسم مسودة التنفيذ *', 'Execution Draft Name *')}</label>
                 <input
                   value={data.name}
                   onChange={e => set('name', e.target.value)}
-                  placeholder={copy('مثال: حملة الصيف 2025 — Meta', 'e.g. Summer Sale 2025 — Meta')}
+                  placeholder={copy('مثال: اكتساب حجوزات — بحث Google', 'e.g. Booking acquisition — Google Search')}
                   className="w-full px-3 py-2.5 rounded-xl text-[13px] text-slate-950 placeholder:text-slate-400 focus:outline-none transition-all"
                   style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.12)' }}
                 />
@@ -604,26 +822,28 @@ export default function NewPaidCampaignPage() {
 
               {/* Objective */}
               <div>
-                <label className="block text-[12px] font-medium text-slate-500 mb-2">{copy('هدف التخطيط *', 'Planning Objective *')}</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {OBJECTIVES.map(obj => (
-                    <button
-                      type="button"
-                      key={obj.id}
-                      onClick={() => set('objective', obj.id)}
-                      aria-pressed={data.objective === obj.id}
-                      className="flex flex-col items-start gap-1 p-3 rounded-xl text-left transition-all"
-                      style={{
-                        background: data.objective === obj.id ? '#fff7ed' : '#fff',
-                        border: data.objective === obj.id ? '1px solid #F97316' : '1px solid rgba(15,23,42,0.08)',
-                      }}
-                    >
-                      <span className="text-base">{obj.icon}</span>
-                      <span className="text-[12px] font-semibold text-slate-950">{isArabic ? obj.labelAr : obj.labelEn}</span>
-                      <span className="text-[10px] text-slate-500 leading-tight">{isArabic ? obj.descAr : obj.descEn}</span>
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-[12px] font-medium text-slate-500 mb-1">{copy('هدف التنفيذ المعتمد', 'Approved execution objective')}</label>
+                <p className="mb-2 text-[10px] leading-5 text-slate-400">
+                  {copy('موروث من الاستراتيجية المعتمدة ولا يتغير داخل حملة المنصة.', 'Inherited from the approved strategy and cannot be changed inside platform execution.')}
+                </p>
+                {approvedObjective && (
+                  <div className="flex items-center justify-between gap-4 rounded-xl border border-orange-200 bg-orange-50 p-4">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <span className="text-xl" aria-hidden="true">{approvedObjective.icon}</span>
+                      <div>
+                        <p className="text-[13px] font-bold text-slate-950">
+                          {isArabic ? approvedObjective.labelAr : approvedObjective.labelEn}
+                        </p>
+                        <p className="mt-1 text-[11px] leading-5 text-slate-600">
+                          {isArabic ? approvedObjective.descAr : approvedObjective.descEn}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-orange-700">
+                      {copy('من الاستراتيجية', 'From strategy')}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Budget */}
@@ -737,7 +957,7 @@ export default function NewPaidCampaignPage() {
               {/* Dates */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[12px] font-medium text-slate-500 mb-1.5">{copy('تاريخ البدء التخطيطي (اختياري)', 'Planning start date (optional)')}</label>
+                  <label className="block text-[12px] font-medium text-slate-500 mb-1.5">{copy('تاريخ البدء التخطيطي *', 'Planning start date *')}</label>
                   <input
                     type="date"
                     value={data.startDate}
@@ -747,7 +967,7 @@ export default function NewPaidCampaignPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[12px] font-medium text-slate-500 mb-1.5">{copy('تاريخ الانتهاء التخطيطي (اختياري)', 'Planning end date (optional)')}</label>
+                  <label className="block text-[12px] font-medium text-slate-500 mb-1.5">{copy('تاريخ الانتهاء التخطيطي *', 'Planning end date *')}</label>
                   <input
                     type="date"
                     value={data.endDate}
@@ -762,7 +982,7 @@ export default function NewPaidCampaignPage() {
               <div>
                 <label className="block text-[12px] font-medium text-slate-500 mb-2">
                   {copy('لغة مخرجات الذكاء الاصطناعي', 'AI Output Language')}
-                  <span className="ml-1 text-[10px] text-slate-400">— {copy('ستُكتب استراتيجية التخطيط والنصوص بهذه اللغة', 'planning strategy and ad copy will be written in this language')}</span>
+                  <span className="ml-1 text-[10px] text-slate-400">— {copy('ستُكتب خطة التنفيذ والنصوص بهذه اللغة', 'execution plan and ad copy will be written in this language')}</span>
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
@@ -797,32 +1017,32 @@ export default function NewPaidCampaignPage() {
               </button>
               <button
                 type="button"
-                disabled={!data.name || !normalizePaidDestinationUrl(data.destinationUrl) || loading}
+                disabled={!detailsReady || loading}
                 onClick={handleStep2}
                 className="flex-1 py-2.5 rounded-xl text-[13px] font-bold transition-all"
                 style={{
-                  background: data.name && normalizePaidDestinationUrl(data.destinationUrl) ? '#F97316' : '#e2e8f0',
-                  color: data.name && normalizePaidDestinationUrl(data.destinationUrl) ? 'white' : '#94a3b8',
-                  cursor: data.name && normalizePaidDestinationUrl(data.destinationUrl) && !loading ? 'pointer' : 'not-allowed',
+                  background: detailsReady ? '#F97316' : '#e2e8f0',
+                  color: detailsReady ? 'white' : '#94a3b8',
+                  cursor: detailsReady && !loading ? 'pointer' : 'not-allowed',
                 }}
               >
-                {loading ? copy('جارٍ حفظ المسودة...', 'Saving...') : copy('حفظ مسودة التخطيط والمتابعة', 'Save planning draft & continue')}
+                {loading ? copy('جارٍ حفظ المسودة...', 'Saving...') : copy('حفظ مسودة التنفيذ والمتابعة', 'Save execution draft & continue')}
               </button>
             </div>
           </div>
         )
       }
 
-      // ── STEP 3: AI Strategy ─────────────────────────────────────────────
+      // ── STEP 3: Strategy-aligned execution plan ─────────────────────────
       case 3: {
         const strategy = data.aiStrategy
         return (
           <div>
-            <h2 className="text-[18px] font-bold text-slate-950 mb-1">{copy('استراتيجية التخطيط المدفوع', 'Paid Planning Strategy')}</h2>
+            <h2 className="text-[18px] font-bold text-slate-950 mb-1">{copy('خطة تنفيذ مدفوعة مرتبطة بالاستراتيجية', 'Strategy-aligned Paid Execution Plan')}</h2>
             <p className="text-slate-500 text-[13px] mb-6">
               {copy(
-                'يستخدم NEXUS سياق Brand Brain لإعداد استهداف جمهور وملاحظات ميزانية وموجز إبداعي للمراجعة فقط.',
-                'NEXUS uses your Brand Brain context to prepare audience targeting, budget notes, and a creative brief for review only.'
+                'يترجم NEXUS الاستراتيجية المعتمدة وحقائق Brand Brain إلى استهداف وملاحظات ميزانية وموجز إبداعي للمنصة، بدون اختراع استراتيجية جديدة.',
+                'NEXUS translates the approved strategy and Brand Brain truth into platform targeting, budget notes, and a creative brief without inventing a second strategy.'
               )}
             </p>
 
@@ -835,27 +1055,27 @@ export default function NewPaidCampaignPage() {
                     <path d="M10 14h4l3-5" stroke="#F97316" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>
-                <p className="text-slate-950 font-medium mb-2">{copy('جاهز لإنشاء استراتيجية تخطيط مدفوع', 'Ready to generate your paid planning strategy')}</p>
+                <p className="text-slate-950 font-medium mb-2">{copy('جاهز لإنشاء خطة تنفيذ للمنصة', 'Ready to generate the platform execution plan')}</p>
                 <p className="text-slate-500 text-[12px] mb-6 max-w-xs mx-auto">
                   {copy(
-                    'يستخدم بيانات Brand Brain وهدف الحملة وافتراض الميزانية والمنصة لإنتاج استراتيجية قابلة للمراجعة. لا ينشئ حملة منصة ولا يعتمد إنفاقاً.',
-                    'Uses Brand Brain data, campaign objective, budget assumption, and platform to produce a reviewable strategy. It does not create a platform campaign or approve spend.'
+                    'يستخدم الاستراتيجية المعتمدة وBrand Brain وميزانية التخطيط والمنصة لإنتاج خطة تنفيذ قابلة للمراجعة. لا ينشئ حملة منصة ولا يعتمد إنفاقاً.',
+                    'Uses the approved strategy, Brand Brain, planning budget, and platform to produce a reviewable execution plan. It does not create a platform campaign or approve spend.'
                   )}
                 </p>
                 <button
                   type="button"
                   disabled={loading}
                   onClick={handleGenerateStrategy}
-                  aria-label={copy('إنشاء استراتيجية التخطيط مقابل رصيدين', 'Generate planning strategy for 2 credits')}
+                  aria-label={copy('إنشاء خطة التنفيذ مقابل رصيدين', 'Generate execution plan for 2 credits')}
                   className="px-6 py-3 rounded-xl text-[13px] font-bold text-white transition-all"
                   style={{ background: loading ? '#e5e7eb' : '#6d28d9', color: loading ? '#94a3b8' : 'white' }}
                 >
                   {loading ? (
                     <span className="flex items-center gap-2">
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
-                      {copy('جارٍ إنشاء الاستراتيجية...', 'Generating strategy...')}
+                      {copy('جارٍ إنشاء خطة التنفيذ...', 'Generating execution plan...')}
                     </span>
-                  ) : copy('إنشاء استراتيجية التخطيط — رصيدان', 'Generate planning strategy — 2 credits')}
+                  ) : copy('إنشاء خطة التنفيذ — رصيدان', 'Generate execution plan — 2 credits')}
                 </button>
               </div>
             ) : (
@@ -936,8 +1156,8 @@ export default function NewPaidCampaignPage() {
             <h2 className="text-[18px] font-bold text-slate-950 mb-1">{copy('مسودات النصوص الإعلانية', 'Ad Copy Drafts')}</h2>
             <p className="text-slate-500 text-[13px] mb-6">
               {copy(
-                `أنشأ الذكاء الاصطناعي ${data.copyVariants.length} مسودة للمراجعة. حدد النسخ التي تريد الاحتفاظ بها داخل مسودة التخطيط.`,
-                `AI generated ${data.copyVariants.length} drafts for review. Select the ones to keep in this planning draft.`
+                `أنشأ الذكاء الاصطناعي ${data.copyVariants.length} مسودة للمراجعة. حدد النسخ التي تريد الاحتفاظ بها داخل مسودة التنفيذ.`,
+                `AI generated ${data.copyVariants.length} drafts for review. Select the ones to keep in this execution draft.`
               )}
             </p>
 
@@ -1114,14 +1334,14 @@ export default function NewPaidCampaignPage() {
           <div>
             <h2 className="text-[18px] font-bold text-slate-950 mb-1">{copy('المراجعة والخطوة التالية', 'Review & Next Step')}</h2>
             <p className="text-slate-500 text-[13px] mb-6">
-              {copy('حُفظت مسودة التخطيط للمراجعة. لم يطلق NEXUS إعلاناً ولم يعتمد أو ينفق ميزانية.', 'Your paid planning draft is saved for review. NEXUS has not launched ads, approved spend, or spent budget.')}
+              {copy('حُفظت مسودة التنفيذ للمراجعة. لم يطلق NEXUS إعلاناً ولم يعتمد أو ينفق ميزانية.', 'Your paid execution draft is saved for review. NEXUS has not launched ads, approved spend, or spent budget.')}
             </p>
 
             {/* Summary card */}
             <div className="p-4 rounded-[14px] mb-6 space-y-3 bg-white"
               style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
               <div className="flex items-center justify-between">
-                <span className="text-[12px] text-slate-500">{copy('مسودة التخطيط', 'Planning draft')}</span>
+                <span className="text-[12px] text-slate-500">{copy('مسودة التنفيذ', 'Execution draft')}</span>
                 <span className="text-[13px] font-semibold text-slate-950">{data.name}</span>
               </div>
               <div className="flex items-center justify-between">
@@ -1150,7 +1370,7 @@ export default function NewPaidCampaignPage() {
                 <span className="text-[13px] font-semibold text-slate-950">{copy(`${data.selectedVariantIds.length} محددة`, `${data.selectedVariantIds.length} selected`)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[12px] text-slate-500">{copy('استراتيجية التخطيط', 'Planning strategy')}</span>
+                <span className="text-[12px] text-slate-500">{copy('خطة التنفيذ', 'Execution plan')}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: 'rgba(5,150,105,0.1)', color: '#059669' }}>
                   ✓ {copy('أُنشئت للمراجعة', 'Generated for review')}
                 </span>
@@ -1162,7 +1382,7 @@ export default function NewPaidCampaignPage() {
               style={{ background: '#fff7ed', border: '1px solid rgba(249,115,22,0.2)' }}>
               <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: '#c2410c' }}>{copy('الخطوات التالية', 'Next Steps')}</p>
               <ul className="space-y-1.5 text-[12px] text-slate-500">
-                <li>• {copy('افتح تفاصيل المسودة لمراجعة الاستهداف والافتراضات', 'Open the planning draft details to review targeting and assumptions')}</li>
+                <li>• {copy('افتح تفاصيل المسودة لمراجعة الاستهداف والافتراضات', 'Open the execution draft details to review targeting and assumptions')}</li>
                 <li>• {copy('أضف الأصول الإبداعية المطلوبة للمراجعة', 'Add the required creative assets for review')}</li>
                 <li>
                   • {data.platform === 'META'
@@ -1185,7 +1405,7 @@ export default function NewPaidCampaignPage() {
                 className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white transition-all"
                 style={{ background: '#059669' }}
               >
-                {copy('فتح مسودة التخطيط المدفوع', 'Open paid planning draft')}
+                {copy('فتح مسودة التنفيذ المدفوع', 'Open paid execution draft')}
               </button>
             </div>
           </div>
@@ -1214,8 +1434,8 @@ export default function NewPaidCampaignPage() {
         <div className="mx-auto grid w-full max-w-[1540px] gap-6 px-4 py-6 pb-12 sm:px-6 lg:grid-cols-[minmax(0,780px)_360px] lg:px-8">
           <div className="lg:col-span-2">
             <LuxuryWorkspaceHeader
-              pageTitle={locale === 'ar' ? 'مسودة تخطيط مدفوع' : 'Paid planning draft'}
-              pageSubtitle={locale === 'ar' ? 'حوّل الاستراتيجية إلى خطة مدفوعة قابلة للمراجعة. لا يتم إنشاء حملة منصة أو إنفاق فعلي بدون موافقة لاحقة.' : 'Turn strategy into a reviewable paid plan. No platform campaign or real spend happens without later approval.'}
+              pageTitle={locale === 'ar' ? 'تنفيذ مدفوع مرتبط بالاستراتيجية' : 'Strategy-linked paid execution'}
+              pageSubtitle={locale === 'ar' ? 'حوّل استراتيجية Paid أو Full المعتمدة إلى إعداد منصة قابل للمراجعة. لا حملة ولا إنفاق بدون موافقة لاحقة.' : 'Turn an approved Paid or Full strategy into a reviewable platform setup. No campaign or spend happens without later approval.'}
               primaryHref="/paid-campaigns"
               primaryLabel={locale === 'ar' ? 'مركز الإعلانات المدفوعة' : 'Paid campaigns'}
               secondaryHref="/connections"
@@ -1241,7 +1461,7 @@ export default function NewPaidCampaignPage() {
                 {locale === 'ar' ? 'مسار موافقة مدفوع' : 'Approval-gated paid path'}
               </div>
               <h1 className="text-2xl font-black tracking-tight text-slate-950">
-                {locale === 'ar' ? 'مسودة تخطيط مدفوع جديدة' : 'New Paid Planning Draft'}
+                {locale === 'ar' ? 'مسودة تنفيذ مدفوع جديدة' : 'New Paid Execution Draft'}
               </h1>
               <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
                 {locale === 'ar'
@@ -1285,16 +1505,16 @@ export default function NewPaidCampaignPage() {
               <p className="text-sm font-black text-slate-950">{locale === 'ar' ? 'حقيقة التنفيذ' : 'Execution truth'}</p>
               <p className="mt-2 text-sm leading-6 text-slate-500">
                 {locale === 'ar'
-                  ? 'هذه الصفحة تنشئ تخطيطاً أو مسودة مراجعة. لا يتم إطلاق إعلان، ولا صرف ميزانية، ولا تفعيل منصة إلا من شاشة تأكيد منفصلة.'
-                  : 'This page creates planning or review drafts. No ad launches, budget spend, or platform activation happens without a separate confirmation screen.'}
+                  ? 'هذه الصفحة تنشئ مسودة تنفيذ مرتبطة باستراتيجية معتمدة. لا يتم إطلاق إعلان، ولا صرف ميزانية، ولا تفعيل منصة إلا من شاشة تأكيد منفصلة.'
+                  : 'This page creates an execution draft linked to an approved strategy. No ad launch, budget spend, or platform activation happens without a separate confirmation screen.'}
               </p>
             </div>
             <div className="rounded-[24px] border border-indigo-100 bg-indigo-50/70 p-5">
               <p className="text-sm font-black text-slate-950">{locale === 'ar' ? 'مسار صحيح' : 'Correct path'}</p>
               <ol className="mt-3 space-y-3 text-sm text-slate-600">
                 {(locale === 'ar'
-                  ? ['اختيار المنصة والحساب', 'إدخال ميزانية كافتراض', 'إنشاء استراتيجية ونصوص للمراجعة', 'إنشاء مسودة منصة متوقفة لاحقاً', 'تفعيل فقط بعد موافقة صريحة']
-                  : ['Choose platform and account', 'Enter budget as an assumption', 'Generate strategy and copy for review', 'Create paused platform draft later', 'Activate only after explicit approval']
+                  ? ['اختيار استراتيجية Paid أو Full معتمدة', 'اختيار المنصة والحساب', 'إدخال الميزانية والوجهة والتواريخ', 'إنشاء خطة تنفيذ ونصوص للمراجعة', 'إنشاء مسودة متوقفة ثم التفعيل بعد موافقة صريحة']
+                  : ['Choose an approved Paid or Full strategy', 'Choose platform and account', 'Enter budget, destination, and dates', 'Generate execution plan and copy for review', 'Create a paused draft, then activate after explicit approval']
                 ).map((item, index) => (
                   <li key={item} className="flex items-start gap-3">
                     <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-white text-xs font-black text-indigo-600">{index + 1}</span>

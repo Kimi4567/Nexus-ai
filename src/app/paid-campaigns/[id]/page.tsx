@@ -20,6 +20,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { supabase } from '@/lib/supabaseClient'
 import { evaluatePaidExecutionReadiness } from '@/lib/paidExecutionReadiness'
+import { paidExecutionErrorMessage } from '@/lib/paidExecutionErrorMessage'
 import NextImage from 'next/image'
 import { AlertTriangle, CheckCircle2, ExternalLink, Image as ImageIcon, X } from 'lucide-react'
 
@@ -104,6 +105,8 @@ interface Campaign {
   trackingUrls?: Record<string, string>
   platformCampaignId?: string
   platformStatus?: string
+  organicCampaignId?: string | null
+  sourceStrategy?: { id: string; name: string; status: string; updatedAt: string } | null
   adSets: AdSet[]
   performanceSnapshots: Array<{ date: string; spend: number; impressions: number; clicks: number; roas: number | null }>
   adAccount?: {
@@ -122,7 +125,7 @@ const PLATFORM_COLORS: Record<string, string> = {
 }
 
 const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
-  DRAFT:    { bg: 'rgba(107,114,128,0.15)', color: '#9CA3AF', label: 'Planning draft' },
+  DRAFT:    { bg: 'rgba(107,114,128,0.15)', color: '#9CA3AF', label: 'Execution draft' },
   ACTIVE:   { bg: 'rgba(16,185,129,0.15)',  color: '#10B981', label: 'Platform active record' },
   PAUSED:   { bg: 'rgba(249,115,22,0.15)',  color: '#F97316', label: 'Paused platform draft' },
   ARCHIVED: { bg: 'rgba(239,68,68,0.12)',   color: '#EF4444', label: 'Archived' },
@@ -232,6 +235,7 @@ export default function CampaignDetailPage() {
   const [creativeDraftAcknowledged, setCreativeDraftAcknowledged] = useState(false)
   const [creativeRightsAcknowledged, setCreativeRightsAcknowledged] = useState(false)
   const [creativeAttachLoading, setCreativeAttachLoading] = useState(false)
+  const [generationLoading, setGenerationLoading] = useState<'plan' | 'copy' | null>(null)
 
   const getToken = async () => {
     const { data: session } = await supabase.auth.getSession()
@@ -374,6 +378,38 @@ export default function CampaignDetailPage() {
     }
   }
 
+  const handleGenerateExecutionArtifact = async (kind: 'plan' | 'copy') => {
+    if (!campaign?.sourceStrategy) {
+      setActionError(ar
+        ? 'هذه مسودة قديمة غير مرتبطة باستراتيجية معتمدة. ابدأ تنفيذاً جديداً من صفحة Strategy.'
+        : 'This legacy draft has no approved strategy source. Start new execution from Strategy.')
+      return
+    }
+    setGenerationLoading(kind)
+    setActionError('')
+    try {
+      const token = await getToken()
+      const endpoint = kind === 'plan' ? 'generate-strategy' : 'generate-copy'
+      const response = await fetch(`/api/ad-campaigns/${id}/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ language: ar ? 'ar' : 'en' }),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(paidExecutionErrorMessage(
+        result.code || result.error,
+        ar ? 'ar' : 'en',
+        ar ? 'تعذر إنشاء مخرجات التنفيذ.' : 'Could not generate execution output.',
+      ))
+      await load()
+      setActiveTab(kind === 'plan' ? 'strategy' : 'adsets')
+    } catch (generationError) {
+      setActionError(generationError instanceof Error ? generationError.message : 'Generation failed')
+    } finally {
+      setGenerationLoading(null)
+    }
+  }
+
   const handleActivatePlatform = async () => {
     if (!campaign) return
     if (!platformActivationAcknowledged || !spendActivationAcknowledged || !activationBudgetAcknowledged) {
@@ -490,7 +526,7 @@ export default function CampaignDetailPage() {
       <div className="flex min-h-screen items-center justify-center bg-[#f6f8fc]">
         <div className="text-center">
           <div className="w-10 h-10 border-2 border-indigo-100 border-t-indigo-500 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-500 text-[13px]">Loading paid planning draft...</p>
+          <p className="text-slate-500 text-[13px]">Loading paid execution draft...</p>
         </div>
       </div>
     </AppShell>
@@ -536,13 +572,16 @@ export default function CampaignDetailPage() {
     googleTargetingReady: campaign.platform === 'GOOGLE' ? googleTargeting.ready : undefined,
   })
   const strategy = campaign.aiStrategy
+  const hasStrategySource = Boolean(campaign.organicCampaignId && campaign.sourceStrategy)
   const hasPausedPlatformDraft = Boolean(campaign.platformCampaignId && campaign.platformStatus === 'PAUSED')
   const canCreatePausedPlatformDraft = Boolean(
+    hasStrategySource &&
     campaign.status === 'DRAFT' &&
     campaign.adAccount?.hasApiAccess &&
     executionReadiness.ready
   )
   const canRequestPlatformActivation = Boolean(
+    hasStrategySource &&
     campaign.status === 'PAUSED' &&
     hasPausedPlatformDraft &&
     campaign.adAccount?.hasApiAccess &&
@@ -555,7 +594,7 @@ export default function CampaignDetailPage() {
     ? 'Paid execution · platform active'
     : hasPausedPlatformDraft
       ? 'Paid execution · paused platform draft'
-      : 'Paid planning draft'
+      : 'Strategy-linked paid execution draft'
 
   return (
     <AppShell>
@@ -589,8 +628,8 @@ export default function CampaignDetailPage() {
         `}</style>
         <div className="mx-auto max-w-[1540px]">
         <LuxuryWorkspaceHeader
-          pageTitle={ar ? 'تفاصيل التخطيط المدفوع' : 'Paid planning details'}
-          pageSubtitle={ar ? 'راجع الاستراتيجية، النسخ، الميزانية، وحالة المنصة. أي إنشاء منصة أو تفعيل إنفاق يحتاج موافقة صريحة.' : 'Review strategy, copy, budget, and platform state. Platform creation or spend activation requires explicit approval.'}
+          pageTitle={ar ? 'تفاصيل التنفيذ المدفوع' : 'Paid execution details'}
+          pageSubtitle={ar ? 'راجع مصدر الاستراتيجية، خطة التنفيذ، النصوص، الميزانية، وحالة المنصة قبل أي إنشاء أو تفعيل.' : 'Review strategy source, execution plan, copy, budget, and platform state before creation or activation.'}
           primaryHref="/paid-campaigns"
           primaryLabel={ar ? 'مركز الإعلانات المدفوعة' : 'Paid campaigns'}
           secondaryHref="/connections"
@@ -624,6 +663,19 @@ export default function CampaignDetailPage() {
                 {campaign.adAccount && ` · ${campaign.adAccount.platformAccountName}`}
                 {campaign.startDate && ` · ${new Date(campaign.startDate).toLocaleDateString()} – ${campaign.endDate ? new Date(campaign.endDate).toLocaleDateString() : 'ongoing'}`}
               </p>
+              {campaign.sourceStrategy ? (
+                <button
+                  type="button"
+                  onClick={() => router.push(`/campaigns/${campaign.sourceStrategy?.id}?tab=strategy`)}
+                  className="mt-2 text-[11px] font-bold text-indigo-700 underline decoration-indigo-200 underline-offset-4"
+                >
+                  {ar ? 'مصدر الاستراتيجية' : 'Strategy source'}: {campaign.sourceStrategy.name}
+                </button>
+              ) : (
+                <p className="mt-2 text-[11px] font-bold text-amber-700">
+                  {ar ? 'مسودة قديمة غير مرتبطة باستراتيجية — لا يمكن دفعها للمنصة.' : 'Legacy unlinked draft — platform execution is blocked.'}
+                </p>
+              )}
             </div>
           </div>
 
@@ -692,15 +744,17 @@ export default function CampaignDetailPage() {
           </div>
         </div>
 
-        {(actionError || !executionReadiness.ready || !campaign.adAccount?.hasApiAccess) && (
+        {(actionError || !hasStrategySource || !executionReadiness.ready || !campaign.adAccount?.hasApiAccess) && (
           <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-[12px] text-amber-950">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="font-bold">Paid execution gate</p>
                 <p className="mt-1 text-amber-800">
                   {actionError || (
-                    !campaign.adAccount?.hasApiAccess
-                      ? 'Platform API access is not approved. Planning and export remain available; no platform object can be created.'
+                    !hasStrategySource
+                      ? 'An approved Paid/Full strategy source is required. Legacy unlinked drafts cannot create or activate platform objects.'
+                      : !campaign.adAccount?.hasApiAccess
+                      ? 'Platform API access is not approved. Review and export remain available; no platform object can be created.'
                       : 'Complete the following inputs before NEXUS can create or activate a paid platform draft.'
                   )}
                 </p>
@@ -758,7 +812,7 @@ export default function CampaignDetailPage() {
           {[
             { key: 'overview', label: 'Overview' },
             { key: 'adsets', label: `Ad Sets (${campaign.adSets.length})` },
-            { key: 'strategy', label: '✨ AI Strategy', hidden: !strategy },
+            { key: 'strategy', label: '✨ Execution Plan', hidden: !strategy },
             { key: 'performance', label: '📊 Performance' },
             { key: 'export', label: 'Export' },
           ].filter(t => !t.hidden).map(tab => (
@@ -781,10 +835,11 @@ export default function CampaignDetailPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Campaign info */}
             <div className="p-4 rounded-[14px]" style={{ background: 'var(--nx-surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <h3 className="text-[13px] font-bold text-white mb-3">Planning Draft Settings</h3>
+              <h3 className="text-[13px] font-bold text-white mb-3">Execution Draft Settings</h3>
               <div className="space-y-2.5">
                 {[
                   { label: 'Platform', value: campaign.platform },
+                  { label: 'Approved strategy source', value: campaign.sourceStrategy?.name || 'Missing — execution blocked' },
                   { label: 'Objective', value: campaign.objective.replace(/_/g, ' ') },
                   { label: 'Budget', value: campaign.budgetType === 'DAILY' ? `${campaign.currency} ${campaign.dailyBudget}/day` : `${campaign.currency} ${campaign.lifetimeBudget} lifetime` },
                   { label: 'Ad Sets', value: campaign.adSets.length },
@@ -803,10 +858,11 @@ export default function CampaignDetailPage() {
 
             {/* AI status */}
             <div className="p-4 rounded-[14px]" style={{ background: 'var(--nx-surface)', border: '1px solid rgba(139,92,246,0.12)' }}>
-              <h3 className="text-[13px] font-bold text-white mb-3">Planning Readiness</h3>
+              <h3 className="text-[13px] font-bold text-white mb-3">Execution Readiness</h3>
               <div className="space-y-2.5">
                 {[
-                  { label: '✨ AI Strategy', done: !!campaign.aiStrategy },
+                  { label: '🧭 Approved strategy source', done: hasStrategySource },
+                  { label: '✨ Platform execution plan', done: !!campaign.aiStrategy },
                   { label: '🎯 Audience Brief', done: !!campaign.aiAudienceBrief },
                   { label: '💰 Budget Plan', done: !!campaign.aiBudgetPlan },
                   { label: '📝 Ad Copy Variants', done: totalAds > 0 },
@@ -828,17 +884,19 @@ export default function CampaignDetailPage() {
               </div>
 
               {!campaign.aiStrategy && (
-                <button onClick={() => router.push(`/paid-campaigns/new?campaignId=${id}`)}
+                <button onClick={() => handleGenerateExecutionArtifact('plan')}
+                  disabled={generationLoading !== null || !hasStrategySource}
                   className="mt-4 w-full py-2 rounded-xl text-[12px] font-bold text-white"
-                  style={{ background: 'linear-gradient(135deg, #8B5CF6, #6366F1)' }}>
-                  ✨ Generate paid planning strategy
+                  style={{ background: hasStrategySource ? 'linear-gradient(135deg, #8B5CF6, #6366F1)' : '#cbd5e1' }}>
+                  {generationLoading === 'plan' ? 'Generating execution plan…' : '✨ Generate platform execution plan — 2 credits'}
                 </button>
               )}
               {campaign.aiStrategy && totalAds === 0 && (
-                <button onClick={() => router.push(`/paid-campaigns/new?campaignId=${id}&step=4`)}
+                <button onClick={() => handleGenerateExecutionArtifact('copy')}
+                  disabled={generationLoading !== null || !hasStrategySource}
                   className="mt-4 w-full py-2 rounded-xl text-[12px] font-bold text-white"
-                  style={{ background: 'linear-gradient(135deg, #F97316, #EF4444)' }}>
-                  ✨ Generate ad copy drafts
+                  style={{ background: hasStrategySource ? 'linear-gradient(135deg, #F97316, #EF4444)' : '#cbd5e1' }}>
+                  {generationLoading === 'copy' ? 'Generating ad copy drafts…' : '✨ Generate strategy-aligned ad copy — 2 credits'}
                 </button>
               )}
             </div>
@@ -1182,7 +1240,7 @@ export default function CampaignDetailPage() {
         {activeTab === 'export' && (
           <div className="space-y-4">
             <div className="p-4 rounded-[14px]" style={{ background: 'var(--nx-surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <h3 className="text-[13px] font-bold text-white mb-3">Planning Draft Export</h3>
+              <h3 className="text-[13px] font-bold text-white mb-3">Execution Draft Export</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <button
                   onClick={() => {
@@ -1199,7 +1257,7 @@ export default function CampaignDetailPage() {
                   }}
                   className="p-4 rounded-[12px] text-left hover:bg-white/[0.04] transition-all"
                   style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <p className="text-[13px] font-semibold text-white mb-1">📋 Export paid planning brief</p>
+                  <p className="text-[13px] font-semibold text-white mb-1">📋 Export strategy-linked paid execution package</p>
                   <p className="text-[11px] text-text-muted">Full strategy + copy variants as JSON</p>
                 </button>
 

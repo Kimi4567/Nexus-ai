@@ -18,6 +18,11 @@ import {
 } from '@/lib/adPlatforms/googleAdsApi'
 import { canActivatePlatformCampaign } from '@/lib/paidBoundary'
 import { evaluatePaidExecutionReadiness } from '@/lib/paidExecutionReadiness'
+import {
+  getPaidStrategySourceForUser,
+  PaidStrategySourceError,
+} from '@/lib/paidStrategySourceServer'
+import { paidPlatformSupportsObjective } from '@/lib/paidExecutionObjective'
 
 export const maxDuration = 30
 
@@ -44,6 +49,23 @@ export async function POST(
     })
 
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+
+    const paidSource = await getPaidStrategySourceForUser({
+      campaignId: typeof campaign.organicCampaignId === 'string' ? campaign.organicCampaignId : '',
+      userId: user.id,
+    })
+    if (campaign.objective !== paidSource.truth.executionObjective) {
+      return NextResponse.json({
+        error: 'PAID_OBJECTIVE_STRATEGY_MISMATCH',
+        code: 'PAID_OBJECTIVE_STRATEGY_MISMATCH',
+      }, { status: 422 })
+    }
+    if (!paidPlatformSupportsObjective(campaign.platform, paidSource.truth.executionObjective)) {
+      return NextResponse.json({
+        error: 'PAID_PLATFORM_OBJECTIVE_UNSUPPORTED',
+        code: 'PAID_PLATFORM_OBJECTIVE_UNSUPPORTED',
+      }, { status: 422 })
+    }
 
     const body = await req.json().catch(() => ({}))
     const adAccount = campaign.adAccount as Record<string, unknown> | null
@@ -230,6 +252,9 @@ export async function POST(
       note: `Existing ${campaign.platform} platform draft objects were activated after explicit approval. Paid spend may occur on the connected platform.`,
     })
   } catch (err) {
+    if (err instanceof PaidStrategySourceError) {
+      return NextResponse.json({ error: err.code, code: err.code }, { status: err.status })
+    }
     console.error('[activate-platform]', err)
     const message = err instanceof Error ? err.message : 'Activation failed'
     return NextResponse.json({ error: message, mode: 'platform_activation_failed' }, { status: 500 })

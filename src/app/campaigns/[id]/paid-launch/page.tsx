@@ -245,6 +245,14 @@ export default function PaidLaunchPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  // This route is retained only to review historical PaidCampaignPack records.
+  // New work always enters the canonical strategy-linked AdCampaign workflow.
+  useEffect(() => {
+    if (!loading && campaign && !pack) {
+      router.replace(`/paid-campaigns/new?sourceCampaignId=${id}`)
+    }
+  }, [campaign, id, loading, pack, router])
+
   // ── Save setup then generate ──
   const handleGenerate = async () => {
     if (!paidPlanningInScope) {
@@ -380,6 +388,16 @@ export default function PaidLaunchPage() {
     )
   }
 
+  if (!pack) {
+    return (
+      <AppShell>
+        <div className="flex min-h-screen items-center justify-center bg-[#f6f8fc] px-6 text-center text-sm font-semibold text-slate-600">
+          {copy('جارٍ نقلك إلى مسار التنفيذ المدفوع المرتبط بالاستراتيجية…', 'Opening the strategy-linked paid execution path…')}
+        </div>
+      </AppShell>
+    )
+  }
+
   return (
     <AppShell>
       <main style={{ minHeight: '100vh', background: '#f6f8fc', color: '#0f172a' }}>
@@ -414,10 +432,10 @@ export default function PaidLaunchPage() {
               </p>
               <button
                 type="button"
-                onClick={() => router.push('/paid-campaigns')}
+                onClick={() => router.push(`/paid-campaigns/new?sourceCampaignId=${id}`)}
                 style={{ marginTop: 8, padding: 0, border: 'none', background: 'none', color: '#38bdf8', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
               >
-                {copy('فتح مركز تخطيط الإعلانات المدفوعة', 'Open paid planning hub')}
+                {copy('متابعة التنفيذ المرتبط بهذه الاستراتيجية', 'Continue strategy-linked paid execution')}
               </button>
             </div>
 
