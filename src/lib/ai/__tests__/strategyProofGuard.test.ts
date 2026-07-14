@@ -46,7 +46,7 @@ describe('strategyProofGuard', () => {
       positioning: 'Access premium, freshly roasted coffee from high-quality beans.',
       valuePropositions: ['Fresh weekly roasting for optimal flavor.'],
       ctaVariations: ['See our quality promise'],
-      contentPillars: ['customer stories to collect'],
+      contentPillars: ['customer stories to collect', 'customer story to collect to collect to collect visuals'],
     }, {
       verifiedProof: [],
       allowedClaimText: ['Specialty coffee with fresh weekly roasting.'],
@@ -57,6 +57,7 @@ describe('strategyProofGuard', () => {
     expect(joined).toContain('Fresh weekly roasting.')
     expect(joined).toContain('See the product details')
     expect(joined).toContain('customer stories to collect')
+    expect(joined).toContain('customer story to collect visuals')
     expect(joined).not.toMatch(/freshest|premium|high-quality|optimal|to collect to collect/i)
   })
 
@@ -71,6 +72,17 @@ describe('strategyProofGuard', () => {
     expect(guardStrategyProofText('Premium coffee for local subscribers.', {
       allowedClaimText: ['Avoid premium wording in public copy.'],
     })).toBe('Coffee for local subscribers.')
+  })
+
+  it('states commercial objectives as goals instead of performance promises', () => {
+    const guarded = guardStrategyProof({
+      businessObjective: 'Increase sales through organic engagement.',
+      message: 'Boost your revenue with better content.',
+    }, { verifiedProof: [] })
+
+    expect(guarded.businessObjective).toBe('Support sales goals through organic engagement.')
+    expect(guarded.message).toBe('Support your revenue goals with better content.')
+    expect(JSON.stringify(guarded)).not.toMatch(/increase sales|boost your revenue/i)
   })
 
   it('rewrites unsupported testimonial and customer-story language when verified proof is empty', () => {

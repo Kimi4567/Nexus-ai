@@ -173,8 +173,16 @@ function softenUnsupportedQualityClaims(text: string, context: StrategyProofCont
 
 function cleanProofCollectionArtifacts(text: string): string {
   return text
-    .replace(/\b((?:(?:customer|client)\s+stories?|customer\s+proof|customer\s+reviews?|star\s+ratings?|ratings?|proof(?:\s+examples?)?)\s+to\s+collect)(?:\s+to\s+collect)+\b/gi, '$1')
+    .replace(/\b((?:(?:customer|client)\s+stor(?:y|ies)|customer\s+proof|customer\s+reviews?|star\s+ratings?|ratings?|proof(?:\s+examples?)?)\s+to\s+collect)(?:\s+to\s+collect)+\b/gi, '$1')
     .replace(/\s+([,.;!?])/g, '$1')
+}
+
+function softenUnsupportedPerformancePromises(text: string): string {
+  const startedCapitalized = /^[A-Z]/.test(text.trimStart())
+  const guarded = text
+    .replace(/\b(?:increase|boost|grow|maximi[sz]e|double|triple)\s+your\s+(sales|revenue|profits?|conversions?|leads?|traffic)\b/gi, 'support your $1 goals')
+    .replace(/\b(?:increase|boost|grow|maximi[sz]e|double|triple)\s+(sales|revenue|profits?|conversions?|leads?|traffic)\b/gi, 'support $1 goals')
+  return startedCapitalized ? guarded.replace(/^([a-z])/, char => char.toUpperCase()) : guarded
 }
 
 function softenUnsupportedServiceClaims(text: string, context: StrategyProofContext): string {
@@ -361,12 +369,14 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
   }
 
   guarded = cleanProofCollectionArtifacts(guardUnsupportedBudgetAssumptions(
-    softenUnsupportedQualityClaims(
-      softenUnsupportedServiceClaims(
-        softenAbsoluteOutcomeClaims(guardUnsafeStatusLanguage(guarded)),
+    softenUnsupportedPerformancePromises(
+      softenUnsupportedQualityClaims(
+        softenUnsupportedServiceClaims(
+          softenAbsoluteOutcomeClaims(guardUnsafeStatusLanguage(guarded)),
+          context,
+        ),
         context,
       ),
-      context,
     ),
   ))
     .replace(/\s{2,}/g, ' ')
