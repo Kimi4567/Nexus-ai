@@ -794,6 +794,29 @@ describe('contentDraftTruthGuard', () => {
     expect(guardContentDraftText(safe)).toBe(safe)
   })
 
+  it('repairs observed production coffee filler into grounded, grammatical draft copy', () => {
+    const freshness = guardContentDraftText(
+      'Discover the secret to freshly roasted coffee in Dubai! Say goodbye to stale beans and hello to a vibrant coffee experience with NEXUS E2E Coffee. Our weekly roasting process helps that every cup is as fresh as it gets. Curious about how we do it? Learn more about our roasting process and taste the difference.',
+    )
+    const convenience = guardContentDraftText(
+      "With NEXUS E2E Coffee, enjoy freshly roasted beans delivered right to your door. No more time wasted on sourcing quality coffee. See how easy it is to subscribe and have your coffee needs taken care of.",
+    )
+    const education = guardContentDraftText(
+      "Master the art of brewing at home with our expert tips! Whether you're a novice or a seasoned coffee enthusiast, our brewing tutorials will elevate your coffee game. Watch our brewing tips and transform your home coffee experience.",
+    )
+
+    expect(freshness).toContain('Review the available roasting details')
+    expect(freshness).toContain('Review the roast date and available weekly roasting details')
+    expect(freshness).not.toMatch(/secret|vibrant|helps that|as fresh as it gets|taste the difference/i)
+    expect(convenience).toContain('delivery where supported')
+    expect(convenience).toContain('Compare the available coffee and delivery options')
+    expect(convenience).toContain('Review the subscription terms and delivery zones')
+    expect(convenience).not.toMatch(/right to your door|quality coffee|needs taken care of/i)
+    expect(education).toContain('Record the grind size, dose, water, and brew time')
+    expect(education).toContain('Save this checklist for your next brew')
+    expect(education).not.toMatch(/expert tips|tutorials|elevate|transform/i)
+  })
+
   it('recursively guards generated post fields', () => {
     const guarded = guardContentDraftTruth({
       caption: 'Customer Testimonials: perfect brew every time and Perfect for busy teams with quick delivery guaranteed. هل تبحث عن توصيات لقهوة صباحية مثالية؟',
@@ -850,6 +873,9 @@ describe('contentDraftTruthGuard', () => {
     expect(prompt).toContain('قهوة صباحية مثالية')
     expect(prompt).toContain('كوب قهوة متوازن')
     expect(prompt).toContain('irresistible')
+    expect(prompt).toContain('expert tips')
+    expect(prompt).toContain('correctly formed')
+    expect(prompt).toContain('Educational posts must teach something')
   })
 
   it('analytics insight copy no longer says ready to activate for draft campaigns', () => {
