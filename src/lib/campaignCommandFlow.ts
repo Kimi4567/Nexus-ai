@@ -106,28 +106,81 @@ function creativeStatus(
 ): CampaignCommandFlowStepStatus {
   if (!state.truthFlags.hasContentPlan) return 'pending'
   if (!creativeSummary || creativeSummary.total === 0) return 'review'
-  if (creativeSummary.mediaNeeded > 0 || creativeSummary.readinessPending > 0) return 'current'
+  if (hasOutstandingMediaReview(creativeSummary)) return 'current'
   if (creativeSummary.attachedToPost > 0) return 'complete'
   return 'review'
+}
+
+function hasOutstandingMediaReview(
+  creativeSummary?: CreativeRequirementsSummary | null,
+): boolean {
+  if (!creativeSummary || creativeSummary.total === 0) return false
+
+  return creativeSummary.mediaNeeded > 0
+    || creativeSummary.readinessPending > 0
+    || creativeSummary.attachedToPost < creativeSummary.total
 }
 
 function approvalStatus(
   state: CampaignOperatingState,
   creativeSummary?: CreativeRequirementsSummary | null,
 ): CampaignCommandFlowStepStatus {
+  if (!state.truthFlags.hasContentPlan) return 'pending'
+  if (!creativeSummary || creativeSummary.total === 0) return 'review'
+  if (hasOutstandingMediaReview(creativeSummary)) return 'review'
+  if (state.truthFlags.hasDraftContent) return 'current'
   if (state.truthFlags.hasPublishedContent || state.truthFlags.hasScheduledContent || state.truthFlags.hasApprovedContent) {
     return 'complete'
   }
-  if (
-    state.truthFlags.hasDraftContent &&
-    creativeSummary &&
-    (creativeSummary.mediaNeeded > 0 || creativeSummary.readinessPending > 0)
-  ) {
-    return 'review'
+  return 'review'
+}
+
+function approvalCopy(
+  state: CampaignOperatingState,
+  creativeSummary?: CreativeRequirementsSummary | null,
+): Pick<CampaignCommandFlowStep, 'helperEn' | 'helperAr' | 'metricEn' | 'metricAr'> {
+  const draftPosts = state.counts.draftPosts
+  const approvedPosts = state.counts.approvedPosts
+
+  if (!creativeSummary || creativeSummary.total === 0) {
+    return {
+      helperEn: 'Copy status is available, but media review state is not confirmed yet.',
+      helperAr: 'حالة النص متاحة، لكن حالة مراجعة الوسائط لم تتأكد بعد.',
+      metricEn: `${draftPosts} draft · ${approvedPosts} copy approved · media unconfirmed`,
+      metricAr: `${draftPosts} مسودة · ${approvedPosts} نص معتمد · الوسائط غير مؤكدة`,
+    }
   }
-  if (state.truthFlags.hasDraftContent) return 'current'
-  if (state.truthFlags.hasContentPlan) return 'review'
-  return 'pending'
+
+  if (hasOutstandingMediaReview(creativeSummary)) {
+    const mediaPending = Math.max(
+      creativeSummary.mediaNeeded,
+      creativeSummary.readinessPending,
+      creativeSummary.total - creativeSummary.attachedToPost,
+    )
+    const copyApproved = approvedPosts > 0 && draftPosts === 0
+
+    return {
+      helperEn: copyApproved
+        ? 'Copy approval is saved. Media still needs review before scheduling or publishing.'
+        : 'Copy and media review are still open before scheduling or publishing.',
+      helperAr: copyApproved
+        ? 'تم حفظ اعتماد النص. ما زالت الوسائط تحتاج مراجعة قبل الجدولة أو النشر.'
+        : 'ما زالت مراجعة النص والوسائط مفتوحة قبل الجدولة أو النشر.',
+      metricEn: copyApproved
+        ? `${approvedPosts} copy approved · ${mediaPending} media pending`
+        : `${draftPosts} draft · ${approvedPosts} copy approved · ${mediaPending} media pending`,
+      metricAr: copyApproved
+        ? `${approvedPosts} نص معتمد · ${mediaPending} وسائط معلقة`
+        : `${draftPosts} مسودة · ${approvedPosts} نص معتمد · ${mediaPending} وسائط معلقة`,
+    }
+  }
+
+  return {
+    helperEn: 'Copy and attached media have passed review before scheduling or publishing.',
+    helperAr: 'اجتاز النص والوسائط المرتبطة المراجعة قبل الجدولة أو النشر.',
+    metricEn: `${draftPosts} draft · ${approvedPosts} approved · ${creativeSummary.attachedToPost} media reviewed`,
+    metricAr: `${draftPosts} مسودة · ${approvedPosts} معتمدة · ${creativeSummary.attachedToPost} وسائط مُراجعة`,
+  }
 }
 
 function publishingStatus(
@@ -211,7 +264,27 @@ function deriveNextAction(input: DeriveCampaignCommandFlowInput): CampaignComman
     }
   }
 
-  if (creativeSummary && (creativeSummary.mediaNeeded > 0 || creativeSummary.readinessPending > 0)) {
+  if (operatingState.truthFlags.hasPublishedContent && !operatingState.truthFlags.hasDraftContent) {
+    return currentStepAction(input, 'performance', {
+      titleEn: 'Wait for real analytics before learning',
+      titleAr: 'انتظر التحليلات الحقيقية قبل التعلم',
+      helperEn: 'Manual records and approvals are workflow signals. Performance learning starts only after real analytics are available.',
+      helperAr: 'السجلات اليدوية والموافقات إشارات تشغيلية. يبدأ التعلم من الأداء فقط بعد توفر تحليلات حقيقية.',
+      labelEn: 'Open Performance',
+      labelAr: 'افتح الأداء',
+      href: `/campaigns/${campaignId}?tab=performance`,
+    }, {
+      titleEn: 'Continue here: wait for real analytics',
+      titleAr: 'تابع هنا: انتظر التحليلات الحقيقية',
+      helperEn: 'You are already in Performance. Treat manual records as workflow signals until real analytics arrive.',
+      helperAr: 'أنت بالفعل داخل الأداء. اعتبر السجلات اليدوية إشارات تشغيلية فقط حتى تصل تحليلات حقيقية.',
+      labelEn: 'Review performance below',
+      labelAr: 'راجع الأداء بالأسفل',
+      href: '#campaign-performance-work',
+    })
+  }
+
+  if (hasOutstandingMediaReview(creativeSummary)) {
     return currentStepAction(input, 'creative', {
       titleEn: 'Resolve creative and media readiness',
       titleAr: 'حسم جاهزية الإبداع والوسائط',
@@ -253,26 +326,6 @@ function deriveNextAction(input: DeriveCampaignCommandFlowInput): CampaignComman
       labelAr: 'راجع Content Hub',
       href: `/campaigns/${campaignId}/content-hub`,
     }
-  }
-
-  if (operatingState.truthFlags.hasPublishedContent) {
-    return currentStepAction(input, 'performance', {
-      titleEn: 'Wait for real analytics before learning',
-      titleAr: 'انتظر التحليلات الحقيقية قبل التعلم',
-      helperEn: 'Manual records and approvals are workflow signals. Performance learning starts only after real analytics are available.',
-      helperAr: 'السجلات اليدوية والموافقات إشارات تشغيلية. يبدأ التعلم من الأداء فقط بعد توفر تحليلات حقيقية.',
-      labelEn: 'Open Performance',
-      labelAr: 'افتح الأداء',
-      href: `/campaigns/${campaignId}?tab=performance`,
-    }, {
-      titleEn: 'Continue here: wait for real analytics',
-      titleAr: 'تابع هنا: انتظر التحليلات الحقيقية',
-      helperEn: 'You are already in Performance. Treat manual records as workflow signals until real analytics arrive.',
-      helperAr: 'أنت بالفعل داخل الأداء. اعتبر السجلات اليدوية إشارات تشغيلية فقط حتى تصل تحليلات حقيقية.',
-      labelEn: 'Review performance below',
-      labelAr: 'راجع الأداء بالأسفل',
-      href: '#campaign-performance-work',
-    })
   }
 
   return currentStepAction(input, 'publishing', {
@@ -403,6 +456,7 @@ function deriveLoadingContentStateFlow(
 export function deriveCampaignCommandFlow(input: DeriveCampaignCommandFlowInput): CampaignCommandFlow {
   const { operatingState, creativeSummary, publishSummary, brandScore } = input
   const brand = brandMetric(brandScore)
+  const approval = approvalCopy(operatingState, creativeSummary)
   const isPaidOnly = Boolean(input.isPaidOnlyStrategy)
   const includesPaid = Boolean(input.includesPaidPlanning)
 
@@ -489,10 +543,7 @@ export function deriveCampaignCommandFlow(input: DeriveCampaignCommandFlowInput)
         status: approvalStatus(operatingState, creativeSummary),
         titleEn: 'Approval',
         titleAr: 'الاعتماد',
-        helperEn: 'Copy and media reviewed before schedule or publish decisions.',
-        helperAr: 'مراجعة النص والوسائط قبل قرارات الجدولة أو النشر.',
-        metricEn: `${operatingState.counts.draftPosts} draft · ${operatingState.counts.approvedPosts} approved`,
-        metricAr: `${operatingState.counts.draftPosts} مسودة · ${operatingState.counts.approvedPosts} معتمدة`,
+        ...approval,
         href: `/campaigns/${input.campaignId}/content-hub`,
       },
       {
