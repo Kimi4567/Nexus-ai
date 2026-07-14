@@ -71,7 +71,11 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'unsupported_absolute_claim',
-    re: /(?:الحل الأمثل|مفتاح النجاح|تحقيق النجاح|يغير منظورك|مضمون|دائمًا|كل مرة|أفضل|مثالي|مثالية|لا تقاوم)|(?:guarantee|guaranteed|ensure|ensures|perfect|best|ultimate|game[-\s]?changer|irresistible|unmatched|extraordinary)/i,
+    re: /(?:الحل الأمثل|مفتاح النجاح|تحقيق النجاح|يغير منظورك|مضمون|دائمًا|كل مرة|أفضل|مثالي|مثالية|لا تقاوم)|(?:guarantee|guaranteed|ensure|ensures|perfect|best|ultimate|game[-\s]?changer|irresistible|unmatched|extraordinary|as fresh as it gets|taste the difference|expert tips|elevate your|transform your)/i,
+  },
+  {
+    reason: 'malformed_caption',
+    re: /\bhelps that\b|#[\p{L}\p{N}_]*coffeeless\b/iu,
   },
   {
     reason: 'unsupported_absolute_claim',
@@ -86,6 +90,22 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
 
 function normalizeText(value: unknown): string {
   return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : ''
+}
+
+function normalizeBrandHashtag(text: string, brand: string): string {
+  const brandTokens = brand.trim().split(/[^\p{L}\p{N}]+/u).filter(Boolean)
+  if (brandTokens.length < 2) return text
+
+  const canonical = brandTokens.join('')
+  const normalizedCanonical = canonical.toLocaleLowerCase()
+  return text.replace(/#([\p{L}\p{N}_]+)/gu, (full, rawTag: string) => {
+    const normalizedTag = rawTag.replace(/_/g, '').toLocaleLowerCase()
+    return normalizedTag.startsWith(normalizedCanonical) ? `#${canonical}` : full
+  })
+}
+
+function finalizeCaption(text: string, ctx: ContentPlanRenderContext): string {
+  return normalizeBrandHashtag(guardContentDraftText(text, ctx), ctx.brand)
 }
 
 function stringifyContextValue(value: unknown): string {
@@ -269,14 +289,16 @@ export function renderContentPlanDraftCaption(
   )
 
   if (isClinicOperationalSaasContent(ctx, gen)) {
-    return guardContentDraftText(renderClinicCaption(ctx, gen), ctx)
+    return finalizeCaption(renderClinicCaption(ctx, gen), ctx)
   }
 
   if (isCustomerWorkflowSaasContent(ctx)) {
-    return guardContentDraftText(renderCustomerWorkflowCaption(ctx), ctx)
+    return finalizeCaption(renderCustomerWorkflowCaption(ctx), ctx)
   }
 
-  return guardedSource || guardContentDraftText(
+  return guardedSource
+    ? normalizeBrandHashtag(guardedSource, ctx.brand)
+    : finalizeCaption(
     ctx.isArabic
       ? `${ctx.brand || 'علامتك'} — راجع الفكرة الأساسية والخطوة التالية قبل النشر.`
       : `${ctx.brand || 'Your brand'} — review the core idea and next step before publishing.`,

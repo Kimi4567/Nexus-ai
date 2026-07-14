@@ -213,6 +213,36 @@ describe('contentPlanStructuredRenderer', () => {
     expect(caption).toBe('Choose the right grind size for your brewing method.')
   })
 
+  it('normalizes malformed multi-word brand hashtags and passes the save gate', () => {
+    const caption = renderContentPlanDraftCaption({
+      caption: 'Review the roast date before choosing your next bag. #FreshCoffee #NEXUSE2ECoffeeless',
+    }, {
+      isArabic: false,
+      brand: 'NEXUS E2E Coffee',
+      keyMessage: 'weekly roasting details',
+      targetAudience: 'home brewers',
+      contentPillars: ['coffee education'],
+      platform: 'META',
+      postIndex: 0,
+      verifiedProof: [],
+    })
+
+    expect(caption).toContain('#FreshCoffee')
+    expect(caption).toContain('#NEXUSE2ECoffee')
+    expect(caption).not.toContain('#NEXUSE2ECoffeeless')
+    expect(validateContentPlanDraftForSave({ caption }).ok).toBe(true)
+  })
+
+  it('blocks malformed or unsupported filler if it reaches persistence unchanged', () => {
+    const result = validateContentPlanDraftForSave({
+      caption: 'Our process helps that every cup is as fresh as it gets. Read our expert tips. #NEXUSE2ECoffeeless',
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.issues.map(issue => issue.reason)).toContain('malformed_caption')
+    expect(result.issues.map(issue => issue.reason)).toContain('unsupported_absolute_claim')
+  })
+
   it('renders explicit customer-workflow SaaS facts with safe captions and neutral visuals', () => {
     const ctx: ContentPlanRenderContext = {
       isArabic: true,

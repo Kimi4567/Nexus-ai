@@ -468,6 +468,8 @@ function guardDeliveryClaims(text: string): string {
     .replace(/\bdelivery guaranteed\b/gi, 'delivery where available')
     .replace(/\bguaranteed delivery\b/gi, 'delivery where available')
     .replace(/\bdelivered to your doorstep\b/gi, 'delivery where available')
+    .replace(/\bdelivered (?:right )?to your door\b/gi, 'available through delivery where supported')
+    .replace(/\bdelivered (?:right )?to your home\b/gi, 'available through delivery where supported')
     .replace(/\bdelivery to your doorstep\b/gi, 'delivery where available')
     .replace(/\bto your doorstep\b/gi, 'where available')
     .replace(/\bdoorstep delivery\b/gi, 'supported-zone delivery')
@@ -476,6 +478,37 @@ function guardDeliveryClaims(text: string): string {
     .replace(/\bquick delivery\b/gi, 'delivery timing depends on location')
     .replace(/\bnext-day delivery\b/gi, 'next-day delivery where available')
     .replace(/\bdelivered in 48 hours\b/gi, 'delivery timing depends on location')
+}
+
+function guardDraftCopyQuality(text: string): string {
+  return text
+    // Observed production failure: generic model filler combined unsupported
+    // freshness/expertise claims with malformed grammar. These rewrites keep the
+    // draft useful without manufacturing proof or a destination that does not exist.
+    .replace(
+      /\bMaster the art of brewing at home with our expert tips!\s*Whether you're a novice or a seasoned coffee enthusiast, our brewing tutorials will elevate your coffee game\.\s*Watch our brewing tips and transform your home coffee experience\./gi,
+      'Refine your home-brewing routine one variable at a time. Record the grind size, dose, water, and brew time, then change one variable on the next cup. Save this checklist for your next brew.',
+    )
+    .replace(
+      /\bOur weekly roasting process helps that every cup is as fresh as it gets\.?/gi,
+      'Review the roast date and available weekly roasting details before choosing your next bag.',
+    )
+    .replace(
+      /\bSay goodbye to stale beans and hello to a vibrant coffee experience with ([^.?!]+)[.!]?/gi,
+      "If stale beans are a concern, review the available roasting and product details from $1.",
+    )
+    .replace(/\bDiscover the secret to freshly roasted coffee in ([^.?!]+)[.!]?/gi, 'Review the available roasting details for this coffee subscription in $1.')
+    .replace(/\bNo more time wasted on sourcing quality coffee\.?/gi, 'Compare the available coffee and delivery options.')
+    .replace(/\bSee how easy it is to subscribe and have your coffee needs taken care of\.?/gi, 'Review the subscription terms and delivery zones before choosing a plan.')
+    .replace(/\bhelps that\b/gi, 'helps make')
+    .replace(/\bas fresh as it gets\b/gi, 'more consistent')
+    .replace(/\bour expert tips\b/gi, 'these practical tips')
+    .replace(/\bexpert tips\b/gi, 'practical tips')
+    .replace(/\bwill elevate your coffee game\b/gi, 'can help you refine your brewing routine')
+    .replace(/\btransform your home coffee experience\b/gi, 'review your home-brewing routine')
+    .replace(/\btaste the difference\b/gi, 'review the product details')
+    .replace(/\bvibrant coffee experience\b/gi, 'more consistent coffee routine')
+    .replace(/\bquality coffee\b/gi, 'coffee options')
 }
 
 function guardCoffeeComplianceClaims(text: string): string {
@@ -546,7 +579,7 @@ export function guardContentDraftText(
   if (typeof text !== 'string' || !text.trim()) return typeof text === 'string' ? text : ''
 
   return guardSaasActivationClaims(guardPaidAndStatusClaims(
-    guardCoffeeComplianceClaims(
+    guardDraftCopyQuality(guardCoffeeComplianceClaims(
       guardDeliveryClaims(
         guardOutcomeClaims(
           guardFitClaims(
@@ -563,7 +596,7 @@ export function guardContentDraftText(
           context,
         ),
       ),
-    ),
+    )),
   ), context)
     .replace(/\s{2,}/g, ' ')
     .trim()
@@ -618,5 +651,9 @@ export function buildContentDraftTruthPolicyPrompt(): string {
     '- Arabic output must avoid broad quality/superlative wording such as أفضل نكهة, أفضل تجربة, بجودة لا تقاوم, and نكهة فريدة unless exact user-provided proof exists. Prefer نكهة متوازنة, جودة مختارة بعناية, تجربة أكثر اتساقًا, or خطوات عملية.',
     '- Avoid residual broad best/premium quality wording such as أفضل الحبوب, أفضل حبوب القهوة, premium experience, premium quality, best beans, and best flavor unless exact user-provided proof exists. Prefer حبوب مختارة بعناية, مذاق متوازن, more considered experience, carefully selected beans, or balanced flavor.',
     '- Avoid English hype such as irresistible, extraordinary, unmatched, and unique coffee experience unless exact user-provided proof exists.',
+    '- Do not use generic filler such as "as fresh as it gets", "taste the difference", "elevate your", or "transform your experience". Replace it with a concrete fact, checklist, or bounded next step.',
+    '- Do not claim "expert tips" or expert guidance unless Brand Brain contains verified expertise. Use practical guidance instead.',
+    '- Educational posts must teach something inside the current post. Do not tell users to watch a tutorial, read a guide, or visit content that is not present in the post or linked through a verified destination.',
+    '- Hashtags must be meaningful and correctly formed. A brand hashtag must be the exact brand name with spaces and punctuation removed; never append invented suffixes.',
   ].join('\n')
 }

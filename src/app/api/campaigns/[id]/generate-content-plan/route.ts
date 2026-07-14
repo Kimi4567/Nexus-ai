@@ -514,6 +514,9 @@ Generate platform-native social media posts. Each post must:
 - Adapt presentation to the platform without changing the saved customer, offer, or business type. LinkedIn must stay customer-facing for a consumer/service brand (education, community trust, or professional expertise); never turn it into internal administration, team workflow, ownership, handoff, or SaaS operations unless Brand Brain explicitly says the offer is operations software. Instagram should lead with a visual/saveable idea; short-form video should lead with a scene and retention hook.
 - Mention the brand only when it strengthens the message or CTA. Do not repeat the brand name mechanically in every post.
 - Treat missing proof, competitor data, tracking, or conversion details as a content/review gap. Never convert a gap into a factual claim.
+- Make educational posts self-contained: include the actual checklist, steps, or fact in the caption instead of teasing a tutorial or guide that is not present.
+- Use only correctly formed, meaningful hashtags. If you use a brand hashtag, remove spaces and punctuation from the exact brand name and add no invented suffix.
+- Reject generic hype and unsupported expertise wording such as "as fresh as it gets", "taste the difference", "expert tips", "elevate your", or "transform your experience".
 
 Return a JSON array of exactly ${slots.length} post objects:
 [
