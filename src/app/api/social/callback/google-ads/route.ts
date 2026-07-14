@@ -8,6 +8,7 @@ import {
   exchangeGoogleAdsAuthorizationCode,
   googleAdsAccessTier,
   googleAdsAccountCanExecute,
+  GoogleAdsOAuthError,
   GOOGLE_ADS_SCOPE,
 } from '@/lib/adPlatforms/googleAdsApi'
 import { googleAdsOAuthContextMatches } from '@/lib/googleAdsOAuth'
@@ -154,7 +155,16 @@ export async function GET(req: NextRequest) {
 
     return redirect(`/connections?social=connected&platform=google_ads&accounts=${accounts.length}`)
   } catch (error) {
-    console.error('[Google Ads OAuth]', error)
+    if (error instanceof GoogleAdsOAuthError) {
+      console.error('[Google Ads OAuth] token_exchange_failed', {
+        status: error.status,
+        code: error.code,
+        description: error.description,
+        redirectOrigin: appUrl(),
+      })
+    } else {
+      console.error('[Google Ads OAuth]', error)
+    }
     return errorRedirect(error instanceof Error ? error.message : 'google_ads_connection_failed')
   }
 }

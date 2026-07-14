@@ -188,6 +188,31 @@ export class GoogleAdsApiError extends Error {
   }
 }
 
+export class GoogleAdsOAuthError extends Error {
+  readonly status: number
+  readonly code: string
+  readonly description: string | null
+
+  constructor(input: {
+    status: number
+    code: string
+    description?: string | null
+  }) {
+    const message = input.code === 'invalid_client'
+      ? 'Google Ads rejected the OAuth client credentials. Rotate the client secret and reconnect.'
+      : input.code === 'invalid_grant'
+        ? 'The Google authorization expired or was already used. Start the Google Ads connection again.'
+        : input.code === 'redirect_uri_mismatch'
+          ? 'The Google Ads OAuth callback does not match the redirect URI configured in Google Cloud.'
+          : `Google Ads token exchange failed (${input.code})`
+    super(message)
+    this.name = 'GoogleAdsOAuthError'
+    this.status = input.status
+    this.code = input.code
+    this.description = input.description?.trim() || null
+  }
+}
+
 async function googleAdsFetchWithToken<T extends JsonObject>(input: {
   path: string
   accessToken: string
@@ -249,7 +274,15 @@ export async function exchangeGoogleAdsAuthorizationCode(input: {
   })
   const data = await responseJson(response)
   if (!response.ok || typeof data.access_token !== 'string') {
-    throw new Error(errorMessage(data, 'Google Ads token exchange failed'))
+    throw new GoogleAdsOAuthError({
+      status: response.status,
+      code: typeof data.error === 'string' && data.error.trim()
+        ? data.error.trim()
+        : 'token_exchange_failed',
+      description: typeof data.error_description === 'string'
+        ? data.error_description
+        : null,
+    })
   }
   if (typeof data.refresh_token !== 'string' || !data.refresh_token) {
     throw new Error('Google did not return a refresh token. Revoke the previous grant and reconnect with consent.')
