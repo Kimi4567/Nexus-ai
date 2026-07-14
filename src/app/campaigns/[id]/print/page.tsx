@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
-import { useParams } from 'next/navigation'
+import { useCallback, useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n-context'
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 
 interface Campaign {
   id: string
@@ -22,38 +24,71 @@ const PLATFORM_LABELS: Record<string, string> = {
 
 export default function CampaignPrintPage() {
   const params = useParams()
+  const router = useRouter()
   const campaignId = params?.id as string
   const { isAuthenticated, loading, authHeader } = useAuth()
+  const { locale } = useI18n()
+  const ar = locale === 'ar'
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [fetching, setFetching] = useState(true)
-  const printTriggered = useRef(false)
+  const [loadError, setLoadError] = useState(false)
 
-  useEffect(() => {
-    if (!loading && !isAuthenticated) return
-    if (!isAuthenticated) return
+  const fetchCampaign = useCallback(async () => {
     const token = authHeader()
-    if (!token) return
-
-    fetch(`/api/campaigns/${campaignId}`, { headers: { Authorization: token } })
-      .then(r => r.json())
-      .then(d => { if (d.campaign) setCampaign(d.campaign) })
-      .finally(() => setFetching(false))
-  }, [loading, isAuthenticated, campaignId, authHeader])
-
-  // Auto-print once loaded
-  useEffect(() => {
-    if (!fetching && campaign && !printTriggered.current) {
-      printTriggered.current = true
-      setTimeout(() => window.print(), 800)
+    if (!token) {
+      setFetching(false)
+      setLoadError(true)
+      return
     }
-  }, [fetching, campaign])
+    setFetching(true)
+    setLoadError(false)
+    try {
+      const response = await fetchWithTimeout(`/api/campaigns/${campaignId}`, { headers: { Authorization: token } })
+      if (response.status === 404) {
+        setCampaign(null)
+        return
+      }
+      if (!response.ok) throw new Error('campaign-load-failed')
+      const data = await response.json()
+      if (data.campaign) setCampaign(data.campaign)
+    } catch {
+      setCampaign(null)
+      setLoadError(true)
+    } finally {
+      setFetching(false)
+    }
+  }, [authHeader, campaignId])
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.replace('/auth/login')
+      return
+    }
+    if (!isAuthenticated) return
+    void fetchCampaign()
+  }, [fetchCampaign, isAuthenticated, loading, router])
+
+  if (!loading && !isAuthenticated) return null
 
   if (loading || fetching) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-white">
         <div className="text-center">
           <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-800 rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">Preparing your content plan document...</p>
+          <p className="text-gray-500 text-sm">{ar ? 'جارٍ تجهيز مستند خطة المحتوى...' : 'Preparing your content plan document...'}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white px-6">
+        <div className="text-center">
+          <p className="font-bold text-slate-700">{ar ? 'تعذّر تحميل مستند خطة المحتوى.' : 'Could not load the content plan document.'}</p>
+          <button type="button" onClick={() => void fetchCampaign()} className="mt-3 rounded-xl bg-[#101A4D] px-4 py-2.5 text-sm font-bold text-white">
+            {ar ? 'إعادة المحاولة' : 'Retry'}
+          </button>
         </div>
       </div>
     )
@@ -62,7 +97,7 @@ export default function CampaignPrintPage() {
   if (!campaign) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-white">
-        <p className="text-gray-500">Campaign not found.</p>
+        <p className="text-gray-500">{ar ? 'الحملة غير موجودة.' : 'Campaign not found.'}</p>
       </div>
     )
   }
@@ -91,7 +126,7 @@ export default function CampaignPrintPage() {
   const captionFormulas: string[] = aiOutput?.captionFormulas || []
   const calendar: any[] = aiOutput?.contentCalendar || strategy.contentCalendar || []
 
-  const date = new Date(campaign.createdAt).toLocaleDateString('en-US', {
+  const date = new Date(campaign.createdAt).toLocaleDateString(ar ? 'ar-EG' : 'en-US', {
     year: 'numeric', month: 'long', day: 'numeric'
   })
 
@@ -264,7 +299,7 @@ export default function CampaignPrintPage() {
       `}</style>
 
       <button className="print-btn no-print" onClick={() => window.print()}>
-        ⬇ Save as PDF
+        {ar ? '⬇ حفظ كملف PDF' : '⬇ Save as PDF'}
       </button>
 
       <div className="doc">

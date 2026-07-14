@@ -107,9 +107,10 @@ describe('useBrandBrain auth-ready loading', () => {
 
     const { result } = renderHook(() => useBrandBrain())
 
-    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith('/api/brand', {
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith('/api/brand', expect.objectContaining({
       headers: { Authorization: 'Bearer ready-token' },
-    }))
+      signal: expect.any(AbortSignal),
+    })))
 
     await waitFor(() => {
       expect(result.current.brand?.brandName).toBe('Nesreen Studio')

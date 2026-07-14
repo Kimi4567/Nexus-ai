@@ -8,6 +8,7 @@ import {
   isContentPostMediaReadyForScheduling,
 } from '@/lib/contentHubMediaState'
 import { useI18n } from '@/lib/i18n-context'
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -135,33 +136,47 @@ export default function ContentHubPage() {
   const [campaigns, setCampaigns] = useState<CampaignRecord[]>([])
   const [posts, setPosts] = useState<SocialPostRecord[]>([])
   const [loading, setLoading] = useState(true)
+  const [plansLoading, setPlansLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeFormat, setActiveFormat] = useState('all')
 
   const loadBoard = useCallback(async () => {
     if (!isAuthenticated) return
     const token = authHeader()
-    if (!token) return
+    if (!token) {
+      setLoading(false)
+      setError(isAr ? 'تعذّر التحقق من جلسة الدخول. أعد المحاولة.' : 'Could not verify your session. Retry.')
+      return
+    }
     setLoading(true)
+    setPlansLoading(false)
     setError(null)
 
     try {
-      const campaignRes = await fetch('/api/campaigns?limit=20&sort=updatedAt', {
+      const campaignRes = await fetchWithTimeout('/api/campaigns?limit=20&sort=updatedAt', {
         headers: { Authorization: token },
-      })
+      }, 8_000)
 
       if (!campaignRes.ok) throw new Error(isAr ? 'تعذر تحميل الحملات' : 'Failed to load campaigns')
 
       const campaignData = (await campaignRes.json()) as CampaignsResponse
       const campaignList = campaignData.campaigns ?? []
       setCampaigns(campaignList)
+      setLoading(false)
+
+      if (!campaignList.length) {
+        setPosts([])
+        return
+      }
+
+      setPlansLoading(true)
 
       const planResults = await Promise.allSettled(
         campaignList.slice(0, 12).map(async campaign => {
-          const res = await fetch(`/api/campaigns/${campaign.id}/content-plan`, {
+          const res = await fetchWithTimeout(`/api/campaigns/${campaign.id}/content-plan`, {
             headers: { Authorization: token },
-          })
-          if (!res.ok) return []
+          }, 8_000)
+          if (!res.ok) throw new Error('content-plan-load-failed')
           const data = (await res.json()) as ContentPlanResponse
           return (data.posts ?? []).map(post => ({
             ...post,
@@ -171,12 +186,17 @@ export default function ContentHubPage() {
         }),
       )
 
-      setPosts(planResults.flatMap(result => result.status === 'fulfilled' ? result.value : []))
+      const successfulPlans = planResults.filter(result => result.status === 'fulfilled')
+      setPosts(successfulPlans.flatMap(result => result.value))
+      if (!successfulPlans.length) {
+        setError(isAr ? 'ظهرت الحملات، لكن تعذّر تحميل خطط المحتوى. أعد المحاولة.' : 'Campaigns loaded, but content plans did not. Retry.')
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : (isAr ? 'حدث خطأ غير متوقع' : 'Unexpected error')
       setError(message)
     } finally {
       setLoading(false)
+      setPlansLoading(false)
     }
   }, [authHeader, isAr, isAuthenticated])
 
@@ -266,10 +286,19 @@ export default function ContentHubPage() {
   if (authLoading || loading) {
     return (
       <AppShell>
-        <div className="nx-os-page flex min-h-screen items-center justify-center">
-          <div className="nx-os-card px-7 py-6 text-center">
-            <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#5E63FF]" />
-            <p className="mt-3 text-[13px] font-bold text-slate-500">{isAr ? 'جار تجهيز مركز المحتوى...' : 'Preparing Content Hub...'}</p>
+        <div className="nx-os-page">
+          <div className="nx-os-container nx-os-stack">
+            <LuxuryWorkspaceHeader
+              pageTitle={isAr ? 'نظرة عامة على المحتوى' : 'Content operations overview'}
+              pageSubtitle={isAr ? 'ملخص إنتاج المحتوى عبر كل الحملات.' : 'A production summary across all campaigns.'}
+              primaryHref={null}
+              secondaryHref="/strategy"
+              secondaryLabel={isAr ? 'الاستراتيجية والحملات' : 'Strategy & campaigns'}
+            />
+            <div className="nx-os-card px-7 py-6 text-center">
+              <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#5E63FF]" />
+              <p className="mt-3 text-[13px] font-bold text-slate-500">{isAr ? 'جارٍ تحميل قائمة الحملات...' : 'Loading campaign list...'}</p>
+            </div>
           </div>
         </div>
       </AppShell>
@@ -281,8 +310,8 @@ export default function ContentHubPage() {
       <div className="nx-os-page">
         <div className="nx-os-container nx-os-stack">
           <LuxuryWorkspaceHeader
-            pageTitle={isAr ? 'مركز إنتاج المحتوى' : 'Content Production Hub'}
-            pageSubtitle={isAr ? 'حوّل الاستراتيجية إلى منشورات ووسائط قابلة للمراجعة قبل النشر.' : 'Turn strategy into reviewable posts and media before publishing.'}
+            pageTitle={isAr ? 'نظرة عامة على المحتوى' : 'Content operations overview'}
+            pageSubtitle={isAr ? 'راقب جاهزية المحتوى عبر الحملات، ثم افتح إنتاج حملة للمراجعة والتنفيذ.' : 'Track readiness across campaigns, then open one campaign for review and execution.'}
             primaryHref={latestCampaignContentHref}
             primaryLabel={latestCampaign ? (isAr ? 'مراجعة الإنتاج' : 'Review production') : (isAr ? 'إنشاء استراتيجية' : 'Create strategy')}
             secondaryHref="/strategy"
@@ -290,8 +319,22 @@ export default function ContentHubPage() {
           />
 
           {error && (
-            <SoftPanel className="p-4 text-[13px] font-bold text-rose-600" dir={isAr ? 'rtl' : 'ltr'}>
-              {error}
+            <SoftPanel className="flex flex-col gap-3 p-4 text-[13px] font-bold text-rose-600 sm:flex-row sm:items-center sm:justify-between" dir={isAr ? 'rtl' : 'ltr'}>
+              <span>{error}</span>
+              <button
+                type="button"
+                onClick={() => void loadBoard()}
+                className="shrink-0 rounded-xl bg-rose-700 px-4 py-2 text-xs font-bold text-white"
+              >
+                {isAr ? 'إعادة المحاولة' : 'Retry'}
+              </button>
+            </SoftPanel>
+          )}
+
+          {plansLoading && (
+            <SoftPanel className="flex items-center gap-3 p-4 text-[13px] font-bold text-slate-600" dir={isAr ? 'rtl' : 'ltr'}>
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#5E63FF]" />
+              <span>{isAr ? 'ظهرت الحملات؛ جارٍ جمع خطط المحتوى في الخلفية.' : 'Campaigns are ready; content plans are loading in the background.'}</span>
             </SoftPanel>
           )}
 

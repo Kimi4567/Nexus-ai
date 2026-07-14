@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 import {
   Users, CreditCard, TrendingUp, RefreshCw, Plus, Minus,
   Search, ShieldAlert, X, Crown, Zap, Building2, Trash2,
@@ -539,6 +540,7 @@ export default function AdminPage() {
   const [planCounts, setPlanCounts]   = useState<PlanCount[]>([])
   const [recentSignups, setRecentSignups] = useState<RecentSignup[]>([])
   const [loading, setLoading]         = useState(true)
+  const [accessState, setAccessState] = useState<'checking' | 'allowed' | 'denied' | 'failed'>('checking')
   const [error, setError]             = useState('')
   const [search, setSearch]           = useState('')
   const [planFilter, setPlanFilter]   = useState('ALL')
@@ -564,35 +566,69 @@ export default function AdminPage() {
     if (!token) return
     setLoading(true); setError('')
     try {
-      const res = await fetch('/api/admin/users', {
+      const res = await fetchWithTimeout('/api/admin/users', {
         headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.status === 403) { router.push('/dashboard'); return }
+      }, 8_000)
+      if (res.status === 403) {
+        setAccessState('denied')
+        router.replace('/dashboard')
+        return
+      }
       if (!res.ok) throw new Error('Failed to load')
       const data = await res.json()
+      setAccessState('allowed')
       setUsers(data.users)
       setPlanCounts(data.planCounts)
       setRecentSignups(data.recentSignups || [])
     } catch (e: unknown) {
+      setAccessState('failed')
       setError(e instanceof Error ? e.message : 'Error loading')
     } finally {
       setLoading(false)
     }
   }, [token, router])
 
-  useEffect(() => {
-    if (!authLoading && !user) { router.push('/auth/login'); return }
-    if (!authLoading && token) {
-      // Quick client-side role check before firing heavy admin API
-      fetch('/api/user/me', { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => r.json())
-        .then(data => {
-          if (data.role !== 'ADMIN') { router.push('/dashboard'); return }
-          load()
-        })
-        .catch(() => load()) // On error fall through; server-side guard will 403
+  const verifyAccess = useCallback(async () => {
+    if (!token) return
+    setAccessState('checking')
+    setError('')
+
+    try {
+      // This lightweight check prevents non-admin users from seeing an admin
+      // data-loading message. The admin endpoint remains the final authority.
+      const response = await fetchWithTimeout('/api/user/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      }, 6_000)
+      if (!response.ok) throw new Error('Role verification failed')
+      const data = await response.json()
+      if (data.role !== 'ADMIN') {
+        setAccessState('denied')
+        setLoading(false)
+        router.replace('/dashboard')
+        return
+      }
+      setAccessState('allowed')
+      await load()
+    } catch {
+      // If the lightweight endpoint is unavailable, ask the server-protected
+      // admin endpoint. A 403 there still redirects without exposing data.
+      await load()
     }
-  }, [authLoading, user, token, load, router])
+  }, [load, router, token])
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      setAccessState('denied')
+      router.replace('/auth/login')
+      return
+    }
+    if (!authLoading && user && !token) {
+      setAccessState('failed')
+      setLoading(false)
+      return
+    }
+    if (!authLoading && token) void verifyAccess()
+  }, [authLoading, user, token, verifyAccess, router])
 
   function handleCreditSuccess(userId: string, newCredits: number) {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, aiCredits: newCredits } : u))
@@ -662,7 +698,41 @@ export default function AdminPage() {
     else { setSortBy(col); setSortDir('desc') }
   }
 
-  if (authLoading || loading) {
+  if (authLoading || accessState === 'checking') {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#060718' }}>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+            <RefreshCw size={18} className="text-purple-400 animate-spin" />
+          </div>
+          <p className="text-[13px] text-slate-400">Verifying admin access…</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user || accessState === 'denied') return null
+
+  if (accessState === 'failed') {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6" style={{ background: '#060718' }}>
+        <div className="max-w-md rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center">
+          <AlertTriangle className="mx-auto h-7 w-7 text-red-400" />
+          <p className="mt-3 text-sm font-bold text-white">Could not verify admin access</p>
+          <p className="mt-2 text-xs leading-5 text-slate-400">No admin data was shown. Check the connection and try again.</p>
+          <button
+            type="button"
+            onClick={() => void verifyAccess()}
+            className="mt-4 rounded-xl bg-purple-500 px-4 py-2 text-xs font-bold text-white"
+          >
+            Retry verification
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#060718' }}>
         <div className="flex flex-col items-center gap-3">

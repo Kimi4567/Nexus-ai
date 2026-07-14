@@ -26,6 +26,8 @@ import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { formatCreditDisplay } from '@/lib/creditDisplay'
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
+import { ErrorState } from '@/components/ui/ErrorState'
 
 interface MonthActivity {
   label: string
@@ -232,6 +234,7 @@ export default function AnalyticsPage() {
   const [overview, setOverview] = useState<OverviewData | null>(null)
   const [insights, setInsights] = useState<SystemInsight[]>([])
   const [dataLoading, setDataLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
@@ -240,18 +243,36 @@ export default function AnalyticsPage() {
   const loadAnalytics = useCallback(async () => {
     if (!isAuthenticated) return
     setDataLoading(true)
+    setLoadError(null)
     try {
       const headers = { Authorization: authHeader() }
-      const [overviewRes, insightsRes] = await Promise.all([
-        fetch('/api/analytics/overview', { headers }).then((response) => response.json()).catch(() => null),
-        fetch('/api/analytics/insights', { headers }).then((response) => response.json()).catch(() => ({ insights: [] })),
+      const [overviewResult, insightsResult] = await Promise.allSettled([
+        fetchWithTimeout('/api/analytics/overview', { headers }, 8_000),
+        fetchWithTimeout('/api/analytics/insights', { headers }, 8_000),
       ])
-      if (overviewRes && !overviewRes.error) setOverview(overviewRes)
-      if (insightsRes?.insights) setInsights(insightsRes.insights)
+
+      if (overviewResult.status !== 'fulfilled' || !overviewResult.value.ok) {
+        throw new Error(ar ? 'تعذّر تحميل بيانات النتائج الموثقة.' : 'Could not load verified results data.')
+      }
+
+      const overviewData = await overviewResult.value.json()
+      if (!overviewData || overviewData.error) {
+        throw new Error(ar ? 'تعذّر التحقق من بيانات النتائج.' : 'Could not verify results data.')
+      }
+      setOverview(overviewData)
+
+      if (insightsResult.status === 'fulfilled' && insightsResult.value.ok) {
+        const insightData = await insightsResult.value.json()
+        if (Array.isArray(insightData?.insights)) setInsights(insightData.insights)
+      }
+    } catch (error) {
+      setLoadError(error instanceof Error
+        ? error.message
+        : (ar ? 'تعذّر تحميل صفحة النتائج.' : 'Could not load results.'))
     } finally {
       setDataLoading(false)
     }
-  }, [authHeader, isAuthenticated])
+  }, [ar, authHeader, isAuthenticated])
 
   useEffect(() => {
     loadAnalytics()
@@ -281,6 +302,38 @@ export default function AnalyticsPage() {
 
   if (!isAuthenticated) return null
 
+  if (loadError && !overview) {
+    return (
+      <AppShell>
+        <main dir={dir} className="nx-os-page">
+          <div className="nx-os-container">
+            <LuxuryWorkspaceHeader
+              pageTitle={ar ? 'النتائج' : 'Results'}
+              pageSubtitle={ar ? 'أداء موثّق من المنصات، وما الذي يجب تغييره بعد ذلك.' : 'Verified platform performance and what to change next.'}
+              primaryHref="/connections"
+              primaryLabel={ar ? 'إدارة مصادر البيانات' : 'Manage data sources'}
+              secondaryHref="/campaigns"
+              secondaryLabel={ar ? 'الحملات' : 'Campaigns'}
+            />
+            <ErrorState
+              title={ar ? 'تعذّر تحميل النتائج' : 'Could not load results'}
+              description={loadError}
+              retryAction={(
+                <button
+                  type="button"
+                  onClick={() => void loadAnalytics()}
+                  className="rounded-xl bg-[#101A4D] px-4 py-2 text-sm font-bold text-white"
+                >
+                  {ar ? 'إعادة المحاولة' : 'Retry'}
+                </button>
+              )}
+            />
+          </div>
+        </main>
+      </AppShell>
+    )
+  }
+
   return (
     <AppShell>
       <main dir={dir} className="nx-os-page">
@@ -293,6 +346,23 @@ export default function AnalyticsPage() {
             secondaryHref="/campaigns"
             secondaryLabel={ar ? 'الحملات' : 'Campaigns'}
           />
+
+          {loadError && overview ? (
+            <ErrorState
+              className="mb-5"
+              title={ar ? 'تعذّر تحديث النتائج' : 'Results refresh failed'}
+              description={loadError}
+              retryAction={(
+                <button
+                  type="button"
+                  onClick={() => void loadAnalytics()}
+                  className="rounded-xl bg-[#101A4D] px-4 py-2 text-sm font-bold text-white"
+                >
+                  {ar ? 'إعادة المحاولة' : 'Retry'}
+                </button>
+              )}
+            />
+          ) : null}
 
           <section className="hidden">
             <div className="flex items-start gap-3">

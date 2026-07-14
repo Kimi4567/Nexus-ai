@@ -20,6 +20,7 @@ import { deriveCampaignOperatingState } from '@/lib/campaignOperatingState'
 import { summarizeByDisplayState } from '@/lib/postVisibility'
 import { getCreditActionTruth } from '@/lib/creditActionTruth'
 import { useBillingStatus } from '@/lib/useBillingStatus'
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 import {
   CONTENT_HUB_IMAGE_COST,
   CONTENT_HUB_REGENERATION_COST,
@@ -40,6 +41,8 @@ import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { derivePostCreativeRequirement } from '@/lib/creativeRequirements'
 import { getDefaultTemplateForPlatform } from '@/lib/creativeTemplates'
 import AppShell from '@/components/AppShell'
+import { ErrorState } from '@/components/ui/ErrorState'
+import { LoadingState } from '@/components/ui/LoadingState'
 import { PostPlatformPublisher } from '@/components/publishing/PostPlatformPublisher'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -355,6 +358,7 @@ export default function ContentHubPage() {
   const [mediaLibrary, setMediaLibrary] = useState<MediaItem[]>([])
   const [activePlatform, setActivePlatform] = useState<Platform>('ALL')
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [generatingPlan, setGeneratingPlan] = useState(false)
   const [expandedPost, setExpandedPost] = useState<string | null>(null)
@@ -427,11 +431,40 @@ export default function ContentHubPage() {
   const loadData = useCallback(async (): Promise<ContentPost[]> => {
     if (!isAuthenticated) return []
     let loadedPosts: ContentPost[] = []
+    const authorization = authHeader()
+    if (!authorization) {
+      setLoading(false)
+      setLoadError(isAr ? 'تعذّر التحقق من جلسة الدخول. أعد المحاولة.' : 'Could not verify your session. Retry.')
+      return []
+    }
+
+    setLoadError(null)
     try {
-      // Load campaign
-      const cRes = await fetch(`/api/campaigns/${campaignId}`, { headers: { Authorization: authHeader() } })
-      if (!cRes.ok) throw new Error('Campaign not found')
+      // These resources are independent. Load them concurrently so a slow media
+      // library cannot block the campaign and its content plan from appearing.
+      const [campaignResult, planResult, mediaResult, brandResult] = await Promise.allSettled([
+        fetchWithTimeout(`/api/campaigns/${campaignId}`, { headers: { Authorization: authorization } }, 9_000),
+        fetchWithTimeout(`/api/campaigns/${campaignId}/content-plan`, { headers: { Authorization: authorization } }, 9_000),
+        fetchWithTimeout('/api/media', { headers: { Authorization: authorization } }, 9_000),
+        fetchWithTimeout('/api/brand', { headers: { Authorization: authorization } }, 9_000),
+      ])
+
+      if (campaignResult.status !== 'fulfilled') {
+        throw new Error(isAr ? 'تعذّر تحميل الحملة. حاول مرة أخرى.' : 'Could not load the campaign. Try again.')
+      }
+      const cRes = campaignResult.value
+      if (cRes.status === 404) {
+        setCampaign(null)
+        return []
+      }
+      if (!cRes.ok) {
+        throw new Error(isAr ? 'تعذّر تحميل الحملة. حاول مرة أخرى.' : 'Could not load the campaign. Try again.')
+      }
       const { campaign: c } = await cRes.json()
+      if (!c) {
+        setCampaign(null)
+        return []
+      }
       setCampaign({
         id: c.id,
         name: c.name,
@@ -442,27 +475,20 @@ export default function ContentHubPage() {
         autopilotActivatedAt: c.autopilotActivatedAt ?? null,
       })
 
-      // Load content plan posts
-      const pRes = await fetch(`/api/campaigns/${campaignId}/content-plan`, {
-        headers: { Authorization: authHeader() },
-      })
-      if (pRes.ok) {
-        const { posts: rawPosts } = await pRes.json()
-        loadedPosts = rawPosts ?? []
-        setPosts(loadedPosts)
+      if (planResult.status !== 'fulfilled' || !planResult.value.ok) {
+        throw new Error(isAr ? 'تم تحميل الحملة، لكن تعذّر تحميل خطة المحتوى.' : 'The campaign loaded, but its content plan did not.')
       }
+      const { posts: rawPosts } = await planResult.value.json()
+      loadedPosts = rawPosts ?? []
+      setPosts(loadedPosts)
 
-      // Load media library
-      const mRes = await fetch('/api/media', { headers: { Authorization: authHeader() } })
-      if (mRes.ok) {
-        const mData = await mRes.json()
+      if (mediaResult.status === 'fulfilled' && mediaResult.value.ok) {
+        const mData = await mediaResult.value.json()
         setMediaLibrary(mData.media ?? mData.items ?? [])
       }
 
-      // Load brand profile (for name + logo in mockups)
-      const bRes = await fetch('/api/brand', { headers: { Authorization: authHeader() } })
-      if (bRes.ok) {
-        const bData = await bRes.json()
+      if (brandResult.status === 'fulfilled' && brandResult.value.ok) {
+        const bData = await brandResult.value.json()
         if (bData.brandProfile) {
           setBrandProfile({
             brandName: bData.brandProfile.brandName ?? null,
@@ -477,13 +503,15 @@ export default function ContentHubPage() {
           })
         }
       }
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setLoadError(err instanceof Error
+        ? err.message
+        : (isAr ? 'تعذّر تحميل مركز إنتاج الحملة.' : 'Could not load campaign production.'))
     } finally {
       setLoading(false)
     }
     return loadedPosts
-  }, [authHeader, campaignId])
+  }, [authHeader, campaignId, isAr, isAuthenticated])
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) loadData()
@@ -1766,8 +1794,51 @@ export default function ContentHubPage() {
   if (authLoading || loading) {
     return (
       <AppShell>
-        <div className="flex items-center justify-center h-64">
-          <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+        <div className="min-h-screen bg-[#F4F7FB] px-4 py-5 sm:px-6">
+          <div className="mx-auto max-w-[1580px]">
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-slate-950">
+                {isAr ? 'إنتاج محتوى الحملة' : 'Campaign content production'}
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                {isAr ? 'نجمع الحملة والخطة والوسائط للمراجعة.' : 'Loading the campaign, plan, and media for review.'}
+              </p>
+            </div>
+            <LoadingState
+              label={isAr ? 'جارٍ تجهيز مساحة الإنتاج' : 'Preparing production workspace'}
+              description={isAr ? 'لن ننشئ أو ننشر أي شيء أثناء التحميل.' : 'Nothing is generated or published while this loads.'}
+            />
+          </div>
+        </div>
+      </AppShell>
+    )
+  }
+
+  if (loadError && !campaign) {
+    return (
+      <AppShell>
+        <div className="min-h-screen bg-[#F4F7FB] px-4 py-5 sm:px-6">
+          <div className="mx-auto max-w-[1580px]">
+            <h1 className="mb-6 text-2xl font-bold text-slate-950">
+              {isAr ? 'إنتاج محتوى الحملة' : 'Campaign content production'}
+            </h1>
+            <ErrorState
+              title={isAr ? 'تعذّر فتح مساحة الإنتاج' : 'Could not open production workspace'}
+              description={loadError}
+              retryAction={(
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoading(true)
+                    void loadData()
+                  }}
+                  className="rounded-xl bg-[#101A4D] px-4 py-2 text-sm font-bold text-white"
+                >
+                  {isAr ? 'إعادة المحاولة' : 'Retry'}
+                </button>
+              )}
+            />
+          </div>
         </div>
       </AppShell>
     )
@@ -1776,7 +1847,9 @@ export default function ContentHubPage() {
   if (!campaign) {
     return (
       <AppShell>
-        <div className="flex items-center justify-center h-64 text-slate-500">Campaign not found</div>
+        <div className="flex min-h-[55vh] items-center justify-center px-6 text-center text-slate-500">
+          {isAr ? 'هذه الحملة غير موجودة أو لم تعد متاحة.' : 'This campaign does not exist or is no longer available.'}
+        </div>
       </AppShell>
     )
   }
@@ -1795,7 +1868,9 @@ export default function ContentHubPage() {
             >
               ← {campaign.name}
             </button>
-            <h1 className="text-2xl font-bold text-slate-950">{t('contentHub.title')}</h1>
+            <h1 className="text-2xl font-bold text-slate-950">
+              {isAr ? 'إنتاج محتوى الحملة' : 'Campaign content production'}
+            </h1>
             {/* PR-1J.2 — every count labeled distinctly so 36/32/4/done can't read as
                 a contradiction: 36 drafts (incl. A/B variants) = 32 image slots + 4
                 video slots; "visuals generated" tracks generation progress separately. */}
@@ -2163,6 +2238,18 @@ export default function ContentHubPage() {
         )}
 
         {/* ── Messages ─────────────────────────────────────────────── */}
+        {loadError && (
+          <div className="mb-4 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between" role="alert">
+            <span>{loadError}</span>
+            <button
+              type="button"
+              onClick={() => void loadData()}
+              className="shrink-0 rounded-lg bg-amber-900 px-3 py-2 text-xs font-bold text-white"
+            >
+              {isAr ? 'إعادة المحاولة' : 'Retry'}
+            </button>
+          </div>
+        )}
         {error && (
           <div className="mb-4 p-3 rounded-xl text-sm text-red-700 bg-red-50 border border-red-200">
             {error}
