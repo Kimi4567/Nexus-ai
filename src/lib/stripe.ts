@@ -2,7 +2,7 @@
  * Nexus AI — Stripe client + Plan definitions
  *
  * Public pricing (July 2026): exactly two paid subscriptions.
- *   Trial     — $0      — 12 credits (one-time, 14 days)
+ *   Trial     — $0      — 12 credits (one-time)
  *   Growth    — $49/mo  — 150 credits/month
  *   Autopilot — $99/mo  — 500 credits/month
  *
@@ -89,7 +89,7 @@ export const PLANS: PlanDefinition[] = [
     cta: 'Get Started Free',
     researchNote: 'A bounded activation journey for validating the workflow before purchase.',
     features: [
-      `${FREE_TRIAL_CREDITS} AI credits — 14-day trial`,
+      `${FREE_TRIAL_CREDITS} one-time AI trial credits`,
       '1 workspace',
       '1 campaign maximum',
       '3 AI posts to try',

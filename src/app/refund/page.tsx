@@ -7,8 +7,8 @@ const SECTIONS = [
   {
     titleAr: 'التجربة المجانية',
     titleEn: 'Free Trial',
-    bodyAr: 'تتضمن التجربة 12 كريديت لمرة واحدة لمدة 14 يوماً ولا تتطلب بطاقة ائتمان. راجع تكلفة كل إجراء داخل المنتج قبل التنفيذ.',
-    bodyEn: 'The trial includes 12 one-time credits for 14 days and requires no credit card. Review each action cost inside the product before running it.',
+    bodyAr: 'تتضمن التجربة 12 كريديت لمرة واحدة ولا تتطلب بطاقة ائتمان. راجع تكلفة كل إجراء داخل المنتج قبل التنفيذ.',
+    bodyEn: 'The trial includes 12 one-time credits and requires no credit card. Review each action cost inside the product before running it.',
   },
   {
     titleAr: 'الاسترداد خلال 14 يوماً',

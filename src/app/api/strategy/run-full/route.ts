@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { runFullAgency } from '@/lib/agents/orchestrator'
-import { checkAndDeductCredits, FREE_STARTER_CREDITS, refundCreditsForTransaction } from '@/lib/credits'
+import { checkAndDeductCredits, FREE_STARTER_CREDITS, getCreditActionPolicy, refundCreditsForTransaction } from '@/lib/credits'
 // B1c-c-1 — allocation-aware refund-to-source for the wallet path (flag-gated).
 import { isCreditWalletEnabled } from '@/lib/credits/wallet'
 import { normalizeStrategyIntent } from '@/lib/ai/strategyKpiGuard'
@@ -28,6 +28,7 @@ import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { getBrandBrainGenerationSafety } from '@/lib/brandBrainGenerationSafety'
 import { readLockedCampaignAllowance, type CampaignAllowance } from '@/lib/campaignCommercial'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 
 // Strategy generation can legitimately need a second contract-repair pass before
 // anything is charged or persisted. The old 60s ceiling killed successful runs
@@ -58,6 +59,18 @@ function sanitizeStrategyRunError(error: string | undefined, language: unknown):
     return /language:/i.test(error)
       ? 'NEXUS blocked saving because the output language did not match the selected language. No campaign was saved and charged credits were restored. Retry with the same language, or choose English for English output.'
       : 'NEXUS blocked saving because the strategy document did not pass the structural quality contract. No campaign was saved and charged credits were restored. Please retry.'
+  }
+
+  if (error.startsWith('BRAND_TRUTH_CONFLICT:')) {
+    return isArabicLanguage(language)
+      ? 'أوقف NEXUS التوليد لأن Brand Brain يحتوي حقائق متعارضة. راجع الحقول المعلّمة في Brand Brain أولاً؛ لم يبدأ التوليد ولم يُخصم أي كريديت.'
+      : 'NEXUS stopped generation because Brand Brain contains conflicting facts. Review the flagged Brand Brain fields first; generation did not start and no credits were charged.'
+  }
+
+  if (error.startsWith('MARKETING_QUALITY_GATE_BLOCKED:')) {
+    return isArabicLanguage(language)
+      ? 'رفض NEXUS حفظ الاستراتيجية لأنها خرجت عن حقائق العلامة أو الجمهور أو القنوات التي راجعتها. لم تُحفظ حملة وتمت إعادة الكريديت إن خُصمت.'
+      : 'NEXUS refused to save the strategy because it drifted from the reviewed brand, audience, or channel facts. No campaign was saved and charged credits were restored.'
   }
 
   return error
@@ -336,6 +349,28 @@ export async function POST(req: NextRequest) {
       )
     }
 
+
+    // Brand fields may be individually complete while contradicting one another
+    // (for example, two different audience age ranges). Block before the model or
+    // credit system is touched; completeness is not the same as consistency.
+    const brandTruthReview = reviewBrandTruthConsistency(brandProfile as any)
+    if (brandTruthReview.status === 'blocked') {
+      return NextResponse.json(
+        {
+          error: 'BRAND_TRUTH_CONFLICT',
+          message: sanitizeStrategyRunError(
+            `BRAND_TRUTH_CONFLICT:${brandTruthReview.blockers.map(item => item.code).join(',')}`,
+            body?.language,
+          ),
+          blockers: brandTruthReview.blockers,
+          warnings: brandTruthReview.warnings,
+          creditsUsed: 0,
+          redirectUrl: '/brand',
+        },
+        { status: 422 },
+      )
+    }
+
     // STRATEGY-OS-1 — mode-aware Strategy Brief gate before any credit deduction.
     // Organic may proceed on the core brief. Paid/full must have explicit paid
     // inputs; no internal default budget may unlock or shape paid generation.
@@ -574,6 +609,16 @@ export async function POST(req: NextRequest) {
             ? finalDeductedCredit.creditsRemaining + (refunded ? finalDeductedCredit.creditsUsed : 0)
             : preflightVisibleCredits),
       creditsUsed: success ? (finalDeductedCredit?.creditsUsed ?? 0) : (refunded ? 0 : (finalDeductedCredit?.creditsUsed ?? 0)),
+      creditCharge: success && finalDeductedCredit
+        ? {
+            ...getCreditActionPolicy('RUN_FULL_STRATEGY'),
+            cost: strategyCreditCost,
+            creditsUsed: finalDeductedCredit.creditsUsed,
+            creditsRemaining: finalDeductedCredit.creditsRemaining,
+            isUnlimited: finalDeductedCredit.creditsRemaining === -1,
+            transactionId: finalDeductedCredit.transactionId || null,
+          }
+        : null,
       refunded,
       // Both formats for frontend compatibility
       errors: publicErrors,
@@ -589,7 +634,9 @@ export async function POST(req: NextRequest) {
       ? await refundDeductedStrategyCredits(chargedUserId, finalDeductedCredit, 'Run Full Strategy exception')
       : false
     const rawError = typeof err?.message === 'string' ? err.message : undefined
-    const safeError = rawError && /Strategy OS contract/i.test(rawError)
+    const safeError = rawError && (/Strategy OS contract/i.test(rawError)
+      || rawError.startsWith('BRAND_TRUTH_CONFLICT:')
+      || rawError.startsWith('MARKETING_QUALITY_GATE_BLOCKED:'))
       ? sanitizeStrategyRunError(rawError, body?.language) || genericStrategyRunFailureMessage(body?.language)
       : genericStrategyRunFailureMessage(body?.language)
 

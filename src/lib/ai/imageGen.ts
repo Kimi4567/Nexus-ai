@@ -2,7 +2,7 @@
  * NEXUS Visual Intelligence — Professional Ad Image Prompt Builder
  *
  * Generates advertising-agency-grade image prompts by combining:
- *   1. Caption analysis  → what specific scene to show (via GPT-4o mini)
+ *   1. Caption analysis  → deterministic, zero-token scene selection
  *   2. Brand Brain       → colors, industry, tone, brand name
  *   3. Language          → Arabic or English (drives text rendering strategy)
  *   4. Platform          → dimensions and composition format
@@ -558,7 +558,8 @@ export async function buildImagePrompt(ctx: VisualContext): Promise<{
     return { prompt, language }
   }
 
-  // 6. Extract visual concept from caption via GPT-4o mini
+  // 6. Extract the visual concept deterministically. The only paid provider
+  // call in the image action is the image generation request itself.
   const extractedConcept = await extractVisualConcept({
     text:      captionText,
     industry:  ctx.industry || category,

@@ -6,6 +6,10 @@ import { validateOutputObject, logQualityReport } from '@/lib/ai/outputValidator
 import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import { assertCampaignStrategyContract } from '@/lib/campaignStrategyContract'
+import {
+  reviewBrandTruthConsistency,
+  reviewStrategyGrounding,
+} from '@/lib/ai/marketingQualityGate'
 
 const db = prisma as any
 
@@ -229,6 +233,10 @@ export function deriveCampaignEngineState(campaign: any): CampaignEngineState {
   const aiOutput = campaign?.aiOutput || {}
   const strategy = aiOutput.strategy || {}
   const sentinelReview = aiOutput.sentinelReview
+  const qualityGatePassed = aiOutput.qualityGate?.schemaVersion === 1
+    && aiOutput.qualityGate?.status === 'passed'
+    && Array.isArray(aiOutput.qualityGate?.blockers)
+    && aiOutput.qualityGate.blockers.length === 0
   const sentinelStatus = sentinelReview?.status || 'not_reviewed'
   const calendarCount = Array.isArray(aiOutput.calendarItems) ? aiOutput.calendarItems.length : 0
 
@@ -243,19 +251,20 @@ export function deriveCampaignEngineState(campaign: any): CampaignEngineState {
   const isScheduled = campaign?.autopilotEnabled || campaign?.status === 'SCHEDULED'
 
   const steps: EngineStep[] = [
-    step('strategy', hasStrategy ? 'done' : 'pending'),
-    step('content', hasContent ? 'done' : hasStrategy ? 'pending' : 'blocked'),
-    step('creative', hasCreative ? 'done' : hasContent ? 'pending' : 'blocked'),
-    step('sentinel', sentinelStatus === 'passed' ? 'done' : sentinelStatus === 'needs_attention' ? 'blocked' : hasCreative ? 'pending' : 'blocked'),
-    step('calendar', calendarCount > 0 ? 'done' : sentinelStatus === 'passed' ? 'pending' : 'blocked'),
-    step('approval', isApproved ? 'done' : sentinelStatus === 'passed' ? 'pending' : 'blocked'),
-    step('autopilot', isScheduled ? 'done' : isApproved ? 'pending' : 'blocked'),
+    step('strategy', hasStrategy && qualityGatePassed ? 'done' : hasStrategy ? 'blocked' : 'pending'),
+    step('content', hasContent && qualityGatePassed ? 'done' : hasStrategy && qualityGatePassed ? 'pending' : 'blocked'),
+    step('creative', qualityGatePassed && hasCreative ? 'done' : qualityGatePassed && hasContent ? 'pending' : 'blocked'),
+    step('sentinel', qualityGatePassed && sentinelStatus === 'passed' ? 'done' : sentinelStatus === 'needs_attention' ? 'blocked' : qualityGatePassed && hasCreative ? 'pending' : 'blocked'),
+    step('calendar', qualityGatePassed && calendarCount > 0 ? 'done' : qualityGatePassed && sentinelStatus === 'passed' ? 'pending' : 'blocked'),
+    step('approval', qualityGatePassed && isApproved ? 'done' : qualityGatePassed && sentinelStatus === 'passed' ? 'pending' : 'blocked'),
+    step('autopilot', qualityGatePassed && isScheduled ? 'done' : qualityGatePassed && isApproved ? 'pending' : 'blocked'),
   ]
   const done = steps.filter(s => s.status === 'done').length
   const score = Math.round((done / steps.length) * 100)
 
   let status: CampaignEngineState['status'] = 'idle'
-  if (isScheduled) status = 'scheduled'
+  if (!qualityGatePassed && hasStrategy) status = 'blocked'
+  else if (isScheduled) status = 'scheduled'
   else if (isApproved) status = 'ready_for_launch'
   else if (sentinelStatus === 'passed' && calendarCount > 0) status = 'ready_for_approval'
   else if (sentinelStatus === 'needs_attention') status = 'blocked'
@@ -393,6 +402,10 @@ export async function runCampaignEngine(params: {
   try {
     const brand = campaign.workspace?.brandProfile
     const needsStrategy = params.force || !aiOutput.strategy
+    const brandTruthReview = reviewBrandTruthConsistency(brand)
+    if (brandTruthReview.status === 'blocked') {
+      throw new Error(`BRAND_TRUTH_CONFLICT:${brandTruthReview.blockers.map(item => item.code).join(',')}`)
+    }
 
     // ── STEP 1: Strategy + Concepts (parallel, ~5-8s total)
     // This is the only AI step in the engine to stay within Vercel Hobby 10s limit.
@@ -403,8 +416,7 @@ export async function runCampaignEngine(params: {
         ai.generateMarketingStrategy(campaignWithLang, campaign.project),
         ai.generateAdConcepts(campaignWithLang, campaign.project),
       ])
-      strategy = guardStrategyOutputContract(
-        guardStrategyProof(strategy, {
+      const proofContext = {
           verifiedProof: brand?.verifiedProof || [],
           allowedClaimText: [
             brand?.description,
@@ -412,7 +424,9 @@ export async function runCampaignEngine(params: {
             ...(brand?.uniqueAdvantages || []),
             ...(brand?.verifiedProof || []),
           ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
-        }),
+      }
+      strategy = guardStrategyOutputContract(
+        guardStrategyProof(strategy, proofContext),
         {
           allowedPlatforms: campaign.platforms || [],
           allowedCompetitors: brand?.competitors || [],
@@ -422,7 +436,17 @@ export async function runCampaignEngine(params: {
           hasConversionDestination: Boolean(brand?.conversionDestination),
         },
       )
+      concepts = guardStrategyProof(concepts, proofContext)
       assertCampaignStrategyContract(strategy, { language: aiOutput.language })
+      const qualityGate = reviewStrategyGrounding({
+        strategy,
+        brand,
+        allowedPlatforms: campaign.platforms || [],
+        goal: campaign.goal,
+      })
+      if (qualityGate.status === 'blocked') {
+        throw new Error(`MARKETING_QUALITY_GATE_BLOCKED:${qualityGate.blockers.map(item => item.code).join(',')}`)
+      }
 
       const qualityReport = validateOutputObject(strategy, {
         brandName: brand?.brandName || campaign.name,
@@ -440,6 +464,19 @@ export async function runCampaignEngine(params: {
         generatedAt: new Date().toISOString(),
         generatedByEngine: true,
         qualityScore: qualityReport.score,
+        qualityGate,
+      }
+    } else {
+      // Revalidate legacy/existing output whenever the engine state is rebuilt.
+      // A historical score never grants current approval or execution readiness.
+      aiOutput = {
+        ...aiOutput,
+        qualityGate: reviewStrategyGrounding({
+          strategy: aiOutput.strategy,
+          brand,
+          allowedPlatforms: campaign.platforms || [],
+          goal: campaign.goal,
+        }),
       }
     }
 

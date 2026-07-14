@@ -15,8 +15,9 @@ const due = '2026-06-13T11:00:00Z'    // past → due
 const future = '2026-06-14T11:00:00Z' // not due
 
 const post = (over: Partial<CronPostLike>): CronPostLike => ({
-  status: 'SCHEDULED',
-  publishMode: 'AUTO',
+    status: 'SCHEDULED',
+    publishMode: 'AUTO',
+    autoPublishConsentAt: new Date(Date.now() - 10_000),
   scheduledAt: due,
   imageUrl: 'https://cdn.example.com/post.jpg',
   generationStatus: 'DONE',
@@ -31,6 +32,10 @@ describe('isAutoPublishEligible — only AUTO posts may auto-publish', () => {
 
   it('2. SCHEDULED + AUTO + due CAN be selected', () => {
     expect(isAutoPublishEligible(post({ publishMode: 'AUTO' }), now)).toBe(true)
+  })
+
+  it('AUTO without an explicit consent timestamp is never eligible', () => {
+    expect(isAutoPublishEligible(post({ autoPublishConsentAt: null }), now)).toBe(false)
   })
 
   it('3. SCHEDULED + MANUAL with a platform reference is still ignored', () => {
@@ -73,6 +78,7 @@ describe('autoPublishWhere — DB query only targets AUTO posts', () => {
     const w = autoPublishWhere(now)
     expect(w.status).toBe('SCHEDULED')
     expect(w.publishMode).toBe('AUTO')
+    expect(w.autoPublishConsentAt).toEqual({ not: null })
     expect(w.generationStatus).toBe('DONE')
     expect(w.imageUrl).toEqual({ not: null })
     expect(w.scheduledAt).toEqual({ lte: now })

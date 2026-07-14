@@ -7,8 +7,11 @@ const STRIPE_SRC = readFileSync(resolve(process.cwd(), 'src/lib/stripe.ts'), 'ut
 
 describe('billing plan copy truth', () => {
   it('keeps two paid plans and removes duplicate or unavailable sales surfaces', () => {
-    expect(BILLING_SRC).toContain("nameEn: 'Growth'")
-    expect(BILLING_SRC).toContain("nameEn: 'Autopilot'")
+    expect(BILLING_SRC).toContain('PUBLIC_PAID_PLANS')
+    expect(BILLING_SRC).toContain("plan.slug === 'growth'")
+    expect(BILLING_SRC).toContain("plan.slug === 'autopilot'")
+    expect(BILLING_SRC).toContain('nameEn: GROWTH_PLAN.name')
+    expect(BILLING_SRC).toContain('nameEn: AUTOPILOT_PLAN.name')
     expect(BILLING_SRC).not.toContain('Plan comparison')
     expect(BILLING_SRC).not.toContain('Get your referral link')
     expect(BILLING_SRC).toContain('Credit wallet')

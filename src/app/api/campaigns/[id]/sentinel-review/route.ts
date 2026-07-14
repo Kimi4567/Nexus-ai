@@ -9,12 +9,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { runSentinelReview, SentinelReviewInput } from '@/lib/agents/sentinel-reviewer'
-import { checkAndDeductCredits, refundCredits, type CreditDeductionOk } from '@/lib/credits'
+import {
+  checkAndDeductCredits,
+  getCreditActionPolicy,
+  refundCreditDeduction,
+  type CreditDeductionOk,
+} from '@/lib/credits'
 import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -94,6 +100,24 @@ export async function POST(req: NextRequest, props: Params) {
     }
     const calendar = aiOutput.contentCalendar || strategy.contentCalendar || []
     const creativeBrief = aiOutput.creativeBrief || null
+    const qualityGate = reviewStrategyGrounding({
+      strategy,
+      brand,
+      allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms : [],
+      goal: campaign.goal,
+    })
+
+    // Sentinel is a paid, model-based reviewer. The deterministic gate is free
+    // and authoritative, so fail before charging when the saved strategy already
+    // contradicts Brand Brain or the reviewed channel scope.
+    if (qualityGate.status === 'blocked') {
+      return NextResponse.json({
+        error: 'Strategy failed the deterministic brand and scope review. Regenerate the strategy before running Sentinel.',
+        code: 'MARKETING_QUALITY_GATE_BLOCKED',
+        qualityGate,
+        creditsUsed: 0,
+      }, { status: 422 })
+    }
 
     // Build Sentinel input
     const input: SentinelReviewInput = {
@@ -159,6 +183,7 @@ export async function POST(req: NextRequest, props: Params) {
       captionFormulas: content.captionFormulas,
       scriptTemplate: content.scriptTemplate,
       sentinelReview,
+      qualityGate,
     }
 
     await prisma.campaign.update({
@@ -177,11 +202,24 @@ export async function POST(req: NextRequest, props: Params) {
       },
     }).catch(() => {})
 
-    return NextResponse.json({ sentinelReview, creditsRemaining: chargedCredit.creditsRemaining })
+    return NextResponse.json({
+      sentinelReview,
+      qualityGate,
+      creditsRemaining: chargedCredit.creditsRemaining,
+      creditsUsed: chargedCredit.creditsUsed,
+      creditCharge: {
+        ...getCreditActionPolicy('SENTINEL_REVIEW'),
+        creditsUsed: chargedCredit.creditsUsed,
+      },
+    })
   } catch (err: any) {
     console.error('[sentinel-review POST]', err)
-    // Refund — failed review must not charge the user (skip unlimited plans)
-    if (chargedCredit?.creditsUsed) await refundCredits(userId, 'SENTINEL_REVIEW')
+    await refundCreditDeduction({
+      userId,
+      action: 'SENTINEL_REVIEW',
+      deduction: chargedCredit,
+      reason: 'Sentinel quality review failed',
+    })
     return NextResponse.json({ error: err.message || 'Review failed', refunded: Boolean(chargedCredit?.creditsUsed) }, { status: 500 })
   }
 }

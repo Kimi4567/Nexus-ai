@@ -12,8 +12,8 @@ import {
 import { guardBrandText } from '@/lib/ai/brandTruthGuard'
 import {
   checkAndDeductCredits,
-  refundCredits,
-  refundCreditsForTransaction,
+  getCreditActionPolicy,
+  refundCreditDeduction,
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
@@ -29,15 +29,6 @@ import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/a
      description → product/service description
      audience    → target audience description
    ═══════════════════════════════════════════════════════════════ */
-
-async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
-  if (credit.creditsUsed <= 0) return
-  if (credit.transactionId) {
-    await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
-    return
-  }
-  await refundCredits(userId, 'AD_COPY', reason)
-}
 
 export async function POST(req: NextRequest) {
   let chargedUserId: string | null = null
@@ -149,8 +140,7 @@ Rules:
       return NextResponse.json(getAiProviderUnavailablePayload(locale), { status: 503 })
     }
 
-    // FLOW-03 fix: deduct 1 credit per AI suggest call
-    const credit = await checkAndDeductCredits(user.id, 'AD_COPY')
+    const credit = await checkAndDeductCredits(user.id, 'AI_FIELD_SUGGESTION')
     if (!credit.ok) return NextResponse.json(credit, { status: 402 })
     chargedUserId = user.id
     chargedCredit = credit
@@ -174,14 +164,14 @@ Rules:
       }),
     })
     if (!res.ok) {
-      await refundDeductedCredits(user.id, credit, `OpenAI error ${res.status}`)
+      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: `OpenAI error ${res.status}` })
       return NextResponse.json({ error: `OpenAI error ${res.status}` }, { status: 502 })
     }
 
     const completion = await res.json()
     const rawSuggestion: string = completion.choices?.[0]?.message?.content?.trim() || ''
     if (!rawSuggestion) {
-      await refundDeductedCredits(user.id, credit, 'OpenAI returned no suggestion')
+      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'OpenAI returned no suggestion' })
       return NextResponse.json({ error: 'AI returned no suggestion' }, { status: 502 })
     }
     const allowedClaims = [
@@ -201,13 +191,23 @@ Rules:
     const suggestion = guardBrandText(rawSuggestion, allowedClaims)
 
     // Prevent any edge caching
-    return NextResponse.json({ suggestion }, {
+    return NextResponse.json({
+      suggestion,
+      creditsUsed: credit.creditsUsed,
+      creditsRemaining: credit.creditsRemaining,
+      creditCharge: { ...getCreditActionPolicy('AI_FIELD_SUGGESTION'), creditsUsed: credit.creditsUsed },
+    }, {
       headers: { 'Cache-Control': 'no-store' },
     })
   } catch (error) {
     console.error('POST /api/campaigns/suggest error:', error)
     if (chargedUserId && chargedCredit) {
-      await refundDeductedCredits(chargedUserId, chargedCredit, 'Campaign suggestion failed')
+      await refundCreditDeduction({
+        userId: chargedUserId,
+        action: 'AI_FIELD_SUGGESTION',
+        deduction: chargedCredit,
+        reason: 'Campaign suggestion failed',
+      })
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

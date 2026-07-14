@@ -12,11 +12,17 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
-import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import {
+  checkAndDeductCredits,
+  getCreditActionPolicy,
+  refundCreditDeduction,
+  type CreditDeductionOk,
+} from '@/lib/credits'
 import { UNSUPPORTED_CLAIMS_RULES } from '@/lib/ai/promptRules'
 import { guardExtracted } from '@/lib/ai/brandTruthGuard'
 import { buildAssistSuggestions } from '@/lib/ai/assistSuggestions'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { assertPublicWebsiteUrl, normalizePublicWebsiteUrl } from '@/lib/publicWebsiteUrl'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -40,27 +46,54 @@ function stripHtml(html: string): string {
 
 async function fetchPage(url: string): Promise<string> {
   try {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; NexusAI/1.0; +https://nexus-ai.app)',
-        'Accept': 'text/html,application/xhtml+xml',
-      },
-      signal: AbortSignal.timeout(8000),
-    })
-    if (!res.ok) return ''
-    const html = await res.text()
-    return stripHtml(html)
+    let current = await assertPublicWebsiteUrl(url)
+    for (let redirectCount = 0; redirectCount <= 2; redirectCount += 1) {
+      const res = await fetch(current, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; NexusAI/1.0; +https://nexus-ai.app)',
+          'Accept': 'text/html,application/xhtml+xml',
+        },
+        redirect: 'manual',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(8000),
+      })
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get('location')
+        if (!location || redirectCount === 2) return ''
+        current = await assertPublicWebsiteUrl(new URL(location, current).toString())
+        continue
+      }
+      if (!res.ok) return ''
+      const contentType = res.headers.get('content-type')?.toLowerCase() || ''
+      if (contentType && !contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
+        return ''
+      }
+      const declaredBytes = Number(res.headers.get('content-length') || 0)
+      if (declaredBytes > 1_000_000) return ''
+      if (!res.body) return stripHtml((await res.text()).slice(0, 1_000_000))
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let received = 0
+      let html = ''
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        if (!value) continue
+        received += value.byteLength
+        if (received > 1_000_000) {
+          await reader.cancel()
+          return ''
+        }
+        html += decoder.decode(value, { stream: true })
+      }
+      html += decoder.decode()
+      return stripHtml(html)
+    }
+    return ''
   } catch {
     return ''
   }
-}
-
-function normalizeUrl(raw: string): string {
-  let url = raw.trim()
-  if (!url.startsWith('http://') && !url.startsWith('https://')) {
-    url = 'https://' + url
-  }
-  return url.replace(/\/$/, '')
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────
@@ -68,6 +101,7 @@ function normalizeUrl(raw: string): string {
 export async function POST(req: NextRequest) {
   // Hoisted so the outer catch can refund a charged-but-failed scan.
   let chargedUserId: string | null = null
+  let chargedCredit: CreditDeductionOk | null = null
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -83,38 +117,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(getAiProviderUnavailablePayload(locale || language), { status: 503 })
     }
 
-    // Deduct 3 credits for website scan
-    const creditResult = await checkAndDeductCredits(user.id, 'WEBSITE_SCAN')
-    if (!creditResult.ok) {
-      return NextResponse.json({ error: 'insufficient_credits' }, { status: 402 })
+    const normalizedBase = normalizePublicWebsiteUrl(url)
+    if (!normalizedBase) {
+      return NextResponse.json({
+        error: 'Website must use a public HTTPS address. No credits were used.',
+        code: 'UNSAFE_WEBSITE_URL',
+        creditsUsed: 0,
+      }, { status: 400 })
     }
-    // Mark as charged (skip unlimited plans) so any failure below refunds.
-    if (creditResult.creditsUsed > 0) chargedUserId = user.id
-
-    const base = normalizeUrl(url)
+    const base = normalizedBase.replace(/\/$/, '')
+    const origin = new URL(normalizedBase).origin
 
     // Fetch homepage + common sub-pages in parallel
     const pagesToTry = [
       base,
-      `${base}/about`,
-      `${base}/about-us`,
-      `${base}/services`,
-      `${base}/pricing`,
-      `${base}/products`,
+      `${origin}/about`,
+      `${origin}/about-us`,
+      `${origin}/services`,
+      `${origin}/pricing`,
+      `${origin}/products`,
     ]
 
     const fetched = await Promise.all(pagesToTry.map(fetchPage))
     const pages = fetched.filter(t => t.length > 200) // drop empty/failed pages
 
     if (pages.length === 0) {
-      if (chargedUserId) await refundCredits(chargedUserId, 'WEBSITE_SCAN', 'Website unreadable')
       return NextResponse.json({
-        error: 'Could not read website content. The site may block automated access or require JavaScript.',
+        error: 'Could not read website content. The site may block automated access or require JavaScript. No credits were used.',
+        creditsUsed: 0,
       }, { status: 422 })
     }
 
     // Cap total content to ~12,000 chars to stay well within context
     const combined = pages.slice(0, 3).join('\n\n---PAGE BREAK---\n\n').slice(0, 12000)
+
+    // Fetching and validating the source is free. Charge only when one bounded
+    // model analysis is ready to run.
+    const creditResult = await checkAndDeductCredits(user.id, 'WEBSITE_SCAN')
+    if (!creditResult.ok) return NextResponse.json(creditResult, { status: 402 })
+    chargedUserId = user.id
+    chargedCredit = creditResult
 
     // Send to GPT-4o for extraction via direct fetch
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -168,14 +210,14 @@ Return JSON with this exact structure:
     })
 
     if (!openaiRes.ok) {
-      if (chargedUserId) await refundCredits(chargedUserId, 'WEBSITE_SCAN')
+      await refundCreditDeduction({ userId: user.id, action: 'WEBSITE_SCAN', deduction: creditResult, reason: `OpenAI error ${openaiRes.status}` })
       return NextResponse.json({ error: 'AI analysis failed', refunded: !!chargedUserId }, { status: 500 })
     }
 
     const openaiData = await openaiRes.json()
     const raw = openaiData.choices?.[0]?.message?.content?.trim()
     if (!raw) {
-      if (chargedUserId) await refundCredits(chargedUserId, 'WEBSITE_SCAN', 'Empty AI response')
+      await refundCreditDeduction({ userId: user.id, action: 'WEBSITE_SCAN', deduction: creditResult, reason: 'Empty AI response' })
       return NextResponse.json({ error: 'AI returned no website analysis', refunded: !!chargedUserId }, { status: 502 })
     }
 
@@ -185,11 +227,11 @@ Return JSON with this exact structure:
       const clean = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim()
       extracted = JSON.parse(clean)
     } catch {
-      if (chargedUserId) await refundCredits(chargedUserId, 'WEBSITE_SCAN', 'Unparseable AI response')
+      await refundCreditDeduction({ userId: user.id, action: 'WEBSITE_SCAN', deduction: creditResult, reason: 'Unparseable AI response' })
       return NextResponse.json({ error: 'Failed to parse AI response', refunded: !!chargedUserId }, { status: 500 })
     }
     if (Object.keys(extracted).length === 0) {
-      if (chargedUserId) await refundCredits(chargedUserId, 'WEBSITE_SCAN', 'Incomplete AI response')
+      await refundCreditDeduction({ userId: user.id, action: 'WEBSITE_SCAN', deduction: creditResult, reason: 'Incomplete AI response' })
       return NextResponse.json({ error: 'AI returned an incomplete website analysis', refunded: !!chargedUserId }, { status: 502 })
     }
 
@@ -213,11 +255,21 @@ Return JSON with this exact structure:
       missing,
       safetyNotes,
       pagesScanned: pages.length,
+      creditsUsed: creditResult.creditsUsed,
+      creditsRemaining: creditResult.creditsRemaining,
+      creditCharge: { ...getCreditActionPolicy('WEBSITE_SCAN'), creditsUsed: creditResult.creditsUsed },
     })
   } catch (error) {
     console.error('[brand/scan-website]', error)
     // Refund — charged-but-failed scan must not cost the user (skip unlimited plans)
-    if (chargedUserId) await refundCredits(chargedUserId, 'WEBSITE_SCAN')
+    if (chargedUserId) {
+      await refundCreditDeduction({
+        userId: chargedUserId,
+        action: 'WEBSITE_SCAN',
+        deduction: chargedCredit,
+        reason: 'Website intelligence scan failed',
+      })
+    }
     return NextResponse.json({ error: 'Internal server error', refunded: !!chargedUserId }, { status: 500 })
   }
 }

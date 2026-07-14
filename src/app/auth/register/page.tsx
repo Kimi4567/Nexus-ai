@@ -35,6 +35,10 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState<'idle' | 'verify' | 'active'>('idle')
 
+  // Validation copy belongs to the language in which it was produced. Clear
+  // it on a language switch so Arabic and English never appear together.
+  useEffect(() => setError(''), [isRTL])
+
   const authT = t('auth.register')
   const errorsT = authT?.errors || {}
 
@@ -159,6 +163,9 @@ export default function RegisterPage() {
                       onFocus={e => (e.currentTarget.style.border = '1px solid rgba(94,92,230,0.5)')}
                       onBlur={e => (e.currentTarget.style.border = '1px solid rgba(15,23,42,0.12)')} />
                     <button type="button" onClick={() => setShowPassword(v => !v)}
+                      aria-label={showPassword
+                        ? (isRTL ? 'إخفاء كلمة المرور' : 'Hide password')
+                        : (isRTL ? 'إظهار كلمة المرور' : 'Show password')}
                       className={`absolute inset-y-0 ${isRTL ? 'left-3' : 'right-3'} flex items-center text-slate-400 hover:text-slate-950 transition`} tabIndex={-1}>
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -174,6 +181,9 @@ export default function RegisterPage() {
                       onFocus={e => (e.currentTarget.style.border = '1px solid rgba(94,92,230,0.5)')}
                       onBlur={e => (e.currentTarget.style.border = '1px solid rgba(15,23,42,0.12)')} />
                     <button type="button" onClick={() => setShowConfirm(v => !v)}
+                      aria-label={showConfirm
+                        ? (isRTL ? 'إخفاء تأكيد كلمة المرور' : 'Hide password confirmation')
+                        : (isRTL ? 'إظهار تأكيد كلمة المرور' : 'Show password confirmation')}
                       className={`absolute inset-y-0 ${isRTL ? 'left-3' : 'right-3'} flex items-center text-slate-400 hover:text-slate-950 transition`} tabIndex={-1}>
                       {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>

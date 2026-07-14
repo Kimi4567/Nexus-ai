@@ -14,7 +14,7 @@
  * The output feeds directly into generate-audience (targeting params)
  * and generate-copy (creative concepts).
  *
- * Credit cost: 4 (AD_COPY × 2)
+ * Credit cost: 4 (PAID_EXECUTION_PLAN)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -24,6 +24,7 @@ import {
   checkAndDeductCredits,
   refundCredits,
   refundCreditsForTransaction,
+  getCreditActionPolicy,
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
@@ -39,6 +40,7 @@ import {
   googleSearchBiddingMode,
   paidOptimizationGoal,
 } from '@/lib/paidExecutionObjective'
+import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -123,7 +125,7 @@ async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, 
     await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
     return
   }
-  await refundCredits(userId, 'AD_COPY', reason)
+  await refundCredits(userId, 'PAID_EXECUTION_PLAN', reason)
 }
 
 export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -383,7 +385,7 @@ Generate a complete paid execution plan as JSON with EXACTLY this structure:
   ]
 }`
 
-    const creditResult = await checkAndDeductCredits(user.id, 'AD_COPY')
+    const creditResult = await checkAndDeductCredits(user.id, 'PAID_EXECUTION_PLAN')
     if (!creditResult.ok) {
       return NextResponse.json({ error: 'Insufficient credits', upgradeRequired: true }, { status: 402 })
     }
@@ -410,6 +412,22 @@ Generate a complete paid execution plan as JSON with EXACTLY this structure:
           throw new Error(`Incomplete Google Search targeting: ${googleTargeting.blockers.join(' ')}`)
         }
       }
+      const qualityGate = reviewStrategyGrounding({
+        strategy,
+        brand: brandProfile,
+        allowedPlatforms: [String(campaign.platform)],
+        goal: String(campaign.objective),
+      })
+      if (qualityGate.status !== 'passed') {
+        await refundDeductedCredits(user.id, creditResult, 'Paid execution plan failed the Brand Brain and scope quality gate')
+        return NextResponse.json({
+          error: 'MARKETING_QUALITY_GATE_BLOCKED',
+          code: 'MARKETING_QUALITY_GATE_BLOCKED',
+          qualityGate,
+          refunded: creditResult.creditsUsed > 0,
+        }, { status: 422 })
+      }
+      strategy = { ...strategy, qualityGate }
     } catch {
       await refundDeductedCredits(user.id, creditResult, 'AI returned invalid JSON')
       return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })
@@ -443,6 +461,12 @@ Generate a complete paid execution plan as JSON with EXACTLY this structure:
       reachEstimate: null,
       forecastStatus: 'unavailable_until_platform_forecast',
       success: true,
+      creditsUsed: creditResult.creditsUsed,
+      creditsRemaining: creditResult.creditsRemaining,
+      creditCharge: {
+        ...getCreditActionPolicy('PAID_EXECUTION_PLAN'),
+        creditsUsed: creditResult.creditsUsed,
+      },
     })
   } catch (err) {
     console.error('[generate-strategy]', err)

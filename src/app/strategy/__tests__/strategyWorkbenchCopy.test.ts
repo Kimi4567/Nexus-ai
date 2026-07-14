@@ -9,7 +9,7 @@ describe('/strategy workbench source-of-truth copy', () => {
     expect(source).toContain('Open campaign strategy brief')
     expect(source).toContain('The full strategy brief lives inside the campaign')
     expect(source).toContain('Use this page as a strategy workbench, then open the campaign brief for detailed review.')
-    expect(source).toContain("const recentStrategyHref = recent?.id ? `/campaigns/${recent.id}?tab=strategy` : '/campaigns'")
+    expect(source).toContain("const recentStrategyHref = recent?.id ? `/campaigns/${recent.id}?tab=strategy` : '/strategy'")
   })
 
   it('separates new-request readiness from the current campaign scope', () => {

@@ -4,6 +4,8 @@ import { NextRequest } from 'next/server'
 const mocks = vi.hoisted(() => ({
   getUserId: vi.fn(),
   campaignFindFirst: vi.fn(),
+  brandProfileFindUnique: vi.fn(),
+  reviewStrategyGrounding: vi.fn(),
   socialPostFindMany: vi.fn(),
   socialPostUpdate: vi.fn(),
   integrationFindMany: vi.fn(),
@@ -15,11 +17,15 @@ vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mocks.getUserId }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     campaign: { findFirst: mocks.campaignFindFirst },
+    brandProfile: { findUnique: mocks.brandProfileFindUnique },
     socialPost: { findMany: mocks.socialPostFindMany, update: mocks.socialPostUpdate },
     integration: { findMany: mocks.integrationFindMany },
     postStatusHistory: { createMany: mocks.historyCreateMany },
     marketingLearningEvent: { createMany: mocks.learningCreateMany },
   },
+}))
+vi.mock('@/lib/ai/marketingQualityGate', () => ({
+  reviewStrategyGrounding: mocks.reviewStrategyGrounding,
 }))
 
 import { POST } from '@/app/api/campaigns/[id]/schedule-content-plan/route'
@@ -119,7 +125,18 @@ function approvedYouTubePost() {
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.getUserId.mockResolvedValue('user-1')
-  mocks.campaignFindFirst.mockResolvedValue({ id: 'campaign-1', workspaceId: 'workspace-1', status: 'ACTIVE' })
+  mocks.campaignFindFirst.mockResolvedValue({
+    id: 'campaign-1', workspaceId: 'workspace-1', status: 'ACTIVE',
+    aiOutput: { strategy: { positioning: 'Reviewed offer for the saved audience' } },
+    goal: 'LEADS', platforms: ['YOUTUBE_SHORTS'],
+  })
+  mocks.brandProfileFindUnique.mockResolvedValue({
+    workspaceId: 'workspace-1', brandName: 'Reviewed Brand', industry: 'Education',
+    primaryOffer: 'A reviewed learning offer', targetAudience: 'Professional learners',
+  })
+  mocks.reviewStrategyGrounding.mockReturnValue({
+    schemaVersion: 1, status: 'passed', score: 100, blockers: [], warnings: [], checkedAt: '2026-07-14T00:00:00.000Z',
+  })
   mocks.socialPostFindMany.mockResolvedValue([approvedYouTubePost()])
   mocks.socialPostUpdate.mockResolvedValue({})
   mocks.historyCreateMany.mockResolvedValue({ count: 1 })
@@ -136,6 +153,24 @@ beforeEach(() => {
 })
 
 describe('POST schedule-content-plan — YouTube', () => {
+  it('blocks scheduling when the current Brand Brain no longer grounds the strategy', async () => {
+    mocks.reviewStrategyGrounding.mockReturnValue({
+      schemaVersion: 1,
+      status: 'blocked',
+      score: 70,
+      blockers: [{ code: 'strategy_missing_brand_relevance', severity: 'blocker', path: 'strategy', message: 'Drifted.' }],
+      warnings: [],
+      checkedAt: '2026-07-14T00:00:00.000Z',
+    })
+
+    const response = await POST(request(), { params: Promise.resolve({ id: 'campaign-1' }) })
+    const body = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(body.code).toBe('MARKETING_QUALITY_GATE_FAILED')
+    expect(mocks.socialPostUpdate).not.toHaveBeenCalled()
+  })
+
   it('normalizes YouTube Shorts and persists reviewed per-video settings', async () => {
     const response = await POST(request(), { params: Promise.resolve({ id: 'campaign-1' }) })
     const body = await response.json()

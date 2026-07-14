@@ -15,6 +15,7 @@ function campaign(overrides: Record<string, unknown> = {}) {
     platforms: ['INSTAGRAM'],
     aiOutput: {
       strategy: { positioning: 'Automation with control', contentPillars: ['Proof', 'Education'] },
+      qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
       sentinelReview: { status: 'passed' },
     },
     updatedAt: '2026-07-12T10:00:00.000Z',
@@ -38,10 +39,29 @@ describe('strategy approval contract', () => {
 
   it('requires Sentinel before approval', () => {
     const result = buildStrategyApprovalContract({
-      campaign: campaign({ aiOutput: { strategy: { positioning: 'Clear' } } }),
+      campaign: campaign({
+        aiOutput: {
+          strategy: { positioning: 'Clear' },
+          qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
+        },
+      }),
     })
     expect(result.state).toBe('blocked')
     expect(result.approvalBlockers[0]?.code).toBe('SENTINEL_REVIEW_REQUIRED')
+  })
+
+  it('requires the deterministic marketing quality gate before Sentinel or approval', () => {
+    const result = buildStrategyApprovalContract({
+      campaign: campaign({
+        aiOutput: {
+          strategy: { positioning: 'Clear' },
+          sentinelReview: { status: 'passed' },
+        },
+      }),
+    })
+
+    expect(result.state).toBe('blocked')
+    expect(result.approvalBlockers[0]?.code).toBe('MARKETING_QUALITY_GATE_REQUIRED')
   })
 
   it('becomes ready for review only with strategy and passed Sentinel', () => {

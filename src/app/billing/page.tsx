@@ -15,6 +15,7 @@ import { getBillingDisplayTruth } from '@/lib/billingDisplayTruth'
 import {
   CREDIT_PURCHASE_POLICY,
   FREE_TRIAL_CREDITS,
+  PUBLIC_PAID_PLANS,
   quoteCreditPurchase,
 } from '@/lib/commercialPlans'
 import Link from 'next/link'
@@ -26,14 +27,17 @@ import {
 
 // ─── Plan definitions ───────────────────────────────────────────────────────────
 
+const GROWTH_PLAN = PUBLIC_PAID_PLANS.find((plan) => plan.slug === 'growth') ?? PUBLIC_PAID_PLANS[0]
+const AUTOPILOT_PLAN = PUBLIC_PAID_PLANS.find((plan) => plan.slug === 'autopilot') ?? PUBLIC_PAID_PLANS[1]
+
 const PLANS = [
   {
-    id: 'pro',
+    id: GROWTH_PLAN.id,
     nameAr: 'جروث',
-    nameEn: 'Growth',
-    price: 49,
-    creditsAr: '150 رصيد / شهر — يتجدد تلقائياً',
-    creditsEn: '150 credits / month — renews monthly',
+    nameEn: GROWTH_PLAN.name,
+    price: GROWTH_PLAN.priceUsd,
+    creditsAr: `${GROWTH_PLAN.monthlyCredits} رصيد / شهر — يتجدد تلقائياً`,
+    creditsEn: `${GROWTH_PLAN.monthlyCredits} credits / month — renews monthly`,
     accentColor: '#8b5cf6',
     featured: true,
     badgeAr: 'الخطة الأساسية',
@@ -41,27 +45,27 @@ const PLANS = [
     descAr: 'للفرق التي تخطط وتنتج وتراجع المحتوى باستمرار',
     descEn: 'For teams planning, producing, and reviewing content consistently',
     limitsAr: [
-      '150 رصيد AI / شهر (يتجدد شهرياً)',
-      '3 مساحات عمل (3 براندات)',
-      '10 حملات / شهر',
-      '25 بوست / شهر',
+      `${GROWTH_PLAN.monthlyCredits} رصيد AI / شهر (يتجدد شهرياً)`,
+      `${GROWTH_PLAN.workspaces} مساحات عمل (${GROWTH_PLAN.workspaces} براندات)`,
+      `${GROWTH_PLAN.campaignLimit} حملات / شهر`,
+      `${GROWTH_PLAN.postsPerMonth} بوست AI مخطط / شهر`,
       'Brand Brain الكامل + ذاكرة الحملات',
     ],
     limitsEn: [
-      '150 AI credits / month (renews monthly)',
-      '3 workspaces (3 brands)',
-      '10 campaigns / month',
-      '25 AI posts / month',
+      `${GROWTH_PLAN.monthlyCredits} AI credits / month (renews monthly)`,
+      `${GROWTH_PLAN.workspaces} workspaces (${GROWTH_PLAN.workspaces} brands)`,
+      `${GROWTH_PLAN.campaignLimit} campaigns / month`,
+      `${GROWTH_PLAN.postsPerMonth} AI-planned posts / month`,
       'Full Brand Brain + Campaign Memory (reviewed signals across campaigns)',
     ],
   },
   {
-    id: 'business',
+    id: AUTOPILOT_PLAN.id,
     nameAr: 'أوتوبايلوت',
-    nameEn: 'Autopilot',
-    price: 99,
-    creditsAr: '500 رصيد / شهر — يتجدد تلقائياً',
-    creditsEn: '500 credits / month — renews monthly',
+    nameEn: AUTOPILOT_PLAN.name,
+    price: AUTOPILOT_PLAN.priceUsd,
+    creditsAr: `${AUTOPILOT_PLAN.monthlyCredits} رصيد / شهر — يتجدد تلقائياً`,
+    creditsEn: `${AUTOPILOT_PLAN.monthlyCredits} credits / month — renews monthly`,
     accentColor: '#10b981',
     featured: false,
     badgeAr: 'تشغيل متقدم',
@@ -69,17 +73,17 @@ const PLANS = [
     descAr: 'لتشغيل عدة براندات مع مراقبة مجدولة وقائمة قرارات',
     descEn: 'For multi-brand operations with scheduled monitoring and an action queue',
     limitsAr: [
-      '500 رصيد AI / شهر (يتجدد شهرياً)',
-      '10 مساحات عمل (10 براندات أو عملاء)',
+      `${AUTOPILOT_PLAN.monthlyCredits} رصيد AI / شهر (يتجدد شهرياً)`,
+      `${AUTOPILOT_PLAN.workspaces} مساحات عمل (${AUTOPILOT_PLAN.workspaces} براندات أو عملاء)`,
       'حملات غير محدودة / شهر',
-      '60 بوست / شهر',
+      `${AUTOPILOT_PLAN.postsPerMonth} بوست AI مخطط / شهر`,
       'مراقبة مجدولة + قائمة قرارات مبنية على الأدلة',
     ],
     limitsEn: [
-      '500 AI credits / month (renews monthly)',
-      '10 workspaces (10 brands / clients)',
+      `${AUTOPILOT_PLAN.monthlyCredits} AI credits / month (renews monthly)`,
+      `${AUTOPILOT_PLAN.workspaces} workspaces (${AUTOPILOT_PLAN.workspaces} brands / clients)`,
       'Unlimited campaigns / month',
-      '60 AI posts / month',
+      `${AUTOPILOT_PLAN.postsPerMonth} AI-planned posts / month`,
       'Scheduled monitoring + evidence-backed action queue',
     ],
   },
@@ -558,8 +562,8 @@ export default function BillingPage() {
             <Gift className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
             <p className="text-sm leading-relaxed text-slate-600">
               {ar
-                ? `ابدأ بـ${FREE_TRIAL_CREDITS} رصيداً تجريبياً لمدة 14 يوماً، بدون بطاقة. بعدها اختر واحدة من الباقتين المدفوعتين.`
-                : `Start with ${FREE_TRIAL_CREDITS} trial credits for 14 days, with no card. Then choose one of the two paid plans.`}
+                ? `ابدأ بـ${FREE_TRIAL_CREDITS} رصيداً تجريبياً لمرة واحدة، بدون بطاقة. بعدها اختر واحدة من الباقتين المدفوعتين.`
+                : `Start with ${FREE_TRIAL_CREDITS} one-time trial credits, with no card. Then choose one of the two paid plans.`}
             </p>
           </div>
 
@@ -769,8 +773,8 @@ export default function BillingPage() {
           </h2>
           <p className="text-sm text-slate-500 mb-6">
             {ar
-              ? 'قيمة الرصيد الشهري: Growth ≈ $0.33/رصيد · Autopilot ≈ $0.20/رصيد. تكلفة الاستراتيجية متغيرة حسب النطاق.'
-              : 'Monthly credit value: Growth ≈ $0.33/cr · Autopilot ≈ $0.20/cr. Strategy cost varies by scope.'
+              ? `قيمة الرصيد الشهري: Growth ≈ $${(GROWTH_PLAN.priceUsd / GROWTH_PLAN.monthlyCredits).toFixed(2)}/رصيد · Autopilot ≈ $${(AUTOPILOT_PLAN.priceUsd / AUTOPILOT_PLAN.monthlyCredits).toFixed(2)}/رصيد. تكلفة الاستراتيجية متغيرة حسب النطاق.`
+              : `Monthly credit value: Growth ≈ $${(GROWTH_PLAN.priceUsd / GROWTH_PLAN.monthlyCredits).toFixed(2)}/cr · Autopilot ≈ $${(AUTOPILOT_PLAN.priceUsd / AUTOPILOT_PLAN.monthlyCredits).toFixed(2)}/cr. Strategy cost varies by scope.`
             }
           </p>
 
@@ -812,12 +816,12 @@ export default function BillingPage() {
               <div className="text-sm text-slate-600 leading-relaxed">
                 {ar ? (
                   <>
-                    <span className="text-slate-950 font-semibold">Growth (150 رصيد)</span> = حتى 12 مسارًا أساسيًا من الاستراتيجية إلى المسودات (12 رصيدًا لكل مسار) · أو 50 صورة · أو مزيج من الإجراءات. النطاقات الأكبر قد تكلف أكثر —
+                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} رصيد)</span> = حتى {Math.floor(GROWTH_PLAN.monthlyCredits / 12)} مسارًا أساسيًا من الاستراتيجية إلى المسودات (12 رصيدًا لكل مسار) · أو {Math.floor(GROWTH_PLAN.monthlyCredits / 3)} صورة · أو مزيج من الإجراءات. النطاقات الأكبر قد تكلف أكثر —
                      {' '}<span className="text-violet-700">وتناسب فرقًا تحتاج وتيرة نشر أعلى عبر قنوات متعددة</span>
                   </>
                 ) : (
                   <>
-                    <span className="text-slate-950 font-semibold">Growth (150 credits)</span> = up to 12 core strategy-to-drafts workflows (12 credits each) · or 50 images · or a mix of actions. Larger strategy scopes may cost more —
+                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} credits)</span> = up to {Math.floor(GROWTH_PLAN.monthlyCredits / 12)} core strategy-to-drafts workflows (12 credits each) · or {Math.floor(GROWTH_PLAN.monthlyCredits / 3)} images · or a mix of actions. Larger strategy scopes may cost more —
                      {' '}<span className="text-violet-700">built for teams that need a higher publishing pace across channels</span>
                   </>
                 )}

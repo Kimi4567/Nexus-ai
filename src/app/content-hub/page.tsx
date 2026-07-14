@@ -236,7 +236,7 @@ export default function ContentHubPage() {
   }, [activeFormat, posts])
 
   const latestCampaign = campaigns[0]
-  const latestCampaignContentHref = latestCampaign ? `/campaigns/${latestCampaign.id}/content-hub` : '/content-hub'
+  const latestCampaignContentHref = latestCampaign ? `/campaigns/${latestCampaign.id}/content-hub` : '/strategy'
   const samplePost = filteredPosts.find(post => post.imageUrl) ?? filteredPosts[0] ?? posts.find(post => post.imageUrl) ?? posts[0]
   const recentPosts = filteredPosts.filter(post => {
     const status = String(post.status || 'DRAFT').toUpperCase()
@@ -284,9 +284,9 @@ export default function ContentHubPage() {
             pageTitle={isAr ? 'مركز إنتاج المحتوى' : 'Content Production Hub'}
             pageSubtitle={isAr ? 'حوّل الاستراتيجية إلى منشورات ووسائط قابلة للمراجعة قبل النشر.' : 'Turn strategy into reviewable posts and media before publishing.'}
             primaryHref={latestCampaignContentHref}
-            primaryLabel={isAr ? 'مراجعة الإنتاج' : 'Review production'}
-            secondaryHref="/campaigns"
-            secondaryLabel={isAr ? 'محفظة الحملات' : 'Campaign portfolio'}
+            primaryLabel={latestCampaign ? (isAr ? 'مراجعة الإنتاج' : 'Review production') : (isAr ? 'إنشاء استراتيجية' : 'Create strategy')}
+            secondaryHref="/strategy"
+            secondaryLabel={isAr ? 'الاستراتيجية والحملات' : 'Strategy & campaigns'}
           />
 
           {error && (
@@ -334,7 +334,7 @@ export default function ContentHubPage() {
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.95fr_1.25fr_1fr]">
                 <SoftPanel className="p-4" dir={isAr ? 'rtl' : 'ltr'}>
                   <div className="mb-4 flex items-center justify-between">
-                    <Link href="/campaigns" className="text-[12px] font-bold text-[#5E63FF]">{isAr ? 'عرض الكل' : 'View all'}</Link>
+                    <Link href="/strategy" className="text-[12px] font-bold text-[#5E63FF]">{isAr ? 'عرض مسار الحملات' : 'View campaign workflow'}</Link>
                     <div className="text-right">
                       <p className="text-[12px] font-bold text-[#5E63FF]">{isAr ? 'قائمة قرارات الإنتاج' : 'Production decisions'}</p>
                       <h2 className="text-[17px] font-black text-[#0B1028]">{isAr ? 'عناصر غير مكتملة' : 'Incomplete items'}</h2>

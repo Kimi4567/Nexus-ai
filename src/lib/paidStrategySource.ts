@@ -71,12 +71,17 @@ export function inspectPaidStrategySource(
   const output = record(campaign.aiOutput)
   const nestedStrategy = record(output?.strategy)
   const hasStrategy = Boolean((nestedStrategy ?? output) && Object.keys(nestedStrategy ?? output ?? {}).length > 0)
+  const qualityGate = record(output?.qualityGate)
+  const deterministicQualityPassed = qualityGate?.schemaVersion === 1
+    && qualityGate.status === 'passed'
+    && Array.isArray(qualityGate.blockers)
+    && qualityGate.blockers.length === 0
 
   const reason: PaidStrategySourceReason = !hasStrategy
     ? 'STRATEGY_MISSING'
     : !scope.includesPaid
       ? 'PAID_SCOPE_REQUIRED'
-      : approval.operatingBrief.sentinelStatus !== 'passed'
+      : !deterministicQualityPassed || approval.operatingBrief.sentinelStatus !== 'passed'
         ? 'QUALITY_REVIEW_REQUIRED'
       : approval.state !== 'approved'
         ? 'APPROVAL_REQUIRED'

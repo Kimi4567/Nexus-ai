@@ -19,6 +19,7 @@ describe('paid strategy source truth', () => {
       aiOutput: {
         strategyType: 'paid',
         strategy: { positioning: 'Clear care' },
+        qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
         sentinelReview: { status: 'passed' },
       },
     })).toMatchObject({
@@ -55,6 +56,7 @@ describe('paid strategy source truth', () => {
       aiOutput: {
         strategyType: 'paid',
         strategy: { positioning: 'Clear care' },
+        qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
         sentinelReview: { status: 'passed' },
       },
     })).toMatchObject({ eligible: false, reason: 'APPROVAL_REQUIRED', approvalState: 'ready_for_review' })

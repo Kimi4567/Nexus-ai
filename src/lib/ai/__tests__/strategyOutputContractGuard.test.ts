@@ -793,7 +793,7 @@ describe('strategy runtime copy contract', () => {
     expect(campaignPage).toContain("uiText('بريف تخطيط مدفوع للمراجعة', 'Paid planning brief for review')")
     expect(campaignPage).toContain("uiText('مراجعة فقط — لا إطلاق', 'Review only — no launch')")
     expect(campaignPage).toContain("const displayOperatingLabel = isPaidOnlyStrategy")
-    expect(campaignPage).toContain("activeTab !== 0 && !isPaidOnlyStrategy && !engineRunning && sentinelStatus === 'passed'")
+    expect(campaignPage).toContain("activeTab !== 0 && !isPaidOnlyStrategy && !engineRunning && completeQualityReviewPassed && operatingState.stage === 'content_plan_missing'")
   })
 
   it('keeps organic-only runs separate from paid planning readiness surfaces', () => {

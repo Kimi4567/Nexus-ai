@@ -13,7 +13,9 @@ const mocks = vi.hoisted(() => ({
   learningEventCreate: vi.fn(),
   decrypt: vi.fn(),
   publish: vi.fn(),
+  reviewStrategyGrounding: vi.fn(),
 }))
+vi.mock('@/lib/ai/marketingQualityGate', () => ({ reviewStrategyGrounding: mocks.reviewStrategyGrounding }))
 
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mocks.getUserId }))
 vi.mock('@/lib/tokenCrypto', () => ({ decryptToken: mocks.decrypt }))
@@ -69,7 +71,19 @@ beforeEach(() => {
       pages: [{ id: 'page-1', name: 'Page', accessToken: 'page-encrypted' }],
     },
   })
-  mocks.campaignFindFirst.mockResolvedValue({ id: 'campaign-1' })
+  mocks.campaignFindFirst.mockResolvedValue({
+    id: 'campaign-1', aiOutput: { strategy: { positioning: 'Reviewed campaign offer' } },
+    goal: 'LEADS', platforms: ['FACEBOOK', 'INSTAGRAM', 'YOUTUBE', 'X', 'PINTEREST', 'THREADS'],
+    workspace: {
+      brandProfile: {
+        brandName: 'Reviewed Brand', industry: 'Services', primaryOffer: 'Reviewed service',
+        targetAudience: 'Business buyers',
+      },
+    },
+  })
+  mocks.reviewStrategyGrounding.mockReturnValue({
+    schemaVersion: 1, status: 'passed', score: 100, blockers: [], warnings: [], checkedAt: '2026-07-14T00:00:00.000Z',
+  })
   mocks.decrypt.mockReturnValue('plain-token')
   mocks.publish.mockResolvedValue({ platformPostId: 'page_post_1', platformUrl: 'https://facebook.com/page_post_1' })
   mocks.socialPostFindFirst.mockResolvedValue({
@@ -156,10 +170,28 @@ describe('POST /api/social/publish', () => {
         type: 'META',
       },
     })
-    expect(mocks.campaignFindFirst).toHaveBeenCalledWith({
+    expect(mocks.campaignFindFirst).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'campaign-1', workspaceId: 'workspace-1' },
-      select: { id: true },
+      select: expect.objectContaining({ id: true, aiOutput: true, goal: true, platforms: true }),
+    }))
+  })
+
+  it('blocks provider delivery when the current Brand Brain no longer grounds the strategy', async () => {
+    mocks.reviewStrategyGrounding.mockReturnValue({
+      schemaVersion: 1,
+      status: 'blocked',
+      score: 70,
+      blockers: [{ code: 'strategy_missing_brand_relevance', severity: 'blocker', path: 'strategy', message: 'Drifted.' }],
+      warnings: [],
+      checkedAt: '2026-07-14T00:00:00.000Z',
     })
+
+    const response = await POST(request(validBody))
+    const body = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(body.code).toBe('MARKETING_QUALITY_GATE_FAILED')
+    expect(mocks.publish).not.toHaveBeenCalled()
   })
 
   it('records provider-confirmed publication and its user audit event', async () => {

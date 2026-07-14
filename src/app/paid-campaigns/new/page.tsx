@@ -26,6 +26,7 @@ import {
   selectSinglePaidPlanningAccount,
 } from '@/lib/paidPlanningSuggestion'
 import { paidPlatformSupportsObjective } from '@/lib/paidExecutionObjective'
+import CreditConfirmModal from '@/components/CreditConfirmModal'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface AdAccount {
@@ -149,7 +150,7 @@ function StepBar({ step, total, locale }: { step: number; total: number; locale:
 
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function NewPaidCampaignPage() {
-  const { user, isAuthenticated, loading: authLoading } = useAuth()
+  const { user, isAuthenticated, loading: authLoading, authHeader } = useAuth()
   const { locale } = useI18n()
   const router = useRouter()
   const isArabic = locale === 'ar'
@@ -166,6 +167,7 @@ export default function NewPaidCampaignPage() {
 
   const [previewVariantId, setPreviewVariantId] = useState<string | null>(null)
   const [aiSuggestLoading, setAiSuggestLoading] = useState(false)
+  const [creditConfirmation, setCreditConfirmation] = useState<'plan' | 'copy' | null>(null)
 
   const selectedStrategy = strategySources.find(source => source.id === selectedStrategyId) ?? null
   const strategyReasonLabel = (source: PaidStrategySource) => {
@@ -375,7 +377,7 @@ export default function NewPaidCampaignPage() {
     }
   }
 
-  // ── AI Assist: translate the approved strategy into a platform suggestion ──
+  // ── Smart setup: deterministic translation of the approved strategy ──
   const handleAiSuggest = async () => {
     if (!selectedStrategyId) {
       setError(copy('اختر استراتيجية Paid أو Full معتمدة أولاً.', 'Choose an approved Paid or Full strategy first.'))
@@ -588,21 +590,21 @@ export default function NewPaidCampaignPage() {
               )}
             </div>
 
-            {/* AI Assist Card */}
+            {/* Smart setup card — no provider call and no credit spend */}
             <div className="mb-5 p-4 rounded-[14px] relative overflow-hidden"
               style={{ background: '#faf5ff', border: '1px solid rgba(109,40,217,0.15)' }}>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[14px]">⚡</span>
-                    <span className="text-[13px] font-bold text-slate-950">{copy('اقترح تنفيذًا بالذكاء الاصطناعي', 'Let AI Suggest Execution')}</span>
+                    <span className="text-[13px] font-bold text-slate-950">{copy('إعداد ذكي من الاستراتيجية المعتمدة', 'Smart setup from approved strategy')}</span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
                       style={{ background: '#ede9fe', color: '#6d28d9' }}>{copy('مجاني', 'FREE')}</span>
                   </div>
                   <p className="text-[11px] text-slate-500 leading-relaxed">
                     {copy(
-                      'يقرأ الذكاء الاستراتيجية المعتمدة وBrand Brain ليقترح منصة واسم مسودة حول الهدف الثابت، بدون تغيير الاستراتيجية أو اختراع ميزانية.',
-                      'AI reads the approved strategy and Brand Brain to suggest a platform and draft name around the fixed objective without changing strategy or inventing budget.'
+                      'يطبّق NEXUS قواعد حتمية على الاستراتيجية المعتمدة والحسابات المتوافقة ليقترح منصة واسم مسودة، بدون استدعاء ذكاء أو خصم كريديت أو اختراع ميزانية.',
+                      'NEXUS applies deterministic rules to the approved strategy and compatible accounts to suggest a platform and draft name—no AI call, credit charge, or invented budget.'
                     )}
                   </p>
                 </div>
@@ -610,7 +612,7 @@ export default function NewPaidCampaignPage() {
                   type="button"
                   onClick={handleAiSuggest}
                   disabled={aiSuggestLoading || !selectedStrategyId}
-                  aria-label={copy('إنشاء اقتراح تنفيذ بالذكاء الاصطناعي', 'Generate an AI execution suggestion')}
+                  aria-label={copy('تطبيق الإعداد الذكي من الاستراتيجية', 'Apply smart setup from the strategy')}
                   className="flex-shrink-0 px-4 py-2 rounded-xl text-[12px] font-bold text-white transition-all"
                   style={{
                     background: aiSuggestLoading || !selectedStrategyId ? '#e5e7eb' : '#6d28d9',
@@ -623,7 +625,7 @@ export default function NewPaidCampaignPage() {
                       <span className="w-3.5 h-3.5 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin inline-block" />
                       {copy('جارٍ إعداد التنفيذ...', 'Preparing...')}
                     </span>
-                  ) : copy('اقتراح تنفيذ', 'AI Suggest')}
+                  ) : copy('تطبيق الإعداد', 'Apply setup')}
                 </button>
               </div>
             </div>
@@ -1065,8 +1067,8 @@ export default function NewPaidCampaignPage() {
                 <button
                   type="button"
                   disabled={loading}
-                  onClick={handleGenerateStrategy}
-                  aria-label={copy('إنشاء خطة التنفيذ مقابل رصيدين', 'Generate execution plan for 2 credits')}
+                  onClick={() => setCreditConfirmation('plan')}
+                  aria-label={copy('مراجعة تكلفة خطة التنفيذ: 4 كريديت', 'Review execution plan cost: 4 credits')}
                   className="px-6 py-3 rounded-xl text-[13px] font-bold text-white transition-all"
                   style={{ background: loading ? '#e5e7eb' : '#6d28d9', color: loading ? '#94a3b8' : 'white' }}
                 >
@@ -1075,7 +1077,7 @@ export default function NewPaidCampaignPage() {
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
                       {copy('جارٍ إنشاء خطة التنفيذ...', 'Generating execution plan...')}
                     </span>
-                  ) : copy('إنشاء خطة التنفيذ — رصيدان', 'Generate execution plan — 2 credits')}
+                  ) : copy('مراجعة التكلفة — 4 كريديت', 'Review cost — 4 credits')}
                 </button>
               </div>
             ) : (
@@ -1130,7 +1132,7 @@ export default function NewPaidCampaignPage() {
               {strategy && (
                 <button
                   type="button"
-                  onClick={handleGenerateCopy}
+                  onClick={() => setCreditConfirmation('copy')}
                   disabled={loading}
                   aria-label={copy('إنشاء مسودات النصوص الإعلانية مقابل رصيدين', 'Generate ad copy drafts for 2 credits')}
                   className="flex-1 py-2.5 rounded-xl text-[13px] font-bold transition-all"
@@ -1526,6 +1528,36 @@ export default function NewPaidCampaignPage() {
           </aside>
         </div>
       </main>
+      <CreditConfirmModal
+        isOpen={creditConfirmation !== null}
+        onClose={() => setCreditConfirmation(null)}
+        onConfirm={() => {
+          if (creditConfirmation === 'plan') void handleGenerateStrategy()
+          if (creditConfirmation === 'copy') void handleGenerateCopy()
+        }}
+        cost={creditConfirmation === 'plan' ? 4 : 2}
+        actionTitle={creditConfirmation === 'plan'
+          ? copy('إنشاء خطة تنفيذ مدفوعة', 'Generate paid execution plan')
+          : copy('إنشاء مسودات النصوص الإعلانية', 'Generate ad copy drafts')}
+        reason={creditConfirmation === 'plan'
+          ? copy(
+              'يحوّل الاستراتيجية المعتمدة إلى خطة تنفيذ منصة قابلة للمراجعة من دون إطلاق أو إنفاق.',
+              'Converts the approved strategy into a reviewable platform execution plan without launch or spend.',
+            )
+          : copy(
+              'ينشئ مسودات نصوص إعلانية مرتبطة بالاستراتيجية للمراجعة قبل أي تفعيل.',
+              'Creates strategy-aligned ad-copy drafts for review before any activation.',
+            )}
+        authHeader={authHeader}
+        locale={locale}
+        includedItems={creditConfirmation === 'plan'
+          ? (isArabic
+              ? ['استهداف المنصة', 'توزيع الميزانية للمراجعة', 'موجز إبداعي', 'لا إطلاق ولا إنفاق']
+              : ['Platform targeting', 'Reviewable budget allocation', 'Creative brief', 'No launch or spend'])
+          : (isArabic
+              ? ['مسودات مرتبطة بالاستراتيجية', 'نسخ للمراجعة', 'لا نشر ولا إنفاق']
+              : ['Strategy-aligned drafts', 'Copy for review', 'No publish or spend'])}
+      />
     </AppShell>
   )
 }

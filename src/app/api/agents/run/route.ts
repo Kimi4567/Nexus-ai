@@ -10,7 +10,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { runFullAgency, BusinessBrief } from '@/lib/agents/orchestrator'
-import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import {
+  checkAndDeductCredits,
+  getCreditActionPolicy,
+  refundCreditDeduction,
+} from '@/lib/credits'
 import { aiRateLimit } from '@/lib/dbRateLimit'
 import { validateOutputObject, logQualityReport } from '@/lib/ai/outputValidator'
 import { randomUUID } from 'crypto'
@@ -105,13 +109,22 @@ export async function POST(req: NextRequest) {
     try {
       result = await runFullAgency(workspace.id, brief)
     } catch (genErr) {
-      // Refund — failed strategy run must not charge the user (skip unlimited plans)
-      if (credit.creditsUsed > 0) await refundCredits(user.id, 'RUN_FULL_STRATEGY')
+      await refundCreditDeduction({
+        userId: user.id,
+        action: 'RUN_FULL_STRATEGY',
+        deduction: credit,
+        reason: 'Full strategy generation failed',
+      })
       throw genErr
     }
 
     if (!result.strategyCreated) {
-      if (credit.creditsUsed > 0) await refundCredits(user.id, 'RUN_FULL_STRATEGY')
+      await refundCreditDeduction({
+        userId: user.id,
+        action: 'RUN_FULL_STRATEGY',
+        deduction: credit,
+        reason: 'No usable strategy was created',
+      })
       const limitError = result.errors.find((message) => message.startsWith('CAMPAIGN_LIMIT_REACHED:'))
       if (limitError) {
         const [, limit, ...resetParts] = limitError.split(':')
@@ -143,6 +156,11 @@ export async function POST(req: NextRequest) {
       ok: true,
       workspaceId: workspace.id,
       creditsRemaining: credit.creditsRemaining,
+      creditsUsed: credit.creditsUsed,
+      creditCharge: {
+        ...getCreditActionPolicy('RUN_FULL_STRATEGY'),
+        creditsUsed: credit.creditsUsed,
+      },
       qualityScore: qualityReport.score,
       ...result,
     })

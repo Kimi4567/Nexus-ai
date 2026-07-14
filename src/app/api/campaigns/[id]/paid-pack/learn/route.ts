@@ -9,12 +9,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import {
+  buildCreditChargeReceipt,
   checkAndDeductCredits,
   refundCredits,
   refundCreditsForTransaction,
   type CreditDeductionOk,
 } from '@/lib/credits'
-import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 import { paidMetricsSignalCopy } from '@/lib/paidBoundary'
 import { paidMetricsCompleteness } from '@/lib/paidMetrics'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
@@ -235,59 +235,93 @@ Extract a paid metrics signal as JSON:
     delete safeLearnings.campaignScore
     safeLearnings.measurementCompleteness = paidMetricsCompleteness(pack.metrics)
 
-    // Save learnings to pack
-    await db.paidCampaignPack.update({
-      where: { campaignId: params.id },
-      data: {
-        learnings: safeLearnings,
-        brandBrainUpdated: false,
-      },
-    })
-
-    // Apply updates to Brand Brain only when metrics are analytics-backed.
-    let brandBrainUpdated = false
+    // Analytics evidence can create review proposals, never mutate governed
+    // Brand Brain fields directly. The user accepts or dismisses each proposal
+    // in the Decision Center, which preserves provenance and revision history.
     const updates = parsed.brandBrainUpdates
-    if (updates && brandProfile && attributionReady) {
-      const existingHooks: string[] = brandProfile.winningHooks ?? []
-      const existingFailed: string[] = brandProfile.failedAngles ?? []
-      const existingStrategic = brandProfile.strategicNotes ?? ''
+    const proposalReason = `Provider-backed paid campaign metrics with an attribution breakdown support this review candidate for campaign ${campaign.name}. Accepting it records a governed signal; it does not guarantee future performance.`
+    const strategicSignals = [
+      updates?.targetAudienceRefinement
+        ? `Audience signal to review: ${updates.targetAudienceRefinement}`
+        : null,
+      updates?.topPlatformsUpdate?.length
+        ? `Platform ordering signal to review: ${updates.topPlatformsUpdate.join(' → ')}`
+        : null,
+      updates?.strategicNotesAddition || null,
+    ].filter((value): value is string => Boolean(value && value.trim()))
 
-      const newHooks = [...new Set([...existingHooks, ...(updates.hooksToReview ?? [])])]
-      const newFailed = [...new Set([...existingFailed, ...(updates.anglesToReview ?? [])])]
-      const newStrategic = updates.strategicNotesAddition
-        ? `${existingStrategic}\n\n[${new Date().toLocaleDateString()}] ${updates.strategicNotesAddition}`.trim()
-        : existingStrategic
+    const proposalCandidates = [
+      updates?.hooksToReview?.length ? {
+        field: 'winningHooks',
+        displayName: 'Evidence-backed hook candidates',
+        icon: '📊',
+        current: brandProfile?.winningHooks ?? [],
+        proposed: [...new Set(updates.hooksToReview.map((value) => String(value).trim()).filter(Boolean))].slice(0, 10),
+      } : null,
+      updates?.anglesToReview?.length ? {
+        field: 'failedAngles',
+        displayName: 'Angles to avoid or retest',
+        icon: '⚠️',
+        current: brandProfile?.failedAngles ?? [],
+        proposed: [...new Set(updates.anglesToReview.map((value) => String(value).trim()).filter(Boolean))].slice(0, 10),
+      } : null,
+      strategicSignals.length ? {
+        field: 'strategicNotes',
+        displayName: 'Paid performance signal',
+        icon: '🧭',
+        current: brandProfile?.strategicNotes ?? '',
+        proposed: strategicSignals.join(' '),
+      } : null,
+    ].filter((proposal): proposal is NonNullable<typeof proposal> => Boolean(proposal))
 
-      await db.brandProfile.update({
-        where: { workspaceId: campaign.workspaceId },
-        data: {
-          winningHooks: newHooks.slice(0, 20), // cap at 20 to avoid bloat
-          failedAngles: newFailed.slice(0, 20),
-          ...(updates.topPlatformsUpdate?.length && { topPlatforms: updates.topPlatformsUpdate }),
-          ...(updates.targetAudienceRefinement && { targetAudience: updates.targetAudienceRefinement }),
-          strategicNotes: newStrategic,
-        },
-      })
-      snapshotBrandMaturity(db, campaign.workspaceId).catch(() => null)
+    const existingPending = proposalCandidates.length > 0
+      ? await db.brainLearning.findMany({
+          where: {
+            workspaceId: campaign.workspaceId,
+            campaignId: params.id,
+            trigger: 'post_performance',
+            status: 'pending',
+          },
+          select: { field: true, proposed: true },
+        }) as Array<{ field: string; proposed: unknown }>
+      : []
+    const proposalRows = proposalCandidates.filter((candidate) => !existingPending.some((existing) =>
+      existing.field === candidate.field && JSON.stringify(existing.proposed) === JSON.stringify(candidate.proposed),
+    )).map((candidate) => ({
+      workspaceId: campaign.workspaceId,
+      campaignId: params.id,
+      trigger: 'post_performance',
+      ...candidate,
+      reason: proposalReason,
+      status: 'pending',
+    }))
 
-      await db.paidCampaignPack.update({
+    await prisma.$transaction(async (tx) => {
+      const txDb = tx as any
+      await txDb.paidCampaignPack.update({
         where: { campaignId: params.id },
         data: {
-          brandBrainUpdated: true,
-          brandBrainUpdatedAt: new Date(),
+          learnings: safeLearnings,
+          brandBrainUpdated: false,
         },
       })
-      brandBrainUpdated = true
-    }
+      if (proposalRows.length > 0) {
+        await txDb.brainLearning.createMany({ data: proposalRows })
+      }
+    })
 
     return NextResponse.json({
       learnings: safeLearnings,
-      brandBrainUpdated,
+      brandBrainUpdated: false,
+      brandBrainProposalCount: proposalRows.length,
       brandBrainUpdates: parsed.brandBrainUpdates,
       signalLabel: signalTruth.label,
       analyticsBacked: signalTruth.canUpdateBrandBrain,
       attributionReady,
       success: true,
+      creditsUsed: creditResult.creditsUsed,
+      creditsRemaining: creditResult.creditsRemaining,
+      creditCharge: buildCreditChargeReceipt('AD_COPY', creditResult),
     })
   } catch (err) {
     console.error('[paid-pack/learn]', err)

@@ -110,9 +110,9 @@ export default function OnboardingChecklist({ stats, brandReadiness, hasConnecti
       whyEn: 'Strategy gives you direction, positioning, and messages before execution.',
       timeEstAr: '٢ دقيقة',
       timeEstEn: '2 min',
-      href: '/campaigns',
-      ctaAr: 'اذهب للحملات',
-      ctaEn: 'Go to campaigns',
+      href: '/strategy',
+      ctaAr: 'فتح مسار الاستراتيجية',
+      ctaEn: 'Open strategy workflow',
     },
     {
       id: 'content',

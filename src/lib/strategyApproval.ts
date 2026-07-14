@@ -7,6 +7,8 @@ export type StrategyApprovalState =
 
 export type StrategyApprovalBlockerCode =
   | 'STRATEGY_MISSING'
+  | 'MARKETING_QUALITY_GATE_REQUIRED'
+  | 'MARKETING_QUALITY_GATE_FAILED'
   | 'SENTINEL_REVIEW_REQUIRED'
   | 'SENTINEL_REVIEW_FAILED'
   | 'CAMPAIGN_NOT_EDITABLE'
@@ -116,6 +118,9 @@ export function buildStrategyApprovalContract(input: StrategyApprovalInput): Str
     : sentinelRaw
       ? 'failed'
       : 'not_run'
+  const qualityGate = record(aiOutput?.qualityGate)
+  const qualityGateStatus = text(qualityGate?.status)?.toLowerCase()
+  const qualityGateVersion = qualityGate?.schemaVersion
 
   const approvalBlockers: StrategyApprovalBlocker[] = []
   if (!['DRAFT', 'ACTIVE'].includes(input.campaign.status)) {
@@ -133,6 +138,24 @@ export function buildStrategyApprovalContract(input: StrategyApprovalInput): Str
       code: 'STRATEGY_MISSING',
       phase: 'approve',
       message: { en: 'Generate a strategy before approval.', ar: 'أنشئ الاستراتيجية قبل اعتمادها.' },
+    })
+  } else if (!qualityGateStatus || qualityGateVersion !== 1) {
+    approvalBlockers.push({
+      code: 'MARKETING_QUALITY_GATE_REQUIRED',
+      phase: 'approve',
+      message: {
+        en: 'Run the current deterministic brand and scope review before approval.',
+        ar: 'شغّل مراجعة تطابق العلامة والنطاق الحالية قبل الاعتماد.',
+      },
+    })
+  } else if (qualityGateStatus !== 'passed' || (Array.isArray(qualityGate?.blockers) && qualityGate.blockers.length > 0)) {
+    approvalBlockers.push({
+      code: 'MARKETING_QUALITY_GATE_FAILED',
+      phase: 'approve',
+      message: {
+        en: 'Regenerate the strategy after resolving its Brand Brain or scope conflicts.',
+        ar: 'أعد إنشاء الاستراتيجية بعد حل تعارضات Brand Brain أو النطاق.',
+      },
     })
   } else if (sentinelStatus === 'not_run') {
     approvalBlockers.push({

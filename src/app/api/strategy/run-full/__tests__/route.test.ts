@@ -45,6 +45,12 @@ vi.mock('@/lib/dbRateLimit', () => ({ aiRateLimitDb: mockAiRateLimitDb }))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
   FREE_STARTER_CREDITS: 12,
+  getCreditActionPolicy: (action: string) => ({
+    action,
+    cost: 8,
+    label: 'Full marketing strategy',
+    reason: 'Creates the strategy, operating plan, and measurable execution brief.',
+  }),
   refundCreditsForTransaction: mockRefundForTxn,
 }))
 vi.mock('@/lib/credits/wallet', () => ({ isCreditWalletEnabled: mockIsWalletEnabled }))

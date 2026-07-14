@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import {
+  buildCreditChargeReceipt,
   checkAndDeductCredits,
   refundCredits,
   refundCreditsForTransaction,
@@ -75,6 +76,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Provide systemPrompt+userPrompt or action.' }, { status: 400 })
   }
 
+  const rawSystemPrompt = isNew ? String(body.systemPrompt) : ''
+  const rawUserPrompt = isNew ? String(body.userPrompt) : ''
+  if (rawSystemPrompt.length > 12_000 || rawUserPrompt.length > 8_000 || rawSystemPrompt.length + rawUserPrompt.length > 16_000) {
+    return NextResponse.json({
+      error: 'AI request context is too large.',
+      code: 'AI_CONTEXT_LIMIT',
+      creditsCharged: false,
+    }, { status: 400 })
+  }
+
   // Language instruction — appended to system prompt so AI responds in the user's locale
   // Defaults to 'ar' to preserve existing Arabic user behavior
   const language = (body.language as string) || 'ar'
@@ -142,7 +153,13 @@ export async function POST(req: NextRequest) {
     const content = data.choices?.[0]?.message?.content ?? ''
 
     // Return both field names — both calling conventions work
-    return NextResponse.json({ content, result: content })
+    return NextResponse.json({
+      content,
+      result: content,
+      creditsUsed: credit.creditsUsed,
+      creditsRemaining: credit.creditsRemaining,
+      creditCharge: buildCreditChargeReceipt('AD_COPY', credit),
+    })
 
   } catch (err) {
     console.error('[ai/generate] Unexpected error:', err)

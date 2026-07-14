@@ -7,7 +7,7 @@ import ConsentAwareTelemetry from '@/components/ConsentAwareTelemetry'
 export const metadata: Metadata = {
   title: 'NEXUS AI | Marketing Operating System',
   description:
-    'Build reviewed strategy, content plans, paid planning, approvals, and evidence-backed monitoring from one Brand Brain. Start with a 14-day, 12-credit trial.',
+    'Build reviewed strategy, content plans, paid planning, approvals, and evidence-backed monitoring from one Brand Brain. Start with 12 one-time trial credits.',
   keywords: [
     'AI marketing', 'marketing automation', 'AI marketing department',
     'campaign generator', 'content creation', 'social media marketing',

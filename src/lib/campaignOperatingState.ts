@@ -1,4 +1,5 @@
 import { isContentPostMediaReadyForScheduling } from './contentHubMediaState'
+import { isPersistedMarketingQualityGatePassed } from './ai/marketingQualityGate'
 
 export type CampaignStatusLike =
   | 'DRAFT'
@@ -49,6 +50,7 @@ export interface CampaignOperatingInput {
     uploadedMediaId?: string | null
     mediaSource?: string | null
     scheduledAt?: string | Date | null
+    autoPublishConsentAt?: string | Date | null
     approvedAt?: string | Date | null
     publishedAt?: string | Date | null
     manuallyPublishedAt?: string | Date | null
@@ -252,7 +254,9 @@ export function hasStrategyEvidence(aiOutput: unknown): boolean {
 function strategyReviewPassed(aiOutput: unknown): boolean {
   if (!isRecord(aiOutput)) return false
   const review = aiOutput.sentinelReview
-  return isRecord(review) && review.status === 'passed'
+  return isRecord(review)
+    && review.status === 'passed'
+    && isPersistedMarketingQualityGatePassed(aiOutput.qualityGate)
 }
 
 export function deriveCampaignOperatingState(input: CampaignOperatingInput): CampaignOperatingState {
@@ -280,12 +284,14 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
   }
 
   let malformedScheduledPosts = 0
+  let unconsentedAutoPosts = 0
 
   for (const post of posts) {
     const postStatus = String(post.status ?? '').toUpperCase()
     const generationStatus = String(post.generationStatus ?? '').toUpperCase()
     const publishMode = String(post.publishMode ?? 'MANUAL').toUpperCase()
     const hasScheduledAt = hasValidDate(post.scheduledAt)
+    const hasAutoPublishConsent = hasValidDate(post.autoPublishConsentAt)
     const hasPublishedAt = hasValidDate(post.publishedAt)
     const hasPlatformRef = Boolean(post.platformPostId || post.platformUrl)
     const hasAnalytics = Boolean(post.analyticsData || post.analyticsFetched)
@@ -301,8 +307,14 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     if (postStatus === 'SCHEDULED') {
       if (hasScheduledAt) {
         counts.scheduledPosts += 1
-        if (publishMode === 'AUTO') counts.autoScheduledPosts += 1
-        else counts.manualScheduledPosts += 1
+        if (publishMode === 'AUTO' && hasAutoPublishConsent) {
+          counts.autoScheduledPosts += 1
+        } else {
+          // AUTO without a recorded confirmation is intentionally treated as a
+          // manual queue item. It cannot be represented as auto-publish ready.
+          counts.manualScheduledPosts += 1
+          if (publishMode === 'AUTO') unconsentedAutoPosts += 1
+        }
       } else {
         malformedScheduledPosts += 1
       }
@@ -343,6 +355,7 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
   if (counts.draftPosts > 0) blockers.push('content_review')
   if (approvedMediaPending) blockers.push('media_review')
   if (malformedScheduledPosts > 0) blockers.push('scheduled_time')
+  if (unconsentedAutoPosts > 0) blockers.push('auto_publish_consent')
   if (counts.publishedPosts > 0 && counts.analyticsReadyPosts === 0) blockers.push('analytics')
   if (pendingLearningCount > 0) blockers.push('learning_review')
 

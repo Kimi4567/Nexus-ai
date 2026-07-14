@@ -20,6 +20,7 @@ vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
+  buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, cost: 2, ...deduction }),
 }))
 vi.mock('@/lib/ai/langHelper', () => ({ getLanguageInstruction: () => 'Respond in English.' }))
 

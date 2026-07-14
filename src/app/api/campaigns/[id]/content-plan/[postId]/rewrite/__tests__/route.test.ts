@@ -20,6 +20,8 @@ vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
   refundCredits: mockRefund,
+  refundCreditDeduction: mockRefund,
+  buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, cost: 1, ...deduction }),
   CREDIT_COSTS: {
     IMAGE_GENERATION: 3,
     AI_POST_REWRITE: 1,

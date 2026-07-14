@@ -26,6 +26,15 @@ vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
+  refundCreditDeduction: vi.fn(async ({ userId, action, deduction, reason }) => {
+    if (!deduction || deduction.creditsUsed <= 0) return
+    if (deduction.transactionId) {
+      await mockRefundForTxn({ userId, transactionId: deduction.transactionId, reason })
+      return
+    }
+    await mockRefund(userId, action, reason)
+  }),
+  getCreditActionPolicy: () => ({ action: 'AI_FIELD_SUGGESTION', cost: 1, label: 'AI field suggestion' }),
 }))
 vi.mock('@/lib/ai/promptRules', () => ({
   BANNED_PHRASES: '',
@@ -46,7 +55,7 @@ beforeEach(() => {
   vi.stubEnv('OPENAI_API_KEY', 'test-openai-key')
   mockGetAuthUser.mockResolvedValue({ id: 'u1' })
   mockSuggestRateLimitDb.mockResolvedValue({ ok: true })
-  mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 2, creditsRemaining: 18 })
+  mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 1, creditsRemaining: 19 })
   mockRefund.mockResolvedValue(undefined)
   mockRefundForTxn.mockResolvedValue(undefined)
   mockPrisma.workspace.findFirst.mockResolvedValue(null)
@@ -75,8 +84,8 @@ describe('POST /api/campaigns/suggest — RF-2 refund safety', () => {
   it('provider failure after deduction uses transaction-aware refund', async () => {
     mockCheckAndDeduct.mockResolvedValue({
       ok: true,
-      creditsUsed: 2,
-      creditsRemaining: 18,
+      creditsUsed: 1,
+      creditsRemaining: 19,
       transactionId: 'txn_campaign',
     })
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
@@ -105,7 +114,7 @@ describe('POST /api/campaigns/suggest — RF-2 refund safety', () => {
     const res = await POST(makeReq({ field: 'name', goal: 'leads', locale: 'en' }))
 
     expect(res.status).toBe(502)
-    expect(mockRefund).toHaveBeenCalledWith('u1', 'AD_COPY', 'OpenAI error 500')
+    expect(mockRefund).toHaveBeenCalledWith('u1', 'AI_FIELD_SUGGESTION', 'OpenAI error 500')
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
 
@@ -115,7 +124,8 @@ describe('POST /api/campaigns/suggest — RF-2 refund safety', () => {
 
     expect(res.status).toBe(200)
     expect(json.suggestion).toBe('Launch sprint')
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'AD_COPY')
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'AI_FIELD_SUGGESTION')
+    expect(json.creditCharge).toMatchObject({ action: 'AI_FIELD_SUGGESTION', cost: 1, creditsUsed: 1 })
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })

@@ -21,6 +21,8 @@ import {
   checkAndDeductCredits,
   refundCredits,
   refundCreditsForTransaction,
+  getCreditActionPolicy,
+  type CreditAction,
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { PLAN_QUOTAS } from '@/lib/stripe'
@@ -48,6 +50,7 @@ import { validateContentPlanSemanticAlignment } from '@/lib/contentPlanSemanticG
 import { resolveContentPlanBrandName } from '@/lib/contentPlanBrandContext'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { readLockedPlannedPostAllowance } from '@/lib/postCommercial'
+import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 
 // Heavy gpt-4o generation (up to 18 posts) + optional media vision can run well
 // past the platform default. Match the sibling routes (engine, /generate) so the
@@ -122,9 +125,10 @@ function distributePosts(
 
 // ── Main POST handler ──────────────────────────────────────────────────────────
 
-async function refundContentPlanCharge(
+async function refundContentActionCharge(
   userId: string,
   charge: CreditDeductionOk | null,
+  action: Extract<CreditAction, 'CONTENT_PLAN_GENERATION' | 'CONTENT_AB_VARIANTS'>,
   reason: string,
 ): Promise<void> {
   if (!charge || charge.creditsUsed <= 0) return
@@ -132,7 +136,7 @@ async function refundContentPlanCharge(
     await refundCreditsForTransaction({ userId, transactionId: charge.transactionId, reason })
     return
   }
-  await refundCredits(userId, 'CONTENT_PLAN_GENERATION', reason)
+  await refundCredits(userId, action, reason)
 }
 
 export async function POST(req: NextRequest, props: Params) {
@@ -143,6 +147,24 @@ export async function POST(req: NextRequest, props: Params) {
   // Hoisted so any failure below the deduction (incl. the outer catch) can refund.
   let contentPlanCharged = false
   let contentPlanCharge: CreditDeductionOk | null = null
+  let abVariantsCharged = false
+  let abVariantsCharge: CreditDeductionOk | null = null
+  const refundAbVariants = async (reason: string) => {
+    if (!abVariantsCharged) return false
+    await refundContentActionCharge(userId, abVariantsCharge, 'CONTENT_AB_VARIANTS', reason)
+    abVariantsCharged = false
+    return true
+  }
+  const refundAllRequestedContent = async (reason: string) => {
+    const abRefunded = await refundAbVariants(reason)
+    let planRefunded = false
+    if (contentPlanCharged) {
+      await refundContentActionCharge(userId, contentPlanCharge, 'CONTENT_PLAN_GENERATION', reason)
+      contentPlanCharged = false
+      planRefunded = true
+    }
+    return abRefunded || planRefunded
+  }
   try {
     // ── 1. Load campaign ───────────────────────────────────────────────────
     const campaign = await prisma.campaign.findFirst({
@@ -153,9 +175,22 @@ export async function POST(req: NextRequest, props: Params) {
             brandProfile: {
               select: {
                 brandName: true,
+                industry: true,
                 description: true,
                 primaryOffer: true,
+                targetAudience: true,
+                audienceAge: true,
+                audienceLocation: true,
+                audiencePainPoints: true,
+                audienceDesires: true,
                 uniqueAdvantages: true,
+                toneKeywords: true,
+                writingStyle: true,
+                avoidKeywords: true,
+                topPlatforms: true,
+                businessGoal: true,
+                competitors: true,
+                competitorNotes: true,
                 complianceNotes: true,
                 verifiedProof: true,
                 conversionDestination: true,
@@ -177,8 +212,14 @@ export async function POST(req: NextRequest, props: Params) {
     const brandProfile = campaign.workspace?.brandProfile
     const explicitBrandFacts = [
       brandProfile?.brandName,
+      brandProfile?.industry,
       brandProfile?.description,
       brandProfile?.primaryOffer,
+      brandProfile?.targetAudience,
+      brandProfile?.audienceAge,
+      brandProfile?.audienceLocation,
+      brandProfile?.audiencePainPoints ?? [],
+      brandProfile?.audienceDesires ?? [],
       brandProfile?.uniqueAdvantages ?? [],
       brandProfile?.complianceNotes,
       brandProfile?.verifiedProof ?? [],
@@ -193,6 +234,21 @@ export async function POST(req: NextRequest, props: Params) {
       brandFacts: explicitBrandFacts,
     }
     const strategyForContent = guardStrategyProof(strategy, proofContext)
+    const strategyQualityGate = reviewStrategyGrounding({
+      strategy: strategyForContent,
+      brand: brandProfile,
+      allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms.map(String) : [],
+      goal: campaign.goal,
+    })
+
+    if (strategyQualityGate.status === 'blocked') {
+      return NextResponse.json({
+        error: 'The approved strategy no longer passes the current Brand Brain and channel-scope review. Regenerate or re-review the strategy before creating content.',
+        code: 'MARKETING_QUALITY_GATE_BLOCKED',
+        qualityGate: strategyQualityGate,
+        creditsUsed: 0,
+      }, { status: 422 })
+    }
 
     const hasRealStrategyEvidence =
       !!aiOutput &&
@@ -252,6 +308,15 @@ export async function POST(req: NextRequest, props: Params) {
 
     const body = await req.json().catch(() => ({}))
     const bodyLanguage: string = body.language ?? aiOutput?.language ?? ''
+    const enableABTesting: boolean = body.enableABTesting ?? false
+
+    if (enableABTesting && slotScope.imagePosts <= 0) {
+      return NextResponse.json({
+        error: 'A/B caption variants require at least one image-post slot. No credits were charged.',
+        code: 'AB_VARIANTS_REQUIRE_IMAGE_POSTS',
+        creditsUsed: 0,
+      }, { status: 422 })
+    }
 
     if (!isAiProviderConfigured()) {
       return NextResponse.json(getAiProviderUnavailablePayload(bodyLanguage), { status: 503 })
@@ -271,34 +336,49 @@ export async function POST(req: NextRequest, props: Params) {
     contentPlanCharged = creditCheck.creditsUsed > 0 // skip refund for unlimited plans
     contentPlanCharge = creditCheck
 
+    // A/B variants are an explicit second AI product, not hidden work inside the
+    // base plan. Charge separately before either model call; if it cannot be
+    // afforded, restore the base-plan debit and do no AI work.
+    if (enableABTesting) {
+      const abCreditCheck = await checkAndDeductCredits(userId, 'CONTENT_AB_VARIANTS')
+      if (!abCreditCheck.ok) {
+        await refundAllRequestedContent('Optional A/B variants could not be funded; base content generation did not start')
+        return NextResponse.json({
+          ...abCreditCheck,
+          code: abCreditCheck.error ?? 'INSUFFICIENT_CREDITS',
+          requestedActions: [
+            getCreditActionPolicy('CONTENT_PLAN_GENERATION'),
+            getCreditActionPolicy('CONTENT_AB_VARIANTS'),
+          ],
+        }, { status: 402 })
+      }
+      abVariantsCharged = abCreditCheck.creditsUsed > 0
+      abVariantsCharge = abCreditCheck
+    }
+
     const brandName    = resolveContentPlanBrandName(campaign)
     const campaignName = campaign.name ?? 'Campaign'
 
-    // FL2: Prefer connected platforms from Integration table over wizard selection.
-    // This ensures the content plan targets channels the user actually has connected.
-    const connectedIntegrations = await prisma.integration.findMany({
-      where: {
-        workspaceId,
-        status: 'CONNECTED' as any,
-        // Exclude non-social integrations
-        type: { notIn: ['STRIPE', 'CLOUDINARY', 'GOOGLE', 'SLACK'] as any[] },
-      },
-      select: { type: true },
-    })
-    const platforms: string[] =
-      connectedIntegrations.length > 0
-        ? [...new Set(connectedIntegrations.map(i => String(i.type)))]
-        : ((campaign.platforms as string[]) ?? ['META'])
+    // Draft scope comes from the reviewed strategy/campaign. Connections affect
+    // scheduling and publishing readiness, never the content promise itself.
+    const platforms: string[] = Array.isArray(campaign.platforms) && campaign.platforms.length > 0
+      ? campaign.platforms.map(String)
+      : (brandProfile?.topPlatforms?.map(String) ?? ['META'])
 
     const keyMessage    = strategyForContent.keyMessage ?? strategyForContent.coreMessage ?? ''
-    const targetAudience = strategyForContent.targetAudience
-      ? JSON.stringify(strategyForContent.targetAudience)
-      : campaign.audience ?? ''
+    const targetAudience = brandProfile?.targetAudience
+      || strategyForContent.targetAudienceRefined
+      || (strategyForContent.targetAudience ? JSON.stringify(strategyForContent.targetAudience) : '')
+      || campaign.audience
+      || ''
     const contentPillars: string[] = strategyForContent.contentPillars?.map((p: any) =>
       typeof p === 'string' ? p : p.pillar ?? p.name ?? JSON.stringify(p),
     ) ?? []
-    const tone = campaign.tone ?? strategyForContent.tonalDirection ?? 'professional'
-    const offer = strategyForContent.primaryOffer ?? strategyForContent.cta ?? ''
+    const tone = [
+      ...(brandProfile?.toneKeywords ?? []),
+      brandProfile?.writingStyle ?? '',
+    ].filter(Boolean).join(', ') || String(campaign.tone ?? 'professional')
+    const offer = brandProfile?.primaryOffer ?? strategyForContent.primaryOffer ?? strategyForContent.cta ?? ''
 
     // ── 5. Check for uploaded media the user wants to use ─────────────────
     const mediaSource: 'GENERATE' | 'UPLOAD' | 'MIXED' = body.mediaSource ?? 'GENERATE'
@@ -309,8 +389,6 @@ export async function POST(req: NextRequest, props: Params) {
     const selectedMediaIds: string[] = Array.isArray(body.selectedMediaIds)
       ? body.selectedMediaIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
       : persistedSelectedMediaIds
-    const enableABTesting: boolean = body.enableABTesting ?? false
-
     // OC3: Accept language + contentMix from organic content wizard
     const contentMix: { educational?: number; promotional?: number; engagement?: number } =
       body.contentMix ?? {}
@@ -331,55 +409,9 @@ export async function POST(req: NextRequest, props: Params) {
         take: 20,
       })
 
-      // AI Vision analysis — analyze each selected image/video so GPT knows what's in the asset
-      if (userMedia.length > 0 && process.env.OPENAI_API_KEY) {
-        const analyzed = await Promise.allSettled(
-          userMedia.map(async (m) => {
-            try {
-              // For videos: Cloudinary serves a thumbnail by replacing .mp4/.mov with .jpg
-              const analyzeUrl = m.type === 'VIDEO'
-                ? m.url.replace(/\.(mp4|mov|webm|avi)(\?.*)?$/i, '.jpg')
-                : m.url
-
-              const visionRes = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                  Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  model: 'gpt-4o',
-                  max_tokens: 150,
-                  messages: [{
-                    role: 'user',
-                    content: [
-                      {
-                        type: 'image_url',
-                        image_url: { url: analyzeUrl, detail: 'low' },
-                      },
-                      {
-                        type: 'text',
-                        text: `Describe this ${m.type === 'VIDEO' ? 'video thumbnail' : 'image'} in 2-3 sentences for a social media content planner. Focus on: main subject, mood, colors, and how it could be used in marketing. Be concise and practical.`,
-                      },
-                    ],
-                  }],
-                }),
-              })
-              const vData = await visionRes.json()
-              return { id: m.id, description: vData.choices?.[0]?.message?.content ?? '' }
-            } catch {
-              return { id: m.id, description: '' }
-            }
-          }),
-        )
-        // Merge AI descriptions back into userMedia
-        analyzed.forEach((result) => {
-          if (result.status === 'fulfilled' && result.value.description) {
-            const item = userMedia.find(m => m.id === result.value.id)
-            if (item) item.aiDescription = result.value.description
-          }
-        })
-      }
+      // Media analysis is intentionally not hidden inside the content-plan fee.
+      // Until a separately priced media-analysis action exists, the planner uses
+      // only user-visible file metadata and never performs unmetered Vision calls.
     }
 
     // ── 6. Build slot distribution ─────────────────────────────────────────
@@ -435,11 +467,16 @@ When assigning media to a post, set "assignedMediaIndex" to the [MEDIA_X] index 
     const systemPrompt = `You are an expert social media content strategist for ${brandName}.
 
 Campaign: "${campaignName}"
+Business category: "${brandProfile?.industry ?? 'Not provided'}"
+Business description: "${brandProfile?.description ?? 'Not provided'}"
 Key message: "${keyMessage}"
 Target audience: ${targetAudience}
 Content pillars: ${pillarText}
 Tone: ${tone}
 Offer/CTA: ${offer}
+Audience pain points: ${(brandProfile?.audiencePainPoints ?? []).join(' | ') || 'Not provided'}
+Audience desires: ${(brandProfile?.audienceDesires ?? []).join(' | ') || 'Not provided'}
+Forbidden brand words/styles: ${(brandProfile?.avoidKeywords ?? []).join(' | ') || 'None provided'}
 Agency-grade operating strategy context:
 ${operatingStrategyContext}
 ${mediaContext}
@@ -471,7 +508,7 @@ Generate platform-native social media posts. Each post must:
 - Use a meaningfully different hook structure, audience pain, message angle, and CTA from every other post. Rephrasing the same advice does not count as a new post.
 - Ground the post in one detailed audience segment, content angle, or funnel stage from the operating strategy context when available.
 - Match the CTA to the funnel handoff. If the strategy says the team must reply, qualify, book, or send an offer, make that next step clear without inventing a destination.
-- Adapt the idea to the platform rather than copying one caption across channels. LinkedIn should lead with operational insight; Instagram should lead with a visual/saveable idea; short-form video should lead with a scene and retention hook.
+- Adapt presentation to the platform without changing the saved customer, offer, or business type. LinkedIn must stay customer-facing for a consumer/service brand (education, community trust, or professional expertise); never turn it into internal administration, team workflow, ownership, handoff, or SaaS operations unless Brand Brain explicitly says the offer is operations software. Instagram should lead with a visual/saveable idea; short-form video should lead with a scene and retention hook.
 - Mention the brand only when it strengthens the message or CTA. Do not repeat the brand name mechanically in every post.
 - Treat missing proof, competitor data, tracking, or conversion details as a content/review gap. Never convert a gap into a factual claim.
 
@@ -537,13 +574,11 @@ Rules:
     if (!planResult.ok) {
       // No usable content after retries — refund (skip unlimited plans) and
       // surface a clear, user-safe failure instead of a silent empty plan.
-      if (contentPlanCharged) {
-        await refundContentPlanCharge(userId, contentPlanCharge, `No content generated (${planResult.reason})`)
-      }
+      const refunded = await refundAllRequestedContent(`No content generated (${planResult.reason})`)
       console.error(
         `[generate-content-plan] failed after ${planAttempts} attempt(s): ${planResult.reason}`,
       )
-      const fail = contentPlanFailureResponse(planResult.reason, contentPlanCharged)
+      const fail = contentPlanFailureResponse(planResult.reason, refunded)
       return NextResponse.json(fail.body, { status: fail.status })
     }
 
@@ -672,15 +707,13 @@ Rules:
     )
 
     if (saveGateIssues.length > 0) {
-      if (contentPlanCharged) {
-        await refundContentPlanCharge(userId, contentPlanCharge, 'Unsafe content plan draft blocked before save')
-      }
+      const refunded = await refundAllRequestedContent('Unsafe content plan draft blocked before save')
       console.error('[generate-content-plan] blocked unsafe content before save', saveGateIssues.slice(0, 8))
       return NextResponse.json(
         {
           error: 'Content plan draft failed safety review before save. Please try again.',
           reason: 'unsafe_content_plan_draft',
-          refunded: contentPlanCharged,
+          refunded,
           issues: saveGateIssues.slice(0, 8),
         },
         { status: 502 },
@@ -694,9 +727,7 @@ Rules:
     )
 
     if (!semanticGate.ok) {
-      if (contentPlanCharged) {
-        await refundContentPlanCharge(userId, contentPlanCharge, 'Content plan drifted from reviewed strategy')
-      }
+      const refunded = await refundAllRequestedContent('Content plan drifted from reviewed strategy')
       console.error('[generate-content-plan] blocked strategy drift before save', {
         alignedPosts: semanticGate.alignedPosts,
         requiredAlignedPosts: semanticGate.requiredAlignedPosts,
@@ -706,7 +737,7 @@ Rules:
         {
           error: 'The generated drafts did not stay aligned with the reviewed brand and strategy. No posts were saved, and any charged credits were restored.',
           code: 'CONTENT_PLAN_STRATEGY_DRIFT',
-          refunded: contentPlanCharged,
+          refunded,
         },
         { status: 502 },
       )
@@ -725,104 +756,12 @@ Rules:
       await (tx.socialPost as any).createMany({ data: postsToCreate })
     })
 
-    // ── 9b. Image-matched caption generation for uploaded media posts ────────
-    // For posts that have an uploaded image assigned, use GPT Vision to generate
-    // a caption that specifically describes and complements the real image,
-    // aligned with the campaign strategy. This runs AFTER createMany so we can
-    // update each post individually with its image-specific caption.
-    if (userMedia.length > 0 && process.env.OPENAI_API_KEY) {
-      try {
-        // Find the posts we just created that have an assigned image
-        const createdPosts = await (prisma.socialPost as any).findMany({
-          where: {
-            campaignId: params.id,
-            workspaceId,
-            status: 'DRAFT',
-            publishedAt: null,
-            imageUrl: { not: null },
-          },
-          select: { id: true, imageUrl: true, platform: true, caption: true, contentPlanIndex: true },
-        })
+    // Uploaded media remains user-selected. Image understanding is a separate,
+    // future priced action; this route performs no hidden post-save AI rewrites.
 
-        // For each image post, generate a vision-driven caption
-        await Promise.allSettled(
-          createdPosts.map(async (post: any) => {
-            try {
-              const visionRes = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                  Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  model: 'gpt-4o',
-                  max_tokens: 400,
-                  messages: [{
-                    role: 'user',
-                    content: [
-                      {
-                        type: 'image_url',
-                        image_url: { url: post.imageUrl, detail: 'low' },
-                      },
-                      {
-                        type: 'text',
-                        text: `You are writing a social media caption for a ${post.platform} post.
-
-CAMPAIGN CONTEXT:
-- Brand: ${brandName}
-- Campaign: "${campaignName}"
-- Key message: "${keyMessage}"
-- Target audience: ${targetAudience}
-- Tone: ${tone}
-- CTA/Offer: ${offer}
-${languageInstruction}
-${draftTruthPolicy}
-
-TASK: Look at this image carefully. Write a compelling ${post.platform} caption that:
-1. Directly relates to and describes what's in this specific image
-2. Connects the visual content to the campaign message
-3. Includes a clear call-to-action
-4. Uses appropriate hashtags for ${post.platform}
-5. Matches the brand tone: ${tone}
-
-Write ONLY the caption text. No explanations. No prefixes.`,
-                      },
-                    ],
-                  }],
-                }),
-              })
-              const vData = await visionRes.json()
-              const newCaption = guardContentDraftText(
-                vData.choices?.[0]?.message?.content?.trim(),
-                proofContext,
-              )
-              const expectedAngle = strategyAngles.length > 0
-                ? strategyAngles[Math.max(0, Number(post.contentPlanIndex ?? 1) - 1) % strategyAngles.length]
-                : null
-              const visionSaveGate = validateContentPlanDraftForSave({ caption: newCaption })
-              const visionSemanticGate = validateContentPlanSemanticAlignment(
-                [{ caption: newCaption }],
-                { ...strategyForContent, contentAnglesDetailed: expectedAngle ? [expectedAngle] : [] },
-                { brandFacts: explicitBrandFacts },
-              )
-              if (newCaption && newCaption.length > 20 && visionSaveGate.ok && visionSemanticGate.ok) {
-                await (prisma.socialPost as any).update({
-                  where: { id: post.id },
-                  data: { caption: newCaption },
-                })
-              }
-            } catch {
-              // Non-fatal: keep the strategy-generated caption if vision fails
-            }
-          }),
-        )
-      } catch {
-        // Non-fatal: proceed without image-matched captions
-      }
-    }
-
-    // ── 9c. Generate and insert B variants (if A/B enabled) ────────────────
+    // ── 9b. Generate and insert B variants (if A/B enabled) ────────────────
     let bVariantsCreated = 0
+    let abVariantsRefunded = false
     if (enableABTesting) {
       try {
         const HOOK_STYLES = [
@@ -957,13 +896,18 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
 
         if (bVariantIssues.length > 0 || !bVariantSemanticGate.ok) {
           console.warn('[generate-content-plan] skipped unsafe B variants before save', bVariantIssues.slice(0, 8))
+          abVariantsRefunded = await refundAbVariants('A/B variants failed the content quality gate')
         } else if (bVariantsToCreate.length > 0) {
           await (prisma.socialPost as any).createMany({ data: bVariantsToCreate })
           bVariantsCreated = bVariantsToCreate.length
+        } else {
+          abVariantsRefunded = await refundAbVariants('No usable A/B variants were generated')
         }
       } catch (abErr) {
-        // Non-fatal: A/B generation failure doesn't fail the whole request
         console.warn('[generate-content-plan] A/B variant generation failed:', abErr)
+        // Base drafts remain valid, but the separately priced experiment did not
+        // produce a usable result and is therefore refunded independently.
+        abVariantsRefunded = await refundAbVariants('A/B variant generation failed')
       }
     }
 
@@ -998,26 +942,39 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
         platforms: [...new Set(postsToCreate.map(p => p.platform))],
         planName,
         quota,
-        abTesting: enableABTesting ? { enabled: true, bVariants: bVariantsCreated } : { enabled: false },
+        abTesting: enableABTesting
+          ? { enabled: true, bVariants: bVariantsCreated, refunded: abVariantsRefunded }
+          : { enabled: false },
       },
+      qualityGate: strategyQualityGate,
+      creditCharges: [
+        {
+          ...getCreditActionPolicy('CONTENT_PLAN_GENERATION'),
+          creditsUsed: contentPlanCharge?.creditsUsed ?? 0,
+          refunded: false,
+        },
+        ...(enableABTesting ? [{
+          ...getCreditActionPolicy('CONTENT_AB_VARIANTS'),
+          creditsUsed: abVariantsRefunded ? 0 : (abVariantsCharge?.creditsUsed ?? 0),
+          refunded: abVariantsRefunded,
+        }] : []),
+      ],
     })
   } catch (err: any) {
     console.error('[generate-content-plan POST]', err)
     // Refund — a failed content-plan generation must not charge the user (skip unlimited plans)
-    if (contentPlanCharged) {
-      await refundContentPlanCharge(userId, contentPlanCharge, 'Content plan generation failed')
-    }
+    const refunded = await refundAllRequestedContent('Content plan generation failed')
     if (err instanceof Error && err.message.startsWith('POST_LIMIT_REACHED:')) {
       const [, limit, ...resetParts] = err.message.split(':')
       return NextResponse.json({
         error: 'POST_LIMIT_REACHED',
         limit: Number(limit),
         resetsAt: resetParts.join(':'),
-        refunded: contentPlanCharged,
+        refunded,
         upgradeUrl: '/billing',
       }, { status: 403 })
     }
-    return NextResponse.json({ error: 'Failed to generate content plan', refunded: contentPlanCharged }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to generate content plan', refunded }, { status: 500 })
   }
 }
 

@@ -26,6 +26,7 @@ import { decryptToken } from '@/lib/tokenCrypto'
 import { queryTikTokCreatorInfo } from '@/lib/tiktokPublishing'
 import { hasVerifiedProviderScope } from '@/lib/socialPlatformConfig'
 import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
+import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 import {
   parseYouTubePostOptions,
   YOUTUBE_READ_SCOPE,
@@ -100,13 +101,34 @@ export async function POST(req: NextRequest, props: Params) {
   try {
     const campaign = await prisma.campaign.findFirst({
       where: { id: params.id, workspace: { ownerId: userId } },
-      select: { id: true, workspaceId: true, status: true },
+      select: { id: true, workspaceId: true, status: true, aiOutput: true, goal: true, platforms: true },
     })
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
     if (!canMutateCampaignExecution(String(campaign.status))) {
       return NextResponse.json({
         error: 'Approve the campaign strategy before scheduling content.',
         code: 'STRATEGY_APPROVAL_REQUIRED',
+      }, { status: 409 })
+    }
+
+    const brandProfile = await prisma.brandProfile.findUnique({
+      where: { workspaceId: campaign.workspaceId },
+    })
+    const aiOutput = campaign.aiOutput && typeof campaign.aiOutput === 'object' && !Array.isArray(campaign.aiOutput)
+      ? campaign.aiOutput as Record<string, unknown>
+      : {}
+    const strategy = aiOutput.strategy ?? aiOutput
+    const strategyQuality = reviewStrategyGrounding({
+      strategy,
+      brand: brandProfile,
+      allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms.map(String) : [],
+      goal: String(campaign.goal),
+    })
+    if (strategyQuality.status !== 'passed') {
+      return NextResponse.json({
+        error: 'The approved strategy no longer matches the current Brand Brain or campaign scope.',
+        code: 'MARKETING_QUALITY_GATE_FAILED',
+        qualityGate: strategyQuality,
       }, { status: 409 })
     }
 

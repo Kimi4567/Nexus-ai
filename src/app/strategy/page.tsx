@@ -329,9 +329,9 @@ export default function StrategyPage() {
   })
   const strategyBrandMismatch = hasStrategy && strategyBrandAlignment.isStale
   const hasCurrentBrandOrganicData = hasOrganicData && !strategyBrandMismatch
-  const recentStrategyHref = recent?.id ? `/campaigns/${recent.id}?tab=strategy` : '/campaigns'
+  const recentStrategyHref = recent?.id ? `/campaigns/${recent.id}?tab=strategy` : '/strategy'
   const recentContentHubHref = recent?.id ? `/campaigns/${recent.id}/content-hub` : '/content-hub'
-  const recentPublishHref = recent?.id ? `/campaigns/${recent.id}?tab=publish` : '/publish'
+  const recentPublishHref = recent?.id ? `/campaigns/${recent.id}?tab=publish` : '/content-hub'
   const recentPerformanceHref = recent?.id ? `/campaigns/${recent.id}?tab=performance` : '/analytics'
   const primaryAction: StrategyPrimaryAction = !hasStrategy || strategyBrandMismatch
     ? {
@@ -449,8 +449,8 @@ export default function StrategyPage() {
     { label: ar ? 'طلب تخطيط مدفوع جديد' : 'New paid planning request',
       value: ar ? readinessSurface.paid.labelAr : readinessSurface.paid.label,
       ready: readinessSurface.paid.ready },
-    { label: ar ? 'التحليلات' : 'Analytics', value: ar ? 'غير متصلة' : 'Not connected' },
-    { label: ar ? 'أتمتة النشر' : 'Publishing automation', value: ar ? 'غير مفعّلة' : 'Not enabled' },
+    { label: ar ? 'النتائج' : 'Results', value: ar ? 'تُفحص من بيانات المنصات الفعلية' : 'Checked from real platform data' },
+    { label: ar ? 'أتمتة النشر' : 'Publishing automation', value: ar ? 'تُراجع لكل حملة بعد الموافقات' : 'Reviewed per campaign after approvals' },
   ]
 
   const operatingModelSteps = [
@@ -460,24 +460,24 @@ export default function StrategyPage() {
       href: '/brand',
     },
     {
-      label: ar ? 'Strategy' : 'Strategy',
-      value: ar ? 'نطاق الطلب والتكلفة قبل أي صرف' : 'Scope and cost before credits are spent',
+      label: ar ? 'الاستراتيجية والحملة' : 'Strategy & campaign',
+      value: ar ? 'النطاق والتكلفة ثم مساحة تنفيذ واحدة' : 'Scope, cost, then one execution workspace',
       href: '/strategy',
     },
     {
-      label: ar ? 'Campaign Portfolio' : 'Campaign Portfolio',
-      value: ar ? 'اختيار الحملة والقرار التالي' : 'Campaign selection and next decision',
-      href: '/campaigns',
-    },
-    {
-      label: ar ? 'Content Hub' : 'Content Hub',
+      label: ar ? 'المحتوى والإبداع' : 'Content & creative',
       value: ar ? 'إنتاج ومراجعة المنشورات والوسائط' : 'Post and media production review',
       href: recentContentHubHref,
     },
     {
-      label: ar ? 'Execution' : 'Execution',
-      value: ar ? 'النشر أو المدفوع بعد الحسابات والموافقة' : 'Publishing or paid after accounts and approval',
-      href: '/connections',
+      label: ar ? 'النشر والأتمتة' : 'Publishing & automation',
+      value: ar ? 'تنفيذ بعد جاهزية الحسابات والموافقة الصريحة' : 'Execution after account readiness and explicit approval',
+      href: recentPublishHref,
+    },
+    {
+      label: ar ? 'النتائج' : 'Results',
+      value: ar ? 'قياس حقيقي ثم مقترحات تعلّم للموافقة' : 'Real measurement, then learning proposals for approval',
+      href: recentPerformanceHref,
     },
   ]
 
@@ -647,10 +647,9 @@ export default function StrategyPage() {
   const workflowSteps = [
     { label: 'Brand Brain', number: '01', icon: Brain, status: ar ? 'تم' : 'Done', href: '/brand' },
     { label: ar ? 'الاستراتيجية' : 'Strategy', number: '02', icon: Target, status: ar ? 'الحالي' : 'Current', href: '/strategy' },
-    { label: ar ? 'المحتوى' : 'Content', number: '03', icon: FileText, status: contentDirectionReady ? (ar ? 'جاهز للإنشاء' : 'Ready to create') : (ar ? 'يحتاج مدخلات' : 'Needs inputs'), href: recentContentHubHref },
-    { label: ar ? 'الإبداع' : 'Creative', number: '04', icon: Lightbulb, status: contentDirectionReady ? (ar ? 'بعد بريف المحتوى' : 'After content brief') : (ar ? 'مقفل' : 'Locked'), href: recent?.id ? `/campaigns/${recent.id}?tab=creative` : '/studio' },
-    { label: ar ? 'النشر' : 'Publish', number: '05', icon: Send, status: ar ? 'مقفل' : 'Locked', href: recentPublishHref },
-    { label: ar ? 'الأداء' : 'Performance', number: '06', icon: BarChart3, status: ar ? 'بعد البيانات' : 'After data', href: recentPerformanceHref },
+    { label: ar ? 'المحتوى والإبداع' : 'Content & creative', number: '03', icon: Lightbulb, status: contentDirectionReady ? (ar ? 'جاهز للمراجعة' : 'Ready for review') : (ar ? 'يحتاج استراتيجية' : 'Needs strategy'), href: recentContentHubHref },
+    { label: ar ? 'النشر والأتمتة' : 'Publishing & automation', number: '04', icon: Send, status: ar ? 'بعد الموافقة' : 'After approval', href: recentPublishHref },
+    { label: ar ? 'النتائج' : 'Results', number: '05', icon: BarChart3, status: ar ? 'بعد بيانات حقيقية' : 'After real data', href: recentPerformanceHref },
   ]
 
   const rawExecutionStages = [

@@ -24,6 +24,7 @@ import {
   checkAndDeductCredits,
   refundCredits,
   refundCreditsForTransaction,
+  getCreditActionPolicy,
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
@@ -36,6 +37,8 @@ import {
 } from '@/lib/paidStrategySourceServer'
 import { getStrategyBriefReadiness } from '@/lib/strategyBriefReadiness'
 import { paidOptimizationGoal } from '@/lib/paidExecutionObjective'
+import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
+import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -185,30 +188,10 @@ export async function POST(
       }, { status: 422 })
     }
 
-    // Create the execution unit only after every source-of-truth gate passes.
-    // Its optimization goal must inherit the approved strategy objective.
+    // The execution unit is created only after the provider output also passes
+    // deterministic copy and Brand Brain gates. Failed generation must not leave
+    // an empty Ad Set that looks like meaningful progress.
     const optimizationGoal = paidOptimizationGoal(paidSource.truth.executionObjective)
-    let adSet = await db.adSet.findFirst({
-      where: { adCampaignId: params.id },
-      orderBy: { createdAt: 'asc' },
-    })
-    if (!adSet) {
-      adSet = await db.adSet.create({
-        data: {
-          adCampaignId: params.id,
-          name: `${campaign.name} — Ad Set 1`,
-          status: 'DRAFT',
-          bidStrategy: 'LOWEST_COST',
-          optimizationGoal,
-          billingEvent: 'IMPRESSIONS',
-        },
-      })
-    } else if (adSet.optimizationGoal !== optimizationGoal && !adSet.platformAdSetId) {
-      adSet = await db.adSet.update({
-        where: { id: adSet.id },
-        data: { optimizationGoal },
-      })
-    }
 
     // Language — client override takes priority, then location-based detection
     const detectedLang = brandProfile?.audienceLocation &&
@@ -395,10 +378,58 @@ Generate 5 review-ready ad copy variants in JSON:
       return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })
     }
 
+    const variants = generated.variants as Array<Record<string, unknown>>
+    const copyIssues = variants.flatMap((variant, index) => reviewContentPostForPublishing({
+      caption: [variant.hook, variant.primaryText, variant.headline, variant.description]
+        .filter(value => typeof value === 'string')
+        .join(' '),
+    }, index + 1))
+    const copyQualityGate = reviewStrategyGrounding({
+      strategy: {
+        topHooks: variants.map(variant => [variant.hook, variant.primaryText, variant.headline, variant.description]
+          .filter(value => typeof value === 'string')
+          .join(' ')),
+      },
+      brand: brandProfile,
+      allowedPlatforms: [String(platform)],
+      goal: String(objective),
+    })
+    if (copyIssues.length > 0 || copyQualityGate.status !== 'passed') {
+      await refundDeductedCredits(user.id, creditResult, 'Paid ad drafts failed the copy, Brand Brain, or scope quality gate')
+      return NextResponse.json({
+        error: 'PAID_COPY_QUALITY_GATE_BLOCKED',
+        code: 'PAID_COPY_QUALITY_GATE_BLOCKED',
+        issues: copyIssues,
+        qualityGate: copyQualityGate,
+        refunded: creditResult.creditsUsed > 0,
+      }, { status: 422 })
+    }
+
+    let adSet = await db.adSet.findFirst({
+      where: { adCampaignId: params.id },
+      orderBy: { createdAt: 'asc' },
+    })
+    if (!adSet) {
+      adSet = await db.adSet.create({
+        data: {
+          adCampaignId: params.id,
+          name: `${campaign.name} — Ad Set 1`,
+          status: 'DRAFT',
+          bidStrategy: 'LOWEST_COST',
+          optimizationGoal,
+          billingEvent: 'IMPRESSIONS',
+        },
+      })
+    } else if (adSet.optimizationGoal !== optimizationGoal && !adSet.platformAdSetId) {
+      adSet = await db.adSet.update({
+        where: { id: adSet.id },
+        data: { optimizationGoal },
+      })
+    }
+
     // Save each variant as an Ad record
     const savedAds = []
     const variantGroupId = `vg_${params.id}_${Date.now()}`
-    const variants = generated.variants as Array<Record<string, unknown>>
 
     for (let i = 0; i < variants.length; i++) {
       const v = variants[i]
@@ -454,6 +485,12 @@ Generate 5 review-ready ad copy variants in JSON:
           : 'Export-only copy package; automated platform draft creation is not available for this platform yet.',
       variantGroupId,
       success: true,
+      creditsUsed: creditResult.creditsUsed,
+      creditsRemaining: creditResult.creditsRemaining,
+      creditCharge: {
+        ...getCreditActionPolicy('AD_COPY'),
+        creditsUsed: creditResult.creditsUsed,
+      },
     })
   } catch (err) {
     console.error('[generate-copy]', err)

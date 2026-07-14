@@ -292,10 +292,8 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       separatorBefore: true,
       items: [
         { href: '/brand', labelAr: 'Brand Brain', labelEn: 'Brand Brain', icon: Icons.brain },
-        { href: '/strategy', labelAr: 'الاستراتيجية', labelEn: 'Strategy', icon: Icons.strategy },
-        { href: '/campaigns', labelAr: 'الحملات', labelEn: 'Campaigns', icon: Icons.campaigns },
-        { href: '/content-hub', labelAr: 'المحتوى', labelEn: 'Content', icon: Icons.media },
-        { href: '/publish', labelAr: 'النشر', labelEn: 'Publish', icon: Icons.calendar },
+        { href: '/strategy', labelAr: 'الاستراتيجية والحملات', labelEn: 'Strategy & campaigns', icon: Icons.strategy },
+        { href: '/content-hub', labelAr: 'المحتوى والنشر', labelEn: 'Content & publishing', icon: Icons.media },
         { href: '/analytics', labelAr: 'النتائج', labelEn: 'Results', icon: Icons.analytics },
       ],
     },
@@ -305,9 +303,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       labelEn: 'System',
       separatorBefore: true,
       items: [
-        { href: '/automation', labelAr: 'الأتمتة', labelEn: 'Automation', icon: Icons.learning },
         { href: '/connections', labelAr: 'الربط', labelEn: 'Connections', icon: Icons.connections },
-        { href: '/settings', labelAr: 'الإعدادات', labelEn: 'Settings', icon: Icons.settings },
       ],
     },
   ]

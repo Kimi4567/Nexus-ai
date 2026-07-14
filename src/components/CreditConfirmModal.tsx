@@ -1,9 +1,9 @@
 'use client'
 
 /**
- * CreditConfirmModal — reusable "confirm before spend" gate for expensive AI
- * actions (≥ 5 credits). Shows the exact cost and the balance the user will
- * have AFTER the action, so spending is never a surprise.
+ * CreditConfirmModal — reusable "confirm before spend" gate for AI actions.
+ * Shows the exact cost, why it is charged, and the balance the user will have
+ * AFTER the action, so spending is never a surprise.
  *
  * IMPORTANT: This is a UI gate only. It does NOT deduct credits. Deduction
  * still happens server-side inside the action's API route (via
@@ -28,6 +28,8 @@ interface Props {
   cost: number
   /** Short action label, e.g. "Generate Campaign" / "Generate Paid Ad Pack". */
   actionTitle: string
+  /** Plain-language reason this action consumes credits. */
+  reason: string
   /** Auth header getter so the modal can fetch the live balance. */
   authHeader: () => string
   /** 'ar' for Arabic copy; anything else → English. */
@@ -39,7 +41,7 @@ interface Props {
 }
 
 export default function CreditConfirmModal({
-  isOpen, onClose, onConfirm, cost, actionTitle, authHeader, locale, includedItems, confirmLabel,
+  isOpen, onClose, onConfirm, cost, actionTitle, reason, authHeader, locale, includedItems, confirmLabel,
 }: Props) {
   const ar = (locale || '').toLowerCase().startsWith('ar')
   const [balance, setBalance] = useState<number | null>(null)
@@ -57,6 +59,15 @@ export default function CreditConfirmModal({
       .finally(() => setLoadingBalance(false))
   }, [isOpen, authHeader])
 
+  useEffect(() => {
+    if (!isOpen) return
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [isOpen, onClose])
+
   if (!isOpen) return null
 
   const isUnlimited = balance === -1
@@ -69,12 +80,16 @@ export default function CreditConfirmModal({
   return (
     <div
       dir={ar ? 'rtl' : 'ltr'}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="credit-confirm-title"
       className="fixed inset-0 z-[60] flex items-center justify-center p-4"
       style={{ background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(4px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className="w-full max-w-sm rounded-2xl bg-white overflow-hidden relative shadow-[0_24px_80px_rgba(15,23,42,0.25)] border border-slate-200">
-        <button onClick={onClose}
+        <button type="button" onClick={onClose}
+          aria-label={ar ? 'إغلاق تأكيد الكريديت' : 'Close credit confirmation'}
           className="absolute top-4 end-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
           <X className="w-4 h-4" />
         </button>
@@ -86,7 +101,7 @@ export default function CreditConfirmModal({
               style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}>
               <Zap className="w-6 h-6" style={{ color: '#8B5CF6' }} />
             </div>
-            <h2 className="text-lg font-bold text-slate-950 mb-1">
+            <h2 id="credit-confirm-title" className="text-lg font-bold text-slate-950 mb-1">
               {ar ? 'تأكيد استخدام الكريديت' : 'Confirm credit use'}
             </h2>
             <p className="text-xs text-slate-500">
@@ -104,6 +119,7 @@ export default function CreditConfirmModal({
                 {cost} {ar ? 'كريديت' : 'credits'}
               </span>
             </div>
+            <p className="mb-3 text-[11px] leading-5 text-slate-600">{reason}</p>
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-slate-500 text-xs">{ar ? 'رصيدك الحالي' : 'Current balance'}</span>
@@ -147,6 +163,7 @@ export default function CreditConfirmModal({
           {/* Actions */}
           {canAfford ? (
             <button
+              type="button"
               onClick={() => { onClose(); onConfirm() }}
               disabled={loadingBalance && balance === null}
               className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 mb-2 transition-all hover:brightness-110 disabled:opacity-60"
@@ -163,7 +180,7 @@ export default function CreditConfirmModal({
             </Link>
           )}
 
-          <button onClick={onClose}
+          <button type="button" onClick={onClose}
             className="w-full py-2 rounded-xl text-xs text-slate-500 hover:text-slate-800 transition-all border border-slate-200">
             {ar ? 'إلغاء' : 'Cancel'}
           </button>

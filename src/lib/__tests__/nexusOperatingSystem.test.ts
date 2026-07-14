@@ -5,6 +5,14 @@ const reviewedStrategyCampaign = {
   status: 'DRAFT',
   aiOutput: {
     strategy: { keyMessage: 'Make specialty coffee easier to choose.' },
+    qualityGate: {
+      schemaVersion: 1,
+      status: 'passed',
+      score: 100,
+      blockers: [],
+      warnings: [],
+      checkedAt: '2026-07-14T00:00:00.000Z',
+    },
     sentinelReview: { status: 'passed' },
   },
 }

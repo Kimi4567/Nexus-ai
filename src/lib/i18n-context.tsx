@@ -294,7 +294,7 @@ export const translations: Record<Locale, Record<string, any>> = {
       step1: {
         num: '٠١',
         title: 'أنشئ حسابك',
-        desc: 'ابدأ بتجربة ١٤ يوماً و١٢ كريديت، ثم اختر Growth أو Autopilot عند الحاجة. لا تحتاج بطاقة للتجربة.',
+        desc: 'ابدأ بـ١٢ كريديت تجريبياً لمرة واحدة، ثم اختر Growth أو Autopilot عند الحاجة. لا تحتاج بطاقة للتجربة.',
       },
       step2: {
         num: '٠٢',
@@ -322,7 +322,7 @@ export const translations: Record<Locale, Record<string, any>> = {
         name: 'Trial',
         price: '٠',
         period: 'مجاناً',
-        features: ['١٢ كريديت لمرة واحدة', '١٤ يوماً', 'مساحة عمل واحدة', 'حملة واحدة للتجربة'],
+        features: ['١٢ كريديت لمرة واحدة', 'بدون بطاقة', 'مساحة عمل واحدة', 'حملة واحدة للتجربة'],
         cta: 'ابدأ مجاناً',
       },
       pro: {
@@ -354,14 +354,14 @@ export const translations: Record<Locale, Record<string, any>> = {
       q2: { q: 'هل أحتاج خبرة تقنية لاستخدام المنصة؟', a: 'لا. الواجهة موجهة لصاحب العمل والمسوق، وتشرح ما هو جاهز وما يحتاج بيانات أو ربط منصة أو موافقة.' },
       q3: { q: 'كيف أربط حساباتي على Meta و TikTok؟', a: 'من لوحة التحكم، اضغط "ربط منصة" واختر المنصة. سيتم توجيهك للتأكيد — وبعدها يستخدم VEX السياق للتخطيط والمراجعة فقط. لا يتم إطلاق الإعلانات أو صرف الميزانية بدون موافقتك.' },
       q4: { q: 'هل الذكاء الاصطناعي ينشر دون علمي؟', a: 'لا ينشر NEXUS مسودة غير معتمدة. بعد موافقتك وتفعيل الجدول، يمكنه تنفيذ النشر المجدول فقط عبر اتصال منصة مؤهل، مع ظهور الحالة والسجل داخل المنتج.' },
-      q5: { q: 'هل هناك فترة تجربة مجانية؟', a: 'نعم. التجربة ١٤ يوماً وتمنح ١٢ كريديت لمرة واحدة دون بطاقة ائتمان.' },
+      q5: { q: 'هل توجد تجربة مجانية؟', a: 'نعم. تمنح التجربة ١٢ كريديت لمرة واحدة دون بطاقة ائتمان.' },
     },
     cta: {
       title1: 'جاهز لـ',
       title2: 'تخطيط أوضح',
       subtitle: 'استخدم NEXUS AI لتوفير الوقت وبناء خطط تسويق أوضح قبل أي تنفيذ أو إنفاق.',
       button: 'ابدأ الآن',
-      note: 'تجربة ١٤ يوماً — لا حاجة لبطاقة ائتمان',
+      note: '١٢ كريديت لمرة واحدة — لا حاجة لبطاقة ائتمان',
     },
     footer: {
       description: 'مساحة تشغيل تسويقي تربط الذاكرة بالتخطيط والمراجعة والقياس.',
@@ -1002,7 +1002,7 @@ export const translations: Record<Locale, Record<string, any>> = {
       faqTitle: 'الأسئلة الشائعة',
       perMonth: '/شهر',
       plans: {
-        starter: { name: 'Trial', nameAr: 'تجربة', desc: '12 كريديت لمرة واحدة لمدة 14 يوماً' },
+        starter: { name: 'Trial', nameAr: 'تجربة', desc: '12 كريديت لمرة واحدة' },
         pro: { name: 'Growth', nameAr: 'Growth', desc: 'سعة واضحة للعلامات النامية' },
         agency: { name: 'Autopilot', nameAr: 'Autopilot', desc: 'سعة أكبر ومراقبة مجدولة' },
       },
@@ -2138,7 +2138,7 @@ export const translations: Record<Locale, Record<string, any>> = {
       ctaSubtitle: 'NEXUS AI لا يسوّق نفسه فقط — بل يُقدم لك نفس الأدوات لنمو علامتك التجارية.',
       ctaSubtitle2: 'مسارات عمل مترابطة. التنفيذ تحت موافقتك.',
       ctaBtn: 'ابدأ مجاناً — شغّل فريقك',
-      ctaNote: 'لا حاجة لبطاقة ائتمان · تجربة ١٤ يوماً',
+      ctaNote: 'لا حاجة لبطاقة ائتمان · ١٢ كريديت لمرة واحدة',
       statusActive: 'نشطة',
       statusPaused: 'متوقفة',
       statusCompleted: 'مكتملة',
@@ -2458,7 +2458,7 @@ export const translations: Record<Locale, Record<string, any>> = {
       step1: {
         num: '01',
         title: 'Sign Up',
-        desc: 'Start with a 14-day, 12-credit trial, then choose Growth or Autopilot when needed. No card is required for the trial.',
+        desc: 'Start with 12 one-time trial credits, then choose Growth or Autopilot when needed. No card is required for the trial.',
       },
       step2: {
         num: '02',
@@ -2486,7 +2486,7 @@ export const translations: Record<Locale, Record<string, any>> = {
         name: 'Trial',
         price: '0',
         period: 'Free',
-        features: ['12 one-time credits', '14 days', '1 workspace', '1 trial campaign'],
+        features: ['12 one-time credits', 'No card required', '1 workspace', '1 trial campaign'],
         cta: 'Start Free',
       },
       pro: {
@@ -2518,14 +2518,14 @@ export const translations: Record<Locale, Record<string, any>> = {
       q2: { q: 'Do I need technical expertise to use the platform?', a: 'No. The interface is designed for business owners and marketers and explains what is ready, what needs data, and what requires a connection or approval.' },
       q3: { q: 'How do I connect my Meta and TikTok accounts?', a: 'From the dashboard, click "Connect Platform" and choose your platform. You\'ll be redirected for confirmation — then VEX uses the context for planning and review only. NEXUS does not launch ads or spend budget without your approval.' },
       q4: { q: 'Does the AI publish without my knowledge?', a: 'NEXUS does not publish an unapproved draft. After your approval and schedule activation, it can execute scheduled publishing only through an eligible provider connection, with status and history visible in the product.' },
-      q5: { q: 'Is there a free trial period?', a: 'Yes. The 14-day trial includes 12 one-time credits and requires no credit card.' },
+      q5: { q: 'Is there a free trial?', a: 'Yes. The trial includes 12 one-time credits and requires no credit card.' },
     },
     cta: {
       title1: 'Ready to',
       title2: 'Plan',
       subtitle: 'Use NEXUS AI to save time and build clearer marketing plans before execution or spend.',
       button: 'Get Started Now',
-      note: '14-day trial — no credit card needed',
+      note: '12 one-time trial credits — no card needed',
     },
     footer: {
       description: 'A marketing operating workspace connecting memory, planning, review, and measurement.',
@@ -3166,7 +3166,7 @@ export const translations: Record<Locale, Record<string, any>> = {
       faqTitle: 'Frequently Asked Questions',
       perMonth: '/month',
       plans: {
-        starter: { name: 'Trial', nameAr: 'Trial', desc: '12 one-time credits for 14 days' },
+        starter: { name: 'Trial', nameAr: 'Trial', desc: '12 one-time credits' },
         pro: { name: 'Growth', nameAr: 'Growth', desc: 'Clear capacity for growing brands' },
         agency: { name: 'Autopilot', nameAr: 'Autopilot', desc: 'Higher capacity and scheduled monitoring' },
       },
@@ -4302,7 +4302,7 @@ export const translations: Record<Locale, Record<string, any>> = {
       ctaSubtitle: 'NEXUS AI doesn\'t just market itself — it gives you the same tools to grow your brand.',
       ctaSubtitle2: 'Connected workstreams. Execution stays under your approval.',
       ctaBtn: 'Start Free — Activate Your Team',
-      ctaNote: 'No credit card required · 14-day trial',
+      ctaNote: 'No credit card required · 12 one-time credits',
       statusActive: 'Active',
       statusPaused: 'Paused',
       statusCompleted: 'Completed',

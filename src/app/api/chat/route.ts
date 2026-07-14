@@ -9,9 +9,9 @@ import { ensureDbUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { chatRateLimitDb } from '@/lib/dbRateLimit'
 import {
+  buildCreditChargeReceipt,
   checkAndDeductCredits,
-  refundCredits,
-  refundCreditsForTransaction,
+  refundCreditDeduction,
   CREDIT_COSTS,
   type CreditDeductionOk,
 } from '@/lib/credits'
@@ -58,7 +58,7 @@ Nexus is an AI-powered marketing operating system. Here's what it can do:
 
 **Strategy Studio** (/strategy): The single place to create a new strategy. The strategy is a review artifact: positioning, audience, messages, content directions, risks, and an execution outline. It does not create final posts or publish anything.
 
-**Campaigns** (/campaigns): Lists saved campaign workspaces. Users review a campaign strategy before quality review and content generation.
+**Strategy & campaigns** (/strategy): The operating path for creating a strategy and continuing its campaign workspace.
 
 **Quality Review**: A paid review gate that checks claim risk, brand consistency, and recommended fixes. Passing it is not proof that the strategy will perform.
 
@@ -66,31 +66,24 @@ Nexus is an AI-powered marketing operating system. Here's what it can do:
 
 **Connections** (/connections): Shows the integrations that are actually available and their current connection state. Never tell a user an account is connected or direct publishing is supported unless current product data explicitly confirms it.
 
-**Calendar** (/calendar): Shows saved content dates and workflow status. A proposed or saved date is not proof of a platform-side scheduled post.
-
-**Media Library** (/media): Upload and manage brand assets (images, videos, logos).
-
 **Analytics** (/analytics): Shows measured performance only when eligible connected data exists. Otherwise it is readiness guidance, not results.
 
-**Billing** (/billing): Manage subscription and credits. There are exactly two public paid plans: ${growth.name} ($${growth.priceUsd}/month, ${growth.monthlyCredits} monthly credits) and ${autopilot.name} ($${autopilot.priceUsd}/month, ${autopilot.monthlyCredits} monthly credits). The 12-credit, 14-day trial is onboarding, not a third paid plan. Legacy plan names may exist only for existing accounts.
+**Billing** (/billing): Manage subscription and credits. There are exactly two public paid plans: ${growth.name} ($${growth.priceUsd}/month, ${growth.monthlyCredits} monthly credits) and ${autopilot.name} ($${autopilot.priceUsd}/month, ${autopilot.monthlyCredits} monthly credits). The 12 one-time trial credits are onboarding, not a third paid plan. Legacy plan names may exist only for existing accounts.
 
 **AI Credits**: The main reviewed workflow costs ${CREDIT_COSTS.RUN_FULL_STRATEGY} for strategy + ${CREDIT_COSTS.SENTINEL_REVIEW} for quality review + ${CREDIT_COSTS.CONTENT_PLAN_GENERATION} for content drafts. Images cost ${CREDIT_COSTS.IMAGE_GENERATION} each and chat costs ${CREDIT_COSTS.CHAT_MESSAGE} per message. Larger strategy scopes may show a different exact cost before execution. Failed provider requests are refunded. Monthly subscription credits refresh with the billing cycle; purchased credits have separate validity.
 
-**Settings** (/settings): Account preferences, language (Arabic/English), notifications.
+**Settings** (/settings): Account preferences, language (Arabic/English), and notifications; available from the account menu rather than the primary workflow.
 
 ## Pages Reference
-- /dashboard: Main hub with recent campaigns, suggestions, credits overview
-- /campaigns: List of all campaigns
-- /strategy: Create a new strategy (the only creation path)
+- /dashboard: Today's decisions, workstreams, activity, and credit overview
+- /strategy: Create a strategy and enter its campaign workspace
 - /brand: Brand Brain setup
+- /content-hub: Review content and publishing work
 - /connections: Social media integrations
-- /calendar: Content calendar
-- /media: Media library
 - /analytics: Performance analytics
 - /billing: Subscription management
 - /settings: Account settings
 - /approvals: Decision Center for review-required actions
-- /automation: Operations monitor and guarded next actions
 `
 
   return `You are the Nexus AI Assistant — an intelligent marketing advisor built into the Nexus platform.
@@ -131,16 +124,13 @@ ${brandSection}${accountSection}${platformKnowledge}`
 }
 
 async function refundChatCredit(userId: string, credit: CreditDeductionOk, reason: string) {
-  if (credit.creditsUsed <= 0) return
-  if (credit.transactionId) {
-    await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
-    return
-  }
-  await refundCredits(userId, 'CHAT_MESSAGE', reason)
+  await refundCreditDeduction({ userId, action: 'CHAT_MESSAGE', deduction: credit, reason })
 }
 
 // ── Main handler ───────────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  let chargedUserId: string | null = null
+  let chargedCredit: CreditDeductionOk | null = null
   try {
     const authUser = await ensureDbUser(req)
     if (!authUser) {
@@ -161,6 +151,21 @@ export async function POST(req: NextRequest) {
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: 'No messages provided' }, { status: 400 })
     }
+    const normalizedMessages = messages.slice(-10).map((message) => ({
+      role: message?.role,
+      content: typeof message?.content === 'string' ? message.content.trim() : '',
+    }))
+    const invalidMessage = normalizedMessages.some((message) =>
+      !['user', 'assistant'].includes(message.role) || !message.content || message.content.length > 4_000,
+    )
+    const totalInputCharacters = normalizedMessages.reduce((sum, message) => sum + message.content.length, 0)
+    if (invalidMessage || totalInputCharacters > 12_000) {
+      return NextResponse.json({
+        error: 'Chat context is too large or invalid. Keep the last messages under 12,000 characters total.',
+        code: 'CHAT_CONTEXT_LIMIT',
+        creditsCharged: false,
+      }, { status: 400 })
+    }
 
     const apiKey = process.env.OPENAI_API_KEY
     if (!apiKey) {
@@ -170,6 +175,8 @@ export async function POST(req: NextRequest) {
     // ── Deduct credits before AI call ────────────────────────────
     const credit = await checkAndDeductCredits(authUser.id, 'CHAT_MESSAGE')
     if (!credit.ok) return NextResponse.json(credit, { status: 402 })
+    chargedUserId = authUser.id
+    chargedCredit = credit
 
     // ── Load user context in parallel ───────────────────────────
     const [user, workspace, subscription] = await Promise.all([
@@ -228,12 +235,13 @@ export async function POST(req: NextRequest) {
           messages: [
             { role: 'system', content: systemPrompt },
             // Keep last 10 messages max for context window efficiency
-            ...messages.slice(-10),
+            ...normalizedMessages,
           ],
         }),
       })
     } catch (error) {
       await refundChatCredit(authUser.id, credit, 'Chat provider request failed')
+      chargedCredit = null
       throw error
     }
 
@@ -241,6 +249,7 @@ export async function POST(req: NextRequest) {
       const errText = await openaiRes.text()
       console.error('[chat] OpenAI error:', openaiRes.status, errText)
       await refundChatCredit(authUser.id, credit, `Chat provider returned ${openaiRes.status}`)
+      chargedCredit = null
       return NextResponse.json(
         { error: `AI service error (${openaiRes.status})` },
         { status: 502 },
@@ -250,18 +259,33 @@ export async function POST(req: NextRequest) {
     // ── Stream back to client ─────────────────────────────────────
     // Parse SSE from OpenAI and pipe as plain text chunks
     const encoder = new TextEncoder()
+    let streamRefunded = false
+    const refundStreamOnce = async (reason: string) => {
+      if (streamRefunded) return
+      streamRefunded = true
+      await refundChatCredit(authUser.id, credit, reason)
+    }
     const stream = new ReadableStream({
       async start(controller) {
         const reader = openaiRes.body?.getReader()
-        if (!reader) { controller.close(); return }
+        if (!reader) {
+          await refundStreamOnce('Chat provider returned no response stream')
+          controller.close()
+          return
+        }
 
         const decoder = new TextDecoder()
         let buffer = ''
+        let emittedContent = false
+        let completed = false
 
         try {
           while (true) {
             const { done, value } = await reader.read()
-            if (done) break
+            if (done) {
+              completed = true
+              break
+            }
 
             buffer += decoder.decode(value, { stream: true })
             const lines = buffer.split('\n')
@@ -276,6 +300,7 @@ export async function POST(req: NextRequest) {
                 const json = JSON.parse(trimmed.slice(6))
                 const delta = json.choices?.[0]?.delta?.content
                 if (delta) {
+                  emittedContent = true
                   controller.enqueue(encoder.encode(delta))
                 }
               } catch {
@@ -283,22 +308,38 @@ export async function POST(req: NextRequest) {
               }
             }
           }
+        } catch (error) {
+          console.error('[chat] Stream failed:', error)
         } finally {
+          if (!completed || !emittedContent) {
+            await refundStreamOnce(!completed
+              ? 'Chat response stream failed before completion'
+              : 'Chat provider returned no usable response')
+          }
           reader.releaseLock()
           controller.close()
         }
       },
     })
 
+    const receipt = buildCreditChargeReceipt('CHAT_MESSAGE', credit)
+
     return new Response(stream, {
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
         'Cache-Control': 'no-cache',
         'X-Content-Type-Options': 'nosniff',
+        'X-Nexus-Credit-Action': receipt.action,
+        'X-Nexus-Credits-Used': String(receipt.creditsUsed),
+        'X-Nexus-Credits-Remaining': String(receipt.creditsRemaining),
+        'X-Nexus-Credit-Reason': encodeURIComponent(receipt.reason),
       },
     })
   } catch (err) {
     console.error('[chat] Unexpected error:', err)
+    if (chargedUserId && chargedCredit) {
+      await refundChatCredit(chargedUserId, chargedCredit, 'Chat request failed before a usable response')
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

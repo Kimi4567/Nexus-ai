@@ -11,6 +11,7 @@ import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
 import { YOUTUBE_READ_SCOPE, YOUTUBE_UPLOAD_SCOPE } from '@/lib/youtubePublishing'
 import { PINTEREST_PUBLISH_SCOPES } from '@/lib/pinterestPublishing'
 import { THREADS_OPERATIONAL_SCOPES } from '@/lib/threadsPublishing'
+import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -53,12 +54,48 @@ async function runPublishJob() {
     .catch(() => 0)
   const autoEligibleCount = duePosts.length
 
+  // Revalidate the strategy against the current Brand Brain immediately before
+  // a provider call. This closes the legacy/stale-approval gap: editing Brand
+  // Brain after scheduling cannot leave contradictory copy eligible to publish.
+  const campaignIds = Array.from(new Set(
+    duePosts.map((post: any) => post.campaignId).filter((id): id is string => typeof id === 'string' && Boolean(id)),
+  ))
+  const publishCampaigns = campaignIds.length > 0
+    ? await prisma.campaign.findMany({
+        where: { id: { in: campaignIds } },
+        select: { id: true, workspaceId: true, aiOutput: true, goal: true, platforms: true },
+      })
+    : []
+  const workspaceIds = Array.from(new Set(publishCampaigns.map(campaign => campaign.workspaceId)))
+  const publishBrands = workspaceIds.length > 0
+    ? await prisma.brandProfile.findMany({ where: { workspaceId: { in: workspaceIds } } })
+    : []
+  const campaignById = new Map(publishCampaigns.map(campaign => [campaign.id, campaign]))
+  const brandByWorkspaceId = new Map(publishBrands.map(brand => [brand.workspaceId, brand]))
+
   console.log(`[Cron:publish] AUTO-eligible: ${autoEligibleCount} · skipped (manual/legacy, untouched): ${skippedManualCount}`)
 
   const results = await Promise.allSettled(
     duePosts.map(async (post) => {
       let providerResult: Awaited<ReturnType<typeof publishSocialPost>> | null = null
       try {
+        const campaign = typeof post.campaignId === 'string' ? campaignById.get(post.campaignId) : null
+        if (!campaign) throw new Error('MARKETING_QUALITY_GATE_FAILED: campaign strategy is unavailable')
+        const brand = brandByWorkspaceId.get(campaign.workspaceId)
+        if (!brand) throw new Error('MARKETING_QUALITY_GATE_FAILED: Brand Brain is unavailable')
+        const aiOutput = campaign.aiOutput && typeof campaign.aiOutput === 'object' && !Array.isArray(campaign.aiOutput)
+          ? campaign.aiOutput as Record<string, unknown>
+          : {}
+        const strategyQuality = reviewStrategyGrounding({
+          strategy: aiOutput.strategy ?? aiOutput,
+          brand,
+          allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms.map(String) : [],
+          goal: String(campaign.goal),
+        })
+        if (strategyQuality.status !== 'passed') {
+          throw new Error(`MARKETING_QUALITY_GATE_FAILED: ${strategyQuality.blockers.map(blocker => blocker.code).join(', ')}`)
+        }
+
         // BUG-01 fix: no optimistic write — only write PUBLISHED after platform confirms
         const integration = post.integration
         if (!integration?.accessToken) throw new Error('No access token')

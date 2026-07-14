@@ -9,6 +9,7 @@ import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
 import { YOUTUBE_UPLOAD_SCOPE } from '@/lib/youtubePublishing'
 import { PINTEREST_PUBLISH_SCOPES, parsePinterestPostOptions } from '@/lib/pinterestPublishing'
 import { parseThreadsPostOptions, THREADS_MAX_TEXT_LENGTH, THREADS_PUBLISH_SCOPES } from '@/lib/threadsPublishing'
+import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 
 export const maxDuration = 180
 
@@ -216,12 +217,38 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Matching integration is not connected' }, { status: 400 })
   }
 
-  if (campaignId) {
-    const campaign = await prisma.campaign.findFirst({
-      where: { id: campaignId, workspaceId: workspace.id },
-      select: { id: true },
-    })
-    if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  if (!campaignId) {
+    return NextResponse.json({
+      error: 'Publishing requires a campaign with a reviewed Brand Brain-grounded strategy.',
+      code: 'MARKETING_QUALITY_GATE_REQUIRED',
+    }, { status: 409 })
+  }
+  const campaign = await prisma.campaign.findFirst({
+    where: { id: campaignId, workspaceId: workspace.id },
+    select: {
+      id: true,
+      aiOutput: true,
+      goal: true,
+      platforms: true,
+      workspace: { select: { brandProfile: true } },
+    },
+  })
+  if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  const aiOutput = campaign.aiOutput && typeof campaign.aiOutput === 'object' && !Array.isArray(campaign.aiOutput)
+    ? campaign.aiOutput as Record<string, unknown>
+    : {}
+  const strategyQuality = reviewStrategyGrounding({
+    strategy: aiOutput.strategy ?? aiOutput,
+    brand: campaign.workspace.brandProfile,
+    allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms.map(String) : [],
+    goal: String(campaign.goal),
+  })
+  if (strategyQuality.status !== 'passed') {
+    return NextResponse.json({
+      error: 'Publishing is blocked because the source strategy no longer matches Brand Brain or the reviewed campaign scope.',
+      code: 'MARKETING_QUALITY_GATE_FAILED',
+      qualityGate: strategyQuality,
+    }, { status: 409 })
   }
 
   const config = integration.config && typeof integration.config === 'object' && !Array.isArray(integration.config)

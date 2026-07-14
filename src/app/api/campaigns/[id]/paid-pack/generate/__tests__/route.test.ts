@@ -29,6 +29,7 @@ vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
+  buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, cost: 6, ...deduction }),
 }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 

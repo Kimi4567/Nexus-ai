@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import {
+  buildCreditChargeReceipt,
   CREDIT_COSTS,
   checkAndDeductCredits,
   checkDailyImageCap,
@@ -338,6 +339,9 @@ export async function POST(req: NextRequest) {
       visual: updated,
       assetRole,
       outputClassification: IMAGE_OUTPUT_CLASSIFICATION,
+      creditsUsed: credit.creditsUsed,
+      creditsRemaining: credit.creditsRemaining,
+      creditCharge: buildCreditChargeReceipt('IMAGE_GENERATION', credit),
     })
   } catch (err: any) {
     console.error('[visuals/generate] Generation error:', err)

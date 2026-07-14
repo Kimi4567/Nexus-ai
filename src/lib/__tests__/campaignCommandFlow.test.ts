@@ -115,6 +115,8 @@ describe('deriveCampaignCommandFlow', () => {
     expect(flow.steps.find(step => step.id === 'creative')?.status).toBe('current')
     expect(flow.steps.find(step => step.id === 'approval')?.status).toBe('review')
     expect(flow.steps.find(step => step.id === 'publishing')?.helperEn).toContain('explicit gates')
+    expect(flow.steps.find(step => step.id === 'brand')?.metricEn).toBe('Core profile 82/100')
+    expect(flow.steps.find(step => step.id === 'brand')?.helperEn).toContain('separate gates')
   })
 
   it('keeps paid-only campaigns framed as paid planning and readiness, not launch', () => {

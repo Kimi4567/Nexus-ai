@@ -44,6 +44,20 @@ vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
+  refundCreditDeduction: async ({ userId, action, deduction, reason }: any) => {
+    if (!deduction || deduction.creditsUsed <= 0) return
+    if (deduction.transactionId) {
+      await mockRefundForTxn({ userId, transactionId: deduction.transactionId, reason })
+      return
+    }
+    await mockRefund(userId, action)
+  },
+  buildCreditChargeReceipt: (action: string, deduction: any) => ({
+    action,
+    cost: 5,
+    reason: 'Creates a reviewable campaign package from the approved brief.',
+    ...deduction,
+  }),
 }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 vi.mock('@/lib/ai/adapter', () => ({

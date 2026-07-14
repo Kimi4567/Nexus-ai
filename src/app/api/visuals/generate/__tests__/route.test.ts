@@ -49,6 +49,7 @@ vi.mock('@/lib/credits', () => ({
   checkDailyImageCap: mockCheckDailyImageCap,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
+  buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, cost: 3, ...deduction }),
 }))
 vi.mock('@/lib/ai/imageGen', () => ({
   buildImagePrompt: mockBuildImagePrompt,

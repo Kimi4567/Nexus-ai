@@ -16,18 +16,18 @@ const {
   mockCheckAndDeduct,
   mockRefund,
   mockRefundForTxn,
-  mockSnapshotBrandMaturity,
   mockPrisma,
 } = vi.hoisted(() => ({
   mockGetAuthUser: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
   mockRefund: vi.fn(),
   mockRefundForTxn: vi.fn(),
-  mockSnapshotBrandMaturity: vi.fn(),
   mockPrisma: {
     campaign: { findFirst: vi.fn() },
     paidCampaignPack: { findUnique: vi.fn(), update: vi.fn() },
     brandProfile: { findUnique: vi.fn(), update: vi.fn() },
+    brainLearning: { findMany: vi.fn(), createMany: vi.fn() },
+    $transaction: vi.fn(),
   },
 }))
 
@@ -36,9 +36,9 @@ vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
+  buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, cost: 2, ...deduction }),
 }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
-vi.mock('@/lib/brandMaturity', () => ({ snapshotBrandMaturity: mockSnapshotBrandMaturity }))
 
 import { POST } from '../route'
 
@@ -81,7 +81,9 @@ beforeEach(() => {
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 2, creditsRemaining: 18 })
   mockRefund.mockResolvedValue(undefined)
   mockRefundForTxn.mockResolvedValue(undefined)
-  mockSnapshotBrandMaturity.mockResolvedValue(undefined)
+  mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma))
+  mockPrisma.brainLearning.findMany.mockResolvedValue([])
+  mockPrisma.brainLearning.createMany.mockResolvedValue({ count: 0 })
   mockPrisma.campaign.findFirst.mockResolvedValue({
     id: 'c1',
     workspaceId: 'w1',
@@ -289,8 +291,26 @@ describe('POST /api/campaigns/[id]/paid-pack/learn — RF-4 refund safety', () =
     expect(globalThis.fetch).not.toHaveBeenCalled()
     expect(mockPrisma.paidCampaignPack.update).toHaveBeenCalledTimes(1)
     expect(mockPrisma.brandProfile.update).not.toHaveBeenCalled()
-    expect(mockSnapshotBrandMaturity).not.toHaveBeenCalled()
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()
+  })
+
+  it('creates governed review proposals from attributable provider metrics without mutating Brand Brain', async () => {
+    const res = await POST(makeReq(), ctx())
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.success).toBe(true)
+    expect(json.brandBrainUpdated).toBe(false)
+    expect(json.brandBrainProposalCount).toBe(3)
+    expect(mockPrisma.brainLearning.createMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({ trigger: 'post_performance', field: 'winningHooks', status: 'pending' }),
+        expect.objectContaining({ trigger: 'post_performance', field: 'failedAngles', status: 'pending' }),
+        expect.objectContaining({ trigger: 'post_performance', field: 'strategicNotes', status: 'pending' }),
+      ]),
+    })
+    expect(mockPrisma.brandProfile.update).not.toHaveBeenCalled()
+    expect(json.creditCharge).toMatchObject({ action: 'AD_COPY', cost: 2, creditsUsed: 2 })
   })
 })

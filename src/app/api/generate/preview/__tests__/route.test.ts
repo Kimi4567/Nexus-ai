@@ -20,6 +20,8 @@ vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeductCredits,
   refundCredits: mockRefundCredits,
+  refundCreditDeduction: mockRefundCredits,
+  buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, cost: 5, ...deduction }),
 }))
 vi.mock('@/lib/ai/provider', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/ai/provider')>()

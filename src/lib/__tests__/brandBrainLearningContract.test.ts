@@ -128,13 +128,14 @@ describe('brandBrainLearningContract', () => {
     expect(suggestionsRoute).toContain('Needs analytics before performance learning')
   })
 
-  it('keeps legacy brain routes and rewrite prompts on signal language for non-analytics sources', () => {
+  it('retires unmetered generated-output learning and keeps rewrites on review-signal language', () => {
     const brainRoute = readSource('src/app/api/brain/learn/route.ts')
     const rewriteRoute = readSource('src/app/api/campaigns/[id]/content-plan/[postId]/rewrite/route.ts')
 
-    expect(brainRoute).toContain('Reviewed Hook Signals')
-    expect(brainRoute).toContain('Content Angle Signals')
-    expect(brainRoute).toContain('review signals')
+    expect(brainRoute).toContain('AI_SIGNAL_EXTRACTION_RETIRED')
+    expect(brainRoute).toContain('Generated outputs are no longer converted into AI learning proposals')
+    expect(brainRoute).toContain('creditsUsed: 0')
+    expect(brainRoute).not.toContain('api.openai.com')
     expect(brainRoute).not.toContain('Winning Hooks')
     expect(brainRoute).not.toContain('Winning Angles')
     expect(brainRoute).not.toContain('permanent memory')

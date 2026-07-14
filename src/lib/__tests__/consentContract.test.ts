@@ -25,7 +25,8 @@ describe('optional analytics consent contract', () => {
     expect(banner).toContain('lg:start-[max(1.5rem,calc((100vw-1180px)/2+1.5rem))]')
     expect(banner).toContain('bottom-20')
     expect(banner).not.toContain('max-w-4xl')
-    expect(banner).toContain('aria-label="إغلاق إشعار ملفات تعريف الارتباط"')
+    expect(banner).toContain("aria-label={isRTL ? 'إغلاق إشعار ملفات تعريف الارتباط' : 'Close cookie preferences'}")
+    expect(banner).toContain('if (!visible) return null')
   })
 
   it('does not require optional cookie consent to create an account', () => {

@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
   publish: vi.fn(),
   retryable: vi.fn(),
   decrypt: vi.fn(),
+  campaignFindMany: vi.fn(),
+  brandFindMany: vi.fn(),
+  reviewStrategyGrounding: vi.fn(),
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -21,6 +24,8 @@ vi.mock('@/lib/prisma', () => ({
     },
     postStatusHistory: { create: mocks.historyCreate },
     marketingLearningEvent: { create: mocks.learningCreate },
+    campaign: { findMany: mocks.campaignFindMany },
+    brandProfile: { findMany: mocks.brandFindMany },
   },
 }))
 vi.mock('@/lib/socialPublishers', () => ({
@@ -28,6 +33,7 @@ vi.mock('@/lib/socialPublishers', () => ({
   isRetryableSocialPublishError: mocks.retryable,
 }))
 vi.mock('@/lib/tokenCrypto', () => ({ decryptToken: mocks.decrypt }))
+vi.mock('@/lib/ai/marketingQualityGate', () => ({ reviewStrategyGrounding: mocks.reviewStrategyGrounding }))
 
 import { GET } from '@/app/api/cron/publish/route'
 
@@ -52,6 +58,7 @@ function duePost() {
     pageId: null,
     status: 'SCHEDULED',
     publishMode: 'AUTO',
+    autoPublishConsentAt: new Date(Date.now() - 60_000),
     approvedAt: new Date(Date.now() - 60_000),
     scheduledAt: new Date(Date.now() - 1_000),
     integration: {
@@ -74,6 +81,17 @@ beforeEach(() => {
   mocks.decrypt.mockReturnValue('plain-token')
   mocks.publish.mockResolvedValue({ platformPostId: 'urn:li:share:1' })
   mocks.retryable.mockImplementation((error: Error) => /429|rate limit/i.test(error.message))
+  mocks.campaignFindMany.mockResolvedValue([{
+    id: 'campaign-1', workspaceId: 'workspace-1', aiOutput: { strategy: { positioning: 'Reviewed offer' } },
+    goal: 'LEADS', platforms: ['LINKEDIN', 'PINTEREST'],
+  }])
+  mocks.brandFindMany.mockResolvedValue([{
+    workspaceId: 'workspace-1', brandName: 'Reviewed Brand', industry: 'Services',
+    primaryOffer: 'A reviewed service', targetAudience: 'Business buyers',
+  }])
+  mocks.reviewStrategyGrounding.mockReturnValue({
+    schemaVersion: 1, status: 'passed', score: 100, blockers: [], warnings: [], checkedAt: '2026-07-14T00:00:00.000Z',
+  })
 })
 
 afterEach(() => {
@@ -109,6 +127,30 @@ describe('GET /api/cron/publish', () => {
         platformUrl: null,
         errorMessage: null,
       },
+    })
+  })
+
+  it('blocks automatic provider delivery when Brand Brain and strategy no longer agree', async () => {
+    mocks.reviewStrategyGrounding.mockReturnValue({
+      schemaVersion: 1,
+      status: 'blocked',
+      score: 70,
+      blockers: [{ code: 'strategy_missing_brand_relevance', severity: 'blocker', path: 'strategy', message: 'Drifted.' }],
+      warnings: [],
+      checkedAt: '2026-07-14T00:00:00.000Z',
+    })
+
+    const response = await GET(request())
+    const body = await response.json()
+
+    expect(body).toMatchObject({ ok: true, processed: 1, succeeded: 0, failed: 1 })
+    expect(mocks.publish).not.toHaveBeenCalled()
+    expect(mocks.update).toHaveBeenCalledWith({
+      where: { id: 'post-1' },
+      data: expect.objectContaining({
+        status: 'FAILED',
+        errorMessage: expect.stringContaining('MARKETING_QUALITY_GATE_FAILED'),
+      }),
     })
   })
 

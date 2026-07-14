@@ -5,14 +5,18 @@ const {
   mockCheckAndDeduct,
   mockRefund,
   mockRefundForTxn,
+  mockGetCreditActionPolicy,
   mockGetPaidStrategySource,
+  mockReviewStrategyGrounding,
   mockPrisma,
 } = vi.hoisted(() => ({
   mockGetAuthUser: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
   mockRefund: vi.fn(),
   mockRefundForTxn: vi.fn(),
+  mockGetCreditActionPolicy: vi.fn(),
   mockGetPaidStrategySource: vi.fn(),
+  mockReviewStrategyGrounding: vi.fn(),
   mockPrisma: {
     adCampaign: { findFirst: vi.fn(), update: vi.fn() },
     brandProfile: { findUnique: vi.fn() },
@@ -26,11 +30,15 @@ vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
+  getCreditActionPolicy: mockGetCreditActionPolicy,
 }))
 vi.mock('@/lib/ai/langHelper', () => ({ getLanguageInstruction: () => 'Respond in English.' }))
 vi.mock('@/lib/paidStrategySourceServer', () => ({
   getPaidStrategySourceForUser: mockGetPaidStrategySource,
   PaidStrategySourceError: class PaidStrategySourceError extends Error {},
+}))
+vi.mock('@/lib/ai/marketingQualityGate', () => ({
+  reviewStrategyGrounding: mockReviewStrategyGrounding,
 }))
 
 import { POST } from '../route'
@@ -95,7 +103,21 @@ beforeEach(() => {
     truth: { scope: 'paid', executionObjective: 'LEAD_GENERATION', updatedAt: '2026-07-14T00:00:00.000Z' },
     executionContext: '{"positioning":"Clear message"}',
   })
-  mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 2, creditsRemaining: 18 })
+  mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 4, creditsRemaining: 16 })
+  mockGetCreditActionPolicy.mockReturnValue({
+    action: 'PAID_EXECUTION_PLAN',
+    cost: 4,
+    label: 'Paid execution plan',
+    reason: 'Translate the approved strategy into a review-ready paid plan.',
+  })
+  mockReviewStrategyGrounding.mockReturnValue({
+    schemaVersion: 1,
+    status: 'passed',
+    score: 100,
+    blockers: [],
+    warnings: [],
+    checkedAt: '2026-07-14T00:00:00.000Z',
+  })
   mockRefund.mockResolvedValue(undefined)
   mockRefundForTxn.mockResolvedValue(undefined)
   mockPrisma.adCampaign.findFirst.mockResolvedValue(campaign)
@@ -136,8 +158,8 @@ describe('POST /api/ad-campaigns/[id]/generate-strategy — RF-3 refund safety',
   it('provider failure after deduction uses transaction-aware refund', async () => {
     mockCheckAndDeduct.mockResolvedValue({
       ok: true,
-      creditsUsed: 2,
-      creditsRemaining: 18,
+      creditsUsed: 4,
+      creditsRemaining: 16,
       transactionId: 'txn_strategy',
     })
     mockProvider('{}', false, 502)
@@ -158,15 +180,15 @@ describe('POST /api/ad-campaigns/[id]/generate-strategy — RF-3 refund safety',
     const res = await POST(makeReq(), params)
 
     expect(res.status).toBe(500)
-    expect(mockRefund).toHaveBeenCalledWith('u1', 'AD_COPY', 'AI returned invalid JSON')
+    expect(mockRefund).toHaveBeenCalledWith('u1', 'PAID_EXECUTION_PLAN', 'AI returned invalid JSON')
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
 
   it('DB persistence failure after deduction uses transaction-aware refund', async () => {
     mockCheckAndDeduct.mockResolvedValue({
       ok: true,
-      creditsUsed: 2,
-      creditsRemaining: 18,
+      creditsUsed: 4,
+      creditsRemaining: 16,
       transactionId: 'txn_db',
     })
     mockPrisma.adCampaign.update.mockRejectedValue(new Error('db down'))
@@ -192,8 +214,46 @@ describe('POST /api/ad-campaigns/[id]/generate-strategy — RF-3 refund safety',
     expect(json.strategy.budget_plan.estimated_reach).toBeNull()
     expect(json.strategy.budget_plan.estimated_cpm).toBeNull()
     expect(json.strategy.budget_plan.expected_results).toBeNull()
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'AD_COPY')
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'PAID_EXECUTION_PLAN')
+    expect(json.creditCharge).toMatchObject({
+      action: 'PAID_EXECUTION_PLAN',
+      cost: 4,
+      creditsUsed: 4,
+    })
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()
+  })
+
+  it('refunds a grounded-but-invalid paid plan before persistence', async () => {
+    mockCheckAndDeduct.mockResolvedValue({
+      ok: true,
+      creditsUsed: 4,
+      creditsRemaining: 16,
+      transactionId: 'txn_quality',
+    })
+    mockReviewStrategyGrounding.mockReturnValue({
+      schemaVersion: 1,
+      status: 'blocked',
+      score: 70,
+      blockers: [{
+        code: 'ungrounded_audience_expansion',
+        severity: 'blocker',
+        path: 'strategy.audience',
+        message: 'Unsupported audience.',
+      }],
+      warnings: [],
+      checkedAt: '2026-07-14T00:00:00.000Z',
+    })
+
+    const res = await POST(makeReq(), params)
+    const json = await res.json()
+
+    expect(res.status).toBe(422)
+    expect(json.code).toBe('MARKETING_QUALITY_GATE_BLOCKED')
+    expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      transactionId: 'txn_quality',
+    }))
+    expect(mockPrisma.adCampaign.update).not.toHaveBeenCalled()
   })
 })

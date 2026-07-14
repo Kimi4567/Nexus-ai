@@ -21,6 +21,11 @@ import {
 } from '@/lib/brandBrainGenerationSafety'
 import type { StrategyReadinessContext } from './strategist'
 import { readLockedCampaignAllowance } from '@/lib/campaignCommercial'
+import {
+  reviewBrandTruthConsistency,
+  reviewStrategyGrounding,
+} from '@/lib/ai/marketingQualityGate'
+import type { BrandTone } from '@prisma/client'
 
 // Re-export for API routes
 export type { BusinessBrief }
@@ -94,6 +99,12 @@ export async function runFullAgency(
     const brandProfile = await prisma.brandProfile.findUnique({ where: { workspaceId } })
     const brandSafety = getBrandBrainGenerationSafety(brandProfile as any)
     const safeBrandProfile = brandSafety.safeProfile as any
+    const brandTruthReview = reviewBrandTruthConsistency(safeBrandProfile)
+    if (brandTruthReview.status === 'blocked') {
+      throw new Error(
+        `BRAND_TRUTH_CONFLICT:${brandTruthReview.blockers.map(item => item.code).join(',')}`,
+      )
+    }
     const brandContext = brandProfile
       ? [
           `Brand: ${safeBrandProfile.brandName || 'Unknown'}`,
@@ -210,8 +221,19 @@ export async function runFullAgency(
       language: brief.language,
       expectedOrganicPostCount: brief.organicPostCount,
     })
+    const qualityGate = reviewStrategyGrounding({
+      strategy,
+      brand: safeBrandProfile,
+      allowedPlatforms: Array.isArray(brief.currentPlatforms) ? brief.currentPlatforms : [],
+      goal: brief.primaryGoal,
+    })
+    if (qualityGate.status === 'blocked') {
+      throw new Error(
+        `MARKETING_QUALITY_GATE_BLOCKED:${qualityGate.blockers.map(item => item.code).join(',')}`,
+      )
+    }
     console.log(
-      `[Orchestrator] Strategy OS contract passed score=${contractReport.score} workspace=${workspaceId}`,
+      `[Orchestrator] Strategy OS contract passed score=${contractReport.score} quality=${qualityGate.score} workspace=${workspaceId}`,
     )
 
     if (options.beforePersistStrategy) {
@@ -299,7 +321,7 @@ export async function runFullAgency(
           description: String(campaignDesc).slice(0, 2_000),
           goal: mapGoal(strategy.goal) as any,
           audience: String(campaignAudience).slice(0, 1_000),
-          tone: 'MODERN',
+          tone: mapBrandTone(safeBrandProfile.toneKeywords, safeBrandProfile.writingStyle),
           platforms: mapPlatforms(rawPlatforms) as any,
           status: 'DRAFT',
           aiOutput: {
@@ -320,6 +342,7 @@ export async function runFullAgency(
             selectedMediaIds: Array.isArray((brief as any).selectedMediaIds) ? (brief as any).selectedMediaIds : [],
             generatedAt: new Date().toISOString(),
             generatedByAgents: true,
+            qualityGate,
           } as any,
         },
       })
@@ -331,7 +354,7 @@ export async function runFullAgency(
       workspaceId,
       campaignId: campaign.id,
       goal: brief.primaryGoal ?? undefined,
-      tone: undefined,
+      tone: mapBrandTone(safeBrandProfile.toneKeywords, safeBrandProfile.writingStyle),
       industry: brief.businessType ?? undefined,
       audienceHint: brief.targetAudience ?? undefined,
       strategy,
@@ -414,4 +437,24 @@ function mapPlatforms(platforms: string[]): string[] {
     .map(p => map[p.toLowerCase()] || p.toUpperCase())
     .filter(p => valid.includes(p))
     .slice(0, 3)
+}
+
+function mapBrandTone(toneKeywords: unknown, writingStyle: unknown): BrandTone {
+  const toneText = [
+    ...(Array.isArray(toneKeywords) ? toneKeywords.filter(value => typeof value === 'string') : []),
+    typeof writingStyle === 'string' ? writingStyle : '',
+  ].join(' ').toLocaleLowerCase()
+
+  const rules: Array<{ tone: BrandTone; pattern: RegExp }> = [
+    { tone: 'LUXURY', pattern: /luxur|premium|elegant|exclusive|فاخر|فخامة|راقي/iu },
+    { tone: 'FRIENDLY', pattern: /friendly|warm|welcoming|supportive|human|ودود|دافئ|ترحيبي|إنساني/iu },
+    { tone: 'ENERGETIC', pattern: /energetic|playful|dynamic|exciting|حيوي|مرح|نشيط/iu },
+    { tone: 'CORPORATE', pattern: /corporate|formal|institutional|رسمي|مؤسسي/iu },
+    { tone: 'MINIMAL', pattern: /minimal|concise|calm|understated|مختصر|هادئ|بسيط/iu },
+    { tone: 'AGGRESSIVE_SALES', pattern: /aggressive sales|hard sell|direct response|بيع مباشر|بيعي قوي/iu },
+    { tone: 'MODERN', pattern: /modern|contemporary|future|حديث|عصري|مستقبلي/iu },
+    { tone: 'PROFESSIONAL', pattern: /professional|clear|credible|expert|احترافي|واضح|موثوق|خبير/iu },
+  ]
+
+  return rules.find(rule => rule.pattern.test(toneText))?.tone ?? 'PROFESSIONAL'
 }

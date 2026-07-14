@@ -35,6 +35,7 @@ const draft = {
   platforms: ['INSTAGRAM'],
   aiOutput: {
     strategy: { positioning: 'Controlled automation' },
+    qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
     sentinelReview: { status: 'passed' },
   },
   updatedAt: new Date('2026-07-12T10:00:00.000Z'),

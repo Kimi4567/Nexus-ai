@@ -17,6 +17,7 @@ import { getServerUserId } from '@/lib/apiAuth'
 import {
   checkAndDeductCredits,
   checkDailyImageCap,
+  getCreditActionPolicy,
   refundCredits,
   refundCreditsForTransaction,
 } from '@/lib/credits'
@@ -40,6 +41,8 @@ type Params = { params: Promise<{ id: string }> }
 type ImageCreditReservation = {
   postId: string
   creditsUsed: number
+  creditsRemaining: number
+  isUnlimited: boolean
   transactionId?: string
   refunded: boolean
   consumed: boolean
@@ -298,6 +301,8 @@ export async function POST(req: NextRequest, props: Params) {
       const reservation: ImageCreditReservation = {
         postId: post.id,
         creditsUsed: creditCheck.creditsUsed,
+        creditsRemaining: creditCheck.creditsRemaining,
+        isUnlimited: creditCheck.isUnlimited,
         transactionId: creditCheck.transactionId,
         refunded: false,
         consumed: false,
@@ -387,6 +392,17 @@ export async function POST(req: NextRequest, props: Params) {
       failed,
       remaining,
       results,
+      creditCharges: creditReservations
+        .filter((reservation) => reservation.consumed && !reservation.refunded)
+        .map((reservation) => ({
+          ...getCreditActionPolicy('IMAGE_GENERATION'),
+          creditsUsed: reservation.creditsUsed,
+          creditsRemaining: reservation.creditsRemaining,
+          isUnlimited: reservation.isUnlimited,
+          transactionId: reservation.transactionId || null,
+          entityId: reservation.postId,
+          entityType: 'social_post',
+        })),
     })
   } catch (err: any) {
     console.error('[generate-content-plan/generate POST]', err)

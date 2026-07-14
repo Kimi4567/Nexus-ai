@@ -205,6 +205,7 @@ export default function PaidLaunchPage() {
   const [metricsForm, setMetricsForm] = useState({ impressions: '', reach: '', clicks: '', spend: '', conversions: '', roas: '' })
   const [savingMetrics, setSavingMetrics] = useState(false)
   const [extractingLearnings, setExtractingLearnings] = useState(false)
+  const [learningNotice, setLearningNotice] = useState<string | null>(null)
   const [showExternalLaunchConfirm, setShowExternalLaunchConfirm] = useState(false)
   const [externalLaunchAcknowledged, setExternalLaunchAcknowledged] = useState(false)
 
@@ -326,7 +327,19 @@ export default function PaidLaunchPage() {
       })
       const data = await res.json()
       if (!res.ok) setError(data.error ?? copy('تعذر إنشاء مقترح إشارة من المقاييس.', 'Metrics signal proposal failed.'))
-      else { await fetchData() }
+      else {
+        const count = Number(data.brandBrainProposalCount || 0)
+        setLearningNotice(count > 0
+          ? copy(
+              `تم إنشاء ${count} مقترح مراجعة في مركز القرارات. لم يتغير Brand Brain تلقائيًا.`,
+              `${count} review proposal${count === 1 ? '' : 's'} added to the Decision Center. Brand Brain was not changed automatically.`,
+            )
+          : copy(
+              'تم حفظ التحليل، ولم توجد إشارة جديدة قابلة للإضافة إلى Brand Brain.',
+              'Analysis saved; no new Brand Brain review signal was available.',
+            ))
+        await fetchData()
+      }
     } catch { setError(copy('تعذر إنشاء مقترح إشارة من المقاييس.', 'Metrics signal proposal failed.')) }
     finally { setExtractingLearnings(false) }
   }
@@ -979,6 +992,11 @@ export default function PaidLaunchPage() {
             {/* Brand Brain paid metrics signals */}
             {(pack.metrics || isCompleted) && (
               <Section title={copy('مقترحات إشارات من المقاييس المدفوعة', 'Paid Metrics Signal Proposals')} icon={<Brain size={16} color="#7c3aed" />}>
+                {learningNotice && (
+                  <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 8, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)', color: '#6d28d9', fontSize: 13, lineHeight: 1.5 }}>
+                    {learningNotice}
+                  </div>
+                )}
                 {pack.learnings ? (
                   <div style={{ display: 'grid', gap: 12 }}>
                     {pack.brandBrainUpdated && (
@@ -1054,6 +1072,10 @@ export default function PaidLaunchPage() {
         onConfirm={handleGenerate}
         cost={PAID_PACK_COST}
         actionTitle={copy('إنشاء حزمة التخطيط المدفوع', 'Generate paid planning pack')}
+        reason={copy(
+          'ينشئ استدعاء ذكاء واحدًا حزمة تخطيط مدفوع قابلة للمراجعة؛ لا يطلق إعلانًا ولا يصرف ميزانية.',
+          'One bounded AI run creates a reviewable paid planning pack; it does not launch ads or spend budget.',
+        )}
         authHeader={authHeader}
         includedItems={isArabic
           ? ['موجز الجمهور', 'مسودات النصوص الإعلانية', 'خطة الميزانية الافتراضية', 'إرشادات إعداد المنصات']

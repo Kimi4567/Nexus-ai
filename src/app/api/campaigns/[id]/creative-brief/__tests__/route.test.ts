@@ -4,6 +4,7 @@ const {
   mockGetServerUserId,
   mockCheckAndDeduct,
   mockRefund,
+  mockReviewStrategyGrounding,
   mockAnalyzeAssets,
   mockGenerateVisualConcepts,
   mockPrisma,
@@ -11,6 +12,7 @@ const {
   mockGetServerUserId: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
   mockRefund: vi.fn(),
+  mockReviewStrategyGrounding: vi.fn(),
   mockAnalyzeAssets: vi.fn(),
   mockGenerateVisualConcepts: vi.fn(),
   mockPrisma: {
@@ -24,11 +26,23 @@ vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
-  refundCredits: mockRefund,
+  refundCreditDeduction: vi.fn(async ({ deduction }) => {
+    if (deduction?.creditsUsed > 0) await mockRefund()
+  }),
+  getCreditActionPolicy: () => ({
+    action: 'CREATIVE_BRIEF',
+    cost: 3,
+    label: 'Creative brief',
+    reason: 'Turns the approved strategy into visual direction.',
+  }),
 }))
 vi.mock('@/lib/agents/visual-director', () => ({
   analyzeAssets: mockAnalyzeAssets,
   generateVisualConcepts: mockGenerateVisualConcepts,
+}))
+vi.mock('@/lib/ai/marketingQualityGate', () => ({
+  isPersistedMarketingQualityGatePassed: (value: any) => value?.schemaVersion === 1 && value?.status === 'passed',
+  reviewStrategyGrounding: mockReviewStrategyGrounding,
 }))
 
 import { POST } from '../route'
@@ -38,12 +52,18 @@ const makeReq = (body: unknown = {}) => ({ json: async () => body }) as any
 
 const campaign = {
   id: 'campaign_1',
+  status: 'ACTIVE',
   workspaceId: 'workspace_1',
   name: 'Launch',
   goal: 'leads',
   audience: 'Founders',
   tone: 'clear',
-  aiOutput: { strategy: { keyMessage: 'A clear offer' }, language: 'en' },
+  aiOutput: {
+    strategy: { keyMessage: 'A clear offer' },
+    language: 'en',
+    qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
+    sentinelReview: { status: 'passed' },
+  },
   workspace: { brandProfile: { brandName: 'Nexus', industry: 'SaaS' } },
 }
 
@@ -57,6 +77,14 @@ beforeEach(() => {
   mockPrisma.campaignActivity.create.mockResolvedValue({})
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 4, creditsRemaining: 16 })
   mockRefund.mockResolvedValue(undefined)
+  mockReviewStrategyGrounding.mockReturnValue({
+    schemaVersion: 1,
+    status: 'passed',
+    score: 100,
+    blockers: [],
+    warnings: [],
+    checkedAt: '2026-07-14T00:00:00.000Z',
+  })
   mockGenerateVisualConcepts.mockResolvedValue({ assetAnalyses: [], overallCreativeDirection: 'Clear direction' })
 })
 
@@ -85,6 +113,34 @@ describe('POST /api/campaigns/[id]/creative-brief — provider and credit orderi
     expect(json).toMatchObject({ code: 'AI_PROVIDER_UNAVAILABLE', creditsCharged: false })
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
     expect(mockGenerateVisualConcepts).not.toHaveBeenCalled()
+  })
+
+  it('requires approved, completely reviewed strategy before charging', async () => {
+    mockPrisma.campaign.findFirst.mockResolvedValue({ ...campaign, status: 'DRAFT' })
+
+    const res = await POST(makeReq({ mode: 'concept', language: 'en' }), params)
+    const json = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(json.code).toBe('STRATEGY_APPROVAL_REQUIRED')
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockGenerateVisualConcepts).not.toHaveBeenCalled()
+  })
+
+  it('revalidates the current Brand Brain before charging', async () => {
+    mockReviewStrategyGrounding.mockReturnValue({
+      schemaVersion: 1,
+      status: 'blocked',
+      score: 70,
+      blockers: [{ code: 'strategy_missing_brand_relevance', severity: 'blocker', path: 'strategy', message: 'Drifted' }],
+      warnings: [],
+      checkedAt: '2026-07-14T00:00:00.000Z',
+    })
+
+    const res = await POST(makeReq({ mode: 'concept', language: 'en' }), params)
+
+    expect(res.status).toBe(422)
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
   })
 
   it('checks asset availability before charging', async () => {
@@ -118,6 +174,7 @@ describe('POST /api/campaigns/[id]/creative-brief — provider and credit orderi
 
     expect(res.status).toBe(200)
     expect(json.creditsRemaining).toBe(16)
+    expect(json.creditCharge).toMatchObject({ action: 'CREATIVE_BRIEF', cost: 3, creditsUsed: 4 })
     expect(mockCheckAndDeduct).toHaveBeenCalledWith('user_1', 'CREATIVE_BRIEF')
     expect(mockGenerateVisualConcepts).toHaveBeenCalledTimes(1)
     expect(mockRefund).not.toHaveBeenCalled()

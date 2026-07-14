@@ -435,7 +435,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="border-t border-slate-200 bg-[#f5f5f7] px-4 py-10 sm:px-6">
+      <footer className="border-t border-slate-200 bg-[#f5f5f7] px-4 pb-24 pt-10 sm:px-6 lg:py-10">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 text-[13px] text-slate-500 md:flex-row md:items-center md:justify-between">
           <p>Copyright © 2026 Nexus AI. All rights reserved.</p>
           <div className="flex gap-5">

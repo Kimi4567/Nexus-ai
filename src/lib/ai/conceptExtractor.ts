@@ -1,17 +1,17 @@
 /**
  * NEXUS Visual Intelligence — Caption → Visual Concept Extractor
  *
- * Analyzes post captions and brand context using GPT-4o mini to extract:
+ * Analyzes post captions and brand context deterministically to extract:
  *   - centralElement  — the specific scene/hero visual to generate
  *   - emotion         — 2-3 emotion words to guide the visual mood
  *   - headline        — a 4-7 word ad headline from the caption's core promise
  *   - cta             — call-to-action button text
  *   - visualMood      — one-sentence atmosphere/mood description
  *
- * This extraction is what makes every generated ad image UNIQUE and
- * content-driven rather than generic style-map output.
- *
- * Cost: ~$0.0003/call (GPT-4o mini) — well worth the quality gain.
+ * This step intentionally makes no provider call. Image generation is already
+ * a paid action, and silently adding a second model call makes the credit price
+ * misleading and weakens unit economics. A future model-assisted art-direction
+ * pass must be exposed and metered as its own explicit action.
  */
 
 export interface VisualConcept {
@@ -52,95 +52,14 @@ export interface ConceptInput {
 }
 
 /**
- * Extract visual concept from a social media caption using GPT-4o mini.
- * Falls back to keyword-based defaults if the API call fails.
+ * Extract a safe visual concept without consuming a provider token.
+ * The result is grounded in the caption language and business category and is
+ * then normalized again by the image prompt builder before generation.
  */
 export async function extractVisualConcept(input: ConceptInput): Promise<VisualConcept> {
   const { text, industry, brandName } = input
   const language = input.language ?? detectLanguage(text)
-
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) return buildFallbackConcept(text, industry, brandName, language)
-
-  const systemPrompt = `You are a world-class advertising art director working at a top agency.
-Your job: extract the visual concept from a social media post caption to brief an AI image generator.
-Return ONLY a valid JSON object — no markdown, no explanation, no code blocks.`
-
-  const userPrompt = `Caption: "${text.slice(0, 600)}"
-Brand: ${brandName}
-Industry: ${industry}
-Caption language: ${language === 'ar' ? 'Arabic' : 'English'}
-
-Return this JSON object:
-{
-  "centralElement": "...",
-  "emotion": "...",
-  "headline": "...",
-  "cta": "...",
-  "visualMood": "..."
-}
-
-Rules for each field:
-- centralElement: SPECIFIC and CINEMATIC text-free scene (e.g. "steaming carbonara pasta with golden parmesan, candlelit table" NOT "food image"). Describe tangible people, objects, and environment physically in the frame.
-- centralElement must NEVER request text, lettering, numbers, signs, infographics, icons, charts, graphs, dashboards, interfaces, screens, logos, watermarks, or UI. If the caption or creative direction asks for any of those, translate its meaning into one tangible photographic scene or visual metaphor instead.
-- emotion: 2-3 emotion words the image must evoke (e.g. "indulgent, warm, authentic")
-- headline: 4-7 word bold ad headline in the SAME LANGUAGE as the caption. Derive from the caption's main benefit or promise.
-- cta: 2-4 word call-to-action in the SAME LANGUAGE as the caption (e.g. "Order Now" in English, "اطلب الآن" in Arabic)
-- visualMood: ONE sentence describing the complete visual atmosphere (lighting, color, feeling)
-
-Industry-specific guidance:
-- restaurant/food: hero dish close-up, warm candlelit ambiance, steam, bokeh, Michelin-star plating
-- real estate: specific property type (luxury penthouse, villa pool, modern apartment), time of day, lifestyle
-- medical/clinic: modern clean clinical environment, warm professional lighting, hope and precision
-- saas/tech: human team, physical workflow objects, or abstract luminous connections that communicate intelligence without screens, interfaces, charts, or text
-- fashion/retail: editorial product shot, dramatic lighting, aspirational lifestyle
-- fitness/gym: dynamic action, strong contrast, energy and motion
-- education: bright inspiring space, learning journey, knowledge and growth
-
-IMPORTANT: Be specific and visual. The AI needs to see exactly what to draw.`
-
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user',   content: userPrompt   },
-        ],
-        max_tokens: 350,
-        temperature: 0.4,
-        response_format: { type: 'json_object' },
-      }),
-      signal: AbortSignal.timeout(10_000),
-    })
-
-    if (!response.ok) throw new Error(`GPT-4o mini responded ${response.status}`)
-
-    const data = await response.json()
-    const content = data?.choices?.[0]?.message?.content
-    if (!content) throw new Error('Empty response from GPT-4o mini')
-
-    const parsed = JSON.parse(content) as Partial<VisualConcept>
-    const fallback = buildFallbackConcept(text, industry, brandName, language)
-
-    return {
-      centralElement: parsed.centralElement?.trim() || fallback.centralElement,
-      emotion:        parsed.emotion?.trim()        || fallback.emotion,
-      headline:       parsed.headline?.trim()       || fallback.headline,
-      cta:            parsed.cta?.trim()            || fallback.cta,
-      visualMood:     parsed.visualMood?.trim()     || fallback.visualMood,
-    }
-  } catch (err) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[conceptExtractor] GPT-4o mini extraction failed, using fallback:', err)
-    }
-    return buildFallbackConcept(text, industry, brandName, language)
-  }
+  return buildFallbackConcept(text, industry, brandName, language)
 }
 
 // ─── Keyword-based fallback ───────────────────────────────────────────────────
@@ -192,7 +111,7 @@ function buildFallbackConcept(
       emotion:        'powerful, innovative, empowering',
       headline:       isAr ? 'حوّل بياناتك إلى نتائج' : 'Transform Data Into Growth',
       cta:            isAr ? 'ابدأ مجاناً' : 'Start Free',
-      visualMood:     'Dark premium tech aesthetic with deep violet-blue glow, floating UI elements and depth haze',
+      visualMood:     'Dark premium tech aesthetic with deep violet-blue glow, tactile luminous connections and atmospheric depth haze',
     }
   }
 

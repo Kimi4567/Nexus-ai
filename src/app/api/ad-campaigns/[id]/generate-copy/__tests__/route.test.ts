@@ -5,14 +5,20 @@ const {
   mockCheckAndDeduct,
   mockRefund,
   mockRefundForTxn,
+  mockGetCreditActionPolicy,
   mockGetPaidStrategySource,
+  mockReviewStrategyGrounding,
+  mockReviewContentPostForPublishing,
   mockPrisma,
 } = vi.hoisted(() => ({
   mockGetAuthUser: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
   mockRefund: vi.fn(),
   mockRefundForTxn: vi.fn(),
+  mockGetCreditActionPolicy: vi.fn(),
   mockGetPaidStrategySource: vi.fn(),
+  mockReviewStrategyGrounding: vi.fn(),
+  mockReviewContentPostForPublishing: vi.fn(),
   mockPrisma: {
     adCampaign: { findFirst: vi.fn(), update: vi.fn() },
     adSet: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
@@ -27,11 +33,18 @@ vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
+  getCreditActionPolicy: mockGetCreditActionPolicy,
 }))
 vi.mock('@/lib/ai/langHelper', () => ({ getLanguageInstruction: () => 'Respond in English.' }))
 vi.mock('@/lib/paidStrategySourceServer', () => ({
   getPaidStrategySourceForUser: mockGetPaidStrategySource,
   PaidStrategySourceError: class PaidStrategySourceError extends Error {},
+}))
+vi.mock('@/lib/ai/marketingQualityGate', () => ({
+  reviewStrategyGrounding: mockReviewStrategyGrounding,
+}))
+vi.mock('@/lib/contentPlanApprovalGuard', () => ({
+  reviewContentPostForPublishing: mockReviewContentPostForPublishing,
 }))
 
 import { POST } from '../route'
@@ -100,6 +113,21 @@ beforeEach(() => {
     executionContext: '{"positioning":"Clear message"}',
   })
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 2, creditsRemaining: 18 })
+  mockGetCreditActionPolicy.mockReturnValue({
+    action: 'AD_COPY',
+    cost: 2,
+    label: 'Paid ad copy variants',
+    reason: 'Generate five review-ready paid ad drafts.',
+  })
+  mockReviewStrategyGrounding.mockReturnValue({
+    schemaVersion: 1,
+    status: 'passed',
+    score: 100,
+    blockers: [],
+    warnings: [],
+    checkedAt: '2026-07-14T00:00:00.000Z',
+  })
+  mockReviewContentPostForPublishing.mockReturnValue([])
   mockRefund.mockResolvedValue(undefined)
   mockRefundForTxn.mockResolvedValue(undefined)
   mockPrisma.adCampaign.findFirst.mockResolvedValue(campaign)
@@ -206,7 +234,34 @@ describe('POST /api/ad-campaigns/[id]/generate-copy — RF-3 refund safety', () 
     expect(res.status).toBe(200)
     expect(json.success).toBe(true)
     expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'AD_COPY')
+    expect(json.creditCharge).toMatchObject({ action: 'AD_COPY', cost: 2, creditsUsed: 2 })
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()
+  })
+
+  it('refunds unsafe paid copy and does not create an empty ad set', async () => {
+    mockCheckAndDeduct.mockResolvedValue({
+      ok: true,
+      creditsUsed: 2,
+      creditsRemaining: 18,
+      transactionId: 'txn_quality',
+    })
+    mockReviewContentPostForPublishing.mockReturnValue([{
+      index: 1,
+      reason: 'unsupported_guarantee',
+    }])
+
+    const res = await POST(makeReq(), params)
+    const json = await res.json()
+
+    expect(res.status).toBe(422)
+    expect(json.code).toBe('PAID_COPY_QUALITY_GATE_BLOCKED')
+    expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      transactionId: 'txn_quality',
+    }))
+    expect(mockPrisma.adSet.findFirst).not.toHaveBeenCalled()
+    expect(mockPrisma.adSet.create).not.toHaveBeenCalled()
+    expect(mockPrisma.ad.create).not.toHaveBeenCalled()
   })
 })

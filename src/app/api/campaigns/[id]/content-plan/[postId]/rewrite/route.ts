@@ -14,7 +14,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
-import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import {
+  buildCreditChargeReceipt,
+  checkAndDeductCredits,
+  refundCreditDeduction,
+  type CreditDeductionOk,
+} from '@/lib/credits'
 import { validateRewriteConfirmation } from '@/lib/contentHubActionSafety'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { guardContentDraftText } from '@/lib/ai/contentDraftTruthGuard'
@@ -54,7 +59,7 @@ export async function POST(req: NextRequest, props: Params) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Hoisted so the catch can refund a charged-but-failed rewrite.
-  let rewriteCharged = false
+  let chargedCredit: CreditDeductionOk | null = null
   try {
     const { instruction, explicitRewriteConfirmed, acknowledgedCreditCost, language } = await req.json().catch(() => ({
       instruction: '',
@@ -116,7 +121,7 @@ export async function POST(req: NextRequest, props: Params) {
         { status: 402 },
       )
     }
-    rewriteCharged = creditCheck.creditsUsed > 0
+    chargedCredit = creditCheck
 
     // ── 3. Load brand profile ──────────────────────────────────────────────
     const brand = await prisma.brandProfile.findUnique({
@@ -224,10 +229,13 @@ ${post.caption}${instruction ? `\n\nRewrite instruction: ${instruction}` : '\n\n
     })
     const publishReview = reviewContentPostForPublishing({ caption: guardedCaption })
     if (publishReview.length > 0) {
-      if (rewriteCharged) {
-        await refundCredits(userId, 'AI_POST_REWRITE')
-        rewriteCharged = false
-      }
+      await refundCreditDeduction({
+        userId,
+        action: 'AI_POST_REWRITE',
+        deduction: chargedCredit,
+        reason: 'Generated rewrite failed the saved-content quality gate',
+      })
+      chargedCredit = null
       return NextResponse.json({
         error: 'The rewrite did not pass the saved-content quality gate. No revised copy was saved.',
         code: 'CONTENT_REVIEW_REQUIRED',
@@ -259,11 +267,21 @@ ${post.caption}${instruction ? `\n\nRewrite instruction: ${instruction}` : '\n\n
       return next
     })
 
-    return NextResponse.json({ post: updated })
+    return NextResponse.json({
+      post: updated,
+      creditsUsed: creditCheck.creditsUsed,
+      creditsRemaining: creditCheck.creditsRemaining,
+      creditCharge: buildCreditChargeReceipt('AI_POST_REWRITE', creditCheck),
+    })
   } catch (err: any) {
     console.error('[content-plan/rewrite POST]', err)
-    // Refund — failed rewrite must not charge the user (skip unlimited plans)
-    if (rewriteCharged) await refundCredits(userId, 'AI_POST_REWRITE')
-    return NextResponse.json({ error: 'Failed to rewrite post', refunded: rewriteCharged }, { status: 500 })
+    const refunded = Boolean(chargedCredit?.creditsUsed)
+    await refundCreditDeduction({
+      userId,
+      action: 'AI_POST_REWRITE',
+      deduction: chargedCredit,
+      reason: 'Post rewrite failed',
+    })
+    return NextResponse.json({ error: 'Failed to rewrite post', refunded }, { status: 500 })
   }
 }

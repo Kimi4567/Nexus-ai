@@ -23,6 +23,7 @@ import { evaluatePaidExecutionReadiness } from '@/lib/paidExecutionReadiness'
 import { paidExecutionErrorMessage } from '@/lib/paidExecutionErrorMessage'
 import NextImage from 'next/image'
 import { AlertTriangle, CheckCircle2, ExternalLink, Image as ImageIcon, X } from 'lucide-react'
+import CreditConfirmModal from '@/components/CreditConfirmModal'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Ad {
@@ -201,7 +202,7 @@ function KpiCard({ label, value, sub, accent }: { label: string; value: string; 
 
 // ── Main ───────────────────────────────────────────────────────────────────
 export default function CampaignDetailPage() {
-  const { user } = useAuth()
+  const { user, authHeader } = useAuth()
   const { locale } = useI18n()
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -236,6 +237,7 @@ export default function CampaignDetailPage() {
   const [creativeRightsAcknowledged, setCreativeRightsAcknowledged] = useState(false)
   const [creativeAttachLoading, setCreativeAttachLoading] = useState(false)
   const [generationLoading, setGenerationLoading] = useState<'plan' | 'copy' | null>(null)
+  const [generationConfirmation, setGenerationConfirmation] = useState<'plan' | 'copy' | null>(null)
 
   const getToken = async () => {
     const { data: session } = await supabase.auth.getSession()
@@ -884,15 +886,15 @@ export default function CampaignDetailPage() {
               </div>
 
               {!campaign.aiStrategy && (
-                <button onClick={() => handleGenerateExecutionArtifact('plan')}
+                <button onClick={() => setGenerationConfirmation('plan')}
                   disabled={generationLoading !== null || !hasStrategySource}
                   className="mt-4 w-full py-2 rounded-xl text-[12px] font-bold text-white"
                   style={{ background: hasStrategySource ? 'linear-gradient(135deg, #8B5CF6, #6366F1)' : '#cbd5e1' }}>
-                  {generationLoading === 'plan' ? 'Generating execution plan…' : '✨ Generate platform execution plan — 2 credits'}
+                  {generationLoading === 'plan' ? 'Generating execution plan…' : '✨ Review execution plan cost — 4 credits'}
                 </button>
               )}
               {campaign.aiStrategy && totalAds === 0 && (
-                <button onClick={() => handleGenerateExecutionArtifact('copy')}
+                <button onClick={() => setGenerationConfirmation('copy')}
                   disabled={generationLoading !== null || !hasStrategySource}
                   className="mt-4 w-full py-2 rounded-xl text-[12px] font-bold text-white"
                   style={{ background: hasStrategySource ? 'linear-gradient(135deg, #F97316, #EF4444)' : '#cbd5e1' }}>
@@ -1830,6 +1832,33 @@ export default function CampaignDetailPage() {
             </div>
           </div>
         )}
+        <CreditConfirmModal
+          isOpen={generationConfirmation !== null}
+          onClose={() => setGenerationConfirmation(null)}
+          onConfirm={() => {
+            if (generationConfirmation) void handleGenerateExecutionArtifact(generationConfirmation)
+          }}
+          cost={generationConfirmation === 'plan' ? 4 : 2}
+          actionTitle={generationConfirmation === 'plan'
+            ? (ar ? 'إنشاء خطة تنفيذ مدفوعة' : 'Generate paid execution plan')
+            : (ar ? 'إنشاء مسودات النصوص الإعلانية' : 'Generate ad copy drafts')}
+          reason={generationConfirmation === 'plan'
+            ? (ar
+                ? 'يحوّل الاستراتيجية المعتمدة إلى خطة تنفيذ منصة قابلة للمراجعة من دون إطلاق أو إنفاق.'
+                : 'Converts the approved strategy into a reviewable platform execution plan without launch or spend.')
+            : (ar
+                ? 'ينشئ مسودات نصوص إعلانية مرتبطة بالاستراتيجية للمراجعة قبل أي تفعيل.'
+                : 'Creates strategy-aligned ad-copy drafts for review before any activation.')}
+          authHeader={authHeader}
+          locale={locale}
+          includedItems={generationConfirmation === 'plan'
+            ? (ar
+                ? ['استهداف المنصة', 'توزيع ميزانية للمراجعة', 'موجز إبداعي', 'لا إطلاق ولا إنفاق']
+                : ['Platform targeting', 'Reviewable budget allocation', 'Creative brief', 'No launch or spend'])
+            : (ar
+                ? ['نصوص مرتبطة بالاستراتيجية', 'مسودات للمراجعة', 'لا نشر ولا إنفاق']
+                : ['Strategy-aligned copy', 'Drafts for review', 'No publish or spend'])}
+        />
         </div>
       </div>
     </AppShell>

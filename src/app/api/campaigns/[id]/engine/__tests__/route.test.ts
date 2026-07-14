@@ -35,7 +35,21 @@ const {
 
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
 vi.mock('@/lib/dbRateLimit', () => ({ aiRateLimitDb: mockAiRateLimitDb }))
-vi.mock('@/lib/credits', () => ({ checkAndDeductCredits: mockCheckAndDeduct, refundCredits: mockRefund }))
+vi.mock('@/lib/credits', () => ({
+  checkAndDeductCredits: mockCheckAndDeduct,
+  refundCreditDeduction: vi.fn(async ({ userId, action, deduction }) => {
+    if (deduction?.creditsUsed > 0) await mockRefund(userId, action)
+  }),
+  getCreditActionPolicy: () => ({
+    action: 'RUN_FULL_STRATEGY',
+    cost: 8,
+    label: 'Full marketing strategy',
+    reason: 'Creates a reviewed strategy.',
+    includedWork: 'One bounded run.',
+    providerCallLimit: 2,
+    refundableOnNoUsableOutput: true,
+  }),
+}))
 vi.mock('@/lib/campaign-engine', () => ({ runCampaignEngine: mockRunEngine, deriveCampaignEngineState: vi.fn() }))
 vi.mock('@/lib/brandReadiness', () => ({ getBrandBrainReadiness: mockGetBrandBrainReadiness }))
 vi.mock('@/lib/ai/provider', async (importOriginal) => {

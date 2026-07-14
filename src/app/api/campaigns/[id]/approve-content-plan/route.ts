@@ -23,6 +23,7 @@ import { planApproval, planRevert } from '@/lib/approvalPlan'
 import { buildLearningEvents } from '@/lib/brandBrainEvents'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
+import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -49,17 +50,33 @@ export async function POST(req: NextRequest, props: Params) {
         workspaceId: true,
         name: true,
         status: true,
+        goal: true,
+        platforms: true,
         aiOutput: true,
         workspace: {
           select: {
             brandProfile: {
               select: {
                 brandName: true,
+                industry: true,
                 description: true,
                 primaryOffer: true,
+                targetAudience: true,
+                audienceAge: true,
+                audienceLocation: true,
+                audiencePainPoints: true,
+                audienceDesires: true,
                 uniqueAdvantages: true,
+                toneKeywords: true,
+                writingStyle: true,
+                avoidKeywords: true,
+                topPlatforms: true,
+                businessGoal: true,
+                competitors: true,
+                competitorNotes: true,
                 complianceNotes: true,
                 verifiedProof: true,
+                conversionDestination: true,
               },
             },
           },
@@ -122,12 +139,31 @@ export async function POST(req: NextRequest, props: Params) {
     const brand = campaign.workspace?.brandProfile
     const brandFacts = [
       brand?.brandName,
+      brand?.industry,
       brand?.description,
       brand?.primaryOffer,
+      brand?.targetAudience,
+      brand?.audienceAge,
+      brand?.audienceLocation,
+      brand?.audiencePainPoints ?? [],
+      brand?.audienceDesires ?? [],
       brand?.uniqueAdvantages ?? [],
       brand?.complianceNotes,
       brand?.verifiedProof ?? [],
     ]
+    const strategyQualityGate = reviewStrategyGrounding({
+      strategy,
+      brand,
+      allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms.map(String) : [],
+      goal: campaign.goal,
+    })
+    if (strategyQualityGate.status === 'blocked') {
+      return NextResponse.json({
+        error: 'Content approval is blocked because the source strategy conflicts with Brand Brain or its reviewed channel scope.',
+        code: 'MARKETING_QUALITY_GATE_BLOCKED',
+        qualityGate: strategyQualityGate,
+      }, { status: 422 })
+    }
     const approvalReview = reviewContentPlanForApproval(draftPosts, strategy, brandFacts)
 
     if (!approvalReview.ok) {

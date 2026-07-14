@@ -310,7 +310,7 @@ export default memo(function ChatWidget() {
           ? (isAr ? 'إغلاق مساعد NEXUS' : 'Close NEXUS assistant')
           : (isAr ? 'فتح مساعد NEXUS' : 'Open NEXUS assistant')}
         aria-expanded={open}
-        className="fixed bottom-6 right-6 z-[100] w-14 h-14 rounded-full flex items-center justify-center shadow-2xl chat-btn"
+        className="fixed bottom-6 end-6 z-[100] w-14 h-14 rounded-full flex items-center justify-center shadow-2xl chat-btn"
         style={{
           background: "linear-gradient(135deg, #6366F1 0%, #5E5CE6 100%)",
           boxShadow: "0 8px 32px rgba(94,92,230,0.35)",
@@ -331,7 +331,7 @@ export default memo(function ChatWidget() {
       {/* ── Chat Panel ── */}
       {open && (
         <div
-          className="fixed bottom-24 right-6 z-[100] w-[360px] max-w-[92vw] flex flex-col overflow-hidden chat-panel"
+          className="fixed bottom-24 end-6 z-[100] w-[360px] max-w-[92vw] flex flex-col overflow-hidden chat-panel"
           style={{
             height: "520px",
             maxHeight: "calc(100vh - 120px)",
@@ -470,8 +470,10 @@ export default memo(function ChatWidget() {
                 }}
               />
               <button
+                type="button"
                 onClick={() => handleSend()}
                 disabled={isStreaming || !input.trim()}
+                aria-label={isAr ? 'إرسال الرسالة' : 'Send message'}
                 className="w-9 h-9 rounded-xl grid place-items-center shrink-0 hover:brightness-110 transition disabled:opacity-40"
                 style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)" }}
               >

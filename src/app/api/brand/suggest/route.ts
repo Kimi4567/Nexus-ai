@@ -10,8 +10,8 @@ import {
 } from '@/lib/ai/promptRules'
 import {
   checkAndDeductCredits,
-  refundCredits,
-  refundCreditsForTransaction,
+  getCreditActionPolicy,
+  refundCreditDeduction,
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { guardBrandText, guardBrandList } from '@/lib/ai/brandTruthGuard'
@@ -67,15 +67,6 @@ OUTPUT RULES:
 - Use specific language tied to this brand's actual industry, offer, and market
 - Never write generic phrases that could apply to any brand in any industry
 - Return ONLY what was requested — no intro, no explanation, no preamble`
-}
-
-async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
-  if (credit.creditsUsed <= 0) return
-  if (credit.transactionId) {
-    await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
-    return
-  }
-  await refundCredits(userId, 'AD_COPY', reason)
 }
 
 export async function POST(req: NextRequest) {
@@ -264,8 +255,7 @@ Rules:
       return NextResponse.json(getAiProviderUnavailablePayload(locale), { status: 503 })
     }
 
-    // FLOW-03 fix: deduct 1 credit per AI suggest call (AD_COPY tier — same as VEX)
-    const credit = await checkAndDeductCredits(user.id, 'AD_COPY')
+    const credit = await checkAndDeductCredits(user.id, 'AI_FIELD_SUGGESTION')
     if (!credit.ok) return NextResponse.json(credit, { status: 402 })
     chargedUserId = user.id
     chargedCredit = credit
@@ -285,19 +275,24 @@ Rules:
         }),
       })
       if (!res.ok) {
-        await refundDeductedCredits(user.id, credit, `OpenAI error ${res.status}`)
+        await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: `OpenAI error ${res.status}` })
         return NextResponse.json({ error: `OpenAI error ${res.status}` }, { status: 502 })
       }
       const completion = await res.json()
       const rawSuggestion: string = completion.choices?.[0]?.message?.content?.trim() || ''
       if (!rawSuggestion) {
-        await refundDeductedCredits(user.id, credit, 'OpenAI returned no suggestion')
+        await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'OpenAI returned no suggestion' })
         return NextResponse.json({ error: 'AI returned no suggestion' }, { status: 502 })
       }
       // PR-G: deterministic truth guard — scrub invented metrics, downgrade fake
       // proof / overclaimed automation before it can be saved as brand truth.
       const suggestion = guardBrandText(rawSuggestion, allowedClaims)
-      return NextResponse.json({ suggestion }, { headers: { 'Cache-Control': 'no-store' } })
+      return NextResponse.json({
+        suggestion,
+        creditsUsed: credit.creditsUsed,
+        creditsRemaining: credit.creditsRemaining,
+        creditCharge: { ...getCreditActionPolicy('AI_FIELD_SUGGESTION'), creditsUsed: credit.creditsUsed },
+      }, { headers: { 'Cache-Control': 'no-store' } })
     }
 
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -314,14 +309,14 @@ Rules:
       }),
     })
     if (!res.ok) {
-      await refundDeductedCredits(user.id, credit, `OpenAI error ${res.status}`)
+      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: `OpenAI error ${res.status}` })
       return NextResponse.json({ error: `OpenAI error ${res.status}` }, { status: 502 })
     }
     const completion = await res.json()
 
     const raw: string = completion.choices?.[0]?.message?.content?.trim() || ''
     if (!raw) {
-      await refundDeductedCredits(user.id, credit, 'OpenAI returned no suggestions')
+      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'OpenAI returned no suggestions' })
       return NextResponse.json({ error: 'AI returned no suggestions' }, { status: 502 })
     }
     const cleaned = raw.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim()
@@ -348,7 +343,7 @@ Rules:
       suggestions = []
     }
     if (suggestions.length === 0) {
-      await refundDeductedCredits(user.id, credit, 'OpenAI returned no usable suggestions')
+      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'OpenAI returned no usable suggestions' })
       return NextResponse.json({ error: 'AI returned no usable suggestions' }, { status: 502 })
     }
 
@@ -356,11 +351,21 @@ Rules:
     // advantages, etc.) — keeps user-provided figures, scrubs invented ones.
     suggestions = guardBrandList(suggestions, allowedClaims)
 
-    return NextResponse.json({ suggestions }, { headers: { 'Cache-Control': 'no-store' } })
+    return NextResponse.json({
+      suggestions,
+      creditsUsed: credit.creditsUsed,
+      creditsRemaining: credit.creditsRemaining,
+      creditCharge: { ...getCreditActionPolicy('AI_FIELD_SUGGESTION'), creditsUsed: credit.creditsUsed },
+    }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     console.error('POST /api/brand/suggest error:', error)
     if (chargedUserId && chargedCredit) {
-      await refundDeductedCredits(chargedUserId, chargedCredit, 'Brand suggestion failed')
+      await refundCreditDeduction({
+        userId: chargedUserId,
+        action: 'AI_FIELD_SUGGESTION',
+        deduction: chargedCredit,
+        reason: 'Brand suggestion failed',
+      })
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

@@ -14,8 +14,18 @@ import {
   CampaignContext,
   AssetItem,
 } from '@/lib/agents/visual-director'
-import { checkAndDeductCredits, refundCredits, type CreditDeductionOk } from '@/lib/credits'
+import {
+  checkAndDeductCredits,
+  getCreditActionPolicy,
+  refundCreditDeduction,
+  type CreditDeductionOk,
+} from '@/lib/credits'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { canMutateCampaignExecution } from '@/lib/strategyApproval'
+import {
+  isPersistedMarketingQualityGatePassed,
+  reviewStrategyGrounding,
+} from '@/lib/ai/marketingQualityGate'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -70,6 +80,40 @@ export async function POST(req: NextRequest, props: Params) {
     const brand = campaign.workspace?.brandProfile
     const aiOutput = (campaign.aiOutput as any) || {}
     const strategy = aiOutput.strategy || {}
+    if (!canMutateCampaignExecution(String(campaign.status))) {
+      return NextResponse.json({
+        error: 'STRATEGY_APPROVAL_REQUIRED',
+        code: 'STRATEGY_APPROVAL_REQUIRED',
+        message: 'Approve the reviewed strategy before spending credits on creative planning.',
+        creditsUsed: 0,
+      }, { status: 409 })
+    }
+    if (
+      aiOutput.sentinelReview?.status !== 'passed'
+      || !isPersistedMarketingQualityGatePassed(aiOutput.qualityGate)
+    ) {
+      return NextResponse.json({
+        error: 'COMPLETE_STRATEGY_REVIEW_REQUIRED',
+        code: 'COMPLETE_STRATEGY_REVIEW_REQUIRED',
+        message: 'Complete the deterministic Brand Brain gate and Sentinel review before creative planning.',
+        creditsUsed: 0,
+      }, { status: 409 })
+    }
+    const currentQualityGate = reviewStrategyGrounding({
+      strategy,
+      brand,
+      allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms.map(String) : [],
+      goal: campaign.goal,
+    })
+    if (currentQualityGate.status !== 'passed') {
+      return NextResponse.json({
+        error: 'MARKETING_QUALITY_GATE_BLOCKED',
+        code: 'MARKETING_QUALITY_GATE_BLOCKED',
+        message: 'The approved strategy no longer matches the current Brand Brain or campaign scope.',
+        qualityGate: currentQualityGate,
+        creditsUsed: 0,
+      }, { status: 422 })
+    }
 
     // Build campaign context from all available data
     const ctx: CampaignContext = {
@@ -182,11 +226,24 @@ export async function POST(req: NextRequest, props: Params) {
       },
     }).catch(() => {})
 
-    return NextResponse.json({ creativeBrief, creativeMode: mode, creditsRemaining: chargedCredit.creditsRemaining })
+    return NextResponse.json({
+      creativeBrief,
+      creativeMode: mode,
+      creditsRemaining: chargedCredit.creditsRemaining,
+      creditsUsed: chargedCredit.creditsUsed,
+      creditCharge: {
+        ...getCreditActionPolicy('CREATIVE_BRIEF'),
+        creditsUsed: chargedCredit.creditsUsed,
+      },
+    })
   } catch (err: any) {
     console.error('[creative-brief POST]', err)
-    // Refund — failed generation must not charge the user (skip unlimited plans)
-    if (chargedCredit?.creditsUsed) await refundCredits(userId, 'CREATIVE_BRIEF')
+    await refundCreditDeduction({
+      userId,
+      action: 'CREATIVE_BRIEF',
+      deduction: chargedCredit,
+      reason: 'Creative brief generation failed',
+    })
     return NextResponse.json({ error: err.message || 'Generation failed', refunded: Boolean(chargedCredit?.creditsUsed) }, { status: 500 })
   }
 }

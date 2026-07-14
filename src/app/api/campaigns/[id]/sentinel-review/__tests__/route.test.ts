@@ -21,7 +21,15 @@ vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
-  refundCredits: mockRefund,
+  refundCreditDeduction: vi.fn(async ({ deduction }) => {
+    if (deduction?.creditsUsed > 0) await mockRefund()
+  }),
+  getCreditActionPolicy: () => ({
+    action: 'SENTINEL_REVIEW',
+    cost: 2,
+    label: 'Sentinel quality review',
+    reason: 'Reviews strategy quality and risk.',
+  }),
 }))
 vi.mock('@/lib/agents/sentinel-reviewer', () => ({
   runSentinelReview: mockRunSentinelReview,
@@ -98,6 +106,7 @@ describe('POST /api/campaigns/[id]/sentinel-review — provider and credit order
 
     expect(res.status).toBe(200)
     expect(json.creditsRemaining).toBe(18)
+    expect(json.creditCharge).toMatchObject({ action: 'SENTINEL_REVIEW', cost: 2, creditsUsed: 2 })
     expect(mockCheckAndDeduct).toHaveBeenCalledWith('user_1', 'SENTINEL_REVIEW')
     expect(mockRunSentinelReview).toHaveBeenCalledTimes(1)
     expect(mockRunSentinelReview).toHaveBeenCalledWith(expect.objectContaining({

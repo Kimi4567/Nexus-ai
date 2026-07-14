@@ -302,7 +302,7 @@ export default function SharePage() {
               href="/auth/register"
               className="px-6 py-3 bg-accent text-dark font-bold rounded-xl hover:bg-accent-light transition text-sm"
             >
-              Start a 14-day trial with 12 credits →
+              Start with 12 trial credits →
             </Link>
             <Link
               href="/"
@@ -311,7 +311,7 @@ export default function SharePage() {
               Learn more
             </Link>
           </div>
-          <p className="text-xs text-gray-600 mt-4">No credit card needed · 12 trial credits valid for 14 days</p>
+          <p className="text-xs text-gray-600 mt-4">No credit card needed · 12 one-time trial credits</p>
         </div>
       </div>
 

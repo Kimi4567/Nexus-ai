@@ -15,7 +15,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
-import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
+import { buildCreditChargeReceipt, checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
 import { getBudgetTruth } from '@/lib/paidBoundary'
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
@@ -469,7 +469,13 @@ Generate a complete paid campaign pack as JSON with this exact structure:
         },
       })
 
-      return NextResponse.json({ pack, success: true })
+      return NextResponse.json({
+        pack,
+        success: true,
+        creditsUsed: creditResult.creditsUsed,
+        creditsRemaining: creditResult.creditsRemaining,
+        creditCharge: buildCreditChargeReceipt('PAID_PACK_GENERATE', creditResult),
+      })
     } catch (err) {
       console.error('[paid-pack/generate]', err)
       await refundPaidPack()

@@ -289,6 +289,6 @@ describe('resolveContentPlanSlotScope', () => {
 
     expect(routeSource).toContain('refundCreditsForTransaction')
     expect(routeSource).toContain('transactionId: charge.transactionId')
-    expect(routeSource).toContain('refundContentPlanCharge(userId, contentPlanCharge')
+    expect(routeSource).toContain("refundContentActionCharge(userId, contentPlanCharge, 'CONTENT_PLAN_GENERATION'")
   })
 })

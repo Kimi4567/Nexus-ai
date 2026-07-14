@@ -819,14 +819,28 @@ export default function ContentHubPage() {
     creditsRemaining,
     isUnlimited,
   })
+  const abVariantTruth = getCreditActionTruth({
+    action: 'CONTENT_AB_VARIANTS',
+    creditsRemaining,
+    isUnlimited,
+  })
   const imageGenerationLocked = !billingLoading && !imageGenerationTruth.canAfford
-  const contentPlanLocked = !billingLoading && !contentPlanTruth.canAfford
+  const selectedContentPlanCost = contentPlanTruth.cost + (enableABTesting ? abVariantTruth.cost : 0)
+  const contentPlanCanAfford = isUnlimited || creditsRemaining >= selectedContentPlanCost
+  const contentPlanLocked = !billingLoading && !contentPlanCanAfford
   const strategyApprovalRequired = Boolean(campaign && !canMutateCampaignExecution(String(campaign.status ?? '')))
   const strategyApprovalRequiredLabel = isAr ? 'راجع واعتمد الاستراتيجية أولاً' : 'Review and approve strategy first'
   const addCreditsForImagesLabel = isAr ? 'أضف رصيداً لتوليد الصور' : 'Add credits to generate images'
   const contentPlanCostLabel = isAr
-    ? `${contentPlanTruth.cost} كريديت`
-    : `${contentPlanTruth.cost} credit${contentPlanTruth.cost === 1 ? '' : 's'}`
+    ? `${selectedContentPlanCost} كريديت`
+    : `${selectedContentPlanCost} credit${selectedContentPlanCost === 1 ? '' : 's'}`
+  const contentPlanCostBreakdown = enableABTesting
+    ? (isAr
+      ? `خطة المحتوى ${contentPlanTruth.cost} + نسخ A/B الاختيارية ${abVariantTruth.cost}`
+      : `Content plan ${contentPlanTruth.cost} + optional A/B variants ${abVariantTruth.cost}`)
+    : (isAr
+      ? `خطة المحتوى ${contentPlanTruth.cost}`
+      : `Content plan ${contentPlanTruth.cost}`)
   const draftPlanLabel = isAr
     ? `توليد خطة محتوى مسودة — ${contentPlanCostLabel}`
     : `Generate draft content plan — ${contentPlanCostLabel}`
@@ -890,7 +904,9 @@ export default function ContentHubPage() {
   const generatePlanAcknowledgeLabel = isAr
     ? 'أفهم أن هذا ينشئ مسودات محتوى فقط للمراجعة ويصرف الرصيد الموضح.'
     : 'I understand this creates draft content only for review and spends the shown credits.'
-  const generatePlanFinalCta = isAr ? 'تأكيد إنشاء المسودات' : 'Confirm draft generation'
+  const generatePlanFinalCta = isAr
+    ? `تأكيد إنشاء المسودات — ${contentPlanCostLabel}`
+    : `Confirm draft generation — ${contentPlanCostLabel}`
   const creditBalanceLabel = billingLoading
     ? (isAr ? 'جارٍ تحديث الرصيد' : 'Checking credit balance')
     : isUnlimited
@@ -1108,11 +1124,14 @@ export default function ContentHubPage() {
       // honest math (base + variants = drafts) so "18" and "36" never look contradictory.
       // "drafts to review" — not "ready for review" — since they still need approval.
       const bVariants = data.summary?.abTesting?.enabled ? (data.summary.abTesting.bVariants ?? 0) : 0
+      const abRefunded = data.summary?.abTesting?.refunded === true
       const totalDrafts = (data.summary?.total ?? 0) + bVariants
       setSuccessMsg(
         bVariants > 0
           ? `Content plan created: ${data.summary.total} base posts + ${bVariants} A/B variants = ${totalDrafts} drafts to review`
-          : `Content plan created: ${data.summary.total} drafts to review`,
+          : abRefunded
+            ? `Content plan created: ${data.summary.total} drafts to review. A/B variants were not saved, so their separate credit charge was refunded.`
+            : `Content plan created: ${data.summary.total} drafts to review`,
       )
       await loadData()
       await refreshBillingStatus()
@@ -1928,9 +1947,12 @@ export default function ContentHubPage() {
                     border: enableABTesting ? '1px solid rgba(234,179,8,0.35)' : '1px solid rgba(15,23,42,0.10)',
                     color: enableABTesting ? '#B45309' : '#6b7280',
                   }}
-                  title="Generate A/B variants for each post — compare two hook styles and select a preferred draft"
+                  title={isAr
+                    ? `إنشاء نسخ A/B اختيارية باستدعاء منفصل — ${abVariantTruth.cost} كريديت إضافية، تُرد إذا لم تُحفظ نسخ صالحة`
+                    : `Optional A/B variants use one separate AI call — ${abVariantTruth.cost} additional credits, refunded if no valid variants are saved`}
                 >
                   <span>A/B</span>
+                  <span className="font-bold">+{abVariantTruth.cost}</span>
                   <span className={`w-6 h-3 rounded-full relative transition-all ${enableABTesting ? 'bg-yellow-500' : 'bg-gray-300'}`}>
                     <span className={`absolute top-0.5 w-2 h-2 bg-white rounded-full shadow transition-all ${enableABTesting ? 'left-3.5' : 'left-0.5'}`} />
                   </span>
@@ -3478,6 +3500,7 @@ export default function ContentHubPage() {
                   <button onClick={closeGeneratePlanConfirm} disabled={generatingPlan} className="text-xl leading-none text-slate-400 hover:text-slate-700 disabled:opacity-40">×</button>
                 </div>
                 <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
+                  <p className="font-bold text-slate-800">{contentPlanCostBreakdown}</p>
                   <p>{generatePlanConfirmSafety}</p>
                   <p>{isAr ? 'يمكنك مراجعة المسودات وتحريرها قبل أي خطوة اعتماد أو جدولة.' : 'You can review and edit the drafts before any approval or scheduling step.'}</p>
                   <p>{creditBalanceLabel}</p>

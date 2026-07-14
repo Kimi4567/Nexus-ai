@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useI18n } from '@/lib/i18n-context'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
 import { supabase } from '@/lib/supabaseClient'
@@ -18,7 +18,6 @@ function safeInternalRedirect(value: string | null): string | null {
 
 function LoginForm() {
   const { t, isRTL, dir } = useI18n()
-  const router = useRouter()
   const searchParams = useSearchParams()
 
   // Restore saved email if user previously checked "Remember Me"
@@ -31,6 +30,8 @@ function LoginForm() {
   const [rememberMe, setRememberMe] = useState(savedEmail !== '')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => setError(''), [isRTL])
 
   const loginT = t('auth.login')
   const redirectTo = safeInternalRedirect(searchParams.get('redirect'))
@@ -49,7 +50,9 @@ function LoginForm() {
         } else if (msg.includes('Invalid login credentials')) {
           setError(loginT?.errors?.invalidCredentials || '')
         } else {
-          setError(msg || loginT?.errors?.loginFailed || '')
+          // Do not leak provider-language or implementation details into the
+          // customer UI. The localized fallback remains truthful and useful.
+          setError(loginT?.errors?.loginFailed || '')
         }
         setLoading(false)
         return
@@ -153,6 +156,9 @@ function LoginForm() {
                   onFocus={e => (e.currentTarget.style.border = '1px solid rgba(94,92,230,0.5)')}
                   onBlur={e => (e.currentTarget.style.border = '1px solid rgba(15,23,42,0.12)')} />
                 <button type="button" onClick={() => setShowPassword(v => !v)}
+                  aria-label={showPassword
+                    ? (isRTL ? 'إخفاء كلمة المرور' : 'Hide password')
+                    : (isRTL ? 'إظهار كلمة المرور' : 'Show password')}
                   className={`absolute inset-y-0 ${isRTL ? 'left-3' : 'right-3'} flex items-center text-slate-400 transition hover:text-slate-950`} tabIndex={-1}>
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>

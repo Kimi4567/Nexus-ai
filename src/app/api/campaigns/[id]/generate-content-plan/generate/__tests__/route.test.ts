@@ -48,6 +48,12 @@ vi.mock('@/lib/credits', () => ({
   checkDailyImageCap: mockCheckDailyImageCap,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
+  getCreditActionPolicy: (action: string) => ({
+    action,
+    cost: 3,
+    label: 'Image generation',
+    reason: 'Creates one reviewable campaign image for a specific post.',
+  }),
 }))
 vi.mock('@/lib/ai/falGen', () => ({
   generateWithFlux: mockGenerateWithFlux,
@@ -344,7 +350,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     const json = await res.json()
 
     expect(res.status).toBe(200)
-    expect(json).toEqual({
+    expect(json).toEqual(expect.objectContaining({
       success: true,
       generated: 1,
       failed: 0,
@@ -352,7 +358,8 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
       results: [
         expect.objectContaining({ id: 'post_a', success: true, imageUrl: expect.any(String) }),
       ],
-    })
+      creditCharges: [expect.objectContaining({ action: 'IMAGE_GENERATION', cost: 3, creditsUsed: 3 })],
+    }))
     expect(mockCheckAndDeduct).toHaveBeenCalledTimes(1)
     expect(mockCheckAndDeduct).toHaveBeenCalledWith('user_1', 'IMAGE_GENERATION')
     expect(mockRefund).not.toHaveBeenCalled()

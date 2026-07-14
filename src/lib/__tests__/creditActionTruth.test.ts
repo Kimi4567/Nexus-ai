@@ -63,6 +63,13 @@ describe('getCreditActionTruth', () => {
     expect(truth.canAfford).toBe(true)
   })
 
+  it('prices one field suggestion separately from a full ad-copy package', () => {
+    const truth = getCreditActionTruth({ action: 'AI_FIELD_SUGGESTION', creditsRemaining: 1 })
+    expect(truth.cost).toBe(canonicalCost('AI_FIELD_SUGGESTION'))
+    expect(truth.cost).toBe(1)
+    expect(truth.canAfford).toBe(true)
+  })
+
   it('keeps starter-credit display eligibility aligned across credit status APIs', () => {
     for (const source of [BILLING_STATUS_SRC, USER_CREDITS_SRC, DASHBOARD_STATS_SRC]) {
       expect(source).toContain('getCreditAccountSnapshot')

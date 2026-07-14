@@ -12,7 +12,12 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
-import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import {
+  checkAndDeductCredits,
+  getCreditActionPolicy,
+  refundCreditDeduction,
+  type CreditDeductionOk,
+} from '@/lib/credits'
 import { UNSUPPORTED_CLAIMS_RULES } from '@/lib/ai/promptRules'
 import { guardExtracted } from '@/lib/ai/brandTruthGuard'
 import { buildAssistSuggestions } from '@/lib/ai/assistSuggestions'
@@ -21,6 +26,7 @@ import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/a
 export async function POST(req: NextRequest) {
   // Hoisted so any failure below the deduction refunds the user.
   let chargedUserId: string | null = null
+  let chargedCredit: CreditDeductionOk | null = null
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -41,7 +47,8 @@ export async function POST(req: NextRequest) {
     if (!creditResult.ok) {
       return NextResponse.json({ error: 'insufficient_credits' }, { status: 402 })
     }
-    if (creditResult.creditsUsed > 0) chargedUserId = user.id
+    chargedUserId = user.id
+    chargedCredit = creditResult
 
     const validSamples = samples.filter(s => s?.trim()).slice(0, 3)
     const combined = validSamples
@@ -94,14 +101,14 @@ Return JSON with this exact structure:
     })
 
     if (!openaiRes.ok) {
-      if (chargedUserId) await refundCredits(chargedUserId, 'CONTENT_ANALYSIS')
+      await refundCreditDeduction({ userId: user.id, action: 'CONTENT_ANALYSIS', deduction: creditResult, reason: `OpenAI error ${openaiRes.status}` })
       return NextResponse.json({ error: 'AI analysis failed', refunded: !!chargedUserId }, { status: 500 })
     }
 
     const openaiData = await openaiRes.json()
     const raw = openaiData.choices?.[0]?.message?.content?.trim()
     if (!raw) {
-      if (chargedUserId) await refundCredits(chargedUserId, 'CONTENT_ANALYSIS', 'Empty AI response')
+      await refundCreditDeduction({ userId: user.id, action: 'CONTENT_ANALYSIS', deduction: creditResult, reason: 'Empty AI response' })
       return NextResponse.json({ error: 'AI returned no analysis', refunded: !!chargedUserId }, { status: 502 })
     }
 
@@ -110,11 +117,11 @@ Return JSON with this exact structure:
       const clean = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim()
       extracted = JSON.parse(clean)
     } catch {
-      if (chargedUserId) await refundCredits(chargedUserId, 'CONTENT_ANALYSIS', 'Unparseable AI response')
+      await refundCreditDeduction({ userId: user.id, action: 'CONTENT_ANALYSIS', deduction: creditResult, reason: 'Unparseable AI response' })
       return NextResponse.json({ error: 'Failed to parse AI response', refunded: !!chargedUserId }, { status: 500 })
     }
     if (Object.keys(extracted).length === 0) {
-      if (chargedUserId) await refundCredits(chargedUserId, 'CONTENT_ANALYSIS', 'Incomplete AI response')
+      await refundCreditDeduction({ userId: user.id, action: 'CONTENT_ANALYSIS', deduction: creditResult, reason: 'Incomplete AI response' })
       return NextResponse.json({ error: 'AI returned an incomplete analysis', refunded: !!chargedUserId }, { status: 502 })
     }
 
@@ -138,10 +145,20 @@ Return JSON with this exact structure:
       missing,
       safetyNotes,
       samplesAnalyzed: validSamples.length,
+      creditsUsed: creditResult.creditsUsed,
+      creditsRemaining: creditResult.creditsRemaining,
+      creditCharge: { ...getCreditActionPolicy('CONTENT_ANALYSIS'), creditsUsed: creditResult.creditsUsed },
     })
   } catch (error) {
     console.error('[brand/analyze-content]', error)
-    if (chargedUserId) await refundCredits(chargedUserId, 'CONTENT_ANALYSIS')
+    if (chargedUserId) {
+      await refundCreditDeduction({
+        userId: chargedUserId,
+        action: 'CONTENT_ANALYSIS',
+        deduction: chargedCredit,
+        reason: 'Content sample analysis failed',
+      })
+    }
     return NextResponse.json({ error: 'Internal server error', refunded: !!chargedUserId }, { status: 500 })
   }
 }

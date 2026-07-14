@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
-import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import { buildCreditChargeReceipt, checkAndDeductCredits, refundCreditDeduction } from '@/lib/credits'
 import { buildStrategyPrompt, guardGeneratedStrategy, extractAllowedNumbers } from '@/lib/ai/strategyGenerateGuard'
 import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { reviewBrandTruthConsistency, reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 
 async function callOpenAI(prompt: string): Promise<any> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -55,11 +56,22 @@ export async function POST(req: NextRequest) {
     })
 
     let brandContext = ''
+    let brandProfile = null
     if (workspace) {
-      const brand = await prisma.brandProfile.findFirst({
+      brandProfile = await prisma.brandProfile.findFirst({
         where: { workspaceId: workspace.id },
       })
-      brandContext = buildBrandExecutionContext(brand as unknown as Record<string, unknown> | null)
+      brandContext = buildBrandExecutionContext(brandProfile as unknown as Record<string, unknown> | null)
+    }
+
+    const brandTruth = reviewBrandTruthConsistency(brandProfile)
+    if (brandTruth.status !== 'passed') {
+      return NextResponse.json({
+        error: 'BRAND_TRUTH_CONFLICT',
+        code: 'BRAND_TRUTH_CONFLICT',
+        qualityGate: brandTruth,
+        creditsUsed: 0,
+      }, { status: 422 })
     }
 
     const days = timeframe === '30' ? 30 : timeframe === '60' ? 60 : 90
@@ -82,8 +94,12 @@ export async function POST(req: NextRequest) {
         throw new Error('OpenAI returned an incomplete strategy')
       }
     } catch (genErr) {
-      // Refund — failed generation must not charge the user (skip unlimited plans)
-      if (credit.creditsUsed > 0) await refundCredits(user.id, 'CAMPAIGN_GENERATION')
+      await refundCreditDeduction({
+        userId: user.id,
+        action: 'CAMPAIGN_GENERATION',
+        deduction: credit,
+        reason: 'Strategy generation returned no usable output',
+      })
       throw genErr
     }
 
@@ -91,7 +107,34 @@ export async function POST(req: NextRequest) {
     // model still emitted. Only the user-provided budget is allowed to appear.
     strategy = guardGeneratedStrategy(strategy, extractAllowedNumbers(budget))
 
-    return NextResponse.json({ strategy })
+    const qualityGate = reviewStrategyGrounding({
+      strategy,
+      brand: brandProfile,
+      allowedPlatforms: typeof platform === 'string' && platform.trim() ? [platform] : brandProfile?.topPlatforms,
+      goal: typeof goal === 'string' ? goal : null,
+    })
+    if (qualityGate.status !== 'passed') {
+      await refundCreditDeduction({
+        userId: user.id,
+        action: 'CAMPAIGN_GENERATION',
+        deduction: credit,
+        reason: 'Generated strategy failed the Brand Brain and scope quality gate',
+      })
+      return NextResponse.json({
+        error: 'MARKETING_QUALITY_GATE_BLOCKED',
+        code: 'MARKETING_QUALITY_GATE_BLOCKED',
+        qualityGate,
+        refunded: credit.creditsUsed > 0,
+      }, { status: 422 })
+    }
+
+    return NextResponse.json({
+      strategy,
+      qualityGate,
+      creditsUsed: credit.creditsUsed,
+      creditsRemaining: credit.creditsRemaining,
+      creditCharge: buildCreditChargeReceipt('CAMPAIGN_GENERATION', credit),
+    })
   } catch (err: any) {
     console.error('[Strategy generate] Error:', err)
     return NextResponse.json({ error: err.message || 'Failed to generate strategy' }, { status: 500 })

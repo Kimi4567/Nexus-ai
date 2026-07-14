@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import * as ai from '@/lib/ai/adapter'
-import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
+import { buildCreditChargeReceipt, checkAndDeductCredits, refundCreditDeduction } from '@/lib/credits'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { validateOutputObject, logQualityReport } from '@/lib/ai/outputValidator'
 import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from '@/lib/campaign-memory'
@@ -11,6 +11,7 @@ import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/a
 import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import { assertCampaignStrategyContract } from '@/lib/campaignStrategyContract'
+import { reviewBrandTruthConsistency, reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 
 export async function POST(req: NextRequest) {
   const userId = await getServerUserId(req)
@@ -44,6 +45,16 @@ export async function POST(req: NextRequest) {
   const project = await prisma.project.findUnique({ where: { id: campaign.projectId }, include: { media: true } })
   if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
   const brandProfile = await prisma.brandProfile.findUnique({ where: { workspaceId: workspace.id } })
+
+  const brandTruth = reviewBrandTruthConsistency(brandProfile)
+  if (brandTruth.status !== 'passed') {
+    return NextResponse.json({
+      error: 'BRAND_TRUTH_CONFLICT',
+      code: 'BRAND_TRUTH_CONFLICT',
+      qualityGate: brandTruth,
+      creditsUsed: 0,
+    }, { status: 422 })
+  }
 
   if (!isAiProviderConfigured()) {
     return NextResponse.json(getAiProviderUnavailablePayload(language), { status: 503 })
@@ -104,6 +115,27 @@ export async function POST(req: NextRequest) {
     )
     assertCampaignStrategyContract(strategy, { language: language || 'ar' })
 
+    const qualityGate = reviewStrategyGrounding({
+      strategy,
+      brand: brandProfile,
+      allowedPlatforms: campaign.platforms || [],
+      goal: String(campaign.goal),
+    })
+    if (qualityGate.status !== 'passed') {
+      await refundCreditDeduction({
+        userId,
+        action: 'CAMPAIGN_GENERATION',
+        deduction: credit,
+        reason: 'Generated campaign failed the Brand Brain and scope quality gate',
+      })
+      return NextResponse.json({
+        error: 'MARKETING_QUALITY_GATE_BLOCKED',
+        code: 'MARKETING_QUALITY_GATE_BLOCKED',
+        qualityGate,
+        refunded: credit.creditsUsed > 0,
+      }, { status: 422 })
+    }
+
     // AD3: Post-generation quality validation (non-blocking — logs only)
     const qualityReport = validateOutputObject(strategy, {
       brandName: campaign.name,
@@ -116,7 +148,7 @@ export async function POST(req: NextRequest) {
       prisma.campaign.update({
         where: { id: campaign.id },
         data: {
-          aiOutput: { strategy, concepts },
+          aiOutput: { strategy, concepts, qualityGate } as any,
           activities: {
             create: {
               type: 'generated',
@@ -155,23 +187,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       strategy,
       concepts,
+      creditsUsed: credit.creditsUsed,
       creditsRemaining: credit.creditsRemaining,
+      creditCharge: buildCreditChargeReceipt('CAMPAIGN_GENERATION', credit),
       qualityScore: qualityReport.score,
+      qualityGate,
     })
   } catch (error) {
     console.error('Generate failed:', error)
     // Refund — failed generation must not charge the user (skip unlimited plans)
-    if (credit.creditsUsed > 0) {
-      if (credit.transactionId) {
-        await refundCreditsForTransaction({
-          userId,
-          transactionId: credit.transactionId,
-          reason: 'Campaign generation failed',
-        })
-      } else {
-        await refundCredits(userId, 'CAMPAIGN_GENERATION')
-      }
-    }
+    await refundCreditDeduction({
+      userId,
+      action: 'CAMPAIGN_GENERATION',
+      deduction: credit,
+      reason: 'Campaign generation failed',
+    })
     return NextResponse.json({ error: 'Generation failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
   }
 }

@@ -1954,8 +1954,8 @@ function BrandBrainInner() {
             <div className="px-4 pb-4 pt-1">
               <p className="text-xs mb-3 text-slate-500">
                 {locale === 'ar'
-                  ? 'أدخل رابط موقعك — سيحلله الذكاء الاصطناعي ويملأ Brand Brain تلقائياً'
-                  : 'Enter your website URL — AI reads your pages and auto-fills Brand Brain fields'}
+                  ? 'أدخل رابط موقعك — يستخرج الذكاء حقائق مرشحة للمراجعة. لا يُضاف شيء إلى المسودة ولا يُحفظ في Brand Brain قبل موافقتك.'
+                  : 'Enter your website URL — AI extracts candidate facts for review. Nothing is added to the draft or saved to Brand Brain before you approve it.'}
               </p>
 
               {/* URL input + scan button */}

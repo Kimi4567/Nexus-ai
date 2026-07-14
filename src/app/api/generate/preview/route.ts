@@ -4,12 +4,14 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
+import { prisma } from '@/lib/prisma'
 import { generateMarketingStrategy, generateAdConcepts } from '@/lib/ai/adapter'
-import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import { buildCreditChargeReceipt, checkAndDeductCredits, refundCreditDeduction } from '@/lib/credits'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import { assertCampaignStrategyContract } from '@/lib/campaignStrategyContract'
+import { reviewBrandTruthConsistency, reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 
 // Simple in-memory rate limiter: 5 generations per user per minute
 const rateMap = new Map<string, { count: number; reset: number }>()
@@ -42,13 +44,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { name, goal, audience, tone, platforms, description, brandProfile, language } = body
+  const { name, goal, audience, tone, platforms, description, language } = body
   if (typeof name !== 'string' || !name.trim()) {
     return NextResponse.json({ error: 'Campaign name is required' }, { status: 400 })
   }
 
   if (!isAiProviderConfigured()) {
     return NextResponse.json(getAiProviderUnavailablePayload(language), { status: 503 })
+  }
+
+  const workspace = await prisma.workspace.findFirst({
+    where: { ownerId: userId },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+  })
+  if (!workspace) return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
+  const brandProfile = await prisma.brandProfile.findUnique({ where: { workspaceId: workspace.id } })
+  const brandTruth = reviewBrandTruthConsistency(brandProfile)
+  if (brandTruth.status !== 'passed') {
+    return NextResponse.json({
+      error: 'BRAND_TRUTH_CONFLICT',
+      code: 'BRAND_TRUTH_CONFLICT',
+      qualityGate: brandTruth,
+      creditsUsed: 0,
+    }, { status: 422 })
   }
 
   // ── Unified credit check + deduction ────────────────────────────────────────
@@ -97,17 +116,45 @@ export async function POST(req: NextRequest) {
     )
     assertCampaignStrategyContract(strategy, { language: campaignData.language })
 
+    const qualityGate = reviewStrategyGrounding({
+      strategy,
+      brand: brandProfile,
+      allowedPlatforms: Array.isArray(platforms) ? platforms.map(String) : [],
+      goal: String(goal || 'SALES'),
+    })
+    if (qualityGate.status !== 'passed') {
+      await refundCreditDeduction({
+        userId,
+        action: 'CAMPAIGN_GENERATION',
+        deduction: credit,
+        reason: 'Generated preview failed the Brand Brain and scope quality gate',
+      })
+      return NextResponse.json({
+        error: 'MARKETING_QUALITY_GATE_BLOCKED',
+        code: 'MARKETING_QUALITY_GATE_BLOCKED',
+        qualityGate,
+        refunded: credit.creditsUsed > 0,
+      }, { status: 422 })
+    }
+
     return NextResponse.json({
       campaign: campaignData,
       strategy,
       concepts,
       generatedAt: new Date().toISOString(),
+      creditsUsed: credit.creditsUsed,
       creditsRemaining: credit.creditsRemaining,
+      creditCharge: buildCreditChargeReceipt('CAMPAIGN_GENERATION', credit),
+      qualityGate,
     })
   } catch (err: any) {
     console.error('[generate/preview] error', err)
-    // Refund — failed generation must not charge the user (skip unlimited plans)
-    if (credit.creditsUsed > 0) await refundCredits(userId, 'CAMPAIGN_GENERATION')
+    await refundCreditDeduction({
+      userId,
+      action: 'CAMPAIGN_GENERATION',
+      deduction: credit,
+      reason: 'Campaign preview generation failed',
+    })
     return NextResponse.json({ error: err.message || 'Generation failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
   }
 }
