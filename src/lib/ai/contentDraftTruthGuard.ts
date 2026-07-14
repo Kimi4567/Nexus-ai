@@ -654,6 +654,7 @@ export function buildContentDraftTruthPolicyPrompt(): string {
     '- Avoid residual broad best/premium quality wording such as أفضل الحبوب, أفضل حبوب القهوة, premium experience, premium quality, best beans, and best flavor unless exact user-provided proof exists. Prefer حبوب مختارة بعناية, مذاق متوازن, more considered experience, carefully selected beans, or balanced flavor.',
     '- Avoid English hype such as irresistible, extraordinary, unmatched, and unique coffee experience unless exact user-provided proof exists.',
     '- Do not use generic filler such as "as fresh as it gets", "taste the difference", "elevate your", or "transform your experience". Replace it with a concrete fact, checklist, or bounded next step.',
+    '- Also avoid "richer taste", "keep our coffee fresh", "unlock the full potential", "hassle-free", "better cup", and unbounded "delivered straight to your door" wording unless exact evidence and delivery scope exist.',
     '- Do not claim "expert tips" or expert guidance unless Brand Brain contains verified expertise. Use practical guidance instead.',
     '- Educational posts must teach something inside the current post. Do not tell users to watch a tutorial, read a guide, or visit content that is not present in the post or linked through a verified destination.',
     '- Hashtags must be meaningful and correctly formed. A brand hashtag must be the exact brand name with spaces and punctuation removed; never append invented suffixes.',

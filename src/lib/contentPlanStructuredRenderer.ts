@@ -71,7 +71,11 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'unsupported_absolute_claim',
-    re: /(?:الحل الأمثل|مفتاح النجاح|تحقيق النجاح|يغير منظورك|مضمون|دائمًا|كل مرة|أفضل|مثالي|مثالية|لا تقاوم)|(?:guarantee|guaranteed|ensure|ensures|perfect|best|ultimate|game[-\s]?changer|irresistible|unmatched|extraordinary|as fresh as it gets|taste the difference|expert tips|elevate your|transform your)/i,
+    re: /(?:الحل الأمثل|مفتاح النجاح|تحقيق النجاح|يغير منظورك|مضمون|دائمًا|كل مرة|أفضل|مثالي|مثالية|لا تقاوم)|(?:guarantee|guaranteed|ensure|ensures|perfect|best|ultimate|game[-\s]?changer|irresistible|unmatched|extraordinary|as fresh as it gets|taste the difference|richer taste|keep our coffee fresh|expert(?:\s+brewing)? tips|elevate your|transform your|unlock the full potential|hassle[-\s]?free|better cup of coffee)/i,
+  },
+  {
+    reason: 'unsupported_absolute_claim',
+    re: /\bdelivered (?:right |straight |directly )?to your (?:door|home)\b|\beasy it is to subscribe\b|\bour (?:brewing )?tutorials\b|\bwatch our (?:brewing )?tips\b/i,
   },
   {
     reason: 'malformed_caption',
@@ -104,6 +108,11 @@ function normalizeBrandHashtag(text: string, brand: string): string {
   })
 }
 
+function brandHashtag(brand: string): string {
+  const canonical = brand.trim().split(/[^\p{L}\p{N}]+/u).filter(Boolean).join('')
+  return canonical ? `#${canonical}` : '#Brand'
+}
+
 function finalizeCaption(text: string, ctx: ContentPlanRenderContext): string {
   return normalizeBrandHashtag(guardContentDraftText(text, ctx), ctx.brand)
 }
@@ -115,6 +124,36 @@ function stringifyContextValue(value: unknown): string {
     return Object.values(value as Record<string, unknown>).map(stringifyContextValue).join(' ')
   }
   return ''
+}
+
+function renderGroundedCoffeeCaption(
+  source: string,
+  ctx: ContentPlanRenderContext,
+): string | null {
+  const facts = stringifyContextValue(ctx.brandFacts ?? [])
+  if (!/\b(?:coffee|beans?|roast(?:ed|ing)?)\b|قهوة|حبوب|تحميص/i.test(facts)) return null
+
+  const brand = ctx.brand.trim() || 'the brand'
+  const tag = brandHashtag(brand)
+  const weakFreshness = /discover the secret|say goodbye to stale|as fresh as it gets|richer taste|keep (?:our|the) coffee fresh|taste the difference/i.test(source)
+  const weakSubscription = /coffee runs|(?:right |straight |directly )?to your (?:door|home)|hassle[-\s]?free|easy it is to subscribe|coffee needs taken care of|we(?:'|’)ve got you covered/i.test(source)
+  const weakEducation = /master the art|unlock the full potential|expert(?:\s+brewing)? tips|our (?:brewing )?tutorials|watch our (?:brewing )?tips|elevate your|transform your.*coffee/i.test(source)
+
+  if (weakEducation) {
+    return `Refine your home-brewing routine one variable at a time. Match grind size to the brewing method; record dose, water, temperature, and brew time; then change one variable on the next cup. Save this checklist for your next brew. #HomeBrewing #CoffeeGuide ${tag}`
+  }
+
+  if (weakSubscription) {
+    return `Before choosing a coffee subscription from ${brand}, compare the available coffee options, delivery frequency, supported zones, pause or cancellation terms, and total price. Save these five checks for later. #CoffeeSubscription #CoffeeChecklist ${tag}`
+  }
+
+  if (weakFreshness) {
+    const verifiedWeeklyRoast = /\b(?:weekly roast(?:ing)?|roast(?:ed|s)? weekly)\b|تحميص أسبوعي|تُحمص أسبوعيًا|محمصة أسبوعيًا/i.test(facts)
+    const weeklyFact = verifiedWeeklyRoast ? ` ${brand} states that its beans are roasted weekly.` : ''
+    return `Roast date and origin details matter when comparing coffee for home brewing.${weeklyFact} Review the published product details before choosing a bag or delivery option. Save this checklist: roast date, origin, grind format, and supported delivery zone. #CoffeeGuide #RoastDate ${tag}`
+  }
+
+  return null
 }
 
 export function isClinicOperationalSaasContent(ctx: ContentPlanRenderContext, _gen: GeneratedContentPlanPostLike = {}): boolean {
@@ -283,8 +322,12 @@ export function renderContentPlanDraftCaption(
   gen: GeneratedContentPlanPostLike,
   ctx: ContentPlanRenderContext,
 ): string {
+  const source = normalizeText(gen.caption) || normalizeText(gen.videoCaption) || normalizeText(gen.text)
+  const groundedCoffeeCaption = renderGroundedCoffeeCaption(source, ctx)
+  if (groundedCoffeeCaption) return finalizeCaption(groundedCoffeeCaption, ctx)
+
   const guardedSource = guardContentDraftText(
-    normalizeText(gen.caption) || normalizeText(gen.videoCaption) || normalizeText(gen.text),
+    source,
     ctx,
   )
 
