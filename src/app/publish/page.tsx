@@ -167,7 +167,16 @@ export default function PublishPage() {
   )
   const platformStates = useMemo(() => derivePlatformReadiness(activeAccounts), [activeAccounts])
   const publishingPlatforms = useMemo(() => {
-    const order: PlatformKey[] = ['facebook', 'instagram', 'tiktok', 'linkedin', 'youtube']
+    const order: PlatformKey[] = [
+      'facebook',
+      'instagram',
+      'tiktok',
+      'linkedin',
+      'x',
+      'threads',
+      'youtube',
+      'pinterest',
+    ]
     return order.map(key => platformStates.find(state => state.key === key)).filter(Boolean)
   }, [platformStates])
   const hasConnectedAccount = activeAccounts.length > 0

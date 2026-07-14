@@ -14,4 +14,8 @@ describe('Publishing page execution truth', () => {
     expect(publishPageSource).toContain('محفوظ في تقويم NEXUS ولم يُنشر عبر منصة')
     expect(publishPageSource).not.toContain("title={copy('المنشورات المجدولة', 'Scheduled posts')}")
   })
+
+  it('shows every implemented organic publisher in account readiness', () => {
+    expect(publishPageSource).toContain("'facebook',\n      'instagram',\n      'tiktok',\n      'linkedin',\n      'x',\n      'threads',\n      'youtube',\n      'pinterest',")
+  })
 })
