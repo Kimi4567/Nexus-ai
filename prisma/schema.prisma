@@ -759,6 +759,7 @@ enum Platform {
   SNAPCHAT
   LINKEDIN
   TWITTER
+  PINTEREST
   WEBSITE
 }
 
@@ -830,6 +831,7 @@ enum IntegrationType {
   TIKTOK
   YOUTUBE
   X
+  PINTEREST
   GOOGLE
   STRIPE
   CLOUDINARY

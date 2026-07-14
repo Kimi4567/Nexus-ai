@@ -5,6 +5,7 @@ export type CreativeTemplatePlatform =
   | 'LINKEDIN'
   | 'TIKTOK'
   | 'X'
+  | 'PINTEREST'
   | 'GOOGLE'
   | 'UNKNOWN'
 
@@ -382,6 +383,21 @@ function cloneTemplate(template: CreativeTemplateSpec): CreativeTemplateSpec {
   return JSON.parse(JSON.stringify(template)) as CreativeTemplateSpec
 }
 
+function pinterestTemplate(): CreativeTemplateSpec {
+  const template = cloneTemplate(DEFAULT_CREATIVE_TEMPLATES[2])
+  return {
+    ...template,
+    templateId: 'pinterest-standard-pin-v1',
+    templateName: 'Pinterest standard image Pin',
+    platform: 'PINTEREST',
+    format: 'feed_portrait',
+    aspectRatio: '2:3',
+    width: 1000,
+    height: 1500,
+    safeZones: { top: 100, right: 80, bottom: 120, left: 80 },
+  }
+}
+
 export function normalizeCreativeTemplatePlatform(platform?: string | null): CreativeTemplatePlatform {
   const normalized = (platform || '').trim().toUpperCase()
   if (normalized.includes('LINKEDIN')) return 'LINKEDIN'
@@ -390,6 +406,7 @@ export function normalizeCreativeTemplatePlatform(platform?: string | null): Cre
   if (normalized.includes('META')) return 'META'
   if (normalized.includes('TIKTOK') || normalized.includes('REEL') || normalized.includes('SHORT')) return 'TIKTOK'
   if (normalized === 'X' || normalized.includes('TWITTER')) return 'X'
+  if (normalized.includes('PINTEREST')) return 'PINTEREST'
   if (normalized.includes('GOOGLE')) return 'GOOGLE'
   return 'UNKNOWN'
 }
@@ -400,6 +417,7 @@ export function getDefaultTemplateForPlatform(platform?: string | null): Creativ
   if (normalized === 'META' || normalized === 'FACEBOOK' || normalized === 'INSTAGRAM') {
     return cloneTemplate(DEFAULT_CREATIVE_TEMPLATES[0])
   }
+  if (normalized === 'PINTEREST') return pinterestTemplate()
   return cloneTemplate(DEFAULT_CREATIVE_TEMPLATES[2])
 }
 

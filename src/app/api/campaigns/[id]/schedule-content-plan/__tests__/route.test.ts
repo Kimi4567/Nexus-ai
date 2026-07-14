@@ -61,6 +61,28 @@ function xRequest() {
   })
 }
 
+function pinterestRequest() {
+  return new NextRequest('http://localhost/api/campaigns/campaign-1/schedule-content-plan', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer session', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      publishMode: 'AUTO',
+      explicitAutoPublishConfirmed: true,
+      destinationByTarget: { PINTEREST: { integrationId: 'pinterest-integration' } },
+      pinterestOptionsByPostId: {
+        'pinterest-post': {
+          boardId: '12345',
+          title: 'Reviewed campaign Pin',
+          altText: 'The approved product shown in the campaign creative.',
+          destinationLink: 'https://example.com/offer',
+          aiDisclosureReviewed: true,
+          aiDisclosureValues: ['AI_MODIFIED'],
+        },
+      },
+    }),
+  })
+}
+
 function approvedYouTubePost() {
   return {
     id: 'youtube-post',
@@ -190,5 +212,80 @@ describe('POST schedule-content-plan — YouTube', () => {
         platformOptions: { explicitConsent: true },
       }),
     })
+  })
+
+  it('schedules Pinterest only with Standard access, an exact Board, review, and continuous refresh', async () => {
+    mocks.socialPostFindMany.mockResolvedValue([{
+      id: 'pinterest-post',
+      platform: 'PINTEREST',
+      publishTarget: 'PINTEREST',
+      integrationId: null,
+      scheduledAt: new Date(Date.now() + 60_000),
+      caption: 'A reviewed Pinterest description tied to the approved campaign offer.',
+      imagePrompt: 'Approved product image',
+      videoPrompt: null,
+      imageUrl: 'https://res.cloudinary.com/demo/image/upload/pin.jpg',
+      uploadedMediaId: 'media-pin',
+      mediaSource: 'UPLOAD',
+      generationStatus: 'DONE',
+      isVideoPost: false,
+    }])
+    mocks.integrationFindMany.mockResolvedValue([{
+      id: 'pinterest-integration',
+      type: 'PINTEREST',
+      accountId: 'pinterest-user-1',
+      accountName: 'NEXUS Pinterest',
+      accessToken: 'encrypted-access',
+      refreshToken: 'encrypted-refresh',
+      config: {
+        accessTier: 'STANDARD',
+        boards: [{ id: '12345', name: 'Launches' }],
+        scopeEvidence: 'provider_response',
+        scopes: ['boards:read', 'boards:write', 'pins:read', 'pins:write'],
+      },
+    }])
+
+    const response = await POST(pinterestRequest(), { params: Promise.resolve({ id: 'campaign-1' }) })
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body).toMatchObject({ success: true, scheduled: 1, linked: 1, publishMode: 'AUTO' })
+    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
+      where: { id: 'pinterest-post' },
+      data: expect.objectContaining({
+        integrationId: 'pinterest-integration',
+        pageId: '12345',
+        pageName: 'Launches',
+        publishTarget: 'PINTEREST',
+        platformOptions: {
+          boardId: '12345',
+          title: 'Reviewed campaign Pin',
+          altText: 'The approved product shown in the campaign creative.',
+          destinationLink: 'https://example.com/offer',
+          aiDisclosureReviewed: true,
+          aiDisclosureValues: ['AI_MODIFIED'],
+          explicitConsent: true,
+        },
+      }),
+    })
+  })
+
+  it('blocks Pinterest Trial from claiming public scheduled publishing readiness', async () => {
+    mocks.socialPostFindMany.mockResolvedValue([{
+      id: 'pinterest-post', platform: 'PINTEREST', publishTarget: 'PINTEREST', integrationId: null,
+      scheduledAt: new Date(Date.now() + 60_000), caption: 'A reviewed Pinterest campaign description.',
+      imagePrompt: 'Approved image', videoPrompt: null,
+      imageUrl: 'https://res.cloudinary.com/demo/image/upload/pin.jpg', uploadedMediaId: 'media-pin',
+      mediaSource: 'UPLOAD', generationStatus: 'DONE', isVideoPost: false,
+    }])
+    mocks.integrationFindMany.mockResolvedValue([{
+      id: 'pinterest-integration', type: 'PINTEREST', accountId: 'user-1', accessToken: 'encrypted', refreshToken: 'refresh',
+      config: { accessTier: 'TRIAL', boards: [{ id: '12345', name: 'Launches' }], scopeEvidence: 'provider_response', scopes: ['boards:read', 'boards:write', 'pins:read', 'pins:write'] },
+    }])
+
+    const response = await POST(pinterestRequest(), { params: Promise.resolve({ id: 'campaign-1' }) })
+    const body = await response.json()
+    expect(response.status).toBe(409)
+    expect(body.blockers).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'PINTEREST_STANDARD_ACCESS_REQUIRED' })]))
   })
 })

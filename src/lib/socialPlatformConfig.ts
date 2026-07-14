@@ -61,6 +61,23 @@ export const X_CONTENT_SCOPES = [
   'offline.access',
 ] as const
 
+/**
+ * Pinterest's create-Pin endpoint currently declares all four board/Pin
+ * scopes. user_accounts:read is used during OAuth to bind the token to the
+ * exact account shown in NEXUS.
+ */
+export const PINTEREST_CONTENT_SCOPES = [
+  'boards:read',
+  'boards:write',
+  'pins:read',
+  'pins:write',
+  'user_accounts:read',
+] as const
+
+export function pinterestApiUrl(path: string): string {
+  return `https://api.pinterest.com/v5/${path.replace(/^\//, '')}`
+}
+
 export function metaGraphUrl(path: string): string {
   return `https://graph.facebook.com/${META_GRAPH_VERSION}/${path.replace(/^\//, '')}`
 }

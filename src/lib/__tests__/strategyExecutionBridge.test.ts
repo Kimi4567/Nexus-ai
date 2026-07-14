@@ -140,6 +140,32 @@ describe('deriveStrategyExecutionBridge', () => {
     }
   })
 
+  it('keeps Pinterest Trial blocked and recognizes verified Standard access', () => {
+    const capabilities = {
+      pinterestPinPublishing: true,
+      pinterestReadback: true,
+      pinterestBoardSelection: true,
+      tokenRefresh: true,
+    }
+    const trial = deriveStrategyExecutionBridge({
+      scopeType: 'organic',
+      campaignPlatforms: ['PINTEREST'],
+      platformStates: derivePlatformReadiness([{
+        platform: 'PINTEREST', status: 'CONNECTED', capabilities: { ...capabilities, pinterestPublicPublishing: false },
+      }]),
+    })
+    expect(trial.organicRequirements[0]).toMatchObject({ platformKey: 'pinterest', status: 'blocked', readinessStatus: 'needs_setup' })
+
+    const standard = deriveStrategyExecutionBridge({
+      scopeType: 'organic',
+      campaignPlatforms: ['PINTEREST'],
+      platformStates: derivePlatformReadiness([{
+        platform: 'PINTEREST', status: 'CONNECTED', capabilities: { ...capabilities, pinterestPublicPublishing: true },
+      }]),
+    })
+    expect(standard.organicRequirements[0]).toMatchObject({ platformKey: 'pinterest', status: 'ready' })
+  })
+
   it('uses a conservative checking state while platform readiness is loading', () => {
     const bridge = deriveStrategyExecutionBridge({
       scopeType: 'full',

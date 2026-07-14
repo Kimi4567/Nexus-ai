@@ -212,4 +212,35 @@ describe('publishSocialPost', () => {
       headers: expect.objectContaining({ Authorization: 'Bearer x-token' }),
     }))
   })
+
+  it('publishes a reviewed Pinterest image Pin to its exact Board', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: '998877' }), {
+      status: 201,
+      headers: { 'content-type': 'application/json' },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await publishSocialPost({
+      platform: 'PINTEREST',
+      caption: 'A reviewed Pinterest description for the approved campaign offer.',
+      imageUrl: 'https://res.cloudinary.com/demo/image/upload/pin.jpg',
+      accessToken: 'pinterest-token',
+      integrationConfig: { boards: [{ id: '12345', name: 'Launches' }] },
+      platformOptions: {
+        boardId: '12345',
+        title: 'Reviewed Pin',
+        altText: 'Approved product visual for the campaign.',
+        destinationLink: 'https://example.com/offer',
+        aiDisclosureReviewed: true,
+        aiDisclosureValues: [],
+        explicitConsent: true,
+      },
+    })
+
+    expect(result).toEqual({
+      platformPostId: '998877',
+      platformUrl: 'https://www.pinterest.com/pin/998877/',
+      state: 'PUBLISHED',
+    })
+  })
 })

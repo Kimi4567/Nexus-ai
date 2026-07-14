@@ -38,6 +38,11 @@ import {
   X_TWEET_WRITE_SCOPE,
   X_USERS_READ_SCOPE,
 } from '@/lib/xPublishing'
+import {
+  parsePinterestPostOptions,
+  pinterestBoardsFromConfig,
+  PINTEREST_PUBLISH_SCOPES,
+} from '@/lib/pinterestPublishing'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -53,6 +58,7 @@ type ScheduleRequest = {
   destinationByTarget?: Record<string, DestinationSelection>
   tiktokOptions?: Record<string, unknown>
   youtubeOptionsByPostId?: Record<string, Record<string, unknown>>
+  pinterestOptionsByPostId?: Record<string, Record<string, unknown>>
 }
 
 function normalizedTarget(target: string): string {
@@ -62,12 +68,13 @@ function normalizedTarget(target: string): string {
   return value
 }
 
-function providerForTarget(target: string): 'META' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | 'X' | null {
+function providerForTarget(target: string): 'META' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | 'X' | 'PINTEREST' | null {
   if (target === 'FACEBOOK' || target === 'INSTAGRAM') return 'META'
   if (target === 'LINKEDIN') return 'LINKEDIN'
   if (target === 'TIKTOK') return 'TIKTOK'
   if (target === 'YOUTUBE') return 'YOUTUBE'
   if (target === 'X') return 'X'
+  if (target === 'PINTEREST') return 'PINTEREST'
   return null
 }
 
@@ -374,6 +381,60 @@ export async function POST(req: NextRequest, props: Params) {
         }
         platformOptions = {
           explicitConsent: publishMode === 'AUTO' && requestBody.explicitAutoPublishConfirmed === true,
+        }
+      } else if (target === 'PINTEREST') {
+        if (publishMode === 'AUTO' && post.isVideoPost) {
+          blockers.push({
+            code: 'PINTEREST_IMAGE_REQUIRED', target, postId: post.id,
+            message: 'Pinterest automatic publishing currently supports reviewed image Pins only.',
+          })
+          continue
+        }
+        if (publishMode === 'AUTO' && String(config.accessTier || '').toUpperCase() !== 'STANDARD') {
+          blockers.push({
+            code: 'PINTEREST_STANDARD_ACCESS_REQUIRED', target, postId: post.id,
+            message: 'Pinterest Standard access is required before Nexus can schedule public Pins.',
+          })
+          continue
+        }
+        if (publishMode === 'AUTO' && PINTEREST_PUBLISH_SCOPES.some(scope => !hasVerifiedProviderScope(config, scope))) {
+          blockers.push({
+            code: 'PLATFORM_SCOPE_REQUIRED', target, postId: post.id,
+            message: 'Reconnect Pinterest and grant verified Board, Pin publishing, and readback permissions.',
+          })
+          continue
+        }
+        if (publishMode === 'AUTO' && (!integration.accountId || !integration.refreshToken)) {
+          blockers.push({
+            code: 'PINTEREST_OFFLINE_ACCESS_REQUIRED', target, postId: post.id,
+            message: 'Reconnect Pinterest with continuous refresh access before scheduled publishing.',
+          })
+          continue
+        }
+        const copyLength = Array.from(String(post.caption || '').trim()).length
+        if (publishMode === 'AUTO' && (copyLength === 0 || copyLength > 800)) {
+          blockers.push({
+            code: 'PINTEREST_COPY_REVIEW_REQUIRED', target, postId: post.id,
+            message: 'Review the Pinterest description so it contains 1 to 800 characters.',
+          })
+          continue
+        }
+        try {
+          const options = parsePinterestPostOptions({
+            ...(requestBody.pinterestOptionsByPostId?.[post.id] || {}),
+            explicitConsent: publishMode === 'AUTO' && requestBody.explicitAutoPublishConfirmed === true,
+          })
+          const board = pinterestBoardsFromConfig(config).find(item => item.id === options.boardId)
+          if (!board) throw new Error('Select a Board authorized by this Pinterest connection')
+          pageId = board.id
+          pageName = board.name
+          platformOptions = options as unknown as Record<string, unknown>
+        } catch (error) {
+          if (publishMode === 'AUTO') blockers.push({
+            code: 'PINTEREST_REVIEW_REQUIRED', target, postId: post.id,
+            message: error instanceof Error ? error.message : 'Review the Pinterest Pin settings.',
+          })
+          continue
         }
       }
       assignmentById.set(post.id, { integrationId: integration.id, pageId, pageName, platformOptions, publishTarget: target })

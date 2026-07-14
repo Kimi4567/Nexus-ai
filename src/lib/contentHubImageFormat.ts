@@ -5,14 +5,18 @@ export function isContentHubYouTubeShortsPlatform(platform?: string | null): boo
 
 export function normalizeContentHubImagePromptForPlatform(prompt: string, platform?: string | null): string {
   const cleanPrompt = prompt.replace(/\s+/g, ' ').trim()
-  if (!cleanPrompt || !isContentHubYouTubeShortsPlatform(platform)) return cleanPrompt
+  if (!cleanPrompt) return cleanPrompt
+  const normalized = (platform || '').trim().toUpperCase()
+  const isPinterest = normalized === 'PINTEREST'
+  if (!isContentHubYouTubeShortsPlatform(platform) && !isPinterest) return cleanPrompt
 
-  const platformFormatPattern = /\b(?:square\s+1:1|wide\s+horizontal\s+1\.91:1|vertical\s+4:5|horizontal\s+16:9)\s+composition\b/i
+  const platformFormatPattern = /\b(?:square\s+1:1|wide\s+horizontal\s+1\.91:1|vertical\s+4:5|vertical\s+9:16|vertical\s+2:3|horizontal\s+16:9)\s+composition\b/i
+  const requiredFormat = isPinterest ? 'vertical 2:3 composition' : 'vertical 9:16 composition'
   if (platformFormatPattern.test(cleanPrompt)) {
-    return cleanPrompt.replace(platformFormatPattern, 'vertical 9:16 composition')
+    return cleanPrompt.replace(platformFormatPattern, requiredFormat)
   }
 
-  if (/vertical\s+9:16/i.test(cleanPrompt)) return cleanPrompt
+  if (isPinterest ? /vertical\s+2:3/i.test(cleanPrompt) : /vertical\s+9:16/i.test(cleanPrompt)) return cleanPrompt
 
-  return `vertical 9:16 composition; ${cleanPrompt}`
+  return `${requiredFormat}; ${cleanPrompt}`
 }

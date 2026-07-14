@@ -372,4 +372,50 @@ describe('POST /api/social/publish', () => {
       data: expect.objectContaining({ platform: 'X', publishTarget: 'X', status: 'PUBLISHED' }),
     })
   })
+
+  it('publishes a reviewed Pinterest Pin only with Standard access and the exact Board', async () => {
+    mocks.integrationFindFirst.mockResolvedValue({
+      id: 'pinterest-integration',
+      type: 'PINTEREST',
+      status: 'CONNECTED',
+      accessToken: 'encrypted-pinterest-token',
+      refreshToken: 'encrypted-refresh',
+      accountId: 'pinterest-user-1',
+      accountName: 'NEXUS Pinterest',
+      config: {
+        accessTier: 'STANDARD',
+        boards: [{ id: '12345', name: 'Launches' }],
+        scopeEvidence: 'provider_response',
+        scopes: ['boards:read', 'boards:write', 'pins:read', 'pins:write'],
+      },
+    })
+    mocks.socialPostFindFirst.mockResolvedValue({
+      id: 'pinterest-post', campaignId: 'campaign-1', platform: 'PINTEREST', publishTarget: 'PINTEREST',
+      status: 'APPROVED', caption: 'A reviewed Pinterest description for the approved campaign offer.',
+      imageUrl: 'https://res.cloudinary.com/demo/image/upload/pin.jpg', imagePrompt: 'Approved product image',
+      videoPrompt: null, uploadedMediaId: 'media-pin', mediaSource: 'UPLOAD', generationStatus: 'DONE',
+      isVideoPost: false, approvedAt: new Date('2026-07-12T10:00:00.000Z'),
+    })
+    mocks.publish.mockResolvedValue({ platformPostId: '998877', platformUrl: 'https://www.pinterest.com/pin/998877/' })
+    mocks.socialPostUpdate.mockResolvedValue({ id: 'pinterest-post', status: 'PUBLISHED' })
+    const platformOptions = {
+      boardId: '12345', title: 'Reviewed campaign Pin', altText: 'The approved campaign product visual.',
+      destinationLink: 'https://example.com/offer', aiDisclosureReviewed: true,
+      aiDisclosureValues: [], explicitConsent: true,
+    }
+
+    const response = await POST(request({
+      socialPostId: 'pinterest-post', integrationId: 'pinterest-integration', pageId: '12345',
+      pageName: 'Launches', platform: 'PINTEREST', campaignId: 'campaign-1', platformOptions,
+    }))
+
+    expect(response.status).toBe(200)
+    expect(mocks.publish).toHaveBeenCalledWith(expect.objectContaining({
+      platform: 'PINTEREST', pageId: '12345', platformOptions,
+    }))
+    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
+      where: { id: 'pinterest-post' },
+      data: expect.objectContaining({ platform: 'PINTEREST', publishTarget: 'PINTEREST', status: 'PUBLISHED' }),
+    })
+  })
 })

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
+import { PINTEREST_PUBLISH_SCOPES, PINTEREST_USER_READ_SCOPE, pinterestBoardsFromConfig } from '@/lib/pinterestPublishing'
 
 async function getUser(req: NextRequest) {
   const token = req.headers.get('authorization')?.replace('Bearer ', '')
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
       where: {
         workspaceId: workspace.id,
         status: { in: ['CONNECTED', 'EXPIRED', 'ERROR'] },
-        type: { in: ['META', 'LINKEDIN', 'TIKTOK', 'YOUTUBE', 'X'] as any[] },
+        type: { in: ['META', 'LINKEDIN', 'TIKTOK', 'YOUTUBE', 'X', 'PINTEREST'] as any[] },
       },
       select: {
         id: true,
@@ -55,8 +56,12 @@ export async function GET(req: NextRequest) {
           urn: typeof organization?.urn === 'string' ? organization.urn : undefined,
         }))
         .filter((organization: { id: string }) => organization.id)
+      const boards = i.type === 'PINTEREST' ? pinterestBoardsFromConfig(config) : []
       const scopes = Array.isArray(config.scopes) ? config.scopes.filter((scope: unknown) => typeof scope === 'string') : []
       const scopesVerified = config.scopeEvidence === 'provider_response'
+      const pinterestScopeReady = i.type === 'PINTEREST'
+        && scopesVerified
+        && [...PINTEREST_PUBLISH_SCOPES, PINTEREST_USER_READ_SCOPE].every(scope => scopes.includes(scope))
       const capabilities = {
         facebookPublishing: i.type === 'META' && scopesVerified && scopes.includes('pages_manage_posts') && rawPages.some((page: any) => page?.id && page?.accessToken),
         instagramPublishing: i.type === 'META' && scopesVerified && scopes.includes('instagram_content_publish') && rawPages.some((page: any) => page?.igAccountId && page?.accessToken),
@@ -69,6 +74,10 @@ export async function GET(req: NextRequest) {
         xPublishing: i.type === 'X' && scopesVerified && scopes.includes('tweet.write') && Boolean(i.accountId),
         xMediaPublishing: i.type === 'X' && scopesVerified && scopes.includes('media.write') && Boolean(i.accountId),
         xReadback: i.type === 'X' && scopesVerified && scopes.includes('tweet.read') && scopes.includes('users.read') && Boolean(i.accountId),
+        pinterestPinPublishing: pinterestScopeReady && boards.length > 0 && Boolean(i.accountId),
+        pinterestReadback: pinterestScopeReady && Boolean(i.accountId),
+        pinterestBoardSelection: i.type === 'PINTEREST' && boards.length > 0,
+        pinterestPublicPublishing: pinterestScopeReady && boards.length > 0 && config.accessTier === 'STANDARD',
         tokenRefresh: Boolean(i.refreshToken),
       }
       return {
@@ -79,10 +88,12 @@ export async function GET(req: NextRequest) {
         accountName: i.accountName,
         pages,
         organizations,
+        boards,
         selectedOrganizationId: config.organizationId || null,
         pictureUrl: config.pictureUrl || null,
         channelUrl: config.channelUrl || null,
         profileUrl: config.profileUrl || null,
+        accessTier: i.type === 'PINTEREST' ? config.accessTier || 'TRIAL' : null,
         scopes,
         expiresAt: config.expiresAt || null,
         refreshExpiresAt: config.refreshExpiresAt || null,

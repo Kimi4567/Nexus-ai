@@ -136,7 +136,7 @@ export function summarizePerformanceEvidence(
     const data = record(row.analyticsData)
     const rowImpressions = numberFromPerformanceMetric(data.impressions) ?? metric(data.views)
     const rowReach = metric(data.reach)
-    const rowEngagements = metric(data.likes) + metric(data.comments) + metric(data.shares)
+    const rowEngagements = metric(data.likes) + metric(data.comments) + metric(data.shares) + metric(data.saves)
     const rowClicks = metric(data.clicks)
     const rowConversions = metric(data.conversions)
     const rowSpend = metric(data.spend)

@@ -20,13 +20,20 @@ import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/a
    schedule until the separate approval + scheduling workflow changes status.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-// Map platform strings from strategy to Integration type enum
-const PLATFORM_MAP: Record<string, 'META' | 'LINKEDIN' | 'TIKTOK'> = {
-  instagram: 'META',
-  facebook: 'META',
-  meta: 'META',
-  linkedin: 'LINKEDIN',
-  tiktok: 'TIKTOK',
+// Keep the exact publishing destination separate from its OAuth provider.
+// Unknown strategy labels are skipped instead of silently becoming Meta posts.
+const PLATFORM_MAP: Record<string, { integrationType: 'META' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | 'X' | 'PINTEREST'; publishTarget: string }> = {
+  instagram: { integrationType: 'META', publishTarget: 'INSTAGRAM' },
+  facebook: { integrationType: 'META', publishTarget: 'FACEBOOK' },
+  meta: { integrationType: 'META', publishTarget: 'META' },
+  linkedin: { integrationType: 'LINKEDIN', publishTarget: 'LINKEDIN' },
+  tiktok: { integrationType: 'TIKTOK', publishTarget: 'TIKTOK' },
+  youtube: { integrationType: 'YOUTUBE', publishTarget: 'YOUTUBE' },
+  'youtube shorts': { integrationType: 'YOUTUBE', publishTarget: 'YOUTUBE' },
+  youtube_shorts: { integrationType: 'YOUTUBE', publishTarget: 'YOUTUBE' },
+  x: { integrationType: 'X', publishTarget: 'X' },
+  twitter: { integrationType: 'X', publishTarget: 'X' },
+  pinterest: { integrationType: 'PINTEREST', publishTarget: 'PINTEREST' },
 }
 
 const WEEK_OFFSETS: Record<number, number> = { 1: 3, 2: 10, 3: 17, 4: 24 }
@@ -52,7 +59,7 @@ async function generateCaption(
 
   const systemPrompt = `You are a professional social media copywriter. ${langInstruction}
 Write a compelling social media post caption. Be concise, engaging, and platform-appropriate.
-Platform: ${platform}. Keep under 300 characters for TikTok/Instagram, 500 for Facebook/LinkedIn.`
+Platform: ${platform}. Hard limits: 280 characters for X and 800 characters for Pinterest. Prefer under 300 for TikTok/Instagram and under 500 for Facebook/LinkedIn.`
 
   const userPrompt = `Campaign objective: ${objective}
 Key message: ${keyMessage}
@@ -238,14 +245,16 @@ export async function POST(req: NextRequest) {
       for (const platformStr of platformsToSchedule) {
         if (preparedPosts.length >= initialPostAllowance.remaining) break
         const normalized = platformStr.toLowerCase()
-        const integrationType = PLATFORM_MAP[normalized] || 'META'
+        const platformMapping = PLATFORM_MAP[normalized]
+        if (!platformMapping) continue
+        const { integrationType, publishTarget } = platformMapping
 
-        if (scheduledPlatforms.has(integrationType)) continue
+        if (scheduledPlatforms.has(publishTarget)) continue
 
         const integration = connectedIntegrations.find(i => i.type === integrationType)
         if (!integration) continue
 
-        scheduledPlatforms.add(integrationType)
+        scheduledPlatforms.add(publishTarget)
 
         // Get page info from integration config
         const pages: any[] = (integration.config as any)?.pages || []
@@ -282,6 +291,7 @@ export async function POST(req: NextRequest) {
           campaignId,
           integrationId: integration.id,
           platform: integrationType,
+          publishTarget,
           pageId,
           pageName,
           caption,

@@ -24,6 +24,8 @@ const original = {
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
   xClientId: process.env.X_CLIENT_ID,
   xClientSecret: process.env.X_CLIENT_SECRET,
+  pinterestId: process.env.PINTEREST_APP_ID,
+  pinterestSecret: process.env.PINTEREST_APP_SECRET,
 }
 
 function request() {
@@ -39,6 +41,8 @@ beforeEach(() => {
   process.env.GOOGLE_CLIENT_SECRET = 'client-secret'
   process.env.X_CLIENT_ID = 'x-client-id'
   process.env.X_CLIENT_SECRET = 'x-client-secret'
+  process.env.PINTEREST_APP_ID = 'pinterest-app-id'
+  process.env.PINTEREST_APP_SECRET = 'pinterest-app-secret'
   mocks.decrypt.mockReturnValue('refresh-1')
   mocks.update.mockResolvedValue({})
   mocks.findMany.mockResolvedValue([{
@@ -67,6 +71,10 @@ afterEach(() => {
   else process.env.X_CLIENT_ID = original.xClientId
   if (original.xClientSecret === undefined) delete process.env.X_CLIENT_SECRET
   else process.env.X_CLIENT_SECRET = original.xClientSecret
+  if (original.pinterestId === undefined) delete process.env.PINTEREST_APP_ID
+  else process.env.PINTEREST_APP_ID = original.pinterestId
+  if (original.pinterestSecret === undefined) delete process.env.PINTEREST_APP_SECRET
+  else process.env.PINTEREST_APP_SECRET = original.pinterestSecret
 })
 
 describe('YouTube token refresh', () => {
@@ -152,6 +160,49 @@ describe('YouTube token refresh', () => {
           scopeEvidence: 'provider_response',
           tokenRefreshedAt: expect.any(String),
         }),
+      }),
+    })
+  })
+
+  it('rotates Pinterest continuous refresh credentials before public publishing expires', async () => {
+    mocks.findMany.mockResolvedValue([{
+      id: 'pinterest-integration',
+      type: 'PINTEREST',
+      status: 'CONNECTED',
+      accessToken: 'encrypted-old-access',
+      refreshToken: 'encrypted-old-refresh',
+      config: {
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        refreshExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        scopes: ['boards:read', 'boards:write', 'pins:read', 'pins:write'],
+        accessTier: 'STANDARD',
+      },
+    }])
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      access_token: 'new-pinterest-access',
+      refresh_token: 'new-pinterest-refresh',
+      expires_in: 2592000,
+      refresh_token_expires_in: 5184000,
+      scope: 'boards:read boards:write pins:read pins:write',
+    }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch
+
+    const response = await GET(request())
+    const body = await response.json()
+
+    expect(body.stats).toMatchObject({ checked: 1, refreshed: 1, expired: 0, errors: 0 })
+    expect(global.fetch).toHaveBeenCalledWith('https://api.pinterest.com/v5/oauth/token', expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({
+        Authorization: `Basic ${Buffer.from('pinterest-app-id:pinterest-app-secret').toString('base64')}`,
+      }),
+    }))
+    expect(mocks.update).toHaveBeenCalledWith({
+      where: { id: 'pinterest-integration' },
+      data: expect.objectContaining({
+        status: 'CONNECTED',
+        accessToken: 'encrypted:new-pinterest-access',
+        refreshToken: 'encrypted:new-pinterest-refresh',
+        config: expect.objectContaining({ accessTier: 'STANDARD', tokenRefreshedAt: expect.any(String) }),
       }),
     })
   })

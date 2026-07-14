@@ -48,4 +48,11 @@ describe('Content Hub image format normalization', () => {
     expect(platformToFluxAspectRatio('LINKEDIN')).toBe('3:2')
     expect(platformToFluxAspectRatio('X')).toBe('3:2')
   })
+
+  it('maps Pinterest Pins to a standard vertical 2:3 creative', () => {
+    expect(platformToFluxAspectRatio('PINTEREST')).toBe('2:3')
+    expect(platformToOpenAISize('PINTEREST')).toBe('1024x1536')
+    expect(normalizeContentHubImagePromptForPlatform('square 1:1 composition; product scene', 'PINTEREST'))
+      .toContain('vertical 2:3 composition')
+  })
 })

@@ -14,6 +14,8 @@ const PLATFORM_MAP: Record<string, string> = {
   youtube:        'YOUTUBE_SHORTS',
   snapchat:       'SNAPCHAT',
   linkedin:       'LINKEDIN',
+  pinterest:      'PINTEREST',
+  x:              'TWITTER',
   twitter:        'TWITTER',
   website:        'WEBSITE',
   // already-uppercase passthrough
@@ -23,6 +25,8 @@ const PLATFORM_MAP: Record<string, string> = {
   YOUTUBE_SHORTS:  'YOUTUBE_SHORTS',
   SNAPCHAT:        'SNAPCHAT',
   LINKEDIN:        'LINKEDIN',
+  PINTEREST:       'PINTEREST',
+  X:               'TWITTER',
   TWITTER:         'TWITTER',
   WEBSITE:         'WEBSITE',
 }

@@ -231,4 +231,52 @@ describe('GET /api/cron/fetch-analytics', () => {
       },
     })
   })
+
+  it('stores Pinterest Pin clicks, saves, reactions, and comments without inventing reach', async () => {
+    mocks.socialPostFindMany
+      .mockResolvedValueOnce([{
+        id: 'pinterest-post',
+        workspaceId: 'workspace-1',
+        platform: 'PINTEREST',
+        platformPostId: '998877',
+        pageId: '12345',
+        integration: { accessToken: 'pinterest-token', config: {} },
+      }])
+      .mockResolvedValueOnce([])
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      ALL: {
+        summary_metrics: {
+          IMPRESSION: 1500,
+          PIN_CLICK: 45,
+          OUTBOUND_CLICK: 20,
+          SAVE: 32,
+          TOTAL_COMMENTS: 4,
+          TOTAL_REACTIONS: 18,
+        },
+      },
+    }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch
+
+    const response = await GET(request('cron-secret'))
+    const body = await response.json()
+
+    expect(body).toMatchObject({ analyticsStored: 1, analyticsRetryable: 0 })
+    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
+      where: { id: 'pinterest-post' },
+      data: {
+        analyticsUpdatedAt: expect.any(Date),
+        analyticsFetched: true,
+        analyticsData: expect.objectContaining({
+          platform: 'PINTEREST',
+          impressions: 1500,
+          reach: 0,
+          likes: 18,
+          comments: 4,
+          shares: 0,
+          saves: 32,
+          clicks: 65,
+          engagementCount: 119,
+        }),
+      },
+    })
+  })
 })

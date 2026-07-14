@@ -19,6 +19,8 @@ interface ConnectedAccount {
   pages?: ConnectedPage[]
   organizations?: Array<{ id: string; name: string }>
   selectedOrganizationId?: string | null
+  boards?: Array<{ id: string; name: string }>
+  accessTier?: 'TRIAL' | 'STANDARD' | string
 }
 
 interface PostPlatformPublisherProps {
@@ -29,20 +31,22 @@ interface PostPlatformPublisherProps {
   hasMedia: boolean
   isVideoPost: boolean
   captionLength: number
+  caption: string
   onPublished: () => void | Promise<void>
 }
 
-function normalizedPlatform(value: string): 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | null {
+function normalizedPlatform(value: string): 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST' | null {
   const platform = value.toUpperCase()
   if (['META', 'FACEBOOK', 'INSTAGRAM'].includes(platform)) return 'META'
   if (platform === 'LINKEDIN') return 'LINKEDIN'
   if (platform === 'TIKTOK') return 'TIKTOK'
   if (platform === 'X' || platform === 'TWITTER') return 'X'
   if (platform === 'YOUTUBE' || platform === 'YOUTUBE_SHORTS') return 'YOUTUBE'
+  if (platform === 'PINTEREST') return 'PINTEREST'
   return null
 }
 
-export function PostPlatformPublisher({ postId, campaignId, platform, status, hasMedia, isVideoPost, captionLength, onPublished }: PostPlatformPublisherProps) {
+export function PostPlatformPublisher({ postId, campaignId, platform, status, hasMedia, isVideoPost, captionLength, caption, onPublished }: PostPlatformPublisherProps) {
   const { authHeader } = useAuth()
   const { locale } = useI18n()
   const ar = locale === 'ar'
@@ -60,6 +64,16 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
   const [tiktokOptions, setTikTokOptions] = useState({ privacyLevel: '', disableComment: false, disableDuet: false, disableStitch: false, brandContentToggle: false, brandOrganicToggle: true, isAigc: false })
   const [youtubeConsent, setYouTubeConsent] = useState(false)
   const [xConsent, setXConsent] = useState(false)
+  const [pinterestConsent, setPinterestConsent] = useState(false)
+  const [pinterestOptions, setPinterestOptions] = useState({
+    boardId: '',
+    title: caption.trim().split(/\r?\n/)[0]?.slice(0, 100) || '',
+    altText: caption.trim().slice(0, 500),
+    destinationLink: '',
+    aiDisclosureReviewed: false,
+    aiModified: false,
+    syntheticPerformer: false,
+  })
   const [youtubeOptions, setYouTubeOptions] = useState<{
     title: string
     privacyStatus: 'private' | 'unlisted' | 'public'
@@ -97,6 +111,9 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
             setPageId(firstPage.igAccountId || firstPage.id)
             setMetaChannel(firstPage.igAccountId ? 'INSTAGRAM' : 'FACEBOOK')
           }
+          if (targetPlatform === 'PINTEREST' && first.boards?.length === 1) {
+            setPinterestOptions(current => ({ ...current, boardId: first.boards?.[0]?.id || '' }))
+          }
           if (targetPlatform === 'TIKTOK') {
             fetch(`/api/social/tiktok/creator-info?integrationId=${encodeURIComponent(first.id)}`, { headers: { Authorization: authHeader() } })
               .then(response => response.ok ? response.json() : Promise.reject(new Error('creator')))
@@ -128,7 +145,12 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
       const requestedPlatform = targetPlatform === 'META' ? metaChannel : targetPlatform
       const requestedPageId = targetPlatform === 'META'
         ? (metaChannel === 'INSTAGRAM' ? selectedPage?.igAccountId || '' : selectedPage?.id || '')
-        : targetPlatform === 'LINKEDIN' ? linkedInOrganizationId : ''
+        : targetPlatform === 'LINKEDIN'
+          ? linkedInOrganizationId
+          : targetPlatform === 'PINTEREST'
+            ? pinterestOptions.boardId
+            : ''
+      const selectedBoard = selectedAccount.boards?.find(board => board.id === pinterestOptions.boardId)
       const response = await fetch('/api/social/publish', {
         method: 'POST',
         headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
@@ -137,7 +159,7 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
           campaignId,
           integrationId: selectedAccount.id,
           pageId: requestedPageId,
-          pageName: selectedPage?.name || selectedAccount.accountName,
+          pageName: targetPlatform === 'PINTEREST' ? selectedBoard?.name : selectedPage?.name || selectedAccount.accountName,
           platform: requestedPlatform,
           platformOptions: targetPlatform === 'TIKTOK'
             ? { ...tiktokOptions, explicitConsent: tiktokConsent }
@@ -153,6 +175,19 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
                   categoryId: '22',
                   explicitConsent: youtubeConsent,
                 }
+              : targetPlatform === 'PINTEREST'
+                ? {
+                    boardId: pinterestOptions.boardId,
+                    title: pinterestOptions.title.trim(),
+                    altText: pinterestOptions.altText.trim(),
+                    destinationLink: pinterestOptions.destinationLink.trim() || null,
+                    aiDisclosureReviewed: pinterestOptions.aiDisclosureReviewed,
+                    aiDisclosureValues: [
+                      ...(pinterestOptions.aiModified ? ['AI_MODIFIED'] : []),
+                      ...(pinterestOptions.syntheticPerformer ? ['SYNTHETIC_PERFORMER'] : []),
+                    ],
+                    explicitConsent: pinterestConsent,
+                  }
               : null,
         }),
       })
@@ -175,7 +210,7 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
     }
   }
 
-  if (!eligible || !targetPlatform || !hasMedia || (['TIKTOK', 'YOUTUBE'].includes(targetPlatform) && !isVideoPost) || (targetPlatform === 'X' && isVideoPost)) return null
+  if (!eligible || !targetPlatform || !hasMedia || (['TIKTOK', 'YOUTUBE'].includes(targetPlatform) && !isVideoPost) || (['X', 'PINTEREST'].includes(targetPlatform) && isVideoPost)) return null
 
   return (
     <div className="border-t border-slate-200 px-3 pb-3 pt-2">
@@ -204,7 +239,7 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
             <div className="mt-3 space-y-2">
               <label className="block text-[10px] font-black uppercase tracking-wide text-slate-500">
                 {copy('الحساب', 'Account')}
-                <select value={selectedAccount?.id || ''} onChange={event => { setAccountId(event.target.value); setPageId('') }} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800">
+                <select value={selectedAccount?.id || ''} onChange={event => { setAccountId(event.target.value); setPageId(''); setPinterestOptions(current => ({ ...current, boardId: '' })) }} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800">
                   {matchingAccounts.map(account => <option key={account.id} value={account.id}>{account.accountName || account.platform}</option>)}
                 </select>
               </label>
@@ -323,7 +358,43 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
                   </label>
                 </div>
               )}
-              <button type="button" onClick={publish} disabled={publishing || !selectedAccount || (targetPlatform === 'META' && !selectedPage) || (targetPlatform === 'TIKTOK' && (!tiktokConsent || !tiktokOptions.privacyLevel)) || (targetPlatform === 'X' && (!xConsent || captionLength === 0 || captionLength > 280)) || (targetPlatform === 'YOUTUBE' && (!youtubeConsent || !youtubeOptions.title.trim() || !youtubeOptions.madeForKids || !youtubeOptions.syntheticMedia))} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40">
+              {targetPlatform === 'PINTEREST' && (
+                <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-2">
+                  {selectedAccount?.accessTier !== 'STANDARD' && (
+                    <p className="rounded-lg bg-amber-50 p-2 text-[10px] font-semibold leading-4 text-amber-800">
+                      {copy('هذا التطبيق ما زال في Pinterest Trial. يلزم Standard access قبل نشر Pins عامة.', 'This app is still in Pinterest Trial. Standard access is required before publishing public Pins.')}
+                    </p>
+                  )}
+                  <label className="block text-[10px] font-black uppercase tracking-wide text-slate-500">
+                    {copy('اللوحة', 'Board')}
+                    <select value={pinterestOptions.boardId} onChange={event => setPinterestOptions(current => ({ ...current, boardId: event.target.value }))} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800">
+                      <option value="">{copy('اختر لوحة النشر', 'Select publishing Board')}</option>
+                      {(selectedAccount?.boards || []).map(board => <option key={board.id} value={board.id}>{board.name}</option>)}
+                    </select>
+                  </label>
+                  <label className="block text-[10px] font-black uppercase tracking-wide text-slate-500">
+                    {copy('عنوان Pin', 'Pin title')}
+                    <input value={pinterestOptions.title} maxLength={100} onChange={event => setPinterestOptions(current => ({ ...current, title: event.target.value }))} className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-xs font-semibold text-slate-800" />
+                  </label>
+                  <label className="block text-[10px] font-black uppercase tracking-wide text-slate-500">
+                    {copy('النص البديل للصورة', 'Image alt text')}
+                    <textarea value={pinterestOptions.altText} maxLength={500} rows={3} onChange={event => setPinterestOptions(current => ({ ...current, altText: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 p-2 text-xs font-semibold text-slate-800" />
+                  </label>
+                  <label className="block text-[10px] font-black uppercase tracking-wide text-slate-500">
+                    {copy('رابط الوجهة — اختياري', 'Destination URL — optional')}
+                    <input type="url" value={pinterestOptions.destinationLink} placeholder="https://" onChange={event => setPinterestOptions(current => ({ ...current, destinationLink: event.target.value }))} className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-xs font-semibold text-slate-800" />
+                  </label>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                    <p className="text-[10px] font-black text-slate-700">{copy('إفصاح الذكاء الاصطناعي', 'AI disclosure')}</p>
+                    <label className="mt-2 flex items-start gap-2 text-[10px] leading-4 text-slate-600"><input type="checkbox" checked={pinterestOptions.aiModified} onChange={event => setPinterestOptions(current => ({ ...current, aiModified: event.target.checked }))} className="mt-0.5" />{copy('الصورة الواقعية عُدلت بدرجة كبيرة بالذكاء الاصطناعي', 'The realistic image was substantially AI-modified')}</label>
+                    <label className="mt-2 flex items-start gap-2 text-[10px] leading-4 text-slate-600"><input type="checkbox" checked={pinterestOptions.syntheticPerformer} onChange={event => setPinterestOptions(current => ({ ...current, syntheticPerformer: event.target.checked }))} className="mt-0.5" />{copy('تحتوي على مؤدٍ أو شخص اصطناعي', 'It contains a synthetic performer or person')}</label>
+                    <label className="mt-2 flex items-start gap-2 text-[10px] font-semibold leading-4 text-slate-700"><input type="checkbox" checked={pinterestOptions.aiDisclosureReviewed} onChange={event => setPinterestOptions(current => ({ ...current, aiDisclosureReviewed: event.target.checked }))} className="mt-0.5" />{copy('راجعت الإفصاح واخترت القيم الصحيحة لهذا التصميم.', 'I reviewed the disclosure and selected the correct values for this creative.')}</label>
+                  </div>
+                  <p className="text-[10px] font-semibold text-slate-600">{copy(`طول وصف Pin: ${captionLength} من 800 حرف.`, `Pin description length: ${captionLength} of 800 characters.`)}</p>
+                  <label className="flex items-start gap-2 text-[10px] font-semibold leading-4 text-slate-700"><input type="checkbox" checked={pinterestConsent} onChange={event => setPinterestConsent(event.target.checked)} className="mt-0.5" />{copy('أوافق صراحةً على نشر الصورة والنص والبيانات المعتمدة إلى هذه اللوحة الآن.', 'I explicitly consent to publishing the approved image, copy, and metadata to this Board now.')}</label>
+                </div>
+              )}
+              <button type="button" onClick={publish} disabled={publishing || !selectedAccount || (targetPlatform === 'META' && !selectedPage) || (targetPlatform === 'TIKTOK' && (!tiktokConsent || !tiktokOptions.privacyLevel)) || (targetPlatform === 'X' && (!xConsent || captionLength === 0 || captionLength > 280)) || (targetPlatform === 'YOUTUBE' && (!youtubeConsent || !youtubeOptions.title.trim() || !youtubeOptions.madeForKids || !youtubeOptions.syntheticMedia)) || (targetPlatform === 'PINTEREST' && (selectedAccount.accessTier !== 'STANDARD' || !pinterestConsent || !pinterestOptions.boardId || !pinterestOptions.title.trim() || !pinterestOptions.altText.trim() || !pinterestOptions.aiDisclosureReviewed || captionLength === 0 || captionLength > 800))} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40">
                 {publishing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                 {copy('تأكيد النشر الآن', 'Confirm publish now')}
               </button>

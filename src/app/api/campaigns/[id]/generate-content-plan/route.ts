@@ -69,7 +69,7 @@ function toIntegrationType(raw: string): string {
     TWITTER:   'X',
     X:         'X',
     SNAPCHAT:  'META',
-    PINTEREST: 'META',
+    PINTEREST: 'PINTEREST',
     REELS:     'META',
     STORIES:   'META',
     THREADS:   'META',

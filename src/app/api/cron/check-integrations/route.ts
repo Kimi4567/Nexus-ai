@@ -27,6 +27,8 @@ const TOKEN_TTL_DAYS: Record<string, number> = {
   META:     60,
   TIKTOK:   30,
   YOUTUBE:  180,
+  X:        30,
+  PINTEREST: 30,
 }
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -34,6 +36,8 @@ const PLATFORM_LABELS: Record<string, string> = {
   LINKEDIN: 'LinkedIn',
   TIKTOK:   'TikTok',
   YOUTUBE:  'YouTube',
+  X:        'X',
+  PINTEREST: 'Pinterest',
 }
 
 const WARN_DAYS = 7  // warn when ≤ 7 days left

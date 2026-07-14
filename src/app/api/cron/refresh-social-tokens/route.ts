@@ -192,6 +192,71 @@ async function refreshX(integration: any, now: Date): Promise<'refreshed' | 'ski
   }
 }
 
+async function refreshPinterest(integration: any, now: Date): Promise<'refreshed' | 'skipped' | 'expired' | 'error'> {
+  const config = objectConfig(integration.config)
+  const expiresAt = config.expiresAt ? new Date(config.expiresAt) : null
+  if (expiresAt && expiresAt.getTime() > now.getTime() + 7 * 24 * 60 * 60 * 1000 && integration.status === 'CONNECTED') {
+    return 'skipped'
+  }
+  const refreshToken = decryptToken(integration.refreshToken)
+  const clientId = process.env.PINTEREST_APP_ID
+  const clientSecret = process.env.PINTEREST_APP_SECRET
+  const refreshExpiresAt = config.refreshExpiresAt ? new Date(config.refreshExpiresAt) : null
+  if (!refreshToken || (refreshExpiresAt && refreshExpiresAt <= now)) {
+    await prisma.integration.update({ where: { id: integration.id }, data: { status: 'EXPIRED' } })
+    return 'expired'
+  }
+  if (!clientId || !clientSecret) return 'error'
+
+  try {
+    const response = await fetch('https://api.pinterest.com/v5/oauth/token', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }),
+      cache: 'no-store',
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || !data.access_token) {
+      const providerError = String(data.error_description || data.error || data.message || '')
+      const terminal = /invalid|expired|revoked/i.test(providerError)
+      if (terminal) await prisma.integration.update({ where: { id: integration.id }, data: { status: 'EXPIRED' } })
+      return terminal ? 'expired' : 'error'
+    }
+    const scopes = typeof data.scope === 'string' && data.scope.trim()
+      ? data.scope.split(/[ ,]+/).filter(Boolean)
+      : config.scopes
+    const nextRefreshExpiresAt = data.refresh_token_expires_at
+      ? new Date(Number(data.refresh_token_expires_at) * 1000).toISOString()
+      : data.refresh_token_expires_in
+        ? new Date(now.getTime() + Number(data.refresh_token_expires_in) * 1000).toISOString()
+        : config.refreshExpiresAt
+    await prisma.integration.update({
+      where: { id: integration.id },
+      data: {
+        status: 'CONNECTED',
+        accessToken: encryptToken(data.access_token),
+        refreshToken: encryptToken(data.refresh_token || refreshToken),
+        config: {
+          ...config,
+          scopes,
+          scopeEvidence: typeof data.scope === 'string' && data.scope.trim() ? 'provider_response' : config.scopeEvidence,
+          expiresAt: new Date(now.getTime() + Number(data.expires_in || 2592000) * 1000).toISOString(),
+          refreshExpiresAt: nextRefreshExpiresAt,
+          tokenRefreshedAt: now.toISOString(),
+        },
+        lastSyncedAt: now,
+      },
+    })
+    return 'refreshed'
+  } catch (error) {
+    console.error('[refresh-social-tokens] Pinterest', integration.id, error)
+    return 'error'
+  }
+}
+
 async function refreshMeta(integration: any, now: Date): Promise<'refreshed' | 'skipped' | 'expired' | 'error'> {
   const config = objectConfig(integration.config)
   const expiresAt = config.expiresAt ? new Date(config.expiresAt) : null
@@ -256,7 +321,7 @@ async function refreshMeta(integration: any, now: Date): Promise<'refreshed' | '
 async function run() {
   const now = new Date()
   const integrations = await prisma.integration.findMany({
-    where: { type: { in: ['TIKTOK', 'META', 'LINKEDIN', 'X', 'YOUTUBE'] }, status: { in: ['CONNECTED', 'EXPIRED'] } },
+    where: { type: { in: ['TIKTOK', 'META', 'LINKEDIN', 'X', 'YOUTUBE', 'PINTEREST'] }, status: { in: ['CONNECTED', 'EXPIRED'] } },
   })
   const stats = { checked: integrations.length, refreshed: 0, skipped: 0, expired: 0, errors: 0 }
   for (const integration of integrations) {
@@ -275,6 +340,8 @@ async function run() {
         ? await refreshYouTube(integration, now)
         : integration.type === 'X'
           ? await refreshX(integration, now)
+          : integration.type === 'PINTEREST'
+            ? await refreshPinterest(integration, now)
           : await refreshMeta(integration, now)
     if (result === 'refreshed') stats.refreshed++
     else if (result === 'skipped') stats.skipped++

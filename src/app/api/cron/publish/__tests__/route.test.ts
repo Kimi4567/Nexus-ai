@@ -181,4 +181,38 @@ describe('GET /api/cron/publish', () => {
       }),
     })
   })
+
+  it('publishes scheduled Pinterest posts only with Standard access and verified scopes', async () => {
+    mocks.findMany.mockResolvedValue([{
+      ...duePost(),
+      id: 'pinterest-post',
+      platform: 'PINTEREST',
+      publishTarget: 'PINTEREST',
+      pageId: '12345',
+      caption: 'A reviewed Pinterest description tied to the approved campaign offer.',
+      imageUrl: 'https://res.cloudinary.com/demo/image/upload/pin.jpg',
+      isVideoPost: false,
+      platformOptions: {
+        boardId: '12345', title: 'Reviewed Pin', altText: 'Approved campaign product visual.',
+        destinationLink: null, aiDisclosureReviewed: true, aiDisclosureValues: [], explicitConsent: true,
+      },
+      integration: {
+        accessToken: 'encrypted-pinterest-token',
+        accountId: 'p-user-1',
+        config: {
+          accessTier: 'STANDARD', boards: [{ id: '12345', name: 'Launches' }],
+          scopeEvidence: 'provider_response', scopes: ['boards:read', 'boards:write', 'pins:read', 'pins:write'],
+        },
+      },
+    }])
+    mocks.publish.mockResolvedValue({ platformPostId: '998877', platformUrl: 'https://www.pinterest.com/pin/998877/' })
+
+    const response = await GET(request())
+    const body = await response.json()
+
+    expect(body).toMatchObject({ ok: true, processed: 1, succeeded: 1, failed: 0 })
+    expect(mocks.publish).toHaveBeenCalledWith(expect.objectContaining({
+      platform: 'PINTEREST', pageId: '12345', accessToken: 'plain-token',
+    }))
+  })
 })

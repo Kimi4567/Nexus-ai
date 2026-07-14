@@ -2,8 +2,9 @@ import { linkedInHeaders, metaGraphUrl } from './socialPlatformConfig'
 import { initializeTikTokVideoPost, type TikTokPostOptions } from './tiktokPublishing'
 import { parseYouTubePostOptions, uploadYouTubeVideo } from './youtubePublishing'
 import { createXPost } from './xPublishing'
+import { createPinterestPin } from './pinterestPublishing'
 
-export type PublishPlatform = 'META' | 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | 'X'
+export type PublishPlatform = 'META' | 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | 'X' | 'PINTEREST'
 
 export type SocialPublishInput = {
   platform: PublishPlatform | string
@@ -287,6 +288,22 @@ async function publishX(input: SocialPublishInput): Promise<SocialPublishResult>
   }
 }
 
+async function publishPinterest(input: SocialPublishInput): Promise<SocialPublishResult> {
+  if (!input.imageUrl) throw new Error('Pinterest publishing requires an approved permanent image')
+  const published = await createPinterestPin({
+    accessToken: input.accessToken,
+    description: input.caption,
+    imageUrl: input.imageUrl,
+    integrationConfig: input.integrationConfig,
+    options: input.platformOptions,
+  })
+  return {
+    platformPostId: published.pinId,
+    platformUrl: published.platformUrl,
+    state: 'PUBLISHED',
+  }
+}
+
 export async function publishSocialPost(input: SocialPublishInput): Promise<SocialPublishResult> {
   if (!input.caption.trim()) throw new Error('Post caption is empty')
   if (!input.accessToken) throw new Error('Platform access token is missing')
@@ -304,6 +321,8 @@ export async function publishSocialPost(input: SocialPublishInput): Promise<Soci
       return publishYouTube(input)
     case 'X':
       return publishX(input)
+    case 'PINTEREST':
+      return publishPinterest(input)
     default:
       throw new Error(`Unsupported publishing platform: ${input.platform}`)
   }

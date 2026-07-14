@@ -59,6 +59,7 @@ const PLATFORM_READINESS_KEY_BY_CAMPAIGN_PLATFORM: Record<string, PlatformKey> =
   TWITTER: 'x',
   YOUTUBE: 'youtube',
   YOUTUBE_SHORTS: 'youtube',
+  PINTEREST: 'pinterest',
   GOOGLE: 'google',
   SNAPCHAT: 'snapchat',
   WHATSAPP: 'whatsapp',

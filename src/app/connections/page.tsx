@@ -25,6 +25,7 @@ interface ConnectedAccount {
   accountName: string
   pages: Array<{ id: string; name: string; igAccountId: string | null }>
   organizations?: Array<{ id: string; name: string }>
+  boards?: Array<{ id: string; name: string; privacy?: string | null }>
   selectedOrganizationId?: string | null
   scopes?: string[]
   expiresAt?: string | null
@@ -32,6 +33,7 @@ interface ConnectedAccount {
   lastSyncedAt?: string | null
   channelUrl?: string | null
   profileUrl?: string | null
+  accessTier?: 'TRIAL' | 'STANDARD' | null
   capabilities?: {
     facebookPublishing?: boolean
     instagramPublishing?: boolean
@@ -44,6 +46,10 @@ interface ConnectedAccount {
     xPublishing?: boolean
     xMediaPublishing?: boolean
     xReadback?: boolean
+    pinterestPinPublishing?: boolean
+    pinterestReadback?: boolean
+    pinterestBoardSelection?: boolean
+    pinterestPublicPublishing?: boolean
     tokenRefresh?: boolean
   }
   connectedAt: string
@@ -159,9 +165,12 @@ const PLATFORMS: PlatformDef[] = [
   {
     id: 'PINTEREST',
     name: { ar: 'Pinterest', en: 'Pinterest' },
-    helper: { ar: 'مخطط لنشر Pins بعد اعتماد تطبيق Pinterest وصلاحيات المحتوى.', en: 'Planned for Pin publishing after Pinterest app review and content permissions.' },
-    scope: { ar: 'مخطط', en: 'Planned' },
-    available: false,
+    helper: {
+      ar: 'ينشر Image Pins المعتمدة إلى Board محدد بعد مراجعة العنوان والوصف وAlt Text وإفصاح الذكاء. Trial يتيح اختبارًا مرئيًا لصاحب الحساب فقط؛ النشر العام يتطلب Standard access.',
+      en: 'Publishes approved image Pins to an exact Board after title, description, alt text, and AI-disclosure review. Trial is creator-visible testing only; public distribution requires Standard access.',
+    },
+    scope: { ar: 'Image Pins معتمدة', en: 'Approved image Pins' },
+    available: true,
     accent: '#e11d48',
     icon: 'P',
   },
@@ -257,6 +266,29 @@ function connectionTruth(account: ConnectedAccount, ar: boolean): {
       ],
     }
   }
+  if (account.platform === 'PINTEREST') {
+    const publishing = capability.pinterestPinPublishing === true
+    const readback = capability.pinterestReadback === true
+    const board = capability.pinterestBoardSelection === true
+    const refresh = capability.tokenRefresh === true
+    const publicPublishing = capability.pinterestPublicPublishing === true
+    const operational = publishing && readback && board && refresh
+    return {
+      tone: operational && publicPublishing ? 'ready' : 'needs',
+      label: operational
+        ? publicPublishing
+          ? (ar ? 'النشر العام والقياس جاهزان للمراجعة' : 'Public publishing and measurement review-ready')
+          : (ar ? 'اختبار Trial جاهز · النشر العام يحتاج Standard' : 'Trial testing ready · Standard needed for public distribution')
+        : (ar ? 'إعداد Pinterest غير مكتمل' : 'Pinterest setup incomplete'),
+      checks: [
+        { ok: publishing, text: ar ? 'صلاحيات إنشاء وقراءة Pins مثبتة' : 'Pin creation and read permissions verified' },
+        { ok: board, text: ar ? 'Board عامة واحدة على الأقل متاحة للاختيار' : 'At least one public Board is available for selection' },
+        { ok: readback, text: ar ? 'قراءة مقاييس Pin مثبتة' : 'Pin metric readback verified' },
+        { ok: refresh, text: ar ? 'رمز تحديث مستمر محفوظ للجدولة' : 'Continuous refresh token stored for scheduling' },
+        { ok: publicPublishing, text: ar ? 'Standard access مثبت للنشر العام' : 'Standard access configured for public distribution' },
+      ],
+    }
+  }
   const directPost = capability.tikTokDirectPosting === true
   const creator = capability.tikTokCreatorInfoVerified === true
   return {
@@ -279,6 +311,7 @@ const CONNECT_ROUTES: Record<string, string> = {
   TIKTOK: '/api/social/connect/tiktok',
   YOUTUBE: '/api/social/connect/youtube',
   X: '/api/social/connect/x',
+  PINTEREST: '/api/social/connect/pinterest',
 }
 
 function ShellButton({
@@ -472,6 +505,11 @@ export default function ConnectionsPage() {
                 'ربط X غير متاح الآن لأن إعداد المنصة لم يكتمل. لم يتم تغيير أي بيانات.',
                 'X connection is not available because platform setup is incomplete. No data was changed.',
               )
+            : data.code === 'PINTEREST_OAUTH_NOT_CONFIGURED'
+              ? copy(
+                  'ربط Pinterest غير متاح الآن لأن إعداد التطبيق لم يكتمل. لم يتم تغيير أي بيانات.',
+                  'Pinterest connection is not available because app setup is incomplete. No data was changed.',
+                )
             : data.error || copy('تعذر بدء الربط من NEXUS.', 'NEXUS could not start the connection.'),
         })
         setConnecting(null)
@@ -646,6 +684,21 @@ export default function ConnectionsPage() {
                                     {organization.name}
                                   </p>
                                 ))}
+                              </div>
+                            ) : null}
+                            {connectedAccount.boards?.length ? (
+                              <div className="mt-2 space-y-1">
+                                {connectedAccount.boards.slice(0, 4).map((board) => (
+                                  <p key={board.id} className="flex items-center gap-2 text-[11px] text-[#586684]">
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                    {board.name}
+                                  </p>
+                                ))}
+                                {connectedAccount.boards.length > 4 ? (
+                                  <p className="text-[10px] font-semibold text-slate-400">
+                                    {copy(`و${connectedAccount.boards.length - 4} Boards أخرى`, `and ${connectedAccount.boards.length - 4} more Boards`)}
+                                  </p>
+                                ) : null}
                               </div>
                             ) : null}
                             {truth ? (

@@ -44,7 +44,7 @@ import { PostPlatformPublisher } from '@/components/publishing/PostPlatformPubli
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Platform = 'ALL' | 'META' | 'INSTAGRAM' | 'LINKEDIN' | 'X' | 'TIKTOK' | 'TWITTER' | 'YOUTUBE' | 'YOUTUBE_SHORTS'
+type Platform = 'ALL' | 'META' | 'INSTAGRAM' | 'LINKEDIN' | 'X' | 'TIKTOK' | 'TWITTER' | 'YOUTUBE' | 'YOUTUBE_SHORTS' | 'PINTEREST'
 type MediaSource = 'GENERATE' | 'UPLOAD' | 'UPLOAD_RAW'
 type GenStatus = 'PENDING' | 'GENERATING' | 'DONE' | 'FAILED' | 'AWAITING_UPLOAD' | 'SKIPPED'
 
@@ -86,6 +86,8 @@ interface ScheduleAccount {
   pages?: Array<{ id: string; name: string; igAccountId?: string | null }>
   organizations?: Array<{ id: string; name: string }>
   selectedOrganizationId?: string | null
+  boards?: Array<{ id: string; name: string }>
+  accessTier?: 'TRIAL' | 'STANDARD' | string
 }
 
 interface YouTubeScheduleOptions {
@@ -94,6 +96,16 @@ interface YouTubeScheduleOptions {
   madeForKids: '' | 'yes' | 'no'
   syntheticMedia: '' | 'yes' | 'no'
   notifySubscribers: boolean
+}
+
+interface PinterestScheduleOptions {
+  boardId: string
+  title: string
+  altText: string
+  destinationLink: string
+  aiDisclosureReviewed: boolean
+  aiModified: boolean
+  syntheticPerformer: boolean
 }
 
 interface PendingMediaAttachment {
@@ -227,6 +239,14 @@ const PLATFORM_CONFIG: Record<string, {
     icon: '▶',
     cardStyle: 'youtube',
   },
+  PINTEREST: {
+    label: 'Pinterest',
+    color: '#E60023',
+    bg: '#fff1f3',
+    border: '#E60023',
+    icon: '📌',
+    cardStyle: 'pinterest',
+  },
 }
 
 const getPlatformConfig = (p: string) =>
@@ -246,6 +266,7 @@ const PLATFORM_HOME_URLS: Record<string, string> = {
   META: 'https://facebook.com', FACEBOOK: 'https://facebook.com', INSTAGRAM: 'https://instagram.com',
   LINKEDIN: 'https://linkedin.com', TIKTOK: 'https://tiktok.com', TWITTER: 'https://x.com',
   YOUTUBE: 'https://youtube.com', SNAPCHAT: 'https://snapchat.com',
+  PINTEREST: 'https://pinterest.com',
 }
 function platformHomeUrl(platform: string): string | null {
   return PLATFORM_HOME_URLS[platform?.toUpperCase()] ?? null
@@ -268,6 +289,18 @@ function defaultYouTubeScheduleOptions(post: Pick<ContentPost, 'caption'>): YouT
     madeForKids: '',
     syntheticMedia: '',
     notifySubscribers: false,
+  }
+}
+
+function defaultPinterestScheduleOptions(post: Pick<ContentPost, 'caption'>, boardId = ''): PinterestScheduleOptions {
+  return {
+    boardId,
+    title: post.caption.split(/\r?\n/)[0].trim().slice(0, 100),
+    altText: post.caption.trim().slice(0, 500),
+    destinationLink: '',
+    aiDisclosureReviewed: false,
+    aiModified: false,
+    syntheticPerformer: false,
   }
 }
 
@@ -335,6 +368,7 @@ export default function ContentHubPage() {
     brandContentToggle: false, brandOrganicToggle: true, isAigc: false,
   })
   const [youtubeOptionsByPostId, setYouTubeOptionsByPostId] = useState<Record<string, YouTubeScheduleOptions>>({})
+  const [pinterestOptionsByPostId, setPinterestOptionsByPostId] = useState<Record<string, PinterestScheduleOptions>>({})
   const [approveResult, setApproveResult] = useState<{
     kind: 'approved' | 'scheduled'
     approved: number
@@ -469,9 +503,21 @@ export default function ContentHubPage() {
           } else if (target === 'YOUTUBE') {
             const youtube = accounts.find(account => account.platform === 'YOUTUBE')
             if (youtube) next.YOUTUBE = { integrationId: youtube.id, pageName: youtube.accountName || undefined }
+          } else if (target === 'PINTEREST') {
+            const pinterest = accounts.find(account => account.platform === 'PINTEREST')
+            if (pinterest) next.PINTEREST = { integrationId: pinterest.id, pageName: pinterest.accountName || undefined }
           }
         }
         setDestinationByTarget(next)
+        const pinterest = accounts.find(account => account.platform === 'PINTEREST')
+        if (targets.has('PINTEREST') && pinterest) {
+          const onlyBoardId = pinterest.boards?.length === 1 ? pinterest.boards[0].id : ''
+          setPinterestOptionsByPostId(Object.fromEntries(
+            approvedPostsWithDates
+              .filter(post => normalizeAutoPublishTarget(post.platform) === 'PINTEREST')
+              .map(post => [post.id, defaultPinterestScheduleOptions(post, onlyBoardId)]),
+          ))
+        }
         const tiktok = accounts.find(account => account.platform === 'TIKTOK')
         if (targets.has('TIKTOK') && tiktok) {
           const response = await fetch(`/api/social/tiktok/creator-info?integrationId=${encodeURIComponent(tiktok.id)}`, {
@@ -541,7 +587,7 @@ export default function ContentHubPage() {
   const approvedCount = posts.filter(p => p.status === 'APPROVED').length
   const approvedPostsWithDates = posts.filter(p => p.status === 'APPROVED' && hasValidDate(p.scheduledAt))
   const approvedAutoTargets = Array.from(new Set(approvedPostsWithDates.map(post => normalizeAutoPublishTarget(post.platform))))
-  const unsupportedAutoTargets = approvedAutoTargets.filter(target => !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE'].includes(target))
+  const unsupportedAutoTargets = approvedAutoTargets.filter(target => !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE', 'PINTEREST'].includes(target))
   const approvedYouTubePosts = approvedPostsWithDates.filter(post => ['YOUTUBE', 'YOUTUBE_SHORTS'].includes(post.platform.toUpperCase()))
   const youtubeAutoReviewIncomplete = scheduleMode === 'AUTO' && approvedYouTubePosts.some(post => {
     const options = youtubeOptionsByPostId[post.id]
@@ -550,6 +596,25 @@ export default function ContentHubPage() {
   const approvedXPosts = approvedPostsWithDates.filter(post => ['X', 'TWITTER'].includes(post.platform.toUpperCase()))
   const xAutoReviewIncomplete = scheduleMode === 'AUTO' && approvedXPosts.some(post =>
     post.isVideoPost || Array.from(post.caption.trim()).length === 0 || Array.from(post.caption.trim()).length > 280,
+  )
+  const approvedPinterestPosts = approvedPostsWithDates.filter(post => post.platform.toUpperCase() === 'PINTEREST')
+  const pinterestAccount = scheduleAccounts.find(account => account.platform === 'PINTEREST')
+  const pinterestAutoReviewIncomplete = scheduleMode === 'AUTO' && (
+    approvedPinterestPosts.length > 0
+    && (
+      pinterestAccount?.accessTier !== 'STANDARD'
+      || approvedPinterestPosts.some(post => {
+        const options = pinterestOptionsByPostId[post.id]
+        const copyLength = Array.from(post.caption.trim()).length
+        return post.isVideoPost
+          || copyLength === 0
+          || copyLength > 800
+          || !options?.boardId
+          || !options.title.trim()
+          || !options.altText.trim()
+          || !options.aiDisclosureReviewed
+      })
+    )
   )
   const approvedPostsNeedingMedia = posts.filter(
     p => p.status === 'APPROVED' && !isContentPostMediaReadyForScheduling(p),
@@ -616,7 +681,7 @@ export default function ContentHubPage() {
   const schedulingBlockedByTruthReview = approvedCount > 0 && contentReviewRequired
   const schedulingBlocked = schedulingBlockedByMedia || schedulingBlockedByTruthReview
   const schedulingDecisionBlocked = schedulingBlocked
-    || (scheduleMode === 'AUTO' && (unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete || xAutoReviewIncomplete))
+    || (scheduleMode === 'AUTO' && (unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete || xAutoReviewIncomplete || pinterestAutoReviewIncomplete))
   const approvalBlocked = approvalBlockedByOrderMismatch || approvalBlockedByTruthReview
   const contentHubFulfillmentSummary = deriveStrategyFulfillmentSummary({
     aiOutput: campaign?.aiOutput,
@@ -1289,10 +1354,10 @@ export default function ContentHubPage() {
       document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return
     }
-    if (scheduleMode === 'AUTO' && (unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete || xAutoReviewIncomplete)) {
+    if (scheduleMode === 'AUTO' && (unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete || xAutoReviewIncomplete || pinterestAutoReviewIncomplete)) {
       setError(isAr
-        ? 'أكمل إعدادات YouTube، وتأكد أن منشورات X نص أو صورة فقط ولا تتجاوز 280 حرفًا، أو استخدم التنفيذ اليدوي.'
-        : 'Complete YouTube settings and ensure X posts are text or image only and no longer than 280 characters, or use manual execution.')
+        ? 'أكمل إعدادات YouTube وPinterest، وتأكد أن منشورات X نص أو صورة فقط ولا تتجاوز 280 حرفًا، أو استخدم التنفيذ اليدوي.'
+        : 'Complete YouTube and Pinterest settings and ensure X posts are text or image only and no longer than 280 characters, or use manual execution.')
       return
     }
     setScheduling(true)
@@ -1314,6 +1379,19 @@ export default function ContentHubPage() {
               containsSyntheticMedia: options.syntheticMedia === 'yes',
               notifySubscribers: options.notifySubscribers,
               categoryId: '22',
+            }]),
+          ),
+          pinterestOptionsByPostId: Object.fromEntries(
+            Object.entries(pinterestOptionsByPostId).map(([postId, options]) => [postId, {
+              boardId: options.boardId,
+              title: options.title.trim(),
+              altText: options.altText.trim(),
+              destinationLink: options.destinationLink.trim() || null,
+              aiDisclosureReviewed: options.aiDisclosureReviewed,
+              aiDisclosureValues: [
+                ...(options.aiModified ? ['AI_MODIFIED'] : []),
+                ...(options.syntheticPerformer ? ['SYNTHETIC_PERFORMER'] : []),
+              ],
             }]),
           ),
         }),
@@ -2545,6 +2623,41 @@ export default function ContentHubPage() {
                     </div>
                   )}
 
+                  {approvedAutoTargets.includes('PINTEREST') && (
+                    <div className="space-y-3 rounded-lg border border-rose-100 bg-white p-3">
+                      <div>
+                        <p className="text-[11px] font-black text-slate-800">Pinterest</p>
+                        <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                          {pinterestAccount
+                            ? (isAr ? `الحساب: ${pinterestAccount.accountName || 'Pinterest'} · المستوى: ${pinterestAccount.accessTier || 'TRIAL'}` : `Account: ${pinterestAccount.accountName || 'Pinterest'} · tier: ${pinterestAccount.accessTier || 'TRIAL'}`)
+                            : (isAr ? 'لا يوجد حساب Pinterest متصل.' : 'No Pinterest account is connected.')}
+                        </p>
+                        {pinterestAccount?.accessTier !== 'STANDARD' && <p className="mt-1 rounded-md bg-amber-50 p-2 text-[10px] font-semibold leading-4 text-amber-800">{isAr ? 'يلزم Pinterest Standard access قبل جدولة Pins عامة.' : 'Pinterest Standard access is required before scheduling public Pins.'}</p>}
+                      </div>
+                      {approvedPinterestPosts.map((post, index) => {
+                        const onlyBoardId = pinterestAccount?.boards?.length === 1 ? pinterestAccount.boards[0].id : ''
+                        const options = pinterestOptionsByPostId[post.id] || defaultPinterestScheduleOptions(post, onlyBoardId)
+                        const update = (patch: Partial<PinterestScheduleOptions>) => setPinterestOptionsByPostId(current => ({ ...current, [post.id]: { ...(current[post.id] || defaultPinterestScheduleOptions(post, onlyBoardId)), ...patch } }))
+                        return (
+                          <fieldset key={post.id} className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                            <legend className="px-1 text-[10px] font-black text-slate-700">{isAr ? `Pin ${index + 1}` : `Pin ${index + 1}`}</legend>
+                            {post.isVideoPost && <p className="rounded-md bg-amber-50 p-2 text-[10px] font-semibold text-amber-800">{isAr ? 'هذا فيديو؛ ناشر Pinterest الحالي يقبل صورًا معتمدة فقط.' : 'This is a video; the current Pinterest publisher accepts approved images only.'}</p>}
+                            <label className="block text-[10px] font-bold text-slate-600">{isAr ? 'لوحة النشر' : 'Publishing Board'}<select value={options.boardId} onChange={event => update({ boardId: event.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs"><option value="">{isAr ? 'اختر اللوحة' : 'Select Board'}</option>{(pinterestAccount?.boards || []).map(board => <option key={board.id} value={board.id}>{board.name}</option>)}</select></label>
+                            <label className="block text-[10px] font-bold text-slate-600">{isAr ? 'عنوان Pin' : 'Pin title'}<input value={options.title} maxLength={100} onChange={event => update({ title: event.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs" /></label>
+                            <label className="block text-[10px] font-bold text-slate-600">{isAr ? 'النص البديل' : 'Alt text'}<textarea value={options.altText} maxLength={500} rows={2} onChange={event => update({ altText: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs" /></label>
+                            <label className="block text-[10px] font-bold text-slate-600">{isAr ? 'رابط الوجهة — اختياري' : 'Destination URL — optional'}<input type="url" value={options.destinationLink} placeholder="https://" onChange={event => update({ destinationLink: event.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs" /></label>
+                            <div className="space-y-2 rounded-md border border-slate-200 bg-white p-2 text-[10px] text-slate-600">
+                              <p className="font-black text-slate-700">{isAr ? 'إفصاح الذكاء الاصطناعي' : 'AI disclosure'}</p>
+                              <label className="flex items-start gap-2"><input type="checkbox" checked={options.aiModified} onChange={event => update({ aiModified: event.target.checked })} />{isAr ? 'الصورة الواقعية عُدلت بدرجة كبيرة بالذكاء الاصطناعي' : 'Realistic image was substantially AI-modified'}</label>
+                              <label className="flex items-start gap-2"><input type="checkbox" checked={options.syntheticPerformer} onChange={event => update({ syntheticPerformer: event.target.checked })} />{isAr ? 'تحتوي على مؤدٍ أو شخص اصطناعي' : 'Contains a synthetic performer or person'}</label>
+                              <label className="flex items-start gap-2 font-semibold text-slate-700"><input type="checkbox" checked={options.aiDisclosureReviewed} onChange={event => update({ aiDisclosureReviewed: event.target.checked })} />{isAr ? 'راجعت الإفصاح واخترت القيم الصحيحة.' : 'I reviewed the disclosure and selected the correct values.'}</label>
+                            </div>
+                          </fieldset>
+                        )
+                      })}
+                    </div>
+                  )}
+
                   {approvedAutoTargets.includes('YOUTUBE') && (
                     <div className="space-y-3 rounded-lg border border-red-100 bg-white p-3">
                       <div>
@@ -2626,6 +2739,12 @@ export default function ContentHubPage() {
                       {isAr
                         ? 'واحد أو أكثر من منشورات X يحتوي فيديو أو نصًا فارغًا أو يتجاوز 280 حرفًا. عدّل المنشور أو استخدم التنفيذ اليدوي.'
                         : 'One or more X posts contains video, empty copy, or copy over 280 characters. Edit the post or use manual execution.'}
+                    </p>
+                  )}
+
+                  {pinterestAutoReviewIncomplete && (
+                    <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-5 text-amber-900">
+                      {isAr ? 'أكمل كل إعدادات Pinterest واختر لوحة، وراجع الإفصاح، وتأكد من Standard access وصورة ووصف لا يتجاوز 800 حرف.' : 'Complete every Pinterest setting, select a Board, review the disclosure, and confirm Standard access, an image, and copy no longer than 800 characters.'}
                     </p>
                   )}
                 </div>
@@ -3781,6 +3900,7 @@ function PostCard({
           hasMedia={Boolean(post.imageUrl)}
           isVideoPost={post.isVideoPost}
           captionLength={Array.from(post.caption.trim()).length}
+          caption={post.caption}
           onPublished={onPlatformPublished}
         />
       )}
@@ -4168,6 +4288,7 @@ function GenericMockup({ caption, imageUrl, isVideo, status, platform, isExpande
 }) {
   const { t } = useI18n()
   const cfg = getPlatformConfig(platform)
+  const isPinterest = platform.toUpperCase() === 'PINTEREST'
   const shortCaption = !isExpanded && caption.length > 120 ? caption.slice(0, 120) + '…' : caption
   return (
     <div style={{ background: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
@@ -4184,17 +4305,27 @@ function GenericMockup({ caption, imageUrl, isVideo, status, platform, isExpande
           <button onClick={onExpandToggle} className="text-gray-500 ml-1 text-[11px]">{isExpanded ? 'less' : 'more'}</button>
         )}
       </div>
-      <div className="relative w-full" style={{ aspectRatio: '16/9', background: '#f3f3f3', overflow: 'hidden' }}>
+      <div className="relative w-full" style={{ aspectRatio: isPinterest ? '2/3' : '16/9', maxHeight: isPinterest ? 520 : undefined, background: '#f3f3f3', overflow: 'hidden' }}>
         {imageUrl ? (
-          <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <img src={imageUrl} alt={isPinterest ? caption.slice(0, 500) : ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
           <ImagePlaceholder isVideo={isVideo} status={status} dark={false} />
         )}
       </div>
       <div className="flex items-center gap-4 px-3 py-2 text-[11px] text-gray-500">
-        <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>👍 Like</span>
-        <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>💬 Comment</span>
-        <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>↗ Share</span>
+        {isPinterest ? (
+          <>
+            <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>📌 Save</span>
+            <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>💬 Comment</span>
+            <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>↗ Visit</span>
+          </>
+        ) : (
+          <>
+            <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>👍 Like</span>
+            <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>💬 Comment</span>
+            <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>↗ Share</span>
+          </>
+        )}
       </div>
     </div>
   )

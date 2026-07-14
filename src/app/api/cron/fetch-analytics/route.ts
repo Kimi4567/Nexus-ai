@@ -187,6 +187,42 @@ async function fetchXInsights(platformPostId: string, accessToken: string): Prom
   }
 }
 
+async function fetchPinterestInsights(platformPostId: string, accessToken: string): Promise<RawPlatformMetrics | null> {
+  try {
+    const end = new Date()
+    const start = new Date(end.getTime() - 14 * 24 * 60 * 60 * 1000)
+    const query = new URLSearchParams({
+      start_date: start.toISOString().slice(0, 10),
+      end_date: end.toISOString().slice(0, 10),
+      metric_types: 'IMPRESSION,OUTBOUND_CLICK,PIN_CLICK,SAVE,TOTAL_COMMENTS,TOTAL_REACTIONS',
+      app_types: 'ALL',
+      split_field: 'NO_SPLIT',
+    })
+    const response = await fetch(`https://api.pinterest.com/v5/pins/${encodeURIComponent(platformPostId)}/analytics?${query.toString()}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || !data || typeof data !== 'object') return null
+    const appSummary = data.ALL && typeof data.ALL === 'object'
+      ? data.ALL
+      : Object.values(data).find(value => value && typeof value === 'object' && !Array.isArray(value)) as any
+    const summary = appSummary?.summary_metrics
+    if (!summary || typeof summary !== 'object') return null
+    return {
+      likes: Number(summary.TOTAL_REACTIONS) || 0,
+      comments: Number(summary.TOTAL_COMMENTS) || 0,
+      shares: 0,
+      saves: Number(summary.SAVE) || 0,
+      impressions: Number(summary.IMPRESSION) || 0,
+      reach: 0,
+      clicks: (Number(summary.PIN_CLICK) || 0) + (Number(summary.OUTBOUND_CLICK) || 0),
+    }
+  } catch {
+    return null
+  }
+}
+
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
@@ -218,7 +254,7 @@ export async function GET(req: NextRequest) {
         publishedAt: { gte: newerThan14d, lte: olderThan24h },
         analyticsFetched: false,
         platformPostId: { not: null },
-        platform: { in: ['META', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE'] },
+        platform: { in: ['META', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE', 'PINTEREST'] },
         OR: [{ analyticsUpdatedAt: null }, { analyticsUpdatedAt: { lte: retryBefore } }],
       },
       include: { integration: true },
@@ -257,6 +293,8 @@ export async function GET(req: NextRequest) {
               ? await fetchXInsights(post.platformPostId, token)
             : post.platform === 'YOUTUBE'
               ? await fetchYouTubeInsights(post.platformPostId, token)
+              : post.platform === 'PINTEREST'
+                ? await fetchPinterestInsights(post.platformPostId, token)
               : post.pageId
                 ? await fetchLinkedInInsights(post.platformPostId, post.pageId, token)
                 : null

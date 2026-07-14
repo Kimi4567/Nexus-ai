@@ -15,6 +15,7 @@ export type FluxAspectRatio =
   | '1:1'  // Instagram / Meta feed
   | '9:16' // TikTok / YouTube Shorts
   | '3:2'  // LinkedIn / X landscape
+  | '2:3'  // Pinterest standard Pin
 
 export interface FluxGenerateOptions {
   prompt: string
@@ -40,6 +41,7 @@ export interface FluxGenerateResult {
 export function platformToFluxAspectRatio(platform: string): FluxAspectRatio {
   const p = platform.toUpperCase()
   if (p === 'TIKTOK' || p === 'YOUTUBE' || p === 'YOUTUBE_SHORTS') return '9:16'
+  if (p === 'PINTEREST') return '2:3'
   if (p === 'META' || p === 'INSTAGRAM') return '1:1'
   return '3:2'
 }
@@ -53,7 +55,7 @@ export function platformToFluxAspectRatio(platform: string): FluxAspectRatio {
  */
 export function platformToOpenAISize(platform: string): '1024x1024' | '1024x1536' | '1536x1024' {
   const p = platform.toUpperCase()
-  if (p === 'TIKTOK' || p === 'YOUTUBE' || p === 'YOUTUBE_SHORTS') return '1024x1536'       // portrait short-form
+  if (p === 'TIKTOK' || p === 'YOUTUBE' || p === 'YOUTUBE_SHORTS' || p === 'PINTEREST') return '1024x1536'       // portrait
   if (p === 'META' || p === 'INSTAGRAM') return '1024x1024' // square Content Hub feed
   return '1536x1024'                            // landscape for LinkedIn/Facebook/X/Twitter/default
 }

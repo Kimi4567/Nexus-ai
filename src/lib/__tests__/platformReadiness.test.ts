@@ -40,6 +40,7 @@ describe('derivePlatformReadiness — honesty rules', () => {
     expect(get(s, 'tiktok').status).toBe('not_connected')
     expect(get(s, 'linkedin').status).toBe('not_connected')
     expect(get(s, 'x').status).toBe('not_connected')
+    expect(get(s, 'pinterest').status).toBe('not_connected')
     expect(s.every((x) => x.status !== 'ready')).toBe(true)
   })
 
@@ -129,6 +130,34 @@ describe('derivePlatformReadiness — honesty rules', () => {
     expect(get(noReadback, 'x').status).toBe('permission_unverified')
   })
 
+  it('Pinterest is review-ready only when technical evidence and Standard access are both present', () => {
+    const trial = derivePlatformReadiness([{
+      platform: 'PINTEREST',
+      status: 'CONNECTED',
+      capabilities: {
+        pinterestPinPublishing: true,
+        pinterestReadback: true,
+        pinterestBoardSelection: true,
+        pinterestPublicPublishing: false,
+        tokenRefresh: true,
+      },
+    }])
+    expect(get(trial, 'pinterest').status).toBe('needs_setup')
+
+    const standard = derivePlatformReadiness([{
+      platform: 'PINTEREST',
+      status: 'CONNECTED',
+      capabilities: {
+        pinterestPinPublishing: true,
+        pinterestReadback: true,
+        pinterestBoardSelection: true,
+        pinterestPublicPublishing: true,
+        tokenRefresh: true,
+      },
+    }])
+    expect(get(standard, 'pinterest').status).toBe('ready')
+  })
+
   it('Paid ads without a Meta ad account asks for Meta Ads connection', () => {
     const s = derivePlatformReadiness([metaWithPageAndIg])
     expect(get(s, 'paid').status).toBe('not_connected')
@@ -177,11 +206,11 @@ describe('derivePlatformReadiness — honesty rules', () => {
   it('null/undefined input does not crash', () => {
     expect(() => derivePlatformReadiness(null)).not.toThrow()
     expect(() => derivePlatformReadiness(undefined)).not.toThrow()
-    expect(derivePlatformReadiness(null).length).toBe(10)
+    expect(derivePlatformReadiness(null).length).toBe(11)
   })
 
   it('summarizeForStrip returns organic publishers and Paid in canonical order', () => {
     const s = summarizeForStrip(derivePlatformReadiness([metaWithPageAndIg]))
-    expect(s.map((x) => x.key)).toEqual(['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'youtube', 'paid'])
+    expect(s.map((x) => x.key)).toEqual(['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'youtube', 'pinterest', 'paid'])
   })
 })

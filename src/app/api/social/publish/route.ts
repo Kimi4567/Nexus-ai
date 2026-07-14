@@ -7,10 +7,11 @@ import { hasVerifiedProviderScope, X_CONTENT_SCOPES } from '@/lib/socialPlatform
 import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState'
 import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
 import { YOUTUBE_UPLOAD_SCOPE } from '@/lib/youtubePublishing'
+import { PINTEREST_PUBLISH_SCOPES, parsePinterestPostOptions } from '@/lib/pinterestPublishing'
 
 export const maxDuration = 180
 
-type RequestedPlatform = 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE'
+type RequestedPlatform = 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST'
 
 interface PublishRequest {
   socialPostId?: unknown
@@ -29,11 +30,12 @@ function text(value: unknown, max: number): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : ''
 }
 
-function dbPlatform(platform: RequestedPlatform): 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' {
+function dbPlatform(platform: RequestedPlatform): 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST' {
   if (platform === 'LINKEDIN') return 'LINKEDIN'
   if (platform === 'TIKTOK') return 'TIKTOK'
   if (platform === 'X') return 'X'
   if (platform === 'YOUTUBE') return 'YOUTUBE'
+  if (platform === 'PINTEREST') return 'PINTEREST'
   return 'META'
 }
 
@@ -55,11 +57,14 @@ export async function POST(req: NextRequest) {
     ? body.platformOptions as Record<string, unknown>
     : null
 
-  if (!integrationId || !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE'].includes(platform)) {
+  if (!integrationId || !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE', 'PINTEREST'].includes(platform)) {
     return NextResponse.json({ error: 'Valid integrationId and platform are required' }, { status: 400 })
   }
   if (['FACEBOOK', 'INSTAGRAM'].includes(platform) && !pageId) {
     return NextResponse.json({ error: 'A connected Meta page/account is required' }, { status: 400 })
+  }
+  if (platform === 'PINTEREST' && !pageId) {
+    return NextResponse.json({ error: 'Select an authorized Pinterest Board' }, { status: 400 })
   }
   if (!socialPostId) {
     return NextResponse.json({
@@ -137,6 +142,25 @@ export async function POST(req: NextRequest) {
       code: !existingPost.isVideoPost ? 'YOUTUBE_VIDEO_REQUIRED' : 'YOUTUBE_REVIEW_REQUIRED',
     }, { status: 400 })
   }
+  if (platform === 'PINTEREST') {
+    if (existingPost.isVideoPost) {
+      return NextResponse.json({
+        error: 'Pinterest video publishing is not supported yet. Use an approved image Pin.',
+        code: 'PINTEREST_IMAGE_REQUIRED',
+      }, { status: 400 })
+    }
+    try {
+      const reviewedOptions = parsePinterestPostOptions(platformOptions)
+      if (reviewedOptions.boardId !== pageId) {
+        return NextResponse.json({ error: 'Pinterest Board selection does not match the reviewed destination' }, { status: 409 })
+      }
+    } catch (error) {
+      return NextResponse.json({
+        error: error instanceof Error ? error.message : 'Review the Pinterest publishing settings.',
+        code: 'PINTEREST_REVIEW_REQUIRED',
+      }, { status: 400 })
+    }
+  }
   if (campaignId && existingPost.campaignId && campaignId !== existingPost.campaignId) {
     return NextResponse.json({ error: 'Campaign does not match the approved post' }, { status: 409 })
   }
@@ -178,6 +202,12 @@ export async function POST(req: NextRequest) {
   const config = integration.config && typeof integration.config === 'object' && !Array.isArray(integration.config)
     ? integration.config as Record<string, unknown>
     : {}
+  if (platform === 'PINTEREST' && String(config.accessTier || '').toUpperCase() !== 'STANDARD') {
+    return NextResponse.json({
+      error: 'Pinterest Standard access is required before publishing public Pins.',
+      code: 'PINTEREST_STANDARD_ACCESS_REQUIRED',
+    }, { status: 409 })
+  }
   const requiredScopes = platform === 'FACEBOOK'
     ? ['pages_manage_posts']
     : platform === 'INSTAGRAM'
@@ -188,6 +218,8 @@ export async function POST(req: NextRequest) {
           ? ['video.publish']
           : platform === 'X'
             ? [...X_CONTENT_SCOPES]
+          : platform === 'PINTEREST'
+            ? [...PINTEREST_PUBLISH_SCOPES]
             : [YOUTUBE_UPLOAD_SCOPE]
   const missingScope = requiredScopes.find(scope => !hasVerifiedProviderScope(config, scope))
   if (missingScope) {

@@ -25,6 +25,7 @@ export type PlatformKey =
   | 'linkedin'
   | 'x'
   | 'youtube'
+  | 'pinterest'
   | 'google'
   | 'snapchat'
   | 'whatsapp'
@@ -47,6 +48,7 @@ export type ReadinessAction =
   | 'connect-linkedin'
   | 'connect-x'
   | 'connect-youtube'
+  | 'connect-pinterest'
   | 'open-paid-ads'
   | 'open-connections'
   | 'none'
@@ -71,7 +73,7 @@ export interface PlatformState {
 
 /** Minimal shape of an entry from GET /api/social/accounts (tokens already stripped). */
 export interface SocialAccount {
-  platform?: string | null // 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE'
+  platform?: string | null // 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST'
   status?: string | null    // 'CONNECTED' | ...
   accountName?: string | null
   pages?: Array<{ id?: string | null; name?: string | null; igAccountId?: string | null }> | null
@@ -87,6 +89,10 @@ export interface SocialAccount {
     xReadback?: boolean
     youtubeVideoPublishing?: boolean
     youtubeReadback?: boolean
+    pinterestPinPublishing?: boolean
+    pinterestReadback?: boolean
+    pinterestBoardSelection?: boolean
+    pinterestPublicPublishing?: boolean
     tokenRefresh?: boolean
   } | null
 }
@@ -172,6 +178,7 @@ export function derivePlatformReadiness(
   const linkedin = find(list, 'LINKEDIN')
   const x = find(list, 'X')
   const youtube = find(list, 'YOUTUBE')
+  const pinterest = find(list, 'PINTEREST')
   const metaAdAccount = findActiveAdAccount(adList, 'META')
 
   const out: PlatformState[] = []
@@ -241,6 +248,27 @@ export function derivePlatformReadiness(
     out.push(mk('youtube', 'permission_unverified', `${R}.line.youtubeUnverified`, 'open-connections', `${R}.action.reviewSetup`))
   }
 
+  if (!pinterest) {
+    out.push(mk('pinterest', 'not_connected', `${R}.line.pinterestNotConnected`, 'connect-pinterest', `${R}.action.connectPinterest`))
+  } else if (
+    pinterest.capabilities?.pinterestPinPublishing
+    && pinterest.capabilities?.pinterestReadback
+    && pinterest.capabilities?.pinterestBoardSelection
+    && pinterest.capabilities?.tokenRefresh
+    && pinterest.capabilities?.pinterestPublicPublishing
+  ) {
+    out.push(mk('pinterest', 'ready', `${R}.line.pinterestReady`, 'open-connections', `${R}.action.reviewSetup`))
+  } else if (
+    pinterest.capabilities?.pinterestPinPublishing
+    && pinterest.capabilities?.pinterestReadback
+    && pinterest.capabilities?.pinterestBoardSelection
+    && pinterest.capabilities?.tokenRefresh
+  ) {
+    out.push(mk('pinterest', 'needs_setup', `${R}.line.pinterestTrialOnly`, 'open-connections', `${R}.action.reviewSetup`))
+  } else {
+    out.push(mk('pinterest', 'permission_unverified', `${R}.line.pinterestUnverified`, 'open-connections', `${R}.action.reviewSetup`))
+  }
+
   // Not available yet — no integration code exists; NO connect CTA.
   out.push(mk('google', 'not_available', `${R}.line.googleNotAvailable`, 'none', null))
   out.push(mk('snapchat', 'not_available', `${R}.line.snapchatNotAvailable`, 'none', null))
@@ -265,7 +293,7 @@ export function derivePlatformReadiness(
 
 /** Compact summary for the dashboard strip (subset + short chips). */
 export function summarizeForStrip(states: PlatformState[]): PlatformState[] {
-  const order: PlatformKey[] = ['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'youtube', 'paid']
+  const order: PlatformKey[] = ['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'youtube', 'pinterest', 'paid']
   return order
     .map((k) => states.find((s) => s.key === k))
     .filter((s): s is PlatformState => !!s)

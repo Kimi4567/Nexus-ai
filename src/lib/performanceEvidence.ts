@@ -3,13 +3,14 @@ export const MIN_EVIDENCE_DENOMINATOR = 100
 export const MIN_PLATFORM_COMPARISON_POSTS = 5
 export const MIN_WINNING_POSTS = 3
 
-export type EvidencePlatform = 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE'
+export type EvidencePlatform = 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST'
 export type EvidenceQuality = 'eligible' | 'insufficient_sample'
 
 export interface RawPlatformMetrics {
   likes: number
   comments: number
   shares: number
+  saves?: number
   impressions: number
   reach: number
   clicks?: number
@@ -25,7 +26,7 @@ export interface PerformanceEvidence extends RawPlatformMetrics {
   denominator: number
   engagementCount: number
   engagementRate: number
-  metricDefinition: 'engaged_users_over_reach_or_impressions' | 'clicks_reactions_comments_shares_over_impressions'
+  metricDefinition: 'engaged_users_over_reach_or_impressions' | 'clicks_reactions_comments_shares_saves_over_impressions'
   quality: EvidenceQuality
 }
 
@@ -103,6 +104,7 @@ export function buildPerformanceEvidence(input: {
   const likes = count(input.metrics.likes)
   const comments = count(input.metrics.comments)
   const shares = count(input.metrics.shares)
+  const saves = count(input.metrics.saves)
   const impressions = count(input.metrics.impressions)
   const reach = count(input.metrics.reach)
   const clicks = count(input.metrics.clicks)
@@ -112,7 +114,7 @@ export function buildPerformanceEvidence(input: {
     : (reach > 0 ? reach : impressions)
   const engagementCount = input.platform === 'META' && engagedUsers > 0
     ? engagedUsers
-    : likes + comments + shares + clicks
+    : likes + comments + shares + saves + clicks
   const engagementRate = denominator > 0 ? round((engagementCount / denominator) * 100) : 0
 
   return {
@@ -124,6 +126,7 @@ export function buildPerformanceEvidence(input: {
     likes,
     comments,
     shares,
+    saves,
     impressions,
     reach,
     clicks,
@@ -132,7 +135,7 @@ export function buildPerformanceEvidence(input: {
     engagementRate,
     metricDefinition: input.platform === 'META'
       ? 'engaged_users_over_reach_or_impressions'
-      : 'clicks_reactions_comments_shares_over_impressions',
+      : 'clicks_reactions_comments_shares_saves_over_impressions',
     quality: denominator >= MIN_EVIDENCE_DENOMINATOR ? 'eligible' : 'insufficient_sample',
   }
 }
@@ -142,7 +145,7 @@ export function readPerformanceEvidence(value: unknown): PerformanceEvidence | n
   if (
     data?.schemaVersion !== PERFORMANCE_EVIDENCE_VERSION
     || data.source !== 'platform_api'
-    || !['META', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE'].includes(String(data.platform))
+    || !['META', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE', 'PINTEREST'].includes(String(data.platform))
     || typeof data.platformPostId !== 'string'
     || typeof data.collectedAt !== 'string'
   ) return null
@@ -158,6 +161,7 @@ export function readPerformanceEvidence(value: unknown): PerformanceEvidence | n
       likes: count(data.likes),
       comments: count(data.comments),
       shares: count(data.shares),
+      saves: count(data.saves),
       impressions: count(data.impressions),
       reach: count(data.reach),
       clicks: count(data.clicks),
@@ -304,6 +308,7 @@ const PERFORMANCE_METRIC_KEYS = [
   'likes',
   'comments',
   'shares',
+  'saves',
   'clicks',
   'engagementRate',
   'conversions',
