@@ -152,6 +152,20 @@ export function googleAdsAccountCanExecute(testAccount: boolean): boolean {
   return true
 }
 
+export function googleAdsAccountExecutionBlocker(
+  testAccount: boolean,
+  accountStatus: string,
+): string | null {
+  const normalizedStatus = accountStatus.trim().toUpperCase() || 'UNKNOWN'
+  if (normalizedStatus !== 'ENABLED') {
+    return `Connection verified, but Google Ads reports account status ${normalizedStatus}. Complete or reactivate the Google Ads account before execution.`
+  }
+  if (!googleAdsAccountCanExecute(testAccount)) {
+    return `Connection verified, but GOOGLE_ADS_ACCESS_TIER=${googleAdsAccessTier()} does not authorize this account for execution.`
+  }
+  return null
+}
+
 function googleAdsBaseUrl(): string {
   return `https://googleads.googleapis.com/${googleAdsApiVersion()}`
 }
@@ -360,7 +374,6 @@ export async function discoverGoogleAdsAccounts(accessToken: string): Promise<Go
         const customerId = normalizeGoogleCustomerId(client.id)
         if (!customerId || client.manager === true || client.hidden === true) continue
         const status = typeof client.status === 'string' ? client.status : 'UNKNOWN'
-        if (status !== 'ENABLED') continue
         discovered.set(customerId, {
           customerId,
           descriptiveName: typeof client.descriptiveName === 'string' && client.descriptiveName.trim()
@@ -391,7 +404,8 @@ export async function discoverGoogleAdsAccounts(accessToken: string): Promise<Go
       })
       const customer = asObject(asObject((Array.isArray(direct.results) ? direct.results[0] : null)).customer)
       const customerId = normalizeGoogleCustomerId(customer.id) || seedId
-      if (customer.manager !== true && customer.status === 'ENABLED') {
+      if (customer.manager !== true) {
+        const status = typeof customer.status === 'string' ? customer.status : 'UNKNOWN'
         discovered.set(customerId, {
           customerId,
           descriptiveName: typeof customer.descriptiveName === 'string' && customer.descriptiveName.trim()
@@ -399,7 +413,7 @@ export async function discoverGoogleAdsAccounts(accessToken: string): Promise<Go
             : `Google Ads ${customerId}`,
           currencyCode: typeof customer.currencyCode === 'string' ? customer.currencyCode : 'USD',
           timeZone: typeof customer.timeZone === 'string' ? customer.timeZone : 'UTC',
-          status: 'ENABLED',
+          status,
           testAccount: customer.testAccount === true,
           loginCustomerId: null,
           managerName: null,
@@ -412,7 +426,7 @@ export async function discoverGoogleAdsAccounts(accessToken: string): Promise<Go
 
   if (discovered.size === 0) {
     const suffix = failures[0] ? `: ${failures[0]}` : ''
-    throw new Error(`No enabled non-manager Google Ads account was available${suffix}`)
+    throw new Error(`No non-manager Google Ads account was available${suffix}`)
   }
   return [...discovered.values()]
 }

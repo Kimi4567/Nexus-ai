@@ -6,8 +6,7 @@ import { verifyOAuthState } from '@/lib/oauthState'
 import {
   discoverGoogleAdsAccounts,
   exchangeGoogleAdsAuthorizationCode,
-  googleAdsAccessTier,
-  googleAdsAccountCanExecute,
+  googleAdsAccountExecutionBlocker,
   GoogleAdsOAuthError,
   GOOGLE_ADS_SCOPE,
 } from '@/lib/adPlatforms/googleAdsApi'
@@ -119,7 +118,11 @@ export async function GET(req: NextRequest) {
     const encryptedAccessToken = encryptToken(token.accessToken)
     const encryptedRefreshToken = encryptToken(token.refreshToken)
     for (const account of accounts) {
-      const hasApiAccess = googleAdsAccountCanExecute(account.testAccount)
+      const executionBlocker = googleAdsAccountExecutionBlocker(
+        account.testAccount,
+        account.status,
+      )
+      const hasApiAccess = executionBlocker === null
       await db.adAccount.upsert({
         where: {
           workspaceId_platform_platformAccountId: {
@@ -146,9 +149,7 @@ export async function GET(req: NextRequest) {
           hasApiAccess,
           isVerified: false,
           lastSyncAt: now,
-          lastError: hasApiAccess
-            ? null
-            : `Connection verified, but GOOGLE_ADS_ACCESS_TIER=${googleAdsAccessTier()} does not authorize this account for execution.`,
+          lastError: executionBlocker,
           lastErrorAt: hasApiAccess ? null : now,
         },
         update: {
@@ -165,9 +166,7 @@ export async function GET(req: NextRequest) {
           permissionScopes: scopes,
           hasApiAccess,
           lastSyncAt: now,
-          lastError: hasApiAccess
-            ? null
-            : `Connection verified, but GOOGLE_ADS_ACCESS_TIER=${googleAdsAccessTier()} does not authorize this account for execution.`,
+          lastError: executionBlocker,
           lastErrorAt: hasApiAccess ? null : now,
         },
       })
