@@ -467,7 +467,12 @@ export default function ConnectionsPage() {
       } else {
         setMessage({
           type: 'error',
-          text: data.error || copy('تعذر بدء الربط من NEXUS.', 'NEXUS could not start the connection.'),
+          text: data.code === 'X_OAUTH_NOT_CONFIGURED'
+            ? copy(
+                'ربط X غير متاح الآن لأن إعداد المنصة لم يكتمل. لم يتم تغيير أي بيانات.',
+                'X connection is not available because platform setup is incomplete. No data was changed.',
+              )
+            : data.error || copy('تعذر بدء الربط من NEXUS.', 'NEXUS could not start the connection.'),
         })
         setConnecting(null)
       }

@@ -19,7 +19,10 @@ export async function GET(req: NextRequest) {
     const clientId = process.env.X_CLIENT_ID
     const clientSecret = process.env.X_CLIENT_SECRET
     if (!clientId || !clientSecret) {
-      return NextResponse.json({ error: 'X OAuth is not configured yet' }, { status: 503 })
+      return NextResponse.json({
+        error: 'X OAuth is not configured yet',
+        code: 'X_OAUTH_NOT_CONFIGURED',
+      }, { status: 503 })
     }
 
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')

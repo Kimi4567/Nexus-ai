@@ -72,6 +72,8 @@ describe('GET /api/social/connect/x', () => {
     const response = await GET(new NextRequest('https://preview.nexus.test/api/social/connect/x', {
       headers: { Authorization: 'Bearer session' },
     }))
+    const body = await response.json()
     expect(response.status).toBe(503)
+    expect(body.code).toBe('X_OAUTH_NOT_CONFIGURED')
   })
 })
