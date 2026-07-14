@@ -200,6 +200,39 @@ export default function NewPaidCampaignPage() {
     return session.session?.access_token || ''
   }
 
+  const handlePlatformSelect = (platformValue: string) => {
+    const platform = normalizePaidPlanningPlatform(platformValue)
+    const selectedAccount = selectSinglePaidPlanningAccount(accounts, platform)
+
+    setData(previous => ({
+      ...previous,
+      platform,
+      adAccountId: selectedAccount?.id || '',
+      currency: selectedAccount?.currency || previous.currency,
+      // A manual platform change invalidates the channel-specific AI rationale.
+      aiSuggested: false,
+      aiSuggestionRationale: '',
+    }))
+  }
+
+  // Accounts may arrive after the user chooses a platform. Keep the one-account
+  // path deterministic without overriding an explicit account selection.
+  useEffect(() => {
+    if (!data.platform || data.adAccountId) return
+    const platform = normalizePaidPlanningPlatform(data.platform)
+    const selectedAccount = selectSinglePaidPlanningAccount(accounts, platform)
+    if (!selectedAccount) return
+
+    setData(previous => {
+      if (previous.platform !== platform || previous.adAccountId) return previous
+      return {
+        ...previous,
+        adAccountId: selectedAccount.id,
+        currency: selectedAccount.currency || previous.currency,
+      }
+    })
+  }, [accounts, data.adAccountId, data.platform])
+
   // ── Step handlers ──────────────────────────────────────────────────────
 
   const handleStep2 = async () => {
@@ -427,7 +460,7 @@ export default function NewPaidCampaignPage() {
                 <button
                   type="button"
                   key={p.id}
-                  onClick={() => setData(previous => ({ ...previous, platform: p.id, adAccountId: '' }))}
+                  onClick={() => handlePlatformSelect(p.id)}
                   aria-pressed={data.platform === p.id}
                   className="relative flex flex-col items-start gap-1.5 p-4 rounded-[14px] text-left transition-all"
                   style={{
