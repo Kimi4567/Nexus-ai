@@ -90,6 +90,10 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
     reason: 'unsupported_fake_product_visual',
     re: /(?:يظهر\s+على\s+الشاشة\s+واجهة|واجهة\s+(?:إعداد|نظام|منصة|تطبيق|المستخدم)|لوحة\s+تحكم|شاشة\s+(?:تعرض|توضح)|تطبيق\s+\S+\s+(?:على|في)\s+(?:هاتف|جهاز|شاشة)|(?:app|software|product)\s+(?:interface|dashboard|screen)|dashboard\s+(?:showing|displaying)|screen\s+(?:showing|displaying))/i,
   },
+  {
+    reason: 'unsupported_fake_product_visual',
+    re: /\b(?:with|featuring|showing|displaying)\s+(?:the\s+)?[^.?!]{0,60}\blogo\b|\bhappy customer\b/i,
+  },
 ]
 
 function normalizeText(value: unknown): string {
@@ -126,34 +130,74 @@ function stringifyContextValue(value: unknown): string {
   return ''
 }
 
-function renderGroundedCoffeeCaption(
+type WeakCoffeeDraftKind = 'freshness' | 'subscription' | 'education'
+
+function classifyWeakCoffeeDraft(
   source: string,
   ctx: ContentPlanRenderContext,
-): string | null {
+): WeakCoffeeDraftKind | null {
   const facts = stringifyContextValue(ctx.brandFacts ?? [])
   if (!/\b(?:coffee|beans?|roast(?:ed|ing)?)\b|قهوة|حبوب|تحميص/i.test(facts)) return null
 
-  const brand = ctx.brand.trim() || 'the brand'
-  const tag = brandHashtag(brand)
   const weakFreshness = /discover the secret|say goodbye to stale|as fresh as it gets|richer taste|keep (?:our|the) coffee fresh|taste the difference/i.test(source)
   const weakSubscription = /coffee runs|(?:right |straight |directly )?to your (?:door|home)|hassle[-\s]?free|easy it is to subscribe|coffee needs taken care of|we(?:'|’)ve got you covered/i.test(source)
   const weakEducation = /master the art|unlock the full potential|expert(?:\s+brewing)? tips|our (?:brewing )?tutorials|watch our (?:brewing )?tips|elevate your|transform your.*coffee/i.test(source)
 
-  if (weakEducation) {
+  if (weakEducation) return 'education'
+  if (weakSubscription) return 'subscription'
+  if (weakFreshness) return 'freshness'
+  return null
+}
+
+function renderGroundedCoffeeCaption(
+  source: string,
+  ctx: ContentPlanRenderContext,
+): string | null {
+  const kind = classifyWeakCoffeeDraft(source, ctx)
+  if (!kind) return null
+
+  const facts = stringifyContextValue(ctx.brandFacts ?? [])
+  const brand = ctx.brand.trim() || 'the brand'
+  const tag = brandHashtag(brand)
+
+  if (kind === 'education') {
     return `Refine your home-brewing routine one variable at a time. Match grind size to the brewing method; record dose, water, temperature, and brew time; then change one variable on the next cup. Save this checklist for your next brew. #HomeBrewing #CoffeeGuide ${tag}`
   }
 
-  if (weakSubscription) {
+  if (kind === 'subscription') {
     return `Before choosing a coffee subscription from ${brand}, compare the available coffee options, delivery frequency, supported zones, pause or cancellation terms, and total price. Save these five checks for later. #CoffeeSubscription #CoffeeChecklist ${tag}`
   }
 
-  if (weakFreshness) {
+  if (kind === 'freshness') {
     const verifiedWeeklyRoast = /\b(?:weekly roast(?:ing)?|roast(?:ed|s)? weekly)\b|تحميص أسبوعي|تُحمص أسبوعيًا|محمصة أسبوعيًا/i.test(facts)
     const weeklyFact = verifiedWeeklyRoast ? ` ${brand} states that its beans are roasted weekly.` : ''
     return `Roast date and origin details matter when comparing coffee for home brewing.${weeklyFact} Review the published product details before choosing a bag or delivery option. Save this checklist: roast date, origin, grind format, and supported delivery zone. #CoffeeGuide #RoastDate ${tag}`
   }
 
   return null
+}
+
+function renderGroundedCoffeeImagePrompt(
+  source: string,
+  ctx: ContentPlanRenderContext,
+): string | null {
+  const kind = classifyWeakCoffeeDraft(source, ctx)
+  if (!kind) return null
+
+  const format = platformLabel(ctx.platform) === 'LinkedIn'
+    ? 'wide horizontal 1.91:1 composition'
+    : platformLabel(ctx.platform) === 'YouTube Shorts'
+      ? 'vertical 9:16 composition'
+      : 'vertical 4:5 composition'
+  const safety = 'No readable text, no logos, no brand marks, no branded packaging, no invented facility, no customer testimonial cue, no performance claim.'
+
+  if (kind === 'education') {
+    return `${format}; overhead home-brewing setup with a grinder, scale, kettle, dripper, notebook, and a neutral blank checklist. ${safety} No expert endorsement. Realistic editorial photography with generous negative space.`
+  }
+  if (kind === 'subscription') {
+    return `${format}; flat lay of unbranded coffee bags, calendar cards, neutral delivery-zone map shapes, and a blank comparison checklist. ${safety} No delivery uniform or satisfaction pose. Realistic editorial photography with generous negative space.`
+  }
+  return `${format}; roasted coffee beans beside a blank roast-date card, neutral origin-map shapes, a grinder, and an unbranded bag on a home-brewing table. ${safety} Realistic editorial photography with generous negative space.`
 }
 
 export function isClinicOperationalSaasContent(ctx: ContentPlanRenderContext, _gen: GeneratedContentPlanPostLike = {}): boolean {
@@ -353,6 +397,10 @@ export function renderContentPlanDraftImagePrompt(
   gen: GeneratedContentPlanPostLike,
   ctx: ContentPlanRenderContext,
 ): string {
+  const source = normalizeText(gen.caption) || normalizeText(gen.videoCaption) || normalizeText(gen.text)
+  const groundedCoffeePrompt = renderGroundedCoffeeImagePrompt(source, ctx)
+  if (groundedCoffeePrompt) return guardContentDraftText(groundedCoffeePrompt, ctx)
+
   if (isClinicOperationalSaasContent(ctx, gen)) {
     return guardContentDraftText(renderClinicImagePrompt(ctx, gen), ctx)
   }
