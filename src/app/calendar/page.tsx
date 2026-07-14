@@ -71,7 +71,7 @@ const PLATFORM_COLORS: Record<string, string> = {
   Facebook:  '#1877f2',
   LinkedIn:  '#0a66c2',
   TikTok:    '#010101',
-  Twitter:   '#1da1f2',
+  X:         '#111827',
   YouTube:   '#ff0000',
   Pinterest: '#e60023',
   Snapchat:  '#fffc00',
@@ -81,7 +81,7 @@ const PLATFORM_COLORS: Record<string, string> = {
   LINKEDIN:  '#0A66C2',
   TIKTOK:    '#69C9D0',
   YOUTUBE:   '#FF0000',
-  TWITTER:   '#1DA1F2',
+  TWITTER:   '#111827',
 }
 
 const PLATFORM_ICONS_CAL: Record<string, string> = {
@@ -89,7 +89,7 @@ const PLATFORM_ICONS_CAL: Record<string, string> = {
   Facebook:  '👥',
   LinkedIn:  '💼',
   TikTok:    '🎵',
-  Twitter:   '🐦',
+  X:         '𝕏',
   YouTube:   '▶️',
   Pinterest: '📌',
   Snapchat:  '👻',
@@ -103,6 +103,7 @@ const PLATFORM_ICONS_SCH: Record<string, string> = {
   TIKTOK:    '🎵',
   SNAPCHAT:  '👻',
   YOUTUBE:   '▶️',
+  X:         '𝕏',
   TWITTER:   '𝕏',
 }
 
@@ -270,7 +271,7 @@ function normaliseplatform(raw: string | undefined): string {
   if (!raw) return 'Instagram'
   const map: Record<string, string> = {
     instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn',
-    tiktok: 'TikTok', twitter: 'Twitter', youtube: 'YouTube',
+    tiktok: 'TikTok', twitter: 'X', x: 'X', youtube: 'YouTube',
     youtube_shorts: 'YouTube', snapchat: 'Snapchat', pinterest: 'Pinterest',
     general: 'Instagram',
   }
@@ -281,7 +282,7 @@ function normalisePlatformQueue(raw: string | undefined): string {
   if (!raw) return 'Instagram'
   const map: Record<string, string> = {
     FACEBOOK: 'Facebook', INSTAGRAM: 'Instagram', LINKEDIN: 'LinkedIn',
-    TIKTOK: 'TikTok', TWITTER: 'Twitter', YOUTUBE: 'YouTube',
+    TIKTOK: 'TikTok', X: 'X', TWITTER: 'X', YOUTUBE: 'YouTube',
     META: 'Facebook', SNAPCHAT: 'Snapchat',
   }
   return map[raw.toUpperCase()] || normaliseplatform(raw)

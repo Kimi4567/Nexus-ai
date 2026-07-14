@@ -489,7 +489,7 @@ Return a JSON array of exactly ${slots.length} post objects:
 ]
 
 Rules:
-- caption: platform-appropriate length (Instagram ≤ 2200 chars, Twitter/X ≤ 280 chars, LinkedIn ≤ 1300 chars, Facebook ≤ 500 chars)
+- caption: platform-appropriate length (Instagram ≤ 2200 chars, X ≤ 280 chars, LinkedIn ≤ 1300 chars, Facebook ≤ 500 chars)
 - assignedMediaIndex: 0-based index into the AVAILABLE MEDIA ASSETS list above. Set to -1 if no media is available or none fits this post.
 - imagePrompt: only needed when assignedMediaIndex is -1. Vivid, specific, brand-consistent visual description. No text overlays.
 - If media assets are provided, assign each asset to EXACTLY ONE post (no reuse). Leave all other posts with assignedMediaIndex: -1 so they get AI-generated images.
