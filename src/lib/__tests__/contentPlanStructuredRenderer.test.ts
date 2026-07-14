@@ -266,6 +266,16 @@ describe('contentPlanStructuredRenderer', () => {
     const rendered = observed.map((caption, postIndex) =>
       renderContentPlanDraftCaption({ caption }, { ...context, postIndex }),
     )
+    const prompts = observed.map((caption, postIndex) =>
+      renderContentPlanDraftImagePrompt({
+        caption,
+        imagePrompt: postIndex === 0
+          ? 'Fresh coffee beans inside a modern branded roastery in Dubai.'
+          : postIndex === 1
+            ? 'A package with the NEXUS E2E Coffee logo and a happy customer receiving delivery.'
+            : 'An expert barista demonstrating a branded tutorial.',
+      }, { ...context, postIndex }),
+    )
 
     expect(rendered[0]).toContain('Roast date and origin details matter')
     expect(rendered[0]).toContain('beans are roasted weekly')
@@ -275,6 +285,21 @@ describe('contentPlanStructuredRenderer', () => {
     expect(rendered[2]).toContain('Save this checklist for your next brew')
     expect(rendered.join('\n')).not.toMatch(/richer taste|keep our coffee fresh|straight to your door|hassle-free|expert brewing tips|our tutorials|better cup of coffee/i)
     expect(rendered.every(caption => validateContentPlanDraftForSave({ caption }).ok)).toBe(true)
+    expect(prompts[0]).toContain('blank roast-date card')
+    expect(prompts[1]).toContain('blank comparison checklist')
+    expect(prompts[2]).toContain('overhead home-brewing setup')
+    expect(prompts.join('\n')).toContain('no logos')
+    expect(prompts.join('\n')).not.toMatch(/NEXUS E2E Coffee logo|happy customer|branded roastery|expert barista/i)
+    expect(prompts.every(imagePrompt => validateContentPlanDraftForSave({ imagePrompt }).ok)).toBe(true)
+  })
+
+  it('blocks positive logo and customer-satisfaction image prompts before save', () => {
+    const result = validateContentPlanDraftForSave({
+      imagePrompt: 'A package with the NEXUS E2E Coffee logo and a happy customer receiving delivery.',
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.issues.map(issue => issue.reason)).toContain('unsupported_fake_product_visual')
   })
 
   it('renders explicit customer-workflow SaaS facts with safe captions and neutral visuals', () => {
