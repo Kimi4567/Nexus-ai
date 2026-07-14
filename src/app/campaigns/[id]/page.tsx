@@ -3070,6 +3070,11 @@ function CampaignDetailPageInner() {
                         >
                           {uiText('اقرأ وثيقة الاستراتيجية', 'Read strategy document')}
                         </button>
+                        {sentinelError && sentinelState === 'idle' && (
+                          <p role="alert" className="max-w-sm rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-700">
+                            {sentinelError}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
