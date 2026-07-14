@@ -5,14 +5,16 @@
  *
  * Printable team briefing document. Includes full strategic context,
  * 4-week execution plan, content bank, checklist, risk notes,
- * and next best action. Auto-triggers print on load.
+ * and next best action. Printing is always an explicit user action.
  *
  * Sprint E — Campaign Execution Pipeline
  */
 
-import { useEffect, useState, useRef, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useEffect, useState, useCallback } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n-context'
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 
 interface Campaign {
   id: string
@@ -32,35 +34,51 @@ const PLATFORM_LABELS: Record<string, string> = {
 
 export default function ExecutionPackagePage() {
   const params = useParams()
+  const router = useRouter()
   const campaignId = params?.id as string
   const { isAuthenticated, loading, authHeader } = useAuth()
+  const { locale } = useI18n()
+  const ar = locale === 'ar'
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [fetching, setFetching] = useState(true)
-  const printTriggered = useRef(false)
+  const [loadError, setLoadError] = useState(false)
 
   const fetchCampaign = useCallback(async () => {
     const token = authHeader()
-    if (!token) return
+    if (!token) {
+      setFetching(false)
+      setLoadError(true)
+      return
+    }
+    setFetching(true)
+    setLoadError(false)
     try {
-      const res = await fetch(`/api/campaigns/${campaignId}`, { headers: { Authorization: token } })
+      const res = await fetchWithTimeout(`/api/campaigns/${campaignId}`, { headers: { Authorization: token } })
+      if (res.status === 404) {
+        setCampaign(null)
+        return
+      }
+      if (!res.ok) throw new Error('campaign-load-failed')
       const d = await res.json()
       if (d.campaign) setCampaign(d.campaign)
-    } catch {}
+    } catch {
+      setCampaign(null)
+      setLoadError(true)
+    } finally {
+      setFetching(false)
+    }
   }, [campaignId, authHeader])
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) return
-    if (!isAuthenticated) return
-    fetchCampaign().finally(() => setFetching(false))
-  }, [loading, isAuthenticated, fetchCampaign])
-
-  // Auto-print once loaded
-  useEffect(() => {
-    if (!fetching && campaign && !printTriggered.current) {
-      printTriggered.current = true
-      setTimeout(() => window.print(), 600)
+    if (!loading && !isAuthenticated) {
+      router.replace('/auth/login')
+      return
     }
-  }, [fetching, campaign])
+    if (!isAuthenticated) return
+    void fetchCampaign()
+  }, [loading, isAuthenticated, fetchCampaign, router])
+
+  if (!loading && !isAuthenticated) return null
 
   if (loading || fetching) {
     return (
@@ -68,7 +86,20 @@ export default function ExecutionPackagePage() {
         <div style={{ textAlign: 'center' }}>
           <div style={{ width: 24, height: 24, border: '2px solid #ddd', borderTopColor: '#FF9500', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
           <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-          <p style={{ color: '#999', fontSize: 14 }}>Preparing your execution package...</p>
+          <p style={{ color: '#999', fontSize: 14 }}>{ar ? 'جارٍ تجهيز حزمة التنفيذ...' : 'Preparing your execution package...'}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#fff', padding: 24 }}>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ color: '#334155', fontWeight: 700 }}>{ar ? 'تعذّر تحميل حزمة التنفيذ.' : 'Could not load the execution package.'}</p>
+          <button type="button" onClick={() => void fetchCampaign()} style={{ marginTop: 12, borderRadius: 10, background: '#101A4D', color: '#fff', padding: '10px 16px', border: 0, cursor: 'pointer' }}>
+            {ar ? 'إعادة المحاولة' : 'Retry'}
+          </button>
         </div>
       </div>
     )
@@ -77,7 +108,7 @@ export default function ExecutionPackagePage() {
   if (!campaign) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#fff' }}>
-        <p style={{ color: '#999' }}>Campaign not found.</p>
+        <p style={{ color: '#999' }}>{ar ? 'الحملة غير موجودة.' : 'Campaign not found.'}</p>
       </div>
     )
   }
@@ -109,7 +140,7 @@ export default function ExecutionPackagePage() {
   const successMetricsDetailed: any[] = strategy.successMetricsDetailed || []
   const contentAnglesDetailed: any[] = strategy.contentAnglesDetailed || []
 
-  const date = new Date(campaign.createdAt).toLocaleDateString('en-US', {
+  const date = new Date(campaign.createdAt).toLocaleDateString(ar ? 'ar-EG' : 'en-US', {
     year: 'numeric', month: 'long', day: 'numeric',
   })
 
@@ -290,7 +321,7 @@ export default function ExecutionPackagePage() {
         .print-btn:hover { background: #FFB340; }
       `}</style>
 
-      <button className="print-btn no-print" onClick={() => window.print()}>⬇ Save as PDF</button>
+      <button className="print-btn no-print" onClick={() => window.print()}>{ar ? '⬇ حفظ كملف PDF' : '⬇ Save as PDF'}</button>
 
       <div className="doc">
 

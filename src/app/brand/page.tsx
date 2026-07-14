@@ -521,12 +521,36 @@ function BrandSummaryCard({
 }
 
 /* ── Main Page ────────────────────────────────────────────────── */
+function BrandRouteLoading({ preparing = false }: { preparing?: boolean }) {
+  const { locale } = useI18n()
+  const ar = locale === 'ar'
+
+  return (
+    <AppShell>
+      <div className="min-h-screen bg-[var(--nx-bg)] px-4 py-5 sm:px-6">
+        <div className="mx-auto max-w-[1540px]">
+          <LuxuryWorkspaceHeader
+            pageTitle="Brand Brain"
+            pageSubtitle={ar ? 'مرجع واحد معتمد لكل ما سينتجه NEXUS لعلامتك.' : 'One approved source of truth for everything NEXUS creates for your brand.'}
+            primaryHref={null}
+            secondaryHref={null}
+          />
+          <LoadingState
+            label={preparing ? (ar ? 'جارٍ تجهيز التفاصيل' : 'Preparing details') : (ar ? 'جارٍ تحميل Brand Brain' : 'Loading Brand Brain')}
+            description={preparing ? (ar ? 'نفتح ملف ذاكرة علامتك المحفوظ.' : 'Opening your saved marketing memory file.') : (ar ? 'نجهّز ملف ذاكرة علامتك التسويقية.' : 'Preparing your marketing memory file.')}
+          />
+        </div>
+      </div>
+    </AppShell>
+  )
+}
+
 // Suspense wrapper is required because useSearchParams() is used inside.
 // Without it Next.js 14 throws missing-suspense-with-csr-bailout during SSR,
 // which triggers the error boundary and shows "Brand Brain Error".
 export default function BrandBrainPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<BrandRouteLoading />}>
       <BrandBrainInner />
     </Suspense>
   )
@@ -1126,43 +1150,39 @@ function BrandBrainInner() {
     form.businessGoal?.trim()
   )
 
-  if (authLoading || loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--nx-bg)] px-6">
-      <LoadingState
-        label={locale === 'ar' ? 'جارٍ تحميل Brand Brain' : 'Loading Brand Brain'}
-        description={locale === 'ar' ? 'نجهّز ملف ذاكرة علامتك التسويقية.' : 'Preparing your marketing memory file.'}
-      />
-    </div>
-  )
+  if (authLoading || loading) return <BrandRouteLoading />
   // PR-1D: a transient /api/brand fetch failure must NOT render as "0/100 Needs Data".
   // Show an honest error + Retry instead. The real empty-account state is preserved
   // only when the fetch succeeded (no error) and the account is genuinely empty.
   if (error && !brand) return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--nx-bg)] px-6">
-      <ErrorState
-        title={locale === 'ar' ? 'تعذّر تحميل Brand Brain' : 'Could not load Brand Brain'}
-        description={locale === 'ar'
-          ? 'تحقّق من اتصالك وحاول مرة أخرى.'
-          : 'Check your connection and try again.'}
-        retryAction={(
-          <button onClick={() => refetch()}
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
-            style={{ background: '#111827' }}>
-            {locale === 'ar' ? 'إعادة المحاولة' : 'Retry'}
-          </button>
-        )}
-      />
-    </div>
+    <AppShell>
+      <div className="min-h-screen bg-[var(--nx-bg)] px-4 py-5 sm:px-6">
+        <div className="mx-auto max-w-[1540px]">
+          <LuxuryWorkspaceHeader
+            pageTitle="Brand Brain"
+            pageSubtitle={locale === 'ar' ? 'مرجع واحد معتمد لكل ما سينتجه NEXUS لعلامتك.' : 'One approved source of truth for everything NEXUS creates for your brand.'}
+            primaryHref={null}
+            secondaryHref={null}
+          />
+          <ErrorState
+            title={locale === 'ar' ? 'تعذّر تحميل Brand Brain' : 'Could not load Brand Brain'}
+            description={locale === 'ar'
+              ? 'تحقّق من اتصالك وحاول مرة أخرى.'
+              : 'Check your connection and try again.'}
+            retryAction={(
+              <button type="button" onClick={() => refetch()}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
+                style={{ background: '#111827' }}>
+                {locale === 'ar' ? 'إعادة المحاولة' : 'Retry'}
+              </button>
+            )}
+          />
+        </div>
+      </div>
+    </AppShell>
   )
   // Avoid a one-frame flash of the empty form between load-complete and hydration.
-  if (brand && !hydrated) return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--nx-bg)] px-6">
-      <LoadingState
-        label={locale === 'ar' ? 'جارٍ تجهيز التفاصيل' : 'Preparing details'}
-        description={locale === 'ar' ? 'نفتح ملف ذاكرة علامتك المحفوظ.' : 'Opening your saved marketing memory file.'}
-      />
-    </div>
-  )
+  if (brand && !hydrated) return <BrandRouteLoading preparing />
   if (!isAuthenticated) return null
 
   return (

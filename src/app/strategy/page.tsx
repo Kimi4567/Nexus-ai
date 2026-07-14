@@ -31,9 +31,12 @@ import { selectStrategyWorkbenchCampaign } from '@/lib/strategy/strategyWorkbenc
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
 import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import RunFullStrategyModal from '@/components/RunFullStrategyModal'
+import { ErrorState } from '@/components/ui/ErrorState'
+import { LoadingState } from '@/components/ui/LoadingState'
 import {
   AlertTriangle, ArrowRight, BarChart3, Brain, CalendarDays,
   CheckCircle2, ClipboardList, Diamond,
@@ -216,6 +219,7 @@ export default function StrategyPage() {
   const ar = locale === 'ar'
 
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [brandStatus, setBrandStatus] = useState<BrandReadinessStatus | null>(null)
   const [brandName, setBrandName] = useState<string>('')
   // PX-2B.1 — capability-specific readiness reuses the SAME brand profile already
@@ -228,27 +232,43 @@ export default function StrategyPage() {
 
   const load = useCallback(async () => {
     if (!isAuthenticated) return
+    setLoading(true)
+    setLoadError(null)
     try {
-      const [cRes, bRes] = await Promise.all([
-        fetch('/api/campaigns?limit=20&sort=updatedAt', { headers: { Authorization: authHeader() } }),
-        fetch('/api/brand', { headers: { Authorization: authHeader() } }),
+      const authorization = authHeader()
+      const [campaignResult, brandResult] = await Promise.allSettled([
+        fetchWithTimeout('/api/campaigns?limit=20&sort=updatedAt', { headers: { Authorization: authorization } }, 8_000),
+        fetchWithTimeout('/api/brand', { headers: { Authorization: authorization } }, 8_000),
       ])
-      if (cRes.ok) {
-        const d = await cRes.json()
+
+      if (campaignResult.status !== 'fulfilled' || !campaignResult.value.ok
+        || brandResult.status !== 'fulfilled' || !brandResult.value.ok) {
+        throw new Error(ar ? 'تعذّر تحميل مصدر الحقيقة للحملات وBrand Brain.' : 'Could not load campaigns and Brand Brain source data.')
+      }
+
+      const [campaignData, brandData] = await Promise.all([
+        campaignResult.value.json(),
+        brandResult.value.json(),
+      ])
+
+      if (campaignData) {
+        const d = campaignData
         setCampaigns(Array.isArray(d.campaigns) ? d.campaigns : [])
       }
-      if (bRes.ok) {
-        const d = await bRes.json()
+      if (brandData) {
+        const d = brandData
         setBrandStatus(d.maturity?.status ?? null)
         setBrandName(d.brandProfile?.brandName ?? '')
         setBrandProfile(d.brandProfile ?? null)
       }
-    } catch {
-      /* non-fatal — render honest empty states */
+    } catch (error) {
+      setLoadError(error instanceof Error
+        ? error.message
+        : (ar ? 'تعذّر تحميل مساحة الاستراتيجية.' : 'Could not load the strategy workspace.'))
     } finally {
       setLoading(false)
     }
-  }, [authHeader, isAuthenticated])
+  }, [ar, authHeader, isAuthenticated])
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) load()
@@ -741,8 +761,49 @@ export default function StrategyPage() {
   if (authLoading || loading) {
     return (
       <AppShell>
-        <div className="flex items-center justify-center py-24">
-          <Loader2 className="w-7 h-7 animate-spin" style={{ color: '#8B5CF6' }} />
+        <div className="min-h-screen bg-[#F8FAFF]">
+          <div className="mx-auto max-w-[1580px] px-3 py-5 sm:px-5 lg:px-7">
+            <LuxuryWorkspaceHeader
+              pageTitle={ar ? 'الاستراتيجية' : 'Strategy'}
+              pageSubtitle={ar ? 'نربط Brand Brain بالحملات قبل عرض أي توصية.' : 'Connecting Brand Brain to campaigns before showing recommendations.'}
+              primaryHref={null}
+              secondaryHref={null}
+            />
+            <LoadingState
+              label={ar ? 'جارٍ تجهيز مساحة الاستراتيجية' : 'Preparing strategy workspace'}
+              description={ar ? 'لن نفترض استراتيجية أو نتائج أثناء التحميل.' : 'No strategy or results are assumed while this loads.'}
+            />
+          </div>
+        </div>
+      </AppShell>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <AppShell>
+        <div className="min-h-screen bg-[#F8FAFF]">
+          <div className="mx-auto max-w-[1580px] px-3 py-5 sm:px-5 lg:px-7">
+            <LuxuryWorkspaceHeader
+              pageTitle={ar ? 'الاستراتيجية' : 'Strategy'}
+              pageSubtitle={ar ? 'تعذّر التحقق من Brand Brain والحملات.' : 'Brand Brain and campaign data could not be verified.'}
+              primaryHref={null}
+              secondaryHref={null}
+            />
+            <ErrorState
+              title={ar ? 'تعذّر فتح مساحة الاستراتيجية' : 'Could not open strategy workspace'}
+              description={loadError}
+              retryAction={(
+                <button
+                  type="button"
+                  onClick={() => void load()}
+                  className="rounded-xl bg-[#101A4D] px-4 py-2 text-sm font-bold text-white"
+                >
+                  {ar ? 'إعادة المحاولة' : 'Retry'}
+                </button>
+              )}
+            />
+          </div>
         </div>
       </AppShell>
     )

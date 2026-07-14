@@ -4,6 +4,7 @@ import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 import { getBrandBrainReadiness, type BrandReadinessResult } from '@/lib/brandReadiness'
 import { type PublishingState } from '@/lib/operatingBriefStatus'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
@@ -179,13 +180,15 @@ function DashboardGateSurface({
   mode,
   ar,
   onRetry,
+  framed = false,
 }: {
   mode: 'loading' | 'error'
   ar: boolean
   onRetry?: () => void
+  framed?: boolean
 }) {
-  return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#F4F7FB', color: '#0B1028' }}>
+  const surface = (
+    <div className="flex min-h-[55vh] items-center justify-center px-4" style={{ background: '#F4F7FB', color: '#0B1028' }}>
       <div
         className="w-full max-w-sm text-center rounded-[26px] bg-white px-6 py-8"
         style={{ border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 22px 70px rgba(15,23,42,0.10)' }}
@@ -217,6 +220,24 @@ function DashboardGateSurface({
         )}
       </div>
     </div>
+  )
+
+  if (!framed) return surface
+
+  return (
+    <AppShell>
+      <div className="nx-os-page">
+        <div className="nx-os-container nx-os-stack">
+          <LuxuryWorkspaceHeader
+            pageTitle={ar ? 'اليوم' : 'Today'}
+            pageSubtitle={ar ? 'نجهّز قرارات مساحة العمل دون إخفاء حالة النظام.' : 'Preparing workspace decisions without hiding system status.'}
+            primaryHref={null}
+            secondaryHref={null}
+          />
+          {surface}
+        </div>
+      </div>
+    </AppShell>
   )
 }
 
@@ -316,17 +337,6 @@ function EmptyOrImage({ thumbnail, label }: { thumbnail?: string; label: string 
   )
 }
 
-async function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = 12_000) {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), timeoutMs)
-
-  try {
-    return await fetch(url, { ...init, signal: controller.signal })
-  } finally {
-    clearTimeout(timeout)
-  }
-}
-
 export default function DashboardPage() {
   const { authHeader, isAuthenticated, loading: authLoading } = useAuth()
   const { locale } = useI18n()
@@ -365,7 +375,7 @@ export default function DashboardPage() {
     let cancelled = false
     setWorkspaceGate('checking')
 
-    fetchWithTimeout('/api/workspaces', { headers: { Authorization: token } }, 10_000)
+    fetchWithTimeout('/api/workspaces', { headers: { Authorization: token } }, 6_000)
       .then(r => {
         if (!r.ok) throw new Error('workspace-check-failed')
         return r.json()
@@ -399,11 +409,11 @@ export default function DashboardPage() {
     }
     try {
       const [statsRes, campaignsRes, intelligenceRes, brandRes, connectionsRes] = await Promise.allSettled([
-        fetchWithTimeout('/api/dashboard/stats', { headers: { Authorization: token } }),
-        fetchWithTimeout('/api/campaigns?limit=5&sort=updatedAt', { headers: { Authorization: token } }),
-        fetchWithTimeout('/api/dashboard/intelligence', { headers: { Authorization: token } }),
-        fetchWithTimeout('/api/brand', { headers: { Authorization: token } }),
-        fetchWithTimeout('/api/social/accounts', { headers: { Authorization: token } }),
+        fetchWithTimeout('/api/dashboard/stats', { headers: { Authorization: token } }, 9_000),
+        fetchWithTimeout('/api/campaigns?limit=5&sort=updatedAt', { headers: { Authorization: token } }, 9_000),
+        fetchWithTimeout('/api/dashboard/intelligence', { headers: { Authorization: token } }, 9_000),
+        fetchWithTimeout('/api/brand', { headers: { Authorization: token } }, 9_000),
+        fetchWithTimeout('/api/social/accounts', { headers: { Authorization: token } }, 9_000),
       ])
 
       const statsReady = statsRes.status === 'fulfilled' && statsRes.value.ok
@@ -555,21 +565,21 @@ export default function DashboardPage() {
   }, [ar, brandName, campaignCount, contentCount, platformConnected, publishedCount, topCampaign])
 
   if (authLoading || workspaceGate === 'checking' || workspaceGate === 'noWorkspace') {
-    return <DashboardGateSurface mode="loading" ar={ar} />
+    return <DashboardGateSurface mode="loading" ar={ar} framed={!authLoading && isAuthenticated} />
   }
 
   if (workspaceGate === 'error') {
-    return <DashboardGateSurface mode="error" ar={ar} onRetry={() => setWorkspaceGateRetry(v => v + 1)} />
+    return <DashboardGateSurface mode="error" ar={ar} framed={isAuthenticated} onRetry={() => setWorkspaceGateRetry(v => v + 1)} />
   }
 
   if (!isAuthenticated) return null
 
   if (loading) {
-    return <DashboardGateSurface mode="loading" ar={ar} />
+    return <DashboardGateSurface mode="loading" ar={ar} framed />
   }
 
   if (loadError) {
-    return <DashboardGateSurface mode="error" ar={ar} onRetry={() => load()} />
+    return <DashboardGateSurface mode="error" ar={ar} framed onRetry={() => load()} />
   }
 
   return (
