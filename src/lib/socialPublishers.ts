@@ -3,8 +3,9 @@ import { initializeTikTokVideoPost, type TikTokPostOptions } from './tiktokPubli
 import { parseYouTubePostOptions, uploadYouTubeVideo } from './youtubePublishing'
 import { createXPost } from './xPublishing'
 import { createPinterestPin } from './pinterestPublishing'
+import { createThreadsPost } from './threadsPublishing'
 
-export type PublishPlatform = 'META' | 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | 'X' | 'PINTEREST'
+export type PublishPlatform = 'META' | 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | 'X' | 'PINTEREST' | 'THREADS'
 
 export type SocialPublishInput = {
   platform: PublishPlatform | string
@@ -304,6 +305,20 @@ async function publishPinterest(input: SocialPublishInput): Promise<SocialPublis
   }
 }
 
+async function publishThreads(input: SocialPublishInput): Promise<SocialPublishResult> {
+  const published = await createThreadsPost({
+    accessToken: input.accessToken,
+    text: input.caption,
+    imageUrl: input.imageUrl,
+    options: input.platformOptions,
+  })
+  return {
+    platformPostId: published.postId,
+    platformUrl: published.platformUrl,
+    state: 'PUBLISHED',
+  }
+}
+
 export async function publishSocialPost(input: SocialPublishInput): Promise<SocialPublishResult> {
   if (!input.caption.trim()) throw new Error('Post caption is empty')
   if (!input.accessToken) throw new Error('Platform access token is missing')
@@ -323,6 +338,8 @@ export async function publishSocialPost(input: SocialPublishInput): Promise<Soci
       return publishX(input)
     case 'PINTEREST':
       return publishPinterest(input)
+    case 'THREADS':
+      return publishThreads(input)
     default:
       throw new Error(`Unsupported publishing platform: ${input.platform}`)
   }

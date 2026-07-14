@@ -279,4 +279,47 @@ describe('GET /api/cron/fetch-analytics', () => {
       },
     })
   })
+
+  it('stores Threads views and public interactions without inventing reach or clicks', async () => {
+    mocks.socialPostFindMany
+      .mockResolvedValueOnce([{
+        id: 'threads-post',
+        workspaceId: 'workspace-1',
+        platform: 'THREADS',
+        platformPostId: 'thread-1',
+        pageId: null,
+        integration: { accessToken: 'threads-token', config: {} },
+      }])
+      .mockResolvedValueOnce([])
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: [
+      { name: 'views', values: [{ value: 2_000 }] },
+      { name: 'likes', values: [{ value: 60 }] },
+      { name: 'replies', values: [{ value: 8 }] },
+      { name: 'reposts', values: [{ value: 5 }] },
+      { name: 'quotes', values: [{ value: 3 }] },
+      { name: 'shares', values: [{ value: 4 }] },
+    ] }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch
+
+    const response = await GET(request('cron-secret'))
+    const body = await response.json()
+
+    expect(body).toMatchObject({ analyticsStored: 1, analyticsRetryable: 0 })
+    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
+      where: { id: 'threads-post' },
+      data: {
+        analyticsUpdatedAt: expect.any(Date),
+        analyticsFetched: true,
+        analyticsData: expect.objectContaining({
+          platform: 'THREADS',
+          impressions: 2000,
+          reach: 0,
+          likes: 60,
+          comments: 8,
+          shares: 12,
+          clicks: 0,
+          engagementCount: 80,
+        }),
+      },
+    })
+  })
 })

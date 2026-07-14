@@ -33,7 +33,7 @@ interface ConnectedAccount {
   lastSyncedAt?: string | null
   channelUrl?: string | null
   profileUrl?: string | null
-  accessTier?: 'TRIAL' | 'STANDARD' | null
+  accessTier?: 'TRIAL' | 'STANDARD' | 'DEVELOPMENT' | 'LIVE' | null
   capabilities?: {
     facebookPublishing?: boolean
     instagramPublishing?: boolean
@@ -50,6 +50,9 @@ interface ConnectedAccount {
     pinterestReadback?: boolean
     pinterestBoardSelection?: boolean
     pinterestPublicPublishing?: boolean
+    threadsPostPublishing?: boolean
+    threadsReadback?: boolean
+    threadsPublicPublishing?: boolean
     tokenRefresh?: boolean
   }
   connectedAt: string
@@ -161,6 +164,18 @@ const PLATFORMS: PlatformDef[] = [
     available: true,
     accent: '#111827',
     icon: 'X',
+  },
+  {
+    id: 'THREADS',
+    name: { ar: 'Threads', en: 'Threads' },
+    helper: {
+      ar: 'ينشر النصوص والصور المعتمدة بعد اختيار من يستطيع الرد والموافقة الصريحة، ثم يجمع المشاهدات والتفاعلات المتاحة بدون اختلاق وصول أو نقرات.',
+      en: 'Publishes approved text and images after reply-control review and explicit consent, then collects available views and interactions without inventing reach or clicks.',
+    },
+    scope: { ar: 'نص وصورة + قياس عضوي', en: 'Text, image & organic insights' },
+    available: true,
+    accent: '#111827',
+    icon: '@',
   },
   {
     id: 'PINTEREST',
@@ -289,6 +304,27 @@ function connectionTruth(account: ConnectedAccount, ar: boolean): {
       ],
     }
   }
+  if (account.platform === 'THREADS') {
+    const publishing = capability.threadsPostPublishing === true
+    const readback = capability.threadsReadback === true
+    const refresh = capability.tokenRefresh === true
+    const publicPublishing = capability.threadsPublicPublishing === true
+    const operational = publishing && readback && refresh
+    return {
+      tone: operational && publicPublishing ? 'ready' : 'needs',
+      label: operational
+        ? publicPublishing
+          ? (ar ? 'النشر العام والقياس جاهزان للمراجعة' : 'Public publishing and measurement review-ready')
+          : (ar ? 'اختبار التطوير جاهز · تفعيل Live مطلوب للعامة' : 'Development testing ready · Live mode needed for public users')
+        : (ar ? 'إعداد Threads غير مكتمل' : 'Threads setup incomplete'),
+      checks: [
+        { ok: publishing, text: ar ? 'صلاحيات الهوية والنشر مثبتة' : 'Identity and publishing permissions verified' },
+        { ok: readback, text: ar ? 'صلاحية قراءة مؤشرات الأداء مثبتة' : 'Insight readback permission verified' },
+        { ok: refresh, text: ar ? 'توكن طويل العمر قابل للتجديد' : 'Renewable long-lived token available' },
+        { ok: publicPublishing, text: ar ? 'تطبيق Meta في وضع Live' : 'Meta app is in Live mode' },
+      ],
+    }
+  }
   const directPost = capability.tikTokDirectPosting === true
   const creator = capability.tikTokCreatorInfoVerified === true
   return {
@@ -312,6 +348,7 @@ const CONNECT_ROUTES: Record<string, string> = {
   YOUTUBE: '/api/social/connect/youtube',
   X: '/api/social/connect/x',
   PINTEREST: '/api/social/connect/pinterest',
+  THREADS: '/api/social/connect/threads',
 }
 
 function ShellButton({
@@ -509,6 +546,11 @@ export default function ConnectionsPage() {
               ? copy(
                   'ربط Pinterest غير متاح الآن لأن إعداد التطبيق لم يكتمل. لم يتم تغيير أي بيانات.',
                   'Pinterest connection is not available because app setup is incomplete. No data was changed.',
+                )
+            : data.code === 'THREADS_OAUTH_NOT_CONFIGURED'
+              ? copy(
+                  'ربط Threads غير متاح الآن لأن إعداد تطبيق Meta لم يكتمل. لم يتم تغيير أي بيانات.',
+                  'Threads connection is not available because Meta app setup is incomplete. No data was changed.',
                 )
             : data.error || copy('تعذر بدء الربط من NEXUS.', 'NEXUS could not start the connection.'),
         })

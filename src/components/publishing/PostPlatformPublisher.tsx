@@ -35,7 +35,7 @@ interface PostPlatformPublisherProps {
   onPublished: () => void | Promise<void>
 }
 
-function normalizedPlatform(value: string): 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST' | null {
+function normalizedPlatform(value: string): 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST' | 'THREADS' | null {
   const platform = value.toUpperCase()
   if (['META', 'FACEBOOK', 'INSTAGRAM'].includes(platform)) return 'META'
   if (platform === 'LINKEDIN') return 'LINKEDIN'
@@ -43,6 +43,7 @@ function normalizedPlatform(value: string): 'META' | 'LINKEDIN' | 'TIKTOK' | 'X'
   if (platform === 'X' || platform === 'TWITTER') return 'X'
   if (platform === 'YOUTUBE' || platform === 'YOUTUBE_SHORTS') return 'YOUTUBE'
   if (platform === 'PINTEREST') return 'PINTEREST'
+  if (platform === 'THREADS') return 'THREADS'
   return null
 }
 
@@ -65,6 +66,9 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
   const [youtubeConsent, setYouTubeConsent] = useState(false)
   const [xConsent, setXConsent] = useState(false)
   const [pinterestConsent, setPinterestConsent] = useState(false)
+  const [threadsConsent, setThreadsConsent] = useState(false)
+  const [threadsReplyControl, setThreadsReplyControl] = useState<'everyone' | 'accounts_you_follow' | 'mentioned_only'>('everyone')
+  const [threadsAltText, setThreadsAltText] = useState(caption.trim().slice(0, 1_000))
   const [pinterestOptions, setPinterestOptions] = useState({
     boardId: '',
     title: caption.trim().split(/\r?\n/)[0]?.slice(0, 100) || '',
@@ -188,6 +192,12 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
                     ],
                     explicitConsent: pinterestConsent,
                   }
+              : targetPlatform === 'THREADS'
+                ? {
+                    replyControl: threadsReplyControl,
+                    altText: threadsAltText.trim(),
+                    explicitConsent: threadsConsent,
+                  }
               : null,
         }),
       })
@@ -210,7 +220,7 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
     }
   }
 
-  if (!eligible || !targetPlatform || !hasMedia || (['TIKTOK', 'YOUTUBE'].includes(targetPlatform) && !isVideoPost) || (['X', 'PINTEREST'].includes(targetPlatform) && isVideoPost)) return null
+  if (!eligible || !targetPlatform || !hasMedia || (['TIKTOK', 'YOUTUBE'].includes(targetPlatform) && !isVideoPost) || (['X', 'PINTEREST', 'THREADS'].includes(targetPlatform) && isVideoPost)) return null
 
   return (
     <div className="border-t border-slate-200 px-3 pb-3 pt-2">
@@ -394,7 +404,33 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
                   <label className="flex items-start gap-2 text-[10px] font-semibold leading-4 text-slate-700"><input type="checkbox" checked={pinterestConsent} onChange={event => setPinterestConsent(event.target.checked)} className="mt-0.5" />{copy('أوافق صراحةً على نشر الصورة والنص والبيانات المعتمدة إلى هذه اللوحة الآن.', 'I explicitly consent to publishing the approved image, copy, and metadata to this Board now.')}</label>
                 </div>
               )}
-              <button type="button" onClick={publish} disabled={publishing || !selectedAccount || (targetPlatform === 'META' && !selectedPage) || (targetPlatform === 'TIKTOK' && (!tiktokConsent || !tiktokOptions.privacyLevel)) || (targetPlatform === 'X' && (!xConsent || captionLength === 0 || captionLength > 280)) || (targetPlatform === 'YOUTUBE' && (!youtubeConsent || !youtubeOptions.title.trim() || !youtubeOptions.madeForKids || !youtubeOptions.syntheticMedia)) || (targetPlatform === 'PINTEREST' && (selectedAccount.accessTier !== 'STANDARD' || !pinterestConsent || !pinterestOptions.boardId || !pinterestOptions.title.trim() || !pinterestOptions.altText.trim() || !pinterestOptions.aiDisclosureReviewed || captionLength === 0 || captionLength > 800))} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40">
+              {targetPlatform === 'THREADS' && (
+                <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-2">
+                  {selectedAccount?.accessTier !== 'LIVE' && (
+                    <p className="rounded-lg bg-amber-50 p-2 text-[10px] font-semibold leading-4 text-amber-800">
+                      {copy('تطبيق Threads ما زال في وضع التطوير. يلزم تفعيل Live من Meta قبل النشر للمستخدمين عامة.', 'The Threads app is still in Development. Meta Live mode is required before public-user publishing.')}
+                    </p>
+                  )}
+                  <p className="text-[10px] font-semibold leading-4 text-slate-600">{copy(`طول النص: ${captionLength} من 500 حرف.`, `Copy length: ${captionLength} of 500 characters.`)}</p>
+                  <label className="block text-[10px] font-black uppercase tracking-wide text-slate-500">
+                    {copy('من يستطيع الرد؟', 'Who can reply?')}
+                    <select value={threadsReplyControl} onChange={event => setThreadsReplyControl(event.target.value as typeof threadsReplyControl)} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800">
+                      <option value="everyone">{copy('الجميع', 'Everyone')}</option>
+                      <option value="accounts_you_follow">{copy('الحسابات التي أتابعها', 'Accounts you follow')}</option>
+                      <option value="mentioned_only">{copy('الحسابات المذكورة فقط', 'Mentioned accounts only')}</option>
+                    </select>
+                  </label>
+                  <label className="block text-[10px] font-black uppercase tracking-wide text-slate-500">
+                    {copy('النص البديل للصورة', 'Image alt text')}
+                    <textarea value={threadsAltText} maxLength={1000} rows={3} onChange={event => setThreadsAltText(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2 text-xs font-semibold text-slate-800" />
+                  </label>
+                  <label className="flex items-start gap-2 text-[10px] font-semibold leading-4 text-slate-700">
+                    <input type="checkbox" checked={threadsConsent} disabled={captionLength === 0 || captionLength > 500 || !threadsAltText.trim()} onChange={event => setThreadsConsent(event.target.checked)} className="mt-0.5" />
+                    {copy('أوافق صراحةً على نشر النص والصورة المعتمدين إلى حساب Threads الآن.', 'I explicitly consent to publishing this approved copy and image to my Threads account now.')}
+                  </label>
+                </div>
+              )}
+              <button type="button" onClick={publish} disabled={publishing || !selectedAccount || (targetPlatform === 'META' && !selectedPage) || (targetPlatform === 'TIKTOK' && (!tiktokConsent || !tiktokOptions.privacyLevel)) || (targetPlatform === 'X' && (!xConsent || captionLength === 0 || captionLength > 280)) || (targetPlatform === 'YOUTUBE' && (!youtubeConsent || !youtubeOptions.title.trim() || !youtubeOptions.madeForKids || !youtubeOptions.syntheticMedia)) || (targetPlatform === 'PINTEREST' && (selectedAccount.accessTier !== 'STANDARD' || !pinterestConsent || !pinterestOptions.boardId || !pinterestOptions.title.trim() || !pinterestOptions.altText.trim() || !pinterestOptions.aiDisclosureReviewed || captionLength === 0 || captionLength > 800)) || (targetPlatform === 'THREADS' && (selectedAccount.accessTier !== 'LIVE' || !threadsConsent || !threadsAltText.trim() || captionLength === 0 || captionLength > 500))} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40">
                 {publishing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                 {copy('تأكيد النشر الآن', 'Confirm publish now')}
               </button>

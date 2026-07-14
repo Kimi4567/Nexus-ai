@@ -29,6 +29,7 @@ const TOKEN_TTL_DAYS: Record<string, number> = {
   YOUTUBE:  180,
   X:        30,
   PINTEREST: 30,
+  THREADS: 60,
 }
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -38,6 +39,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   YOUTUBE:  'YouTube',
   X:        'X',
   PINTEREST: 'Pinterest',
+  THREADS: 'Threads',
 }
 
 const WARN_DAYS = 7  // warn when ≤ 7 days left

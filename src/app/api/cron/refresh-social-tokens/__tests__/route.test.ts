@@ -206,4 +206,41 @@ describe('YouTube token refresh', () => {
       }),
     })
   })
+
+  it('renews an unexpired Threads long-lived token even when Meta returns an empty success body', async () => {
+    mocks.findMany.mockResolvedValue([{
+      id: 'threads-integration',
+      type: 'THREADS',
+      status: 'CONNECTED',
+      accessToken: 'encrypted-threads-access',
+      refreshToken: null,
+      config: {
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        scopes: ['threads_basic', 'threads_content_publish', 'threads_manage_insights'],
+        scopeEvidence: 'provider_response',
+        accessTier: 'LIVE',
+      },
+    }])
+    mocks.decrypt.mockReturnValue('threads-access')
+    global.fetch = vi.fn().mockResolvedValue(new Response(null, { status: 200 })) as typeof fetch
+
+    const response = await GET(request())
+    const body = await response.json()
+
+    expect(body.stats).toMatchObject({ checked: 1, refreshed: 1, expired: 0, errors: 0 })
+    expect(String((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0])).toContain('https://graph.threads.net/refresh_access_token?grant_type=th_refresh_token')
+    expect(mocks.update).toHaveBeenCalledWith({
+      where: { id: 'threads-integration' },
+      data: expect.objectContaining({
+        status: 'CONNECTED',
+        accessToken: 'encrypted:threads-access',
+        config: expect.objectContaining({
+          accessTier: 'LIVE',
+          scopes: ['threads_basic', 'threads_content_publish', 'threads_manage_insights'],
+          tokenRefreshedAt: expect.any(String),
+          expiresAt: expect.any(String),
+        }),
+      }),
+    })
+  })
 })

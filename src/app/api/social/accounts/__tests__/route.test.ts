@@ -129,4 +129,34 @@ describe('GET /api/social/accounts', () => {
     })
     expect(JSON.stringify(body)).not.toContain('encrypted-x-refresh')
   })
+
+  it('reports Threads publishing, readback, renewal, and Live mode separately without leaking its token', async () => {
+    mocks.integrationFindMany.mockResolvedValue([{
+      id: 'threads-1', type: 'THREADS', status: 'CONNECTED',
+      accountId: 'threads-user-1', accountName: 'NEXUS Threads',
+      accessToken: 'encrypted-threads-access', refreshToken: null,
+      lastSyncedAt: new Date(), createdAt: new Date(),
+      config: {
+        scopeEvidence: 'provider_response', accessTier: 'LIVE',
+        scopes: ['threads_basic', 'threads_content_publish', 'threads_manage_insights'],
+        username: 'nexus', profileUrl: 'https://www.threads.net/@nexus',
+      },
+    }])
+
+    const response = await GET(new NextRequest('http://localhost/api/social/accounts', {
+      headers: { Authorization: 'Bearer session' },
+    }))
+    const body = await response.json()
+
+    expect(body.accounts[0]).toMatchObject({
+      platform: 'THREADS', accessTier: 'LIVE', profileUrl: 'https://www.threads.net/@nexus',
+      capabilities: {
+        threadsPostPublishing: true,
+        threadsReadback: true,
+        threadsPublicPublishing: true,
+        tokenRefresh: true,
+      },
+    })
+    expect(JSON.stringify(body)).not.toContain('encrypted-threads-access')
+  })
 })

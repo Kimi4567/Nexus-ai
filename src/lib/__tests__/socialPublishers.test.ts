@@ -243,4 +243,29 @@ describe('publishSocialPost', () => {
       state: 'PUBLISHED',
     })
   })
+
+  it('publishes a reviewed Threads image post through the two-step API', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'container-1' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'container-1', status: 'FINISHED' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'thread-1' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'thread-1', permalink: 'https://www.threads.net/@nexus/post/abc' }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(publishSocialPost({
+      platform: 'THREADS',
+      caption: 'Reviewed Threads launch post',
+      imageUrl: 'https://res.cloudinary.com/demo/image/upload/thread.jpg',
+      accessToken: 'threads-token',
+      platformOptions: {
+        replyControl: 'everyone',
+        altText: 'Reviewed campaign visual.',
+        explicitConsent: true,
+      },
+    })).resolves.toEqual({
+      platformPostId: 'thread-1',
+      platformUrl: 'https://www.threads.net/@nexus/post/abc',
+      state: 'PUBLISHED',
+    })
+  })
 })

@@ -83,6 +83,21 @@ function pinterestRequest() {
   })
 }
 
+function threadsRequest() {
+  return new NextRequest('http://localhost/api/campaigns/campaign-1/schedule-content-plan', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer session', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      publishMode: 'AUTO',
+      explicitAutoPublishConfirmed: true,
+      destinationByTarget: { THREADS: { integrationId: 'threads-integration' } },
+      threadsOptionsByPostId: {
+        'threads-post': { replyControl: 'everyone', altText: 'The approved campaign product visual.' },
+      },
+    }),
+  })
+}
+
 function approvedYouTubePost() {
   return {
     id: 'youtube-post',
@@ -287,5 +302,54 @@ describe('POST schedule-content-plan — YouTube', () => {
     const body = await response.json()
     expect(response.status).toBe(409)
     expect(body.blockers).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'PINTEREST_STANDARD_ACCESS_REQUIRED' })]))
+  })
+
+  it('schedules Threads only with Live access, verified operational scopes, and reviewed settings', async () => {
+    mocks.socialPostFindMany.mockResolvedValue([{
+      id: 'threads-post', platform: 'THREADS', publishTarget: 'THREADS', integrationId: null,
+      scheduledAt: new Date(Date.now() + 60_000), caption: 'A reviewed Threads launch message tied to the approved offer.',
+      imagePrompt: 'Approved product image', videoPrompt: null,
+      imageUrl: 'https://res.cloudinary.com/demo/image/upload/thread.jpg', uploadedMediaId: 'media-thread',
+      mediaSource: 'UPLOAD', generationStatus: 'DONE', isVideoPost: false,
+    }])
+    mocks.integrationFindMany.mockResolvedValue([{
+      id: 'threads-integration', type: 'THREADS', accountId: 'threads-user-1', accountName: 'NEXUS Threads',
+      accessToken: 'encrypted-access', refreshToken: null,
+      config: {
+        accessTier: 'LIVE', scopeEvidence: 'provider_response',
+        scopes: ['threads_basic', 'threads_content_publish', 'threads_manage_insights'],
+      },
+    }])
+
+    const response = await POST(threadsRequest(), { params: Promise.resolve({ id: 'campaign-1' }) })
+    expect(response.status).toBe(200)
+    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
+      where: { id: 'threads-post' },
+      data: expect.objectContaining({
+        integrationId: 'threads-integration', publishTarget: 'THREADS', pageId: null,
+        platformOptions: {
+          replyControl: 'everyone', altText: 'The approved campaign product visual.', explicitConsent: true,
+        },
+      }),
+    })
+  })
+
+  it('blocks Threads Development mode from claiming public scheduled readiness', async () => {
+    mocks.socialPostFindMany.mockResolvedValue([{
+      id: 'threads-post', platform: 'THREADS', publishTarget: 'THREADS', integrationId: null,
+      scheduledAt: new Date(Date.now() + 60_000), caption: 'A reviewed Threads campaign message.',
+      imagePrompt: 'Approved image', videoPrompt: null,
+      imageUrl: 'https://res.cloudinary.com/demo/image/upload/thread.jpg', uploadedMediaId: 'media-thread',
+      mediaSource: 'UPLOAD', generationStatus: 'DONE', isVideoPost: false,
+    }])
+    mocks.integrationFindMany.mockResolvedValue([{
+      id: 'threads-integration', type: 'THREADS', accountId: 'threads-user-1', accessToken: 'encrypted', refreshToken: null,
+      config: { accessTier: 'DEVELOPMENT', scopeEvidence: 'provider_response', scopes: ['threads_basic', 'threads_content_publish', 'threads_manage_insights'] },
+    }])
+
+    const response = await POST(threadsRequest(), { params: Promise.resolve({ id: 'campaign-1' }) })
+    const body = await response.json()
+    expect(response.status).toBe(409)
+    expect(body.blockers).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'THREADS_LIVE_ACCESS_REQUIRED' })]))
   })
 })

@@ -72,7 +72,7 @@ function toIntegrationType(raw: string): string {
     PINTEREST: 'PINTEREST',
     REELS:     'META',
     STORIES:   'META',
-    THREADS:   'META',
+    THREADS:   'THREADS',
     LINKEDIN:  'LINKEDIN',
     TIKTOK:    'TIKTOK',
     YOUTUBE:   'YOUTUBE',

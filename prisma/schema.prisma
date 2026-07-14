@@ -760,6 +760,7 @@ enum Platform {
   LINKEDIN
   TWITTER
   PINTEREST
+  THREADS
   WEBSITE
 }
 
@@ -832,6 +833,7 @@ enum IntegrationType {
   YOUTUBE
   X
   PINTEREST
+  THREADS
   GOOGLE
   STRIPE
   CLOUDINARY

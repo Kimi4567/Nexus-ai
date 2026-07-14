@@ -22,7 +22,7 @@ import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/a
 
 // Keep the exact publishing destination separate from its OAuth provider.
 // Unknown strategy labels are skipped instead of silently becoming Meta posts.
-const PLATFORM_MAP: Record<string, { integrationType: 'META' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | 'X' | 'PINTEREST'; publishTarget: string }> = {
+const PLATFORM_MAP: Record<string, { integrationType: 'META' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | 'X' | 'PINTEREST' | 'THREADS'; publishTarget: string }> = {
   instagram: { integrationType: 'META', publishTarget: 'INSTAGRAM' },
   facebook: { integrationType: 'META', publishTarget: 'FACEBOOK' },
   meta: { integrationType: 'META', publishTarget: 'META' },
@@ -34,6 +34,7 @@ const PLATFORM_MAP: Record<string, { integrationType: 'META' | 'LINKEDIN' | 'TIK
   x: { integrationType: 'X', publishTarget: 'X' },
   twitter: { integrationType: 'X', publishTarget: 'X' },
   pinterest: { integrationType: 'PINTEREST', publishTarget: 'PINTEREST' },
+  threads: { integrationType: 'THREADS', publishTarget: 'THREADS' },
 }
 
 const WEEK_OFFSETS: Record<number, number> = { 1: 3, 2: 10, 3: 17, 4: 24 }

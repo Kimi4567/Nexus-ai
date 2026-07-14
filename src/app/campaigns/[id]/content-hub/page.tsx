@@ -44,7 +44,7 @@ import { PostPlatformPublisher } from '@/components/publishing/PostPlatformPubli
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Platform = 'ALL' | 'META' | 'INSTAGRAM' | 'LINKEDIN' | 'X' | 'TIKTOK' | 'TWITTER' | 'YOUTUBE' | 'YOUTUBE_SHORTS' | 'PINTEREST'
+type Platform = 'ALL' | 'META' | 'INSTAGRAM' | 'LINKEDIN' | 'X' | 'TIKTOK' | 'TWITTER' | 'YOUTUBE' | 'YOUTUBE_SHORTS' | 'PINTEREST' | 'THREADS'
 type MediaSource = 'GENERATE' | 'UPLOAD' | 'UPLOAD_RAW'
 type GenStatus = 'PENDING' | 'GENERATING' | 'DONE' | 'FAILED' | 'AWAITING_UPLOAD' | 'SKIPPED'
 
@@ -106,6 +106,11 @@ interface PinterestScheduleOptions {
   aiDisclosureReviewed: boolean
   aiModified: boolean
   syntheticPerformer: boolean
+}
+
+interface ThreadsScheduleOptions {
+  replyControl: 'everyone' | 'accounts_you_follow' | 'mentioned_only'
+  altText: string
 }
 
 interface PendingMediaAttachment {
@@ -247,6 +252,14 @@ const PLATFORM_CONFIG: Record<string, {
     icon: '📌',
     cardStyle: 'pinterest',
   },
+  THREADS: {
+    label: 'Threads',
+    color: '#111827',
+    bg: '#f8fafc',
+    border: '#111827',
+    icon: '@',
+    cardStyle: 'threads',
+  },
 }
 
 const getPlatformConfig = (p: string) =>
@@ -267,6 +280,7 @@ const PLATFORM_HOME_URLS: Record<string, string> = {
   LINKEDIN: 'https://linkedin.com', TIKTOK: 'https://tiktok.com', TWITTER: 'https://x.com',
   YOUTUBE: 'https://youtube.com', SNAPCHAT: 'https://snapchat.com',
   PINTEREST: 'https://pinterest.com',
+  THREADS: 'https://threads.net',
 }
 function platformHomeUrl(platform: string): string | null {
   return PLATFORM_HOME_URLS[platform?.toUpperCase()] ?? null
@@ -301,6 +315,13 @@ function defaultPinterestScheduleOptions(post: Pick<ContentPost, 'caption'>, boa
     aiDisclosureReviewed: false,
     aiModified: false,
     syntheticPerformer: false,
+  }
+}
+
+function defaultThreadsScheduleOptions(post: Pick<ContentPost, 'caption'>): ThreadsScheduleOptions {
+  return {
+    replyControl: 'everyone',
+    altText: post.caption.trim().slice(0, 1_000),
   }
 }
 
@@ -369,6 +390,7 @@ export default function ContentHubPage() {
   })
   const [youtubeOptionsByPostId, setYouTubeOptionsByPostId] = useState<Record<string, YouTubeScheduleOptions>>({})
   const [pinterestOptionsByPostId, setPinterestOptionsByPostId] = useState<Record<string, PinterestScheduleOptions>>({})
+  const [threadsOptionsByPostId, setThreadsOptionsByPostId] = useState<Record<string, ThreadsScheduleOptions>>({})
   const [approveResult, setApproveResult] = useState<{
     kind: 'approved' | 'scheduled'
     approved: number
@@ -506,7 +528,17 @@ export default function ContentHubPage() {
           } else if (target === 'PINTEREST') {
             const pinterest = accounts.find(account => account.platform === 'PINTEREST')
             if (pinterest) next.PINTEREST = { integrationId: pinterest.id, pageName: pinterest.accountName || undefined }
+          } else if (target === 'THREADS') {
+            const threads = accounts.find(account => account.platform === 'THREADS')
+            if (threads) next.THREADS = { integrationId: threads.id, pageName: threads.accountName || undefined }
           }
+        }
+        if (targets.has('THREADS')) {
+          setThreadsOptionsByPostId(Object.fromEntries(
+            approvedPostsWithDates
+              .filter(post => normalizeAutoPublishTarget(post.platform) === 'THREADS')
+              .map(post => [post.id, defaultThreadsScheduleOptions(post)]),
+          ))
         }
         setDestinationByTarget(next)
         const pinterest = accounts.find(account => account.platform === 'PINTEREST')
@@ -587,7 +619,7 @@ export default function ContentHubPage() {
   const approvedCount = posts.filter(p => p.status === 'APPROVED').length
   const approvedPostsWithDates = posts.filter(p => p.status === 'APPROVED' && hasValidDate(p.scheduledAt))
   const approvedAutoTargets = Array.from(new Set(approvedPostsWithDates.map(post => normalizeAutoPublishTarget(post.platform))))
-  const unsupportedAutoTargets = approvedAutoTargets.filter(target => !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE', 'PINTEREST'].includes(target))
+  const unsupportedAutoTargets = approvedAutoTargets.filter(target => !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE', 'PINTEREST', 'THREADS'].includes(target))
   const approvedYouTubePosts = approvedPostsWithDates.filter(post => ['YOUTUBE', 'YOUTUBE_SHORTS'].includes(post.platform.toUpperCase()))
   const youtubeAutoReviewIncomplete = scheduleMode === 'AUTO' && approvedYouTubePosts.some(post => {
     const options = youtubeOptionsByPostId[post.id]
@@ -613,6 +645,22 @@ export default function ContentHubPage() {
           || !options.title.trim()
           || !options.altText.trim()
           || !options.aiDisclosureReviewed
+      })
+    )
+  )
+  const approvedThreadsPosts = approvedPostsWithDates.filter(post => post.platform.toUpperCase() === 'THREADS')
+  const threadsAccount = scheduleAccounts.find(account => account.platform === 'THREADS')
+  const threadsAutoReviewIncomplete = scheduleMode === 'AUTO' && (
+    approvedThreadsPosts.length > 0
+    && (
+      threadsAccount?.accessTier !== 'LIVE'
+      || approvedThreadsPosts.some(post => {
+        const options = threadsOptionsByPostId[post.id]
+        const copyLength = Array.from(post.caption.trim()).length
+        return post.isVideoPost
+          || copyLength === 0
+          || copyLength > 500
+          || !options?.altText.trim()
       })
     )
   )
@@ -681,7 +729,7 @@ export default function ContentHubPage() {
   const schedulingBlockedByTruthReview = approvedCount > 0 && contentReviewRequired
   const schedulingBlocked = schedulingBlockedByMedia || schedulingBlockedByTruthReview
   const schedulingDecisionBlocked = schedulingBlocked
-    || (scheduleMode === 'AUTO' && (unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete || xAutoReviewIncomplete || pinterestAutoReviewIncomplete))
+    || (scheduleMode === 'AUTO' && (unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete || xAutoReviewIncomplete || pinterestAutoReviewIncomplete || threadsAutoReviewIncomplete))
   const approvalBlocked = approvalBlockedByOrderMismatch || approvalBlockedByTruthReview
   const contentHubFulfillmentSummary = deriveStrategyFulfillmentSummary({
     aiOutput: campaign?.aiOutput,
@@ -1354,10 +1402,10 @@ export default function ContentHubPage() {
       document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return
     }
-    if (scheduleMode === 'AUTO' && (unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete || xAutoReviewIncomplete || pinterestAutoReviewIncomplete)) {
+    if (scheduleMode === 'AUTO' && (unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete || xAutoReviewIncomplete || pinterestAutoReviewIncomplete || threadsAutoReviewIncomplete)) {
       setError(isAr
-        ? 'أكمل إعدادات YouTube وPinterest، وتأكد أن منشورات X نص أو صورة فقط ولا تتجاوز 280 حرفًا، أو استخدم التنفيذ اليدوي.'
-        : 'Complete YouTube and Pinterest settings and ensure X posts are text or image only and no longer than 280 characters, or use manual execution.')
+        ? 'أكمل إعدادات YouTube وPinterest وThreads، وراجع حدود النص والوسائط، أو استخدم التنفيذ اليدوي.'
+        : 'Complete YouTube, Pinterest, and Threads settings and review copy/media limits, or use manual execution.')
       return
     }
     setScheduling(true)
@@ -1392,6 +1440,12 @@ export default function ContentHubPage() {
                 ...(options.aiModified ? ['AI_MODIFIED'] : []),
                 ...(options.syntheticPerformer ? ['SYNTHETIC_PERFORMER'] : []),
               ],
+            }]),
+          ),
+          threadsOptionsByPostId: Object.fromEntries(
+            Object.entries(threadsOptionsByPostId).map(([postId, options]) => [postId, {
+              replyControl: options.replyControl,
+              altText: options.altText.trim(),
             }]),
           ),
         }),
@@ -2623,6 +2677,50 @@ export default function ContentHubPage() {
                     </div>
                   )}
 
+                  {approvedAutoTargets.includes('THREADS') && (
+                    <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3">
+                      <div>
+                        <p className="text-[11px] font-black text-slate-800">Threads</p>
+                        <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                          {threadsAccount
+                            ? (isAr ? `الحساب: ${threadsAccount.accountName || 'Threads'} · الوضع: ${threadsAccount.accessTier || 'DEVELOPMENT'}` : `Account: ${threadsAccount.accountName || 'Threads'} · mode: ${threadsAccount.accessTier || 'DEVELOPMENT'}`)
+                            : (isAr ? 'لا يوجد حساب Threads متصل.' : 'No Threads account is connected.')}
+                        </p>
+                        {threadsAccount?.accessTier !== 'LIVE' && (
+                          <p className="mt-1 rounded-md bg-amber-50 p-2 text-[10px] font-semibold leading-4 text-amber-800">
+                            {isAr ? 'يلزم تفعيل تطبيق Meta في وضع Live قبل جدولة منشورات Threads للمستخدمين عامة.' : 'The Meta app must be Live before scheduling Threads posts for public users.'}
+                          </p>
+                        )}
+                      </div>
+                      {approvedThreadsPosts.map((post, index) => {
+                        const options = threadsOptionsByPostId[post.id] || defaultThreadsScheduleOptions(post)
+                        const update = (next: Partial<ThreadsScheduleOptions>) => setThreadsOptionsByPostId(current => ({
+                          ...current,
+                          [post.id]: { ...(current[post.id] || defaultThreadsScheduleOptions(post)), ...next },
+                        }))
+                        return (
+                          <fieldset key={post.id} className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                            <legend className="px-1 text-[10px] font-black text-slate-700">{isAr ? `منشور ${index + 1}` : `Post ${index + 1}`}</legend>
+                            {post.isVideoPost && <p className="rounded-md bg-amber-50 p-2 text-[10px] font-semibold text-amber-800">{isAr ? 'ناشر Threads الحالي يدعم النصوص والصور المعتمدة فقط.' : 'The current Threads publisher supports approved text and images only.'}</p>}
+                            <p className="text-[10px] font-semibold text-slate-600">{isAr ? `طول النص: ${Array.from(post.caption.trim()).length} من 500 حرف.` : `Copy length: ${Array.from(post.caption.trim()).length} of 500 characters.`}</p>
+                            <label className="block text-[10px] font-bold text-slate-600">
+                              {isAr ? 'من يستطيع الرد؟' : 'Who can reply?'}
+                              <select value={options.replyControl} onChange={event => update({ replyControl: event.target.value as ThreadsScheduleOptions['replyControl'] })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs">
+                                <option value="everyone">{isAr ? 'الجميع' : 'Everyone'}</option>
+                                <option value="accounts_you_follow">{isAr ? 'الحسابات التي أتابعها' : 'Accounts you follow'}</option>
+                                <option value="mentioned_only">{isAr ? 'الحسابات المذكورة فقط' : 'Mentioned accounts only'}</option>
+                              </select>
+                            </label>
+                            <label className="block text-[10px] font-bold text-slate-600">
+                              {isAr ? 'النص البديل للصورة' : 'Image alt text'}
+                              <textarea value={options.altText} maxLength={1000} rows={2} onChange={event => update({ altText: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs" />
+                            </label>
+                          </fieldset>
+                        )
+                      })}
+                    </div>
+                  )}
+
                   {approvedAutoTargets.includes('PINTEREST') && (
                     <div className="space-y-3 rounded-lg border border-rose-100 bg-white p-3">
                       <div>
@@ -2745,6 +2843,12 @@ export default function ContentHubPage() {
                   {pinterestAutoReviewIncomplete && (
                     <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-5 text-amber-900">
                       {isAr ? 'أكمل كل إعدادات Pinterest واختر لوحة، وراجع الإفصاح، وتأكد من Standard access وصورة ووصف لا يتجاوز 800 حرف.' : 'Complete every Pinterest setting, select a Board, review the disclosure, and confirm Standard access, an image, and copy no longer than 800 characters.'}
+                    </p>
+                  )}
+
+                  {threadsAutoReviewIncomplete && (
+                    <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-5 text-amber-900">
+                      {isAr ? 'أكمل إعدادات Threads، وتأكد من وضع Live، ونص لا يتجاوز 500 حرف، وصورة مع نص بديل، وعدم وجود فيديو.' : 'Complete Threads settings and confirm Live mode, copy no longer than 500 characters, an image with alt text, and no video.'}
                     </p>
                   )}
                 </div>

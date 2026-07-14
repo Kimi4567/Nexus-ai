@@ -3,7 +3,7 @@ export const MIN_EVIDENCE_DENOMINATOR = 100
 export const MIN_PLATFORM_COMPARISON_POSTS = 5
 export const MIN_WINNING_POSTS = 3
 
-export type EvidencePlatform = 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST'
+export type EvidencePlatform = 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST' | 'THREADS'
 export type EvidenceQuality = 'eligible' | 'insufficient_sample'
 
 export interface RawPlatformMetrics {
@@ -145,7 +145,7 @@ export function readPerformanceEvidence(value: unknown): PerformanceEvidence | n
   if (
     data?.schemaVersion !== PERFORMANCE_EVIDENCE_VERSION
     || data.source !== 'platform_api'
-    || !['META', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE', 'PINTEREST'].includes(String(data.platform))
+    || !['META', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE', 'PINTEREST', 'THREADS'].includes(String(data.platform))
     || typeof data.platformPostId !== 'string'
     || typeof data.collectedAt !== 'string'
   ) return null

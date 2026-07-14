@@ -43,6 +43,11 @@ import {
   pinterestBoardsFromConfig,
   PINTEREST_PUBLISH_SCOPES,
 } from '@/lib/pinterestPublishing'
+import {
+  parseThreadsPostOptions,
+  THREADS_MAX_TEXT_LENGTH,
+  THREADS_OPERATIONAL_SCOPES,
+} from '@/lib/threadsPublishing'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -59,6 +64,7 @@ type ScheduleRequest = {
   tiktokOptions?: Record<string, unknown>
   youtubeOptionsByPostId?: Record<string, Record<string, unknown>>
   pinterestOptionsByPostId?: Record<string, Record<string, unknown>>
+  threadsOptionsByPostId?: Record<string, Record<string, unknown>>
 }
 
 function normalizedTarget(target: string): string {
@@ -68,13 +74,14 @@ function normalizedTarget(target: string): string {
   return value
 }
 
-function providerForTarget(target: string): 'META' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | 'X' | 'PINTEREST' | null {
+function providerForTarget(target: string): 'META' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | 'X' | 'PINTEREST' | 'THREADS' | null {
   if (target === 'FACEBOOK' || target === 'INSTAGRAM') return 'META'
   if (target === 'LINKEDIN') return 'LINKEDIN'
   if (target === 'TIKTOK') return 'TIKTOK'
   if (target === 'YOUTUBE') return 'YOUTUBE'
   if (target === 'X') return 'X'
   if (target === 'PINTEREST') return 'PINTEREST'
+  if (target === 'THREADS') return 'THREADS'
   return null
 }
 
@@ -435,6 +442,57 @@ export async function POST(req: NextRequest, props: Params) {
             message: error instanceof Error ? error.message : 'Review the Pinterest Pin settings.',
           })
           continue
+        }
+      } else if (target === 'THREADS') {
+        if (publishMode === 'AUTO' && post.isVideoPost) {
+          blockers.push({
+            code: 'THREADS_VIDEO_NOT_SUPPORTED', target, postId: post.id,
+            message: 'Threads automatic publishing currently supports reviewed text and image posts only.',
+          })
+          continue
+        }
+        if (publishMode === 'AUTO' && String(config.accessTier || '').toUpperCase() !== 'LIVE') {
+          blockers.push({
+            code: 'THREADS_LIVE_ACCESS_REQUIRED', target, postId: post.id,
+            message: 'The Threads app must be Live before NEXUS can schedule posts for public users.',
+          })
+          continue
+        }
+        if (publishMode === 'AUTO' && THREADS_OPERATIONAL_SCOPES.some(scope => !hasVerifiedProviderScope(config, scope))) {
+          blockers.push({
+            code: 'PLATFORM_SCOPE_REQUIRED', target, postId: post.id,
+            message: 'Reconnect Threads and grant verified identity, publishing, and insight permissions.',
+          })
+          continue
+        }
+        if (publishMode === 'AUTO' && (!integration.accountId || !integration.accessToken)) {
+          blockers.push({
+            code: 'THREADS_LONG_LIVED_ACCESS_REQUIRED', target, postId: post.id,
+            message: 'Reconnect Threads with a valid long-lived access token before scheduled publishing.',
+          })
+          continue
+        }
+        const copyLength = Array.from(String(post.caption || '').trim()).length
+        if (publishMode === 'AUTO' && (copyLength === 0 || copyLength > THREADS_MAX_TEXT_LENGTH)) {
+          blockers.push({
+            code: 'THREADS_COPY_REVIEW_REQUIRED', target, postId: post.id,
+            message: `Review the Threads post so it contains 1 to ${THREADS_MAX_TEXT_LENGTH} characters.`,
+          })
+          continue
+        }
+        if (publishMode === 'AUTO') {
+          try {
+            platformOptions = parseThreadsPostOptions({
+              ...(requestBody.threadsOptionsByPostId?.[post.id] || {}),
+              explicitConsent: requestBody.explicitAutoPublishConfirmed === true,
+            }, { hasImage: Boolean(post.imageUrl) }) as unknown as Record<string, unknown>
+          } catch (error) {
+            blockers.push({
+              code: 'THREADS_REVIEW_REQUIRED', target, postId: post.id,
+              message: error instanceof Error ? error.message : 'Review the Threads publishing settings.',
+            })
+            continue
+          }
         }
       }
       assignmentById.set(post.id, { integrationId: integration.id, pageId, pageName, platformOptions, publishTarget: target })

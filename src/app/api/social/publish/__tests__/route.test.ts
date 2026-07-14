@@ -418,4 +418,39 @@ describe('POST /api/social/publish', () => {
       data: expect.objectContaining({ platform: 'PINTEREST', publishTarget: 'PINTEREST', status: 'PUBLISHED' }),
     })
   })
+
+  it('publishes reviewed Threads copy and image only with Live access and explicit settings', async () => {
+    mocks.integrationFindFirst.mockResolvedValue({
+      id: 'threads-integration', type: 'THREADS', status: 'CONNECTED',
+      accessToken: 'encrypted-threads-token', accountId: 'threads-user-1', accountName: 'NEXUS Threads',
+      config: {
+        accessTier: 'LIVE', scopeEvidence: 'provider_response',
+        scopes: ['threads_basic', 'threads_content_publish', 'threads_manage_insights'],
+      },
+    })
+    mocks.socialPostFindFirst.mockResolvedValue({
+      id: 'threads-post', campaignId: 'campaign-1', platform: 'THREADS', publishTarget: 'THREADS',
+      status: 'APPROVED', caption: 'A reviewed Threads launch message tied to the approved offer.',
+      imageUrl: 'https://res.cloudinary.com/demo/image/upload/thread.jpg', imagePrompt: 'Approved product image',
+      videoPrompt: null, uploadedMediaId: 'media-thread', mediaSource: 'UPLOAD', generationStatus: 'DONE',
+      isVideoPost: false, approvedAt: new Date('2026-07-12T10:00:00.000Z'),
+    })
+    mocks.publish.mockResolvedValue({ platformPostId: 'thread-provider-1', platformUrl: 'https://www.threads.net/@nexus/post/abc' })
+    mocks.socialPostUpdate.mockResolvedValue({ id: 'threads-post', status: 'PUBLISHED' })
+    const platformOptions = {
+      replyControl: 'everyone', altText: 'The approved campaign product visual.', explicitConsent: true,
+    }
+
+    const response = await POST(request({
+      socialPostId: 'threads-post', integrationId: 'threads-integration', platform: 'THREADS',
+      campaignId: 'campaign-1', platformOptions,
+    }))
+
+    expect(response.status).toBe(200)
+    expect(mocks.publish).toHaveBeenCalledWith(expect.objectContaining({ platform: 'THREADS', platformOptions }))
+    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
+      where: { id: 'threads-post' },
+      data: expect.objectContaining({ platform: 'THREADS', publishTarget: 'THREADS', status: 'PUBLISHED' }),
+    })
+  })
 })

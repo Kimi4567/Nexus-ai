@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { PINTEREST_PUBLISH_SCOPES, PINTEREST_USER_READ_SCOPE, pinterestBoardsFromConfig } from '@/lib/pinterestPublishing'
+import { THREADS_BASIC_SCOPE, THREADS_INSIGHTS_SCOPE, THREADS_PUBLISH_SCOPE } from '@/lib/threadsPublishing'
 
 async function getUser(req: NextRequest) {
   const token = req.headers.get('authorization')?.replace('Bearer ', '')
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
       where: {
         workspaceId: workspace.id,
         status: { in: ['CONNECTED', 'EXPIRED', 'ERROR'] },
-        type: { in: ['META', 'LINKEDIN', 'TIKTOK', 'YOUTUBE', 'X', 'PINTEREST'] as any[] },
+        type: { in: ['META', 'LINKEDIN', 'TIKTOK', 'YOUTUBE', 'X', 'PINTEREST', 'THREADS'] as any[] },
       },
       select: {
         id: true,
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest) {
         accountId: true,
         accountName: true,
         config: true,
+        accessToken: true,
         refreshToken: true,
         lastSyncedAt: true,
         createdAt: true,
@@ -62,6 +64,12 @@ export async function GET(req: NextRequest) {
       const pinterestScopeReady = i.type === 'PINTEREST'
         && scopesVerified
         && [...PINTEREST_PUBLISH_SCOPES, PINTEREST_USER_READ_SCOPE].every(scope => scopes.includes(scope))
+      const threadsPublishReady = i.type === 'THREADS'
+        && scopesVerified
+        && [THREADS_BASIC_SCOPE, THREADS_PUBLISH_SCOPE].every(scope => scopes.includes(scope))
+      const threadsReadbackReady = i.type === 'THREADS'
+        && scopesVerified
+        && [THREADS_BASIC_SCOPE, THREADS_INSIGHTS_SCOPE].every(scope => scopes.includes(scope))
       const capabilities = {
         facebookPublishing: i.type === 'META' && scopesVerified && scopes.includes('pages_manage_posts') && rawPages.some((page: any) => page?.id && page?.accessToken),
         instagramPublishing: i.type === 'META' && scopesVerified && scopes.includes('instagram_content_publish') && rawPages.some((page: any) => page?.igAccountId && page?.accessToken),
@@ -78,7 +86,10 @@ export async function GET(req: NextRequest) {
         pinterestReadback: pinterestScopeReady && Boolean(i.accountId),
         pinterestBoardSelection: i.type === 'PINTEREST' && boards.length > 0,
         pinterestPublicPublishing: pinterestScopeReady && boards.length > 0 && config.accessTier === 'STANDARD',
-        tokenRefresh: Boolean(i.refreshToken),
+        threadsPostPublishing: threadsPublishReady && Boolean(i.accountId),
+        threadsReadback: threadsReadbackReady && Boolean(i.accountId),
+        threadsPublicPublishing: threadsPublishReady && Boolean(i.accountId) && config.accessTier === 'LIVE',
+        tokenRefresh: i.type === 'THREADS' ? Boolean(i.accessToken) : Boolean(i.refreshToken),
       }
       return {
         id: i.id,
@@ -93,7 +104,11 @@ export async function GET(req: NextRequest) {
         pictureUrl: config.pictureUrl || null,
         channelUrl: config.channelUrl || null,
         profileUrl: config.profileUrl || null,
-        accessTier: i.type === 'PINTEREST' ? config.accessTier || 'TRIAL' : null,
+        accessTier: i.type === 'PINTEREST'
+          ? config.accessTier || 'TRIAL'
+          : i.type === 'THREADS'
+            ? config.accessTier || 'DEVELOPMENT'
+            : null,
         scopes,
         expiresAt: config.expiresAt || null,
         refreshExpiresAt: config.refreshExpiresAt || null,

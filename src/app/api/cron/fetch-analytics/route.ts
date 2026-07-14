@@ -17,7 +17,7 @@ import {
   type RawPlatformMetrics,
 } from '@/lib/performanceEvidence'
 import { cronAuthError } from '@/lib/cronAuth'
-import { linkedInHeaders, metaGraphUrl } from '@/lib/socialPlatformConfig'
+import { linkedInHeaders, metaGraphUrl, threadsApiUrl } from '@/lib/socialPlatformConfig'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -223,6 +223,31 @@ async function fetchPinterestInsights(platformPostId: string, accessToken: strin
   }
 }
 
+async function fetchThreadsInsights(platformPostId: string, accessToken: string): Promise<RawPlatformMetrics | null> {
+  try {
+    const query = new URLSearchParams({ metric: 'views,likes,replies,reposts,quotes,shares' })
+    const response = await fetch(`${threadsApiUrl(`${encodeURIComponent(platformPostId)}/insights`)}?${query.toString()}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || !Array.isArray(data?.data)) return null
+    // Threads exposes views and public interaction counts here. It does not
+    // provide unique reach, link clicks, or conversions on this endpoint, so
+    // NEXUS preserves those as zero instead of estimating them.
+    return {
+      likes: metricValue(data, 'likes'),
+      comments: metricValue(data, 'replies'),
+      shares: metricValue(data, 'reposts') + metricValue(data, 'quotes') + metricValue(data, 'shares'),
+      impressions: metricValue(data, 'views'),
+      reach: 0,
+      clicks: 0,
+    }
+  } catch {
+    return null
+  }
+}
+
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
@@ -254,7 +279,7 @@ export async function GET(req: NextRequest) {
         publishedAt: { gte: newerThan14d, lte: olderThan24h },
         analyticsFetched: false,
         platformPostId: { not: null },
-        platform: { in: ['META', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE', 'PINTEREST'] },
+        platform: { in: ['META', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE', 'PINTEREST', 'THREADS'] },
         OR: [{ analyticsUpdatedAt: null }, { analyticsUpdatedAt: { lte: retryBefore } }],
       },
       include: { integration: true },
@@ -295,6 +320,8 @@ export async function GET(req: NextRequest) {
               ? await fetchYouTubeInsights(post.platformPostId, token)
               : post.platform === 'PINTEREST'
                 ? await fetchPinterestInsights(post.platformPostId, token)
+              : post.platform === 'THREADS'
+                ? await fetchThreadsInsights(post.platformPostId, token)
               : post.pageId
                 ? await fetchLinkedInInsights(post.platformPostId, post.pageId, token)
                 : null

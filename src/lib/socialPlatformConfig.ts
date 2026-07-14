@@ -74,6 +74,22 @@ export const PINTEREST_CONTENT_SCOPES = [
   'user_accounts:read',
 ] as const
 
+/**
+ * Keep the requested Threads surface deliberately small: identity, organic
+ * publishing, and first-party insight readback. Reply moderation, discovery,
+ * location, and deletion are separate product capabilities and are not
+ * requested until NEXUS actually exposes them.
+ */
+export const THREADS_CONTENT_SCOPES = [
+  'threads_basic',
+  'threads_content_publish',
+  'threads_manage_insights',
+] as const
+
+export function threadsApiUrl(path: string): string {
+  return `https://graph.threads.net/${path.replace(/^\//, '')}`
+}
+
 export function pinterestApiUrl(path: string): string {
   return `https://api.pinterest.com/v5/${path.replace(/^\//, '')}`
 }

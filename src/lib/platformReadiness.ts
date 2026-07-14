@@ -26,13 +26,14 @@ export type PlatformKey =
   | 'x'
   | 'youtube'
   | 'pinterest'
+  | 'threads'
   | 'google'
   | 'snapchat'
   | 'whatsapp'
   | 'paid'
 
 export type ReadinessStatus =
-  | 'ready'                 // proven publish-capable (Facebook + page only)
+  | 'ready'                 // provider-verified publishing/readback requirements are satisfied
   | 'needs_setup'           // connected but a required step is missing
   | 'not_connected'         // no account linked
   | 'permission_unverified' // linked but publish/scope unproven
@@ -49,6 +50,7 @@ export type ReadinessAction =
   | 'connect-x'
   | 'connect-youtube'
   | 'connect-pinterest'
+  | 'connect-threads'
   | 'open-paid-ads'
   | 'open-connections'
   | 'none'
@@ -73,7 +75,7 @@ export interface PlatformState {
 
 /** Minimal shape of an entry from GET /api/social/accounts (tokens already stripped). */
 export interface SocialAccount {
-  platform?: string | null // 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST'
+  platform?: string | null // 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST' | 'THREADS'
   status?: string | null    // 'CONNECTED' | ...
   accountName?: string | null
   pages?: Array<{ id?: string | null; name?: string | null; igAccountId?: string | null }> | null
@@ -93,6 +95,9 @@ export interface SocialAccount {
     pinterestReadback?: boolean
     pinterestBoardSelection?: boolean
     pinterestPublicPublishing?: boolean
+    threadsPostPublishing?: boolean
+    threadsReadback?: boolean
+    threadsPublicPublishing?: boolean
     tokenRefresh?: boolean
   } | null
 }
@@ -179,6 +184,7 @@ export function derivePlatformReadiness(
   const x = find(list, 'X')
   const youtube = find(list, 'YOUTUBE')
   const pinterest = find(list, 'PINTEREST')
+  const threads = find(list, 'THREADS')
   const metaAdAccount = findActiveAdAccount(adList, 'META')
 
   const out: PlatformState[] = []
@@ -269,6 +275,25 @@ export function derivePlatformReadiness(
     out.push(mk('pinterest', 'permission_unverified', `${R}.line.pinterestUnverified`, 'open-connections', `${R}.action.reviewSetup`))
   }
 
+  if (!threads) {
+    out.push(mk('threads', 'not_connected', `${R}.line.threadsNotConnected`, 'connect-threads', `${R}.action.connectThreads`))
+  } else if (
+    threads.capabilities?.threadsPostPublishing
+    && threads.capabilities?.threadsReadback
+    && threads.capabilities?.tokenRefresh
+    && threads.capabilities?.threadsPublicPublishing
+  ) {
+    out.push(mk('threads', 'ready', `${R}.line.threadsReady`, 'open-connections', `${R}.action.reviewSetup`))
+  } else if (
+    threads.capabilities?.threadsPostPublishing
+    && threads.capabilities?.threadsReadback
+    && threads.capabilities?.tokenRefresh
+  ) {
+    out.push(mk('threads', 'needs_setup', `${R}.line.threadsDevelopmentOnly`, 'open-connections', `${R}.action.reviewSetup`))
+  } else {
+    out.push(mk('threads', 'permission_unverified', `${R}.line.threadsUnverified`, 'open-connections', `${R}.action.reviewSetup`))
+  }
+
   // Not available yet — no integration code exists; NO connect CTA.
   out.push(mk('google', 'not_available', `${R}.line.googleNotAvailable`, 'none', null))
   out.push(mk('snapchat', 'not_available', `${R}.line.snapchatNotAvailable`, 'none', null))
@@ -293,7 +318,7 @@ export function derivePlatformReadiness(
 
 /** Compact summary for the dashboard strip (subset + short chips). */
 export function summarizeForStrip(states: PlatformState[]): PlatformState[] {
-  const order: PlatformKey[] = ['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'youtube', 'pinterest', 'paid']
+  const order: PlatformKey[] = ['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'threads', 'youtube', 'pinterest', 'paid']
   return order
     .map((k) => states.find((s) => s.key === k))
     .filter((s): s is PlatformState => !!s)

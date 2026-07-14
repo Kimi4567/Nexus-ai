@@ -41,6 +41,7 @@ describe('derivePlatformReadiness — honesty rules', () => {
     expect(get(s, 'linkedin').status).toBe('not_connected')
     expect(get(s, 'x').status).toBe('not_connected')
     expect(get(s, 'pinterest').status).toBe('not_connected')
+    expect(get(s, 'threads').status).toBe('not_connected')
     expect(s.every((x) => x.status !== 'ready')).toBe(true)
   })
 
@@ -158,6 +159,22 @@ describe('derivePlatformReadiness — honesty rules', () => {
     expect(get(standard, 'pinterest').status).toBe('ready')
   })
 
+  it('Threads distinguishes verified development testing from Live public readiness', () => {
+    const development = derivePlatformReadiness([{
+      platform: 'THREADS', status: 'CONNECTED', capabilities: {
+        threadsPostPublishing: true, threadsReadback: true, threadsPublicPublishing: false, tokenRefresh: true,
+      },
+    }])
+    expect(get(development, 'threads').status).toBe('needs_setup')
+
+    const live = derivePlatformReadiness([{
+      platform: 'THREADS', status: 'CONNECTED', capabilities: {
+        threadsPostPublishing: true, threadsReadback: true, threadsPublicPublishing: true, tokenRefresh: true,
+      },
+    }])
+    expect(get(live, 'threads').status).toBe('ready')
+  })
+
   it('Paid ads without a Meta ad account asks for Meta Ads connection', () => {
     const s = derivePlatformReadiness([metaWithPageAndIg])
     expect(get(s, 'paid').status).toBe('not_connected')
@@ -206,11 +223,11 @@ describe('derivePlatformReadiness — honesty rules', () => {
   it('null/undefined input does not crash', () => {
     expect(() => derivePlatformReadiness(null)).not.toThrow()
     expect(() => derivePlatformReadiness(undefined)).not.toThrow()
-    expect(derivePlatformReadiness(null).length).toBe(11)
+    expect(derivePlatformReadiness(null).length).toBe(12)
   })
 
   it('summarizeForStrip returns organic publishers and Paid in canonical order', () => {
     const s = summarizeForStrip(derivePlatformReadiness([metaWithPageAndIg]))
-    expect(s.map((x) => x.key)).toEqual(['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'youtube', 'pinterest', 'paid'])
+    expect(s.map((x) => x.key)).toEqual(['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'threads', 'youtube', 'pinterest', 'paid'])
   })
 })

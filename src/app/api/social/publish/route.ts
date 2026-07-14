@@ -8,10 +8,11 @@ import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState
 import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
 import { YOUTUBE_UPLOAD_SCOPE } from '@/lib/youtubePublishing'
 import { PINTEREST_PUBLISH_SCOPES, parsePinterestPostOptions } from '@/lib/pinterestPublishing'
+import { parseThreadsPostOptions, THREADS_MAX_TEXT_LENGTH, THREADS_PUBLISH_SCOPES } from '@/lib/threadsPublishing'
 
 export const maxDuration = 180
 
-type RequestedPlatform = 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST'
+type RequestedPlatform = 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST' | 'THREADS'
 
 interface PublishRequest {
   socialPostId?: unknown
@@ -30,12 +31,13 @@ function text(value: unknown, max: number): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : ''
 }
 
-function dbPlatform(platform: RequestedPlatform): 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST' {
+function dbPlatform(platform: RequestedPlatform): 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST' | 'THREADS' {
   if (platform === 'LINKEDIN') return 'LINKEDIN'
   if (platform === 'TIKTOK') return 'TIKTOK'
   if (platform === 'X') return 'X'
   if (platform === 'YOUTUBE') return 'YOUTUBE'
   if (platform === 'PINTEREST') return 'PINTEREST'
+  if (platform === 'THREADS') return 'THREADS'
   return 'META'
 }
 
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest) {
     ? body.platformOptions as Record<string, unknown>
     : null
 
-  if (!integrationId || !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE', 'PINTEREST'].includes(platform)) {
+  if (!integrationId || !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE', 'PINTEREST', 'THREADS'].includes(platform)) {
     return NextResponse.json({ error: 'Valid integrationId and platform are required' }, { status: 400 })
   }
   if (['FACEBOOK', 'INSTAGRAM'].includes(platform) && !pageId) {
@@ -161,6 +163,29 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
   }
+  if (platform === 'THREADS') {
+    if (existingPost.isVideoPost) {
+      return NextResponse.json({
+        error: 'Threads video publishing is not enabled yet. Use an approved text or image post.',
+        code: 'THREADS_VIDEO_NOT_SUPPORTED',
+      }, { status: 400 })
+    }
+    const copyLength = Array.from(String(existingPost.caption || '').trim()).length
+    if (copyLength < 1 || copyLength > THREADS_MAX_TEXT_LENGTH) {
+      return NextResponse.json({
+        error: `Review the Threads post so it contains 1 to ${THREADS_MAX_TEXT_LENGTH} characters.`,
+        code: 'THREADS_COPY_REVIEW_REQUIRED',
+      }, { status: 400 })
+    }
+    try {
+      parseThreadsPostOptions(platformOptions, { hasImage: Boolean(existingPost.imageUrl) })
+    } catch (error) {
+      return NextResponse.json({
+        error: error instanceof Error ? error.message : 'Review the Threads publishing settings.',
+        code: 'THREADS_REVIEW_REQUIRED',
+      }, { status: 400 })
+    }
+  }
   if (campaignId && existingPost.campaignId && campaignId !== existingPost.campaignId) {
     return NextResponse.json({ error: 'Campaign does not match the approved post' }, { status: 409 })
   }
@@ -208,6 +233,12 @@ export async function POST(req: NextRequest) {
       code: 'PINTEREST_STANDARD_ACCESS_REQUIRED',
     }, { status: 409 })
   }
+  if (platform === 'THREADS' && String(config.accessTier || '').toUpperCase() !== 'LIVE') {
+    return NextResponse.json({
+      error: 'The Threads Meta app must be Live before publishing for public users.',
+      code: 'THREADS_LIVE_ACCESS_REQUIRED',
+    }, { status: 409 })
+  }
   const requiredScopes = platform === 'FACEBOOK'
     ? ['pages_manage_posts']
     : platform === 'INSTAGRAM'
@@ -220,6 +251,8 @@ export async function POST(req: NextRequest) {
             ? [...X_CONTENT_SCOPES]
           : platform === 'PINTEREST'
             ? [...PINTEREST_PUBLISH_SCOPES]
+          : platform === 'THREADS'
+            ? [...THREADS_PUBLISH_SCOPES]
             : [YOUTUBE_UPLOAD_SCOPE]
   const missingScope = requiredScopes.find(scope => !hasVerifiedProviderScope(config, scope))
   if (missingScope) {

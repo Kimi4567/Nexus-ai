@@ -10,6 +10,7 @@ import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState
 import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
 import { YOUTUBE_READ_SCOPE, YOUTUBE_UPLOAD_SCOPE } from '@/lib/youtubePublishing'
 import { PINTEREST_PUBLISH_SCOPES } from '@/lib/pinterestPublishing'
+import { THREADS_OPERATIONAL_SCOPES } from '@/lib/threadsPublishing'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -83,6 +84,12 @@ async function runPublishJob() {
         if (target === 'PINTEREST' && String((integration.config as any)?.accessTier || '').toUpperCase() !== 'STANDARD') {
           throw new Error('PINTEREST_STANDARD_ACCESS_REQUIRED: public scheduled Pins require Pinterest Standard access')
         }
+        if (target === 'THREADS' && post.isVideoPost) {
+          throw new Error('THREADS_VIDEO_NOT_SUPPORTED: scheduled Threads publishing supports reviewed text and images only')
+        }
+        if (target === 'THREADS' && String((integration.config as any)?.accessTier || '').toUpperCase() !== 'LIVE') {
+          throw new Error('THREADS_LIVE_ACCESS_REQUIRED: public scheduled Threads posts require a Live Meta app')
+        }
         const requiredScopes = target === 'FACEBOOK'
           ? ['pages_manage_posts']
           : target === 'INSTAGRAM'
@@ -95,6 +102,8 @@ async function runPublishJob() {
                   ? [...X_CONTENT_SCOPES]
                   : target === 'PINTEREST'
                     ? [...PINTEREST_PUBLISH_SCOPES]
+                  : target === 'THREADS'
+                    ? [...THREADS_OPERATIONAL_SCOPES]
                   : [YOUTUBE_UPLOAD_SCOPE]
         const missingScope = requiredScopes.find(scope => !hasVerifiedProviderScope(integration.config, scope))
         if (missingScope) {

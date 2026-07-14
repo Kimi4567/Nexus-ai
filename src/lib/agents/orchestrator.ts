@@ -407,9 +407,9 @@ function mapPlatforms(platforms: string[]): string[] {
     instagram: 'INSTAGRAM', tiktok: 'TIKTOK', facebook: 'FACEBOOK',
     linkedin: 'LINKEDIN', twitter: 'TWITTER', youtube: 'YOUTUBE_SHORTS',
     'youtube shorts': 'YOUTUBE_SHORTS', youtube_shorts: 'YOUTUBE_SHORTS',
-    snapchat: 'SNAPCHAT', website: 'WEBSITE', pinterest: 'PINTEREST',
+    snapchat: 'SNAPCHAT', website: 'WEBSITE', pinterest: 'PINTEREST', threads: 'THREADS',
   }
-  const valid = ['TIKTOK', 'INSTAGRAM', 'FACEBOOK', 'YOUTUBE_SHORTS', 'SNAPCHAT', 'LINKEDIN', 'TWITTER', 'WEBSITE', 'PINTEREST']
+  const valid = ['TIKTOK', 'INSTAGRAM', 'FACEBOOK', 'YOUTUBE_SHORTS', 'SNAPCHAT', 'LINKEDIN', 'TWITTER', 'WEBSITE', 'PINTEREST', 'THREADS']
   return platforms
     .map(p => map[p.toLowerCase()] || p.toUpperCase())
     .filter(p => valid.includes(p))

@@ -60,6 +60,7 @@ const PLATFORM_READINESS_KEY_BY_CAMPAIGN_PLATFORM: Record<string, PlatformKey> =
   YOUTUBE: 'youtube',
   YOUTUBE_SHORTS: 'youtube',
   PINTEREST: 'pinterest',
+  THREADS: 'threads',
   GOOGLE: 'google',
   SNAPCHAT: 'snapchat',
   WHATSAPP: 'whatsapp',
@@ -89,6 +90,7 @@ function labelArForPlatform(key: string): string {
     X: 'إكس',
     TWITTER: 'إكس',
     PINTEREST: 'بينترست',
+    THREADS: 'ثريدز',
   }
   return labels[key] ?? labelEnForPlatform(key)
 }

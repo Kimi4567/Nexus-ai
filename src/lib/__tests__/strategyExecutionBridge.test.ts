@@ -166,6 +166,25 @@ describe('deriveStrategyExecutionBridge', () => {
     expect(standard.organicRequirements[0]).toMatchObject({ platformKey: 'pinterest', status: 'ready' })
   })
 
+  it('keeps Threads Development blocked and recognizes verified Live access', () => {
+    const capabilities = { threadsPostPublishing: true, threadsReadback: true, tokenRefresh: true }
+    const development = deriveStrategyExecutionBridge({
+      scopeType: 'organic', campaignPlatforms: ['THREADS'],
+      platformStates: derivePlatformReadiness([{
+        platform: 'THREADS', status: 'CONNECTED', capabilities: { ...capabilities, threadsPublicPublishing: false },
+      }]),
+    })
+    expect(development.organicRequirements[0]).toMatchObject({ platformKey: 'threads', status: 'blocked', readinessStatus: 'needs_setup' })
+
+    const live = deriveStrategyExecutionBridge({
+      scopeType: 'organic', campaignPlatforms: ['THREADS'],
+      platformStates: derivePlatformReadiness([{
+        platform: 'THREADS', status: 'CONNECTED', capabilities: { ...capabilities, threadsPublicPublishing: true },
+      }]),
+    })
+    expect(live.organicRequirements[0]).toMatchObject({ platformKey: 'threads', status: 'ready' })
+  })
+
   it('uses a conservative checking state while platform readiness is loading', () => {
     const bridge = deriveStrategyExecutionBridge({
       scopeType: 'full',
