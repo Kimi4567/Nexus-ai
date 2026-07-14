@@ -249,4 +249,76 @@ describe('deriveCampaignCommandFlow', () => {
     expect(flow.steps.find(step => step.id === 'performance')?.status).toBe('current')
     expect(flow.steps.find(step => step.id === 'performance')?.metricEn).toBe('Analytics pending')
   })
+
+  it('does not claim approval is complete when copy is approved but post media is pending', () => {
+    const flow = deriveCampaignCommandFlow({
+      campaignId: 'copy-approved-media-pending',
+      operatingState: makeOperatingState({
+        stage: 'content_approved_not_scheduled',
+        counts: {
+          totalPosts: 3,
+          draftPosts: 0,
+          approvedPosts: 3,
+          pendingGenerationPosts: 3,
+        },
+        truthFlags: {
+          hasDraftContent: false,
+          hasApprovedContent: true,
+        },
+      }),
+      creativeSummary: {
+        total: 3,
+        mediaNeeded: 3,
+        readinessPending: 0,
+        attachedToPost: 0,
+      },
+      brandScore: 93,
+      hasCreativeBrief: true,
+      currentStepId: 'publishing',
+    })
+
+    const approval = flow.steps.find(step => step.id === 'approval')
+
+    expect(flow.nextAction.titleEn).toBe('Resolve creative and media readiness')
+    expect(approval?.status).toBe('review')
+    expect(approval?.helperEn).toBe(
+      'Copy approval is saved. Media still needs review before scheduling or publishing.',
+    )
+    expect(approval?.metricEn).toBe('3 copy approved · 3 media pending')
+    expect(approval?.metricAr).toBe('3 نص معتمد · 3 وسائط معلقة')
+  })
+
+  it('keeps video requirements in the creative and approval gates until media is attached', () => {
+    const flow = deriveCampaignCommandFlow({
+      campaignId: 'video-media-pending',
+      operatingState: makeOperatingState({
+        stage: 'content_approved_not_scheduled',
+        counts: {
+          totalPosts: 1,
+          draftPosts: 0,
+          approvedPosts: 1,
+          pendingGenerationPosts: 1,
+        },
+        truthFlags: {
+          hasDraftContent: false,
+          hasApprovedContent: true,
+        },
+      }),
+      creativeSummary: {
+        total: 1,
+        mediaNeeded: 0,
+        readinessPending: 0,
+        attachedToPost: 0,
+      },
+      brandScore: 90,
+      hasCreativeBrief: true,
+    })
+
+    expect(flow.nextAction.titleEn).toBe('Resolve creative and media readiness')
+    expect(flow.steps.find(step => step.id === 'creative')?.status).toBe('current')
+    expect(flow.steps.find(step => step.id === 'approval')?.status).toBe('review')
+    expect(flow.steps.find(step => step.id === 'approval')?.metricEn).toBe(
+      '1 copy approved · 1 media pending',
+    )
+  })
 })
