@@ -189,7 +189,7 @@ function renderGroundedCoffeeImagePrompt(
     : platformLabel(ctx.platform) === 'YouTube Shorts'
       ? 'vertical 9:16 composition'
       : 'vertical 4:5 composition'
-  const safety = 'No readable text, no logos, no brand marks, no branded packaging, no invented facility, no customer testimonial cue, no performance claim.'
+  const safety = 'No readable text, no logos, no brand marks, no branded packaging, no invented facility, no staged buyer reaction, no performance claim.'
 
   if (kind === 'education') {
     return `${format}; overhead home-brewing setup with a grinder, scale, kettle, dripper, notebook, and a neutral blank checklist. ${safety} No expert endorsement. Realistic editorial photography with generous negative space.`
