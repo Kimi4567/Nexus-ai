@@ -506,6 +506,8 @@ function guardDraftCopyQuality(text: string): string {
     .replace(/\bexpert tips\b/gi, 'practical tips')
     .replace(/\bwill elevate your coffee game\b/gi, 'can help you refine your brewing routine')
     .replace(/\btransform your home coffee experience\b/gi, 'review your home-brewing routine')
+    .replace(/\belevate your\b/gi, 'refine your')
+    .replace(/\btransform your\b/gi, 'review your')
     .replace(/\btaste the difference\b/gi, 'review the product details')
     .replace(/\bvibrant coffee experience\b/gi, 'more consistent coffee routine')
     .replace(/\bquality coffee\b/gi, 'coffee options')

@@ -815,6 +815,13 @@ describe('contentDraftTruthGuard', () => {
     expect(education).toContain('Record the grind size, dose, water, and brew time')
     expect(education).toContain('Save this checklist for your next brew')
     expect(education).not.toMatch(/expert tips|tutorials|elevate|transform/i)
+
+    const alternateHype = guardContentDraftText(
+      'Use these practical steps to elevate your brewing routine and transform your morning ritual.',
+    )
+    expect(alternateHype).toContain('refine your brewing routine')
+    expect(alternateHype).toContain('review your morning ritual')
+    expect(alternateHype).not.toMatch(/elevate your|transform your/i)
   })
 
   it('recursively guards generated post fields', () => {
