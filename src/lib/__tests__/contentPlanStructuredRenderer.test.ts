@@ -243,6 +243,40 @@ describe('contentPlanStructuredRenderer', () => {
     expect(result.issues.map(issue => issue.reason)).toContain('unsupported_absolute_claim')
   })
 
+  it('turns observed weak coffee drafts into self-contained, grounded posts', () => {
+    const context: ContentPlanRenderContext = {
+      isArabic: false,
+      brand: 'NEXUS E2E Coffee',
+      keyMessage: 'Fresh weekly roasting with origin details and flexible delivery options.',
+      targetAudience: 'Busy home brewers in Dubai',
+      contentPillars: ['freshness', 'subscription convenience', 'coffee education'],
+      platform: 'META',
+      postIndex: 0,
+      verifiedProof: [],
+      brandFacts: [
+        'NEXUS E2E Coffee is a specialty coffee subscription for home brewers in Dubai.',
+        'Beans are roasted weekly and origin details are provided.',
+      ],
+    }
+    const observed = [
+      "Review the available roasting details for this coffee subscription in Dubai. Say goodbye to stale beans and hello to a richer taste with NEXUS E2E's weekly roasting process. Curious about how we keep our coffee fresh?",
+      "Too busy for coffee runs? We've got you covered. Enjoy freshly roasted coffee delivered straight to your door. See how easy it is to subscribe and enjoy hassle-free coffee moments.",
+      "Master the art of brewing at home. Unlock the full potential of your coffee with our expert brewing tips. Our tutorials will refine your home brewing game. Watch our brewing tips and start your journey to a better cup of coffee.",
+    ]
+    const rendered = observed.map((caption, postIndex) =>
+      renderContentPlanDraftCaption({ caption }, { ...context, postIndex }),
+    )
+
+    expect(rendered[0]).toContain('Roast date and origin details matter')
+    expect(rendered[0]).toContain('beans are roasted weekly')
+    expect(rendered[1]).toContain('compare the available coffee options')
+    expect(rendered[1]).toContain('pause or cancellation terms')
+    expect(rendered[2]).toContain('Match grind size to the brewing method')
+    expect(rendered[2]).toContain('Save this checklist for your next brew')
+    expect(rendered.join('\n')).not.toMatch(/richer taste|keep our coffee fresh|straight to your door|hassle-free|expert brewing tips|our tutorials|better cup of coffee/i)
+    expect(rendered.every(caption => validateContentPlanDraftForSave({ caption }).ok)).toBe(true)
+  })
+
   it('renders explicit customer-workflow SaaS facts with safe captions and neutral visuals', () => {
     const ctx: ContentPlanRenderContext = {
       isArabic: true,
