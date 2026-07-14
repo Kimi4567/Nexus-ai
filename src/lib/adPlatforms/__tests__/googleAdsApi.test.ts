@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   discoverGoogleAdsAccounts,
+  discoverGoogleAdsConnection,
   exchangeGoogleAdsAuthorizationCode,
   googleAdsAccountExecutionBlocker,
 } from '../googleAdsApi'
@@ -97,6 +98,29 @@ describe('exchangeGoogleAdsAuthorizationCode', () => {
       }),
     ])
     expect(googleAdsAccountExecutionBlocker(false, 'UNKNOWN')).toContain('status UNKNOWN')
+  })
+
+  it('returns a verified manager connection when Google exposes no advertiser account', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        resourceNames: ['customers/3319467856'],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        results: [{ customerClient: {
+          id: '3319467856', level: '0', manager: true,
+          descriptiveName: 'NEXUS AI Marketing OS', status: 'ENABLED', testAccount: false,
+        } }],
+      }), { status: 200 })))
+
+    await expect(discoverGoogleAdsConnection('access-token')).resolves.toEqual({
+      accounts: [],
+      managers: [{
+        customerId: '3319467856',
+        descriptiveName: 'NEXUS AI Marketing OS',
+        status: 'ENABLED',
+        testAccount: false,
+      }],
+    })
   })
 
   it('allows execution only when both account status and access tier are ready', () => {

@@ -4,8 +4,9 @@ import { adminClient } from '@/lib/supabaseAuth'
 import { encryptToken } from '@/lib/tokenCrypto'
 import { verifyOAuthState } from '@/lib/oauthState'
 import {
-  discoverGoogleAdsAccounts,
+  discoverGoogleAdsConnection,
   exchangeGoogleAdsAuthorizationCode,
+  googleAdsAccessTier,
   googleAdsAccountExecutionBlocker,
   GoogleAdsOAuthError,
   GOOGLE_ADS_SCOPE,
@@ -80,7 +81,8 @@ export async function GET(req: NextRequest) {
   try {
     const redirectUri = `${appUrl()}/api/social/callback/google-ads`
     const token = await exchangeGoogleAdsAuthorizationCode({ code, redirectUri })
-    const accounts = await discoverGoogleAdsAccounts(token.accessToken)
+    const discovery = await discoverGoogleAdsConnection(token.accessToken)
+    const accounts = discovery.accounts
     const now = new Date()
     const expiresAt = new Date(now.getTime() + token.expiresIn * 1000)
     const scopes = token.scopes.includes(GOOGLE_ADS_SCOPE)
@@ -117,6 +119,84 @@ export async function GET(req: NextRequest) {
 
     const encryptedAccessToken = encryptToken(token.accessToken)
     const encryptedRefreshToken = encryptToken(token.refreshToken)
+    const primaryManager = discovery.managers[0] || null
+    const primaryAccount = accounts[0] || null
+    const connectionRole = primaryManager ? 'MANAGER' : 'ADVERTISER'
+    const integrationAccountId = primaryManager?.customerId
+      || primaryAccount?.loginCustomerId
+      || primaryAccount?.customerId
+      || null
+    const integrationAccountName = primaryManager?.descriptiveName
+      || primaryAccount?.managerName
+      || primaryAccount?.descriptiveName
+      || 'Google Ads'
+    const integrationConfig = {
+      connectionRole,
+      scopes,
+      scopeEvidence: 'provider_response',
+      connectedAt: now.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      accessTier: googleAdsAccessTier(),
+      advertiserAccountCount: accounts.length,
+      advertiserReadiness: accounts.length > 0 ? 'DISCOVERED' : 'NOT_VISIBLE',
+      lastDiscoveryAt: now.toISOString(),
+      managerAccounts: discovery.managers.map(manager => ({
+        customerId: manager.customerId,
+        descriptiveName: manager.descriptiveName,
+        status: manager.status,
+        testAccount: manager.testAccount,
+      })),
+    }
+
+    await prisma.integration.upsert({
+      where: {
+        workspaceId_type: {
+          workspaceId: workspace.id,
+          type: 'GOOGLE',
+        },
+      },
+      create: {
+        workspaceId: workspace.id,
+        type: 'GOOGLE',
+        status: 'CONNECTED',
+        accessToken: encryptedAccessToken,
+        refreshToken: encryptedRefreshToken,
+        accountId: integrationAccountId,
+        accountName: integrationAccountName,
+        lastSyncedAt: now,
+        config: integrationConfig,
+      },
+      update: {
+        status: 'CONNECTED',
+        accessToken: encryptedAccessToken,
+        refreshToken: encryptedRefreshToken,
+        accountId: integrationAccountId,
+        accountName: integrationAccountName,
+        lastSyncedAt: now,
+        config: integrationConfig,
+      },
+    })
+
+    const discoveredAccountIds = accounts.map(account => account.customerId)
+    await db.adAccount.updateMany({
+      where: {
+        workspaceId: workspace.id,
+        platform: 'GOOGLE',
+        ...(discoveredAccountIds.length > 0
+          ? { platformAccountId: { notIn: discoveredAccountIds } }
+          : {}),
+      },
+      data: {
+        status: 'DISCONNECTED',
+        accessToken: null,
+        refreshToken: null,
+        tokenExpiresAt: null,
+        hasApiAccess: false,
+        lastError: 'Google Ads no longer exposes this advertiser account to the connected OAuth identity.',
+        lastErrorAt: now,
+      },
+    })
+
     for (const account of accounts) {
       const executionBlocker = googleAdsAccountExecutionBlocker(
         account.testAccount,

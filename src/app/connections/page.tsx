@@ -73,6 +73,27 @@ interface ConnectedAdAccount {
   lastError?: string | null
 }
 
+interface GoogleAdsConnectionState {
+  id: string
+  platform: 'GOOGLE'
+  status: string
+  accountId: string | null
+  accountName: string | null
+  connectionRole: 'MANAGER' | 'ADVERTISER' | 'UNKNOWN'
+  advertiserAccountCount: number
+  advertiserReadiness: 'DISCOVERED' | 'NOT_VISIBLE' | 'UNKNOWN'
+  accessTier: 'NONE' | 'TEST' | 'EXPLORER' | 'BASIC' | 'STANDARD'
+  hasRefreshToken: boolean
+  managerAccounts: Array<{
+    customerId: string
+    descriptiveName: string
+    status: string
+    testAccount: boolean
+  }>
+  lastSyncedAt: string | null
+  connectedAt: string
+}
+
 interface PlatformDef {
   id: string
   name: { ar: string; en: string }
@@ -440,6 +461,7 @@ export default function ConnectionsPage() {
 
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([])
   const [adAccounts, setAdAccounts] = useState<ConnectedAdAccount[]>([])
+  const [googleAdsConnection, setGoogleAdsConnection] = useState<GoogleAdsConnectionState | null>(null)
   const [loadingAccounts, setLoadingAccounts] = useState(true)
   const [connecting, setConnecting] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
@@ -462,9 +484,11 @@ export default function ConnectionsPage() {
       const adData = await adRes.json()
       setAccounts(socialData.accounts || [])
       setAdAccounts(adData.accounts || [])
+      setGoogleAdsConnection(adData.googleAdsConnection || null)
     } catch {
       setAccounts([])
       setAdAccounts([])
+      setGoogleAdsConnection(null)
     } finally {
       setLoadingAccounts(false)
     }
@@ -476,12 +500,18 @@ export default function ConnectionsPage() {
     const params = new URLSearchParams(window.location.search)
     const social = params.get('social')
     const platform = params.get('platform')
+    const discoveredAdAccounts = params.get('accounts')
 
     if (social === 'connected') {
       const platformName = platform ? platform.toUpperCase() : copy('المنصة', 'platform')
       setMessage({
         type: 'success',
-        text: copy(`تم ربط ${platformName}. راجع الصلاحيات قبل أي تشغيل.`, `${platformName} connected. Review permissions before execution.`),
+        text: platform === 'google_ads' && discoveredAdAccounts === '0'
+          ? copy(
+              'تم التحقق من اتصال Google Ads وحفظ حساب المدير. لا يعرض Google حالياً حساب معلن جاهزاً للـAPI، لذلك سيظل التنفيذ والإنفاق مقفلين حتى اكتمال الحساب الفرعي.',
+              'Google Ads OAuth and the manager account were verified. Google does not currently expose an API-ready advertiser account, so execution and spend remain locked until the child account is completed.',
+            )
+          : copy(`تم ربط ${platformName}. راجع الصلاحيات قبل أي تشغيل.`, `${platformName} connected. Review permissions before execution.`),
       })
       window.history.replaceState({}, '', '/connections')
       messageTimeout = setTimeout(() => setMessage(null), 5000)
@@ -624,13 +654,38 @@ export default function ConnectionsPage() {
     }
   }
 
+  const handleDisconnectGoogleConnection = async (integrationId: string) => {
+    setDisconnecting(integrationId)
+    try {
+      const response = await fetch(`/api/ad-accounts?integrationId=${encodeURIComponent(integrationId)}`, {
+        method: 'DELETE',
+        headers: { Authorization: authHeader() },
+      })
+      if (!response.ok) throw new Error('Disconnect failed')
+      setGoogleAdsConnection(null)
+      setAdAccounts(prev => prev.filter(account => account.platform?.toUpperCase() !== 'GOOGLE'))
+      setDisconnectConfirmId(null)
+      setMessage({
+        type: 'success',
+        text: copy('تم فصل Google Ads ومسح رموز الوصول من NEXUS بدون حذف أي حساب أو حملة لدى Google.', 'Google Ads was disconnected and its stored tokens were cleared without deleting any Google account or campaign.'),
+      })
+    } catch {
+      setMessage({
+        type: 'error',
+        text: copy('تعذر فصل Google Ads. لم تتغير حالة الربط.', 'Could not disconnect Google Ads. Its connection state was not changed.'),
+      })
+    } finally {
+      setDisconnecting(null)
+    }
+  }
+
   const paidAdAccounts = adAccounts.filter((account) =>
     ['META', 'GOOGLE'].includes(account.platform?.toUpperCase()) && account.status?.toUpperCase() !== 'DISCONNECTED',
   )
   const hasMetaAdAccount = paidAdAccounts.some((account) => account.platform?.toUpperCase() === 'META')
   const hasGoogleAdAccount = paidAdAccounts.some((account) => account.platform?.toUpperCase() === 'GOOGLE')
 
-  const connectedCount = accounts.length + paidAdAccounts.length
+  const connectedCount = accounts.length + paidAdAccounts.length + (googleAdsConnection ? 1 : 0)
 
   if (loading || !isAuthenticated) {
     return (
@@ -851,26 +906,99 @@ export default function ConnectionsPage() {
                 className="mt-5"
                 action={<span className="text-[12px] font-bold text-[#64708f]">{copy('لا إنفاق بدون اعتماد', 'No spend without approval')}</span>}
               >
+                {googleAdsConnection ? (
+                  <article className="mb-4 rounded-[18px] border border-[#dce6fb] bg-[#f7faff] p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-black uppercase tracking-wider text-[#4285f4]">Google Ads OAuth</p>
+                        <p className="mt-1 text-[13px] font-black text-[#111b3f]">
+                          {googleAdsConnection.accountName || copy('اتصال Google Ads', 'Google Ads connection')}
+                        </p>
+                        {googleAdsConnection.accountId ? (
+                          <p dir="ltr" className="mt-1 text-[11px] font-semibold text-[#7b87a3]">
+                            {googleAdsConnection.accountId}
+                          </p>
+                        ) : null}
+                      </div>
+                      <StatusPill tone={googleAdsConnection.status === 'CONNECTED' && googleAdsConnection.hasRefreshToken ? 'ready' : 'needs'}>
+                        {googleAdsConnection.status === 'CONNECTED' && googleAdsConnection.hasRefreshToken
+                          ? <CheckCircle2 className="h-3.5 w-3.5" />
+                          : <Clock3 className="h-3.5 w-3.5" />}
+                        {googleAdsConnection.connectionRole === 'MANAGER'
+                          ? copy('حساب المدير متصل', 'Manager connected')
+                          : copy('اتصال Google محفوظ', 'Google connection saved')}
+                      </StatusPill>
+                    </div>
+                    <p className="mt-3 text-[11px] font-semibold leading-5 text-[#64708f]">
+                      {googleAdsConnection.advertiserAccountCount > 0
+                        ? copy(
+                            `اكتشف Google عدد ${googleAdsConnection.advertiserAccountCount} حساب معلن. راجع بطاقة كل حساب أدناه قبل أي تنفيذ.`,
+                            `Google exposed ${googleAdsConnection.advertiserAccountCount} advertiser account(s). Review each account card below before execution.`,
+                          )
+                        : copy(
+                            'تم التحقق من OAuth وحساب المدير، لكن Google لا يعرض حتى الآن حساب معلن غير إداري عبر الـAPI. التخطيط متاح؛ إنشاء الإعلانات والتفعيل والقياس والإنفاق كلها مقفلة.',
+                            'OAuth and the manager account are verified, but Google does not yet expose a non-manager advertiser account through the API. Planning is available; ad creation, activation, measurement, and spend are locked.',
+                          )}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-bold text-[#7b87a3]">
+                      <span>{copy('مستوى الوصول', 'Access tier')}: {googleAdsConnection.accessTier}</span>
+                      {googleAdsConnection.managerAccounts[0]?.status ? (
+                        <span>{copy('حالة المدير لدى Google', 'Google manager status')}: {googleAdsConnection.managerAccounts[0].status}</span>
+                      ) : null}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <ShellButton onClick={() => handleConnect('GOOGLE_ADS')} loading={connecting === 'GOOGLE_ADS'}>
+                        <RefreshCw className="h-4 w-4" />
+                        {copy('إعادة الفحص والربط', 'Reconnect & rediscover')}
+                      </ShellButton>
+                      <ShellButton tone="danger" onClick={() => setDisconnectConfirmId(googleAdsConnection.id)} loading={disconnecting === googleAdsConnection.id}>
+                        <Unplug className="h-4 w-4" />
+                        {copy('فصل Google Ads', 'Disconnect Google Ads')}
+                      </ShellButton>
+                    </div>
+                    {disconnectConfirmId === googleAdsConnection.id ? (
+                      <div className="mt-3 rounded-[14px] border border-rose-100 bg-rose-50/70 p-3">
+                        <p className="text-[12px] font-bold leading-5 text-rose-700">
+                          {copy('سيتم مسح رموز Google Ads من NEXUS وتعطيل حساباته المحفوظة محلياً، بدون حذف أي حساب أو حملة لدى Google.', 'NEXUS will clear Google Ads tokens and disable its locally saved ad accounts without deleting any Google account or campaign.')}
+                        </p>
+                        <div className="mt-3 flex gap-2">
+                          <ShellButton onClick={() => setDisconnectConfirmId(null)}>{copy('إلغاء', 'Cancel')}</ShellButton>
+                          <ShellButton tone="danger" onClick={() => handleDisconnectGoogleConnection(googleAdsConnection.id)} loading={disconnecting === googleAdsConnection.id}>{copy('تأكيد الفصل', 'Confirm')}</ShellButton>
+                        </div>
+                      </div>
+                    ) : null}
+                  </article>
+                ) : null}
                 {paidAdAccounts.length === 0 ? (
-                  <div className="rounded-[18px] border border-dashed border-[#d7def0] p-6 text-center">
-                    <p className="text-[13px] font-black text-[#111b3f]">{copy('لا يوجد حساب إعلانات محفوظ', 'No saved ad account')}</p>
+                  <div className={`rounded-[18px] border border-dashed border-[#d7def0] p-6 text-center ${googleAdsConnection ? 'bg-white/70' : ''}`}>
+                    <p className="text-[13px] font-black text-[#111b3f]">
+                      {googleAdsConnection
+                        ? copy('لا يوجد حساب معلن جاهز من Google حتى الآن', 'No Google advertiser account is ready yet')
+                        : copy('لا يوجد حساب إعلانات محفوظ', 'No saved ad account')}
+                    </p>
                     <p className="mt-1 text-[11px] font-semibold text-[#7b87a3]">
-                      {copy('يمكن إعداد التخطيط بدون حساب؛ إنشاء مسودة منصة أو تفعيلها أو قياسها يتطلب API access مثبتاً.', 'Planning can be prepared without an account; platform draft creation, activation, and measurement require proven API access.')}
+                      {googleAdsConnection
+                        ? copy('أكمل تهيئة الحساب الفرعي داخل Google Ads حتى ينتقل من Draft إلى Enabled، ثم استخدم إعادة الفحص والربط.', 'Complete the child account setup in Google Ads so it moves from Draft to Enabled, then use Reconnect & rediscover.')
+                        : copy('يمكن إعداد التخطيط بدون حساب؛ إنشاء مسودة منصة أو تفعيلها أو قياسها يتطلب API access مثبتاً.', 'Planning can be prepared without an account; platform draft creation, activation, and measurement require proven API access.')}
                     </p>
                     <div className="mt-4 flex flex-wrap justify-center gap-2">
-                      <ShellButton tone="primary" onClick={() => handleConnect('META_ADS')} loading={connecting === 'META_ADS'}>
-                        <KeyRound className="h-4 w-4" />
-                        {copy('ربط حساب إعلانات Meta', 'Connect Meta ad account')}
-                      </ShellButton>
-                      <ShellButton tone="primary" onClick={() => handleConnect('GOOGLE_ADS')} loading={connecting === 'GOOGLE_ADS'}>
-                        <KeyRound className="h-4 w-4" />
-                        {copy('ربط Google Ads', 'Connect Google Ads')}
-                      </ShellButton>
+                      {!hasMetaAdAccount ? (
+                        <ShellButton tone="primary" onClick={() => handleConnect('META_ADS')} loading={connecting === 'META_ADS'}>
+                          <KeyRound className="h-4 w-4" />
+                          {copy('ربط حساب إعلانات Meta', 'Connect Meta ad account')}
+                        </ShellButton>
+                      ) : null}
+                      {!googleAdsConnection ? (
+                        <ShellButton tone="primary" onClick={() => handleConnect('GOOGLE_ADS')} loading={connecting === 'GOOGLE_ADS'}>
+                          <KeyRound className="h-4 w-4" />
+                          {copy('ربط Google Ads', 'Connect Google Ads')}
+                        </ShellButton>
+                      ) : null}
                     </div>
                   </div>
                 ) : (
                   <div>
-                    {!hasMetaAdAccount || !hasGoogleAdAccount ? (
+                    {!hasMetaAdAccount || (!hasGoogleAdAccount && !googleAdsConnection) ? (
                       <div className="mb-4 flex flex-wrap gap-2">
                         {!hasMetaAdAccount ? (
                           <ShellButton tone="primary" onClick={() => handleConnect('META_ADS')} loading={connecting === 'META_ADS'}>
@@ -878,7 +1006,7 @@ export default function ConnectionsPage() {
                             {copy('إضافة حساب إعلانات Meta', 'Add Meta ad account')}
                           </ShellButton>
                         ) : null}
-                        {!hasGoogleAdAccount ? (
+                        {!hasGoogleAdAccount && !googleAdsConnection ? (
                           <ShellButton tone="primary" onClick={() => handleConnect('GOOGLE_ADS')} loading={connecting === 'GOOGLE_ADS'}>
                             <KeyRound className="h-4 w-4" />
                             {copy('إضافة Google Ads', 'Add Google Ads')}

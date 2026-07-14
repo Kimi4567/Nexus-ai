@@ -19,6 +19,18 @@ export interface GoogleAdsDiscoveredAccount {
   managerName: string | null
 }
 
+export interface GoogleAdsDiscoveredManager {
+  customerId: string
+  descriptiveName: string
+  status: string
+  testAccount: boolean
+}
+
+export interface GoogleAdsConnectionDiscovery {
+  accounts: GoogleAdsDiscoveredAccount[]
+  managers: GoogleAdsDiscoveredManager[]
+}
+
 export interface GoogleSearchKeyword {
   text: string
   matchType: GoogleKeywordMatchType
@@ -336,7 +348,7 @@ async function refreshGoogleAdsAccessToken(encryptedRefreshToken: string): Promi
   return data.access_token
 }
 
-export async function discoverGoogleAdsAccounts(accessToken: string): Promise<GoogleAdsDiscoveredAccount[]> {
+export async function discoverGoogleAdsConnection(accessToken: string): Promise<GoogleAdsConnectionDiscovery> {
   const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN
   if (!developerToken) throw new Error('Google Ads developer token is not configured')
 
@@ -350,6 +362,7 @@ export async function discoverGoogleAdsAccounts(accessToken: string): Promise<Go
     .map(resource => normalizeGoogleCustomerId(typeof resource === 'string' ? resource : ''))
     .filter((value): value is string => Boolean(value))
   const discovered = new Map<string, GoogleAdsDiscoveredAccount>()
+  const managers = new Map<string, GoogleAdsDiscoveredManager>()
   const failures: string[] = []
 
   for (const seedId of seedIds.slice(0, 25)) {
@@ -372,7 +385,18 @@ export async function discoverGoogleAdsAccounts(accessToken: string): Promise<Go
       for (const row of rows) {
         const client = asObject(asObject(row).customerClient)
         const customerId = normalizeGoogleCustomerId(client.id)
-        if (!customerId || client.manager === true || client.hidden === true) continue
+        if (!customerId || client.hidden === true) continue
+        if (client.manager === true) {
+          managers.set(customerId, {
+            customerId,
+            descriptiveName: typeof client.descriptiveName === 'string' && client.descriptiveName.trim()
+              ? client.descriptiveName.trim()
+              : `Google Ads Manager ${customerId}`,
+            status: typeof client.status === 'string' ? client.status : 'UNKNOWN',
+            testAccount: client.testAccount === true,
+          })
+          continue
+        }
         const status = typeof client.status === 'string' ? client.status : 'UNKNOWN'
         discovered.set(customerId, {
           customerId,
@@ -404,7 +428,16 @@ export async function discoverGoogleAdsAccounts(accessToken: string): Promise<Go
       })
       const customer = asObject(asObject((Array.isArray(direct.results) ? direct.results[0] : null)).customer)
       const customerId = normalizeGoogleCustomerId(customer.id) || seedId
-      if (customer.manager !== true) {
+      if (customer.manager === true) {
+        managers.set(customerId, {
+          customerId,
+          descriptiveName: typeof customer.descriptiveName === 'string' && customer.descriptiveName.trim()
+            ? customer.descriptiveName.trim()
+            : `Google Ads Manager ${customerId}`,
+          status: typeof customer.status === 'string' ? customer.status : 'UNKNOWN',
+          testAccount: customer.testAccount === true,
+        })
+      } else {
         const status = typeof customer.status === 'string' ? customer.status : 'UNKNOWN'
         discovered.set(customerId, {
           customerId,
@@ -424,11 +457,22 @@ export async function discoverGoogleAdsAccounts(accessToken: string): Promise<Go
     }
   }
 
-  if (discovered.size === 0) {
+  if (discovered.size === 0 && managers.size === 0) {
     const suffix = failures[0] ? `: ${failures[0]}` : ''
-    throw new Error(`No non-manager Google Ads account was available${suffix}`)
+    throw new Error(`No accessible Google Ads customer was available${suffix}`)
   }
-  return [...discovered.values()]
+  return {
+    accounts: [...discovered.values()],
+    managers: [...managers.values()],
+  }
+}
+
+export async function discoverGoogleAdsAccounts(accessToken: string): Promise<GoogleAdsDiscoveredAccount[]> {
+  const discovery = await discoverGoogleAdsConnection(accessToken)
+  if (discovery.accounts.length === 0) {
+    throw new Error('No non-manager Google Ads account was available')
+  }
+  return discovery.accounts
 }
 
 function normalizeMatchType(value: unknown): GoogleKeywordMatchType | null {
