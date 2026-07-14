@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createOAuthState, verifyOAuthState } from '@/lib/oauthState'
+import { createOAuthState, oauthStateMaxAgeSeconds, verifyOAuthState } from '@/lib/oauthState'
 
 const originalSecret = process.env.OAUTH_STATE_SECRET
 
@@ -56,6 +56,19 @@ describe('signed OAuth state', () => {
     const state = createOAuthState('user-1', 'meta_ads')
     vi.setSystemTime(new Date('2026-07-12T00:11:00Z'))
     expect(() => verifyOAuthState(state, 'meta_ads')).toThrow('Expired')
+  })
+
+  it('allows Google Ads MFA to finish within 30 minutes but not beyond it', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-12T00:00:00Z'))
+    const state = createOAuthState('user-1', 'google_ads')
+    expect(oauthStateMaxAgeSeconds('google_ads')).toBe(30 * 60)
+
+    vi.setSystemTime(new Date('2026-07-12T00:29:00Z'))
+    expect(verifyOAuthState(state, 'google_ads')).toMatchObject({ userId: 'user-1' })
+
+    vi.setSystemTime(new Date('2026-07-12T00:31:00Z'))
+    expect(() => verifyOAuthState(state, 'google_ads')).toThrow('Expired')
   })
 
   it('fails closed when the signing secret is missing', () => {

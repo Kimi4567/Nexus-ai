@@ -28,7 +28,13 @@ function appUrl(): string {
 
 function redirect(path: string): NextResponse {
   const response = NextResponse.redirect(`${appUrl()}${path}`)
-  response.cookies.delete(OAUTH_COOKIE)
+  response.cookies.set(OAUTH_COOKIE, '', {
+    httpOnly: true,
+    secure: appUrl().startsWith('https://'),
+    sameSite: 'lax',
+    path: '/api/social/callback/google-ads',
+    maxAge: 0,
+  })
   return response
 }
 
@@ -45,7 +51,15 @@ export async function GET(req: NextRequest) {
   const code = searchParams.get('code')
   const state = searchParams.get('state')
   const nonce = req.cookies.get(OAUTH_COOKIE)?.value
-  if (!code || !state || !nonce) return errorRedirect('missing_oauth_context')
+  if (!code || !state || !nonce) {
+    console.warn('[Google Ads OAuth] missing_context', {
+      hasCode: Boolean(code),
+      hasState: Boolean(state),
+      hasNonce: Boolean(nonce),
+      callbackOrigin: new URL(req.url).origin,
+    })
+    return errorRedirect('The Google Ads connection session expired. Start the connection again.')
+  }
 
   let userId: string
   try {
@@ -54,8 +68,14 @@ export async function GET(req: NextRequest) {
       return errorRedirect('invalid_oauth_context')
     }
     userId = payload.userId
-  } catch {
-    return errorRedirect('invalid_state')
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Invalid OAuth state'
+    console.warn('[Google Ads OAuth] invalid_state', { reason })
+    return errorRedirect(
+      reason.includes('Expired')
+        ? 'The Google Ads connection session expired. Start the connection again.'
+        : 'The Google Ads connection could not be verified. Start the connection again.',
+    )
   }
 
   try {

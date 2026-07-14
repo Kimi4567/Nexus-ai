@@ -11,7 +11,17 @@ type OAuthStatePayload = {
   context?: string
 }
 
-const MAX_AGE_MS = 10 * 60 * 1000
+const DEFAULT_MAX_AGE_SECONDS = 10 * 60
+const PROVIDER_MAX_AGE_SECONDS: Partial<Record<OAuthProvider, number>> = {
+  // Google can require a manual app-warning acknowledgement plus MFA before
+  // returning to the callback. Keep this provider-specific instead of
+  // weakening every OAuth flow.
+  google_ads: 30 * 60,
+}
+
+export function oauthStateMaxAgeSeconds(provider: OAuthProvider): number {
+  return PROVIDER_MAX_AGE_SECONDS[provider] || DEFAULT_MAX_AGE_SECONDS
+}
 
 function stateSecret(): string {
   const secret = process.env.OAUTH_STATE_SECRET
@@ -64,6 +74,8 @@ export function verifyOAuthState(state: string, provider: OAuthProvider): OAuthS
   ) throw new Error('Invalid OAuth state payload')
 
   const age = Date.now() - payload.issuedAt
-  if (age < -60_000 || age > MAX_AGE_MS) throw new Error('Expired OAuth state')
+  if (age < -60_000 || age > oauthStateMaxAgeSeconds(provider) * 1000) {
+    throw new Error('Expired OAuth state')
+  }
   return payload as OAuthStatePayload
 }

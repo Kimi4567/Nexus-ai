@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
-import { createOAuthState } from '@/lib/oauthState'
+import { createOAuthState, oauthStateMaxAgeSeconds } from '@/lib/oauthState'
 import { GOOGLE_ADS_SCOPE } from '@/lib/adPlatforms/googleAdsApi'
 import {
   createGoogleAdsOAuthNonce,
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
       secure: appUrl().startsWith('https://'),
       sameSite: 'lax',
       path: '/api/social/callback/google-ads',
-      maxAge: 10 * 60,
+      maxAge: oauthStateMaxAgeSeconds('google_ads'),
     })
     return response
   } catch (error) {

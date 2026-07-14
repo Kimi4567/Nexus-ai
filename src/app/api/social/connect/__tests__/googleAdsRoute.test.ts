@@ -54,6 +54,7 @@ describe('GET /api/social/connect/google-ads', () => {
     expect(verifyOAuthState(url.searchParams.get('state') || '', 'google_ads').context).toBeTruthy()
     expect(response.headers.get('set-cookie')).toContain('nexus_google_ads_oauth=')
     expect(response.headers.get('set-cookie')).toContain('HttpOnly')
+    expect(response.headers.get('set-cookie')).toContain('Max-Age=1800')
   })
 
   it('fails closed when the developer token is absent', async () => {
