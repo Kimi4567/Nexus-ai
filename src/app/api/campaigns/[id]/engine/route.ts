@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
-import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import { checkAndDeductCredits, getCreditActionPolicy, refundCreditDeduction, type CreditDeductionOk } from '@/lib/credits'
 import { deriveCampaignEngineState, runCampaignEngine } from '@/lib/campaign-engine'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import {
   deriveEngineRebuildAvailability,
   ENGINE_REBUILD_CREDIT_COST,
 } from '@/lib/campaignDangerActions'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 
 // Strategy generation makes two GPT-4o-mini calls; give the function headroom so
 // a slower-but-valid Arabic response completes instead of being killed mid-run.
@@ -82,6 +84,18 @@ export async function POST(req: NextRequest, props: Params) {
     )
   }
 
+  const brandTruthReview = reviewBrandTruthConsistency(brandProfile as any)
+  if (brandTruthReview.status === 'blocked') {
+    return NextResponse.json({
+      error: 'BRAND_TRUTH_CONFLICT',
+      message: 'Brand Brain contains conflicting facts. Resolve the flagged fields before generating a campaign package.',
+      blockers: brandTruthReview.blockers,
+      warnings: brandTruthReview.warnings,
+      creditsUsed: 0,
+      redirectUrl: '/brand',
+    }, { status: 422 })
+  }
+
   if (force) {
     const confirmation = {
       explicitEngineRebuildConfirmed: body.explicitEngineRebuildConfirmed,
@@ -128,8 +142,21 @@ export async function POST(req: NextRequest, props: Params) {
     }
   }
 
-  const credit = await checkAndDeductCredits(userId, 'RUN_FULL_STRATEGY')
-  if (!credit.ok) return NextResponse.json(credit, { status: 402 })
+  const existingOutput = campaign.aiOutput && typeof campaign.aiOutput === 'object'
+    ? campaign.aiOutput as Record<string, unknown>
+    : {}
+  const needsAiGeneration = force || !existingOutput.strategy
+
+  if (needsAiGeneration && !isAiProviderConfigured()) {
+    return NextResponse.json(getAiProviderUnavailablePayload(language), { status: 503 })
+  }
+
+  let credit: CreditDeductionOk | null = null
+  if (needsAiGeneration) {
+    const creditCheck = await checkAndDeductCredits(userId, 'RUN_FULL_STRATEGY')
+    if (!creditCheck.ok) return NextResponse.json(creditCheck, { status: 402 })
+    credit = creditCheck
+  }
 
   try {
     const result = await runCampaignEngine({
@@ -142,13 +169,34 @@ export async function POST(req: NextRequest, props: Params) {
     return NextResponse.json({
       campaign: result.campaign,
       engine: result.engine,
-      creditsRemaining: credit.creditsRemaining,
-      creditsUsed: credit.creditsUsed,
+      creditsRemaining: credit?.creditsRemaining,
+      creditsUsed: credit?.creditsUsed ?? 0,
+      creditCharge: needsAiGeneration
+        ? { ...getCreditActionPolicy('RUN_FULL_STRATEGY'), creditsUsed: credit?.creditsUsed ?? 0 }
+        : {
+            action: null,
+            cost: 0,
+            label: 'Campaign state validation',
+            reason: 'Revalidates saved output without calling an AI provider.',
+            includedWork: 'Deterministic validation and state rebuild only.',
+            providerCallLimit: 0,
+            refundableOnNoUsableOutput: false,
+            creditsUsed: 0,
+          },
     })
   } catch (err: any) {
     console.error('[campaign-engine POST]', err)
-    // Refund — a failed engine run must not charge the user (skip unlimited plans)
-    if (credit.creditsUsed > 0) await refundCredits(userId, 'RUN_FULL_STRATEGY')
-    return NextResponse.json({ error: err?.message || 'NEXUS Engine failed', refunded: credit.creditsUsed > 0, stage: 'strategy' }, { status: 500 })
+    await refundCreditDeduction({
+      userId,
+      action: 'RUN_FULL_STRATEGY',
+      deduction: credit,
+      reason: 'Campaign engine failed before creating a usable strategy',
+    })
+    return NextResponse.json({
+      error: err?.message || 'NEXUS Engine failed',
+      refunded: Boolean(credit?.creditsUsed),
+      creditsUsed: 0,
+      stage: 'strategy',
+    }, { status: 500 })
   }
 }

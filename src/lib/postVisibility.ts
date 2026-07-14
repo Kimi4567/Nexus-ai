@@ -15,6 +15,7 @@ export interface VisibilityCounts {
   approved: number
   scheduledManual: number
   scheduledAuto: number
+  processing: number
   publishedManual: number
   publishedAuto: number
   failed: number
@@ -24,7 +25,7 @@ export interface VisibilityCounts {
 }
 
 const EMPTY: VisibilityCounts = {
-  draft: 0, approved: 0, scheduledManual: 0, scheduledAuto: 0,
+  draft: 0, approved: 0, scheduledManual: 0, scheduledAuto: 0, processing: 0,
   publishedManual: 0, publishedAuto: 0, failed: 0, published: 0, total: 0,
 }
 
@@ -33,6 +34,7 @@ const DISPLAY_TO_KEY: Record<DisplayState, keyof Omit<VisibilityCounts, 'publish
   approved:         'approved',
   scheduled_manual: 'scheduledManual',
   scheduled_auto:   'scheduledAuto',
+  processing:       'processing',
   published_manual: 'publishedManual',
   published_auto:   'publishedAuto',
   failed:           'failed',

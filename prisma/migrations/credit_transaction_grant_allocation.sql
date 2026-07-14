@@ -15,9 +15,8 @@
 -- DOES NOT BACKFILL DATA. DOES NOT change User.aiCredits. DOES NOT change any
 --   CreditTransaction row. DOES NOT change any CreditGrant row.
 --
--- NO RUNTIME READER YET: nothing in the app reads/writes this table at this point
---   (B1c-a). Grant-based deduction (B1c-b) and refunds (B1c-c) arrive behind the
---   CREDIT_WALLET_ENABLED flag (default OFF). User.aiCredits stays authoritative.
+-- Runtime writes are gated by CREDIT_WALLET_ENABLED (default OFF). Keep the
+-- legacy User.aiCredits path available until the wallet migration is enabled.
 
 -- 1. Allocation table -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS "CreditTransactionGrantAllocation" (

@@ -1,8 +1,9 @@
 /**
  * POST /api/ad-campaigns/ai-suggest
  *
- * Reads Brand Brain → returns AI-recommended campaign configuration.
- * Free (no credit cost) — it's a smart recommendation, not a full AI generation.
+ * Reads Brand Brain + an approved Paid/Full strategy → returns an execution suggestion.
+ * Free (no provider call) — deterministic setup from the approved strategy,
+ * Brand Brain, compatible connected accounts, and the fixed execution objective.
  *
  * Returns:
  *   platform, objective, dailyBudget, currency, name, language, rationale
@@ -12,55 +13,46 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { suggestRateLimitDb } from '@/lib/dbRateLimit'
-import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
+import {
+  normalizePaidPlanningPlatform,
+  normalizePaidPlanningRationale,
+} from '@/lib/paidPlanningSuggestion'
+import { paidPlatformSupportsObjective } from '@/lib/paidExecutionObjective'
+import {
+  getPaidStrategySourceForUser,
+  PaidStrategySourceError,
+} from '@/lib/paidStrategySourceServer'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
 
-async function callGPT(system: string, user: string): Promise<string> {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.5,
-      max_tokens: 600,
-    }),
-  })
-  if (!res.ok) throw new Error(`OpenAI error: ${res.status}`)
-  const data = await res.json()
-  return data.choices?.[0]?.message?.content ?? '{}'
+const PLATFORM_HINTS: Record<string, RegExp> = {
+  META: /\b(meta|facebook|instagram)\b/i,
+  GOOGLE: /\bgoogle(?:\s+ads)?\b|\bsearch\b/i,
+  TIKTOK: /\btik\s*tok\b/i,
+  LINKEDIN: /\blinked\s*in\b/i,
 }
 
 export async function POST(req: NextRequest) {
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const body = await req.json().catch(() => ({})) as { sourceCampaignId?: unknown }
 
     // Rate limit — 30 AI suggestions per hour (free endpoint, no credits)
     const rl = await suggestRateLimitDb(user.id)
     if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 })
 
-    // Get workspace
-    const workspace = await db.workspace.findFirst({
-      where: { ownerId: user.id },
-      select: { id: true },
+    const paidSource = await getPaidStrategySourceForUser({
+      campaignId: typeof body.sourceCampaignId === 'string' ? body.sourceCampaignId : '',
+      userId: user.id,
     })
-    if (!workspace) return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
 
     // Get Brand Brain
     let brandProfile = null
     try {
       brandProfile = await db.brandProfile.findUnique({
-        where: { workspaceId: workspace.id },
+        where: { workspaceId: paidSource.campaign.workspaceId },
       })
     } catch { /* ok */ }
 
@@ -70,84 +62,90 @@ export async function POST(req: NextRequest) {
       kw => locationHint.includes(kw)
     )
 
-    // Without Brand Brain, return a clearly labelled planning starting point.
-    // Budget is never invented because it can become a money-moving input.
     if (!brandProfile) {
-      const now = new Date()
-      const month = now.toLocaleString('en', { month: 'short' })
-      const year = now.getFullYear()
       return NextResponse.json({
-        platform: 'META',
-        objective: 'LEAD_GENERATION',
-        dailyBudget: null,
-        currency: 'USD',
-        name: `New Campaign — ${month} ${year}`,
-        language: 'en',
-        rationale: 'Default planning starting point — complete Brand Brain and confirm objective, currency, and budget before use.',
-        missingBrandBrain: true,
-        requiresBudgetConfirmation: true,
-        requiresCurrencyConfirmation: true,
-      })
+        error: 'BRAND_BRAIN_REQUIRED',
+        code: 'BRAND_BRAIN_REQUIRED',
+      }, { status: 422 })
     }
 
-    const brandCtx = buildBrandExecutionContext(brandProfile)
+    const activeAccounts = await db.adAccount.findMany({
+      where: {
+        workspaceId: paidSource.campaign.workspaceId,
+        status: 'ACTIVE',
+        platform: { in: ['META', 'GOOGLE', 'TIKTOK', 'LINKEDIN'] },
+      },
+      select: { id: true, platform: true, currency: true },
+    })
+    const compatibleAccounts = activeAccounts.filter((account: { platform: string }) => (
+      paidPlatformSupportsObjective(account.platform, paidSource.truth.executionObjective)
+    ))
+    const connectedPlatforms: string[] = Array.from(new Set<string>(
+      compatibleAccounts.map((account: { platform: string }) => account.platform),
+    ))
+    if (connectedPlatforms.length === 0) {
+      return NextResponse.json({
+        error: activeAccounts.length > 0 ? 'PAID_NO_COMPATIBLE_ACCOUNT' : 'PAID_AD_ACCOUNT_REQUIRED',
+        code: activeAccounts.length > 0 ? 'PAID_NO_COMPATIBLE_ACCOUNT' : 'PAID_AD_ACCOUNT_REQUIRED',
+      }, { status: 422 })
+    }
 
     const now = new Date()
     const month = now.toLocaleString('en', { month: 'short' })
     const year = now.getFullYear()
 
-    const systemPrompt = `You are a paid media strategist. Given a brand profile, suggest a planning configuration for review. Never claim readiness, never launch anything, and never invent a budget, currency, result, or forecast. Output ONLY valid JSON.`
-
-    const userPrompt = `${brandCtx}
-
-Suggest the best paid campaign configuration. Consider:
-- Platform: META (B2C/broad), LINKEDIN (B2B/professional), TIKTOK (young/consumer), GOOGLE (high-intent/search)
-- Objective: LEAD_GENERATION (services/SaaS), CONVERSIONS (ecommerce), TRAFFIC (awareness), BRAND_AWARENESS (new brands)
-- Budget: return null; the user must explicitly confirm a daily budget
-- Language: 'ar' for Arabic-speaking market, 'en' for English, 'bilingual' for mixed
-
-Return JSON:
-{
-  "platform": "META|GOOGLE|TIKTOK|LINKEDIN",
-  "objective": "LEAD_GENERATION|CONVERSIONS|TRAFFIC|BRAND_AWARENESS|ENGAGEMENT",
-  "dailyBudget": null,
-  "currency": "${isMENA ? 'USD' : 'USD'}",
-  "name": "${brandProfile.brandName || 'Campaign'} — [objective label] ${month} ${year}",
-  "language": "ar|en|bilingual",
-  "rationale": "1-2 sentence explanation of why these choices make sense for this brand"
-}`
-
-    const raw = await callGPT(systemPrompt, userPrompt)
-    let suggestion: Record<string, unknown>
-    try {
-      suggestion = JSON.parse(raw)
-    } catch {
-      // Fallback if GPT returns invalid JSON
-      return NextResponse.json({
-        platform: 'META',
-        objective: 'LEAD_GENERATION',
-        dailyBudget: null,
-        currency: 'USD',
-        name: `${brandProfile.brandName} — Lead Gen ${month} ${year}`,
-        language: isMENA ? 'ar' : 'en',
-        rationale: 'Planning recommendation based on confirmed Brand Brain inputs. Budget and currency still require confirmation.',
-        requiresBudgetConfirmation: true,
-        requiresCurrencyConfirmation: true,
-      })
-    }
-
+    const sourceText = [
+      paidSource.executionContext,
+      ...(Array.isArray(paidSource.campaign.platforms) ? paidSource.campaign.platforms : []),
+    ].join(' ')
+    const explicitStrategyPlatform = connectedPlatforms.find(platform => PLATFORM_HINTS[platform]?.test(sourceText))
+    const audienceText = `${brandProfile.targetAudience || ''} ${brandProfile.description || ''}`
+    const looksB2B = /\b(b2b|businesses|companies|founders|teams|enterprise)\b|شركات|مؤسسات|فرق|رواد الأعمال/i.test(audienceText)
+    const objective = paidSource.truth.executionObjective
+    const platform = normalizePaidPlanningPlatform(
+      explicitStrategyPlatform
+      || (looksB2B && connectedPlatforms.includes('LINKEDIN') ? 'LINKEDIN' : '')
+      || (['TRAFFIC', 'CONVERSIONS'].includes(objective) && connectedPlatforms.includes('GOOGLE') ? 'GOOGLE' : '')
+      || (connectedPlatforms.includes('META') ? 'META' : '')
+      || connectedPlatforms[0],
+    )
+    const platformAccounts = compatibleAccounts.filter((account: { platform: string }) => account.platform === platform)
+    const accountCurrencies = [...new Set(
+      platformAccounts
+        .map((account: { currency?: string | null }) => account.currency)
+        .filter((currency: unknown): currency is string => typeof currency === 'string' && currency.length > 0),
+    )]
+    const language = isMENA ? 'ar' : 'en'
+    const name = `${brandProfile.brandName || 'Campaign'} — ${objective.replace(/_/g, ' ').toLowerCase()} ${month} ${year}`
     return NextResponse.json({
-      platform: suggestion.platform || 'META',
-      objective: suggestion.objective || 'LEAD_GENERATION',
+      platform,
+      objective: paidSource.truth.executionObjective,
       dailyBudget: null,
-      currency: String(suggestion.currency || 'USD'),
-      name: String(suggestion.name || `${brandProfile.brandName} Campaign`),
-      language: String(suggestion.language || 'en'),
-      rationale: String(suggestion.rationale || ''),
+      currency: accountCurrencies.length === 1 ? accountCurrencies[0] : null,
+      name,
+      language,
+      rationale: normalizePaidPlanningRationale({
+        platform,
+        objective: paidSource.truth.executionObjective,
+        rationale: '',
+        locale: language === 'ar' ? 'ar' : 'en',
+      }),
       requiresBudgetConfirmation: true,
       requiresCurrencyConfirmation: true,
+      providerGenerated: false,
+      recommendationSource: 'approved_strategy_rules',
+      creditsUsed: 0,
+      sourceStrategy: {
+        id: paidSource.campaign.id,
+        name: paidSource.campaign.name,
+        scope: paidSource.truth.scope,
+      },
+      suggestedAdAccountId: platformAccounts.length === 1 ? platformAccounts[0].id : null,
     })
   } catch (err) {
+    if (err instanceof PaidStrategySourceError) {
+      return NextResponse.json({ error: err.code, code: err.code }, { status: err.status })
+    }
     console.error('[ai-suggest]', err)
     return NextResponse.json({ error: 'Suggestion failed' }, { status: 500 })
   }

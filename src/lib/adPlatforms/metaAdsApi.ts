@@ -1,5 +1,5 @@
 /**
- * Meta Marketing API v21.0 — Nexus Ads Draft Creation Layer
+ * Meta Marketing API — Nexus Ads Draft Creation Layer
  *
  * Responsible for:
  *   - Creating paused campaign draft objects via the Meta Marketing API
@@ -20,9 +20,10 @@
  */
 
 import { decryptToken } from '@/lib/tokenCrypto'
+import { META_GRAPH_VERSION } from '@/lib/socialPlatformConfig'
 
-const META_API_BASE = 'https://graph.facebook.com/v21.0'
-const META_API_VERSION = 'v21.0'
+const META_API_BASE = `https://graph.facebook.com/${META_GRAPH_VERSION}`
+const META_API_VERSION = META_GRAPH_VERSION
 
 // ── Meta API types ─────────────────────────────────────────────────────────
 export interface MetaCampaignPayload {

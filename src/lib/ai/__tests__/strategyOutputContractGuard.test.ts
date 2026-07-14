@@ -70,6 +70,102 @@ describe('guardStrategyOutputContract', () => {
     expect(out.weeklyExecutionPlan[0].platforms).toEqual(['Instagram'])
   })
 
+  it('treats Threads as a known platform and removes it when the user did not select it', () => {
+    const out = guardStrategyOutputContract({
+      contentAnglesDetailed: [
+        { title: 'Threads discussion', platform: 'Threads', format: 'Text post', hook: 'Join the discussion', cta: 'Reply now' },
+      ],
+      weeklyExecutionPlan: [
+        { week: 1, deliverables: ['Create a Threads discussion'], platforms: ['Threads'] },
+      ],
+    }, { allowedPlatforms: allowed })
+
+    expect(out.contentAnglesDetailed[0].platform).toBe('Instagram')
+    expect(out.weeklyExecutionPlan[0].platforms).toEqual(['Instagram'])
+    expect(JSON.stringify(out)).not.toMatch(/Threads/i)
+  })
+
+  it('upgrades generic legacy hooks to a grounded audience need at display time', () => {
+    const out = guardStrategyOutputContract({
+      audienceSegmentsDetailed: [
+        {
+          segment: 'مؤسسو الشركات الخدمية الصغيرة',
+          situation: 'يديرون التسويق دون فريق داخلي',
+          pain: 'صعوبة تحويل الخطة إلى تنفيذ أسبوعي واضح',
+          desiredOutcome: 'مسار تنفيذ قابل للمراجعة',
+          objection: 'القلق من جدوى الاستعانة بخدمة خارجية',
+          message: 'ابدأ من مسار قابل للمراجعة',
+          platform: 'Instagram',
+          format: 'Carousel',
+          cta: 'راجع المسار',
+        },
+      ],
+      topHooks: ['هل تعلم أن التسويق الذكي يمكن أن يغير مسار شركتك؟'],
+      ctaVariations: ['اكتشف كيف يمكننا مساعدتك'],
+      contentAnglesDetailed: [
+        {
+          title: 'تحويل الخطة إلى أسبوع عمل',
+          platform: 'Instagram',
+          format: 'Carousel',
+          hook: 'هل تعلم أن التحليلات يمكن أن تغير عملك؟',
+          cta: 'راجع المسار',
+        },
+      ],
+      weeklyExecutionPlan: [
+        {
+          week: 1,
+          theme: 'تحويل الخطة إلى أسبوع عمل',
+          platforms: ['Instagram'],
+          keyMessage: 'التحليلات ليست مجرد أرقام، بل هي مفتاح النجاح!',
+          cta: 'اكتشف كيف يمكننا مساعدتك',
+          posts: ['1 منشور اجتماعي قصير: تحويل الخطة إلى أسبوع عمل'],
+        },
+      ],
+    }, { allowedPlatforms: ['INSTAGRAM'], language: 'ar', organicPostCount: 1 })
+
+    expect(JSON.stringify(out)).not.toMatch(/هل\s+تعلم|تغير\s+(?:مسار|عملك|شركتك)/)
+    expect(out.topHooks[0]).toContain('مؤسسو الشركات الخدمية الصغيرة')
+    expect(out.topHooks[0]).toContain('صعوبة تحويل الخطة إلى تنفيذ أسبوعي واضح')
+    expect(out.contentAnglesDetailed[0].hook).toContain('مؤسسو الشركات الخدمية الصغيرة')
+    expect(out.contentAnglesDetailed[0].hook).toContain('صعوبة تحويل الخطة إلى تنفيذ أسبوعي واضح')
+    expect(out.contentAnglesDetailed[0].hook).not.toBe(out.topHooks[0])
+    expect(out.ctaVariations[0]).not.toContain('اكتشف كيف يمكننا مساعدتك')
+    expect(out.weeklyExecutionPlan[0].keyMessage).not.toContain('التحليلات ليست مجرد أرقام')
+    expect(out.weeklyExecutionPlan[0].cta).not.toContain('اكتشف كيف يمكننا مساعدتك')
+  })
+
+  it('rebuilds a count-correct but week-short plan into the required four-week window', () => {
+    const out = guardStrategyOutputContract({
+      contentAnglesDetailed: Array.from({ length: 4 }, (_, index) => ({
+        title: `Direction ${index + 1}`,
+        platform: 'Instagram',
+        format: 'Post',
+      })),
+      weeklyExecutionPlan: [
+        { week: 1, deliverables: ['2 posts'], platforms: ['Instagram'] },
+        { week: 2, deliverables: ['2 posts'], platforms: ['Instagram'] },
+      ],
+    }, { allowedPlatforms: ['INSTAGRAM'], organicPostCount: 4 })
+
+    expect(out.weeklyExecutionPlan).toHaveLength(4)
+    expect(weeklyCount(out.weeklyExecutionPlan)).toBe(4)
+  })
+
+  it('supports an exact one-direction reviewed order without inventing four directions', () => {
+    const out = guardStrategyOutputContract({
+      contentAnglesDetailed: [],
+      weeklyExecutionPlan: [],
+    }, { allowedPlatforms: ['INSTAGRAM'], organicPostCount: 1 })
+
+    expect(out.contentAnglesDetailed).toHaveLength(1)
+    expect(out.weeklyExecutionPlan).toHaveLength(1)
+    expect(weeklyCount(out.weeklyExecutionPlan)).toBe(1)
+    expect(JSON.stringify(out.contentAnglesDetailed)).toMatch(/hypothesis|not enough evidence/i)
+
+    const report = validateCampaignStrategyContract(out, { expectedOrganicPostCount: 1 })
+    expect(report.countViolations).toEqual([])
+  })
+
   it('forces generated readiness checklist items to review-safe not-done states', () => {
     const out = guardStrategyOutputContract({
       readinessChecklist: [
@@ -641,6 +737,11 @@ describe('formatStrategyPlatformLabel', () => {
     expect(formatStrategyPlatformLabel('Youtube_shorts')).toBe('YouTube Shorts')
     expect(formatStrategyPlatformLabel('youtube shorts')).toBe('YouTube Shorts')
   })
+
+  it('formats Threads consistently for runtime display', () => {
+    expect(formatStrategyPlatformLabel('threads')).toBe('Threads')
+    expect(formatStrategyPlatformLabel('THREADS')).toBe('Threads')
+  })
 })
 
 describe('strategy runtime copy contract', () => {
@@ -692,7 +793,7 @@ describe('strategy runtime copy contract', () => {
     expect(campaignPage).toContain("uiText('بريف تخطيط مدفوع للمراجعة', 'Paid planning brief for review')")
     expect(campaignPage).toContain("uiText('مراجعة فقط — لا إطلاق', 'Review only — no launch')")
     expect(campaignPage).toContain("const displayOperatingLabel = isPaidOnlyStrategy")
-    expect(campaignPage).toContain("activeTab !== 0 && !isPaidOnlyStrategy && !engineRunning && sentinelStatus === 'passed'")
+    expect(campaignPage).toContain("activeTab !== 0 && !isPaidOnlyStrategy && !engineRunning && completeQualityReviewPassed && operatingState.stage === 'content_plan_missing'")
   })
 
   it('keeps organic-only runs separate from paid planning readiness surfaces', () => {

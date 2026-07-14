@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { useI18n } from '@/lib/i18n-context'
+import LegalDocumentPage from '@/components/legal/LegalDocumentPage'
 
 const SECTIONS = [
   {
@@ -25,8 +25,8 @@ const SECTIONS = [
   {
     titleAr: '4. الاشتراكات والفوترة',
     titleEn: '4. Subscriptions & Billing',
-    bodyAr: `• الاشتراكات المدفوعة تُفوتر مسبقاً شهرياً\n• يمكنك إلغاء اشتراكك في أي وقت؛ يسري الإلغاء في نهاية الفترة الحالية\n• لا توجد استردادات للأشهر الجزئية (انظر سياسة الاسترداد)\n• نحتفظ بالحق في تغيير الأسعار بإشعار 30 يوم مسبق\n• جميع المدفوعات تتم عبر Stripe — PCI DSS Level 1 compliant\n• العملة: USD (الدولار الأمريكي)`,
-    bodyEn: 'Paid subscriptions are billed monthly in advance. Cancellations take effect at the end of the current billing period. No refunds for partial months (see Refund Policy). Prices may change with 30 days notice. Payments via Stripe (PCI DSS Level 1). Currency: USD.',
+    bodyAr: `• الاشتراكات المدفوعة تُفوتر مسبقاً شهرياً\n• يمكنك إلغاء اشتراكك؛ يسري الإلغاء في نهاية الفترة الحالية ما لم تعرض بوابة Stripe خلاف ذلك\n• تخضع طلبات الاسترداد لسياسة الاسترداد المنشورة\n• السعر المعروض عند الدفع يحكم الفترة التي اشتريتها ولا يتغير بأثر رجعي\n• تُعالج بيانات البطاقة داخل Stripe Checkout ولا نخزنها في NEXUS\n• العملة: USD (الدولار الأمريكي)`,
+    bodyEn: 'Paid subscriptions are billed monthly in advance. Cancellation takes effect at the end of the current period unless the Stripe portal states otherwise. Refund requests follow the published Refund Policy. The price shown at checkout governs the purchased period and is not changed retroactively. Card data is processed inside Stripe Checkout and is not stored by NEXUS. Currency: USD.',
   },
   {
     titleAr: '5. الاستخدام المقبول',
@@ -55,32 +55,32 @@ const SECTIONS = [
   {
     titleAr: '9. إنهاء الخدمة',
     titleEn: '9. Termination',
-    bodyAr: `• يمكنك إلغاء اشتراكك في أي وقت عبر إعدادات الحساب\n• نحتفظ بالحق في تعليق أو إنهاء حسابك فوراً إذا انتهكت الشروط أو قمت بأنشطة احتيالية أو لم تسدد الرسوم المستحقة\n• عند الإنهاء، يُحذف بياناتك خلال 30 يوماً (ما عدا النسخ الاحتياطية)`,
-    bodyEn: 'You may cancel your subscription at any time via account settings. We may suspend or terminate your account immediately for ToS violations, fraudulent activity, or non-payment. Upon termination, your data is deleted within 30 days (except backup archives).',
+    bodyAr: `• يمكنك إلغاء اشتراكك عبر إعدادات الحساب وبوابة Stripe عندما تكون الفوترة مفعلة\n• قد نعلّق أو ننهي الحساب عند انتهاك الشروط أو الاحتيال أو عدم سداد الرسوم المستحقة\n• يمكن تقديم طلب حذف البيانات من مسار حذف البيانات؛ وقد يلزم الاحتفاظ بسجلات محدودة للفوترة والأمان والالتزامات القانونية والنسخ الاحتياطية`,
+    bodyEn: 'You may cancel through account settings and the Stripe portal when billing is enabled. We may suspend or terminate an account for Terms violations, fraud, or non-payment. A deletion request may be submitted through the Data Deletion flow; limited billing, security, legal, and backup records may need to be retained.',
   },
   {
     titleAr: '10. القانون الحاكم',
     titleEn: '10. Governing Law',
-    bodyAr: 'تخضع هذه الشروط لقوانين الإمارات العربية المتحدة. أي نزاع يُحال لمحاكم دبي. بالنسبة للعملاء الأوروبيين: يُطبق GDPR كقانون إضافي (انظر سياسة الخصوصية).',
-    bodyEn: 'These Terms are governed by the laws of the UAE. Disputes shall be referred to Dubai courts. For EU customers, GDPR applies additionally (see Privacy Policy).',
+    bodyAr: 'تُفسر هذه الشروط وفق القانون الذي ينطبق على الجهة المتعاقدة والمستخدم، مع عدم الإخلال بالحقوق الإلزامية التي لا يمكن التنازل عنها. للاستفسارات التعاقدية تواصل عبر legal@nexus-grow.com.',
+    bodyEn: 'These Terms are interpreted under the law applicable to the contracting entity and the user, without limiting mandatory rights that cannot be waived. For contracting questions, contact legal@nexus-grow.com.',
   },
   {
     titleAr: '11. التعديلات',
     titleEn: '11. Amendments',
-    bodyAr: 'نحتفظ بالحق في تعديل هذه الشروط في أي وقت. التعديلات المهمة تُنشر مع إشعار 30 يوم مسبق (بريد إلكتروني + إشعار داخل التطبيق). الاستمرار في استخدام الخدمة يعني قبولك للشروط الجديدة.',
-    bodyEn: 'We reserve the right to modify these Terms at any time. Material changes are published with 30 days advance notice (email + in-app). Continued use after changes constitutes acceptance of the new Terms.',
+    bodyAr: 'قد نحدّث هذه الشروط عند تغير المنتج أو الفوترة أو المتطلبات المطبقة. سنحدّث تاريخ الشروط ونقدم إشعاراً إضافياً عندما تتطلب طبيعة التغيير أو القوانين المطبقة ذلك. لا تغير التعديلات سعراً دُفع لفترة مكتملة بأثر رجعي.',
+    bodyEn: 'We may update these Terms when the product, billing, or applicable requirements change. We will update the Terms date and provide additional notice when the nature of the change or applicable law requires it. Changes do not retroactively alter a price already paid for a completed period.',
   },
   {
     titleAr: '12. النشر على وسائل التواصل والحسابات المتصلة',
     titleEn: '12. Social Publishing & Connected Accounts',
-    bodyAr: `• يمكنك ربط حسابات وسائل التواصل أو حسابات الإعلانات (مثل صفحة Facebook أو Meta Ads) عبر OAuth الرسمي لكل منصة.\n• تنشر NEXUS على حساباتك المتصلة فقط عند اتخاذك إجراءً صريحاً (الضغط على "نشر"). لا يوجد نشر تلقائي.\n• ربط Meta Ads أو إنشاء خطة مدفوعة لا يعني الموافقة على الصرف. يمكن لـ NEXUS إنشاء مسودات منصة متوقفة مؤقتاً فقط بعد تأكيد صريح، ولا يبدأ أي إعلان مدفوع أو إنفاق إلا بعد موافقة تفعيل نهائية منفصلة على الإطلاق والميزانية والصرف.\n• تسجيل نشر يدوي يعني أنك نشرت خارج NEXUS وأن NEXUS يسجل الحالة فقط؛ هذا منفصل عن النشر عبر API أو تفعيل الإعلانات المدفوعة.\n• أنت المسؤول عن المحتوى الذي تنشره أو تفعّله وعن الالتزام بسياسات كل منصة (مثل Meta).\n• يمكنك فصل أي حساب في أي وقت، ويُحذف رمز الوصول فوراً عند الفصل.\n• قد تتأخر مقاييس الأداء (مثل التفاعل أو أداء الإعلانات) أو لا تتوفر حسب أذونات المنصة؛ التعلم من الأداء يتطلب تحليلات حقيقية ولا يعتمد على الموافقة أو الجدولة أو التسجيل اليدوي فقط.`,
-    bodyEn: `• You may connect social or ad accounts (such as a Facebook Page or Meta Ads account) via each platform's official OAuth.\n• NEXUS publishes to your connected accounts only when you take an explicit action (clicking "Publish"). There is no automatic posting.\n• Connecting Meta Ads or creating a paid plan is not spend approval. NEXUS may create paused platform drafts only after explicit confirmation, and no paid ad delivery or spend begins until a separate final activation approval confirms launch, budget, and spend.\n• Manual publish means you published outside NEXUS and NEXUS records that status only; it is separate from API publishing or paid ad activation.\n• You are responsible for content you publish or activate and for compliance with each platform's policies (e.g., Meta).\n• You can disconnect any account at any time; the access token is deleted immediately on disconnect.\n• Performance metrics (e.g., engagement or ad performance) may be delayed or unavailable depending on platform permissions; performance learning requires real analytics and is not inferred from approval, scheduling, or manual records alone.`,
+    bodyAr: `• يمكنك ربط حسابات وسائل التواصل أو حسابات الإعلانات (مثل صفحة Facebook أو Meta Ads) عبر OAuth الرسمي لكل منصة.\n• لا ينشر NEXUS بمجرد الربط. النشر الفوري يحتاج إجراءً صريحاً منك، والنشر المجدول عبر API يقتصر على منشور راجعته ووافقت عليه وجدولته واخترت له وضع AUTO.\n• ربط Meta Ads أو إنشاء خطة مدفوعة لا يعني الموافقة على الصرف. يمكن لـ NEXUS إنشاء مسودات منصة متوقفة مؤقتاً فقط بعد تأكيد صريح، ولا يبدأ أي إعلان مدفوع أو إنفاق إلا بعد موافقة تفعيل نهائية منفصلة على الإطلاق والميزانية والصرف.\n• تسجيل نشر يدوي يعني أنك نشرت خارج NEXUS وأن NEXUS يسجل الحالة فقط؛ هذا منفصل عن النشر عبر API أو تفعيل الإعلانات المدفوعة.\n• أنت المسؤول عن المحتوى الذي تنشره أو تفعّله وعن الالتزام بسياسات كل منصة.\n• يمكنك فصل أي حساب في أي وقت، ويُحذف رمز الوصول من NEXUS عند الفصل.\n• قد تتأخر مقاييس الأداء أو لا تتوفر حسب أذونات المنصة؛ التعلم من الأداء يتطلب تحليلات حقيقية ولا يعتمد على الموافقة أو الجدولة أو التسجيل اليدوي فقط.`,
+    bodyEn: `• You may connect social or ad accounts (such as a Facebook Page or Meta Ads account) via each platform's official OAuth.\n• NEXUS never publishes merely because an account is connected. Immediate publishing requires an explicit action; scheduled API publishing is limited to a post you reviewed, approved, scheduled, and placed in AUTO mode.\n• Connecting Meta Ads or creating a paid plan is not spend approval. NEXUS may create paused platform drafts only after explicit confirmation, and no paid ad delivery or spend begins until a separate final activation approval confirms launch, budget, and spend.\n• Manual publish means you published outside NEXUS and NEXUS records that status only; this is separate from API publishing or paid ad activation.\n• You are responsible for content you publish or activate and for complying with each platform's policies.\n• You can disconnect any account at any time; its access token is removed from NEXUS on disconnect.\n• Performance metrics may be delayed or unavailable depending on platform permissions; performance learning requires real analytics and is not inferred from approval, scheduling, or manual records alone.`,
   },
   {
     titleAr: '13. التواصل',
     titleEn: '13. Contact',
-    bodyAr: 'البريد الإلكتروني: legal@nexus-grow.com | العنوان: دبي، الإمارات العربية المتحدة | وقت الاستجابة: 24-48 ساعة عمل',
-    bodyEn: 'Email: legal@nexus-grow.com | Address: Dubai, UAE | Response time: 24-48 business hours',
+    bodyAr: 'البريد المتاح للاستفسارات التعاقدية: legal@nexus-grow.com',
+    bodyEn: 'Contracting questions: legal@nexus-grow.com',
   },
 ]
 
@@ -91,64 +91,14 @@ export default function TermsPage() {
   const isAr = locale === 'ar'
 
   return (
-    <div className="min-h-screen" dir={isRTL ? 'rtl' : 'ltr'} style={{ background: '#020204' }}>
-      <nav className="sticky top-0 z-40 px-6 py-4 flex justify-between items-center"
-        style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <Link href="/" className="flex items-center gap-2">
-          <img src="/nexus_ai_icon.png" alt="Nexus AI" width={32} height={32} style={{ borderRadius: '8px' }} />
-          <span className="text-2xl font-bold gradient-text">NEXUS AI</span>
-        </Link>
-        <Link href="/auth/login" className="text-sm text-text-muted hover:text-text-primary transition">
-          {lgT?.navLogin as string}
-        </Link>
-      </nav>
-
-      <div className="max-w-3xl mx-auto px-6 py-16">
-
-        {/* App identity header — required for TikTok / platform app review */}
-        <div className="flex items-center gap-4 mb-10 p-5 rounded-2xl"
-          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <img src="/nexus_ai_icon.png" alt="Nexus AI App Icon" width={56} height={56} style={{ borderRadius: '14px', flexShrink: 0 }} />
-          <div>
-            <div className="text-xl font-bold text-white">Nexus AI</div>
-            <div className="text-sm text-text-muted mt-0.5">nexus-grow.com</div>
-            <div className="text-xs text-text-muted mt-1">AI-Powered Marketing Platform</div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 mb-2">
-          <span className="px-3 py-1 rounded-full text-xs font-bold"
-            style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)' }}>
-            Terms of Service
-          </span>
-          <span className="text-text-muted text-sm">
-            {(lgT?.lastUpdated as string)?.replace('{year}', String(year))}
-          </span>
-        </div>
-        <h1 className="text-4xl font-bold mb-2">{lgT?.termsTitle as string}</h1>
-        <p className="text-text-muted mb-10">{lgT?.termsSubtitle as string}</p>
-
-        <div className="space-y-10">
-          {SECTIONS.map((sec, i) => (
-            <section key={i} className="p-6"
-              style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px' }}>
-              <h2 className="text-lg font-bold text-amber mb-4">
-                {isAr ? sec.titleAr : sec.titleEn}
-              </h2>
-              <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
-                {isAr ? sec.bodyAr : sec.bodyEn}
-              </p>
-            </section>
-          ))}
-        </div>
-
-        <div className="mt-12 pt-8 flex gap-6 text-sm text-text-muted"
-          style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <Link href="/" className="hover:text-text-primary transition">{lgT?.backHome as string}</Link>
-          <Link href="/privacy" className="hover:text-text-primary transition">{lgT?.linkPrivacy as string}</Link>
-          <Link href="/refund" className="hover:text-text-primary transition">{lgT?.linkRefund as string}</Link>
-        </div>
-      </div>
-    </div>
+    <LegalDocumentPage
+      badge="Terms of Service"
+      title={lgT?.termsTitle as string}
+      subtitle={lgT?.termsSubtitle as string}
+      lastUpdated={(lgT?.lastUpdated as string)?.replace('{year}', String(year))}
+      sections={SECTIONS}
+      isAr={isAr}
+      isRTL={isRTL}
+    />
   )
 }

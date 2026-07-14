@@ -15,6 +15,8 @@ import { supabase } from '@/lib/supabaseClient'
 export interface BillingStatus {
   plan: string
   hasActiveSubscription: boolean
+  /** False when live Stripe billing is intentionally disabled (beta/hold). */
+  billingEnabled?: boolean
   credits: {
     remaining: number
     used: number
@@ -27,17 +29,32 @@ export interface BillingStatus {
 const CACHE_TTL = 60_000          // serve cache for 60s on normal reads
 const REVALIDATE_THROTTLE = 8_000 // min gap between focus/visibility/path revalidations (storm guard)
 
-let _cache: { data: BillingStatus; ts: number } | null = null
+let _cache: { data: BillingStatus; ts: number; userId: string } | null = null
 let _inflight: Promise<void> | null = null
 let _lastRevalidate = 0
 
 export function useBillingStatus() {
-  const [status, setStatus] = useState<BillingStatus | null>(_cache?.data ?? null)
-  const [loading, setLoading] = useState(!_cache)
+  // Do not seed from the module cache before we know the current auth user;
+  // otherwise logging out and into another account can briefly expose the
+  // previous user's plan/credit balance. The per-user cache is still used after
+  // getSession resolves below.
+  const [status, setStatus] = useState<BillingStatus | null>(null)
+  const [loading, setLoading] = useState(true)
 
   const fetchStatus = useCallback(async (force = false) => {
-    // Serve fresh cache without a network call.
-    if (!force && _cache && Date.now() - _cache.ts < CACHE_TTL) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) {
+      setStatus(null)
+      setLoading(false)
+      return
+    }
+    // Supabase normally includes `session.user.id`; use the access token as a
+    // test/legacy fallback so the cache is still isolated per authenticated
+    // session without ever sharing anonymous data.
+    const userId = session.user?.id ?? session.access_token
+
+    // Serve a fresh cache only for the authenticated user currently mounted.
+    if (!force && _cache && _cache.userId === userId && Date.now() - _cache.ts < CACHE_TTL) {
       setStatus(_cache.data)
       setLoading(false)
       return
@@ -46,14 +63,19 @@ export function useBillingStatus() {
     // Dedupe concurrent fetches (e.g. several mounted consumers on focus) into one request.
     if (_inflight) {
       await _inflight
-      if (_cache) setStatus(_cache.data)
-      setLoading(false)
+      if (_cache?.userId === userId) {
+        setStatus(_cache.data)
+        setLoading(false)
+      } else {
+        // A concurrent request for another account must not hydrate this hook
+        // with that account's data. The in-flight request has completed, so a
+        // forced retry is safe and will fetch this user's status.
+        await fetchStatus(true)
+      }
       return
     }
 
     _inflight = (async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) return
       try {
         const res = await window.fetch('/api/billing/status', {
           headers: { Authorization: `Bearer ${session.access_token}` },
@@ -63,14 +85,19 @@ export function useBillingStatus() {
         // Normalize: if credits is a number (legacy), wrap it
         if (typeof data.credits === 'number') {
           const n = data.credits as unknown as number
-          data.credits = { remaining: n, used: 0, max: n === -1 ? -1 : 15 }
+          // Legacy responses do not carry a reliable plan allowance. Keep the
+          // denominator unknown instead of inventing a stale 15-credit quota.
+          data.credits = { remaining: n, used: 0, max: n === -1 ? -1 : 0 }
         }
-        _cache = { data, ts: Date.now() }
+        _cache = { data, ts: Date.now(), userId }
       } catch { /* silent */ }
     })()
 
     try { await _inflight } finally { _inflight = null }
-    if (_cache) setStatus(_cache.data)
+    // Never hydrate from a cache entry produced for a different session if the
+    // auth context changed while this request was in flight.
+    if (_cache?.userId === userId) setStatus(_cache.data)
+    else setStatus(null)
     setLoading(false)
   }, [])
 
@@ -115,7 +142,7 @@ export function useBillingStatus() {
   }, [fetchStatus])
 
   const creditsRemaining = status?.credits?.remaining ?? 0
-  const creditsMax       = status?.credits?.max ?? 15
+  const creditsMax       = status?.credits?.max ?? 0
   const isUnlimited      = creditsMax === -1
   const isPaid           = status?.hasActiveSubscription ?? false
   // Guard against loading — don't show warning states while data is still fetching

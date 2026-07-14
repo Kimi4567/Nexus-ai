@@ -61,6 +61,12 @@ function softenAbsoluteOutcomeClaims(text: string): string {
     .replace(/المحتوى\s+التوضيحي\s+سيكون\s+كافي(?:ًا|ا)\s+لزيادة\s+التفاعل\.?/gi, 'أثر المحتوى التوضيحي على التفاعل فرضية تحتاج إلى بيانات فعلية.')
     .replace(/الجمهور\s+المستهدف\s+يستخدم\s+Instagram\s+بشكل\s+نشط\.?/gi, 'استخدام الجمهور المستهدف لـ Instagram فرضية تحتاج إلى بيانات فعلية.')
     .replace(/عدم\s+التركيز\s+على\s+منصات\s+غير\s+فعالة/gi, 'عدم توسيع القنوات قبل توفر بيانات أداء فعلية')
+    // Generic standalone guarantee verbs. Unicode boundaries preserve ordinary
+    // inclusion wording such as "ما يتضمنه العرض" while softening real promises.
+    .replace(/(?<![\p{L}\p{M}])تضمن(?:\s+لك)?(?![\p{L}\p{M}])/giu, 'تدعم')
+    .replace(/(?<![\p{L}\p{M}])يضمن(?:\s+لك)?(?![\p{L}\p{M}])/giu, 'يدعم')
+    .replace(/(?<![\p{L}\p{M}])نضمن(?:\s+لك)?(?![\p{L}\p{M}])/giu, 'نسعى إلى دعم')
+    .replace(/(?<![\p{L}\p{M}])أضمن(?:\s+لك)?(?![\p{L}\p{M}])/giu, 'أهدف إلى دعم')
     .replace(/اختر\s+خيارات\s+صديقة\s+للبيئة\s+لمنزل\s+أكثر\s+صحة\.?/gi, 'استفسر عن خيارات تنظيف صديقة للبيئة عند توفرها.')
     .replace(/خيارات\s+صديقة\s+للبيئة\s+لمنزل\s+أكثر\s+صحة/gi, 'خيارات تنظيف صديقة للبيئة عند توفرها')
     .replace(/منزل\s+أكثر\s+صحة/gi, 'منزل يلائم احتياجاتك')
@@ -92,6 +98,9 @@ function softenAbsoluteOutcomeClaims(text: string): string {
     .replace(/\bEnsure customers\b/gi, 'Help customers')
     .replace(/\bmake sure your team always\b/gi, 'help your team more consistently')
     .replace(/\bmake sure\b([^.!?]{0,80})\balways\b/gi, 'help$1more consistently')
+    .replace(/\b(?:our\s+)?pricing details available to discuss ensures? no surprises\.?/gi, 'Ask for pricing details before confirming the next step.')
+    .replace(/\bpricing details to review before booking,\s*(?:just\s+)?clear treatment plans\.?/gi, 'Review pricing details and the proposed treatment plan before booking.')
+    .replace(/\bexperience dental care without the stress\.?/gi, 'Explore dental care with clearer next steps.')
 }
 
 function guardUnsupportedBudgetAssumptions(text: string): string {
@@ -114,6 +123,12 @@ function allowedClaimsText(context: StrategyProofContext): string {
 function softenUnsupportedServiceClaims(text: string, context: StrategyProofContext): string {
   const allowed = allowedClaimsText(context)
   let guarded = text
+
+  if (!/\b(?:premium|luxury|high[-\s]?end)\b|(?:فاخر|فاخرة|متميز|متميزة)/i.test(allowed)) {
+    guarded = guarded
+      .replace(/\bpremium\s+(?=(?:dental\s+)?(?:clinic|care|service|provider|brand)\b)/gi, '')
+      .replace(/(?:العيادة|الرعاية|الخدمة)\s+(?:الفاخرة|المتميزة)/gi, '$1')
+  }
 
   if (!/\b(?:in minutes|in seconds|instant booking|book instantly)\b|في (?:دقائق|ثوان(?:ٍ|ي)?)|حجز فوري/i.test(allowed)) {
     guarded = guarded
@@ -157,11 +172,14 @@ function softenUnsupportedServiceClaims(text: string, context: StrategyProofCont
       .replace(/\b(?:Arabic and English|English and Arabic) (?:care|service|support|communication)\b/gi, 'clear communication')
       .replace(/(?:رعاية|خدمة|دعم|تواصل) ثنائي(?:ة)? اللغة/gi, 'تواصل واضح')
       .replace(/(?:خدمة|دعم|تواصل) (?:بالعربية والإنجليزية|بالإنجليزية والعربية)/gi, 'تواصل واضح')
+      .replace(/\bclear communication in your preferred language\.?/gi, 'Clear communication about the next steps.')
+      .replace(/تواصل واضح بلغتك المفضلة\.?/gi, 'تواصل واضح حول الخطوات التالية.')
   }
 
   if (!/family[-\s]?friendly|children|kids|pediatric|عائلات|عائلي|الأطفال|طب أسنان الأطفال/i.test(allowed)) {
     guarded = guarded
       .replace(/\bfamily[-\s]?friendly\b/gi, 'welcoming')
+      .replace(/\bdental care that caters to the whole family\.?/gi, 'Dental care options to review for different needs.')
       .replace(/مناسب(?:ة)? للعائلات/gi, 'مرحّب')
       .replace(/صديق(?:ة)? للعائلة/gi, 'مرحّب')
   }
@@ -177,6 +195,7 @@ function softenUnsupportedServiceClaims(text: string, context: StrategyProofCont
   if (!/tour|facility visit|office visit|جولة|زيارة المنشأة|زيارة العيادة/i.test(allowed)) {
     guarded = guarded
       .replace(/\b(?:book|schedule|request) (?:a |your )?(?:clinic |facility |office )?tour\b/gi, 'book a consultation')
+      .replace(/\bvisit us for a tour\b/gi, 'book a consultation')
       .replace(/(?:احجز|اطلب|حدد) جولة(?: في العيادة)?/gi, 'احجز استشارة')
   }
 

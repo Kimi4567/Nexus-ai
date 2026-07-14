@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
@@ -20,8 +21,40 @@ import {
 interface ConnectedAccount {
   id: string
   platform: string
+  status: string
   accountName: string
   pages: Array<{ id: string; name: string; igAccountId: string | null }>
+  organizations?: Array<{ id: string; name: string }>
+  boards?: Array<{ id: string; name: string; privacy?: string | null }>
+  selectedOrganizationId?: string | null
+  scopes?: string[]
+  expiresAt?: string | null
+  refreshExpiresAt?: string | null
+  lastSyncedAt?: string | null
+  channelUrl?: string | null
+  profileUrl?: string | null
+  accessTier?: 'TRIAL' | 'STANDARD' | 'DEVELOPMENT' | 'LIVE' | null
+  capabilities?: {
+    facebookPublishing?: boolean
+    instagramPublishing?: boolean
+    linkedInMemberPublishing?: boolean
+    linkedInOrganizationPublishing?: boolean
+    tikTokDirectPosting?: boolean
+    tikTokCreatorInfoVerified?: boolean
+    youtubeVideoPublishing?: boolean
+    youtubeReadback?: boolean
+    xPublishing?: boolean
+    xMediaPublishing?: boolean
+    xReadback?: boolean
+    pinterestPinPublishing?: boolean
+    pinterestReadback?: boolean
+    pinterestBoardSelection?: boolean
+    pinterestPublicPublishing?: boolean
+    threadsPostPublishing?: boolean
+    threadsReadback?: boolean
+    threadsPublicPublishing?: boolean
+    tokenRefresh?: boolean
+  }
   connectedAt: string
 }
 
@@ -35,6 +68,30 @@ interface ConnectedAdAccount {
   hasApiAccess: boolean
   pageId: string | null
   pageName: string | null
+  apiAccessTier?: 'NONE' | 'TEST' | 'EXPLORER' | 'BASIC' | 'STANDARD' | null
+  loginCustomerId?: string | null
+  lastError?: string | null
+}
+
+interface GoogleAdsConnectionState {
+  id: string
+  platform: 'GOOGLE'
+  status: string
+  accountId: string | null
+  accountName: string | null
+  connectionRole: 'MANAGER' | 'ADVERTISER' | 'UNKNOWN'
+  advertiserAccountCount: number
+  advertiserReadiness: 'DISCOVERED' | 'NOT_VISIBLE' | 'UNKNOWN'
+  accessTier: 'NONE' | 'TEST' | 'EXPLORER' | 'BASIC' | 'STANDARD'
+  hasRefreshToken: boolean
+  managerAccounts: Array<{
+    customerId: string
+    descriptiveName: string
+    status: string
+    testAccount: boolean
+  }>
+  lastSyncedAt: string | null
+  connectedAt: string
 }
 
 interface PlatformDef {
@@ -52,10 +109,10 @@ const PLATFORMS: PlatformDef[] = [
     id: 'META',
     name: { ar: 'Meta — Facebook وInstagram', en: 'Meta — Facebook & Instagram' },
     helper: {
-      ar: 'ربط صفحات Facebook وحسابات Instagram للنشر العضوي بعد مراجعة الصلاحيات.',
-      en: 'Connect Facebook Pages and Instagram accounts for organic publishing after permission review.',
+      ar: 'ينشر Facebook بعد تحقق الصفحة والصلاحيات. يظهر حساب Instagram للربط والمراجعة، ولا يُعتمد نشره حتى نجاح فحص الصلاحيات.',
+      en: 'Facebook and Instagram readiness are checked separately against the selected Page and professional Instagram identity.',
     },
-    scope: { ar: 'نشر عضوي بعد الموافقة', en: 'Organic publishing after approval' },
+    scope: { ar: 'نشر Facebook وInstagram', en: 'Facebook & Instagram publishing' },
     available: true,
     accent: '#2563eb',
     icon: '∞',
@@ -64,10 +121,10 @@ const PLATFORMS: PlatformDef[] = [
     id: 'LINKEDIN',
     name: { ar: 'LinkedIn', en: 'LinkedIn' },
     helper: {
-      ar: 'منشورات مهنية وصفحات شركات، مع مراجعة الصلاحيات قبل أي نشر.',
-      en: 'Professional posts and company pages with permission checks before publishing.',
+      ar: 'يفحص NEXUS النشر باسم العضو وصفحات الشركات كلٌ على حدة، ولا يعتبر صفحة شركة متاحة دون صلاحية إدارة مثبتة.',
+      en: 'NEXUS checks member and Company Page publishing separately and never treats an organization as available without proven admin access.',
     },
-    scope: { ar: 'نشر عضوي مهني', en: 'Professional organic publishing' },
+    scope: { ar: 'عضو وصفحات شركات', en: 'Member & Company Pages' },
     available: true,
     accent: '#0a66c2',
     icon: 'in',
@@ -76,10 +133,10 @@ const PLATFORMS: PlatformDef[] = [
     id: 'TIKTOK',
     name: { ar: 'TikTok', en: 'TikTok' },
     helper: {
-      ar: 'فيديوهات قصيرة ومحتوى اجتماعي، لا يتم النشر إلا بعد موافقة صريحة.',
-      en: 'Short-form social content, published only after explicit approval.',
+      ar: 'النشر المباشر يظل مقفلاً حتى نجاح فحص creator-info واختيار الخصوصية والإفصاحات وموافقة المستخدم الصريحة.',
+      en: 'Direct posting stays locked until creator-info, privacy, disclosures, and explicit user consent are verified.',
     },
-    scope: { ar: 'محتوى قصير', en: 'Short-form content' },
+    scope: { ar: 'فيديو Direct Post', en: 'Video Direct Post' },
     available: true,
     accent: '#111827',
     icon: '♪',
@@ -100,8 +157,8 @@ const PLATFORMS: PlatformDef[] = [
     id: 'GOOGLE',
     name: { ar: 'Google Ads', en: 'Google Ads' },
     helper: {
-      ar: 'مخطط للإعلانات والقياس. يحتاج إعدادات وتصاريح منفصلة.',
-      en: 'Planned for ads and measurement. Requires separate setup and permissions.',
+      ar: 'مسار Search متوقف للمراجعة ثم تفعيل منفصل وقياس من Google Ads. يحتاج OAuth وDeveloper Token ومستوى وصول مناسب.',
+      en: 'Paused Search drafts, separate activation, and Google Ads measurement. Requires OAuth, a developer token, and the appropriate access tier.',
     },
     scope: { ar: 'مخطط', en: 'Planned' },
     available: false,
@@ -112,21 +169,211 @@ const PLATFORMS: PlatformDef[] = [
     id: 'YOUTUBE',
     name: { ar: 'YouTube', en: 'YouTube' },
     helper: {
-      ar: 'مخطط للفيديو والشورتس. التنفيذ الحقيقي سيأتي بعد الربط الرسمي.',
-      en: 'Planned for video and Shorts. Real execution comes after official connection.',
+      ar: 'يرفع الفيديوهات والشورتس المعتمدة، ثم يراقب المعالجة. قد تفرض Google الخصوصية على Private حتى اعتماد مشروع API.',
+      en: 'Uploads approved videos and Shorts, then monitors processing. Google may force Private visibility until the API project passes audit.',
     },
-    scope: { ar: 'مخطط', en: 'Planned' },
-    available: false,
+    scope: { ar: 'رفع فيديو ومراقبة المعالجة', en: 'Video upload & processing status' },
+    available: true,
     accent: '#ef4444',
     icon: '▶',
   },
+  {
+    id: 'X',
+    name: { ar: 'X', en: 'X' },
+    helper: {
+      ar: 'ينشر النص والصورة المعتمدة فقط بعد موافقة صريحة، ثم يجلب مقاييس المنشور المتاحة من X بدون اختلاق وصول أو تحويلات.',
+      en: 'Publishes approved text and image only after explicit consent, then reads available X post metrics without inventing reach or conversions.',
+    },
+    scope: { ar: 'نص وصورة معتمدة', en: 'Approved text & image' },
+    available: true,
+    accent: '#111827',
+    icon: 'X',
+  },
+  {
+    id: 'THREADS',
+    name: { ar: 'Threads', en: 'Threads' },
+    helper: {
+      ar: 'ينشر النصوص والصور المعتمدة بعد اختيار من يستطيع الرد والموافقة الصريحة، ثم يجمع المشاهدات والتفاعلات المتاحة بدون اختلاق وصول أو نقرات.',
+      en: 'Publishes approved text and images after reply-control review and explicit consent, then collects available views and interactions without inventing reach or clicks.',
+    },
+    scope: { ar: 'نص وصورة + قياس عضوي', en: 'Text, image & organic insights' },
+    available: true,
+    accent: '#111827',
+    icon: '@',
+  },
+  {
+    id: 'PINTEREST',
+    name: { ar: 'Pinterest', en: 'Pinterest' },
+    helper: {
+      ar: 'ينشر Image Pins المعتمدة إلى Board محدد بعد مراجعة العنوان والوصف وAlt Text وإفصاح الذكاء. Trial يتيح اختبارًا مرئيًا لصاحب الحساب فقط؛ النشر العام يتطلب Standard access.',
+      en: 'Publishes approved image Pins to an exact Board after title, description, alt text, and AI-disclosure review. Trial is creator-visible testing only; public distribution requires Standard access.',
+    },
+    scope: { ar: 'Image Pins معتمدة', en: 'Approved image Pins' },
+    available: true,
+    accent: '#e11d48',
+    icon: 'P',
+  },
+  {
+    id: 'WHATSAPP',
+    name: { ar: 'WhatsApp Business', en: 'WhatsApp Business' },
+    helper: { ar: 'مخطط لتسليم العملاء والرسائل المعتمدة؛ ليس قناة نشر اجتماعي عادية.', en: 'Planned for lead handoff and approved templates; it is not a standard social publishing channel.' },
+    scope: { ar: 'مخطط', en: 'Planned' },
+    available: false,
+    accent: '#16a34a',
+    icon: 'W',
+  },
 ]
+
+function connectionTruth(account: ConnectedAccount, ar: boolean): {
+  tone: 'ready' | 'needs'
+  label: string
+  checks: Array<{ ok: boolean; text: string }>
+} {
+  const capability = account.capabilities || {}
+  if (account.status !== 'CONNECTED') {
+    return {
+      tone: 'needs',
+      label: account.status === 'EXPIRED'
+        ? (ar ? 'انتهت الصلاحية · أعد الربط' : 'Expired · reconnect')
+        : (ar ? 'خطأ في الاتصال · أعد الربط' : 'Connection error · reconnect'),
+      checks: [{ ok: false, text: ar ? 'رمز وصول صالح مطلوب قبل أي نشر' : 'A valid access token is required before publishing' }],
+    }
+  }
+  if (account.platform === 'META') {
+    const facebook = capability.facebookPublishing === true
+    const instagram = capability.instagramPublishing === true
+    return {
+      tone: facebook && instagram ? 'ready' : 'needs',
+      label: facebook && instagram
+        ? (ar ? 'النشر جاهز للوجهتين' : 'Both destinations ready')
+        : facebook
+          ? (ar ? 'Facebook جاهز · Instagram ناقص' : 'Facebook ready · Instagram missing')
+          : (ar ? 'إعداد الوجهة مطلوب' : 'Destination setup required'),
+      checks: [
+        { ok: facebook, text: ar ? 'صفحة Facebook مخولة للنشر' : 'Facebook Page authorized for publishing' },
+        { ok: instagram, text: ar ? 'حساب Instagram احترافي مربوط بالصفحة' : 'Professional Instagram account linked to the Page' },
+      ],
+    }
+  }
+  if (account.platform === 'LINKEDIN') {
+    const member = capability.linkedInMemberPublishing === true
+    const organization = capability.linkedInOrganizationPublishing === true
+    return {
+      tone: member || organization ? 'ready' : 'needs',
+      label: organization
+        ? (ar ? 'نشر العضو وصفحة الشركة متاح' : 'Member and Company Page ready')
+        : member
+          ? (ar ? 'نشر العضو جاهز · لا صفحة شركة' : 'Member ready · no Company Page')
+          : (ar ? 'صلاحية النشر غير مثبتة' : 'Publishing permission unverified'),
+      checks: [
+        { ok: member, text: ar ? 'هوية العضو متاحة للنشر' : 'Member publishing identity available' },
+        { ok: organization, text: ar ? 'صفحة شركة بإدارة مثبتة' : 'Admin-authorized Company Page available' },
+      ],
+    }
+  }
+  if (account.platform === 'YOUTUBE') {
+    const upload = capability.youtubeVideoPublishing === true
+    const readback = capability.youtubeReadback === true
+    const refresh = capability.tokenRefresh === true
+    return {
+      tone: upload && readback && refresh ? 'ready' : 'needs',
+      label: upload && readback && refresh
+        ? (ar ? 'رفع الفيديو والمراقبة جاهزان' : 'Upload and monitoring ready')
+        : (ar ? 'صلاحيات YouTube غير مكتملة' : 'YouTube permissions incomplete'),
+      checks: [
+        { ok: upload, text: ar ? 'صلاحية رفع الفيديو مثبتة' : 'Video upload permission verified' },
+        { ok: readback, text: ar ? 'قراءة حالة المعالجة مثبتة' : 'Processing status readback verified' },
+        { ok: refresh, text: ar ? 'رمز تحديث محفوظ للجدولة' : 'Refresh token stored for scheduling' },
+      ],
+    }
+  }
+  if (account.platform === 'X') {
+    const publishing = capability.xPublishing === true
+    const media = capability.xMediaPublishing === true
+    const readback = capability.xReadback === true
+    const refresh = capability.tokenRefresh === true
+    return {
+      tone: publishing && media && readback && refresh ? 'ready' : 'needs',
+      label: publishing && media && readback && refresh
+        ? (ar ? 'النشر والقياس جاهزان للمراجعة' : 'Publishing and measurement review-ready')
+        : (ar ? 'صلاحيات X غير مكتملة' : 'X permissions incomplete'),
+      checks: [
+        { ok: publishing, text: ar ? 'صلاحية إنشاء المنشورات مثبتة' : 'Post creation permission verified' },
+        { ok: media, text: ar ? 'صلاحية رفع الصور مثبتة' : 'Image upload permission verified' },
+        { ok: readback, text: ar ? 'قراءة المنشور والمقاييس مثبتة' : 'Post and metrics readback verified' },
+        { ok: refresh, text: ar ? 'رمز تحديث محفوظ للجدولة' : 'Refresh token stored for scheduling' },
+      ],
+    }
+  }
+  if (account.platform === 'PINTEREST') {
+    const publishing = capability.pinterestPinPublishing === true
+    const readback = capability.pinterestReadback === true
+    const board = capability.pinterestBoardSelection === true
+    const refresh = capability.tokenRefresh === true
+    const publicPublishing = capability.pinterestPublicPublishing === true
+    const operational = publishing && readback && board && refresh
+    return {
+      tone: operational && publicPublishing ? 'ready' : 'needs',
+      label: operational
+        ? publicPublishing
+          ? (ar ? 'النشر العام والقياس جاهزان للمراجعة' : 'Public publishing and measurement review-ready')
+          : (ar ? 'اختبار Trial جاهز · النشر العام يحتاج Standard' : 'Trial testing ready · Standard needed for public distribution')
+        : (ar ? 'إعداد Pinterest غير مكتمل' : 'Pinterest setup incomplete'),
+      checks: [
+        { ok: publishing, text: ar ? 'صلاحيات إنشاء وقراءة Pins مثبتة' : 'Pin creation and read permissions verified' },
+        { ok: board, text: ar ? 'Board عامة واحدة على الأقل متاحة للاختيار' : 'At least one public Board is available for selection' },
+        { ok: readback, text: ar ? 'قراءة مقاييس Pin مثبتة' : 'Pin metric readback verified' },
+        { ok: refresh, text: ar ? 'رمز تحديث مستمر محفوظ للجدولة' : 'Continuous refresh token stored for scheduling' },
+        { ok: publicPublishing, text: ar ? 'Standard access مثبت للنشر العام' : 'Standard access configured for public distribution' },
+      ],
+    }
+  }
+  if (account.platform === 'THREADS') {
+    const publishing = capability.threadsPostPublishing === true
+    const readback = capability.threadsReadback === true
+    const refresh = capability.tokenRefresh === true
+    const publicPublishing = capability.threadsPublicPublishing === true
+    const operational = publishing && readback && refresh
+    return {
+      tone: operational && publicPublishing ? 'ready' : 'needs',
+      label: operational
+        ? publicPublishing
+          ? (ar ? 'النشر العام والقياس جاهزان للمراجعة' : 'Public publishing and measurement review-ready')
+          : (ar ? 'اختبار التطوير جاهز · تفعيل Live مطلوب للعامة' : 'Development testing ready · Live mode needed for public users')
+        : (ar ? 'إعداد Threads غير مكتمل' : 'Threads setup incomplete'),
+      checks: [
+        { ok: publishing, text: ar ? 'صلاحيات الهوية والنشر مثبتة' : 'Identity and publishing permissions verified' },
+        { ok: readback, text: ar ? 'صلاحية قراءة مؤشرات الأداء مثبتة' : 'Insight readback permission verified' },
+        { ok: refresh, text: ar ? 'توكن طويل العمر قابل للتجديد' : 'Renewable long-lived token available' },
+        { ok: publicPublishing, text: ar ? 'تطبيق Meta في وضع Live' : 'Meta app is in Live mode' },
+      ],
+    }
+  }
+  const directPost = capability.tikTokDirectPosting === true
+  const creator = capability.tikTokCreatorInfoVerified === true
+  return {
+    tone: directPost && creator ? 'ready' : 'needs',
+    label: directPost && creator
+      ? (ar ? 'Direct Post جاهز للمراجعة' : 'Direct Post review-ready')
+      : (ar ? 'إعادة الربط أو التحقق مطلوبة' : 'Reconnect or verification required'),
+    checks: [
+      { ok: directPost, text: ar ? 'صلاحية video.publish موجودة' : 'video.publish scope granted' },
+      { ok: creator, text: ar ? 'creator-info والخصوصية تم التحقق منهما' : 'Creator info and privacy options verified' },
+      { ok: capability.tokenRefresh === true, text: ar ? 'رمز تحديث محفوظ للتجديد' : 'Refresh token stored for renewal' },
+    ],
+  }
+}
 
 const CONNECT_ROUTES: Record<string, string> = {
   META: '/api/social/connect/meta',
   META_ADS: '/api/social/connect/meta-ads',
+  GOOGLE_ADS: '/api/social/connect/google-ads',
   LINKEDIN: '/api/social/connect/linkedin',
   TIKTOK: '/api/social/connect/tiktok',
+  YOUTUBE: '/api/social/connect/youtube',
+  X: '/api/social/connect/x',
+  PINTEREST: '/api/social/connect/pinterest',
+  THREADS: '/api/social/connect/threads',
 }
 
 function ShellButton({
@@ -207,12 +454,14 @@ function StatusPill({ children, tone }: { children: ReactNode; tone: 'ready' | '
 
 export default function ConnectionsPage() {
   const { isAuthenticated, loading, authHeader, session } = useAuth()
-  const { locale, dir } = useI18n()
+  const router = useRouter()
+  const { locale, localeReady, dir } = useI18n()
   const ar = locale === 'ar'
   const copy = useCallback((arabic: string, english: string) => (ar ? arabic : english), [ar])
 
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([])
   const [adAccounts, setAdAccounts] = useState<ConnectedAdAccount[]>([])
+  const [googleAdsConnection, setGoogleAdsConnection] = useState<GoogleAdsConnectionState | null>(null)
   const [loadingAccounts, setLoadingAccounts] = useState(true)
   const [connecting, setConnecting] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
@@ -221,7 +470,10 @@ export default function ConnectionsPage() {
 
   const fetchAccounts = useCallback(async () => {
     const token = authHeader()
-    if (!token) return
+    if (!token) {
+      setLoadingAccounts(false)
+      return
+    }
     setLoadingAccounts(true)
     try {
       const [socialRes, adRes] = await Promise.all([
@@ -232,28 +484,40 @@ export default function ConnectionsPage() {
       const adData = await adRes.json()
       setAccounts(socialData.accounts || [])
       setAdAccounts(adData.accounts || [])
+      setGoogleAdsConnection(adData.googleAdsConnection || null)
     } catch {
       setAccounts([])
       setAdAccounts([])
+      setGoogleAdsConnection(null)
     } finally {
       setLoadingAccounts(false)
     }
   }, [authHeader])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    // Wait for the persisted interface language before converting OAuth query
+    // parameters into a visible message. Otherwise the provider's SSR-safe
+    // Arabic default can briefly win even when the saved interface is English.
+    if (!localeReady || typeof window === 'undefined') return
+    let messageTimeout: ReturnType<typeof setTimeout> | undefined
     const params = new URLSearchParams(window.location.search)
     const social = params.get('social')
     const platform = params.get('platform')
+    const discoveredAdAccounts = params.get('accounts')
 
     if (social === 'connected') {
       const platformName = platform ? platform.toUpperCase() : copy('المنصة', 'platform')
       setMessage({
         type: 'success',
-        text: copy(`تم ربط ${platformName}. راجع الصلاحيات قبل أي تشغيل.`, `${platformName} connected. Review permissions before execution.`),
+        text: platform === 'google_ads' && discoveredAdAccounts === '0'
+          ? copy(
+              'تم التحقق من اتصال Google Ads وحفظ حساب المدير. لا يعرض Google حالياً حساب معلن جاهزاً للـAPI، لذلك سيظل التنفيذ والإنفاق مقفلين حتى اكتمال الحساب الفرعي.',
+              'Google Ads OAuth and the manager account were verified. Google does not currently expose an API-ready advertiser account, so execution and spend remain locked until the child account is completed.',
+            )
+          : copy(`تم ربط ${platformName}. راجع الصلاحيات قبل أي تشغيل.`, `${platformName} connected. Review permissions before execution.`),
       })
       window.history.replaceState({}, '', '/connections')
-      setTimeout(() => setMessage(null), 5000)
+      messageTimeout = setTimeout(() => setMessage(null), 5000)
     } else if (social === 'error' || social === 'denied') {
       const rawMsg = params.get('msg')
       setMessage({
@@ -263,13 +527,21 @@ export default function ConnectionsPage() {
           : copy('تعذر إكمال الربط. حاول مرة أخرى بعد مراجعة إعدادات المنصة.', 'Connection failed. Review platform settings and try again.'),
       })
       window.history.replaceState({}, '', '/connections')
-      setTimeout(() => setMessage(null), 9000)
+      messageTimeout = setTimeout(() => setMessage(null), 9000)
     }
-  }, [copy])
+    return () => { if (messageTimeout) clearTimeout(messageTimeout) }
+  }, [copy, localeReady])
 
   useEffect(() => {
     if (!loading && isAuthenticated && session?.access_token) fetchAccounts()
   }, [fetchAccounts, isAuthenticated, loading, session])
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      setLoadingAccounts(false)
+      router.push('/auth/login')
+    }
+  }, [isAuthenticated, loading, router])
 
   const handleConnect = async (platformId: string) => {
     const route = CONNECT_ROUTES[platformId]
@@ -302,7 +574,27 @@ export default function ConnectionsPage() {
       } else {
         setMessage({
           type: 'error',
-          text: data.error || copy('تعذر بدء الربط من NEXUS.', 'NEXUS could not start the connection.'),
+          text: data.code === 'X_OAUTH_NOT_CONFIGURED'
+            ? copy(
+                'ربط X غير متاح الآن لأن إعداد المنصة لم يكتمل. لم يتم تغيير أي بيانات.',
+                'X connection is not available because platform setup is incomplete. No data was changed.',
+              )
+            : data.code === 'PINTEREST_OAUTH_NOT_CONFIGURED'
+              ? copy(
+                  'ربط Pinterest غير متاح الآن لأن إعداد التطبيق لم يكتمل. لم يتم تغيير أي بيانات.',
+                  'Pinterest connection is not available because app setup is incomplete. No data was changed.',
+                )
+            : data.code === 'THREADS_OAUTH_NOT_CONFIGURED'
+              ? copy(
+                  'ربط Threads غير متاح الآن لأن إعداد تطبيق Meta لم يكتمل. لم يتم تغيير أي بيانات.',
+                  'Threads connection is not available because Meta app setup is incomplete. No data was changed.',
+                )
+            : data.code === 'GOOGLE_ADS_NOT_CONFIGURED'
+              ? copy(
+                  'ربط Google Ads غير متاح حتى تكتمل مفاتيح OAuth وDeveloper Token. لم يتم تغيير أي بيانات.',
+                  'Google Ads connection is unavailable until OAuth credentials and the developer token are configured. No data was changed.',
+                )
+            : data.error || copy('تعذر بدء الربط من NEXUS.', 'NEXUS could not start the connection.'),
         })
         setConnecting(null)
       }
@@ -341,13 +633,64 @@ export default function ConnectionsPage() {
     }
   }
 
-  const metaAdAccounts = adAccounts.filter((account) =>
-    account.platform?.toUpperCase() === 'META' && account.status?.toUpperCase() !== 'DISCONNECTED',
+  const handleDisconnectAd = async (accountId: string) => {
+    setDisconnecting(accountId)
+    try {
+      const response = await fetch(`/api/ad-accounts?id=${encodeURIComponent(accountId)}`, {
+        method: 'DELETE',
+        headers: { Authorization: authHeader() },
+      })
+      if (!response.ok) throw new Error('Disconnect failed')
+      setAdAccounts(prev => prev.filter(account => account.id !== accountId))
+      setDisconnectConfirmId(null)
+      setMessage({
+        type: 'success',
+        text: copy('تم فصل حساب الإعلانات ومسح رموز الوصول المحفوظة.', 'Ad account disconnected and stored access credentials cleared.'),
+      })
+    } catch {
+      setMessage({
+        type: 'error',
+        text: copy('تعذر فصل حساب الإعلانات. لم تتغير حالته.', 'Could not disconnect the ad account. Its state was not changed.'),
+      })
+    } finally {
+      setDisconnecting(null)
+    }
+  }
+
+  const handleDisconnectGoogleConnection = async (integrationId: string) => {
+    setDisconnecting(integrationId)
+    try {
+      const response = await fetch(`/api/ad-accounts?integrationId=${encodeURIComponent(integrationId)}`, {
+        method: 'DELETE',
+        headers: { Authorization: authHeader() },
+      })
+      if (!response.ok) throw new Error('Disconnect failed')
+      setGoogleAdsConnection(null)
+      setAdAccounts(prev => prev.filter(account => account.platform?.toUpperCase() !== 'GOOGLE'))
+      setDisconnectConfirmId(null)
+      setMessage({
+        type: 'success',
+        text: copy('تم فصل Google Ads ومسح رموز الوصول من NEXUS بدون حذف أي حساب أو حملة لدى Google.', 'Google Ads was disconnected and its stored tokens were cleared without deleting any Google account or campaign.'),
+      })
+    } catch {
+      setMessage({
+        type: 'error',
+        text: copy('تعذر فصل Google Ads. لم تتغير حالة الربط.', 'Could not disconnect Google Ads. Its connection state was not changed.'),
+      })
+    } finally {
+      setDisconnecting(null)
+    }
+  }
+
+  const paidAdAccounts = adAccounts.filter((account) =>
+    ['META', 'GOOGLE'].includes(account.platform?.toUpperCase()) && account.status?.toUpperCase() !== 'DISCONNECTED',
   )
+  const hasMetaAdAccount = paidAdAccounts.some((account) => account.platform?.toUpperCase() === 'META')
+  const hasGoogleAdAccount = paidAdAccounts.some((account) => account.platform?.toUpperCase() === 'GOOGLE')
 
-  const connectedCount = accounts.length + metaAdAccounts.length
+  const connectedCount = accounts.length + paidAdAccounts.length + (googleAdsConnection ? 1 : 0)
 
-  if (loading) {
+  if (loading || !isAuthenticated) {
     return (
       <AppShell>
         <div className="flex min-h-screen items-center justify-center bg-[#f6f8fc]">
@@ -363,11 +706,9 @@ export default function ConnectionsPage() {
         <div className="nx-os-container">
           <LuxuryWorkspaceHeader
             pageTitle={copy('الربط', 'Connections')}
-            pageSubtitle={copy('اربط الحسابات التي سيستخدمها NEXUS للنشر والقياس.', 'Connect the accounts NEXUS can use for publishing and measurement.')}
-            primaryHref="/publish"
-            primaryLabel={copy('فحص جاهزية النشر', 'Check publishing readiness')}
-            secondaryHref="/settings"
-            secondaryLabel={copy('الإعدادات', 'Settings')}
+            pageSubtitle={copy('اربط الحسابات ثم راجع القدرة المثبتة لكل منصة قبل النشر أو القياس.', 'Connect accounts, then review the proven capability for each platform before publishing or measurement.')}
+            primaryHref={null}
+            secondaryHref={null}
           />
 
           <section className="nx-os-action-strip mb-5">
@@ -386,14 +727,6 @@ export default function ConnectionsPage() {
               <ShellButton onClick={fetchAccounts} loading={loadingAccounts}>
                 <RefreshCw className="h-4 w-4" />
                 {copy('تحديث الحالة', 'Refresh status')}
-              </ShellButton>
-              <ShellButton tone="primary" onClick={() => handleConnect('META')} loading={connecting === 'META'}>
-                <Plug className="h-4 w-4" />
-                {copy('ربط Meta', 'Connect Meta')}
-              </ShellButton>
-              <ShellButton onClick={() => handleConnect('META_ADS')} loading={connecting === 'META_ADS'}>
-                <KeyRound className="h-4 w-4" />
-                {copy('ربط حساب إعلانات', 'Connect ad account')}
               </ShellButton>
             </div>
           </section>
@@ -424,7 +757,8 @@ export default function ConnectionsPage() {
                 <div className="grid gap-4 lg:grid-cols-3">
                   {PLATFORMS.filter(platform => platform.available).map((platform) => {
                     const connectedAccount = accounts.find((account) => account.platform === platform.id)
-                    const isConnected = Boolean(connectedAccount)
+                    const isConnected = connectedAccount?.status === 'CONNECTED'
+                    const truth = connectedAccount ? connectionTruth(connectedAccount, ar) : null
                     const isConnecting = connecting === platform.id
                     const isDisconnecting = disconnecting === connectedAccount?.id
 
@@ -444,9 +778,9 @@ export default function ConnectionsPage() {
                             </div>
                           </div>
                           {isConnected ? (
-                            <StatusPill tone="ready">
+                            <StatusPill tone={truth?.tone || 'needs'}>
                               <CheckCircle2 className="h-3.5 w-3.5" />
-                              {copy('متصل', 'Connected')}
+                              {truth?.label || copy('اتصال محفوظ', 'Connection saved')}
                             </StatusPill>
                           ) : platform.available ? (
                             <StatusPill tone="needs">
@@ -463,8 +797,8 @@ export default function ConnectionsPage() {
                         <p className="min-h-[48px] text-[13px] leading-6 text-[#64708f]">{copy(platform.helper.ar, platform.helper.en)}</p>
 
                         {connectedAccount ? (
-                          <div className="mt-4 rounded-[16px] border border-emerald-100 bg-emerald-50/70 p-3">
-                            <p className="text-[11px] font-bold text-emerald-700">{copy('الحساب المتصل', 'Connected account')}</p>
+                          <div className="mt-4 rounded-[16px] border border-slate-200 bg-white p-3">
+                            <p className="text-[11px] font-bold text-slate-500">{copy('الحساب المتصل', 'Connected account')}</p>
                             <p className="mt-1 text-sm font-black text-[#10203f]">{connectedAccount.accountName}</p>
                             {connectedAccount.pages?.length ? (
                               <div className="mt-2 space-y-1">
@@ -477,6 +811,47 @@ export default function ConnectionsPage() {
                                 ))}
                               </div>
                             ) : null}
+                            {connectedAccount.organizations?.length ? (
+                              <div className="mt-2 space-y-1">
+                                {connectedAccount.organizations.slice(0, 3).map((organization) => (
+                                  <p key={organization.id} className="flex items-center gap-2 text-[11px] text-[#586684]">
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                    {organization.name}
+                                  </p>
+                                ))}
+                              </div>
+                            ) : null}
+                            {connectedAccount.boards?.length ? (
+                              <div className="mt-2 space-y-1">
+                                {connectedAccount.boards.slice(0, 4).map((board) => (
+                                  <p key={board.id} className="flex items-center gap-2 text-[11px] text-[#586684]">
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                    {board.name}
+                                  </p>
+                                ))}
+                                {connectedAccount.boards.length > 4 ? (
+                                  <p className="text-[10px] font-semibold text-slate-400">
+                                    {copy(`و${connectedAccount.boards.length - 4} Boards أخرى`, `and ${connectedAccount.boards.length - 4} more Boards`)}
+                                  </p>
+                                ) : null}
+                              </div>
+                            ) : null}
+                            {truth ? (
+                              <div className="mt-3 space-y-1.5 border-t border-slate-100 pt-3">
+                                {truth.checks.map((check) => (
+                                  <p key={check.text} className={`flex items-start gap-2 text-[11px] font-semibold ${check.ok ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                    {check.ok ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
+                                    {check.text}
+                                  </p>
+                                ))}
+                              </div>
+                            ) : null}
+                            {connectedAccount.expiresAt ? (
+                              <p className="mt-3 text-[10px] font-semibold text-slate-400">
+                                {copy('انتهاء رمز الوصول:', 'Access token expiry:')} {' '}
+                                <span dir="ltr">{new Date(connectedAccount.expiresAt).toLocaleString(ar ? 'ar-EG' : 'en-US')}</span>
+                              </p>
+                            ) : null}
                           </div>
                         ) : null}
 
@@ -485,7 +860,7 @@ export default function ConnectionsPage() {
                             <>
                               <ShellButton onClick={() => handleConnect(platform.id)} loading={isConnecting}>
                                 <RefreshCw className="h-4 w-4" />
-                                {copy('تحديث الربط', 'Refresh')}
+                                {copy('إعادة الربط', 'Reconnect')}
                               </ShellButton>
                               <ShellButton tone="danger" onClick={() => setDisconnectConfirmId(connectedAccount.id)} loading={isDisconnecting}>
                                 <Unplug className="h-4 w-4" />
@@ -525,6 +900,193 @@ export default function ConnectionsPage() {
                       </article>
                     )
                   })}
+                </div>
+              </Panel>
+
+              <Panel
+                title={copy('جاهزية حسابات الإعلانات', 'Ad account readiness')}
+                icon={<KeyRound size={18} />}
+                className="mt-5"
+                action={<span className="text-[12px] font-bold text-[#64708f]">{copy('لا إنفاق بدون اعتماد', 'No spend without approval')}</span>}
+              >
+                {googleAdsConnection ? (
+                  <article className="mb-4 rounded-[18px] border border-[#dce6fb] bg-[#f7faff] p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-black uppercase tracking-wider text-[#4285f4]">Google Ads OAuth</p>
+                        <p className="mt-1 text-[13px] font-black text-[#111b3f]">
+                          {googleAdsConnection.accountName || copy('اتصال Google Ads', 'Google Ads connection')}
+                        </p>
+                        {googleAdsConnection.accountId ? (
+                          <p dir="ltr" className="mt-1 text-[11px] font-semibold text-[#7b87a3]">
+                            {googleAdsConnection.accountId}
+                          </p>
+                        ) : null}
+                      </div>
+                      <StatusPill tone={googleAdsConnection.status === 'CONNECTED' && googleAdsConnection.hasRefreshToken ? 'ready' : 'needs'}>
+                        {googleAdsConnection.status === 'CONNECTED' && googleAdsConnection.hasRefreshToken
+                          ? <CheckCircle2 className="h-3.5 w-3.5" />
+                          : <Clock3 className="h-3.5 w-3.5" />}
+                        {googleAdsConnection.connectionRole === 'MANAGER'
+                          ? copy('حساب المدير متصل', 'Manager connected')
+                          : copy('اتصال Google محفوظ', 'Google connection saved')}
+                      </StatusPill>
+                    </div>
+                    <p className="mt-3 text-[11px] font-semibold leading-5 text-[#64708f]">
+                      {googleAdsConnection.advertiserAccountCount > 0
+                        ? copy(
+                            `اكتشف Google عدد ${googleAdsConnection.advertiserAccountCount} حساب معلن. راجع بطاقة كل حساب أدناه قبل أي تنفيذ.`,
+                            `Google exposed ${googleAdsConnection.advertiserAccountCount} advertiser account(s). Review each account card below before execution.`,
+                          )
+                        : copy(
+                            'تم التحقق من OAuth وحساب المدير، لكن Google لا يعرض حتى الآن حساب معلن غير إداري عبر الـAPI. التخطيط متاح؛ إنشاء الإعلانات والتفعيل والقياس والإنفاق كلها مقفلة.',
+                            'OAuth and the manager account are verified, but Google does not yet expose a non-manager advertiser account through the API. Planning is available; ad creation, activation, measurement, and spend are locked.',
+                          )}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-bold text-[#7b87a3]">
+                      <span>{copy('مستوى الوصول', 'Access tier')}: {googleAdsConnection.accessTier}</span>
+                      {googleAdsConnection.managerAccounts[0]?.status ? (
+                        <span>{copy('حالة المدير لدى Google', 'Google manager status')}: {googleAdsConnection.managerAccounts[0].status}</span>
+                      ) : null}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <ShellButton onClick={() => handleConnect('GOOGLE_ADS')} loading={connecting === 'GOOGLE_ADS'}>
+                        <RefreshCw className="h-4 w-4" />
+                        {copy('إعادة الفحص والربط', 'Reconnect & rediscover')}
+                      </ShellButton>
+                      <ShellButton tone="danger" onClick={() => setDisconnectConfirmId(googleAdsConnection.id)} loading={disconnecting === googleAdsConnection.id}>
+                        <Unplug className="h-4 w-4" />
+                        {copy('فصل Google Ads', 'Disconnect Google Ads')}
+                      </ShellButton>
+                    </div>
+                    {disconnectConfirmId === googleAdsConnection.id ? (
+                      <div className="mt-3 rounded-[14px] border border-rose-100 bg-rose-50/70 p-3">
+                        <p className="text-[12px] font-bold leading-5 text-rose-700">
+                          {copy('سيتم مسح رموز Google Ads من NEXUS وتعطيل حساباته المحفوظة محلياً، بدون حذف أي حساب أو حملة لدى Google.', 'NEXUS will clear Google Ads tokens and disable its locally saved ad accounts without deleting any Google account or campaign.')}
+                        </p>
+                        <div className="mt-3 flex gap-2">
+                          <ShellButton onClick={() => setDisconnectConfirmId(null)}>{copy('إلغاء', 'Cancel')}</ShellButton>
+                          <ShellButton tone="danger" onClick={() => handleDisconnectGoogleConnection(googleAdsConnection.id)} loading={disconnecting === googleAdsConnection.id}>{copy('تأكيد الفصل', 'Confirm')}</ShellButton>
+                        </div>
+                      </div>
+                    ) : null}
+                  </article>
+                ) : null}
+                {paidAdAccounts.length === 0 ? (
+                  <div className={`rounded-[18px] border border-dashed border-[#d7def0] p-6 text-center ${googleAdsConnection ? 'bg-white/70' : ''}`}>
+                    <p className="text-[13px] font-black text-[#111b3f]">
+                      {googleAdsConnection
+                        ? copy('لا يوجد حساب معلن جاهز من Google حتى الآن', 'No Google advertiser account is ready yet')
+                        : copy('لا يوجد حساب إعلانات محفوظ', 'No saved ad account')}
+                    </p>
+                    <p className="mt-1 text-[11px] font-semibold text-[#7b87a3]">
+                      {googleAdsConnection
+                        ? copy('أكمل تهيئة الحساب الفرعي داخل Google Ads حتى ينتقل من Draft إلى Enabled، ثم استخدم إعادة الفحص والربط.', 'Complete the child account setup in Google Ads so it moves from Draft to Enabled, then use Reconnect & rediscover.')
+                        : copy('يمكن إعداد التخطيط بدون حساب؛ إنشاء مسودة منصة أو تفعيلها أو قياسها يتطلب API access مثبتاً.', 'Planning can be prepared without an account; platform draft creation, activation, and measurement require proven API access.')}
+                    </p>
+                    <div className="mt-4 flex flex-wrap justify-center gap-2">
+                      {!hasMetaAdAccount ? (
+                        <ShellButton tone="primary" onClick={() => handleConnect('META_ADS')} loading={connecting === 'META_ADS'}>
+                          <KeyRound className="h-4 w-4" />
+                          {copy('ربط حساب إعلانات Meta', 'Connect Meta ad account')}
+                        </ShellButton>
+                      ) : null}
+                      {!googleAdsConnection ? (
+                        <ShellButton tone="primary" onClick={() => handleConnect('GOOGLE_ADS')} loading={connecting === 'GOOGLE_ADS'}>
+                          <KeyRound className="h-4 w-4" />
+                          {copy('ربط Google Ads', 'Connect Google Ads')}
+                        </ShellButton>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    {!hasMetaAdAccount || (!hasGoogleAdAccount && !googleAdsConnection) ? (
+                      <div className="mb-4 flex flex-wrap gap-2">
+                        {!hasMetaAdAccount ? (
+                          <ShellButton tone="primary" onClick={() => handleConnect('META_ADS')} loading={connecting === 'META_ADS'}>
+                            <KeyRound className="h-4 w-4" />
+                            {copy('إضافة حساب إعلانات Meta', 'Add Meta ad account')}
+                          </ShellButton>
+                        ) : null}
+                        {!hasGoogleAdAccount && !googleAdsConnection ? (
+                          <ShellButton tone="primary" onClick={() => handleConnect('GOOGLE_ADS')} loading={connecting === 'GOOGLE_ADS'}>
+                            <KeyRound className="h-4 w-4" />
+                            {copy('إضافة Google Ads', 'Add Google Ads')}
+                          </ShellButton>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    <div className="grid gap-3 lg:grid-cols-2">
+                      {paidAdAccounts.map((account) => (
+                      <article key={account.id} className="rounded-[18px] border border-[#e7ecf6] bg-[#fbfcff] p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[11px] font-black uppercase tracking-wider text-[#5366f6]">{account.platform === 'GOOGLE' ? 'Google Ads' : 'Meta Ads'}</p>
+                            <p className="mt-1 text-[13px] font-black text-[#111b3f]">{account.platformAccountName || account.platformAccountId}</p>
+                            {account.businessName ? <p className="mt-1 text-[11px] font-semibold text-[#7b87a3]">{account.businessName}</p> : null}
+                          </div>
+                          <StatusPill tone={account.hasApiAccess ? 'ready' : 'needs'}>
+                            {account.hasApiAccess ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Clock3 className="h-3.5 w-3.5" />}
+                            {account.hasApiAccess ? copy('API مثبت', 'API verified') : copy('مراجعة فقط', 'Review only')}
+                          </StatusPill>
+                        </div>
+                        <p className="mt-3 text-[11px] font-semibold leading-5 text-[#64708f]">
+                          {account.hasApiAccess
+                            ? copy('الحساب مؤهل لخطوات التنفيذ التي يراجعها المستخدم؛ تظل حالة كل حملة والصلاحيات مطلوبة.', 'The account is eligible for user-reviewed execution steps; campaign state and permissions are still required.')
+                            : copy('يظل التخطيط متاحاً، لكن NEXUS لن يدّعي إطلاق إعلان أو مزامنة نتائج من هذا الحساب.', 'Planning remains available, but NEXUS will not claim to launch ads or sync results from this account.')}
+                        </p>
+                        {account.platform === 'GOOGLE' ? (
+                          <p className="mt-2 text-[10px] font-bold text-[#7b87a3]">
+                            {copy('مستوى الوصول المكوّن', 'Configured access tier')}: {account.apiAccessTier || 'NONE'}
+                          </p>
+                        ) : null}
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <ShellButton onClick={() => handleConnect(account.platform === 'GOOGLE' ? 'GOOGLE_ADS' : 'META_ADS')} loading={connecting === (account.platform === 'GOOGLE' ? 'GOOGLE_ADS' : 'META_ADS')}>
+                            <RefreshCw className="h-4 w-4" />
+                            {copy('إعادة الربط والتحقق', 'Reconnect & verify')}
+                          </ShellButton>
+                          <ShellButton tone="danger" onClick={() => setDisconnectConfirmId(account.id)} loading={disconnecting === account.id}>
+                            <Unplug className="h-4 w-4" />
+                            {copy('فصل', 'Disconnect')}
+                          </ShellButton>
+                        </div>
+                        {disconnectConfirmId === account.id ? (
+                          <div className="mt-3 rounded-[14px] border border-rose-100 bg-rose-50/70 p-3">
+                            <p className="text-[12px] font-bold leading-5 text-rose-700">
+                              {copy('سيتم مسح رموز الوصول من NEXUS بدون حذف حسابك أو حملاتك على المنصة.', 'NEXUS will clear stored access credentials without deleting your platform account or campaigns.')}
+                            </p>
+                            <div className="mt-3 flex gap-2">
+                              <ShellButton onClick={() => setDisconnectConfirmId(null)}>{copy('إلغاء', 'Cancel')}</ShellButton>
+                              <ShellButton tone="danger" onClick={() => handleDisconnectAd(account.id)} loading={disconnecting === account.id}>{copy('تأكيد الفصل', 'Confirm')}</ShellButton>
+                            </div>
+                          </div>
+                        ) : null}
+                      </article>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Panel>
+
+              <Panel
+                title={copy('تكاملات ضمن خريطة الطريق', 'Roadmap integrations')}
+                icon={<Clock3 size={18} />}
+                className="mt-5"
+                action={<StatusPill tone="planned">{copy('غير تشغيلية', 'Not operational')}</StatusPill>}
+              >
+                <div className="grid gap-3 md:grid-cols-3">
+                  {PLATFORMS.filter((platform) => !platform.available && platform.id !== 'GOOGLE').map((platform) => (
+                    <article key={platform.id} className="rounded-[18px] border border-[#e7ecf6] bg-[#fbfcff] p-4">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-[13px] bg-white text-sm font-black" style={{ color: platform.accent }}>
+                          {platform.icon}
+                        </span>
+                        <p className="text-[13px] font-black text-[#111b3f]">{copy(platform.name.ar, platform.name.en)}</p>
+                      </div>
+                      <p className="mt-3 text-[11px] font-semibold leading-5 text-[#7b87a3]">{copy(platform.helper.ar, platform.helper.en)}</p>
+                    </article>
+                  ))}
                 </div>
               </Panel>
           </div>

@@ -93,6 +93,7 @@ interface CreativeBrief {
 
 interface Campaign {
   id: string
+  status?: string
   name: string
   goal?: string
   audience?: string
@@ -261,6 +262,9 @@ export default function CreativeBriefPage() {
     noStrategy: isArabic
       ? 'لم نجد استراتيجية للحملة. راجع أو أنشئ الاستراتيجية أولًا حتى يعتمد الموجز الإبداعي على رسالة واضحة وجمهور ومنصات محددة.'
       : 'No campaign strategy found. Review or create the strategy first so the creative brief uses clear messaging, audience, and platform context.',
+    strategyApprovalRequired: isArabic
+      ? 'اعتمد الاستراتيجية بعد اكتمال فحص Brand Brain ومراجعة Sentinel قبل استهلاك كريديت على التخطيط الإبداعي.'
+      : 'Approve the strategy after the Brand Brain gate and Sentinel review before spending credits on creative planning.',
     currentStep: isArabic ? 'الخطوة الحالية' : 'Current step',
     currentStepBody: isArabic
       ? 'تحديد متطلبات الأصول والاتجاه الإبداعي من الاستراتيجية.'
@@ -608,6 +612,17 @@ export default function CreativeBriefPage() {
       router.push('/billing')
       return
     }
+    const qualityGate = campaign.aiOutput?.qualityGate
+    const strategyApprovedForCreative = campaign.status === 'ACTIVE'
+      && campaign.aiOutput?.sentinelReview?.status === 'passed'
+      && qualityGate?.schemaVersion === 1
+      && qualityGate?.status === 'passed'
+      && Array.isArray(qualityGate?.blockers)
+      && qualityGate.blockers.length === 0
+    if (!strategyApprovedForCreative) {
+      setError(copy.strategyApprovalRequired)
+      return
+    }
     // Guard: in asset mode, require at least one asset selected
     if (mode === 'asset' && mediaItems.length > 0 && selectedMedia.size === 0) {
       setError(copy.selectHint)
@@ -688,6 +703,13 @@ export default function CreativeBriefPage() {
   )
 
   const hasStrategy = !!(campaign.aiOutput?.strategy)
+  const qualityGate = campaign.aiOutput?.qualityGate
+  const strategyApprovedForCreative = campaign.status === 'ACTIVE'
+    && campaign.aiOutput?.sentinelReview?.status === 'passed'
+    && qualityGate?.schemaVersion === 1
+    && qualityGate?.status === 'passed'
+    && Array.isArray(qualityGate?.blockers)
+    && qualityGate.blockers.length === 0
   const assetRequirements: any = campaign.aiOutput?.strategy?.assetRequirements || null
   const imageMedia = mediaItems.filter(m => m.type === 'IMAGE' || m.type === 'LOGO')
   const videoMedia = mediaItems.filter(m => m.type === 'VIDEO')
@@ -824,7 +846,7 @@ export default function CreativeBriefPage() {
     return copy.studioStepFuture
   }
   const assetActionUnavailable = mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)
-  const generationDisabled = assetActionUnavailable || !confirmedReviewOnly
+  const generationDisabled = !strategyApprovedForCreative || assetActionUnavailable || !confirmedReviewOnly
   const emptyStateTitle = mode === 'asset'
     ? mediaItems.length === 0
       ? copy.waitingForAssetsTitle
@@ -1124,6 +1146,17 @@ export default function CreativeBriefPage() {
             <span>⚠️</span>
             <p style={{ margin: 0, fontSize: 13, color: '#92400E' }}>
               {copy.noStrategy}
+            </p>
+          </div>
+        )}
+        {hasStrategy && !strategyApprovedForCreative && (
+          <div style={{
+            background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: 10,
+            padding: '12px 16px', marginBottom: 24, display: 'flex', gap: 10,
+          }}>
+            <span>🔒</span>
+            <p style={{ margin: 0, fontSize: 13, color: '#92400E' }}>
+              {copy.strategyApprovalRequired}
             </p>
           </div>
         )}
@@ -2511,7 +2544,7 @@ export default function CreativeBriefPage() {
                 type="checkbox"
                 checked={confirmedReviewOnly}
                 onChange={(event) => { setConfirmedReviewOnly(event.target.checked); setError('') }}
-                disabled={assetActionUnavailable}
+                disabled={!strategyApprovedForCreative || assetActionUnavailable}
                 style={{ marginTop: 3, width: 16, height: 16, accentColor: '#4F46E5', flexShrink: 0 }}
               />
               <span>
@@ -2520,18 +2553,20 @@ export default function CreativeBriefPage() {
               </span>
             </label>
             <button
-              onClick={creativeBriefLocked ? () => router.push('/billing') : handleGenerate}
-              disabled={!creativeBriefLocked && generationDisabled}
+              onClick={strategyApprovedForCreative && creativeBriefLocked ? () => router.push('/billing') : handleGenerate}
+              disabled={!strategyApprovedForCreative || (!creativeBriefLocked && generationDisabled)}
               style={{
                 width: '100%', padding: '14px 24px', borderRadius: 10,
-                background: creativeBriefLocked ? '#FEF2F2' : generationDisabled ? '#E5E7EB' : '#6366F1',
-                color: creativeBriefLocked ? '#B91C1C' : generationDisabled ? '#9CA3AF' : '#fff',
-                border: creativeBriefLocked ? '1px solid rgba(239,68,68,0.18)' : 'none',
+                background: !strategyApprovedForCreative ? '#E5E7EB' : creativeBriefLocked ? '#FEF2F2' : generationDisabled ? '#E5E7EB' : '#6366F1',
+                color: !strategyApprovedForCreative ? '#64748B' : creativeBriefLocked ? '#B91C1C' : generationDisabled ? '#9CA3AF' : '#fff',
+                border: strategyApprovedForCreative && creativeBriefLocked ? '1px solid rgba(239,68,68,0.18)' : 'none',
                 fontSize: 14, fontWeight: 700, cursor: generationDisabled && !creativeBriefLocked ? 'not-allowed' : 'pointer',
                 transition: 'all 0.15s',
               }}
             >
-              {creativeBriefLocked ? addCreditsLabel : mode === 'asset'
+              {!strategyApprovedForCreative
+                ? (isArabic ? 'اعتمد الاستراتيجية أولاً' : 'Approve strategy first')
+                : creativeBriefLocked ? addCreditsLabel : mode === 'asset'
                 ? `🔍 ${copy.analyzeButton}${selectedMedia.size > 0 ? ` (${selectedMedia.size})` : ''} — ${creditLabel}`
                 : `✨ ${copy.conceptButton} — ${creditLabel}`
               }

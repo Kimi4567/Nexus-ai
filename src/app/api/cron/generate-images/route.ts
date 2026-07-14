@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { applyBrandOverlayFromProfile, platformToOverlay } from '@/lib/cloudinaryOverlay'
-import { generateWithFlux, platformToFluxSize } from '@/lib/ai/falGen'
-import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
+import { generateWithFlux, platformToFluxAspectRatio, platformToOpenAISize } from '@/lib/ai/falGen'
+import { buildImagePrompt, type VisualContext } from '@/lib/ai/imageGen'
+import { normalizeContentHubImagePromptForPlatform } from '@/lib/contentHubImageFormat'
+import {
+  checkAndDeductCredits,
+  checkDailyImageCap,
+  refundCredits,
+  refundCreditsForTransaction,
+} from '@/lib/credits'
 import { cronAuthError } from '@/lib/cronAuth'
 
 export const dynamic = 'force-dynamic'
@@ -10,9 +17,8 @@ export const dynamic = 'force-dynamic'
 /* ═══════════════════════════════════════════════════════════════════════════
    GET /api/cron/generate-images
 
-   Vercel Cron Job — runs every hour.
-   Configure in vercel.json:
-     { "path": "/api/cron/generate-images", "schedule": "0 * * * *" }
+   Vercel Cron Job — runs every 10 minutes and handles one paid image atomically.
+   The exact ten-minute cron expression is configured in vercel.json.
 
    Logic:
    - Find SocialPost records where:
@@ -21,12 +27,15 @@ export const dynamic = 'force-dynamic'
        imagePrompt is set
        imageUrl is null
        scheduledAt is within the next 48 hours
-   - For each post: call gpt-image-1 (high quality, platform-aware size) → upload to Cloudinary → update imageUrl
+   - One post per run: build a Brand Brain-grounded prompt → generate →
+     upload permanently → persist post + audit record in one transaction.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 const CLOUDINARY_CLOUD  = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
 const CLOUDINARY_KEY    = process.env.CLOUDINARY_API_KEY
 const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET
+const IMAGE_PROVIDER_TIMEOUT_MS = 35_000
+const MEDIA_UPLOAD_TIMEOUT_MS = 10_000
 
 type ImageCreditReservation = {
   userId: string
@@ -45,24 +54,18 @@ async function generateImage(
   prompt: string,
   platform: string
 ): Promise<string> {
+  const safePrompt = normalizeContentHubImagePromptForPlatform(prompt, platform)
   // Auto-detect provider — FAL_KEY presence is the only signal
   if (process.env.FAL_KEY) {
-    const fluxSize = platformToFluxSize(platform)
-    console.log(`[Cron generate-images] Using Flux Pro Ultra — size: ${fluxSize}`)
-    const result = await generateWithFlux({ prompt, imageSize: fluxSize })
+    const aspectRatio = platformToFluxAspectRatio(platform)
+    console.log(`[Cron generate-images] Using Flux Pro Ultra — aspect ratio: ${aspectRatio}`)
+    const result = await generateWithFlux({ prompt: safePrompt, aspectRatio })
     return result.imageUrl // Hosted CDN URL — no base64 needed
   }
 
   // Fallback: gpt-image-1 high quality
   // Platform-aware sizing — gpt-image-1 supported sizes only
-  const sizeMap: Record<string, '1024x1024' | '1024x1536' | '1536x1024'> = {
-    TIKTOK:    '1024x1536',   // portrait — TikTok vertical format
-    LINKEDIN:  '1536x1024',   // landscape — LinkedIn feed
-    META:      '1024x1024',   // square — Instagram + Facebook feed
-    FACEBOOK:  '1024x1024',
-    INSTAGRAM: '1024x1024',
-  }
-  const size = sizeMap[platform?.toUpperCase()] || '1024x1024'
+  const size = platformToOpenAISize(platform)
 
   const res = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
@@ -72,11 +75,12 @@ async function generateImage(
     },
     body: JSON.stringify({
       model:   'gpt-image-1',
-      prompt,          // no truncation — gpt-image-1 handles long prompts
+      prompt: safePrompt,
       n:       1,
       size,
       quality: 'high', // always high — production asset
     }),
+    signal: AbortSignal.timeout(IMAGE_PROVIDER_TIMEOUT_MS),
   })
 
   if (!res.ok) {
@@ -119,6 +123,7 @@ async function uploadToCloudinary(imageUrl: string, postId: string): Promise<str
   const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
     method: 'POST',
     body: form,
+    signal: AbortSignal.timeout(MEDIA_UPLOAD_TIMEOUT_MS),
   })
   const uploadData = await uploadRes.json()
   if (uploadData.error) throw new Error(`Cloudinary: ${uploadData.error.message}`)
@@ -144,6 +149,63 @@ async function refundImageReservation(
   await refundCredits(reservation.userId, 'IMAGE_GENERATION', reason)
 }
 
+async function buildAutopilotPrompt(post: any): Promise<string> {
+  const brand = post.workspace?.brandProfile ?? {}
+  const campaign = post.campaignId
+    ? await prisma.campaign.findFirst({
+      where: { id: post.campaignId, workspaceId: post.workspaceId },
+      select: { name: true, goal: true, tone: true, audience: true, aiOutput: true },
+    })
+    : null
+  const aiOutput = campaign?.aiOutput && typeof campaign.aiOutput === 'object'
+    ? campaign.aiOutput as Record<string, any>
+    : {}
+  const strategy = aiOutput.strategy && typeof aiOutput.strategy === 'object'
+    ? aiOutput.strategy as Record<string, any>
+    : aiOutput
+  const postContext = [
+    post.caption,
+    post.imagePrompt ? `Creative direction: ${post.imagePrompt}` : null,
+  ].filter(Boolean).join('\n')
+
+  const context: VisualContext = {
+    visualType: 'SOCIAL_PREVIEW',
+    visualStyle: 'Premium',
+    campaignName: campaign?.name ?? undefined,
+    campaignGoal: campaign?.goal ?? undefined,
+    campaignTone: campaign?.tone ?? undefined,
+    audience: campaign?.audience ?? undefined,
+    brandName: brand.brandName ?? undefined,
+    brandToneWords: Array.isArray(brand.toneKeywords) ? brand.toneKeywords : [],
+    primaryOffer: brand.primaryOffer ?? undefined,
+    industry: brand.industry ?? undefined,
+    colorPalette: Array.isArray(brand.colorPalette)
+      ? brand.colorPalette.join(', ')
+      : brand.colorPalette ?? undefined,
+    visualStylePref: brand.visualStyle ?? undefined,
+    uniqueAdvantages: Array.isArray(brand.uniqueAdvantages)
+      ? brand.uniqueAdvantages.slice(0, 4).join(', ')
+      : undefined,
+    positioning: strategy.positioning ?? undefined,
+    visualDirection: strategy.visualDirection ?? undefined,
+    differentiation: strategy.differentiation ?? undefined,
+    keyMessage: strategy.keyMessage ?? undefined,
+    postCaption: postContext,
+    platform: post.platform,
+    creativeRequirement: {
+      objective: campaign?.goal ?? undefined,
+      platform: post.platform,
+      sourcePreference: 'generated',
+      textOverlayNeeded: true,
+      logoNeeded: true,
+    },
+    assetRole: 'post_background',
+  }
+
+  const result = await buildImagePrompt(context)
+  return normalizeContentHubImagePromptForPlatform(result.prompt, post.platform)
+}
+
 export async function GET(req: NextRequest) {
   const authError = cronAuthError(req)
   if (authError) return authError
@@ -159,13 +221,14 @@ export async function GET(req: NextRequest) {
 
   // Find autopilot posts due in the next 48h that still need an image
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const posts: any[] = await (prisma.socialPost as any).findMany({
+  const pendingPosts: any[] = await (prisma.socialPost as any).findMany({
     where: {
       autoGenerated: true,
       status: 'SCHEDULED',
       scheduledAt: { lte: in48h, gte: now },
       imagePrompt: { not: null },
       imageUrl: null,
+      generationStatus: { in: ['PENDING', 'FAILED'] },
     },
     include: {
       workspace: {
@@ -175,16 +238,18 @@ export async function GET(req: NextRequest) {
         },
       },
     },
-    take: 10, // process up to 10 per run to stay within cron timeout
+    orderBy: { scheduledAt: 'asc' },
+    take: 1, // one paid provider call must finish or refund before the 60s deadline
   })
+  const posts = pendingPosts.slice(0, 1)
 
   console.log(`[Cron generate-images] Found ${posts.length} posts needing images`)
 
   const results = await Promise.allSettled(
     posts.map(async (post) => {
       let creditReservation: ImageCreditReservation | undefined
+      let visualId: string | null = null
       try {
-        const prompt = post.imagePrompt!
         const platform: string = post.platform || 'META'
         const ownerId: string | undefined = post.workspace?.ownerId
 
@@ -195,9 +260,41 @@ export async function GET(req: NextRequest) {
           console.warn(`[Cron generate-images] Skipped post ${post.id} — workspace owner missing`)
           return { postId: post.id, status: 'skipped_missing_owner' }
         }
+        const planUser = await prisma.user.findUnique({
+          where: { id: ownerId },
+          select: { subscriptionStatus: true },
+        })
+        const imageCap = await checkDailyImageCap(post.workspaceId, planUser?.subscriptionStatus)
+        if (!imageCap.allowed || imageCap.remaining === 0) {
+          return { postId: post.id, status: 'skipped_daily_cap', remaining: imageCap.remaining }
+        }
+
+        // Atomically claim the job before any charge. Concurrent/manual cron
+        // invocations may read the same row, but only one can move it to
+        // GENERATING and continue to the wallet/provider path.
+        const claim = await prisma.socialPost.updateMany({
+          where: {
+            id: post.id,
+            status: 'SCHEDULED',
+            imageUrl: null,
+            generationStatus: { in: ['PENDING', 'FAILED'] },
+          },
+          data: { generationStatus: 'GENERATING' },
+        })
+        if (claim.count !== 1) {
+          return { postId: post.id, status: 'skipped_already_claimed' }
+        }
+
+        // Prompt preparation happens before charging. If concept extraction
+        // degrades, buildImagePrompt returns its deterministic safe fallback.
+        const prompt = await buildAutopilotPrompt(post)
         const creditResult = await checkAndDeductCredits(ownerId, 'IMAGE_GENERATION')
         if (!creditResult.ok) {
           console.warn(`[Cron generate-images] Skipped post ${post.id} — user ${ownerId} has insufficient credits (${creditResult.currentCredits} remaining, need ${creditResult.requiredCredits})`)
+          await prisma.socialPost.update({
+            where: { id: post.id },
+            data: { generationStatus: 'PENDING' },
+          })
           return { postId: post.id, status: 'skipped_no_credits', creditsRemaining: creditResult.currentCredits }
         }
         creditReservation = {
@@ -208,6 +305,22 @@ export async function GET(req: NextRequest) {
         }
         console.log(`[Cron generate-images] Deducted IMAGE_GENERATION credits from ${ownerId} — ${creditResult.creditsRemaining} remaining`)
         // ────────────────────────────────────────────────────────────────────
+
+        const visual = await prisma.generatedVisual.create({
+          data: {
+            workspaceId: post.workspaceId,
+            campaignId: post.campaignId ?? null,
+            visualType: 'SOCIAL_PREVIEW',
+            visualStyle: 'Autopilot Content Hub',
+            prompt: post.imagePrompt,
+            enhancedPrompt: prompt,
+            campaignName: null,
+            brandName: post.workspace?.brandProfile?.brandName ?? null,
+            status: 'GENERATING',
+            parentId: `social-post:${post.id}`,
+          },
+        })
+        visualId = visual.id
 
         // 1. Generate image — auto-routes to Flux Pro Ultra if FAL_KEY set, else gpt-image-1 high
         console.log(`[Cron generate-images] Generating for ${post.id} — platform: ${platform}, provider: ${process.env.FAL_KEY ? 'flux' : 'gpt-image-1'}`)
@@ -225,19 +338,35 @@ export async function GET(req: NextRequest) {
         }
 
         // 4. Update the post
-        await prisma.socialPost.update({
-          where: { id: post.id },
-          data: {
-            imageUrl: finalUrl,
-            generationStatus: 'DONE',
-            mediaSource: 'GENERATE',
-          },
+        await prisma.$transaction(async (tx) => {
+          await tx.socialPost.update({
+            where: { id: post.id },
+            data: {
+              imageUrl: finalUrl,
+              generationStatus: 'DONE',
+              mediaSource: 'GENERATE',
+            },
+          })
+          await tx.generatedVisual.update({
+            where: { id: visualId! },
+            data: { imageUrl: finalUrl, status: 'COMPLETED' },
+          })
         })
 
         return { postId: post.id, status: 'ok', url: finalUrl }
       } catch (err: any) {
         console.error(`[Cron generate-images] Failed for post ${post.id}:`, err)
         await refundImageReservation(creditReservation, err.message ?? 'Cron image generation failed')
+        if (visualId) {
+          await prisma.generatedVisual.update({
+            where: { id: visualId },
+            data: { status: 'FAILED', errorMessage: String(err.message ?? 'Cron image generation failed').slice(0, 500) },
+          }).catch(() => {})
+        }
+        await prisma.socialPost.update({
+          where: { id: post.id },
+          data: { generationStatus: 'FAILED' },
+        }).catch(() => {})
         return { postId: post.id, status: 'failed', error: err.message }
       }
     })

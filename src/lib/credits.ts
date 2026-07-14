@@ -10,6 +10,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { sendCreditsLowEmail } from '@/lib/email/resend'
+import { randomUUID } from 'crypto'
 import {
   isCreditWalletEnabled,
   isGrantEligible,
@@ -103,6 +104,20 @@ export const CREDIT_COSTS = {
   AD_COPY: 2,
 
   /**
+   * Small field suggestion — one short gpt-4o-mini response used while filling
+   * Brand Brain or campaign intake. Kept separate from a five-variant ad-copy
+   * package so the visible price matches the actual work.
+   */
+  AI_FIELD_SUGGESTION: 1,
+
+  /**
+   * Paid execution plan — translates an approved Paid/Full strategy into one
+   * platform-specific targeting, budget-allocation, creative, and tracking
+   * package. This is distinct from ad-copy drafting and uses the full model.
+   */
+  PAID_EXECUTION_PLAN: 4,
+
+  /**
    * Chat message — streaming assistant with campaign/brand context injection
    * Route: /api/chat
    * Model: gpt-4o-mini (context-aware; cost grows with conversation history length)
@@ -114,9 +129,9 @@ export const CREDIT_COSTS = {
   /**
    * AI Post Rewrite — rewrites a single content hub post with style variation
    * Route: /api/campaigns/[id]/content-plan/[postId]/rewrite
-   * Model: gpt-4o-mini (via lib/ai/openai.ts helper, max_tokens: ~500)
-   * API cost: ~$0.001 (gpt-4o-mini)
-   * Revenue @ Agency: 1 × $0.198 = $0.198 | Margin: ~99%
+   * Model: gpt-4o, one bounded call, max_tokens: 600.
+   * Provider prices are monitored separately; one credit is a commercial unit,
+   * not a promise that one credit equals a fixed number of provider tokens.
    */
   AI_POST_REWRITE: 1,
 
@@ -133,6 +148,13 @@ export const CREDIT_COSTS = {
    * ⚠️  Consider raising to 3 credits for Agency plan users if COGS grows.
    */
   CONTENT_PLAN_GENERATION: 2,
+
+  /**
+   * A/B caption variants — one additional bounded model call for the reviewed
+   * content-plan slots. Kept separate from base planning so the user never pays
+   * for experiments they did not request and the product never hides extra COGS.
+   */
+  CONTENT_AB_VARIANTS: 2,
 
   /**
    * Paid campaign pack — gpt-4o writes audience targeting, copy variants, budget plan
@@ -170,6 +192,137 @@ export const CREDIT_COSTS = {
 } as const
 
 export type CreditAction = keyof typeof CREDIT_COSTS
+
+export interface CreditActionPolicy {
+  label: string
+  reason: string
+  includedWork: string
+  /** Maximum billable provider calls included in one action execution. */
+  providerCallLimit: number
+  refundableOnNoUsableOutput: boolean
+}
+
+/**
+ * Product/economic contract shown in confirmations and credit history. Costs
+ * remain in CREDIT_COSTS; this describes exactly why a debit exists and bounds
+ * hidden provider work behind a single user action.
+ */
+export const CREDIT_ACTION_POLICIES: Record<CreditAction, CreditActionPolicy> = {
+  CAMPAIGN_GENERATION: {
+    label: 'Campaign generation',
+    reason: 'Creates a reviewable campaign package from the approved brief.',
+    includedWork: 'One bounded campaign generation run.',
+    providerCallLimit: 2,
+    refundableOnNoUsableOutput: true,
+  },
+  RUN_FULL_STRATEGY: {
+    label: 'Full marketing strategy',
+    reason: 'Creates the strategy, operating plan, and measurable execution brief.',
+    includedWork: 'Strategy generation plus at most one contract-repair pass.',
+    providerCallLimit: 2,
+    refundableOnNoUsableOutput: true,
+  },
+  CREATIVE_BRIEF: {
+    label: 'Creative brief',
+    reason: 'Turns the approved strategy into a reviewable visual direction.',
+    includedWork: 'Asset analysis and visual concept direction.',
+    providerCallLimit: 2,
+    refundableOnNoUsableOutput: true,
+  },
+  SENTINEL_REVIEW: {
+    label: 'Sentinel quality review',
+    reason: 'Reviews a strategy for brand consistency, claims, risk, and execution gaps.',
+    includedWork: 'One AI review after the free deterministic gate passes.',
+    providerCallLimit: 1,
+    refundableOnNoUsableOutput: true,
+  },
+  IMAGE_GENERATION: {
+    label: 'Image generation',
+    reason: 'Creates one reviewable campaign image for a specific post.',
+    includedWork: 'One image result with one configured fallback provider attempt.',
+    providerCallLimit: 2,
+    refundableOnNoUsableOutput: true,
+  },
+  AD_COPY: {
+    label: 'Ad copy generation',
+    reason: 'Creates a reviewable paid-ad copy package.',
+    includedWork: 'One bounded ad-copy generation run.',
+    providerCallLimit: 1,
+    refundableOnNoUsableOutput: true,
+  },
+  AI_FIELD_SUGGESTION: {
+    label: 'AI field suggestion',
+    reason: 'Creates one reviewable suggestion for the selected form field.',
+    includedWork: 'One short suggestion call; saving it still requires user confirmation.',
+    providerCallLimit: 1,
+    refundableOnNoUsableOutput: true,
+  },
+  PAID_EXECUTION_PLAN: {
+    label: 'Paid execution plan',
+    reason: 'Translates an approved strategy into one reviewable platform execution package without launching spend.',
+    includedWork: 'One bounded paid-media planning call; ad-copy variants and platform launch are excluded.',
+    providerCallLimit: 1,
+    refundableOnNoUsableOutput: true,
+  },
+  CHAT_MESSAGE: {
+    label: 'AI assistant message',
+    reason: 'Generates one context-aware assistant response.',
+    includedWork: 'One assistant response.',
+    providerCallLimit: 1,
+    refundableOnNoUsableOutput: true,
+  },
+  AI_POST_REWRITE: {
+    label: 'Post rewrite',
+    reason: 'Rewrites one selected post under the current brand and strategy rules.',
+    includedWork: 'One post rewrite.',
+    providerCallLimit: 1,
+    refundableOnNoUsableOutput: true,
+  },
+  CONTENT_PLAN_GENERATION: {
+    label: 'Draft content plan',
+    reason: 'Converts the approved strategy into reviewable platform-native post drafts.',
+    includedWork: 'One bounded content-plan generation call; images and A/B variants are excluded.',
+    providerCallLimit: 1,
+    refundableOnNoUsableOutput: true,
+  },
+  CONTENT_AB_VARIANTS: {
+    label: 'A/B caption variants',
+    reason: 'Creates an optional second hook variant for eligible content-plan posts.',
+    includedWork: 'One bounded A/B caption generation call; no image generation.',
+    providerCallLimit: 1,
+    refundableOnNoUsableOutput: true,
+  },
+  PAID_PACK_GENERATE: {
+    label: 'Paid campaign pack',
+    reason: 'Creates a reviewable paid-media plan without launching or spending.',
+    includedWork: 'One bounded paid campaign planning run.',
+    providerCallLimit: 1,
+    refundableOnNoUsableOutput: true,
+  },
+  WEBSITE_SCAN: {
+    label: 'Website intelligence scan',
+    reason: 'Extracts candidate brand facts from a user-supplied website for review.',
+    includedWork: 'One website extraction and one bounded AI analysis.',
+    providerCallLimit: 1,
+    refundableOnNoUsableOutput: true,
+  },
+  CONTENT_ANALYSIS: {
+    label: 'Content sample analysis',
+    reason: 'Extracts candidate tone, hooks, and angles from supplied content samples.',
+    includedWork: 'One bounded content analysis.',
+    providerCallLimit: 1,
+    refundableOnNoUsableOutput: true,
+  },
+}
+
+export function getCreditActionPolicy(action: CreditAction): CreditActionPolicy & { action: CreditAction; cost: number } {
+  return { action, cost: CREDIT_COSTS[action], ...CREDIT_ACTION_POLICIES[action] }
+}
+
+function debitDescription(action: CreditAction): string {
+  const policy = CREDIT_ACTION_POLICIES[action]
+  return `${policy.label} — ${policy.reason}`
+}
 
 // ── Free plan starter credits ──────────────────────────────────────────────────
 // Granted on first AI action to brand-new FREE accounts.
@@ -227,10 +380,9 @@ export interface CreditDeductionOk {
   /** true for paid plans that have aiCredits = -1 (unlimited) */
   isUnlimited: boolean
   /**
-   * The CreditTransaction id for this debit, when known. Populated only by the
-   * grant-based wallet path (B1c-b, flag ON) — the scalar path logs the
-   * transaction fire-and-forget and leaves this undefined. Additive and
-   * optional; existing callers ignore it. B1c-c will use it for refund-to-source.
+   * The CreditTransaction id for this debit. Both wallet and scalar deduction
+   * paths persist the debit atomically and return its id, allowing idempotent,
+   * exact refunds. Optional only for unlimited plans and legacy test doubles.
    */
   transactionId?: string
 }
@@ -245,6 +397,31 @@ export interface InsufficientCreditsError {
 }
 
 export type CreditCheckResult = CreditDeductionOk | InsufficientCreditsError
+
+export interface CreditChargeReceipt extends ReturnType<typeof getCreditActionPolicy> {
+  creditsUsed: number
+  creditsRemaining: number
+  isUnlimited: boolean
+  transactionId: string | null
+}
+
+/**
+ * Canonical, user-displayable receipt for every successful AI charge. Routes
+ * should return this object so the UI can explain the cost and its purpose
+ * without maintaining a second pricing/reason table.
+ */
+export function buildCreditChargeReceipt(
+  action: CreditAction,
+  deduction: CreditDeductionOk,
+): CreditChargeReceipt {
+  return {
+    ...getCreditActionPolicy(action),
+    creditsUsed: deduction.creditsUsed,
+    creditsRemaining: deduction.creditsRemaining,
+    isUnlimited: deduction.isUnlimited,
+    transactionId: deduction.transactionId || null,
+  }
+}
 
 // ── Core helper ────────────────────────────────────────────────────────────────
 
@@ -390,15 +567,31 @@ async function _deductScalar(
   // Use updateMany with a conditional WHERE to avoid race conditions.
   // Postgres executes the WHERE check and UPDATE in a single statement —
   // if two requests arrive simultaneously, only one will see count === 1.
-  const deducted = await prisma.user.updateMany({
-    where: { id: userId, aiCredits: { gte: cost } },
-    data: {
-      aiCredits: { decrement: cost },
-      monthlyGenerations: { increment: 1 },
-    },
+  const outcome = await prisma.$transaction(async (tx) => {
+    const deducted = await tx.user.updateMany({
+      where: { id: userId, aiCredits: { gte: cost } },
+      data: {
+        aiCredits: { decrement: cost },
+        monthlyGenerations: { increment: 1 },
+      },
+    })
+    if (deducted.count === 0) return { ok: false as const }
+
+    const transaction = await tx.creditTransaction.create({
+      data: {
+        userId,
+        action,
+        description: debitDescription(action),
+        amount: -cost,
+        entityId: null,
+        entityType: null,
+      },
+      select: { id: true },
+    })
+    return { ok: true as const, transactionId: transaction.id }
   })
 
-  if (deducted.count === 0) {
+  if (!outcome.ok) {
     // Lost the race — credits were already consumed by a concurrent request
     return _insufficient(cost, currentCredits, isFree)
   }
@@ -407,9 +600,6 @@ async function _deductScalar(
 
   // ── Track usage (non-blocking) ─────────────────────────────────────────────
   await _trackUsage(userId, cost)
-
-  // ── Log transaction (non-blocking) ────────────────────────────────────────
-  _logTransaction(userId, action, -cost).catch(() => {})
 
   // ── Low-credits warning email ──────────────────────────────────────────────
   // Fire when balance drops below threshold (e.g. can't afford another generation).
@@ -421,7 +611,13 @@ async function _deductScalar(
     ).catch((e: Error) => console.error('[Credits low email]', e.message))
   }
 
-  return { ok: true, creditsRemaining: newCredits, creditsUsed: cost, isUnlimited: false }
+  return {
+    ok: true,
+    creditsRemaining: newCredits,
+    creditsUsed: cost,
+    isUnlimited: false,
+    transactionId: outcome.transactionId,
+  }
 }
 
 // ── Internal: grant-based deduction (B1c-b — flag ON only) ────────────────────
@@ -503,7 +699,7 @@ async function _deductFromGrants(
         data: {
           userId,
           action,
-          description: ACTION_LABELS[action] || action,
+          description: debitDescription(action),
           amount: -cost,
           entityId: null,
           entityType: null,
@@ -568,14 +764,23 @@ export async function addCredits(
   entityType = 'bonus',
   source?: string,
 ): Promise<void> {
+  if (!Number.isSafeInteger(amount) || amount <= 0) {
+    throw new Error('Credit amount must be a positive integer')
+  }
+  let added = true
   if (source) {
-    // Atomic: increment + matching MANUAL grant together.
-    await (prisma as any).$transaction(async (tx: any) => {
-      await tx.user.update({
-        where: { id: userId },
-        data: { aiCredits: { increment: amount } },
-      })
-      await ensureGrant(buildBonusGrant(userId, 'MANUAL', amount, source), tx)
+    // Atomic and truly idempotent: only increment the scalar/cache when the
+    // source grant was newly inserted. A retry with the same source must not
+    // mint a second balance while createMany(skipDuplicates) silently skips.
+    added = await (prisma as any).$transaction(async (tx: any) => {
+      const grant = await ensureGrant(buildBonusGrant(userId, 'MANUAL', amount, source), tx)
+      if (grant.created) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { aiCredits: { increment: amount } },
+        })
+      }
+      return grant.created
     })
   } else {
     // Original behavior — unchanged.
@@ -584,7 +789,9 @@ export async function addCredits(
       data: { aiCredits: { increment: amount } },
     })
   }
-  await _logTransaction(userId, 'CREDIT', amount, description, undefined, entityType)
+  if (added) {
+    await _logTransaction(userId, 'CREDIT', amount, description, undefined, entityType)
+  }
 }
 
 // ── Public: refund credits on failed generation ───────────────────────────────
@@ -616,6 +823,44 @@ export async function refundCredits(
   const cost = CREDIT_COSTS[action]
   if (!cost) return
   try {
+    // Some older routes still call this helper without passing the debit's
+    // transactionId. When the grant wallet is enabled, incrementing only the
+    // legacy scalar would create invisible balance (and the next wallet spend
+    // would ignore it). Preserve those routes safely by minting a short-lived
+    // REFUND grant as the documented interim fallback. Newer routes use
+    // refundCreditsForTransaction for exact source restoration.
+    if (isCreditWalletEnabled()) {
+      await (prisma as any).$transaction(async (tx: any) => {
+        const grantId = `refund:fallback:${userId}:${action}:${randomUUID()}`
+        await tx.creditGrant.create({
+          data: {
+            userId,
+            type: 'REFUND',
+            status: 'ACTIVE',
+            amount: cost,
+            remaining: cost,
+            // Interim refunds must not create a long-lived purchased-like pool.
+            expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+            source: grantId,
+          },
+        })
+        await tx.user.update({
+          where: { id: userId },
+          data: { aiCredits: { increment: cost } },
+        })
+        await tx.creditTransaction.create({
+          data: {
+            userId,
+            action: 'REFUND',
+            amount: cost,
+            description: `Refund — ${ACTION_LABELS[action] || action} (${reason})`,
+            entityType: 'refund',
+          },
+        })
+      })
+      return
+    }
+
     await prisma.user.update({
       where: { id: userId },
       data: { aiCredits: { increment: cost } },
@@ -757,6 +1002,31 @@ export async function refundCreditsForTransaction(
   }
 }
 
+/**
+ * The one refund entry point AI routes should use after a successful charge.
+ * It prefers the exact debit transaction (idempotent and variable-cost safe),
+ * while retaining a fixed-action fallback for legacy callers/tests that do not
+ * yet expose a transaction id. Unlimited plans have creditsUsed=0 and no-op.
+ */
+export async function refundCreditDeduction(args: {
+  userId: string
+  action: CreditAction
+  deduction: CreditDeductionOk | null | undefined
+  reason: string
+}): Promise<void> {
+  const { userId, action, deduction, reason } = args
+  if (!deduction || deduction.creditsUsed <= 0) return
+  if (deduction.transactionId) {
+    await refundCreditsForTransaction({
+      userId,
+      transactionId: deduction.transactionId,
+      reason,
+    })
+    return
+  }
+  await refundCredits(userId, action, reason)
+}
+
 // ── Public: daily image-generation cap ────────────────────────────────────────
 
 export interface ImageCapResult {
@@ -864,17 +1134,17 @@ export async function getUsageSummary(userId: string): Promise<UsageSummary> {
       db.creditTransaction.count({ where: { userId, amount: { lt: 0 } } }).catch(() => 0),
       db.creditTransaction.findMany({
         where: { userId, createdAt: { gte: start } },
-        select: { amount: true, entityType: true },
+        select: { action: true, amount: true, entityType: true },
       }).catch(() => []),
     ])
 
     let generationsThisMonth = 0
     let creditsUsedThisMonth = 0
-    for (const t of monthTxns as Array<{ amount: number; entityType: string | null }>) {
+    for (const t of monthTxns as Array<{ action?: string; amount: number; entityType: string | null }>) {
       if (t.amount < 0) {
         generationsThisMonth += 1
         creditsUsedThisMonth += -t.amount
-      } else if (t.entityType === 'refund') {
+      } else if (t.action === 'REFUND' || t.entityType === 'refund') {
         // A refund cancels a failed attempt — don't count it as a generation or as used credit.
         generationsThisMonth -= 1
         creditsUsedThisMonth -= t.amount
@@ -903,11 +1173,11 @@ export async function getMonthlyActivity(
   const now = new Date()
   const start = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1)
   const db = prisma as any
-  const txns: Array<{ amount: number; entityType: string | null; createdAt: Date }> =
+  const txns: Array<{ action?: string; amount: number; entityType: string | null; createdAt: Date }> =
     await db.creditTransaction
       .findMany({
         where: { userId, createdAt: { gte: start } },
-        select: { amount: true, entityType: true, createdAt: true },
+        select: { action: true, amount: true, entityType: true, createdAt: true },
       })
       .catch(() => [])
 
@@ -917,7 +1187,7 @@ export async function getMonthlyActivity(
     const key = `${d.getFullYear()}-${d.getMonth() + 1}`
     const b = buckets.get(key) ?? { generations: 0, creditsUsed: 0 }
     if (t.amount < 0) { b.generations += 1; b.creditsUsed += -t.amount }
-    else if (t.entityType === 'refund') { b.generations -= 1; b.creditsUsed -= t.amount }
+    else if (t.action === 'REFUND' || t.entityType === 'refund') { b.generations -= 1; b.creditsUsed -= t.amount }
     buckets.set(key, b)
   }
 
@@ -939,9 +1209,11 @@ const ACTION_LABELS: Record<string, string> = {
   SENTINEL_REVIEW: 'Sentinel Review',
   IMAGE_GENERATION: 'Image Generation',
   AD_COPY: 'Ad Copy Generation',
+  PAID_EXECUTION_PLAN: 'Paid Execution Plan',
   CHAT_MESSAGE: 'AI Chat Message',
   AI_POST_REWRITE: 'AI Post Rewrite',
   CONTENT_PLAN_GENERATION: 'Content Plan Generation',
+  CONTENT_AB_VARIANTS: 'A/B Caption Variants',
   PAID_PACK_GENERATE: 'Paid Campaign Pack',
   WEBSITE_SCAN: 'Website Intelligence Scan',
   CONTENT_ANALYSIS: 'Content Samples Analysis',

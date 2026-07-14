@@ -72,7 +72,7 @@ function getPageGreeting(path: string, isAr: boolean): string {
 function getQuickReplies(path: string, isAr: boolean): string[] {
   if (isAr) {
     if (path.includes("campaign"))
-      return ["كيف أحسّن استراتيجيتي؟", "ما أفضل وقت للنشر؟", "كيف أستخدم Brand Brain؟"];
+      return ["كيف أحسّن استراتيجيتي؟", "كيف أقترح وقت النشر من بياناتي؟", "كيف أستخدم Brand Brain؟"];
     if (path.includes("brand"))
       return ["كيف أملأ Brand Brain؟", "ما أهمية Tone Keywords؟", "كيف تؤثر على الحملات؟"];
     if (path.includes("billing"))
@@ -80,7 +80,7 @@ function getQuickReplies(path: string, isAr: boolean): string[] {
     return ["كيف أبدأ؟", "ما هي الكريديتس؟", "كيف أُنشئ حملة؟"];
   } else {
     if (path.includes("campaign"))
-      return ["How do I improve my strategy?", "What's the best time to post?", "How to use Brand Brain?"];
+      return ["How do I improve my strategy?", "How is a posting time suggested from my data?", "How to use Brand Brain?"];
     if (path.includes("brand"))
       return ["How to fill Brand Brain?", "What are Tone Keywords?", "How does it affect campaigns?"];
     if (path.includes("billing"))
@@ -310,7 +310,7 @@ export default memo(function ChatWidget() {
           ? (isAr ? 'إغلاق مساعد NEXUS' : 'Close NEXUS assistant')
           : (isAr ? 'فتح مساعد NEXUS' : 'Open NEXUS assistant')}
         aria-expanded={open}
-        className="fixed bottom-6 right-6 z-[100] w-14 h-14 rounded-full flex items-center justify-center shadow-2xl chat-btn"
+        className="fixed bottom-6 end-6 z-[100] w-14 h-14 rounded-full flex items-center justify-center shadow-2xl chat-btn"
         style={{
           background: "linear-gradient(135deg, #6366F1 0%, #5E5CE6 100%)",
           boxShadow: "0 8px 32px rgba(94,92,230,0.35)",
@@ -331,7 +331,7 @@ export default memo(function ChatWidget() {
       {/* ── Chat Panel ── */}
       {open && (
         <div
-          className="fixed bottom-24 right-6 z-[100] w-[360px] max-w-[92vw] flex flex-col overflow-hidden chat-panel"
+          className="fixed bottom-24 end-6 z-[100] w-[360px] max-w-[92vw] flex flex-col overflow-hidden chat-panel"
           style={{
             height: "520px",
             maxHeight: "calc(100vh - 120px)",
@@ -470,8 +470,10 @@ export default memo(function ChatWidget() {
                 }}
               />
               <button
+                type="button"
                 onClick={() => handleSend()}
                 disabled={isStreaming || !input.trim()}
+                aria-label={isAr ? 'إرسال الرسالة' : 'Send message'}
                 className="w-9 h-9 rounded-xl grid place-items-center shrink-0 hover:brightness-110 transition disabled:opacity-40"
                 style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)" }}
               >

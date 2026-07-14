@@ -1,20 +1,20 @@
 'use client'
 
-import Link from 'next/link'
 import { useI18n } from '@/lib/i18n-context'
+import LegalDocumentPage from '@/components/legal/LegalDocumentPage'
 
 const SECTIONS = [
   {
-    titleAr: 'خطة Free المجانية',
-    titleEn: 'Free Plan',
-    bodyAr: 'خطة Free مجانية 100% ومفتوحة للجميع. لا تحتاج بطاقة ائتمان. استخدمها لتجربة المنصة قبل أي التزام مالي.',
-    bodyEn: 'The Free plan is 100% free with no credit card required. Use it to explore the platform before any financial commitment.',
+    titleAr: 'التجربة المجانية',
+    titleEn: 'Free Trial',
+    bodyAr: 'تتضمن التجربة 12 كريديت لمرة واحدة ولا تتطلب بطاقة ائتمان. راجع تكلفة كل إجراء داخل المنتج قبل التنفيذ.',
+    bodyEn: 'The trial includes 12 one-time credits and requires no credit card. Review each action cost inside the product before running it.',
   },
   {
     titleAr: 'الاسترداد خلال 14 يوماً',
     titleEn: '14-Day Refund Window',
-    bodyAr: `إذا اشتركت في خطة مدفوعة (Starter أو Growth أو Agency) ولم تكن راضياً، يمكنك طلب استرداد كامل خلال 14 يوماً من تاريخ الاشتراك الأول.\n\nشروط الاسترداد:\n• يجب أن يكون الطلب خلال 14 يوماً من أول فوترة\n• لا يتجاوز استخدامك 20% من حصتك الشهرية\n• يجب أن يكون الحساب في حالة جيدة (بدون انتهاكات)`,
-    bodyEn: `If you subscribe to a paid plan (Starter, Growth, or Agency) and are not satisfied, you may request a full refund within 14 days of your first billing date.\n\nConditions:\n• Request must be made within 14 days of first billing\n• Usage must not exceed 20% of your monthly quota\n• Account must be in good standing (no violations)`,
+    bodyAr: `إذا اشتركت في خطة Growth أو Autopilot ولم تكن راضياً، يمكنك طلب استرداد كامل خلال 14 يوماً من تاريخ أول دفعة فعلية. معاملات Stripe Sandbox الاختبارية لا تخصم أموالاً حقيقية.\n\nشروط الاسترداد:\n• يجب أن يكون الطلب خلال 14 يوماً من أول فوترة فعلية\n• لا يتجاوز استخدامك 20% من حصتك الشهرية\n• يجب أن يكون الحساب في حالة جيدة (بدون انتهاكات)`,
+    bodyEn: `If you subscribe to Growth or Autopilot and are not satisfied, you may request a full refund within 14 days of your first live payment. Stripe Sandbox transactions do not charge real money.\n\nConditions:\n• Request must be made within 14 days of the first live billing\n• Usage must not exceed 20% of your monthly quota\n• Account must be in good standing (no violations)`,
   },
   {
     titleAr: 'ما لا يُسترد',
@@ -25,8 +25,8 @@ const SECTIONS = [
   {
     titleAr: 'كيفية طلب الاسترداد',
     titleEn: 'How to Request a Refund',
-    bodyAr: `أرسل طلباً عبر البريد الإلكتروني: support@nexus-grow.com\n• الموضوع: "Refund Request — [بريدك الإلكتروني]"\n• سيتم المعالجة خلال 5-7 أيام عمل\n• المبلغ يُعاد لنفس وسيلة الدفع الأصلية\n• ستصلك رسالة تأكيد عند اكتمال الاسترداد`,
-    bodyEn: `Send a request to: support@nexus-grow.com\n• Subject: "Refund Request — [your email]"\n• Processing time: 5-7 business days\n• Refund issued to the original payment method\n• You will receive a confirmation email upon completion`,
+    bodyAr: `أرسل طلباً عبر البريد الإلكتروني: support@nexus-grow.com\n• الموضوع: "Refund Request — [بريدك الإلكتروني]"\n• نراجع الدفع الفعلي واستهلاك الحصة وحالة الحساب قبل القرار\n• إذا تمت الموافقة، يُصدر الاسترداد إلى وسيلة الدفع الأصلية عبر Stripe\n• يحدد Stripe والبنك زمن ظهور المبلغ وأي إشعار دفع متاح`,
+    bodyEn: `Send a request to: support@nexus-grow.com\n• Subject: "Refund Request — [your email]"\n• We review the live payment, quota usage, and account standing before a decision\n• If approved, the refund is issued to the original payment method through Stripe\n• Stripe and the bank determine settlement timing and any available payment notification`,
   },
   {
     titleAr: 'الإلغاء بدون استرداد',
@@ -43,49 +43,14 @@ export default function RefundPage() {
   const isAr = locale === 'ar'
 
   return (
-    <div className="min-h-screen" dir={isRTL ? 'rtl' : 'ltr'} style={{ background: '#020204' }}>
-      <nav className="sticky top-0 z-40 px-6 py-4 flex justify-between items-center"
-        style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <Link href="/" className="text-2xl font-bold gradient-text">NEXUS AI</Link>
-        <Link href="/auth/login" className="text-sm text-text-muted hover:text-text-primary transition">
-          {lgT?.navLogin as string}
-        </Link>
-      </nav>
-
-      <div className="max-w-3xl mx-auto px-6 py-16">
-        <div className="flex items-center gap-3 mb-2">
-          <span className="px-3 py-1 rounded-full text-xs font-bold"
-            style={{ background: 'rgba(139,92,246,0.15)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.2)' }}>
-            Refund Policy
-          </span>
-          <span className="text-text-muted text-sm">
-            {(lgT?.lastUpdated as string)?.replace('{year}', String(year))}
-          </span>
-        </div>
-        <h1 className="text-4xl font-bold mb-2">{lgT?.refundTitle as string}</h1>
-        <p className="text-text-muted mb-10">{lgT?.refundSubtitle as string}</p>
-
-        <div className="space-y-8">
-          {SECTIONS.map((sec, i) => (
-            <section key={i} className="p-6"
-              style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px' }}>
-              <h2 className="text-lg font-bold text-violet-400 mb-3">
-                {isAr ? sec.titleAr : sec.titleEn}
-              </h2>
-              <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
-                {isAr ? sec.bodyAr : sec.bodyEn}
-              </p>
-            </section>
-          ))}
-        </div>
-
-        <div className="mt-12 pt-8 flex gap-6 text-sm text-text-muted"
-          style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <Link href="/" className="hover:text-text-primary transition">{lgT?.backHome as string}</Link>
-          <Link href="/terms" className="hover:text-text-primary transition">{lgT?.linkTerms as string}</Link>
-          <Link href="/privacy" className="hover:text-text-primary transition">{lgT?.linkPrivacy as string}</Link>
-        </div>
-      </div>
-    </div>
+    <LegalDocumentPage
+      badge="Refund Policy"
+      title={lgT?.refundTitle as string}
+      subtitle={lgT?.refundSubtitle as string}
+      lastUpdated={(lgT?.lastUpdated as string)?.replace('{year}', String(year))}
+      sections={SECTIONS}
+      isAr={isAr}
+      isRTL={isRTL}
+    />
   )
 }

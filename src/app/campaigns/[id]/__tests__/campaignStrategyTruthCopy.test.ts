@@ -29,6 +29,13 @@ const analyticsInsightsRouteSource = readFileSync(
 const strategyRuntimeCopySource = `${campaignRoomSource}\n${strategyRoomStateCopySource}`
 
 describe('Campaign Room strategy truth copy', () => {
+  it('shows the campaign platforms in media readiness instead of a stale hardcoded subset', () => {
+    expect(campaignRoomSource).toContain('campaign.platforms.length > 0 ? campaign.platforms.map')
+    expect(campaignRoomSource).toContain("THREADS: '@'")
+    expect(campaignRoomSource).toContain("PINTEREST: '📌'")
+    expect(campaignRoomSource).not.toContain("['📘 Facebook', '📸 Instagram', '💼 LinkedIn', '✕ X', '🎵 TikTok']")
+  })
+
   it('does not tell progressed campaigns to turn strategy into content again', () => {
     expect(campaignRoomSource).not.toContain('Review strategy quality before turning it into content.')
     expect(campaignRoomSource).not.toContain('before turning it into content planning')
@@ -107,12 +114,14 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).not.toContain('يحتاج مراجعة')
   })
 
-  it('keeps campaign tabs and the strategy map visible in one operating navigation surface', () => {
+  it('keeps campaign navigation focused while preserving the strategy outline on demand', () => {
     expect(campaignRoomSource).toContain('Campaign Room')
-    expect(campaignRoomSource).toContain('Current workspace:')
-    expect(campaignRoomSource).toContain('Operating navigation')
-    expect(campaignRoomSource).toContain('Strategy document outline')
-    expect(campaignRoomSource).toContain('فهرس وثيقة الاستراتيجية')
+    expect(campaignRoomSource).toContain('Current campaign workspace')
+    expect(campaignRoomSource).toContain('Switch campaign workspace')
+    expect(campaignRoomSource).toContain('Strategy document sections')
+    expect(campaignRoomSource).toContain('أقسام وثيقة الاستراتيجية')
+    expect(campaignRoomSource).toContain('<select')
+    expect(campaignRoomSource).toContain('<details')
     expect(campaignRoomSource).not.toContain('Strategy map')
     expect(campaignRoomSource).toContain('sticky top-0 z-30')
     expect(campaignRoomSource).toContain('activeTab === 0 && strategySectionNavItems.length > 0')

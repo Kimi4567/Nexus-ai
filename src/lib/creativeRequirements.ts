@@ -72,6 +72,7 @@ const PLATFORM_FORMATS: Array<{
   aspectRatio: string
 }> = [
   { match: /TIKTOK|REEL|SHORT|YOUTUBE(?:_SHORTS)?|STORY/i, format: 'Vertical short-form image/video cover', aspectRatio: '9:16' },
+  { match: /PINTEREST|\bPIN\b/i, format: 'Pinterest standard image Pin', aspectRatio: '2:3' },
   { match: /LINKEDIN/i, format: 'LinkedIn feed image', aspectRatio: '1.91:1' },
   { match: /FACEBOOK|META/i, format: 'Meta feed image', aspectRatio: '4:5' },
   { match: /INSTAGRAM/i, format: 'Instagram feed image', aspectRatio: '4:5' },

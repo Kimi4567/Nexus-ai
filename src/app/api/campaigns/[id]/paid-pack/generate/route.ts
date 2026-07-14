@@ -4,7 +4,7 @@
  * Uses GPT-4o to generate the full paid planning pack:
  * - Platform-specific audience targeting (Meta, Google, TikTok, LinkedIn)
  * - A/B copy variants (3 per platform)
- * - Budget insights & estimated reach
+ * - Budget review and forecast-readiness status
  * - UTM parameter set
  * - Platform-by-platform setup review guide (step by step)
  *
@@ -15,9 +15,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
-import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
+import { buildCreditChargeReceipt, checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
 import { getBudgetTruth } from '@/lib/paidBoundary'
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -36,38 +37,45 @@ async function callGPT(system: string, user: string): Promise<string> {
   })
   if (!res.ok) throw new Error(`OpenAI error: ${res.status}`)
   const data = await res.json()
-  return data.choices?.[0]?.message?.content ?? '{}'
-}
-
-// CPM benchmarks (MENA + Global avg) for reach estimation
-const CPM_BENCHMARKS: Record<string, { min: number; max: number }> = {
-  meta:     { min: 4,  max: 12  },  // USD per 1000 impressions
-  tiktok:   { min: 6,  max: 15  },
-  google:   { min: 1,  max: 5   },  // CPC based
-  linkedin: { min: 25, max: 60  },
-}
-
-function estimateReach(
-  budget: number,
-  days: number,
-  platforms: string[]
-): Record<string, { impressionsMin: number; impressionsMax: number; cpmMin: number; cpmMax: number }> {
-  const totalBudget = budget * days
-  const result: Record<string, { impressionsMin: number; impressionsMax: number; cpmMin: number; cpmMax: number }> = {}
-  for (const p of platforms) {
-    const bench = CPM_BENCHMARKS[p] ?? { min: 5, max: 15 }
-    result[p] = {
-      impressionsMin: Math.round((totalBudget / bench.max) * 1000),
-      impressionsMax: Math.round((totalBudget / bench.min) * 1000),
-      cpmMin: bench.min,
-      cpmMax: bench.max,
-    }
-  }
-  return result
+  const content = data.choices?.[0]?.message?.content?.trim()
+  if (!content) throw new Error('OpenAI returned no paid planning pack')
+  return content
 }
 
 function buildSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40)
+}
+
+function positiveNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null
+}
+
+function enforcePaidPackTruth<T extends {
+  audienceBrief?: Record<string, unknown>
+  budgetInsights?: Record<string, unknown>
+}>(generated: T): T {
+  const audienceBrief = generated.audienceBrief && typeof generated.audienceBrief === 'object'
+    ? { ...generated.audienceBrief }
+    : {}
+  const meta = audienceBrief.meta && typeof audienceBrief.meta === 'object'
+    ? { ...(audienceBrief.meta as Record<string, unknown>) }
+    : undefined
+  if (meta) {
+    meta.estimatedAudienceSize = null
+    meta.audienceForecastStatus = 'unavailable_until_platform_forecast'
+    meta.platformValidationRequired = true
+    audienceBrief.meta = meta
+  }
+
+  const budgetInsights = generated.budgetInsights && typeof generated.budgetInsights === 'object'
+    ? { ...generated.budgetInsights }
+    : {}
+  budgetInsights.competitorBenchmark = null
+  budgetInsights.expectedResults = null
+  budgetInsights.forecastStatus = 'unavailable_until_platform_forecast'
+  budgetInsights.forecastReason = 'No account-level platform forecast or verified historical performance was available.'
+
+  return { ...generated, audienceBrief, budgetInsights } as T
 }
 
 export async function POST(
@@ -112,14 +120,40 @@ export async function POST(
     })
 
     const objective = existingPack?.objective ?? 'TRAFFIC'
-    const platforms: string[] = existingPack?.platforms ?? ['meta']
+    const platforms: string[] = existingPack?.platforms ?? []
+    if (platforms.length === 0) {
+      return NextResponse.json({
+        error: 'Select at least one planning platform before generation.',
+        code: 'PAID_PLATFORMS_REQUIRED',
+      }, { status: 422 })
+    }
+    const savedDailyBudget = positiveNumber(existingPack?.dailyBudget)
+    const savedTotalBudget = positiveNumber(existingPack?.totalBudget)
+    if (!savedDailyBudget && !savedTotalBudget) {
+      return NextResponse.json({
+        error: 'Enter a planning budget before generation. It remains unapproved until final launch confirmation.',
+        code: 'PAID_BUDGET_REQUIRED',
+      }, { status: 422 })
+    }
     const budgetTruth = getBudgetTruth({
-      amount: existingPack?.dailyBudget,
-      fallbackAmount: 20,
+      amount: savedDailyBudget ?? savedTotalBudget,
+      fallbackAmount: 0,
       explicitBudgetConfirmed: false,
     })
-    const dailyBudget = budgetTruth.amount
-    const durationDays = existingPack?.durationDays ?? 7
+    const durationDays = Number.isInteger(existingPack?.durationDays) && existingPack.durationDays > 0
+      ? existingPack.durationDays
+      : null
+    if (!durationDays) {
+      return NextResponse.json({
+        error: 'Enter a valid planning duration before generation.',
+        code: 'PAID_DURATION_REQUIRED',
+      }, { status: 422 })
+    }
+
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(requestedLanguage), { status: 503 })
+    }
+
     const currency = existingPack?.currency ?? 'USD'
 
     // Build brand context string
@@ -147,7 +181,7 @@ Competitor Notes: ${brandProfile.competitorNotes ?? ''}
       : 'No strategy generated yet.'
 
     const platformList = platforms.join(', ')
-    const totalBudget = dailyBudget * durationDays
+    const totalBudget = savedTotalBudget ?? (savedDailyBudget as number) * durationDays
 
     const systemPrompt = `You are a senior paid planning strategist with deep experience planning campaigns on Meta, Google, TikTok, and LinkedIn.
 
@@ -159,7 +193,9 @@ No ad spend is approved by this pack. No platform launch is approved by this pac
 
 If a budget value is present but not explicitly confirmed, treat this as a planning budget value only. Do not present it as approved spend.
 
-Do not invent ROI, ROAS, CPA, guaranteed outcomes, expected conversions, benchmark superiority, winning paid creative, or best-performing paid assets. Reach, CPM, and budget values are planning assumptions only.
+Do not invent ROI, ROAS, CPA, guaranteed outcomes, expected conversions, competitor spend, benchmark superiority, winning paid creative, best-performing paid assets, audience size, CPM, impressions, or reach. Account-level forecasts are unavailable in this request, so every forecast field must remain null.
+Treat interests, behaviors, keywords, placements, formats, bidding, and other platform options as hypotheses for review. Their availability must be validated in the connected account; do not claim they are exact platform categories.
+Do not invent testimonials, customer counts, ratings, certifications, awards, case studies, or other social proof. Use only verified proof present in the brand or campaign context.
 
 Write every human-readable planning value in ${requestedLanguage === 'ar' ? 'Arabic' : 'English'}. Keep JSON keys, platform ids, enum values, CTA enum values, and UTM parameters exactly as specified.
 
@@ -169,7 +205,7 @@ Output valid JSON only. No prose, no markdown.`
 Goal: ${campaign.goal}
 Objective: ${objective}
 Platforms: ${platformList}
-Daily Budget: ${currency} ${dailyBudget}
+Daily Budget: ${savedDailyBudget ? `${currency} ${savedDailyBudget}` : 'Not supplied'}
 Duration: ${durationDays} days
 Total Budget: ${currency} ${totalBudget}
 Budget Source: ${budgetTruth.budgetSource}
@@ -190,19 +226,21 @@ Generate a complete paid campaign pack as JSON with this exact structure:
       "ageMax": number,
       "genders": ["all"|"male"|"female"],
       "locations": ["City, Country"],
-      "interests": ["up to 10 specific Meta interest categories"],
-      "behaviors": ["up to 5 Meta behavior targeting options"],
+      "interests": ["up to 10 targeting hypotheses to validate in the connected account"],
+      "behaviors": ["up to 5 behavior hypotheses to validate in the connected account"],
       "exclusions": ["audiences to exclude"],
       "customAudienceSuggestions": ["Lookalike from website visitors", "Email list upload"],
       "placementRecommendation": "Facebook Feed + Instagram Reels + Stories",
       "bidStrategy": "LOWEST_COST_WITHOUT_CAP or COST_CAP",
-      "estimatedAudienceSize": "500K - 1.5M"
+      "estimatedAudienceSize": null,
+      "audienceForecastStatus": "unavailable_until_platform_forecast",
+      "platformValidationRequired": true
     },
     "google": {
       "campaignType": "Search|Display|Performance Max",
       "keywords": ["10 high-intent keywords"],
       "negativeKeywords": ["5 negative keywords"],
-      "audienceSegments": ["Google Audience segment names"],
+      "audienceSegments": ["audience hypotheses to validate in the connected account"],
       "matchTypes": "Broad Match + Phrase Match",
       "locations": ["target locations"],
       "bidStrategy": "Maximize Conversions or Target CPA"
@@ -212,14 +250,14 @@ Generate a complete paid campaign pack as JSON with this exact structure:
       "ageMax": number,
       "genders": ["all"|"male"|"female"],
       "locations": ["Country"],
-      "interests": ["TikTok interest categories"],
-      "behaviors": ["TikTok behavioral targeting"],
+      "interests": ["targeting hypotheses to validate in the connected account"],
+      "behaviors": ["behavior hypotheses to validate in the connected account"],
       "videoFormat": "TopView|In-Feed|Spark Ads",
       "creatorSuggestion": "micro-influencer niche suggestion"
     },
     "linkedin": {
       "jobTitles": ["specific job titles"],
-      "industries": ["LinkedIn industry names"],
+      "industries": ["industry hypotheses to validate in the connected account"],
       "companySizes": ["1-10", "11-50", "51-200", "201-500", "501-1000", "1001-5000"],
       "seniority": ["Senior", "Manager", "Director", "VP", "C-Level"],
       "skills": ["relevant skills"],
@@ -240,14 +278,14 @@ Generate a complete paid campaign pack as JSON with this exact structure:
     },
     {
       "id": "v2",
-      "label": "Hook B — Social Proof",
+      "label": "Hook B — Objection Handling",
       "platform": "meta",
       "primaryText": "...",
       "headline": "...",
       "description": "...",
       "cta": "LEARN_MORE",
       "hook": "...",
-      "angle": "social_proof"
+      "angle": "objection_handling"
     },
     {
       "id": "v3",
@@ -293,9 +331,11 @@ Generate a complete paid campaign pack as JSON with this exact structure:
       "tiktok": percentage as number,
       "linkedin": percentage as number
     },
-    "phasingSuggestion": "Day 1-3: review/test allocation assumption. Day 4-7: review metrics before changing allocation.",
-    "competitorBenchmark": "planning context only; avoid unsupported competitor spend claims",
-    "expectedResults": "planning assumption only; avoid promised outcomes, conversions, ROI, ROAS, or guaranteed performance"
+    "phasingSuggestion": "A review sequence aligned with the saved duration; only scale after verified platform metrics exist.",
+    "competitorBenchmark": null,
+    "expectedResults": null,
+    "forecastStatus": "unavailable_until_platform_forecast",
+    "forecastReason": "No account-level platform forecast or verified historical performance was available."
   },
   "platformGuides": {
     "meta": [
@@ -372,14 +412,15 @@ Generate a complete paid campaign pack as JSON with this exact structure:
       }
 
       try {
-        generated = JSON.parse(raw)
+        const parsed = JSON.parse(raw) as typeof generated
+        if (!parsed.audienceBrief || !Array.isArray(parsed.copyVariants) || parsed.copyVariants.length === 0) {
+          throw new Error('Incomplete paid planning pack')
+        }
+        generated = enforcePaidPackTruth(parsed)
       } catch {
         await refundPaidPack()
         return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })
       }
-
-      // Calculate estimated reach
-      const estimatedReach = estimateReach(dailyBudget, durationDays, platforms)
 
       // Generate UTM params
       const slug = buildSlug(campaign.name)
@@ -401,7 +442,7 @@ Generate a complete paid campaign pack as JSON with this exact structure:
         update: {
           audienceBrief: generated.audienceBrief ?? {},
           copyVariants: generated.copyVariants ?? [],
-          estimatedReach,
+          estimatedReach: null,
           utmParams,
           platformGuides: generated.platformGuides ?? {},
           budgetInsights: generated.budgetInsights ?? {},
@@ -413,12 +454,13 @@ Generate a complete paid campaign pack as JSON with this exact structure:
           workspaceId: campaign.workspaceId,
           objective,
           platforms,
-          dailyBudget,
+          dailyBudget: savedDailyBudget,
+          totalBudget: savedTotalBudget,
           durationDays,
           currency,
           audienceBrief: generated.audienceBrief ?? {},
           copyVariants: generated.copyVariants ?? [],
-          estimatedReach,
+          estimatedReach: null,
           utmParams,
           platformGuides: generated.platformGuides ?? {},
           budgetInsights: generated.budgetInsights ?? {},
@@ -427,7 +469,13 @@ Generate a complete paid campaign pack as JSON with this exact structure:
         },
       })
 
-      return NextResponse.json({ pack, success: true })
+      return NextResponse.json({
+        pack,
+        success: true,
+        creditsUsed: creditResult.creditsUsed,
+        creditsRemaining: creditResult.creditsRemaining,
+        creditCharge: buildCreditChargeReceipt('PAID_PACK_GENERATE', creditResult),
+      })
     } catch (err) {
       console.error('[paid-pack/generate]', err)
       await refundPaidPack()

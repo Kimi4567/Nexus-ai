@@ -17,7 +17,7 @@
 
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { checkAndLog } from '@/lib/outputGuardrails'
-import { detectUnsupportedClaims, buildClaimWarnings, claimCategoryLabel } from '@/lib/ai/claimGuard'
+import { detectUnsupportedClaims, buildClaimFixes, buildClaimWarnings } from '@/lib/ai/claimGuard'
 
 // ─── Input ────────────────────────────────────────────────────────────────────
 
@@ -63,6 +63,8 @@ export interface SentinelReviewInput {
   }
   calendar?: any[] // contentCalendar entries
   creativeBriefDirection?: string // from creativeBrief.overallCreativeDirection or moodDescription
+  /** Full guarded strategy used by the deterministic claim scan and grounding. */
+  strategyReviewSource?: Record<string, unknown>
 }
 
 // ─── Output ───────────────────────────────────────────────────────────────────
@@ -77,6 +79,134 @@ export interface SentinelReviewOutput {
   complianceWarnings: string[]
   recommendedFixes: string[]
   reviewedAt: string
+}
+
+interface RawSentinelAssessment {
+  riskScore?: unknown
+  brandConsistencyScore?: unknown
+  summary?: unknown
+  claimSafetyNotes?: unknown
+  toneConsistencyNotes?: unknown
+  complianceWarnings?: unknown
+  recommendedFixes?: unknown
+}
+
+const QUOTED_EVIDENCE_PATTERNS = [
+  /"([^"\n]{4,})"/g,
+  /'([^'\n]{4,})'/g,
+  /“([^”\n]{4,})”/g,
+  /‘([^’\n]{4,})’/g,
+  /«([^»\n]{4,})»/g,
+]
+
+function normalizedEvidenceText(value: string): string {
+  return value.toLocaleLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+function collectTextLeaves(value: unknown, output: string[] = []): string[] {
+  if (typeof value === 'string' && value.trim()) output.push(value)
+  else if (Array.isArray(value)) value.forEach((item) => collectTextLeaves(item, output))
+  else if (value && typeof value === 'object') {
+    Object.values(value as Record<string, unknown>).forEach((item) => collectTextLeaves(item, output))
+  }
+  return output
+}
+
+/**
+ * LLM findings are allowed to block execution only when they quote text that is
+ * actually present in the supplied campaign package. This prevents a reviewer
+ * suggestion about a missing future deliverable (or an unsupported assumption)
+ * from becoming a circular workflow blocker.
+ */
+export function hasCampaignEvidenceQuote(finding: string, sourceText: string): boolean {
+  const normalizedSource = normalizedEvidenceText(sourceText)
+  for (const pattern of QUOTED_EVIDENCE_PATTERNS) {
+    pattern.lastIndex = 0
+    let match: RegExpExecArray | null
+    while ((match = pattern.exec(finding)) !== null) {
+      const quote = normalizedEvidenceText(match[1] || '')
+      if (quote.length >= 4 && normalizedSource.includes(quote)) return true
+    }
+  }
+  return false
+}
+
+export function normalizeSentinelAssessment(
+  result: RawSentinelAssessment,
+  sourceText: string,
+  claimScan: ReturnType<typeof detectUnsupportedClaims>,
+  language?: string,
+): SentinelReviewOutput {
+  const parsedRisk = Number.parseInt(String(result.riskScore ?? 50), 10)
+  const parsedBrand = Number.parseInt(String(result.brandConsistencyScore ?? 70), 10)
+  const riskScore = Math.min(100, Math.max(0, Number.isFinite(parsedRisk) ? parsedRisk : 50))
+  const brandScore = Math.min(100, Math.max(0, Number.isFinite(parsedBrand) ? parsedBrand : 70))
+  const rawWarnings = Array.isArray(result.complianceWarnings)
+    ? result.complianceWarnings.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : []
+  const rawFixes = Array.isArray(result.recommendedFixes)
+    ? result.recommendedFixes.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : []
+  const groundedWarnings = rawWarnings.filter((item) => hasCampaignEvidenceQuote(item, sourceText))
+  const groundedFixes = rawFixes.filter((item) => hasCampaignEvidenceQuote(item, sourceText))
+  const claimWarnings = buildClaimWarnings(claimScan, language)
+  const claimFixes = buildClaimFixes(claimScan, language)
+  const allWarnings = [...groundedWarnings, ...claimWarnings]
+  const hasGroundedLlmFinding = groundedWarnings.length > 0 || groundedFixes.length > 0
+
+  // A score with no cited evidence is an advisory model opinion, not a factual
+  // blocker. Keep it within the documented proceed-with-review band.
+  const finalRiskScore = claimScan.hasUnsupportedClaims
+    ? Math.max(riskScore, 40)
+    : hasGroundedLlmFinding
+      ? riskScore
+      : Math.min(riskScore, 40)
+  const status: 'passed' | 'needs_attention' =
+    claimScan.hasUnsupportedClaims ||
+    groundedWarnings.length > 0 ||
+    (finalRiskScore > 40 && groundedFixes.length > 0)
+      ? 'needs_attention'
+      : 'passed'
+
+  const arabic = String(language || '').toLowerCase().startsWith('ar')
+  const summary = status === 'needs_attention'
+    ? arabic
+      ? 'تم إيقاف الاعتماد بسبب ملاحظات مرتبطة بنص موجود فعلاً في الحملة. راجع التحذيرات والاقتباسات قبل المتابعة.'
+      : 'Approval is blocked by findings tied to text that is actually present in the campaign. Review the warnings and quoted evidence before proceeding.'
+    : groundedFixes.length > 0
+      ? arabic
+        ? 'لم تُكتشف مخاطر امتثال مانعة. التوصيات المرتبطة باقتباسات من الحملة إرشادية ويمكن مراجعتها قبل التنفيذ.'
+        : 'No blocking compliance risk was detected. Recommendations tied to quoted campaign text are advisory and can be reviewed before execution.'
+      : arabic
+        ? 'لم تُكتشف ادعاءات غير مدعومة أو مخاطر امتثال مانعة في النص المقدم.'
+        : 'No unsupported-claim pattern or blocking compliance risk was detected in the supplied text.'
+  const claimSafetyNotes = claimScan.hasUnsupportedClaims
+    ? arabic
+      ? `رصد الفحص الآلي ${claimScan.findings.length} ادعاء يحتاج إلى دليل أو صياغة أكثر تحفظاً قبل الاستخدام.`
+      : `The deterministic scan found ${claimScan.findings.length} claim(s) that need evidence or safer wording before use.`
+    : arabic
+      ? 'لم يرصد الفحص الآلي أنماط ادعاءات غير مدعومة في النص المقدم.'
+      : 'The deterministic scan found no unsupported-claim patterns in the supplied text.'
+  const rawToneNotes = typeof result.toneConsistencyNotes === 'string'
+    ? result.toneConsistencyNotes.trim()
+    : ''
+  const toneConsistencyNotes = rawToneNotes && hasCampaignEvidenceQuote(rawToneNotes, sourceText)
+    ? rawToneNotes
+    : arabic
+      ? `مقارنة آلية مع ملف البراند: ${brandScore}/100. هذه إشارة للمراجعة وليست قياساً للأداء.`
+      : `Automated comparison with the supplied brand profile: ${brandScore}/100. This is a review signal, not a performance measurement.`
+
+  return {
+    status,
+    riskScore: finalRiskScore,
+    brandConsistencyScore: brandScore,
+    summary,
+    claimSafetyNotes,
+    toneConsistencyNotes,
+    complianceWarnings: allWarnings,
+    recommendedFixes: [...groundedFixes, ...claimFixes],
+    reviewedAt: new Date().toISOString(),
+  }
 }
 
 // ─── Internal API ─────────────────────────────────────────────────────────────
@@ -105,8 +235,13 @@ async function callOpenAI(
   })
   if (!response.ok) throw new Error(`OpenAI error: ${response.status}`)
   const data = await response.json()
-  const raw = data.choices?.[0]?.message?.content || '{}'
-  try { return JSON.parse(raw) } catch { return {} }
+  const raw = data.choices?.[0]?.message?.content?.trim()
+  if (!raw) throw new Error('OpenAI returned no Sentinel review')
+  try {
+    return JSON.parse(raw)
+  } catch {
+    throw new Error('OpenAI returned invalid Sentinel review JSON')
+  }
 }
 
 // ─── Main Function ────────────────────────────────────────────────────────────
@@ -145,12 +280,14 @@ export async function runSentinelReview(input: SentinelReviewInput): Promise<Sen
   const adSetupSummary = s.adSetupPlan
     ? `Objective: ${s.adSetupPlan.objective || ''} | Platform: ${s.adSetupPlan.platformPriority || ''} | Budget: ${s.adSetupPlan.testBudget || ''} | Target: ${s.adSetupPlan.targeting || ''}`
     : ''
+  const strategyReviewSample = collectTextLeaves(input.strategyReviewSource)
+    .slice(0, 40)
+    .join('\n')
+    .slice(0, 4_000)
 
   const systemPrompt = `${langInstruction}
 
-You are Sentinel — the world's most rigorous marketing compliance officer and brand equity guardian. You have spent 20 years reviewing advertising campaigns across 35 markets for regulatory compliance, brand consistency, and execution risk. You have personally reviewed 15,000+ campaigns and prevented dozens of brand crises.
-
-You think like a combination of: a senior FTC attorney, a Meta advertising policy expert, a David Aaker-trained brand equity analyst, and a performance marketing strategist who knows when content will fail in the market — not just in the courtroom.
+Act as Sentinel, an evidence-first marketing compliance and brand-risk reviewer. Do not claim legal credentials, review history, or certainty about market performance. Flag potential issues for human review and identify when jurisdiction- or platform-specific verification is required.
 
 YOUR COMPLIANCE KNOWLEDGE BASE:
 
@@ -187,12 +324,12 @@ YOUR COMPLIANCE KNOWLEDGE BASE:
 
 SCORING STANDARDS:
 - riskScore 0-20: clean. Minor style notes only.
-- riskScore 21-40: review recommended. Specific items to fix but can proceed.
+- riskScore 21-40: review recommended. Specific items to fix but can proceed; 40 is not a blocking score by itself.
 - riskScore 41-70: significant issues. Should not launch without corrections.
 - riskScore 71-100: high risk. Legal exposure, platform violations, or severe brand damage possible. Do NOT launch.
 - brandConsistencyScore 80-100: strong alignment. Below 60 means the content reads like a different brand.
 
-SENTINEL'S CODE: never invent risks that don't exist. Bold content that is substantiated and on-brand is excellent content — do not penalize it. Only flag real, specific risks with exact quotes from the content and exact corrections needed. If the campaign is genuinely clean, say so clearly and confidently.
+SENTINEL'S CODE: never invent risks that don't exist. Bold content that is substantiated and on-brand is excellent content — do not penalize it. Only flag real, specific risks with exact quotes from the supplied content and exact corrections needed. Do not flag assets that are planned for a later workflow stage as missing. Do not request verification that the product cannot perform or that is not represented in the supplied package. A warning or recommended fix without an exact quote will be discarded. If the campaign is genuinely clean, say so clearly and confidently.
 
 Always output valid JSON.`
 
@@ -220,6 +357,7 @@ ${doNotDoYet ? `- Do NOT do yet (flagged by strategy):\n${doNotDoYet}` : ''}
 ${readinessIncomplete ? `- Incomplete readiness items:\n${readinessIncomplete}` : ''}
 ${funnelStagesSample ? `- Funnel stages:\n${funnelStagesSample}` : ''}
 ${adSetupSummary ? `- Ad setup plan: ${adSetupSummary}` : ''}
+${strategyReviewSample ? `- Extended guarded strategy text:\n${strategyReviewSample}` : ''}
 
 CONTENT SAMPLE:
 ${hooksSample || 'No hooks found'}
@@ -258,20 +396,14 @@ Return JSON with exactly these fields:
 If the campaign passes all checks cleanly: riskScore should be under 25, brandConsistencyScore above 80, complianceWarnings should be an empty array, and recommendedFixes should be an empty array.`
 
   const result = await callOpenAI(systemPrompt, userPrompt, 2000)
+  if (!Number.isFinite(Number(result.riskScore)) || !Number.isFinite(Number(result.brandConsistencyScore))) {
+    throw new Error('OpenAI returned an incomplete Sentinel review')
+  }
   checkAndLog('sentinel-reviewer', JSON.stringify(result), {
     brandName: input.brand?.name,
     industry: input.brand?.businessType,
     targetAudience: input.brand?.targetAudience,
   })
-
-  const riskScore = Math.min(100, Math.max(0, parseInt(result.riskScore ?? 50) || 50))
-  const brandScore = Math.min(100, Math.max(0, parseInt(result.brandConsistencyScore ?? 70) || 70))
-  const warnings: string[] = Array.isArray(result.complianceWarnings)
-    ? result.complianceWarnings.filter((w: any) => typeof w === 'string' && w.trim())
-    : []
-  const fixes: string[] = Array.isArray(result.recommendedFixes)
-    ? result.recommendedFixes.filter((f: any) => typeof f === 'string' && f.trim())
-    : []
 
   // ── PR-1K: deterministic unsupported-claim guard ─────────────────────────────
   // The LLM review above can miss invented metrics/guarantees ("30% productivity
@@ -320,41 +452,11 @@ If the campaign passes all checks cleanly: riskScore should be under 25, brandCo
     ...(s.doNotDoYet || []),
     ...(s.executionAssumptions || []),
     ...(s.assumptions || []),
+    ...collectTextLeaves(input.strategyReviewSource),
     ...((input.calendar || []).flatMap((p: any) => [p?.hook, p?.caption, p?.cta])),
   ])
 
-  const claimWarnings = buildClaimWarnings(claimScan)
-  const allWarnings = [...warnings, ...claimWarnings]
+  const sourceText = collectTextLeaves(input).join('\n')
 
-  // Any unsupported claim is, at minimum, a "review recommended" risk (>= 40) and
-  // always sets needs_attention — never let the score say "clean" while a flagged
-  // claim exists.
-  const finalRiskScore = claimScan.hasUnsupportedClaims ? Math.max(riskScore, 40) : riskScore
-
-  let claimSafetyNotes: string = result.claimSafetyNotes || ''
-  if (claimScan.hasUnsupportedClaims) {
-    const detail = claimScan.findings
-      .map(f => `"${f.match}" (${claimCategoryLabel(f.category)})`)
-      .join('; ')
-    claimSafetyNotes =
-      `${claimSafetyNotes ? claimSafetyNotes.trim() + ' ' : ''}` +
-      `Automated guard flagged claim(s) that need evidence before they can be used: ${detail}. ` +
-      `Soften to "designed to help / can help / may improve" or add a verifiable source.`
-  }
-
-  // Status: needs_attention if riskScore >= 40 OR any compliance/claim warnings.
-  const status: 'passed' | 'needs_attention' =
-    finalRiskScore >= 40 || allWarnings.length > 0 ? 'needs_attention' : 'passed'
-
-  return {
-    status,
-    riskScore: finalRiskScore,
-    brandConsistencyScore: brandScore,
-    summary: result.summary || '',
-    claimSafetyNotes,
-    toneConsistencyNotes: result.toneConsistencyNotes || '',
-    complianceWarnings: allWarnings,
-    recommendedFixes: fixes,
-    reviewedAt: new Date().toISOString(),
-  }
+  return normalizeSentinelAssessment(result, sourceText, claimScan, input.language)
 }

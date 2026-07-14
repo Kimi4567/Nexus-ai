@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { decryptToken } from '@/lib/tokenCrypto'
+import { metaGraphUrl } from '@/lib/socialPlatformConfig'
 
 const db = prisma as any
 
@@ -34,9 +35,9 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
 
     // Fetch pages from Meta Graph API
     const pagesRes = await fetch(
-      `https://graph.facebook.com/v21.0/me/accounts` +
+      `${metaGraphUrl('me/accounts')}` +
       `?fields=id,name,category,fan_count,picture` +
-      `&access_token=${token}`
+      `&access_token=${encodeURIComponent(token)}`
     )
     const pagesData = await pagesRes.json()
 

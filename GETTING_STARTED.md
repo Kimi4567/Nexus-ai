@@ -351,3 +351,6 @@ See [DEPLOYMENT.md](DEPLOYMENT.md#troubleshooting)
 *NEXUS AI — Your AI Marketing Operating System*
 
 **Status: READY FOR DEVELOPMENT** ✨
+# Historical Getting Started Notice
+
+This document describes an earlier product surface and is retained for history. The current setup is documented in [`README.md`](README.md) and [`.env.example`](.env.example). Supabase Auth is the active auth system; legacy NextAuth/Runway/plan references below are not runtime requirements.

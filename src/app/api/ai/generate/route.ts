@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import {
+  buildCreditChargeReceipt,
   checkAndDeductCredits,
   refundCredits,
   refundCreditsForTransaction,
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 /* ═══════════════════════════════════════════════════════════════
    /api/ai/generate
@@ -24,7 +26,7 @@ import { aiRateLimitDb } from '@/lib/dbRateLimit'
 type LegacyAction = 'video_script' | 'ad_copy' | 'analyze'
 
 const LEGACY_SYSTEM: Record<LegacyAction, string> = {
-  video_script: 'You are NEX, a marketing video producer with 15 years of experience. Write a short marketing video script (15-30 seconds). Specify: scene, script text, audio/music, and pacing. Write in a compelling and persuasive style.',
+  video_script: 'Act as NEX, a marketing video producer. Write a short marketing video script (15-30 seconds). Specify scene, script text, audio/music, and pacing. Use only supplied product facts and label missing proof instead of inventing it.',
   ad_copy:      'You are VEX, a professional digital advertising copywriter. Write 3 short ad copy variations (headline + body + CTA), each with a different style and angle.',
   analyze:      'You are PULSE, an evidence-first marketing analyst. Use only the data supplied by the user. Never invent metrics, benchmarks, trends, causality, revenue, conversions, or ROI. If data is absent or insufficient, say exactly what is missing and propose a measurement plan. Label all recommendations as hypotheses to test.',
 }
@@ -32,7 +34,7 @@ const LEGACY_SYSTEM: Record<LegacyAction, string> = {
 function buildLegacyUserMessage(body: Record<string, unknown>): string {
   switch (body.action as LegacyAction) {
     case 'video_script':
-      return `Write a marketing video script for "${body.productName || 'the product'}". Description: ${body.description || 'a great product'}. Style: ${body.style || 'conversational'}.${body.duration ? ` Duration: ${body.duration} seconds.` : ''}`
+      return `Write a marketing video script for "${body.productName || 'the product'}". Description: ${body.description || 'Not provided — do not invent product benefits.'}. Style: ${body.style || 'conversational'}.${body.duration ? ` Duration: ${body.duration} seconds.` : ''}`
     case 'ad_copy':
       return `Write 3 ad copy variations for "${body.productName || 'the product'}" on ${body.platform || 'Facebook'}. Goal: ${body.objective || 'sales'}.`
     case 'analyze':
@@ -40,12 +42,6 @@ function buildLegacyUserMessage(body: Record<string, unknown>): string {
     default:
       return ''
   }
-}
-
-const DEMO_LEGACY: Record<LegacyAction, string> = {
-  video_script: `🎬 سكريبت فيديو — وضع العرض التجريبي\n\n[مشهد ١ - ٥ ثواني]\nنص: "هل سئمت من إدارة التسويق يدوياً؟"\n\n[مشهد ٢ - ١٥ ثانية]\nنص: "NEXUS AI — ٤ وكلاء يُديرون تسويقك ٢٤/٧"\n\n[مشهد ٣ - ٥ ثواني]\nنص: "ابدأ مجاناً الآن"`,
-  ad_copy: `📢 نسخ إعلانية — وضع العرض التجريبي\n\n📌 النسخة ١:\nالعنوان: "فريقك التسويقي الكامل في منصة واحدة"\nالنص: NEX يُنتج، VEX يُعلن، PULSE يُحلل، Sentinel يُراقب.\nCTA: جرّب مجاناً ←`,
-  analyze: `📊 التحليل غير متاح في وضع العرض التجريبي\n\nلم يتم تشغيل نموذج ذكاء اصطناعي، لذلك لن يعرض NEXUS أرقاماً أو نتائج افتراضية. أضف OPENAI_API_KEY وقدّم بيانات موثقة لإجراء تحليل قائم على الأدلة.`,
 }
 
 async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
@@ -67,8 +63,10 @@ export async function POST(req: NextRequest) {
   const rl = await aiRateLimitDb(userId)
   if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 })
 
-  const body = await req.json() as Record<string, unknown>
-  const apiKey = process.env.OPENAI_API_KEY
+  const body = await req.json().catch(() => null) as Record<string, unknown> | null
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
 
   // Determine call convention
   const isNew    = typeof body.systemPrompt === 'string' && typeof body.userPrompt === 'string'
@@ -76,6 +74,16 @@ export async function POST(req: NextRequest) {
 
   if (!isNew && !isLegacy) {
     return NextResponse.json({ error: 'Provide systemPrompt+userPrompt or action.' }, { status: 400 })
+  }
+
+  const rawSystemPrompt = isNew ? String(body.systemPrompt) : ''
+  const rawUserPrompt = isNew ? String(body.userPrompt) : ''
+  if (rawSystemPrompt.length > 12_000 || rawUserPrompt.length > 8_000 || rawSystemPrompt.length + rawUserPrompt.length > 16_000) {
+    return NextResponse.json({
+      error: 'AI request context is too large.',
+      code: 'AI_CONTEXT_LIMIT',
+      creditsCharged: false,
+    }, { status: 400 })
   }
 
   // Language instruction — appended to system prompt so AI responds in the user's locale
@@ -101,22 +109,16 @@ export async function POST(req: NextRequest) {
     maxTokens     = 1500
   }
 
-  // ── Credit deduction (before OpenAI call) ─────────────────────
-  let credit: CreditDeductionOk | null = null
-  if (apiKey) {
-    const creditResult = await checkAndDeductCredits(userId, 'AD_COPY')
-    if (!creditResult.ok) return NextResponse.json(creditResult, { status: 402 })
-    credit = creditResult
+  if (!isAiProviderConfigured()) {
+    return NextResponse.json(getAiProviderUnavailablePayload(language), { status: 503 })
   }
 
-  // No API key → demo/mock mode
-  if (!apiKey) {
-    if (isNew) {
-      const mock = `[وضع تجريبي — أضف OPENAI_API_KEY لتفعيل الذكاء الاصطناعي]\n\nالطلب وصلنا:\n"${(userMessage as string).slice(0, 120)}..."\n\nعند إضافة المفتاح سيولّد النظام محتوى احترافياً كاملاً هنا.`
-      return NextResponse.json({ content: mock, result: mock })
-    }
-    return NextResponse.json({ result: DEMO_LEGACY[body.action as LegacyAction] })
-  }
+  const apiKey = process.env.OPENAI_API_KEY!.trim()
+
+  // ── Credit deduction (before OpenAI call) ─────────────────────
+  const creditResult = await checkAndDeductCredits(userId, 'AD_COPY')
+  if (!creditResult.ok) return NextResponse.json(creditResult, { status: 402 })
+  const credit: CreditDeductionOk = creditResult
 
   // Real OpenAI call
   try {
@@ -151,7 +153,13 @@ export async function POST(req: NextRequest) {
     const content = data.choices?.[0]?.message?.content ?? ''
 
     // Return both field names — both calling conventions work
-    return NextResponse.json({ content, result: content })
+    return NextResponse.json({
+      content,
+      result: content,
+      creditsUsed: credit.creditsUsed,
+      creditsRemaining: credit.creditsRemaining,
+      creditCharge: buildCreditChargeReceipt('AD_COPY', credit),
+    })
 
   } catch (err) {
     console.error('[ai/generate] Unexpected error:', err)

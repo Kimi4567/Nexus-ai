@@ -1,4 +1,11 @@
-export type PublishPlatform = 'META' | 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK'
+import { linkedInHeaders, metaGraphUrl } from './socialPlatformConfig'
+import { initializeTikTokVideoPost, type TikTokPostOptions } from './tiktokPublishing'
+import { parseYouTubePostOptions, uploadYouTubeVideo } from './youtubePublishing'
+import { createXPost } from './xPublishing'
+import { createPinterestPin } from './pinterestPublishing'
+import { createThreadsPost } from './threadsPublishing'
+
+export type PublishPlatform = 'META' | 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | 'X' | 'PINTEREST' | 'THREADS'
 
 export type SocialPublishInput = {
   platform: PublishPlatform | string
@@ -9,15 +16,16 @@ export type SocialPublishInput = {
   accountId?: string | null
   accessToken: string
   integrationConfig?: Record<string, unknown> | null
+  platformOptions?: Record<string, unknown> | null
 }
 
 export type SocialPublishResult = {
   platformPostId: string
   platformUrl?: string
+  /** Video providers acknowledge an upload before processing/publication completes. */
+  state?: 'PUBLISHED' | 'PROCESSING'
 }
 
-const META_VERSION = process.env.META_GRAPH_API_VERSION || 'v21.0'
-const LINKEDIN_VERSION = process.env.LINKEDIN_API_VERSION || '202603'
 const MAX_LINKEDIN_IMAGE_BYTES = 20 * 1024 * 1024
 
 class SocialPublishError extends Error {
@@ -40,15 +48,6 @@ export function isRetryableSocialPublishError(error: unknown): boolean {
   if (error instanceof TypeError) return true // fetch/network failure
   const message = error instanceof Error ? error.message : String(error)
   return /\b(408|409|425|429|5\d\d)\b|rate.?limit|timeout|timed out|network|temporar/i.test(message)
-}
-
-function linkedinHeaders(accessToken: string): Record<string, string> {
-  return {
-    Authorization: `Bearer ${accessToken}`,
-    'Content-Type': 'application/json',
-    'Linkedin-Version': LINKEDIN_VERSION,
-    'X-Restli-Protocol-Version': '2.0.0',
-  }
 }
 
 function trustedCloudinaryUrl(value: string): URL {
@@ -102,7 +101,7 @@ async function uploadLinkedInImage(input: {
   trustedCloudinaryUrl(input.imageUrl)
   const initRes = await fetch('https://api.linkedin.com/rest/images?action=initializeUpload', {
     method: 'POST',
-    headers: linkedinHeaders(input.accessToken),
+    headers: linkedInHeaders(input.accessToken),
     body: JSON.stringify({ initializeUploadRequest: { owner: input.ownerUrn } }),
   })
   const initData = await jsonResponse(initRes)
@@ -137,7 +136,7 @@ async function uploadLinkedInImage(input: {
 
 async function publishLinkedIn(input: SocialPublishInput): Promise<SocialPublishResult> {
   const personId = input.accountId || String(input.integrationConfig?.personId || '')
-  const organizationId = String(input.integrationConfig?.organizationId || '')
+  const organizationId = String(input.pageId || input.integrationConfig?.organizationId || '')
   const ownerUrn = organizationId
     ? (organizationId.startsWith('urn:li:') ? organizationId : `urn:li:organization:${organizationId}`)
     : personId.startsWith('urn:li:') ? personId : `urn:li:person:${personId}`
@@ -166,7 +165,7 @@ async function publishLinkedIn(input: SocialPublishInput): Promise<SocialPublish
 
   const res = await fetch('https://api.linkedin.com/rest/posts', {
     method: 'POST',
-    headers: linkedinHeaders(input.accessToken),
+    headers: linkedInHeaders(input.accessToken),
     body: JSON.stringify(body),
   })
   const data = await jsonResponse(res)
@@ -192,7 +191,7 @@ async function publishMeta(input: SocialPublishInput): Promise<SocialPublishResu
   if (isInstagram) {
     if (!input.imageUrl) throw new Error('Instagram publishing requires an approved permanent image')
     trustedCloudinaryUrl(input.imageUrl)
-    const containerRes = await fetch(`https://graph.facebook.com/${META_VERSION}/${encodeURIComponent(targetId)}/media`, {
+    const containerRes = await fetch(metaGraphUrl(`${encodeURIComponent(targetId)}/media`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ caption: input.caption, image_url: input.imageUrl, access_token: input.accessToken }),
@@ -201,7 +200,7 @@ async function publishMeta(input: SocialPublishInput): Promise<SocialPublishResu
     if (!containerRes.ok || container.error || !container.id) {
       throw providerError('Instagram container creation failed', containerRes.status, container)
     }
-    const publishRes = await fetch(`https://graph.facebook.com/${META_VERSION}/${encodeURIComponent(targetId)}/media_publish`, {
+    const publishRes = await fetch(metaGraphUrl(`${encodeURIComponent(targetId)}/media_publish`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ creation_id: container.id, access_token: input.accessToken }),
@@ -219,7 +218,7 @@ async function publishMeta(input: SocialPublishInput): Promise<SocialPublishResu
   const body = hasImage
     ? { message: input.caption, url: input.imageUrl, access_token: input.accessToken }
     : { message: input.caption, ...(input.link ? { link: input.link } : {}), access_token: input.accessToken }
-  const res = await fetch(`https://graph.facebook.com/${META_VERSION}/${encodeURIComponent(targetId)}/${endpoint}`, {
+  const res = await fetch(metaGraphUrl(`${encodeURIComponent(targetId)}/${endpoint}`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -231,13 +230,93 @@ async function publishMeta(input: SocialPublishInput): Promise<SocialPublishResu
 
 async function publishTikTok(input: SocialPublishInput): Promise<SocialPublishResult> {
   if (!input.imageUrl) throw new Error('TikTok direct post requires a permanent video URL')
-  trustedCloudinaryUrl(input.imageUrl)
-  const privacyLevel = String(input.integrationConfig?.approvedPrivacyLevel || '')
-  const consentAt = String(input.integrationConfig?.directPostConsentAt || '')
-  if (!privacyLevel || !consentAt) {
-    throw new Error('TikTok direct posting requires creator-info privacy selection and explicit consent; use manual publishing until configured')
+  const raw = input.platformOptions || {}
+  if (raw.explicitConsent !== true) throw new Error('TikTok requires explicit consent before publishing')
+  const privacyLevel = String(raw.privacyLevel || '')
+  if (!privacyLevel) throw new Error('Select TikTok privacy before publishing')
+  const result = await initializeTikTokVideoPost({
+    accessToken: input.accessToken,
+    caption: input.caption,
+    videoUrl: input.imageUrl,
+    options: {
+      privacyLevel,
+      disableComment: Boolean(raw.disableComment),
+      disableDuet: Boolean(raw.disableDuet),
+      disableStitch: Boolean(raw.disableStitch),
+      brandContentToggle: Boolean(raw.brandContentToggle),
+      brandOrganicToggle: Boolean(raw.brandOrganicToggle),
+      isAigc: Boolean(raw.isAigc),
+      explicitConsent: raw.explicitConsent === true,
+    } satisfies TikTokPostOptions,
+  })
+  // The publish ID proves TikTok accepted the upload, not that moderation and
+  // publishing completed. A reconciliation job promotes it to PUBLISHED later.
+  return { platformPostId: result.publishId, state: 'PROCESSING' }
+}
+
+async function publishYouTube(input: SocialPublishInput): Promise<SocialPublishResult> {
+  if (!input.imageUrl) throw new Error('YouTube publishing requires a permanent video URL')
+  const options = parseYouTubePostOptions(input.platformOptions)
+  const uploaded = await uploadYouTubeVideo({
+    accessToken: input.accessToken,
+    caption: input.caption,
+    videoUrl: input.imageUrl,
+    options,
+  })
+  // videos.insert returns a durable video ID after the bytes arrive, but the
+  // video may still be transcoding. Reconciliation promotes it only after
+  // videos.list confirms processing success.
+  return {
+    platformPostId: uploaded.videoId,
+    platformUrl: uploaded.platformUrl,
+    state: 'PROCESSING',
   }
-  throw new Error('TikTok direct posting is paused until creator-info validation is implemented')
+}
+
+async function publishX(input: SocialPublishInput): Promise<SocialPublishResult> {
+  const options = input.platformOptions || {}
+  const published = await createXPost({
+    accessToken: input.accessToken,
+    text: input.caption,
+    imageUrl: input.imageUrl,
+    username: String(input.integrationConfig?.username || ''),
+    explicitConsent: options.explicitConsent === true,
+  })
+  return {
+    platformPostId: published.postId,
+    platformUrl: published.platformUrl,
+    state: 'PUBLISHED',
+  }
+}
+
+async function publishPinterest(input: SocialPublishInput): Promise<SocialPublishResult> {
+  if (!input.imageUrl) throw new Error('Pinterest publishing requires an approved permanent image')
+  const published = await createPinterestPin({
+    accessToken: input.accessToken,
+    description: input.caption,
+    imageUrl: input.imageUrl,
+    integrationConfig: input.integrationConfig,
+    options: input.platformOptions,
+  })
+  return {
+    platformPostId: published.pinId,
+    platformUrl: published.platformUrl,
+    state: 'PUBLISHED',
+  }
+}
+
+async function publishThreads(input: SocialPublishInput): Promise<SocialPublishResult> {
+  const published = await createThreadsPost({
+    accessToken: input.accessToken,
+    text: input.caption,
+    imageUrl: input.imageUrl,
+    options: input.platformOptions,
+  })
+  return {
+    platformPostId: published.postId,
+    platformUrl: published.platformUrl,
+    state: 'PUBLISHED',
+  }
 }
 
 export async function publishSocialPost(input: SocialPublishInput): Promise<SocialPublishResult> {
@@ -253,6 +332,14 @@ export async function publishSocialPost(input: SocialPublishInput): Promise<Soci
       return publishLinkedIn(input)
     case 'TIKTOK':
       return publishTikTok(input)
+    case 'YOUTUBE':
+      return publishYouTube(input)
+    case 'X':
+      return publishX(input)
+    case 'PINTEREST':
+      return publishPinterest(input)
+    case 'THREADS':
+      return publishThreads(input)
     default:
       throw new Error(`Unsupported publishing platform: ${input.platform}`)
   }

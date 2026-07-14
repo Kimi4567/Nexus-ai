@@ -71,7 +71,12 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'unsupported_absolute_claim',
-    re: /(?:الحل الأمثل|مفتاح النجاح|تحقيق النجاح|يغير منظورك|يضمن|تضمن|مضمون|دائمًا|كل مرة|أفضل|مثالي|مثالية|لا تقاوم)|(?:guarantee|guaranteed|ensure|ensures|perfect|best|ultimate|game[-\s]?changer|irresistible|unmatched|extraordinary)/i,
+    re: /(?:الحل الأمثل|مفتاح النجاح|تحقيق النجاح|يغير منظورك|مضمون|دائمًا|كل مرة|أفضل|مثالي|مثالية|لا تقاوم)|(?:guarantee|guaranteed|ensure|ensures|perfect|best|ultimate|game[-\s]?changer|irresistible|unmatched|extraordinary)/i,
+  },
+  {
+    reason: 'unsupported_absolute_claim',
+    // Standalone guarantee verbs only. "يتضمن" means "includes" and is safe.
+    re: /(?<![\p{L}\p{M}])(?:تضمن|يضمن|نضمن|أضمن)(?:\s+لك)?(?![\p{L}\p{M}])/iu,
   },
   {
     reason: 'unsupported_fake_product_visual',
@@ -92,25 +97,13 @@ function stringifyContextValue(value: unknown): string {
   return ''
 }
 
-function contextText(ctx: ContentPlanRenderContext, gen: GeneratedContentPlanPostLike): string {
-  return [
-    ctx.brand,
-    ctx.campaignName,
-    ctx.keyMessage,
-    ctx.targetAudience,
-    ctx.offer,
-    ...(ctx.contentPillars ?? []),
-    normalizeText(gen.caption),
-    normalizeText(gen.videoCaption),
-    normalizeText(gen.text),
-    normalizeText(gen.imagePrompt),
-    stringifyContextValue(ctx.brandFacts ?? []),
-  ].join(' ')
-}
-
-export function isClinicOperationalSaasContent(ctx: ContentPlanRenderContext, gen: GeneratedContentPlanPostLike = {}): boolean {
-  const text = contextText(ctx, gen)
-  return CLINIC_CONTEXT_RE.test(text) && CLINIC_OPERATIONS_PRODUCT_RE.test(text)
+export function isClinicOperationalSaasContent(ctx: ContentPlanRenderContext, _gen: GeneratedContentPlanPostLike = {}): boolean {
+  // Product classification must come from user-confirmed Brand Brain facts.
+  // Generated copy and strategy prose are not evidence: if the model drifts into
+  // "workflow/platform" language for a dental provider, it must not activate the
+  // clinic-SaaS renderer and amplify that drift across every post.
+  const explicitFacts = stringifyContextValue(ctx.brandFacts ?? [])
+  return CLINIC_CONTEXT_RE.test(explicitFacts) && CLINIC_OPERATIONS_PRODUCT_RE.test(explicitFacts)
 }
 
 export function isCustomerWorkflowSaasContent(ctx: ContentPlanRenderContext): boolean {

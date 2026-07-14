@@ -10,6 +10,11 @@ import {
   buildTrackedPaidDestinationUrl,
   normalizePaidDestinationUrl,
 } from '@/lib/paidExecutionReadiness'
+import {
+  getPaidStrategySourceForUser,
+  PaidStrategySourceError,
+} from '@/lib/paidStrategySourceServer'
+import { paidPlatformSupportsObjective } from '@/lib/paidExecutionObjective'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -44,7 +49,26 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    return NextResponse.json({ campaigns })
+    const sourceIds: string[] = Array.from(new Set<string>(
+      (campaigns as Array<{ organicCampaignId?: string | null }>)
+        .flatMap(campaign => campaign.organicCampaignId ? [campaign.organicCampaignId] : []),
+    ))
+    const sourceStrategies = sourceIds.length > 0
+      ? await prisma.campaign.findMany({
+          where: { id: { in: sourceIds }, workspaceId: workspace.id },
+          select: { id: true, name: true, status: true, updatedAt: true },
+        })
+      : []
+    const sourceById = new Map(sourceStrategies.map(source => [source.id, source]))
+
+    return NextResponse.json({
+      campaigns: campaigns.map((campaign: { organicCampaignId?: string | null }) => ({
+        ...campaign,
+        sourceStrategy: campaign.organicCampaignId
+          ? sourceById.get(campaign.organicCampaignId) ?? null
+          : null,
+      })),
+    })
   } catch (err) {
     console.error('[ad-campaigns GET]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -55,9 +79,6 @@ export async function POST(req: NextRequest) {
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const workspace = await prisma.workspace.findFirst({ where: { ownerId: user.id } })
-    if (!workspace) return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
 
     const body = await req.json()
     const {
@@ -80,6 +101,64 @@ export async function POST(req: NextRequest) {
 
     if (!name || !platform) {
       return NextResponse.json({ error: 'name and platform are required' }, { status: 400 })
+    }
+    if (!['META', 'GOOGLE', 'TIKTOK', 'LINKEDIN'].includes(String(platform))) {
+      return NextResponse.json({ error: 'Unsupported paid platform' }, { status: 400 })
+    }
+
+    const paidSource = await getPaidStrategySourceForUser({
+      campaignId: typeof organicCampaignId === 'string' ? organicCampaignId : '',
+      userId: user.id,
+    })
+    const workspaceId = paidSource.campaign.workspaceId
+    if (objective && objective !== paidSource.truth.executionObjective) {
+      return NextResponse.json({
+        error: 'PAID_OBJECTIVE_STRATEGY_MISMATCH',
+        code: 'PAID_OBJECTIVE_STRATEGY_MISMATCH',
+        expectedObjective: paidSource.truth.executionObjective,
+      }, { status: 422 })
+    }
+    if (!paidPlatformSupportsObjective(platform, paidSource.truth.executionObjective)) {
+      return NextResponse.json({
+        error: 'PAID_PLATFORM_OBJECTIVE_UNSUPPORTED',
+        code: 'PAID_PLATFORM_OBJECTIVE_UNSUPPORTED',
+        objective: paidSource.truth.executionObjective,
+        platform,
+      }, { status: 422 })
+    }
+    const normalizedBudgetType = budgetType === 'LIFETIME' ? 'LIFETIME' : 'DAILY'
+    const parsedDailyBudget = dailyBudget === undefined || dailyBudget === null || dailyBudget === ''
+      ? null
+      : Number(dailyBudget)
+    const parsedLifetimeBudget = lifetimeBudget === undefined || lifetimeBudget === null || lifetimeBudget === ''
+      ? null
+      : Number(lifetimeBudget)
+    const selectedBudget = normalizedBudgetType === 'DAILY' ? parsedDailyBudget : parsedLifetimeBudget
+    if (selectedBudget === null || !Number.isFinite(selectedBudget) || selectedBudget <= 0) {
+      return NextResponse.json({
+        error: 'PAID_BUDGET_REQUIRED',
+        code: 'PAID_BUDGET_REQUIRED',
+      }, { status: 422 })
+    }
+    const startAt = startDate ? new Date(startDate) : null
+    const endAt = endDate ? new Date(endDate) : null
+    if (
+      !startAt
+      || !endAt
+      || Number.isNaN(startAt.getTime())
+      || Number.isNaN(endAt.getTime())
+      || endAt.getTime() <= startAt.getTime()
+    ) {
+      return NextResponse.json({
+        error: 'PAID_SCHEDULE_REQUIRED',
+        code: 'PAID_SCHEDULE_REQUIRED',
+      }, { status: 422 })
+    }
+    if (!adAccountId) {
+      return NextResponse.json({
+        error: 'PAID_AD_ACCOUNT_REQUIRED',
+        code: 'PAID_AD_ACCOUNT_REQUIRED',
+      }, { status: 422 })
     }
 
     const baseDestinationUrl = normalizePaidDestinationUrl(destinationUrl)
@@ -106,28 +185,44 @@ export async function POST(req: NextRequest) {
     // Validate ad account belongs to this workspace if provided
     if (adAccountId) {
       const account = await db.adAccount.findFirst({
-        where: { id: adAccountId, workspaceId: workspace.id },
+        where: { id: adAccountId, workspaceId },
       })
       if (!account) {
         return NextResponse.json({ error: 'Ad account not found' }, { status: 404 })
+      }
+      if (account.platform !== platform) {
+        return NextResponse.json({ error: 'The selected ad account does not match the campaign platform.' }, { status: 400 })
+      }
+      if (account.status !== 'ACTIVE') {
+        return NextResponse.json({
+          error: 'PAID_AD_ACCOUNT_NOT_ACTIVE',
+          code: 'PAID_AD_ACCOUNT_NOT_ACTIVE',
+        }, { status: 422 })
+      }
+      if (account.currency && String(account.currency).toUpperCase() !== String(currency).toUpperCase()) {
+        return NextResponse.json({
+          error: 'AD_ACCOUNT_CURRENCY_MISMATCH',
+          code: 'AD_ACCOUNT_CURRENCY_MISMATCH',
+          expectedCurrency: account.currency,
+        }, { status: 422 })
       }
     }
 
     const campaign = await db.adCampaign.create({
       data: {
-        workspaceId: workspace.id,
+        workspaceId,
         adAccountId: adAccountId || null,
-        organicCampaignId: organicCampaignId || null,
+        organicCampaignId: paidSource.campaign.id,
         platform,
         name,
-        objective: objective || 'TRAFFIC',
+        objective: paidSource.truth.executionObjective,
         status: 'DRAFT',
-        budgetType,
-        dailyBudget: dailyBudget ? parseFloat(dailyBudget) : null,
-        lifetimeBudget: lifetimeBudget ? parseFloat(lifetimeBudget) : null,
+        budgetType: normalizedBudgetType,
+        dailyBudget: normalizedBudgetType === 'DAILY' ? parsedDailyBudget : null,
+        lifetimeBudget: normalizedBudgetType === 'LIFETIME' ? parsedLifetimeBudget : null,
         currency,
-        startDate: startDate ? new Date(startDate) : null,
-        endDate: endDate ? new Date(endDate) : null,
+        startDate: startAt,
+        endDate: endAt,
         utmSource: trackedUrl.searchParams.get('utm_source'),
         utmCampaign: trackedUrl.searchParams.get('utm_campaign'),
         utmMedium: utmMedium || trackedUrl.searchParams.get('utm_medium') || 'paid_social',
@@ -146,6 +241,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ campaign }, { status: 201 })
   } catch (err) {
+    if (err instanceof PaidStrategySourceError) {
+      return NextResponse.json({ error: err.code, code: err.code }, { status: err.status })
+    }
     console.error('[ad-campaigns POST]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

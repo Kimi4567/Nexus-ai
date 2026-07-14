@@ -24,10 +24,21 @@ import {
   checkAndDeductCredits,
   refundCredits,
   refundCreditsForTransaction,
+  getCreditActionPolicy,
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { buildTrackedPaidDestinationUrl } from '@/lib/paidExecutionReadiness'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
+import {
+  getPaidStrategySourceForUser,
+  PaidStrategySourceError,
+} from '@/lib/paidStrategySourceServer'
+import { getStrategyBriefReadiness } from '@/lib/strategyBriefReadiness'
+import { paidOptimizationGoal } from '@/lib/paidExecutionObjective'
+import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
+import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -52,7 +63,9 @@ async function callGPT(system: string, user: string): Promise<string> {
   })
   if (!res.ok) throw new Error(`OpenAI error: ${res.status}`)
   const data = await res.json()
-  return data.choices?.[0]?.message?.content ?? '{}'
+  const content = data.choices?.[0]?.message?.content?.trim()
+  if (!content) throw new Error('OpenAI returned no ad copy')
+  return content
 }
 
 const CTA_OPTIONS = {
@@ -60,6 +73,20 @@ const CTA_OPTIONS = {
   GOOGLE: ['Visit site', 'Learn more', 'Get quote', 'Contact us', 'Book now', 'Sign up'],
   TIKTOK: ['Learn More', 'Shop Now', 'Sign Up', 'Contact Us', 'Download', 'Book Now'],
   LINKEDIN: ['Learn More', 'Register', 'Sign Up', 'Subscribe', 'Request Demo', 'Download'],
+}
+
+function reviewedGoogleTextAssets(value: unknown, maxLength: number): string[] {
+  if (!Array.isArray(value)) return []
+  const seen = new Set<string>()
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map(item => item.trim().replace(/\s+/g, ' '))
+    .filter(item => {
+      const key = item.toLocaleLowerCase()
+      if (!item || item.length > maxLength || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
 }
 
 async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
@@ -92,6 +119,24 @@ export async function POST(
       include: { workspace: true },
     })
     if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (campaign.status !== 'DRAFT' || campaign.platformCampaignId) {
+      return NextResponse.json({
+        error: 'PAID_DRAFT_NOT_EDITABLE',
+        code: 'PAID_DRAFT_NOT_EDITABLE',
+      }, { status: 409 })
+    }
+
+    const paidSource = await getPaidStrategySourceForUser({
+      campaignId: typeof campaign.organicCampaignId === 'string' ? campaign.organicCampaignId : '',
+      userId: user.id,
+    })
+    if (campaign.objective !== paidSource.truth.executionObjective) {
+      return NextResponse.json({
+        error: 'PAID_OBJECTIVE_STRATEGY_MISMATCH',
+        code: 'PAID_OBJECTIVE_STRATEGY_MISMATCH',
+        expectedObjective: paidSource.truth.executionObjective,
+      }, { status: 422 })
+    }
 
     const storedTracking = campaign.trackingUrls && typeof campaign.trackingUrls === 'object'
       ? campaign.trackingUrls as Record<string, unknown>
@@ -106,6 +151,10 @@ export async function POST(
         error: 'A public HTTPS conversion destination is required before generating paid ad drafts. No credits were used.',
         code: 'INVALID_PAID_DESTINATION',
       }, { status: 400 })
+    }
+
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(requestedLang), { status: 503 })
     }
 
     const destination = new URL(destinationUrl)
@@ -123,24 +172,6 @@ export async function POST(
       },
     })
 
-    // Fetch or create the first AdSet
-    let adSet = await db.adSet.findFirst({
-      where: { adCampaignId: params.id },
-      orderBy: { createdAt: 'asc' },
-    })
-    if (!adSet) {
-      adSet = await db.adSet.create({
-        data: {
-          adCampaignId: params.id,
-          name: `${campaign.name} — Ad Set 1`,
-          status: 'DRAFT',
-          bidStrategy: 'LOWEST_COST',
-          optimizationGoal: 'LINK_CLICKS',
-          billingEvent: 'IMPRESSIONS',
-        },
-      })
-    }
-
     // Brand Brain
     let brandProfile = null
     try {
@@ -148,6 +179,19 @@ export async function POST(
         where: { workspaceId: campaign.workspaceId },
       })
     } catch { /* ok */ }
+    const brandBrief = getStrategyBriefReadiness({ mode: 'paid', brandProfile })
+    if (!brandBrief.canGeneratePaidPlan) {
+      return NextResponse.json({
+        error: 'PAID_BRAND_BRIEF_INCOMPLETE',
+        code: 'PAID_BRAND_BRIEF_INCOMPLETE',
+        missingFields: brandBrief.missingRequiredFields,
+      }, { status: 422 })
+    }
+
+    // The execution unit is created only after the provider output also passes
+    // deterministic copy and Brand Brain gates. Failed generation must not leave
+    // an empty Ad Set that looks like meaningful progress.
+    const optimizationGoal = paidOptimizationGoal(paidSource.truth.executionObjective)
 
     // Language — client override takes priority, then location-based detection
     const detectedLang = brandProfile?.audienceLocation &&
@@ -161,36 +205,34 @@ export async function POST(
     const objective = campaign.objective
     const ctaOptions = CTA_OPTIONS[platform as keyof typeof CTA_OPTIONS] || CTA_OPTIONS.META
 
-    const brandCtx = brandProfile ? `
-Brand: ${brandProfile.brandName}
-Industry: ${brandProfile.industry}
-Primary Offer: ${brandProfile.primaryOffer}
-Price Point: ${brandProfile.pricePoint}
-Target Audience: ${brandProfile.targetAudience}
-Brand Tone: ${(brandProfile.toneKeywords || []).join(', ')}
-Unique Advantages: ${(brandProfile.uniqueAdvantages || []).join(', ')}
-Reviewed Hook Signals (style references; do not call them winners): ${(brandProfile.winningHooks || []).slice(0, 5).join(' | ')}
-FAILED Angles (NEVER use): ${(brandProfile.failedAngles || []).slice(0, 3).join(', ')}
-AI Strategy Context: ${JSON.stringify(campaign.aiStrategy || {}).slice(0, 1000)}` : 'No brand profile.'
+    const brandCtx = buildBrandExecutionContext(brandProfile)
 
     // AI Strategy context
     const strategyCtx = campaign.aiStrategy
       ? `\nCampaign Positioning: ${JSON.stringify((campaign.aiStrategy as Record<string, unknown>).positioning || {})}`
       : ''
 
-    const systemPrompt = `You are an elite direct-response copywriter preparing paid ad drafts for review.
+    const systemPrompt = `You are a senior, brand-safe paid copywriter preparing ad drafts for review.
+The approved source strategy is authoritative. Execute its audience, positioning, offer, funnel, and message hierarchy without inventing or replacing them.
 Your copy should be specific, clear, and platform-native. Do not claim winners, proven performance, or guaranteed conversion unless real analytics are provided.
+Never invent testimonials, customer counts, ratings, awards, certifications, discounts, deadlines, scarcity, pricing, or product capabilities.
+If a requested fact is absent, write around the confirmed offer or process; never fill the gap with a plausible claim.
 
 ${langInstruction}
 
 Output ONLY valid JSON. The copy must be SPECIFIC to this brand — never generic.
 Use reviewed hook signals as style references. Never use the failed angles.`
 
-    const userPrompt = `Campaign: "${campaign.name}"
+    const userPrompt = `APPROVED SOURCE STRATEGY: "${paidSource.campaign.name}"
+${paidSource.executionContext}
+
+PLATFORM EXECUTION DRAFT: "${campaign.name}"
 Platform: ${platform}
 Objective: ${objective}
 Available CTAs: ${ctaOptions.join(', ')}
-Daily Budget: ${campaign.currency} ${campaign.dailyBudget || 50}
+Budget Assumption: ${campaign.dailyBudget
+  ? `${campaign.currency} ${campaign.dailyBudget} per day`
+  : `${campaign.currency} ${campaign.lifetimeBudget} total`}
 Conversion Destination: ${destinationUrl}
 
 ${brandCtx}
@@ -213,11 +255,16 @@ Generate 5 review-ready ad copy variants in JSON:
         "headline": number
       },
       "platformNotes": "Any platform-specific tips for using this variant"
+      ${platform === 'GOOGLE' ? `,
+      "googleHeadlines": ["3 to 15 unique headlines, each no more than 30 characters"],
+      "googleDescriptions": ["2 to 4 unique descriptions, each no more than 90 characters"],
+      "googlePath1": "optional path, 15 characters max",
+      "googlePath2": "optional path, 15 characters max"` : ''}
     },
     {
       "id": "v2",
-      "angle": "social_proof",
-      "label": "Social Proof — [specific credibility angle]",
+      "angle": "evidence_or_process",
+      "label": "Evidence or Process — use verified proof only; if none exists, explain the confirmed process transparently",
       "primaryText": "...",
       "headline": "...",
       "description": "...",
@@ -225,11 +272,16 @@ Generate 5 review-ready ad copy variants in JSON:
       "hook": "...",
       "characterCount": { "primaryText": 0, "headline": 0 },
       "platformNotes": "..."
+      ${platform === 'GOOGLE' ? `,
+      "googleHeadlines": ["3 to 15 unique Google RSA headlines"],
+      "googleDescriptions": ["2 to 4 unique Google RSA descriptions"],
+      "googlePath1": "optional",
+      "googlePath2": "optional"` : ''}
     },
     {
       "id": "v3",
-      "angle": "benefit_led",
-      "label": "Benefit Led — [the transformation you deliver]",
+      "angle": "offer_value",
+      "label": "Offer Value — describe the confirmed offer benefit without promising a result",
       "primaryText": "...",
       "headline": "...",
       "description": "...",
@@ -237,11 +289,16 @@ Generate 5 review-ready ad copy variants in JSON:
       "hook": "...",
       "characterCount": { "primaryText": 0, "headline": 0 },
       "platformNotes": "..."
+      ${platform === 'GOOGLE' ? `,
+      "googleHeadlines": ["3 to 15 unique Google RSA headlines"],
+      "googleDescriptions": ["2 to 4 unique Google RSA descriptions"],
+      "googlePath1": "optional",
+      "googlePath2": "optional"` : ''}
     },
     {
       "id": "v4",
-      "angle": "curiosity",
-      "label": "Curiosity / Pattern Interrupt",
+      "angle": "objection_handling",
+      "label": "Objection Handling — answer a confirmed customer objection; otherwise ask a useful informational question",
       "primaryText": "...",
       "headline": "...",
       "description": "...",
@@ -249,11 +306,16 @@ Generate 5 review-ready ad copy variants in JSON:
       "hook": "...",
       "characterCount": { "primaryText": 0, "headline": 0 },
       "platformNotes": "..."
+      ${platform === 'GOOGLE' ? `,
+      "googleHeadlines": ["3 to 15 unique Google RSA headlines"],
+      "googleDescriptions": ["2 to 4 unique Google RSA descriptions"],
+      "googlePath1": "optional",
+      "googlePath2": "optional"` : ''}
     },
     {
       "id": "v5",
-      "angle": "urgency_scarcity",
-      "label": "Urgency / Limited Offer",
+      "angle": "direct_next_step",
+      "label": "Direct Next Step — clear CTA with no urgency, scarcity, discount, or deadline unless explicitly supplied",
       "primaryText": "...",
       "headline": "...",
       "description": "...",
@@ -261,18 +323,17 @@ Generate 5 review-ready ad copy variants in JSON:
       "hook": "...",
       "characterCount": { "primaryText": 0, "headline": 0 },
       "platformNotes": "..."
+      ${platform === 'GOOGLE' ? `,
+      "googleHeadlines": ["3 to 15 unique Google RSA headlines"],
+      "googleDescriptions": ["2 to 4 unique Google RSA descriptions"],
+      "googlePath1": "optional",
+      "googlePath2": "optional"` : ''}
     }
   ],
-  "ab_test_recommendation": {
+  "review_pairing": {
     "pair_1": ["v1", "v3"],
     "pair_2": ["v2", "v4"],
-    "reasoning": "Why these are the best pairs to A/B test"
-  },
-  "creative_specs": {
-    "platform": "${platform}",
-    "recommended_image_sizes": ["1080x1080 for Feed", "1080x1920 for Stories/Reels"],
-    "video_specs": "If video: 9:16 for Reels/Stories, 4:5 for Feed",
-    "max_text_overlay": "20% for Meta (Advantage+ ignores this but be safe)"
+    "reasoning": "Why these pairs isolate distinct message hypotheses for user review; never call a variant best or a winner"
   }
 }`
 
@@ -284,21 +345,102 @@ Generate 5 review-ready ad copy variants in JSON:
     chargedCredit = creditResult
 
     const raw = await callGPT(systemPrompt, userPrompt)
-    let generated: { variants?: unknown[]; ab_test_recommendation?: unknown; creative_specs?: unknown }
+    let generated: { variants?: unknown[]; review_pairing?: unknown }
     try {
       generated = JSON.parse(raw)
+      if (!Array.isArray(generated.variants) || generated.variants.length !== 5) {
+        throw new Error('Incomplete ad copy response')
+      }
+      for (const rawVariant of generated.variants) {
+        const variant = rawVariant && typeof rawVariant === 'object'
+          ? rawVariant as Record<string, unknown>
+          : {}
+        const requiredText = ['label', 'primaryText', 'headline', 'description', 'hook']
+        if (requiredText.some(key => typeof variant[key] !== 'string' || !String(variant[key]).trim())) {
+          throw new Error('Incomplete ad copy response')
+        }
+      }
+      if (platform === 'GOOGLE') {
+        for (const rawVariant of generated.variants) {
+          const variant = rawVariant && typeof rawVariant === 'object'
+            ? rawVariant as Record<string, unknown>
+            : {}
+          if (
+            reviewedGoogleTextAssets(variant.googleHeadlines, 30).length < 3
+            || reviewedGoogleTextAssets(variant.googleDescriptions, 90).length < 2
+          ) {
+            throw new Error('Incomplete Google responsive search ad assets')
+          }
+        }
+      }
     } catch {
       await refundDeductedCredits(user.id, creditResult, 'AI returned invalid JSON')
       return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })
     }
 
+    const variants = generated.variants as Array<Record<string, unknown>>
+    const copyIssues = variants.flatMap((variant, index) => reviewContentPostForPublishing({
+      caption: [variant.hook, variant.primaryText, variant.headline, variant.description]
+        .filter(value => typeof value === 'string')
+        .join(' '),
+    }, index + 1))
+    const copyQualityGate = reviewStrategyGrounding({
+      strategy: {
+        topHooks: variants.map(variant => [variant.hook, variant.primaryText, variant.headline, variant.description]
+          .filter(value => typeof value === 'string')
+          .join(' ')),
+      },
+      brand: brandProfile,
+      allowedPlatforms: [String(platform)],
+      goal: String(objective),
+    })
+    if (copyIssues.length > 0 || copyQualityGate.status !== 'passed') {
+      await refundDeductedCredits(user.id, creditResult, 'Paid ad drafts failed the copy, Brand Brain, or scope quality gate')
+      return NextResponse.json({
+        error: 'PAID_COPY_QUALITY_GATE_BLOCKED',
+        code: 'PAID_COPY_QUALITY_GATE_BLOCKED',
+        issues: copyIssues,
+        qualityGate: copyQualityGate,
+        refunded: creditResult.creditsUsed > 0,
+      }, { status: 422 })
+    }
+
+    let adSet = await db.adSet.findFirst({
+      where: { adCampaignId: params.id },
+      orderBy: { createdAt: 'asc' },
+    })
+    if (!adSet) {
+      adSet = await db.adSet.create({
+        data: {
+          adCampaignId: params.id,
+          name: `${campaign.name} — Ad Set 1`,
+          status: 'DRAFT',
+          bidStrategy: 'LOWEST_COST',
+          optimizationGoal,
+          billingEvent: 'IMPRESSIONS',
+        },
+      })
+    } else if (adSet.optimizationGoal !== optimizationGoal && !adSet.platformAdSetId) {
+      adSet = await db.adSet.update({
+        where: { id: adSet.id },
+        data: { optimizationGoal },
+      })
+    }
+
     // Save each variant as an Ad record
     const savedAds = []
     const variantGroupId = `vg_${params.id}_${Date.now()}`
-    const variants = (generated.variants || []) as Array<Record<string, unknown>>
 
     for (let i = 0; i < variants.length; i++) {
       const v = variants[i]
+      const googleHeadlines = reviewedGoogleTextAssets(v.googleHeadlines, 30).slice(0, 15)
+      const googleDescriptions = reviewedGoogleTextAssets(v.googleDescriptions, 90).slice(0, 4)
+      const googlePath1 = typeof v.googlePath1 === 'string' && v.googlePath1.trim().length <= 15
+        ? v.googlePath1.trim()
+        : undefined
+      const googlePath2 = typeof v.googlePath2 === 'string' && v.googlePath2.trim().length <= 15
+        ? v.googlePath2.trim()
+        : undefined
       const ad = await db.ad.create({
         data: {
           adSetId: adSet.id,
@@ -308,8 +450,20 @@ Generate 5 review-ready ad copy variants in JSON:
           primaryText: String(v.primaryText || ''),
           headline: String(v.headline || ''),
           description: String(v.description || ''),
-          callToAction: String(v.callToAction || 'LEARN_MORE'),
+          callToAction: ctaOptions.includes(String(v.callToAction))
+            ? String(v.callToAction)
+            : ctaOptions[0],
           destinationUrl,
+          creativeSpecs: platform === 'GOOGLE'
+            ? {
+                googleAds: {
+                  headlines: googleHeadlines,
+                  descriptions: googleDescriptions,
+                  ...(googlePath1 ? { path1: googlePath1 } : {}),
+                  ...(googlePath2 ? { path2: googlePath2 } : {}),
+                },
+              }
+            : undefined,
           aiGenerated: true,
           aiAngle: String(v.angle || ''),
           aiHook: String(v.hook || ''),
@@ -323,15 +477,28 @@ Generate 5 review-ready ad copy variants in JSON:
     return NextResponse.json({
       ads: savedAds,
       adSetId: adSet.id,
-      abTestRecommendation: generated.ab_test_recommendation,
-      creativeSpecs: generated.creative_specs,
+      reviewPairing: generated.review_pairing,
+      capability: platform === 'GOOGLE'
+        ? 'Reviewed responsive Search ad text; server validates provider character and asset-count limits.'
+        : platform === 'META'
+          ? 'Copy draft only; a reviewed image and live Meta preflight are required before platform creation.'
+          : 'Export-only copy package; automated platform draft creation is not available for this platform yet.',
       variantGroupId,
       success: true,
+      creditsUsed: creditResult.creditsUsed,
+      creditsRemaining: creditResult.creditsRemaining,
+      creditCharge: {
+        ...getCreditActionPolicy('AD_COPY'),
+        creditsUsed: creditResult.creditsUsed,
+      },
     })
   } catch (err) {
     console.error('[generate-copy]', err)
     if (chargedUserId && chargedCredit) {
       await refundDeductedCredits(chargedUserId, chargedCredit, 'Copy generation failed')
+    }
+    if (err instanceof PaidStrategySourceError) {
+      return NextResponse.json({ error: err.code, code: err.code }, { status: err.status })
     }
     return NextResponse.json({ error: 'Copy generation failed' }, { status: 500 })
   }

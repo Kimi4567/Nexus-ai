@@ -1,3 +1,5 @@
+import { hasGenericMarketingHook } from '@/lib/marketingCopyGuard'
+
 /**
  * Strategy output contract guard.
  *
@@ -16,6 +18,7 @@ export interface StrategyOutputContractContext {
   organicPostCount?: number | null
   hasLeadHandling?: boolean
   hasConversionDestination?: boolean
+  allowedCompetitors?: string[] | null
 }
 
 interface NormalizedPlatformContext {
@@ -34,6 +37,7 @@ const PLATFORM_ALIASES: Record<string, string[]> = {
   snapchat: ['snapchat'],
   website: ['website', 'site', 'blog'],
   pinterest: ['pinterest', 'pin'],
+  threads: ['threads'],
 }
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -41,11 +45,12 @@ const PLATFORM_LABELS: Record<string, string> = {
   tiktok: 'TikTok',
   facebook: 'Facebook',
   linkedin: 'LinkedIn',
-  twitter: 'Twitter',
+  twitter: 'X',
   youtube: 'YouTube Shorts',
   snapchat: 'Snapchat',
   website: 'Website',
   pinterest: 'Pinterest',
+  threads: 'Threads',
 }
 
 const KNOWN_PLATFORM_KEYS = Object.keys(PLATFORM_ALIASES)
@@ -509,6 +514,123 @@ function guardContentAnglesOperationalDepth(list: unknown, language?: string | n
   })
 }
 
+function isGenericStrategyHook(value: unknown): boolean {
+  return hasGenericMarketingHook(value)
+}
+
+function firstAudienceNeed(output: JsonObject): {
+  segment: string
+  pain: string
+  objection: string
+  desiredOutcome: string
+} | null {
+  const segments = Array.isArray(output.audienceSegmentsDetailed)
+    ? output.audienceSegmentsDetailed
+    : []
+  for (const item of segments) {
+    if (!isObject(item)) continue
+    const segment = typeof item.segment === 'string' ? item.segment.trim() : ''
+    const pain = typeof item.pain === 'string' ? item.pain.trim() : ''
+    const objection = typeof item.objection === 'string' ? item.objection.trim() : ''
+    const desiredOutcome = typeof item.desiredOutcome === 'string' ? item.desiredOutcome.trim() : ''
+    if (segment && pain) return { segment, pain, objection, desiredOutcome }
+  }
+  return null
+}
+
+function groundedHookFallback(output: JsonObject, language?: string | null, ordinal = 0): string {
+  const audienceNeed = firstAudienceNeed(output)
+  if (audienceNeed) {
+    const arFallbacks = [
+      `ابدأ من احتياج ${audienceNeed.segment}: ${audienceNeed.pain}`,
+      `وضّح كيف يعالج سير العمل مشكلة ${audienceNeed.pain} لدى ${audienceNeed.segment} دون وعد بنتيجة غير مثبتة.`,
+      audienceNeed.objection
+        ? `جاوب بوضوح عن اعتراض ${audienceNeed.segment}: ${audienceNeed.objection}`
+        : `حوّل مشكلة ${audienceNeed.pain} إلى قائمة تحقق عملية قابلة للحفظ.`,
+      audienceNeed.desiredOutcome
+        ? `قارن الوضع الحالي بالنتيجة المطلوبة لدى ${audienceNeed.segment}: ${audienceNeed.desiredOutcome}`
+        : `قارن الوضع الحالي بالمسار المقترح لدى ${audienceNeed.segment}.`,
+      `اشرح الخطوة التالية التي يستطيع ${audienceNeed.segment} مراجعتها بعد مواجهة ${audienceNeed.pain}.`,
+    ]
+    const enFallbacks = [
+      `Lead with the documented need for ${audienceNeed.segment}: ${audienceNeed.pain}`,
+      `Explain how the workflow addresses ${audienceNeed.pain} for ${audienceNeed.segment} without promising an unverified result.`,
+      audienceNeed.objection
+        ? `Answer the documented objection from ${audienceNeed.segment}: ${audienceNeed.objection}`
+        : `Turn ${audienceNeed.pain} into a practical checklist worth saving.`,
+      audienceNeed.desiredOutcome
+        ? `Compare the current workflow with the outcome ${audienceNeed.segment} wants: ${audienceNeed.desiredOutcome}`
+        : `Compare the current workflow with the proposed path for ${audienceNeed.segment}.`,
+      `Explain the next reviewable step ${audienceNeed.segment} can take after encountering ${audienceNeed.pain}.`,
+    ]
+    const fallbacks = isArabicLanguage(language) ? arFallbacks : enFallbacks
+    return fallbacks[ordinal % fallbacks.length]
+  }
+  return isArabicLanguage(language)
+    ? 'اربط الرسالة بموقف الشريحة واعتراضها المحدد قبل تقديم العرض.'
+    : 'Tie the message to the segment’s specific situation and objection before presenting the offer.'
+}
+
+function groundedCtaFallback(output: JsonObject, language?: string | null, ordinal = 0): string {
+  const audienceNeed = firstAudienceNeed(output)
+  if (!audienceNeed) return safeReviewCta(String(ordinal), language)
+
+  const arFallbacks = [
+    `راجع أثر ${audienceNeed.pain} في سير العمل الحالي.`,
+    audienceNeed.desiredOutcome
+      ? `قارن المسار الحالي بالنتيجة المطلوبة: ${audienceNeed.desiredOutcome}`
+      : 'قارن المسار الحالي بالخطوة المقترحة.',
+    `احفظ قائمة التحقق الخاصة بـ ${audienceNeed.pain}.`,
+    'راجع ما يتضمنه العرض قبل اتخاذ الخطوة التالية.',
+    `أكّد ملاءمة هذا المسار لـ ${audienceNeed.segment}.`,
+  ]
+  const enFallbacks = [
+    `Review how ${audienceNeed.pain} affects the current workflow.`,
+    audienceNeed.desiredOutcome
+      ? `Compare the current workflow with the desired outcome: ${audienceNeed.desiredOutcome}`
+      : 'Compare the current workflow with the proposed next step.',
+    `Save the checklist for ${audienceNeed.pain}.`,
+    'Review what the offer includes before taking the next step.',
+    `Confirm whether this path fits ${audienceNeed.segment}.`,
+  ]
+  const fallbacks = isArabicLanguage(language) ? arFallbacks : enFallbacks
+  return fallbacks[ordinal % fallbacks.length]
+}
+
+function guardGenericStrategyHooks(output: JsonObject, language?: string | null): void {
+  let genericOrdinal = 0
+  let genericCtaOrdinal = 0
+  const nextFallback = () => groundedHookFallback(output, language, genericOrdinal++)
+  const nextCtaFallback = () => groundedCtaFallback(output, language, genericCtaOrdinal++)
+  const guardHookItem = (item: unknown): unknown => {
+    if (typeof item === 'string') return isGenericStrategyHook(item) ? nextFallback() : item
+    if (!isObject(item)) return item
+    const guarded = { ...item }
+    for (const key of ['hook', 'text', 'message', 'coreMessage', 'keyMessage']) {
+      if (isGenericStrategyHook(guarded[key])) guarded[key] = nextFallback()
+    }
+    if (isGenericStrategyHook(guarded.cta)) guarded.cta = nextCtaFallback()
+    return guarded
+  }
+
+  if (Array.isArray(output.topHooks)) output.topHooks = output.topHooks.map(guardHookItem)
+  if (Array.isArray(output.hooks)) output.hooks = output.hooks.map(guardHookItem)
+  if (Array.isArray(output.ctaVariations)) {
+    output.ctaVariations = output.ctaVariations.map(item => (
+      isGenericStrategyHook(item) ? nextCtaFallback() : item
+    ))
+  }
+  if (Array.isArray(output.contentAnglesDetailed)) {
+    output.contentAnglesDetailed = output.contentAnglesDetailed.map(guardHookItem)
+  }
+  if (Array.isArray(output.audienceSegmentsDetailed)) {
+    output.audienceSegmentsDetailed = output.audienceSegmentsDetailed.map(guardHookItem)
+  }
+  if (Array.isArray(output.weeklyExecutionPlan)) {
+    output.weeklyExecutionPlan = output.weeklyExecutionPlan.map(guardHookItem)
+  }
+}
+
 function hasKpiMinimum(list: unknown): boolean {
   return Array.isArray(list) && list.length >= 2
 }
@@ -585,24 +707,115 @@ function distributeAnglesAcrossWeeks(angles: unknown[], targetCount: number): un
   return buckets
 }
 
+function fallbackContentAngle(index: number, ctx: NormalizedPlatformContext, language?: string | null): JsonObject {
+  const ar = isArabicLanguage(language)
+  const platform = firstPlatformLabel(ctx)
+  return ar
+    ? {
+        title: `فرضية اتجاه المحتوى ${index + 1}`,
+        hook: `ما الرسالة التي يجب التحقق منها في اتجاه المحتوى ${index + 1}؟`,
+        pain: 'لا توجد بيانات كافية لاعتماد مشكلة إضافية كحقيقة؛ يلزم تأكيدها مع الجمهور.',
+        desiredOutcome: 'تحويل هذه الفرضية إلى اتجاه واضح قابل للمراجعة قبل إنشاء المسودة.',
+        objection: 'اعتراض المشتري يحتاج إلى تحقق قبل الإنتاج.',
+        format: 'منشور اجتماعي قصير للمراجعة',
+        platform,
+        cta: 'راجع ملاءمة الرسالة',
+        asset: 'أصل بصري حقيقي للعرض أو الخدمة أو المنتج قبل الإنتاج.',
+        funnelStage: 'awareness',
+        proofNeeded: 'لا توجد بيانات كافية: اجمع تفصيلًا حقيقيًا أو إثباتًا موثقًا قبل استخدام ادعاء أقوى.',
+        responseHandoff: 'تأكيد مسؤول الرد وخطوة المتابعة قبل توجيه أي طلبات إلى هذا الاتجاه.',
+        reviewPoint: 'مراجعة وضوح الرسالة وتوفر الإثبات وردود الجمهور الفعلية قبل التكرار.',
+      }
+    : {
+        title: `Content direction hypothesis ${index + 1}`,
+        hook: `Which message should direction ${index + 1} validate?`,
+        pain: 'There is not enough evidence to state another audience problem as fact; validate it with the audience.',
+        desiredOutcome: 'Turn this hypothesis into a clear, reviewable direction before draft creation.',
+        objection: 'The buyer objection still needs validation before production.',
+        format: 'Short social post for review',
+        platform,
+        cta: 'Review message fit',
+        asset: 'A real offer, service, or product visual before production.',
+        funnelStage: 'awareness',
+        proofNeeded: 'Not enough data: collect a real offer detail or verified proof before making a stronger claim.',
+        responseHandoff: 'Confirm the response owner and follow-up step before sending inquiries to this direction.',
+        reviewPoint: 'Review message clarity, proof availability, and real audience response before repeating it.',
+      }
+}
+
+function alignContentAnglesToCount(
+  value: unknown,
+  ctx: NormalizedPlatformContext,
+  targetCount: number,
+  exact: boolean,
+  language?: string | null,
+): unknown[] {
+  const output = Array.isArray(value) ? value.filter(isObject) : []
+  if (exact && output.length > targetCount) output.length = targetCount
+  while (output.length < targetCount) {
+    output.push(fallbackContentAngle(output.length, ctx, language))
+  }
+  return output
+}
+
+function fallbackAudienceSegment(index: number, ctx: NormalizedPlatformContext, language?: string | null): JsonObject {
+  const ar = isArabicLanguage(language)
+  const platform = firstPlatformLabel(ctx)
+  return ar
+    ? {
+        segment: `شريحة جمهور مفترضة ${index + 1} للمراجعة`,
+        situation: 'تفاصيل هذه الشريحة غير مكتملة في Brand Brain وتحتاج إلى مقابلات أو بيانات فعلية.',
+        pain: 'المشكلة المحددة لهذه الشريحة تحتاج إلى تحقق قبل اعتمادها.',
+        desiredOutcome: 'تحديد احتياج عملي ورسالة مناسبة بعد التحقق.',
+        objection: 'الاعتراض الشرائي غير مؤكد بعد.',
+        message: 'رسالة تعليمية محايدة تُراجع قبل تحويلها إلى محتوى.',
+        platform,
+        format: 'منشور تعليمي قصير',
+        cta: 'راجع ملاءمة الرسالة',
+      }
+    : {
+        segment: `Audience hypothesis ${index + 1} to review`,
+        situation: 'This segment is not fully described in Brand Brain and needs interviews or real data.',
+        pain: 'The segment-specific problem needs validation before it is treated as fact.',
+        desiredOutcome: 'Confirm a practical need and suitable message after validation.',
+        objection: 'The buying objection is not verified yet.',
+        message: 'A neutral educational message to review before content production.',
+        platform,
+        format: 'Short educational post',
+        cta: 'Review message fit',
+      }
+}
+
+function ensureAudienceSegmentsMinimum(
+  value: unknown,
+  ctx: NormalizedPlatformContext,
+  language?: string | null,
+): unknown[] {
+  const output = Array.isArray(value) ? value.filter(isObject) : []
+  while (output.length < 2) output.push(fallbackAudienceSegment(output.length, ctx, language))
+  return output
+}
+
 function alignWeeklyExecutionPlanToOrganicCount(
   weeklyPlan: unknown,
   contentAngles: unknown,
   ctx: NormalizedPlatformContext,
   targetCount?: number | null,
+  exactCount = false,
   language?: string | null,
 ): unknown {
   if (!targetCount || targetCount <= 0 || !Array.isArray(contentAngles) || contentAngles.length === 0) {
     return weeklyPlan
   }
   const currentCount = weeklyDeliverableCount(weeklyPlan)
-  if (currentCount === targetCount) return weeklyPlan
+  const requiredWeekCount = Math.min(4, targetCount)
+  if (currentCount === targetCount && Array.isArray(weeklyPlan) && weeklyPlan.length >= requiredWeekCount) return weeklyPlan
 
   const ar = isArabicLanguage(language)
   const existingWeeks = Array.isArray(weeklyPlan) ? weeklyPlan.filter(isObject) : []
   const buckets = distributeAnglesAcrossWeeks(contentAngles, targetCount)
 
-  return buckets.map((bucket, index) => {
+  const generatedWeeks = buckets.map((bucket, index) => {
     const existing = existingWeeks[index] ?? {}
     const platforms = uniqueStrings(bucket.map(angle => anglePlatform(angle, ctx.fallbackLabel)))
     const deliverables = bucket.map((angle, angleIndex) => {
@@ -643,6 +856,14 @@ function alignWeeklyExecutionPlanToOrganicCount(
         : [fallbackOperationalText('reviewPoint', language)],
     }
   })
+
+  if (exactCount || existingWeeks.length === 0) return generatedWeeks
+  if (existingWeeks.length >= requiredWeekCount) return existingWeeks
+
+  return [
+    ...existingWeeks,
+    ...generatedWeeks.slice(existingWeeks.length, requiredWeekCount),
+  ]
 }
 
 function defaultOrganicKpis(language?: string | null): JsonObject[] {
@@ -983,6 +1204,89 @@ function guardAssetRequirements(value: unknown, language?: string | null): unkno
   return guardAssetRequirements({}, language)
 }
 
+function guardAgencyOperatingSections(
+  output: JsonObject,
+  language?: string | null,
+  allowedCompetitors?: string[] | null,
+): void {
+  const ar = isArabicLanguage(language)
+  const gap = ar ? 'لا توجد بيانات كافية؛ يحتاج هذا العنصر إلى تأكيد قبل التنفيذ.' : 'Not enough data; confirm this item before execution.'
+
+  const measurement = isObject(output.measurementPlan) ? { ...output.measurementPlan } : {}
+  output.measurementPlan = {
+    ...measurement,
+    primaryOutcome: hasUsefulText(measurement.primaryOutcome) ? measurement.primaryOutcome : (ar ? 'التحقق من جودة الطلب أو الإجراء التجاري الأساسي.' : 'Validate the quality of the primary commercial action.'),
+    baselineStatus: hasUsefulText(measurement.baselineStatus) ? measurement.baselineStatus : (ar ? 'لا يوجد خط أساس موثق؛ الدورة الأولى تنشئ خط الأساس.' : 'No verified baseline exists; the first cycle establishes it.'),
+    eventsToTrack: Array.isArray(measurement.eventsToTrack) && measurement.eventsToTrack.length ? measurement.eventsToTrack : [ar ? 'مصدر الطلب والإجراء التالي وحالة المتابعة.' : 'Inquiry source, next action, and follow-up status.'],
+    attributionRule: hasUsefulText(measurement.attributionRule) ? measurement.attributionRule : (ar ? 'يُربط كل طلب بآخر مصدر يمكن إثباته دون افتراض.' : 'Tie each inquiry to the last verifiable source without guessing.'),
+    reportingCadence: hasUsefulText(measurement.reportingCadence) ? measurement.reportingCadence : (ar ? 'مراجعة تشغيلية أسبوعية وملخص شهري.' : 'Weekly operating review and monthly summary.'),
+    owner: hasUsefulText(measurement.owner) ? measurement.owner : gap,
+    noDataDecision: hasUsefulText(measurement.noDataDecision) ? measurement.noDataDecision : (ar ? 'استمر في جمع خط الأساس ولا توسّع أو تلغي بناءً على عينة غير كافية.' : 'Keep collecting a baseline; do not scale or cancel from insufficient evidence.'),
+  }
+
+  const cadence = isObject(output.operatingCadence) ? { ...output.operatingCadence } : {}
+  output.operatingCadence = {
+    ...cadence,
+    daily: Array.isArray(cadence.daily) && cadence.daily.length ? cadence.daily : [ar ? 'مراقبة الردود والتعليقات وحالات فشل النشر.' : 'Monitor replies, comments, and publishing failures.'],
+    weekly: Array.isArray(cadence.weekly) && cadence.weekly.length ? cadence.weekly : [ar ? 'مراجعة جودة الإشارات والاعتراضات وحالة الأصول قبل تعديل الخطة.' : 'Review signal quality, objections, and asset readiness before changing the plan.'],
+    monthly: Array.isArray(cadence.monthly) && cadence.monthly.length ? cadence.monthly : [ar ? 'اعتماد التعلمات الموثقة فقط وتحديث Brand Brain بعد المراجعة.' : 'Approve only evidenced learnings and update Brand Brain after review.'],
+    approvalSla: hasUsefulText(cadence.approvalSla) ? cadence.approvalSla : (ar ? 'يحتاج زمن الموافقة إلى اتفاق تشغيلي.' : 'Approval timing needs an operating agreement.'),
+    responseSla: hasUsefulText(cadence.responseSla) ? cadence.responseSla : (ar ? 'يحتاج زمن الرد إلى اتفاق مع مسؤول المتابعة.' : 'Response timing needs agreement with the follow-up owner.'),
+    owners: Array.isArray(cadence.owners) && cadence.owners.length ? cadence.owners : [gap],
+  }
+
+  const experiments = Array.isArray(output.experimentBacklog) ? output.experimentBacklog.filter(isObject) : []
+  const fallbackExperiments: JsonObject[] = ar
+    ? [
+        { hypothesis: 'تحديد شريحة واحدة سيجعل جودة الردود أسهل في التقييم.', audience: 'الشريحة الأولى في الاستراتيجية', variable: 'صياغة الرسالة', successSignal: 'ردود مرتبطة بالمشكلة المقصودة', minimumEvidence: 'إشارات حقيقية قابلة للمراجعة قبل القرار', decisionRule: 'استمر عند وضوح الملاءمة؛ عدّل الرسالة عند تكرار الالتباس.', priority: 'now', dependency: 'تأكيد الشريحة ومسؤول الرد' },
+        { hypothesis: 'معالجة اعتراض واحد ستوضح سبب التردد.', audience: 'شريحة لديها اعتراض موثق أو فرضية اعتراض', variable: 'الاعتراض المعالج', successSignal: 'أسئلة أو ردود تظهر فهم العرض', minimumEvidence: 'ردود حقيقية لا افتراضات', decisionRule: 'احتفظ بالزاوية إذا تحسن وضوح الأسئلة؛ أوقفها إذا ظلت غير مرتبطة بالعرض.', priority: 'next', dependency: 'توثيق الاعتراض' },
+        { hypothesis: 'إضافة أصل حقيقي ستجعل الرسالة أكثر قابلية للتصديق.', audience: 'الجمهور ذي فجوة الثقة', variable: 'الأصل البصري أو الإثبات', successSignal: 'تفاعل نوعي أو طلب معلومات مرتبطة بالأصل', minimumEvidence: 'أصل موثق وردود فعل قابلة للمراجعة', decisionRule: 'كرر الأصل إذا دعم أسئلة مؤهلة؛ استبدله إذا سبب التباسًا.', priority: 'later', dependency: 'تجهيز أصل حقيقي ومراجعته' },
+      ]
+    : [
+        { hypothesis: 'A single specific segment will make response quality easier to evaluate.', audience: 'The first strategy segment', variable: 'Message framing', successSignal: 'Replies connected to the intended problem', minimumEvidence: 'Reviewable real signals before a decision', decisionRule: 'Continue when fit is clear; revise when confusion repeats.', priority: 'now', dependency: 'Confirm the segment and response owner' },
+        { hypothesis: 'Addressing one objection will clarify why prospects hesitate.', audience: 'A segment with a documented or explicitly hypothetical objection', variable: 'Objection addressed', successSignal: 'Questions or replies that show offer understanding', minimumEvidence: 'Real replies, not assumptions', decisionRule: 'Keep the angle when questions become clearer; stop when replies remain unrelated.', priority: 'next', dependency: 'Confirm the objection' },
+        { hypothesis: 'A real asset will make the message more credible.', audience: 'The segment with the clearest trust gap', variable: 'Visual or proof asset', successSignal: 'Qualitative engagement or asset-specific inquiries', minimumEvidence: 'A verified asset and reviewable response', decisionRule: 'Reuse when it supports qualified questions; replace when it causes confusion.', priority: 'later', dependency: 'Prepare and review a real asset' },
+      ]
+  output.experimentBacklog = [...experiments, ...fallbackExperiments].slice(0, Math.max(3, experiments.length))
+
+  const rules = Array.isArray(output.decisionRules) ? output.decisionRules.filter(isObject) : []
+  const fallbackRules: JsonObject[] = ar
+    ? [
+        { signal: 'جودة الردود أو الطلبات', continueWhen: 'الردود مرتبطة بالشريحة والمشكلة المقصودة.', iterateWhen: 'تتكرر أسئلة توضح غموض الرسالة أو العرض.', stopWhen: 'تظل الردود غير مرتبطة بعد تعديل موثق.', nextAction: 'حدّث الرسالة أو التأهيل ثم راقب دورة أخرى.' },
+        { signal: 'سلامة النشر والأصول', continueWhen: 'تؤكد المنصة النشر وتظهر الوسائط صحيحة.', iterateWhen: 'توجد مشكلة تنسيق أو فشل يمكن إصلاحه.', stopWhen: 'تفشل الصلاحية أو الموافقة أو سلامة الادعاء.', nextAction: 'أوقف الوجهة المتأثرة واطلب مراجعة بشرية.' },
+        { signal: 'كفاية بيانات القرار', continueWhen: 'توجد إشارات حقيقية قابلة للمراجعة.', iterateWhen: 'الإشارة ضعيفة لكن الاختبار سليم.', stopWhen: 'لا يمكن قياس النتيجة أو نسبها إلى مصدر.', nextAction: 'أصلح القياس قبل التوسع.' },
+      ]
+    : [
+        { signal: 'Reply or inquiry quality', continueWhen: 'Replies match the intended segment and problem.', iterateWhen: 'Repeated questions reveal message or offer confusion.', stopWhen: 'Replies remain unrelated after a documented revision.', nextAction: 'Revise the message or qualification step, then observe another cycle.' },
+        { signal: 'Publishing and asset integrity', continueWhen: 'The platform confirms publication and media renders correctly.', iterateWhen: 'A fixable format or delivery error appears.', stopWhen: 'Permission, approval, or claim-safety checks fail.', nextAction: 'Pause the affected destination and request human review.' },
+        { signal: 'Decision evidence', continueWhen: 'Reviewable real signals exist.', iterateWhen: 'Signal is weak but the test ran correctly.', stopWhen: 'The outcome cannot be measured or attributed.', nextAction: 'Repair measurement before scaling.' },
+      ]
+  output.decisionRules = [...rules, ...fallbackRules].slice(0, Math.max(3, rules.length))
+
+  const roadmap = Array.isArray(output.roadmap30_60_90) ? output.roadmap30_60_90.filter(isObject) : []
+  const phases = ['days_1_30', 'days_31_60', 'days_61_90'] as const
+  output.roadmap30_60_90 = phases.map((phase, index) => roadmap.find(item => item.phase === phase) || {
+    phase,
+    objective: ar ? ['إنشاء خط أساس وتشغيل أول دورة مراجعة.', 'تحسين الرسائل والأصول بناءً على إشارات موثقة.', 'توسيع ما ثبت فقط مع الحفاظ على بوابات الموافقة.'][index] : ['Establish a baseline and run the first review cycle.', 'Improve messages and assets from evidenced signals.', 'Scale only validated work while keeping approval gates.'][index],
+    deliverables: [ar ? 'مخرجات تشغيلية قابلة للمراجعة وليست نتيجة مضمونة.' : 'Reviewable operating outputs, not a guaranteed result.'],
+    exitGate: ar ? 'لا انتقال للمرحلة التالية دون دليل وموافقة موثقين.' : 'Do not advance without documented evidence and approval.',
+  })
+
+  const competitor = isObject(output.competitorFrame) ? { ...output.competitorFrame } : {}
+  const allowed = (allowedCompetitors || []).filter(value => typeof value === 'string' && value.trim()).map(value => value.trim())
+  output.competitorFrame = {
+    ...competitor,
+    analysisStatus: allowed.length > 0 ? 'complete' : 'incomplete',
+    providedCompetitors: allowed,
+    differentiationHypotheses: Array.isArray(competitor.differentiationHypotheses) && competitor.differentiationHypotheses.length
+      ? competitor.differentiationHypotheses
+      : [ar ? 'فرضية التمايز تحتاج مقارنة موثقة قبل اعتمادها.' : 'The differentiation hypothesis needs documented comparison before adoption.'],
+    researchNeeded: Array.isArray(competitor.researchNeeded) && competitor.researchNeeded.length
+      ? competitor.researchNeeded
+      : [ar ? 'جمع رسائل المنافسين وعروضهم وتجربة التحويل من مصادر علنية أو مدخلة من المستخدم.' : 'Collect competitor messaging, offers, and conversion experience from public or user-provided sources.'],
+  }
+}
+
 function paidPlanningFallbackStrings(kind: 'pillars' | 'hooks' | 'ctas', language?: string | null): string[] {
   const ar = isArabicLanguage(language)
   if (kind === 'pillars') {
@@ -1211,8 +1515,23 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
   output.channelMix = guardChannelMix(output.channelMix, ctx, context.strategyType)
   output.kpis = guardKpisMinimum(output.kpis, context.language)
   output.funnelStages = guardFunnelStagesMinimum(output.funnelStages, ctx, context.language)
+  const bindingPostCount = typeof context.organicPostCount === 'number'
+    && Number.isFinite(context.organicPostCount)
+    && context.organicPostCount > 0
+    ? Math.floor(context.organicPostCount)
+    : null
+  const existingAngleCount = Array.isArray(output.contentAnglesDetailed) ? output.contentAnglesDetailed.length : 0
+  const planningDirectionCount = bindingPostCount ?? Math.max(4, existingAngleCount)
+  output.contentAnglesDetailed = alignContentAnglesToCount(
+    output.contentAnglesDetailed,
+    ctx,
+    planningDirectionCount,
+    bindingPostCount !== null,
+    context.language,
+  )
   output.contentAnglesDetailed = guardPlatformObjectList(output.contentAnglesDetailed, ctx, context.language)
   output.contentAnglesDetailed = guardContentAnglesOperationalDepth(output.contentAnglesDetailed, context.language)
+  output.audienceSegmentsDetailed = ensureAudienceSegmentsMinimum(output.audienceSegmentsDetailed, ctx, context.language)
   output.audienceSegmentsDetailed = guardPlatformObjectList(output.audienceSegmentsDetailed, ctx, context.language)
   output.funnelStages = guardPlatformObjectList(output.funnelStages, ctx, context.language)
   output.channelStrategy = guardPlatformObjectList(output.channelStrategy, ctx, context.language)
@@ -1221,12 +1540,18 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
     output.weeklyExecutionPlan,
     output.contentAnglesDetailed,
     ctx,
-    context.organicPostCount,
+    planningDirectionCount,
+    bindingPostCount !== null,
     context.language,
   )
   output.weeklyExecutionPlan = guardWeeklyExecutionOperationalDepth(output.weeklyExecutionPlan, context.language)
   output.assetRequirements = guardAssetRequirements(output.assetRequirements, context.language)
   output.readinessChecklist = guardReadinessChecklist(output.readinessChecklist, context.language)
+  guardAgencyOperatingSections(output, context.language, context.allowedCompetitors)
+  // Run copy specificity last: weekly alignment and fallback construction can
+  // reuse legacy messages, so the final document must be checked after every
+  // structural transformation has completed.
+  guardGenericStrategyHooks(output, context.language)
 
   return output as T
 }

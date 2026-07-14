@@ -29,6 +29,7 @@ vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
+  buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, cost: 6, ...deduction }),
 }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 
@@ -55,6 +56,7 @@ function mockOpenAiJson(payload: unknown = generatedPack) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.stubEnv('OPENAI_API_KEY', 'test-openai-key')
   mockGetAuthUser.mockResolvedValue({ id: 'u1' })
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 6, creditsRemaining: 94 })
   mockRefund.mockResolvedValue(undefined)
@@ -91,6 +93,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
 })
 
 describe('POST /api/campaigns/[id]/paid-pack/generate — RF-2A refund safety', () => {

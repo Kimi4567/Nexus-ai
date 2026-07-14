@@ -333,3 +333,6 @@ npm run dev
    - Geo-distributed database
    - Region-specific APIs
    - Latency optimization
+# Historical Architecture Notice
+
+This diagram and narrative predates the current Supabase Auth, Brand Brain approval workflow, two-plan billing, and flag-gated credit wallet. Use the implementation and [`README.md`](README.md) for the current architecture; legacy NextAuth, Runway, and Starter/Pro/Agency references below are not active product contracts.

@@ -4,7 +4,6 @@ import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import fs from 'fs'
 import path from 'path'
-import { scheduleProcessingForMedia } from '@/lib/uploadProcessor'
 import {
   createUploadError,
   getMediaTypeFromMime,
@@ -167,9 +166,6 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    if (mediaType === 'VIDEO') {
-      scheduleProcessingForMedia(media.id).catch((err) => console.warn('scheduleProcessing failed', err))
-    }
     return NextResponse.json({ media })
   } catch (err) {
     console.error('Upload failed during DB create', err)

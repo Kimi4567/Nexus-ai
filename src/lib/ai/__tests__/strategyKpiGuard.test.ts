@@ -106,6 +106,16 @@ describe('guardResultText — free-text estimated results', () => {
     expect(out).toContain('هدف أداء يحتاج إلى خط أساس')
     expect(out).not.toContain('baseline-needed')
   })
+  it('replaces unsupported qualitative outcome promises without a baseline', () => {
+    const out = guardResultText(
+      'تحقيق زيادة في الوعي وجذب العملاء المحتملين',
+      [],
+      { language: 'ar' },
+    )
+    expect(out).toBe('نتيجة اتجاهية قيد الاختبار — يلزم خط أساس وبيانات فعلية قبل تحديد أثر الأداء')
+    expect(guardResultText('زيادة الوعي تحتاج إلى خط أساس وقياس فعلي', [], { language: 'ar' }))
+      .toBe('زيادة الوعي تحتاج إلى خط أساس وقياس فعلي')
+  })
 })
 
 describe('guardStrategyKpis — full strategy object', () => {

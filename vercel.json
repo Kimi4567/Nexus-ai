@@ -7,27 +7,27 @@
   "crons": [
     {
       "path": "/api/cron/publish",
-      "schedule": "0 12 * * *"
+      "schedule": "5 * * * *"
     },
     {
-      "path": "/api/cron/publish",
-      "schedule": "0 15 * * *"
+      "path": "/api/cron/reconcile-social-publishing",
+      "schedule": "*/10 * * * *"
     },
     {
-      "path": "/api/cron/publish",
-      "schedule": "0 19 * * *"
+      "path": "/api/cron/refresh-social-tokens",
+      "schedule": "20 * * * *"
     },
     {
       "path": "/api/cron/reset-credits",
-      "schedule": "5 0 1 * *"
+      "schedule": "5 0 * * *"
+    },
+    {
+      "path": "/api/cron/expire-credits",
+      "schedule": "15 0 * * *"
     },
     {
       "path": "/api/cron/generate-images",
-      "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron/generate-images",
-      "schedule": "0 10 * * *"
+      "schedule": "*/10 * * * *"
     },
     {
       "path": "/api/cron/weekly-brief",
@@ -87,6 +87,18 @@
       "maxDuration": 60
     },
     "src/app/api/cron/generate-images/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/publish/route.ts": {
+      "maxDuration": 180
+    },
+    "src/app/api/social/publish/route.ts": {
+      "maxDuration": 180
+    },
+    "src/app/api/cron/reconcile-social-publishing/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/refresh-social-tokens/route.ts": {
       "maxDuration": 60
     },
     "src/app/api/campaigns/[id]/engine/route.ts": {

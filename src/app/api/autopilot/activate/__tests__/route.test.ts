@@ -1,13 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const mocks = vi.hoisted(() => {
   const tx = {
-    $executeRawUnsafe: vi.fn(),
-    user: { findUnique: vi.fn() },
-    subscription: { findUnique: vi.fn() },
     campaign: { updateMany: vi.fn() },
-    socialPost: { count: vi.fn(), create: vi.fn() },
     campaignActivity: { create: vi.fn() },
   }
   return {
@@ -15,14 +11,11 @@ const mocks = vi.hoisted(() => {
     adminGetUser: vi.fn(),
     workspaceFindFirst: vi.fn(),
     campaignFindFirst: vi.fn(),
-    brandFindFirst: vi.fn(),
-    queueCount: vi.fn(),
-    transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+    brandFindUnique: vi.fn(),
+    socialPostFindMany: vi.fn(),
     approval: vi.fn(),
-    deduct: vi.fn(),
-    refund: vi.fn(),
-    refundForTransaction: vi.fn(),
-    rateLimit: vi.fn(),
+    reviewStrategyGrounding: vi.fn(),
+    transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
   }
 })
 
@@ -33,8 +26,8 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     workspace: { findFirst: mocks.workspaceFindFirst },
     campaign: { findFirst: mocks.campaignFindFirst },
-    brandProfile: { findFirst: mocks.brandFindFirst },
-    socialPost: { count: mocks.queueCount },
+    brandProfile: { findUnique: mocks.brandFindUnique },
+    socialPost: { findMany: mocks.socialPostFindMany },
     $transaction: mocks.transaction,
   },
 }))
@@ -42,82 +35,75 @@ vi.mock('@/lib/strategyApprovalService', () => ({
   getStrategyApprovalContract: mocks.approval,
   StrategyApprovalError: class StrategyApprovalError extends Error {},
 }))
-vi.mock('@/lib/credits', () => ({
-  checkAndDeductCredits: mocks.deduct,
-  refundCredits: mocks.refund,
-  refundCreditsForTransaction: mocks.refundForTransaction,
+vi.mock('@/lib/ai/marketingQualityGate', () => ({
+  reviewStrategyGrounding: mocks.reviewStrategyGrounding,
 }))
-vi.mock('@/lib/dbRateLimit', () => ({ aiRateLimitDb: mocks.rateLimit }))
 
 import { POST } from '@/app/api/autopilot/activate/route'
 
-function request() {
+function request(explicitAutopilotConfirmed = true) {
   return new NextRequest('http://localhost/api/autopilot/activate', {
     method: 'POST',
     headers: { Authorization: 'Bearer token', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ campaignId: 'c1' }),
+    body: JSON.stringify({ campaignId: 'c1', explicitAutopilotConfirmed }),
   })
-}
-
-const workspace = {
-  id: 'w1',
-  integrations: [{
-    id: 'i1',
-    type: 'META',
-    config: { pages: [{ id: 'p1', name: 'Brand page' }] },
-    accountId: 'a1',
-    accountName: 'Brand page',
-  }],
 }
 
 const campaign = {
   id: 'c1',
   name: 'Launch',
-  media: [],
-  aiOutput: {
-    language: 'en',
-    strategy: {
-      weeklyExecutionPlan: [{
-        week: 1,
-        objective: 'Awareness',
-        keyMessage: 'Clear value',
-        cta: 'Learn more',
-        platforms: ['instagram'],
-        assetsNeeded: [],
-      }],
-      contentAngles: [{ hook: 'Start here' }],
-    },
-  },
+  status: 'ACTIVE',
+  goal: 'LEADS',
+  platforms: ['INSTAGRAM'],
+  aiOutput: { strategy: { positioning: 'A reviewed service offer for local business owners' } },
+}
+
+const autoPost = {
+  id: 'post-1',
+  campaignId: 'c1',
+  workspaceId: 'w1',
+  status: 'SCHEDULED',
+  publishMode: 'AUTO',
+  autoPublishConsentAt: new Date('2026-07-14T09:00:00.000Z'),
+  scheduledAt: new Date('2026-07-15T09:00:00.000Z'),
+  integrationId: 'integration-1',
+  integration: { status: 'CONNECTED' },
+  caption: 'A practical review of the saved service offer for local business owners.',
+  imageUrl: 'https://cdn.example.com/reviewed.jpg',
+  generationStatus: 'DONE',
+  mediaSource: 'GENERATE',
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.adminGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
-  mocks.workspaceFindFirst.mockResolvedValue(workspace)
+  mocks.workspaceFindFirst.mockResolvedValue({ id: 'w1' })
   mocks.campaignFindFirst.mockResolvedValue(campaign)
-  mocks.brandFindFirst.mockResolvedValue({ brandName: 'Nexus', visualStyle: 'premium' })
+  mocks.brandFindUnique.mockResolvedValue({
+    workspaceId: 'w1', brandName: 'Nexus', industry: 'Services',
+    primaryOffer: 'A reviewed service', targetAudience: 'Local business owners',
+  })
   mocks.approval.mockResolvedValue({ state: 'approved' })
-  mocks.queueCount.mockResolvedValue(0)
-  mocks.rateLimit.mockResolvedValue({ ok: true })
-  mocks.deduct.mockResolvedValue({ ok: true, creditsUsed: 8, creditsRemaining: 92, isUnlimited: false })
+  mocks.reviewStrategyGrounding.mockReturnValue({
+    schemaVersion: 1, status: 'passed', score: 100, blockers: [], warnings: [], checkedAt: '2026-07-14T00:00:00.000Z',
+  })
+  mocks.socialPostFindMany.mockResolvedValue([autoPost])
   mocks.tx.campaign.updateMany.mockResolvedValue({ count: 1 })
-  mocks.tx.$executeRawUnsafe.mockResolvedValue(1)
-  mocks.tx.user.findUnique.mockResolvedValue({ subscriptionStatus: 'BUSINESS', role: 'USER' })
-  mocks.tx.subscription.findUnique.mockResolvedValue(null)
-  mocks.tx.socialPost.count.mockResolvedValue(0)
-  mocks.tx.socialPost.create.mockImplementation(async ({ data }) => ({ id: 'post-1', ...data }))
   mocks.tx.campaignActivity.create.mockResolvedValue({})
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-    json: async () => ({ choices: [{ message: { content: 'Prepared caption' } }] }),
-  }))
-})
-
-afterEach(() => {
-  vi.unstubAllGlobals()
 })
 
 describe('POST /api/autopilot/activate', () => {
-  it('does not charge or generate before strategy approval', async () => {
+  it('requires explicit activation consent and performs no mutation without it', async () => {
+    const response = await POST(request(false))
+    const body = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(body.code).toBe('EXPLICIT_AUTOPILOT_CONFIRMATION_REQUIRED')
+    expect(body.creditsUsed).toBe(0)
+    expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+
+  it('requires an approved strategy', async () => {
     mocks.approval.mockResolvedValue({ state: 'ready_for_review' })
 
     const response = await POST(request())
@@ -125,37 +111,74 @@ describe('POST /api/autopilot/activate', () => {
 
     expect(response.status).toBe(409)
     expect(body.code).toBe('STRATEGY_APPROVAL_REQUIRED')
-    expect(mocks.deduct).not.toHaveBeenCalled()
+    expect(mocks.socialPostFindMany).not.toHaveBeenCalled()
+  })
+
+  it('requires at least one explicitly consented AUTO schedule', async () => {
+    mocks.socialPostFindMany.mockResolvedValue([])
+
+    const response = await POST(request())
+    const body = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(body.code).toBe('AUTO_SCHEDULE_REQUIRED')
+    expect(body.creditsUsed).toBe(0)
+  })
+
+  it('revalidates Brand Brain grounding before enablement', async () => {
+    mocks.reviewStrategyGrounding.mockReturnValue({
+      schemaVersion: 1,
+      status: 'blocked',
+      score: 70,
+      blockers: [{ code: 'strategy_missing_brand_relevance', severity: 'blocker', path: 'strategy', message: 'Drifted.' }],
+      warnings: [],
+      checkedAt: '2026-07-14T00:00:00.000Z',
+    })
+
+    const response = await POST(request())
+    const body = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(body.code).toBe('MARKETING_QUALITY_GATE_FAILED')
+    expect(mocks.socialPostFindMany).not.toHaveBeenCalled()
+  })
+
+  it('fails closed when an AUTO destination is no longer connected', async () => {
+    mocks.socialPostFindMany.mockResolvedValue([{
+      ...autoPost,
+      integration: { status: 'EXPIRED' },
+    }])
+
+    const response = await POST(request())
+    const body = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(body.code).toBe('AUTOPILOT_QUEUE_REVIEW_REQUIRED')
     expect(mocks.transaction).not.toHaveBeenCalled()
   })
 
-  it('checks for an existing queue before charging credits', async () => {
-    mocks.queueCount.mockResolvedValue(2)
-
-    const response = await POST(request())
-
-    expect(response.status).toBe(409)
-    expect(mocks.deduct).not.toHaveBeenCalled()
-  })
-
-  it('atomically prepares drafts without scheduling or publishing', async () => {
+  it('enables monitoring atomically with zero AI calls and zero credits', async () => {
     const response = await POST(request())
     const body = await response.json()
 
     expect(response.status).toBe(200)
     expect(body).toMatchObject({
       ok: true,
-      postsPrepared: 1,
-      postsScheduled: 0,
-      requiresApproval: true,
-      publishingEnabled: false,
+      autopilotEnabled: true,
+      monitoredPosts: 1,
+      creditsUsed: 0,
+      providerCalls: 0,
     })
-    expect(mocks.transaction).toHaveBeenCalledTimes(2)
-    expect(mocks.tx.socialPost.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ status: 'DRAFT', publishMode: 'MANUAL' }),
+    expect(mocks.tx.campaign.updateMany).toHaveBeenCalledWith({
+      where: { id: 'c1', workspaceId: 'w1', status: 'ACTIVE' },
+      data: { autopilotEnabled: true, autopilotActivatedAt: expect.any(Date) },
     })
-    expect(mocks.tx.campaign.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ id: 'c1', workspaceId: 'w1', status: 'ACTIVE' }),
-    }))
+    expect(mocks.tx.campaignActivity.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        campaignId: 'c1',
+        type: 'autopilot_enabled',
+        metadata: expect.objectContaining({ contentGenerated: false, creditsUsed: 0 }),
+      }),
+    })
   })
 })

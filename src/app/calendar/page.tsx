@@ -34,7 +34,7 @@ type CalendarPost = {
   visualNote?: string
   source?: 'campaign_ai_output' | 'legacy' | 'scheduled' | 'published'
   scheduledAt?: string  // ISO string for scheduled posts
-  publishStatus?: 'SCHEDULED' | 'PUBLISHED' | 'FAILED' | 'DRAFT' | 'APPROVED'
+  publishStatus?: 'SCHEDULED' | 'PROCESSING' | 'PUBLISHED' | 'FAILED' | 'DRAFT' | 'APPROVED'
   // PR5 honest display: manual vs auto distinction + platform proof
   publishMode?: 'MANUAL' | 'AUTO' | null
   platformUrl?: string | null
@@ -47,7 +47,7 @@ type ScheduledPost = {
   platform: string
   pageName: string
   imageUrl?: string
-  status: 'SCHEDULED' | 'PUBLISHED' | 'FAILED' | 'DRAFT' | 'APPROVED'
+  status: 'SCHEDULED' | 'PROCESSING' | 'PUBLISHED' | 'FAILED' | 'DRAFT' | 'APPROVED'
   scheduledAt: string
   publishedAt?: string
   platformUrl?: string | null
@@ -71,7 +71,7 @@ const PLATFORM_COLORS: Record<string, string> = {
   Facebook:  '#1877f2',
   LinkedIn:  '#0a66c2',
   TikTok:    '#010101',
-  Twitter:   '#1da1f2',
+  X:         '#111827',
   YouTube:   '#ff0000',
   Pinterest: '#e60023',
   Snapchat:  '#fffc00',
@@ -81,7 +81,7 @@ const PLATFORM_COLORS: Record<string, string> = {
   LINKEDIN:  '#0A66C2',
   TIKTOK:    '#69C9D0',
   YOUTUBE:   '#FF0000',
-  TWITTER:   '#1DA1F2',
+  TWITTER:   '#111827',
 }
 
 const PLATFORM_ICONS_CAL: Record<string, string> = {
@@ -89,7 +89,7 @@ const PLATFORM_ICONS_CAL: Record<string, string> = {
   Facebook:  '👥',
   LinkedIn:  '💼',
   TikTok:    '🎵',
-  Twitter:   '🐦',
+  X:         '𝕏',
   YouTube:   '▶️',
   Pinterest: '📌',
   Snapchat:  '👻',
@@ -103,11 +103,13 @@ const PLATFORM_ICONS_SCH: Record<string, string> = {
   TIKTOK:    '🎵',
   SNAPCHAT:  '👻',
   YOUTUBE:   '▶️',
+  X:         '𝕏',
   TWITTER:   '𝕏',
 }
 
 const STATUS_STYLES: Record<string, string> = {
   SCHEDULED: 'bg-orange-50 text-orange-600 border border-orange-200',
+  PROCESSING: 'bg-violet-50 text-violet-700 border border-violet-200',
   PUBLISHED: 'bg-green-50 text-green-700 border border-green-200',
   FAILED: 'bg-red-50 text-red-600 border border-red-200',
   DRAFT: 'bg-yellow-50 text-yellow-700 border border-yellow-200',
@@ -269,7 +271,7 @@ function normaliseplatform(raw: string | undefined): string {
   if (!raw) return 'Instagram'
   const map: Record<string, string> = {
     instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn',
-    tiktok: 'TikTok', twitter: 'Twitter', youtube: 'YouTube',
+    tiktok: 'TikTok', twitter: 'X', x: 'X', youtube: 'YouTube',
     youtube_shorts: 'YouTube', snapchat: 'Snapchat', pinterest: 'Pinterest',
     general: 'Instagram',
   }
@@ -280,7 +282,7 @@ function normalisePlatformQueue(raw: string | undefined): string {
   if (!raw) return 'Instagram'
   const map: Record<string, string> = {
     FACEBOOK: 'Facebook', INSTAGRAM: 'Instagram', LINKEDIN: 'LinkedIn',
-    TIKTOK: 'TikTok', TWITTER: 'Twitter', YOUTUBE: 'YouTube',
+    TIKTOK: 'TikTok', X: 'X', TWITTER: 'X', YOUTUBE: 'YouTube',
     META: 'Facebook', SNAPCHAT: 'Snapchat',
   }
   return map[raw.toUpperCase()] || normaliseplatform(raw)

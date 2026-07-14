@@ -17,12 +17,10 @@ import {
   type RawPlatformMetrics,
 } from '@/lib/performanceEvidence'
 import { cronAuthError } from '@/lib/cronAuth'
+import { linkedInHeaders, metaGraphUrl, threadsApiUrl } from '@/lib/socialPlatformConfig'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
-
-const META_GRAPH_VERSION = process.env.META_GRAPH_API_VERSION || 'v21.0'
-const LINKEDIN_VERSION = process.env.LINKEDIN_API_VERSION || '202603'
 
 function metricValue(data: unknown, name: string): number {
   const list = data && typeof data === 'object' && Array.isArray((data as any).data)
@@ -40,7 +38,7 @@ function metricValue(data: unknown, name: string): number {
 
 async function fetchMetaInsights(platformPostId: string, pageToken: string): Promise<RawPlatformMetrics | null> {
   try {
-    const base = `https://graph.facebook.com/${META_GRAPH_VERSION}/${encodeURIComponent(platformPostId)}`
+    const base = metaGraphUrl(encodeURIComponent(platformPostId))
     const [insightsRes, actionsRes] = await Promise.all([
       fetch(`${base}/insights?metric=post_impressions,post_impressions_unique,post_engaged_users,post_clicks&access_token=${encodeURIComponent(pageToken)}`),
       fetch(`${base}?fields=likes.summary(true),comments.summary(true),shares&access_token=${encodeURIComponent(pageToken)}`),
@@ -83,12 +81,7 @@ async function fetchLinkedInInsights(
       shares: `List(${shareUrn})`,
     })
     const res = await fetch(`https://api.linkedin.com/rest/organizationalEntityShareStatistics?${query.toString()}`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Linkedin-Version': LINKEDIN_VERSION,
-        'X-Restli-Protocol-Version': '2.0.0',
-        'Content-Type': 'application/json',
-      },
+      headers: linkedInHeaders(accessToken),
     })
     if (!res.ok) return null
     const data = await res.json()
@@ -102,6 +95,153 @@ async function fetchLinkedInInsights(
       clicks: stats.clickCount ?? 0,
       impressions: stats.impressionCount ?? 0,
       reach: stats.uniqueImpressionsCount ?? 0,
+    }
+  } catch {
+    return null
+  }
+}
+
+async function fetchTikTokInsights(platformPostId: string, accessToken: string): Promise<RawPlatformMetrics | null> {
+  try {
+    const fields = 'id,share_url,like_count,comment_count,share_count,view_count'
+    const res = await fetch(`https://open.tiktokapis.com/v2/video/query/?fields=${encodeURIComponent(fields)}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ filters: { video_ids: [platformPostId] } }),
+      cache: 'no-store',
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || (data?.error?.code && data.error.code !== 'ok')) return null
+    const video = Array.isArray(data?.data?.videos)
+      ? data.data.videos.find((item: any) => String(item?.id) === platformPostId) || data.data.videos[0]
+      : null
+    if (!video) return null
+    const views = Number(video.view_count) || 0
+    return {
+      likes: Number(video.like_count) || 0,
+      comments: Number(video.comment_count) || 0,
+      shares: Number(video.share_count) || 0,
+      impressions: views,
+      reach: views,
+    }
+  } catch {
+    return null
+  }
+}
+
+async function fetchYouTubeInsights(platformPostId: string, accessToken: string): Promise<RawPlatformMetrics | null> {
+  try {
+    const query = new URLSearchParams({ part: 'statistics', id: platformPostId })
+    const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?${query.toString()}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return null
+    const statistics = Array.isArray(data?.items) ? data.items[0]?.statistics : null
+    if (!statistics) return null
+    const views = Number(statistics.viewCount) || 0
+    // The Data API exposes views, likes, and comments here; it does not expose
+    // unique reach, impressions, shares, or conversions. Views are therefore
+    // the explicit denominator and no unavailable metric is invented.
+    return {
+      likes: Number(statistics.likeCount) || 0,
+      comments: Number(statistics.commentCount) || 0,
+      shares: 0,
+      impressions: views,
+      reach: 0,
+    }
+  } catch {
+    return null
+  }
+}
+
+async function fetchXInsights(platformPostId: string, accessToken: string): Promise<RawPlatformMetrics | null> {
+  try {
+    const query = new URLSearchParams({
+      'tweet.fields': 'public_metrics,non_public_metrics,organic_metrics',
+    })
+    const res = await fetch(`https://api.x.com/2/tweets/${encodeURIComponent(platformPostId)}?${query.toString()}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || !data?.data) return null
+    const publicMetrics = data.data.public_metrics ?? {}
+    const privateMetrics = data.data.organic_metrics ?? data.data.non_public_metrics ?? {}
+    // X does not expose unique reach or conversions on this endpoint. Preserve
+    // those as zero instead of deriving or inventing them from impressions.
+    return {
+      likes: Number(publicMetrics.like_count) || 0,
+      comments: Number(publicMetrics.reply_count) || 0,
+      shares: (Number(publicMetrics.retweet_count) || 0) + (Number(publicMetrics.quote_count) || 0),
+      impressions: Number(privateMetrics.impression_count ?? publicMetrics.impression_count) || 0,
+      reach: 0,
+      clicks: (Number(privateMetrics.url_link_clicks) || 0) + (Number(privateMetrics.user_profile_clicks) || 0),
+    }
+  } catch {
+    return null
+  }
+}
+
+async function fetchPinterestInsights(platformPostId: string, accessToken: string): Promise<RawPlatformMetrics | null> {
+  try {
+    const end = new Date()
+    const start = new Date(end.getTime() - 14 * 24 * 60 * 60 * 1000)
+    const query = new URLSearchParams({
+      start_date: start.toISOString().slice(0, 10),
+      end_date: end.toISOString().slice(0, 10),
+      metric_types: 'IMPRESSION,OUTBOUND_CLICK,PIN_CLICK,SAVE,TOTAL_COMMENTS,TOTAL_REACTIONS',
+      app_types: 'ALL',
+      split_field: 'NO_SPLIT',
+    })
+    const response = await fetch(`https://api.pinterest.com/v5/pins/${encodeURIComponent(platformPostId)}/analytics?${query.toString()}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || !data || typeof data !== 'object') return null
+    const appSummary = data.ALL && typeof data.ALL === 'object'
+      ? data.ALL
+      : Object.values(data).find(value => value && typeof value === 'object' && !Array.isArray(value)) as any
+    const summary = appSummary?.summary_metrics
+    if (!summary || typeof summary !== 'object') return null
+    return {
+      likes: Number(summary.TOTAL_REACTIONS) || 0,
+      comments: Number(summary.TOTAL_COMMENTS) || 0,
+      shares: 0,
+      saves: Number(summary.SAVE) || 0,
+      impressions: Number(summary.IMPRESSION) || 0,
+      reach: 0,
+      clicks: (Number(summary.PIN_CLICK) || 0) + (Number(summary.OUTBOUND_CLICK) || 0),
+    }
+  } catch {
+    return null
+  }
+}
+
+async function fetchThreadsInsights(platformPostId: string, accessToken: string): Promise<RawPlatformMetrics | null> {
+  try {
+    const query = new URLSearchParams({ metric: 'views,likes,replies,reposts,quotes,shares' })
+    const response = await fetch(`${threadsApiUrl(`${encodeURIComponent(platformPostId)}/insights`)}?${query.toString()}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || !Array.isArray(data?.data)) return null
+    // Threads exposes views and public interaction counts here. It does not
+    // provide unique reach, link clicks, or conversions on this endpoint, so
+    // NEXUS preserves those as zero instead of estimating them.
+    return {
+      likes: metricValue(data, 'likes'),
+      comments: metricValue(data, 'replies'),
+      shares: metricValue(data, 'reposts') + metricValue(data, 'quotes') + metricValue(data, 'shares'),
+      impressions: metricValue(data, 'views'),
+      reach: 0,
+      clicks: 0,
     }
   } catch {
     return null
@@ -139,7 +279,7 @@ export async function GET(req: NextRequest) {
         publishedAt: { gte: newerThan14d, lte: olderThan24h },
         analyticsFetched: false,
         platformPostId: { not: null },
-        platform: { in: ['META', 'LINKEDIN'] },
+        platform: { in: ['META', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE', 'PINTEREST', 'THREADS'] },
         OR: [{ analyticsUpdatedAt: null }, { analyticsUpdatedAt: { lte: retryBefore } }],
       },
       include: { integration: true },
@@ -166,15 +306,25 @@ export async function GET(req: NextRequest) {
         }
 
         const pages: any[] = (integration.config as any)?.pages ?? []
-        const page = pages.find((entry: any) => entry.id === post.pageId)
+        const page = pages.find((entry: any) => entry.id === post.pageId || entry.igAccountId === post.pageId)
         const rawToken = page?.accessToken ?? integration.accessToken
         const token = decryptToken(rawToken) ?? rawToken
 
         const metrics = post.platform === 'META'
           ? await fetchMetaInsights(post.platformPostId, token)
-          : post.pageId
-            ? await fetchLinkedInInsights(post.platformPostId, post.pageId, token)
-            : null
+          : post.platform === 'TIKTOK'
+            ? await fetchTikTokInsights(post.platformPostId, token)
+            : post.platform === 'X'
+              ? await fetchXInsights(post.platformPostId, token)
+            : post.platform === 'YOUTUBE'
+              ? await fetchYouTubeInsights(post.platformPostId, token)
+              : post.platform === 'PINTEREST'
+                ? await fetchPinterestInsights(post.platformPostId, token)
+              : post.platform === 'THREADS'
+                ? await fetchThreadsInsights(post.platformPostId, token)
+              : post.pageId
+                ? await fetchLinkedInInsights(post.platformPostId, post.pageId, token)
+                : null
 
         if (!metrics) {
           await (prisma.socialPost as any).update({

@@ -1,9 +1,9 @@
 /**
  * GET /api/cron/weekly-brief
- * Runs every Monday at 7:00 AM UTC
+ * Runs every Monday at 8:00 AM UTC
  * Sends personalized Weekly Intelligence Brief to all active users
  *
- * vercel.json: { "path": "/api/cron/weekly-brief", "schedule": "0 7 * * 1" }
+ * vercel.json: { "path": "/api/cron/weekly-brief", "schedule": "0 8 * * 1" }
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'

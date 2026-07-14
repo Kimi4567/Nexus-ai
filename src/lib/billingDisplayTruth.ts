@@ -37,6 +37,12 @@ export function getBillingDisplayTruth(input: BillingDisplayTruthInput): Billing
   const status = norm(input.status)
   const billingLoaded = !!input.billingLoaded
   const hasActive = input.hasActiveSubscription === true
+  // The API always returns a boolean once loaded. Treat an omitted value as
+  // backwards-compatible/unknown, but an explicit false as a hard gate for
+  // payment controls so a stale subscription record cannot expose a dead
+  // Stripe portal or imply that checkout is currently available.
+  const billingAvailable = input.billingEnabled !== false
+  const billingUnavailableLabel = ar ? 'الفوترة غير مفعّلة' : 'Billing unavailable'
   const creditsRemaining = typeof input.creditsRemaining === 'number' ? input.creditsRemaining : 0
   const creditsMax = typeof input.creditsMax === 'number' ? input.creditsMax : 0
   const unlimited = creditsRemaining === -1 || creditsMax === -1
@@ -91,10 +97,10 @@ export function getBillingDisplayTruth(input: BillingDisplayTruthInput): Billing
       creditHelper: ar
         ? 'انتهى رصيدك. أضف رصيدًا أو رقّي الخطة لمتابعة الإنشاء.'
         : 'You’re out of credits. Add credits or upgrade to continue generation.',
-      ctaLabel: ar ? 'ترقية الخطة' : 'Upgrade plan',
+      ctaLabel: billingAvailable ? (ar ? 'ترقية الخطة' : 'Upgrade plan') : billingUnavailableLabel,
       ctaHref: '/billing',
-      showManageSubscription: hasActive,
-      showUpgrade: true,
+      showManageSubscription: hasActive && billingAvailable,
+      showUpgrade: billingAvailable,
       isUnknown: false,
       isZeroCredits: true,
       isLowCredits: false,
@@ -108,10 +114,14 @@ export function getBillingDisplayTruth(input: BillingDisplayTruthInput): Billing
       statusTone,
       creditTitle: ar ? 'رصيد منخفض' : 'Low credits',
       creditHelper: ar ? 'رصيدك أوشك على النفاد.' : 'Credits are running low.',
-      ctaLabel: hasActive ? (ar ? 'إدارة الاشتراك' : 'Manage subscription') : (ar ? 'ترقية الخطة' : 'Upgrade plan'),
+      ctaLabel: !billingAvailable
+        ? billingUnavailableLabel
+        : hasActive
+          ? (ar ? 'إدارة الاشتراك' : 'Manage subscription')
+          : (ar ? 'ترقية الخطة' : 'Upgrade plan'),
       ctaHref: '/billing',
-      showManageSubscription: hasActive,
-      showUpgrade: !hasActive,
+      showManageSubscription: hasActive && billingAvailable,
+      showUpgrade: !hasActive && billingAvailable,
       isUnknown: false,
       isZeroCredits: false,
       isLowCredits: true,
@@ -126,10 +136,14 @@ export function getBillingDisplayTruth(input: BillingDisplayTruthInput): Billing
     creditHelper: ar
       ? 'يتم استخدام الرصيد عندما ينشئ NEXUS استراتيجية أو حملة أو محتوى أو أصولًا إبداعية.'
       : 'Credits are used when NEXUS generates strategy, campaigns, content, or creative assets.',
-    ctaLabel: hasActive ? (ar ? 'إدارة الاشتراك' : 'Manage subscription') : (ar ? 'عرض الخطط' : 'View plans'),
+    ctaLabel: !billingAvailable
+      ? billingUnavailableLabel
+      : hasActive
+        ? (ar ? 'إدارة الاشتراك' : 'Manage subscription')
+        : (ar ? 'عرض الخطط' : 'View plans'),
     ctaHref: '/billing',
-    showManageSubscription: hasActive,
-    showUpgrade: !hasActive,
+    showManageSubscription: hasActive && billingAvailable,
+    showUpgrade: !hasActive && billingAvailable,
     isUnknown: false,
     isZeroCredits: false,
     isLowCredits: false,

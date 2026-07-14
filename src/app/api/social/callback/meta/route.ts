@@ -3,6 +3,7 @@ import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { encryptToken } from '@/lib/tokenCrypto'
 import { verifyOAuthState } from '@/lib/oauthState'
+import { META_GRAPH_VERSION, metaGraphUrl } from '@/lib/socialPlatformConfig'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
   let tokenData: any
   try {
     const tokenRes = await fetch(
-      `https://graph.facebook.com/v21.0/oauth/access_token` +
+      `${metaGraphUrl('oauth/access_token')}` +
       `?client_id=${appId}` +
       `&client_secret=${appSecret}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
@@ -65,9 +66,12 @@ export async function GET(req: NextRequest) {
 
   // Exchange for long-lived token (60 days)
   let longToken = shortToken
+  let tokenExpiresAt: Date | null = tokenData.expires_in
+    ? new Date(Date.now() + Number(tokenData.expires_in) * 1000)
+    : null
   try {
     const longTokenRes = await fetch(
-      `https://graph.facebook.com/v21.0/oauth/access_token` +
+      `${metaGraphUrl('oauth/access_token')}` +
       `?grant_type=fb_exchange_token` +
       `&client_id=${appId}` +
       `&client_secret=${appSecret}` +
@@ -75,6 +79,9 @@ export async function GET(req: NextRequest) {
     )
     const longTokenData = await longTokenRes.json()
     longToken = longTokenData.access_token || shortToken
+    if (longTokenData.expires_in) {
+      tokenExpiresAt = new Date(Date.now() + Number(longTokenData.expires_in) * 1000)
+    }
   } catch {
     console.warn('[Meta OAuth] Long-lived token exchange failed — using short-lived token')
   }
@@ -82,13 +89,19 @@ export async function GET(req: NextRequest) {
   // Fetch user profile + pages
   let me: any = {}
   let pagesData: any = { data: [] }
+  let grantedScopes: string[] = []
   try {
-    const [meRes, pagesRes] = await Promise.all([
-      fetch(`https://graph.facebook.com/v21.0/me?fields=id,name,picture&access_token=${longToken}`),
-      fetch(`https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${longToken}`),
+    const [meRes, pagesRes, permissionsRes] = await Promise.all([
+      fetch(`${metaGraphUrl('me')}?fields=id,name,picture&access_token=${encodeURIComponent(longToken)}`),
+      fetch(`${metaGraphUrl('me/accounts')}?fields=id,name,access_token,instagram_business_account&access_token=${encodeURIComponent(longToken)}`),
+      fetch(`${metaGraphUrl('me/permissions')}?access_token=${encodeURIComponent(longToken)}`),
     ])
     me = await meRes.json()
     pagesData = await pagesRes.json()
+    const permissionsData = permissionsRes.ok ? await permissionsRes.json() : { data: [] }
+    grantedScopes = (Array.isArray(permissionsData?.data) ? permissionsData.data : [])
+      .filter((entry: any) => entry?.status === 'granted' && typeof entry?.permission === 'string')
+      .map((entry: any) => entry.permission)
   } catch (fetchErr) {
     console.error('[Meta OAuth] Profile fetch network error:', fetchErr)
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=profile_fetch_failed`)
@@ -156,6 +169,10 @@ export async function GET(req: NextRequest) {
         config: {
           pages,
           pictureUrl: me.picture?.data?.url || null,
+          scopes: grantedScopes,
+          scopeEvidence: 'provider_response',
+          graphVersion: META_GRAPH_VERSION,
+          expiresAt: tokenExpiresAt?.toISOString() || null,
           connectedAt: new Date().toISOString(),
         },
         lastSyncedAt: new Date(),
@@ -168,6 +185,10 @@ export async function GET(req: NextRequest) {
         config: {
           pages,
           pictureUrl: me.picture?.data?.url || null,
+          scopes: grantedScopes,
+          scopeEvidence: 'provider_response',
+          graphVersion: META_GRAPH_VERSION,
+          expiresAt: tokenExpiresAt?.toISOString() || null,
           connectedAt: new Date().toISOString(),
         },
         lastSyncedAt: new Date(),

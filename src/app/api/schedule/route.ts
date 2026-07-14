@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     const posts = await prisma.socialPost.findMany({
       where: {
         workspaceId: workspace.id,
-        status: { in: ['SCHEDULED', 'DRAFT', 'PUBLISHED', 'FAILED'] },
+        status: { in: ['SCHEDULED', 'PROCESSING', 'DRAFT', 'APPROVED', 'PUBLISHED', 'FAILED'] },
       },
       orderBy,
       take: 50,

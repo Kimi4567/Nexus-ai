@@ -15,6 +15,7 @@ import { getBillingDisplayTruth } from '@/lib/billingDisplayTruth'
 import {
   CREDIT_PURCHASE_POLICY,
   FREE_TRIAL_CREDITS,
+  PUBLIC_PAID_PLANS,
   quoteCreditPurchase,
 } from '@/lib/commercialPlans'
 import Link from 'next/link'
@@ -26,42 +27,45 @@ import {
 
 // ─── Plan definitions ───────────────────────────────────────────────────────────
 
+const GROWTH_PLAN = PUBLIC_PAID_PLANS.find((plan) => plan.slug === 'growth') ?? PUBLIC_PAID_PLANS[0]
+const AUTOPILOT_PLAN = PUBLIC_PAID_PLANS.find((plan) => plan.slug === 'autopilot') ?? PUBLIC_PAID_PLANS[1]
+
 const PLANS = [
   {
-    id: 'pro',
+    id: GROWTH_PLAN.id,
     nameAr: 'جروث',
-    nameEn: 'Growth',
-    price: 49,
-    creditsAr: '150 رصيد / شهر — يتجدد تلقائياً',
-    creditsEn: '150 credits / month — renews monthly',
+    nameEn: GROWTH_PLAN.name,
+    price: GROWTH_PLAN.priceUsd,
+    creditsAr: `${GROWTH_PLAN.monthlyCredits} رصيد / شهر — يتجدد تلقائياً`,
+    creditsEn: `${GROWTH_PLAN.monthlyCredits} credits / month — renews monthly`,
     accentColor: '#8b5cf6',
     featured: true,
-    badgeAr: 'الأكثر شعبية',
-    badgeEn: 'Most Popular',
+    badgeAr: 'الخطة الأساسية',
+    badgeEn: 'Core plan',
     descAr: 'للفرق التي تخطط وتنتج وتراجع المحتوى باستمرار',
     descEn: 'For teams planning, producing, and reviewing content consistently',
     limitsAr: [
-      '150 رصيد AI / شهر (يتجدد شهرياً)',
-      '3 مساحات عمل (3 براندات)',
-      '10 حملات / شهر',
-      '25 بوست / شهر',
+      `${GROWTH_PLAN.monthlyCredits} رصيد AI / شهر (يتجدد شهرياً)`,
+      `${GROWTH_PLAN.workspaces} مساحات عمل (${GROWTH_PLAN.workspaces} براندات)`,
+      `${GROWTH_PLAN.campaignLimit} حملات / شهر`,
+      `${GROWTH_PLAN.postsPerMonth} بوست AI مخطط / شهر`,
       'Brand Brain الكامل + ذاكرة الحملات',
     ],
     limitsEn: [
-      '150 AI credits / month (renews monthly)',
-      '3 workspaces (3 brands)',
-      '10 campaigns / month',
-      '25 AI posts / month',
+      `${GROWTH_PLAN.monthlyCredits} AI credits / month (renews monthly)`,
+      `${GROWTH_PLAN.workspaces} workspaces (${GROWTH_PLAN.workspaces} brands)`,
+      `${GROWTH_PLAN.campaignLimit} campaigns / month`,
+      `${GROWTH_PLAN.postsPerMonth} AI-planned posts / month`,
       'Full Brand Brain + Campaign Memory (reviewed signals across campaigns)',
     ],
   },
   {
-    id: 'business',
+    id: AUTOPILOT_PLAN.id,
     nameAr: 'أوتوبايلوت',
-    nameEn: 'Autopilot',
-    price: 99,
-    creditsAr: '500 رصيد / شهر — يتجدد تلقائياً',
-    creditsEn: '500 credits / month — renews monthly',
+    nameEn: AUTOPILOT_PLAN.name,
+    price: AUTOPILOT_PLAN.priceUsd,
+    creditsAr: `${AUTOPILOT_PLAN.monthlyCredits} رصيد / شهر — يتجدد تلقائياً`,
+    creditsEn: `${AUTOPILOT_PLAN.monthlyCredits} credits / month — renews monthly`,
     accentColor: '#10b981',
     featured: false,
     badgeAr: 'تشغيل متقدم',
@@ -69,17 +73,17 @@ const PLANS = [
     descAr: 'لتشغيل عدة براندات مع مراقبة مجدولة وقائمة قرارات',
     descEn: 'For multi-brand operations with scheduled monitoring and an action queue',
     limitsAr: [
-      '500 رصيد AI / شهر (يتجدد شهرياً)',
-      '10 مساحات عمل (10 براندات أو عملاء)',
+      `${AUTOPILOT_PLAN.monthlyCredits} رصيد AI / شهر (يتجدد شهرياً)`,
+      `${AUTOPILOT_PLAN.workspaces} مساحات عمل (${AUTOPILOT_PLAN.workspaces} براندات أو عملاء)`,
       'حملات غير محدودة / شهر',
-      '60 بوست / شهر',
+      `${AUTOPILOT_PLAN.postsPerMonth} بوست AI مخطط / شهر`,
       'مراقبة مجدولة + قائمة قرارات مبنية على الأدلة',
     ],
     limitsEn: [
-      '500 AI credits / month (renews monthly)',
-      '10 workspaces (10 brands / clients)',
+      `${AUTOPILOT_PLAN.monthlyCredits} AI credits / month (renews monthly)`,
+      `${AUTOPILOT_PLAN.workspaces} workspaces (${AUTOPILOT_PLAN.workspaces} brands / clients)`,
       'Unlimited campaigns / month',
-      '60 AI posts / month',
+      `${AUTOPILOT_PLAN.postsPerMonth} AI-planned posts / month`,
       'Scheduled monitoring + evidence-backed action queue',
     ],
   },
@@ -112,8 +116,8 @@ const CREDIT_ACTIONS = [
     labelAr: 'توليد صورة AI',
     labelEn: 'AI image generation',
     cost: 3,
-    noteAr: '1024×1024، جودة عالية، مرتبطة بهوية البراند',
-    noteEn: '1024×1024, brand-aware, high quality',
+    noteAr: '1024×1024، مبنية على السياق البصري المحفوظ وتحتاج مراجعتك',
+    noteEn: '1024×1024, based on saved visual context and subject to your review',
   },
   {
     icon: FileText,
@@ -238,15 +242,32 @@ export default function BillingPage() {
   const [showCreditHistory, setShowCreditHistory] = useState(false)
 
   useEffect(() => {
-    if (!session?.access_token) { setLoading(false); return }
+    const token = session?.access_token
+    if (!token) {
+      setBillingStatus(null)
+      setLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setBillingStatus(null)
+    setLoading(true)
     fetch('/api/billing/status', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
+      headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())
-      .then(d => { if (d.plan) setBillingStatus(d) })
+      .then(d => {
+        if (!cancelled && d.plan) setBillingStatus(d)
+      })
       .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [session])
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [session?.access_token])
 
   useEffect(() => {
     const token = session?.access_token
@@ -541,8 +562,8 @@ export default function BillingPage() {
             <Gift className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
             <p className="text-sm leading-relaxed text-slate-600">
               {ar
-                ? `ابدأ بـ${FREE_TRIAL_CREDITS} رصيداً تجريبياً لمدة 14 يوماً، بدون بطاقة. بعدها اختر واحدة من الباقتين المدفوعتين.`
-                : `Start with ${FREE_TRIAL_CREDITS} trial credits for 14 days, with no card. Then choose one of the two paid plans.`}
+                ? `ابدأ بـ${FREE_TRIAL_CREDITS} رصيداً تجريبياً لمرة واحدة، بدون بطاقة. بعدها اختر واحدة من الباقتين المدفوعتين.`
+                : `Start with ${FREE_TRIAL_CREDITS} one-time trial credits, with no card. Then choose one of the two paid plans.`}
             </p>
           </div>
 
@@ -619,7 +640,7 @@ export default function BillingPage() {
                   ) : (
                     <button
                       onClick={() => handleUpgrade(plan.id)}
-                      disabled={upgrading === plan.id || (isAuthenticated && !billingEnabled)}
+                      disabled={upgrading === plan.id || (isAuthenticated && (loading || !billingEnabled))}
                       className={`w-full py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 ${
                         isPopular
                           ? 'bg-slate-950 hover:bg-slate-800 shadow-[0_12px_28px_rgba(15,23,42,0.16)]'
@@ -628,6 +649,8 @@ export default function BillingPage() {
                     >
                       {upgrading === plan.id
                         ? (ar ? 'جاري التحويل...' : 'Redirecting...')
+                        : isAuthenticated && loading
+                        ? (ar ? 'جارٍ التحقق من حالة الدفع...' : 'Checking billing status...')
                         : isAuthenticated && !billingEnabled
                         ? (ar ? 'قريبا' : 'Coming soon')
                         : (ar ? `ابدأ ${plan.nameAr} — $${plan.price}/شهر` : `Start ${plan.nameEn} — $${plan.price}/mo`)
@@ -656,7 +679,7 @@ export default function BillingPage() {
                   : 'Purchased credits remain valid for 12 months and survive renewal or cancellation.'}
               </p>
             </div>
-            {!billingStatus?.creditPurchasesEnabled && (
+            {!loading && !billingStatus?.creditPurchasesEnabled && (
               <span className="w-fit rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
                 {ar ? 'بانتظار تفعيل Stripe والمحفظة' : 'Awaiting Stripe + wallet activation'}
               </span>
@@ -733,7 +756,7 @@ export default function BillingPage() {
                 )}
                 <button
                   onClick={handleBuyCredits}
-                  disabled={!billingStatus?.creditPurchasesEnabled || buyingCredits || !creditPurchaseQuote}
+                  disabled={loading || !billingStatus?.creditPurchasesEnabled || buyingCredits || !creditPurchaseQuote}
                   className="mt-4 w-full rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {buyingCredits ? (ar ? 'جاري التحويل...' : 'Redirecting...') : (ar ? 'المتابعة إلى الدفع' : 'Continue to checkout')}
@@ -750,8 +773,8 @@ export default function BillingPage() {
           </h2>
           <p className="text-sm text-slate-500 mb-6">
             {ar
-              ? 'قيمة الرصيد الشهري: Growth ≈ $0.33/رصيد · Autopilot ≈ $0.20/رصيد. تكلفة الاستراتيجية متغيرة حسب النطاق.'
-              : 'Monthly credit value: Growth ≈ $0.33/cr · Autopilot ≈ $0.20/cr. Strategy cost varies by scope.'
+              ? `قيمة الرصيد الشهري: Growth ≈ $${(GROWTH_PLAN.priceUsd / GROWTH_PLAN.monthlyCredits).toFixed(2)}/رصيد · Autopilot ≈ $${(AUTOPILOT_PLAN.priceUsd / AUTOPILOT_PLAN.monthlyCredits).toFixed(2)}/رصيد. تكلفة الاستراتيجية متغيرة حسب النطاق.`
+              : `Monthly credit value: Growth ≈ $${(GROWTH_PLAN.priceUsd / GROWTH_PLAN.monthlyCredits).toFixed(2)}/cr · Autopilot ≈ $${(AUTOPILOT_PLAN.priceUsd / AUTOPILOT_PLAN.monthlyCredits).toFixed(2)}/cr. Strategy cost varies by scope.`
             }
           </p>
 
@@ -793,12 +816,12 @@ export default function BillingPage() {
               <div className="text-sm text-slate-600 leading-relaxed">
                 {ar ? (
                   <>
-                    <span className="text-slate-950 font-semibold">Growth (150 رصيد)</span> = حتى 12 مسارًا أساسيًا من الاستراتيجية إلى المسودات (12 رصيدًا لكل مسار) · أو 50 صورة · أو مزيج من الإجراءات. النطاقات الأكبر قد تكلف أكثر —
+                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} رصيد)</span> = حتى {Math.floor(GROWTH_PLAN.monthlyCredits / 12)} مسارًا أساسيًا من الاستراتيجية إلى المسودات (12 رصيدًا لكل مسار) · أو {Math.floor(GROWTH_PLAN.monthlyCredits / 3)} صورة · أو مزيج من الإجراءات. النطاقات الأكبر قد تكلف أكثر —
                      {' '}<span className="text-violet-700">وتناسب فرقًا تحتاج وتيرة نشر أعلى عبر قنوات متعددة</span>
                   </>
                 ) : (
                   <>
-                    <span className="text-slate-950 font-semibold">Growth (150 credits)</span> = up to 12 core strategy-to-drafts workflows (12 credits each) · or 50 images · or a mix of actions. Larger strategy scopes may cost more —
+                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} credits)</span> = up to {Math.floor(GROWTH_PLAN.monthlyCredits / 12)} core strategy-to-drafts workflows (12 credits each) · or {Math.floor(GROWTH_PLAN.monthlyCredits / 3)} images · or a mix of actions. Larger strategy scopes may cost more —
                      {' '}<span className="text-violet-700">built for teams that need a higher publishing pace across channels</span>
                   </>
                 )}
@@ -838,7 +861,11 @@ export default function BillingPage() {
 
         {/* ── Footer note ─────────────────────────────────────────────────── */}
         <p className="text-center text-xs text-slate-400 pb-4">
-          {billingEnabled
+          {loading
+            ? (ar
+                ? 'جارٍ التحقق من حالة Stripe والمحفظة...'
+                : 'Checking Stripe and wallet status...')
+            : billingEnabled
             ? (ar
                 ? 'المدفوعات معالجة بأمان عبر Stripe · يمكن الإلغاء في أي وقت · لا رسوم خفية'
                 : 'Payments processed securely via Stripe · Cancel anytime · No hidden fees')

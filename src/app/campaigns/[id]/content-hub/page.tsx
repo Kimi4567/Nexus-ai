@@ -12,7 +12,7 @@
  * - Progress bar showing generation status
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -36,6 +36,7 @@ import { deriveContentPlanOrderReview } from '@/lib/contentPlanOrderContract'
 import { deriveContentHubFirstScreenTruth } from '@/lib/contentHubFirstScreenTruth'
 import { deriveStrategyFulfillmentSummary, type StrategyFulfillmentTone } from '@/lib/strategyFulfillment'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
+import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { derivePostCreativeRequirement } from '@/lib/creativeRequirements'
 import { getDefaultTemplateForPlatform } from '@/lib/creativeTemplates'
 import AppShell from '@/components/AppShell'
@@ -43,7 +44,7 @@ import { PostPlatformPublisher } from '@/components/publishing/PostPlatformPubli
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Platform = 'ALL' | 'META' | 'INSTAGRAM' | 'LINKEDIN' | 'X' | 'TIKTOK' | 'TWITTER'
+type Platform = 'ALL' | 'META' | 'INSTAGRAM' | 'LINKEDIN' | 'X' | 'TIKTOK' | 'TWITTER' | 'YOUTUBE' | 'YOUTUBE_SHORTS' | 'PINTEREST' | 'THREADS'
 type MediaSource = 'GENERATE' | 'UPLOAD' | 'UPLOAD_RAW'
 type GenStatus = 'PENDING' | 'GENERATING' | 'DONE' | 'FAILED' | 'AWAITING_UPLOAD' | 'SKIPPED'
 
@@ -60,7 +61,7 @@ interface ContentPost {
   uploadedMediaId: string | null
   contentPlanIndex: number
   scheduledAt: string | null
-  status: 'DRAFT' | 'APPROVED' | 'SCHEDULED' | 'PUBLISHED' | 'FAILED'
+  status: 'DRAFT' | 'APPROVED' | 'SCHEDULED' | 'PROCESSING' | 'PUBLISHED' | 'FAILED'
   // Publishing lifecycle (manual publishing checklist — PR4)
   publishMode?: 'MANUAL' | 'AUTO' | null
   manuallyPublishedAt?: string | null
@@ -76,6 +77,40 @@ interface MediaItem {
   url: string
   fileName: string
   type: string
+}
+
+interface ScheduleAccount {
+  id: string
+  platform: string
+  accountName?: string | null
+  pages?: Array<{ id: string; name: string; igAccountId?: string | null }>
+  organizations?: Array<{ id: string; name: string }>
+  selectedOrganizationId?: string | null
+  boards?: Array<{ id: string; name: string }>
+  accessTier?: 'TRIAL' | 'STANDARD' | string
+}
+
+interface YouTubeScheduleOptions {
+  title: string
+  privacyStatus: 'private' | 'unlisted' | 'public'
+  madeForKids: '' | 'yes' | 'no'
+  syntheticMedia: '' | 'yes' | 'no'
+  notifySubscribers: boolean
+}
+
+interface PinterestScheduleOptions {
+  boardId: string
+  title: string
+  altText: string
+  destinationLink: string
+  aiDisclosureReviewed: boolean
+  aiModified: boolean
+  syntheticPerformer: boolean
+}
+
+interface ThreadsScheduleOptions {
+  replyControl: 'everyone' | 'accounts_you_follow' | 'mentioned_only'
+  altText: string
 }
 
 interface PendingMediaAttachment {
@@ -98,6 +133,12 @@ interface BrandProfile {
   brandName: string | null
   logoUrl: string | null
   colorPalette: string[]
+  industry: string | null
+  description: string | null
+  primaryOffer: string | null
+  uniqueAdvantages: string[]
+  complianceNotes: string | null
+  verifiedProof: string[]
 }
 
 interface StrategyHandoff {
@@ -108,6 +149,13 @@ interface StrategyHandoff {
 }
 
 const STRATEGY_HANDOFF_KEY = 'nexus_strategy_handoff'
+
+function normalizeAutoPublishTarget(platform: string): string {
+  const target = platform.toUpperCase()
+  if (target === 'YOUTUBE_SHORTS') return 'YOUTUBE'
+  if (target === 'TWITTER') return 'X'
+  return target
+}
 
 function loadStrategyHandoff(campaignId: string): StrategyHandoff | null {
   if (typeof window === 'undefined') return null
@@ -196,6 +244,22 @@ const PLATFORM_CONFIG: Record<string, {
     icon: '▶',
     cardStyle: 'youtube',
   },
+  PINTEREST: {
+    label: 'Pinterest',
+    color: '#E60023',
+    bg: '#fff1f3',
+    border: '#E60023',
+    icon: '📌',
+    cardStyle: 'pinterest',
+  },
+  THREADS: {
+    label: 'Threads',
+    color: '#111827',
+    bg: '#f8fafc',
+    border: '#111827',
+    icon: '@',
+    cardStyle: 'threads',
+  },
 }
 
 const getPlatformConfig = (p: string) =>
@@ -215,6 +279,8 @@ const PLATFORM_HOME_URLS: Record<string, string> = {
   META: 'https://facebook.com', FACEBOOK: 'https://facebook.com', INSTAGRAM: 'https://instagram.com',
   LINKEDIN: 'https://linkedin.com', TIKTOK: 'https://tiktok.com', TWITTER: 'https://x.com',
   YOUTUBE: 'https://youtube.com', SNAPCHAT: 'https://snapchat.com',
+  PINTEREST: 'https://pinterest.com',
+  THREADS: 'https://threads.net',
 }
 function platformHomeUrl(platform: string): string | null {
   return PLATFORM_HOME_URLS[platform?.toUpperCase()] ?? null
@@ -228,6 +294,35 @@ function hasValidDate(value: string | Date | null | undefined): boolean {
 
 function isUserConfirmedManualPublished(post: Pick<ContentPost, 'status' | 'manuallyPublishedAt' | 'publishMode'>): boolean {
   return post.status === 'PUBLISHED' && Boolean(post.manuallyPublishedAt || post.publishMode !== 'AUTO')
+}
+
+function defaultYouTubeScheduleOptions(post: Pick<ContentPost, 'caption'>): YouTubeScheduleOptions {
+  return {
+    title: post.caption.split(/\r?\n/)[0].trim().slice(0, 100),
+    privacyStatus: 'private',
+    madeForKids: '',
+    syntheticMedia: '',
+    notifySubscribers: false,
+  }
+}
+
+function defaultPinterestScheduleOptions(post: Pick<ContentPost, 'caption'>, boardId = ''): PinterestScheduleOptions {
+  return {
+    boardId,
+    title: post.caption.split(/\r?\n/)[0].trim().slice(0, 100),
+    altText: post.caption.trim().slice(0, 500),
+    destinationLink: '',
+    aiDisclosureReviewed: false,
+    aiModified: false,
+    syntheticPerformer: false,
+  }
+}
+
+function defaultThreadsScheduleOptions(post: Pick<ContentPost, 'caption'>): ThreadsScheduleOptions {
+  return {
+    replyControl: 'everyone',
+    altText: post.caption.trim().slice(0, 1_000),
+  }
 }
 
 export default function ContentHubPage() {
@@ -245,7 +340,17 @@ export default function ContentHubPage() {
   const isAr = locale === 'ar'
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
-  const [brandProfile, setBrandProfile] = useState<BrandProfile>({ brandName: null, logoUrl: null, colorPalette: [] })
+  const [brandProfile, setBrandProfile] = useState<BrandProfile>({
+    brandName: null,
+    logoUrl: null,
+    colorPalette: [],
+    industry: null,
+    description: null,
+    primaryOffer: null,
+    uniqueAdvantages: [],
+    complianceNotes: null,
+    verifiedProof: [],
+  })
   const [posts, setPosts] = useState<ContentPost[]>([])
   const [mediaLibrary, setMediaLibrary] = useState<MediaItem[]>([])
   const [activePlatform, setActivePlatform] = useState<Platform>('ALL')
@@ -274,6 +379,18 @@ export default function ContentHubPage() {
   const [showApproveConfirm, setShowApproveConfirm] = useState(false)
   const [showScheduleConfirm, setShowScheduleConfirm] = useState(false)
   const [scheduleAcknowledged, setScheduleAcknowledged] = useState(false)
+  const [scheduleMode, setScheduleMode] = useState<'MANUAL' | 'AUTO'>('MANUAL')
+  const [scheduleAccounts, setScheduleAccounts] = useState<ScheduleAccount[]>([])
+  const [scheduleAccountsLoading, setScheduleAccountsLoading] = useState(false)
+  const [destinationByTarget, setDestinationByTarget] = useState<Record<string, { integrationId: string; pageId?: string; pageName?: string }>>({})
+  const [tiktokCreator, setTikTokCreator] = useState<{ privacyLevelOptions: string[]; commentDisabled: boolean; duetDisabled: boolean; stitchDisabled: boolean } | null>(null)
+  const [tiktokOptions, setTikTokOptions] = useState({
+    privacyLevel: '', disableComment: false, disableDuet: false, disableStitch: false,
+    brandContentToggle: false, brandOrganicToggle: true, isAigc: false,
+  })
+  const [youtubeOptionsByPostId, setYouTubeOptionsByPostId] = useState<Record<string, YouTubeScheduleOptions>>({})
+  const [pinterestOptionsByPostId, setPinterestOptionsByPostId] = useState<Record<string, PinterestScheduleOptions>>({})
+  const [threadsOptionsByPostId, setThreadsOptionsByPostId] = useState<Record<string, ThreadsScheduleOptions>>({})
   const [approveResult, setApproveResult] = useState<{
     kind: 'approved' | 'scheduled'
     approved: number
@@ -351,6 +468,12 @@ export default function ContentHubPage() {
             brandName: bData.brandProfile.brandName ?? null,
             logoUrl: bData.brandProfile.logoUrl ?? null,
             colorPalette: bData.brandProfile.colorPalette ?? [],
+            industry: bData.brandProfile.industry ?? null,
+            description: bData.brandProfile.description ?? null,
+            primaryOffer: bData.brandProfile.primaryOffer ?? null,
+            uniqueAdvantages: bData.brandProfile.uniqueAdvantages ?? [],
+            complianceNotes: bData.brandProfile.complianceNotes ?? null,
+            verifiedProof: bData.brandProfile.verifiedProof ?? [],
           })
         }
       }
@@ -365,6 +488,95 @@ export default function ContentHubPage() {
   useEffect(() => {
     if (!authLoading && isAuthenticated) loadData()
   }, [authLoading, isAuthenticated, loadData])
+
+  useEffect(() => {
+    if (!showScheduleConfirm || scheduleMode !== 'AUTO' || scheduleAccountsLoading || scheduleAccounts.length > 0) return
+    let cancelled = false
+    setScheduleAccountsLoading(true)
+    fetch('/api/social/accounts', { headers: { Authorization: authHeader() } })
+      .then(response => response.ok ? response.json() : Promise.reject(new Error('connections')))
+      .then(async data => {
+        if (cancelled) return
+        const accounts = Array.isArray(data.accounts) ? data.accounts as ScheduleAccount[] : []
+        setScheduleAccounts(accounts)
+        const next: Record<string, { integrationId: string; pageId?: string; pageName?: string }> = {}
+        const targets = new Set(approvedPostsWithDates.map(post => normalizeAutoPublishTarget(post.platform)))
+        const meta = accounts.find(account => account.platform === 'META')
+        for (const target of targets) {
+          if (target === 'FACEBOOK' && meta) {
+            const page = (meta.pages || []).find(item => item.id)
+            if (page) next[target] = { integrationId: meta.id, pageId: page.id, pageName: page.name }
+          } else if (target === 'INSTAGRAM' && meta) {
+            const page = (meta.pages || []).find(item => item.igAccountId)
+            if (page?.igAccountId) next[target] = { integrationId: meta.id, pageId: page.igAccountId, pageName: page.name }
+          } else if (target === 'LINKEDIN') {
+            const linkedIn = accounts.find(account => account.platform === 'LINKEDIN')
+            if (linkedIn) {
+              const organization = (linkedIn.organizations || []).find(item => item.id === linkedIn.selectedOrganizationId)
+                || (linkedIn.organizations || [])[0]
+              next[target] = { integrationId: linkedIn.id, pageId: organization?.id, pageName: organization?.name || linkedIn.accountName || undefined }
+            }
+          } else if (target === 'TIKTOK') {
+            const tiktok = accounts.find(account => account.platform === 'TIKTOK')
+            if (tiktok) next[target] = { integrationId: tiktok.id, pageName: tiktok.accountName || undefined }
+          } else if (target === 'X') {
+            const x = accounts.find(account => account.platform === 'X')
+            if (x) next.X = { integrationId: x.id, pageName: x.accountName || undefined }
+          } else if (target === 'YOUTUBE') {
+            const youtube = accounts.find(account => account.platform === 'YOUTUBE')
+            if (youtube) next.YOUTUBE = { integrationId: youtube.id, pageName: youtube.accountName || undefined }
+          } else if (target === 'PINTEREST') {
+            const pinterest = accounts.find(account => account.platform === 'PINTEREST')
+            if (pinterest) next.PINTEREST = { integrationId: pinterest.id, pageName: pinterest.accountName || undefined }
+          } else if (target === 'THREADS') {
+            const threads = accounts.find(account => account.platform === 'THREADS')
+            if (threads) next.THREADS = { integrationId: threads.id, pageName: threads.accountName || undefined }
+          }
+        }
+        if (targets.has('THREADS')) {
+          setThreadsOptionsByPostId(Object.fromEntries(
+            approvedPostsWithDates
+              .filter(post => normalizeAutoPublishTarget(post.platform) === 'THREADS')
+              .map(post => [post.id, defaultThreadsScheduleOptions(post)]),
+          ))
+        }
+        setDestinationByTarget(next)
+        const pinterest = accounts.find(account => account.platform === 'PINTEREST')
+        if (targets.has('PINTEREST') && pinterest) {
+          const onlyBoardId = pinterest.boards?.length === 1 ? pinterest.boards[0].id : ''
+          setPinterestOptionsByPostId(Object.fromEntries(
+            approvedPostsWithDates
+              .filter(post => normalizeAutoPublishTarget(post.platform) === 'PINTEREST')
+              .map(post => [post.id, defaultPinterestScheduleOptions(post, onlyBoardId)]),
+          ))
+        }
+        const tiktok = accounts.find(account => account.platform === 'TIKTOK')
+        if (targets.has('TIKTOK') && tiktok) {
+          const response = await fetch(`/api/social/tiktok/creator-info?integrationId=${encodeURIComponent(tiktok.id)}`, {
+            headers: { Authorization: authHeader() },
+          })
+          const creatorData = await response.json().catch(() => ({}))
+          if (!cancelled && response.ok && creatorData.creator) {
+            setTikTokCreator(creatorData.creator)
+            const privacyLevel = creatorData.creator.privacyLevelOptions?.includes('SELF_ONLY')
+              ? 'SELF_ONLY'
+              : creatorData.creator.privacyLevelOptions?.[0] || ''
+            setTikTokOptions(current => ({
+              ...current,
+              privacyLevel,
+              disableComment: Boolean(creatorData.creator.commentDisabled),
+              disableDuet: Boolean(creatorData.creator.duetDisabled),
+              disableStitch: Boolean(creatorData.creator.stitchDisabled),
+            }))
+          }
+        }
+      })
+      .catch(() => { if (!cancelled) setScheduleAccounts([]) })
+      .finally(() => { if (!cancelled) setScheduleAccountsLoading(false) })
+    return () => { cancelled = true }
+  // approved posts are intentionally captured when the decision modal opens.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showScheduleConfirm, scheduleMode])
 
   // ── Poll generating status ────────────────────────────────────────────────────
 
@@ -406,6 +618,52 @@ export default function ContentHubPage() {
   const draftCount = posts.filter(p => p.status === 'DRAFT').length
   const approvedCount = posts.filter(p => p.status === 'APPROVED').length
   const approvedPostsWithDates = posts.filter(p => p.status === 'APPROVED' && hasValidDate(p.scheduledAt))
+  const approvedAutoTargets = Array.from(new Set(approvedPostsWithDates.map(post => normalizeAutoPublishTarget(post.platform))))
+  const unsupportedAutoTargets = approvedAutoTargets.filter(target => !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE', 'PINTEREST', 'THREADS'].includes(target))
+  const approvedYouTubePosts = approvedPostsWithDates.filter(post => ['YOUTUBE', 'YOUTUBE_SHORTS'].includes(post.platform.toUpperCase()))
+  const youtubeAutoReviewIncomplete = scheduleMode === 'AUTO' && approvedYouTubePosts.some(post => {
+    const options = youtubeOptionsByPostId[post.id]
+    return !options?.title.trim() || !options.madeForKids || !options.syntheticMedia
+  })
+  const approvedXPosts = approvedPostsWithDates.filter(post => ['X', 'TWITTER'].includes(post.platform.toUpperCase()))
+  const xAutoReviewIncomplete = scheduleMode === 'AUTO' && approvedXPosts.some(post =>
+    post.isVideoPost || Array.from(post.caption.trim()).length === 0 || Array.from(post.caption.trim()).length > 280,
+  )
+  const approvedPinterestPosts = approvedPostsWithDates.filter(post => post.platform.toUpperCase() === 'PINTEREST')
+  const pinterestAccount = scheduleAccounts.find(account => account.platform === 'PINTEREST')
+  const pinterestAutoReviewIncomplete = scheduleMode === 'AUTO' && (
+    approvedPinterestPosts.length > 0
+    && (
+      pinterestAccount?.accessTier !== 'STANDARD'
+      || approvedPinterestPosts.some(post => {
+        const options = pinterestOptionsByPostId[post.id]
+        const copyLength = Array.from(post.caption.trim()).length
+        return post.isVideoPost
+          || copyLength === 0
+          || copyLength > 800
+          || !options?.boardId
+          || !options.title.trim()
+          || !options.altText.trim()
+          || !options.aiDisclosureReviewed
+      })
+    )
+  )
+  const approvedThreadsPosts = approvedPostsWithDates.filter(post => post.platform.toUpperCase() === 'THREADS')
+  const threadsAccount = scheduleAccounts.find(account => account.platform === 'THREADS')
+  const threadsAutoReviewIncomplete = scheduleMode === 'AUTO' && (
+    approvedThreadsPosts.length > 0
+    && (
+      threadsAccount?.accessTier !== 'LIVE'
+      || approvedThreadsPosts.some(post => {
+        const options = threadsOptionsByPostId[post.id]
+        const copyLength = Array.from(post.caption.trim()).length
+        return post.isVideoPost
+          || copyLength === 0
+          || copyLength > 500
+          || !options?.altText.trim()
+      })
+    )
+  )
   const approvedPostsNeedingMedia = posts.filter(
     p => p.status === 'APPROVED' && !isContentPostMediaReadyForScheduling(p),
   )
@@ -432,6 +690,47 @@ export default function ContentHubPage() {
       ? contentPlanOrderReview
       : null
   const approvalBlockedByOrderMismatch = Boolean(contentPlanOrderMismatch)
+  const contentReviewPosts = useMemo(
+    () => posts.filter(post => ['DRAFT', 'APPROVED', 'SCHEDULED'].includes(post.status)),
+    [posts],
+  )
+  const contentApprovalPreflight = useMemo(() => {
+    const aiOutput = campaign?.aiOutput && typeof campaign.aiOutput === 'object'
+      ? campaign.aiOutput as Record<string, unknown>
+      : {}
+    const strategy = aiOutput.strategy && typeof aiOutput.strategy === 'object'
+      ? aiOutput.strategy
+      : aiOutput
+    return reviewContentPlanForApproval(
+      contentReviewPosts,
+      strategy,
+      [
+        brandProfile.brandName,
+        brandProfile.industry,
+        brandProfile.description,
+        brandProfile.primaryOffer,
+        brandProfile.uniqueAdvantages,
+        brandProfile.complianceNotes,
+        brandProfile.verifiedProof,
+      ],
+    )
+  }, [brandProfile, campaign?.aiOutput, contentReviewPosts])
+  const contentIssueCountByPostId = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const issue of contentApprovalPreflight.issues) {
+      const post = contentReviewPosts[issue.index - 1]
+      if (!post) continue
+      counts.set(post.id, (counts.get(post.id) ?? 0) + 1)
+    }
+    return counts
+  }, [contentApprovalPreflight.issues, contentReviewPosts])
+  const contentReviewRequired = contentReviewPosts.length > 0 && !contentApprovalPreflight.ok
+  const approvalBlockedByTruthReview = draftCount > 0 && contentReviewRequired
+  const schedulingBlockedByTruthReview = approvedCount > 0 && contentReviewRequired
+  const schedulingBlocked = schedulingBlockedByMedia || schedulingBlockedByTruthReview
+  const schedulingDecisionBlocked = schedulingBlocked
+    || (scheduleMode === 'AUTO' && (unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete || xAutoReviewIncomplete || pinterestAutoReviewIncomplete || threadsAutoReviewIncomplete))
+  const approvalBlocked = approvalBlockedByOrderMismatch || approvalBlockedByTruthReview
   const contentHubFulfillmentSummary = deriveStrategyFulfillmentSummary({
     aiOutput: campaign?.aiOutput,
     posts: posts.map(post => ({
@@ -520,14 +819,28 @@ export default function ContentHubPage() {
     creditsRemaining,
     isUnlimited,
   })
+  const abVariantTruth = getCreditActionTruth({
+    action: 'CONTENT_AB_VARIANTS',
+    creditsRemaining,
+    isUnlimited,
+  })
   const imageGenerationLocked = !billingLoading && !imageGenerationTruth.canAfford
-  const contentPlanLocked = !billingLoading && !contentPlanTruth.canAfford
+  const selectedContentPlanCost = contentPlanTruth.cost + (enableABTesting ? abVariantTruth.cost : 0)
+  const contentPlanCanAfford = isUnlimited || creditsRemaining >= selectedContentPlanCost
+  const contentPlanLocked = !billingLoading && !contentPlanCanAfford
   const strategyApprovalRequired = Boolean(campaign && !canMutateCampaignExecution(String(campaign.status ?? '')))
   const strategyApprovalRequiredLabel = isAr ? 'راجع واعتمد الاستراتيجية أولاً' : 'Review and approve strategy first'
   const addCreditsForImagesLabel = isAr ? 'أضف رصيداً لتوليد الصور' : 'Add credits to generate images'
   const contentPlanCostLabel = isAr
-    ? `${contentPlanTruth.cost} كريديت`
-    : `${contentPlanTruth.cost} credit${contentPlanTruth.cost === 1 ? '' : 's'}`
+    ? `${selectedContentPlanCost} كريديت`
+    : `${selectedContentPlanCost} credit${selectedContentPlanCost === 1 ? '' : 's'}`
+  const contentPlanCostBreakdown = enableABTesting
+    ? (isAr
+      ? `خطة المحتوى ${contentPlanTruth.cost} + نسخ A/B الاختيارية ${abVariantTruth.cost}`
+      : `Content plan ${contentPlanTruth.cost} + optional A/B variants ${abVariantTruth.cost}`)
+    : (isAr
+      ? `خطة المحتوى ${contentPlanTruth.cost}`
+      : `Content plan ${contentPlanTruth.cost}`)
   const draftPlanLabel = isAr
     ? `توليد خطة محتوى مسودة — ${contentPlanCostLabel}`
     : `Generate draft content plan — ${contentPlanCostLabel}`
@@ -591,7 +904,9 @@ export default function ContentHubPage() {
   const generatePlanAcknowledgeLabel = isAr
     ? 'أفهم أن هذا ينشئ مسودات محتوى فقط للمراجعة ويصرف الرصيد الموضح.'
     : 'I understand this creates draft content only for review and spends the shown credits.'
-  const generatePlanFinalCta = isAr ? 'تأكيد إنشاء المسودات' : 'Confirm draft generation'
+  const generatePlanFinalCta = isAr
+    ? `تأكيد إنشاء المسودات — ${contentPlanCostLabel}`
+    : `Confirm draft generation — ${contentPlanCostLabel}`
   const creditBalanceLabel = billingLoading
     ? (isAr ? 'جارٍ تحديث الرصيد' : 'Checking credit balance')
     : isUnlimited
@@ -728,12 +1043,21 @@ export default function ContentHubPage() {
   const pendingAttachmentPost = pendingMediaAttachment
     ? posts.find(p => p.id === pendingMediaAttachment.postId)
     : null
+  const pendingAttachmentReopensReview = Boolean(
+    pendingAttachmentPost && ['APPROVED', 'SCHEDULED', 'FAILED'].includes(pendingAttachmentPost.status),
+  )
   const mediaRemovalPost = mediaRemovalPostId
     ? posts.find(p => p.id === mediaRemovalPostId)
     : null
+  const mediaRemovalReopensReview = Boolean(
+    mediaRemovalPost && ['APPROVED', 'SCHEDULED', 'FAILED'].includes(mediaRemovalPost.status),
+  )
   const imageGenerationConfirmPost = imageGenerationConfirmPostId
     ? posts.find(p => p.id === imageGenerationConfirmPostId)
     : null
+  const imageGenerationReopensReview = Boolean(
+    imageGenerationConfirmPost && ['APPROVED', 'SCHEDULED', 'FAILED'].includes(imageGenerationConfirmPost.status),
+  )
   const bulkImageButtonLabel = isAr
     ? `توليد ${pendingImageCount} صور منشورات — ${bulkImageCreditCost} كريديت`
     : `Generate ${pendingImageCount} post images — ${bulkImageCreditCost} credits total`
@@ -741,12 +1065,16 @@ export default function ContentHubPage() {
     ? `اعتماد نصوص ${draftCount} مسودات`
     : `Approve copy for ${draftCount} draft${draftCount === 1 ? '' : 's'}`
   const scheduleApprovedLabel = isAr
-    ? schedulingBlockedByMedia
-      ? `أكمل وسائط ${approvedPostsNeedingMediaCount} منشورات قبل الجدولة`
-      : `جدولة ${approvedCount} منشورات معتمدة`
-    : schedulingBlockedByMedia
-      ? `Complete media for ${approvedPostsNeedingMediaCount} post${approvedPostsNeedingMediaCount === 1 ? '' : 's'} before scheduling`
-      : `Schedule ${approvedCount} approved post${approvedCount === 1 ? '' : 's'}`
+    ? schedulingBlockedByTruthReview
+      ? 'راجع جودة النصوص قبل الجدولة'
+      : schedulingBlockedByMedia
+        ? `أكمل وسائط ${approvedPostsNeedingMediaCount} منشورات قبل الجدولة`
+        : `جدولة ${approvedCount} منشورات معتمدة`
+    : schedulingBlockedByTruthReview
+      ? 'Review copy quality before scheduling'
+      : schedulingBlockedByMedia
+        ? `Complete media for ${approvedPostsNeedingMediaCount} post${approvedPostsNeedingMediaCount === 1 ? '' : 's'} before scheduling`
+        : `Schedule ${approvedCount} approved post${approvedCount === 1 ? '' : 's'}`
   const formatStatusSummaryChip = (count: number, label: string) => {
     if (isAr || count === 1) return `${count} ${label}`
     const pluralLabels: Record<string, string> = {
@@ -796,11 +1124,14 @@ export default function ContentHubPage() {
       // honest math (base + variants = drafts) so "18" and "36" never look contradictory.
       // "drafts to review" — not "ready for review" — since they still need approval.
       const bVariants = data.summary?.abTesting?.enabled ? (data.summary.abTesting.bVariants ?? 0) : 0
+      const abRefunded = data.summary?.abTesting?.refunded === true
       const totalDrafts = (data.summary?.total ?? 0) + bVariants
       setSuccessMsg(
         bVariants > 0
           ? `Content plan created: ${data.summary.total} base posts + ${bVariants} A/B variants = ${totalDrafts} drafts to review`
-          : `Content plan created: ${data.summary.total} drafts to review`,
+          : abRefunded
+            ? `Content plan created: ${data.summary.total} drafts to review. A/B variants were not saved, so their separate credit charge was refunded.`
+            : `Content plan created: ${data.summary.total} drafts to review`,
       )
       await loadData()
       await refreshBillingStatus()
@@ -957,8 +1288,10 @@ export default function ContentHubPage() {
     setGenerating(true)
     setError(null)
     try {
-      for (let index = 0; index < imagePostIds.length; index += 5) {
-        const batchIds = imagePostIds.slice(index, index + 5)
+      // The user confirms the whole action once, while the server processes one
+      // paid image per request so a slow provider can never strand a batch.
+      for (let index = 0; index < imagePostIds.length; index += 1) {
+        const batchIds = imagePostIds.slice(index, index + 1)
         const res = await fetch(`/api/campaigns/${campaignId}/generate-content-plan/generate`, {
           method: 'POST',
           headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
@@ -1006,6 +1339,13 @@ export default function ContentHubPage() {
     if (!isAuthenticated) return
     if (contentPlanOrderMismatch) {
       setError(orderMismatchBody)
+      setShowApproveConfirm(false)
+      return
+    }
+    if (approvalBlockedByTruthReview) {
+      setError(isAr
+        ? 'تم إيقاف الاعتماد لأن مسودة أو أكثر لا تطابق Brand Brain والاستراتيجية بأمان. عدّل المسودات أو أعد توليدها ثم راجعها مجددًا.'
+        : 'Approval is blocked because one or more drafts are not safely aligned with Brand Brain and the strategy. Edit or regenerate the drafts, then review again.')
       setShowApproveConfirm(false)
       return
     }
@@ -1063,6 +1403,15 @@ export default function ContentHubPage() {
 
   async function scheduleAll() {
     if (!isAuthenticated || !scheduleAcknowledged) return
+    if (schedulingBlockedByTruthReview) {
+      setShowScheduleConfirm(false)
+      setScheduleAcknowledged(false)
+      setError(isAr
+        ? 'راجع أو أعد توليد النصوص التي تحمل ملاحظات جودة قبل الجدولة.'
+        : 'Review or regenerate copy with quality findings before scheduling.')
+      document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
     if (schedulingBlockedByMedia) {
       setShowScheduleConfirm(false)
       setScheduleAcknowledged(false)
@@ -1072,15 +1421,61 @@ export default function ContentHubPage() {
       document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return
     }
+    if (scheduleMode === 'AUTO' && (unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete || xAutoReviewIncomplete || pinterestAutoReviewIncomplete || threadsAutoReviewIncomplete)) {
+      setError(isAr
+        ? 'أكمل إعدادات YouTube وPinterest وThreads، وراجع حدود النص والوسائط، أو استخدم التنفيذ اليدوي.'
+        : 'Complete YouTube, Pinterest, and Threads settings and review copy/media limits, or use manual execution.')
+      return
+    }
     setScheduling(true)
     setError(null)
     try {
       const res = await fetch(`/api/campaigns/${campaignId}/schedule-content-plan`, {
         method: 'POST',
-        headers: { Authorization: authHeader() },
+        headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          publishMode: scheduleMode,
+          explicitAutoPublishConfirmed: scheduleMode === 'AUTO' && scheduleAcknowledged,
+          destinationByTarget,
+          tiktokOptions,
+          youtubeOptionsByPostId: Object.fromEntries(
+            Object.entries(youtubeOptionsByPostId).map(([postId, options]) => [postId, {
+              title: options.title.trim(),
+              privacyStatus: options.privacyStatus,
+              selfDeclaredMadeForKids: options.madeForKids === 'yes',
+              containsSyntheticMedia: options.syntheticMedia === 'yes',
+              notifySubscribers: options.notifySubscribers,
+              categoryId: '22',
+            }]),
+          ),
+          pinterestOptionsByPostId: Object.fromEntries(
+            Object.entries(pinterestOptionsByPostId).map(([postId, options]) => [postId, {
+              boardId: options.boardId,
+              title: options.title.trim(),
+              altText: options.altText.trim(),
+              destinationLink: options.destinationLink.trim() || null,
+              aiDisclosureReviewed: options.aiDisclosureReviewed,
+              aiDisclosureValues: [
+                ...(options.aiModified ? ['AI_MODIFIED'] : []),
+                ...(options.syntheticPerformer ? ['SYNTHETIC_PERFORMER'] : []),
+              ],
+            }]),
+          ),
+          threadsOptionsByPostId: Object.fromEntries(
+            Object.entries(threadsOptionsByPostId).map(([postId, options]) => [postId, {
+              replyControl: options.replyControl,
+              altText: options.altText.trim(),
+            }]),
+          ),
+        }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Scheduling failed')
+      if (!res.ok) {
+        const blockerMessage = Array.isArray(data.blockers)
+          ? data.blockers.map((blocker: { message?: unknown }) => typeof blocker?.message === 'string' ? blocker.message : '').filter(Boolean).join(' ')
+          : ''
+        throw new Error(blockerMessage || data.error || 'Scheduling failed')
+      }
 
       const freshPosts = await loadData()
       const scheduledPosts = freshPosts.filter(p => p.status === 'SCHEDULED' && hasValidDate(p.scheduledAt))
@@ -1198,7 +1593,7 @@ export default function ContentHubPage() {
         return
       }
       // Update caption in state immediately (no re-fetch needed)
-      setPosts(prev => prev.map(p => p.id === postId ? { ...p, caption: data.post.caption } : p))
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, ...data.post } : p))
       // Clear any pending edit for this post so it shows the fresh caption
       setPendingEdits(prev => {
         const next = { ...prev }
@@ -1309,9 +1704,13 @@ export default function ContentHubPage() {
 
       const data = await res.json()
       const imageUrl = data?.visual?.imageUrl
-      if (!imageUrl) throw new Error('No image URL returned')
+      const generatedVisualId = data?.visual?.id
+      if (!imageUrl || !generatedVisualId) throw new Error('No durable generated media returned')
 
-      await savePostEdit(postId, { imageUrl, mediaSource: 'GENERATE', generationStatus: 'DONE' })
+      await savePostEdit(postId, {
+        generatedVisualId,
+        explicitGeneratedMediaAttachConfirmed: true,
+      })
       await refreshBillingStatus()
       setImageGenerationConfirmPostId(null)
       setImageGenerationAcknowledged(false)
@@ -1427,14 +1826,14 @@ export default function ContentHubPage() {
                 {draftCount > 0 ? (
                   <button
                     onClick={() => {
-                      if (!approvalBlockedByOrderMismatch) setShowApproveConfirm(true)
+                      if (!approvalBlocked) setShowApproveConfirm(true)
                     }}
-                    disabled={approving || approvalBlockedByOrderMismatch}
+                    disabled={approving || approvalBlocked}
                     className="flex max-w-full min-w-0 items-center justify-center gap-2 rounded-xl px-4 py-2 text-center text-sm font-semibold leading-tight transition-all whitespace-normal break-words"
                     style={{
                       background: '#059669',
                       color: 'white',
-                      opacity: approving || approvalBlockedByOrderMismatch ? 0.6 : 1,
+                      opacity: approving || approvalBlocked ? 0.6 : 1,
                     }}
                   >
                     {approving ? (
@@ -1451,19 +1850,27 @@ export default function ContentHubPage() {
                 ) : approvedCount > 0 ? (
                   <button
                     onClick={() => {
-                      if (schedulingBlockedByMedia) {
+                      if (schedulingBlocked) {
                         document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                         return
                       }
                       setScheduleAcknowledged(false)
+                      setYouTubeOptionsByPostId(current => {
+                        const next = { ...current }
+                        for (const post of approvedPostsWithDates) {
+                          if (!['YOUTUBE', 'YOUTUBE_SHORTS'].includes(post.platform.toUpperCase()) || next[post.id]) continue
+                          next[post.id] = defaultYouTubeScheduleOptions(post)
+                        }
+                        return next
+                      })
                       setShowScheduleConfirm(true)
                     }}
                     disabled={scheduling}
                     className="flex max-w-full min-w-0 items-center justify-center gap-2 rounded-xl px-4 py-2 text-center text-sm font-semibold leading-tight transition-all whitespace-normal break-words"
                     style={{
-                      background: schedulingBlockedByMedia ? '#FFFBEB' : '#4F46E5',
-                      color: schedulingBlockedByMedia ? '#92400E' : 'white',
-                      border: schedulingBlockedByMedia ? '1px solid #FDE68A' : '1px solid transparent',
+                      background: schedulingBlocked ? '#FFFBEB' : '#4F46E5',
+                      color: schedulingBlocked ? '#92400E' : 'white',
+                      border: schedulingBlocked ? '1px solid #FDE68A' : '1px solid transparent',
                       opacity: scheduling ? 0.6 : 1,
                     }}
                   >
@@ -1474,7 +1881,7 @@ export default function ContentHubPage() {
                       </>
                     ) : (
                       <>
-                        {schedulingBlockedByMedia ? '⚠️' : '🗓'} {scheduleApprovedLabel}
+                        {schedulingBlocked ? '⚠️' : '🗓'} {scheduleApprovedLabel}
                       </>
                     )}
                   </button>
@@ -1540,9 +1947,12 @@ export default function ContentHubPage() {
                     border: enableABTesting ? '1px solid rgba(234,179,8,0.35)' : '1px solid rgba(15,23,42,0.10)',
                     color: enableABTesting ? '#B45309' : '#6b7280',
                   }}
-                  title="Generate A/B variants for each post — compare two hook styles and select a preferred draft"
+                  title={isAr
+                    ? `إنشاء نسخ A/B اختيارية باستدعاء منفصل — ${abVariantTruth.cost} كريديت إضافية، تُرد إذا لم تُحفظ نسخ صالحة`
+                    : `Optional A/B variants use one separate AI call — ${abVariantTruth.cost} additional credits, refunded if no valid variants are saved`}
                 >
                   <span>A/B</span>
+                  <span className="font-bold">+{abVariantTruth.cost}</span>
                   <span className={`w-6 h-3 rounded-full relative transition-all ${enableABTesting ? 'bg-yellow-500' : 'bg-gray-300'}`}>
                     <span className={`absolute top-0.5 w-2 h-2 bg-white rounded-full shadow transition-all ${enableABTesting ? 'left-3.5' : 'left-0.5'}`} />
                   </span>
@@ -1736,6 +2146,19 @@ export default function ContentHubPage() {
                   : `Expected: ${orderMismatchExpectedLabel} · Current: ${contentPlanOrderMismatch.actualDirections}`}
               </div>
             </div>
+          </div>
+        )}
+
+        {contentReviewRequired && (
+          <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-950">
+            <p className="text-sm font-semibold">
+              {isAr ? 'مراجعة تطابق المحتوى مطلوبة' : 'Content alignment review required'}
+            </p>
+            <p className="mt-1 text-sm leading-relaxed">
+              {isAr
+                ? `وجد NEXUS ${contentApprovalPreflight.issues.length} ملاحظة في المحتوى الحالي، تشمل صياغات عامة ضعيفة أو ادعاءات غير مثبتة أو انجرافاً عن Brand Brain والاستراتيجية. الاعتماد والجدولة الآلية مقفلان حتى التعديل أو إعادة التوليد.`
+                : `NEXUS found ${contentApprovalPreflight.issues.length} issue${contentApprovalPreflight.issues.length === 1 ? '' : 's'} in the current content, including generic hook formulas, unsupported claims, or drift from Brand Brain and the strategy. Approval and automatic scheduling stay locked until the content is edited or regenerated.`}
+            </p>
           </div>
         )}
 
@@ -1982,7 +2405,8 @@ export default function ContentHubPage() {
               }))}
               onRewrite={(instruction) => requestRewrite(post.id, instruction)}
               onPickWinner={post.variantGroup ? () => pickVariant(post.id) : undefined}
-              onManualPublish={() => openManualPublishModal(post)}
+              onManualPublish={contentIssueCountByPostId.has(post.id) ? undefined : () => openManualPublishModal(post)}
+              qualityIssueCount={contentIssueCountByPostId.get(post.id) ?? 0}
               onPlatformPublished={() => loadData().then(() => undefined)}
             />
           )
@@ -2068,6 +2492,13 @@ export default function ContentHubPage() {
                   {orderMismatchBody}
                 </div>
               )}
+              {approvalBlockedByTruthReview && (
+                <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-relaxed text-rose-900">
+                  {isAr
+                    ? 'لا يمكن اعتماد هذه المسودات قبل معالجة ملاحظات تطابق المحتوى الظاهرة في الصفحة.'
+                    : 'These drafts cannot be approved until the content-alignment findings shown on the page are resolved.'}
+                </div>
+              )}
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowApproveConfirm(false)}
@@ -2078,13 +2509,13 @@ export default function ContentHubPage() {
                 </button>
                 <button
                   onClick={approveAll}
-                  disabled={approvalBlockedByOrderMismatch}
+                  disabled={approvalBlocked}
                   className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all flex items-center justify-center gap-2"
                   style={{
-                    background: approvalBlockedByOrderMismatch
+                    background: approvalBlocked
                       ? '#94A3B8'
                       : 'linear-gradient(135deg, #059669, #047857)',
-                    opacity: approvalBlockedByOrderMismatch ? 0.7 : 1,
+                    opacity: approvalBlocked ? 0.7 : 1,
                   }}
                 >
                   ✓ {t('contentHub.approveConfirmYes')}
@@ -2120,9 +2551,13 @@ export default function ContentHubPage() {
                     {isAr ? `جدولة ${approvedPostsWithDates.length} منشور معتمد` : `Schedule ${approvedPostsWithDates.length} approved posts`}
                   </h3>
                   <p className="mt-2 text-sm leading-6 text-slate-500">
-                    {isAr
-                      ? 'سيحوّل NEXUS المنشورات المعتمدة ذات التواريخ المحفوظة إلى حالة «مجدول». لن ينشر أي منشور الآن ولن يتصل بأي منصة من هذا القرار.'
-                      : 'NEXUS will move approved posts with saved dates to Scheduled. Nothing is published now and no platform call is made by this decision.'}
+                    {scheduleMode === 'AUTO'
+                      ? (isAr
+                          ? 'سيحفظ NEXUS التواريخ والوجهات، ثم يرسل كل منشور معتمد إلى المنصة في موعده. لا يعتبر المنشور منشورًا إلا بعد تأكيد المنصة.'
+                          : 'NEXUS will save dates and exact destinations, then send each approved post at its scheduled time. A post is not marked published until the platform confirms it.')
+                      : (isAr
+                          ? 'سيحفظ NEXUS الجدول للتنفيذ اليدوي فقط. لن يرسل أي محتوى إلى المنصات.'
+                          : 'NEXUS will save an execution schedule only. No content will be sent to a platform.')}
                   </p>
                 </div>
                 <button
@@ -2138,6 +2573,308 @@ export default function ContentHubPage() {
                   ×
                 </button>
               </div>
+
+              <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1.5">
+                <button
+                  type="button"
+                  onClick={() => { setScheduleMode('MANUAL'); setScheduleAcknowledged(false) }}
+                  className={`rounded-lg px-3 py-2 text-xs font-bold ${scheduleMode === 'MANUAL' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`}
+                >{isAr ? 'جدولة للتنفيذ اليدوي' : 'Manual execution'}</button>
+                <button
+                  type="button"
+                  onClick={() => { setScheduleMode('AUTO'); setScheduleAcknowledged(false) }}
+                  className={`rounded-lg px-3 py-2 text-xs font-bold ${scheduleMode === 'AUTO' ? 'bg-[#4F46E5] text-white shadow-sm' : 'text-slate-500'}`}
+                >{isAr ? 'نشر تلقائي في الموعد' : 'Auto-publish on time'}</button>
+              </div>
+
+              {scheduleMode === 'AUTO' && (
+                <div className="mb-4 max-h-72 space-y-3 overflow-y-auto rounded-xl border border-indigo-100 bg-indigo-50/40 p-3">
+                  <div>
+                    <p className="text-xs font-black text-slate-900">{isAr ? 'وجهات النشر الدقيقة' : 'Exact publishing destinations'}</p>
+                    <p className="mt-1 text-[11px] leading-5 text-slate-500">{isAr ? 'كل منصة تحتاج حسابًا وصلاحية ووجهة مؤكدة. لن يخمّن NEXUS الصفحة.' : 'Every channel needs an authorized account and exact destination. NEXUS will not guess a Page.'}</p>
+                  </div>
+
+                  {scheduleAccountsLoading && <p className="text-xs font-semibold text-indigo-700">{isAr ? 'جارٍ التحقق من الصلاحيات…' : 'Checking permissions…'}</p>}
+
+                  {unsupportedAutoTargets.length > 0 && (
+                    <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-5 text-amber-900">
+                      {isAr ? `النشر التلقائي غير متاح حاليًا لهذه الوجهات: ${unsupportedAutoTargets.join('، ')}. غيّرها أو استخدم التنفيذ اليدوي.` : `Auto-publishing is not enabled for: ${unsupportedAutoTargets.join(', ')}. Change them or use manual execution.`}
+                    </p>
+                  )}
+
+                  {approvedAutoTargets.filter(target => ['FACEBOOK', 'INSTAGRAM'].includes(target)).map(target => {
+                    const account = scheduleAccounts.find(item => item.platform === 'META')
+                    const pages = (account?.pages || []).filter(page => target === 'INSTAGRAM' ? Boolean(page.igAccountId) : Boolean(page.id))
+                    const selected = destinationByTarget[target]?.pageId || ''
+                    return (
+                      <label key={target} className="block text-[11px] font-bold text-slate-700">
+                        {target}
+                        <select
+                          value={selected}
+                          onChange={event => {
+                            const page = pages.find(item => item.id === event.target.value || item.igAccountId === event.target.value)
+                            if (!account || !page) return
+                            setDestinationByTarget(current => ({ ...current, [target]: { integrationId: account.id, pageId: target === 'INSTAGRAM' ? page.igAccountId || '' : page.id, pageName: page.name } }))
+                          }}
+                          className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs"
+                        >
+                          <option value="">{isAr ? 'اختر الوجهة' : 'Select destination'}</option>
+                          {pages.map(page => <option key={`${target}-${page.id}`} value={target === 'INSTAGRAM' ? page.igAccountId || '' : page.id}>{page.name}</option>)}
+                        </select>
+                      </label>
+                    )
+                  })}
+
+                  {approvedAutoTargets.includes('LINKEDIN') && (() => {
+                    const account = scheduleAccounts.find(item => item.platform === 'LINKEDIN')
+                    const organizations = account?.organizations || []
+                    const selected = destinationByTarget.LINKEDIN?.pageId || 'MEMBER'
+                    return (
+                      <label className="block text-[11px] font-bold text-slate-700">
+                        LinkedIn
+                        <select
+                          value={selected}
+                          onChange={event => {
+                            if (!account) return
+                            const organization = organizations.find(item => item.id === event.target.value)
+                            setDestinationByTarget(current => ({ ...current, LINKEDIN: { integrationId: account.id, pageId: organization?.id, pageName: organization?.name || account.accountName || undefined } }))
+                          }}
+                          className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs"
+                        >
+                          <option value="MEMBER">{isAr ? `الحساب الشخصي — ${account?.accountName || 'غير متصل'}` : `Member profile — ${account?.accountName || 'not connected'}`}</option>
+                          {organizations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                        </select>
+                      </label>
+                    )
+                  })()}
+
+                  {approvedAutoTargets.includes('TIKTOK') && (
+                    <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-3">
+                      <label className="block text-[11px] font-bold text-slate-700">
+                        {isAr ? 'خصوصية TikTok' : 'TikTok privacy'}
+                        <select value={tiktokOptions.privacyLevel} onChange={event => setTikTokOptions(current => ({ ...current, privacyLevel: event.target.value }))} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs">
+                          <option value="">{isAr ? 'اختر الخصوصية' : 'Select privacy'}</option>
+                          {(tiktokCreator?.privacyLevelOptions || []).map(option => <option key={option} value={option}>{option}</option>)}
+                        </select>
+                      </label>
+                      <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-600">
+                        {([
+                          ['disableComment', isAr ? 'تعطيل التعليقات' : 'Disable comments'],
+                          ['disableDuet', isAr ? 'تعطيل Duet' : 'Disable Duet'],
+                          ['disableStitch', isAr ? 'تعطيل Stitch' : 'Disable Stitch'],
+                          ['isAigc', isAr ? 'محتوى مولّد بالذكاء' : 'AI-generated label'],
+                        ] as const).map(([key, label]) => (
+                          <label key={key} className="flex items-center gap-2"><input type="checkbox" checked={tiktokOptions[key]} disabled={Boolean(tiktokCreator?.[key === 'disableComment' ? 'commentDisabled' : key === 'disableDuet' ? 'duetDisabled' : key === 'disableStitch' ? 'stitchDisabled' : 'commentDisabled'] && key !== 'isAigc')} onChange={event => setTikTokOptions(current => ({ ...current, [key]: event.target.checked }))} />{label}</label>
+                        ))}
+                      </div>
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-[10px] text-slate-600">
+                        <p className="font-black text-slate-700">{isAr ? 'إفصاح المحتوى التجاري' : 'Commercial content disclosure'}</p>
+                        <label className="mt-2 flex items-start gap-2">
+                          <input type="checkbox" checked={tiktokOptions.brandOrganicToggle} onChange={event => setTikTokOptions(current => ({ ...current, brandOrganicToggle: event.target.checked }))} />
+                          {isAr ? 'المحتوى يروّج لعلامتي أو نشاطي التجاري' : 'The content promotes my own brand or business'}
+                        </label>
+                        <label className="mt-2 flex items-start gap-2">
+                          <input type="checkbox" checked={tiktokOptions.brandContentToggle} onChange={event => setTikTokOptions(current => ({ ...current, brandContentToggle: event.target.checked }))} />
+                          {isAr ? 'تعاون مدفوع أو ترويج لطرف ثالث' : 'Paid partnership or third-party promotion'}
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
+                  {approvedAutoTargets.includes('X') && (
+                    <div className="rounded-lg border border-slate-200 bg-white p-3">
+                      <p className="text-[11px] font-black text-slate-800">X</p>
+                      <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                        {scheduleAccounts.find(account => account.platform === 'X')
+                          ? (isAr
+                              ? `الحساب: ${scheduleAccounts.find(account => account.platform === 'X')?.accountName || 'X'}`
+                              : `Account: ${scheduleAccounts.find(account => account.platform === 'X')?.accountName || 'X'}`)
+                          : (isAr ? 'لا يوجد حساب X متصل بصلاحيات النشر والقراءة.' : 'No X account is connected with publish and read permissions.')}
+                      </p>
+                      <p className="mt-2 rounded-md bg-slate-50 p-2 text-[10px] font-semibold leading-4 text-slate-700">
+                        {isAr
+                          ? 'النشر التلقائي الحالي يدعم النصوص والصور المعتمدة فقط بحد أقصى 280 حرفًا. فيديو X غير مدعوم ولن يتم إرساله.'
+                          : 'Current auto-publishing supports approved text and image posts up to 280 characters. X video is not supported and will not be sent.'}
+                      </p>
+                    </div>
+                  )}
+
+                  {approvedAutoTargets.includes('THREADS') && (
+                    <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3">
+                      <div>
+                        <p className="text-[11px] font-black text-slate-800">Threads</p>
+                        <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                          {threadsAccount
+                            ? (isAr ? `الحساب: ${threadsAccount.accountName || 'Threads'} · الوضع: ${threadsAccount.accessTier || 'DEVELOPMENT'}` : `Account: ${threadsAccount.accountName || 'Threads'} · mode: ${threadsAccount.accessTier || 'DEVELOPMENT'}`)
+                            : (isAr ? 'لا يوجد حساب Threads متصل.' : 'No Threads account is connected.')}
+                        </p>
+                        {threadsAccount?.accessTier !== 'LIVE' && (
+                          <p className="mt-1 rounded-md bg-amber-50 p-2 text-[10px] font-semibold leading-4 text-amber-800">
+                            {isAr ? 'يلزم تفعيل تطبيق Meta في وضع Live قبل جدولة منشورات Threads للمستخدمين عامة.' : 'The Meta app must be Live before scheduling Threads posts for public users.'}
+                          </p>
+                        )}
+                      </div>
+                      {approvedThreadsPosts.map((post, index) => {
+                        const options = threadsOptionsByPostId[post.id] || defaultThreadsScheduleOptions(post)
+                        const update = (next: Partial<ThreadsScheduleOptions>) => setThreadsOptionsByPostId(current => ({
+                          ...current,
+                          [post.id]: { ...(current[post.id] || defaultThreadsScheduleOptions(post)), ...next },
+                        }))
+                        return (
+                          <fieldset key={post.id} className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                            <legend className="px-1 text-[10px] font-black text-slate-700">{isAr ? `منشور ${index + 1}` : `Post ${index + 1}`}</legend>
+                            {post.isVideoPost && <p className="rounded-md bg-amber-50 p-2 text-[10px] font-semibold text-amber-800">{isAr ? 'ناشر Threads الحالي يدعم النصوص والصور المعتمدة فقط.' : 'The current Threads publisher supports approved text and images only.'}</p>}
+                            <p className="text-[10px] font-semibold text-slate-600">{isAr ? `طول النص: ${Array.from(post.caption.trim()).length} من 500 حرف.` : `Copy length: ${Array.from(post.caption.trim()).length} of 500 characters.`}</p>
+                            <label className="block text-[10px] font-bold text-slate-600">
+                              {isAr ? 'من يستطيع الرد؟' : 'Who can reply?'}
+                              <select value={options.replyControl} onChange={event => update({ replyControl: event.target.value as ThreadsScheduleOptions['replyControl'] })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs">
+                                <option value="everyone">{isAr ? 'الجميع' : 'Everyone'}</option>
+                                <option value="accounts_you_follow">{isAr ? 'الحسابات التي أتابعها' : 'Accounts you follow'}</option>
+                                <option value="mentioned_only">{isAr ? 'الحسابات المذكورة فقط' : 'Mentioned accounts only'}</option>
+                              </select>
+                            </label>
+                            <label className="block text-[10px] font-bold text-slate-600">
+                              {isAr ? 'النص البديل للصورة' : 'Image alt text'}
+                              <textarea value={options.altText} maxLength={1000} rows={2} onChange={event => update({ altText: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs" />
+                            </label>
+                          </fieldset>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {approvedAutoTargets.includes('PINTEREST') && (
+                    <div className="space-y-3 rounded-lg border border-rose-100 bg-white p-3">
+                      <div>
+                        <p className="text-[11px] font-black text-slate-800">Pinterest</p>
+                        <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                          {pinterestAccount
+                            ? (isAr ? `الحساب: ${pinterestAccount.accountName || 'Pinterest'} · المستوى: ${pinterestAccount.accessTier || 'TRIAL'}` : `Account: ${pinterestAccount.accountName || 'Pinterest'} · tier: ${pinterestAccount.accessTier || 'TRIAL'}`)
+                            : (isAr ? 'لا يوجد حساب Pinterest متصل.' : 'No Pinterest account is connected.')}
+                        </p>
+                        {pinterestAccount?.accessTier !== 'STANDARD' && <p className="mt-1 rounded-md bg-amber-50 p-2 text-[10px] font-semibold leading-4 text-amber-800">{isAr ? 'يلزم Pinterest Standard access قبل جدولة Pins عامة.' : 'Pinterest Standard access is required before scheduling public Pins.'}</p>}
+                      </div>
+                      {approvedPinterestPosts.map((post, index) => {
+                        const onlyBoardId = pinterestAccount?.boards?.length === 1 ? pinterestAccount.boards[0].id : ''
+                        const options = pinterestOptionsByPostId[post.id] || defaultPinterestScheduleOptions(post, onlyBoardId)
+                        const update = (patch: Partial<PinterestScheduleOptions>) => setPinterestOptionsByPostId(current => ({ ...current, [post.id]: { ...(current[post.id] || defaultPinterestScheduleOptions(post, onlyBoardId)), ...patch } }))
+                        return (
+                          <fieldset key={post.id} className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                            <legend className="px-1 text-[10px] font-black text-slate-700">{isAr ? `Pin ${index + 1}` : `Pin ${index + 1}`}</legend>
+                            {post.isVideoPost && <p className="rounded-md bg-amber-50 p-2 text-[10px] font-semibold text-amber-800">{isAr ? 'هذا فيديو؛ ناشر Pinterest الحالي يقبل صورًا معتمدة فقط.' : 'This is a video; the current Pinterest publisher accepts approved images only.'}</p>}
+                            <label className="block text-[10px] font-bold text-slate-600">{isAr ? 'لوحة النشر' : 'Publishing Board'}<select value={options.boardId} onChange={event => update({ boardId: event.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs"><option value="">{isAr ? 'اختر اللوحة' : 'Select Board'}</option>{(pinterestAccount?.boards || []).map(board => <option key={board.id} value={board.id}>{board.name}</option>)}</select></label>
+                            <label className="block text-[10px] font-bold text-slate-600">{isAr ? 'عنوان Pin' : 'Pin title'}<input value={options.title} maxLength={100} onChange={event => update({ title: event.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs" /></label>
+                            <label className="block text-[10px] font-bold text-slate-600">{isAr ? 'النص البديل' : 'Alt text'}<textarea value={options.altText} maxLength={500} rows={2} onChange={event => update({ altText: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs" /></label>
+                            <label className="block text-[10px] font-bold text-slate-600">{isAr ? 'رابط الوجهة — اختياري' : 'Destination URL — optional'}<input type="url" value={options.destinationLink} placeholder="https://" onChange={event => update({ destinationLink: event.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs" /></label>
+                            <div className="space-y-2 rounded-md border border-slate-200 bg-white p-2 text-[10px] text-slate-600">
+                              <p className="font-black text-slate-700">{isAr ? 'إفصاح الذكاء الاصطناعي' : 'AI disclosure'}</p>
+                              <label className="flex items-start gap-2"><input type="checkbox" checked={options.aiModified} onChange={event => update({ aiModified: event.target.checked })} />{isAr ? 'الصورة الواقعية عُدلت بدرجة كبيرة بالذكاء الاصطناعي' : 'Realistic image was substantially AI-modified'}</label>
+                              <label className="flex items-start gap-2"><input type="checkbox" checked={options.syntheticPerformer} onChange={event => update({ syntheticPerformer: event.target.checked })} />{isAr ? 'تحتوي على مؤدٍ أو شخص اصطناعي' : 'Contains a synthetic performer or person'}</label>
+                              <label className="flex items-start gap-2 font-semibold text-slate-700"><input type="checkbox" checked={options.aiDisclosureReviewed} onChange={event => update({ aiDisclosureReviewed: event.target.checked })} />{isAr ? 'راجعت الإفصاح واخترت القيم الصحيحة.' : 'I reviewed the disclosure and selected the correct values.'}</label>
+                            </div>
+                          </fieldset>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {approvedAutoTargets.includes('YOUTUBE') && (
+                    <div className="space-y-3 rounded-lg border border-red-100 bg-white p-3">
+                      <div>
+                        <p className="text-[11px] font-black text-slate-800">YouTube</p>
+                        <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                          {scheduleAccounts.find(account => account.platform === 'YOUTUBE')
+                            ? (isAr
+                                ? `القناة: ${scheduleAccounts.find(account => account.platform === 'YOUTUBE')?.accountName || 'YouTube'}`
+                                : `Channel: ${scheduleAccounts.find(account => account.platform === 'YOUTUBE')?.accountName || 'YouTube'}`)
+                            : (isAr ? 'لا توجد قناة YouTube متصلة.' : 'No YouTube channel is connected.')}
+                        </p>
+                        <p className="mt-1 rounded-md bg-amber-50 p-2 text-[10px] font-semibold leading-4 text-amber-800">
+                          {isAr
+                            ? 'قد تفرض Google الرؤية على Private حتى اعتماد مشروع YouTube API، حتى لو اخترت Public.'
+                            : 'Google may force Private visibility until the YouTube API project passes audit, even when Public is selected.'}
+                        </p>
+                      </div>
+                      {approvedYouTubePosts.map((post, index) => {
+                        const options = youtubeOptionsByPostId[post.id] || defaultYouTubeScheduleOptions(post)
+                        const update = (patch: Partial<YouTubeScheduleOptions>) => {
+                          setYouTubeOptionsByPostId(current => ({
+                            ...current,
+                            [post.id]: { ...(current[post.id] || defaultYouTubeScheduleOptions(post)), ...patch },
+                          }))
+                        }
+                        return (
+                          <fieldset key={post.id} className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                            <legend className="px-1 text-[10px] font-black text-slate-700">
+                              {isAr ? `فيديو ${index + 1}` : `Video ${index + 1}`}
+                            </legend>
+                            <label className="block text-[10px] font-bold text-slate-600">
+                              {isAr ? 'عنوان الفيديو' : 'Video title'}
+                              <input value={options.title} maxLength={100} onChange={event => update({ title: event.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs" />
+                            </label>
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                              <label className="block text-[10px] font-bold text-slate-600">
+                                {isAr ? 'الخصوصية' : 'Privacy'}
+                                <select value={options.privacyStatus} onChange={event => update({ privacyStatus: event.target.value as YouTubeScheduleOptions['privacyStatus'] })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs">
+                                  <option value="private">{isAr ? 'خاص' : 'Private'}</option>
+                                  <option value="unlisted">{isAr ? 'غير مدرج' : 'Unlisted'}</option>
+                                  <option value="public">{isAr ? 'عام' : 'Public'}</option>
+                                </select>
+                              </label>
+                              <label className="block text-[10px] font-bold text-slate-600">
+                                {isAr ? 'موجّه للأطفال؟' : 'Made for kids?'}
+                                <select value={options.madeForKids} onChange={event => update({ madeForKids: event.target.value as YouTubeScheduleOptions['madeForKids'] })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs">
+                                  <option value="">{isAr ? 'اختر' : 'Choose'}</option>
+                                  <option value="no">{isAr ? 'لا' : 'No'}</option>
+                                  <option value="yes">{isAr ? 'نعم' : 'Yes'}</option>
+                                </select>
+                              </label>
+                              <label className="block text-[10px] font-bold text-slate-600">
+                                {isAr ? 'واقعي معدل/اصطناعي؟' : 'Altered/synthetic?'}
+                                <select value={options.syntheticMedia} onChange={event => update({ syntheticMedia: event.target.value as YouTubeScheduleOptions['syntheticMedia'] })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs">
+                                  <option value="">{isAr ? 'اختر' : 'Choose'}</option>
+                                  <option value="no">{isAr ? 'لا' : 'No'}</option>
+                                  <option value="yes">{isAr ? 'نعم' : 'Yes'}</option>
+                                </select>
+                              </label>
+                            </div>
+                            <label className="flex items-start gap-2 text-[10px] leading-4 text-slate-600">
+                              <input type="checkbox" checked={options.notifySubscribers} onChange={event => update({ notifySubscribers: event.target.checked })} className="mt-0.5" />
+                              {isAr ? 'إشعار المشتركين إذا سمحت قواعد القناة والرؤية' : 'Notify subscribers when channel and visibility rules allow it'}
+                            </label>
+                          </fieldset>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {youtubeAutoReviewIncomplete && (
+                    <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-5 text-amber-900">
+                      {isAr ? 'راجع عنوان كل فيديو وتصنيف الأطفال وإفصاح المحتوى المعدل أو الاصطناعي.' : 'Review each video title, made-for-kids setting, and altered or synthetic media disclosure.'}
+                    </p>
+                  )}
+
+                  {xAutoReviewIncomplete && (
+                    <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-5 text-amber-900">
+                      {isAr
+                        ? 'واحد أو أكثر من منشورات X يحتوي فيديو أو نصًا فارغًا أو يتجاوز 280 حرفًا. عدّل المنشور أو استخدم التنفيذ اليدوي.'
+                        : 'One or more X posts contains video, empty copy, or copy over 280 characters. Edit the post or use manual execution.'}
+                    </p>
+                  )}
+
+                  {pinterestAutoReviewIncomplete && (
+                    <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-5 text-amber-900">
+                      {isAr ? 'أكمل كل إعدادات Pinterest واختر لوحة، وراجع الإفصاح، وتأكد من Standard access وصورة ووصف لا يتجاوز 800 حرف.' : 'Complete every Pinterest setting, select a Board, review the disclosure, and confirm Standard access, an image, and copy no longer than 800 characters.'}
+                    </p>
+                  )}
+
+                  {threadsAutoReviewIncomplete && (
+                    <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-5 text-amber-900">
+                      {isAr ? 'أكمل إعدادات Threads، وتأكد من وضع Live، ونص لا يتجاوز 500 حرف، وصورة مع نص بديل، وعدم وجود فيديو.' : 'Complete Threads settings and confirm Live mode, copy no longer than 500 characters, an image with alt text, and no video.'}
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
                 <div>
@@ -2168,18 +2905,30 @@ export default function ContentHubPage() {
                 </p>
               )}
 
+              {schedulingBlockedByTruthReview && (
+                <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-5 text-rose-900">
+                  {isAr
+                    ? 'يحتوي المحتوى المعتمد على صياغات عامة أو ملاحظات جودة. أعده للمراجعة أو أعد توليده قبل الجدولة.'
+                    : 'Approved content contains generic wording or other quality findings. Reopen or regenerate it before scheduling.'}
+                </p>
+              )}
+
               <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm leading-5 text-slate-600">
                 <input
                   type="checkbox"
                   checked={scheduleAcknowledged}
-                  disabled={scheduling || approvedPostsWithDates.length === 0 || schedulingBlockedByMedia}
+                  disabled={scheduling || approvedPostsWithDates.length === 0 || schedulingDecisionBlocked}
                   onChange={event => setScheduleAcknowledged(event.target.checked)}
                   className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#5E63FF]"
                 />
                 <span>
                   {isAr
-                    ? 'راجعت عدد المنشورات والتواريخ، وأفهم أن الجدولة تحفظ قرار التنفيذ داخل NEXUS فقط ولا تعني النشر.'
-                    : 'I reviewed the post count and dates, and understand that scheduling records the execution plan in NEXUS only; it does not mean publishing.'}
+                    ? (scheduleMode === 'AUTO'
+                        ? 'راجعت المحتوى والتواريخ والوجهات، وأوافق صراحةً أن يرسل NEXUS المنشورات المعتمدة إلى المنصات في مواعيدها.'
+                        : 'راجعت عدد المنشورات والتواريخ، وأفهم أن هذه جدولة للتنفيذ اليدوي ولا تعني النشر.')
+                    : (scheduleMode === 'AUTO'
+                        ? 'I reviewed the content, dates, and destinations, and explicitly authorize NEXUS to send these approved posts at their scheduled times.'
+                        : 'I reviewed the post count and dates, and understand this is a manual execution schedule, not publishing.')}
                 </span>
               </label>
 
@@ -2198,7 +2947,7 @@ export default function ContentHubPage() {
                 <button
                   type="button"
                   onClick={scheduleAll}
-                  disabled={scheduling || !scheduleAcknowledged || approvedPostsWithDates.length === 0 || schedulingBlockedByMedia}
+                  disabled={scheduling || !scheduleAcknowledged || approvedPostsWithDates.length === 0 || schedulingDecisionBlocked}
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#4F46E5] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   {scheduling
@@ -2553,9 +3302,13 @@ export default function ContentHubPage() {
 
                 <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
                   <p>
-                    {isAr
-                      ? 'سيؤدي ذلك إلى تحديث وسائط معاينة المنشور داخل مركز المحتوى. لا ينشر ولا يضيف جدولة ولا يغير حالة النشر اليدوي أو النشر عبر API.'
-                      : 'This will update the post preview media in Content Hub. It does not publish, schedule, or change manual/API publish status.'}
+                    {pendingAttachmentReopensReview
+                      ? (isAr
+                          ? 'سيؤدي تغيير الوسائط إلى إعادة المنشور لمسودة وإلغاء اعتماده وقرار تنفيذه حتى يراجع مرة أخرى.'
+                          : 'Changing media reopens this post as a draft and clears approval and execution assignment until it is reviewed again.')
+                      : (isAr
+                          ? 'سيؤدي ذلك إلى تحديث وسائط معاينة المنشور داخل مركز المحتوى دون نشره أو جدولته.'
+                          : 'This updates the post preview media in Content Hub without publishing or scheduling it.')}
                   </p>
                   {pendingMediaAttachment.action === 'replace' && (
                     <p>
@@ -2574,9 +3327,13 @@ export default function ContentHubPage() {
                     onChange={e => setMediaAttachmentAcknowledged(e.target.checked)}
                   />
                   <span className="text-xs leading-5 text-slate-600">
-                    {isAr
-                      ? 'أفهم أن هذا يغيّر وسائط معاينة المنشور فقط داخل Content Hub.'
-                      : 'I understand this changes only the post preview media inside Content Hub.'}
+                    {pendingAttachmentReopensReview
+                      ? (isAr
+                          ? 'أفهم أن تغيير الوسائط يعيد المنشور للمراجعة ويلغي قرار التنفيذ السابق.'
+                          : 'I understand that changing media reopens the post for review and clears its previous execution decision.')
+                      : (isAr
+                          ? 'أفهم أن هذا يغيّر وسائط معاينة المنشور فقط داخل Content Hub.'
+                          : 'I understand this changes only the post preview media inside Content Hub.')}
                   </span>
                 </label>
 
@@ -2618,9 +3375,13 @@ export default function ContentHubPage() {
 
                 <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
                   <p>
-                    {isAr
-                      ? 'سيؤدي ذلك إلى إزالة الوسائط المرتبطة بالمنشور في مركز المحتوى. لا يحذف الأصل من مكتبة الوسائط ولا يغيّر حالة النشر.'
-                      : 'This will clear the post-linked media in Content Hub. It does not delete the asset from Media Library and does not change publishing status.'}
+                    {mediaRemovalReopensReview
+                      ? (isAr
+                          ? 'ستعيد إزالة الوسائط المنشور لمسودة وتلغي اعتماده وقرار تنفيذه. الأصل نفسه لن يُحذف من مكتبة الوسائط.'
+                          : 'Removing media reopens the post as a draft and clears approval and execution assignment. The asset itself stays in Media Library.')
+                      : (isAr
+                          ? 'سيؤدي ذلك إلى إزالة الوسائط المرتبطة بالمنشور في مركز المحتوى دون حذف الأصل من مكتبة الوسائط.'
+                          : 'This clears the post-linked media in Content Hub without deleting the asset from Media Library.')}
                   </p>
                   <p>
                     {isAr
@@ -2637,9 +3398,13 @@ export default function ContentHubPage() {
                     onChange={e => setMediaRemovalAcknowledged(e.target.checked)}
                   />
                   <span className="text-xs leading-5 text-slate-600">
-                    {isAr
-                      ? 'أفهم أن هذا يزيل الوسائط من معاينة المنشور فقط.'
-                      : 'I understand this removes media only from this post preview.'}
+                    {mediaRemovalReopensReview
+                      ? (isAr
+                          ? 'أفهم أن إزالة الوسائط تعيد المنشور للمراجعة وتلغي قرار التنفيذ السابق.'
+                          : 'I understand that removing media reopens the post for review and clears its previous execution decision.')
+                      : (isAr
+                          ? 'أفهم أن هذا يزيل الوسائط من معاينة المنشور فقط.'
+                          : 'I understand this removes media only from this post preview.')}
                   </span>
                 </label>
 
@@ -2681,7 +3446,13 @@ export default function ContentHubPage() {
                 </div>
                 <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
                   <p>{isAr ? 'الصورة المولّدة ستحدّث وسائط معاينة هذا المنشور إذا نجح التوليد.' : 'The generated image will update this post preview media if generation succeeds.'}</p>
-                  <p>{isAr ? 'لا يتم النشر أو الجدولة أو تغيير حالة النشر اليدوي أو النشر عبر API.' : 'This does not publish, schedule, or change manual/API publish status.'}</p>
+                  <p>{imageGenerationReopensReview
+                    ? (isAr
+                        ? 'عند ربط الصورة الجديدة سيعود المنشور لمسودة ويلغى اعتماده وقرار تنفيذه حتى تراجعه من جديد.'
+                        : 'Attaching the new image reopens this post as a draft and clears approval and execution assignment until it is reviewed again.')
+                    : (isAr
+                        ? 'لا يتم النشر أو إنشاء جدولة من توليد الصورة.'
+                        : 'Image generation does not publish or create a schedule.')}</p>
                   <p>{isAr ? 'لا يتم تحديث إشارات Brand Brain من توليد الصورة.' : 'This does not update Brand Brain signals.'}</p>
                   <p>{isAr ? 'يتم رد تكلفة عمليات التوليد الفاشلة عندما تدعمها آلية المنتج الحالية.' : 'Failed generations are refunded when the existing product refund logic supports it.'}</p>
                 </div>
@@ -2729,6 +3500,7 @@ export default function ContentHubPage() {
                   <button onClick={closeGeneratePlanConfirm} disabled={generatingPlan} className="text-xl leading-none text-slate-400 hover:text-slate-700 disabled:opacity-40">×</button>
                 </div>
                 <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
+                  <p className="font-bold text-slate-800">{contentPlanCostBreakdown}</p>
                   <p>{generatePlanConfirmSafety}</p>
                   <p>{isAr ? 'يمكنك مراجعة المسودات وتحريرها قبل أي خطوة اعتماد أو جدولة.' : 'You can review and edit the drafts before any approval or scheduling step.'}</p>
                   <p>{creditBalanceLabel}</p>
@@ -2980,66 +3752,7 @@ export default function ContentHubPage() {
   )
 }
 
-// ── Caption Quality Scorer ────────────────────────────────────────────────────
-// Pure client-side — no API call. Returns grade + score + breakdown for tooltip.
-
-const PLATFORM_IDEAL_LEN: Record<string, [number, number]> = {
-  TIKTOK:    [60,  150],
-  INSTAGRAM: [125, 300],
-  META:      [100, 250],
-  FACEBOOK:  [100, 250],
-  LINKEDIN:  [200, 500],
-  X:         [80,  230],
-  TWITTER:   [80,  230],
-  GENERAL:   [100, 300],
-}
-
-function scoreCaption(caption: string, platform: string): { grade: 'A+' | 'A' | 'B' | 'C'; score: number; color: string; tip: string } {
-  if (!caption || caption.length < 10) return { grade: 'C', score: 0, color: '#ef4444', tip: 'Caption is too short' }
-
-  let score = 0
-  const tips: string[] = []
-  const p = platform?.toUpperCase() || 'GENERAL'
-  const first = caption.split('\n')[0] || caption.slice(0, 100)
-
-  // ── Hook quality (25 pts) — compelling opening ─────────────────────────���───
-  const hookPatterns = [/^[🔥💡⚡🚀🎯✨💪🙌👇]/u, /\?/, /^[0-9]/, /\b(how|why|what|top|best|secret|truth|want|need|stop|start|never|always|warning|attention|breaking|introducing|announcing)\b/i]
-  const hookScore = hookPatterns.filter(p => p.test(first)).length
-  if (hookScore >= 2) score += 25
-  else if (hookScore === 1) { score += 12; tips.push('Strengthen your opening hook') }
-  else tips.push('Add a compelling hook to the first line')
-
-  // ── CTA presence (25 pts) ───────────────────────��─────────────────────────
-  const ctaPatterns = /\b(click|tap|swipe|comment|follow|save|share|like|tag|visit|check|learn|get|sign up|subscribe|dm|message|link in bio|try|buy|order|book|register)\b/i
-  if (ctaPatterns.test(caption)) score += 25
-  else tips.push('Add a clear call-to-action')
-
-  // ── Length appropriateness (20 pts) ──────────────────────────────────────
-  const [minLen, maxLen] = PLATFORM_IDEAL_LEN[p] ?? [100, 300]
-  const len = caption.length
-  if (len >= minLen && len <= maxLen) score += 20
-  else if (len < minLen) { score += 8; tips.push(`Caption is short for ${p}`) }
-  else { score += 12; tips.push('Consider trimming for better reach') }
-
-  // ── Emoji presence (15 pts) ───────────────────────────────────────────────
-  const emojiCount = (caption.match(/\p{Emoji}/gu) || []).length
-  if (emojiCount >= 1 && emojiCount <= 5) score += 15
-  else if (emojiCount > 5) { score += 8; tips.push('Too many emojis — aim for 1-5') }
-  else tips.push('Add 1-2 emojis to increase engagement')
-
-  // ── Hashtags (15 pts) ─────────────────────────────────────────────────────
-  const hashCount = (caption.match(/#\w+/g) || []).length
-  if (hashCount >= 2 && hashCount <= 10) score += 15
-  else if (hashCount === 1) { score += 8; tips.push('Add 3-5 relevant hashtags') }
-  else if (hashCount > 10) { score += 10; tips.push('Too many hashtags — aim for 3-7') }
-  else tips.push('Add relevant hashtags')
-
-  const clampedScore = Math.min(100, score)
-  const grade = clampedScore >= 85 ? 'A+' : clampedScore >= 70 ? 'A' : clampedScore >= 50 ? 'B' : 'C'
-  const color = clampedScore >= 85 ? '#10b981' : clampedScore >= 70 ? '#06b6d4' : clampedScore >= 50 ? '#f59e0b' : '#ef4444'
-  const tip = tips.length > 0 ? tips[0] : grade === 'A+' ? 'Excellent post quality!' : 'Good post'
-  return { grade, score: clampedScore, color, tip }
-}
+// ── Post card ─────────────────────────────────────────────────────────────────
 
 // ── PostCard Component ─────────────────────────────────────────────────────────
 
@@ -3071,6 +3784,7 @@ interface PostCardProps {
   onRewrite: (instruction: string) => Promise<void>
   onPickWinner?: () => void
   onManualPublish?: () => void
+  qualityIssueCount: number
   onPlatformPublished: () => void | Promise<void>
 }
 
@@ -3098,6 +3812,7 @@ function PostCard({
   onRewrite,
   onPickWinner,
   onManualPublish,
+  qualityIssueCount,
   onPlatformPublished,
 }: PostCardProps) {
   const { t, locale } = useI18n()
@@ -3110,8 +3825,10 @@ function PostCard({
   const hasImage = !!post.imageUrl
   const isVideo = post.isVideoPost
   const status = post.generationStatus
-  const quality = caption.length > 20 ? scoreCaption(caption, platform) : null
   const mediaState = deriveContentHubMediaState(post)
+  const postImmutable = post.status === 'PUBLISHED' || post.status === 'PROCESSING'
+  const editReopensReview = ['APPROVED', 'SCHEDULED', 'FAILED'].includes(post.status)
+  const executionBlockedByQuality = qualityIssueCount > 0
 
   const statusColor = {
     PENDING: '#f59e0b', GENERATING: '#6366f1', DONE: '#10b981',
@@ -3156,6 +3873,10 @@ function PostCard({
       label: isAr ? 'مجدول' : 'Scheduled',
       color: '#6366f1',
     },
+    PROCESSING: {
+      label: isAr ? 'قيد تأكيد المنصة' : 'Awaiting platform confirmation',
+      color: '#7c3aed',
+    },
     PUBLISHED: {
       label: isAr ? 'منشور' : 'Published',
       color: '#10b981',
@@ -3198,15 +3919,6 @@ function PostCard({
           )}
         </div>
         <div className="flex items-center gap-1.5">
-          {/* Quality Score Badge */}
-          {quality && (
-            <span
-              title={quality.tip}
-              className="text-[10px] font-black px-1.5 py-0.5 rounded-md cursor-help"
-              style={{ background: `${quality.color}15`, color: quality.color, border: `1px solid ${quality.color}35`, letterSpacing: '0.02em' }}>
-              {quality.grade}
-            </span>
-          )}
           {lifecycleBadge && (
             <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
               style={{ background: `${lifecycleBadge.color}14`, color: lifecycleBadge.color, border: `1px solid ${lifecycleBadge.color}2E` }}>
@@ -3270,6 +3982,15 @@ function PostCard({
         </div>
       </div>
 
+      {executionBlockedByQuality && (
+        <div className="border-t border-rose-200 bg-rose-50 px-3 py-3 text-[11px] leading-5 text-rose-800">
+          <p className="font-black">{isAr ? 'يحتاج مراجعة النص قبل التنفيذ' : 'Copy review required before execution'}</p>
+          <p>{isAr
+            ? `رصد NEXUS ${qualityIssueCount} ملاحظة جودة. عدّل النص أو أعد صياغته؛ لن يظهر مسار النشر حتى ينجح الفحص.`
+            : `NEXUS found ${qualityIssueCount} quality finding${qualityIssueCount === 1 ? '' : 's'}. Edit or rewrite the copy; publishing stays hidden until the review passes.`}</p>
+        </div>
+      )}
+
       {/* ── Manual publishing (PR4): only for MANUAL + SCHEDULED posts ───── */}
       {post.status === 'SCHEDULED' && post.publishMode !== 'AUTO' && onManualPublish && (
         <div className="px-3 pb-3 pt-2" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
@@ -3297,16 +4018,21 @@ function PostCard({
         </div>
       )}
 
-      <PostPlatformPublisher
-        postId={post.id}
-        campaignId={campaignId}
-        platform={post.platform}
-        status={post.status}
-        hasMedia={Boolean(post.imageUrl)}
-        onPublished={onPlatformPublished}
-      />
+      {!executionBlockedByQuality && (
+        <PostPlatformPublisher
+          postId={post.id}
+          campaignId={campaignId}
+          platform={post.platform}
+          status={post.status}
+          hasMedia={Boolean(post.imageUrl)}
+          isVideoPost={post.isVideoPost}
+          captionLength={Array.from(post.caption.trim()).length}
+          caption={post.caption}
+          onPublished={onPlatformPublished}
+        />
+      )}
 
-      {hasImage && (
+      {hasImage && !postImmutable && (
         <div className="px-3 pb-3 pt-2" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
           <button
             onClick={onRemoveMedia}
@@ -3316,7 +4042,9 @@ function PostCard({
             {isAr ? 'إزالة الوسائط من المنشور' : 'Remove media from post'}
           </button>
           <p className="text-[10px] text-slate-400 mt-1 text-center">
-            {isAr ? 'يزيل الوسائط من المعاينة فقط، ولا يحذف الأصل من مكتبة الوسائط.' : 'Clears preview media only; the asset stays in Media Library.'}
+            {editReopensReview
+              ? (isAr ? 'إزالة الوسائط تعيد المنشور لمسودة وتلغي اعتماده وجدولة تنفيذه؛ الأصل يبقى في المكتبة.' : 'Removing media reopens the post as a draft and clears approval/execution scheduling; the asset stays in the library.')
+              : (isAr ? 'يزيل الوسائط من المعاينة فقط، ولا يحذف الأصل من مكتبة الوسائط.' : 'Clears preview media only; the asset stays in Media Library.')}
           </p>
         </div>
       )}
@@ -3396,13 +4124,15 @@ function PostCard({
       )}
 
       {/* ── Review-safe post actions ─────── */}
-      <div className="border-t px-3 py-3 space-y-2" style={{ borderColor: 'rgba(15,23,42,0.08)' }}>
+      {!postImmutable && <div className="border-t px-3 py-3 space-y-2" style={{ borderColor: 'rgba(15,23,42,0.08)' }}>
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
             {t('contentHub.postActions')}
           </p>
           <p className="text-[10px] leading-snug text-slate-500">
-            {t('contentHub.postActionsSafety')}
+            {editReopensReview
+              ? (isAr ? 'أي تعديل يعيد المنشور لمسودة ويلغي الاعتماد وقرار التنفيذ حتى تراجعه من جديد.' : 'Any edit reopens this post as a draft and clears approval and execution assignment until it is reviewed again.')
+              : t('contentHub.postActionsSafety')}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -3471,7 +4201,7 @@ function PostCard({
           </button>
         )}
         </div>
-      </div>
+      </div>}
     </div>
   )
 }
@@ -3685,6 +4415,7 @@ function GenericMockup({ caption, imageUrl, isVideo, status, platform, isExpande
 }) {
   const { t } = useI18n()
   const cfg = getPlatformConfig(platform)
+  const isPinterest = platform.toUpperCase() === 'PINTEREST'
   const shortCaption = !isExpanded && caption.length > 120 ? caption.slice(0, 120) + '…' : caption
   return (
     <div style={{ background: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
@@ -3701,17 +4432,27 @@ function GenericMockup({ caption, imageUrl, isVideo, status, platform, isExpande
           <button onClick={onExpandToggle} className="text-gray-500 ml-1 text-[11px]">{isExpanded ? 'less' : 'more'}</button>
         )}
       </div>
-      <div className="relative w-full" style={{ aspectRatio: '16/9', background: '#f3f3f3', overflow: 'hidden' }}>
+      <div className="relative w-full" style={{ aspectRatio: isPinterest ? '2/3' : '16/9', maxHeight: isPinterest ? 520 : undefined, background: '#f3f3f3', overflow: 'hidden' }}>
         {imageUrl ? (
-          <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <img src={imageUrl} alt={isPinterest ? caption.slice(0, 500) : ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
           <ImagePlaceholder isVideo={isVideo} status={status} dark={false} />
         )}
       </div>
       <div className="flex items-center gap-4 px-3 py-2 text-[11px] text-gray-500">
-        <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>👍 Like</span>
-        <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>💬 Comment</span>
-        <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>↗ Share</span>
+        {isPinterest ? (
+          <>
+            <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>📌 Save</span>
+            <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>💬 Comment</span>
+            <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>↗ Visit</span>
+          </>
+        ) : (
+          <>
+            <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>👍 Like</span>
+            <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>💬 Comment</span>
+            <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>↗ Share</span>
+          </>
+        )}
       </div>
     </div>
   )

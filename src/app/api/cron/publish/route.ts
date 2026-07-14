@@ -4,20 +4,24 @@ import { decryptToken } from '@/lib/tokenCrypto'
 import { autoPublishWhere, skippedManualWhere, isAutoPublishEligible } from '@/lib/publishGate'
 import { cronAuthError } from '@/lib/cronAuth'
 import { isRetryableSocialPublishError, publishSocialPost } from '@/lib/socialPublishers'
+import { hasVerifiedProviderScope, X_CONTENT_SCOPES } from '@/lib/socialPlatformConfig'
+import { buildLearningEvent } from '@/lib/brandBrainEvents'
+import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState'
+import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
+import { YOUTUBE_READ_SCOPE, YOUTUBE_UPLOAD_SCOPE } from '@/lib/youtubePublishing'
+import { PINTEREST_PUBLISH_SCOPES } from '@/lib/pinterestPublishing'
+import { THREADS_OPERATIONAL_SCOPES } from '@/lib/threadsPublishing'
+import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 /**
- * GET  /api/cron/publish  — triggered by Vercel cron (daily at 10:00 UTC — Hobby plan backup)
- * POST /api/cron/publish  — triggered by external cron service every hour for precise scheduling
+ * GET  /api/cron/publish  — triggered by Vercel cron every hour at minute 5.
+ * POST /api/cron/publish  — authenticated manual/backup trigger using the same job.
  *
- * External cron setup (cron-job.org — FREE, no account needed):
- *   1. Go to https://cron-job.org → Create free account
- *   2. New cronjob → URL: https://nexus-grow.com/api/cron/publish
- *   3. Schedule: every 60 minutes
- *   4. Request method: POST
- *   5. Headers → Add header: Authorization: Bearer <CRON_SECRET value from Vercel env>
- *   This gives hourly precision on Vercel Hobby plan at zero cost.
+ * This is hourly scheduling, not real-time delivery. The UI must never promise
+ * minute-level publishing precision.
  */
 
 // ── Core publish logic ─────────────────────────────────────────
@@ -50,15 +54,101 @@ async function runPublishJob() {
     .catch(() => 0)
   const autoEligibleCount = duePosts.length
 
+  // Revalidate the strategy against the current Brand Brain immediately before
+  // a provider call. This closes the legacy/stale-approval gap: editing Brand
+  // Brain after scheduling cannot leave contradictory copy eligible to publish.
+  const campaignIds = Array.from(new Set(
+    duePosts.map((post: any) => post.campaignId).filter((id): id is string => typeof id === 'string' && Boolean(id)),
+  ))
+  const publishCampaigns = campaignIds.length > 0
+    ? await prisma.campaign.findMany({
+        where: { id: { in: campaignIds } },
+        select: { id: true, workspaceId: true, aiOutput: true, goal: true, platforms: true },
+      })
+    : []
+  const workspaceIds = Array.from(new Set(publishCampaigns.map(campaign => campaign.workspaceId)))
+  const publishBrands = workspaceIds.length > 0
+    ? await prisma.brandProfile.findMany({ where: { workspaceId: { in: workspaceIds } } })
+    : []
+  const campaignById = new Map(publishCampaigns.map(campaign => [campaign.id, campaign]))
+  const brandByWorkspaceId = new Map(publishBrands.map(brand => [brand.workspaceId, brand]))
+
   console.log(`[Cron:publish] AUTO-eligible: ${autoEligibleCount} · skipped (manual/legacy, untouched): ${skippedManualCount}`)
 
   const results = await Promise.allSettled(
     duePosts.map(async (post) => {
       let providerResult: Awaited<ReturnType<typeof publishSocialPost>> | null = null
       try {
+        const campaign = typeof post.campaignId === 'string' ? campaignById.get(post.campaignId) : null
+        if (!campaign) throw new Error('MARKETING_QUALITY_GATE_FAILED: campaign strategy is unavailable')
+        const brand = brandByWorkspaceId.get(campaign.workspaceId)
+        if (!brand) throw new Error('MARKETING_QUALITY_GATE_FAILED: Brand Brain is unavailable')
+        const aiOutput = campaign.aiOutput && typeof campaign.aiOutput === 'object' && !Array.isArray(campaign.aiOutput)
+          ? campaign.aiOutput as Record<string, unknown>
+          : {}
+        const strategyQuality = reviewStrategyGrounding({
+          strategy: aiOutput.strategy ?? aiOutput,
+          brand,
+          allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms.map(String) : [],
+          goal: String(campaign.goal),
+        })
+        if (strategyQuality.status !== 'passed') {
+          throw new Error(`MARKETING_QUALITY_GATE_FAILED: ${strategyQuality.blockers.map(blocker => blocker.code).join(', ')}`)
+        }
+
         // BUG-01 fix: no optimistic write — only write PUBLISHED after platform confirms
         const integration = post.integration
         if (!integration?.accessToken) throw new Error('No access token')
+        if (!isContentPostMediaReadyForScheduling(post)) {
+          throw new Error('CONTENT_REVIEW_REQUIRED: scheduled media is no longer ready for publishing')
+        }
+        const publishReview = reviewContentPostForPublishing(post)
+        if (publishReview.length > 0) {
+          throw new Error(`CONTENT_REVIEW_REQUIRED: ${publishReview.map(issue => issue.reason).join(', ')}`)
+        }
+        const rawTarget = String(post.publishTarget || post.platform).toUpperCase()
+        const target = rawTarget === 'YOUTUBE_SHORTS'
+          ? 'YOUTUBE'
+          : rawTarget === 'TWITTER'
+            ? 'X'
+            : rawTarget
+        if (target === 'X' && post.isVideoPost) {
+          throw new Error('X_VIDEO_NOT_SUPPORTED: scheduled X publishing supports reviewed text and images only')
+        }
+        if (target === 'PINTEREST' && post.isVideoPost) {
+          throw new Error('PINTEREST_IMAGE_REQUIRED: scheduled Pinterest publishing supports reviewed image Pins only')
+        }
+        if (target === 'PINTEREST' && String((integration.config as any)?.accessTier || '').toUpperCase() !== 'STANDARD') {
+          throw new Error('PINTEREST_STANDARD_ACCESS_REQUIRED: public scheduled Pins require Pinterest Standard access')
+        }
+        if (target === 'THREADS' && post.isVideoPost) {
+          throw new Error('THREADS_VIDEO_NOT_SUPPORTED: scheduled Threads publishing supports reviewed text and images only')
+        }
+        if (target === 'THREADS' && String((integration.config as any)?.accessTier || '').toUpperCase() !== 'LIVE') {
+          throw new Error('THREADS_LIVE_ACCESS_REQUIRED: public scheduled Threads posts require a Live Meta app')
+        }
+        const requiredScopes = target === 'FACEBOOK'
+          ? ['pages_manage_posts']
+          : target === 'INSTAGRAM'
+            ? ['instagram_content_publish']
+            : target === 'LINKEDIN'
+              ? [post.pageId ? 'w_organization_social' : 'w_member_social']
+              : target === 'TIKTOK'
+                ? ['video.publish']
+                : target === 'X'
+                  ? [...X_CONTENT_SCOPES]
+                  : target === 'PINTEREST'
+                    ? [...PINTEREST_PUBLISH_SCOPES]
+                  : target === 'THREADS'
+                    ? [...THREADS_OPERATIONAL_SCOPES]
+                  : [YOUTUBE_UPLOAD_SCOPE]
+        const missingScope = requiredScopes.find(scope => !hasVerifiedProviderScope(integration.config, scope))
+        if (missingScope) {
+          throw new Error(`Verified ${missingScope} permission is unavailable; reconnect before publishing`)
+        }
+        if (target === 'YOUTUBE' && !hasVerifiedProviderScope(integration.config, YOUTUBE_READ_SCOPE)) {
+          throw new Error(`Verified ${YOUTUBE_READ_SCOPE} permission is unavailable; reconnect before publishing`)
+        }
 
         // Resolve a page-level token where Meta supplied one. Match either the
         // Facebook Page ID or its linked Instagram account ID.
@@ -67,13 +157,14 @@ async function runPublishJob() {
         const rawPageToken = page?.accessToken || integration.accessToken
         const accessToken = decryptToken(rawPageToken) ?? rawPageToken
         providerResult = await publishSocialPost({
-          platform: String(post.platform),
+          platform: target,
           caption: post.caption,
           imageUrl: post.imageUrl,
           pageId: post.pageId,
           accountId: integration.accountId,
           accessToken,
           integrationConfig: integration.config as Record<string, unknown> | null,
+          platformOptions: post.platformOptions as Record<string, unknown> | null,
         })
 
       } catch (err) {
@@ -114,21 +205,63 @@ async function runPublishJob() {
             note: `[PUBLISH_FAILED] ${message}`.slice(0, 500),
           },
         }).catch(() => {})
+        const failedEvent = buildLearningEvent({
+          workspaceId: post.workspaceId,
+          campaignId: post.campaignId,
+          socialPostId: post.id,
+          from: 'SCHEDULED',
+          to: 'FAILED',
+          actor: 'CRON',
+          publishMode: 'AUTO',
+          platform: String(post.publishTarget || post.platform),
+          scheduledAt: post.scheduledAt,
+        })
+        if (failedEvent) await prisma.marketingLearningEvent.create({ data: failedEvent as any }).catch(() => {})
         return { id: post.id, success: false, retryScheduled: false, error: message }
       }
 
       try {
+        const processing = providerResult.state === 'PROCESSING'
         await prisma.socialPost.update({
           where: { id: post.id },
           data: {
-            status: 'PUBLISHED',
-            publishedAt: now,
+            status: processing ? 'PROCESSING' : 'PUBLISHED',
+            publishedAt: processing ? null : now,
+            publishAttemptedAt: now,
             platformPostId: providerResult.platformPostId,
             platformUrl: providerResult.platformUrl ?? null,
             errorMessage: null,
           },
         })
-        return { id: post.id, success: true }
+        await prisma.postStatusHistory.create({
+          data: {
+            socialPostId: post.id,
+            workspaceId: post.workspaceId,
+            fromStatus: 'SCHEDULED',
+            toStatus: processing ? 'PROCESSING' : 'PUBLISHED',
+            actor: 'CRON',
+            note: processing
+              ? '[PUBLISH_PROCESSING] Provider accepted the upload; awaiting final confirmation'
+              : '[PUBLISH_CONFIRMED] Provider confirmed publication',
+          },
+        }).catch(() => {})
+        if (!processing) {
+          const event = buildLearningEvent({
+            workspaceId: post.workspaceId,
+            campaignId: post.campaignId,
+            socialPostId: post.id,
+            from: 'SCHEDULED',
+            to: 'PUBLISHED',
+            actor: 'CRON',
+            publishMode: 'AUTO',
+            platform: String(post.publishTarget || post.platform),
+            scheduledAt: post.scheduledAt,
+            publishedAt: now,
+            platformUrl: providerResult.platformUrl ?? null,
+          })
+          if (event) await prisma.marketingLearningEvent.create({ data: event as any }).catch(() => {})
+        }
+        return { id: post.id, success: true, processing }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Database persistence failed'
         const reconciliationMessage = `RECONCILIATION_REQUIRED: platform confirmed ${providerResult.platformPostId}, but local persistence failed: ${message}`

@@ -270,6 +270,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
     hasActiveSubscription: billingStatus?.hasActiveSubscription,
     creditsRemaining: billingStatus?.credits?.remaining,
     creditsMax: billingStatus?.credits?.max,
+    billingEnabled: billingStatus?.billingEnabled,
     billingLoaded: !billingLoading,
     locale,
   })
@@ -292,10 +293,8 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       separatorBefore: true,
       items: [
         { href: '/brand', labelAr: 'Brand Brain', labelEn: 'Brand Brain', icon: Icons.brain },
-        { href: '/strategy', labelAr: 'الاستراتيجية', labelEn: 'Strategy', icon: Icons.strategy },
-        { href: '/campaigns', labelAr: 'الحملات', labelEn: 'Campaigns', icon: Icons.campaigns },
-        { href: '/content-hub', labelAr: 'المحتوى', labelEn: 'Content', icon: Icons.media },
-        { href: '/publish', labelAr: 'النشر', labelEn: 'Publish', icon: Icons.calendar },
+        { href: '/strategy', labelAr: 'الاستراتيجية والحملات', labelEn: 'Strategy & campaigns', icon: Icons.strategy },
+        { href: '/content-hub', labelAr: 'المحتوى والنشر', labelEn: 'Content & publishing', icon: Icons.media },
         { href: '/analytics', labelAr: 'النتائج', labelEn: 'Results', icon: Icons.analytics },
       ],
     },
@@ -305,9 +304,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       labelEn: 'System',
       separatorBefore: true,
       items: [
-        { href: '/automation', labelAr: 'الأتمتة', labelEn: 'Automation', icon: Icons.learning },
         { href: '/connections', labelAr: 'الربط', labelEn: 'Connections', icon: Icons.connections },
-        { href: '/settings', labelAr: 'الإعدادات', labelEn: 'Settings', icon: Icons.settings },
       ],
     },
   ]
@@ -337,6 +334,19 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
               AI MARKETING OS
             </div>
           </div>
+        )}
+        {onMobileClose && (
+          <button
+            type="button"
+            onClick={onMobileClose}
+            className="md:hidden ms-auto inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-900"
+            aria-label={t('common.close')}
+            title={t('common.close')}
+          >
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M3 3l10 10M13 3L3 13" />
+            </svg>
+          </button>
         )}
       </div>
 

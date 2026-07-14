@@ -34,6 +34,21 @@ describe('performance evidence contract', () => {
     })
   })
 
+  it('accepts YouTube view-based evidence without inventing unavailable metrics', () => {
+    const result = buildPerformanceEvidence({
+      platform: 'YOUTUBE',
+      platformPostId: 'video-1',
+      collectedAt: now,
+      metrics: { likes: 25, comments: 5, shares: 0, impressions: 1_000, reach: 0 },
+    })
+    expect(readPerformanceEvidence(result)).toMatchObject({
+      platform: 'YOUTUBE',
+      denominator: 1_000,
+      engagementCount: 30,
+      engagementRate: 3,
+    })
+  })
+
   it('rejects empty and workflow-only legacy payloads', () => {
     expect(hasRealPerformanceAnalytics(null)).toBe(false)
     expect(hasRealPerformanceAnalytics(undefined)).toBe(false)

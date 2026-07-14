@@ -10,11 +10,12 @@ import {
 } from '@/lib/ai/promptRules'
 import {
   checkAndDeductCredits,
-  refundCredits,
-  refundCreditsForTransaction,
+  getCreditActionPolicy,
+  refundCreditDeduction,
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { guardBrandText, guardBrandList } from '@/lib/ai/brandTruthGuard'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 /* ═══════════════════════════════════════════════════════════════
    POST /api/brand/suggest
@@ -53,10 +54,10 @@ You must stay 100% within the brand's actual industry. If the brand is in Real E
 
 CRITICAL REASONING REQUIREMENT:
 Before writing any suggestion, internally complete this analysis:
-1. What industry is this brand in? What are that industry's specific dynamics?
-2. Who is their ONE most likely buyer right now — specific profile, situation, budget?
-3. What specific problem does this brand solve that others in the SAME industry don't?
-4. What industry-specific language would resonate with this brand's audience?
+1. Which industry facts are explicitly supplied, and which remain unknown?
+2. Which buyer details are confirmed, and which must not be inferred?
+3. Which problem and differentiator are explicitly supported by the supplied context?
+4. Which language choices follow from confirmed tone and audience data?
 Only AFTER completing this analysis should you write the output.
 
 ${contextBlock}
@@ -66,15 +67,6 @@ OUTPUT RULES:
 - Use specific language tied to this brand's actual industry, offer, and market
 - Never write generic phrases that could apply to any brand in any industry
 - Return ONLY what was requested — no intro, no explanation, no preamble`
-}
-
-async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
-  if (credit.creditsUsed <= 0) return
-  if (credit.transactionId) {
-    await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
-    return
-  }
-  await refundCredits(userId, 'AD_COPY', reason)
 }
 
 export async function POST(req: NextRequest) {
@@ -141,24 +133,24 @@ export async function POST(req: NextRequest) {
       description: `Write a brand description for ${brandName || 'this brand'} in 2-3 sentences.
 Rules:
 - Open by naming what ${brandName || 'the brand'} does and for whom (specific audience, not "businesses")
-- Include the single biggest differentiator that separates them from competitors in ${industry || 'their industry'}
-- Close with the concrete outcome the customer gets — not a vague promise
+- Include a differentiator only when the supplied context supports it; otherwise state that positioning still needs confirmation
+- Close with a supported qualitative outcome, or label the outcome as a hypothesis to validate
 - Do NOT use: innovative, cutting-edge, transform, unlock, seamless, empower, or any buzzword
 Language: ${lang}`,
 
       primaryOffer: `Write a clear product/service description for ${brandName || 'this brand'}'s main offer in 1-2 sentences.
 Rules:
-- Name what it is, who it is for (specific buyer profile), and what specific outcome it delivers
-- State the delivery format if relevant (1:1 coaching / SaaS / physical product / agency retainer)
+- Name what it is, who it is for, and what outcome it supports using only supplied details
+- State the delivery format only when it appears in the supplied context
 - Describe the outcome qualitatively. Do NOT invent metrics, percentages, ROI, or "X% gain" figures — only include a number if it appears verbatim in the brand data above
 - Do NOT use: powerful, robust, comprehensive, scalable, or vague adjectives
 Language: ${lang}`,
 
       targetAudience: `Write a specific target audience description for ${brandName || 'this brand'} in 2-3 sentences.
 Rules:
-- Open with specific demographics: job title or life situation, age range, income/budget level
-- Include 1-2 specific behaviors or habits that define this buyer
-- Close with the ONE core frustration driving them to seek a solution like ${brandName || 'this brand'}
+- Use only confirmed job, situation, age, income/budget, location, behavior, or life-stage details from the supplied context
+- Do not infer demographics or behavior from the industry or offer
+- If the evidence is incomplete, write a clearly labelled audience hypothesis and name the missing details to confirm
 - Do NOT write: "business owners", "anyone who", "people who want to", or other vague descriptors
 Language: ${lang}`,
 
@@ -172,9 +164,8 @@ Language: ${lang}`,
 
       competitorNotes: `Write a competitive landscape overview for ${brandName || 'this brand'} in 2-3 sentences.
 Rules:
-- Name the 1-2 types of competitors this brand most directly faces (can use archetypes like "large-agency incumbents" or "free DIY tools" if no specific names given)
-- State what the competitors do WELL (be honest — this builds strategic clarity)
-- State what gap ${brandName || 'this brand'} exploits — the specific weakness or blind spot in competitor offerings
+- Use only competitor names, types, strengths, and gaps explicitly supplied in the context
+- If competitor evidence is missing, say that competitor mapping requires user-provided names or research; do not infer archetypes
 - Do NOT write: "highly competitive landscape", "standing out is key", or other obvious filler
 Language: ${lang}`,
     }
@@ -185,7 +176,8 @@ Language: ${lang}`,
       audiencePainPoints: `List 4-6 specific pain points that ${brandName || 'this brand'}'s target audience experiences.
 Rules:
 - Each pain point must describe a real, felt frustration — not a generic business challenge
-- Write from the customer's perspective (e.g., "Spending 3 hours a week manually...")
+- Write from the customer's perspective without inventing time, cost, frequency, or performance figures
+- Treat any pain not explicitly supplied as a candidate hypothesis to validate
 - Each item should be 5-12 words, specific enough to quote in ad copy
 - AVOID: "lack of growth", "poor ROI", "inefficiency" — these are too vague
 - Return ONLY a JSON array of strings in ${lang}. Example: ["pain 1", "pain 2"]`,
@@ -193,7 +185,8 @@ Rules:
       audienceDesires: `List 4-6 specific desires and aspirations of ${brandName || 'this brand'}'s target audience.
 Rules:
 - Each desire must be a concrete, tangible outcome — not an emotion
-- Write as outcomes the customer can visualize (e.g., "Close 3 new clients without cold calling")
+- Write as qualitative outcomes the customer can visualize without inventing counts, savings, timelines, or guarantees
+- Treat any desire not explicitly supplied as a candidate hypothesis to validate
 - Link desires to what ${brandName || 'this brand'} actually delivers
 - AVOID: "success", "growth", "freedom", "peace of mind" — too vague
 - Return ONLY a JSON array of strings in ${lang}. Example: ["desire 1", "desire 2"]`,
@@ -208,9 +201,9 @@ Rules:
 
       uniqueAdvantages: `List 4-6 specific competitive advantages for ${brandName || 'this brand'}.
 Rules:
-- Each advantage must be something a competitor CANNOT easily copy or claim
+- Each item must be labelled as a candidate differentiator unless the supplied context already verifies it
 - Write from the buyer's benefit perspective — not feature descriptions
-- Be concrete: time saved, cost reduced, outcome guaranteed, risk removed
+- Be concrete about a reviewable buyer benefit, but never invent time saved, cost reduction, guaranteed outcomes, or removed risk
 - AVOID: "experienced team", "great service", "holistic approach", "tailored solutions"
 - Return ONLY a JSON array of short phrases (4-10 words each) in ${lang}. Example: ["advantage 1"]`,
 
@@ -225,7 +218,8 @@ Rules:
 
       secondaryOffers: `List 3-5 secondary offers ${brandName || 'this brand'} could realistically provide alongside their main offer.
 Rules:
-- Each offer must be logical given the brand's primary offer and audience
+- Each item is a candidate offer for user approval, not an existing service claim
+- Each offer must be logical given the confirmed primary offer and audience
 - Write as offer names a customer would recognize (e.g., "Monthly strategy audit call")
 - Must be offers that solve problems the existing customers naturally have next
 - AVOID: generic add-ons that any agency could offer
@@ -250,16 +244,18 @@ Rules:
     }
 
     // ── Route to appropriate handler ──────────────────────────────
-    // Variation tag forces a fresh result on every click
-    const variationTag = `[Variation ${Math.floor(Math.random() * 9999)}]`
+    const variationInstruction = 'Produce an alternate wording while preserving every supplied fact and uncertainty label.'
     const arrayPrompt = arrayFieldPrompts[field]
 
     if (!textFieldPrompts[field] && !arrayPrompt) {
       return NextResponse.json({ error: 'Unknown field' }, { status: 400 })
     }
 
-    // FLOW-03 fix: deduct 1 credit per AI suggest call (AD_COPY tier — same as VEX)
-    const credit = await checkAndDeductCredits(user.id, 'AD_COPY')
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(locale), { status: 503 })
+    }
+
+    const credit = await checkAndDeductCredits(user.id, 'AI_FIELD_SUGGESTION')
     if (!credit.ok) return NextResponse.json(credit, { status: 402 })
     chargedUserId = user.id
     chargedCredit = credit
@@ -272,22 +268,31 @@ Rules:
           model: 'gpt-4o-mini',
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: `${textFieldPrompts[field]}\n\n${variationTag}` },
+            { role: 'user', content: `${textFieldPrompts[field]}\n\n${variationInstruction}` },
           ],
           max_tokens: 250,
           temperature: 0.85,
         }),
       })
       if (!res.ok) {
-        await refundDeductedCredits(user.id, credit, `OpenAI error ${res.status}`)
+        await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: `OpenAI error ${res.status}` })
         return NextResponse.json({ error: `OpenAI error ${res.status}` }, { status: 502 })
       }
       const completion = await res.json()
       const rawSuggestion: string = completion.choices?.[0]?.message?.content?.trim() || ''
+      if (!rawSuggestion) {
+        await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'OpenAI returned no suggestion' })
+        return NextResponse.json({ error: 'AI returned no suggestion' }, { status: 502 })
+      }
       // PR-G: deterministic truth guard — scrub invented metrics, downgrade fake
       // proof / overclaimed automation before it can be saved as brand truth.
       const suggestion = guardBrandText(rawSuggestion, allowedClaims)
-      return NextResponse.json({ suggestion }, { headers: { 'Cache-Control': 'no-store' } })
+      return NextResponse.json({
+        suggestion,
+        creditsUsed: credit.creditsUsed,
+        creditsRemaining: credit.creditsRemaining,
+        creditCharge: { ...getCreditActionPolicy('AI_FIELD_SUGGESTION'), creditsUsed: credit.creditsUsed },
+      }, { headers: { 'Cache-Control': 'no-store' } })
     }
 
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -297,19 +302,23 @@ Rules:
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `${arrayPrompt}\n\n${variationTag}` },
+          { role: 'user', content: `${arrayPrompt}\n\n${variationInstruction}` },
         ],
         max_tokens: 400,
         temperature: 0.85,
       }),
     })
     if (!res.ok) {
-      await refundDeductedCredits(user.id, credit, `OpenAI error ${res.status}`)
+      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: `OpenAI error ${res.status}` })
       return NextResponse.json({ error: `OpenAI error ${res.status}` }, { status: 502 })
     }
     const completion = await res.json()
 
-    const raw: string = completion.choices?.[0]?.message?.content?.trim() || '[]'
+    const raw: string = completion.choices?.[0]?.message?.content?.trim() || ''
+    if (!raw) {
+      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'OpenAI returned no suggestions' })
+      return NextResponse.json({ error: 'AI returned no suggestions' }, { status: 502 })
+    }
     const cleaned = raw.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim()
     let suggestions: string[] = []
     try {
@@ -333,16 +342,30 @@ Rules:
     } catch {
       suggestions = []
     }
+    if (suggestions.length === 0) {
+      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'OpenAI returned no usable suggestions' })
+      return NextResponse.json({ error: 'AI returned no usable suggestions' }, { status: 502 })
+    }
 
     // PR-G: same deterministic truth guard for array suggestions (hooks, angles,
     // advantages, etc.) — keeps user-provided figures, scrubs invented ones.
     suggestions = guardBrandList(suggestions, allowedClaims)
 
-    return NextResponse.json({ suggestions }, { headers: { 'Cache-Control': 'no-store' } })
+    return NextResponse.json({
+      suggestions,
+      creditsUsed: credit.creditsUsed,
+      creditsRemaining: credit.creditsRemaining,
+      creditCharge: { ...getCreditActionPolicy('AI_FIELD_SUGGESTION'), creditsUsed: credit.creditsUsed },
+    }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     console.error('POST /api/brand/suggest error:', error)
     if (chargedUserId && chargedCredit) {
-      await refundDeductedCredits(chargedUserId, chargedCredit, 'Brand suggestion failed')
+      await refundCreditDeduction({
+        userId: chargedUserId,
+        action: 'AI_FIELD_SUGGESTION',
+        deduction: chargedCredit,
+        reason: 'Brand suggestion failed',
+      })
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

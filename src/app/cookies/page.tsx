@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { useI18n } from '@/lib/i18n-context'
+import LegalDocumentPage from '@/components/legal/LegalDocumentPage'
 
 const SECTIONS = [
   {
@@ -13,14 +13,14 @@ const SECTIONS = [
   {
     titleAr: 'أنواع ملفات تعريف الارتباط التي نستخدمها',
     titleEn: 'Types of Cookies We Use',
-    bodyAr: `1. ملفات تعريف الارتباط الأساسية (Essential)\nضرورية لتشغيل الموقع — تذكر جلستك، تتيح لك تسجيل الدخول، وتحافظ على أمان حسابك. لا يمكن تعطيلها.\n\n2. ملفات تعريف الارتباط الوظيفية (Functional)\nتذكر تفضيلاتك (مثل اللغة، الوضع المظلم) وتحسين تجربتك الشخصية.\n\n3. ملفات تعريف الارتباط التحليلية (Analytics)\nGoogle Analytics (مجهولة الهوية) — تساعدنا في فهم كيفية استخدام الموقع لتحسينه.`,
-    bodyEn: `1. Essential Cookies\nRequired for the website to function — they maintain your session, enable login, and keep your account secure. Cannot be disabled.\n\n2. Functional Cookies\nRemember your preferences (language, dark mode) and enhance your personal experience.\n\n3. Analytics Cookies\nGoogle Analytics (anonymized) — help us understand how the site is used so we can improve it.`,
+    bodyAr: `1. التخزين الأساسي (Essential)\nضروري لتشغيل المنتج واستمرار ما طلبته — يحافظ على جلسة تسجيل الدخول وخيارات الأمان واللغة وحالة الواجهة واستمرارية المسودة.\n\n2. تحليلات الاستخدام والأداء الاختيارية (Analytics)\nVercel Web Analytics وSpeed Insights — لا يتم تحميلهما إلا بعد اختيار «أوافق على الكل».`,
+    bodyEn: `1. Essential storage\nRequired to operate the product and continue actions you requested — it maintains sign-in state, security choices, language, interface state, and draft continuity.\n\n2. Optional usage and performance analytics\nVercel Web Analytics and Speed Insights — they load only after you choose “Accept all.”`,
   },
   {
     titleAr: 'مدة ملفات تعريف الارتباط',
     titleEn: 'Cookie Duration',
-    bodyAr: `• ملفات تعريف ارتباط الجلسة: تُحذف عند إغلاق المتصفح\n• ملفات تعريف الارتباط التفضيلات: 1 سنة\n• ملفات تعريف الارتباط التحليلات: 13 شهر (Google Analytics)`,
-    bodyEn: `• Session cookies: deleted when you close your browser\n• Preference cookies: 1 year\n• Analytics cookies: 13 months (Google Analytics)`,
+    bodyAr: `• مدة جلسة تسجيل الدخول يحددها مزود المصادقة وإعدادات الأمان.\n• يبقى اختيار الموافقة وتفضيلات التشغيل والمسودات المحلية في متصفحك حتى تحذفها أو تغيرها أو يزيلها مسار المنتج المعني.\n• تخضع بيانات التحليلات الاختيارية لإعدادات الاحتفاظ لدى Vercel.`,
+    bodyEn: `• Sign-in session duration is controlled by the authentication provider and security settings.\n• Consent, operating preferences, and local drafts remain in your browser until you remove or change them, or the relevant product flow clears them.\n• Optional analytics data follows Vercel's configured retention settings.`,
   },
   {
     titleAr: 'كيفية التحكم في ملفات تعريف الارتباط',
@@ -31,8 +31,8 @@ const SECTIONS = [
   {
     titleAr: 'التواصل',
     titleEn: 'Contact',
-    bodyAr: 'للأسئلة: privacy@nexus-grow.com | دبي، الإمارات العربية المتحدة',
-    bodyEn: 'For questions: privacy@nexus-grow.com | Dubai, UAE',
+    bodyAr: 'للأسئلة المتعلقة بالخصوصية: privacy@nexus-grow.com',
+    bodyEn: 'For privacy questions: privacy@nexus-grow.com',
   },
 ]
 
@@ -43,49 +43,14 @@ export default function CookiePolicyPage() {
   const isAr = locale === 'ar'
 
   return (
-    <div className="min-h-screen" dir={isRTL ? 'rtl' : 'ltr'} style={{ background: '#020204' }}>
-      <nav className="sticky top-0 z-40 px-6 py-4 flex justify-between items-center"
-        style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <Link href="/" className="text-2xl font-bold gradient-text">NEXUS AI</Link>
-        <Link href="/auth/login" className="text-sm text-text-muted hover:text-text-primary transition">
-          {lgT?.navLogin as string}
-        </Link>
-      </nav>
-
-      <div className="max-w-3xl mx-auto px-6 py-16">
-        <div className="flex items-center gap-3 mb-2">
-          <span className="px-3 py-1 rounded-full text-xs font-bold"
-            style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)' }}>
-            Cookie Policy
-          </span>
-          <span className="text-text-muted text-sm">
-            {(lgT?.lastUpdated as string)?.replace('{year}', String(year))}
-          </span>
-        </div>
-        <h1 className="text-4xl font-bold mb-2">{lgT?.cookiesTitle as string}</h1>
-        <p className="text-text-muted mb-10">{lgT?.cookiesSubtitle as string}</p>
-
-        <div className="space-y-8">
-          {SECTIONS.map((sec, i) => (
-            <section key={i} className="p-6"
-              style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px' }}>
-              <h2 className="text-lg font-bold text-emerald-400 mb-3">
-                {isAr ? sec.titleAr : sec.titleEn}
-              </h2>
-              <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
-                {isAr ? sec.bodyAr : sec.bodyEn}
-              </p>
-            </section>
-          ))}
-        </div>
-
-        <div className="mt-12 pt-8 flex gap-6 text-sm text-text-muted"
-          style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <Link href="/" className="hover:text-text-primary transition">{lgT?.backHome as string}</Link>
-          <Link href="/privacy" className="hover:text-text-primary transition">{lgT?.linkPrivacy as string}</Link>
-          <Link href="/terms" className="hover:text-text-primary transition">{lgT?.linkTerms as string}</Link>
-        </div>
-      </div>
-    </div>
+    <LegalDocumentPage
+      badge="Cookie Policy"
+      title={lgT?.cookiesTitle as string}
+      subtitle={lgT?.cookiesSubtitle as string}
+      lastUpdated={(lgT?.lastUpdated as string)?.replace('{year}', String(year))}
+      sections={SECTIONS}
+      isAr={isAr}
+      isRTL={isRTL}
+    />
   )
 }

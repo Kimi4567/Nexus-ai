@@ -3,9 +3,17 @@ import { prisma } from '@/lib/prisma'
 import { decryptToken } from '@/lib/tokenCrypto'
 import { getServerUserId } from '@/lib/apiAuth'
 import { publishSocialPost } from '@/lib/socialPublishers'
+import { hasVerifiedProviderScope, X_CONTENT_SCOPES } from '@/lib/socialPlatformConfig'
 import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState'
+import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
+import { YOUTUBE_UPLOAD_SCOPE } from '@/lib/youtubePublishing'
+import { PINTEREST_PUBLISH_SCOPES, parsePinterestPostOptions } from '@/lib/pinterestPublishing'
+import { parseThreadsPostOptions, THREADS_MAX_TEXT_LENGTH, THREADS_PUBLISH_SCOPES } from '@/lib/threadsPublishing'
+import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 
-type RequestedPlatform = 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK'
+export const maxDuration = 180
+
+type RequestedPlatform = 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST' | 'THREADS'
 
 interface PublishRequest {
   socialPostId?: unknown
@@ -16,6 +24,7 @@ interface PublishRequest {
   imageUrl?: unknown
   link?: unknown
   platform?: unknown
+  platformOptions?: unknown
   campaignId?: unknown
 }
 
@@ -23,8 +32,14 @@ function text(value: unknown, max: number): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : ''
 }
 
-function dbPlatform(platform: RequestedPlatform): 'META' | 'LINKEDIN' | 'TIKTOK' {
-  return platform === 'LINKEDIN' ? 'LINKEDIN' : platform === 'TIKTOK' ? 'TIKTOK' : 'META'
+function dbPlatform(platform: RequestedPlatform): 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST' | 'THREADS' {
+  if (platform === 'LINKEDIN') return 'LINKEDIN'
+  if (platform === 'TIKTOK') return 'TIKTOK'
+  if (platform === 'X') return 'X'
+  if (platform === 'YOUTUBE') return 'YOUTUBE'
+  if (platform === 'PINTEREST') return 'PINTEREST'
+  if (platform === 'THREADS') return 'THREADS'
+  return 'META'
 }
 
 export async function POST(req: NextRequest) {
@@ -41,12 +56,18 @@ export async function POST(req: NextRequest) {
   const link = text(body.link, 2_000) || null
   let campaignId = text(body.campaignId, 100) || null
   const platform = text(body.platform, 30) as RequestedPlatform
+  const platformOptions = body.platformOptions && typeof body.platformOptions === 'object' && !Array.isArray(body.platformOptions)
+    ? body.platformOptions as Record<string, unknown>
+    : null
 
-  if (!integrationId || !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK'].includes(platform)) {
+  if (!integrationId || !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE', 'PINTEREST', 'THREADS'].includes(platform)) {
     return NextResponse.json({ error: 'Valid integrationId and platform are required' }, { status: 400 })
   }
   if (['FACEBOOK', 'INSTAGRAM'].includes(platform) && !pageId) {
     return NextResponse.json({ error: 'A connected Meta page/account is required' }, { status: 400 })
+  }
+  if (platform === 'PINTEREST' && !pageId) {
+    return NextResponse.json({ error: 'Select an authorized Pinterest Board' }, { status: 400 })
   }
   if (!socialPostId) {
     return NextResponse.json({
@@ -68,12 +89,16 @@ export async function POST(req: NextRequest) {
           id: true,
           campaignId: true,
           platform: true,
+          publishTarget: true,
           status: true,
           caption: true,
+          imagePrompt: true,
+          videoPrompt: true,
           imageUrl: true,
           uploadedMediaId: true,
           mediaSource: true,
           generationStatus: true,
+          isVideoPost: true,
           approvedAt: true,
         },
       })
@@ -93,6 +118,75 @@ export async function POST(req: NextRequest) {
   if (dbPlatform(platform) !== existingPost.platform) {
     return NextResponse.json({ error: 'Selected platform does not match the approved post platform' }, { status: 409 })
   }
+  const approvedTarget = existingPost.publishTarget === 'YOUTUBE_SHORTS'
+    ? 'YOUTUBE'
+    : existingPost.publishTarget === 'TWITTER'
+      ? 'X'
+      : existingPost.publishTarget
+  if (approvedTarget && approvedTarget !== 'META' && approvedTarget !== platform) {
+    return NextResponse.json({ error: 'Selected destination does not match the approved post destination' }, { status: 409 })
+  }
+  if (platform === 'TIKTOK' && platformOptions?.explicitConsent !== true) {
+    return NextResponse.json({ error: 'TikTok requires explicit consent and reviewed publishing options' }, { status: 400 })
+  }
+  if (platform === 'X' && (existingPost.isVideoPost || platformOptions?.explicitConsent !== true)) {
+    return NextResponse.json({
+      error: existingPost.isVideoPost
+        ? 'X video publishing is not supported yet. Use an approved text or image post.'
+        : 'X requires explicit consent for this reviewed post.',
+      code: existingPost.isVideoPost ? 'X_VIDEO_NOT_SUPPORTED' : 'X_REVIEW_REQUIRED',
+    }, { status: 400 })
+  }
+  if (platform === 'YOUTUBE' && (!existingPost.isVideoPost || platformOptions?.explicitConsent !== true)) {
+    return NextResponse.json({
+      error: !existingPost.isVideoPost
+        ? 'YouTube publishing requires an approved video post.'
+        : 'YouTube requires explicit consent and reviewed video settings.',
+      code: !existingPost.isVideoPost ? 'YOUTUBE_VIDEO_REQUIRED' : 'YOUTUBE_REVIEW_REQUIRED',
+    }, { status: 400 })
+  }
+  if (platform === 'PINTEREST') {
+    if (existingPost.isVideoPost) {
+      return NextResponse.json({
+        error: 'Pinterest video publishing is not supported yet. Use an approved image Pin.',
+        code: 'PINTEREST_IMAGE_REQUIRED',
+      }, { status: 400 })
+    }
+    try {
+      const reviewedOptions = parsePinterestPostOptions(platformOptions)
+      if (reviewedOptions.boardId !== pageId) {
+        return NextResponse.json({ error: 'Pinterest Board selection does not match the reviewed destination' }, { status: 409 })
+      }
+    } catch (error) {
+      return NextResponse.json({
+        error: error instanceof Error ? error.message : 'Review the Pinterest publishing settings.',
+        code: 'PINTEREST_REVIEW_REQUIRED',
+      }, { status: 400 })
+    }
+  }
+  if (platform === 'THREADS') {
+    if (existingPost.isVideoPost) {
+      return NextResponse.json({
+        error: 'Threads video publishing is not enabled yet. Use an approved text or image post.',
+        code: 'THREADS_VIDEO_NOT_SUPPORTED',
+      }, { status: 400 })
+    }
+    const copyLength = Array.from(String(existingPost.caption || '').trim()).length
+    if (copyLength < 1 || copyLength > THREADS_MAX_TEXT_LENGTH) {
+      return NextResponse.json({
+        error: `Review the Threads post so it contains 1 to ${THREADS_MAX_TEXT_LENGTH} characters.`,
+        code: 'THREADS_COPY_REVIEW_REQUIRED',
+      }, { status: 400 })
+    }
+    try {
+      parseThreadsPostOptions(platformOptions, { hasImage: Boolean(existingPost.imageUrl) })
+    } catch (error) {
+      return NextResponse.json({
+        error: error instanceof Error ? error.message : 'Review the Threads publishing settings.',
+        code: 'THREADS_REVIEW_REQUIRED',
+      }, { status: 400 })
+    }
+  }
   if (campaignId && existingPost.campaignId && campaignId !== existingPost.campaignId) {
     return NextResponse.json({ error: 'Campaign does not match the approved post' }, { status: 409 })
   }
@@ -101,6 +195,14 @@ export async function POST(req: NextRequest) {
   campaignId = existingPost.campaignId
   if (!caption) {
     return NextResponse.json({ error: 'Approved post caption is required' }, { status: 400 })
+  }
+  const publishReview = reviewContentPostForPublishing(existingPost)
+  if (publishReview.length > 0) {
+    return NextResponse.json({
+      error: 'This saved post needs copy review before it can be sent to a platform.',
+      code: 'CONTENT_REVIEW_REQUIRED',
+      issues: publishReview,
+    }, { status: 409 })
   }
 
   const integration = await prisma.integration.findFirst({
@@ -115,17 +217,77 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Matching integration is not connected' }, { status: 400 })
   }
 
-  if (campaignId) {
-    const campaign = await prisma.campaign.findFirst({
-      where: { id: campaignId, workspaceId: workspace.id },
-      select: { id: true },
-    })
-    if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  if (!campaignId) {
+    return NextResponse.json({
+      error: 'Publishing requires a campaign with a reviewed Brand Brain-grounded strategy.',
+      code: 'MARKETING_QUALITY_GATE_REQUIRED',
+    }, { status: 409 })
+  }
+  const campaign = await prisma.campaign.findFirst({
+    where: { id: campaignId, workspaceId: workspace.id },
+    select: {
+      id: true,
+      aiOutput: true,
+      goal: true,
+      platforms: true,
+      workspace: { select: { brandProfile: true } },
+    },
+  })
+  if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  const aiOutput = campaign.aiOutput && typeof campaign.aiOutput === 'object' && !Array.isArray(campaign.aiOutput)
+    ? campaign.aiOutput as Record<string, unknown>
+    : {}
+  const strategyQuality = reviewStrategyGrounding({
+    strategy: aiOutput.strategy ?? aiOutput,
+    brand: campaign.workspace.brandProfile,
+    allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms.map(String) : [],
+    goal: String(campaign.goal),
+  })
+  if (strategyQuality.status !== 'passed') {
+    return NextResponse.json({
+      error: 'Publishing is blocked because the source strategy no longer matches Brand Brain or the reviewed campaign scope.',
+      code: 'MARKETING_QUALITY_GATE_FAILED',
+      qualityGate: strategyQuality,
+    }, { status: 409 })
   }
 
   const config = integration.config && typeof integration.config === 'object' && !Array.isArray(integration.config)
     ? integration.config as Record<string, unknown>
     : {}
+  if (platform === 'PINTEREST' && String(config.accessTier || '').toUpperCase() !== 'STANDARD') {
+    return NextResponse.json({
+      error: 'Pinterest Standard access is required before publishing public Pins.',
+      code: 'PINTEREST_STANDARD_ACCESS_REQUIRED',
+    }, { status: 409 })
+  }
+  if (platform === 'THREADS' && String(config.accessTier || '').toUpperCase() !== 'LIVE') {
+    return NextResponse.json({
+      error: 'The Threads Meta app must be Live before publishing for public users.',
+      code: 'THREADS_LIVE_ACCESS_REQUIRED',
+    }, { status: 409 })
+  }
+  const requiredScopes = platform === 'FACEBOOK'
+    ? ['pages_manage_posts']
+    : platform === 'INSTAGRAM'
+      ? ['instagram_content_publish']
+      : platform === 'LINKEDIN'
+        ? [pageId ? 'w_organization_social' : 'w_member_social']
+        : platform === 'TIKTOK'
+          ? ['video.publish']
+          : platform === 'X'
+            ? [...X_CONTENT_SCOPES]
+          : platform === 'PINTEREST'
+            ? [...PINTEREST_PUBLISH_SCOPES]
+          : platform === 'THREADS'
+            ? [...THREADS_PUBLISH_SCOPES]
+            : [YOUTUBE_UPLOAD_SCOPE]
+  const missingScope = requiredScopes.find(scope => !hasVerifiedProviderScope(config, scope))
+  if (missingScope) {
+    return NextResponse.json({
+      error: `Reconnect ${platform} and grant the verified ${missingScope} permission before publishing.`,
+      code: 'PLATFORM_SCOPE_REQUIRED',
+    }, { status: 409 })
+  }
   const pages = Array.isArray(config.pages) ? config.pages as Array<Record<string, any>> : []
   const page = pages.find((entry) => entry.id === pageId || entry.igAccountId === pageId)
   if (['FACEBOOK', 'INSTAGRAM'].includes(platform) && !page) {
@@ -148,6 +310,7 @@ export async function POST(req: NextRequest) {
       accountId: integration.accountId,
       accessToken,
       integrationConfig: config,
+      platformOptions,
       link,
     })
   } catch (error) {
@@ -156,7 +319,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const nextStatus = published ? 'PUBLISHED' : 'FAILED'
+    const nextStatus = published
+      ? (published.state === 'PROCESSING' ? 'PROCESSING' : 'PUBLISHED')
+      : 'FAILED'
       const now = new Date()
       const updated = await prisma.$transaction(async (tx) => {
         const socialPost = await tx.socialPost.update({
@@ -164,15 +329,22 @@ export async function POST(req: NextRequest) {
           data: {
             integrationId,
             platform: dbPlatform(platform),
+            publishTarget: platform,
             pageId: pageId || null,
             pageName: pageName || page?.name || integration.accountName || null,
             platformPostId: published?.platformPostId ?? null,
             platformUrl: published?.platformUrl ?? null,
             status: nextStatus,
             errorMessage: publishError,
-            publishMode: 'MANUAL',
+            // This route publishes through a provider API. AUTO is the existing
+            // persisted mode for API-confirmed publication; the post is already
+            // PUBLISHED, so it can never enter the scheduled cron queue.
+            publishMode: 'AUTO',
             approvedAt: existingPost.approvedAt ?? now,
-            publishedAt: published ? now : null,
+            platformOptions: platformOptions as any,
+            autoPublishConsentAt: platformOptions?.explicitConsent === true ? now : null,
+            publishAttemptedAt: now,
+            publishedAt: nextStatus === 'PUBLISHED' ? now : null,
           },
         })
         await tx.postStatusHistory.create({
@@ -182,7 +354,11 @@ export async function POST(req: NextRequest) {
             fromStatus: existingPost.status,
             toStatus: nextStatus,
             actor: 'USER',
-            note: published ? 'Published by explicit Content Hub API action' : publishError?.slice(0, 500),
+            note: published
+              ? (nextStatus === 'PROCESSING'
+                  ? 'Provider accepted the explicit Content Hub upload; awaiting publication confirmation'
+                  : 'Published by explicit Content Hub API action')
+              : publishError?.slice(0, 500),
           },
         })
         await tx.marketingLearningEvent.create({
@@ -190,7 +366,9 @@ export async function POST(req: NextRequest) {
             workspaceId: workspace.id,
             campaignId,
             socialPostId: existingPost.id,
-            eventType: published ? 'POST_API_PUBLISHED' : 'POST_FAILED',
+            eventType: published
+              ? (nextStatus === 'PROCESSING' ? 'POST_API_PROCESSING' : 'POST_API_PUBLISHED')
+              : 'POST_FAILED',
             source: 'CONTENT_HUB',
             actor: 'USER',
             metadata: {
@@ -206,7 +384,15 @@ export async function POST(req: NextRequest) {
       })
 
       if (!published) return NextResponse.json({ error: publishError, socialPost: updated }, { status: 502 })
-      return NextResponse.json({ ok: true, socialPost: updated, platformUrl: published.platformUrl ?? null })
+      return NextResponse.json(
+        {
+          ok: true,
+          processing: nextStatus === 'PROCESSING',
+          socialPost: updated,
+          platformUrl: published.platformUrl ?? null,
+        },
+        { status: nextStatus === 'PROCESSING' ? 202 : 200 },
+      )
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Persistence failed'
     if (published) {

@@ -11,15 +11,15 @@
  * Usage: set provider='flux' in visuals/generate request for premium output
  */
 
-export type FluxImageSize =
-  | 'square_hd'       // 1024×1024 — Instagram feed (1:1 square)
-  | 'portrait_16_9'   // 576×1024 — TikTok vertical (9:16 portrait)
-  | 'landscape_4_3'   // 1024×768 — LinkedIn, Facebook, Twitter (landscape)
+export type FluxAspectRatio =
+  | '1:1'  // Instagram / Meta feed
+  | '9:16' // TikTok / YouTube Shorts
+  | '3:2'  // LinkedIn / X landscape
+  | '2:3'  // Pinterest standard Pin
 
 export interface FluxGenerateOptions {
   prompt: string
-  imageSize?: FluxImageSize
-  numInferenceSteps?: number  // 28-50, higher = better quality (default 28)
+  aspectRatio?: FluxAspectRatio
   safetyTolerance?: '1' | '2' | '3' | '4' | '5' | '6'  // 1=strict, 6=permissive
   outputFormat?: 'jpeg' | 'png'
 }
@@ -32,31 +32,32 @@ export interface FluxGenerateResult {
 }
 
 /**
- * Map platform string to best Flux image size.
+ * Map platform string to the FLUX 1.1 Ultra `aspect_ratio` contract.
  * Platform-native sizing:
- *   TIKTOK/YOUTUBE_SHORTS/YOUTUBE → portrait_16_9  (9:16 vertical short-form)
- *   INSTAGRAM   → square_hd      (1:1 feed square)
- *   All others  → landscape_4_3  (LinkedIn/Facebook/Twitter landscape)
+ *   TIKTOK/YOUTUBE_SHORTS/YOUTUBE → 9:16 vertical short-form
+ *   META/INSTAGRAM → 1:1 feed square
+ *   All others     → 3:2 landscape
  */
-export function platformToFluxSize(platform: string): FluxImageSize {
+export function platformToFluxAspectRatio(platform: string): FluxAspectRatio {
   const p = platform.toUpperCase()
-  if (p === 'TIKTOK' || p === 'YOUTUBE' || p === 'YOUTUBE_SHORTS') return 'portrait_16_9'      // 9:16 portrait for short-form
-  if (p === 'INSTAGRAM') return 'square_hd'        // 1:1 square for Instagram feed
-  return 'landscape_4_3'                           // landscape for LinkedIn/META/X/Twitter
+  if (p === 'TIKTOK' || p === 'YOUTUBE' || p === 'YOUTUBE_SHORTS') return '9:16'
+  if (p === 'PINTEREST') return '2:3'
+  if (p === 'META' || p === 'INSTAGRAM') return '1:1'
+  return '3:2'
 }
 
 /**
  * Map platform string to gpt-image-1 size string.
  * Platform-native sizing:
  *   TIKTOK/YOUTUBE_SHORTS/YOUTUBE → 1024×1536 (portrait)
- *   INSTAGRAM   → 1024×1024 (square 1:1)
+ *   META/INSTAGRAM → 1024×1024 (square 1:1)
  *   All others  → 1536×1024 (landscape 3:2 — LinkedIn, Facebook, Twitter/X)
  */
 export function platformToOpenAISize(platform: string): '1024x1024' | '1024x1536' | '1536x1024' {
   const p = platform.toUpperCase()
-  if (p === 'TIKTOK' || p === 'YOUTUBE' || p === 'YOUTUBE_SHORTS') return '1024x1536'       // portrait short-form
-  if (p === 'INSTAGRAM') return '1024x1024'    // square
-  return '1536x1024'                            // landscape for LinkedIn/META/X/Twitter/default
+  if (p === 'TIKTOK' || p === 'YOUTUBE' || p === 'YOUTUBE_SHORTS' || p === 'PINTEREST') return '1024x1536'       // portrait
+  if (p === 'META' || p === 'INSTAGRAM') return '1024x1024' // square Content Hub feed
+  return '1536x1024'                            // landscape for LinkedIn/Facebook/X/Twitter/default
 }
 
 /**
@@ -69,16 +70,14 @@ export async function generateWithFlux(options: FluxGenerateOptions): Promise<Fl
 
   const {
     prompt,
-    imageSize = 'square_hd',
-    numInferenceSteps = 35,  // sweet spot: great quality without excessive latency
+    aspectRatio = '1:1',
     safetyTolerance = '3',
     outputFormat = 'jpeg',
   } = options
 
   const body = {
     prompt,
-    image_size: imageSize,
-    num_inference_steps: numInferenceSteps,
+    aspect_ratio: aspectRatio,
     num_images: 1,
     safety_tolerance: safetyTolerance,
     output_format: outputFormat,
@@ -88,7 +87,7 @@ export async function generateWithFlux(options: FluxGenerateOptions): Promise<Fl
 
   if (process.env.NODE_ENV !== 'production') {
     console.log('[falGen] Flux Pro Ultra — prompt preview:', prompt.slice(0, 150) + '…')
-    console.log('[falGen] size:', imageSize, '| steps:', numInferenceSteps)
+    console.log('[falGen] aspect ratio:', aspectRatio)
   }
 
   const res = await fetch('https://fal.run/fal-ai/flux-pro/v1.1-ultra', {
@@ -98,6 +97,7 @@ export async function generateWithFlux(options: FluxGenerateOptions): Promise<Fl
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(35_000),
   })
 
   if (!res.ok) {

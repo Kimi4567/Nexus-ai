@@ -6,6 +6,8 @@ import { getCreditActionTruth } from '@/lib/creditActionTruth'
 const CREDITS_SRC = readFileSync(path.join(process.cwd(), 'src/lib/credits.ts'), 'utf8')
 const BILLING_STATUS_SRC = readFileSync(path.join(process.cwd(), 'src/app/api/billing/status/route.ts'), 'utf8')
 const USER_CREDITS_SRC = readFileSync(path.join(process.cwd(), 'src/app/api/user/credits/route.ts'), 'utf8')
+const DASHBOARD_STATS_SRC = readFileSync(path.join(process.cwd(), 'src/app/api/dashboard/stats/route.ts'), 'utf8')
+const ACCOUNT_SNAPSHOT_SRC = readFileSync(path.join(process.cwd(), 'src/lib/credits/accountSnapshot.ts'), 'utf8')
 
 function canonicalCost(action: string): number {
   const match = CREDITS_SRC.match(new RegExp(`${action}:\\s*(\\d+)`))
@@ -61,12 +63,21 @@ describe('getCreditActionTruth', () => {
     expect(truth.canAfford).toBe(true)
   })
 
+  it('prices one field suggestion separately from a full ad-copy package', () => {
+    const truth = getCreditActionTruth({ action: 'AI_FIELD_SUGGESTION', creditsRemaining: 1 })
+    expect(truth.cost).toBe(canonicalCost('AI_FIELD_SUGGESTION'))
+    expect(truth.cost).toBe(1)
+    expect(truth.canAfford).toBe(true)
+  })
+
   it('keeps starter-credit display eligibility aligned across credit status APIs', () => {
-    expect(BILLING_STATUS_SRC).toContain('FREE_STARTER_CREDITS')
-    expect(USER_CREDITS_SRC).toContain('FREE_STARTER_CREDITS')
-    expect(BILLING_STATUS_SRC).toContain('isFreeStarterEligible')
-    expect(BILLING_STATUS_SRC).toContain('!isActive')
-    expect(BILLING_STATUS_SRC).toContain("String(dbUser.subscriptionStatus ?? '').toUpperCase() === 'FREE'")
-    expect(BILLING_STATUS_SRC).not.toContain('storedCredits === 0 && (dbUser.monthlyGenerations ?? 0) === 0\n          ? FREE_STARTER_CREDITS')
+    for (const source of [BILLING_STATUS_SRC, USER_CREDITS_SRC, DASHBOARD_STATS_SRC]) {
+      expect(source).toContain('getCreditAccountSnapshot')
+      expect(source).not.toContain('isFreeStarterEligible')
+    }
+    expect(ACCOUNT_SNAPSHOT_SRC).toContain('FREE_STARTER_CREDITS')
+    expect(ACCOUNT_SNAPSHOT_SRC).toContain('isFreeStarterEligible')
+    expect(ACCOUNT_SNAPSHOT_SRC).toContain('!input.hasActiveSubscription')
+    expect(ACCOUNT_SNAPSHOT_SRC).toContain("String(input.subscriptionStatus ?? '').toUpperCase() === 'FREE'")
   })
 })

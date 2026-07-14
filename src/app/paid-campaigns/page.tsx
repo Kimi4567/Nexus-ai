@@ -32,6 +32,8 @@ interface AdCampaign {
   avgCTR: number | null
   avgROAS: number | null
   createdAt: string
+  organicCampaignId: string | null
+  sourceStrategy: { id: string; name: string; status: string; updatedAt: string } | null
 }
 
 interface AdAccount {
@@ -50,7 +52,7 @@ const PLATFORMS = {
 } as const
 
 const STATUS_COPY = {
-  DRAFT: { ar: 'مسودة تخطيط', en: 'Planning draft', tone: 'bg-slate-100 text-slate-700' },
+  DRAFT: { ar: 'مسودة تنفيذ', en: 'Execution draft', tone: 'bg-slate-100 text-slate-700' },
   PENDING_REVIEW: { ar: 'قيد المراجعة', en: 'Setup review', tone: 'bg-amber-50 text-amber-700' },
   ACTIVE: { ar: 'سجل نشط على المنصة', en: 'Platform active record', tone: 'bg-emerald-50 text-emerald-700' },
   PAUSED: { ar: 'مسودة منصة متوقفة', en: 'Paused platform draft', tone: 'bg-orange-50 text-orange-700' },
@@ -89,6 +91,11 @@ function CampaignRow({ campaign, locale }: { campaign: AdCampaign; locale: strin
         <div className="min-w-0">
           <p className="truncate text-[14px] font-black text-[#071236]">{campaign.name}</p>
           <p className="mt-1 text-[11px] font-bold text-[#7b87a3]">{platform.label} · {campaign.objective.replace(/_/g, ' ')}</p>
+          <p className={`mt-1 truncate text-[10px] font-semibold ${campaign.sourceStrategy ? 'text-emerald-700' : 'text-amber-700'}`}>
+            {campaign.sourceStrategy
+              ? `${locale === 'ar' ? 'المصدر' : 'Source'}: ${campaign.sourceStrategy.name}`
+              : locale === 'ar' ? 'مسودة قديمة غير مرتبطة باستراتيجية' : 'Legacy draft without strategy source'}
+          </p>
         </div>
       </div>
       <div>
@@ -126,6 +133,7 @@ export default function PaidCampaignsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
   const [connectingMeta, setConnectingMeta] = useState(false)
+  const [connectingGoogle, setConnectingGoogle] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!user) {
@@ -192,6 +200,24 @@ export default function PaidCampaignsPage() {
     }
   }
 
+  const handleConnectGoogle = async () => {
+    setConnectingGoogle(true)
+    try {
+      const session = await import('@/lib/supabaseClient').then((module) => module.supabase.auth.getSession())
+      const token = session.data?.session?.access_token
+      if (!token) return
+      const response = await fetch('/api/social/connect/google-ads', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await response.json()
+      if (data.url) window.location.href = data.url
+    } catch {
+      // Detailed configuration and OAuth errors are returned by the connection endpoint.
+    } finally {
+      setConnectingGoogle(false)
+    }
+  }
+
   const filteredCampaigns = useMemo(() => campaigns.filter((campaign) => {
     if (platformFilter !== 'ALL' && campaign.platform !== platformFilter) return false
     if (statusFilter !== 'ALL' && campaign.status !== statusFilter) return false
@@ -216,9 +242,9 @@ export default function PaidCampaignsPage() {
         <div className="mx-auto max-w-[1540px] px-6 py-7 lg:px-8">
           <LuxuryWorkspaceHeader
             pageTitle={ar ? 'الإعلانات المدفوعة' : 'Paid campaigns'}
-            pageSubtitle={ar ? 'خطط الإعلانات وراجع الميزانية والجمهور قبل الموافقة على أي إطلاق أو إنفاق.' : 'Plan ads and review budget and audiences before approving any launch or spend.'}
+            pageSubtitle={ar ? 'حوّل استراتيجية Paid أو Full معتمدة إلى تنفيذ منصة، ثم راجع كل شيء قبل أي إطلاق أو إنفاق.' : 'Turn an approved Paid or Full strategy into platform execution, then review everything before launch or spend.'}
             primaryHref="/paid-campaigns/new"
-            primaryLabel={ar ? 'مسودة تخطيط مدفوع' : 'Paid planning draft'}
+            primaryLabel={ar ? 'ابدأ من استراتيجية معتمدة' : 'Start from approved strategy'}
             secondaryHref="/connections"
             secondaryLabel={ar ? 'التكاملات' : 'Integrations'}
           />
@@ -230,7 +256,7 @@ export default function PaidCampaignsPage() {
               </span>
               <div>
                 <p className="text-[13px] font-black text-[#071236]">
-                  {ar ? `${summary.planningDrafts} مسودات تحتاج تخطيطاً` : `${summary.planningDrafts} planning drafts`}
+                  {ar ? `${summary.planningDrafts} مسودات تنفيذ للمراجعة` : `${summary.planningDrafts} execution drafts for review`}
                 </p>
                 <p className="mt-0.5 text-[11px] font-bold text-[#64708f]">
                   {ar
@@ -240,6 +266,15 @@ export default function PaidCampaignsPage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleConnectGoogle}
+                disabled={connectingGoogle}
+                className="inline-flex h-11 items-center gap-2 rounded-[15px] border border-[#d7def0] bg-white px-4 text-[13px] font-black text-[#111b3f] shadow-sm transition hover:border-[#bfc9df] disabled:opacity-60"
+              >
+                <span className="text-[#4285f4]">G</span>
+                {connectingGoogle ? (ar ? 'جاري فتح Google...' : 'Opening Google...') : (ar ? 'راجع ربط Google Ads' : 'Review Google Ads connection')}
+              </button>
               <button
                 type="button"
                 onClick={handleConnectMeta}
@@ -254,7 +289,7 @@ export default function PaidCampaignsPage() {
                 className="inline-flex h-11 items-center gap-2 rounded-[15px] bg-[#071236] px-5 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,18,54,0.2)] transition hover:bg-[#111f4b]"
               >
                 <Plus className="h-4 w-4" />
-                {ar ? 'مسودة تخطيط مدفوع' : 'Paid planning draft'}
+                {ar ? 'تنفيذ استراتيجية معتمدة' : 'Execute approved strategy'}
               </Link>
             </div>
           </section>
@@ -263,19 +298,19 @@ export default function PaidCampaignsPage() {
               <div className="rounded-[24px] border border-[#e3e8f3] bg-white/90 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
                 <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
-                    <h2 className="text-[18px] font-black text-[#071236]">{ar ? 'محفظة التخطيط المدفوع' : 'Paid planning portfolio'}</h2>
+                    <h2 className="text-[18px] font-black text-[#071236]">{ar ? 'محفظة التنفيذ المدفوع' : 'Paid execution portfolio'}</h2>
                     <p className="mt-1 text-[12px] font-bold text-[#64708f]">
-                      {ar ? 'كل صف هنا يمثل تخطيطاً أو سجلاً منصة؛ الإطلاق والإنفاق لهما موافقة منفصلة.' : 'Each row is planning or a platform record; launch and spend require a separate approval.'}
+                      {ar ? 'كل صف يجب أن يرجع لاستراتيجية معتمدة؛ مسودة المنصة والتفعيل والإنفاق لكل منها بوابة مستقلة.' : 'Every row must trace to an approved strategy; platform draft, activation, and spend each have a separate gate.'}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <label className="inline-flex h-10 min-w-[220px] items-center gap-2 rounded-[14px] border border-[#e3e8f3] bg-[#fbfcff] px-3 text-[12px] font-bold text-[#64708f] focus-within:border-[#8f98ff]">
                       <Search className="h-4 w-4" />
                       <input
-                        aria-label={ar ? 'ابحث في التخطيط المدفوع' : 'Search paid planning'}
+                        aria-label={ar ? 'ابحث في التنفيذ المدفوع' : 'Search paid execution'}
                         value={searchQuery}
                         onChange={(event) => setSearchQuery(event.target.value)}
-                        placeholder={ar ? 'ابحث في التخطيط المدفوع' : 'Search paid planning'}
+                        placeholder={ar ? 'ابحث في التنفيذ المدفوع' : 'Search paid execution'}
                         className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-[#9aa4b8]"
                       />
                     </label>
@@ -322,22 +357,22 @@ export default function PaidCampaignsPage() {
                     <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-[#fff7ed] text-[#f97316]">
                       <Megaphone className="h-8 w-8" />
                     </div>
-                    <h3 className="mt-5 text-[20px] font-black text-[#071236]">{ar ? 'لا توجد مسودات تخطيط مدفوع بعد' : 'No paid planning drafts yet'}</h3>
+                    <h3 className="mt-5 text-[20px] font-black text-[#071236]">{ar ? 'لا توجد مسودات تنفيذ مدفوع بعد' : 'No paid execution drafts yet'}</h3>
                     <p className="mx-auto mt-2 max-w-xl text-[13px] leading-7 text-[#64708f]">
                       {ar
-                        ? 'ابدأ من استراتيجية حملة أو أنشئ مسودة تخطيط. NEXUS لن ينشئ إنفاقاً أو يفعّل حملة منصة بدون تأكيد نهائي.'
-                        : 'Start from a campaign strategy or create a planning draft. NEXUS will not create spend or activate a platform campaign without final confirmation.'}
+                        ? 'ابدأ باستراتيجية Paid أو Full، راجعها واعتمدها، ثم حوّلها إلى تنفيذ منصة. لا يُسمح بمسودة مستقلة بلا مصدر.'
+                        : 'Start with a Paid or Full strategy, review and approve it, then translate it into platform execution. Standalone drafts without a source are not allowed.'}
                     </p>
                     <div className="mt-6 flex justify-center">
                       <Link href="/paid-campaigns/new" className="inline-flex h-11 items-center gap-2 rounded-[15px] bg-[#071236] px-5 text-[13px] font-black text-white">
                         <Plus className="h-4 w-4" />
-                        {ar ? 'ابدأ مسودة تخطيط' : 'Create planning draft'}
+                        {ar ? 'اختر الاستراتيجية المعتمدة' : 'Choose approved strategy'}
                       </Link>
                     </div>
                   </div>
                 ) : filteredCampaigns.length === 0 ? (
                   <div className="rounded-[20px] border border-[#e3e8f3] bg-[#fbfcff] p-8 text-center text-[14px] font-bold text-[#64708f]">
-                    {ar ? 'لا توجد مسودات تطابق الفلاتر الحالية.' : 'No paid planning drafts match the selected filters.'}
+                    {ar ? 'لا توجد مسودات تنفيذ تطابق الفلاتر الحالية.' : 'No paid execution drafts match the selected filters.'}
                   </div>
                 ) : (
                   <div className="space-y-3">

@@ -7,6 +7,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
+import {
+  getPaidStrategySourceForUser,
+  PaidStrategySourceError,
+} from '@/lib/paidStrategySourceServer'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -50,6 +54,8 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
                 format: true,
                 primaryText: true,
                 headline: true,
+                description: true,
+                aiHook: true,
                 callToAction: true,
                 destinationUrl: true,
                 imageUrl: true,
@@ -68,6 +74,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
                 reviewStatus: true,
                 specsValidated: true,
                 specsErrors: true,
+                creativeSpecs: true,
               },
             },
           },
@@ -82,7 +89,17 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
 
     if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    return NextResponse.json({ campaign })
+    const sourceStrategy = campaign.organicCampaignId
+      ? await prisma.campaign.findFirst({
+          where: {
+            id: campaign.organicCampaignId,
+            workspace: { ownerId: user.id },
+          },
+          select: { id: true, name: true, status: true, updatedAt: true },
+        })
+      : null
+
+    return NextResponse.json({ campaign: { ...campaign, sourceStrategy } })
   } catch (err) {
     console.error('[ad-campaigns/[id] GET]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -99,6 +116,10 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       where: { id: params.id, workspace: { ownerId: user.id } },
     })
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    const paidSource = await getPaidStrategySourceForUser({
+      campaignId: typeof existing.organicCampaignId === 'string' ? existing.organicCampaignId : '',
+      userId: user.id,
+    })
 
     const body = await req.json()
     const {
@@ -119,20 +140,20 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       utmCampaign,
       platformCampaignId,
       platformStatus,
-      totalSpend,
-      totalImpressions,
-      totalClicks,
-      totalConversions,
-      avgCTR,
-      avgCPC,
-      avgROAS,
     } = body
 
-    if (status === 'ACTIVE' || platformStatus === 'ACTIVE') {
+    if (status === 'ACTIVE' || ['ACTIVE', 'ENABLED', 'RUNNING', 'LIVE'].includes(String(platformStatus).toUpperCase())) {
       return NextResponse.json({
         error: 'Paid campaigns cannot be marked active through generic updates. Use the explicit platform activation route after final approval.',
         mode: 'activation_route_required',
       }, { status: 400 })
+    }
+    if (objective !== undefined && objective !== paidSource.truth.executionObjective) {
+      return NextResponse.json({
+        error: 'PAID_OBJECTIVE_STRATEGY_MISMATCH',
+        code: 'PAID_OBJECTIVE_STRATEGY_MISMATCH',
+        expectedObjective: paidSource.truth.executionObjective,
+      }, { status: 422 })
     }
 
     const updated = await db.adCampaign.update({
@@ -155,18 +176,14 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
         ...(utmCampaign !== undefined && { utmCampaign }),
         ...(platformCampaignId !== undefined && { platformCampaignId }),
         ...(platformStatus !== undefined && { platformStatus }),
-        ...(totalSpend !== undefined && { totalSpend }),
-        ...(totalImpressions !== undefined && { totalImpressions }),
-        ...(totalClicks !== undefined && { totalClicks }),
-        ...(totalConversions !== undefined && { totalConversions }),
-        ...(avgCTR !== undefined && { avgCTR }),
-        ...(avgCPC !== undefined && { avgCPC }),
-        ...(avgROAS !== undefined && { avgROAS }),
       },
     })
 
     return NextResponse.json({ campaign: updated })
   } catch (err) {
+    if (err instanceof PaidStrategySourceError) {
+      return NextResponse.json({ error: err.code, code: err.code }, { status: err.status })
+    }
     console.error('[ad-campaigns/[id] PATCH]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

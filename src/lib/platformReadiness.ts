@@ -6,12 +6,13 @@
  * conservative per-platform readiness state.
  *
  * Non-negotiable honesty rules (enforced here, asserted in tests):
- *   - "ready" is ALLOW-LISTED to Facebook with a connected Page, plus Meta paid
- *     execution only when an AdAccount has API access and a publishing Page.
- *   - Instagram / TikTok / LinkedIn are CAPPED at "permission_unverified" — never "ready" in PR-1A.
+ *   - "ready" requires provider-specific capability evidence returned by the
+ *     server; a generic CONNECTED row is never enough.
  *   - Paid ads is never inferred from a social connection. It depends on AdAccount
  *     readiness, API access, and explicit approval-gated activation routes.
- *   - YouTube Shorts / Google / Snapchat / WhatsApp are "not_available" (no integration exists) — no connect CTA.
+ *   - X readiness requires verified publish, media, readback, and refresh evidence.
+ *   - YouTube readiness requires upload, readback, and offline-refresh evidence.
+ *   - Google Ads / Snapchat / WhatsApp stay "not_available" until real connectors exist.
  *   - Unknown / missing data → "needs_setup" or "not_connected", NEVER "ready".
  *
  * The function returns i18n KEYS (not literal copy) so the UI renders EN/AR via t().
@@ -22,14 +23,17 @@ export type PlatformKey =
   | 'instagram'
   | 'tiktok'
   | 'linkedin'
+  | 'x'
   | 'youtube'
+  | 'pinterest'
+  | 'threads'
   | 'google'
   | 'snapchat'
   | 'whatsapp'
   | 'paid'
 
 export type ReadinessStatus =
-  | 'ready'                 // proven publish-capable (Facebook + page only)
+  | 'ready'                 // provider-verified publishing/readback requirements are satisfied
   | 'needs_setup'           // connected but a required step is missing
   | 'not_connected'         // no account linked
   | 'permission_unverified' // linked but publish/scope unproven
@@ -43,6 +47,10 @@ export type ReadinessAction =
   | 'link-instagram'
   | 'connect-tiktok'
   | 'connect-linkedin'
+  | 'connect-x'
+  | 'connect-youtube'
+  | 'connect-pinterest'
+  | 'connect-threads'
   | 'open-paid-ads'
   | 'open-connections'
   | 'none'
@@ -67,10 +75,31 @@ export interface PlatformState {
 
 /** Minimal shape of an entry from GET /api/social/accounts (tokens already stripped). */
 export interface SocialAccount {
-  platform?: string | null // 'META' | 'LINKEDIN' | 'TIKTOK'
+  platform?: string | null // 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST' | 'THREADS'
   status?: string | null    // 'CONNECTED' | ...
   accountName?: string | null
   pages?: Array<{ id?: string | null; name?: string | null; igAccountId?: string | null }> | null
+  capabilities?: {
+    facebookPublishing?: boolean
+    instagramPublishing?: boolean
+    linkedInMemberPublishing?: boolean
+    linkedInOrganizationPublishing?: boolean
+    tikTokDirectPosting?: boolean
+    tikTokCreatorInfoVerified?: boolean
+    xPublishing?: boolean
+    xMediaPublishing?: boolean
+    xReadback?: boolean
+    youtubeVideoPublishing?: boolean
+    youtubeReadback?: boolean
+    pinterestPinPublishing?: boolean
+    pinterestReadback?: boolean
+    pinterestBoardSelection?: boolean
+    pinterestPublicPublishing?: boolean
+    threadsPostPublishing?: boolean
+    threadsReadback?: boolean
+    threadsPublicPublishing?: boolean
+    tokenRefresh?: boolean
+  } | null
 }
 
 /** Minimal safe shape from GET /api/ad-accounts (tokens stripped by the route). */
@@ -148,47 +177,124 @@ export function derivePlatformReadiness(
   const metaPages = meta?.pages ?? []
   const hasPage = metaPages.some((p) => !!p?.id)
   const hasIg = metaPages.some((p) => !!p?.igAccountId)
+  const facebookReady = meta?.capabilities?.facebookPublishing ?? hasPage
+  const instagramReady = meta?.capabilities?.instagramPublishing === true
   const tiktok = find(list, 'TIKTOK')
   const linkedin = find(list, 'LINKEDIN')
+  const x = find(list, 'X')
+  const youtube = find(list, 'YOUTUBE')
+  const pinterest = find(list, 'PINTEREST')
+  const threads = find(list, 'THREADS')
   const metaAdAccount = findActiveAdAccount(adList, 'META')
 
   const out: PlatformState[] = []
 
-  // Facebook — the ONLY platform allowed to reach "ready" in PR-1A
+  // Facebook
   if (!meta) {
     out.push(mk('facebook', 'not_connected', `${R}.line.facebookNotConnected`, 'connect-meta', `${R}.action.connectMeta`))
   } else if (!hasPage) {
     out.push(mk('facebook', 'needs_setup', `${R}.line.facebookNeedsPage`, 'select-page', `${R}.action.selectPage`))
-  } else {
+  } else if (facebookReady) {
     out.push(mk('facebook', 'ready', `${R}.line.facebookReady`, 'open-connections', `${R}.action.reviewSetup`))
+  } else {
+    out.push(mk('facebook', 'permission_unverified', `${R}.line.facebookUnverified`, 'open-connections', `${R}.action.reviewSetup`))
   }
 
-  // Instagram — capped at permission_unverified; never "ready" in PR-1A
+  // Instagram
   if (!meta) {
     out.push(mk('instagram', 'not_connected', `${R}.line.instagramNotConnected`, 'connect-meta', `${R}.action.connectMeta`))
   } else if (!hasIg) {
     out.push(mk('instagram', 'needs_setup', `${R}.line.instagramNeedsBusiness`, 'link-instagram', `${R}.action.linkInstagram`))
+  } else if (instagramReady) {
+    out.push(mk('instagram', 'ready', `${R}.line.instagramReady`, 'open-connections', `${R}.action.reviewSetup`))
   } else {
     out.push(mk('instagram', 'permission_unverified', `${R}.line.instagramUnverified`, 'open-connections', `${R}.action.reviewSetup`))
   }
 
-  // TikTok — capped at permission_unverified
+  // TikTok
   if (!tiktok) {
     out.push(mk('tiktok', 'not_connected', `${R}.line.tiktokNotConnected`, 'connect-tiktok', `${R}.action.connectTikTok`))
+  } else if (tiktok.capabilities?.tikTokDirectPosting && tiktok.capabilities?.tikTokCreatorInfoVerified) {
+    out.push(mk('tiktok', 'ready', `${R}.line.tiktokReady`, 'open-connections', `${R}.action.reviewSetup`))
   } else {
     out.push(mk('tiktok', 'permission_unverified', `${R}.line.tiktokUnverified`, 'open-connections', `${R}.action.reviewSetup`))
   }
 
-  // LinkedIn — capped at permission_unverified
+  // LinkedIn
   if (!linkedin) {
     out.push(mk('linkedin', 'not_connected', `${R}.line.linkedinNotConnected`, 'connect-linkedin', `${R}.action.connectLinkedIn`))
+  } else if (linkedin.capabilities?.linkedInMemberPublishing || linkedin.capabilities?.linkedInOrganizationPublishing) {
+    out.push(mk('linkedin', 'ready', `${R}.line.linkedinReady`, 'open-connections', `${R}.action.reviewSetup`))
   } else {
     out.push(mk('linkedin', 'permission_unverified', `${R}.line.linkedinUnverified`, 'open-connections', `${R}.action.reviewSetup`))
   }
 
+  if (!x) {
+    out.push(mk('x', 'not_connected', `${R}.line.xNotConnected`, 'connect-x', `${R}.action.connectX`))
+  } else if (
+    x.capabilities?.xPublishing
+    && x.capabilities?.xMediaPublishing
+    && x.capabilities?.xReadback
+    && x.capabilities?.tokenRefresh
+  ) {
+    out.push(mk('x', 'ready', `${R}.line.xReady`, 'open-connections', `${R}.action.reviewSetup`))
+  } else {
+    out.push(mk('x', 'permission_unverified', `${R}.line.xUnverified`, 'open-connections', `${R}.action.reviewSetup`))
+  }
+
+  if (!youtube) {
+    out.push(mk('youtube', 'not_connected', `${R}.line.youtubeNotConnected`, 'connect-youtube', `${R}.action.connectYouTube`))
+  } else if (
+    youtube.capabilities?.youtubeVideoPublishing
+    && youtube.capabilities?.youtubeReadback
+    && youtube.capabilities?.tokenRefresh
+  ) {
+    out.push(mk('youtube', 'ready', `${R}.line.youtubeReady`, 'open-connections', `${R}.action.reviewSetup`))
+  } else {
+    out.push(mk('youtube', 'permission_unverified', `${R}.line.youtubeUnverified`, 'open-connections', `${R}.action.reviewSetup`))
+  }
+
+  if (!pinterest) {
+    out.push(mk('pinterest', 'not_connected', `${R}.line.pinterestNotConnected`, 'connect-pinterest', `${R}.action.connectPinterest`))
+  } else if (
+    pinterest.capabilities?.pinterestPinPublishing
+    && pinterest.capabilities?.pinterestReadback
+    && pinterest.capabilities?.pinterestBoardSelection
+    && pinterest.capabilities?.tokenRefresh
+    && pinterest.capabilities?.pinterestPublicPublishing
+  ) {
+    out.push(mk('pinterest', 'ready', `${R}.line.pinterestReady`, 'open-connections', `${R}.action.reviewSetup`))
+  } else if (
+    pinterest.capabilities?.pinterestPinPublishing
+    && pinterest.capabilities?.pinterestReadback
+    && pinterest.capabilities?.pinterestBoardSelection
+    && pinterest.capabilities?.tokenRefresh
+  ) {
+    out.push(mk('pinterest', 'needs_setup', `${R}.line.pinterestTrialOnly`, 'open-connections', `${R}.action.reviewSetup`))
+  } else {
+    out.push(mk('pinterest', 'permission_unverified', `${R}.line.pinterestUnverified`, 'open-connections', `${R}.action.reviewSetup`))
+  }
+
+  if (!threads) {
+    out.push(mk('threads', 'not_connected', `${R}.line.threadsNotConnected`, 'connect-threads', `${R}.action.connectThreads`))
+  } else if (
+    threads.capabilities?.threadsPostPublishing
+    && threads.capabilities?.threadsReadback
+    && threads.capabilities?.tokenRefresh
+    && threads.capabilities?.threadsPublicPublishing
+  ) {
+    out.push(mk('threads', 'ready', `${R}.line.threadsReady`, 'open-connections', `${R}.action.reviewSetup`))
+  } else if (
+    threads.capabilities?.threadsPostPublishing
+    && threads.capabilities?.threadsReadback
+    && threads.capabilities?.tokenRefresh
+  ) {
+    out.push(mk('threads', 'needs_setup', `${R}.line.threadsDevelopmentOnly`, 'open-connections', `${R}.action.reviewSetup`))
+  } else {
+    out.push(mk('threads', 'permission_unverified', `${R}.line.threadsUnverified`, 'open-connections', `${R}.action.reviewSetup`))
+  }
+
   // Not available yet — no integration code exists; NO connect CTA.
-  // YouTube Shorts can be planned in Content Hub, but API upload/publish is not wired.
-  out.push(mk('youtube', 'not_available', `${R}.line.youtubeNotAvailable`, 'none', null))
   out.push(mk('google', 'not_available', `${R}.line.googleNotAvailable`, 'none', null))
   out.push(mk('snapchat', 'not_available', `${R}.line.snapchatNotAvailable`, 'none', null))
   out.push(mk('whatsapp', 'not_available', `${R}.line.whatsappNotAvailable`, 'none', null))
@@ -212,7 +318,7 @@ export function derivePlatformReadiness(
 
 /** Compact summary for the dashboard strip (subset + short chips). */
 export function summarizeForStrip(states: PlatformState[]): PlatformState[] {
-  const order: PlatformKey[] = ['facebook', 'instagram', 'tiktok', 'linkedin', 'youtube', 'paid']
+  const order: PlatformKey[] = ['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'threads', 'youtube', 'pinterest', 'paid']
   return order
     .map((k) => states.find((s) => s.key === k))
     .filter((s): s is PlatformState => !!s)

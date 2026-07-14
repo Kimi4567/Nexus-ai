@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import { resolveCampaignCounts, type CampaignCounts } from '@/lib/campaignSummary'
+import { guardStrategyProofText } from '@/lib/ai/strategyProofGuard'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
@@ -654,7 +655,11 @@ export default function CampaignsPage() {
                             </span>
                             <span className="min-w-0">
                               <span className="block truncate text-sm font-black text-[#111b3f]">{campaign.name}</span>
-                              <span className="mt-1 block truncate text-xs text-[#7b87a3]">{campaign.description || goalMap[campaign.goal] || campaign.goal}</span>
+                              <span className="mt-1 block truncate text-xs text-[#7b87a3]">
+                                {campaign.description
+                                  ? guardStrategyProofText(campaign.description)
+                                  : goalMap[campaign.goal] || campaign.goal}
+                              </span>
                             </span>
                           </Link>
                           <span className={`inline-flex w-max items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold ${status.pill}`}>
@@ -733,7 +738,7 @@ export default function CampaignsPage() {
                 <h2 className="mb-4 text-[15px] font-black text-[#111b3f]">{copy('معلومات ذكية من NEXUS', 'NEXUS intelligence')}</h2>
                 <div className="space-y-3">
                   {[
-                    copy('أفضل وقت للنشر يظهر بعد ربط المنصات ووجود بيانات.', 'Best posting time appears after platform data exists.'),
+                    copy('وقت النشر المقترح يظهر بعد ربط المنصات ووجود بيانات.', 'A suggested posting time appears after platform data exists.'),
                     copy('فرص المحتوى تعتمد على الاستراتيجية وسجلات Content Hub.', 'Content opportunities depend on strategy and Content Hub records.'),
                     copy('تعلم الأداء يتطلب analyticsData حقيقية.', 'Performance learning requires real analyticsData.'),
                   ].map((note) => (

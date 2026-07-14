@@ -1,20 +1,20 @@
 /**
  * POST /api/ad-campaigns/[id]/generate-strategy
  *
- * AI-powered paid campaign strategy engine.
- * Combines Brand Brain + campaign brief + platform intelligence to produce:
+ * AI-powered paid execution-plan engine.
+ * Translates an approved Paid/Full strategy + Brand Brain into platform inputs:
  *   - Full campaign positioning
  *   - Target audience analysis
  *   - Budget allocation plan
  *   - Creative brief
  *   - Platform-specific audience targeting specs
- *   - Expected results forecast
+ *   - Forecast-readiness status (real forecasts require platform data)
  *
- * This is the "brain" of the paid campaign system.
+ * The approved source strategy remains the marketing brain and source of truth.
  * The output feeds directly into generate-audience (targeting params)
  * and generate-copy (creative concepts).
  *
- * Credit cost: 4 (AD_COPY × 2)
+ * Credit cost: 4 (PAID_EXECUTION_PLAN)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -24,10 +24,23 @@ import {
   checkAndDeductCredits,
   refundCredits,
   refundCreditsForTransaction,
+  getCreditActionPolicy,
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { extractGoogleSearchTargeting } from '@/lib/adPlatforms/googleAdsApi'
+import {
+  getPaidStrategySourceForUser,
+  PaidStrategySourceError,
+} from '@/lib/paidStrategySourceServer'
+import { getStrategyBriefReadiness } from '@/lib/strategyBriefReadiness'
+import {
+  googleSearchBiddingMode,
+  paidOptimizationGoal,
+} from '@/lib/paidExecutionObjective'
+import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -52,45 +65,57 @@ async function callGPT(system: string, user: string): Promise<string> {
   })
   if (!res.ok) throw new Error(`OpenAI error: ${res.status}`)
   const data = await res.json()
-  return data.choices?.[0]?.message?.content ?? '{}'
+  const content = data.choices?.[0]?.message?.content?.trim()
+  if (!content) throw new Error('OpenAI returned no paid strategy')
+  return content
 }
 
-// MENA-accurate CPM benchmarks (USD per 1000 impressions)
-// Based on real GCC + MENA performance marketing data
-const MENA_CPM = {
-  META:     { min: 1.5,  max: 5.0,  note: 'Saudi Arabia / UAE / Egypt range' },
-  GOOGLE:   { min: 0.8,  max: 3.5,  note: 'CPC-based; display lower than search' },
-  TIKTOK:   { min: 2.0,  max: 7.0,  note: 'Higher for premium placements' },
-  LINKEDIN: { min: 20.0, max: 55.0, note: 'B2B premium; lower in non-Gulf markets' },
+function positiveNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null
 }
 
-// Global CPM benchmarks (for non-MENA clients)
-const GLOBAL_CPM = {
-  META:     { min: 4.0,  max: 12.0 },
-  GOOGLE:   { min: 1.0,  max: 5.0  },
-  TIKTOK:   { min: 6.0,  max: 15.0 },
-  LINKEDIN: { min: 25.0, max: 60.0 },
-}
+function enforceForecastBoundary(
+  generated: Record<string, unknown>,
+  budget: { dailyBudget: number | null; lifetimeBudget: number | null; totalBudget: number; currency: string; durationDays: number },
+): Record<string, unknown> {
+  const audience = generated.audience && typeof generated.audience === 'object'
+    ? { ...(generated.audience as Record<string, unknown>) }
+    : {}
+  const primary = audience.primary_segment && typeof audience.primary_segment === 'object'
+    ? { ...(audience.primary_segment as Record<string, unknown>) }
+    : {}
+  primary.estimatedSize = null
+  primary.estimateStatus = 'unavailable_until_platform_forecast'
+  audience.primary_segment = primary
 
-function estimateReach(
-  budget: number,
-  days: number,
-  platform: string,
-  isMENA: boolean
-): { impressionsMin: number; impressionsMax: number; cpmMin: number; cpmMax: number; reachMin: number; reachMax: number } {
-  const table = isMENA ? MENA_CPM : GLOBAL_CPM
-  const bench = table[platform as keyof typeof table] || { min: 4, max: 12 }
-  const totalBudget = budget * days
-  const impressionsMax = Math.round((totalBudget / bench.min) * 1000)
-  const impressionsMin = Math.round((totalBudget / bench.max) * 1000)
-  // Rough reach: assume 1.5–2.5x frequency
+  const targeting = generated.targeting && typeof generated.targeting === 'object'
+    ? { ...(generated.targeting as Record<string, unknown>) }
+    : {}
+  targeting.platformValidationRequired = true
+
+  const generatedBudgetPlan = generated.budget_plan && typeof generated.budget_plan === 'object'
+    ? generated.budget_plan as Record<string, unknown>
+    : {}
+
   return {
-    impressionsMin,
-    impressionsMax,
-    cpmMin: bench.min,
-    cpmMax: bench.max,
-    reachMin: Math.round(impressionsMin / 2.5),
-    reachMax: Math.round(impressionsMax / 1.5),
+    ...generated,
+    audience,
+    targeting,
+    budget_plan: {
+      ...generatedBudgetPlan,
+      daily_budget: budget.dailyBudget,
+      lifetime_budget: budget.lifetimeBudget,
+      total_budget: budget.totalBudget,
+      currency: budget.currency,
+      duration_days: budget.durationDays,
+      estimated_cpm: null,
+      estimated_impressions: null,
+      estimated_reach: null,
+      expected_results: null,
+      benchmark_comparison: null,
+      forecast_status: 'unavailable_until_platform_forecast',
+      forecast_reason: 'No account-level platform forecast or verified historical performance was available.',
+    },
   }
 }
 
@@ -100,7 +125,7 @@ async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, 
     await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
     return
   }
-  await refundCredits(userId, 'AD_COPY', reason)
+  await refundCredits(userId, 'PAID_EXECUTION_PLAN', reason)
 }
 
 export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -125,6 +150,24 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
       },
     })
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+    if (campaign.status !== 'DRAFT' || campaign.platformCampaignId) {
+      return NextResponse.json({
+        error: 'PAID_DRAFT_NOT_EDITABLE',
+        code: 'PAID_DRAFT_NOT_EDITABLE',
+      }, { status: 409 })
+    }
+
+    const paidSource = await getPaidStrategySourceForUser({
+      campaignId: typeof campaign.organicCampaignId === 'string' ? campaign.organicCampaignId : '',
+      userId: user.id,
+    })
+    if (campaign.objective !== paidSource.truth.executionObjective) {
+      return NextResponse.json({
+        error: 'PAID_OBJECTIVE_STRATEGY_MISMATCH',
+        code: 'PAID_OBJECTIVE_STRATEGY_MISMATCH',
+        expectedObjective: paidSource.truth.executionObjective,
+      }, { status: 422 })
+    }
 
     // Fetch Brand Brain
     let brandProfile = null
@@ -133,6 +176,14 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
         where: { workspaceId: campaign.workspaceId },
       })
     } catch { /* ok */ }
+    const brandBrief = getStrategyBriefReadiness({ mode: 'paid', brandProfile })
+    if (!brandBrief.canGeneratePaidPlan) {
+      return NextResponse.json({
+        error: 'PAID_BRAND_BRIEF_INCOMPLETE',
+        code: 'PAID_BRAND_BRIEF_INCOMPLETE',
+        missingFields: brandBrief.missingRequiredFields,
+      }, { status: 422 })
+    }
 
     // Fetch recent campaign memories for context
     let memories: unknown[] = []
@@ -160,13 +211,31 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
 
     const platformLabel = campaign.platform
     const objective = campaign.objective
-    const dailyBudget = campaign.dailyBudget || 50
+    const dailyBudget = positiveNumber(campaign.dailyBudget)
+    const lifetimeBudget = positiveNumber(campaign.lifetimeBudget)
     const currency = campaign.currency || 'USD'
-    const durationDays = campaign.endDate && campaign.startDate
-      ? Math.max(1, Math.round((new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) / 86400000))
-      : 14
-    const totalBudget = dailyBudget * durationDays
-    const reachEstimate = estimateReach(dailyBudget, durationDays, platformLabel, isMENA)
+    if (!campaign.startDate || !campaign.endDate) {
+      return NextResponse.json({
+        error: 'A real planning start and end date are required before strategy generation.',
+        code: 'PAID_SCHEDULE_REQUIRED',
+      }, { status: 422 })
+    }
+    const durationDays = Math.max(
+      1,
+      Math.ceil((new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) / 86400000),
+    )
+    if (!dailyBudget && !lifetimeBudget) {
+      return NextResponse.json({
+        error: 'Enter a planning budget before strategy generation. It remains unapproved until final launch confirmation.',
+        code: 'PAID_BUDGET_REQUIRED',
+      }, { status: 422 })
+    }
+
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(requestedLang || detectedLang), { status: 503 })
+    }
+
+    const totalBudget = lifetimeBudget ?? (dailyBudget as number) * durationDays
 
     // Build brand context
     const brandCtx = buildBrandExecutionContext(brandProfile)
@@ -175,81 +244,96 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
       ? `\nPAST STRATEGY MEMORY CANDIDATES — NOT VERIFIED PERFORMANCE:\n${memories.map((m: any) => JSON.stringify(m.learnings)).join('\n')}`
       : ''
 
-    const systemPrompt = `You are a world-class performance marketing strategist with 20+ years of experience.
-You've managed $100M+ in ad spend across Meta, Google, TikTok, and LinkedIn — with deep expertise in MENA, Gulf, and global markets.
+    const systemPrompt = `You are a senior paid media execution planner.
 
-Your job: Generate the most precise, brand-specific paid campaign strategy for the following campaign.
+Your job: Translate the APPROVED SOURCE STRATEGY into a precise, platform-specific execution plan for review.
+Do not create a second strategy. Do not change the approved audience, positioning, offer, funnel, or message hierarchy.
+If the platform cannot execute part of the approved strategy, expose a blocker or review hypothesis instead of silently changing the strategy.
 Every output must be SPECIFIC to this brand — never generic. Use exact brand terminology.
+Do not invent performance history, competitor spend, audience size, CPM, reach, impressions, conversions, ROI, ROAS, CPA, or guaranteed outcomes.
+Treat interest, behavior, keyword, placement, and bid options as review hypotheses that must be validated in the user's live platform account. Never claim an option exists in Ads Manager unless live platform data proves it.
+Do not invent testimonials, customer counts, ratings, certifications, awards, case studies, or other social proof. Use only proof explicitly present in the supplied brand context.
+No budget in this plan is approved spend. No campaign is launched by generating this plan.
 
 ${langInstruction}
 
 Output ONLY valid JSON. No prose, no markdown, no explanation outside JSON.`
 
-    const userPrompt = `Campaign: "${campaign.name}"
+    const userPrompt = `APPROVED SOURCE STRATEGY: "${paidSource.campaign.name}"
+${paidSource.executionContext}
+
+PLATFORM EXECUTION DRAFT: "${campaign.name}"
 Platform: ${platformLabel}
 Objective: ${objective}
-Daily Budget: ${currency} ${dailyBudget}
+Daily Budget: ${dailyBudget ? `${currency} ${dailyBudget}` : 'Not applicable — lifetime budget supplied'}
+Lifetime Budget: ${lifetimeBudget ? `${currency} ${lifetimeBudget}` : 'Not supplied'}
 Campaign Duration: ${durationDays} days
 Total Budget: ${currency} ${totalBudget}
-Estimated Reach: ${reachEstimate.reachMin.toLocaleString()} – ${reachEstimate.reachMax.toLocaleString()} unique people
-Market: ${isMENA ? 'MENA / Gulf' : 'Global'}
+Confirmed Market: ${brandProfile.audienceLocation || 'Not provided'}
 
 ${brandCtx}
 ${memoriesCtx}
 
-Generate a complete paid campaign strategy as JSON with EXACTLY this structure:
+Generate a complete paid execution plan as JSON with EXACTLY this structure:
 {
   "positioning": {
-    "core_message": "The single most compelling statement about the brand — 1 sentence, brand-specific",
-    "value_proposition": "What makes this offer uniquely worth paying attention to RIGHT NOW",
-    "differentiation": "What separates this from competitors — be specific",
-    "emotional_hook": "The emotional trigger that drives action for THIS audience"
+    "core_message": "One brand-specific statement grounded only in the approved strategy and confirmed Brand Brain facts",
+    "value_proposition": "The confirmed offer value, without invented urgency or unverified superiority",
+    "differentiation": "Only a supplied advantage or competitor distinction; otherwise state that differentiation needs user review",
+    "emotional_hook": "A review hypothesis grounded in a confirmed audience pain point or desire"
   },
   "audience": {
     "primary_segment": {
-      "description": "Detailed description of the #1 audience segment",
-      "ageRange": "e.g. 25-44",
-      "gender": "male|female|all",
-      "psychographics": ["trait 1", "trait 2", "trait 3"],
-      "buyingTriggers": ["trigger 1", "trigger 2"],
-      "estimatedSize": "e.g. 800K – 2M on ${platformLabel} in target region"
+      "description": "The approved primary audience description, without expanding it",
+      "ageRange": "confirmed range or null",
+      "gender": "confirmed value or null",
+      "psychographics": ["confirmed traits or clearly labeled review hypotheses"],
+      "buyingTriggers": ["confirmed triggers or clearly labeled review hypotheses"],
+      "estimatedSize": null,
+      "estimateStatus": "unavailable_until_platform_forecast"
     },
-    "secondary_segment": {
-      "description": "Second best audience segment",
-      "ageRange": "string",
-      "gender": "male|female|all"
-    },
-    "exclusions": ["audiences to EXCLUDE for better efficiency"]
+    "secondary_segment": "approved secondary segment object or null",
+    "exclusions": ["review hypotheses only; empty when unsupported"]
   },
   "targeting": {
     "locations": ["specific cities or countries"],
     "languages": ["language codes"],
     ${platformLabel === 'META' ? `
-    "meta_interests": ["up to 10 specific Meta interest categories — use exact names from Ads Manager"],
-    "meta_behaviors": ["up to 5 Meta behavioral targeting options"],
-    "meta_custom_audiences": ["Lookalike 1% from website visitors", "Email list upload", "Video views 75%"],
+    "meta_interest_hypotheses": ["up to 10 review hypotheses — validate availability in the connected account"],
+    "meta_behavior_hypotheses": ["up to 5 review hypotheses — validate availability in the connected account"],
+    "meta_custom_audience_prerequisites": ["Only first-party audiences the workspace actually has or can lawfully create"],
     "meta_placements": ["Facebook Feed", "Instagram Reels", "Stories"],
     "meta_bid_strategy": "LOWEST_COST_WITHOUT_CAP",
-    "meta_optimization_goal": "LINK_CLICKS|CONVERSIONS|LEAD_GENERATION|REACH"
+    "meta_optimization_goal": "${paidOptimizationGoal(objective)}"
     ` : ''}
     ${platformLabel === 'GOOGLE' ? `
-    "google_campaign_type": "Search|Display|Performance Max",
-    "google_keywords": ["10 high-intent keywords"],
-    "google_negative_keywords": ["5 negative keywords to exclude"],
-    "google_audience_segments": ["Google audience names"],
-    "google_bid_strategy": "Maximize Conversions|Target CPA|Target ROAS",
-    "google_match_types": "Broad Match + Phrase Match"
+    "google_campaign_type": "SEARCH",
+    "google_keywords": [
+      { "text": "specific high-intent keyword", "matchType": "PHRASE" },
+      { "text": "specific commercial keyword", "matchType": "EXACT" },
+      { "text": "specific discovery keyword", "matchType": "BROAD" }
+    ],
+    "google_negative_keywords": [
+      { "text": "irrelevant query", "matchType": "PHRASE" }
+    ],
+    "google_locations": [
+      { "name": "exact city, region, or country name", "countryCode": "ISO-3166-1 alpha-2", "targetType": "City|State|Country" }
+    ],
+    "google_location_presence": "PRESENCE|PRESENCE_OR_INTEREST",
+    "google_audience_hypotheses": ["review hypotheses — validate availability in the connected account"],
+    "google_bid_strategy": "${googleSearchBiddingMode(objective)}",
+    "google_network_scope": "GOOGLE_SEARCH_ONLY"
     ` : ''}
     ${platformLabel === 'TIKTOK' ? `
-    "tiktok_interests": ["TikTok interest category names"],
-    "tiktok_behaviors": ["TikTok behavioral segments"],
+    "tiktok_interest_hypotheses": ["review hypotheses — validate availability in the connected account"],
+    "tiktok_behavior_hypotheses": ["review hypotheses — validate availability in the connected account"],
     "tiktok_placement": "TikTok Feed|TopView|Brand Takeover",
     "tiktok_creative_format": "In-Feed|TopView|Spark Ads",
     "tiktok_hashtag_targets": ["hashtags relevant to this audience"]
     ` : ''}
     ${platformLabel === 'LINKEDIN' ? `
     "linkedin_job_titles": ["specific job titles — LinkedIn format"],
-    "linkedin_industries": ["LinkedIn industry names"],
+    "linkedin_industry_hypotheses": ["review hypotheses — validate availability in the connected account"],
     "linkedin_company_sizes": ["1-10", "11-50", "51-200", "201-500", "501-1000"],
     "linkedin_seniority": ["Senior", "Manager", "Director", "VP", "C-Level"],
     "linkedin_skills": ["relevant skills"],
@@ -257,20 +341,23 @@ Generate a complete paid campaign strategy as JSON with EXACTLY this structure:
     ` : ''}
   },
   "budget_plan": {
-    "daily_budget": ${dailyBudget},
+    "daily_budget": ${dailyBudget ?? 'null'},
+    "lifetime_budget": ${lifetimeBudget ?? 'null'},
     "total_budget": ${totalBudget},
     "currency": "${currency}",
     "duration_days": ${durationDays},
     "phasing": {
-      "learning_phase": "Day 1-${Math.max(3, Math.round(durationDays * 0.25))}: Testing phase at 50-70% budget. Let algorithm learn.",
-      "scaling_phase": "Day ${Math.max(4, Math.round(durationDays * 0.25) + 1)}-${durationDays}: Scale winners. Cut losers.",
+      "learning_phase": "Review-first testing stage inside the saved ${durationDays}-day window; do not imply performance before verified metrics exist.",
+      "scaling_phase": "Scale only after real account metrics meet user-approved decision rules.",
       "recommendation": "Specific phasing recommendation for this campaign objective and budget"
     },
-    "estimated_cpm": { "min": ${reachEstimate.cpmMin}, "max": ${reachEstimate.cpmMax} },
-    "estimated_impressions": { "min": ${reachEstimate.impressionsMin}, "max": ${reachEstimate.impressionsMax} },
-    "estimated_reach": { "min": ${reachEstimate.reachMin}, "max": ${reachEstimate.reachMax} },
-    "expected_results": "Specific, realistic results forecast for this budget + objective",
-    "benchmark_comparison": "How this budget compares to typical competitors in this space"
+    "estimated_cpm": null,
+    "estimated_impressions": null,
+    "estimated_reach": null,
+    "expected_results": null,
+    "benchmark_comparison": null,
+    "forecast_status": "unavailable_until_platform_forecast",
+    "forecast_reason": "No account-level platform forecast or verified historical performance was available."
   },
   "creative_brief": {
     "visual_direction": "Specific creative direction — what to show, colors, style, emotion",
@@ -279,13 +366,13 @@ Generate a complete paid campaign strategy as JSON with EXACTLY this structure:
       "Value proof (middle section)",
       "CTA (closing)"
     ],
-    "recommended_formats": ["best ad formats for this platform + objective"],
-    "a_b_test_suggestion": "Which 2 angles to A/B test and why",
-    "creative_dont": "What creative approach FAILED before or would NOT work for this brand"
+    "recommended_formats": ["formats supported by the current execution path; label anything else as export-only"],
+    "a_b_test_suggestion": "Two distinct message hypotheses to review; never call either one best or a winner",
+    "creative_risk": "A creative risk to review as a hypothesis; do not claim it failed historically unless verified data says so"
   },
   "utm_tracking": {
     "source": "${platformLabel.toLowerCase()}",
-    "medium": "paid_social",
+    "medium": "${platformLabel === 'GOOGLE' ? 'cpc' : 'paid_social'}",
     "campaign": "${campaign.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 30)}",
     "recommended_suffix": "e.g. utm_content=v1_hook_a&utm_term=cold_audience"
   },
@@ -298,7 +385,7 @@ Generate a complete paid campaign strategy as JSON with EXACTLY this structure:
   ]
 }`
 
-    const creditResult = await checkAndDeductCredits(user.id, 'AD_COPY')
+    const creditResult = await checkAndDeductCredits(user.id, 'PAID_EXECUTION_PLAN')
     if (!creditResult.ok) {
       return NextResponse.json({ error: 'Insufficient credits', upgradeRequired: true }, { status: 402 })
     }
@@ -308,7 +395,39 @@ Generate a complete paid campaign strategy as JSON with EXACTLY this structure:
     const raw = await callGPT(systemPrompt, userPrompt)
     let strategy: Record<string, unknown>
     try {
-      strategy = JSON.parse(raw)
+      const parsed = JSON.parse(raw) as Record<string, unknown>
+      if (!parsed.positioning || !parsed.targeting || !parsed.creative_brief) {
+        throw new Error('Incomplete paid strategy response')
+      }
+      strategy = enforceForecastBoundary(parsed, {
+        dailyBudget,
+        lifetimeBudget,
+        totalBudget,
+        currency,
+        durationDays,
+      })
+      if (platformLabel === 'GOOGLE') {
+        const googleTargeting = extractGoogleSearchTargeting(strategy.targeting)
+        if (googleTargeting.blockers.length > 0) {
+          throw new Error(`Incomplete Google Search targeting: ${googleTargeting.blockers.join(' ')}`)
+        }
+      }
+      const qualityGate = reviewStrategyGrounding({
+        strategy,
+        brand: brandProfile,
+        allowedPlatforms: [String(campaign.platform)],
+        goal: String(campaign.objective),
+      })
+      if (qualityGate.status !== 'passed') {
+        await refundDeductedCredits(user.id, creditResult, 'Paid execution plan failed the Brand Brain and scope quality gate')
+        return NextResponse.json({
+          error: 'MARKETING_QUALITY_GATE_BLOCKED',
+          code: 'MARKETING_QUALITY_GATE_BLOCKED',
+          qualityGate,
+          refunded: creditResult.creditsUsed > 0,
+        }, { status: 422 })
+      }
+      strategy = { ...strategy, qualityGate }
     } catch {
       await refundDeductedCredits(user.id, creditResult, 'AI returned invalid JSON')
       return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })
@@ -321,6 +440,9 @@ Generate a complete paid campaign strategy as JSON with EXACTLY this structure:
       targetAudience: brandProfile.targetAudience,
       toneKeywords: brandProfile.toneKeywords,
       winningHooks: brandProfile.winningHooks,
+      sourceStrategyId: paidSource.campaign.id,
+      sourceStrategyName: paidSource.campaign.name,
+      sourceStrategyUpdatedAt: paidSource.truth.updatedAt,
       snapshotAt: new Date().toISOString(),
     } : null
 
@@ -336,13 +458,23 @@ Generate a complete paid campaign strategy as JSON with EXACTLY this structure:
 
     return NextResponse.json({
       strategy,
-      reachEstimate,
+      reachEstimate: null,
+      forecastStatus: 'unavailable_until_platform_forecast',
       success: true,
+      creditsUsed: creditResult.creditsUsed,
+      creditsRemaining: creditResult.creditsRemaining,
+      creditCharge: {
+        ...getCreditActionPolicy('PAID_EXECUTION_PLAN'),
+        creditsUsed: creditResult.creditsUsed,
+      },
     })
   } catch (err) {
     console.error('[generate-strategy]', err)
     if (chargedUserId && chargedCredit) {
       await refundDeductedCredits(chargedUserId, chargedCredit, 'Strategy generation failed')
+    }
+    if (err instanceof PaidStrategySourceError) {
+      return NextResponse.json({ error: err.code, code: err.code }, { status: err.status })
     }
     return NextResponse.json({ error: 'Strategy generation failed' }, { status: 500 })
   }

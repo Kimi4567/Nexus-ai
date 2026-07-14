@@ -82,8 +82,8 @@ function brandMetric(score: number | null | undefined): { en: string; ar: string
   }
 
   return {
-    en: `Brand Brain ${score}/100`,
-    ar: `Brand Brain ${score}/100`,
+    en: `Core profile ${score}/100`,
+    ar: `الملف الأساسي ${score}/100`,
   }
 }
 
@@ -324,8 +324,8 @@ function deriveLoadingContentStateFlow(
         status: statusForBrand(input.brandScore),
         titleEn: 'Brand Brain',
         titleAr: 'Brand Brain',
-        helperEn: 'Positioning, audience, tone, proof, assets, and constraints.',
-        helperAr: 'التموضع، الجمهور، النبرة، الإثباتات، الأصول، والقيود.',
+        helperEn: 'Core setup coverage only. Proof, assets, channel connections, and paid readiness have separate gates.',
+        helperAr: 'هذه نسبة تغطية الإعداد الأساسي فقط. الإثباتات والأصول وربط القنوات والجاهزية المدفوعة لها بوابات مستقلة.',
         metricEn: brand.en,
         metricAr: brand.ar,
         href: '/brand',
@@ -437,8 +437,8 @@ export function deriveCampaignCommandFlow(input: DeriveCampaignCommandFlowInput)
         status: statusForBrand(brandScore),
         titleEn: 'Brand Brain',
         titleAr: 'Brand Brain',
-        helperEn: 'Positioning, audience, tone, proof, assets, and constraints.',
-        helperAr: 'التموضع، الجمهور، النبرة، الإثباتات، الأصول، والقيود.',
+        helperEn: 'Core setup coverage only. Proof, assets, channel connections, and paid readiness have separate gates.',
+        helperAr: 'هذه نسبة تغطية الإعداد الأساسي فقط. الإثباتات والأصول وربط القنوات والجاهزية المدفوعة لها بوابات مستقلة.',
         metricEn: brand.en,
         metricAr: brand.ar,
         href: '/brand',

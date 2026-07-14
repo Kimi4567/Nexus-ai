@@ -27,10 +27,11 @@ const LABELS: Record<string, string> = {
   YOUTUBE_SHORTS: 'YouTube Shorts',
   SNAPCHAT: 'Snapchat',
   PINTEREST: 'Pinterest',
+  THREADS: 'Threads',
 }
 
 // Canonical display order — keeps the list identical across surfaces.
-const ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'LINKEDIN', 'META', 'X', 'YOUTUBE', 'YOUTUBE_SHORTS', 'SNAPCHAT', 'PINTEREST']
+const ORDER = ['FACEBOOK', 'INSTAGRAM', 'THREADS', 'TIKTOK', 'LINKEDIN', 'META', 'X', 'YOUTUBE', 'YOUTUBE_SHORTS', 'SNAPCHAT', 'PINTEREST']
 
 /** Normalize raw campaign platforms: trim, upper-case key, de-dupe, canonical order. */
 export function normalizeCampaignPlatforms(
@@ -41,7 +42,8 @@ export function normalizeCampaignPlatforms(
   const out: string[] = []
   for (const p of platforms) {
     if (typeof p !== 'string' || !p.trim()) continue
-    const key = p.trim().toUpperCase()
+    const rawKey = p.trim().toUpperCase()
+    const key = rawKey === 'TWITTER' ? 'X' : rawKey
     if (seen.has(key)) continue
     seen.add(key)
     out.push(key)

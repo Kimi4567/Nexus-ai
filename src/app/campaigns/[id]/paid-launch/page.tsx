@@ -23,7 +23,7 @@ import CreditConfirmModal from '@/components/CreditConfirmModal'
 const PAID_PACK_COST = 6
 import {
   Target, Zap, Users, DollarSign, Copy, ExternalLink,
-  CheckCircle, TrendingUp, Brain, ChevronDown, ChevronUp,
+  CheckCircle, Brain, ChevronDown, ChevronUp,
   RefreshCw, AlertCircle, BarChart3, ArrowLeft,
   Link2, BookOpen
 } from 'lucide-react'
@@ -47,7 +47,7 @@ interface AudienceBrief {
     ageMin: number; ageMax: number; genders: string[]; locations: string[]
     interests: string[]; behaviors: string[]; exclusions: string[]
     customAudienceSuggestions: string[]; placementRecommendation: string
-    bidStrategy: string; estimatedAudienceSize: string
+    bidStrategy: string; estimatedAudienceSize: string | null
   }
   google?: {
     campaignType: string; keywords: string[]; negativeKeywords: string[]
@@ -63,16 +63,12 @@ interface AudienceBrief {
   }
 }
 
-interface EstimatedReach {
-  [platform: string]: { impressionsMin: number; impressionsMax: number; cpmMin: number; cpmMax: number }
-}
-
 interface BudgetInsights {
   recommendation: string
   splitSuggestion: Record<string, number>
   phasingSuggestion: string
-  competitorBenchmark: string
-  expectedResults: string
+  competitorBenchmark: string | null
+  expectedResults: string | null
 }
 
 interface PaidPack {
@@ -86,7 +82,7 @@ interface PaidPack {
   currency: string
   audienceBrief: AudienceBrief | null
   copyVariants: CopyVariant[] | null
-  estimatedReach: EstimatedReach | null
+  estimatedReach: unknown
   utmParams: { examples: Record<string, string>; campaign: string } | null
   platformGuides: Record<string, string[]> | null
   budgetInsights: BudgetInsights | null
@@ -209,6 +205,7 @@ export default function PaidLaunchPage() {
   const [metricsForm, setMetricsForm] = useState({ impressions: '', reach: '', clicks: '', spend: '', conversions: '', roas: '' })
   const [savingMetrics, setSavingMetrics] = useState(false)
   const [extractingLearnings, setExtractingLearnings] = useState(false)
+  const [learningNotice, setLearningNotice] = useState<string | null>(null)
   const [showExternalLaunchConfirm, setShowExternalLaunchConfirm] = useState(false)
   const [externalLaunchAcknowledged, setExternalLaunchAcknowledged] = useState(false)
 
@@ -249,6 +246,14 @@ export default function PaidLaunchPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  // This route is retained only to review historical PaidCampaignPack records.
+  // New work always enters the canonical strategy-linked AdCampaign workflow.
+  useEffect(() => {
+    if (!loading && campaign && !pack) {
+      router.replace(`/paid-campaigns/new?sourceCampaignId=${id}`)
+    }
+  }, [campaign, id, loading, pack, router])
+
   // ── Save setup then generate ──
   const handleGenerate = async () => {
     if (!paidPlanningInScope) {
@@ -286,20 +291,28 @@ export default function PaidLaunchPage() {
   const handleSaveMetrics = async () => {
     setSavingMetrics(true)
     try {
+      const optionalMetric = (value: string) => value.trim() === '' ? undefined : Number(value)
       const res = await fetch(`/api/campaigns/${id}/paid-pack/metrics`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
         body: JSON.stringify({
-          impressions: parseFloat(metricsForm.impressions) || 0,
-          reach: parseFloat(metricsForm.reach) || 0,
-          clicks: parseFloat(metricsForm.clicks) || 0,
-          spend: parseFloat(metricsForm.spend) || 0,
-          conversions: parseFloat(metricsForm.conversions) || 0,
-          roas: parseFloat(metricsForm.roas) || 0,
-          metricsSource: 'manual',
+          impressions: optionalMetric(metricsForm.impressions),
+          reach: optionalMetric(metricsForm.reach),
+          clicks: optionalMetric(metricsForm.clicks),
+          spend: optionalMetric(metricsForm.spend),
+          conversions: optionalMetric(metricsForm.conversions),
+          roas: optionalMetric(metricsForm.roas),
         }),
       })
-      if (res.ok) { const data = await res.json(); setPack(data.pack); setShowMetricsForm(false) }
+      const result = await res.json()
+      if (res.ok) {
+        setPack(result.pack)
+        setShowMetricsForm(false)
+      } else {
+        setError(result.error ?? copy('تعذر حفظ المقاييس اليدوية.', 'Could not save manual metrics.'))
+      }
+    } catch {
+      setError(copy('تعذر حفظ المقاييس اليدوية.', 'Could not save manual metrics.'))
     } finally { setSavingMetrics(false) }
   }
 
@@ -314,7 +327,19 @@ export default function PaidLaunchPage() {
       })
       const data = await res.json()
       if (!res.ok) setError(data.error ?? copy('تعذر إنشاء مقترح إشارة من المقاييس.', 'Metrics signal proposal failed.'))
-      else { await fetchData() }
+      else {
+        const count = Number(data.brandBrainProposalCount || 0)
+        setLearningNotice(count > 0
+          ? copy(
+              `تم إنشاء ${count} مقترح مراجعة في مركز القرارات. لم يتغير Brand Brain تلقائيًا.`,
+              `${count} review proposal${count === 1 ? '' : 's'} added to the Decision Center. Brand Brain was not changed automatically.`,
+            )
+          : copy(
+              'تم حفظ التحليل، ولم توجد إشارة جديدة قابلة للإضافة إلى Brand Brain.',
+              'Analysis saved; no new Brand Brain review signal was available.',
+            ))
+        await fetchData()
+      }
     } catch { setError(copy('تعذر إنشاء مقترح إشارة من المقاييس.', 'Metrics signal proposal failed.')) }
     finally { setExtractingLearnings(false) }
   }
@@ -376,6 +401,16 @@ export default function PaidLaunchPage() {
     )
   }
 
+  if (!pack) {
+    return (
+      <AppShell>
+        <div className="flex min-h-screen items-center justify-center bg-[#f6f8fc] px-6 text-center text-sm font-semibold text-slate-600">
+          {copy('جارٍ نقلك إلى مسار التنفيذ المدفوع المرتبط بالاستراتيجية…', 'Opening the strategy-linked paid execution path…')}
+        </div>
+      </AppShell>
+    )
+  }
+
   return (
     <AppShell>
       <main style={{ minHeight: '100vh', background: '#f6f8fc', color: '#0f172a' }}>
@@ -410,10 +445,10 @@ export default function PaidLaunchPage() {
               </p>
               <button
                 type="button"
-                onClick={() => router.push('/paid-campaigns')}
+                onClick={() => router.push(`/paid-campaigns/new?sourceCampaignId=${id}`)}
                 style={{ marginTop: 8, padding: 0, border: 'none', background: 'none', color: '#38bdf8', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
               >
-                {copy('فتح مركز تخطيط الإعلانات المدفوعة', 'Open paid planning hub')}
+                {copy('متابعة التنفيذ المرتبط بهذه الاستراتيجية', 'Continue strategy-linked paid execution')}
               </button>
             </div>
 
@@ -589,41 +624,22 @@ export default function PaidLaunchPage() {
         {/* ═══ GENERATED CONTENT ═══ */}
         {hasGenerated && pack && (
           <>
-            {/* Estimated Reach */}
-            {pack.estimatedReach && (
-              <Section title={copy('تقدير الوصول التخطيطي', 'Planning Reach Estimate')} icon={<TrendingUp size={16} color="#2563eb" />}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
-                  {Object.entries(pack.estimatedReach as Record<string, { impressionsMin?: number; impressionsMax?: number; cpmMin?: number; cpmMax?: number }>).map(([p, r]) => {
-                    const plat = PLATFORMS.find(x => x.value === p)
-                    const impMin = r?.impressionsMin ?? 0
-                    const impMax = r?.impressionsMax ?? 0
-                    const cpmMin = r?.cpmMin ?? 0
-                    const cpmMax = r?.cpmMax ?? 0
-                    return (
-                      <div key={p} style={{ padding: '14px', borderRadius: 10, background: `${plat?.bg ?? '#f8fafc'}`, border: `1px solid ${plat?.color ?? '#334155'}30` }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: plat?.color ?? '#94a3b8', marginBottom: 8 }}>
-                          {plat?.icon} {plat?.label ?? p}
-                        </div>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: '#0f172a' }}>
-                          {(impMin / 1000).toFixed(0)}K – {(impMax / 1000).toFixed(0)}K
-                        </div>
-                        <div style={{ color: '#64748b', fontSize: 10, marginTop: 2 }}>
-                          {copy('مرات ظهور تخطيطية', 'planning impressions')} · {copy('افتراض CPM', 'CPM assumption')} ${cpmMin}–${cpmMax}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
+            {/* Forecast truth boundary */}
+            <Section title={copy('توفر توقعات المنصة', 'Platform Forecast Availability')} icon={<AlertCircle size={16} color="#d97706" />}>
+              <p style={{ margin: 0, color: '#334155', fontSize: 13, lineHeight: 1.65 }}>
+                {copy(
+                  'لا يعرض NEXUS أرقام وصول أو CPM أو نتائج مقدّرة من جداول عامة. ستظهر التوقعات فقط بعد جلب Forecast حقيقي من الحساب الإعلاني المتصل أو توفر تاريخ أداء موثوق.',
+                  'NEXUS does not show estimated reach, CPM, or outcomes from generic tables. Forecasts appear only after a real account-level platform forecast is fetched or verified performance history exists.'
+                )}
+              </p>
                 {pack.budgetInsights && (
                   <div style={{ marginTop: 16, padding: '14px', borderRadius: 10, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
                     <div style={{ color: '#c2410c', fontWeight: 700, fontSize: 13, marginBottom: 6 }}>💡 {copy('ملاحظات تخطيط الميزانية', 'Budget Planning Notes')}</div>
                     <p style={{ margin: '0 0 8px', color: '#334155', fontSize: 13, lineHeight: 1.6 }}>{pack.budgetInsights.recommendation}</p>
                     <p style={{ margin: '0 0 6px', color: '#64748b', fontSize: 12 }}><strong style={{ color: '#0f172a' }}>{copy('مراحل الميزانية:', 'Phasing:')}</strong> {pack.budgetInsights.phasingSuggestion}</p>
-                    <p style={{ margin: 0, color: '#64748b', fontSize: 12 }}><strong style={{ color: '#0f172a' }}>{copy('افتراض تخطيطي:', 'Planning assumption:')}</strong> {pack.budgetInsights.expectedResults}</p>
                   </div>
                 )}
-              </Section>
-            )}
+            </Section>
 
             {/* Audience Brief */}
             {pack.audienceBrief && (
@@ -660,7 +676,9 @@ export default function PaidLaunchPage() {
                         <div style={{ padding: 12, borderRadius: 8, background: '#f8fafc', border: '1px solid rgba(15,23,42,0.06)' }}>
                           <div style={{ color: '#64748b', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>{copy('مواضع الظهور · استراتيجية المزايدة', 'PLACEMENTS · BID STRATEGY')}</div>
                           <div style={{ color: '#0f172a', fontSize: 12 }}>{m.placementRecommendation}</div>
-                          <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>{m.bidStrategy} · {copy('حجم الجمهور:', 'Audience:')} {m.estimatedAudienceSize}</div>
+                          <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>
+                            {m.bidStrategy} · {copy('حجم الجمهور: غير متاح حتى Forecast المنصة', 'Audience size: unavailable until platform forecast')}
+                          </div>
                         </div>
                       </div>
                       <div style={{ padding: 12, borderRadius: 8, background: '#f8fafc', border: '1px solid rgba(15,23,42,0.06)' }}>
@@ -836,7 +854,7 @@ export default function PaidLaunchPage() {
             {pack.utmParams && (
               <Section title={copy('معلمات تتبع UTM', 'UTM Tracking Parameters')} icon={<Link2 size={16} color="#2563eb" />} defaultOpen={false}>
                 <p style={{ color: '#64748b', fontSize: 12, margin: '0 0 14px' }}>
-                  {copy('أضف هذه المعلمات إلى رابط الوجهة داخل منصة الإعلان لتتبع الأداء في Google Analytics.', 'Add these parameters to the destination URL in the ad platform to track performance in Google Analytics.')}
+                  {copy('أضف هذه المعلمات إلى رابط الوجهة داخل منصة الإعلان لتتبع الأداء في أداة تحليلات متوافقة مثل Google Analytics عند إعدادها.', 'Add these parameters to the destination URL in the ad platform for a compatible analytics tool such as Google Analytics when configured.')}
                 </p>
                 <div style={{ display: 'grid', gap: 10 }}>
                   {Object.entries(pack.utmParams.examples ?? {}).map(([p, utm]) => {
@@ -974,6 +992,11 @@ export default function PaidLaunchPage() {
             {/* Brand Brain paid metrics signals */}
             {(pack.metrics || isCompleted) && (
               <Section title={copy('مقترحات إشارات من المقاييس المدفوعة', 'Paid Metrics Signal Proposals')} icon={<Brain size={16} color="#7c3aed" />}>
+                {learningNotice && (
+                  <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 8, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)', color: '#6d28d9', fontSize: 13, lineHeight: 1.5 }}>
+                    {learningNotice}
+                  </div>
+                )}
                 {pack.learnings ? (
                   <div style={{ display: 'grid', gap: 12 }}>
                     {pack.brandBrainUpdated && (
@@ -1049,6 +1072,10 @@ export default function PaidLaunchPage() {
         onConfirm={handleGenerate}
         cost={PAID_PACK_COST}
         actionTitle={copy('إنشاء حزمة التخطيط المدفوع', 'Generate paid planning pack')}
+        reason={copy(
+          'ينشئ استدعاء ذكاء واحدًا حزمة تخطيط مدفوع قابلة للمراجعة؛ لا يطلق إعلانًا ولا يصرف ميزانية.',
+          'One bounded AI run creates a reviewable paid planning pack; it does not launch ads or spend budget.',
+        )}
         authHeader={authHeader}
         includedItems={isArabic
           ? ['موجز الجمهور', 'مسودات النصوص الإعلانية', 'خطة الميزانية الافتراضية', 'إرشادات إعداد المنصات']

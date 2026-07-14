@@ -23,6 +23,7 @@ import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { encryptToken } from '@/lib/tokenCrypto'
 import { verifyOAuthState } from '@/lib/oauthState'
+import { META_ADS_SCOPES, META_GRAPH_VERSION, metaGraphUrl } from '@/lib/socialPlatformConfig'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -75,7 +76,7 @@ export async function GET(req: NextRequest) {
   let shortToken: string
   try {
     const tokenRes = await fetch(
-      `https://graph.facebook.com/v21.0/oauth/access_token` +
+      `${metaGraphUrl('oauth/access_token')}` +
       `?client_id=${appId}` +
       `&client_secret=${appSecret}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
@@ -99,7 +100,7 @@ export async function GET(req: NextRequest) {
   let longToken = shortToken
   try {
     const longTokenRes = await fetch(
-      `https://graph.facebook.com/v21.0/oauth/access_token` +
+      `${metaGraphUrl('oauth/access_token')}` +
       `?grant_type=fb_exchange_token` +
       `&client_id=${appId}` +
       `&client_secret=${appSecret}` +
@@ -116,7 +117,7 @@ export async function GET(req: NextRequest) {
   let me: any = {}
   try {
     const meRes = await fetch(
-      `https://graph.facebook.com/v21.0/me?fields=id,name&access_token=${longToken}`
+      `${metaGraphUrl('me')}?fields=id,name&access_token=${encodeURIComponent(longToken)}`
     )
     me = await meRes.json()
   } catch { /* non-fatal */ }
@@ -127,7 +128,7 @@ export async function GET(req: NextRequest) {
   let adAccounts: MetaAdAccount[] = []
   try {
     const accountsRes = await fetch(
-      `https://graph.facebook.com/v21.0/me/adaccounts` +
+      `${metaGraphUrl('me/adaccounts')}` +
       `?fields=id,name,account_status,currency,timezone_name,owner,business` +
       `&access_token=${longToken}`
     )
@@ -144,7 +145,7 @@ export async function GET(req: NextRequest) {
   let pages: Array<{ id: string; name: string; access_token?: string }> = []
   try {
     const pagesRes = await fetch(
-      `https://graph.facebook.com/v21.0/me/accounts` +
+      `${metaGraphUrl('me/accounts')}` +
       `?fields=id,name,access_token,category` +
       `&access_token=${longToken}`
     )
@@ -222,6 +223,7 @@ export async function GET(req: NextRequest) {
           timeZone: account.timezone_name || 'UTC',
           status: isActive ? 'ACTIVE' : 'DISCONNECTED',
           hasApiAccess: false, // set to true once Meta App Review is approved
+          permissionScopes: [...META_ADS_SCOPES],
           // Save primary page ID for ad creative creation
           pageId: primaryPage?.id || null,
           pageName: primaryPage?.name || null,
@@ -236,6 +238,8 @@ export async function GET(req: NextRequest) {
           timeZone: account.timezone_name || 'UTC',
           status: isActive ? 'ACTIVE' : 'DISCONNECTED',
           lastSyncAt: new Date(),
+          permissionScopes: [...META_ADS_SCOPES],
+          hasApiAccess: false,
           // Update page ID if not yet set
           ...(primaryPage?.id ? { pageId: primaryPage.id, pageName: primaryPage.name } : {}),
         },

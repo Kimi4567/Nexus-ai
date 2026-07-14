@@ -8,6 +8,14 @@ const strategyCampaign = {
   status: 'DRAFT',
   aiOutput: {
     strategy: { keyMessage: 'Own the local market with trust.' },
+    qualityGate: {
+      schemaVersion: 1,
+      status: 'passed',
+      score: 100,
+      blockers: [],
+      warnings: [],
+      checkedAt: '2026-01-01T00:00:00.000Z',
+    },
     sentinelReview: { status: 'passed' },
   },
 }
@@ -44,6 +52,20 @@ describe('deriveCampaignOperatingState', () => {
     const state = deriveCampaignOperatingState({
       campaign: { status: 'DRAFT', aiOutput: { strategy: { keyMessage: 'Plan first' } } },
     })
+    expect(state.stage).toBe('strategy_review_needed')
+  })
+
+  it('Sentinel alone cannot bypass a missing deterministic Brand Brain gate', () => {
+    const state = deriveCampaignOperatingState({
+      campaign: {
+        status: 'DRAFT',
+        aiOutput: {
+          strategy: { keyMessage: 'Plan first' },
+          sentinelReview: { status: 'passed' },
+        },
+      },
+    })
+
     expect(state.stage).toBe('strategy_review_needed')
   })
 
@@ -113,11 +135,29 @@ describe('deriveCampaignOperatingState', () => {
   it('SCHEDULED with scheduledAt + AUTO -> scheduled_auto and auto-publish flag', () => {
     const state = deriveCampaignOperatingState({
       campaign: strategyCampaign,
-      posts: [{ status: 'SCHEDULED', scheduledAt: '2026-01-02T09:00:00Z', publishMode: 'AUTO' }],
+      posts: [{
+        status: 'SCHEDULED',
+        scheduledAt: '2026-01-02T09:00:00Z',
+        publishMode: 'AUTO',
+        autoPublishConsentAt: '2026-01-01T09:00:00Z',
+      }],
     })
     expect(state.stage).toBe('scheduled_auto')
     expect(state.counts.autoScheduledPosts).toBe(1)
     expect(state.truthFlags.autoPublishEnabled).toBe(true)
+  })
+
+  it('AUTO without recorded consent remains a manual queue item', () => {
+    const state = deriveCampaignOperatingState({
+      campaign: strategyCampaign,
+      posts: [{ status: 'SCHEDULED', scheduledAt: '2026-01-02T09:00:00Z', publishMode: 'AUTO' }],
+    })
+
+    expect(state.stage).toBe('scheduled_manual')
+    expect(state.counts.autoScheduledPosts).toBe(0)
+    expect(state.counts.manualScheduledPosts).toBe(1)
+    expect(state.truthFlags.autoPublishEnabled).toBe(false)
+    expect(state.blockers).toContain('auto_publish_consent')
   })
 
   it('SCHEDULED without scheduledAt is not counted as scheduled', () => {
@@ -185,7 +225,7 @@ describe('deriveCampaignOperatingState', () => {
 
   it('Campaign.status ACTIVE alone does not produce published/live/auto-publish state', () => {
     const state = deriveCampaignOperatingState({
-      campaign: { status: 'ACTIVE', aiOutput: { strategy: { keyMessage: 'Plan first' }, sentinelReview: { status: 'passed' } } },
+      campaign: { ...strategyCampaign, status: 'ACTIVE' },
     })
     expect(state.stage).toBe('content_plan_missing')
     expect(state.truthFlags.hasPublishedContent).toBe(false)

@@ -10,7 +10,7 @@
 - Autopilot: 500 credits per paid billing cycle.
 - Monthly plan credits reset at the next Stripe billing cycle and never roll over.
 - Extra purchased credits survive renewal and cancellation and expire 12 calendar months after purchase.
-- Cancellation voids monthly, trial, referral, manual, refund, and migrated balances. It never voids valid purchased credit.
+- Cancellation voids the active monthly and transitional migrated balances. Valid purchased, referral, manual, refund, and unexpired trial grants remain independent.
 - Spend order is soonest-expiry-first. This normally consumes the monthly/trial bucket before longer-lived purchased credit.
 - Unlimited/admin accounts preserve their bypass semantics and do not create finite debits.
 
@@ -46,9 +46,9 @@ Stripe webhook and monthly cron share the same deterministic source:
 
 `monthly:{stripeSubscriptionId}:{currentPeriodStartISO}`
 
-The unique `(userId, source)` constraint makes retries and webhook/cron races idempotent. A newly created cycle grant resets prior active non-purchased grants, then the cache is recomputed including any valid purchased grants.
+The unique `(userId, source)` constraint makes retries and webhook/cron races idempotent. A newly created cycle grant resets prior active monthly or transitional migrated grants, then the cache is recomputed including every other eligible independent grant.
 
-On subscription deletion, all active non-purchased grants are marked `VOID`; purchased grants are untouched and the cached balance becomes the remaining eligible purchased total.
+On subscription deletion, active monthly and transitional migrated grants are marked `VOID`; independent eligible grants are untouched and the cached balance is recomputed from them.
 
 ## Secure one-time fulfilment
 

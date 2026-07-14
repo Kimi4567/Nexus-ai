@@ -6,6 +6,7 @@ import { calculateBrandMaturity, type BrandMaturityResult } from '@/lib/brandMat
 import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
 import type { BrandBrainContract } from '@/lib/brandBrainContract'
 import { normalizeBrandIndustry } from '@/lib/brandIndustries'
+import { normalizeBusinessGoal } from '@/lib/businessGoals'
 
 /* ═══════════════════════════════════════════════════════════════
    useBrandBrain — الذاكرة المشتركة لكل الوكلاء الذكيين
@@ -59,6 +60,10 @@ export interface BrandProfile {
   // PR-H2 — Brand Brain v2 (additive)
   languagePreference?: string | null   // "en" | "ar" | "both" — user-chosen
   verifiedProof?: string[]             // user-confirmed proof points only
+  strategyType?: 'organic' | 'paid' | 'full' | null
+  strategyDuration?: '30' | '90' | '180' | 'custom' | null
+  strategyCustomDays?: number | null
+  campaignObjective?: 'leads' | 'sales' | 'awareness' | 'traffic' | null
 }
 
 const ARRAY_FIELDS: (keyof BrandProfile)[] = [
@@ -119,6 +124,7 @@ export function normalizeBrandProfile(profile: BrandProfile | null | undefined):
   const normalized: BrandProfile = {
     ...profile,
     industry: normalizeBrandIndustry(profile.industry),
+    businessGoal: normalizeBusinessGoal(profile.businessGoal),
   }
   for (const field of ARRAY_FIELDS) {
     ;(normalized as Record<string, unknown>)[field] = toStringArray((profile as Record<string, unknown>)[field])

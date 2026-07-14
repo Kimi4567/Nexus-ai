@@ -13,43 +13,59 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockCheckAndDeduct,
+  mockCheckDailyImageCap,
   mockRefund,
   mockRefundForTxn,
   mockGenerateWithFlux,
+  mockBuildImagePrompt,
   mockApplyOverlay,
   mockPlatformToOverlay,
   mockPrisma,
 } = vi.hoisted(() => ({
   mockCheckAndDeduct: vi.fn(),
+  mockCheckDailyImageCap: vi.fn(),
   mockRefund: vi.fn(),
   mockRefundForTxn: vi.fn(),
   mockGenerateWithFlux: vi.fn(),
+  mockBuildImagePrompt: vi.fn(),
   mockApplyOverlay: vi.fn(),
   mockPlatformToOverlay: vi.fn(),
   mockPrisma: {
+    user: { findUnique: vi.fn() },
+    campaign: { findFirst: vi.fn() },
+    generatedVisual: { create: vi.fn(), update: vi.fn() },
     socialPost: {
       findMany: vi.fn(),
+      updateMany: vi.fn(),
       update: vi.fn(),
     },
+    $transaction: vi.fn(),
   },
 }))
 
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
+  checkDailyImageCap: mockCheckDailyImageCap,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
 }))
 vi.mock('@/lib/ai/falGen', () => ({
   generateWithFlux: mockGenerateWithFlux,
-  platformToFluxSize: () => 'landscape_4_3',
+  platformToFluxAspectRatio: () => '3:2',
+  platformToOpenAISize: () => '1536x1024',
+}))
+vi.mock('@/lib/ai/imageGen', () => ({
+  buildImagePrompt: mockBuildImagePrompt,
 }))
 vi.mock('@/lib/cloudinaryOverlay', () => ({
   applyBrandOverlayFromProfile: mockApplyOverlay,
   platformToOverlay: mockPlatformToOverlay,
 }))
 
-const makeReq = (authorization = 'Bearer cron_secret') => ({
+const testCronSecret = 'c'.repeat(40)
+
+const makeReq = (authorization = `Bearer ${testCronSecret}`) => ({
   headers: {
     get: (name: string) => (name.toLowerCase() === 'authorization' ? authorization : null),
   },
@@ -57,7 +73,10 @@ const makeReq = (authorization = 'Bearer cron_secret') => ({
 
 const postA = {
   id: 'post_a',
+  workspaceId: 'workspace_1',
+  campaignId: null,
   platform: 'META',
+  caption: 'Marketing insight A',
   imagePrompt: 'Premium autopilot visual A',
   workspace: {
     ownerId: 'user_1',
@@ -67,7 +86,10 @@ const postA = {
 
 const postB = {
   id: 'post_b',
+  workspaceId: 'workspace_1',
+  campaignId: null,
   platform: 'TIKTOK',
+  caption: 'Marketing insight B',
   imagePrompt: 'Premium autopilot visual B',
   workspace: {
     ownerId: 'user_1',
@@ -78,7 +100,7 @@ const postB = {
 async function loadRoute() {
   vi.resetModules()
   vi.stubEnv('NODE_ENV', 'production')
-  vi.stubEnv('CRON_SECRET', 'cron_secret')
+  vi.stubEnv('CRON_SECRET', testCronSecret)
   vi.stubEnv('FAL_KEY', 'fal_test_key')
   vi.stubEnv('CLOUDINARY_CLOUD_NAME', 'test-cloud')
   vi.stubEnv('NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME', '')
@@ -90,7 +112,18 @@ async function loadRoute() {
 beforeEach(() => {
   vi.clearAllMocks()
   mockPrisma.socialPost.findMany.mockResolvedValue([postA])
+  mockPrisma.socialPost.updateMany.mockResolvedValue({ count: 1 })
   mockPrisma.socialPost.update.mockResolvedValue({})
+  mockPrisma.user.findUnique.mockResolvedValue({ subscriptionStatus: 'PRO' })
+  mockPrisma.campaign.findFirst.mockResolvedValue(null)
+  mockPrisma.generatedVisual.create.mockResolvedValue({ id: 'visual_a' })
+  mockPrisma.generatedVisual.update.mockResolvedValue({})
+  mockPrisma.$transaction.mockImplementation(async (callback: (tx: any) => unknown) => callback({
+    socialPost: mockPrisma.socialPost,
+    generatedVisual: mockPrisma.generatedVisual,
+  }))
+  mockCheckDailyImageCap.mockResolvedValue({ allowed: true, used: 0, cap: 60, remaining: 60 })
+  mockBuildImagePrompt.mockResolvedValue({ prompt: 'Safe Brand Brain-grounded image prompt' })
   mockCheckAndDeduct.mockResolvedValue({
     ok: true,
     creditsUsed: 3,
@@ -176,32 +209,68 @@ describe('GET /api/cron/generate-images — RF-6B refund safety', () => {
     }))
   })
 
-  it('partial success does not refund successful images and refunds failed images', async () => {
+  it('processes only one atomic image even if an adapter ignores Prisma take', async () => {
     mockPrisma.socialPost.findMany.mockResolvedValue([postA, postB])
-    mockCheckAndDeduct
-      .mockResolvedValueOnce({ ok: true, creditsUsed: 3, creditsRemaining: 27, transactionId: 'txn_a' })
-      .mockResolvedValueOnce({ ok: true, creditsUsed: 3, creditsRemaining: 24, transactionId: 'txn_b' })
-    mockGenerateWithFlux
-      .mockResolvedValueOnce({ imageUrl: 'https://fal.cdn/image-a.png' })
-      .mockRejectedValueOnce(new Error('provider down for B'))
     const { GET } = await loadRoute()
 
     const res = await GET(makeReq())
     const json = await res.json()
 
     expect(res.status).toBe(200)
-    expect(json.processed).toBe(2)
-    expect(json.results).toEqual(expect.arrayContaining([
+    expect(json.processed).toBe(1)
+    expect(json.results).toEqual([
       expect.objectContaining({ postId: 'post_a', status: 'ok' }),
-      expect.objectContaining({ postId: 'post_b', status: 'failed', error: 'provider down for B' }),
-    ]))
-    expect(mockRefundForTxn).toHaveBeenCalledTimes(1)
-    expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
-      userId: 'user_1',
-      transactionId: 'txn_b',
-      reason: 'provider down for B',
-    }))
-    expect(mockRefundForTxn).not.toHaveBeenCalledWith(expect.objectContaining({ transactionId: 'txn_a' }))
+    ])
+    expect(mockCheckAndDeduct).toHaveBeenCalledTimes(1)
+    expect(mockGenerateWithFlux).toHaveBeenCalledTimes(1)
+    expect(mockRefundForTxn).not.toHaveBeenCalled()
+  })
+
+  it('daily cap blocks generation before prompt preparation and deduction', async () => {
+    mockCheckDailyImageCap.mockResolvedValue({ allowed: false, used: 60, cap: 60, remaining: 0 })
+    const { GET } = await loadRoute()
+
+    const res = await GET(makeReq())
+    const json = await res.json()
+
+    expect(json.results[0]).toMatchObject({ postId: 'post_a', status: 'skipped_daily_cap', remaining: 0 })
+    expect(mockBuildImagePrompt).not.toHaveBeenCalled()
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockGenerateWithFlux).not.toHaveBeenCalled()
+  })
+
+  it('a concurrent cron claim cannot double-charge the same post', async () => {
+    mockPrisma.socialPost.updateMany.mockResolvedValue({ count: 0 })
+    const { GET } = await loadRoute()
+
+    const res = await GET(makeReq())
+    const json = await res.json()
+
+    expect(json.results[0]).toMatchObject({ postId: 'post_a', status: 'skipped_already_claimed' })
+    expect(mockBuildImagePrompt).not.toHaveBeenCalled()
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockGenerateWithFlux).not.toHaveBeenCalled()
+  })
+
+  it('releases the atomic claim when the user has no credits', async () => {
+    mockCheckAndDeduct.mockResolvedValue({
+      ok: false,
+      error: 'INSUFFICIENT_CREDITS',
+      currentCredits: 0,
+      requiredCredits: 3,
+    })
+    const { GET } = await loadRoute()
+
+    const res = await GET(makeReq())
+    const json = await res.json()
+
+    expect(json.results[0]).toMatchObject({ postId: 'post_a', status: 'skipped_no_credits' })
+    expect(mockPrisma.socialPost.update).toHaveBeenCalledWith({
+      where: { id: 'post_a' },
+      data: { generationStatus: 'PENDING' },
+    })
+    expect(mockPrisma.generatedVisual.create).not.toHaveBeenCalled()
+    expect(mockGenerateWithFlux).not.toHaveBeenCalled()
   })
 
   it('retry after a failed/refunded run does not double-refund the original debit', async () => {
@@ -281,6 +350,21 @@ describe('GET /api/cron/generate-images — RF-6B refund safety', () => {
         mediaSource: 'GENERATE',
       },
     })
+    expect(mockBuildImagePrompt).toHaveBeenCalledWith(expect.objectContaining({
+      postCaption: expect.stringContaining('Marketing insight A'),
+      platform: 'META',
+      assetRole: 'post_background',
+    }))
+    expect(mockPrisma.generatedVisual.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        enhancedPrompt: 'Safe Brand Brain-grounded image prompt',
+        parentId: 'social-post:post_a',
+        status: 'GENERATING',
+      }),
+    }))
+    expect(mockPrisma.generatedVisual.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: 'COMPLETED' }),
+    }))
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })

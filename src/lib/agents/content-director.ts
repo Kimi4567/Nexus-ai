@@ -41,8 +41,13 @@ async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 
   })
   if (!response.ok) throw new Error(`OpenAI error: ${response.status}`)
   const data = await response.json()
-  const content = data.choices?.[0]?.message?.content || '{}'
-  return JSON.parse(content)
+  const content = data.choices?.[0]?.message?.content?.trim()
+  if (!content) throw new Error('OpenAI returned no content direction')
+  try {
+    return JSON.parse(content)
+  } catch {
+    throw new Error('OpenAI returned invalid content direction JSON')
+  }
 }
 
 export interface ContentDirectorInput {
@@ -101,9 +106,7 @@ export async function runContentDirectorAgent(
   const systemPrompt = `${langInstruction}
 ${planContext}
 
-You are the world's most accomplished direct-response copywriter and platform content scientist. You have studied under the traditions of Eugene Schwartz, Gary Halbert, David Ogilvy, and Dan Kennedy — and you have adapted their principles to the scroll-speed world of TikTok, Instagram, and LinkedIn.
-
-You have personally written 80,000+ pieces of content across 250+ brands, generating measurable revenue in excess of $120M. You know the difference between content that entertains and content that converts. You only write the latter.
+Act as a senior direct-response copywriter and platform content planner. Apply established copy frameworks as hypotheses, stay bound to the supplied brand evidence, and never claim personal history, revenue generated, or guaranteed conversion.
 
 YOUR CORE INTELLECTUAL FRAMEWORK:
 
@@ -127,17 +130,17 @@ YOUR CORE INTELLECTUAL FRAMEWORK:
 3. Robert Cialdini's 7 Principles — mapped to CTAs:
    - Reciprocity → give before you ask (free value in caption before the CTA)
    - Commitment → micro-commitments build toward conversion ("comment YES if you've experienced this")
-   - Social Proof → specific numbers, specific results, specific testimonials — never vague
+   - Social Proof → use only customer-approved, source-linked numbers, results, or testimonials; otherwise omit proof claims
    - Authority → demonstrate mastery through the specificity of the insight, not by claiming expertise
    - Liking → be human, be specific, share a genuine observation about the audience's world
    - Scarcity → honest urgency only (real deadlines, real limits — no manufactured fake scarcity)
    - Unity → "we are the same" framing — shared identity, shared enemy, shared struggle
 
-4. Platform Algorithm Science:
-   - TikTok ranks by: watch-through rate (% who watch full video), rewatch rate, share rate, comment rate. The 3-second hook and the final-second loop-back are the two most critical moments. Likes mean very little.
-   - Instagram Reels ranks by: saves (signals ongoing value), shares (signals viral potential), comments (signals conversation quality). Reach is distributed most aggressively on Reels, not feed posts.
-   - LinkedIn ranks by: dwell time (seconds spent reading), quality comments (not emoji reactions), early engagement velocity (first 60 minutes). Long-form posts with no external links get 3x the reach.
-   - Facebook ranks by: meaningful social interactions — comments, shares, and emoji reactions that indicate emotional response.
+4. Platform Learning Hypotheses:
+   - Treat retention, replays, shares, saves, comments, clicks, and conversions as signals to test, not universal ranking rules.
+   - Choose the primary signal from the campaign objective and the metrics actually returned by the connected platform account.
+   - Never state that a format, timing choice, or external-link pattern guarantees reach. Platform behavior changes and varies by account and audience.
+   - When account evidence is unavailable, label recommendations as hypotheses and request a measured test before changing strategy.
 
 5. Hook Architecture Science — the 3-layer hook formula:
    - Layer 1: Pattern Interrupt — visual or verbal break from the expected. Unexpected claim, counter-intuitive statement, specific number.
@@ -239,6 +242,9 @@ Return JSON with exactly these fields:
   // Free=3posts→1250, Starter=10posts→2300, Growth=25posts→4550, Agency=60posts→8000
   const maxOutputTokens = Math.min(8000, Math.max(2500, planLimits.postsPerMonth * 150 + 800))
   const output = await callOpenAI(systemPrompt, userPrompt, maxOutputTokens) as ContentDirectorOutput
+  if (!Array.isArray(output.calendar) || output.calendar.length === 0 || !Array.isArray(output.contentPillars)) {
+    throw new Error('OpenAI returned an incomplete content direction')
+  }
   checkAndLog('content-director', JSON.stringify(output), {
     brandName: input.brandName,
     targetAudience: input.strategy.targetAudienceRefined,
@@ -263,5 +269,9 @@ ${input.existingCaptions?.length ? `Already used (avoid similarity):\n${input.ex
 
 Return JSON: { "week": ${weekNumber}, "theme": string, "posts": [...] }`
 
-  return callOpenAI(systemPrompt, userPrompt, 1500) as Promise<ContentCalendarWeek>
+  const week = await callOpenAI(systemPrompt, userPrompt, 1500) as ContentCalendarWeek
+  if (!Array.isArray(week.posts) || week.posts.length === 0) {
+    throw new Error('OpenAI returned an incomplete refreshed content week')
+  }
+  return week
 }

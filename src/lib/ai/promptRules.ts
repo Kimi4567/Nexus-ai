@@ -41,18 +41,12 @@ BANNED PHRASES — if you write any of these, you have failed. Rewrite immediate
 export const SPECIFICITY_RULES = `
 SPECIFICITY RULES — every output must pass all of these:
 1. NAME THE BRAND: Reference the brand by name in every major output. Not "your business" — use the actual brand name. If no brand name is given, write "this brand" — NEVER invent a brand name.
-2. NAME THE AUDIENCE: Use a specific description tailored to THIS brand's industry. Examples by industry:
-   - Real estate: "first-time homebuyer aged 28-35 with AED 1.2M budget in Dubai"
-   - Fitness: "working mother of 2 trying to lose post-pregnancy weight"
-   - Restaurant: "young professional aged 22-30 who eats out 4x per week"
-   - SaaS/Tech: "startup founder at seed stage managing a 5-person team"
-   - Education: "university student preparing for professional certifications"
-   Never use generic phrases like "business owners" or "anyone who wants to grow."
-3. NAME THE PAIN: Reference a specific problem from the brand's pain points — not "challenges" or "issues."
-4. NAME THE DIFFERENTIATOR: State what makes this brand different from its competitors. Never write "unique approach."
-5. NAME THE ACTION: Every CTA must be a specific action. "Book a free 20-min audit" not "get started."
+2. NAME ONLY THE CONFIRMED AUDIENCE: Use job, age, income, location, life stage, or buying behavior only when it appears in Brand Brain or the request. Never infer demographic detail from an industry. If it is missing, write "Audience detail not provided" and request it.
+3. NAME ONLY A CONFIRMED PAIN: Reference a pain point supplied by the brand. If none is supplied, label the pain as missing input instead of inventing one.
+4. GROUND THE DIFFERENTIATOR: State a differentiator only when Brand Brain supports it. Otherwise offer a clearly labelled positioning hypothesis to review — never a fact.
+5. NAME AN AVAILABLE ACTION: Every CTA must use a channel, offer, price, deadline, or booking flow confirmed in Brand Brain. Never invent a free audit, discount, consultation, keyword, deadline, or contact path.
 6. NO COPY-PASTE SAFE LINES: If the same sentence could appear in ANY brand's strategy, delete it and rewrite.
-7. REAL NUMBERS: When giving targets or metrics, use realistic stage-appropriate ranges — never fake guarantees.
+7. SOURCE-BOUND NUMBERS: Use a number only when the user or a verified platform record supplied it. Without a baseline, propose what to measure and when to review it; never invent a target range or benchmark.
 8. STAY IN INDUSTRY: All examples, references, and analogies must match the brand's actual industry. Never import framing from unrelated industries.
 `.trim()
 
@@ -80,9 +74,9 @@ CLAIM SAFETY — never present invented proof as fact. Conservative beats impres
 export const CHAIN_OF_THOUGHT_MARKETING = `
 REASONING APPROACH — before writing your output, internally complete these steps:
 1. What is this brand's actual stage? (pre-launch / early / active / scaling)
-2. Who is their most likely buyer RIGHT NOW — specific job title, situation, budget?
-3. What single problem keeps this buyer awake at night?
-4. How does THIS brand solve it differently from competitors?
+2. Which buyer details are confirmed, and which are missing? Do not fill missing job, situation, or budget details.
+3. Which audience problem is explicitly supported by the supplied context?
+4. Which differentiator is confirmed, and which positioning idea must remain a hypothesis?
 5. What would make this campaign fail if ignored?
 Only after completing this analysis should you generate the output.
 `.trim()
@@ -91,10 +85,10 @@ Only after completing this analysis should you generate the output.
 
 export const CONTENT_QUALITY_RULES = `
 CONTENT QUALITY RULES:
-- HOOKS: Every hook must create a knowledge gap, challenge an assumption, or state a specific surprising fact. "5 reasons why..." is weak. "Why [Brand] stopped doing X (and doubled results)" is strong.
+- HOOKS: Every hook should create a relevant knowledge gap, challenge an assumption, or use a verified fact. Never invent a result. Example: "What [confirmed audience] should check before choosing [confirmed offer category]."
 - CAPTIONS: Open with the hook, then give specific value, then end with ONE clear CTA. Never start a caption with the brand name.
-- CTAs: CTAs must create urgency or specificity. "DM us" is weak. "DM us the word AUDIT for a free 15-min review" is strong.
-- HASHTAGS: Mix 3 niche (under 100K posts) + 3 medium (100K-1M) + 2 brand hashtags. No generic mega-tags.
+- CTAs: CTAs must be specific to a confirmed action path. Do not invent urgency, scarcity, discounts, free offers, booking duration, or a DM keyword.
+- HASHTAGS: Recommend only contextually relevant terms. Do not claim post-volume tiers unless current platform evidence was supplied.
 - SCRIPTS: Every script must have a problem-agitate-solve structure. Scene 1 = viewer's pain. Scene 2 = consequence. Scene 3 = brand solution. No scene should be "introduce brand" first.
 `.trim()
 

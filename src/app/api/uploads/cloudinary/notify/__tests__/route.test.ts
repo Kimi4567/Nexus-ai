@@ -69,6 +69,10 @@ describe('Cloudinary upload registration', () => {
   })
 
   it('uses Cloudinary-verified metadata instead of client claims', async () => {
+    mocks.resource.mockResolvedValueOnce({
+      secure_url: 'https://res.cloudinary.com/cloud/image/upload/nexus/workspace-1/asset.png',
+      format: 'png', bytes: 1234, resource_type: 'image', width: 1200, height: 630,
+    })
     const response = await POST(request({
       sessionToken: 'token-1',
       publicId: 'nexus/workspace-1/session-1',
@@ -85,8 +89,61 @@ describe('Cloudinary upload registration', () => {
         cloudinaryId: 'nexus/workspace-1/session-1',
         mimeType: 'image/png',
         size: 1234,
+        width: 1200,
+        height: 630,
       }),
     })
+  })
+
+  it('normalizes verified video duration and dimensions before Prisma storage', async () => {
+    mocks.findUnique.mockResolvedValueOnce({
+      id: 'session-1', token: 'token-1', userId: 'user-1', workspaceId: 'workspace-1',
+      projectId: null, campaignId: null, fileName: 'launch.mp4', resourceType: 'video',
+      status: 'PENDING', expiresAt: new Date(Date.now() + 60_000),
+    })
+    mocks.resource.mockResolvedValueOnce({
+      secure_url: 'https://res.cloudinary.com/cloud/video/upload/nexus/workspace-1/launch.mp4',
+      format: 'mp4', bytes: 2048, resource_type: 'video', width: 1920, height: 1080,
+      duration: 12.04,
+    })
+
+    const response = await POST(request({
+      sessionToken: 'token-1',
+      publicId: 'nexus/workspace-1/session-1',
+    }))
+
+    expect(response.status).toBe(200)
+    expect(mocks.mediaCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        type: 'VIDEO',
+        mimeType: 'video/mp4',
+        width: 1920,
+        height: 1080,
+        duration: 13,
+      }),
+    })
+  })
+
+  it('rejects videos longer than the enforced five-minute limit', async () => {
+    mocks.findUnique.mockResolvedValueOnce({
+      id: 'session-1', token: 'token-1', userId: 'user-1', workspaceId: 'workspace-1',
+      projectId: null, campaignId: null, fileName: 'long.mp4', resourceType: 'video',
+      status: 'PENDING', expiresAt: new Date(Date.now() + 60_000),
+    })
+    mocks.resource.mockResolvedValueOnce({
+      secure_url: 'https://res.cloudinary.com/cloud/video/upload/nexus/workspace-1/long.mp4',
+      format: 'mp4', bytes: 2048, resource_type: 'video', width: 1920, height: 1080,
+      duration: 300.01,
+    })
+
+    const response = await POST(request({
+      sessionToken: 'token-1',
+      publicId: 'nexus/workspace-1/session-1',
+    }))
+
+    expect(response.status).toBe(422)
+    expect(await response.json()).toMatchObject({ errorCode: 'INVALID_VIDEO_DURATION' })
+    expect(mocks.transaction).not.toHaveBeenCalled()
   })
 
   it('atomically rejects replay of a consumed session', async () => {

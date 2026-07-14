@@ -1,9 +1,11 @@
 import { isContentPostMediaReadyForScheduling } from './contentHubMediaState'
+import { isPersistedMarketingQualityGatePassed } from './ai/marketingQualityGate'
 
 export type CampaignStatusLike =
   | 'DRAFT'
   | 'ACTIVE'
   | 'SCHEDULED'
+  | 'PROCESSING'
   | 'PAUSED'
   | 'COMPLETED'
   | 'ARCHIVED'
@@ -28,6 +30,7 @@ export type CampaignOperatingStage =
   | 'scheduled_manual'
   | 'scheduled_auto'
   | 'auto_publish_enabled'
+  | 'publishing_processing'
   | 'published_waiting_for_analytics'
   | 'performance_ready'
   | 'learning_review_needed'
@@ -47,6 +50,7 @@ export interface CampaignOperatingInput {
     uploadedMediaId?: string | null
     mediaSource?: string | null
     scheduledAt?: string | Date | null
+    autoPublishConsentAt?: string | Date | null
     approvedAt?: string | Date | null
     publishedAt?: string | Date | null
     manuallyPublishedAt?: string | Date | null
@@ -79,6 +83,7 @@ export interface CampaignOperatingState {
     scheduledPosts: number
     autoScheduledPosts: number
     manualScheduledPosts: number
+    processingPosts: number
     publishedPosts: number
     apiPublishedPosts: number
     manualPublishedPosts: number
@@ -93,6 +98,7 @@ export interface CampaignOperatingState {
     hasApprovedContent: boolean
     hasScheduledContent: boolean
     hasAutoScheduledContent: boolean
+    hasProcessingContent: boolean
     hasPublishedContent: boolean
     hasApiPublishedContent: boolean
     hasManualPublishedContent: boolean
@@ -164,6 +170,13 @@ const STAGE_COPY: Record<CampaignOperatingStage, StageCopy> = {
     stageHelper: 'Automatic publishing is enabled only for scheduled posts explicitly marked AUTO.',
     stageHelperAr: 'النشر التلقائي مفعّل فقط للمنشورات المجدولة والمعلّمة صراحةً AUTO.',
     primaryAction: { label: 'Review queue', labelAr: 'راجع القائمة', href: '#autopilot' },
+  },
+  publishing_processing: {
+    stageLabel: 'Awaiting platform confirmation',
+    stageLabelAr: 'بانتظار تأكيد المنصة',
+    stageHelper: 'A provider accepted the media and is still processing or moderating it. NEXUS has not marked it published.',
+    stageHelperAr: 'استلمت المنصة الوسائط وما زالت تعالجها أو تراجعها. لم يعتبرها NEXUS منشورة بعد.',
+    primaryAction: { label: 'Review publishing queue', labelAr: 'راجع قائمة النشر', href: '#autopilot' },
   },
   published_waiting_for_analytics: {
     stageLabel: 'Published, waiting for analytics',
@@ -241,7 +254,9 @@ export function hasStrategyEvidence(aiOutput: unknown): boolean {
 function strategyReviewPassed(aiOutput: unknown): boolean {
   if (!isRecord(aiOutput)) return false
   const review = aiOutput.sentinelReview
-  return isRecord(review) && review.status === 'passed'
+  return isRecord(review)
+    && review.status === 'passed'
+    && isPersistedMarketingQualityGatePassed(aiOutput.qualityGate)
 }
 
 export function deriveCampaignOperatingState(input: CampaignOperatingInput): CampaignOperatingState {
@@ -259,6 +274,7 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     scheduledPosts: 0,
     autoScheduledPosts: 0,
     manualScheduledPosts: 0,
+    processingPosts: 0,
     publishedPosts: 0,
     apiPublishedPosts: 0,
     manualPublishedPosts: 0,
@@ -268,12 +284,14 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
   }
 
   let malformedScheduledPosts = 0
+  let unconsentedAutoPosts = 0
 
   for (const post of posts) {
     const postStatus = String(post.status ?? '').toUpperCase()
     const generationStatus = String(post.generationStatus ?? '').toUpperCase()
     const publishMode = String(post.publishMode ?? 'MANUAL').toUpperCase()
     const hasScheduledAt = hasValidDate(post.scheduledAt)
+    const hasAutoPublishConsent = hasValidDate(post.autoPublishConsentAt)
     const hasPublishedAt = hasValidDate(post.publishedAt)
     const hasPlatformRef = Boolean(post.platformPostId || post.platformUrl)
     const hasAnalytics = Boolean(post.analyticsData || post.analyticsFetched)
@@ -281,6 +299,7 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     if (postStatus === 'DRAFT') counts.draftPosts += 1
     if (postStatus === 'APPROVED') counts.approvedPosts += 1
     if (postStatus === 'FAILED') counts.failedPosts += 1
+    if (postStatus === 'PROCESSING') counts.processingPosts += 1
     if (['PENDING', 'GENERATING', 'AWAITING_UPLOAD'].includes(generationStatus)) {
       counts.pendingGenerationPosts += 1
     }
@@ -288,8 +307,14 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     if (postStatus === 'SCHEDULED') {
       if (hasScheduledAt) {
         counts.scheduledPosts += 1
-        if (publishMode === 'AUTO') counts.autoScheduledPosts += 1
-        else counts.manualScheduledPosts += 1
+        if (publishMode === 'AUTO' && hasAutoPublishConsent) {
+          counts.autoScheduledPosts += 1
+        } else {
+          // AUTO without a recorded confirmation is intentionally treated as a
+          // manual queue item. It cannot be represented as auto-publish ready.
+          counts.manualScheduledPosts += 1
+          if (publishMode === 'AUTO') unconsentedAutoPosts += 1
+        }
       } else {
         malformedScheduledPosts += 1
       }
@@ -310,6 +335,7 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     hasApprovedContent: counts.approvedPosts > 0,
     hasScheduledContent: counts.scheduledPosts > 0,
     hasAutoScheduledContent: counts.autoScheduledPosts > 0,
+    hasProcessingContent: counts.processingPosts > 0,
     hasPublishedContent: counts.publishedPosts > 0,
     hasApiPublishedContent: counts.apiPublishedPosts > 0,
     hasManualPublishedContent: counts.manualPublishedPosts > 0,
@@ -329,6 +355,7 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
   if (counts.draftPosts > 0) blockers.push('content_review')
   if (approvedMediaPending) blockers.push('media_review')
   if (malformedScheduledPosts > 0) blockers.push('scheduled_time')
+  if (unconsentedAutoPosts > 0) blockers.push('auto_publish_consent')
   if (counts.publishedPosts > 0 && counts.analyticsReadyPosts === 0) blockers.push('analytics')
   if (pendingLearningCount > 0) blockers.push('learning_review')
 
@@ -341,6 +368,8 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     stage = 'performance_ready'
   } else if (truthFlags.hasPublishedContent) {
     stage = 'published_waiting_for_analytics'
+  } else if (truthFlags.hasProcessingContent) {
+    stage = 'publishing_processing'
   } else if (truthFlags.autoPublishEnabled && truthFlags.workflowEnabled) {
     stage = 'auto_publish_enabled'
   } else if (truthFlags.hasAutoScheduledContent) {

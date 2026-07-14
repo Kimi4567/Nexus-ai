@@ -174,3 +174,6 @@ git push
 ```
 
 **Never commit real API keys.** All secrets live in Vercel environment variables only.
+# Historical Deployment Notice
+
+This file is a legacy deployment checklist. The current runtime contract is [`README.md`](README.md) plus [`.env.example`](.env.example); ignore legacy Lemon Squeezy, Starter/Agency, and NextAuth variables below.

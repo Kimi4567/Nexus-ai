@@ -16,10 +16,7 @@ import {
 import { isCreditWalletEnabled } from '@/lib/credits/wallet'
 import { checkoutRateLimit } from '@/lib/dbRateLimit'
 import { quoteCreditPurchase } from '@/lib/commercialPlans'
-
-function getBaseUrl() {
-  return (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')
-}
+import { getRequestBaseUrl } from '@/lib/requestBaseUrl'
 
 export async function POST(req: NextRequest) {
   try {
@@ -96,7 +93,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const baseUrl = getBaseUrl()
+    const baseUrl = getRequestBaseUrl(req)
     const metadata = {
       kind: 'credit_wallet_purchase',
       userId: user.id,

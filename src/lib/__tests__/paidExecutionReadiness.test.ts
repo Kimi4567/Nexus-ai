@@ -122,4 +122,52 @@ describe('paidExecutionReadiness', () => {
 
     expect(result.blockers.map(blocker => blocker.code)).toContain('AD_MEDIA_PREFLIGHT_REQUIRED')
   })
+
+  it('accepts a complete Google Search RSA without requiring image media', () => {
+    const result = evaluatePaidExecutionReadiness({
+      platform: 'GOOGLE',
+      budgetType: 'DAILY',
+      dailyBudget: 40,
+      lifetimeBudget: null,
+      googleCampaignType: 'SEARCH',
+      googleKeywordCount: 3,
+      googleTargetingReady: true,
+      ads: [{
+        id: 'google_ad_1',
+        name: 'Reviewed RSA',
+        destinationUrl: 'https://nexus-grow.com/offer?utm_source=google',
+        googleHeadlines: ['Headline One', 'Headline Two', 'Headline Three'],
+        googleDescriptions: ['Description one', 'Description two'],
+      }],
+    })
+
+    expect(result.ready).toBe(true)
+    expect(result.blockers).toEqual([])
+  })
+
+  it('blocks Google execution when RSA or targeting inputs are incomplete', () => {
+    const result = evaluatePaidExecutionReadiness({
+      platform: 'GOOGLE',
+      budgetType: 'LIFETIME',
+      dailyBudget: null,
+      lifetimeBudget: 400,
+      googleCampaignType: 'DISPLAY',
+      googleKeywordCount: 0,
+      googleTargetingReady: false,
+      ads: [{
+        name: 'Incomplete RSA',
+        destinationUrl: 'https://nexus-grow.com/offer',
+        googleHeadlines: ['Only one'],
+        googleDescriptions: ['Only one'],
+      }],
+    })
+
+    expect(result.blockers.map(blocker => blocker.code)).toEqual(expect.arrayContaining([
+      'GOOGLE_DAILY_BUDGET_REQUIRED',
+      'GOOGLE_SEARCH_ONLY',
+      'GOOGLE_KEYWORDS_REQUIRED',
+      'GOOGLE_TARGETING_REQUIRED',
+      'GOOGLE_RSA_ASSETS_REQUIRED',
+    ]))
+  })
 })

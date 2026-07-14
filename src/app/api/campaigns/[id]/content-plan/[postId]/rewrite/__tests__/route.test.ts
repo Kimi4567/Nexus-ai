@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockGetServerUserId,
@@ -20,6 +20,8 @@ vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
   refundCredits: mockRefund,
+  refundCreditDeduction: mockRefund,
+  buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, cost: 1, ...deduction }),
   CREDIT_COSTS: {
     IMAGE_GENERATION: 3,
     AI_POST_REWRITE: 1,
@@ -53,7 +55,28 @@ beforeEach(() => {
   })
 })
 
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
+
 describe('POST /api/campaigns/[id]/content-plan/[postId]/rewrite — confirmation safety', () => {
+  it('missing provider returns 503 before credit deduction', async () => {
+    vi.stubEnv('OPENAI_API_KEY', '')
+    const { POST } = await loadRoute()
+
+    const res = await POST(makeReq({
+      instruction: 'Make it shorter',
+      explicitRewriteConfirmed: true,
+      acknowledgedCreditCost: 1,
+    }), params)
+    const json = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(json).toMatchObject({ code: 'AI_PROVIDER_UNAVAILABLE', creditsCharged: false })
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockPrisma.brandProfile.findUnique).not.toHaveBeenCalled()
+  })
+
   it('requires explicit rewrite confirmation before credit deduction', async () => {
     const { POST } = await loadRoute()
 

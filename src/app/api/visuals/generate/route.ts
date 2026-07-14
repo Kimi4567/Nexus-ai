@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import {
+  buildCreditChargeReceipt,
   CREDIT_COSTS,
   checkAndDeductCredits,
   checkDailyImageCap,
@@ -34,9 +35,15 @@ import {
   VisualType,
 } from '@/lib/ai/imageGen'
 import type { VisualAssetRole } from '@/lib/ai/imageGen'
-import { generateWithFlux, platformToFluxSize, platformToOpenAISize } from '@/lib/ai/falGen'
+import { generateWithFlux, platformToFluxAspectRatio, platformToOpenAISize } from '@/lib/ai/falGen'
 import { platformToOverlay } from '@/lib/cloudinaryOverlay'
 import { composeBrandedPost, bufferToDataUri } from '@/lib/brandComposite'
+import {
+  getImageProviderUnavailablePayload,
+  getMediaStorageUnavailablePayload,
+  isImageProviderConfigured,
+  isMediaStorageConfigured,
+} from '@/lib/ai/provider'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -213,6 +220,13 @@ export async function POST(req: NextRequest) {
   // future editable/template composition, not trusted inside AI raster output.
   const { prompt, language, concept } = await buildImagePrompt(ctx)
 
+  if (!isImageProviderConfigured()) {
+    return NextResponse.json(getImageProviderUnavailablePayload(language), { status: 503 })
+  }
+  if (!isMediaStorageConfigured()) {
+    return NextResponse.json(getMediaStorageUnavailablePayload(language), { status: 503 })
+  }
+
   // ── Deduct credits before expensive DALL-E call ───────────────────────────
   const credit = await checkAndDeductCredits(userId, 'IMAGE_GENERATION')
   if (!credit.ok) return NextResponse.json(credit, { status: 402 })
@@ -240,25 +254,17 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (dbErr) {
-    console.error('[visuals/generate] DB create error (table may not exist yet):', dbErr)
-    // Proceed without DB persistence — useful during schema migrations
-    try {
-      const dalleUrl = await generateWithDallE(prompt)
-      return NextResponse.json({
-        visual: {
-          id: `temp-${Date.now()}`,
-          imageUrl: dalleUrl,
-          status: 'COMPLETED',
-          visualType,
-          visualStyle,
-          prompt,
-        },
-      })
-    } catch (genErr: any) {
-      // Refund — failed generation must not charge the user (skip unlimited plans)
-      await refundDeductedCredits(userId, credit, genErr.message || 'Generation failed')
-      return NextResponse.json({ error: genErr.message || 'Generation failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
-    }
+    const message = dbErr instanceof Error ? dbErr.message : 'Visual record creation failed'
+    console.error('[visuals/generate] DB create error:', message)
+    // A generated asset without a durable audit record cannot be safely attached
+    // to Content Hub or counted against limits. Fail closed before calling the
+    // image provider and refund the exact reserved wallet source.
+    await refundDeductedCredits(userId, credit, message)
+    return NextResponse.json({
+      error: 'Image generation could not start because its media record was not created.',
+      code: 'MEDIA_RECORD_CREATE_FAILED',
+      refunded: credit.creditsUsed > 0,
+    }, { status: 500 })
   }
 
   // ── Run generation — server auto-detects provider ────────────────────────
@@ -271,9 +277,9 @@ export async function POST(req: NextRequest) {
 
     if (useFlux) {
       // Flux 1.1 Pro Ultra — best photorealism, returns hosted CDN URL
-      const fluxSize = platformToFluxSize(platform)
-      console.log(`[visuals/generate] Using Flux Pro Ultra — size: ${fluxSize}`)
-      const fluxResult = await generateWithFlux({ prompt, imageSize: fluxSize })
+      const aspectRatio = platformToFluxAspectRatio(platform)
+      console.log(`[visuals/generate] Using Flux Pro Ultra — aspect ratio: ${aspectRatio}`)
+      const fluxResult = await generateWithFlux({ prompt, aspectRatio })
       rawImageUrl = fluxResult.imageUrl
     } else {
       // gpt-image-1 high quality — returns base64 data URI
@@ -333,6 +339,9 @@ export async function POST(req: NextRequest) {
       visual: updated,
       assetRole,
       outputClassification: IMAGE_OUTPUT_CLASSIFICATION,
+      creditsUsed: credit.creditsUsed,
+      creditsRemaining: credit.creditsRemaining,
+      creditCharge: buildCreditChargeReceipt('IMAGE_GENERATION', credit),
     })
   } catch (err: any) {
     console.error('[visuals/generate] Generation error:', err)

@@ -97,7 +97,7 @@ describe('deriveStrategyExecutionBridge', () => {
     expect(bridge.overallStatus).toBe('blocked')
   })
 
-  it('keeps YouTube Shorts blocked because no publishing integration exists yet', () => {
+  it('keeps YouTube Shorts blocked until a channel is connected', () => {
     const bridge = deriveStrategyExecutionBridge({
       scopeType: 'organic',
       campaignPlatforms: ['YOUTUBE_SHORTS'],
@@ -106,9 +106,83 @@ describe('deriveStrategyExecutionBridge', () => {
 
     expect(bridge.organicRequirements[0].platformKey).toBe('youtube')
     expect(bridge.organicRequirements[0].status).toBe('blocked')
-    expect(bridge.organicRequirements[0].readinessStatus).toBe('not_available')
-    expect(bridge.organicRequirements[0].reasonEn).toContain('does not have a supported publishing integration')
-    expect(bridge.organicRequirements[0].actionHref).toBeUndefined()
+    expect(bridge.organicRequirements[0].readinessStatus).toBe('not_connected')
+    expect(bridge.organicRequirements[0].reasonEn).toContain('not connected')
+    expect(bridge.organicRequirements[0].actionHref).toBe('/connections')
+  })
+
+  it('recognizes a fully verified YouTube channel as review-ready', () => {
+    const bridge = deriveStrategyExecutionBridge({
+      scopeType: 'organic',
+      campaignPlatforms: ['YOUTUBE_SHORTS'],
+      platformStates: derivePlatformReadiness([{
+        platform: 'YOUTUBE',
+        status: 'CONNECTED',
+        capabilities: { youtubeVideoPublishing: true, youtubeReadback: true, tokenRefresh: true },
+      }]),
+    })
+    expect(bridge.organicRequirements[0]).toMatchObject({ platformKey: 'youtube', status: 'ready' })
+  })
+
+  it('maps both X and legacy Twitter campaign keys to verified X readiness', () => {
+    const platformStates = derivePlatformReadiness([{
+      platform: 'X',
+      status: 'CONNECTED',
+      capabilities: { xPublishing: true, xMediaPublishing: true, xReadback: true, tokenRefresh: true },
+    }])
+    for (const campaignPlatform of ['X', 'TWITTER']) {
+      const bridge = deriveStrategyExecutionBridge({
+        scopeType: 'organic',
+        campaignPlatforms: [campaignPlatform],
+        platformStates,
+      })
+      expect(bridge.organicRequirements[0]).toMatchObject({ platformKey: 'x', status: 'ready' })
+    }
+  })
+
+  it('keeps Pinterest Trial blocked and recognizes verified Standard access', () => {
+    const capabilities = {
+      pinterestPinPublishing: true,
+      pinterestReadback: true,
+      pinterestBoardSelection: true,
+      tokenRefresh: true,
+    }
+    const trial = deriveStrategyExecutionBridge({
+      scopeType: 'organic',
+      campaignPlatforms: ['PINTEREST'],
+      platformStates: derivePlatformReadiness([{
+        platform: 'PINTEREST', status: 'CONNECTED', capabilities: { ...capabilities, pinterestPublicPublishing: false },
+      }]),
+    })
+    expect(trial.organicRequirements[0]).toMatchObject({ platformKey: 'pinterest', status: 'blocked', readinessStatus: 'needs_setup' })
+
+    const standard = deriveStrategyExecutionBridge({
+      scopeType: 'organic',
+      campaignPlatforms: ['PINTEREST'],
+      platformStates: derivePlatformReadiness([{
+        platform: 'PINTEREST', status: 'CONNECTED', capabilities: { ...capabilities, pinterestPublicPublishing: true },
+      }]),
+    })
+    expect(standard.organicRequirements[0]).toMatchObject({ platformKey: 'pinterest', status: 'ready' })
+  })
+
+  it('keeps Threads Development blocked and recognizes verified Live access', () => {
+    const capabilities = { threadsPostPublishing: true, threadsReadback: true, tokenRefresh: true }
+    const development = deriveStrategyExecutionBridge({
+      scopeType: 'organic', campaignPlatforms: ['THREADS'],
+      platformStates: derivePlatformReadiness([{
+        platform: 'THREADS', status: 'CONNECTED', capabilities: { ...capabilities, threadsPublicPublishing: false },
+      }]),
+    })
+    expect(development.organicRequirements[0]).toMatchObject({ platformKey: 'threads', status: 'blocked', readinessStatus: 'needs_setup' })
+
+    const live = deriveStrategyExecutionBridge({
+      scopeType: 'organic', campaignPlatforms: ['THREADS'],
+      platformStates: derivePlatformReadiness([{
+        platform: 'THREADS', status: 'CONNECTED', capabilities: { ...capabilities, threadsPublicPublishing: true },
+      }]),
+    })
+    expect(live.organicRequirements[0]).toMatchObject({ platformKey: 'threads', status: 'ready' })
   })
 
   it('uses a conservative checking state while platform readiness is loading', () => {

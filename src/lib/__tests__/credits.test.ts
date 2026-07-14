@@ -24,7 +24,7 @@ const { mockPrisma } = vi.hoisted(() => ({
       updateMany: vi.fn(),
     },
     creditTransaction: { create: vi.fn() },
-    creditGrant: { createMany: vi.fn(), updateMany: vi.fn() },
+    creditGrant: { createMany: vi.fn(), updateMany: vi.fn(), create: vi.fn() },
     usage: { upsert: vi.fn() },
     generatedVisual: { count: vi.fn() },
     // Used by the B1d-b parallel-grant writes (starter / addCredits-with-source)
@@ -52,7 +52,7 @@ import {
 beforeEach(() => {
   vi.clearAllMocks()
   // Sensible defaults for the non-asserted side-effect writes.
-  mockPrisma.creditTransaction.create.mockResolvedValue({})
+  mockPrisma.creditTransaction.create.mockResolvedValue({ id: 'txn_scalar' })
   mockPrisma.creditGrant.createMany.mockResolvedValue({ count: 1 })
   mockPrisma.usage.upsert.mockResolvedValue({})
   mockPrisma.user.update.mockResolvedValue({})
@@ -76,9 +76,13 @@ describe('checkAndDeductCredits', () => {
       expect(res.creditsUsed).toBe(CREDIT_COSTS.IMAGE_GENERATION) // 3
       expect(res.creditsRemaining).toBe(50 - CREDIT_COSTS.IMAGE_GENERATION)
       expect(res.isUnlimited).toBe(false)
+      expect(res.transactionId).toBe('txn_scalar')
     }
     // Atomic conditional deduction must have been attempted
     expect(mockPrisma.user.updateMany).toHaveBeenCalledTimes(1)
+    expect(mockPrisma.creditTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ action: 'IMAGE_GENERATION', amount: -CREDIT_COSTS.IMAGE_GENERATION }),
+    }))
   })
 
   it('refuses when the user cannot afford the action', async () => {
@@ -151,7 +155,7 @@ describe('checkAndDeductCredits', () => {
     if (!res.ok) expect(res.error).toBe('INSUFFICIENT_CREDITS')
   })
 
-  it('with the wallet flag OFF (default), never enters the grant transaction path', async () => {
+  it('with the wallet flag OFF, uses the scalar ledger transaction and never reads grant rows', async () => {
     // CREDIT_WALLET_ENABLED is unset in this suite → scalar path only.
     mockPrisma.user.findUnique.mockResolvedValue({
       id: 'u1', subscriptionStatus: 'STARTER', aiCredits: 50,
@@ -161,9 +165,10 @@ describe('checkAndDeductCredits', () => {
     const res = await checkAndDeductCredits('u1', 'IMAGE_GENERATION')
 
     expect(res.ok).toBe(true)
-    // Scalar atomic guard used; grant-based $transaction wallet path untouched.
+    // Scalar balance mutation and its debit ledger are committed atomically.
     expect(mockPrisma.user.updateMany).toHaveBeenCalledTimes(1)
-    expect(mockPrisma.$transaction).not.toHaveBeenCalled()
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1)
+    expect(mockPrisma.creditGrant.updateMany).not.toHaveBeenCalled()
   })
 })
 
@@ -298,7 +303,10 @@ describe('checkAndDeductCredits — B1d-b starter grant', () => {
     await checkAndDeductCredits('u1', 'CHAT_MESSAGE')
 
     expect(mockPrisma.creditGrant.createMany).not.toHaveBeenCalled()
-    expect(mockPrisma.$transaction).not.toHaveBeenCalled()
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1)
+    expect(mockPrisma.creditTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ action: 'CHAT_MESSAGE', amount: -1 }),
+    }))
   })
 })
 
@@ -338,6 +346,15 @@ describe('addCredits — B1d-b optional source', () => {
     const arg = mockPrisma.creditGrant.createMany.mock.calls[0][0] as any
     expect(arg.skipDuplicates).toBe(true) // (userId, source) uniqueness prevents a duplicate grant
   })
+
+  it('duplicate source does not increment the cache or write a second credit transaction', async () => {
+    mockPrisma.creditGrant.createMany.mockResolvedValueOnce({ count: 0 })
+
+    await addCredits('u1', 25, 'Promo', 'bonus', 'manual:promo7')
+
+    expect(mockPrisma.user.update).not.toHaveBeenCalled()
+    expect(mockPrisma.creditTransaction.create).not.toHaveBeenCalled()
+  })
 })
 
 describe('refundCredits', () => {
@@ -359,6 +376,32 @@ describe('refundCredits', () => {
         }),
       }),
     )
+  })
+
+  it('wallet flag → fallback refund is represented by a short-lived REFUND grant', async () => {
+    const original = process.env.CREDIT_WALLET_ENABLED
+    process.env.CREDIT_WALLET_ENABLED = 'true'
+    try {
+      await refundCredits('u1', 'IMAGE_GENERATION', 'legacy route failure')
+
+      expect(mockPrisma.$transaction).toHaveBeenCalled()
+      expect(mockPrisma.creditGrant.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userId: 'u1',
+          type: 'REFUND',
+          amount: CREDIT_COSTS.IMAGE_GENERATION,
+          remaining: CREDIT_COSTS.IMAGE_GENERATION,
+          status: 'ACTIVE',
+          expiresAt: expect.any(Date),
+        }),
+      })
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: { aiCredits: { increment: CREDIT_COSTS.IMAGE_GENERATION } },
+      }))
+    } finally {
+      if (original === undefined) delete process.env.CREDIT_WALLET_ENABLED
+      else process.env.CREDIT_WALLET_ENABLED = original
+    }
   })
 
   it('never throws even if the DB write fails', async () => {

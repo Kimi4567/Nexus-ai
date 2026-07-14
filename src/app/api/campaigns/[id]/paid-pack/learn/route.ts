@@ -9,13 +9,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import {
+  buildCreditChargeReceipt,
   checkAndDeductCredits,
   refundCredits,
   refundCreditsForTransaction,
   type CreditDeductionOk,
 } from '@/lib/credits'
-import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 import { paidMetricsSignalCopy } from '@/lib/paidBoundary'
+import { paidMetricsCompleteness } from '@/lib/paidMetrics'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -34,7 +36,9 @@ async function callGPT(system: string, user: string): Promise<string> {
   })
   if (!res.ok) throw new Error(`OpenAI error: ${res.status}`)
   const data = await res.json()
-  return data.choices?.[0]?.message?.content ?? '{}'
+  const content = data.choices?.[0]?.message?.content?.trim()
+  if (!content) throw new Error('OpenAI returned no paid metrics analysis')
+  return content
 }
 
 async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
@@ -44,6 +48,38 @@ async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, 
     return
   }
   await refundCredits(userId, 'AD_COPY', reason)
+}
+
+function hasAttributionBreakdown(metrics: unknown): boolean {
+  if (!metrics || typeof metrics !== 'object' || Array.isArray(metrics)) return false
+  const record = metrics as Record<string, unknown>
+  return ['byCreative', 'byAudience', 'byPlatform'].some((key) => {
+    const value = record[key]
+    if (Array.isArray(value)) return value.length > 0
+    return Boolean(value && typeof value === 'object' && Object.keys(value as Record<string, unknown>).length > 0)
+  })
+}
+
+function aggregateMetricsSignal(metrics: unknown) {
+  const record = metrics && typeof metrics === 'object' && !Array.isArray(metrics)
+    ? metrics as Record<string, unknown>
+    : {}
+  const observed = Object.entries(record)
+    .filter(([, value]) => typeof value === 'number' && Number.isFinite(value))
+    .map(([key, value]) => `${key}: ${value}`)
+
+  return {
+    executiveSummary: observed.length
+      ? `Reported aggregate metrics: ${observed.join(', ')}. These totals do not identify which creative, audience, or platform caused the result.`
+      : 'The saved metrics do not contain enough numeric campaign data for a reliable analysis.',
+    measurementCompleteness: paidMetricsCompleteness(record),
+    candidateHooks: [],
+    audienceSignal: 'No audience-level attribution breakdown is available.',
+    platformSignal: 'No platform-level attribution breakdown is available.',
+    underperformingAngles: [],
+    keyInsight: 'Aggregate campaign totals cannot establish creative, audience, or platform winners.',
+    nextCampaignRecommendation: 'Collect provider-backed metrics split by creative, audience, or platform before updating Brand Brain.',
+  }
 }
 
 export async function POST(
@@ -78,10 +114,38 @@ export async function POST(
     } catch { /* ok */ }
 
     const signalTruth = paidMetricsSignalCopy(pack.metricsSource)
+    const attributionReady = signalTruth.canUpdateBrandBrain && hasAttributionBreakdown(pack.metrics)
+
+    if (!attributionReady) {
+      const learnings = aggregateMetricsSignal(pack.metrics)
+      await db.paidCampaignPack.update({
+        where: { campaignId: params.id },
+        data: { learnings, brandBrainUpdated: false },
+      })
+      const signalLabel = signalTruth.canUpdateBrandBrain
+        ? 'Analytics-backed aggregate metrics saved; attribution breakdown is required for Brand Brain updates'
+        : signalTruth.label
+
+      return NextResponse.json({
+        learnings,
+        brandBrainUpdated: false,
+        brandBrainUpdates: null,
+        signalLabel,
+        analyticsBacked: signalTruth.canUpdateBrandBrain,
+        attributionReady: false,
+        creditsUsed: 0,
+        success: true,
+      })
+    }
+
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(), { status: 503 })
+    }
 
     const systemPrompt = `You are a senior performance marketing analyst. Your job is to summarize paid campaign metrics as a review signal.
 
 If the metrics source is manual, treat the output as a manually reported metrics signal pending review. Do not call it Brand Brain learning, a winner, best-performing, or analytics-backed proof.
+Compare only values that are present in this campaign's supplied metrics. Do not use or invent industry benchmarks. Do not create a campaign score.
 
 Be specific. Use real numbers from the metrics. Never be generic. Output valid JSON only.`
 
@@ -121,7 +185,7 @@ Extract a paid metrics signal as JSON:
 {
   "learnings": {
     "executiveSummary": "2-3 sentence plain-language summary of what worked, what didn't, and the #1 insight",
-    "campaignScore": "1-10 rating based on industry benchmarks",
+    "measurementCompleteness": "complete|partial|insufficient, based only on whether the supplied metrics can support the requested analysis",
     "candidateHooks": ["exact hooks / angles that appear promising based on this signal"],
     "audienceSignal": "refined audience signal from the reported metrics",
     "platformSignal": "platform name with stronger reported CTR or ROAS if supported by the metrics",
@@ -159,63 +223,105 @@ Extract a paid metrics signal as JSON:
 
     try {
       parsed = JSON.parse(raw)
+      if (!parsed.learnings || typeof parsed.learnings !== 'object') {
+        throw new Error('Incomplete paid metrics analysis')
+      }
     } catch {
       await refundDeductedCredits(user.id, creditResult, 'AI returned invalid JSON')
       return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })
     }
 
-    // Save learnings to pack
-    await db.paidCampaignPack.update({
-      where: { campaignId: params.id },
-      data: {
-        learnings: parsed.learnings ?? {},
-        brandBrainUpdated: false,
-      },
-    })
+    const safeLearnings = { ...(parsed.learnings ?? {}) }
+    delete safeLearnings.campaignScore
+    safeLearnings.measurementCompleteness = paidMetricsCompleteness(pack.metrics)
 
-    // Apply updates to Brand Brain only when metrics are analytics-backed.
-    let brandBrainUpdated = false
+    // Analytics evidence can create review proposals, never mutate governed
+    // Brand Brain fields directly. The user accepts or dismisses each proposal
+    // in the Decision Center, which preserves provenance and revision history.
     const updates = parsed.brandBrainUpdates
-    if (updates && brandProfile && signalTruth.canUpdateBrandBrain) {
-      const existingHooks: string[] = brandProfile.winningHooks ?? []
-      const existingFailed: string[] = brandProfile.failedAngles ?? []
-      const existingStrategic = brandProfile.strategicNotes ?? ''
+    const proposalReason = `Provider-backed paid campaign metrics with an attribution breakdown support this review candidate for campaign ${campaign.name}. Accepting it records a governed signal; it does not guarantee future performance.`
+    const strategicSignals = [
+      updates?.targetAudienceRefinement
+        ? `Audience signal to review: ${updates.targetAudienceRefinement}`
+        : null,
+      updates?.topPlatformsUpdate?.length
+        ? `Platform ordering signal to review: ${updates.topPlatformsUpdate.join(' → ')}`
+        : null,
+      updates?.strategicNotesAddition || null,
+    ].filter((value): value is string => Boolean(value && value.trim()))
 
-      const newHooks = [...new Set([...existingHooks, ...(updates.hooksToReview ?? [])])]
-      const newFailed = [...new Set([...existingFailed, ...(updates.anglesToReview ?? [])])]
-      const newStrategic = updates.strategicNotesAddition
-        ? `${existingStrategic}\n\n[${new Date().toLocaleDateString()}] ${updates.strategicNotesAddition}`.trim()
-        : existingStrategic
+    const proposalCandidates = [
+      updates?.hooksToReview?.length ? {
+        field: 'winningHooks',
+        displayName: 'Evidence-backed hook candidates',
+        icon: '📊',
+        current: brandProfile?.winningHooks ?? [],
+        proposed: [...new Set(updates.hooksToReview.map((value) => String(value).trim()).filter(Boolean))].slice(0, 10),
+      } : null,
+      updates?.anglesToReview?.length ? {
+        field: 'failedAngles',
+        displayName: 'Angles to avoid or retest',
+        icon: '⚠️',
+        current: brandProfile?.failedAngles ?? [],
+        proposed: [...new Set(updates.anglesToReview.map((value) => String(value).trim()).filter(Boolean))].slice(0, 10),
+      } : null,
+      strategicSignals.length ? {
+        field: 'strategicNotes',
+        displayName: 'Paid performance signal',
+        icon: '🧭',
+        current: brandProfile?.strategicNotes ?? '',
+        proposed: strategicSignals.join(' '),
+      } : null,
+    ].filter((proposal): proposal is NonNullable<typeof proposal> => Boolean(proposal))
 
-      await db.brandProfile.update({
-        where: { workspaceId: campaign.workspaceId },
-        data: {
-          winningHooks: newHooks.slice(0, 20), // cap at 20 to avoid bloat
-          failedAngles: newFailed.slice(0, 20),
-          ...(updates.topPlatformsUpdate?.length && { topPlatforms: updates.topPlatformsUpdate }),
-          ...(updates.targetAudienceRefinement && { targetAudience: updates.targetAudienceRefinement }),
-          strategicNotes: newStrategic,
-        },
-      })
-      snapshotBrandMaturity(db, campaign.workspaceId).catch(() => null)
+    const existingPending = proposalCandidates.length > 0
+      ? await db.brainLearning.findMany({
+          where: {
+            workspaceId: campaign.workspaceId,
+            campaignId: params.id,
+            trigger: 'post_performance',
+            status: 'pending',
+          },
+          select: { field: true, proposed: true },
+        }) as Array<{ field: string; proposed: unknown }>
+      : []
+    const proposalRows = proposalCandidates.filter((candidate) => !existingPending.some((existing) =>
+      existing.field === candidate.field && JSON.stringify(existing.proposed) === JSON.stringify(candidate.proposed),
+    )).map((candidate) => ({
+      workspaceId: campaign.workspaceId,
+      campaignId: params.id,
+      trigger: 'post_performance',
+      ...candidate,
+      reason: proposalReason,
+      status: 'pending',
+    }))
 
-      await db.paidCampaignPack.update({
+    await prisma.$transaction(async (tx) => {
+      const txDb = tx as any
+      await txDb.paidCampaignPack.update({
         where: { campaignId: params.id },
         data: {
-          brandBrainUpdated: true,
-          brandBrainUpdatedAt: new Date(),
+          learnings: safeLearnings,
+          brandBrainUpdated: false,
         },
       })
-      brandBrainUpdated = true
-    }
+      if (proposalRows.length > 0) {
+        await txDb.brainLearning.createMany({ data: proposalRows })
+      }
+    })
 
     return NextResponse.json({
-      learnings: parsed.learnings,
-      brandBrainUpdated,
+      learnings: safeLearnings,
+      brandBrainUpdated: false,
+      brandBrainProposalCount: proposalRows.length,
       brandBrainUpdates: parsed.brandBrainUpdates,
       signalLabel: signalTruth.label,
       analyticsBacked: signalTruth.canUpdateBrandBrain,
+      attributionReady,
       success: true,
+      creditsUsed: creditResult.creditsUsed,
+      creditsRemaining: creditResult.creditsRemaining,
+      creditCharge: buildCreditChargeReceipt('AD_COPY', creditResult),
     })
   } catch (err) {
     console.error('[paid-pack/learn]', err)

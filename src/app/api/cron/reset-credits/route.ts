@@ -1,7 +1,7 @@
 /**
  * GET /api/cron/reset-credits
- * Monthly cron — resets AI credits for all active paid subscribers.
- * Runs on the 1st of each month at 00:05 UTC.
+ * Daily reconciliation — ensures each active Stripe billing cycle has exactly
+ * one monthly credit grant. It does not use the calendar month as a reset date.
  * Protected by CRON_SECRET env var (set in Vercel).
  */
 import { NextRequest, NextResponse } from 'next/server'
@@ -63,58 +63,48 @@ export async function GET(req: NextRequest) {
           isValidDate(sub.currentPeriodStart) &&
           isValidDate(sub.currentPeriodEnd)
 
-        if (isCreditWalletEnabled()) {
-          if (!canCreateMonthlyGrant) {
-            grantSkippedCount++
-            continue
-          }
-          const { created } = await (prisma as any).$transaction(async (tx: any) => {
-            const grant = await ensureMonthlyGrant(sub.userId, {
-              stripeSubscriptionId: sub.stripeId as string,
-              currentPeriodStart: sub.currentPeriodStart as Date,
-              currentPeriodEnd: sub.currentPeriodEnd as Date,
-              amount: credits,
-            }, tx)
-            await syncCachedWalletBalance(sub.userId, tx)
-            return grant
-          })
-          resetCount++
-          if (created) grantCreatedCount++
-          else grantSkippedCount++
-          continue
-        }
-
-        // Legacy scalar path remains available until the wallet flag is enabled.
-        await prisma.user.update({
-          where: { id: sub.userId },
-          data: { aiCredits: credits },
-        })
-        resetCount++
-
         if (!canCreateMonthlyGrant) {
           grantSkippedCount++
           continue
         }
 
-        try {
-          const { created } = await ensureMonthlyGrant(sub.userId, {
+        const walletEnabled = isCreditWalletEnabled()
+        const { created } = await (prisma as any).$transaction(async (tx: any) => {
+          const grant = await ensureMonthlyGrant(sub.userId, {
             stripeSubscriptionId: sub.stripeId as string,
             currentPeriodStart: sub.currentPeriodStart as Date,
             currentPeriodEnd: sub.currentPeriodEnd as Date,
             amount: credits,
-          })
-          if (created) grantCreatedCount++
-        } catch (grantError: any) {
-          grantErrorCount++
-          console.error(`[CreditReset] Grant sync failed for userId=${sub.userId}:`, grantError.message)
+          }, tx)
+
+          if (walletEnabled) {
+            await syncCachedWalletBalance(sub.userId, tx)
+          } else if (grant.created) {
+            // Compatibility mode: reset the scalar cache only when this exact
+            // Stripe cycle is first observed. A duplicate cron cannot restore
+            // credits already spent during the same billing cycle.
+            await tx.user.update({
+              where: { id: sub.userId },
+              data: { aiCredits: credits },
+            })
+          }
+          return grant
+        })
+
+        if (created) {
+          resetCount++
+          grantCreatedCount++
+        } else {
+          grantSkippedCount++
         }
       } catch (e: any) {
         console.error(`[CreditReset] Failed for userId=${sub.userId}:`, e.message)
+        grantErrorCount++
         errorCount++
       }
     }
 
-    console.log(`[CreditReset] Done. Reset: ${resetCount}, Errors: ${errorCount}`)
+    console.log(`[CreditReset] Done. New cycles: ${resetCount}, Errors: ${errorCount}`)
 
     return NextResponse.json({
       ok: true,

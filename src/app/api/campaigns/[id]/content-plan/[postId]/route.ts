@@ -12,13 +12,20 @@ import {
   isMediaAllowedForPost,
   isMediaAttachmentConfirmationComplete,
 } from '@/lib/contentHubMediaAttachment'
+import {
+  CONTENT_REVISION_HISTORY_NOTE,
+  contentReviewResetData,
+  isImmutableExecutionPost,
+  reopensContentReview,
+} from '@/lib/contentPostRevision'
 
 type Params = { params: Promise<{ id: string; postId: string }> }
 
 const ALLOWED_FIELDS = [
-  'caption', 'imagePrompt', 'videoPrompt', 'mediaSource',
-  'uploadedMediaId', 'imageUrl', 'generationStatus', 'scheduledAt',
+  'caption', 'imagePrompt', 'videoPrompt', 'scheduledAt',
 ] as const
+
+const SERVER_CONTROLLED_MEDIA_FIELDS = ['imageUrl', 'generationStatus', 'mediaSource'] as const
 
 export async function PATCH(req: NextRequest, props: Params) {
   const params = await props.params;
@@ -36,7 +43,21 @@ export async function PATCH(req: NextRequest, props: Params) {
     })
     if (!post) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+    if (isImmutableExecutionPost(post.status)) {
+      return NextResponse.json({
+        error: 'Published or provider-processing posts are immutable. Create a new draft for any revision.',
+        code: 'PUBLISHED_POST_IMMUTABLE',
+      }, { status: 409 })
+    }
+
     const body = await req.json()
+    if (SERVER_CONTROLLED_MEDIA_FIELDS.some((field) => field in body)) {
+      return NextResponse.json({
+        error: 'Media readiness cannot be set directly. Attach an owned upload or a completed generated visual.',
+        code: 'SERVER_CONTROLLED_MEDIA_STATE',
+      }, { status: 400 })
+    }
+
     const data: Record<string, any> = {}
     for (const field of ALLOWED_FIELDS) {
       if (field in body) data[field] = body[field]
@@ -94,22 +115,96 @@ export async function PATCH(req: NextRequest, props: Params) {
       }
     }
 
+    if ('generatedVisualId' in body) {
+      if (
+        typeof body.generatedVisualId !== 'string'
+        || !body.generatedVisualId.trim()
+        || body.explicitGeneratedMediaAttachConfirmed !== true
+      ) {
+        return NextResponse.json({
+          error: 'Attaching generated media requires a completed visual and explicit confirmation.',
+          code: 'GENERATED_MEDIA_CONFIRMATION_REQUIRED',
+        }, { status: 400 })
+      }
+
+      const visual = await (prisma.generatedVisual as any).findFirst({
+        where: {
+          id: body.generatedVisualId.trim(),
+          workspaceId: post.workspaceId,
+          campaignId: params.id,
+          status: 'COMPLETED',
+          imageUrl: { not: null },
+          isArchived: false,
+        },
+        select: { id: true, imageUrl: true },
+      })
+      if (!visual?.imageUrl) {
+        return NextResponse.json({
+          error: 'Completed generated media was not found in this campaign.',
+          code: 'GENERATED_MEDIA_NOT_FOUND',
+        }, { status: 404 })
+      }
+
+      data.uploadedMediaId = null
+      data.imageUrl = visual.imageUrl
+      data.mediaSource = 'GENERATE'
+      data.generationStatus = 'DONE'
+    }
+
+    // A changed prompt no longer describes an existing generated image. Clear
+    // that image and require generation/review again instead of preserving a
+    // misleading DONE state. Uploaded media remains independent of the prompt.
+    if (
+      'imagePrompt' in data
+      && data.imagePrompt !== post.imagePrompt
+      && post.mediaSource === 'GENERATE'
+      && !('generatedVisualId' in body)
+    ) {
+      data.imageUrl = null
+      data.uploadedMediaId = null
+      data.generationStatus = 'PENDING'
+    }
+
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
 
-    const updated = await (prisma.socialPost as any).update({
-      where: { id: params.postId },
-      data,
-      select: {
-        id: true,
-        caption: true,
-        imagePrompt: true,
-        imageUrl: true,
-        mediaSource: true,
-        uploadedMediaId: true,
-        generationStatus: true,
-      },
+    const reopensReview = reopensContentReview(post.status)
+    Object.assign(data, contentReviewResetData(post.status))
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const next = await (tx.socialPost as any).update({
+        where: { id: params.postId },
+        data,
+        select: {
+          id: true,
+          status: true,
+          caption: true,
+          imagePrompt: true,
+          imageUrl: true,
+          mediaSource: true,
+          uploadedMediaId: true,
+          generationStatus: true,
+          approvedAt: true,
+          publishMode: true,
+          integrationId: true,
+          pageId: true,
+          pageName: true,
+        },
+      })
+      if (reopensReview) {
+        await tx.postStatusHistory.create({
+          data: {
+            socialPostId: post.id,
+            workspaceId: post.workspaceId,
+            fromStatus: post.status,
+            toStatus: 'DRAFT',
+            actor: 'USER',
+            note: CONTENT_REVISION_HISTORY_NOTE,
+          },
+        })
+      }
+      return next
     })
 
     return NextResponse.json({ post: updated })

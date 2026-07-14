@@ -2,7 +2,7 @@
  * Nexus AI — Stripe client + Plan definitions
  *
  * Public pricing (July 2026): exactly two paid subscriptions.
- *   Trial     — $0      — 12 credits (one-time, 14 days)
+ *   Trial     — $0      — 12 credits (one-time)
  *   Growth    — $49/mo  — 150 credits/month
  *   Autopilot — $99/mo  — 500 credits/month
  *
@@ -30,7 +30,18 @@ const billingFlag = process.env.NEXT_PUBLIC_BILLING_ENABLED
 let stripeClient: Stripe | null = null
 
 export function isBillingConfigured(): boolean {
-  return billingFlag !== 'false' && Boolean(stripeSecretKey)
+  // Billing is an explicit opt-in.  A secret key alone must never make paid
+  // checkout/webhooks live (for example while Stripe is being configured in a
+  // preview environment).  Keep the default disabled until the operator sets
+  // NEXT_PUBLIC_BILLING_ENABLED=true deliberately.
+  // Require the webhook signing secret and both public subscription prices as
+  // well.  A secret key by itself is not enough to run billing safely: without
+  // the webhook Stripe payments cannot be reconciled, and without prices the
+  // checkout route would advertise plans that can never be purchased.
+  return billingFlag === 'true' && Boolean(stripeSecretKey) &&
+    Boolean(process.env.STRIPE_WEBHOOK_SECRET) &&
+    Boolean(process.env.STRIPE_PRICE_PRO) &&
+    Boolean(process.env.STRIPE_PRICE_BUSINESS)
 }
 
 export function getBillingMode(): 'disabled' | 'sandbox' | 'live' {
@@ -69,7 +80,7 @@ export interface PlanDefinition {
   displayName: string     // Human-facing name (Growth, Autopilot)
   price: number
   credits: number
-  postsPerMonth: number   // Research-backed content volume
+  postsPerMonth: number   // Commercial monthly content allowance
   stripePriceEnvKey: string
   features: string[]
   highlight?: string
@@ -80,22 +91,21 @@ export interface PlanDefinition {
 export const PLANS: PlanDefinition[] = [
   {
     id: 'free',
-    name: 'Free',
-    displayName: 'Free',
+    name: 'Trial',
+    displayName: 'Trial',
     price: 0,
     credits: FREE_TRIAL_CREDITS,
     postsPerMonth: FREE_TRIAL_POSTS,
     stripePriceEnvKey: '',
     cta: 'Get Started Free',
-    researchNote: 'Enough to experience the product — not enough for real marketing results',
+    researchNote: 'A bounded activation journey for validating the workflow before purchase.',
     features: [
-      `${FREE_TRIAL_CREDITS} AI credits — 14-day trial`,
+      `${FREE_TRIAL_CREDITS} one-time AI trial credits`,
       '1 workspace',
       '1 campaign maximum',
       '3 AI posts to try',
-      '1 social platform',
-      'Watermarked exports',
-      'Community support',
+      'Reviewed strategy draft',
+      'Printable HTML + JSON export where available',
     ],
   },
   {
@@ -106,7 +116,7 @@ export const PLANS: PlanDefinition[] = [
     credits: PUBLIC_PAID_PLANS[0].monthlyCredits,
     postsPerMonth: PUBLIC_PAID_PLANS[0].postsPerMonth,
     stripePriceEnvKey: 'STRIPE_PRICE_PRO',
-    highlight: 'Most Popular',
+    highlight: 'Core plan',
     cta: 'Start Growth — $49/mo',
     researchNote: 'Built for a founder or small team operating up to three brands.',
     features: [
@@ -142,17 +152,16 @@ export const PLANS: PlanDefinition[] = [
       'Human approval queue before execution',
       'Printable HTML + JSON export',
       'Evidence-backed performance analytics',
-      'Always-on scheduled monitoring and action queue',
+      'Scheduled monitoring and evidence-backed action queue',
       'Provenance trail for performance recommendations',
     ],
   },
 ]
 
 // ── Monthly video slot quota per plan ─────────────────────────────────────────
-// Video slots = how many video posts a user can schedule per month.
-// Free/Starter: no video (AI image posts only — keeps COGS near zero).
-// Growth: 2 video slots (enough for 1 short-form/platform on 2 platforms).
-// Agency: 5 video slots (covers 1 video per client per month).
+// Video slots = how many user-supplied video posts can be scheduled per month.
+// Legacy plan keys remain for existing subscriptions; only Growth and Autopilot
+// are offered to new customers.
 
 export const PLAN_VIDEO_QUOTA: Record<string, number> = {
   FREE:     0,
@@ -171,9 +180,8 @@ export const PLAN_VIDEO_QUOTA: Record<string, number> = {
 }
 
 // ── Campaign count limit per plan (per month) ──────────────────────────────────
-// Aligned with PLANS array research notes.
-// Free: 1 (taste the product). Starter: 2 (1 brand, 2 concurrent campaigns).
-// Growth: 5 (3 brands × 1-2 campaigns each). Agency: unlimited (10 clients).
+// Aligned with the commercial allowances above. Legacy plan keys remain for
+// compatibility with already-created subscriptions and webhook records.
 
 export const PLAN_CAMPAIGN_LIMIT: Record<string, number> = {
   FREE:     1,
@@ -274,16 +282,12 @@ export const PLAN_CREDITS: Record<string, number> = {
 }
 
 // ── Content Hub: monthly post + video quotas ──────────────────────────────────
-// Research basis (HubSpot / SproutSocial / Hootsuite 2024):
-//   Free    →  3 posts/mo  — taste the product only
-//   Starter → 10 posts/mo  — consistent presence, BELOW the 16+ lead-gen threshold (by design)
-//   Growth  → 25 posts/mo  — crosses the research-proven 16+ threshold (+4.5x leads)
-//   Agency  → 60 posts/mo  — 3-4 clients at 16-20/mo each (optimal agency load)
-// Post COGS: ~$0.05 each (GPT-4o-mini + gpt-image-1). Margins: 96%+.
+// These are product allowances, not promises about posting frequency,
+// performance, generation cost, or margin. Legacy keys remain for compatibility.
 
 export interface PlanQuota {
-  postsPerMonth: number        // AI-generated image/caption posts (~$0.05 each)
-  videoSlotsPerMonth: number   // scheduled video post slots (user uploads own video — $0 COGS)
+  postsPerMonth: number        // monthly generated-content allowance
+  videoSlotsPerMonth: number   // scheduled slots for user-supplied video
   postsPerCampaign: number     // how many posts to generate per content plan run
 }
 

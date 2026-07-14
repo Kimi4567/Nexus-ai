@@ -202,7 +202,7 @@ export default function MetaReviewDemoPage() {
             <UserCircle className="mb-3 text-blue-200" size={26} />
             <p className="text-sm font-bold text-white">Data handling</p>
             <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Connection uses Meta&apos;s official OAuth — NEXUS never sees or stores the user&apos;s Facebook password. Access tokens are stored encrypted (AES-256 at rest, TLS 1.3 in transit) and deleted immediately when the user disconnects.
+              Connection uses Meta&apos;s official OAuth — NEXUS never sees or stores the user&apos;s Facebook password. OAuth tokens are encrypted by the application with AES-256-GCM, connections use HTTPS/TLS, and the stored integration record is removed when the user disconnects.
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">

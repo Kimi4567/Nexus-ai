@@ -63,6 +63,18 @@ describe('getUsageSummary', () => {
     expect(s.generationsThisMonth).toBe(1)
   })
 
+  it('nets allocation-aware refunds linked to their debit transaction', async () => {
+    mockPrisma.creditTransaction.findMany.mockResolvedValue([
+      { action: 'SENTINEL_REVIEW', amount: -2, entityType: null },
+      { action: 'REFUND', amount: 2, entityType: 'credit_transaction' },
+      { action: 'CONTENT_PLAN_GENERATION', amount: -2, entityType: null },
+    ])
+
+    const summary = await getUsageSummary('u1')
+    expect(summary.creditsUsedThisMonth).toBe(2)
+    expect(summary.generationsThisMonth).toBe(1)
+  })
+
   it('3. is deterministic for a fixture (dashboard + analytics share it → consistent numbers)', async () => {
     mockPrisma.creditTransaction.findMany.mockResolvedValue([{ amount: -5, entityType: null }])
     const a = await getUsageSummary('u1')
@@ -93,5 +105,18 @@ describe('getMonthlyActivity', () => {
     expect(current.month).toBe(now.getMonth() + 1)
     expect(current.generations).toBe(2)
     expect(current.creditsUsed).toBe(10)
+  })
+
+  it('nets both legacy and allocation-aware refund ledger shapes', async () => {
+    const now = new Date()
+    mockPrisma.creditTransaction.findMany.mockResolvedValue([
+      { action: 'SENTINEL_REVIEW', amount: -2, entityType: null, createdAt: now },
+      { action: 'REFUND', amount: 2, entityType: 'credit_transaction', createdAt: now },
+      { action: 'RUN_FULL_STRATEGY', amount: -8, entityType: null, createdAt: now },
+      { action: 'REFUND', amount: 8, entityType: 'refund', createdAt: now },
+    ])
+
+    const months = await getMonthlyActivity('u1', 1)
+    expect(months[0]).toMatchObject({ generations: 0, creditsUsed: 0 })
   })
 })

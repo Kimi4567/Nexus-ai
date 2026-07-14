@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowUpRight,
   AlertTriangle,
+  CheckCircle2,
+  Clock3,
   LockKeyhole,
   Workflow,
 } from 'lucide-react'
@@ -15,6 +17,7 @@ import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import type { WorkspaceExecutionTruth } from '@/lib/executionTruth'
+import { capabilitiesByStatus, type MarketingCapabilityStatus } from '@/lib/marketingCapabilityRegistry'
 
 type ConnectionState = 'loading' | 'ready' | 'error'
 
@@ -131,6 +134,31 @@ export default function AutomationPage() {
 
   const activeSocialCount = socialAccounts.filter(account => account.isActive !== false).length
   const activeAdCount = adAccounts.filter(account => account.status !== 'revoked').length
+  const capabilityGroups: Array<{
+    status: MarketingCapabilityStatus
+    title: string
+    helper: string
+    className: string
+  }> = [
+    {
+      status: 'operational',
+      title: copy('يعمل الآن', 'Operational now'),
+      helper: copy('داخل NEXUS وتحت مراجعة المستخدم', 'Inside NEXUS with user review'),
+      className: 'border-emerald-100 bg-emerald-50/50 text-emerald-700',
+    },
+    {
+      status: 'conditional',
+      title: copy('يعمل بشروط', 'Conditional'),
+      helper: copy('يتطلب بيانات أو صلاحية موفر مثبتة', 'Requires evidence or verified provider access'),
+      className: 'border-amber-100 bg-amber-50/50 text-amber-700',
+    },
+    {
+      status: 'planned',
+      title: copy('غير متاح بعد', 'Not available yet'),
+      helper: copy('معلن بوضوح ولا يُعرض كمنفذ', 'Disclosed clearly and never presented as executed'),
+      className: 'border-slate-200 bg-slate-50 text-slate-600',
+    },
+  ]
 
   return (
     <AppShell>
@@ -141,8 +169,7 @@ export default function AutomationPage() {
             pageSubtitle={copy('يحلل NEXUS حالة العمل المثبتة ويوجّه القرار التالي.', 'NEXUS analyzes verified workflow state and routes the next decision.')}
             primaryHref="/approvals"
             primaryLabel={copy('مراجعة الموافقات', 'Review approvals')}
-            secondaryHref="/connections"
-            secondaryLabel={copy('الربط', 'Connections')}
+            secondaryHref={null}
           />
 
           <section className="nx-os-action-strip">
@@ -160,6 +187,38 @@ export default function AutomationPage() {
             <div className="flex flex-wrap gap-2 text-[11px] font-bold text-[#53617f]">
               <span className="rounded-full bg-[#f3f5fb] px-3 py-1.5">{copy('حسابات النشر', 'Publishing accounts')}: {connectionState === 'loading' ? '...' : activeSocialCount}</span>
               <span className="rounded-full bg-[#f3f5fb] px-3 py-1.5">{copy('حسابات الإعلانات', 'Ad accounts')}: {connectionState === 'loading' ? '...' : activeAdCount}</span>
+            </div>
+          </section>
+
+          <section className="nx-os-card p-5" aria-labelledby="capability-map-title">
+            <div className="mb-5">
+              <h2 id="capability-map-title" className="text-[18px] font-black text-[#071236]">
+                {copy('خريطة قدرات التشغيل', 'Operational capability map')}
+              </h2>
+              <p className="mt-1 text-[12px] font-semibold leading-5 text-[#7b87a3]">
+                {copy('مرجع واحد يوضح ما ينفذه النظام فعلاً وما يحتاج دليلاً أو تكاملاً خارجياً.', 'One source of truth for what the system executes and what still needs evidence or an external integration.')}
+              </p>
+            </div>
+            <div className="grid gap-4 xl:grid-cols-3">
+              {capabilityGroups.map((group) => (
+                <div key={group.status} className={`rounded-[20px] border p-4 ${group.className}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-[13px] font-black">{group.title}</h3>
+                      <p className="mt-1 text-[10px] font-bold opacity-75">{group.helper}</p>
+                    </div>
+                    {group.status === 'operational' ? <CheckCircle2 size={18} /> : <Clock3 size={18} />}
+                  </div>
+                  <ul className="mt-4 space-y-3">
+                    {capabilitiesByStatus(group.status).map((capability) => (
+                      <li key={capability.id} className="rounded-[14px] border border-white/80 bg-white/80 p-3 text-[#111b3f]">
+                        <p className="text-[12px] font-black">{ar ? capability.title.ar : capability.title.en}</p>
+                        <p className="mt-1 text-[10px] font-semibold leading-5 text-[#64708f]">{ar ? capability.detail.ar : capability.detail.en}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
           </section>
 

@@ -20,6 +20,7 @@ vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
+  buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, cost: 2, ...deduction }),
 }))
 vi.mock('@/lib/ai/langHelper', () => ({ getLanguageInstruction: () => 'Respond in English.' }))
 
@@ -49,6 +50,20 @@ describe('POST /api/ai/generate — RF-2 refund safety', () => {
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()
+  })
+
+  it('provider misconfiguration returns 503 without mock content or credit deduction', async () => {
+    delete process.env.OPENAI_API_KEY
+
+    const res = await POST(makeReq({ systemPrompt: 'sys', userPrompt: 'user', language: 'en' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(json.code).toBe('AI_PROVIDER_UNAVAILABLE')
+    expect(json.creditsCharged).toBe(false)
+    expect(json.content).toBeUndefined()
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
   })
 
   it('provider failure after deduction uses transaction-aware refund', async () => {

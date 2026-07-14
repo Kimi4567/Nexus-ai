@@ -9,7 +9,7 @@ describe('/strategy workbench source-of-truth copy', () => {
     expect(source).toContain('Open campaign strategy brief')
     expect(source).toContain('The full strategy brief lives inside the campaign')
     expect(source).toContain('Use this page as a strategy workbench, then open the campaign brief for detailed review.')
-    expect(source).toContain("const recentStrategyHref = recent?.id ? `/campaigns/${recent.id}?tab=strategy` : '/campaigns'")
+    expect(source).toContain("const recentStrategyHref = recent?.id ? `/campaigns/${recent.id}?tab=strategy` : '/strategy'")
   })
 
   it('separates new-request readiness from the current campaign scope', () => {
@@ -23,8 +23,9 @@ describe('/strategy workbench source-of-truth copy', () => {
 
   it('keeps Content Hub actions scoped to the active campaign when a recent campaign exists', () => {
     expect(source).toContain("const recentContentHubHref = recent?.id ? `/campaigns/${recent.id}/content-hub` : '/content-hub'")
-    expect(source).toContain('primaryHref={hasStrategy && contentDirectionReady ? recentContentHubHref : null}')
-    expect(source).toContain('Continue to content')
+    expect(source).toContain('primaryHref={null}')
+    expect(source).toContain('primaryAction.href')
+    expect(source).not.toContain('Continue to content')
     expect(source).toContain('Ready to create')
     expect(source).toContain('Move to Content Hub to create reviewable drafts.')
     expect(source).not.toContain('Move to Content Hub to review the draft content.')

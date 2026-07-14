@@ -54,7 +54,7 @@ model User {
   sessions      Session[]
   accounts      Account[]
   uploadSessions UploadSession[]
-  // B1b — Credit Wallet ledger (foundation only; no runtime reader until B1c).
+  // Credit Wallet ledger (runtime reads/writes are gated by CREDIT_WALLET_ENABLED).
   creditGrants  CreditGrant[]
 
   createdAt     DateTime   @default(now())
@@ -648,6 +648,13 @@ model BrandProfile {
   languagePreference    String?              // "en" | "ar" | "both" — chosen by the user, NOT the UI locale
   verifiedProof         String[]  @default([]) // user-confirmed proof points only (no AI-suggested/fake testimonials)
 
+  // User-reviewed defaults for every future strategy order. These are explicit
+  // preferences, never AI-inferred, and can be overridden in the review modal.
+  strategyType          String?              // "organic" | "paid" | "full"
+  strategyDuration      String?              // "30" | "90" | "180" | "custom"
+  strategyCustomDays    Int?                 // 1..180 when strategyDuration = "custom"
+  campaignObjective     String?              // "leads" | "sales" | "awareness" | "traffic"
+
   // Website & content intelligence (auto-scanned)
   websiteUrl    String?                          // brand's main website URL
   contentSamples String[]  @default([])          // up to 3 pasted best-performing content pieces
@@ -752,6 +759,8 @@ enum Platform {
   SNAPCHAT
   LINKEDIN
   TWITTER
+  PINTEREST
+  THREADS
   WEBSITE
 }
 
@@ -822,6 +831,9 @@ enum IntegrationType {
   LINKEDIN
   TIKTOK
   YOUTUBE
+  X
+  PINTEREST
+  THREADS
   GOOGLE
   STRIPE
   CLOUDINARY
@@ -832,6 +844,7 @@ enum SocialPostStatus {
   DRAFT
   APPROVED
   SCHEDULED
+  PROCESSING
   PUBLISHED
   FAILED
 }
@@ -870,6 +883,10 @@ model SocialPost {
   integration   Integration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
 
   platform      IntegrationType   // META, TIKTOK, etc.
+  // Exact user-facing destination. `platform` identifies the provider
+  // integration; publishTarget prevents Facebook/Instagram (and unsupported
+  // channels) from being collapsed into one ambiguous META destination.
+  publishTarget String?           // FACEBOOK | INSTAGRAM | LINKEDIN | TIKTOK | ...
   pageId        String?           // Facebook page ID or IG account ID
   pageName      String?
 
@@ -895,6 +912,9 @@ model SocialPost {
   publishMode         PublishMode @default(MANUAL)
   approvedAt          DateTime?   // when DRAFT → APPROVED
   manuallyPublishedAt DateTime?   // when the user confirmed they published it by hand
+  platformOptions     Json?       // reviewed provider options (privacy, interactions, disclosure)
+  autoPublishConsentAt DateTime?  // explicit user consent for provider API delivery
+  publishAttemptedAt  DateTime?   // provider request accepted/attempted; not proof of publication
   statusHistory       PostStatusHistory[]
 
   // Autopilot fields
@@ -936,6 +956,8 @@ model SocialPost {
   @@index([scheduledAt])           // publish cron: find posts due for publishing
   @@index([status, scheduledAt])   // composite: WHERE status='SCHEDULED' AND scheduledAt<=NOW()
   @@index([publishMode])           // future: cron filters publishMode = AUTO
+  @@index([publishTarget])
+  @@index([status, publishAttemptedAt]) // async provider reconciliation
   @@index([workspaceId, status, analyticsFetched]) // execution + analytics monitor selection
 }
 
@@ -1359,15 +1381,16 @@ model MarketingLearningEvent {
 //   AdAccount → AdCampaign → AdSet → Ad
 //   AdPerformanceSnapshot (daily metrics synced per campaign/adset/ad)
 //
-// Designed 1:1 with Meta Marketing API v21, Google Ads API v17,
-// TikTok Marketing API v1.3, LinkedIn Campaign Manager API v2.
+// Provider adapters are version-pinned in application configuration. Google Ads
+// automated execution currently supports reviewed Search campaigns only; other
+// Google formats remain planning-only until their own execution paths exist.
 // Platform IDs (platformCampaignId, platformAdSetId, platformAdId) are
 // null until the campaign is pushed live — enabling "export mode" first,
 // then "live API mode" without changing the data model.
 
 enum AdPlatform {
   META        // Facebook + Instagram (Meta Marketing API)
-  GOOGLE      // Google Ads: Search, Display, P-Max, YouTube
+  GOOGLE      // Google Ads: Search execution; other formats planning-only
   TIKTOK      // TikTok Marketing API
   LINKEDIN    // LinkedIn Campaign Manager API
 }
@@ -1975,12 +1998,11 @@ model CreditGrant {
   @@index([billingCycleId])
 }
 
-// B1c-a — Allocation ledger: links one CreditTransaction (debit) to the
+// Allocation ledger: links one CreditTransaction (debit) to the
 // CreditGrant row(s) it drew from, with the amount taken from each. One debit
 // can span multiple grants (e.g. cost 14 = 5 from grant A + 9 from grant B), so
 // a single CreditTransaction.grantId is intentionally NOT used. Enables exact
-// source-aware refunds in B1c-c. FOUNDATION ONLY — no runtime code reads or
-// writes this table until B1c-b (grant-based deduction behind CREDIT_WALLET_ENABLED).
+// source-aware refunds. Writes are gated by CREDIT_WALLET_ENABLED.
 // Apply to the DB via prisma/migrations/credit_transaction_grant_allocation.sql
 // in the Supabase SQL Editor (this repo does not use prisma migrate for prod).
 model CreditTransactionGrantAllocation {

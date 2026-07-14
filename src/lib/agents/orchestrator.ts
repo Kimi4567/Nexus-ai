@@ -1,19 +1,13 @@
 /**
  * Agent Orchestrator
  *
- * Coordinates all 4 agents for a workspace.
- * Called by /api/agents/run and the cron jobs.
+ * Runs the production strategy workflow for a workspace.
+ * Called by the strategy API and scheduled monitoring entrypoints.
  */
 
 import { prisma } from '@/lib/prisma'
 import { runStrategistAgent, BusinessBrief, StrategyOutput } from './strategist'
-import { runContentDirectorAgent, ContentDirectorInput, ContentDirectorOutput } from './content-director'
-import {
-  runCampaignManagerAgent,
-  buildMetricsFromCampaign,
-  CampaignManagerOutput,
-} from './campaign-manager'
-import { runReportingAgent, getPeriodLabel, ReportingInput } from './reporting'
+import type { ContentDirectorOutput } from './content-director'
 import { saveCampaignMemory } from '@/lib/campaign-memory'
 import { getStrategyCapabilities } from '@/lib/brandReadiness'
 import { applyServerReadiness, collectMissingKeys } from '@/lib/strategyNormalize'
@@ -27,6 +21,11 @@ import {
 } from '@/lib/brandBrainGenerationSafety'
 import type { StrategyReadinessContext } from './strategist'
 import { readLockedCampaignAllowance } from '@/lib/campaignCommercial'
+import {
+  reviewBrandTruthConsistency,
+  reviewStrategyGrounding,
+} from '@/lib/ai/marketingQualityGate'
+import type { BrandTone } from '@prisma/client'
 
 // Re-export for API routes
 export type { BusinessBrief }
@@ -60,6 +59,7 @@ export async function runFullAgency(
   brief: BusinessBrief,
   options: RunFullAgencyOptions = {},
 ): Promise<OrchestratorResult> {
+  const startedAt = Date.now()
   const errors: string[] = []
   let strategyCreated = false
   let contentCreated = false
@@ -88,7 +88,7 @@ export async function runFullAgency(
       where: { id: workspaceId },
       select: { owner: { select: { subscriptionStatus: true } } },
     })
-    const planTier = (workspace?.owner?.subscriptionStatus || 'starter').toLowerCase()
+    const planTier = (workspace?.owner?.subscriptionStatus || 'free').toLowerCase()
 
     // Inject plan tier into brief so agents can scale output depth
     if (!brief.planTier) {
@@ -99,6 +99,12 @@ export async function runFullAgency(
     const brandProfile = await prisma.brandProfile.findUnique({ where: { workspaceId } })
     const brandSafety = getBrandBrainGenerationSafety(brandProfile as any)
     const safeBrandProfile = brandSafety.safeProfile as any
+    const brandTruthReview = reviewBrandTruthConsistency(safeBrandProfile)
+    if (brandTruthReview.status === 'blocked') {
+      throw new Error(
+        `BRAND_TRUTH_CONFLICT:${brandTruthReview.blockers.map(item => item.code).join(',')}`,
+      )
+    }
     const brandContext = brandProfile
       ? [
           `Brand: ${safeBrandProfile.brandName || 'Unknown'}`,
@@ -169,6 +175,8 @@ export async function runFullAgency(
       allowedClaimText: [
         bp.description,
         bp.primaryOffer,
+        bp.pricePoint,
+        bp.languagePreference,
         ...((bp.uniqueAdvantages as string[] | undefined) || []),
         bp.complianceNotes,
         ...((bp.verifiedProof as string[] | undefined) || []),
@@ -207,13 +215,25 @@ export async function runFullAgency(
       organicPostCount: brief.organicPostCount,
       hasLeadHandling: Boolean(bp.leadHandling),
       hasConversionDestination: Boolean(bp.conversionDestination),
+      allowedCompetitors,
     })
     const contractReport = assertCampaignStrategyContract(strategy, {
       language: brief.language,
       expectedOrganicPostCount: brief.organicPostCount,
     })
+    const qualityGate = reviewStrategyGrounding({
+      strategy,
+      brand: safeBrandProfile,
+      allowedPlatforms: Array.isArray(brief.currentPlatforms) ? brief.currentPlatforms : [],
+      goal: brief.primaryGoal,
+    })
+    if (qualityGate.status === 'blocked') {
+      throw new Error(
+        `MARKETING_QUALITY_GATE_BLOCKED:${qualityGate.blockers.map(item => item.code).join(',')}`,
+      )
+    }
     console.log(
-      `[Orchestrator] Strategy OS contract passed score=${contractReport.score} workspace=${workspaceId}`,
+      `[Orchestrator] Strategy OS contract passed score=${contractReport.score} quality=${qualityGate.score} workspace=${workspaceId}`,
     )
 
     if (options.beforePersistStrategy) {
@@ -301,7 +321,7 @@ export async function runFullAgency(
           description: String(campaignDesc).slice(0, 2_000),
           goal: mapGoal(strategy.goal) as any,
           audience: String(campaignAudience).slice(0, 1_000),
-          tone: 'MODERN',
+          tone: mapBrandTone(safeBrandProfile.toneKeywords, safeBrandProfile.writingStyle),
           platforms: mapPlatforms(rawPlatforms) as any,
           status: 'DRAFT',
           aiOutput: {
@@ -322,6 +342,7 @@ export async function runFullAgency(
             selectedMediaIds: Array.isArray((brief as any).selectedMediaIds) ? (brief as any).selectedMediaIds : [],
             generatedAt: new Date().toISOString(),
             generatedByAgents: true,
+            qualityGate,
           } as any,
         },
       })
@@ -333,7 +354,7 @@ export async function runFullAgency(
       workspaceId,
       campaignId: campaign.id,
       goal: brief.primaryGoal ?? undefined,
-      tone: undefined,
+      tone: mapBrandTone(safeBrandProfile.toneKeywords, safeBrandProfile.writingStyle),
       industry: brief.businessType ?? undefined,
       audienceHint: brief.targetAudience ?? undefined,
       strategy,
@@ -378,6 +399,7 @@ export async function runFullAgency(
         status: 'COMPLETED',
         outputData: { strategyCreated, contentCreated, campaignId: campaign.id },
         completedAt: new Date(),
+        durationMs: Date.now() - startedAt,
       },
     })
 
@@ -388,154 +410,11 @@ export async function runFullAgency(
     errors.push(message)
     await db.agentRun.update({
       where: { id: agentRun.id },
-      data: { status: 'FAILED', error: message, completedAt: new Date() },
+      data: { status: 'FAILED', error: message, completedAt: new Date(), durationMs: Date.now() - startedAt },
     }).catch(() => {})  // Don't let agentRun update failure mask the real error
   }
 
   return { agentRunId: agentRun.id, strategyCreated, contentCreated, suggestions: suggestionsCount, errors }
-}
-
-/**
- * Campaign Manager — monitors all ACTIVE campaigns for a workspace
- */
-export async function runCampaignMonitor(workspaceId: string): Promise<{
-  campaignsChecked: number
-  suggestionsCreated: number
-  errors: string[]
-}> {
-  const errors: string[] = []
-  let suggestionsCreated = 0
-
-  const campaigns = await db.campaign.findMany({
-    where: { workspaceId, status: { in: ['ACTIVE', 'DRAFT'] }, aiOutput: { not: null } },
-    orderBy: { createdAt: 'desc' },
-    take: 10,
-  })
-
-  for (const campaign of campaigns) {
-    try {
-      const agentRun = await db.agentRun.create({
-        data: { workspaceId, agent: 'CAMPAIGN_MANAGER', status: 'RUNNING', triggeredBy: 'cron' },
-      })
-
-      const metrics = buildMetricsFromCampaign(campaign)
-      const analysis: CampaignManagerOutput = await runCampaignManagerAgent(metrics)
-
-      if (analysis.healthScore < 75) {
-        for (const suggestion of analysis.suggestions) {
-          const existing = await db.agentSuggestion.findFirst({
-            where: { workspaceId, campaignId: campaign.id, type: suggestion.type, status: 'PENDING' },
-          })
-          if (existing) continue
-
-          await db.agentSuggestion.create({
-            data: {
-              workspaceId,
-              agentRunId: agentRun.id,
-              agent: 'CAMPAIGN_MANAGER',
-              type: suggestion.type,
-              status: 'PENDING',
-              priority: suggestion.priority,
-              title: suggestion.title,
-              reasoning: suggestion.reasoning,
-              impact: suggestion.impact,
-              payload: suggestion.payload,
-              campaignId: campaign.id,
-              expiresAt: new Date(Date.now() + 3 * 86_400_000),
-            },
-          })
-          suggestionsCreated++
-        }
-      }
-
-      await db.agentRun.update({
-        where: { id: agentRun.id },
-        data: { status: 'COMPLETED', outputData: analysis, completedAt: new Date() },
-      })
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error'
-      errors.push(`Campaign ${campaign.id}: ${message}`)
-    }
-  }
-
-  return { campaignsChecked: campaigns.length, suggestionsCreated, errors }
-}
-
-/**
- * Reporting Agent — generates a report for a workspace
- */
-export async function runReport(
-  workspaceId: string,
-  type: 'daily' | 'weekly' | 'monthly'
-): Promise<void> {
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: workspaceId },
-    select: { owner: { select: { company: true, email: true } } },
-  })
-
-  const campaigns = await db.campaign.findMany({
-    where: { workspaceId, status: { in: ['ACTIVE', 'DRAFT'] } },
-    take: 5,
-    orderBy: { updatedAt: 'desc' },
-  })
-
-  if (!campaigns.length) return
-
-  const agentRun = await db.agentRun.create({
-    data: { workspaceId, agent: 'REPORTING', status: 'RUNNING', triggeredBy: 'cron' },
-  })
-
-  try {
-    const metrics = campaigns.map(buildMetricsFromCampaign)
-    const periodLabel = getPeriodLabel(type)
-
-    const reportInput: ReportingInput = {
-      businessName: workspace?.owner?.company || 'Your Business',
-      period: type,
-      periodLabel,
-      campaigns: metrics,
-    }
-
-    const reportOutput = await runReportingAgent(reportInput)
-
-    const now = new Date()
-    const periodStart = new Date()
-    const periodEnd = new Date()
-
-    if (type === 'daily') {
-      periodStart.setHours(0, 0, 0, 0)
-      periodEnd.setHours(23, 59, 59, 999)
-    } else if (type === 'weekly') {
-      periodStart.setDate(now.getDate() - 7)
-    } else {
-      periodStart.setDate(1)
-      periodStart.setMonth(now.getMonth() - 1)
-    }
-
-    await db.agentReport.create({
-      data: {
-        workspaceId,
-        agentRunId: agentRun.id,
-        type: type.toUpperCase(),
-        title: reportOutput.title,
-        summary: reportOutput.summary,
-        body: reportOutput,
-        periodStart,
-        periodEnd,
-      },
-    })
-
-    await db.agentRun.update({
-      where: { id: agentRun.id },
-      data: { status: 'COMPLETED', completedAt: new Date() },
-    })
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
-    await db.agentRun.update({
-      where: { id: agentRun.id },
-      data: { status: 'FAILED', error: message, completedAt: new Date() },
-    })
-  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -551,11 +430,31 @@ function mapPlatforms(platforms: string[]): string[] {
     instagram: 'INSTAGRAM', tiktok: 'TIKTOK', facebook: 'FACEBOOK',
     linkedin: 'LINKEDIN', twitter: 'TWITTER', youtube: 'YOUTUBE_SHORTS',
     'youtube shorts': 'YOUTUBE_SHORTS', youtube_shorts: 'YOUTUBE_SHORTS',
-    snapchat: 'SNAPCHAT', website: 'WEBSITE', pinterest: 'PINTEREST',
+    snapchat: 'SNAPCHAT', website: 'WEBSITE', pinterest: 'PINTEREST', threads: 'THREADS',
   }
-  const valid = ['TIKTOK', 'INSTAGRAM', 'FACEBOOK', 'YOUTUBE_SHORTS', 'SNAPCHAT', 'LINKEDIN', 'TWITTER', 'WEBSITE', 'PINTEREST']
+  const valid = ['TIKTOK', 'INSTAGRAM', 'FACEBOOK', 'YOUTUBE_SHORTS', 'SNAPCHAT', 'LINKEDIN', 'TWITTER', 'WEBSITE', 'PINTEREST', 'THREADS']
   return platforms
     .map(p => map[p.toLowerCase()] || p.toUpperCase())
     .filter(p => valid.includes(p))
     .slice(0, 3)
+}
+
+function mapBrandTone(toneKeywords: unknown, writingStyle: unknown): BrandTone {
+  const toneText = [
+    ...(Array.isArray(toneKeywords) ? toneKeywords.filter(value => typeof value === 'string') : []),
+    typeof writingStyle === 'string' ? writingStyle : '',
+  ].join(' ').toLocaleLowerCase()
+
+  const rules: Array<{ tone: BrandTone; pattern: RegExp }> = [
+    { tone: 'LUXURY', pattern: /luxur|premium|elegant|exclusive|فاخر|فخامة|راقي/iu },
+    { tone: 'FRIENDLY', pattern: /friendly|warm|welcoming|supportive|human|ودود|دافئ|ترحيبي|إنساني/iu },
+    { tone: 'ENERGETIC', pattern: /energetic|playful|dynamic|exciting|حيوي|مرح|نشيط/iu },
+    { tone: 'CORPORATE', pattern: /corporate|formal|institutional|رسمي|مؤسسي/iu },
+    { tone: 'MINIMAL', pattern: /minimal|concise|calm|understated|مختصر|هادئ|بسيط/iu },
+    { tone: 'AGGRESSIVE_SALES', pattern: /aggressive sales|hard sell|direct response|بيع مباشر|بيعي قوي/iu },
+    { tone: 'MODERN', pattern: /modern|contemporary|future|حديث|عصري|مستقبلي/iu },
+    { tone: 'PROFESSIONAL', pattern: /professional|clear|credible|expert|احترافي|واضح|موثوق|خبير/iu },
+  ]
+
+  return rules.find(rule => rule.pattern.test(toneText))?.tone ?? 'PROFESSIONAL'
 }

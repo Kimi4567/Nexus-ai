@@ -191,6 +191,9 @@ describe('paidBoundary', () => {
     expect(metricsRoute).toContain('canRecordExternalPaidLaunch')
     expect(metricsRoute).toContain('explicitExternalLaunchConfirmed')
     expect(metricsRoute).toContain('Manual paid metrics cannot mark paid content launched')
+    expect(metricsRoute).toContain("metricsSource: 'manual'")
+    expect(metricsRoute).toContain('normalizeManualPaidMetrics')
+    expect(metricsRoute).not.toContain("metricsSource = 'manual'")
   })
 
   it('keeps Meta platform creation paused and non-active in source', () => {
@@ -249,6 +252,10 @@ describe('paidBoundary', () => {
 
     expect(updateRoute).toContain('activation_route_required')
     expect(updateRoute).toContain('Use the explicit platform activation route after final approval')
+    expect(updateRoute).not.toContain('...(totalSpend !== undefined')
+    expect(updateRoute).not.toContain('...(totalImpressions !== undefined')
+    expect(updateRoute).not.toContain('...(avgCTR !== undefined')
+    expect(updateRoute).not.toContain('...(avgROAS !== undefined')
     expect(adSetUpdateRoute).toContain('activation_route_required')
     expect(adSetUpdateRoute).toContain('Ad sets cannot be marked active through generic updates')
     expect(adSetUpdateRoute).not.toContain('platformStatus')

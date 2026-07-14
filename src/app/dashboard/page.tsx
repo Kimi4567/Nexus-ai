@@ -929,7 +929,7 @@ export default function DashboardPage() {
 
           <div dir="ltr" className="hidden">
             {[
-              { icon: <CalendarDays className="h-5 w-5" />, label: ar ? 'أفضل وقت للنشر اليوم' : 'Best posting time today', value: ar ? 'بانتظار بيانات نشر' : 'Waiting for publish data' },
+              { icon: <CalendarDays className="h-5 w-5" />, label: ar ? 'وقت النشر المقترح اليوم' : 'Suggested posting time today', value: ar ? 'بانتظار بيانات نشر' : 'Waiting for publish data' },
               { icon: <BarChart3 className="h-5 w-5" />, label: ar ? 'منصات تحقق أفضل أداء' : 'Best-performing platforms', value: ar ? 'تظهر بعد Analytics' : 'Shown after analytics' },
               { icon: <Radio className="h-5 w-5" />, label: ar ? 'نوع المحتوى الأفضل أداء' : 'Best-performing content type', value: ar ? 'لا توجد بيانات أداء بعد' : 'No performance data yet' },
               { icon: <Sparkles className="h-5 w-5" />, label: ar ? 'الفرصة الأكبر' : 'Biggest opportunity', value: nextAction.title },

@@ -4,6 +4,41 @@ import path from 'path'
 import { buildProofPolicyPrompt, guardStrategyProof, guardStrategyProofText } from '../strategyProofGuard'
 
 describe('strategyProofGuard', () => {
+  it('repairs unsupported legacy positioning and awkward claim-softening leftovers', () => {
+    const guarded = guardStrategyProof({
+      positioning: 'Noura is the premium dental clinic for local professionals.',
+      messages: [
+        'pricing details to review before booking, just clear treatment plans.',
+        'Our pricing details available to discuss ensures no surprises.',
+        'Experience dental care without the stress.',
+        'Clear communication in your preferred language.',
+        'Dental care that caters to the whole family.',
+        'Visit us for a tour',
+      ],
+    }, { verifiedProof: [], allowedClaimText: [] }) as Record<string, unknown>
+
+    const joined = JSON.stringify(guarded)
+    expect(joined).not.toMatch(/premium dental clinic/i)
+    expect(joined).not.toMatch(/ensures no surprises/i)
+    expect(joined).not.toMatch(/without the stress/i)
+    expect(joined).not.toMatch(/preferred language/i)
+    expect(joined).not.toMatch(/whole family/i)
+    expect(joined).not.toMatch(/tour/i)
+    expect(joined).toContain('Review pricing details and the proposed treatment plan before booking.')
+  })
+
+  it('keeps supported premium and language positioning from Brand Brain', () => {
+    const guarded = guardStrategyProof({
+      positioning: 'Noura is the premium dental clinic for local professionals.',
+      message: 'Clear communication in your preferred language.',
+    }, {
+      verifiedProof: [],
+      allowedClaimText: ['Premium positioning. Service is available in Arabic and English.'],
+    }) as Record<string, unknown>
+
+    expect(JSON.stringify(guarded)).toContain('premium dental clinic')
+    expect(JSON.stringify(guarded)).toContain('preferred language')
+  })
   it('rewrites unsupported testimonial and customer-story language when verified proof is empty', () => {
     const strategy = {
       contentPillars: ['Education', 'Customer Testimonials'],
@@ -380,6 +415,20 @@ describe('strategyProofGuard', () => {
 
     expect(joined).not.toMatch(/تضمن لك|تحميك من|يغير تجربتك الصحية بالكامل|سيكون كافيًا|يستخدم Instagram بشكل نشط|منصات غير فعالة/)
     expect(joined).toMatch(/فهم الخطوات قبل البدء|فرضية تحتاج إلى بيانات فعلية|عدم توسيع القنوات/)
+  })
+
+  it('softens standalone Arabic guarantees but preserves inclusion wording', () => {
+    const guarded = guardStrategyProof([
+      'هذه العملية تضمن نتائج أفضل.',
+      'هذا النظام يضمن لك النجاح.',
+      'نضمن لك نتائج أفضل.',
+      'راجع ما يتضمنه العرض وما لا يتضمنه.',
+    ], { verifiedProof: [] })
+
+    expect(guarded[0]).toContain('تدعم نتائج أفضل')
+    expect(guarded[1]).toContain('يدعم النجاح')
+    expect(guarded[2]).toContain('نسعى إلى دعم نتائج أفضل')
+    expect(guarded[3]).toBe('راجع ما يتضمنه العرض وما لا يتضمنه.')
   })
 
   it('builds explicit proof-policy prompt text', () => {

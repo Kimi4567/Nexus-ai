@@ -1,9 +1,9 @@
 /**
- * Deterministic no-provider fallback.
+ * Deterministic fixture for explicit demos and truth-contract tests.
  *
- * This module must never invent customers, performance, benchmarks, scarcity,
- * testimonials, or financial outcomes. It produces clearly labelled planning
- * hypotheses so a workspace remains usable while OPENAI_API_KEY is absent.
+ * Production generation routes must never fall back to this module when the
+ * provider is unavailable. They return AI_PROVIDER_UNAVAILABLE before charging
+ * credits. These helpers remain useful for clearly labelled demo surfaces.
  */
 
 function text(value: unknown, fallback: string, max = 180): string {

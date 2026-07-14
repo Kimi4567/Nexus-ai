@@ -28,7 +28,7 @@ const PLANS = [
     name: 'Growth',
     price: '$49',
     color: '#2563EB',
-    popular: true,
+    featured: true,
     features: ['150 AI credits / month', '10 campaigns / month', '3 workspaces', '25 planned posts / month', 'Analytics + exports'],
   },
   {
@@ -36,7 +36,7 @@ const PLANS = [
     name: 'Autopilot',
     price: '$99',
     color: '#059669',
-    features: ['500 AI credits / month', 'Unlimited campaigns', '10 workspaces', '60 planned posts / month', 'Continuous monitoring'],
+    features: ['500 AI credits / month', 'Unlimited campaign creation', '10 workspaces', '60 planned posts / month', 'Scheduled monitoring + action queue'],
   },
 ]
 
@@ -50,7 +50,7 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
   const headline =
     reason === 'no_credits'      ? "You've used all your credits" :
     reason === 'low_credits'     ? "Running low on credits" :
-    reason === 'first_campaign'  ? "🎉 Your campaign is live!" :
+    reason === 'first_campaign'  ? "🎉 Your campaign draft is ready" :
     "Unlock the full power of Nexus AI"
 
   const subline =
@@ -113,14 +113,14 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
             <div key={plan.id}
               className="rounded-xl p-4 flex flex-col relative"
               style={{
-                background: plan.popular ? '#F8FAFF' : '#FFFFFF',
-                border: `1px solid ${plan.popular ? 'rgba(37,99,235,0.24)' : 'rgba(15,23,42,0.08)'}`,
-                boxShadow: plan.popular ? '0 14px 34px rgba(37,99,235,0.10)' : '0 1px 2px rgba(15,23,42,0.04)',
+                background: plan.featured ? '#F8FAFF' : '#FFFFFF',
+                border: `1px solid ${plan.featured ? 'rgba(37,99,235,0.24)' : 'rgba(15,23,42,0.08)'}`,
+                boxShadow: plan.featured ? '0 14px 34px rgba(37,99,235,0.10)' : '0 1px 2px rgba(15,23,42,0.04)',
               }}>
-              {plan.popular && (
+              {plan.featured && (
                 <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[10px] font-bold text-white"
                   style={{ background: '#2563EB' }}>
-                  MOST POPULAR
+                  CORE PLAN
                 </div>
               )}
 
@@ -145,9 +145,9 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
                 disabled={!!loading}
                 className="w-full py-2 rounded-lg text-sm font-semibold transition-all"
                 style={{
-                  background: plan.popular ? '#111827' : '#F9FAFB',
-                  color: plan.popular ? 'white' : '#111827',
-                  border: plan.popular ? 'none' : `1px solid ${plan.color}40`,
+                  background: plan.featured ? '#111827' : '#F9FAFB',
+                  color: plan.featured ? 'white' : '#111827',
+                  border: plan.featured ? 'none' : `1px solid ${plan.color}40`,
                   opacity: loading && loading !== plan.id ? 0.5 : 1,
                 }}>
                 {loading === plan.id ? (
@@ -164,7 +164,7 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
         {/* Footer */}
         <div className="px-6 pb-5 text-center space-y-2">
           <p className="text-[11px] text-text-muted">
-            Secure payment via Stripe · 7-day refund guarantee · Cancel any time
+            Stripe Sandbox during testing · Qualified first payments have a 14-day refund window · Cancel any time
           </p>
           <button onClick={onClose}
             className="text-[11px] text-text-muted hover:text-text-secondary transition-colors underline underline-offset-2">

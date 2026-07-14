@@ -6,7 +6,9 @@ import {
   createUploadError,
   getMediaTypeFromMime,
   isValidUploadMime,
+  normalizeMediaMetric,
   validateUploadSize,
+  validateVideoDuration,
 } from '@/lib/uploadValidation'
 import { logUploadEvent } from '@/lib/auditLogger'
 
@@ -89,6 +91,14 @@ export async function POST(req: Request) {
       return NextResponse.json(createUploadError(413, sizeCheck.message || 'File too large', 'FILE_TOO_LARGE'), { status: 413 })
     }
 
+    const durationCheck = expectedResourceType === 'video' ? validateVideoDuration(asset.duration) : null
+    if (durationCheck && !durationCheck.valid) {
+      return NextResponse.json(
+        createUploadError(422, durationCheck.message || 'Invalid video duration', 'INVALID_VIDEO_DURATION'),
+        { status: 422 },
+      )
+    }
+
     const fileName = session.fileName || String(asset.original_filename || publicId.split('/').pop() || 'upload')
     const mediaType = getMediaTypeFromMime(mimeType)
     const media = await prisma.$transaction(async (tx) => {
@@ -115,7 +125,9 @@ export async function POST(req: Request) {
           url: secureUrl,
           cloudinaryId: publicId,
           size: bytes,
-          duration: typeof asset.duration === 'number' ? asset.duration : null,
+          width: normalizeMediaMetric(asset.width, 'dimension'),
+          height: normalizeMediaMetric(asset.height, 'dimension'),
+          duration: durationCheck?.duration ?? null,
           category: typeof body.category === 'string' ? body.category.slice(0, 50) : 'upload',
         },
       })

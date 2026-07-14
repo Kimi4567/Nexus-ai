@@ -9,11 +9,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { runSentinelReview, SentinelReviewInput } from '@/lib/agents/sentinel-reviewer'
-import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import {
+  checkAndDeductCredits,
+  getCreditActionPolicy,
+  refundCreditDeduction,
+  type CreditDeductionOk,
+} from '@/lib/credits'
 import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -47,13 +54,7 @@ export async function POST(req: NextRequest, props: Params) {
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // -- Unified credit check + deduction --------------------------------------
-  const credit = await checkAndDeductCredits(userId, 'SENTINEL_REVIEW')
-  if (!credit.ok) {
-    return NextResponse.json(credit, { status: 402 })
-  }
-  // --------------------------------------------------------------------------
-
+  let chargedCredit: CreditDeductionOk | null = null
   try {
     const body = await req.json().catch(() => ({}))
     const language: string = body.language || 'ar'
@@ -67,11 +68,7 @@ export async function POST(req: NextRequest, props: Params) {
         },
       },
     })
-    if (!campaign) {
-      // Charged but no work performed — refund (skip unlimited plans)
-      if (credit.creditsUsed > 0) await refundCredits(userId, 'SENTINEL_REVIEW', 'Campaign not found')
-      return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    }
+    if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const brand = campaign.workspace?.brandProfile
     const aiOutput = (campaign.aiOutput as any) || {}
@@ -103,6 +100,24 @@ export async function POST(req: NextRequest, props: Params) {
     }
     const calendar = aiOutput.contentCalendar || strategy.contentCalendar || []
     const creativeBrief = aiOutput.creativeBrief || null
+    const qualityGate = reviewStrategyGrounding({
+      strategy,
+      brand,
+      allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms : [],
+      goal: campaign.goal,
+    })
+
+    // Sentinel is a paid, model-based reviewer. The deterministic gate is free
+    // and authoritative, so fail before charging when the saved strategy already
+    // contradicts Brand Brain or the reviewed channel scope.
+    if (qualityGate.status === 'blocked') {
+      return NextResponse.json({
+        error: 'Strategy failed the deterministic brand and scope review. Regenerate the strategy before running Sentinel.',
+        code: 'MARKETING_QUALITY_GATE_BLOCKED',
+        qualityGate,
+        creditsUsed: 0,
+      }, { status: 422 })
+    }
 
     // Build Sentinel input
     const input: SentinelReviewInput = {
@@ -143,14 +158,32 @@ export async function POST(req: NextRequest, props: Params) {
         creativeBrief?.overallCreativeDirection ||
         creativeBrief?.moodDescription ||
         undefined,
+      strategyReviewSource: strategy,
     }
+
+    if (!isAiProviderConfigured()) {
+      return NextResponse.json(getAiProviderUnavailablePayload(language), { status: 503 })
+    }
+
+    const credit = await checkAndDeductCredits(userId, 'SENTINEL_REVIEW')
+    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
+    chargedCredit = credit
 
     const sentinelReview = await runSentinelReview(input)
 
     // Save to aiOutput.sentinelReview
     const updatedOutput = {
       ...aiOutput,
+      // Persist exactly the guarded package that Sentinel reviewed. Legacy
+      // strategies may predate current truth guards; approval must never expose
+      // a riskier raw version than the reviewed version.
+      strategy,
+      topHooks: content.topHooks,
+      ctaVariations: content.ctaVariations,
+      captionFormulas: content.captionFormulas,
+      scriptTemplate: content.scriptTemplate,
       sentinelReview,
+      qualityGate,
     }
 
     await prisma.campaign.update({
@@ -169,11 +202,24 @@ export async function POST(req: NextRequest, props: Params) {
       },
     }).catch(() => {})
 
-    return NextResponse.json({ sentinelReview, creditsRemaining: credit.creditsRemaining })
+    return NextResponse.json({
+      sentinelReview,
+      qualityGate,
+      creditsRemaining: chargedCredit.creditsRemaining,
+      creditsUsed: chargedCredit.creditsUsed,
+      creditCharge: {
+        ...getCreditActionPolicy('SENTINEL_REVIEW'),
+        creditsUsed: chargedCredit.creditsUsed,
+      },
+    })
   } catch (err: any) {
     console.error('[sentinel-review POST]', err)
-    // Refund — failed review must not charge the user (skip unlimited plans)
-    if (credit.creditsUsed > 0) await refundCredits(userId, 'SENTINEL_REVIEW')
-    return NextResponse.json({ error: err.message || 'Review failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
+    await refundCreditDeduction({
+      userId,
+      action: 'SENTINEL_REVIEW',
+      deduction: chargedCredit,
+      reason: 'Sentinel quality review failed',
+    })
+    return NextResponse.json({ error: err.message || 'Review failed', refunded: Boolean(chargedCredit?.creditsUsed) }, { status: 500 })
   }
 }

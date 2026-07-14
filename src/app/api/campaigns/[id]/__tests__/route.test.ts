@@ -11,13 +11,14 @@ const { mockGetServerUserId, mockPrisma } = vi.hoisted(() => ({
     socialPost: {
       count: vi.fn(),
     },
+    campaignActivity: { create: vi.fn() },
   },
 }))
 
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 
-import { DELETE, GET } from '../route'
+import { DELETE, GET, PATCH } from '../route'
 
 describe('GET /api/campaigns/[id]', () => {
   beforeEach(() => {
@@ -79,5 +80,56 @@ describe('DELETE /api/campaigns/[id]', () => {
 
     expect(response.status).toBe(200)
     expect(mockPrisma.campaign.delete).toHaveBeenCalledWith({ where: { id: 'campaign-1' } })
+  })
+})
+
+describe('PATCH /api/campaigns/[id]', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetServerUserId.mockResolvedValue('user-1')
+    mockPrisma.campaign.findFirst.mockResolvedValue({ id: 'campaign-1', status: 'DRAFT' })
+    mockPrisma.campaign.update.mockResolvedValue({ id: 'campaign-1', status: 'DRAFT', favorite: true })
+    mockPrisma.campaignActivity.create.mockResolvedValue({})
+  })
+
+  const request = (body: Record<string, unknown>) => ({ json: async () => body }) as never
+  const params = { params: Promise.resolve({ id: 'campaign-1' }) }
+
+  it('blocks client replacement of server-validated AI output', async () => {
+    const response = await PATCH(request({ aiOutput: { sentinelReview: { status: 'passed' } } }), params)
+
+    expect(response.status).toBe(400)
+    expect(mockPrisma.campaign.update).not.toHaveBeenCalled()
+  })
+
+  it('blocks approval through the generic edit route', async () => {
+    const response = await PATCH(request({ status: 'ACTIVE' }), params)
+    const body = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(body.error).toBe('USE_STRATEGY_APPROVAL_WORKFLOW')
+    expect(mockPrisma.campaign.update).not.toHaveBeenCalled()
+  })
+
+  it('allows safe campaign metadata updates including goal', async () => {
+    const response = await PATCH(request({ favorite: true, goal: 'LEADS' }), params)
+
+    expect(response.status).toBe(200)
+    expect(mockPrisma.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'campaign-1' },
+      data: { favorite: true, goal: 'LEADS' },
+    })
+  })
+
+  it('allows restoring only an archived campaign to draft', async () => {
+    mockPrisma.campaign.findFirst.mockResolvedValue({ id: 'campaign-1', status: 'ARCHIVED' })
+
+    const response = await PATCH(request({ status: 'DRAFT' }), params)
+
+    expect(response.status).toBe(200)
+    expect(mockPrisma.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'campaign-1' },
+      data: { status: 'DRAFT' },
+    })
   })
 })

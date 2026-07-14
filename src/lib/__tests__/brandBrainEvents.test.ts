@@ -74,6 +74,7 @@ describe('buildLearningEvent — small, safe, honest rows', () => {
 
   it('10. an AUTO publish maps to POST_AUTO_PUBLISHED only when truly AUTO (cron safety untouched)', () => {
     expect(buildLearningEvent({ workspaceId: 'w', from: 'SCHEDULED', to: 'PUBLISHED', publishMode: 'AUTO' })!.eventType).toBe('POST_AUTO_PUBLISHED')
+    expect(buildLearningEvent({ workspaceId: 'w', from: 'PROCESSING', to: 'PUBLISHED', publishMode: 'AUTO' })!.eventType).toBe('POST_AUTO_PUBLISHED')
     // MANUAL must never become AUTO
     expect(buildLearningEvent({ workspaceId: 'w', from: 'SCHEDULED', to: 'PUBLISHED', publishMode: 'MANUAL' })!.eventType).toBe('POST_MANUALLY_PUBLISHED')
   })

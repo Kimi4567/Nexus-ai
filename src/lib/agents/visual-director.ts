@@ -139,8 +139,13 @@ async function callGPT4oVision(
   })
   if (!response.ok) throw new Error(`OpenAI vision error: ${response.status}`)
   const data = await response.json()
-  const raw = data.choices?.[0]?.message?.content || '{}'
-  try { return JSON.parse(raw) } catch { return {} }
+  const raw = data.choices?.[0]?.message?.content?.trim()
+  if (!raw) throw new Error('OpenAI returned no asset analysis')
+  try {
+    return JSON.parse(raw)
+  } catch {
+    throw new Error('OpenAI returned invalid asset analysis JSON')
+  }
 }
 
 async function callOpenAI(
@@ -167,8 +172,13 @@ async function callOpenAI(
   })
   if (!response.ok) throw new Error(`OpenAI error: ${response.status}`)
   const data = await response.json()
-  const raw = data.choices?.[0]?.message?.content || '{}'
-  try { return JSON.parse(raw) } catch { return {} }
+  const raw = data.choices?.[0]?.message?.content?.trim()
+  if (!raw) throw new Error('OpenAI returned no visual direction')
+  try {
+    return JSON.parse(raw)
+  } catch {
+    throw new Error('OpenAI returned invalid visual direction JSON')
+  }
 }
 
 // ─── Context Builder ──────────────────────────────────────────────────────────
@@ -211,22 +221,20 @@ export async function analyzeAssets(
 
   const visionSystemPrompt = `${langInstruction}
 
-You are the world's most accomplished creative director — 18 years leading visual strategy at the caliber of Wieden+Kennedy, BBDO, and Droga5, now applied to performance-first marketing for growth-stage brands.
-
-You have personally art-directed 3,000+ campaigns across photography, video, motion, and digital advertising. You have trained under the masters of visual communication and you apply that knowledge with surgical precision.
+Act as a senior creative director producing evidence-aware visual guidance for the supplied brand and campaign. Do not claim personal experience, campaign history, or guaranteed performance.
 
 YOUR VISUAL INTELLIGENCE FRAMEWORK:
 
 1. Gestalt Psychology — you see every image through the 6 laws: Proximity (what groups together), Similarity (what belongs together), Continuation (where the eye travels), Closure (what the brain completes), Figure-Ground (what is subject vs. background), Symmetry (balance and tension). You use these laws intentionally, and you break them intentionally when you want to create discomfort or surprise.
 
-2. Color Science: you know that red activates urgency and appetite; blue signals trust, competence, and authority; green signals naturalness, growth, safety; orange signals warmth, energy, affordability; purple signals premium and aspiration; black signals exclusivity and sophistication; white signals clarity and minimalism. You also know CULTURAL variations — what works in Western markets may read differently in MENA. You always check cultural color context.
+2. Color Context: treat color associations as culture- and category-dependent hypotheses, not universal psychology. Prefer the confirmed brand palette and flag cultural review when the market is known.
 
-3. Visual Attention Research: eyetracking studies show the top-left corner gets first fixation (F-pattern reading); faces with direct eye contact capture attention faster than any other element; text in images must be readable at thumbnail scale (30px height); the bottom-right corner is where CTAs convert best.
+3. Visual Hierarchy: make the main subject, message, and next action legible at small sizes. Do not claim that one screen position, face treatment, or composition converts best without campaign evidence.
 
-4. Ad Creative Psychology: the first 0.3 seconds of a visual determines whether someone keeps scrolling. The hook frame in a video and the hero image in a static ad are the make-or-break moments. You design for the thumbnail first, the full image second.
+4. Attention Hypotheses: make the opening frame and thumbnail understandable quickly, then validate the treatment with real platform evidence. Never present a fixed attention threshold as fact.
 
 5. Platform-Native Visual Language:
-   - TikTok: raw, authentic, text-forward (large captions embedded in frame), vertical-native, lo-fi often outperforms hi-fi, faces close to camera convert best
+   - TikTok: test vertical-native, text-forward, creator-style, and polished variants; do not assume one style or face treatment performs best
    - Instagram Feed: curated, aesthetically coherent, white space is allowed, color harmony is expected, product context matters
    - Instagram Reels/Stories: full-bleed vertical, hook text in top 40% of frame, CTA in bottom 20%, safe zones respected (no text in extreme corners)
    - LinkedIn: professional framing, documentary-style or clean data/insight graphics, no lifestyle excess
@@ -246,6 +254,7 @@ Always output valid JSON.`
 
   // ── Per-asset vision analysis ──
   const assetAnalyses: AssetAnalysis[] = []
+  let successfulImageAnalyses = 0
 
   for (const asset of imageAssets) {
     const userText = `Analyze this asset for the following campaign:
@@ -278,6 +287,7 @@ Return JSON with exactly these fields:
         adCopyHook: result.adCopyHook || '',
         captionSuggestion: result.captionSuggestion || '',
       })
+      successfulImageAnalyses += 1
     } catch (err) {
       console.error(`[visual-director] Asset analysis failed for ${asset.mediaId}:`, err)
       assetAnalyses.push({
@@ -294,6 +304,10 @@ Return JSON with exactly these fields:
         captionSuggestion: '',
       })
     }
+  }
+
+  if (imageAssets.length > 0 && successfulImageAnalyses === 0) {
+    throw new Error('No selected assets could be analyzed')
   }
 
   // ── Video stubs (vision not supported for video in V1) ──
@@ -328,7 +342,7 @@ Return JSON with exactly these fields:
 
     const overallSystemPrompt = `${langInstruction}
 
-You are the world's most accomplished creative director — 18 years leading visual strategy at agency level, now applied to performance-first marketing. You have analyzed thousands of brand asset libraries and know exactly how to synthesize existing assets into a coherent, conversion-oriented campaign visual direction.
+Act as a senior creative director. Synthesize only the supplied assets and campaign context into a coherent, reviewable visual direction; do not claim prior experience or conversion outcomes.
 
 Your creative direction is always: specific (exact shots, exact compositions, exact treatments), actionable (a photographer or designer can execute without questions), and brand-faithful (uses what exists, extends what's possible).
 
@@ -371,16 +385,15 @@ Return JSON with exactly these fields:
   ]
 }`
 
-    try {
-      const result = await callOpenAI(overallSystemPrompt, overallPrompt, 1800)
-      overallCreativeDirection = result.overallCreativeDirection || ''
-      adCopyVariants = Array.isArray(result.adCopyVariants) ? result.adCopyVariants : []
-      captionFormulas = Array.isArray(result.captionFormulas) ? result.captionFormulas : []
-      topAssetsForCampaign = Array.isArray(result.topAssetsForCampaign) ? result.topAssetsForCampaign : []
-      assetBasedScripts = Array.isArray(result.assetBasedScripts) ? result.assetBasedScripts : []
-    } catch (err) {
-      console.error('[visual-director] Overall creative direction generation failed:', err)
+    const result = await callOpenAI(overallSystemPrompt, overallPrompt, 1800)
+    if (typeof result.overallCreativeDirection !== 'string' || !result.overallCreativeDirection.trim()) {
+      throw new Error('OpenAI returned an incomplete asset-based creative direction')
     }
+    overallCreativeDirection = result.overallCreativeDirection || ''
+    adCopyVariants = Array.isArray(result.adCopyVariants) ? result.adCopyVariants : []
+    captionFormulas = Array.isArray(result.captionFormulas) ? result.captionFormulas : []
+    topAssetsForCampaign = Array.isArray(result.topAssetsForCampaign) ? result.topAssetsForCampaign : []
+    assetBasedScripts = Array.isArray(result.assetBasedScripts) ? result.assetBasedScripts : []
   }
 
   return {
@@ -409,7 +422,7 @@ export async function generateVisualConcepts(ctx: CampaignContext): Promise<Crea
 
   const systemPrompt = `${langInstruction}
 
-You are the world's most accomplished creative director — 18 years at agency level, now producing production-ready visual concepts for performance marketing campaigns. You have briefed hundreds of photographers, videographers, and motion designers and know exactly what language gets results.
+Act as a senior creative director producing executable visual concepts from the supplied brief. Do not claim personal production history or guaranteed results.
 
 When you write an image prompt, it is immediately usable by a Midjourney operator or a professional photographer. When you write a storyboard, a director can shoot it without additional questions. When you write a production brief, a production assistant can source every prop, location, and talent requirement from it.
 
@@ -426,10 +439,10 @@ Videography Direction:
 - Pacing: cut rhythm should match the emotional beat — fast cuts for energy/urgency, slow for authority/premium
 
 Platform Visual Rules:
-- TikTok/Reels: hook frame must work as a still thumbnail. Large text (min 40px) in top 40% of 9:16 frame. Face within first 0.3 seconds for maximum stop-scroll.
+- TikTok/Reels: make the opening frame understandable as a still thumbnail, respect 9:16 safe zones, and test text scale and subject treatment instead of claiming a universal stop-scroll formula.
 - Instagram Feed: cohesive color temperature across the grid. 4:5 or 1:1. Subject must be clear at 200px width (small feed view).
-- LinkedIn: 1200x627 landscape. Data/insight visuals outperform lifestyle. Professional context — office/desk/product in use.
-- Facebook Ad: headline-first creative. Text must be readable at 300px width. Face or product in top half for highest CTR.
+- LinkedIn: prepare a platform-compatible professional-context variant; treat data/insight and lifestyle treatments as test options.
+- Facebook Ad: prioritize small-screen legibility and a clear subject; do not claim a placement or subject choice produces the highest CTR without evidence.
 
 BANNED PHRASES: "capture the essence" / "tell your story" / "authentic visuals" / "vibrant imagery" / "dynamic content" / "eye-catching" / "stunning visuals" / "brand story" / "elevate your presence" / "powerful impact" / "next level" / "bring it to life"
 
@@ -483,6 +496,13 @@ Return JSON with exactly these fields:
 Generate 6 imagePrompts and 5 storyboardScenes.`
 
   const result = await callOpenAI(systemPrompt, userPrompt, 3200)
+  if (
+    !Array.isArray(result.imagePrompts) || result.imagePrompts.length === 0 ||
+    !Array.isArray(result.storyboardScenes) || result.storyboardScenes.length === 0 ||
+    typeof result.productionBrief !== 'string' || !result.productionBrief.trim()
+  ) {
+    throw new Error('OpenAI returned an incomplete visual concept package')
+  }
   checkAndLog('visual-director', JSON.stringify(result), {
     brandName: ctx.brand?.name,
     industry: ctx.brand?.businessType,

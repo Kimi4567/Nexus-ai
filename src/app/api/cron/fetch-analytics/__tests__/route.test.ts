@@ -149,4 +149,177 @@ describe('GET /api/cron/fetch-analytics', () => {
       },
     })
   })
+
+  it('stores YouTube views, likes, and comments without fabricating reach or conversions', async () => {
+    mocks.socialPostFindMany
+      .mockResolvedValueOnce([{
+        id: 'youtube-post',
+        workspaceId: 'workspace-1',
+        platform: 'YOUTUBE',
+        platformPostId: 'video-1',
+        pageId: null,
+        integration: { accessToken: 'youtube-token', config: {} },
+      }])
+      .mockResolvedValueOnce([])
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        items: [{ statistics: { viewCount: '1200', likeCount: '42', commentCount: '8' } }],
+      }),
+    }) as typeof fetch
+
+    const response = await GET(request('cron-secret'))
+    const body = await response.json()
+
+    expect(body).toMatchObject({ analyticsStored: 1, analyticsRetryable: 0 })
+    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
+      where: { id: 'youtube-post' },
+      data: {
+        analyticsUpdatedAt: expect.any(Date),
+        analyticsFetched: true,
+        analyticsData: expect.objectContaining({
+          platform: 'YOUTUBE',
+          impressions: 1200,
+          reach: 0,
+          likes: 42,
+          comments: 8,
+          shares: 0,
+          engagementCount: 50,
+        }),
+      },
+    })
+  })
+
+  it('stores available X metrics without fabricating reach or conversions', async () => {
+    mocks.socialPostFindMany
+      .mockResolvedValueOnce([{
+        id: 'x-post',
+        workspaceId: 'workspace-1',
+        platform: 'X',
+        platformPostId: 'x-provider-1',
+        pageId: null,
+        integration: { accessToken: 'x-token', config: {} },
+      }])
+      .mockResolvedValueOnce([])
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      data: {
+        id: 'x-provider-1',
+        public_metrics: { like_count: 30, reply_count: 4, retweet_count: 5, quote_count: 2 },
+        organic_metrics: { impression_count: 1000, url_link_clicks: 20, user_profile_clicks: 6 },
+      },
+    }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch
+
+    const response = await GET(request('cron-secret'))
+    const body = await response.json()
+
+    expect(body).toMatchObject({ analyticsStored: 1, analyticsRetryable: 0 })
+    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
+      where: { id: 'x-post' },
+      data: {
+        analyticsUpdatedAt: expect.any(Date),
+        analyticsFetched: true,
+        analyticsData: expect.objectContaining({
+          platform: 'X',
+          impressions: 1000,
+          reach: 0,
+          likes: 30,
+          comments: 4,
+          shares: 7,
+          clicks: 26,
+          engagementCount: 67,
+        }),
+      },
+    })
+  })
+
+  it('stores Pinterest Pin clicks, saves, reactions, and comments without inventing reach', async () => {
+    mocks.socialPostFindMany
+      .mockResolvedValueOnce([{
+        id: 'pinterest-post',
+        workspaceId: 'workspace-1',
+        platform: 'PINTEREST',
+        platformPostId: '998877',
+        pageId: '12345',
+        integration: { accessToken: 'pinterest-token', config: {} },
+      }])
+      .mockResolvedValueOnce([])
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      ALL: {
+        summary_metrics: {
+          IMPRESSION: 1500,
+          PIN_CLICK: 45,
+          OUTBOUND_CLICK: 20,
+          SAVE: 32,
+          TOTAL_COMMENTS: 4,
+          TOTAL_REACTIONS: 18,
+        },
+      },
+    }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch
+
+    const response = await GET(request('cron-secret'))
+    const body = await response.json()
+
+    expect(body).toMatchObject({ analyticsStored: 1, analyticsRetryable: 0 })
+    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
+      where: { id: 'pinterest-post' },
+      data: {
+        analyticsUpdatedAt: expect.any(Date),
+        analyticsFetched: true,
+        analyticsData: expect.objectContaining({
+          platform: 'PINTEREST',
+          impressions: 1500,
+          reach: 0,
+          likes: 18,
+          comments: 4,
+          shares: 0,
+          saves: 32,
+          clicks: 65,
+          engagementCount: 119,
+        }),
+      },
+    })
+  })
+
+  it('stores Threads views and public interactions without inventing reach or clicks', async () => {
+    mocks.socialPostFindMany
+      .mockResolvedValueOnce([{
+        id: 'threads-post',
+        workspaceId: 'workspace-1',
+        platform: 'THREADS',
+        platformPostId: 'thread-1',
+        pageId: null,
+        integration: { accessToken: 'threads-token', config: {} },
+      }])
+      .mockResolvedValueOnce([])
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: [
+      { name: 'views', values: [{ value: 2_000 }] },
+      { name: 'likes', values: [{ value: 60 }] },
+      { name: 'replies', values: [{ value: 8 }] },
+      { name: 'reposts', values: [{ value: 5 }] },
+      { name: 'quotes', values: [{ value: 3 }] },
+      { name: 'shares', values: [{ value: 4 }] },
+    ] }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch
+
+    const response = await GET(request('cron-secret'))
+    const body = await response.json()
+
+    expect(body).toMatchObject({ analyticsStored: 1, analyticsRetryable: 0 })
+    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
+      where: { id: 'threads-post' },
+      data: {
+        analyticsUpdatedAt: expect.any(Date),
+        analyticsFetched: true,
+        analyticsData: expect.objectContaining({
+          platform: 'THREADS',
+          impressions: 2000,
+          reach: 0,
+          likes: 60,
+          comments: 8,
+          shares: 12,
+          clicks: 0,
+          engagementCount: 80,
+        }),
+      },
+    })
+  })
 })

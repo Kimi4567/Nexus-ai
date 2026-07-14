@@ -195,6 +195,12 @@ function fallbackSuccessDefinition(options: StrategyKpiGuardOptions = {}): strin
     : 'Define a baseline for qualified demand and engagement after the first 30 days of real data'
 }
 
+function fallbackDirectionalResult(options: StrategyKpiGuardOptions = {}): string {
+  return isArabicLanguage(options.language)
+    ? 'نتيجة اتجاهية قيد الاختبار — يلزم خط أساس وبيانات فعلية قبل تحديد أثر الأداء'
+    : 'Directional outcome to validate — establish a baseline before stating performance impact'
+}
+
 function guardSuccessDefinition(
   text: unknown,
   allowed: string[] = [],
@@ -235,9 +241,15 @@ export function guardResultText(
   options: StrategyKpiGuardOptions = {},
 ): string {
   if (typeof text !== 'string' || !text.trim()) return typeof text === 'string' ? text : ''
+  if (BASELINE_OR_VALIDATION_CONTEXT.test(text)) return text
   const allowedNums = buildAllowedNums(allowed)
   const hasMultiplier = hasUnsupportedMultiplierWord(text)
-  if (!hasUnsupportedPerfNumber(text, allowedNums) && !hasMultiplier) return text
+  const hasQualitativePerformanceClaim = UNSUPPORTED_QUALITATIVE_SUCCESS.test(text)
+  const hasUnsupportedNumber = hasUnsupportedPerfNumber(text, allowedNums)
+  if (!hasUnsupportedNumber && !hasMultiplier && !hasQualitativePerformanceClaim) return text
+  if (!hasUnsupportedNumber && !hasMultiplier && hasQualitativePerformanceClaim) {
+    return fallbackDirectionalResult(options)
+  }
   // Protect calendar timeframes with a non-digit sentinel so the perf scrub can't
   // eat "30 days"/"Q1" — the sentinel has no digit, so no perf pattern matches it.
   const SENTINEL = '␟'

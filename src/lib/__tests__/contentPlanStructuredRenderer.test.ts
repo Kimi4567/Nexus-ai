@@ -19,6 +19,7 @@ const clinicCtx: ContentPlanRenderContext = {
   platform: 'META',
   postIndex: 0,
   verifiedProof: [],
+  brandFacts: ['ClinicFlow AI is a clinic management SaaS platform for appointment and administrative workflow review.'],
 }
 
 describe('contentPlanStructuredRenderer', () => {
@@ -31,6 +32,7 @@ describe('contentPlanStructuredRenderer', () => {
       keyMessage: 'office coffee planning',
       targetAudience: 'office managers',
       contentPillars: ['coffee planning'],
+      brandFacts: ['Roastly provides office coffee supplies and delivery where available.'],
     }, {})).toBe(false)
   })
 
@@ -55,6 +57,27 @@ describe('contentPlanStructuredRenderer', () => {
     expect(isClinicOperationalSaasContent(providerCtx, generated)).toBe(false)
     expect(renderContentPlanDraftCaption(generated, providerCtx)).toBe(generated.caption)
     expect(renderContentPlanDraftCaption(generated, providerCtx)).not.toMatch(/front desk|handoff|leadership|team meeting/i)
+  })
+
+  it('does not let hallucinated generated software language reclassify a clinic provider as SaaS', () => {
+    const providerCtx: ContentPlanRenderContext = {
+      isArabic: false,
+      brand: 'Noura Dental Studio',
+      campaignName: 'Dental consultations',
+      keyMessage: 'Clear treatment options',
+      targetAudience: 'Adults looking for a dentist',
+      contentPillars: ['dental education'],
+      offer: 'Book a consultation',
+      platform: 'META',
+      postIndex: 0,
+      verifiedProof: [],
+      brandFacts: ['Noura Dental Studio is a local dental clinic offering consultations.'],
+    }
+    const generated = {
+      caption: 'Use our clinic workflow software platform for a clearer front-desk handoff.',
+    }
+
+    expect(isClinicOperationalSaasContent(providerCtx, generated)).toBe(false)
   })
 
   it('renders Arabic clinic drafts from a conservative operational template instead of risky model copy', () => {
@@ -144,6 +167,23 @@ describe('contentPlanStructuredRenderer', () => {
     expect(result.ok).toBe(false)
     expect(result.issues.map(issue => issue.reason)).toContain('unsupported_clinic_outcome_claim')
     expect(result.issues.map(issue => issue.reason)).toContain('unsupported_absolute_claim')
+  })
+
+  it('save gate blocks first-person Arabic guarantees before persistence', () => {
+    const result = validateContentPlanDraftForSave({
+      caption: 'نضمن لك خدمات عالية الجودة، واكتشف كيف نضمن الجودة في كل خطوة.',
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.issues.map(issue => issue.reason)).toContain('unsupported_absolute_claim')
+  })
+
+  it('save gate preserves Arabic inclusion wording', () => {
+    const result = validateContentPlanDraftForSave({
+      imagePrompt: 'تصميم يوضح ما يتضمنه العرض وما لا يتضمنه.',
+    })
+
+    expect(result.ok).toBe(true)
   })
 
   it('save gate blocks fake generated SaaS product screens before SocialPost persistence', () => {

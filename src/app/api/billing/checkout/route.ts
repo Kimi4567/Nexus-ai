@@ -15,10 +15,7 @@ import {
 } from '@/lib/stripe'
 import { checkoutRateLimit } from '@/lib/dbRateLimit'
 import { normalizePublicPaidPlan } from '@/lib/commercialPlans'
-
-function getBaseUrl() {
-  return (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')
-}
+import { getRequestBaseUrl } from '@/lib/requestBaseUrl'
 
 export async function POST(req: NextRequest) {
   try {
@@ -93,7 +90,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const baseUrl = getBaseUrl()
+    const baseUrl = getRequestBaseUrl(req)
 
     // ── Create Checkout Session ─────────────────────────────────────────────
     const session = await stripe.checkout.sessions.create({

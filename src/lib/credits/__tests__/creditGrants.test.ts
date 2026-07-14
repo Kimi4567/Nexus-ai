@@ -9,7 +9,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest'
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
-    creditGrant: { createMany: vi.fn(), updateMany: vi.fn(), aggregate: vi.fn() },
+    creditGrant: { createMany: vi.fn(), updateMany: vi.fn(), aggregate: vi.fn(), findMany: vi.fn() },
     // Present so we can assert helpers NEVER touch these.
     user: { update: vi.fn(), findUnique: vi.fn() },
     creditTransaction: { create: vi.fn() },
@@ -29,9 +29,10 @@ import {
   buildBonusGrant,
   buildPurchasedGrant,
   ensureGrant,
-  resetNonPurchasedGrants,
+  resetMonthlyGrants,
   ensureMonthlyGrant,
-  voidNonPurchasedGrants,
+  voidMonthlyGrants,
+  expireCreditGrants,
   fulfilPurchasedCreditPack,
   STARTER_CREDITS,
 } from '@/lib/credits/creditGrants'
@@ -196,42 +197,42 @@ describe('ensureGrant', () => {
   })
 })
 
-describe('resetNonPurchasedGrants', () => {
-  it('7. resets ACTIVE non-PURCHASED grants to RESET / remaining 0', async () => {
+describe('resetMonthlyGrants', () => {
+  it('7. resets ACTIVE cycle grants to RESET / remaining 0', async () => {
     mockPrisma.creditGrant.updateMany.mockResolvedValueOnce({ count: 3 })
-    const res = await resetNonPurchasedGrants('u1')
+    const res = await resetMonthlyGrants('u1')
     expect(res.resetCount).toBe(3)
     expect(mockPrisma.creditGrant.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'u1', status: 'ACTIVE', type: { not: 'PURCHASED' } },
+      where: { userId: 'u1', status: 'ACTIVE', type: { in: ['MONTHLY', 'MIGRATED'] } },
       data: { status: 'RESET', remaining: 0 },
     })
   })
 
-  it('8. leaves PURCHASED grants untouched (filter excludes them)', async () => {
-    await resetNonPurchasedGrants('u1')
+  it('8. leaves independent grants untouched (filter includes only cycle grants)', async () => {
+    await resetMonthlyGrants('u1')
     const arg = mockPrisma.creditGrant.updateMany.mock.calls[0][0] as any
-    expect(arg.where.type).toEqual({ not: 'PURCHASED' })
+    expect(arg.where.type).toEqual({ in: ['MONTHLY', 'MIGRATED'] })
     expect(arg.where.status).toBe('ACTIVE')
   })
 
   it('never mutates User.aiCredits', async () => {
-    await resetNonPurchasedGrants('u1')
+    await resetMonthlyGrants('u1')
     expect(mockPrisma.user.update).not.toHaveBeenCalled()
   })
 
   it('11. uses the provided transaction client when given', async () => {
     const tx = { creditGrant: { createMany: vi.fn(), updateMany: vi.fn().mockResolvedValue({ count: 2 }) } }
-    const res = await resetNonPurchasedGrants('u1', tx)
+    const res = await resetMonthlyGrants('u1', tx)
     expect(res.resetCount).toBe(2)
     expect(tx.creditGrant.updateMany).toHaveBeenCalledTimes(1)
     expect(mockPrisma.creditGrant.updateMany).not.toHaveBeenCalled()
   })
 
   it('B1d-c: exceptSource excludes that grant from the reset', async () => {
-    await resetNonPurchasedGrants('u1', undefined, 'monthly:sub_1:2026-06-01T00:00:00.000Z')
+    await resetMonthlyGrants('u1', undefined, 'monthly:sub_1:2026-06-01T00:00:00.000Z')
     const arg = mockPrisma.creditGrant.updateMany.mock.calls[0][0] as any
     expect(arg.where.source).toEqual({ not: 'monthly:sub_1:2026-06-01T00:00:00.000Z' })
-    expect(arg.where.type).toEqual({ not: 'PURCHASED' })
+    expect(arg.where.type).toEqual({ in: ['MONTHLY', 'MIGRATED'] })
     expect(arg.where.status).toBe('ACTIVE')
   })
 })
@@ -263,20 +264,23 @@ describe('ensureMonthlyGrant', () => {
     expect(arg.data[0].expiresAt).toEqual(monthly.currentPeriodEnd)
   })
 
-  it('when newly created, resets prior non-purchased grants EXCEPT the new MONTHLY', async () => {
+  it('when newly created, resets prior cycle grants EXCEPT the new MONTHLY', async () => {
     mockPrisma.creditGrant.createMany.mockResolvedValueOnce({ count: 1 })
     await ensureMonthlyGrant('u1', monthly)
     expect(mockPrisma.creditGrant.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'u1', status: 'ACTIVE', type: { not: 'PURCHASED' }, source: { not: SOURCE } },
+      where: { userId: 'u1', status: 'ACTIVE', type: { in: ['MONTHLY', 'MIGRATED'] }, source: { not: SOURCE } },
       data: { status: 'RESET', remaining: 0 },
     })
   })
 
-  it('duplicate same-cycle provision does NOT create a duplicate and does NOT reset again', async () => {
+  it('duplicate same-cycle provision does NOT create a duplicate and only retires a leftover MIGRATED grant', async () => {
     mockPrisma.creditGrant.createMany.mockResolvedValueOnce({ count: 0 }) // already exists
     const res = await ensureMonthlyGrant('u1', monthly)
     expect(res.created).toBe(false)
-    expect(mockPrisma.creditGrant.updateMany).not.toHaveBeenCalled()
+    expect(mockPrisma.creditGrant.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', status: 'ACTIVE', type: 'MIGRATED' },
+      data: { status: 'RESET', remaining: 0 },
+    })
   })
 
   it('uses the provided transaction client', async () => {
@@ -288,37 +292,67 @@ describe('ensureMonthlyGrant', () => {
   })
 })
 
-// ── B1d-c-3 — voidNonPurchasedGrants (cancellation) ────────────────────────
-describe('voidNonPurchasedGrants', () => {
-  it('VOIDs ACTIVE non-PURCHASED grants to remaining 0', async () => {
+// ── B1d-c-3 — voidMonthlyGrants (cancellation) ─────────────────────────────
+describe('voidMonthlyGrants', () => {
+  it('VOIDs ACTIVE cycle grants to remaining 0', async () => {
     mockPrisma.creditGrant.updateMany.mockResolvedValueOnce({ count: 2 })
-    const res = await voidNonPurchasedGrants('u1')
+    const res = await voidMonthlyGrants('u1')
     expect(res.voidCount).toBe(2)
     expect(mockPrisma.creditGrant.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'u1', status: 'ACTIVE', type: { not: 'PURCHASED' } },
+      where: { userId: 'u1', status: 'ACTIVE', type: { in: ['MONTHLY', 'MIGRATED'] } },
       data: { status: 'VOID', remaining: 0 },
     })
   })
 
-  it('leaves PURCHASED grants untouched (filter excludes them)', async () => {
-    await voidNonPurchasedGrants('u1')
+  it('leaves independent grants untouched (filter includes only cycle grants)', async () => {
+    await voidMonthlyGrants('u1')
     const arg = mockPrisma.creditGrant.updateMany.mock.calls[0][0] as any
-    expect(arg.where.type).toEqual({ not: 'PURCHASED' })
+    expect(arg.where.type).toEqual({ in: ['MONTHLY', 'MIGRATED'] })
     expect(arg.where.status).toBe('ACTIVE')
     expect(arg.data.status).toBe('VOID')
   })
 
   it('is idempotent (re-running voids nothing) and never touches User.aiCredits', async () => {
     mockPrisma.creditGrant.updateMany.mockResolvedValueOnce({ count: 0 })
-    const res = await voidNonPurchasedGrants('u1')
+    const res = await voidMonthlyGrants('u1')
     expect(res.voidCount).toBe(0)
     expect(mockPrisma.user.update).not.toHaveBeenCalled()
   })
 
   it('uses the provided transaction client', async () => {
     const tx = { creditGrant: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) } }
-    await voidNonPurchasedGrants('u1', tx)
+    await voidMonthlyGrants('u1', tx)
     expect(tx.creditGrant.updateMany).toHaveBeenCalledTimes(1)
+    expect(mockPrisma.creditGrant.updateMany).not.toHaveBeenCalled()
+  })
+})
+
+describe('expireCreditGrants', () => {
+  it('marks expired active grants and returns distinct users for cache sync', async () => {
+    mockPrisma.creditGrant.findMany.mockResolvedValue([
+      { id: 'g1', userId: 'u1' },
+      { id: 'g2', userId: 'u1' },
+      { id: 'g3', userId: 'u2' },
+    ])
+    mockPrisma.creditGrant.updateMany.mockResolvedValue({ count: 3 })
+
+    const result = await expireCreditGrants(NOW)
+
+    expect(result).toEqual({ expiredCount: 3, userIds: ['u1', 'u2'] })
+    expect(mockPrisma.creditGrant.findMany).toHaveBeenCalledWith({
+      where: { status: 'ACTIVE', expiresAt: { lte: NOW } },
+      select: { id: true, userId: true },
+    })
+    expect(mockPrisma.creditGrant.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['g1', 'g2', 'g3'] }, status: 'ACTIVE' },
+      data: { status: 'EXPIRED', remaining: 0 },
+    })
+  })
+
+  it('does not write when no grants are expired', async () => {
+    mockPrisma.creditGrant.findMany.mockResolvedValue([])
+    const result = await expireCreditGrants(NOW)
+    expect(result).toEqual({ expiredCount: 0, userIds: [] })
     expect(mockPrisma.creditGrant.updateMany).not.toHaveBeenCalled()
   })
 })

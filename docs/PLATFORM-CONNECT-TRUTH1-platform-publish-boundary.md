@@ -1,5 +1,7 @@
 # PLATFORM-CONNECT-TRUTH1 — Platform Publish Boundary
 
+> Historical boundary note. The YouTube limitation described below was superseded in July 2026 by the reviewed OAuth, resumable upload, scheduled publishing, processing reconciliation, token refresh, and analytics-evidence connector. The Content Hub approval boundary remains in force.
+
 ## Purpose
 
 This cleanup keeps platform connection and publishing surfaces honest before building real multi-platform execution.

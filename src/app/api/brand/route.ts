@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { calculateBrandMaturity, snapshotBrandMaturity } from '@/lib/brandMaturity'
 import { buildBrandBrainContract, getChangedBrandFields } from '@/lib/brandBrainContract'
+import { normalizeBusinessGoal } from '@/lib/businessGoals'
 
 function toStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -12,6 +13,15 @@ function toStringArray(value: unknown): string[] {
     return value.split(',').map(item => item.trim()).filter(Boolean)
   }
   return []
+}
+
+function enumValue<T extends string>(value: unknown, allowed: readonly T[]): T | null {
+  return typeof value === 'string' && allowed.includes(value as T) ? value as T : null
+}
+
+function customStrategyDays(value: unknown): number | null {
+  const days = typeof value === 'number' ? value : Number(value)
+  return Number.isInteger(days) && days >= 1 && days <= 180 ? days : null
 }
 
 async function getAcceptedLearningCount(workspaceId: string): Promise<number> {
@@ -142,6 +152,7 @@ export async function POST(req: NextRequest) {
       customerLifetimeValue, salesCycleLength, seasonality, pastAdResults,
       // PR-H2 — Brand Brain v2 (additive, nullable/default-safe)
       languagePreference, verifiedProof,
+      strategyType, strategyDuration, strategyCustomDays, campaignObjective,
     } = body
 
     const profileData = {
@@ -173,7 +184,7 @@ export async function POST(req: NextRequest) {
       websiteUrl: websiteUrl || null,
       contentSamples: toStringArray(contentSamples),
       // PR-2A — strategy data requirements (free-text bands; arrays via toStringArray)
-      businessGoal: businessGoal || null,
+      businessGoal: normalizeBusinessGoal(businessGoal),
       marketingBudget: marketingBudget || null,
       conversionDestination: conversionDestination || null,
       leadHandling: leadHandling || null,
@@ -188,6 +199,10 @@ export async function POST(req: NextRequest) {
       // PR-H2 — language preference (user-chosen) + verified proof (user-confirmed only)
       languagePreference: languagePreference || null,
       verifiedProof: toStringArray(verifiedProof),
+      strategyType: enumValue(strategyType, ['organic', 'paid', 'full'] as const),
+      strategyDuration: enumValue(strategyDuration, ['30', '90', '180', 'custom'] as const),
+      strategyCustomDays: customStrategyDays(strategyCustomDays),
+      campaignObjective: enumValue(campaignObjective, ['leads', 'sales', 'awareness', 'traffic'] as const),
     }
 
     const previous = await prisma.brandProfile.findUnique({

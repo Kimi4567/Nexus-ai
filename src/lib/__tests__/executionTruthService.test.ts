@@ -21,6 +21,14 @@ const campaignBase = {
   updatedAt: new Date('2026-07-12T12:00:00.000Z'),
   aiOutput: {
     strategy: { positioning: 'Clear value' },
+    qualityGate: {
+      schemaVersion: 1,
+      status: 'passed',
+      score: 100,
+      blockers: [],
+      warnings: [],
+      checkedAt: '2026-07-14T00:00:00.000Z',
+    },
     sentinelReview: { status: 'passed' },
   },
 }

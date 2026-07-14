@@ -49,6 +49,7 @@ vi.mock('@/lib/credits', () => ({
   checkDailyImageCap: mockCheckDailyImageCap,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
+  buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, cost: 3, ...deduction }),
 }))
 vi.mock('@/lib/ai/imageGen', () => ({
   buildImagePrompt: mockBuildImagePrompt,
@@ -58,7 +59,7 @@ vi.mock('@/lib/ai/imageGen', () => ({
 }))
 vi.mock('@/lib/ai/falGen', () => ({
   generateWithFlux: vi.fn(),
-  platformToFluxSize: () => 'landscape_4_3',
+  platformToFluxAspectRatio: () => '3:2',
   platformToOpenAISize: () => '1536x1024',
 }))
 vi.mock('@/lib/cloudinaryOverlay', () => ({ platformToOverlay: () => 'square' }))
@@ -103,6 +104,10 @@ const campaign = {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.stubEnv('OPENAI_API_KEY', 'test-openai-key')
+  vi.stubEnv('CLOUDINARY_CLOUD_NAME', 'test-cloud')
+  vi.stubEnv('CLOUDINARY_API_KEY', 'test-key')
+  vi.stubEnv('CLOUDINARY_API_SECRET', 'test-secret')
   delete process.env.FAL_KEY
   mockGetServerUserId.mockResolvedValue('u1')
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 3, creditsRemaining: 17 })
@@ -133,9 +138,37 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
 })
 
 describe('POST /api/visuals/generate — RF-5 refund safety', () => {
+  it('missing image providers returns 503 before credit deduction', async () => {
+    vi.stubEnv('OPENAI_API_KEY', '')
+    vi.stubEnv('FAL_KEY', '')
+
+    const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(json).toMatchObject({ code: 'IMAGE_PROVIDER_UNAVAILABLE', creditsCharged: false })
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockGenerateWithDallE).not.toHaveBeenCalled()
+  })
+
+  it('missing permanent media storage returns 503 before credit deduction', async () => {
+    vi.stubEnv('CLOUDINARY_CLOUD_NAME', '')
+    vi.stubEnv('CLOUDINARY_API_KEY', '')
+    vi.stubEnv('CLOUDINARY_API_SECRET', '')
+
+    const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(json).toMatchObject({ code: 'MEDIA_STORAGE_UNAVAILABLE', creditsCharged: false })
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockGenerateWithDallE).not.toHaveBeenCalled()
+  })
+
   it('unauthenticated request does not deduct credits', async () => {
     mockGetServerUserId.mockResolvedValue(null)
 
@@ -243,7 +276,37 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     expect(mockRefund).not.toHaveBeenCalled()
   })
 
-  it('DB create fallback provider failure refunds via transactionId', async () => {
+  it('permanent storage failure never persists a provider URL and refunds exactly once', async () => {
+    mockCheckAndDeduct.mockResolvedValue({
+      ok: true,
+      creditsUsed: 3,
+      creditsRemaining: 17,
+      transactionId: 'txn_storage',
+    })
+    mockUploadToCloudinary.mockReset().mockRejectedValue(new Error('Cloudinary upload failed'))
+
+    const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(500)
+    expect(json).toMatchObject({ error: 'Cloudinary upload failed', refunded: true })
+    expect(mockPrisma.generatedVisual.update).toHaveBeenCalledWith({
+      where: { id: 'visual_1' },
+      data: { status: 'FAILED', errorMessage: 'Cloudinary upload failed' },
+    })
+    expect(mockPrisma.generatedVisual.update).not.toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: 'COMPLETED' }),
+    }))
+    expect(mockRefundForTxn).toHaveBeenCalledTimes(1)
+    expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      transactionId: 'txn_storage',
+      reason: 'Cloudinary upload failed',
+    }))
+    expect(mockRefund).not.toHaveBeenCalled()
+  })
+
+  it('DB create failure refunds via transactionId without creating an untracked image', async () => {
     mockCheckAndDeduct.mockResolvedValue({
       ok: true,
       creditsUsed: 3,
@@ -251,7 +314,6 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
       transactionId: 'txn_temp',
     })
     mockPrisma.generatedVisual.create.mockRejectedValue(new Error('create failed'))
-    mockGenerateWithDallE.mockRejectedValue(new Error('fallback image failed'))
 
     const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
 
@@ -259,8 +321,9 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'u1',
       transactionId: 'txn_temp',
-      reason: 'fallback image failed',
+      reason: 'create failed',
     }))
+    expect(mockGenerateWithDallE).not.toHaveBeenCalled()
     expect(mockRefund).not.toHaveBeenCalled()
   })
 

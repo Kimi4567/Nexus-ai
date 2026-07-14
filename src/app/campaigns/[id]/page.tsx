@@ -8,7 +8,6 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import AppShell from '@/components/AppShell'
 import VisualGenerator from '@/components/VisualGenerator'
-import SocialAnalytics from '@/components/SocialAnalytics'
 import BrandDNABadge, { type BrandDNAData } from '@/components/BrandDNABadge'
 import CampaignProofOfWork from '@/components/campaign/CampaignProofOfWork'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
@@ -97,8 +96,17 @@ const ACTIVITY_ICONS: Record<string, string> = {
 }
 
 const PLATFORM_ICONS: Record<string, string> = {
-  INSTAGRAM: '📸', TIKTOK: '🎵', FACEBOOK: '👥',
-  YOUTUBE_SHORTS: '▶️', LINKEDIN: '💼', SNAPCHAT: '👻',
+  META: '👥', FACEBOOK: '👥', INSTAGRAM: '📸', THREADS: '@',
+  TIKTOK: '🎵', LINKEDIN: '💼', X: '𝕏', TWITTER: '𝕏',
+  YOUTUBE: '▶️', YOUTUBE_SHORTS: '▶️', PINTEREST: '📌',
+  SNAPCHAT: '👻', WEBSITE: '🌐',
+}
+
+const PLATFORM_COLORS: Record<string, string> = {
+  META: '#1877F2', FACEBOOK: '#1877F2', INSTAGRAM: '#C13584',
+  THREADS: '#111111', TIKTOK: '#010101', LINKEDIN: '#0A66C2',
+  X: '#111111', TWITTER: '#111111', YOUTUBE: '#FF0000',
+  YOUTUBE_SHORTS: '#FF0000', PINTEREST: '#E60023', SNAPCHAT: '#EAB308',
 }
 
 function formatCampaignToneLabel(tone: string | null | undefined): string {
@@ -489,6 +497,8 @@ function CampaignDetailPageInner() {
   const [autopilotActivating, setAutopilotActivating] = useState(false)
   const [autopilotError, setAutopilotError] = useState('')
   const [autopilotPausing, setAutopilotPausing] = useState(false)
+  const [showAutopilotConfirm, setShowAutopilotConfirm] = useState(false)
+  const [autopilotConsentAcknowledged, setAutopilotConsentAcknowledged] = useState(false)
 
   // VEX Ad Setup expand/collapse
   const [adSetupOpen, setAdSetupOpen] = useState(false)
@@ -510,10 +520,13 @@ function CampaignDetailPageInner() {
   const [showEngineRebuildModal, setShowEngineRebuildModal] = useState(false)
   const [engineRebuildAcknowledged, setEngineRebuildAcknowledged] = useState(false)
 
-  // Unified product agent tabs — indices 0-4 are visible; 5-6 are accessible via Publish tab
+  // Keep legacy indices stable for old deep links, but expose only the four
+  // decision workspaces a user needs. Content inputs and execution rhythm are
+  // sections of the strategy, while Autopilot is a publishing mode.
   const AGENT_TABS = [
     { name: cdT?.agentStrategyName || 'Strategist', icon: '🧠', title: cdT?.agentStrategyTitle, color: 'text-indigo-400',  border: 'border-indigo-500/30', bg: 'bg-indigo-500/5',  label: cdT?.tabStrategy },
     {
+      hidden: true,
       name: locale === 'ar' ? 'مدخلات تخطيط المحتوى' : 'Content planning inputs',
       icon: '✍️',
       title: locale === 'ar' ? 'هوكس وزوايا للمراجعة' : 'Hooks and angles for review',
@@ -523,6 +536,7 @@ function CampaignDetailPageInner() {
       label: cdT?.tabContent,
     },
     {
+      hidden: true,
       name: locale === 'ar' ? 'إيقاع التنفيذ' : 'Execution rhythm',
       icon: '⚡',
       title: locale === 'ar' ? 'خطة مراجعة — ليست جدولة' : 'Planned, not scheduled',
@@ -531,9 +545,9 @@ function CampaignDetailPageInner() {
       bg: 'bg-amber-50',
       label: cdT?.tabCalendar,
     },
-    { name: '',                                      icon: '🎨', title: '',                       color: 'text-purple-400',  border: 'border-purple-500/30', bg: 'bg-purple-500/5',  label: cdT?.tabCreative || (locale === 'ar' ? 'الإبداع' : 'Creative') },
-    { name: '',                                      icon: '📤', title: '',                       color: 'text-green-400',   border: 'border-green-500/30',  bg: 'bg-green-500/5',   label: cdT?.tabPublish || (locale === 'ar' ? 'النشر' : 'Publish') },
-    { name: '', hidden: false,                       icon: '🤖', title: '',                       color: 'text-violet-400',  border: 'border-violet-500/30', bg: 'bg-violet-500/5',  label: locale === 'ar' ? 'أوتوبايلوت' : 'Autopilot' },
+    { name: '',                                      icon: '🎨', title: '',                       color: 'text-purple-400',  border: 'border-purple-500/30', bg: 'bg-purple-500/5',  label: locale === 'ar' ? 'المحتوى والإبداع' : 'Content & creative' },
+    { name: '',                                      icon: '📤', title: '',                       color: 'text-green-400',   border: 'border-green-500/30',  bg: 'bg-green-500/5',   label: locale === 'ar' ? 'النشر والأتمتة' : 'Publishing & automation' },
+    { name: '', hidden: true,                        icon: '🤖', title: '',                       color: 'text-violet-400',  border: 'border-violet-500/30', bg: 'bg-violet-500/5',  label: locale === 'ar' ? 'إعدادات الأتمتة' : 'Automation settings' },
     { name: '', hidden: false,                       icon: '📊', title: '',                       color: 'text-cyan-400',    border: 'border-cyan-500/30',   bg: 'bg-cyan-500/5',    label: locale === 'ar' ? 'الأداء' : 'Performance' },
   ]
 
@@ -704,9 +718,10 @@ function CampaignDetailPageInner() {
     }
   }, [loading, isAuthenticated, fetchCampaign, fetchOperatingSnapshots, fetchStrategyPlatformReadiness, router, authHeader])
 
-  // Load autopilot queue when tab 5 is active
+  // Publishing owns automation, so load its queue from either the unified
+  // publishing workspace or the legacy automation deep link.
   useEffect(() => {
-    if (activeTab !== 5 || !isAuthenticated) return
+    if ((activeTab !== 4 && activeTab !== 5) || !isAuthenticated) return
     const token = authHeader()
     if (!token) return
     fetch(`/api/autopilot/queue?campaignId=${campaignId}`, { headers: { Authorization: token } })
@@ -911,15 +926,15 @@ function CampaignDetailPageInner() {
     setLaunchState('approving')
     setLaunchError('')
     try {
-      // Step 1: save strategy workflow approval (legacy ACTIVE value).
-      // This is not a live campaign, platform launch, or publishing event.
-      const approveRes = await fetch(`/api/campaigns/${campaignId}`, {
-        method: 'PATCH',
+      // Step 1: record the reviewed strategy decision through the authoritative
+      // approval workflow. This does not launch spend or publish anything.
+      const approveRes = await fetch(`/api/campaigns/${campaignId}/strategy-approval`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: token },
-        body: JSON.stringify({ status: 'ACTIVE' }),
+        body: JSON.stringify({ action: 'approve' }),
       })
       const approveData = await approveRes.json()
-      if (!approveData.campaign) {
+      if (!approveRes.ok || approveData.approval?.state !== 'approved') {
         setApprovalState('confirming')
         setLaunchState('idle')
         setLaunchError(approveData.message || approveData.error || (locale === 'ar' ? 'فشل الاعتماد، حاول مرة أخرى' : 'Approval failed, please try again'))
@@ -983,12 +998,31 @@ function CampaignDetailPageInner() {
         body: JSON.stringify({ language: locale }),
       })
       const d = await res.json()
+      if (d.qualityGate) {
+        // Persist the deterministic, no-cost truth review in local state even
+        // when Sentinel is intentionally not called because grounding failed.
+        setCampaign(prev => {
+          if (!prev) return prev
+          const existing = (prev.aiOutput as any) || {}
+          return {
+            ...prev,
+            aiOutput: { ...existing, qualityGate: d.qualityGate },
+          }
+        })
+      }
       if (d.sentinelReview) {
         // Patch local campaign state with updated aiOutput
         setCampaign(prev => {
           if (!prev) return prev
           const existing = (prev.aiOutput as any) || {}
-          return { ...prev, aiOutput: { ...existing, sentinelReview: d.sentinelReview } }
+          return {
+            ...prev,
+            aiOutput: {
+              ...existing,
+              sentinelReview: d.sentinelReview,
+              ...(d.qualityGate ? { qualityGate: d.qualityGate } : {}),
+            },
+          }
         })
         setSentinelState('done')
       } else if (d.error === 'INSUFFICIENT_CREDITS') {
@@ -1002,6 +1036,37 @@ function CampaignDetailPageInner() {
     } catch {
       setSentinelError('Network error — please try again')
       setSentinelState('idle')
+    }
+  }
+
+  const handleEnableAutopilot = async () => {
+    const token = authHeader()
+    if (!token || autopilotActivating || !autopilotRequirementsMet || !autopilotConsentAcknowledged) return
+    setAutopilotActivating(true)
+    setAutopilotError('')
+    try {
+      const res = await fetch('/api/autopilot/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: token },
+        body: JSON.stringify({ campaignId, explicitAutopilotConfirmed: true }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        setAutopilotError(data.error || (locale === 'ar' ? 'تعذر تفعيل الأوتوبايلوت' : 'Autopilot activation failed'))
+        return
+      }
+      setCampaign(prev => prev ? {
+        ...prev,
+        autopilotEnabled: true,
+        autopilotActivatedAt: new Date().toISOString(),
+      } : prev)
+      setAutopilotQueue(Array.isArray(data.posts) ? data.posts : [])
+      setShowAutopilotConfirm(false)
+      setAutopilotConsentAcknowledged(false)
+    } catch {
+      setAutopilotError(locale === 'ar' ? 'خطأ في الاتصال — حاول مرة أخرى' : 'Network error — please try again')
+    } finally {
+      setAutopilotActivating(false)
     }
   }
 
@@ -1279,6 +1344,12 @@ function CampaignDetailPageInner() {
   const sentinelReview = aiOutput?.sentinelReview || null
   const sentinelStatus: 'not_reviewed' | 'passed' | 'needs_attention' =
     sentinelReview ? sentinelReview.status : 'not_reviewed'
+  const qualityGate = aiOutput?.qualityGate || null
+  const qualityGatePassed = qualityGate?.schemaVersion === 1
+    && qualityGate?.status === 'passed'
+    && Array.isArray(qualityGate?.blockers)
+    && qualityGate.blockers.length === 0
+  const completeQualityReviewPassed = sentinelStatus === 'passed' && qualityGatePassed
   const operatingState = deriveCampaignOperatingState({
     campaign: {
       status: campaign.status,
@@ -1442,6 +1513,7 @@ function CampaignDetailPageInner() {
     scheduled_manual: 'border-violet-200 bg-violet-50 text-violet-700',
     scheduled_auto: 'border-violet-200 bg-violet-50 text-violet-700',
     auto_publish_enabled: 'border-violet-200 bg-violet-50 text-violet-700',
+    publishing_processing: 'border-violet-200 bg-violet-50 text-violet-700',
     published_waiting_for_analytics: 'border-sky-200 bg-sky-50 text-sky-700',
     performance_ready: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     learning_review_needed: 'border-purple-200 bg-purple-50 text-purple-700',
@@ -1464,16 +1536,16 @@ function CampaignDetailPageInner() {
   })
   const engineRebuildLockedByProgress = engineRebuildAvailability.reason === 'LOCKED_BY_PROGRESS'
 
-  // This page does not fetch platform readiness. Keep Autopilot conservative
-  // instead of implying connected publishing accounts from campaign state alone.
-  const hasVerifiedPublishingConnection = false
+  const hasVerifiedPublishingConnection = strategyPlatformReadinessLoaded
+    && strategyPlatformStates.some(platform => platform.status === 'ready')
   const hasReviewedContent = campaignPosts.length > 0 && campaignPosts.every(post =>
     post.status === 'APPROVED' || post.status === 'SCHEDULED' || post.status === 'PUBLISHED',
   )
+  const hasExplicitAutoSchedule = operatingState.counts.autoScheduledPosts > 0
   const autopilotRequirementsMet = Boolean(
-    aiOutput &&
-    weeklyExecutionPlan.length > 0 &&
+    completeQualityReviewPassed &&
     hasReviewedContent &&
+    hasExplicitAutoSchedule &&
     hasVerifiedPublishingConnection,
   )
   const publishTabSummary = derivePublishTabReadinessSummary({
@@ -1489,8 +1561,6 @@ function CampaignDetailPageInner() {
   ).length
   const autopilotQueueHasScheduled = autopilotQueueScheduledCount > 0
   const autopilotQueueHasMixedManualAndScheduled = autopilotQueueManualPublishedCount > 0 && autopilotQueueScheduledCount > 0
-  const hasManualOrScheduledWorkflowRecords = operatingState.truthFlags.hasScheduledContent || operatingState.truthFlags.hasManualPublishedContent
-
   const creativeNeedsStrategyReview = operatingSnapshotsLoaded && operatingState.stage === 'strategy_review_needed'
   const creativeHasPostRecords = operatingState.counts.totalPosts > 0 || operatingState.truthFlags.hasContentPlan
   const creativeCanUsePostMediaFlow = creativeHasPostRecords && !creativeNeedsStrategyReview
@@ -1618,7 +1688,7 @@ function CampaignDetailPageInner() {
   const commandFlowCurrentStepId: CampaignCommandFlowStepId | undefined = (() => {
     if (activeTab === 0) return 'strategy'
     if (activeTab === 3) return 'creative'
-    if (activeTab === 4) return 'publishing'
+    if (activeTab === 4 || activeTab === 5) return 'publishing'
     if (activeTab === 6) return 'performance'
     return undefined
   })()
@@ -1776,9 +1846,9 @@ function CampaignDetailPageInner() {
           : (uiIsArabic
             ? 'حضّر أول خطة محتوى بعد مراجعة القرار والافتراضات.'
             : 'Prepare the first content plan after reviewing the decision and assumptions.'),
-      href: isPaidOnlyStrategy ? `/campaigns/${campaign.id}/paid-launch` : `/campaigns/${campaign.id}/content-hub`,
+      href: isPaidOnlyStrategy ? `/paid-campaigns/new?sourceCampaignId=${campaign.id}` : `/campaigns/${campaign.id}/content-hub`,
       cta: isPaidOnlyStrategy
-        ? uiText('افتح بريف التخطيط', 'Open planning brief')
+        ? uiText('ابدأ تنفيذ الاستراتيجية', 'Start strategy execution')
         : strategyRoomStateCopy.contentHubCta,
       tone: operatingState.truthFlags.hasContentPlan || isPaidOnlyStrategy ? 'positive' : 'muted',
     },
@@ -1951,7 +2021,7 @@ function CampaignDetailPageInner() {
       number: '4',
       label: uiText('النشر', 'Publishing'),
       href: `/campaigns/${campaign.id}?tab=publish`,
-      active: activeTab === 4,
+      active: activeTab === 4 || activeTab === 5,
       status: uiIsArabic ? publishTabSummary.safeCopy.title.ar : publishTabSummary.safeCopy.title.en,
     },
     {
@@ -1995,6 +2065,26 @@ function CampaignDetailPageInner() {
       key: 'LINKEDIN', label: 'LinkedIn', icon: '💼', accent: '#60a5fa',
       bg: 'linear-gradient(145deg, rgba(37,99,235,0.16), rgba(14,165,233,0.06))',
       border: 'rgba(96,165,250,0.26)',
+    }
+    if (platform.includes('THREADS')) return {
+      key: 'THREADS', label: 'Threads', icon: '@', accent: '#111827',
+      bg: 'linear-gradient(145deg, rgba(17,24,39,0.12), rgba(99,102,241,0.06))',
+      border: 'rgba(17,24,39,0.22)',
+    }
+    if (platform === 'X' || platform.includes('TWITTER')) return {
+      key: 'X', label: 'X', icon: '𝕏', accent: '#111827',
+      bg: 'linear-gradient(145deg, rgba(17,24,39,0.12), rgba(71,85,105,0.06))',
+      border: 'rgba(17,24,39,0.22)',
+    }
+    if (platform.includes('YOUTUBE')) return {
+      key: 'YOUTUBE', label: platform.includes('SHORT') ? 'YouTube Shorts' : 'YouTube', icon: '▶️', accent: '#ef4444',
+      bg: 'linear-gradient(145deg, rgba(239,68,68,0.12), rgba(248,113,113,0.05))',
+      border: 'rgba(239,68,68,0.22)',
+    }
+    if (platform.includes('PINTEREST')) return {
+      key: 'PINTEREST', label: 'Pinterest', icon: '📌', accent: '#e60023',
+      bg: 'linear-gradient(145deg, rgba(230,0,35,0.11), rgba(244,63,94,0.05))',
+      border: 'rgba(230,0,35,0.22)',
     }
     if (platform.includes('FACEBOOK') || platform.includes('META')) return {
       key: 'FACEBOOK', label: 'Facebook', icon: '👥', accent: '#818cf8',
@@ -2585,7 +2675,7 @@ function CampaignDetailPageInner() {
                   </button>
                 )}
 
-                {activeTab !== 0 && !isPaidOnlyStrategy && !engineRunning && sentinelStatus === 'passed' && operatingState.stage === 'content_plan_missing' && (
+                {activeTab !== 0 && !isPaidOnlyStrategy && !engineRunning && completeQualityReviewPassed && operatingState.stage === 'content_plan_missing' && (
                   <button
                     onClick={() => {
                       setLaunchError('')
@@ -2624,16 +2714,61 @@ function CampaignDetailPageInner() {
             </div>
 
             {/* ── Quality review detail — collapsible ── */}
-            {sentinelReview && (
+            {(sentinelReview || qualityGate) && (
               <details className="mt-4">
                 <summary className={`cursor-pointer text-xs font-semibold select-none ${
-                  sentinelStatus === 'passed' ? 'text-emerald-700' : 'text-amber-700'
+                  completeQualityReviewPassed ? 'text-emerald-700' : 'text-amber-700'
                 }`}>
-                  {sentinelStatus === 'passed'
-                    ? (locale === 'ar' ? '✓ فحص الجودة مكتمل — عرض التفاصيل ▾' : '✓ Quality check complete — see details ▾')
-                    : (locale === 'ar' ? '⚠ فحص الجودة يحتاج انتباه — عرض التفاصيل ▾' : '⚠ Quality check needs attention — see details ▾')}
+                  {completeQualityReviewPassed
+                    ? (locale === 'ar' ? '✓ مراجعة الحقيقة والجودة مكتملة — عرض التفاصيل ▾' : '✓ Truth and quality review complete — see details ▾')
+                    : (locale === 'ar' ? '⚠ المراجعة غير مكتملة أو محجوبة — عرض التفاصيل ▾' : '⚠ Review incomplete or blocked — see details ▾')}
                 </summary>
                 <div className="mt-3 space-y-3 border-t border-slate-200 pt-3">
+                  <div className={`rounded-xl border p-3 ${
+                    qualityGatePassed
+                      ? 'border-emerald-200 bg-emerald-50'
+                      : 'border-amber-200 bg-amber-50'
+                  }`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">
+                          {locale === 'ar'
+                            ? 'تأسيس الاستراتيجية على الـ Brand Brain والنطاق المعتمد'
+                            : 'Brand Brain and approved-scope grounding'}
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-slate-600">
+                          {qualityGate
+                            ? (locale === 'ar'
+                                ? 'فحص حتمي بلا استهلاك كريديت يمنع اختراع الجمهور أو القنوات أو تحويل نشاط البراند إلى نشاط آخر.'
+                                : 'A deterministic, zero-credit gate that blocks invented audiences, channels, or a change in the brand\'s business model.')
+                            : (locale === 'ar'
+                                ? 'هذه استراتيجية قديمة ولم تمر بعد ببوابة الحقيقة الحالية.'
+                                : 'This legacy strategy has not passed the current truth gate yet.')}
+                        </p>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                        qualityGatePassed
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {qualityGatePassed
+                          ? (locale === 'ar' ? 'ناجح' : 'Passed')
+                          : (locale === 'ar' ? 'محجوب' : 'Blocked')}
+                      </span>
+                    </div>
+                    {Array.isArray(qualityGate?.blockers) && qualityGate.blockers.length > 0 && (
+                      <div className="mt-3 space-y-1.5 border-t border-amber-200 pt-3">
+                        {qualityGate.blockers.map((blocker: string, index: number) => (
+                          <p key={`${blocker}-${index}`} className="flex items-start gap-2 text-xs leading-5 text-amber-900">
+                            <span aria-hidden="true">•</span>
+                            <span>{blocker}</span>
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {sentinelReview && <>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="flex items-center justify-between mb-1.5">
@@ -2681,12 +2816,13 @@ function CampaignDetailPageInner() {
                       ))}
                     </div>
                   )}
+                  </>}
                 </div>
               </details>
             )}
 
             {/* Not yet reviewed hint */}
-            {!sentinelReview && sentinelState !== 'reviewing' && (
+            {!sentinelReview && !qualityGate && sentinelState !== 'reviewing' && (
               <p className="mt-3 text-xs text-gray-600">
                 {strategyGuidanceCopy.hint}
               </p>
@@ -2752,75 +2888,51 @@ function CampaignDetailPageInner() {
         {aiOutput && (
           <>
             {/* NEXUS tab navigation */}
-            <div id="campaign-room-workspace" data-strategy-operating-nav className="sticky top-0 z-30 mb-6 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div id="campaign-room-workspace" data-strategy-operating-nav className="sticky top-0 z-30 mb-6 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
-                    {locale === 'ar' ? 'غرفة الحملة' : 'Campaign Room'}
+                    {locale === 'ar' ? 'مساحة الحملة الحالية' : 'Current campaign workspace'}
                   </p>
-                  <p className="text-xs font-semibold text-slate-700">
-                    {locale === 'ar'
-                      ? `المساحة الحالية: ${AGENT_TABS[activeTab]?.label || cdT?.tabStrategy || 'Strategy'}`
-                      : `Current workspace: ${AGENT_TABS[activeTab]?.label || cdT?.tabStrategy || 'Strategy'}`}
+                  <p className="mt-1 text-sm font-bold text-slate-800">
+                    <span className="me-1.5 text-xs">{AGENT_TABS[activeTab]?.icon}</span>
+                    {AGENT_TABS[activeTab]?.label || cdT?.tabStrategy || 'Strategy'}
                   </p>
                 </div>
-                <span className="w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500">
-                  {locale === 'ar' ? 'تنقّل تشغيلي' : 'Operating navigation'}
-                </span>
-              </div>
-              <div className="mt-2 flex gap-1.5 overflow-x-auto rounded-xl bg-slate-100/80 p-1">
-                {AGENT_TABS.map((tab, i) => tab.hidden ? null : (
-                  <button
-                    key={i}
-                    onClick={() => handleCampaignRoomTabClick(i)}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all"
-                    style={activeTab === i ? {
-                      background: '#fff',
-                      border: '1px solid rgb(199,210,254)',
-                      color: '#3730a3',
-                      boxShadow: '0 1px 2px rgba(15,23,42,0.08)',
-                    } : {
-                      background: 'transparent',
-                      border: '1px solid transparent',
-                      color: '#64748b',
-                    }}
-                    onMouseEnter={e => {
-                      if (activeTab !== i) (e.currentTarget as HTMLButtonElement).style.color = '#334155'
-                    }}
-                    onMouseLeave={e => {
-                      if (activeTab !== i) (e.currentTarget as HTMLButtonElement).style.color = '#64748b'
-                    }}
+                <label className="flex min-w-0 items-center gap-2 text-xs font-semibold text-slate-500 sm:min-w-[260px]">
+                  <span className="whitespace-nowrap">{locale === 'ar' ? 'تغيير المساحة' : 'Switch workspace'}</span>
+                  <select
+                    aria-label={locale === 'ar' ? 'تغيير مساحة الحملة' : 'Switch campaign workspace'}
+                    value={activeTab}
+                    onChange={(event) => handleCampaignRoomTabClick(Number(event.target.value))}
+                    className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white"
                   >
-                    <span className="text-xs">{tab.icon}</span>
-                    {tab.label}
-                  </button>
-                ))}
+                    {AGENT_TABS.map((tab, index) => tab.hidden && index !== activeTab ? null : (
+                      <option key={index} value={index} hidden={Boolean(tab.hidden)}>{tab.icon} {tab.label}</option>
+                    ))}
+                  </select>
+                </label>
               </div>
 
               {activeTab === 0 && strategySectionNavItems.length > 0 && (
-                <div className="mt-2 border-t border-slate-200 pt-2">
-                  <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
-                    <div className="flex flex-shrink-0 items-center gap-2 px-1">
-                      <span className="h-2 w-2 rounded-full bg-indigo-500" />
-                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
-                        {strategyDocText('فهرس وثيقة الاستراتيجية', 'Strategy document outline')}
-                      </span>
-                    </div>
-                    <div className="flex gap-1.5 overflow-x-auto">
-                      {strategySectionNavItems.map(({ num, label, id }) => (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => scrollToStrategySection(id)}
-                          className="inline-flex flex-shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
-                        >
-                          <span className="text-[10px] text-slate-400">{num}</span>
-                          {label}
-                        </button>
-                      ))}
-                    </div>
+                <details className="mt-3 border-t border-slate-200 pt-3">
+                  <summary className="cursor-pointer text-xs font-bold text-indigo-700">
+                    {strategyDocText(`أقسام وثيقة الاستراتيجية (${strategySectionNavItems.length})`, `Strategy document sections (${strategySectionNavItems.length})`)}
+                  </summary>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {strategySectionNavItems.map(({ num, label, id }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => scrollToStrategySection(id)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                      >
+                        <span className="text-[10px] text-slate-400">{num}</span>
+                        {label}
+                      </button>
+                    ))}
                   </div>
-                </div>
+                </details>
               )}
             </div>
 
@@ -4154,8 +4266,8 @@ function CampaignDetailPageInner() {
                       </h3>
                       <p className="mt-2 max-w-3xl text-xs leading-5 text-slate-600">
                         {locale === 'ar'
-                          ? 'يعرض هذا التقويم سجلات SocialPost الحالية من Content Hub. المنشورات المجدولة محفوظة في NEXUS فقط وليست منشورة، والمنشور المؤكد يدويًا سجل من المستخدم وليس إثبات نشر عبر API.'
-                          : 'This calendar uses current SocialPost records from Content Hub. Scheduled posts are saved in NEXUS only and are not published; user-confirmed manual publish is a user record, not API proof.'}
+                          ? 'المنشورات المجدولة أو المؤكدة يدويًا هي سجلات سير عمل؛ لا تتطلب إعادة توليد الاستراتيجية. المنشورات المجدولة محفوظة في NEXUS فقط وليست منشورة، والمنشور المؤكد يدويًا سجل من المستخدم وليس إثبات نشر عبر API.'
+                          : 'Scheduled or manually published posts are workflow records; they do not require strategy regeneration. Scheduled posts are saved in NEXUS only and are not published; user-confirmed manual publish is a user record, not API proof.'}
                       </p>
                     </div>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -4418,9 +4530,20 @@ function CampaignDetailPageInner() {
                     </div>
                   )}
                   <div className="flex gap-2 mb-4 flex-wrap">
-                    {['📘 Facebook', '📸 Instagram', '💼 LinkedIn', '✕ X', '🎵 TikTok'].map(p => (
-                      <span key={p} className="rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">{p}</span>
-                    ))}
+                    {campaign.platforms.length > 0 ? campaign.platforms.map((rawPlatform) => {
+                      const platformKey = rawPlatform.trim().toUpperCase() === 'TWITTER'
+                        ? 'X'
+                        : rawPlatform.trim().toUpperCase()
+                      return (
+                        <span key={platformKey} className="rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">
+                          {PLATFORM_ICONS[platformKey] || '🌐'} {formatStrategyPlatformLabel(rawPlatform) || rawPlatform}
+                        </span>
+                      )
+                    }) : (
+                      <span className="rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
+                        {locale === 'ar' ? 'لم يتم تحديد المنصات' : 'Platforms not set'}
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={() => window.open(`/campaigns/${campaign.id}/content-hub`, '_blank')}
@@ -4471,10 +4594,10 @@ function CampaignDetailPageInner() {
                         ))}
                       </div>
                       <button
-                        onClick={() => window.open(`/campaigns/${campaign.id}/paid-launch`, '_blank')}
+                        onClick={() => window.open(`/paid-campaigns/new?sourceCampaignId=${campaign.id}`, '_blank')}
                         className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100"
                       >
-                        {locale === 'ar' ? 'راجع موجز التخطيط المدفوع' : 'Review paid planning brief'}
+                        {locale === 'ar' ? 'ابدأ تنفيذ الاستراتيجية المدفوعة' : 'Start paid strategy execution'}
                         <span className="text-xs text-slate-400">↗</span>
                       </button>
                     </>
@@ -4638,9 +4761,39 @@ function CampaignDetailPageInner() {
                   </div>
                 </div>
 
-                {/* Analytics section */}
-                <div className="rounded-2xl border border-blue-100 bg-white p-6 shadow-sm">
-                  <SocialAnalytics campaignId={campaign.id} />
+                <div className="rounded-2xl border border-violet-100 bg-white p-5 shadow-sm">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold text-slate-950">
+                          {locale === 'ar' ? 'أتمتة النشر' : 'Publishing automation'}
+                        </p>
+                        <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${campaign.autopilotEnabled
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
+                          {campaign.autopilotEnabled
+                            ? (locale === 'ar' ? 'مفعّلة' : 'Enabled')
+                            : (locale === 'ar' ? 'غير مفعّلة' : 'Not enabled')}
+                        </span>
+                      </div>
+                      <p className="mt-2 max-w-3xl text-xs leading-5 text-slate-600">
+                        {locale === 'ar'
+                          ? 'الأتمتة ليست مسارًا منفصلًا: هي وضع تنفيذ لمنشورات AUTO التي راجعتها وجدولتها بموافقة صريحة. التفعيل مجاني ولا ينشئ محتوى ولا يخصم كريديت.'
+                          : 'Automation is not a separate workflow. It is an execution mode for AUTO posts you explicitly reviewed and scheduled. Enabling it is free; it creates no content and spends no credits.'}
+                      </p>
+                      <p className="mt-2 text-[11px] leading-5 text-slate-500">
+                        {locale === 'ar'
+                          ? `${hasExplicitAutoSchedule ? 'يوجد منشور AUTO مؤهل.' : 'لا يوجد منشور AUTO مؤهل بعد.'} ${hasVerifiedPublishingConnection ? 'اتصال نشر موثّق متاح.' : 'يلزم اتصال نشر موثّق.'}`
+                          : `${hasExplicitAutoSchedule ? 'An eligible AUTO post exists.' : 'No eligible AUTO post exists yet.'} ${hasVerifiedPublishingConnection ? 'A provider-verified publishing connection is available.' : 'A provider-verified publishing connection is required.'}`}
+                      </p>
+                    </div>
+                    <Link
+                      href={`/campaigns/${campaign.id}?tab=autopilot`}
+                      className="shrink-0 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-700 transition hover:bg-violet-100"
+                    >
+                      {locale === 'ar' ? 'مراجعة إعدادات الأتمتة' : 'Review automation settings'}
+                    </Link>
+                  </div>
                 </div>
               </div>
             )}
@@ -4686,10 +4839,10 @@ function CampaignDetailPageInner() {
                   {!campaign.autopilotEnabled && (
                     <div className="mt-4 space-y-1.5">
                       {[
-                        { label: locale === 'ar' ? 'استراتيجية مولَّدة' : 'Strategy generated', done: !!aiOutput },
-                        { label: locale === 'ar' ? 'خطة تنفيذ أسبوعية' : 'Weekly execution plan', done: weeklyExecutionPlan.length > 0 },
+                        { label: locale === 'ar' ? 'الاستراتيجية اجتازت الحقيقة والجودة' : 'Strategy passed truth and quality review', done: completeQualityReviewPassed },
                         { label: locale === 'ar' ? 'تمت مراجعة كل مسودات المحتوى' : 'All content drafts reviewed', done: hasReviewedContent },
-                        { label: locale === 'ar' ? 'حساب نشر متصل' : 'Publishing account connected', done: hasVerifiedPublishingConnection },
+                        { label: locale === 'ar' ? 'يوجد منشور AUTO مجدول بموافقة صريحة' : 'At least one explicitly approved AUTO post is scheduled', done: hasExplicitAutoSchedule },
+                        { label: locale === 'ar' ? 'صلاحية نشر موثقة من المنصة' : 'Provider-verified publishing connection', done: hasVerifiedPublishingConnection },
                       ].map((req, i) => (
                         <div key={i} className="flex items-center gap-2 text-xs">
                           <span className={req.done ? 'text-green-600' : 'text-slate-400'}>
@@ -4745,30 +4898,7 @@ function CampaignDetailPageInner() {
                       </>
                     ) : (
                       <button
-                        onClick={async () => {
-                          const token = authHeader()
-                          if (!token || autopilotActivating || !autopilotRequirementsMet) return
-                          setAutopilotActivating(true)
-                          setAutopilotError('')
-                          try {
-                            const res = await fetch('/api/autopilot/activate', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json', Authorization: token },
-                              body: JSON.stringify({ campaignId }),
-                            })
-                            const d = await res.json()
-                            if (d.ok) {
-                              setCampaign(prev => prev ? { ...prev, autopilotEnabled: true } : prev)
-                              setAutopilotQueue(d.posts || [])
-                            } else {
-                              setAutopilotError(d.error || 'Activation failed')
-                            }
-                          } catch {
-                            setAutopilotError('Network error — please try again')
-                          } finally {
-                            setAutopilotActivating(false)
-                          }
-                        }}
+                        onClick={() => setShowAutopilotConfirm(true)}
                         disabled={autopilotActivating || !autopilotRequirementsMet}
                         className="px-5 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-40"
                         style={{
@@ -4796,22 +4926,11 @@ function CampaignDetailPageInner() {
                         : '⚠ Run Full Strategy first to enable Autopilot'}
                     </p>
                   )}
-                  {aiOutput && weeklyExecutionPlan.length === 0 && (
-                    <p className={`mt-3 text-xs ${hasManualOrScheduledWorkflowRecords ? 'text-slate-600' : 'text-amber-700'}`}>
-                      {hasManualOrScheduledWorkflowRecords
-                        ? (locale === 'ar'
-                            ? '📌 الأوتوبايلوت غير مفعّل. المنشورات المجدولة أو المؤكدة يدويًا هي سجلات سير عمل، ولا تحتاج إعادة توليد الاستراتيجية لمجرد غياب خطة تنفيذ أسبوعية.'
-                            : '📌 Autopilot is not enabled. Scheduled or manually published posts are workflow records; they do not require strategy regeneration just because a weekly execution plan is missing.')
-                        : (locale === 'ar'
-                            ? '⚠ خطة التنفيذ الأسبوعية غير موجودة في هذه الاستراتيجية — راجع الاستراتيجية قبل إعداد الأوتوبايلوت'
-                            : '⚠ No weekly execution plan found — review strategy before setting up Autopilot')}
-                    </p>
-                  )}
-                  {aiOutput && weeklyExecutionPlan.length > 0 && !hasVerifiedPublishingConnection && (
+                  {aiOutput && !hasExplicitAutoSchedule && (
                     <p className="mt-3 text-xs text-amber-700">
                       {locale === 'ar'
-                        ? '⚠ يحتاج الأوتوبايلوت إلى حساب نشر متصل ومراجعة المحتوى قبل التفعيل.'
-                        : '⚠ Autopilot needs a connected publishing account and content review before enablement.'}
+                        ? '⚠ اعتمد المحتوى، راجع الوسائط، ثم اختر جدولة AUTO بموافقة صريحة من Content Hub قبل تفعيل الأوتوبايلوت.'
+                        : '⚠ Approve content, review media, then explicitly schedule at least one AUTO post in Content Hub before enabling Autopilot.'}
                     </p>
                   )}
                 </div>
@@ -4929,15 +5048,15 @@ function CampaignDetailPageInner() {
                     </h4>
                     <div className="space-y-2.5">
                       {(locale === 'ar' ? [
-                        { icon: '🧠', label: 'يقرأ خطة التنفيذ الأسبوعية من الاستراتيجية' },
-                        { icon: '✍️', label: 'يولد كابشن احترافي لكل منشور بناءً على الرسالة والـ CTA' },
-                        { icon: '🎨', label: 'يمكن إعداد صورة لكل منشور قبل الموعد عند اكتمال المتطلبات' },
-                        { icon: '📤', label: 'لا ينشر أي محتوى إلا بعد مراجعة وتفعيل صريح' },
+                        { icon: '✓', label: 'يقبل فقط منشورات AUTO المجدولة التي تحمل موافقة نشر صريحة' },
+                        { icon: '🔒', label: 'يتحقق من اعتماد الاستراتيجية والمحتوى والوسائط واتصال المنصة قبل التفعيل' },
+                        { icon: '📤', label: 'يحاول نشر العناصر المستحقة فقط عبر اتصال المنصة الموثق' },
+                        { icon: '⏸', label: 'يمكن إيقافه؛ ولا يولّد نصوصًا أو صورًا ولا يخصم كريديت عند التفعيل' },
                       ] : [
-                        { icon: '🧠', label: 'Reads the weekly execution plan from your strategy' },
-                        { icon: '✍️', label: 'Generates a professional caption for each post based on the key message + CTA' },
-                        { icon: '🎨', label: 'Can prepare an image for each post when requirements are complete' },
-                        { icon: '📤', label: 'Does not publish content without explicit review and enablement' },
+                        { icon: '✓', label: 'Accepts only scheduled AUTO posts carrying explicit publish consent' },
+                        { icon: '🔒', label: 'Checks strategy, content, media, and provider connection readiness before enablement' },
+                        { icon: '📤', label: 'Attempts only due items through a provider-verified publishing connection' },
+                        { icon: '⏸', label: 'Can be paused; enabling it generates no copy or images and spends no credits' },
                       ]).map((step, i) => (
                         <div key={i} className="flex items-start gap-3">
                           <span className="text-sm flex-shrink-0 mt-0.5">{step.icon}</span>
@@ -5001,13 +5120,6 @@ function CampaignDetailPageInner() {
                   const topPosts: any[] = perfData.topPosts ?? []
                   const trend: any[] = perfData.trend ?? []
 
-                  const PLATFORM_COLORS: Record<string, string> = {
-                    META: '#1877F2', LINKEDIN: '#0A66C2', TIKTOK: '#010101', YOUTUBE: '#FF0000',
-                  }
-                  const PLATFORM_ICONS: Record<string, string> = {
-                    META: '📘', LINKEDIN: '💼', TIKTOK: '🎵', YOUTUBE: '▶️',
-                  }
-
                   return (
                     <>
                       {/* KPI summary row */}
@@ -5043,7 +5155,7 @@ function CampaignDetailPageInner() {
                         ))}
                         {s.pendingAnalytics > 0 && (
                           <p className="ml-auto self-center text-xs text-amber-700">
-                            Analytics are fetched automatically 24-72h after publishing
+                            Awaiting provider-backed analytics; no performance is inferred while evidence is unavailable.
                           </p>
                         )}
                       </div>
@@ -5383,12 +5495,70 @@ function CampaignDetailPageInner() {
       </div>
     )}
 
+    {showAutopilotConfirm && (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
+        <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+          <h2 className="text-lg font-bold text-slate-950">
+            {locale === 'ar' ? 'تفعيل مراقبة Autopilot' : 'Enable Autopilot monitoring'}
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            {locale === 'ar'
+              ? 'لا ينشئ هذا الإجراء محتوى جديدًا ولا يستهلك كريديت. سيُراقب فقط المنشورات التي راجعتها وجدولتها صراحةً بوضع AUTO، وقد تُنشر تلقائيًا في موعدها بعد اجتياز فحوص المنصة.'
+              : 'This action creates no new content and uses no credits. It monitors only posts you reviewed and explicitly scheduled as AUTO; those posts may publish at their scheduled time after provider safety checks pass.'}
+          </p>
+          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-800">
+            {locale === 'ar' ? 'التكلفة: 0 كريديت · عدد طلبات AI: صفر' : 'Cost: 0 credits · AI provider calls: zero'}
+          </div>
+          <label className="mt-4 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+            <input
+              type="checkbox"
+              checked={autopilotConsentAcknowledged}
+              onChange={event => setAutopilotConsentAcknowledged(event.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+            />
+            <span>
+              {locale === 'ar'
+                ? 'أؤكد أنني راجعت قائمة AUTO وأفهم أن المنشورات المؤهلة قد تُرسل تلقائيًا إلى المنصات في مواعيدها.'
+                : 'I reviewed the AUTO queue and understand that eligible posts may be sent automatically to their platforms at the scheduled times.'}
+            </span>
+          </label>
+          {autopilotError && <p className="mt-3 text-sm text-red-600">{autopilotError}</p>}
+          <div className="mt-5 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setShowAutopilotConfirm(false)
+                setAutopilotConsentAcknowledged(false)
+              }}
+              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
+            >
+              {locale === 'ar' ? 'إلغاء' : 'Cancel'}
+            </button>
+            <button
+              type="button"
+              onClick={handleEnableAutopilot}
+              disabled={!autopilotConsentAcknowledged || autopilotActivating}
+              className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {autopilotActivating
+                ? (locale === 'ar' ? 'جارٍ التفعيل...' : 'Enabling...')
+                : (locale === 'ar' ? 'تأكيد التفعيل' : 'Confirm enablement')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     <CreditConfirmModal
       isOpen={showSentinelConfirm}
       onClose={() => setShowSentinelConfirm(false)}
       onConfirm={handleSentinelReview}
       cost={sentinelCreditCost}
       actionTitle={uiText('فحص جودة الاستراتيجية', 'Strategy quality review')}
+      reason={uiText(
+        'يستهلك هذا الفحص استدعاء ذكاء مستقلًا لمراجعة الادعاءات واتساق البراند والمخاطر بعد نجاح الفحص الحتمي المجاني.',
+        'This uses a separate AI review for claims, brand alignment, and risk after the free deterministic gate passes.',
+      )}
       authHeader={authHeader}
       locale={locale}
       includedItems={uiIsArabic

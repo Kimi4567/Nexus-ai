@@ -43,7 +43,8 @@ export async function generateMetadata(props: { params: Promise<{ token: string 
   const workspaceName = campaign.project?.workspace?.name || 'Nexus AI'
 
   const title = `${campaign.name} — ${goalLabel} by ${workspaceName}`
-  const description = `AI-generated ${goalLabel.toLowerCase()} for ${platformList}. Strategy, hooks, scripts, and a 30-day content calendar — built with Nexus AI.`
+  const channelContext = platformList || 'saved channels'
+  const description = `Reviewable ${goalLabel.toLowerCase()} draft for ${channelContext}, grounded in the workspace Brand Brain and built with Nexus AI.`
   const ogImageUrl = `${APP_URL}/api/og/share?token=${params.token}`
 
   return {

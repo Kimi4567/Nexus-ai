@@ -37,6 +37,7 @@ const STRONG_DRIFT_PATTERNS: Array<{ label: string; re: RegExp }> = [
   { label: 'internal ownership workflow', re: /request,?\s+owner,?\s+(?:last|latest)\s+(?:update|note)|status,?\s+owner,?.*next\s+(?:admin\s+)?step/i },
   { label: 'leadership operations', re: /before leadership sees it|team meeting|operating checklist|workflow review/i },
   { label: 'clinic administration', re: /clinic administrative workflow|administrative patient follow[-\s]?up|admin(?:istrative)?\s+(?:workflow|review|step)/i },
+  { label: 'internal communication', re: /bilingual administrative communication|internal communication|team ownership|compare (?:the )?(?:current )?workflow|save this idea for review/i },
   { label: 'إدارة داخلية للعيادة', re: /فريق الاستقبال|التسليم بين الزملاء|اجتماع الفريق|قائمة مراجعة تشغيلية|العمل الإداري داخل العيادة|متابعة المرضى إداريًا/i },
 ]
 

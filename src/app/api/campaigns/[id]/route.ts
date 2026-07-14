@@ -48,21 +48,32 @@ export async function PATCH(req: NextRequest, props: Params) {
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const body = await req.json()
-    const allowed = ['name', 'description', 'status', 'favorite', 'audience', 'tone', 'platforms', 'aiOutput']
+    if ('aiOutput' in body) {
+      return NextResponse.json({
+        error: 'AI_OUTPUT_SERVER_MANAGED',
+        message: 'Generated campaign output can only be changed by validated generation and review routes.',
+      }, { status: 400 })
+    }
+    if (body.status === 'ACTIVE') {
+      return NextResponse.json({
+        error: 'USE_STRATEGY_APPROVAL_WORKFLOW',
+        message: 'Approve strategy through the strategy approval workflow so quality checks and the decision audit are preserved.',
+      }, { status: 409 })
+    }
+    if ('status' in body && !(
+      body.status === 'ARCHIVED'
+      || (body.status === 'DRAFT' && existing.status === 'ARCHIVED')
+    )) {
+      return NextResponse.json({
+        error: 'INVALID_CAMPAIGN_STATUS_TRANSITION',
+        message: 'This campaign status change is not available from the general edit route.',
+      }, { status: 409 })
+    }
+
+    const allowed = ['name', 'description', 'status', 'favorite', 'audience', 'tone', 'platforms', 'goal']
     const data: Record<string, any> = {}
     for (const key of allowed) {
       if (key in body) data[key] = body[key]
-    }
-
-    if (body.status === 'ACTIVE') {
-      const aiOutput = (existing.aiOutput as any) || {}
-      const sentinelPassed = aiOutput.sentinelReview?.status === 'passed'
-      if (!sentinelPassed) {
-        return NextResponse.json({
-          error: 'ENGINE_NOT_READY',
-          message: 'Run NEXUS Engine and pass Sentinel review before approval.',
-        }, { status: 409 })
-      }
     }
 
     const updated = await prisma.campaign.update({ where: { id: params.id }, data })

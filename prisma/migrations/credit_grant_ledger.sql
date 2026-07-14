@@ -13,8 +13,9 @@
 --   balance is a SEPARATE manual step:
 --     npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/backfill-credit-grants.ts --apply
 --
--- NO RUNTIME READER YET: nothing in the app reads/writes CreditGrant at this
---   point (B1b). User.aiCredits remains the authoritative live balance until B1c.
+-- Runtime reads/writes are feature-flagged. With CREDIT_WALLET_ENABLED unset or
+-- false, User.aiCredits remains the legacy authoritative path; enabling the flag
+-- requires this table plus the idempotent backfill to be present first.
 
 -- 1. Enums (guarded — CREATE TYPE has no IF NOT EXISTS) -----------------------
 DO $$ BEGIN

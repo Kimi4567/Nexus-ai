@@ -2,11 +2,12 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { Providers } from './providers'
 import { LanguageProvider } from '@/contexts/LanguageContext'
+import ConsentAwareTelemetry from '@/components/ConsentAwareTelemetry'
 
 export const metadata: Metadata = {
-  title: 'NEXUS AI | Your AI Marketing Department',
+  title: 'NEXUS AI | Marketing Operating System',
   description:
-    'NEXUS AI is your AI marketing assistant — strategy, content, campaigns, and brand safety in one platform. Start free with 15 AI credits.',
+    'Build reviewed strategy, content plans, paid planning, approvals, and evidence-backed monitoring from one Brand Brain. Start with 12 one-time trial credits.',
   keywords: [
     'AI marketing', 'marketing automation', 'AI marketing department',
     'campaign generator', 'content creation', 'social media marketing',
@@ -14,8 +15,8 @@ export const metadata: Metadata = {
   ],
   metadataBase: new URL('https://nexus-grow.com'),
   openGraph: {
-    title: 'NEXUS AI — Your AI Marketing Department',
-    description: 'Strategy, content, campaigns, and analytics — in one AI platform. Start free with 15 AI credits, no credit card required.',
+    title: 'NEXUS AI — Marketing Operating System',
+    description: 'Brand Brain, reviewed strategy, content planning, approvals, and evidence-backed monitoring in one platform. Start with 12 trial credits.',
     url: 'https://nexus-grow.com',
     siteName: 'NEXUS AI',
     type: 'website',
@@ -24,14 +25,14 @@ export const metadata: Metadata = {
         url: '/opengraph-image',
         width: 1200,
         height: 630,
-        alt: 'NEXUS AI — Your AI Marketing Department',
+        alt: 'NEXUS AI — Marketing Operating System',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'NEXUS AI — Your AI Marketing Department',
-    description: 'Strategy, content, campaigns, and analytics — in one AI platform. Start free with 15 AI credits.',
+    title: 'NEXUS AI — Marketing Operating System',
+    description: 'Brand Brain, reviewed strategy, content planning, approvals, and evidence-backed monitoring. Start with 12 trial credits.',
     images: ['/opengraph-image'],
   },
   robots: { index: true, follow: true },
@@ -76,6 +77,7 @@ export default function RootLayout({
             {children}
           </LanguageProvider>
         </Providers>
+        <ConsentAwareTelemetry />
       </body>
     </html>
   )

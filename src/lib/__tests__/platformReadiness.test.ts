@@ -39,6 +39,9 @@ describe('derivePlatformReadiness — honesty rules', () => {
     expect(get(s, 'instagram').status).toBe('not_connected')
     expect(get(s, 'tiktok').status).toBe('not_connected')
     expect(get(s, 'linkedin').status).toBe('not_connected')
+    expect(get(s, 'x').status).toBe('not_connected')
+    expect(get(s, 'pinterest').status).toBe('not_connected')
+    expect(get(s, 'threads').status).toBe('not_connected')
     expect(s.every((x) => x.status !== 'ready')).toBe(true)
   })
 
@@ -76,13 +79,100 @@ describe('derivePlatformReadiness — honesty rules', () => {
     expect(get(s, 'linkedin').status).toBe('permission_unverified')
   })
 
-  it('YouTube Shorts / Google / Snapchat / WhatsApp → not_available with no CTA', () => {
+  it('YouTube asks for a connection while platforms without connectors stay unavailable', () => {
     const s = derivePlatformReadiness([])
-    for (const k of ['youtube', 'google', 'snapchat', 'whatsapp']) {
+    expect(get(s, 'youtube').status).toBe('not_connected')
+    expect(get(s, 'youtube').action).toBe('connect-youtube')
+    for (const k of ['google', 'snapchat', 'whatsapp']) {
       expect(get(s, k).status).toBe('not_available')
       expect(get(s, k).action).toBe('none')
       expect(get(s, k).actionKey).toBeNull()
     }
+  })
+
+  it('YouTube becomes ready only with upload, readback, and offline refresh evidence', () => {
+    const s = derivePlatformReadiness([{
+      platform: 'YOUTUBE',
+      status: 'CONNECTED',
+      capabilities: {
+        youtubeVideoPublishing: true,
+        youtubeReadback: true,
+        tokenRefresh: true,
+      },
+    }])
+    expect(get(s, 'youtube').status).toBe('ready')
+
+    const withoutRefresh = derivePlatformReadiness([{
+      platform: 'YOUTUBE',
+      status: 'CONNECTED',
+      capabilities: { youtubeVideoPublishing: true, youtubeReadback: true, tokenRefresh: false },
+    }])
+    expect(get(withoutRefresh, 'youtube').status).toBe('permission_unverified')
+  })
+
+  it('X becomes ready only with publishing, image, readback, and refresh evidence', () => {
+    const ready = derivePlatformReadiness([{
+      platform: 'X',
+      status: 'CONNECTED',
+      capabilities: {
+        xPublishing: true,
+        xMediaPublishing: true,
+        xReadback: true,
+        tokenRefresh: true,
+      },
+    }])
+    expect(get(ready, 'x').status).toBe('ready')
+
+    const noReadback = derivePlatformReadiness([{
+      platform: 'X',
+      status: 'CONNECTED',
+      capabilities: { xPublishing: true, xMediaPublishing: true, xReadback: false, tokenRefresh: true },
+    }])
+    expect(get(noReadback, 'x').status).toBe('permission_unverified')
+  })
+
+  it('Pinterest is review-ready only when technical evidence and Standard access are both present', () => {
+    const trial = derivePlatformReadiness([{
+      platform: 'PINTEREST',
+      status: 'CONNECTED',
+      capabilities: {
+        pinterestPinPublishing: true,
+        pinterestReadback: true,
+        pinterestBoardSelection: true,
+        pinterestPublicPublishing: false,
+        tokenRefresh: true,
+      },
+    }])
+    expect(get(trial, 'pinterest').status).toBe('needs_setup')
+
+    const standard = derivePlatformReadiness([{
+      platform: 'PINTEREST',
+      status: 'CONNECTED',
+      capabilities: {
+        pinterestPinPublishing: true,
+        pinterestReadback: true,
+        pinterestBoardSelection: true,
+        pinterestPublicPublishing: true,
+        tokenRefresh: true,
+      },
+    }])
+    expect(get(standard, 'pinterest').status).toBe('ready')
+  })
+
+  it('Threads distinguishes verified development testing from Live public readiness', () => {
+    const development = derivePlatformReadiness([{
+      platform: 'THREADS', status: 'CONNECTED', capabilities: {
+        threadsPostPublishing: true, threadsReadback: true, threadsPublicPublishing: false, tokenRefresh: true,
+      },
+    }])
+    expect(get(development, 'threads').status).toBe('needs_setup')
+
+    const live = derivePlatformReadiness([{
+      platform: 'THREADS', status: 'CONNECTED', capabilities: {
+        threadsPostPublishing: true, threadsReadback: true, threadsPublicPublishing: true, tokenRefresh: true,
+      },
+    }])
+    expect(get(live, 'threads').status).toBe('ready')
   })
 
   it('Paid ads without a Meta ad account asks for Meta Ads connection', () => {
@@ -133,11 +223,11 @@ describe('derivePlatformReadiness — honesty rules', () => {
   it('null/undefined input does not crash', () => {
     expect(() => derivePlatformReadiness(null)).not.toThrow()
     expect(() => derivePlatformReadiness(undefined)).not.toThrow()
-    expect(derivePlatformReadiness(null).length).toBe(9)
+    expect(derivePlatformReadiness(null).length).toBe(12)
   })
 
-  it('summarizeForStrip returns FB, IG, TikTok, LinkedIn, YouTube, Paid in order', () => {
+  it('summarizeForStrip returns organic publishers and Paid in canonical order', () => {
     const s = summarizeForStrip(derivePlatformReadiness([metaWithPageAndIg]))
-    expect(s.map((x) => x.key)).toEqual(['facebook', 'instagram', 'tiktok', 'linkedin', 'youtube', 'paid'])
+    expect(s.map((x) => x.key)).toEqual(['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'threads', 'youtube', 'pinterest', 'paid'])
   })
 })

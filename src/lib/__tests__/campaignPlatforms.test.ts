@@ -21,6 +21,10 @@ describe('normalizeCampaignPlatforms (PR-1M)', () => {
       .toEqual(['FACEBOOK'])
   })
 
+  it('normalizes the legacy Twitter key to the first-class X channel', () => {
+    expect(normalizeCampaignPlatforms(['TWITTER', 'x', 'X'])).toEqual(['X'])
+  })
+
   it('orders consistently regardless of input order (so surfaces agree)', () => {
     const a = normalizeCampaignPlatforms(['LinkedIn', 'Instagram', 'Facebook'])
     const b = normalizeCampaignPlatforms(['Facebook', 'LinkedIn', 'Instagram'])

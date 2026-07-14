@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
-import { PLANS_CREDITS, getUsageSummary, getMonthlyActivity } from '@/lib/credits'
+import { FREE_STARTER_CREDITS, PLANS_CREDITS, getUsageSummary, getMonthlyActivity } from '@/lib/credits'
 import { summarizePerformanceEvidence } from '@/lib/performanceSummary'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -31,7 +31,7 @@ export async function GET(req: Request) {
 
     const plan = (user?.subscriptionStatus ?? 'FREE') as string
     const isUnlimited = plan === 'AGENCY'
-    const monthlyTotal = PLANS_CREDITS[plan] ?? 15
+    const monthlyTotal = PLANS_CREDITS[plan] ?? FREE_STARTER_CREDITS
     const creditsRemaining = user?.aiCredits ?? 0
 
     // Real usage from the credit ledger (shared with /api/dashboard/stats).
@@ -164,7 +164,7 @@ export async function GET(req: Request) {
     return NextResponse.json({
       campaigns: 0, activeCampaigns: 0, draftCampaigns: 0,
       generations: 0, publishedPosts: 0, visualsCount: 0,
-      creditsRemaining: 0, creditsUsedThisMonth: 0, monthlyTotal: 15,
+      creditsRemaining: 0, creditsUsedThisMonth: 0, monthlyTotal: FREE_STARTER_CREDITS,
       isUnlimited: false, plan: 'FREE',
       monthlyActivity: [],
       topCampaigns: [],

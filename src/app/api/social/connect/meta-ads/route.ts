@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { createOAuthState } from '@/lib/oauthState'
+import { META_ADS_SCOPES, META_GRAPH_VERSION } from '@/lib/socialPlatformConfig'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,15 +41,10 @@ export async function GET(req: NextRequest) {
     // Ads-specific scopes (separate from organic publishing scopes)
     // NOTE: ads_management + business_management require Meta App Review.
     // Without approval, only developer-role test accounts can use this.
-    const scopes = [
-      'public_profile',
-      'ads_management',       // Create/edit/delete campaigns, ad sets, ads, creatives
-      'ads_read',             // Read campaign + Ads Insights metrics
-      'business_management',  // Access Business Manager + ad account hierarchy
-    ].join(',')
+    const scopes = META_ADS_SCOPES.join(',')
 
     const metaOAuthUrl =
-      `https://www.facebook.com/v21.0/dialog/oauth` +
+      `https://www.facebook.com/${META_GRAPH_VERSION}/dialog/oauth` +
       `?client_id=${appId}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
       `&scope=${encodeURIComponent(scopes)}` +

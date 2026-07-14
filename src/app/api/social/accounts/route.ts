@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
+import { PINTEREST_PUBLISH_SCOPES, PINTEREST_USER_READ_SCOPE, pinterestBoardsFromConfig } from '@/lib/pinterestPublishing'
+import { THREADS_BASIC_SCOPE, THREADS_INSIGHTS_SCOPE, THREADS_PUBLISH_SCOPE } from '@/lib/threadsPublishing'
 
 async function getUser(req: NextRequest) {
   const token = req.headers.get('authorization')?.replace('Bearer ', '')
@@ -21,8 +23,8 @@ export async function GET(req: NextRequest) {
     const integrations = await prisma.integration.findMany({
       where: {
         workspaceId: workspace.id,
-        status: 'CONNECTED',
-        type: { in: ['META', 'LINKEDIN', 'TIKTOK'] as any[] },
+        status: { in: ['CONNECTED', 'EXPIRED', 'ERROR'] },
+        type: { in: ['META', 'LINKEDIN', 'TIKTOK', 'YOUTUBE', 'X', 'PINTEREST', 'THREADS'] as any[] },
       },
       select: {
         id: true,
@@ -31,23 +33,90 @@ export async function GET(req: NextRequest) {
         accountId: true,
         accountName: true,
         config: true,
+        accessToken: true,
+        refreshToken: true,
         lastSyncedAt: true,
         createdAt: true,
       },
     })
 
     // Strip raw tokens from response — only return safe fields
-    const accounts = integrations.map(i => ({
-      id: i.id,
-      platform: i.type,
-      status: i.status,
-      accountId: i.accountId,
-      accountName: i.accountName,
-      pages: (i.config as any)?.pages || [],
-      pictureUrl: (i.config as any)?.pictureUrl || null,
-      connectedAt: (i.config as any)?.connectedAt || i.createdAt,
-      lastSyncedAt: i.lastSyncedAt,
-    }))
+    const accounts = integrations.map(i => {
+      const config = i.config && typeof i.config === 'object' && !Array.isArray(i.config)
+        ? i.config as Record<string, any>
+        : {}
+      const rawPages = Array.isArray(config.pages) ? config.pages : []
+      const pages = rawPages.map((page: any) => ({
+        id: typeof page?.id === 'string' ? page.id : '',
+        name: typeof page?.name === 'string' ? page.name : '',
+        igAccountId: typeof page?.igAccountId === 'string' ? page.igAccountId : null,
+      })).filter((page: { id: string }) => page.id)
+      const organizations = (Array.isArray(config.organizations) ? config.organizations : [])
+        .map((organization: any) => ({
+          id: typeof organization?.id === 'string' ? organization.id : '',
+          name: typeof organization?.name === 'string' ? organization.name : '',
+          urn: typeof organization?.urn === 'string' ? organization.urn : undefined,
+        }))
+        .filter((organization: { id: string }) => organization.id)
+      const boards = i.type === 'PINTEREST' ? pinterestBoardsFromConfig(config) : []
+      const scopes = Array.isArray(config.scopes) ? config.scopes.filter((scope: unknown) => typeof scope === 'string') : []
+      const scopesVerified = config.scopeEvidence === 'provider_response'
+      const pinterestScopeReady = i.type === 'PINTEREST'
+        && scopesVerified
+        && [...PINTEREST_PUBLISH_SCOPES, PINTEREST_USER_READ_SCOPE].every(scope => scopes.includes(scope))
+      const threadsPublishReady = i.type === 'THREADS'
+        && scopesVerified
+        && [THREADS_BASIC_SCOPE, THREADS_PUBLISH_SCOPE].every(scope => scopes.includes(scope))
+      const threadsReadbackReady = i.type === 'THREADS'
+        && scopesVerified
+        && [THREADS_BASIC_SCOPE, THREADS_INSIGHTS_SCOPE].every(scope => scopes.includes(scope))
+      const capabilities = {
+        facebookPublishing: i.type === 'META' && scopesVerified && scopes.includes('pages_manage_posts') && rawPages.some((page: any) => page?.id && page?.accessToken),
+        instagramPublishing: i.type === 'META' && scopesVerified && scopes.includes('instagram_content_publish') && rawPages.some((page: any) => page?.igAccountId && page?.accessToken),
+        linkedInMemberPublishing: i.type === 'LINKEDIN' && scopesVerified && scopes.includes('w_member_social') && Boolean(i.accountId),
+        linkedInOrganizationPublishing: i.type === 'LINKEDIN' && scopesVerified && scopes.includes('w_organization_social') && organizations.length > 0,
+        tikTokDirectPosting: i.type === 'TIKTOK' && scopesVerified && scopes.includes('video.publish'),
+        tikTokCreatorInfoVerified: i.type === 'TIKTOK' && Boolean(config.creatorInfoVerifiedAt),
+        youtubeVideoPublishing: i.type === 'YOUTUBE' && scopesVerified && scopes.includes('https://www.googleapis.com/auth/youtube.upload') && Boolean(i.accountId),
+        youtubeReadback: i.type === 'YOUTUBE' && scopesVerified && scopes.includes('https://www.googleapis.com/auth/youtube.readonly') && Boolean(i.accountId),
+        xPublishing: i.type === 'X' && scopesVerified && scopes.includes('tweet.write') && Boolean(i.accountId),
+        xMediaPublishing: i.type === 'X' && scopesVerified && scopes.includes('media.write') && Boolean(i.accountId),
+        xReadback: i.type === 'X' && scopesVerified && scopes.includes('tweet.read') && scopes.includes('users.read') && Boolean(i.accountId),
+        pinterestPinPublishing: pinterestScopeReady && boards.length > 0 && Boolean(i.accountId),
+        pinterestReadback: pinterestScopeReady && Boolean(i.accountId),
+        pinterestBoardSelection: i.type === 'PINTEREST' && boards.length > 0,
+        pinterestPublicPublishing: pinterestScopeReady && boards.length > 0 && config.accessTier === 'STANDARD',
+        threadsPostPublishing: threadsPublishReady && Boolean(i.accountId),
+        threadsReadback: threadsReadbackReady && Boolean(i.accountId),
+        threadsPublicPublishing: threadsPublishReady && Boolean(i.accountId) && config.accessTier === 'LIVE',
+        tokenRefresh: i.type === 'THREADS' ? Boolean(i.accessToken) : Boolean(i.refreshToken),
+      }
+      return {
+        id: i.id,
+        platform: i.type,
+        status: i.status,
+        accountId: i.accountId,
+        accountName: i.accountName,
+        pages,
+        organizations,
+        boards,
+        selectedOrganizationId: config.organizationId || null,
+        pictureUrl: config.pictureUrl || null,
+        channelUrl: config.channelUrl || null,
+        profileUrl: config.profileUrl || null,
+        accessTier: i.type === 'PINTEREST'
+          ? config.accessTier || 'TRIAL'
+          : i.type === 'THREADS'
+            ? config.accessTier || 'DEVELOPMENT'
+            : null,
+        scopes,
+        expiresAt: config.expiresAt || null,
+        refreshExpiresAt: config.refreshExpiresAt || null,
+        capabilities,
+        connectedAt: config.connectedAt || i.createdAt,
+        lastSyncedAt: i.lastSyncedAt,
+      }
+    })
 
     return NextResponse.json({ accounts })
   } catch (err: any) {

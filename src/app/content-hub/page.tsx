@@ -236,7 +236,7 @@ export default function ContentHubPage() {
   }, [activeFormat, posts])
 
   const latestCampaign = campaigns[0]
-  const latestCampaignContentHref = latestCampaign ? `/campaigns/${latestCampaign.id}/content-hub` : '/content-hub'
+  const latestCampaignContentHref = latestCampaign ? `/campaigns/${latestCampaign.id}/content-hub` : '/strategy'
   const samplePost = filteredPosts.find(post => post.imageUrl) ?? filteredPosts[0] ?? posts.find(post => post.imageUrl) ?? posts[0]
   const recentPosts = filteredPosts.filter(post => {
     const status = String(post.status || 'DRAFT').toUpperCase()
@@ -284,9 +284,9 @@ export default function ContentHubPage() {
             pageTitle={isAr ? 'مركز إنتاج المحتوى' : 'Content Production Hub'}
             pageSubtitle={isAr ? 'حوّل الاستراتيجية إلى منشورات ووسائط قابلة للمراجعة قبل النشر.' : 'Turn strategy into reviewable posts and media before publishing.'}
             primaryHref={latestCampaignContentHref}
-            primaryLabel={isAr ? 'مراجعة الإنتاج' : 'Review production'}
-            secondaryHref="/campaigns"
-            secondaryLabel={isAr ? 'محفظة الحملات' : 'Campaign portfolio'}
+            primaryLabel={latestCampaign ? (isAr ? 'مراجعة الإنتاج' : 'Review production') : (isAr ? 'إنشاء استراتيجية' : 'Create strategy')}
+            secondaryHref="/strategy"
+            secondaryLabel={isAr ? 'الاستراتيجية والحملات' : 'Strategy & campaigns'}
           />
 
           {error && (
@@ -334,7 +334,7 @@ export default function ContentHubPage() {
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.95fr_1.25fr_1fr]">
                 <SoftPanel className="p-4" dir={isAr ? 'rtl' : 'ltr'}>
                   <div className="mb-4 flex items-center justify-between">
-                    <Link href="/campaigns" className="text-[12px] font-bold text-[#5E63FF]">{isAr ? 'عرض الكل' : 'View all'}</Link>
+                    <Link href="/strategy" className="text-[12px] font-bold text-[#5E63FF]">{isAr ? 'عرض مسار الحملات' : 'View campaign workflow'}</Link>
                     <div className="text-right">
                       <p className="text-[12px] font-bold text-[#5E63FF]">{isAr ? 'قائمة قرارات الإنتاج' : 'Production decisions'}</p>
                       <h2 className="text-[17px] font-black text-[#0B1028]">{isAr ? 'عناصر غير مكتملة' : 'Incomplete items'}</h2>
@@ -393,9 +393,15 @@ export default function ContentHubPage() {
                       </div>
                     </div>
                     <div className="flex items-center justify-between px-4 py-3">
-                      <div className="flex -space-x-2 rtl:space-x-reverse">
-                        {[0, 1, 2].map(item => (
-                          <span key={item} className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-[#EEF2FF] text-[10px] font-black text-[#5E63FF]">N</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { ar: 'نص', en: 'Copy' },
+                          { ar: 'وسائط', en: 'Media' },
+                          { ar: 'مراجعة', en: 'Review' },
+                        ].map(stage => (
+                          <span key={stage.en} className="rounded-full border border-[#DDE2FF] bg-[#EEF2FF] px-2 py-1 text-[9px] font-black text-[#5E63FF]">
+                            {isAr ? stage.ar : stage.en}
+                          </span>
                         ))}
                       </div>
                       <p className="text-[12px] font-bold text-slate-500">{isAr ? sampleMediaState.explanatoryCopy.ar : sampleMediaState.explanatoryCopy.en}</p>
@@ -409,7 +415,7 @@ export default function ContentHubPage() {
                     <h2 className="text-[17px] font-black text-[#0B1028]">{isAr ? 'تجهيزات الصيغ' : 'Format readiness'}</h2>
                   </div>
                   <div className="space-y-3">
-                    {(platformRows.length ? platformRows : [{ platform: 'META', count: 0, ready: 0 }, { platform: 'TIKTOK', count: 0, ready: 0 }, { platform: 'LINKEDIN', count: 0, ready: 0 }]).map(row => {
+                    {platformRows.map(row => {
                       const pct = row.count ? Math.round((row.ready / row.count) * 100) : 0
                       return (
                         <div key={row.platform} className="grid grid-cols-[28px_1fr_auto] items-center gap-3">
@@ -422,6 +428,11 @@ export default function ContentHubPage() {
                         </div>
                       )
                     })}
+                    {platformRows.length === 0 && (
+                      <div className="rounded-[16px] bg-slate-50 px-4 py-5 text-center text-[12px] font-bold text-slate-500">
+                        {isAr ? 'ستظهر جاهزية الصيغ بعد إنشاء خطة محتوى مرتبطة بمنصات الحملة.' : 'Format readiness appears after a content plan is created for the campaign platforms.'}
+                      </div>
+                    )}
                   </div>
                 </SoftPanel>
               </div>

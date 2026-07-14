@@ -9,8 +9,9 @@
  * Pre-flight gate: fetches /api/brand first. If Brand Brain is incomplete,
  * the modal shows a gate screen (hard block) before spending any credits.
  *
- * States: running -> success | no_campaign | credits | no_brand | gate | error
- * Progress is simulated with timed steps while the API call runs.
+ * States: running -> success | no_campaign | credits | no_brand | gate | error.
+ * The running state never invents sub-step completion; only the API response
+ * can move the request to success.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -88,11 +89,34 @@ interface Props {
   startFresh?: boolean
 }
 
+export function strategyDefaultsFromBrand(profile: StrategyBriefProfileLike | null | undefined): {
+  strategyType: 'organic' | 'paid' | 'full'
+  strategyDuration: '30' | '90' | '180' | 'custom'
+  selectedLanguage: 'ar' | 'en' | 'bilingual'
+  customDurationDays: number
+} {
+  const strategyType = profile?.strategyType === 'paid' || profile?.strategyType === 'full'
+    ? profile.strategyType
+    : 'organic'
+  const strategyDuration = ['30', '90', '180', 'custom'].includes(profile?.strategyDuration || '')
+    ? profile?.strategyDuration as '30' | '90' | '180' | 'custom'
+    : '30'
+  const selectedLanguage = profile?.languagePreference === 'en'
+    ? 'en'
+    : profile?.languagePreference === 'both'
+      ? 'bilingual'
+      : 'ar'
+  const customDurationDays = Number.isInteger(profile?.strategyCustomDays)
+    ? Math.max(1, Math.min(180, Number(profile?.strategyCustomDays)))
+    : 45
+
+  return { strategyType, strategyDuration, selectedLanguage, customDurationDays }
+}
+
 // -- Progress steps ----------------------------------------------------------
 
-// Five honest steps that reflect what actually runs: a single strategist agent
-// reading Brand Brain and producing the strategic brief. No fake multi-agent theater.
-const STEP_DURATIONS = [1500, 3000, 4000, 3500, 3000]
+// Scope included in the single server-side strategy request. These labels are
+// displayed as request contents, never as simulated live progress.
 const STEP_ICONS     = [Brain, Cpu, BarChart3, Megaphone, Shield]
 const STEP_COLORS    = ['#4F46E5', '#6366F1', '#059669', '#EA580C', '#0284C7']
 const STEP_KEYS      = ['step1', 'step2', 'step3', 'step4', 'step5'] as const
@@ -187,13 +211,11 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
     setScopeConfirmed(false)
     setCostConfirmed(false)
     setCreditBalance(null)
-    setCurrentStep(0)
     setPhase('brand_review')
     setRunKey(k => k + 1)
   }
 
   const [phase, setPhase]             = useState<Phase>('brand_review')
-  const [currentStep, setCurrentStep] = useState(0)
   const [result, setResult]           = useState<RunResult | null>(null)
   const [gateData, setGateData]       = useState<BrandReadinessResult | null>(null)
   // runKey increments on retry to re-trigger the effect while modal stays open
@@ -267,7 +289,13 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
         { creditsRemaining?: number } | null,
       ]) => {
         if (cancelled) return
-        setStrategyBrandProfile(brandData?.brandProfile ?? null)
+        const profile = brandData?.brandProfile ?? null
+        setStrategyBrandProfile(profile)
+        const defaults = strategyDefaultsFromBrand(profile)
+        setStrategyType(defaults.strategyType)
+        setStrategyDuration(defaults.strategyDuration)
+        setSelectedLanguage(defaults.selectedLanguage)
+        setCustomDurationDays(defaults.customDurationDays)
         if (creditData?.creditsRemaining !== undefined) {
           setCreditBalance(creditData.creditsRemaining)
         }
@@ -355,29 +383,15 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
     }
 
     setPhase('running')
-    setCurrentStep(0)
     setResult(null)
     setGateData(null)
 
     let cancelled = false
-    const timers: ReturnType<typeof setTimeout>[] = []
 
     // ── Define the actual strategy run (called from Continue button or retry) ─
     const startStrategyRun = () => {
       if (cancelled) return
-      let apiDone = false
       setPhase('running')
-      setCurrentStep(0)
-
-      let cumulative = 0
-      STEP_DURATIONS.forEach((duration, i) => {
-        cumulative += duration
-        timers.push(
-          setTimeout(() => {
-            if (!cancelled && !apiDone) setCurrentStep(i + 1)
-          }, cumulative)
-        )
-      })
 
       fetch('/api/strategy/run-full', {
         method: 'POST',
@@ -395,6 +409,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
           strategyDuration,
           contentIntensity,
           customDurationDays,
+          goal: strategyBrandProfile?.campaignObjective || strategyBrandProfile?.businessGoal || undefined,
           customOrganicPostCount: strategyType !== 'paid' && useCustomPostCount
             ? customOrganicPostCount
             : null,
@@ -402,9 +417,6 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
       })
         .then(res => res.json().then((d: RunResult) => ({ ok: res.ok, data: d })))
         .then(({ ok, data: d }) => {
-          apiDone = true
-          timers.forEach(clearTimeout)
-
           // Always persist a successful result — even if the modal was closed mid-run.
           // This means: if the user navigates away while generation is running and the
           // API finishes in the background, the result is saved to sessionStorage.
@@ -434,20 +446,13 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
             return
           }
 
-          setCurrentStep(5)
-          timers.push(
-            setTimeout(() => {
-              if (!cancelled) {
-                setResult(d)
-                if (!d.campaignId) {
-                  setPhase('no_campaign')
-                } else {
-                  setPhase('success')
-                  onSuccess?.()
-                }
-              }
-            }, 600)
-          )
+          setResult(d)
+          if (!d.campaignId) {
+            setPhase('no_campaign')
+          } else {
+            setPhase('success')
+            onSuccess?.()
+          }
         })
         .catch(() => {
           if (!cancelled) {
@@ -504,7 +509,6 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
 
     return () => {
       cancelled = true
-      timers.forEach(clearTimeout)
     }
   }, [
     isOpen,
@@ -519,6 +523,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
     customDurationDays,
     customOrganicPostCount,
     strategyDuration,
+    strategyBrandProfile,
     useCustomPostCount,
     startFresh,
   ])
@@ -668,7 +673,6 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
   const retry = () => {
     clearResultCache()
     setPhase('running')
-    setCurrentStep(0)
     setResult(null)
     setRunKey(k => k + 1)
   }
@@ -1255,33 +1259,19 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
               {STEP_KEYS.map((key, i) => {
                 const Icon     = STEP_ICONS[i]
                 const color    = STEP_COLORS[i]
-                const isDone   = i < currentStep
-                const isActive = i === currentStep
                 return (
                   <div key={key}
-                    className="flex items-center gap-3 p-3 rounded-xl transition-all duration-300"
+                    className="flex items-center gap-3 p-3 rounded-xl"
                     style={{
-                      background: isActive ? `${color}12` : isDone ? 'rgba(16,185,129,0.05)' : 'transparent',
-                      border: `1px solid ${isActive ? `${color}35` : isDone ? 'rgba(16,185,129,0.18)' : '#e2e8f0'}`,
+                      background: `${color}08`,
+                      border: '1px solid #e2e8f0',
                     }}
                   >
                     <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{
-                        background: isDone   ? 'rgba(16,185,129,0.15)'
-                                  : isActive ? `${color}18`
-                                  : '#f8fafc',
-                      }}>
-                      {isDone ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      ) : isActive ? (
-                        <div className="w-3.5 h-3.5 border-2 rounded-full animate-spin"
-                          style={{ borderColor: `${color}40`, borderTopColor: color }} />
-                      ) : (
-                        <Icon className="w-3.5 h-3.5" style={{ color, opacity: i > currentStep ? 0.2 : 1 }} />
-                      )}
+                      style={{ background: `${color}14` }}>
+                      <Icon className="w-3.5 h-3.5" style={{ color }} />
                     </div>
-                    <span className="text-sm font-medium transition-colors"
-                      style={{ color: isDone ? '#059669' : isActive ? '#1e293b' : '#94a3b8' }}>
+                    <span className="text-sm font-medium text-slate-700">
                       {rs[key]}
                     </span>
                   </div>
@@ -1393,10 +1383,11 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
         {/* ========== SUCCESS PHASE ========== */}
         {phase === 'success' && result && (
           <div className="p-6">
-            <button onClick={handleCloseFromSuccess}
+              <button onClick={handleCloseFromSuccess}
               className="absolute top-4 end-4 p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white/5 transition-all">
-              <X className="w-4 h-4" />
-            </button>
+                <span className="sr-only">{locale === 'ar' ? 'إغلاق' : 'Close'}</span>
+                <X className="w-4 h-4" />
+              </button>
 
             <div className="text-center mb-5">
               <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"

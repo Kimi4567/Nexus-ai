@@ -14,8 +14,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
-import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import {
+  buildCreditChargeReceipt,
+  checkAndDeductCredits,
+  refundCreditDeduction,
+  type CreditDeductionOk,
+} from '@/lib/credits'
 import { validateRewriteConfirmation } from '@/lib/contentHubActionSafety'
+import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { guardContentDraftText } from '@/lib/ai/contentDraftTruthGuard'
+import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
+import {
+  CONTENT_REVISION_HISTORY_NOTE,
+  contentReviewResetData,
+  isImmutableExecutionPost,
+  reopensContentReview,
+} from '@/lib/contentPostRevision'
 
 type Params = { params: Promise<{ id: string; postId: string }> }
 
@@ -45,12 +59,13 @@ export async function POST(req: NextRequest, props: Params) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Hoisted so the catch can refund a charged-but-failed rewrite.
-  let rewriteCharged = false
+  let chargedCredit: CreditDeductionOk | null = null
   try {
-    const { instruction, explicitRewriteConfirmed, acknowledgedCreditCost } = await req.json().catch(() => ({
+    const { instruction, explicitRewriteConfirmed, acknowledgedCreditCost, language } = await req.json().catch(() => ({
       instruction: '',
       explicitRewriteConfirmed: false,
       acknowledgedCreditCost: undefined,
+      language: undefined,
     }))
 
     // ── 1. Verify post ownership ───────────────────────────────────────────
@@ -65,6 +80,7 @@ export async function POST(req: NextRequest, props: Params) {
         caption: true,
         imagePrompt: true,
         platform: true,
+        status: true,
         workspaceId: true,
         campaign: {
           select: {
@@ -77,6 +93,12 @@ export async function POST(req: NextRequest, props: Params) {
       },
     })
     if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+    if (isImmutableExecutionPost(post.status)) {
+      return NextResponse.json({
+        error: 'Published or provider-processing posts are immutable. Create a new draft for a revision.',
+        code: 'PUBLISHED_POST_IMMUTABLE',
+      }, { status: 409 })
+    }
 
     const confirmation = validateRewriteConfirmation({
       confirmed: explicitRewriteConfirmed,
@@ -84,6 +106,11 @@ export async function POST(req: NextRequest, props: Params) {
     })
     if (!confirmation.ok) {
       return NextResponse.json({ error: confirmation.error, code: 'CONFIRMATION_REQUIRED' }, { status: 400 })
+    }
+
+    if (!isAiProviderConfigured()) {
+      const outputLanguage = language || (post.campaign as any)?.aiOutput?.language
+      return NextResponse.json(getAiProviderUnavailablePayload(outputLanguage), { status: 503 })
     }
 
     // ── 2. Deduct 1 credit ─────────────────────────────────────────────────
@@ -94,7 +121,7 @@ export async function POST(req: NextRequest, props: Params) {
         { status: 402 },
       )
     }
-    rewriteCharged = creditCheck.creditsUsed > 0
+    chargedCredit = creditCheck
 
     // ── 3. Load brand profile ──────────────────────────────────────────────
     const brand = await prisma.brandProfile.findUnique({
@@ -108,6 +135,10 @@ export async function POST(req: NextRequest, props: Params) {
         winningHooks: true,
         uniqueAdvantages: true,
         primaryOffer: true,
+        verifiedProof: true,
+        description: true,
+        complianceNotes: true,
+        conversionDestination: true,
       },
     })
 
@@ -142,7 +173,9 @@ Rewrite rules:
 - Apply the brand voice and tone faithfully
 - Stay within the character limit
 - Keep relevant hashtags (update or replace if needed)
-- The hook (first line) must grab attention immediately
+- The hook (first line) must name the audience situation, task, tension, or objection
+- Never start with Did you know / هل تعلم / Imagine if / What if, and never claim that analytics, numbers, or smart marketing transform a business
+- Do not invent customer proof, performance, guarantees, awards, results, or platform status
 - Return ONLY the new caption text — no explanations, no formatting markers`
 
     const userMsg = `Original caption:
@@ -169,33 +202,86 @@ ${post.caption}${instruction ? `\n\nRewrite instruction: ${instruction}` : '\n\n
     if (!chatRes.ok) {
       const errText = await chatRes.text()
       console.error('[rewrite] OpenAI error:', errText)
-      return NextResponse.json({ error: 'AI generation failed' }, { status: 502 })
+      throw new Error(`OpenAI rewrite failed (${chatRes.status})`)
     }
 
     const chatData = await chatRes.json()
     const newCaption = chatData.choices?.[0]?.message?.content?.trim()
 
     if (!newCaption) {
-      return NextResponse.json({ error: 'AI returned empty response' }, { status: 502 })
+      throw new Error('OpenAI returned an empty rewrite')
     }
 
     // Enforce character limit (graceful truncation at word boundary)
     const truncated = newCaption.length > charLimit
       ? newCaption.slice(0, charLimit).replace(/\s+\S*$/, '…')
       : newCaption
+    const guardedCaption = guardContentDraftText(truncated, {
+      verifiedProof: brand?.verifiedProof,
+      hasConversionDestination: Boolean(brand?.conversionDestination),
+      brandFacts: [
+        brand?.brandName,
+        brand?.description,
+        brand?.primaryOffer,
+        brand?.uniqueAdvantages,
+        brand?.complianceNotes,
+      ],
+    })
+    const publishReview = reviewContentPostForPublishing({ caption: guardedCaption })
+    if (publishReview.length > 0) {
+      await refundCreditDeduction({
+        userId,
+        action: 'AI_POST_REWRITE',
+        deduction: chargedCredit,
+        reason: 'Generated rewrite failed the saved-content quality gate',
+      })
+      chargedCredit = null
+      return NextResponse.json({
+        error: 'The rewrite did not pass the saved-content quality gate. No revised copy was saved.',
+        code: 'CONTENT_REVIEW_REQUIRED',
+        issues: publishReview,
+        refunded: true,
+      }, { status: 422 })
+    }
 
     // ── 6. Persist updated caption ─────────────────────────────────────────
-    const updated = await (prisma.socialPost as any).update({
-      where: { id: params.postId },
-      data: { caption: truncated },
-      select: { id: true, caption: true, imagePrompt: true },
+    const reopensReview = reopensContentReview(post.status)
+    const updated = await prisma.$transaction(async (tx) => {
+      const next = await (tx.socialPost as any).update({
+        where: { id: params.postId },
+        data: { caption: guardedCaption, ...contentReviewResetData(post.status) },
+        select: { id: true, caption: true, imagePrompt: true, status: true, approvedAt: true, publishMode: true },
+      })
+      if (reopensReview) {
+        await tx.postStatusHistory.create({
+          data: {
+            socialPostId: post.id,
+            workspaceId: post.workspaceId,
+            fromStatus: post.status,
+            toStatus: 'DRAFT',
+            actor: 'USER',
+            note: CONTENT_REVISION_HISTORY_NOTE,
+          },
+        })
+      }
+      return next
     })
 
-    return NextResponse.json({ post: updated })
+    return NextResponse.json({
+      post: updated,
+      creditsUsed: creditCheck.creditsUsed,
+      creditsRemaining: creditCheck.creditsRemaining,
+      creditCharge: buildCreditChargeReceipt('AI_POST_REWRITE', creditCheck),
+    })
   } catch (err: any) {
     console.error('[content-plan/rewrite POST]', err)
-    // Refund — failed rewrite must not charge the user (skip unlimited plans)
-    if (rewriteCharged) await refundCredits(userId, 'AI_POST_REWRITE')
-    return NextResponse.json({ error: 'Failed to rewrite post', refunded: rewriteCharged }, { status: 500 })
+    const refunded = Boolean(chargedCredit?.creditsUsed)
+    await refundCreditDeduction({
+      userId,
+      action: 'AI_POST_REWRITE',
+      deduction: chargedCredit,
+      reason: 'Post rewrite failed',
+    })
+    return NextResponse.json({ error: 'Failed to rewrite post', refunded }, { status: 500 })
   }
 }

@@ -10,6 +10,7 @@ import {
   canRecordPaidCompletion,
   isUnsafePaidPackStatus,
 } from '@/lib/paidBoundary'
+import { normalizeManualPaidMetrics } from '@/lib/paidMetrics'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -27,33 +28,19 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
 
     const body = await req.json()
     const {
-      impressions,
-      reach,
-      clicks,
-      ctr,
-      cpc,
-      cpm,
-      spend,
-      conversions,
-      roas,
-      metricsSource = 'manual',
       status,
       launchNotes,
       explicitExternalLaunchConfirmed,
       explicitCompletionConfirmed,
     } = body
-
-    const metricsProvided = [
-      impressions,
-      reach,
-      clicks,
-      ctr,
-      cpc,
-      cpm,
-      spend,
-      conversions,
-      roas,
-    ].some((value) => value !== undefined && value !== null && value !== '')
+    const { metrics, invalidKeys } = normalizeManualPaidMetrics(body)
+    if (invalidKeys.length > 0) {
+      return NextResponse.json({
+        error: 'Paid metrics must be finite, non-negative numbers.',
+        invalidKeys,
+      }, { status: 400 })
+    }
+    const metricsProvided = Object.keys(metrics).length > 0
 
     const existingPack = await db.paidCampaignPack.findUnique({
       where: { campaignId: params.id },
@@ -77,7 +64,6 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       }, { status: 400 })
     }
 
-    const metrics = { impressions, reach, clicks, ctr, cpc, cpm, spend, conversions, roas }
     const statusUpdate = allowExternalLaunch
       ? { status: 'LAUNCHED', launchedAt: new Date() }
       : allowCompletion
@@ -89,7 +75,9 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       data: {
         ...(metricsProvided && {
           metrics,
-          metricsSource,
+          // This endpoint accepts user-entered values only. Provider-backed
+          // sources must be written by a verified server-to-server ingestion path.
+          metricsSource: 'manual',
           metricsUpdatedAt: new Date(),
         }),
         ...statusUpdate,
