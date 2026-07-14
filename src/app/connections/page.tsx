@@ -30,6 +30,7 @@ interface ConnectedAccount {
   expiresAt?: string | null
   refreshExpiresAt?: string | null
   lastSyncedAt?: string | null
+  channelUrl?: string | null
   capabilities?: {
     facebookPublishing?: boolean
     instagramPublishing?: boolean
@@ -37,6 +38,8 @@ interface ConnectedAccount {
     linkedInOrganizationPublishing?: boolean
     tikTokDirectPosting?: boolean
     tikTokCreatorInfoVerified?: boolean
+    youtubeVideoPublishing?: boolean
+    youtubeReadback?: boolean
     tokenRefresh?: boolean
   }
   connectedAt: string
@@ -129,11 +132,11 @@ const PLATFORMS: PlatformDef[] = [
     id: 'YOUTUBE',
     name: { ar: 'YouTube', en: 'YouTube' },
     helper: {
-      ar: 'مخطط للفيديو والشورتس. التنفيذ الحقيقي سيأتي بعد الربط الرسمي.',
-      en: 'Planned for video and Shorts. Real execution comes after official connection.',
+      ar: 'يرفع الفيديوهات والشورتس المعتمدة، ثم يراقب المعالجة. قد تفرض Google الخصوصية على Private حتى اعتماد مشروع API.',
+      en: 'Uploads approved videos and Shorts, then monitors processing. Google may force Private visibility until the API project passes audit.',
     },
-    scope: { ar: 'مخطط', en: 'Planned' },
-    available: false,
+    scope: { ar: 'رفع فيديو ومراقبة المعالجة', en: 'Video upload & processing status' },
+    available: true,
     accent: '#ef4444',
     icon: '▶',
   },
@@ -213,6 +216,22 @@ function connectionTruth(account: ConnectedAccount, ar: boolean): {
       ],
     }
   }
+  if (account.platform === 'YOUTUBE') {
+    const upload = capability.youtubeVideoPublishing === true
+    const readback = capability.youtubeReadback === true
+    const refresh = capability.tokenRefresh === true
+    return {
+      tone: upload && readback && refresh ? 'ready' : 'needs',
+      label: upload && readback && refresh
+        ? (ar ? 'رفع الفيديو والمراقبة جاهزان' : 'Upload and monitoring ready')
+        : (ar ? 'صلاحيات YouTube غير مكتملة' : 'YouTube permissions incomplete'),
+      checks: [
+        { ok: upload, text: ar ? 'صلاحية رفع الفيديو مثبتة' : 'Video upload permission verified' },
+        { ok: readback, text: ar ? 'قراءة حالة المعالجة مثبتة' : 'Processing status readback verified' },
+        { ok: refresh, text: ar ? 'رمز تحديث محفوظ للجدولة' : 'Refresh token stored for scheduling' },
+      ],
+    }
+  }
   const directPost = capability.tikTokDirectPosting === true
   const creator = capability.tikTokCreatorInfoVerified === true
   return {
@@ -233,6 +252,7 @@ const CONNECT_ROUTES: Record<string, string> = {
   META_ADS: '/api/social/connect/meta-ads',
   LINKEDIN: '/api/social/connect/linkedin',
   TIKTOK: '/api/social/connect/tiktok',
+  YOUTUBE: '/api/social/connect/youtube',
 }
 
 function ShellButton({

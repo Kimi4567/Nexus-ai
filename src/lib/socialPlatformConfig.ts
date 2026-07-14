@@ -48,6 +48,11 @@ export const TIKTOK_CONTENT_SCOPES = [
   'video.list',
 ] as const
 
+export const YOUTUBE_CONTENT_SCOPES = [
+  'https://www.googleapis.com/auth/youtube.upload',
+  'https://www.googleapis.com/auth/youtube.readonly',
+] as const
+
 export function metaGraphUrl(path: string): string {
   return `https://graph.facebook.com/${META_GRAPH_VERSION}/${path.replace(/^\//, '')}`
 }

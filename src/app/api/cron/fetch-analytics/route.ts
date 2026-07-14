@@ -132,6 +132,33 @@ async function fetchTikTokInsights(platformPostId: string, accessToken: string):
   }
 }
 
+async function fetchYouTubeInsights(platformPostId: string, accessToken: string): Promise<RawPlatformMetrics | null> {
+  try {
+    const query = new URLSearchParams({ part: 'statistics', id: platformPostId })
+    const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?${query.toString()}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return null
+    const statistics = Array.isArray(data?.items) ? data.items[0]?.statistics : null
+    if (!statistics) return null
+    const views = Number(statistics.viewCount) || 0
+    // The Data API exposes views, likes, and comments here; it does not expose
+    // unique reach, impressions, shares, or conversions. Views are therefore
+    // the explicit denominator and no unavailable metric is invented.
+    return {
+      likes: Number(statistics.likeCount) || 0,
+      comments: Number(statistics.commentCount) || 0,
+      shares: 0,
+      impressions: views,
+      reach: 0,
+    }
+  } catch {
+    return null
+  }
+}
+
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
@@ -163,7 +190,7 @@ export async function GET(req: NextRequest) {
         publishedAt: { gte: newerThan14d, lte: olderThan24h },
         analyticsFetched: false,
         platformPostId: { not: null },
-        platform: { in: ['META', 'LINKEDIN', 'TIKTOK'] },
+        platform: { in: ['META', 'LINKEDIN', 'TIKTOK', 'YOUTUBE'] },
         OR: [{ analyticsUpdatedAt: null }, { analyticsUpdatedAt: { lte: retryBefore } }],
       },
       include: { integration: true },
@@ -198,9 +225,11 @@ export async function GET(req: NextRequest) {
           ? await fetchMetaInsights(post.platformPostId, token)
           : post.platform === 'TIKTOK'
             ? await fetchTikTokInsights(post.platformPostId, token)
-            : post.pageId
-              ? await fetchLinkedInInsights(post.platformPostId, post.pageId, token)
-              : null
+            : post.platform === 'YOUTUBE'
+              ? await fetchYouTubeInsights(post.platformPostId, token)
+              : post.pageId
+                ? await fetchLinkedInInsights(post.platformPostId, post.pageId, token)
+                : null
 
         if (!metrics) {
           await (prisma.socialPost as any).update({

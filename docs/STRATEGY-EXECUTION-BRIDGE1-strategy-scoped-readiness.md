@@ -1,5 +1,7 @@
 # STRATEGY-EXECUTION-BRIDGE1 — Strategy-scoped execution readiness
 
+> Historical implementation note. YouTube Shorts no longer shares the unsupported-platform state: current readiness requires a verified upload scope, status-readback scope, channel identity, and offline refresh token. The read-only strategy bridge contract remains unchanged.
+
 ## Purpose
 
 NEXUS should feel like an operating system, not a set of patched pages. Strategy, Connections, Publish, and Paid Launch must each own a clear responsibility:

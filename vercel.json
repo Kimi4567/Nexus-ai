@@ -86,7 +86,10 @@
       "maxDuration": 60
     },
     "src/app/api/cron/publish/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 180
+    },
+    "src/app/api/social/publish/route.ts": {
+      "maxDuration": 180
     },
     "src/app/api/cron/reconcile-social-publishing/route.ts": {
       "maxDuration": 60

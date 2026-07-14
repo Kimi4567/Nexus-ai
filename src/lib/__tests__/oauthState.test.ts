@@ -23,6 +23,12 @@ describe('signed OAuth state', () => {
     })
   })
 
+  it('supports YouTube without allowing cross-provider state reuse', () => {
+    const state = createOAuthState('user-2', 'youtube')
+    expect(verifyOAuthState(state, 'youtube')).toMatchObject({ provider: 'youtube', userId: 'user-2' })
+    expect(() => verifyOAuthState(state, 'tiktok')).toThrow('payload')
+  })
+
   it('rejects tampering and cross-provider replay', () => {
     const state = createOAuthState('user-1', 'meta')
     const [payload, signature] = state.split('.')

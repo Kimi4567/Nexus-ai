@@ -8,6 +8,7 @@ import { hasVerifiedProviderScope } from '@/lib/socialPlatformConfig'
 import { buildLearningEvent } from '@/lib/brandBrainEvents'
 import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState'
 import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
+import { YOUTUBE_READ_SCOPE, YOUTUBE_UPLOAD_SCOPE } from '@/lib/youtubePublishing'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -66,16 +67,22 @@ async function runPublishJob() {
         if (publishReview.length > 0) {
           throw new Error(`CONTENT_REVIEW_REQUIRED: ${publishReview.map(issue => issue.reason).join(', ')}`)
         }
-        const target = String(post.publishTarget || post.platform)
+        const rawTarget = String(post.publishTarget || post.platform).toUpperCase()
+        const target = rawTarget === 'YOUTUBE_SHORTS' ? 'YOUTUBE' : rawTarget
         const requiredScope = target === 'FACEBOOK'
           ? 'pages_manage_posts'
           : target === 'INSTAGRAM'
             ? 'instagram_content_publish'
             : target === 'LINKEDIN'
               ? (post.pageId ? 'w_organization_social' : 'w_member_social')
-              : 'video.publish'
+              : target === 'TIKTOK'
+                ? 'video.publish'
+                : YOUTUBE_UPLOAD_SCOPE
         if (!hasVerifiedProviderScope(integration.config, requiredScope)) {
           throw new Error(`Verified ${requiredScope} permission is unavailable; reconnect before publishing`)
+        }
+        if (target === 'YOUTUBE' && !hasVerifiedProviderScope(integration.config, YOUTUBE_READ_SCOPE)) {
+          throw new Error(`Verified ${YOUTUBE_READ_SCOPE} permission is unavailable; reconnect before publishing`)
         }
 
         // Resolve a page-level token where Meta supplied one. Match either the

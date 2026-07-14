@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
       where: {
         workspaceId: workspace.id,
         status: { in: ['CONNECTED', 'EXPIRED', 'ERROR'] },
-        type: { in: ['META', 'LINKEDIN', 'TIKTOK'] as any[] },
+        type: { in: ['META', 'LINKEDIN', 'TIKTOK', 'YOUTUBE'] as any[] },
       },
       select: {
         id: true,
@@ -42,17 +42,30 @@ export async function GET(req: NextRequest) {
       const config = i.config && typeof i.config === 'object' && !Array.isArray(i.config)
         ? i.config as Record<string, any>
         : {}
-      const pages = Array.isArray(config.pages) ? config.pages : []
-      const organizations = Array.isArray(config.organizations) ? config.organizations : []
+      const rawPages = Array.isArray(config.pages) ? config.pages : []
+      const pages = rawPages.map((page: any) => ({
+        id: typeof page?.id === 'string' ? page.id : '',
+        name: typeof page?.name === 'string' ? page.name : '',
+        igAccountId: typeof page?.igAccountId === 'string' ? page.igAccountId : null,
+      })).filter((page: { id: string }) => page.id)
+      const organizations = (Array.isArray(config.organizations) ? config.organizations : [])
+        .map((organization: any) => ({
+          id: typeof organization?.id === 'string' ? organization.id : '',
+          name: typeof organization?.name === 'string' ? organization.name : '',
+          urn: typeof organization?.urn === 'string' ? organization.urn : undefined,
+        }))
+        .filter((organization: { id: string }) => organization.id)
       const scopes = Array.isArray(config.scopes) ? config.scopes.filter((scope: unknown) => typeof scope === 'string') : []
       const scopesVerified = config.scopeEvidence === 'provider_response'
       const capabilities = {
-        facebookPublishing: i.type === 'META' && scopesVerified && scopes.includes('pages_manage_posts') && pages.some((page: any) => page?.id && page?.accessToken),
-        instagramPublishing: i.type === 'META' && scopesVerified && scopes.includes('instagram_content_publish') && pages.some((page: any) => page?.igAccountId && page?.accessToken),
+        facebookPublishing: i.type === 'META' && scopesVerified && scopes.includes('pages_manage_posts') && rawPages.some((page: any) => page?.id && page?.accessToken),
+        instagramPublishing: i.type === 'META' && scopesVerified && scopes.includes('instagram_content_publish') && rawPages.some((page: any) => page?.igAccountId && page?.accessToken),
         linkedInMemberPublishing: i.type === 'LINKEDIN' && scopesVerified && scopes.includes('w_member_social') && Boolean(i.accountId),
         linkedInOrganizationPublishing: i.type === 'LINKEDIN' && scopesVerified && scopes.includes('w_organization_social') && organizations.length > 0,
         tikTokDirectPosting: i.type === 'TIKTOK' && scopesVerified && scopes.includes('video.publish'),
         tikTokCreatorInfoVerified: i.type === 'TIKTOK' && Boolean(config.creatorInfoVerifiedAt),
+        youtubeVideoPublishing: i.type === 'YOUTUBE' && scopesVerified && scopes.includes('https://www.googleapis.com/auth/youtube.upload') && Boolean(i.accountId),
+        youtubeReadback: i.type === 'YOUTUBE' && scopesVerified && scopes.includes('https://www.googleapis.com/auth/youtube.readonly') && Boolean(i.accountId),
         tokenRefresh: Boolean(i.refreshToken),
       }
       return {
@@ -65,6 +78,7 @@ export async function GET(req: NextRequest) {
         organizations,
         selectedOrganizationId: config.organizationId || null,
         pictureUrl: config.pictureUrl || null,
+        channelUrl: config.channelUrl || null,
         scopes,
         expiresAt: config.expiresAt || null,
         refreshExpiresAt: config.refreshExpiresAt || null,

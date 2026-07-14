@@ -71,6 +71,65 @@ async function refreshTikTok(integration: any, now: Date): Promise<'refreshed' |
   }
 }
 
+async function refreshYouTube(integration: any, now: Date): Promise<'refreshed' | 'skipped' | 'expired' | 'error'> {
+  const config = objectConfig(integration.config)
+  const expiresAt = config.expiresAt ? new Date(config.expiresAt) : null
+  if (expiresAt && expiresAt.getTime() > now.getTime() + 2 * 60 * 60 * 1000 && integration.status === 'CONNECTED') {
+    return 'skipped'
+  }
+  const refreshToken = decryptToken(integration.refreshToken)
+  const clientId = process.env.GOOGLE_CLIENT_ID
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+  if (!refreshToken) {
+    await prisma.integration.update({ where: { id: integration.id }, data: { status: 'EXPIRED' } })
+    return 'expired'
+  }
+  if (!clientId || !clientSecret) return 'error'
+
+  try {
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+      }),
+      cache: 'no-store',
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || !data.access_token) {
+      const terminal = data.error === 'invalid_grant' || /invalid|expired|revoked/i.test(String(data.error_description || ''))
+      if (terminal) await prisma.integration.update({ where: { id: integration.id }, data: { status: 'EXPIRED' } })
+      return terminal ? 'expired' : 'error'
+    }
+    const nextExpiresAt = new Date(now.getTime() + Number(data.expires_in || 3600) * 1000)
+    const scopes = typeof data.scope === 'string' && data.scope.trim()
+      ? data.scope.split(/\s+/).filter(Boolean)
+      : config.scopes
+    await prisma.integration.update({
+      where: { id: integration.id },
+      data: {
+        status: 'CONNECTED',
+        accessToken: encryptToken(data.access_token),
+        config: {
+          ...config,
+          scopes,
+          scopeEvidence: typeof data.scope === 'string' && data.scope.trim() ? 'provider_response' : config.scopeEvidence,
+          expiresAt: nextExpiresAt.toISOString(),
+          tokenRefreshedAt: now.toISOString(),
+        },
+        lastSyncedAt: now,
+      },
+    })
+    return 'refreshed'
+  } catch (error) {
+    console.error('[refresh-social-tokens] YouTube', integration.id, error)
+    return 'error'
+  }
+}
+
 async function refreshMeta(integration: any, now: Date): Promise<'refreshed' | 'skipped' | 'expired' | 'error'> {
   const config = objectConfig(integration.config)
   const expiresAt = config.expiresAt ? new Date(config.expiresAt) : null
@@ -135,7 +194,7 @@ async function refreshMeta(integration: any, now: Date): Promise<'refreshed' | '
 async function run() {
   const now = new Date()
   const integrations = await prisma.integration.findMany({
-    where: { type: { in: ['TIKTOK', 'META', 'LINKEDIN'] }, status: { in: ['CONNECTED', 'EXPIRED'] } },
+    where: { type: { in: ['TIKTOK', 'META', 'LINKEDIN', 'YOUTUBE'] }, status: { in: ['CONNECTED', 'EXPIRED'] } },
   })
   const stats = { checked: integrations.length, refreshed: 0, skipped: 0, expired: 0, errors: 0 }
   for (const integration of integrations) {
@@ -150,7 +209,9 @@ async function run() {
     }
     const result = integration.type === 'TIKTOK'
       ? await refreshTikTok(integration, now)
-      : await refreshMeta(integration, now)
+      : integration.type === 'YOUTUBE'
+        ? await refreshYouTube(integration, now)
+        : await refreshMeta(integration, now)
     if (result === 'refreshed') stats.refreshed++
     else if (result === 'skipped') stats.skipped++
     else if (result === 'expired') stats.expired++

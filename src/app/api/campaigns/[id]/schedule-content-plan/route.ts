@@ -26,6 +26,11 @@ import { decryptToken } from '@/lib/tokenCrypto'
 import { queryTikTokCreatorInfo } from '@/lib/tiktokPublishing'
 import { hasVerifiedProviderScope } from '@/lib/socialPlatformConfig'
 import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
+import {
+  parseYouTubePostOptions,
+  YOUTUBE_READ_SCOPE,
+  YOUTUBE_UPLOAD_SCOPE,
+} from '@/lib/youtubePublishing'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -40,12 +45,19 @@ type ScheduleRequest = {
   explicitAutoPublishConfirmed?: boolean
   destinationByTarget?: Record<string, DestinationSelection>
   tiktokOptions?: Record<string, unknown>
+  youtubeOptionsByPostId?: Record<string, Record<string, unknown>>
 }
 
-function providerForTarget(target: string): 'META' | 'LINKEDIN' | 'TIKTOK' | null {
+function normalizedTarget(target: string): string {
+  const value = target.toUpperCase()
+  return value === 'YOUTUBE_SHORTS' ? 'YOUTUBE' : value
+}
+
+function providerForTarget(target: string): 'META' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | null {
   if (target === 'FACEBOOK' || target === 'INSTAGRAM') return 'META'
   if (target === 'LINKEDIN') return 'LINKEDIN'
   if (target === 'TIKTOK') return 'TIKTOK'
+  if (target === 'YOUTUBE') return 'YOUTUBE'
   return null
 }
 
@@ -94,6 +106,7 @@ export async function POST(req: NextRequest, props: Params) {
         uploadedMediaId: true,
         mediaSource: true,
         generationStatus: true,
+        isVideoPost: true,
       },
     })
 
@@ -139,20 +152,21 @@ export async function POST(req: NextRequest, props: Params) {
         status: 'CONNECTED' as any,
         type: { notIn: ['STRIPE', 'CLOUDINARY', 'GOOGLE', 'SLACK'] as any[] },
       },
-      select: { id: true, type: true, config: true, accountId: true, accountName: true, accessToken: true },
+      select: { id: true, type: true, config: true, accountId: true, accountName: true, accessToken: true, refreshToken: true },
     })
 
     const assignmentById = new Map<string, {
       integrationId: string
-      pageId: string | null
-      pageName: string | null
-      platformOptions: Record<string, unknown> | null
+    pageId: string | null
+    pageName: string | null
+    platformOptions: Record<string, unknown> | null
+    publishTarget: string
     }>()
     const blockers: Array<{ code: string; target: string; postId: string; message: string }> = []
     let tiktokCreator: Awaited<ReturnType<typeof queryTikTokCreatorInfo>> | null = null
 
     for (const post of approvedPosts as any[]) {
-      const target = String(post.publishTarget || post.platform).toUpperCase()
+      const target = normalizedTarget(String(post.publishTarget || post.platform))
       const provider = providerForTarget(target)
       if (!provider) {
         if (publishMode === 'AUTO') blockers.push({
@@ -274,8 +288,45 @@ export async function POST(req: NextRequest, props: Params) {
           isAigc: Boolean(options.isAigc),
           explicitConsent: publishMode === 'AUTO' && requestBody.explicitAutoPublishConfirmed === true,
         }
+      } else if (target === 'YOUTUBE') {
+        if (publishMode === 'AUTO' && !post.isVideoPost) {
+          blockers.push({
+            code: 'YOUTUBE_VIDEO_REQUIRED', target, postId: post.id,
+            message: 'YouTube automatic publishing requires a reviewed video post.',
+          })
+          continue
+        }
+        if (
+          publishMode === 'AUTO'
+          && (!hasVerifiedProviderScope(config, YOUTUBE_UPLOAD_SCOPE) || !hasVerifiedProviderScope(config, YOUTUBE_READ_SCOPE))
+        ) {
+          blockers.push({
+            code: 'PLATFORM_SCOPE_REQUIRED', target, postId: post.id,
+            message: 'Reconnect YouTube and grant verified upload and processing-status permissions.',
+          })
+          continue
+        }
+        if (publishMode === 'AUTO' && (!integration.accountId || !integration.refreshToken)) {
+          blockers.push({
+            code: 'YOUTUBE_OFFLINE_ACCESS_REQUIRED', target, postId: post.id,
+            message: 'Reconnect a YouTube channel with offline access before scheduled publishing.',
+          })
+          continue
+        }
+        try {
+          platformOptions = parseYouTubePostOptions({
+            ...(requestBody.youtubeOptionsByPostId?.[post.id] || {}),
+            explicitConsent: publishMode === 'AUTO' && requestBody.explicitAutoPublishConfirmed === true,
+          }) as unknown as Record<string, unknown>
+        } catch (error) {
+          if (publishMode === 'AUTO') blockers.push({
+            code: 'YOUTUBE_REVIEW_REQUIRED', target, postId: post.id,
+            message: error instanceof Error ? error.message : 'Review the YouTube video settings.',
+          })
+          continue
+        }
       }
-      assignmentById.set(post.id, { integrationId: integration.id, pageId, pageName, platformOptions })
+      assignmentById.set(post.id, { integrationId: integration.id, pageId, pageName, platformOptions, publishTarget: target })
     }
 
     if (publishMode === 'AUTO' && blockers.length > 0) {
@@ -324,6 +375,7 @@ export async function POST(req: NextRequest, props: Params) {
             pageId: match.pageId,
             pageName: match.pageName,
             platformOptions: match.platformOptions as any,
+            publishTarget: match.publishTarget,
           } : {}),
         },
       })

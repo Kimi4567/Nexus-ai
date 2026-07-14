@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
 
-export type OAuthProvider = 'meta' | 'meta_ads' | 'linkedin' | 'tiktok'
+export type OAuthProvider = 'meta' | 'meta_ads' | 'linkedin' | 'tiktok' | 'youtube'
 
 type OAuthStatePayload = {
   v: 1

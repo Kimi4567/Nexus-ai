@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hasVerifiedProviderScope } from '@/lib/socialPlatformConfig'
+import { hasVerifiedProviderScope, YOUTUBE_CONTENT_SCOPES } from '@/lib/socialPlatformConfig'
 
 describe('hasVerifiedProviderScope', () => {
   it('accepts only a scope returned by the provider', () => {
@@ -23,5 +23,14 @@ describe('hasVerifiedProviderScope', () => {
       scopeEvidence: 'provider_response',
       scopes: ['video.list'],
     }, 'video.publish')).toBe(false)
+  })
+})
+
+describe('YouTube scopes', () => {
+  it('requests only upload and readback permissions needed by the publishing workflow', () => {
+    expect(YOUTUBE_CONTENT_SCOPES).toEqual([
+      'https://www.googleapis.com/auth/youtube.upload',
+      'https://www.googleapis.com/auth/youtube.readonly',
+    ])
   })
 })

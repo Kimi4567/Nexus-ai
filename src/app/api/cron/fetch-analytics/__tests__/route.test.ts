@@ -149,4 +149,44 @@ describe('GET /api/cron/fetch-analytics', () => {
       },
     })
   })
+
+  it('stores YouTube views, likes, and comments without fabricating reach or conversions', async () => {
+    mocks.socialPostFindMany
+      .mockResolvedValueOnce([{
+        id: 'youtube-post',
+        workspaceId: 'workspace-1',
+        platform: 'YOUTUBE',
+        platformPostId: 'video-1',
+        pageId: null,
+        integration: { accessToken: 'youtube-token', config: {} },
+      }])
+      .mockResolvedValueOnce([])
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        items: [{ statistics: { viewCount: '1200', likeCount: '42', commentCount: '8' } }],
+      }),
+    }) as typeof fetch
+
+    const response = await GET(request('cron-secret'))
+    const body = await response.json()
+
+    expect(body).toMatchObject({ analyticsStored: 1, analyticsRetryable: 0 })
+    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
+      where: { id: 'youtube-post' },
+      data: {
+        analyticsUpdatedAt: expect.any(Date),
+        analyticsFetched: true,
+        analyticsData: expect.objectContaining({
+          platform: 'YOUTUBE',
+          impressions: 1200,
+          reach: 0,
+          likes: 42,
+          comments: 8,
+          shares: 0,
+          engagementCount: 50,
+        }),
+      },
+    })
+  })
 })

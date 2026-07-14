@@ -1,7 +1,8 @@
 import { linkedInHeaders, metaGraphUrl } from './socialPlatformConfig'
 import { initializeTikTokVideoPost, type TikTokPostOptions } from './tiktokPublishing'
+import { parseYouTubePostOptions, uploadYouTubeVideo } from './youtubePublishing'
 
-export type PublishPlatform = 'META' | 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK'
+export type PublishPlatform = 'META' | 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE'
 
 export type SocialPublishInput = {
   platform: PublishPlatform | string
@@ -18,7 +19,7 @@ export type SocialPublishInput = {
 export type SocialPublishResult = {
   platformPostId: string
   platformUrl?: string
-  /** TikTok acknowledges an upload before moderation/publication completes. */
+  /** Video providers acknowledge an upload before processing/publication completes. */
   state?: 'PUBLISHED' | 'PROCESSING'
 }
 
@@ -250,6 +251,25 @@ async function publishTikTok(input: SocialPublishInput): Promise<SocialPublishRe
   return { platformPostId: result.publishId, state: 'PROCESSING' }
 }
 
+async function publishYouTube(input: SocialPublishInput): Promise<SocialPublishResult> {
+  if (!input.imageUrl) throw new Error('YouTube publishing requires a permanent video URL')
+  const options = parseYouTubePostOptions(input.platformOptions)
+  const uploaded = await uploadYouTubeVideo({
+    accessToken: input.accessToken,
+    caption: input.caption,
+    videoUrl: input.imageUrl,
+    options,
+  })
+  // videos.insert returns a durable video ID after the bytes arrive, but the
+  // video may still be transcoding. Reconciliation promotes it only after
+  // videos.list confirms processing success.
+  return {
+    platformPostId: uploaded.videoId,
+    platformUrl: uploaded.platformUrl,
+    state: 'PROCESSING',
+  }
+}
+
 export async function publishSocialPost(input: SocialPublishInput): Promise<SocialPublishResult> {
   if (!input.caption.trim()) throw new Error('Post caption is empty')
   if (!input.accessToken) throw new Error('Platform access token is missing')
@@ -263,6 +283,8 @@ export async function publishSocialPost(input: SocialPublishInput): Promise<Soci
       return publishLinkedIn(input)
     case 'TIKTOK':
       return publishTikTok(input)
+    case 'YOUTUBE':
+      return publishYouTube(input)
     default:
       throw new Error(`Unsupported publishing platform: ${input.platform}`)
   }

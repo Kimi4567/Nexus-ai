@@ -31,11 +31,12 @@ interface PostPlatformPublisherProps {
   onPublished: () => void | Promise<void>
 }
 
-function normalizedPlatform(value: string): 'META' | 'LINKEDIN' | 'TIKTOK' | null {
+function normalizedPlatform(value: string): 'META' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | null {
   const platform = value.toUpperCase()
   if (['META', 'FACEBOOK', 'INSTAGRAM'].includes(platform)) return 'META'
   if (platform === 'LINKEDIN') return 'LINKEDIN'
   if (platform === 'TIKTOK') return 'TIKTOK'
+  if (platform === 'YOUTUBE' || platform === 'YOUTUBE_SHORTS') return 'YOUTUBE'
   return null
 }
 
@@ -55,6 +56,14 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
   const [tiktokCreator, setTikTokCreator] = useState<{ privacyLevelOptions: string[]; commentDisabled: boolean; duetDisabled: boolean; stitchDisabled: boolean } | null>(null)
   const [tiktokConsent, setTikTokConsent] = useState(false)
   const [tiktokOptions, setTikTokOptions] = useState({ privacyLevel: '', disableComment: false, disableDuet: false, disableStitch: false, brandContentToggle: false, brandOrganicToggle: true, isAigc: false })
+  const [youtubeConsent, setYouTubeConsent] = useState(false)
+  const [youtubeOptions, setYouTubeOptions] = useState<{
+    title: string
+    privacyStatus: 'private' | 'unlisted' | 'public'
+    madeForKids: '' | 'yes' | 'no'
+    syntheticMedia: '' | 'yes' | 'no'
+    notifySubscribers: boolean
+  }>({ title: '', privacyStatus: 'private', madeForKids: '', syntheticMedia: '', notifySubscribers: false })
   const [result, setResult] = useState<{ ok: boolean; message: string; url?: string } | null>(null)
 
   // A scheduled post already has an explicit execution decision. Showing a
@@ -129,7 +138,17 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
           platform: requestedPlatform,
           platformOptions: targetPlatform === 'TIKTOK'
             ? { ...tiktokOptions, explicitConsent: tiktokConsent }
-            : null,
+            : targetPlatform === 'YOUTUBE'
+              ? {
+                  title: youtubeOptions.title.trim(),
+                  privacyStatus: youtubeOptions.privacyStatus,
+                  selfDeclaredMadeForKids: youtubeOptions.madeForKids === 'yes',
+                  containsSyntheticMedia: youtubeOptions.syntheticMedia === 'yes',
+                  notifySubscribers: youtubeOptions.notifySubscribers,
+                  categoryId: '22',
+                  explicitConsent: youtubeConsent,
+                }
+              : null,
         }),
       })
       const data = await response.json().catch(() => ({}))
@@ -137,7 +156,9 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
       setResult({
         ok: true,
         message: data.processing
-          ? copy('استلمت المنصة الفيديو. سيظل قيد المعالجة حتى تؤكد TikTok النشر.', 'TikTok accepted the video. It remains processing until TikTok confirms publication.')
+          ? targetPlatform === 'YOUTUBE'
+            ? copy('استلم YouTube الفيديو. سيظل قيد المعالجة حتى يؤكد نجاح المعالجة؛ وقد تفرض Google الرؤية الخاصة قبل اعتماد المشروع.', 'YouTube received the video. It remains processing until YouTube confirms success; Google may force Private visibility before project audit approval.')
+            : copy('استلمت TikTok الفيديو. سيظل قيد المعالجة حتى تؤكد المنصة النشر.', 'TikTok accepted the video. It remains processing until TikTok confirms publication.')
           : copy('أكدت المنصة النشر وتم تحديث سجل المنشور.', 'Platform confirmed publication and the post ledger was updated.'),
         url: data.platformUrl,
       })
@@ -149,7 +170,7 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
     }
   }
 
-  if (!eligible || !targetPlatform || !hasMedia || (targetPlatform === 'TIKTOK' && !isVideoPost)) return null
+  if (!eligible || !targetPlatform || !hasMedia || (['TIKTOK', 'YOUTUBE'].includes(targetPlatform) && !isVideoPost)) return null
 
   return (
     <div className="border-t border-slate-200 px-3 pb-3 pt-2">
@@ -235,7 +256,50 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
                   </label>
                 </div>
               )}
-              <button type="button" onClick={publish} disabled={publishing || !selectedAccount || (targetPlatform === 'META' && !selectedPage) || (targetPlatform === 'TIKTOK' && (!tiktokConsent || !tiktokOptions.privacyLevel))} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40">
+              {targetPlatform === 'YOUTUBE' && (
+                <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-2">
+                  <label className="block text-[10px] font-black uppercase tracking-wide text-slate-500">
+                    {copy('عنوان الفيديو', 'Video title')}
+                    <input value={youtubeOptions.title} maxLength={100} onChange={event => setYouTubeOptions(current => ({ ...current, title: event.target.value }))} placeholder={copy('عنوان واضح ومحدد', 'A clear, specific title')} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800" />
+                  </label>
+                  <label className="block text-[10px] font-black uppercase tracking-wide text-slate-500">
+                    {copy('الخصوصية', 'Privacy')}
+                    <select value={youtubeOptions.privacyStatus} onChange={event => setYouTubeOptions(current => ({ ...current, privacyStatus: event.target.value as typeof current.privacyStatus }))} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800">
+                      <option value="private">{copy('خاص — الأكثر أماناً', 'Private — safest')}</option>
+                      <option value="unlisted">{copy('غير مدرج', 'Unlisted')}</option>
+                      <option value="public">{copy('عام', 'Public')}</option>
+                    </select>
+                  </label>
+                  <label className="block text-[10px] font-black uppercase tracking-wide text-slate-500">
+                    {copy('هل الفيديو موجه للأطفال؟', 'Is this video made for kids?')}
+                    <select value={youtubeOptions.madeForKids} onChange={event => setYouTubeOptions(current => ({ ...current, madeForKids: event.target.value as typeof current.madeForKids }))} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800">
+                      <option value="">{copy('اختر بعد المراجعة', 'Choose after review')}</option>
+                      <option value="no">{copy('لا', 'No')}</option>
+                      <option value="yes">{copy('نعم', 'Yes')}</option>
+                    </select>
+                  </label>
+                  <label className="block text-[10px] font-black uppercase tracking-wide text-slate-500">
+                    {copy('محتوى واقعي معدل أو اصطناعي؟', 'Realistic altered or synthetic content?')}
+                    <select value={youtubeOptions.syntheticMedia} onChange={event => setYouTubeOptions(current => ({ ...current, syntheticMedia: event.target.value as typeof current.syntheticMedia }))} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800">
+                      <option value="">{copy('اختر بعد المراجعة', 'Choose after review')}</option>
+                      <option value="no">{copy('لا', 'No')}</option>
+                      <option value="yes">{copy('نعم — أضف الإفصاح', 'Yes — disclose it')}</option>
+                    </select>
+                  </label>
+                  <label className="flex items-start gap-2 text-[10px] leading-4 text-slate-600">
+                    <input type="checkbox" checked={youtubeOptions.notifySubscribers} onChange={event => setYouTubeOptions(current => ({ ...current, notifySubscribers: event.target.checked }))} className="mt-0.5" />
+                    {copy('أرسل إشعاراً للمشتركين إذا سمحت حالة القناة والرؤية بذلك', 'Notify subscribers when channel and visibility rules allow it')}
+                  </label>
+                  <p className="rounded-lg bg-amber-50 p-2 text-[10px] font-semibold leading-4 text-amber-800">
+                    {copy('مشروعات YouTube API غير المعتمدة قد تُجبر الرفع على Private حتى لو اخترت Public.', 'Unaudited YouTube API projects may force uploads to Private even when Public is selected.')}
+                  </p>
+                  <label className="flex items-start gap-2 text-[10px] font-semibold leading-4 text-slate-700">
+                    <input type="checkbox" checked={youtubeConsent} onChange={event => setYouTubeConsent(event.target.checked)} className="mt-0.5" />
+                    {copy('أوافق صراحةً على رفع هذا الفيديو والبيانات المعتمدة إلى قناتي على YouTube الآن.', 'I explicitly consent to uploading this approved video and metadata to my YouTube channel now.')}
+                  </label>
+                </div>
+              )}
+              <button type="button" onClick={publish} disabled={publishing || !selectedAccount || (targetPlatform === 'META' && !selectedPage) || (targetPlatform === 'TIKTOK' && (!tiktokConsent || !tiktokOptions.privacyLevel)) || (targetPlatform === 'YOUTUBE' && (!youtubeConsent || !youtubeOptions.title.trim() || !youtubeOptions.madeForKids || !youtubeOptions.syntheticMedia))} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40">
                 {publishing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                 {copy('تأكيد النشر الآن', 'Confirm publish now')}
               </button>

@@ -253,4 +253,69 @@ describe('POST /api/social/publish', () => {
       }),
     })
   })
+
+  it('keeps a YouTube upload processing until provider reconciliation succeeds', async () => {
+    mocks.integrationFindFirst.mockResolvedValue({
+      id: 'youtube-integration',
+      type: 'YOUTUBE',
+      status: 'CONNECTED',
+      accessToken: 'encrypted-youtube-token',
+      accountId: 'channel-1',
+      accountName: 'NEXUS Channel',
+      config: {
+        scopeEvidence: 'provider_response',
+        scopes: ['https://www.googleapis.com/auth/youtube.upload', 'https://www.googleapis.com/auth/youtube.readonly'],
+      },
+    })
+    mocks.socialPostFindFirst.mockResolvedValue({
+      id: 'youtube-post',
+      campaignId: 'campaign-1',
+      platform: 'YOUTUBE',
+      publishTarget: 'YOUTUBE_SHORTS',
+      status: 'APPROVED',
+      caption: 'A reviewed walkthrough of the approved product workflow.',
+      imageUrl: 'https://res.cloudinary.com/demo/video/upload/short.mp4',
+      uploadedMediaId: 'media-1',
+      mediaSource: 'UPLOAD',
+      generationStatus: 'DONE',
+      isVideoPost: true,
+      approvedAt: new Date('2026-07-12T10:00:00.000Z'),
+    })
+    mocks.publish.mockResolvedValue({
+      platformPostId: 'youtube-video-1',
+      platformUrl: 'https://www.youtube.com/watch?v=youtube-video-1',
+      state: 'PROCESSING',
+    })
+    mocks.socialPostUpdate.mockResolvedValue({ id: 'youtube-post', status: 'PROCESSING' })
+
+    const response = await POST(request({
+      socialPostId: 'youtube-post',
+      integrationId: 'youtube-integration',
+      platform: 'YOUTUBE',
+      campaignId: 'campaign-1',
+      platformOptions: {
+        title: 'Reviewed workflow walkthrough',
+        privacyStatus: 'private',
+        selfDeclaredMadeForKids: false,
+        containsSyntheticMedia: false,
+        notifySubscribers: false,
+        explicitConsent: true,
+      },
+    }))
+
+    expect(response.status).toBe(202)
+    expect(mocks.publish).toHaveBeenCalledWith(expect.objectContaining({
+      platform: 'YOUTUBE',
+      imageUrl: 'https://res.cloudinary.com/demo/video/upload/short.mp4',
+    }))
+    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
+      where: { id: 'youtube-post' },
+      data: expect.objectContaining({
+        platform: 'YOUTUBE',
+        publishTarget: 'YOUTUBE',
+        status: 'PROCESSING',
+        publishedAt: null,
+      }),
+    })
+  })
 })

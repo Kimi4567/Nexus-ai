@@ -76,13 +76,35 @@ describe('derivePlatformReadiness — honesty rules', () => {
     expect(get(s, 'linkedin').status).toBe('permission_unverified')
   })
 
-  it('YouTube Shorts / Google / Snapchat / WhatsApp → not_available with no CTA', () => {
+  it('YouTube asks for a connection while platforms without connectors stay unavailable', () => {
     const s = derivePlatformReadiness([])
-    for (const k of ['youtube', 'google', 'snapchat', 'whatsapp']) {
+    expect(get(s, 'youtube').status).toBe('not_connected')
+    expect(get(s, 'youtube').action).toBe('connect-youtube')
+    for (const k of ['google', 'snapchat', 'whatsapp']) {
       expect(get(s, k).status).toBe('not_available')
       expect(get(s, k).action).toBe('none')
       expect(get(s, k).actionKey).toBeNull()
     }
+  })
+
+  it('YouTube becomes ready only with upload, readback, and offline refresh evidence', () => {
+    const s = derivePlatformReadiness([{
+      platform: 'YOUTUBE',
+      status: 'CONNECTED',
+      capabilities: {
+        youtubeVideoPublishing: true,
+        youtubeReadback: true,
+        tokenRefresh: true,
+      },
+    }])
+    expect(get(s, 'youtube').status).toBe('ready')
+
+    const withoutRefresh = derivePlatformReadiness([{
+      platform: 'YOUTUBE',
+      status: 'CONNECTED',
+      capabilities: { youtubeVideoPublishing: true, youtubeReadback: true, tokenRefresh: false },
+    }])
+    expect(get(withoutRefresh, 'youtube').status).toBe('permission_unverified')
   })
 
   it('Paid ads without a Meta ad account asks for Meta Ads connection', () => {

@@ -4,11 +4,15 @@ import { cronAuthError } from '@/lib/cronAuth'
 import { decryptToken } from '@/lib/tokenCrypto'
 import { fetchTikTokPublishStatus } from '@/lib/tiktokPublishing'
 import { buildLearningEvent } from '@/lib/brandBrainEvents'
+import { fetchYouTubeVideoStatus } from '@/lib/youtubePublishing'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 async function failProcessingPost(post: any, reason: string): Promise<void> {
+  const target = String(post.publishTarget || post.platform).toUpperCase() === 'YOUTUBE_SHORTS'
+    ? 'YOUTUBE'
+    : String(post.publishTarget || post.platform).toUpperCase()
   const failedEvent = buildLearningEvent({
     workspaceId: post.workspaceId,
     campaignId: post.campaignId,
@@ -17,7 +21,7 @@ async function failProcessingPost(post: any, reason: string): Promise<void> {
     to: 'FAILED',
     actor: 'CRON',
     publishMode: 'AUTO',
-    platform: 'TIKTOK',
+    platform: target,
     scheduledAt: post.scheduledAt,
   })
   await prisma.$transaction([
@@ -32,7 +36,7 @@ async function failProcessingPost(post: any, reason: string): Promise<void> {
         fromStatus: 'PROCESSING',
         toStatus: 'FAILED',
         actor: 'CRON',
-        note: `[TIKTOK_FAILED] ${reason}`.slice(0, 500),
+        note: `[${target}_FAILED] ${reason}`.slice(0, 500),
       },
     }),
     ...(failedEvent ? [prisma.marketingLearningEvent.create({ data: failedEvent as any })] : []),
@@ -43,7 +47,7 @@ async function run() {
   const posts = await prisma.socialPost.findMany({
     where: {
       status: 'PROCESSING',
-      publishTarget: 'TIKTOK',
+      publishTarget: { in: ['TIKTOK', 'YOUTUBE', 'YOUTUBE_SHORTS'] },
       platformPostId: { not: null },
       integrationId: { not: null },
     },
@@ -56,14 +60,29 @@ async function run() {
   let pending = 0
 
   for (const post of posts) {
+    const target = String(post.publishTarget || post.platform).toUpperCase() === 'YOUTUBE_SHORTS'
+      ? 'YOUTUBE'
+      : String(post.publishTarget || post.platform).toUpperCase()
     const token = post.integration?.accessToken ? decryptToken(post.integration.accessToken) : null
     if (!token || !post.platformPostId) {
-      await failProcessingPost(post, 'TikTok reconciliation token is unavailable')
+      await failProcessingPost(post, `${target} reconciliation token is unavailable`)
       failed++
       continue
     }
     try {
-      const result = await fetchTikTokPublishStatus(token, post.platformPostId)
+      const result = target === 'YOUTUBE'
+        ? await fetchYouTubeVideoStatus(token, post.platformPostId).then(status => ({
+            complete: status.complete,
+            failed: status.failed,
+            publicPostIds: [post.platformPostId as string],
+            status: `${status.uploadStatus}/${status.processingStatus}`,
+            failReason: status.reason,
+            privacyStatus: status.privacyStatus,
+          }))
+        : await fetchTikTokPublishStatus(token, post.platformPostId).then(status => ({
+            ...status,
+            privacyStatus: null as string | null,
+          }))
       if (result.complete) {
         const publicPostId = result.publicPostIds[0] || post.platformPostId
         const publishedAt = new Date()
@@ -75,7 +94,7 @@ async function run() {
           to: 'PUBLISHED',
           actor: 'CRON',
           publishMode: 'AUTO',
-          platform: 'TIKTOK',
+          platform: target,
           scheduledAt: post.scheduledAt,
           publishedAt,
         })
@@ -86,6 +105,12 @@ async function run() {
               status: 'PUBLISHED',
               publishedAt,
               platformPostId: publicPostId,
+              ...(target === 'YOUTUBE' ? {
+                platformOptions: {
+                  ...(post.platformOptions && typeof post.platformOptions === 'object' && !Array.isArray(post.platformOptions) ? post.platformOptions : {}),
+                  confirmedPrivacyStatus: result.privacyStatus,
+                },
+              } : {}),
               errorMessage: null,
             },
           }),
@@ -96,14 +121,14 @@ async function run() {
               fromStatus: 'PROCESSING',
               toStatus: 'PUBLISHED',
               actor: 'CRON',
-              note: `[TIKTOK_CONFIRMED] ${result.status}`,
+              note: `[${target}_CONFIRMED] ${result.status}`,
             },
           }),
           ...(learningEvent ? [prisma.marketingLearningEvent.create({ data: learningEvent as any })] : []),
         ])
         published++
       } else if (result.failed) {
-        const reason = result.failReason || 'TikTok processing failed'
+        const reason = result.failReason || `${target} processing failed`
         await failProcessingPost(post, reason)
         failed++
       } else {
@@ -115,7 +140,7 @@ async function run() {
       const attemptedAt = post.publishAttemptedAt ? new Date(post.publishAttemptedAt).getTime() : 0
       const timedOut = attemptedAt > 0 && attemptedAt <= Date.now() - 24 * 60 * 60 * 1000
       if (timedOut) {
-        await failProcessingPost(post, 'TikTok did not confirm publication within 24 hours; review the platform before retrying')
+        await failProcessingPost(post, `${target} did not confirm processing within 24 hours; review the platform before retrying`)
         failed++
       } else {
         pending++

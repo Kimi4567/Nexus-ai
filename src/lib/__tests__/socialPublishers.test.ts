@@ -120,4 +120,70 @@ describe('publishSocialPost', () => {
       integrationConfig: {},
     })).rejects.toThrow('explicit consent')
   })
+
+  it('streams an approved Cloudinary video through a YouTube resumable upload', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3, 4]), {
+        status: 200,
+        headers: { 'content-type': 'video/mp4', 'content-length': '4' },
+      }))
+      .mockResolvedValueOnce(new Response(null, {
+        status: 200,
+        headers: { location: 'https://www.googleapis.com/upload/youtube/v3/videos?upload_id=session-1' },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'video-123' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await publishSocialPost({
+      platform: 'YOUTUBE',
+      caption: 'Reviewed YouTube description',
+      imageUrl: 'https://res.cloudinary.com/demo/video/upload/short.mp4',
+      accessToken: 'youtube-token',
+      platformOptions: {
+        title: 'Reviewed title',
+        privacyStatus: 'private',
+        selfDeclaredMadeForKids: false,
+        containsSyntheticMedia: true,
+        notifySubscribers: false,
+        explicitConsent: true,
+      },
+    })
+
+    expect(result).toEqual({
+      platformPostId: 'video-123',
+      platformUrl: 'https://www.youtube.com/watch?v=video-123',
+      state: 'PROCESSING',
+    })
+    const initUrl = String(fetchMock.mock.calls[1][0])
+    expect(initUrl).toContain('uploadType=resumable')
+    expect(initUrl).toContain('notifySubscribers=false')
+    const metadata = JSON.parse(fetchMock.mock.calls[1][1].body)
+    expect(metadata).toEqual({
+      snippet: {
+        title: 'Reviewed title',
+        description: 'Reviewed YouTube description',
+        categoryId: '22',
+      },
+      status: {
+        privacyStatus: 'private',
+        selfDeclaredMadeForKids: false,
+        containsSyntheticMedia: true,
+      },
+    })
+    expect(fetchMock.mock.calls[2][1]).toMatchObject({ method: 'PUT', duplex: 'half' })
+  })
+
+  it('fails YouTube closed until audience, disclosure, and consent are reviewed', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+    await expect(publishSocialPost({
+      platform: 'YOUTUBE',
+      caption: 'Video description',
+      imageUrl: 'https://res.cloudinary.com/demo/video/upload/short.mp4',
+      accessToken: 'youtube-token',
+      platformOptions: { title: 'Title', privacyStatus: 'private' },
+    })).rejects.toThrow('explicit consent')
+  })
 })

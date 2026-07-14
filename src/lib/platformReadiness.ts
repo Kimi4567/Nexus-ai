@@ -10,7 +10,8 @@
  *     server; a generic CONNECTED row is never enough.
  *   - Paid ads is never inferred from a social connection. It depends on AdAccount
  *     readiness, API access, and explicit approval-gated activation routes.
- *   - YouTube Shorts / Google / Snapchat / WhatsApp are "not_available" (no integration exists) — no connect CTA.
+ *   - YouTube readiness requires upload, readback, and offline-refresh evidence.
+ *   - Google Ads / Snapchat / WhatsApp stay "not_available" until real connectors exist.
  *   - Unknown / missing data → "needs_setup" or "not_connected", NEVER "ready".
  *
  * The function returns i18n KEYS (not literal copy) so the UI renders EN/AR via t().
@@ -42,6 +43,7 @@ export type ReadinessAction =
   | 'link-instagram'
   | 'connect-tiktok'
   | 'connect-linkedin'
+  | 'connect-youtube'
   | 'open-paid-ads'
   | 'open-connections'
   | 'none'
@@ -66,7 +68,7 @@ export interface PlatformState {
 
 /** Minimal shape of an entry from GET /api/social/accounts (tokens already stripped). */
 export interface SocialAccount {
-  platform?: string | null // 'META' | 'LINKEDIN' | 'TIKTOK'
+  platform?: string | null // 'META' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE'
   status?: string | null    // 'CONNECTED' | ...
   accountName?: string | null
   pages?: Array<{ id?: string | null; name?: string | null; igAccountId?: string | null }> | null
@@ -77,6 +79,8 @@ export interface SocialAccount {
     linkedInOrganizationPublishing?: boolean
     tikTokDirectPosting?: boolean
     tikTokCreatorInfoVerified?: boolean
+    youtubeVideoPublishing?: boolean
+    youtubeReadback?: boolean
     tokenRefresh?: boolean
   } | null
 }
@@ -160,6 +164,7 @@ export function derivePlatformReadiness(
   const instagramReady = meta?.capabilities?.instagramPublishing === true
   const tiktok = find(list, 'TIKTOK')
   const linkedin = find(list, 'LINKEDIN')
+  const youtube = find(list, 'YOUTUBE')
   const metaAdAccount = findActiveAdAccount(adList, 'META')
 
   const out: PlatformState[] = []
@@ -204,9 +209,19 @@ export function derivePlatformReadiness(
     out.push(mk('linkedin', 'permission_unverified', `${R}.line.linkedinUnverified`, 'open-connections', `${R}.action.reviewSetup`))
   }
 
+  if (!youtube) {
+    out.push(mk('youtube', 'not_connected', `${R}.line.youtubeNotConnected`, 'connect-youtube', `${R}.action.connectYouTube`))
+  } else if (
+    youtube.capabilities?.youtubeVideoPublishing
+    && youtube.capabilities?.youtubeReadback
+    && youtube.capabilities?.tokenRefresh
+  ) {
+    out.push(mk('youtube', 'ready', `${R}.line.youtubeReady`, 'open-connections', `${R}.action.reviewSetup`))
+  } else {
+    out.push(mk('youtube', 'permission_unverified', `${R}.line.youtubeUnverified`, 'open-connections', `${R}.action.reviewSetup`))
+  }
+
   // Not available yet — no integration code exists; NO connect CTA.
-  // YouTube Shorts can be planned in Content Hub, but API upload/publish is not wired.
-  out.push(mk('youtube', 'not_available', `${R}.line.youtubeNotAvailable`, 'none', null))
   out.push(mk('google', 'not_available', `${R}.line.googleNotAvailable`, 'none', null))
   out.push(mk('snapchat', 'not_available', `${R}.line.snapchatNotAvailable`, 'none', null))
   out.push(mk('whatsapp', 'not_available', `${R}.line.whatsappNotAvailable`, 'none', null))

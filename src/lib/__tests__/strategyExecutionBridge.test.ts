@@ -97,7 +97,7 @@ describe('deriveStrategyExecutionBridge', () => {
     expect(bridge.overallStatus).toBe('blocked')
   })
 
-  it('keeps YouTube Shorts blocked because no publishing integration exists yet', () => {
+  it('keeps YouTube Shorts blocked until a channel is connected', () => {
     const bridge = deriveStrategyExecutionBridge({
       scopeType: 'organic',
       campaignPlatforms: ['YOUTUBE_SHORTS'],
@@ -106,9 +106,22 @@ describe('deriveStrategyExecutionBridge', () => {
 
     expect(bridge.organicRequirements[0].platformKey).toBe('youtube')
     expect(bridge.organicRequirements[0].status).toBe('blocked')
-    expect(bridge.organicRequirements[0].readinessStatus).toBe('not_available')
-    expect(bridge.organicRequirements[0].reasonEn).toContain('does not have a supported publishing integration')
-    expect(bridge.organicRequirements[0].actionHref).toBeUndefined()
+    expect(bridge.organicRequirements[0].readinessStatus).toBe('not_connected')
+    expect(bridge.organicRequirements[0].reasonEn).toContain('not connected')
+    expect(bridge.organicRequirements[0].actionHref).toBe('/connections')
+  })
+
+  it('recognizes a fully verified YouTube channel as review-ready', () => {
+    const bridge = deriveStrategyExecutionBridge({
+      scopeType: 'organic',
+      campaignPlatforms: ['YOUTUBE_SHORTS'],
+      platformStates: derivePlatformReadiness([{
+        platform: 'YOUTUBE',
+        status: 'CONNECTED',
+        capabilities: { youtubeVideoPublishing: true, youtubeReadback: true, tokenRefresh: true },
+      }]),
+    })
+    expect(bridge.organicRequirements[0]).toMatchObject({ platformKey: 'youtube', status: 'ready' })
   })
 
   it('uses a conservative checking state while platform readiness is loading', () => {

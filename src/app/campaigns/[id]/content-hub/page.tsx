@@ -44,7 +44,7 @@ import { PostPlatformPublisher } from '@/components/publishing/PostPlatformPubli
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Platform = 'ALL' | 'META' | 'INSTAGRAM' | 'LINKEDIN' | 'X' | 'TIKTOK' | 'TWITTER'
+type Platform = 'ALL' | 'META' | 'INSTAGRAM' | 'LINKEDIN' | 'X' | 'TIKTOK' | 'TWITTER' | 'YOUTUBE' | 'YOUTUBE_SHORTS'
 type MediaSource = 'GENERATE' | 'UPLOAD' | 'UPLOAD_RAW'
 type GenStatus = 'PENDING' | 'GENERATING' | 'DONE' | 'FAILED' | 'AWAITING_UPLOAD' | 'SKIPPED'
 
@@ -83,9 +83,17 @@ interface ScheduleAccount {
   id: string
   platform: string
   accountName?: string | null
-  pages?: Array<{ id: string; name: string; igAccountId?: string | null; accessToken?: string }>
+  pages?: Array<{ id: string; name: string; igAccountId?: string | null }>
   organizations?: Array<{ id: string; name: string }>
   selectedOrganizationId?: string | null
+}
+
+interface YouTubeScheduleOptions {
+  title: string
+  privacyStatus: 'private' | 'unlisted' | 'public'
+  madeForKids: '' | 'yes' | 'no'
+  syntheticMedia: '' | 'yes' | 'no'
+  notifySubscribers: boolean
 }
 
 interface PendingMediaAttachment {
@@ -246,6 +254,16 @@ function isUserConfirmedManualPublished(post: Pick<ContentPost, 'status' | 'manu
   return post.status === 'PUBLISHED' && Boolean(post.manuallyPublishedAt || post.publishMode !== 'AUTO')
 }
 
+function defaultYouTubeScheduleOptions(post: Pick<ContentPost, 'caption'>): YouTubeScheduleOptions {
+  return {
+    title: post.caption.split(/\r?\n/)[0].trim().slice(0, 100),
+    privacyStatus: 'private',
+    madeForKids: '',
+    syntheticMedia: '',
+    notifySubscribers: false,
+  }
+}
+
 export default function ContentHubPage() {
   const params = useParams()
   const router = useRouter()
@@ -309,6 +327,7 @@ export default function ContentHubPage() {
     privacyLevel: '', disableComment: false, disableDuet: false, disableStitch: false,
     brandContentToggle: false, brandOrganicToggle: true, isAigc: false,
   })
+  const [youtubeOptionsByPostId, setYouTubeOptionsByPostId] = useState<Record<string, YouTubeScheduleOptions>>({})
   const [approveResult, setApproveResult] = useState<{
     kind: 'approved' | 'scheduled'
     approved: number
@@ -437,6 +456,9 @@ export default function ContentHubPage() {
           } else if (target === 'TIKTOK') {
             const tiktok = accounts.find(account => account.platform === 'TIKTOK')
             if (tiktok) next[target] = { integrationId: tiktok.id, pageName: tiktok.accountName || undefined }
+          } else if (target === 'YOUTUBE' || target === 'YOUTUBE_SHORTS') {
+            const youtube = accounts.find(account => account.platform === 'YOUTUBE')
+            if (youtube) next.YOUTUBE = { integrationId: youtube.id, pageName: youtube.accountName || undefined }
           }
         }
         setDestinationByTarget(next)
@@ -508,8 +530,16 @@ export default function ContentHubPage() {
   const draftCount = posts.filter(p => p.status === 'DRAFT').length
   const approvedCount = posts.filter(p => p.status === 'APPROVED').length
   const approvedPostsWithDates = posts.filter(p => p.status === 'APPROVED' && hasValidDate(p.scheduledAt))
-  const approvedAutoTargets = Array.from(new Set(approvedPostsWithDates.map(post => post.platform.toUpperCase())))
-  const unsupportedAutoTargets = approvedAutoTargets.filter(target => !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK'].includes(target))
+  const approvedAutoTargets = Array.from(new Set(approvedPostsWithDates.map(post => {
+    const target = post.platform.toUpperCase()
+    return target === 'YOUTUBE_SHORTS' ? 'YOUTUBE' : target
+  })))
+  const unsupportedAutoTargets = approvedAutoTargets.filter(target => !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK', 'YOUTUBE'].includes(target))
+  const approvedYouTubePosts = approvedPostsWithDates.filter(post => ['YOUTUBE', 'YOUTUBE_SHORTS'].includes(post.platform.toUpperCase()))
+  const youtubeAutoReviewIncomplete = scheduleMode === 'AUTO' && approvedYouTubePosts.some(post => {
+    const options = youtubeOptionsByPostId[post.id]
+    return !options?.title.trim() || !options.madeForKids || !options.syntheticMedia
+  })
   const approvedPostsNeedingMedia = posts.filter(
     p => p.status === 'APPROVED' && !isContentPostMediaReadyForScheduling(p),
   )
@@ -574,6 +604,8 @@ export default function ContentHubPage() {
   const approvalBlockedByTruthReview = draftCount > 0 && contentReviewRequired
   const schedulingBlockedByTruthReview = approvedCount > 0 && contentReviewRequired
   const schedulingBlocked = schedulingBlockedByMedia || schedulingBlockedByTruthReview
+  const schedulingDecisionBlocked = schedulingBlocked
+    || (scheduleMode === 'AUTO' && (unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete))
   const approvalBlocked = approvalBlockedByOrderMismatch || approvalBlockedByTruthReview
   const contentHubFulfillmentSummary = deriveStrategyFulfillmentSummary({
     aiOutput: campaign?.aiOutput,
@@ -1246,6 +1278,12 @@ export default function ContentHubPage() {
       document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return
     }
+    if (scheduleMode === 'AUTO' && (unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete)) {
+      setError(isAr
+        ? 'أكمل إعدادات كل فيديو YouTube أو استخدم التنفيذ اليدوي للوجهات غير المدعومة.'
+        : 'Complete every YouTube video setting or use manual execution for unsupported destinations.')
+      return
+    }
     setScheduling(true)
     setError(null)
     try {
@@ -1257,10 +1295,25 @@ export default function ContentHubPage() {
           explicitAutoPublishConfirmed: scheduleMode === 'AUTO' && scheduleAcknowledged,
           destinationByTarget,
           tiktokOptions,
+          youtubeOptionsByPostId: Object.fromEntries(
+            Object.entries(youtubeOptionsByPostId).map(([postId, options]) => [postId, {
+              title: options.title.trim(),
+              privacyStatus: options.privacyStatus,
+              selfDeclaredMadeForKids: options.madeForKids === 'yes',
+              containsSyntheticMedia: options.syntheticMedia === 'yes',
+              notifySubscribers: options.notifySubscribers,
+              categoryId: '22',
+            }]),
+          ),
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Scheduling failed')
+      if (!res.ok) {
+        const blockerMessage = Array.isArray(data.blockers)
+          ? data.blockers.map((blocker: { message?: unknown }) => typeof blocker?.message === 'string' ? blocker.message : '').filter(Boolean).join(' ')
+          : ''
+        throw new Error(blockerMessage || data.error || 'Scheduling failed')
+      }
 
       const freshPosts = await loadData()
       const scheduledPosts = freshPosts.filter(p => p.status === 'SCHEDULED' && hasValidDate(p.scheduledAt))
@@ -1640,6 +1693,14 @@ export default function ContentHubPage() {
                         return
                       }
                       setScheduleAcknowledged(false)
+                      setYouTubeOptionsByPostId(current => {
+                        const next = { ...current }
+                        for (const post of approvedPostsWithDates) {
+                          if (!['YOUTUBE', 'YOUTUBE_SHORTS'].includes(post.platform.toUpperCase()) || next[post.id]) continue
+                          next[post.id] = defaultYouTubeScheduleOptions(post)
+                        }
+                        return next
+                      })
                       setShowScheduleConfirm(true)
                     }}
                     disabled={scheduling}
@@ -2454,6 +2515,82 @@ export default function ContentHubPage() {
                       </div>
                     </div>
                   )}
+
+                  {approvedAutoTargets.includes('YOUTUBE') && (
+                    <div className="space-y-3 rounded-lg border border-red-100 bg-white p-3">
+                      <div>
+                        <p className="text-[11px] font-black text-slate-800">YouTube</p>
+                        <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                          {scheduleAccounts.find(account => account.platform === 'YOUTUBE')
+                            ? (isAr
+                                ? `القناة: ${scheduleAccounts.find(account => account.platform === 'YOUTUBE')?.accountName || 'YouTube'}`
+                                : `Channel: ${scheduleAccounts.find(account => account.platform === 'YOUTUBE')?.accountName || 'YouTube'}`)
+                            : (isAr ? 'لا توجد قناة YouTube متصلة.' : 'No YouTube channel is connected.')}
+                        </p>
+                        <p className="mt-1 rounded-md bg-amber-50 p-2 text-[10px] font-semibold leading-4 text-amber-800">
+                          {isAr
+                            ? 'قد تفرض Google الرؤية على Private حتى اعتماد مشروع YouTube API، حتى لو اخترت Public.'
+                            : 'Google may force Private visibility until the YouTube API project passes audit, even when Public is selected.'}
+                        </p>
+                      </div>
+                      {approvedYouTubePosts.map((post, index) => {
+                        const options = youtubeOptionsByPostId[post.id] || defaultYouTubeScheduleOptions(post)
+                        const update = (patch: Partial<YouTubeScheduleOptions>) => {
+                          setYouTubeOptionsByPostId(current => ({
+                            ...current,
+                            [post.id]: { ...(current[post.id] || defaultYouTubeScheduleOptions(post)), ...patch },
+                          }))
+                        }
+                        return (
+                          <fieldset key={post.id} className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                            <legend className="px-1 text-[10px] font-black text-slate-700">
+                              {isAr ? `فيديو ${index + 1}` : `Video ${index + 1}`}
+                            </legend>
+                            <label className="block text-[10px] font-bold text-slate-600">
+                              {isAr ? 'عنوان الفيديو' : 'Video title'}
+                              <input value={options.title} maxLength={100} onChange={event => update({ title: event.target.value })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs" />
+                            </label>
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                              <label className="block text-[10px] font-bold text-slate-600">
+                                {isAr ? 'الخصوصية' : 'Privacy'}
+                                <select value={options.privacyStatus} onChange={event => update({ privacyStatus: event.target.value as YouTubeScheduleOptions['privacyStatus'] })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs">
+                                  <option value="private">{isAr ? 'خاص' : 'Private'}</option>
+                                  <option value="unlisted">{isAr ? 'غير مدرج' : 'Unlisted'}</option>
+                                  <option value="public">{isAr ? 'عام' : 'Public'}</option>
+                                </select>
+                              </label>
+                              <label className="block text-[10px] font-bold text-slate-600">
+                                {isAr ? 'موجّه للأطفال؟' : 'Made for kids?'}
+                                <select value={options.madeForKids} onChange={event => update({ madeForKids: event.target.value as YouTubeScheduleOptions['madeForKids'] })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs">
+                                  <option value="">{isAr ? 'اختر' : 'Choose'}</option>
+                                  <option value="no">{isAr ? 'لا' : 'No'}</option>
+                                  <option value="yes">{isAr ? 'نعم' : 'Yes'}</option>
+                                </select>
+                              </label>
+                              <label className="block text-[10px] font-bold text-slate-600">
+                                {isAr ? 'واقعي معدل/اصطناعي؟' : 'Altered/synthetic?'}
+                                <select value={options.syntheticMedia} onChange={event => update({ syntheticMedia: event.target.value as YouTubeScheduleOptions['syntheticMedia'] })} className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs">
+                                  <option value="">{isAr ? 'اختر' : 'Choose'}</option>
+                                  <option value="no">{isAr ? 'لا' : 'No'}</option>
+                                  <option value="yes">{isAr ? 'نعم' : 'Yes'}</option>
+                                </select>
+                              </label>
+                            </div>
+                            <label className="flex items-start gap-2 text-[10px] leading-4 text-slate-600">
+                              <input type="checkbox" checked={options.notifySubscribers} onChange={event => update({ notifySubscribers: event.target.checked })} className="mt-0.5" />
+                              {isAr ? 'إشعار المشتركين إذا سمحت قواعد القناة والرؤية' : 'Notify subscribers when channel and visibility rules allow it'}
+                            </label>
+                          </fieldset>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {youtubeAutoReviewIncomplete && (
+                    <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-5 text-amber-900">
+                      {isAr ? 'راجع عنوان كل فيديو وتصنيف الأطفال وإفصاح المحتوى المعدل أو الاصطناعي.' : 'Review each video title, made-for-kids setting, and altered or synthetic media disclosure.'}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -2498,7 +2635,7 @@ export default function ContentHubPage() {
                 <input
                   type="checkbox"
                   checked={scheduleAcknowledged}
-                  disabled={scheduling || approvedPostsWithDates.length === 0 || schedulingBlocked}
+                  disabled={scheduling || approvedPostsWithDates.length === 0 || schedulingDecisionBlocked}
                   onChange={event => setScheduleAcknowledged(event.target.checked)}
                   className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#5E63FF]"
                 />
@@ -2528,7 +2665,7 @@ export default function ContentHubPage() {
                 <button
                   type="button"
                   onClick={scheduleAll}
-                  disabled={scheduling || !scheduleAcknowledged || approvedPostsWithDates.length === 0 || schedulingBlocked}
+                  disabled={scheduling || !scheduleAcknowledged || approvedPostsWithDates.length === 0 || schedulingDecisionBlocked}
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#4F46E5] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   {scheduling

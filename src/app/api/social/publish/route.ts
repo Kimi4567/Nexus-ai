@@ -6,8 +6,11 @@ import { publishSocialPost } from '@/lib/socialPublishers'
 import { hasVerifiedProviderScope } from '@/lib/socialPlatformConfig'
 import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState'
 import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
+import { YOUTUBE_UPLOAD_SCOPE } from '@/lib/youtubePublishing'
 
-type RequestedPlatform = 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK'
+export const maxDuration = 180
+
+type RequestedPlatform = 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE'
 
 interface PublishRequest {
   socialPostId?: unknown
@@ -26,8 +29,11 @@ function text(value: unknown, max: number): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : ''
 }
 
-function dbPlatform(platform: RequestedPlatform): 'META' | 'LINKEDIN' | 'TIKTOK' {
-  return platform === 'LINKEDIN' ? 'LINKEDIN' : platform === 'TIKTOK' ? 'TIKTOK' : 'META'
+function dbPlatform(platform: RequestedPlatform): 'META' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' {
+  if (platform === 'LINKEDIN') return 'LINKEDIN'
+  if (platform === 'TIKTOK') return 'TIKTOK'
+  if (platform === 'YOUTUBE') return 'YOUTUBE'
+  return 'META'
 }
 
 export async function POST(req: NextRequest) {
@@ -48,7 +54,7 @@ export async function POST(req: NextRequest) {
     ? body.platformOptions as Record<string, unknown>
     : null
 
-  if (!integrationId || !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK'].includes(platform)) {
+  if (!integrationId || !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK', 'YOUTUBE'].includes(platform)) {
     return NextResponse.json({ error: 'Valid integrationId and platform are required' }, { status: 400 })
   }
   if (['FACEBOOK', 'INSTAGRAM'].includes(platform) && !pageId) {
@@ -83,6 +89,7 @@ export async function POST(req: NextRequest) {
           uploadedMediaId: true,
           mediaSource: true,
           generationStatus: true,
+          isVideoPost: true,
           approvedAt: true,
         },
       })
@@ -102,11 +109,20 @@ export async function POST(req: NextRequest) {
   if (dbPlatform(platform) !== existingPost.platform) {
     return NextResponse.json({ error: 'Selected platform does not match the approved post platform' }, { status: 409 })
   }
-  if (existingPost.publishTarget && existingPost.publishTarget !== 'META' && existingPost.publishTarget !== platform) {
+  const approvedTarget = existingPost.publishTarget === 'YOUTUBE_SHORTS' ? 'YOUTUBE' : existingPost.publishTarget
+  if (approvedTarget && approvedTarget !== 'META' && approvedTarget !== platform) {
     return NextResponse.json({ error: 'Selected destination does not match the approved post destination' }, { status: 409 })
   }
   if (platform === 'TIKTOK' && platformOptions?.explicitConsent !== true) {
     return NextResponse.json({ error: 'TikTok requires explicit consent and reviewed publishing options' }, { status: 400 })
+  }
+  if (platform === 'YOUTUBE' && (!existingPost.isVideoPost || platformOptions?.explicitConsent !== true)) {
+    return NextResponse.json({
+      error: !existingPost.isVideoPost
+        ? 'YouTube publishing requires an approved video post.'
+        : 'YouTube requires explicit consent and reviewed video settings.',
+      code: !existingPost.isVideoPost ? 'YOUTUBE_VIDEO_REQUIRED' : 'YOUTUBE_REVIEW_REQUIRED',
+    }, { status: 400 })
   }
   if (campaignId && existingPost.campaignId && campaignId !== existingPost.campaignId) {
     return NextResponse.json({ error: 'Campaign does not match the approved post' }, { status: 409 })
@@ -155,7 +171,9 @@ export async function POST(req: NextRequest) {
       ? 'instagram_content_publish'
       : platform === 'LINKEDIN'
         ? (pageId ? 'w_organization_social' : 'w_member_social')
-        : 'video.publish'
+        : platform === 'TIKTOK'
+          ? 'video.publish'
+          : YOUTUBE_UPLOAD_SCOPE
   if (!hasVerifiedProviderScope(config, requiredScope)) {
     return NextResponse.json({
       error: `Reconnect ${platform} and grant the verified ${requiredScope} permission before publishing.`,
