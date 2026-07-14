@@ -19,6 +19,11 @@ import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabaseClient'
 import { useI18n } from '@/lib/i18n-context'
 import { normalizePaidDestinationUrl } from '@/lib/paidExecutionReadiness'
+import {
+  normalizePaidPlanningPlatform,
+  normalizePaidPlanningRationale,
+  selectSinglePaidPlanningAccount,
+} from '@/lib/paidPlanningSuggestion'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface AdAccount {
@@ -254,14 +259,30 @@ export default function NewPaidCampaignPage() {
       })
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || copy('تعذر إنشاء اقتراح التخطيط.', 'AI suggestion failed'))
-      set('platform', result.platform || 'META')
-      set('objective', result.objective || 'LEAD_GENERATION')
-      set('dailyBudget', result.dailyBudget ? String(result.dailyBudget) : '')
-      set('currency', result.currency || 'USD')
-      set('name', result.name || '')
-      set('language', result.language || 'en')
-      set('aiSuggested', true)
-      set('aiSuggestionRationale', result.rationale || '')
+      const platform = normalizePaidPlanningPlatform(result.platform)
+      const selectedAccount = selectSinglePaidPlanningAccount(accounts, platform)
+      const objective = OBJECTIVES.some(item => item.id === result.objective)
+        ? result.objective
+        : 'LEAD_GENERATION'
+      const language = ['ar', 'en', 'bilingual'].includes(result.language)
+        ? result.language
+        : 'en'
+      setData(previous => ({
+        ...previous,
+        platform,
+        adAccountId: selectedAccount?.id || '',
+        objective,
+        dailyBudget: result.dailyBudget ? String(result.dailyBudget) : '',
+        currency: selectedAccount?.currency || result.currency || 'USD',
+        name: result.name || '',
+        language,
+        aiSuggested: true,
+        aiSuggestionRationale: normalizePaidPlanningRationale({
+          platform,
+          rationale: result.rationale,
+          locale: isArabic ? 'ar' : 'en',
+        }),
+      }))
       setStep(2)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : copy('تعذر إنشاء اقتراح التخطيط.', 'AI suggestion failed'))
@@ -451,7 +472,11 @@ export default function NewPaidCampaignPage() {
                       <button
                         type="button"
                         key={acc.id}
-                        onClick={() => set('adAccountId', acc.id)}
+                        onClick={() => setData(previous => ({
+                          ...previous,
+                          adAccountId: acc.id,
+                          currency: acc.currency || previous.currency,
+                        }))}
                         aria-pressed={data.adAccountId === acc.id}
                         className="w-full flex items-center justify-between p-3 rounded-xl text-left transition-all"
                         style={{

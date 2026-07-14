@@ -14,6 +14,10 @@ import { getAuthUser } from '@/lib/apiAuth'
 import { suggestRateLimitDb } from '@/lib/dbRateLimit'
 import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import {
+  normalizePaidPlanningPlatform,
+  normalizePaidPlanningRationale,
+} from '@/lib/paidPlanningSuggestion'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -105,7 +109,7 @@ export async function POST(req: NextRequest) {
     const month = now.toLocaleString('en', { month: 'short' })
     const year = now.getFullYear()
 
-    const systemPrompt = `You are a paid media strategist. Given a brand profile, suggest a planning configuration for review. Never claim readiness, never launch anything, and never invent a budget, currency, result, or forecast. Output ONLY valid JSON.`
+    const systemPrompt = `You are a paid media strategist. Given a brand profile, suggest one planning configuration for review. Never claim readiness, never launch anything, and never invent a budget, currency, result, or forecast. The rationale must discuss only the platform returned in the platform field and must not recommend or name alternative platforms. Output ONLY valid JSON.`
 
     const userPrompt = `${brandCtx}
 
@@ -156,14 +160,20 @@ Return JSON:
       })
     }
 
+    const platform = normalizePaidPlanningPlatform(suggestion.platform)
+    const language = String(suggestion.language || 'en')
     return NextResponse.json({
-      platform: suggestion.platform,
+      platform,
       objective: suggestion.objective,
       dailyBudget: null,
       currency: String(suggestion.currency || 'USD'),
       name: suggestion.name,
-      language: String(suggestion.language || 'en'),
-      rationale: suggestion.rationale,
+      language,
+      rationale: normalizePaidPlanningRationale({
+        platform,
+        rationale: suggestion.rationale,
+        locale: language === 'ar' ? 'ar' : 'en',
+      }),
       requiresBudgetConfirmation: true,
       requiresCurrencyConfirmation: true,
       providerGenerated: true,
