@@ -484,7 +484,7 @@ export async function sendNurtureDay7(to: string, name: string) {
     `)}
 
     ${p('Nexus Growth gives you up to 10 campaign creations per billing month, a weekly planning brief, supported-platform publishing after connection, and reviewable Brand Brain learning proposals.')}
-    ${p('If you run even one campaign a week that converts — the tool pays for itself in the first sale.')}
+    ${p('If your campaigns perform well, the workflow may pay for itself — results vary by market, offer, and execution.')}
 
     ${btn('Upgrade to Growth — $49/month →', `${APP_URL}/billing`)}
 
@@ -511,12 +511,12 @@ export async function sendUpgradeConfirmationEmail(to: string, name: string, pla
   const firstName = name?.split(' ')[0] || 'there'
   const isAutopilot = /autopilot|business|agency/i.test(plan)
   const activatedFeatures = isAutopilot
-    ? ['500 AI credits per billing month', 'Unlimited monthly campaign creation', 'Continuous scheduled monitoring', 'Supported-platform publishing after connection and approval', 'Printable HTML and JSON exports', 'Evidence-backed action queue']
+    ? ['500 AI credits per billing month', 'Unlimited monthly campaign creation', 'Scheduled monitoring', 'Supported-platform publishing after connection and approval', 'Printable HTML and JSON exports', 'Evidence-backed action queue']
     : ['150 AI credits per billing month', 'Up to 10 campaign creations per billing month', 'Weekly planning brief', 'Supported-platform publishing after connection and approval', 'Printable HTML and JSON exports', 'Reviewable Brand Brain learning proposals']
 
   const content = `
     ${h1(`You're on ${plan}. Let's build.`)}
-    ${p(`${firstName}, your upgrade to Nexus ${plan} is confirmed. Everything is unlocked.`)}
+    ${p(`${firstName}, your upgrade to Nexus ${plan} is confirmed. Your plan features are now available, subject to provider access and approval requirements.`)}
 
     ${card(`
       <div style="font-size:13px;font-weight:700;color:#e8e8f5;margin-bottom:12px;">What's now available to you:</div>
@@ -541,7 +541,7 @@ export async function sendUpgradeConfirmationEmail(to: string, name: string, pla
     from: FROM,
     replyTo: REPLY_TO,
     to,
-    subject: `You're now on Nexus ${plan} — everything is unlocked`,
+    subject: `Your Nexus ${plan} plan is active`,
     html: emailShell(content),
   })
 }
@@ -616,7 +616,7 @@ export async function sendIntegrationExpiryEmail(
   const content = `
     ${h1(isExpired ? `⚠️ Your ${platformList} connection expired` : `⏰ Action needed: reconnect ${platformList}`)}
     ${p(`Hi ${firstName} — your ${platformList} ${platforms.length > 1 ? 'connections' : 'connection'} ${isExpired ? 'has expired' : `will expire in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`}.`)}
-    ${p('Without a valid connection, scheduled posts cannot be published and your content plan will go silent.')}
+    ${p('Without a valid connection, scheduled automatic posts cannot be published. Manual publishing and drafts remain available.')}
     ${card(`
       <div style="font-size:13px;color:#9A9080;margin-bottom:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Affected platforms</div>
       ${platforms.map(p => `

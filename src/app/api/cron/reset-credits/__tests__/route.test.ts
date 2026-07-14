@@ -91,7 +91,7 @@ describe('cron/reset-credits — B1d-d grant-aware reset', () => {
     }))
   })
 
-  it('dedupes an existing monthly grant and does not reset again', async () => {
+  it('dedupes an existing monthly grant and only retires a transitional migrated balance', async () => {
     mockPrisma.creditGrant.createMany.mockResolvedValueOnce({ count: 0 })
 
     const res = await GET(makeReq())
@@ -99,20 +99,23 @@ describe('cron/reset-credits — B1d-d grant-aware reset', () => {
 
     expect(body).toMatchObject({ ok: true, reset: 0, grantsCreated: 0, grantsSkipped: 1 })
     expect(mockPrisma.creditGrant.createMany).toHaveBeenCalledTimes(1)
-    expect(mockPrisma.creditGrant.updateMany).not.toHaveBeenCalled()
+    expect(mockPrisma.creditGrant.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', status: 'ACTIVE', type: 'MIGRATED' },
+      data: { status: 'RESET', remaining: 0 },
+    })
     expect(mockPrisma.user.update).not.toHaveBeenCalled()
   })
 
-  it('leaves PURCHASED grants untouched by resetting only non-purchased grants', async () => {
+  it('leaves independent balances untouched by resetting subscription-cycle grants only', async () => {
     await GET(makeReq())
 
     expect(mockPrisma.creditGrant.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'u1', status: 'ACTIVE', type: { not: 'PURCHASED' }, source: { not: SOURCE } },
+      where: { userId: 'u1', status: 'ACTIVE', type: { in: ['MONTHLY', 'MIGRATED'] }, source: { not: SOURCE } },
       data: { status: 'RESET', remaining: 0 },
     })
   })
 
-  it('resets prior ACTIVE non-PURCHASED grants only when a new monthly grant is created', async () => {
+  it('resets prior monthly grants once and does not restore scalar credit on duplicate delivery', async () => {
     await GET(makeReq())
     expect(mockPrisma.creditGrant.updateMany).toHaveBeenCalledTimes(1)
 
@@ -124,7 +127,10 @@ describe('cron/reset-credits — B1d-d grant-aware reset', () => {
 
     await GET(makeReq())
     expect(mockPrisma.user.update).not.toHaveBeenCalled()
-    expect(mockPrisma.creditGrant.updateMany).not.toHaveBeenCalled()
+    expect(mockPrisma.creditGrant.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', status: 'ACTIVE', type: 'MIGRATED' },
+      data: { status: 'RESET', remaining: 0 },
+    })
   })
 
   it('skips reconciliation when Stripe period data is missing without inventing a reset date', async () => {

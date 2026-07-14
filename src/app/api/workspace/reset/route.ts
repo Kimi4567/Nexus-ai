@@ -26,10 +26,11 @@ import { Prisma } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { WORKSPACE_RESET_CONFIRMATION } from '@/lib/workspaceReset'
 
 const db = prisma as any
 
-const STRONG_CONFIRM = 'RESET MY NEXUS WORKSPACE'
+const STRONG_CONFIRM = WORKSPACE_RESET_CONFIRMATION
 const RESET_TRANSACTION_TIMEOUT_MS = 60_000
 
 // Account infrastructure + platform connections that are NEVER touched.

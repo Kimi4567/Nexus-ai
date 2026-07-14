@@ -10,6 +10,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { sendCreditsLowEmail } from '@/lib/email/resend'
+import { randomUUID } from 'crypto'
 import {
   isCreditWalletEnabled,
   isGrantEligible,
@@ -763,14 +764,23 @@ export async function addCredits(
   entityType = 'bonus',
   source?: string,
 ): Promise<void> {
+  if (!Number.isSafeInteger(amount) || amount <= 0) {
+    throw new Error('Credit amount must be a positive integer')
+  }
+  let added = true
   if (source) {
-    // Atomic: increment + matching MANUAL grant together.
-    await (prisma as any).$transaction(async (tx: any) => {
-      await tx.user.update({
-        where: { id: userId },
-        data: { aiCredits: { increment: amount } },
-      })
-      await ensureGrant(buildBonusGrant(userId, 'MANUAL', amount, source), tx)
+    // Atomic and truly idempotent: only increment the scalar/cache when the
+    // source grant was newly inserted. A retry with the same source must not
+    // mint a second balance while createMany(skipDuplicates) silently skips.
+    added = await (prisma as any).$transaction(async (tx: any) => {
+      const grant = await ensureGrant(buildBonusGrant(userId, 'MANUAL', amount, source), tx)
+      if (grant.created) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { aiCredits: { increment: amount } },
+        })
+      }
+      return grant.created
     })
   } else {
     // Original behavior — unchanged.
@@ -779,7 +789,9 @@ export async function addCredits(
       data: { aiCredits: { increment: amount } },
     })
   }
-  await _logTransaction(userId, 'CREDIT', amount, description, undefined, entityType)
+  if (added) {
+    await _logTransaction(userId, 'CREDIT', amount, description, undefined, entityType)
+  }
 }
 
 // ── Public: refund credits on failed generation ───────────────────────────────
@@ -811,6 +823,44 @@ export async function refundCredits(
   const cost = CREDIT_COSTS[action]
   if (!cost) return
   try {
+    // Some older routes still call this helper without passing the debit's
+    // transactionId. When the grant wallet is enabled, incrementing only the
+    // legacy scalar would create invisible balance (and the next wallet spend
+    // would ignore it). Preserve those routes safely by minting a short-lived
+    // REFUND grant as the documented interim fallback. Newer routes use
+    // refundCreditsForTransaction for exact source restoration.
+    if (isCreditWalletEnabled()) {
+      await (prisma as any).$transaction(async (tx: any) => {
+        const grantId = `refund:fallback:${userId}:${action}:${randomUUID()}`
+        await tx.creditGrant.create({
+          data: {
+            userId,
+            type: 'REFUND',
+            status: 'ACTIVE',
+            amount: cost,
+            remaining: cost,
+            // Interim refunds must not create a long-lived purchased-like pool.
+            expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+            source: grantId,
+          },
+        })
+        await tx.user.update({
+          where: { id: userId },
+          data: { aiCredits: { increment: cost } },
+        })
+        await tx.creditTransaction.create({
+          data: {
+            userId,
+            action: 'REFUND',
+            amount: cost,
+            description: `Refund — ${ACTION_LABELS[action] || action} (${reason})`,
+            entityType: 'refund',
+          },
+        })
+      })
+      return
+    }
+
     await prisma.user.update({
       where: { id: userId },
       data: { aiCredits: { increment: cost } },

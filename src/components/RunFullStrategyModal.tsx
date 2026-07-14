@@ -1383,10 +1383,11 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
         {/* ========== SUCCESS PHASE ========== */}
         {phase === 'success' && result && (
           <div className="p-6">
-            <button onClick={handleCloseFromSuccess}
+              <button onClick={handleCloseFromSuccess}
               className="absolute top-4 end-4 p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white/5 transition-all">
-              <X className="w-4 h-4" />
-            </button>
+                <span className="sr-only">{locale === 'ar' ? 'إغلاق' : 'Close'}</span>
+                <X className="w-4 h-4" />
+              </button>
 
             <div className="text-center mb-5">
               <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"

@@ -5,7 +5,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
-import { supabase } from '@/lib/supabaseClient'
+import { isSupabaseConfigured, supabase } from '@/lib/supabaseClient'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import { getFirstRunJourney, type StrategyState } from '@/lib/firstUserJourney'
 import LuxuryAuthShell from '@/components/auth/LuxuryAuthShell'
@@ -34,12 +34,20 @@ function LoginForm() {
   useEffect(() => setError(''), [isRTL])
 
   const loginT = t('auth.login')
-  const redirectTo = safeInternalRedirect(searchParams.get('redirect'))
+  const redirectTo = safeInternalRedirect(
+    searchParams.get('redirect') || searchParams.get('redirectTo'),
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     if (!email || !password) { setError(loginT?.errors?.allFields || ''); return }
+    if (!isSupabaseConfigured) {
+      setError(isRTL
+        ? 'خدمة تسجيل الدخول غير متاحة حاليًا. يرجى المحاولة لاحقًا.'
+        : 'Sign-in is temporarily unavailable. Please try again later.')
+      return
+    }
     setLoading(true)
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })

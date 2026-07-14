@@ -63,7 +63,9 @@ vi.mock('@/lib/cloudinaryOverlay', () => ({
   platformToOverlay: mockPlatformToOverlay,
 }))
 
-const makeReq = (authorization = 'Bearer cron_secret') => ({
+const testCronSecret = 'c'.repeat(40)
+
+const makeReq = (authorization = `Bearer ${testCronSecret}`) => ({
   headers: {
     get: (name: string) => (name.toLowerCase() === 'authorization' ? authorization : null),
   },
@@ -98,7 +100,7 @@ const postB = {
 async function loadRoute() {
   vi.resetModules()
   vi.stubEnv('NODE_ENV', 'production')
-  vi.stubEnv('CRON_SECRET', 'cron_secret')
+  vi.stubEnv('CRON_SECRET', testCronSecret)
   vi.stubEnv('FAL_KEY', 'fal_test_key')
   vi.stubEnv('CLOUDINARY_CLOUD_NAME', 'test-cloud')
   vi.stubEnv('NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME', '')

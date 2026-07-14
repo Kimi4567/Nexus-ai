@@ -270,6 +270,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
     hasActiveSubscription: billingStatus?.hasActiveSubscription,
     creditsRemaining: billingStatus?.credits?.remaining,
     creditsMax: billingStatus?.credits?.max,
+    billingEnabled: billingStatus?.billingEnabled,
     billingLoaded: !billingLoading,
     locale,
   })
@@ -333,6 +334,19 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
               AI MARKETING OS
             </div>
           </div>
+        )}
+        {onMobileClose && (
+          <button
+            type="button"
+            onClick={onMobileClose}
+            className="md:hidden ms-auto inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-900"
+            aria-label={t('common.close')}
+            title={t('common.close')}
+          >
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M3 3l10 10M13 3L3 13" />
+            </svg>
+          </button>
         )}
       </div>
 

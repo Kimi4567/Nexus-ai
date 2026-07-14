@@ -98,7 +98,19 @@ export async function GET(req: NextRequest) {
 
   const personId   = profile.sub as string          // LinkedIn member URN id
   const name       = profile.name || profile.given_name || 'LinkedIn User'
-  const email      = profile.email || `${userId}@placeholder.nexus`
+  // LinkedIn may omit email from OIDC userinfo. Reuse the verified Supabase
+  // email (or an existing Prisma email) instead of inventing a placeholder
+  // address that can collide with the real account.
+  let authEmail: string | undefined
+  try {
+    const { data: supaUser } = await adminClient.auth.admin.getUserById(userId)
+    authEmail = supaUser?.user?.email || undefined
+  } catch { /* the existing Prisma row is still a safe fallback */ }
+  const existingUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  }).catch(() => null)
+  const email = profile.email || authEmail || existingUser?.email || `user-${userId.slice(0, 8)}@nexus.internal`
   const pictureUrl = profile.picture || null
 
   // Company Page identities are separate from the member identity. This call
@@ -156,11 +168,11 @@ export async function GET(req: NextRequest) {
   await prisma.user.upsert({
     where: { id: userId },
     create: { id: userId, email, name },
-    update: { name },
+    update: { name, ...(profile.email || authEmail ? { email } : {}) },
   }).catch(async () => {
     await prisma.user.upsert({
       where: { id: userId },
-      create: { id: userId, email: `user-${userId.slice(0,8)}@nexus.internal`, name },
+      create: { id: userId, email, name },
       update: {},
     }).catch(() => {})
   })

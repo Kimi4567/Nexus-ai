@@ -30,7 +30,7 @@ import {
   ensureMonthlyGrant,
   fulfilPurchasedCreditPack,
   syncCachedWalletBalance,
-  voidNonPurchasedGrants,
+  voidMonthlyGrants,
 } from '@/lib/credits/creditGrants'
 import Stripe from 'stripe'
 
@@ -325,9 +325,9 @@ export async function POST(req: NextRequest) {
           break
         }
 
-        // Cancellation voids every renewable/promotional bucket while leaving
-        // purchased credit intact until its own expiry. The scalar cache is then
-        // rebuilt from the remaining eligible wallet grants.
+        // Cancellation voids subscription-cycle credit while leaving valid
+        // independent grants (including purchased credit) intact. The scalar
+        // cache is then rebuilt from the remaining eligible wallet grants.
         await (prisma as any).$transaction(async (tx: any) => {
           const walletEnabled = isCreditWalletEnabled()
           await tx.subscription.updateMany({
@@ -341,7 +341,7 @@ export async function POST(req: NextRequest) {
               ...(!walletEnabled && { aiCredits: 0 }),
             },
           })
-          await voidNonPurchasedGrants(userId, tx)
+          await voidMonthlyGrants(userId, tx)
           if (walletEnabled) await syncCachedWalletBalance(userId, tx)
         })
         console.log(`[Webhook] Subscription cancelled for userId=${userId}`)
@@ -372,8 +372,8 @@ export async function POST(req: NextRequest) {
         const wantsGrant = credits > 0 && periodValid
 
         // Renewal creates exactly one MONTHLY grant for the new cycle, resets
-        // prior non-purchased credit, and preserves valid purchased credit. The
-        // scalar balance remains a derived compatibility cache.
+        // prior subscription-cycle credit, and preserves eligible independent
+        // grants. The scalar balance remains a derived compatibility cache.
         await (prisma as any).$transaction(async (tx: any) => {
           const walletEnabled = isCreditWalletEnabled()
           await tx.user.update({

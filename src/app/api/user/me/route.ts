@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ensureDbUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { FREE_STARTER_CREDITS, PLANS_CREDITS } from '@/lib/credits'
 
 export async function GET(req: NextRequest) {
   // ensureDbUser creates the Prisma row if missing and always syncs real email
@@ -40,6 +41,11 @@ export async function GET(req: NextRequest) {
 
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
+    const planKey = (subscription?.plan || 'FREE').toString().toUpperCase()
+    const planCredits = planKey === 'FREE'
+      ? FREE_STARTER_CREDITS
+      : (PLANS_CREDITS[planKey as keyof typeof PLANS_CREDITS] ?? FREE_STARTER_CREDITS)
+
     return NextResponse.json({
       id: user.id,
       name: user.name,
@@ -51,7 +57,7 @@ export async function GET(req: NextRequest) {
       plan: subscription?.plan || 'FREE',
       planStatus: subscription?.status || 'FREE',
       currentPeriodEnd: subscription?.currentPeriodEnd || null,
-      monthlyCredits: subscription?.monthlyCredits || 30,
+      monthlyCredits: subscription?.monthlyCredits ?? planCredits,
       createdAt: user.createdAt,
       workspaceId: workspace?.id || null,
     })

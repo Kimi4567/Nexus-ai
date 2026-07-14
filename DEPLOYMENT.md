@@ -340,3 +340,6 @@ For deployment issues:
 2. Check Next.js documentation: https://nextjs.org/docs
 3. Check Prisma documentation: https://www.prisma.io/docs
 4. Contact support: support@nexus-ai.com
+# Historical Deployment Notice
+
+This deployment guide predates the current Supabase Auth, two-plan billing, and flag-gated wallet architecture. Treat it as an audit record only. For a current deployment use [`README.md`](README.md), [`.env.example`](.env.example), and `/api/health?detail=1`; do not copy the legacy `NEXTAUTH_*`, Runway, or Starter/Agency settings below.

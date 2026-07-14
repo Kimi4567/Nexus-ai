@@ -49,6 +49,7 @@ async function safeJson(res: Response): Promise<{ ok: boolean; data: any; errorM
 function validateFile(
   file: File,
   hasCloudinary: boolean,
+  allowLocal: boolean,
 ): string | null {
   const isVideo = VIDEO_MIMES.includes(file.type)
   const isImage = IMAGE_MIMES.includes(file.type)
@@ -72,10 +73,12 @@ function validateFile(
     if (file.size > MAX_CLOUD_IMAGE_BYTES) {
       return `Image too large (${formatMB(file.size)} MB). Maximum: 10 MB.`
     }
-  } else {
+  } else if (allowLocal) {
     if (file.size > MAX_LOCAL_IMAGE_BYTES) {
       return `Image too large (${formatMB(file.size)} MB). Local upload limit: 3 MB. Enable Cloudinary for larger files.`
     }
+  } else {
+    return 'Persistent media storage is not configured. Enable Cloudinary before uploading in production.'
   }
 
   return null
@@ -597,6 +600,7 @@ export default function MediaLibraryPage() {
   const dropRef = useRef<HTMLDivElement | null>(null)
 
   const canUseCloudinary = useMemo(() => Boolean(CLOUD_NAME), [])
+  const canUseLocalUploads = useMemo(() => process.env.NODE_ENV !== 'production', [])
 
   useEffect(() => {
     if (!loading && !isAuthenticated) router.replace('/auth/login')
@@ -803,7 +807,15 @@ export default function MediaLibraryPage() {
         return false
       }
 
-      // For images: attempt local fallback
+      // Local disk is a development-only fallback. Production uses ephemeral
+      // serverless storage and must fail clearly instead of pretending an
+      // upload was persisted.
+      if (!canUseLocalUploads) {
+        updateTask(taskId, { status: 'FAILED', error: 'Cloudinary is required for persistent uploads in production.' })
+        return false
+      }
+
+      // For development images: attempt local fallback
       updateTask(taskId, { error: 'Cloudinary failed, trying local upload...' })
       return uploadToLocal(file, taskId)
     }
@@ -811,7 +823,7 @@ export default function MediaLibraryPage() {
 
   const handleUpload = async (file: File) => {
     // Client-side validation before any network call
-    const validationError = validateFile(file, canUseCloudinary)
+    const validationError = validateFile(file, canUseCloudinary, canUseLocalUploads)
     if (validationError) {
       const taskId = createUploadTask(file)
       updateTask(taskId, { status: 'FAILED', error: validationError })
@@ -827,9 +839,14 @@ export default function MediaLibraryPage() {
     try {
       if (canUseCloudinary) {
         await uploadWithCloudinary(file, taskId)
-      } else {
-        // No Cloudinary: local images only (already blocked videos in validateFile)
+      } else if (canUseLocalUploads) {
+        // No Cloudinary: local images only in development.
         await uploadToLocal(file, taskId)
+      } else {
+        updateTask(taskId, {
+          status: 'FAILED',
+          error: 'Cloudinary is required for persistent uploads in production.',
+        })
       }
     } finally {
       uploadInProgressRef.current = false
@@ -879,7 +896,7 @@ export default function MediaLibraryPage() {
       el.removeEventListener('drop', onDrop as any)
       el.removeEventListener('dragover', onDragOver as any)
     }
-  }, [canUseCloudinary, uploadInProgress])
+  }, [canUseCloudinary, canUseLocalUploads, uploadInProgress])
 
   if (loading) return (
     <div className="min-h-screen bg-bg-base flex items-center justify-center">
@@ -1001,11 +1018,17 @@ export default function MediaLibraryPage() {
               <div className="mt-2 text-[12px] font-bold text-[#8a96ad]">
                 {canUseCloudinary
                   ? (mT?.uploadLimitsCloud || 'Images up to 10 MB · Videos up to 100 MB (MP4, MOV, WEBM)')
-                  : (mT?.uploadLimitsLocal || 'Images up to 3 MB (local) · Video uploads require Cloudinary')}
+                  : canUseLocalUploads
+                    ? (mT?.uploadLimitsLocal || 'Images up to 3 MB (local development only) · Video uploads require Cloudinary')
+                    : 'Cloudinary is required for persistent media uploads in production.'}
               </div>
 
               {!canUseCloudinary && (
-                <div className="text-xs text-amber-700 mt-1">{mT?.cloudinaryUnavailable}</div>
+                <div className="text-xs text-amber-700 mt-1">
+                  {canUseLocalUploads
+                    ? mT?.cloudinaryUnavailable
+                    : 'Configure Cloudinary to enable persistent media uploads.'}
+                </div>
               )}
             </div>
           </div>

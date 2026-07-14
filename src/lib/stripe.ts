@@ -30,7 +30,18 @@ const billingFlag = process.env.NEXT_PUBLIC_BILLING_ENABLED
 let stripeClient: Stripe | null = null
 
 export function isBillingConfigured(): boolean {
-  return billingFlag !== 'false' && Boolean(stripeSecretKey)
+  // Billing is an explicit opt-in.  A secret key alone must never make paid
+  // checkout/webhooks live (for example while Stripe is being configured in a
+  // preview environment).  Keep the default disabled until the operator sets
+  // NEXT_PUBLIC_BILLING_ENABLED=true deliberately.
+  // Require the webhook signing secret and both public subscription prices as
+  // well.  A secret key by itself is not enough to run billing safely: without
+  // the webhook Stripe payments cannot be reconciled, and without prices the
+  // checkout route would advertise plans that can never be purchased.
+  return billingFlag === 'true' && Boolean(stripeSecretKey) &&
+    Boolean(process.env.STRIPE_WEBHOOK_SECRET) &&
+    Boolean(process.env.STRIPE_PRICE_PRO) &&
+    Boolean(process.env.STRIPE_PRICE_BUSINESS)
 }
 
 export function getBillingMode(): 'disabled' | 'sandbox' | 'live' {
@@ -141,7 +152,7 @@ export const PLANS: PlanDefinition[] = [
       'Human approval queue before execution',
       'Printable HTML + JSON export',
       'Evidence-backed performance analytics',
-      'Scheduled monitoring and action queue',
+      'Scheduled monitoring and evidence-backed action queue',
       'Provenance trail for performance recommendations',
     ],
   },

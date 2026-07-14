@@ -24,7 +24,7 @@ const { mockPrisma } = vi.hoisted(() => ({
       updateMany: vi.fn(),
     },
     creditTransaction: { create: vi.fn() },
-    creditGrant: { createMany: vi.fn(), updateMany: vi.fn() },
+    creditGrant: { createMany: vi.fn(), updateMany: vi.fn(), create: vi.fn() },
     usage: { upsert: vi.fn() },
     generatedVisual: { count: vi.fn() },
     // Used by the B1d-b parallel-grant writes (starter / addCredits-with-source)
@@ -346,6 +346,15 @@ describe('addCredits — B1d-b optional source', () => {
     const arg = mockPrisma.creditGrant.createMany.mock.calls[0][0] as any
     expect(arg.skipDuplicates).toBe(true) // (userId, source) uniqueness prevents a duplicate grant
   })
+
+  it('duplicate source does not increment the cache or write a second credit transaction', async () => {
+    mockPrisma.creditGrant.createMany.mockResolvedValueOnce({ count: 0 })
+
+    await addCredits('u1', 25, 'Promo', 'bonus', 'manual:promo7')
+
+    expect(mockPrisma.user.update).not.toHaveBeenCalled()
+    expect(mockPrisma.creditTransaction.create).not.toHaveBeenCalled()
+  })
 })
 
 describe('refundCredits', () => {
@@ -367,6 +376,32 @@ describe('refundCredits', () => {
         }),
       }),
     )
+  })
+
+  it('wallet flag → fallback refund is represented by a short-lived REFUND grant', async () => {
+    const original = process.env.CREDIT_WALLET_ENABLED
+    process.env.CREDIT_WALLET_ENABLED = 'true'
+    try {
+      await refundCredits('u1', 'IMAGE_GENERATION', 'legacy route failure')
+
+      expect(mockPrisma.$transaction).toHaveBeenCalled()
+      expect(mockPrisma.creditGrant.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userId: 'u1',
+          type: 'REFUND',
+          amount: CREDIT_COSTS.IMAGE_GENERATION,
+          remaining: CREDIT_COSTS.IMAGE_GENERATION,
+          status: 'ACTIVE',
+          expiresAt: expect.any(Date),
+        }),
+      })
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: { aiCredits: { increment: CREDIT_COSTS.IMAGE_GENERATION } },
+      }))
+    } finally {
+      if (original === undefined) delete process.env.CREDIT_WALLET_ENABLED
+      else process.env.CREDIT_WALLET_ENABLED = original
+    }
   })
 
   it('never throws even if the DB write fails', async () => {

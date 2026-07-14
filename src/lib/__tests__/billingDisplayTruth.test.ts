@@ -144,4 +144,20 @@ describe('getBillingDisplayTruth', () => {
     expect(r.isLowCredits).toBe(false)
     expect(r.statusLabel).toBe('Active')
   })
+
+  it('explicitly disabled billing never exposes payment controls', () => {
+    const r = getBillingDisplayTruth({
+      plan: 'pro',
+      status: 'active',
+      hasActiveSubscription: true,
+      creditsRemaining: 20,
+      creditsMax: 150,
+      billingLoaded: true,
+      billingEnabled: false,
+      locale: 'en',
+    })
+    expect(r.showManageSubscription).toBe(false)
+    expect(r.showUpgrade).toBe(false)
+    expect(r.ctaLabel).toBe('Billing unavailable')
+  })
 })

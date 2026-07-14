@@ -295,3 +295,6 @@ echo $NEXTAUTH_SECRET
 ---
 
 **You're all set! Start building. 🚀**
+# Historical Quickstart Notice
+
+This file contains legacy setup notes from the pre-Supabase/Auth and pre-two-plan product. Use [`README.md`](README.md), [`.env.example`](.env.example), and `npm run type-check`/`npm test -- --run` as the current source of truth. In particular, do not configure `NEXTAUTH_*`, Runway, or the old Starter/Agency prices from this document.

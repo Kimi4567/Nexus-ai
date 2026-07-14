@@ -10,6 +10,14 @@ export function cronAuthError(req: Request): NextResponse | null {
   if (!secret) {
     return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
   }
+  // Preview/test environments often use short fixtures, but production must
+  // never accept a placeholder or trivially guessable cron credential.
+  if (
+    process.env.NODE_ENV === 'production' &&
+    (secret.trim().length < 32 || /^generate[-_]/i.test(secret.trim()) || /^your[-_]/i.test(secret.trim()))
+  ) {
+    return NextResponse.json({ error: 'CRON_SECRET is too weak for production' }, { status: 500 })
+  }
   if (req.headers.get('authorization') !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

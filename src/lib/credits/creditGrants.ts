@@ -1,5 +1,5 @@
 /**
- * Nexus AI — CreditGrant write helpers (B1d-a foundation)
+ * Nexus AI — CreditGrant write helpers (flag-gated wallet migration)
  * ─────────────────────────────────────────────────────────────────────────────
  * Idempotent helpers for creating, renewing, cancelling, and fulfilling wallet
  * grants. Runtime billing, cron, admin, referral, and debit paths use this
@@ -15,8 +15,9 @@
  *   - Idempotency rides on the existing @@unique([userId, source]) constraint —
  *     NO new schema/SQL is introduced here.
  *
- * Flag-independent: these build the ledger regardless of CREDIT_WALLET_ENABLED.
- * They have no effect on production until a caller invokes them (B1d-b onward).
+ * Flag-independent: these build the ledger regardless of CREDIT_WALLET_ENABLED;
+ * callers choose when to invoke them. The spend/read path remains gated by the
+ * wallet feature flag.
  *
  * Design reference: docs/CREDIT_WALLET_LEDGER_POLICY.md
  * ─────────────────────────────────────────────────────────────────────────────
@@ -47,7 +48,13 @@ export const STARTER_EXPIRY_DAYS = 14
 export const PURCHASED_VALIDITY_MONTHS = 12
 
 /** A transaction client (or the base prisma) — helpers run inside or outside a txn. */
-type GrantClient = { creditGrant: { createMany: Function; updateMany: Function } }
+type GrantClient = {
+  creditGrant: {
+    createMany: Function
+    updateMany: Function
+    findMany?: Function
+  }
+}
 function client(tx?: unknown): GrantClient {
   return (tx ?? prisma) as unknown as GrantClient
 }
@@ -155,9 +162,9 @@ export function buildMonthlyGrant(userId: string, sub: MonthlyGrantArgs): GrantI
 }
 
 /**
- * Referral / manual bonus grant. REFERRAL and MANUAL are
- * non-expiring but are treated as NON-PURCHASED, so they are RESET on the next
- * monthly renewal. Purchased credit has its own 12-month builder below.
+ * Referral / manual bonus grant. These balances are independent of a monthly
+ * subscription cycle, so renewal never wipes them. Purchased credit has its
+ * own 12-month builder below.
  */
 export function buildBonusGrant(
   userId: string,
@@ -229,9 +236,11 @@ export async function ensureGrant(
 }
 
 /**
- * Mark a user's ACTIVE, NON-PURCHASED grants as spent: status RESET, remaining 0.
- * This is the "monthly reset / no rollover" primitive — PURCHASED grants are left
- * untouched (they survive renewals). Never touches User.aiCredits.
+ * Mark a user's ACTIVE subscription-cycle grants as spent: status RESET,
+ * remaining 0. This covers MONTHLY plus the transitional MIGRATED grant from
+ * the scalar-balance backfill, so enabling the wallet cannot double-count a
+ * legacy balance alongside the first monthly grant. Purchased, referral,
+ * trial, refund, and manual grants remain untouched. Never touches User.aiCredits.
  *
  * `exceptSource` (B1d-c): when given, the grant with that source is EXCLUDED from
  * the reset — used by `ensureMonthlyGrant` so the just-created MONTHLY grant for
@@ -240,7 +249,7 @@ export async function ensureGrant(
  *
  * Returns `{ resetCount }` (rows affected).
  */
-export async function resetNonPurchasedGrants(
+export async function resetMonthlyGrants(
   userId: string,
   tx?: unknown,
   exceptSource?: string,
@@ -248,7 +257,7 @@ export async function resetNonPurchasedGrants(
   const where: Record<string, unknown> = {
     userId,
     status: 'ACTIVE',
-    type: { not: 'PURCHASED' },
+    type: { in: ['MONTHLY', 'MIGRATED'] },
   }
   if (exceptSource) where.source = { not: exceptSource }
   const res = await client(tx).creditGrant.updateMany({
@@ -259,12 +268,20 @@ export async function resetNonPurchasedGrants(
 }
 
 /**
+ * @deprecated Use resetMonthlyGrants. Kept as a compatibility alias for
+ * migration scripts and older callers; the implementation resets only
+ * subscription-cycle grants (MONTHLY/MIGRATED), never every non-purchased grant.
+ */
+export const resetNonPurchasedGrants = resetMonthlyGrants
+
+/**
  * Provision one billing cycle's MONTHLY grant (B1d-c). Idempotent per cycle:
  *
  *   1. Create the cycle's MONTHLY grant (idempotent via @@unique([userId, source])).
- *   2. ONLY if it was newly created, RESET the user's prior ACTIVE non-PURCHASED
- *      grants (excluding this new MONTHLY) — the "no rollover" reset that mirrors
- *      today's aiCredits overwrite. PURCHASED is never reset.
+ *   2. ONLY if it was newly created, RESET prior ACTIVE subscription-cycle
+ *      grants (MONTHLY and transitional MIGRATED; excluding this cycle).
+ *      Other grant types are independent balances and are never reset by
+ *      subscription renewal.
  *
  * Create-first + the `created` flag (decided atomically by the unique constraint)
  * mean a duplicate webhook / Stripe retry / same-cycle re-provision neither
@@ -279,33 +296,83 @@ export async function ensureMonthlyGrant(
   const source = monthlySource(args.stripeSubscriptionId, args.currentPeriodStart)
   const { created } = await ensureGrant(buildMonthlyGrant(userId, args), tx)
   if (created) {
-    await resetNonPurchasedGrants(userId, tx, source)
+    await resetMonthlyGrants(userId, tx, source)
+  } else {
+    // The migration and runtime rollout can be ordered either way. If this
+    // cycle already exists (for example the webhook ran before backfill),
+    // retire any still-active transitional MIGRATED balance as well; otherwise
+    // enabling the wallet would sum it on top of the existing monthly grant.
+    await client(tx).creditGrant.updateMany({
+      where: { userId, status: 'ACTIVE', type: 'MIGRATED' },
+      data: { status: 'RESET', remaining: 0 },
+    })
   }
   return { created }
 }
 
 /**
- * Cancellation primitive (B1d-c-3): VOID a user's ACTIVE NON-PURCHASED grants
- * (status VOID, remaining 0). This mirrors today's `aiCredits = 0` on
- * `subscription.deleted` so a cancelled user has no spendable monthly/trial/
- * referral/manual/migrated balance. PURCHASED grants are left untouched (they
- * survive a cancellation; reserved for B1e). Never touches User.aiCredits.
+ * Cancellation primitive (B1d-c-3): VOID a user's ACTIVE subscription-cycle
+ * grants (MONTHLY plus transitional MIGRATED) (status VOID, remaining 0).
+ * Purchased credits survive cancellation, and referral/trial/manual/refund
+ * balances remain available. Never touches User.aiCredits.
  *
  * Idempotent: re-running on an already-cancelled user matches no ACTIVE
- * non-PURCHASED grants and voids nothing. Distinct status (VOID) from the
+ * cycle grants and voids nothing. Distinct status (VOID) from the
  * monthly-renewal RESET so credit history can tell cancellation apart.
  *
  * Returns `{ voidCount }` (rows affected).
  */
-export async function voidNonPurchasedGrants(
+export async function voidMonthlyGrants(
   userId: string,
   tx?: unknown,
 ): Promise<{ voidCount: number }> {
   const res = await client(tx).creditGrant.updateMany({
-    where: { userId, status: 'ACTIVE', type: { not: 'PURCHASED' } },
+    where: { userId, status: 'ACTIVE', type: { in: ['MONTHLY', 'MIGRATED'] } },
     data: { status: 'VOID', remaining: 0 },
   })
   return { voidCount: ((res as { count?: number })?.count ?? 0) }
+}
+
+/**
+ * @deprecated Use voidMonthlyGrants. Kept for callers during the additive
+ * wallet migration; only subscription-cycle grants are voided.
+ */
+export const voidNonPurchasedGrants = voidMonthlyGrants
+
+/**
+ * Mark every expired ACTIVE grant as EXPIRED and clear its remaining balance.
+ * Expiry is enforced by spend/status queries immediately, but this sweep keeps
+ * ledger status and the cached User.aiCredits value auditable. The caller should
+ * run it inside a transaction and sync each returned userId's cache afterwards.
+ *
+ * Returns the affected user ids so callers can recompute only those caches.
+ */
+export async function expireCreditGrants(
+  now: Date = new Date(),
+  tx?: unknown,
+): Promise<{ expiredCount: number; userIds: string[] }> {
+  const db = client(tx) as any
+  if (typeof db.creditGrant.findMany !== 'function') {
+    throw new Error('CreditGrant.findMany is unavailable; apply the wallet migration first')
+  }
+  const expired = await db.creditGrant.findMany({
+    where: {
+      status: 'ACTIVE',
+      expiresAt: { lte: now },
+    },
+    select: { id: true, userId: true },
+  }) as Array<{ id: string; userId: string }>
+  if (expired.length === 0) return { expiredCount: 0, userIds: [] }
+
+  const ids = expired.map((grant) => grant.id)
+  await db.creditGrant.updateMany({
+    where: { id: { in: ids }, status: 'ACTIVE' },
+    data: { status: 'EXPIRED', remaining: 0 },
+  })
+  return {
+    expiredCount: expired.length,
+    userIds: Array.from(new Set(expired.map((grant) => grant.userId))),
+  }
 }
 
 /**

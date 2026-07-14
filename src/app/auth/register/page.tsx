@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Shield, Eye, EyeOff } from 'lucide-react'
 import { getRegisterErrorCopy, getRegisterErrorMetadata } from './registerErrors'
 import LuxuryAuthShell from '@/components/auth/LuxuryAuthShell'
+import { isSupabaseConfigured } from '@/lib/supabaseClient'
 
 function warnRegisterSignupFailure(err: unknown) {
   if (process.env.NODE_ENV === 'production') return
@@ -45,8 +46,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-    if (supabaseUrl.includes('placeholder') || !supabaseUrl) {
+    if (!isSupabaseConfigured) {
       setError(errorsT?.serviceUnavailable || '')
       return
     }

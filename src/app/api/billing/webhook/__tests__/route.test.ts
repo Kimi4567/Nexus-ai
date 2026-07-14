@@ -3,7 +3,7 @@
  *
  * On an ACTIVE paid provision (checkout.session.completed / customer.subscription.updated),
  * the existing aiCredits overwrite is unchanged AND a MONTHLY CreditGrant is created
- * for the cycle (idempotent), with prior non-purchased grants reset (except the new one).
+ * for the cycle (idempotent), with prior MONTHLY grants reset (except the new one).
  * Stripe + Prisma + email are mocked; no live billing.
  */
 
@@ -105,9 +105,9 @@ describe('billing webhook — B1d-c-1 MONTHLY grant on provision', () => {
     }))
     const arg = tx.creditGrant.createMany.mock.calls[0][0] as any
     expect(arg.data[0].expiresAt).toEqual(new Date(SECS_END * 1000))
-    // Reset prior non-purchased EXCEPT the new MONTHLY (because it was created).
+    // Reset prior MONTHLY EXCEPT the new cycle (because it was created).
     expect(tx.creditGrant.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'u1', status: 'ACTIVE', type: { not: 'PURCHASED' }, source: { not: SOURCE } },
+      where: { userId: 'u1', status: 'ACTIVE', type: { in: ['MONTHLY', 'MIGRATED'] }, source: { not: SOURCE } },
       data: { status: 'RESET', remaining: 0 },
     })
   })
@@ -129,7 +129,7 @@ describe('billing webhook — B1d-c-1 MONTHLY grant on provision', () => {
     }))
   })
 
-  it('duplicate same-cycle provision does not reset again (createMany count 0)', async () => {
+  it('duplicate same-cycle provision does not reset monthly again (only retires leftover MIGRATED)', async () => {
     tx.creditGrant.createMany.mockResolvedValueOnce({ count: 0 }) // grant already exists
     stripe.webhooks.constructEvent.mockReturnValue({
       type: 'customer.subscription.updated', id: 'evt_3',
@@ -138,7 +138,10 @@ describe('billing webhook — B1d-c-1 MONTHLY grant on provision', () => {
 
     await POST(makeReq())
 
-    expect(tx.creditGrant.updateMany).not.toHaveBeenCalled() // no second reset
+    expect(tx.creditGrant.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', status: 'ACTIVE', type: 'MIGRATED' },
+      data: { status: 'RESET', remaining: 0 },
+    })
   })
 
   it('non-active status (past_due) creates no MONTHLY grant and no aiCredits overwrite', async () => {
@@ -285,20 +288,23 @@ describe('billing webhook — B1d-c-2 renewal MONTHLY grant', () => {
     }))
     const arg = tx.creditGrant.createMany.mock.calls[0][0] as any
     expect(arg.data[0].expiresAt).toEqual(new Date(SECS_END * 1000))
-    // Reset prior non-purchased EXCEPT the new MONTHLY (created === true).
+    // Reset prior MONTHLY EXCEPT the new cycle (created === true).
     expect(tx.creditGrant.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'u1', status: 'ACTIVE', type: { not: 'PURCHASED' }, source: { not: SOURCE } },
+      where: { userId: 'u1', status: 'ACTIVE', type: { in: ['MONTHLY', 'MIGRATED'] }, source: { not: SOURCE } },
       data: { status: 'RESET', remaining: 0 },
     })
   })
 
-  it('duplicate same-cycle invoice does not duplicate the grant or reset again', async () => {
+  it('duplicate same-cycle invoice does not duplicate the grant and only retires leftover MIGRATED credit', async () => {
     tx.creditGrant.createMany.mockResolvedValueOnce({ count: 0 }) // already exists
     stripe.webhooks.constructEvent.mockReturnValue(invoiceEvent('inv_2'))
 
     await POST(makeReq())
 
-    expect(tx.creditGrant.updateMany).not.toHaveBeenCalled()
+    expect(tx.creditGrant.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', status: 'ACTIVE', type: 'MIGRATED' },
+      data: { status: 'RESET', remaining: 0 },
+    })
   })
 
   it('unlimited (credits -1) sets aiCredits 999999 but creates no MONTHLY grant', async () => {
@@ -363,14 +369,14 @@ describe('billing webhook — B1d-c-2 renewal MONTHLY grant', () => {
   })
 })
 
-// ── B1d-c-3 — subscription.deleted voids non-purchased grants ───────────────
+// ── B1d-c-3 — subscription.deleted voids monthly grants ────────────────────
 describe('billing webhook — B1d-c-3 cancellation voids grants', () => {
   const deletedEvent = () => ({
     type: 'customer.subscription.deleted', id: 'evt_del',
     data: { object: { id: 'sub_1', metadata: { userId: 'u1' } } },
   })
 
-  it('cancellation keeps aiCredits=0 AND voids ACTIVE non-PURCHASED grants', async () => {
+  it('cancellation keeps aiCredits=0 AND voids ACTIVE MONTHLY grants', async () => {
     stripe.webhooks.constructEvent.mockReturnValue(deletedEvent())
 
     await POST(makeReq())
@@ -384,9 +390,9 @@ describe('billing webhook — B1d-c-3 cancellation voids grants', () => {
       where: { id: 'u1' },
       data: { subscriptionStatus: 'CANCELLED', aiCredits: 0 },
     }))
-    // Grants VOIDed; PURCHASED excluded by the filter.
+    // Only subscription MONTHLY grants are voided; independent balances survive.
     expect(tx.creditGrant.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'u1', status: 'ACTIVE', type: { not: 'PURCHASED' } },
+      where: { userId: 'u1', status: 'ACTIVE', type: { in: ['MONTHLY', 'MIGRATED'] } },
       data: { status: 'VOID', remaining: 0 },
     })
     // No grant creation on cancel.
