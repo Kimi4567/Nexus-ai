@@ -224,7 +224,6 @@ export async function GET(req: NextRequest) {
           status: isActive ? 'ACTIVE' : 'DISCONNECTED',
           hasApiAccess: false, // set to true once Meta App Review is approved
           permissionScopes: [...META_ADS_SCOPES],
-          apiAccessReviewedAt: null,
           // Save primary page ID for ad creative creation
           pageId: primaryPage?.id || null,
           pageName: primaryPage?.name || null,
@@ -240,7 +239,7 @@ export async function GET(req: NextRequest) {
           status: isActive ? 'ACTIVE' : 'DISCONNECTED',
           lastSyncAt: new Date(),
           permissionScopes: [...META_ADS_SCOPES],
-          apiAccessReviewedAt: null,
+          hasApiAccess: false,
           // Update page ID if not yet set
           ...(primaryPage?.id ? { pageId: primaryPage.id, pageName: primaryPage.name } : {}),
         },

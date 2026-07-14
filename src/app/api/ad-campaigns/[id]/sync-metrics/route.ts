@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { createMetaAdsApi } from '@/lib/adPlatforms/metaAdsApi'
+import { createGoogleAdsApi } from '@/lib/adPlatforms/googleAdsApi'
 import { normalizeManualPaidMetrics, paidMetricsCompleteness } from '@/lib/paidMetrics'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -149,6 +150,89 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
         measurementCompleteness: paidMetricsCompleteness(metrics),
         message: 'Manual paid metrics recorded as user-reported evidence. This is not platform-synced analytics.',
       })
+    }
+
+    if (campaign.platform === 'GOOGLE') {
+      if (!adAccount.refreshToken || !adAccount.platformAccountId) {
+        return NextResponse.json({
+          error: 'Google Ads refresh credentials are missing. Reconnect the account before live measurement sync.',
+          mode: 'live_blocked',
+        }, { status: 409 })
+      }
+      const api = createGoogleAdsApi({
+        customerId: String(adAccount.platformAccountId),
+        loginCustomerId: adAccount.loginCustomerId,
+        encryptedAccessToken: adAccount.accessToken,
+        encryptedRefreshToken: adAccount.refreshToken,
+      })
+      const insights = await api.getCampaignInsights(campaign.platformCampaignId)
+      if (insights.length === 0) {
+        return NextResponse.json({
+          mode: 'live',
+          platform: 'GOOGLE',
+          message: 'No Google Ads delivery data exists yet. No performance claim was created.',
+          synced: 0,
+        })
+      }
+
+      let synced = 0
+      for (const row of insights) {
+        const date = new Date(`${row.date}T00:00:00.000Z`)
+        const ctr = row.impressions > 0 ? (row.clicks / row.impressions) * 100 : null
+        const cpc = row.clicks > 0 ? row.spend / row.clicks : null
+        const roas = row.spend > 0 && row.conversionValue > 0
+          ? row.conversionValue / row.spend
+          : null
+        const data = {
+          spend: row.spend,
+          impressions: Math.max(0, Math.round(row.impressions)),
+          clicks: Math.max(0, Math.round(row.clicks)),
+          conversions: Math.max(0, Math.round(row.conversions)),
+          ctr,
+          cpc,
+          roas,
+          dataSource: 'google_ads_api',
+          syncedAt: new Date(),
+        }
+        const existing = await db.adPerformanceSnapshot.findFirst({
+          where: { adCampaignId: params.id, adSetId: null, adId: null, date },
+        })
+        if (existing) {
+          await db.adPerformanceSnapshot.update({ where: { id: existing.id }, data })
+        } else {
+          await db.adPerformanceSnapshot.create({
+            data: { adCampaignId: params.id, adSetId: null, adId: null, date, ...data },
+          })
+        }
+        synced++
+      }
+      await recalcAggregates(params.id)
+      const lastStatus = insights.map(row => row.status).find(Boolean)
+      await db.adCampaign.update({
+        where: { id: params.id },
+        data: {
+          lastSyncAt: new Date(),
+          lastSyncError: null,
+          ...(lastStatus ? { platformStatus: lastStatus } : {}),
+        },
+      })
+      await db.adAccount.update({
+        where: { id: adAccount.id },
+        data: { lastSyncAt: new Date(), lastError: null, lastErrorAt: null },
+      })
+      return NextResponse.json({
+        mode: 'live',
+        platform: 'GOOGLE',
+        synced,
+        message: `Synced ${synced} days of provider-backed performance data from Google Ads.`,
+      })
+    }
+
+    if (campaign.platform !== 'META') {
+      return NextResponse.json({
+        error: `${campaign.platform} live measurement sync is not implemented. No platform request was sent.`,
+        mode: 'unsupported_platform',
+      }, { status: 400 })
     }
 
     // ── Live sync via Meta Insights API ────────────────────────────────────

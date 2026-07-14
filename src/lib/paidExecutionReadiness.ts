@@ -9,6 +9,11 @@ export type PaidExecutionBlockerCode =
   | 'AD_DISAPPROVED'
   | 'META_PAGE_REQUIRED'
   | 'UNSUPPORTED_LIFETIME_BUDGET'
+  | 'GOOGLE_SEARCH_ONLY'
+  | 'GOOGLE_RSA_ASSETS_REQUIRED'
+  | 'GOOGLE_KEYWORDS_REQUIRED'
+  | 'GOOGLE_TARGETING_REQUIRED'
+  | 'GOOGLE_DAILY_BUDGET_REQUIRED'
 
 export interface PaidExecutionBlocker {
   code: PaidExecutionBlockerCode
@@ -27,6 +32,8 @@ export interface PaidExecutionAdInput {
   reviewStatus?: string | null
   specsValidated?: boolean | null
   specsErrors?: string[] | null
+  googleHeadlines?: string[] | null
+  googleDescriptions?: string[] | null
 }
 
 function isPrivateIpv4(hostname: string): boolean {
@@ -151,6 +158,9 @@ export function evaluatePaidExecutionReadiness({
   ads,
   pageId,
   requireMetaPage = false,
+  googleCampaignType,
+  googleKeywordCount,
+  googleTargetingReady,
 }: {
   platform: unknown
   budgetType: unknown
@@ -159,6 +169,9 @@ export function evaluatePaidExecutionReadiness({
   ads: PaidExecutionAdInput[]
   pageId?: unknown
   requireMetaPage?: boolean
+  googleCampaignType?: unknown
+  googleKeywordCount?: unknown
+  googleTargetingReady?: unknown
 }) {
   const blockers: PaidExecutionBlocker[] = []
   const normalizedBudgetType = budgetType === 'LIFETIME' ? 'LIFETIME' : 'DAILY'
@@ -176,6 +189,34 @@ export function evaluatePaidExecutionReadiness({
     blockers.push({
       code: 'UNSUPPORTED_LIFETIME_BUDGET',
       message: 'Automated Meta draft creation currently requires an explicit daily budget. Lifetime budgets remain planning-only.',
+    })
+  }
+
+  if (platform === 'GOOGLE' && normalizedBudgetType === 'LIFETIME') {
+    blockers.push({
+      code: 'GOOGLE_DAILY_BUDGET_REQUIRED',
+      message: 'Automated Google Search draft creation currently requires a reviewed average daily budget.',
+    })
+  }
+
+  if (platform === 'GOOGLE' && googleCampaignType !== 'SEARCH') {
+    blockers.push({
+      code: 'GOOGLE_SEARCH_ONLY',
+      message: 'Automated Google Ads execution currently supports reviewed Search campaigns only.',
+    })
+  }
+
+  if (platform === 'GOOGLE' && (typeof googleKeywordCount !== 'number' || googleKeywordCount < 1)) {
+    blockers.push({
+      code: 'GOOGLE_KEYWORDS_REQUIRED',
+      message: 'Google Search needs at least one reviewed keyword with an explicit match type.',
+    })
+  }
+
+  if (platform === 'GOOGLE' && googleTargetingReady !== true) {
+    blockers.push({
+      code: 'GOOGLE_TARGETING_REQUIRED',
+      message: 'Google Search location, language, presence mode, and negative-keyword targeting must be reviewed before platform creation.',
     })
   }
 
@@ -197,12 +238,27 @@ export function evaluatePaidExecutionReadiness({
     const adName = ad.name?.trim() || `Ad ${index + 1}`
     const adId = ad.id || undefined
 
-    if (!ad.primaryText?.trim() || !ad.headline?.trim()) {
+    if (platform !== 'GOOGLE' && (!ad.primaryText?.trim() || !ad.headline?.trim())) {
       blockers.push({
         code: 'AD_COPY_REQUIRED',
         message: `${adName} needs both primary text and a headline.`,
         adId,
       })
+    }
+
+    if (platform === 'GOOGLE') {
+      const headlines = Array.isArray(ad.googleHeadlines) ? ad.googleHeadlines : []
+      const descriptions = Array.isArray(ad.googleDescriptions) ? ad.googleDescriptions : []
+      const validHeadlines = headlines.filter(value => typeof value === 'string' && value.trim() && value.trim().length <= 30)
+      const validDescriptions = descriptions.filter(value => typeof value === 'string' && value.trim() && value.trim().length <= 90)
+      if (new Set(validHeadlines.map(value => value.trim().toLocaleLowerCase())).size < 3
+        || new Set(validDescriptions.map(value => value.trim().toLocaleLowerCase())).size < 2) {
+        blockers.push({
+          code: 'GOOGLE_RSA_ASSETS_REQUIRED',
+          message: `${adName} needs at least 3 unique headlines (30 characters max) and 2 unique descriptions (90 characters max) for a responsive search ad.`,
+          adId,
+        })
+      }
     }
 
     if (!normalizePaidDestinationUrl(ad.destinationUrl)) {

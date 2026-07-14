@@ -29,6 +29,7 @@ import {
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { extractGoogleSearchTargeting } from '@/lib/adPlatforms/googleAdsApi'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -268,12 +269,22 @@ Generate a complete paid campaign strategy as JSON with EXACTLY this structure:
     "meta_optimization_goal": "LINK_CLICKS|CONVERSIONS|LEAD_GENERATION|REACH"
     ` : ''}
     ${platformLabel === 'GOOGLE' ? `
-    "google_campaign_type": "Search|Display|Performance Max",
-    "google_keywords": ["10 high-intent keywords"],
-    "google_negative_keywords": ["5 negative keywords to exclude"],
+    "google_campaign_type": "SEARCH",
+    "google_keywords": [
+      { "text": "specific high-intent keyword", "matchType": "PHRASE" },
+      { "text": "specific commercial keyword", "matchType": "EXACT" },
+      { "text": "specific discovery keyword", "matchType": "BROAD" }
+    ],
+    "google_negative_keywords": [
+      { "text": "irrelevant query", "matchType": "PHRASE" }
+    ],
+    "google_locations": [
+      { "name": "exact city, region, or country name", "countryCode": "ISO-3166-1 alpha-2", "targetType": "City|State|Country" }
+    ],
+    "google_location_presence": "PRESENCE|PRESENCE_OR_INTEREST",
     "google_audience_hypotheses": ["review hypotheses — validate availability in the connected account"],
-    "google_bid_strategy": "Maximize Conversions|Target CPA|Target ROAS",
-    "google_match_types": "Broad Match + Phrase Match"
+    "google_bid_strategy": "MAXIMIZE_CLICKS",
+    "google_network_scope": "GOOGLE_SEARCH_ONLY"
     ` : ''}
     ${platformLabel === 'TIKTOK' ? `
     "tiktok_interest_hypotheses": ["review hypotheses — validate availability in the connected account"],
@@ -323,7 +334,7 @@ Generate a complete paid campaign strategy as JSON with EXACTLY this structure:
   },
   "utm_tracking": {
     "source": "${platformLabel.toLowerCase()}",
-    "medium": "paid_social",
+    "medium": "${platformLabel === 'GOOGLE' ? 'cpc' : 'paid_social'}",
     "campaign": "${campaign.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 30)}",
     "recommended_suffix": "e.g. utm_content=v1_hook_a&utm_term=cold_audience"
   },
@@ -357,6 +368,12 @@ Generate a complete paid campaign strategy as JSON with EXACTLY this structure:
         currency,
         durationDays,
       })
+      if (platformLabel === 'GOOGLE') {
+        const googleTargeting = extractGoogleSearchTargeting(strategy.targeting)
+        if (googleTargeting.blockers.length > 0) {
+          throw new Error(`Incomplete Google Search targeting: ${googleTargeting.blockers.join(' ')}`)
+        }
+      }
     } catch {
       await refundDeductedCredits(user.id, creditResult, 'AI returned invalid JSON')
       return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })

@@ -91,7 +91,7 @@ export function canRecordPaidCompletion({
 }
 
 export function isAnalyticsBackedPaidMetricsSource(source: unknown): boolean {
-  return source === 'meta_api' || source === 'api' || source === 'ga4'
+  return source === 'meta_api' || source === 'google_ads_api' || source === 'api' || source === 'ga4'
 }
 
 export function mapPausedPlatformPushStatus(currentStatus: unknown): 'DRAFT' | 'PAUSED' {
@@ -123,7 +123,7 @@ export function canActivatePlatformCampaign({
   executionReady: unknown
 }): boolean {
   return (
-    platform === 'META' &&
+    (platform === 'META' || platform === 'GOOGLE') &&
     localStatus === 'PAUSED' &&
     typeof platformCampaignId === 'string' &&
     platformCampaignId.trim().length > 0 &&

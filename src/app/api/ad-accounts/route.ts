@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
+import { googleAdsAccessTier } from '@/lib/adPlatforms/googleAdsApi'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -31,10 +32,12 @@ export async function GET(req: NextRequest) {
         platformAccountId: true,
         platformAccountName: true,
         businessName: true,
+        businessId: true,
         currency: true,
         timeZone: true,
         isVerified: true,
         hasApiAccess: true,
+        permissionScopes: true,
         spendLimit: true,
         totalSpent: true,
         lastSyncAt: true,
@@ -42,12 +45,20 @@ export async function GET(req: NextRequest) {
         pageId: true,
         pageName: true,
         pixelId: true,
+        loginCustomerId: true,
+        lastError: true,
+        lastErrorAt: true,
         createdAt: true,
         // Never expose accessToken / refreshToken to the client
       },
     })
 
-    return NextResponse.json({ accounts })
+    return NextResponse.json({
+      accounts: accounts.map((account: Record<string, unknown>) => ({
+        ...account,
+        apiAccessTier: account.platform === 'GOOGLE' ? googleAdsAccessTier() : null,
+      })),
+    })
   } catch (err) {
     console.error('[ad-accounts GET]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -80,6 +91,9 @@ export async function DELETE(req: NextRequest) {
         accessToken: null,
         refreshToken: null,
         tokenExpiresAt: null,
+        hasApiAccess: false,
+        lastError: null,
+        lastErrorAt: null,
       },
     })
 

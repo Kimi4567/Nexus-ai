@@ -81,6 +81,9 @@ export async function POST(req: NextRequest) {
     if (!name || !platform) {
       return NextResponse.json({ error: 'name and platform are required' }, { status: 400 })
     }
+    if (!['META', 'GOOGLE', 'TIKTOK', 'LINKEDIN'].includes(String(platform))) {
+      return NextResponse.json({ error: 'Unsupported paid platform' }, { status: 400 })
+    }
 
     const baseDestinationUrl = normalizePaidDestinationUrl(destinationUrl)
     if (!baseDestinationUrl) {
@@ -110,6 +113,9 @@ export async function POST(req: NextRequest) {
       })
       if (!account) {
         return NextResponse.json({ error: 'Ad account not found' }, { status: 404 })
+      }
+      if (account.platform !== platform) {
+        return NextResponse.json({ error: 'The selected ad account does not match the campaign platform.' }, { status: 400 })
       }
     }
 

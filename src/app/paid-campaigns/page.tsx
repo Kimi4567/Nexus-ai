@@ -126,6 +126,7 @@ export default function PaidCampaignsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
   const [connectingMeta, setConnectingMeta] = useState(false)
+  const [connectingGoogle, setConnectingGoogle] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!user) {
@@ -192,6 +193,24 @@ export default function PaidCampaignsPage() {
     }
   }
 
+  const handleConnectGoogle = async () => {
+    setConnectingGoogle(true)
+    try {
+      const session = await import('@/lib/supabaseClient').then((module) => module.supabase.auth.getSession())
+      const token = session.data?.session?.access_token
+      if (!token) return
+      const response = await fetch('/api/social/connect/google-ads', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await response.json()
+      if (data.url) window.location.href = data.url
+    } catch {
+      // Detailed configuration and OAuth errors are returned by the connection endpoint.
+    } finally {
+      setConnectingGoogle(false)
+    }
+  }
+
   const filteredCampaigns = useMemo(() => campaigns.filter((campaign) => {
     if (platformFilter !== 'ALL' && campaign.platform !== platformFilter) return false
     if (statusFilter !== 'ALL' && campaign.status !== statusFilter) return false
@@ -240,6 +259,15 @@ export default function PaidCampaignsPage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleConnectGoogle}
+                disabled={connectingGoogle}
+                className="inline-flex h-11 items-center gap-2 rounded-[15px] border border-[#d7def0] bg-white px-4 text-[13px] font-black text-[#111b3f] shadow-sm transition hover:border-[#bfc9df] disabled:opacity-60"
+              >
+                <span className="text-[#4285f4]">G</span>
+                {connectingGoogle ? (ar ? 'جاري فتح Google...' : 'Opening Google...') : (ar ? 'راجع ربط Google Ads' : 'Review Google Ads connection')}
+              </button>
               <button
                 type="button"
                 onClick={handleConnectMeta}

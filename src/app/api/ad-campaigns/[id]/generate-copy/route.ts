@@ -65,6 +65,20 @@ const CTA_OPTIONS = {
   LINKEDIN: ['Learn More', 'Register', 'Sign Up', 'Subscribe', 'Request Demo', 'Download'],
 }
 
+function reviewedGoogleTextAssets(value: unknown, maxLength: number): string[] {
+  if (!Array.isArray(value)) return []
+  const seen = new Set<string>()
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map(item => item.trim().replace(/\s+/g, ' '))
+    .filter(item => {
+      const key = item.toLocaleLowerCase()
+      if (!item || item.length > maxLength || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+}
+
 async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
   if (credit.creditsUsed <= 0) return
   if (credit.transactionId) {
@@ -220,6 +234,11 @@ Generate 5 review-ready ad copy variants in JSON:
         "headline": number
       },
       "platformNotes": "Any platform-specific tips for using this variant"
+      ${platform === 'GOOGLE' ? `,
+      "googleHeadlines": ["3 to 15 unique headlines, each no more than 30 characters"],
+      "googleDescriptions": ["2 to 4 unique descriptions, each no more than 90 characters"],
+      "googlePath1": "optional path, 15 characters max",
+      "googlePath2": "optional path, 15 characters max"` : ''}
     },
     {
       "id": "v2",
@@ -232,6 +251,11 @@ Generate 5 review-ready ad copy variants in JSON:
       "hook": "...",
       "characterCount": { "primaryText": 0, "headline": 0 },
       "platformNotes": "..."
+      ${platform === 'GOOGLE' ? `,
+      "googleHeadlines": ["3 to 15 unique Google RSA headlines"],
+      "googleDescriptions": ["2 to 4 unique Google RSA descriptions"],
+      "googlePath1": "optional",
+      "googlePath2": "optional"` : ''}
     },
     {
       "id": "v3",
@@ -244,6 +268,11 @@ Generate 5 review-ready ad copy variants in JSON:
       "hook": "...",
       "characterCount": { "primaryText": 0, "headline": 0 },
       "platformNotes": "..."
+      ${platform === 'GOOGLE' ? `,
+      "googleHeadlines": ["3 to 15 unique Google RSA headlines"],
+      "googleDescriptions": ["2 to 4 unique Google RSA descriptions"],
+      "googlePath1": "optional",
+      "googlePath2": "optional"` : ''}
     },
     {
       "id": "v4",
@@ -256,6 +285,11 @@ Generate 5 review-ready ad copy variants in JSON:
       "hook": "...",
       "characterCount": { "primaryText": 0, "headline": 0 },
       "platformNotes": "..."
+      ${platform === 'GOOGLE' ? `,
+      "googleHeadlines": ["3 to 15 unique Google RSA headlines"],
+      "googleDescriptions": ["2 to 4 unique Google RSA descriptions"],
+      "googlePath1": "optional",
+      "googlePath2": "optional"` : ''}
     },
     {
       "id": "v5",
@@ -268,6 +302,11 @@ Generate 5 review-ready ad copy variants in JSON:
       "hook": "...",
       "characterCount": { "primaryText": 0, "headline": 0 },
       "platformNotes": "..."
+      ${platform === 'GOOGLE' ? `,
+      "googleHeadlines": ["3 to 15 unique Google RSA headlines"],
+      "googleDescriptions": ["2 to 4 unique Google RSA descriptions"],
+      "googlePath1": "optional",
+      "googlePath2": "optional"` : ''}
     }
   ],
   "ab_test_recommendation": {
@@ -297,6 +336,19 @@ Generate 5 review-ready ad copy variants in JSON:
       if (!Array.isArray(generated.variants) || generated.variants.length === 0) {
         throw new Error('Incomplete ad copy response')
       }
+      if (platform === 'GOOGLE') {
+        for (const rawVariant of generated.variants) {
+          const variant = rawVariant && typeof rawVariant === 'object'
+            ? rawVariant as Record<string, unknown>
+            : {}
+          if (
+            reviewedGoogleTextAssets(variant.googleHeadlines, 30).length < 3
+            || reviewedGoogleTextAssets(variant.googleDescriptions, 90).length < 2
+          ) {
+            throw new Error('Incomplete Google responsive search ad assets')
+          }
+        }
+      }
     } catch {
       await refundDeductedCredits(user.id, creditResult, 'AI returned invalid JSON')
       return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })
@@ -309,6 +361,14 @@ Generate 5 review-ready ad copy variants in JSON:
 
     for (let i = 0; i < variants.length; i++) {
       const v = variants[i]
+      const googleHeadlines = reviewedGoogleTextAssets(v.googleHeadlines, 30).slice(0, 15)
+      const googleDescriptions = reviewedGoogleTextAssets(v.googleDescriptions, 90).slice(0, 4)
+      const googlePath1 = typeof v.googlePath1 === 'string' && v.googlePath1.trim().length <= 15
+        ? v.googlePath1.trim()
+        : undefined
+      const googlePath2 = typeof v.googlePath2 === 'string' && v.googlePath2.trim().length <= 15
+        ? v.googlePath2.trim()
+        : undefined
       const ad = await db.ad.create({
         data: {
           adSetId: adSet.id,
@@ -320,6 +380,16 @@ Generate 5 review-ready ad copy variants in JSON:
           description: String(v.description || ''),
           callToAction: String(v.callToAction || 'LEARN_MORE'),
           destinationUrl,
+          creativeSpecs: platform === 'GOOGLE'
+            ? {
+                googleAds: {
+                  headlines: googleHeadlines,
+                  descriptions: googleDescriptions,
+                  ...(googlePath1 ? { path1: googlePath1 } : {}),
+                  ...(googlePath2 ? { path2: googlePath2 } : {}),
+                },
+              }
+            : undefined,
           aiGenerated: true,
           aiAngle: String(v.angle || ''),
           aiHook: String(v.hook || ''),

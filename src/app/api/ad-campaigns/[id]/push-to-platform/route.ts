@@ -25,6 +25,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { createMetaAdsApi, nexusToMetaTargeting, NEXUS_TO_META_OBJECTIVE } from '@/lib/adPlatforms/metaAdsApi'
+import {
+  createGoogleAdsApi,
+  extractGoogleResponsiveSearchAssets,
+  extractGoogleSearchTargeting,
+  type GoogleSearchTargeting,
+} from '@/lib/adPlatforms/googleAdsApi'
 import { canCreatePlatformDraft, getBudgetTruth, mapPausedPlatformPushStatus } from '@/lib/paidBoundary'
 import {
   evaluatePaidExecutionReadiness,
@@ -62,6 +68,10 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
       return handleMetaPush(campaign, body)
     }
 
+    if (campaign.platform === 'GOOGLE') {
+      return handleGooglePush(campaign, body)
+    }
+
     // Other platforms: dry-run export only
     return NextResponse.json({
       mode: 'dry_run',
@@ -81,6 +91,207 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
     console.error('[push-to-platform]', err)
     const message = err instanceof Error ? err.message : 'Push failed'
     return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
+
+function googleTargetingForAdSet(
+  campaign: Record<string, unknown>,
+  adSet: Record<string, unknown>,
+): GoogleSearchTargeting {
+  const localTargeting = adSet.targeting && typeof adSet.targeting === 'object'
+    ? adSet.targeting as Record<string, unknown>
+    : null
+  const hasLocalKeywords = Array.isArray(localTargeting?.google_keywords)
+    || Array.isArray(localTargeting?.keywords)
+  return extractGoogleSearchTargeting(
+    hasLocalKeywords ? localTargeting : campaign.aiAudienceBrief,
+  )
+}
+
+async function handleGooglePush(campaign: Record<string, unknown>, body: Record<string, unknown>) {
+  const adAccount = campaign.adAccount as Record<string, unknown> | null
+  const adSets = (campaign.adSets || []) as Array<Record<string, unknown> & {
+    ads?: Array<Record<string, unknown>>
+  }>
+  const groupTargeting = adSets.map(adSet => googleTargetingForAdSet(campaign, adSet))
+  const allAds = adSets.flatMap(adSet => {
+    const ads = adSet.ads || []
+    return ads.map(ad => {
+      const assets = extractGoogleResponsiveSearchAssets(ad, ads)
+      return {
+        ...ad,
+        googleHeadlines: assets.headlines,
+        googleDescriptions: assets.descriptions,
+      }
+    })
+  })
+  const targetingBlockers = groupTargeting.flatMap(targeting => targeting.blockers)
+  const readiness = evaluatePaidExecutionReadiness({
+    platform: campaign.platform,
+    budgetType: campaign.budgetType,
+    dailyBudget: campaign.dailyBudget,
+    lifetimeBudget: campaign.lifetimeBudget,
+    ads: allAds,
+    googleCampaignType: groupTargeting.every(targeting => !targeting.blockers.some(blocker => blocker.includes('Search campaigns only')))
+      ? 'SEARCH'
+      : null,
+    googleKeywordCount: groupTargeting.reduce((sum, targeting) => sum + targeting.keywords.length, 0),
+    googleTargetingReady: adSets.length > 0 && targetingBlockers.length === 0,
+  })
+  const budgetTruth = getBudgetTruth({
+    amount: readiness.budgetAmount,
+    fallbackAmount: 50,
+    explicitBudgetConfirmed: body.explicitBudgetConfirmed,
+  })
+
+  const planningPayload = {
+    campaign: {
+      name: campaign.name,
+      type: 'SEARCH',
+      status: 'PAUSED',
+      averageDailyBudget: readiness.budgetAmount,
+      currency: campaign.currency,
+      network: 'GOOGLE_SEARCH_ONLY',
+      bidding: 'MAXIMIZE_CLICKS_WITHIN_REVIEWED_DAILY_BUDGET',
+    },
+    targeting: groupTargeting,
+    adGroups: adSets.map(adSet => ({
+      name: adSet.name,
+      ads: (adSet.ads || []).map(ad => ({
+        name: ad.name,
+        finalUrl: normalizePaidDestinationUrl(ad.destinationUrl),
+        responsiveSearchAd: extractGoogleResponsiveSearchAssets(ad, adSet.ads || []),
+      })),
+    })),
+  }
+
+  if (!adAccount || !adAccount.hasApiAccess) {
+    return NextResponse.json({
+      mode: 'dry_run',
+      platform: 'GOOGLE',
+      message: 'Google Ads execution access is not verified for this account. This is a reviewed planning payload, not a platform campaign.',
+      executionReady: readiness.ready,
+      blockers: readiness.blockers,
+      targetingBlockers,
+      budgetSource: budgetTruth.budgetSource,
+      budgetConfirmed: budgetTruth.budgetConfirmed,
+      payload: planningPayload,
+      instructions: [
+        'Connect an enabled non-manager Google Ads account through OAuth.',
+        'Use a test account while GOOGLE_ADS_ACCESS_TIER=TEST.',
+        'Review keywords, match types, negative keywords, locations, languages, and the daily budget.',
+        'NEXUS creates Search objects in PAUSED state only; activation is a separate approval.',
+      ],
+    })
+  }
+
+  if (body.googleContainsEuPoliticalAdvertising !== 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING') {
+    return NextResponse.json({
+      error: 'Google requires an explicit EU political-advertising declaration before campaign creation. No Google request was sent.',
+      mode: 'platform_draft_blocked',
+      code: 'GOOGLE_EU_POLITICAL_DECLARATION_REQUIRED',
+    }, { status: 400 })
+  }
+
+  if (!canCreatePlatformDraft({
+    explicitPlatformDraftConfirmed: body.explicitPlatformDraftConfirmed,
+    explicitBudgetConfirmed: body.explicitBudgetConfirmed,
+    explicitExecutionReadinessConfirmed: body.explicitExecutionReadinessConfirmed,
+    executionReady: readiness.ready,
+  })) {
+    return NextResponse.json({
+      error: readiness.ready
+        ? 'Creating a paused Google Search draft requires explicit confirmation. No Google request was sent.'
+        : 'The Google Search execution brief is incomplete. No Google request was sent.',
+      mode: 'platform_draft_blocked',
+      blockers: readiness.blockers,
+      targetingBlockers,
+      budgetSource: budgetTruth.budgetSource,
+      budgetConfirmed: budgetTruth.budgetConfirmed,
+    }, { status: readiness.ready ? 400 : 409 })
+  }
+
+  if (!adAccount.refreshToken || !adAccount.platformAccountId) {
+    return NextResponse.json({
+      error: 'Google Ads refresh credentials or customer ID are missing. Reconnect the account; no Google request was sent.',
+      mode: 'platform_draft_blocked',
+    }, { status: 409 })
+  }
+
+  try {
+    const api = createGoogleAdsApi({
+      customerId: String(adAccount.platformAccountId),
+      loginCustomerId: typeof adAccount.loginCustomerId === 'string' ? adAccount.loginCustomerId : null,
+      encryptedAccessToken: typeof adAccount.accessToken === 'string' ? adAccount.accessToken : null,
+      encryptedRefreshToken: String(adAccount.refreshToken),
+    })
+    const primaryTargeting = groupTargeting[0]
+    const resolvedLocations = await api.suggestGeoTargets(primaryTargeting.locations)
+    const created = await api.createPausedSearchDraft({
+      campaignName: String(campaign.name),
+      budgetAmount: readiness.budgetAmount!,
+      startDate: campaign.startDate as Date | string | null,
+      endDate: campaign.endDate as Date | string | null,
+      locationPresence: primaryTargeting.locationPresence!,
+      euPoliticalAdvertisingDeclaration: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
+      locations: resolvedLocations,
+      languageIds: primaryTargeting.languageIds,
+      adGroups: adSets.map((adSet, index) => {
+        const ads = adSet.ads || []
+        return {
+          localId: String(adSet.id),
+          name: String(adSet.name),
+          keywords: groupTargeting[index].keywords,
+          negativeKeywords: groupTargeting[index].negativeKeywords,
+          ads: ads.map(ad => ({
+            localId: String(ad.id),
+            name: String(ad.name),
+            finalUrl: normalizePaidDestinationUrl(ad.destinationUrl)!,
+            assets: extractGoogleResponsiveSearchAssets(ad, ads),
+          })),
+        }
+      }),
+    })
+
+    await db.$transaction(async (tx: any) => {
+      await tx.adCampaign.update({
+        where: { id: String(campaign.id) },
+        data: {
+          platformCampaignId: created.campaignResourceName,
+          platformStatus: 'PAUSED',
+          status: mapPausedPlatformPushStatus(campaign.status),
+          lastSyncError: null,
+        },
+      })
+      for (const group of created.adGroups) {
+        await tx.adSet.update({
+          where: { id: group.localId },
+          data: { platformAdSetId: group.resourceName, status: 'PAUSED' },
+        })
+        for (const ad of group.ads) {
+          await tx.ad.update({
+            where: { id: ad.localId },
+            data: { platformAdId: ad.resourceName, status: 'PAUSED' },
+          })
+        }
+      }
+    })
+
+    return NextResponse.json({
+      mode: 'platform_paused_draft',
+      platform: 'GOOGLE',
+      success: true,
+      results: created,
+      resolvedLocations,
+      note: 'Google Search campaign, budget, targeting, keywords, ad groups, and responsive search ads were created atomically in PAUSED state. No delivery or spend was activated.',
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Google Ads API error'
+    await db.adCampaign.update({
+      where: { id: String(campaign.id) },
+      data: { lastSyncError: message },
+    }).catch(() => null)
+    return NextResponse.json({ error: message, mode: 'platform_draft_failed' }, { status: 502 })
   }
 }
 

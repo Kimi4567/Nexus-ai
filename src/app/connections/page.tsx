@@ -68,6 +68,9 @@ interface ConnectedAdAccount {
   hasApiAccess: boolean
   pageId: string | null
   pageName: string | null
+  apiAccessTier?: 'NONE' | 'TEST' | 'EXPLORER' | 'BASIC' | 'STANDARD' | null
+  loginCustomerId?: string | null
+  lastError?: string | null
 }
 
 interface PlatformDef {
@@ -133,8 +136,8 @@ const PLATFORMS: PlatformDef[] = [
     id: 'GOOGLE',
     name: { ar: 'Google Ads', en: 'Google Ads' },
     helper: {
-      ar: 'مخطط للإعلانات والقياس. يحتاج إعدادات وتصاريح منفصلة.',
-      en: 'Planned for ads and measurement. Requires separate setup and permissions.',
+      ar: 'مسار Search متوقف للمراجعة ثم تفعيل منفصل وقياس من Google Ads. يحتاج OAuth وDeveloper Token ومستوى وصول مناسب.',
+      en: 'Paused Search drafts, separate activation, and Google Ads measurement. Requires OAuth, a developer token, and the appropriate access tier.',
     },
     scope: { ar: 'مخطط', en: 'Planned' },
     available: false,
@@ -343,6 +346,7 @@ function connectionTruth(account: ConnectedAccount, ar: boolean): {
 const CONNECT_ROUTES: Record<string, string> = {
   META: '/api/social/connect/meta',
   META_ADS: '/api/social/connect/meta-ads',
+  GOOGLE_ADS: '/api/social/connect/google-ads',
   LINKEDIN: '/api/social/connect/linkedin',
   TIKTOK: '/api/social/connect/tiktok',
   YOUTUBE: '/api/social/connect/youtube',
@@ -552,6 +556,11 @@ export default function ConnectionsPage() {
                   'ربط Threads غير متاح الآن لأن إعداد تطبيق Meta لم يكتمل. لم يتم تغيير أي بيانات.',
                   'Threads connection is not available because Meta app setup is incomplete. No data was changed.',
                 )
+            : data.code === 'GOOGLE_ADS_NOT_CONFIGURED'
+              ? copy(
+                  'ربط Google Ads غير متاح حتى تكتمل مفاتيح OAuth وDeveloper Token. لم يتم تغيير أي بيانات.',
+                  'Google Ads connection is unavailable until OAuth credentials and the developer token are configured. No data was changed.',
+                )
             : data.error || copy('تعذر بدء الربط من NEXUS.', 'NEXUS could not start the connection.'),
         })
         setConnecting(null)
@@ -591,11 +600,37 @@ export default function ConnectionsPage() {
     }
   }
 
-  const metaAdAccounts = adAccounts.filter((account) =>
-    account.platform?.toUpperCase() === 'META' && account.status?.toUpperCase() !== 'DISCONNECTED',
-  )
+  const handleDisconnectAd = async (accountId: string) => {
+    setDisconnecting(accountId)
+    try {
+      const response = await fetch(`/api/ad-accounts?id=${encodeURIComponent(accountId)}`, {
+        method: 'DELETE',
+        headers: { Authorization: authHeader() },
+      })
+      if (!response.ok) throw new Error('Disconnect failed')
+      setAdAccounts(prev => prev.filter(account => account.id !== accountId))
+      setDisconnectConfirmId(null)
+      setMessage({
+        type: 'success',
+        text: copy('تم فصل حساب الإعلانات ومسح رموز الوصول المحفوظة.', 'Ad account disconnected and stored access credentials cleared.'),
+      })
+    } catch {
+      setMessage({
+        type: 'error',
+        text: copy('تعذر فصل حساب الإعلانات. لم تتغير حالته.', 'Could not disconnect the ad account. Its state was not changed.'),
+      })
+    } finally {
+      setDisconnecting(null)
+    }
+  }
 
-  const connectedCount = accounts.length + metaAdAccounts.length
+  const paidAdAccounts = adAccounts.filter((account) =>
+    ['META', 'GOOGLE'].includes(account.platform?.toUpperCase()) && account.status?.toUpperCase() !== 'DISCONNECTED',
+  )
+  const hasMetaAdAccount = paidAdAccounts.some((account) => account.platform?.toUpperCase() === 'META')
+  const hasGoogleAdAccount = paidAdAccounts.some((account) => account.platform?.toUpperCase() === 'GOOGLE')
+
+  const connectedCount = accounts.length + paidAdAccounts.length
 
   if (loading || !isAuthenticated) {
     return (
@@ -816,24 +851,48 @@ export default function ConnectionsPage() {
                 className="mt-5"
                 action={<span className="text-[12px] font-bold text-[#64708f]">{copy('لا إنفاق بدون اعتماد', 'No spend without approval')}</span>}
               >
-                {metaAdAccounts.length === 0 ? (
+                {paidAdAccounts.length === 0 ? (
                   <div className="rounded-[18px] border border-dashed border-[#d7def0] p-6 text-center">
                     <p className="text-[13px] font-black text-[#111b3f]">{copy('لا يوجد حساب إعلانات محفوظ', 'No saved ad account')}</p>
                     <p className="mt-1 text-[11px] font-semibold text-[#7b87a3]">
-                      {copy('يمكنك إعداد مسودات التخطيط بدون حساب؛ الإطلاق والقياس من Meta يتطلبان API access مثبتاً.', 'Planning drafts can be prepared without an account; Meta launch and measurement require proven API access.')}
+                      {copy('يمكن إعداد التخطيط بدون حساب؛ إنشاء مسودة منصة أو تفعيلها أو قياسها يتطلب API access مثبتاً.', 'Planning can be prepared without an account; platform draft creation, activation, and measurement require proven API access.')}
                     </p>
-                    <ShellButton className="mt-4" tone="primary" onClick={() => handleConnect('META_ADS')} loading={connecting === 'META_ADS'}>
-                      <KeyRound className="h-4 w-4" />
-                      {copy('ربط حساب إعلانات Meta', 'Connect Meta ad account')}
-                    </ShellButton>
+                    <div className="mt-4 flex flex-wrap justify-center gap-2">
+                      <ShellButton tone="primary" onClick={() => handleConnect('META_ADS')} loading={connecting === 'META_ADS'}>
+                        <KeyRound className="h-4 w-4" />
+                        {copy('ربط حساب إعلانات Meta', 'Connect Meta ad account')}
+                      </ShellButton>
+                      <ShellButton tone="primary" onClick={() => handleConnect('GOOGLE_ADS')} loading={connecting === 'GOOGLE_ADS'}>
+                        <KeyRound className="h-4 w-4" />
+                        {copy('ربط Google Ads', 'Connect Google Ads')}
+                      </ShellButton>
+                    </div>
                   </div>
                 ) : (
-                  <div className="grid gap-3 lg:grid-cols-2">
-                    {metaAdAccounts.map((account) => (
+                  <div>
+                    {!hasMetaAdAccount || !hasGoogleAdAccount ? (
+                      <div className="mb-4 flex flex-wrap gap-2">
+                        {!hasMetaAdAccount ? (
+                          <ShellButton tone="primary" onClick={() => handleConnect('META_ADS')} loading={connecting === 'META_ADS'}>
+                            <KeyRound className="h-4 w-4" />
+                            {copy('إضافة حساب إعلانات Meta', 'Add Meta ad account')}
+                          </ShellButton>
+                        ) : null}
+                        {!hasGoogleAdAccount ? (
+                          <ShellButton tone="primary" onClick={() => handleConnect('GOOGLE_ADS')} loading={connecting === 'GOOGLE_ADS'}>
+                            <KeyRound className="h-4 w-4" />
+                            {copy('إضافة Google Ads', 'Add Google Ads')}
+                          </ShellButton>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    <div className="grid gap-3 lg:grid-cols-2">
+                      {paidAdAccounts.map((account) => (
                       <article key={account.id} className="rounded-[18px] border border-[#e7ecf6] bg-[#fbfcff] p-4">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
-                            <p className="text-[13px] font-black text-[#111b3f]">{account.platformAccountName || account.platformAccountId}</p>
+                            <p className="text-[11px] font-black uppercase tracking-wider text-[#5366f6]">{account.platform === 'GOOGLE' ? 'Google Ads' : 'Meta Ads'}</p>
+                            <p className="mt-1 text-[13px] font-black text-[#111b3f]">{account.platformAccountName || account.platformAccountId}</p>
                             {account.businessName ? <p className="mt-1 text-[11px] font-semibold text-[#7b87a3]">{account.businessName}</p> : null}
                           </div>
                           <StatusPill tone={account.hasApiAccess ? 'ready' : 'needs'}>
@@ -846,8 +905,35 @@ export default function ConnectionsPage() {
                             ? copy('الحساب مؤهل لخطوات التنفيذ التي يراجعها المستخدم؛ تظل حالة كل حملة والصلاحيات مطلوبة.', 'The account is eligible for user-reviewed execution steps; campaign state and permissions are still required.')
                             : copy('يظل التخطيط متاحاً، لكن NEXUS لن يدّعي إطلاق إعلان أو مزامنة نتائج من هذا الحساب.', 'Planning remains available, but NEXUS will not claim to launch ads or sync results from this account.')}
                         </p>
+                        {account.platform === 'GOOGLE' ? (
+                          <p className="mt-2 text-[10px] font-bold text-[#7b87a3]">
+                            {copy('مستوى الوصول المكوّن', 'Configured access tier')}: {account.apiAccessTier || 'NONE'}
+                          </p>
+                        ) : null}
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <ShellButton onClick={() => handleConnect(account.platform === 'GOOGLE' ? 'GOOGLE_ADS' : 'META_ADS')} loading={connecting === (account.platform === 'GOOGLE' ? 'GOOGLE_ADS' : 'META_ADS')}>
+                            <RefreshCw className="h-4 w-4" />
+                            {copy('تحديث الربط', 'Refresh')}
+                          </ShellButton>
+                          <ShellButton tone="danger" onClick={() => setDisconnectConfirmId(account.id)} loading={disconnecting === account.id}>
+                            <Unplug className="h-4 w-4" />
+                            {copy('فصل', 'Disconnect')}
+                          </ShellButton>
+                        </div>
+                        {disconnectConfirmId === account.id ? (
+                          <div className="mt-3 rounded-[14px] border border-rose-100 bg-rose-50/70 p-3">
+                            <p className="text-[12px] font-bold leading-5 text-rose-700">
+                              {copy('سيتم مسح رموز الوصول من NEXUS بدون حذف حسابك أو حملاتك على المنصة.', 'NEXUS will clear stored access credentials without deleting your platform account or campaigns.')}
+                            </p>
+                            <div className="mt-3 flex gap-2">
+                              <ShellButton onClick={() => setDisconnectConfirmId(null)}>{copy('إلغاء', 'Cancel')}</ShellButton>
+                              <ShellButton tone="danger" onClick={() => handleDisconnectAd(account.id)} loading={disconnecting === account.id}>{copy('تأكيد الفصل', 'Confirm')}</ShellButton>
+                            </div>
+                          </div>
+                        ) : null}
                       </article>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 )}
               </Panel>
@@ -859,7 +945,7 @@ export default function ConnectionsPage() {
                 action={<StatusPill tone="planned">{copy('غير تشغيلية', 'Not operational')}</StatusPill>}
               >
                 <div className="grid gap-3 md:grid-cols-3">
-                  {PLATFORMS.filter((platform) => !platform.available).map((platform) => (
+                  {PLATFORMS.filter((platform) => !platform.available && platform.id !== 'GOOGLE').map((platform) => (
                     <article key={platform.id} className="rounded-[18px] border border-[#e7ecf6] bg-[#fbfcff] p-4">
                       <div className="flex items-center gap-3">
                         <span className="flex h-10 w-10 items-center justify-center rounded-[13px] bg-white text-sm font-black" style={{ color: platform.accent }}>

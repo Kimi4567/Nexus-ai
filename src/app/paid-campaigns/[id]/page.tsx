@@ -33,6 +33,8 @@ interface Ad {
   format: string
   primaryText: string
   headline: string
+  description?: string
+  aiHook?: string
   callToAction: string
   destinationUrl?: string
   imageUrl?: string
@@ -50,6 +52,7 @@ interface Ad {
   reviewStatus?: string
   specsValidated?: boolean
   specsErrors?: string[]
+  creativeSpecs?: Record<string, unknown>
 }
 
 interface AdSet {
@@ -128,6 +131,60 @@ const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }
 
 const fmt = (n: number, dec = 0) => n?.toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec }) ?? '0'
 
+function googleSearchAssets(ad: Ad, siblings: Ad[]) {
+  const specs = ad.creativeSpecs && typeof ad.creativeSpecs === 'object' ? ad.creativeSpecs : {}
+  const rawGoogle = specs.googleAds && typeof specs.googleAds === 'object' && !Array.isArray(specs.googleAds)
+    ? specs.googleAds as Record<string, unknown>
+    : {}
+  const unique = (values: unknown[], max: number) => [...new Set(values
+    .filter((value): value is string => typeof value === 'string')
+    .map(value => value.trim().replace(/\s+/g, ' '))
+    .filter(value => value && value.length <= max)
+  )]
+  return {
+    headlines: unique([
+      ...(Array.isArray(rawGoogle.headlines) ? rawGoogle.headlines : []),
+      ad.headline,
+      ad.aiHook,
+      ...siblings.flatMap(sibling => [sibling.headline, sibling.aiHook]),
+    ], 30).slice(0, 15),
+    descriptions: unique([
+      ...(Array.isArray(rawGoogle.descriptions) ? rawGoogle.descriptions : []),
+      ad.description,
+      ad.primaryText,
+      ...siblings.flatMap(sibling => [sibling.description, sibling.primaryText]),
+    ], 90).slice(0, 4),
+  }
+}
+
+function googleTargetingSummary(value: Record<string, unknown> | undefined) {
+  const targeting = value || {}
+  const keywords = Array.isArray(targeting.google_keywords)
+    ? targeting.google_keywords.filter(item => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) return false
+        const keyword = item as Record<string, unknown>
+        return typeof keyword.text === 'string' && ['BROAD', 'PHRASE', 'EXACT'].includes(String(keyword.matchType).toUpperCase())
+      })
+    : []
+  const negativeKeywords = Array.isArray(targeting.google_negative_keywords)
+    ? targeting.google_negative_keywords.filter(item => item && typeof item === 'object' && !Array.isArray(item))
+    : []
+  const locations = Array.isArray(targeting.google_locations)
+    ? targeting.google_locations.filter(item => item && typeof item === 'object' && !Array.isArray(item))
+    : []
+  const languages = Array.isArray(targeting.languages) ? targeting.languages.filter(Boolean) : []
+  return {
+    campaignType: targeting.google_campaign_type,
+    keywordCount: keywords.length,
+    ready: targeting.google_campaign_type === 'SEARCH'
+      && keywords.length > 0
+      && negativeKeywords.length > 0
+      && locations.length > 0
+      && languages.length > 0
+      && ['PRESENCE', 'PRESENCE_OR_INTEREST'].includes(String(targeting.google_location_presence)),
+  }
+}
+
 function KpiCard({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
     <div className="flex flex-col gap-1 rounded-2xl p-4 shadow-sm"
@@ -159,11 +216,13 @@ export default function CampaignDetailPage() {
   const [showPlatformDraftConfirm, setShowPlatformDraftConfirm] = useState(false)
   const [platformDraftAcknowledged, setPlatformDraftAcknowledged] = useState(false)
   const [budgetReadinessAcknowledged, setBudgetReadinessAcknowledged] = useState(false)
+  const [googlePoliticalDeclarationAcknowledged, setGooglePoliticalDeclarationAcknowledged] = useState(false)
   const [showPlatformActivationConfirm, setShowPlatformActivationConfirm] = useState(false)
   const [platformActivationAcknowledged, setPlatformActivationAcknowledged] = useState(false)
   const [spendActivationAcknowledged, setSpendActivationAcknowledged] = useState(false)
   const [activationBudgetAcknowledged, setActivationBudgetAcknowledged] = useState(false)
   const [activateLoading, setActivateLoading] = useState(false)
+  const [pauseLoading, setPauseLoading] = useState(false)
   const [actionError, setActionError] = useState('')
   const [showCreativeAttach, setShowCreativeAttach] = useState(false)
   const [creativeTargetAd, setCreativeTargetAd] = useState<Ad | null>(null)
@@ -273,29 +332,7 @@ export default function CampaignDetailPage() {
     }
   }
 
-  const handleStatusChange = async (newStatus: string) => {
-    if (!campaign) return
-    if (newStatus === 'ACTIVE') {
-      setActionError('NEXUS cannot mark a paid campaign active without platform-side confirmation.')
-      return
-    }
-    setActionError('')
-    try {
-      const token = await getToken()
-      const response = await fetch(`/api/ad-campaigns/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status: newStatus }),
-      })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Status update failed')
-      await load()
-    } catch (statusError) {
-      setActionError(statusError instanceof Error ? statusError.message : 'Status update failed')
-    }
-  }
-
-  const handlePushToMeta = async () => {
+  const handlePushToPlatform = async () => {
     if (!campaign) return
     if (!platformDraftAcknowledged || !budgetReadinessAcknowledged) {
       setActionError('Confirm paused draft creation and execution-readiness review before creating platform drafts.')
@@ -312,6 +349,9 @@ export default function CampaignDetailPage() {
           explicitPlatformDraftConfirmed: platformDraftAcknowledged === true,
           explicitBudgetConfirmed: budgetReadinessAcknowledged === true,
           explicitExecutionReadinessConfirmed: budgetReadinessAcknowledged === true,
+          ...(campaign.platform === 'GOOGLE' && googlePoliticalDeclarationAcknowledged
+            ? { googleContainsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING' }
+            : {}),
         }),
       })
       const result = await res.json()
@@ -322,6 +362,7 @@ export default function CampaignDetailPage() {
       setShowPlatformDraftConfirm(false)
       setPlatformDraftAcknowledged(false)
       setBudgetReadinessAcknowledged(false)
+      setGooglePoliticalDeclarationAcknowledged(false)
       await load()
     } catch (e: unknown) {
       setActionError(e instanceof Error ? e.message : 'Push failed')
@@ -329,6 +370,7 @@ export default function CampaignDetailPage() {
       setPushLoading(false)
       setPlatformDraftAcknowledged(false)
       setBudgetReadinessAcknowledged(false)
+      setGooglePoliticalDeclarationAcknowledged(false)
     }
   }
 
@@ -369,6 +411,32 @@ export default function CampaignDetailPage() {
       setPlatformActivationAcknowledged(false)
       setSpendActivationAcknowledged(false)
       setActivationBudgetAcknowledged(false)
+    }
+  }
+
+  const handlePausePlatform = async () => {
+    if (!campaign) return
+    const confirmed = window.confirm(ar
+      ? 'هل تريد إيقاف الحملة فعلياً على المنصة؟ سيطلب NEXUS إيقاف الحملة ومجموعاتها وإعلاناتها.'
+      : 'Pause this campaign on the connected platform? NEXUS will pause the campaign, ad groups, and ads.')
+    if (!confirmed) return
+    setPauseLoading(true)
+    setActionError('')
+    try {
+      const token = await getToken()
+      const response = await fetch(`/api/ad-campaigns/${id}/pause-platform`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ explicitPlatformPauseConfirmed: true }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Platform pause failed')
+      await load()
+      if (result.partial) setActionError(result.note || 'Campaign delivery is paused, but some child objects need reconciliation.')
+    } catch (pauseError) {
+      setActionError(pauseError instanceof Error ? pauseError.message : 'Platform pause failed')
+    } finally {
+      setPauseLoading(false)
     }
   }
 
@@ -446,14 +514,26 @@ export default function CampaignDetailPage() {
   const statusStyle = STATUS_STYLES[campaign.status] || STATUS_STYLES.DRAFT
   const platformColor = PLATFORM_COLORS[campaign.platform] || '#8B5CF6'
   const totalAds = campaign.adSets.reduce((acc, s) => acc + s.ads.length, 0)
+  const googleTargeting = googleTargetingSummary(campaign.aiAudienceBrief)
+  const executionAds = campaign.adSets.flatMap(adSet => adSet.ads.map(ad => {
+    const assets = googleSearchAssets(ad, adSet.ads)
+    return {
+      ...ad,
+      googleHeadlines: assets.headlines,
+      googleDescriptions: assets.descriptions,
+    }
+  }))
   const executionReadiness = evaluatePaidExecutionReadiness({
     platform: campaign.platform,
     budgetType: campaign.budgetType,
     dailyBudget: campaign.dailyBudget,
     lifetimeBudget: campaign.lifetimeBudget,
-    ads: campaign.adSets.flatMap(adSet => adSet.ads),
+    ads: executionAds,
     pageId: campaign.adAccount?.pageId,
     requireMetaPage: campaign.platform === 'META',
+    googleCampaignType: campaign.platform === 'GOOGLE' ? googleTargeting.campaignType : undefined,
+    googleKeywordCount: campaign.platform === 'GOOGLE' ? googleTargeting.keywordCount : undefined,
+    googleTargetingReady: campaign.platform === 'GOOGLE' ? googleTargeting.ready : undefined,
   })
   const strategy = campaign.aiStrategy
   const hasPausedPlatformDraft = Boolean(campaign.platformCampaignId && campaign.platformStatus === 'PAUSED')
@@ -469,6 +549,7 @@ export default function CampaignDetailPage() {
     executionReadiness.ready
   )
   const hasPerformanceEvidence = campaign.performanceSnapshots.length > 0
+  const platformDraftBlockedByCoreConfirmations = !platformDraftAcknowledged || !budgetReadinessAcknowledged || pushLoading
   const selectedMedia = mediaAssets.find(asset => asset.id === selectedMediaId) || null
   const executionLabel = campaign.status === 'ACTIVE'
     ? 'Paid execution · platform active'
@@ -553,6 +634,7 @@ export default function CampaignDetailPage() {
                 onClick={() => {
                   setPlatformDraftAcknowledged(false)
                   setBudgetReadinessAcknowledged(false)
+                  setGooglePoliticalDeclarationAcknowledged(false)
                   setShowPlatformDraftConfirm(true)
                 }}
                 disabled={pushLoading || !canCreatePausedPlatformDraft}
@@ -570,10 +652,10 @@ export default function CampaignDetailPage() {
               </button>
             )}
             {campaign.status === 'ACTIVE' && (
-              <button onClick={() => handleStatusChange('PAUSED')}
+              <button onClick={handlePausePlatform} disabled={pauseLoading}
                 className="px-3 py-2 rounded-xl text-[12px] font-bold"
                 style={{ background: 'rgba(249,115,22,0.1)', color: '#F97316', border: '1px solid rgba(249,115,22,0.3)' }}>
-                ⏸ Pause
+                {pauseLoading ? 'Pausing on platform...' : '⏸ Pause on platform'}
               </button>
             )}
             {campaign.status === 'PAUSED' && (
@@ -858,6 +940,33 @@ export default function CampaignDetailPage() {
                               </span>
                             </div>
 
+                            {campaign.platform === 'GOOGLE' ? (
+                              <div className="mb-3 rounded-xl border border-sky-200 bg-sky-50 p-3">
+                                {(() => {
+                                  const assets = googleSearchAssets(ad, adSet.ads)
+                                  const ready = assets.headlines.length >= 3 && assets.descriptions.length >= 2
+                                  return (
+                                    <>
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="text-[11px] font-black text-sky-900">Responsive Search Ad</span>
+                                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold ${ready ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                          {ready ? <CheckCircle2 className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+                                          {ready ? (ar ? 'الأصول النصية جاهزة' : 'Text assets ready') : (ar ? 'الأصول النصية ناقصة' : 'Text assets incomplete')}
+                                        </span>
+                                      </div>
+                                      <p className="mt-2 text-[11px] font-semibold text-sky-800">
+                                        {assets.headlines.length}/15 {ar ? 'عناوين' : 'headlines'} · {assets.descriptions.length}/4 {ar ? 'أوصاف' : 'descriptions'}
+                                      </p>
+                                      <div className="mt-2 flex flex-wrap gap-1">
+                                        {assets.headlines.slice(0, 5).map(headline => (
+                                          <span key={headline} className="rounded-md bg-white px-2 py-1 text-[9px] font-bold text-sky-800 ring-1 ring-sky-100">{headline}</span>
+                                        ))}
+                                      </div>
+                                    </>
+                                  )
+                                })()}
+                              </div>
+                            ) : (
                             <div className="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                               {ad.imageUrl ? (
                                 <div className="relative aspect-[4/3] bg-slate-100">
@@ -900,6 +1009,7 @@ export default function CampaignDetailPage() {
                                 </button>
                               </div>
                             </div>
+                            )}
 
                             <p className="text-[13px] font-semibold text-white mb-1">{ad.headline}</p>
                             <p className="text-[11px] text-text-muted line-clamp-2 mb-2 leading-relaxed">{ad.primaryText}</p>
@@ -1002,10 +1112,12 @@ export default function CampaignDetailPage() {
                           <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">{k.replace(/_/g, ' ').replace(/^(meta|google|tiktok|linkedin) /, '')}</p>
                           {isArr
                             ? <div className="flex flex-wrap gap-1">
-                                {(v as string[]).map((item: string, i: number) => (
+                                {(v as unknown[]).map((item: unknown, i: number) => (
                                   <span key={i} className="text-[11px] px-2 py-0.5 rounded"
                                     style={{ background: 'rgba(249,115,22,0.1)', color: '#F97316' }}>
-                                    {item}
+                                    {item && typeof item === 'object' && !Array.isArray(item)
+                                      ? Object.entries(item as Record<string, unknown>).map(([key, value]) => `${key}: ${String(value)}`).join(' · ')
+                                      : String(item)}
                                   </span>
                                 ))}
                               </div>
@@ -1117,6 +1229,7 @@ export default function CampaignDetailPage() {
                     onClick={() => {
                       setPlatformDraftAcknowledged(false)
                       setBudgetReadinessAcknowledged(false)
+                      setGooglePoliticalDeclarationAcknowledged(false)
                       setShowPlatformDraftConfirm(true)
                     }}
                     disabled={pushLoading || !canCreatePausedPlatformDraft}
@@ -1469,6 +1582,7 @@ export default function CampaignDetailPage() {
                     setShowPlatformDraftConfirm(false)
                     setPlatformDraftAcknowledged(false)
                     setBudgetReadinessAcknowledged(false)
+                    setGooglePoliticalDeclarationAcknowledged(false)
                   }}
                   className="text-text-muted hover:text-white"
                   aria-label="Close"
@@ -1498,6 +1612,20 @@ export default function CampaignDetailPage() {
                 </span>
               </label>
 
+              {campaign.platform === 'GOOGLE' ? (
+                <label className="flex items-start gap-3 text-[12px] text-slate-200 leading-relaxed mb-5">
+                  <input
+                    type="checkbox"
+                    checked={googlePoliticalDeclarationAcknowledged}
+                    onChange={(event) => setGooglePoliticalDeclarationAcknowledged(event.target.checked)}
+                    className="mt-0.5 h-4 w-4"
+                  />
+                  <span>
+                    I confirm this campaign does not contain political advertising targeted to the European Union. NEXUS will send this declaration to Google Ads.
+                  </span>
+                </label>
+              ) : null}
+
               <label className="flex items-start gap-3 text-[12px] text-slate-200 leading-relaxed mb-5">
                 <input
                   type="checkbox"
@@ -1516,6 +1644,7 @@ export default function CampaignDetailPage() {
                     setShowPlatformDraftConfirm(false)
                     setPlatformDraftAcknowledged(false)
                     setBudgetReadinessAcknowledged(false)
+                    setGooglePoliticalDeclarationAcknowledged(false)
                   }}
                   className="px-4 py-2 rounded-xl text-[12px] font-bold text-text-muted"
                   style={{ background: 'rgba(255,255,255,0.06)' }}
@@ -1523,13 +1652,13 @@ export default function CampaignDetailPage() {
                   Cancel
                 </button>
                 <button
-                  onClick={handlePushToMeta}
-                  disabled={!platformDraftAcknowledged || !budgetReadinessAcknowledged || pushLoading}
+                  onClick={handlePushToPlatform}
+                  disabled={platformDraftBlockedByCoreConfirmations || (campaign.platform === 'GOOGLE' && !googlePoliticalDeclarationAcknowledged)}
                   className="px-4 py-2 rounded-xl text-[12px] font-bold text-white"
                   style={{
-                    background: platformDraftAcknowledged && budgetReadinessAcknowledged && !pushLoading ? `linear-gradient(135deg, ${platformColor}, ${platformColor}bb)` : 'rgba(255,255,255,0.08)',
-                    cursor: platformDraftAcknowledged && budgetReadinessAcknowledged && !pushLoading ? 'pointer' : 'not-allowed',
-                    opacity: platformDraftAcknowledged && budgetReadinessAcknowledged && !pushLoading ? 1 : 0.62,
+                    background: platformDraftAcknowledged && budgetReadinessAcknowledged && (campaign.platform !== 'GOOGLE' || googlePoliticalDeclarationAcknowledged) && !pushLoading ? `linear-gradient(135deg, ${platformColor}, ${platformColor}bb)` : 'rgba(255,255,255,0.08)',
+                    cursor: platformDraftAcknowledged && budgetReadinessAcknowledged && (campaign.platform !== 'GOOGLE' || googlePoliticalDeclarationAcknowledged) && !pushLoading ? 'pointer' : 'not-allowed',
+                    opacity: platformDraftAcknowledged && budgetReadinessAcknowledged && (campaign.platform !== 'GOOGLE' || googlePoliticalDeclarationAcknowledged) && !pushLoading ? 1 : 0.62,
                   }}
                 >
                   {pushLoading ? 'Creating paused platform drafts...' : 'Create paused platform drafts'}

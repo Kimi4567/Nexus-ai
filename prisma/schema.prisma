@@ -1381,15 +1381,16 @@ model MarketingLearningEvent {
 //   AdAccount → AdCampaign → AdSet → Ad
 //   AdPerformanceSnapshot (daily metrics synced per campaign/adset/ad)
 //
-// Designed 1:1 with Meta Marketing API v21, Google Ads API v17,
-// TikTok Marketing API v1.3, LinkedIn Campaign Manager API v2.
+// Provider adapters are version-pinned in application configuration. Google Ads
+// automated execution currently supports reviewed Search campaigns only; other
+// Google formats remain planning-only until their own execution paths exist.
 // Platform IDs (platformCampaignId, platformAdSetId, platformAdId) are
 // null until the campaign is pushed live — enabling "export mode" first,
 // then "live API mode" without changing the data model.
 
 enum AdPlatform {
   META        // Facebook + Instagram (Meta Marketing API)
-  GOOGLE      // Google Ads: Search, Display, P-Max, YouTube
+  GOOGLE      // Google Ads: Search execution; other formats planning-only
   TIKTOK      // TikTok Marketing API
   LINKEDIN    // LinkedIn Campaign Manager API
 }

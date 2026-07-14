@@ -72,7 +72,7 @@ interface WizardData {
 // ── Platform data ──────────────────────────────────────────────────────────
 const PLATFORMS = [
   { id: 'META', label: 'Meta Ads', subEn: 'Facebook + Instagram', subAr: 'فيسبوك + إنستغرام', color: '#1877F2', badgeEn: 'Draft + API path', badgeAr: 'مسودة + مسار API' },
-  { id: 'GOOGLE', label: 'Google Ads', subEn: 'Search, Display, P-Max', subAr: 'البحث، العرض، Performance Max', color: '#4285F4', badgeEn: 'Planning draft', badgeAr: 'مسودة تخطيط' },
+  { id: 'GOOGLE', label: 'Google Ads', subEn: 'Search only · paused review flow', subAr: 'البحث فقط · مسار مراجعة متوقف', color: '#4285F4', badgeEn: 'Draft + API path', badgeAr: 'مسودة + مسار API' },
   { id: 'TIKTOK', label: 'TikTok Ads', subEn: 'In-Feed, TopView, Spark', subAr: 'In-Feed وTopView وSpark', color: '#FF0050', badgeEn: 'Planning draft', badgeAr: 'مسودة تخطيط' },
   { id: 'LINKEDIN', label: 'LinkedIn Ads', subEn: 'Sponsored Content, InMail', subAr: 'محتوى ممول ورسائل InMail', color: '#0A66C2', badgeEn: 'Planning draft', badgeAr: 'مسودة تخطيط' },
 ]
@@ -406,7 +406,7 @@ export default function NewPaidCampaignPage() {
                 <button
                   type="button"
                   key={p.id}
-                  onClick={() => set('platform', p.id)}
+                  onClick={() => setData(previous => ({ ...previous, platform: p.id, adAccountId: '' }))}
                   aria-pressed={data.platform === p.id}
                   className="relative flex flex-col items-start gap-1.5 p-4 rounded-[14px] text-left transition-all"
                   style={{

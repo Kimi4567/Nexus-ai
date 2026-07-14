@@ -11,6 +11,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { createMetaAdsApi } from '@/lib/adPlatforms/metaAdsApi'
+import {
+  createGoogleAdsApi,
+  extractGoogleResponsiveSearchAssets,
+  extractGoogleSearchTargeting,
+} from '@/lib/adPlatforms/googleAdsApi'
 import { canActivatePlatformCampaign } from '@/lib/paidBoundary'
 import { evaluatePaidExecutionReadiness } from '@/lib/paidExecutionReadiness'
 
@@ -45,15 +50,43 @@ export async function POST(
     const adSets = (campaign.adSets || []) as Array<Record<string, unknown> & {
       ads?: Array<Record<string, unknown>>
     }>
+    const googleTargeting = adSets.map(adSet => {
+      const local = adSet.targeting && typeof adSet.targeting === 'object'
+        ? adSet.targeting as Record<string, unknown>
+        : null
+      return extractGoogleSearchTargeting(
+        Array.isArray(local?.google_keywords) || Array.isArray(local?.keywords)
+          ? local
+          : campaign.aiAudienceBrief,
+      )
+    })
+    const readinessAds = adSets.flatMap(adSet => {
+      const ads = adSet.ads || []
+      return ads.map(ad => {
+        const assets = extractGoogleResponsiveSearchAssets(ad, ads)
+        return {
+          ...ad,
+          googleHeadlines: assets.headlines,
+          googleDescriptions: assets.descriptions,
+        }
+      })
+    })
     const readiness = evaluatePaidExecutionReadiness({
       platform: campaign.platform,
       budgetType: campaign.budgetType,
       dailyBudget: campaign.dailyBudget,
       lifetimeBudget: campaign.lifetimeBudget,
-      ads: adSets.flatMap(adSet => adSet.ads || []),
+      ads: readinessAds,
+      googleCampaignType: campaign.platform === 'GOOGLE' ? 'SEARCH' : undefined,
+      googleKeywordCount: campaign.platform === 'GOOGLE'
+        ? googleTargeting.reduce((sum, targeting) => sum + targeting.keywords.length, 0)
+        : undefined,
+      googleTargetingReady: campaign.platform === 'GOOGLE'
+        ? googleTargeting.length > 0 && googleTargeting.every(targeting => targeting.blockers.length === 0)
+        : undefined,
     })
 
-    if (campaign.platform !== 'META') {
+    if (campaign.platform !== 'META' && campaign.platform !== 'GOOGLE') {
       return NextResponse.json({
         error: `${campaign.platform} activation is not available yet. No platform action was taken.`,
         mode: 'unsupported_platform',
@@ -95,9 +128,9 @@ export async function POST(
       }, { status: 400 })
     }
 
-    if (!adAccount?.accessToken || !adAccount?.platformAccountId) {
+    if (!adAccount?.accessToken || !adAccount?.platformAccountId || (campaign.platform === 'GOOGLE' && !adAccount?.refreshToken)) {
       return NextResponse.json({
-        error: 'Connected Meta ad account credentials are missing. No platform action was taken.',
+        error: `Connected ${campaign.platform} ad account credentials are missing. No platform action was taken.`,
         mode: 'activation_blocked',
       }, { status: 409 })
     }
@@ -122,32 +155,50 @@ export async function POST(
       }, { status: 409 })
     }
 
-    const api = createMetaAdsApi(
-      String(adAccount.accessToken),
-      String(adAccount.platformAccountId)
-    )
-
     const activated = {
       campaignId: String(campaign.platformCampaignId),
       adSetIds: [] as string[],
       adIds: [] as string[],
     }
 
-    // Activate children first while the campaign remains paused. This avoids
-    // delivery until the final campaign-level activation succeeds.
-    for (const adSet of adSets) {
-      const adSetId = String(adSet.platformAdSetId)
-      await api.updateObjectStatus(adSetId, 'ACTIVE')
-      activated.adSetIds.push(adSetId)
+    if (campaign.platform === 'GOOGLE') {
+      const api = createGoogleAdsApi({
+        customerId: String(adAccount.platformAccountId),
+        loginCustomerId: typeof adAccount.loginCustomerId === 'string' ? adAccount.loginCustomerId : null,
+        encryptedAccessToken: String(adAccount.accessToken),
+        encryptedRefreshToken: String(adAccount.refreshToken),
+      })
+      const adGroupResourceNames = adSets.map(adSet => String(adSet.platformAdSetId))
+      const adResourceNames = adSets.flatMap(adSet => (adSet.ads || []).map(ad => String(ad.platformAdId)))
+      await api.activateSearchDraft({
+        campaignResourceName: String(campaign.platformCampaignId),
+        adGroupResourceNames,
+        adResourceNames,
+      })
+      activated.adSetIds.push(...adGroupResourceNames)
+      activated.adIds.push(...adResourceNames)
+    } else {
+      const api = createMetaAdsApi(
+        String(adAccount.accessToken),
+        String(adAccount.platformAccountId)
+      )
 
-      for (const ad of adSet.ads || []) {
-        const adId = String(ad.platformAdId)
-        await api.updateObjectStatus(adId, 'ACTIVE')
-        activated.adIds.push(adId)
+      // Activate children first while the campaign remains paused. This avoids
+      // delivery until the final campaign-level activation succeeds.
+      for (const adSet of adSets) {
+        const adSetId = String(adSet.platformAdSetId)
+        await api.updateObjectStatus(adSetId, 'ACTIVE')
+        activated.adSetIds.push(adSetId)
+
+        for (const ad of adSet.ads || []) {
+          const adId = String(ad.platformAdId)
+          await api.updateObjectStatus(adId, 'ACTIVE')
+          activated.adIds.push(adId)
+        }
       }
-    }
 
-    await api.updateCampaignStatus(String(campaign.platformCampaignId), 'ACTIVE')
+      await api.updateCampaignStatus(String(campaign.platformCampaignId), 'ACTIVE')
+    }
 
     for (const adSet of adSets) {
       await db.adSet.update({
@@ -167,7 +218,7 @@ export async function POST(
       where: { id: String(campaign.id) },
       data: {
         status: 'ACTIVE',
-        platformStatus: 'ACTIVE',
+        platformStatus: campaign.platform === 'GOOGLE' ? 'ENABLED' : 'ACTIVE',
       },
     })
 
@@ -176,7 +227,7 @@ export async function POST(
       success: true,
       campaign: updated,
       activated,
-      note: 'Existing Meta platform draft objects were activated after explicit approval. Paid spend may occur on the connected platform.',
+      note: `Existing ${campaign.platform} platform draft objects were activated after explicit approval. Paid spend may occur on the connected platform.`,
     })
   } catch (err) {
     console.error('[activate-platform]', err)

@@ -50,6 +50,8 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
                 format: true,
                 primaryText: true,
                 headline: true,
+                description: true,
+                aiHook: true,
                 callToAction: true,
                 destinationUrl: true,
                 imageUrl: true,
@@ -68,6 +70,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
                 reviewStatus: true,
                 specsValidated: true,
                 specsErrors: true,
+                creativeSpecs: true,
               },
             },
           },
@@ -121,7 +124,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       platformStatus,
     } = body
 
-    if (status === 'ACTIVE' || platformStatus === 'ACTIVE') {
+    if (status === 'ACTIVE' || ['ACTIVE', 'ENABLED', 'RUNNING', 'LIVE'].includes(String(platformStatus).toUpperCase())) {
       return NextResponse.json({
         error: 'Paid campaigns cannot be marked active through generic updates. Use the explicit platform activation route after final approval.',
         mode: 'activation_route_required',
