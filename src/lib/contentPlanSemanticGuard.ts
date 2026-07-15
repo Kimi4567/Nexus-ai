@@ -81,8 +81,13 @@ export function validateContentPlanSemanticAlignment(
   context: ContentPlanSemanticContext = {},
 ): ContentPlanSemanticResult {
   const angles = contentAngles(strategy)
-  const explicitContext = [strategy, ...(context.brandFacts ?? [])].map(stringify).join(' ')
-  const explicitClinicOperationsProduct = CLINIC_RE.test(explicitContext) && OPERATIONS_PRODUCT_RE.test(explicitContext)
+  // Business classification must come from user-confirmed Brand Brain facts.
+  // A stale or already-drifted strategy is not evidence that a dental provider
+  // suddenly sells clinic-operations software; allowing it here let the wrong
+  // strategy validate the wrong posts and defeated the final approval gate.
+  const explicitBrandFacts = (context.brandFacts ?? []).map(stringify).join(' ')
+  const explicitClinicOperationsProduct = CLINIC_RE.test(explicitBrandFacts)
+    && OPERATIONS_PRODUCT_RE.test(explicitBrandFacts)
   const overallStrategyTokens = tokens(strategy)
   const issues: ContentPlanSemanticIssue[] = []
   let alignedPosts = 0

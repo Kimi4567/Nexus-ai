@@ -24,6 +24,25 @@ describe('contentPlanApprovalGuard', () => {
     expect(review.issues.map(issue => issue.reason)).toContain('unexpected_operational_saas_drift')
   })
 
+  it('does not let a stale clinic-software strategy override dental Brand Brain facts', () => {
+    const staleStrategy = {
+      positioning: 'A workflow platform for clinic front-desk teams',
+      contentPillars: ['clinic workflow', 'bilingual administrative communication'],
+      contentAnglesDetailed: [
+        { title: 'Front-desk handoff', hook: 'Map the admin workflow' },
+      ],
+    }
+    const review = reviewContentPlanForApproval([
+      { contentPlanIndex: 1, caption: 'The front desk feels the handoff problem before leadership. Bring this workflow checklist to your team meeting.' },
+    ], staleStrategy, [
+      'Noura Dental Studio',
+      'Dental clinic providing preventive, cosmetic, and restorative consultations',
+    ])
+
+    expect(review.ok).toBe(false)
+    expect(review.issues.map(issue => issue.reason)).toContain('unexpected_operational_saas_drift')
+  })
+
   it('blocks unsupported performance or guarantee claims even when vocabulary overlaps', () => {
     const review = reviewContentPlanForApproval([
       { contentPlanIndex: 1, caption: 'Save these dental consultation questions for guaranteed results.' },
