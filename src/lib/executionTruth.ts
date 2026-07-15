@@ -15,6 +15,7 @@ export type ExecutionStage =
   | 'NEEDS_ATTENTION'
 
 export type ExecutionActionKind =
+  | 'FIX_BRAND_TRUTH'
   | 'REVIEW_CAMPAIGN'
   | 'CREATE_STRATEGY'
   | 'REVIEW_STRATEGY'
@@ -169,6 +170,21 @@ export function buildCampaignExecutionTruth(snapshot: CampaignExecutionSnapshot)
       {
         en: `${snapshot.posts.failed} post${snapshot.posts.failed === 1 ? '' : 's'} failed and need a decision before retrying.`,
         ar: `${snapshot.posts.failed} منشور متعثر يحتاج قراراً قبل إعادة المحاولة.`,
+      },
+    )
+  } else if (snapshot.strategyBlockers.includes('BRAND_TRUTH_CONFLICT')) {
+    stage = 'NEEDS_ATTENTION'
+    nextAction = item(
+      snapshot,
+      stage,
+      'FIX_BRAND_TRUTH',
+      'critical',
+      'manual_action',
+      '/brand',
+      { en: 'Resolve the Brand Brain source conflict', ar: 'احسم تعارض مصدر الحقيقة في Brand Brain' },
+      {
+        en: 'The current Brand Brain contradicts the business description. Strategy, content, media, and publishing remain blocked without spending credits until it is corrected.',
+        ar: 'يتعارض Brand Brain الحالي مع وصف النشاط. تظل الاستراتيجية والمحتوى والوسائط والنشر محجوبة دون خصم كريديت حتى تصحيح المصدر.',
       },
     )
   } else if (snapshot.strategyApprovalState === 'draft') {

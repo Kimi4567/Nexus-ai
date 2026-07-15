@@ -34,4 +34,10 @@ describe('analytics insights runtime copy', () => {
     expect(source).not.toContain('campaigns generating without your voice')
     expect(source).not.toContain('currently active')
   })
+
+  it('surfaces a live Brand Brain conflict before maturity claims', () => {
+    expect(source).toContain('reviewBrandTruthConsistency')
+    expect(source).toContain("id: 'brand-truth-conflict'")
+    expect(source).toContain('resolve it before strategy, content, or performance learning continues')
+  })
 })

@@ -1296,15 +1296,19 @@ function BrandBrainInner() {
                         {locale === 'ar' ? 'المعلومات التي يعتمد عليها NEXUS' : 'The information NEXUS relies on'}
                       </span>
                       <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold inline-flex items-center gap-1.5"
-                        style={{ background: '#ECFDF5', color: '#047857', border: '1px solid rgba(16,185,129,0.24)' }}>
-                        {locale === 'ar' ? 'اكتمال الملف الأساسي' : 'Core profile completeness'}
+                        style={industryTruthConflict
+                          ? { background: '#FFF7ED', color: '#C2410C', border: '1px solid rgba(234,88,12,0.24)' }
+                          : { background: '#ECFDF5', color: '#047857', border: '1px solid rgba(16,185,129,0.24)' }}>
+                        {industryTruthConflict
+                          ? (locale === 'ar' ? 'الحقول مكتملة · الاتساق محجوب' : 'Fields complete · consistency blocked')
+                          : (locale === 'ar' ? 'اكتمال الملف الأساسي' : 'Core profile completeness')}
                         <span className="font-semibold tabular-nums">{brandIndicators.brandCompleteness.score}%</span>
                       </span>
                     </div>
                     <p className="text-sm text-slate-500 mt-1 max-w-3xl">
-                      {locale === 'ar'
-                        ? 'راجع التفاصيل مرة واحدة، ثم استخدمها كأساس ثابت لكل قرار تسويقي.'
-                        : 'Review the details once, then use them as the stable foundation for every marketing decision.'}
+                      {industryTruthConflict
+                        ? (locale === 'ar' ? 'الحقول موجودة، لكن NEXUS لن يستخدمها كأساس للتوليد حتى تصحيح التعارض أدناه.' : 'The fields are present, but NEXUS will not use them for generation until the conflict below is corrected.')
+                        : (locale === 'ar' ? 'راجع التفاصيل مرة واحدة، ثم استخدمها كأساس ثابت لكل قرار تسويقي.' : 'Review the details once, then use them as the stable foundation for every marketing decision.')}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${coreBrandReady ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>

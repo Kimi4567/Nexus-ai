@@ -9,6 +9,7 @@ import {
 } from '@/lib/contentHubMediaState'
 import { useI18n } from '@/lib/i18n-context'
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
+import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -139,6 +140,7 @@ export default function ContentHubPage() {
   const [plansLoading, setPlansLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeFormat, setActiveFormat] = useState('all')
+  const [brandTruthState, setBrandTruthState] = useState<'checking' | 'passed' | 'blocked' | 'unavailable'>('checking')
 
   const loadBoard = useCallback(async () => {
     if (!isAuthenticated) return
@@ -151,13 +153,25 @@ export default function ContentHubPage() {
     setLoading(true)
     setPlansLoading(false)
     setError(null)
+    setBrandTruthState('checking')
 
     try {
-      const campaignRes = await fetchWithTimeout('/api/campaigns?limit=20&sort=updatedAt', {
-        headers: { Authorization: token },
-      }, 8_000)
+      const [campaignRes, brandRes] = await Promise.all([
+        fetchWithTimeout('/api/campaigns?limit=20&sort=updatedAt', {
+          headers: { Authorization: token },
+        }, 8_000),
+        fetchWithTimeout('/api/brand', {
+          headers: { Authorization: token },
+        }, 8_000),
+      ])
 
       if (!campaignRes.ok) throw new Error(isAr ? 'تعذر تحميل الحملات' : 'Failed to load campaigns')
+      if (brandRes.ok) {
+        const brandData = await brandRes.json() as { brandProfile?: Parameters<typeof reviewBrandTruthConsistency>[0] }
+        setBrandTruthState(!brandData.brandProfile || reviewBrandTruthConsistency(brandData.brandProfile).status === 'blocked' ? 'blocked' : 'passed')
+      } else {
+        setBrandTruthState('unavailable')
+      }
 
       const campaignData = (await campaignRes.json()) as CampaignsResponse
       const campaignList = campaignData.campaigns ?? []
@@ -256,7 +270,8 @@ export default function ContentHubPage() {
   }, [activeFormat, posts])
 
   const latestCampaign = campaigns[0]
-  const latestCampaignContentHref = latestCampaign ? `/campaigns/${latestCampaign.id}/content-hub` : '/strategy'
+  const contentTruthBlocked = brandTruthState !== 'passed'
+  const latestCampaignContentHref = contentTruthBlocked ? '/brand' : latestCampaign ? `/campaigns/${latestCampaign.id}/content-hub` : '/strategy'
   const samplePost = filteredPosts.find(post => post.imageUrl) ?? filteredPosts[0] ?? posts.find(post => post.imageUrl) ?? posts[0]
   const recentPosts = filteredPosts.filter(post => {
     const status = String(post.status || 'DRAFT').toUpperCase()
@@ -313,7 +328,7 @@ export default function ContentHubPage() {
             pageTitle={isAr ? 'نظرة عامة على المحتوى' : 'Content operations overview'}
             pageSubtitle={isAr ? 'راقب جاهزية المحتوى عبر الحملات، ثم افتح إنتاج حملة للمراجعة والتنفيذ.' : 'Track readiness across campaigns, then open one campaign for review and execution.'}
             primaryHref={latestCampaignContentHref}
-            primaryLabel={latestCampaign ? (isAr ? 'مراجعة الإنتاج' : 'Review production') : (isAr ? 'إنشاء استراتيجية' : 'Create strategy')}
+            primaryLabel={contentTruthBlocked ? (isAr ? 'تصحيح Brand Brain' : 'Fix Brand Brain') : latestCampaign ? (isAr ? 'مراجعة الإنتاج' : 'Review production') : (isAr ? 'إنشاء استراتيجية' : 'Create strategy')}
             secondaryHref="/strategy"
             secondaryLabel={isAr ? 'الاستراتيجية والحملات' : 'Strategy & campaigns'}
           />
@@ -338,10 +353,34 @@ export default function ContentHubPage() {
             </SoftPanel>
           )}
 
+          {contentTruthBlocked && (
+            <SoftPanel className="border-orange-200 bg-orange-50 p-4 text-orange-950" dir={isAr ? 'rtl' : 'ltr'}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[13px] font-black">
+                    {brandTruthState === 'blocked'
+                      ? (isAr ? 'المحتوى الحالي مرجع قديم حتى تصحيح Brand Brain' : 'Current content is reference-only until Brand Brain is corrected')
+                      : (isAr ? 'تعذر التحقق من Brand Brain؛ تم إيقاف التنفيذ احتياطياً' : 'Brand Brain could not be verified; execution is safely paused')}
+                  </p>
+                  <p className="mt-1 text-[11px] font-semibold leading-5 text-orange-800">
+                    {brandTruthState === 'blocked'
+                      ? (isAr ? 'المجال المحفوظ لا يطابق وصف النشاط. لا يمكن اعتماد هذه النصوص أو توليد وسائط لها أو جدولتها، ولن يُخصم كريديت حتى تصحيح مصدر الحقيقة.' : 'The saved industry conflicts with the business description. These drafts cannot be approved, given paid media, or scheduled, and no credits are spent until the source of truth is fixed.')
+                      : (isAr ? 'لن يسمح NEXUS باعتماد أو توليد أو جدولة مدفوعة قبل استعادة مصدر الحقيقة والتحقق منه.' : 'NEXUS will not allow paid approval, generation, or scheduling until the source of truth is available and verified.')}
+                  </p>
+                </div>
+                <Link href="/brand" className="inline-flex h-10 items-center gap-2 rounded-xl bg-orange-700 px-4 text-[12px] font-black text-white">
+                  <ArrowUpRight className="h-4 w-4" />{isAr ? 'فتح Brand Brain' : 'Open Brand Brain'}
+                </Link>
+              </div>
+            </SoftPanel>
+          )}
+
           <div className="nx-os-action-strip" dir={isAr ? 'rtl' : 'ltr'}>
             <div>
               <p className="text-[13px] font-black text-[#0B1028]">
-                {isAr ? `${stats.needsReview} منشورات تحتاج قرارك` : `${stats.needsReview} posts need your decision`}
+                {contentTruthBlocked
+                  ? (isAr ? `${stats.total} سجلات محتوى محجوبة للمراجعة` : `${stats.total} content records are held for review`)
+                  : isAr ? `${stats.needsReview} منشورات تحتاج قرارك` : `${stats.needsReview} posts need your decision`}
               </p>
               <p className="mt-1 text-[11px] font-bold text-slate-500">
                 {isAr ? `${stats.total} إجمالي · ${stats.approved} نصوص معتمدة · ${stats.mediaReady} وسائط مؤكدة · ${stats.scheduled} مجدول` : `${stats.total} total · ${stats.approved} copy approved · ${stats.mediaReady} media confirmed · ${stats.scheduled} scheduled`}
@@ -350,9 +389,9 @@ export default function ContentHubPage() {
                 {isAr ? 'تُراجع CTA داخل كل منشور؛ لا يفترض NEXUS دعوة عامة من دون دليل.' : 'CTA is reviewed per post; NEXUS does not assume a generic CTA here.'}
               </p>
             </div>
-            <Link href={latestCampaignContentHref} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#101A4D] px-4 text-[12px] font-black text-white">
+            <Link href={latestCampaignContentHref} className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[12px] font-black text-white ${contentTruthBlocked ? 'bg-orange-700' : 'bg-[#101A4D]'}`}>
               <ArrowUpRight className="h-4 w-4" />
-              {isAr ? 'فتح إنتاج الحملة' : 'Open campaign production'}
+              {contentTruthBlocked ? (isAr ? 'تصحيح Brand Brain' : 'Fix Brand Brain') : (isAr ? 'فتح إنتاج الحملة' : 'Open campaign production')}
             </Link>
           </div>
 
@@ -387,7 +426,9 @@ export default function ContentHubPage() {
                   <div className="space-y-2.5">
                     {recentPosts.slice(0, 3).map(post => {
                       const status = String(post.status || 'DRAFT').toUpperCase()
-                      const decisionLabel = status === 'DRAFT'
+                      const decisionLabel = contentTruthBlocked
+                        ? (isAr ? 'محجوب' : 'Blocked')
+                        : status === 'DRAFT'
                         ? (isAr ? 'راجع النص' : 'Review copy')
                         : (isAr ? 'أكمل الوسائط' : 'Complete media')
                       return (
@@ -400,10 +441,14 @@ export default function ContentHubPage() {
                           <MediaThumb src={post.imageUrl} label={post.campaignName} />
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-[13px] font-black text-[#0B1028]">{safeSnippet(post.caption, post.campaignName)}</p>
+                          <p className="truncate text-[13px] font-black text-[#0B1028]">
+                            {contentTruthBlocked
+                              ? (isAr ? 'مسودة قديمة — مرجع فقط حتى تصحيح Brand Brain' : 'Older draft — reference-only until Brand Brain is fixed')
+                              : safeSnippet(post.caption, post.campaignName)}
+                          </p>
                           <p className="mt-1 truncate text-[11px] text-slate-500">{post.isVideoPost ? (isAr ? 'فيديو قصير' : 'Short video') : (isAr ? 'منشور / صورة' : 'Post / image')} · {post.campaignName}</p>
                         </div>
-                        <span className={`rounded-lg px-2.5 py-1 text-[10px] font-black ${status === 'DRAFT' ? toneClasses.violet : toneClasses.amber}`}>
+                        <span className={`rounded-lg px-2.5 py-1 text-[10px] font-black ${contentTruthBlocked ? toneClasses.amber : status === 'DRAFT' ? toneClasses.violet : toneClasses.amber}`}>
                           {decisionLabel}
                         </span>
                       </Link>
@@ -422,7 +467,11 @@ export default function ContentHubPage() {
                     <LayoutGrid className="h-4 w-4 text-[#5E63FF]" />
                     <div className="text-right">
                       <p className="text-[12px] font-bold text-slate-500">{isAr ? 'مثال لمحتوى (قيد المراجعة)' : 'Content sample in review'}</p>
-                      <h2 className="text-[17px] font-black text-[#0B1028]">{samplePost ? safeSnippet(samplePost.caption, isAr ? 'مسودة محتوى' : 'Content draft') : (isAr ? 'لا توجد عينة بعد' : 'No sample yet')}</h2>
+                      <h2 className="text-[17px] font-black text-[#0B1028]">
+                        {contentTruthBlocked && samplePost
+                          ? (isAr ? 'عينة قديمة محجوبة — لا تعتمدها' : 'Older sample blocked — do not approve')
+                          : samplePost ? safeSnippet(samplePost.caption, isAr ? 'مسودة محتوى' : 'Content draft') : (isAr ? 'لا توجد عينة بعد' : 'No sample yet')}
+                      </h2>
                     </div>
                   </div>
                   <Link href={samplePost ? `/campaigns/${samplePost.campaignId}/content-hub` : '/strategy'} className="block overflow-hidden rounded-[18px] border border-slate-200 bg-slate-50">

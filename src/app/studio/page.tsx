@@ -5,6 +5,7 @@ import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { useBrandBrain } from '@/hooks/useBrandBrain'
+import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
@@ -124,6 +125,8 @@ export default function StudioPage() {
 
   const ar = locale === 'ar'
   const copy = (arabic: string, english: string) => (ar ? arabic : english)
+  const brandTruthReport = reviewBrandTruthConsistency(brand)
+  const brandTruthBlocked = !brand || brandTruthReport.status === 'blocked'
   const brandName = brand?.brandName || copy('علامتك التجارية', 'Your brand')
   const campaignName = campaign?.name || copy('لا توجد حملة محددة', 'No campaign selected')
   const campaignHref = campaign ? `/campaigns/${campaign.id}?tab=creative` : '/campaigns'
@@ -173,13 +176,28 @@ export default function StudioPage() {
               'راجع الاتجاه البصري وأصول العلامة قبل إرفاق الوسائط بالمنشورات. أكّد الاتجاه الإبداعي هنا؛ ويظل التوليد داخل مركز المحتوى.',
               'Review visual direction and brand assets before attaching media to posts. Confirm the creative direction here; generation remains in Content Hub.',
             )}
-            primaryHref="/content-hub"
-            primaryLabel={copy('مراجعة المحتوى', 'Review content')}
+            primaryHref={brandTruthBlocked ? '/brand' : '/content-hub'}
+            primaryLabel={brandTruthBlocked ? copy('تصحيح Brand Brain', 'Fix Brand Brain') : copy('مراجعة المحتوى', 'Review content')}
             secondaryHref="/media"
             secondaryLabel={copy('مكتبة الوسائط', 'Media library')}
           />
 
+          {brandTruthBlocked && (
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-orange-200 bg-orange-50 px-4 py-4 text-orange-950" role="alert">
+              <div>
+                <p className="text-[13px] font-black">{copy('الاتجاه الإبداعي المشتق محجوب', 'Derived creative direction is blocked')}</p>
+                <p className="mt-1 max-w-4xl text-[11px] font-semibold leading-5 text-orange-800">
+                  {copy('المجال المحفوظ لا يطابق وصف النشاط، لذلك أخفى NEXUS موجز الحملة والمعاينات المشتقة. تظل أصول العلامة الخام ظاهرة، ولا يبدأ أي توليد أو خصم كريديت.', 'The saved industry conflicts with the business description, so NEXUS has hidden the campaign brief and derived previews. Raw brand assets remain visible, and no generation or credit spend starts.')}
+                </p>
+              </div>
+              <Link href="/brand" className="inline-flex h-10 items-center gap-2 rounded-[12px] bg-orange-700 px-4 text-[11px] font-black text-white">
+                {copy('تصحيح Brand Brain', 'Fix Brand Brain')}<ArrowUpRight size={14} />
+              </Link>
+            </div>
+          )}
+
           <div className="grid grid-cols-12 items-start gap-5">
+            {!brandTruthBlocked && (<>
             <StudioCard
               id="studio-brief"
               title={copy('موجز الإبداع', 'Creative brief')}
@@ -350,7 +368,9 @@ export default function StudioPage() {
               </div>
             </StudioCard>
 
-            <StudioCard id="studio-assets" title={copy('الأصول', 'Assets')} icon={<FolderOpen size={18} />} className="col-span-12 scroll-mt-6 lg:col-span-6">
+            </>)}
+
+            <StudioCard id="studio-assets" title={copy('الأصول', 'Assets')} icon={<FolderOpen size={18} />} className={`col-span-12 scroll-mt-6 ${brandTruthBlocked ? '' : 'lg:col-span-6'}`}>
               <p className="mb-4 text-[11px] leading-5 text-[#6a7692]">
                 {copy('يعرض هذا القسم أصول Brand Brain الحالية فقط. مكتبة الوسائط هي مصدر ملفات الصور والفيديو.', 'This section shows current Brand Brain assets only. Media Library remains the source for image and video files.')}
               </p>

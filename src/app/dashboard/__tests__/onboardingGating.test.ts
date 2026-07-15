@@ -29,6 +29,13 @@ describe('Dashboard onboarding gating', () => {
     expect(SRC).toMatch(/Recorded activities/)
   })
 
+  it('does not route past a contradictory Brand Brain', () => {
+    expect(SRC).toContain('reviewBrandTruthConsistency')
+    expect(SRC).toContain("title: ar ? 'احسم تعارض Brand Brain أولاً'")
+    expect(SRC).toContain('const brandUsable = brandReadiness?.ready === true && !brandTruthBlocked')
+    expect(SRC).toContain("'محجوبة حتى التصحيح'")
+  })
+
   it('keeps the first operating action strategy-led and context-aware', () => {
     expect(SRC).toMatch(/href: '\/strategy'/)
     expect(SRC).toMatch(/Create a clear operating strategy/)

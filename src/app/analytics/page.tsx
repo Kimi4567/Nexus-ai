@@ -102,6 +102,7 @@ interface SystemInsight {
   type: 'action' | 'info' | 'warning' | 'success'
   icon: string
   message: string
+  messageAr?: string
   href?: string
 }
 
@@ -547,7 +548,7 @@ export default function AnalyticsPage() {
                   )) : insights.length ? insights.map((insight) => {
                     const card = (
                       <div className={`rounded-[17px] border p-3 ${INSIGHT_TONE[insight.type]}`}>
-                        <p className="text-[12px] font-bold leading-6">{insight.icon} {insight.message}</p>
+                        <p className="text-[12px] font-bold leading-6">{insight.icon} {ar ? (insight.messageAr || insight.message) : insight.message}</p>
                       </div>
                     )
                     return insight.href ? <Link key={insight.id} href={insight.href}>{card}</Link> : <div key={insight.id}>{card}</div>

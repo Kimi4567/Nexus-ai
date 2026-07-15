@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 import { getBrandBrainReadiness, type BrandReadinessResult } from '@/lib/brandReadiness'
+import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { type PublishingState } from '@/lib/operatingBriefStatus'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import { useRouter } from 'next/navigation'
@@ -353,6 +354,7 @@ export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
   const [brandName, setBrandName] = useState<string | null>(null)
+  const [brandTruthBlocked, setBrandTruthBlocked] = useState(false)
   const [workspaceGate, setWorkspaceGate] = useState<WorkspaceGateState>('checking')
   const [workspaceGateRetry, setWorkspaceGateRetry] = useState(0)
 
@@ -471,6 +473,7 @@ export default function DashboardPage() {
         const data = await brandRes.value.json() as BrandResponse
         setBrandReadiness(getBrandBrainReadiness(data.brandProfile))
         setBrandName(data.brandProfile?.brandName || null)
+        setBrandTruthBlocked(reviewBrandTruthConsistency(data.brandProfile).status === 'blocked')
       }
 
       if (connectionsRes.status === 'fulfilled' && connectionsRes.value.ok) {
@@ -506,16 +509,19 @@ export default function DashboardPage() {
   const draftCount = stats?.draftCampaigns ?? campaigns.filter(c => c.status === 'DRAFT').length
   const brandContextLabel = !brandReadiness
     ? (ar ? 'بانتظار البيانات' : 'Waiting for data')
+    : brandTruthBlocked
+      ? (ar ? 'يوجد تعارض يجب حسمه' : 'A truth conflict must be resolved')
     : brandReadiness.missingRequired.length > 0
       ? (ar ? 'السياق الأساسي ناقص' : 'Core context incomplete')
       : brandReadiness.missingRecommended.length > 0
         ? (ar ? 'السياق الأساسي متاح' : 'Core context available')
         : (ar ? 'السياق مكتمل' : 'Context complete')
   const strategyAvailable = intelligence?.loop.strategy ?? false
+  const brandUsable = brandReadiness?.ready === true && !brandTruthBlocked
   const workflowChecks = [
-    brandReadiness?.ready === true,
-    strategyAvailable,
-    contentCount > 0,
+    brandUsable,
+    strategyAvailable && brandUsable,
+    contentCount > 0 && brandUsable,
     platformConnected,
     postsWithAnalytics > 0,
   ]
@@ -524,6 +530,14 @@ export default function DashboardPage() {
   const recommendedBrandFields = 5 - (brandReadiness?.missingRecommended.length ?? 5)
   const publishChecklistComplete = [contentCount > 0, platformConnected].filter(Boolean).length
   const nextAction = useMemo(() => {
+    if (brandTruthBlocked) {
+      return {
+        href: '/brand',
+        title: ar ? 'احسم تعارض Brand Brain أولاً' : 'Resolve the Brand Brain conflict first',
+        body: ar ? 'المجال المحفوظ لا يطابق وصف النشاط. أوقف NEXUS الاستراتيجية والمحتوى والنشر المدفوع حتى تصحيح مصدر الحقيقة، ولن تُخصم كريديت بسبب هذا الإيقاف.' : 'The saved industry does not match the business description. NEXUS has paused paid strategy, content, and publishing until the source of truth is corrected, with no credits charged for this block.',
+        cta: ar ? 'تصحيح Brand Brain' : 'Fix Brand Brain',
+      }
+    }
     if (!brandName) {
       return {
         href: '/brand',
@@ -562,7 +576,7 @@ export default function DashboardPage() {
       body: ar ? 'التعلّم الحقيقي يبدأ فقط بعد وصول بيانات أداء من المنشورات أو الحملات.' : 'Real learning starts only after published content or campaigns collect performance data.',
       cta: ar ? 'فتح التحليلات' : 'Open Analytics',
     }
-  }, [ar, brandName, campaignCount, contentCount, platformConnected, publishedCount, topCampaign])
+  }, [ar, brandName, brandTruthBlocked, campaignCount, contentCount, platformConnected, publishedCount, topCampaign])
 
   if (authLoading || workspaceGate === 'checking' || workspaceGate === 'noWorkspace') {
     return <DashboardGateSurface mode="loading" ar={ar} framed={!authLoading && isAuthenticated} />
@@ -764,7 +778,9 @@ export default function DashboardPage() {
                     <p className="mt-1 text-[12px] text-slate-500">{ar ? 'ابدأ من الاستراتيجية لتوليد مسار عمل منظم.' : 'Start from strategy to create a coherent workflow.'}</p>
                   </div>
                 ) : campaigns.slice(0, 3).map((campaign) => {
-                  const status = STATUS_MAP[campaign.status] || STATUS_MAP.DRAFT
+                  const status = brandTruthBlocked
+                    ? { ar: 'محجوبة حتى التصحيح', en: 'Blocked pending fix', color: '#c2410c', bg: '#fff7ed' }
+                    : STATUS_MAP[campaign.status] || STATUS_MAP.DRAFT
                   const platform = getCampaignPlatformSummary(campaign.platforms, locale)
                   const updatedLabel = new Date(campaign.createdAt).toLocaleDateString(ar ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric' })
                   return (
@@ -837,9 +853,9 @@ export default function DashboardPage() {
               </div>
               <div className="space-y-3">
                 {[
-                  { title: 'Brand Brain', meta: brandReadiness?.ready ? (ar ? 'السياق الأساسي جاهز' : 'Core context is ready') : (ar ? 'يحتاج استكمال السياق الأساسي' : 'Core context needs completion'), tone: 'bg-emerald-50 text-emerald-600', state: brandReadiness?.ready ? (ar ? 'جاهز' : 'Ready') : (ar ? 'يحتاج إدخالاً' : 'Needs input'), stateTone: brandReadiness?.ready ? 'text-emerald-700' : 'text-amber-700' },
-                  { title: ar ? 'الاستراتيجية' : 'Strategy', meta: strategyAvailable ? (ar ? 'يوجد سجل استراتيجية محفوظ' : 'A saved strategy record exists') : (ar ? 'لا يوجد سجل استراتيجية بعد' : 'No strategy record yet'), tone: 'bg-violet-50 text-violet-600', state: strategyAvailable ? (ar ? 'موثق' : 'Evidenced') : (ar ? 'الخطوة التالية' : 'Next step'), stateTone: strategyAvailable ? 'text-emerald-700' : 'text-violet-700' },
-                  { title: ar ? 'حزم المنشورات' : 'Post packages', meta: ar ? `${contentCount} سجل محفوظ في Content Hub` : `${contentCount} records saved in Content Hub`, tone: 'bg-[#EEF2FF] text-[#5E63FF]', state: contentCount > 0 ? (ar ? 'سجل موثق' : 'Verified record') : (ar ? 'لا توجد سجلات' : 'No records'), stateTone: contentCount > 0 ? 'text-emerald-700' : 'text-slate-500' },
+                  { title: 'Brand Brain', meta: brandTruthBlocked ? (ar ? 'المجال لا يطابق وصف النشاط' : 'Industry conflicts with the business description') : brandReadiness?.ready ? (ar ? 'السياق الأساسي جاهز' : 'Core context is ready') : (ar ? 'يحتاج استكمال السياق الأساسي' : 'Core context needs completion'), tone: brandTruthBlocked ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600', state: brandTruthBlocked ? (ar ? 'تعارض' : 'Conflict') : brandReadiness?.ready ? (ar ? 'جاهز' : 'Ready') : (ar ? 'يحتاج إدخالاً' : 'Needs input'), stateTone: brandTruthBlocked ? 'text-orange-700' : brandReadiness?.ready ? 'text-emerald-700' : 'text-amber-700' },
+                  { title: ar ? 'الاستراتيجية' : 'Strategy', meta: strategyAvailable ? (ar ? 'يوجد سجل محفوظ، لكن صلاحيته تتبع Brand Brain الحالي' : 'A record exists, but its validity follows the current Brand Brain') : (ar ? 'لا يوجد سجل استراتيجية بعد' : 'No strategy record yet'), tone: 'bg-violet-50 text-violet-600', state: brandTruthBlocked && strategyAvailable ? (ar ? 'مرجعية فقط' : 'Reference only') : strategyAvailable ? (ar ? 'موثق' : 'Evidenced') : (ar ? 'الخطوة التالية' : 'Next step'), stateTone: brandTruthBlocked ? 'text-orange-700' : strategyAvailable ? 'text-emerald-700' : 'text-violet-700' },
+                  { title: ar ? 'حزم المنشورات' : 'Post packages', meta: ar ? `${contentCount} سجل محفوظ في Content Hub` : `${contentCount} records saved in Content Hub`, tone: 'bg-[#EEF2FF] text-[#5E63FF]', state: brandTruthBlocked && contentCount > 0 ? (ar ? 'موقوفة للمراجعة' : 'Held for review') : contentCount > 0 ? (ar ? 'سجل موثق' : 'Verified record') : (ar ? 'لا توجد سجلات' : 'No records'), stateTone: brandTruthBlocked ? 'text-orange-700' : contentCount > 0 ? 'text-emerald-700' : 'text-slate-500' },
                   { title: ar ? 'جاهزية الربط' : 'Connection readiness', meta: platformConnected ? (ar ? 'يوجد حساب متصل واحد على الأقل' : 'At least one account is connected') : (ar ? 'لا توجد حسابات متصلة' : 'No connected accounts'), tone: 'bg-amber-50 text-amber-600', state: platformConnected ? (ar ? 'موثق' : 'Verified') : (ar ? 'مفقود' : 'Missing'), stateTone: platformConnected ? 'text-emerald-700' : 'text-amber-700' },
                   { title: ar ? 'دليل الأداء' : 'Performance evidence', meta: postsWithAnalytics > 0 ? (ar ? `${postsWithAnalytics} منشور بتحليلات حقيقية` : `${postsWithAnalytics} posts with real analytics`) : (ar ? 'بانتظار تحليلات حقيقية' : 'Waiting for real analytics'), tone: 'bg-slate-100 text-slate-500', state: postsWithAnalytics > 0 ? (ar ? 'موثق' : 'Verified') : (ar ? 'بانتظار البيانات' : 'Waiting for data'), stateTone: postsWithAnalytics > 0 ? 'text-emerald-700' : 'text-slate-500' },
                 ].map(item => (

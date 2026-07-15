@@ -68,7 +68,7 @@ function formatProposed(value: unknown): string {
 }
 
 /* ── Light line chart ─────────────────────────────────────────── */
-function ScoreChart({ snapshots }: { snapshots: Snapshot[] }) {
+function ScoreChart({ snapshots, ar }: { snapshots: Snapshot[]; ar: boolean }) {
   if (snapshots.length < 2) return null
 
   const W = 800; const H = 240; const padX = 48; const padY = 24
@@ -160,7 +160,7 @@ function ScoreChart({ snapshots }: { snapshots: Snapshot[] }) {
         .map(i => (
           <text key={i} x={toX(i)} y={H - 4} textAnchor="middle"
             fontSize="9" fill="rgba(100,116,139,0.5)" fontFamily="monospace">
-            {new Date(snapshots[i].createdAt).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+            {new Date(snapshots[i].createdAt).toLocaleDateString(ar ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric' })}
           </text>
         ))
       }
@@ -183,7 +183,7 @@ function MilestoneBadge({ score, date, isFirst, ar }: { score: number; date: str
       <div className="flex-1 min-w-0">
         <p className="text-xs font-semibold" style={{ color: TEXT_MAIN }}>{label}</p>
         <p className="text-[10px] mt-0.5" style={{ color: TEXT_FAINT }}>
-          {new Date(date).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          {new Date(date).toLocaleDateString(ar ? 'ar-EG' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
       <div className="w-16 h-1 rounded-full overflow-hidden" style={{ background: BORDER }}>
@@ -393,7 +393,7 @@ export default function ScoreHistoryPage() {
                     ))}
                   </div>
                 </div>
-                <ScoreChart snapshots={snapshots} />
+                <ScoreChart snapshots={snapshots} ar={ar} />
               </div>
 
               {/* ── Maturity milestones ───────────────────────────── */}
@@ -518,7 +518,7 @@ export default function ScoreHistoryPage() {
                           </p>
                         </div>
                         <span className="text-[10px] flex-shrink-0" style={{ color: TEXT_FAINT }}>
-                          {new Date(update.updatedAt).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                          {new Date(update.updatedAt).toLocaleDateString(ar ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric' })}
                         </span>
                       </div>
                     </div>

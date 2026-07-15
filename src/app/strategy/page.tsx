@@ -230,6 +230,7 @@ export default function StrategyPage() {
   const [campaigns, setCampaigns] = useState<CampaignLite[]>([])
   const [runStrategyOpen, setRunStrategyOpen] = useState(false)
   const [startFreshStrategyRequest, setStartFreshStrategyRequest] = useState(false)
+  const [showReferenceStrategy, setShowReferenceStrategy] = useState(false)
 
   const load = useCallback(async () => {
     if (!isAuthenticated) return
@@ -966,7 +967,9 @@ export default function StrategyPage() {
 	                  <div dir={ar ? 'rtl' : 'ltr'}>
 	                    <p className="text-[12px] font-black text-[#5E63FF]">{ar ? 'ملخص الاتجاه الاستراتيجي' : 'Strategic direction summary'}</p>
 	                    <h2 className="mt-2 max-w-3xl overflow-hidden text-[18px] font-black leading-7 text-[#0B1028] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]">
-	                      {campaignPositioning}
+	                      {brandTruthBlocked
+	                        ? (ar ? 'لن يعرض NEXUS اتجاهًا استراتيجيًا قابلاً للاستخدام حتى تصحيح مصدر الحقيقة وإنشاء استراتيجية جديدة.' : 'NEXUS will not present an actionable strategic direction until the source of truth is corrected and a new strategy is created.')
+	                        : campaignPositioning}
 	                    </h2>
 	                    <div id="strategy-diagnosis" className="mt-3 grid scroll-mt-6 gap-2 sm:grid-cols-3">
 	                      {[
@@ -1057,6 +1060,28 @@ export default function StrategyPage() {
 	                  )
                 })}
               </div>
+
+              {brandTruthBlocked && (
+                <SoftCard className="border-orange-200 bg-white p-4" dir={ar ? 'rtl' : 'ltr'}>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-700"><FileText className="h-5 w-5" /></span>
+                      <div>
+                        <h3 className="text-[14px] font-black text-[#0B1028]">{ar ? 'تفاصيل الاستراتيجية القديمة مطوية' : 'Older strategy details are collapsed'}</h3>
+                        <p className="mt-1 max-w-3xl text-[12px] font-semibold leading-5 text-slate-500">
+                          {ar ? 'هذه الوثيقة بُنيت قبل اكتشاف تعارض مصدر الحقيقة. أخفينا تفاصيلها افتراضيًا حتى لا تُفهم كتوصيات صالحة؛ ويمكن فتحها للرجوع التاريخي فقط.' : 'This document predates the source-of-truth conflict. Its details are hidden by default so they are not mistaken for valid recommendations; open it only for historical reference.'}
+                        </p>
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => setShowReferenceStrategy(value => !value)} className="inline-flex h-10 items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-4 text-[12px] font-black text-orange-800">
+                      <Eye className="h-4 w-4" />
+                      {showReferenceStrategy ? (ar ? 'إخفاء المرجع القديم' : 'Hide older reference') : (ar ? 'عرض المرجع القديم' : 'Show older reference')}
+                    </button>
+                  </div>
+                </SoftCard>
+              )}
+
+              {(!brandTruthBlocked || showReferenceStrategy) && (<>
 
               <SoftCard className="overflow-hidden">
                 <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
@@ -1311,6 +1336,7 @@ export default function StrategyPage() {
                   </div>
                 </SoftCard>
               </div>
+              </>)}
 
               <SoftCard className="hidden">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

@@ -6,6 +6,7 @@ import { ApprovalDecisionCard } from '@/components/approvals/ApprovalDecisionCar
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import type { ExecutionQueueItem, WorkspaceExecutionTruth } from '@/lib/executionTruth'
+import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -85,6 +86,7 @@ export default function ApprovalsPage() {
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [dataLoading, setDataLoading] = useState(true)
+  const [brandTruthBlocked, setBrandTruthBlocked] = useState(false)
 
   useEffect(() => {
     if (!loading && !isAuthenticated) router.push('/auth/login')
@@ -99,21 +101,24 @@ export default function ApprovalsPage() {
     async function loadDecisionQueue() {
       setDataLoading(true)
       try {
-        const [proposalRes, suggestionRes, proposalHistoryRes, suggestionHistoryRes, executionRes] = await Promise.all([
+        const [proposalRes, suggestionRes, proposalHistoryRes, suggestionHistoryRes, executionRes, brandRes] = await Promise.all([
           fetch('/api/brain/proposals?status=pending', { headers: { Authorization: token } }),
           fetch('/api/agents/suggestions?status=PENDING&limit=50', { headers: { Authorization: token } }),
           fetch('/api/brain/proposals?status=all', { headers: { Authorization: token } }),
           fetch('/api/agents/suggestions?status=all&limit=100', { headers: { Authorization: token } }),
           fetch('/api/execution/queue', { headers: { Authorization: token } }),
+          fetch('/api/brand', { headers: { Authorization: token } }),
         ])
         if (cancelled) return
-        const [proposalData, suggestionData, proposalHistoryData, suggestionHistoryData, executionData] = await Promise.all([
+        const [proposalData, suggestionData, proposalHistoryData, suggestionHistoryData, executionData, brandData] = await Promise.all([
           proposalRes.json().catch(() => ({})),
           suggestionRes.json().catch(() => ({})),
           proposalHistoryRes.json().catch(() => ({})),
           suggestionHistoryRes.json().catch(() => ({})),
           executionRes.json().catch(() => ({})),
+          brandRes.json().catch(() => ({})),
         ])
+        setBrandTruthBlocked(!brandData?.brandProfile || reviewBrandTruthConsistency(brandData.brandProfile).status === 'blocked')
         setProposals(Array.isArray(proposalData.proposals) ? proposalData.proposals : [])
         setSuggestions(Array.isArray(suggestionData.suggestions) ? suggestionData.suggestions : [])
         setProposalHistory(Array.isArray(proposalHistoryData.proposals)
@@ -293,6 +298,22 @@ export default function ApprovalsPage() {
             </div>
           )}
 
+          {brandTruthBlocked && (
+            <section className="rounded-[18px] border border-orange-200 bg-orange-50 px-4 py-4 text-orange-950">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[13px] font-black">{copy('القرارات المشتقة محجوبة حتى تصحيح Brand Brain', 'Derived decisions are blocked until Brand Brain is corrected')}</p>
+                  <p className="mt-1 text-[11px] font-semibold leading-5 text-orange-800">
+                    {copy('المجال المحفوظ لا يطابق وصف النشاط. السجلات القديمة للمرجعية فقط؛ لا يمكن اعتمادها أو تشغيلها، ولن يخصم هذا الإيقاف أي كريديت.', 'The saved industry conflicts with the business description. Older records are reference-only; they cannot be approved or executed, and this block spends no credits.')}
+                  </p>
+                </div>
+                <Link href="/brand" className="inline-flex h-10 items-center gap-2 rounded-[12px] bg-orange-700 px-4 text-[11px] font-black text-white">
+                  {copy('تصحيح Brand Brain', 'Fix Brand Brain')}<ArrowUpRight size={14} />
+                </Link>
+              </div>
+            </section>
+          )}
+
           <section className="grid gap-5 xl:grid-cols-2">
             <div className="nx-os-card p-5">
               <div className="mb-5">
@@ -323,17 +344,26 @@ export default function ApprovalsPage() {
                     </ApprovalDecisionCard>
                   ))}
                   {suggestions.map(suggestion => {
-                  const title = ar ? suggestion.payload?.titleAr || suggestion.title : suggestion.title
-                  const reason = ar ? suggestion.payload?.reasoningAr || suggestion.reasoning : suggestion.reasoning
+                  const blockedByBrandTruth = brandTruthBlocked && suggestion.type !== 'CAMPAIGN_PAUSE'
+                  const title = blockedByBrandTruth
+                    ? copy('قرار سابق محجوب حتى تصحيح مصدر الحقيقة', 'Previous decision blocked until the source of truth is fixed')
+                    : ar ? suggestion.payload?.titleAr || suggestion.title : suggestion.title
+                  const reason = blockedByBrandTruth
+                    ? copy('بُني هذا السجل على سياق علامة متعارض. احتفظ به كمرجع أو ارفضه؛ لا يمكن اعتماده أو تشغيله.', 'This record was derived from contradictory brand context. Keep it as reference or reject it; it cannot be approved or executed.')
+                    : ar ? suggestion.payload?.reasoningAr || suggestion.reasoning : suggestion.reasoning
                   const evidenceCount = Array.isArray(suggestion.payload?.evidence) ? suggestion.payload.evidence.length : 0
                   const sourceItems = Array.isArray(suggestion.payload?.items)
                     ? suggestion.payload.items.filter(item => typeof item.url === 'string' && item.url)
                     : []
                   return (
-                    <ApprovalDecisionCard key={suggestion.id} title={title} reason={reason} badge={suggestion.priority === 1 ? copy('عاجل', 'Urgent') : copy('مراجعة', 'Review')} badgeTone={suggestion.priority === 1 ? 'amber' : 'violet'} meta={`${suggestion.type} · ${sourceItems.length || evidenceCount} ${copy('أدلة', 'evidence items')}`} actions={(
+                    <ApprovalDecisionCard key={suggestion.id} title={title} reason={reason} badge={blockedByBrandTruth ? copy('محجوب', 'Blocked') : suggestion.priority === 1 ? copy('عاجل', 'Urgent') : copy('مراجعة', 'Review')} badgeTone={blockedByBrandTruth || suggestion.priority === 1 ? 'amber' : 'violet'} meta={`${suggestion.type} · ${sourceItems.length || evidenceCount} ${copy('أدلة', 'evidence items')}`} actions={(
                       <>
                         <button type="button" disabled={busyKey !== null} onClick={() => decideSuggestion(suggestion.id, 'reject')} className="inline-flex h-9 items-center gap-2 rounded-[12px] border border-rose-200 bg-white px-3 text-[11px] font-black text-rose-600 disabled:opacity-50"><XCircle size={14} />{copy('رفض', 'Reject')}</button>
-                        <button type="button" disabled={busyKey !== null} onClick={() => decideSuggestion(suggestion.id, 'approve')} className="inline-flex h-9 items-center gap-2 rounded-[12px] bg-[#071236] px-3 text-[11px] font-black text-white disabled:opacity-50">{busyKey === `suggestion:${suggestion.id}:approve` ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}{suggestion.payload?.href ? copy('اعتمد وافتح الخطوة', 'Approve and open step') : copy('اعتماد', 'Approve')}</button>
+                        {blockedByBrandTruth ? (
+                          <Link href="/brand" className="inline-flex h-9 items-center gap-2 rounded-[12px] bg-orange-700 px-3 text-[11px] font-black text-white"><ArrowUpRight size={14} />{copy('تصحيح Brand Brain', 'Fix Brand Brain')}</Link>
+                        ) : (
+                          <button type="button" disabled={busyKey !== null} onClick={() => decideSuggestion(suggestion.id, 'approve')} className="inline-flex h-9 items-center gap-2 rounded-[12px] bg-[#071236] px-3 text-[11px] font-black text-white disabled:opacity-50">{busyKey === `suggestion:${suggestion.id}:approve` ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}{suggestion.payload?.href ? copy('اعتمد وافتح الخطوة', 'Approve and open step') : copy('اعتماد', 'Approve')}</button>
+                        )}
                       </>
                     )}>
                       {sourceItems.length > 0 && <div className="flex flex-wrap gap-2">{sourceItems.slice(0, 4).map((source, index) => <a key={`${source.url}-${index}`} href={source.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full border border-[#dbe2f0] bg-white px-2 py-1 text-[10px] font-black text-[#5366f6]"><ExternalLink size={11} />{source.source || source.title || copy(`المصدر ${index + 1}`, `Source ${index + 1}`)}</a>)}</div>}

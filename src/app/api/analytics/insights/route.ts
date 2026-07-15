@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { calculateBrandMaturity } from '@/lib/brandMaturity'
+import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -89,8 +90,18 @@ export async function GET(req: Request) {
       // Brain page + Dashboard use (calculateBrandMaturity → 'active' ≥ 80,
       // 'building' 50–79, 'needs_data' < 50). Never claim "ready/active" while the
       // brand is still partial, so Analytics can't contradict the other surfaces.
+      const brandTruthReport = reviewBrandTruthConsistency(brandProfile)
       const { status } = calculateBrandMaturity(brandProfile, { acceptedLearningCount })
-      if (status === 'active') {
+      if (brandTruthReport.status === 'blocked') {
+        insights.push({
+          id: 'brand-truth-conflict',
+          type: 'warning',
+          icon: '⚠️',
+          message: 'Brand Brain has a source-of-truth conflict — resolve it before strategy, content, or performance learning continues',
+          messageAr: 'يوجد تعارض في مصدر الحقيقة داخل Brand Brain — احسمه قبل متابعة الاستراتيجية أو المحتوى أو تعلّم الأداء',
+          href: '/brand',
+        })
+      } else if (status === 'active') {
         insights.push({
           id: 'brand-active',
           type: 'success',

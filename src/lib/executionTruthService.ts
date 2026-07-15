@@ -6,6 +6,7 @@ import {
   type ExecutionPostCounts,
   type WorkspaceExecutionTruth,
 } from '@/lib/executionTruth'
+import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 
 type StatusCountRow = {
   campaignId: string | null
@@ -82,7 +83,7 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
 
   const campaignIds = campaigns.map((campaign) => campaign.id)
   const db = prisma as any
-  const [statusCounts, approvedMissingMediaCounts, eligibleEvidenceCounts, decisionEvents, activeAdCounts] = await Promise.all([
+  const [statusCounts, approvedMissingMediaCounts, eligibleEvidenceCounts, decisionEvents, activeAdCounts, brandProfile] = await Promise.all([
     db.socialPost.groupBy({
       by: ['campaignId', 'status'],
       where: { workspaceId, campaignId: { in: campaignIds } },
@@ -126,7 +127,9 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
       where: { workspaceId, organicCampaignId: { in: campaignIds }, status: 'ACTIVE' },
       _count: { _all: true },
     }) as Promise<AdCampaignCountRow[]>,
+    prisma.brandProfile.findUnique({ where: { workspaceId } }),
   ])
+  const brandTruthReport = reviewBrandTruthConsistency(brandProfile)
 
   const countsByCampaign = new Map<string, ExecutionPostCounts>()
   for (const campaignId of campaignIds) countsByCampaign.set(campaignId, emptyCounts())
@@ -185,7 +188,12 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
       campaignStatus: campaign.status as string,
       updatedAt: campaign.updatedAt.toISOString(),
       strategyApprovalState: approval.state,
-      strategyBlockers: approval.approvalBlockers.map((blocker) => blocker.code),
+      strategyBlockers: [
+        ...approval.approvalBlockers.map((blocker) => blocker.code),
+        ...(!brandProfile || brandTruthReport.status === 'blocked'
+          ? ['BRAND_TRUTH_CONFLICT', ...brandTruthReport.blockers.map((blocker) => blocker.code)]
+          : []),
+      ],
       posts,
     }
   })

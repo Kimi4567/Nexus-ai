@@ -40,6 +40,22 @@ describe('execution truth', () => {
     expect(result.nextAction).toMatchObject({ kind: 'RESOLVE_FAILURE', priority: 'critical' })
   })
 
+  it('routes a live Brand Brain conflict to the source instead of strategy approval', () => {
+    const result = buildCampaignExecutionTruth(snapshot({
+      strategyApprovalState: 'blocked',
+      strategyBlockers: ['BRAND_TRUTH_CONFLICT', 'brand_industry_too_broad_or_misaligned'],
+      posts: { draft: 4, approved: 0, scheduled: 0, published: 0, failed: 0, publishedWithoutAnalytics: 0 },
+    }))
+
+    expect(result.stage).toBe('NEEDS_ATTENTION')
+    expect(result.nextAction).toMatchObject({
+      kind: 'FIX_BRAND_TRUTH',
+      href: '/brand',
+      priority: 'critical',
+      requiresApproval: false,
+    })
+  })
+
   it('keeps drafts behind explicit content approval', () => {
     const result = buildCampaignExecutionTruth(snapshot({
       posts: { draft: 4, approved: 0, scheduled: 0, published: 0, failed: 0, publishedWithoutAnalytics: 0 },

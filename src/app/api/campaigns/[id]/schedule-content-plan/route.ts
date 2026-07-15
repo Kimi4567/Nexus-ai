@@ -108,20 +108,19 @@ export async function POST(req: NextRequest, props: Params) {
         aiOutput: true,
         goal: true,
         platforms: true,
-        workspace: { select: { brandProfile: true } },
       },
     })
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
-    if (!canMutateCampaignExecution(String(campaign.status), campaign.aiOutput, campaign.workspace.brandProfile)) {
+
+    const brandProfile = await prisma.brandProfile.findUnique({
+      where: { workspaceId: campaign.workspaceId },
+    })
+    if (!canMutateCampaignExecution(String(campaign.status), campaign.aiOutput, brandProfile)) {
       return NextResponse.json({
         error: 'Approve the campaign strategy before scheduling content.',
         code: 'STRATEGY_APPROVAL_REQUIRED',
       }, { status: 409 })
     }
-
-    const brandProfile = await prisma.brandProfile.findUnique({
-      where: { workspaceId: campaign.workspaceId },
-    })
     const aiOutput = campaign.aiOutput && typeof campaign.aiOutput === 'object' && !Array.isArray(campaign.aiOutput)
       ? campaign.aiOutput as Record<string, unknown>
       : {}

@@ -9,6 +9,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import { resolveCampaignCounts, type CampaignCounts } from '@/lib/campaignSummary'
 import { guardStrategyProofText } from '@/lib/ai/strategyProofGuard'
+import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
@@ -119,7 +120,9 @@ export default function CampaignsPage() {
     kind: 'archive' | 'delete'
   } | null>(null)
   const [decisionError, setDecisionError] = useState('')
+  const [brandTruthState, setBrandTruthState] = useState<'checking' | 'passed' | 'blocked' | 'unavailable'>('checking')
   const menuRef = useRef<HTMLDivElement>(null)
+  const brandTruthBlocked = brandTruthState !== 'passed'
 
   const statusMap: Record<string, { label: string; dot: string; pill: string }> = {
     DRAFT: {
@@ -128,9 +131,9 @@ export default function CampaignsPage() {
       pill: 'bg-slate-50 text-slate-600 border-slate-200',
     },
     ACTIVE: {
-      label: copy('استراتيجية معتمدة', 'Strategy approved'),
-      dot: 'bg-emerald-500',
-      pill: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+      label: brandTruthBlocked ? copy('محجوبة — مرجع فقط', 'Blocked — reference only') : copy('استراتيجية معتمدة', 'Strategy approved'),
+      dot: brandTruthBlocked ? 'bg-orange-500' : 'bg-emerald-500',
+      pill: brandTruthBlocked ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-emerald-50 text-emerald-700 border-emerald-100',
     },
     PAUSED: {
       label: cT?.statusPaused || copy('متوقفة', 'Paused'),
@@ -167,6 +170,7 @@ export default function CampaignsPage() {
     if (!token) return
     setLoading(true)
     setLoadError(false)
+    setBrandTruthState('checking')
     try {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
@@ -175,9 +179,18 @@ export default function CampaignsPage() {
       params.set('sort', sortBy)
       params.set('limit', '50')
 
-      const res = await fetch(`/api/campaigns?${params}`, {
-        headers: { Authorization: token },
-      })
+      const [res, brandRes] = await Promise.all([
+        fetch(`/api/campaigns?${params}`, {
+          headers: { Authorization: token },
+        }),
+        fetch('/api/brand', { headers: { Authorization: token } }),
+      ])
+      if (brandRes.ok) {
+        const brandData = await brandRes.json() as { brandProfile?: Parameters<typeof reviewBrandTruthConsistency>[0] }
+        setBrandTruthState(!brandData.brandProfile || reviewBrandTruthConsistency(brandData.brandProfile).status === 'blocked' ? 'blocked' : 'passed')
+      } else {
+        setBrandTruthState('unavailable')
+      }
       if (res.ok) {
         const data = await res.json()
         setCampaigns(data.campaigns || [])
@@ -270,13 +283,14 @@ export default function CampaignsPage() {
 
   const summary = useMemo(() => {
     const total = counts?.total ?? campaigns.length
-    const active = counts?.active ?? campaigns.filter((campaign) => campaign.status === 'ACTIVE').length
+    const persistedActive = counts?.active ?? campaigns.filter((campaign) => campaign.status === 'ACTIVE').length
+    const active = brandTruthBlocked ? 0 : persistedActive
     const draft = counts?.draft ?? campaigns.filter((campaign) => campaign.status === 'DRAFT').length
     const completed = campaigns.filter((campaign) => campaign.status === 'COMPLETED').length
     const archived = campaigns.filter((campaign) => campaign.status === 'ARCHIVED').length
     const health = total > 0 ? Math.round(((active + completed) / total) * 100) : 0
-    return { total, active, draft, completed, archived, health }
-  }, [campaigns, counts])
+    return { total, active, persistedActive, draft, completed, archived, health }
+  }, [brandTruthBlocked, campaigns, counts])
 
   const platformDistribution = useMemo(() => {
     const totals = new Map<string, number>()
@@ -335,8 +349,8 @@ export default function CampaignsPage() {
 
   const dateLocale = locale === 'ar' ? 'ar-EG' : 'en-US'
   const latestCampaign = campaigns[0]
-  const latestCampaignStrategyHref = latestCampaign ? `/campaigns/${latestCampaign.id}?tab=strategy` : '/campaigns/new'
-  const latestCampaignContentHref = latestCampaign ? `/campaigns/${latestCampaign.id}/content-hub` : '/content-hub'
+  const latestCampaignStrategyHref = brandTruthBlocked ? '/brand' : latestCampaign ? `/campaigns/${latestCampaign.id}?tab=strategy` : '/campaigns/new'
+  const latestCampaignContentHref = brandTruthBlocked ? '/brand' : latestCampaign ? `/campaigns/${latestCampaign.id}/content-hub` : '/content-hub'
 
   const exportCampaigns = () => {
     if (!campaigns.length) return
@@ -377,8 +391,8 @@ export default function CampaignsPage() {
           <LuxuryWorkspaceHeader
             pageTitle={copy('الحملات', 'Campaigns')}
             pageSubtitle={copy('محفظة الحملات: النطاق، المرحلة، الجاهزية، والقرار التالي. الإنتاج التفصيلي يعيش داخل Content Hub.', 'Campaign portfolio: scope, stage, readiness, and next decision. Detailed production lives inside Content Hub.')}
-            primaryHref="/campaigns/new"
-            primaryLabel={cT?.btnNewCampaign || copy('حملة جديدة', 'New campaign')}
+            primaryHref={brandTruthBlocked ? '/brand' : '/campaigns/new'}
+            primaryLabel={brandTruthBlocked ? copy('تصحيح Brand Brain', 'Fix Brand Brain') : cT?.btnNewCampaign || copy('حملة جديدة', 'New campaign')}
             secondaryHref="/connections"
             secondaryLabel={copy('الربط والتكاملات', 'Connections')}
           />
@@ -387,10 +401,9 @@ export default function CampaignsPage() {
             <div className="min-w-0">
               <p className="nx-os-section-title">{copy(`${summary.total} حملة في مساحة العمل`, `${summary.total} campaigns in this workspace`)}</p>
               <p className="nx-os-section-copy">
-                {copy(
-                  `${summary.active} معتمدة و${summary.draft} تحتاج مراجعة.`,
-                  `${summary.active} approved and ${summary.draft} need review.`,
-                )}
+                {brandTruthBlocked && summary.persistedActive > 0
+                  ? copy(`${summary.persistedActive} سجل اعتماد قديم محجوب حتى تصحيح Brand Brain.`, `${summary.persistedActive} older approval record is blocked until Brand Brain is fixed.`)
+                  : copy(`${summary.active} معتمدة و${summary.draft} تحتاج مراجعة.`, `${summary.active} approved and ${summary.draft} need review.`)}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -413,6 +426,22 @@ export default function CampaignsPage() {
               </button>
             </div>
           </div>
+
+          {brandTruthBlocked && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-orange-200 bg-orange-50 px-4 py-4 text-orange-950">
+              <div>
+                <p className="text-[13px] font-black">
+                  {brandTruthState === 'blocked' ? copy('اعتمادات الحملات القديمة لم تعد صالحة للتنفيذ', 'Older campaign approvals are no longer valid for execution') : copy('تعذر التحقق من Brand Brain؛ تم إيقاف التنفيذ احتياطياً', 'Brand Brain could not be verified; execution is safely paused')}
+                </p>
+                <p className="mt-1 text-[11px] font-semibold leading-5 text-orange-800">
+                  {copy('تظل الحملات محفوظة للرجوع إليها، لكن لا يمكن اعتبارها معتمدة أو فتح الإنتاج المدفوع قبل تصحيح مصدر الحقيقة. لا يخصم هذا الإيقاف أي كريديت.', 'Campaigns remain saved as records, but they are not treated as approved and paid production cannot open until the source of truth is corrected. This block spends no credits.')}
+                </p>
+              </div>
+              <Link href="/brand" className="inline-flex h-10 items-center gap-2 rounded-[12px] bg-orange-700 px-4 text-[11px] font-black text-white">
+                {copy('تصحيح Brand Brain', 'Fix Brand Brain')}<ArrowUpRight size={14} />
+              </Link>
+            </div>
+          )}
 
           <div className="mb-5 flex flex-wrap items-center gap-3 rounded-[16px] border border-[#e3e8f3] bg-white p-3">
             <div className="relative min-w-[240px] flex-1">
@@ -667,7 +696,7 @@ export default function CampaignsPage() {
                             {status.label}
                           </span>
                           <span className="w-max rounded-full bg-[#f3f1ff] px-3 py-1 text-xs font-bold text-[#4f46e5]">
-                            {campaign.status === 'ACTIVE' ? copy('اعتماد', 'Approved') : campaign.status === 'DRAFT' ? copy('تخطيط', 'Plan') : copy('مراجعة', 'Review')}
+                            {campaign.status === 'ACTIVE' && brandTruthBlocked ? copy('مرجع فقط', 'Reference only') : campaign.status === 'ACTIVE' ? copy('اعتماد', 'Approved') : campaign.status === 'DRAFT' ? copy('تخطيط', 'Plan') : copy('مراجعة', 'Review')}
                           </span>
                           <span className="flex flex-wrap gap-1">
                             {platforms.isEmpty ? (

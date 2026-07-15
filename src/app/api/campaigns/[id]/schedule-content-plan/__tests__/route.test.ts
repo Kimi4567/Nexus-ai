@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getUserId: vi.fn(),
   campaignFindFirst: vi.fn(),
   brandProfileFindUnique: vi.fn(),
+  reviewBrandTruthConsistency: vi.fn(),
   reviewStrategyGrounding: vi.fn(),
   socialPostFindMany: vi.fn(),
   socialPostUpdate: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 vi.mock('@/lib/ai/marketingQualityGate', () => ({
+  reviewBrandTruthConsistency: mocks.reviewBrandTruthConsistency,
   reviewStrategyGrounding: mocks.reviewStrategyGrounding,
 }))
 
@@ -139,6 +141,9 @@ beforeEach(() => {
     primaryOffer: 'A reviewed learning offer', targetAudience: 'Professional learners',
   })
   mocks.reviewStrategyGrounding.mockReturnValue({
+    schemaVersion: 1, status: 'passed', score: 100, blockers: [], warnings: [], checkedAt: '2026-07-14T00:00:00.000Z',
+  })
+  mocks.reviewBrandTruthConsistency.mockReturnValue({
     schemaVersion: 1, status: 'passed', score: 100, blockers: [], warnings: [], checkedAt: '2026-07-14T00:00:00.000Z',
   })
   mocks.socialPostFindMany.mockResolvedValue([approvedYouTubePost()])

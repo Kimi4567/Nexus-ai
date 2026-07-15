@@ -4,6 +4,7 @@ const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
     workspace: { findFirst: vi.fn() },
     campaign: { findMany: vi.fn() },
+    brandProfile: { findUnique: vi.fn() },
     socialPost: { groupBy: vi.fn() },
     marketingLearningEvent: { findMany: vi.fn() },
     adCampaign: { groupBy: vi.fn() },
@@ -36,6 +37,14 @@ const campaignBase = {
 beforeEach(() => {
   vi.clearAllMocks()
   prismaMock.workspace.findFirst.mockResolvedValue({ id: 'w1' })
+  prismaMock.brandProfile.findUnique.mockResolvedValue({
+    workspaceId: 'w1',
+    brandName: 'Reviewed Brand',
+    industry: 'Consulting',
+    description: 'Advisory services for growing businesses.',
+    primaryOffer: 'Marketing advisory',
+    targetAudience: 'Founders',
+  })
   prismaMock.socialPost.groupBy
     .mockResolvedValueOnce([])
     .mockResolvedValueOnce([])

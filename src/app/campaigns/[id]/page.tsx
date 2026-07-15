@@ -5209,8 +5209,14 @@ function CampaignDetailPageInner() {
                 {!perfLoading && !perfData && (
                   <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
                     <div className="text-4xl mb-3">📊</div>
-                    <h3 className="mb-1 text-base font-semibold text-slate-950">No published performance data yet</h3>
-                    <p className="text-sm text-slate-500">Data appears here only after posts are published and analytics are fetched.</p>
+                    <h3 className="mb-1 text-base font-semibold text-slate-950">
+                      {locale === 'ar' ? 'لا توجد بيانات أداء منشورة بعد' : 'No published performance data yet'}
+                    </h3>
+                    <p className="text-sm text-slate-500">
+                      {locale === 'ar'
+                        ? 'تظهر البيانات هنا فقط بعد نشر المحتوى وجلب التحليلات الفعلية.'
+                        : 'Data appears here only after posts are published and analytics are fetched.'}
+                    </p>
                   </div>
                 )}
 
@@ -5220,11 +5226,17 @@ function CampaignDetailPageInner() {
                     return (
                       <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
                         <div className="text-4xl mb-3">📊</div>
-                        <h3 className="mb-1 text-base font-semibold text-slate-950">No published performance data yet</h3>
+                        <h3 className="mb-1 text-base font-semibold text-slate-950">
+                          {locale === 'ar' ? 'لا توجد بيانات أداء منشورة بعد' : 'No published performance data yet'}
+                        </h3>
                         <p className="mx-auto max-w-xl text-sm text-slate-500">
-                          {operatingState.truthFlags.hasContentPlan
-                            ? 'This campaign has planned or draft post records, but performance appears only after posts are published and analytics are fetched.'
-                            : 'This campaign has strategy planning material, but no published post analytics yet. Performance appears only after posts are published and analytics are fetched.'}
+                          {locale === 'ar'
+                            ? operatingState.truthFlags.hasContentPlan
+                              ? 'تحتوي الحملة على محتوى مخطط أو مسودات، لكن الأداء لا يظهر إلا بعد النشر وجلب التحليلات الفعلية.'
+                              : 'تحتوي الحملة على مادة تخطيط استراتيجية فقط، ولا توجد تحليلات لمحتوى منشور بعد. يظهر الأداء بعد النشر وجلب التحليلات الفعلية.'
+                            : operatingState.truthFlags.hasContentPlan
+                              ? 'This campaign has planned or draft post records, but performance appears only after posts are published and analytics are fetched.'
+                              : 'This campaign has strategy planning material, but no published post analytics yet. Performance appears only after posts are published and analytics are fetched.'}
                         </p>
                       </div>
                     )

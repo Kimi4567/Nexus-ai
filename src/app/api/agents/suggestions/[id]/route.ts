@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { approveCampaignStrategy, StrategyApprovalError } from '@/lib/strategyApprovalService'
+import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 
 export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -62,6 +63,19 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
     // never a background mutation. The target route performs the real approval.
     const suggestionSource = typeof suggestionPayload.source === 'string' ? suggestionPayload.source : ''
     const guidedResearchReview = suggestionSource.endsWith('research-monitor')
+    if (suggestion.type !== 'CAMPAIGN_PAUSE') {
+      const brandProfile = await prisma.brandProfile.findUnique({
+        where: { workspaceId: workspace.id },
+      })
+      const brandTruthReport = reviewBrandTruthConsistency(brandProfile)
+      if (!brandProfile || brandTruthReport.status === 'blocked') {
+        return NextResponse.json({
+          error: 'BRAND_TRUTH_CONFLICT',
+          message: 'Resolve the current Brand Brain conflict before approving derived decisions.',
+          blockers: brandTruthReport.blockers,
+        }, { status: 409 })
+      }
+    }
     if (suggestionSource === 'execution-monitor' || guidedResearchReview) {
       const nextHref = typeof suggestionPayload.href === 'string'
         ? suggestionPayload.href
