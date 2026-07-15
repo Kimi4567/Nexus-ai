@@ -5,6 +5,7 @@ import {
   type StrategyApprovalContract,
   type StrategyDecisionEvent,
 } from '@/lib/strategyApproval'
+import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 
 export class StrategyApprovalError extends Error {
   constructor(
@@ -26,6 +27,7 @@ const campaignSelect = {
   platforms: true,
   aiOutput: true,
   updatedAt: true,
+  workspace: { select: { brandProfile: true } },
 } as const
 
 export async function getStrategyApprovalContract(
@@ -73,12 +75,32 @@ export async function getStrategyApprovalContract(
       }
     : null
 
-  return buildStrategyApprovalContract({
+  const contract = buildStrategyApprovalContract({
     campaign,
     latestDecision: decision,
     publishedPostCount,
     activeAdCampaignCount,
   })
+  const brandTruthReview = reviewBrandTruthConsistency(campaign.workspace.brandProfile)
+  if (brandTruthReview.status !== 'blocked') return contract
+
+  const brandTruthBlocker: StrategyApprovalBlocker = {
+    code: 'BRAND_TRUTH_CONFLICT',
+    phase: 'approve',
+    message: {
+      en: 'Brand Brain contains contradictory source data. Correct it before approving or executing this strategy.',
+      ar: 'يحتوي Brand Brain على بيانات مصدر متناقضة. صحّحها قبل اعتماد هذه الاستراتيجية أو تنفيذها.',
+    },
+  }
+  return {
+    ...contract,
+    state: 'blocked',
+    canApprove: false,
+    approvalBlockers: [
+      brandTruthBlocker,
+      ...contract.approvalBlockers.filter(blocker => blocker.code !== 'BRAND_TRUTH_CONFLICT'),
+    ],
+  }
 }
 
 export async function approveCampaignStrategy(
@@ -142,7 +164,7 @@ export async function revokeCampaignStrategyApproval(
   source = 'CAMPAIGN_REVIEW',
 ): Promise<{ contract: StrategyApprovalContract; unchanged: boolean }> {
   const before = await getStrategyApprovalContract(campaignId, userId)
-  if (before.state !== 'approved') return { contract: before, unchanged: true }
+  if (before.state !== 'approved' && before.state !== 'blocked') return { contract: before, unchanged: true }
   if (!before.canRevoke) {
     throw new StrategyApprovalError('STRATEGY_REVOCATION_BLOCKED', 409, before.revokeBlockers)
   }

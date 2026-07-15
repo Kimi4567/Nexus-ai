@@ -40,6 +40,7 @@ import { summarizeCreativeRequirements } from '@/lib/creativeRequirements'
 import { formatStrategyPlatformLabel, guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
+import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { deriveStrategyRoomStateCopy } from '@/lib/strategyRoomStateCopy'
 import { derivePlatformReadiness, type PlatformState } from '@/lib/platformReadiness'
 import { deriveStrategyExecutionBridge, type StrategyExecutionRequirement } from '@/lib/strategyExecutionBridge'
@@ -1358,7 +1359,9 @@ function CampaignDetailPageInner() {
     && qualityGate?.status === 'passed'
     && Array.isArray(qualityGate?.blockers)
     && qualityGate.blockers.length === 0
-  const completeQualityReviewPassed = sentinelStatus === 'passed' && qualityGatePassed
+  const brandTruthReview = reviewBrandTruthConsistency(brandDNA)
+  const brandTruthBlocked = Boolean(brandDNA) && brandTruthReview.status === 'blocked'
+  const completeQualityReviewPassed = sentinelStatus === 'passed' && qualityGatePassed && !brandTruthBlocked
   const operatingState = deriveCampaignOperatingState({
     campaign: {
       status: campaign.status,
@@ -1570,7 +1573,7 @@ function CampaignDetailPageInner() {
   ).length
   const autopilotQueueHasScheduled = autopilotQueueScheduledCount > 0
   const autopilotQueueHasMixedManualAndScheduled = autopilotQueueManualPublishedCount > 0 && autopilotQueueScheduledCount > 0
-  const creativeNeedsStrategyReview = operatingSnapshotsLoaded && operatingState.stage === 'strategy_review_needed'
+  const creativeNeedsStrategyReview = brandTruthBlocked || (operatingSnapshotsLoaded && operatingState.stage === 'strategy_review_needed')
   const creativeHasPostRecords = operatingState.counts.totalPosts > 0 || operatingState.truthFlags.hasContentPlan
   const creativeCanUsePostMediaFlow = creativeHasPostRecords && !creativeNeedsStrategyReview
   const creativeCanUseConceptGallery = creativeCanUsePostMediaFlow && !!creativeBrief
@@ -1581,6 +1584,17 @@ function CampaignDetailPageInner() {
       : (locale === 'ar' ? 'مسار إبداعي لاستراتيجية عضوية فقط' : 'Creative path for organic strategy only')
 
   const nextCreativeAction = (() => {
+    if (brandTruthBlocked) {
+      return {
+        title: locale === 'ar' ? 'صحّح Brand Brain قبل الإنتاج الإبداعي' : 'Fix Brand Brain before creative production',
+        helper: locale === 'ar'
+          ? 'مصدر الحقيقة متناقض حالياً. أوقفنا توليد الأصول واستهلاك الكريديت حتى تصحيح البيانات وإنشاء استراتيجية متسقة.'
+          : 'The current source of truth conflicts. Asset generation and credit spending are blocked until the data is corrected and a consistent strategy is created.',
+        cta: locale === 'ar' ? 'تصحيح Brand Brain' : 'Fix Brand Brain',
+        href: '/brand',
+      }
+    }
+
     if (!operatingState.truthFlags.hasStrategy) {
       return {
         title: locale === 'ar' ? 'راجع الاستراتيجية قبل الإنتاج الإبداعي' : 'Review strategy before creative production',
@@ -1737,16 +1751,22 @@ function CampaignDetailPageInner() {
     }
     return uiIsArabic ? labels[status].ar : labels[status].en
   }
-  const strategyHeaderNextActionTitle = uiIsArabic
-    ? campaignCommandFlow.nextAction.titleAr
-    : campaignCommandFlow.nextAction.titleEn
-  const strategyHeaderNextActionHelper = uiIsArabic
-    ? campaignCommandFlow.nextAction.helperAr
-    : campaignCommandFlow.nextAction.helperEn
-  const strategyHeaderNextActionLabel = uiIsArabic
-    ? campaignCommandFlow.nextAction.labelAr
-    : campaignCommandFlow.nextAction.labelEn
-  const strategyHeaderNextActionHref = campaignCommandFlow.nextAction.href
+  const strategyHeaderNextActionTitle = brandTruthBlocked
+    ? uiText('صحّح مصدر الحقيقة قبل متابعة الحملة', 'Fix the source of truth before continuing the campaign')
+    : uiIsArabic
+      ? campaignCommandFlow.nextAction.titleAr
+      : campaignCommandFlow.nextAction.titleEn
+  const strategyHeaderNextActionHelper = brandTruthBlocked
+    ? uiText('الاستراتيجية الحالية للمرجع فقط. لا محتوى أو صور أو نشر أو صرف كريديت حتى تصحيح Brand Brain ثم إنشاء استراتيجية جديدة.', 'The current strategy is reference-only. Content, images, publishing, and credit spend remain blocked until Brand Brain is corrected and a new strategy is created.')
+    : uiIsArabic
+      ? campaignCommandFlow.nextAction.helperAr
+      : campaignCommandFlow.nextAction.helperEn
+  const strategyHeaderNextActionLabel = brandTruthBlocked
+    ? uiText('تصحيح Brand Brain', 'Fix Brand Brain')
+    : uiIsArabic
+      ? campaignCommandFlow.nextAction.labelAr
+      : campaignCommandFlow.nextAction.labelEn
+  const strategyHeaderNextActionHref = brandTruthBlocked ? '/brand' : campaignCommandFlow.nextAction.href
   const sentinelCreditCost = getCreditActionTruth({
     action: 'SENTINEL_REVIEW',
     creditsRemaining: 0,
@@ -2006,7 +2026,9 @@ function CampaignDetailPageInner() {
       label: uiText('الاستراتيجية', 'Strategy'),
       href: `/campaigns/${campaign.id}?tab=strategy`,
       active: activeTab === 0,
-      status: operatingState.truthFlags.hasStrategy ? uiText('جاهزة للمراجعة', 'Ready for review') : uiText('قيد الإعداد', 'Preparing'),
+      status: brandTruthBlocked
+        ? uiText('متوقفة لتصحيح Brand Brain', 'Blocked for Brand Brain correction')
+        : operatingState.truthFlags.hasStrategy ? uiText('جاهزة للمراجعة', 'Ready for review') : uiText('قيد الإعداد', 'Preparing'),
     },
     {
       number: '2',
@@ -2212,6 +2234,31 @@ function CampaignDetailPageInner() {
           <span className="max-w-xs truncate text-slate-800">{campaign.name}</span>
         </div>
 
+        {brandTruthBlocked && (
+          <div className="mb-5 rounded-2xl border border-orange-200 bg-orange-50 p-4 text-orange-950 shadow-[0_14px_36px_rgba(234,88,12,0.08)]" role="alert">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-orange-200 bg-white text-orange-600">
+                  <AlertTriangle className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-sm font-black">{uiText('الحملة متوقفة بسبب تعارض في Brand Brain', 'Campaign blocked by a Brand Brain conflict')}</p>
+                  <p className="mt-1 max-w-4xl text-[13px] font-semibold leading-6 text-orange-900/80">
+                    {uiText(
+                      `وجد NEXUS ${brandTruthReview.blockers.length} تعارضاً في مصدر الحقيقة. الاستراتيجية الحالية معروضة للمرجع فقط، وكل التوليد والنشر والصرف مقفل حتى التصحيح وإعادة إنشاء الاستراتيجية.`,
+                      `NEXUS found ${brandTruthReview.blockers.length} source-truth conflict${brandTruthReview.blockers.length === 1 ? '' : 's'}. The current strategy is reference-only; generation, publishing, and spend stay locked until correction and strategy regeneration.`,
+                    )}
+                  </p>
+                </div>
+              </div>
+              <Link href="/brand" className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-700 px-4 text-sm font-black text-white">
+                {uiText('تصحيح Brand Brain', 'Fix Brand Brain')}
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Brand Brain quality notice (shown when score < 60 and not dismissed) */}
         {brandScore !== null && brandScore < 60 && !brandNoticeDismissed && (() => {
           const bg = t('brandGate') as Record<string, string>
@@ -2243,8 +2290,10 @@ function CampaignDetailPageInner() {
                 <div className="flex min-w-0 flex-1 items-center gap-4">
                   <div className="min-w-0">
                     <div className="mb-3 flex flex-wrap items-center gap-2 text-xs font-semibold">
-                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">
-                        {operatingState.truthFlags.hasStrategy ? uiText('جاهزة للمراجعة', 'Ready for review') : uiText('قيد الإعداد', 'Preparing')}
+                      <span className={`rounded-full px-3 py-1 ${brandTruthBlocked ? 'bg-orange-50 text-orange-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                        {brandTruthBlocked
+                          ? uiText('متوقفة حتى تصحيح Brand Brain', 'Blocked until Brand Brain is fixed')
+                          : operatingState.truthFlags.hasStrategy ? uiText('جاهزة للمراجعة', 'Ready for review') : uiText('قيد الإعداد', 'Preparing')}
                       </span>
                       <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-500">
                         {strategyScopeTruth}
@@ -2962,9 +3011,14 @@ function CampaignDetailPageInner() {
                           <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-600">
                             {strategyScopeTruth}
                           </span>
-                          {sentinelStatus === 'passed' && (
+                          {sentinelStatus === 'passed' && !brandTruthBlocked && (
                             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
                               {uiText('✓ فحص الجودة مكتمل', '✓ Quality review complete')}
+                            </span>
+                          )}
+                          {brandTruthBlocked && (
+                            <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-[11px] font-semibold text-orange-700">
+                              {uiText('تعارض Brand Brain يمنع التنفيذ', 'Brand Brain conflict blocks execution')}
                             </span>
                           )}
                           {sentinelStatus === 'needs_attention' && (
@@ -3024,7 +3078,14 @@ function CampaignDetailPageInner() {
                         </p>
                       </div>
                       <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
-                        {!engineRunning && operatingState.stage === 'strategy_review_needed' ? (
+                        {brandTruthBlocked ? (
+                          <Link
+                            href="/brand"
+                            className="inline-flex items-center justify-center rounded-xl bg-orange-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-800"
+                          >
+                            {uiText('تصحيح Brand Brain', 'Fix Brand Brain')}
+                          </Link>
+                        ) : !engineRunning && operatingState.stage === 'strategy_review_needed' ? (
                           <button
                             type="button"
                             onClick={() => setShowSentinelConfirm(true)}

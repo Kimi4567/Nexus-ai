@@ -101,10 +101,18 @@ export async function POST(req: NextRequest, props: Params) {
   try {
     const campaign = await prisma.campaign.findFirst({
       where: { id: params.id, workspace: { ownerId: userId } },
-      select: { id: true, workspaceId: true, status: true, aiOutput: true, goal: true, platforms: true },
+      select: {
+        id: true,
+        workspaceId: true,
+        status: true,
+        aiOutput: true,
+        goal: true,
+        platforms: true,
+        workspace: { select: { brandProfile: true } },
+      },
     })
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
-    if (!canMutateCampaignExecution(String(campaign.status), campaign.aiOutput)) {
+    if (!canMutateCampaignExecution(String(campaign.status), campaign.aiOutput, campaign.workspace.brandProfile)) {
       return NextResponse.json({
         error: 'Approve the campaign strategy before scheduling content.',
         code: 'STRATEGY_APPROVAL_REQUIRED',

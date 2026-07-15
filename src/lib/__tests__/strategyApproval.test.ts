@@ -30,6 +30,12 @@ describe('strategy approval contract', () => {
     const reviewedOutput = campaign().aiOutput
     expect(['ACTIVE', 'SCHEDULED', 'PAUSED', 'COMPLETED'].map(status => canMutateCampaignExecution(status, reviewedOutput))).toEqual([true, false, false, false])
     expect(canMutateCampaignExecution('ACTIVE', { strategy: { positioning: 'Legacy' } })).toBe(false)
+    expect(canMutateCampaignExecution('ACTIVE', reviewedOutput, {
+      brandName: 'Noura Dental Studio',
+      industry: 'Health & Beauty',
+      description: 'A dental clinic providing consultations and treatment planning.',
+      primaryOffer: 'Book a dental consultation',
+    })).toBe(false)
   })
 
   it('blocks an empty strategy', () => {

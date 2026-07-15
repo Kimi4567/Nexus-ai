@@ -271,7 +271,7 @@ export async function POST(req: NextRequest, props: Params) {
       }, { status: 409 })
     }
 
-    if (!canMutateCampaignExecution(String(campaign.status ?? ''), campaign.aiOutput)) {
+    if (!canMutateCampaignExecution(String(campaign.status ?? ''), campaign.aiOutput, brandProfile)) {
       return NextResponse.json({
         error: 'Approve the current strategy truth review before generating paid media.',
         code: 'STRATEGY_TRUTH_REVIEW_REQUIRED',

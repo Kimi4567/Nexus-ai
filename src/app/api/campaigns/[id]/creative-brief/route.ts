@@ -80,7 +80,7 @@ export async function POST(req: NextRequest, props: Params) {
     const brand = campaign.workspace?.brandProfile
     const aiOutput = (campaign.aiOutput as any) || {}
     const strategy = aiOutput.strategy || {}
-    if (!canMutateCampaignExecution(String(campaign.status), campaign.aiOutput)) {
+    if (!canMutateCampaignExecution(String(campaign.status), campaign.aiOutput, brand)) {
       return NextResponse.json({
         error: 'STRATEGY_APPROVAL_REQUIRED',
         code: 'STRATEGY_APPROVAL_REQUIRED',

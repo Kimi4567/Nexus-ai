@@ -39,6 +39,7 @@ const draft = {
     sentinelReview: { status: 'passed' },
   },
   updatedAt: new Date('2026-07-12T10:00:00.000Z'),
+  workspace: { brandProfile: null },
 }
 
 beforeEach(() => {
@@ -99,6 +100,27 @@ describe('strategy approval service', () => {
     await expect(approveCampaignStrategy('c1', 'u1')).rejects.toMatchObject({
       code: 'STRATEGY_APPROVAL_BLOCKED',
       status: 409,
+    })
+    expect(prismaMock.$transaction).not.toHaveBeenCalled()
+  })
+
+  it('blocks approval when current Brand Brain contradicts the business description', async () => {
+    prismaMock.campaign.findFirst.mockResolvedValue({
+      ...draft,
+      workspace: {
+        brandProfile: {
+          brandName: 'Noura Dental Studio',
+          industry: 'Health & Beauty',
+          description: 'A dental clinic providing consultations and treatment planning.',
+          primaryOffer: 'Book a dental consultation',
+        },
+      },
+    })
+
+    await expect(approveCampaignStrategy('c1', 'u1')).rejects.toMatchObject({
+      code: 'STRATEGY_APPROVAL_BLOCKED',
+      status: 409,
+      blockers: [expect.objectContaining({ code: 'BRAND_TRUTH_CONFLICT' })],
     })
     expect(prismaMock.$transaction).not.toHaveBeenCalled()
   })

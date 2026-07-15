@@ -200,7 +200,7 @@ export async function POST(req: NextRequest) {
     ? parentId.slice('social-post:'.length).trim()
     : ''
   if (socialPostId) {
-    if (!campaign || !canMutateCampaignExecution(String(campaign.status ?? ''), campaign.aiOutput)) {
+    if (!campaign || !canMutateCampaignExecution(String(campaign.status ?? ''), campaign.aiOutput, brand)) {
       return NextResponse.json({
         error: 'Approve the current strategy truth review before generating paid post media.',
         code: 'STRATEGY_TRUTH_REVIEW_REQUIRED',

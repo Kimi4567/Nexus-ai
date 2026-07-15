@@ -4,6 +4,7 @@ const {
   mockGetServerUserId,
   mockCheckAndDeduct,
   mockRefund,
+  mockReviewBrandTruth,
   mockReviewStrategyGrounding,
   mockAnalyzeAssets,
   mockGenerateVisualConcepts,
@@ -12,6 +13,7 @@ const {
   mockGetServerUserId: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
   mockRefund: vi.fn(),
+  mockReviewBrandTruth: vi.fn(),
   mockReviewStrategyGrounding: vi.fn(),
   mockAnalyzeAssets: vi.fn(),
   mockGenerateVisualConcepts: vi.fn(),
@@ -42,6 +44,7 @@ vi.mock('@/lib/agents/visual-director', () => ({
 }))
 vi.mock('@/lib/ai/marketingQualityGate', () => ({
   isPersistedMarketingQualityGatePassed: (value: any) => value?.schemaVersion === 1 && value?.status === 'passed',
+  reviewBrandTruthConsistency: mockReviewBrandTruth,
   reviewStrategyGrounding: mockReviewStrategyGrounding,
 }))
 
@@ -77,6 +80,14 @@ beforeEach(() => {
   mockPrisma.campaignActivity.create.mockResolvedValue({})
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 4, creditsRemaining: 16 })
   mockRefund.mockResolvedValue(undefined)
+  mockReviewBrandTruth.mockReturnValue({
+    schemaVersion: 1,
+    status: 'passed',
+    score: 100,
+    blockers: [],
+    warnings: [],
+    checkedAt: '2026-07-14T00:00:00.000Z',
+  })
   mockReviewStrategyGrounding.mockReturnValue({
     schemaVersion: 1,
     status: 'passed',

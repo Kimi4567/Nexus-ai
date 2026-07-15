@@ -1,3 +1,5 @@
+import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
+
 export type StrategyApprovalState =
   | 'draft'
   | 'blocked'
@@ -7,6 +9,7 @@ export type StrategyApprovalState =
 
 export type StrategyApprovalBlockerCode =
   | 'STRATEGY_MISSING'
+  | 'BRAND_TRUTH_CONFLICT'
   | 'MARKETING_QUALITY_GATE_REQUIRED'
   | 'MARKETING_QUALITY_GATE_FAILED'
   | 'SENTINEL_REVIEW_REQUIRED'
@@ -80,8 +83,18 @@ export function hasApprovedStrategyExecutionStatus(status: string): boolean {
  * quality evidence. ACTIVE alone is not proof because legacy rows may predate
  * the deterministic Brand Brain gate.
  */
-export function canMutateCampaignExecution(status: string, aiOutput: unknown): boolean {
+export function canMutateCampaignExecution(
+  status: string,
+  aiOutput: unknown,
+  brandProfile?: unknown,
+): boolean {
   if (status !== 'ACTIVE') return false
+  if (brandProfile !== undefined) {
+    const profile = record(brandProfile)
+    // Re-run against the current Brand Brain, not only the snapshot that existed
+    // when the strategy was originally reviewed.
+    if (profile && reviewBrandTruthConsistency(profile).status === 'blocked') return false
+  }
   const output = record(aiOutput)
   const strategy = record(output?.strategy) ?? output
   const qualityGate = record(output?.qualityGate)
