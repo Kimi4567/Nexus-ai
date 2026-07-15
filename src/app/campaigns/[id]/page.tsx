@@ -1373,8 +1373,14 @@ function CampaignDetailPageInner() {
     posts: campaignPosts,
     pendingLearningCount,
   })
-  const strategyDocOperatingLabel = strategyDocIsArabic ? operatingState.stageLabelAr : operatingState.stageLabel
-  const strategyDocOperatingHelper = strategyDocIsArabic ? operatingState.stageHelperAr : operatingState.stageHelper
+  const strategyDocOperatingLabel = brandTruthBlocked
+    ? (strategyDocIsArabic ? 'مخرجات مرجعية محجوبة' : 'Blocked reference outputs')
+    : strategyDocIsArabic ? operatingState.stageLabelAr : operatingState.stageLabel
+  const strategyDocOperatingHelper = brandTruthBlocked
+    ? (strategyDocIsArabic
+      ? 'السجلات الحالية للرجوع التاريخي فقط. صحّح Brand Brain ثم أنشئ استراتيجية ومحتوى جديدين قبل أي تنفيذ.'
+      : 'Current records are for historical reference only. Fix Brand Brain, then create a new strategy and content before execution.')
+    : strategyDocIsArabic ? operatingState.stageHelperAr : operatingState.stageHelper
   const uiOperatingLabel = uiIsArabic ? operatingState.stageLabelAr : operatingState.stageLabel
   const uiOperatingHelper = uiIsArabic ? operatingState.stageHelperAr : operatingState.stageHelper
   const operatingActionLabel = locale === 'ar'
@@ -1388,6 +1394,12 @@ function CampaignDetailPageInner() {
       ? 'لا توجد خطة محتوى عضوية من هذا التوليد. أكمل التتبع والحسابات والموافقة قبل أي إطلاق أو صرف.'
       : 'No organic content plan was created by this run. Complete tracking, accounts, and approval before any launch or spend.')
     : uiOperatingHelper
+  const effectiveDisplayOperatingLabel = brandTruthBlocked
+    ? uiText('مخرجات مرجعية محجوبة', 'Blocked reference outputs')
+    : displayOperatingLabel
+  const effectiveDisplayOperatingHelper = brandTruthBlocked
+    ? uiText('السجلات الحالية للرجوع التاريخي فقط. صحّح Brand Brain ثم أنشئ استراتيجية ومحتوى جديدين قبل أي تنفيذ.', 'Current records are for historical reference only. Fix Brand Brain, then create a new strategy and content before execution.')
+    : displayOperatingHelper
   const strategyRoomStateCopy = deriveStrategyRoomStateCopy({
     locale,
     isPaidOnlyStrategy,
@@ -1989,7 +2001,7 @@ function CampaignDetailPageInner() {
     },
     {
       label: uiText('الحالة التشغيلية', 'Operating state'),
-      value: displayOperatingLabel,
+      value: effectiveDisplayOperatingLabel,
       helper: uiText('Content Hub هو مصدر حقيقة المنشورات والوسائط.', 'Content Hub is the source of truth for posts and media.'),
       tone: strategyOperatingTone,
     },
@@ -2311,7 +2323,7 @@ function CampaignDetailPageInner() {
                       {campaign.name}
                     </h1>
                     <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                      {strategy.positioning || strategy.keyMessage || campaign.description || displayOperatingHelper}
+                      {strategy.positioning || strategy.keyMessage || campaign.description || effectiveDisplayOperatingHelper}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500">
                       <span>{uiText('أُنشئت', 'Created')}: {timeAgo(campaign.createdAt)}</span>
@@ -2525,10 +2537,10 @@ function CampaignDetailPageInner() {
                   <div className="flex items-center gap-2 mt-3">
                     <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${operatingTone[operatingState.stage]}`}>
                       <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
-                      {displayOperatingLabel}
+                      {effectiveDisplayOperatingLabel}
                     </span>
                     <span className="text-xs text-slate-400">
-                      {displayOperatingHelper}
+                      {effectiveDisplayOperatingHelper}
                     </span>
                   </div>
                 </div>
@@ -2743,10 +2755,10 @@ function CampaignDetailPageInner() {
                   <p className={`text-sm font-semibold ${engineRunning ? 'text-amber-700' : 'text-slate-950'}`}>
                     {engineRunning
                       ? (locale === 'ar' ? '⏳ يجري إعداد المخرجات...' : '⏳ Preparing campaign outputs...')
-                      : displayOperatingLabel}
+                      : effectiveDisplayOperatingLabel}
                   </p>
                   {!engineRunning && (
-                    <p className="mt-1 text-xs leading-5 text-slate-500">{displayOperatingHelper}</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">{effectiveDisplayOperatingHelper}</p>
                   )}
                   {(engineError || generateError) && (
                     <p className="text-xs text-red-400 mt-1">{engineError || generateError}</p>
@@ -3191,7 +3203,7 @@ function CampaignDetailPageInner() {
                       <StrategyDocCard
                         label={uiText('ما تم توليده', 'What was generated')}
                         locale={locale}
-                        value={displayOperatingLabel}
+                        value={effectiveDisplayOperatingLabel}
                         tone="positive"
                       />
                       <StrategyDocCard

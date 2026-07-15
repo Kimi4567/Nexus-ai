@@ -57,6 +57,7 @@ describe('live Brand Brain truth gates across user-facing workspaces', () => {
     const campaign = source('src/app/campaigns/[id]/page.tsx')
     expect(campaign).toContain('سجلات محتوى قديمة محجوبة')
     expect(campaign).toContain('المخرجات السابقة محفوظة كمرجع فقط')
+    expect(campaign).toContain("uiText('مخرجات مرجعية محجوبة', 'Blocked reference outputs')")
     expect(campaign).toContain("href={brandTruthBlocked ? '/brand' : '/campaigns/new'}")
     expect(campaign).toContain("!brandTruthBlocked && !engineRunning && operatingState.stage === 'strategy_review_needed'")
     expect(campaign).toContain('إعادة البناء المدفوعة مقفلة حتى تصحيح Brand Brain')
