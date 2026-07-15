@@ -464,6 +464,7 @@ function deriveLoadingContentStateFlow(
       },
     ],
   }
+
 }
 
 export function deriveCampaignCommandFlow(input: DeriveCampaignCommandFlowInput): CampaignCommandFlow {
@@ -490,7 +491,7 @@ export function deriveCampaignCommandFlow(input: DeriveCampaignCommandFlowInput)
     return deriveLoadingContentStateFlow(input, scopeLabelEn, scopeLabelAr, brand)
   }
 
-  return {
+  const flow: CampaignCommandFlow = {
     scopeLabelEn,
     scopeLabelAr,
     headlineEn: 'Campaign operating flow',
@@ -588,5 +589,55 @@ export function deriveCampaignCommandFlow(input: DeriveCampaignCommandFlowInput)
         href: `/campaigns/${input.campaignId}?tab=performance`,
       },
     ],
+  }
+
+  if (!input.brandTruthBlocked) return flow
+
+  return {
+    ...flow,
+    boundaryEn: 'Brand Brain is the first gate. Existing downstream records are reference-only; generation, approval, scheduling, publishing, spend, and learning updates remain blocked until the conflict is fixed.',
+    boundaryAr: 'Brand Brain هو البوابة الأولى. السجلات اللاحقة للمرجع فقط؛ ويظل التوليد والاعتماد والجدولة والنشر والصرف وتحديث التعلّم محجوباً حتى حسم التعارض.',
+    steps: flow.steps.map((step) => {
+      if (step.id === 'brand') {
+        return {
+          ...step,
+          status: 'blocked',
+          helperEn: 'The saved industry conflicts with the business description. Fix this source before using any derived work.',
+          helperAr: 'المجال المحفوظ يتعارض مع وصف النشاط. صحّح هذا المصدر قبل استخدام أي عمل مشتق.',
+        }
+      }
+
+      if (step.id === 'performance') {
+        return operatingState.truthFlags.hasAnalyticsData
+          ? {
+              ...step,
+              status: 'complete',
+              helperEn: 'Verified historical analytics remain viewable, but they cannot update learning until Brand Brain is corrected.',
+              helperAr: 'تظل التحليلات التاريخية الموثقة قابلة للعرض، لكنها لا تحدّث التعلّم حتى تصحيح Brand Brain.',
+            }
+          : {
+              ...step,
+              status: 'pending',
+              helperEn: 'No verified analytics exist. Performance learning stays inactive while the source of truth is blocked.',
+              helperAr: 'لا توجد تحليلات موثقة. يظل تعلّم الأداء غير نشط بينما مصدر الحقيقة محجوب.',
+              metricEn: 'No verified analytics',
+              metricAr: 'لا توجد تحليلات موثقة',
+            }
+      }
+
+      const recordCount = operatingState.counts.totalPosts
+      return {
+        ...step,
+        status: 'blocked',
+        helperEn: 'Existing output is retained for historical reference only. It cannot advance or trigger credit spend.',
+        helperAr: 'المخرجات الحالية محفوظة للرجوع التاريخي فقط. لا يمكنها التقدم أو تشغيل خصم كريديت.',
+        metricEn: step.id === 'content' && recordCount > 0
+          ? `${recordCount} blocked reference records`
+          : 'Blocked by Brand Brain',
+        metricAr: step.id === 'content' && recordCount > 0
+          ? `${recordCount} سجلات مرجعية محجوبة`
+          : 'محجوب بواسطة Brand Brain',
+      }
+    }),
   }
 }

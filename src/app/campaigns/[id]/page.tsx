@@ -2037,7 +2037,9 @@ function CampaignDetailPageInner() {
       label: uiText('المحتوى', 'Content'),
       href: `/campaigns/${campaign.id}/content-hub`,
       active: false,
-      status: operatingState.truthFlags.hasContentPlan
+      status: brandTruthBlocked
+        ? uiText('سجلات مرجعية محجوبة', 'Blocked reference records')
+        : operatingState.truthFlags.hasContentPlan
         ? uiText(`${operatingState.counts.totalPosts} عنصر`, `${operatingState.counts.totalPosts} items`)
         : uiText('غير مبني بعد', 'Not built yet'),
     },
@@ -2046,7 +2048,9 @@ function CampaignDetailPageInner() {
       label: uiText('الإبداع', 'Creative'),
       href: `/campaigns/${campaign.id}?tab=creative`,
       active: activeTab === 3,
-      status: creativeHasPostRecords
+      status: brandTruthBlocked
+        ? uiText('متوقف حتى التصحيح', 'Blocked pending fix')
+        : creativeHasPostRecords
         ? uiText(`${creativeRequirementsSummary.mediaNeeded} تحتاج وسائط`, `${creativeRequirementsSummary.mediaNeeded} need media`)
         : uiText('ينتظر المحتوى', 'Waiting for content'),
     },
@@ -2055,7 +2059,9 @@ function CampaignDetailPageInner() {
       label: uiText('النشر', 'Publishing'),
       href: `/campaigns/${campaign.id}?tab=publish`,
       active: activeTab === 4 || activeTab === 5,
-      status: uiIsArabic ? publishTabSummary.safeCopy.title.ar : publishTabSummary.safeCopy.title.en,
+      status: brandTruthBlocked
+        ? uiText('متوقف حتى التصحيح', 'Blocked pending fix')
+        : uiIsArabic ? publishTabSummary.safeCopy.title.ar : publishTabSummary.safeCopy.title.en,
     },
     {
       number: '5',
@@ -2347,20 +2353,32 @@ function CampaignDetailPageInner() {
           const postCount = operatingState.counts.totalPosts
           return (
             <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl mb-4"
-              style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)' }}>
+              style={brandTruthBlocked
+                ? { background: '#FFF7ED', border: '1px solid rgba(234,88,12,0.24)' }
+                : { background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)' }}>
               <div className="flex items-center gap-2.5 min-w-0">
-                <span className="text-green-400 text-sm flex-shrink-0">✅</span>
-                <p className="text-xs" style={{ color: 'rgba(74,222,128,0.85)' }}>
-                  {locale === 'ar'
+                <span className={`text-sm flex-shrink-0 ${brandTruthBlocked ? 'text-orange-700' : 'text-green-400'}`}>
+                  {brandTruthBlocked ? '⚠' : '✅'}
+                </span>
+                <p className={`text-xs ${brandTruthBlocked ? 'font-semibold text-orange-800' : 'text-emerald-700'}`}>
+                  {brandTruthBlocked
+                    ? (locale === 'ar'
+                        ? `${postCount} سجلات محتوى قديمة محجوبة — للرجوع فقط حتى تصحيح Brand Brain`
+                        : `${postCount} older content records are blocked — reference only until Brand Brain is fixed`)
+                    : locale === 'ar'
                     ? `${postCount} عنصر محتوى في الخطة — راجع الحالة في Content Hub`
                     : `${postCount} content item${postCount !== 1 ? 's' : ''} in the plan — review status in Content Hub`}
                 </p>
               </div>
               <Link
-                href={`/campaigns/${campaign.id}/content-hub`}
+                href={brandTruthBlocked ? '/brand' : `/campaigns/${campaign.id}/content-hub`}
                 className="text-xs font-bold flex-shrink-0 px-3 py-1.5 rounded-lg transition-all hover:opacity-90"
-                style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', color: '#4ade80' }}>
-                {locale === 'ar' ? 'مركز المحتوى →' : 'View Content Hub →'}
+                style={brandTruthBlocked
+                  ? { background: '#FFEDD5', border: '1px solid rgba(234,88,12,0.24)', color: '#9A3412' }
+                  : { background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', color: '#047857' }}>
+                {brandTruthBlocked
+                  ? (locale === 'ar' ? 'تصحيح Brand Brain' : 'Fix Brand Brain')
+                  : (locale === 'ar' ? 'مركز المحتوى →' : 'View Content Hub →')}
               </Link>
             </div>
           )
@@ -2429,7 +2447,16 @@ function CampaignDetailPageInner() {
         )}
 
         {/* What NEXUS did here — Proof of Work (Operator Foundation PR-1C1, read-only) */}
-        {activeTab !== 0 && <CampaignProofOfWork campaignId={campaign.id} campaign={campaign as any} compact />}
+        {activeTab !== 0 && (brandTruthBlocked ? (
+          <div className="mb-4 rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3" dir={uiIsArabic ? 'rtl' : 'ltr'}>
+            <p className="text-sm font-semibold text-orange-950">
+              {uiText('المخرجات السابقة محفوظة كمرجع فقط', 'Previous outputs are retained as reference only')}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-orange-800">
+              {uiText('لا تُعد الاستراتيجية أو مسودات المحتوى عملاً مكتملًا أو صالحًا للتنفيذ بعد اكتشاف تعارض Brand Brain. لا اعتماد ولا توليد ولا خصم كريديت حتى التصحيح.', 'The strategy and content drafts are not treated as complete or executable after the Brand Brain conflict was detected. No approval, generation, or credit spend is available until it is fixed.')}
+            </p>
+          </div>
+        ) : <CampaignProofOfWork campaignId={campaign.id} campaign={campaign as any} compact />)}
 
         {/* Brief banner — shown when arriving from Marketing Operating Brief */}
         {fromBrief && !briefBannerDismissed && (
@@ -2510,11 +2537,13 @@ function CampaignDetailPageInner() {
               {/* Actions — primary CTA + overflow menu */}
               <div className="flex items-center gap-2 flex-shrink-0">
                 <Link
-                  href="/campaigns/new"
+                  href={brandTruthBlocked ? '/brand' : '/campaigns/new'}
                   className="px-3 py-2 rounded-xl text-sm font-bold transition whitespace-nowrap"
-                  style={{ background: '#4f46e5', color: '#fff', boxShadow: '0 1px 2px rgba(15,23,42,0.12)' }}
+                  style={{ background: brandTruthBlocked ? '#9A3412' : '#4f46e5', color: '#fff', boxShadow: '0 1px 2px rgba(15,23,42,0.12)' }}
                 >
-                  {cdT?.btnNewCampaign || '+ New Campaign'}
+                  {brandTruthBlocked
+                    ? uiText('تصحيح Brand Brain', 'Fix Brand Brain')
+                    : cdT?.btnNewCampaign || '+ New Campaign'}
                 </Link>
                 {/* Overflow menu */}
                 <div className="relative">
@@ -2578,7 +2607,16 @@ function CampaignDetailPageInner() {
                           <p className="text-xs font-bold uppercase tracking-wide text-rose-700">
                             {locale === 'ar' ? 'إجراء حساس' : 'Dangerous action'}
                           </p>
-                          {engineRebuildStatusPending ? (
+                          {brandTruthBlocked ? (
+                            <div className="mt-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2">
+                              <p className="text-xs font-semibold leading-5 text-orange-800">
+                                {uiText('إعادة البناء المدفوعة مقفلة حتى تصحيح Brand Brain، ولن يُخصم أي كريديت.', 'Credit-spending rebuild is locked until Brand Brain is fixed, and no credits will be charged.')}
+                              </p>
+                              <Link href="/brand" className="mt-2 inline-flex text-xs font-bold text-orange-900 underline underline-offset-2">
+                                {uiText('تصحيح Brand Brain', 'Fix Brand Brain')}
+                              </Link>
+                            </div>
+                          ) : engineRebuildStatusPending ? (
                             <p className="mt-1 text-xs leading-5 text-slate-500">
                               {locale === 'ar'
                                 ? 'يتم التحقق من حالة المنشورات قبل إتاحة أي إعادة بناء مدفوعة.'
@@ -2718,7 +2756,7 @@ function CampaignDetailPageInner() {
                 {/* Buttons */}
                 <div className="flex items-center gap-2 flex-shrink-0">
                 {/* Primary CTA — context aware, one at a time */}
-                {activeTab !== 0 && !engineRunning && operatingState.stage === 'strategy_review_needed' && (
+                {activeTab !== 0 && !brandTruthBlocked && !engineRunning && operatingState.stage === 'strategy_review_needed' && (
                   <button
                     onClick={() => setShowSentinelConfirm(true)}
                     disabled={sentinelState === 'reviewing'}
@@ -2735,7 +2773,7 @@ function CampaignDetailPageInner() {
                   </button>
                 )}
 
-                {activeTab !== 0 && !isPaidOnlyStrategy && !engineRunning && completeQualityReviewPassed && operatingState.stage === 'content_plan_missing' && (
+                {activeTab !== 0 && !isPaidOnlyStrategy && !engineRunning && completeQualityReviewPassed && operatingState.stage === 'content_plan_missing' && !brandTruthBlocked && (
                   <button
                     onClick={() => {
                       setLaunchError('')
@@ -2753,7 +2791,7 @@ function CampaignDetailPageInner() {
                   </button>
                 )}
 
-                {activeTab !== 0 && operatingState.truthFlags.hasContentPlan && (
+                {activeTab !== 0 && !brandTruthBlocked && operatingState.truthFlags.hasContentPlan && (
                   <Link
                     href={operatingActionHref}
                     className="px-4 py-2 rounded-xl text-sm font-semibold transition"

@@ -87,6 +87,14 @@ describe('deriveCampaignCommandFlow', () => {
       metricEn: 'Source truth conflict',
       metricAr: 'تعارض في مصدر الحقيقة',
     })
+    expect(flow.steps.filter(step => step.id !== 'performance').every(step => step.status === 'blocked')).toBe(true)
+    expect(flow.steps.find(step => step.id === 'strategy')?.metricEn).toBe('Blocked by Brand Brain')
+    expect(flow.steps.find(step => step.id === 'content')?.metricEn).toBe('8 blocked reference records')
+    expect(flow.steps.find(step => step.id === 'performance')).toMatchObject({
+      status: 'pending',
+      metricEn: 'No verified analytics',
+    })
+    expect(flow.boundaryEn).toContain('reference-only')
   })
 
   it('routes post-linked campaigns from content into creative before approval/publish work', () => {

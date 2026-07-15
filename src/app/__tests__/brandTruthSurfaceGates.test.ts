@@ -52,4 +52,13 @@ describe('live Brand Brain truth gates across user-facing workspaces', () => {
     expect(calendar).toContain('مراجع خطة محجوبة')
     expect(calendar).toContain('!calendarTruthBlocked && !loadingQueue')
   })
+
+  it('removes downstream campaign actions while a live Brand Brain conflict exists', () => {
+    const campaign = source('src/app/campaigns/[id]/page.tsx')
+    expect(campaign).toContain('سجلات محتوى قديمة محجوبة')
+    expect(campaign).toContain('المخرجات السابقة محفوظة كمرجع فقط')
+    expect(campaign).toContain("href={brandTruthBlocked ? '/brand' : '/campaigns/new'}")
+    expect(campaign).toContain("!brandTruthBlocked && !engineRunning && operatingState.stage === 'strategy_review_needed'")
+    expect(campaign).toContain('إعادة البناء المدفوعة مقفلة حتى تصحيح Brand Brain')
+  })
 })
