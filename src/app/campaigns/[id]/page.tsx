@@ -515,6 +515,7 @@ function CampaignDetailPageInner() {
   const pollRef = useRef<NodeJS.Timeout | null>(null)
   // UX: header overflow menu
   const [showHeaderMenu, setShowHeaderMenu] = useState(false)
+  const [showStrategyDocument, setShowStrategyDocument] = useState(false)
   const [campaignAction, setCampaignAction] = useState<'duplicate' | 'archive' | 'restore' | null>(null)
   const [campaignActionBusy, setCampaignActionBusy] = useState(false)
   const [campaignActionError, setCampaignActionError] = useState('')
@@ -3126,7 +3127,14 @@ function CampaignDetailPageInner() {
                         )}
                         <button
                           type="button"
-                          onClick={() => scrollToStrategySection('strategy-executive')}
+                          onClick={() => {
+                            if (!showStrategyDocument) {
+                              setShowStrategyDocument(true)
+                              window.setTimeout(() => scrollToStrategySection('strategy-executive'), 0)
+                              return
+                            }
+                            scrollToStrategySection('strategy-executive')
+                          }}
                           className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                         >
                           {uiText('اقرأ وثيقة الاستراتيجية', 'Read strategy document')}
@@ -3313,6 +3321,33 @@ function CampaignDetailPageInner() {
                   </p>
                 </section>
 
+                {!showStrategyDocument && (
+                  <section className="rounded-[24px] border border-indigo-100 bg-indigo-50 p-5 shadow-sm">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-black text-indigo-950">
+                          {uiText(`وثيقة الاستراتيجية الكاملة (${strategySectionNavItems.length} أقسام)`, `Full strategy document (${strategySectionNavItems.length} sections)`)}
+                        </p>
+                        <p className="mt-1 max-w-3xl text-sm leading-6 text-indigo-900/70">
+                          {uiText('الملخص وقرار التنفيذ يظهران أولاً لتقليل التشتيت. افتح الوثيقة فقط عندما تحتاج مراجعة التفاصيل والافتراضات والمخاطر.', 'The summary and execution decision stay first to reduce noise. Open the full document only when you need detailed assumptions, plans, and risks.')}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowStrategyDocument(true)
+                          window.setTimeout(() => scrollToStrategySection('strategy-executive'), 0)
+                        }}
+                        className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-indigo-700 px-4 text-sm font-black text-white transition hover:bg-indigo-800"
+                      >
+                        {uiText('فتح الوثيقة الكاملة', 'Open full document')}
+                      </button>
+                    </div>
+                  </section>
+                )}
+
+                {showStrategyDocument && (
+                  <>
                 {hasExecutiveStrategySection && (
                   <StrategyDocSection
                     id="strategy-executive"
@@ -3921,6 +3956,18 @@ function CampaignDetailPageInner() {
                       )}
                     </div>
                   </StrategyDocSection>
+                )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowStrategyDocument(false)
+                        window.scrollTo({ top: 0, behavior: 'smooth' })
+                      }}
+                      className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                    >
+                      {uiText('إغلاق الوثيقة والعودة للملخص', 'Close document and return to summary')}
+                    </button>
+                  </>
                 )}
               </div>
             )}
