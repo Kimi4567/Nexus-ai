@@ -59,6 +59,7 @@ export interface DeriveCampaignCommandFlowInput {
   creativeSummary?: CreativeRequirementsSummary | null
   publishSummary?: PublishTabReadinessSummary | null
   brandScore?: number | null
+  brandTruthBlocked?: boolean
   isPaidOnlyStrategy?: boolean
   includesPaidPlanning?: boolean
   hasCreativeBrief?: boolean
@@ -211,6 +212,18 @@ function currentStepAction(
 
 function deriveNextAction(input: DeriveCampaignCommandFlowInput): CampaignCommandFlowAction {
   const { campaignId, operatingState, creativeSummary, hasCreativeBrief } = input
+
+  if (input.brandTruthBlocked) {
+    return {
+      titleEn: 'Fix Brand Brain before continuing the campaign',
+      titleAr: 'صحّح Brand Brain قبل متابعة الحملة',
+      helperEn: 'The source of truth conflicts. Strategy execution, content, creative, publishing, and spend stay blocked until it is corrected.',
+      helperAr: 'مصدر الحقيقة متناقض. يظل تنفيذ الاستراتيجية والمحتوى والإبداع والنشر والصرف مقفلاً حتى التصحيح.',
+      labelEn: 'Fix Brand Brain',
+      labelAr: 'تصحيح Brand Brain',
+      href: '/brand',
+    }
+  }
 
   if (!operatingState.truthFlags.hasStrategy) {
     return currentStepAction(input, 'strategy', {
@@ -374,7 +387,7 @@ function deriveLoadingContentStateFlow(
     steps: [
       {
         id: 'brand',
-        status: statusForBrand(input.brandScore),
+        status: input.brandTruthBlocked ? 'blocked' : statusForBrand(input.brandScore),
         titleEn: 'Brand Brain',
         titleAr: 'Brand Brain',
         helperEn: 'Core setup coverage only. Proof, assets, channel connections, and paid readiness have separate gates.',
@@ -455,7 +468,9 @@ function deriveLoadingContentStateFlow(
 
 export function deriveCampaignCommandFlow(input: DeriveCampaignCommandFlowInput): CampaignCommandFlow {
   const { operatingState, creativeSummary, publishSummary, brandScore } = input
-  const brand = brandMetric(brandScore)
+  const brand = input.brandTruthBlocked
+    ? { en: 'Source truth conflict', ar: 'تعارض في مصدر الحقيقة' }
+    : brandMetric(brandScore)
   const approval = approvalCopy(operatingState, creativeSummary)
   const isPaidOnly = Boolean(input.isPaidOnlyStrategy)
   const includesPaid = Boolean(input.includesPaidPlanning)
@@ -471,7 +486,7 @@ export function deriveCampaignCommandFlow(input: DeriveCampaignCommandFlowInput)
       ? 'مسار استراتيجية شاملة'
       : 'مسار عضوي'
 
-  if (input.operatingSnapshotsLoaded === false && operatingState.truthFlags.hasStrategy) {
+  if (input.operatingSnapshotsLoaded === false && operatingState.truthFlags.hasStrategy && !input.brandTruthBlocked) {
     return deriveLoadingContentStateFlow(input, scopeLabelEn, scopeLabelAr, brand)
   }
 
@@ -488,7 +503,7 @@ export function deriveCampaignCommandFlow(input: DeriveCampaignCommandFlowInput)
     steps: [
       {
         id: 'brand',
-        status: statusForBrand(brandScore),
+        status: input.brandTruthBlocked ? 'blocked' : statusForBrand(brandScore),
         titleEn: 'Brand Brain',
         titleAr: 'Brand Brain',
         helperEn: 'Core setup coverage only. Proof, assets, channel connections, and paid readiness have separate gates.',

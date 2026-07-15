@@ -73,6 +73,22 @@ function makeOperatingState(
 }
 
 describe('deriveCampaignCommandFlow', () => {
+  it('makes a live Brand Brain conflict the first blocking decision even when completeness is 100', () => {
+    const flow = deriveCampaignCommandFlow({
+      campaignId: 'brand-conflict',
+      operatingState: makeOperatingState(),
+      brandScore: 100,
+      brandTruthBlocked: true,
+    })
+
+    expect(flow.nextAction).toMatchObject({ href: '/brand', labelEn: 'Fix Brand Brain' })
+    expect(flow.steps.find(step => step.id === 'brand')).toMatchObject({
+      status: 'blocked',
+      metricEn: 'Source truth conflict',
+      metricAr: 'تعارض في مصدر الحقيقة',
+    })
+  })
+
   it('routes post-linked campaigns from content into creative before approval/publish work', () => {
     const flow = deriveCampaignCommandFlow({
       campaignId: 'campaign-1',

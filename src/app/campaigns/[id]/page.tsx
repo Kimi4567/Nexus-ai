@@ -1722,6 +1722,7 @@ function CampaignDetailPageInner() {
     creativeSummary: creativeRequirementsSummary,
     publishSummary: publishTabSummary,
     brandScore,
+    brandTruthBlocked,
     isPaidOnlyStrategy,
     includesPaidPlanning: includesPaidPlanningStrategy,
     hasCreativeBrief: Boolean(creativeBrief),
