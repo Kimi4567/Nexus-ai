@@ -294,8 +294,9 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       items: [
         { href: '/brand', labelAr: 'Brand Brain', labelEn: 'Brand Brain', icon: Icons.brain },
         { href: '/strategy', labelAr: 'الاستراتيجية والحملات', labelEn: 'Strategy & campaigns', icon: Icons.strategy },
-        { href: '/content-hub', labelAr: 'المحتوى والنشر', labelEn: 'Content & publishing', icon: Icons.media },
-        { href: '/analytics', labelAr: 'النتائج', labelEn: 'Results', icon: Icons.analytics },
+        { href: '/content-hub', labelAr: 'إنتاج المحتوى', labelEn: 'Content production', icon: Icons.media },
+        { href: '/calendar', labelAr: 'التنفيذ', labelEn: 'Execution', icon: Icons.calendar },
+        { href: '/analytics', labelAr: 'النتائج والتعلّم', labelEn: 'Results & learning', icon: Icons.analytics },
       ],
     },
     {
@@ -448,7 +449,11 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         )}
 
         {/* Collapse toggle */}
-        <button onClick={() => setCollapsed(c => !c)}
+        <button
+          type="button"
+          onClick={() => setCollapsed(c => !c)}
+          aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+          aria-expanded={!collapsed}
           className="mt-0.5 flex h-8 w-full items-center justify-center rounded-lg text-slate-400 transition-all duration-150 hover:bg-white/10 hover:text-white"
           title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}>
           <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"

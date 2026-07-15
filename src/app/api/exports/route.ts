@@ -21,11 +21,30 @@ function escapeHtml(value: unknown): string {
   })[character] || character)
 }
 
+interface ExportedSocialPost {
+  id: string
+  platform: string
+  publishTarget: string | null
+  caption: string
+  status: string
+  scheduledAt: Date | null
+  publishedAt: Date | null
+  contentPlanIndex: number | null
+}
+
 // ── HTML template ──────────────────────────────────────────────────────────────
-function buildCampaignHTML(campaign: any): string {
-  const strategy   = campaign.aiOutput?.strategy ?? campaign.strategy ?? {}
+function buildCampaignHTML(campaign: any, socialPosts: ExportedSocialPost[]): string {
+  const strategy   = campaign.aiOutput?.strategy ?? campaign.aiOutput ?? campaign.strategy ?? {}
   const concepts   = campaign.concepts   ?? []
   const generations = campaign.generations ?? []
+  const storedLanguage = String(
+    campaign.aiOutput?.language
+      ?? campaign.aiOutput?.strategyOrder?.language
+      ?? strategy.language
+      ?? 'en',
+  ).toLowerCase()
+  const isArabic = storedLanguage === 'ar'
+  const direction = isArabic ? 'rtl' : 'ltr'
 
   const campaignName = escapeHtml(campaign.name || 'Campaign')
   const goal      = escapeHtml(campaign.goal ?? '—')
@@ -56,6 +75,19 @@ function buildCampaignHTML(campaign: any): string {
        </tbody></table>`
     : '<p class="empty">No calendar entries yet.</p>'
 
+  const socialPostsHTML = socialPosts.length
+    ? socialPosts.map((post, index) => `
+        <div class="post-card">
+          <div class="post-meta">
+            <strong>#${escapeHtml(post.contentPlanIndex ?? index + 1)}</strong>
+            <span>${escapeHtml(post.publishTarget ?? post.platform)}</span>
+            <span>${escapeHtml(post.status)}</span>
+            ${post.scheduledAt ? `<span>${escapeHtml(post.scheduledAt.toISOString())}</span>` : ''}
+          </div>
+          <p>${escapeHtml(post.caption)}</p>
+        </div>`).join('')
+    : `<p class="empty">${isArabic ? 'لا توجد منشورات محفوظة في مركز المحتوى بعد.' : 'No Content Hub posts are stored yet.'}</p>`
+
   const conceptsHTML = concepts.length
     ? concepts.map((c: any) => `
         <div class="concept-card">
@@ -72,7 +104,7 @@ function buildCampaignHTML(campaign: any): string {
     : '<p class="empty">No generations yet.</p>'
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${isArabic ? 'ar' : 'en'}" dir="${direction}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -83,22 +115,24 @@ function buildCampaignHTML(campaign: any): string {
     .header { background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); color: #fff; border-radius: 12px; padding: 40px; margin-bottom: 32px; }
     .header h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
     .header .meta { font-size: 13px; opacity: 0.7; }
-    .badge { display: inline-block; background: rgba(255,255,255,0.15); border-radius: 6px; padding: 4px 12px; font-size: 12px; margin-right: 8px; }
+    .badge { display: inline-block; background: rgba(255,255,255,0.15); border-radius: 6px; padding: 4px 12px; font-size: 12px; margin-inline-end: 8px; }
     .section { background: #fff; border-radius: 10px; padding: 28px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); }
     .section h2 { font-size: 16px; font-weight: 700; color: #6d28d9; margin-bottom: 16px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; }
     .section h3 { font-size: 14px; font-weight: 600; color: #334155; margin: 16px 0 8px; }
     .section p, .section li { font-size: 14px; line-height: 1.7; color: #475569; }
-    .section ul { padding-left: 20px; }
+    .section ul { padding-inline-start: 20px; }
     .section ul li { margin-bottom: 6px; }
     .empty { color: #94a3b8; font-style: italic; }
     .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
     .info-item { background: #f8fafc; border-radius: 8px; padding: 14px; }
     .info-item .label { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
     .info-item .value { font-size: 15px; font-weight: 600; color: #1e293b; }
-    .concept-card { background: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 12px; border-left: 3px solid #6d28d9; }
+    .concept-card { background: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 12px; border-inline-start: 3px solid #6d28d9; }
+    .post-card { background: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 12px; border: 1px solid #e2e8f0; }
+    .post-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; color: #64748b; font-size: 12px; }
     .concept-card h4 { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th { background: #f1f5f9; font-weight: 600; color: #475569; padding: 10px 12px; text-align: left; }
+    th { background: #f1f5f9; font-weight: 600; color: #475569; padding: 10px 12px; text-align: start; }
     td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; color: #334155; }
     .footer { text-align: center; font-size: 12px; color: #94a3b8; margin-top: 32px; }
     @media print { body { background: #fff; } .section { box-shadow: none; border: 1px solid #e2e8f0; } }
@@ -138,7 +172,7 @@ ${positioning ? `
 </div>
 
 <div class="section">
-  <h2>Caption Library</h2>
+  <h2>${isArabic ? 'أفكار نصوص من الاستراتيجية — ليست منشورات نهائية' : 'Strategy Caption Ideas — Not Final Posts'}</h2>
   ${captionsHTML}
 </div>
 
@@ -149,8 +183,13 @@ ${cta ? `
 </div>` : ''}
 
 <div class="section">
-  <h2>Content Calendar</h2>
+  <h2>${isArabic ? 'خارطة تخطيط الاستراتيجية — ليست حالة نشر' : 'Strategy Planning Roadmap — Not Post Status'}</h2>
   ${calendarHTML}
+</div>
+
+<div class="section">
+  <h2>${isArabic ? 'منشورات مركز المحتوى الحالية — مصدر الحقيقة' : 'Current Content Hub Posts — Source of Truth'}</h2>
+  ${socialPostsHTML}
 </div>
 
 <div class="section">
@@ -202,6 +241,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
     }
 
+    const socialPosts = await prisma.socialPost.findMany({
+      where: {
+        campaignId,
+        workspaceId: campaign.workspaceId,
+      },
+      select: {
+        id: true,
+        platform: true,
+        publishTarget: true,
+        caption: true,
+        status: true,
+        scheduledAt: true,
+        publishedAt: true,
+        contentPlanIndex: true,
+      },
+      orderBy: [
+        { contentPlanIndex: 'asc' },
+        { createdAt: 'asc' },
+      ],
+    })
+
     // Create export record (PROCESSING state)
     const exportRecord = await prisma.export.create({
       data: {
@@ -210,7 +270,7 @@ export async function POST(request: NextRequest) {
         format,
         type,
         status: 'PROCESSING',
-        itemsCount: (campaign.concepts.length || 0) + (campaign.generations.length || 0),
+        itemsCount: (campaign.concepts.length || 0) + (campaign.generations.length || 0) + socialPosts.length,
       },
     })
 
@@ -230,6 +290,8 @@ export async function POST(request: NextRequest) {
           tone: campaign.tone,
           platforms: campaign.platforms,
           strategy: campaign.aiOutput ?? campaign.strategy,
+          finalPostsSource: 'CONTENT_HUB',
+          finalPosts: socialPosts,
           concepts: campaign.concepts,
           generationsCount: campaign.generations.length,
         },
@@ -238,7 +300,7 @@ export async function POST(request: NextRequest) {
       ext = 'json'
     } else {
       // Default: HTML (printable to PDF from browser)
-      fileContent = buildCampaignHTML(campaign)
+      fileContent = buildCampaignHTML(campaign, socialPosts)
       contentType = 'text/html; charset=utf-8'
       ext = 'html'
     }

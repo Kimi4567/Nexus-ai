@@ -17,6 +17,16 @@ interface Campaign {
   createdAt: string
 }
 
+interface ContentPost {
+  id: string
+  platform: string
+  publishTarget?: string | null
+  caption: string
+  status: string
+  scheduledAt?: string | null
+  publishedAt?: string | null
+}
+
 const PLATFORM_LABELS: Record<string, string> = {
   INSTAGRAM: 'Instagram', TIKTOK: 'TikTok', FACEBOOK: 'Facebook',
   YOUTUBE_SHORTS: 'YouTube Shorts', LINKEDIN: 'LinkedIn', SNAPCHAT: 'Snapchat',
@@ -30,6 +40,8 @@ export default function CampaignPrintPage() {
   const { locale } = useI18n()
   const ar = locale === 'ar'
   const [campaign, setCampaign] = useState<Campaign | null>(null)
+  const [contentPosts, setContentPosts] = useState<ContentPost[]>([])
+  const [contentPlanUnavailable, setContentPlanUnavailable] = useState(false)
   const [fetching, setFetching] = useState(true)
   const [loadError, setLoadError] = useState(false)
 
@@ -43,7 +55,10 @@ export default function CampaignPrintPage() {
     setFetching(true)
     setLoadError(false)
     try {
-      const response = await fetchWithTimeout(`/api/campaigns/${campaignId}`, { headers: { Authorization: token } })
+      const [response, contentResponse] = await Promise.all([
+        fetchWithTimeout(`/api/campaigns/${campaignId}`, { headers: { Authorization: token } }),
+        fetchWithTimeout(`/api/campaigns/${campaignId}/content-plan`, { headers: { Authorization: token } }).catch(() => null),
+      ])
       if (response.status === 404) {
         setCampaign(null)
         return
@@ -51,6 +66,14 @@ export default function CampaignPrintPage() {
       if (!response.ok) throw new Error('campaign-load-failed')
       const data = await response.json()
       if (data.campaign) setCampaign(data.campaign)
+      if (contentResponse?.ok) {
+        const contentData = await contentResponse.json().catch(() => ({}))
+        setContentPosts(Array.isArray(contentData.posts) ? contentData.posts : [])
+        setContentPlanUnavailable(false)
+      } else {
+        setContentPosts([])
+        setContentPlanUnavailable(true)
+      }
     } catch {
       setCampaign(null)
       setLoadError(true)
@@ -125,6 +148,14 @@ export default function CampaignPrintPage() {
   const ctaVariations: string[] = aiOutput?.ctaVariations || strategy.ctaVariations || []
   const captionFormulas: string[] = aiOutput?.captionFormulas || []
   const calendar: any[] = aiOutput?.contentCalendar || strategy.contentCalendar || []
+  const storedLanguage = String(
+    aiOutput?.language
+    ?? aiOutput?.strategyOrder?.language
+    ?? strategy?.language
+    ?? '',
+  ).toLowerCase()
+  const documentIsArabic = storedLanguage === 'ar' || (storedLanguage !== 'en' && ar)
+  const documentDir = documentIsArabic ? 'rtl' : 'ltr'
 
   const date = new Date(campaign.createdAt).toLocaleDateString(ar ? 'ar-EG' : 'en-US', {
     year: 'numeric', month: 'long', day: 'numeric'
@@ -146,6 +177,8 @@ export default function CampaignPrintPage() {
         }
 
         .doc { max-width: 800px; margin: 0 auto; padding: 48px 40px; }
+        .doc[dir="rtl"] { text-align: right; }
+        .doc[dir="rtl"] .doc-meta { text-align: left; }
 
         /* ── Header ─────────────────────────────────────────── */
         .doc-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 40px; padding-bottom: 24px; border-bottom: 3px solid #FF9500; }
@@ -302,7 +335,7 @@ export default function CampaignPrintPage() {
         {ar ? '⬇ حفظ كملف PDF' : '⬇ Save as PDF'}
       </button>
 
-      <div className="doc">
+      <div className="doc" dir={documentDir} lang={documentIsArabic ? 'ar' : 'en'}>
 
         {/* ══ HEADER ══════════════════════════════════════════════════════ */}
         <div className="doc-header">
@@ -1005,15 +1038,51 @@ export default function CampaignPrintPage() {
           </>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════
-            CONTENT CALENDAR
-        ═════════════════════════════════════════════════════════════════════ */}
-        {calendar.length > 0 && (
+        {/* Content Hub records are the only final post source of truth. */}
+        {(contentPosts.length > 0 || contentPlanUnavailable) && (
           <>
             <div className="chapter page-break">
+              <span className="chapter-num" style={{ fontSize: '20px' }}>✓</span>
+              <div className="chapter-line" />
+              <span className="chapter-label">
+                {documentIsArabic ? 'منشورات Content Hub الحالية' : 'Current Content Hub Posts'}
+              </span>
+            </div>
+            <div className="block section" style={{ borderColor: contentPlanUnavailable ? '#FCA5A5' : '#C7D2FE' }}>
+              <div className="block-label" style={{ color: contentPlanUnavailable ? '#DC2626' : '#4F46E5' }}>
+                {documentIsArabic ? 'مصدر الحقيقة النهائي للمنشورات' : 'Authoritative post source'}
+              </div>
+              {contentPlanUnavailable ? (
+                <div className="block-body">
+                  {documentIsArabic
+                    ? 'تعذّر تحميل سجلات Content Hub؛ لا يعرض هذا المستند مسودات الاستراتيجية كأنها منشورات نهائية.'
+                    : 'Content Hub records could not be loaded; this document will not present strategy drafts as final posts.'}
+                </div>
+              ) : contentPosts.map((post, index) => (
+                <div key={post.id} className="angle-block">
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8, fontSize: 10, color: '#64748B' }}>
+                    <strong style={{ color: '#4F46E5' }}>#{index + 1}</strong>
+                    <span>{PLATFORM_LABELS[post.publishTarget || post.platform] || post.publishTarget || post.platform}</span>
+                    <span>·</span>
+                    <strong>{post.status}</strong>
+                    {post.scheduledAt && <span>· {new Date(post.scheduledAt).toLocaleDateString(documentIsArabic ? 'ar-EG' : 'en-US')}</span>}
+                  </div>
+                  <div className="block-body" style={{ whiteSpace: 'pre-wrap' }}>{post.caption}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* The strategy calendar is a planning roadmap, never final post state. */}
+        {calendar.length > 0 && (
+          <>
+            <div className="chapter">
               <span className="chapter-num" style={{ fontSize: '20px' }}>📅</span>
               <div className="chapter-line" />
-              <span className="chapter-label">Content Calendar</span>
+              <span className="chapter-label">
+                {documentIsArabic ? 'خارطة تخطيط الاستراتيجية — ليست حالة نشر' : 'Strategy Planning Roadmap — Not Post Status'}
+              </span>
             </div>
 
             {calendar.map((week: any, wi: number) => (

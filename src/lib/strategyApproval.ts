@@ -75,9 +75,25 @@ export function hasApprovedStrategyExecutionStatus(status: string): boolean {
   return APPROVED_STRATEGY_STATUSES.has(status)
 }
 
-/** Only ACTIVE campaigns may create, approve, or schedule new execution work. */
-export function canMutateCampaignExecution(status: string): boolean {
-  return status === 'ACTIVE'
+/**
+ * Execution requires both the ACTIVE lifecycle state and current, persisted
+ * quality evidence. ACTIVE alone is not proof because legacy rows may predate
+ * the deterministic Brand Brain gate.
+ */
+export function canMutateCampaignExecution(status: string, aiOutput: unknown): boolean {
+  if (status !== 'ACTIVE') return false
+  const output = record(aiOutput)
+  const strategy = record(output?.strategy) ?? output
+  const qualityGate = record(output?.qualityGate)
+  const sentinel = record(output?.sentinelReview)
+  return Boolean(
+    strategy
+    && Object.keys(strategy).length > 0
+    && qualityGate?.schemaVersion === 1
+    && text(qualityGate?.status)?.toLowerCase() === 'passed'
+    && (!Array.isArray(qualityGate?.blockers) || qualityGate.blockers.length === 0)
+    && text(sentinel?.status)?.toLowerCase() === 'passed'
+  )
 }
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -207,15 +223,19 @@ export function buildStrategyApprovalContract(input: StrategyApprovalInput): Str
   const approved = input.latestDecision?.eventType === 'STRATEGY_APPROVED'
     || (approvedLegacyStatus && input.latestDecision?.eventType !== 'STRATEGY_APPROVAL_REVOKED')
   const revoked = input.latestDecision?.eventType === 'STRATEGY_APPROVAL_REVOKED'
+  const hasTruthBlocker = approvalBlockers.some((blocker) => blocker.code !== 'CAMPAIGN_NOT_EDITABLE')
 
-  const state: StrategyApprovalState = approved
-    ? 'approved'
-    : revoked
-      ? 'revoked'
-      : !hasStrategy
-        ? 'draft'
-        : approvalBlockers.length > 0
-          ? 'blocked'
+  // Current truth gates always outrank a stale lifecycle status or an older
+  // approval event. This prevents an ACTIVE legacy campaign from appearing
+  // approved while its current Brand Brain/scope review is missing or failed.
+  const state: StrategyApprovalState = revoked
+    ? 'revoked'
+    : !hasStrategy
+      ? 'draft'
+      : hasTruthBlocker
+        ? 'blocked'
+        : approved
+          ? 'approved'
           : 'ready_for_review'
 
   return {

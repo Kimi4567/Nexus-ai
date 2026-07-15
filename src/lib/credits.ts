@@ -1110,21 +1110,19 @@ export async function getCreditHistory(
   entityType: string | null
   createdAt: Date
 }>> {
-  return (prisma as any).creditTransaction
-    .findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      select: {
-        id: true,
-        action: true,
-        description: true,
-        amount: true,
-        entityType: true,
-        createdAt: true,
-      },
-    })
-    .catch(() => [])
+  return (prisma as any).creditTransaction.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+    select: {
+      id: true,
+      action: true,
+      description: true,
+      amount: true,
+      entityType: true,
+      createdAt: true,
+    },
+  })
 }
 
 // ── Public: real usage for dashboard + analytics ──────────────────────────────

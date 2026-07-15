@@ -2311,7 +2311,7 @@ function BrandBrainInner() {
                 <p className="text-xs mt-0.5 text-slate-500">{getStepCopy(currentStep, locale).desc}</p>
               </div>
               {/* Review & Readiness is the final workstation step. */}
-              <div className="text-xs font-mono font-bold px-3 py-1.5 rounded-lg flex-shrink-0"
+              <div dir="ltr" className="text-xs font-mono font-bold px-3 py-1.5 rounded-lg flex-shrink-0"
                 style={{ background:`${currentStep.color}0e`, color:`${currentStep.color}bb`, border:`1px solid ${currentStep.color}20` }}>
                 {currentStepIdx+1} / {STEPS.length}
               </div>

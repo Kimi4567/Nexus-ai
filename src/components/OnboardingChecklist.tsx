@@ -238,7 +238,7 @@ export default function OnboardingChecklist({ stats, brandReadiness, hasConnecti
               </h3>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                 style={{ background: 'rgba(139,92,246,0.15)', color: '#c4b5fd', border: '1px solid rgba(139,92,246,0.25)' }}>
-                {completedCount}/{steps.length}
+                <span dir="ltr">{completedCount}/{steps.length}</span>
               </span>
               {nextStep && (
                 <span className="hidden sm:flex items-center gap-1 text-[10px]" style={{ color: 'var(--nx-text-4)' }}>

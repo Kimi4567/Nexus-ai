@@ -141,7 +141,9 @@ export default function MarketingJourneyBar({
           </div>
           <span className="text-[11px] font-medium px-2.5 py-1 rounded-full"
             style={{ background: 'rgba(249,115,22,0.08)', color: '#C2410C', border: '1px solid rgba(249,115,22,0.18)' }}>
-            {completed.filter(Boolean).length}/{STEPS.length} {ar ? 'مكتمل' : 'done'}
+            {ar
+              ? `${completed.filter(Boolean).length} من ${STEPS.length} مكتمل`
+              : `${completed.filter(Boolean).length}/${STEPS.length} done`}
           </span>
         </div>
 

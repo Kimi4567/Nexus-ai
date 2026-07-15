@@ -639,8 +639,8 @@ function CalendarPageInner() {
               {[
                 { label: locale === 'ar' ? 'منشور' : 'Published', value: calStats.published, dot: 'bg-emerald-500', pill: 'bg-emerald-50 text-emerald-700' },
                 { label: locale === 'ar' ? 'مجدول' : 'Scheduled', value: calStats.scheduled, dot: 'bg-[#5366f6]', pill: 'bg-[#eef0ff] text-[#5366f6]' },
-                { label: locale === 'ar' ? 'قيد المراجعة' : 'In review', value: reviewCount, dot: 'bg-amber-500', pill: 'bg-amber-50 text-amber-700' },
-                { label: locale === 'ar' ? 'أفكار الخطة' : 'Plan ideas', value: monthStrategyIdeas.length, dot: 'bg-slate-400', pill: 'bg-white text-[#64708f] border border-[#e3e8f3]' },
+                { label: locale === 'ar' ? 'قيد المراجعة هذا الشهر' : 'In review this month', value: reviewCount, dot: 'bg-amber-500', pill: 'bg-amber-50 text-amber-700' },
+                { label: locale === 'ar' ? 'أفكار الخطة لهذا الشهر' : 'Plan ideas this month', value: monthStrategyIdeas.length, dot: 'bg-slate-400', pill: 'bg-white text-[#64708f] border border-[#e3e8f3]' },
                 { label: locale === 'ar' ? 'متأخر' : 'Late', value: lateCount, dot: 'bg-red-500', pill: 'bg-red-50 text-red-600' },
               ].map(item => (
                 <div key={item.label} className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-black ${item.pill}`}>

@@ -4706,7 +4706,7 @@ function CampaignDetailPageInner() {
                       </p>
                     )}
                   </div>
-                  {!(campaign.status === 'ACTIVE' || approvalState === 'done') && (
+                  {!(completeQualityReviewPassed && (campaign.status === 'ACTIVE' || approvalState === 'done')) && (
                     <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                       <p className="text-sm font-semibold text-amber-900">
                         {locale === 'ar' ? 'النشر عبر المنصات مقفل حاليًا' : 'Platform publishing is locked for now'}

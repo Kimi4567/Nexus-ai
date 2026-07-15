@@ -34,6 +34,33 @@ interface Props {
   onClose: () => void
 }
 
+const ARABIC_ACTION_LABELS: Record<string, string> = {
+  CAMPAIGN_GENERATION: 'إنشاء حزمة حملة للمراجعة',
+  RUN_FULL_STRATEGY: 'إنشاء استراتيجية تسويق كاملة',
+  CREATIVE_BRIEF: 'إنشاء البريف الإبداعي',
+  SENTINEL_REVIEW: 'مراجعة Sentinel للجودة',
+  IMAGE_GENERATION: 'توليد صورة لمنشور',
+  AD_COPY: 'توليد نص إعلان',
+  AI_FIELD_SUGGESTION: 'اقتراح حقل بالذكاء الاصطناعي',
+  PAID_EXECUTION_PLAN: 'خطة تنفيذ مدفوعة للمراجعة',
+  CHAT_MESSAGE: 'رد المساعد الذكي',
+  AI_POST_REWRITE: 'إعادة كتابة منشور',
+  CONTENT_PLAN_GENERATION: 'إنشاء خطة محتوى مسودة',
+  CONTENT_AB_VARIANTS: 'إنشاء نسخ A/B للنص',
+  PAID_PACK_GENERATE: 'إنشاء حزمة حملة مدفوعة',
+  WEBSITE_SCAN: 'فحص موقع الويب',
+  CONTENT_ANALYSIS: 'تحليل عينات المحتوى',
+  REFUND: 'استرداد كريديت',
+  BONUS: 'إضافة كريديت',
+  CREDIT_PURCHASE: 'شراء كريديت',
+  MONTHLY_GRANT: 'تجديد رصيد الباقة الشهري',
+}
+
+function transactionLabel(transaction: Transaction, isArabic: boolean): string {
+  if (isArabic) return ARABIC_ACTION_LABELS[transaction.action] || transaction.description || transaction.action
+  return transaction.description || transaction.action
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string, locale: string): string {
@@ -68,22 +95,43 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState<string | null>(null)
+  const [reloadKey, setReloadKey]       = useState(0)
 
   useEffect(() => {
     if (!open) return
+    const authorization = authHeader()
+    if (!authorization) {
+      setTransactions([])
+      setLoading(false)
+      setError(locale === 'ar' ? 'تعذر التحقق من جلسة الدخول' : 'Could not verify your session')
+      return
+    }
+    const controller = new AbortController()
     setLoading(true)
     setError(null)
 
     fetch('/api/credits/history?limit=100', {
-      headers: { Authorization: authHeader() },
+      headers: { Authorization: authorization },
+      signal: controller.signal,
     })
-      .then(r => r.ok ? r.json() : Promise.reject(r.statusText))
+      .then(async r => {
+        if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.error || r.statusText)
+        return r.json()
+      })
       .then((data: { history: Transaction[] }) => {
         setTransactions(data.history ?? [])
       })
-      .catch(() => setError(locale === 'ar' ? 'تعذر تحميل السجل' : 'Failed to load history'))
-      .finally(() => setLoading(false))
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+      .catch(error => {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        setTransactions([])
+        setError(locale === 'ar' ? 'تعذر تحميل سجل الكريديت. لم يتم إخفاء أي معاملات.' : 'Credit history could not be loaded. No transactions are being hidden.')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [authHeader, locale, open, reloadKey])
 
   if (!open) return null
 
@@ -123,6 +171,8 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
             </div>
           </div>
           <button onClick={onClose}
+            type="button"
+            aria-label={isAr ? 'إغلاق سجل الكريديت' : 'Close credit history'}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
             <X className="w-4 h-4" />
           </button>
@@ -145,7 +195,7 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
               <AlertCircle className="w-6 h-6" style={{ color: '#DC2626' }} />
               <p className="text-xs text-slate-500">{error}</p>
               <button
-                onClick={() => { setError(null); setLoading(true) }}
+                onClick={() => setReloadKey(key => key + 1)}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all"
                 style={{ background: '#F5F3FF', color: '#5E5CE6', border: '1px solid rgba(94,92,230,0.18)' }}>
                 <RefreshCw className="w-3 h-3" />
@@ -200,7 +250,7 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
                     {/* Label + date */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-950 truncate leading-tight">
-                        {tx.description || tx.action}
+                        {transactionLabel(tx, isAr)}
                       </p>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <p className="text-[10px] text-slate-500">

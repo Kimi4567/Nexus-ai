@@ -14,6 +14,10 @@ export interface CreditBreakdown {
   monthly: number
   purchased: number
   trial: number
+  referral: number
+  refund: number
+  manual: number
+  migrated: number
   other: number
   nextPurchasedExpiry: Date | null
 }
@@ -68,14 +72,32 @@ export function resolveCreditDisplay(input: CreditDisplayInput) {
           summary.nextPurchasedExpiry = grant.expiresAt
         }
       } else if (grant.type === 'TRIAL') summary.trial += amount
+      else if (grant.type === 'REFERRAL') summary.referral += amount
+      else if (grant.type === 'REFUND') summary.refund += amount
+      else if (grant.type === 'MANUAL') summary.manual += amount
+      else if (grant.type === 'MIGRATED') summary.migrated += amount
       else summary.other += amount
       return summary
-    }, { monthly: 0, purchased: 0, trial: 0, other: 0, nextPurchasedExpiry: null } as CreditBreakdown)
+    }, {
+      monthly: 0,
+      purchased: 0,
+      trial: 0,
+      referral: 0,
+      refund: 0,
+      manual: 0,
+      migrated: 0,
+      other: 0,
+      nextPurchasedExpiry: null,
+    } as CreditBreakdown)
 
     const ledgerBalance =
       creditBreakdown.monthly +
       creditBreakdown.purchased +
       creditBreakdown.trial +
+      creditBreakdown.referral +
+      creditBreakdown.refund +
+      creditBreakdown.manual +
+      creditBreakdown.migrated +
       creditBreakdown.other
 
     pendingStarterCredits = isFreeStarterEligible && ledgerBalance === 0

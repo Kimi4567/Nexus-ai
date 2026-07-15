@@ -55,6 +55,12 @@ function guardUnsafeStatusLanguage(text: string): string {
 
 function softenAbsoluteOutcomeClaims(text: string): string {
   return text
+    .replace(/\bvisual content will (?:drive|build|increase) trust\b[^.?!]*/gi, 'Whether visual content strengthens trust signals is a hypothesis to test')
+    .replace(/\bengagement will (?:lead to|drive|generate) (?:qualified )?(?:inquiries|leads|sales|conversions)\b[^.?!]*/gi, 'Test whether engagement is associated with qualified inquiries')
+    .replace(/\b(?:this|the) (?:content|campaign|strategy) will (?:drive|boost|increase|generate) (?:trust|engagement|inquiries|leads|sales|conversions)\b[^.?!]*/gi, 'Treat the intended outcome as a hypothesis and validate it with real platform evidence')
+    .replace(/المحتوى\s+المرئي\s+سي(?:بني|عزز|زيد)\s+الثقة[^.؟!]*/gi, 'مدى دعم المحتوى المرئي لإشارات الثقة فرضية تحتاج إلى اختبار')
+    .replace(/التفاعل\s+سيؤدي\s+إلى\s+(?:استفسارات|عملاء\s+محتملين|مبيعات|تحويلات)[^.؟!]*/gi, 'اختبر ما إذا كان التفاعل يرتبط باستفسارات مؤهلة')
+    .replace(/(?:هذا|هذه)\s+(?:المحتوى|الحملة|الاستراتيجية)\s+سي(?:زيد|عزز|حقق|ولد)\s+(?:الثقة|التفاعل|الاستفسارات|العملاء\s+المحتملين|المبيعات|التحويلات)[^.؟!]*/gi, 'تعامل مع النتيجة المقصودة كفرضية وتحقق منها ببيانات المنصة الفعلية')
     .replace(/خطط\s+علاج\s+واضحة\s+تضمن\s+لك\s+راحة\s+البال\.?/gi, 'خطط علاج واضحة تساعدك على فهم الخطوات قبل البدء.')
     .replace(/الفحوصات\s+المنتظمة\s+تحميك\s+من\s+مشاكل\s+الأسنان\s+الكبيرة\.?/gi, 'الفحوصات المنتظمة تساعدك على متابعة احتياجات رعاية الأسنان.')
     .replace(/اختيار\s+العيادة\s+المناسبة\s+يمكن\s+أن\s+يغير\s+تجربتك\s+الصحية\s+بالكامل\.?/gi, 'اختيار العيادة المناسبة يساعدك على فهم خيارات الرعاية والخطوات التالية.')

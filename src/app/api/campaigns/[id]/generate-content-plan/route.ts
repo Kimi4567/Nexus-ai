@@ -201,7 +201,7 @@ export async function POST(req: NextRequest, props: Params) {
       },
     })
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
-    if (!canMutateCampaignExecution(String(campaign.status))) {
+    if (!canMutateCampaignExecution(String(campaign.status), campaign.aiOutput)) {
       return NextResponse.json({
         error: 'Approve the campaign strategy before generating content.',
         code: 'STRATEGY_APPROVAL_REQUIRED',

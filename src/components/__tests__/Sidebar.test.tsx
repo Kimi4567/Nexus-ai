@@ -138,8 +138,9 @@ describe('Sidebar credit presentation', () => {
     expect(screen.getByText('Approvals')).toBeTruthy()
     expect(screen.getByText('Brand Brain')).toBeTruthy()
     expect(screen.getByText('Strategy & campaigns')).toBeTruthy()
-    expect(screen.getByText('Content & publishing')).toBeTruthy()
-    expect(screen.getByText('Results')).toBeTruthy()
+    expect(screen.getByText('Content production')).toBeTruthy()
+    expect(screen.getByText('Execution')).toBeTruthy()
+    expect(screen.getByText('Results & learning')).toBeTruthy()
     expect(screen.getByText('Connections')).toBeTruthy()
     expect(document.querySelector('a[href="/billing"]')).toBeTruthy()
 

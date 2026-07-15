@@ -80,82 +80,64 @@ describe('contentPlanStructuredRenderer', () => {
     expect(isClinicOperationalSaasContent(providerCtx, generated)).toBe(false)
   })
 
-  it('renders Arabic clinic drafts from a conservative operational template instead of risky model copy', () => {
+  it('does not replace unsafe clinic copy with a second invented content template', () => {
     const caption = renderContentPlanDraftCaption({
       caption: 'ClinicFlow AI يساعدك في تنظيم المواعيد وتحسين كفاءة العمليات. تواصل فعال وسهل مع مرضاك لتحسين الخدمة وزيادة رضاهم وثقتهم.',
     }, clinicCtx)
 
     expect(caption).toContain('تنظيم المواعيد')
-    expect(caption).toContain('العمل الإداري')
-    expect(caption).toMatch(/مراجع|راجع/)
-    expect(caption).not.toContain('تحسين كفاءة')
-    expect(caption).not.toContain('تواصل فعال')
-    expect(caption).not.toContain('تحسين الخدمة')
-    expect(caption).not.toContain('رضاهم')
-    expect(caption).not.toContain('ثقتهم')
-    expect(validateContentPlanDraftForSave({ caption }).ok).toBe(true)
+    expect(caption).not.toContain('فريق الاستقبال')
+    expect(caption).not.toContain('قائمة تشغيل داخلية')
+    expect(validateContentPlanDraftForSave({ caption }).ok).toBe(false)
   })
 
-  it('renders follow-up and bilingual clinic topics without patient-outcome promises', () => {
+  it('fails unsafe follow-up and bilingual clinic claims instead of fabricating replacements', () => {
     const followUp = renderContentPlanDraftCaption({
       caption: 'تعرف على كيفية تحسين متابعة المرضى وتوفير وقتك.',
     }, { ...clinicCtx, postIndex: 1 })
     expect(followUp).toContain('متابعة المرضى إداريًا')
     expect(followUp).not.toContain('تحسين متابعة المرضى')
-    expect(followUp).not.toContain('توفير وقتك')
+    expect(validateContentPlanDraftForSave({ caption: followUp }).ok).toBe(false)
 
     const bilingual = renderContentPlanDraftCaption({
       caption: 'اكتشف كيف يعزز التواصل ثنائي اللغة رضا المرضى.',
     }, { ...clinicCtx, postIndex: 2 })
-    expect(bilingual).toContain('التواصل الإداري ثنائي اللغة')
+    expect(bilingual).toContain('التواصل ثنائي اللغة')
     expect(bilingual).not.toContain('رضا المرضى')
-    expect(validateContentPlanDraftForSave({ caption: followUp }).ok).toBe(true)
     expect(validateContentPlanDraftForSave({ caption: bilingual }).ok).toBe(true)
   })
 
-  it('renders a varied eight-post Arabic clinic sequence instead of repeating three generic templates', () => {
+  it('never invents an eight-post sequence from one repeated model caption', () => {
     const captions = Array.from({ length: 8 }, (_, postIndex) =>
       renderContentPlanDraftCaption({
         caption: 'ClinicFlow AI يساعدك في تنظيم المواعيد ومتابعة المرضى.',
       }, { ...clinicCtx, postIndex }),
     )
 
-    expect(new Set(captions).size).toBe(8)
-    expect(captions.join('\n')).toContain('فريق الاستقبال')
-    expect(captions.join('\n')).toContain('العربية والإنجليزية')
-    expect(captions.join('\n')).toContain('ديمو')
-    expect(captions.join('\n')).not.toContain('تنظيم تنظيم')
-    expect(captions.join('\n')).not.toContain('اجتماع الفريق أقصر')
-    expect(captions.join('\n')).not.toContain('الأفضل')
-    expect(captions.join('\n')).not.toContain('تحسين كفاءة')
-    expect(captions.join('\n')).not.toContain('رضا')
+    expect(new Set(captions).size).toBe(1)
+    expect(captions.join('\n')).not.toContain('فريق الاستقبال')
+    expect(captions.join('\n')).not.toContain('ديمو')
     expect(captions.every(caption => validateContentPlanDraftForSave({ caption }).ok)).toBe(true)
   })
 
-  it('uses YouTube Shorts wording and vertical background format for YouTube clinic slots', () => {
+  it('keeps an underspecified image direction unchanged instead of inventing a clinic scene', () => {
     const prompt = renderContentPlanDraftImagePrompt({
       imagePrompt: 'YouTube Shorts concept for appointment follow-up',
     }, { ...clinicCtx, platform: 'YOUTUBE', postIndex: 1 })
 
-    expect(prompt).toContain('vertical 9:16 composition')
-    expect(prompt).toContain('review-only background visual')
-    expect(prompt).not.toContain('square 1:1 composition')
+    expect(prompt).toBe('YouTube Shorts concept for appointment follow-up')
+    expect(prompt).not.toContain('clinic reception desk')
     expect(validateContentPlanDraftForSave({ imagePrompt: prompt }).ok).toBe(true)
   })
 
-  it('renders clinic image prompts as review-only background visuals without fake product UI', () => {
+  it('preserves fake product UI evidence so the save gate can reject it', () => {
     const prompt = renderContentPlanDraftImagePrompt({
       imagePrompt: 'صورة لواجهة تطبيق ClinicFlow AI على هاتف ذكي مع لوحة تحكم تعرض بيانات العيادة',
     }, clinicCtx)
 
-    expect(prompt).toContain('review-only background visual')
-    expect(prompt).toContain('No readable text')
-    expect(prompt).toContain('no invented software visuals')
-    expect(prompt).toContain('negative space')
-    expect(prompt).not.toContain('واجهة تطبيق')
-    expect(prompt).not.toContain('لوحة تحكم')
-    expect(prompt).not.toContain('ClinicFlow AI على هاتف')
-    expect(validateContentPlanDraftForSave({ imagePrompt: prompt }).ok).toBe(true)
+    expect(prompt).toContain('واجهة تطبيق')
+    expect(prompt).toContain('لوحة تحكم')
+    expect(validateContentPlanDraftForSave({ imagePrompt: prompt }).ok).toBe(false)
   })
 
   it('save gate blocks observed unsafe regenerated clinic claims before SocialPost persistence', () => {
@@ -243,7 +225,7 @@ describe('contentPlanStructuredRenderer', () => {
     expect(result.issues.map(issue => issue.reason)).toContain('unsupported_absolute_claim')
   })
 
-  it('turns observed weak coffee drafts into self-contained, grounded posts', () => {
+  it('rejects weak coffee drafts and invented imagery instead of substituting another campaign', () => {
     const context: ContentPlanRenderContext = {
       isArabic: false,
       brand: 'NEXUS E2E Coffee',
@@ -277,22 +259,10 @@ describe('contentPlanStructuredRenderer', () => {
       }, { ...context, postIndex }),
     )
 
-    expect(rendered[0]).toContain('Roast date and origin details matter')
-    expect(rendered[0]).toContain('beans are roasted weekly')
-    expect(rendered[1]).toContain('compare the available coffee options')
-    expect(rendered[1]).toContain('pause or cancellation terms')
-    expect(rendered[2]).toContain('Match grind size to the brewing method')
-    expect(rendered[2]).toContain('Save this checklist for your next brew')
-    expect(rendered.join('\n')).not.toMatch(/richer taste|keep our coffee fresh|straight to your door|hassle-free|expert brewing tips|our tutorials|better cup of coffee/i)
-    expect(rendered.every(caption => validateContentPlanDraftForSave({ caption }).ok)).toBe(true)
-    expect(prompts[0]).toContain('blank roast-date card')
-    expect(prompts[1]).toContain('blank comparison checklist')
-    expect(prompts[2]).toContain('overhead home-brewing setup')
-    expect(prompts.join('\n')).toContain('no logos')
-    expect(prompts.join('\n')).toContain('no staged buyer reaction')
-    expect(prompts.join('\n')).not.toContain('proof to collect cue')
-    expect(prompts.join('\n')).not.toMatch(/NEXUS E2E Coffee logo|happy customer|branded roastery|expert barista/i)
-    expect(prompts.every(imagePrompt => validateContentPlanDraftForSave({ imagePrompt }).ok)).toBe(true)
+    expect(rendered).toEqual(observed)
+    expect(rendered.every(caption => !validateContentPlanDraftForSave({ caption }).ok)).toBe(true)
+    expect(prompts.some(imagePrompt => !validateContentPlanDraftForSave({ imagePrompt }).ok)).toBe(true)
+    expect(prompts.join('\n')).toMatch(/branded roastery|happy customer|expert barista/i)
   })
 
   it('blocks positive logo and customer-satisfaction image prompts before save', () => {
@@ -304,7 +274,7 @@ describe('contentPlanStructuredRenderer', () => {
     expect(result.issues.map(issue => issue.reason)).toContain('unsupported_fake_product_visual')
   })
 
-  it('renders explicit customer-workflow SaaS facts with safe captions and neutral visuals', () => {
+  it('does not replace customer-workflow output and still rejects a fake software screen', () => {
     const ctx: ContentPlanRenderContext = {
       isArabic: true,
       brand: 'NEXUS Demo',
@@ -330,12 +300,9 @@ describe('contentPlanStructuredRenderer', () => {
       imagePrompt: 'واجهة مستخدم لنظام إدارة مبيعات على الشاشة',
     }, ctx)
 
-    expect(caption).toContain('الواجهة العربية')
-    expect(caption).toContain('طلبات العملاء')
+    expect(caption).toContain('يمكن تنظيم متابعة المبيعات')
     expect(caption).not.toMatch(/أسهل وأسرع|جرب النظام الآن|زيادة فرص البيع/)
-    expect(prompt).toContain('screens turned away')
-    expect(prompt).toContain('no visible software UI')
-    expect(prompt).not.toContain('واجهة مستخدم')
-    expect(validateContentPlanDraftForSave({ caption, imagePrompt: prompt }).ok).toBe(true)
+    expect(prompt).toContain('واجهة مستخدم')
+    expect(validateContentPlanDraftForSave({ caption, imagePrompt: prompt }).ok).toBe(false)
   })
 })

@@ -36,22 +36,29 @@ export default function AppShell({ children }: AppShellProps) {
   const { dir, t } = useI18n()
 
   useEffect(() => {
-    const applyResponsiveSidebar = () => {
+    let wasCompact = window.innerWidth < COMPACT_SIDEBAR_BREAKPOINT
+    const applyResponsiveSidebar = (initial = false) => {
       const isCompact = window.innerWidth < COMPACT_SIDEBAR_BREAKPOINT
       setCompactViewport(isCompact)
 
       if (isCompact) {
-        setCollapsed(true)
+        // Collapse only when first entering compact mode. A resize that stays
+        // inside the same breakpoint must not immediately undo the user's
+        // explicit Expand action.
+        if (initial || !wasCompact) setCollapsed(true)
+        wasCompact = true
         return
       }
 
       const savedPreference = window.localStorage.getItem(SIDEBAR_PREFERENCE_KEY)
       setCollapsed(savedPreference === 'true')
+      wasCompact = false
     }
 
-    applyResponsiveSidebar()
-    window.addEventListener('resize', applyResponsiveSidebar)
-    return () => window.removeEventListener('resize', applyResponsiveSidebar)
+    applyResponsiveSidebar(true)
+    const onResize = () => applyResponsiveSidebar(false)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
   }, [])
 
   const setCollapsedWithPreference: typeof setCollapsed = (nextValue) => {

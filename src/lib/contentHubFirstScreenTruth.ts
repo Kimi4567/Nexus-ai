@@ -21,6 +21,7 @@ interface ContentHubFirstScreenTruthInput {
   ambiguousPreviewCount: number
   videoPostCount: number
   hasOrderMismatch: boolean
+  hasQualityMismatch: boolean
 }
 
 function text(ar: boolean, arText: string, enText: string): string {
@@ -201,6 +202,19 @@ function nextDecisionCard(input: ContentHubFirstScreenTruthInput, ar: boolean): 
         ar,
         'لا تعتمد أو تجدول قبل تطابق منشورات Content Hub مع وعد الاستراتيجية.',
         'Do not approve or schedule before Content Hub posts match the strategy promise.',
+      ),
+      tone: 'danger',
+    }
+  }
+
+  if (input.hasQualityMismatch) {
+    return {
+      label: text(ar, 'القرار التالي', 'Next decision'),
+      value: text(ar, 'أصلح تطابق المحتوى أولاً', 'Repair content alignment first'),
+      helper: text(
+        ar,
+        'المحتوى الحالي لا يطابق Brand Brain والاستراتيجية المعتمدة. الاعتماد والجدولة مقفلان حتى التعديل أو إعادة التوليد.',
+        'Current content does not match the Brand Brain and approved strategy. Approval and scheduling stay locked until it is edited or regenerated.',
       ),
       tone: 'danger',
     }

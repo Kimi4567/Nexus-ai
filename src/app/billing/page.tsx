@@ -222,6 +222,10 @@ export default function BillingPage() {
       monthly: number
       purchased: number
       trial: number
+      referral: number
+      refund: number
+      manual: number
+      migrated: number
       other: number
       nextPurchasedExpiry: string | null
     } | null
@@ -398,6 +402,28 @@ export default function BillingPage() {
         new Date(billingStatus.creditBreakdown.nextPurchasedExpiry),
       )
     : null
+  const creditBreakdownSummary = billingStatus?.creditBreakdown
+    ? [
+        ar ? `شهري ${billingStatus.creditBreakdown.monthly}` : `Monthly ${billingStatus.creditBreakdown.monthly}`,
+        ar ? `مشتَرى ${billingStatus.creditBreakdown.purchased}` : `Purchased ${billingStatus.creditBreakdown.purchased}`,
+        ar ? `تجريبي ${billingStatus.creditBreakdown.trial}` : `Trial ${billingStatus.creditBreakdown.trial}`,
+        ...(billingStatus.creditBreakdown.migrated > 0
+          ? [ar ? `رصيد مرحّل ${billingStatus.creditBreakdown.migrated}` : `Carried forward ${billingStatus.creditBreakdown.migrated}`]
+          : []),
+        ...(billingStatus.creditBreakdown.referral > 0
+          ? [ar ? `إحالات ${billingStatus.creditBreakdown.referral}` : `Referrals ${billingStatus.creditBreakdown.referral}`]
+          : []),
+        ...(billingStatus.creditBreakdown.refund > 0
+          ? [ar ? `مسترد ${billingStatus.creditBreakdown.refund}` : `Refunded ${billingStatus.creditBreakdown.refund}`]
+          : []),
+        ...(billingStatus.creditBreakdown.manual > 0
+          ? [ar ? `إضافة إدارية ${billingStatus.creditBreakdown.manual}` : `Manual grant ${billingStatus.creditBreakdown.manual}`]
+          : []),
+        ...(billingStatus.creditBreakdown.other > 0
+          ? [ar ? `أخرى ${billingStatus.creditBreakdown.other}` : `Other ${billingStatus.creditBreakdown.other}`]
+          : []),
+      ].join(' · ')
+    : null
 
   const billingDisplay = getBillingDisplayTruth({
     plan: billingStatus?.plan,
@@ -508,11 +534,7 @@ export default function BillingPage() {
                 )}
                 {billingStatus.creditBreakdown && (
                   <div className="mt-1 space-y-0.5 text-[11px] leading-snug text-slate-400">
-                    <p>
-                      {ar
-                        ? `شهري ${billingStatus.creditBreakdown.monthly} · مشتَرى ${billingStatus.creditBreakdown.purchased} · تجريبي ${billingStatus.creditBreakdown.trial}`
-                        : `Monthly ${billingStatus.creditBreakdown.monthly} · Purchased ${billingStatus.creditBreakdown.purchased} · Trial ${billingStatus.creditBreakdown.trial}`}
-                    </p>
+                    <p>{creditBreakdownSummary}</p>
                     {nextPurchasedExpiry && billingStatus.creditBreakdown.purchased > 0 && (
                       <p>
                         {ar

@@ -56,18 +56,10 @@ const CUSTOMER_WORKFLOW_PRODUCT_RE =
 const CUSTOMER_WORKFLOW_DOMAIN_RE =
   /customer|client|lead|sales|pipeline|crm|طلبات\s+العملاء|متابعة\s+العملاء|العملاء|فرص\s+البيع|إدارة\s+المبيعات|متابعة\s+المبيعات/i
 
-const CLINIC_TOPIC_PATTERNS: Array<{ re: RegExp; ar: string; en: string }> = [
-  { re: /appointment|schedule|booking|مواعيد|جدولة/i, ar: 'تنظيم المواعيد', en: 'appointment organization' },
-  { re: /follow[-\s]?up|متابعة/i, ar: 'متابعة المرضى إداريًا', en: 'administrative patient follow-up' },
-  { re: /bilingual|language|communication|تواصل|لغة|ثنائي/i, ar: 'التواصل الإداري ثنائي اللغة', en: 'bilingual administrative communication' },
-  { re: /team|staff|فريق|مهام/i, ar: 'تنظيم مهام الفريق', en: 'team task organization' },
-  { re: /workflow|operations|عمليات|سير العمل/i, ar: 'وضوح سير العمل الإداري', en: 'administrative workflow visibility' },
-]
-
 const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> = [
   {
     reason: 'unsupported_clinic_outcome_claim',
-    re: /(?:تحسين|تعزيز|زيادة|رفع)\s+(?:كفاءة|رضا|تجربة|خدمة|رعاية|نتائج)|(?:رضاهم|ثقتهم|رعاية صحية متميزة|مرضى راضين|نتائج أفضل)|(?:improve|boost|increase|enhance)\s+(?:clinic efficiency|patient satisfaction|patient experience|care quality|healthcare outcomes|results)/i,
+    re: /(?:تحسين|تعزيز|زيادة|رفع)\s+(?:كفاءة|رضا|تجربة|خدمة|رعاية|نتائج)|(?:رضاهم|ثقتهم|رعاية صحية متميزة|مرضى راضين|نتائج أفضل|توفير وقتك)|(?:improve|boost|increase|enhance)\s+(?:clinic efficiency|patient satisfaction|patient experience|care quality|healthcare outcomes|results)|\bsave(?:s|d|ing)?\s+(?:you\s+)?time\b/i,
   },
   {
     reason: 'unsupported_absolute_claim',
@@ -88,11 +80,11 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'unsupported_fake_product_visual',
-    re: /(?:يظهر\s+على\s+الشاشة\s+واجهة|واجهة\s+(?:إعداد|نظام|منصة|تطبيق|المستخدم)|لوحة\s+تحكم|شاشة\s+(?:تعرض|توضح)|تطبيق\s+\S+\s+(?:على|في)\s+(?:هاتف|جهاز|شاشة)|(?:app|software|product)\s+(?:interface|dashboard|screen)|dashboard\s+(?:showing|displaying)|screen\s+(?:showing|displaying))/i,
+    re: /(?:يظهر\s+على\s+الشاشة\s+واجهة|واجهة\s+(?:إعداد|نظام|منصة|تطبيق|المستخدم|مستخدم)|لوحة\s+تحكم|شاشة\s+(?:تعرض|توضح)|تطبيق\s+\S+\s+(?:على|في)\s+(?:هاتف|جهاز|شاشة)|(?:app|software|product)\s+(?:interface|dashboard|screen)|dashboard\s+(?:showing|displaying)|screen\s+(?:showing|displaying))/i,
   },
   {
     reason: 'unsupported_fake_product_visual',
-    re: /\b(?:with|featuring|showing|displaying)\s+(?:the\s+)?[^.?!]{0,60}\blogo\b|\bhappy customer\b/i,
+    re: /\b(?:with|featuring|showing|displaying)\s+(?:the\s+)?[^.?!]{0,60}\blogo\b|\bhappy customer\b|\bbranded (?:roastery|clinic|office|facility|factory)\b|\bexpert (?:barista|doctor|dentist|advisor)\b/i,
   },
 ]
 
@@ -112,11 +104,6 @@ function normalizeBrandHashtag(text: string, brand: string): string {
   })
 }
 
-function brandHashtag(brand: string): string {
-  const canonical = brand.trim().split(/[^\p{L}\p{N}]+/u).filter(Boolean).join('')
-  return canonical ? `#${canonical}` : '#Brand'
-}
-
 function finalizeCaption(text: string, ctx: ContentPlanRenderContext): string {
   return normalizeBrandHashtag(guardContentDraftText(text, ctx), ctx.brand)
 }
@@ -128,76 +115,6 @@ function stringifyContextValue(value: unknown): string {
     return Object.values(value as Record<string, unknown>).map(stringifyContextValue).join(' ')
   }
   return ''
-}
-
-type WeakCoffeeDraftKind = 'freshness' | 'subscription' | 'education'
-
-function classifyWeakCoffeeDraft(
-  source: string,
-  ctx: ContentPlanRenderContext,
-): WeakCoffeeDraftKind | null {
-  const facts = stringifyContextValue(ctx.brandFacts ?? [])
-  if (!/\b(?:coffee|beans?|roast(?:ed|ing)?)\b|قهوة|حبوب|تحميص/i.test(facts)) return null
-
-  const weakFreshness = /discover the secret|say goodbye to stale|as fresh as it gets|richer taste|keep (?:our|the) coffee fresh|taste the difference/i.test(source)
-  const weakSubscription = /coffee runs|(?:right |straight |directly )?to your (?:door|home)|hassle[-\s]?free|easy it is to subscribe|coffee needs taken care of|we(?:'|’)ve got you covered/i.test(source)
-  const weakEducation = /master the art|unlock the full potential|expert(?:\s+brewing)? tips|our (?:brewing )?tutorials|watch our (?:brewing )?tips|elevate your|transform your.*coffee/i.test(source)
-
-  if (weakEducation) return 'education'
-  if (weakSubscription) return 'subscription'
-  if (weakFreshness) return 'freshness'
-  return null
-}
-
-function renderGroundedCoffeeCaption(
-  source: string,
-  ctx: ContentPlanRenderContext,
-): string | null {
-  const kind = classifyWeakCoffeeDraft(source, ctx)
-  if (!kind) return null
-
-  const facts = stringifyContextValue(ctx.brandFacts ?? [])
-  const brand = ctx.brand.trim() || 'the brand'
-  const tag = brandHashtag(brand)
-
-  if (kind === 'education') {
-    return `Refine your home-brewing routine one variable at a time. Match grind size to the brewing method; record dose, water, temperature, and brew time; then change one variable on the next cup. Save this checklist for your next brew. #HomeBrewing #CoffeeGuide ${tag}`
-  }
-
-  if (kind === 'subscription') {
-    return `Before choosing a coffee subscription from ${brand}, compare the available coffee options, delivery frequency, supported zones, pause or cancellation terms, and total price. Save these five checks for later. #CoffeeSubscription #CoffeeChecklist ${tag}`
-  }
-
-  if (kind === 'freshness') {
-    const verifiedWeeklyRoast = /\b(?:weekly roast(?:ing)?|roast(?:ed|s)? weekly)\b|تحميص أسبوعي|تُحمص أسبوعيًا|محمصة أسبوعيًا/i.test(facts)
-    const weeklyFact = verifiedWeeklyRoast ? ` ${brand} states that its beans are roasted weekly.` : ''
-    return `Roast date and origin details matter when comparing coffee for home brewing.${weeklyFact} Review the published product details before choosing a bag or delivery option. Save this checklist: roast date, origin, grind format, and supported delivery zone. #CoffeeGuide #RoastDate ${tag}`
-  }
-
-  return null
-}
-
-function renderGroundedCoffeeImagePrompt(
-  source: string,
-  ctx: ContentPlanRenderContext,
-): string | null {
-  const kind = classifyWeakCoffeeDraft(source, ctx)
-  if (!kind) return null
-
-  const format = platformLabel(ctx.platform) === 'LinkedIn'
-    ? 'wide horizontal 1.91:1 composition'
-    : platformLabel(ctx.platform) === 'YouTube Shorts'
-      ? 'vertical 9:16 composition'
-      : 'vertical 4:5 composition'
-  const safety = 'No readable text, no logos, no brand marks, no branded packaging, no invented facility, no staged buyer reaction, no performance claim.'
-
-  if (kind === 'education') {
-    return `${format}; overhead home-brewing setup with a grinder, scale, kettle, dripper, notebook, and a neutral blank checklist. ${safety} No expert endorsement. Realistic editorial photography with generous negative space.`
-  }
-  if (kind === 'subscription') {
-    return `${format}; flat lay of unbranded coffee bags, calendar cards, neutral delivery-zone map shapes, and a blank comparison checklist. ${safety} No delivery uniform or satisfaction pose. Realistic editorial photography with generous negative space.`
-  }
-  return `${format}; roasted coffee beans beside a blank roast-date card, neutral origin-map shapes, a grinder, and an unbranded bag on a home-brewing table. ${safety} Realistic editorial photography with generous negative space.`
 }
 
 export function isClinicOperationalSaasContent(ctx: ContentPlanRenderContext, _gen: GeneratedContentPlanPostLike = {}): boolean {
@@ -214,201 +131,26 @@ export function isCustomerWorkflowSaasContent(ctx: ContentPlanRenderContext): bo
   return CUSTOMER_WORKFLOW_PRODUCT_RE.test(explicitFacts) && CUSTOMER_WORKFLOW_DOMAIN_RE.test(explicitFacts)
 }
 
-function inferClinicTopic(ctx: ContentPlanRenderContext, gen: GeneratedContentPlanPostLike): { ar: string; en: string } {
-  const primaryText = [
-    normalizeText(gen.caption),
-    normalizeText(gen.videoCaption),
-    normalizeText(gen.text),
-    normalizeText(gen.imagePrompt),
-  ].join(' ')
-  const primaryTopic = CLINIC_TOPIC_PATTERNS.find(pattern => pattern.re.test(primaryText))
-  if (primaryTopic) return primaryTopic
-
-  const text = [
-    ...(ctx.contentPillars ?? []),
-    ctx.keyMessage,
-    ctx.campaignName,
-    ctx.targetAudience,
-  ].join(' ')
-  return CLINIC_TOPIC_PATTERNS.find(pattern => pattern.re.test(text)) ?? {
-    ar: 'تنظيم العمل الإداري داخل العيادة',
-    en: 'clinic administrative workflow review',
-  }
-}
-
-function platformLabel(platform?: string): string {
-  const normalized = (platform ?? '').toUpperCase()
-  if (normalized === 'LINKEDIN') return 'LinkedIn'
-  if (normalized === 'TIKTOK') return 'TikTok'
-  if (normalized === 'YOUTUBE' || normalized === 'YOUTUBE_SHORTS') return 'YouTube Shorts'
-  return 'Meta'
-}
-
-function renderClinicCaption(ctx: ContentPlanRenderContext, gen: GeneratedContentPlanPostLike): string {
-  const topic = inferClinicTopic(ctx, gen)
-  const brand = ctx.brand.trim() || (ctx.isArabic ? 'المنصة' : 'the platform')
-  const slot = ctx.postIndex % 8
-
-  if (ctx.isArabic) {
-    const templates = [
-      `إذا ظهرت فوضى ${topic.ar} في نهاية اليوم، لا تبدأ بحل كبير. ابدأ بسؤالين: من سجّل المعلومة؟ ومن راجعها؟ مع ${brand} يمكن تحويل العمل الإداري إلى قائمة تشغيل داخلية قابلة للمراجعة. جرّب تدقيق يوم واحد هذا الأسبوع. #إدارة_العيادات #تشغيل_العيادات`,
-      `أكثر نقطة تُرهق فريق الاستقبال ليست الموعد نفسه؛ بل ما يحدث بين الحجز والمتابعة. ارسم مسار متابعة المرضى إداريًا من أول اتصال إلى آخر ملاحظة، ثم حدّد أين تنقطع. ${brand} مناسب لترتيب هذا المسار دون وعود طبية أو نتائج غير مثبتة. اكتب نقطة التعطّل الأولى. #عيادات #تنظيم_العمل`,
-      `التواصل الإداري ثنائي اللغة لا ينجح بمجرد ترجمة الرسالة. يحتاج الفريق إلى نسخة واضحة: ما المطلوب، من المسؤول، ومتى تتم المراجعة. استخدم ${brand} كإطار لتنظيم الرسائل الداخلية بالعربية والإنجليزية. اختر نموذج رسالة واحد وراجعه مع الفريق. #تواصل_إداري #عيادات`,
-      `قبل أن تضيف حملة جديدة، راجع آخر خمسة مواعيد: هل يوجد سبب واضح للتأخير؟ هل المتابعة مسجلة؟ هل الخطوة التالية مفهومة؟ ${brand} يحوّل هذه الأسئلة إلى مراجعة تشغيلية بسيطة بدل ملاحظات متفرقة. احفظ القائمة وناقشها في اجتماع الفريق. #تشغيل_العيادات`,
-      `الاعتماد على الذاكرة يجعل ${topic.ar} هشًا مع ضغط اليوم. اجعل لكل مهمة حالة واضحة: مفتوحة، قيد المراجعة، أو مكتملة إداريًا. مع ${brand} يمكن للفريق رؤية العمل كخطوات لا كرسائل متفرقة. ابدأ بثلاث مهام فقط. #إدارة_العمل #عيادات`,
-      `إذا كان الفريق يتنقل بين العربية والإنجليزية، فالغموض يتضاعف عند التسليم بين الزملاء. جرّب قالبًا موحدًا: الحالة، المسؤول، آخر تحديث، والخطوة التالية. ${brand} يساعد على جعل ${topic.ar} أوضح للفريق. راجع قالب التسليم قبل نهاية الأسبوع. #تواصل_إداري`,
-      `اجتماع الفريق لا يحتاج كلامًا أكثر؛ يحتاج جدول مراجعة أدق. ما المواعيد التي تحتاج متابعة؟ ما الرسائل المفتوحة؟ وما القرار الإداري التالي؟ استخدم ${brand} لتحويل الاجتماع إلى قائمة مراجعة تشغيلية. اختر بندًا واحدًا وابدأ به. #إدارة_العيادات`,
-      `إذا كانت نفس مشكلة ${topic.ar} تتكرر كل أسبوع، فهذا مؤشر أن العملية تحتاج مراجعة لا توبيخًا. في ديمو ${brand} يمكنك رؤية كيف يتحول العمل الإداري إلى خطوات أوضح للفريق. اطلب مراجعة قصيرة لمسار العمل قبل توسيع النشاط التسويقي. #ClinicOps #عيادات`,
-    ]
-    return templates[slot]
-  }
-
-  const templates = [
-    `When ${topic.en} gets messy, do not start with a bigger system. Start with two questions: who recorded the information, and who reviewed it? ${brand} can frame that work as a reviewable operating checklist. Pick one clinic day to audit this week.`,
-    `The front desk usually feels the handoff problem before leadership sees it. Map the path from booking to follow-up, then mark where the information gets unclear. Use ${brand} to organize the admin workflow without making patient-outcome promises.`,
-    `Bilingual admin communication is not only translation. The team needs a shared format: request, owner, last update, and next step. Use ${brand} as a framework for a clearer Arabic/English handoff. Review one message template before the week ends.`,
-    `Before adding another campaign, review the last five appointments. Was the next admin step clear? Was follow-up recorded? Was ownership visible? ${brand} turns those questions into a practical workflow review. Bring the checklist to your next team meeting.`,
-    `Memory is a fragile operating system for busy clinics. Give each task a simple state: open, under review, or administratively complete. ${brand} helps the team see the work as steps instead of scattered messages. Start with three open tasks.`,
-    `If the team moves between Arabic and English, handoff ambiguity compounds quickly. Try one shared format: status, owner, latest note, next admin step. ${brand} can make ${topic.en} easier to review. Test the format on one workflow.`,
-    `A better team meeting needs fewer opinions and a sharper agenda. Which appointments need admin review? Which follow-ups are open? What is the next decision? Use ${brand} to turn the conversation into a review checklist.`,
-    `If the same ${topic.en} issue appears every week, the process needs review, not blame. In a ${brand} demo, teams can see how admin work becomes clearer steps. Request a short workflow review before scaling the next campaign.`,
-  ]
-  return `${templates[slot]} #${platformLabel(ctx.platform)}`
-}
-
-function renderClinicImagePrompt(ctx: ContentPlanRenderContext, gen: GeneratedContentPlanPostLike): string {
-  const topic = inferClinicTopic(ctx, gen)
-  const platform = platformLabel(ctx.platform)
-  const slot = ctx.postIndex % 6
-  const format = platform === 'LinkedIn'
-    ? 'wide horizontal 1.91:1 composition'
-    : platform === 'YouTube Shorts'
-      ? 'vertical 9:16 composition'
-      : 'vertical 4:5 composition'
-  const scenes = [
-    `tidy clinic reception desk with a blank appointment checklist, neutral laptop closed, soft daylight, organized workspace`,
-    `clinic operations table with paper notes, calendar pages, pen, and a clean folder for administrative follow-up`,
-    `small clinic team reviewing a printed task checklist from a respectful distance, no patient procedure shown`,
-    `quiet clinic corridor with signage blurred beyond recognition, organized folders and appointment papers in the foreground`,
-    `front-desk workspace prepared for bilingual administrative communication, blank paper forms and neutral devices with screens turned away`,
-    `professional healthcare office still life with clipboard, calendar, and color-coded sticky notes for workflow review`,
-  ]
-  return [
-    `${format}; ${scenes[slot]}.`,
-    `Create a review-only background visual for ${topic.en}.`,
-    'No readable text, no logos, no brand marks, no invented software visuals, no charts, no metrics, no before-after claim, no medical procedure.',
-    'Clean premium SaaS marketing style, realistic photography, calm clinical colors, generous negative space for later editable headline and CTA layers.',
-  ].join(' ')
-}
-
-function renderCustomerWorkflowCaption(ctx: ContentPlanRenderContext): string {
-  const brand = ctx.brand.trim() || (ctx.isArabic ? 'المنصة' : 'the platform')
-  const facts = stringifyContextValue(ctx.brandFacts ?? [])
-  const hasArabicInterface = /واجهة\s+عربية|Arabic\s+interface/i.test(facts)
-  const hasFastSetup = /إعداد\s+سريع|fast\s+setup|quick\s+setup/i.test(facts)
-  const slot = ctx.postIndex % 8
-
-  if (ctx.isArabic) {
-    const templates = [
-      'حين تتوزع متابعة العملاء بين الرسائل والجداول، يصعب معرفة آخر تحديث. ابدأ بمراجعة ثلاثة حقول: العميل، المسؤول، والخطوة التالية. ' + brand + ' يساعد على تنظيم هذه المتابعة في مسار أوضح. راجع أسبوعًا واحدًا وحدد أين تنقطع المعلومة. #متابعة_العملاء #تنظيم_المبيعات',
-      'قبل إضافة أداة جديدة، ارسم مسار فرصة البيع الحالية: كيف دخل الطلب؟ من يتابعه؟ وما الحالة الآن؟ استخدم ' + brand + ' لتنظيم المسار ومراجعته دون تحويل كل رسالة إلى مهمة منفصلة. احفظ القائمة وجرّبها على خمس فرص قائمة. #فرص_البيع #سير_العمل',
-      hasArabicInterface
-        ? 'الواجهة العربية لا تعني ترجمة الأزرار فقط؛ قيمتها في أن تكون الحالة والمسؤول والخطوة التالية واضحة للفريق. ' + brand + ' يدعم سير عمل عربيًا لتنظيم طلبات العملاء. راجع تسمية ثلاث حالات قبل اعتمادها. #واجهة_عربية #متابعة_العملاء'
-        : 'وضوح اللغة يبدأ من تسمية الحالات والخطوات بطريقة يفهمها الفريق. مع ' + brand + ' يمكن تنظيم طلبات العملاء في مسار قابل للمراجعة. اختر ثلاث حالات واكتب معنى كل حالة قبل التوسع. #سير_العمل #طلبات_العملاء',
-      hasFastSetup
-        ? 'الإعداد السريع لا يعني تخطي المراجعة. ابدأ في ' + brand + ' بمسار واحد، ومسؤول واحد، وقاعدة واضحة للخطوة التالية. بعد أسبوع، راجع ما نجح وما يحتاج تعديلًا قبل إضافة مزيد من المراحل. #إعداد_سريع #تنظيم_العمل'
-        : 'ابدأ بمسار متابعة واحد بدل نقل كل العمل دفعة واحدة. حدّد المسؤول والحالة والخطوة التالية في ' + brand + '، ثم راجع التجربة بعد أسبوع قبل التوسع. #تنظيم_العمل #متابعة_العملاء',
-      'ليست كل فرصة بيع جاهزة لنفس الإجراء. قسّم المتابعة إلى: طلب جديد، يحتاج معلومات، قيد المراجعة، وخطوة تالية محددة. ' + brand + ' يساعد على إبقاء هذه الحالات واضحة دون وعود بنتائج غير مثبتة. راجع التعريفات مع الفريق. #إدارة_المبيعات',
-      'مراجعة المبيعات الأسبوعية تصبح أوضح عندما يبدأ الفريق من السجل نفسه: ما الذي تغيّر؟ من المسؤول؟ وما الخطوة التالية؟ استخدم ' + brand + ' كمرجع للمتابعة، ثم دوّن أي بيانات ما زالت ناقصة. #مراجعة_المبيعات #وضوح_العمل',
-      'إذا لم يكن للطلب مسؤول وخطوة تالية، فهو معرض للنسيان مهما كانت الأداة. اجعل كل سجل في ' + brand + ' يحمل هذين القرارين بوضوح، وراجع السجلات المفتوحة قبل نهاية الأسبوع. #طلبات_العملاء #متابعة_واضحة',
-      'عندما تتكرر نفس مشكلة المتابعة، راجع العملية قبل لوم الفريق. اختر نقطة واحدة في مسار العملاء، وثّق حالتها الحالية، ثم جرّب تعديلًا صغيرًا في ' + brand + '. قارن الملاحظات في المراجعة التالية. #تحسين_العمليات #فرص_البيع',
-    ]
-    return templates[slot]
-  }
-
-  const templates = [
-    'When customer follow-up is split across messages and spreadsheets, the latest update becomes hard to see. Start with customer, owner, and next step. Use ' + brand + ' to organize one reviewable workflow, then audit a single week.',
-    'Before adding another tool, map the current sales opportunity path: how did the request arrive, who owns it, and what is its status? Use ' + brand + ' to keep that path reviewable.',
-    'Clear workflow language starts with states the team understands. Use ' + brand + ' to organize customer requests around a small set of defined stages, then review the names before expanding.',
-    'Fast setup should not skip review. Start in ' + brand + ' with one workflow, one owner, and one clear next-step rule. Review the first week before adding more stages.',
-    'Not every sales opportunity needs the same action. Separate new requests, information gaps, items under review, and confirmed next steps. Use ' + brand + ' to keep those states visible without promising outcomes.',
-    'A weekly sales review is clearer when everyone starts from the same record: what changed, who owns it, and what comes next? Use ' + brand + ' as the follow-up reference.',
-    'A request without an owner and a next step can be forgotten regardless of the tool. Make those two decisions explicit in ' + brand + ', then review open records.',
-    'When the same follow-up issue repeats, review the process before blaming the team. Pick one point in the customer journey and test one small workflow change in ' + brand + '.',
-  ]
-  return templates[slot] + ' #CustomerFollowUp #SalesWorkflow'
-}
-
-function renderCustomerWorkflowImagePrompt(ctx: ContentPlanRenderContext): string {
-  const platform = platformLabel(ctx.platform)
-  const format = platform === 'LinkedIn'
-    ? 'wide horizontal 1.91:1 composition'
-    : platform === 'YouTube Shorts'
-      ? 'vertical 9:16 composition'
-      : 'vertical 4:5 composition'
-  const scenes = [
-    'small business owner reviewing blank customer follow-up cards on a tidy desk, laptop screen turned away',
-    'paper workflow with neutral blank cards for request, owner, status, and next step, no readable text',
-    'small team reviewing a printed follow-up checklist, devices closed or screens turned away',
-    'organized desk with blank pipeline cards, notebook, and pen, no charts or performance numbers',
-    'customer request notes being sorted into neutral color-coded folders, no readable text',
-    'weekly review setup with blank checklist sheets and a closed laptop, calm professional workspace',
-  ]
-  return [
-    format + '; ' + scenes[ctx.postIndex % scenes.length] + '.',
-    'Review-only background visual for customer follow-up workflow organization.',
-    'No readable text, no logos, no brand marks, no visible software UI, no charts, no metrics, no arrows implying growth, and no before-after result claim.',
-    'Realistic professional photography, calm neutral colors, generous negative space for later editable headline and CTA layers.',
-  ].join(' ')
-}
-
 export function renderContentPlanDraftCaption(
   gen: GeneratedContentPlanPostLike,
   ctx: ContentPlanRenderContext,
 ): string {
   const source = normalizeText(gen.caption) || normalizeText(gen.videoCaption) || normalizeText(gen.text)
-  const groundedCoffeeCaption = renderGroundedCoffeeCaption(source, ctx)
-  if (groundedCoffeeCaption) return finalizeCaption(groundedCoffeeCaption, ctx)
-
-  const guardedSource = guardContentDraftText(
-    source,
-    ctx,
-  )
-
-  if (isClinicOperationalSaasContent(ctx, gen)) {
-    return finalizeCaption(renderClinicCaption(ctx, gen), ctx)
-  }
-
-  if (isCustomerWorkflowSaasContent(ctx)) {
-    return finalizeCaption(renderCustomerWorkflowCaption(ctx), ctx)
-  }
-
-  return guardedSource
-    ? normalizeBrandHashtag(guardedSource, ctx.brand)
-    : finalizeCaption(
-    ctx.isArabic
-      ? `${ctx.brand || 'علامتك'} — راجع الفكرة الأساسية والخطوة التالية قبل النشر.`
-      : `${ctx.brand || 'Your brand'} — review the core idea and next step before publishing.`,
-    ctx,
-  )
+  // The renderer may sanitize model copy, but it must never replace it with a
+  // separate domain template. Template substitution created a second content
+  // source and previously turned a dental-service campaign into clinic-admin
+  // software posts. Empty/unsafe output now reaches the save gate and fails
+  // with a refund instead of being silently replaced with invented content.
+  return source ? finalizeCaption(source, ctx) : ''
 }
 
 export function renderContentPlanDraftImagePrompt(
   gen: GeneratedContentPlanPostLike,
   ctx: ContentPlanRenderContext,
 ): string {
-  const source = normalizeText(gen.caption) || normalizeText(gen.videoCaption) || normalizeText(gen.text)
-  const groundedCoffeePrompt = renderGroundedCoffeeImagePrompt(source, ctx)
-  if (groundedCoffeePrompt) return guardContentDraftText(groundedCoffeePrompt, ctx)
-
-  if (isClinicOperationalSaasContent(ctx, gen)) {
-    return guardContentDraftText(renderClinicImagePrompt(ctx, gen), ctx)
-  }
-
-  if (isCustomerWorkflowSaasContent(ctx)) {
-    return guardContentDraftText(renderCustomerWorkflowImagePrompt(ctx), ctx)
-  }
-
+  // Image direction is also kept tied to the generated post. If it is unsafe,
+  // validateContentPlanDraftForSave rejects it; no alternate industry scene is
+  // invented behind the user's back.
   return guardContentDraftText(normalizeText(gen.imagePrompt), ctx)
 }
 

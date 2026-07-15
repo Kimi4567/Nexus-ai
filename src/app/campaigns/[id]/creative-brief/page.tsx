@@ -3031,7 +3031,9 @@ export default function CreativeBriefPage() {
           </button>
           <div style={{ minWidth: 0, flex: '1 1 220px', textAlign: 'center' }}>
             <p style={{ margin: 0, fontSize: 12, color: '#64748B', fontWeight: 850 }}>
-              {activeStepIndex + 1} / {CREATIVE_BRIEF_STEP_IDS.length} · {activeWorkflowStep.title}
+              {locale === 'ar'
+                ? `الخطوة ${activeStepIndex + 1} من ${CREATIVE_BRIEF_STEP_IDS.length} · ${activeWorkflowStep.title}`
+                : `${activeStepIndex + 1} / ${CREATIVE_BRIEF_STEP_IDS.length} · ${activeWorkflowStep.title}`}
             </p>
           </div>
           <button

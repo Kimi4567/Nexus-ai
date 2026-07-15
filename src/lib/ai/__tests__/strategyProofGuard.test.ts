@@ -470,6 +470,22 @@ describe('strategyProofGuard', () => {
     expect(joined).toMatch(/فهم الخطوات قبل البدء|فرضية تحتاج إلى بيانات فعلية|عدم توسيع القنوات/)
   })
 
+  it('turns unsupported causal performance language into testable hypotheses', () => {
+    const guarded = guardStrategyProof([
+      'Visual content will drive trust and awareness.',
+      'Engagement will lead to qualified inquiries.',
+      'المحتوى المرئي سيزيد الثقة لدى الجمهور.',
+      'التفاعل سيؤدي إلى استفسارات ومبيعات.',
+    ], { verifiedProof: [] })
+    const joined = guarded.join(' ')
+
+    expect(joined).toContain('hypothesis to test')
+    expect(joined).toContain('associated with qualified inquiries')
+    expect(joined).toContain('فرضية تحتاج إلى اختبار')
+    expect(joined).toContain('يرتبط باستفسارات مؤهلة')
+    expect(joined).not.toMatch(/will drive trust|will lead to qualified inquiries|سيزيد الثقة|سيؤدي إلى استفسارات/)
+  })
+
   it('softens standalone Arabic guarantees but preserves inclusion wording', () => {
     const guarded = guardStrategyProof([
       'هذه العملية تضمن نتائج أفضل.',

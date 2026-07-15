@@ -27,7 +27,9 @@ describe('strategy approval contract', () => {
   it('keeps the approved execution status contract explicit', () => {
     expect(['ACTIVE', 'SCHEDULED', 'PAUSED', 'COMPLETED'].map(hasApprovedStrategyExecutionStatus)).toEqual([true, true, true, true])
     expect(['DRAFT', 'ARCHIVED'].map(hasApprovedStrategyExecutionStatus)).toEqual([false, false])
-    expect(['ACTIVE', 'SCHEDULED', 'PAUSED', 'COMPLETED'].map(canMutateCampaignExecution)).toEqual([true, false, false, false])
+    const reviewedOutput = campaign().aiOutput
+    expect(['ACTIVE', 'SCHEDULED', 'PAUSED', 'COMPLETED'].map(status => canMutateCampaignExecution(status, reviewedOutput))).toEqual([true, false, false, false])
+    expect(canMutateCampaignExecution('ACTIVE', { strategy: { positioning: 'Legacy' } })).toBe(false)
   })
 
   it('blocks an empty strategy', () => {
@@ -82,6 +84,28 @@ describe('strategy approval contract', () => {
     expect(result.state).toBe('approved')
     expect(result.canApprove).toBe(false)
     expect(result.canRevoke).toBe(true)
+  })
+
+  it('never lets a legacy ACTIVE status override the current quality gate', () => {
+    const result = buildStrategyApprovalContract({
+      campaign: campaign({
+        status: 'ACTIVE',
+        aiOutput: {
+          strategy: { positioning: 'Legacy direction' },
+          sentinelReview: { status: 'passed' },
+        },
+      }),
+      latestDecision: {
+        eventType: 'STRATEGY_APPROVED',
+        createdAt: '2026-07-12T11:00:00.000Z',
+        source: 'CAMPAIGN_REVIEW',
+      },
+    })
+
+    expect(result.state).toBe('blocked')
+    expect(result.canApprove).toBe(false)
+    expect(result.canRevoke).toBe(false)
+    expect(result.approvalBlockers[0]?.code).toBe('MARKETING_QUALITY_GATE_REQUIRED')
   })
 
   it('preserves approval truth for legacy scheduled campaigns', () => {

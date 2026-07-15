@@ -38,7 +38,7 @@ describe('paid strategy source truth', () => {
     })).toMatchObject({
       eligible: false,
       reason: 'QUALITY_REVIEW_REQUIRED',
-      approvalState: 'approved',
+      approvalState: 'blocked',
     })
   })
 

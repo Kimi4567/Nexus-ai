@@ -127,7 +127,11 @@ beforeEach(() => {
   mocks.getUserId.mockResolvedValue('user-1')
   mocks.campaignFindFirst.mockResolvedValue({
     id: 'campaign-1', workspaceId: 'workspace-1', status: 'ACTIVE',
-    aiOutput: { strategy: { positioning: 'Reviewed offer for the saved audience' } },
+    aiOutput: {
+      strategy: { positioning: 'Reviewed offer for the saved audience' },
+      qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
+      sentinelReview: { status: 'passed' },
+    },
     goal: 'LEADS', platforms: ['YOUTUBE_SHORTS'],
   })
   mocks.brandProfileFindUnique.mockResolvedValue({

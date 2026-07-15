@@ -19,7 +19,11 @@ export async function GET(request: Request) {
   const rawLimit = parseInt(searchParams.get('limit') || '50', 10)
   const limit = Math.min(Math.max(1, rawLimit), 100)
 
-  const history = await getCreditHistory(userId, limit)
-
-  return NextResponse.json({ history })
+  try {
+    const history = await getCreditHistory(userId, limit)
+    return NextResponse.json({ history })
+  } catch (error) {
+    console.error('[credits/history] Failed to load credit ledger', error)
+    return NextResponse.json({ error: 'CREDIT_HISTORY_UNAVAILABLE' }, { status: 500 })
+  }
 }

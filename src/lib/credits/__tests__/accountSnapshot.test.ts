@@ -58,4 +58,24 @@ describe('resolveCreditDisplay', () => {
       creditBreakdown: { monthly: 120, purchased: 50 },
     })
   })
+
+  it('shows a migrated balance as its own auditable bucket instead of three misleading zero buckets', () => {
+    expect(resolveCreditDisplay({
+      subscriptionStatus: 'ACTIVE',
+      aiCredits: 171,
+      monthlyGenerations: 56,
+      planName: 'pro',
+      hasActiveSubscription: true,
+      walletEnabled: true,
+      grants: [{ type: 'MIGRATED', remaining: 171, expiresAt: null }],
+    })).toMatchObject({
+      remaining: 171,
+      creditBreakdown: {
+        monthly: 0,
+        purchased: 0,
+        trial: 0,
+        migrated: 171,
+      },
+    })
+  })
 })

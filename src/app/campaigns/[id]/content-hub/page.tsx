@@ -790,6 +790,7 @@ export default function ContentHubPage() {
     ambiguousPreviewCount,
     videoPostCount,
     hasOrderMismatch: Boolean(contentPlanOrderMismatch),
+    hasQualityMismatch: contentReviewRequired,
   })
   const contentHubTruthToneClass: Record<StrategyFulfillmentTone, string> = {
     positive: 'border-emerald-200 bg-emerald-50 text-emerald-950',
@@ -864,8 +865,13 @@ export default function ContentHubPage() {
   const selectedContentPlanCost = contentPlanTruth.cost + (enableABTesting ? abVariantTruth.cost : 0)
   const contentPlanCanAfford = isUnlimited || creditsRemaining >= selectedContentPlanCost
   const contentPlanLocked = !billingLoading && !contentPlanCanAfford
-  const strategyApprovalRequired = Boolean(campaign && !canMutateCampaignExecution(String(campaign.status ?? '')))
-  const strategyApprovalRequiredLabel = isAr ? 'راجع واعتمد الاستراتيجية أولاً' : 'Review and approve strategy first'
+  const strategyApprovalRequired = Boolean(campaign && !canMutateCampaignExecution(
+    String(campaign.status ?? ''),
+    campaign.aiOutput,
+  ))
+  const strategyApprovalRequiredLabel = campaign?.status === 'ACTIVE'
+    ? (isAr ? 'أكمل مراجعة حقيقة الاستراتيجية أولاً' : 'Complete the strategy truth review first')
+    : (isAr ? 'راجع واعتمد الاستراتيجية أولاً' : 'Review and approve strategy first')
   const addCreditsForImagesLabel = isAr ? 'أضف رصيداً لتوليد الصور' : 'Add credits to generate images'
   const contentPlanCostLabel = isAr
     ? `${selectedContentPlanCost} كريديت`
@@ -1039,14 +1045,16 @@ export default function ContentHubPage() {
     },
     {
       label: isAr ? 'مراجعة النصوص' : 'Copy review',
-      value: posts.length ? `${Math.max(0, posts.length - draftCount)} / ${posts.length}` : '0 / 0',
+      value: isAr
+        ? `${Math.max(0, posts.length - draftCount)} من ${posts.length}`
+        : posts.length ? `${Math.max(0, posts.length - draftCount)} / ${posts.length}` : '0 / 0',
       helper: isAr ? 'المسودات تراجع هنا؛ الكتابة والتحسين لا ينشران تلقائياً.' : 'Drafts are reviewed here; copy edits never publish automatically.',
       tone: 'text-[#5E63FF] bg-[#F2F4FF] border-[#DDE2FF]',
     },
     {
       label: isAr ? 'جاهزية الوسائط' : 'Media readiness',
-      value: `${doneCount} / ${totalImagePosts}`,
-      helper: isAr ? 'الأصول النهائية تأتي من الاستوديو أو المكتبة ثم تربط هنا.' : 'Final assets come from Studio or Media Library, then attach here.',
+      value: isAr ? `${doneCount} من ${totalImagePosts}` : `${doneCount} / ${totalImagePosts}`,
+      helper: isAr ? 'الأصول النهائية تأتي من الاستوديو أو مكتبة الوسائط ثم تُربط هنا.' : 'Final assets come from Studio or Media Library, then attach here.',
       tone: doneCount >= totalImagePosts && totalImagePosts > 0 ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : 'text-amber-600 bg-amber-50 border-amber-200',
     },
     {
@@ -2207,17 +2215,17 @@ export default function ContentHubPage() {
                   {[
                     {
                       step: '01',
-                      title: isAr ? 'Strategy' : 'Strategy',
+                      title: isAr ? 'الاستراتيجية' : 'Strategy',
                       body: isAr ? 'يحدد الوعد والعدد والمنصات.' : 'Defines promise, count, and platforms.',
                     },
                     {
                       step: '02',
-                      title: isAr ? 'Studio' : 'Studio',
+                      title: isAr ? 'الاستوديو' : 'Studio',
                       body: isAr ? 'ينتج الأصول والنسخ الإبداعية.' : 'Produces assets and creative variants.',
                     },
                     {
                       step: '03',
-                      title: isAr ? 'Content Hub' : 'Content Hub',
+                      title: isAr ? 'مركز المحتوى' : 'Content Hub',
                       body: isAr ? 'يثبت البوست النهائي قبل الجدولة والنشر.' : 'Locks final post truth before scheduling and publishing.',
                     },
                   ].map(item => (
@@ -3451,17 +3459,25 @@ export default function ContentHubPage() {
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-slate-950">Choose from Media Library</h3>
-                <button onClick={() => setMediaPickerOpen(null)} className="text-slate-400 hover:text-slate-700 text-xl">×</button>
+                <h3 className="font-semibold text-slate-950">
+                  {isAr ? 'اختر من مكتبة الوسائط' : 'Choose from Media Library'}
+                </h3>
+                <button
+                  type="button"
+                  aria-label={isAr ? 'إغلاق مكتبة الوسائط' : 'Close media library'}
+                  onClick={() => setMediaPickerOpen(null)}
+                  className="text-slate-400 hover:text-slate-700 text-xl"
+                >×</button>
               </div>
               {mediaLibrary.length === 0 ? (
                 <div className="text-center py-12 text-slate-500">
-                  <p className="mb-3">No images uploaded yet</p>
+                  <p className="mb-3">{isAr ? 'لم تُرفع صور بعد' : 'No images uploaded yet'}</p>
                   <button
+                    type="button"
                     onClick={() => router.push('/media')}
                     className="text-sm text-[#5E5CE6] hover:text-[#4845C7]"
                   >
-                    Go to Media Library →
+                    {isAr ? 'اذهب إلى مكتبة الوسائط ←' : 'Go to Media Library →'}
                   </button>
                 </div>
               ) : (
@@ -3470,13 +3486,14 @@ export default function ContentHubPage() {
                     .filter(m => ['image', 'IMAGE', 'logo', 'LOGO'].includes(m.type))
                     .map(m => (
                       <button
+                        type="button"
                         key={m.id}
                         onClick={() => mediaPickerOpen && requestMediaAttachment(mediaPickerOpen, m)}
                         className="relative group aspect-square rounded-xl overflow-hidden transition-all hover:ring-2 hover:ring-purple-500"
                       >
                         <img src={m.url} alt={m.fileName} className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                          <span className="text-white text-xs font-medium">Use this</span>
+                          <span className="text-white text-xs font-medium">{isAr ? 'استخدم هذا الأصل' : 'Use this'}</span>
                         </div>
                       </button>
                     ))}
