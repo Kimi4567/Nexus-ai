@@ -281,9 +281,9 @@ export function reviewBrandTruthConsistency(
     if (!signature.business.test(businessText)) continue
     if (!industry) break
     if (!signature.industry.test(industry)) {
-      warnings.push(finding(
+      blockers.push(finding(
         'brand_industry_too_broad_or_misaligned',
-        'warning',
+        'blocker',
         'brand.industry',
         `The saved industry does not explicitly match the ${signature.id} business described in Brand Brain. Confirm a more precise category.`,
       ))

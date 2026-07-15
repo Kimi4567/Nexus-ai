@@ -13,6 +13,7 @@ import { BRAND_INDUSTRY_OPTIONS, getBrandIndustryLabel, getBrandIndustryOption, 
 import { getStrategyCapabilities } from '@/lib/brandReadiness'
 import { getBrandBrainGenerationFieldLabel, getBrandBrainGenerationSafety } from '@/lib/brandBrainGenerationSafety'
 import { getBrandIndicators, type BrandIndicators } from '@/lib/brandIndicators'
+import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import type { BrandBrainContract } from '@/lib/brandBrainContract'
 import ReviewSuggestions, { type AssistSuggestion, type SuggestionSource } from '@/components/brand/ReviewSuggestions'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -213,12 +214,14 @@ function SuggestionCard({ suggestion, onAccept, onDismiss, accent, locale }: {
   )
 }
 
-function BrandStatusPanel({ indicators, locale, contract }: {
+function BrandStatusPanel({ indicators, locale, contract, organicTruthBlocked = false }: {
   indicators: BrandIndicators
   locale: string
   contract?: BrandBrainContract | null
+  organicTruthBlocked?: boolean
 }) {
   const ar = locale === 'ar'
+  const organicReady = indicators.organicReadiness.ready && !organicTruthBlocked
   const rows = [
     ...(contract ? [{
       label: ar ? 'إصدار الذاكرة' : 'Memory revision',
@@ -236,8 +239,8 @@ function BrandStatusPanel({ indicators, locale, contract }: {
     },
     {
       label: ar ? 'الجاهزية العضوية' : 'Organic readiness',
-      value: indicators.organicReadiness.ready ? (ar ? 'جاهزة لموجز عضوي' : 'Ready for organic brief') : (ar ? 'تحتاج بيانات' : 'Needs data'),
-      helper: indicators.organicReadiness.ready ? (ar ? 'الأساس العضوي مكتمل' : 'Minimum organic set complete') : (ar ? 'أكمل الحقول الناقصة' : 'Complete missing fields'),
+      value: organicReady ? (ar ? 'جاهزة لموجز عضوي' : 'Ready for organic brief') : organicTruthBlocked ? (ar ? 'تحتاج مراجعة اتساق' : 'Needs consistency review') : (ar ? 'تحتاج بيانات' : 'Needs data'),
+      helper: organicReady ? (ar ? 'الأساس العضوي مكتمل' : 'Minimum organic set complete') : organicTruthBlocked ? (ar ? 'صحّح تعارض المجال مع وصف النشاط' : 'Resolve the industry and business-description conflict') : (ar ? 'أكمل الحقول الناقصة' : 'Complete missing fields'),
     },
     {
       label: ar ? 'التخطيط المدفوع' : 'Paid planning',
@@ -1125,7 +1128,11 @@ function BrandBrainInner() {
   const brandIndicators = getBrandIndicators(form, {
     acceptedLearningCount: typeof form?.acceptedLearningCount === 'number' ? form.acceptedLearningCount : 0,
   })
-  const coreBrandReady = brandIndicators.organicReadiness.ready
+  const brandTruthReview = reviewBrandTruthConsistency(form)
+  const industryTruthConflict = brandTruthReview.blockers.some(
+    finding => finding.code === 'brand_industry_too_broad_or_misaligned',
+  )
+  const coreBrandReady = brandIndicators.organicReadiness.ready && brandTruthReview.status === 'passed'
   const generationSafety = getBrandBrainGenerationSafety(form)
   const generationSafetyLabels = generationSafety.excludedFields.map(field =>
     getBrandBrainGenerationFieldLabel(field, locale === 'ar' ? 'ar' : 'en')
@@ -1225,7 +1232,9 @@ function BrandBrainInner() {
             primaryHref={coreBrandReady ? '/strategy' : '#brand-profile-workspace'}
             primaryLabel={coreBrandReady
               ? (locale === 'ar' ? 'ابدأ استراتيجية' : 'Start strategy')
-              : (locale === 'ar' ? 'أكمل الحقول الأساسية' : 'Complete core fields')}
+              : industryTruthConflict
+                ? (locale === 'ar' ? 'صحّح تعارض المجال' : 'Resolve industry conflict')
+                : (locale === 'ar' ? 'أكمل الحقول الأساسية' : 'Complete core fields')}
             secondaryHref="/campaigns"
             secondaryLabel={locale === 'ar' ? 'الحملات' : 'Campaigns'}
           />
@@ -1298,9 +1307,13 @@ function BrandBrainInner() {
                         : 'Review the details once, then use them as the stable foundation for every marketing decision.'}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${brandIndicators.organicReadiness.ready ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                      <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${coreBrandReady ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                         {locale === 'ar' ? 'العضوي: ' : 'Organic: '}
-                        {brandIndicators.organicReadiness.ready ? (locale === 'ar' ? 'جاهز' : 'Ready') : (locale === 'ar' ? 'يحتاج بيانات' : 'Needs data')}
+                        {coreBrandReady
+                          ? (locale === 'ar' ? 'جاهز' : 'Ready')
+                          : industryTruthConflict
+                            ? (locale === 'ar' ? 'راجع اتساق المجال' : 'Review industry consistency')
+                            : (locale === 'ar' ? 'يحتاج بيانات' : 'Needs data')}
                       </span>
                       <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${brandIndicators.paidReadiness.ready ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                         {locale === 'ar' ? 'المدفوع: ' : 'Paid: '}
@@ -1328,6 +1341,37 @@ function BrandBrainInner() {
                   </button>
                 </div>
               </div>
+
+              {industryTruthConflict && (
+                <div
+                  className="rounded-2xl p-4 sm:p-5"
+                  style={{ background: '#FFF7ED', border: '1px solid rgba(234,88,12,0.24)' }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-white" style={{ border: '1px solid rgba(234,88,12,0.24)' }}>
+                      <AlertTriangle size={17} className="text-orange-600" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-slate-950">
+                        {locale === 'ar' ? 'المجال لا يطابق وصف النشاط' : 'Industry does not match the business description'}
+                      </p>
+                      <p className="mt-1 text-[13px] leading-relaxed text-slate-700">
+                        {locale === 'ar'
+                          ? `المجال المحفوظ هو «${getBrandIndustryLabel(form.industry, 'ar') || 'غير محدد'}»، بينما وصف النشاط والعرض يشيران إلى مجال مختلف. صحّح المجال قبل إنشاء استراتيجية جديدة حتى لا ينحرف المحتوى.`
+                          : `The saved industry is “${getBrandIndustryLabel(form.industry, 'en') || 'not set'}”, while the business description and offer indicate a different category. Correct it before creating a new strategy so content cannot drift.`}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => { setWizardStage('edit'); setStep('identity') }}
+                        className="mt-3 rounded-xl bg-white px-3.5 py-2 text-xs font-bold text-orange-700"
+                        style={{ border: '1px solid rgba(234,88,12,0.24)' }}
+                      >
+                        {locale === 'ar' ? 'راجع حقل المجال' : 'Review industry field'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {generationSafetyLabels.length > 0 && (
                 <div
@@ -1671,7 +1715,7 @@ function BrandBrainInner() {
               <div className="hidden">
                 {[
                   [locale === 'ar' ? 'اكتمال الملف الأساسي' : 'Core profile completeness', `${brandIndicators.brandCompleteness.score}%`],
-                  [locale === 'ar' ? 'العضوي' : 'Organic', brandIndicators.organicReadiness.ready ? (locale === 'ar' ? 'جاهز لموجز' : 'Ready for brief') : (locale === 'ar' ? 'يحتاج بيانات' : 'Needs data')],
+                  [locale === 'ar' ? 'العضوي' : 'Organic', coreBrandReady ? (locale === 'ar' ? 'جاهز لموجز' : 'Ready for brief') : industryTruthConflict ? (locale === 'ar' ? 'راجع اتساق المجال' : 'Review industry consistency') : (locale === 'ar' ? 'يحتاج بيانات' : 'Needs data')],
                   [locale === 'ar' ? 'المدفوع' : 'Paid', brandIndicators.paidReadiness.ready ? (locale === 'ar' ? 'جاهز لمراجعة المدفوع' : 'Paid review ready') : (locale === 'ar' ? 'يحتاج متطلبات' : 'Needs prerequisites')],
                   [locale === 'ar' ? 'ثراء الذاكرة' : 'Memory richness', brandIndicators.memoryRichness.level === 'high' ? (locale === 'ar' ? 'غنية' : 'Rich') : brandIndicators.memoryRichness.level === 'medium' ? (locale === 'ar' ? 'تتكوّن' : 'Building') : (locale === 'ar' ? 'مبكرة' : 'Early')],
                 ].map(([label, value]) => (
@@ -1683,7 +1727,7 @@ function BrandBrainInner() {
               </div>
               <p className="mt-4 text-sm text-slate-600">
                 {hasExistingBrandMemory
-                  ? brandIndicators.organicReadiness.ready
+                  ? coreBrandReady
                     ? (locale === 'ar'
                         ? 'تم حفظ الحقول الأساسية في Brand Brain. يمكنك مراجعتها أو إثراء الملف قبل توليد الاستراتيجية.'
                         : 'Your core Brand Brain fields are saved. You can review or enrich the file before generating strategy.')
@@ -1879,9 +1923,9 @@ function BrandBrainInner() {
               <p className="text-sm text-slate-500 mb-4">
                 {locale === 'ar' ? 'هذا ما تعرفه NEXUS عن علامتك حتى الآن.' : 'Here’s what NEXUS knows about your brand so far.'}
               </p>
-              <BrandStatusPanel indicators={brandIndicators} locale={locale} contract={contract} />
+              <BrandStatusPanel indicators={brandIndicators} locale={locale} contract={contract} organicTruthBlocked={industryTruthConflict} />
               <div className="mt-5">
-                {brandIndicators.organicReadiness.ready ? (
+                {coreBrandReady ? (
                   <button onClick={() => router.push('/strategy')}
                     className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all"
                     style={{ background:'linear-gradient(135deg,#f59e0b,#d97706)', color:'#0a0a0a' }}>
@@ -2276,7 +2320,7 @@ function BrandBrainInner() {
               </nav>
               {/* Readiness summary */}
               <div className="rounded-2xl p-3" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
-                <BrandStatusPanel indicators={brandIndicators} locale={locale} contract={contract} />
+                <BrandStatusPanel indicators={brandIndicators} locale={locale} contract={contract} organicTruthBlocked={industryTruthConflict} />
               </div>
               {/* Save (always reachable) */}
               <button onClick={handleSave} disabled={saving}
@@ -2831,7 +2875,7 @@ function BrandBrainInner() {
 
                         <div className="rounded-xl p-4" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)' }}>
                           <p className="text-sm font-bold text-slate-950 mb-3">{ar ? 'الجاهزية الحالية' : 'Current readiness'}</p>
-                          <BrandStatusPanel indicators={brandIndicators} locale={locale} contract={contract} />
+                          <BrandStatusPanel indicators={brandIndicators} locale={locale} contract={contract} organicTruthBlocked={industryTruthConflict} />
                         </div>
                       </div>
                     </div>
@@ -2860,7 +2904,7 @@ function BrandBrainInner() {
                         {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                         {saving ? t('brand.savingBtn') : t('brand.saveAllBtn')}
                       </button>
-                      {brandIndicators.organicReadiness.ready && (
+                      {coreBrandReady && (
                         <button onClick={() => router.push('/strategy')}
                           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold"
                           style={{ background:'#FFFFFF', color:'#5E5CE6', border:'1px solid rgba(94,92,230,0.22)' }}>

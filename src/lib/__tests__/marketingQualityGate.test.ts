@@ -48,6 +48,16 @@ describe('marketingQualityGate', () => {
     expect(report.blockers.map(item => item.code)).toContain('brand_age_range_conflict')
   })
 
+  it('blocks strategy readiness when the saved industry conflicts with the business description', () => {
+    const report = reviewBrandTruthConsistency({
+      ...dentalBrand,
+      industry: 'Health & Beauty',
+    }, '2026-07-14T00:00:00.000Z')
+
+    expect(report.status).toBe('blocked')
+    expect(report.blockers.map(item => item.code)).toContain('brand_industry_too_broad_or_misaligned')
+  })
+
   it('allows missing proof as a visible limitation rather than inventing it', () => {
     const report = reviewStrategyGrounding({
       strategy: groundedStrategy,
