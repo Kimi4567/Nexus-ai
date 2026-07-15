@@ -50,13 +50,22 @@ const db = prisma as any
 
 export const maxDuration = 60 // Vercel function timeout
 
-async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
-  if (credit.creditsUsed <= 0) return
+async function refundDeductedCredits(
+  userId: string,
+  credit: CreditDeductionOk,
+  reason: string,
+): Promise<{ refunded: boolean; refundPending: boolean }> {
+  if (credit.creditsUsed <= 0) return { refunded: false, refundPending: false }
   if (credit.transactionId) {
-    await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
-    return
+    const result = await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
+    return result && !result.ok
+      ? { refunded: false, refundPending: true }
+      : { refunded: true, refundPending: false }
   }
-  await refundCredits(userId, 'IMAGE_GENERATION', reason)
+  const result = await refundCredits(userId, 'IMAGE_GENERATION', reason)
+  return result && !result.ok
+    ? { refunded: false, refundPending: true }
+    : { refunded: true, refundPending: false }
 }
 
 export async function POST(req: NextRequest) {
@@ -227,11 +236,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(getMediaStorageUnavailablePayload(language), { status: 503 })
   }
 
-  // ── Deduct credits before expensive DALL-E call ───────────────────────────
-  const credit = await checkAndDeductCredits(userId, 'IMAGE_GENERATION')
-  if (!credit.ok) return NextResponse.json(credit, { status: 402 })
-
-  // ── Create the DB record in GENERATING state ──────────────────────────────
+  // ── Create the durable audit row before charging ──────────────────────────
+  // The debit is linked to this row, so a crashed request or temporarily failed
+  // refund can be reconciled exactly without guessing which generation spent it.
   let visual: any
   try {
     visual = await db.generatedVisual.create({
@@ -256,15 +263,28 @@ export async function POST(req: NextRequest) {
   } catch (dbErr) {
     const message = dbErr instanceof Error ? dbErr.message : 'Visual record creation failed'
     console.error('[visuals/generate] DB create error:', message)
-    // A generated asset without a durable audit record cannot be safely attached
-    // to Content Hub or counted against limits. Fail closed before calling the
-    // image provider and refund the exact reserved wallet source.
-    await refundDeductedCredits(userId, credit, message)
     return NextResponse.json({
       error: 'Image generation could not start because its media record was not created.',
       code: 'MEDIA_RECORD_CREATE_FAILED',
-      refunded: credit.creditsUsed > 0,
+      creditsCharged: false,
+      refunded: false,
+      refundPending: false,
     }, { status: 500 })
+  }
+
+  // ── Deduct credits before the expensive provider call ─────────────────────
+  const credit = await checkAndDeductCredits(
+    userId,
+    'IMAGE_GENERATION',
+    undefined,
+    { entityId: visual.id, entityType: 'generated_visual_image' },
+  )
+  if (!credit.ok) {
+    await db.generatedVisual.update({
+      where: { id: visual.id },
+      data: { status: 'FAILED', errorMessage: 'Image generation did not start because credits were unavailable.' },
+    }).catch(() => {})
+    return NextResponse.json(credit, { status: 402 })
   }
 
   // ── Run generation — server auto-detects provider ────────────────────────
@@ -353,8 +373,15 @@ export async function POST(req: NextRequest) {
     }).catch(() => {})
 
     // Refund — the user must not be charged for a failed image (skip unlimited plans)
-    await refundDeductedCredits(userId, credit, err.message || 'Image generation failed')
+    const refund = await refundDeductedCredits(userId, credit, err.message || 'Image generation failed')
 
-    return NextResponse.json({ error: err.message || 'Image generation failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
+    return NextResponse.json({
+      error: err.message || 'Image generation failed',
+      message: refund.refundPending
+        ? 'Image generation failed. Credit restoration is pending automatic reconciliation.'
+        : undefined,
+      refunded: refund.refunded,
+      refundPending: refund.refundPending,
+    }, { status: 500 })
   }
 }

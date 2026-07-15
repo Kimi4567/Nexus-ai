@@ -4,6 +4,7 @@ import {
   CONTENT_HUB_REWRITE_COST,
   getBulkImageGenerationCost,
   getMediaPendingVisualStateCopy,
+  summarizeBulkImageGenerationOutcome,
   validateBulkImageGenerationConfirmation,
   validateSingleImageGenerationConfirmation,
   validateRewriteConfirmation,
@@ -107,5 +108,61 @@ describe('contentHubActionSafety', () => {
       body: 'Media-pending posts are not visually final and do not mean anything is published or live.',
     })
     expect(getMediaPendingVisualStateCopy('ar').body).toContain('ليست نهائية بصريًا')
+  })
+
+  it('reports a fully successful image run with the actual charged credits', () => {
+    expect(summarizeBulkImageGenerationOutcome({
+      requested: 3,
+      attempted: 3,
+      generated: 3,
+      failed: 0,
+      refundPending: 0,
+      creditsUsed: 9,
+    })).toEqual({
+      tone: 'success',
+      message: '3 post images generated and attached for review. Credits actually used: 9. Nothing was scheduled or published.',
+    })
+  })
+
+  it('reports partial success, confirmed refunds, and unstarted images without claiming completion', () => {
+    const result = summarizeBulkImageGenerationOutcome({
+      requested: 4,
+      attempted: 3,
+      generated: 2,
+      failed: 1,
+      refundPending: 0,
+      creditsUsed: 6,
+      stoppedReason: 'Daily image limit reached',
+    })
+
+    expect(result.tone).toBe('warning')
+    expect(result.message).toContain('2 of 4 post images generated.')
+    expect(result.message).toContain('1 failed and its charge was confirmed restored.')
+    expect(result.message).toContain('1 image was not started.')
+    expect(result.message).toContain('Credits actually used: 6.')
+  })
+
+  it('does not claim a refund completed while reconciliation is pending', () => {
+    const result = summarizeBulkImageGenerationOutcome({
+      requested: 2,
+      attempted: 1,
+      generated: 0,
+      failed: 1,
+      refundPending: 1,
+      creditsUsed: 0,
+    })
+
+    expect(result.tone).toBe('error')
+    expect(result.message).toContain('1 credit restoration is pending automatic reconciliation.')
+    expect(result.message).toContain('pending restoration is not included')
+    expect(result.message).not.toContain('confirmed restored')
+    expect(summarizeBulkImageGenerationOutcome({
+      requested: 1,
+      attempted: 1,
+      generated: 0,
+      failed: 1,
+      refundPending: 1,
+      creditsUsed: 0,
+    }, 'ar').message).toContain('معلقة للمصالحة التلقائية')
   })
 })

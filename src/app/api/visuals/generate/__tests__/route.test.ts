@@ -112,8 +112,8 @@ beforeEach(() => {
   mockGetServerUserId.mockResolvedValue('u1')
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 3, creditsRemaining: 17 })
   mockCheckDailyImageCap.mockResolvedValue({ allowed: true, used: 0, cap: 20, remaining: 20 })
-  mockRefund.mockResolvedValue(undefined)
-  mockRefundForTxn.mockResolvedValue(undefined)
+  mockRefund.mockResolvedValue({ ok: true, status: 'refunded' })
+  mockRefundForTxn.mockResolvedValue({ ok: true, status: 'refunded' })
   mockBuildImagePrompt.mockResolvedValue({
     prompt: 'premium text-free ad background',
     language: 'en',
@@ -276,6 +276,27 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     expect(mockRefund).not.toHaveBeenCalled()
   })
 
+  it('reports pending reconciliation instead of claiming a failed refund succeeded', async () => {
+    mockCheckAndDeduct.mockResolvedValue({
+      ok: true,
+      creditsUsed: 3,
+      creditsRemaining: 17,
+      transactionId: 'txn_img',
+    })
+    mockGenerateWithDallE.mockRejectedValue(new Error('image provider down'))
+    mockRefundForTxn.mockResolvedValue({ ok: false, status: 'failed', error: 'db unavailable' })
+
+    const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(500)
+    expect(json).toMatchObject({
+      refunded: false,
+      refundPending: true,
+      message: 'Image generation failed. Credit restoration is pending automatic reconciliation.',
+    })
+  })
+
   it('permanent storage failure never persists a provider URL and refunds exactly once', async () => {
     mockCheckAndDeduct.mockResolvedValue({
       ok: true,
@@ -306,7 +327,7 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     expect(mockRefund).not.toHaveBeenCalled()
   })
 
-  it('DB create failure refunds via transactionId without creating an untracked image', async () => {
+  it('DB create failure occurs before charging and never creates an untracked image', async () => {
     mockCheckAndDeduct.mockResolvedValue({
       ok: true,
       creditsUsed: 3,
@@ -318,13 +339,10 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
 
     expect(res.status).toBe(500)
-    expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
-      userId: 'u1',
-      transactionId: 'txn_temp',
-      reason: 'create failed',
-    }))
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
     expect(mockGenerateWithDallE).not.toHaveBeenCalled()
     expect(mockRefund).not.toHaveBeenCalled()
+    expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
 
   it('DB completion failure after provider success falls back to scalar refund without transactionId', async () => {
@@ -407,7 +425,12 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
       creativeTemplate: expect.objectContaining({ templateName: 'Meta portrait offer card' }),
     }))
     expect(mockComposeBrandedPost).not.toHaveBeenCalled()
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'IMAGE_GENERATION')
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith(
+      'u1',
+      'IMAGE_GENERATION',
+      undefined,
+      { entityId: 'visual_1', entityType: 'generated_visual_image' },
+    )
     expect(mockCheckAndDeduct).toHaveBeenCalledTimes(1)
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()

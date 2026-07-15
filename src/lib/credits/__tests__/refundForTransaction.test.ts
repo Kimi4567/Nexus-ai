@@ -177,6 +177,10 @@ describe('refundCreditsForTransaction', () => {
     state.grants = [{ id: 'g1', amount: 50, remaining: 47, status: 'ACTIVE', expiresAt: null }]
     tx.user.update.mockRejectedValueOnce(new Error('db down'))
 
-    await expect(refundCreditsForTransaction({ userId: 'u1', transactionId: 'd1' })).resolves.toBeUndefined()
+    await expect(refundCreditsForTransaction({ userId: 'u1', transactionId: 'd1' })).resolves.toEqual({
+      ok: false,
+      status: 'failed',
+      error: 'db down',
+    })
   })
 })

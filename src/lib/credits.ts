@@ -405,6 +405,15 @@ export interface CreditChargeReceipt extends ReturnType<typeof getCreditActionPo
   transactionId: string | null
 }
 
+export interface CreditChargeContext {
+  entityId: string
+  entityType: string
+}
+
+export type CreditRefundResult =
+  | { ok: true; status: 'refunded' | 'noop' }
+  | { ok: false; status: 'failed'; error: string }
+
 /**
  * Canonical, user-displayable receipt for every successful AI charge. Routes
  * should return this object so the UI can explain the cost and its purpose
@@ -448,6 +457,7 @@ export async function checkAndDeductCredits(
   userId: string,
   action: CreditAction,
   costOverride?: number,
+  context?: CreditChargeContext,
 ): Promise<CreditCheckResult> {
   const hasValidOverride =
     typeof costOverride === 'number' && Number.isFinite(costOverride) && costOverride >= 0
@@ -521,9 +531,9 @@ export async function checkAndDeductCredits(
   // to before. Flag ON = grant-based deduction from the CreditGrant ledger, with
   // User.aiCredits maintained as a cache so the rest of the app is unaffected.
   if (isCreditWalletEnabled()) {
-    return _deductFromGrants(userId, action, cost, currentCredits, isFree, user.email, user.name)
+    return _deductFromGrants(userId, action, cost, currentCredits, isFree, user.email, user.name, context)
   }
-  return _deductScalar(userId, action, cost, currentCredits, isFree, user.email, user.name)
+  return _deductScalar(userId, action, cost, currentCredits, isFree, user.email, user.name, context)
 }
 
 // ── Internal: insufficient-credits result (shared by both deduction paths) ────
@@ -557,6 +567,7 @@ async function _deductScalar(
   isFree: boolean,
   email: string | null,
   name: string | null,
+  context?: CreditChargeContext,
 ): Promise<CreditCheckResult> {
   // ── Insufficient credits ───────────────────────────────────────────────────
   if (currentCredits < cost) {
@@ -583,8 +594,8 @@ async function _deductScalar(
         action,
         description: debitDescription(action),
         amount: -cost,
-        entityId: null,
-        entityType: null,
+        entityId: context?.entityId ?? null,
+        entityType: context?.entityType ?? null,
       },
       select: { id: true },
     })
@@ -634,6 +645,7 @@ async function _deductFromGrants(
   isFree: boolean,
   email: string | null,
   name: string | null,
+  context?: CreditChargeContext,
 ): Promise<CreditCheckResult> {
   // Run the whole spend as one atomic transaction. A thrown DB error rolls the
   // transaction back (no partial writes) and propagates — exactly like the
@@ -701,8 +713,8 @@ async function _deductFromGrants(
           action,
           description: debitDescription(action),
           amount: -cost,
-          entityId: null,
-          entityType: null,
+          entityId: context?.entityId ?? null,
+          entityType: context?.entityType ?? null,
         },
       })
 
@@ -819,9 +831,9 @@ export async function refundCredits(
   userId: string,
   action: CreditAction,
   reason = 'Generation failed',
-): Promise<void> {
+): Promise<CreditRefundResult> {
   const cost = CREDIT_COSTS[action]
-  if (!cost) return
+  if (!cost) return { ok: true, status: 'noop' }
   try {
     // Some older routes still call this helper without passing the debit's
     // transactionId. When the grant wallet is enabled, incrementing only the
@@ -858,23 +870,33 @@ export async function refundCredits(
           },
         })
       })
-      return
+      return { ok: true, status: 'refunded' }
     }
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: { aiCredits: { increment: cost } },
+    // The balance restoration and its audit ledger must commit together. A
+    // partial scalar refund would otherwise be retried and could double-credit
+    // the wallet when only the ledger write failed.
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { aiCredits: { increment: cost } },
+      })
+      await tx.creditTransaction.create({
+        data: {
+          userId,
+          action: 'REFUND',
+          amount: cost,
+          description: `Refund — ${ACTION_LABELS[action] || action} (${reason})`,
+          entityId: null,
+          entityType: 'refund',
+        },
+      })
     })
-    await _logTransaction(
-      userId,
-      'REFUND',
-      cost, // positive = credited back
-      `Refund — ${ACTION_LABELS[action] || action} (${reason})`,
-      undefined,
-      'refund',
-    )
+    return { ok: true, status: 'refunded' }
   } catch (e) {
-    console.error('[refundCredits] failed (non-fatal):', (e as Error).message)
+    const error = (e as Error).message
+    console.error('[refundCredits] failed (non-fatal):', error)
+    return { ok: false, status: 'failed', error }
   }
 }
 
@@ -904,10 +926,10 @@ export async function refundCredits(
  */
 export async function refundCreditsForTransaction(
   args: { userId: string; transactionId: string; reason?: string },
-): Promise<void> {
+): Promise<CreditRefundResult> {
   const { userId, transactionId, reason } = args
   try {
-    await (prisma as any).$transaction(async (tx: any) => {
+    const status = await (prisma as any).$transaction(async (tx: any) => {
       // 1. Lock the debit row for the duration so two refunds of the same debit
       //    can't both proceed (the second sees the REFUND row and no-ops).
       const debitRows: Array<{ id: string; userId: string; amount: number }> =
@@ -918,14 +940,14 @@ export async function refundCreditsForTransaction(
       const debit = debitRows[0]
 
       // 2/3. Must exist, belong to the user, and be a debit (amount < 0).
-      if (!debit || debit.userId !== userId || debit.amount >= 0) return
+      if (!debit || debit.userId !== userId || debit.amount >= 0) return 'noop' as const
 
       // 4. Double-refund guard — an existing REFUND linked to this debit.
       const already = await tx.creditTransaction.findFirst({
         where: { action: 'REFUND', entityType: 'credit_transaction', entityId: debit.id },
         select: { id: true },
       })
-      if (already) return
+      if (already) return 'noop' as const
 
       // 5. Allocation rows for this debit.
       const allocs: RefundAllocationInput[] = await tx.creditTransactionGrantAllocation.findMany({
@@ -995,10 +1017,15 @@ export async function refundCreditsForTransaction(
           },
         })
       }
+      return refundTotal > 0 ? 'refunded' as const : 'noop' as const
     })
+    return { ok: true, status }
   } catch (e) {
-    // 11. Never throw — a failed refund must not mask the original error.
-    console.error('[refundCreditsForTransaction] failed (non-fatal):', (e as Error).message)
+    // 11. Never throw — return an explicit failure so reconciliation-capable
+    // callers can keep the debit pending without masking the original error.
+    const error = (e as Error).message
+    console.error('[refundCreditsForTransaction] failed (non-fatal):', error)
+    return { ok: false, status: 'failed', error }
   }
 }
 
@@ -1013,18 +1040,17 @@ export async function refundCreditDeduction(args: {
   action: CreditAction
   deduction: CreditDeductionOk | null | undefined
   reason: string
-}): Promise<void> {
+}): Promise<CreditRefundResult> {
   const { userId, action, deduction, reason } = args
-  if (!deduction || deduction.creditsUsed <= 0) return
+  if (!deduction || deduction.creditsUsed <= 0) return { ok: true, status: 'noop' }
   if (deduction.transactionId) {
-    await refundCreditsForTransaction({
+    return refundCreditsForTransaction({
       userId,
       transactionId: deduction.transactionId,
       reason,
     })
-    return
   }
-  await refundCredits(userId, action, reason)
+  return refundCredits(userId, action, reason)
 }
 
 // ── Public: daily image-generation cap ────────────────────────────────────────

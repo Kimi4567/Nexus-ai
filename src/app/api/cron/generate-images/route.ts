@@ -44,6 +44,13 @@ type ImageCreditReservation = {
   refunded: boolean
 }
 
+type PendingImageRefund = {
+  id: string
+  userId: string
+  entityId: string
+  entityType: 'social_post_image' | 'generated_visual_image'
+}
+
 /**
  * Generate image — auto-detects provider:
  *   FAL_KEY set  → Flux 1.1 Pro Ultra (best photorealism, returns CDN URL)
@@ -133,20 +140,100 @@ async function uploadToCloudinary(imageUrl: string, postId: string): Promise<str
 async function refundImageReservation(
   reservation: ImageCreditReservation | undefined,
   reason: string,
-) {
-  if (!reservation || reservation.refunded || reservation.creditsUsed <= 0) return
-  reservation.refunded = true
+): Promise<boolean> {
+  if (!reservation || reservation.refunded || reservation.creditsUsed <= 0) return true
 
   if (reservation.transactionId) {
-    await refundCreditsForTransaction({
+    const result = await refundCreditsForTransaction({
       userId: reservation.userId,
       transactionId: reservation.transactionId,
       reason,
     })
-    return
+    if (result && !result.ok) return false
+    reservation.refunded = true
+    return true
   }
 
-  await refundCredits(reservation.userId, 'IMAGE_GENERATION', reason)
+  const result = await refundCredits(reservation.userId, 'IMAGE_GENERATION', reason)
+  if (result && !result.ok) return false
+  reservation.refunded = true
+  return true
+}
+
+/**
+ * Retry image-credit refunds that failed after a provider/database error.
+ * REFUND_PENDING blocks another paid retry for the same post until this exact,
+ * idempotent debit is restored. The cron therefore repairs money state even
+ * when no image provider is currently configured.
+ */
+async function reconcilePendingImageRefunds() {
+  const pending = await (prisma as any).$queryRawUnsafe(`
+    SELECT DISTINCT ON (d."entityType", d."entityId")
+      d."id", d."userId", d."entityId", d."entityType"
+    FROM "CreditTransaction" d
+    LEFT JOIN "SocialPost" p
+      ON d."entityType" = 'social_post_image' AND p."id" = d."entityId"
+    LEFT JOIN "GeneratedVisual" v
+      ON d."entityType" = 'generated_visual_image' AND v."id" = d."entityId"
+    WHERE d."action" = 'IMAGE_GENERATION'
+      AND d."amount" < 0
+      AND (
+        (
+          d."entityType" = 'social_post_image'
+          AND (
+            p."generationStatus" = 'REFUND_PENDING'
+            OR (p."generationStatus" = 'GENERATING' AND d."createdAt" < now() - interval '5 minutes')
+          )
+        )
+        OR (
+          d."entityType" = 'generated_visual_image'
+          AND (
+            v."status" = 'FAILED'
+            OR (v."status" = 'GENERATING' AND d."createdAt" < now() - interval '5 minutes')
+          )
+        )
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM "CreditTransaction" r
+        WHERE r."action" = 'REFUND'
+          AND r."entityType" = 'credit_transaction'
+          AND r."entityId" = d."id"
+      )
+    ORDER BY d."entityType", d."entityId", d."createdAt" DESC
+    LIMIT 20
+  `) as PendingImageRefund[]
+
+  let restored = 0
+  let stillPending = 0
+  for (const debit of pending) {
+    const result = await refundCreditsForTransaction({
+      userId: debit.userId,
+      transactionId: debit.id,
+      reason: 'Automatic reconciliation for failed image generation',
+    })
+    if (!result || result.ok) {
+      restored += 1
+      if (debit.entityType === 'social_post_image') {
+        await prisma.socialPost.updateMany({
+          where: { id: debit.entityId, generationStatus: { in: ['REFUND_PENDING', 'GENERATING'] } },
+          data: { generationStatus: 'FAILED' },
+        })
+      } else {
+        await (prisma.generatedVisual as any).updateMany({
+          where: { id: debit.entityId, status: 'GENERATING' },
+          data: {
+            status: 'FAILED',
+            errorMessage: 'Image generation was interrupted; its credit charge was restored automatically.',
+          },
+        })
+      }
+    } else {
+      stillPending += 1
+    }
+  }
+
+  return { checked: pending.length, restored, stillPending }
 }
 
 async function buildAutopilotPrompt(post: any): Promise<string> {
@@ -209,11 +296,12 @@ async function buildAutopilotPrompt(post: any): Promise<string> {
 export async function GET(req: NextRequest) {
   const authError = cronAuthError(req)
   if (authError) return authError
+  const refundReconciliation = await reconcilePendingImageRefunds()
   if (!CLOUDINARY_CLOUD || !CLOUDINARY_KEY || !CLOUDINARY_SECRET) {
-    return NextResponse.json({ error: 'Cloudinary not configured' }, { status: 503 })
+    return NextResponse.json({ error: 'Cloudinary not configured', refundReconciliation }, { status: 503 })
   }
   if (!process.env.FAL_KEY && !process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: 'No image provider configured' }, { status: 503 })
+    return NextResponse.json({ error: 'No image provider configured', refundReconciliation }, { status: 503 })
   }
 
   const now = new Date()
@@ -288,7 +376,12 @@ export async function GET(req: NextRequest) {
         // Prompt preparation happens before charging. If concept extraction
         // degrades, buildImagePrompt returns its deterministic safe fallback.
         const prompt = await buildAutopilotPrompt(post)
-        const creditResult = await checkAndDeductCredits(ownerId, 'IMAGE_GENERATION')
+        const creditResult = await checkAndDeductCredits(
+          ownerId,
+          'IMAGE_GENERATION',
+          undefined,
+          { entityId: post.id, entityType: 'social_post_image' },
+        )
         if (!creditResult.ok) {
           console.warn(`[Cron generate-images] Skipped post ${post.id} — user ${ownerId} has insufficient credits (${creditResult.currentCredits} remaining, need ${creditResult.requiredCredits})`)
           await prisma.socialPost.update({
@@ -356,7 +449,7 @@ export async function GET(req: NextRequest) {
         return { postId: post.id, status: 'ok', url: finalUrl }
       } catch (err: any) {
         console.error(`[Cron generate-images] Failed for post ${post.id}:`, err)
-        await refundImageReservation(creditReservation, err.message ?? 'Cron image generation failed')
+        const refunded = await refundImageReservation(creditReservation, err.message ?? 'Cron image generation failed')
         if (visualId) {
           await prisma.generatedVisual.update({
             where: { id: visualId },
@@ -365,9 +458,14 @@ export async function GET(req: NextRequest) {
         }
         await prisma.socialPost.update({
           where: { id: post.id },
-          data: { generationStatus: 'FAILED' },
+          data: { generationStatus: refunded ? 'FAILED' : 'REFUND_PENDING' },
         }).catch(() => {})
-        return { postId: post.id, status: 'failed', error: err.message }
+        return {
+          postId: post.id,
+          status: 'failed',
+          error: err.message,
+          refundStatus: refunded ? 'restored' : 'pending_reconciliation',
+        }
       }
     })
   )
@@ -377,6 +475,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     processed: posts.length,
     results: summary,
+    refundReconciliation,
     runAt: now.toISOString(),
   })
 }

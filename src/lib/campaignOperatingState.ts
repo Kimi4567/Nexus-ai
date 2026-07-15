@@ -300,7 +300,7 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     if (postStatus === 'APPROVED') counts.approvedPosts += 1
     if (postStatus === 'FAILED') counts.failedPosts += 1
     if (postStatus === 'PROCESSING') counts.processingPosts += 1
-    if (['PENDING', 'GENERATING', 'AWAITING_UPLOAD'].includes(generationStatus)) {
+    if (['PENDING', 'GENERATING', 'REFUND_PENDING', 'AWAITING_UPLOAD'].includes(generationStatus)) {
       counts.pendingGenerationPosts += 1
     }
 

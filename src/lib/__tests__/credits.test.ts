@@ -85,6 +85,25 @@ describe('checkAndDeductCredits', () => {
     }))
   })
 
+  it('links a debit to the exact billable entity for later reconciliation', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1', subscriptionStatus: 'STARTER', aiCredits: 50,
+      monthlyGenerations: 5, email: 'a@b.com', name: 'A',
+    })
+
+    await checkAndDeductCredits('u1', 'IMAGE_GENERATION', undefined, {
+      entityId: 'post_1',
+      entityType: 'social_post_image',
+    })
+
+    expect(mockPrisma.creditTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        entityId: 'post_1',
+        entityType: 'social_post_image',
+      }),
+    }))
+  })
+
   it('refuses when the user cannot afford the action', async () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       id: 'u1', subscriptionStatus: 'STARTER', aiCredits: 1,
@@ -406,7 +425,11 @@ describe('refundCredits', () => {
 
   it('never throws even if the DB write fails', async () => {
     mockPrisma.user.update.mockRejectedValueOnce(new Error('db down'))
-    await expect(refundCredits('u1', 'CREATIVE_BRIEF')).resolves.toBeUndefined()
+    await expect(refundCredits('u1', 'CREATIVE_BRIEF')).resolves.toEqual({
+      ok: false,
+      status: 'failed',
+      error: 'db down',
+    })
   })
 })
 
