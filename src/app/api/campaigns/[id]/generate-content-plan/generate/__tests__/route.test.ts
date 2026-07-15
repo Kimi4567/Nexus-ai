@@ -70,20 +70,41 @@ const params = { params: Promise.resolve({ id: 'campaign_1' }) }
 const campaign = {
   id: 'campaign_1',
   name: 'Launch campaign',
+  status: 'ACTIVE',
   workspaceId: 'workspace_1',
-  workspace: { brandProfile: null },
+  aiOutput: {
+    strategy: {
+      keyMessage: 'A clearer software launch workflow for marketing teams.',
+      contentPillars: ['Software launch workflow', 'Campaign planning'],
+    },
+    qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
+    sentinelReview: { status: 'passed' },
+  },
+  workspace: {
+    brandProfile: {
+      brandName: 'LaunchFlow',
+      industry: 'SaaS',
+      description: 'A software platform for planning and reviewing marketing launches.',
+      primaryOffer: 'Campaign launch workflow software',
+      uniqueAdvantages: ['Reviewable launch steps'],
+    },
+  },
 }
 
 const postA = {
   id: 'post_a',
   platform: 'META',
-  imagePrompt: 'Premium bright ad creative for post A',
+  caption: 'Use a clear software launch workflow to review campaign steps before release.',
+  imagePrompt: 'Text-free software launch planning scene for post A',
+  contentPlanIndex: 1,
 }
 
 const postB = {
   id: 'post_b',
   platform: 'TIKTOK',
-  imagePrompt: 'Premium bright ad creative for post B',
+  caption: 'Review campaign planning inside one software launch workflow.',
+  imagePrompt: 'Text-free software launch planning scene for post B',
+  contentPlanIndex: 2,
 }
 
 const confirmedBody = {
@@ -177,6 +198,30 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
   })
 
+  it('blocks paid media before deduction when Brand Brain contradicts the business description', async () => {
+    mockPrisma.campaign.findFirst.mockResolvedValue({
+      ...campaign,
+      workspace: {
+        brandProfile: {
+          ...campaign.workspace.brandProfile,
+          industry: 'Health & Beauty',
+          description: 'A dental clinic providing consultations and treatment planning.',
+          primaryOffer: 'Book a dental consultation',
+        },
+      },
+    })
+    const { POST } = await loadRoute()
+
+    const res = await POST(makeReq(confirmedBody), params)
+    const json = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(json).toMatchObject({ code: 'BRAND_TRUTH_REVIEW_REQUIRED', redirectTo: '/brand' })
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockPrisma.socialPost.updateMany).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
   it('no pending posts does not deduct credits', async () => {
     mockPrisma.socialPost.findMany.mockResolvedValue([])
     const { POST } = await loadRoute()
@@ -266,7 +311,9 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     mockPrisma.socialPost.findMany.mockResolvedValue([{
       id: 'post_youtube',
       platform: 'YOUTUBE',
+      caption: 'Review a clinic operations software workflow before launch.',
       imagePrompt: 'square 1:1 composition; clinic operations table with paper notes.',
+      contentPlanIndex: 1,
     }])
     mockCheckAndDeduct
       .mockReset()

@@ -34,6 +34,9 @@ import {
   isImageProviderConfigured,
   isMediaStorageConfigured,
 } from '@/lib/ai/provider'
+import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
+import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
+import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 
 export const maxDuration = 60 // Vercel Pro — 60s max
 
@@ -255,6 +258,62 @@ export async function POST(req: NextRequest, props: Params) {
         expectedImageCount: postsToGenerate.length,
         expectedCreditCost: getBulkImageGenerationCost(postsToGenerate.length),
       }, { status: 400 })
+    }
+
+    const brandProfile = campaign.workspace?.brandProfile ?? null
+    const brandTruthReview = reviewBrandTruthConsistency(brandProfile)
+    if (brandTruthReview.status === 'blocked') {
+      return NextResponse.json({
+        error: 'Brand Brain contains contradictory source data. Correct it before generating paid media.',
+        code: 'BRAND_TRUTH_REVIEW_REQUIRED',
+        blockers: brandTruthReview.blockers.map(item => item.code),
+        redirectTo: '/brand',
+      }, { status: 409 })
+    }
+
+    if (!canMutateCampaignExecution(String(campaign.status ?? ''), campaign.aiOutput)) {
+      return NextResponse.json({
+        error: 'Approve the current strategy truth review before generating paid media.',
+        code: 'STRATEGY_TRUTH_REVIEW_REQUIRED',
+        redirectTo: `/campaigns/${campaign.id}?tab=strategy`,
+      }, { status: 409 })
+    }
+
+    const aiOutput = campaign.aiOutput && typeof campaign.aiOutput === 'object'
+      ? campaign.aiOutput as Record<string, unknown>
+      : {}
+    const strategy = aiOutput.strategy && typeof aiOutput.strategy === 'object'
+      ? aiOutput.strategy
+      : aiOutput
+    const contentReview = reviewContentPlanForApproval(
+      postsToGenerate.map((post: {
+        caption?: string | null
+        imagePrompt?: string | null
+        videoPrompt?: string | null
+        contentPlanIndex?: number | null
+      }) => ({
+        caption: post.caption,
+        imagePrompt: post.imagePrompt,
+        videoPrompt: post.videoPrompt,
+        contentPlanIndex: post.contentPlanIndex,
+      })),
+      strategy,
+      [
+        brandProfile?.brandName,
+        brandProfile?.industry,
+        brandProfile?.description,
+        brandProfile?.primaryOffer,
+        Array.isArray(brandProfile?.uniqueAdvantages) ? brandProfile.uniqueAdvantages : [],
+        brandProfile?.complianceNotes,
+        Array.isArray(brandProfile?.verifiedProof) ? brandProfile.verifiedProof : [],
+      ],
+    )
+    if (!contentReview.ok) {
+      return NextResponse.json({
+        error: 'Fix the post copy truth review before generating paid media.',
+        code: 'CONTENT_TRUTH_REVIEW_REQUIRED',
+        issues: contentReview.issues,
+      }, { status: 409 })
     }
 
     if (!isImageProviderConfigured()) {

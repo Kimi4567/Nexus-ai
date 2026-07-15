@@ -31,6 +31,7 @@ import { selectStrategyWorkbenchCampaign } from '@/lib/strategy/strategyWorkbenc
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
 import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
+import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
@@ -294,6 +295,9 @@ export default function StrategyPage() {
     allowedClaimText: [
       brandProfile?.description,
       brandProfile?.primaryOffer,
+      brandProfile?.targetAudience,
+      brandProfile?.audienceAge,
+      brandProfile?.audienceLocation,
       brandProfile?.pricePoint,
       brandProfile?.languagePreference,
       ...(Array.isArray(brandProfile?.uniqueAdvantages) ? brandProfile.uniqueAdvantages : []),
@@ -348,12 +352,23 @@ export default function StrategyPage() {
     aiOutput: rawAi,
   })
   const strategyBrandMismatch = hasStrategy && strategyBrandAlignment.isStale
-  const hasCurrentBrandOrganicData = hasOrganicData && !strategyBrandMismatch
+  const brandTruthReview = reviewBrandTruthConsistency(brandProfile)
+  const brandTruthBlocked = brandTruthReview.status === 'blocked'
+  const strategyExecutionBlocked = strategyBrandMismatch || brandTruthBlocked
+  const hasCurrentBrandOrganicData = hasOrganicData && !strategyExecutionBlocked
   const recentStrategyHref = recent?.id ? `/campaigns/${recent.id}?tab=strategy` : '/strategy'
   const recentContentHubHref = recent?.id ? `/campaigns/${recent.id}/content-hub` : '/content-hub'
   const recentPublishHref = recent?.id ? `/campaigns/${recent.id}?tab=publish` : '/content-hub'
   const recentPerformanceHref = recent?.id ? `/campaigns/${recent.id}?tab=performance` : '/analytics'
-  const primaryAction: StrategyPrimaryAction = !hasStrategy || strategyBrandMismatch
+  const primaryAction: StrategyPrimaryAction = brandTruthBlocked
+    ? {
+        label: ar ? 'صحّح Brand Brain أولاً' : 'Fix Brand Brain first',
+        description: ar
+          ? 'يوجد تعارض في مصدر الحقيقة. تم إيقاف التوليد والتنفيذ حتى تصحيحه، ولن يتم خصم كريديت.'
+          : 'The source of truth contains a conflict. Generation and execution are blocked until it is corrected, with no credits spent.',
+        href: '/brand',
+      }
+    : !hasStrategy || strategyBrandMismatch
     ? {
         label: !hasStrategy
           ? (ar ? 'إنشاء أول استراتيجية' : 'Create first strategy')
@@ -390,7 +405,14 @@ export default function StrategyPage() {
           href: recentStrategyHref,
         }
 
-  const nextSteps = !hasStrategy
+  const nextSteps = brandTruthBlocked
+    ? [
+        ar ? 'صحّح تعارضات Brand Brain قبل أي توليد جديد' : 'Resolve Brand Brain conflicts before any new generation',
+        ar ? 'راجع المجال والجمهور والعرض باعتبارها مصدر الحقيقة' : 'Review industry, audience, and offer as the source of truth',
+        ar ? 'أنشئ استراتيجية جديدة فقط بعد اجتياز فحص الاتساق' : 'Create a new strategy only after the consistency check passes',
+        ar ? 'لن يتم خصم كريديت أو تشغيل محتوى من بيانات متناقضة' : 'No credits or content execution will run from contradictory data',
+      ]
+    : !hasStrategy
       ? [
           ar ? 'أنشئ الاستراتيجية من ذاكرة العلامة التجارية' : 'Create strategy from Brand Brain',
           ar ? 'راجع الاتجاه قبل تحويله إلى محتوى' : 'Review direction before turning it into content',
@@ -461,14 +483,20 @@ export default function StrategyPage() {
       : (ar ? 'مبكرة' : 'Early')
   const capRows: { label: string; value: string; ready?: boolean }[] = [
     { label: ar ? 'طلب عضوي جديد' : 'New organic request',
-      value: ar ? readinessSurface.organic.labelAr : readinessSurface.organic.label,
-      ready: readinessSurface.organic.ready },
+      value: brandTruthBlocked
+        ? (ar ? 'متوقف حتى تصحيح Brand Brain' : 'Blocked until Brand Brain is corrected')
+        : (ar ? readinessSurface.organic.labelAr : readinessSurface.organic.label),
+      ready: readinessSurface.organic.ready && !brandTruthBlocked },
     { label: ar ? 'طلب كامل جديد' : 'New full request',
-      value: ar ? readinessSurface.full.labelAr : readinessSurface.full.label,
-      ready: readinessSurface.full.ready },
+      value: brandTruthBlocked
+        ? (ar ? 'متوقف حتى تصحيح Brand Brain' : 'Blocked until Brand Brain is corrected')
+        : (ar ? readinessSurface.full.labelAr : readinessSurface.full.label),
+      ready: readinessSurface.full.ready && !brandTruthBlocked },
     { label: ar ? 'طلب تخطيط مدفوع جديد' : 'New paid planning request',
-      value: ar ? readinessSurface.paid.labelAr : readinessSurface.paid.label,
-      ready: readinessSurface.paid.ready },
+      value: brandTruthBlocked
+        ? (ar ? 'متوقف حتى تصحيح Brand Brain' : 'Blocked until Brand Brain is corrected')
+        : (ar ? readinessSurface.paid.labelAr : readinessSurface.paid.label),
+      ready: readinessSurface.paid.ready && !brandTruthBlocked },
     { label: ar ? 'النتائج' : 'Results', value: ar ? 'تُفحص من بيانات المنصات الفعلية' : 'Checked from real platform data' },
     { label: ar ? 'أتمتة النشر' : 'Publishing automation', value: ar ? 'تُراجع لكل حملة بعد الموافقات' : 'Reviewed per campaign after approvals' },
   ]
@@ -582,14 +610,14 @@ export default function StrategyPage() {
     hasStrategy,
     hasCurrentBrandOrganicData,
     !platformSummary.isEmpty,
-    !strategyBrandMismatch,
+    !strategyExecutionBlocked,
   ])
   const executionReadiness = coveragePercent([
     hasStrategy,
     pillars.length > 0,
     safeMessages.length > 0,
     !platformSummary.isEmpty,
-    !strategyBrandMismatch,
+    !strategyExecutionBlocked,
   ])
   const positioningClarity = coveragePercent([
     Boolean(savedCampaignGoal),
@@ -603,7 +631,7 @@ export default function StrategyPage() {
   ])
   const contentDirectionReady = Boolean(
     hasStrategy &&
-    !strategyBrandMismatch &&
+    !strategyExecutionBlocked &&
     !strategyScope.paidOnly &&
     audienceLabels.length > 0 &&
     pillars.length > 0 &&
@@ -704,23 +732,27 @@ export default function StrategyPage() {
   const duplicateExecutionStageCount = mappedExecutionStages.length - executionStages.length
 
   const sidebarSteps = [
-    !hasStrategy
+    brandTruthBlocked
+      ? { number: '01', title: ar ? 'تصحيح Brand Brain' : 'Fix Brand Brain', state: ar ? 'الخطوة الحالية' : 'Current step', detail: ar ? 'صحّح مصدر الحقيقة أولاً؛ الاستراتيجية الحالية معروضة للمرجع فقط وغير قابلة للتنفيذ.' : 'Correct the source of truth first; the current strategy is reference-only and cannot execute.' }
+      : !hasStrategy
       ? { number: '01', title: ar ? 'إنشاء الاستراتيجية' : 'Create strategy', state: ar ? 'الخطوة الحالية' : 'Current step', detail: ar ? 'أنشئ أول استراتيجية من Brand Brain بعد مراجعة النطاق والتكلفة.' : 'Create the first strategy from Brand Brain after reviewing scope and cost.' }
       : { number: '01', title: ar ? 'مراجعة الاستراتيجية' : 'Review strategy', state: ar ? 'الحالي' : 'Current', detail: ar ? 'راجع المنطق قبل الانتقال إلى الإنتاج.' : 'Review logic before moving to production.' },
     { number: '02', title: ar ? 'تحويل إلى مركز المحتوى' : 'Move to Content Hub', state: contentDirectionReady ? (ar ? 'جاهز للإنشاء' : 'Ready to create') : (ar ? 'يحتاج مدخلات' : 'Needs inputs'), detail: contentDirectionReady ? (ar ? 'حوّل الركائز والرسائل إلى مسودات للمراجعة.' : 'Turn pillars and messages into review drafts.') : (ar ? 'أكمل الجمهور والرسائل والركائز والقنوات أولاً.' : 'Complete audience, messages, pillars, and channels first.') },
     { number: '03', title: ar ? 'فتح استوديو الإبداع' : 'Open Creative Studio', state: contentDirectionReady ? (ar ? 'بعد بريف المحتوى' : 'After content brief') : (ar ? 'مقفل' : 'Locked'), detail: ar ? 'أنتج الأصول البصرية بعد بريف محتوى واضح.' : 'Produce assets after a clear content brief.' },
     { number: '04', title: ar ? 'التحقق من جاهزية النشر' : 'Check publish readiness', state: ar ? 'في الانتظار' : 'Pending', detail: ar ? 'حسابات، صلاحيات، وموافقة صريحة.' : 'Accounts, permissions, and explicit approval.' },
   ]
-  const strategyStatusText = !hasStrategy
-    ? (ar ? 'لم يتم إنشاء استراتيجية بعد' : 'Strategy not created yet')
-    : strategyBrandMismatch
+  const strategyStatusText = brandTruthBlocked
+    ? (ar ? 'متوقفة حتى تصحيح مصدر الحقيقة في Brand Brain' : 'Blocked until Brand Brain source truth is corrected')
+    : !hasStrategy
+      ? (ar ? 'لم يتم إنشاء استراتيجية بعد' : 'Strategy not created yet')
+      : strategyBrandMismatch
       ? (ar ? 'المسودة الحالية قد لا تطابق Brand Brain الحالي' : 'Existing draft may not match current Brand Brain')
       : hasDraftStrategy
         ? (ar ? 'مسودة استراتيجية جاهزة للمراجعة' : 'Draft strategy ready for review')
         : (ar ? `استراتيجية مرتبطة بحملة: ${recent?.name}` : `Strategy linked to campaign: ${recent?.name}`)
-  const strategySummaryLabel = hasStrategy && !strategyBrandMismatch
+  const strategySummaryLabel = hasStrategy && !strategyExecutionBlocked
     ? (ar ? 'محفوظة' : 'Saved')
-    : strategyBrandMismatch
+    : strategyExecutionBlocked
       ? (ar ? 'تحتاج تحديثًا' : 'Needs update')
       : (ar ? 'لم تُنشأ' : 'Not created')
   const strategyInputChecks = [
@@ -830,6 +862,32 @@ export default function StrategyPage() {
             <span className="text-[#5E63FF]">{ar ? 'الاستراتيجية' : 'Strategy'}</span>
           </div>
 
+          {brandTruthBlocked && (
+            <div className="mb-4 rounded-[22px] border border-orange-200 bg-orange-50 p-4 text-orange-950 shadow-[0_14px_36px_rgba(234,88,12,0.08)]" role="alert">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-orange-200 bg-white text-orange-600">
+                    <AlertTriangle className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-black">
+                      {ar ? 'الاستراتيجية الحالية للمرجع فقط — التنفيذ متوقف' : 'Current strategy is reference-only — execution is blocked'}
+                    </p>
+                    <p className="mt-1 max-w-4xl text-[13px] font-semibold leading-6 text-orange-900/80">
+                      {ar
+                        ? `وجد NEXUS ${brandTruthReview.blockers.length} تعارضاً في Brand Brain. لن يُنشئ استراتيجية أو محتوى أو صوراً ولن يخصم كريديت حتى تصحيح مصدر الحقيقة ثم إنشاء استراتيجية جديدة.`
+                        : `NEXUS found ${brandTruthReview.blockers.length} Brand Brain conflict${brandTruthReview.blockers.length === 1 ? '' : 's'}. Strategy, content, image generation, and credit spending stay blocked until the source of truth is corrected and a new strategy is created.`}
+                    </p>
+                  </div>
+                </div>
+                <Link href="/brand" className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-orange-700 px-4 text-sm font-black text-white">
+                  {ar ? 'تصحيح Brand Brain' : 'Fix Brand Brain'}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
+          )}
+
           <SoftCard className="mb-4 overflow-hidden p-4" dir="ltr">
             <div className="grid gap-5 xl:grid-cols-[minmax(0,620px)_1fr] xl:items-center">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -858,7 +916,7 @@ export default function StrategyPage() {
 	                    <h2 className="max-w-full overflow-hidden text-[22px] font-black leading-8 tracking-normal text-[#0B1028] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] sm:text-[24px]">
 	                      {campaignTitle}
 	                    </h2>
-                    <span className={`rounded-full px-3 py-1 text-[12px] font-black ${hasStrategy && !strategyBrandMismatch ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600'}`}>
+                    <span className={`rounded-full px-3 py-1 text-[12px] font-black ${hasStrategy && !strategyExecutionBlocked ? 'bg-emerald-50 text-emerald-600' : brandTruthBlocked ? 'bg-orange-50 text-orange-700' : 'bg-slate-100 text-slate-600'}`}>
 	                      {strategyStatusText}
                     </span>
                   </div>
@@ -966,7 +1024,7 @@ export default function StrategyPage() {
 	                          {primaryAction.label}
 	                        </button>
 	                      )}
-	                      {'href' in primaryAction && (
+	                      {'href' in primaryAction && !brandTruthBlocked && (
 	                        <button type="button" onClick={() => {
 	                          setStartFreshStrategyRequest(true)
 	                          setRunStrategyOpen(true)
@@ -1304,7 +1362,7 @@ export default function StrategyPage() {
                 <div className="space-y-3 text-[12px] font-semibold">
                   <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
                     <span className="text-slate-500">{ar ? 'الحالة' : 'Status'}</span>
-                    <span className={`font-black ${hasStrategy && !strategyBrandMismatch ? 'text-emerald-600' : 'text-slate-600'}`}>{strategySummaryLabel}</span>
+                    <span className={`font-black ${hasStrategy && !strategyExecutionBlocked ? 'text-emerald-600' : brandTruthBlocked ? 'text-orange-700' : 'text-slate-600'}`}>{strategySummaryLabel}</span>
                   </div>
                   <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
                     <span className="text-slate-500">{ar ? 'النطاق' : 'Scope'}</span>

@@ -37,6 +37,7 @@ const {
     workspace: { findFirst: vi.fn() },
     user: { findUnique: vi.fn() },
     campaign: { findFirst: vi.fn() },
+    socialPost: { findFirst: vi.fn() },
     generatedVisual: { create: vi.fn(), update: vi.fn() },
   },
 }))
@@ -187,6 +188,31 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
 
     expect(res.status).toBe(404)
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+  })
+
+  it('blocks image generation before deduction when Brand Brain source truth conflicts', async () => {
+    mockPrisma.campaign.findFirst.mockResolvedValue({
+      ...campaign,
+      workspace: {
+        ...campaign.workspace,
+        brandProfile: {
+          ...campaign.workspace.brandProfile,
+          brandName: 'Noura Dental Studio',
+          industry: 'Health & Beauty',
+          description: 'A dental clinic providing consultations and treatment planning.',
+          primaryOffer: 'Book a dental consultation',
+        },
+      },
+    })
+
+    const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(json).toMatchObject({ code: 'BRAND_TRUTH_REVIEW_REQUIRED', redirectTo: '/brand' })
+    expect(mockPrisma.generatedVisual.create).not.toHaveBeenCalled()
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockGenerateWithDallE).not.toHaveBeenCalled()
   })
 
   it('daily image cap failure does not deduct credits', async () => {

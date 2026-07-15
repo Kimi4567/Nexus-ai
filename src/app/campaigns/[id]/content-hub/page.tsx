@@ -872,6 +872,10 @@ export default function ContentHubPage() {
   const strategyApprovalRequiredLabel = campaign?.status === 'ACTIVE'
     ? (isAr ? 'أكمل مراجعة حقيقة الاستراتيجية أولاً' : 'Complete the strategy truth review first')
     : (isAr ? 'راجع واعتمد الاستراتيجية أولاً' : 'Review and approve strategy first')
+  const imageGenerationBlockedByTruthReview = strategyApprovalRequired || contentReviewRequired
+  const imageGenerationTruthReviewLabel = strategyApprovalRequired
+    ? strategyApprovalRequiredLabel
+    : (isAr ? 'صحّح النصوص قبل توليد الصور' : 'Fix copy before generating images')
   const addCreditsForImagesLabel = isAr ? 'أضف رصيداً لتوليد الصور' : 'Add credits to generate images'
   const contentPlanCostLabel = isAr
     ? `${selectedContentPlanCost} كريديت`
@@ -1326,6 +1330,10 @@ export default function ContentHubPage() {
 
   async function generateAllImages() {
     if (!isAuthenticated) return
+    if (imageGenerationBlockedByTruthReview) {
+      setError(imageGenerationTruthReviewLabel)
+      return
+    }
     if (imageGenerationLocked) {
       setError(addCreditsForImagesLabel)
       return
@@ -1407,6 +1415,10 @@ export default function ContentHubPage() {
   }
 
   function openBulkImageConfirm() {
+    if (imageGenerationBlockedByTruthReview) {
+      setError(imageGenerationTruthReviewLabel)
+      return
+    }
     setBulkImageAcknowledged(false)
     setShowBulkImageConfirm(true)
   }
@@ -1703,6 +1715,12 @@ export default function ContentHubPage() {
   // Calls /api/visuals/generate → gpt-image-1 or Flux → Cloudinary + brand overlay
 
   function openImageGenerationConfirm(postId: string) {
+    if (strategyApprovalRequired || contentIssueCountByPostId.has(postId)) {
+      setError(strategyApprovalRequired
+        ? strategyApprovalRequiredLabel
+        : (isAr ? 'صحّح نص هذا المنشور قبل دفع تكلفة الصورة.' : 'Fix this post copy before paying for its image.'))
+      return
+    }
     if (imageGenerationLocked) {
       setError(addCreditsForImagesLabel)
       return
@@ -1739,6 +1757,12 @@ export default function ContentHubPage() {
 
   async function generatePostImage(postId: string, platform: string) {
     if (!isAuthenticated) return
+    if (strategyApprovalRequired || contentIssueCountByPostId.has(postId)) {
+      setError(strategyApprovalRequired
+        ? strategyApprovalRequiredLabel
+        : (isAr ? 'صحّح نص هذا المنشور قبل دفع تكلفة الصورة.' : 'Fix this post copy before paying for its image.'))
+      return
+    }
     if (imageGenerationLocked) {
       setError(addCreditsForImagesLabel)
       return
@@ -2074,13 +2098,13 @@ export default function ContentHubPage() {
 
                 <button
                   onClick={imageGenerationLocked ? () => router.push('/billing') : openBulkImageConfirm}
-                  disabled={generating || pendingImageCount === 0}
+                  disabled={generating || pendingImageCount === 0 || imageGenerationBlockedByTruthReview}
                   className="flex max-w-full min-w-0 items-center justify-center gap-2 rounded-xl px-4 py-2 text-center text-sm font-semibold leading-tight transition-all whitespace-normal break-words"
                   style={{
-                    background: imageGenerationLocked ? '#F8FAFC' : '#111827',
-                    color: imageGenerationLocked ? '#475569' : 'white',
-                    border: imageGenerationLocked ? '1px solid rgba(15,23,42,0.12)' : '1px solid transparent',
-                    opacity: generating ? 0.6 : 1,
+                    background: imageGenerationBlockedByTruthReview || imageGenerationLocked ? '#F8FAFC' : '#111827',
+                    color: imageGenerationBlockedByTruthReview || imageGenerationLocked ? '#475569' : 'white',
+                    border: imageGenerationBlockedByTruthReview || imageGenerationLocked ? '1px solid rgba(15,23,42,0.12)' : '1px solid transparent',
+                    opacity: generating || imageGenerationBlockedByTruthReview ? 0.6 : 1,
                   }}
                 >
                   {generating ? (
@@ -2090,7 +2114,7 @@ export default function ContentHubPage() {
                     </>
                   ) : (
                     <>
-                      ✨ {imageGenerationLocked ? addCreditsForImagesLabel : bulkImageButtonLabel}
+                      ✨ {imageGenerationBlockedByTruthReview ? imageGenerationTruthReviewLabel : imageGenerationLocked ? addCreditsForImagesLabel : bulkImageButtonLabel}
                     </>
                   )}
                 </button>
@@ -2615,6 +2639,10 @@ export default function ContentHubPage() {
               isPickingWinner={pickingWinner === post.id}
               isGeneratingImage={generatingImageId === post.id}
               imageGenerationLocked={imageGenerationLocked}
+              imageGenerationBlockedByTruthReview={strategyApprovalRequired || contentIssueCountByPostId.has(post.id)}
+              imageGenerationTruthReviewLabel={strategyApprovalRequired
+                ? strategyApprovalRequiredLabel
+                : (isAr ? 'صحّح النص قبل الصورة' : 'Fix copy before image')}
               addCreditsForImagesLabel={addCreditsForImagesLabel}
               onGenerateImage={() => openImageGenerationConfirm(post.id)}
               onAddCredits={() => router.push('/billing')}
@@ -4005,6 +4033,8 @@ interface PostCardProps {
   isPickingWinner: boolean
   isGeneratingImage: boolean
   imageGenerationLocked: boolean
+  imageGenerationBlockedByTruthReview: boolean
+  imageGenerationTruthReviewLabel: string
   addCreditsForImagesLabel: string
   onGenerateImage: () => void | Promise<void>
   onAddCredits: () => void
@@ -4035,6 +4065,8 @@ function PostCard({
   isPickingWinner,
   isGeneratingImage,
   imageGenerationLocked,
+  imageGenerationBlockedByTruthReview,
+  imageGenerationTruthReviewLabel,
   addCreditsForImagesLabel,
   onGenerateImage,
   onAddCredits,
@@ -4400,18 +4432,19 @@ function PostCard({
         ) : (
           <button
             onClick={imageGenerationLocked ? onAddCredits : onGenerateImage}
-            disabled={isGeneratingImage || creditRestorationPending}
+            disabled={isGeneratingImage || creditRestorationPending || imageGenerationBlockedByTruthReview}
             title={creditRestorationPending
               ? (isAr ? 'لن يبدأ خصم جديد حتى اكتمال استرداد المحاولة السابقة.' : 'A new charge is blocked until the previous credit restoration completes.')
+              : imageGenerationBlockedByTruthReview ? imageGenerationTruthReviewLabel
               : imageGenerationLocked ? addCreditsForImagesLabel : 'Generate image · 3 credits · failed generations are refunded'}
             className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug transition-all flex items-center justify-center gap-1"
-            style={{ borderColor: 'rgba(15,23,42,0.08)', color: imageGenerationLocked ? '#B91C1C' : isGeneratingImage ? '#8B5CF6' : '#5E5CE6', background: imageGenerationLocked ? '#FEF2F2' : undefined }}
+            style={{ borderColor: 'rgba(15,23,42,0.08)', color: imageGenerationBlockedByTruthReview ? '#64748B' : imageGenerationLocked ? '#B91C1C' : isGeneratingImage ? '#8B5CF6' : '#5E5CE6', background: imageGenerationBlockedByTruthReview ? '#F8FAFC' : imageGenerationLocked ? '#FEF2F2' : undefined }}
           >
             {creditRestorationPending
               ? <>↻ {isAr ? 'مصالحة الكريديت' : 'Reconciling credit'}</>
               : isGeneratingImage
               ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />{t('contentHub.gen')}</>
-              : <>🎨 {imageGenerationLocked ? addCreditsForImagesLabel : t('contentHub.generateImageShort')}</>
+              : <>🎨 {imageGenerationBlockedByTruthReview ? imageGenerationTruthReviewLabel : imageGenerationLocked ? addCreditsForImagesLabel : t('contentHub.generateImageShort')}</>
             }
           </button>
         )}

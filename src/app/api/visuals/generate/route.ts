@@ -44,6 +44,9 @@ import {
   isImageProviderConfigured,
   isMediaStorageConfigured,
 } from '@/lib/ai/provider'
+import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
+import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
+import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -182,6 +185,66 @@ export async function POST(req: NextRequest) {
   // ── Extract Strategy fields from aiOutput ─────────────────────────────────
   const aiOutput = (campaign?.aiOutput as any) || {}
   const strategy = aiOutput.strategy || {}
+
+  const brandTruthReview = reviewBrandTruthConsistency(brand)
+  if (brandTruthReview.status === 'blocked') {
+    return NextResponse.json({
+      error: 'Brand Brain contains contradictory source data. Correct it before generating paid media.',
+      code: 'BRAND_TRUTH_REVIEW_REQUIRED',
+      blockers: brandTruthReview.blockers.map(item => item.code),
+      redirectTo: '/brand',
+    }, { status: 409 })
+  }
+
+  const socialPostId = typeof parentId === 'string' && parentId.startsWith('social-post:')
+    ? parentId.slice('social-post:'.length).trim()
+    : ''
+  if (socialPostId) {
+    if (!campaign || !canMutateCampaignExecution(String(campaign.status ?? ''), campaign.aiOutput)) {
+      return NextResponse.json({
+        error: 'Approve the current strategy truth review before generating paid post media.',
+        code: 'STRATEGY_TRUTH_REVIEW_REQUIRED',
+        redirectTo: campaign?.id ? `/campaigns/${campaign.id}?tab=strategy` : '/strategy',
+      }, { status: 409 })
+    }
+
+    const post = await db.socialPost.findFirst({
+      where: {
+        id: socialPostId,
+        workspaceId: workspace.id,
+        campaignId: campaign.id,
+      },
+    })
+    if (!post) {
+      return NextResponse.json({ error: 'Post not found', code: 'POST_NOT_FOUND' }, { status: 404 })
+    }
+
+    const contentReview = reviewContentPlanForApproval(
+      [{
+        caption: post.caption,
+        imagePrompt: post.imagePrompt,
+        videoPrompt: post.videoPrompt,
+        contentPlanIndex: post.contentPlanIndex,
+      }],
+      strategy,
+      [
+        brand?.brandName,
+        brand?.industry,
+        brand?.description,
+        brand?.primaryOffer,
+        Array.isArray(brand?.uniqueAdvantages) ? brand.uniqueAdvantages : [],
+        brand?.complianceNotes,
+        Array.isArray(brand?.verifiedProof) ? brand.verifiedProof : [],
+      ],
+    )
+    if (!contentReview.ok) {
+      return NextResponse.json({
+        error: 'Fix the post copy truth review before generating paid media.',
+        code: 'CONTENT_TRUTH_REVIEW_REQUIRED',
+        issues: contentReview.issues,
+      }, { status: 409 })
+    }
+  }
 
   // ── Build rich VisualContext (DB wins over client params for brand fields) ─
   const ctx: VisualContext = {
