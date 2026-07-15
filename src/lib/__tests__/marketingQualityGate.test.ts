@@ -184,4 +184,43 @@ describe('marketingQualityGate', () => {
 
     expect(report.status).toBe('passed')
   })
+
+  it('treats an operating system as an operations product and YouTube Shorts as the reviewed YouTube channel', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        positioning: 'An AI marketing operating system for a reviewable workflow.',
+        keyMessage: 'Give the marketing workflow a clear owner and next step.',
+        differentiation: 'One operating system for strategy, approval, and learning.',
+        targetAudienceRefined: 'Founders and lean marketing leads at growing businesses.',
+        contentPillars: ['Workflow clarity', 'Approval control', 'Measured learning'],
+        topHooks: ['Who owns the next marketing decision?'],
+        ctaVariations: ['Review the workflow'],
+        contentAnglesDetailed: [{
+          title: 'Marketing workflow review',
+          hook: 'Give every marketing decision a reviewable next step.',
+          pain: 'Marketing work is scattered across tools and people.',
+          desiredOutcome: 'A governed marketing workflow.',
+          objection: 'We already use several tools.',
+          platform: 'YouTube Shorts',
+          cta: 'Review the workflow',
+        }],
+      },
+      brand: {
+        brandName: 'NEXUS AI',
+        industry: 'Tech & Apps',
+        description: 'An AI marketing operating system for growing businesses.',
+        primaryOffer: 'A governed marketing operating system subscription.',
+        targetAudience: 'Founders and lean marketing leads at growing businesses.',
+        audiencePainPoints: ['Marketing work is scattered across tools and people'],
+        topPlatforms: ['YOUTUBE'],
+        verifiedProof: [],
+      },
+      allowedPlatforms: ['YOUTUBE'],
+      checkedAt: '2026-07-15T00:00:00.000Z',
+    })
+
+    expect(report.status).toBe('passed')
+    expect(report.blockers).toEqual([])
+  })
 })

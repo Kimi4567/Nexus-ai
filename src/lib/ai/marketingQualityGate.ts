@@ -80,7 +80,7 @@ const INTERNAL_WORKFLOW_PATTERNS: Array<{ label: string; re: RegExp }> = [
   { label: 'إجراء تشغيلي داخلي', re: /التسليم بين الزملاء|فريق الاستقبال|اجتماع الفريق|قائمة مراجعة تشغيلية|العمل الإداري|التواصل الإداري|راجع الخطوة التالية/i },
 ]
 
-const OPERATIONS_PRODUCT_RE = /saas|software|platform|dashboard|workflow (?:software|tool|platform)|management system|operations? (?:app|system|tool|platform)|برنامج|منصة|تطبيق|نظام إدارة|أداة تشغيل/i
+const OPERATIONS_PRODUCT_RE = /saas|software|platform|dashboard|workflow (?:software|tool|platform)|management system|operating (?:app|system|tool|platform)|operations? (?:app|system|tool|platform)|برنامج|منصة|تطبيق|نظام إدارة|أداة تشغيل/i
 
 const AUDIENCE_CLAIMS: Array<{ code: string; re: RegExp }> = [
   { code: 'children', re: /\b(?:children|kids|child-friendly|pediatric)\b|أطفال|للأطفال|صديق للأطفال/i },
@@ -166,7 +166,12 @@ function normalizePlatform(value: string): string {
   const normalized = value.trim().toUpperCase().replace(/[\s-]+/g, '_')
   if (normalized === 'META') return 'META'
   if (normalized === 'TWITTER') return 'X'
-  if (normalized === 'YOUTUBE_SHORT') return 'YOUTUBE_SHORTS'
+  // Brand Brain stores the parent YouTube channel, while the strategy output
+  // contract intentionally renders its short-form format as "YouTube Shorts".
+  // They are the same reviewed destination for grounding purposes; keeping two
+  // canonical values made every YouTube strategy fail after a successful model
+  // run even though no channel had drifted.
+  if (normalized === 'YOUTUBE_SHORT' || normalized === 'YOUTUBE_SHORTS') return 'YOUTUBE'
   return normalized
 }
 
