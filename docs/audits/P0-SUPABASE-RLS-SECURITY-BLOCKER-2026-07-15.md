@@ -32,7 +32,17 @@ The alert was dated 2026-07-12 and predates the production lock-down migration a
 
 The two critical findings in the email are closed. Leaked-password protection remains a separate Supabase Auth hardening warning and should be enabled before public launch.
 
-## Required remediation
+## Live advisor recheck — 2026-07-15
+
+The production Security Advisor was queried again after the application release:
+
+- `rls_disabled_in_public`: not reported.
+- `sensitive_columns_exposed`: not reported.
+- No `ERROR` or critical table-exposure finding is present.
+- `rls_enabled_no_policy` appears at `INFO` for the server-only Prisma tables. This is expected in the current design because `anon` and `authenticated` have no table grants; trusted server operations use `service_role`.
+- The only remaining `WARN` is `auth_leaked_password_protection`. It is separate from the reported table-exposure incident and remains a public-launch hardening action. See [Supabase password security guidance](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+
+## Remediation checklist applied
 
 - Identify every table/view named by the Supabase Security Advisor, including the exact exposed columns and grants.
 - Enable RLS on every table in an exposed schema, including `public` by default.
@@ -44,7 +54,7 @@ The two critical findings in the email are closed. Leaked-password protection re
 - Verify that one workspace cannot read or mutate another workspace's records.
 - Re-run Supabase security advisors and record the clean result.
 
-## Verification required before closure
+## Verification evidence used for closure
 
 - Anonymous requests cannot select/insert/update/delete protected data.
 - Authenticated user A cannot read or mutate user/workspace B data.
