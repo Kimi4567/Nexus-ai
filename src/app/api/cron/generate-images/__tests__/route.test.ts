@@ -33,12 +33,13 @@ const {
   mockPrisma: {
     user: { findUnique: vi.fn() },
     campaign: { findFirst: vi.fn() },
-    generatedVisual: { create: vi.fn(), update: vi.fn() },
+    generatedVisual: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     socialPost: {
       findMany: vi.fn(),
       updateMany: vi.fn(),
       update: vi.fn(),
     },
+    $queryRawUnsafe: vi.fn(),
     $transaction: vi.fn(),
   },
 }))
@@ -114,10 +115,12 @@ beforeEach(() => {
   mockPrisma.socialPost.findMany.mockResolvedValue([postA])
   mockPrisma.socialPost.updateMany.mockResolvedValue({ count: 1 })
   mockPrisma.socialPost.update.mockResolvedValue({})
+  mockPrisma.$queryRawUnsafe.mockResolvedValue([])
   mockPrisma.user.findUnique.mockResolvedValue({ subscriptionStatus: 'PRO' })
   mockPrisma.campaign.findFirst.mockResolvedValue(null)
   mockPrisma.generatedVisual.create.mockResolvedValue({ id: 'visual_a' })
   mockPrisma.generatedVisual.update.mockResolvedValue({})
+  mockPrisma.generatedVisual.updateMany.mockResolvedValue({ count: 1 })
   mockPrisma.$transaction.mockImplementation(async (callback: (tx: any) => unknown) => callback({
     socialPost: mockPrisma.socialPost,
     generatedVisual: mockPrisma.generatedVisual,
@@ -130,8 +133,8 @@ beforeEach(() => {
     creditsRemaining: 27,
     transactionId: 'txn_a',
   })
-  mockRefund.mockResolvedValue(undefined)
-  mockRefundForTxn.mockResolvedValue(undefined)
+  mockRefund.mockResolvedValue({ ok: true, status: 'refunded' })
+  mockRefundForTxn.mockResolvedValue({ ok: true, status: 'refunded' })
   mockGenerateWithFlux.mockResolvedValue({ imageUrl: 'https://fal.cdn/image-a.png' })
   mockApplyOverlay.mockImplementation((url: string) => `${url}?overlay=1`)
   mockPlatformToOverlay.mockReturnValue('square')
@@ -170,6 +173,74 @@ describe('GET /api/cron/generate-images — RF-6B refund safety', () => {
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
   })
 
+  it('reconciles an exact failed image debit before looking for new work', async () => {
+    mockPrisma.$queryRawUnsafe.mockResolvedValue([{
+      id: 'txn_pending',
+      userId: 'user_1',
+      entityId: 'post_pending',
+      entityType: 'social_post_image',
+    }])
+    mockPrisma.socialPost.findMany.mockResolvedValue([])
+    const { GET } = await loadRoute()
+
+    const res = await GET(makeReq())
+    const json = await res.json()
+
+    expect(json.refundReconciliation).toEqual({ checked: 1, restored: 1, stillPending: 0 })
+    expect(mockRefundForTxn).toHaveBeenCalledWith({
+      userId: 'user_1',
+      transactionId: 'txn_pending',
+      reason: 'Automatic reconciliation for failed image generation',
+    })
+    expect(mockPrisma.socialPost.updateMany).toHaveBeenCalledWith({
+      where: { id: 'post_pending', generationStatus: { in: ['REFUND_PENDING', 'GENERATING'] } },
+      data: { generationStatus: 'FAILED' },
+    })
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+  })
+
+  it('keeps a failed debit blocked when automatic reconciliation still cannot restore it', async () => {
+    mockPrisma.$queryRawUnsafe.mockResolvedValue([{
+      id: 'txn_pending',
+      userId: 'user_1',
+      entityId: 'post_pending',
+      entityType: 'social_post_image',
+    }])
+    mockPrisma.socialPost.findMany.mockResolvedValue([])
+    mockRefundForTxn.mockResolvedValue({ ok: false, status: 'failed', error: 'db unavailable' })
+    const { GET } = await loadRoute()
+
+    const res = await GET(makeReq())
+    const json = await res.json()
+
+    expect(json.refundReconciliation).toEqual({ checked: 1, restored: 0, stillPending: 1 })
+    expect(mockPrisma.socialPost.updateMany).not.toHaveBeenCalled()
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+  })
+
+  it('reconciles a failed standalone visual debit by its durable visual id', async () => {
+    mockPrisma.$queryRawUnsafe.mockResolvedValue([{
+      id: 'txn_visual',
+      userId: 'user_1',
+      entityId: 'visual_1',
+      entityType: 'generated_visual_image',
+    }])
+    mockPrisma.socialPost.findMany.mockResolvedValue([])
+    const { GET } = await loadRoute()
+
+    const res = await GET(makeReq())
+    const json = await res.json()
+
+    expect(json.refundReconciliation).toEqual({ checked: 1, restored: 1, stillPending: 0 })
+    expect(mockPrisma.generatedVisual.updateMany).toHaveBeenCalledWith({
+      where: { id: 'visual_1', status: 'GENERATING' },
+      data: {
+        status: 'FAILED',
+        errorMessage: 'Image generation was interrupted; its credit charge was restored automatically.',
+      },
+    })
+  })
+
   it('provider failure after deduction refunds via transactionId', async () => {
     mockGenerateWithFlux.mockRejectedValue(new Error('provider down'))
     const { GET } = await loadRoute()
@@ -179,7 +250,7 @@ describe('GET /api/cron/generate-images — RF-6B refund safety', () => {
 
     expect(res.status).toBe(200)
     expect(json.results).toEqual([
-      expect.objectContaining({ postId: 'post_a', status: 'failed', error: 'provider down' }),
+      expect.objectContaining({ postId: 'post_a', status: 'failed', error: 'provider down', refundStatus: 'restored' }),
     ])
     expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'user_1',
@@ -207,6 +278,25 @@ describe('GET /api/cron/generate-images — RF-6B refund safety', () => {
       transactionId: 'txn_a',
       reason: 'db update failed',
     }))
+  })
+
+  it('blocks the post in REFUND_PENDING when the immediate exact refund fails', async () => {
+    mockGenerateWithFlux.mockRejectedValue(new Error('provider down'))
+    mockRefundForTxn.mockResolvedValue({ ok: false, status: 'failed', error: 'db unavailable' })
+    const { GET } = await loadRoute()
+
+    const res = await GET(makeReq())
+    const json = await res.json()
+
+    expect(json.results[0]).toMatchObject({
+      postId: 'post_a',
+      status: 'failed',
+      refundStatus: 'pending_reconciliation',
+    })
+    expect(mockPrisma.socialPost.update).toHaveBeenCalledWith({
+      where: { id: 'post_a' },
+      data: { generationStatus: 'REFUND_PENDING' },
+    })
   })
 
   it('processes only one atomic image even if an adapter ignores Prisma take', async () => {
@@ -339,9 +429,15 @@ describe('GET /api/cron/generate-images — RF-6B refund safety', () => {
       results: [
         { postId: 'post_a', status: 'ok', url: 'https://res.cloudinary.com/test/image.png' },
       ],
+      refundReconciliation: { checked: 0, restored: 0, stillPending: 0 },
       runAt: expect.any(String),
     })
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('user_1', 'IMAGE_GENERATION')
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith(
+      'user_1',
+      'IMAGE_GENERATION',
+      undefined,
+      { entityId: 'post_a', entityType: 'social_post_image' },
+    )
     expect(mockPrisma.socialPost.update).toHaveBeenCalledWith({
       where: { id: 'post_a' },
       data: {

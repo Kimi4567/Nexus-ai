@@ -8,7 +8,7 @@
  * - Exactly 1 post per call so provider latency cannot strand a paid batch
  * - Each post: generate image → upload to Cloudinary → update DB
  * - Frontend polls and re-triggers for remaining posts
- * - Deducts 1 IMAGE_GENERATION credit per image (3 credits = safe margin)
+ * - Deducts the documented IMAGE_GENERATION cost (currently 3 credits) per image
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -184,16 +184,20 @@ async function refundImageReservation(
   userId: string,
   reservation: ImageCreditReservation | undefined,
   reason: string,
-) {
-  if (!reservation || reservation.refunded || reservation.consumed || reservation.creditsUsed <= 0) return
-  reservation.refunded = true
+): Promise<boolean> {
+  if (!reservation || reservation.refunded || reservation.consumed || reservation.creditsUsed <= 0) return true
 
   if (reservation.transactionId) {
-    await refundCreditsForTransaction({ userId, transactionId: reservation.transactionId, reason })
-    return
+    const result = await refundCreditsForTransaction({ userId, transactionId: reservation.transactionId, reason })
+    if (result && !result.ok) return false
+    reservation.refunded = true
+    return true
   }
 
-  await refundCredits(userId, 'IMAGE_GENERATION', reason)
+  const result = await refundCredits(userId, 'IMAGE_GENERATION', reason)
+  if (result && !result.ok) return false
+  reservation.refunded = true
+  return true
 }
 
 // ── Main handler ───────────────────────────────────────────────────────────────
@@ -204,6 +208,7 @@ export async function POST(req: NextRequest, props: Params) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const creditReservations: ImageCreditReservation[] = []
+  const claimedPosts = new Map<string, string>()
 
   try {
     // Verify campaign ownership
@@ -279,18 +284,65 @@ export async function POST(req: NextRequest, props: Params) {
       }, { status: 429 })
     }
 
+    // Claim each image slot before charging. Two concurrent requests can read
+    // the same PENDING row, but only one may move it to GENERATING and continue
+    // to the wallet/provider path.
+    for (const post of postsToGenerate) {
+      const originalStatus = String(post.generationStatus || 'PENDING')
+      const claim = await (prisma.socialPost as any).updateMany({
+        where: {
+          id: post.id,
+          campaignId: params.id,
+          workspaceId: campaign.workspaceId,
+          isVideoPost: false,
+          mediaSource: 'GENERATE',
+          imageUrl: null,
+          generationStatus: originalStatus,
+        },
+        data: { generationStatus: 'GENERATING' },
+      })
+      if (claim.count !== 1) {
+        await Promise.all(Array.from(claimedPosts.entries()).map(([postId, generationStatus]) =>
+          (prisma.socialPost as any).update({
+            where: { id: postId },
+            data: { generationStatus },
+          }),
+        ))
+        claimedPosts.clear()
+        return NextResponse.json({
+          error: 'This image is already being generated or its media state changed. No credits were spent.',
+          code: 'IMAGE_ALREADY_CLAIMED',
+          generated: 0,
+          failed: 0,
+        }, { status: 409 })
+      }
+      claimedPosts.set(post.id, originalStatus)
+    }
+
     // Reserve one IMAGE_GENERATION charge per post. Keep each transaction tied
     // to its post so a partial batch failure refunds only the failed image.
     const reservationsByPostId = new Map<string, ImageCreditReservation>()
     for (let i = 0; i < postsToGenerate.length; i++) {
       const post = postsToGenerate[i]
-      const creditCheck = await checkAndDeductCredits(userId, 'IMAGE_GENERATION')
+      const creditCheck = await checkAndDeductCredits(
+        userId,
+        'IMAGE_GENERATION',
+        undefined,
+        { entityId: post.id, entityType: 'social_post_image' },
+      )
       if (!creditCheck.ok) {
         await Promise.all(
           creditReservations.map((reservation) =>
             refundImageReservation(userId, reservation, 'Batch image credit reservation failed'),
           ),
         )
+        await Promise.all(Array.from(claimedPosts.entries()).map(([postId, generationStatus]) =>
+          (prisma.socialPost as any).update({
+            where: { id: postId },
+            data: { generationStatus },
+          }),
+        ))
+        claimedPosts.clear()
         return NextResponse.json({
           error: creditCheck.error ?? 'Insufficient credits',
           code: 'INSUFFICIENT_CREDITS',
@@ -311,14 +363,8 @@ export async function POST(req: NextRequest, props: Params) {
       reservationsByPostId.set(post.id, reservation)
     }
 
-    // Mark all as GENERATING
-    await (prisma.socialPost as any).updateMany({
-      where: { id: { in: postsToGenerate.map((p: any) => p.id) } },
-      data: { generationStatus: 'GENERATING' },
-    })
-
     // Generate images sequentially (avoid parallel API rate-limiting)
-    const results: Array<{ id: string; success: boolean; imageUrl?: string; error?: string }> = []
+    const results: Array<{ id: string; success: boolean; imageUrl?: string; error?: string; refunded?: boolean }> = []
 
     for (const post of postsToGenerate) {
       const reservation = reservationsByPostId.get(post.id)
@@ -357,25 +403,31 @@ export async function POST(req: NextRequest, props: Params) {
           })
         })
         if (reservation) reservation.consumed = true
+        claimedPosts.delete(post.id)
 
         results.push({ id: post.id, success: true, imageUrl: finalUrl })
       } catch (err: any) {
         console.error(`[Content Hub] Image generation failed for ${post.id}:`, err)
         // Refund this post's image credit — a failed image must not be charged
-        await refundImageReservation(userId, reservation, err.message ?? 'Image generation failed')
+        const refunded = await refundImageReservation(userId, reservation, err.message ?? 'Image generation failed')
         if (visualId) {
           await (prisma.generatedVisual as any).update({
             where: { id: visualId },
             data: { status: 'FAILED', errorMessage: String(err.message ?? 'Image generation failed').slice(0, 500) },
           }).catch(() => {})
         }
-        await (prisma.socialPost as any).update({ where: { id: post.id }, data: { generationStatus: 'FAILED' } })
-        results.push({ id: post.id, success: false, error: err.message })
+        await (prisma.socialPost as any).update({
+          where: { id: post.id },
+          data: { generationStatus: refunded ? 'FAILED' : 'REFUND_PENDING' },
+        })
+        claimedPosts.delete(post.id)
+        results.push({ id: post.id, success: false, error: err.message, refunded })
       }
     }
 
     const generated = results.filter(r => r.success).length
     const failed = results.filter(r => !r.success).length
+    const refundPending = results.filter(r => !r.success && r.refunded === false).length
     const remaining = await (prisma.socialPost as any).count({
       where: {
         campaignId: params.id,
@@ -387,9 +439,10 @@ export async function POST(req: NextRequest, props: Params) {
     })
 
     return NextResponse.json({
-      success: true,
+      success: refundPending === 0,
       generated,
       failed,
+      refundPending,
       remaining,
       results,
       creditCharges: creditReservations
@@ -401,16 +454,33 @@ export async function POST(req: NextRequest, props: Params) {
           isUnlimited: reservation.isUnlimited,
           transactionId: reservation.transactionId || null,
           entityId: reservation.postId,
-          entityType: 'social_post',
+          entityType: 'social_post_image',
         })),
     })
   } catch (err: any) {
     console.error('[generate-content-plan/generate POST]', err)
-    await Promise.all(
+    const refundResults = await Promise.all(
       creditReservations.map((reservation) =>
         refundImageReservation(userId, reservation, err.message ?? 'Batch image generation failed'),
       ),
     )
-    return NextResponse.json({ error: 'Generation failed' }, { status: 500 })
+    await Promise.all(Array.from(claimedPosts.entries()).map(([postId, originalStatus]) =>
+      (prisma.socialPost as any).update({
+        where: { id: postId },
+        data: {
+          generationStatus: (() => {
+            const reservationIndex = creditReservations.findIndex(reservation => reservation.postId === postId)
+            if (reservationIndex < 0) return originalStatus
+            return refundResults[reservationIndex] ? 'FAILED' : 'REFUND_PENDING'
+          })(),
+        },
+      }).catch(() => {}),
+    ))
+    return NextResponse.json({
+      error: 'Generation failed',
+      generated: 0,
+      failed: creditReservations.length,
+      refundPending: refundResults.filter((refunded) => !refunded).length,
+    }, { status: 500 })
   }
 }

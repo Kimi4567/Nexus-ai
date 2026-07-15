@@ -120,6 +120,8 @@ beforeEach(() => {
     generatedVisual: mockPrisma.generatedVisual,
   }))
   mockCheckDailyImageCap.mockResolvedValue({ allowed: true, used: 0, cap: 60, remaining: 60 })
+  mockRefund.mockResolvedValue({ ok: true, status: 'refunded' })
+  mockRefundForTxn.mockResolvedValue({ ok: true, status: 'refunded' })
   mockBuildImagePrompt.mockImplementation(async (context: any) => ({
     prompt: `Prepared visual for ${context.platform}: ${context.postCaption ?? ''}`,
     language: 'en',
@@ -187,7 +189,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
   })
 
-  it('does not mutate or refund when the single credit reservation fails', async () => {
+  it('releases the atomic image claim without refunding when the credit reservation fails', async () => {
     mockCheckAndDeduct
       .mockReset()
       .mockResolvedValueOnce({ ok: false, error: 'INSUFFICIENT_CREDITS' })
@@ -198,7 +200,19 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
 
     expect(res.status).toBe(402)
     expect(json).toMatchObject({ code: 'INSUFFICIENT_CREDITS', generated: 0 })
-    expect(mockPrisma.socialPost.updateMany).not.toHaveBeenCalled()
+    expect(mockPrisma.socialPost.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        id: 'post_a',
+        generationStatus: 'PENDING',
+        imageUrl: null,
+        mediaSource: 'GENERATE',
+      }),
+      data: { generationStatus: 'GENERATING' },
+    })
+    expect(mockPrisma.socialPost.update).toHaveBeenCalledWith({
+      where: { id: 'post_a' },
+      data: { generationStatus: 'PENDING' },
+    })
     expect(fetch).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()
     expect(mockRefund).not.toHaveBeenCalled()
@@ -219,6 +233,19 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     expect(json.error).toContain('No credits were spent')
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
     expect(mockPrisma.socialPost.updateMany).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('a concurrent request cannot double-charge an already claimed image', async () => {
+    mockPrisma.socialPost.updateMany.mockResolvedValue({ count: 0 })
+    const { POST } = await loadRoute()
+
+    const res = await POST(makeReq(confirmedBody), params)
+    const json = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(json).toMatchObject({ code: 'IMAGE_ALREADY_CLAIMED', generated: 0, failed: 0 })
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
     expect(fetch).not.toHaveBeenCalled()
   })
 
@@ -288,6 +315,28 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
       reason: 'provider down for A',
     }))
     expect(mockRefund).not.toHaveBeenCalled()
+  })
+
+  it('reports a pending automatic reconciliation when the exact refund fails', async () => {
+    mockRefundForTxn.mockResolvedValue({ ok: false, status: 'failed', error: 'db down' })
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      if (!String(input).includes('cloudinary.com')) throw new Error('provider down')
+      return { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/a.jpg' }) }
+    }))
+    const { POST } = await loadRoute()
+
+    const res = await POST(makeReq(confirmedBody), params)
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json).toMatchObject({ success: false, generated: 0, failed: 1, refundPending: 1 })
+    expect(json.results).toEqual([
+      expect.objectContaining({ id: 'post_a', success: false, refunded: false }),
+    ])
+    expect(mockPrisma.socialPost.update).toHaveBeenCalledWith({
+      where: { id: 'post_a' },
+      data: { generationStatus: 'REFUND_PENDING' },
+    })
   })
 
   it('DB persistence failure after deduction refunds that image transaction', async () => {
@@ -361,7 +410,12 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
       creditCharges: [expect.objectContaining({ action: 'IMAGE_GENERATION', cost: 3, creditsUsed: 3 })],
     }))
     expect(mockCheckAndDeduct).toHaveBeenCalledTimes(1)
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('user_1', 'IMAGE_GENERATION')
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith(
+      'user_1',
+      'IMAGE_GENERATION',
+      undefined,
+      { entityId: 'post_a', entityType: 'social_post_image' },
+    )
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })

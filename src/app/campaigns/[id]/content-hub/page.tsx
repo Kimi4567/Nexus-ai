@@ -26,6 +26,8 @@ import {
   CONTENT_HUB_REGENERATION_COST,
   CONTENT_HUB_REWRITE_COST,
   getBulkImageGenerationCost,
+  summarizeBulkImageGenerationOutcome,
+  type BulkImageGenerationSummary,
 } from '@/lib/contentHubActionSafety'
 import { derivePostMediaSource } from '@/lib/contentHubMediaAttachment'
 import {
@@ -49,7 +51,7 @@ import { PostPlatformPublisher } from '@/components/publishing/PostPlatformPubli
 
 type Platform = 'ALL' | 'META' | 'INSTAGRAM' | 'LINKEDIN' | 'X' | 'TIKTOK' | 'TWITTER' | 'YOUTUBE' | 'YOUTUBE_SHORTS' | 'PINTEREST' | 'THREADS'
 type MediaSource = 'GENERATE' | 'UPLOAD' | 'UPLOAD_RAW'
-type GenStatus = 'PENDING' | 'GENERATING' | 'DONE' | 'FAILED' | 'AWAITING_UPLOAD' | 'SKIPPED'
+type GenStatus = 'PENDING' | 'GENERATING' | 'DONE' | 'FAILED' | 'REFUND_PENDING' | 'AWAITING_UPLOAD' | 'SKIPPED'
 
 interface ContentPost {
   id: string
@@ -412,11 +414,17 @@ export default function ContentHubPage() {
   const [enableABTesting, setEnableABTesting] = useState(false)
   const [pickingWinner, setPickingWinner] = useState<string | null>(null)
   const [generatingImageId, setGeneratingImageId] = useState<string | null>(null)
+  const [pendingGeneratedAttachment, setPendingGeneratedAttachment] = useState<{
+    postId: string
+    generatedVisualId: string
+  } | null>(null)
+  const [retryingGeneratedAttachment, setRetryingGeneratedAttachment] = useState(false)
   const [imageGenerationConfirmPostId, setImageGenerationConfirmPostId] = useState<string | null>(null)
   const [imageGenerationAcknowledged, setImageGenerationAcknowledged] = useState(false)
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'DONE' | 'SCHEDULED' | 'PUBLISHED'>('ALL')
   const [showBulkImageConfirm, setShowBulkImageConfirm] = useState(false)
   const [bulkImageAcknowledged, setBulkImageAcknowledged] = useState(false)
+  const [bulkImageResult, setBulkImageResult] = useState<BulkImageGenerationSummary | null>(null)
   const [showGeneratePlanConfirm, setShowGeneratePlanConfirm] = useState(false)
   const [generatePlanAcknowledged, setGeneratePlanAcknowledged] = useState(false)
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false)
@@ -1230,8 +1238,8 @@ export default function ContentHubPage() {
 
   // ── Save inline edits ────────────────────────────────────────────────────────
 
-  async function savePostEdit(postId: string, updates: Partial<ContentPost> & Record<string, unknown>) {
-    if (!isAuthenticated) return
+  async function savePostEdit(postId: string, updates: Partial<ContentPost> & Record<string, unknown>): Promise<boolean> {
+    if (!isAuthenticated) return false
     try {
       const res = await fetch(`/api/campaigns/${campaignId}/content-plan/${postId}`, {
         method: 'PATCH',
@@ -1247,9 +1255,11 @@ export default function ContentHubPage() {
         delete next[postId]
         return next
       })
+      return true
     } catch (err: any) {
       console.error('Failed to save edit', err)
       setError(err.message ?? 'Failed to save post edit')
+      return false
     }
   }
 
@@ -1315,29 +1325,74 @@ export default function ContentHubPage() {
     const imagePostIds = pendingImagePosts.map(p => p.id)
     setGenerating(true)
     setError(null)
+    setSuccessMsg(null)
+    setBulkImageResult(null)
+    let attempted = 0
+    let generated = 0
+    let failed = 0
+    let refundPending = 0
+    let creditsUsed = 0
+    let creditReceiptsComplete = true
+    let stoppedReason: string | null = null
     try {
       // The user confirms the whole action once, while the server processes one
       // paid image per request so a slow provider can never strand a batch.
       for (let index = 0; index < imagePostIds.length; index += 1) {
         const batchIds = imagePostIds.slice(index, index + 1)
-        const res = await fetch(`/api/campaigns/${campaignId}/generate-content-plan/generate`, {
-          method: 'POST',
-          headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            postIds: batchIds,
-            explicitBulkImageGenerationConfirmed: true,
-            acknowledgedImageCount: batchIds.length,
-            acknowledgedCreditCost: getBulkImageGenerationCost(batchIds.length),
-          }),
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error ?? 'Generation failed')
+        attempted += batchIds.length
+        try {
+          const res = await fetch(`/api/campaigns/${campaignId}/generate-content-plan/generate`, {
+            method: 'POST',
+            headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              postIds: batchIds,
+              explicitBulkImageGenerationConfirmed: true,
+              acknowledgedImageCount: batchIds.length,
+              acknowledgedCreditCost: getBulkImageGenerationCost(batchIds.length),
+              language: isAr ? 'ar' : 'en',
+            }),
+          })
+          const data = await res.json().catch(() => ({}))
+          const requestGenerated = Number.isFinite(data.generated) ? Math.max(0, Math.trunc(data.generated)) : 0
+          const requestFailed = Number.isFinite(data.failed) ? Math.max(0, Math.trunc(data.failed)) : 0
+          const requestRefundPending = Number.isFinite(data.refundPending)
+            ? Math.max(0, Math.trunc(data.refundPending))
+            : 0
+          const charges = Array.isArray(data.creditCharges) ? data.creditCharges : []
+          const receiptCredits = charges.reduce(
+            (sum: number, charge: { creditsUsed?: unknown }) =>
+              sum + (typeof charge?.creditsUsed === 'number' && Number.isFinite(charge.creditsUsed)
+                ? Math.max(0, Math.trunc(charge.creditsUsed))
+                : 0),
+            0,
+          )
+
+          generated += requestGenerated
+          failed += requestFailed
+          refundPending += requestRefundPending
+          creditsUsed += receiptCredits
+          if (charges.length < requestGenerated) creditReceiptsComplete = false
+
+          if (!res.ok || requestRefundPending > 0) {
+            stoppedReason = data.message ?? data.error ?? (isAr ? 'تعذر إكمال توليد الصور بأمان.' : 'Image generation could not finish safely.')
+            break
+          }
+        } catch (requestError: any) {
+          stoppedReason = requestError?.message ?? (isAr ? 'تعذر الاتصال بخدمة توليد الصور.' : 'Could not reach image generation.')
+          break
+        }
       }
-      setSuccessMsg('Image generation started — this may take a few minutes')
+      setBulkImageResult(summarizeBulkImageGenerationOutcome({
+        requested: imagePostIds.length,
+        attempted,
+        generated,
+        failed,
+        refundPending,
+        creditsUsed: creditReceiptsComplete ? creditsUsed : null,
+        stoppedReason,
+      }, isAr ? 'ar' : 'en'))
       await loadData()
       await refreshBillingStatus()
-    } catch (err: any) {
-      setError(err.message)
     } finally {
       setGenerating(false)
     }
@@ -1644,6 +1699,19 @@ export default function ContentHubPage() {
       setError(addCreditsForImagesLabel)
       return
     }
+    const post = posts.find(item => item.id === postId)
+    if (pendingGeneratedAttachment?.postId === postId) {
+      setError(isAr
+        ? 'الصورة مولّدة ومدفوعة بالفعل لكنها لم ترتبط بالمنشور. استخدم «إعادة محاولة الربط» بدل دفع توليد جديد.'
+        : 'This image was already generated and charged but was not attached. Use “Retry attachment” instead of paying for another generation.')
+      return
+    }
+    if (post?.generationStatus === 'REFUND_PENDING') {
+      setError(isAr
+        ? 'استرداد كريديت المحاولة السابقة قيد المصالحة التلقائية. لن يبدأ خصم جديد قبل اكتماله.'
+        : 'The previous attempt\'s credit restoration is pending automatic reconciliation. A new charge is blocked until it completes.')
+      return
+    }
     setImageGenerationAcknowledged(false)
     setImageGenerationConfirmPostId(postId)
   }
@@ -1715,6 +1783,7 @@ export default function ContentHubPage() {
           visualType:  'SOCIAL_PREVIEW',
           visualStyle: 'Premium',
           postCaption: post.caption || post.imagePrompt || '',
+          parentId: `social-post:${post.id}`,
           assetRole: 'post_background',
           creativeRequirement,
           creativeTemplate,
@@ -1727,7 +1796,7 @@ export default function ContentHubPage() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Image generation failed')
+        throw new Error(err.message || err.error || 'Image generation failed')
       }
 
       const data = await res.json()
@@ -1735,18 +1804,41 @@ export default function ContentHubPage() {
       const generatedVisualId = data?.visual?.id
       if (!imageUrl || !generatedVisualId) throw new Error('No durable generated media returned')
 
-      await savePostEdit(postId, {
+      const attached = await savePostEdit(postId, {
         generatedVisualId,
         explicitGeneratedMediaAttachConfirmed: true,
       })
       await refreshBillingStatus()
       setImageGenerationConfirmPostId(null)
       setImageGenerationAcknowledged(false)
+      if (!attached) {
+        setPendingGeneratedAttachment({ postId, generatedVisualId })
+        setError(isAr
+          ? `تم توليد الصورة وخصم ${CONTENT_HUB_IMAGE_COST} كريديت، لكن تعذّر ربطها بالمنشور. الصورة محفوظة؛ أعد محاولة الربط دون خصم جديد.`
+          : `The image was generated and ${CONTENT_HUB_IMAGE_COST} credits were charged, but attachment failed. The image is saved; retry attachment with no new charge.`)
+      }
     } catch (err: any) {
       setError(err.message)
     } finally {
       setGeneratingImageId(null)
     }
+  }
+
+  async function retryGeneratedImageAttachment() {
+    if (!pendingGeneratedAttachment || retryingGeneratedAttachment) return
+    setRetryingGeneratedAttachment(true)
+    setError(null)
+    const attached = await savePostEdit(pendingGeneratedAttachment.postId, {
+      generatedVisualId: pendingGeneratedAttachment.generatedVisualId,
+      explicitGeneratedMediaAttachConfirmed: true,
+    })
+    if (attached) {
+      setPendingGeneratedAttachment(null)
+      setSuccessMsg(isAr
+        ? 'تم ربط الصورة المحفوظة بالمنشور دون خصم كريديت جديد.'
+        : 'The saved image was attached to the post with no new credit charge.')
+    }
+    setRetryingGeneratedAttachment(false)
   }
 
   // ── Select A/B draft variant ─────────────────────────────────────────────────
@@ -2259,6 +2351,45 @@ export default function ContentHubPage() {
           <div className="mb-4 p-3 rounded-xl text-sm text-green-700 bg-green-50 border border-green-200 flex items-center justify-between">
             {successMsg}
             <button onClick={() => setSuccessMsg(null)} className="text-green-600 hover:text-green-400">×</button>
+          </div>
+        )}
+        {bulkImageResult && (
+          <div
+            className={`mb-4 flex items-start justify-between gap-3 rounded-xl border p-3 text-sm ${bulkImageResult.tone === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : bulkImageResult.tone === 'warning'
+                ? 'border-amber-200 bg-amber-50 text-amber-900'
+                : 'border-rose-200 bg-rose-50 text-rose-800'}`}
+            role="status"
+          >
+            <span>{bulkImageResult.message}</span>
+            <button
+              type="button"
+              onClick={() => setBulkImageResult(null)}
+              className="shrink-0 opacity-70 hover:opacity-100"
+              aria-label={isAr ? 'إغلاق نتيجة توليد الصور' : 'Dismiss image generation result'}
+            >
+              ×
+            </button>
+          </div>
+        )}
+        {pendingGeneratedAttachment && (
+          <div className="mb-4 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between" role="alert">
+            <span>
+              {isAr
+                ? 'الصورة محفوظة وتم احتسابها، لكن ربطها بالمنشور لم يكتمل. أعد الربط دون توليد أو خصم جديد.'
+                : 'The image is saved and charged, but attachment did not finish. Retry attachment without generating or charging again.'}
+            </span>
+            <button
+              type="button"
+              onClick={() => void retryGeneratedImageAttachment()}
+              disabled={retryingGeneratedAttachment}
+              className="shrink-0 rounded-lg bg-amber-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+            >
+              {retryingGeneratedAttachment
+                ? (isAr ? 'جارٍ إعادة الربط…' : 'Retrying…')
+                : (isAr ? 'إعادة محاولة الربط' : 'Retry attachment')}
+            </button>
           </div>
         )}
 
@@ -3865,7 +3996,7 @@ interface PostCardProps {
   onEditPrompt: () => void
   onOpenMediaPicker: () => void
   onCloseMediaPicker: () => void
-  onSaveEdit: (updates: Partial<ContentPost>) => Promise<void>
+  onSaveEdit: (updates: Partial<ContentPost>) => Promise<boolean>
   onRemoveMedia: () => void
   onPendingEdit: (updates: Partial<ContentPost>) => void
   onRewrite: (instruction: string) => Promise<void>
@@ -3919,13 +4050,14 @@ function PostCard({
 
   const statusColor = {
     PENDING: '#f59e0b', GENERATING: '#6366f1', DONE: '#10b981',
-    FAILED: '#ef4444', AWAITING_UPLOAD: '#8b5cf6', SKIPPED: '#6b7280',
+    FAILED: '#ef4444', REFUND_PENDING: '#b45309', AWAITING_UPLOAD: '#8b5cf6', SKIPPED: '#6b7280',
   }[status] ?? '#6b7280'
 
   const statusLabel = {
     PENDING: isAr ? 'الوسائط بانتظار التوليد' : 'Media pending', GENERATING: t('contentHub.statusGenerating'), DONE: isAr ? 'الوسائط جاهزة' : 'Media ready',
-    FAILED: t('contentHub.statusFailed'), AWAITING_UPLOAD: t('contentHub.statusUploadVideo'), SKIPPED: t('contentHub.statusSkipped'),
+    FAILED: t('contentHub.statusFailed'), REFUND_PENDING: isAr ? 'استرداد الكريديت قيد المصالحة' : 'Credit restoration pending', AWAITING_UPLOAD: t('contentHub.statusUploadVideo'), SKIPPED: t('contentHub.statusSkipped'),
   }[status] ?? status
+  const creditRestorationPending = status === 'REFUND_PENDING'
   const mediaSourceLabel = derivePostMediaSource(post)
   const creativeRequirement = derivePostCreativeRequirement({
     postId: post.id,
@@ -4251,12 +4383,16 @@ function PostCard({
         ) : (
           <button
             onClick={imageGenerationLocked ? onAddCredits : onGenerateImage}
-            disabled={isGeneratingImage}
-            title={imageGenerationLocked ? addCreditsForImagesLabel : 'Generate image · 3 credits · failed generations are refunded'}
+            disabled={isGeneratingImage || creditRestorationPending}
+            title={creditRestorationPending
+              ? (isAr ? 'لن يبدأ خصم جديد حتى اكتمال استرداد المحاولة السابقة.' : 'A new charge is blocked until the previous credit restoration completes.')
+              : imageGenerationLocked ? addCreditsForImagesLabel : 'Generate image · 3 credits · failed generations are refunded'}
             className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug transition-all flex items-center justify-center gap-1"
             style={{ borderColor: 'rgba(15,23,42,0.08)', color: imageGenerationLocked ? '#B91C1C' : isGeneratingImage ? '#8B5CF6' : '#5E5CE6', background: imageGenerationLocked ? '#FEF2F2' : undefined }}
           >
-            {isGeneratingImage
+            {creditRestorationPending
+              ? <>↻ {isAr ? 'مصالحة الكريديت' : 'Reconciling credit'}</>
+              : isGeneratingImage
               ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />{t('contentHub.gen')}</>
               : <>🎨 {imageGenerationLocked ? addCreditsForImagesLabel : t('contentHub.generateImageShort')}</>
             }
