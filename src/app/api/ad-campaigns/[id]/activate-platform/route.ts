@@ -23,6 +23,10 @@ import {
   PaidStrategySourceError,
 } from '@/lib/paidStrategySourceServer'
 import { paidPlatformSupportsObjective } from '@/lib/paidExecutionObjective'
+import {
+  approvePaidLaunchDecision,
+  PaidApprovalError,
+} from '@/lib/paidApprovalService'
 
 export const maxDuration = 30
 
@@ -53,6 +57,8 @@ export async function POST(
     const paidSource = await getPaidStrategySourceForUser({
       campaignId: typeof campaign.organicCampaignId === 'string' ? campaign.organicCampaignId : '',
       userId: user.id,
+      strategySnapshotId: typeof campaign.strategySnapshotId === 'string' ? campaign.strategySnapshotId : null,
+      requirePinnedSnapshot: true,
     })
     if (campaign.objective !== paidSource.truth.executionObjective) {
       return NextResponse.json({
@@ -177,6 +183,11 @@ export async function POST(
       }, { status: 409 })
     }
 
+    const launchApproval = await approvePaidLaunchDecision({
+      adCampaignId: String(campaign.id),
+      userId: user.id,
+    })
+
     const activated = {
       campaignId: String(campaign.platformCampaignId),
       adSetIds: [] as string[],
@@ -249,11 +260,15 @@ export async function POST(
       success: true,
       campaign: updated,
       activated,
+      launchApproval,
       note: `Existing ${campaign.platform} platform draft objects were activated after explicit approval. Paid spend may occur on the connected platform.`,
     })
   } catch (err) {
     if (err instanceof PaidStrategySourceError) {
       return NextResponse.json({ error: err.code, code: err.code }, { status: err.status })
+    }
+    if (err instanceof PaidApprovalError) {
+      return NextResponse.json({ error: err.code, code: err.code, mode: 'activation_blocked' }, { status: err.status })
     }
     console.error('[activate-platform]', err)
     const message = err instanceof Error ? err.message : 'Activation failed'

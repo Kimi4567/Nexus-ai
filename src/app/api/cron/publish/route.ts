@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'node:crypto'
 import { prisma } from '@/lib/prisma'
 import { decryptToken } from '@/lib/tokenCrypto'
 import { autoPublishWhere, skippedManualWhere, isAutoPublishEligible } from '@/lib/publishGate'
@@ -12,9 +13,23 @@ import { YOUTUBE_READ_SCOPE, YOUTUBE_UPLOAD_SCOPE } from '@/lib/youtubePublishin
 import { PINTEREST_PUBLISH_SCOPES } from '@/lib/pinterestPublishing'
 import { THREADS_OPERATIONAL_SCOPES } from '@/lib/threadsPublishing'
 import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
+import {
+  CAMPAIGN_SNAPSHOT_SCOPE,
+  buildStrategyApprovalSnapshotPayload,
+  hashCampaignSnapshotPayload,
+  readSnapshotStrategyReference,
+  reviewPostAgainstApprovalSnapshot,
+  reviewPostAgainstMediaApprovalSnapshot,
+} from '@/lib/campaignSnapshots'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
+
+// The lease is deliberately longer than the route's maximum runtime. If a
+// worker crashes after claiming a post, a later cron invocation can reclaim it
+// once this window expires; while the lease is live, concurrent invocations
+// cannot call the provider for the same post.
+const PUBLISH_LEASE_MS = 15 * 60 * 1000
 
 /**
  * GET  /api/cron/publish  — triggered by Vercel cron every hour at minute 5.
@@ -39,6 +54,8 @@ async function runPublishJob() {
     where: autoPublishWhere(now) as any,
     include: {
       integration: true,
+      approvedSnapshot: { select: { scope: true, payload: true } },
+      mediaApprovalSnapshot: { select: { scope: true, payload: true } },
       statusHistory: {
         where: { actor: 'CRON', toStatus: 'SCHEDULED', note: { startsWith: '[PUBLISH_RETRY]' } },
         orderBy: { createdAt: 'desc' },
@@ -63,20 +80,66 @@ async function runPublishJob() {
   const publishCampaigns = campaignIds.length > 0
     ? await prisma.campaign.findMany({
         where: { id: { in: campaignIds } },
-        select: { id: true, workspaceId: true, aiOutput: true, goal: true, platforms: true },
+        select: {
+          id: true,
+          workspaceId: true,
+          name: true,
+          description: true,
+          aiOutput: true,
+          goal: true,
+          audience: true,
+          tone: true,
+          platforms: true,
+        },
       })
     : []
   const workspaceIds = Array.from(new Set(publishCampaigns.map(campaign => campaign.workspaceId)))
   const publishBrands = workspaceIds.length > 0
     ? await prisma.brandProfile.findMany({ where: { workspaceId: { in: workspaceIds } } })
     : []
+  const strategySnapshots = campaignIds.length > 0
+    ? await prisma.campaignSnapshot.findMany({
+        where: { campaignId: { in: campaignIds }, scope: CAMPAIGN_SNAPSHOT_SCOPE.STRATEGY_APPROVAL },
+        orderBy: { version: 'desc' },
+        select: { id: true, campaignId: true, version: true, scope: true, payloadHash: true },
+      })
+    : []
   const campaignById = new Map(publishCampaigns.map(campaign => [campaign.id, campaign]))
   const brandByWorkspaceId = new Map(publishBrands.map(brand => [brand.workspaceId, brand]))
+  const strategySnapshotByCampaignId = new Map<string, typeof strategySnapshots[number]>()
+  for (const snapshot of strategySnapshots) {
+    if (!strategySnapshotByCampaignId.has(snapshot.campaignId)) {
+      strategySnapshotByCampaignId.set(snapshot.campaignId, snapshot)
+    }
+  }
 
   console.log(`[Cron:publish] AUTO-eligible: ${autoEligibleCount} · skipped (manual/legacy, untouched): ${skippedManualCount}`)
 
   const results = await Promise.allSettled(
     duePosts.map(async (post) => {
+      const leaseToken = randomUUID()
+      const leaseUntil = new Date(now.getTime() + PUBLISH_LEASE_MS)
+      const claim = await prisma.socialPost.updateMany({
+        where: {
+          id: post.id,
+          status: 'SCHEDULED',
+          publishMode: 'AUTO',
+          OR: [
+            { publishLeaseUntil: null },
+            { publishLeaseUntil: { lt: now } },
+          ],
+        },
+        data: {
+          publishLeaseToken: leaseToken,
+          publishLeaseUntil: leaseUntil,
+        },
+      })
+      if (claim.count !== 1) {
+        // Another invocation owns the live lease. This is an expected
+        // concurrency outcome, not a failed publish attempt.
+        return { id: post.id, success: false, skipped: true }
+      }
+
       let providerResult: Awaited<ReturnType<typeof publishSocialPost>> | null = null
       try {
         const campaign = typeof post.campaignId === 'string' ? campaignById.get(post.campaignId) : null
@@ -94,6 +157,23 @@ async function runPublishJob() {
         })
         if (strategyQuality.status !== 'passed') {
           throw new Error(`MARKETING_QUALITY_GATE_FAILED: ${strategyQuality.blockers.map(blocker => blocker.code).join(', ')}`)
+        }
+        const contentSnapshotReview = reviewPostAgainstApprovalSnapshot(post, (post as any).approvedSnapshot)
+        if (!contentSnapshotReview.ok) {
+          throw new Error(`${contentSnapshotReview.code}: current post revision has no matching approval evidence`)
+        }
+        const mediaSnapshotReview = reviewPostAgainstMediaApprovalSnapshot(post, (post as any).mediaApprovalSnapshot)
+        if (!mediaSnapshotReview.ok) {
+          throw new Error(`${mediaSnapshotReview.code}: current post media has no matching approval evidence`)
+        }
+        const strategySnapshot = strategySnapshotByCampaignId.get(campaign.id)
+        const approvedStrategy = readSnapshotStrategyReference((post as any).approvedSnapshot?.payload)
+        if (!strategySnapshot || approvedStrategy?.id !== strategySnapshot.id) {
+          throw new Error('CONTENT_APPROVED_FOR_OLDER_STRATEGY: reopen and approve this post again')
+        }
+        const currentStrategyPayload = buildStrategyApprovalSnapshotPayload({ campaign, brandProfile: brand })
+        if (hashCampaignSnapshotPayload(currentStrategyPayload) !== strategySnapshot.payloadHash) {
+          throw new Error('STRATEGY_APPROVAL_SNAPSHOT_STALE: campaign or Brand Brain changed after approval')
         }
 
         // BUG-01 fix: no optimistic write — only write PUBLISHED after platform confirms
@@ -176,7 +256,11 @@ async function runPublishJob() {
         if (shouldRetry) {
           await prisma.socialPost.update({
             where: { id: post.id },
-            data: { errorMessage: message },
+            data: {
+              errorMessage: message,
+              publishLeaseToken: null,
+              publishLeaseUntil: null,
+            },
           }).catch(() => {})
           await prisma.postStatusHistory.create({
             data: {
@@ -193,7 +277,12 @@ async function runPublishJob() {
 
         await prisma.socialPost.update({
           where: { id: post.id },
-          data: { status: 'FAILED', errorMessage: message },
+          data: {
+            status: 'FAILED',
+            errorMessage: message,
+            publishLeaseToken: null,
+            publishLeaseUntil: null,
+          },
         }).catch(() => {})
         await prisma.postStatusHistory.create({
           data: {
@@ -231,6 +320,8 @@ async function runPublishJob() {
             platformPostId: providerResult.platformPostId,
             platformUrl: providerResult.platformUrl ?? null,
             errorMessage: null,
+            publishLeaseToken: null,
+            publishLeaseUntil: null,
           },
         })
         await prisma.postStatusHistory.create({
@@ -273,6 +364,8 @@ async function runPublishJob() {
             platformPostId: providerResult.platformPostId,
             platformUrl: providerResult.platformUrl ?? null,
             errorMessage: reconciliationMessage.slice(0, 500),
+            publishLeaseToken: null,
+            publishLeaseUntil: null,
           },
         }).catch(() => {})
         return { id: post.id, success: false, reconciliationRequired: true, error: reconciliationMessage }
@@ -280,16 +373,19 @@ async function runPublishJob() {
     })
   )
 
-  const succeeded = results.filter(r => r.status === 'fulfilled' && (r.value as any).success).length
-  const retriesScheduled = results.filter(r => r.status === 'fulfilled' && (r.value as any).retryScheduled).length
-  const failed = results.length - succeeded - retriesScheduled
+  const skippedByLease = results.filter(r => r.status === 'fulfilled' && (r.value as any).skipped).length
+  const processedResults = results.filter(r => !(r.status === 'fulfilled' && (r.value as any).skipped))
+  const succeeded = processedResults.filter(r => r.status === 'fulfilled' && (r.value as any).success).length
+  const retriesScheduled = processedResults.filter(r => r.status === 'fulfilled' && (r.value as any).retryScheduled).length
+  const failed = processedResults.length - succeeded - retriesScheduled
 
   console.log(`[Cron:publish] Done — ${succeeded} published, ${failed} failed.`)
   return {
-    processed: results.length,
+    processed: processedResults.length,
     succeeded,
     failed,
     retriesScheduled,
+    skippedByLease,
     // Safe counts (auto-publish gate observability)
     autoEligibleCount,
     publishedCount: succeeded,

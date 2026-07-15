@@ -4,6 +4,7 @@ import { getAuthUser } from '@/lib/apiAuth'
 import { calculateBrandMaturity, snapshotBrandMaturity } from '@/lib/brandMaturity'
 import { buildBrandBrainContract, getChangedBrandFields } from '@/lib/brandBrainContract'
 import { normalizeBusinessGoal } from '@/lib/businessGoals'
+import { mergeApprovedEvidenceProofs } from '@/lib/brandEvidence'
 
 function toStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -136,6 +137,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
     }
 
+    // Evidence-backed proof is governed by the claim review ledger. A stale
+    // Brand Brain form must never erase an approved source citation.
+    const approvedEvidence = await prisma.brandEvidenceClaim.findMany({
+      where: {
+        workspaceId: workspace.id,
+        status: 'APPROVED',
+        promotedProof: { not: null },
+      },
+      select: { promotedProof: true },
+    })
+    const approvedEvidenceProofs = approvedEvidence
+      .map(item => item.promotedProof)
+      .filter((item): item is string => Boolean(item))
+
     const {
       brandName, industry, description,
       toneKeywords, avoidKeywords, writingStyle,
@@ -198,7 +213,7 @@ export async function POST(req: NextRequest) {
       pastAdResults: pastAdResults || null,
       // PR-H2 — language preference (user-chosen) + verified proof (user-confirmed only)
       languagePreference: languagePreference || null,
-      verifiedProof: toStringArray(verifiedProof),
+      verifiedProof: mergeApprovedEvidenceProofs(toStringArray(verifiedProof), approvedEvidenceProofs),
       strategyType: enumValue(strategyType, ['organic', 'paid', 'full'] as const),
       strategyDuration: enumValue(strategyDuration, ['30', '90', '180', 'custom'] as const),
       strategyCustomDays: customStrategyDays(strategyCustomDays),

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { buildOnboardingStrategicNotes } from '@/lib/onboardingContinuity'
+import {
+  buildOnboardingStrategicNotes,
+  resolveExistingWorkspaceOnboardingRoute,
+} from '@/lib/onboardingContinuity'
 
 const statuses = [
   { value: 'not_started', ar: 'لم أبدأ بعد', en: 'Not started yet' },
@@ -38,5 +41,31 @@ describe('buildOnboardingStrategicNotes', () => {
       marketingStatusOptions: statuses,
       locale: 'en',
     })).toBeNull()
+  })
+})
+
+describe('resolveExistingWorkspaceOnboardingRoute', () => {
+  it('keeps a reset workspace in the starter journey when Brand Brain is empty', () => {
+    expect(resolveExistingWorkspaceOnboardingRoute({
+      hasWorkspace: true,
+      brandProfile: { brandName: null, industry: null, description: null },
+      brandReady: false,
+    })).toBeNull()
+  })
+
+  it('routes a partial Brand Brain to completion instead of creating another workspace', () => {
+    expect(resolveExistingWorkspaceOnboardingRoute({
+      hasWorkspace: true,
+      brandProfile: { brandName: 'Nexus' },
+      brandReady: false,
+    })).toBe('/brand')
+  })
+
+  it('routes a ready existing Brand Brain to the operating dashboard', () => {
+    expect(resolveExistingWorkspaceOnboardingRoute({
+      hasWorkspace: true,
+      brandProfile: { brandName: 'Nexus', industry: 'SaaS' },
+      brandReady: true,
+    })).toBe('/dashboard')
   })
 })

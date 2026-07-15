@@ -49,6 +49,15 @@ import {
   THREADS_MAX_TEXT_LENGTH,
   THREADS_OPERATIONAL_SCOPES,
 } from '@/lib/threadsPublishing'
+import {
+  CAMPAIGN_SNAPSHOT_SCOPE,
+  buildScheduleDecisionSnapshotPayload,
+  buildStrategyApprovalSnapshotPayload,
+  hashCampaignSnapshotPayload,
+  readSnapshotStrategyReference,
+  reviewPostAgainstApprovalSnapshot,
+  reviewPostAgainstMediaApprovalSnapshot,
+} from '@/lib/campaignSnapshots'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -104,9 +113,13 @@ export async function POST(req: NextRequest, props: Params) {
       select: {
         id: true,
         workspaceId: true,
+        name: true,
+        description: true,
         status: true,
         aiOutput: true,
         goal: true,
+        audience: true,
+        tone: true,
         platforms: true,
       },
     })
@@ -138,12 +151,36 @@ export async function POST(req: NextRequest, props: Params) {
         qualityGate: strategyQuality,
       }, { status: 409 })
     }
+    const strategySnapshot = await prisma.campaignSnapshot.findFirst({
+      where: {
+        workspaceId: campaign.workspaceId,
+        campaignId: campaign.id,
+        scope: CAMPAIGN_SNAPSHOT_SCOPE.STRATEGY_APPROVAL,
+      },
+      orderBy: { version: 'desc' },
+      select: { id: true, version: true, scope: true, payloadHash: true },
+    })
+    if (!strategySnapshot) {
+      return NextResponse.json({
+        error: 'Revoke and approve the strategy again before scheduling content.',
+        code: 'STRATEGY_APPROVAL_SNAPSHOT_REQUIRED',
+      }, { status: 409 })
+    }
+    const currentStrategyPayload = buildStrategyApprovalSnapshotPayload({ campaign, brandProfile })
+    if (hashCampaignSnapshotPayload(currentStrategyPayload) !== strategySnapshot.payloadHash) {
+      return NextResponse.json({
+        error: 'The campaign or Brand Brain changed after strategy approval. Review the strategy and content again before scheduling.',
+        code: 'STRATEGY_APPROVAL_SNAPSHOT_STALE',
+        approvedSnapshotVersion: strategySnapshot.version,
+      }, { status: 409 })
+    }
 
     const approvedPosts = await (prisma.socialPost as any).findMany({
       where: {
         campaignId: params.id,
         workspaceId: campaign.workspaceId,
         status: 'APPROVED',
+        approvedAt: { not: null },
         publishedAt: null,
       },
       select: {
@@ -151,20 +188,51 @@ export async function POST(req: NextRequest, props: Params) {
         platform: true,
         publishTarget: true,
         integrationId: true,
+        pageId: true,
+        pageName: true,
         scheduledAt: true,
         caption: true,
         imagePrompt: true,
         videoPrompt: true,
         imageUrl: true,
+        link: true,
         uploadedMediaId: true,
+        sourceMediaId: true,
         mediaSource: true,
         generationStatus: true,
         isVideoPost: true,
+        contentPlanIndex: true,
+        variantGroup: true,
+        variantLabel: true,
+        approvedSnapshotId: true,
+        approvedSnapshot: { select: { scope: true, payload: true } },
+        mediaApprovalSnapshotId: true,
+        mediaApprovalSnapshot: { select: { scope: true, payload: true } },
+        platformOptions: true,
+        autoPublishConsentAt: true,
       },
     })
 
     if (approvedPosts.length === 0) {
       return NextResponse.json({ success: true, scheduled: 0, message: 'No approved posts to schedule' })
+    }
+
+    const snapshotBlockers = approvedPosts.flatMap((post: any) => {
+      const review = reviewPostAgainstApprovalSnapshot(post, post.approvedSnapshot)
+      if (!review.ok) return [{ postId: post.id, code: review.code }]
+      const mediaReview = reviewPostAgainstMediaApprovalSnapshot(post, post.mediaApprovalSnapshot)
+      if (!mediaReview.ok) return [{ postId: post.id, code: mediaReview.code }]
+      const approvedStrategy = readSnapshotStrategyReference(post.approvedSnapshot?.payload)
+      return approvedStrategy?.id === strategySnapshot.id
+        ? []
+        : [{ postId: post.id, code: 'CONTENT_APPROVED_FOR_OLDER_STRATEGY' }]
+    })
+    if (snapshotBlockers.length > 0) {
+      return NextResponse.json({
+        error: 'One or more posts no longer match the exact reviewed revision and strategy. Reopen and approve them again before scheduling.',
+        code: 'CONTENT_APPROVAL_SNAPSHOT_REVIEW_REQUIRED',
+        blockers: snapshotBlockers,
+      }, { status: 409 })
     }
 
     const postsNeedingMedia = approvedPosts.filter(
@@ -556,39 +624,92 @@ export async function POST(req: NextRequest, props: Params) {
     }
     const platformById = new Map(approvedPosts.map((p: any) => [p.id, String(p.publishTarget || p.platform)]))
     const hasIntegrationById = new Map(approvedPosts.map((p: any) => [p.id, !!p.integrationId]))
-    const scheduledIds = new Set(plan.updates.map((u) => u.id))
 
-    let scheduled = 0
-    for (const u of plan.updates) {
-      const match = assignmentById.get(u.id)
-      const needsIntegration = !hasIntegrationById.get(u.id)
-      await (prisma.socialPost as any).update({
-        where: { id: u.id },
-        data: {
-          status: u.data.status, // SCHEDULED — planned scheduledAt is kept, never overwritten
-          publishMode,
-          ...(publishMode === 'AUTO' ? { autoPublishConsentAt: new Date() } : {}),
-          ...((publishMode === 'AUTO' || needsIntegration) && match ? {
-            integrationId: match.integrationId,
-            pageId: match.pageId,
-            pageName: match.pageName,
-            platformOptions: match.platformOptions as any,
-            publishTarget: match.publishTarget,
-          } : {}),
-        },
+    const decisionAt = new Date()
+    const scheduleResult = await prisma.$transaction(async (tx) => {
+      const changedIds: string[] = []
+      const decisionPosts: any[] = []
+
+      for (const u of plan.updates) {
+        const source = approvedPosts.find((post: any) => post.id === u.id)
+        if (!source) continue
+        const match = assignmentById.get(u.id)
+        const needsIntegration = !hasIntegrationById.get(u.id)
+        const assignment = (publishMode === 'AUTO' || needsIntegration) && match
+          ? {
+              integrationId: match.integrationId,
+              pageId: match.pageId,
+              pageName: match.pageName,
+              platformOptions: match.platformOptions as any,
+              publishTarget: match.publishTarget,
+            }
+          : {}
+        const changed = await tx.socialPost.updateMany({
+          where: {
+            id: u.id,
+            campaignId: campaign.id,
+            workspaceId: campaign.workspaceId,
+            status: 'APPROVED',
+            approvedSnapshotId: source.approvedSnapshotId,
+            mediaApprovalSnapshotId: source.mediaApprovalSnapshotId,
+          },
+          data: {
+            status: u.data.status,
+            publishMode,
+            ...(publishMode === 'AUTO' ? { autoPublishConsentAt: decisionAt } : {}),
+            ...assignment,
+          },
+        })
+        if (changed.count !== 1) continue
+
+        changedIds.push(u.id)
+        decisionPosts.push({
+          ...source,
+          ...assignment,
+          approvedSnapshotId: source.approvedSnapshotId,
+          mediaApprovalSnapshotId: source.mediaApprovalSnapshotId,
+          autoPublishConsentAt: publishMode === 'AUTO' ? decisionAt : source.autoPublishConsentAt,
+        })
+      }
+
+      if (changedIds.length === 0) return { changedIds, snapshot: null, history: [] as typeof plan.history }
+
+      const versionedCampaign = await tx.campaign.update({
+        where: { id: campaign.id },
+        data: { snapshotVersion: { increment: 1 } },
+        select: { snapshotVersion: true },
       })
-      scheduled++
-    }
-
-    if (plan.history.length > 0) {
-      await (prisma as any).postStatusHistory
-        .createMany({ data: plan.history })
-        .catch((e: any) => console.error('[schedule-content-plan] history write failed', e?.message))
-    }
+      const payload = buildScheduleDecisionSnapshotPayload({
+        campaignId: campaign.id,
+        strategySnapshot,
+        publishMode,
+        posts: decisionPosts,
+      })
+      const snapshot = await tx.campaignSnapshot.create({
+        data: {
+          workspaceId: campaign.workspaceId,
+          campaignId: campaign.id,
+          version: versionedCampaign.snapshotVersion,
+          scope: CAMPAIGN_SNAPSHOT_SCOPE.SCHEDULE_DECISION,
+          payload: payload as any,
+          payloadHash: hashCampaignSnapshotPayload(payload),
+          createdById: userId,
+        },
+        select: { id: true, version: true, payloadHash: true },
+      })
+      await tx.socialPost.updateMany({
+        where: { id: { in: changedIds }, campaignId: campaign.id, workspaceId: campaign.workspaceId },
+        data: { scheduledSnapshotId: snapshot.id },
+      })
+      const history = plan.history.filter((entry) => changedIds.includes(entry.socialPostId))
+      if (history.length > 0) await tx.postStatusHistory.createMany({ data: history })
+      return { changedIds, snapshot, history }
+    })
+    const scheduled = scheduleResult.changedIds.length
 
     // Brand Brain (PR1): one POST_SCHEDULED event per actual APPROVED → SCHEDULED move.
     const scheduleEvents = buildLearningEvents(
-      plan.history.map((h: any) => ({
+      scheduleResult.history.map((h: any) => ({
         workspaceId: h.workspaceId,
         campaignId: campaign.id,
         socialPostId: h.socialPostId,
@@ -605,7 +726,8 @@ export async function POST(req: NextRequest, props: Params) {
         .catch((e: any) => console.error('[schedule-content-plan] learning event write failed', e?.message))
     }
 
-    const linked = approvedPosts.filter((p: any) => scheduledIds.has(p.id) && assignmentById.has(p.id)).length
+    const actuallyScheduledIds = new Set(scheduleResult.changedIds)
+    const linked = approvedPosts.filter((p: any) => actuallyScheduledIds.has(p.id) && assignmentById.has(p.id)).length
     const message = skippedInvalidDate > 0
       ? `${scheduled} post${scheduled !== 1 ? 's' : ''} scheduled · ${skippedInvalidDate} skipped because planned dates were missing or invalid`
       : `${scheduled} post${scheduled !== 1 ? 's' : ''} scheduled`
@@ -616,6 +738,7 @@ export async function POST(req: NextRequest, props: Params) {
       skippedInvalidDate,
       message,
       publishMode,
+      snapshot: scheduleResult.snapshot,
     })
   } catch (err: any) {
     console.error('[schedule-content-plan POST]', err)
@@ -650,7 +773,10 @@ export async function DELETE(req: NextRequest, props: Params) {
     const history: any[] = []
     for (const p of scheduledPosts) {
       if (!validateTransition('SCHEDULED', 'APPROVED').ok) continue
-      await (prisma.socialPost as any).update({ where: { id: p.id }, data: { status: 'APPROVED' } })
+      await (prisma.socialPost as any).update({
+        where: { id: p.id },
+        data: { status: 'APPROVED', scheduledSnapshotId: null },
+      })
       history.push(buildStatusHistory({ socialPostId: p.id, workspaceId: campaign.workspaceId, fromStatus: 'SCHEDULED', toStatus: 'APPROVED', actor: 'USER', note: 'unschedule' }))
       reverted++
     }

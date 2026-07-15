@@ -16,6 +16,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'node:crypto'
 
 // ── In-memory fallback (used only when DB is unavailable) ─────────────────────
 const memoryFallback = new Map<string, { count: number; windowStart: number }>()
@@ -47,34 +48,33 @@ export async function dbRateLimit(
   const windowStart = new Date(now)
 
   try {
-    // ── Fetch existing record ─────────────────────────────────────────────────
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // One atomic UPSERT avoids the read-then-write race where two serverless
+    // instances could both reset a new window to count=1 and under-count abuse.
     const db = prisma as any
-
-    const existing = await db.rateLimitRecord.findUnique({ where: { key } })
     const windowThreshold = new Date(now - windowMs)
-
-    let newCount: number
-    let recordWindowStart: Date
-
-    if (!existing || existing.windowStart < windowThreshold) {
-      // New window — upsert with count = 1
-      const record = await db.rateLimitRecord.upsert({
-        where: { key },
-        update: { count: 1, windowStart },
-        create: { key, count: 1, windowStart },
-      })
-      newCount = record.count
-      recordWindowStart = record.windowStart
-    } else {
-      // Increment within the current window
-      const record = await db.rateLimitRecord.update({
-        where: { key },
-        data: { count: { increment: 1 } },
-      })
-      newCount = record.count
-      recordWindowStart = record.windowStart
-    }
+    const records: Array<{ count: number; windowStart: Date }> = await db.$queryRawUnsafe(
+      `INSERT INTO "RateLimitRecord" ("id", "key", "windowStart", "count", "updatedAt")
+       VALUES ($1, $2, $3, 1, $3)
+       ON CONFLICT ("key") DO UPDATE SET
+         "count" = CASE
+           WHEN "RateLimitRecord"."windowStart" < $4 THEN 1
+           ELSE "RateLimitRecord"."count" + 1
+         END,
+         "windowStart" = CASE
+           WHEN "RateLimitRecord"."windowStart" < $4 THEN $3
+           ELSE "RateLimitRecord"."windowStart"
+         END,
+         "updatedAt" = $3
+       RETURNING "count", "windowStart"`,
+      randomUUID(),
+      key,
+      windowStart,
+      windowThreshold,
+    )
+    const record = records[0]
+    if (!record) throw new Error('rate_limit_upsert_returned_no_row')
+    const newCount = record.count
+    const recordWindowStart = new Date(record.windowStart)
 
     const resetAt = recordWindowStart.getTime() + windowMs
     const remaining = Math.max(0, limit - newCount)

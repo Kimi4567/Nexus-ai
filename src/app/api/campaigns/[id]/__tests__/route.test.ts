@@ -121,6 +121,27 @@ describe('PATCH /api/campaigns/[id]', () => {
     })
   })
 
+  it('blocks execution-critical campaign edits while the strategy snapshot is approved', async () => {
+    mockPrisma.campaign.findFirst.mockResolvedValue({
+      id: 'campaign-1',
+      status: 'ACTIVE',
+      goal: 'LEADS',
+      audience: 'Founders',
+      tone: 'PROFESSIONAL',
+      platforms: ['LINKEDIN'],
+    })
+
+    const response = await PATCH(request({ goal: 'SALES', platforms: ['INSTAGRAM'] }), params)
+    const body = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(body).toMatchObject({
+      error: 'REVOKE_STRATEGY_APPROVAL_FIRST',
+      fields: ['goal', 'platforms'],
+    })
+    expect(mockPrisma.campaign.update).not.toHaveBeenCalled()
+  })
+
   it('allows restoring only an archived campaign to draft', async () => {
     mockPrisma.campaign.findFirst.mockResolvedValue({ id: 'campaign-1', status: 'ARCHIVED' })
 

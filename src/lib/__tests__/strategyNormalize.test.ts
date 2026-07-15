@@ -31,7 +31,8 @@ const legacyStrategy: any = {
 
 const contentReady: StrategyProfileLike = {
   brandName: 'Reem Hospital', industry: 'Dental', description: 'Dental care',
-  targetAudience: 'Abu Dhabi families', topPlatforms: ['INSTAGRAM'],
+  targetAudience: 'Abu Dhabi families', audiencePainPoints: ['Dental anxiety', 'Unclear treatment options'],
+  topPlatforms: ['INSTAGRAM'],
 }
 
 describe('normalizeStrategyOutput', () => {

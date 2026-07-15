@@ -207,12 +207,13 @@ function guardSuccessDefinition(
   options: StrategyKpiGuardOptions = {},
 ): string {
   if (typeof text !== 'string' || !text.trim()) return typeof text === 'string' ? text : ''
-  if (BASELINE_OR_VALIDATION_CONTEXT.test(text)) return text
-
   const allowedNums = buildAllowedNums(allowed)
+  const hasUnsupportedNumber = hasUnsupportedPerfNumber(text, allowedNums)
+  const hasMultiplier = hasUnsupportedMultiplierWord(text)
+  if (BASELINE_OR_VALIDATION_CONTEXT.test(text) && !hasUnsupportedNumber && !hasMultiplier) return text
   const unsupportedPerformance =
-    hasUnsupportedPerfNumber(text, allowedNums) ||
-    hasUnsupportedMultiplierWord(text) ||
+    hasUnsupportedNumber ||
+    hasMultiplier ||
     UNSUPPORTED_QUALITATIVE_SUCCESS.test(text)
 
   return unsupportedPerformance ? fallbackSuccessDefinition(options) : text
@@ -241,11 +242,11 @@ export function guardResultText(
   options: StrategyKpiGuardOptions = {},
 ): string {
   if (typeof text !== 'string' || !text.trim()) return typeof text === 'string' ? text : ''
-  if (BASELINE_OR_VALIDATION_CONTEXT.test(text)) return text
   const allowedNums = buildAllowedNums(allowed)
   const hasMultiplier = hasUnsupportedMultiplierWord(text)
   const hasQualitativePerformanceClaim = UNSUPPORTED_QUALITATIVE_SUCCESS.test(text)
   const hasUnsupportedNumber = hasUnsupportedPerfNumber(text, allowedNums)
+  if (BASELINE_OR_VALIDATION_CONTEXT.test(text) && !hasUnsupportedNumber && !hasMultiplier) return text
   if (!hasUnsupportedNumber && !hasMultiplier && !hasQualitativePerformanceClaim) return text
   if (!hasUnsupportedNumber && !hasMultiplier && hasQualitativePerformanceClaim) {
     return fallbackDirectionalResult(options)
@@ -299,6 +300,15 @@ export function normalizeStrategyIntent(
 
 type KpiLike = { metric?: string; target?: string; timeframe?: string; isHypothesis?: boolean; [k: string]: unknown }
 
+type DecisionRuleLike = {
+  signal?: string
+  continueWhen?: string
+  iterateWhen?: string
+  stopWhen?: string
+  nextAction?: string
+  [k: string]: unknown
+}
+
 function guardKpiArray(list: unknown, allowed: string[], options: StrategyKpiGuardOptions): unknown {
   if (!Array.isArray(list)) return list
   return list.map((k) => {
@@ -310,6 +320,100 @@ function guardKpiArray(list: unknown, allowed: string[], options: StrategyKpiGua
     // The number was unsupported → it is, by definition, a hypothesis.
     return { ...kpi, target: guarded, isHypothesis: true }
   })
+}
+
+function guardDecisionRuleArray(
+  list: unknown,
+  allowed: string[],
+  options: StrategyKpiGuardOptions,
+): unknown {
+  if (!Array.isArray(list)) return list
+  const arabic = isArabicLanguage(options.language)
+  const fallbacks: Record<keyof Pick<DecisionRuleLike, 'signal' | 'continueWhen' | 'iterateWhen' | 'stopWhen' | 'nextAction'>, string> = {
+    signal: arabic ? 'إشارة تشغيلية قابلة للقياس' : 'A measurable operating signal',
+    continueWhen: arabic
+      ? 'استمر عندما يتحسن المؤشر مقارنة بخط الأساس الموثق.'
+      : 'Continue when the signal improves against the documented baseline.',
+    iterateWhen: arabic
+      ? 'عدّل متغيرًا واحدًا عندما تكون الإشارة غير حاسمة مقارنة بخط الأساس.'
+      : 'Change one variable when the signal is inconclusive against the baseline.',
+    stopWhen: arabic
+      ? 'أوقف عندما تتراجع الإشارة أو لا يمكن التحقق منها.'
+      : 'Stop when the signal declines or cannot be verified.',
+    nextAction: arabic
+      ? 'راجع الدليل وغيّر متغيرًا واحدًا ثم أعد القياس.'
+      : 'Review the evidence, change one variable, and measure again.',
+  }
+  const fields = Object.keys(fallbacks) as Array<keyof typeof fallbacks>
+
+  return list.map((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return item
+    const rule = item as DecisionRuleLike
+    const guarded: DecisionRuleLike = { ...rule }
+    fields.forEach((field) => {
+      const value = rule[field]
+      if (typeof value !== 'string') return
+      const cleaned = guardResultText(value, allowed, options)
+      guarded[field] = cleaned === value ? value : fallbacks[field]
+    })
+    return guarded
+  })
+}
+
+function guardRoadmapArray(
+  list: unknown,
+  allowed: string[],
+  options: StrategyKpiGuardOptions,
+): unknown {
+  if (!Array.isArray(list)) return list
+  const fallback = isArabicLanguage(options.language)
+    ? 'انتقل بعد جمع خط أساس ودليل فعلي قابل للمقارنة يثبت اتجاه الإشارة.'
+    : 'Advance after a baseline and comparable real evidence establish the signal direction.'
+
+  return list.map((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return item
+    const row = item as Record<string, unknown>
+    if (typeof row.exitGate !== 'string') return row
+    const guarded = guardResultText(row.exitGate, allowed, options)
+    return guarded === row.exitGate ? row : { ...row, exitGate: fallback }
+  })
+}
+
+function guardExperimentBacklog(
+  list: unknown,
+  allowed: string[],
+  options: StrategyKpiGuardOptions,
+): unknown {
+  if (!Array.isArray(list)) return list
+  const fallback = isArabicLanguage(options.language)
+    ? 'اجمع عينة فعلية قابلة للمقارنة مع خط الأساس قبل اتخاذ قرار.'
+    : 'Collect a real sample comparable with the baseline before making a decision.'
+
+  return list.map((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return item
+    const row = item as Record<string, unknown>
+    if (typeof row.minimumEvidence !== 'string') return row
+    const guarded = guardResultText(row.minimumEvidence, allowed, options)
+    return guarded === row.minimumEvidence ? row : { ...row, minimumEvidence: fallback }
+  })
+}
+
+function guardLearningGovernance(value: unknown, options: StrategyKpiGuardOptions): unknown {
+  if (typeof value === 'string') {
+    // A bilingual strategy can contain Arabic and English in the same value.
+    // Apply both guards regardless of UI locale or model language metadata.
+    return value
+      .replace(/(?:التعلّم|التعلم|تعلّم|تعلم)\s+من\s+Brand\s*Brain/gi, 'اقتراح تحديثات على Brand Brain من بيانات موثقة ثم مراجعتها قبل الاعتماد')
+      .replace(/تحديث\s+Brand\s*Brain\s+تلقائي(?:اً|ا)?/gi, 'اقتراح تحديث على Brand Brain يحتاج إلى مراجعة وموافقة')
+      .replace(/(?:learn|learning)\s+from\s+Brand\s*Brain/gi, 'propose Brand Brain updates from verified data for review and approval')
+      .replace(/auto(?:matically)?[-\s]?update\s+Brand\s*Brain/gi, 'propose a Brand Brain update for review and approval')
+  }
+  if (Array.isArray(value)) return value.map(item => guardLearningGovernance(item, options))
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .map(([key, item]) => [key, guardLearningGovernance(item, options)]),
+  )
 }
 
 /**
@@ -339,6 +443,9 @@ export function guardStrategyKpis<T extends Record<string, unknown>>(
   }
   if ('kpis' in out) out.kpis = guardKpiArray(out.kpis, allowed, options)
   if ('successMetricsDetailed' in out) out.successMetricsDetailed = guardKpiArray(out.successMetricsDetailed, allowed, options)
+  if ('decisionRules' in out) out.decisionRules = guardDecisionRuleArray(out.decisionRules, allowed, options)
+  if ('roadmap30_60_90' in out) out.roadmap30_60_90 = guardRoadmapArray(out.roadmap30_60_90, allowed, options)
+  if ('experimentBacklog' in out) out.experimentBacklog = guardExperimentBacklog(out.experimentBacklog, allowed, options)
   if (Array.isArray(out.successMetrics)) {
     out.successMetrics = (out.successMetrics as unknown[]).map((s) =>
       typeof s === 'string' ? guardResultText(s, allowed, options) : s,
@@ -347,5 +454,5 @@ export function guardStrategyKpis<T extends Record<string, unknown>>(
   if (typeof out.estimatedResults === 'string') {
     out.estimatedResults = guardResultText(out.estimatedResults, allowed, options)
   }
-  return out as T
+  return guardLearningGovernance(out, options) as T
 }

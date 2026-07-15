@@ -109,7 +109,7 @@ It's not a writing tool. It's a full marketing department: 4 AI agents that work
 - Secondary: `See how it works` / `شاهد كيف يعمل`
 
 ### Trust signals (below CTAs)
-- ✓ 20 free AI credits / 20 رصيد AI مجاناً
+- ✓ 12 one-time trial credits / 12 رصيداً تجريبياً لمرة واحدة
 - ✓ Cancel anytime / إلغاء في أي وقت
 - ✓ Arabic & English / عربي وإنجليزي
 

@@ -108,6 +108,14 @@ Or for production-safe migrations:
 npx prisma migrate deploy
 ```
 
+After a schema push/deploy, apply the Supabase Data API lockdown migration
+`supabase/migrations/20260715091427_reassert_public_data_api_lockdown.sql`
+through the Supabase SQL Editor (or the reviewed Supabase migration pipeline).
+It enables RLS on every `public` table and revokes browser-role table,
+sequence, and function privileges. Re-run the security advisor after applying
+it; this is a server-only Prisma architecture, so no browser table policies
+are required.
+
 ---
 
 ## 4. Vercel Deployment Commands

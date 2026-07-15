@@ -36,6 +36,7 @@ import {
   campaignRoomTabKeyFromIndex,
 } from '@/lib/campaignRoomTabs'
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
+import { normalizeStrategyEvidenceLedger } from '@/lib/strategy/strategyEvidenceLedger'
 import { summarizeCreativeRequirements } from '@/lib/creativeRequirements'
 import { formatStrategyPlatformLabel, guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
@@ -45,6 +46,7 @@ import { deriveStrategyRoomStateCopy } from '@/lib/strategyRoomStateCopy'
 import { derivePlatformReadiness, type PlatformState } from '@/lib/platformReadiness'
 import { deriveStrategyExecutionBridge, type StrategyExecutionRequirement } from '@/lib/strategyExecutionBridge'
 import { deriveStrategyFulfillmentSummary, type StrategyFulfillmentTone } from '@/lib/strategyFulfillment'
+import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
 
 interface Activity {
   id: string
@@ -310,6 +312,7 @@ function StrategyDocList({
 function ContentPlanApprovalDialog({
   open,
   locale,
+  strategyAlreadyApproved,
   launchState,
   launchError,
   onConfirm,
@@ -317,6 +320,7 @@ function ContentPlanApprovalDialog({
 }: {
   open: boolean
   locale: string
+  strategyAlreadyApproved: boolean
   launchState: 'idle' | 'approving' | 'generating' | 'done'
   launchError: string
   onConfirm: () => void
@@ -337,7 +341,9 @@ function ContentPlanApprovalDialog({
             <h3 id="content-plan-approval-title" className="mt-1 text-lg font-bold text-slate-950">
               {isWorking
                 ? (isArabic ? 'يجري إعداد خطة المحتوى' : 'Preparing the content plan')
-                : (isArabic ? 'اعتماد الاستراتيجية وإنشاء خطة المحتوى؟' : 'Approve strategy and build the content plan?')}
+                : strategyAlreadyApproved
+                  ? (isArabic ? 'إنشاء خطة محتوى من الاستراتيجية المعتمدة؟' : 'Build a content plan from the approved strategy?')
+                  : (isArabic ? 'اعتماد الاستراتيجية وإنشاء خطة المحتوى؟' : 'Approve strategy and build the content plan?')}
             </h3>
           </div>
           <button
@@ -356,8 +362,12 @@ function ContentPlanApprovalDialog({
             <>
               <p className="text-sm leading-6 text-slate-600">
                 {isArabic
-                  ? 'سيحفظ NEXUS اعتماد وثيقة الاستراتيجية كسير عمل، ثم يخصم 2 كريديت لإنشاء مسودات Content Hub للمراجعة. لا يتم نشر أو جدولة أو تشغيل إعلان.'
-                  : 'NEXUS will save workflow approval for the strategy, then spend 2 credits to create Content Hub drafts for review. Nothing is published, scheduled, or launched.'}
+                  ? strategyAlreadyApproved
+                    ? 'الاستراتيجية معتمدة بالفعل. سيتحقق NEXUS من القرار المحفوظ، ثم يخصم 2 كريديت لإنشاء مسودات Content Hub للمراجعة. لا يتم نشر أو جدولة أو تشغيل إعلان.'
+                    : 'سيحفظ NEXUS اعتماد وثيقة الاستراتيجية كسير عمل، ثم يخصم 2 كريديت لإنشاء مسودات Content Hub للمراجعة. لا يتم نشر أو جدولة أو تشغيل إعلان.'
+                  : strategyAlreadyApproved
+                    ? 'The strategy is already approved. NEXUS will verify the saved decision, then spend 2 credits to create Content Hub drafts for review. Nothing is published, scheduled, or launched.'
+                    : 'NEXUS will save workflow approval for the strategy, then spend 2 credits to create Content Hub drafts for review. Nothing is published, scheduled, or launched.'}
               </p>
               <div className="grid gap-2 sm:grid-cols-3">
                 {[
@@ -378,7 +388,9 @@ function ContentPlanApprovalDialog({
             <div className="space-y-3">
               {[
                 {
-                  label: isArabic ? 'حفظ اعتماد سير عمل الاستراتيجية' : 'Save strategy workflow approval',
+                  label: strategyAlreadyApproved
+                    ? (isArabic ? 'التحقق من اعتماد الاستراتيجية المحفوظ' : 'Verify saved strategy approval')
+                    : (isArabic ? 'حفظ اعتماد سير عمل الاستراتيجية' : 'Save strategy workflow approval'),
                   state: launchState === 'approving' ? 'active' : 'done',
                 },
                 {
@@ -414,7 +426,9 @@ function ContentPlanApprovalDialog({
               {isArabic ? 'إلغاء' : 'Cancel'}
             </button>
             <button type="button" onClick={onConfirm} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700">
-              {isArabic ? 'تأكيد وإنشاء الخطة — 2 كريديت' : 'Confirm and build plan — 2 credits'}
+              {strategyAlreadyApproved
+                ? (isArabic ? 'إنشاء خطة المحتوى — 2 كريديت' : 'Build content plan — 2 credits')
+                : (isArabic ? 'تأكيد وإنشاء الخطة — 2 كريديت' : 'Confirm and build plan — 2 credits')}
             </button>
           </div>
         )}
@@ -712,7 +726,10 @@ function CampaignDetailPageInner() {
         .then(r => r.ok ? r.json() : null)
         .then(data => {
           if (data) {
-            setBrandScore(getBrandBrainReadiness(data.brandProfile).score)
+            setBrandScore(
+              data.contract?.readiness?.brandCompleteness?.score
+                ?? getBrandBrainReadiness(data.brandProfile).score,
+            )
             if (data.brandProfile) setBrandDNA(data.brandProfile as BrandDNAData)
           }
         })
@@ -854,7 +871,7 @@ function CampaignDetailPageInner() {
     setSentinelError('')
     setCalendarPushError('')
     try {
-      const res = await fetch(`/api/campaigns/${campaignId}/engine`, {
+      const res = await fetchCreditOperation(creditOperationScope('campaign:engine', JSON.stringify({ campaignId, force, locale })), `/api/campaigns/${campaignId}/engine`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: token },
         body: JSON.stringify({ language: locale, force, ...(force ? confirmation : {}) }),
@@ -928,8 +945,9 @@ function CampaignDetailPageInner() {
     setLaunchState('approving')
     setLaunchError('')
     try {
-      // Step 1: record the reviewed strategy decision through the authoritative
-      // approval workflow. This does not launch spend or publish anything.
+      // Step 1: record or idempotently verify the reviewed strategy decision
+      // through the authoritative approval workflow. This does not launch
+      // spend or publish anything.
       const approveRes = await fetch(`/api/campaigns/${campaignId}/strategy-approval`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: token },
@@ -953,7 +971,7 @@ function CampaignDetailPageInner() {
 
       if (!existingData.posts || existingData.posts.length === 0) {
         // Generate content plan — use MIXED so all workspace media gets assigned to posts
-        const genRes = await fetch(`/api/campaigns/${campaignId}/generate-content-plan`, {
+        const genRes = await fetchCreditOperation(`campaign:content-plan:${campaignId}`, `/api/campaigns/${campaignId}/generate-content-plan`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: token },
           body: JSON.stringify({ mediaSource: 'MIXED' }),
@@ -970,7 +988,11 @@ function CampaignDetailPageInner() {
               ? `وصلت إلى حد الخطة الشهري (${genData.limit ?? 0} منشورات). استُخدم ${genData.current ?? 0}، بينما تحتاج هذه الخطة ${genData.requested ?? 0}. راجع الباقة قبل إعادة المحاولة.`
               : `Your monthly plan limit is ${genData.limit ?? 0} posts. ${genData.current ?? 0} are already used and this plan needs ${genData.requested ?? 0}. Review your plan before retrying.`)
           } else {
-            setLaunchError(genData.error ?? (locale === 'ar' ? 'فشل توليد خطة المحتوى' : 'Failed to generate content plan'))
+            setLaunchError(
+              locale === 'ar' && typeof genData.messageAr === 'string'
+                ? genData.messageAr
+                : genData.error ?? (locale === 'ar' ? 'فشل توليد خطة المحتوى' : 'Failed to generate content plan'),
+            )
           }
           return
         }
@@ -994,9 +1016,11 @@ function CampaignDetailPageInner() {
     setSentinelState('reviewing')
     setSentinelError('')
     try {
-      const res = await fetch(`/api/campaigns/${campaignId}/sentinel-review`, {
+      const res = await fetchCreditOperation(`campaign:sentinel:${campaignId}`, `/api/campaigns/${campaignId}/sentinel-review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: token },
+        // The API treats the saved strategy language as authoritative. Passing
+        // the UI locale is only a fallback for legacy campaigns.
         body: JSON.stringify({ language: locale }),
       })
       const d = await res.json()
@@ -1080,7 +1104,7 @@ function CampaignDetailPageInner() {
     setGenerating(true)
     setGenerateError('')
     try {
-      const res = await fetch('/api/generate', {
+      const res = await fetchCreditOperation(`campaign:generate:${campaignId}:${locale}`, '/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: token },
         body: JSON.stringify({ campaignId, language: locale }),
@@ -1200,7 +1224,8 @@ function CampaignDetailPageInner() {
       strategyType: strategyScope.type,
       hasConversionDestination: Boolean((brandDNA as any)?.conversionDestination),
     }) as Record<string, unknown>,
-    [],
+    [(brandDNA as any)?.marketingBudget, (brandDNA as any)?.pastAdResults]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
     { language: strategyLanguage },
   ) as any
   const topHooks: string[] = strategy.topHooks || guardedAiOutput?.topHooks || []
@@ -1230,6 +1255,7 @@ function CampaignDetailPageInner() {
   const executionAssumptions: string[] = strategy.executionAssumptions || []
   // PR-2B1 — honesty scaffold (server-authoritative confidence/missing-data)
   const assumptions: string[] = (strategy as any).assumptions || []
+  const evidenceLedger = normalizeStrategyEvidenceLedger((strategy as any).evidenceLedger)
   const missingDataKeys: string[] = (strategy as any).missingData || []
   const confidenceReport: any = (strategy as any).confidenceReport || null
   const competitorAnalysisComplete: boolean | null =
@@ -1287,7 +1313,7 @@ function CampaignDetailPageInner() {
   const hasReadinessSection =
     !!(readinessChecklist.length > 0 || assetRequirements || strategy.executionChecklist?.length > 0 || adSetupPlan || hasStrategyExecutionBridge)
   const hasRisksSection =
-    !!(doNotDoYet.length > 0 || riskNotes.length > 0 || safeExecutionAssumptions.length > 0 || safeAssumptions.length > 0 || missingDataLabels.length > 0 || confidenceReport || competitorAnalysisComplete === false)
+    !!(evidenceLedger.length > 0 || doNotDoYet.length > 0 || riskNotes.length > 0 || safeExecutionAssumptions.length > 0 || safeAssumptions.length > 0 || missingDataLabels.length > 0 || confidenceReport || competitorAnalysisComplete === false)
   const strategySectionNavItems = [
     { num: '01', label: strategyDocText('التنفيذي', 'Executive'), id: 'strategy-executive', show: hasExecutiveStrategySection },
     { num: '02', label: strategyDocText('التشخيص', 'Diagnosis'), id: 'strategy-diagnosis', show: hasDiagnosisSection },
@@ -1369,6 +1395,7 @@ function CampaignDetailPageInner() {
       aiOutput: campaign.aiOutput,
       autopilotEnabled: campaign.autopilotEnabled,
       autopilotActivatedAt: campaign.autopilotActivatedAt,
+      platforms: campaign.platforms,
     },
     posts: campaignPosts,
     pendingLearningCount,
@@ -1563,9 +1590,7 @@ function CampaignDetailPageInner() {
 
   const hasVerifiedPublishingConnection = strategyPlatformReadinessLoaded
     && strategyPlatformStates.some(platform => platform.status === 'ready')
-  const hasReviewedContent = campaignPosts.length > 0 && campaignPosts.every(post =>
-    post.status === 'APPROVED' || post.status === 'SCHEDULED' || post.status === 'PUBLISHED',
-  )
+  const hasReviewedContent = operatingState.truthFlags.hasReviewedContent
   const hasExplicitAutoSchedule = operatingState.counts.autoScheduledPosts > 0
   const autopilotRequirementsMet = Boolean(
     completeQualityReviewPassed &&
@@ -2778,7 +2803,9 @@ function CampaignDetailPageInner() {
                     {sentinelState === 'reviewing'
                       ? '⏳...'
                       : sentinelStatus === 'needs_attention'
-                        ? (locale === 'ar' ? '🔄 أعد المراجعة' : '🔄 Re-review')
+                        ? (locale === 'ar'
+                          ? `طبّق الإصلاح الآمن وأعد الفحص — ${sentinelCreditCost} كريديت`
+                          : `Apply safe correction and re-review — ${sentinelCreditCost} credits`)
                         : (locale === 'ar'
                           ? `🔍 فحص الجودة — ${sentinelCreditCost} كريديت`
                           : `🔍 Review quality — ${sentinelCreditCost} credits`)}
@@ -3148,8 +3175,8 @@ function CampaignDetailPageInner() {
                               ? uiText('جارٍ فحص الجودة...', 'Reviewing quality...')
                               : sentinelStatus === 'needs_attention'
                                 ? uiText(
-                                  `أعد الفحص بعد المعالجة — ${sentinelCreditCost} كريديت`,
-                                  `Re-review after fixes — ${sentinelCreditCost} credits`,
+                                  `طبّق الإصلاح الآمن وأعد الفحص — ${sentinelCreditCost} كريديت`,
+                                  `Apply safe correction and re-review — ${sentinelCreditCost} credits`,
                                 )
                                 : uiText(
                                   `فحص الجودة — ${sentinelCreditCost} كريديت`,
@@ -3166,7 +3193,9 @@ function CampaignDetailPageInner() {
                             disabled={approvalState === 'approving' || launchState === 'approving' || launchState === 'generating'}
                             className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
                           >
-                            {uiText('اعتمد الاستراتيجية وأنشئ الخطة', 'Approve strategy and build plan')}
+                            {campaign.status === 'ACTIVE'
+                              ? uiText('إنشاء خطة المحتوى — 2 كريديت', 'Build content plan — 2 credits')
+                              : uiText('اعتمد الاستراتيجية وأنشئ الخطة', 'Approve strategy and build plan')}
                           </button>
                         ) : (
                           <Link
@@ -3199,6 +3228,81 @@ function CampaignDetailPageInner() {
                     </div>
                   </div>
                   <div className="px-5 py-5 sm:px-7">
+                    {(sentinelReview || qualityGate) && (
+                      <details
+                        open={sentinelStatus === 'needs_attention'}
+                        className={`mb-5 overflow-hidden rounded-2xl border ${
+                          completeQualityReviewPassed
+                            ? 'border-emerald-200 bg-emerald-50/70'
+                            : 'border-amber-200 bg-amber-50/80'
+                        }`}
+                      >
+                        <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-slate-950">
+                          {completeQualityReviewPassed
+                            ? uiText('✓ نتيجة فحص الحقيقة والجودة: مكتملة', '✓ Truth and quality result: complete')
+                            : uiText('⚠ نتيجة فحص الجودة: المعالجة مطلوبة', '⚠ Quality review result: action required')}
+                        </summary>
+                        <div className="space-y-4 border-t border-current/10 px-4 py-4">
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div className="rounded-xl border border-white/80 bg-white/80 p-3">
+                              <p className="text-[11px] font-bold text-slate-500">{uiText('مخاطر الادعاءات', 'Claim risk')}</p>
+                              <p className={`mt-1 text-lg font-semibold ${
+                                Number(sentinelReview?.riskScore ?? 0) > 40 ? 'text-rose-700' : 'text-emerald-700'
+                              }`}>
+                                {sentinelReview ? `${sentinelReview.riskScore}/100` : uiText('لم يُفحص', 'Not reviewed')}
+                              </p>
+                            </div>
+                            <div className="rounded-xl border border-white/80 bg-white/80 p-3">
+                              <p className="text-[11px] font-bold text-slate-500">{uiText('اتساق البراند', 'Brand consistency')}</p>
+                              <p className="mt-1 text-lg font-semibold text-slate-950">
+                                {sentinelReview ? `${sentinelReview.brandConsistencyScore}/100` : (qualityGatePassed ? uiText('مؤسس على Brand Brain', 'Grounded in Brand Brain') : uiText('محجوب', 'Blocked'))}
+                              </p>
+                            </div>
+                          </div>
+
+                          {sentinelReview?.summary && (
+                            <p className="text-sm leading-6 text-slate-700">{sentinelReview.summary}</p>
+                          )}
+                          {sentinelReview?.claimSafetyNotes && (
+                            <p className="rounded-xl border border-white/80 bg-white/70 px-3 py-2 text-xs leading-5 text-slate-600">
+                              {sentinelReview.claimSafetyNotes}
+                            </p>
+                          )}
+                          {Array.isArray(sentinelReview?.complianceWarnings) && sentinelReview.complianceWarnings.length > 0 && (
+                            <div>
+                              <p className="text-xs font-bold text-amber-900">{uiText('النص الذي يمنع الاعتماد', 'Text blocking approval')}</p>
+                              <ul className="mt-2 space-y-2">
+                                {sentinelReview.complianceWarnings.map((warning: string, index: number) => (
+                                  <li key={`${warning}-${index}`} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs leading-5 text-amber-950">
+                                    {warning}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {Array.isArray(sentinelReview?.recommendedFixes) && sentinelReview.recommendedFixes.length > 0 && (
+                            <div>
+                              <p className="text-xs font-bold text-indigo-900">{uiText('الإصلاح المقترح', 'Recommended correction')}</p>
+                              <ul className="mt-2 space-y-2">
+                                {sentinelReview.recommendedFixes.map((fix: string, index: number) => (
+                                  <li key={`${fix}-${index}`} className="rounded-xl border border-indigo-100 bg-white px-3 py-2 text-xs leading-5 text-indigo-950">
+                                    {fix}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {sentinelStatus === 'needs_attention' && (
+                            <p className="rounded-xl border border-amber-300 bg-amber-100 px-3 py-2 text-xs font-semibold leading-5 text-amber-950">
+                              {uiText(
+                                'لن يتم الاعتماد بهذه الحالة. زر «طبّق الإصلاح الآمن» يزيل الأرقام الأدائية غير الموثقة قبل إعادة الفحص؛ ولا ينشر أو يعتمد شيئًا تلقائيًا.',
+                                'Approval remains blocked. Apply safe correction removes unsupported performance numbers before the re-review; it does not publish or approve anything automatically.',
+                              )}
+                            </p>
+                          )}
+                        </div>
+                      </details>
+                    )}
                     <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
                       <StrategyDocCard
                         label={uiText('ما تم توليده', 'What was generated')}
@@ -3966,6 +4070,22 @@ function CampaignDetailPageInner() {
                       : 'These limits keep the strategy honest before it moves into content planning.'}
                   >
                     <div className="space-y-4">
+                      <StrategyDocCard
+                        label={strategyDocText('لقطة الأدلة عند الإنشاء', 'Evidence snapshot at generation')}
+                        value={evidenceLedger.length > 0
+                          ? <StrategyDocList
+                              locale={strategyDocumentLocale}
+                              items={evidenceLedger.map(item => item.status === 'source_linked'
+                                ? `${item.statement} — ${strategyDocText('المصدر', 'Source')}: ${item.sourceName}${item.sourceLocator ? ` — ${item.sourceLocator}` : ''}`
+                                : `${item.statement} — ${strategyDocText('مدخل Brand Brain بلا ملف مصدر', 'Brand Brain entry without an attached source file')}`)}
+                            />
+                          : strategyDocText(
+                              'لم تُحفظ أدلة مع هذه الاستراتيجية؛ تعامل مع الادعاءات كفرضيات حتى إضافة مصدر واعتماده.',
+                              'No approved evidence was saved with this strategy; treat claims as hypotheses until a source is added and approved.',
+                            )}
+                        locale={strategyDocumentLocale}
+                        tone={evidenceLedger.length > 0 ? 'muted' : 'warning'}
+                      />
                       {displayedConfidenceLevel && (
                         <StrategyDocCard
                           label={strategyDocText('الثقة', 'Confidence')}
@@ -5018,7 +5138,7 @@ function CampaignDetailPageInner() {
                     <div className="mt-4 space-y-1.5">
                       {[
                         { label: locale === 'ar' ? 'الاستراتيجية اجتازت الحقيقة والجودة' : 'Strategy passed truth and quality review', done: completeQualityReviewPassed },
-                        { label: locale === 'ar' ? 'تمت مراجعة كل مسودات المحتوى' : 'All content drafts reviewed', done: hasReviewedContent },
+                        { label: locale === 'ar' ? 'لكل نسخة محتوى دليل اعتماد محفوظ' : 'Every content revision has saved approval evidence', done: hasReviewedContent },
                         { label: locale === 'ar' ? 'يوجد منشور AUTO مجدول بموافقة صريحة' : 'At least one explicitly approved AUTO post is scheduled', done: hasExplicitAutoSchedule },
                         { label: locale === 'ar' ? 'صلاحية نشر موثقة من المنصة' : 'Provider-verified publishing connection', done: hasVerifiedPublishingConnection },
                       ].map((req, i) => (
@@ -5759,6 +5879,7 @@ function CampaignDetailPageInner() {
     <ContentPlanApprovalDialog
       open={approvalState === 'confirming' || approvalState === 'approving'}
       locale={locale}
+      strategyAlreadyApproved={campaign?.status === 'ACTIVE'}
       launchState={launchState}
       launchError={launchError}
       onConfirm={handleApproveAndBuildContent}

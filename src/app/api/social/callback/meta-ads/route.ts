@@ -85,7 +85,12 @@ export async function GET(req: NextRequest) {
     const tokenData = await tokenRes.json()
     if (tokenData.error || !tokenData.access_token) {
       const msg = tokenData.error?.message || 'token_exchange_failed'
-      console.error('[Meta Ads OAuth] Token exchange failed:', tokenData)
+      // Keep OAuth credentials out of logs even when a provider returns a
+      // mixed success/error payload.
+      console.error('[Meta Ads OAuth] Token exchange failed:', {
+        error: tokenData.error?.message || tokenData.error || 'unknown',
+        code: tokenData.error?.code || null,
+      })
       return NextResponse.redirect(
         `${baseUrl}/paid-campaigns?error=${encodeURIComponent(msg.slice(0, 120))}`
       )

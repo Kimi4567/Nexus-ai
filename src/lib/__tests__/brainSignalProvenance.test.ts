@@ -4,6 +4,7 @@ import {
   collectExternalSignalSources,
   inspectBrainSignalProvenance,
 } from '@/lib/brainSignalProvenance'
+import { validPerformanceLearningEvidence } from '@/lib/__tests__/fixtures/performanceLearningEvidence'
 
 describe('brainSignalProvenance', () => {
   it('collects only unique http sources from external findings', () => {
@@ -61,5 +62,29 @@ describe('brainSignalProvenance', () => {
     expect(result.traceability).toBe('campaign_record')
     expect(result.canAccept).toBe(true)
     expect(result.displayReason).toContain('saved strategy')
+  })
+
+  it('blocks a performance claim when its structured evidence is missing', () => {
+    const result = inspectBrainSignalProvenance({
+      trigger: 'post_performance',
+      reason: 'Several posts performed better.',
+    })
+
+    expect(result.traceability).toBe('analytics_evidence')
+    expect(result.canAccept).toBe(false)
+    expect(result.evidence).toBeNull()
+  })
+
+  it('accepts a performance candidate only with a valid evidence contract', () => {
+    const evidence = validPerformanceLearningEvidence()
+    const result = inspectBrainSignalProvenance({
+      trigger: 'post_performance',
+      reason: 'Platform-local candidates for another test.',
+      evidence,
+    })
+
+    expect(result.traceability).toBe('analytics_evidence')
+    expect(result.canAccept).toBe(true)
+    expect(result.evidence).toEqual(evidence)
   })
 })

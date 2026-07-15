@@ -11,12 +11,16 @@ import { chatRateLimitDb } from '@/lib/dbRateLimit'
 import {
   buildCreditChargeReceipt,
   checkAndDeductCredits,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
   refundCreditDeduction,
   CREDIT_COSTS,
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
 import { PUBLIC_PAID_PLANS } from '@/lib/commercialPlans'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -172,9 +176,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'AI service not configured' }, { status: 503 })
     }
 
-    // ── Deduct credits before AI call ────────────────────────────
-    const credit = await checkAndDeductCredits(authUser.id, 'CHAT_MESSAGE')
-    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
+    const rateLimitResponse = await enforceBillableAiRateLimit(authUser.id, 'CHAT_MESSAGE')
+    if (rateLimitResponse) return rateLimitResponse
+
+    // ── Reserve credits before AI call ───────────────────────────
+    const credit = await checkAndDeductCredits(
+      authUser.id,
+      'CHAT_MESSAGE',
+      undefined,
+      {
+        entityId: authUser.id,
+        entityType: 'ephemeral_chat_response',
+        operationKey: getCreditOperationKey(req, 'CHAT_MESSAGE', 'ephemeral_chat_response', authUser.id),
+      },
+    )
+    if (!credit.ok) return NextResponse.json(credit, { status: creditCheckHttpStatus(credit) })
     chargedUserId = authUser.id
     chargedCredit = credit
 
@@ -315,6 +331,15 @@ export async function POST(req: NextRequest) {
             await refundStreamOnce(!completed
               ? 'Chat response stream failed before completion'
               : 'Chat provider returned no usable response')
+          } else {
+            const finalization = await finalizeCreditDeduction({
+              userId: authUser.id,
+              action: 'CHAT_MESSAGE',
+              deduction: credit,
+            })
+            if (!finalization.ok) {
+              console.error('[chat] Credit finalization failed; reservation was returned:', finalization.error)
+            }
           }
           reader.releaseLock()
           controller.close()
@@ -333,6 +358,7 @@ export async function POST(req: NextRequest) {
         'X-Nexus-Credits-Used': String(receipt.creditsUsed),
         'X-Nexus-Credits-Remaining': String(receipt.creditsRemaining),
         'X-Nexus-Credit-Reason': encodeURIComponent(receipt.reason),
+        'X-Nexus-Credit-Status': 'finalizes-after-stream',
       },
     })
   } catch (err) {

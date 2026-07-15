@@ -11,6 +11,8 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { runSentinelReview, SentinelReviewInput } from '@/lib/agents/sentinel-reviewer'
 import {
   checkAndDeductCredits,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
   getCreditActionPolicy,
   refundCreditDeduction,
   type CreditDeductionOk,
@@ -21,6 +23,8 @@ import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuar
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -57,7 +61,7 @@ export async function POST(req: NextRequest, props: Params) {
   let chargedCredit: CreditDeductionOk | null = null
   try {
     const body = await req.json().catch(() => ({}))
-    const language: string = body.language || 'ar'
+    const requestedLanguage: string = body.language || 'ar'
 
     // Fetch campaign with workspace + brand
     const campaign = await (prisma as any).campaign.findFirst({
@@ -72,6 +76,12 @@ export async function POST(req: NextRequest, props: Params) {
 
     const brand = campaign.workspace?.brandProfile
     const aiOutput = (campaign.aiOutput as any) || {}
+    // Review and deterministic corrections must follow the language contract of
+    // the saved strategy, not the current UI locale. This is especially
+    // important for bilingual strategies opened from an Arabic or English UI.
+    const language: string = ['ar', 'en', 'bilingual'].includes(aiOutput.language)
+      ? aiOutput.language
+      : requestedLanguage
     const rawStrategy = aiOutput.strategy || {}
     const strategyScope = resolveStrategyScope(aiOutput)
     const proofContext = {
@@ -173,8 +183,20 @@ export async function POST(req: NextRequest, props: Params) {
       return NextResponse.json(getAiProviderUnavailablePayload(language), { status: 503 })
     }
 
-    const credit = await checkAndDeductCredits(userId, 'SENTINEL_REVIEW')
-    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
+    const rateLimitResponse = await enforceBillableAiRateLimit(userId, 'SENTINEL_REVIEW')
+    if (rateLimitResponse) return rateLimitResponse
+
+    const credit = await checkAndDeductCredits(
+      userId,
+      'SENTINEL_REVIEW',
+      undefined,
+      {
+        entityId: params.id,
+        entityType: 'campaign_sentinel_review',
+        operationKey: getCreditOperationKey(req, 'SENTINEL_REVIEW', 'campaign_sentinel_review', params.id),
+      },
+    )
+    if (!credit.ok) return NextResponse.json(credit, { status: creditCheckHttpStatus(credit) })
     chargedCredit = credit
 
     const sentinelReview = await runSentinelReview(input)
@@ -210,14 +232,29 @@ export async function POST(req: NextRequest, props: Params) {
       },
     }).catch(() => {})
 
+    const finalization = await finalizeCreditDeduction({
+      userId,
+      action: 'SENTINEL_REVIEW',
+      deduction: credit,
+    })
+    if (!finalization.ok) {
+      chargedCredit = null
+      return NextResponse.json({
+        error: 'Sentinel review could not be finalized. Reserved credits were returned.',
+        code: 'CREDIT_FINALIZATION_FAILED',
+        refunded: finalization.refundStatus === 'refunded',
+      }, { status: 503 })
+    }
+    chargedCredit = null
+
     return NextResponse.json({
       sentinelReview,
       qualityGate,
-      creditsRemaining: chargedCredit.creditsRemaining,
-      creditsUsed: chargedCredit.creditsUsed,
+      creditsRemaining: credit.creditsRemaining,
+      creditsUsed: credit.creditsUsed,
       creditCharge: {
         ...getCreditActionPolicy('SENTINEL_REVIEW'),
-        creditsUsed: chargedCredit.creditsUsed,
+        creditsUsed: credit.creditsUsed,
       },
     })
   } catch (err: any) {

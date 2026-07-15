@@ -12,6 +12,30 @@ export interface MarketingStatusOption {
   en: string
 }
 
+export type ExistingWorkspaceOnboardingRoute = '/dashboard' | '/brand' | null
+
+/**
+ * A workspace shell is deliberately preserved by Fresh Start. It is therefore
+ * not proof that onboarding is complete. Only persisted Brand Brain identity
+ * can move an existing workspace past the starter journey.
+ */
+export function resolveExistingWorkspaceOnboardingRoute({
+  hasWorkspace,
+  brandProfile,
+  brandReady,
+}: {
+  hasWorkspace: boolean
+  brandProfile?: Record<string, unknown> | null
+  brandReady: boolean
+}): ExistingWorkspaceOnboardingRoute {
+  if (!hasWorkspace) return null
+  const hasBrandIdentity = Boolean(
+    brandProfile?.brandName || brandProfile?.industry || brandProfile?.description,
+  )
+  if (!hasBrandIdentity) return null
+  return brandReady ? '/dashboard' : '/brand'
+}
+
 export const FIRST_INTENTS: FirstIntentOption[] = [
   { value: 'build_strategy', ar: 'بناء استراتيجية تسويق', en: 'Build a marketing strategy' },
   { value: 'create_content', ar: 'إنشاء محتوى', en: 'Create content' },

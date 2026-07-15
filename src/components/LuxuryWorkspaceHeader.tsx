@@ -3,6 +3,10 @@
 import Link from 'next/link'
 import { ArrowUpRight, Sparkles } from 'lucide-react'
 import { useI18n } from '@/lib/i18n-context'
+import {
+  getMarketingJourneyStage,
+  type MarketingJourneyStageId,
+} from '@/lib/marketingJourney'
 
 interface LuxuryWorkspaceHeaderProps {
   pageTitle?: string
@@ -11,6 +15,7 @@ interface LuxuryWorkspaceHeaderProps {
   primaryLabel?: string
   secondaryHref?: string | null
   secondaryLabel?: string
+  journeyStage?: MarketingJourneyStageId
 }
 
 /**
@@ -27,11 +32,13 @@ export default function LuxuryWorkspaceHeader({
   primaryLabel,
   secondaryHref = '/brand',
   secondaryLabel,
+  journeyStage,
 }: LuxuryWorkspaceHeaderProps) {
   const { locale } = useI18n()
   const ar = locale === 'ar'
   const resolvedPrimaryLabel = primaryLabel || (ar ? 'عمل جديد' : 'New work')
   const resolvedSecondaryLabel = secondaryLabel || (ar ? 'Brand Brain' : 'Brand Brain')
+  const stage = journeyStage ? getMarketingJourneyStage(journeyStage) : null
 
   return (
     <header
@@ -44,7 +51,13 @@ export default function LuxuryWorkspaceHeader({
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EEF2FF]">
               <Sparkles className="h-3.5 w-3.5" />
             </span>
-            <span>{ar ? 'مساحة عمل NEXUS' : 'NEXUS workspace'}</span>
+            <span>
+              {stage
+                ? (ar
+                    ? `المرحلة ${stage.step} من 5 · ${stage.label.ar}`
+                    : `Step ${stage.step} of 5 · ${stage.label.en}`)
+                : (ar ? 'مساحة عمل NEXUS' : 'NEXUS workspace')}
+            </span>
           </div>
           <h1 className="text-[24px] font-black leading-tight tracking-[-0.025em] text-[#0B1028] sm:text-[28px]">
             {pageTitle || (ar ? 'نظام التسويق الذكي' : 'AI Marketing OS')}

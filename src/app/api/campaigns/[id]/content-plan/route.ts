@@ -46,6 +46,8 @@ export async function GET(req: NextRequest, props: Params) {
         // Publishing lifecycle (manual publishing checklist — PR4)
         publishMode: true,
         approvedAt: true,
+        approvedSnapshotId: true,
+        mediaApprovalSnapshotId: true,
         publishedAt: true,
         manuallyPublishedAt: true,
         platformUrl: true,

@@ -16,6 +16,8 @@ import {
 } from '@/lib/agents/visual-director'
 import {
   checkAndDeductCredits,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
   getCreditActionPolicy,
   refundCreditDeduction,
   type CreditDeductionOk,
@@ -26,6 +28,8 @@ import {
   isPersistedMarketingQualityGatePassed,
   reviewStrategyGrounding,
 } from '@/lib/ai/marketingQualityGate'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -182,8 +186,20 @@ export async function POST(req: NextRequest, props: Params) {
       return NextResponse.json(getAiProviderUnavailablePayload(ctx.language), { status: 503 })
     }
 
-    const credit = await checkAndDeductCredits(userId, 'CREATIVE_BRIEF')
-    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
+    const rateLimitResponse = await enforceBillableAiRateLimit(userId, 'CREATIVE_BRIEF')
+    if (rateLimitResponse) return rateLimitResponse
+
+    const credit = await checkAndDeductCredits(
+      userId,
+      'CREATIVE_BRIEF',
+      undefined,
+      {
+        entityId: params.id,
+        entityType: 'campaign_creative_brief',
+        operationKey: getCreditOperationKey(req, 'CREATIVE_BRIEF', 'campaign_creative_brief', params.id),
+      },
+    )
+    if (!credit.ok) return NextResponse.json(credit, { status: creditCheckHttpStatus(credit) })
     chargedCredit = credit
 
     let creativeBrief
@@ -226,14 +242,29 @@ export async function POST(req: NextRequest, props: Params) {
       },
     }).catch(() => {})
 
+    const finalization = await finalizeCreditDeduction({
+      userId,
+      action: 'CREATIVE_BRIEF',
+      deduction: credit,
+    })
+    if (!finalization.ok) {
+      chargedCredit = null
+      return NextResponse.json({
+        error: 'Creative brief could not be finalized. Reserved credits were returned.',
+        code: 'CREDIT_FINALIZATION_FAILED',
+        refunded: finalization.refundStatus === 'refunded',
+      }, { status: 503 })
+    }
+    chargedCredit = null
+
     return NextResponse.json({
       creativeBrief,
       creativeMode: mode,
-      creditsRemaining: chargedCredit.creditsRemaining,
-      creditsUsed: chargedCredit.creditsUsed,
+      creditsRemaining: credit.creditsRemaining,
+      creditsUsed: credit.creditsUsed,
       creditCharge: {
         ...getCreditActionPolicy('CREATIVE_BRIEF'),
-        creditsUsed: chargedCredit.creditsUsed,
+        creditsUsed: credit.creditsUsed,
       },
     })
   } catch (err: any) {

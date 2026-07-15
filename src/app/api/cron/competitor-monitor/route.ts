@@ -1,8 +1,8 @@
 /**
  * GET /api/cron/competitor-monitor
- * Runs daily at 09:00 UTC.
+ * A scheduled job runs daily at 09:00 UTC and processes a rotating safe batch.
  *
- * Sprint SB — Daily Competitor Intelligence Loop
+ * Sprint SB — Scheduled Competitor Intelligence Loop
  *
  * For every workspace that has competitors[] in their Brand Brain:
  *   1. Fetch recent news/activity for each competitor via Google News RSS (free, no API key)
@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { cronAuthError } from '@/lib/cronAuth'
+import { scheduledBatchOffset } from '@/lib/scheduledBatch'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -98,18 +99,24 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Load all workspaces that have competitors[] set
+    const batchSize = 50
+    const where = { competitors: { isEmpty: false } }
+    const eligibleProfiles = await (prisma as any).brandProfile.count({ where }) as number
+    const skip = scheduledBatchOffset(eligibleProfiles, batchSize, new Date(), 'daily')
+
+    // Rotate capped batches so larger installations do not scan the same first
+    // workspaces forever. The UI describes this honestly as scheduled monitoring.
     const profiles = await (prisma as any).brandProfile.findMany({
-      where: {
-        competitors: { isEmpty: false },
-      },
+      where,
       select: {
         id: true,
         workspaceId: true,
         brandName: true,
         competitors: true,
       },
-      take: 50, // safety cap
+      orderBy: { id: 'asc' },
+      skip,
+      take: batchSize,
     }) as Array<{
       id: string
       workspaceId: string

@@ -342,6 +342,13 @@ export interface MarketContext {
   isAssumption: true
 }
 
+export interface StrategyEvidenceItem {
+  statement: string
+  status: 'source_linked' | 'brand_brain_entry'
+  sourceName: string | null
+  sourceLocator: string | null
+}
+
 /**
  * Compact readiness signal passed INTO the strategist so it knows what it may and
  * may not assert. Built server-side from getStrategyCapabilities() + Brand Brain.
@@ -416,6 +423,10 @@ export interface StrategyOutput {
   decisionRules?: DecisionRule[]
   roadmap30_60_90?: RoadmapPhase[]
   competitorFrame?: CompetitorFrame
+
+  // SERVER-AUTHORITATIVE snapshot built from Brand Brain proof. The model does
+  // not generate or classify evidence provenance.
+  evidenceLedger?: StrategyEvidenceItem[]
 
   // PR-2B1 — honesty scaffold (all optional; *server-authoritative fields are
   // overwritten by the orchestrator from getStrategyCapabilities()).

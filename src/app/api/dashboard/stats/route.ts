@@ -174,6 +174,11 @@ export async function GET(req: NextRequest) {
       analyzed:  'تم تحليل الأداء',
       scheduled: 'تم جدولة المحتوى',
       monitored: 'تم رصد المنافسين',
+      strategy_approved: 'تم اعتماد اتجاه الاستراتيجية لتخطيط المحتوى',
+      strategy_approval_revoked: 'أُعيد فتح الاستراتيجية للمراجعة',
+      content_media_approved: 'تم اعتماد الوسائط النهائية بشكل منفصل عن النص والجدولة',
+      paid_budget_approved: 'تم اعتماد الميزانية ومسودة المنصة المتوقفة',
+      paid_launch_approved: 'تم اعتماد تنفيذ الحملة المدفوعة والإنفاق',
     }
     const activityLabelMapEn: Record<string, string> = {
       created:   'New campaign created',
@@ -183,6 +188,11 @@ export async function GET(req: NextRequest) {
       analyzed:  'Performance analyzed',
       scheduled: 'Content scheduled',
       monitored: 'Competitors monitored',
+      strategy_approved: 'Strategy direction approved for content planning',
+      strategy_approval_revoked: 'Strategy reopened for review',
+      content_media_approved: 'Final media approved separately from copy and scheduling',
+      paid_budget_approved: 'Budget and paused platform draft approved',
+      paid_launch_approved: 'Paid delivery and spend approved',
     }
 
     const activities = recentActivities.map((a) => ({

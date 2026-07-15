@@ -60,6 +60,17 @@ export async function PATCH(req: NextRequest, props: Params) {
         message: 'Approve strategy through the strategy approval workflow so quality checks and the decision audit are preserved.',
       }, { status: 409 })
     }
+    const strategyBoundFields = ['goal', 'audience', 'tone', 'platforms']
+    const changedStrategyBoundFields = strategyBoundFields.filter((field) => (
+      field in body && JSON.stringify(body[field]) !== JSON.stringify((existing as any)[field])
+    ))
+    if (existing.status === 'ACTIVE' && changedStrategyBoundFields.length > 0) {
+      return NextResponse.json({
+        error: 'REVOKE_STRATEGY_APPROVAL_FIRST',
+        message: 'Goal, audience, tone, and platform scope are part of the approved strategy snapshot. Revoke approval before changing them.',
+        fields: changedStrategyBoundFields,
+      }, { status: 409 })
+    }
     if ('status' in body && !(
       body.status === 'ARCHIVED'
       || (body.status === 'DRAFT' && existing.status === 'ARCHIVED')

@@ -51,6 +51,9 @@ vi.mock('@/lib/i18n-context', () => ({
           fieldBrandName: 'Brand name',
           fieldIndustry: 'Industry',
           fieldDescription: 'Business description',
+          fieldPrimaryOffer: 'Main offer',
+          fieldAudiencePainPoints: 'Audience pain points',
+          fieldBusinessGoal: 'Business goal',
           fieldTargetAudience: 'Target audience',
           fieldTopPlatforms: 'Main platforms',
         }
@@ -66,6 +69,7 @@ const readyProfile = {
   description: 'Clinic operations platform',
   primaryOffer: 'Clinic operations software',
   targetAudience: 'Clinic owners and operations managers',
+  audiencePainPoints: ['Manual follow-up', 'Missed handoffs'],
   businessGoal: 'Generate qualified demos',
   topPlatforms: ['LinkedIn', 'Instagram'],
   writingStyle: 'Calm and professional',

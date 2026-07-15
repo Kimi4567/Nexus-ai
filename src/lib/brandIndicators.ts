@@ -119,8 +119,9 @@ const ORGANIC_FIELDS: { key: string; ok: (p: BrandIndicatorProfile) => boolean }
  *
  * @param profile saved Brand Brain profile (Prisma row or /api/brand response).
  *   Pass null for a zeroed result.
- * @param opts.hasPixel  whether a Meta Pixel / tracking source is connected
- *   (paid prerequisite). Default false.
+ * @param opts.hasPixel  whether a Meta Pixel / tracking source is connected.
+ *   It informs retargeting capability, never paid planning readiness; tracking
+ *   is enforced later at the launch boundary.
  * @param opts.acceptedLearningCount  count of accepted brain-learning events
  *   (memory richness). Falls back to profile.acceptedLearningCount, then 0.
  */
@@ -164,15 +165,17 @@ export function getBrandIndicators(
   // ── 3. Paid readiness ── reuse capability gate + tracking; honest planning-only ──
   const caps = getStrategyCapabilities(p, { hasPixel })
   const paidMissing = [...caps.paidStrategy.missingKeys]
-  if (!hasStr(p.businessGoal)) paidMissing.push('businessGoal') // campaign objective
-  if (!hasPixel) paidMissing.push('pixel')                       // ad account / tracking
-  const paidPrereqTotal = 7 // offer, budget, conversionDestination, location, objective, pixel, (+content base folded in caps)
-  const paidReady = paidMissing.length === 0
+  // Eight professional organic fields + budget, destination, location,
+  // and lead-handling. Tracking belongs to launch readiness, not planning.
+  // This denominator matches the runtime paid-planning gate.
+  const uniquePaidMissing = Array.from(new Set(paidMissing))
+  const paidPrereqTotal = 12
+  const paidReady = uniquePaidMissing.length === 0
   const paidReadiness: PaidReadinessIndicator = {
     ready: paidReady,
     launchReady: false,                          // paid never auto-launches; always approval-gated
-    score: Math.max(0, Math.round(((paidPrereqTotal - Math.min(paidMissing.length, paidPrereqTotal)) / paidPrereqTotal) * 100)),
-    missingKeys: Array.from(new Set(paidMissing)),
+    score: Math.max(0, Math.round(((paidPrereqTotal - Math.min(uniquePaidMissing.length, paidPrereqTotal)) / paidPrereqTotal) * 100)),
+    missingKeys: uniquePaidMissing,
     note: paidReady ? 'ready' : 'planning_only',
   }
 

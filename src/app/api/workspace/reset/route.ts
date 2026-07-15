@@ -27,12 +27,11 @@ import { randomUUID } from 'crypto'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { WORKSPACE_RESET_CONFIRMATION } from '@/lib/workspaceReset'
+import { getSupabaseAdmin } from '@/lib/supabaseAuth'
 
 const db = prisma as any
 
 const STRONG_CONFIRM = WORKSPACE_RESET_CONFIRMATION
-const RESET_TRANSACTION_TIMEOUT_MS = 60_000
-
 // Account infrastructure + platform connections that are NEVER touched.
 const PRESERVED = [
   'User', 'Session', 'Account', 'Workspace', 'WorkspaceMember', 'Project',
@@ -56,6 +55,14 @@ const BRAND_RESET: Record<string, unknown> = {
   averageOrderValue: null, grossMargin: null, customerLifetimeValue: null,
   salesCycleLength: null, seasonality: null, pastAdResults: null,
   languagePreference: null, verifiedProof: [],
+  strategyType: null, strategyDuration: null, strategyCustomDays: null,
+  campaignObjective: null,
+}
+
+function brandFieldIsReset(actual: unknown, expected: unknown): boolean {
+  if (expected === Prisma.JsonNull) return actual == null
+  if (Array.isArray(expected)) return Array.isArray(actual) && actual.length === 0
+  return actual === expected
 }
 
 export async function POST(req: NextRequest) {
@@ -98,6 +105,7 @@ export async function POST(req: NextRequest) {
       count: () => Promise<number>
     }[] => [
       { name: 'marketingLearningEvent', del: () => client.marketingLearningEvent.deleteMany({ where }), count: () => client.marketingLearningEvent.count({ where }) },
+      { name: 'brandEvidenceDocument', del: () => client.brandEvidenceDocument.deleteMany({ where }), count: () => client.brandEvidenceDocument.count({ where }) },
       { name: 'brainLearning',          del: () => client.brainLearning.deleteMany({ where }),          count: () => client.brainLearning.count({ where }) },
       { name: 'brainScoreSnapshot',     del: () => client.brainScoreSnapshot.deleteMany({ where }),     count: () => client.brainScoreSnapshot.count({ where }) },
       { name: 'campaignMemory',         del: () => client.campaignMemory.deleteMany({ where }),         count: () => client.campaignMemory.count({ where }) },
@@ -140,29 +148,85 @@ export async function POST(req: NextRequest) {
     // NOTE: Integration, AdAccount, Project and WorkspaceMember are intentionally
     // NOT deleted (PR-1G) so platform connections / OAuth tokens, ad accounts,
     // and workspace access survive the reset.
-    const outcome = await prisma.$transaction(async (tx) => {
-      // Advisory locks return Postgres `void`. `$queryRawUnsafe` attempts to
-      // deserialize that value and fails with Prisma P2010 on current Supabase
-      // Postgres. Execute the statement instead so only the lock side effect is
-      // observed and the transaction can continue.
-      await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `workspace-reset:${wid}`)
-      const deleted: Record<string, number> = {}
-      for (const model of makeResetModels(tx)) {
-        const result = await model.del()
-        deleted[model.name] = result?.count ?? 0
-      }
-      const existingBrand = await tx.brandProfile.findUnique({ where: { workspaceId: wid }, select: { id: true } })
-      if (existingBrand) await tx.brandProfile.update({ where: { workspaceId: wid }, data: BRAND_RESET as any })
-      return { deleted, brandProfileReset: Boolean(existingBrand) }
-    }, {
-      // Supabase is remote and this reset intentionally performs FK-safe,
-      // sequential deletes. Prisma's 5s interactive-transaction default can
-      // expire before the final BrandProfile reset even though every query is
-      // healthy, producing P2028 and a full rollback. Give this explicit admin-
-      // style operation enough time while keeping it bounded.
-      maxWait: 10_000,
-      timeout: RESET_TRANSACTION_TIMEOUT_MS,
+    // Use a sequential batch transaction instead of a long-running interactive
+    // transaction. Supabase/pgBouncer can drop an interactive transaction while
+    // the route waits across many round trips; Prisma batch transactions retain
+    // all-or-nothing behavior without pinning a callback connection. The reset is
+    // idempotent, so a repeated request is safe and does not need a session lock.
+    const evidenceStorageObjects = await prisma.brandEvidenceDocument.findMany({
+      where,
+      select: { storageBucket: true, storagePath: true },
     })
+    const resetModels = makeResetModels(prisma as any)
+    const deleteOperations = resetModels.map(model => model.del())
+    const brandResetOperation = (prisma.brandProfile as any).updateMany({
+      where: { workspaceId: wid },
+      data: BRAND_RESET as any,
+    })
+    const verificationOperations = resetModels.map(model => model.count())
+    const brandVerificationOperation = prisma.brandProfile.findUnique({
+      where: { workspaceId: wid },
+    })
+
+    const results = await (prisma as any).$transaction([
+      ...deleteOperations,
+      brandResetOperation,
+      ...verificationOperations,
+      brandVerificationOperation,
+    ], {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    }) as Array<any>
+
+    const deleted = Object.fromEntries(
+      resetModels.map((model, index) => [model.name, results[index]?.count ?? 0]),
+    )
+    const brandUpdateIndex = resetModels.length
+    const verificationStartIndex = brandUpdateIndex + 1
+    const remaining = Object.fromEntries(
+      resetModels.map((model, index) => [model.name, Number(results[verificationStartIndex + index] ?? 0)]),
+    )
+    const brandAfterReset = results[verificationStartIndex + resetModels.length] as Record<string, unknown> | null
+    const dirtyBrandFields = brandAfterReset
+      ? Object.entries(BRAND_RESET)
+          .filter(([key, expected]) => !brandFieldIsReset(brandAfterReset[key], expected))
+          .map(([key]) => key)
+      : []
+    const resetVerified = Object.values(remaining).every(count => count === 0)
+      && dirtyBrandFields.length === 0
+
+    if (!resetVerified) {
+      const verificationError = new Error('WORKSPACE_RESET_VERIFICATION_FAILED') as Error & {
+        details?: Record<string, unknown>
+      }
+      verificationError.details = { remaining, dirtyBrandFields }
+      throw verificationError
+    }
+
+    const outcome = {
+      deleted,
+      brandProfileReset: Number(results[brandUpdateIndex]?.count ?? 0) > 0,
+      remaining,
+      dirtyBrandFields,
+      resetVerified,
+    }
+
+    // Database reset remains atomic. Private source objects are removed only
+    // after the committed delete; a transient Storage failure cannot resurrect
+    // journey data or make the reset look partially successful.
+    const evidenceObjectsByBucket = evidenceStorageObjects.reduce<Record<string, string[]>>((groups, item) => {
+      groups[item.storageBucket] = [...(groups[item.storageBucket] ?? []), item.storagePath]
+      return groups
+    }, {})
+    const storageCleanup = await Promise.all(Object.entries(evidenceObjectsByBucket).map(async ([bucket, paths]) => {
+      try {
+        const { error } = await getSupabaseAdmin().storage.from(bucket).remove(paths)
+        if (error) throw error
+        return { bucket, removed: paths.length, pending: false }
+      } catch (error) {
+        console.error('[workspace/reset] evidence storage cleanup deferred', { bucket, error })
+        return { bucket, removed: 0, pending: true }
+      }
+    }))
 
     return NextResponse.json({
       ok: true,
@@ -174,13 +238,23 @@ export async function POST(req: NextRequest) {
       preserved: PRESERVED,
       creditsUnchanged: true,
       connectionsPreserved: true,
+      resetVerified: outcome.resetVerified,
+      evidenceStorageCleanup: storageCleanup,
+      verification: {
+        remaining: outcome.remaining,
+        dirtyBrandFields: outcome.dirtyBrandFields,
+      },
+      next: '/onboarding',
     })
   } catch (err: any) {
     const reference = randomUUID().slice(0, 8)
     console.error('[POST /api/workspace/reset]', { reference, code: err?.code, message: err?.message, stack: err?.stack })
+    const verificationFailed = err?.message === 'WORKSPACE_RESET_VERIFICATION_FAILED'
     return NextResponse.json({
-      error: 'Reset could not complete. No workspace data was changed.',
-      code: 'WORKSPACE_RESET_FAILED',
+      error: verificationFailed
+        ? 'Reset completed its transaction but the fresh-start verification failed.'
+        : 'Reset could not complete. No workspace data was changed.',
+      code: verificationFailed ? 'WORKSPACE_RESET_VERIFICATION_FAILED' : 'WORKSPACE_RESET_FAILED',
       reference,
     }, { status: 500 })
   }

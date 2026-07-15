@@ -82,7 +82,7 @@ const TIER_CONFIGS: Record<string, TierConfig> = {
     upgradeNote: null,
   },
   business: {
-    label: 'Agency ($99/month)',
+    label: 'Autopilot ($99/month)',
     postsPerMonth: 60,
     calendarWeeks: 4,
     platformCount: 6,
@@ -92,7 +92,7 @@ const TIER_CONFIGS: Record<string, TierConfig> = {
     upgradeNote: null,
   },
   agency: {
-    label: 'Agency ($99/month)',
+    label: 'Autopilot ($99/month)',
     postsPerMonth: 60,
     calendarWeeks: 4,
     platformCount: 6,

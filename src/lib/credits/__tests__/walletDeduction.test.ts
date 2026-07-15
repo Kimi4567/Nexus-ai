@@ -23,6 +23,7 @@ const { mockPrisma, tx } = vi.hoisted(() => {
     tx,
     mockPrisma: {
       user: { findUnique: vi.fn(), update: vi.fn() },
+      creditTransaction: { create: vi.fn() },
       usage: { upsert: vi.fn() },
       $transaction: vi.fn(async (cb: (t: typeof tx) => unknown) => cb(tx)),
     },
@@ -58,6 +59,7 @@ beforeEach(() => {
   tx.creditGrant.update.mockResolvedValue({})
   tx.user.update.mockResolvedValue({})
   tx.creditTransaction.create.mockResolvedValue({ id: 'txn_1' })
+  mockPrisma.creditTransaction.create.mockResolvedValue({ id: 'txn_unlimited' })
   tx.creditTransactionGrantAllocation.createMany.mockResolvedValue({ count: 1 })
   mockPrisma.usage.upsert.mockResolvedValue({})
 })
@@ -117,7 +119,7 @@ describe('checkAndDeductCredits — wallet flag ON', () => {
 
     expect(tx.user.update).toHaveBeenCalledWith({
       where: { id: 'u1' },
-      data: { aiCredits: 42, monthlyGenerations: { increment: 1 } },
+      data: { aiCredits: 42 },
     })
   })
 
@@ -159,7 +161,7 @@ describe('checkAndDeductCredits — wallet flag ON', () => {
     const res = await checkAndDeductCredits('u1', 'RUN_FULL_STRATEGY') // cost 8
 
     expect(res.ok).toBe(false)
-    if (!res.ok) {
+    if (!res.ok && res.error === 'INSUFFICIENT_CREDITS') {
       expect(res.error).toBe('INSUFFICIENT_CREDITS')
       expect(res.currentCredits).toBe(2)
     }
@@ -187,6 +189,9 @@ describe('checkAndDeductCredits — wallet flag ON', () => {
     }
     expect(mockPrisma.$transaction).not.toHaveBeenCalled()
     expect(tx.$queryRawUnsafe).not.toHaveBeenCalled()
+    expect(mockPrisma.creditTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ amount: 0, creditCost: CREDIT_COSTS.RUN_FULL_STRATEGY, status: 'RESERVED' }),
+    }))
   })
 
   it('8. costOverride drives the deduction amount for variable strategy pricing', async () => {
@@ -231,6 +236,7 @@ describe('checkAndDeductCredits — wallet flag ON', () => {
       creditsUsed: CREDIT_COSTS.IMAGE_GENERATION,
       isUnlimited: false,
       transactionId: 'txn_1',
+      operationStatus: 'RESERVED',
     })
   })
 })

@@ -38,6 +38,14 @@ interface LearningSignal {
     publishedAt?: string
   }>
   canAccept: boolean
+  evidence?: {
+    platform?: string
+    period?: { start?: string; end?: string }
+    sample?: { eligiblePosts?: number; aboveThresholdPosts?: number }
+    comparison?: { baselineEngagementRate?: number; candidateThresholdEngagementRate?: number }
+    confidence?: { level?: string; rationale?: string }
+    causalClaim?: boolean
+  } | null
   campaignId: string | null
   at: string | null
 }
@@ -85,6 +93,7 @@ interface LearningOverview {
     pendingReview: number
     reviewedSignals: number
     dismissedSignals: number
+    rolledBackLessons: number
     analyticsBackedLessons: number
     workflowSignals: number
     performanceEvidenceRows: number
@@ -149,6 +158,8 @@ export default function LearningPage() {
   const [overview, setOverview] = useState<LearningOverview | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
@@ -170,6 +181,38 @@ export default function LearningPage() {
       setLoading(false)
     }
   }, [authHeader, isAuthenticated])
+
+  const rollbackLearning = useCallback(async (proposalId: string) => {
+    const token = authHeader()
+    if (!token) return
+    setBusyId(proposalId)
+    setNotice(null)
+    try {
+      const response = await fetch('/api/brain/proposals', {
+        method: 'PATCH',
+        headers: { Authorization: token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proposalId, action: 'rollback' }),
+      })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(body.error || (ar ? 'تعذر التراجع عن التعلم.' : 'Could not roll back the learning.'))
+      setNotice({
+        tone: 'success',
+        text: ar
+          ? `تم التراجع بأمان وإزالة ${body.removedValues?.length ?? 0} قيمة أضافها القرار فقط.`
+          : `Learning rolled back safely; ${body.removedValues?.length ?? 0} decision-added values were removed.`,
+      })
+      await load()
+    } catch (rollbackError) {
+      setNotice({
+        tone: 'error',
+        text: rollbackError instanceof Error
+          ? rollbackError.message
+          : (ar ? 'تعذر التراجع عن التعلم.' : 'Could not roll back the learning.'),
+      })
+    } finally {
+      setBusyId(null)
+    }
+  }, [ar, authHeader, load])
 
   useEffect(() => {
     load()
@@ -214,7 +257,8 @@ export default function LearningPage() {
       <main dir={dir} className="nx-os-page">
         <div className="nx-os-container">
           <LuxuryWorkspaceHeader
-            pageTitle={ar ? 'التعلّم' : 'Learning'}
+            journeyStage="results"
+            pageTitle={ar ? 'مراجعة التعلّم' : 'Learning review'}
             pageSubtitle={ar ? 'ذاكرة موثقة من إشارات المراجعة ونتائج الأداء الحقيقية.' : 'A traceable memory of reviewed signals and real performance results.'}
             primaryHref="/approvals"
             primaryLabel={ar ? 'مراجعة الإشارات' : 'Review signals'}
@@ -239,6 +283,12 @@ export default function LearningPage() {
                 </span>
               </div>
           </section>
+
+          {notice ? (
+            <div className={`mb-5 rounded-[16px] border px-4 py-3 text-[11px] font-bold ${notice.tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
+              {notice.text}
+            </div>
+          ) : null}
 
           {error ? (
             <section className="nx-os-card border-rose-100 p-8 text-center">
@@ -290,7 +340,9 @@ export default function LearningPage() {
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="text-[13px] font-black text-[#111b3f]">{fieldLabel(signal, ar)}</p>
                               <span className={`rounded-full px-2 py-1 text-[10px] font-black ${signal.traceability === 'source_not_attached' ? 'bg-amber-50 text-amber-700' : signal.source === 'analytics' ? 'bg-emerald-50 text-emerald-700' : 'bg-violet-50 text-violet-700'}`}>
-                                {signal.traceability === 'source_not_attached'
+                                {!signal.canAccept
+                                  ? (ar ? 'الدليل غير صالح' : 'Evidence invalid')
+                                  : signal.traceability === 'source_not_attached'
                                   ? (ar ? 'المصدر غير مرفق' : 'Source not attached')
                                   : signal.source === 'analytics'
                                     ? (ar ? 'مدعوم بتحليلات' : 'Analytics-backed')
@@ -299,14 +351,31 @@ export default function LearningPage() {
                                       : (ar ? 'إشارة مراجعة' : 'Review signal')}
                               </span>
                               <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600">
-                                {signal.status === 'pending' ? (ar ? 'مقترح' : 'Suggested') : signal.status === 'accepted' ? (ar ? 'مطبق' : 'Applied') : (ar ? 'مرفوض' : 'Dismissed')}
+                                {signal.status === 'pending'
+                                  ? (ar ? 'مقترح' : 'Suggested')
+                                  : signal.status === 'accepted'
+                                    ? (ar ? 'مطبق' : 'Applied')
+                                    : signal.status === 'rolled_back'
+                                      ? (ar ? 'تم التراجع' : 'Rolled back')
+                                      : (ar ? 'مرفوض' : 'Dismissed')}
                               </span>
                             </div>
                             <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-5 text-[#77839d]">
-                              {signal.traceability === 'source_not_attached'
+                              {!signal.canAccept && signal.traceability === 'analytics_evidence'
+                                ? (ar ? 'تم حجب التعلم لأن تفاصيل المصدر والفترة والعينة والثقة وخطة التراجع غير مكتملة.' : 'Learning is withheld because source, period, sample, confidence, or rollback evidence is incomplete.')
+                                : signal.traceability === 'source_not_attached'
                                 ? (ar ? 'تم حجب الادعاء الخارجي لأنه غير قابل للتتبع. يمكن رفض الإشارة، ولا يمكن تطبيقها.' : 'The external claim is withheld because it is not traceable. It may be dismissed but cannot be applied.')
                                 : signal.reason || (ar ? 'لا يوجد تفسير محفوظ لهذه الإشارة.' : 'No rationale was saved for this signal.')}
                             </p>
+                            {signal.evidence ? (
+                              <div className="mt-2 flex flex-wrap gap-2 text-[9px] font-black text-emerald-800">
+                                <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2 py-1">{signal.evidence.platform || '—'}</span>
+                                <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2 py-1">n={signal.evidence.sample?.eligiblePosts ?? 0}</span>
+                                <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2 py-1">{ar ? 'فوق العتبة' : 'above threshold'}: {signal.evidence.sample?.aboveThresholdPosts ?? 0}</span>
+                                <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2 py-1">{ar ? 'ثقة اتجاهية' : 'directional confidence'}</span>
+                                <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">{ar ? 'لا ادعاء سببي' : 'no causal claim'}</span>
+                              </div>
+                            ) : null}
                             {signal.sourceRefs.length > 0 ? (
                               <div className="mt-2 flex flex-wrap gap-2">
                                 {signal.sourceRefs.slice(0, 3).map((source, index) => (
@@ -327,6 +396,17 @@ export default function LearningPage() {
                           <div className="flex items-center gap-3 text-[10px] font-bold text-[#96a0b4] md:block md:text-end">
                             <span>{formatDate(signal.at, ar)}</span>
                             {signal.campaignId ? <Link href={`/campaigns/${signal.campaignId}`} className="mt-1 block text-[#5366f6]">{ar ? 'الحملة' : 'Campaign'}</Link> : null}
+                            {signal.status === 'accepted' && signal.traceability === 'analytics_evidence' && signal.canAccept ? (
+                              <button
+                                type="button"
+                                onClick={() => rollbackLearning(signal.id)}
+                                disabled={busyId !== null}
+                                className="mt-2 inline-flex h-8 items-center gap-1 rounded-[10px] border border-amber-200 bg-amber-50 px-2 text-[9px] font-black text-amber-800 disabled:opacity-50"
+                              >
+                                {busyId === signal.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                {ar ? 'تراجع آمن' : 'Safe rollback'}
+                              </button>
+                            ) : null}
                           </div>
                         </div>
                       )) : (

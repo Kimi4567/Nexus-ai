@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { derivePublishingState, type PublishingState } from '@/lib/operatingBriefStatus'
 import { hasRealPerformanceAnalytics, numberFromPerformanceMetric } from '@/lib/performanceEvidence'
-import { Prisma } from '@prisma/client'
 
 type SignalSeverity = 'good' | 'watch' | 'risk'
 type ActionPriority = 'high' | 'medium' | 'low'
@@ -107,6 +106,36 @@ function hasAiInsights(value: unknown): boolean {
   return summary.length > 0 || recommendations.length > 0
 }
 
+/**
+ * A campaign row is only a strategy signal when it contains a usable strategy
+ * contract. JSON presence alone is not enough: failed engine runs and legacy
+ * rows can persist `aiOutput` with only status/error metadata.
+ */
+export function hasSavedStrategyContract(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  const strategy = isRecord(value.strategy) ? value.strategy : value
+  if (Object.keys(strategy).length === 0) return false
+
+  const contractKeys = [
+    'keyMessage',
+    'coreMessage',
+    'positioning',
+    'contentPillars',
+    'contentCalendar',
+    'weeklyPlan',
+    'weeklyExecutionPlan',
+    'funnelStages',
+    'measurementPlan',
+  ]
+
+  return contractKeys.some((key) => {
+    const candidate = strategy[key]
+    if (typeof candidate === 'string') return candidate.trim().length > 0
+    if (Array.isArray(candidate)) return candidate.length > 0
+    return isRecord(candidate) && Object.keys(candidate).length > 0
+  })
+}
+
 function scoreBrandReadiness(brand: BrandProfileSnapshot | null): number {
   if (!brand) return 0
   const checks = [
@@ -190,7 +219,7 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
   const [
     brand,
     totalCampaigns,
-    strategyCampaigns,
+    strategyCandidates,
     activeCampaigns,
     recentPosts,
     draftPosts,
@@ -217,13 +246,13 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       },
     }) as Promise<BrandProfileSnapshot | null>,
     prisma.campaign.count({ where: { workspaceId: workspace.id } }),
-    prisma.campaign.count({
+    prisma.campaign.findMany({
       where: {
         workspaceId: workspace.id,
-        OR: [
-          { strategy: { not: Prisma.DbNull } },
-          { aiOutput: { not: Prisma.DbNull } },
-        ],
+      },
+      select: {
+        strategy: true,
+        aiOutput: true,
       },
     }),
     prisma.campaign.count({ where: { workspaceId: workspace.id, status: 'ACTIVE' } }),
@@ -254,9 +283,17 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
   ])
 
   const brandScore = scoreBrandReadiness(brand)
+  const strategyCampaigns = strategyCandidates.filter((campaign) => (
+    hasSavedStrategyContract(campaign.strategy) || hasSavedStrategyContract(campaign.aiOutput)
+  )).length
   const hasStrategy = strategyCampaigns > 0
   const hasContent = recentPosts.length > 0
-  const hasPublishing = publishedPosts > 0 || scheduledPosts > 0 || connectedIntegrations > 0
+  // A connected account proves publishing *readiness*, not execution. Keep
+  // setup/connection progress separate from the operating loop: publishing is
+  // complete only after at least one post is scheduled or actually published.
+  // Otherwise a newly connected workspace would appear to have completed the
+  // publishing stage before any content left the system.
+  const hasPublishing = publishedPosts > 0 || scheduledPosts > 0
   const hasReviewedSignals = Boolean(
     brand &&
     (brand.winningHooks.length > 0 ||

@@ -14,6 +14,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import {
   checkAndDeductCredits,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
   getCreditActionPolicy,
   refundCreditDeduction,
   type CreditDeductionOk,
@@ -22,6 +24,8 @@ import { UNSUPPORTED_CLAIMS_RULES } from '@/lib/ai/promptRules'
 import { guardExtracted } from '@/lib/ai/brandTruthGuard'
 import { buildAssistSuggestions } from '@/lib/ai/assistSuggestions'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 export async function POST(req: NextRequest) {
   // Hoisted so any failure below the deduction refunds the user.
@@ -42,10 +46,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(getAiProviderUnavailablePayload(locale || language), { status: 503 })
     }
 
+    const rateLimitResponse = await enforceBillableAiRateLimit(user.id, 'CONTENT_ANALYSIS')
+    if (rateLimitResponse) return rateLimitResponse
+
     // Deduct 2 credits for content analysis
-    const creditResult = await checkAndDeductCredits(user.id, 'CONTENT_ANALYSIS')
+    const creditResult = await checkAndDeductCredits(
+      user.id,
+      'CONTENT_ANALYSIS',
+      undefined,
+      {
+        entityId: user.id,
+        entityType: 'brand_profile_content_analysis',
+        operationKey: getCreditOperationKey(req, 'CONTENT_ANALYSIS', 'brand_profile_content_analysis', user.id),
+      },
+    )
     if (!creditResult.ok) {
-      return NextResponse.json({ error: 'insufficient_credits' }, { status: 402 })
+      return NextResponse.json(creditResult, { status: creditCheckHttpStatus(creditResult) })
     }
     chargedUserId = user.id
     chargedCredit = creditResult
@@ -138,6 +154,21 @@ Return JSON with this exact structure:
       sourceText: combined,
       sourceRef: `${validSamples.length} content sample(s)`,
     })
+
+    const finalization = await finalizeCreditDeduction({
+      userId: user.id,
+      action: 'CONTENT_ANALYSIS',
+      deduction: creditResult,
+    })
+    if (!finalization.ok) {
+      chargedCredit = null
+      return NextResponse.json({
+        error: 'Content analysis could not be finalized. Reserved credits were returned.',
+        code: 'CREDIT_FINALIZATION_FAILED',
+        refunded: finalization.refundStatus === 'refunded',
+      }, { status: 503 })
+    }
+    chargedCredit = null
 
     return NextResponse.json({
       extracted: guarded,

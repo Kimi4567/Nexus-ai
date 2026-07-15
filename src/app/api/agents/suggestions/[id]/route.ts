@@ -8,6 +8,7 @@ import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { approveCampaignStrategy, StrategyApprovalError } from '@/lib/strategyApprovalService'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
+import { isResearchMonitorPayload } from '@/lib/researchSuggestion'
 
 export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
     // Execution Monitor suggestions authorize navigation to a guarded workflow,
     // never a background mutation. The target route performs the real approval.
     const suggestionSource = typeof suggestionPayload.source === 'string' ? suggestionPayload.source : ''
-    const guidedResearchReview = suggestionSource.endsWith('research-monitor')
+    const guidedResearchReview = isResearchMonitorPayload(suggestionPayload)
     if (suggestion.type !== 'CAMPAIGN_PAUSE') {
       const brandProfile = await prisma.brandProfile.findUnique({
         where: { workspaceId: workspace.id },

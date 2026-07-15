@@ -216,7 +216,7 @@ function WorkflowStep({ index, icon: Icon, title, body }: { index: string; icon:
   )
 }
 
-function PriceCard({ name, price, credits, posts, workspaces, featured, cta, href, ar }: { name: string; price: string; credits: string; posts: string; workspaces: string; featured?: boolean; cta: string; href: string; ar: boolean }) {
+function PriceCard({ name, price, credits, posts, governance, featured, cta, href, ar }: { name: string; price: string; credits: string; posts: string; governance: string; featured?: boolean; cta: string; href: string; ar: boolean }) {
   return (
     <div className={`rounded-lg border p-6 ${featured ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-950'}`}>
       <p className={`text-[15px] font-semibold ${featured ? 'text-white' : 'text-slate-950'}`}>{name}</p>
@@ -227,7 +227,7 @@ function PriceCard({ name, price, credits, posts, workspaces, featured, cta, hre
       <div className={`mt-5 space-y-3 text-[15px] ${featured ? 'text-slate-200' : 'text-slate-600'}`}>
         <p className="flex items-center gap-2"><Check className="h-4 w-4" /> {credits}</p>
         <p className="flex items-center gap-2"><Check className="h-4 w-4" /> {posts}</p>
-        <p className="flex items-center gap-2"><Check className="h-4 w-4" /> {workspaces}</p>
+        <p className="flex items-center gap-2"><Check className="h-4 w-4" /> {governance}</p>
         <p className="flex items-center gap-2"><Check className="h-4 w-4" /> {ar ? 'سجل كريدت واضح' : 'Clear credit history'}</p>
       </div>
       <Link href={href} className={`mt-6 block rounded-lg px-4 py-2.5 text-center text-[14px] font-semibold ${featured ? 'bg-white text-slate-950' : 'bg-slate-950 text-white'}`}>
@@ -398,7 +398,7 @@ export default function LandingPage() {
               price={`$${PUBLIC_PAID_PLANS[0].priceUsd}`}
               credits={ar ? `${PUBLIC_PAID_PLANS[0].monthlyCredits} كريدت شهرياً` : `${PUBLIC_PAID_PLANS[0].monthlyCredits} credits monthly`}
               posts={ar ? `${PUBLIC_PAID_PLANS[0].postsPerMonth} منشوراً مخططاً شهرياً` : `${PUBLIC_PAID_PLANS[0].postsPerMonth} planned posts monthly`}
-              workspaces={ar ? `${PUBLIC_PAID_PLANS[0].workspaces} مساحات عمل` : `${PUBLIC_PAID_PLANS[0].workspaces} workspaces`}
+              governance={ar ? 'موافقات منفصلة قبل التنفيذ' : 'Separate approvals before execution'}
               featured
               cta={ar ? 'ابدأ Growth' : 'Start Growth'}
               href="/auth/register?plan=growth"
@@ -409,7 +409,7 @@ export default function LandingPage() {
               price={`$${PUBLIC_PAID_PLANS[1].priceUsd}`}
               credits={ar ? `${PUBLIC_PAID_PLANS[1].monthlyCredits} كريدت شهرياً` : `${PUBLIC_PAID_PLANS[1].monthlyCredits} credits monthly`}
               posts={ar ? `${PUBLIC_PAID_PLANS[1].postsPerMonth} منشوراً مخططاً شهرياً` : `${PUBLIC_PAID_PLANS[1].postsPerMonth} planned posts monthly`}
-              workspaces={ar ? `${PUBLIC_PAID_PLANS[1].workspaces} مساحات عمل` : `${PUBLIC_PAID_PLANS[1].workspaces} workspaces`}
+              governance={ar ? 'مراقبة مجدولة وقائمة قرارات' : 'Scheduled monitoring and action queue'}
               cta={ar ? 'ابدأ Autopilot' : 'Start Autopilot'}
               href="/auth/register?plan=autopilot"
             />

@@ -14,6 +14,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import {
   checkAndDeductCredits,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
   getCreditActionPolicy,
   refundCreditDeduction,
   type CreditDeductionOk,
@@ -23,6 +25,8 @@ import { guardExtracted } from '@/lib/ai/brandTruthGuard'
 import { buildAssistSuggestions } from '@/lib/ai/assistSuggestions'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { assertPublicWebsiteUrl, normalizePublicWebsiteUrl } from '@/lib/publicWebsiteUrl'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -151,10 +155,22 @@ export async function POST(req: NextRequest) {
     // Cap total content to ~12,000 chars to stay well within context
     const combined = pages.slice(0, 3).join('\n\n---PAGE BREAK---\n\n').slice(0, 12000)
 
+    const rateLimitResponse = await enforceBillableAiRateLimit(user.id, 'WEBSITE_SCAN')
+    if (rateLimitResponse) return rateLimitResponse
+
     // Fetching and validating the source is free. Charge only when one bounded
     // model analysis is ready to run.
-    const creditResult = await checkAndDeductCredits(user.id, 'WEBSITE_SCAN')
-    if (!creditResult.ok) return NextResponse.json(creditResult, { status: 402 })
+    const creditResult = await checkAndDeductCredits(
+      user.id,
+      'WEBSITE_SCAN',
+      undefined,
+      {
+        entityId: user.id,
+        entityType: 'brand_profile_website_scan',
+        operationKey: getCreditOperationKey(req, 'WEBSITE_SCAN', 'brand_profile_website_scan', user.id),
+      },
+    )
+    if (!creditResult.ok) return NextResponse.json(creditResult, { status: creditCheckHttpStatus(creditResult) })
     chargedUserId = user.id
     chargedCredit = creditResult
 
@@ -248,6 +264,23 @@ Return JSON with this exact structure:
       sourceText: combined,
       sourceRef: base,
     })
+
+    const finalization = await finalizeCreditDeduction({
+      userId: user.id,
+      action: 'WEBSITE_SCAN',
+      deduction: creditResult,
+    })
+    if (!finalization.ok) {
+      chargedUserId = null
+      chargedCredit = null
+      return NextResponse.json({
+        error: 'Website analysis could not be finalized. Reserved credits were returned.',
+        code: 'CREDIT_FINALIZATION_FAILED',
+        refunded: finalization.refundStatus === 'refunded',
+      }, { status: 503 })
+    }
+    chargedUserId = null
+    chargedCredit = null
 
     return NextResponse.json({
       extracted: guarded,

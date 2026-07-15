@@ -34,6 +34,10 @@ interface AdCampaign {
   createdAt: string
   organicCampaignId: string | null
   sourceStrategy: { id: string; name: string; status: string; updatedAt: string } | null
+  strategySnapshot: { id: string; version: number; scope: string; payloadHash: string; createdAt: string } | null
+  budgetApprovalSnapshot: { id: string; version: number; scope: string; payloadHash: string; createdAt: string } | null
+  launchApprovalSnapshot: { id: string; version: number; scope: string; payloadHash: string; createdAt: string } | null
+  sourceRevision: { state: 'current' | 'stale' | 'missing'; latestSnapshotId: string | null; latestVersion: number | null }
 }
 
 interface AdAccount {
@@ -80,6 +84,11 @@ function CampaignRow({ campaign, locale }: { campaign: AdCampaign; locale: strin
       : locale === 'ar'
         ? 'لا توجد قيمة ميزانية مؤكدة'
         : 'No confirmed budget value'
+  const pinnedSource = Boolean(
+    campaign.sourceStrategy
+    && campaign.strategySnapshot?.scope === 'STRATEGY_APPROVAL'
+    && campaign.sourceRevision.state === 'current',
+  )
 
   return (
     <Link
@@ -91,10 +100,12 @@ function CampaignRow({ campaign, locale }: { campaign: AdCampaign; locale: strin
         <div className="min-w-0">
           <p className="truncate text-[14px] font-black text-[#071236]">{campaign.name}</p>
           <p className="mt-1 text-[11px] font-bold text-[#7b87a3]">{platform.label} · {campaign.objective.replace(/_/g, ' ')}</p>
-          <p className={`mt-1 truncate text-[10px] font-semibold ${campaign.sourceStrategy ? 'text-emerald-700' : 'text-amber-700'}`}>
-            {campaign.sourceStrategy
-              ? `${locale === 'ar' ? 'المصدر' : 'Source'}: ${campaign.sourceStrategy.name}`
-              : locale === 'ar' ? 'مسودة قديمة غير مرتبطة باستراتيجية' : 'Legacy draft without strategy source'}
+          <p className={`mt-1 truncate text-[10px] font-semibold ${pinnedSource ? 'text-emerald-700' : 'text-amber-700'}`}>
+            {pinnedSource
+              ? `${locale === 'ar' ? 'المصدر المعتمد' : 'Approved source'}: ${campaign.sourceStrategy?.name} · v${campaign.strategySnapshot?.version}`
+              : campaign.sourceRevision.state === 'stale'
+                ? locale === 'ar' ? `إصدار أحدث v${campaign.sourceRevision.latestVersion ?? '—'} — أعد بناء المسودة` : `Newer strategy v${campaign.sourceRevision.latestVersion ?? '—'} — rebuild draft`
+                : locale === 'ar' ? 'لا يوجد إصدار استراتيجية مثبت — التنفيذ مقفل' : 'No pinned strategy revision — execution locked'}
           </p>
         </div>
       </div>

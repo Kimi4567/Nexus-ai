@@ -17,9 +17,11 @@ import { getServerUserId } from '@/lib/apiAuth'
 import {
   checkAndDeductCredits,
   checkDailyImageCap,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
   getCreditActionPolicy,
-  refundCredits,
-  refundCreditsForTransaction,
+  refundCreditDeduction,
+  type CreditDeductionOk,
 } from '@/lib/credits'
 import { generateWithFlux, platformToFluxAspectRatio, platformToOpenAISize } from '@/lib/ai/falGen'
 import { buildImagePrompt, type VisualContext } from '@/lib/ai/imageGen'
@@ -34,21 +36,20 @@ import {
   isImageProviderConfigured,
   isMediaStorageConfigured,
 } from '@/lib/ai/provider'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 export const maxDuration = 60 // Vercel Pro — 60s max
 
 type Params = { params: Promise<{ id: string }> }
 type ImageCreditReservation = {
   postId: string
-  creditsUsed: number
-  creditsRemaining: number
-  isUnlimited: boolean
-  transactionId?: string
+  deduction: CreditDeductionOk
   refunded: boolean
-  consumed: boolean
+  settled: boolean
 }
 
 const CLOUDINARY_CLOUD  = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
@@ -188,16 +189,13 @@ async function refundImageReservation(
   reservation: ImageCreditReservation | undefined,
   reason: string,
 ): Promise<boolean> {
-  if (!reservation || reservation.refunded || reservation.consumed || reservation.creditsUsed <= 0) return true
-
-  if (reservation.transactionId) {
-    const result = await refundCreditsForTransaction({ userId, transactionId: reservation.transactionId, reason })
-    if (result && !result.ok) return false
-    reservation.refunded = true
-    return true
-  }
-
-  const result = await refundCredits(userId, 'IMAGE_GENERATION', reason)
+  if (!reservation || reservation.refunded || reservation.settled) return true
+  const result = await refundCreditDeduction({
+    userId,
+    action: 'IMAGE_GENERATION',
+    deduction: reservation.deduction,
+    reason,
+  })
   if (result && !result.ok) return false
   reservation.refunded = true
   return true
@@ -378,6 +376,18 @@ export async function POST(req: NextRequest, props: Params) {
       claimedPosts.set(post.id, originalStatus)
     }
 
+    const rateLimitResponse = await enforceBillableAiRateLimit(userId, 'IMAGE_GENERATION')
+    if (rateLimitResponse) {
+      await Promise.all(Array.from(claimedPosts.entries()).map(([postId, generationStatus]) =>
+        (prisma.socialPost as any).update({
+          where: { id: postId },
+          data: { generationStatus },
+        }),
+      ))
+      claimedPosts.clear()
+      return rateLimitResponse
+    }
+
     // Reserve one IMAGE_GENERATION charge per post. Keep each transaction tied
     // to its post so a partial batch failure refunds only the failed image.
     const reservationsByPostId = new Map<string, ImageCreditReservation>()
@@ -387,7 +397,11 @@ export async function POST(req: NextRequest, props: Params) {
         userId,
         'IMAGE_GENERATION',
         undefined,
-        { entityId: post.id, entityType: 'social_post_image' },
+        {
+          entityId: post.id,
+          entityType: 'social_post_image',
+          operationKey: getCreditOperationKey(req, 'IMAGE_GENERATION', 'social_post_image', post.id),
+        },
       )
       if (!creditCheck.ok) {
         await Promise.all(
@@ -403,20 +417,17 @@ export async function POST(req: NextRequest, props: Params) {
         ))
         claimedPosts.clear()
         return NextResponse.json({
-          error: creditCheck.error ?? 'Insufficient credits',
-          code: 'INSUFFICIENT_CREDITS',
+          ...creditCheck,
+          code: creditCheck.error ?? 'INSUFFICIENT_CREDITS',
           generated: 0,
-        }, { status: 402 })
+        }, { status: creditCheckHttpStatus(creditCheck) })
       }
 
       const reservation: ImageCreditReservation = {
         postId: post.id,
-        creditsUsed: creditCheck.creditsUsed,
-        creditsRemaining: creditCheck.creditsRemaining,
-        isUnlimited: creditCheck.isUnlimited,
-        transactionId: creditCheck.transactionId,
+        deduction: creditCheck,
         refunded: false,
-        consumed: false,
+        settled: false,
       }
       creditReservations.push(reservation)
       reservationsByPostId.set(post.id, reservation)
@@ -461,7 +472,19 @@ export async function POST(req: NextRequest, props: Params) {
             data: { imageUrl: finalUrl, status: 'COMPLETED' },
           })
         })
-        if (reservation) reservation.consumed = true
+        if (reservation) {
+          const finalization = await finalizeCreditDeduction({
+            userId,
+            action: 'IMAGE_GENERATION',
+            deduction: reservation.deduction,
+          })
+          if (finalization.ok) {
+            reservation.settled = true
+          } else {
+            reservation.refunded = finalization.refundStatus === 'refunded'
+            throw new Error('Image was saved but its credit operation could not be finalized')
+          }
+        }
         claimedPosts.delete(post.id)
 
         results.push({ id: post.id, success: true, imageUrl: finalUrl })
@@ -505,13 +528,14 @@ export async function POST(req: NextRequest, props: Params) {
       remaining,
       results,
       creditCharges: creditReservations
-        .filter((reservation) => reservation.consumed && !reservation.refunded)
+        .filter((reservation) => reservation.settled && !reservation.refunded)
         .map((reservation) => ({
           ...getCreditActionPolicy('IMAGE_GENERATION'),
-          creditsUsed: reservation.creditsUsed,
-          creditsRemaining: reservation.creditsRemaining,
-          isUnlimited: reservation.isUnlimited,
-          transactionId: reservation.transactionId || null,
+          creditsUsed: reservation.deduction.creditsUsed,
+          creditsRemaining: reservation.deduction.creditsRemaining,
+          isUnlimited: reservation.deduction.isUnlimited,
+          transactionId: reservation.deduction.transactionId || null,
+          operationStatus: 'SETTLED',
           entityId: reservation.postId,
           entityType: 'social_post_image',
         })),

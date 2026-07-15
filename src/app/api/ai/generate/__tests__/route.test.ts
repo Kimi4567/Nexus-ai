@@ -4,22 +4,23 @@ const {
   mockGetServerUserId,
   mockAiRateLimitDb,
   mockCheckAndDeduct,
-  mockRefund,
-  mockRefundForTxn,
+  mockRefundCreditDeduction,
+  mockFinalizeCreditDeduction,
 } = vi.hoisted(() => ({
   mockGetServerUserId: vi.fn(),
   mockAiRateLimitDb: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
-  mockRefund: vi.fn(),
-  mockRefundForTxn: vi.fn(),
+  mockRefundCreditDeduction: vi.fn(),
+  mockFinalizeCreditDeduction: vi.fn(),
 }))
 
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
 vi.mock('@/lib/dbRateLimit', () => ({ aiRateLimitDb: mockAiRateLimitDb }))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
-  refundCredits: mockRefund,
-  refundCreditsForTransaction: mockRefundForTxn,
+  refundCreditDeduction: mockRefundCreditDeduction,
+  finalizeCreditDeduction: mockFinalizeCreditDeduction,
+  creditCheckHttpStatus: (result: any) => result.error === 'CREDIT_OPERATION_REPLAY' ? 409 : 402,
   buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, cost: 2, ...deduction }),
 }))
 vi.mock('@/lib/ai/langHelper', () => ({ getLanguageInstruction: () => 'Respond in English.' }))
@@ -34,8 +35,8 @@ beforeEach(() => {
   mockGetServerUserId.mockResolvedValue('u1')
   mockAiRateLimitDb.mockResolvedValue({ ok: true })
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 2, creditsRemaining: 18 })
-  mockRefund.mockResolvedValue(undefined)
-  mockRefundForTxn.mockResolvedValue(undefined)
+  mockRefundCreditDeduction.mockResolvedValue({ ok: true, status: 'refunded' })
+  mockFinalizeCreditDeduction.mockResolvedValue({ ok: true, status: 'settled' })
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
     ok: true,
     json: async () => ({ choices: [{ message: { content: 'Generated copy' } }] }),
@@ -48,8 +49,7 @@ describe('POST /api/ai/generate — RF-2 refund safety', () => {
 
     expect(res.status).toBe(400)
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
-    expect(mockRefund).not.toHaveBeenCalled()
-    expect(mockRefundForTxn).not.toHaveBeenCalled()
+    expect(mockRefundCreditDeduction).not.toHaveBeenCalled()
   })
 
   it('provider misconfiguration returns 503 without mock content or credit deduction', async () => {
@@ -82,11 +82,10 @@ describe('POST /api/ai/generate — RF-2 refund safety', () => {
     const res = await POST(makeReq({ systemPrompt: 'sys', userPrompt: 'user' }))
 
     expect(res.status).toBe(502)
-    expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockRefundCreditDeduction).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'u1',
-      transactionId: 'txn_1',
+      deduction: expect.objectContaining({ transactionId: 'txn_1' }),
     }))
-    expect(mockRefund).not.toHaveBeenCalled()
   })
 
   it('provider failure falls back to scalar refund when transactionId is unavailable', async () => {
@@ -99,8 +98,11 @@ describe('POST /api/ai/generate — RF-2 refund safety', () => {
     const res = await POST(makeReq({ systemPrompt: 'sys', userPrompt: 'user' }))
 
     expect(res.status).toBe(502)
-    expect(mockRefund).toHaveBeenCalledWith('u1', 'AD_COPY', 'OpenAI error 500')
-    expect(mockRefundForTxn).not.toHaveBeenCalled()
+    expect(mockRefundCreditDeduction).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      action: 'AD_COPY',
+      reason: 'OpenAI error 500',
+    }))
   })
 
   it('success deducts once and does not refund', async () => {
@@ -109,8 +111,19 @@ describe('POST /api/ai/generate — RF-2 refund safety', () => {
 
     expect(res.status).toBe(200)
     expect(json.content).toBe('Generated copy')
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'AD_COPY')
-    expect(mockRefund).not.toHaveBeenCalled()
-    expect(mockRefundForTxn).not.toHaveBeenCalled()
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith(
+      'u1',
+      'AD_COPY',
+      undefined,
+      expect.objectContaining({
+        entityId: 'u1',
+        entityType: 'ephemeral_ai_response',
+        operationKey: expect.any(String),
+      }),
+    )
+    expect(mockFinalizeCreditDeduction).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1', action: 'AD_COPY',
+    }))
+    expect(mockRefundCreditDeduction).not.toHaveBeenCalled()
   })
 })

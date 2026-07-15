@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const { prismaMock, txMock } = vi.hoisted(() => {
   const tx = {
     campaign: { updateMany: vi.fn(), findUniqueOrThrow: vi.fn() },
+    campaignSnapshot: { create: vi.fn() },
     campaignActivity: { create: vi.fn() },
     marketingLearningEvent: { create: vi.fn() },
   }
@@ -32,12 +33,18 @@ const draft = {
   status: 'DRAFT',
   goal: 'LEADS',
   audience: 'Founders',
+  tone: 'PROFESSIONAL',
   platforms: ['INSTAGRAM'],
   aiOutput: {
-    strategy: { positioning: 'Controlled automation' },
+    language: 'ar',
+    strategy: {
+      positioning: 'Controlled automation',
+      decisionRules: [{ signal: 'التفاعل', continueWhen: 'تحقق الزيادة بنسبة 10%' }],
+    },
     qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
     sentinelReview: { status: 'passed' },
   },
+  snapshotVersion: 0,
   updatedAt: new Date('2026-07-12T10:00:00.000Z'),
   workspace: { brandProfile: null },
 }
@@ -48,7 +55,14 @@ beforeEach(() => {
   prismaMock.adCampaign.count.mockResolvedValue(0)
   prismaMock.marketingLearningEvent.findFirst.mockResolvedValue(null)
   txMock.campaign.updateMany.mockResolvedValue({ count: 1 })
-  txMock.campaign.findUniqueOrThrow.mockResolvedValue({ workspaceId: 'w1' })
+  txMock.campaign.findUniqueOrThrow
+    .mockResolvedValueOnce(draft)
+    .mockResolvedValueOnce({ workspaceId: 'w1', snapshotVersion: 1 })
+  txMock.campaignSnapshot.create.mockResolvedValue({
+    id: 'snapshot-1',
+    version: 1,
+    payloadHash: 'snapshot-hash',
+  })
   txMock.campaignActivity.create.mockResolvedValue({})
   txMock.marketingLearningEvent.create.mockResolvedValue({})
 })
@@ -73,7 +87,18 @@ describe('strategy approval service', () => {
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
     expect(txMock.campaign.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ id: 'c1', status: 'DRAFT' }),
-      data: { status: 'ACTIVE' },
+      data: expect.objectContaining({ status: 'ACTIVE', snapshotVersion: { increment: 1 } }),
+    }))
+    const updateData = txMock.campaign.updateMany.mock.calls[0][0].data
+    expect(JSON.stringify(updateData.aiOutput)).not.toMatch(/10\s*%/)
+    expect(txMock.campaignSnapshot.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        campaignId: 'c1',
+        workspaceId: 'w1',
+        version: 1,
+        scope: 'STRATEGY_APPROVAL',
+        createdById: 'u1',
+      }),
     }))
     expect(txMock.campaignActivity.create).toHaveBeenCalledTimes(1)
     expect(txMock.marketingLearningEvent.create).toHaveBeenCalledWith(expect.objectContaining({

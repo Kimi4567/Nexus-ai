@@ -26,6 +26,7 @@ import {
   reviewStrategyGrounding,
 } from '@/lib/ai/marketingQualityGate'
 import type { BrandTone } from '@prisma/client'
+import { buildStrategyEvidenceLedger } from '@/lib/strategy/strategyEvidenceLedger'
 
 // Re-export for API routes
 export type { BusinessBrief }
@@ -217,6 +218,10 @@ export async function runFullAgency(
       hasConversionDestination: Boolean(bp.conversionDestination),
       allowedCompetitors,
     })
+    // Evidence provenance is a deterministic snapshot of the approved Brand
+    // Brain proof available at generation time. Never accept model-authored
+    // sources or silently promote manual entries to source-linked evidence.
+    strategy.evidenceLedger = buildStrategyEvidenceLedger(proofContext.verifiedProof)
     const contractReport = assertCampaignStrategyContract(strategy, {
       language: brief.language,
       expectedOrganicPostCount: brief.organicPostCount,

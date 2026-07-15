@@ -18,6 +18,9 @@ const post = (over: Partial<CronPostLike>): CronPostLike => ({
     status: 'SCHEDULED',
     publishMode: 'AUTO',
     autoPublishConsentAt: new Date(Date.now() - 10_000),
+    approvedSnapshotId: 'approval-snapshot-1',
+    mediaApprovalSnapshotId: 'media-approval-snapshot-2',
+    scheduledSnapshotId: 'schedule-snapshot-2',
   scheduledAt: due,
   imageUrl: 'https://cdn.example.com/post.jpg',
   generationStatus: 'DONE',
@@ -36,6 +39,12 @@ describe('isAutoPublishEligible — only AUTO posts may auto-publish', () => {
 
   it('AUTO without an explicit consent timestamp is never eligible', () => {
     expect(isAutoPublishEligible(post({ autoPublishConsentAt: null }), now)).toBe(false)
+  })
+
+  it('AUTO without immutable approval and schedule evidence is never eligible', () => {
+    expect(isAutoPublishEligible(post({ approvedSnapshotId: null }), now)).toBe(false)
+    expect(isAutoPublishEligible(post({ mediaApprovalSnapshotId: null }), now)).toBe(false)
+    expect(isAutoPublishEligible(post({ scheduledSnapshotId: null }), now)).toBe(false)
   })
 
   it('3. SCHEDULED + MANUAL with a platform reference is still ignored', () => {
@@ -79,6 +88,9 @@ describe('autoPublishWhere — DB query only targets AUTO posts', () => {
     expect(w.status).toBe('SCHEDULED')
     expect(w.publishMode).toBe('AUTO')
     expect(w.autoPublishConsentAt).toEqual({ not: null })
+    expect(w.approvedSnapshotId).toEqual({ not: null })
+    expect(w.mediaApprovalSnapshotId).toEqual({ not: null })
+    expect(w.scheduledSnapshotId).toEqual({ not: null })
     expect(w.generationStatus).toBe('DONE')
     expect(w.imageUrl).toEqual({ not: null })
     expect(w.scheduledAt).toEqual({ lte: now })

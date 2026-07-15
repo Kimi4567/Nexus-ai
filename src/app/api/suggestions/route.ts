@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { getBrandBrainLearningCopy } from '@/lib/brandBrainLearningContract'
+import { getResearchSuggestionView, isResearchMonitorPayload } from '@/lib/researchSuggestion'
 
 const db = prisma as any
 
@@ -77,23 +78,29 @@ export async function GET(req: NextRequest) {
       campaigns.map((c: { id: string; name: string }) => [c.id, c.name])
     )
 
-    const suggestions = raw.map((s: any) => ({
-      id:           s.id,
-      agent:        s.agent,
-      type:         s.type,
-      status:       s.status,
-      priority:     s.priority,
-      title:        s.title,
-      reasoning:    s.reasoning,
-      impact:       s.impact ?? null,
-      campaignId:   s.campaignId ?? null,
-      campaignName: s.campaignId ? (campaignMap[s.campaignId] ?? null) : null,
-      approvedAt:   s.approvedAt ?? null,
-      rejectedAt:   s.rejectedAt ?? null,
-      executedAt:   s.executedAt ?? null,
-      expiresAt:    s.expiresAt ?? null,
-      createdAt:    s.createdAt,
-    }))
+    const suggestions = raw.map((s: any) => {
+      const researchView = getResearchSuggestionView(s.payload)
+      return {
+        id:           s.id,
+        agent:        s.agent,
+        type:         s.type,
+        status:       s.status,
+        priority:     s.priority,
+        title:        s.title,
+        titleAr:      researchView.titleAr,
+        reasoning:    s.reasoning,
+        reasoningAr:  researchView.reasoningAr,
+        research:     researchView.research,
+        impact:       s.impact ?? null,
+        campaignId:   s.campaignId ?? null,
+        campaignName: s.campaignId ? (campaignMap[s.campaignId] ?? null) : null,
+        approvedAt:   s.approvedAt ?? null,
+        rejectedAt:   s.rejectedAt ?? null,
+        executedAt:   s.executedAt ?? null,
+        expiresAt:    s.expiresAt ?? null,
+        createdAt:    s.createdAt,
+      }
+    })
 
     return NextResponse.json({ suggestions })
   } catch (err: any) {
@@ -180,13 +187,19 @@ export async function PATCH(req: NextRequest) {
     let executionLabel: string | undefined
 
     if (status === 'APPROVED') {
-      const signalCopy = getBrandBrainLearningCopy('approval')
-      signalLabel = 'Suggestion applied as reviewed brand input'
-      signalDescription = `${signalCopy.description} Needs analytics before performance learning.`
+      if (isResearchMonitorPayload(existing.payload)) {
+        signalLabel = 'Research alert marked reviewed'
+        signalDescription = 'No Brand Brain update or automatic learning was applied.'
+        executionLabel = 'Research reviewed — no automatic learning applied'
+      } else {
+        const signalCopy = getBrandBrainLearningCopy('approval')
+        signalLabel = 'Suggestion approved as a reviewed workflow input'
+        signalDescription = `${signalCopy.description} Needs analytics before performance learning.`
 
-      const target = getBriefExecutionTarget(existing.payload)
-      nextHref = target.nextHref
-      executionLabel = target.executionLabel
+        const target = getBriefExecutionTarget(existing.payload)
+        nextHref = target.nextHref
+        executionLabel = target.executionLabel
+      }
     }
 
     return NextResponse.json({

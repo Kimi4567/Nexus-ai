@@ -29,6 +29,15 @@ interface BrainProposal {
   traceability?: 'analytics_evidence' | 'campaign_record' | 'external_sources' | 'source_not_attached' | 'internal_signal'
   sourceRefs?: Array<{ url: string; title?: string; publisher?: string }>
   canAccept?: boolean
+  evidence?: {
+    platform?: string
+    period?: { start?: string; end?: string }
+    sample?: { eligiblePosts?: number; aboveThresholdPosts?: number; evidencePostIds?: string[] }
+    comparison?: { baselineEngagementRate?: number; candidateThresholdEngagementRate?: number }
+    confidence?: { level?: string; rationale?: string }
+    causalClaim?: boolean
+    rollback?: { strategy?: string }
+  } | null
   status?: string | null
   createdAt?: string | null
   updatedAt?: string | null
@@ -56,6 +65,24 @@ interface AgentSuggestion {
   updatedAt?: string | null
 }
 
+interface ContentDecisionEvent {
+  id: string
+  postId: string
+  campaignId?: string | null
+  campaignName: string
+  platform?: string | null
+  caption: string
+  fromStatus?: string | null
+  toStatus: string
+  currentStatus?: string | null
+  actor: string
+  approvedAt?: string | null
+  snapshotVersion?: number | null
+  snapshotScope?: string | null
+  snapshotHash?: string | null
+  createdAt: string
+}
+
 function proposalLabel(proposal: BrainProposal, ar: boolean): string {
   const labels: Record<string, [string, string]> = {
     winningHooks: ['إشارات الخطافات', 'Hook signals'],
@@ -71,6 +98,28 @@ function proposalLabel(proposal: BrainProposal, ar: boolean): string {
     || (ar ? 'إشارة Brand Brain' : 'Brand Brain signal')
 }
 
+function contentDecisionStatusLabel(status: string | null | undefined, ar: boolean): string {
+  const labels: Record<string, [string, string]> = {
+    NEW: ['جديد', 'New'],
+    DRAFT: ['مسودة', 'Draft'],
+    APPROVED: ['معتمد', 'Approved'],
+    SCHEDULED: ['مجدول', 'Scheduled'],
+    PROCESSING: ['قيد النشر', 'Processing'],
+    PUBLISHED: ['منشور', 'Published'],
+    FAILED: ['فشل', 'Failed'],
+  }
+  const key = String(status || 'NEW').toUpperCase()
+  return labels[key]?.[ar ? 0 : 1] ?? key
+}
+
+function decisionActorLabel(actor: string, ar: boolean): string {
+  const key = actor.toUpperCase()
+  if (key === 'USER') return ar ? 'المستخدم' : 'User'
+  if (key === 'SYSTEM') return ar ? 'النظام' : 'System'
+  if (key === 'CRON') return ar ? 'المراقب الآلي' : 'Automated monitor'
+  return actor
+}
+
 export default function ApprovalsPage() {
   const { isAuthenticated, loading, authHeader } = useAuth()
   const { locale, dir } = useI18n()
@@ -82,6 +131,7 @@ export default function ApprovalsPage() {
   const [liveApprovalActions, setLiveApprovalActions] = useState<ExecutionQueueItem[]>([])
   const [proposalHistory, setProposalHistory] = useState<BrainProposal[]>([])
   const [suggestionHistory, setSuggestionHistory] = useState<AgentSuggestion[]>([])
+  const [contentDecisionHistory, setContentDecisionHistory] = useState<ContentDecisionEvent[]>([])
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -101,22 +151,24 @@ export default function ApprovalsPage() {
     async function loadDecisionQueue() {
       setDataLoading(true)
       try {
-        const [proposalRes, suggestionRes, proposalHistoryRes, suggestionHistoryRes, executionRes, brandRes] = await Promise.all([
+        const [proposalRes, suggestionRes, proposalHistoryRes, suggestionHistoryRes, executionRes, brandRes, contentLedgerRes] = await Promise.all([
           fetch('/api/brain/proposals?status=pending', { headers: { Authorization: token } }),
           fetch('/api/agents/suggestions?status=PENDING&limit=50', { headers: { Authorization: token } }),
           fetch('/api/brain/proposals?status=all', { headers: { Authorization: token } }),
           fetch('/api/agents/suggestions?status=all&limit=100', { headers: { Authorization: token } }),
           fetch('/api/execution/queue', { headers: { Authorization: token } }),
           fetch('/api/brand', { headers: { Authorization: token } }),
+          fetch('/api/approvals/content-ledger', { headers: { Authorization: token } }),
         ])
         if (cancelled) return
-        const [proposalData, suggestionData, proposalHistoryData, suggestionHistoryData, executionData, brandData] = await Promise.all([
+        const [proposalData, suggestionData, proposalHistoryData, suggestionHistoryData, executionData, brandData, contentLedgerData] = await Promise.all([
           proposalRes.json().catch(() => ({})),
           suggestionRes.json().catch(() => ({})),
           proposalHistoryRes.json().catch(() => ({})),
           suggestionHistoryRes.json().catch(() => ({})),
           executionRes.json().catch(() => ({})),
           brandRes.json().catch(() => ({})),
+          contentLedgerRes.json().catch(() => ({})),
         ])
         setBrandTruthBlocked(!brandData?.brandProfile || reviewBrandTruthConsistency(brandData.brandProfile).status === 'blocked')
         setProposals(Array.isArray(proposalData.proposals) ? proposalData.proposals : [])
@@ -127,6 +179,7 @@ export default function ApprovalsPage() {
         setSuggestionHistory(Array.isArray(suggestionHistoryData.suggestions)
           ? suggestionHistoryData.suggestions.filter((item: AgentSuggestion) => item.status !== 'PENDING')
           : [])
+        setContentDecisionHistory(Array.isArray(contentLedgerData.events) ? contentLedgerData.events : [])
         const executionTruth = executionData.truth as WorkspaceExecutionTruth | undefined
         const persistedCampaignIds = new Set(
           (Array.isArray(suggestionData.suggestions) ? suggestionData.suggestions : [])
@@ -159,6 +212,7 @@ export default function ApprovalsPage() {
       status: item.status || 'reviewed',
       at: item.updatedAt || item.createdAt || '',
       kind: copy('Brand Brain', 'Brand Brain'),
+      evidence: null as string | null,
     })),
     ...suggestionHistory.map(item => ({
       id: `agent-${item.id}`,
@@ -166,8 +220,25 @@ export default function ApprovalsPage() {
       status: item.status,
       at: item.updatedAt || item.createdAt || '',
       kind: copy('قرار تشغيلي', 'Operational decision'),
+      evidence: null as string | null,
     })),
-  ].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 10), [ar, copy, proposalHistory, suggestionHistory])
+    ...contentDecisionHistory.map(item => ({
+      id: `content-${item.id}`,
+      label: item.snapshotScope === 'CONTENT_MEDIA_APPROVAL'
+        ? `${item.campaignName} · ${item.platform || copy('قناة غير محددة', 'Channel not set')} · ${copy('تم اعتماد الوسائط النهائية', 'Final media approved')}`
+        : `${item.campaignName} · ${item.platform || copy('قناة غير محددة', 'Channel not set')} · ${contentDecisionStatusLabel(item.fromStatus, ar)} → ${contentDecisionStatusLabel(item.toStatus, ar)}`,
+      status: decisionActorLabel(item.actor, ar),
+      at: item.createdAt,
+      kind: item.snapshotScope === 'CONTENT_MEDIA_APPROVAL'
+        ? copy('اعتماد وسائط', 'Media approval')
+        : item.toStatus === 'APPROVED'
+        ? copy('اعتماد محتوى', 'Content approval')
+        : copy('انتقال تنفيذ المحتوى', 'Content execution transition'),
+      evidence: item.snapshotVersion
+        ? `v${item.snapshotVersion} · ${item.snapshotScope || 'DECISION'} · ${item.snapshotHash?.slice(0, 8) || copy('بصمة محفوظة', 'saved hash')}`
+        : copy('سجل قديم بلا Snapshot — يلزم إعادة المراجعة قبل التنفيذ', 'Legacy record without a snapshot — re-review before execution'),
+    })),
+  ].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 20), [ar, contentDecisionHistory, copy, proposalHistory, suggestionHistory])
 
   async function decideBrain(proposalId: string, action: 'accept' | 'dismiss') {
     const token = authHeader()
@@ -210,7 +281,7 @@ export default function ApprovalsPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || copy('تعذر تنظيف الطلبات المحجوبة.', 'Could not clear blocked requests.'))
-      setNotice({ tone: 'success', text: copy(`تم رفض ${data.count || 0} إشارة بلا مصدر وتسجيلها.`, `${data.count || 0} unsourced signals were dismissed and recorded.`) })
+      setNotice({ tone: 'success', text: copy(`تم رفض ${data.count || 0} إشارة محجوبة وتسجيلها.`, `${data.count || 0} blocked signals were dismissed and recorded.`) })
       setRefreshKey(value => value + 1)
     } catch (error) {
       setNotice({ tone: 'error', text: error instanceof Error ? error.message : copy('تعذر تنظيف الطلبات المحجوبة.', 'Could not clear blocked requests.') })
@@ -282,7 +353,7 @@ export default function ApprovalsPage() {
               {blockedCount > 0 && (
                 <button type="button" onClick={dismissBlocked} disabled={busyKey !== null} className="inline-flex h-11 items-center gap-2 rounded-[14px] border border-amber-200 bg-amber-50 px-4 text-sm font-black text-amber-700 disabled:opacity-50">
                   {busyKey === 'brain:dismiss-blocked' ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />}
-                  {copy(`ارفض ${blockedCount} بلا مصدر`, `Dismiss ${blockedCount} unsourced`)}
+                  {copy(`ارفض ${blockedCount} إشارة محجوبة`, `Dismiss ${blockedCount} blocked`)}
                 </button>
               )}
               <button type="button" onClick={() => setRefreshKey(value => value + 1)} disabled={dataLoading} className="inline-flex h-11 items-center gap-2 rounded-[14px] border border-[#d7def0] bg-white px-4 text-sm font-black text-[#111b3f] disabled:opacity-50">
@@ -384,13 +455,29 @@ export default function ApprovalsPage() {
                   <div className="rounded-[20px] border border-dashed border-[#d7def0] p-6 text-center text-[12px] font-semibold text-[#7b87a3]">{copy('لا توجد تحديثات Brand Brain معلقة.', 'No Brand Brain updates are pending.')}</div>
                 ) : proposals.map(proposal => {
                   const blocked = proposal.canAccept === false || proposal.traceability === 'source_not_attached'
+                  const analyticsEvidence = proposal.traceability === 'analytics_evidence' ? proposal.evidence : null
+                  const blockedReason = proposal.traceability === 'analytics_evidence'
+                    ? copy('لا يمكن تطبيق التعلم لأن عقد دليل الأداء المنظم مفقود أو غير صالح.', 'This learning cannot be applied because its structured performance-evidence contract is missing or invalid.')
+                    : copy('لا يمكن تطبيق الادعاء الخارجي لأن رابط المصدر غير مرفق.', 'This external claim cannot be applied because no source URL is attached.')
                   return (
-                    <ApprovalDecisionCard key={proposal.id} title={proposalLabel(proposal, ar)} reason={blocked ? copy('لا يمكن تطبيق الادعاء الخارجي لأن رابط المصدر غير مرفق.', 'This external claim cannot be applied because no source URL is attached.') : proposal.reason || copy('إشارة محفوظة للمراجعة.', 'Saved signal for review.')} badge={blocked ? copy('محجوب', 'Blocked') : copy('قابل للتطبيق', 'Applicable')} badgeTone={blocked ? 'amber' : 'green'} meta={proposal.traceability || 'internal_signal'} actions={(
+                    <ApprovalDecisionCard key={proposal.id} title={proposalLabel(proposal, ar)} reason={blocked ? blockedReason : proposal.reason || copy('إشارة محفوظة للمراجعة.', 'Saved signal for review.')} badge={blocked ? copy('محجوب', 'Blocked') : copy('قابل للتطبيق', 'Applicable')} badgeTone={blocked ? 'amber' : 'green'} meta={analyticsEvidence ? `${analyticsEvidence.platform || 'PLATFORM'} · n=${analyticsEvidence.sample?.eligiblePosts ?? 0} · ${copy('ثقة اتجاهية', 'directional confidence')}` : proposal.traceability || 'internal_signal'} actions={(
                       <>
                         <button type="button" disabled={busyKey !== null} onClick={() => decideBrain(proposal.id, 'dismiss')} className="inline-flex h-9 items-center gap-2 rounded-[12px] border border-rose-200 bg-white px-3 text-[11px] font-black text-rose-600 disabled:opacity-50"><XCircle size={14} />{copy('رفض', 'Dismiss')}</button>
                         <button type="button" disabled={busyKey !== null || blocked} onClick={() => decideBrain(proposal.id, 'accept')} className="inline-flex h-9 items-center gap-2 rounded-[12px] bg-[#071236] px-3 text-[11px] font-black text-white disabled:cursor-not-allowed disabled:opacity-40">{busyKey === `brain:${proposal.id}:accept` ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}{copy('قبول وتطبيق', 'Accept and apply')}</button>
                       </>
                     )}>
+                      {analyticsEvidence ? (
+                        <div className="space-y-2 rounded-[14px] border border-emerald-100 bg-emerald-50/50 p-3 text-[10px] font-bold leading-5 text-emerald-950">
+                          <div className="flex flex-wrap gap-2">
+                            <span className="rounded-full bg-white px-2 py-1">{copy('العينة', 'Sample')}: {analyticsEvidence.sample?.eligiblePosts ?? 0}</span>
+                            <span className="rounded-full bg-white px-2 py-1">{copy('فوق العتبة', 'Above threshold')}: {analyticsEvidence.sample?.aboveThresholdPosts ?? 0}</span>
+                            <span className="rounded-full bg-white px-2 py-1">{copy('الخط الأساسي', 'Baseline')}: {analyticsEvidence.comparison?.baselineEngagementRate ?? '—'}%</span>
+                            <span className="rounded-full bg-white px-2 py-1">{copy('عتبة المرشح', 'Candidate threshold')}: {analyticsEvidence.comparison?.candidateThresholdEngagementRate ?? '—'}%</span>
+                          </div>
+                          <p>{copy('ملاحظة ارتباطية وليست إثبات سببية أو إيراد. التطبيق يؤثر على الدورات المستقبلية فقط.', 'Observational association, not proof of causality or revenue. Applying it affects future cycles only.')}</p>
+                          <p>{copy('التراجع:', 'Rollback:')} {analyticsEvidence.rollback?.strategy === 'remove_only_values_added_by_this_proposal' ? copy('إزالة القيم التي أضافها هذا الاقتراح فقط', 'remove only values added by this proposal') : copy('غير موثق', 'not documented')}</p>
+                        </div>
+                      ) : null}
                       {proposal.sourceRefs?.length ? <div className="flex flex-wrap gap-2">{proposal.sourceRefs.slice(0, 3).map(source => <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full border border-[#dbe2f0] bg-white px-2 py-1 text-[10px] font-black text-[#5366f6]"><ExternalLink size={11} />{source.publisher || source.title || copy('المصدر', 'Source')}</a>)}</div> : null}
                     </ApprovalDecisionCard>
                   )
@@ -408,7 +495,10 @@ export default function ApprovalsPage() {
                   {historyRows.slice(0, 6).map(row => (
                     <div key={row.id} className="rounded-[14px] border border-[#e7ecf6] bg-[#fbfcff] p-3">
                       <div className="flex items-start justify-between gap-2"><p className="text-[11px] font-black leading-4 text-[#111b3f]">{row.label}</p><span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-black text-slate-600">{row.status}</span></div>
-                      <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#8a96ad]">{row.kind}</p>
+                      <p className="mt-1 text-[9px] font-bold text-[#8a96ad]">
+                        {row.kind} · {row.at ? new Date(row.at).toLocaleString(ar ? 'ar-AE' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }) : copy('الوقت غير متاح', 'Time unavailable')}
+                      </p>
+                      {row.evidence ? <p className="mt-1 break-all font-mono text-[8px] font-bold text-[#69758f]">{row.evidence}</p> : null}
                     </div>
                   ))}
                 </div>

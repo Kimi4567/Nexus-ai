@@ -25,6 +25,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { FREE_TRIAL_CREDITS } from '@/lib/commercialPlans'
+import { CURRENT_CREDIT_PRICING_VERSION } from '@/lib/credits/pricing'
 
 // CreditGrant enums are kept as plain string unions so this module never has to
 // import the generated Prisma client types (consistent with wallet.ts).
@@ -431,6 +432,7 @@ export async function fulfilPurchasedCreditPack(
         amount: args.credits,
         entityId: args.checkoutSessionId,
         entityType: 'credit_pack',
+        pricingVersion: CURRENT_CREDIT_PRICING_VERSION,
       },
     })
   }

@@ -6,6 +6,12 @@ import {
   type StrategyDecisionEvent,
 } from '@/lib/strategyApproval'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
+import {
+  CAMPAIGN_SNAPSHOT_SCOPE,
+  buildStrategyApprovalSnapshotPayload,
+  hashCampaignSnapshotPayload,
+  sanitizeStrategyApprovalAiOutput,
+} from '@/lib/campaignSnapshots'
 
 export class StrategyApprovalError extends Error {
   constructor(
@@ -21,11 +27,14 @@ const campaignSelect = {
   id: true,
   workspaceId: true,
   name: true,
+  description: true,
   status: true,
   goal: true,
   audience: true,
+  tone: true,
   platforms: true,
   aiOutput: true,
+  snapshotVersion: true,
   updatedAt: true,
   workspace: { select: { brandProfile: true } },
 } as const
@@ -115,22 +124,51 @@ export async function approveCampaignStrategy(
   }
 
   const changed = await prisma.$transaction(async (tx) => {
+    const snapshotSource = await tx.campaign.findUniqueOrThrow({
+      where: { id: campaignId },
+      select: campaignSelect,
+    })
+    const safeAiOutput = sanitizeStrategyApprovalAiOutput({
+      campaign: snapshotSource,
+      brandProfile: snapshotSource.workspace.brandProfile,
+    })
     const result = await tx.campaign.updateMany({
       where: { id: campaignId, status: 'DRAFT', workspace: { ownerId: userId } },
-      data: { status: 'ACTIVE' },
+      data: { status: 'ACTIVE', snapshotVersion: { increment: 1 }, aiOutput: safeAiOutput as any },
     })
     if (result.count === 0) return false
 
     const campaign = await tx.campaign.findUniqueOrThrow({
       where: { id: campaignId },
-      select: { workspaceId: true },
+      select: { workspaceId: true, snapshotVersion: true },
+    })
+    const payload = buildStrategyApprovalSnapshotPayload({
+      campaign: { ...snapshotSource, aiOutput: safeAiOutput },
+      brandProfile: snapshotSource.workspace.brandProfile,
+    })
+    const snapshot = await tx.campaignSnapshot.create({
+      data: {
+        workspaceId: campaign.workspaceId,
+        campaignId,
+        version: campaign.snapshotVersion,
+        scope: CAMPAIGN_SNAPSHOT_SCOPE.STRATEGY_APPROVAL,
+        payload: payload as any,
+        payloadHash: hashCampaignSnapshotPayload(payload),
+        createdById: userId,
+      },
     })
     await tx.campaignActivity.create({
       data: {
         campaignId,
         type: 'strategy_approved',
         description: 'Strategy direction approved for content planning',
-        metadata: { source, performanceClaim: false },
+        metadata: {
+          source,
+          performanceClaim: false,
+          snapshotId: snapshot.id,
+          snapshotVersion: snapshot.version,
+          snapshotHash: snapshot.payloadHash,
+        },
       },
     })
     await tx.marketingLearningEvent.create({
@@ -145,6 +183,9 @@ export async function approveCampaignStrategy(
           toStatus: 'ACTIVE',
           approvalScope: 'STRATEGY_DIRECTION',
           performanceClaim: false,
+          snapshotId: snapshot.id,
+          snapshotVersion: snapshot.version,
+          snapshotHash: snapshot.payloadHash,
         },
       },
     })

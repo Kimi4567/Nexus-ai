@@ -372,7 +372,7 @@ export async function GET(req: NextRequest) {
             },
             orderBy: { publishedAt: 'desc' },
             take: 200,
-            select: { id: true, caption: true, platform: true, analyticsData: true },
+            select: { id: true, campaignId: true, caption: true, platform: true, analyticsData: true },
           }),
           (prisma.brainLearning as any).findMany({
             where: {
@@ -415,6 +415,39 @@ export async function GET(req: NextRequest) {
             current: brandProfile?.winningHooks ?? [],
             proposed: plan.candidateHooks,
             reason: plan.reason,
+            evidence: {
+              schemaVersion: 1,
+              source: 'platform_api',
+              observationType: 'platform_local_association',
+              causalClaim: plan.causalClaim,
+              platform: plan.platform,
+              period: { start: plan.periodStart, end: plan.periodEnd },
+              sample: {
+                eligiblePosts: plan.eligiblePostCount,
+                aboveThresholdPosts: plan.winningPostCount,
+                evidencePostIds: plan.evidencePostIds,
+                campaignIds: plan.evidenceCampaignIds,
+              },
+              comparison: {
+                metricDefinition: plan.metricDefinition,
+                baselineMethod: 'platform_local_median',
+                baselineEngagementRate: plan.baselineEngagementRate,
+                candidateThresholdEngagementRate: plan.thresholdEngagementRate,
+                thresholdRule: 'at_least_20_percent_above_platform_median',
+              },
+              confidence: plan.confidence,
+              proposedChange: {
+                field: 'winningHooks',
+                values: plan.candidateHooks,
+                affectsExistingApprovedRevisions: false,
+                affectsFutureStrategyAndContent: true,
+              },
+              rollback: {
+                strategy: 'remove_only_values_added_by_this_proposal',
+                field: 'winningHooks',
+                previousValue: brandProfile?.winningHooks ?? [],
+              },
+            },
             status: 'pending',
           })),
         })

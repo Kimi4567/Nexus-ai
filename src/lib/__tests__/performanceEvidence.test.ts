@@ -77,6 +77,7 @@ describe('performance evidence contract', () => {
   it('requires five comparable posts and three above-baseline posts on the same platform', () => {
     const posts = [10, 10, 10, 20, 20, 20].map((count, index) => ({
       id: `m${index}`,
+      campaignId: index < 3 ? 'campaign-1' : 'campaign-2',
       caption: index < 3 ? `Baseline message number ${index}` : `Proven opening candidate number ${index}`,
       platform: 'META',
       analyticsData: evidence('META', count),
@@ -88,8 +89,15 @@ describe('performance evidence contract', () => {
       eligiblePostCount: 6,
       baselineEngagementRate: 1.5,
       thresholdEngagementRate: 1.8,
+      winningPostCount: 3,
+      periodStart: now.toISOString(),
+      periodEnd: now.toISOString(),
+      confidence: { level: 'directional' },
+      causalClaim: false,
     })
     expect(plan.evidencePostIds).toEqual(['m3', 'm4', 'm5'])
+    expect(plan.evidenceCampaignIds).toEqual(['campaign-2'])
+    expect(plan.metricDefinition).toBe('engaged_users_over_reach_or_impressions')
     expect(plan.candidateHooks).toHaveLength(3)
   })
 

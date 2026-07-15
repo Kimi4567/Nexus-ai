@@ -6,6 +6,7 @@ export interface LearningSignalRecord {
   field?: string | null
   displayName?: string | null
   reason?: string | null
+  evidence?: unknown
   status?: string | null
   campaignId?: string | null
   createdAt?: Date | string | null
@@ -48,7 +49,12 @@ export function summarizeLearningEvidence({
   const pending = signals.filter(signal => signal.status === 'pending')
   const accepted = signals.filter(signal => signal.status === 'accepted')
   const dismissed = signals.filter(signal => signal.status === 'dismissed')
-  const analyticsBacked = accepted.filter(signal => signal.trigger === 'post_performance' && hasPerformanceEvidence)
+  const rolledBack = signals.filter(signal => signal.status === 'rolled_back')
+  const analyticsBacked = accepted.filter(signal => (
+    signal.trigger === 'post_performance'
+    && hasPerformanceEvidence
+    && inspectBrainSignalProvenance(signal).canAccept
+  ))
   const reviewedSignals = accepted.filter(signal => signal.trigger !== 'post_performance')
   const untraceableExternalSignals = signals.filter(signal => (
     inspectBrainSignalProvenance(signal).traceability === 'source_not_attached'
@@ -78,6 +84,7 @@ export function summarizeLearningEvidence({
         traceability: provenance.traceability,
         sourceRefs: provenance.sourceRefs,
         canAccept: provenance.canAccept,
+        evidence: 'evidence' in provenance ? provenance.evidence : null,
         campaignId: signal.campaignId || null,
         at: iso(signal.updatedAt ?? signal.createdAt),
       }
@@ -101,6 +108,7 @@ export function summarizeLearningEvidence({
       pendingReview: pending.length,
       reviewedSignals: reviewedSignals.length,
       dismissedSignals: dismissed.length,
+      rolledBackLessons: rolledBack.length,
       analyticsBackedLessons: analyticsBacked.length,
       workflowSignals: workflow.length,
       performanceEvidenceRows: Math.max(0, performanceEvidenceRows),

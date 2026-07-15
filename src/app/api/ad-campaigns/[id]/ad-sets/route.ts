@@ -20,6 +20,12 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
       where: { id: params.id, workspace: { ownerId: user.id } },
     })
     if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (campaign.status !== 'DRAFT' || campaign.platformCampaignId) {
+      return NextResponse.json({
+        error: 'PAID_DRAFT_NOT_EDITABLE',
+        code: 'PAID_DRAFT_NOT_EDITABLE',
+      }, { status: 409 })
+    }
 
     const adSets = await db.adSet.findMany({
       where: { adCampaignId: params.id },

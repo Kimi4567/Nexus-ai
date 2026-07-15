@@ -9,10 +9,10 @@ describe('Meta Ads API access audit ledger contract', () => {
   it('adds a durable Prisma model linked to AdAccount', () => {
     expect(schema).toContain('model AdAccountApiAccessReview')
     expect(schema).toContain('apiAccessReviews AdAccountApiAccessReview[]')
-    expect(schema).toContain('previousHasApiAccess  Boolean')
-    expect(schema).toContain('nextHasApiAccess      Boolean')
-    expect(schema).toContain('reviewedById          String')
-    expect(schema).toContain('evidenceUrl           String?     @db.Text')
+    expect(schema).toMatch(/previousHasApiAccess\s+Boolean/)
+    expect(schema).toMatch(/nextHasApiAccess\s+Boolean/)
+    expect(schema).toMatch(/reviewedById\s+String/)
+    expect(schema).toMatch(/evidenceUrl\s+String\?\s+@db\.Text/)
   })
 
   it('ships an idempotent SQL migration for production Supabase', () => {

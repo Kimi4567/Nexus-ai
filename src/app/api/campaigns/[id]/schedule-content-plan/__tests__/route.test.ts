@@ -9,21 +9,51 @@ const mocks = vi.hoisted(() => ({
   reviewStrategyGrounding: vi.fn(),
   socialPostFindMany: vi.fn(),
   socialPostUpdate: vi.fn(),
+  socialPostUpdateMany: vi.fn(),
   integrationFindMany: vi.fn(),
   historyCreateMany: vi.fn(),
   learningCreateMany: vi.fn(),
+  campaignSnapshotFindFirst: vi.fn(),
+  campaignVersionUpdate: vi.fn(),
+  campaignSnapshotCreate: vi.fn(),
+  reviewApprovalSnapshot: vi.fn(),
+  reviewMediaApprovalSnapshot: vi.fn(),
+  readStrategyReference: vi.fn(),
+  buildStrategySnapshot: vi.fn(),
+  buildScheduleSnapshot: vi.fn(),
+  hashSnapshot: vi.fn(),
 }))
 
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mocks.getUserId }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     campaign: { findFirst: mocks.campaignFindFirst },
+    campaignSnapshot: { findFirst: mocks.campaignSnapshotFindFirst },
     brandProfile: { findUnique: mocks.brandProfileFindUnique },
     socialPost: { findMany: mocks.socialPostFindMany, update: mocks.socialPostUpdate },
     integration: { findMany: mocks.integrationFindMany },
     postStatusHistory: { createMany: mocks.historyCreateMany },
     marketingLearningEvent: { createMany: mocks.learningCreateMany },
+    $transaction: (callback: (tx: any) => unknown) => callback({
+      socialPost: { updateMany: mocks.socialPostUpdateMany },
+      campaign: { update: mocks.campaignVersionUpdate },
+      campaignSnapshot: { create: mocks.campaignSnapshotCreate },
+      postStatusHistory: { createMany: mocks.historyCreateMany },
+    }),
   },
+}))
+vi.mock('@/lib/campaignSnapshots', () => ({
+  CAMPAIGN_SNAPSHOT_SCOPE: {
+    STRATEGY_APPROVAL: 'STRATEGY_APPROVAL',
+    CONTENT_MEDIA_APPROVAL: 'CONTENT_MEDIA_APPROVAL',
+    SCHEDULE_DECISION: 'SCHEDULE_DECISION',
+  },
+  reviewPostAgainstApprovalSnapshot: mocks.reviewApprovalSnapshot,
+  reviewPostAgainstMediaApprovalSnapshot: mocks.reviewMediaApprovalSnapshot,
+  readSnapshotStrategyReference: mocks.readStrategyReference,
+  buildStrategyApprovalSnapshotPayload: mocks.buildStrategySnapshot,
+  buildScheduleDecisionSnapshotPayload: mocks.buildScheduleSnapshot,
+  hashCampaignSnapshotPayload: mocks.hashSnapshot,
 }))
 vi.mock('@/lib/ai/marketingQualityGate', () => ({
   reviewBrandTruthConsistency: mocks.reviewBrandTruthConsistency,
@@ -121,6 +151,10 @@ function approvedYouTubePost() {
     mediaSource: 'UPLOAD',
     generationStatus: 'DONE',
     isVideoPost: true,
+    approvedSnapshotId: 'content-snapshot-1',
+    approvedSnapshot: { scope: 'CONTENT_APPROVAL', payload: {} },
+    mediaApprovalSnapshotId: 'media-snapshot-2',
+    mediaApprovalSnapshot: { scope: 'CONTENT_MEDIA_APPROVAL', payload: {} },
   }
 }
 
@@ -148,6 +182,18 @@ beforeEach(() => {
   })
   mocks.socialPostFindMany.mockResolvedValue([approvedYouTubePost()])
   mocks.socialPostUpdate.mockResolvedValue({})
+  mocks.socialPostUpdateMany.mockResolvedValue({ count: 1 })
+  mocks.campaignVersionUpdate.mockResolvedValue({ snapshotVersion: 2 })
+  mocks.campaignSnapshotCreate.mockResolvedValue({ id: 'schedule-snapshot-2', version: 2, payloadHash: 'schedule-hash' })
+  mocks.campaignSnapshotFindFirst.mockResolvedValue({
+    id: 'strategy-snapshot-1', version: 1, scope: 'STRATEGY_APPROVAL', payloadHash: 'strategy-hash',
+  })
+  mocks.reviewApprovalSnapshot.mockReturnValue({ ok: true })
+  mocks.reviewMediaApprovalSnapshot.mockReturnValue({ ok: true })
+  mocks.readStrategyReference.mockReturnValue({ id: 'strategy-snapshot-1' })
+  mocks.buildStrategySnapshot.mockReturnValue({ scope: 'STRATEGY_APPROVAL' })
+  mocks.buildScheduleSnapshot.mockReturnValue({ scope: 'SCHEDULE_DECISION' })
+  mocks.hashSnapshot.mockImplementation((payload: any) => payload?.scope === 'STRATEGY_APPROVAL' ? 'strategy-hash' : 'schedule-hash')
   mocks.historyCreateMany.mockResolvedValue({ count: 1 })
   mocks.learningCreateMany.mockResolvedValue({ count: 1 })
   mocks.integrationFindMany.mockResolvedValue([{
@@ -177,7 +223,7 @@ describe('POST schedule-content-plan — YouTube', () => {
 
     expect(response.status).toBe(409)
     expect(body.code).toBe('MARKETING_QUALITY_GATE_FAILED')
-    expect(mocks.socialPostUpdate).not.toHaveBeenCalled()
+    expect(mocks.socialPostUpdateMany).not.toHaveBeenCalled()
   })
 
   it('normalizes YouTube Shorts and persists reviewed per-video settings', async () => {
@@ -186,8 +232,8 @@ describe('POST schedule-content-plan — YouTube', () => {
 
     expect(response.status).toBe(200)
     expect(body).toMatchObject({ success: true, scheduled: 1, linked: 1, publishMode: 'AUTO' })
-    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
-      where: { id: 'youtube-post' },
+    expect(mocks.socialPostUpdateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: 'youtube-post', status: 'APPROVED' }),
       data: expect.objectContaining({
         status: 'SCHEDULED',
         publishMode: 'AUTO',
@@ -204,6 +250,20 @@ describe('POST schedule-content-plan — YouTube', () => {
         },
       }),
     })
+  })
+
+  it('blocks scheduling when final media lacks a matching approval snapshot', async () => {
+    mocks.reviewMediaApprovalSnapshot.mockReturnValue({ ok: false, code: 'MEDIA_APPROVAL_SNAPSHOT_REQUIRED' })
+
+    const response = await POST(request(), { params: Promise.resolve({ id: 'campaign-1' }) })
+    const body = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(body.code).toBe('CONTENT_APPROVAL_SNAPSHOT_REVIEW_REQUIRED')
+    expect(body.blockers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ postId: 'youtube-post', code: 'MEDIA_APPROVAL_SNAPSHOT_REQUIRED' }),
+    ]))
+    expect(mocks.socialPostUpdateMany).not.toHaveBeenCalled()
   })
 
   it('fails closed when YouTube status readback permission is not provider-verified', async () => {
@@ -224,7 +284,7 @@ describe('POST schedule-content-plan — YouTube', () => {
     expect(body.blockers).toEqual(expect.arrayContaining([
       expect.objectContaining({ code: 'PLATFORM_SCOPE_REQUIRED', target: 'YOUTUBE' }),
     ]))
-    expect(mocks.socialPostUpdate).not.toHaveBeenCalled()
+    expect(mocks.socialPostUpdateMany).not.toHaveBeenCalled()
   })
 
   it('normalizes legacy Twitter posts and schedules X only with complete verified permissions', async () => {
@@ -261,8 +321,8 @@ describe('POST schedule-content-plan — YouTube', () => {
 
     expect(response.status).toBe(200)
     expect(body).toMatchObject({ success: true, scheduled: 1, linked: 1, publishMode: 'AUTO' })
-    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
-      where: { id: 'x-post' },
+    expect(mocks.socialPostUpdateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: 'x-post', status: 'APPROVED' }),
       data: expect.objectContaining({
         status: 'SCHEDULED',
         publishMode: 'AUTO',
@@ -309,8 +369,8 @@ describe('POST schedule-content-plan — YouTube', () => {
 
     expect(response.status).toBe(200)
     expect(body).toMatchObject({ success: true, scheduled: 1, linked: 1, publishMode: 'AUTO' })
-    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
-      where: { id: 'pinterest-post' },
+    expect(mocks.socialPostUpdateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: 'pinterest-post', status: 'APPROVED' }),
       data: expect.objectContaining({
         integrationId: 'pinterest-integration',
         pageId: '12345',
@@ -367,8 +427,8 @@ describe('POST schedule-content-plan — YouTube', () => {
 
     const response = await POST(threadsRequest(), { params: Promise.resolve({ id: 'campaign-1' }) })
     expect(response.status).toBe(200)
-    expect(mocks.socialPostUpdate).toHaveBeenCalledWith({
-      where: { id: 'threads-post' },
+    expect(mocks.socialPostUpdateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: 'threads-post', status: 'APPROVED' }),
       data: expect.objectContaining({
         integrationId: 'threads-integration', publishTarget: 'THREADS', pageId: null,
         platformOptions: {

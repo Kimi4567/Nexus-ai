@@ -1,3 +1,5 @@
+import { readPerformanceLearningEvidence } from '@/lib/learningEvidence'
+
 export type BrainSignalTraceability =
   | 'analytics_evidence'
   | 'campaign_record'
@@ -108,21 +110,25 @@ export function inspectBrainSignalProvenance({
   reason,
   campaignId,
   sourceRefs,
+  evidence,
 }: {
   trigger?: string | null
   reason?: string | null
   campaignId?: string | null
   sourceRefs?: unknown
+  evidence?: unknown
 }) {
   const stored = parseStoredSources(reason || '')
   const refs = stored.refs.length > 0 ? stored.refs : normalizeSourceRefs(sourceRefs)
 
   if (trigger === 'post_performance') {
+    const contract = readPerformanceLearningEvidence(evidence)
     return {
       traceability: 'analytics_evidence' as const,
       sourceRefs: refs,
       displayReason: stored.reason,
-      canAccept: true,
+      canAccept: Boolean(contract),
+      evidence: contract,
     }
   }
 

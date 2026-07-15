@@ -38,7 +38,7 @@ const ARRAY_FIELDS = [
   'contentAnglesDetailed', 'weeklyExecutionPlan', 'readinessChecklist',
   'doNotDoYet', 'successMetricsDetailed', 'executionAssumptions',
   'experimentBacklog', 'decisionRules', 'roadmap30_60_90',
-  'assumptions', 'missingData',
+  'assumptions', 'missingData', 'evidenceLedger',
 ] as const
 
 /** Fields the renderer treats as objects — left as-is or dropped to undefined. */

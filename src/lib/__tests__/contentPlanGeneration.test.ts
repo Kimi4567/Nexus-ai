@@ -270,7 +270,7 @@ describe('resolveContentPlanSlotScope', () => {
   it('keeps paid-only/no-scope route blocking before credit deduction', () => {
     const routeSource = readFileSync('src/app/api/campaigns/[id]/generate-content-plan/route.ts', 'utf8')
     const scopeIndex = routeSource.indexOf('const slotScope = resolveContentPlanSlotScope')
-    const creditIndex = routeSource.indexOf("checkAndDeductCredits(userId, 'CONTENT_PLAN_GENERATION')")
+    const creditIndex = routeSource.indexOf('const creditCheck = await checkAndDeductCredits(')
 
     expect(scopeIndex).toBeGreaterThan(-1)
     expect(creditIndex).toBeGreaterThan(-1)
@@ -284,11 +284,11 @@ describe('resolveContentPlanSlotScope', () => {
     expect(routeSource).toContain("code: creditCheck.error ?? 'INSUFFICIENT_CREDITS'")
   })
 
-  it('refunds wallet deductions to their source transaction on generation failure', () => {
+  it('refunds reserved wallet deductions through the exact lifecycle transaction on generation failure', () => {
     const routeSource = readFileSync('src/app/api/campaigns/[id]/generate-content-plan/route.ts', 'utf8')
 
-    expect(routeSource).toContain('refundCreditsForTransaction')
-    expect(routeSource).toContain('transactionId: charge.transactionId')
+    expect(routeSource).toContain('refundCreditDeduction')
+    expect(routeSource).toContain('deduction: charge')
     expect(routeSource).toContain("refundContentActionCharge(userId, contentPlanCharge, 'CONTENT_PLAN_GENERATION'")
   })
 })

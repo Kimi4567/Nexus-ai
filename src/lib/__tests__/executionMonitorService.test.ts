@@ -86,8 +86,29 @@ describe('execution monitor service', () => {
     const result = await monitorWorkspaceExecution('w1')
 
     expect(result).toMatchObject({ suggestionsCreated: 0, suggestionsSuppressed: 1 })
-    expect(mocks.tx.agentRun.create).not.toHaveBeenCalled()
+    expect(mocks.tx.agentRun.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        status: 'COMPLETED',
+        triggeredBy: 'execution-monitor',
+        outputData: expect.objectContaining({ suggestionsCreated: 0, suggestionsSuppressed: 1 }),
+      }),
+    }))
     expect(mocks.tx.agentSuggestion.createMany).not.toHaveBeenCalled()
+  })
+
+  it('persists a successful heartbeat even when no action is detected', async () => {
+    mocks.getTruth.mockResolvedValue({ ...truth, queue: [], campaigns: [{ campaignId: 'c1' }] })
+
+    const result = await monitorWorkspaceExecution('w1')
+
+    expect(result).toMatchObject({ actionsDetected: 0, suggestionsCreated: 0 })
+    expect(mocks.tx.agentSuggestion.findMany).not.toHaveBeenCalled()
+    expect(mocks.tx.agentRun.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        status: 'COMPLETED',
+        outputData: expect.objectContaining({ actionsDetected: 0 }),
+      }),
+    }))
   })
 
   it('skips immediately when another monitor owns the workspace lock', async () => {

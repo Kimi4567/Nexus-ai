@@ -166,6 +166,21 @@ function softenUnsupportedQualityClaims(text: string, context: StrategyProofCont
       .replace(/عالي(?:ة)?\s+الجودة\s*/gi, '')
   }
 
+  // Value-for-money and price positioning are factual commercial claims. Keep
+  // them only when the Brand Brain explicitly confirms the same positioning.
+  if (!hasAffirmedClaim(allowed, /\b(?:value for money|affordable|competitive pricing|cost[-\s]?effective)\b|قيمة (?:ممتازة|رائعة) مقابل|أسعار تنافسية|سعر مناسب|في المتناول/i)) {
+    guarded = guarded
+      .replace(/(?:نظامنا|الخدمة|العرض)\s+(?:يقدم|تقدم|يوفر|توفر)\s+قيمة (?:ممتازة|رائعة|أفضل) مقابل (?:التكلفة|السعر)/gi, 'تحقق من السعر وما يتضمنه العرض قبل الرد على اعتراض التكلفة')
+      .replace(/\b(?:excellent|great|best) value (?:for money|relative to (?:the )?cost|at (?:this|the) price)\b/gi, 'pricing and included value to confirm before using this claim')
+      .replace(/\bvalue for money\b/gi, 'pricing and included value to confirm')
+      .replace(/\bcompetitive pricing\b/gi, 'pricing to compare after confirmation')
+      .replace(/\bcost[-\s]?effective\b/gi, 'cost and value to verify')
+      .replace(/\baffordable\b/gi, 'priced after confirmation')
+      .replace(/قيمة (?:ممتازة|رائعة|أفضل) مقابل (?:التكلفة|السعر)/gi, 'وضّح السعر وما يتضمنه العرض قبل استخدام ادعاء القيمة')
+      .replace(/(?:ب)?أسعار تنافسية/gi, 'بتفاصيل سعر تحتاج إلى تأكيد')
+      .replace(/سعر مناسب|في المتناول|اقتصادي(?:ة)?/gi, 'سعر يحتاج إلى تأكيد')
+  }
+
   if (!hasAffirmedClaim(allowed, /\boptimal\b|مثالي|مثالية|الأمثل/i)) {
     guarded = guarded
       .replace(/\s+for\s+optimal\s+(?:flavou?r|results?|performance)\b/gi, '')

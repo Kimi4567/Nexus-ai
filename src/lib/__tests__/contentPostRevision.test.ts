@@ -23,6 +23,9 @@ describe('contentPostRevision', () => {
     expect(contentReviewResetData('SCHEDULED')).toMatchObject({
       status: 'DRAFT',
       approvedAt: null,
+      approvedSnapshotId: null,
+      mediaApprovalSnapshotId: null,
+      scheduledSnapshotId: null,
       publishMode: 'MANUAL',
       integrationId: null,
       pageId: null,

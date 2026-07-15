@@ -1,6 +1,6 @@
 /**
  * GET  /api/brain/proposals   — list pending brain learning proposals
- * PATCH /api/brain/proposals  — accept or dismiss a proposal
+ * PATCH /api/brain/proposals  — accept, dismiss, or safely roll back a proposal
  *
  * When a proposal is accepted:
  *   - The specific Brand Brain field is updated (arrays are merged, strings replaced)
@@ -16,6 +16,7 @@ import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 import { inspectBrainSignalProvenance } from '@/lib/brainSignalProvenance'
+import { planPerformanceLearningRollback } from '@/lib/learningEvidence'
 
 const db = prisma as any  // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -76,6 +77,7 @@ export async function GET(req: NextRequest) {
         trigger: typeof proposal.trigger === 'string' ? proposal.trigger : null,
         reason: typeof proposal.reason === 'string' ? proposal.reason : null,
         campaignId: typeof proposal.campaignId === 'string' ? proposal.campaignId : null,
+        evidence: proposal.evidence,
       })
       return {
         ...proposal,
@@ -100,10 +102,10 @@ export async function PATCH(req: NextRequest) {
 
     const { proposalId, action } = await req.json() as {
       proposalId?: string
-      action: 'accept' | 'dismiss' | 'dismiss_blocked'
+      action: 'accept' | 'dismiss' | 'dismiss_blocked' | 'rollback'
     }
 
-    if (!['accept', 'dismiss', 'dismiss_blocked'].includes(action) || (action !== 'dismiss_blocked' && !proposalId)) {
+    if (!['accept', 'dismiss', 'dismiss_blocked', 'rollback'].includes(action) || (action !== 'dismiss_blocked' && !proposalId)) {
       return NextResponse.json({ error: 'Missing proposalId or action' }, { status: 400 })
     }
 
@@ -113,12 +115,104 @@ export async function PATCH(req: NextRequest) {
     })
     if (!workspace) return NextResponse.json({ error: 'No workspace' }, { status: 404 })
 
+    if (action === 'rollback') {
+      const acceptedProposal = await db.brainLearning.findFirst({
+        where: { id: proposalId!, workspaceId: workspace.id, status: 'accepted' },
+      }) as Record<string, unknown> | null
+      if (!acceptedProposal) {
+        return NextResponse.json({ error: 'Accepted proposal not found or already rolled back' }, { status: 404 })
+      }
+
+      const field = typeof acceptedProposal.field === 'string' ? acceptedProposal.field : ''
+      const provenance = inspectBrainSignalProvenance({
+        trigger: typeof acceptedProposal.trigger === 'string' ? acceptedProposal.trigger : null,
+        reason: typeof acceptedProposal.reason === 'string' ? acceptedProposal.reason : null,
+        campaignId: typeof acceptedProposal.campaignId === 'string' ? acceptedProposal.campaignId : null,
+        evidence: acceptedProposal.evidence,
+      })
+      if (acceptedProposal.trigger !== 'post_performance' || !provenance.canAccept) {
+        return NextResponse.json({
+          error: 'Only accepted analytics lessons with a valid rollback contract can be rolled back here.',
+          code: 'ROLLBACK_NOT_SUPPORTED',
+        }, { status: 409 })
+      }
+
+      const [brandBrain, acceptanceEvent] = await Promise.all([
+        db.brandProfile.findUnique({ where: { workspaceId: workspace.id } }) as Promise<Record<string, unknown> | null>,
+        db.marketingLearningEvent.findFirst({
+          where: {
+            workspaceId: workspace.id,
+            eventType: 'BRAND_LEARNING_ACCEPTED',
+            source: 'BRAIN_PROPOSAL',
+            metadata: { path: ['proposalId'], equals: proposalId! },
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { metadata: true },
+        }) as Promise<{ metadata: unknown } | null>,
+      ])
+
+      const rollback = planPerformanceLearningRollback({
+        proposalId: proposalId!,
+        field,
+        evidence: acceptedProposal.evidence,
+        currentValue: brandBrain?.[field],
+        acceptanceMetadata: acceptanceEvent?.metadata,
+      })
+      if (!brandBrain || !acceptanceEvent || !rollback) {
+        return NextResponse.json({
+          error: 'The original acceptance ledger is incomplete, so NEXUS will not guess what to remove.',
+          code: 'ACCEPTANCE_LEDGER_REQUIRED',
+        }, { status: 409 })
+      }
+
+      await prisma.$transaction(async (tx) => {
+        const txDb = tx as any
+        await txDb.brandProfile.update({
+          where: { workspaceId: workspace.id },
+          data: { [field]: rollback.nextValue },
+        })
+        await txDb.brainLearning.update({
+          where: { id: proposalId! },
+          data: { status: 'rolled_back' },
+        })
+        await tx.marketingLearningEvent.create({
+          data: {
+            workspaceId: workspace.id,
+            campaignId: typeof acceptedProposal.campaignId === 'string' ? acceptedProposal.campaignId : null,
+            eventType: 'BRAND_LEARNING_ROLLED_BACK',
+            source: 'BRAIN_PROPOSAL',
+            actor: 'USER',
+            metadata: {
+              proposalId: proposalId!,
+              trigger: 'post_performance',
+              changedFields: [field],
+              evidence: acceptedProposal.evidence ?? null,
+              addedValues: rollback.addedValues,
+              removedValues: rollback.removedValues,
+              retainedCurrentValues: rollback.nextValue,
+              affectsExistingApprovedRevisions: false,
+            },
+          },
+        })
+      })
+
+      const maturity = await snapshotBrandMaturity(db, workspace.id)
+      return NextResponse.json({
+        success: true,
+        action: 'rolled_back',
+        field,
+        removedValues: rollback.removedValues,
+        maturity,
+        message: `Brand Brain learning rolled back: ${field}`,
+      })
+    }
+
     if (action === 'dismiss_blocked') {
       const pending = await db.brainLearning.findMany({
         where: { workspaceId: workspace.id, status: 'pending' },
-        select: { id: true, trigger: true, reason: true, campaignId: true },
+        select: { id: true, trigger: true, reason: true, campaignId: true, evidence: true },
         take: 250,
-      }) as Array<{ id: string; trigger: string; reason: string; campaignId: string | null }>
+      }) as Array<{ id: string; trigger: string; reason: string; campaignId: string | null; evidence: unknown }>
       const blocked = pending.filter(item => !inspectBrainSignalProvenance(item).canAccept)
       if (blocked.length === 0) return NextResponse.json({ success: true, action: 'dismissed_blocked', count: 0 })
 
@@ -134,7 +228,10 @@ export async function PATCH(req: NextRequest) {
             eventType: 'BRAND_LEARNING_DISMISSED',
             source: 'BRAIN_PROPOSAL',
             actor: 'USER',
-            metadata: { proposalId: item.id, reason: 'SOURCE_REQUIRED' },
+            metadata: {
+              proposalId: item.id,
+              reason: item.trigger === 'post_performance' ? 'EVIDENCE_REQUIRED' : 'SOURCE_REQUIRED',
+            },
           })),
         })
       })
@@ -177,17 +274,36 @@ export async function PATCH(req: NextRequest) {
       trigger: typeof proposal.trigger === 'string' ? proposal.trigger : null,
       reason: typeof proposal.reason === 'string' ? proposal.reason : null,
       campaignId: typeof proposal.campaignId === 'string' ? proposal.campaignId : null,
+      evidence: proposal.evidence,
     })
     if (!provenance.canAccept) {
+      const performanceEvidenceMissing = proposal.trigger === 'post_performance'
       return NextResponse.json({
-        error: 'This external signal cannot be applied because no traceable source is attached.',
-        code: 'SOURCE_REQUIRED',
+        error: performanceEvidenceMissing
+          ? 'This analytics lesson cannot be applied because its structured evidence contract is missing or invalid.'
+          : 'This external signal cannot be applied because no traceable source is attached.',
+        code: performanceEvidenceMissing ? 'EVIDENCE_REQUIRED' : 'SOURCE_REQUIRED',
       }, { status: 409 })
     }
 
     // ── ACCEPT: apply to Brand Brain ─────────────────────────────────────────
     const field = proposal.field as string
     const proposed = proposal.proposed
+
+    if (proposal.trigger === 'post_performance') {
+      const evidence = provenance.evidence
+      const proposedValues = Array.isArray(proposed) ? proposed.filter(value => typeof value === 'string') : []
+      if (
+        !evidence
+        || evidence.proposedChange.field !== field
+        || JSON.stringify(evidence.proposedChange.values) !== JSON.stringify(proposedValues)
+      ) {
+        return NextResponse.json({
+          error: 'The analytics learning evidence no longer matches the proposed Brand Brain change.',
+          code: 'LEARNING_EVIDENCE_MISMATCH',
+        }, { status: 409 })
+      }
+    }
 
     if (!ACCEPTABLE_LEARNING_FIELDS.has(field)) {
       return NextResponse.json({ error: 'Unsupported Brand Brain learning field' }, { status: 400 })
@@ -253,6 +369,9 @@ export async function PATCH(req: NextRequest) {
             proposalId: proposalId!,
             trigger: typeof proposal.trigger === 'string' ? proposal.trigger : 'unknown',
             changedFields: [field],
+            evidence: proposal.evidence ?? null,
+            previousValue: brandBrain?.[field] ?? null,
+            appliedValue: updateData[field] ?? null,
           },
         },
       })

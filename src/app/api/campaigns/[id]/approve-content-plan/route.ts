@@ -24,6 +24,12 @@ import { buildLearningEvents } from '@/lib/brandBrainEvents'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
+import {
+  CAMPAIGN_SNAPSHOT_SCOPE,
+  buildContentApprovalSnapshotPayload,
+  buildStrategyApprovalSnapshotPayload,
+  hashCampaignSnapshotPayload,
+} from '@/lib/campaignSnapshots'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -49,36 +55,17 @@ export async function POST(req: NextRequest, props: Params) {
         id: true,
         workspaceId: true,
         name: true,
+        description: true,
         status: true,
         goal: true,
+        audience: true,
+        tone: true,
         platforms: true,
         aiOutput: true,
+        snapshotVersion: true,
         workspace: {
           select: {
-            brandProfile: {
-              select: {
-                brandName: true,
-                industry: true,
-                description: true,
-                primaryOffer: true,
-                targetAudience: true,
-                audienceAge: true,
-                audienceLocation: true,
-                audiencePainPoints: true,
-                audienceDesires: true,
-                uniqueAdvantages: true,
-                toneKeywords: true,
-                writingStyle: true,
-                avoidKeywords: true,
-                topPlatforms: true,
-                businessGoal: true,
-                competitors: true,
-                competitorNotes: true,
-                complianceNotes: true,
-                verifiedProof: true,
-                conversionDestination: true,
-              },
-            },
+            brandProfile: true,
           },
         },
       },
@@ -88,6 +75,33 @@ export async function POST(req: NextRequest, props: Params) {
       return NextResponse.json({
         error: 'Approve the campaign strategy before approving content.',
         code: 'STRATEGY_APPROVAL_REQUIRED',
+      }, { status: 409 })
+    }
+
+    const strategySnapshot = await prisma.campaignSnapshot.findFirst({
+      where: {
+        workspaceId: campaign.workspaceId,
+        campaignId: campaign.id,
+        scope: CAMPAIGN_SNAPSHOT_SCOPE.STRATEGY_APPROVAL,
+      },
+      orderBy: { version: 'desc' },
+      select: { id: true, version: true, scope: true, payloadHash: true },
+    })
+    if (!strategySnapshot) {
+      return NextResponse.json({
+        error: 'Revoke and approve the strategy again so its reviewed version can be recorded before content approval.',
+        code: 'STRATEGY_APPROVAL_SNAPSHOT_REQUIRED',
+      }, { status: 409 })
+    }
+    const currentStrategyPayload = buildStrategyApprovalSnapshotPayload({
+      campaign,
+      brandProfile: campaign.workspace.brandProfile,
+    })
+    if (hashCampaignSnapshotPayload(currentStrategyPayload) !== strategySnapshot.payloadHash) {
+      return NextResponse.json({
+        error: 'The campaign or Brand Brain changed after strategy approval. Revoke and review the strategy again before approving content.',
+        code: 'STRATEGY_APPROVAL_SNAPSHOT_STALE',
+        approvedSnapshotVersion: strategySnapshot.version,
       }, { status: 409 })
     }
 
@@ -121,10 +135,22 @@ export async function POST(req: NextRequest, props: Params) {
       select: {
         id: true,
         platform: true,
+        publishTarget: true,
         caption: true,
         imagePrompt: true,
         videoPrompt: true,
+        imageUrl: true,
+        link: true,
+        uploadedMediaId: true,
+        sourceMediaId: true,
+        mediaSource: true,
+        generationStatus: true,
+        isVideoPost: true,
         contentPlanIndex: true,
+        variantGroup: true,
+        variantLabel: true,
+        scheduledAt: true,
+        updatedAt: true,
       },
     })
 
@@ -183,33 +209,77 @@ export async function POST(req: NextRequest, props: Params) {
     const updateById = new Map(plan.updates.map(u => [u.id, u.data]))
     const platformById = new Map(draftPosts.map((p: any) => [p.id, String(p.platform)]))
 
-    // Apply the planned status change + assign integration credentials where available.
-    let approved = 0
-    for (const [postId, data] of updateById) {
-      const match = integrationMap[platformById.get(postId) as string]
-      await (prisma.socialPost as any).update({
-        where: { id: postId },
+    // Persist the exact reviewed revisions, their immutable snapshot, and audit
+    // history atomically. The updatedAt predicate prevents a concurrent edit from
+    // being approved using stale content read earlier in this request.
+    const approvalResult = await prisma.$transaction(async (tx) => {
+      const approvedIds: string[] = []
+      for (const [postId, data] of updateById) {
+        const sourcePost = draftPosts.find((post: any) => post.id === postId)
+        if (!sourcePost) continue
+        const match = integrationMap[platformById.get(postId) as string]
+        const changed = await tx.socialPost.updateMany({
+          where: {
+            id: postId,
+            campaignId: campaign.id,
+            workspaceId: campaign.workspaceId,
+            status: 'DRAFT',
+            updatedAt: sourcePost.updatedAt,
+          },
+          data: {
+            status: data.status,
+            ...(data.approvedAt !== undefined ? { approvedAt: data.approvedAt } : {}),
+            ...(match ? { integrationId: match.integrationId, pageId: match.pageId } : {}),
+          },
+        })
+        if (changed.count === 1) approvedIds.push(postId)
+      }
+
+      if (approvedIds.length === 0) return { approvedIds, snapshot: null, history: [] as typeof plan.history }
+
+      const versionedCampaign = await tx.campaign.update({
+        where: { id: campaign.id },
+        data: { snapshotVersion: { increment: 1 } },
+        select: { snapshotVersion: true },
+      })
+      const approvedPosts = draftPosts.filter((post: any) => approvedIds.includes(post.id))
+      const payload = buildContentApprovalSnapshotPayload({
+        campaignId: campaign.id,
+        strategySnapshot,
+        posts: approvedPosts,
+      })
+      const snapshot = await tx.campaignSnapshot.create({
         data: {
-          status: data.status,
-          ...(data.approvedAt !== undefined ? { approvedAt: data.approvedAt } : {}),
-          ...(match ? { integrationId: match.integrationId, pageId: match.pageId } : {}),
+          workspaceId: campaign.workspaceId,
+          campaignId: campaign.id,
+          version: versionedCampaign.snapshotVersion,
+          scope: CAMPAIGN_SNAPSHOT_SCOPE.CONTENT_APPROVAL,
+          payload: payload as any,
+          payloadHash: hashCampaignSnapshotPayload(payload),
+          createdById: userId,
+        },
+        select: { id: true, version: true, payloadHash: true },
+      })
+      await tx.socialPost.updateMany({
+        where: { id: { in: approvedIds }, campaignId: campaign.id, workspaceId: campaign.workspaceId },
+        data: {
+          approvedSnapshotId: snapshot.id,
+          mediaApprovalSnapshotId: null,
+          scheduledSnapshotId: null,
         },
       })
-      approved++
-    }
 
-    // Record the lifecycle transitions for the audit trail / future Brand Brain.
-    if (plan.history.length > 0) {
-      await (prisma as any).postStatusHistory
-        .createMany({ data: plan.history })
-        .catch((e: any) => console.error('[approve-content-plan] history write failed', e?.message))
-    }
+      const history = plan.history.filter((entry) => approvedIds.includes(entry.socialPostId))
+      if (history.length > 0) await tx.postStatusHistory.createMany({ data: history })
+      return { approvedIds, snapshot, history }
+    })
+    const approved = approvalResult.approvedIds.length
 
     // Brand Brain (PR1): capture one learning event per ACTUAL transition. Derived from
     // plan.history so re-approving a non-DRAFT post (empty plan) writes nothing — no
     // duplicates, no events for invalid transitions. Non-blocking: never fails approval.
     const approveEvents = buildLearningEvents(
-      plan.history.map((h: any) => ({
+      approvalResult.history.map((h: any) => ({
         workspaceId: h.workspaceId,
         campaignId: campaign.id,
         socialPostId: h.socialPostId,
@@ -227,7 +297,7 @@ export async function POST(req: NextRequest, props: Params) {
         .catch((e: any) => console.error('[approve-content-plan] learning event write failed', e?.message))
     }
 
-    const approvedIds = new Set(updateById.keys())
+    const approvedIds = new Set(approvalResult.approvedIds)
     const linked   = draftPosts.filter((p: any) => approvedIds.has(p.id) && !!integrationMap[String(p.platform)]).length
     const unlinked = approved - linked
 
@@ -247,6 +317,7 @@ export async function POST(req: NextRequest, props: Params) {
       linked,
       unlinked,
       learningProposalQueued,
+      snapshot: approvalResult.snapshot,
       message,
     })
   } catch (err: any) {
@@ -287,7 +358,13 @@ export async function DELETE(req: NextRequest, props: Params) {
     for (const u of plan.updates) {
       await (prisma.socialPost as any).update({
         where: { id: u.id },
-        data: { status: u.data.status, approvedAt: u.data.approvedAt ?? null },
+        data: {
+          status: u.data.status,
+          approvedAt: u.data.approvedAt ?? null,
+          approvedSnapshotId: null,
+          mediaApprovalSnapshotId: null,
+          scheduledSnapshotId: null,
+        },
       })
     }
     if (plan.history.length > 0) {

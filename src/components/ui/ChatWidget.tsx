@@ -14,6 +14,7 @@ import {
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/lib/i18n-context";
 import { useAuth } from "@/lib/auth-context";
+import { creditOperationScope, fetchCreditOperation } from "@/lib/creditOperationClient";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -223,7 +224,10 @@ export default memo(function ChatWidget() {
     abortRef.current = new AbortController();
 
     try {
-      const res = await fetch("/api/chat", {
+      const res = await fetchCreditOperation(
+        creditOperationScope("chat", `${pathname || "/"}:${content}`),
+        "/api/chat",
+        {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -234,7 +238,8 @@ export default memo(function ChatWidget() {
           page: pathname || "/",
         }),
         signal: abortRef.current.signal,
-      });
+        },
+      );
 
       if (!res.ok || !res.body) {
         const errData = await res.json().catch(() => ({ error: "Unknown error" }));

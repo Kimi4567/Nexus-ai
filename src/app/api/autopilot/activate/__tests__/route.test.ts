@@ -63,6 +63,7 @@ const autoPost = {
   campaignId: 'c1',
   workspaceId: 'w1',
   status: 'SCHEDULED',
+  approvedAt: new Date('2026-07-14T08:45:00.000Z'),
   publishMode: 'AUTO',
   autoPublishConsentAt: new Date('2026-07-14T09:00:00.000Z'),
   scheduledAt: new Date('2026-07-15T09:00:00.000Z'),

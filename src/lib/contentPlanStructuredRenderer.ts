@@ -148,10 +148,30 @@ export function renderContentPlanDraftImagePrompt(
   gen: GeneratedContentPlanPostLike,
   ctx: ContentPlanRenderContext,
 ): string {
-  // Image direction is also kept tied to the generated post. If it is unsafe,
-  // validateContentPlanDraftForSave rejects it; no alternate industry scene is
-  // invented behind the user's back.
-  return guardContentDraftText(normalizeText(gen.imagePrompt), ctx)
+  const guardedPrompt = guardContentDraftText(normalizeText(gen.imagePrompt), ctx)
+  const inventsUnavailableVisualEvidence = UNSAFE_PATTERNS.some((pattern) => (
+    pattern.reason === 'unsupported_fake_product_visual' && pattern.re.test(guardedPrompt)
+  ))
+  if (!inventsUnavailableVisualEvidence) return guardedPrompt
+
+  // A generated screenshot, logo, customer, branded facility, or expert would
+  // fabricate evidence the user never supplied. Keep the post usable by
+  // converting only that visual direction into a truth-safe conceptual brief
+  // grounded in the reviewed campaign topic and audience. This does not invent
+  // a product view, testimonial, or alternate industry scene.
+  const pillar = Array.isArray(ctx.contentPillars) && ctx.contentPillars.length > 0
+    ? ctx.contentPillars[ctx.postIndex % ctx.contentPillars.length]
+    : ''
+  const topic = guardContentDraftText(
+    normalizeText(pillar) || normalizeText(ctx.keyMessage) || normalizeText(ctx.campaignName) || 'the reviewed campaign topic',
+    ctx,
+  )
+  const audience = guardContentDraftText(
+    normalizeText(ctx.targetAudience) || 'the intended audience',
+    ctx,
+  )
+
+  return `Editorial conceptual illustration for ${audience} about ${topic}, using abstract cards, connectors, and neutral workflow symbols. Use no screens, screenshots, readable text, logos, customer likenesses, branded facilities, or implied product evidence.`
 }
 
 export function validateContentPlanDraftForSave(fields: Record<string, unknown>): ContentPlanSaveGateResult {

@@ -46,6 +46,7 @@ interface SocialPostRecord {
   uploadedMediaId?: string | null
   contentPlanIndex?: number | null
   scheduledAt?: string | null
+  approvedAt?: string | null
   status?: string | null
   publishedAt?: string | null
   manuallyPublishedAt?: string | null
@@ -234,12 +235,13 @@ export default function ContentHubPage() {
     const needsReview = posts.filter(post => {
       const status = String(post.status || 'DRAFT').toUpperCase()
       if (status === 'PUBLISHED') return false
-      return status === 'DRAFT' || !isContentPostMediaReadyForScheduling(post)
+      const progressedWithoutApproval = ['APPROVED', 'SCHEDULED'].includes(status) && !post.approvedAt
+      return status === 'DRAFT' || progressedWithoutApproval || !isContentPostMediaReadyForScheduling(post)
     }).length
     const reviewed = posts.filter(post => {
       const status = String(post.status || 'DRAFT').toUpperCase()
-      return ['APPROVED', 'SCHEDULED', 'PUBLISHED'].includes(status)
-        && isContentPostMediaReadyForScheduling(post)
+      return ['APPROVED', 'SCHEDULED', 'PROCESSING', 'PUBLISHED'].includes(status)
+        && Boolean(post.approvedAt)
     }).length
     const productionProgress = total === 0
       ? 0
@@ -304,8 +306,9 @@ export default function ContentHubPage() {
         <div className="nx-os-page">
           <div className="nx-os-container nx-os-stack">
             <LuxuryWorkspaceHeader
-              pageTitle={isAr ? 'نظرة عامة على المحتوى' : 'Content operations overview'}
-              pageSubtitle={isAr ? 'ملخص إنتاج المحتوى عبر كل الحملات.' : 'A production summary across all campaigns.'}
+              journeyStage="production"
+              pageTitle={isAr ? 'إنتاج المحتوى' : 'Content production'}
+              pageSubtitle={isAr ? 'النص والوسائط والمراجعة في حزمة منشور واحدة.' : 'Copy, media, and review in one post package.'}
               primaryHref={null}
               secondaryHref="/strategy"
               secondaryLabel={isAr ? 'الاستراتيجية والحملات' : 'Strategy & campaigns'}
@@ -325,8 +328,9 @@ export default function ContentHubPage() {
       <div className="nx-os-page">
         <div className="nx-os-container nx-os-stack">
           <LuxuryWorkspaceHeader
-            pageTitle={isAr ? 'نظرة عامة على المحتوى' : 'Content operations overview'}
-            pageSubtitle={isAr ? 'راقب جاهزية المحتوى عبر الحملات، ثم افتح إنتاج حملة للمراجعة والتنفيذ.' : 'Track readiness across campaigns, then open one campaign for review and execution.'}
+            journeyStage="production"
+            pageTitle={isAr ? 'إنتاج المحتوى' : 'Content production'}
+            pageSubtitle={isAr ? 'راجع النص والوسائط لكل حملة، ثم سلّم الحزمة المعتمدة للتنفيذ.' : 'Review campaign copy and media, then hand the approved package to execution.'}
             primaryHref={latestCampaignContentHref}
             primaryLabel={contentTruthBlocked ? (isAr ? 'تصحيح Brand Brain' : 'Fix Brand Brain') : latestCampaign ? (isAr ? 'مراجعة الإنتاج' : 'Review production') : (isAr ? 'إنشاء استراتيجية' : 'Create strategy')}
             secondaryHref="/strategy"
@@ -383,7 +387,7 @@ export default function ContentHubPage() {
                   : isAr ? `${stats.needsReview} منشورات تحتاج قرارك` : `${stats.needsReview} posts need your decision`}
               </p>
               <p className="mt-1 text-[11px] font-bold text-slate-500">
-                {isAr ? `${stats.total} إجمالي · ${stats.approved} نصوص معتمدة · ${stats.mediaReady} وسائط مؤكدة · ${stats.scheduled} مجدول` : `${stats.total} total · ${stats.approved} copy approved · ${stats.mediaReady} media confirmed · ${stats.scheduled} scheduled`}
+                {isAr ? `${stats.total} إجمالي · ${stats.reviewed} نصوص موثقة المراجعة · ${stats.mediaReady} وسائط مؤكدة · ${stats.scheduled} مجدول` : `${stats.total} total · ${stats.reviewed} copy revisions reviewed · ${stats.mediaReady} media confirmed · ${stats.scheduled} scheduled`}
               </p>
               <p className="mt-1 text-[10px] font-semibold text-slate-400">
                 {isAr ? 'تُراجع CTA داخل كل منشور؛ لا يفترض NEXUS دعوة عامة من دون دليل.' : 'CTA is reviewed per post; NEXUS does not assume a generic CTA here.'}
@@ -688,6 +692,34 @@ export default function ContentHubPage() {
               </SoftPanel>
             */}
           </div>
+
+          <details className="nx-os-card group p-4" dir={isAr ? 'rtl' : 'ltr'}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[13px] font-black text-[#0B1028]">
+              <span>{isAr ? 'أدوات إنتاج اختيارية' : 'Optional production tools'}</span>
+              <span className="text-[11px] font-bold text-slate-400 group-open:hidden">
+                {isAr ? 'افتح عند الحاجة فقط' : 'Open only when needed'}
+              </span>
+            </summary>
+            <p className="mt-2 text-[11px] font-semibold leading-5 text-slate-500">
+              {isAr
+                ? 'هذه أدوات مساعدة داخل إنتاج المحتوى، وليست مراحل إضافية ولا تغيّر حالة أي منشور تلقائياً.'
+                : 'These are supporting tools inside Content production, not extra workflow stages, and they never change a post automatically.'}
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <Link href="/media" className="rounded-[16px] border border-slate-200 bg-slate-50 p-4 transition hover:border-[#C7D2FE] hover:bg-[#F8F9FF]">
+                <p className="text-[12px] font-black text-[#0B1028]">{isAr ? 'مكتبة الأصول' : 'Asset library'}</p>
+                <p className="mt-1 text-[11px] font-semibold leading-5 text-slate-500">
+                  {isAr ? 'ارفع الأصول وراجع الحقوق، ثم اربط الأصل من حزمة المنشور.' : 'Upload assets and review rights, then attach from the post package.'}
+                </p>
+              </Link>
+              <Link href="/studio" className="rounded-[16px] border border-slate-200 bg-slate-50 p-4 transition hover:border-[#C7D2FE] hover:bg-[#F8F9FF]">
+                <p className="text-[12px] font-black text-[#0B1028]">{isAr ? 'معاينة الاتجاه الإبداعي' : 'Creative direction preview'}</p>
+                <p className="mt-1 text-[11px] font-semibold leading-5 text-slate-500">
+                  {isAr ? 'معاينة فقط؛ التوليد والربط النهائيان يبدآن من منشور محدد.' : 'Preview only; final generation and attachment start from a specific post.'}
+                </p>
+              </Link>
+            </div>
+          </details>
 
         </div>
       </div>

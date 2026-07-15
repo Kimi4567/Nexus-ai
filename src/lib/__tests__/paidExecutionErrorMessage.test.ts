@@ -7,6 +7,12 @@ describe('paid execution error messages', () => {
       .toContain('Organic only')
     expect(paidExecutionErrorMessage('PAID_AD_ACCOUNT_REQUIRED', 'ar', 'Fallback'))
       .toContain('حساباً إعلانياً')
+    expect(paidExecutionErrorMessage('PAID_STRATEGY_REVISION_CHANGED', 'en', 'Fallback'))
+      .toContain('newer revision')
+    expect(paidExecutionErrorMessage('PAID_STRATEGY_SNAPSHOT_REQUIRED', 'ar', 'Fallback'))
+      .toContain('إصدار استراتيجية')
+    expect(paidExecutionErrorMessage('PAID_BUDGET_APPROVAL_REQUIRED', 'en', 'Fallback'))
+      .toContain('recorded approval')
   })
 
   it('never exposes unknown internal codes', () => {

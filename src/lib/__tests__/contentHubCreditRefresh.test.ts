@@ -28,6 +28,6 @@ describe('paid action credit balance refresh', () => {
   it('refreshes campaign concept visual billing status after generation', () => {
     expect(visualGeneratorSource).toContain('invalidate: refreshBillingStatus')
     expect(visualGeneratorSource).toContain('await refreshBillingStatus()')
-    expect(visualGeneratorSource).toContain("fetch('/api/visuals/generate'")
+    expect(visualGeneratorSource).toContain("fetchCreditOperation(operationScope, '/api/visuals/generate'")
   })
 })

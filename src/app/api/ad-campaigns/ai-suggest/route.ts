@@ -139,6 +139,9 @@ export async function POST(req: NextRequest) {
         id: paidSource.campaign.id,
         name: paidSource.campaign.name,
         scope: paidSource.truth.scope,
+        snapshotId: paidSource.snapshot.id,
+        snapshotVersion: paidSource.snapshot.version,
+        snapshotHash: paidSource.snapshot.payloadHash,
       },
       suggestedAdAccountId: platformAccounts.length === 1 ? platformAccounts[0].id : null,
     })

@@ -8,6 +8,12 @@ import {
   type PaidStrategySourceTruth,
 } from '@/lib/paidStrategySource'
 import type { StrategyDecisionEvent } from '@/lib/strategyApproval'
+import {
+  CAMPAIGN_SNAPSHOT_SCOPE,
+  hashCampaignSnapshotPayload,
+  readStrategyApprovalSnapshotPayload,
+  type CampaignSnapshotReference,
+} from '@/lib/campaignSnapshots'
 
 export class PaidStrategySourceError extends Error {
   constructor(
@@ -46,10 +52,13 @@ function decisionEvent(value: {
 export async function getPaidStrategySourceForUser(input: {
   campaignId: string
   userId: string
+  strategySnapshotId?: string | null
+  requirePinnedSnapshot?: boolean
 }): Promise<{
   campaign: PaidStrategySourceCampaign
   truth: PaidStrategySourceTruth
   executionContext: string
+  snapshot: CampaignSnapshotReference
 }> {
   if (!input.campaignId) {
     throw new PaidStrategySourceError('PAID_STRATEGY_REQUIRED', 422)
@@ -61,16 +70,66 @@ export async function getPaidStrategySourceForUser(input: {
   })
   if (!campaign) throw new PaidStrategySourceError('PAID_STRATEGY_NOT_FOUND', 404)
 
-  const latestDecision = await prisma.marketingLearningEvent.findFirst({
-    where: {
-      workspaceId: campaign.workspaceId,
-      campaignId: campaign.id,
-      eventType: { in: ['STRATEGY_APPROVED', 'STRATEGY_APPROVAL_REVOKED'] },
-    },
-    orderBy: { createdAt: 'desc' },
-    select: { eventType: true, createdAt: true, source: true },
-  })
-  const truth = inspectPaidStrategySource(campaign, decisionEvent(latestDecision))
+  const [latestDecision, latestSnapshot] = await Promise.all([
+    prisma.marketingLearningEvent.findFirst({
+      where: {
+        workspaceId: campaign.workspaceId,
+        campaignId: campaign.id,
+        eventType: { in: ['STRATEGY_APPROVED', 'STRATEGY_APPROVAL_REVOKED'] },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { eventType: true, createdAt: true, source: true },
+    }),
+    prisma.campaignSnapshot.findFirst({
+      where: {
+        workspaceId: campaign.workspaceId,
+        campaignId: campaign.id,
+        scope: CAMPAIGN_SNAPSHOT_SCOPE.STRATEGY_APPROVAL,
+      },
+      orderBy: { version: 'desc' },
+      select: {
+        id: true,
+        workspaceId: true,
+        campaignId: true,
+        version: true,
+        scope: true,
+        payload: true,
+        payloadHash: true,
+        createdAt: true,
+      },
+    }),
+  ])
+
+  if (!latestSnapshot) {
+    throw new PaidStrategySourceError('PAID_STRATEGY_SNAPSHOT_REQUIRED', 422)
+  }
+  if (input.requirePinnedSnapshot && !input.strategySnapshotId) {
+    throw new PaidStrategySourceError('PAID_STRATEGY_SNAPSHOT_REQUIRED', 409)
+  }
+  if (input.strategySnapshotId && input.strategySnapshotId !== latestSnapshot.id) {
+    throw new PaidStrategySourceError('PAID_STRATEGY_REVISION_CHANGED', 409)
+  }
+  if (latestSnapshot.payloadHash !== hashCampaignSnapshotPayload(latestSnapshot.payload)) {
+    throw new PaidStrategySourceError('PAID_STRATEGY_SNAPSHOT_INVALID', 409)
+  }
+
+  const snapshotView = readStrategyApprovalSnapshotPayload(latestSnapshot.payload)
+  if (
+    !snapshotView
+    || snapshotView.campaign.id !== campaign.id
+    || latestSnapshot.campaignId !== campaign.id
+    || latestSnapshot.workspaceId !== campaign.workspaceId
+  ) {
+    throw new PaidStrategySourceError('PAID_STRATEGY_SNAPSHOT_INVALID', 409)
+  }
+
+  const approvedCampaign: PaidStrategySourceCampaign = {
+    ...snapshotView.campaign,
+    workspaceId: campaign.workspaceId,
+    status: campaign.status,
+    updatedAt: latestSnapshot.createdAt,
+  }
+  const truth = inspectPaidStrategySource(approvedCampaign, decisionEvent(latestDecision))
 
   if (!truth.eligible) {
     const code = truth.reason === 'PAID_SCOPE_REQUIRED'
@@ -84,9 +143,15 @@ export async function getPaidStrategySourceForUser(input: {
   }
 
   return {
-    campaign,
+    campaign: approvedCampaign,
     truth,
-    executionContext: buildPaidStrategyExecutionContext(campaign.aiOutput),
+    executionContext: buildPaidStrategyExecutionContext(approvedCampaign.aiOutput),
+    snapshot: {
+      id: latestSnapshot.id,
+      version: latestSnapshot.version,
+      scope: latestSnapshot.scope,
+      payloadHash: latestSnapshot.payloadHash,
+    },
   }
 }
 

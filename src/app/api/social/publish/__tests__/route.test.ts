@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   workspaceFindFirst: vi.fn(),
   integrationFindFirst: vi.fn(),
   campaignFindFirst: vi.fn(),
+  campaignSnapshotFindFirst: vi.fn(),
   socialPostFindFirst: vi.fn(),
   socialPostCreate: vi.fn(),
   socialPostUpdate: vi.fn(),
@@ -14,8 +15,21 @@ const mocks = vi.hoisted(() => ({
   decrypt: vi.fn(),
   publish: vi.fn(),
   reviewStrategyGrounding: vi.fn(),
+  reviewApprovalSnapshot: vi.fn(),
+  reviewMediaApprovalSnapshot: vi.fn(),
+  readStrategyReference: vi.fn(),
+  buildStrategySnapshot: vi.fn(),
+  hashSnapshot: vi.fn(),
 }))
 vi.mock('@/lib/ai/marketingQualityGate', () => ({ reviewStrategyGrounding: mocks.reviewStrategyGrounding }))
+vi.mock('@/lib/campaignSnapshots', () => ({
+  CAMPAIGN_SNAPSHOT_SCOPE: { STRATEGY_APPROVAL: 'STRATEGY_APPROVAL' },
+  reviewPostAgainstApprovalSnapshot: mocks.reviewApprovalSnapshot,
+  reviewPostAgainstMediaApprovalSnapshot: mocks.reviewMediaApprovalSnapshot,
+  readSnapshotStrategyReference: mocks.readStrategyReference,
+  buildStrategyApprovalSnapshotPayload: mocks.buildStrategySnapshot,
+  hashCampaignSnapshotPayload: mocks.hashSnapshot,
+}))
 
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mocks.getUserId }))
 vi.mock('@/lib/tokenCrypto', () => ({ decryptToken: mocks.decrypt }))
@@ -25,6 +39,7 @@ vi.mock('@/lib/prisma', () => ({
     workspace: { findFirst: mocks.workspaceFindFirst },
     integration: { findFirst: mocks.integrationFindFirst },
     campaign: { findFirst: mocks.campaignFindFirst },
+    campaignSnapshot: { findFirst: mocks.campaignSnapshotFindFirst },
     socialPost: { findFirst: mocks.socialPostFindFirst, create: mocks.socialPostCreate },
     $transaction: (callback: (tx: unknown) => unknown) => callback({
       socialPost: { update: mocks.socialPostUpdate },
@@ -84,6 +99,14 @@ beforeEach(() => {
   mocks.reviewStrategyGrounding.mockReturnValue({
     schemaVersion: 1, status: 'passed', score: 100, blockers: [], warnings: [], checkedAt: '2026-07-14T00:00:00.000Z',
   })
+  mocks.reviewApprovalSnapshot.mockReturnValue({ ok: true })
+  mocks.reviewMediaApprovalSnapshot.mockReturnValue({ ok: true })
+  mocks.readStrategyReference.mockReturnValue({ id: 'strategy-snapshot-1' })
+  mocks.buildStrategySnapshot.mockReturnValue({ scope: 'STRATEGY_APPROVAL' })
+  mocks.hashSnapshot.mockReturnValue('strategy-hash')
+  mocks.campaignSnapshotFindFirst.mockResolvedValue({
+    id: 'strategy-snapshot-1', version: 1, scope: 'STRATEGY_APPROVAL', payloadHash: 'strategy-hash',
+  })
   mocks.decrypt.mockReturnValue('plain-token')
   mocks.publish.mockResolvedValue({ platformPostId: 'page_post_1', platformUrl: 'https://facebook.com/page_post_1' })
   mocks.socialPostFindFirst.mockResolvedValue({
@@ -97,6 +120,10 @@ beforeEach(() => {
     mediaSource: 'GENERATE',
     generationStatus: 'DONE',
     approvedAt: new Date('2026-07-12T10:00:00.000Z'),
+    approvedSnapshotId: 'content-snapshot-1',
+    approvedSnapshot: { scope: 'CONTENT_APPROVAL', payload: {} },
+    mediaApprovalSnapshotId: 'media-snapshot-2',
+    mediaApprovalSnapshot: { scope: 'CONTENT_MEDIA_APPROVAL', payload: {} },
   })
   mocks.socialPostUpdate.mockResolvedValue({ id: 'approved-post-1', status: 'PUBLISHED' })
 })
@@ -130,6 +157,17 @@ describe('POST /api/social/publish', () => {
 
     expect(response.status).toBe(409)
     expect(body.code).toBe('MEDIA_REVIEW_REQUIRED')
+    expect(mocks.publish).not.toHaveBeenCalled()
+  })
+
+  it('blocks publishing when current media is not the separately approved revision', async () => {
+    mocks.reviewMediaApprovalSnapshot.mockReturnValue({ ok: false, code: 'MEDIA_CHANGED_AFTER_APPROVAL' })
+
+    const response = await POST(request(validBody))
+    const body = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(body.code).toBe('MEDIA_CHANGED_AFTER_APPROVAL')
     expect(mocks.publish).not.toHaveBeenCalled()
   })
 

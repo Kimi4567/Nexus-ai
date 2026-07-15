@@ -7,10 +7,13 @@ import { normalizeContentHubImagePromptForPlatform } from '@/lib/contentHubImage
 import {
   checkAndDeductCredits,
   checkDailyImageCap,
-  refundCredits,
+  finalizeCreditDeduction,
+  refundCreditDeduction,
   refundCreditsForTransaction,
+  type CreditDeductionOk,
 } from '@/lib/credits'
 import { cronAuthError } from '@/lib/cronAuth'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,8 +42,7 @@ const MEDIA_UPLOAD_TIMEOUT_MS = 10_000
 
 type ImageCreditReservation = {
   userId: string
-  creditsUsed: number
-  transactionId?: string
+  deduction: CreditDeductionOk
   refunded: boolean
 }
 
@@ -141,20 +143,13 @@ async function refundImageReservation(
   reservation: ImageCreditReservation | undefined,
   reason: string,
 ): Promise<boolean> {
-  if (!reservation || reservation.refunded || reservation.creditsUsed <= 0) return true
-
-  if (reservation.transactionId) {
-    const result = await refundCreditsForTransaction({
-      userId: reservation.userId,
-      transactionId: reservation.transactionId,
-      reason,
-    })
-    if (result && !result.ok) return false
-    reservation.refunded = true
-    return true
-  }
-
-  const result = await refundCredits(reservation.userId, 'IMAGE_GENERATION', reason)
+  if (!reservation || reservation.refunded) return true
+  const result = await refundCreditDeduction({
+    userId: reservation.userId,
+    action: 'IMAGE_GENERATION',
+    deduction: reservation.deduction,
+    reason,
+  })
   if (result && !result.ok) return false
   reservation.refunded = true
   return true
@@ -176,7 +171,8 @@ async function reconcilePendingImageRefunds() {
     LEFT JOIN "GeneratedVisual" v
       ON d."entityType" = 'generated_visual_image' AND v."id" = d."entityId"
     WHERE d."action" = 'IMAGE_GENERATION'
-      AND d."amount" < 0
+      AND d."creditCost" > 0
+      AND d."status" = 'RESERVED'
       AND (
         (
           d."entityType" = 'social_post_image'
@@ -380,20 +376,30 @@ export async function GET(req: NextRequest) {
           ownerId,
           'IMAGE_GENERATION',
           undefined,
-          { entityId: post.id, entityType: 'social_post_image' },
+          {
+            entityId: post.id,
+            entityType: 'social_post_image',
+            operationKey: getCreditOperationKey(req, 'IMAGE_GENERATION', 'social_post_image', post.id),
+          },
         )
         if (!creditResult.ok) {
-          console.warn(`[Cron generate-images] Skipped post ${post.id} — user ${ownerId} has insufficient credits (${creditResult.currentCredits} remaining, need ${creditResult.requiredCredits})`)
+          const replay = creditResult.error === 'CREDIT_OPERATION_REPLAY'
+          console.warn(replay
+            ? `[Cron generate-images] Skipped duplicate operation for post ${post.id} — no additional credits reserved`
+            : `[Cron generate-images] Skipped post ${post.id} — user ${ownerId} has insufficient credits (${creditResult.currentCredits} remaining, need ${creditResult.requiredCredits})`)
           await prisma.socialPost.update({
             where: { id: post.id },
             data: { generationStatus: 'PENDING' },
           })
-          return { postId: post.id, status: 'skipped_no_credits', creditsRemaining: creditResult.currentCredits }
+          return {
+            postId: post.id,
+            status: replay ? 'skipped_duplicate' : 'skipped_no_credits',
+            creditsRemaining: replay ? undefined : creditResult.currentCredits,
+          }
         }
         creditReservation = {
           userId: ownerId,
-          creditsUsed: creditResult.creditsUsed,
-          transactionId: creditResult.transactionId,
+          deduction: creditResult,
           refunded: false,
         }
         console.log(`[Cron generate-images] Deducted IMAGE_GENERATION credits from ${ownerId} — ${creditResult.creditsRemaining} remaining`)
@@ -445,6 +451,21 @@ export async function GET(req: NextRequest) {
             data: { imageUrl: finalUrl, status: 'COMPLETED' },
           })
         })
+
+        const finalization = await finalizeCreditDeduction({
+          userId: ownerId,
+          action: 'IMAGE_GENERATION',
+          deduction: creditResult,
+        })
+        if (!finalization.ok) {
+          creditReservation.refunded = true
+          return {
+            postId: post.id,
+            status: 'saved_credit_refunded',
+            url: finalUrl,
+            refundStatus: finalization.refundStatus,
+          }
+        }
 
         return { postId: post.id, status: 'ok', url: finalUrl }
       } catch (err: any) {

@@ -28,6 +28,7 @@ import {
   buildBonusGrant,
   STARTER_CREDITS,
 } from '@/lib/credits/creditGrants'
+import { CURRENT_CREDIT_PRICING_VERSION } from '@/lib/credits/pricing'
 
 // ── Credit cost map ────────────────────────────────────────────────────────────
 // All AI actions and their credit costs.
@@ -189,6 +190,13 @@ export const CREDIT_COSTS = {
    */
   CONTENT_ANALYSIS: 2,
 
+  /**
+   * Brand evidence analysis — extracts source-backed claims from one private
+   * document. Upload and human review are free; only this bounded model call is
+   * billable. Claims remain candidates until the user explicitly approves them.
+   */
+  BRAND_EVIDENCE_ANALYSIS: 2,
+
 } as const
 
 export type CreditAction = keyof typeof CREDIT_COSTS
@@ -313,10 +321,22 @@ export const CREDIT_ACTION_POLICIES: Record<CreditAction, CreditActionPolicy> = 
     providerCallLimit: 1,
     refundableOnNoUsableOutput: true,
   },
+  BRAND_EVIDENCE_ANALYSIS: {
+    label: 'Brand evidence analysis',
+    reason: 'Extracts source-backed claim candidates from one private brand document for review.',
+    includedWork: 'Deterministic document extraction and one bounded AI evidence analysis.',
+    providerCallLimit: 1,
+    refundableOnNoUsableOutput: true,
+  },
 }
 
-export function getCreditActionPolicy(action: CreditAction): CreditActionPolicy & { action: CreditAction; cost: number } {
-  return { action, cost: CREDIT_COSTS[action], ...CREDIT_ACTION_POLICIES[action] }
+export function getCreditActionPolicy(action: CreditAction): CreditActionPolicy & { action: CreditAction; cost: number; pricingVersion: string } {
+  return {
+    action,
+    cost: CREDIT_COSTS[action],
+    pricingVersion: CURRENT_CREDIT_PRICING_VERSION,
+    ...CREDIT_ACTION_POLICIES[action],
+  }
 }
 
 function debitDescription(action: CreditAction): string {
@@ -385,6 +405,7 @@ export interface CreditDeductionOk {
    * exact refunds. Optional only for unlimited plans and legacy test doubles.
    */
   transactionId?: string
+  operationStatus?: 'RESERVED'
 }
 
 export interface InsufficientCreditsError {
@@ -396,19 +417,44 @@ export interface InsufficientCreditsError {
   upgradeUrl: string
 }
 
-export type CreditCheckResult = CreditDeductionOk | InsufficientCreditsError
+export interface CreditOperationReplayError {
+  ok: false
+  error: 'CREDIT_OPERATION_REPLAY'
+  message: string
+  transactionId: string
+  operationStatus: 'RESERVED' | 'SETTLED' | 'REFUNDED'
+  entityId: string | null
+  entityType: string | null
+}
+
+export type CreditCheckResult = CreditDeductionOk | InsufficientCreditsError | CreditOperationReplayError
 
 export interface CreditChargeReceipt extends ReturnType<typeof getCreditActionPolicy> {
   creditsUsed: number
   creditsRemaining: number
   isUnlimited: boolean
   transactionId: string | null
+  operationStatus: 'SETTLED'
 }
 
 export interface CreditChargeContext {
   entityId: string
   entityType: string
+  operationKey?: string
 }
+
+export type CreditSettlementResult =
+  | { ok: true; status: 'settled' | 'already_settled' | 'noop' }
+  | { ok: false; status: 'failed'; error: string }
+
+export type CreditFinalizationResult =
+  | { ok: true; status: 'settled' | 'already_settled' | 'noop' }
+  | {
+      ok: false
+      status: 'failed'
+      error: string
+      refundStatus: CreditRefundResult['status']
+    }
 
 export type CreditRefundResult =
   | { ok: true; status: 'refunded' | 'noop' }
@@ -429,7 +475,41 @@ export function buildCreditChargeReceipt(
     creditsRemaining: deduction.creditsRemaining,
     isUnlimited: deduction.isUnlimited,
     transactionId: deduction.transactionId || null,
+    operationStatus: 'SETTLED',
   }
+}
+
+export function creditCheckHttpStatus(result: Exclude<CreditCheckResult, CreditDeductionOk>): 402 | 409 {
+  return result.error === 'CREDIT_OPERATION_REPLAY' ? 409 : 402
+}
+
+async function findCreditOperationReplay(
+  userId: string,
+  operationKey: string,
+): Promise<CreditOperationReplayError | null> {
+  const existing = await (prisma as any).creditTransaction.findUnique({
+    where: { userId_operationKey: { userId, operationKey } },
+    select: { id: true, status: true, entityId: true, entityType: true },
+  })
+  if (!existing) return null
+  const operationStatus = ['RESERVED', 'SETTLED', 'REFUNDED'].includes(existing.status)
+    ? existing.status as CreditOperationReplayError['operationStatus']
+    : 'SETTLED'
+  return {
+    ok: false,
+    error: 'CREDIT_OPERATION_REPLAY',
+    message: operationStatus === 'RESERVED'
+      ? 'This AI operation is already in progress. No additional credits were reserved.'
+      : 'This AI operation was already processed. Refresh the linked output; no additional credits were charged.',
+    transactionId: existing.id,
+    operationStatus,
+    entityId: existing.entityId ?? null,
+    entityType: existing.entityType ?? null,
+  }
+}
+
+function isOperationKeyConflict(error: unknown): boolean {
+  return !!error && typeof error === 'object' && (error as { code?: string }).code === 'P2002'
 }
 
 // ── Core helper ────────────────────────────────────────────────────────────────
@@ -462,6 +542,12 @@ export async function checkAndDeductCredits(
   const hasValidOverride =
     typeof costOverride === 'number' && Number.isFinite(costOverride) && costOverride >= 0
   const cost = hasValidOverride ? Math.floor(costOverride) : CREDIT_COSTS[action]
+  const operationKey = context?.operationKey?.trim() || null
+
+  if (operationKey) {
+    const replay = await findCreditOperationReplay(userId, operationKey)
+    if (replay) return replay
+  }
 
   // ── Fetch user ─────────────────────────────────────────────────────────────
   let user = await prisma.user.findUnique({
@@ -490,13 +576,38 @@ export async function checkAndDeductCredits(
   // ── Unlimited users (paid plans with sentinel value -1) ────────────────────
   const isUnlimited = user.aiCredits === -1
   if (isUnlimited) {
-    // Track usage but do not touch the credit balance
-    await prisma.user.update({
-      where: { id: userId },
-      data: { monthlyGenerations: { increment: 1 } },
-    })
-    await _trackUsage(userId, cost)
-    return { ok: true, creditsRemaining: -1, creditsUsed: 0, isUnlimited: true }
+    try {
+      const transaction = await (prisma as any).creditTransaction.create({
+        data: {
+          userId,
+          action,
+          description: debitDescription(action),
+          amount: 0,
+          creditCost: cost,
+          status: 'RESERVED',
+          operationKey,
+          reservedAt: new Date(),
+          entityId: context?.entityId ?? null,
+          entityType: context?.entityType ?? null,
+          pricingVersion: CURRENT_CREDIT_PRICING_VERSION,
+        },
+        select: { id: true },
+      })
+      return {
+        ok: true,
+        creditsRemaining: -1,
+        creditsUsed: 0,
+        isUnlimited: true,
+        transactionId: transaction.id,
+        operationStatus: 'RESERVED',
+      }
+    } catch (error) {
+      if (operationKey && isOperationKeyConflict(error)) {
+        const replay = await findCreditOperationReplay(userId, operationKey)
+        if (replay) return replay
+      }
+      throw error
+    }
   }
 
   // ── First-time FREE user: grant starter credits ────────────────────────────
@@ -530,10 +641,18 @@ export async function checkAndDeductCredits(
   // Default (flag unset/false) = legacy scalar User.aiCredits path, byte-identical
   // to before. Flag ON = grant-based deduction from the CreditGrant ledger, with
   // User.aiCredits maintained as a cache so the rest of the app is unaffected.
-  if (isCreditWalletEnabled()) {
-    return _deductFromGrants(userId, action, cost, currentCredits, isFree, user.email, user.name, context)
+  try {
+    if (isCreditWalletEnabled()) {
+      return await _deductFromGrants(userId, action, cost, currentCredits, isFree, user.email, user.name, context)
+    }
+    return await _deductScalar(userId, action, cost, currentCredits, isFree, user.email, user.name, context)
+  } catch (error) {
+    if (operationKey && isOperationKeyConflict(error)) {
+      const replay = await findCreditOperationReplay(userId, operationKey)
+      if (replay) return replay
+    }
+    throw error
   }
-  return _deductScalar(userId, action, cost, currentCredits, isFree, user.email, user.name, context)
 }
 
 // ── Internal: insufficient-credits result (shared by both deduction paths) ────
@@ -583,7 +702,6 @@ async function _deductScalar(
       where: { id: userId, aiCredits: { gte: cost } },
       data: {
         aiCredits: { decrement: cost },
-        monthlyGenerations: { increment: 1 },
       },
     })
     if (deducted.count === 0) return { ok: false as const }
@@ -594,8 +712,13 @@ async function _deductScalar(
         action,
         description: debitDescription(action),
         amount: -cost,
+        creditCost: cost,
+        status: 'RESERVED',
+        operationKey: context?.operationKey ?? null,
+        reservedAt: new Date(),
         entityId: context?.entityId ?? null,
         entityType: context?.entityType ?? null,
+        pricingVersion: CURRENT_CREDIT_PRICING_VERSION,
       },
       select: { id: true },
     })
@@ -609,25 +732,13 @@ async function _deductScalar(
 
   const newCredits = Math.max(0, currentCredits - cost)
 
-  // ── Track usage (non-blocking) ─────────────────────────────────────────────
-  await _trackUsage(userId, cost)
-
-  // ── Low-credits warning email ──────────────────────────────────────────────
-  // Fire when balance drops below threshold (e.g. can't afford another generation).
-  if (newCredits < LOW_CREDITS_THRESHOLD && email) {
-    sendCreditsLowEmail(
-      email,
-      name || email.split('@')[0],
-      newCredits,
-    ).catch((e: Error) => console.error('[Credits low email]', e.message))
-  }
-
   return {
     ok: true,
     creditsRemaining: newCredits,
     creditsUsed: cost,
     isUnlimited: false,
     transactionId: outcome.transactionId,
+    operationStatus: 'RESERVED',
   }
 }
 
@@ -702,7 +813,6 @@ async function _deductFromGrants(
         where: { id: userId },
         data: {
           aiCredits: newCredits,
-          monthlyGenerations: { increment: 1 },
         },
       })
 
@@ -713,8 +823,13 @@ async function _deductFromGrants(
           action,
           description: debitDescription(action),
           amount: -cost,
+          creditCost: cost,
+          status: 'RESERVED',
+          operationKey: context?.operationKey ?? null,
+          reservedAt: new Date(),
           entityId: context?.entityId ?? null,
           entityType: context?.entityType ?? null,
+          pricingVersion: CURRENT_CREDIT_PRICING_VERSION,
         },
       })
 
@@ -736,24 +851,112 @@ async function _deductFromGrants(
     return _insufficient(cost, outcome.availableCredits, isFree)
   }
 
-  // ── Track usage (non-blocking, same as scalar path) ────────────────────────
-  await _trackUsage(userId, cost)
-
-  // ── Low-credits warning email (same threshold/behaviour as scalar path) ─────
-  if (outcome.newCredits < LOW_CREDITS_THRESHOLD && email) {
-    sendCreditsLowEmail(
-      email,
-      name || email.split('@')[0],
-      outcome.newCredits,
-    ).catch((e: Error) => console.error('[Credits low email]', e.message))
-  }
-
   return {
     ok: true,
     creditsRemaining: outcome.newCredits,
     creditsUsed: cost,
     isUnlimited: false,
     transactionId: outcome.transactionId,
+    operationStatus: 'RESERVED',
+  }
+}
+
+/**
+ * Converts a held credit debit into a final charge only after the route has a
+ * usable output. The ledger row is locked so duplicate success callbacks can
+ * never increment usage twice.
+ */
+export async function settleCreditDeduction(args: {
+  userId: string
+  action: CreditAction
+  deduction: CreditDeductionOk | null | undefined
+}): Promise<CreditSettlementResult> {
+  const { userId, action, deduction } = args
+  if (!deduction?.transactionId) {
+    return deduction && deduction.creditsUsed > 0
+      ? { ok: false, status: 'failed', error: 'credit_reservation_transaction_missing' }
+      : { ok: true, status: 'noop' }
+  }
+
+  try {
+    const outcome = await (prisma as any).$transaction(async (tx: any) => {
+      const rows: Array<{
+        id: string
+        userId: string
+        action: string
+        status: string
+        creditCost: number
+      }> = await tx.$queryRawUnsafe(
+        `SELECT "id", "userId", "action", "status", "creditCost"
+           FROM "CreditTransaction"
+          WHERE "id" = $1
+          FOR UPDATE`,
+        deduction.transactionId,
+      )
+      const transaction = rows[0]
+      if (!transaction || transaction.userId !== userId || transaction.action !== action) {
+        throw new Error('credit_reservation_not_found')
+      }
+      if (transaction.status === 'REFUNDED') throw new Error('credit_reservation_already_refunded')
+      if (transaction.status === 'SETTLED') {
+        return { status: 'already_settled' as const, creditCost: transaction.creditCost, user: null }
+      }
+      if (transaction.status !== 'RESERVED') throw new Error('invalid_credit_reservation_status')
+
+      const now = new Date()
+      await tx.creditTransaction.update({
+        where: { id: transaction.id },
+        data: { status: 'SETTLED', settledAt: now },
+      })
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: { monthlyGenerations: { increment: 1 } },
+        select: { aiCredits: true, email: true, name: true },
+      })
+      return { status: 'settled' as const, creditCost: transaction.creditCost, user: updatedUser }
+    })
+
+    if (outcome.status === 'settled') {
+      await _trackUsage(userId, outcome.creditCost)
+      const user = outcome.user
+      if (user && user.aiCredits !== -1 && user.aiCredits < LOW_CREDITS_THRESHOLD && user.email) {
+        sendCreditsLowEmail(
+          user.email,
+          user.name || user.email.split('@')[0],
+          user.aiCredits,
+        ).catch((error: Error) => console.error('[Credits low email]', error.message))
+      }
+    }
+    return { ok: true, status: outcome.status }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'credit_settlement_failed'
+    console.error('[settleCreditDeduction] failed:', message)
+    return { ok: false, status: 'failed', error: message }
+  }
+}
+
+/**
+ * Finalizes a successful AI operation. A settlement failure never leaks a held
+ * wallet debit: the reservation is returned to its exact source before the
+ * route reports that finalization failed.
+ */
+export async function finalizeCreditDeduction(args: {
+  userId: string
+  action: CreditAction
+  deduction: CreditDeductionOk | null | undefined
+}): Promise<CreditFinalizationResult> {
+  const settlement = await settleCreditDeduction(args)
+  if (settlement.ok) return settlement
+
+  const refund = await refundCreditDeduction({
+    ...args,
+    reason: `Settlement failed: ${settlement.error}`,
+  })
+  return {
+    ok: false,
+    status: 'failed',
+    error: settlement.error,
+    refundStatus: refund.status,
   }
 }
 
@@ -865,8 +1068,12 @@ export async function refundCredits(
             userId,
             action: 'REFUND',
             amount: cost,
+            creditCost: 0,
+            status: 'SETTLED',
+            settledAt: new Date(),
             description: `Refund — ${ACTION_LABELS[action] || action} (${reason})`,
             entityType: 'refund',
+            pricingVersion: CURRENT_CREDIT_PRICING_VERSION,
           },
         })
       })
@@ -886,9 +1093,13 @@ export async function refundCredits(
           userId,
           action: 'REFUND',
           amount: cost,
+          creditCost: 0,
+          status: 'SETTLED',
+          settledAt: new Date(),
           description: `Refund — ${ACTION_LABELS[action] || action} (${reason})`,
           entityId: null,
           entityType: 'refund',
+          pricingVersion: CURRENT_CREDIT_PRICING_VERSION,
         },
       })
     })
@@ -929,25 +1140,43 @@ export async function refundCreditsForTransaction(
 ): Promise<CreditRefundResult> {
   const { userId, transactionId, reason } = args
   try {
-    const status = await (prisma as any).$transaction(async (tx: any) => {
+    const outcome = await (prisma as any).$transaction(async (tx: any) => {
       // 1. Lock the debit row for the duration so two refunds of the same debit
       //    can't both proceed (the second sees the REFUND row and no-ops).
-      const debitRows: Array<{ id: string; userId: string; amount: number }> =
+      const debitRows: Array<{
+        id: string
+        userId: string
+        amount: number
+        creditCost: number
+        status: string
+      }> =
         await tx.$queryRawUnsafe(
-          `SELECT "id", "userId", "amount" FROM "CreditTransaction" WHERE "id" = $1 FOR UPDATE`,
+          `SELECT "id", "userId", "amount", "creditCost", "status"
+             FROM "CreditTransaction" WHERE "id" = $1 FOR UPDATE`,
           transactionId,
         )
       const debit = debitRows[0]
 
-      // 2/3. Must exist, belong to the user, and be a debit (amount < 0).
-      if (!debit || debit.userId !== userId || debit.amount >= 0) return 'noop' as const
+      // A zero-amount unlimited reservation is still a billable AI operation.
+      if (!debit || debit.userId !== userId || debit.amount > 0 || debit.creditCost <= 0) {
+        return { status: 'noop' as const, wasSettled: false, creditCost: 0 }
+      }
+      if (debit.status === 'REFUNDED') {
+        return { status: 'noop' as const, wasSettled: false, creditCost: 0 }
+      }
 
       // 4. Double-refund guard — an existing REFUND linked to this debit.
       const already = await tx.creditTransaction.findFirst({
         where: { action: 'REFUND', entityType: 'credit_transaction', entityId: debit.id },
         select: { id: true },
       })
-      if (already) return 'noop' as const
+      if (already) {
+        await tx.creditTransaction.update({
+          where: { id: debit.id },
+          data: { status: 'REFUNDED', refundedAt: new Date() },
+        })
+        return { status: 'noop' as const, wasSettled: false, creditCost: 0 }
+      }
 
       // 5. Allocation rows for this debit.
       const allocs: RefundAllocationInput[] = await tx.creditTransactionGrantAllocation.findMany({
@@ -999,27 +1228,46 @@ export async function refundCreditsForTransaction(
         })
       }
 
-      if (refundTotal > 0) {
-        // 9. Keep the aiCredits cache exactly in step.
+      if (refundTotal > 0 || debit.status === 'SETTLED') {
+        // Keep the balance cache exact. A settled operation also removes the
+        // successful-generation count because its output was ultimately voided.
         await tx.user.update({
           where: { id: userId },
-          data: { aiCredits: { increment: refundTotal } },
-        })
-        // 10. REFUND ledger row linked to the original debit.
-        await tx.creditTransaction.create({
           data: {
-            userId,
-            action: 'REFUND',
-            amount: refundTotal, // positive = credited back
-            description: reason ? `Refund — ${reason}` : 'Refund',
-            entityId: debit.id,
-            entityType: 'credit_transaction',
+            ...(refundTotal > 0 ? { aiCredits: { increment: refundTotal } } : {}),
+            ...(debit.status === 'SETTLED' ? { monthlyGenerations: { decrement: 1 } } : {}),
           },
         })
       }
-      return refundTotal > 0 ? 'refunded' as const : 'noop' as const
+
+      await tx.creditTransaction.update({
+        where: { id: debit.id },
+        data: { status: 'REFUNDED', refundedAt: now },
+      })
+      await tx.creditTransaction.create({
+        data: {
+          userId,
+          action: 'REFUND',
+          amount: refundTotal,
+          creditCost: 0,
+          status: 'SETTLED',
+          settledAt: now,
+          description: reason ? `Refund — ${reason}` : 'Refund',
+          entityId: debit.id,
+          entityType: 'credit_transaction',
+          pricingVersion: CURRENT_CREDIT_PRICING_VERSION,
+        },
+      })
+      return {
+        status: 'refunded' as const,
+        wasSettled: debit.status === 'SETTLED',
+        creditCost: debit.creditCost,
+      }
     })
-    return { ok: true, status }
+    if (outcome.wasSettled && outcome.creditCost > 0) {
+      await _untrackUsage(userId, outcome.creditCost)
+    }
+    return { ok: true, status: outcome.status }
   } catch (e) {
     // 11. Never throw — return an explicit failure so reconciliation-capable
     // callers can keep the debit pending without masking the original error.
@@ -1042,7 +1290,7 @@ export async function refundCreditDeduction(args: {
   reason: string
 }): Promise<CreditRefundResult> {
   const { userId, action, deduction, reason } = args
-  if (!deduction || deduction.creditsUsed <= 0) return { ok: true, status: 'noop' }
+  if (!deduction) return { ok: true, status: 'noop' }
   if (deduction.transactionId) {
     return refundCreditsForTransaction({
       userId,
@@ -1050,6 +1298,7 @@ export async function refundCreditDeduction(args: {
       reason,
     })
   }
+  if (deduction.creditsUsed <= 0) return { ok: true, status: 'noop' }
   return refundCredits(userId, action, reason)
 }
 
@@ -1107,7 +1356,14 @@ export async function getCreditHistory(
   action: string
   description: string | null
   amount: number
+  entityId: string | null
   entityType: string | null
+  pricingVersion: string | null
+  status: 'RESERVED' | 'SETTLED' | 'REFUNDED'
+  creditCost: number
+  reservedAt: Date | null
+  settledAt: Date | null
+  refundedAt: Date | null
   createdAt: Date
 }>> {
   return (prisma as any).creditTransaction.findMany({
@@ -1119,7 +1375,14 @@ export async function getCreditHistory(
       action: true,
       description: true,
       amount: true,
+      entityId: true,
       entityType: true,
+      pricingVersion: true,
+      status: true,
+      creditCost: true,
+      reservedAt: true,
+      settledAt: true,
+      refundedAt: true,
       createdAt: true,
     },
   })
@@ -1140,11 +1403,12 @@ export interface UsageSummary {
  * source the billing credit-log uses) plus the always-incremented
  * `monthlyGenerations` counter.
  *
- * - generationsTotal: lifetime AI spend events (monthlyGenerations is bumped on
- *   every deduction for both credit and unlimited plans; ledger debit count is a
+ * - generationsTotal: lifetime settled AI operations (monthlyGenerations is bumped on
+ *   every settlement for both credit and unlimited plans; ledger operation count is a
  *   fallback floor).
  * - generationsThisMonth / creditsUsedThisMonth: from this month's ledger rows,
- *   netting out refunds. NEVER computed as (monthlyTotal - remaining), which
+ *   counting only settled operations. `creditCost` records the economic usage
+ *   even when an unlimited plan has a zero wallet debit. NEVER computed as (monthlyTotal - remaining), which
  *   underflows to 0 when rollover/granted credits exceed the plan quota.
  */
 export async function getUsageSummary(userId: string): Promise<UsageSummary> {
@@ -1155,24 +1419,18 @@ export async function getUsageSummary(userId: string): Promise<UsageSummary> {
   try {
     const [user, debitCountTotal, monthTxns] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId }, select: { monthlyGenerations: true } }),
-      db.creditTransaction.count({ where: { userId, amount: { lt: 0 } } }).catch(() => 0),
+      db.creditTransaction.count({ where: { userId, creditCost: { gt: 0 }, status: 'SETTLED' } }).catch(() => 0),
       db.creditTransaction.findMany({
-        where: { userId, createdAt: { gte: start } },
-        select: { action: true, amount: true, entityType: true },
+        where: { userId, createdAt: { gte: start }, status: 'SETTLED', creditCost: { gt: 0 } },
+        select: { creditCost: true },
       }).catch(() => []),
     ])
 
     let generationsThisMonth = 0
     let creditsUsedThisMonth = 0
-    for (const t of monthTxns as Array<{ action?: string; amount: number; entityType: string | null }>) {
-      if (t.amount < 0) {
-        generationsThisMonth += 1
-        creditsUsedThisMonth += -t.amount
-      } else if (t.action === 'REFUND' || t.entityType === 'refund') {
-        // A refund cancels a failed attempt — don't count it as a generation or as used credit.
-        generationsThisMonth -= 1
-        creditsUsedThisMonth -= t.amount
-      }
+    for (const t of monthTxns as Array<{ creditCost: number }>) {
+      generationsThisMonth += 1
+      creditsUsedThisMonth += Math.max(0, t.creditCost)
     }
 
     return {
@@ -1197,11 +1455,11 @@ export async function getMonthlyActivity(
   const now = new Date()
   const start = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1)
   const db = prisma as any
-  const txns: Array<{ action?: string; amount: number; entityType: string | null; createdAt: Date }> =
+  const txns: Array<{ creditCost: number; createdAt: Date }> =
     await db.creditTransaction
       .findMany({
-        where: { userId, createdAt: { gte: start } },
-        select: { action: true, amount: true, entityType: true, createdAt: true },
+        where: { userId, createdAt: { gte: start }, status: 'SETTLED', creditCost: { gt: 0 } },
+        select: { creditCost: true, createdAt: true },
       })
       .catch(() => [])
 
@@ -1210,8 +1468,8 @@ export async function getMonthlyActivity(
     const d = new Date(t.createdAt)
     const key = `${d.getFullYear()}-${d.getMonth() + 1}`
     const b = buckets.get(key) ?? { generations: 0, creditsUsed: 0 }
-    if (t.amount < 0) { b.generations += 1; b.creditsUsed += -t.amount }
-    else if (t.action === 'REFUND' || t.entityType === 'refund') { b.generations -= 1; b.creditsUsed -= t.amount }
+    b.generations += 1
+    b.creditsUsed += Math.max(0, t.creditCost)
     buckets.set(key, b)
   }
 
@@ -1241,6 +1499,7 @@ const ACTION_LABELS: Record<string, string> = {
   PAID_PACK_GENERATE: 'Paid Campaign Pack',
   WEBSITE_SCAN: 'Website Intelligence Scan',
   CONTENT_ANALYSIS: 'Content Samples Analysis',
+  BRAND_EVIDENCE_ANALYSIS: 'Brand Evidence Analysis',
   CREDIT: 'Credits Added',
   REFUND: 'Refund',
   BONUS: 'Bonus Credits',
@@ -1263,6 +1522,7 @@ async function _logTransaction(
         amount,
         entityId: entityId ?? null,
         entityType: entityType ?? null,
+        pricingVersion: CURRENT_CREDIT_PRICING_VERSION,
       },
     })
     .catch(() => {
@@ -1291,4 +1551,27 @@ async function _trackUsage(userId: string, creditsUsed: number): Promise<void> {
     .catch(() => {
       // Non-fatal — usage tracking should never block AI generation
     })
+}
+
+async function _untrackUsage(userId: string, creditsUsed: number): Promise<void> {
+  const now = new Date()
+  const month = now.getMonth() + 1
+  const year = now.getFullYear()
+  try {
+    const usage = await (prisma as any).usage.findUnique({
+      where: { userId_month_year: { userId, month, year } },
+      select: { aiCreditsUsed: true, generationsCount: true },
+    })
+    if (!usage) return
+    await (prisma as any).usage.update({
+      where: { userId_month_year: { userId, month, year } },
+      data: {
+        aiCreditsUsed: Math.max(0, usage.aiCreditsUsed - creditsUsed),
+        generationsCount: Math.max(0, usage.generationsCount - 1),
+      },
+    })
+  } catch {
+    // Ledger status remains the source of truth if the compatibility usage row
+    // is temporarily unavailable.
+  }
 }

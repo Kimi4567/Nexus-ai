@@ -12,11 +12,15 @@ import {
 import { guardBrandText } from '@/lib/ai/brandTruthGuard'
 import {
   checkAndDeductCredits,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
   getCreditActionPolicy,
   refundCreditDeduction,
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 /* ═══════════════════════════════════════════════════════════════
    POST /api/campaigns/suggest
@@ -140,8 +144,20 @@ Rules:
       return NextResponse.json(getAiProviderUnavailablePayload(locale), { status: 503 })
     }
 
-    const credit = await checkAndDeductCredits(user.id, 'AI_FIELD_SUGGESTION')
-    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
+    const rateLimitResponse = await enforceBillableAiRateLimit(user.id, 'AI_FIELD_SUGGESTION')
+    if (rateLimitResponse) return rateLimitResponse
+
+    const credit = await checkAndDeductCredits(
+      user.id,
+      'AI_FIELD_SUGGESTION',
+      undefined,
+      {
+        entityId: user.id,
+        entityType: 'campaign_intake_suggestion',
+        operationKey: getCreditOperationKey(req, 'AI_FIELD_SUGGESTION', 'campaign_intake_suggestion', user.id),
+      },
+    )
+    if (!credit.ok) return NextResponse.json(credit, { status: creditCheckHttpStatus(credit) })
     chargedUserId = user.id
     chargedCredit = credit
 
@@ -189,6 +205,30 @@ Rules:
       brandData.competitorNotes,
     ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
     const suggestion = guardBrandText(rawSuggestion, allowedClaims)
+    if (!suggestion.trim()) {
+      await refundCreditDeduction({
+        userId: user.id,
+        action: 'AI_FIELD_SUGGESTION',
+        deduction: credit,
+        reason: 'Truth guard removed the unusable suggestion',
+      })
+      return NextResponse.json({ error: 'AI returned no safe usable suggestion', refunded: true }, { status: 502 })
+    }
+
+    const finalization = await finalizeCreditDeduction({
+      userId: user.id,
+      action: 'AI_FIELD_SUGGESTION',
+      deduction: credit,
+    })
+    if (!finalization.ok) {
+      chargedCredit = null
+      return NextResponse.json({
+        error: 'Suggestion could not be finalized. Reserved credits were returned.',
+        code: 'CREDIT_FINALIZATION_FAILED',
+        refunded: finalization.refundStatus === 'refunded',
+      }, { status: 503 })
+    }
+    chargedCredit = null
 
     // Prevent any edge caching
     return NextResponse.json({

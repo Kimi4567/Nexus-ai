@@ -59,11 +59,10 @@ export async function monitorWorkspaceExecution(
   const plans = planExecutionMonitorSuggestions(truth)
   const base = resultBase(workspaceId, plans, truth.campaigns.length, dryRun)
 
-  if (dryRun || plans.length === 0) return base
+  if (dryRun) return base
 
   const cooldownStart = new Date(now.getTime() - EXECUTION_MONITOR_COOLDOWN_HOURS * 60 * 60 * 1000)
   const campaignIds = [...new Set(plans.map((plan) => plan.campaignId))]
-  const db = prisma as any
 
   return prisma.$transaction(async (tx) => {
     const lockRows = await tx.$queryRaw<Array<{ locked: boolean }>>`
@@ -73,29 +72,27 @@ export async function monitorWorkspaceExecution(
 
     // One batched query prevents N+1 checks. Active pending suggestions remain
     // suppressed regardless of age; resolved suggestions use a 24-hour cooldown.
-    const recent = await (tx.agentSuggestion as any).findMany({
-      where: {
-        workspaceId,
-        campaignId: { in: campaignIds },
-        OR: [
-          {
-            status: 'PENDING',
-            AND: [{ OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] }],
+    const recent = plans.length > 0
+      ? await (tx.agentSuggestion as any).findMany({
+          where: {
+            workspaceId,
+            campaignId: { in: campaignIds },
+            OR: [
+              {
+                status: 'PENDING',
+                AND: [{ OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] }],
+              },
+              { createdAt: { gte: cooldownStart } },
+            ],
           },
-          { createdAt: { gte: cooldownStart } },
-        ],
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 200,
-      select: { campaignId: true, title: true, payload: true },
-    }) as Array<{ campaignId: string | null; title: string; payload: unknown }>
+          orderBy: { createdAt: 'desc' },
+          take: 200,
+          select: { campaignId: true, title: true, payload: true },
+        }) as Array<{ campaignId: string | null; title: string; payload: unknown }>
+      : []
 
     const existing = new Set(recent.map(existingSignature))
     const fresh = plans.filter((plan) => !existing.has(plan.signature))
-    if (fresh.length === 0) {
-      return { ...base, suggestionsSuppressed: plans.length }
-    }
-
     const agentRun = await (tx.agentRun as any).create({
       data: {
         workspaceId,
@@ -111,6 +108,7 @@ export async function monitorWorkspaceExecution(
           truthSummary: truth.summary,
           actionsDetected: plans.length,
           suggestionsCreated: fresh.length,
+          suggestionsSuppressed: plans.length - fresh.length,
           signatures: fresh.map((plan) => plan.signature),
         },
         completedAt: now,
@@ -118,7 +116,7 @@ export async function monitorWorkspaceExecution(
       select: { id: true },
     })
 
-    await (tx.agentSuggestion as any).createMany({
+    if (fresh.length > 0) await (tx.agentSuggestion as any).createMany({
       data: fresh.map((plan) => ({
         workspaceId,
         agentRunId: agentRun.id,

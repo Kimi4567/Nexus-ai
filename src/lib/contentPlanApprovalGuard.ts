@@ -5,6 +5,7 @@ import {
 } from '@/lib/contentPlanSemanticGuard'
 import { validateContentPlanDraftForSave } from '@/lib/contentPlanStructuredRenderer'
 import { hasGenericMarketingHook } from '@/lib/marketingCopyGuard'
+import { guardContentDraftText } from '@/lib/ai/contentDraftTruthGuard'
 
 export interface ContentPlanApprovalIssue {
   index: number
@@ -23,6 +24,7 @@ export function hasGenericHookFormula(value: unknown): boolean {
 export function reviewContentPostForPublishing(
   post: ContentPlanSemanticPost,
   index = 1,
+  brandFacts: Array<string | string[] | null | undefined> = [],
 ): ContentPlanApprovalIssue[] {
   const saveIssues = validateContentPlanDraftForSave({
     caption: post.caption,
@@ -37,11 +39,19 @@ export function reviewContentPostForPublishing(
   const genericHookIssue = hasGenericHookFormula(post.caption)
     ? [{ index, reason: 'generic_hook_formula' }]
     : []
+  const truthContext = { brandFacts }
+  const hasUnverifiedFeatureOrOutcome = [post.caption, post.imagePrompt, post.videoPrompt]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .some(value => guardContentDraftText(value, truthContext) !== value.trim())
+  const truthIssue = hasUnverifiedFeatureOrOutcome
+    ? [{ index, reason: 'unverified_feature_or_outcome' }]
+    : []
 
   return [
     ...saveIssues.map(issue => ({ index, reason: issue.reason })),
     ...claims.map(claim => ({ index, reason: `unsupported_${claim.category}` })),
     ...genericHookIssue,
+    ...truthIssue,
   ]
 }
 
@@ -50,7 +60,7 @@ export function reviewContentPlanForApproval(
   strategy: unknown,
   brandFacts: Array<string | string[] | null | undefined> = [],
 ): ContentPlanApprovalReview {
-  const draftIssues = posts.flatMap((post, index) => reviewContentPostForPublishing(post, index + 1))
+  const draftIssues = posts.flatMap((post, index) => reviewContentPostForPublishing(post, index + 1, brandFacts))
 
   const semanticReview = validateContentPlanSemanticAlignment(posts, strategy, { brandFacts })
   const semanticIssues = semanticReview.issues.map(issue => ({

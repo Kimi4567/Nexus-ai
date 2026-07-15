@@ -12,21 +12,24 @@ import { prisma } from '@/lib/prisma'
 import { runFullAgency, BusinessBrief } from '@/lib/agents/orchestrator'
 import {
   checkAndDeductCredits,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
   getCreditActionPolicy,
   refundCreditDeduction,
+  type CreditDeductionOk,
 } from '@/lib/credits'
-import { aiRateLimit } from '@/lib/dbRateLimit'
 import { validateOutputObject, logQualityReport } from '@/lib/ai/outputValidator'
 import { randomUUID } from 'crypto'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 export async function POST(req: NextRequest) {
+  let chargedCredit: CreditDeductionOk | null = null
+  let chargedUserId: string | null = null
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    // Rate limit: 15 AI requests per minute per user
-    if (!aiRateLimit(user.id)) return NextResponse.json({ error: 'Too many requests. Try again in a minute.' }, { status: 429 })
 
     const body = await req.json()
     const companyName = typeof body.companyName === 'string' ? body.companyName.trim().slice(0, 120) : ''
@@ -93,8 +96,21 @@ export async function POST(req: NextRequest) {
     })
 
     // Deduct only after all non-AI setup writes have succeeded.
-    const credit = await checkAndDeductCredits(user.id, 'RUN_FULL_STRATEGY')
-    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
+    const rateLimitResponse = await enforceBillableAiRateLimit(user.id, 'RUN_FULL_STRATEGY')
+    if (rateLimitResponse) return rateLimitResponse
+    const credit = await checkAndDeductCredits(
+      user.id,
+      'RUN_FULL_STRATEGY',
+      undefined,
+      {
+        entityId: workspace.id,
+        entityType: 'workspace_strategy_run',
+        operationKey: getCreditOperationKey(req, 'RUN_FULL_STRATEGY', 'workspace_strategy_run', workspace.id),
+      },
+    )
+    if (!credit.ok) return NextResponse.json(credit, { status: creditCheckHttpStatus(credit) })
+    chargedCredit = credit
+    chargedUserId = user.id
 
     const brief: BusinessBrief = {
       companyName,
@@ -152,6 +168,21 @@ export async function POST(req: NextRequest) {
     })
     logQualityReport('/api/agents/run', qualityReport, `workspace=${workspace.id}`)
 
+    const finalization = await finalizeCreditDeduction({
+      userId: user.id,
+      action: 'RUN_FULL_STRATEGY',
+      deduction: credit,
+    })
+    if (!finalization.ok) {
+      chargedCredit = null
+      return NextResponse.json({
+        error: 'Strategy was created but the credit operation could not be finalized. Reserved credits were returned.',
+        code: 'CREDIT_FINALIZATION_FAILED',
+        refunded: finalization.refundStatus === 'refunded',
+      }, { status: 503 })
+    }
+    chargedCredit = null
+
     return NextResponse.json({
       ok: true,
       workspaceId: workspace.id,
@@ -166,6 +197,14 @@ export async function POST(req: NextRequest) {
     })
   } catch (err: any) {
     console.error('[api/agents/run]', err)
+    if (chargedCredit && chargedUserId) {
+      await refundCreditDeduction({
+        userId: chargedUserId,
+        action: 'RUN_FULL_STRATEGY',
+        deduction: chargedCredit,
+        reason: 'Full strategy route failed before finalization',
+      })
+    }
     return NextResponse.json({ error: err?.message || 'Failed' }, { status: 500 })
   }
 }

@@ -14,6 +14,23 @@ const strategy = {
 const facts = ['Noura Dental Studio', 'Dental consultations and treatment planning']
 
 describe('contentPlanApprovalGuard', () => {
+  it('blocks invented SaaS capabilities and outcomes that are absent from Brand Brain', () => {
+    const review = reviewContentPlanForApproval([
+      { caption: 'Our system offers seamless integration and instant support while reducing your costs.' },
+    ], {}, ['Unified lead management with clear reports'])
+
+    expect(review.ok).toBe(false)
+    expect(review.issues.map(issue => issue.reason)).toContain('unverified_feature_or_outcome')
+  })
+
+  it('does not block a capability explicitly supplied by Brand Brain', () => {
+    const review = reviewContentPlanForApproval([
+      { caption: 'The system integrates with HubSpot for a connected workflow.' },
+    ], {}, ['Native HubSpot integration is included.'])
+
+    expect(review.issues.map(issue => issue.reason)).not.toContain('unverified_feature_or_outcome')
+  })
+
   it('blocks the observed clinic-operations drift at approval time', () => {
     const review = reviewContentPlanForApproval([
       { contentPlanIndex: 1, caption: 'The front desk feels the handoff problem before leadership. Bring this workflow checklist to your team meeting.' },

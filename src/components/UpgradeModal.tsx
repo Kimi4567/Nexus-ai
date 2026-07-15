@@ -14,6 +14,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { useI18n } from '@/lib/i18n-context'
 
 interface Props {
   open: boolean
@@ -29,35 +30,39 @@ const PLANS = [
     price: '$49',
     color: '#2563EB',
     featured: true,
-    features: ['150 AI credits / month', '10 campaigns / month', '3 workspaces', '25 planned posts / month', 'Analytics + exports'],
+    featuresEn: ['150 AI credits / month', '10 campaigns / month', '25 planned posts / month', 'Separate approvals before execution', 'Analytics + exports'],
+    featuresAr: ['150 كريديت AI شهريًا', '10 حملات شهريًا', '25 منشورًا مخططًا شهريًا', 'موافقات منفصلة قبل التنفيذ', 'تحليلات وتصدير'],
   },
   {
     id: 'business',
     name: 'Autopilot',
     price: '$99',
     color: '#059669',
-    features: ['500 AI credits / month', 'Unlimited campaign creation', '10 workspaces', '60 planned posts / month', 'Scheduled monitoring + action queue'],
+    featuresEn: ['500 AI credits / month', 'Unlimited campaign creation', '60 planned posts / month', 'Operations center', 'Scheduled monitoring + action queue'],
+    featuresAr: ['500 كريديت AI شهريًا', 'إنشاء حملات بلا حد شهري', '60 منشورًا مخططًا شهريًا', 'مركز العمليات', 'مراقبة مجدولة وقائمة قرارات'],
   },
 ]
 
 export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: Props) {
   const router = useRouter()
+  const { locale, dir } = useI18n()
+  const ar = locale === 'ar'
   const [loading, setLoading] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
   if (!open) return null
 
   const headline =
-    reason === 'no_credits'      ? "You've used all your credits" :
-    reason === 'low_credits'     ? "Running low on credits" :
-    reason === 'first_campaign'  ? "🎉 Your campaign draft is ready" :
-    "Unlock the full power of Nexus AI"
+    reason === 'no_credits'      ? (ar ? 'استخدمت كل الكريديت المتاح' : "You've used all your credits") :
+    reason === 'low_credits'     ? (ar ? 'رصيدك يقترب من النفاد' : 'Running low on credits') :
+    reason === 'first_campaign'  ? (ar ? '🎉 مسودة حملتك جاهزة' : '🎉 Your campaign draft is ready') :
+    (ar ? 'وسّع قدرة تشغيل NEXUS' : 'Unlock the full power of Nexus AI')
 
   const subline =
-    reason === 'no_credits'      ? "Upgrade now to keep generating campaigns, content, and strategies." :
-    reason === 'low_credits'     ? "Don't get interrupted mid-campaign. Upgrade for more credits." :
-    reason === 'first_campaign'  ? "You've seen what Nexus AI can do. Upgrade for more monthly campaign capacity and deeper AI workflows." :
-    "Run strategy, content, images, and reporting with clear monthly credits."
+    reason === 'no_credits'      ? (ar ? 'اختر باقة أو اشترِ كريديت إضافيًا لمتابعة الاستراتيجية والمحتوى.' : 'Choose a plan or buy more credits to continue strategy and content work.') :
+    reason === 'low_credits'     ? (ar ? 'تجنب توقف العمل في منتصف الحملة مع رصيد شهري أكبر.' : "Avoid an interruption mid-campaign with more monthly credits.") :
+    reason === 'first_campaign'  ? (ar ? 'وسّع سعة الحملات الشهرية مع بقاء كل تنفيذ تحت موافقتك.' : 'Increase monthly campaign capacity while every execution stays under your approval.') :
+    (ar ? 'شغّل الاستراتيجية والمحتوى والصور والتقارير بكريديت شهري واضح.' : 'Run strategy, content, images, and reporting with clear monthly credits.')
 
   const handleUpgrade = async (planId: string) => {
     setLoading(planId)
@@ -76,10 +81,12 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
       const { url, code } = await res.json()
       if (url) window.location.href = url
       else if (code === 'BILLING_NOT_CONFIGURED') {
-        setMessage('Paid plans are temporarily disabled during beta. Your free credits still work while Stripe setup is completed.')
+        setMessage(ar
+          ? 'الباقات المدفوعة متوقفة مؤقتًا في النسخة التجريبية. يظل رصيدك الحالي متاحًا حتى اكتمال إعداد Stripe.'
+          : 'Paid plans are temporarily disabled during beta. Your current credits still work while Stripe setup is completed.')
       }
     } catch {
-      setMessage('Could not start checkout. Please try again later.')
+      setMessage(ar ? 'تعذر بدء الدفع. حاول مرة أخرى لاحقًا.' : 'Could not start checkout. Please try again later.')
     } finally {
       setLoading(null)
     }
@@ -87,6 +94,10 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+      dir={dir}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="upgrade-modal-title"
       style={{ background: 'rgba(15,23,42,0.24)', backdropFilter: 'blur(8px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
 
@@ -97,7 +108,7 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
         <div className="px-6 pt-6 pb-4 text-center"
           style={{ borderBottom: '1px solid rgba(15,23,42,0.08)' }}>
           <div className="text-2xl mb-1">⚡</div>
-          <h2 className="text-xl font-bold text-slate-950 mb-1">{headline}</h2>
+          <h2 id="upgrade-modal-title" className="text-xl font-bold text-slate-950 mb-1">{headline}</h2>
           <p className="text-sm text-slate-500">{subline}</p>
         </div>
 
@@ -120,19 +131,19 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
               {plan.featured && (
                 <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[10px] font-bold text-white"
                   style={{ background: '#2563EB' }}>
-                  CORE PLAN
+                  {ar ? 'الخطة الأساسية' : 'CORE PLAN'}
                 </div>
               )}
 
               <div className="mb-3">
                 <div className="text-xs font-semibold mb-1" style={{ color: plan.color }}>{plan.name}</div>
                 <div className="text-2xl font-black text-slate-950">{plan.price}
-                  <span className="text-xs font-normal text-slate-500">/mo</span>
+                  <span className="text-xs font-normal text-slate-500">/{ar ? 'شهر' : 'mo'}</span>
                 </div>
               </div>
 
               <ul className="space-y-1.5 flex-1 mb-4">
-                {plan.features.map((f) => (
+                {(ar ? plan.featuresAr : plan.featuresEn).map((f) => (
                   <li key={f} className="flex items-start gap-1.5 text-[11px] text-slate-600">
                     <span style={{ color: plan.color }} className="mt-0.5 flex-shrink-0">✓</span>
                     {f}
@@ -153,9 +164,9 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
                 {loading === plan.id ? (
                   <span className="flex items-center justify-center gap-1.5">
                     <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Loading…
+                    {ar ? 'جارٍ التحويل…' : 'Loading…'}
                   </span>
-                ) : `Start ${plan.name}`}
+                ) : ar ? `ابدأ ${plan.name}` : `Start ${plan.name}`}
               </button>
             </div>
           ))}
@@ -164,11 +175,13 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
         {/* Footer */}
         <div className="px-6 pb-5 text-center space-y-2">
           <p className="text-[11px] text-text-muted">
-            Stripe Sandbox during testing · Qualified first payments have a 14-day refund window · Cancel any time
+            {ar
+              ? 'Stripe Sandbox أثناء الاختبار · المدفوعات الأولى المؤهلة لها نافذة استرداد 14 يومًا · الإلغاء متاح في أي وقت'
+              : 'Stripe Sandbox during testing · Qualified first payments have a 14-day refund window · Cancel any time'}
           </p>
           <button onClick={onClose}
             className="text-[11px] text-text-muted hover:text-text-secondary transition-colors underline underline-offset-2">
-            Continue with free plan
+            {ar ? 'الاستمرار بالرصيد الحالي' : 'Continue with current credits'}
           </button>
         </div>
       </div>

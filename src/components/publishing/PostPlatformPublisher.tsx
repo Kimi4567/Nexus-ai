@@ -28,6 +28,7 @@ interface PostPlatformPublisherProps {
   campaignId: string
   platform: string
   status: string
+  approvalReady: boolean
   hasMedia: boolean
   isVideoPost: boolean
   captionLength: number
@@ -47,7 +48,7 @@ function normalizedPlatform(value: string): 'META' | 'LINKEDIN' | 'TIKTOK' | 'X'
   return null
 }
 
-export function PostPlatformPublisher({ postId, campaignId, platform, status, hasMedia, isVideoPost, captionLength, caption, onPublished }: PostPlatformPublisherProps) {
+export function PostPlatformPublisher({ postId, campaignId, platform, status, approvalReady, hasMedia, isVideoPost, captionLength, caption, onPublished }: PostPlatformPublisherProps) {
   const { authHeader } = useAuth()
   const { locale } = useI18n()
   const ar = locale === 'ar'
@@ -91,7 +92,7 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ha
   // second "publish now" path beside manual/automatic scheduling creates two
   // competing actions and can bypass the reviewed schedule. Immediate provider
   // publishing is therefore available only while the post is APPROVED.
-  const eligible = status === 'APPROVED'
+  const eligible = status === 'APPROVED' && approvalReady
   const matchingAccounts = useMemo(() => (accounts || []).filter(account => account.platform.toUpperCase() === targetPlatform), [accounts, targetPlatform])
   const selectedAccount = matchingAccounts.find(account => account.id === accountId) || matchingAccounts[0] || null
   const pages = selectedAccount?.pages || []

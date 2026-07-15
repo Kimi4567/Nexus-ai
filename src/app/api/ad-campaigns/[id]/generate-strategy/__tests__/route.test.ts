@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   mockGetAuthUser,
   mockCheckAndDeduct,
+  mockFinalizeDeduction,
   mockRefund,
   mockRefundForTxn,
   mockGetCreditActionPolicy,
@@ -12,6 +13,7 @@ const {
 } = vi.hoisted(() => ({
   mockGetAuthUser: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
+  mockFinalizeDeduction: vi.fn(),
   mockRefund: vi.fn(),
   mockRefundForTxn: vi.fn(),
   mockGetCreditActionPolicy: vi.fn(),
@@ -26,10 +28,24 @@ const {
 
 vi.mock('@/lib/apiAuth', () => ({ getAuthUser: mockGetAuthUser }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
+vi.mock('@/lib/billableAiRateLimit', () => ({
+  enforceBillableAiRateLimit: vi.fn().mockResolvedValue(null),
+}))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
+  creditCheckHttpStatus: () => 402,
+  finalizeCreditDeduction: mockFinalizeDeduction,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
+  refundCreditDeduction: vi.fn(async ({ userId, action, deduction, reason }) => {
+    if (!deduction) return { ok: true, status: 'not-charged' }
+    if (deduction.transactionId) {
+      await mockRefundForTxn({ userId, transactionId: deduction.transactionId, reason })
+    } else {
+      await mockRefund(userId, action, reason)
+    }
+    return { ok: true, status: 'refunded' }
+  }),
   getCreditActionPolicy: mockGetCreditActionPolicy,
 }))
 vi.mock('@/lib/ai/langHelper', () => ({ getLanguageInstruction: () => 'Respond in English.' }))
@@ -85,6 +101,7 @@ const paidBrandProfile = {
   description: 'Marketing execution platform',
   primaryOffer: 'AI marketing workspace',
   targetAudience: 'Small business owners',
+  audiencePainPoints: ['Inconsistent campaign planning', 'Limited marketing capacity'],
   businessGoal: 'Qualified leads',
   topPlatforms: ['GOOGLE'],
   writingStyle: 'Clear',
@@ -120,6 +137,7 @@ beforeEach(() => {
   })
   mockRefund.mockResolvedValue(undefined)
   mockRefundForTxn.mockResolvedValue(undefined)
+  mockFinalizeDeduction.mockResolvedValue({ ok: true, status: 'settled' })
   mockPrisma.adCampaign.findFirst.mockResolvedValue(campaign)
   mockPrisma.adCampaign.update.mockResolvedValue({})
   mockPrisma.brandProfile.findUnique.mockResolvedValue(paidBrandProfile)
@@ -214,7 +232,16 @@ describe('POST /api/ad-campaigns/[id]/generate-strategy — RF-3 refund safety',
     expect(json.strategy.budget_plan.estimated_reach).toBeNull()
     expect(json.strategy.budget_plan.estimated_cpm).toBeNull()
     expect(json.strategy.budget_plan.expected_results).toBeNull()
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'PAID_EXECUTION_PLAN')
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith(
+      'u1',
+      'PAID_EXECUTION_PLAN',
+      undefined,
+      expect.objectContaining({
+        entityId: 'adcamp_1',
+        entityType: 'paid_campaign_execution_plan',
+        operationKey: expect.any(String),
+      }),
+    )
     expect(json.creditCharge).toMatchObject({
       action: 'PAID_EXECUTION_PLAN',
       cost: 4,

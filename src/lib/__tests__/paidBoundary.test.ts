@@ -202,6 +202,7 @@ describe('paidBoundary', () => {
     const generateRoute = readFileSync(join(process.cwd(), 'src/app/api/campaigns/[id]/paid-pack/generate/route.ts'), 'utf8')
 
     expect(pushRoute).toContain('canCreatePlatformDraft')
+    expect(pushRoute).toContain('approvePaidBudgetDecision')
     expect(pushRoute).toContain('explicitPlatformDraftConfirmed')
     expect(pushRoute).toContain('explicitBudgetConfirmed')
     expect(pushRoute).toContain('explicitBudgetConfirmed: body.explicitBudgetConfirmed')
@@ -242,6 +243,7 @@ describe('paidBoundary', () => {
     const metaApi = readFileSync(join(process.cwd(), 'src/lib/adPlatforms/metaAdsApi.ts'), 'utf8')
 
     expect(activateRoute).toContain('canActivatePlatformCampaign')
+    expect(activateRoute).toContain('approvePaidLaunchDecision')
     expect(activateRoute).toContain('explicitPlatformActivationConfirmed')
     expect(activateRoute).toContain('explicitSpendActivationConfirmed')
     expect(activateRoute).toContain('explicitBudgetConfirmed')

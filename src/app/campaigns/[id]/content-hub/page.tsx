@@ -46,6 +46,7 @@ import AppShell from '@/components/AppShell'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { PostPlatformPublisher } from '@/components/publishing/PostPlatformPublisher'
+import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ type GenStatus = 'PENDING' | 'GENERATING' | 'DONE' | 'FAILED' | 'REFUND_PENDING'
 interface ContentPost {
   id: string
   platform: string
+  publishTarget?: string | null
   caption: string
   imageUrl: string | null
   imagePrompt: string | null
@@ -69,6 +71,9 @@ interface ContentPost {
   status: 'DRAFT' | 'APPROVED' | 'SCHEDULED' | 'PROCESSING' | 'PUBLISHED' | 'FAILED'
   // Publishing lifecycle (manual publishing checklist — PR4)
   publishMode?: 'MANUAL' | 'AUTO' | null
+  approvedAt?: string | null
+  approvedSnapshotId?: string | null
+  mediaApprovalSnapshotId?: string | null
   manuallyPublishedAt?: string | null
   platformUrl?: string | null
   // A/B Testing fields
@@ -82,6 +87,8 @@ interface MediaItem {
   url: string
   fileName: string
   type: string
+  assetKind?: 'UPLOADED_MEDIA' | 'GENERATED_VISUAL'
+  generatedVisualId?: string
 }
 
 interface ScheduleAccount {
@@ -375,6 +382,7 @@ export default function ContentHubPage() {
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [approving, setApproving] = useState(false)
+  const [mediaApproving, setMediaApproving] = useState(false)
   const [scheduling, setScheduling] = useState(false)
   // Manual publishing checklist (PR4) — for MANUAL + SCHEDULED posts
   const [manualPublishPost, setManualPublishPost] = useState<ContentPost | null>(null)
@@ -383,6 +391,7 @@ export default function ContentHubPage() {
   const [manualPublishConfirmed, setManualPublishConfirmed] = useState(false)
   const [captionCopied, setCaptionCopied] = useState(false)
   const [showApproveConfirm, setShowApproveConfirm] = useState(false)
+  const [showMediaApproveConfirm, setShowMediaApproveConfirm] = useState(false)
   const [showScheduleConfirm, setShowScheduleConfirm] = useState(false)
   const [scheduleAcknowledged, setScheduleAcknowledged] = useState(false)
   const [scheduleMode, setScheduleMode] = useState<'MANUAL' | 'AUTO'>('MANUAL')
@@ -453,7 +462,7 @@ export default function ContentHubPage() {
       const [campaignResult, planResult, mediaResult, brandResult] = await Promise.allSettled([
         fetchWithTimeout(`/api/campaigns/${campaignId}`, { headers: { Authorization: authorization } }, 9_000),
         fetchWithTimeout(`/api/campaigns/${campaignId}/content-plan`, { headers: { Authorization: authorization } }, 9_000),
-        fetchWithTimeout('/api/media', { headers: { Authorization: authorization } }, 9_000),
+        fetchWithTimeout(`/api/media?campaignId=${encodeURIComponent(campaignId)}`, { headers: { Authorization: authorization } }, 9_000),
         fetchWithTimeout('/api/brand', { headers: { Authorization: authorization } }, 9_000),
       ])
 
@@ -700,11 +709,30 @@ export default function ContentHubPage() {
       })
     )
   )
+  const autoTargetsMissingDestinations = scheduleMode === 'AUTO'
+    ? approvedAutoTargets.filter(target => {
+        const destination = destinationByTarget[target]
+        if (!destination?.integrationId) return true
+        return ['FACEBOOK', 'INSTAGRAM'].includes(target) && !destination.pageId
+      })
+    : []
+  const autoDestinationReviewIncomplete = scheduleMode === 'AUTO'
+    && (scheduleAccountsLoading || autoTargetsMissingDestinations.length > 0)
   const approvedPostsNeedingMedia = posts.filter(
     p => p.status === 'APPROVED' && !isContentPostMediaReadyForScheduling(p),
   )
   const approvedPostsNeedingMediaCount = approvedPostsNeedingMedia.length
+  const approvedPostsNeedingMediaApproval = posts.filter(
+    p => p.status === 'APPROVED'
+      && isContentPostMediaReadyForScheduling(p)
+      && !p.mediaApprovalSnapshotId,
+  )
+  const approvedPostsNeedingMediaApprovalCount = approvedPostsNeedingMediaApproval.length
+  const mediaApprovalRequired = approvedCount > 0
+    && approvedPostsNeedingMediaCount === 0
+    && approvedPostsNeedingMediaApprovalCount > 0
   const schedulingBlockedByMedia = approvedPostsNeedingMediaCount > 0
+    || approvedPostsNeedingMediaApprovalCount > 0
   const approvedPostsMissingDates = approvedCount - approvedPostsWithDates.length
   const approvedScheduleDates = approvedPostsWithDates.map(p => new Date(p.scheduledAt!).getTime()).sort((a, b) => a - b)
   const approvedScheduleRange = approvedScheduleDates.length > 0
@@ -765,7 +793,14 @@ export default function ContentHubPage() {
   const schedulingBlockedByTruthReview = approvedCount > 0 && contentReviewRequired
   const schedulingBlocked = schedulingBlockedByMedia || schedulingBlockedByTruthReview
   const schedulingDecisionBlocked = schedulingBlocked
-    || (scheduleMode === 'AUTO' && (unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete || xAutoReviewIncomplete || pinterestAutoReviewIncomplete || threadsAutoReviewIncomplete))
+    || (scheduleMode === 'AUTO' && (
+      autoDestinationReviewIncomplete
+      || unsupportedAutoTargets.length > 0
+      || youtubeAutoReviewIncomplete
+      || xAutoReviewIncomplete
+      || pinterestAutoReviewIncomplete
+      || threadsAutoReviewIncomplete
+    ))
   const approvalBlocked = approvalBlockedByOrderMismatch || approvalBlockedByTruthReview
   const contentHubFulfillmentSummary = deriveStrategyFulfillmentSummary({
     aiOutput: campaign?.aiOutput,
@@ -803,7 +838,10 @@ export default function ContentHubPage() {
   const contentHubTruthSubtitle = isAr
     ? 'اقرأ هذا أولاً: هل يطابق مركز المحتوى وعد الاستراتيجية، ما حالة المنشورات والوسائط، وما القرار التالي؟'
     : 'Read this first: does Content Hub match the strategy promise, what is the post/media state, and what is the next decision?'
-  const operatingState = deriveCampaignOperatingState({ campaign, posts })
+  const operatingState = deriveCampaignOperatingState({
+    campaign,
+    posts,
+  })
   const operatingLabel = isAr ? operatingState.stageLabelAr : operatingState.stageLabel
   const operatingHelper = isAr ? operatingState.stageHelperAr : operatingState.stageHelper
   const visualReadyLabel = isAr ? 'الوسائط جاهزة' : 'Media ready'
@@ -1115,13 +1153,17 @@ export default function ContentHubPage() {
   const scheduleApprovedLabel = isAr
     ? schedulingBlockedByTruthReview
       ? 'راجع جودة النصوص قبل الجدولة'
-      : schedulingBlockedByMedia
+      : approvedPostsNeedingMediaCount > 0
         ? `أكمل وسائط ${approvedPostsNeedingMediaCount} منشورات قبل الجدولة`
+        : approvedPostsNeedingMediaApprovalCount > 0
+          ? `اعتماد الوسائط النهائية لـ ${approvedPostsNeedingMediaApprovalCount} منشورات`
         : `جدولة ${approvedCount} منشورات معتمدة`
     : schedulingBlockedByTruthReview
       ? 'Review copy quality before scheduling'
-      : schedulingBlockedByMedia
+      : approvedPostsNeedingMediaCount > 0
         ? `Complete media for ${approvedPostsNeedingMediaCount} post${approvedPostsNeedingMediaCount === 1 ? '' : 's'} before scheduling`
+        : approvedPostsNeedingMediaApprovalCount > 0
+          ? `Approve final media for ${approvedPostsNeedingMediaApprovalCount} post${approvedPostsNeedingMediaApprovalCount === 1 ? '' : 's'}`
         : `Schedule ${approvedCount} approved post${approvedCount === 1 ? '' : 's'}`
   const formatStatusSummaryChip = (count: number, label: string) => {
     if (isAr || count === 1) return `${count} ${label}`
@@ -1154,17 +1196,18 @@ export default function ContentHubPage() {
     setError(null)
     try {
       const handoff = loadStrategyHandoff(campaignId)
-      const res = await fetch(`/api/campaigns/${campaignId}/generate-content-plan`, {
+      const generationPayload = {
+        mediaSource,
+        enableABTesting,
+        ...(handoff?.language ? { language: handoff.language } : {}),
+        ...(handoff && Array.isArray(handoff.selectedMediaIds)
+          ? { selectedMediaIds: handoff.selectedMediaIds }
+          : {}),
+      }
+      const res = await fetchCreditOperation(creditOperationScope('campaign:content-plan', JSON.stringify({ campaignId, ...generationPayload })), `/api/campaigns/${campaignId}/generate-content-plan`, {
         method: 'POST',
         headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mediaSource,
-          enableABTesting,
-          ...(handoff?.language ? { language: handoff.language } : {}),
-          ...(handoff && Array.isArray(handoff.selectedMediaIds)
-            ? { selectedMediaIds: handoff.selectedMediaIds }
-            : {}),
-        }),
+        body: JSON.stringify(generationPayload),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Generation failed')
@@ -1291,12 +1334,17 @@ export default function ContentHubPage() {
   async function confirmMediaAttachment() {
     if (!pendingMediaAttachment || !mediaAttachmentAcknowledged) return
     const { postId, media, action } = pendingMediaAttachment
-    await savePostEdit(postId, {
-      uploadedMediaId: media.id,
-      ...(action === 'replace'
-        ? { explicitMediaReplaceConfirmed: true }
-        : { explicitMediaAttachConfirmed: true }),
-    })
+    await savePostEdit(postId, media.assetKind === 'GENERATED_VISUAL' && media.generatedVisualId
+      ? {
+          generatedVisualId: media.generatedVisualId,
+          explicitGeneratedMediaAttachConfirmed: true,
+        }
+      : {
+          uploadedMediaId: media.id,
+          ...(action === 'replace'
+            ? { explicitMediaReplaceConfirmed: true }
+            : { explicitMediaAttachConfirmed: true }),
+        })
     setPendingMediaAttachment(null)
     setMediaAttachmentAcknowledged(false)
   }
@@ -1357,7 +1405,7 @@ export default function ContentHubPage() {
         const batchIds = imagePostIds.slice(index, index + 1)
         attempted += batchIds.length
         try {
-          const res = await fetch(`/api/campaigns/${campaignId}/generate-content-plan/generate`, {
+          const res = await fetchCreditOperation(`campaign:image:${campaignId}:${batchIds[0]}`, `/api/campaigns/${campaignId}/generate-content-plan/generate`, {
             method: 'POST',
             headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1502,6 +1550,61 @@ export default function ContentHubPage() {
     }
   }
 
+  // ── Approve final media (separate from copy and scheduling) ─────────────────
+
+  async function approveMedia() {
+    if (!isAuthenticated || mediaApproving) return
+    setMediaApproving(true)
+    setShowMediaApproveConfirm(false)
+    setError(null)
+    const successMessage = (approved: number, responseRecovered = false) => isAr
+      ? responseRecovered
+        ? `تم حفظ اعتماد الوسائط النهائية لـ ${approved} منشورات. انقطع رد المتصفح، ثم تحقّق NEXUS من القرار المحفوظ. لم تتم الجدولة أو النشر.`
+        : `تم اعتماد الوسائط النهائية لـ ${approved} منشورات. لم تتم الجدولة أو النشر.`
+      : responseRecovered
+        ? `Final media approval was saved for ${approved} posts. The browser response was interrupted, then NEXUS verified the saved decision. Nothing was scheduled or published.`
+        : `Final media approved for ${approved} posts. Nothing was scheduled or published.`
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/approve-media-plan`, {
+        method: 'POST',
+        headers: { Authorization: authHeader() },
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.error ?? (isAr ? 'تعذّر اعتماد الوسائط النهائية.' : 'Media approval failed.'))
+      }
+
+      // The mutation is already committed at this point. A refresh failure must
+      // not turn a saved approval into a false red failure message.
+      const approved = data.unchanged
+        ? approvedCount
+        : (data.approved ?? approvedPostsNeedingMediaApprovalCount)
+      setSuccessMsg(data.unchanged
+        ? (isAr ? 'الوسائط الحالية معتمدة بالفعل. لم تتم الجدولة أو النشر.' : 'The current media is already approved. Nothing was scheduled or published.')
+        : successMessage(approved))
+      await loadData()
+    } catch (err: any) {
+      // A network response can be lost after the server commits the immutable
+      // snapshot. Re-read the source of truth before telling the user it failed.
+      const freshPosts = await loadData()
+      const copyApprovedPosts = freshPosts.filter(post => post.status === 'APPROVED')
+      const reconciled = copyApprovedPosts.length > 0
+        && copyApprovedPosts.every(post => Boolean(post.mediaApprovalSnapshotId))
+      if (reconciled) {
+        setError(null)
+        setSuccessMsg(successMessage(copyApprovedPosts.length, true))
+      } else {
+        setError(err?.message === 'Failed to fetch'
+          ? (isAr
+              ? 'تعذّر تأكيد اعتماد الوسائط بسبب انقطاع الاتصال. لم يعتبر NEXUS القرار ناجحًا؛ أعد المحاولة.'
+              : 'Media approval could not be confirmed because the connection was interrupted. NEXUS did not mark the decision as successful; retry.')
+          : (err?.message ?? (isAr ? 'تعذّر اعتماد الوسائط النهائية.' : 'Media approval failed.')))
+      }
+    } finally {
+      setMediaApproving(false)
+    }
+  }
+
   // ── Schedule approved posts → SCHEDULED (separate decision from approval) ──────
 
   async function scheduleAll() {
@@ -1519,15 +1622,19 @@ export default function ContentHubPage() {
       setShowScheduleConfirm(false)
       setScheduleAcknowledged(false)
       setError(isAr
-        ? `أكمل مراجعة وسائط ${approvedPostsNeedingMediaCount} منشورات قبل الجدولة.`
-        : `Complete media review for ${approvedPostsNeedingMediaCount} post${approvedPostsNeedingMediaCount === 1 ? '' : 's'} before scheduling.`)
+        ? approvedPostsNeedingMediaCount > 0
+          ? `أكمل وسائط ${approvedPostsNeedingMediaCount} منشورات قبل الجدولة.`
+          : `اعتمد الوسائط النهائية لـ ${approvedPostsNeedingMediaApprovalCount} منشورات قبل الجدولة.`
+        : approvedPostsNeedingMediaCount > 0
+          ? `Complete media for ${approvedPostsNeedingMediaCount} post${approvedPostsNeedingMediaCount === 1 ? '' : 's'} before scheduling.`
+          : `Approve final media for ${approvedPostsNeedingMediaApprovalCount} post${approvedPostsNeedingMediaApprovalCount === 1 ? '' : 's'} before scheduling.`)
       document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return
     }
-    if (scheduleMode === 'AUTO' && (unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete || xAutoReviewIncomplete || pinterestAutoReviewIncomplete || threadsAutoReviewIncomplete)) {
+    if (scheduleMode === 'AUTO' && (autoDestinationReviewIncomplete || unsupportedAutoTargets.length > 0 || youtubeAutoReviewIncomplete || xAutoReviewIncomplete || pinterestAutoReviewIncomplete || threadsAutoReviewIncomplete)) {
       setError(isAr
-        ? 'أكمل إعدادات YouTube وPinterest وThreads، وراجع حدود النص والوسائط، أو استخدم التنفيذ اليدوي.'
-        : 'Complete YouTube, Pinterest, and Threads settings and review copy/media limits, or use manual execution.')
+        ? 'اربط كل منصة واختر وجهة النشر الدقيقة، ثم أكمل إعدادات المنصة وراجع حدود النص والوسائط، أو استخدم التنفيذ اليدوي.'
+        : 'Connect every platform and choose its exact publishing destination, then complete platform settings and review copy/media limits, or use manual execution.')
       return
     }
     setScheduling(true)
@@ -1574,8 +1681,15 @@ export default function ContentHubPage() {
       })
       const data = await res.json()
       if (!res.ok) {
+        const blockerTargets = Array.isArray(data.blockers)
+          ? Array.from(new Set(data.blockers
+              .map((blocker: { target?: unknown }) => typeof blocker?.target === 'string' ? blocker.target : '')
+              .filter(Boolean)))
+          : []
         const blockerMessage = Array.isArray(data.blockers)
-          ? data.blockers.map((blocker: { message?: unknown }) => typeof blocker?.message === 'string' ? blocker.message : '').filter(Boolean).join(' ')
+          ? isAr
+            ? `تعذّر إنشاء جدول النشر التلقائي. أكمل الربط والصلاحيات والوجهة الدقيقة لـ ${blockerTargets.join('، ') || 'كل المنصات المطلوبة'}. لم تتم جدولة أي منشور.`
+            : data.blockers.map((blocker: { message?: unknown }) => typeof blocker?.message === 'string' ? blocker.message : '').filter(Boolean).join(' ')
           : ''
         throw new Error(blockerMessage || data.error || 'Scheduling failed')
       }
@@ -1677,7 +1791,7 @@ export default function ContentHubPage() {
     setRewritingPost(postId)
     setError(null)
     try {
-      const res = await fetch(`/api/campaigns/${campaignId}/content-plan/${postId}/rewrite`, {
+      const res = await fetchCreditOperation(creditOperationScope('campaign:rewrite', JSON.stringify({ campaignId, postId, instruction })), `/api/campaigns/${campaignId}/content-plan/${postId}/rewrite`, {
         method: 'POST',
         headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1803,7 +1917,13 @@ export default function ContentHubPage() {
 
       // Generate a post background/draft visual for review. Text/logo/CTA layers
       // remain separate future template layers, not AI-raster text.
-      const res = await fetch('/api/visuals/generate', {
+      const visualIdentity = JSON.stringify({
+        campaignId: campaign?.id,
+        postId: post.id,
+        caption: post.caption || post.imagePrompt || '',
+        creativeRequirement,
+      })
+      const res = await fetchCreditOperation(creditOperationScope('campaign:post-visual', visualIdentity), '/api/visuals/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2049,6 +2169,10 @@ export default function ContentHubPage() {
                 ) : approvedCount > 0 ? (
                   <button
                     onClick={() => {
+                      if (mediaApprovalRequired) {
+                        setShowMediaApproveConfirm(true)
+                        return
+                      }
                       if (schedulingBlocked) {
                         document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                         return
@@ -2064,23 +2188,25 @@ export default function ContentHubPage() {
                       })
                       setShowScheduleConfirm(true)
                     }}
-                    disabled={scheduling}
+                    disabled={scheduling || mediaApproving}
                     className="flex max-w-full min-w-0 items-center justify-center gap-2 rounded-xl px-4 py-2 text-center text-sm font-semibold leading-tight transition-all whitespace-normal break-words"
                     style={{
-                      background: schedulingBlocked ? '#FFFBEB' : '#4F46E5',
-                      color: schedulingBlocked ? '#92400E' : 'white',
-                      border: schedulingBlocked ? '1px solid #FDE68A' : '1px solid transparent',
-                      opacity: scheduling ? 0.6 : 1,
+                      background: mediaApprovalRequired ? '#059669' : schedulingBlocked ? '#FFFBEB' : '#4F46E5',
+                      color: schedulingBlocked && !mediaApprovalRequired ? '#92400E' : 'white',
+                      border: schedulingBlocked && !mediaApprovalRequired ? '1px solid #FDE68A' : '1px solid transparent',
+                      opacity: scheduling || mediaApproving ? 0.6 : 1,
                     }}
                   >
-                    {scheduling ? (
+                    {scheduling || mediaApproving ? (
                       <>
                         <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                        {t('contentHub.scheduling')}
+                        {mediaApproving
+                          ? (isAr ? 'جارٍ حفظ اعتماد الوسائط...' : 'Saving media approval...')
+                          : t('contentHub.scheduling')}
                       </>
                     ) : (
                       <>
-                        {schedulingBlocked ? '⚠️' : '🗓'} {scheduleApprovedLabel}
+                        {mediaApprovalRequired ? '✓' : schedulingBlocked ? '⚠️' : '🗓'} {scheduleApprovedLabel}
                       </>
                     )}
                   </button>
@@ -2779,6 +2905,71 @@ export default function ContentHubPage() {
           </div>
         )}
 
+        {/* ── Final media approval (separate from copy and scheduling) ── */}
+        {showMediaApproveConfirm && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(15,23,42,0.30)', backdropFilter: 'blur(10px)' }}
+            onClick={() => {
+              if (!mediaApproving) setShowMediaApproveConfirm(false)
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="media-approval-title"
+              className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+              style={{ border: '1px solid rgba(15,23,42,0.10)' }}
+              onClick={event => event.stopPropagation()}
+            >
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-2xl">
+                🖼️
+              </div>
+              <p className="text-xs font-black uppercase tracking-wider text-emerald-700">
+                {isAr ? 'قرار وسائط منفصل' : 'Separate media decision'}
+              </p>
+              <h3 id="media-approval-title" className="mt-1 text-lg font-bold text-slate-950">
+                {isAr
+                  ? `اعتماد الوسائط النهائية لـ ${approvedPostsNeedingMediaApprovalCount} منشورات`
+                  : `Approve final media for ${approvedPostsNeedingMediaApprovalCount} posts`}
+              </h3>
+              <p className="mt-3 text-sm leading-6 text-slate-600">
+                {isAr
+                  ? 'سيحفظ NEXUS نسخة ثابتة من الصور أو الفيديوهات الحالية باعتبارها النسخ التي راجعتها. أي استبدال لاحق للوسائط سيحتاج اعتمادًا جديدًا.'
+                  : 'NEXUS will save an immutable record of the images or videos you reviewed. Replacing media later will require a new approval.'}
+              </p>
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+                <p className="font-bold text-slate-900">{isAr ? 'ما الذي لا يحدث الآن؟' : 'What does not happen now?'}</p>
+                <p className="mt-1">
+                  {isAr
+                    ? 'لا توجد تكلفة كريديت، ولا تتم الجدولة، ولا يُرسل أي محتوى إلى أي منصة.'
+                    : 'This costs 0 credits, does not schedule anything, and sends nothing to a platform.'}
+                </p>
+              </div>
+              <div className="mt-5 flex gap-3">
+                <button
+                  type="button"
+                  disabled={mediaApproving}
+                  onClick={() => setShowMediaApproveConfirm(false)}
+                  className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  {t('contentHub.cancel')}
+                </button>
+                <button
+                  type="button"
+                  disabled={mediaApproving || approvedPostsNeedingMediaApprovalCount === 0}
+                  onClick={() => void approveMedia()}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {mediaApproving
+                    ? (isAr ? 'جارٍ الحفظ...' : 'Saving...')
+                    : (isAr ? 'اعتماد الوسائط فقط' : 'Approve media only')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Schedule approved posts confirm dialog ─────────────────── */}
         {showScheduleConfirm && (
           <div
@@ -2802,7 +2993,11 @@ export default function ContentHubPage() {
                     {isAr ? 'قرار جدولة منفصل' : 'Separate scheduling decision'}
                   </p>
                   <h3 className="mt-1 text-lg font-bold text-slate-950">
-                    {isAr ? `جدولة ${approvedPostsWithDates.length} منشور معتمد` : `Schedule ${approvedPostsWithDates.length} approved posts`}
+                    {isAr
+                      ? approvedPostsWithDates.length === 1
+                        ? 'جدولة منشور واحد معتمد'
+                        : `جدولة ${approvedPostsWithDates.length} منشورات معتمدة`
+                      : `Schedule ${approvedPostsWithDates.length} approved post${approvedPostsWithDates.length === 1 ? '' : 's'}`}
                   </h3>
                   <p className="mt-2 text-sm leading-6 text-slate-500">
                     {scheduleMode === 'AUTO'
@@ -2853,6 +3048,14 @@ export default function ContentHubPage() {
                   {unsupportedAutoTargets.length > 0 && (
                     <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-5 text-amber-900">
                       {isAr ? `النشر التلقائي غير متاح حاليًا لهذه الوجهات: ${unsupportedAutoTargets.join('، ')}. غيّرها أو استخدم التنفيذ اليدوي.` : `Auto-publishing is not enabled for: ${unsupportedAutoTargets.join(', ')}. Change them or use manual execution.`}
+                    </p>
+                  )}
+
+                  {!scheduleAccountsLoading && autoTargetsMissingDestinations.length > 0 && (
+                    <p className="rounded-lg border border-rose-200 bg-rose-50 p-2 text-[11px] leading-5 text-rose-900">
+                      {isAr
+                        ? `التنفيذ التلقائي مقفل: اربط واختر وجهة مؤكدة لكل من ${autoTargetsMissingDestinations.join('، ')}. لن ينشئ NEXUS جدول نشر تلقائي بلا وجهة.`
+                        : `Automatic execution is locked: connect and select a verified destination for ${autoTargetsMissingDestinations.join(', ')}. NEXUS will not create an auto-publish schedule without exact destinations.`}
                     </p>
                   )}
 
@@ -3153,9 +3356,13 @@ export default function ContentHubPage() {
 
               {schedulingBlockedByMedia && (
                 <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
-                  {isAr
-                    ? `${approvedPostsNeedingMediaCount} منشورات ما زالت بلا وسائط مؤكدة. أغلق هذه النافذة وأكمل قرار الوسائط لكل منشور قبل الجدولة.`
-                    : `${approvedPostsNeedingMediaCount} post${approvedPostsNeedingMediaCount === 1 ? '' : 's'} still lack confirmed media. Close this dialog and complete each media decision before scheduling.`}
+                  {approvedPostsNeedingMediaCount > 0
+                    ? (isAr
+                        ? `${approvedPostsNeedingMediaCount} منشورات ما زالت بلا وسائط مكتملة. أغلق هذه النافذة وأكمل الوسائط قبل الجدولة.`
+                        : `${approvedPostsNeedingMediaCount} post${approvedPostsNeedingMediaCount === 1 ? '' : 's'} still lack complete media. Close this dialog and finish the media first.`)
+                    : (isAr
+                        ? `${approvedPostsNeedingMediaApprovalCount} منشورات تحتاج اعتماد الوسائط النهائية قبل الجدولة.`
+                        : `${approvedPostsNeedingMediaApprovalCount} post${approvedPostsNeedingMediaApprovalCount === 1 ? '' : 's'} need final media approval before scheduling.`)}
                 </p>
               )}
 
@@ -3178,11 +3385,11 @@ export default function ContentHubPage() {
                 <span>
                   {isAr
                     ? (scheduleMode === 'AUTO'
-                        ? 'راجعت المحتوى والتواريخ والوجهات، وأوافق صراحةً أن يرسل NEXUS المنشورات المعتمدة إلى المنصات في مواعيدها.'
-                        : 'راجعت عدد المنشورات والتواريخ، وأفهم أن هذه جدولة للتنفيذ اليدوي ولا تعني النشر.')
+                        ? 'راجعت النصوص والوسائط النهائية والتواريخ والوجهات، وأوافق صراحةً أن يرسل NEXUS المنشورات المعتمدة إلى المنصات في مواعيدها.'
+                        : 'راجعت النصوص والوسائط النهائية وعدد المنشورات والتواريخ، وأفهم أن هذه جدولة للتنفيذ اليدوي ولا تعني النشر.')
                     : (scheduleMode === 'AUTO'
-                        ? 'I reviewed the content, dates, and destinations, and explicitly authorize NEXUS to send these approved posts at their scheduled times.'
-                        : 'I reviewed the post count and dates, and understand this is a manual execution schedule, not publishing.')}
+                        ? 'I reviewed the copy, final media, dates, and destinations, and explicitly authorize NEXUS to send these approved posts at their scheduled times.'
+                        : 'I reviewed the copy, final media, post count, and dates, and understand this is a manual execution schedule, not publishing.')}
                 </span>
               </label>
 
@@ -3206,7 +3413,11 @@ export default function ContentHubPage() {
                 >
                   {scheduling
                     ? t('contentHub.scheduling')
-                    : (isAr ? `تأكيد جدولة ${approvedPostsWithDates.length} منشور` : `Confirm scheduling ${approvedPostsWithDates.length} posts`)}
+                    : (isAr
+                        ? approvedPostsWithDates.length === 1
+                          ? 'تأكيد جدولة منشور واحد'
+                          : `تأكيد جدولة ${approvedPostsWithDates.length} منشورات`
+                        : `Confirm scheduling ${approvedPostsWithDates.length} post${approvedPostsWithDates.length === 1 ? '' : 's'}`)}
                 </button>
               </div>
             </div>
@@ -3499,7 +3710,7 @@ export default function ContentHubPage() {
               </div>
               {mediaLibrary.length === 0 ? (
                 <div className="text-center py-12 text-slate-500">
-                  <p className="mb-3">{isAr ? 'لم تُرفع صور بعد' : 'No images uploaded yet'}</p>
+                  <p className="mb-3">{isAr ? 'لا توجد أصول صور جاهزة لهذه الحملة بعد' : 'No image assets are ready for this campaign yet'}</p>
                   <button
                     type="button"
                     onClick={() => router.push('/media')}
@@ -4292,6 +4503,7 @@ function PostCard({
           campaignId={campaignId}
           platform={post.platform}
           status={post.status}
+          approvalReady={Boolean(post.approvedSnapshotId && post.mediaApprovalSnapshotId)}
           hasMedia={Boolean(post.imageUrl)}
           isVideoPost={post.isVideoPost}
           captionLength={Array.from(post.caption.trim()).length}

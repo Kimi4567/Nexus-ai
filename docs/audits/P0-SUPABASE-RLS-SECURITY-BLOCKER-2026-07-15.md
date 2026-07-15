@@ -24,7 +24,7 @@ The production project was inspected directly after the email alert:
 - Only `service_role` retains explicit table privileges for trusted server operations.
 - There are no views, materialized views, or functions in `public` that expose a separate bypass path.
 - Supabase Security Advisor no longer reports `rls_disabled_in_public` or `sensitive_columns_exposed`.
-- The active migration `20260713150000_lock_down_public_tables.sql` enables RLS for all current public tables and revokes current and default table/sequence privileges from `anon` and `authenticated`.
+- The active migration `20260713105211_lock_down_public_tables.sql` enables RLS for all current public tables and revokes current and default table/sequence privileges from `anon` and `authenticated`.
 
 The alert was dated 2026-07-12 and predates the production lock-down migration applied on 2026-07-13.
 

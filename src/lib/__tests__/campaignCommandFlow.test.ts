@@ -25,6 +25,9 @@ function makeOperatingState(
       totalPosts: 8,
       draftPosts: 8,
       approvedPosts: 0,
+      reviewedPosts: 0,
+      unreviewedProgressedPosts: 0,
+      outOfScopePosts: 0,
       scheduledPosts: 0,
       autoScheduledPosts: 0,
       manualScheduledPosts: 0,
@@ -41,6 +44,9 @@ function makeOperatingState(
       hasContentPlan: true,
       hasDraftContent: true,
       hasApprovedContent: false,
+      hasReviewedContent: false,
+      hasApprovalEvidenceGap: false,
+      hasChannelScopeMismatch: false,
       hasScheduledContent: false,
       hasAutoScheduledContent: false,
       hasProcessingContent: false,
@@ -283,11 +289,13 @@ describe('deriveCampaignCommandFlow', () => {
           totalPosts: 3,
           draftPosts: 0,
           approvedPosts: 3,
+          reviewedPosts: 3,
           pendingGenerationPosts: 3,
         },
         truthFlags: {
           hasDraftContent: false,
           hasApprovedContent: true,
+          hasReviewedContent: true,
         },
       }),
       creativeSummary: {
@@ -308,8 +316,8 @@ describe('deriveCampaignCommandFlow', () => {
     expect(approval?.helperEn).toBe(
       'Copy approval is saved. Media still needs review before scheduling or publishing.',
     )
-    expect(approval?.metricEn).toBe('3 copy approved · 3 media pending')
-    expect(approval?.metricAr).toBe('3 نص معتمد · 3 وسائط معلقة')
+    expect(approval?.metricEn).toBe('3 reviewed revisions · 3 media pending')
+    expect(approval?.metricAr).toBe('3 نسخ موثقة المراجعة · 3 وسائط معلقة')
   })
 
   it('keeps video requirements in the creative and approval gates until media is attached', () => {
@@ -321,11 +329,13 @@ describe('deriveCampaignCommandFlow', () => {
           totalPosts: 1,
           draftPosts: 0,
           approvedPosts: 1,
+          reviewedPosts: 1,
           pendingGenerationPosts: 1,
         },
         truthFlags: {
           hasDraftContent: false,
           hasApprovedContent: true,
+          hasReviewedContent: true,
         },
       }),
       creativeSummary: {
@@ -342,7 +352,7 @@ describe('deriveCampaignCommandFlow', () => {
     expect(flow.steps.find(step => step.id === 'creative')?.status).toBe('current')
     expect(flow.steps.find(step => step.id === 'approval')?.status).toBe('review')
     expect(flow.steps.find(step => step.id === 'approval')?.metricEn).toBe(
-      '1 copy approved · 1 media pending',
+      '1 reviewed revision · 1 media pending',
     )
   })
 })

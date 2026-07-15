@@ -99,11 +99,14 @@ describe('CS-1 creative IA copy', () => {
   })
 
   it('identifies studio as a review-only creative workspace with locked execution', () => {
-    expect(STUDIO_SRC).toMatch(/Creative Studio/)
+    expect(STUDIO_SRC).toMatch(/Creative direction preview/)
+    expect(STUDIO_SRC).toContain('journeyStage="production"')
     expect(STUDIO_SRC).toMatch(/Review visual direction and brand assets before attaching media to posts/)
     expect(STUDIO_SRC).toMatch(/Confirm the creative direction/)
     expect(STUDIO_SRC).toMatch(/Generation starts from a specific post in Content Hub after cost review and confirmation/)
     expect(STUDIO_SRC).toMatch(/This desk is preview-only/)
+    expect(STUDIO_SRC).toMatch(/CTA waits for an approved destination/)
+    expect(STUDIO_SRC).not.toMatch(/Learn more/)
     expect(STUDIO_SRC).not.toMatch(/Confirmed generation flow later/)
     expect(STUDIO_SRC).not.toMatch(/Planned — unavailable/)
   })

@@ -68,11 +68,11 @@ describe('organicReadiness — minimum organic set', () => {
 
 describe('paidReadiness — honest planning-only', () => {
   it('stays planning-only / not launch-ready when prerequisites are missing', () => {
-    const r = getBrandIndicators(organicComplete) // no budget/conversion/location/pixel
+    const r = getBrandIndicators(organicComplete) // no budget/conversion/location/follow-up
     expect(r.paidReadiness.ready).toBe(false)
     expect(r.paidReadiness.note).toBe('planning_only')
     expect(r.paidReadiness.launchReady).toBe(false)
-    expect(r.paidReadiness.missingKeys).toContain('pixel')
+    expect(r.paidReadiness.missingKeys).toContain('marketingBudget')
   })
 
   it('marks prerequisites met but still never launch-ready (approval-gated)', () => {
@@ -81,12 +81,39 @@ describe('paidReadiness — honest planning-only', () => {
       marketingBudget: '$1,000 / month',
       conversionDestination: 'Landing page',
       audienceLocation: 'UAE',
+      leadHandling: 'Sales team responds within one business day',
     }
-    const r = getBrandIndicators(paidComplete, { hasPixel: true })
+    const r = getBrandIndicators(paidComplete)
     expect(r.paidReadiness.ready).toBe(true)
     expect(r.paidReadiness.note).toBe('ready')
     expect(r.paidReadiness.launchReady).toBe(false) // policy: paid never auto-launches
     expect(r.paidReadiness.missingKeys).toEqual([])
+  })
+
+  it('keeps paid planning ready without tracking while launch remains locked', () => {
+    const r = getBrandIndicators({
+      ...organicComplete,
+      marketingBudget: '$1,000 / month',
+      conversionDestination: 'Landing page',
+      audienceLocation: 'UAE',
+      leadHandling: 'Sales team responds within one business day',
+    }, { hasPixel: false })
+
+    expect(r.paidReadiness.ready).toBe(true)
+    expect(r.paidReadiness.note).toBe('ready')
+    expect(r.paidReadiness.launchReady).toBe(false)
+    expect(r.paidReadiness.missingKeys).not.toContain('pixel')
+  })
+
+  it('does not claim paid readiness without a real lead follow-up path', () => {
+    const r = getBrandIndicators({
+      ...organicComplete,
+      marketingBudget: '$1,000 / month',
+      conversionDestination: 'Landing page',
+      audienceLocation: 'UAE',
+    }, { hasPixel: true })
+    expect(r.paidReadiness.ready).toBe(false)
+    expect(r.paidReadiness.missingKeys).toContain('leadHandling')
   })
 })
 

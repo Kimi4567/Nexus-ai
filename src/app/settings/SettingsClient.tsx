@@ -298,7 +298,22 @@ export default function SettingsPage() {
       const data = await res.json()
       if (!res.ok) {
         const reference = typeof data.reference === 'string' ? ` (${data.reference})` : ''
-        throw new Error(`${copyText('تعذر إكمال إعادة الضبط. لم يتم حذف أي بيانات.', 'Reset could not complete. No data was changed.')}${reference}`)
+        const verificationFailed = data.code === 'WORKSPACE_RESET_VERIFICATION_FAILED'
+        throw new Error(`${verificationFailed
+          ? copyText(
+              'تم تنفيذ معاملة إعادة الضبط، لكن فشل التحقق النهائي من البداية الجديدة. أعد المحاولة أو استخدم رقم المرجع للدعم.',
+              'The reset transaction ran, but final fresh-start verification failed. Retry or use the reference for support.',
+            )
+          : copyText(
+              'تعذر إكمال إعادة الضبط. تم التراجع عن المعاملة ولم تتغير بيانات مساحة العمل.',
+              'Reset could not complete. The transaction was rolled back and workspace data was not changed.',
+            )}${reference}`)
+      }
+      if (data.resetVerified !== true || data.next !== '/onboarding') {
+        throw new Error(copyText(
+          'اكتملت العملية دون إثبات بداية جديدة. لم يتم تحويلك حتى تتم مراجعة الحالة.',
+          'The reset returned without fresh-start verification. You were not redirected.',
+        ))
       }
       setResetMessage({ type: 'success', text: copyText('تمت إعادة ضبط مساحة العمل.', 'Workspace reset completed.') })
       Object.keys(localStorage)
@@ -307,7 +322,7 @@ export default function SettingsPage() {
       window.dispatchEvent(new Event('nexus:workspace-reset'))
       setResetConfirmOpen(false)
       setResetConfirmInput('')
-      setTimeout(() => router.push('/dashboard'), 1500)
+      router.replace('/onboarding')
     } catch (error) {
       setResetMessage({
         type: 'error',

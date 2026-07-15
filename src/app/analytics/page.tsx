@@ -106,6 +106,16 @@ interface SystemInsight {
   href?: string
 }
 
+interface LearningSummary {
+  stage: 'empty' | 'signals_building' | 'analytics_backed'
+  counts: {
+    pendingReview: number
+    reviewedSignals: number
+    analyticsBackedLessons: number
+    performanceEvidenceRows: number
+  }
+}
+
 const INSIGHT_TONE = {
   action: 'border-violet-100 bg-violet-50 text-violet-700',
   info: 'border-sky-100 bg-sky-50 text-sky-700',
@@ -234,6 +244,7 @@ export default function AnalyticsPage() {
 
   const [overview, setOverview] = useState<OverviewData | null>(null)
   const [insights, setInsights] = useState<SystemInsight[]>([])
+  const [learning, setLearning] = useState<LearningSummary | null>(null)
   const [dataLoading, setDataLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -247,9 +258,10 @@ export default function AnalyticsPage() {
     setLoadError(null)
     try {
       const headers = { Authorization: authHeader() }
-      const [overviewResult, insightsResult] = await Promise.allSettled([
+      const [overviewResult, insightsResult, learningResult] = await Promise.allSettled([
         fetchWithTimeout('/api/analytics/overview', { headers }, 8_000),
         fetchWithTimeout('/api/analytics/insights', { headers }, 8_000),
+        fetchWithTimeout('/api/learning/overview', { headers }, 8_000),
       ])
 
       if (overviewResult.status !== 'fulfilled' || !overviewResult.value.ok) {
@@ -265,6 +277,11 @@ export default function AnalyticsPage() {
       if (insightsResult.status === 'fulfilled' && insightsResult.value.ok) {
         const insightData = await insightsResult.value.json()
         if (Array.isArray(insightData?.insights)) setInsights(insightData.insights)
+      }
+
+      if (learningResult.status === 'fulfilled' && learningResult.value.ok) {
+        const learningData = await learningResult.value.json()
+        if (learningData?.stage && learningData?.counts) setLearning(learningData)
       }
     } catch (error) {
       setLoadError(error instanceof Error
@@ -291,6 +308,18 @@ export default function AnalyticsPage() {
       ? ar ? 'منشور، بانتظار تحليلات المنصة' : 'Published, awaiting platform analytics'
       : ar ? 'لا توجد بيانات أداء بعد' : 'No performance data yet'
 
+  const pendingLearningReview = learning?.counts.pendingReview ?? 0
+  const resultsPrimaryHref = pendingLearningReview > 0
+    ? '/approvals'
+    : overview?.performance.hasEvidence
+      ? '/learning'
+      : '/connections'
+  const resultsPrimaryLabel = pendingLearningReview > 0
+    ? (ar ? 'مراجعة اقتراحات التعلّم' : 'Review learning proposals')
+    : overview?.performance.hasEvidence
+      ? (ar ? 'مراجعة التعلّم' : 'Review learning')
+      : (ar ? 'ربط مصدر قياس' : 'Connect measurement source')
+
   if (authLoading) {
     return (
       <AppShell>
@@ -309,8 +338,9 @@ export default function AnalyticsPage() {
         <main dir={dir} className="nx-os-page">
           <div className="nx-os-container">
             <LuxuryWorkspaceHeader
-              pageTitle={ar ? 'النتائج' : 'Results'}
-              pageSubtitle={ar ? 'أداء موثّق من المنصات، وما الذي يجب تغييره بعد ذلك.' : 'Verified platform performance and what to change next.'}
+              journeyStage="results"
+              pageTitle={ar ? 'النتائج والتعلّم' : 'Results & learning'}
+              pageSubtitle={ar ? 'أداء موثّق من المنصات، ثم اقتراحات تعلّم يراجعها المستخدم قبل اعتمادها.' : 'Verified platform performance, then user-reviewed learning proposals.'}
               primaryHref="/connections"
               primaryLabel={ar ? 'إدارة مصادر البيانات' : 'Manage data sources'}
               secondaryHref="/campaigns"
@@ -340,13 +370,41 @@ export default function AnalyticsPage() {
       <main dir={dir} className="nx-os-page">
         <div className="nx-os-container">
           <LuxuryWorkspaceHeader
-            pageTitle={ar ? 'النتائج' : 'Results'}
-            pageSubtitle={ar ? 'أداء موثّق من المنصات، وما الذي يجب تغييره بعد ذلك.' : 'Verified platform performance and what to change next.'}
-            primaryHref="/connections"
-            primaryLabel={ar ? 'إدارة مصادر البيانات' : 'Manage data sources'}
-            secondaryHref="/campaigns"
-            secondaryLabel={ar ? 'الحملات' : 'Campaigns'}
+            journeyStage="results"
+            pageTitle={ar ? 'النتائج والتعلّم' : 'Results & learning'}
+            pageSubtitle={ar ? 'أداء موثّق من المنصات، ثم اقتراحات تعلّم يراجعها المستخدم قبل اعتمادها.' : 'Verified platform performance, then user-reviewed learning proposals.'}
+            primaryHref={resultsPrimaryHref}
+            primaryLabel={resultsPrimaryLabel}
+            secondaryHref="/calendar?tab=queue"
+            secondaryLabel={ar ? 'التنفيذ' : 'Execution'}
           />
+
+          <section className="nx-os-action-strip mb-5" aria-live="polite">
+            <div className="min-w-0">
+              <p className="text-[13px] font-black text-[#0B1028]">
+                {pendingLearningReview > 0
+                  ? (ar ? `${pendingLearningReview} اقتراحات تعلّم تنتظر قرارك` : `${pendingLearningReview} learning proposals await your decision`)
+                  : overview?.performance.hasEvidence
+                    ? (ar ? 'يوجد أداء موثّق صالح للمراجعة' : 'Verified performance is ready for review')
+                    : (ar ? 'التعلّم من الأداء مغلق حتى وصول قياس حقيقي' : 'Performance learning is locked until real measurement arrives')}
+              </p>
+              <p className="mt-1 max-w-3xl text-[11px] font-semibold leading-5 text-slate-500">
+                {pendingLearningReview > 0
+                  ? (ar ? 'لا يغيّر NEXUS ذاكرة البراند تلقائياً؛ راجع الدليل والتغيير المقترح أولاً.' : 'NEXUS never changes brand memory automatically; review the evidence and proposed change first.')
+                  : overview?.performance.hasEvidence
+                    ? (ar ? 'النتائج وصفية حتى تُراجع الفرضية والدليل؛ لا يدّعي النظام سببية غير مثبتة.' : 'Results remain descriptive until hypothesis and evidence are reviewed; no unsupported causality is claimed.')
+                    : (ar ? 'سجل التشغيل ليس نتيجة تسويقية. اربط تحليلات المنصة قبل KPI أو ROAS أو التعلّم.' : 'Workflow activity is not a marketing outcome. Connect platform analytics before KPI, ROAS, or learning.')}
+              </p>
+              <p className="mt-1 text-[10px] font-bold text-slate-400">
+                {ar
+                  ? `${learning?.counts.analyticsBackedLessons ?? 0} دروس مدعومة بالتحليلات · ${learning?.counts.reviewedSignals ?? 0} إشارات تمت مراجعتها`
+                  : `${learning?.counts.analyticsBackedLessons ?? 0} analytics-backed lessons · ${learning?.counts.reviewedSignals ?? 0} reviewed signals`}
+              </p>
+            </div>
+            <Link href={resultsPrimaryHref} className="inline-flex h-10 shrink-0 items-center justify-center rounded-[14px] bg-[#071236] px-4 text-[12px] font-black text-white">
+              {resultsPrimaryLabel}
+            </Link>
+          </section>
 
           {loadError && overview ? (
             <ErrorState

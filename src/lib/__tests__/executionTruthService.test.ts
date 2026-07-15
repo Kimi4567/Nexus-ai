@@ -49,6 +49,8 @@ beforeEach(() => {
     .mockResolvedValueOnce([])
     .mockResolvedValueOnce([])
     .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([])
   prismaMock.marketingLearningEvent.findMany.mockResolvedValue([])
   prismaMock.adCampaign.groupBy.mockResolvedValue([])
 })
@@ -66,13 +68,15 @@ describe('execution truth service', () => {
       ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
 
     const result = await getWorkspaceExecutionTruth('u1')
 
     expect(result.campaigns).toHaveLength(2)
     expect(result.campaigns.find((campaign) => campaign.campaignId === 'c1')?.stage).toBe('STRATEGY_REVIEW')
     expect(result.campaigns.find((campaign) => campaign.campaignId === 'c2')?.stage).toBe('CONTENT_REVIEW')
-    expect(prismaMock.socialPost.groupBy).toHaveBeenCalledTimes(3)
+    expect(prismaMock.socialPost.groupBy).toHaveBeenCalledTimes(5)
     expect(prismaMock.campaign.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 100 }))
   })
 
@@ -85,15 +89,59 @@ describe('execution truth service', () => {
       .mockResolvedValueOnce([
         { campaignId: 'c2', status: 'APPROVED', _count: { _all: 3 } },
       ])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
         { campaignId: 'c2', _count: { _all: 3 } },
       ])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
 
     const result = await getWorkspaceExecutionTruth('u1')
 
     expect(result.campaigns[0].stage).toBe('MEDIA_REVIEW')
     expect(result.queue[0].kind).toBe('REVIEW_MEDIA')
+  })
+
+  it('surfaces a scheduled post whose publish time passed without publication', async () => {
+    prismaMock.campaign.findMany.mockResolvedValue([
+      { ...campaignBase, id: 'c2', name: 'Overdue schedule', status: 'ACTIVE' },
+    ])
+    prismaMock.socialPost.groupBy
+      .mockReset()
+      .mockResolvedValueOnce([
+        { campaignId: 'c2', status: 'SCHEDULED', _count: { _all: 1 } },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { campaignId: 'c2', _count: { _all: 1 } },
+      ])
+      .mockResolvedValueOnce([])
+
+    const result = await getWorkspaceExecutionTruth('u1')
+
+    expect(result.campaigns[0].stage).toBe('NEEDS_ATTENTION')
+    expect(result.campaigns[0].posts.overdueScheduled).toBe(1)
+    expect(result.queue[0].kind).toBe('RESOLVE_OVERDUE_SCHEDULE')
+  })
+
+  it('treats missing copy approval evidence as more urgent than media readiness', async () => {
+    prismaMock.campaign.findMany.mockResolvedValue([
+      { ...campaignBase, id: 'c2', name: 'Legacy approval', status: 'ACTIVE' },
+    ])
+    prismaMock.socialPost.groupBy
+      .mockReset()
+      .mockResolvedValueOnce([{ campaignId: 'c2', status: 'APPROVED', _count: { _all: 1 } }])
+      .mockResolvedValueOnce([{ campaignId: 'c2', _count: { _all: 1 } }])
+      .mockResolvedValueOnce([{ campaignId: 'c2', _count: { _all: 1 } }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+
+    const result = await getWorkspaceExecutionTruth('u1')
+
+    expect(result.campaigns[0].stage).toBe('CONTENT_REVIEW')
+    expect(result.campaigns[0].posts.approvedMissingApproval).toBe(1)
+    expect(result.queue[0]).toMatchObject({ kind: 'REVIEW_CONTENT', priority: 'critical' })
   })
 
   it('scopes a campaign truth request to the requested owned campaign', async () => {

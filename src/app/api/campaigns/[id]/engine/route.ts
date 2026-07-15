@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
-import { checkAndDeductCredits, getCreditActionPolicy, refundCreditDeduction, type CreditDeductionOk } from '@/lib/credits'
+import {
+  checkAndDeductCredits,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
+  getCreditActionPolicy,
+  refundCreditDeduction,
+  type CreditDeductionOk,
+} from '@/lib/credits'
 import { deriveCampaignEngineState, runCampaignEngine } from '@/lib/campaign-engine'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import {
@@ -11,6 +18,8 @@ import {
 } from '@/lib/campaignDangerActions'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 // Strategy generation makes two GPT-4o-mini calls; give the function headroom so
 // a slower-but-valid Arabic response completes instead of being killed mid-run.
@@ -56,6 +65,13 @@ export async function POST(req: NextRequest, props: Params) {
 
   if (!campaign) {
     return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  }
+  if (campaign.status === 'ACTIVE') {
+    return NextResponse.json({
+      error: 'REVOKE_STRATEGY_APPROVAL_FIRST',
+      message: 'The approved strategy snapshot is immutable. Revoke approval before rebuilding or rewriting the campaign strategy.',
+      creditsUsed: 0,
+    }, { status: 409 })
   }
 
   const brandProfile = campaign.workspace?.brandProfile
@@ -153,8 +169,19 @@ export async function POST(req: NextRequest, props: Params) {
 
   let credit: CreditDeductionOk | null = null
   if (needsAiGeneration) {
-    const creditCheck = await checkAndDeductCredits(userId, 'RUN_FULL_STRATEGY')
-    if (!creditCheck.ok) return NextResponse.json(creditCheck, { status: 402 })
+    const rateLimitResponse = await enforceBillableAiRateLimit(userId, 'RUN_FULL_STRATEGY')
+    if (rateLimitResponse) return rateLimitResponse
+    const creditCheck = await checkAndDeductCredits(
+      userId,
+      'RUN_FULL_STRATEGY',
+      undefined,
+      {
+        entityId: params.id,
+        entityType: 'campaign_strategy_rebuild',
+        operationKey: getCreditOperationKey(req, 'RUN_FULL_STRATEGY', 'campaign_strategy_rebuild', params.id),
+      },
+    )
+    if (!creditCheck.ok) return NextResponse.json(creditCheck, { status: creditCheckHttpStatus(creditCheck) })
     credit = creditCheck
   }
 
@@ -165,6 +192,22 @@ export async function POST(req: NextRequest, props: Params) {
       language,
       force,
     })
+
+    if (credit) {
+      const finalization = await finalizeCreditDeduction({
+        userId,
+        action: 'RUN_FULL_STRATEGY',
+        deduction: credit,
+      })
+      if (!finalization.ok) {
+        credit = null
+        return NextResponse.json({
+          error: 'Campaign engine output could not be finalized. Reserved credits were returned.',
+          code: 'CREDIT_FINALIZATION_FAILED',
+          refunded: finalization.refundStatus === 'refunded',
+        }, { status: 503 })
+      }
+    }
 
     return NextResponse.json({
       campaign: result.campaign,

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
+import { buildPerformanceEvidence } from '@/lib/performanceEvidence'
 
 const mocks = vi.hoisted(() => ({
   socialPostFindMany: vi.fn(),
@@ -147,6 +148,92 @@ describe('GET /api/cron/fetch-analytics', () => {
           quality: 'eligible',
         }),
       },
+    })
+  })
+
+  it('creates a review-only learning proposal with structured evidence and rollback context', async () => {
+    const evidencePosts = [10, 10, 10, 20, 20, 20].map((engagedUsers, index) => ({
+      id: `evidence-${index}`,
+      campaignId: index < 3 ? 'campaign-1' : 'campaign-2',
+      caption: index < 3
+        ? `Baseline platform message number ${index}`
+        : `Evidence backed opening hook candidate number ${index}`,
+      platform: 'META',
+      analyticsData: buildPerformanceEvidence({
+        platform: 'META',
+        platformPostId: `platform-${index}`,
+        collectedAt: new Date(`2026-07-${String(index + 1).padStart(2, '0')}T12:00:00.000Z`),
+        metrics: { likes: 0, comments: 0, shares: 0, impressions: 1_000, reach: 1_000, engagedUsers },
+      }),
+    }))
+    mocks.socialPostFindMany
+      .mockResolvedValueOnce([metaPost()])
+      .mockResolvedValueOnce(evidencePosts)
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ data: [
+          { name: 'post_impressions', values: [{ value: 500 }] },
+          { name: 'post_impressions_unique', values: [{ value: 400 }] },
+          { name: 'post_engaged_users', values: [{ value: 40 }] },
+        ] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          likes: { summary: { total_count: 20 } },
+          comments: { summary: { total_count: 5 } },
+          shares: { count: 3 },
+        }),
+      }) as typeof fetch
+
+    const response = await GET(request('cron-secret'))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body).toMatchObject({
+      learningProposalsCreated: 1,
+      aboveBaselinePosts: 3,
+      autoLearningApplied: false,
+      aiUsed: false,
+    })
+    expect(mocks.brainLearningCreateMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({
+        workspaceId: 'workspace-1',
+        trigger: 'post_performance',
+        status: 'pending',
+        proposed: expect.arrayContaining([
+          'Evidence backed opening hook candidate number 3',
+          'Evidence backed opening hook candidate number 4',
+          'Evidence backed opening hook candidate number 5',
+        ]),
+        evidence: expect.objectContaining({
+          source: 'platform_api',
+          observationType: 'platform_local_association',
+          causalClaim: false,
+          platform: 'META',
+          period: {
+            start: '2026-07-01T12:00:00.000Z',
+            end: '2026-07-06T12:00:00.000Z',
+          },
+          sample: expect.objectContaining({
+            eligiblePosts: 6,
+            aboveThresholdPosts: 3,
+            campaignIds: ['campaign-2'],
+          }),
+          confidence: expect.objectContaining({ level: 'directional' }),
+          proposedChange: expect.objectContaining({
+            field: 'winningHooks',
+            affectsExistingApprovedRevisions: false,
+            affectsFutureStrategyAndContent: true,
+          }),
+          rollback: {
+            strategy: 'remove_only_values_added_by_this_proposal',
+            field: 'winningHooks',
+            previousValue: [],
+          },
+        }),
+      })],
     })
   })
 

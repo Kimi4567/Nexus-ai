@@ -4,29 +4,37 @@ const {
   mockGetAuthUser,
   mockSuggestRateLimitDb,
   mockCheckAndDeduct,
+  mockFinalizeDeduction,
   mockRefund,
   mockRefundForTxn,
 } = vi.hoisted(() => ({
   mockGetAuthUser: vi.fn(),
   mockSuggestRateLimitDb: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
+  mockFinalizeDeduction: vi.fn(),
   mockRefund: vi.fn(),
   mockRefundForTxn: vi.fn(),
 }))
 
 vi.mock('@/lib/apiAuth', () => ({ getAuthUser: mockGetAuthUser }))
 vi.mock('@/lib/dbRateLimit', () => ({ suggestRateLimitDb: mockSuggestRateLimitDb }))
+vi.mock('@/lib/billableAiRateLimit', () => ({
+  enforceBillableAiRateLimit: vi.fn().mockResolvedValue(null),
+}))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
+  creditCheckHttpStatus: () => 402,
+  finalizeCreditDeduction: mockFinalizeDeduction,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
   refundCreditDeduction: vi.fn(async ({ userId, action, deduction, reason }) => {
-    if (!deduction || deduction.creditsUsed <= 0) return
+    if (!deduction || deduction.creditsUsed <= 0) return { ok: true, status: 'not-charged' }
     if (deduction.transactionId) {
       await mockRefundForTxn({ userId, transactionId: deduction.transactionId, reason })
-      return
+      return { ok: true, status: 'refunded' }
     }
     await mockRefund(userId, action, reason)
+    return { ok: true, status: 'refunded' }
   }),
   getCreditActionPolicy: () => ({ action: 'AI_FIELD_SUGGESTION', cost: 1, label: 'AI field suggestion' }),
 }))
@@ -53,6 +61,7 @@ beforeEach(() => {
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 1, creditsRemaining: 19 })
   mockRefund.mockResolvedValue(undefined)
   mockRefundForTxn.mockResolvedValue(undefined)
+  mockFinalizeDeduction.mockResolvedValue({ ok: true, status: 'settled' })
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
     ok: true,
     json: async () => ({ choices: [{ message: { content: 'Premium positioning' } }] }),
@@ -129,7 +138,16 @@ describe('POST /api/brand/suggest — RF-2 refund safety', () => {
 
     expect(res.status).toBe(200)
     expect(json.suggestion).toBe('Premium positioning')
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'AI_FIELD_SUGGESTION')
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith(
+      'u1',
+      'AI_FIELD_SUGGESTION',
+      undefined,
+      expect.objectContaining({
+        entityId: 'u1',
+        entityType: 'brand_profile_field_suggestion',
+        operationKey: expect.any(String),
+      }),
+    )
     expect(json.creditCharge).toMatchObject({ action: 'AI_FIELD_SUGGESTION', cost: 1, creditsUsed: 1 })
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()

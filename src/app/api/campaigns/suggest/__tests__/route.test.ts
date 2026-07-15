@@ -6,6 +6,7 @@ const {
   mockCheckAndDeduct,
   mockRefund,
   mockRefundForTxn,
+  mockFinalizeCreditDeduction,
   mockPrisma,
 } = vi.hoisted(() => ({
   mockGetAuthUser: vi.fn(),
@@ -13,6 +14,7 @@ const {
   mockCheckAndDeduct: vi.fn(),
   mockRefund: vi.fn(),
   mockRefundForTxn: vi.fn(),
+  mockFinalizeCreditDeduction: vi.fn(),
   mockPrisma: {
     workspace: { findFirst: vi.fn() },
     brandProfile: { findUnique: vi.fn() },
@@ -21,6 +23,7 @@ const {
 
 vi.mock('@/lib/apiAuth', () => ({ getAuthUser: mockGetAuthUser }))
 vi.mock('@/lib/dbRateLimit', () => ({ suggestRateLimitDb: mockSuggestRateLimitDb }))
+vi.mock('@/lib/billableAiRateLimit', () => ({ enforceBillableAiRateLimit: vi.fn().mockResolvedValue(null) }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
@@ -34,6 +37,8 @@ vi.mock('@/lib/credits', () => ({
     }
     await mockRefund(userId, action, reason)
   }),
+  finalizeCreditDeduction: mockFinalizeCreditDeduction,
+  creditCheckHttpStatus: (result: any) => result.error === 'CREDIT_OPERATION_REPLAY' ? 409 : 402,
   getCreditActionPolicy: () => ({ action: 'AI_FIELD_SUGGESTION', cost: 1, label: 'AI field suggestion' }),
 }))
 vi.mock('@/lib/ai/promptRules', () => ({
@@ -58,6 +63,7 @@ beforeEach(() => {
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 1, creditsRemaining: 19 })
   mockRefund.mockResolvedValue(undefined)
   mockRefundForTxn.mockResolvedValue(undefined)
+  mockFinalizeCreditDeduction.mockResolvedValue({ ok: true, status: 'settled' })
   mockPrisma.workspace.findFirst.mockResolvedValue(null)
   mockPrisma.brandProfile.findUnique.mockResolvedValue(null)
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
@@ -124,7 +130,16 @@ describe('POST /api/campaigns/suggest — RF-2 refund safety', () => {
 
     expect(res.status).toBe(200)
     expect(json.suggestion).toBe('Launch sprint')
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'AI_FIELD_SUGGESTION')
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith(
+      'u1',
+      'AI_FIELD_SUGGESTION',
+      undefined,
+      expect.objectContaining({
+        entityId: 'u1',
+        entityType: 'campaign_intake_suggestion',
+        operationKey: expect.any(String),
+      }),
+    )
     expect(json.creditCharge).toMatchObject({ action: 'AI_FIELD_SUGGESTION', cost: 1, creditsUsed: 1 })
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()

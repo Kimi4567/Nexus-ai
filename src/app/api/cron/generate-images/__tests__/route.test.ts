@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockCheckAndDeduct,
+  mockFinalizeDeduction,
   mockCheckDailyImageCap,
   mockRefund,
   mockRefundForTxn,
@@ -23,6 +24,7 @@ const {
   mockPrisma,
 } = vi.hoisted(() => ({
   mockCheckAndDeduct: vi.fn(),
+  mockFinalizeDeduction: vi.fn(),
   mockCheckDailyImageCap: vi.fn(),
   mockRefund: vi.fn(),
   mockRefundForTxn: vi.fn(),
@@ -48,8 +50,16 @@ vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
   checkDailyImageCap: mockCheckDailyImageCap,
+  finalizeCreditDeduction: mockFinalizeDeduction,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
+  refundCreditDeduction: vi.fn(async ({ userId, action, deduction, reason }) => {
+    if (!deduction) return { ok: true, status: 'not-charged' }
+    if (deduction.transactionId) {
+      return mockRefundForTxn({ userId, transactionId: deduction.transactionId, reason })
+    }
+    return mockRefund(userId, action, reason)
+  }),
 }))
 vi.mock('@/lib/ai/falGen', () => ({
   generateWithFlux: mockGenerateWithFlux,
@@ -135,6 +145,7 @@ beforeEach(() => {
   })
   mockRefund.mockResolvedValue({ ok: true, status: 'refunded' })
   mockRefundForTxn.mockResolvedValue({ ok: true, status: 'refunded' })
+  mockFinalizeDeduction.mockResolvedValue({ ok: true, status: 'settled' })
   mockGenerateWithFlux.mockResolvedValue({ imageUrl: 'https://fal.cdn/image-a.png' })
   mockApplyOverlay.mockImplementation((url: string) => `${url}?overlay=1`)
   mockPlatformToOverlay.mockReturnValue('square')
@@ -399,7 +410,7 @@ describe('GET /api/cron/generate-images — RF-6B refund safety', () => {
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
 
-  it('does not refund unlimited users when creditsUsed is 0', async () => {
+  it('releases an unlimited-plan reservation even when its wallet debit is 0', async () => {
     mockCheckAndDeduct.mockResolvedValue({
       ok: true,
       creditsUsed: 0,
@@ -414,7 +425,10 @@ describe('GET /api/cron/generate-images — RF-6B refund safety', () => {
 
     expect(res.status).toBe(200)
     expect(mockRefund).not.toHaveBeenCalled()
-    expect(mockRefundForTxn).not.toHaveBeenCalled()
+    expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'user_1',
+      transactionId: 'txn_unlimited',
+    }))
   })
 
   it('successful run preserves response shape and does not refund', async () => {
@@ -436,7 +450,11 @@ describe('GET /api/cron/generate-images — RF-6B refund safety', () => {
       'user_1',
       'IMAGE_GENERATION',
       undefined,
-      { entityId: 'post_a', entityType: 'social_post_image' },
+      expect.objectContaining({
+        entityId: 'post_a',
+        entityType: 'social_post_image',
+        operationKey: expect.any(String),
+      }),
     )
     expect(mockPrisma.socialPost.update).toHaveBeenCalledWith({
       where: { id: 'post_a' },

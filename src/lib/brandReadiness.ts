@@ -17,7 +17,10 @@ export type RequiredFieldKey =
   | 'brandName'
   | 'industry'
   | 'description'
+  | 'primaryOffer'
   | 'targetAudience'
+  | 'audiencePainPoints'
+  | 'businessGoal'
   | 'topPlatforms'
 
 export type RecommendedFieldKey =
@@ -49,6 +52,8 @@ export type BrandProfileLike = {
   industry?: string | null
   description?: string | null
   targetAudience?: string | null
+  audiencePainPoints?: string[] | null
+  businessGoal?: string | null
   topPlatforms?: string[] | null
   competitorNotes?: string | null
   writingStyle?: string | null
@@ -63,7 +68,10 @@ const REQUIRED: { key: RequiredFieldKey; check: (p: BrandProfileLike) => boolean
   { key: 'brandName',      check: p => Boolean(p.brandName?.trim()) },
   { key: 'industry',       check: p => Boolean(p.industry?.trim()) },
   { key: 'description',    check: p => Boolean(p.description?.trim()) },
+  { key: 'primaryOffer',   check: p => Boolean(p.primaryOffer?.trim()) },
   { key: 'targetAudience', check: p => Boolean(p.targetAudience?.trim()) },
+  { key: 'audiencePainPoints', check: p => Boolean(p.audiencePainPoints?.some(item => item?.trim())) },
+  { key: 'businessGoal',   check: p => Boolean(p.businessGoal?.trim()) },
   { key: 'topPlatforms',   check: p => Boolean(p.topPlatforms?.length) },
 ]
 
@@ -72,7 +80,6 @@ const RECOMMENDED: { key: RecommendedFieldKey; check: (p: BrandProfileLike) => b
   { key: 'writingStyle',    check: p => Boolean(p.writingStyle?.trim()) },
   { key: 'avoidKeywords',   check: p => Boolean(p.avoidKeywords?.length) },
   { key: 'audienceLocation',check: p => Boolean(p.audienceLocation?.trim()) },
-  { key: 'primaryOffer',    check: p => Boolean(p.primaryOffer?.trim()) },
 ]
 
 // -- Core helper -------------------------------------------------------------
@@ -282,12 +289,16 @@ export function getStrategyCapabilities(
   const p: StrategyProfileLike = profile ?? {}
   const hasPixel = Boolean(opts.hasPixel)
 
-  // Content base = the existing organic gate (same 5 fields as getBrandBrainReadiness).
+  // Content base = the professional organic gate used everywhere else. Offer,
+  // pains, and outcome are required so the generator cannot fill them silently.
   const contentMissing = missingKeysOf(p, [
     { key: 'brandName',      ok: x => hasStr(x.brandName) },
     { key: 'industry',       ok: x => hasStr(x.industry) },
     { key: 'description',    ok: x => hasStr(x.description) },
+    { key: 'primaryOffer',   ok: x => hasStr(x.primaryOffer) },
     { key: 'targetAudience', ok: x => hasStr(x.targetAudience) },
+    { key: 'audiencePainPoints', ok: x => hasArr(x.audiencePainPoints) },
+    { key: 'businessGoal',   ok: x => hasStr(x.businessGoal) },
     { key: 'topPlatforms',   ok: x => hasArr(x.topPlatforms) },
   ])
   const contentReady = contentMissing.length === 0
@@ -299,11 +310,9 @@ export function getStrategyCapabilities(
     confidence: contentReady ? 'high' : 'none',
   }
 
-  // ── full marketing strategy ── (content base + goal/offer/location/differentiator)
+  // ── full marketing strategy ── (professional content base + location/differentiator)
   // missingKeys folds in the content base so it is never empty when not ready.
   const fullExtra = missingKeysOf(p, [
-    { key: 'businessGoal',     ok: x => hasStr(x.businessGoal) },
-    { key: 'primaryOffer',     ok: x => hasStr(x.primaryOffer) },
     { key: 'audienceLocation', ok: x => hasStr(x.audienceLocation) },
     { key: 'uniqueAdvantages', ok: x => hasArr(x.uniqueAdvantages) },
   ])
@@ -316,12 +325,12 @@ export function getStrategyCapabilities(
     confidence: fullReady ? 'high' : contentReady ? 'low' : 'none',
   }
 
-  // ── paid strategy ── (content base + offer + budget + conversion destination + location)
+  // ── paid strategy ── (professional content base + budget + destination + location + follow-up)
   const paidExtra = missingKeysOf(p, [
-    { key: 'primaryOffer',          ok: x => hasStr(x.primaryOffer) },
     { key: 'marketingBudget',       ok: x => hasStr(x.marketingBudget) },
     { key: 'conversionDestination', ok: x => hasStr(x.conversionDestination) },
     { key: 'audienceLocation',      ok: x => hasStr(x.audienceLocation) },
+    { key: 'leadHandling',          ok: x => hasStr(x.leadHandling) },
   ])
   const paidMissing = [...contentMissing, ...paidExtra]
   const paidReady = paidMissing.length === 0

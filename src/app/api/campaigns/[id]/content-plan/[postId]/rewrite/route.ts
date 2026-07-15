@@ -17,6 +17,8 @@ import { getServerUserId } from '@/lib/apiAuth'
 import {
   buildCreditChargeReceipt,
   checkAndDeductCredits,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
   refundCreditDeduction,
   type CreditDeductionOk,
 } from '@/lib/credits'
@@ -30,6 +32,8 @@ import {
   isImmutableExecutionPost,
   reopensContentReview,
 } from '@/lib/contentPostRevision'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 type Params = { params: Promise<{ id: string; postId: string }> }
 
@@ -113,12 +117,24 @@ export async function POST(req: NextRequest, props: Params) {
       return NextResponse.json(getAiProviderUnavailablePayload(outputLanguage), { status: 503 })
     }
 
+    const rateLimitResponse = await enforceBillableAiRateLimit(userId, 'AI_POST_REWRITE')
+    if (rateLimitResponse) return rateLimitResponse
+
     // ── 2. Deduct 1 credit ─────────────────────────────────────────────────
-    const creditCheck = await checkAndDeductCredits(userId, 'AI_POST_REWRITE') // 1 credit
+    const creditCheck = await checkAndDeductCredits(
+      userId,
+      'AI_POST_REWRITE',
+      undefined,
+      {
+        entityId: params.postId,
+        entityType: 'social_post_rewrite',
+        operationKey: getCreditOperationKey(req, 'AI_POST_REWRITE', 'social_post_rewrite', params.postId),
+      },
+    ) // 1 credit
     if (!creditCheck.ok) {
       return NextResponse.json(
         { error: creditCheck.error ?? 'Insufficient credits', code: 'INSUFFICIENT_CREDITS' },
-        { status: 402 },
+        { status: creditCheckHttpStatus(creditCheck) },
       )
     }
     chargedCredit = creditCheck
@@ -266,6 +282,21 @@ ${post.caption}${instruction ? `\n\nRewrite instruction: ${instruction}` : '\n\n
       }
       return next
     })
+
+    const finalization = await finalizeCreditDeduction({
+      userId,
+      action: 'AI_POST_REWRITE',
+      deduction: creditCheck,
+    })
+    if (!finalization.ok) {
+      chargedCredit = null
+      return NextResponse.json({
+        error: 'Rewritten post was saved but the credit operation could not be finalized. Reserved credits were returned; refresh the post.',
+        code: 'CREDIT_FINALIZATION_FAILED',
+        refunded: finalization.refundStatus === 'refunded',
+      }, { status: 503 })
+    }
+    chargedCredit = null
 
     return NextResponse.json({
       post: updated,

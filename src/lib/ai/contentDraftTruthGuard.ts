@@ -574,13 +574,145 @@ function guardSaasActivationClaims(text: string, context: ContentDraftTruthConte
   return guarded
 }
 
+function brandFactCorpus(context: ContentDraftTruthContext): string {
+  const flatten = (value: unknown): string[] => {
+    if (typeof value === 'string') return [value]
+    if (Array.isArray(value)) return value.flatMap(flatten)
+    return []
+  }
+  return [
+    ...flatten(context.brandFacts),
+    ...flatten(context.verifiedProof),
+  ].join(' ').toLocaleLowerCase()
+}
+
+function replaceMatchingSentences(text: string, pattern: RegExp, fallback: string): string {
+  let inserted = false
+  return text
+    .split(/(?<=[.!؟])/u)
+    .map((sentence) => {
+      pattern.lastIndex = 0
+      if (!pattern.test(sentence)) return sentence
+      if (inserted) return ''
+      inserted = true
+      return ` ${fallback}`
+    })
+    .filter(Boolean)
+    .join('')
+}
+
+/**
+ * Feature and outcome claims are a separate risk from testimonials or numeric
+ * performance promises. A model can invent integrations, support availability,
+ * savings, productivity, or scale without using any word caught by the generic
+ * claim detector. Only keep those claims when Brand Brain explicitly contains
+ * the corresponding fact; otherwise replace the whole claim sentence with a
+ * concrete verification step.
+ */
+function guardUnverifiedFeatureAndOutcomeClaims(
+  text: string,
+  context: ContentDraftTruthContext,
+): string {
+  const facts = brandFactCorpus(context)
+  let guarded = text
+
+  if (!/(?:integrat|compatib|تكامل|متكامل|ربط\s+(?:مع|ب))/.test(facts)) {
+    guarded = replaceMatchingSentences(
+      guarded,
+      /(?:seamless\s+integration|integrat(?:e|es|ed|ion|ions|ing)\s+with|system\s+integration|تكامل\s+سلس|يتكامل\s+مع|ربط\s+سلس)/i,
+      /[\u0600-\u06ff]/u.test(guarded)
+        ? 'احصر الأدوات الحالية وتحقق من التوافق الموثق قبل اعتماد سير العمل.'
+        : 'List the tools in use today and verify documented compatibility before adopting the workflow.',
+    )
+    guarded = guarded.replace(/#(?:SystemIntegration|BusinessEfficiency|TechSolutions)\b/gi, '#WorkflowReview')
+  }
+
+  if (!/(?:customer\s+support|technical\s+support|support\s+hours|دعم\s+(?:فني|عملاء)|ساعات\s+الدعم)/.test(facts)) {
+    guarded = replaceMatchingSentences(
+      guarded,
+      /(?:instant\s+support|support\s+(?:anytime|at\s+any\s+time|24\s*\/\s*7)|technical\s+support|دعم\s+فوري|الدعم\s+الفني|مساعدتك\s+في\s+أي\s+وقت)/i,
+      /[\u0600-\u06ff]/u.test(guarded)
+        ? 'راجع قنوات الدعم وساعات الاستجابة الموثقة قبل اختيار النظام.'
+        : 'Review the documented support channels and response hours before choosing the system.',
+    )
+  }
+
+  if (!/(?:cost\s+sav|reduce\s+cost|خفض\s+التكلفة|توفير\s+التكلفة|خفض\s+التكاليف|توفير\s+التكاليف)/.test(facts)) {
+    guarded = replaceMatchingSentences(
+      guarded,
+      /(?:reduce\s+(?:your\s+)?costs?|save\s+on|business\s+savings|cost\s+efficiency|خفض\s+(?:التكلفة|التكاليف)|وفّر\s+(?:التكلفة|التكاليف)|توفير\s+(?:التكلفة|التكاليف))/i,
+      /[\u0600-\u06ff]/u.test(guarded)
+        ? 'قارن تكلفة الأدوات الحالية بالنطاق والسعر الموثقين قبل قرار التوحيد.'
+        : 'Compare current tool costs with the documented scope and price before deciding whether consolidation fits.',
+    )
+    guarded = guarded.replace(/#(?:CostEfficiency|BusinessSavings)\b/gi, '#WorkflowReview')
+  }
+
+  if (!/(?:productiv|efficien|إنتاجي|كفاءة)/.test(facts)) {
+    guarded = replaceMatchingSentences(
+      guarded,
+      /(?:productiv(?:e|ity)|efficien(?:t|cy)|business\s+efficiency|ارفع\s+إنتاجيتك|إنتاجيتك|زد\s+من\s+كفاءة|زيادة\s+الكفاءة|تحسين\s+الكفاءة)/i,
+      /[\u0600-\u06ff]/u.test(guarded)
+        ? 'ارسم خطوات المتابعة الحالية وراجع هل يجعل النظام الموحد انتقال العمل أوضح.'
+        : 'Map the current handoffs and review whether the unified workflow makes ownership clearer.',
+    )
+    guarded = guarded
+      .replace(/#(?:Productivity|Efficiency)\b/gi, '#WorkflowReview')
+      .replace(/#(?:تحسين_الإنتاجية|رفع_الإنتاجية|كفاءة_العمل)\b/g, '#سير_العمل')
+  }
+
+  if (!/(?:business\s+growth|market\s+growth|scal(?:e|ing)|expand|نمو\s+الأعمال|توسع)/.test(facts)) {
+    guarded = replaceMatchingSentences(
+      guarded,
+      /(?:expand\s+your\s+business|scale\s+your\s+operations?|business\s+growth|market\s+growth|grow\s+your\s+business|وسّع\s+أعمالك|وسع\s+أعمالك|نمّ\s+أعمالك|توسيع\s+الأعمال)/i,
+      /[\u0600-\u06ff]/u.test(guarded)
+        ? 'راجع حدود سير العمل الحالي ونطاق المنتج الموثق قبل التخطيط للتوسع.'
+        : 'Review current workflow limits and the documented product scope before planning expansion.',
+    )
+    guarded = guarded.replace(/#(?:BusinessGrowth|MarketGrowth|BusinessExpansion)\b/gi, '#WorkflowReview')
+  }
+
+  if (!/(?:user\s+experience|customer\s+experience|تجربة\s+(?:المستخدم|العميل))/.test(facts)) {
+    guarded = replaceMatchingSentences(
+      guarded,
+      /(?:improved|enhanced|better)\s+(?:user|customer)\s+experience|exceed\s+(?:your\s+)?expectations|تجربة\s+مستخدم\s+محسنة|تجربة\s+عميل\s+محسنة|تجاوز\s+توقعاتك/i,
+      /[\u0600-\u06ff]/u.test(guarded)
+        ? 'راجع تجربة الاستخدام الفعلية وحدد مدى ملاءمتها لاحتياجات فريقك.'
+        : 'Review the actual product flow and confirm whether it fits the team\'s needs.',
+    )
+  }
+
+  if (!/(?:sales\s+result|sales\s+growth|conversion\s+lift|زيادة\s+المبيعات|تحويل\s+.*مبيعات)/.test(facts)) {
+    guarded = replaceMatchingSentences(
+      guarded,
+      /(?:turn\s+leads\s+into\s+sales|enhance\s+(?:your\s+)?sales\s+strategy|increase\s+sales|تحويل\s+العملاء\s+المحتملين\s+إلى\s+مبيعات|تحسين\s+استراتيجية\s+المبيعات)/i,
+      /[\u0600-\u06ff]/u.test(guarded)
+        ? 'راجع مراحل متابعة العملاء المحتملين قبل قياس أي أثر على المبيعات.'
+        : 'Review the documented lead stages and follow-up steps before measuring any sales outcome.',
+    )
+    guarded = guarded.replace(/#(?:BusinessGrowth|SalesGrowth)\b/gi, '#LeadManagement')
+  }
+
+  // A caption must not point to a tutorial or demonstration that is not part of
+  // the post or linked through a verified destination.
+  guarded = replaceMatchingSentences(
+    guarded,
+    /(?:watch\s+how\s+you\s+can\s+enhance\s+(?:your\s+)?sales\s+strategy|شاهد\s+كيف\s+يمكنك\s+تحسين\s+استراتيجية\s+المبيعات)/i,
+    /[\u0600-\u06ff]/u.test(guarded)
+      ? 'راجع خطوات سير العمل الموثقة قبل اختيار الإجراء التالي.'
+      : 'Review the documented workflow before choosing the next step.',
+  )
+
+  return guarded
+}
+
 export function guardContentDraftText(
   text: unknown,
   context: ContentDraftTruthContext = {},
 ): string {
   if (typeof text !== 'string' || !text.trim()) return typeof text === 'string' ? text : ''
 
-  return guardSaasActivationClaims(guardPaidAndStatusClaims(
+  const guarded = guardSaasActivationClaims(guardPaidAndStatusClaims(
     guardDraftCopyQuality(guardCoffeeComplianceClaims(
       guardDeliveryClaims(
         guardOutcomeClaims(
@@ -600,6 +732,8 @@ export function guardContentDraftText(
       ),
     )),
   ), context)
+
+  return guardUnverifiedFeatureAndOutcomeClaims(guarded, context)
     .replace(/\s{2,}/g, ' ')
     .trim()
 }
@@ -640,6 +774,8 @@ export function buildContentDraftTruthPolicyPrompt(): string {
     '- Do not invent testimonials, customer stories, reviews, awards, case studies, guarantees, or performance proof.',
     '- If proof is missing, ask for feedback, collect proof, or mention proof gaps as future work.',
     '- Do not invent ad spend, ROAS, CAC, paid launch, or budget allocation assumptions.',
+    '- Do not invent integrations, compatibility, support availability, response times, cost savings, productivity, efficiency, business growth, scale, or improved user experience. Keep each only when Brand Brain explicitly supplies that fact.',
+    '- Do not point users to a tutorial, demonstration, or video that is not present in the post or linked through a verified destination.',
     '- For a brand that explicitly sells healthcare or clinic operations software, avoid patient outcome, care-quality, guarantee, or broad transformation claims such as ultimate solution, key to success, game-changer, premium care, excellent healthcare, الحل الأمثل, مفتاح النجاح, يغير منظورك, رعاية صحية متميزة, or تجربة مرضى متميزة unless exact verified proof exists.',
     '- Only use clinic-operations language such as appointment organization, administrative follow-up, team tasks, and reviewable workflows when the brand context explicitly says the product is software, an app, a platform, or a clinic-management system.',
     '- A clinic, dental practice, hospital, doctor, or healthcare provider is not automatically a SaaS product. Never rewrite provider marketing into front-desk, handoff, dashboard, leadership, or internal-workflow content unless the saved brand facts explicitly describe that product.',

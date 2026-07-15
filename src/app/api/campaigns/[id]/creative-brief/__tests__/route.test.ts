@@ -9,6 +9,7 @@ const {
   mockAnalyzeAssets,
   mockGenerateVisualConcepts,
   mockPrisma,
+  mockFinalizeCreditDeduction,
 } = vi.hoisted(() => ({
   mockGetServerUserId: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
@@ -17,6 +18,7 @@ const {
   mockReviewStrategyGrounding: vi.fn(),
   mockAnalyzeAssets: vi.fn(),
   mockGenerateVisualConcepts: vi.fn(),
+  mockFinalizeCreditDeduction: vi.fn(),
   mockPrisma: {
     campaign: { findFirst: vi.fn(), update: vi.fn() },
     media: { findMany: vi.fn() },
@@ -26,8 +28,11 @@ const {
 
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
+vi.mock('@/lib/billableAiRateLimit', () => ({ enforceBillableAiRateLimit: vi.fn().mockResolvedValue(null) }))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
+  creditCheckHttpStatus: (result: any) => result.error === 'CREDIT_OPERATION_REPLAY' ? 409 : 402,
+  finalizeCreditDeduction: mockFinalizeCreditDeduction,
   refundCreditDeduction: vi.fn(async ({ deduction }) => {
     if (deduction?.creditsUsed > 0) await mockRefund()
   }),
@@ -80,6 +85,7 @@ beforeEach(() => {
   mockPrisma.campaignActivity.create.mockResolvedValue({})
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 4, creditsRemaining: 16 })
   mockRefund.mockResolvedValue(undefined)
+  mockFinalizeCreditDeduction.mockResolvedValue({ ok: true, status: 'settled' })
   mockReviewBrandTruth.mockReturnValue({
     schemaVersion: 1,
     status: 'passed',
@@ -186,7 +192,16 @@ describe('POST /api/campaigns/[id]/creative-brief — provider and credit orderi
     expect(res.status).toBe(200)
     expect(json.creditsRemaining).toBe(16)
     expect(json.creditCharge).toMatchObject({ action: 'CREATIVE_BRIEF', cost: 3, creditsUsed: 4 })
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('user_1', 'CREATIVE_BRIEF')
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith(
+      'user_1',
+      'CREATIVE_BRIEF',
+      undefined,
+      expect.objectContaining({
+        entityId: 'campaign_1',
+        entityType: 'campaign_creative_brief',
+        operationKey: expect.any(String),
+      }),
+    )
     expect(mockGenerateVisualConcepts).toHaveBeenCalledTimes(1)
     expect(mockRefund).not.toHaveBeenCalled()
   })

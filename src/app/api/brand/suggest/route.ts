@@ -10,12 +10,16 @@ import {
 } from '@/lib/ai/promptRules'
 import {
   checkAndDeductCredits,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
   getCreditActionPolicy,
   refundCreditDeduction,
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { guardBrandText, guardBrandList } from '@/lib/ai/brandTruthGuard'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 /* ═══════════════════════════════════════════════════════════════
    POST /api/brand/suggest
@@ -255,8 +259,20 @@ Rules:
       return NextResponse.json(getAiProviderUnavailablePayload(locale), { status: 503 })
     }
 
-    const credit = await checkAndDeductCredits(user.id, 'AI_FIELD_SUGGESTION')
-    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
+    const rateLimitResponse = await enforceBillableAiRateLimit(user.id, 'AI_FIELD_SUGGESTION')
+    if (rateLimitResponse) return rateLimitResponse
+
+    const credit = await checkAndDeductCredits(
+      user.id,
+      'AI_FIELD_SUGGESTION',
+      undefined,
+      {
+        entityId: user.id,
+        entityType: 'brand_profile_field_suggestion',
+        operationKey: getCreditOperationKey(req, 'AI_FIELD_SUGGESTION', 'brand_profile_field_suggestion', user.id),
+      },
+    )
+    if (!credit.ok) return NextResponse.json(credit, { status: creditCheckHttpStatus(credit) })
     chargedUserId = user.id
     chargedCredit = credit
 
@@ -287,6 +303,24 @@ Rules:
       // PR-G: deterministic truth guard — scrub invented metrics, downgrade fake
       // proof / overclaimed automation before it can be saved as brand truth.
       const suggestion = guardBrandText(rawSuggestion, allowedClaims)
+      if (!suggestion.trim()) {
+        await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'Truth guard removed the unusable suggestion' })
+        return NextResponse.json({ error: 'AI returned no safe usable suggestion', refunded: true }, { status: 502 })
+      }
+      const finalization = await finalizeCreditDeduction({
+        userId: user.id,
+        action: 'AI_FIELD_SUGGESTION',
+        deduction: credit,
+      })
+      if (!finalization.ok) {
+        chargedCredit = null
+        return NextResponse.json({
+          error: 'Suggestion could not be finalized. Reserved credits were returned.',
+          code: 'CREDIT_FINALIZATION_FAILED',
+          refunded: finalization.refundStatus === 'refunded',
+        }, { status: 503 })
+      }
+      chargedCredit = null
       return NextResponse.json({
         suggestion,
         creditsUsed: credit.creditsUsed,
@@ -350,6 +384,25 @@ Rules:
     // PR-G: same deterministic truth guard for array suggestions (hooks, angles,
     // advantages, etc.) — keeps user-provided figures, scrubs invented ones.
     suggestions = guardBrandList(suggestions, allowedClaims)
+    if (suggestions.length === 0) {
+      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'Truth guard removed all unusable suggestions' })
+      return NextResponse.json({ error: 'AI returned no safe usable suggestions', refunded: true }, { status: 502 })
+    }
+
+    const finalization = await finalizeCreditDeduction({
+      userId: user.id,
+      action: 'AI_FIELD_SUGGESTION',
+      deduction: credit,
+    })
+    if (!finalization.ok) {
+      chargedCredit = null
+      return NextResponse.json({
+        error: 'Suggestions could not be finalized. Reserved credits were returned.',
+        code: 'CREDIT_FINALIZATION_FAILED',
+        refunded: finalization.refundStatus === 'refunded',
+      }, { status: 503 })
+    }
+    chargedCredit = null
 
     return NextResponse.json({
       suggestions,

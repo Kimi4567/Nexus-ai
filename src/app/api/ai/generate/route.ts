@@ -4,12 +4,14 @@ import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import {
   buildCreditChargeReceipt,
   checkAndDeductCredits,
-  refundCredits,
-  refundCreditsForTransaction,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
+  refundCreditDeduction,
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 /* ═══════════════════════════════════════════════════════════════
    /api/ai/generate
@@ -45,12 +47,7 @@ function buildLegacyUserMessage(body: Record<string, unknown>): string {
 }
 
 async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
-  if (credit.creditsUsed <= 0) return
-  if (credit.transactionId) {
-    await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
-    return
-  }
-  await refundCredits(userId, 'AD_COPY', reason)
+  await refundCreditDeduction({ userId, action: 'AD_COPY', deduction: credit, reason })
 }
 
 // ── Main handler ───────────────────────────────────────────────
@@ -116,8 +113,17 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.OPENAI_API_KEY!.trim()
 
   // ── Credit deduction (before OpenAI call) ─────────────────────
-  const creditResult = await checkAndDeductCredits(userId, 'AD_COPY')
-  if (!creditResult.ok) return NextResponse.json(creditResult, { status: 402 })
+  const creditResult = await checkAndDeductCredits(
+    userId,
+    'AD_COPY',
+    undefined,
+    {
+      entityId: userId,
+      entityType: 'ephemeral_ai_response',
+      operationKey: getCreditOperationKey(req, 'AD_COPY', 'ephemeral_ai_response', userId),
+    },
+  )
+  if (!creditResult.ok) return NextResponse.json(creditResult, { status: creditCheckHttpStatus(creditResult) })
   const credit: CreditDeductionOk = creditResult
 
   // Real OpenAI call
@@ -151,6 +157,19 @@ export async function POST(req: NextRequest) {
 
     const data = await response.json()
     const content = data.choices?.[0]?.message?.content ?? ''
+    if (typeof content !== 'string' || !content.trim()) {
+      await refundDeductedCredits(userId, credit, 'OpenAI returned no usable content')
+      return NextResponse.json({ error: 'AI returned no usable content', refunded: true }, { status: 502 })
+    }
+
+    const finalization = await finalizeCreditDeduction({ userId, action: 'AD_COPY', deduction: credit })
+    if (!finalization.ok) {
+      return NextResponse.json({
+        error: 'AI output could not be finalized. Reserved credits were returned.',
+        code: 'CREDIT_FINALIZATION_FAILED',
+        refunded: finalization.refundStatus === 'refunded',
+      }, { status: 503 })
+    }
 
     // Return both field names — both calling conventions work
     return NextResponse.json({

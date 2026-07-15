@@ -6,12 +6,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { generateMarketingStrategy, generateAdConcepts } from '@/lib/ai/adapter'
-import { buildCreditChargeReceipt, checkAndDeductCredits, refundCreditDeduction } from '@/lib/credits'
+import {
+  buildCreditChargeReceipt,
+  checkAndDeductCredits,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
+  refundCreditDeduction,
+} from '@/lib/credits'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import { assertCampaignStrategyContract } from '@/lib/campaignStrategyContract'
 import { reviewBrandTruthConsistency, reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 // Simple in-memory rate limiter: 5 generations per user per minute
 const rateMap = new Map<string, { count: number; reset: number }>()
@@ -71,9 +78,18 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Unified credit check + deduction ────────────────────────────────────────
-  const credit = await checkAndDeductCredits(userId, 'CAMPAIGN_GENERATION')
+  const credit = await checkAndDeductCredits(
+    userId,
+    'CAMPAIGN_GENERATION',
+    undefined,
+    {
+      entityId: workspace.id,
+      entityType: 'workspace_campaign_preview',
+      operationKey: getCreditOperationKey(req, 'CAMPAIGN_GENERATION', 'workspace_campaign_preview', workspace.id),
+    },
+  )
   if (!credit.ok) {
-    return NextResponse.json(credit, { status: 402 })
+    return NextResponse.json(credit, { status: creditCheckHttpStatus(credit) })
   }
   // ────────────────────────────────────────────────────────────────────────────
 
@@ -135,6 +151,19 @@ export async function POST(req: NextRequest) {
         qualityGate,
         refunded: credit.creditsUsed > 0,
       }, { status: 422 })
+    }
+
+    const finalization = await finalizeCreditDeduction({
+      userId,
+      action: 'CAMPAIGN_GENERATION',
+      deduction: credit,
+    })
+    if (!finalization.ok) {
+      return NextResponse.json({
+        error: 'Campaign preview could not be finalized. Reserved credits were returned.',
+        code: 'CREDIT_FINALIZATION_FAILED',
+        refunded: finalization.refundStatus === 'refunded',
+      }, { status: 503 })
     }
 
     return NextResponse.json({

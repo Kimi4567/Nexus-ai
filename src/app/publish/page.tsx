@@ -245,8 +245,9 @@ export default function PublishPage() {
       <main dir={dir} className="nx-os-page">
         <div className="nx-os-container nx-os-stack">
           <LuxuryWorkspaceHeader
-            pageTitle={copy('النشر', 'Publishing')}
-            pageSubtitle={copy('حالة فعلية للمحتوى والوسائط والجدولة والحسابات قبل أي نشر.', 'Verified content, media, scheduling, and account state before any publishing.')}
+            journeyStage="execution"
+            pageTitle={copy('جاهزية النشر', 'Publishing readiness')}
+            pageSubtitle={copy('أداة تحقق داخل التنفيذ لحالة المحتوى والوسائط والجدولة والحسابات قبل أي نشر.', 'An Execution verification tool for content, media, scheduling, and account state before publishing.')}
             primaryHref="/connections"
             primaryLabel={copy('راجع الحسابات', 'Review accounts')}
             secondaryHref="/content-hub"

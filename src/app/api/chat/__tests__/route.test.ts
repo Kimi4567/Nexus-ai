@@ -4,12 +4,14 @@ const {
   mockEnsureDbUser,
   mockRateLimit,
   mockCheckAndDeduct,
+  mockFinalizeDeduction,
   mockRefundDeduction,
   mockPrisma,
 } = vi.hoisted(() => ({
   mockEnsureDbUser: vi.fn(),
   mockRateLimit: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
+  mockFinalizeDeduction: vi.fn(),
   mockRefundDeduction: vi.fn(),
   mockPrisma: {
     user: { findUnique: vi.fn() },
@@ -22,6 +24,9 @@ const {
 
 vi.mock('@/lib/apiAuth', () => ({ ensureDbUser: mockEnsureDbUser }))
 vi.mock('@/lib/dbRateLimit', () => ({ chatRateLimitDb: mockRateLimit }))
+vi.mock('@/lib/billableAiRateLimit', () => ({
+  enforceBillableAiRateLimit: vi.fn().mockResolvedValue(null),
+}))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 vi.mock('@/lib/credits', () => ({
   CREDIT_COSTS: {
@@ -32,6 +37,8 @@ vi.mock('@/lib/credits', () => ({
     CHAT_MESSAGE: 1,
   },
   checkAndDeductCredits: mockCheckAndDeduct,
+  creditCheckHttpStatus: () => 402,
+  finalizeCreditDeduction: mockFinalizeDeduction,
   refundCreditDeduction: mockRefundDeduction,
   buildCreditChargeReceipt: (action: string, deduction: any) => ({
     action,
@@ -63,6 +70,7 @@ beforeEach(() => {
     transactionId: 'credit_tx_1',
   })
   mockRefundDeduction.mockResolvedValue(undefined)
+  mockFinalizeDeduction.mockResolvedValue({ ok: true, status: 'settled' })
   mockPrisma.user.findUnique.mockResolvedValue({ name: 'Owner', aiCredits: 9, subscriptionStatus: 'FREE' })
   mockPrisma.workspace.findFirst.mockResolvedValue({ id: 'workspace_1' })
   mockPrisma.subscription.findUnique.mockResolvedValue(null)
@@ -94,6 +102,10 @@ describe('POST /api/chat credit safety', () => {
     expect(await response.text()).toBe('Hello')
     expect(response.headers.get('X-Nexus-Credit-Action')).toBe('CHAT_MESSAGE')
     expect(response.headers.get('X-Nexus-Credits-Used')).toBe('1')
+    expect(mockFinalizeDeduction).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'user_1',
+      action: 'CHAT_MESSAGE',
+    }))
     expect(mockRefundDeduction).not.toHaveBeenCalled()
   })
 

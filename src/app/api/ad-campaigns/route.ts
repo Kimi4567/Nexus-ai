@@ -15,6 +15,7 @@ import {
   PaidStrategySourceError,
 } from '@/lib/paidStrategySourceServer'
 import { paidPlatformSupportsObjective } from '@/lib/paidExecutionObjective'
+import { resolvePaidStrategyRevisionTruth } from '@/lib/paidStrategyRevision'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -43,6 +44,15 @@ export async function GET(req: NextRequest) {
         adSets: {
           select: { id: true, name: true, status: true, totalSpend: true },
         },
+        strategySnapshot: {
+          select: { id: true, version: true, scope: true, payloadHash: true, createdAt: true },
+        },
+        budgetApprovalSnapshot: {
+          select: { id: true, version: true, scope: true, payloadHash: true, createdAt: true },
+        },
+        launchApprovalSnapshot: {
+          select: { id: true, version: true, scope: true, payloadHash: true, createdAt: true },
+        },
         _count: {
           select: { adSets: true },
         },
@@ -59,15 +69,41 @@ export async function GET(req: NextRequest) {
           select: { id: true, name: true, status: true, updatedAt: true },
         })
       : []
+    const strategySnapshots = sourceIds.length > 0
+      ? await prisma.campaignSnapshot.findMany({
+          where: {
+            workspaceId: workspace.id,
+            campaignId: { in: sourceIds },
+            scope: 'STRATEGY_APPROVAL',
+          },
+          orderBy: { version: 'desc' },
+          select: { id: true, campaignId: true, version: true },
+        })
+      : []
     const sourceById = new Map(sourceStrategies.map(source => [source.id, source]))
+    const latestSnapshotByCampaign = new Map<string, { id: string; version: number }>()
+    for (const snapshot of strategySnapshots) {
+      if (!latestSnapshotByCampaign.has(snapshot.campaignId)) {
+        latestSnapshotByCampaign.set(snapshot.campaignId, snapshot)
+      }
+    }
 
     return NextResponse.json({
-      campaigns: campaigns.map((campaign: { organicCampaignId?: string | null }) => ({
-        ...campaign,
-        sourceStrategy: campaign.organicCampaignId
-          ? sourceById.get(campaign.organicCampaignId) ?? null
-          : null,
-      })),
+      campaigns: campaigns.map((campaign: { organicCampaignId?: string | null; strategySnapshotId?: string | null }) => {
+        const latestSnapshot = campaign.organicCampaignId
+          ? latestSnapshotByCampaign.get(campaign.organicCampaignId) ?? null
+          : null
+        return {
+          ...campaign,
+          sourceStrategy: campaign.organicCampaignId
+            ? sourceById.get(campaign.organicCampaignId) ?? null
+            : null,
+          sourceRevision: resolvePaidStrategyRevisionTruth({
+            pinnedSnapshotId: campaign.strategySnapshotId,
+            latestSnapshot,
+          }),
+        }
+      }),
     })
   } catch (err) {
     console.error('[ad-campaigns GET]', err)
@@ -213,6 +249,7 @@ export async function POST(req: NextRequest) {
         workspaceId,
         adAccountId: adAccountId || null,
         organicCampaignId: paidSource.campaign.id,
+        strategySnapshotId: paidSource.snapshot.id,
         platform,
         name,
         objective: paidSource.truth.executionObjective,

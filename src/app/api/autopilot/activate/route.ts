@@ -83,6 +83,7 @@ export async function POST(req: NextRequest) {
         campaignId,
         workspaceId: workspace.id,
         status: 'SCHEDULED',
+        approvedAt: { not: null },
         publishMode: 'AUTO',
         autoPublishConsentAt: { not: null },
       },
@@ -104,6 +105,9 @@ export async function POST(req: NextRequest) {
       }
       if (!post.scheduledAt || !post.autoPublishConsentAt) {
         blockers.push({ postId: post.id, reason: 'explicit_auto_schedule_consent_required' })
+      }
+      if (!post.approvedAt) {
+        blockers.push({ postId: post.id, reason: 'saved_approval_evidence_required' })
       }
       if (!isContentPostMediaReadyForScheduling(post)) {
         blockers.push({ postId: post.id, reason: 'media_review_required' })

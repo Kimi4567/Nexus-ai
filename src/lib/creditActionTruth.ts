@@ -1,6 +1,7 @@
 import type { CreditAction } from '@/lib/credits'
 
-const ACTION_COSTS: Record<CreditAction, number> = {
+/** Client-safe mirror guarded against the server catalog by contract tests. */
+export const CREDIT_ACTION_COSTS: Record<CreditAction, number> = {
   CAMPAIGN_GENERATION: 5,
   RUN_FULL_STRATEGY: 8,
   CREATIVE_BRIEF: 3,
@@ -16,6 +17,7 @@ const ACTION_COSTS: Record<CreditAction, number> = {
   PAID_PACK_GENERATE: 6,
   WEBSITE_SCAN: 3,
   CONTENT_ANALYSIS: 2,
+  BRAND_EVIDENCE_ANALYSIS: 2,
 }
 
 export interface CreditActionTruthInput {
@@ -36,7 +38,7 @@ function safeCredits(value: number): number {
 }
 
 export function getCreditActionTruth(input: CreditActionTruthInput): CreditActionTruth {
-  const cost = ACTION_COSTS[input.action] ?? 0
+  const cost = CREDIT_ACTION_COSTS[input.action] ?? 0
   const creditsRemaining = safeCredits(input.creditsRemaining)
   const canAfford = input.isUnlimited === true || cost <= 0 || creditsRemaining >= cost
 

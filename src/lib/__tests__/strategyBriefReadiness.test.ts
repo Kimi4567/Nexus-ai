@@ -11,6 +11,7 @@ const organicReadyBrand: StrategyBriefProfileLike = {
   description: 'Office and home coffee supplier in Cairo.',
   primaryOffer: 'Fresh roasted coffee for offices and households',
   targetAudience: 'Office managers and coffee-loving households',
+  audiencePainPoints: ['Inconsistent supply', 'Unclear roast freshness'],
   businessGoal: 'Generate qualified leads',
   topPlatforms: ['instagram', 'facebook'],
   writingStyle: 'Warm and practical',

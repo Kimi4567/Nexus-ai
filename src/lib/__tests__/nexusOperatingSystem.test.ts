@@ -39,8 +39,8 @@ describe('deriveNexusOperatingSystem', () => {
         },
       },
       posts: [
-        { status: 'SCHEDULED', scheduledAt: '2026-07-03T15:00:00Z', publishMode: 'MANUAL' },
-        { status: 'SCHEDULED', scheduledAt: '2026-07-06T17:00:00Z', publishMode: 'MANUAL' },
+        { status: 'SCHEDULED', approvedAt: '2026-07-01T09:00:00Z', scheduledAt: '2026-07-03T15:00:00Z', publishMode: 'MANUAL' },
+        { status: 'SCHEDULED', approvedAt: '2026-07-01T09:00:00Z', scheduledAt: '2026-07-06T17:00:00Z', publishMode: 'MANUAL' },
       ],
     })
 
@@ -64,11 +64,12 @@ describe('deriveNexusOperatingSystem', () => {
       posts: [
         {
           status: 'PUBLISHED',
+          approvedAt: '2026-06-28T09:00:00Z',
           publishedAt: '2026-06-29T07:28:01Z',
           manuallyPublishedAt: '2026-06-29T07:28:01Z',
           publishMode: 'MANUAL',
         },
-        { status: 'SCHEDULED', scheduledAt: '2026-07-03T15:00:00Z', publishMode: 'MANUAL' },
+        { status: 'SCHEDULED', approvedAt: '2026-07-01T09:00:00Z', scheduledAt: '2026-07-03T15:00:00Z', publishMode: 'MANUAL' },
       ],
     })
 
@@ -91,11 +92,12 @@ describe('deriveNexusOperatingSystem', () => {
       posts: [
         {
           status: 'PUBLISHED',
+          approvedAt: '2026-06-28T09:00:00Z',
           publishedAt: '2026-06-29T07:28:01Z',
           manuallyPublishedAt: '2026-06-29T07:28:01Z',
           publishMode: 'MANUAL',
         },
-        { status: 'SCHEDULED', scheduledAt: '2026-07-03T15:00:00Z', publishMode: 'MANUAL' },
+        { status: 'SCHEDULED', approvedAt: '2026-07-01T09:00:00Z', scheduledAt: '2026-07-03T15:00:00Z', publishMode: 'MANUAL' },
       ],
     })
 
@@ -110,9 +112,9 @@ describe('deriveNexusOperatingSystem', () => {
     const os = deriveNexusOperatingSystem({
       campaign: reviewedStrategyCampaign,
       posts: [
-        { status: 'SCHEDULED', scheduledAt: '2026-07-03T15:00:00Z', imageUrl: 'https://cdn.example/ready.png', mediaSource: 'GENERATE', generationStatus: 'DONE' },
-        { status: 'SCHEDULED', scheduledAt: '2026-07-04T15:00:00Z', imageUrl: 'https://cdn.example/pending.png', mediaSource: 'GENERATE', generationStatus: 'PENDING' },
-        { status: 'SCHEDULED', scheduledAt: '2026-07-05T15:00:00Z', imageUrl: null, mediaSource: 'GENERATE', generationStatus: 'PENDING' },
+        { status: 'SCHEDULED', approvedAt: '2026-07-01T09:00:00Z', scheduledAt: '2026-07-03T15:00:00Z', imageUrl: 'https://cdn.example/ready.png', mediaSource: 'GENERATE', generationStatus: 'DONE' },
+        { status: 'SCHEDULED', approvedAt: '2026-07-01T09:00:00Z', scheduledAt: '2026-07-04T15:00:00Z', imageUrl: 'https://cdn.example/pending.png', mediaSource: 'GENERATE', generationStatus: 'PENDING' },
+        { status: 'SCHEDULED', approvedAt: '2026-07-01T09:00:00Z', scheduledAt: '2026-07-05T15:00:00Z', imageUrl: null, mediaSource: 'GENERATE', generationStatus: 'PENDING' },
       ],
     })
 
@@ -128,8 +130,8 @@ describe('deriveNexusOperatingSystem', () => {
       campaign: reviewedStrategyCampaign,
       hasConnectedPublishingAccount: false,
       posts: [
-        { status: 'SCHEDULED', scheduledAt: '2026-07-03T15:00:00Z', publishMode: 'MANUAL' },
-        { status: 'PUBLISHED', publishedAt: '2026-06-29T07:28:01Z', manuallyPublishedAt: '2026-06-29T07:28:01Z', publishMode: 'MANUAL' },
+        { status: 'SCHEDULED', approvedAt: '2026-07-01T09:00:00Z', scheduledAt: '2026-07-03T15:00:00Z', publishMode: 'MANUAL' },
+        { status: 'PUBLISHED', approvedAt: '2026-06-28T09:00:00Z', publishedAt: '2026-06-29T07:28:01Z', manuallyPublishedAt: '2026-06-29T07:28:01Z', publishMode: 'MANUAL' },
       ],
     })
 
@@ -142,7 +144,7 @@ describe('deriveNexusOperatingSystem', () => {
   it('allows performance learning only when analyticsData exists', () => {
     const waiting = deriveNexusOperatingSystem({
       campaign: reviewedStrategyCampaign,
-      posts: [{ status: 'PUBLISHED', publishedAt: '2026-06-29T07:28:01Z' }],
+      posts: [{ status: 'PUBLISHED', approvedAt: '2026-06-28T09:00:00Z', publishedAt: '2026-06-29T07:28:01Z' }],
     })
     expect(waiting.truth.performanceLearningAllowed).toBe(false)
     expect(waiting.surfaces.performance.status).toBe('waiting')
@@ -150,7 +152,7 @@ describe('deriveNexusOperatingSystem', () => {
 
     const ready = deriveNexusOperatingSystem({
       campaign: reviewedStrategyCampaign,
-      posts: [{ status: 'PUBLISHED', publishedAt: '2026-06-29T07:28:01Z', analyticsData: { reach: 120 } }],
+      posts: [{ status: 'PUBLISHED', approvedAt: '2026-06-28T09:00:00Z', publishedAt: '2026-06-29T07:28:01Z', analyticsData: { reach: 120 } }],
     })
     expect(ready.truth.performanceLearningAllowed).toBe(true)
     expect(ready.surfaces.performance.status).toBe('truth_safe')

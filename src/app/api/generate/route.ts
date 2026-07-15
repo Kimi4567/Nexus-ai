@@ -3,7 +3,13 @@ import type { NextRequest } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import * as ai from '@/lib/ai/adapter'
-import { buildCreditChargeReceipt, checkAndDeductCredits, refundCreditDeduction } from '@/lib/credits'
+import {
+  buildCreditChargeReceipt,
+  checkAndDeductCredits,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
+  refundCreditDeduction,
+} from '@/lib/credits'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { validateOutputObject, logQualityReport } from '@/lib/ai/outputValidator'
 import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from '@/lib/campaign-memory'
@@ -12,6 +18,7 @@ import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuar
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import { assertCampaignStrategyContract } from '@/lib/campaignStrategyContract'
 import { reviewBrandTruthConsistency, reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 export async function POST(req: NextRequest) {
   const userId = await getServerUserId(req)
@@ -78,9 +85,18 @@ export async function POST(req: NextRequest) {
   // ── Unified credit check + deduction ────────────────────────────────────────
   // Deduct only after cheap validation and ownership checks pass. The next step
   // is the expensive AI/provider work.
-  const credit = await checkAndDeductCredits(userId, 'CAMPAIGN_GENERATION')
+  const credit = await checkAndDeductCredits(
+    userId,
+    'CAMPAIGN_GENERATION',
+    undefined,
+    {
+      entityId: campaign.id,
+      entityType: 'campaign_generation',
+      operationKey: getCreditOperationKey(req, 'CAMPAIGN_GENERATION', 'campaign_generation', campaign.id),
+    },
+  )
   if (!credit.ok) {
-    return NextResponse.json(credit, { status: 402 })
+    return NextResponse.json(credit, { status: creditCheckHttpStatus(credit) })
   }
   // ────────────────────────────────────────────────────────────────────────────
 
@@ -183,6 +199,19 @@ export async function POST(req: NextRequest) {
       audienceHint: campaign.audience ?? undefined,
       strategy: strategy as any,
     }).catch(() => {})
+
+    const finalization = await finalizeCreditDeduction({
+      userId,
+      action: 'CAMPAIGN_GENERATION',
+      deduction: credit,
+    })
+    if (!finalization.ok) {
+      return NextResponse.json({
+        error: 'Campaign output was saved but the credit operation could not be finalized. Reserved credits were returned; refresh the campaign.',
+        code: 'CREDIT_FINALIZATION_FAILED',
+        refunded: finalization.refundStatus === 'refunded',
+      }, { status: 503 })
+    }
 
     return NextResponse.json({
       strategy,

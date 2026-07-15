@@ -12,9 +12,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { runFullAgency } from '@/lib/agents/orchestrator'
-import { checkAndDeductCredits, FREE_STARTER_CREDITS, getCreditActionPolicy, refundCreditsForTransaction } from '@/lib/credits'
-// B1c-c-1 — allocation-aware refund-to-source for the wallet path (flag-gated).
-import { isCreditWalletEnabled } from '@/lib/credits/wallet'
+import {
+  buildCreditChargeReceipt,
+  checkAndDeductCredits,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
+  FREE_STARTER_CREDITS,
+  refundCreditDeduction,
+  type CreditDeductionOk,
+  type CreditOperationReplayError,
+} from '@/lib/credits'
 import { normalizeStrategyIntent } from '@/lib/ai/strategyKpiGuard'
 // PR-S1c-2 — server-side order normalization + variable charge (never trust client price).
 import { resolveStrategyCharge } from '@/lib/strategy/normalizeStrategyOrder'
@@ -29,6 +36,8 @@ import { getBrandBrainGenerationSafety } from '@/lib/brandBrainGenerationSafety'
 import { readLockedCampaignAllowance, type CampaignAllowance } from '@/lib/campaignCommercial'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 // Strategy generation can legitimately need a second contract-repair pass before
 // anything is charged or persisted. The old 60s ceiling killed successful runs
@@ -117,11 +126,7 @@ function parseCampaignLimitError(error: string | undefined): CampaignAllowance |
   }
 }
 
-type DeductedStrategyCredit = {
-  creditsRemaining: number
-  creditsUsed: number
-  transactionId?: string
-}
+type DeductedStrategyCredit = CreditDeductionOk
 
 type StrategyCreditPreflightOk = {
   ok: true
@@ -204,44 +209,15 @@ async function refundDeductedStrategyCredits(
   credit: DeductedStrategyCredit | null,
   reason: string,
 ): Promise<boolean> {
-  if (!credit || credit.creditsUsed <= 0) return false
-
   try {
-    if (isCreditWalletEnabled() && credit.transactionId) {
-      await refundCreditsForTransaction({
-        userId,
-        transactionId: credit.transactionId,
-        reason,
-      })
-      console.log(`[strategy/run-full] Refunded ${credit.creditsUsed} credits to user ${userId} (wallet)`)
-      return true
-    }
-
-    const refundData = {
+    if (!credit) return false
+    const result = await refundCreditDeduction({
       userId,
-      action: 'REFUND',
-      amount: credit.creditsUsed,
-      description: `Refund — ${reason}`,
-      entityType: 'refund',
-    }
-
-    if (typeof (prisma as any).$transaction === 'function') {
-      await (prisma as any).$transaction(async (tx: any) => {
-        await tx.user.update({
-          where: { id: userId },
-          data: { aiCredits: { increment: credit.creditsUsed } },
-        })
-        await tx.creditTransaction.create({ data: refundData })
-      })
-    } else {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { aiCredits: { increment: credit.creditsUsed } },
-      })
-      await (prisma as any).creditTransaction.create({ data: refundData })
-    }
-    console.log(`[strategy/run-full] Refunded ${credit.creditsUsed} credits to user ${userId}`)
-    return true
+      action: 'RUN_FULL_STRATEGY',
+      deduction: credit,
+      reason,
+    })
+    return result.ok && result.status === 'refunded'
   } catch (refundErr) {
     console.error('[strategy/run-full] Credit refund failed:', refundErr)
     return false
@@ -252,7 +228,7 @@ export async function POST(req: NextRequest) {
   let body: Record<string, unknown> = {}
   let chargedUserId: string | null = null
   let deductedCredit: DeductedStrategyCredit | null = null
-  let lateCreditFailure: StrategyCreditPreflightFailure | null = null
+  let lateCreditFailure: StrategyCreditPreflightFailure | CreditOperationReplayError | null = null
   let preflightVisibleCredits: number | undefined
 
   try {
@@ -420,6 +396,8 @@ export async function POST(req: NextRequest) {
     }
     preflightVisibleCredits = creditPreflight.visibleCredits
     const freshUser = creditPreflight.user
+    const economicRateLimit = await enforceBillableAiRateLimit(user.id, 'RUN_FULL_STRATEGY')
+    if (economicRateLimit) return economicRateLimit
     // ------------------------------------------------------------------------
 
     // Language detection: body -> user preferences -> fallback 'ar'
@@ -541,17 +519,22 @@ export async function POST(req: NextRequest) {
     // Run full orchestration
     const result = await runFullAgency(workspace.id, brief, {
       beforePersistStrategy: async () => {
-        const credit = await checkAndDeductCredits(user.id, 'RUN_FULL_STRATEGY', strategyCreditCost)
+        const credit = await checkAndDeductCredits(
+          user.id,
+          'RUN_FULL_STRATEGY',
+          strategyCreditCost,
+          {
+            entityId: workspace.id,
+            entityType: 'workspace_strategy_run',
+            operationKey: getCreditOperationKey(req, 'RUN_FULL_STRATEGY', 'workspace_strategy_run', workspace.id),
+          },
+        )
         if (!credit.ok) {
           lateCreditFailure = credit
           throw new Error('STRATEGY_CREDIT_DEDUCTION_FAILED')
         }
         chargedUserId = user.id
-        deductedCredit = {
-          creditsRemaining: credit.creditsRemaining,
-          creditsUsed: credit.creditsUsed,
-          transactionId: credit.transactionId,
-        }
+        deductedCredit = credit
       },
     })
 
@@ -568,7 +551,7 @@ export async function POST(req: NextRequest) {
     const finalDeductedCredit = deductedCredit as DeductedStrategyCredit | null
 
     if (!success && lateCreditFailure) {
-      return NextResponse.json(lateCreditFailure, { status: 402 })
+      return NextResponse.json(lateCreditFailure, { status: creditCheckHttpStatus(lateCreditFailure) })
     }
 
     // ── Credit refund on complete failure ──────────────────────────────────
@@ -597,6 +580,24 @@ export async function POST(req: NextRequest) {
     const publicError = sanitizeStrategyRunError(rawError, body?.language)
     const publicErrors = result.errors.map(error => sanitizeStrategyRunError(error, body?.language) || error)
 
+    if (success && finalDeductedCredit) {
+      const finalization = await finalizeCreditDeduction({
+        userId: user.id,
+        action: 'RUN_FULL_STRATEGY',
+        deduction: finalDeductedCredit,
+      })
+      if (!finalization.ok) {
+        deductedCredit = null
+        return NextResponse.json({
+          ok: false,
+          error: 'The strategy was saved but its credit operation could not be finalized. Reserved credits were returned; refresh Strategy Studio.',
+          code: 'CREDIT_FINALIZATION_FAILED',
+          refunded: finalization.refundStatus === 'refunded',
+          campaignId: campaign?.id ?? null,
+        }, { status: 503 })
+      }
+    }
+
     return NextResponse.json({
       ok: success,
       agentRunId: result.agentRunId,
@@ -611,12 +612,8 @@ export async function POST(req: NextRequest) {
       creditsUsed: success ? (finalDeductedCredit?.creditsUsed ?? 0) : (refunded ? 0 : (finalDeductedCredit?.creditsUsed ?? 0)),
       creditCharge: success && finalDeductedCredit
         ? {
-            ...getCreditActionPolicy('RUN_FULL_STRATEGY'),
+            ...buildCreditChargeReceipt('RUN_FULL_STRATEGY', finalDeductedCredit),
             cost: strategyCreditCost,
-            creditsUsed: finalDeductedCredit.creditsUsed,
-            creditsRemaining: finalDeductedCredit.creditsRemaining,
-            isUnlimited: finalDeductedCredit.creditsRemaining === -1,
-            transactionId: finalDeductedCredit.transactionId || null,
           }
         : null,
       refunded,
@@ -627,7 +624,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('[api/strategy/run-full]', err)
     if (lateCreditFailure && !deductedCredit) {
-      return NextResponse.json(lateCreditFailure, { status: 402 })
+      return NextResponse.json(lateCreditFailure, { status: creditCheckHttpStatus(lateCreditFailure) })
     }
     const finalDeductedCredit = deductedCredit as DeductedStrategyCredit | null
     const refunded = chargedUserId

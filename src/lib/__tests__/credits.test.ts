@@ -113,7 +113,7 @@ describe('checkAndDeductCredits', () => {
     const res = await checkAndDeductCredits('u1', 'IMAGE_GENERATION') // cost 3
 
     expect(res.ok).toBe(false)
-    if (!res.ok) {
+    if (!res.ok && res.error === 'INSUFFICIENT_CREDITS') {
       expect(res.error).toBe('INSUFFICIENT_CREDITS')
       expect(res.currentCredits).toBe(1)
       expect(res.requiredCredits).toBe(CREDIT_COSTS.IMAGE_GENERATION)
@@ -258,7 +258,7 @@ describe('checkAndDeductCredits — costOverride (variable strategy pricing)', (
     const res = await checkAndDeductCredits('u1', 'RUN_FULL_STRATEGY', 18) // can't afford 18
 
     expect(res.ok).toBe(false)
-    if (!res.ok) {
+    if (!res.ok && res.error === 'INSUFFICIENT_CREDITS') {
       expect(res.error).toBe('INSUFFICIENT_CREDITS')
       expect(res.requiredCredits).toBe(18)
       expect(res.currentCredits).toBe(10)

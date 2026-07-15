@@ -8,6 +8,7 @@ export type StrategyBriefFieldKey =
   | 'description'
   | 'primaryOffer'
   | 'targetAudience'
+  | 'audiencePainPoints'
   | 'businessGoal'
   | 'topPlatforms'
   | 'toneOrLanguage'
@@ -36,6 +37,7 @@ export interface StrategyBriefProfileLike {
   description?: string | null
   primaryOffer?: string | null
   targetAudience?: string | null
+  audiencePainPoints?: string[] | null
   businessGoal?: string | null
   topPlatforms?: string[] | null
   writingStyle?: string | null
@@ -119,6 +121,7 @@ const organicChecks: Array<{ key: StrategyBriefFieldKey; ok: (p: StrategyBriefPr
   { key: 'description', ok: (p) => hasText(p.description) },
   { key: 'primaryOffer', ok: (p) => hasText(p.primaryOffer) },
   { key: 'targetAudience', ok: (p) => hasText(p.targetAudience) },
+  { key: 'audiencePainPoints', ok: (p) => hasList(p.audiencePainPoints) },
   { key: 'businessGoal', ok: (p) => hasText(p.businessGoal) },
   { key: 'topPlatforms', ok: (p) => hasList(p.topPlatforms) },
   { key: 'toneOrLanguage', ok: hasToneOrLanguage },
@@ -132,6 +135,7 @@ const paidChecks: Array<{ key: StrategyBriefFieldKey; ok: (p: StrategyBriefProfi
   { key: 'audienceLocation', ok: (p) => hasText(p.audienceLocation) },
   { key: 'primaryOffer', ok: (p) => hasText(p.primaryOffer) },
   { key: 'targetAudience', ok: (p) => hasText(p.targetAudience) },
+  { key: 'audiencePainPoints', ok: (p) => hasList(p.audiencePainPoints) },
   { key: 'topPlatforms', ok: (p) => hasList(p.topPlatforms) },
 ]
 

@@ -37,9 +37,9 @@ const styleLabels: Record<VisualStyle, { ar: string; en: string }> = {
 
 const ratioLabels: Record<CreativeRatio, { ar: string; en: string; helper: string }> = {
   '1:1': { ar: 'منشورات', en: 'Feed', helper: '1:1' },
-  '4:5': { ar: 'ريلز', en: 'Portrait', helper: '4:5' },
+  '4:5': { ar: 'منشور عمودي', en: 'Portrait feed', helper: '4:5' },
   '16:9': { ar: 'أفقي', en: 'Landscape', helper: '16:9' },
-  '9:16': { ar: 'ستوري', en: 'Story', helper: '9:16' },
+  '9:16': { ar: 'ستوري / ريلز', en: 'Story / Reel', helper: '9:16' },
 }
 
 function StudioCard({
@@ -132,6 +132,7 @@ export default function StudioPage() {
   const campaignHref = campaign ? `/campaigns/${campaign.id}?tab=creative` : '/campaigns'
   const campaignGoal = campaign?.goal || brand?.businessGoal || copy('لم يُحدد بعد في الاستراتيجية', 'Not set in Strategy yet')
   const audience = brand?.targetAudience || copy('غير مكتمل في Brand Brain', 'Missing from Brand Brain')
+  const conversionDestination = brand?.conversionDestination?.trim() || ''
   const tone = brand?.toneKeywords?.length
     ? brand.toneKeywords.join(' · ')
     : brand?.writingStyle || copy('غير مكتملة في Brand Brain', 'Missing from Brand Brain')
@@ -171,7 +172,8 @@ export default function StudioPage() {
       <main dir={dir} className="nx-os-page">
         <div className="nx-os-container">
           <LuxuryWorkspaceHeader
-            pageTitle={copy('استوديو الإبداع', 'Creative Studio')}
+            journeyStage="production"
+            pageTitle={copy('معاينة الاتجاه الإبداعي', 'Creative direction preview')}
             pageSubtitle={copy(
               'راجع الاتجاه البصري وأصول العلامة قبل إرفاق الوسائط بالمنشورات. أكّد الاتجاه الإبداعي هنا؛ ويظل التوليد داخل مركز المحتوى.',
               'Review visual direction and brand assets before attaching media to posts. Confirm the creative direction here; generation remains in Content Hub.',
@@ -265,9 +267,15 @@ export default function StudioPage() {
                   <p className="mt-3 line-clamp-3 max-w-[300px] text-[13px] leading-6 text-white/86">
                     {brand?.description || copy('معاينة تركيب بصري مبنية على السياق المحفوظ. النص النهائي والصورة النهائية غير مُعتمدين.', 'A composition preview based on saved context. Final copy and final imagery are not approved.')}
                   </p>
-                  <span className="mt-6 inline-flex rounded-xl bg-[#071236] px-6 py-3 text-sm font-bold text-white shadow-xl">
-                    {copy('اعرف المزيد', 'Learn more')}
-                  </span>
+                  {conversionDestination ? (
+                    <span className="mt-6 inline-flex max-w-full rounded-xl bg-[#071236] px-6 py-3 text-sm font-bold text-white shadow-xl">
+                      {conversionDestination}
+                    </span>
+                  ) : (
+                    <span className="mt-6 inline-flex rounded-xl border border-white/40 bg-white/12 px-4 py-2 text-[11px] font-bold text-white/85 backdrop-blur">
+                      {copy('CTA ينتظر وجهة تحويل معتمدة', 'CTA waits for an approved destination')}
+                    </span>
+                  )}
                 </div>
                 <div className="absolute end-12 top-14 flex h-56 w-44 items-center justify-center rounded-[34px] border border-white/40 bg-white/14 px-5 text-center text-white shadow-[0_34px_70px_rgba(0,0,0,0.24)] backdrop-blur-md">
                   <div>

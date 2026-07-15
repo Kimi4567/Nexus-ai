@@ -53,8 +53,24 @@ export async function PATCH(
         id: params.setId,
         adCampaign: { id: params.id, workspace: { ownerId: user.id } },
       },
+      include: {
+        adCampaign: {
+          select: { status: true, platformCampaignId: true },
+        },
+      },
     })
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (
+      existing.status !== 'DRAFT'
+      || existing.platformAdSetId
+      || existing.adCampaign?.status !== 'DRAFT'
+      || existing.adCampaign?.platformCampaignId
+    ) {
+      return NextResponse.json({
+        error: 'PAID_DRAFT_NOT_EDITABLE',
+        code: 'PAID_DRAFT_NOT_EDITABLE',
+      }, { status: 409 })
+    }
 
     const body = await req.json()
     const {

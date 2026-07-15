@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'fs'
 import path from 'path'
-import { getCreditActionTruth } from '@/lib/creditActionTruth'
+import { CREDIT_ACTION_COSTS, getCreditActionTruth } from '@/lib/creditActionTruth'
 
 const CREDITS_SRC = readFileSync(path.join(process.cwd(), 'src/lib/credits.ts'), 'utf8')
 const BILLING_STATUS_SRC = readFileSync(path.join(process.cwd(), 'src/app/api/billing/status/route.ts'), 'utf8')
@@ -16,6 +16,11 @@ function canonicalCost(action: string): number {
 }
 
 describe('getCreditActionTruth', () => {
+  it('keeps every client display cost aligned with the server charging catalog', () => {
+    for (const [action, cost] of Object.entries(CREDIT_ACTION_COSTS)) {
+      expect(cost, action).toBe(canonicalCost(action))
+    }
+  })
   it('allows IMAGE_GENERATION when enough credits are available', () => {
     const truth = getCreditActionTruth({ action: 'IMAGE_GENERATION', creditsRemaining: 10 })
     expect(truth.cost).toBe(3)

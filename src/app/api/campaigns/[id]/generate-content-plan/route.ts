@@ -19,9 +19,10 @@ import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import {
   checkAndDeductCredits,
-  refundCredits,
-  refundCreditsForTransaction,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
   getCreditActionPolicy,
+  refundCreditDeduction,
   type CreditAction,
   type CreditDeductionOk,
 } from '@/lib/credits'
@@ -33,6 +34,7 @@ import {
   resolveContentPlanSlotScope,
 } from '@/lib/contentPlanGeneration'
 import { sendContentPlanReadyEmail } from '@/lib/email/resend'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { buildProofPolicyPrompt, guardStrategyProof } from '@/lib/ai/strategyProofGuard'
@@ -51,6 +53,8 @@ import { resolveContentPlanBrandName } from '@/lib/contentPlanBrandContext'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { readLockedPlannedPostAllowance } from '@/lib/postCommercial'
 import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
+import { normalizeCampaignPlatforms } from '@/lib/campaignPlatforms'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 // Heavy gpt-4o generation (up to 18 posts) + optional media vision can run well
 // past the platform default. Match the sibling routes (engine, /generate) so the
@@ -103,20 +107,20 @@ function distributePosts(
   totalVideoSlots: number,
   platforms: string[],
 ): Array<{ platform: string; publishTarget: string; isVideoPost: boolean; index: number }> {
-  if (!platforms.length) platforms = ['META']
+  if (!platforms.length) return []
 
   const slots: Array<{ platform: string; publishTarget: string; isVideoPost: boolean; index: number }> = []
   let idx = 0
 
   // Interleave posts across destinations while retaining the exact channel.
   for (let i = 0; i < totalPosts; i++) {
-    const publishTarget = normalizedPublishTarget(String(platforms[i % platforms.length] || 'META'))
+    const publishTarget = normalizedPublishTarget(String(platforms[i % platforms.length]))
     slots.push({ platform: toIntegrationType(publishTarget), publishTarget, isVideoPost: false, index: idx++ })
   }
 
   // Distribute video slots with the same destination contract.
   for (let i = 0; i < totalVideoSlots; i++) {
-    const publishTarget = normalizedPublishTarget(String(platforms[i % platforms.length] || 'META'))
+    const publishTarget = normalizedPublishTarget(String(platforms[i % platforms.length]))
     slots.push({ platform: toIntegrationType(publishTarget), publishTarget, isVideoPost: true, index: idx++ })
   }
 
@@ -130,13 +134,10 @@ async function refundContentActionCharge(
   charge: CreditDeductionOk | null,
   action: Extract<CreditAction, 'CONTENT_PLAN_GENERATION' | 'CONTENT_AB_VARIANTS'>,
   reason: string,
-): Promise<void> {
-  if (!charge || charge.creditsUsed <= 0) return
-  if (charge.transactionId) {
-    await refundCreditsForTransaction({ userId, transactionId: charge.transactionId, reason })
-    return
-  }
-  await refundCredits(userId, action, reason)
+): Promise<boolean> {
+  if (!charge) return true
+  const result = await refundCreditDeduction({ userId, action, deduction: charge, reason })
+  return result.ok
 }
 
 export async function POST(req: NextRequest, props: Params) {
@@ -151,17 +152,16 @@ export async function POST(req: NextRequest, props: Params) {
   let abVariantsCharge: CreditDeductionOk | null = null
   const refundAbVariants = async (reason: string) => {
     if (!abVariantsCharged) return false
-    await refundContentActionCharge(userId, abVariantsCharge, 'CONTENT_AB_VARIANTS', reason)
-    abVariantsCharged = false
-    return true
+    const refunded = await refundContentActionCharge(userId, abVariantsCharge, 'CONTENT_AB_VARIANTS', reason)
+    if (refunded) abVariantsCharged = false
+    return refunded
   }
   const refundAllRequestedContent = async (reason: string) => {
     const abRefunded = await refundAbVariants(reason)
     let planRefunded = false
     if (contentPlanCharged) {
-      await refundContentActionCharge(userId, contentPlanCharge, 'CONTENT_PLAN_GENERATION', reason)
-      contentPlanCharged = false
-      planRefunded = true
+      planRefunded = await refundContentActionCharge(userId, contentPlanCharge, 'CONTENT_PLAN_GENERATION', reason)
+      if (planRefunded) contentPlanCharged = false
     }
     return abRefunded || planRefunded
   }
@@ -274,6 +274,19 @@ export async function POST(req: NextRequest, props: Params) {
       )
     }
 
+    // The campaign is the approved source for channel scope. Never invent a
+    // generic META destination or silently substitute Brand Brain defaults after
+    // the user approved a strategy. Fail before any credit deduction.
+    const plannedPlatforms = normalizeCampaignPlatforms(campaign.platforms)
+    if (plannedPlatforms.length === 0) {
+      return NextResponse.json({
+        error: 'CAMPAIGN_PLATFORMS_REQUIRED',
+        code: 'CAMPAIGN_PLATFORMS_REQUIRED',
+        message: 'Review and save at least one exact campaign platform before generating content.',
+        creditsUsed: 0,
+      }, { status: 422 })
+    }
+
     // ── 3. Check plan quota ────────────────────────────────────────────────
     const initialAllowance = await prisma.$transaction((tx) =>
       readLockedPlannedPostAllowance(tx, userId, params.id),
@@ -325,25 +338,46 @@ export async function POST(req: NextRequest, props: Params) {
       return NextResponse.json(getAiProviderUnavailablePayload(bodyLanguage), { status: 503 })
     }
 
+    const rateLimitResponse = await enforceBillableAiRateLimit(userId, 'CONTENT_PLAN_GENERATION')
+    if (rateLimitResponse) return rateLimitResponse
+
     // ── 4. Deduct credits (flat 2 credits per content plan generation) ────
-    const creditCheck = await checkAndDeductCredits(userId, 'CONTENT_PLAN_GENERATION')
+    const creditCheck = await checkAndDeductCredits(
+      userId,
+      'CONTENT_PLAN_GENERATION',
+      undefined,
+      {
+        entityId: params.id,
+        entityType: 'campaign_content_plan',
+        operationKey: getCreditOperationKey(req, 'CONTENT_PLAN_GENERATION', 'campaign_content_plan', params.id),
+      },
+    )
     if (!creditCheck.ok) {
       return NextResponse.json(
         {
           ...creditCheck,
           code: creditCheck.error ?? 'INSUFFICIENT_CREDITS',
         },
-        { status: 402 },
+        { status: creditCheckHttpStatus(creditCheck) },
       )
     }
-    contentPlanCharged = creditCheck.creditsUsed > 0 // skip refund for unlimited plans
+    contentPlanCharged = true
     contentPlanCharge = creditCheck
 
     // A/B variants are an explicit second AI product, not hidden work inside the
     // base plan. Charge separately before either model call; if it cannot be
     // afforded, restore the base-plan debit and do no AI work.
     if (enableABTesting) {
-      const abCreditCheck = await checkAndDeductCredits(userId, 'CONTENT_AB_VARIANTS')
+      const abCreditCheck = await checkAndDeductCredits(
+        userId,
+        'CONTENT_AB_VARIANTS',
+        undefined,
+        {
+          entityId: params.id,
+          entityType: 'campaign_content_ab_variants',
+          operationKey: getCreditOperationKey(req, 'CONTENT_AB_VARIANTS', 'campaign_content_ab_variants', params.id),
+        },
+      )
       if (!abCreditCheck.ok) {
         await refundAllRequestedContent('Optional A/B variants could not be funded; base content generation did not start')
         return NextResponse.json({
@@ -353,9 +387,9 @@ export async function POST(req: NextRequest, props: Params) {
             getCreditActionPolicy('CONTENT_PLAN_GENERATION'),
             getCreditActionPolicy('CONTENT_AB_VARIANTS'),
           ],
-        }, { status: 402 })
+        }, { status: creditCheckHttpStatus(abCreditCheck) })
       }
-      abVariantsCharged = abCreditCheck.creditsUsed > 0
+      abVariantsCharged = true
       abVariantsCharge = abCreditCheck
     }
 
@@ -364,9 +398,7 @@ export async function POST(req: NextRequest, props: Params) {
 
     // Draft scope comes from the reviewed strategy/campaign. Connections affect
     // scheduling and publishing readiness, never the content promise itself.
-    const platforms: string[] = Array.isArray(campaign.platforms) && campaign.platforms.length > 0
-      ? campaign.platforms.map(String)
-      : (brandProfile?.topPlatforms?.map(String) ?? ['META'])
+    const platforms = plannedPlatforms
 
     const keyMessage    = strategyForContent.keyMessage ?? strategyForContent.coreMessage ?? ''
     const targetAudience = brandProfile?.targetAudience
@@ -535,6 +567,7 @@ Rules:
 - caption: platform-appropriate length (Instagram ≤ 2200 chars, X ≤ 280 chars, LinkedIn ≤ 1300 chars, Facebook ≤ 500 chars)
 - assignedMediaIndex: 0-based index into the AVAILABLE MEDIA ASSETS list above. Set to -1 if no media is available or none fits this post.
 - imagePrompt: only needed when assignedMediaIndex is -1. Vivid, specific, brand-consistent visual description. No text overlays.
+- Never invent or depict a product screenshot, software/app interface, dashboard, screen content, logo, testimonial customer, branded facility, or expert spokesperson unless that exact real asset was supplied in AVAILABLE MEDIA ASSETS. Use a conceptual editorial illustration with abstract shapes and workflow symbols instead.
 - If media assets are provided, assign each asset to EXACTLY ONE post (no reuse). Leave all other posts with assignedMediaIndex: -1 so they get AI-generated images.
 - isVideoPost=true slots: write a videoCaption and videoScript field instead of imagePrompt
 - scheduledDayOffset: spread posts across 30 days (1–30). With ${slots.length} posts that's roughly ${Math.ceil(slots.length / 4)} per week — aim for consistent spacing (every 2-3 days). Avoid bunching too many on the same day.
@@ -718,6 +751,9 @@ Rules:
       return NextResponse.json(
         {
           error: 'Content plan draft failed safety review before save. Please try again.',
+          messageAr: refunded
+            ? 'أوقفت بوابة الأمان مسودة غير آمنة قبل الحفظ، وأُعيدت الكريديت المخصومة. لم يُحفظ أي منشور.'
+            : 'أوقفت بوابة الأمان مسودة غير آمنة قبل الحفظ. لم يُحفظ أي منشور، وتحتاج حالة الكريديت إلى مراجعة.',
           reason: 'unsafe_content_plan_draft',
           refunded,
           issues: saveGateIssues.slice(0, 8),
@@ -938,6 +974,54 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
     const videoSlots  = postsToCreate.filter(p => p.isVideoPost).length
     const uploadSlots = postsToCreate.filter(p => p.mediaSource === 'UPLOAD' && !p.isVideoPost).length
 
+    const contentPlanFinalization = await finalizeCreditDeduction({
+      userId,
+      action: 'CONTENT_PLAN_GENERATION',
+      deduction: contentPlanCharge,
+    })
+    if (!contentPlanFinalization.ok) {
+      contentPlanCharged = false
+      await refundAbVariants('Base content-plan credit finalization failed')
+      return NextResponse.json({
+        error: 'Content drafts were saved but the credit operation could not be finalized. Reserved credits were returned; refresh Content Hub.',
+        code: 'CREDIT_FINALIZATION_FAILED',
+        refunded: contentPlanFinalization.refundStatus === 'refunded',
+      }, { status: 503 })
+    }
+    contentPlanCharged = false
+
+    // A failed experiment must never disappear behind a successful base plan.
+    // Retry its exact reservation refund once after the base plan is settled;
+    // if the ledger is still unresolved, report it explicitly for reconciliation.
+    if (enableABTesting && abVariantsCharged && bVariantsCreated === 0) {
+      const recovered = await refundAbVariants('A/B variants produced no usable drafts')
+      if (!recovered) {
+        return NextResponse.json({
+          error: 'The base content plan is ready, but the unused A/B credit reservation still needs reconciliation. No A/B drafts were saved.',
+          code: 'CREDIT_RECONCILIATION_REQUIRED',
+          refunded: false,
+        }, { status: 503 })
+      }
+      abVariantsRefunded = true
+    }
+
+    if (enableABTesting && !abVariantsRefunded && bVariantsCreated > 0 && abVariantsCharge) {
+      const abFinalization = await finalizeCreditDeduction({
+        userId,
+        action: 'CONTENT_AB_VARIANTS',
+        deduction: abVariantsCharge,
+      })
+      if (!abFinalization.ok) {
+        abVariantsCharged = false
+        return NextResponse.json({
+          error: 'A/B drafts were saved but their credit operation could not be finalized. Reserved A/B credits were returned; refresh Content Hub.',
+          code: 'CREDIT_FINALIZATION_FAILED',
+          refunded: abFinalization.refundStatus === 'refunded',
+        }, { status: 503 })
+      }
+      abVariantsCharged = false
+    }
+
     return NextResponse.json({
       success: true,
       summary: {
@@ -958,11 +1042,13 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
           ...getCreditActionPolicy('CONTENT_PLAN_GENERATION'),
           creditsUsed: contentPlanCharge?.creditsUsed ?? 0,
           refunded: false,
+          operationStatus: 'SETTLED',
         },
         ...(enableABTesting ? [{
           ...getCreditActionPolicy('CONTENT_AB_VARIANTS'),
           creditsUsed: abVariantsRefunded ? 0 : (abVariantsCharge?.creditsUsed ?? 0),
           refunded: abVariantsRefunded,
+          operationStatus: abVariantsRefunded ? 'REFUNDED' : 'SETTLED',
         }] : []),
       ],
     })

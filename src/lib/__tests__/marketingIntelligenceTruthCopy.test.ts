@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { hasSavedStrategyContract } from '@/lib/marketing-intelligence'
 
 const intelligenceSource = readFileSync(
   resolve(process.cwd(), 'src/lib/marketing-intelligence.ts'),
@@ -13,6 +14,12 @@ const dashboardRouteSource = readFileSync(
 )
 
 describe('marketing intelligence truth copy', () => {
+  it('counts only strategy-shaped persisted JSON as a strategy signal', () => {
+    expect(hasSavedStrategyContract({ status: 'FAILED', error: 'provider timeout' })).toBe(false)
+    expect(hasSavedStrategyContract({ strategy: { positioning: 'A focused message' } })).toBe(true)
+    expect(hasSavedStrategyContract({ content: { generatedAt: '2026-07-15T00:00:00Z' } })).toBe(false)
+  })
+
   it('frames first strategy as planning before execution, not campaign launch', () => {
     expect(intelligenceSource).toContain('organic content direction and paid planning before any execution step')
     expect(intelligenceSource).toContain('قبل أي خطوة تنفيذ')

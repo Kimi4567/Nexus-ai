@@ -82,7 +82,10 @@ async function attemptTokenExchange(
   if (!flat.access_token) {
     const errCode = (flat.error as string) ?? (flat.error_code as string) ?? (data.error as string) ?? 'unknown'
     const errMsg  = (flat.error_description as string) ?? (flat.message as string) ?? ''
-    console.error(`[TikTok] method=${method} token error: ${errCode} — ${errMsg}`, data)
+    console.error(`[TikTok] method=${method} token error: ${errCode} — ${errMsg}`, {
+      error: flat.error ?? data.error ?? null,
+      errorCode: flat.error_code ?? data.error_code ?? null,
+    })
     throw new Error(`token_${errCode}`)
   }
 

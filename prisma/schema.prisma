@@ -16,49 +16,49 @@ datasource db {
 // ============================================================================
 
 model User {
-  id            String     @id @default(cuid())
-  email         String     @unique
-  name          String?
-  passwordHash  String?
-  avatar        String?
-  phone         String?
-  
+  id           String  @id @default(cuid())
+  email        String  @unique
+  name         String?
+  passwordHash String?
+  avatar       String?
+  phone        String?
+
   // Authentication
   emailVerified DateTime?
   lastLoginAt   DateTime?
-  
+
   // Profile
-  role          UserRole   @default(USER)
-  industry      String?    // e.g., "ecommerce", "real_estate", "beauty"
-  company       String?
-  
+  role     UserRole @default(USER)
+  industry String? // e.g., "ecommerce", "real_estate", "beauty"
+  company  String?
+
   // Subscription
   subscriptionId     String?
   subscriptionStatus SubscriptionStatus @default(FREE)
-  stripeCustomerId   String?  @unique
-  aiCredits          Int @default(0)
-  monthlyGenerations Int @default(0)
+  stripeCustomerId   String?            @unique
+  aiCredits          Int                @default(0)
+  monthlyGenerations Int                @default(0)
 
   // Referral system
-  referralCode       String?   @unique  // this user's shareable code (e.g. NEXUS-AB12CD)
-  referredById       String?            // who referred this user
-  referredBy         User?     @relation("UserReferrals", fields: [referredById], references: [id])
-  referrals          User[]    @relation("UserReferrals")
-  referralCreditsEarned Int    @default(0)  // total bonus credits earned from referrals
+  referralCode          String? @unique // this user's shareable code (e.g. NEXUS-AB12CD)
+  referredById          String? // who referred this user
+  referredBy            User?   @relation("UserReferrals", fields: [referredById], references: [id])
+  referrals             User[]  @relation("UserReferrals")
+  referralCreditsEarned Int     @default(0) // total bonus credits earned from referrals
 
   // Preferences
-  preferences   Json?      // theme, notifications, etc.
+  preferences Json? // theme, notifications, etc.
 
   // Relations
-  workspaces    Workspace[]
-  sessions      Session[]
-  accounts      Account[]
+  workspaces     Workspace[]
+  sessions       Session[]
+  accounts       Account[]
   uploadSessions UploadSession[]
   // Credit Wallet ledger (runtime reads/writes are gated by CREDIT_WALLET_ENABLED).
-  creditGrants  CreditGrant[]
+  creditGrants   CreditGrant[]
 
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([email])
   @@index([subscriptionStatus])
@@ -66,32 +66,32 @@ model User {
 }
 
 model Session {
-  id            String     @id @default(cuid())
-  sessionToken  String     @unique
-  userId        String
-  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expires       DateTime
-  
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expires      DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Account {
-  id            String     @id @default(cuid())
-  userId        String
-  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  provider      String     // "google", "github", etc.
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  provider          String // "google", "github", etc.
   providerAccountId String
-  
-  accessToken   String?    @db.Text
-  refreshToken  String?    @db.Text
-  idToken       String?    @db.Text
-  expiresAt     Int?
-  
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  
+
+  accessToken  String? @db.Text
+  refreshToken String? @db.Text
+  idToken      String? @db.Text
+  expiresAt    Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([provider, providerAccountId])
   @@index([userId])
 }
@@ -101,88 +101,91 @@ model Account {
 // ============================================================================
 
 model Workspace {
-  id            String     @id @default(cuid())
-  name          String
-  slug          String     @unique
-  logo          String?
-  description   String?
-  
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  logo        String?
+  description String?
+
   // Owner
-  ownerId       String
-  owner         User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
   // Team
-  members       WorkspaceMember[]
-  
+  members WorkspaceMember[]
+
   // Content
-  projects      Project[]
-  media         Media[]
-  campaigns     Campaign[]
-  uploadSessions UploadSession[]
-  exports       Export[]
-  integrations  Integration[]
-  brandProfile  BrandProfile?
-  visuals       GeneratedVisual[]
-  socialPosts   SocialPost[]
-  agentRuns     AgentRun[]
-  agentSuggestions AgentSuggestion[]
-  agentReports  AgentReport[]
-  paidPacks     PaidCampaignPack[]
-  campaignMemories CampaignMemory[]
-  brainLearnings   BrainLearning[]
-  brainScoreSnapshots BrainScoreSnapshot[]
-  adAccounts    AdAccount[]
-  adCampaigns   AdCampaign[]
+  projects               Project[]
+  media                  Media[]
+  campaigns              Campaign[]
+  uploadSessions         UploadSession[]
+  exports                Export[]
+  integrations           Integration[]
+  brandProfile           BrandProfile?
+  visuals                GeneratedVisual[]
+  socialPosts            SocialPost[]
+  agentRuns              AgentRun[]
+  agentSuggestions       AgentSuggestion[]
+  agentReports           AgentReport[]
+  paidPacks              PaidCampaignPack[]
+  campaignMemories       CampaignMemory[]
+  brainLearnings         BrainLearning[]
+  brainScoreSnapshots    BrainScoreSnapshot[]
+  adAccounts             AdAccount[]
+  adCampaigns            AdCampaign[]
+  brandEvidenceDocuments BrandEvidenceDocument[]
+  brandEvidenceClaims    BrandEvidenceClaim[]
+  campaignSnapshots      CampaignSnapshot[]
 
   // Settings
-  settings      Json?      // branding, integrations, etc.
+  settings Json? // branding, integrations, etc.
 
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([ownerId])
   @@index([slug])
 }
 
 model WorkspaceMember {
-  id            String     @id @default(cuid())
-  workspaceId   String
-  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  
-  userId        String     // Email or actual user ID
-  role          MemberRole @default(MEMBER)
-  
-  invitedAt     DateTime   @default(now())
-  joinedAt      DateTime?
-  
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  userId String // Email or actual user ID
+  role   MemberRole @default(MEMBER)
+
+  invitedAt DateTime  @default(now())
+  joinedAt  DateTime?
+
   @@unique([workspaceId, userId])
 }
 
 model Project {
-  id            String     @id @default(cuid())
-  name          String
-  description   String?
-  
-  workspaceId   String
-  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
   // Business Info
-  businessType  String?    // "restaurant", "ecommerce", "salon", etc.
-  businessInfo  Json?      // { name, description, targetAudience, etc. }
-  
+  businessType String? // "restaurant", "ecommerce", "salon", etc.
+  businessInfo Json? // { name, description, targetAudience, etc. }
+
   // Media
-  media         Media[]
+  media          Media[]
   uploadSessions UploadSession[]
-  
+
   // Campaigns
-  campaigns     Campaign[]
-  
+  campaigns Campaign[]
+
   // Status
-  status        ProjectStatus @default(DRAFT)
-  
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  
+  status ProjectStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([workspaceId])
   @@index([status])
 }
@@ -192,41 +195,41 @@ model Project {
 // ============================================================================
 
 model Media {
-  id            String     @id @default(cuid())
-  
-  workspaceId   String
-  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  
-  projectId     String?
-  project       Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  
-  fileName      String
-  type          MediaType  // "image", "video", "logo", "audio"
-  mimeType      String
-  
-  // Storage
-  url           String     // Cloudinary or S3 URL
-  cloudinaryId  String?
-  s3Key         String?
-  
-  // Metadata
-  width         Int?
-  height        Int?
-  duration      Int?       // For videos, in seconds
-  size          Int        // File size in bytes
-  
-  // Tagging
-  tags          String[]   @default([])
-  category      String?    // "product", "lifestyle", "logo", etc.
-  
-  // Usage
-  campaignId    String?
-  campaign      Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  uploadSessionId String?
-  uploadSession UploadSession? @relation(fields: [uploadSessionId], references: [id], onDelete: SetNull)
+  id String @id @default(cuid())
 
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  fileName String
+  type     MediaType // "image", "video", "logo", "audio"
+  mimeType String
+
+  // Storage
+  url          String // Cloudinary or S3 URL
+  cloudinaryId String?
+  s3Key        String?
+
+  // Metadata
+  width    Int?
+  height   Int?
+  duration Int? // For videos, in seconds
+  size     Int // File size in bytes
+
+  // Tagging
+  tags     String[] @default([])
+  category String? // "product", "lifestyle", "logo", etc.
+
+  // Usage
+  campaignId      String?
+  campaign        Campaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  uploadSessionId String?
+  uploadSession   UploadSession? @relation(fields: [uploadSessionId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([workspaceId])
   @@index([projectId])
@@ -236,24 +239,24 @@ model Media {
 }
 
 model UploadSession {
-  id            String     @id @default(cuid())
-  token         String     @unique
-  userId        String
-  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspaceId   String
-  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  projectId     String?
-  project       Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  campaignId    String?
-  campaign      Campaign?  @relation("CampaignUploadSessions", fields: [campaignId], references: [id], onDelete: SetNull)
-  resourceType  String?
-  fileName      String?
-  media         Media[]
-  expiresAt     DateTime
-  usedAt        DateTime?
-  status        UploadSessionStatus @default(PENDING)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id           String              @id @default(cuid())
+  token        String              @unique
+  userId       String
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId  String
+  workspace    Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId    String?
+  project      Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  campaignId   String?
+  campaign     Campaign?           @relation("CampaignUploadSessions", fields: [campaignId], references: [id], onDelete: SetNull)
+  resourceType String?
+  fileName     String?
+  media        Media[]
+  expiresAt    DateTime
+  usedAt       DateTime?
+  status       UploadSessionStatus @default(PENDING)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
 
   @@index([workspaceId])
   @@index([projectId])
@@ -262,16 +265,16 @@ model UploadSession {
 }
 
 model UploadAudit {
-  id            String     @id @default(cuid())
-  userId        String?
-  workspaceId   String?
-  projectId     String?
-  sessionId     String?
-  eventType     String
-  severity      String     @default("INFO")
-  ip            String?
-  metadata      Json?
-  createdAt     DateTime   @default(now())
+  id          String   @id @default(cuid())
+  userId      String?
+  workspaceId String?
+  projectId   String?
+  sessionId   String?
+  eventType   String
+  severity    String   @default("INFO")
+  ip          String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
 }
 
 enum UploadSessionStatus {
@@ -286,65 +289,69 @@ enum UploadSessionStatus {
 // ============================================================================
 
 model Campaign {
-  id            String     @id @default(cuid())
-  name          String
-  description   String?
-  
-  workspaceId   String
-  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  
-  projectId     String
-  project       Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   // Campaign Configuration
-  goal          CampaignGoal   // "sales", "awareness", "leads", "traffic"
-  audience      String?        // Audience description
-  tone          BrandTone      // "luxury", "modern", "energetic", etc.
-  platforms     Platform[]     // ["tiktok", "instagram", "facebook"]
-  
+  goal      CampaignGoal // "sales", "awareness", "leads", "traffic"
+  audience  String? // Audience description
+  tone      BrandTone // "luxury", "modern", "energetic", etc.
+  platforms Platform[] // ["tiktok", "instagram", "facebook"]
+
   // Media used
-  media         Media[]
-  
+  media Media[]
+
   // AI Strategy
-  strategy      Json?          // AI-generated marketing strategy
-  concepts      AdConcept[]    // Generated concepts
-  analytics     Analytics?     @relation("AnalyticsToCampaign")
+  strategy       Json? // AI-generated marketing strategy
+  concepts       AdConcept[] // Generated concepts
+  analytics      Analytics?      @relation("AnalyticsToCampaign")
   uploadSessions UploadSession[] @relation("CampaignUploadSessions")
-  
+
   // Generations
-  generations   Generation[]
-  
+  generations Generation[]
+
   // Full AI output stored for history/detail view
-  aiOutput      Json?          // { strategy, concepts, generatedAt }
+  aiOutput Json? // { strategy, concepts, generatedAt }
 
   // User interactions
-  favorite      Boolean        @default(false)
-  lastViewedAt  DateTime?
-  thumbnail     String?        // emoji or hex color for visual identity
+  favorite     Boolean   @default(false)
+  lastViewedAt DateTime?
+  thumbnail    String? // emoji or hex color for visual identity
 
   // Activity timeline
-  activities    CampaignActivity[]
-  visuals       GeneratedVisual[]
+  activities CampaignActivity[]
+  visuals    GeneratedVisual[]
 
   // Performance
-  status        CampaignStatus @default(DRAFT)
-  publishedAt   DateTime?
-  performanceMetrics Json?     // views, clicks, conversions
+  status             CampaignStatus     @default(DRAFT)
+  // Monotonic counter for immutable strategy/content/execution decisions.
+  // A version advances only when a reviewed decision is actually persisted.
+  snapshotVersion    Int                @default(0)
+  snapshots          CampaignSnapshot[]
+  publishedAt        DateTime?
+  performanceMetrics Json? // views, clicks, conversions
 
   // Sharing
-  shareToken    String?        @unique  // random token for public URL
-  isPublic      Boolean        @default(false)
-  shareViews    Int            @default(0)
+  shareToken String? @unique // random token for public URL
+  isPublic   Boolean @default(false)
+  shareViews Int     @default(0)
 
   // Autopilot
-  autopilotEnabled   Boolean   @default(false)
+  autopilotEnabled     Boolean   @default(false)
   autopilotActivatedAt DateTime?
 
   // Paid Campaign Pack (one per campaign)
-  paidPack      PaidCampaignPack?
+  paidPack PaidCampaignPack?
 
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([workspaceId])
   @@index([projectId])
@@ -352,7 +359,7 @@ model Campaign {
   @@index([favorite])
   @@index([lastViewedAt])
   @@index([shareToken])
-  @@index([updatedAt])   // dashboard recent-campaigns ordering
+  @@index([updatedAt]) // dashboard recent-campaigns ordering
   @@index([workspaceId, status, updatedAt]) // active execution-monitor selection
 }
 
@@ -360,7 +367,7 @@ model CampaignActivity {
   id          String   @id @default(cuid())
   campaignId  String
   campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  type        String   // "created", "generated", "viewed", "regenerated", "exported", "duplicated", "archived", "favorited"
+  type        String // "created", "generated", "viewed", "regenerated", "exported", "duplicated", "archived", "favorited"
   description String
   metadata    Json?
   createdAt   DateTime @default(now())
@@ -370,62 +377,62 @@ model CampaignActivity {
 }
 
 model AdConcept {
-  id            String     @id @default(cuid())
-  campaignId    String
-  campaign      Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  
-  name          String
-  description   String
-  angle         String     // Marketing angle / hook
-  
-  script        String?    // Ad script
-  cta           String?    // Call-to-action
-  headlines     String[]   // Multiple headline variations
-  captions      String[]   // Platform-specific captions
-  
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String
+  angle       String // Marketing angle / hook
+
+  script    String? // Ad script
+  cta       String? // Call-to-action
+  headlines String[] // Multiple headline variations
+  captions  String[] // Platform-specific captions
+
   // AI generated
-  thinking      String?    // Claude's thinking process
-  
+  thinking String? // Claude's thinking process
+
   // Status
-  approved      Boolean    @default(false)
-  
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  
+  approved Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([campaignId])
 }
 
 model Generation {
-  id            String     @id @default(cuid())
-  campaignId    String
-  campaign      Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  
-  type          GenerationType  // "video", "image", "audio", "post"
-  platform      Platform?       // "tiktok", "instagram", etc.
-  
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  type     GenerationType // "video", "image", "audio", "post"
+  platform Platform? // "tiktok", "instagram", etc.
+
   // Generation Config
-  prompt        String     @db.Text
-  params        Json?      // dimensions, duration, style, etc.
-  
+  prompt String @db.Text
+  params Json? // dimensions, duration, style, etc.
+
   // Status
-  status        GenerationStatus @default(PENDING)
-  progress      Int @default(0)   // 0-100
-  
+  status   GenerationStatus @default(PENDING)
+  progress Int              @default(0) // 0-100
+
   // Results
-  output        String?    // URL to generated content
-  metadata      Json?      // width, height, duration, etc.
-  
+  output   String? // URL to generated content
+  metadata Json? // width, height, duration, etc.
+
   // Provider
-  provider      String?    // "runway", "replicate", "openai", etc.
-  externalId    String?    // Provider's job/prediction ID
-  
+  provider   String? // "runway", "replicate", "openai", etc.
+  externalId String? // Provider's job/prediction ID
+
   // Error handling
-  error         String?
-  retries       Int @default(0)
-  
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  
+  error   String?
+  retries Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([campaignId])
   @@index([status])
   @@index([provider])
@@ -436,52 +443,52 @@ model Generation {
 // ============================================================================
 
 model Subscription {
-  id            String     @id @default(cuid())
-  
-  userId        String     @unique
-  
-  plan          PricingPlan     // "starter", "pro", "agency"
-  status        SubscriptionStatus
-  
-  stripeId      String?    @unique
-  customerId    String?    // Stripe customer ID
-  
+  id String @id @default(cuid())
+
+  userId String @unique
+
+  plan   PricingPlan // "starter", "pro", "agency"
+  status SubscriptionStatus
+
+  stripeId   String? @unique
+  customerId String? // Stripe customer ID
+
   // Pricing
-  amount        Int?       // in cents
-  currency      String     @default("usd")
-  billingCycle  BillingCycle @default(MONTHLY)
-  
+  amount       Int? // in cents
+  currency     String       @default("usd")
+  billingCycle BillingCycle @default(MONTHLY)
+
   // Limits
-  monthlyCredits     Int
-  monthlyExports     Int
-  maxTeamMembers     Int
-  
+  monthlyCredits Int
+  monthlyExports Int
+  maxTeamMembers Int
+
   // Dates
   currentPeriodStart DateTime?
   currentPeriodEnd   DateTime?
-  cancelledAt    DateTime?
-  
+  cancelledAt        DateTime?
+
   // Extra
-  metadata      Json?
-  
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Usage {
-  id            String     @id @default(cuid())
-  
-  userId        String
-  month         Int        // Month (1-12)
-  year          Int        // Year
-  
-  aiCreditsUsed Int @default(0)
+  id String @id @default(cuid())
+
+  userId String
+  month  Int // Month (1-12)
+  year   Int // Year
+
+  aiCreditsUsed    Int @default(0)
   generationsCount Int @default(0)
-  exportsCount  Int @default(0)
-  
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  
+  exportsCount     Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([userId, month, year])
 }
 
@@ -489,9 +496,9 @@ model Usage {
 // Immutable audit trail. Every deduction and refund writes a row here.
 // Negative amount = credits consumed. Positive amount = credits added/refunded.
 model CreditTransaction {
-  id          String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId      String
+  userId String
 
   // Action key matches CREDIT_COSTS or "REFUND" / "BONUS"
   action      String
@@ -499,20 +506,35 @@ model CreditTransaction {
   description String?
 
   // Signed amount: negative = spent, positive = earned/refunded
-  amount      Int
+  amount Int
 
   // Optional link to the entity this credit was spent on
-  entityId    String?   // campaignId, imageId, etc.
-  entityType  String?   // "campaign", "image", "strategy", "refund"
+  entityId   String? // campaignId, imageId, etc.
+  entityType String? // "campaign", "image", "strategy", "refund"
 
-  createdAt   DateTime  @default(now())
+  // Immutable schedule identifier. NULL is preserved for legacy transactions
+  // whose historical price version cannot be proven.
+  pricingVersion String?
+
+  // Billable AI debits move RESERVED -> SETTLED or REFUNDED. Non-AI grants,
+  // purchases, and legacy rows are immediately SETTLED.
+  status       String    @default("SETTLED")
+  creditCost   Int       @default(0) // commercial cost even when amount=0 (unlimited plans)
+  operationKey String? // scoped hash of the client idempotency key
+  reservedAt   DateTime?
+  settledAt    DateTime?
+  refundedAt   DateTime?
+
+  createdAt DateTime @default(now())
 
   // B1c-a — per-grant allocations for this debit (one debit can span several grants).
   // Foundation only; no runtime reader/writer until B1c-b.
   grantAllocations CreditTransactionGrantAllocation[]
 
+  @@unique([userId, operationKey])
   @@index([userId])
   @@index([userId, createdAt])
+  @@index([status, createdAt])
 }
 
 // ============================================================================
@@ -520,58 +542,58 @@ model CreditTransaction {
 // ============================================================================
 
 model Export {
-  id            String     @id @default(cuid())
-  
-  workspaceId   String
-  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  
-  campaignId    String?    // Optional if exporting multiple
-  
-  format        ExportFormat   // "pdf", "video", "images", "zip"
-  type          String         // "full_campaign", "social_posts", "video_package"
-  
-  url           String?        // Download URL
-  status        ExportStatus   @default(PROCESSING)
-  
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  campaignId String? // Optional if exporting multiple
+
+  format ExportFormat // "pdf", "video", "images", "zip"
+  type   String // "full_campaign", "social_posts", "video_package"
+
+  url    String? // Download URL
+  status ExportStatus @default(PROCESSING)
+
   // Metadata
-  fileSize      Int?           // in bytes
-  itemsCount    Int @default(1)
-  
-  createdAt     DateTime   @default(now())
-  completedAt   DateTime?
-  expiresAt     DateTime?      // When download link expires
-  
+  fileSize   Int? // in bytes
+  itemsCount Int  @default(1)
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+  expiresAt   DateTime? // When download link expires
+
   @@index([workspaceId])
 }
 
 model Analytics {
-  id            String     @id @default(cuid())
-  
-  campaignId    String     @unique
-  campaign      Campaign   @relation("AnalyticsToCampaign", fields: [campaignId], references: [id], onDelete: Cascade)
-  
+  id String @id @default(cuid())
+
+  campaignId String   @unique
+  campaign   Campaign @relation("AnalyticsToCampaign", fields: [campaignId], references: [id], onDelete: Cascade)
+
   // Social platform stats
-  platform      Platform
-  
-  views         Int @default(0)
-  clicks        Int @default(0)
-  conversions   Int @default(0)
-  shares        Int @default(0)
-  comments      Int @default(0)
-  
+  platform Platform
+
+  views       Int @default(0)
+  clicks      Int @default(0)
+  conversions Int @default(0)
+  shares      Int @default(0)
+  comments    Int @default(0)
+
   // Metrics
-  ctr           Float?     // Click-through rate
-  conversionRate Float?    // Conversion rate
-  cost          Float?     // In campaign currency
-  roi           Float?
-  
+  ctr            Float? // Click-through rate
+  conversionRate Float? // Conversion rate
+  cost           Float? // In campaign currency
+  roi            Float?
+
   // Time
-  trackedFrom   DateTime
-  trackedTo     DateTime
-  
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  
+  trackedFrom DateTime
+  trackedTo   DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([campaignId])
 }
 
@@ -580,92 +602,147 @@ model Analytics {
 // ============================================================================
 
 model BrandProfile {
-  id            String     @id @default(cuid())
+  id String @id @default(cuid())
 
-  workspaceId   String     @unique
-  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String    @unique
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   // Core brand identity
-  brandName     String?
-  industry      String?
-  description   String?    @db.Text
+  brandName   String?
+  industry    String?
+  description String? @db.Text
 
   // Voice & tone memory
-  toneKeywords  String[]   @default([])  // e.g., ["bold", "conversational", "premium"]
-  avoidKeywords String[]   @default([])  // words/styles to avoid
-  writingStyle  String?    // "short punchy", "long-form storytelling", etc.
+  toneKeywords  String[] @default([]) // e.g., ["bold", "conversational", "premium"]
+  avoidKeywords String[] @default([]) // words/styles to avoid
+  writingStyle  String? // "short punchy", "long-form storytelling", etc.
 
   // Audience memory
-  targetAudience    String?    @db.Text
-  audienceAge       String?    // "18-24", "25-34", "35-54", etc.
-  audienceLocation  String?
-  audiencePainPoints String[]  @default([])
-  audienceDesires   String[]   @default([])
+  targetAudience     String?  @db.Text
+  audienceAge        String? // "18-24", "25-34", "35-54", etc.
+  audienceLocation   String?
+  audiencePainPoints String[] @default([])
+  audienceDesires    String[] @default([])
 
   // Offer memory
-  primaryOffer  String?    @db.Text
-  secondaryOffers String[] @default([])
-  pricePoint    String?    // "budget", "mid-range", "premium", "luxury"
+  primaryOffer     String?  @db.Text
+  secondaryOffers  String[] @default([])
+  pricePoint       String? // "budget", "mid-range", "premium", "luxury"
   uniqueAdvantages String[] @default([])
 
   // Visual style memory
-  visualStyle   String?    // "minimalist", "bold", "lifestyle", "corporate"
-  colorPalette  String[]   @default([])  // hex values or color names
-  logoUrl       String?
+  visualStyle  String? // "minimalist", "bold", "lifestyle", "corporate"
+  colorPalette String[] @default([]) // hex values or color names
+  logoUrl      String?
 
   // Campaign performance memory
-  winningHooks  String[]   @default([])  // hooks that worked
-  winningAngles String[]   @default([])  // angles that converted
-  failedAngles  String[]   @default([])  // what didn't work
-  topPlatforms  String[]   @default([])  // best-performing platforms
+  winningHooks  String[] @default([]) // hooks that worked
+  winningAngles String[] @default([]) // angles that converted
+  failedAngles  String[] @default([]) // what didn't work
+  topPlatforms  String[] @default([]) // best-performing platforms
 
   // Competitor intelligence
-  competitors     String[]  @default([])   // list of competitor names for daily monitoring
-  competitorNotes String?   @db.Text       // freeform notes about competitive landscape
+  competitors     String[] @default([]) // competitor names for scheduled source-linked monitoring
+  competitorNotes String?  @db.Text // freeform notes about competitive landscape
 
   // Strategic notes (freeform memory)
-  strategicNotes String?   @db.Text
+  strategicNotes String? @db.Text
 
   // ── Strategy data requirements (PR-2A) ──────────────────────────────────────
-  // Additive, nullable. Captured so NEXUS can tell whether it has enough data for
-  // full / paid / KPI / funnel strategy. Free-text bands in 2A (structured numbers
-  // may come later). No generation logic reads these yet — capture + warnings only.
-  businessGoal          String?   @db.Text   // main business goal (e.g. "more booked consultations")
-  marketingBudget       String?              // free-text band, e.g. "$1,000–3,000 / month"
-  conversionDestination String?              // where leads/sales land (landing page, WhatsApp, form)
-  leadHandling          String?   @db.Text   // sales process / who handles leads
-  customerObjections    String[]  @default([]) // main objections that block buying
-  complianceNotes       String?   @db.Text   // regulated-industry restrictions, if any
-  averageOrderValue     String?              // free-text band
-  grossMargin           String?              // free-text band
-  customerLifetimeValue String?              // free-text band
-  salesCycleLength      String?              // e.g. "1-2 weeks", "3+ months"
-  seasonality           String?   @db.Text   // demand timing notes
-  pastAdResults         String?   @db.Text   // free-text CPL/CPA/ROAS history (structured later)
+  // Additive, nullable. Used by capability readiness and the strategist context
+  // for full / paid / KPI / funnel planning. Free-text bands in 2A (structured
+  // numbers may come later).
+  businessGoal          String?  @db.Text // main business goal (e.g. "more booked consultations")
+  marketingBudget       String? // free-text band, e.g. "$1,000–3,000 / month"
+  conversionDestination String? // where leads/sales land (landing page, WhatsApp, form)
+  leadHandling          String?  @db.Text // sales process / who handles leads
+  customerObjections    String[] @default([]) // main objections that block buying
+  complianceNotes       String?  @db.Text // regulated-industry restrictions, if any
+  averageOrderValue     String? // free-text band
+  grossMargin           String? // free-text band
+  customerLifetimeValue String? // free-text band
+  salesCycleLength      String? // e.g. "1-2 weeks", "3+ months"
+  seasonality           String?  @db.Text // demand timing notes
+  pastAdResults         String?  @db.Text // free-text CPL/CPA/ROAS history (structured later)
 
   // ── Brand Brain v2 (PR-H2) ──────────────────────────────────────────────────
   // Additive, nullable/default-safe. User-chosen; never inferred.
-  languagePreference    String?              // "en" | "ar" | "both" — chosen by the user, NOT the UI locale
-  verifiedProof         String[]  @default([]) // user-confirmed proof points only (no AI-suggested/fake testimonials)
+  languagePreference String? // "en" | "ar" | "both" — chosen by the user, NOT the UI locale
+  verifiedProof      String[] @default([]) // user-confirmed proof points only (no AI-suggested/fake testimonials)
 
   // User-reviewed defaults for every future strategy order. These are explicit
   // preferences, never AI-inferred, and can be overridden in the review modal.
-  strategyType          String?              // "organic" | "paid" | "full"
-  strategyDuration      String?              // "30" | "90" | "180" | "custom"
-  strategyCustomDays    Int?                 // 1..180 when strategyDuration = "custom"
-  campaignObjective     String?              // "leads" | "sales" | "awareness" | "traffic"
+  strategyType       String? // "organic" | "paid" | "full"
+  strategyDuration   String? // "30" | "90" | "180" | "custom"
+  strategyCustomDays Int? // 1..180 when strategyDuration = "custom"
+  campaignObjective  String? // "leads" | "sales" | "awareness" | "traffic"
 
   // Website & content intelligence (auto-scanned)
-  websiteUrl    String?                          // brand's main website URL
-  contentSamples String[]  @default([])          // up to 3 pasted best-performing content pieces
+  websiteUrl     String? // brand's main website URL
+  contentSamples String[] @default([]) // up to 3 pasted best-performing content pieces
 
   // AI-generated insights (auto-populated)
-  aiInsights    Json?      // { summary, recommendations, lastUpdated }
+  aiInsights Json? // { summary, recommendations, lastUpdated }
 
-  updatedAt     DateTime   @updatedAt
-  createdAt     DateTime   @default(now())
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 
   @@index([workspaceId])
+}
+
+// Source files and user-reviewed claims that make Brand Brain evidence-backed.
+// Files live in a private Supabase Storage bucket; only the bucket/path is kept
+// here. Browser clients never receive a permanent public URL.
+model BrandEvidenceDocument {
+  id                 String               @id @default(cuid())
+  workspaceId        String
+  workspace          Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  uploadedById       String
+  originalName       String
+  mimeType           String
+  sizeBytes          Int
+  storageBucket      String
+  storagePath        String               @unique
+  status             String               @default("PENDING_UPLOAD")
+  extractedText      String?              @db.Text
+  extractionMetadata Json?
+  errorMessage       String?              @db.Text
+  claims             BrandEvidenceClaim[]
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, createdAt])
+}
+
+// AI can only propose evidence claims. A claim reaches BrandProfile.verifiedProof
+// after the workspace owner explicitly approves it, preserving its source label.
+model BrandEvidenceClaim {
+  id              String                @id @default(cuid())
+  documentId      String
+  document        BrandEvidenceDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  workspaceId     String
+  workspace       Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  claim           String                @db.Text
+  category        String
+  evidenceExcerpt String                @db.Text
+  sourceLocator   String?
+  confidence      Float?
+  status          String                @default("PENDING")
+  // Truth classification is separate from review workflow status. New claims
+  // are proposals; only an explicit review can confirm or mark them outdated.
+  truthStatus     String                @default("PROPOSED")
+  conflictClaimId String?
+  conflictReason  String?               @db.Text
+  promotedProof   String?               @db.Text
+  reviewedById    String?
+  reviewedAt      DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, truthStatus])
+  @@index([documentId, status])
 }
 
 // ============================================================================
@@ -673,30 +750,30 @@ model BrandProfile {
 // ============================================================================
 
 model Integration {
-  id            String     @id @default(cuid())
-  
-  workspaceId   String
-  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  
-  type          IntegrationType    // "meta", "tiktok", "youtube", "stripe"
-  status        IntegrationStatus  @default(DISCONNECTED)
-  
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  type   IntegrationType // "meta", "tiktok", "youtube", "stripe"
+  status IntegrationStatus @default(DISCONNECTED)
+
   // Credentials
-  accessToken   String?    @db.Text
-  refreshToken  String?    @db.Text
-  accountId     String?
-  accountName   String?
-  
+  accessToken  String? @db.Text
+  refreshToken String? @db.Text
+  accountId    String?
+  accountName  String?
+
   // Config
-  config        Json?
-  
-  lastSyncedAt  DateTime?
+  config Json?
+
+  lastSyncedAt DateTime?
 
   // Published posts via this integration
-  socialPosts   SocialPost[]
+  socialPosts SocialPost[]
 
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([workspaceId, type])
 }
@@ -869,12 +946,12 @@ enum IntegrationStatus {
 // ============================================================================
 
 model SocialPost {
-  id            String     @id @default(cuid())
+  id String @id @default(cuid())
 
-  workspaceId   String
-  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  campaignId    String?
+  campaignId String?
 
   // Which integration / page this was published to
   // integrationId is optional: NULL means the post is in the content plan
@@ -882,102 +959,151 @@ model SocialPost {
   integrationId String?
   integration   Integration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
 
-  platform      IntegrationType   // META, TIKTOK, etc.
+  platform      IntegrationType // META, TIKTOK, etc.
   // Exact user-facing destination. `platform` identifies the provider
   // integration; publishTarget prevents Facebook/Instagram (and unsupported
   // channels) from being collapsed into one ambiguous META destination.
-  publishTarget String?           // FACEBOOK | INSTAGRAM | LINKEDIN | TIKTOK | ...
-  pageId        String?           // Facebook page ID or IG account ID
+  publishTarget String? // FACEBOOK | INSTAGRAM | LINKEDIN | TIKTOK | ...
+  pageId        String? // Facebook page ID or IG account ID
   pageName      String?
 
   // Content
-  caption       String     @db.Text
-  imageUrl      String?    // Final generated/uploaded image URL
-  link          String?    // Optional link in post
+  caption  String  @db.Text
+  imageUrl String? // Final generated/uploaded image URL
+  link     String? // Optional link in post
 
   // Platform result
-  platformPostId String?   // ID returned by the platform after publishing
-  platformUrl   String?    // Direct URL to the post
+  platformPostId String? // ID returned by the platform after publishing
+  platformUrl    String? // Direct URL to the post
 
   // Status
-  status        SocialPostStatus @default(DRAFT)
-  errorMessage  String?
+  status       SocialPostStatus @default(DRAFT)
+  errorMessage String?
 
-  scheduledAt   DateTime?
-  publishedAt   DateTime?
+  scheduledAt DateTime?
+  publishedAt DateTime?
 
   // Publishing lifecycle (Publishing Sprint PR1) — additive, backward-compatible.
   // No behaviour change for existing rows: publishMode defaults to MANUAL and both
   // timestamps are nullable. Lifecycle: DRAFT → APPROVED → SCHEDULED → PUBLISHED | FAILED.
-  publishMode         PublishMode @default(MANUAL)
-  approvedAt          DateTime?   // when DRAFT → APPROVED
-  manuallyPublishedAt DateTime?   // when the user confirmed they published it by hand
-  platformOptions     Json?       // reviewed provider options (privacy, interactions, disclosure)
-  autoPublishConsentAt DateTime?  // explicit user consent for provider API delivery
-  publishAttemptedAt  DateTime?   // provider request accepted/attempted; not proof of publication
-  statusHistory       PostStatusHistory[]
+  publishMode          PublishMode         @default(MANUAL)
+  approvedAt           DateTime? // when DRAFT → APPROVED
+  manuallyPublishedAt  DateTime? // when the user confirmed they published it by hand
+  platformOptions      Json? // reviewed provider options (privacy, interactions, disclosure)
+  autoPublishConsentAt DateTime? // explicit user consent for provider API delivery
+  publishAttemptedAt   DateTime? // provider request accepted/attempted; not proof of publication
+  // Short-lived atomic lease held by the publish worker. This prevents two
+  // overlapping cron invocations from sending the same post to a provider.
+  // A crashed worker is recoverable after the lease expires.
+  publishLeaseUntil     DateTime?
+  publishLeaseToken     String?
+  statusHistory        PostStatusHistory[]
+
+  // Immutable decision evidence. Editing reviewed copy/media clears both links
+  // and reopens the post as DRAFT before it can move through execution again.
+  approvedSnapshotId      String?
+  approvedSnapshot        CampaignSnapshot? @relation("ContentApprovalSnapshot", fields: [approvedSnapshotId], references: [id], onDelete: SetNull)
+  mediaApprovalSnapshotId String?
+  mediaApprovalSnapshot   CampaignSnapshot? @relation("ContentMediaApprovalSnapshot", fields: [mediaApprovalSnapshotId], references: [id], onDelete: SetNull)
+  scheduledSnapshotId     String?
+  scheduledSnapshot       CampaignSnapshot? @relation("ContentScheduleSnapshot", fields: [scheduledSnapshotId], references: [id], onDelete: SetNull)
 
   // Autopilot fields
-  imagePrompt   String?    @db.Text  // prompt for auto image generation
-  autoGenerated Boolean    @default(false)   // created by Autopilot
-  weekNumber    Int?       // which strategy week (1–4)
+  imagePrompt   String? @db.Text // prompt for auto image generation
+  autoGenerated Boolean @default(false) // created by Autopilot
+  weekNumber    Int? // which strategy week (1–4)
 
   // Media Intelligence (Sprint AF)
-  sourceType    String?    @default("AI_GENERATED")  // "AI_GENERATED" | "USER_ASSET" | "NONE"
-  sourceMediaId String?    // ID of the Media record used as visual
+  sourceType    String? @default("AI_GENERATED") // "AI_GENERATED" | "USER_ASSET" | "NONE"
+  sourceMediaId String? // ID of the Media record used as visual
 
   // Content Hub fields (Sprint CH)
-  isVideoPost       Boolean  @default(false)              // true = this slot is a video
-  videoPrompt       String?  @db.Text                     // Replicate prompt for video gen
-  generationStatus  String   @default("PENDING")          // PENDING | GENERATING | DONE | FAILED | SKIPPED
-  mediaSource       String   @default("GENERATE")         // GENERATE | UPLOAD | MIXED
-  uploadedMediaId   String?                               // user's own uploaded asset (Media.id)
-  contentPlanIndex  Int?                                  // position in the monthly content plan (1-N)
+  isVideoPost      Boolean @default(false) // true = this slot is a video
+  videoPrompt      String? @db.Text // Replicate prompt for video gen
+  generationStatus String  @default("PENDING") // PENDING | GENERATING | DONE | FAILED | SKIPPED
+  mediaSource      String  @default("GENERATE") // GENERATE | UPLOAD | MIXED
+  uploadedMediaId  String? // user's own uploaded asset (Media.id)
+  contentPlanIndex Int? // position in the monthly content plan (1-N)
 
   // A/B Testing (Sprint FL2-E)
-  variantGroup      String?                               // shared ID linking A + B variants
-  variantLabel      String?  @default("A")                // "A" | "B"
-  variantWinner     Boolean  @default(false)              // true = this was the winning variant
+  variantGroup  String? // shared ID linking A + B variants
+  variantLabel  String? @default("A") // "A" | "B"
+  variantWinner Boolean @default(false) // true = this was the winning variant
 
   // Post Analytics (Sprint FL2-B) — populated by cron/fetch-analytics
-  analyticsData     Json?    // { likes, comments, shares, impressions, reach, engagementRate }
+  analyticsData      Json? // { likes, comments, shares, impressions, reach, engagementRate }
   analyticsUpdatedAt DateTime?
-  analyticsFetched  Boolean  @default(false)
+  analyticsFetched   Boolean   @default(false)
 
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([workspaceId])
   @@index([campaignId])
   @@index([integrationId])
   @@index([status])
   @@index([autoGenerated])
-  @@index([variantGroup])          // A/B testing — findFirst/findMany by variantGroup
-  @@index([scheduledAt])           // publish cron: find posts due for publishing
-  @@index([status, scheduledAt])   // composite: WHERE status='SCHEDULED' AND scheduledAt<=NOW()
-  @@index([publishMode])           // future: cron filters publishMode = AUTO
+  @@index([variantGroup]) // A/B testing — findFirst/findMany by variantGroup
+  @@index([scheduledAt]) // publish cron: find posts due for publishing
+  @@index([status, scheduledAt]) // composite: WHERE status='SCHEDULED' AND scheduledAt<=NOW()
+  @@index([publishMode]) // future: cron filters publishMode = AUTO
   @@index([publishTarget])
   @@index([status, publishAttemptedAt]) // async provider reconciliation
+  @@index([publishLeaseUntil]) // recover expired publish-worker leases
   @@index([workspaceId, status, analyticsFetched]) // execution + analytics monitor selection
+  @@index([approvedSnapshotId])
+  @@index([mediaApprovalSnapshotId])
+  @@index([scheduledSnapshotId])
+}
+
+// Append-only campaign decision ledger. The payload captures the exact reviewed
+// Brand Brain/strategy/content/execution facts at the moment of a human decision.
+// Database migration protection rejects UPDATEs so historical approval evidence
+// cannot silently drift when live campaign records change later.
+model CampaignSnapshot {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaignId  String
+  campaign    Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  version     Int
+  scope       String
+  payload     Json
+  payloadHash String
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  approvedPosts       SocialPost[] @relation("ContentApprovalSnapshot")
+  mediaApprovedPosts  SocialPost[] @relation("ContentMediaApprovalSnapshot")
+  scheduledPosts      SocialPost[] @relation("ContentScheduleSnapshot")
+  paidCampaigns       AdCampaign[] @relation("PaidCampaignStrategySnapshot")
+  paidBudgetApprovals AdCampaign[] @relation("PaidBudgetApprovalSnapshot")
+  paidLaunchApprovals AdCampaign[] @relation("PaidLaunchApprovalSnapshot")
+
+  @@unique([campaignId, version])
+  @@index([workspaceId, createdAt])
+  @@index([campaignId, scope, createdAt])
+  @@index([payloadHash])
 }
 
 // Publishing Sprint PR1 — append-only audit trail of post lifecycle transitions.
 // One row per status change, written by the status-transition helper. Powers honest
 // UX ("Published manually by you on …") and debugging. Purely additive.
 model PostStatusHistory {
-  id            String     @id @default(cuid())
+  id String @id @default(cuid())
 
-  socialPostId  String
-  socialPost    SocialPost @relation(fields: [socialPostId], references: [id], onDelete: Cascade)
+  socialPostId String
+  socialPost   SocialPost @relation(fields: [socialPostId], references: [id], onDelete: Cascade)
 
-  workspaceId   String
+  workspaceId String
 
-  fromStatus    String?    // previous status (null for the first record)
-  toStatus      String     // new status after the transition
-  actor         String     @default("USER")   // USER | SYSTEM | CRON
-  note          String?    @db.Text
+  fromStatus String? // previous status (null for the first record)
+  toStatus   String // new status after the transition
+  actor      String  @default("USER") // USER | SYSTEM | CRON
+  note       String? @db.Text
 
-  createdAt     DateTime   @default(now())
+  createdAt DateTime @default(now())
 
   @@index([socialPostId])
   @@index([workspaceId])
@@ -1009,14 +1135,14 @@ enum SuggestionStatus {
 }
 
 enum SuggestionType {
-  STRATEGY          // New campaign strategy
-  CONTENT_SWAP      // Replace/refresh content
-  BUDGET_CHANGE     // Increase/decrease budget
-  AUDIENCE_SHIFT    // Change targeting
-  PLATFORM_ADD      // Add new platform
-  PLATFORM_PAUSE    // Pause underperforming platform
-  CAMPAIGN_PAUSE    // Pause campaign
-  CAMPAIGN_LAUNCH   // Launch new campaign
+  STRATEGY // New campaign strategy
+  CONTENT_SWAP // Replace/refresh content
+  BUDGET_CHANGE // Increase/decrease budget
+  AUDIENCE_SHIFT // Change targeting
+  PLATFORM_ADD // Add new platform
+  PLATFORM_PAUSE // Pause underperforming platform
+  CAMPAIGN_PAUSE // Pause campaign
+  CAMPAIGN_LAUNCH // Launch new campaign
 }
 
 enum ReportType {
@@ -1026,24 +1152,24 @@ enum ReportType {
 }
 
 model AgentRun {
-  id            String        @id @default(cuid())
-  workspaceId   String
-  workspace     Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  agent         AgentType
-  status        AgentRunStatus @default(RUNNING)
-  triggeredBy   String?       // "cron", "user", "auto"
+  agent       AgentType
+  status      AgentRunStatus @default(RUNNING)
+  triggeredBy String? // "cron", "user", "auto"
 
-  inputData     Json?         // what the agent received
-  outputData    Json?         // what the agent produced
-  error         String?
+  inputData  Json? // what the agent received
+  outputData Json? // what the agent produced
+  error      String?
 
-  durationMs    Int?
-  createdAt     DateTime      @default(now())
-  completedAt   DateTime?
+  durationMs  Int?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
 
-  suggestions   AgentSuggestion[]
-  reports       AgentReport[]
+  suggestions AgentSuggestion[]
+  reports     AgentReport[]
 
   @@index([workspaceId])
   @@index([agent])
@@ -1052,40 +1178,40 @@ model AgentRun {
 }
 
 model AgentSuggestion {
-  id            String           @id @default(cuid())
-  workspaceId   String
-  workspace     Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  agentRunId    String?
-  agentRun      AgentRun?        @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
+  agentRunId String?
+  agentRun   AgentRun? @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
 
-  agent         AgentType
-  type          SuggestionType
-  status        SuggestionStatus @default(PENDING)
+  agent  AgentType
+  type   SuggestionType
+  status SuggestionStatus @default(PENDING)
 
   // Human-readable summary
-  title         String           // "CTR dropped 22% — Swap audience"
-  reasoning     String           @db.Text  // Why the agent recommends this
-  impact        String?          // "Expected: +15% CTR"
+  title     String // "CTR dropped 22% — Swap audience"
+  reasoning String  @db.Text // Why the agent recommends this
+  impact    String? // "Expected: +15% CTR"
 
   // Structured action payload (agent-type specific)
-  payload       Json             // { action, params }
+  payload Json // { action, params }
 
   // Optional campaign link
-  campaignId    String?
+  campaignId String?
 
   // Approval tracking
-  approvedAt    DateTime?
-  rejectedAt    DateTime?
-  executedAt    DateTime?
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  executedAt      DateTime?
   executionResult Json?
 
   // Urgency
-  priority      Int @default(2)  // 1=urgent, 2=normal, 3=low
-  expiresAt     DateTime?        // suggestion expires if not acted on
+  priority  Int       @default(2) // 1=urgent, 2=normal, 3=low
+  expiresAt DateTime? // suggestion expires if not acted on
 
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([workspaceId])
   @@index([status])
@@ -1095,29 +1221,29 @@ model AgentSuggestion {
 }
 
 model AgentReport {
-  id            String       @id @default(cuid())
-  workspaceId   String
-  workspace     Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  agentRunId    String?
-  agentRun      AgentRun?    @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
+  agentRunId String?
+  agentRun   AgentRun? @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
 
-  type          ReportType
-  title         String       // "Weekly Performance — May 20–26"
-  summary       String       @db.Text  // 2-3 sentence exec summary
-  body          Json         // { metrics, insights, recommendations, highlights }
+  type    ReportType
+  title   String // "Weekly Performance — May 20–26"
+  summary String     @db.Text // 2-3 sentence exec summary
+  body    Json // { metrics, insights, recommendations, highlights }
 
   // Period
-  periodStart   DateTime
-  periodEnd     DateTime
+  periodStart DateTime
+  periodEnd   DateTime
 
   // Optional campaign scope
-  campaignId    String?
+  campaignId String?
 
   // Email sent?
-  emailedAt     DateTime?
+  emailedAt DateTime?
 
-  createdAt     DateTime     @default(now())
+  createdAt DateTime @default(now())
 
   @@index([workspaceId])
   @@index([type])
@@ -1145,45 +1271,45 @@ enum VisualType {
 }
 
 model GeneratedVisual {
-  id              String       @id @default(cuid())
+  id String @id @default(cuid())
 
   // Ownership
-  workspaceId     String
-  workspace       Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  campaignId      String?
-  campaign        Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaignId  String?
+  campaign    Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 
   // Visual configuration
-  visualType      VisualType   @default(HERO)
-  visualStyle     String       // Minimal, Luxury, Editorial, Cinematic, etc.
-  prompt          String       @db.Text  // user-facing creative direction
-  enhancedPrompt  String?      @db.Text  // full prompt sent to DALL-E
+  visualType     VisualType @default(HERO)
+  visualStyle    String // Minimal, Luxury, Editorial, Cinematic, etc.
+  prompt         String     @db.Text // user-facing creative direction
+  enhancedPrompt String?    @db.Text // full prompt sent to DALL-E
 
   // Campaign context snapshot (preserved at generation time)
-  campaignName    String?
-  campaignGoal    String?
-  campaignTone    String?
-  audience        String?      @db.Text
+  campaignName String?
+  campaignGoal String?
+  campaignTone String?
+  audience     String? @db.Text
 
   // Brand context snapshot
-  brandName       String?
-  brandToneWords  String[]     @default([])
+  brandName      String?
+  brandToneWords String[] @default([])
 
   // Generation state
-  status          VisualStatus @default(PENDING)
-  imageUrl        String?      // permanent Cloudinary URL
-  thumbnailUrl    String?
-  errorMessage    String?
-  retryCount      Int          @default(0)
+  status       VisualStatus @default(PENDING)
+  imageUrl     String? // permanent Cloudinary URL
+  thumbnailUrl String?
+  errorMessage String?
+  retryCount   Int          @default(0)
 
   // Metadata
-  isPrimary       Boolean      @default(false)
-  isArchived      Boolean      @default(false)
-  version         Int          @default(1)
-  parentId        String?      // links regenerations to original
+  isPrimary  Boolean @default(false)
+  isArchived Boolean @default(false)
+  version    Int     @default(1)
+  parentId   String? // links regenerations to original
 
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([workspaceId])
   @@index([campaignId])
@@ -1205,60 +1331,60 @@ enum PaidPackStatus {
 }
 
 enum PaidObjective {
-  AWARENESS     // Brand awareness, reach
-  TRAFFIC       // Link clicks, website visits
-  CONVERSIONS   // Purchases, sign-ups, form fills
-  LEADS         // Lead gen forms
-  ENGAGEMENT    // Post engagement, video views
+  AWARENESS // Brand awareness, reach
+  TRAFFIC // Link clicks, website visits
+  CONVERSIONS // Purchases, sign-ups, form fills
+  LEADS // Lead gen forms
+  ENGAGEMENT // Post engagement, video views
 }
 
 model PaidCampaignPack {
-  id          String   @id @default(cuid())
-  campaignId  String   @unique
-  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  campaignId  String    @unique
+  campaign    Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   // Campaign Setup
-  objective        PaidObjective  @default(TRAFFIC)
-  platforms        String[]       @default([])  // ["meta", "google", "tiktok", "linkedin"]
-  dailyBudget      Float?         // USD
-  totalBudget      Float?         // USD
-  durationDays     Int            @default(7)
-  startDate        DateTime?
-  currency         String         @default("USD")
+  objective    PaidObjective @default(TRAFFIC)
+  platforms    String[]      @default([]) // ["meta", "google", "tiktok", "linkedin"]
+  dailyBudget  Float? // USD
+  totalBudget  Float? // USD
+  durationDays Int           @default(7)
+  startDate    DateTime?
+  currency     String        @default("USD")
 
   // AI-Generated Content
-  audienceBrief    Json?   // { meta: {...}, google: {...}, tiktok: {...}, linkedin: {...} }
-  copyVariants     Json?   // [ { id, label, primaryText, headline, description, cta, platform } ]
-  estimatedReach   Json?   // { meta: { min, max }, tiktok: { min, max }, ... }
-  utmParams        Json?   // { source, medium, campaign, content, term, fullUrl }
-  platformGuides   Json?   // { meta: [...steps], google: [...steps], tiktok: [...steps] }
-  budgetInsights   Json?   // { recommendation, splitSuggestion, competitorBenchmark }
+  audienceBrief  Json? // { meta: {...}, google: {...}, tiktok: {...}, linkedin: {...} }
+  copyVariants   Json? // [ { id, label, primaryText, headline, description, cta, platform } ]
+  estimatedReach Json? // { meta: { min, max }, tiktok: { min, max }, ... }
+  utmParams      Json? // { source, medium, campaign, content, term, fullUrl }
+  platformGuides Json? // { meta: [...steps], google: [...steps], tiktok: [...steps] }
+  budgetInsights Json? // { recommendation, splitSuggestion, competitorBenchmark }
 
   // Selected Assets
-  creativeAssetUrls String[] @default([])  // Cloudinary URLs from Media Library
-  primaryCopyId     String?  // which copyVariant is currently selected
+  creativeAssetUrls String[] @default([]) // Cloudinary URLs from Media Library
+  primaryCopyId     String? // which copyVariant is currently selected
 
   // Status Tracking
-  status           PaidPackStatus @default(DRAFT)
-  launchedAt       DateTime?
-  launchNotes      String?   @db.Text  // user notes when marking as launched
-  completedAt      DateTime?
+  status      PaidPackStatus @default(DRAFT)
+  launchedAt  DateTime?
+  launchNotes String?        @db.Text // user notes when marking as launched
+  completedAt DateTime?
 
   // Performance (manually entered or GA4)
-  metrics          Json?   // { impressions, reach, clicks, ctr, cpc, cpm, spend, conversions, roas }
+  metrics          Json? // { impressions, reach, clicks, ctr, cpc, cpm, spend, conversions, roas }
   metricsSource    String? // "manual" | "ga4" | "meta_api"
   metricsUpdatedAt DateTime?
 
   // Brand Brain Learning
-  learnings        Json?   // { winningHooks[], winningAudiences{}, bestPlatform, failedAngles[], insights }
-  brandBrainUpdated Boolean @default(false)
+  learnings           Json? // { winningHooks[], winningAudiences{}, bestPlatform, failedAngles[], insights }
+  brandBrainUpdated   Boolean   @default(false)
   brandBrainUpdatedAt DateTime?
 
-  generatedAt      DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  generatedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([workspaceId])
   @@index([campaignId])
@@ -1275,24 +1401,24 @@ model PaidCampaignPack {
 // until we have enough data volume to justify vector similarity search.
 
 model CampaignMemory {
-  id           String    @id @default(cuid())
+  id String @id @default(cuid())
 
-  workspaceId  String
-  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  campaignId   String?   // linked campaign (nullable — workspace-level memories exist too)
+  campaignId String? // linked campaign (nullable — workspace-level memories exist too)
 
   // Campaign context (used for filtering relevant memories)
-  goal         String?   // "sales" | "awareness" | "leads" | "traffic"
-  tone         String?   // "luxury" | "modern" | "energetic" etc.
-  industry     String?   // from brand profile
-  audienceHint String?   // short description of the target audience
+  goal         String? // "sales" | "awareness" | "leads" | "traffic"
+  tone         String? // "luxury" | "modern" | "energetic" etc.
+  industry     String? // from brand profile
+  audienceHint String? // short description of the target audience
 
   // Distilled learnings extracted from the AI output
   // { topHooks, contentAngles, keyMessage, positioning, contentPillars, winningFormats }
-  learnings    Json
+  learnings Json
 
-  createdAt    DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([workspaceId])
   @@index([workspaceId, goal])
@@ -1304,42 +1430,43 @@ model CampaignMemory {
 // ============================================================================
 
 model BrainLearning {
-  id          String    @id @default(cuid())
+  id String @id @default(cuid())
 
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  campaignId  String?   // source campaign (nullable for content-level triggers)
+  campaignId String? // source campaign (nullable for content-level triggers)
 
   // Learning metadata
-  trigger     String    // 'strategy' | 'approved_content' | 'post_performance'
-  field       String    // Brand Brain field: winningHooks | toneKeywords | uniqueAdvantages | etc.
-  displayName String    // Human-readable: "Winning Hooks", "Brand Tone", etc.
-  icon        String?   // emoji icon for the field
+  trigger     String // 'strategy' | 'approved_content' | 'post_performance'
+  field       String // Brand Brain field: winningHooks | toneKeywords | uniqueAdvantages | etc.
+  displayName String // Human-readable: "Winning Hooks", "Brand Tone", etc.
+  icon        String? // emoji icon for the field
 
   // Values
-  current     Json?     // current value in Brand Brain
-  proposed    Json      // proposed new / merged value
-  reason      String    @db.Text  // why NEXUS recommends this (shown to user)
+  current  Json? // current value in Brand Brain
+  proposed Json // proposed new / merged value
+  reason   String @db.Text // why NEXUS recommends this (shown to user)
+  evidence Json? // structured source, period, sample, confidence, impact, and rollback contract
 
-  status      String    @default("pending")  // pending | accepted | dismissed
+  status String @default("pending") // pending | accepted | dismissed | rolled_back
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([workspaceId, status])
   @@index([workspaceId, createdAt])
 }
 
 model BrainScoreSnapshot {
-  id          String    @id @default(cuid())
+  id String @id @default(cuid())
 
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  score       Int       // 0–100 completeness score at time of save
+  score Int // 0–100 completeness score at time of save
 
-  createdAt   DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([workspaceId, createdAt])
 }
@@ -1355,18 +1482,18 @@ model BrainScoreSnapshot {
 // table touching no existing model. NEVER stores performance metrics or inferred
 // results — only the action, its honest from/to status, and small safe metadata.
 model MarketingLearningEvent {
-  id            String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  workspaceId   String
-  campaignId    String?
-  socialPostId  String?
+  workspaceId  String
+  campaignId   String?
+  socialPostId String?
 
-  eventType     String   // POST_APPROVED | POST_SCHEDULED | POST_MANUALLY_PUBLISHED | POST_UNSCHEDULED | POST_REVERTED_TO_DRAFT | POST_FAILED | POST_AUTO_PUBLISHED
-  source        String   @default("EXECUTION_WORKFLOW")
-  actor         String   @default("USER")   // USER | SYSTEM | CRON
-  metadata      Json     @default("{}")
+  eventType String // POST_APPROVED | POST_SCHEDULED | POST_MANUALLY_PUBLISHED | POST_UNSCHEDULED | POST_REVERTED_TO_DRAFT | POST_FAILED | POST_AUTO_PUBLISHED
+  source    String @default("EXECUTION_WORKFLOW")
+  actor     String @default("USER") // USER | SYSTEM | CRON
+  metadata  Json   @default("{}")
 
-  createdAt     DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([workspaceId, createdAt])
   @@index([workspaceId, eventType])
@@ -1389,10 +1516,10 @@ model MarketingLearningEvent {
 // then "live API mode" without changing the data model.
 
 enum AdPlatform {
-  META        // Facebook + Instagram (Meta Marketing API)
-  GOOGLE      // Google Ads: Search execution; other formats planning-only
-  TIKTOK      // TikTok Marketing API
-  LINKEDIN    // LinkedIn Campaign Manager API
+  META // Facebook + Instagram (Meta Marketing API)
+  GOOGLE // Google Ads: Search execution; other formats planning-only
+  TIKTOK // TikTok Marketing API
+  LINKEDIN // LinkedIn Campaign Manager API
 }
 
 enum AdAccountStatus {
@@ -1404,59 +1531,59 @@ enum AdAccountStatus {
 
 enum AdCampaignStatus {
   DRAFT
-  PENDING_REVIEW    // submitted to platform, awaiting review
+  PENDING_REVIEW // submitted to platform, awaiting review
   ACTIVE
   PAUSED
   COMPLETED
   ARCHIVED
-  REJECTED          // platform rejected the campaign
+  REJECTED // platform rejected the campaign
 }
 
 enum AdObjective {
-  BRAND_AWARENESS   // Reach people likely to remember your brand
-  REACH             // Show ad to maximum unique people
-  TRAFFIC           // Drive traffic to website, app, or WhatsApp
-  ENGAGEMENT        // Post likes, page follows, video views
-  APP_INSTALLS      // Drive app installs
-  VIDEO_VIEWS       // Maximize video view time
-  LEAD_GENERATION   // Lead Gen Forms / Google Lead Ads
-  MESSAGES          // Start conversations on WhatsApp/Messenger
-  CONVERSIONS       // Purchase, sign-up, add-to-cart
-  CATALOG_SALES     // Dynamic product ads from catalog
-  STORE_VISITS      // Drive in-store footfall
+  BRAND_AWARENESS // Reach people likely to remember your brand
+  REACH // Show ad to maximum unique people
+  TRAFFIC // Drive traffic to website, app, or WhatsApp
+  ENGAGEMENT // Post likes, page follows, video views
+  APP_INSTALLS // Drive app installs
+  VIDEO_VIEWS // Maximize video view time
+  LEAD_GENERATION // Lead Gen Forms / Google Lead Ads
+  MESSAGES // Start conversations on WhatsApp/Messenger
+  CONVERSIONS // Purchase, sign-up, add-to-cart
+  CATALOG_SALES // Dynamic product ads from catalog
+  STORE_VISITS // Drive in-store footfall
 }
 
 enum BidStrategy {
-  LOWEST_COST          // Spend budget, minimize cost (default)
-  COST_CAP             // Keep average cost at or below cap
-  BID_CAP              // Max bid per auction
-  TARGET_COST          // Maintain cost stability
-  MINIMUM_ROAS         // Maintain minimum return on ad spend
-  MANUAL_CPC           // Manual cost per click (Google)
-  MANUAL_CPM           // Manual cost per thousand impressions
+  LOWEST_COST // Spend budget, minimize cost (default)
+  COST_CAP // Keep average cost at or below cap
+  BID_CAP // Max bid per auction
+  TARGET_COST // Maintain cost stability
+  MINIMUM_ROAS // Maintain minimum return on ad spend
+  MANUAL_CPC // Manual cost per click (Google)
+  MANUAL_CPM // Manual cost per thousand impressions
   MAXIMIZE_CONVERSIONS // Google: maximize conversion volume
-  TARGET_CPA           // Google: target cost per acquisition
-  TARGET_ROAS          // Google: target return on ad spend
+  TARGET_CPA // Google: target cost per acquisition
+  TARGET_ROAS // Google: target return on ad spend
 }
 
 enum AdFormat {
   SINGLE_IMAGE
   SINGLE_VIDEO
-  CAROUSEL            // Multi-image/video swipeable (Meta, LinkedIn)
-  COLLECTION          // Instant storefront (Meta)
-  STORIES             // Vertical 9:16 stories
-  REELS               // Instagram/Facebook Reels
-  SEARCH              // Google text ad
-  DISPLAY             // Google display banner
-  PERFORMANCE_MAX     // Google P-Max (AI-driven all formats)
-  RESPONSIVE_DISPLAY  // Google responsive display
-  SPARK_ADS           // TikTok: boost organic content
-  TOP_VIEW            // TikTok: full-screen on app open
-  IN_FEED             // TikTok: in-feed ad
-  SPONSORED_CONTENT   // LinkedIn: sponsored post
-  MESSAGE_ADS         // LinkedIn: InMail / sponsored messaging
-  LEAD_GEN_FORM       // Meta / LinkedIn: embedded lead form
-  DYNAMIC             // Dynamic creative optimization
+  CAROUSEL // Multi-image/video swipeable (Meta, LinkedIn)
+  COLLECTION // Instant storefront (Meta)
+  STORIES // Vertical 9:16 stories
+  REELS // Instagram/Facebook Reels
+  SEARCH // Google text ad
+  DISPLAY // Google display banner
+  PERFORMANCE_MAX // Google P-Max (AI-driven all formats)
+  RESPONSIVE_DISPLAY // Google responsive display
+  SPARK_ADS // TikTok: boost organic content
+  TOP_VIEW // TikTok: full-screen on app open
+  IN_FEED // TikTok: in-feed ad
+  SPONSORED_CONTENT // LinkedIn: sponsored post
+  MESSAGE_ADS // LinkedIn: InMail / sponsored messaging
+  LEAD_GEN_FORM // Meta / LinkedIn: embedded lead form
+  DYNAMIC // Dynamic creative optimization
 }
 
 enum AdStatus {
@@ -1471,57 +1598,57 @@ enum AdStatus {
 
 // Connected ad account (one per platform per workspace)
 model AdAccount {
-  id              String          @id @default(cuid())
+  id String @id @default(cuid())
 
-  workspaceId     String
-  workspace       Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  platform        AdPlatform
-  status          AdAccountStatus @default(DISCONNECTED)
+  platform AdPlatform
+  status   AdAccountStatus @default(DISCONNECTED)
 
   // Platform identifiers
-  platformAccountId   String      // Meta: "act_123456789" | Google: "123-456-7890" | TikTok: "7123456789"
-  platformAccountName String?     // Human-readable name from the platform
-  businessId          String?     // Meta Business Manager ID / Google MCC account ID
+  platformAccountId   String // Meta: "act_123456789" | Google: "123-456-7890" | TikTok: "7123456789"
+  platformAccountName String? // Human-readable name from the platform
+  businessId          String? // Meta Business Manager ID / Google MCC account ID
   businessName        String?
 
   // OAuth credentials
-  accessToken     String?   @db.Text  // Platform access token (handle encryption at app layer)
-  refreshToken    String?   @db.Text
-  tokenExpiresAt  DateTime?
+  accessToken    String?   @db.Text // Platform access token (handle encryption at app layer)
+  refreshToken   String?   @db.Text
+  tokenExpiresAt DateTime?
 
   // Account configuration
-  currency        String    @default("USD")   // Account-level billing currency
-  timeZone        String?   @default("UTC")   // Account timezone (e.g., "Asia/Dubai")
-  country         String?
+  currency String  @default("USD") // Account-level billing currency
+  timeZone String? @default("UTC") // Account timezone (e.g., "Asia/Dubai")
+  country  String?
 
   // Verification status
-  isVerified      Boolean   @default(false)   // Business verification complete
-  hasApiAccess    Boolean   @default(false)   // API permission approved by platform
-  permissionScopes String[] @default([])      // Granted OAuth scopes
+  isVerified       Boolean  @default(false) // Business verification complete
+  hasApiAccess     Boolean  @default(false) // API permission approved by platform
+  permissionScopes String[] @default([]) // Granted OAuth scopes
 
   // Meta-specific
-  pageId          String?   // Connected Facebook Page ID
-  pageName        String?
-  pixelId         String?   // Meta Pixel ID for conversion tracking
+  pageId             String? // Connected Facebook Page ID
+  pageName           String?
+  pixelId            String? // Meta Pixel ID for conversion tracking
   instagramAccountId String? // Linked Instagram Business Account
 
   // Google-specific
-  loginCustomerId String?   // MCC / manager account ID
+  loginCustomerId String? // MCC / manager account ID
 
   // Account health
-  spendLimit      Float?    // Monthly spend cap (set by user in Nexus)
-  totalSpent      Float     @default(0)   // Lifetime spend synced from platform
-  lastSyncAt      DateTime?
-  lastErrorAt     DateTime?
-  lastError       String?
+  spendLimit  Float? // Monthly spend cap (set by user in Nexus)
+  totalSpent  Float     @default(0) // Lifetime spend synced from platform
+  lastSyncAt  DateTime?
+  lastErrorAt DateTime?
+  lastError   String?
 
   // Relations
-  adCampaigns     AdCampaign[]
+  adCampaigns      AdCampaign[]
   apiAccessReviews AdAccountApiAccessReview[]
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([workspaceId, platform, platformAccountId])
   @@index([workspaceId])
@@ -1532,31 +1659,31 @@ model AdAccount {
 // Immutable operator ledger for Meta Ads API access readiness.
 // This records founder/admin review decisions after Meta App Review approval.
 model AdAccountApiAccessReview {
-  id                    String      @id @default(cuid())
+  id String @id @default(cuid())
 
-  adAccountId           String
-  adAccount             AdAccount   @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
-  workspaceId           String
+  adAccountId String
+  adAccount   AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  workspaceId String
 
-  reviewedById          String
-  reviewedByEmail       String?
+  reviewedById    String
+  reviewedByEmail String?
 
-  platform              AdPlatform
-  platformAccountId     String
-  platformAccountName   String?
-  businessId            String?
-  businessName          String?
-  pageId                String?
-  pageName              String?
+  platform            AdPlatform
+  platformAccountId   String
+  platformAccountName String?
+  businessId          String?
+  businessName        String?
+  pageId              String?
+  pageName            String?
 
-  previousHasApiAccess  Boolean
-  nextHasApiAccess      Boolean
-  confirmation          String
-  evidenceUrl           String?     @db.Text
-  reason                String?     @db.Text
-  missingScopes         String[]    @default([])
+  previousHasApiAccess Boolean
+  nextHasApiAccess     Boolean
+  confirmation         String
+  evidenceUrl          String?  @db.Text
+  reason               String?  @db.Text
+  missingScopes        String[] @default([])
 
-  createdAt             DateTime    @default(now())
+  createdAt DateTime @default(now())
 
   @@index([adAccountId, createdAt])
   @@index([workspaceId, createdAt])
@@ -1566,44 +1693,53 @@ model AdAccountApiAccessReview {
 
 // A paid advertising campaign (separate from organic Campaign)
 model AdCampaign {
-  id              String            @id @default(cuid())
+  id String @id @default(cuid())
 
-  workspaceId     String
-  workspace       Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  adAccountId     String?
-  adAccount       AdAccount?        @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
+  adAccountId String?
+  adAccount   AdAccount? @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
 
-  // Optional cross-reference to the organic campaign that inspired this
+  // Legacy campaign cross-reference. New paid drafts also pin the exact,
+  // immutable approved strategy revision through strategySnapshotId.
   organicCampaignId String?
 
+  strategySnapshotId String?
+  strategySnapshot   CampaignSnapshot? @relation("PaidCampaignStrategySnapshot", fields: [strategySnapshotId], references: [id], onDelete: Restrict)
+
+  budgetApprovalSnapshotId String?
+  budgetApprovalSnapshot   CampaignSnapshot? @relation("PaidBudgetApprovalSnapshot", fields: [budgetApprovalSnapshotId], references: [id], onDelete: Restrict)
+  launchApprovalSnapshotId String?
+  launchApprovalSnapshot   CampaignSnapshot? @relation("PaidLaunchApprovalSnapshot", fields: [launchApprovalSnapshotId], references: [id], onDelete: Restrict)
+
   // Platform
-  platform        AdPlatform
-  platformCampaignId String?        // Null until pushed to platform via API
-  platformStatus  String?           // Status as reported by the platform API
+  platform           AdPlatform
+  platformCampaignId String? // Null until pushed to platform via API
+  platformStatus     String? // Status as reported by the platform API
 
   // Campaign config
-  name            String
-  objective       AdObjective       @default(TRAFFIC)
-  status          AdCampaignStatus  @default(DRAFT)
+  name      String
+  objective AdObjective      @default(TRAFFIC)
+  status    AdCampaignStatus @default(DRAFT)
 
   // Budget
-  budgetType      String            @default("DAILY")  // "DAILY" | "LIFETIME"
-  dailyBudget     Float?            // In account currency
-  lifetimeBudget  Float?
-  currency        String            @default("USD")
+  budgetType     String @default("DAILY") // "DAILY" | "LIFETIME"
+  dailyBudget    Float? // In account currency
+  lifetimeBudget Float?
+  currency       String @default("USD")
 
   // Schedule
-  startDate       DateTime?
-  endDate         DateTime?
+  startDate DateTime?
+  endDate   DateTime?
 
   // Special flags
-  isBoosted       Boolean           @default(false)   // Boosted post / Spark Ad
-  isAbTest        Boolean           @default(false)   // A/B split test campaign
+  isBoosted Boolean @default(false) // Boosted post / Spark Ad
+  isAbTest  Boolean @default(false) // A/B split test campaign
 
   // AI Intelligence (Brand Brain powered)
   // Generated by POST /api/ad-campaigns/[id]/generate-strategy
-  aiStrategy      Json?
+  aiStrategy Json?
   // {
   //   positioning: string,
   //   targetingRationale: string,
@@ -1614,73 +1750,76 @@ model AdCampaign {
   //   recommendedBudgetSplit: Record<string, number>,
   // }
 
-  aiAudienceBrief Json?             // Full audience brief per platform
-  aiBudgetPlan    Json?             // { allocation, phasing, benchmarks, expectedReach }
+  aiAudienceBrief Json? // Full audience brief per platform
+  aiBudgetPlan    Json? // { allocation, phasing, benchmarks, expectedReach }
 
   // Brand Brain snapshot at creation time (for reproducibility)
   brandBrainSnapshot Json?
 
   // UTM tracking
-  utmSource       String?
-  utmMedium       String?  @default("paid_social")
-  utmCampaign     String?
-  trackingUrls    Json?    // { platform: "full UTM URL" }
+  utmSource    String?
+  utmMedium    String? @default("paid_social")
+  utmCampaign  String?
+  trackingUrls Json? // { platform: "full UTM URL" }
 
   // Denormalized performance totals (updated by cron / manual entry)
-  totalImpressions  Int     @default(0)
-  totalClicks       Int     @default(0)
-  totalSpend        Float   @default(0)
-  totalConversions  Int     @default(0)
-  avgCTR            Float?
-  avgCPC            Float?
-  avgROAS           Float?
+  totalImpressions Int    @default(0)
+  totalClicks      Int    @default(0)
+  totalSpend       Float  @default(0)
+  totalConversions Int    @default(0)
+  avgCTR           Float?
+  avgCPC           Float?
+  avgROAS          Float?
 
   // Sync state
-  lastSyncAt      DateTime?
-  lastSyncError   String?
+  lastSyncAt    DateTime?
+  lastSyncError String?
 
   // Relations
-  adSets          AdSet[]
+  adSets               AdSet[]
   performanceSnapshots AdPerformanceSnapshot[]
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  @@unique([budgetApprovalSnapshotId])
+  @@unique([launchApprovalSnapshotId])
   @@index([workspaceId])
   @@index([adAccountId])
   @@index([platform])
   @@index([status])
   @@index([organicCampaignId])
+  @@index([strategySnapshotId])
   @@index([platformCampaignId])
   @@index([startDate])
 }
 
 // Ad Set / Ad Group — targeting + budget within a campaign
 model AdSet {
-  id              String     @id @default(cuid())
+  id String @id @default(cuid())
 
-  adCampaignId    String
-  adCampaign      AdCampaign @relation(fields: [adCampaignId], references: [id], onDelete: Cascade)
+  adCampaignId String
+  adCampaign   AdCampaign @relation(fields: [adCampaignId], references: [id], onDelete: Cascade)
 
-  platformAdSetId String?    // Null until pushed to platform
+  platformAdSetId String? // Null until pushed to platform
 
   // Configuration
-  name            String
-  status          AdStatus   @default(DRAFT)
+  name   String
+  status AdStatus @default(DRAFT)
 
   // Budget (overrides campaign-level budget if set)
-  dailyBudget     Float?
-  lifetimeBudget  Float?
-  bidStrategy     BidStrategy @default(LOWEST_COST)
-  bidAmount       Float?      // Bid cap / cost cap value
+  dailyBudget    Float?
+  lifetimeBudget Float?
+  bidStrategy    BidStrategy @default(LOWEST_COST)
+  bidAmount      Float? // Bid cap / cost cap value
 
   // Schedule
-  startDate       DateTime?
-  endDate         DateTime?
+  startDate DateTime?
+  endDate   DateTime?
 
   // Targeting — JSON for maximum flexibility across platforms
   // Maps directly to Meta, Google, TikTok, LinkedIn API fields
-  targeting       Json?
+  targeting Json?
   // {
   //   ageMin: number,
   //   ageMax: number,
@@ -1726,7 +1865,7 @@ model AdSet {
   // }
 
   // Placement configuration
-  placements      Json?
+  placements Json?
   // {
   //   automatic: boolean,
   //   manual: string[],     // e.g. ["FACEBOOK_NEWSFEED", "INSTAGRAM_REELS", "INSTAGRAM_STORY"]
@@ -1735,21 +1874,21 @@ model AdSet {
   // }
 
   // Optimization
-  optimizationGoal  String?  // "REACH" | "LINK_CLICKS" | "CONVERSIONS" | "LEAD_GENERATION"
-  billingEvent      String?  // "IMPRESSIONS" | "LINK_CLICKS" | "THRUPLAY"
+  optimizationGoal String? // "REACH" | "LINK_CLICKS" | "CONVERSIONS" | "LEAD_GENERATION"
+  billingEvent     String? // "IMPRESSIONS" | "LINK_CLICKS" | "THRUPLAY"
 
   // Denormalized performance totals
-  totalImpressions  Int     @default(0)
-  totalClicks       Int     @default(0)
-  totalSpend        Float   @default(0)
-  totalConversions  Int     @default(0)
-  avgCTR            Float?
+  totalImpressions Int    @default(0)
+  totalClicks      Int    @default(0)
+  totalSpend       Float  @default(0)
+  totalConversions Int    @default(0)
+  avgCTR           Float?
 
   // Relations
-  ads             Ad[]
+  ads Ad[]
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([adCampaignId])
   @@index([status])
@@ -1758,66 +1897,66 @@ model AdSet {
 
 // Individual ad creative within an Ad Set
 model Ad {
-  id              String     @id @default(cuid())
+  id String @id @default(cuid())
 
-  adSetId         String
-  adSet           AdSet      @relation(fields: [adSetId], references: [id], onDelete: Cascade)
+  adSetId String
+  adSet   AdSet  @relation(fields: [adSetId], references: [id], onDelete: Cascade)
 
   // Platform identifiers (set after API push)
-  platformAdId    String?
+  platformAdId       String?
   platformCreativeId String?
 
   // Configuration
-  name            String
-  status          AdStatus   @default(DRAFT)
-  format          AdFormat   @default(SINGLE_IMAGE)
+  name   String
+  status AdStatus @default(DRAFT)
+  format AdFormat @default(SINGLE_IMAGE)
 
   // Copy fields
-  primaryText     String?    @db.Text   // Main body / post text
-  headline        String?               // Max 40 chars (Meta), 30 chars (Google RSA)
-  description     String?               // Link preview description
-  callToAction    String?               // "LEARN_MORE" | "SHOP_NOW" | "SIGN_UP" | "BOOK_NOW" | "CONTACT_US" | "GET_QUOTE"
-  displayUrl      String?               // Google ads display path
-  destinationUrl  String?               // Final URL with UTM params
+  primaryText    String? @db.Text // Main body / post text
+  headline       String? // Max 40 chars (Meta), 30 chars (Google RSA)
+  description    String? // Link preview description
+  callToAction   String? // "LEARN_MORE" | "SHOP_NOW" | "SIGN_UP" | "BOOK_NOW" | "CONTACT_US" | "GET_QUOTE"
+  displayUrl     String? // Google ads display path
+  destinationUrl String? // Final URL with UTM params
 
   // Creative assets (Cloudinary URLs)
-  imageUrl        String?
-  videoUrl        String?
-  thumbnailUrl    String?               // Video poster / cover image
-  carouselCards   Json?                 // [{ imageUrl, headline, description, linkUrl, cta }]
+  imageUrl      String?
+  videoUrl      String?
+  thumbnailUrl  String? // Video poster / cover image
+  carouselCards Json? // [{ imageUrl, headline, description, linkUrl, cta }]
 
   // Creative specs validation
-  creativeSpecs   Json?    // { width, height, aspectRatio, duration, fileSize, format }
-  specsValidated  Boolean  @default(false)
-  specsErrors     String[] @default([])  // Human-readable validation errors
+  creativeSpecs  Json? // { width, height, aspectRatio, duration, fileSize, format }
+  specsValidated Boolean  @default(false)
+  specsErrors    String[] @default([]) // Human-readable validation errors
 
   // A/B testing
-  variantGroup    String?  // Shared UUID linking variant ads in same group
-  variantLabel    String?  // "A" | "B" | "C"
-  isWinner        Boolean  @default(false)  // Marked after analysis
+  variantGroup String? // Shared UUID linking variant ads in same group
+  variantLabel String? // "A" | "B" | "C"
+  isWinner     Boolean @default(false) // Marked after analysis
 
   // AI generation metadata
-  aiGenerated     Boolean  @default(false)
-  aiAngle         String?  // "pain_point" | "social_proof" | "curiosity" | "benefit" | "urgency"
-  aiHook          String?  // The opening hook line
+  aiGenerated      Boolean @default(false)
+  aiAngle          String? // "pain_point" | "social_proof" | "curiosity" | "benefit" | "urgency"
+  aiHook           String? // The opening hook line
   generationPrompt String? @db.Text
 
   // Denormalized performance metrics (synced from snapshots)
-  impressions     Int     @default(0)
-  clicks          Int     @default(0)
-  spend           Float   @default(0)
-  conversions     Int     @default(0)
-  ctr             Float?
-  cpc             Float?
-  cpm             Float?
-  roas            Float?
+  impressions Int    @default(0)
+  clicks      Int    @default(0)
+  spend       Float  @default(0)
+  conversions Int    @default(0)
+  ctr         Float?
+  cpc         Float?
+  cpm         Float?
+  roas        Float?
 
   // Platform review
-  reviewStatus    String?   // "PENDING" | "APPROVED" | "DISAPPROVED"
-  reviewFeedback  String?   // Platform disapproval reason
+  reviewStatus   String? // "PENDING" | "APPROVED" | "DISAPPROVED"
+  reviewFeedback String? // Platform disapproval reason
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([adSetId])
   @@index([status])
@@ -1828,54 +1967,54 @@ model Ad {
 // Daily performance snapshots per campaign / adset / ad
 // Fetched from platform APIs via cron or entered manually
 model AdPerformanceSnapshot {
-  id              String     @id @default(cuid())
+  id String @id @default(cuid())
 
-  adCampaignId    String
-  adCampaign      AdCampaign @relation(fields: [adCampaignId], references: [id], onDelete: Cascade)
+  adCampaignId String
+  adCampaign   AdCampaign @relation(fields: [adCampaignId], references: [id], onDelete: Cascade)
 
   // Granularity (null = aggregate at that level)
-  adSetId         String?    // null = campaign-level
-  adId            String?    // null = adset-level
+  adSetId String? // null = campaign-level
+  adId    String? // null = adset-level
 
   // Date dimension (UTC — represents the calendar day)
-  date            DateTime
+  date DateTime
 
   // Reach & exposure
-  impressions     Int     @default(0)
-  reach           Int     @default(0)   // Unique accounts reached
-  frequency       Float?                // Avg impressions per unique user
+  impressions Int    @default(0)
+  reach       Int    @default(0) // Unique accounts reached
+  frequency   Float? // Avg impressions per unique user
 
   // Engagement
-  clicks          Int     @default(0)
-  linkClicks      Int     @default(0)   // Outbound clicks to destination URL
-  videoViews      Int     @default(0)   // 3-second video views
-  videoViewRate   Float?                // % who watched 25%+
-  videoCompletions Int    @default(0)   // Watched 95%+ (ThruPlay)
-  postEngagements Int     @default(0)   // Likes, comments, shares, saves
+  clicks           Int    @default(0)
+  linkClicks       Int    @default(0) // Outbound clicks to destination URL
+  videoViews       Int    @default(0) // 3-second video views
+  videoViewRate    Float? // % who watched 25%+
+  videoCompletions Int    @default(0) // Watched 95%+ (ThruPlay)
+  postEngagements  Int    @default(0) // Likes, comments, shares, saves
 
   // Conversions
-  conversions     Int     @default(0)   // Total tracked conversions
-  leads           Int     @default(0)
-  purchases       Int     @default(0)
-  addToCarts      Int     @default(0)
-  registrations   Int     @default(0)
+  conversions   Int @default(0) // Total tracked conversions
+  leads         Int @default(0)
+  purchases     Int @default(0)
+  addToCarts    Int @default(0)
+  registrations Int @default(0)
 
   // Cost metrics
-  spend           Float   @default(0)   // Actual spend in account currency
-  cpm             Float?                // Cost per 1,000 impressions
-  cpc             Float?                // Cost per click
-  ctr             Float?                // Click-through rate (%)
-  cpa             Float?                // Cost per action / conversion
-  roas            Float?                // Return on ad spend
+  spend Float  @default(0) // Actual spend in account currency
+  cpm   Float? // Cost per 1,000 impressions
+  cpc   Float? // Cost per click
+  ctr   Float? // Click-through rate (%)
+  cpa   Float? // Cost per action / conversion
+  roas  Float? // Return on ad spend
 
   // Quality signals
-  relevanceScore  Float?                // Meta relevance / Google quality score (1–10)
+  relevanceScore Float? // Meta relevance / Google quality score (1–10)
 
   // Data provenance
-  dataSource      String  @default("api")   // "api" | "manual" | "estimated"
-  syncedAt        DateTime @default(now())
+  dataSource String   @default("api") // "api" | "manual" | "estimated"
+  syncedAt   DateTime @default(now())
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([adCampaignId, adSetId, adId, date])
   @@index([adCampaignId])
@@ -1891,25 +2030,25 @@ model AdPerformanceSnapshot {
 // Tracks Meta Data Deletion Requests (required by Meta Platform Policy)
 // Endpoint: POST /api/social/callback/meta-data-deletion
 model DataDeletionRequest {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Meta's Facebook user ID (from signed_request payload)
-  fbUserId        String
+  fbUserId String
 
   // Our internal user ID (if we can match it)
-  userId          String?
+  userId String?
 
   // Deletion status
-  status          String   @default("pending")   // "pending" | "completed" | "not_found"
+  status String @default("pending") // "pending" | "completed" | "not_found"
 
   // Confirmation code returned to Meta
-  confirmationCode String  @unique
+  confirmationCode String @unique
 
   // Timestamp when Meta sent the request
-  requestedAt     DateTime @default(now())
+  requestedAt DateTime @default(now())
 
   // Timestamp when we completed the deletion
-  completedAt     DateTime?
+  completedAt DateTime?
 
   @@index([fbUserId])
   @@index([userId])
@@ -1927,8 +2066,8 @@ model DataDeletionRequest {
 // Run `npx prisma db push` after deploying to activate.
 model RateLimitRecord {
   id          String   @id @default(cuid())
-  key         String   @unique           // composite key: "scope:identifier"
-  windowStart DateTime                   // start of the current window
+  key         String   @unique // composite key: "scope:identifier"
+  windowStart DateTime // start of the current window
   count       Int      @default(0)
   updatedAt   DateTime @updatedAt
 
@@ -1949,41 +2088,41 @@ model RateLimitRecord {
 // in the Supabase SQL Editor (this repo does NOT use prisma migrate for prod).
 
 enum CreditGrantType {
-  MONTHLY    // plan allowance for one billing cycle (resets, no rollover)
-  PURCHASED  // one-time credit pack — valid 12 months
-  TRIAL      // free/trial credits — expire after 14 days
-  REFERRAL   // referral bonus
-  REFUND     // credits returned on a failed/cancelled action
-  MANUAL     // admin top-up
-  MIGRATED   // backfilled from the legacy User.aiCredits balance
-  UNLIMITED  // reserved for unlimited plans; finite debits remain bypassed
+  MONTHLY // plan allowance for one billing cycle (resets, no rollover)
+  PURCHASED // one-time credit pack — valid 12 months
+  TRIAL // free/trial credits — expire after 14 days
+  REFERRAL // referral bonus
+  REFUND // credits returned on a failed/cancelled action
+  MANUAL // admin top-up
+  MIGRATED // backfilled from the legacy User.aiCredits balance
+  UNLIMITED // reserved for unlimited plans; finite debits remain bypassed
 }
 
 enum CreditGrantStatus {
   ACTIVE
   EXPIRED
-  RESET   // superseded by a new monthly grant on renewal
+  RESET // superseded by a new monthly grant on renewal
   VOID
 }
 
 // One row per credit grant. Live balance is the sum of `remaining` over ACTIVE,
 // non-expired grants; deduction spends soonest-expiry-first (see policy doc).
 model CreditGrant {
-  id             String            @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId         String
-  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   type           CreditGrantType
-  amount         Int                                  // original grant size
-  remaining      Int                                  // decremented as spent
-  expiresAt      DateTime?                            // null = never expires
-  source         String?                              // e.g. "migration:initial-aiCredits", "stripe:in_123", "pack:500"
-  billingCycleId String?                              // links a MONTHLY grant to its invoice/period (B1d idempotency)
+  amount         Int // original grant size
+  remaining      Int // decremented as spent
+  expiresAt      DateTime? // null = never expires
+  source         String? // e.g. "migration:initial-aiCredits", "stripe:in_123", "pack:500"
+  billingCycleId String? // links a MONTHLY grant to its invoice/period (B1d idempotency)
   status         CreditGrantStatus @default(ACTIVE)
 
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Debits that drew down this grant, used for source-aware refunds and audit.
   transactionAllocations CreditTransactionGrantAllocation[]
@@ -2006,17 +2145,17 @@ model CreditGrant {
 // Apply to the DB via prisma/migrations/credit_transaction_grant_allocation.sql
 // in the Supabase SQL Editor (this repo does not use prisma migrate for prod).
 model CreditTransactionGrantAllocation {
-  id                  String            @id @default(cuid())
+  id String @id @default(cuid())
 
   creditTransactionId String
   creditTransaction   CreditTransaction @relation(fields: [creditTransactionId], references: [id], onDelete: Cascade)
 
-  creditGrantId       String
-  creditGrant         CreditGrant       @relation(fields: [creditGrantId], references: [id], onDelete: Cascade)
+  creditGrantId String
+  creditGrant   CreditGrant @relation(fields: [creditGrantId], references: [id], onDelete: Cascade)
 
-  amount              Int                                  // credits drawn from this grant for the debit
+  amount Int // credits drawn from this grant for the debit
 
-  createdAt           DateTime          @default(now())
+  createdAt DateTime @default(now())
 
   @@index([creditTransactionId])
   @@index([creditGrantId])

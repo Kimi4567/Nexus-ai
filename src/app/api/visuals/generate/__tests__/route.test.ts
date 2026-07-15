@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   mockGetServerUserId,
   mockCheckAndDeduct,
+  mockFinalizeDeduction,
   mockCheckDailyImageCap,
   mockRefund,
   mockRefundForTxn,
@@ -25,6 +26,7 @@ const {
 } = vi.hoisted(() => ({
   mockGetServerUserId: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
+  mockFinalizeDeduction: vi.fn(),
   mockCheckDailyImageCap: vi.fn(),
   mockRefund: vi.fn(),
   mockRefundForTxn: vi.fn(),
@@ -44,12 +46,24 @@ const {
 
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
+vi.mock('@/lib/billableAiRateLimit', () => ({
+  enforceBillableAiRateLimit: vi.fn().mockResolvedValue(null),
+}))
 vi.mock('@/lib/credits', () => ({
   CREDIT_COSTS: { IMAGE_GENERATION: 3 },
   checkAndDeductCredits: mockCheckAndDeduct,
   checkDailyImageCap: mockCheckDailyImageCap,
+  creditCheckHttpStatus: () => 402,
+  finalizeCreditDeduction: mockFinalizeDeduction,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
+  refundCreditDeduction: vi.fn(async ({ userId, action, deduction, reason }) => {
+    if (!deduction) return { ok: true, status: 'not-charged' }
+    if (deduction.transactionId) {
+      return mockRefundForTxn({ userId, transactionId: deduction.transactionId, reason })
+    }
+    return mockRefund(userId, action, reason)
+  }),
   buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, cost: 3, ...deduction }),
 }))
 vi.mock('@/lib/ai/imageGen', () => ({
@@ -115,6 +129,7 @@ beforeEach(() => {
   mockCheckDailyImageCap.mockResolvedValue({ allowed: true, used: 0, cap: 20, remaining: 20 })
   mockRefund.mockResolvedValue({ ok: true, status: 'refunded' })
   mockRefundForTxn.mockResolvedValue({ ok: true, status: 'refunded' })
+  mockFinalizeDeduction.mockResolvedValue({ ok: true, status: 'settled' })
   mockBuildImagePrompt.mockResolvedValue({
     prompt: 'premium text-free ad background',
     language: 'en',
@@ -396,7 +411,7 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     expect(mockRefund).not.toHaveBeenCalled()
   })
 
-  it('does not refund unlimited users when creditsUsed is 0', async () => {
+  it('releases an unlimited-plan reservation even when its wallet debit is 0', async () => {
     mockCheckAndDeduct.mockResolvedValue({
       ok: true,
       creditsUsed: 0,
@@ -410,7 +425,10 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
 
     expect(res.status).toBe(500)
     expect(mockRefund).not.toHaveBeenCalled()
-    expect(mockRefundForTxn).not.toHaveBeenCalled()
+    expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      transactionId: 'txn_unlimited',
+    }))
   })
 
   it('success deducts once and returns background classification metadata', async () => {
@@ -455,7 +473,11 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
       'u1',
       'IMAGE_GENERATION',
       undefined,
-      { entityId: 'visual_1', entityType: 'generated_visual_image' },
+      expect.objectContaining({
+        entityId: 'visual_1',
+        entityType: 'generated_visual_image',
+        operationKey: expect.any(String),
+      }),
     )
     expect(mockCheckAndDeduct).toHaveBeenCalledTimes(1)
     expect(mockRefund).not.toHaveBeenCalled()

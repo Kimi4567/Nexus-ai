@@ -11,6 +11,7 @@ import {
   getPaidStrategySourceForUser,
   PaidStrategySourceError,
 } from '@/lib/paidStrategySourceServer'
+import { resolvePaidStrategyRevisionTruth } from '@/lib/paidStrategyRevision'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -84,6 +85,15 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
           orderBy: { date: 'desc' },
           take: 30,
         },
+        strategySnapshot: {
+          select: { id: true, version: true, scope: true, payloadHash: true, createdAt: true },
+        },
+        budgetApprovalSnapshot: {
+          select: { id: true, version: true, scope: true, payloadHash: true, createdAt: true },
+        },
+        launchApprovalSnapshot: {
+          select: { id: true, version: true, scope: true, payloadHash: true, createdAt: true },
+        },
       },
     })
 
@@ -98,8 +108,23 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
           select: { id: true, name: true, status: true, updatedAt: true },
         })
       : null
+    const latestStrategySnapshot = campaign.organicCampaignId
+      ? await prisma.campaignSnapshot.findFirst({
+          where: {
+            workspaceId: campaign.workspaceId,
+            campaignId: campaign.organicCampaignId,
+            scope: 'STRATEGY_APPROVAL',
+          },
+          orderBy: { version: 'desc' },
+          select: { id: true, version: true },
+        })
+      : null
+    const sourceRevision = resolvePaidStrategyRevisionTruth({
+      pinnedSnapshotId: campaign.strategySnapshotId,
+      latestSnapshot: latestStrategySnapshot,
+    })
 
-    return NextResponse.json({ campaign: { ...campaign, sourceStrategy } })
+    return NextResponse.json({ campaign: { ...campaign, sourceStrategy, sourceRevision } })
   } catch (err) {
     console.error('[ad-campaigns/[id] GET]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -116,9 +141,17 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       where: { id: params.id, workspace: { ownerId: user.id } },
     })
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (existing.status !== 'DRAFT' || existing.platformCampaignId) {
+      return NextResponse.json({
+        error: 'PAID_DRAFT_NOT_EDITABLE',
+        code: 'PAID_DRAFT_NOT_EDITABLE',
+      }, { status: 409 })
+    }
     const paidSource = await getPaidStrategySourceForUser({
       campaignId: typeof existing.organicCampaignId === 'string' ? existing.organicCampaignId : '',
       userId: user.id,
+      strategySnapshotId: typeof existing.strategySnapshotId === 'string' ? existing.strategySnapshotId : null,
+      requirePinnedSnapshot: true,
     })
 
     const body = await req.json()
@@ -142,9 +175,13 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       platformStatus,
     } = body
 
-    if (status === 'ACTIVE' || ['ACTIVE', 'ENABLED', 'RUNNING', 'LIVE'].includes(String(platformStatus).toUpperCase())) {
+    if (
+      (status !== undefined && status !== 'DRAFT')
+      || platformCampaignId !== undefined
+      || platformStatus !== undefined
+    ) {
       return NextResponse.json({
-        error: 'Paid campaigns cannot be marked active through generic updates. Use the explicit platform activation route after final approval.',
+        error: 'Paid campaign lifecycle and provider IDs cannot be changed through generic updates. Use the explicit platform activation route after final approval, or the dedicated draft, pause, and archive routes.',
         mode: 'activation_route_required',
       }, { status: 400 })
     }
@@ -156,12 +193,25 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       }, { status: 422 })
     }
 
+    const budgetDecisionChanged = [
+      name,
+      objective,
+      budgetType,
+      dailyBudget,
+      lifetimeBudget,
+      currency,
+      startDate,
+      endDate,
+      adAccountId,
+      utmCampaign,
+    ].some(value => value !== undefined)
+
     const updated = await db.adCampaign.update({
       where: { id: params.id },
       data: {
         ...(name !== undefined && { name }),
         ...(objective !== undefined && { objective }),
-        ...(status !== undefined && { status }),
+        ...(status !== undefined && { status: 'DRAFT' }),
         ...(budgetType !== undefined && { budgetType }),
         ...(dailyBudget !== undefined && { dailyBudget: dailyBudget ? parseFloat(dailyBudget) : null }),
         ...(lifetimeBudget !== undefined && { lifetimeBudget: lifetimeBudget ? parseFloat(lifetimeBudget) : null }),
@@ -174,8 +224,10 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
         ...(aiBudgetPlan !== undefined && { aiBudgetPlan }),
         ...(brandBrainSnapshot !== undefined && { brandBrainSnapshot }),
         ...(utmCampaign !== undefined && { utmCampaign }),
-        ...(platformCampaignId !== undefined && { platformCampaignId }),
-        ...(platformStatus !== undefined && { platformStatus }),
+        ...(budgetDecisionChanged && {
+          budgetApprovalSnapshotId: null,
+          launchApprovalSnapshotId: null,
+        }),
       },
     })
 

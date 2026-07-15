@@ -10,6 +10,14 @@ import { YOUTUBE_UPLOAD_SCOPE } from '@/lib/youtubePublishing'
 import { PINTEREST_PUBLISH_SCOPES, parsePinterestPostOptions } from '@/lib/pinterestPublishing'
 import { parseThreadsPostOptions, THREADS_MAX_TEXT_LENGTH, THREADS_PUBLISH_SCOPES } from '@/lib/threadsPublishing'
 import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
+import {
+  CAMPAIGN_SNAPSHOT_SCOPE,
+  buildStrategyApprovalSnapshotPayload,
+  hashCampaignSnapshotPayload,
+  readSnapshotStrategyReference,
+  reviewPostAgainstApprovalSnapshot,
+  reviewPostAgainstMediaApprovalSnapshot,
+} from '@/lib/campaignSnapshots'
 
 export const maxDuration = 180
 
@@ -100,6 +108,17 @@ export async function POST(req: NextRequest) {
           generationStatus: true,
           isVideoPost: true,
           approvedAt: true,
+          approvedSnapshotId: true,
+          approvedSnapshot: { select: { scope: true, payload: true } },
+          mediaApprovalSnapshotId: true,
+          mediaApprovalSnapshot: { select: { scope: true, payload: true } },
+          scheduledSnapshotId: true,
+          link: true,
+          sourceMediaId: true,
+          contentPlanIndex: true,
+          variantGroup: true,
+          variantLabel: true,
+          scheduledAt: true,
         },
       })
 
@@ -108,6 +127,26 @@ export async function POST(req: NextRequest) {
   }
   if (!['APPROVED', 'SCHEDULED'].includes(existingPost.status)) {
     return NextResponse.json({ error: 'The Content Hub post must be approved before platform publishing' }, { status: 409 })
+  }
+  const approvalSnapshotReview = reviewPostAgainstApprovalSnapshot(existingPost, existingPost.approvedSnapshot)
+  if (!approvalSnapshotReview.ok) {
+    return NextResponse.json({
+      error: 'This post no longer has immutable approval evidence for its current copy and media. Reopen and approve it again.',
+      code: approvalSnapshotReview.code,
+    }, { status: 409 })
+  }
+  const mediaApprovalReview = reviewPostAgainstMediaApprovalSnapshot(existingPost, existingPost.mediaApprovalSnapshot)
+  if (!mediaApprovalReview.ok) {
+    return NextResponse.json({
+      error: 'This post media is not the exact revision approved for execution. Review and approve the final media again.',
+      code: mediaApprovalReview.code,
+    }, { status: 409 })
+  }
+  if (existingPost.status === 'SCHEDULED' && !existingPost.scheduledSnapshotId) {
+    return NextResponse.json({
+      error: 'This scheduled post has no recorded schedule decision. Unschedule and schedule it again before publishing.',
+      code: 'SCHEDULE_DECISION_SNAPSHOT_REQUIRED',
+    }, { status: 409 })
   }
   if (!isContentPostMediaReadyForScheduling(existingPost)) {
     return NextResponse.json({
@@ -227,8 +266,12 @@ export async function POST(req: NextRequest) {
     where: { id: campaignId, workspaceId: workspace.id },
     select: {
       id: true,
+      name: true,
+      description: true,
       aiOutput: true,
       goal: true,
+      audience: true,
+      tone: true,
       platforms: true,
       workspace: { select: { brandProfile: true } },
     },
@@ -248,6 +291,32 @@ export async function POST(req: NextRequest) {
       error: 'Publishing is blocked because the source strategy no longer matches Brand Brain or the reviewed campaign scope.',
       code: 'MARKETING_QUALITY_GATE_FAILED',
       qualityGate: strategyQuality,
+    }, { status: 409 })
+  }
+  const strategySnapshot = await prisma.campaignSnapshot.findFirst({
+    where: {
+      workspaceId: workspace.id,
+      campaignId: campaign.id,
+      scope: CAMPAIGN_SNAPSHOT_SCOPE.STRATEGY_APPROVAL,
+    },
+    orderBy: { version: 'desc' },
+    select: { id: true, version: true, scope: true, payloadHash: true },
+  })
+  const approvedStrategy = readSnapshotStrategyReference(existingPost.approvedSnapshot?.payload)
+  if (!strategySnapshot || approvedStrategy?.id !== strategySnapshot.id) {
+    return NextResponse.json({
+      error: 'The post was not approved for the current reviewed strategy. Reopen and approve it again before publishing.',
+      code: 'CONTENT_APPROVED_FOR_OLDER_STRATEGY',
+    }, { status: 409 })
+  }
+  const currentStrategyPayload = buildStrategyApprovalSnapshotPayload({
+    campaign,
+    brandProfile: campaign.workspace.brandProfile,
+  })
+  if (hashCampaignSnapshotPayload(currentStrategyPayload) !== strategySnapshot.payloadHash) {
+    return NextResponse.json({
+      error: 'The campaign or Brand Brain changed after strategy approval. Review the strategy and content again before publishing.',
+      code: 'STRATEGY_APPROVAL_SNAPSHOT_STALE',
     }, { status: 409 })
   }
 

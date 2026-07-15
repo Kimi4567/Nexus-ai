@@ -44,6 +44,10 @@ import {
   googleSearchBiddingMode,
   paidPlatformSupportsObjective,
 } from '@/lib/paidExecutionObjective'
+import {
+  approvePaidBudgetDecision,
+  PaidApprovalError,
+} from '@/lib/paidApprovalService'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -68,10 +72,19 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
     })
 
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+    if (campaign.status !== 'DRAFT' || campaign.platformCampaignId) {
+      return NextResponse.json({
+        error: 'PAID_DRAFT_NOT_EDITABLE',
+        code: 'PAID_DRAFT_NOT_EDITABLE',
+        mode: 'platform_revision_required',
+      }, { status: 409 })
+    }
 
     const paidSource = await getPaidStrategySourceForUser({
       campaignId: typeof campaign.organicCampaignId === 'string' ? campaign.organicCampaignId : '',
       userId: user.id,
+      strategySnapshotId: typeof campaign.strategySnapshotId === 'string' ? campaign.strategySnapshotId : null,
+      requirePinnedSnapshot: true,
     })
     if (campaign.objective !== paidSource.truth.executionObjective) {
       return NextResponse.json({
@@ -90,11 +103,11 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
 
     // ── Route to platform handler ──────────────────────────────────────
     if (campaign.platform === 'META') {
-      return handleMetaPush(campaign, body)
+      return handleMetaPush(campaign, body, user.id)
     }
 
     if (campaign.platform === 'GOOGLE') {
-      return handleGooglePush(campaign, body)
+      return handleGooglePush(campaign, body, user.id)
     }
 
     // Other platforms: dry-run export only
@@ -114,6 +127,9 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
     })
   } catch (err) {
     if (err instanceof PaidStrategySourceError) {
+      return NextResponse.json({ error: err.code, code: err.code }, { status: err.status })
+    }
+    if (err instanceof PaidApprovalError) {
       return NextResponse.json({ error: err.code, code: err.code }, { status: err.status })
     }
     console.error('[push-to-platform]', err)
@@ -136,7 +152,7 @@ function googleTargetingForAdSet(
   )
 }
 
-async function handleGooglePush(campaign: Record<string, unknown>, body: Record<string, unknown>) {
+async function handleGooglePush(campaign: Record<string, unknown>, body: Record<string, unknown>, userId: string) {
   const adAccount = campaign.adAccount as Record<string, unknown> | null
   const adSets = (campaign.adSets || []) as Array<Record<string, unknown> & {
     ads?: Array<Record<string, unknown>>
@@ -247,6 +263,10 @@ async function handleGooglePush(campaign: Record<string, unknown>, body: Record<
   }
 
   try {
+    const budgetApproval = await approvePaidBudgetDecision({
+      adCampaignId: String(campaign.id),
+      userId,
+    })
     const api = createGoogleAdsApi({
       customerId: String(adAccount.platformAccountId),
       loginCustomerId: typeof adAccount.loginCustomerId === 'string' ? adAccount.loginCustomerId : null,
@@ -312,9 +332,13 @@ async function handleGooglePush(campaign: Record<string, unknown>, body: Record<
       success: true,
       results: created,
       resolvedLocations,
+      budgetApproval,
       note: 'Google Search campaign, budget, targeting, keywords, ad groups, and responsive search ads were created atomically in PAUSED state. No delivery or spend was activated.',
     })
   } catch (error) {
+    if (error instanceof PaidApprovalError) {
+      return NextResponse.json({ error: error.code, code: error.code, mode: 'platform_draft_blocked' }, { status: error.status })
+    }
     const message = error instanceof Error ? error.message : 'Google Ads API error'
     await db.adCampaign.update({
       where: { id: String(campaign.id) },
@@ -325,7 +349,7 @@ async function handleGooglePush(campaign: Record<string, unknown>, body: Record<
 }
 
 // ── Meta push handler ──────────────────────────────────────────────────────
-async function handleMetaPush(campaign: Record<string, unknown>, body: Record<string, unknown>) {
+async function handleMetaPush(campaign: Record<string, unknown>, body: Record<string, unknown>, userId: string) {
   const adAccount = campaign.adAccount as Record<string, unknown> | null
   const adSets = (campaign.adSets || []) as Array<Record<string, unknown>>
   const allAds = adSets.flatMap(adSet => (adSet.ads as Array<Record<string, unknown>>) || [])
@@ -422,6 +446,10 @@ async function handleMetaPush(campaign: Record<string, unknown>, body: Record<st
       }, { status: 409 })
     }
 
+    const budgetApproval = await approvePaidBudgetDecision({
+      adCampaignId: String(campaign.id),
+      userId,
+    })
     const api = createMetaAdsApi(
       String(adAccount.accessToken),
       String(adAccount.platformAccountId)
@@ -560,11 +588,15 @@ async function handleMetaPush(campaign: Record<string, unknown>, body: Record<st
       success: results.errors!.length === 0,
       partial: results.errors!.length > 0,
       results,
+      budgetApproval,
       note: results.errors!.length > 0
         ? 'Some ads had errors — check results.errors for details'
         : 'Platform draft objects were created in Meta in PAUSED state. Review in Meta before any launch or spend.',
     })
   } catch (err) {
+    if (err instanceof PaidApprovalError) {
+      return NextResponse.json({ error: err.code, code: err.code, mode: 'platform_draft_blocked' }, { status: err.status })
+    }
     const message = err instanceof Error ? err.message : 'Meta API error'
     return NextResponse.json({ error: message, mode: 'live_failed' }, { status: 500 })
   }

@@ -75,6 +75,28 @@ describe('execution truth', () => {
     expect(scheduled.nextAction).toMatchObject({ kind: 'MONITOR_SCHEDULE', safety: 'monitor_only' })
   })
 
+  it('escalates a past-due unpublished schedule instead of calling it normal monitoring', () => {
+    const result = buildCampaignExecutionTruth(snapshot({
+      posts: {
+        draft: 0,
+        approved: 0,
+        scheduled: 3,
+        overdueScheduled: 1,
+        published: 0,
+        failed: 0,
+        publishedWithoutAnalytics: 0,
+      },
+    }))
+
+    expect(result.stage).toBe('NEEDS_ATTENTION')
+    expect(result.nextAction).toMatchObject({
+      kind: 'RESOLVE_OVERDUE_SCHEDULE',
+      priority: 'critical',
+      safety: 'manual_action',
+    })
+    expect(result.nextAction?.reason.en).toContain('without verified publication')
+  })
+
   it('routes approved posts with missing media to media review before scheduling', () => {
     const result = buildCampaignExecutionTruth(snapshot({
       posts: { draft: 0, approved: 3, approvedMissingMedia: 3, scheduled: 0, published: 0, failed: 0, publishedWithoutAnalytics: 0 },
@@ -82,7 +104,17 @@ describe('execution truth', () => {
 
     expect(result.stage).toBe('MEDIA_REVIEW')
     expect(result.nextAction).toMatchObject({ kind: 'REVIEW_MEDIA', href: '/campaigns/campaign-1/content-hub' })
-    expect(result.nextAction?.reason.en).toContain('confirmed media before scheduling')
+    expect(result.nextAction?.reason.en).toContain('separately approved media before scheduling')
+  })
+
+  it('fails closed when an approved status has no immutable copy approval', () => {
+    const result = buildCampaignExecutionTruth(snapshot({
+      posts: { draft: 0, approved: 2, approvedMissingApproval: 1, approvedMissingMedia: 1, scheduled: 0, published: 0, failed: 0, publishedWithoutAnalytics: 0 },
+    }))
+
+    expect(result.stage).toBe('CONTENT_REVIEW')
+    expect(result.nextAction).toMatchObject({ kind: 'REVIEW_CONTENT', priority: 'critical', requiresApproval: true })
+    expect(result.nextAction?.reason.en).toContain('immutable copy-approval revision')
   })
 
   it('requires analytics evidence before claiming the learning loop is ready', () => {

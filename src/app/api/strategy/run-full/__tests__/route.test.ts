@@ -16,12 +16,15 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 
 const {
   mockGetAuthUser, mockAiRateLimitDb, mockCheckAndDeduct, mockRefundForTxn, mockIsWalletEnabled,
+  mockFinalizeDeduction, mockRefundDeduction,
   mockRunFullAgency, mockReadiness, mockGetMemories, mockFormatMemories,
   mockPrisma, mockReadCampaignAllowance,
 } = vi.hoisted(() => ({
   mockGetAuthUser: vi.fn(),
   mockAiRateLimitDb: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
+  mockFinalizeDeduction: vi.fn(),
+  mockRefundDeduction: vi.fn(),
   mockRefundForTxn: vi.fn(),
   mockIsWalletEnabled: vi.fn(),
   mockRunFullAgency: vi.fn(),
@@ -42,8 +45,15 @@ const {
 
 vi.mock('@/lib/apiAuth', () => ({ getAuthUser: mockGetAuthUser }))
 vi.mock('@/lib/dbRateLimit', () => ({ aiRateLimitDb: mockAiRateLimitDb }))
+vi.mock('@/lib/billableAiRateLimit', () => ({
+  enforceBillableAiRateLimit: vi.fn().mockResolvedValue(null),
+}))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
+  creditCheckHttpStatus: () => 402,
+  finalizeCreditDeduction: mockFinalizeDeduction,
+  refundCreditDeduction: mockRefundDeduction,
+  buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, ...deduction }),
   FREE_STARTER_CREDITS: 12,
   getCreditActionPolicy: (action: string) => ({
     action,
@@ -80,6 +90,8 @@ beforeEach(() => {
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 14, creditsRemaining: 86, isUnlimited: false })
   mockIsWalletEnabled.mockReturnValue(false) // flag OFF by default (production state)
   mockRefundForTxn.mockResolvedValue(undefined)
+  mockFinalizeDeduction.mockResolvedValue({ ok: true, status: 'settled' })
+  mockRefundDeduction.mockResolvedValue({ ok: true, status: 'refunded' })
   mockReadiness.mockReturnValue({ ready: true, missingRequired: [], score: 80 })
   mockGetMemories.mockResolvedValue([])
   mockFormatMemories.mockReturnValue(undefined)
@@ -98,6 +110,7 @@ beforeEach(() => {
     description: 'AI marketing operating system for small businesses.',
     primaryOffer: 'Strategy and content planning workspace.',
     targetAudience: 'A',
+    audiencePainPoints: ['Inconsistent campaign planning', 'Unclear content priorities'],
     businessGoal: 'leads',
     writingStyle: 'clear and practical',
     topPlatforms: ['INSTAGRAM', 'TIKTOK', 'FACEBOOK'],
@@ -159,14 +172,18 @@ describe('POST /api/strategy/run-full — variable charge', () => {
       strategyType: 'organic', strategyDuration: '90', contentIntensity: 'standard',
     }))
     expect(res.status).toBe(200)
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 14)
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 14, expect.objectContaining({
+      entityId: 'w1', entityType: 'workspace_strategy_run', operationKey: expect.any(String),
+    }))
   })
 
   it('deducts a different recomputed cost for a richer order (Full Daily 180 = 34)', async () => {
     await POST(makeReq({
       strategyType: 'full', strategyDuration: '180', contentIntensity: 'daily',
     }))
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 34)
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 34, expect.objectContaining({
+      entityId: 'w1', entityType: 'workspace_strategy_run', operationKey: expect.any(String),
+    }))
   })
 
   it('8. ignores any client-supplied price and recomputes server-side', async () => {
@@ -176,7 +193,9 @@ describe('POST /api/strategy/run-full — variable charge', () => {
       cost: 1, price: 0, credits: 999,
     }))
     // Organic Daily 30 = 14, recomputed — not the client's 1/0/999.
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 14)
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 14, expect.objectContaining({
+      entityId: 'w1', entityType: 'workspace_strategy_run', operationKey: expect.any(String),
+    }))
   })
 
   it('uses server-recomputed pricing for exact custom organic post count', async () => {
@@ -187,7 +206,9 @@ describe('POST /api/strategy/run-full — variable charge', () => {
       customOrganicPostCount: 7,
       price: 1,
     }))
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 8)
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 8, expect.objectContaining({
+      entityId: 'w1', entityType: 'workspace_strategy_run', operationKey: expect.any(String),
+    }))
   })
 
   it('9. insufficient credits → 402 during preflight before orchestration or deduction', async () => {
@@ -248,22 +269,14 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     const json = await res.json()
     expect(res.status).toBe(502)
     expect(json.ok).toBe(false)
-    // Exact refund of the variable amount actually deducted (18), not fixed 8.
-    expect(mockPrisma.user.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'u1' },
-        data: { aiCredits: { increment: 18 } },
-      }),
-    )
-    expect(mockPrisma.creditTransaction.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        userId: 'u1',
-        action: 'REFUND',
-        amount: 18,
-        entityType: 'refund',
-        description: expect.stringContaining('Run Full Strategy failed'),
-      }),
-    })
+    // The lifecycle service receives the exact variable deduction, not the
+    // fixed catalogue cost, and restores its original wallet sources atomically.
+    expect(mockRefundDeduction).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      action: 'RUN_FULL_STRATEGY',
+      deduction: expect.objectContaining({ creditsUsed: 18 }),
+      reason: 'Run Full Strategy failed',
+    }))
   })
 
   it('refunds the exact deducted amount when orchestration throws after credit deduction', async () => {
@@ -282,21 +295,12 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     const json = await res.json()
 
     expect(res.status).toBe(500)
-    expect(mockPrisma.user.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'u1' },
-        data: { aiCredits: { increment: 10 } },
-      }),
-    )
-    expect(mockPrisma.creditTransaction.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        userId: 'u1',
-        action: 'REFUND',
-        amount: 10,
-        entityType: 'refund',
-        description: expect.stringContaining('Run Full Strategy exception'),
-      }),
-    })
+    expect(mockRefundDeduction).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      action: 'RUN_FULL_STRATEGY',
+      deduction: expect.objectContaining({ creditsUsed: 10 }),
+      reason: 'Run Full Strategy exception',
+    }))
     expect(json.ok).toBe(false)
     expect(json.refunded).toBe(true)
     expect(json.creditsRemaining).toBe(355)
@@ -359,7 +363,9 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     expect(res.status).toBe(402)
     expect(json.error).toBe('INSUFFICIENT_CREDITS')
     expect(json.currentCredits).toBe(3)
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 10)
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 10, expect.objectContaining({
+      entityId: 'w1', entityType: 'workspace_strategy_run', operationKey: expect.any(String),
+    }))
     expect(mockPrisma.campaign.findFirst).not.toHaveBeenCalled()
     expect(mockPrisma.user.update).not.toHaveBeenCalled()
     expect(mockPrisma.creditTransaction.create).not.toHaveBeenCalled()
@@ -395,8 +401,14 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     expect(json.errors[0]).toBe(json.error)
   })
 
-  it('does not refund unlimited-plan users (creditsUsed=0) on failure', async () => {
-    mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 0, creditsRemaining: -1, isUnlimited: true })
+  it('releases an unlimited-plan reservation even when its wallet debit is 0', async () => {
+    mockCheckAndDeduct.mockResolvedValue({
+      ok: true,
+      creditsUsed: 0,
+      creditsRemaining: -1,
+      isUnlimited: true,
+      transactionId: 'txn_unlimited',
+    })
     mockRunFullAgency.mockImplementation(async (_workspaceId: string, _brief: Record<string, unknown>, options?: { beforePersistStrategy?: () => Promise<void> }) => {
       await options?.beforePersistStrategy?.()
       return { strategyCreated: false, agentRunId: 'run1', suggestions: 0, errors: ['failed'] }
@@ -404,12 +416,16 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     mockPrisma.campaign.findFirst.mockResolvedValue(null)
 
     await POST(makeReq({ strategyType: 'organic', strategyDuration: '90', contentIntensity: 'standard' }))
-    expect(mockPrisma.user.update).not.toHaveBeenCalled()
-    expect(mockPrisma.creditTransaction.create).not.toHaveBeenCalled()
+    expect(mockRefundDeduction).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      action: 'RUN_FULL_STRATEGY',
+      deduction: expect.objectContaining({ transactionId: 'txn_unlimited', creditsUsed: 0 }),
+    }))
   })
 
-  // ── B1c-c-1 — refund path selection by CREDIT_WALLET_ENABLED ───────────────
-  it('flag OFF → scalar refund only; refundCreditsForTransaction is NOT called', async () => {
+  // The route delegates every refund to the unified lifecycle service. Legacy
+  // wallet flags no longer select separate mutation paths in billable routes.
+  it('uses the same exact lifecycle refund when the legacy wallet flag is OFF', async () => {
     mockIsWalletEnabled.mockReturnValue(false)
     mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 18, creditsRemaining: 50, isUnlimited: false, transactionId: 'txn_should_be_ignored' })
     mockRunFullAgency.mockImplementation(async (_workspaceId: string, _brief: Record<string, unknown>, options?: { beforePersistStrategy?: () => Promise<void> }) => {
@@ -420,21 +436,15 @@ describe('POST /api/strategy/run-full — variable charge', () => {
 
     await POST(makeReq({ strategyType: 'organic', strategyDuration: 'custom', customDurationDays: 160, contentIntensity: 'standard' }))
 
-    expect(mockPrisma.user.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'u1' }, data: { aiCredits: { increment: 18 } } }),
-    )
-    expect(mockPrisma.creditTransaction.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        userId: 'u1',
-        action: 'REFUND',
-        amount: 18,
-        entityType: 'refund',
-      }),
-    })
+    expect(mockRefundDeduction).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      action: 'RUN_FULL_STRATEGY',
+      deduction: expect.objectContaining({ transactionId: 'txn_should_be_ignored', creditsUsed: 18 }),
+    }))
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
 
-  it('flag ON + transactionId → refundCreditsForTransaction with the debit id; no scalar increment', async () => {
+  it('uses the same exact lifecycle refund when the legacy wallet flag is ON', async () => {
     mockIsWalletEnabled.mockReturnValue(true)
     mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 18, creditsRemaining: 50, isUnlimited: false, transactionId: 'txn_99' })
     mockRunFullAgency.mockImplementation(async (_workspaceId: string, _brief: Record<string, unknown>, options?: { beforePersistStrategy?: () => Promise<void> }) => {
@@ -445,15 +455,17 @@ describe('POST /api/strategy/run-full — variable charge', () => {
 
     await POST(makeReq({ strategyType: 'organic', strategyDuration: 'custom', customDurationDays: 160, contentIntensity: 'standard' }))
 
-    expect(mockRefundForTxn).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: 'u1', transactionId: 'txn_99' }),
-    )
-    // Wallet path must NOT also run the scalar increment.
+    expect(mockRefundDeduction).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      action: 'RUN_FULL_STRATEGY',
+      deduction: expect.objectContaining({ transactionId: 'txn_99', creditsUsed: 18 }),
+    }))
+    expect(mockRefundForTxn).not.toHaveBeenCalled()
     expect(mockPrisma.user.update).not.toHaveBeenCalled()
     expect(mockPrisma.creditTransaction.create).not.toHaveBeenCalled()
   })
 
-  it('flag ON but no transactionId → falls back to scalar increment', async () => {
+  it('passes the complete legacy deduction to lifecycle fallback when transactionId is missing', async () => {
     mockIsWalletEnabled.mockReturnValue(true)
     mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 18, creditsRemaining: 50, isUnlimited: false }) // no transactionId
     mockRunFullAgency.mockImplementation(async (_workspaceId: string, _brief: Record<string, unknown>, options?: { beforePersistStrategy?: () => Promise<void> }) => {
@@ -465,19 +477,26 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     await POST(makeReq({ strategyType: 'organic', strategyDuration: 'custom', customDurationDays: 160, contentIntensity: 'standard' }))
 
     expect(mockRefundForTxn).not.toHaveBeenCalled()
-    expect(mockPrisma.user.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'u1' }, data: { aiCredits: { increment: 18 } } }),
-    )
+    expect(mockRefundDeduction).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      action: 'RUN_FULL_STRATEGY',
+      deduction: expect.objectContaining({ creditsUsed: 18 }),
+    }))
   })
 
-  it('flag ON + transactionId but success → no refund at all', async () => {
+  it('settles a successful transaction and never sends it to refund', async () => {
     mockIsWalletEnabled.mockReturnValue(true)
     mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 14, creditsRemaining: 86, isUnlimited: false, transactionId: 'txn_ok' })
     // default mockRunFullAgency = strategyCreated true, campaign found → success
 
     await POST(makeReq({ strategyType: 'organic', strategyDuration: '90', contentIntensity: 'standard' }))
 
-    expect(mockRefundForTxn).not.toHaveBeenCalled()
+    expect(mockFinalizeDeduction).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      action: 'RUN_FULL_STRATEGY',
+      deduction: expect.objectContaining({ transactionId: 'txn_ok' }),
+    }))
+    expect(mockRefundDeduction).not.toHaveBeenCalled()
     expect(mockPrisma.user.update).not.toHaveBeenCalled()
   })
 })

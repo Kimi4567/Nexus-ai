@@ -108,6 +108,10 @@ interface Campaign {
   platformStatus?: string
   organicCampaignId?: string | null
   sourceStrategy?: { id: string; name: string; status: string; updatedAt: string } | null
+  strategySnapshot?: { id: string; version: number; scope: string; payloadHash: string; createdAt: string } | null
+  budgetApprovalSnapshot?: { id: string; version: number; scope: string; payloadHash: string; createdAt: string } | null
+  launchApprovalSnapshot?: { id: string; version: number; scope: string; payloadHash: string; createdAt: string } | null
+  sourceRevision?: { state: 'current' | 'stale' | 'missing'; latestSnapshotId: string | null; latestVersion: number | null }
   adSets: AdSet[]
   performanceSnapshots: Array<{ date: string; spend: number; impressions: number; clicks: number; roas: number | null }>
   adAccount?: {
@@ -289,7 +293,11 @@ export default function CampaignDetailPage() {
     setMediaLoading(true)
     try {
       const token = await getToken()
-      const response = await fetch('/api/media?type=IMAGE&limit=50', {
+      // Paid creative validation currently requires stored upload metadata
+      // (dimensions, size, and MIME type). Generated visuals stay visible in
+      // the global library but are excluded here until that metadata contract
+      // is persisted for them as well.
+      const response = await fetch('/api/media?type=IMAGE&limit=50&source=UPLOADED_MEDIA', {
         headers: { Authorization: `Bearer ${token}` },
       })
       const data = await response.json().catch(() => ({}))
@@ -364,7 +372,11 @@ export default function CampaignDetailPage() {
       const blockerText = Array.isArray(result.blockers)
         ? result.blockers.map((blocker: { message?: string }) => blocker.message).filter(Boolean).join(' ')
         : ''
-      if (!res.ok || result.success === false) throw new Error(blockerText || result.error || 'Platform draft creation failed')
+      if (!res.ok || result.success === false) throw new Error(blockerText || paidExecutionErrorMessage(
+        result.code || result.error,
+        ar ? 'ar' : 'en',
+        ar ? 'تعذر إنشاء مسودة المنصة.' : 'Platform draft creation failed.',
+      ))
       setShowPlatformDraftConfirm(false)
       setPlatformDraftAcknowledged(false)
       setBudgetReadinessAcknowledged(false)
@@ -436,7 +448,11 @@ export default function CampaignDetailPage() {
       const blockerText = Array.isArray(result.blockers)
         ? result.blockers.map((blocker: { message?: string }) => blocker.message).filter(Boolean).join(' ')
         : ''
-      if (!res.ok) throw new Error(blockerText || result.error || 'Activation failed')
+      if (!res.ok) throw new Error(blockerText || paidExecutionErrorMessage(
+        result.code || result.error,
+        ar ? 'ar' : 'en',
+        ar ? 'تعذر تفعيل الحملة.' : 'Activation failed.',
+      ))
       setShowPlatformActivationConfirm(false)
       setPlatformActivationAcknowledged(false)
       setSpendActivationAcknowledged(false)
@@ -574,7 +590,12 @@ export default function CampaignDetailPage() {
     googleTargetingReady: campaign.platform === 'GOOGLE' ? googleTargeting.ready : undefined,
   })
   const strategy = campaign.aiStrategy
-  const hasStrategySource = Boolean(campaign.organicCampaignId && campaign.sourceStrategy)
+  const hasStrategySource = Boolean(
+    campaign.organicCampaignId
+    && campaign.sourceStrategy
+    && campaign.strategySnapshot?.scope === 'STRATEGY_APPROVAL'
+    && campaign.sourceRevision?.state === 'current',
+  )
   const hasPausedPlatformDraft = Boolean(campaign.platformCampaignId && campaign.platformStatus === 'PAUSED')
   const canCreatePausedPlatformDraft = Boolean(
     hasStrategySource &&
@@ -587,6 +608,7 @@ export default function CampaignDetailPage() {
     campaign.status === 'PAUSED' &&
     hasPausedPlatformDraft &&
     campaign.adAccount?.hasApiAccess &&
+    campaign.budgetApprovalSnapshot?.scope === 'PAID_BUDGET_APPROVAL' &&
     executionReadiness.ready
   )
   const hasPerformanceEvidence = campaign.performanceSnapshots.length > 0
@@ -597,6 +619,13 @@ export default function CampaignDetailPage() {
     : hasPausedPlatformDraft
       ? 'Paid execution · paused platform draft'
       : 'Strategy-linked paid execution draft'
+  const strategySourceBlocker = campaign.sourceRevision?.state === 'stale'
+    ? (ar
+        ? `اعتمدت الاستراتيجية إصدارًا أحدث v${campaign.sourceRevision.latestVersion ?? '—'}. أعد بناء المسودة قبل التنفيذ على المنصة.`
+        : `The strategy now has a newer approved revision v${campaign.sourceRevision.latestVersion ?? '—'}. Rebuild this draft before platform execution.`)
+    : (ar
+        ? 'لا يوجد إصدار استراتيجية Paid/Full معتمد ومثبت لهذه المسودة. التنفيذ على المنصة مقفل.'
+        : 'No pinned approved Paid/Full strategy revision exists for this draft. Platform execution is locked.')
 
   return (
     <AppShell>
@@ -665,17 +694,22 @@ export default function CampaignDetailPage() {
                 {campaign.adAccount && ` · ${campaign.adAccount.platformAccountName}`}
                 {campaign.startDate && ` · ${new Date(campaign.startDate).toLocaleDateString()} – ${campaign.endDate ? new Date(campaign.endDate).toLocaleDateString() : 'ongoing'}`}
               </p>
-              {campaign.sourceStrategy ? (
-                <button
-                  type="button"
-                  onClick={() => router.push(`/campaigns/${campaign.sourceStrategy?.id}?tab=strategy`)}
-                  className="mt-2 text-[11px] font-bold text-indigo-700 underline decoration-indigo-200 underline-offset-4"
-                >
-                  {ar ? 'مصدر الاستراتيجية' : 'Strategy source'}: {campaign.sourceStrategy.name}
-                </button>
+              {hasStrategySource ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-bold text-indigo-700">
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/campaigns/${campaign.sourceStrategy?.id}?tab=strategy`)}
+                    className="underline decoration-indigo-200 underline-offset-4"
+                  >
+                    {ar ? 'مصدر الاستراتيجية' : 'Strategy source'}: {campaign.sourceStrategy?.name}
+                  </button>
+                  <span className="rounded-full bg-indigo-50 px-2 py-1 font-mono text-[9px] text-indigo-600 ring-1 ring-indigo-100">
+                    v{campaign.strategySnapshot?.version} · {campaign.strategySnapshot?.payloadHash.slice(0, 8)}
+                  </span>
+                </div>
               ) : (
                 <p className="mt-2 text-[11px] font-bold text-amber-700">
-                  {ar ? 'مسودة قديمة غير مرتبطة باستراتيجية — لا يمكن دفعها للمنصة.' : 'Legacy unlinked draft — platform execution is blocked.'}
+                  {strategySourceBlocker}
                 </p>
               )}
             </div>
@@ -754,7 +788,7 @@ export default function CampaignDetailPage() {
                 <p className="mt-1 text-amber-800">
                   {actionError || (
                     !hasStrategySource
-                      ? 'An approved Paid/Full strategy source is required. Legacy unlinked drafts cannot create or activate platform objects.'
+                      ? strategySourceBlocker
                       : !campaign.adAccount?.hasApiAccess
                       ? 'Platform API access is not approved. Review and export remain available; no platform object can be created.'
                       : 'Complete the following inputs before NEXUS can create or activate a paid platform draft.'
@@ -842,6 +876,9 @@ export default function CampaignDetailPage() {
                 {[
                   { label: 'Platform', value: campaign.platform },
                   { label: 'Approved strategy source', value: campaign.sourceStrategy?.name || 'Missing — execution blocked' },
+                  { label: 'Approved strategy revision', value: campaign.strategySnapshot ? `v${campaign.strategySnapshot.version} · ${campaign.strategySnapshot.payloadHash.slice(0, 8)}` : 'Missing — execution blocked' },
+                  { label: 'Budget approval', value: campaign.budgetApprovalSnapshot ? `v${campaign.budgetApprovalSnapshot.version} · paused draft only` : 'Pending explicit review' },
+                  { label: 'Launch & spend approval', value: campaign.launchApprovalSnapshot ? `v${campaign.launchApprovalSnapshot.version} · recorded` : 'Not authorized' },
                   { label: 'Objective', value: campaign.objective.replace(/_/g, ' ') },
                   { label: 'Budget', value: campaign.budgetType === 'DAILY' ? `${campaign.currency} ${campaign.dailyBudget}/day` : `${campaign.currency} ${campaign.lifetimeBudget} lifetime` },
                   { label: 'Ad Sets', value: campaign.adSets.length },
@@ -863,7 +900,9 @@ export default function CampaignDetailPage() {
               <h3 className="text-[13px] font-bold text-white mb-3">Execution Readiness</h3>
               <div className="space-y-2.5">
                 {[
-                  { label: '🧭 Approved strategy source', done: hasStrategySource },
+                  { label: '🧭 Pinned approved strategy revision', done: hasStrategySource },
+                  { label: '💳 Durable budget approval', done: !!campaign.budgetApprovalSnapshot },
+                  { label: '🔐 Durable launch & spend approval', done: !!campaign.launchApprovalSnapshot },
                   { label: '✨ Platform execution plan', done: !!campaign.aiStrategy },
                   { label: '🎯 Audience Brief', done: !!campaign.aiAudienceBrief },
                   { label: '💰 Budget Plan', done: !!campaign.aiBudgetPlan },

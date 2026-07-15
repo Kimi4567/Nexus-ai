@@ -86,8 +86,11 @@ export function validateContentPlanSemanticAlignment(
   // suddenly sells clinic-operations software; allowing it here let the wrong
   // strategy validate the wrong posts and defeated the final approval gate.
   const explicitBrandFacts = (context.brandFacts ?? []).map(stringify).join(' ')
-  const explicitClinicOperationsProduct = CLINIC_RE.test(explicitBrandFacts)
-    && OPERATIONS_PRODUCT_RE.test(explicitBrandFacts)
+  // Operational workflow language is valid for any explicitly described
+  // software/platform product, not only clinic software. The previous
+  // clinic-only conjunction incorrectly rejected real lead-management SaaS as
+  // business-model drift. Non-software brands remain protected below.
+  const explicitOperationsProduct = OPERATIONS_PRODUCT_RE.test(explicitBrandFacts)
   const overallStrategyTokens = tokens(strategy)
   const issues: ContentPlanSemanticIssue[] = []
   let alignedPosts = 0
@@ -95,7 +98,7 @@ export function validateContentPlanSemanticAlignment(
   posts.forEach((post, index) => {
     const postText = [post.caption, post.imagePrompt, post.videoPrompt].filter(Boolean).join(' ')
 
-    if (!explicitClinicOperationsProduct) {
+    if (!explicitOperationsProduct) {
       const driftEvidence = STRONG_DRIFT_PATTERNS
         .filter(pattern => pattern.re.test(postText))
         .map(pattern => pattern.label)

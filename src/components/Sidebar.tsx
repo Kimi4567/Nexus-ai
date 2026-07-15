@@ -8,6 +8,11 @@ import { useI18n } from '@/lib/i18n-context'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 import { getBillingDisplayTruth } from '@/lib/billingDisplayTruth'
 import { getPlanDisplayName } from '@/lib/creditDisplay'
+import {
+  MARKETING_JOURNEY,
+  resolveMarketingJourneyStage,
+  type MarketingJourneyStageId,
+} from '@/lib/marketingJourney'
 import React from 'react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -77,8 +82,14 @@ interface NavItemProps {
 
 function NavItem({ href, label, labelEn, icon, badge, badgeColor, dot, pathname, collapsed, onClick }: NavItemProps) {
   const hrefPath = href.split(/[?#]/)[0] || href
-  const isHashOrQueryLink = href.includes('#') || href.includes('?')
-  const isActive = !isHashOrQueryLink && (pathname === hrefPath || (hrefPath !== '/dashboard' && hrefPath !== '/brand' && pathname.startsWith(hrefPath)))
+  const isHashLink = href.includes('#')
+  const destinationStage = resolveMarketingJourneyStage(href)
+  const currentStage = resolveMarketingJourneyStage(pathname)
+  const isActive = !isHashLink && (
+    pathname === hrefPath
+    || (hrefPath !== '/dashboard' && hrefPath !== '/brand' && pathname.startsWith(hrefPath))
+    || Boolean(destinationStage && destinationStage === currentStage)
+  )
 
   if (collapsed) {
     return (
@@ -198,6 +209,14 @@ const Icons = {
   ),
 }
 
+const JOURNEY_ICONS: Record<MarketingJourneyStageId, React.ReactNode> = {
+  brand: Icons.brain,
+  strategy: Icons.strategy,
+  production: Icons.media,
+  execution: Icons.calendar,
+  results: Icons.analytics,
+}
+
 // ── Main Sidebar ───────────────────────────────────────────────
 export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
@@ -291,13 +310,12 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       labelAr: 'مسار التسويق',
       labelEn: 'Marketing workflow',
       separatorBefore: true,
-      items: [
-        { href: '/brand', labelAr: 'Brand Brain', labelEn: 'Brand Brain', icon: Icons.brain },
-        { href: '/strategy', labelAr: 'الاستراتيجية والحملات', labelEn: 'Strategy & campaigns', icon: Icons.strategy },
-        { href: '/content-hub', labelAr: 'إنتاج المحتوى', labelEn: 'Content production', icon: Icons.media },
-        { href: '/calendar', labelAr: 'التنفيذ', labelEn: 'Execution', icon: Icons.calendar },
-        { href: '/analytics', labelAr: 'النتائج والتعلّم', labelEn: 'Results & learning', icon: Icons.analytics },
-      ],
+      items: MARKETING_JOURNEY.map(stage => ({
+        href: stage.href,
+        labelAr: stage.label.ar,
+        labelEn: stage.label.en,
+        icon: JOURNEY_ICONS[stage.id],
+      })),
     },
     {
       key: 'system',

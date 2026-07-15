@@ -15,6 +15,7 @@ describe('billing plan copy truth', () => {
     expect(BILLING_SRC).not.toContain('Plan comparison')
     expect(BILLING_SRC).not.toContain('Get your referral link')
     expect(BILLING_SRC).toContain('Credit wallet')
+    expect(BILLING_SRC).toContain('does not change campaign or post limits or unlock plan features')
   })
 
   it('describes Campaign Memory as reviewed signals, not automatic brand learning', () => {
@@ -24,6 +25,13 @@ describe('billing plan copy truth', () => {
     expect(BILLING_SRC).not.toContain('AI learns your brand')
     expect(STRIPE_SRC).not.toContain('AI learns your brand')
     expect(BILLING_SRC).not.toContain('تعلّم من كل حملة')
+  })
+
+  it('does not sell multi-workspace operation before a workspace switcher exists', () => {
+    expect(BILLING_SRC).not.toContain('مساحات عمل')
+    expect(BILLING_SRC).not.toContain('multi-brand operations')
+    expect(STRIPE_SRC).not.toContain('3 workspaces (3 brands)')
+    expect(STRIPE_SRC).not.toContain('10 workspaces (10 brands / clients)')
   })
 
   it('does not present billing as disabled while authenticated status is still loading', () => {

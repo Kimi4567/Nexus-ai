@@ -6,7 +6,8 @@
  *   - credits used this month comes from the ledger (not monthlyTotal - remaining)
  *     and is correct even when remaining credits exceed the monthly quota
  *   - AI generations uses a populated source and is never stuck at 0
- *   - refunds (failed-then-refunded attempts) are netted out
+ *   - refunded/reserved attempts are excluded by the settled-ledger query
+ *   - unlimited-plan operations retain their economic credit cost
  *   - deterministic for a fixture → dashboard & analytics always agree
  */
 
@@ -35,9 +36,9 @@ describe('getUsageSummary', () => {
   it('1. creditsUsedThisMonth comes from the ledger — correct even when remaining > monthly quota', async () => {
     // remaining(281) > monthlyTotal(150) used to underflow to 0. Ledger is the truth.
     mockPrisma.creditTransaction.findMany.mockResolvedValue([
-      { amount: -8, entityType: null },  // strategy
-      { amount: -2, entityType: null },  // content plan
-      { amount: -3, entityType: null },  // image
+      { creditCost: 8 },  // strategy
+      { creditCost: 2 },  // content plan
+      { creditCost: 3 },  // image
     ])
     const s = await getUsageSummary('u1')
     expect(s.creditsUsedThisMonth).toBe(13)        // not 0
@@ -52,31 +53,27 @@ describe('getUsageSummary', () => {
     expect(s.generationsTotal).toBeGreaterThan(0)
   })
 
-  it('nets out refunds — a failed-then-refunded attempt is not counted as used/generated', async () => {
-    mockPrisma.creditTransaction.findMany.mockResolvedValue([
-      { amount: -8, entityType: null },        // failed strategy charge
-      { amount: 8, entityType: 'refund' },     // its refund
-      { amount: -2, entityType: null },        // content plan (kept)
-    ])
+  it('counts only rows returned by the settled-operation filter', async () => {
+    mockPrisma.creditTransaction.findMany.mockResolvedValue([{ creditCost: 2 }])
     const s = await getUsageSummary('u1')
     expect(s.creditsUsedThisMonth).toBe(2)
     expect(s.generationsThisMonth).toBe(1)
+    expect(mockPrisma.creditTransaction.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: 'SETTLED', creditCost: { gt: 0 } }),
+      }),
+    )
   })
 
-  it('nets allocation-aware refunds linked to their debit transaction', async () => {
-    mockPrisma.creditTransaction.findMany.mockResolvedValue([
-      { action: 'SENTINEL_REVIEW', amount: -2, entityType: null },
-      { action: 'REFUND', amount: 2, entityType: 'credit_transaction' },
-      { action: 'CONTENT_PLAN_GENERATION', amount: -2, entityType: null },
-    ])
-
+  it('tracks economic usage for an unlimited-plan operation with no wallet debit', async () => {
+    mockPrisma.creditTransaction.findMany.mockResolvedValue([{ creditCost: 8 }])
     const summary = await getUsageSummary('u1')
-    expect(summary.creditsUsedThisMonth).toBe(2)
+    expect(summary.creditsUsedThisMonth).toBe(8)
     expect(summary.generationsThisMonth).toBe(1)
   })
 
   it('3. is deterministic for a fixture (dashboard + analytics share it → consistent numbers)', async () => {
-    mockPrisma.creditTransaction.findMany.mockResolvedValue([{ amount: -5, entityType: null }])
+    mockPrisma.creditTransaction.findMany.mockResolvedValue([{ creditCost: 5 }])
     const a = await getUsageSummary('u1')
     const b = await getUsageSummary('u1')
     expect(a).toEqual(b)
@@ -96,8 +93,8 @@ describe('getMonthlyActivity', () => {
   it('returns one entry per month and buckets ledger spend into the current month', async () => {
     const now = new Date()
     mockPrisma.creditTransaction.findMany.mockResolvedValue([
-      { amount: -8, entityType: null, createdAt: now },
-      { amount: -2, entityType: null, createdAt: now },
+      { creditCost: 8, createdAt: now },
+      { creditCost: 2, createdAt: now },
     ])
     const months = await getMonthlyActivity('u1', 6)
     expect(months).toHaveLength(6)
@@ -107,16 +104,14 @@ describe('getMonthlyActivity', () => {
     expect(current.creditsUsed).toBe(10)
   })
 
-  it('nets both legacy and allocation-aware refund ledger shapes', async () => {
-    const now = new Date()
-    mockPrisma.creditTransaction.findMany.mockResolvedValue([
-      { action: 'SENTINEL_REVIEW', amount: -2, entityType: null, createdAt: now },
-      { action: 'REFUND', amount: 2, entityType: 'credit_transaction', createdAt: now },
-      { action: 'RUN_FULL_STRATEGY', amount: -8, entityType: null, createdAt: now },
-      { action: 'REFUND', amount: 8, entityType: 'refund', createdAt: now },
-    ])
-
+  it('excludes reserved and refunded rows through the settled-operation query', async () => {
+    mockPrisma.creditTransaction.findMany.mockResolvedValue([])
     const months = await getMonthlyActivity('u1', 1)
     expect(months[0]).toMatchObject({ generations: 0, creditsUsed: 0 })
+    expect(mockPrisma.creditTransaction.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: 'SETTLED', creditCost: { gt: 0 } }),
+      }),
+    )
   })
 })

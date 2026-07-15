@@ -11,6 +11,9 @@ export function contentReviewResetData(status: unknown): Record<string, unknown>
   return {
     status: 'DRAFT',
     approvedAt: null,
+    approvedSnapshotId: null,
+    mediaApprovalSnapshotId: null,
+    scheduledSnapshotId: null,
     publishMode: 'MANUAL',
     integrationId: null,
     pageId: null,
@@ -26,4 +29,4 @@ export function contentReviewResetData(status: unknown): Record<string, unknown>
 }
 
 export const CONTENT_REVISION_HISTORY_NOTE =
-  'Content or media changed; approval and execution assignment were cleared for review.'
+  'Content or media changed; approval snapshot and execution assignment were cleared for review.'

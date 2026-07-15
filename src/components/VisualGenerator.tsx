@@ -7,6 +7,7 @@ import { CONTENT_HUB_IMAGE_COST } from '@/lib/contentHubActionSafety'
 import { getCreditActionTruth } from '@/lib/creditActionTruth'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 import { getDefaultTemplateForPlatform } from '@/lib/creativeTemplates'
+import { fetchCreditOperation } from '@/lib/creditOperationClient'
 
 type VisualStyle =
   | 'Minimal' | 'Luxury' | 'Corporate' | 'Editorial' | 'Cinematic'
@@ -335,7 +336,8 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
     setPanelOpen(false)
 
     try {
-      const res = await fetch('/api/visuals/generate', {
+      const operationScope = `visual:generate:${context.campaignId || 'workspace'}:${regenerateFrom?.id || 'new'}:${selectedType}:${selectedStyle}`
+      const res = await fetchCreditOperation(operationScope, '/api/visuals/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: token },
         body: JSON.stringify({

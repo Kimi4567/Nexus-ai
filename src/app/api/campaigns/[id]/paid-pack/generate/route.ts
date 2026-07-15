@@ -15,10 +15,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
-import { buildCreditChargeReceipt, checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
+import {
+  buildCreditChargeReceipt,
+  checkAndDeductCredits,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
+  refundCreditDeduction,
+} from '@/lib/credits'
 import { getBudgetTruth } from '@/lib/paidBoundary'
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -381,25 +389,33 @@ Generate a complete paid campaign pack as JSON with this exact structure:
   }
 }`
 
+    const rateLimitResponse = await enforceBillableAiRateLimit(user.id, 'PAID_PACK_GENERATE')
+    if (rateLimitResponse) return rateLimitResponse
+
     // Check credits — single atomic deduction (6 credits for the full pack).
     // Deduct only after cheap auth, ownership, campaign, brand, and pack context
     // checks pass. The next step is the expensive provider generation call.
-    const creditResult = await checkAndDeductCredits(user.id, 'PAID_PACK_GENERATE')
+    const creditResult = await checkAndDeductCredits(
+      user.id,
+      'PAID_PACK_GENERATE',
+      undefined,
+      {
+        entityId: campaignId,
+        entityType: 'campaign_paid_pack',
+        operationKey: getCreditOperationKey(req, 'PAID_PACK_GENERATE', 'campaign_paid_pack', campaignId),
+      },
+    )
     if (!creditResult.ok) {
-      return NextResponse.json({ error: 'Insufficient credits', upgradeRequired: true }, { status: 402 })
+      return NextResponse.json(creditResult, { status: creditCheckHttpStatus(creditResult) })
     }
 
     const refundPaidPack = async () => {
-      if (creditResult.creditsUsed <= 0) return
-      if (creditResult.transactionId) {
-        await refundCreditsForTransaction({
-          userId: user.id,
-          transactionId: creditResult.transactionId,
-          reason: 'Paid campaign pack generation failed',
-        })
-      } else {
-        await refundCredits(user.id, 'PAID_PACK_GENERATE')
-      }
+      await refundCreditDeduction({
+        userId: user.id,
+        action: 'PAID_PACK_GENERATE',
+        deduction: creditResult,
+        reason: 'Paid campaign pack generation failed',
+      })
     }
 
     try {
@@ -468,6 +484,19 @@ Generate a complete paid campaign pack as JSON with this exact structure:
           generatedAt: new Date(),
         },
       })
+
+      const finalization = await finalizeCreditDeduction({
+        userId: user.id,
+        action: 'PAID_PACK_GENERATE',
+        deduction: creditResult,
+      })
+      if (!finalization.ok) {
+        return NextResponse.json({
+          error: 'Paid campaign pack was saved but the credit operation could not be finalized. Reserved credits were returned; refresh the campaign.',
+          code: 'CREDIT_FINALIZATION_FAILED',
+          refunded: finalization.refundStatus === 'refunded',
+        }, { status: 503 })
+      }
 
       return NextResponse.json({
         pack,

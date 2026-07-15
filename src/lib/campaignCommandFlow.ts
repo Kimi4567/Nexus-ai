@@ -97,7 +97,7 @@ function strategyStatus(state: CampaignOperatingState): CampaignCommandFlowStepS
 function contentStatus(state: CampaignOperatingState): CampaignCommandFlowStepStatus {
   if (!state.truthFlags.hasStrategy) return 'pending'
   if (!state.truthFlags.hasContentPlan) return 'current'
-  if (state.truthFlags.hasDraftContent) return 'review'
+  if (state.truthFlags.hasDraftContent || state.truthFlags.hasChannelScopeMismatch) return 'review'
   return 'complete'
 }
 
@@ -129,8 +129,8 @@ function approvalStatus(
   if (!state.truthFlags.hasContentPlan) return 'pending'
   if (!creativeSummary || creativeSummary.total === 0) return 'review'
   if (hasOutstandingMediaReview(creativeSummary)) return 'review'
-  if (state.truthFlags.hasDraftContent) return 'current'
-  if (state.truthFlags.hasPublishedContent || state.truthFlags.hasScheduledContent || state.truthFlags.hasApprovedContent) {
+  if (state.truthFlags.hasDraftContent || state.truthFlags.hasApprovalEvidenceGap || state.truthFlags.hasChannelScopeMismatch) return 'current'
+  if (state.truthFlags.hasReviewedContent) {
     return 'complete'
   }
   return 'review'
@@ -141,14 +141,19 @@ function approvalCopy(
   creativeSummary?: CreativeRequirementsSummary | null,
 ): Pick<CampaignCommandFlowStep, 'helperEn' | 'helperAr' | 'metricEn' | 'metricAr'> {
   const draftPosts = state.counts.draftPosts
-  const approvedPosts = state.counts.approvedPosts
+  const reviewedPosts = state.counts.reviewedPosts
+  const reviewGaps = state.counts.unreviewedProgressedPosts + state.counts.outOfScopePosts
+  const reviewedMetricEn = `${reviewedPosts} reviewed revision${reviewedPosts === 1 ? '' : 's'}`
+  const reviewedMetricAr = reviewedPosts === 1
+    ? 'نسخة واحدة موثقة المراجعة'
+    : `${reviewedPosts} نسخ موثقة المراجعة`
 
   if (!creativeSummary || creativeSummary.total === 0) {
     return {
       helperEn: 'Copy status is available, but media review state is not confirmed yet.',
       helperAr: 'حالة النص متاحة، لكن حالة مراجعة الوسائط لم تتأكد بعد.',
-      metricEn: `${draftPosts} draft · ${approvedPosts} copy approved · media unconfirmed`,
-      metricAr: `${draftPosts} مسودة · ${approvedPosts} نص معتمد · الوسائط غير مؤكدة`,
+      metricEn: `${reviewedMetricEn} · ${reviewGaps} need review · media unconfirmed`,
+      metricAr: `${reviewedMetricAr} · ${reviewGaps} تحتاج مراجعة · الوسائط غير مؤكدة`,
     }
   }
 
@@ -158,7 +163,7 @@ function approvalCopy(
       creativeSummary.readinessPending,
       creativeSummary.total - creativeSummary.attachedToPost,
     )
-    const copyApproved = approvedPosts > 0 && draftPosts === 0
+    const copyApproved = state.truthFlags.hasReviewedContent
 
     return {
       helperEn: copyApproved
@@ -168,19 +173,19 @@ function approvalCopy(
         ? 'تم حفظ اعتماد النص. ما زالت الوسائط تحتاج مراجعة قبل الجدولة أو النشر.'
         : 'ما زالت مراجعة النص والوسائط مفتوحة قبل الجدولة أو النشر.',
       metricEn: copyApproved
-        ? `${approvedPosts} copy approved · ${mediaPending} media pending`
-        : `${draftPosts} draft · ${approvedPosts} copy approved · ${mediaPending} media pending`,
+        ? `${reviewedMetricEn} · ${mediaPending} media pending`
+        : `${draftPosts + reviewGaps} need review · ${reviewedMetricEn} · ${mediaPending} media pending`,
       metricAr: copyApproved
-        ? `${approvedPosts} نص معتمد · ${mediaPending} وسائط معلقة`
-        : `${draftPosts} مسودة · ${approvedPosts} نص معتمد · ${mediaPending} وسائط معلقة`,
+        ? `${reviewedMetricAr} · ${mediaPending} وسائط معلقة`
+        : `${draftPosts + reviewGaps} تحتاج مراجعة · ${reviewedMetricAr} · ${mediaPending} وسائط معلقة`,
     }
   }
 
   return {
     helperEn: 'Copy and attached media have passed review before scheduling or publishing.',
     helperAr: 'اجتاز النص والوسائط المرتبطة المراجعة قبل الجدولة أو النشر.',
-    metricEn: `${draftPosts} draft · ${approvedPosts} approved · ${creativeSummary.attachedToPost} media reviewed`,
-    metricAr: `${draftPosts} مسودة · ${approvedPosts} معتمدة · ${creativeSummary.attachedToPost} وسائط مُراجعة`,
+    metricEn: `${reviewedMetricEn} · ${creativeSummary.attachedToPost} media reviewed`,
+    metricAr: `${reviewedMetricAr} · ${creativeSummary.attachedToPost} وسائط مُراجعة`,
   }
 }
 

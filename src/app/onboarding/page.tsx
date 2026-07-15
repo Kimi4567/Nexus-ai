@@ -25,7 +25,11 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { Brain, CheckCircle2, Loader2, ShieldCheck, Sparkles, Workflow } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { FIRST_INTENTS, buildOnboardingStrategicNotes } from '@/lib/onboardingContinuity'
+import {
+  FIRST_INTENTS,
+  buildOnboardingStrategicNotes,
+  resolveExistingWorkspaceOnboardingRoute,
+} from '@/lib/onboardingContinuity'
 import { getFirstRunJourney } from '@/lib/firstUserJourney'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import { ONBOARDING_INDUSTRY_OPTIONS } from '@/lib/brandIndustries'
@@ -256,8 +260,16 @@ export default function OnboardingPage() {
         const brandData = brandRes?.ok ? await brandRes.json() : null
         const brandProfile = brandData?.brandProfile ?? null
         const readiness = getBrandBrainReadiness(brandProfile)
-        const hasBrandProfile = Boolean(brandProfile?.brandName || brandProfile?.industry || brandProfile?.description)
-        router.push(readiness.ready && hasBrandProfile ? '/dashboard' : '/brand')
+        // A reset intentionally preserves the workspace shell and connections.
+        // An empty Brand Brain therefore means "restart onboarding", not
+        // "workspace already onboarded". Stay on this page for the real starter
+        // journey; only partial/ready profiles should leave it.
+        const destination = resolveExistingWorkspaceOnboardingRoute({
+          hasWorkspace: true,
+          brandProfile,
+          brandReady: readiness.ready,
+        })
+        if (destination) router.replace(destination)
       })
       .catch(() => {})
   }, [isAuthenticated, authHeader, router])

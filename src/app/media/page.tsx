@@ -101,6 +101,9 @@ interface MediaRecord {
   type: string
   url: string
   cloudinaryId?: string
+  assetKind?: 'UPLOADED_MEDIA' | 'GENERATED_VISUAL'
+  generatedVisualId?: string
+  readOnly?: boolean
 }
 
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || ''
@@ -426,12 +429,14 @@ function TypeBadge({ type, mT }: { type: string; mT: Record<string, string> }) {
 function MediaCard({
   media,
   mT,
+  isAr,
   onPreview,
   onDelete,
   onBrandIt,
 }: {
   media: MediaRecord
   mT: Record<string, string>
+  isAr: boolean
   onPreview: (m: MediaRecord) => void
   onDelete: (id: string) => void
   onBrandIt: (m: MediaRecord) => void
@@ -511,7 +516,14 @@ function MediaCard({
       {/* Info + Actions */}
       <div className="p-3 flex-1 flex flex-col gap-2">
         <div className="font-semibold text-sm text-slate-950 truncate" title={media.fileName}>{media.fileName}</div>
-        <div className="text-xs text-slate-500 truncate">{media.mimeType}</div>
+        <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
+          <span className="truncate">{media.mimeType}</span>
+          {media.assetKind === 'GENERATED_VISUAL' && (
+            <span className="shrink-0 rounded-full bg-violet-50 px-2 py-0.5 font-bold text-violet-700">
+              {isAr ? 'مولّد بالذكاء' : 'AI generated'}
+            </span>
+          )}
+        </div>
 
         {confirmDelete ? (
           <div className="mt-1">
@@ -555,13 +567,15 @@ function MediaCard({
             >
               {copyFlash ? '✓' : '⎘'}
             </button>
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="rounded border border-red-900/50 text-red-400 text-xs py-1.5 px-2.5 hover:bg-red-900/20 transition"
-              title={mT.btnDelete}
-            >
-              ✕
-            </button>
+            {!media.readOnly && (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="rounded border border-red-900/50 text-red-400 text-xs py-1.5 px-2.5 hover:bg-red-900/20 transition"
+                title={mT.btnDelete}
+              >
+                ✕
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -929,8 +943,9 @@ export default function MediaLibraryPage() {
             <div>
 
           <LuxuryWorkspaceHeader
-            pageTitle={locale === 'ar' ? 'مكتبة الوسائط' : 'Media Library'}
-            pageSubtitle={locale === 'ar' ? 'ارفع الصور والفيديوهات، ثم اربطها بالمنشور المناسب من مركز المحتوى.' : 'Upload images and videos, then attach them to the right post from Content Hub.'}
+            journeyStage="production"
+            pageTitle={locale === 'ar' ? 'مكتبة الأصول' : 'Asset library'}
+            pageSubtitle={locale === 'ar' ? 'أدر الملفات المرفوعة والصور المولّدة بالذكاء، ثم اربط الأصل المناسب من مركز المحتوى.' : 'Manage uploaded files and AI-generated visuals, then attach the right asset from Content Hub.'}
             primaryHref="/content-hub"
             primaryLabel={locale === 'ar' ? 'مراجعة المحتوى' : 'Review content'}
             secondaryHref="/studio"
@@ -1098,6 +1113,7 @@ export default function MediaLibraryPage() {
                     key={m.id}
                     media={m}
                     mT={mT}
+                    isAr={locale === 'ar'}
                     onPreview={setPreviewMedia}
                     onDelete={handleMediaDeleted}
                     onBrandIt={setBrandItMedia}

@@ -68,7 +68,10 @@ export async function GET(req: NextRequest) {
 
   if (!tokenData.access_token) {
     const errMsg = tokenData.error_description || tokenData.error || 'token_exchange'
-    console.error('[LinkedIn OAuth] Token exchange failed:', tokenData)
+    console.error('[LinkedIn OAuth] Token exchange failed:', {
+      error: tokenData.error_description || tokenData.error || 'unknown',
+      code: tokenData.error_code || null,
+    })
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=${encodeURIComponent(errMsg.slice(0, 120))}`)
   }
 

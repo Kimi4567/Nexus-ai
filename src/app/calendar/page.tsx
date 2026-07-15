@@ -6,7 +6,7 @@ import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import Link from 'next/link'
 import { useI18n } from '@/lib/i18n-context'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { deriveDisplayState, statusLabelKey } from '@/lib/postStatus'
 import { isAutoPublished } from '@/lib/postVisibility'
 import { getPublishingStateSummary } from '@/lib/contentCounts'
@@ -14,6 +14,8 @@ import { getPostClaimRisk } from '@/lib/ai/claimGuard'
 import { getCalendarMonthTruth, getCalendarTruthText, isRealCalendarPost } from '@/lib/calendarTruth'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { AlertCircle, Trash2, X } from 'lucide-react'
+import type { WorkspaceExecutionTruth } from '@/lib/executionTruth'
+import { formatScheduledTimeDistance } from '@/lib/scheduleTimeDistance'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,7 +48,8 @@ type ScheduledPost = {
   id: string
   caption: string
   platform: string
-  pageName: string
+  pageName?: string | null
+  publishTarget?: string | null
   imageUrl?: string
   status: 'SCHEDULED' | 'PROCESSING' | 'PUBLISHED' | 'FAILED' | 'DRAFT' | 'APPROVED'
   scheduledAt: string
@@ -104,6 +107,9 @@ const PLATFORM_ICONS_SCH: Record<string, string> = {
   TIKTOK:    '🎵',
   SNAPCHAT:  '👻',
   YOUTUBE:   '▶️',
+  YOUTUBE_SHORTS: '▶️',
+  PINTEREST: '📌',
+  THREADS:   '@',
   X:         '𝕏',
   TWITTER:   '𝕏',
 }
@@ -284,7 +290,7 @@ function normalisePlatformQueue(raw: string | undefined): string {
   const map: Record<string, string> = {
     FACEBOOK: 'Facebook', INSTAGRAM: 'Instagram', LINKEDIN: 'LinkedIn',
     TIKTOK: 'TikTok', X: 'X', TWITTER: 'X', YOUTUBE: 'YouTube',
-    META: 'Facebook', SNAPCHAT: 'Snapchat',
+    META: 'Meta', SNAPCHAT: 'Snapchat',
   }
   return map[raw.toUpperCase()] || normaliseplatform(raw)
 }
@@ -313,7 +319,7 @@ function convertScheduledToCalendarPosts(
         day:           d.getDate(),
         month:         d.getMonth(),
         year:          d.getFullYear(),
-        platform:      normalisePlatformQueue(p.platform),
+        platform:      normalisePlatformQueue(p.publishTarget || p.platform),
         type:          isPublished ? 'Published' : 'Scheduled',
         topic:         p.caption?.slice(0, 70) || 'Scheduled Post',
         scheduledAt:   p.scheduledAt,
@@ -341,6 +347,7 @@ export default function CalendarPage() {
 function CalendarPageInner() {
   const { isAuthenticated, loading, authHeader } = useAuth()
   const { t, locale, isRTL, dir } = useI18n()
+  const router = useRouter()
   const calT = t('calendar')
   const scT  = t('schedule')
   const searchParams = useSearchParams()
@@ -355,7 +362,7 @@ function CalendarPageInner() {
 
   // ── Tab state ──────────────────────────────────────────────────────────────
   const defaultTab = searchParams.get('tab') === 'queue' ? 'queue' : 'timeline'
-  const [activeTab, setActiveTab] = useState<'timeline' | 'queue'>(defaultTab as any)
+  const [activeTab, setActiveTab] = useState<'timeline' | 'queue'>(defaultTab)
 
   // ── Strategy Timeline state ────────────────────────────────────────────────
   const [campaigns, setCampaigns]     = useState<any[]>([])
@@ -375,7 +382,12 @@ function CalendarPageInner() {
   const [pendingDeletePost, setPendingDeletePost] = useState<ScheduledPost | null>(null)
   const [queueActionError, setQueueActionError] = useState('')
   const [brandTruthState, setBrandTruthState] = useState<'checking' | 'passed' | 'blocked' | 'unavailable'>('checking')
+  const [executionTruth, setExecutionTruth] = useState<WorkspaceExecutionTruth | null>(null)
   const calendarTruthBlocked = brandTruthState !== 'passed'
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) router.push('/auth/login')
+  }, [isAuthenticated, loading, router])
 
   // ── Fetch calendar data ────────────────────────────────────────────────────
   useEffect(() => {
@@ -397,7 +409,7 @@ function CalendarPageInner() {
         setLoadingCal(false)
       })
       .catch(() => { setBrandTruthState('unavailable'); setLoadingCal(false) })
-  }, [isAuthenticated])
+  }, [authHeader, isAuthenticated])
 
   // ── Fetch queue data ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -406,12 +418,15 @@ function CalendarPageInner() {
     Promise.all([
       fetch('/api/schedule', { headers: { Authorization: token } }).then(r => r.json()),
       fetch('/api/social/accounts', { headers: { Authorization: token } }).then(r => r.json()),
-    ]).then(([schedData, socialData]) => {
+      fetch('/api/execution/queue', { headers: { Authorization: token } }).then(r => r.ok ? r.json() : {}),
+    ]).then(([schedData, socialData, executionData]) => {
+      const executionPayload = executionData as { truth?: WorkspaceExecutionTruth }
       setPosts(schedData.posts || [])
       setIntegrations(socialData.accounts || socialData.integrations || [])
+      setExecutionTruth(executionPayload.truth && typeof executionPayload.truth === 'object' ? executionPayload.truth : null)
       setLoadingQueue(false)
     }).catch(() => setLoadingQueue(false))
-  }, [isAuthenticated])
+  }, [authHeader, isAuthenticated])
 
   // ── Calendar derived state ─────────────────────────────────────────────────
   const strategyPlanPosts = useMemo(() => {
@@ -504,7 +519,11 @@ function CalendarPageInner() {
     (p.status === 'DRAFT' || p.status === 'APPROVED') && isPostInViewedMonth(p)
   )
   const reviewCount = monthReviewPosts.length
-  const lateCount = posts.filter(p => p.status === 'FAILED' && isPostInViewedMonth(p)).length
+  const lateCount = posts.filter(p => {
+    if (!isPostInViewedMonth(p)) return false
+    if (p.status === 'FAILED') return true
+    return p.status === 'SCHEDULED' && new Date(p.scheduledAt).getTime() < Date.now()
+  }).length
 
   // ── Queue derived state ────────────────────────────────────────────────────
   // PR7 honesty: the Published Queue is the integration / auto-publish surface.
@@ -519,6 +538,7 @@ function CalendarPageInner() {
   // PR-1J: honest, tested lifecycle counts. `notScheduled` = generated/approved
   // content that has no schedule yet — it must never read as scheduled or published.
   const queueSummary = getPublishingStateSummary(posts)
+  const nextExecutionAction = executionTruth?.queue[0] ?? null
 
   const handleDelete = async (post: ScheduledPost) => {
     const operation = post.status === 'FAILED' ? 'dismiss_failed_record' : 'cancel_scheduled_post'
@@ -552,21 +572,6 @@ function CalendarPageInner() {
     })
   }
 
-  function timeUntil(iso: string) {
-    const diff = new Date(iso).getTime() - Date.now()
-    if (diff < 0) return scT?.timeNow as string || 'Now'
-    const h = Math.floor(diff / 3600000)
-    const m = Math.floor((diff % 3600000) / 60000)
-    if (h > 24) {
-      const days = Math.floor(h / 24)
-      return (scT?.timeDay as string)?.replace('{h}', String(days)) ?? `${days}d`
-    }
-    if (h > 0) {
-      return (scT?.timeHour as string)?.replace('{h}', String(h))?.replace('{m}', String(m)) ?? `${h}h ${m}m`
-    }
-    return (scT?.timeMinute as string)?.replace('{m}', String(m)) ?? `${m}m`
-  }
-
   if (loading) return (
     <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
       <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
@@ -579,10 +584,15 @@ function CalendarPageInner() {
       <main className="nx-os-page" dir={dir}>
       <div className="nx-os-container page-enter">
         <LuxuryWorkspaceHeader
-          pageTitle={locale === 'ar' ? 'التقويم التنفيذي' : 'Execution calendar'}
-          pageSubtitle={locale === 'ar' ? 'راقب المواعيد وحالة التنفيذ هنا. اعتماد النصوص والوسائط والجدولة يبدأ من مركز المحتوى.' : 'Monitor timing and execution state here. Copy, media, and scheduling decisions start in Content Hub.'}
-          primaryHref={calendarTruthBlocked ? '/brand' : '/content-hub'}
-          primaryLabel={calendarTruthBlocked ? (locale === 'ar' ? 'تصحيح Brand Brain' : 'Fix Brand Brain') : (locale === 'ar' ? 'افتح مركز المحتوى' : 'Open Content Hub')}
+          journeyStage="execution"
+          pageTitle={locale === 'ar' ? 'التنفيذ' : 'Execution'}
+          pageSubtitle={locale === 'ar' ? 'قائمة قرارات واحدة للجدولة والنشر والمراقبة؛ يبدأ اعتماد النص والوسائط من إنتاج المحتوى.' : 'One decision queue for scheduling, publishing, and monitoring; copy and media approval starts in Content production.'}
+          primaryHref={calendarTruthBlocked ? '/brand' : (nextExecutionAction?.requiresApproval ? '/approvals' : nextExecutionAction?.href) || '/content-hub'}
+          primaryLabel={calendarTruthBlocked
+            ? (locale === 'ar' ? 'تصحيح Brand Brain' : 'Fix Brand Brain')
+            : nextExecutionAction
+              ? (locale === 'ar' ? nextExecutionAction.title.ar : nextExecutionAction.title.en)
+              : (locale === 'ar' ? 'افتح إنتاج المحتوى' : 'Open Content production')}
           secondaryHref="/campaigns"
           secondaryLabel={locale === 'ar' ? 'الحملات' : 'Campaigns'}
         />
@@ -603,13 +613,45 @@ function CalendarPageInner() {
           </div>
         )}
 
+        {!calendarTruthBlocked && (
+          <section className="nx-os-action-strip mb-5" aria-live="polite">
+            <div className="min-w-0">
+              <p className="text-[13px] font-black text-[#0B1028]">
+                {nextExecutionAction
+                  ? (locale === 'ar' ? nextExecutionAction.title.ar : nextExecutionAction.title.en)
+                  : (locale === 'ar' ? 'لا توجد مشكلة تنفيذ مؤكدة الآن' : 'No verified execution issue right now')}
+              </p>
+              <p className="mt-1 max-w-3xl text-[11px] font-semibold leading-5 text-slate-500">
+                {nextExecutionAction
+                  ? (locale === 'ar' ? nextExecutionAction.reason.ar : nextExecutionAction.reason.en)
+                  : (locale === 'ar'
+                      ? 'يراقب NEXUS الحالات المحفوظة؛ لا يعني ذلك أن نشرًا أو نتيجة أداء حدثت.'
+                      : 'NEXUS monitors saved workflow states; this does not imply publishing or performance occurred.')}
+              </p>
+              <p className="mt-1 text-[10px] font-bold text-slate-400">
+                {locale === 'ar'
+                  ? `${executionTruth?.summary.needsAttention ?? 0} تحتاج انتباه · ${executionTruth?.summary.awaitingApproval ?? 0} بانتظار موافقة · ${executionTruth?.summary.scheduledPosts ?? scheduled.length} منشورات مجدولة`
+                  : `${executionTruth?.summary.needsAttention ?? 0} need attention · ${executionTruth?.summary.awaitingApproval ?? 0} awaiting approval · ${executionTruth?.summary.scheduledPosts ?? scheduled.length} scheduled`}
+              </p>
+            </div>
+            {nextExecutionAction ? (
+              <Link
+                href={nextExecutionAction.requiresApproval ? '/approvals' : nextExecutionAction.href}
+                className="inline-flex h-10 shrink-0 items-center justify-center rounded-[14px] bg-[#071236] px-4 text-[12px] font-black text-white"
+              >
+                {locale === 'ar' ? 'تنفيذ القرار التالي' : 'Open next decision'}
+              </Link>
+            ) : null}
+          </section>
+        )}
+
         {/* Calendar controls */}
-        <div className="nx-os-action-strip mb-5">
+        <div className="nx-os-card mb-5 flex flex-wrap items-center justify-between gap-3 p-3">
           <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex items-center gap-1 rounded-[16px] border border-[#e3e8f3] bg-white p-1 shadow-sm">
               {[
-                { key: 'timeline', label: locale === 'ar' ? 'شهر' : 'Month' },
-                { key: 'queue', label: locale === 'ar' ? 'قائمة المراجعة' : 'Review queue' },
+                { key: 'queue', label: locale === 'ar' ? 'قرارات التنفيذ' : 'Execution decisions' },
+                { key: 'timeline', label: locale === 'ar' ? 'الخط الزمني' : 'Timeline' },
               ].map(item => (
                 <button
                   key={item.key}
@@ -1008,6 +1050,37 @@ function CalendarPageInner() {
         {activeTab === 'queue' && (
           <div className="max-w-4xl">
 
+            {executionTruth?.queue.length ? (
+              <details className="nx-os-card mb-6 p-4">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[13px] font-black text-[#071236]">
+                  <span>{locale === 'ar' ? 'قرارات التشغيل المجمّعة' : 'Consolidated operating decisions'}</span>
+                  <span className="rounded-full bg-[#EEF2FF] px-2.5 py-1 text-[10px] text-[#5366F6]">{executionTruth.queue.length}</span>
+                </summary>
+                <p className="mt-2 text-[10px] font-semibold leading-5 text-slate-400">
+                  {locale === 'ar' ? 'قد تلخّص البطاقة الواحدة عدة منشورات لها القرار التالي نفسه.' : 'One decision card may summarize several posts that share the same next action.'}
+                </p>
+                <div className="mt-4 space-y-2">
+                  {executionTruth.queue.slice(0, 10).map(action => (
+                    <div key={action.id} className="flex flex-col gap-3 rounded-[16px] border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase ${action.priority === 'critical' ? 'bg-rose-50 text-rose-700' : action.priority === 'high' ? 'bg-amber-50 text-amber-700' : 'bg-white text-slate-500'}`}>
+                            {action.priority}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-400">{action.campaignName}</span>
+                        </div>
+                        <p className="mt-1 text-[12px] font-black text-[#0B1028]">{locale === 'ar' ? action.title.ar : action.title.en}</p>
+                        <p className="mt-1 text-[11px] font-semibold leading-5 text-slate-500">{locale === 'ar' ? action.reason.ar : action.reason.en}</p>
+                      </div>
+                      <Link href={action.requiresApproval ? '/approvals' : action.href} className="inline-flex h-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-[11px] font-black text-[#5366F6]">
+                        {action.requiresApproval ? (locale === 'ar' ? 'مراجعة القرار' : 'Review decision') : (locale === 'ar' ? 'فتح' : 'Open')}
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
+
             {/* Stats — lifecycle order, honest (PR-1J): "Not scheduled" = generated
                 content with no schedule yet; it is never shown as scheduled/published. */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -1060,12 +1133,12 @@ function CalendarPageInner() {
                 <div className="space-y-3">
                   {scheduled.map(post => (
                     <div key={post.id} className="rounded-xl bg-white p-5 flex items-start gap-4" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
-                      <div className="text-2xl shrink-0">{PLATFORM_ICONS_SCH[post.platform] || '📱'}</div>
+                      <div className="text-2xl shrink-0">{PLATFORM_ICONS_SCH[(post.publishTarget || post.platform).toUpperCase()] || '📱'}</div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1.5">
-                          <span className="text-xs font-bold text-slate-500">{post.pageName || post.platform}</span>
+                          <span className="text-xs font-bold text-slate-500">{post.pageName || post.publishTarget || post.platform}</span>
                           <span className={`text-xs px-2 py-0.5 rounded-lg font-medium ${STATUS_STYLES[post.status]}`}>
-                            {post.status.toLowerCase()}
+                            {t(statusLabelKey(post)) as string}
                           </span>
                         </div>
                         <p className="text-sm text-slate-700 mb-2 line-clamp-2">{post.caption}</p>
@@ -1086,7 +1159,7 @@ function CalendarPageInner() {
                         <div className="flex items-center gap-3 text-xs text-slate-400">
                           <span>🕐 {formatDate(post.scheduledAt)}</span>
                           <span className="text-accent font-medium">
-                            {(scT?.postIn as string)?.replace('{time}', timeUntil(post.scheduledAt)) || `Posts in ${timeUntil(post.scheduledAt)}`}
+                            {formatScheduledTimeDistance(post.scheduledAt, locale)}
                           </span>
                         </div>
                       </div>
@@ -1211,6 +1284,28 @@ function CalendarPageInner() {
             </div>
           </div>
         )}
+
+        <details className="nx-os-card mt-5 p-4">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[13px] font-black text-[#071236]">
+            <span>{locale === 'ar' ? 'أدوات تنفيذ اختيارية' : 'Optional execution tools'}</span>
+            <span className="text-[10px] font-bold text-slate-400">{locale === 'ar' ? 'للتفاصيل فقط' : 'Details only'}</span>
+          </summary>
+          <p className="mt-2 text-[11px] font-semibold leading-5 text-slate-500">
+            {locale === 'ar'
+              ? 'هذه الأدوات تشرح الجاهزية والسياسات؛ قائمة القرارات أعلاه هي مسار العمل الأساسي.'
+              : 'These tools explain readiness and policies; the decision queue above remains the primary workflow.'}
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <Link href="/publish" className="rounded-[16px] border border-slate-200 bg-slate-50 p-4 transition hover:border-[#C7D2FE]">
+              <p className="text-[12px] font-black text-[#071236]">{locale === 'ar' ? 'فحص جاهزية النشر' : 'Publishing readiness check'}</p>
+              <p className="mt-1 text-[11px] font-semibold leading-5 text-slate-500">{locale === 'ar' ? 'الحسابات والصلاحيات وسجل النشر المؤكد.' : 'Accounts, permissions, and confirmed publishing log.'}</p>
+            </Link>
+            <Link href="/automation" className="rounded-[16px] border border-slate-200 bg-slate-50 p-4 transition hover:border-[#C7D2FE]">
+              <p className="text-[12px] font-black text-[#071236]">{locale === 'ar' ? 'سياسات الأتمتة' : 'Automation policies'}</p>
+              <p className="mt-1 text-[11px] font-semibold leading-5 text-slate-500">{locale === 'ar' ? 'ما يعمل الآن، وما يحتاج موافقة أو تكاملاً.' : 'What works now and what needs approval or an integration.'}</p>
+            </Link>
+          </div>
+        </details>
       </div>
       </main>
 

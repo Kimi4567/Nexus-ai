@@ -8,6 +8,40 @@ import {
 } from '../contentDraftTruthGuard'
 
 describe('contentDraftTruthGuard', () => {
+  it('removes invented SaaS features and business outcomes not present in Brand Brain', () => {
+    const context = {
+      brandFacts: [
+        'Unified lead-management system with quick setup, Arabic and English interfaces, and clear reports.',
+        'Sales managers in UAE service businesses.',
+      ],
+      verifiedProof: [],
+      hasConversionDestination: true,
+    }
+    const drafts = [
+      'Do you know how to turn leads into sales? Watch how you can enhance your sales strategy today. #BusinessGrowth',
+      'Looking for a system that integrates with your existing tools? Our solution offers seamless integration for a more efficient workflow. #SystemIntegration',
+      'احصل على دعم فوري مع نظامنا! لا تقلق بشأن الدعم الفني، فنحن هنا لمساعدتك في أي وقت.',
+      'Reduce your costs with our unified system! Discover how you can save on multiple systems.',
+      'ارفع إنتاجيتك مع نظامنا الفعال! تخلص من التشتت وزد من كفاءة عملك.',
+      'Expand your business with our system and scale your operations smoothly. #MarketGrowth',
+      'احصل على تجربة مستخدم محسنة تلبي احتياجاتك وتجاوز توقعاتك.',
+    ]
+
+    const guarded = drafts.map(draft => guardContentDraftText(draft, context)).join(' ')
+    expect(guarded).not.toMatch(/turn leads into sales|watch how|integrat|seamless|instant support|reduce your costs|save on|productiv|efficien|expand your business|scale your operations|marketgrowth|دعم فوري|الدعم الفني|إنتاجيتك|كفاءة عملك|تجربة مستخدم محسنة|تجاوز توقعاتك/i)
+    expect(guarded).toContain('verify documented compatibility')
+    expect(guarded).toContain('راجع قنوات الدعم')
+    expect(guarded).toContain('Compare current tool costs')
+    expect(guarded).toContain('راجع تجربة الاستخدام الفعلية')
+  })
+
+  it('keeps an integration capability when Brand Brain explicitly supplies it', () => {
+    const draft = 'The system integrates with HubSpot for a connected workflow.'
+    expect(guardContentDraftText(draft, {
+      brandFacts: ['Native HubSpot integration is included.'],
+    })).toBe(draft)
+  })
+
   it('grounds setup-time precision and removes unsupported direct-response CTAs', () => {
     const out = guardContentDraftText(
       'ابدأ باستخدام النظام في دقائق معدودة! لن تحتاج لوقت طويل لإعداد الأنظمة الجديدة. استمتع بإعداد سريع وفعال. جرب النظام الآن!',

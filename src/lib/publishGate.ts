@@ -25,6 +25,9 @@ export interface CronPostLike extends ContentHubMediaStateInput {
   publishMode?: string | null
   scheduledAt?: Date | string | null
   autoPublishConsentAt?: Date | string | null
+  approvedSnapshotId?: string | null
+  mediaApprovalSnapshotId?: string | null
+  scheduledSnapshotId?: string | null
 }
 
 /**
@@ -37,6 +40,7 @@ export function isAutoPublishEligible(post: CronPostLike, now: Date): boolean {
   if (post.status !== 'SCHEDULED') return false
   if (post.publishMode !== 'AUTO') return false           // MANUAL / null / legacy → blocked
   if (!post.autoPublishConsentAt) return false            // explicit per-post consent is mandatory
+  if (!post.approvedSnapshotId || !post.mediaApprovalSnapshotId || !post.scheduledSnapshotId) return false
   if (!isContentPostMediaReadyForScheduling(post)) return false
   if (!post.scheduledAt) return false
   const due = new Date(post.scheduledAt as any)
@@ -53,6 +57,9 @@ export function autoPublishWhere(now: Date) {
     status: 'SCHEDULED' as const,
     publishMode: 'AUTO' as const,
     autoPublishConsentAt: { not: null },
+    approvedSnapshotId: { not: null },
+    mediaApprovalSnapshotId: { not: null },
+    scheduledSnapshotId: { not: null },
     generationStatus: 'DONE' as const,
     imageUrl: { not: null },
     scheduledAt: { lte: now },

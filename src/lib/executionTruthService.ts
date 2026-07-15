@@ -25,10 +25,10 @@ type AdCampaignCountRow = {
 }
 
 function emptyCounts(): ExecutionPostCounts {
-  return { draft: 0, approved: 0, approvedMissingMedia: 0, scheduled: 0, published: 0, failed: 0, publishedWithoutAnalytics: 0 }
+  return { draft: 0, approved: 0, approvedMissingApproval: 0, approvedMissingMedia: 0, scheduled: 0, published: 0, failed: 0, publishedWithoutAnalytics: 0, overdueScheduled: 0 }
 }
 
-function normalizeStatus(status: string): keyof Omit<ExecutionPostCounts, 'publishedWithoutAnalytics'> | null {
+function normalizeStatus(status: string): 'draft' | 'approved' | 'scheduled' | 'published' | 'failed' | null {
   switch (status) {
     case 'DRAFT': return 'draft'
     case 'APPROVED': return 'approved'
@@ -83,7 +83,7 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
 
   const campaignIds = campaigns.map((campaign) => campaign.id)
   const db = prisma as any
-  const [statusCounts, approvedMissingMediaCounts, eligibleEvidenceCounts, decisionEvents, activeAdCounts, brandProfile] = await Promise.all([
+  const [statusCounts, approvedMissingApprovalCounts, approvedMissingMediaCounts, overdueScheduledCounts, eligibleEvidenceCounts, decisionEvents, activeAdCounts, brandProfile] = await Promise.all([
     db.socialPost.groupBy({
       by: ['campaignId', 'status'],
       where: { workspaceId, campaignId: { in: campaignIds } },
@@ -95,10 +95,32 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
         workspaceId,
         campaignId: { in: campaignIds },
         status: 'APPROVED',
+        approvedSnapshotId: null,
+      },
+      _count: { _all: true },
+    }) as Promise<CampaignCountRow[]>,
+    db.socialPost.groupBy({
+      by: ['campaignId'],
+      where: {
+        workspaceId,
+        campaignId: { in: campaignIds },
+        status: 'APPROVED',
         OR: [
           { imageUrl: null },
           { generationStatus: { not: 'DONE' } },
+          { mediaApprovalSnapshotId: null },
         ],
+      },
+      _count: { _all: true },
+    }) as Promise<CampaignCountRow[]>,
+    db.socialPost.groupBy({
+      by: ['campaignId'],
+      where: {
+        workspaceId,
+        campaignId: { in: campaignIds },
+        status: 'SCHEDULED',
+        scheduledAt: { lt: new Date() },
+        publishedAt: null,
       },
       _count: { _all: true },
     }) as Promise<CampaignCountRow[]>,
@@ -143,6 +165,16 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
     if (!row.campaignId) continue
     const counts = countsByCampaign.get(row.campaignId)
     if (counts) counts.approvedMissingMedia = row._count._all
+  }
+  for (const row of approvedMissingApprovalCounts) {
+    if (!row.campaignId) continue
+    const counts = countsByCampaign.get(row.campaignId)
+    if (counts) counts.approvedMissingApproval = row._count._all
+  }
+  for (const row of overdueScheduledCounts) {
+    if (!row.campaignId) continue
+    const counts = countsByCampaign.get(row.campaignId)
+    if (counts) counts.overdueScheduled = row._count._all
   }
   for (const counts of countsByCampaign.values()) {
     counts.publishedWithoutAnalytics = counts.published

@@ -14,12 +14,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   mockGetAuthUser,
   mockCheckAndDeduct,
+  mockFinalizeDeduction,
   mockRefund,
   mockRefundForTxn,
   mockPrisma,
 } = vi.hoisted(() => ({
   mockGetAuthUser: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
+  mockFinalizeDeduction: vi.fn(),
   mockRefund: vi.fn(),
   mockRefundForTxn: vi.fn(),
   mockPrisma: {
@@ -32,10 +34,24 @@ const {
 }))
 
 vi.mock('@/lib/apiAuth', () => ({ getAuthUser: mockGetAuthUser }))
+vi.mock('@/lib/billableAiRateLimit', () => ({
+  enforceBillableAiRateLimit: vi.fn().mockResolvedValue(null),
+}))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
+  creditCheckHttpStatus: () => 402,
+  finalizeCreditDeduction: mockFinalizeDeduction,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
+  refundCreditDeduction: vi.fn(async ({ userId, action, deduction, reason }) => {
+    if (!deduction) return { ok: true, status: 'not-charged' }
+    if (deduction.transactionId) {
+      await mockRefundForTxn({ userId, transactionId: deduction.transactionId, reason })
+    } else {
+      await mockRefund(userId, action, reason)
+    }
+    return { ok: true, status: 'refunded' }
+  }),
   buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, cost: 2, ...deduction }),
 }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
@@ -81,6 +97,7 @@ beforeEach(() => {
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 2, creditsRemaining: 18 })
   mockRefund.mockResolvedValue(undefined)
   mockRefundForTxn.mockResolvedValue(undefined)
+  mockFinalizeDeduction.mockResolvedValue({ ok: true, status: 'settled' })
   mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma))
   mockPrisma.brainLearning.findMany.mockResolvedValue([])
   mockPrisma.brainLearning.createMany.mockResolvedValue({ count: 0 })
@@ -242,7 +259,7 @@ describe('POST /api/campaigns/[id]/paid-pack/learn — RF-4 refund safety', () =
     expect(mockRefund).not.toHaveBeenCalled()
   })
 
-  it('does not refund unlimited users when creditsUsed is 0', async () => {
+  it('releases an unlimited-plan reservation even when its wallet debit is 0', async () => {
     mockCheckAndDeduct.mockResolvedValue({
       ok: true,
       creditsUsed: 0,
@@ -256,7 +273,10 @@ describe('POST /api/campaigns/[id]/paid-pack/learn — RF-4 refund safety', () =
 
     expect(res.status).toBe(500)
     expect(mockRefund).not.toHaveBeenCalled()
-    expect(mockRefundForTxn).not.toHaveBeenCalled()
+    expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      transactionId: 'txn_unlimited',
+    }))
   })
 
   it('manual aggregate metrics create a free deterministic review signal and never update Brand Brain', async () => {

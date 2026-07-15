@@ -144,6 +144,69 @@ describe('guardStrategyKpis — full strategy object', () => {
     expect(g.positioning).toBe('unchanged field')        // non-KPI fields untouched
   })
 
+  it('replaces unsupported numeric decision thresholds with baseline-based operating rules', () => {
+    const guarded = guardStrategyKpis({
+      decisionRules: [
+        {
+          signal: 'Engagement rate increase',
+          continueWhen: 'Engagement improves by 10%',
+          iterateWhen: 'Engagement is stable',
+          stopWhen: 'Engagement decreases',
+          nextAction: 'Adjust one message variable',
+        },
+      ],
+    })
+
+    expect(guarded.decisionRules[0]).toEqual({
+      signal: 'Engagement rate increase',
+      continueWhen: 'Continue when the signal improves against the documented baseline.',
+      iterateWhen: 'Engagement is stable',
+      stopWhen: 'Engagement decreases',
+      nextAction: 'Adjust one message variable',
+    })
+    expect(JSON.stringify(guarded)).not.toContain('10%')
+  })
+
+  it('guards Arabic achieved-threshold wording, roadmap gates, experiments, and direct Brand Brain learning', () => {
+    const guarded = guardStrategyKpis({
+      decisionRules: [{
+        signal: 'معدل التفاعل',
+        continueWhen: 'تحقق الزيادة بنسبة 10%',
+        iterateWhen: 'تحقق الزيادة بنسبة 5%',
+        stopWhen: 'عدم وجود زيادة',
+      }],
+      roadmap30_60_90: [
+        { phase: 'days 1 30', exitGate: 'تحقق زيادة بنسبة 10% في التفاعل' },
+      ],
+      experimentBacklog: [
+        { hypothesis: 'اختبار فيديو', minimumEvidence: 'زيادة بنسبة 10% في المشاهدات' },
+      ],
+      operatingCadence: {
+        monthly: ['تقييم الاستراتيجية وتعلم من Brand Brain'],
+      },
+    }, [], { language: 'ar' })
+
+    const serialized = JSON.stringify(guarded)
+    expect(serialized).not.toMatch(/(?:10|5)\s*%/)
+    expect(serialized).not.toContain('تعلم من Brand Brain')
+    expect(guarded.decisionRules[0].continueWhen).toContain('خط الأساس الموثق')
+    expect(guarded.roadmap30_60_90[0].exitGate).toContain('دليل فعلي قابل للمقارنة')
+    expect(guarded.experimentBacklog[0].minimumEvidence).toContain('عينة فعلية')
+    expect(guarded.operatingCadence.monthly[0]).toContain('مراجعتها قبل الاعتماد')
+  })
+
+  it('guards Arabic learning language inside a bilingual strategy', () => {
+    const guarded = guardStrategyKpis({
+      operatingCadence: {
+        monthly: ['تقييم الاستراتيجية وتعلم من Brand Brain'],
+      },
+    }, [], { language: 'bilingual' })
+
+    const serialized = JSON.stringify(guarded)
+    expect(serialized).not.toContain('تعلم من Brand Brain')
+    expect(serialized).toContain('مراجعتها قبل الاعتماد')
+  })
+
   it('keeps Arabic strategy KPI fallbacks inside the Arabic language contract', () => {
     const strategy = {
       kpis: [

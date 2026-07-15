@@ -21,6 +21,7 @@ const {
   mockSocialPostCount,
   mockGetBrandBrainReadiness,
   mockIsAiProviderConfigured,
+  mockFinalizeCreditDeduction,
 } = vi.hoisted(() => ({
   mockGetServerUserId: vi.fn(),
   mockAiRateLimitDb: vi.fn(),
@@ -31,12 +32,16 @@ const {
   mockSocialPostCount: vi.fn(),
   mockGetBrandBrainReadiness: vi.fn(),
   mockIsAiProviderConfigured: vi.fn(),
+  mockFinalizeCreditDeduction: vi.fn(),
 }))
 
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
 vi.mock('@/lib/dbRateLimit', () => ({ aiRateLimitDb: mockAiRateLimitDb }))
+vi.mock('@/lib/billableAiRateLimit', () => ({ enforceBillableAiRateLimit: vi.fn().mockResolvedValue(null) }))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
+  creditCheckHttpStatus: (result: any) => result.error === 'CREDIT_OPERATION_REPLAY' ? 409 : 402,
+  finalizeCreditDeduction: mockFinalizeCreditDeduction,
   refundCreditDeduction: vi.fn(async ({ userId, action, deduction }) => {
     if (deduction?.creditsUsed > 0) await mockRefund(userId, action)
   }),
@@ -95,6 +100,7 @@ beforeEach(() => {
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 8, creditsRemaining: 100 })
   mockRefund.mockResolvedValue(undefined)
   mockIsAiProviderConfigured.mockReturnValue(true)
+  mockFinalizeCreditDeduction.mockResolvedValue({ ok: true, status: 'settled' })
 })
 
 describe('POST /api/campaigns/[id]/engine', () => {
@@ -120,6 +126,18 @@ describe('POST /api/campaigns/[id]/engine', () => {
 
     expect(res.status).toBe(422)
     expect(json.error).toBe('NO_BRAND_PROFILE')
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockRunEngine).not.toHaveBeenCalled()
+  })
+
+  it('does not rewrite an approved strategy snapshot', async () => {
+    mockCampaignFindFirst.mockResolvedValue({ ...ownedCampaignWithBrand, status: 'ACTIVE' })
+
+    const res = await POST(makeReq({ force: true }), ctx)
+    const json = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(json.error).toBe('REVOKE_STRATEGY_APPROVAL_FIRST')
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
     expect(mockRunEngine).not.toHaveBeenCalled()
   })
@@ -150,7 +168,16 @@ describe('POST /api/campaigns/[id]/engine', () => {
     expect(mockCampaignFindFirst).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'c1', workspace: { ownerId: 'u1' } },
     }))
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY')
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith(
+      'u1',
+      'RUN_FULL_STRATEGY',
+      undefined,
+      expect.objectContaining({
+        entityId: 'c1',
+        entityType: 'campaign_strategy_rebuild',
+        operationKey: expect.any(String),
+      }),
+    )
     expect(json.engine.status).toBe('ready_for_approval')
     expect(json.creditsUsed).toBe(8)
     expect(mockRefund).not.toHaveBeenCalled()

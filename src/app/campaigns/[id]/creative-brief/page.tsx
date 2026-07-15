@@ -27,6 +27,7 @@ import {
   type CreativeStudioPreviewModel,
 } from '@/lib/creativeStudioPreview'
 import UpgradeModal from '@/components/UpgradeModal'
+import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -417,7 +418,7 @@ export default function CreativeBriefPage() {
     studioDecisionReadiness: isArabic ? 'جاهزية المراجعة' : 'Review readiness',
     studioDecisionNextAction: isArabic ? 'الخطوة الصحيحة التالية' : 'Correct next action',
     studioDecisionQualitySignals: isArabic ? 'إشارات الجودة' : 'Quality signals',
-    studioDecisionScore: isArabic ? 'درجة' : 'score',
+    studioDecisionScore: isArabic ? 'فحوص المعاينة الناجحة' : 'preview checks passed',
     studioDecisionNoBlockers: isArabic ? 'لا توجد عوائق حرجة داخل هذه المعاينة.' : 'No critical blockers inside this preview.',
     studioBackgroundReady: isArabic ? 'الخلفية متاحة للمعاينة' : 'Background available for preview',
     studioBackgroundNeeded: isArabic ? 'الخلفية مطلوبة قبل أي render مستقبلي' : 'Background needed before future render',
@@ -639,7 +640,7 @@ export default function CreativeBriefPage() {
       if (mode === 'asset' && selectedMedia.size > 0) {
         body.mediaIds = Array.from(selectedMedia)
       }
-      const res = await fetch(`/api/campaigns/${campaignId}/creative-brief`, {
+      const res = await fetchCreditOperation(creditOperationScope('campaign:creative-brief', JSON.stringify({ campaignId, ...body })), `/api/campaigns/${campaignId}/creative-brief`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: token },
         body: JSON.stringify(body),
@@ -1767,7 +1768,7 @@ export default function CreativeBriefPage() {
                           textAlign: 'center',
                         }}>
                           <p style={{ margin: 0, fontSize: 18, fontWeight: 950, lineHeight: 1 }}>
-                            {selectedStudioPreview.decisionBrief.readiness.score}
+                            {selectedStudioPreview.decisionBrief.qualitySignals.filter(signal => signal.status === 'pass').length}/{selectedStudioPreview.decisionBrief.qualitySignals.length}
                           </p>
                           <p style={{ margin: '3px 0 0', fontSize: 9, fontWeight: 850, textTransform: 'uppercase', letterSpacing: 0.3 }}>
                             {copy.studioDecisionScore}

@@ -81,6 +81,16 @@ describe('strategyProofGuard', () => {
     })).toBe('Coffee for local subscribers.')
   })
 
+  it('does not invent value-for-money positioning when price evidence is missing', () => {
+    expect(guardStrategyProofText('نظامنا يقدم قيمة ممتازة مقابل التكلفة', {
+      allowedClaimText: ['واجهة ثنائية اللغة وتقارير واضحة'],
+    })).toBe('تحقق من السعر وما يتضمنه العرض قبل الرد على اعتراض التكلفة')
+
+    expect(guardStrategyProofText('Our service offers excellent value for money.', {
+      allowedClaimText: ['Clear reporting'],
+    })).toContain('pricing and included value to confirm')
+  })
+
   it('states commercial objectives as goals instead of performance promises', () => {
     const guarded = guardStrategyProof({
       businessObjective: 'Increase sales through organic engagement.',

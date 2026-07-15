@@ -11,13 +11,16 @@ import { getAuthUser } from '@/lib/apiAuth'
 import {
   buildCreditChargeReceipt,
   checkAndDeductCredits,
-  refundCredits,
-  refundCreditsForTransaction,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
+  refundCreditDeduction,
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { paidMetricsSignalCopy } from '@/lib/paidBoundary'
 import { paidMetricsCompleteness } from '@/lib/paidMetrics'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -42,12 +45,7 @@ async function callGPT(system: string, user: string): Promise<string> {
 }
 
 async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
-  if (credit.creditsUsed <= 0) return
-  if (credit.transactionId) {
-    await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
-    return
-  }
-  await refundCredits(userId, 'AD_COPY', reason)
+  await refundCreditDeduction({ userId, action: 'AD_COPY', deduction: credit, reason })
 }
 
 function hasAttributionBreakdown(metrics: unknown): boolean {
@@ -202,9 +200,21 @@ Extract a paid metrics signal as JSON:
   }
 }`
 
-    const creditResult = await checkAndDeductCredits(user.id, 'AD_COPY')
+    const rateLimitResponse = await enforceBillableAiRateLimit(user.id, 'AD_COPY')
+    if (rateLimitResponse) return rateLimitResponse
+
+    const creditResult = await checkAndDeductCredits(
+      user.id,
+      'AD_COPY',
+      undefined,
+      {
+        entityId: params.id,
+        entityType: 'campaign_paid_learning_proposal',
+        operationKey: getCreditOperationKey(req, 'AD_COPY', 'campaign_paid_learning_proposal', params.id),
+      },
+    )
     if (!creditResult.ok) {
-      return NextResponse.json({ error: 'Insufficient credits', upgradeRequired: true }, { status: 402 })
+      return NextResponse.json(creditResult, { status: creditCheckHttpStatus(creditResult) })
     }
     chargedUserId = user.id
     chargedCredit = creditResult
@@ -309,6 +319,23 @@ Extract a paid metrics signal as JSON:
         await txDb.brainLearning.createMany({ data: proposalRows })
       }
     })
+
+    const finalization = await finalizeCreditDeduction({
+      userId: user.id,
+      action: 'AD_COPY',
+      deduction: creditResult,
+    })
+    if (!finalization.ok) {
+      chargedUserId = null
+      chargedCredit = null
+      return NextResponse.json({
+        error: 'Paid learning proposals were saved but the credit operation could not be finalized. Reserved credits were returned; refresh the campaign.',
+        code: 'CREDIT_FINALIZATION_FAILED',
+        refunded: finalization.refundStatus === 'refunded',
+      }, { status: 503 })
+    }
+    chargedUserId = null
+    chargedCredit = null
 
     return NextResponse.json({
       learnings: safeLearnings,

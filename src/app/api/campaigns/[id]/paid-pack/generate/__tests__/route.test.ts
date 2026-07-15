@@ -11,10 +11,11 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 
 const {
-  mockGetAuthUser, mockCheckAndDeduct, mockRefund, mockRefundForTxn, mockPrisma,
+  mockGetAuthUser, mockCheckAndDeduct, mockFinalizeDeduction, mockRefund, mockRefundForTxn, mockPrisma,
 } = vi.hoisted(() => ({
   mockGetAuthUser: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
+  mockFinalizeDeduction: vi.fn(),
   mockRefund: vi.fn(),
   mockRefundForTxn: vi.fn(),
   mockPrisma: {
@@ -25,10 +26,24 @@ const {
 }))
 
 vi.mock('@/lib/apiAuth', () => ({ getAuthUser: mockGetAuthUser }))
+vi.mock('@/lib/billableAiRateLimit', () => ({
+  enforceBillableAiRateLimit: vi.fn().mockResolvedValue(null),
+}))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
+  creditCheckHttpStatus: () => 402,
+  finalizeCreditDeduction: mockFinalizeDeduction,
   refundCredits: mockRefund,
   refundCreditsForTransaction: mockRefundForTxn,
+  refundCreditDeduction: vi.fn(async ({ userId, action, deduction, reason }) => {
+    if (!deduction) return { ok: true, status: 'not-charged' }
+    if (deduction.transactionId) {
+      await mockRefundForTxn({ userId, transactionId: deduction.transactionId, reason })
+    } else {
+      await mockRefund(userId, action)
+    }
+    return { ok: true, status: 'refunded' }
+  }),
   buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, cost: 6, ...deduction }),
 }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
@@ -61,6 +76,7 @@ beforeEach(() => {
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 6, creditsRemaining: 94 })
   mockRefund.mockResolvedValue(undefined)
   mockRefundForTxn.mockResolvedValue(undefined)
+  mockFinalizeDeduction.mockResolvedValue({ ok: true, status: 'settled' })
   mockPrisma.campaign.findFirst.mockResolvedValue({
     id: 'c1',
     workspaceId: 'w1',
@@ -160,7 +176,16 @@ describe('POST /api/campaigns/[id]/paid-pack/generate — RF-2A refund safety', 
     const json = await res.json()
     expect(res.status).toBe(500)
     expect(json.error).toBe('Generation failed')
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'PAID_PACK_GENERATE')
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith(
+      'u1',
+      'PAID_PACK_GENERATE',
+      undefined,
+      expect.objectContaining({
+        entityId: 'c1',
+        entityType: 'campaign_paid_pack',
+        operationKey: expect.any(String),
+      }),
+    )
     expect(mockRefund).toHaveBeenCalledWith('u1', 'PAID_PACK_GENERATE')
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
@@ -191,12 +216,21 @@ describe('POST /api/campaigns/[id]/paid-pack/generate — RF-2A refund safety', 
     expect(mockRefund).not.toHaveBeenCalled()
   })
 
-  it('does not refund unlimited users when creditsUsed is 0', async () => {
-    mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 0, creditsRemaining: -1, isUnlimited: true })
+  it('releases an unlimited-plan reservation even when its wallet debit is 0', async () => {
+    mockCheckAndDeduct.mockResolvedValue({
+      ok: true,
+      creditsUsed: 0,
+      creditsRemaining: -1,
+      isUnlimited: true,
+      transactionId: 'txn_unlimited',
+    })
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }))
     await POST(makeReq(), ctx())
     expect(mockRefund).not.toHaveBeenCalled()
-    expect(mockRefundForTxn).not.toHaveBeenCalled()
+    expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      transactionId: 'txn_unlimited',
+    }))
   })
 
   it('success deducts once and does not refund', async () => {

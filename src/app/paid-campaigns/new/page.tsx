@@ -27,6 +27,7 @@ import {
 } from '@/lib/paidPlanningSuggestion'
 import { paidPlatformSupportsObjective } from '@/lib/paidExecutionObjective'
 import CreditConfirmModal from '@/components/CreditConfirmModal'
+import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface AdAccount {
@@ -440,14 +441,15 @@ export default function NewPaidCampaignPage() {
     setError('')
     try {
       const token = await getToken()
-      const res = await fetch(`/api/ad-campaigns/${campaignId}/generate-strategy`, {
+      const strategyPayload = {
+        language: data.language,
+        destinationUrl: data.destinationUrl,
+        utmCampaign: data.utmCampaign || data.name,
+      }
+      const res = await fetchCreditOperation(creditOperationScope('paid:execution-plan', JSON.stringify({ campaignId, ...strategyPayload })), `/api/ad-campaigns/${campaignId}/generate-strategy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          language: data.language,
-          destinationUrl: data.destinationUrl,
-          utmCampaign: data.utmCampaign || data.name,
-        }),
+        body: JSON.stringify(strategyPayload),
       })
       const result = await res.json()
       if (!res.ok) throw new Error(paidExecutionErrorMessage(
@@ -470,7 +472,7 @@ export default function NewPaidCampaignPage() {
     setError('')
     try {
       const token = await getToken()
-      const res = await fetch(`/api/ad-campaigns/${campaignId}/generate-copy`, {
+      const res = await fetchCreditOperation(creditOperationScope('paid:copy', JSON.stringify({ campaignId, language: data.language })), `/api/ad-campaigns/${campaignId}/generate-copy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ language: data.language }),

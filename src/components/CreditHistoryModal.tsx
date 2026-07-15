@@ -25,7 +25,14 @@ interface Transaction {
   action: string
   description: string | null
   amount: number   // negative = spent, positive = earned
+  entityId: string | null
   entityType: string | null
+  pricingVersion: string | null
+  status: 'RESERVED' | 'SETTLED' | 'REFUNDED'
+  creditCost: number
+  reservedAt: string | null
+  settledAt: string | null
+  refundedAt: string | null
   createdAt: string
 }
 
@@ -86,6 +93,31 @@ function entityBadgeColor(entityType: string | null): { bg: string; color: strin
   }
 }
 
+function transactionStatus(status: Transaction['status'], isArabic: boolean) {
+  if (status === 'RESERVED') {
+    return {
+      label: isArabic ? 'محجوز مؤقتًا' : 'Reserved',
+      className: 'bg-amber-50 text-amber-700 border-amber-200',
+    }
+  }
+  if (status === 'REFUNDED') {
+    return {
+      label: isArabic ? 'تم الاسترداد' : 'Refunded',
+      className: 'bg-sky-50 text-sky-700 border-sky-200',
+    }
+  }
+  return {
+    label: isArabic ? 'مكتمل' : 'Completed',
+    className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  }
+}
+
+function transactionEventDate(transaction: Transaction): string {
+  if (transaction.status === 'REFUNDED') return transaction.refundedAt || transaction.createdAt
+  if (transaction.status === 'SETTLED') return transaction.settledAt || transaction.createdAt
+  return transaction.reservedAt || transaction.createdAt
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function CreditHistoryModal({ open, onClose }: Props) {
@@ -133,6 +165,15 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
     return () => controller.abort()
   }, [authHeader, locale, open, reloadKey])
 
+  useEffect(() => {
+    if (!open) return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [onClose, open])
+
   if (!open) return null
 
   const isAr = locale === 'ar'
@@ -145,6 +186,9 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="credit-history-title"
         className="w-full max-w-md rounded-2xl overflow-hidden flex flex-col"
         style={{
           background: '#FFFFFF',
@@ -162,7 +206,7 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
               <History className="w-4 h-4" style={{ color: '#5E5CE6' }} />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-950 leading-none">
+              <h2 id="credit-history-title" className="text-sm font-bold text-slate-950 leading-none">
                 {isAr ? 'سجل الكريديت' : 'Credit History'}
               </h2>
               <p className="text-[10px] text-slate-500 mt-0.5">
@@ -195,6 +239,7 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
               <AlertCircle className="w-6 h-6" style={{ color: '#DC2626' }} />
               <p className="text-xs text-slate-500">{error}</p>
               <button
+                type="button"
                 onClick={() => setReloadKey(key => key + 1)}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all"
                 style={{ background: '#F5F3FF', color: '#5E5CE6', border: '1px solid rgba(94,92,230,0.18)' }}>
@@ -226,8 +271,11 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
           {!loading && !error && transactions.length > 0 && (
             <div className="p-3 space-y-1.5">
               {transactions.map(tx => {
-                const isDeduction = tx.amount < 0
+                const isDeduction = tx.amount < 0 || (tx.amount === 0 && tx.creditCost > 0)
+                const isRefunded = tx.status === 'REFUNDED'
                 const badge = entityBadgeColor(tx.entityType)
+                const status = transactionStatus(tx.status, isAr)
+                const includedUsage = tx.amount === 0 && tx.creditCost > 0
 
                 return (
                   <div key={tx.id}
@@ -238,11 +286,13 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                       style={{
                         background: isDeduction
-                          ? '#FEF2F2'
+                          ? (isRefunded ? '#F0F9FF' : '#FEF2F2')
                           : '#ECFDF5',
-                        border: `1px solid ${isDeduction ? 'rgba(220,38,38,0.18)' : 'rgba(5,150,105,0.18)'}`,
+                        border: `1px solid ${isDeduction ? (isRefunded ? 'rgba(2,132,199,0.18)' : 'rgba(220,38,38,0.18)') : 'rgba(5,150,105,0.18)'}`,
                       }}>
-                      {isDeduction
+                      {isRefunded
+                        ? <RefreshCw className="w-3.5 h-3.5" style={{ color: '#0284C7' }} />
+                        : isDeduction
                         ? <TrendingDown className="w-3.5 h-3.5" style={{ color: '#DC2626' }} />
                         : <TrendingUp   className="w-3.5 h-3.5" style={{ color: '#047857' }} />}
                     </div>
@@ -254,8 +304,11 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
                       </p>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <p className="text-[10px] text-slate-500">
-                          {formatDate(tx.createdAt, locale)}
+                          {formatDate(transactionEventDate(tx), locale)}
                         </p>
+                        <span className={`rounded border px-1.5 py-0.5 text-[9px] font-semibold ${status.className}`}>
+                          {status.label}
+                        </span>
                         {tx.entityType && (
                           <span
                             className="text-[9px] font-semibold px-1.5 py-0.5 rounded"
@@ -263,17 +316,27 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
                             {tx.entityType}
                           </span>
                         )}
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${tx.pricingVersion ? 'bg-slate-100 text-slate-600' : 'bg-amber-50 text-amber-700'}`}
+                          title={tx.pricingVersion || (isAr ? 'معاملة قديمة بلا نسخة تسعير محفوظة' : 'Legacy transaction without a saved pricing version')}
+                        >
+                          {tx.pricingVersion || (isAr ? 'تسعير قديم' : 'Legacy price')}
+                        </span>
                       </div>
                     </div>
 
                     {/* Amount */}
                     <div className="text-end flex-shrink-0">
                       <p className="text-sm font-bold tabular-nums"
-                        style={{ color: isDeduction ? '#DC2626' : '#047857' }}>
-                        {isDeduction ? '' : '+'}{tx.amount}
+                        style={{ color: isRefunded ? '#0284C7' : isDeduction ? '#DC2626' : '#047857' }}>
+                        {includedUsage
+                          ? (isAr ? 'ضمن الباقة' : 'Included')
+                          : `${isDeduction ? '' : '+'}${tx.amount}`}
                       </p>
                       <p className="text-[9px] text-slate-500">
-                        {isAr ? 'كريديت' : 'credits'}
+                        {includedUsage
+                          ? (isAr ? `تكلفة تشغيلية ${tx.creditCost}` : `${tx.creditCost}-credit operation`)
+                          : (isAr ? 'كريديت' : 'credits')}
                       </p>
                     </div>
                   </div>
@@ -293,6 +356,7 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
                 : `${transactions.length} transaction${transactions.length !== 1 ? 's' : ''}`}
             </p>
             <button onClick={onClose}
+              type="button"
               className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all hover:bg-slate-100"
               style={{
                 background: '#F8FAFC',

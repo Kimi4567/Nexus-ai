@@ -124,7 +124,9 @@ describe('brandBrainLearningContract', () => {
 
     expect(suggestionsRoute).not.toContain('applyBrandBrainLearning')
     expect(suggestionsRoute).not.toMatch(/brandProfile\.update|prisma\.brandProfile\.update/)
-    expect(suggestionsRoute).toContain('Suggestion applied as reviewed brand input')
+    expect(suggestionsRoute).toContain('Suggestion approved as a reviewed workflow input')
+    expect(suggestionsRoute).toContain('Research alert marked reviewed')
+    expect(suggestionsRoute).toContain('No Brand Brain update or automatic learning was applied')
     expect(suggestionsRoute).toContain('Needs analytics before performance learning')
   })
 

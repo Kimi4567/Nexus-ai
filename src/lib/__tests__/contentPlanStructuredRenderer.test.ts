@@ -130,14 +130,15 @@ describe('contentPlanStructuredRenderer', () => {
     expect(validateContentPlanDraftForSave({ imagePrompt: prompt }).ok).toBe(true)
   })
 
-  it('preserves fake product UI evidence so the save gate can reject it', () => {
+  it('converts fake product UI evidence into a strategy-grounded conceptual direction', () => {
     const prompt = renderContentPlanDraftImagePrompt({
       imagePrompt: 'صورة لواجهة تطبيق ClinicFlow AI على هاتف ذكي مع لوحة تحكم تعرض بيانات العيادة',
     }, clinicCtx)
 
-    expect(prompt).toContain('واجهة تطبيق')
-    expect(prompt).toContain('لوحة تحكم')
-    expect(validateContentPlanDraftForSave({ imagePrompt: prompt }).ok).toBe(false)
+    expect(prompt).toContain('Editorial conceptual illustration')
+    expect(prompt).toContain('عيادات صغيرة ومتوسطة')
+    expect(prompt).not.toMatch(/واجهة تطبيق|لوحة تحكم/)
+    expect(validateContentPlanDraftForSave({ imagePrompt: prompt }).ok).toBe(true)
   })
 
   it('save gate blocks observed unsafe regenerated clinic claims before SocialPost persistence', () => {
@@ -261,8 +262,8 @@ describe('contentPlanStructuredRenderer', () => {
 
     expect(rendered).toEqual(observed)
     expect(rendered.every(caption => !validateContentPlanDraftForSave({ caption }).ok)).toBe(true)
-    expect(prompts.some(imagePrompt => !validateContentPlanDraftForSave({ imagePrompt }).ok)).toBe(true)
-    expect(prompts.join('\n')).toMatch(/branded roastery|happy customer|expert barista/i)
+    expect(prompts.every(imagePrompt => validateContentPlanDraftForSave({ imagePrompt }).ok)).toBe(true)
+    expect(prompts.join('\n')).not.toMatch(/branded roastery|happy customer|expert barista/i)
   })
 
   it('blocks positive logo and customer-satisfaction image prompts before save', () => {
@@ -274,7 +275,7 @@ describe('contentPlanStructuredRenderer', () => {
     expect(result.issues.map(issue => issue.reason)).toContain('unsupported_fake_product_visual')
   })
 
-  it('does not replace customer-workflow output and still rejects a fake software screen', () => {
+  it('keeps customer-workflow copy grounded and replaces a fake software screen with a conceptual brief', () => {
     const ctx: ContentPlanRenderContext = {
       isArabic: true,
       brand: 'NEXUS Demo',
@@ -302,7 +303,8 @@ describe('contentPlanStructuredRenderer', () => {
 
     expect(caption).toContain('يمكن تنظيم متابعة المبيعات')
     expect(caption).not.toMatch(/أسهل وأسرع|جرب النظام الآن|زيادة فرص البيع/)
-    expect(prompt).toContain('واجهة مستخدم')
-    expect(validateContentPlanDraftForSave({ caption, imagePrompt: prompt }).ok).toBe(false)
+    expect(prompt).toContain('Editorial conceptual illustration')
+    expect(prompt).not.toContain('واجهة مستخدم')
+    expect(validateContentPlanDraftForSave({ caption, imagePrompt: prompt }).ok).toBe(true)
   })
 })

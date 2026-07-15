@@ -14,7 +14,7 @@ const {
   mockGetServerUserId, mockAiRateLimitDb, mockCheckAndDeduct, mockRefund, mockRefundForTxn,
   mockPrisma, mockGenerateStrategy, mockGenerateConcepts, mockValidateOutput,
   mockLogQualityReport, mockGetMemories, mockFormatMemories, mockSaveMemory,
-  mockIsAiProviderConfigured,
+  mockIsAiProviderConfigured, mockFinalizeCreditDeduction,
 } = vi.hoisted(() => ({
   mockGetServerUserId: vi.fn(),
   mockAiRateLimitDb: vi.fn(),
@@ -36,6 +36,7 @@ const {
   mockFormatMemories: vi.fn(),
   mockSaveMemory: vi.fn(),
   mockIsAiProviderConfigured: vi.fn(),
+  mockFinalizeCreditDeduction: vi.fn(),
 }))
 
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
@@ -52,6 +53,8 @@ vi.mock('@/lib/credits', () => ({
     }
     await mockRefund(userId, action)
   },
+  finalizeCreditDeduction: mockFinalizeCreditDeduction,
+  creditCheckHttpStatus: (result: any) => result.error === 'CREDIT_OPERATION_REPLAY' ? 409 : 402,
   buildCreditChargeReceipt: (action: string, deduction: any) => ({
     action,
     cost: 5,
@@ -113,6 +116,7 @@ beforeEach(() => {
   mockFormatMemories.mockReturnValue(undefined)
   mockSaveMemory.mockReturnValue(Promise.resolve())
   mockIsAiProviderConfigured.mockReturnValue(true)
+  mockFinalizeCreditDeduction.mockResolvedValue({ ok: true, status: 'settled' })
 })
 
 describe('POST /api/generate — RF-1 refund safety', () => {
@@ -170,7 +174,16 @@ describe('POST /api/generate — RF-1 refund safety', () => {
     expect(res.status).toBe(500)
     expect(json.refunded).toBe(true)
     expect(mockCheckAndDeduct).toHaveBeenCalledTimes(1)
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'CAMPAIGN_GENERATION')
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith(
+      'u1',
+      'CAMPAIGN_GENERATION',
+      undefined,
+      expect.objectContaining({
+        entityId: 'c1',
+        entityType: 'campaign_generation',
+        operationKey: expect.any(String),
+      }),
+    )
     expect(mockRefund).toHaveBeenCalledWith('u1', 'CAMPAIGN_GENERATION')
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
@@ -203,6 +216,9 @@ describe('POST /api/generate — RF-1 refund safety', () => {
     expect(json.strategy).toEqual(expect.objectContaining({ headline: 'Strategy' }))
     expect(json.creditsRemaining).toBe(95)
     expect(mockCheckAndDeduct).toHaveBeenCalledTimes(1)
+    expect(mockFinalizeCreditDeduction).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1', action: 'CAMPAIGN_GENERATION',
+    }))
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()
     expect(mockPrisma.campaign.update).toHaveBeenCalledTimes(1)

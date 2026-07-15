@@ -12,6 +12,7 @@ import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { REFERRAL_BONUS_CREDITS } from '@/lib/stripe'
 import { randomInt } from 'crypto'
+import { getRequestBaseUrl } from '@/lib/requestBaseUrl'
 
 // ── Generate a short unique referral code ─────────────────────────────────────
 function generateCode(): string {
@@ -63,10 +64,10 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nexus-grow.com'
+    const baseUrl = getRequestBaseUrl(req)
     return NextResponse.json({
       code: dbUser.referralCode,
-      referralUrl: `${baseUrl}/register?ref=${dbUser.referralCode}`,
+      referralUrl: `${baseUrl}/auth/register?ref=${dbUser.referralCode}`,
       totalReferrals: dbUser._count.referrals,
       creditsEarned: dbUser.referralCreditsEarned,
       bonusPerReferral: REFERRAL_BONUS_CREDITS,

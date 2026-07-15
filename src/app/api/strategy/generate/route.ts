@@ -2,11 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
-import { buildCreditChargeReceipt, checkAndDeductCredits, refundCreditDeduction } from '@/lib/credits'
+import {
+  buildCreditChargeReceipt,
+  checkAndDeductCredits,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
+  refundCreditDeduction,
+  type CreditDeductionOk,
+} from '@/lib/credits'
 import { buildStrategyPrompt, guardGeneratedStrategy, extractAllowedNumbers } from '@/lib/ai/strategyGenerateGuard'
 import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { reviewBrandTruthConsistency, reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 async function callOpenAI(prompt: string): Promise<any> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -35,6 +44,8 @@ async function callOpenAI(prompt: string): Promise<any> {
 }
 
 export async function POST(req: NextRequest) {
+  let chargedCredit: CreditDeductionOk | null = null
+  let chargedUserId: string | null = null
   try {
     const authHeader = req.headers.get('authorization')
     if (!authHeader) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -54,15 +65,16 @@ export async function POST(req: NextRequest) {
       where: { ownerId: user.id },
       orderBy: { createdAt: 'asc' },
     })
+    if (!workspace) {
+      return NextResponse.json({ error: 'No workspace', creditsUsed: 0 }, { status: 404 })
+    }
 
     let brandContext = ''
     let brandProfile = null
-    if (workspace) {
-      brandProfile = await prisma.brandProfile.findFirst({
-        where: { workspaceId: workspace.id },
-      })
-      brandContext = buildBrandExecutionContext(brandProfile as unknown as Record<string, unknown> | null)
-    }
+    brandProfile = await prisma.brandProfile.findFirst({
+      where: { workspaceId: workspace.id },
+    })
+    brandContext = buildBrandExecutionContext(brandProfile as unknown as Record<string, unknown> | null)
 
     const brandTruth = reviewBrandTruthConsistency(brandProfile)
     if (brandTruth.status !== 'passed') {
@@ -83,9 +95,23 @@ export async function POST(req: NextRequest) {
     // Arabic leaking into EN output), qualitative KPIs, conservative paid wording.
     const prompt = buildStrategyPrompt({ days, weeks, goal, platform, budget, brandContext, langInstruction })
 
+    const rateLimitResponse = await enforceBillableAiRateLimit(user.id, 'CAMPAIGN_GENERATION')
+    if (rateLimitResponse) return rateLimitResponse
+
     // ── Deduct credits before AI call ────────────────────────────
-    const credit = await checkAndDeductCredits(user.id, 'CAMPAIGN_GENERATION')
-    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
+    const credit = await checkAndDeductCredits(
+      user.id,
+      'CAMPAIGN_GENERATION',
+      undefined,
+      {
+        entityId: workspace.id,
+        entityType: 'workspace_strategy_preview',
+        operationKey: getCreditOperationKey(req, 'CAMPAIGN_GENERATION', 'workspace_strategy_preview', workspace.id),
+      },
+    )
+    if (!credit.ok) return NextResponse.json(credit, { status: creditCheckHttpStatus(credit) })
+    chargedCredit = credit
+    chargedUserId = user.id
 
     let strategy
     try {
@@ -128,6 +154,21 @@ export async function POST(req: NextRequest) {
       }, { status: 422 })
     }
 
+    const finalization = await finalizeCreditDeduction({
+      userId: user.id,
+      action: 'CAMPAIGN_GENERATION',
+      deduction: credit,
+    })
+    if (!finalization.ok) {
+      chargedCredit = null
+      return NextResponse.json({
+        error: 'Strategy could not be finalized. Reserved credits were returned.',
+        code: 'CREDIT_FINALIZATION_FAILED',
+        refunded: finalization.refundStatus === 'refunded',
+      }, { status: 503 })
+    }
+    chargedCredit = null
+
     return NextResponse.json({
       strategy,
       qualityGate,
@@ -137,6 +178,14 @@ export async function POST(req: NextRequest) {
     })
   } catch (err: any) {
     console.error('[Strategy generate] Error:', err)
+    if (chargedCredit && chargedUserId) {
+      await refundCreditDeduction({
+        userId: chargedUserId,
+        action: 'CAMPAIGN_GENERATION',
+        deduction: chargedCredit,
+        reason: 'Strategy generation failed before finalization',
+      })
+    }
     return NextResponse.json({ error: err.message || 'Failed to generate strategy' }, { status: 500 })
   }
 }

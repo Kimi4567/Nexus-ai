@@ -12,6 +12,7 @@ import CreditHistoryModal from '@/components/CreditHistoryModal'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { formatCreditDisplay } from '@/lib/creditDisplay'
 import { getBillingDisplayTruth } from '@/lib/billingDisplayTruth'
+import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
 import {
   CREDIT_PURCHASE_POLICY,
   FREE_TRIAL_CREDITS,
@@ -46,14 +47,14 @@ const PLANS = [
     descEn: 'For teams planning, producing, and reviewing content consistently',
     limitsAr: [
       `${GROWTH_PLAN.monthlyCredits} رصيد AI / شهر (يتجدد شهرياً)`,
-      `${GROWTH_PLAN.workspaces} مساحات عمل (${GROWTH_PLAN.workspaces} براندات)`,
+      'موافقات منفصلة للنص والوسائط والجدولة',
       `${GROWTH_PLAN.campaignLimit} حملات / شهر`,
       `${GROWTH_PLAN.postsPerMonth} بوست AI مخطط / شهر`,
       'Brand Brain الكامل + ذاكرة الحملات',
     ],
     limitsEn: [
       `${GROWTH_PLAN.monthlyCredits} AI credits / month (renews monthly)`,
-      `${GROWTH_PLAN.workspaces} workspaces (${GROWTH_PLAN.workspaces} brands)`,
+      'Separate copy, media, and scheduling approvals',
       `${GROWTH_PLAN.campaignLimit} campaigns / month`,
       `${GROWTH_PLAN.postsPerMonth} AI-planned posts / month`,
       'Full Brand Brain + Campaign Memory (reviewed signals across campaigns)',
@@ -70,18 +71,18 @@ const PLANS = [
     featured: false,
     badgeAr: 'تشغيل متقدم',
     badgeEn: 'Advanced operations',
-    descAr: 'لتشغيل عدة براندات مع مراقبة مجدولة وقائمة قرارات',
-    descEn: 'For multi-brand operations with scheduled monitoring and an action queue',
+    descAr: 'لسعة أكبر مع مراقبة مجدولة وقائمة قرارات تشغيلية',
+    descEn: 'For higher capacity with scheduled monitoring and an operating action queue',
     limitsAr: [
       `${AUTOPILOT_PLAN.monthlyCredits} رصيد AI / شهر (يتجدد شهرياً)`,
-      `${AUTOPILOT_PLAN.workspaces} مساحات عمل (${AUTOPILOT_PLAN.workspaces} براندات أو عملاء)`,
+      'مركز عمليات ومراقبة مجدولة للحالات والأعطال',
       'حملات غير محدودة / شهر',
       `${AUTOPILOT_PLAN.postsPerMonth} بوست AI مخطط / شهر`,
       'مراقبة مجدولة + قائمة قرارات مبنية على الأدلة',
     ],
     limitsEn: [
       `${AUTOPILOT_PLAN.monthlyCredits} AI credits / month (renews monthly)`,
-      `${AUTOPILOT_PLAN.workspaces} workspaces (${AUTOPILOT_PLAN.workspaces} brands / clients)`,
+      'Operations center with scheduled state and incident monitoring',
       'Unlimited campaigns / month',
       `${AUTOPILOT_PLAN.postsPerMonth} AI-planned posts / month`,
       'Scheduled monitoring + evidence-backed action queue',
@@ -90,16 +91,19 @@ const PLANS = [
 ]
 
 // ─── Credit cost breakdown ────────────────────────────────────────────────────
-// Keep in sync with src/lib/credits.ts → CREDIT_COSTS
+
+const CORE_WORKFLOW_COST = CREDIT_ACTION_COSTS.RUN_FULL_STRATEGY
+  + CREDIT_ACTION_COSTS.SENTINEL_REVIEW
+  + CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION
 
 const CREDIT_ACTIONS = [
   {
     icon: Rocket,
     labelAr: 'المسار الأساسي من الاستراتيجية إلى المسودات',
     labelEn: 'Core strategy-to-drafts workflow',
-    cost: 12,
-    noteAr: '8 للاستراتيجية + 2 لفحص الجودة + 2 لمسودات المحتوى. الصور اختيارية وتكلفتها منفصلة.',
-    noteEn: '8 strategy + 2 quality review + 2 content drafts. Optional images are charged separately.',
+    cost: CORE_WORKFLOW_COST,
+    noteAr: `${CREDIT_ACTION_COSTS.RUN_FULL_STRATEGY} للاستراتيجية + ${CREDIT_ACTION_COSTS.SENTINEL_REVIEW} لفحص الجودة + ${CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION} لمسودات المحتوى. الصور اختيارية وتكلفتها منفصلة.`,
+    noteEn: `${CREDIT_ACTION_COSTS.RUN_FULL_STRATEGY} strategy + ${CREDIT_ACTION_COSTS.SENTINEL_REVIEW} quality review + ${CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION} content drafts. Optional images are charged separately.`,
   },
   {
     icon: Brain,
@@ -115,7 +119,7 @@ const CREDIT_ACTIONS = [
     icon: Image,
     labelAr: 'توليد صورة AI',
     labelEn: 'AI image generation',
-    cost: 3,
+    cost: CREDIT_ACTION_COSTS.IMAGE_GENERATION,
     noteAr: '1024×1024، مبنية على السياق البصري المحفوظ وتحتاج مراجعتك',
     noteEn: '1024×1024, based on saved visual context and subject to your review',
   },
@@ -123,7 +127,7 @@ const CREDIT_ACTIONS = [
     icon: FileText,
     labelAr: 'موجز الإبداع (Creative Brief)',
     labelEn: 'Creative brief',
-    cost: 3,
+    cost: CREDIT_ACTION_COSTS.CREATIVE_BRIEF,
     noteAr: 'تحليل الأصول + توجيه بصري للحملة',
     noteEn: 'Asset analysis + visual direction for campaign',
   },
@@ -131,7 +135,7 @@ const CREDIT_ACTIONS = [
     icon: Globe,
     labelAr: 'نسخ إعلانية (Ad Copy)',
     labelEn: 'Ad copy generation',
-    cost: 2,
+    cost: CREDIT_ACTION_COSTS.AD_COPY,
     noteAr: 'عناوين + CTA + أوصاف مخصصة للبراند',
     noteEn: 'Headlines + CTAs + brand-specific descriptions',
   },
@@ -139,7 +143,7 @@ const CREDIT_ACTIONS = [
     icon: Shield,
     labelAr: 'مراجعة سنتنيل',
     labelEn: 'Sentinel quality review',
-    cost: 2,
+    cost: CREDIT_ACTION_COSTS.SENTINEL_REVIEW,
     noteAr: 'مراجعة الجودة والمخاطر قبل النشر',
     noteEn: 'Quality + risk review before publishing',
   },
@@ -147,7 +151,7 @@ const CREDIT_ACTIONS = [
     icon: Zap,
     labelAr: 'إعادة كتابة بوست AI',
     labelEn: 'AI post rewrite',
-    cost: 1,
+    cost: CREDIT_ACTION_COSTS.AI_POST_REWRITE,
     noteAr: 'حسّن أي بوست بنقرة واحدة',
     noteEn: 'Improve any post with one click',
   },
@@ -155,7 +159,7 @@ const CREDIT_ACTIONS = [
     icon: MessageSquare,
     labelAr: 'رسالة دردشة AI',
     labelEn: 'AI chat message',
-    cost: 1,
+    cost: CREDIT_ACTION_COSTS.CHAT_MESSAGE,
     noteAr: 'مساعد تسويقي ذكي يعرف براندك',
     noteEn: 'Marketing assistant that knows your brand',
   },
@@ -179,8 +183,8 @@ const FAQS = [
   {
     qAr: 'ما الفرق بين Growth وAutopilot؟',
     qEn: 'What is the difference between Growth and Autopilot?',
-    aAr: 'Growth مناسب للتخطيط والإنتاج اليومي، بينما Autopilot يضيف سعة أكبر ومراقبة مجدولة وقائمة قرارات وتشغيل عدة براندات.',
-    aEn: 'Growth covers day-to-day planning and production; Autopilot adds more capacity, scheduled monitoring, an action queue, and multi-brand operations.',
+    aAr: 'Growth مناسب للتخطيط والإنتاج اليومي، بينما Autopilot يضيف سعة أكبر ومراقبة مجدولة وقائمة قرارات تشغيلية.',
+    aEn: 'Growth covers day-to-day planning and production; Autopilot adds more capacity, scheduled monitoring, and an operating action queue.',
   },
   {
     qAr: 'ماذا يحدث إذا نفدت أرصدتي قبل نهاية الشهر؟',
@@ -699,6 +703,11 @@ export default function BillingPage() {
                 {ar
                   ? 'الأرصدة المشتراة صالحة 12 شهراً ولا تُمسح عند التجديد أو إلغاء الاشتراك.'
                   : 'Purchased credits remain valid for 12 months and survive renewal or cancellation.'}
+              </p>
+              <p className="mt-2 max-w-2xl text-xs font-semibold text-slate-600">
+                {ar
+                  ? 'شراء الكريدت يزيد سعة عمليات AI فقط؛ لا يغيّر حدود الحملات أو المنشورات ولا يفتح مزايا الباقات.'
+                  : 'Buying credits increases AI processing capacity only; it does not change campaign or post limits or unlock plan features.'}
               </p>
             </div>
             {!loading && !billingStatus?.creditPurchasesEnabled && (

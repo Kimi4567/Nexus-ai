@@ -39,6 +39,9 @@ describe('Dashboard onboarding gating', () => {
   it('keeps the first operating action strategy-led and context-aware', () => {
     expect(SRC).toMatch(/href: '\/strategy'/)
     expect(SRC).toMatch(/Create a clear operating strategy/)
+    expect(SRC).toContain("fetchWithTimeout('/api/execution/queue'")
+    expect(SRC).toContain("executionAction.kind === 'MONITOR_SCHEDULE'")
+    expect(SRC).toContain("href: monitorSchedule ? '/calendar?tab=queue' : executionAction.href")
     expect(SRC).toMatch(/Review content and media decisions/)
     expect(SRC).toMatch(/Prepare platform connections/)
     expect(SRC).toMatch(/Monitor performance when analytics exists/)

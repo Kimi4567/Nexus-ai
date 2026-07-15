@@ -20,11 +20,13 @@ import {
   CREDIT_COSTS,
   checkAndDeductCredits,
   checkDailyImageCap,
-  refundCredits,
-  refundCreditsForTransaction,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
+  refundCreditDeduction,
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { validateSingleImageGenerationConfirmation } from '@/lib/contentHubActionSafety'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import {
   buildImagePrompt,
   generateWithDallE,
@@ -47,6 +49,7 @@ import {
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -58,14 +61,12 @@ async function refundDeductedCredits(
   credit: CreditDeductionOk,
   reason: string,
 ): Promise<{ refunded: boolean; refundPending: boolean }> {
-  if (credit.creditsUsed <= 0) return { refunded: false, refundPending: false }
-  if (credit.transactionId) {
-    const result = await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
-    return result && !result.ok
-      ? { refunded: false, refundPending: true }
-      : { refunded: true, refundPending: false }
-  }
-  const result = await refundCredits(userId, 'IMAGE_GENERATION', reason)
+  const result = await refundCreditDeduction({
+    userId,
+    action: 'IMAGE_GENERATION',
+    deduction: credit,
+    reason,
+  })
   return result && !result.ok
     ? { refunded: false, refundPending: true }
     : { refunded: true, refundPending: false }
@@ -335,19 +336,32 @@ export async function POST(req: NextRequest) {
     }, { status: 500 })
   }
 
+  const rateLimitResponse = await enforceBillableAiRateLimit(userId, 'IMAGE_GENERATION')
+  if (rateLimitResponse) {
+    await db.generatedVisual.update({
+      where: { id: visual.id },
+      data: { status: 'FAILED', errorMessage: 'AI generation rate limit reached before provider execution.' },
+    }).catch(() => undefined)
+    return rateLimitResponse
+  }
+
   // ── Deduct credits before the expensive provider call ─────────────────────
   const credit = await checkAndDeductCredits(
     userId,
     'IMAGE_GENERATION',
     undefined,
-    { entityId: visual.id, entityType: 'generated_visual_image' },
+    {
+      entityId: visual.id,
+      entityType: 'generated_visual_image',
+      operationKey: getCreditOperationKey(req, 'IMAGE_GENERATION', 'generated_visual_image', visual.id),
+    },
   )
   if (!credit.ok) {
     await db.generatedVisual.update({
       where: { id: visual.id },
       data: { status: 'FAILED', errorMessage: 'Image generation did not start because credits were unavailable.' },
     }).catch(() => {})
-    return NextResponse.json(credit, { status: 402 })
+    return NextResponse.json(credit, { status: creditCheckHttpStatus(credit) })
   }
 
   // ── Run generation — server auto-detects provider ────────────────────────
@@ -417,6 +431,20 @@ export async function POST(req: NextRequest) {
       where: { id: visual.id },
       data:  { status: 'COMPLETED', imageUrl: permanentUrl },
     })
+
+    const finalization = await finalizeCreditDeduction({
+      userId,
+      action: 'IMAGE_GENERATION',
+      deduction: credit,
+    })
+    if (!finalization.ok) {
+      return NextResponse.json({
+        error: 'Image was saved but the credit operation could not be finalized. Reserved credits were returned; refresh the visual library.',
+        code: 'CREDIT_FINALIZATION_FAILED',
+        refunded: finalization.refundStatus === 'refunded',
+        visual: updated,
+      }, { status: 503 })
+    }
 
     return NextResponse.json({
       visual: updated,

@@ -58,7 +58,12 @@ export async function GET(req: NextRequest) {
 
   if (tokenData.error || !tokenData.access_token) {
     const errMsg = tokenData.error?.message || tokenData.error?.type || 'token_exchange'
-    console.error('[Meta OAuth] Token exchange failed:', tokenData)
+    // Never log the provider payload wholesale: a malformed error response
+    // must not turn an access token into log data.
+    console.error('[Meta OAuth] Token exchange failed:', {
+      error: tokenData.error?.message || tokenData.error?.type || tokenData.error || 'unknown',
+      code: tokenData.error?.code || null,
+    })
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=${encodeURIComponent(errMsg.slice(0, 120))}`)
   }
 

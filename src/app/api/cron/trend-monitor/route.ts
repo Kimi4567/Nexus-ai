@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { cronAuthError } from '@/lib/cronAuth'
+import { scheduledBatchOffset } from '@/lib/scheduledBatch'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -108,18 +109,24 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Load all workspaces that have industry set
+    const batchSize = 50
+    const where = { industry: { not: null } }
+    const eligibleProfiles = await (prisma as any).brandProfile.count({ where }) as number
+    const skip = scheduledBatchOffset(eligibleProfiles, batchSize, new Date(), 'weekly')
+
+    // Rotate capped batches so every eligible workspace can enter the scheduled
+    // research cycle as the installation grows.
     const profiles = await (prisma as any).brandProfile.findMany({
-      where: {
-        industry: { not: null },
-      },
+      where,
       select: {
         id: true,
         workspaceId: true,
         brandName: true,
         industry: true,
       },
-      take: 50,
+      orderBy: { id: 'asc' },
+      skip,
+      take: batchSize,
     }) as Array<{
       id: string
       workspaceId: string

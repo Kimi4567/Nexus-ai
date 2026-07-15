@@ -34,6 +34,7 @@ export interface EvidencePost {
   id: string
   caption: string
   platform: string
+  campaignId?: string | null
   analyticsData: unknown
 }
 
@@ -42,9 +43,19 @@ export interface PerformanceLearningPlan {
   candidateHooks: string[]
   reason: string
   evidencePostIds: string[]
+  evidenceCampaignIds: string[]
   eligiblePostCount: number
+  winningPostCount: number
   baselineEngagementRate: number
   thresholdEngagementRate: number
+  periodStart: string
+  periodEnd: string
+  metricDefinition: PerformanceEvidence['metricDefinition']
+  confidence: {
+    level: 'directional'
+    rationale: string
+  }
+  causalClaim: false
 }
 
 export interface PerformanceEvidenceAggregate {
@@ -279,9 +290,23 @@ export function planPerformanceLearning(posts: EvidencePost[]): PerformanceLearn
       platform,
       candidateHooks,
       evidencePostIds: winners.map((item) => item.post.id),
+      evidenceCampaignIds: [...new Set(winners.flatMap((item) => item.post.campaignId ? [item.post.campaignId] : []))],
       eligiblePostCount: items.length,
+      winningPostCount: winners.length,
       baselineEngagementRate: round(baseline),
       thresholdEngagementRate: round(threshold),
+      periodStart: items
+        .map((item) => item.evidence.collectedAt)
+        .sort((left, right) => left.localeCompare(right))[0],
+      periodEnd: items
+        .map((item) => item.evidence.collectedAt)
+        .sort((left, right) => right.localeCompare(left))[0],
+      metricDefinition: items[0].evidence.metricDefinition,
+      confidence: {
+        level: 'directional',
+        rationale: `Platform-local observational comparison across ${items.length} eligible posts; it supports a test candidate, not a causal claim.`,
+      },
+      causalClaim: false,
       reason: `${winners.length} ${platform} posts exceeded the platform-local median engagement baseline by at least 20% across ${items.length} eligible posts. These are hook candidates for review, not causal proof of conversions or revenue.`,
     })
   }

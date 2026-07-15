@@ -2245,6 +2245,8 @@ export const translations: Record<Locale, Record<string, any>> = {
       fieldBrandName: 'اسم العلامة التجارية',
       fieldIndustry: 'القطاع / الصناعة',
       fieldDescription: 'وصف العمل أو القيمة المقترحة',
+      fieldAudiencePainPoints: 'نقاط ألم الجمهور',
+      fieldBusinessGoal: 'الهدف التجاري',
       fieldTargetAudience: 'الجمهور المستهدف',
       fieldTopPlatforms: 'المنصات الرئيسية',
       // Recommended field labels
@@ -4409,6 +4411,8 @@ export const translations: Record<Locale, Record<string, any>> = {
       fieldBrandName: 'Brand name',
       fieldIndustry: 'Industry / sector',
       fieldDescription: 'Business description or value proposition',
+      fieldAudiencePainPoints: 'Audience pain points',
+      fieldBusinessGoal: 'Business goal',
       fieldTargetAudience: 'Target audience',
       fieldTopPlatforms: 'Main platforms',
       // Recommended field labels

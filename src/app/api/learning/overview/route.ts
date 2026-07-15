@@ -36,6 +36,7 @@ export async function GET(req: Request) {
           field: true,
           displayName: true,
           reason: true,
+          evidence: true,
           status: true,
           campaignId: true,
           createdAt: true,

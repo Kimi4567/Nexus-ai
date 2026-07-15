@@ -13,15 +13,28 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const query = url.searchParams.get('query') || ''
   const type = url.searchParams.get('type') || undefined
-  const page = Number(url.searchParams.get('page') || '1')
-  const limit = Math.min(Number(url.searchParams.get('limit') || '24'), 50)
-  const offset = (Math.max(page, 1) - 1) * limit
+  const campaignId = url.searchParams.get('campaignId')?.trim() || undefined
+  const source = url.searchParams.get('source')?.trim().toUpperCase() || undefined
+  const requestedPage = Number(url.searchParams.get('page') || '1')
+  const requestedLimit = Number(url.searchParams.get('limit') || '24')
+  const page = Number.isFinite(requestedPage) ? Math.max(1, Math.trunc(requestedPage)) : 1
+  const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(Math.trunc(requestedLimit), 50)) : 24
+  const offset = (page - 1) * limit
 
   try {
-    const where: any = {
-      workspace: {
-        ownerId: userId,
-      },
+    const workspace = await prisma.workspace.findFirst({
+      where: { ownerId: userId },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    })
+    if (!workspace) {
+      return NextResponse.json({ media: [], pagination: { page, limit, total: 0, pages: 0 } })
+    }
+
+    const where: any = { workspaceId: workspace.id }
+
+    if (campaignId) {
+      where.AND = [{ OR: [{ campaignId: null }, { campaignId }] }]
     }
 
     if (query) {
@@ -32,15 +45,73 @@ export async function GET(req: Request) {
       where.type = type
     }
 
-    const [media, total] = await Promise.all([
+    const includeGeneratedVisuals = type !== 'VIDEO' && source !== 'UPLOADED_MEDIA'
+    const generatedWhere: any = {
+      workspaceId: workspace.id,
+      status: 'COMPLETED',
+      imageUrl: { not: null },
+      isArchived: false,
+    }
+    if (campaignId) generatedWhere.campaignId = campaignId
+    if (query) {
+      generatedWhere.OR = [
+        { campaignName: { contains: query, mode: 'insensitive' } },
+        { brandName: { contains: query, mode: 'insensitive' } },
+        { prompt: { contains: query, mode: 'insensitive' } },
+      ]
+    }
+
+    // Fetch enough rows from each source to produce a correctly sorted combined
+    // page. This keeps GeneratedVisual and uploaded Media discoverable through
+    // one library without pretending they share the same deletion lifecycle.
+    const sourceTake = offset + limit
+    const [uploadedMedia, uploadedTotal, generatedVisuals, generatedTotal] = await Promise.all([
       prisma.media.findMany({
         where,
         orderBy: { createdAt: 'desc' },
-        skip: offset,
-        take: limit,
+        take: sourceTake,
       }),
       prisma.media.count({ where }),
+      includeGeneratedVisuals
+        ? prisma.generatedVisual.findMany({
+            where: generatedWhere,
+            orderBy: { createdAt: 'desc' },
+            take: sourceTake,
+            select: {
+              id: true,
+              imageUrl: true,
+              thumbnailUrl: true,
+              campaignName: true,
+              brandName: true,
+              visualType: true,
+              createdAt: true,
+            },
+          })
+        : Promise.resolve([]),
+      includeGeneratedVisuals ? prisma.generatedVisual.count({ where: generatedWhere }) : Promise.resolve(0),
     ])
+
+    const generatedMedia = generatedVisuals.flatMap(visual => visual.imageUrl ? [{
+      id: `generated:${visual.id}`,
+      generatedVisualId: visual.id,
+      assetKind: 'GENERATED_VISUAL' as const,
+      readOnly: true,
+      fileName: `${visual.campaignName || visual.brandName || 'NEXUS'} — ${String(visual.visualType).toLowerCase()} visual`,
+      mimeType: 'image/generated',
+      type: 'IMAGE',
+      url: visual.imageUrl,
+      thumbnailUrl: visual.thumbnailUrl,
+      createdAt: visual.createdAt,
+    }] : [])
+    const uploaded = uploadedMedia.map(item => ({
+      ...item,
+      assetKind: 'UPLOADED_MEDIA' as const,
+      readOnly: false,
+    }))
+    const media = [...uploaded, ...generatedMedia]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(offset, offset + limit)
+    const total = uploadedTotal + generatedTotal
 
     return NextResponse.json({ media, pagination: { page, limit, total, pages: Math.ceil(total / limit) } })
   } catch (err) {

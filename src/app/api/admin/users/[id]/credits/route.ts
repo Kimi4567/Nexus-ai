@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { CURRENT_CREDIT_PRICING_VERSION } from '@/lib/credits/pricing'
 import { addCredits } from '@/lib/credits'
 import { isCreditWalletEnabled } from '@/lib/credits/wallet'
 import { randomUUID } from 'crypto'
@@ -58,7 +59,14 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
         const deduction = Math.min(current.aiCredits, Math.abs(delta))
         await tx.user.update({ where: { id }, data: { aiCredits: { decrement: deduction } } })
         await tx.creditTransaction.create({
-          data: { userId: id, action: 'ADMIN_DEBIT', description: `Admin ${admin.id}: manual debit`, amount: -deduction, entityType: 'admin_manual' },
+          data: {
+            userId: id,
+            action: 'ADMIN_DEBIT',
+            description: `Admin ${admin.id}: manual debit`,
+            amount: -deduction,
+            entityType: 'admin_manual',
+            pricingVersion: CURRENT_CREDIT_PRICING_VERSION,
+          },
         })
       })
     }

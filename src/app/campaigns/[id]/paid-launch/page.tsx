@@ -18,9 +18,9 @@ import { useI18n } from '@/lib/i18n-context'
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
 import AppShell from '@/components/AppShell'
 import CreditConfirmModal from '@/components/CreditConfirmModal'
-// Mirror of CREDIT_COSTS.PAID_PACK_GENERATE in src/lib/credits.ts (server is the
-// source of truth and still deducts/refunds; this literal is display-only).
-const PAID_PACK_COST = 6
+import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
+import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
+const PAID_PACK_COST = CREDIT_ACTION_COSTS.PAID_PACK_GENERATE
 import {
   Target, Zap, Users, DollarSign, Copy, ExternalLink,
   CheckCircle, Brain, ChevronDown, ChevronUp,
@@ -270,7 +270,8 @@ export default function PaidLaunchPage() {
         body: JSON.stringify({ objective, platforms, dailyBudget, durationDays, currency }),
       })
       // Then generate
-      const res = await fetch(`/api/campaigns/${id}/paid-pack/generate`, {
+      const generationIdentity = JSON.stringify({ id, objective, platforms, dailyBudget, durationDays, currency })
+      const res = await fetchCreditOperation(creditOperationScope('paid:pack', generationIdentity), `/api/campaigns/${id}/paid-pack/generate`, {
         method: 'POST',
         headers: { Authorization: authHeader(), 'x-output-language': isArabic ? 'ar' : 'en' },
       })
@@ -321,7 +322,7 @@ export default function PaidLaunchPage() {
     setExtractingLearnings(true)
     setError(null)
     try {
-      const res = await fetch(`/api/campaigns/${id}/paid-pack/learn`, {
+      const res = await fetchCreditOperation(creditOperationScope('paid:learn', JSON.stringify({ id, metrics: pack?.metrics || null })), `/api/campaigns/${id}/paid-pack/learn`, {
         method: 'POST',
         headers: { Authorization: authHeader() },
       })

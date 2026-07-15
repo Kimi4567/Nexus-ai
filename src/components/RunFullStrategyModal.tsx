@@ -27,6 +27,7 @@ import {
 } from '@/lib/strategyBriefReadiness'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 import { getBrandIndustryLabel } from '@/lib/brandIndustries'
+import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
 // PR-S1b — deterministic Strategy Order Review (display-only; no generation change).
 import { formatStrategyDeliverableForLocale, getStrategyDeliverables } from '@/lib/strategy/deliverablesContract'
 // PR-S1c-2 — variable strategy pricing (display side). The SAME pure function runs
@@ -150,7 +151,8 @@ const primaryButtonStyle: React.CSSProperties = {
 // -- i18n key -> field label helper ------------------------------------------
 
 const FIELD_KEY_MAP: RequiredFieldKey[] = [
-  'brandName', 'industry', 'description', 'targetAudience', 'topPlatforms',
+  'brandName', 'industry', 'description', 'primaryOffer', 'targetAudience',
+  'audiencePainPoints', 'businessGoal', 'topPlatforms',
 ]
 
 // -- Cache helpers -----------------------------------------------------------
@@ -393,7 +395,15 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
       if (cancelled) return
       setPhase('running')
 
-      fetch('/api/strategy/run-full', {
+      const operationIdentity = JSON.stringify({
+        selectedLanguage,
+        strategyType,
+        strategyDuration,
+        contentIntensity,
+        customDurationDays,
+        customOrganicPostCount: strategyType !== 'paid' && useCustomPostCount ? customOrganicPostCount : null,
+      })
+      fetchCreditOperation(creditOperationScope('strategy:run-full', operationIdentity), '/api/strategy/run-full', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -556,6 +566,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
       description: 'Business description',
       primaryOffer: 'Primary offer',
       targetAudience: 'Target audience',
+      audiencePainPoints: 'Audience pain points',
       businessGoal: 'Business goal',
       topPlatforms: 'Organic platforms',
       toneOrLanguage: 'Tone or language preference',
@@ -574,6 +585,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
       description: 'وصف النشاط',
       primaryOffer: 'العرض الأساسي',
       targetAudience: 'الجمهور المستهدف',
+      audiencePainPoints: 'نقاط ألم الجمهور',
       businessGoal: 'هدف النشاط',
       topPlatforms: 'المنصات العضوية',
       toneOrLanguage: 'النبرة أو اللغة',

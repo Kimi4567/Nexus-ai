@@ -16,12 +16,14 @@ import { getBrandIndicators, type BrandIndicators } from '@/lib/brandIndicators'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import type { BrandBrainContract } from '@/lib/brandBrainContract'
 import ReviewSuggestions, { type AssistSuggestion, type SuggestionSource } from '@/components/brand/ReviewSuggestions'
+import { BrandEvidenceLibrary } from '@/components/brand/BrandEvidenceLibrary'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { type AssistFieldSuggestion } from '@/lib/ai/assistSuggestions'
 import { fieldLabel, isRenderableField } from '@/lib/brand/assistFieldLabels'
 import { applySelectedSuggestionsToDraft } from '@/lib/brand/applySuggestions'
 import { commitTag } from '@/lib/tagInput'
+import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
 import {
   Loader2, Brain, Check, ChevronDown, Save,
   Target, Mic, Package, Users, Globe, BarChart2, AlertTriangle,
@@ -62,15 +64,15 @@ const STEP_COPY: Record<StepId, { label: { en: string; ar: string }; desc: { en:
   },
   goals: {
     label: { en: 'Goals & Direction', ar: 'الأهداف والاتجاه' },
-    desc: { en: 'Set the business goal, strategy direction, and output language.', ar: 'حدّد الهدف التجاري واتجاه الاستراتيجية ولغة المخرجات.' },
+    desc: { en: 'Set the objective, conversion path, strategy direction, and output language.', ar: 'حدّد الهدف ومسار التحويل واتجاه الاستراتيجية ولغة المخرجات.' },
   },
   product: {
     label: { en: 'Offer & Positioning', ar: 'العرض والتمركز' },
-    desc: { en: 'Clarify what you sell, how it is priced, and why customers choose it.', ar: 'وضّح ما تقدمه وسعره وسبب اختيار العملاء له.' },
+    desc: { en: 'Clarify what you sell, why customers choose it, and the economics or constraints NEXUS must respect.', ar: 'وضّح ما تقدمه وسبب اختياره والاقتصاديات أو القيود التي يجب أن يراعيها NEXUS.' },
   },
   audience: {
     label: { en: 'Audience & Market', ar: 'الجمهور والسوق' },
-    desc: { en: 'Define who you serve, what they need, and where they buy.', ar: 'عرّف من تخدمهم وما يحتاجونه وأين يشترون.' },
+    desc: { en: 'Define who you serve, what they need, what blocks them, and where they buy.', ar: 'عرّف من تخدمهم وما يحتاجونه وما يعطل قرارهم وأين يشترون.' },
   },
   voice: {
     label: { en: 'Voice & Messaging', ar: 'الصوت والرسائل' },
@@ -533,6 +535,7 @@ function BrandRouteLoading({ preparing = false }: { preparing?: boolean }) {
       <div className="min-h-screen bg-[var(--nx-bg)] px-4 py-5 sm:px-6">
         <div className="mx-auto max-w-[1540px]">
           <LuxuryWorkspaceHeader
+            journeyStage="brand"
             pageTitle="Brand Brain"
             pageSubtitle={ar ? 'مرجع واحد معتمد لكل ما سينتجه NEXUS لعلامتك.' : 'One approved source of truth for everything NEXUS creates for your brand.'}
             primaryHref={null}
@@ -713,23 +716,24 @@ function BrandBrainInner() {
     setSuggestError(null)
     setTextSuggestion(null)
     try {
-      const res = await fetch('/api/brand/suggest', {
+      const suggestionPayload = {
+        field,
+        brandName:      form.brandName,
+        industry:       form.industry,
+        description:    form.description,
+        primaryOffer:   form.primaryOffer,
+        targetAudience: form.targetAudience,
+        audienceLocation: form.audienceLocation,
+        pricePoint:     form.pricePoint,
+        uniqueAdvantages: form.uniqueAdvantages,
+        toneKeywords:   form.toneKeywords,
+        competitorNotes: form.competitorNotes,
+        locale,
+      }
+      const res = await fetchCreditOperation(creditOperationScope('brand:suggest', JSON.stringify(suggestionPayload)), '/api/brand/suggest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
-        body: JSON.stringify({
-          field,
-          brandName:      form.brandName,
-          industry:       form.industry,
-          description:    form.description,
-          primaryOffer:   form.primaryOffer,
-          targetAudience: form.targetAudience,
-          audienceLocation: form.audienceLocation,
-          pricePoint:     form.pricePoint,
-          uniqueAdvantages: form.uniqueAdvantages,
-          toneKeywords:   form.toneKeywords,
-          competitorNotes: form.competitorNotes,
-          locale,
-        }),
+        body: JSON.stringify(suggestionPayload),
       })
       if (res.status === 402) {
         setSuggestError(locale === 'ar' ? 'رصيد غير كافٍ — يرجى الترقية' : 'Not enough credits — please upgrade')
@@ -764,23 +768,24 @@ function BrandBrainInner() {
     setSuggesting(field)
     setSuggestError(null)
     try {
-      const res = await fetch('/api/brand/suggest', {
+      const suggestionPayload = {
+        field,
+        brandName:      form.brandName,
+        industry:       form.industry,
+        description:    form.description,
+        primaryOffer:   form.primaryOffer,
+        targetAudience: form.targetAudience,
+        audienceLocation: form.audienceLocation,
+        pricePoint:     form.pricePoint,
+        uniqueAdvantages: form.uniqueAdvantages,
+        toneKeywords:   form.toneKeywords,
+        competitorNotes: form.competitorNotes,
+        locale,
+      }
+      const res = await fetchCreditOperation(creditOperationScope('brand:suggest', JSON.stringify(suggestionPayload)), '/api/brand/suggest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
-        body: JSON.stringify({
-          field,
-          brandName:      form.brandName,
-          industry:       form.industry,
-          description:    form.description,
-          primaryOffer:   form.primaryOffer,
-          targetAudience: form.targetAudience,
-          audienceLocation: form.audienceLocation,
-          pricePoint:     form.pricePoint,
-          uniqueAdvantages: form.uniqueAdvantages,
-          toneKeywords:   form.toneKeywords,
-          competitorNotes: form.competitorNotes,
-          locale,
-        }),
+        body: JSON.stringify(suggestionPayload),
       })
       if (res.status === 402) {
         setSuggestError(locale === 'ar' ? 'رصيد غير كافٍ — يرجى الترقية' : 'Not enough credits — please upgrade')
@@ -850,7 +855,7 @@ function BrandBrainInner() {
     setScanResult(null)
     setShowScanPreview(false)
     try {
-      const res = await fetch('/api/brand/scan-website', {
+      const res = await fetchCreditOperation(creditOperationScope('brand:scan-website', websiteUrl), '/api/brand/scan-website', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
         body: JSON.stringify({ url: websiteUrl }),
@@ -909,7 +914,7 @@ function BrandBrainInner() {
     setAnalyzeResult(null)
     setShowAnalyzePreview(false)
     try {
-      const res = await fetch('/api/brand/analyze-content', {
+      const res = await fetchCreditOperation(creditOperationScope('brand:analyze-content', JSON.stringify(valid)), '/api/brand/analyze-content', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
         body: JSON.stringify({ samples: valid }),
@@ -1024,7 +1029,7 @@ function BrandBrainInner() {
     ): Promise<Outcome> => {
       const base: Outcome = { kind, cost, ok: false, status: 0, refunded: false, suggestions: [], missing: [], safetyNotes: [], errorMsg: '' }
       try {
-        const res = await fetch(endpoint, {
+        const res = await fetchCreditOperation(creditOperationScope(`brand:assist:${kind}`, JSON.stringify(payload)), endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
           body: JSON.stringify(payload),
@@ -1166,6 +1171,7 @@ function BrandBrainInner() {
       <div className="min-h-screen bg-[var(--nx-bg)] px-4 py-5 sm:px-6">
         <div className="mx-auto max-w-[1540px]">
           <LuxuryWorkspaceHeader
+            journeyStage="brand"
             pageTitle="Brand Brain"
             pageSubtitle={locale === 'ar' ? 'مرجع واحد معتمد لكل ما سينتجه NEXUS لعلامتك.' : 'One approved source of truth for everything NEXUS creates for your brand.'}
             primaryHref={null}
@@ -1227,6 +1233,7 @@ function BrandBrainInner() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_4%,rgba(94,92,230,0.09),transparent_30%),radial-gradient(circle_at_92%_10%,rgba(16,185,129,0.07),transparent_28%)]" />
         <div className="relative z-10 max-w-[1540px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-5">
           <LuxuryWorkspaceHeader
+            journeyStage="brand"
             pageTitle="Brand Brain"
             pageSubtitle={locale === 'ar' ? 'مرجع واحد معتمد لكل ما سينتجه NEXUS لعلامتك.' : 'One approved source of truth for everything NEXUS creates for your brand.'}
             primaryHref={coreBrandReady ? '/strategy' : '#brand-profile-workspace'}
@@ -2514,6 +2521,49 @@ function BrandBrainInner() {
                   <TagInput label={t('brand.productAdvantagesLabel')} placeholder={t('brand.productAdvantagesPlaceholder')}
                     values={form.uniqueAdvantages||[]} onChange={v=>set('uniqueAdvantages',v)} accentColor={currentStep.color}
                     locale={locale}/>
+                  <details className="group rounded-xl border border-slate-200 bg-slate-50/70">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+                      <span>
+                        <span className="block text-xs font-bold text-slate-800">
+                          {locale === 'ar' ? 'اقتصاديات العرض والقيود' : 'Offer economics & constraints'}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] text-slate-500">
+                          {locale === 'ar' ? 'اختياري، لكنه يجعل الميزانية والأهداف أكثر واقعية.' : 'Optional, but makes budgets and targets more realistic.'}
+                        </span>
+                      </span>
+                      <ChevronDown size={15} className="shrink-0 text-slate-400 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div className="grid gap-4 border-t border-slate-200 px-4 py-4 md:grid-cols-2">
+                      <Field label={locale === 'ar' ? 'متوسط قيمة الطلب' : 'Average order value'}>
+                        <NxInput value={form.averageOrderValue || ''} onChange={v => set('averageOrderValue', v)}
+                          placeholder={locale === 'ar' ? 'مثال: 500 درهم' : 'e.g. AED 500'} accentColor={currentStep.color}/>
+                      </Field>
+                      <Field label={locale === 'ar' ? 'هامش الربح' : 'Gross margin'}>
+                        <NxInput value={form.grossMargin || ''} onChange={v => set('grossMargin', v)}
+                          placeholder={locale === 'ar' ? 'مثال: 40% — من بياناتك' : 'e.g. 40% — from your records'} accentColor={currentStep.color}/>
+                      </Field>
+                      <Field label={locale === 'ar' ? 'قيمة العميل مدى الحياة' : 'Customer lifetime value'}>
+                        <NxInput value={form.customerLifetimeValue || ''} onChange={v => set('customerLifetimeValue', v)}
+                          placeholder={locale === 'ar' ? 'إن كانت معروفة' : 'If known'} accentColor={currentStep.color}/>
+                      </Field>
+                      <Field label={locale === 'ar' ? 'مدة دورة البيع' : 'Sales cycle length'}>
+                        <NxInput value={form.salesCycleLength || ''} onChange={v => set('salesCycleLength', v)}
+                          placeholder={locale === 'ar' ? 'مثال: من يوم إلى أسبوعين' : 'e.g. 1 day to 2 weeks'} accentColor={currentStep.color}/>
+                      </Field>
+                      <div className="md:col-span-2">
+                        <Field label={locale === 'ar' ? 'الموسمية أو قيود القدرة' : 'Seasonality or capacity constraints'}>
+                          <NxInput textarea value={form.seasonality || ''} onChange={v => set('seasonality', v)}
+                            placeholder={locale === 'ar' ? 'مواسم الطلب، التواريخ، المخزون، أو عدد العملاء الذي يمكنك خدمته' : 'Demand seasons, dates, inventory, or how many customers you can serve'} accentColor={currentStep.color}/>
+                        </Field>
+                      </div>
+                      <div className="md:col-span-2">
+                        <Field label={locale === 'ar' ? 'قيود الامتثال والادعاءات' : 'Compliance & claim constraints'}>
+                          <NxInput textarea value={form.complianceNotes || ''} onChange={v => set('complianceNotes', v)}
+                            placeholder={locale === 'ar' ? 'ادعاءات ممنوعة، إفصاحات مطلوبة، أو قواعد قانونية/صناعية' : 'Prohibited claims, required disclosures, or legal/industry rules'} accentColor={currentStep.color}/>
+                        </Field>
+                      </div>
+                    </div>
+                  </details>
                 </div>
               )}
 
@@ -2557,6 +2607,14 @@ function BrandBrainInner() {
                   <TagInput label={t('brand.audienceDesireLabel')} placeholder={t('brand.audienceDesirePlaceholder')}
                     values={form.audienceDesires||[]} onChange={v=>set('audienceDesires',v)} accentColor={currentStep.color}
                     locale={locale}/>
+                  <TagInput
+                    label={locale === 'ar' ? 'اعتراضات تمنع قرار الشراء' : 'Objections that block the buying decision'}
+                    placeholder={locale === 'ar' ? 'مثال: السعر، الثقة، التوقيت — ثم Enter' : 'e.g. price, trust, timing — then Enter'}
+                    values={form.customerObjections || []}
+                    onChange={v => set('customerObjections', v)}
+                    accentColor={currentStep.color}
+                    locale={locale}
+                  />
                 </div>
               )}
 
@@ -2579,6 +2637,26 @@ function BrandBrainInner() {
                   <TagInput label={t('brand.voiceAvoidLabel')} placeholder={t('brand.voiceAvoidPlaceholder')}
                     values={form.avoidKeywords||[]} onChange={v=>set('avoidKeywords',v)} accentColor={currentStep.color}
                     locale={locale}/>
+                  <BrandEvidenceLibrary
+                    locale={locale}
+                    authHeader={authHeader}
+                    onProofChanged={() => { void refetch() }}
+                  />
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                    <TagInput
+                      label={locale === 'ar' ? 'إثبات تؤكده بنفسك — بدون ملف مصدر' : 'Self-confirmed proof — no source file'}
+                      placeholder={locale === 'ar' ? 'أضف حقيقة يمكنك إثباتها ثم Enter' : 'Add a fact you can substantiate, then Enter'}
+                      values={form.verifiedProof || []}
+                      onChange={v => set('verifiedProof', v)}
+                      accentColor="#10b981"
+                      locale={locale}
+                    />
+                    <p className="mt-1.5 text-[11px] text-slate-500">
+                      {locale === 'ar'
+                        ? 'الأفضل رفع المصدر أعلاه. هذا الحقل لإثباتاتك المؤكدة فقط؛ لن ينشئ NEXUS أرقامًا أو شهادات من تلقاء نفسه.'
+                        : 'Uploading a source above is preferred. Use this only for facts you personally verify; NEXUS never invents results or testimonials.'}
+                    </p>
+                  </div>
                   {/* PR-H1: winningHooks moved out of the beginner input path into the
                       read-only Learned Memory view — these are observed over time, not
                       asked upfront. */}
@@ -2627,8 +2705,8 @@ function BrandBrainInner() {
                     />
                     <p className="mt-1.5 text-[11px]" style={{ color: '#334155' }}>
                       {locale === 'ar'
-                        ? 'أضف المنافسين الذين تريد أن يأخذهم NEXUS في الاعتبار. يجري النظام مسح أخبار يومياً بمصادر وروابط عند حفظ أسماء المنافسين، لكنه لا يغيّر Brand Brain تلقائياً.'
-                        : 'Add competitors you want NEXUS to consider. A daily source-linked news scan runs when competitor names are saved, but it never changes Brand Brain automatically.'}
+                        ? 'أضف المنافسين الذين تريد أن يأخذهم NEXUS في الاعتبار. تجري فحوص أخبار مجدولة بمصادر وروابط عند حفظ أسماء المنافسين، لكنها لا تغيّر Brand Brain تلقائياً.'
+                        : 'Add competitors you want NEXUS to consider. Scheduled source-linked news checks run when competitor names are saved, but they never change Brand Brain automatically.'}
                     </p>
                   </div>
 
@@ -2657,12 +2735,39 @@ function BrandBrainInner() {
                 }) as React.CSSProperties
                 const labelCls = 'block text-xs font-semibold uppercase tracking-wider mb-2'
                 const caps = getStrategyCapabilities(form)
+                const paidFieldLabels: Record<string, string> = {
+                  brandName: ar ? 'اسم العلامة' : 'brand name',
+                  industry: ar ? 'المجال' : 'industry',
+                  description: ar ? 'وصف النشاط' : 'business summary',
+                  targetAudience: ar ? 'الجمهور' : 'audience',
+                  topPlatforms: ar ? 'القنوات' : 'channels',
+                  primaryOffer: ar ? 'العرض' : 'offer',
+                  marketingBudget: ar ? 'الميزانية' : 'budget',
+                  conversionDestination: ar ? 'وجهة التحويل' : 'conversion destination',
+                  audienceLocation: ar ? 'السوق/الموقع' : 'market/location',
+                  leadHandling: ar ? 'متابعة العميل' : 'lead follow-up',
+                }
+                const paidMissing = caps.paidStrategy.missingKeys
+                  .map(key => paidFieldLabels[key] || key)
+                  .join(ar ? '، ' : ', ')
                 return (
                   <div className="space-y-5">
                     <Field label={ar ? 'الهدف التجاري الرئيسي' : 'Main business goal'}>
                       <NxInput value={form.businessGoal||''} onChange={v=>set('businessGoal',v)}
                         placeholder={ar ? 'مثال: المزيد من المشتركين المدفوعين' : 'e.g. more paying subscribers'} accentColor="#5E5CE6"/>
                     </Field>
+
+                    <div>
+                      <label className={labelCls} style={{ color:'#64748B' }}>{ar ? 'هدف الحملة' : 'Campaign objective'}</label>
+                      <div className="flex flex-wrap gap-2">
+                        {([['leads', ar?'عملاء محتملون':'Leads'],['sales', ar?'مبيعات':'Sales'],['awareness', ar?'وعي':'Awareness'],['traffic', ar?'زيارات':'Traffic']] as const).map(([v,l])=>(
+                          <button type="button" key={v} onClick={()=>setCampaignObjective(v)} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all" style={pill(campaignObjective===v, '#f59e0b')}>
+                            {campaignObjective===v&&'● '}{l}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1">{ar ? 'يحدد ما الذي يجب أن تقود إليه الرسائل والمحتوى، سواء كان المسار عضوياً أو مدفوعاً.' : 'Defines what messaging and content should drive, whether the path is organic or paid.'}</p>
+                    </div>
 
                     <div>
                       <label className={labelCls} style={{ color:'#64748B' }}>{ar ? 'نوع الاستراتيجية' : 'Strategy type'}</label>
@@ -2715,6 +2820,30 @@ function BrandBrainInner() {
                       <p className="text-[11px] text-slate-400 mt-1.5">{ar ? 'اختيارك أنت — لا يُستنتَج من لغة الواجهة.' : 'Your choice — not inferred from the interface language.'}</p>
                     </div>
 
+                    <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                      <div>
+                        <p className="text-[12px] font-bold text-slate-800">{ar ? 'مسار التحويل والمتابعة' : 'Conversion & follow-up path'}</p>
+                        <p className="mt-0.5 text-[11px] text-slate-500">
+                          {ar
+                            ? 'يمنع NEXUS من إنشاء CTA بلا وجهة أو خطة متابعة غير قابلة للتنفيذ.'
+                            : 'Prevents NEXUS from creating a CTA with no destination or an unusable follow-up plan.'}
+                        </p>
+                      </div>
+                      <Field label={ar ? 'أين تريد أن يتخذ العميل الإجراء؟' : 'Where should the customer take action?'}>
+                        <NxInput value={form.conversionDestination||''} onChange={v=>set('conversionDestination',v)}
+                          placeholder={ar ? 'صفحة هبوط / نموذج / واتساب / متجر' : 'landing page / form / WhatsApp / store'} accentColor="#5E5CE6"/>
+                      </Field>
+                      <Field label={ar ? 'ماذا يحدث بعد وصول العميل؟' : 'What happens after a lead or sale arrives?'}>
+                        <NxInput textarea value={form.leadHandling||''} onChange={v=>set('leadHandling',v)}
+                          placeholder={ar ? 'من يرد؟ خلال كم؟ كيف يتم التأهيل والمتابعة؟' : 'Who responds, within what SLA, and how are they qualified and followed up?'} accentColor="#5E5CE6"/>
+                      </Field>
+                      {(campaignObjective === 'leads' || campaignObjective === 'sales') && (!form.conversionDestination?.trim() || !form.leadHandling?.trim()) && (
+                        <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+                          {ar ? 'هذا الهدف يحتاج وجهة تحويل ومسؤول متابعة قبل اعتباره قابلاً للتنفيذ.' : 'This objective needs a conversion destination and follow-up owner before it is execution-ready.'}
+                        </p>
+                      )}
+                    </div>
+
                     {(strategyType==='organic' || strategyType==='full') && (
                       <div className="rounded-xl px-3 py-2.5" style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.06)' }}>
                         <p className="text-[12px] font-semibold text-slate-700 mb-0.5">{ar ? 'إعداد المحتوى العضوي' : 'Organic content setup'}</p>
@@ -2729,21 +2858,10 @@ function BrandBrainInner() {
                           <NxInput value={form.marketingBudget||''} onChange={v=>set('marketingBudget',v)}
                             placeholder={ar ? 'مثال: 1000$ شهرياً' : 'e.g. $1,000 / month'} accentColor="#5E5CE6"/>
                         </Field>
-                        <Field label={ar ? 'وجهة التحويل' : 'Conversion destination'}>
-                          <NxInput value={form.conversionDestination||''} onChange={v=>set('conversionDestination',v)}
-                            placeholder={ar ? 'صفحة هبوط / نموذج / واتساب' : 'landing page / form / WhatsApp'} accentColor="#5E5CE6"/>
+                        <Field label={ar ? 'نتائج مدفوعة سابقة — من بياناتك فقط' : 'Past paid results — from your records only'}>
+                          <NxInput textarea value={form.pastAdResults||''} onChange={v=>set('pastAdResults',v)}
+                            placeholder={ar ? 'مثال: CPL/CPA/ROAS والفترة والمصدر، أو اتركه فارغاً' : 'e.g. CPL/CPA/ROAS with period and source, or leave blank'} accentColor="#5E5CE6"/>
                         </Field>
-                        <div>
-                          <label className={labelCls} style={{ color:'#64748B' }}>{ar ? 'هدف الحملة' : 'Campaign objective'}</label>
-                          <div className="flex flex-wrap gap-2">
-                            {([['leads', ar?'عملاء محتملون':'Leads'],['sales', ar?'مبيعات':'Sales'],['awareness', ar?'وعي':'Awareness'],['traffic', ar?'زيارات':'Traffic']] as const).map(([v,l])=>(
-                              <button key={v} onClick={()=>setCampaignObjective(v)} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all" style={pill(campaignObjective===v, '#f59e0b')}>
-                                {campaignObjective===v&&'● '}{l}
-                              </button>
-                            ))}
-                          </div>
-                          <p className="text-[10px] text-slate-400 mt-1">{ar ? 'يُحفظ في Brand Brain كاختيار افتراضي ويمكن مراجعته قبل كل تشغيل.' : 'Saved in Brand Brain as a default and reviewed before every run.'}</p>
-                        </div>
                         <div className="rounded-lg px-3 py-2" style={{ background:'rgba(245,158,11,0.06)', border:'1px solid rgba(245,158,11,0.2)' }}>
                           <p className="text-[12px] font-semibold" style={{ color:'#b45309' }}>{ar ? 'يتطلب موافقة قبل التشغيل' : 'Approval required before running'}</p>
                           <p className="text-[11px] text-slate-600 mt-0.5">
@@ -2753,24 +2871,13 @@ function BrandBrainInner() {
                           </p>
                           {!caps.paidStrategy.ready && (
                             <p className="text-[11px] mt-1" style={{ color:'#b45309' }}>
-                              {ar ? 'ما زال ناقصاً: الميزانية ووجهة التحويل والموقع والعرض.' : 'Still missing: budget, conversion destination, location, and offer.'}
+                              {ar ? `ما زال ناقصاً: ${paidMissing}.` : `Still missing: ${paidMissing}.`}
                             </p>
                           )}
                         </div>
                       </div>
                     )}
 
-                    <div>
-                      <TagInput
-                        label={ar ? 'إثبات موثّق — مؤكَّد منك فقط' : 'Verified proof — user-confirmed only'}
-                        placeholder={ar ? 'أضف شهادة/نتيجة حقيقية ثم Enter' : 'Add a real, verified proof point, then Enter'}
-                        values={form.verifiedProof||[]} onChange={v=>set('verifiedProof',v)} accentColor="#10b981" locale={locale}/>
-                      <p className="text-[11px] text-slate-400 mt-1.5">
-                        {ar
-                          ? 'أضف فقط شهادات/نتائج/أرقاماً حقيقية يمكنك تأكيدها. NEXUS لا يضيف إثباتات مفترضة أو شهادات وهمية.'
-                          : 'Add only real testimonials/results/numbers you can verify. NEXUS never adds assumed proof or fake testimonials.'}
-                      </p>
-                    </div>
                   </div>
                 )
               })()}
@@ -2816,6 +2923,24 @@ function BrandBrainInner() {
                       [ar ? 'الهدف التجاري' : 'Business goal', form.businessGoal],
                     ],
                   },
+                  {
+                    title: ar ? 'التحويل والمتابعة' : 'Conversion & follow-up',
+                    items: [
+                      [ar ? 'هدف الحملة' : 'Campaign objective', campaignObjective],
+                      [ar ? 'وجهة التحويل' : 'Conversion destination', form.conversionDestination],
+                      [ar ? 'متابعة العميل' : 'Lead handling', form.leadHandling],
+                      [ar ? 'اعتراضات العملاء' : 'Customer objections', filledArr(form.customerObjections) ? (form.customerObjections || []).join(ar ? '، ' : ', ') : ''],
+                    ],
+                  },
+                  {
+                    title: ar ? 'اقتصاديات وقيود' : 'Economics & constraints',
+                    items: [
+                      [ar ? 'متوسط الطلب' : 'Average order value', form.averageOrderValue],
+                      [ar ? 'هامش الربح' : 'Gross margin', form.grossMargin],
+                      [ar ? 'دورة البيع' : 'Sales cycle', form.salesCycleLength],
+                      [ar ? 'قيود الامتثال' : 'Compliance constraints', form.complianceNotes],
+                    ],
+                  },
                 ].map(group => ({
                   ...group,
                   items: group.items.filter(([, value]) => typeof value === 'string' && value.trim().length > 0),
@@ -2827,6 +2952,9 @@ function BrandBrainInner() {
                   !filledStr(form.primaryOffer) && (ar ? 'العرض الأساسي' : 'Primary offer'),
                   !filledStr(form.targetAudience) && (ar ? 'الجمهور المستهدف' : 'Target audience'),
                   !filledStr(form.businessGoal) && (ar ? 'الهدف التجاري' : 'Business goal'),
+                  !campaignObjective && (ar ? 'هدف الحملة' : 'Campaign objective'),
+                  !filledStr(form.conversionDestination) && (ar ? 'وجهة التحويل' : 'Conversion destination'),
+                  (campaignObjective === 'leads' || campaignObjective === 'sales' || strategyType !== 'organic') && !filledStr(form.leadHandling) && (ar ? 'مسؤول ومسار متابعة العميل' : 'Lead owner and follow-up path'),
                   !filledStr(form.writingStyle) && (ar ? 'الصوت وأسلوب الكتابة' : 'Voice & writing style'),
                   !filledArr(form.competitors) && !filledStr(form.competitorNotes) && (ar ? 'المنافسون أو ملاحظات السوق' : 'Competitors or market notes'),
                   !filledArr(form.verifiedProof) && (ar ? 'إثبات موثّق' : 'Verified proof'),

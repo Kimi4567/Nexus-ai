@@ -24,6 +24,7 @@ export type ExecutionActionKind =
   | 'REVIEW_MEDIA'
   | 'SCHEDULE_CONTENT'
   | 'RESOLVE_FAILURE'
+  | 'RESOLVE_OVERDUE_SCHEDULE'
   | 'MONITOR_SCHEDULE'
   | 'SYNC_ANALYTICS'
   | 'REVIEW_PERFORMANCE'
@@ -34,11 +35,13 @@ export type ExecutionSafety = 'review_required' | 'manual_action' | 'monitor_onl
 export interface ExecutionPostCounts {
   draft: number
   approved: number
+  approvedMissingApproval?: number
   approvedMissingMedia?: number
   scheduled: number
   published: number
   failed: number
   publishedWithoutAnalytics: number
+  overdueScheduled?: number
 }
 
 export interface CampaignExecutionSnapshot {
@@ -172,6 +175,22 @@ export function buildCampaignExecutionTruth(snapshot: CampaignExecutionSnapshot)
         ar: `${snapshot.posts.failed} منشور متعثر يحتاج قراراً قبل إعادة المحاولة.`,
       },
     )
+  } else if ((snapshot.posts.overdueScheduled ?? 0) > 0) {
+    const overdue = snapshot.posts.overdueScheduled ?? 0
+    stage = 'NEEDS_ATTENTION'
+    nextAction = item(
+      snapshot,
+      stage,
+      'RESOLVE_OVERDUE_SCHEDULE',
+      'critical',
+      'manual_action',
+      contentHref,
+      { en: 'Resolve overdue scheduled content', ar: 'عالج المحتوى المتأخر عن موعده' },
+      {
+        en: `${overdue} scheduled post${overdue === 1 ? '' : 's'} passed the planned time without verified publication. Publish manually, reschedule, or cancel the execution decision.`,
+        ar: `${overdue} منشور مجدول تجاوز موعده دون إثبات نشر. انشره يدويًا أو أعد جدولته أو ألغِ قرار التنفيذ.`,
+      },
+    )
   } else if (snapshot.strategyBlockers.includes('BRAND_TRUTH_CONFLICT')) {
     stage = 'NEEDS_ATTENTION'
     nextAction = item(
@@ -262,6 +281,22 @@ export function buildCampaignExecutionTruth(snapshot: CampaignExecutionSnapshot)
           ar: `${snapshot.posts.draft} مسودة تحتاج اعتماداً قبل الجدولة.`,
         },
       )
+    } else if ((snapshot.posts.approvedMissingApproval ?? 0) > 0) {
+      const missingApproval = snapshot.posts.approvedMissingApproval ?? 0
+      stage = 'CONTENT_REVIEW'
+      nextAction = item(
+        snapshot,
+        stage,
+        'REVIEW_CONTENT',
+        'critical',
+        'review_required',
+        contentHref,
+        { en: 'Restore copy approval evidence', ar: 'أعد توثيق اعتماد النصوص' },
+        {
+          en: `${missingApproval} approved post${missingApproval === 1 ? '' : 's'} do not have an immutable copy-approval revision. Reopen and approve them before any execution decision.`,
+          ar: `${missingApproval} منشور معتمد بلا نسخة ثابتة لاعتماد النص. أعد فتحه واعتماده قبل أي قرار تنفيذ.`,
+        },
+      )
     } else if ((snapshot.posts.approvedMissingMedia ?? 0) > 0) {
       const pendingMedia = snapshot.posts.approvedMissingMedia ?? 0
       stage = 'MEDIA_REVIEW'
@@ -272,10 +307,10 @@ export function buildCampaignExecutionTruth(snapshot: CampaignExecutionSnapshot)
         'high',
         'manual_action',
         contentHref,
-        { en: 'Complete approved post media', ar: 'أكمل وسائط المحتوى المعتمد' },
+        { en: 'Complete and approve final media', ar: 'أكمل واعتمد الوسائط النهائية' },
         {
-          en: `${pendingMedia} approved post${pendingMedia === 1 ? '' : 's'} still need confirmed media before scheduling.`,
-          ar: `${pendingMedia} منشور معتمد ما زال يحتاج وسائط مؤكدة قبل الجدولة.`,
+          en: `${pendingMedia} approved post${pendingMedia === 1 ? '' : 's'} still need complete, separately approved media before scheduling.`,
+          ar: `${pendingMedia} منشور معتمد ما زال يحتاج وسائط مكتملة ومعتمدة بقرار منفصل قبل الجدولة.`,
         },
       )
     } else if (snapshot.posts.approved > 0) {
@@ -305,7 +340,9 @@ export function buildCampaignExecutionTruth(snapshot: CampaignExecutionSnapshot)
         { en: 'Monitor scheduled content', ar: 'راقب المحتوى المجدول' },
         {
           en: `${snapshot.posts.scheduled} post${snapshot.posts.scheduled === 1 ? '' : 's'} are scheduled; NEXUS will surface failures or new evidence.`,
-          ar: `${snapshot.posts.scheduled} منشور مجدول؛ سيُظهر NEXUS أي تعثر أو دليل جديد.`,
+          ar: snapshot.posts.scheduled === 1
+            ? 'منشور واحد مجدول؛ سيُظهر NEXUS أي تعثر أو دليل جديد.'
+            : `${snapshot.posts.scheduled} منشورات مجدولة؛ سيُظهر NEXUS أي تعثر أو دليل جديد.`,
         },
       )
     } else if (snapshot.posts.publishedWithoutAnalytics > 0) {

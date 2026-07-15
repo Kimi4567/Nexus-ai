@@ -124,7 +124,7 @@ describe('deriveCampaignOperatingState', () => {
   it('SCHEDULED with scheduledAt + MANUAL -> scheduled_manual', () => {
     const state = deriveCampaignOperatingState({
       campaign: strategyCampaign,
-      posts: [{ status: 'SCHEDULED', scheduledAt: '2026-01-02T09:00:00Z', publishMode: 'MANUAL' }],
+      posts: [{ status: 'SCHEDULED', approvedAt: '2026-01-01T09:00:00Z', scheduledAt: '2026-01-02T09:00:00Z', publishMode: 'MANUAL' }],
     })
     expect(state.stage).toBe('scheduled_manual')
     expect(state.counts.scheduledPosts).toBe(1)
@@ -137,6 +137,7 @@ describe('deriveCampaignOperatingState', () => {
       campaign: strategyCampaign,
       posts: [{
         status: 'SCHEDULED',
+        approvedAt: '2026-01-01T08:00:00Z',
         scheduledAt: '2026-01-02T09:00:00Z',
         publishMode: 'AUTO',
         autoPublishConsentAt: '2026-01-01T09:00:00Z',
@@ -150,7 +151,7 @@ describe('deriveCampaignOperatingState', () => {
   it('AUTO without recorded consent remains a manual queue item', () => {
     const state = deriveCampaignOperatingState({
       campaign: strategyCampaign,
-      posts: [{ status: 'SCHEDULED', scheduledAt: '2026-01-02T09:00:00Z', publishMode: 'AUTO' }],
+      posts: [{ status: 'SCHEDULED', approvedAt: '2026-01-01T08:00:00Z', scheduledAt: '2026-01-02T09:00:00Z', publishMode: 'AUTO' }],
     })
 
     expect(state.stage).toBe('scheduled_manual')
@@ -160,10 +161,65 @@ describe('deriveCampaignOperatingState', () => {
     expect(state.blockers).toContain('auto_publish_consent')
   })
 
+  it('does not treat a progressed post without approval evidence as reviewed', () => {
+    const state = deriveCampaignOperatingState({
+      campaign: { ...strategyCampaign, platforms: ['INSTAGRAM', 'LINKEDIN'] },
+      posts: [{
+        status: 'SCHEDULED',
+        scheduledAt: '2026-01-02T09:00:00Z',
+        publishMode: 'MANUAL',
+        platform: 'META',
+        publishTarget: 'INSTAGRAM',
+      }],
+    })
+
+    expect(state.stage).toBe('content_review_needed')
+    expect(state.counts.unreviewedProgressedPosts).toBe(1)
+    expect(state.truthFlags.hasReviewedContent).toBe(false)
+    expect(state.blockers).toContain('approval_evidence')
+  })
+
+  it('blocks an ambiguous or substituted channel outside the campaign scope', () => {
+    const state = deriveCampaignOperatingState({
+      campaign: { ...strategyCampaign, platforms: ['INSTAGRAM', 'LINKEDIN'] },
+      posts: [{
+        status: 'SCHEDULED',
+        approvedAt: '2026-01-01T08:00:00Z',
+        scheduledAt: '2026-01-02T09:00:00Z',
+        publishMode: 'MANUAL',
+        platform: 'META',
+        publishTarget: 'META',
+      }],
+    })
+
+    expect(state.stage).toBe('content_review_needed')
+    expect(state.counts.outOfScopePosts).toBe(1)
+    expect(state.truthFlags.hasChannelScopeMismatch).toBe(true)
+    expect(state.blockers).toContain('channel_scope')
+  })
+
+  it('keeps provider META when the exact publish target is approved Instagram', () => {
+    const state = deriveCampaignOperatingState({
+      campaign: { ...strategyCampaign, platforms: ['INSTAGRAM', 'LINKEDIN'] },
+      posts: [{
+        status: 'SCHEDULED',
+        approvedAt: '2026-01-01T08:00:00Z',
+        scheduledAt: '2026-01-02T09:00:00Z',
+        publishMode: 'MANUAL',
+        platform: 'META',
+        publishTarget: 'INSTAGRAM',
+      }],
+    })
+
+    expect(state.stage).toBe('scheduled_manual')
+    expect(state.counts.outOfScopePosts).toBe(0)
+    expect(state.truthFlags.hasReviewedContent).toBe(true)
+  })
+
   it('SCHEDULED without scheduledAt is not counted as scheduled', () => {
     const state = deriveCampaignOperatingState({
       campaign: strategyCampaign,
-      posts: [{ status: 'SCHEDULED', publishMode: 'AUTO' }],
+      posts: [{ status: 'SCHEDULED', approvedAt: '2026-01-01T08:00:00Z', publishMode: 'AUTO' }],
     })
     expect(state.stage).toBe('strategy_review_needed')
     expect(state.counts.scheduledPosts).toBe(0)
@@ -175,7 +231,7 @@ describe('deriveCampaignOperatingState', () => {
   it('PUBLISHED with publishedAt but no analytics -> published_waiting_for_analytics', () => {
     const state = deriveCampaignOperatingState({
       campaign: strategyCampaign,
-      posts: [{ status: 'PUBLISHED', publishedAt: '2026-01-03T09:00:00Z' }],
+      posts: [{ status: 'PUBLISHED', approvedAt: '2026-01-01T08:00:00Z', publishedAt: '2026-01-03T09:00:00Z' }],
     })
     expect(state.stage).toBe('published_waiting_for_analytics')
     expect(state.truthFlags.hasPublishedContent).toBe(true)
@@ -188,6 +244,7 @@ describe('deriveCampaignOperatingState', () => {
       campaign: strategyCampaign,
       posts: [{
         status: 'PUBLISHED',
+        approvedAt: '2026-01-01T08:00:00Z',
         publishedAt: '2026-01-03T09:00:00Z',
         platformPostId: 'fb_123',
         analyticsData: { reach: 120 },
@@ -203,6 +260,7 @@ describe('deriveCampaignOperatingState', () => {
       campaign: strategyCampaign,
       posts: [{
         status: 'PUBLISHED',
+        approvedAt: '2026-01-01T08:00:00Z',
         publishedAt: '2026-01-03T09:00:00Z',
         analyticsFetched: true,
       }],
@@ -243,7 +301,7 @@ describe('deriveCampaignOperatingState', () => {
   it('published/performance state is stronger than archived state', () => {
     const state = deriveCampaignOperatingState({
       campaign: { ...strategyCampaign, status: 'ARCHIVED' },
-      posts: [{ status: 'PUBLISHED', publishedAt: '2026-01-03T09:00:00Z', analyticsFetched: true }],
+      posts: [{ status: 'PUBLISHED', approvedAt: '2026-01-01T08:00:00Z', publishedAt: '2026-01-03T09:00:00Z', analyticsFetched: true }],
     })
     expect(state.stage).toBe('performance_ready')
   })

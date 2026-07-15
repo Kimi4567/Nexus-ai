@@ -6,11 +6,13 @@ const {
   mockRefund,
   mockRunSentinelReview,
   mockPrisma,
+  mockFinalizeCreditDeduction,
 } = vi.hoisted(() => ({
   mockGetServerUserId: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
   mockRefund: vi.fn(),
   mockRunSentinelReview: vi.fn(),
+  mockFinalizeCreditDeduction: vi.fn(),
   mockPrisma: {
     campaign: { findFirst: vi.fn(), update: vi.fn() },
     campaignActivity: { create: vi.fn() },
@@ -19,8 +21,11 @@ const {
 
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
+vi.mock('@/lib/billableAiRateLimit', () => ({ enforceBillableAiRateLimit: vi.fn().mockResolvedValue(null) }))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
+  creditCheckHttpStatus: (result: any) => result.error === 'CREDIT_OPERATION_REPLAY' ? 409 : 402,
+  finalizeCreditDeduction: mockFinalizeCreditDeduction,
   refundCreditDeduction: vi.fn(async ({ deduction }) => {
     if (deduction?.creditsUsed > 0) await mockRefund()
   }),
@@ -65,6 +70,7 @@ beforeEach(() => {
   mockPrisma.campaignActivity.create.mockResolvedValue({})
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 2, creditsRemaining: 18 })
   mockRefund.mockResolvedValue(undefined)
+  mockFinalizeCreditDeduction.mockResolvedValue({ ok: true, status: 'settled' })
   mockRunSentinelReview.mockResolvedValue({
     status: 'passed',
     riskScore: 5,
@@ -100,16 +106,26 @@ describe('POST /api/campaigns/[id]/sentinel-review — provider and credit order
     expect(mockRunSentinelReview).not.toHaveBeenCalled()
   })
 
-  it('charges only immediately before the real review', async () => {
-    const res = await POST(makeReq({ language: 'en' }), params)
+  it('charges only immediately before the real review and keeps the saved strategy language', async () => {
+    const res = await POST(makeReq({ language: 'ar' }), params)
     const json = await res.json()
 
     expect(res.status).toBe(200)
     expect(json.creditsRemaining).toBe(18)
     expect(json.creditCharge).toMatchObject({ action: 'SENTINEL_REVIEW', cost: 2, creditsUsed: 2 })
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('user_1', 'SENTINEL_REVIEW')
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith(
+      'user_1',
+      'SENTINEL_REVIEW',
+      undefined,
+      expect.objectContaining({
+        entityId: 'campaign_1',
+        entityType: 'campaign_sentinel_review',
+        operationKey: expect.any(String),
+      }),
+    )
     expect(mockRunSentinelReview).toHaveBeenCalledTimes(1)
     expect(mockRunSentinelReview).toHaveBeenCalledWith(expect.objectContaining({
+      language: 'en',
       strategyReviewSource: campaign.aiOutput.strategy,
     }))
     expect(mockPrisma.campaign.update).toHaveBeenCalledWith(expect.objectContaining({

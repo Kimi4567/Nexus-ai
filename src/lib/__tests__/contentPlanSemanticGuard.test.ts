@@ -49,4 +49,18 @@ describe('contentPlanSemanticGuard', () => {
 
     expect(result.ok).toBe(true)
   })
+
+  it('allows operational language for an explicitly described non-clinic SaaS product', () => {
+    const strategy = {
+      keyMessage: 'Clear lead ownership and follow-up',
+      contentAnglesDetailed: [{ title: 'Review the lead handoff', cta: 'Review the workflow' }],
+    }
+    const result = validateContentPlanSemanticAlignment([
+      { caption: 'Map the current lead handoff and review whether one shared workflow makes ownership clearer.' },
+    ], strategy, {
+      brandFacts: ['A bilingual lead-management software system for service-business sales teams'],
+    })
+
+    expect(result.ok).toBe(true)
+  })
 })

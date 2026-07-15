@@ -6,9 +6,11 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 import { getBrandBrainReadiness, type BrandReadinessResult } from '@/lib/brandReadiness'
+import { getBrandIndicators } from '@/lib/brandIndicators'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { type PublishingState } from '@/lib/operatingBriefStatus'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
+import type { ExecutionQueueItem } from '@/lib/executionTruth'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -161,6 +163,12 @@ interface CampaignsResponse {
 
 interface IntelligenceResponse {
   brief?: MarketingIntelligenceBrief
+}
+
+interface ExecutionQueueResponse {
+  truth?: {
+    queue?: ExecutionQueueItem[]
+  }
 }
 
 interface BrandResponse {
@@ -348,11 +356,13 @@ export default function DashboardPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [alerts, setAlerts] = useState<ActivityAlert[]>([])
   const [intelligence, setIntelligence] = useState<MarketingIntelligenceBrief | null>(null)
+  const [executionAction, setExecutionAction] = useState<ExecutionQueueItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [hasConnections, setHasConnections] = useState<boolean | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
+  const [brandCompletenessScore, setBrandCompletenessScore] = useState(0)
   const [brandName, setBrandName] = useState<string | null>(null)
   const [brandTruthBlocked, setBrandTruthBlocked] = useState(false)
   const [workspaceGate, setWorkspaceGate] = useState<WorkspaceGateState>('checking')
@@ -410,12 +420,13 @@ export default function DashboardPage() {
       setLoadError(false)
     }
     try {
-      const [statsRes, campaignsRes, intelligenceRes, brandRes, connectionsRes] = await Promise.allSettled([
+      const [statsRes, campaignsRes, intelligenceRes, brandRes, connectionsRes, executionRes] = await Promise.allSettled([
         fetchWithTimeout('/api/dashboard/stats', { headers: { Authorization: token } }, 9_000),
         fetchWithTimeout('/api/campaigns?limit=5&sort=updatedAt', { headers: { Authorization: token } }, 9_000),
         fetchWithTimeout('/api/dashboard/intelligence', { headers: { Authorization: token } }, 9_000),
         fetchWithTimeout('/api/brand', { headers: { Authorization: token } }, 9_000),
         fetchWithTimeout('/api/social/accounts', { headers: { Authorization: token } }, 9_000),
+        fetchWithTimeout('/api/execution/queue', { headers: { Authorization: token } }, 9_000),
       ])
 
       const statsReady = statsRes.status === 'fulfilled' && statsRes.value.ok
@@ -472,6 +483,7 @@ export default function DashboardPage() {
       if (brandRes.status === 'fulfilled' && brandRes.value.ok) {
         const data = await brandRes.value.json() as BrandResponse
         setBrandReadiness(getBrandBrainReadiness(data.brandProfile))
+        setBrandCompletenessScore(getBrandIndicators(data.brandProfile).brandCompleteness.score)
         setBrandName(data.brandProfile?.brandName || null)
         setBrandTruthBlocked(reviewBrandTruthConsistency(data.brandProfile).status === 'blocked')
       }
@@ -479,6 +491,11 @@ export default function DashboardPage() {
       if (connectionsRes.status === 'fulfilled' && connectionsRes.value.ok) {
         const data = await connectionsRes.value.json() as { accounts?: unknown[] }
         setHasConnections(Array.isArray(data.accounts) && data.accounts.length > 0)
+      }
+
+      if (executionRes.status === 'fulfilled' && executionRes.value.ok) {
+        const data = await executionRes.value.json() as ExecutionQueueResponse
+        setExecutionAction(data.truth?.queue?.[0] ?? null)
       }
 
       setLastUpdated(new Date())
@@ -501,7 +518,10 @@ export default function DashboardPage() {
   const timeStr = lastUpdated.toLocaleTimeString(ar ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' })
   const topCampaign = campaigns[0]
   const platformConnected = hasConnections === true
-  const brandScore = brandReadiness?.score ?? 0
+  // Display the same core-profile completeness score used by Brand Brain.
+  // getBrandBrainReadiness remains a functional generation gate and must not be
+  // relabelled as completeness; the two answer different questions.
+  const brandScore = brandCompletenessScore
   const contentCount = stats?.contentPostsTotal ?? 0
   const campaignCount = stats?.campaigns ?? campaigns.length
   const publishedCount = stats?.publishedPostsTotal ?? 0
@@ -554,6 +574,21 @@ export default function DashboardPage() {
         cta: ar ? 'فتح الاستراتيجية' : 'Open Strategy',
       }
     }
+    if (executionAction) {
+      const monitorSchedule = executionAction.kind === 'MONITOR_SCHEDULE'
+      const analyticsAction = executionAction.kind === 'SYNC_ANALYTICS'
+        || executionAction.kind === 'REVIEW_PERFORMANCE'
+      return {
+        href: monitorSchedule ? '/calendar?tab=queue' : executionAction.href,
+        title: ar ? executionAction.title.ar : executionAction.title.en,
+        body: ar ? executionAction.reason.ar : executionAction.reason.en,
+        cta: monitorSchedule
+          ? (ar ? 'فتح التنفيذ' : 'Open Execution')
+          : analyticsAction
+            ? (ar ? 'فتح النتائج' : 'Open Results')
+            : (ar ? 'تنفيذ الخطوة التالية' : 'Take next action'),
+      }
+    }
     if (contentCount > 0 && publishedCount === 0 && topCampaign) {
       return {
         href: `/campaigns/${topCampaign.id}/content-hub`,
@@ -576,7 +611,7 @@ export default function DashboardPage() {
       body: ar ? 'التعلّم الحقيقي يبدأ فقط بعد وصول بيانات أداء من المنشورات أو الحملات.' : 'Real learning starts only after published content or campaigns collect performance data.',
       cta: ar ? 'فتح التحليلات' : 'Open Analytics',
     }
-  }, [ar, brandName, brandTruthBlocked, campaignCount, contentCount, platformConnected, publishedCount, topCampaign])
+  }, [ar, brandName, brandTruthBlocked, campaignCount, contentCount, executionAction, platformConnected, publishedCount, topCampaign])
 
   if (authLoading || workspaceGate === 'checking' || workspaceGate === 'noWorkspace') {
     return <DashboardGateSurface mode="loading" ar={ar} framed={!authLoading && isAuthenticated} />

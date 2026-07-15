@@ -71,6 +71,14 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).not.toContain('افتح Content Hub للمراجعة')
   })
 
+  it('does not ask users to approve an already-approved strategy again before building content', () => {
+    expect(campaignRoomSource).toContain("strategyAlreadyApproved={campaign?.status === 'ACTIVE'}")
+    expect(campaignRoomSource).toContain("campaign.status === 'ACTIVE'")
+    expect(campaignRoomSource).toContain('إنشاء خطة المحتوى — 2 كريديت')
+    expect(campaignRoomSource).toContain('Build content plan — 2 credits')
+    expect(campaignRoomSource).toContain('The strategy is already approved. NEXUS will verify the saved decision')
+  })
+
   it('keeps paid planning diagnosis scope-aware for organic-only strategies', () => {
     expect(campaignRoomSource).toContain('!includesPaidPlanningStrategy')
     expect(campaignRoomSource).toContain('Not included in this organic run')
@@ -250,6 +258,10 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).toContain('strategyHeaderNextActionHref')
     expect(campaignRoomSource).not.toContain('strategyRoomStateCopy.nextDecision')
     expect(campaignRoomSource).toContain("uiText('اقرأ وثيقة الاستراتيجية', 'Read strategy document')")
+    expect(campaignRoomSource).toContain("uiText('⚠ نتيجة فحص الجودة: المعالجة مطلوبة', '⚠ Quality review result: action required')")
+    expect(campaignRoomSource).toContain("uiText('النص الذي يمنع الاعتماد', 'Text blocking approval')")
+    expect(campaignRoomSource).toContain('Apply safe correction and re-review')
+    expect(campaignRoomSource).toContain("open={sentinelStatus === 'needs_attention'}")
     expect(campaignRoomSource).toContain("uiText('مسار التشغيل التالي', 'Next operating path')")
     expect(campaignRoomSource).toContain("uiText('اتبع هذا الترتيب: محتوى، إبداع، ثم جاهزية المنصات.', 'Follow this order: content, creative, then platform readiness.')")
     expect(campaignRoomSource).toContain('strategyRoomStateCopy.contentHubCta')

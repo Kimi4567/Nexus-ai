@@ -22,15 +22,18 @@ import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import {
   checkAndDeductCredits,
-  refundCredits,
-  refundCreditsForTransaction,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
   getCreditActionPolicy,
+  refundCreditDeduction,
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { extractGoogleSearchTargeting } from '@/lib/adPlatforms/googleAdsApi'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import {
   getPaidStrategySourceForUser,
   PaidStrategySourceError,
@@ -120,12 +123,7 @@ function enforceForecastBoundary(
 }
 
 async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
-  if (credit.creditsUsed <= 0) return
-  if (credit.transactionId) {
-    await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
-    return
-  }
-  await refundCredits(userId, 'PAID_EXECUTION_PLAN', reason)
+  await refundCreditDeduction({ userId, action: 'PAID_EXECUTION_PLAN', deduction: credit, reason })
 }
 
 export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -160,6 +158,8 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
     const paidSource = await getPaidStrategySourceForUser({
       campaignId: typeof campaign.organicCampaignId === 'string' ? campaign.organicCampaignId : '',
       userId: user.id,
+      strategySnapshotId: typeof campaign.strategySnapshotId === 'string' ? campaign.strategySnapshotId : null,
+      requirePinnedSnapshot: true,
     })
     if (campaign.objective !== paidSource.truth.executionObjective) {
       return NextResponse.json({
@@ -385,9 +385,21 @@ Generate a complete paid execution plan as JSON with EXACTLY this structure:
   ]
 }`
 
-    const creditResult = await checkAndDeductCredits(user.id, 'PAID_EXECUTION_PLAN')
+    const rateLimitResponse = await enforceBillableAiRateLimit(user.id, 'PAID_EXECUTION_PLAN')
+    if (rateLimitResponse) return rateLimitResponse
+
+    const creditResult = await checkAndDeductCredits(
+      user.id,
+      'PAID_EXECUTION_PLAN',
+      undefined,
+      {
+        entityId: campaign.id,
+        entityType: 'paid_campaign_execution_plan',
+        operationKey: getCreditOperationKey(req, 'PAID_EXECUTION_PLAN', 'paid_campaign_execution_plan', campaign.id),
+      },
+    )
     if (!creditResult.ok) {
-      return NextResponse.json({ error: 'Insufficient credits', upgradeRequired: true }, { status: 402 })
+      return NextResponse.json(creditResult, { status: creditCheckHttpStatus(creditResult) })
     }
     chargedUserId = user.id
     chargedCredit = creditResult
@@ -455,6 +467,23 @@ Generate a complete paid execution plan as JSON with EXACTLY this structure:
         brandBrainSnapshot,
       },
     })
+
+    const finalization = await finalizeCreditDeduction({
+      userId: user.id,
+      action: 'PAID_EXECUTION_PLAN',
+      deduction: creditResult,
+    })
+    if (!finalization.ok) {
+      chargedUserId = null
+      chargedCredit = null
+      return NextResponse.json({
+        error: 'Paid execution plan was saved but the credit operation could not be finalized. Reserved credits were returned; refresh the campaign.',
+        code: 'CREDIT_FINALIZATION_FAILED',
+        refunded: finalization.refundStatus === 'refunded',
+      }, { status: 503 })
+    }
+    chargedUserId = null
+    chargedCredit = null
 
     return NextResponse.json({
       strategy,

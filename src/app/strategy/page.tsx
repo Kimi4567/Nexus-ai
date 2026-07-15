@@ -29,7 +29,9 @@ import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import { getStrategyBrandAlignment } from '@/lib/strategy/strategyBrandAlignment'
 import { selectStrategyWorkbenchCampaign } from '@/lib/strategy/strategyWorkbenchCampaign'
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
+import { normalizeStrategyEvidenceLedger } from '@/lib/strategy/strategyEvidenceLedger'
 import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
+import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
@@ -307,9 +309,15 @@ export default function StrategyPage() {
     ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
   }
   const displayAllowedPlatforms = (recent?.platforms?.length ? recent.platforms : brandProfile?.topPlatforms) ?? []
+  const displayAllowedNumbers = [brandProfile?.marketingBudget, brandProfile?.pastAdResults]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
   const ai = rawAi
     ? guardStrategyOutputContract(
-        guardStrategyProof(rawAi, displayGuardContext),
+        guardStrategyKpis(
+          guardStrategyProof(rawAi, displayGuardContext),
+          displayAllowedNumbers,
+          { language: strategyLanguage },
+        ),
         {
           allowedPlatforms: displayAllowedPlatforms,
           language: strategyLanguage,
@@ -321,7 +329,11 @@ export default function StrategyPage() {
     : null
   const strat = rawStrat
     ? guardStrategyOutputContract(
-        guardStrategyProof(rawStrat, displayGuardContext),
+        guardStrategyKpis(
+          guardStrategyProof(rawStrat, displayGuardContext),
+          displayAllowedNumbers,
+          { language: strategyLanguage },
+        ),
         {
           allowedPlatforms: displayAllowedPlatforms,
           language: strategyLanguage,
@@ -600,6 +612,7 @@ export default function StrategyPage() {
   const experimentBacklog = asArray(strat?.experimentBacklog).filter(isRecord).slice(0, 3)
   const decisionRules = asArray(strat?.decisionRules).filter(isRecord).slice(0, 3)
   const roadmapPhases = asArray(strat?.roadmap30_60_90).filter(isRecord).slice(0, 3)
+  const evidenceLedger = normalizeStrategyEvidenceLedger(strat?.evidenceLedger)
   const savedRiskNotes = uniqueLabels([
     ...asArray(strat?.riskNotes).map(textLabel),
     ...asArray(strat?.assumptions).map(textLabel),
@@ -797,6 +810,7 @@ export default function StrategyPage() {
         <div className="min-h-screen bg-[#F8FAFF]">
           <div className="mx-auto max-w-[1580px] px-3 py-5 sm:px-5 lg:px-7">
             <LuxuryWorkspaceHeader
+              journeyStage="strategy"
               pageTitle={ar ? 'الاستراتيجية' : 'Strategy'}
               pageSubtitle={ar ? 'نربط Brand Brain بالحملات قبل عرض أي توصية.' : 'Connecting Brand Brain to campaigns before showing recommendations.'}
               primaryHref={null}
@@ -818,6 +832,7 @@ export default function StrategyPage() {
         <div className="min-h-screen bg-[#F8FAFF]">
           <div className="mx-auto max-w-[1580px] px-3 py-5 sm:px-5 lg:px-7">
             <LuxuryWorkspaceHeader
+              journeyStage="strategy"
               pageTitle={ar ? 'الاستراتيجية' : 'Strategy'}
               pageSubtitle={ar ? 'تعذّر التحقق من Brand Brain والحملات.' : 'Brand Brain and campaign data could not be verified.'}
               primaryHref={null}
@@ -847,6 +862,7 @@ export default function StrategyPage() {
       <div className="min-h-screen bg-[#F8FAFF]">
         <div className="mx-auto max-w-[1580px] px-3 py-5 sm:px-5 lg:px-7">
           <LuxuryWorkspaceHeader
+            journeyStage="strategy"
             pageTitle={ar ? 'الاستراتيجية' : 'Strategy'}
             pageSubtitle={hasStrategy
               ? (ar ? `استراتيجية الحملة: ${campaignTitle}` : `Campaign strategy: ${campaignTitle}`)
@@ -1322,6 +1338,30 @@ export default function StrategyPage() {
                 <SoftCard id="strategy-risks" className="scroll-mt-6 p-4">
                   <h3 className="mb-4 flex items-center gap-2 text-[16px] font-black text-[#0B1028]"><AlertTriangle className="h-4 w-4 text-amber-500" />{ar ? 'المخاطر والافتراضات' : 'Risks and assumptions'}</h3>
                   <div className="space-y-2">
+                    <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-black text-indigo-950">{ar ? 'لقطة الأدلة وقت إنشاء الاستراتيجية' : 'Evidence snapshot at strategy generation'}</p>
+                        <span className="rounded-full bg-white px-2 py-1 text-[9px] font-black text-indigo-700">{evidenceLedger.length}</span>
+                      </div>
+                      {evidenceLedger.length > 0 ? (
+                        <div className="mt-2 space-y-2">
+                          {evidenceLedger.map((item) => (
+                            <div key={`${item.statement}-${item.sourceName || 'brand'}`} className="rounded-xl bg-white/90 px-2.5 py-2">
+                              <p className="text-[11px] font-semibold leading-5 text-slate-700">{item.statement}</p>
+                              <p className="mt-1 text-[9px] font-black uppercase tracking-wide text-indigo-600">
+                                {item.status === 'source_linked'
+                                  ? `${ar ? 'مصدر مرفق' : 'Attached source'}: ${item.sourceName}${item.sourceLocator ? ` — ${item.sourceLocator}` : ''}`
+                                  : (ar ? 'مدخل مؤكد في Brand Brain — بلا ملف مصدر مرفق' : 'Confirmed Brand Brain entry — no source file attached')}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-[11px] font-semibold leading-5 text-indigo-800">
+                          {ar ? 'لم تُحفظ أدلة مع هذه الاستراتيجية. تعامل مع الادعاءات كفرضيات حتى تضيف مصدرًا وتوافق عليه في Brand Brain.' : 'No approved evidence was saved with this strategy. Treat claims as hypotheses until a source is added and approved in Brand Brain.'}
+                        </p>
+                      )}
+                    </div>
                     {(savedRiskNotes.length > 0 ? savedRiskNotes : [
                       ar ? 'لا توجد مخاطر محفوظة؛ يحتاج البريف إلى مراجعة قبل التنفيذ.' : 'No risks are saved; the brief needs review before execution.',
                     ]).map((item, index) => (

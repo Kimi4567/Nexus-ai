@@ -4,7 +4,7 @@
  * getStrategyCapabilities() returns STABLE field keys + ready + confidence only
  * (the UI localizes them). Verifies: correct detection, the content base is folded
  * into full/paid so missingKeys is NEVER empty when not ready (no empty "add ."
- * sentence), and getBrandBrainReadiness() (the organic gate) is UNCHANGED.
+ * sentence), and the organic gate uses the same professional input contract.
  * Pure logic — no network, no generation.
  */
 import { describe, it, expect } from 'vitest'
@@ -14,23 +14,26 @@ import {
   type StrategyProfileLike,
 } from '@/lib/brandReadiness'
 
-// Satisfies the 5-field organic/content gate.
+// Satisfies the professional 8-field organic/content gate.
 const contentReadyProfile: StrategyProfileLike = {
   brandName: 'Reem Hospital',
   industry: 'Dental',
   description: 'Dental care in Abu Dhabi',
+  primaryOffer: 'Dental consultations and treatment planning',
   targetAudience: 'Individuals seeking stress-free dental care',
+  audiencePainPoints: ['Unclear treatment steps', 'Delayed appointment follow-up'],
+  businessGoal: 'Generate qualified consultations',
   topPlatforms: ['INSTAGRAM', 'FACEBOOK'],
 }
 
-describe('getBrandBrainReadiness — regression (must stay unchanged)', () => {
+describe('getBrandBrainReadiness — professional organic contract', () => {
   it('NOT ready when required fields missing', () => {
     const r = getBrandBrainReadiness({ brandName: 'X' })
     expect(r.ready).toBe(false)
     expect(r.missingRequired).toContain('industry')
     expect(r.missingRequired).toContain('topPlatforms')
   })
-  it('ready with exactly the 5 required fields', () => {
+  it('ready with the professional 8 required fields', () => {
     const r = getBrandBrainReadiness(contentReadyProfile)
     expect(r.ready).toBe(true)
     expect(r.missingRequired).toEqual([])
@@ -42,7 +45,7 @@ describe('getBrandBrainReadiness — regression (must stay unchanged)', () => {
 })
 
 describe('content strategy', () => {
-  it('ready (high) with the 5 fields', () => {
+  it('ready (high) with the professional organic fields', () => {
     const c = getStrategyCapabilities(contentReadyProfile).contentStrategy
     expect(c.ready).toBe(true)
     expect(c.confidence).toBe('high')
@@ -57,18 +60,17 @@ describe('content strategy', () => {
 })
 
 describe('full marketing strategy', () => {
-  it('partial/low when content ready but goal/offer missing; missingKeys are the extras only', () => {
+  it('partial/low when content ready but location/differentiator are missing', () => {
     const f = getStrategyCapabilities(contentReadyProfile).fullStrategy
     expect(f.ready).toBe(false)
     expect(f.confidence).toBe('low')
-    expect(f.missingKeys).toContain('businessGoal')
+    expect(f.missingKeys).toContain('audienceLocation')
+    expect(f.missingKeys).toContain('uniqueAdvantages')
     expect(f.missingKeys).not.toContain('industry') // content base present
   })
   it('ready/high when goal + offer + location + differentiator present', () => {
     const f = getStrategyCapabilities({
       ...contentReadyProfile,
-      businessGoal: 'More booked consultations',
-      primaryOffer: 'Dental implants package',
       audienceLocation: 'Abu Dhabi',
       uniqueAdvantages: ['Painless tech'],
     }).fullStrategy
@@ -100,6 +102,7 @@ describe('paid strategy', () => {
       marketingBudget: '$1,000–3,000 / month',
       conversionDestination: 'WhatsApp',
       audienceLocation: 'Abu Dhabi',
+      leadHandling: 'Sales team responds within one business day',
     }).paidStrategy
     expect(p.ready).toBe(true)
     expect(p.confidence).toBe('high')
@@ -113,6 +116,7 @@ describe('paid strategy', () => {
       marketingBudget: '$2k/mo',
       conversionDestination: 'WhatsApp',
       audienceLocation: 'Abu Dhabi',
+      leadHandling: 'Sales team responds within one business day',
     }).paidStrategy
     expect(p.ready).toBe(false)
     expect(p.confidence).toBe('none')
