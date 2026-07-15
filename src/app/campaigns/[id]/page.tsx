@@ -48,6 +48,7 @@ import { derivePlatformReadiness, type PlatformState } from '@/lib/platformReadi
 import { deriveStrategyExecutionBridge, type StrategyExecutionRequirement } from '@/lib/strategyExecutionBridge'
 import { deriveStrategyFulfillmentSummary, type StrategyFulfillmentTone } from '@/lib/strategyFulfillment'
 import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
+import { buildStrategySnapshot } from '@/lib/strategy/strategySnapshot'
 
 interface Activity {
   id: string
@@ -1988,6 +1989,18 @@ function CampaignDetailPageInner() {
       ? uiText(` · ${missingDataLabels.length} مدخلات ناقصة`, ` · ${missingDataLabels.length} missing input${missingDataLabels.length === 1 ? '' : 's'}`)
       : ''}`
     : uiText('تحتاج مراجعة بشرية قبل التنفيذ', 'Needs human review before execution')
+  const strategySnapshot = buildStrategySnapshot({
+    campaignId: campaign.id,
+    scope: strategyScope.type,
+    goal: campaign.goal,
+    strategy,
+    evidenceRefs: evidenceLedger,
+    assumptions: [...safeAssumptions, ...safeExecutionAssumptions],
+    missingInputs: missingDataLabels,
+    riskFlags: [...riskNotes, ...safeExecutionAssumptions],
+    approvalState: campaign.status === 'ACTIVE' && sentinelStatus === 'passed' ? 'approved' : brandTruthBlocked ? 'blocked' : sentinelStatus === 'needs_attention' ? 'review' : 'draft',
+    version: typeof (aiOutput as any)?.strategyVersion === 'number' ? (aiOutput as any).strategyVersion : null,
+  })
   const strategyFulfillmentSummary = deriveStrategyFulfillmentSummary({
     aiOutput: campaign.aiOutput,
     posts: campaignPosts.map((post: any) => ({
@@ -3089,7 +3102,9 @@ function CampaignDetailPageInner() {
             {activeTab === 0 && !showStrategyDocument && (
               <StrategyDecisionDesk
                 campaign={campaign}
+                snapshot={strategySnapshot}
                 strategy={strategy}
+                brandProfile={brandDNA as Record<string, any> | null}
                 strategyScopeTruth={strategyScopeTruth}
                 strategyConfidenceTruth={strategyConfidenceTruth}
                 operatingState={operatingState}
@@ -3099,7 +3114,18 @@ function CampaignDetailPageInner() {
                 brandScore={brandScore}
                 brandTruthBlocked={brandTruthBlocked}
                 missingData={missingDataLabels}
-                evidenceCount={evidenceLedger.length}
+                evidenceItems={evidenceLedger}
+                actualPosts={campaignPosts.map((post: any) => ({
+                  id: String(post.id),
+                  platform: post.platform,
+                  status: post.status,
+                  caption: post.caption,
+                  imageUrl: post.imageUrl,
+                  publishedAt: post.publishedAt,
+                  scheduledAt: post.scheduledAt,
+                  analyticsData: post.analyticsData,
+                }))}
+                platformStates={strategyPlatformStates}
                 nextAction={{
                   title: strategyHeaderNextActionTitle,
                   helper: strategyHeaderNextActionHelper,
