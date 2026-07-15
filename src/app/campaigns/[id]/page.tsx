@@ -10,6 +10,7 @@ import AppShell from '@/components/AppShell'
 import VisualGenerator from '@/components/VisualGenerator'
 import BrandDNABadge, { type BrandDNAData } from '@/components/BrandDNABadge'
 import CampaignProofOfWork from '@/components/campaign/CampaignProofOfWork'
+import StrategyDecisionDesk from '@/components/campaign/StrategyDecisionDesk'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import UpgradeModal from '@/components/UpgradeModal'
 import CreditConfirmModal from '@/components/CreditConfirmModal'
@@ -490,6 +491,7 @@ function CampaignDetailPageInner() {
   const [pendingLearningCount, setPendingLearningCount] = useState(0)
   const [fetching, setFetching] = useState(true)
   const [activeTab, setActiveTab] = useState(() => campaignRoomTabIndexFromQuery(searchParams?.get('tab')))
+  const pendingTabKeyRef = useRef<string | null>(null)
   const [brandScore, setBrandScore] = useState<number | null>(null)
   const [brandDNA, setBrandDNA] = useState<BrandDNAData | null>(null)
   const [brandNoticeDismissed, setBrandNoticeDismissed] = useState(false)
@@ -606,13 +608,23 @@ function CampaignDetailPageInner() {
   }
 
   useEffect(() => {
+    const nextKey = campaignRoomTabKeyFromIndex(campaignRoomTabIndexFromQuery(searchParams?.get('tab')))
+    // Keep the selected workspace stable while router.replace settles. This
+    // prevents a slow query update from visually jumping back to the previous
+    // tab after the user has already chosen the next one.
+    if (pendingTabKeyRef.current && pendingTabKeyRef.current !== nextKey) return
+    pendingTabKeyRef.current = null
     setActiveTab(campaignRoomTabIndexFromQuery(searchParams?.get('tab')))
   }, [searchParams])
 
   const handleCampaignRoomTabClick = useCallback((index: number) => {
     const tabKey = campaignRoomTabKeyFromIndex(index)
+    pendingTabKeyRef.current = tabKey
     setActiveTab(index)
-    const nextParams = new URLSearchParams(searchParams?.toString())
+    // Build from the browser's current URL instead of the captured searchParams
+    // object. Rapid tab changes can otherwise reuse a stale query and leave the
+    // visible workspace one step ahead of the deep link after a refresh.
+    const nextParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : searchParams?.toString())
     nextParams.set('tab', tabKey)
     const query = nextParams.toString()
     router.replace(`/campaigns/${campaignId}${query ? `?${query}` : ''}`, { scroll: false })
@@ -3051,7 +3063,7 @@ function CampaignDetailPageInner() {
                 </label>
               </div>
 
-              {activeTab === 0 && strategySectionNavItems.length > 0 && (
+              {activeTab === 0 && strategySectionNavItems.length > 0 && showStrategyDocument && (
                 <details className="mt-3 border-t border-slate-200 pt-3">
                   <summary className="cursor-pointer text-xs font-bold text-indigo-700">
                     {strategyDocText(`أقسام وثيقة الاستراتيجية (${strategySectionNavItems.length})`, `Strategy document sections (${strategySectionNavItems.length})`)}
@@ -3074,7 +3086,32 @@ function CampaignDetailPageInner() {
             </div>
 
             {/* ── Tab 0: Strategy (Strategist) ─────────────────────────────── */}
-            {activeTab === 0 && (
+            {activeTab === 0 && !showStrategyDocument && (
+              <StrategyDecisionDesk
+                campaign={campaign}
+                strategy={strategy}
+                strategyScopeTruth={strategyScopeTruth}
+                strategyConfidenceTruth={strategyConfidenceTruth}
+                operatingState={operatingState}
+                fulfillment={strategyFulfillmentSummary}
+                executionBridge={strategyExecutionBridge}
+                creativeSummary={creativeRequirementsSummary}
+                brandScore={brandScore}
+                brandTruthBlocked={brandTruthBlocked}
+                missingData={missingDataLabels}
+                evidenceCount={evidenceLedger.length}
+                nextAction={{
+                  title: strategyHeaderNextActionTitle,
+                  helper: strategyHeaderNextActionHelper,
+                  label: strategyHeaderNextActionLabel,
+                  href: strategyHeaderNextActionHref,
+                }}
+                qualityState={sentinelStatus}
+                locale={uiIsArabic ? 'ar' : 'en'}
+                onReadDocument={() => setShowStrategyDocument(true)}
+              />
+            )}
+            {activeTab === 0 && showStrategyDocument && (
               <div className="space-y-5">
                 <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
                   <div className="border-b border-slate-200 bg-white px-5 py-6 sm:px-7">
