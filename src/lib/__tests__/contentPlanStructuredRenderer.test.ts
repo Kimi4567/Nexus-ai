@@ -272,6 +272,15 @@ describe('contentPlanStructuredRenderer', () => {
     }
   })
 
+  it('rejects lowercase sentence starts without blocking valid title case', () => {
+    expect(validateContentPlanDraftForSave({
+      caption: 'Keep approved messaging in the workflow. with NEXUS AI.',
+    }).ok).toBe(false)
+    expect(validateContentPlanDraftForSave({
+      caption: 'Keep approved messaging in the workflow. With NEXUS AI, review the next handoff.',
+    }).ok).toBe(true)
+  })
+
   it('rejects weak coffee drafts and invented imagery instead of substituting another campaign', () => {
     const context: ContentPlanRenderContext = {
       isArabic: false,

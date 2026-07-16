@@ -76,7 +76,13 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'malformed_caption',
-    re: /\bhelps that\b|\bhelp consistent\b|\bhelp your [^.!?]{0,80} remains\b|\bHelp your campaigns are\b|\bHelp unified communication\b|\.\s+with\s+[A-Z0-9]|يساعد على من هوية|ندعم? أن تظل|#[\p{L}\p{N}_]*coffeeless\b/iu,
+    re: /\bhelps that\b|\bhelp consistent\b|\bhelp your [^.!?]{0,80} remains\b|\bHelp your campaigns are\b|\bHelp unified communication\b|يساعد على من هوية|ندعم? أن تظل|#[\p{L}\p{N}_]*coffeeless\b/iu,
+  },
+  {
+    reason: 'malformed_caption',
+    // Case-sensitive by design: sentence-start ". With NEXUS" is valid,
+    // while the observed model defect was a lowercase ". with NEXUS".
+    re: /\.\s+with\s+[A-Z0-9]/u,
   },
   {
     reason: 'unsupported_absolute_claim',
