@@ -37,6 +37,7 @@ const {
     workspace: { findFirst: vi.fn() },
     brandProfile: { findUnique: vi.fn() },
     user: { findUnique: vi.fn(), update: vi.fn() },
+    subscription: { findUnique: vi.fn() },
     creditTransaction: { create: vi.fn() },
     media: { findMany: vi.fn() },
     campaign: { findFirst: vi.fn() },
@@ -126,6 +127,7 @@ beforeEach(() => {
     aiCredits: 100,
     monthlyGenerations: 1,
   })
+  mockPrisma.subscription.findUnique.mockResolvedValue({ plan: 'PRO', status: 'ACTIVE' })
   mockPrisma.user.update.mockResolvedValue({})
   mockPrisma.creditTransaction.create.mockResolvedValue({})
   mockPrisma.media.findMany.mockResolvedValue([])
