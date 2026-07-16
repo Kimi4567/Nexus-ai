@@ -1122,6 +1122,23 @@ describe('contentDraftTruthGuard', () => {
     expect(JSON.stringify(guarded)).not.toMatch(/amazing|incredible results|control your budget|consistent everywhere/i)
   })
 
+  it('inherits the topic from sibling creative fields and preserves Date values', () => {
+    const scheduledAt = new Date('2026-07-18T10:00:00.000Z')
+    const [guarded] = guardContentDraftTruth([{
+      caption: 'شاهد الإمكانيات الكاملة لعملية تسويق شاملة مع NEXUS AI.',
+      videoPrompt: 'Show the NEXUS AI workflow from strategy to execution.',
+      scheduledAt,
+    }], {
+      brandFacts: ['NEXUS AI records campaign workflow stages.'],
+    })
+
+    expect(guarded.caption).toContain('Brand Brain')
+    expect(guarded.caption).toContain('القرار التالي')
+    expect(guarded.videoPrompt).toContain('six distinct stages')
+    expect(guarded.scheduledAt).toBe(scheduledAt)
+    expect(guarded.scheduledAt).toBeInstanceOf(Date)
+  })
+
   it('documents the draft-only content plan policy', () => {
     const prompt = buildContentDraftTruthPolicyPrompt()
 

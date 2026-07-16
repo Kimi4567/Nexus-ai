@@ -1067,11 +1067,12 @@ function canonicalNexusDraftField(
   guarded: string,
   keyPath: string,
   context: ContentDraftTruthContext,
+  siblingCorpus = '',
 ): string {
   if (!/(?:^|\.)(?:caption|videoPrompt|imagePrompt)$/.test(keyPath)) return guarded
   const corpus = original + ' ' + guarded + ' ' + brandFactCorpus(context)
   if (!/(?:\bNEXUS\s*AI\b|نكسوس\s*AI)/i.test(corpus)) return guarded
-  const topicCorpus = original + ' ' + guarded
+  const topicCorpus = original + ' ' + guarded + ' ' + siblingCorpus
 
   const itemIndex = Number(keyPath.match(/\[(\d+)\]/)?.[1] ?? 0)
   const isArabic = /[\u0600-\u06ff]/u.test(original)
@@ -1160,19 +1161,25 @@ function guardContentDraftValue(
   input: unknown,
   context: ContentDraftTruthContext,
   keyPath: string,
+  siblingCorpus = '',
 ): unknown {
   if (typeof input === 'string') {
     const guarded = guardContentDraftText(input, context)
-    return canonicalNexusDraftField(input, guarded, keyPath, context)
+    return canonicalNexusDraftField(input, guarded, keyPath, context, siblingCorpus)
   }
+  if (input instanceof Date) return input
   if (Array.isArray(input)) {
     return input.map((item, index) => guardContentDraftValue(item, context, keyPath + '[' + index + ']'))
   }
   if (input && typeof input === 'object') {
+    const record = input as Record<string, unknown>
+    const recordCorpus = Object.values(record)
+      .filter((value): value is string => typeof value === 'string')
+      .join(' ')
     const output: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+    for (const [key, value] of Object.entries(record)) {
       const valuePath = keyPath ? keyPath + '.' + key : key
-      output[key] = guardContentDraftValue(value, context, valuePath)
+      output[key] = guardContentDraftValue(value, context, valuePath, recordCorpus)
     }
     return output
   }
