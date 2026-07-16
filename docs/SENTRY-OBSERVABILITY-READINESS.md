@@ -34,8 +34,8 @@ controls browser reporting. They do not implicitly enable one another.
 - Reused the existing `nexus-ai-ud/javascript-nextjs` project instead of
   creating a duplicate project or DSN.
 - Added the server DSN, independent runtime gates, stable environment labels,
-  and source-map settings to the Vercel Preview scope only. Production runtime
-  gates remain unset.
+  and source-map settings to the Vercel Preview scope first. Production was
+  activated only after the controlled Preview checks below passed.
 - Created a least-privilege `org:ci` organization token for build-time artifact
   uploads. It is stored as a sensitive Vercel Preview variable and is not kept
   in the repository.
@@ -55,9 +55,8 @@ controls browser reporting. They do not implicitly enable one another.
   warnings.
 - Ownership rules assign billing, credit, publishing, platform integration,
   AI generation, and observability failures to the project owner. The existing
-  high-priority issue alert remains enabled and will be restricted to the
-  `production` environment as soon as that environment is created by the first
-  Production event.
+  high-priority issue alert remains enabled and is restricted to the
+  `production` environment.
 
 ## Production preparation (2026-07-16)
 
@@ -70,7 +69,20 @@ controls browser reporting. They do not implicitly enable one another.
 - `NEXT_PUBLIC_SENTRY_DSN` is available in both Preview and Production. All
   other environment-specific settings use separate records so Preview and
   Production cannot overwrite one another.
-- Production code deployment and the post-deploy verification remain pending.
+- Production deployment `dpl_9sXfDL3ztjhueUyQq3KKMHpcC9Dd` reached `READY`,
+  was aliased to `https://www.nexus-grow.com`, and uploaded browser and server
+  source maps for release `df984db1b4611c67e97decce37b65cc6f21538a5`.
+- The live landing page loaded without browser console errors or warnings, and
+  `GET /api/health` returned HTTP 200 with the expected healthy service body.
+- The Preview-only `/internal/observability-smoke` route returned the branded
+  HTTP 404 page in Production, so no public Production smoke control exists.
+- `scripts/sentry-smoke.mts` delivered and flushed one privacy-safe controlled
+  event with `environment=production` and
+  `nexus.error_code=SENTRY_SMOKE_TEST`. Sentry displayed it under
+  `JAVASCRIPT-NEXTJS-3` without customer data or credentials.
+- The existing high-priority issue alert was saved with
+  `Environment: production`; its suggested-assignee routing and ownership
+  rules remain enabled.
 
 ## Final activation checklist
 
@@ -84,9 +96,10 @@ controls browser reporting. They do not implicitly enable one another.
 8. Apply issue alerts, ownership rules, retention, and team access before enabling Production.
 9. Set both environment labels to `production`, enable the three gates in Production, and run the same browser/server verification.
 
-Preview browser/server delivery, privacy filtering, and source-map upload are
-proven. Production variables, ownership, and the alert foundation are ready;
-the remaining activation work is the Production deployment, post-deploy smoke
-verification, and restricting the high-priority alert to `production`.
+Preview and Production delivery, privacy filtering, environment isolation,
+source-map upload, ownership, live health, and Production-only alert routing
+are proven. The controlled Production smoke issue can be resolved after the
+evidence is no longer needed; it is tagged as a smoke test and is not a product
+failure.
 
 Do not commit any DSN replacement, auth token, organization secret, or project credential to the repository.
