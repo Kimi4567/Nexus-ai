@@ -1025,6 +1025,46 @@ describe('contentDraftTruthGuard', () => {
     expect(guarded).not.toContain('. with NEXUS')
   })
 
+  it('bounds NEXUS approval, credit, workflow, and Brand Brain claims across all draft fields', () => {
+    const guarded = guardContentDraftTruth({
+      caption: 'اكتشف كيف يمكن للإشراف البشري تعزيز التسويق بالذكاء الاصطناعي. نحن هنا لنوضح لك كيف تدعم عملية الموافقة البشرية أن تكون جهودك التسويقية مدروسة وآمنة.',
+      imagePrompt: 'A clean and professional infographic illustrating the NEXUS AI credit system, showing steps and benefits of using credits for budget management.',
+      nested: [
+        {
+          caption: 'Understand how NEXUS AI credits work to give you budget predictability. With our transparent credit system, you can manage your marketing spend effectively and confidently. Stay in control of your budget with NEXUS AI.',
+          videoPrompt: 'Discover how NEXUS AI brings everything together in one streamlined workflow. Request a demo today to see it in action!',
+        },
+        {
+          caption: 'اكتشف كيف يحافظ NEXUS AI على صوت علامتك التجارية. نحن نسعى إلى دعم أن تظل رسائلك متسقة عبر جميع القنوات.',
+          videoPrompt: 'Our tools Help your campaigns are run smoothly and effectively. Explore our features today!',
+        },
+        {
+          caption: "Streamline your marketing with NEXUS AI's governed workflow. See the full potential of an end-to-end marketing workflow.",
+          videoPrompt: 'NEXUS AI offers a seamless, end-to-end workflow that integrates all your marketing needs into one platform. Discover the benefits today!',
+        },
+        {
+          caption: 'Explore the synergy between AI and human expertise. Gain clarity on your marketing spend with our credit system.',
+          imagePrompt: 'A creative illustration of a megaphone with various brand elements flowing out, symbolizing consistent brand messaging maintained by AI.',
+          videoPrompt: 'Worried about AI replacing human jobs? At NEXUS AI, we believe in collaboration. NEXUS AI helps maintain your brand voice across all platforms. Learn how we Help unified communication for your brand.',
+        },
+        {
+          imagePrompt: 'A clear and informative infographic showing the NEXUS AI credit system, highlighting transparency and budget control benefits.',
+        },
+      ],
+    }, {
+      brandFacts: [
+        'Publishing and ad spend require approval.',
+        'Metered AI actions display a credit cost and create a ledger entry.',
+        'Brand Brain supplies approved messaging to campaign drafts.',
+      ],
+    })
+    const serialized = JSON.stringify(guarded)
+
+    expect(serialized).toContain('quoted cost')
+    expect(serialized).toContain('Brand Brain')
+    expect(serialized).not.toMatch(/مدروسة وآمنة|budget predictability|manage your marketing spend effectively|stay in control|steps and benefits|brings everything together|request a demo|Help your campaigns are|smoothly and effectively|full potential|seamless, end-to-end|integrates all your marketing needs|helps maintain your brand voice|Help unified communication|gain clarity on your marketing spend|governed workflow in NEXUS AI's governed workflow|synergy between AI and human|replacing human jobs|maintained by AI|budget control benefits/i)
+  })
+
   it('documents the draft-only content plan policy', () => {
     const prompt = buildContentDraftTruthPolicyPrompt()
 

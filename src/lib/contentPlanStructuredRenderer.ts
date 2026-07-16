@@ -76,11 +76,11 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'malformed_caption',
-    re: /\bhelps that\b|\bhelp consistent\b|\bhelp your [^.!?]{0,80} remains\b|\.\s+with\s+[A-Z0-9]|يساعد على من هوية|#[\p{L}\p{N}_]*coffeeless\b/iu,
+    re: /\bhelps that\b|\bhelp consistent\b|\bhelp your [^.!?]{0,80} remains\b|\bHelp your campaigns are\b|\bHelp unified communication\b|\.\s+with\s+[A-Z0-9]|يساعد على من هوية|ندعم? أن تظل|#[\p{L}\p{N}_]*coffeeless\b/iu,
   },
   {
     reason: 'unsupported_absolute_claim',
-    re: /\beliminat(?:e|es|ed|ing) scattered efforts\b|\bachieve seamless operations\b|\benhances? resource utilization\b|\btrust that every marketing decision\b|\bput your budget concerns to rest\b|\bknow exactly where your marketing spend is going\b|\bwon't hold you back\b|\bachieving marketing success\b|\benhances marketing solutions\b|\bmake the most of your resources\b|ضمان دقة وفعالية الاستراتيجيات|التحكم الكامل في إنفاقك|تحسين عملياتك التسويقية/i,
+    re: /\beliminat(?:e|es|ed|ing) scattered efforts\b|\bachieve seamless operations\b|\benhances? resource utilization\b|\btrust that every marketing decision\b|\bput your budget concerns to rest\b|\bknow exactly where your marketing spend is going\b|\bbudget predictability\b|\bmanage your marketing spend effectively\b|\bstay in control of your budget\b|\bprovides insights and control over your budget\b|\bbudget control benefits\b|\bconsistent brand messaging maintained by AI\b|\bwon't hold you back\b|\bachieving marketing success\b|\brun smoothly and effectively\b|\benhance your marketing strategies\b|\benhances marketing solutions\b|\bfull potential\b|\bseamless,? end-to-end workflow\b|\bintegrates all your marketing needs\b|\bhelps maintain your brand voice\b|\bmake the most of your resources\b|ضمان دقة وفعالية الاستراتيجيات|مدروسة وآمنة|التحكم الكامل في إنفاقك|تحسين عملياتك التسويقية/i,
   },
   {
     reason: 'unsupported_absolute_claim',

@@ -513,6 +513,106 @@ function guardDeliveryClaims(text: string): string {
 function guardDraftCopyQuality(text: string): string {
   return text
     .replace(
+      /اكتشف كيف يمكن للإشراف البشري تعزيز التسويق بالذكاء الاصطناعي\.?/g,
+      'راجع أين تتدخل الموافقة البشرية في مسار التسويق المدعوم بالذكاء الاصطناعي.',
+    )
+    .replace(
+      /نحن هنا لنوضح لك كيف تدعم عملية الموافقة البشرية أن تكون جهودك التسويقية مدروسة وآمنة\.?/g,
+      'تبقى مسودات الاستراتيجية والمحتوى للمراجعة البشرية، ويتطلب النشر والإنفاق الإعلاني موافقة.',
+    )
+    .replace(
+      /اكتشف كيف يحافظ NEXUS AI على صوت علامتك التجارية\.?/gi,
+      'راجع كيف يحمل Brand Brain الرسائل المعتمدة إلى مسودات القنوات.',
+    )
+    .replace(
+      /نحن نسعى إلى دعم أن تظل رسائلك متسقة عبر جميع القنوات\.?/g,
+      'راجع الرسائل المعتمدة قبل اعتماد محتوى كل قناة.',
+    )
+    .replace(
+      /\bUnderstand how ([^.!?]+) credits work to give you budget predictability\.?/gi,
+      'Review the displayed credit cost and ledger entry for each metered action in $1.',
+    )
+    .replace(
+      /\bWith our transparent credit system, you can manage your marketing spend effectively and confidently\.?/gi,
+      'The product displays the credit cost before each metered AI action and records its result.',
+    )
+    .replace(
+      /\bStay in control of your budget with ([^.!?]+)\.?/gi,
+      'Review credit history and configured spend limits in $1.',
+    )
+    .replace(
+      /\bOur transparent credit system provides insights and control over your budget\.?/gi,
+      'The product displays metered AI costs and records credit transactions in the ledger.',
+    )
+    .replace(
+      /\b(?:A clean and professional|A clear and informative) infographic illustrating the ([^.!?]+) credit system, showing steps and benefits of using credits for budget management\.?/gi,
+      'An editorial diagram of the documented credit flow: quoted cost, confirmed action, and ledger entry; no savings or performance claims.',
+    )
+    .replace(
+      /\bDiscover how ([^.!?]+) brings everything together in one streamlined workflow\.?/gi,
+      'Review the documented handoffs and ownership stages in $1.',
+    )
+    .replace(
+      /\bRequest a demo today to see it in action!?/gi,
+      'Review the workflow in the product.',
+    )
+    .replace(
+      /\bOur tools Help your campaigns are run smoothly and effectively\.?/g,
+      'Use the workflow to review campaign responsibilities and handoffs.',
+    )
+    .replace(
+      /\bExplore our features today!?/gi,
+      'Review the documented workflow.',
+    )
+    .replace(
+      /\bDiscover how AI and human expertise work hand-in-hand to enhance your marketing strategies\.?/gi,
+      'Review where AI drafts require human review and approval.',
+    )
+    .replace(
+      /\bWatch now to learn more!?/gi,
+      'Review the approval handoffs.',
+    )
+    .replace(
+      /\bSee the full potential of an end-to-end marketing workflow\.?/gi,
+      'Review the documented end-to-end marketing workflow.',
+    )
+    .replace(
+      /\b([^.!?]+) offers a seamless, end-to-end workflow that integrates all your marketing needs into one platform\.?/gi,
+      'Review the documented strategy, draft, approval, execution, and learning stages in $1.',
+    )
+    .replace(
+      /\bDiscover the benefits today!?/gi,
+      'Review the workflow stages and current limitations.',
+    )
+    .replace(
+      /\b([^.!?]+) helps maintain your brand voice across all platforms\.?/gi,
+      'Review how Brand Brain carries approved messaging into channel drafts in $1.',
+    )
+    .replace(
+      /\bLearn how we Help unified communication for your brand\.?/g,
+      'Review approved messaging before channel content is approved.',
+    )
+    .replace(
+      /\bStreamline your marketing with NEXUS AI's governed workflow\.?/gi,
+      'Review the governed marketing workflow in NEXUS AI.',
+    )
+    .replace(
+      /\bExplore the synergy between AI and human expertise\.?/gi,
+      'Review where AI prepares drafts and people review or approve them.',
+    )
+    .replace(
+      /\bWorried about AI replacing human jobs\?\s*At NEXUS AI, we believe in collaboration\.?/gi,
+      'Review the documented division between AI drafting and human review in NEXUS AI.',
+    )
+    .replace(
+      /\bA creative illustration of a megaphone with various brand elements flowing out, symbolizing consistent brand messaging maintained by AI\.?/gi,
+      'An editorial illustration connecting approved Brand Brain messaging to channel drafts; show review checkpoints rather than automatic outcomes.',
+    )
+    .replace(
+      /\bA clear and informative infographic showing the NEXUS AI credit system, highlighting transparency and budget control benefits\.?/gi,
+      'An editorial diagram of the documented credit flow: quoted cost, confirmed action, and ledger entry; no savings or budget-control claim.',
+    )
+    .replace(
       /اكتشف كيف تعزز الرقابة البشرية التسويق بالذكاء الاصطناعي\.?/g,
       'راجع أين تتدخل الموافقة البشرية في مسار التسويق المدعوم بالذكاء الاصطناعي.',
     )
@@ -569,6 +669,8 @@ function guardDraftCopyQuality(text: string): string {
       'Compare the proposed workload with the available team capacity.',
     )
     .replace(/\.\s+with ([A-Z0-9])/g, '. With $1')
+    .replace(/\bStreamline your marketing(?: efforts)? with ([^.!?]+)\.?/gi, 'Review the governed marketing workflow in $1.')
+    .replace(/\bGain clarity on your marketing spend with our credit system\.?/gi, 'Review the displayed credit cost and ledger history for metered AI actions.')
     .replace(
       /\bWith ([^.!?]{1,80}), you can trust that every marketing decision is backed by human approval\.?/gi,
       '$1 requires human approval before publishing or ad spend.',
