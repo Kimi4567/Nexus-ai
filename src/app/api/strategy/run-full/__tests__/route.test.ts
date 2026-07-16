@@ -213,6 +213,27 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     }))
   })
 
+  it('records the effective plan-capped count in the credit ledger description', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      preferences: {},
+      subscriptionStatus: 'FREE',
+      aiCredits: 100,
+      monthlyGenerations: 1,
+    })
+    mockPrisma.subscription.findUnique.mockResolvedValue(null)
+
+    await POST(makeReq({
+      strategyType: 'organic',
+      strategyDuration: '30',
+      contentIntensity: 'light',
+      customOrganicPostCount: 9,
+    }))
+
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 12, expect.objectContaining({
+      description: expect.stringContaining('plan-capped output 3 of 9 requested'),
+    }))
+  })
+
   it('9. insufficient credits → 402 during preflight before orchestration or deduction', async () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       preferences: {},

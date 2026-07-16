@@ -439,6 +439,16 @@ export async function POST(req: NextRequest) {
       order,
       typeof postsPerMonth === 'number' ? { postsPerMonth } : undefined,
     )
+    const requestedOrganicPostCount = order.strategyType !== 'paid'
+      ? order.customOrganicPostCount
+      : null
+    const effectiveOrganicPostCount = deliverables.organicPostCount
+    const planCapLedgerNote =
+      typeof requestedOrganicPostCount === 'number' &&
+      typeof effectiveOrganicPostCount === 'number' &&
+      effectiveOrganicPostCount !== requestedOrganicPostCount
+        ? `; plan-capped output ${effectiveOrganicPostCount} of ${requestedOrganicPostCount} requested`
+        : ''
 
     // Build brief from Brand Brain data after generation-safety screening.
     const brief = {
@@ -537,7 +547,7 @@ export async function POST(req: NextRequest) {
             entityId: workspace.id,
             entityType: 'workspace_strategy_run',
             operationKey: getCreditOperationKey(req, 'RUN_FULL_STRATEGY', 'workspace_strategy_run', workspace.id),
-            description: `${charge.pricing.pricingExplanation} — ${strategyCreditCost} credits`,
+            description: `${charge.pricing.pricingExplanation}${planCapLedgerNote} — ${strategyCreditCost} credits`,
           },
         )
         if (!credit.ok) {
