@@ -4633,8 +4633,15 @@ function PostCard({
             : <>✨ {t('contentHub.rewriteCopyShort')}</>
           }
         </button>
-        {/* Generate AI image (disabled for TikTok — needs real video) */}
-        {platform === 'TIKTOK' ? (
+        {/* Video slots require user-supplied video; never offer or charge for an unrelated image. */}
+        {isVideo ? (
+          <div
+            className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug flex items-center justify-center gap-1 text-slate-500"
+            style={{ borderColor: 'rgba(15,23,42,0.08)', background: '#F8FAFC' }}
+          >
+            🎬 {isAr ? 'خانة فيديو · دون توليد صورة' : 'Video slot · no image generation'}
+          </div>
+        ) : platform === 'TIKTOK' ? (
           <button onClick={onOpenMediaPicker}
             className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug transition-all flex items-center justify-center gap-1"
             style={{ borderColor: 'rgba(15,23,42,0.08)', color: '#DB2777' }}
