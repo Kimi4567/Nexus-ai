@@ -108,7 +108,6 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
         status: 'APPROVED',
         OR: [
           { imageUrl: null },
-          { generationStatus: null },
           { generationStatus: { not: 'DONE' } },
           { mediaApprovalSnapshotId: null },
         ],
@@ -125,7 +124,6 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
           { approvedAt: null },
           { approvedSnapshotId: null },
           { imageUrl: null },
-          { generationStatus: null },
           { generationStatus: { not: 'DONE' } },
           { mediaApprovalSnapshotId: null },
           { scheduledAt: null },

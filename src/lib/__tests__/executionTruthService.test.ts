@@ -106,6 +106,19 @@ describe('execution truth service', () => {
     expect(result.queue[0].kind).toBe('REVIEW_MEDIA')
   })
 
+  it('does not query the required generationStatus field as nullable', async () => {
+    prismaMock.campaign.findMany.mockResolvedValue([
+      { ...campaignBase, id: 'c2', name: 'Content ready', status: 'ACTIVE' },
+    ])
+
+    await getWorkspaceExecutionTruth('u1')
+
+    const approvedMediaQuery = prismaMock.socialPost.groupBy.mock.calls[2][0]
+    const scheduledIntegrityQuery = prismaMock.socialPost.groupBy.mock.calls[3][0]
+    expect(approvedMediaQuery.where.OR).not.toContainEqual({ generationStatus: null })
+    expect(scheduledIntegrityQuery.where.OR).not.toContainEqual({ generationStatus: null })
+  })
+
   it('surfaces a scheduled post whose publish time passed without publication', async () => {
     prismaMock.campaign.findMany.mockResolvedValue([
       { ...campaignBase, id: 'c2', name: 'Overdue schedule', status: 'ACTIVE' },
