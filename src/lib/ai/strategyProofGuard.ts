@@ -211,6 +211,11 @@ function cleanProofCollectionArtifacts(text: string): string {
 function softenUnsupportedPerformancePromises(text: string): string {
   const startedCapitalized = /^[A-Z]/.test(text.trimStart())
   const guarded = text
+    .replace(
+      /\b([^.!?\n]{2,80}?)\s+will\s+(?:reduce|cut|lower|increase|boost|grow|maximi[sz]e)\s+(?:your\s+)?(sales|revenue|profits?|conversions?|leads?|traffic|income|costs?)([^.!?\n]*)/gi,
+      (_match, subject: string, metric: string, suffix: string) =>
+        `Test whether ${subject.trim()} changes ${metric}${suffix}`,
+    )
     .replace(/\b(?:increase|boost|grow|maximi[sz]e|double|triple)\s+your\s+(sales|revenue|profits?|conversions?|leads?|traffic)\b/gi, 'support your $1 goals')
     .replace(/\b(?:increase|boost|grow|maximi[sz]e|double|triple)\s+(sales|revenue|profits?|conversions?|leads?|traffic)\b/gi, 'support $1 goals')
   return startedCapitalized ? guarded.replace(/^([a-z])/, char => char.toUpperCase()) : guarded
@@ -434,21 +439,27 @@ function guardUnsupportedActionAsset(text: string, context: StrategyProofContext
   const hasDownloadAsset = /\b(?:guide|ebook|e-book|whitepaper|checklist|report|template)\b|دليل|كتاب إلكتروني|قائمة مراجعة|تقرير|قالب/i.test(approved)
   const hasWebinar = /\b(?:webinar|workshop|masterclass)\b|ندوة|ورشة|جلسة تدريب/i.test(approved)
   const hasDemo = /\b(?:demo|product tour)\b|عرض توضيحي|تجربة المنتج/i.test(approved)
+  const hasExplainerVideo = /\b(?:explainer|product|demonstration|walkthrough)\s+video\b|فيديو (?:توضيحي|للمنتج|استعراضي)/i.test(approved)
 
   if (!hasDownloadAsset) {
     guarded = guarded
-      .replace(/\b(?:download|get|grab)\s+(?:the\s+|our\s+|your\s+)?(?:guide|ebook|e-book|whitepaper|checklist|report|template)\b/gi, 'Request details after the resource is created and approved')
+      .replace(/\b(?:download|get|grab|read|open|view)\s+(?:(?:the|our|your|a)\s+)?(?:[\w-]+\s+){0,5}(?:guide|ebook|e-book|whitepaper|checklist|report|template)\b/gi, 'Request details after the resource is created and approved')
       .replace(/(?:حمّل|حمل|نزّل|نزل)\s+(?:ال)?(?:دليل|كتاب إلكتروني|قائمة مراجعة|تقرير|قالب)/gi, 'اطلب التفاصيل بعد إنشاء الأصل واعتماده')
   }
   if (!hasWebinar) {
     guarded = guarded
-      .replace(/\b(?:join|register for|reserve (?:a|your) (?:seat|spot) (?:for|in))\s+(?:the\s+|our\s+)?(?:webinar|workshop|masterclass)\b/gi, 'Request an update after the session is created and scheduled')
+      .replace(/\b(?:join|register for|reserve (?:a|your) (?:seat|spot) (?:for|in))\s+(?:(?:the|our|a)\s+)?(?:[\w-]+\s+){0,5}(?:webinar|workshop|masterclass)\b/gi, 'Request an update after the session is created and scheduled')
       .replace(/(?:سجّل|سجل|انضم)\s+(?:في|إلى|لل)?\s*(?:ال)?(?:ندوة|ورشة|جلسة تدريب)/gi, 'اطلب إشعارًا بعد إنشاء الجلسة وجدولتها')
   }
   if (!hasDemo) {
     guarded = guarded
       .replace(/\b(?:book|watch|request)\s+(?:a\s+|the\s+|our\s+)?(?:demo|product tour)\b/gi, 'Request product details')
       .replace(/(?:احجز|شاهد|اطلب)\s+(?:عرضًا|عرضا|الـ)?\s*(?:توضيحيًا|توضيحيا|تجريبيًا|تجريبيا)/gi, 'اطلب تفاصيل المنتج')
+  }
+  if (!hasExplainerVideo) {
+    guarded = guarded
+      .replace(/\b(?:watch|view|see)\s+(?:(?:the|our|a)\s+)?(?:[\w-]+\s+){0,4}(?:explainer|product|demonstration|walkthrough)\s+video\b/gi, 'Request an update after the video is created and approved')
+      .replace(/(?:شاهد|اعرض|اطّلع على)\s+(?:ال)?فيديو\s+(?:التوضيحي|الخاص بالمنتج|الاستعراضي)/gi, 'اطلب إشعارًا بعد إنشاء الفيديو واعتماده')
   }
 
   return guarded

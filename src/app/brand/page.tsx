@@ -11,6 +11,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { useBrandBrain, normalizeBrandProfile, type BrandProfile } from '@/hooks/useBrandBrain'
 import { BRAND_INDUSTRY_OPTIONS, getBrandIndustryLabel, getBrandIndustryOption, normalizeBrandIndustry } from '@/lib/brandIndustries'
 import { getStrategyCapabilities } from '@/lib/brandReadiness'
+import { getStrategyBriefReadiness } from '@/lib/strategyBriefReadiness'
 import { getBrandBrainGenerationFieldLabel, getBrandBrainGenerationSafety } from '@/lib/brandBrainGenerationSafety'
 import { getBrandIndicators, type BrandIndicators } from '@/lib/brandIndicators'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
@@ -2336,13 +2337,6 @@ function BrandBrainInner() {
               <div className="rounded-2xl p-3" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
                 <BrandStatusPanel indicators={brandIndicators} locale={locale} contract={contract} organicTruthBlocked={industryTruthConflict} />
               </div>
-              {/* Save (always reachable) */}
-              <button onClick={handleSave} disabled={saving}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-60"
-                style={{ background: saved ? 'rgba(16,185,129,0.12)' : '#111827', color: saved ? '#10b981' : '#FFFFFF', border: saved ? '1px solid rgba(16,185,129,0.3)' : 'none' }}>
-                {saving ? <Loader2 size={14} className="animate-spin"/> : saved ? <CheckCircle2 size={14}/> : <Save size={14}/>}
-                {saving ? t('brand.savingBtn') : saved ? t('brand.savedBtn') : t('brand.saveAllBtn')}
-              </button>
             </aside>
 
             {/* ── Right workspace content (active step) ── */}
@@ -2887,7 +2881,6 @@ function BrandBrainInner() {
 
               {step === 'review' && (() => {
                 const ar = locale === 'ar'
-                const filledStr = (v: unknown) => typeof v === 'string' && v.trim().length > 0
                 const filledArr = (v: unknown) => Array.isArray(v) && v.length > 0
                 const groups = [
                   {
@@ -2949,19 +2942,33 @@ function BrandBrainInner() {
                   items: group.items.filter(([, value]) => typeof value === 'string' && value.trim().length > 0),
                 })).filter(group => group.items.length > 0)
 
+                const selectedBrief = getStrategyBriefReadiness({
+                  mode: strategyType,
+                  brandProfile: { ...form, strategyType, campaignObjective: campaignObjective || null },
+                })
+                const readinessLabels: Record<string, { ar: string; en: string }> = {
+                  brandName: { ar: 'اسم العلامة', en: 'Brand name' },
+                  industry: { ar: 'المجال', en: 'Industry' },
+                  description: { ar: 'وصف النشاط', en: 'Business description' },
+                  primaryOffer: { ar: 'العرض الأساسي', en: 'Primary offer' },
+                  targetAudience: { ar: 'الجمهور المستهدف', en: 'Target audience' },
+                  audiencePainPoints: { ar: 'نقاط ألم الجمهور', en: 'Audience pain points' },
+                  businessGoal: { ar: 'الهدف التجاري', en: 'Business goal' },
+                  topPlatforms: { ar: 'القنوات', en: 'Channels' },
+                  toneOrLanguage: { ar: 'الصوت أو لغة المخرجات', en: 'Voice or output language' },
+                  marketingBudget: { ar: 'الميزانية', en: 'Budget' },
+                  conversionDestination: { ar: 'وجهة التحويل', en: 'Conversion destination' },
+                  leadHandling: { ar: 'مسؤول ومسار متابعة العميل', en: 'Lead owner and follow-up path' },
+                  audienceLocation: { ar: 'السوق أو الموقع', en: 'Market or location' },
+                  pricePoint: { ar: 'المستوى السعري', en: 'Price position' },
+                  uniqueAdvantages: { ar: 'عناصر التميّز', en: 'Differentiators' },
+                  customerObjections: { ar: 'اعتراضات العملاء', en: 'Customer objections' },
+                  verifiedProof: { ar: 'إثبات موثّق', en: 'Verified proof' },
+                }
                 const missingItems = [
-                  !filledStr(form.brandName) && (ar ? 'اسم العلامة' : 'Brand name'),
-                  !filledStr(form.industry) && (ar ? 'المجال' : 'Industry'),
-                  !filledStr(form.primaryOffer) && (ar ? 'العرض الأساسي' : 'Primary offer'),
-                  !filledStr(form.targetAudience) && (ar ? 'الجمهور المستهدف' : 'Target audience'),
-                  !filledStr(form.businessGoal) && (ar ? 'الهدف التجاري' : 'Business goal'),
-                  !campaignObjective && (ar ? 'هدف الحملة' : 'Campaign objective'),
-                  !filledStr(form.conversionDestination) && (ar ? 'وجهة التحويل' : 'Conversion destination'),
-                  (campaignObjective === 'leads' || campaignObjective === 'sales' || strategyType !== 'organic') && !filledStr(form.leadHandling) && (ar ? 'مسؤول ومسار متابعة العميل' : 'Lead owner and follow-up path'),
-                  !filledStr(form.writingStyle) && (ar ? 'الصوت وأسلوب الكتابة' : 'Voice & writing style'),
-                  !filledArr(form.competitors) && !filledStr(form.competitorNotes) && (ar ? 'المنافسون أو ملاحظات السوق' : 'Competitors or market notes'),
-                  !filledArr(form.verifiedProof) && (ar ? 'إثبات موثّق' : 'Verified proof'),
-                ].filter(Boolean) as string[]
+                  ...selectedBrief.missingRequiredFields.map(key => readinessLabels[key]?.[ar ? 'ar' : 'en'] || key),
+                  ...(!campaignObjective ? [ar ? 'هدف الحملة' : 'Campaign objective'] : []),
+                ]
 
                 const learnedCount = typeof form?.acceptedLearningCount === 'number' ? form.acceptedLearningCount : 0
 
@@ -2995,7 +3002,9 @@ function BrandBrainInner() {
                         <div className="rounded-xl p-4" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.07)' }}>
                           <p className="text-sm font-bold text-slate-950 mb-2">{ar ? 'ما يحتاج إلى توضيح' : 'What still needs clarification'}</p>
                           {missingItems.length === 0 ? (
-                            <p className="text-sm text-slate-500">{ar ? 'الأساسيات مكتملة. يمكنك حفظ الملف أو إنشاء الاستراتيجية.' : 'The basics are complete. You can save the file or create a strategy.'}</p>
+                            <p className="text-sm text-slate-500">{ar
+                              ? `بريف ${strategyType === 'organic' ? 'الاستراتيجية العضوية' : strategyType === 'paid' ? 'التخطيط المدفوع' : 'الاستراتيجية الكاملة'} مكتمل ويمكن حفظه ثم إنشاء الاستراتيجية.`
+                              : `The ${strategyType === 'organic' ? 'organic strategy' : strategyType === 'paid' ? 'paid planning' : 'full strategy'} brief is complete and can be saved before generation.`}</p>
                           ) : (
                             <ul className="space-y-1.5">
                               {missingItems.slice(0, 6).map(item => (
@@ -3033,12 +3042,6 @@ function BrandBrainInner() {
                     </details>
 
                     <div className="flex flex-wrap gap-2 rounded-xl p-4" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.07)' }}>
-                      <button onClick={handleSave} disabled={saving}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold disabled:opacity-60"
-                        style={{ background:'#111827', color:'#FFFFFF' }}>
-                        {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                        {saving ? t('brand.savingBtn') : t('brand.saveAllBtn')}
-                      </button>
                       {coreBrandReady && (
                         <button onClick={() => router.push('/strategy')}
                           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold"

@@ -119,6 +119,18 @@ describe('guardResultText — free-text estimated results', () => {
 })
 
 describe('guardStrategyKpis — full strategy object', () => {
+  it('scrubs numeric performance promises hidden in arbitrary strategy leaves', () => {
+    const guarded = guardStrategyKpis({
+      assumptions: ['Engagement increases by 10%'],
+      contentAnglesDetailed: [{ message: 'Aim for 25% more trial sign-ups' }],
+      weeklyExecutionPlan: [{ note: 'Review after 30 days' }],
+    }, [], { language: 'en' })
+
+    expect(JSON.stringify(guarded)).not.toMatch(/10%|25%/)
+    expect(guarded.assumptions[0]).toContain('Directional outcome to validate')
+    expect(guarded.weeklyExecutionPlan[0].note).toBe('Review after 30 days')
+  })
+
   it('guards kpis[], successMetricsDetailed[], successMetrics[], estimatedResults; marks changed KPI as hypothesis', () => {
     const strategy = {
       kpis: [

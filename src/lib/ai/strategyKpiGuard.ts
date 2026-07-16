@@ -417,6 +417,32 @@ function guardLearningGovernance(value: unknown, options: StrategyKpiGuardOption
 }
 
 /**
+ * Legacy and repaired strategy packages can place a numeric performance promise
+ * outside the canonical KPI fields (for example inside an assumption or content
+ * angle). Scan every string leaf for unsupported performance numbers while
+ * preserving calendar durations and user/analytics-supported numbers.
+ */
+function guardUnstructuredPerformanceNumbers(
+  value: unknown,
+  allowed: string[],
+  options: StrategyKpiGuardOptions,
+): unknown {
+  if (typeof value === 'string') {
+    const allowedNums = buildAllowedNums(allowed)
+    if (!hasUnsupportedPerfNumber(value, allowedNums) && !hasUnsupportedMultiplierWord(value)) return value
+    return fallbackDirectionalResult(options)
+  }
+  if (Array.isArray(value)) {
+    return value.map(item => guardUnstructuredPerformanceNumbers(item, allowed, options))
+  }
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .map(([key, item]) => [key, guardUnstructuredPerformanceNumbers(item, allowed, options)]),
+  )
+}
+
+/**
  * Guard a full strategy output object. Returns a new object with KPI targets,
  * success metrics, and estimated results cleaned of unsupported performance
  * numbers. Unknown shapes pass through untouched.
@@ -454,5 +480,8 @@ export function guardStrategyKpis<T extends Record<string, unknown>>(
   if (typeof out.estimatedResults === 'string') {
     out.estimatedResults = guardResultText(out.estimatedResults, allowed, options)
   }
-  return guardLearningGovernance(out, options) as T
+  return guardLearningGovernance(
+    guardUnstructuredPerformanceNumbers(out, allowed, options),
+    options,
+  ) as T
 }

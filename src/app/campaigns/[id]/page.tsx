@@ -50,6 +50,7 @@ import { deriveStrategyFulfillmentSummary, type StrategyFulfillmentTone } from '
 import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
 import { buildStrategySnapshot } from '@/lib/strategy/strategySnapshot'
 import type { StrategyApprovalState } from '@/lib/strategyApproval'
+import { validateCampaignStrategyContract } from '@/lib/campaignStrategyContract'
 
 interface Activity {
   id: string
@@ -1051,7 +1052,10 @@ function CampaignDetailPageInner() {
         headers: { 'Content-Type': 'application/json', Authorization: token },
         // The API treats the saved strategy language as authoritative. Passing
         // the UI locale is only a fallback for legacy campaigns.
-        body: JSON.stringify({ language: locale }),
+        body: JSON.stringify({
+          language: locale,
+          applySafeCorrections: sentinelStatus === 'needs_attention',
+        }),
       })
       const d = await res.json()
       if (d.qualityGate) {
@@ -1075,8 +1079,10 @@ function CampaignDetailPageInner() {
             ...prev,
             aiOutput: {
               ...existing,
+              ...(d.reviewedStrategy ? { strategy: d.reviewedStrategy } : {}),
               sentinelReview: d.sentinelReview,
               ...(d.qualityGate ? { qualityGate: d.qualityGate } : {}),
+              ...(d.strategyContract ? { strategyContract: d.strategyContract } : {}),
             },
           }
         })
@@ -1259,6 +1265,26 @@ function CampaignDetailPageInner() {
       .filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
     { language: strategyLanguage },
   ) as any
+  const savedStrategyDeliverables = aiOutput?.strategyDeliverables && typeof aiOutput.strategyDeliverables === 'object'
+    ? aiOutput.strategyDeliverables
+    : null
+  const strategyContractReport = validateCampaignStrategyContract(strategy, {
+    language: strategyLanguage,
+    expectedOrganicPostCount: typeof savedStrategyDeliverables?.organicPostCount === 'number'
+      ? savedStrategyDeliverables.organicPostCount
+      : null,
+    strategyType: strategyScope.type,
+    expectedPaidPlanning: savedStrategyDeliverables,
+  })
+  const openSentinelReview = () => {
+    if (!strategyContractReport.valid) {
+      setSentinelError(uiIsArabic
+        ? 'هذه الاستراتيجية لا تطابق المخرجات المحفوظة في أمرها. أعد بناء حزمة الحملة قبل فحص الجودة؛ لن يُخصم أي كريديت.'
+        : 'This strategy no longer matches its saved order. Rebuild the campaign package before quality review; no credits will be charged.')
+      return
+    }
+    setShowSentinelConfirm(true)
+  }
   const topHooks: string[] = strategy.topHooks || guardedAiOutput?.topHooks || []
   const ctaVariations: string[] = strategy.ctaVariations || guardedAiOutput?.ctaVariations || []
   const captionFormulas: string[] = guardedAiOutput?.captionFormulas || []
@@ -2558,7 +2584,7 @@ function CampaignDetailPageInner() {
               {activeTab !== 0 && !brandTruthBlocked && !engineRunning && operatingState.stage === 'strategy_review_needed' ? (
                 <button
                   type="button"
-                  onClick={() => setShowSentinelConfirm(true)}
+                  onClick={openSentinelReview}
                   disabled={sentinelState === 'reviewing'}
                   className="inline-flex flex-shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
                 >
@@ -2913,7 +2939,7 @@ function CampaignDetailPageInner() {
                 {/* Primary CTA — context aware, one at a time */}
                 {activeTab !== 0 && !brandTruthBlocked && !engineRunning && operatingState.stage === 'strategy_review_needed' && (
                   <button
-                    onClick={() => setShowSentinelConfirm(true)}
+                    onClick={openSentinelReview}
                     disabled={sentinelState === 'reviewing'}
                     className="px-4 py-2 rounded-xl text-sm font-semibold transition disabled:opacity-60"
                     style={{ background: '#2563eb', color: '#fff' }}
@@ -2922,8 +2948,8 @@ function CampaignDetailPageInner() {
                       ? '⏳...'
                       : sentinelStatus === 'needs_attention'
                         ? (locale === 'ar'
-                          ? `طبّق الإصلاح الآمن وأعد الفحص — ${sentinelCreditCost} كريديت`
-                          : `Apply safe correction and re-review — ${sentinelCreditCost} credits`)
+                          ? `طبّق التصحيح الحتمي وأعد الفحص — ${sentinelCreditCost} كريديت`
+                          : `Apply deterministic correction and re-review — ${sentinelCreditCost} credits`)
                         : (locale === 'ar'
                           ? `🔍 فحص الجودة — ${sentinelCreditCost} كريديت`
                           : `🔍 Review quality — ${sentinelCreditCost} credits`)}
@@ -3224,7 +3250,7 @@ function CampaignDetailPageInner() {
                   helper: strategyHeaderNextActionHelper,
                   label: strategyDeskCanReviewQuality
                     ? (sentinelStatus === 'needs_attention'
-                      ? uiText('طبّق الإصلاح الآمن وأعد الفحص', 'Apply safe correction and re-review')
+                      ? uiText('طبّق التصحيح الحتمي وأعد الفحص', 'Apply deterministic correction and re-review')
                       : uiText('ابدأ فحص الجودة', 'Start quality review'))
                     : strategyDeskCanApproveAndBuild
                       ? (campaign.status === 'ACTIVE'
@@ -3239,7 +3265,7 @@ function CampaignDetailPageInner() {
                       : null,
                 }}
                 onNextAction={strategyDeskCanReviewQuality
-                  ? () => setShowSentinelConfirm(true)
+                  ? openSentinelReview
                   : strategyDeskCanApproveAndBuild
                     ? () => {
                       setLaunchError('')
@@ -3348,7 +3374,7 @@ function CampaignDetailPageInner() {
                         ) : !engineRunning && operatingState.stage === 'strategy_review_needed' ? (
                           <button
                             type="button"
-                            onClick={() => setShowSentinelConfirm(true)}
+                            onClick={openSentinelReview}
                             disabled={sentinelState === 'reviewing'}
                             className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
                           >
@@ -3356,8 +3382,8 @@ function CampaignDetailPageInner() {
                               ? uiText('جارٍ فحص الجودة...', 'Reviewing quality...')
                               : sentinelStatus === 'needs_attention'
                                 ? uiText(
-                                  `طبّق الإصلاح الآمن وأعد الفحص — ${sentinelCreditCost} كريديت`,
-                                  `Apply safe correction and re-review — ${sentinelCreditCost} credits`,
+                                  `طبّق التصحيح الحتمي وأعد الفحص — ${sentinelCreditCost} كريديت`,
+                                  `Apply deterministic correction and re-review — ${sentinelCreditCost} credits`,
                                 )
                                 : uiText(
                                   `فحص الجودة — ${sentinelCreditCost} كريديت`,
@@ -3476,8 +3502,8 @@ function CampaignDetailPageInner() {
                           {sentinelStatus === 'needs_attention' && (
                             <p className="rounded-xl border border-amber-300 bg-amber-100 px-3 py-2 text-xs font-semibold leading-5 text-amber-950">
                               {uiText(
-                                'لن يتم الاعتماد بهذه الحالة. زر «طبّق الإصلاح الآمن» يزيل الأرقام الأدائية غير الموثقة قبل إعادة الفحص؛ ولا ينشر أو يعتمد شيئًا تلقائيًا.',
-                                'Approval remains blocked. Apply safe correction removes unsupported performance numbers before the re-review; it does not publish or approve anything automatically.',
+                                'لن يتم الاعتماد بهذه الحالة. التصحيح الحتمي يغيّر فقط الأنماط غير الآمنة التي يستطيع النظام إثباتها. إذا لم يوجد تعديل حقيقي فلن يبدأ فحص مدفوع ولن يُخصم أي كريديت.',
+                                'Approval remains blocked. Deterministic correction changes only unsafe patterns the system can prove. If no real correction is available, no paid review starts and no credits are charged.',
                               )}
                             </p>
                           )}

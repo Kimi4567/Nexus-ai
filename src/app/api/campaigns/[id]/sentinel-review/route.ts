@@ -25,6 +25,7 @@ import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/a
 import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { validateCampaignStrategyContract } from '@/lib/campaignStrategyContract'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -62,6 +63,7 @@ export async function POST(req: NextRequest, props: Params) {
   try {
     const body = await req.json().catch(() => ({}))
     const requestedLanguage: string = body.language || 'ar'
+    const applySafeCorrections = body.applySafeCorrections === true
 
     // Fetch campaign with workspace + brand
     const campaign = await (prisma as any).campaign.findFirst({
@@ -95,6 +97,13 @@ export async function POST(req: NextRequest, props: Params) {
         ...(Array.isArray(brand?.verifiedProof) ? brand.verifiedProof : []),
       ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
     }
+    const allowedPerformanceNumbers = [
+      brand?.marketingBudget,
+      brand?.pastAdResults,
+      brand?.averageOrderValue,
+      brand?.customerLifetimeValue,
+      brand?.grossMargin,
+    ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
     const strategy = guardStrategyKpis(
       guardStrategyOutputContract(
         guardStrategyProof(rawStrategy, proofContext) as Record<string, unknown>,
@@ -105,9 +114,41 @@ export async function POST(req: NextRequest, props: Params) {
           hasConversionDestination: Boolean(brand?.conversionDestination),
         },
       ) as Record<string, unknown>,
-      [],
+      allowedPerformanceNumbers,
       { language: language || (aiOutput.language as string | undefined) || 'ar' },
     ) as any
+    const safeCorrectionsApplied = JSON.stringify(strategy) !== JSON.stringify(rawStrategy)
+    if (applySafeCorrections && !safeCorrectionsApplied) {
+      return NextResponse.json({
+        error: language.startsWith('ar')
+          ? 'لا يوجد إصلاح حتمي آمن يمكن تطبيقه تلقائياً. عدّل النص المحدد أو أعد بناء الاستراتيجية؛ لم يُخصم أي كريديت.'
+          : 'No deterministic safe correction is available. Edit the cited text or rebuild the strategy; no credits were charged.',
+        code: 'NO_SAFE_CORRECTION_AVAILABLE',
+        creditsUsed: 0,
+      }, { status: 422 })
+    }
+
+    const savedDeliverables = aiOutput.strategyDeliverables && typeof aiOutput.strategyDeliverables === 'object'
+      ? aiOutput.strategyDeliverables
+      : null
+    const strategyContract = validateCampaignStrategyContract(strategy, {
+      language,
+      expectedOrganicPostCount: typeof savedDeliverables?.organicPostCount === 'number'
+        ? savedDeliverables.organicPostCount
+        : null,
+      strategyType: strategyScope.type,
+      expectedPaidPlanning: savedDeliverables,
+    })
+    if (!strategyContract.valid) {
+      return NextResponse.json({
+        error: language.startsWith('ar')
+          ? 'الاستراتيجية المحفوظة لا تطابق عدد أو جودة المخرجات التي وُعدت بها. أعد بناء الحزمة قبل فحص الجودة؛ لم يُخصم أي كريديت.'
+          : 'The saved strategy does not match its promised output counts or quality contract. Rebuild the package before quality review; no credits were charged.',
+        code: 'STRATEGY_CONTRACT_BLOCKED',
+        strategyContract,
+        creditsUsed: 0,
+      }, { status: 422 })
+    }
     const content = {
       topHooks: strategy.topHooks || guardStrategyProof(aiOutput.topHooks || [], proofContext),
       ctaVariations: strategy.ctaVariations || guardStrategyProof(aiOutput.ctaVariations || [], proofContext),
@@ -214,6 +255,7 @@ export async function POST(req: NextRequest, props: Params) {
       scriptTemplate: content.scriptTemplate,
       sentinelReview,
       qualityGate,
+      strategyContract,
     }
 
     await prisma.campaign.update({
@@ -250,6 +292,9 @@ export async function POST(req: NextRequest, props: Params) {
     return NextResponse.json({
       sentinelReview,
       qualityGate,
+      reviewedStrategy: strategy,
+      strategyContract,
+      safeCorrectionsApplied,
       creditsRemaining: credit.creditsRemaining,
       creditsUsed: credit.creditsUsed,
       creditCharge: {

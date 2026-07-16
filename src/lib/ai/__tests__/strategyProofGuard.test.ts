@@ -536,6 +536,32 @@ describe('strategyProofGuard', () => {
     expect(guarded.assetRequirements.nextToCreate[0]).toContain('webinar')
   })
 
+  it('blocks descriptive guide, webinar, and explainer-video CTAs until those assets exist', () => {
+    const guarded = guardStrategyProof({
+      ctaVariations: [
+        'Read our strategy guide',
+        'Download our easy AI guide',
+        'Register for our future trends webinar',
+        'Watch our explainer video',
+      ],
+    }, { verifiedProof: [], allowedClaimText: ['AI marketing software'] })
+
+    const joined = guarded.ctaVariations.join(' ')
+    expect(joined).not.toMatch(/read our strategy guide|download our easy ai guide|register for our future trends webinar|watch our explainer video/i)
+    expect(joined).toContain('Request details after the resource is created and approved')
+    expect(joined).toContain('Request an update after the session is created and scheduled')
+    expect(joined).toContain('Request an update after the video is created and approved')
+  })
+
+  it('turns a causal cost-reduction promise into an explicit test', () => {
+    const guarded = guardStrategyProofText('Credit transparency will reduce cost objections.', {
+      verifiedProof: [],
+    })
+
+    expect(guarded).toBe('Test whether Credit transparency changes cost objections.')
+    expect(guarded).not.toMatch(/will reduce cost/i)
+  })
+
   it('keeps an asset CTA when the asset is explicitly present in Brand Brain truth', () => {
     const guarded = guardStrategyProof({ cta: 'Download the guide' }, {
       allowedClaimText: ['Primary offer includes a downloadable guide'],
