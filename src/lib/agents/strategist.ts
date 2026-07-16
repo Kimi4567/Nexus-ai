@@ -567,7 +567,7 @@ export function buildStrategistPrompts(
         '- If a schema description below is in English, treat it as an instruction for what the field means, not wording to copy into the JSON value.',
       ].join('\n')
     : ''
-  const planContext = getPlanContext(brief.planTier)
+  const planContext = getPlanContext(brief.planTier, brief.strategyType)
   const allowedPlatformLine = brief.currentPlatforms?.length
     ? `Allowed content platforms from Brand Brain: ${brief.currentPlatforms.join(', ')}. Use ONLY these platforms in channelMix, contentAnglesDetailed.platform, audienceSegmentsDetailed.platform, funnelStages.platform, and weeklyExecutionPlan.platforms. Do not add Pinterest, LinkedIn, blog, website, or any other platform unless it appears in this allowed list. If another platform is strategically interesting, mention it only as a future consideration, not an execution channel.`
     : ''

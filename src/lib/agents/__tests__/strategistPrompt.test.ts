@@ -117,6 +117,17 @@ describe('buildStrategistPrompts — binding scope wiring', () => {
     // existing prompt still intact
     expect(s).toContain('expert marketing strategist')
   })
+
+  it('keeps paid-only planning free of an organic content-angle instruction', () => {
+    const b = briefWith(order('paid', 'standard', '90'))
+    b.planTier = 'business'
+    const prompt = sys(b)
+
+    expect(prompt).toContain('Monthly post quota: 40 posts/month')
+    expect(prompt).toContain('Organic content directions in this run: 0')
+    expect(prompt).toContain('Do not create an organic publishing calendar')
+    expect(prompt).not.toContain('Monthly post quota: 60 posts/month')
+  })
 })
 
 describe('buildStrategistPrompts — 30 / 90 / 180 horizon', () => {

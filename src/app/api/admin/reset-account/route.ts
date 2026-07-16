@@ -19,7 +19,7 @@
  *
  * After reset the user is restored to:
  *  - subscriptionStatus: FREE
- *  - aiCredits: 0 (the normal 12-credit trial is granted atomically on first use)
+ *  - aiCredits: 0 (the normal 15-credit trial is granted atomically on first use)
  *  - monthlyGenerations: 0
  *  - stripeCustomerId: null
  *  - referralCode: kept (non-sensitive)
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
       `Deleted ${summary.subscriptions} subscription row(s) and ${summary.usage} usage row(s)`,
       `Deleted ${summary.creditTransactions} credit transaction(s) and ${summary.creditGrants} grant bucket(s)`,
       `Deleted ${summary.rateLimits} rate-limit record(s)`,
-      'Reset user to FREE / 0 cached credits; the standard 12-credit trial is created on first use',
+      'Reset user to FREE / 0 cached credits; the standard 15-credit trial is created on first use',
     ]
 
     return NextResponse.json({

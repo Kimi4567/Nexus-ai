@@ -5,9 +5,9 @@
 
 ## Product policy
 
-- Free trial: 12 credits, created on the first AI action, expires after 14 days.
-- Growth: 150 credits per paid billing cycle.
-- Autopilot: 500 credits per paid billing cycle.
+- Free trial: 15 one-time credits, created on the first eligible AI action, expires after 14 days.
+- Growth: 60 credits per paid billing cycle, 16 AI-planned posts, 2 workspaces, and 4 campaign creations per cycle.
+- Autopilot: 180 credits per paid billing cycle, 40 AI-planned posts, 5 workspaces, and 12 campaign creations per cycle.
 - Monthly plan credits reset at the next Stripe billing cycle and never roll over.
 - Extra purchased credits survive renewal and cancellation and expire 12 calendar months after purchase.
 - Cancellation voids the active monthly and transitional migrated balances. Valid purchased, referral, manual, refund, and unexpired trial grants remain independent.
@@ -21,16 +21,16 @@ Approved customer copy:
 
 ## Custom-purchase policy
 
-Customers can select 50–5,000 credits in increments of 10. The server applies progressive pricing; the browser never supplies a trusted amount or Stripe Price ID.
+Customers can select 20–500 credits in increments of 5. The server applies progressive pricing; the browser never supplies a trusted amount or Stripe Price ID.
 
 | Block | Price per credit |
 |---|---:|
-| 1–100 | $0.29 |
-| 101–300 | $0.20 |
-| 301–1,000 | $0.17 |
-| 1,001–5,000 | $0.14 |
+| 1–50 | $1.00 |
+| 51–150 | $0.90 |
+| 151–300 | $0.80 |
+| 301–500 | $0.70 |
 
-Examples: 100 credits = $29, 300 = $69, and 500 = $103. The pricing version is stored in signed Stripe metadata so a later price change cannot silently reinterpret an older Checkout session.
+Examples: 20 credits = $20, 100 = $95, 300 = $260, and 500 = $400. The pricing version is stored in signed Stripe metadata so a later price change cannot silently reinterpret an older Checkout session.
 
 ## Source of truth
 

@@ -230,7 +230,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
   const [brandConfirmed, setBrandConfirmed] = useState(false)
   const [langConfirmed, setLangConfirmed] = useState(false)
   // PR-I — generation-time strategy intent (not persisted). The default must
-  // fit inside the 12-credit trial so a new user can complete the first
+  // fit inside the 15-credit trial so a new user can complete the first
   // strategy and still run the required 2-credit review.
   const [strategyType, setStrategyType] = useState<'organic' | 'paid' | 'full'>('organic')
   const [strategyDuration, setStrategyDuration] = useState<'30' | '90' | '180' | 'custom'>('30')

@@ -29,10 +29,13 @@ Sources:
 - https://developers.openai.com/api/docs/pricing
 - https://developers.openai.com/api/docs/guides/image-generation#calculating-costs
 
-The strategy runtime now records the actual provider-reported input, cached
-input, and output tokens across both the primary generation and its single
-repair attempt. The internal cost record is versioned; pricing can therefore be
-recalibrated from real production percentiles instead of guesses.
+The strategy runtime records the actual provider-reported input, cached input,
+and output tokens across the primary generation, an optional document repair,
+and an optional focused Paid/Full package repair. The focused repair uses strict
+Structured Outputs with exact commercial counts; it avoids paying to regenerate
+an already-valid full strategy merely because (for example) four ad variations
+were returned instead of nine. The internal cost record is versioned, so pricing
+can be recalibrated from real production percentiles instead of guesses.
 
 ## Payment-cost reserve
 
@@ -70,11 +73,14 @@ credit.
 | Full | Daily | 54 | 76 | 96 |
 
 Why the price is higher than raw tokens: the current `gpt-4o` strategy call can
-emit up to 7,500 output tokens and a contract repair can emit up to 9,500 more.
-At the official rate, a conservative two-call example with 18,000 input and
-17,000 output tokens costs about `$0.21` in OpenAI text usage. The customer is
-buying the governed agency workflow and exact deliverable contract, not `$0.21`
-of unvalidated JSON.
+emit up to 7,500 output tokens, a document repair can emit up to 9,500 more, and
+a focused paid-package repair is capped at 6,000. Most runs do not need every
+repair. A real Organic audit run on 2026-07-16 used 12,298 input and 6,183 output
+tokens across two calls and cost `$0.088735`; a deliberately rejected Paid run
+used 14,548 input and 10,140 output tokens and cost `$0.13393`, then refunded the
+user because its 4/9 copy count failed the contract. The customer is buying the
+governed agency workflow, exact deliverable contract, failure refund, and
+operating margin—not raw unvalidated JSON.
 
 ## Complete-journey capacity
 

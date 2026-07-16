@@ -7,7 +7,7 @@ import ConsentAwareTelemetry from '@/components/ConsentAwareTelemetry'
 export const metadata: Metadata = {
   title: 'NEXUS AI | Marketing Operating System',
   description:
-    'Build reviewed strategy, content plans, paid planning, approvals, and evidence-backed monitoring from one Brand Brain. Start with 12 one-time trial credits.',
+    'Build reviewed strategy, content plans, paid planning, approvals, and evidence-backed monitoring from one Brand Brain. Start with 15 one-time trial credits.',
   keywords: [
     'AI marketing', 'marketing automation', 'AI marketing department',
     'campaign generator', 'content creation', 'social media marketing',
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://nexus-grow.com'),
   openGraph: {
     title: 'NEXUS AI — Marketing Operating System',
-    description: 'Brand Brain, reviewed strategy, content planning, approvals, and evidence-backed monitoring in one platform. Start with 12 trial credits.',
+    description: 'Brand Brain, reviewed strategy, content planning, approvals, and evidence-backed monitoring in one platform. Start with 15 trial credits.',
     url: 'https://nexus-grow.com',
     siteName: 'NEXUS AI',
     type: 'website',
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'NEXUS AI — Marketing Operating System',
-    description: 'Brand Brain, reviewed strategy, content planning, approvals, and evidence-backed monitoring. Start with 12 trial credits.',
+    description: 'Brand Brain, reviewed strategy, content planning, approvals, and evidence-backed monitoring. Start with 15 trial credits.',
     images: ['/opengraph-image'],
   },
   robots: { index: true, follow: true },

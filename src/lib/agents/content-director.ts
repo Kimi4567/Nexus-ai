@@ -11,8 +11,8 @@
  *
  * Token scaling by plan (output):
  *   Starter (10 posts) → max_tokens ~2,500  → API cost ~$0.033
- *   Growth  (25 posts) → max_tokens ~4,550  → API cost ~$0.053
- *   Agency  (60 posts) → max_tokens  8,000  → API cost ~$0.088
+ *   Growth  (16 posts) → max_tokens ~3,200  → provider cost is metered
+ *   Autopilot (40 posts) → max_tokens ~6,800 → provider cost is metered
  */
 
 import { StrategyOutput } from './strategist'

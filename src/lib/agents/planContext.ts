@@ -2,7 +2,7 @@
  * planContext.ts — Commercial capacity context injected into agent prompts.
  *
  * Why this exists:
- *   Agents must not generate a 60-post calendar for a Starter user who only gets
+ *   Agents must not generate a 40-post calendar for a legacy Starter user who only gets
  *   10 posts/month. Every agent must be aware of the user's plan so that output
  *   volume, depth, and calendar scope match what the user can actually execute.
  *
@@ -10,7 +10,10 @@
  * from the brand's capacity, platform fit, and observed results.
  */
 
-import { FREE_TRIAL_POSTS } from '@/lib/commercialPlans'
+import { FREE_TRIAL_POSTS, PUBLIC_PAID_PLANS } from '@/lib/commercialPlans'
+
+const GROWTH_PLAN = PUBLIC_PAID_PLANS[0]
+const AUTOPILOT_PLAN = PUBLIC_PAID_PLANS[1]
 
 // ── Platform cadence guidance (injectable into prompts) ──────────────────────
 
@@ -63,7 +66,7 @@ const TIER_CONFIGS: Record<string, TierConfig> = {
   },
   pro: {
     label: 'Growth ($49/month)',
-    postsPerMonth: 25,
+    postsPerMonth: GROWTH_PLAN.postsPerMonth,
     calendarWeeks: 4,
     platformCount: 4,
     audienceSegments: 3,
@@ -73,7 +76,7 @@ const TIER_CONFIGS: Record<string, TierConfig> = {
   },
   growth: {
     label: 'Growth ($49/month)',
-    postsPerMonth: 25,
+    postsPerMonth: GROWTH_PLAN.postsPerMonth,
     calendarWeeks: 4,
     platformCount: 4,
     audienceSegments: 3,
@@ -83,7 +86,7 @@ const TIER_CONFIGS: Record<string, TierConfig> = {
   },
   business: {
     label: 'Autopilot ($99/month)',
-    postsPerMonth: 60,
+    postsPerMonth: AUTOPILOT_PLAN.postsPerMonth,
     calendarWeeks: 4,
     platformCount: 6,
     audienceSegments: 4,
@@ -93,7 +96,7 @@ const TIER_CONFIGS: Record<string, TierConfig> = {
   },
   agency: {
     label: 'Autopilot ($99/month)',
-    postsPerMonth: 60,
+    postsPerMonth: AUTOPILOT_PLAN.postsPerMonth,
     calendarWeeks: 4,
     platformCount: 6,
     audienceSegments: 4,
@@ -120,9 +123,13 @@ function normalizeTier(planTier?: string): string {
  *
  * @param planTier  User's subscription tier: 'free' | 'starter' | 'pro' | 'growth' | 'business' | 'agency'
  */
-export function getPlanContext(planTier?: string): string {
+export function getPlanContext(
+  planTier?: string,
+  strategyType?: 'organic' | 'paid' | 'full' | 'content',
+): string {
   const key = normalizeTier(planTier)
   const cfg = TIER_CONFIGS[key]
+  const paidOnly = strategyType === 'paid'
 
   const depthGuide: Record<StrategyDepth, string> = {
     basic:
@@ -142,9 +149,13 @@ export function getPlanContext(planTier?: string): string {
     `Max platforms: ${cfg.platformCount}`,
     `Calendar depth: ${cfg.calendarWeeks}-week calendar`,
     `Audience segments to generate: ${cfg.audienceSegments}`,
-    `Content angles to generate: ${cfg.contentAngles}`,
+    paidOnly
+      ? 'Organic content directions in this run: 0 (the reviewed paid-planning package controls its own exact counts)'
+      : `Content-direction capacity: up to ${cfg.contentAngles}; a reviewed order may set a lower exact count`,
     ``,
-    `SCOPE INSTRUCTION: ${depthGuide[cfg.depth]}`,
+    `SCOPE INSTRUCTION: ${paidOnly
+      ? 'Paid-only planning: create audience, message, copy, creative, tracking, budget-framework, and approval hypotheses only. Do not create an organic publishing calendar.'
+      : depthGuide[cfg.depth]}`,
     `Do NOT generate more posts or weeks than the quota above allows.`,
     `Every deliverable in the weekly plan must be achievable within this user's quota.`,
     cfg.upgradeNote ? `\n${cfg.upgradeNote}` : null,

@@ -139,7 +139,7 @@ export async function sendWelcomeEmail(to: string, name: string) {
     `)}
 
     <div style="background:#101010;border:1px solid #2a2a4a;border-radius:10px;padding:16px 20px;margin:20px 0;">
-      <div style="font-size:12px;color:#FF9500;font-weight:700;margin-bottom:4px;">⚡ Your trial includes 12 one-time AI credits</div>
+      <div style="font-size:12px;color:#FF9500;font-weight:700;margin-bottom:4px;">⚡ Your trial includes 15 one-time AI credits</div>
       <div style="font-size:13px;color:#b8b8d8;">Credit costs are shown before each action. No credit card is required to start.</div>
     </div>
 

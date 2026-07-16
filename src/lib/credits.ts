@@ -41,8 +41,8 @@ export const CREDIT_COSTS = {
    * Model: gpt-4o-mini (via lib/ai/adapter + lib/ai/openai.ts)
    * Input: ~2,000 tokens | Output: ~4,000 tokens
    * API cost: ~$0.003 (gpt-4o-mini @ $0.15/M in, $0.60/M out)
-   * Revenue @ Agency: 5 × $0.198 = $0.990 | Margin: ~99%
-   * Revenue @ Starter: 5 × $0.380 = $1.900 | Margin: ~99%
+   * Margin is evaluated from the versioned provider meter and the current
+   * subscription net-credit floor; do not reuse historical per-credit values.
    */
   CAMPAIGN_GENERATION: 8,
 
@@ -50,10 +50,11 @@ export const CREDIT_COSTS = {
    * Run Full Strategy — fires the Strategist agent (orchestrator, strategy-only path)
    * Routes: /api/agents/run, /api/strategy/run-full, /api/campaigns/[id]/engine
    * Model: gpt-4o (strategist.ts — Content Director runs separately via CONTENT_PLAN_GENERATION)
-   * Input: ~3,000–5,000 tokens (brief + brand context) | Output: ~6,500 tokens (max_tokens cap)
-   * API cost: ~$0.075–$0.090 (gpt-4o @ $2.50/M in, $10/M out)
-   * Revenue @ Agency: 8 × $0.198 = $1.584 | Margin: ~94–95%
-   * Revenue @ Starter: 8 × $0.380 = $3.040 | Margin: ~97%
+   * Measured 2026-07-16 Organic run: 12,298 input + 6,183 output across
+   * generation/repair = $0.088735 provider cost. Paid/Full can add one focused
+   * Structured Outputs repair; the provider meter records every call.
+   * Commercial price is variable (12–96 credits) and includes validation,
+   * exact-count repair, persistence, refund risk, and operating margin.
    */
   RUN_FULL_STRATEGY: 12,
 
@@ -63,8 +64,6 @@ export const CREDIT_COSTS = {
    * Model: gpt-4o (visual-director.ts — two sequential calls: analyzeAssets + generateVisualConcepts)
    * Input: ~2,000–3,000 tokens | Output: ~900–2,000 tokens per call
    * API cost: ~$0.025–$0.045 (two gpt-4o calls)
-   * Revenue @ Agency: 3 × $0.198 = $0.594 | Margin: ~92–96%
-   * Revenue @ Starter: 3 × $0.380 = $1.140 | Margin: ~96–98%
    */
   CREATIVE_BRIEF: 5,
 
@@ -74,8 +73,6 @@ export const CREDIT_COSTS = {
    * Model: gpt-4o (sentinel-reviewer.ts — NOT gpt-4o-mini; uses full reasoning capability)
    * Input: ~2,000–3,000 tokens | Output: ~2,000 tokens (max_tokens: 2000)
    * API cost: ~$0.025 (gpt-4o @ $2.50/M in, $10/M out)
-   * Revenue @ Agency: 2 × $0.198 = $0.396 | Margin: ~94%
-   * Revenue @ Starter: 2 × $0.380 = $0.760 | Margin: ~97%
    */
   SENTINEL_REVIEW: 3,
 
@@ -99,7 +96,6 @@ export const CREDIT_COSTS = {
    * Model: gpt-4o-mini (paid-campaign and ad-copy generation routes)
    * Input: ~800 tokens | Output: ~1,500 tokens
    * API cost: ~$0.001 (gpt-4o-mini @ $0.15/M in, $0.60/M out)
-   * Revenue @ Agency: 2 × $0.198 = $0.396 | Margin: ~99%
    */
   AD_COPY: 3,
 
@@ -122,7 +118,6 @@ export const CREDIT_COSTS = {
    * Route: /api/chat
    * Model: gpt-4o-mini (context-aware; cost grows with conversation history length)
    * Estimated cost: ~$0.001–$0.005 (early msg vs long conversation history)
-   * Revenue @ Agency: 1 × $0.198 = $0.198 | Margin: ~97–99%
    */
   CHAT_MESSAGE: 1,
 
@@ -141,8 +136,8 @@ export const CREDIT_COSTS = {
    * Model: gpt-4o (content-director.ts — NOT gpt-4o-mini)
    * Output tokens scale with plan quota (postsPerMonth × 150 + 800, capped at 8,000):
    *   Starter (10 posts): ~2,500 out → cost ~$0.033
-   *   Growth  (25 posts): ~4,550 out → cost ~$0.053
-   *   Agency  (60 posts): ~8,000 out → cost ~$0.088
+   *   Growth  (16 posts): ~3,200 out → cost monitored from provider usage
+   *   Autopilot (40 posts): ~6,800 out → cost monitored from provider usage
    * Commercial price includes one bounded full-model call, persistence,
    * validation, and automatic refund when no usable output is created.
    */
@@ -161,8 +156,6 @@ export const CREDIT_COSTS = {
    * Model: gpt-4o (max_tokens: ~4,000)
    * Input: ~2,500 tokens | Output: ~4,000 tokens
    * API cost: ~$0.046–$0.050 (gpt-4o @ $2.50/M in, $10/M out)
-   * Revenue @ Agency: 6 × $0.198 = $1.188 | Margin: ~96%
-   * Revenue @ Starter: 6 × $0.380 = $2.280 | Margin: ~98%
    */
   PAID_PACK_GENERATE: 10,
 
@@ -172,8 +165,6 @@ export const CREDIT_COSTS = {
    * Model: gpt-4o (deep extraction + structured Brand Brain update)
    * Input: ~3,000 tokens (fetched page text) | Output: ~5,000 tokens
    * API cost: ~$0.055–$0.065 (gpt-4o @ $2.50/M in, $10/M out)
-   * Revenue @ Agency: 3 × $0.198 = $0.594 | Margin: ~89–91%
-   * Revenue @ Starter: 3 × $0.380 = $1.140 | Margin: ~94–95%
    */
   WEBSITE_SCAN: 4,
 
@@ -183,8 +174,6 @@ export const CREDIT_COSTS = {
    * Model: gpt-4o (structured extraction → Brand Brain update)
    * Input: ~2,000 tokens (samples) | Output: ~2,000 tokens
    * API cost: ~$0.025 (gpt-4o @ $2.50/M in, $10/M out)
-   * Revenue @ Agency: 2 × $0.198 = $0.396 | Margin: ~94%
-   * Revenue @ Starter: 2 × $0.380 = $0.760 | Margin: ~97%
    */
   CONTENT_ANALYSIS: 3,
 
@@ -224,8 +213,8 @@ export const CREDIT_ACTION_POLICIES: Record<CreditAction, CreditActionPolicy> = 
   RUN_FULL_STRATEGY: {
     label: 'Full marketing strategy',
     reason: 'Creates the strategy, operating plan, and measurable execution brief.',
-    includedWork: 'Strategy generation plus at most one contract-repair pass.',
-    providerCallLimit: 2,
+    includedWork: 'Strategy generation, one document repair when required, and one focused paid-package repair when required.',
+    providerCallLimit: 3,
     refundableOnNoUsableOutput: true,
   },
   CREATIVE_BRIEF: {
@@ -358,7 +347,7 @@ export const FREE_STARTER_CREDITS = STARTER_CREDITS
 // Autopilot(BUSINESS)=180/mo.
 
 export const PLANS_CREDITS: Record<string, number> = {
-  FREE:      FREE_STARTER_CREDITS, // 12 (one-time, never refreshes)
+  FREE:      FREE_STARTER_CREDITS, // 15 (one-time, never refreshes)
   STARTER:   50,
   PRO:       60,   // Growth plan
   GROWTH:    60,   // alias

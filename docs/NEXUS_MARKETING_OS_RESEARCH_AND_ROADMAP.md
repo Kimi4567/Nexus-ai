@@ -160,7 +160,7 @@ The existing daily monitor that treats every published post as a winning pattern
 
 ## 7. Commercial model
 
-The public pricing surface should show exactly **two paid subscriptions**. The 14-day/12-credit trial is onboarding, not a third plan. It funds one complete activation journey: strategy, quality review, and a small Content Hub plan.
+The public pricing surface should show exactly **two paid subscriptions**. The 14-day/15-credit trial is onboarding, not a third plan. It funds one bounded activation journey: Organic Light strategy plus quality review; Content Hub production remains paid scope.
 
 ### Growth — $49/month
 
