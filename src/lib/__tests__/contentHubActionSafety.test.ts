@@ -26,23 +26,23 @@ describe('contentHubActionSafety', () => {
   })
 
   it('requires exact bulk image count and total cost acknowledgement', () => {
-    expect(getBulkImageGenerationCost(8)).toBe(24)
+    expect(getBulkImageGenerationCost(8)).toBe(32)
     expect(validateBulkImageGenerationConfirmation({
       confirmed: true,
       acknowledgedImageCount: 7,
-      acknowledgedCreditCost: 24,
+      acknowledgedCreditCost: 32,
       expectedImageCount: 8,
     })).toMatchObject({ ok: false })
     expect(validateBulkImageGenerationConfirmation({
       confirmed: true,
       acknowledgedImageCount: 8,
-      acknowledgedCreditCost: 21,
+      acknowledgedCreditCost: 31,
       expectedImageCount: 8,
     })).toMatchObject({ ok: false })
     expect(validateBulkImageGenerationConfirmation({
       confirmed: true,
       acknowledgedImageCount: 8,
-      acknowledgedCreditCost: 24,
+      acknowledgedCreditCost: 32,
       expectedImageCount: 8,
     })).toEqual({ ok: true })
   })
@@ -87,7 +87,7 @@ describe('contentHubActionSafety', () => {
   })
 
   it('requires explicit rewrite confirmation with exact credit cost', () => {
-    expect(CONTENT_HUB_REWRITE_COST).toBe(1)
+    expect(CONTENT_HUB_REWRITE_COST).toBe(2)
     expect(validateRewriteConfirmation({
       confirmed: false,
       acknowledgedCreditCost: CONTENT_HUB_REWRITE_COST,

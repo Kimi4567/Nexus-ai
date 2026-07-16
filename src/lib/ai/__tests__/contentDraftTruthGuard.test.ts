@@ -325,6 +325,17 @@ describe('contentDraftTruthGuard', () => {
     expect(reviewed[9]).toContain('#تنظيم_العيادات #سير_العمل #تنظيم_العمل')
   })
 
+  it('replaces an unverified security storyboard instead of leaving unsafe residual scenes', () => {
+    const storyboard = guardContentDraftText(
+      'Scene 1: A manager worried about data security. Scene 2: Secure data management. Scene 3: Protected patient information. Scene 4: Learn about our security measures.',
+      { verifiedProof: [] },
+    )
+
+    expect(storyboard).toContain('security-review checklist')
+    expect(storyboard).toContain('without certifications or protection claims')
+    expect(storyboard).not.toMatch(/secure data management|protected patient information|our security measures/i)
+  })
+
   it('softens perfectly roasted claims', () => {
     const out = guardContentDraftText('perfectly roasted beans')
 

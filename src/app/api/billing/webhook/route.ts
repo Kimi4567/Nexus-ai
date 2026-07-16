@@ -16,7 +16,7 @@ import {
   getStripeClient,
   isBillingConfigured,
   PLAN_CREDITS,
-  planFromPriceId,
+  resolveStripeSubscriptionPlan,
 } from '@/lib/stripe'
 import {
   getCreditPack,
@@ -36,7 +36,7 @@ import Stripe from 'stripe'
 
 /** Credits allocated by plan name */
 function creditsForPlan(plan: string): number {
-  return PLAN_CREDITS[plan.toLowerCase()] ?? 10
+  return PLAN_CREDITS[plan.toLowerCase()] ?? 0
 }
 
 /** Upsert Subscription row + update User row atomically */
@@ -264,7 +264,15 @@ export async function POST(req: NextRequest) {
         }
 
         const priceId    = sub.items.data[0]?.price?.id ?? ''
-        const plan       = planMeta ?? planFromPriceId(priceId)
+        const plan       = resolveStripeSubscriptionPlan(priceId, planMeta)
+        if (!plan) {
+          console.error('[Webhook] Refusing subscription with unknown or mismatched price/plan', {
+            subscriptionId: sub.id,
+            priceId,
+            planMeta,
+          })
+          break
+        }
         const priceAmt   = sub.items.data[0]?.price?.unit_amount ?? null
         const customerId = (typeof sub.customer === 'string' ? sub.customer : sub.customer?.id) ?? ''
 
@@ -302,7 +310,15 @@ export async function POST(req: NextRequest) {
         }
 
         const priceId    = sub.items.data[0]?.price?.id ?? ''
-        const plan       = sub.metadata?.plan ?? planFromPriceId(priceId)
+        const plan       = resolveStripeSubscriptionPlan(priceId, sub.metadata?.plan)
+        if (!plan) {
+          console.error('[Webhook] Refusing subscription update with unknown or mismatched price/plan', {
+            subscriptionId: sub.id,
+            priceId,
+            planMeta: sub.metadata?.plan,
+          })
+          break
+        }
         const priceAmt   = sub.items.data[0]?.price?.unit_amount ?? null
         const customerId = (typeof sub.customer === 'string' ? sub.customer : sub.customer?.id) ?? ''
 
@@ -359,7 +375,15 @@ export async function POST(req: NextRequest) {
         if (!userId) break
 
         const priceId = sub.items.data[0]?.price?.id ?? ''
-        const plan    = sub.metadata?.plan ?? planFromPriceId(priceId)
+        const plan    = resolveStripeSubscriptionPlan(priceId, sub.metadata?.plan)
+        if (!plan) {
+          console.error('[Webhook] Refusing renewal with unknown or mismatched price/plan', {
+            subscriptionId: sub.id,
+            priceId,
+            planMeta: sub.metadata?.plan,
+          })
+          break
+        }
         const credits = creditsForPlan(plan)
 
         // B1d-c-2: only create a MONTHLY grant when the existing logic grants a

@@ -1,8 +1,10 @@
-// Keep this helper client-safe. These mirror src/lib/credits.ts costs without
-// importing server-only billing/prisma code into Content Hub.
-export const CONTENT_HUB_IMAGE_COST = 3
-export const CONTENT_HUB_REWRITE_COST = 1
-export const CONTENT_HUB_REGENERATION_COST = 2
+import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
+
+// Client-safe aliases of the one client catalog. A contract test keeps that
+// catalog identical to the server billing catalog in src/lib/credits.ts.
+export const CONTENT_HUB_IMAGE_COST = CREDIT_ACTION_COSTS.IMAGE_GENERATION
+export const CONTENT_HUB_REWRITE_COST = CREDIT_ACTION_COSTS.AI_POST_REWRITE
+export const CONTENT_HUB_REGENERATION_COST = CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION
 
 export type ContentHubConfirmationResult =
   | { ok: true }

@@ -50,7 +50,7 @@ vi.mock('@/lib/billableAiRateLimit', () => ({
   enforceBillableAiRateLimit: vi.fn().mockResolvedValue(null),
 }))
 vi.mock('@/lib/credits', () => ({
-  CREDIT_COSTS: { IMAGE_GENERATION: 3 },
+  CREDIT_COSTS: { IMAGE_GENERATION: 4 },
   checkAndDeductCredits: mockCheckAndDeduct,
   checkDailyImageCap: mockCheckDailyImageCap,
   creditCheckHttpStatus: () => 402,
@@ -64,7 +64,7 @@ vi.mock('@/lib/credits', () => ({
     }
     return mockRefund(userId, action, reason)
   }),
-  buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, cost: 3, ...deduction }),
+  buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, cost: 4, ...deduction }),
 }))
 vi.mock('@/lib/ai/imageGen', () => ({
   buildImagePrompt: mockBuildImagePrompt,
@@ -88,7 +88,7 @@ import { POST } from '../route'
 const makeReq = (body: unknown = {}) => ({ json: async () => body }) as any
 const confirmedImageBody = {
   explicitImageGenerationConfirmed: true,
-  acknowledgedCreditCost: 3,
+  acknowledgedCreditCost: 4,
   acknowledgedNoPublishOrSchedule: true,
   acknowledgedPostMediaForReview: true,
 }
@@ -125,7 +125,7 @@ beforeEach(() => {
   vi.stubEnv('CLOUDINARY_API_SECRET', 'test-secret')
   delete process.env.FAL_KEY
   mockGetServerUserId.mockResolvedValue('u1')
-  mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 3, creditsRemaining: 17 })
+  mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 4, creditsRemaining: 16 })
   mockCheckDailyImageCap.mockResolvedValue({ allowed: true, used: 0, cap: 20, remaining: 20 })
   mockRefund.mockResolvedValue({ ok: true, status: 'refunded' })
   mockRefundForTxn.mockResolvedValue({ ok: true, status: 'refunded' })
@@ -249,7 +249,7 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
       message: 'Image generation requires explicit confirmation. No credits were spent.',
       required: {
         explicitImageGenerationConfirmed: true,
-        acknowledgedCreditCost: 3,
+        acknowledgedCreditCost: 4,
         acknowledgedNoPublishOrSchedule: true,
       },
     })
@@ -261,7 +261,7 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
   it('wrong acknowledged credit cost returns 400 before credit deduction', async () => {
     const res = await POST(makeReq({
       ...confirmedImageBody,
-      acknowledgedCreditCost: 4,
+      acknowledgedCreditCost: 3,
       campaignId: 'c1',
     }))
 
@@ -274,7 +274,7 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
   it('missing no-publish/no-schedule acknowledgement returns 400 before credit deduction', async () => {
     const res = await POST(makeReq({
       explicitImageGenerationConfirmed: true,
-      acknowledgedCreditCost: 3,
+      acknowledgedCreditCost: 4,
       campaignId: 'c1',
     }))
 
@@ -298,8 +298,8 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
   it('provider failure after deduction uses transaction-aware refund', async () => {
     mockCheckAndDeduct.mockResolvedValue({
       ok: true,
-      creditsUsed: 3,
-      creditsRemaining: 17,
+      creditsUsed: 4,
+      creditsRemaining: 16,
       transactionId: 'txn_img',
     })
     mockGenerateWithDallE.mockRejectedValue(new Error('image provider down'))
@@ -320,8 +320,8 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
   it('reports pending reconciliation instead of claiming a failed refund succeeded', async () => {
     mockCheckAndDeduct.mockResolvedValue({
       ok: true,
-      creditsUsed: 3,
-      creditsRemaining: 17,
+      creditsUsed: 4,
+      creditsRemaining: 16,
       transactionId: 'txn_img',
     })
     mockGenerateWithDallE.mockRejectedValue(new Error('image provider down'))
@@ -341,8 +341,8 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
   it('permanent storage failure never persists a provider URL and refunds exactly once', async () => {
     mockCheckAndDeduct.mockResolvedValue({
       ok: true,
-      creditsUsed: 3,
-      creditsRemaining: 17,
+      creditsUsed: 4,
+      creditsRemaining: 16,
       transactionId: 'txn_storage',
     })
     mockUploadToCloudinary.mockReset().mockRejectedValue(new Error('Cloudinary upload failed'))
@@ -371,8 +371,8 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
   it('DB create failure occurs before charging and never creates an untracked image', async () => {
     mockCheckAndDeduct.mockResolvedValue({
       ok: true,
-      creditsUsed: 3,
-      creditsRemaining: 17,
+      creditsUsed: 4,
+      creditsRemaining: 16,
       transactionId: 'txn_temp',
     })
     mockPrisma.generatedVisual.create.mockRejectedValue(new Error('create failed'))
@@ -399,8 +399,8 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
   it('does not refund twice when final DB update fails', async () => {
     mockCheckAndDeduct.mockResolvedValue({
       ok: true,
-      creditsUsed: 3,
-      creditsRemaining: 17,
+      creditsUsed: 4,
+      creditsRemaining: 16,
       transactionId: 'txn_update',
     })
     mockPrisma.generatedVisual.update.mockRejectedValue(new Error('update failed'))

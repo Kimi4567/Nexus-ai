@@ -21,11 +21,11 @@ vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
   refundCredits: mockRefund,
   refundCreditDeduction: mockRefund,
-  buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, cost: 1, ...deduction }),
+  buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, cost: 2, ...deduction }),
   CREDIT_COSTS: {
-    IMAGE_GENERATION: 3,
-    AI_POST_REWRITE: 1,
-    CONTENT_PLAN_GENERATION: 2,
+    IMAGE_GENERATION: 4,
+    AI_POST_REWRITE: 2,
+    CONTENT_PLAN_GENERATION: 6,
   },
 }))
 
@@ -67,7 +67,7 @@ describe('POST /api/campaigns/[id]/content-plan/[postId]/rewrite — confirmatio
     const res = await POST(makeReq({
       instruction: 'Make it shorter',
       explicitRewriteConfirmed: true,
-      acknowledgedCreditCost: 1,
+      acknowledgedCreditCost: 2,
     }), params)
     const json = await res.json()
 

@@ -32,7 +32,7 @@ const { mockPrisma, tx, stripe, mockStripeHelpers } = vi.hoisted(() => {
       isBillingConfigured: vi.fn(() => true),
       getStripeClient: vi.fn(() => stripe),
       billingNotConfiguredResponse: vi.fn(() => ({ error: 'not configured' })),
-      planFromPriceId: vi.fn(() => 'pro'),
+      resolveStripeSubscriptionPlan: vi.fn<(priceId: string, plan?: unknown) => string | null>(() => 'pro'),
       PLAN_CREDITS: { free: 15, starter: 50, pro: 60, business: 180, agency: 180 } as Record<string, number>,
     },
   }
@@ -82,6 +82,19 @@ beforeEach(() => {
 })
 
 describe('billing webhook — B1d-c-1 MONTHLY grant on provision', () => {
+  it('fails closed when the Stripe price and declared plan cannot be resolved', async () => {
+    mockStripeHelpers.resolveStripeSubscriptionPlan.mockReturnValueOnce(null)
+    stripe.webhooks.constructEvent.mockReturnValue({
+      type: 'customer.subscription.updated', id: 'evt_unknown_price',
+      data: { object: stripeSub('active') },
+    })
+
+    await POST(makeReq())
+
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled()
+    expect(tx.creditGrant.createMany).not.toHaveBeenCalled()
+  })
+
   it('checkout.session.completed (active) overwrites aiCredits AND creates a MONTHLY grant + reset', async () => {
     stripe.webhooks.constructEvent.mockReturnValue({
       type: 'checkout.session.completed', id: 'evt_1',

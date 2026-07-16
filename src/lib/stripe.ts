@@ -21,7 +21,10 @@ import {
   FREE_TRIAL_POSTS,
   PUBLIC_PAID_PLANS,
   getCreditPack,
+  getPublicPaidPlan,
+  normalizePublicPaidPlan,
   type CreditPackId,
+  type PublicPaidPlanId,
 } from '@/lib/commercialPlans'
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY
@@ -280,6 +283,28 @@ export async function validateCreditWalletStripePrices(stripe: Stripe): Promise<
   ))
 }
 
+/**
+ * Subscription Price IDs are configuration, not commercial truth. Verify the
+ * immutable Stripe object before checkout so a stale/wrong ID cannot sell the
+ * right plan name at the wrong amount, currency, or billing interval.
+ */
+export async function validateSubscriptionStripePrice(
+  stripe: Stripe,
+  planId: PublicPaidPlanId,
+): Promise<boolean> {
+  const priceId = STRIPE_PRICES[planId]
+  const plan = getPublicPaidPlan(planId)
+  if (!priceId || !plan) return false
+
+  const price = await stripe.prices.retrieve(priceId)
+  return price.active === true
+    && price.currency.toLowerCase() === 'usd'
+    && price.unit_amount === plan.priceUsd * 100
+    && price.type === 'recurring'
+    && price.recurring?.interval === 'month'
+    && (price.recurring.interval_count ?? 1) === 1
+}
+
 // ── Plan → monthly credit allocation ──────────────────────────────────────────
 // Matches PLANS array exactly. Credits refresh monthly on paid plans.
 // Free credits are one-time (never refresh) — creates upgrade pressure.
@@ -330,11 +355,31 @@ export const REFERRAL_BONUS_CREDITS = 5
 
 // ── Price ID → plan name (reverse lookup for webhooks) ────────────────────────
 
-export function planFromPriceId(priceId: string): string {
+export type StripeSubscriptionPlan = 'starter' | PublicPaidPlanId
+
+function canonicalSubscriptionPlan(value: unknown): StripeSubscriptionPlan | null {
+  if (typeof value !== 'string') return null
+  if (value.trim().toLowerCase() === 'starter') return 'starter'
+  return normalizePublicPaidPlan(value)
+}
+
+export function planFromPriceId(priceId: string): StripeSubscriptionPlan | null {
   for (const [plan, pid] of Object.entries(STRIPE_PRICES)) {
-    if (pid && pid === priceId) return plan
+    if (pid && pid === priceId) return canonicalSubscriptionPlan(plan)
   }
-  return 'pro'
+  return null
+}
+
+/** Price ID is authoritative; optional metadata must agree with it. */
+export function resolveStripeSubscriptionPlan(
+  priceId: string,
+  metadataPlan?: unknown,
+): StripeSubscriptionPlan | null {
+  const pricePlan = planFromPriceId(priceId)
+  if (!pricePlan) return null
+  if (metadataPlan === undefined || metadataPlan === null || metadataPlan === '') return pricePlan
+  const declaredPlan = canonicalSubscriptionPlan(metadataPlan)
+  return declaredPlan === pricePlan ? pricePlan : null
 }
 
 // ── Plan from subscription status ─────────────────────────────────────────────

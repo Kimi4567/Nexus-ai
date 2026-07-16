@@ -127,6 +127,12 @@ purchased wallet credits remain separate for 12 months.
 - Top-ups remain more expensive than the Autopilot subscription unit price.
 - Stripe Price IDs are retrieved before checkout; inactive, wrong-currency, or
   stale unit amounts fail closed with `CREDIT_PRICE_VERSION_MISMATCH`.
+- Growth and Autopilot subscription Price IDs are also retrieved before
+  checkout. The active USD amount and one-month interval must match `$49` or
+  `$99`; otherwise checkout fails closed with `SUBSCRIPTION_PRICE_MISMATCH`.
+- Subscription webhooks resolve the plan from a configured Price ID and require
+  optional metadata to agree. Unknown IDs never default to Growth and never
+  create monthly credit.
 - Reservation occurs before work, finalization after success, automatic refund
   after failure, and operation idempotency prevents double charging.
 

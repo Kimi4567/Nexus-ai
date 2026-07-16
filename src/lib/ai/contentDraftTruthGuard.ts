@@ -652,13 +652,18 @@ function guardUnverifiedFeatureAndOutcomeClaims(
   // reviewed wording instead.
   const securityProof = verifiedProofText(context)
   if (!/(?:soc\s*2|iso\s*27001|penetration\s+test|security\s+audit|encryption|تدقيق\s+أمني|اختبار\s+اختراق|تشفير)/i.test(securityProof)) {
-    guarded = replaceMatchingSentences(
-      guarded,
-      /(?:protect|secure|safeguard)\s+(?:your|clinic|patient)?\s*data|our\s+security\s+(?:measures|procedures)|secure\s+(?:and\s+)?integrated\s+data|احمِ?\s+بيانات|حماية\s+بيانات|تأمين\s+بيانات|إجراءات\s+الأمان\s+لدينا|إدارة\s+متكاملة\s+وآمنة/i,
-      /[\u0600-\u06ff]/u.test(guarded)
-        ? 'راجع وثائق الأمان وصلاحيات الوصول قبل اعتماد طريقة التعامل مع بيانات العيادة.'
-        : 'Review documented security controls and access permissions before deciding how clinic data should be handled.',
-    )
+    const unverifiedSecurityPattern = /(?:protect|secure|safeguard)\s+(?:your|clinic|patient)?\s*data|our\s+security\s+(?:measures|procedures)|secure\s+(?:and\s+)?integrated\s+data|احمِ?\s+بيانات|حماية\s+بيانات|تأمين\s+بيانات|إجراءات\s+الأمان\s+لدينا|إدارة\s+متكاملة\s+وآمنة/i
+    const isSecurityStoryboard = /\bScene\s+\d+\s*:/i.test(guarded)
+      && /data\s+security|secure(?:ly)?\s+(?:data|managed|transfer)|protected\s+patient|data\s+breach|security\s+measures/i.test(guarded)
+    guarded = isSecurityStoryboard
+      ? 'Scene 1: A clinic manager lists questions about data access and permissions. Scene 2: Review the currently documented security controls. Scene 3: Show a neutral security-review checklist without certifications or protection claims. Scene 4: Ask the viewer to request the current security documentation before deciding.'
+      : replaceMatchingSentences(
+          guarded,
+          unverifiedSecurityPattern,
+          /[\u0600-\u06ff]/u.test(guarded)
+            ? 'راجع وثائق الأمان وصلاحيات الوصول قبل اعتماد طريقة التعامل مع بيانات العيادة.'
+            : 'Review documented security controls and access permissions before deciding how clinic data should be handled.',
+        )
     guarded = guarded
       .replace(/#(?:DataSecurity|SecureData|CyberSecurity)\b/gi, '#SecurityReview')
       .replace(/#أمان_البيانات/g, '#مراجعة_الأمان')

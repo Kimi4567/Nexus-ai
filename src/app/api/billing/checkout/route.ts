@@ -12,6 +12,7 @@ import {
   getStripeClient,
   isBillingConfigured,
   STRIPE_PRICES,
+  validateSubscriptionStripePrice,
 } from '@/lib/stripe'
 import { checkoutRateLimit } from '@/lib/dbRateLimit'
 import { normalizePublicPaidPlan } from '@/lib/commercialPlans'
@@ -64,6 +65,14 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const stripe = getStripeClient()
+    if (!await validateSubscriptionStripePrice(stripe, plan)) {
+      return NextResponse.json({
+        error: 'The configured Stripe price does not match the current subscription schedule.',
+        code: 'SUBSCRIPTION_PRICE_MISMATCH',
+      }, { status: 503 })
+    }
+
     // ── Ensure Stripe customer ──────────────────────────────────────────────
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
@@ -75,8 +84,6 @@ export async function POST(req: NextRequest) {
     }
 
     let customerId = dbUser.stripeCustomerId
-    const stripe = getStripeClient()
-
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: dbUser.email,

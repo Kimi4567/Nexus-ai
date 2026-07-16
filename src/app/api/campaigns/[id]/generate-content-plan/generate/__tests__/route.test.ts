@@ -64,7 +64,7 @@ vi.mock('@/lib/credits', () => ({
   }),
   getCreditActionPolicy: (action: string) => ({
     action,
-    cost: 3,
+    cost: 4,
     label: 'Image generation',
     reason: 'Creates one reviewable campaign image for a specific post.',
   }),
@@ -124,7 +124,7 @@ const postB = {
 const confirmedBody = {
   explicitBulkImageGenerationConfirmed: true,
   acknowledgedImageCount: 1,
-  acknowledgedCreditCost: 3,
+  acknowledgedCreditCost: 4,
 }
 
 async function loadRoute(withProvider = true) {
@@ -163,7 +163,7 @@ beforeEach(() => {
     language: 'en',
   }))
   mockCheckAndDeduct
-    .mockResolvedValueOnce({ ok: true, creditsUsed: 3, creditsRemaining: 27, transactionId: 'txn_a' })
+    .mockResolvedValueOnce({ ok: true, creditsUsed: 4, creditsRemaining: 26, transactionId: 'txn_a' })
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input)
     if (url.includes('cloudinary.com')) {
@@ -288,7 +288,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     expect(json).toMatchObject({
       code: 'CONFIRMATION_REQUIRED',
       expectedImageCount: 1,
-      expectedCreditCost: 3,
+      expectedCreditCost: 4,
     })
     expect(json.error).toContain('No credits were spent')
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
@@ -332,7 +332,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     }])
     mockCheckAndDeduct
       .mockReset()
-      .mockResolvedValueOnce({ ok: true, creditsUsed: 3, creditsRemaining: 27, transactionId: 'txn_youtube' })
+      .mockResolvedValueOnce({ ok: true, creditsUsed: 4, creditsRemaining: 26, transactionId: 'txn_youtube' })
     const fetchMock = vi.fn(async (input: string | URL | Request) => String(input).includes('cloudinary.com')
       ? { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/youtube.jpg' }) }
       : { ok: true, json: async () => ({ data: [{ b64_json: 'raw-youtube' }] }) })
@@ -342,7 +342,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     const res = await POST(makeReq({
       explicitBulkImageGenerationConfirmed: true,
       acknowledgedImageCount: 1,
-      acknowledgedCreditCost: 3,
+      acknowledgedCreditCost: 4,
     }), params)
 
     expect(res.status).toBe(200)
@@ -423,7 +423,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
   it('falls back to legacy scalar refund when transactionId is missing', async () => {
     mockCheckAndDeduct
       .mockReset()
-      .mockResolvedValueOnce({ ok: true, creditsUsed: 3, creditsRemaining: 27 })
+      .mockResolvedValueOnce({ ok: true, creditsUsed: 4, creditsRemaining: 26 })
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
       if (!String(input).includes('cloudinary.com')) throw new Error('provider failed without txn')
       return { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/a.jpg' }) }
@@ -472,7 +472,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
       results: [
         expect.objectContaining({ id: 'post_a', success: true, imageUrl: expect.any(String) }),
       ],
-      creditCharges: [expect.objectContaining({ action: 'IMAGE_GENERATION', cost: 3, creditsUsed: 3 })],
+      creditCharges: [expect.objectContaining({ action: 'IMAGE_GENERATION', cost: 4, creditsUsed: 4 })],
     }))
     expect(mockCheckAndDeduct).toHaveBeenCalledTimes(1)
     expect(mockCheckAndDeduct).toHaveBeenCalledWith(

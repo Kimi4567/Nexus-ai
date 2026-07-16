@@ -3,7 +3,9 @@
  *
  * Model: fal-ai/flux-pro/v1.1-ultra
  * Quality: Best-in-class photorealism, 4MP resolution, superior prompt adherence
- * Cost: ~$0.06/image (vs $0.04 for gpt-image-1 high)
+ * Cost: metered from the active fal.ai account. Do not compare against a
+ * hard-coded OpenAI amount here; the conservative OpenAI fallback reserve is
+ * versioned in providerEconomics.ts.
  *
  * Requires: FAL_KEY in environment variables
  * Get key at: https://fal.ai
