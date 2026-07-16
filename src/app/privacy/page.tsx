@@ -31,8 +31,8 @@ const SECTIONS = [
   {
     titleAr: '5. مشاركة المعلومات',
     titleEn: '5. Sharing of Information',
-    bodyAr: `لا نبيع أو نتاجر أو نؤجر معلوماتك الشخصية لأطراف ثالثة.\n\nمقدمو الخدمات المستخدمون:\n• Supabase — المصادقة وتخزين البيانات\n• Stripe — معالجة المدفوعات\n• OpenAI — توليد المحتوى والصور بالذكاء الاصطناعي\n• fal.ai — توليد صور عندما يكون هذا المزود مفعلاً\n• Cloudinary — استضافة الوسائط\n• Resend — إرسال رسائل البريد التشغيلي\n• Vercel — الاستضافة وتحليلات الاستخدام والأداء الاختيارية\n• Google Fonts — توصيل خطوط واجهة الموقع\n• Meta وLinkedIn وTikTok — فقط عند ربط حساب مدعوم أو طلب إجراء مؤهل على تلك المنصة\n\nتخضع معالجة كل مزود لشروطه وإعدادات الخدمة المطبقة.`,
-    bodyEn: `We do not sell, trade, or rent your personal information to third parties.\n\nService providers in use:\n• Supabase — authentication and data storage\n• Stripe — payment processing\n• OpenAI — AI text and image generation\n• fal.ai — image generation when that provider is enabled\n• Cloudinary — media hosting\n• Resend — operational email delivery\n• Vercel — hosting and optional usage/performance analytics\n• Google Fonts — delivery of site interface fonts\n• Meta, LinkedIn, and TikTok — only when you connect a supported account or request an eligible platform action\n\nEach provider's processing is governed by its terms and the service settings in use.`,
+    bodyAr: `لا نبيع أو نتاجر أو نؤجر معلوماتك الشخصية لأطراف ثالثة.\n\nمقدمو الخدمات المستخدمون:\n• Supabase — المصادقة وتخزين البيانات\n• Stripe — معالجة المدفوعات\n• OpenAI — توليد المحتوى والصور بالذكاء الاصطناعي\n• fal.ai — توليد صور عندما يكون هذا المزود مفعلاً\n• Cloudinary — استضافة الوسائط\n• Resend — إرسال رسائل البريد التشغيلي\n• Vercel — الاستضافة وتحليلات الاستخدام والأداء الاختيارية\n• Sentry — مراقبة أخطاء التطبيق وتشخيص الأعطال عند تفعيل المراقبة\n• Google Fonts — توصيل خطوط واجهة الموقع\n• Meta وLinkedIn وTikTok وPinterest وGoogle/YouTube وX/Threads — فقط عند ربط حساب مدعوم أو طلب إجراء مؤهل على تلك المنصة\n\nتخضع معالجة كل مزود لشروطه وإعدادات الخدمة المطبقة.`,
+    bodyEn: `We do not sell, trade, or rent your personal information to third parties.\n\nService providers in use:\n• Supabase — authentication and data storage\n• Stripe — payment processing\n• OpenAI — AI text and image generation\n• fal.ai — image generation when that provider is enabled\n• Cloudinary — media hosting\n• Resend — operational email delivery\n• Vercel — hosting and optional usage/performance analytics\n• Sentry — application error monitoring and incident diagnostics when monitoring is enabled\n• Google Fonts — delivery of site interface fonts\n• Meta, LinkedIn, TikTok, Pinterest, Google/YouTube, and X/Threads — only when you connect a supported account or request an eligible platform action\n\nEach provider's processing is governed by its terms and the service settings in use.`,
   },
   {
     titleAr: '6. ملفات تعريف الارتباط والتتبع',
@@ -47,10 +47,10 @@ const SECTIONS = [
     bodyEn: `You have the right to:\n• Access — request a copy of your personal data\n• Correction — update inaccurate information\n• Deletion — request account and data deletion ("right to be forgotten")\n• Restriction — request restriction of data processing\n• Portability — request a machine-readable copy of your data\n• Objection — object to processing for marketing purposes\n\nTo exercise these rights: privacy@nexus-grow.com`,
   },
   {
-    titleAr: '8. GDPR & CCPA',
-    titleEn: '8. GDPR & CCPA Compliance',
-    bodyAr: `للاستفسارات أو طلبات الحقوق المتعلقة بالخصوصية تواصل عبر privacy@nexus-grow.com. تعتمد مدة الاحتفاظ على حالة الحساب، وضرورة تقديم الخدمة، ومتطلبات الأمان والفوترة والالتزامات القانونية المطبقة. لا نبيع المعلومات الشخصية، ويمكن تقديم طلب للوصول أو التصحيح أو الحذف حيث تنطبق هذه الحقوق.`,
-    bodyEn: `For privacy questions or rights requests, contact privacy@nexus-grow.com. Retention depends on account status, service delivery, security and billing needs, and applicable legal obligations. We do not sell personal information, and access, correction, or deletion requests may be submitted where those rights apply.`,
+    titleAr: '8. حقوق الخصوصية حسب القانون المطبق',
+    titleEn: '8. Privacy Rights Under Applicable Law',
+    bodyAr: `تختلف الحقوق والمواعيد والإعفاءات حسب موقعك والقانون الذي ينطبق عليك وعلى مشغّل الخدمة. يمكنك تقديم طلب وصول أو تصحيح أو حذف أو تقييد أو نقل أو اعتراض عبر privacy@nexus-grow.com، وسنتحقق من الهوية ونستجيب وفق المتطلبات المطبقة. لا نبيع المعلومات الشخصية. لا تُعد هذه الفقرة ادعاءً باعتماد أو امتثال شامل لكل نظام قانوني.`,
+    bodyEn: `Rights, response periods, and exceptions vary by your location and the law applicable to you and the Service operator. You may submit an access, correction, deletion, restriction, portability, or objection request to privacy@nexus-grow.com; we will verify identity and respond under applicable requirements. We do not sell personal information. This section is not a claim of blanket certification or compliance under every privacy regime.`,
   },
   {
     titleAr: '9. حماية الأطفال',
@@ -81,7 +81,6 @@ const SECTIONS = [
 export default function PrivacyPage() {
   const { t, locale, isRTL } = useI18n()
   const lgT = t('legal')
-  const year = new Date().getFullYear()
   const isAr = locale === 'ar'
 
   return (
@@ -89,7 +88,7 @@ export default function PrivacyPage() {
       badge="Privacy Policy"
       title={lgT?.privacyTitle as string}
       subtitle={lgT?.privacySubtitle as string}
-      lastUpdated={(lgT?.lastUpdated as string)?.replace('{year}', String(year))}
+      lastUpdated={isAr ? 'آخر تحديث: 16 يوليو 2026' : 'Last updated: July 16, 2026'}
       sections={SECTIONS}
       isAr={isAr}
       isRTL={isRTL}

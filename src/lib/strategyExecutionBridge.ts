@@ -251,7 +251,7 @@ export function deriveStrategyExecutionBridge(input: DeriveStrategyExecutionBrid
   const campaignPlatforms = normalizeCampaignPlatforms(input.campaignPlatforms)
   const campaignId = input.campaignId
   const connectionsHref = '/connections'
-  const paidPlanHref = campaignId ? `/campaigns/${campaignId}/paid-launch` : '/paid-campaigns'
+  const paidPlanHref = campaignId ? `/paid-campaigns/new?sourceCampaignId=${campaignId}` : '/paid-campaigns'
 
   const organicRequirements: StrategyExecutionRequirement[] = []
   if (includesOrganic) {

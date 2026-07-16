@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { hasVerifiedProviderScope, YOUTUBE_CONTENT_SCOPES } from '@/lib/socialPlatformConfig'
+import {
+  getMetaOrganicScopes,
+  hasVerifiedProviderScope,
+  TIKTOK_CONTENT_SCOPES,
+  YOUTUBE_CONTENT_SCOPES,
+} from '@/lib/socialPlatformConfig'
 
 describe('hasVerifiedProviderScope', () => {
   it('accepts only a scope returned by the provider', () => {
@@ -32,5 +37,24 @@ describe('YouTube scopes', () => {
       'https://www.googleapis.com/auth/youtube.upload',
       'https://www.googleapis.com/auth/youtube.readonly',
     ])
+  })
+})
+
+describe('review-bound social scopes', () => {
+  it('keeps the default Meta review to demonstrated Facebook permissions', () => {
+    expect(getMetaOrganicScopes(false)).toEqual([
+      'public_profile',
+      'pages_show_list',
+      'pages_read_engagement',
+      'pages_manage_posts',
+    ])
+    expect(getMetaOrganicScopes(false)).not.toContain('instagram_content_publish')
+    expect(getMetaOrganicScopes(true)).toContain('instagram_content_publish')
+  })
+
+  it('requests only the implemented TikTok Direct Post scopes', () => {
+    expect(TIKTOK_CONTENT_SCOPES).toEqual(['user.info.basic', 'video.publish'])
+    expect(TIKTOK_CONTENT_SCOPES).not.toContain('video.list')
+    expect(TIKTOK_CONTENT_SCOPES).not.toContain('video.upload')
   })
 })

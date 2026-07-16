@@ -16,6 +16,7 @@ import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { AlertCircle, Trash2, X } from 'lucide-react'
 import type { WorkspaceExecutionTruth } from '@/lib/executionTruth'
 import { formatScheduledTimeDistance } from '@/lib/scheduleTimeDistance'
+import { hasBrandTruthVerificationFailure, isBrandTruthExecutionLocked } from '@/lib/brandTruthGate'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -383,7 +384,8 @@ function CalendarPageInner() {
   const [queueActionError, setQueueActionError] = useState('')
   const [brandTruthState, setBrandTruthState] = useState<'checking' | 'passed' | 'blocked' | 'unavailable'>('checking')
   const [executionTruth, setExecutionTruth] = useState<WorkspaceExecutionTruth | null>(null)
-  const calendarTruthBlocked = brandTruthState !== 'passed'
+  const calendarTruthLocked = isBrandTruthExecutionLocked(brandTruthState)
+  const calendarTruthFailure = hasBrandTruthVerificationFailure(brandTruthState)
 
   useEffect(() => {
     if (!loading && !isAuthenticated) router.push('/auth/login')
@@ -587,8 +589,8 @@ function CalendarPageInner() {
           journeyStage="execution"
           pageTitle={locale === 'ar' ? 'التنفيذ' : 'Execution'}
           pageSubtitle={locale === 'ar' ? 'قائمة قرارات واحدة للجدولة والنشر والمراقبة؛ يبدأ اعتماد النص والوسائط من إنتاج المحتوى.' : 'One decision queue for scheduling, publishing, and monitoring; copy and media approval starts in Content production.'}
-          primaryHref={calendarTruthBlocked ? '/brand' : (nextExecutionAction?.requiresApproval ? '/approvals' : nextExecutionAction?.href) || '/content-hub'}
-          primaryLabel={calendarTruthBlocked
+          primaryHref={calendarTruthLocked ? '/brand' : (nextExecutionAction?.requiresApproval ? '/approvals' : nextExecutionAction?.href) || '/content-hub'}
+          primaryLabel={calendarTruthLocked
             ? (locale === 'ar' ? 'تصحيح Brand Brain' : 'Fix Brand Brain')
             : nextExecutionAction
               ? (locale === 'ar' ? nextExecutionAction.title.ar : nextExecutionAction.title.en)
@@ -597,7 +599,7 @@ function CalendarPageInner() {
           secondaryLabel={locale === 'ar' ? 'الحملات' : 'Campaigns'}
         />
 
-        {calendarTruthBlocked && (
+        {calendarTruthFailure && (
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-orange-200 bg-orange-50 px-4 py-4 text-orange-950" role="alert">
             <div>
               <p className="text-[13px] font-black">
@@ -613,7 +615,7 @@ function CalendarPageInner() {
           </div>
         )}
 
-        {!calendarTruthBlocked && (
+        {!calendarTruthLocked && (
           <section className="nx-os-action-strip mb-5" aria-live="polite">
             <div className="min-w-0">
               <p className="text-[13px] font-black text-[#0B1028]">
@@ -674,10 +676,10 @@ function CalendarPageInner() {
           </div>
           {activeTab === 'queue' ? (
             <Link
-              href={calendarTruthBlocked ? '/brand' : '/content-hub'}
-              className={`inline-flex h-10 items-center gap-2 rounded-[14px] px-4 text-[12px] font-black text-white ${calendarTruthBlocked ? 'bg-orange-700' : 'bg-[#071236]'}`}
+              href={calendarTruthLocked ? '/brand' : '/content-hub'}
+              className={`inline-flex h-10 items-center gap-2 rounded-[14px] px-4 text-[12px] font-black text-white ${calendarTruthLocked ? 'bg-orange-700' : 'bg-[#071236]'}`}
             >
-              {calendarTruthBlocked ? (locale === 'ar' ? 'تصحيح Brand Brain' : 'Fix Brand Brain') : (locale === 'ar' ? 'افتح مركز المحتوى' : 'Open Content Hub')}
+              {calendarTruthLocked ? (locale === 'ar' ? 'تصحيح Brand Brain' : 'Fix Brand Brain') : (locale === 'ar' ? 'افتح مركز المحتوى' : 'Open Content Hub')}
             </Link>
           ) : null}
         </div>
@@ -713,7 +715,7 @@ function CalendarPageInner() {
                 { label: locale === 'ar' ? 'منشور' : 'Published', value: calStats.published, dot: 'bg-emerald-500', pill: 'bg-emerald-50 text-emerald-700' },
                 { label: locale === 'ar' ? 'مجدول' : 'Scheduled', value: calStats.scheduled, dot: 'bg-[#5366f6]', pill: 'bg-[#eef0ff] text-[#5366f6]' },
                 { label: locale === 'ar' ? 'قيد المراجعة هذا الشهر' : 'In review this month', value: reviewCount, dot: 'bg-amber-500', pill: 'bg-amber-50 text-amber-700' },
-                { label: calendarTruthBlocked ? (locale === 'ar' ? 'مراجع خطة محجوبة' : 'Blocked plan references') : (locale === 'ar' ? 'أفكار الخطة لهذا الشهر' : 'Plan ideas this month'), value: monthStrategyIdeas.length, dot: calendarTruthBlocked ? 'bg-orange-400' : 'bg-slate-400', pill: calendarTruthBlocked ? 'bg-orange-50 text-orange-700 border border-orange-200' : 'bg-white text-[#64708f] border border-[#e3e8f3]' },
+                { label: calendarTruthLocked ? (locale === 'ar' ? 'مراجع خطة محجوبة' : 'Blocked plan references') : (locale === 'ar' ? 'أفكار الخطة لهذا الشهر' : 'Plan ideas this month'), value: monthStrategyIdeas.length, dot: calendarTruthLocked ? 'bg-orange-400' : 'bg-slate-400', pill: calendarTruthLocked ? 'bg-orange-50 text-orange-700 border border-orange-200' : 'bg-white text-[#64708f] border border-[#e3e8f3]' },
                 { label: locale === 'ar' ? 'متأخر' : 'Late', value: lateCount, dot: 'bg-red-500', pill: 'bg-red-50 text-red-600' },
               ].map(item => (
                 <div key={item.label} className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-black ${item.pill}`}>
@@ -1085,7 +1087,7 @@ function CalendarPageInner() {
                 content with no schedule yet; it is never shown as scheduled/published. */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               {[
-                { label: calendarTruthBlocked ? (locale === 'ar' ? 'سجلات محجوبة' : 'Blocked records') : (locale === 'ar' ? 'غير مجدولة' : 'Not scheduled'), value: queueSummary.notScheduled, color: calendarTruthBlocked ? 'text-orange-700' : 'text-slate-600' },
+                { label: calendarTruthLocked ? (locale === 'ar' ? 'سجلات محجوبة' : 'Blocked records') : (locale === 'ar' ? 'غير مجدولة' : 'Not scheduled'), value: queueSummary.notScheduled, color: calendarTruthLocked ? 'text-orange-700' : 'text-slate-600' },
                 { label: scT?.statPending as string || 'Scheduled',  value: scheduled.length, color: 'text-orange-600'  },
                 { label: scT?.statAutoPublished as string || 'API-published', value: autoPublished.length, color: 'text-green-700'   },
                 { label: scT?.statFailed as string || 'Failed',       value: failed.length,    color: 'text-red-600'     },
@@ -1103,7 +1105,7 @@ function CalendarPageInner() {
             </div>
 
             {/* No integrations warning */}
-            {!calendarTruthBlocked && !loadingQueue && integrations.length === 0 && (
+            {!calendarTruthLocked && !loadingQueue && integrations.length === 0 && (
               <div className="rounded-2xl p-6 mb-6 flex items-center gap-4" style={{ background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.2)' }}>
                 <span className="text-2xl">⚠️</span>
                 <div>

@@ -4,6 +4,13 @@ import { describe, expect, it } from 'vitest'
 const migrationsDirectory = 'supabase/migrations'
 const lockdown = readFileSync(`${migrationsDirectory}/20260713105211_lock_down_public_tables.sql`, 'utf8')
 const reassertion = readFileSync(`${migrationsDirectory}/20260715091427_reassert_public_data_api_lockdown.sql`, 'utf8')
+const automaticRls = readFileSync(`${migrationsDirectory}/20260716121736_auto_enable_rls_on_public_tables.sql`, 'utf8')
+
+function executableSql(sql: string): string {
+  return sql
+    .replace(/--.*$/gm, '')
+    .replace(/'(?:''|[^'])*'/g, "''")
+}
 
 describe('Supabase public schema security boundary', () => {
   it.each([
@@ -23,16 +30,25 @@ describe('Supabase public schema security boundary', () => {
     expect(reassertion).toContain('REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated')
   })
 
+  it('automatically enables RLS for future public tables without exposing the trigger function', () => {
+    expect(automaticRls).toContain('CREATE EVENT TRIGGER nexus_enable_rls_on_public_table')
+    expect(automaticRls).toContain("schema_name = 'public'")
+    expect(automaticRls).toContain("'ALTER TABLE IF EXISTS %s ENABLE ROW LEVEL SECURITY'")
+    expect(automaticRls).toContain('REVOKE ALL ON SCHEMA security FROM PUBLIC, anon, authenticated')
+    expect(automaticRls).toContain('REVOKE ALL ON FUNCTION security.enable_rls_on_new_public_tables()')
+  })
+
   it('requires every post-lockdown table-creating migration to lock its tables immediately', () => {
     const migrationFiles = readdirSync(migrationsDirectory)
       .filter(file => file.endsWith('.sql') && file > '20260713105211_lock_down_public_tables.sql')
 
     for (const file of migrationFiles) {
       const sql = readFileSync(`${migrationsDirectory}/${file}`, 'utf8')
+      const code = executableSql(sql)
       // Keep this guard broad enough to catch both idempotent and first-run
       // table declarations. A future migration must not bypass the lockdown
       // merely by omitting IF NOT EXISTS or quoting style.
-      const createdTables = [...sql.matchAll(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"([^"]+)"|([A-Za-z_][\w$]*))/gi)]
+      const createdTables = [...code.matchAll(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"([^"]+)"|([A-Za-z_][\w$]*))/gi)]
         .map(match => match[1] || match[2])
 
       for (const table of createdTables) {

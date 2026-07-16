@@ -5,6 +5,12 @@ import LegalDocumentPage from '@/components/legal/LegalDocumentPage'
 
 const SECTIONS = [
   {
+    titleAr: '0. حالة الإطلاق التجاري',
+    titleEn: '0. Commercial Launch Status',
+    bodyAr: 'NEXUS في مرحلة ما قبل الإطلاق التجاري، وStripe يعمل حالياً في Sandbox. لا تُعرض اشتراكات أو مدفوعات حقيقية قبل نشر اسم الجهة القانونية وعنوانها والقانون الحاكم وشروط الفوترة النهائية. أي دفع تجريبي لا ينشئ اشتراكاً مدفوعاً حقيقياً.',
+    bodyEn: 'NEXUS is in pre-commercial launch and Stripe currently runs in Sandbox. No live subscription or real-money payment is offered until the legal entity name, address, governing law, and final billing terms are published. A test payment does not create a live paid subscription.',
+  },
+  {
     titleAr: '1. قبول الشروط',
     titleEn: '1. Acceptance of Terms',
     bodyAr: 'باستخدامك لمنصة NEXUS AI ("الخدمة")، فإنك توافق على الالتزام بشروط الخدمة هذه بالكامل. إذا لم توافق على أي جزء من هذه الشروط، يُرجى عدم استخدام خدماتنا.',
@@ -25,8 +31,8 @@ const SECTIONS = [
   {
     titleAr: '4. الاشتراكات والفوترة',
     titleEn: '4. Subscriptions & Billing',
-    bodyAr: `• الاشتراكات المدفوعة تُفوتر مسبقاً شهرياً\n• يمكنك إلغاء اشتراكك؛ يسري الإلغاء في نهاية الفترة الحالية ما لم تعرض بوابة Stripe خلاف ذلك\n• تخضع طلبات الاسترداد لسياسة الاسترداد المنشورة\n• السعر المعروض عند الدفع يحكم الفترة التي اشتريتها ولا يتغير بأثر رجعي\n• تُعالج بيانات البطاقة داخل Stripe Checkout ولا نخزنها في NEXUS\n• العملة: USD (الدولار الأمريكي)`,
-    bodyEn: 'Paid subscriptions are billed monthly in advance. Cancellation takes effect at the end of the current period unless the Stripe portal states otherwise. Refund requests follow the published Refund Policy. The price shown at checkout governs the purchased period and is not changed retroactively. Card data is processed inside Stripe Checkout and is not stored by NEXUS. Currency: USD.',
+    bodyAr: `• هذه الأحكام تصبح سارية على المدفوعات الحقيقية فقط بعد تفعيل الإطلاق التجاري ونشر بيانات الجهة المتعاقدة\n• عند التفعيل، تُفوتر الاشتراكات المدفوعة مسبقاً شهرياً\n• يمكنك إلغاء اشتراكك؛ يسري الإلغاء في نهاية الفترة الحالية ما لم تعرض بوابة Stripe خلاف ذلك\n• تخضع طلبات الاسترداد لسياسة الاسترداد المنشورة\n• السعر المعروض عند الدفع يحكم الفترة التي اشتريتها ولا يتغير بأثر رجعي\n• تُعالج بيانات البطاقة داخل Stripe Checkout ولا نخزنها في NEXUS\n• العملة: USD (الدولار الأمريكي)`,
+    bodyEn: 'These billing terms apply to real-money payments only after commercial launch is activated and contracting-entity details are published. When activated, paid subscriptions are billed monthly in advance. Cancellation takes effect at the end of the current period unless the Stripe portal states otherwise. Refund requests follow the published Refund Policy. The price shown at checkout governs the purchased period and is not changed retroactively. Card data is processed inside Stripe Checkout and is not stored by NEXUS. Currency: USD.',
   },
   {
     titleAr: '5. الاستخدام المقبول',
@@ -61,8 +67,8 @@ const SECTIONS = [
   {
     titleAr: '10. القانون الحاكم',
     titleEn: '10. Governing Law',
-    bodyAr: 'تُفسر هذه الشروط وفق القانون الذي ينطبق على الجهة المتعاقدة والمستخدم، مع عدم الإخلال بالحقوق الإلزامية التي لا يمكن التنازل عنها. للاستفسارات التعاقدية تواصل عبر legal@nexus-grow.com.',
-    bodyEn: 'These Terms are interpreted under the law applicable to the contracting entity and the user, without limiting mandatory rights that cannot be waived. For contracting questions, contact legal@nexus-grow.com.',
+    bodyAr: 'لن تبدأ NEXUS مدفوعات تجارية حقيقية قبل نشر الجهة المتعاقدة واختصاصها والقانون الحاكم. إلى ذلك الحين تظل الفوترة Sandbox ولا ينبغي تفسير هذه الصفحة على أنها تخفي جهة أو اختصاصاً غير منشور. لا تتأثر الحقوق الإلزامية التي لا يمكن التنازل عنها. للاستفسارات: legal@nexus-grow.com.',
+    bodyEn: 'NEXUS will not begin live commercial billing before publishing the contracting entity, its jurisdiction, and the governing law. Until then, billing remains Sandbox and this page should not be read as substituting an undisclosed entity or jurisdiction. Mandatory rights that cannot be waived remain unaffected. Questions: legal@nexus-grow.com.',
   },
   {
     titleAr: '11. التعديلات',
@@ -87,7 +93,6 @@ const SECTIONS = [
 export default function TermsPage() {
   const { t, locale, isRTL } = useI18n()
   const lgT = t('legal')
-  const year = new Date().getFullYear()
   const isAr = locale === 'ar'
 
   return (
@@ -95,7 +100,7 @@ export default function TermsPage() {
       badge="Terms of Service"
       title={lgT?.termsTitle as string}
       subtitle={lgT?.termsSubtitle as string}
-      lastUpdated={(lgT?.lastUpdated as string)?.replace('{year}', String(year))}
+      lastUpdated={isAr ? 'آخر تحديث: 16 يوليو 2026' : 'Last updated: July 16, 2026'}
       sections={SECTIONS}
       isAr={isAr}
       isRTL={isRTL}

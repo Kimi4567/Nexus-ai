@@ -204,7 +204,7 @@ export default function AutomationPage() {
 
   return (
     <AppShell>
-      <main dir={dir} className="nx-os-page">
+      <main id="operations-center" dir={dir} className="nx-os-page">
         <div className="nx-os-container nx-os-stack">
           <LuxuryWorkspaceHeader
             journeyStage="execution"

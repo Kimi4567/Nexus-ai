@@ -224,6 +224,8 @@ const PLATFORMS: PlatformDef[] = [
   },
 ]
 
+const PRIMARY_PUBLISHING_PLATFORM_IDS = ['LINKEDIN', 'META', 'YOUTUBE'] as const
+
 function connectionTruth(account: ConnectedAccount, ar: boolean): {
   tone: 'ready' | 'needs'
   label: string
@@ -689,6 +691,13 @@ export default function ConnectionsPage() {
   const hasGoogleAdAccount = paidAdAccounts.some((account) => account.platform?.toUpperCase() === 'GOOGLE')
 
   const connectedCount = accounts.length + paidAdAccounts.length + (googleAdsConnection ? 1 : 0)
+  const availablePlatforms = PLATFORMS
+    .filter(platform => platform.available)
+    .sort((left, right) => {
+      const leftPriority = PRIMARY_PUBLISHING_PLATFORM_IDS.indexOf(left.id as typeof PRIMARY_PUBLISHING_PLATFORM_IDS[number])
+      const rightPriority = PRIMARY_PUBLISHING_PLATFORM_IDS.indexOf(right.id as typeof PRIMARY_PUBLISHING_PLATFORM_IDS[number])
+      return (leftPriority === -1 ? 99 : leftPriority) - (rightPriority === -1 ? 99 : rightPriority)
+    })
 
   if (loading || !isAuthenticated) {
     return (
@@ -754,16 +763,36 @@ export default function ConnectionsPage() {
                 action={<span className="text-[12px] font-bold text-[#64708f]">{copy('النشر يحتاج موافقة', 'Publishing requires approval')}</span>}
               >
                 <span id="available-integrations" className="sr-only" aria-hidden="true" />
+                <div className="mb-4 rounded-[18px] border border-indigo-100 bg-gradient-to-r from-indigo-50 via-white to-violet-50 p-4">
+                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-indigo-600">
+                    {copy('مسار النشر الأساسي', 'Primary publishing path')}
+                  </p>
+                  <p className="mt-1 text-[12px] font-semibold leading-5 text-[#64708f]">
+                    {copy('ابدأ بالقنوات ذات الأولوية في استراتيجية التشغيل الحالية، ثم افتح القنوات الإضافية فقط عندما تعطيها الاستراتيجية دورًا واضحًا.', 'Start with the current operating strategy’s priority channels. Add another channel only when the strategy gives it a clear job.')}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {PRIMARY_PUBLISHING_PLATFORM_IDS.map(platformId => {
+                      const platform = PLATFORMS.find(item => item.id === platformId)
+                      if (!platform) return null
+                      return (
+                        <a key={platformId} href={`#platform-${platformId.toLowerCase()}`} className="rounded-xl border border-indigo-100 bg-white px-3 py-2 text-[11px] font-black text-indigo-700 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200">
+                          {copy(platform.name.ar, platform.name.en)}
+                        </a>
+                      )
+                    })}
+                  </div>
+                </div>
                 <div className="grid gap-4 lg:grid-cols-3">
-                  {PLATFORMS.filter(platform => platform.available).map((platform) => {
+                  {availablePlatforms.map((platform) => {
                     const connectedAccount = accounts.find((account) => account.platform === platform.id)
                     const isConnected = connectedAccount?.status === 'CONNECTED'
                     const truth = connectedAccount ? connectionTruth(connectedAccount, ar) : null
                     const isConnecting = connecting === platform.id
                     const isDisconnecting = disconnecting === connectedAccount?.id
+                    const isPrimary = PRIMARY_PUBLISHING_PLATFORM_IDS.includes(platform.id as typeof PRIMARY_PUBLISHING_PLATFORM_IDS[number])
 
                     return (
-                      <article key={platform.id} className="nx-os-card bg-[#fbfcff] p-4">
+                      <article id={`platform-${platform.id.toLowerCase()}`} key={platform.id} className={`nx-os-card scroll-mt-24 p-4 ${isPrimary ? 'border-indigo-200 bg-white shadow-[0_16px_44px_rgba(79,70,229,0.08)]' : 'bg-[#fbfcff]'}`}>
                         <div className="mb-4 flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3">
                             <span
@@ -775,6 +804,7 @@ export default function ConnectionsPage() {
                             <div>
                               <h3 className="text-[15px] font-black text-[#111b3f]">{copy(platform.name.ar, platform.name.en)}</h3>
                               <p className="mt-1 text-[11px] font-bold text-[#7b87a3]">{copy(platform.scope.ar, platform.scope.en)}</p>
+                              {isPrimary ? <p className="mt-1 text-[9px] font-black uppercase tracking-wider text-indigo-600">{copy('أولوية حالية', 'Current priority')}</p> : null}
                             </div>
                           </div>
                           {isConnected ? (

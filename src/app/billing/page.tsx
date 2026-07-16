@@ -14,6 +14,10 @@ import { formatCreditDisplay } from '@/lib/creditDisplay'
 import { getBillingDisplayTruth } from '@/lib/billingDisplayTruth'
 import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
 import {
+  CURRENT_CREDIT_PRICING_EFFECTIVE_DATE,
+  CURRENT_CREDIT_PRICING_VERSION,
+} from '@/lib/credits/pricing'
+import {
   getStrategyToDraftsJourneyCost,
   STRATEGY_PRICING_DISPLAY_TRUTH,
 } from '@/lib/strategy/strategyPricingDisplayTruth'
@@ -34,6 +38,14 @@ import {
 
 const GROWTH_PLAN = PUBLIC_PAID_PLANS.find((plan) => plan.slug === 'growth') ?? PUBLIC_PAID_PLANS[0]
 const AUTOPILOT_PLAN = PUBLIC_PAID_PLANS.find((plan) => plan.slug === 'autopilot') ?? PUBLIC_PAID_PLANS[1]
+const FULL_STANDARD_90_WORKFLOW_COST = getStrategyToDraftsJourneyCost(
+  STRATEGY_PRICING_DISPLAY_TRUTH.fullStandard90.cost,
+  CREDIT_ACTION_COSTS.SENTINEL_REVIEW,
+  CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION,
+)
+const TRIAL_STRATEGY_REVIEW_COST =
+  STRATEGY_PRICING_DISPLAY_TRUTH.trialActivation.cost
+  + CREDIT_ACTION_COSTS.SENTINEL_REVIEW
 
 const PLANS = [
   {
@@ -52,15 +64,17 @@ const PLANS = [
     limitsAr: [
       `${GROWTH_PLAN.monthlyCredits} رصيد AI / شهر (يتجدد شهرياً)`,
       'موافقات منفصلة للنص والوسائط والجدولة',
-      `${GROWTH_PLAN.campaignLimit} حملات / شهر`,
+      `حتى ${GROWTH_PLAN.campaignLimit} مساحات حملات / شهر — عمليات AI تُحاسب بالكريديت`,
       `${GROWTH_PLAN.postsPerMonth} بوست AI مخطط / شهر`,
+      `مثال سعة: رحلة Full Standard واحدة إلى المسودات (${FULL_STANDARD_90_WORKFLOW_COST} كريديت) أو 4 استراتيجيات Organic Light مراجعة`,
       'Brand Brain الكامل + ذاكرة الحملات',
     ],
     limitsEn: [
       `${GROWTH_PLAN.monthlyCredits} AI credits / month (renews monthly)`,
       'Separate copy, media, and scheduling approvals',
-      `${GROWTH_PLAN.campaignLimit} campaigns / month`,
+      `Up to ${GROWTH_PLAN.campaignLimit} campaign workspaces / month — AI operations use credits`,
       `${GROWTH_PLAN.postsPerMonth} AI-planned posts / month`,
+      `Capacity example: 1 Full Standard workflow to drafts (${FULL_STANDARD_90_WORKFLOW_COST} credits) or 4 reviewed Organic Light strategies`,
       'Full Brand Brain + Campaign Memory (reviewed signals across campaigns)',
     ],
   },
@@ -80,30 +94,23 @@ const PLANS = [
     limitsAr: [
       `${AUTOPILOT_PLAN.monthlyCredits} رصيد AI / شهر (يتجدد شهرياً)`,
       'مركز عمليات ومراقبة مجدولة للحالات والأعطال',
-      `${AUTOPILOT_PLAN.campaignLimit} حملات / شهر`,
+      `حتى ${AUTOPILOT_PLAN.campaignLimit} مساحة حملة / شهر — عمليات AI تُحاسب بالكريديت`,
       `${AUTOPILOT_PLAN.postsPerMonth} بوست AI مخطط / شهر`,
+      `مثال سعة: 3 رحلات Full Standard إلى المسودات أو 12 استراتيجية Organic Light مراجعة`,
       'مراقبة مجدولة + قائمة قرارات مبنية على الأدلة',
     ],
     limitsEn: [
       `${AUTOPILOT_PLAN.monthlyCredits} AI credits / month (renews monthly)`,
       'Operations center with scheduled state and incident monitoring',
-      `${AUTOPILOT_PLAN.campaignLimit} campaigns / month`,
+      `Up to ${AUTOPILOT_PLAN.campaignLimit} campaign workspaces / month — AI operations use credits`,
       `${AUTOPILOT_PLAN.postsPerMonth} AI-planned posts / month`,
+      'Capacity example: 3 Full Standard workflows to drafts or 12 reviewed Organic Light strategies',
       'Scheduled monitoring + evidence-backed action queue',
     ],
   },
 ]
 
 // ─── Credit cost breakdown ────────────────────────────────────────────────────
-
-const FULL_STANDARD_90_WORKFLOW_COST = getStrategyToDraftsJourneyCost(
-  STRATEGY_PRICING_DISPLAY_TRUTH.fullStandard90.cost,
-  CREDIT_ACTION_COSTS.SENTINEL_REVIEW,
-  CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION,
-)
-const TRIAL_STRATEGY_REVIEW_COST =
-  STRATEGY_PRICING_DISPLAY_TRUTH.trialActivation.cost
-  + CREDIT_ACTION_COSTS.SENTINEL_REVIEW
 
 const CREDIT_ACTIONS = [
   {
@@ -194,6 +201,12 @@ const FAQS = [
     qEn: 'What is the difference between Growth and Autopilot?',
     aAr: 'Growth مناسب للتخطيط والإنتاج اليومي، بينما Autopilot يضيف سعة أكبر ومراقبة مجدولة وقائمة قرارات تشغيلية.',
     aEn: 'Growth covers day-to-day planning and production; Autopilot adds more capacity, scheduled monitoring, and an operating action queue.',
+  },
+  {
+    qAr: 'هل عدد الحملات يعني أن كل حملة Full مشمولة مجانًا؟',
+    qEn: 'Does the campaign limit include that many Full workflows for free?',
+    aAr: `لا. حد الحملات هو عدد مساحات العمل التي يمكن إنشاؤها شهريًا، بينما التوليد والمراجعة والمحتوى تُخصم بالكريديت حسب السعر الظاهر قبل التنفيذ. Growth يكفي مثلًا لرحلة Full Standard واحدة إلى المسودات (${FULL_STANDARD_90_WORKFLOW_COST} كريديت) أو 4 استراتيجيات Organic Light مراجعة.`,
+    aEn: `No. The campaign limit is the number of campaign workspaces you can create each month. Generation, review, and content use credits at the quote shown before execution. Growth covers, for example, one Full Standard workflow to drafts (${FULL_STANDARD_90_WORKFLOW_COST} credits) or four reviewed Organic Light strategies.`,
   },
   {
     qAr: 'ماذا يحدث إذا نفدت أرصدتي قبل نهاية الشهر؟',
@@ -835,6 +848,11 @@ export default function BillingPage() {
               : `Monthly credit value: Growth ≈ $${(GROWTH_PLAN.priceUsd / GROWTH_PLAN.monthlyCredits).toFixed(2)}/cr · Autopilot ≈ $${(AUTOPILOT_PLAN.priceUsd / AUTOPILOT_PLAN.monthlyCredits).toFixed(2)}/cr. Strategy cost varies by scope.`
             }
           </p>
+          <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold leading-5 text-slate-600">
+            {ar
+              ? `نسخة التسعير الحالية ${CURRENT_CREDIT_PRICING_VERSION}، سارية من ${CURRENT_CREDIT_PRICING_EFFECTIVE_DATE}. كل عملية تحفظ نسختها؛ لذلك قد يختلف سعر عملية قديمة عن عرض جديد مماثل دون تغيير السجل التاريخي.`
+              : `Current pricing version ${CURRENT_CREDIT_PRICING_VERSION}, effective ${CURRENT_CREDIT_PRICING_EFFECTIVE_DATE}. Every operation stores its version, so a historical row can differ from a new quote without rewriting the ledger.`}
+          </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
             {CREDIT_ACTIONS.map((action, i) => {

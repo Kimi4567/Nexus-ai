@@ -26,14 +26,6 @@ const scopes = [
     Icon: UploadCloud,
     color: '#FB7185',
   },
-  {
-    name: 'video.upload',
-    purpose: 'Support TikTok draft/inbox upload review for creator-controlled posting.',
-    data: 'approved video asset, draft upload status, creator-facing upload context',
-    usage: 'TikTok includes Upload to TikTok with Content Posting API. NEXUS demonstrates this review flow as a user-approved draft upload option; no upload happens without explicit user action.',
-    Icon: Film,
-    color: '#A78BFA',
-  },
 ]
 
 const flow = [
@@ -59,7 +51,7 @@ const flow = [
   },
   {
     title: '6. User approves TikTok publishing',
-    body: 'NEXUS does not publish automatically. The user clicks Upload/Publish to TikTok, then NEXUS calls the Content Posting API.',
+    body: 'In this submitted sandbox flow, the user explicitly clicks Upload/Publish to TikTok before NEXUS calls the Content Posting API.',
   },
 ]
 
@@ -77,7 +69,7 @@ const walkthrough = [
     title: 'Sandbox OAuth consent',
     eyebrow: 'TikTok Sandbox',
     body: 'TikTok shows the requested scopes before the user grants access.',
-    scope: 'user.info.basic + video.publish + video.upload',
+    scope: 'user.info.basic + video.publish',
     action: 'User action: Authorize sandbox account',
   },
   {
@@ -98,11 +90,11 @@ const walkthrough = [
   },
   {
     label: 'Step 5',
-    title: 'Publish or upload to draft',
+    title: 'Initialize a direct post',
     eyebrow: 'TikTok Content Posting API',
-    body: 'After approval, NEXUS can either directly publish with PULL_FROM_URL or demonstrate the upload-to-draft flow.',
-    scope: 'video.publish + video.upload',
-    action: 'Result: publish_id / upload status',
+    body: 'After approval, NEXUS initializes Direct Post and uploads the reviewed video. Draft/inbox upload is not requested in this submission.',
+    scope: 'video.publish',
+    action: 'Result: publish_id, then status polling',
   },
 ]
 
@@ -145,22 +137,22 @@ export default function TikTokReviewDemoPage() {
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-bold">NEXUS TikTok Connection</p>
-                  <p className="text-xs text-slate-500">Sandbox account connected</p>
+                  <p className="text-xs text-slate-500">Illustrative review fixture — not a live connection result</p>
                 </div>
-                <span className="rounded-full border border-emerald-300/25 bg-emerald-300/10 px-3 py-1 text-xs font-bold text-emerald-300">CONNECTED</span>
+                <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-xs font-bold text-amber-200">EXAMPLE STATE</span>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/10 p-4">
                   <UserCircle className="mb-4 text-cyan-200" size={28} />
                   <p className="text-xs uppercase tracking-[2px] text-cyan-200">user.info.basic</p>
-                  <p className="mt-2 text-xl font-black">@sandbox_brand</p>
-                  <p className="mt-1 text-xs text-slate-400">Display name and avatar shown to user</p>
+                  <p className="mt-2 text-xl font-black">@example_creator</p>
+                  <p className="mt-1 text-xs text-slate-400">Placeholder for the nickname returned by creator info</p>
                 </div>
                 <div className="rounded-xl border border-pink-300/20 bg-pink-300/10 p-4">
                   <Film className="mb-4 text-pink-200" size={28} />
-                  <p className="text-xs uppercase tracking-[2px] text-pink-200">video.publish / video.upload</p>
-                  <p className="mt-2 text-xl font-black">publish_id ready</p>
-                  <p className="mt-1 text-xs text-slate-400">Approved short-form video sent to TikTok</p>
+                  <p className="text-xs uppercase tracking-[2px] text-pink-200">video.publish</p>
+                  <p className="mt-2 text-xl font-black">Awaiting user action</p>
+                  <p className="mt-1 text-xs text-slate-400">A publish_id exists only after a successful init response</p>
                 </div>
               </div>
               <div className="mt-4 rounded-xl border border-white/10 bg-black/25 p-4">
@@ -169,7 +161,7 @@ export default function TikTokReviewDemoPage() {
                   Human approval gate
                 </div>
                 <p className="text-sm leading-relaxed text-slate-300">
-                  NEXUS never publishes automatically. The user must review the video, caption, privacy settings, and click the TikTok publishing action.
+                  In this submitted sandbox flow, the user must review the creator account, editable caption, privacy settings, and commercial-content disclosure before clicking the TikTok publishing action. No example state above is presented as a live API result.
                 </p>
               </div>
             </div>
@@ -242,7 +234,6 @@ export default function TikTokReviewDemoPage() {
                 </div>
                 <div className="flex flex-wrap gap-3">
                   <span className="rounded-lg bg-white px-4 py-3 text-sm font-black text-black">Publish to TikTok</span>
-                  <span className="rounded-lg border border-white/15 px-4 py-3 text-sm font-black text-white">Upload as draft</span>
                 </div>
               </div>
             </div>
@@ -254,17 +245,12 @@ export default function TikTokReviewDemoPage() {
               <div className="rounded-xl border border-pink-300/20 bg-pink-300/10 p-4">
                 <p className="font-mono text-pink-200">video.publish</p>
                 <p className="mt-2 text-slate-300">PULL_FROM_URL request sent only after approval.</p>
-                <p className="mt-2 font-mono text-xs text-slate-500">publish_id: sandbox_publish_123</p>
-              </div>
-              <div className="rounded-xl border border-violet-300/20 bg-violet-300/10 p-4">
-                <p className="font-mono text-violet-200">video.upload</p>
-                <p className="mt-2 text-slate-300">Draft/upload path demonstrated for creator-controlled posting.</p>
-                <p className="mt-2 font-mono text-xs text-slate-500">upload_status: ready_for_creator_review</p>
+                <p className="mt-2 font-mono text-xs text-slate-500">example response field: publish_id (not generated on this page)</p>
               </div>
               <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/10 p-4">
                 <p className="font-mono text-cyan-200">user.info.basic</p>
                 <p className="mt-2 text-slate-300">Connected account remains visible in NEXUS settings.</p>
-                <p className="mt-2 font-mono text-xs text-slate-500">open_id stored with encrypted OAuth tokens</p>
+                <p className="mt-2 font-mono text-xs text-slate-500">live open_id is stored only after successful OAuth</p>
               </div>
             </div>
           </div>
@@ -276,7 +262,7 @@ export default function TikTokReviewDemoPage() {
           <p className="mb-3 text-xs font-bold uppercase tracking-[3px] text-cyan-300">Requested scopes</p>
             <h2 className="text-3xl font-black">All selected TikTok scopes are demonstrated below</h2>
           <p className="mt-3 text-sm leading-relaxed text-slate-400">
-            TikTok Content Posting API may include both direct publish and upload-to-draft capabilities. This page explains both flows so reviewers can map each selected scope to a user action.
+            TikTok Content Posting API supports both direct publish and upload-to-draft capabilities. This submission requests and demonstrates Direct Post only; video.upload remains out of scope until a separate draft-upload experience is implemented and reviewable.
           </p>
         </div>
         <div className="grid gap-4 lg:grid-cols-2">

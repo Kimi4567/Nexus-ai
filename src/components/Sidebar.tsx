@@ -8,7 +8,6 @@ import { useI18n } from '@/lib/i18n-context'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 import { getBillingDisplayTruth } from '@/lib/billingDisplayTruth'
 import { getPlanDisplayName } from '@/lib/creditDisplay'
-import { actionableApprovalSuggestions, liveApprovalQueue } from '@/lib/approvalInboxTruth'
 import {
   MARKETING_JOURNEY,
   resolveMarketingJourneyStage,
@@ -247,27 +246,13 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       try {
         const token = authHeader()
         if (!token) return
-        const [brainResult, agentResult, executionResult] = await Promise.allSettled([
-          fetch('/api/brain/proposals?status=pending', { headers: { Authorization: token } }),
-          fetch('/api/agents/suggestions?status=PENDING&limit=100', { headers: { Authorization: token } }),
-          fetch('/api/execution/queue', { headers: { Authorization: token } }),
-        ])
-        let count = 0
-        if (brainResult.status === 'fulfilled' && brainResult.value.ok) {
-          const data = await brainResult.value.json()
-          count += typeof data.total === 'number' ? data.total : Array.isArray(data.proposals) ? data.proposals.length : 0
-        }
-        if (agentResult.status === 'fulfilled' && agentResult.value.ok) {
-          const data = await agentResult.value.json()
-          count += actionableApprovalSuggestions(
-            Array.isArray(data.suggestions) ? data.suggestions : [],
-          ).length
-        }
-        if (executionResult.status === 'fulfilled' && executionResult.value.ok) {
-          const data = await executionResult.value.json()
-          count += liveApprovalQueue(data?.truth?.queue).length
-        }
-        setPendingProposals(count)
+        const response = await fetch('/api/approvals/inbox', {
+          headers: { Authorization: token },
+          cache: 'no-store',
+        })
+        if (!response.ok) return
+        const data = await response.json()
+        setPendingProposals(Number(data?.inbox?.summary?.total) || 0)
       } catch {
         // non-critical
       } finally {
@@ -331,6 +316,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       labelEn: 'System',
       separatorBefore: true,
       items: [
+        { href: '/automation#operations-center', labelAr: 'مركز العمليات', labelEn: 'Operations center', icon: Icons.dashboard, badgeKey: '24/7', badgeColor: '#22C55E' },
         { href: '/connections', labelAr: 'الربط', labelEn: 'Connections', icon: Icons.connections },
       ],
     },

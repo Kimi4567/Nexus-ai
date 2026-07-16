@@ -420,9 +420,10 @@ export default function DashboardPage() {
       setLoadError(false)
     }
     try {
-      // Start every read together, but unblock the first dashboard paint from
-      // the three enrichment endpoints. Previously one slow intelligence or
-      // connection request held the entire dashboard spinner for up to 9s.
+      // Start every read together. Keep the decision surface in its truthful
+      // loading state until both core records and operational enrichment have
+      // settled; showing a fast but false "no strategy / no connection" state
+      // is worse than a stable skeleton for an action-oriented dashboard.
       const essentialReads = Promise.allSettled([
         fetchWithTimeout('/api/dashboard/stats', { headers: { Authorization: token } }, 7_000),
         fetchWithTimeout('/api/campaigns?limit=5&sort=updatedAt', { headers: { Authorization: token } }, 7_000),
@@ -491,7 +492,6 @@ export default function DashboardPage() {
       }
 
       setLastUpdated(new Date())
-      if (!silent) setLoading(false)
 
       const [intelligenceRes, connectionsRes, executionRes] = await enrichmentReads
 

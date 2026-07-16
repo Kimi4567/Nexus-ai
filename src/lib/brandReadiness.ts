@@ -255,6 +255,7 @@ export interface StrategyCapabilities {
 
 /** Superset of BrandProfileLike including the PR-2A capture fields. All optional. */
 export type StrategyProfileLike = BrandProfileLike & {
+  pricePoint?: string | null
   uniqueAdvantages?: string[] | null
   competitors?: string[] | null
   businessGoal?: string | null
@@ -262,6 +263,7 @@ export type StrategyProfileLike = BrandProfileLike & {
   conversionDestination?: string | null
   leadHandling?: string | null
   customerObjections?: string[] | null
+  verifiedProof?: string[] | null
 }
 
 const hasStr = (v: unknown): boolean => typeof v === 'string' && v.trim().length > 0
@@ -325,12 +327,20 @@ export function getStrategyCapabilities(
     confidence: fullReady ? 'high' : contentReady ? 'low' : 'none',
   }
 
-  // ── paid strategy ── (professional content base + budget + destination + location + follow-up)
+  // ── paid strategy ──
+  // A media plan is not professionally reviewable from budget + destination
+  // alone. Price position, differentiation, buying objections, and at least one
+  // user-confirmed proof point are required so the model cannot silently invent
+  // an offer, claim, or objection-handling angle.
   const paidExtra = missingKeysOf(p, [
     { key: 'marketingBudget',       ok: x => hasStr(x.marketingBudget) },
     { key: 'conversionDestination', ok: x => hasStr(x.conversionDestination) },
     { key: 'audienceLocation',      ok: x => hasStr(x.audienceLocation) },
     { key: 'leadHandling',          ok: x => hasStr(x.leadHandling) },
+    { key: 'pricePoint',             ok: x => hasStr(x.pricePoint) },
+    { key: 'uniqueAdvantages',       ok: x => hasArr(x.uniqueAdvantages) },
+    { key: 'customerObjections',     ok: x => hasArr(x.customerObjections) },
+    { key: 'verifiedProof',          ok: x => hasArr(x.verifiedProof) },
   ])
   const paidMissing = [...contentMissing, ...paidExtra]
   const paidReady = paidMissing.length === 0

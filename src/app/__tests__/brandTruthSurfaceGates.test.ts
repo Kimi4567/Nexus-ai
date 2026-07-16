@@ -18,7 +18,8 @@ describe('live Brand Brain truth gates across user-facing workspaces', () => {
   it('holds global Content Hub records instead of presenting stale drafts as reviewable', () => {
     const contentHub = source('src/app/content-hub/page.tsx')
     expect(contentHub).toContain('reviewBrandTruthConsistency')
-    expect(contentHub).toContain('const contentTruthBlocked = brandTruthState !== \'passed\'')
+    expect(contentHub).toContain('const contentTruthLocked = isBrandTruthExecutionLocked(brandTruthState)')
+    expect(contentHub).toContain('const contentTruthFailure = hasBrandTruthVerificationFailure(brandTruthState)')
     expect(contentHub).toContain('مسودة قديمة — مرجع فقط حتى تصحيح Brand Brain')
     expect(contentHub).toContain('لن يُخصم كريديت حتى تصحيح مصدر الحقيقة')
   })
@@ -50,7 +51,8 @@ describe('live Brand Brain truth gates across user-facing workspaces', () => {
     expect(calendar).toContain('reviewBrandTruthConsistency')
     expect(calendar).toContain('الجدولة محجوبة حتى تصحيح مصدر الحقيقة')
     expect(calendar).toContain('مراجع خطة محجوبة')
-    expect(calendar).toContain('!calendarTruthBlocked && !loadingQueue')
+    expect(calendar).toContain('calendarTruthFailure &&')
+    expect(calendar).toContain('!calendarTruthLocked && !loadingQueue')
   })
 
   it('removes downstream campaign actions while a live Brand Brain conflict exists', () => {

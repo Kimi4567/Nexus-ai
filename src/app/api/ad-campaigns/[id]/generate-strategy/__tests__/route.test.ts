@@ -109,6 +109,10 @@ const paidBrandProfile = {
   conversionDestination: 'https://nexus-grow.com/paid-offer',
   leadHandling: 'Sales callback',
   audienceLocation: 'Dubai',
+  pricePoint: 'Mid-market subscription',
+  uniqueAdvantages: ['One governed workflow from brand evidence to execution'],
+  customerObjections: ['Concern about approving AI-generated marketing work'],
+  verifiedProof: ['User-confirmed product workflow and feature inventory'],
 }
 
 beforeEach(() => {

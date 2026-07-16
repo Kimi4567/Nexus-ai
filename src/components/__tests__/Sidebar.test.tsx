@@ -142,8 +142,10 @@ describe('Sidebar credit presentation', () => {
     expect(screen.getByText('Execution')).toBeTruthy()
     expect(screen.getByText('Results & learning')).toBeTruthy()
     expect(screen.getByText('Connections')).toBeTruthy()
+    expect(screen.getByText('Operations center')).toBeTruthy()
     expect(document.querySelector('a[href="/billing"]')).toBeTruthy()
     expect(document.querySelector('a[href="/calendar?tab=queue"]')).toBeTruthy()
+    expect(document.querySelector('a[href="/automation#operations-center"]')).toBeTruthy()
 
     expect(screen.queryByText('Campaigns')).toBeNull()
     expect(screen.queryByText('Publish')).toBeNull()
@@ -162,16 +164,19 @@ describe('Sidebar credit presentation', () => {
   it('deduplicates unified pending-decision reads when the sidebar rerenders', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ proposals: [{ id: 'proposal-1' }] }),
+      json: async () => ({ inbox: { summary: { total: 1 } } }),
     })
     vi.stubGlobal('fetch', fetchMock)
 
     const rendered = render(<Sidebar collapsed={false} setCollapsed={() => {}} />)
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    expect(fetchMock).toHaveBeenCalledWith('/api/approvals/inbox', expect.objectContaining({
+      cache: 'no-store',
+    }))
 
     rendered.rerender(<Sidebar collapsed={false} setCollapsed={() => {}} />)
     await Promise.resolve()
 
-    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })

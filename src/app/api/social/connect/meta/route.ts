@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { createOAuthState } from '@/lib/oauthState'
-import { META_GRAPH_VERSION, META_ORGANIC_SCOPES } from '@/lib/socialPlatformConfig'
+import { getMetaOrganicScopes, META_GRAPH_VERSION } from '@/lib/socialPlatformConfig'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
     const state = createOAuthState(user.id, 'meta')
 
-    const scopes = META_ORGANIC_SCOPES.join(',')
+    const scopes = getMetaOrganicScopes().join(',')
 
     const metaOAuthUrl =
       `https://www.facebook.com/${META_GRAPH_VERSION}/dialog/oauth` +

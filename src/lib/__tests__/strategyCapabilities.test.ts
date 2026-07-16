@@ -103,6 +103,10 @@ describe('paid strategy', () => {
       conversionDestination: 'WhatsApp',
       audienceLocation: 'Abu Dhabi',
       leadHandling: 'Sales team responds within one business day',
+      pricePoint: 'premium',
+      uniqueAdvantages: ['Painless technology'],
+      customerObjections: ['Concern about treatment cost'],
+      verifiedProof: ['Licensed clinicians and published service list'],
     }).paidStrategy
     expect(p.ready).toBe(true)
     expect(p.confidence).toBe('high')
@@ -117,6 +121,10 @@ describe('paid strategy', () => {
       conversionDestination: 'WhatsApp',
       audienceLocation: 'Abu Dhabi',
       leadHandling: 'Sales team responds within one business day',
+      pricePoint: 'premium',
+      uniqueAdvantages: ['Painless technology'],
+      customerObjections: ['Concern about treatment cost'],
+      verifiedProof: ['Licensed clinicians and published service list'],
     }).paidStrategy
     expect(p.ready).toBe(false)
     expect(p.confidence).toBe('none')

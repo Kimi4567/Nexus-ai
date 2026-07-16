@@ -10,6 +10,7 @@ import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import { resolveCampaignCounts, type CampaignCounts } from '@/lib/campaignSummary'
 import { guardStrategyProofText } from '@/lib/ai/strategyProofGuard'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
+import { hasBrandTruthVerificationFailure, isBrandTruthExecutionLocked } from '@/lib/brandTruthGate'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
@@ -125,7 +126,8 @@ export default function CampaignsPage() {
   const [decisionError, setDecisionError] = useState('')
   const [brandTruthState, setBrandTruthState] = useState<'checking' | 'passed' | 'blocked' | 'unavailable'>('checking')
   const menuRef = useRef<HTMLDivElement>(null)
-  const brandTruthBlocked = brandTruthState !== 'passed'
+  const brandTruthLocked = isBrandTruthExecutionLocked(brandTruthState)
+  const brandTruthFailure = hasBrandTruthVerificationFailure(brandTruthState)
 
   const statusMap: Record<string, { label: string; dot: string; pill: string }> = {
     DRAFT: {
@@ -134,9 +136,9 @@ export default function CampaignsPage() {
       pill: 'bg-slate-50 text-slate-600 border-slate-200',
     },
     ACTIVE: {
-      label: brandTruthBlocked ? copy('محجوبة — مرجع فقط', 'Blocked — reference only') : copy('استراتيجية معتمدة', 'Strategy approved'),
-      dot: brandTruthBlocked ? 'bg-orange-500' : 'bg-emerald-500',
-      pill: brandTruthBlocked ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-emerald-50 text-emerald-700 border-emerald-100',
+      label: brandTruthLocked ? copy('محجوبة — مرجع فقط', 'Blocked — reference only') : copy('استراتيجية معتمدة', 'Strategy approved'),
+      dot: brandTruthLocked ? 'bg-orange-500' : 'bg-emerald-500',
+      pill: brandTruthLocked ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-emerald-50 text-emerald-700 border-emerald-100',
     },
     PAUSED: {
       label: cT?.statusPaused || copy('متوقفة', 'Paused'),
@@ -287,13 +289,13 @@ export default function CampaignsPage() {
   const summary = useMemo(() => {
     const total = counts?.total ?? campaigns.length
     const persistedActive = counts?.active ?? campaigns.filter((campaign) => campaign.status === 'ACTIVE').length
-    const active = brandTruthBlocked ? 0 : persistedActive
+    const active = brandTruthLocked ? 0 : persistedActive
     const draft = counts?.draft ?? campaigns.filter((campaign) => campaign.status === 'DRAFT').length
     const completed = campaigns.filter((campaign) => campaign.status === 'COMPLETED').length
     const archived = campaigns.filter((campaign) => campaign.status === 'ARCHIVED').length
     const health = total > 0 ? Math.round(((active + completed) / total) * 100) : 0
     return { total, active, persistedActive, draft, completed, archived, health }
-  }, [brandTruthBlocked, campaigns, counts])
+  }, [brandTruthLocked, campaigns, counts])
 
   const platformDistribution = useMemo(() => {
     const totals = new Map<string, number>()
@@ -352,8 +354,8 @@ export default function CampaignsPage() {
 
   const dateLocale = locale === 'ar' ? 'ar-EG' : 'en-US'
   const latestCampaign = campaigns[0]
-  const latestCampaignStrategyHref = brandTruthBlocked ? '/brand' : latestCampaign ? `/campaigns/${latestCampaign.id}?tab=strategy` : '/campaigns/new'
-  const latestCampaignContentHref = brandTruthBlocked ? '/brand' : latestCampaign ? `/campaigns/${latestCampaign.id}/content-hub` : '/content-hub'
+  const latestCampaignStrategyHref = brandTruthLocked ? '/brand' : latestCampaign ? `/campaigns/${latestCampaign.id}?tab=strategy` : '/campaigns/new'
+  const latestCampaignContentHref = brandTruthLocked ? '/brand' : latestCampaign ? `/campaigns/${latestCampaign.id}/content-hub` : '/content-hub'
 
   const exportCampaigns = () => {
     if (!campaigns.length) return
@@ -394,8 +396,8 @@ export default function CampaignsPage() {
           <LuxuryWorkspaceHeader
             pageTitle={copy('الحملات', 'Campaigns')}
             pageSubtitle={copy('محفظة الحملات: النطاق، المرحلة، الجاهزية، والقرار التالي. الإنتاج التفصيلي يعيش داخل Content Hub.', 'Campaign portfolio: scope, stage, readiness, and next decision. Detailed production lives inside Content Hub.')}
-            primaryHref={brandTruthBlocked ? '/brand' : '/campaigns/new'}
-            primaryLabel={brandTruthBlocked ? copy('تصحيح Brand Brain', 'Fix Brand Brain') : cT?.btnNewCampaign || copy('حملة جديدة', 'New campaign')}
+            primaryHref={brandTruthLocked ? '/brand' : '/campaigns/new'}
+            primaryLabel={brandTruthLocked ? copy('تصحيح Brand Brain', 'Fix Brand Brain') : cT?.btnNewCampaign || copy('حملة جديدة', 'New campaign')}
             secondaryHref="/connections"
             secondaryLabel={copy('الربط والتكاملات', 'Connections')}
           />
@@ -404,7 +406,7 @@ export default function CampaignsPage() {
             <div className="min-w-0">
               <p className="nx-os-section-title">{ar ? `${campaignCountLabel(summary.total)} في مساحة العمل` : `${campaignCountLabel(summary.total)} in this workspace`}</p>
               <p className="nx-os-section-copy">
-                {brandTruthBlocked && summary.persistedActive > 0
+                {brandTruthLocked && summary.persistedActive > 0
                   ? copy(`${summary.persistedActive} سجل اعتماد قديم محجوب حتى تصحيح Brand Brain.`, `${summary.persistedActive} older approval record is blocked until Brand Brain is fixed.`)
                   : copy(`${summary.active} معتمدة و${summary.draft} تحتاج مراجعة.`, `${summary.active} approved and ${summary.draft} need review.`)}
               </p>
@@ -430,7 +432,7 @@ export default function CampaignsPage() {
             </div>
           </div>
 
-          {brandTruthBlocked && (
+          {brandTruthFailure && (
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-orange-200 bg-orange-50 px-4 py-4 text-orange-950">
               <div>
                 <p className="text-[13px] font-black">
@@ -699,7 +701,7 @@ export default function CampaignsPage() {
                             {status.label}
                           </span>
                           <span className="w-max rounded-full bg-[#f3f1ff] px-3 py-1 text-xs font-bold text-[#4f46e5]">
-                            {campaign.status === 'ACTIVE' && brandTruthBlocked ? copy('مرجع فقط', 'Reference only') : campaign.status === 'ACTIVE' ? copy('اعتماد', 'Approved') : campaign.status === 'DRAFT' ? copy('تخطيط', 'Plan') : copy('مراجعة', 'Review')}
+                            {campaign.status === 'ACTIVE' && brandTruthLocked ? copy('مرجع فقط', 'Reference only') : campaign.status === 'ACTIVE' ? copy('اعتماد', 'Approved') : campaign.status === 'DRAFT' ? copy('تخطيط', 'Plan') : copy('مراجعة', 'Review')}
                           </span>
                           <span className="flex flex-wrap gap-1">
                             {platforms.isEmpty ? (

@@ -75,7 +75,7 @@ const STEP_COPY: Record<StepId, { label: { en: string; ar: string }; desc: { en:
     desc: { en: 'Define who you serve, what they need, what blocks them, and where they buy.', ar: 'عرّف من تخدمهم وما يحتاجونه وما يعطل قرارهم وأين يشترون.' },
   },
   voice: {
-    label: { en: 'Voice & Messaging', ar: 'الصوت والرسائل' },
+    label: { en: 'Voice, Proof & Messaging', ar: 'الصوت والإثبات والرسائل' },
     desc: { en: 'Capture tone, proof, content samples, and message boundaries.', ar: 'سجّل النبرة والإثباتات وعيّنات المحتوى وحدود الرسائل.' },
   },
   platforms: {
@@ -246,8 +246,8 @@ function BrandStatusPanel({ indicators, locale, contract, organicTruthBlocked = 
     },
     {
       label: ar ? 'التخطيط المدفوع' : 'Paid planning',
-      value: indicators.paidReadiness.ready ? (ar ? 'جاهز لمراجعة المدفوع' : 'Paid review ready') : (ar ? 'يحتاج متطلبات' : 'Needs prerequisites'),
-      helper: ar ? 'يتطلب موافقة قبل أي صرف' : 'Approval required before any spend',
+      value: indicators.paidReadiness.ready ? (ar ? 'بريف مدفوع مكتمل' : 'Paid brief complete') : (ar ? 'يحتاج متطلبات' : 'Needs prerequisites'),
+      helper: ar ? 'تخطيط فقط؛ التتبع والموافقة مطلوبان قبل أي صرف' : 'Planning only; tracking and approval are required before spend',
     },
     {
       label: ar ? 'ثراء الذاكرة' : 'Memory richness',
@@ -1328,7 +1328,7 @@ function BrandBrainInner() {
                       </span>
                       <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${brandIndicators.paidReadiness.ready ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                         {locale === 'ar' ? 'المدفوع: ' : 'Paid: '}
-                        {brandIndicators.paidReadiness.ready ? (locale === 'ar' ? 'جاهز للمراجعة' : 'Review ready') : (locale === 'ar' ? 'يحتاج متطلبات' : 'Needs prerequisites')}
+                        {brandIndicators.paidReadiness.ready ? (locale === 'ar' ? 'بريف مكتمل' : 'Brief complete') : (locale === 'ar' ? 'يحتاج متطلبات' : 'Needs prerequisites')}
                       </span>
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-600">
                         {locale === 'ar' ? 'ليست نسبة الجاهزية الكلية' : 'Not an overall readiness score'}

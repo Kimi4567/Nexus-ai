@@ -33,6 +33,10 @@ import { formatStrategyDeliverableForLocale, getStrategyDeliverables } from '@/l
 // PR-S1c-2 — variable strategy pricing (display side). The SAME pure function runs
 // server-side before deduction, so the displayed price equals the charged price.
 import { getStrategyCreditCost } from '@/lib/strategy/strategyPricing'
+import {
+  CURRENT_CREDIT_PRICING_EFFECTIVE_DATE,
+  CURRENT_CREDIT_PRICING_VERSION,
+} from '@/lib/credits/pricing'
 import type { StrategyOrder, ContentIntensity } from '@/lib/strategy/strategyOrder'
 import { intensityForOrganicPostCount } from '@/lib/strategy/strategyPostCount'
 import {
@@ -147,13 +151,6 @@ const primaryButtonStyle: React.CSSProperties = {
   color: '#fff',
   boxShadow: '0 12px 28px rgba(79,70,229,0.24)',
 }
-
-// -- i18n key -> field label helper ------------------------------------------
-
-const FIELD_KEY_MAP: RequiredFieldKey[] = [
-  'brandName', 'industry', 'description', 'primaryOffer', 'targetAudience',
-  'audiencePainPoints', 'businessGoal', 'topPlatforms',
-]
 
 // -- Cache helpers -----------------------------------------------------------
 
@@ -474,7 +471,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
             setPhase('error')
             setResult({
               ok: false,
-              error: locale === 'ar'
+              error: selectedLanguage === 'ar'
                 ? 'تعذر اكتمال الاتصال أثناء إنشاء الاستراتيجية. لم تُحفظ استراتيجية جديدة. تحقق من رصيدك ثم أعد المحاولة.'
                 : 'The connection ended before strategy creation completed. No new strategy was saved. Check your credit balance, then retry.',
             })
@@ -582,6 +579,9 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
       platformReadiness: 'Platform readiness',
       budgetApproval: 'Budget approval',
       verifiedProof: 'Verified proof',
+      pricePoint: 'Price position',
+      uniqueAdvantages: 'Differentiators',
+      customerObjections: 'Customer objections',
     }
     const ar: Record<StrategyBriefFieldKey, string> = {
       brandName: 'اسم العلامة',
@@ -601,6 +601,9 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
       platformReadiness: 'جاهزية المنصة',
       budgetApproval: 'موافقة الميزانية',
       verifiedProof: 'إثبات موثّق',
+      pricePoint: 'الشريحة السعرية',
+      uniqueAdvantages: 'عوامل التميّز',
+      customerObjections: 'اعتراضات العملاء',
     }
     return locale === 'ar' ? ar[key] : en[key]
   }
@@ -833,9 +836,13 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
                     </div>
                     <div className="min-w-0">
                       <p className="text-[11px] font-bold text-slate-500">{label}</p>
-                      <p className="mt-1 break-words text-sm font-semibold leading-6 text-slate-900">
-                        {value || (locale === 'ar' ? 'غير مكتمل' : 'Incomplete')}
-                      </p>
+                      {strategyBriefLoading ? (
+                        <span className="mt-2 block h-4 w-32 max-w-full animate-pulse rounded-full bg-slate-200" aria-label={locale === 'ar' ? 'جارٍ تحميل القيمة المحفوظة' : 'Loading saved value'} />
+                      ) : (
+                        <p className="mt-1 break-words text-sm font-semibold leading-6 text-slate-900">
+                          {value || (locale === 'ar' ? 'غير مكتمل' : 'Incomplete')}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -869,7 +876,9 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
                   {locale === 'ar' ? 'الخطوة التالية' : 'Next step'}
                 </p>
                 <p className="mt-1 text-xs leading-5 text-indigo-800">
-                  {brandReadinessPreview.ready
+                  {strategyBriefLoading
+                    ? (locale === 'ar' ? 'جارٍ تجهيز السياق المحفوظ. لن يظهر قرار جاهزية قبل اكتمال القراءة.' : 'Preparing the saved context. No readiness decision is shown until the read completes.')
+                    : brandReadinessPreview.ready
                     ? (locale === 'ar' ? 'حدد نطاق الطلب الذي تريده. لا يبدأ أي توليد أو خصم حتى التأكيد النهائي، ويمكنك تعديل Brand Brain قبل أي طلب جديد.' : 'Choose the request scope. Nothing is generated or charged until the final confirmation, and you can update Brand Brain before any future request.')
                     : (locale === 'ar' ? 'ارجع إلى Brand Brain وأكمل الحقول المطلوبة. لا يوجد توليد أو خصم في هذه المرحلة.' : 'Return to Brand Brain and complete the required fields. Nothing is generated or charged here.')}
                 </p>
@@ -1229,6 +1238,12 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
                 </div>
               ))}
             </div>
+
+            <p className="mb-4 text-center text-[11px] font-semibold leading-5 text-slate-500">
+              {locale === 'ar'
+                ? `نسخة التسعير ${CURRENT_CREDIT_PRICING_VERSION} — سارية من ${CURRENT_CREDIT_PRICING_EFFECTIVE_DATE}. يحتفظ السجل القديم بسعره ونسخته التاريخية ولا يُعاد تسعيره.`
+                : `Pricing ${CURRENT_CREDIT_PRICING_VERSION} — effective ${CURRENT_CREDIT_PRICING_EFFECTIVE_DATE}. Earlier ledger entries keep their historical amount and are never repriced.`}
+            </p>
 
             <div className="mb-4 flex flex-wrap justify-center gap-2">
               {[strategyTypePreviewLabel, strategyDurationPreviewLabel, strategyPostCountPreviewLabel, langLabel].map((chip) => (

@@ -24,6 +24,10 @@ const paidReadyBrand: StrategyBriefProfileLike = {
   conversionDestination: 'WhatsApp inquiry form',
   leadHandling: 'Sales team follows up manually',
   audienceLocation: 'Cairo and nearby delivery zones',
+  pricePoint: 'mid-range',
+  uniqueAdvantages: ['Fresh roast dates and reliable delivery windows'],
+  customerObjections: ['Concern about minimum order size'],
+  verifiedProof: ['Owner-confirmed delivery coverage and roast-date labeling'],
 }
 
 describe('getStrategyBriefReadiness', () => {

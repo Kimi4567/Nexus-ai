@@ -3,7 +3,7 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { getWorkspaceExecutionTruthByWorkspaceId } from '@/lib/executionTruthService'
 import { buildOperationsOverview } from '@/lib/operationsOverview'
-import { filterCurrentAgentSuggestions } from '@/lib/currentAgentSuggestions'
+import { getCanonicalApprovalInbox } from '@/lib/approvalInboxService'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,8 +29,7 @@ export async function GET(req: NextRequest) {
       latestMonitor,
       integrations,
       adAccounts,
-      pendingSuggestions,
-      pendingBrainProposals,
+      approvalInbox,
       creditTransactions,
       paidCampaigns,
       latestAnalytics,
@@ -51,20 +50,9 @@ export async function GET(req: NextRequest) {
         where: { workspaceId: workspace.id, status: { not: 'DISCONNECTED' } },
         select: { id: true, platform: true, status: true, tokenExpiresAt: true, lastError: true },
       }),
-      db.agentSuggestion.findMany({
-        where: {
-          workspaceId: workspace.id,
-          status: 'PENDING',
-          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-        },
-        select: { campaignId: true, type: true, payload: true, createdAt: true },
-        take: 200,
-      }),
-      db.brainLearning.findMany({
-        where: { workspaceId: workspace.id, status: 'pending' },
-        select: { createdAt: true },
-        take: 200,
-      }),
+      // Approvals, Operations, and the sidebar all read the same canonical
+      // inbox. No surface is allowed to recalculate or double-count decisions.
+      getCanonicalApprovalInbox(userId),
       db.creditTransaction.findMany({
         where: { userId, createdAt: { gte: thirtyDaysAgo } },
         select: { amount: true, pricingVersion: true, entityId: true, entityType: true },
@@ -109,25 +97,14 @@ export async function GET(req: NextRequest) {
       }),
     ])
 
-    const currentPendingSuggestions = filterCurrentAgentSuggestions(pendingSuggestions as Array<{
-      campaignId: string | null
-      type: string
-      payload: unknown
-      createdAt: Date
-    }>, truth)
-    const persistedCampaignIds = new Set(
-      currentPendingSuggestions
-        .map((suggestion: { campaignId: string | null }) => suggestion.campaignId)
-        .filter((campaignId: string | null): campaignId is string => Boolean(campaignId)),
-    )
-    const liveApprovalCount = truth.queue.filter(action => (
-      action.requiresApproval && !persistedCampaignIds.has(action.campaignId)
+    const pendingApprovals = approvalInbox.summary.total
+    const approvalRows = [
+      ...(approvalInbox.suggestions as unknown as Array<{ createdAt?: Date | string | null }>),
+      ...(approvalInbox.proposals as unknown as Array<{ createdAt?: Date | string | null }>),
+    ]
+    const overdueApprovals = approvalRows.filter(row => (
+      row.createdAt && new Date(row.createdAt).getTime() <= oneDayAgo.getTime()
     )).length
-    const pendingApprovals = currentPendingSuggestions.length + pendingBrainProposals.length + liveApprovalCount
-    const overdueApprovals = [
-      ...currentPendingSuggestions.map((suggestion: { createdAt: Date }) => suggestion.createdAt),
-      ...pendingBrainProposals.map((proposal: { createdAt: Date }) => proposal.createdAt),
-    ].filter(createdAt => createdAt.getTime() <= oneDayAgo.getTime()).length
     const publishedAwaitingEvidence = truth.campaigns.reduce(
       (sum, campaign) => sum + campaign.posts.publishedWithoutAnalytics,
       0,

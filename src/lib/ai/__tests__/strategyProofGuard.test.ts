@@ -518,6 +518,59 @@ describe('strategyProofGuard', () => {
     expect(prompt).toContain('recommend collecting proof')
   })
 
+  it('replaces CTAs to assets that the user never supplied while preserving planned asset tasks', () => {
+    const guarded = guardStrategyProof({
+      ctaVariations: ['Download the guide', 'Register for our webinar', 'Book a demo'],
+      weeklyExecutionPlan: [{
+        cta: 'حمّل الدليل',
+        assetsNeeded: ['Create and approve a downloadable guide'],
+      }],
+      assetRequirements: {
+        nextToCreate: ['Produce a webinar and downloadable checklist'],
+      },
+    }, { verifiedProof: [], allowedClaimText: ['Consulting service'] })
+
+    expect(guarded.ctaVariations.join(' ')).not.toMatch(/Download the guide|Register for our webinar|Book a demo/i)
+    expect(guarded.weeklyExecutionPlan[0].cta).toContain('بعد إنشاء الأصل واعتماده')
+    expect(guarded.weeklyExecutionPlan[0].assetsNeeded[0]).toContain('downloadable guide')
+    expect(guarded.assetRequirements.nextToCreate[0]).toContain('webinar')
+  })
+
+  it('keeps an asset CTA when the asset is explicitly present in Brand Brain truth', () => {
+    const guarded = guardStrategyProof({ cta: 'Download the guide' }, {
+      allowedClaimText: ['Primary offer includes a downloadable guide'],
+    })
+    expect(guarded.cta).toBe('Download the guide')
+  })
+
+  it('labels unprovided conversion assets as work to create instead of existing assets', () => {
+    const guarded = guardStrategyProof({
+      contentAnglesDetailed: [
+        { title: 'Easy AI guide', format: 'Whitepaper' },
+        { title: 'Live demo', format: 'Explainer video' },
+      ],
+      weeklyExecutionPlan: [{ deliverables: ['Webinar', 'Success stories'] }],
+      paidPlanning: { creativeBriefs: [{ requiredAssets: ['Product tour'] }] },
+    }, { verifiedProof: [], allowedClaimText: ['AI consulting service'] })
+
+    const joined = JSON.stringify(guarded)
+    expect(joined).toContain('Proposed asset to create and approve — Easy AI guide')
+    expect(joined).toContain('Proposed asset to create and approve — Whitepaper')
+    expect(joined).toContain('Proposed asset to create and approve — Live demo')
+    expect(joined).toContain('Proposed asset to create and approve — Explainer video')
+    expect(joined).toContain('Proposed asset to create and approve — Webinar')
+    expect(joined).toContain('customer proof stories to collect and approve')
+    expect(joined).toContain('Proposed asset to create and approve — Product tour')
+  })
+
+  it('does not relabel a conversion asset explicitly supplied by Brand Brain', () => {
+    const guarded = guardStrategyProof({
+      contentAnglesDetailed: [{ title: 'Easy AI guide', format: 'Whitepaper' }],
+    }, { allowedClaimText: ['The approved asset library includes the Easy AI guide whitepaper.'] })
+
+    expect(guarded.contentAnglesDetailed[0]).toEqual({ title: 'Easy AI guide', format: 'Whitepaper' })
+  })
+
   it('content-plan route includes proof-policy guard before generation', () => {
     const route = readFileSync(
       path.join(process.cwd(), 'src/app/api/campaigns/[id]/generate-content-plan/route.ts'),

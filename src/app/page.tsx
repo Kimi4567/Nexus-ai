@@ -87,7 +87,13 @@ function Header({ ar, setLang }: { ar: boolean; setLang: (lang: 'ar' | 'en') => 
                 {link.label}
               </a>
             ))}
-            <button onClick={() => setLang(ar ? 'en' : 'ar')} className="mt-6 text-left text-[16px] font-medium text-slate-700">
+            <button
+              onClick={() => {
+                setLang(ar ? 'en' : 'ar')
+                setOpen(false)
+              }}
+              className="mt-6 text-start text-[16px] font-medium text-slate-700"
+            >
               {ar ? 'English' : 'العربية'}
             </button>
             <Link href="/auth/register" className="mt-8 rounded-lg bg-slate-950 px-4 py-3 text-center text-[15px] font-semibold text-white">

@@ -5,9 +5,8 @@ import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { ApprovalDecisionCard } from '@/components/approvals/ApprovalDecisionCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
-import type { ExecutionQueueItem, WorkspaceExecutionTruth } from '@/lib/executionTruth'
+import type { ExecutionQueueItem } from '@/lib/executionTruth'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
-import { actionableApprovalSuggestions, liveApprovalQueue } from '@/lib/approvalInboxTruth'
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -171,30 +170,28 @@ export default function ApprovalsPage() {
     async function loadDecisionQueue() {
       setDataLoading(true)
       try {
-        const [proposalRes, suggestionRes, proposalHistoryRes, suggestionHistoryRes, executionRes, brandRes, contentLedgerRes] = await Promise.all([
-          fetch('/api/brain/proposals?status=pending', { headers: { Authorization: token } }),
-          fetch('/api/agents/suggestions?status=PENDING&limit=50', { headers: { Authorization: token } }),
+        const [inboxRes, proposalHistoryRes, suggestionHistoryRes, brandRes, contentLedgerRes] = await Promise.all([
+          fetch('/api/approvals/inbox', { headers: { Authorization: token }, cache: 'no-store' }),
           fetch('/api/brain/proposals?status=all', { headers: { Authorization: token } }),
           fetch('/api/agents/suggestions?status=all&limit=100', { headers: { Authorization: token } }),
-          fetch('/api/execution/queue', { headers: { Authorization: token } }),
           fetch('/api/brand', { headers: { Authorization: token } }),
           fetch('/api/approvals/content-ledger', { headers: { Authorization: token } }),
         ])
         if (cancelled) return
-        const [proposalData, suggestionData, proposalHistoryData, suggestionHistoryData, executionData, brandData, contentLedgerData] = await Promise.all([
-          proposalRes.json().catch(() => ({})),
-          suggestionRes.json().catch(() => ({})),
+        const [inboxData, proposalHistoryData, suggestionHistoryData, brandData, contentLedgerData] = await Promise.all([
+          inboxRes.json().catch(() => ({})),
           proposalHistoryRes.json().catch(() => ({})),
           suggestionHistoryRes.json().catch(() => ({})),
-          executionRes.json().catch(() => ({})),
           brandRes.json().catch(() => ({})),
           contentLedgerRes.json().catch(() => ({})),
         ])
+        if (!inboxRes.ok || !inboxData?.inbox) {
+          throw new Error(inboxData?.error || copy('تعذر تحميل مصدر الموافقات الموحد.', 'Could not load the canonical approval inbox.'))
+        }
+        const inbox = inboxData.inbox
         setBrandTruthBlocked(!brandData?.brandProfile || reviewBrandTruthConsistency(brandData.brandProfile).status === 'blocked')
-        setProposals(Array.isArray(proposalData.proposals) ? proposalData.proposals : [])
-        setSuggestions(actionableApprovalSuggestions(
-          Array.isArray(suggestionData.suggestions) ? suggestionData.suggestions : [],
-        ))
+        setProposals(Array.isArray(inbox.proposals) ? inbox.proposals : [])
+        setSuggestions(Array.isArray(inbox.suggestions) ? inbox.suggestions : [])
         setProposalHistory(Array.isArray(proposalHistoryData.proposals)
           ? proposalHistoryData.proposals.filter((item: BrainProposal) => item.status !== 'pending')
           : [])
@@ -202,8 +199,7 @@ export default function ApprovalsPage() {
           ? suggestionHistoryData.suggestions.filter((item: AgentSuggestion) => item.status !== 'PENDING')
           : [])
         setContentDecisionHistory(Array.isArray(contentLedgerData.events) ? contentLedgerData.events : [])
-        const executionTruth = executionData.truth as WorkspaceExecutionTruth | undefined
-        setLiveApprovalActions(liveApprovalQueue(executionTruth?.queue))
+        setLiveApprovalActions(Array.isArray(inbox.liveApprovalActions) ? inbox.liveApprovalActions : [])
       } catch {
         if (!cancelled) setNotice({ tone: 'error', text: copy('تعذر تحميل قائمة القرارات.', 'Could not load the decision queue.') })
       } finally {
