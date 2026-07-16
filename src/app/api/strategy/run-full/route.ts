@@ -70,6 +70,11 @@ function sanitizeStrategyRunError(
         ? 'أوقف NEXUS الحفظ لأن مولّد الاستراتيجية لم يُكمل العدد الذي راجعته من اتجاهات المحتوى والخطة الأسبوعية. لم تُحفظ حملة جديدة وتمت إعادة الكريدت إن خُصمت. أعد المحاولة؛ سيحاول النظام إصلاح العدد تلقائيًا قبل الحفظ.'
         : 'NEXUS blocked saving because the strategy generator did not complete the reviewed number of content directions and weekly deliverables. No campaign was saved and charged credits were restored. Retry; the system will attempt a count repair before saving.'
     }
+    if (/paidPlanning\./i.test(error) || strategyType === 'paid') {
+      return isArabicLanguage(language)
+        ? 'أوقف NEXUS الحفظ لأن حزمة التخطيط المدفوع لم تجتز فحص جودة النسخ أو البريفات. لم تُحفظ حملة وتمت إعادة الكريديت إن خُصمت.'
+        : 'NEXUS blocked saving because the paid-planning package did not pass copy or creative-brief quality checks. No campaign was saved and charged credits were restored.'
+    }
     if (isArabicLanguage(language)) {
       return /language:/i.test(error)
         ? 'أوقف NEXUS حفظ هذه الاستراتيجية لأن لغة المخرجات لم تطابق اللغة المختارة. لم يتم حفظ حملة جديدة وتمت إعادة الكريدت إن خُصمت. حاول مرة أخرى مع نفس اللغة أو اختر الإنجليزية إذا أردت المخرجات بالإنجليزية.'

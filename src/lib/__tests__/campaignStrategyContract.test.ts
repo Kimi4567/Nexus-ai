@@ -158,6 +158,71 @@ describe('campaign strategy contract', () => {
     expect(report.score).toBe(100)
   })
 
+  it('accepts short unique ad-copy IDs while keeping user-facing paid copy operational', () => {
+    const expectedPaidPlanning = {
+      audienceHypothesisCount: 3,
+      paidAdAngleCount: 4,
+      paidAdVariationCount: 9,
+      creativeBriefCount: 4,
+    } as any
+    const strategy = {
+      ...richStrategy,
+      paidPlanning: {
+        planningOnly: true,
+        objective: 'Review qualified demo-message hypotheses before any launch.',
+        audienceHypotheses: Array.from({ length: 3 }, (_, index) => ({
+          name: `Audience ${index + 1}`,
+          buyingSituation: 'Reviewing a clinic workflow before requesting a demo.',
+          targetingHypothesis: 'The selected role may respond to clearer workflow evidence.',
+          exclusions: 'Exclude roles outside the reviewed clinic audience.',
+          validationNeeded: 'Validate role fit from qualified demo inquiries.',
+        })),
+        adAngles: Array.from({ length: 4 }, (_, index) => ({
+          name: `Angle ${index + 1}`,
+          audienceHypothesis: `Audience ${(index % 3) + 1}`,
+          message: 'Review a clearer appointment and follow-up workflow.',
+          funnelStage: 'consideration',
+          proofNeeded: 'Product workflow evidence and a verified demo destination.',
+        })),
+        adCopyVariations: Array.from({ length: 9 }, (_, index) => ({
+          id: String(index + 1),
+          angle: `Angle ${(index % 4) + 1}`,
+          headline: 'Review a clearer clinic workflow',
+          primaryText: 'See how appointment and follow-up steps could be reviewed in one workflow.',
+          cta: 'Request a demo',
+          destination: 'Verified demo destination required before launch.',
+          assumption: 'Message fit remains a hypothesis until real response data exists.',
+        })),
+        creativeBriefs: Array.from({ length: 4 }, (_, index) => ({
+          name: `Creative ${index + 1}`,
+          angle: `Angle ${index + 1}`,
+          format: 'Static workflow comparison',
+          visualDirection: 'Show a factual product workflow without performance claims.',
+          requiredAssets: ['Verified product workflow screenshot'],
+          proofBoundary: 'Do not show unverified customer or outcome claims.',
+          reviewGate: 'Approve message, proof, destination, and media before execution.',
+        })),
+        budgetFramework: 'Use only the reviewed planning envelope; no spend is authorized.',
+        trackingChecklist: ['Confirm conversion destination and attribution event.'],
+        launchBlockers: ['No launch until tracking, account readiness, and approval are confirmed.'],
+      },
+    }
+
+    const report = validateCampaignStrategyContract(strategy, { expectedPaidPlanning })
+    expect(report.valid).toBe(true)
+    expect(report.weakFields).not.toContain('paidPlanning.adCopyVariations.operationalDepth')
+
+    const duplicateIds = {
+      ...strategy,
+      paidPlanning: {
+        ...strategy.paidPlanning,
+        adCopyVariations: strategy.paidPlanning.adCopyVariations.map(item => ({ ...item, id: 'A' })),
+      },
+    }
+    expect(validateCampaignStrategyContract(duplicateIds, { expectedPaidPlanning }).weakFields)
+      .toContain('paidPlanning.adCopyVariations.ids')
+  })
+
   it('rejects English-heavy user-facing strategy text when Arabic output is selected', () => {
     const report = validateCampaignStrategyContract(richStrategy, { language: 'ar' })
 

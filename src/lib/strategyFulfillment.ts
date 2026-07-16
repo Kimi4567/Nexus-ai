@@ -79,13 +79,19 @@ function orderContext(aiOutput: unknown, strategyType: string | null): {
     deliverables.creativeBriefCount,
     deliverables.audienceHypothesisCount,
   ].some(value => (numberOrNull(value) ?? 0) > 0))
-  const effectiveStrategyType = hasOrganicDeliverables && hasPaidDeliverables
-    ? 'full'
-    : hasOrganicDeliverables
-      ? 'organic'
-      : hasPaidDeliverables
-        ? 'paid'
-        : savedStrategyType ?? strategyType
+  // `deriveContentPlanOrderReview` already resolved the authoritative scope
+  // from the same saved order and deliverables that produced the expected post
+  // count. Use that result first so the helper sentence can never disagree with
+  // the value immediately above it (for example, "3 posts" + "paid-only").
+  const effectiveStrategyType = strategyType ?? (
+    hasOrganicDeliverables && hasPaidDeliverables
+      ? 'full'
+      : hasOrganicDeliverables
+        ? 'organic'
+        : hasPaidDeliverables
+          ? 'paid'
+          : savedStrategyType
+  )
 
   return {
     planningHorizonDays,

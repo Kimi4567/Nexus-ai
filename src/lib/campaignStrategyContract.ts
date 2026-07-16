@@ -350,7 +350,10 @@ function validateBindingPaidPlanning(
     {
       key: 'adCopyVariations',
       expectedCount: expected.paidAdVariationCount,
-      fields: ['id', 'angle', 'headline', 'primaryText', 'cta', 'destination', 'assumption'],
+      // IDs are identifiers, not marketing copy. "1" or "A" is valid as long
+      // as it is present and unique; the user-facing fields still need useful
+      // operational text.
+      fields: ['angle', 'headline', 'primaryText', 'cta', 'destination', 'assumption'],
     },
     {
       key: 'creativeBriefs',
@@ -373,6 +376,12 @@ function validateBindingPaidPlanning(
       isRecord(item) && Array.isArray(item.requiredAssets) && item.requiredAssets.length > 0
     ))) {
       result.weak.push('paidPlanning.creativeBriefs.requiredAssets')
+    }
+    if (entry.key === 'adCopyVariations' && Array.isArray(value)) {
+      const ids = value.map(item => isRecord(item) ? text(item.id) : '')
+      if (ids.some(id => id.length === 0) || new Set(ids).size !== ids.length) {
+        result.weak.push('paidPlanning.adCopyVariations.ids')
+      }
     }
   }
 
