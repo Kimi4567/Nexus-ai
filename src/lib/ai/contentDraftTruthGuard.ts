@@ -962,8 +962,12 @@ function guardNexusMarketingOperatingClaims(
       'An editorial diagram of the documented credit flow: quoted cost, confirmed action, and ledger entry; no savings or performance claim.',
     )
     .replace(
-      /[^.!?]*(?:credit system)[^.!?]*(?:transparen|predictab|budget control|spend with confidence|insights into your spending)[^.!?]*[.!?]?/gi,
+      /[^.!?]*(?:credit system)[^.!?]*(?:transparen|predictab|budget control|spend with confidence|manage your marketing spend effectively|insights into your spending)[^.!?]*[.!?]?/gi,
       ' The product displays the cost before each metered AI action and records the transaction in the credit ledger.',
+    )
+    .replace(
+      /[^.!?]*\bmake the most of your resources\b[^.!?]*[.!?]?/gi,
+      ' Compare the proposed workload with available team capacity and ownership.',
     )
     .replace(/نحن هنا لطمأنتك!?\s*/g, '')
     .replace(

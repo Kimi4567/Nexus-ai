@@ -1078,6 +1078,8 @@ describe('contentDraftTruthGuard', () => {
       creditFollowup: 'Our transparent credit system gives you insights into your spending, helping budget control.',
       reliableOutcome: 'نحن نضيف الإشراف البشري لضمان نتائج موثوقة في NEXUS AI.',
       potential: 'Unlock the full potential of NEXUS AI for your marketing team.',
+      effectiveSpend: 'The NEXUS AI credit system helps you manage your marketing spend effectively.',
+      resourcesVariant: 'Use NEXUS AI to make the most of your resources across campaigns.',
     }, {
       brandFacts: ['NEXUS AI records metered actions in a credit ledger.'],
     })
@@ -1086,7 +1088,7 @@ describe('contentDraftTruthGuard', () => {
     expect(serialized).toContain('credit ledger')
     expect(serialized).toContain('Brand Brain')
     expect(serialized).toContain('يتطلب النشر والإنفاق الإعلاني موافقة')
-    expect(serialized).not.toMatch(/كل خطوة|نتائج موثوقة|helps transparency|predictability|spend with confidence|budget control|financial insights|request a demo|streamline your efforts|maximize your resources|replacing human jobs|enhance marketing strategies|partnership, not replacement|seamless marketing|brand voice is unified|insights into your spending|full potential/i)
+    expect(serialized).not.toMatch(/كل خطوة|نتائج موثوقة|helps transparency|predictability|spend with confidence|manage your marketing spend effectively|budget control|financial insights|request a demo|streamline your efforts|maximize your resources|make the most of your resources|replacing human jobs|enhance marketing strategies|partnership, not replacement|seamless marketing|brand voice is unified|insights into your spending|full potential/i)
   })
 
   it('documents the draft-only content plan policy', () => {
