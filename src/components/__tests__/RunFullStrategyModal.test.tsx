@@ -210,6 +210,22 @@ describe('RunFullStrategyModal preflight', () => {
     expect(await screen.findByText('3 post directions (requested 9)')).toBeTruthy()
     expect(screen.queryByText('9 post directions')).toBeNull()
   })
+
+  it('shows both organic and exact paid deliverables for a full request', async () => {
+    render(<RunFullStrategyModal isOpen onClose={() => {}} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Set up strategy request' }))
+    fireEvent.click(screen.getByRole('button', { name: /Full Organic plus paid planning/ }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Set an exact post-direction count for the first 30 days' }))
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Post direction count' }), { target: { value: '9' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Review strategy scope' }))
+
+    expect(await screen.findByText('Organic direction')).toBeTruthy()
+    expect(screen.getByText('Paid planning package')).toBeTruthy()
+    expect(screen.getByText('9 exact organic post directions for the first 30 days')).toBeTruthy()
+    expect(screen.getByText('3 audience hypotheses + 4 ad angles')).toBeTruthy()
+    expect(screen.getByText('9 ad-copy variations + 4 creative briefs')).toBeTruthy()
+  })
 })
 
 describe('strategyDefaultsFromBrand', () => {

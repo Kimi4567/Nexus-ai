@@ -1536,7 +1536,9 @@ function CampaignDetailPageInner() {
       value: !includesPaidPlanningStrategy
         ? strategyDocText('غير مشمول في هذا التشغيل العضوي', 'Not included in this organic run')
         : hasPaidPlanningGaps
-          ? strategyDocText('مدخلات مدفوعة ناقصة', 'Paid inputs missing')
+          ? (strategyDocIsArabic
+              ? `ناقص قبل التنفيذ: ${strategyDocPaidPlanningMissingLabels.join('، ')}`
+              : `Missing before execution: ${strategyDocPaidPlanningMissingLabels.join(', ')}`)
           : strategyDocText('تخطيط للمراجعة فقط', 'Planning for review only'),
       helper: strategyDocIsArabic
         ? 'لا يوجد صرف أو إطلاق أو جاهزية حسابات من صفحة الاستراتيجية.'
@@ -3743,7 +3745,11 @@ function CampaignDetailPageInner() {
                             ? strategyDocText('غير مشمول في هذا التشغيل العضوي', 'Not included in this organic run')
                             : diagnosisDetails.readyForPaidAds
                               ? strategyDocText('يمكن إعداد خطة للمراجعة', 'Can prepare a plan for review')
-                              : strategyDocText('مدخلات مدفوعة ناقصة؛ لا صرف بدون موافقة', 'Paid inputs missing; no spend without approval')}
+                              : hasPaidPlanningGaps
+                                ? (strategyDocIsArabic
+                                    ? `التنفيذ متوقف حتى إضافة: ${strategyDocPaidPlanningMissingLabels.join('، ')}`
+                                    : `Execution blocked until added: ${strategyDocPaidPlanningMissingLabels.join(', ')}`)
+                                : strategyDocText('تخطيط للمراجعة فقط؛ لا صرف بدون موافقة', 'Planning for review only; no spend without approval')}
                           tone={!includesPaidPlanningStrategy ? 'muted' : 'warning'}
                         />
                         <StrategyDocCard label={strategyDocText('السبب', 'Reason')} value={diagnosisDetails.readyForPaidAdsReason} locale={strategyDocumentLocale} />
@@ -3803,7 +3809,9 @@ function CampaignDetailPageInner() {
                     eyebrow="05"
                     title={isPaidOnlyStrategy
                       ? strategyDocText('زوايا التخطيط المدفوع', 'Paid Planning Angles')
-                      : strategyDocText('خطة المحتوى العضوي', 'Organic Content Plan')}
+                      : includesPaidPlanningStrategy
+                        ? strategyDocText('خطة المحتوى والتخطيط المدفوع', 'Content & Paid Planning')
+                        : strategyDocText('خطة المحتوى العضوي', 'Organic Content Plan')}
                     description={isPaidOnlyStrategy
                       ? (strategyDocIsArabic
                         ? 'فرضيات الجمهور والزوايا والنسخ الإعلانية للمراجعة فقط. ليست خطة منشورات عضوية ولا Content Hub.'
@@ -4238,6 +4246,12 @@ function CampaignDetailPageInner() {
                             </div>
                           )
                         }
+                        // The current paidPlanning contract is authoritative and
+                        // already rendered above with exact counts. Do not show
+                        // the legacy adSetupPlan empty-state underneath it or
+                        // falsely ask for budget/destination fields that may
+                        // already exist in Brand Brain.
+                        if (paidPlanning) return null
                         if (!hasAdContent) {
                           return (
                             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
@@ -5125,7 +5139,7 @@ function CampaignDetailPageInner() {
                         onClick={() => window.open(`/campaigns/${campaign.id}/paid-launch`, '_blank')}
                         className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100"
                       >
-                        {locale === 'ar' ? 'ابدأ تنفيذ الاستراتيجية المدفوعة' : 'Start paid strategy execution'}
+                        {locale === 'ar' ? 'راجع جاهزية التنفيذ المدفوع' : 'Review paid execution readiness'}
                         <span className="text-xs text-slate-400">↗</span>
                       </button>
                     </>

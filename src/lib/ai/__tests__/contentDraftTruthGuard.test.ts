@@ -267,6 +267,17 @@ describe('contentDraftTruthGuard', () => {
     expect(copy).not.toContain('#فعالية')
   })
 
+  it('repairs the exact bilingual clinic claims blocked by the production save gate', () => {
+    const copy = guardContentDraftText(
+      'ClinicFlow helps you save time in routine work. ClinicFlow يساعد على تحسين كفاءة العمليات اليومية.',
+    )
+
+    expect(copy).toContain('help organize routine work more clearly')
+    expect(copy).toContain('زيادة وضوح سير العمل اليومية')
+    expect(copy).not.toMatch(/save time/i)
+    expect(copy).not.toContain('تحسين كفاءة')
+  })
+
   it('softens perfectly roasted claims', () => {
     const out = guardContentDraftText('perfectly roasted beans')
 

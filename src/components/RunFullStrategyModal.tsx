@@ -640,6 +640,54 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
     typeof previewPostsPerMonth === 'number' ? { postsPerMonth: previewPostsPerMonth } : undefined,
   )
   const effectiveOrganicPostCount = strategyDeliverablesPreview.organicPostCount
+  const strategyIncludedGroups = [
+    strategyType !== 'paid'
+      ? {
+          key: 'organic',
+          title: locale === 'ar' ? 'الاتجاه العضوي' : 'Organic direction',
+          items: locale === 'ar'
+            ? [
+                `استراتيجية ومخطط تنفيذ لمدة ${strategyDeliverablesPreview.detailedCalendarDays} يوماً`,
+                `${effectiveOrganicPostCount} اتجاهات منشورات عضوية محددة لأول 30 يوماً`,
+                'موضوعات أسبوعية وأولويات تنفيذ',
+                'اتجاهات النصوص والدعوات للإجراء والمنصات',
+                'تُنشأ مسودات Content Hub بشكل منفصل بعد مراجعة الاستراتيجية',
+              ]
+            : [
+                `Detailed ${strategyDeliverablesPreview.detailedCalendarDays}-day strategy and execution outline`,
+                `${effectiveOrganicPostCount} exact organic post directions for the first 30 days`,
+                'Weekly themes and execution priorities',
+                'Caption, CTA, and platform direction',
+                'Content Hub drafts are generated separately after strategy review',
+              ],
+        }
+      : null,
+    strategyType !== 'organic'
+      ? {
+          key: 'paid',
+          title: locale === 'ar' ? 'حزمة التخطيط المدفوع' : 'Paid planning package',
+          items: locale === 'ar'
+            ? [
+                'هدف الحملة ومسار التحويل',
+                `${strategyDeliverablesPreview.audienceHypothesisCount} فرضيات جمهور + ${strategyDeliverablesPreview.paidAdAngleCount} زوايا إعلانية`,
+                `${strategyDeliverablesPreview.paidAdVariationCount} نسخ إعلانية + ${strategyDeliverablesPreview.creativeBriefCount} موجزات إبداعية`,
+                'تقسيم الميزانية وقائمة التتبع وعوائق الإطلاق',
+                strategyType === 'full'
+                  ? 'مواءمة الرسائل والمسار وإعادة الاستهداف بين العضوي والمدفوع'
+                  : 'تخطيط ومراجعة فقط — بلا إطلاق أو إنفاق',
+              ]
+            : [
+                'Campaign objective and funnel structure',
+                `${strategyDeliverablesPreview.audienceHypothesisCount} audience hypotheses + ${strategyDeliverablesPreview.paidAdAngleCount} ad angles`,
+                `${strategyDeliverablesPreview.paidAdVariationCount} ad-copy variations + ${strategyDeliverablesPreview.creativeBriefCount} creative briefs`,
+                'Budget split, tracking checklist, and launch blockers',
+                strategyType === 'full'
+                  ? 'Message, funnel, and retargeting alignment across organic and paid'
+                  : 'Planning and review only — no launch or spend',
+              ],
+        }
+      : null,
+  ].filter((group): group is NonNullable<typeof group> => Boolean(group))
   const strategyPostCountPreviewLabel = strategyType === 'paid'
     ? (locale === 'ar' ? 'حزمة تخطيط مدفوع' : 'Paid planning package')
     : typeof effectiveOrganicPostCount === 'number'
@@ -1070,11 +1118,18 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
                     <CheckCircle2 className="h-5 w-5" />
                     {locale === 'ar' ? 'ما الذي ستحصل عليه' : "What you'll receive"}
                   </h3>
-                  <div className="space-y-2.5">
-                    {strategyDeliverablesPreview.includedDeliverables.slice(0, 8).map((item) => (
-                      <div key={item} className="flex items-start gap-2 text-xs leading-5 text-emerald-950">
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                        <span>{formatStrategyDeliverableForLocale(item, locale === 'ar' ? 'ar' : 'en')}</span>
+                  <div className="space-y-4">
+                    {strategyIncludedGroups.map((group) => (
+                      <div key={group.key} className="rounded-xl border border-emerald-200/80 bg-white/70 p-3">
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">{group.title}</p>
+                        <div className="space-y-2">
+                          {group.items.map((item) => (
+                            <div key={item} className="flex items-start gap-2 text-xs leading-5 text-emerald-950">
+                              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                              <span>{item}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     ))}
                   </div>

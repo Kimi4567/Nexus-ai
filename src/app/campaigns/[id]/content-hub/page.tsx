@@ -2261,7 +2261,7 @@ export default function ContentHubPage() {
               </>
             )}
 
-            {posts.length === 0 && (
+            {posts.length === 0 && !strategyApprovalRequired && (
               <div className="flex w-full min-w-0 flex-wrap items-stretch justify-start gap-3 sm:w-auto sm:items-center sm:justify-end">
                 {/* A/B Testing toggle */}
                 <button

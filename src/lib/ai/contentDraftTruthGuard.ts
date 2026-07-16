@@ -204,6 +204,10 @@ function guardBroadQualityClaims(text: string): string {
 
 function guardOperationalSaasAndHealthcareClaims(text: string): string {
   return text
+    .replace(
+      /\b(?:help(?:s|ed|ing)?\s+(?:you|teams?)\s+)?sav(?:e|es|ed|ing)\s+(?:you\s+)?time\b/gi,
+      'help organize routine work more clearly',
+    )
     .replace(/الحل الأمثل لتنظيم المواعيد/g, 'خيار عملي لتنظيم المواعيد')
     .replace(/الحل الأمثل لإدارة العيادات/g, 'خيار عملي لإدارة العيادات')
     .replace(/الحل الأمثل/g, 'خيار عملي')
@@ -247,6 +251,7 @@ function guardOperationalSaasAndHealthcareClaims(text: string): string {
     .replace(/تعزيز كفاءة/g, 'زيادة وضوح سير العمل')
     .replace(/تحسين كفاءة العيادات/g, 'تنظيم عمل العيادات بوضوح')
     .replace(/تحسين كفاءة العيادة/g, 'تنظيم عمل العيادة بوضوح')
+    .replace(/(?:تحسين|تعزيز|رفع)\s+كفاءة(?:\s+(?:العيادات|العيادة|العمليات|الفريق))?/g, 'زيادة وضوح سير العمل')
     .replace(/تحسين الكفاءة/g, 'زيادة وضوح سير العمل')
     .replace(/تحسين الكفاءة التشغيلية/g, 'زيادة وضوح سير العمل التشغيلي')
     .replace(/الكفاءة التشغيلية/g, 'وضوح سير العمل التشغيلي')
@@ -299,6 +304,7 @@ function guardOperationalSaasAndHealthcareClaims(text: string): string {
     .replace(/زيادة كفاءة الفريق/g, 'مساعدة الفريق على متابعة المهام بوضوح')
     .replace(/تزيد كفاءة الفريق/g, 'تساعد الفريق على متابعة المهام بوضوح')
     .replace(/كفاءة أكبر للفريق/g, 'وضوح أكبر في مهام الفريق')
+    .replace(/زيادة\s+كفاءة(?:\s+(?:العيادات|العيادة|العمليات|الفريق))?/g, 'زيادة وضوح سير العمل')
     .replace(/تُحسن من متابعة المرضى/g, 'تساعد على تنظيم متابعة المرضى إداريًا')
     .replace(/تحسن من متابعة المرضى/g, 'تساعد على تنظيم متابعة المرضى إداريًا')
     .replace(/\bthe ultimate solution for appointment management\b/gi, 'a practical option for appointment management')

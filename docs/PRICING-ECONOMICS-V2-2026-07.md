@@ -75,12 +75,33 @@ credit.
 Why the price is higher than raw tokens: the current `gpt-4o` strategy call can
 emit up to 7,500 output tokens, a document repair can emit up to 9,500 more, and
 a focused paid-package repair is capped at 6,000. Most runs do not need every
-repair. A real Organic audit run on 2026-07-16 used 12,298 input and 6,183 output
-tokens across two calls and cost `$0.088735`; a deliberately rejected Paid run
-used 14,548 input and 10,140 output tokens and cost `$0.13393`, then refunded the
-user because its 4/9 copy count failed the contract. The customer is buying the
-governed agency workflow, exact deliverable contract, failure refund, and
-operating margin—not raw unvalidated JSON.
+repair. The customer is buying the governed agency workflow, exact deliverable
+contract, failure refund, and operating margin—not raw unvalidated JSON.
+
+## Measured production audit — 2026-07-16
+
+These are provider-reported token totals from real end-to-end runs against the
+production strategy route. `Commercial floor` uses the conservative Autopilot
+international/FX net yield of about `$0.51` per credit; it is not additional
+cash collected per request because plan credits are prepaid.
+
+| Verified run | Contract delivered | Credits | Calls | Input | Cached input | Output | OpenAI cost | Commercial floor | Provider share |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Organic Light · 30d | 3/3 exact organic directions after plan cap | 12 | 2 | 12,298 | 3,072 | 6,183 | $0.088735 | $6.12 | 1.45% |
+| Paid Standard · 90d | 3 audiences, 4 angles, 9 ad copies, 4 briefs | 32 | 2 | 8,679 | 7,040 | 6,449 | $0.077387 | $16.32 | 0.47% |
+| Full Light · 30d | 9 organic + 3 audiences + 4 angles + 9 ad copies + 4 briefs | 24 | 3 | 16,532 | 3,072 | 12,168 | $0.159170 | $12.24 | 1.30% |
+
+A deliberately rejected Paid run used 14,548 input and 10,140 output tokens and
+cost `$0.13393`; it returned only 4/9 required copy variations, created no
+campaign debit, and left the customer balance unchanged. This validates that a
+provider/contract failure is borne by the platform reserve rather than charging
+the user for an unusable output.
+
+The measured provider share is safely below the 25% repricing trigger. That
+headroom is intentionally reserved for retries, failed runs, moderation,
+storage, platform APIs, monitoring, support, taxes/refunds, and company margin.
+It does not justify restoring the old 150/500 monthly allowances or reducing
+action prices from one day of samples; p50/p95 data must accumulate first.
 
 ## Complete-journey capacity
 

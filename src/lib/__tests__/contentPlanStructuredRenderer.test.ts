@@ -152,6 +152,16 @@ describe('contentPlanStructuredRenderer', () => {
     expect(result.issues.map(issue => issue.reason)).toContain('unsupported_absolute_claim')
   })
 
+  it('renders production-observed time and efficiency wording into save-gate-safe copy', () => {
+    const caption = renderContentPlanDraftCaption({
+      caption: 'ClinicFlow helps you save time. يساعد ClinicFlow على تحسين كفاءة العمليات اليومية.',
+    }, clinicCtx)
+
+    expect(caption).not.toMatch(/save time/i)
+    expect(caption).not.toContain('تحسين كفاءة')
+    expect(validateContentPlanDraftForSave({ caption }).ok).toBe(true)
+  })
+
   it('save gate blocks first-person Arabic guarantees before persistence', () => {
     const result = validateContentPlanDraftForSave({
       caption: 'نضمن لك خدمات عالية الجودة، واكتشف كيف نضمن الجودة في كل خطوة.',
