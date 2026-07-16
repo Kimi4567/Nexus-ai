@@ -34,4 +34,11 @@ describe('strategyOrderDisplay', () => {
   it('keeps the free strategy quota compatible with a four-week execution outline', () => {
     expect(tierToPostsPerMonth('free')).toBe(3)
   })
+
+  it('uses the same post allowances sold by the two public paid plans', () => {
+    expect(tierToPostsPerMonth('pro')).toBe(16)
+    expect(tierToPostsPerMonth('growth')).toBe(16)
+    expect(tierToPostsPerMonth('business')).toBe(40)
+    expect(tierToPostsPerMonth('autopilot')).toBe(40)
+  })
 })

@@ -82,11 +82,12 @@ const TIER_POSTS_PER_MONTH: Record<string, number> = {
   // can actually save.
   free: FREE_TRIAL_POSTS,
   starter: 10,
-  pro: 25,
-  growth: 25,
-  active: 25,
-  business: 60,
-  agency: 60,
+  pro: 16,
+  growth: 16,
+  active: 16,
+  business: 40,
+  autopilot: 40,
+  agency: 40,
 }
 
 export function tierToPostsPerMonth(plan: string | null | undefined): number | undefined {

@@ -38,6 +38,7 @@ import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/a
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { resolveBillingStatusPlan } from '@/lib/billingStatusPlan'
 
 // Strategy generation can legitimately need a second contract-repair pass before
 // anything is charged or persisted. The old 60s ceiling killed successful runs
@@ -424,7 +425,16 @@ export async function POST(req: NextRequest) {
       || safeBrandProfile.businessGoal
       || 'leads'
     const order = { ...charge.order, goal: charge.order.goal || goalOverride }
-    const postsPerMonth = tierToPostsPerMonth(freshUser?.subscriptionStatus)
+    const strategySubscription = await prisma.subscription.findUnique({
+      where: { userId: user.id },
+      select: { plan: true, status: true },
+    })
+    const strategyPlan = resolveBillingStatusPlan({
+      subscriptionPlan: strategySubscription?.plan,
+      subscriptionStatus: strategySubscription?.status,
+      userSubscriptionStatus: freshUser?.subscriptionStatus,
+    }).plan
+    const postsPerMonth = tierToPostsPerMonth(strategyPlan)
     const deliverables = getStrategyDeliverables(
       order,
       typeof postsPerMonth === 'number' ? { postsPerMonth } : undefined,
