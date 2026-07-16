@@ -14,6 +14,10 @@ import { formatCreditDisplay } from '@/lib/creditDisplay'
 import { getBillingDisplayTruth } from '@/lib/billingDisplayTruth'
 import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
 import {
+  getStrategyToDraftsJourneyCost,
+  STRATEGY_PRICING_DISPLAY_TRUTH,
+} from '@/lib/strategy/strategyPricingDisplayTruth'
+import {
   CREDIT_PURCHASE_POLICY,
   FREE_TRIAL_CREDITS,
   PUBLIC_PAID_PLANS,
@@ -92,18 +96,25 @@ const PLANS = [
 
 // ─── Credit cost breakdown ────────────────────────────────────────────────────
 
-const CORE_WORKFLOW_COST = CREDIT_ACTION_COSTS.RUN_FULL_STRATEGY
-  + CREDIT_ACTION_COSTS.SENTINEL_REVIEW
-  + CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION
+const FULL_STANDARD_90_WORKFLOW_COST = getStrategyToDraftsJourneyCost(
+  STRATEGY_PRICING_DISPLAY_TRUTH.fullStandard90.cost,
+  CREDIT_ACTION_COSTS.SENTINEL_REVIEW,
+  CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION,
+)
+const TRIAL_ACTIVATION_WORKFLOW_COST = getStrategyToDraftsJourneyCost(
+  STRATEGY_PRICING_DISPLAY_TRUTH.trialActivation.cost,
+  CREDIT_ACTION_COSTS.SENTINEL_REVIEW,
+  CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION,
+)
 
 const CREDIT_ACTIONS = [
   {
     icon: Rocket,
-    labelAr: 'المسار الأساسي من الاستراتيجية إلى المسودات',
-    labelEn: 'Core strategy-to-drafts workflow',
-    cost: CORE_WORKFLOW_COST,
-    noteAr: `${CREDIT_ACTION_COSTS.RUN_FULL_STRATEGY} للاستراتيجية + ${CREDIT_ACTION_COSTS.SENTINEL_REVIEW} لفحص الجودة + ${CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION} لمسودات المحتوى. الصور اختيارية وتكلفتها منفصلة.`,
-    noteEn: `${CREDIT_ACTION_COSTS.RUN_FULL_STRATEGY} strategy + ${CREDIT_ACTION_COSTS.SENTINEL_REVIEW} quality review + ${CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION} content drafts. Optional images are charged separately.`,
+    labelAr: 'مثال: Full Standard لمدة 90 يومًا إلى المسودات',
+    labelEn: 'Example: Full Standard 90-day strategy to drafts',
+    cost: FULL_STANDARD_90_WORKFLOW_COST,
+    noteAr: `${STRATEGY_PRICING_DISPLAY_TRUTH.fullStandard90.cost} للاستراتيجية + ${CREDIT_ACTION_COSTS.SENTINEL_REVIEW} لفحص الجودة + ${CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION} لخطة المحتوى. الصور منفصلة.`,
+    noteEn: `${STRATEGY_PRICING_DISPLAY_TRUTH.fullStandard90.cost} strategy + ${CREDIT_ACTION_COSTS.SENTINEL_REVIEW} quality review + ${CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION} content plan. Images are separate.`,
   },
   {
     icon: Brain,
@@ -112,8 +123,8 @@ const CREDIT_ACTIONS = [
     cost: null,
     costAr: 'متغير',
     costEn: 'Varies',
-    noteAr: 'التكلفة تعتمد على نوع الاستراتيجية والمدة وكثافة المحتوى.',
-    noteEn: 'Cost depends on strategy scope, duration, and content intensity.',
+    noteAr: `${STRATEGY_PRICING_DISPLAY_TRUTH.range.minimum}–${STRATEGY_PRICING_DISPLAY_TRUTH.range.maximum} كريديت حسب النطاق والمدة والكثافة؛ يظهر السعر النهائي قبل التنفيذ.`,
+    noteEn: `${STRATEGY_PRICING_DISPLAY_TRUTH.range.minimum}–${STRATEGY_PRICING_DISPLAY_TRUTH.range.maximum} credits by scope, duration, and intensity; the exact quote appears before execution.`,
   },
   {
     icon: Image,
@@ -412,7 +423,7 @@ export default function BillingPage() {
         ar ? `مشتَرى ${billingStatus.creditBreakdown.purchased}` : `Purchased ${billingStatus.creditBreakdown.purchased}`,
         ar ? `تجريبي ${billingStatus.creditBreakdown.trial}` : `Trial ${billingStatus.creditBreakdown.trial}`,
         ...(billingStatus.creditBreakdown.migrated > 0
-          ? [ar ? `رصيد مرحّل ${billingStatus.creditBreakdown.migrated}` : `Carried forward ${billingStatus.creditBreakdown.migrated}`]
+          ? [ar ? `رصيد قديم محمي ${billingStatus.creditBreakdown.migrated}` : `Protected legacy balance ${billingStatus.creditBreakdown.migrated}`]
           : []),
         ...(billingStatus.creditBreakdown.referral > 0
           ? [ar ? `إحالات ${billingStatus.creditBreakdown.referral}` : `Referrals ${billingStatus.creditBreakdown.referral}`]
@@ -450,6 +461,24 @@ export default function BillingPage() {
     monthlyCredits: creditGrant,
     locale: ar ? 'ar' : 'en',
   })
+  const nonMonthlyCredits = billingStatus?.creditBreakdown
+    ? billingStatus.creditBreakdown.purchased
+      + billingStatus.creditBreakdown.trial
+      + billingStatus.creditBreakdown.migrated
+      + billingStatus.creditBreakdown.referral
+      + billingStatus.creditBreakdown.refund
+      + billingStatus.creditBreakdown.manual
+      + billingStatus.creditBreakdown.other
+    : 0
+  const hasMixedCreditBuckets = nonMonthlyCredits > 0
+  const creditPrimary = hasMixedCreditBuckets
+    ? (ar ? `${currentCredits} كريديت إجمالي متاح` : `${currentCredits} total credits available`)
+    : creditDisp.primary
+  const creditHelper = hasMixedCreditBuckets
+    ? (ar
+        ? 'الكريديت الشهري يتجدد وينتهي مع الدورة؛ الرصيد المشترى والقديم المحمي لهما قواعد صلاحية مستقلة موضحة أدناه.'
+        : 'Monthly credits renew and expire with the cycle; purchased and protected legacy credits follow the separate expiry rules shown below.')
+    : billingDisplay.creditHelper
   const creditsPercent = creditDisp.percent
 
   return (
@@ -519,7 +548,7 @@ export default function BillingPage() {
               <div className="flex-1 max-w-xs">
                 <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
                   <span>{ar ? 'الأرصدة المتبقية' : 'Credits remaining'}</span>
-                  <span className="font-mono text-slate-700">{creditDisp.primary}</span>
+                  <span className="font-mono text-slate-700">{creditPrimary}</span>
                 </div>
                 <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                   <div
@@ -532,7 +561,7 @@ export default function BillingPage() {
                     }}
                   />
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1.5 leading-snug">{billingDisplay.creditHelper}</p>
+                <p className="text-[11px] text-slate-500 mt-1.5 leading-snug">{creditHelper}</p>
                 {creditDisp.secondary && (
                   <p className="text-[11px] text-slate-400 mt-1 leading-snug">{creditDisp.secondary}</p>
                 )}
@@ -847,12 +876,12 @@ export default function BillingPage() {
               <div className="text-sm text-slate-600 leading-relaxed">
                 {ar ? (
                   <>
-                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} رصيد)</span> = حتى {Math.floor(GROWTH_PLAN.monthlyCredits / 12)} مسارًا أساسيًا من الاستراتيجية إلى المسودات (12 رصيدًا لكل مسار) · أو {Math.floor(GROWTH_PLAN.monthlyCredits / 3)} صورة · أو مزيج من الإجراءات. النطاقات الأكبر قد تكلف أكثر —
+                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} رصيد)</span> = حتى {Math.floor(GROWTH_PLAN.monthlyCredits / FULL_STANDARD_90_WORKFLOW_COST)} مسارات Full Standard لمدة 90 يومًا إلى المسودات ({FULL_STANDARD_90_WORKFLOW_COST} كريديت لكل مثال) · أو {Math.floor(GROWTH_PLAN.monthlyCredits / 3)} صورة · أو مزيج من الإجراءات. رحلة التفعيل التجريبية تكلف {TRIAL_ACTIVATION_WORKFLOW_COST} كريديت —
                      {' '}<span className="text-violet-700">وتناسب فرقًا تحتاج وتيرة نشر أعلى عبر قنوات متعددة</span>
                   </>
                 ) : (
                   <>
-                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} credits)</span> = up to {Math.floor(GROWTH_PLAN.monthlyCredits / 12)} core strategy-to-drafts workflows (12 credits each) · or {Math.floor(GROWTH_PLAN.monthlyCredits / 3)} images · or a mix of actions. Larger strategy scopes may cost more —
+                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} credits)</span> = up to {Math.floor(GROWTH_PLAN.monthlyCredits / FULL_STANDARD_90_WORKFLOW_COST)} Full Standard 90-day strategy-to-drafts examples ({FULL_STANDARD_90_WORKFLOW_COST} credits each) · or {Math.floor(GROWTH_PLAN.monthlyCredits / 3)} images · or a mix of actions. The trial activation journey costs {TRIAL_ACTIVATION_WORKFLOW_COST} credits —
                      {' '}<span className="text-violet-700">built for teams that need a higher publishing pace across channels</span>
                   </>
                 )}

@@ -492,6 +492,26 @@ describe('guardStrategyOutputContract', () => {
     expect(out.weeklyExecutionPlan[0].deliverables.join(' ')).toMatch(/practical solution/i)
   })
 
+  it('removes unverified integration, demo, and broken decision claims', () => {
+    const out = guardStrategyOutputContract({
+      positioning: 'A complete workflow from brand evidence to measurable learning with seamless integration capabilities.',
+      funnelStages: [
+        { stage: 'Awareness', cta: 'Watch our demo' },
+      ],
+      experiments: [
+        { decision: 'Iterate if signups increase' },
+      ],
+      proofNote: 'Watch our demo',
+      pricing: 'pricing details available to discuss Model',
+    }, { allowedPlatforms: ['LinkedIn'], language: 'English' })
+
+    const serialized = JSON.stringify(out)
+    expect(serialized).not.toMatch(/complete workflow|seamless integration|Watch our demo|pricing details available to discuss Model|Iterate if signups increase/i)
+    expect(serialized).toContain('governed workflow')
+    expect(serialized).toContain('Review the workflow')
+    expect(serialized).toContain('Continue if signups increase; iterate if the result is inconclusive')
+  })
+
   it('softens broad Arabic ideal-fit claims for non-software brands', () => {
     const out = guardStrategyOutputContract({
       positioning: 'عيادة نور دبي للأسنان هي العيادة المثالية للعائلات في دبي.',

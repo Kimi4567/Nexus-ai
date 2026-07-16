@@ -359,6 +359,14 @@
     padding: 20px var(--nx-page-gutter) 32px;
   }
 
+  /* Keep authenticated workspace actions clear of the floating assistant.
+     The assistant is hidden on public/auth pages by ChatWidget itself. */
+  @media (min-width: 768px) {
+    .nx-os-main .nx-os-container {
+      padding-right: max(var(--nx-page-gutter), 80px);
+    }
+  }
+
   .nx-os-stack {
     display: flex;
     flex-direction: column;

@@ -7,6 +7,8 @@ describe('buildStrategySnapshot', () => {
       campaignId: 'campaign-1',
       scope: 'full',
       goal: 'Qualified leads',
+      planningHorizonDays: 90,
+      plannedOrganicPostCount: 16,
       strategy: {
         audienceSegmentsDetailed: [{ name: 'Operations leaders' }],
         positioning: { statement: 'Faster campaign operations' },
@@ -24,12 +26,14 @@ describe('buildStrategySnapshot', () => {
 
     expect(snapshot.version).toBe(STRATEGY_SNAPSHOT_SCHEMA_VERSION)
     expect(snapshot.scope).toBe('full')
+    expect(snapshot.planningHorizonDays).toBe(90)
+    expect(snapshot.plannedOrganicPostCount).toBe(16)
     expect(snapshot.audiences).toHaveLength(1)
     expect(snapshot.funnel).toEqual([{ stage: 'Awareness' }])
     expect(snapshot.channels).toEqual([{ platform: 'LINKEDIN' }])
     expect(snapshot.evidenceRefs).toHaveLength(1)
     expect(snapshot.executionLinks.content).toBe('/campaigns/campaign-1/content-hub')
-    expect(snapshot.executionLinks.paid).toBe('/paid-campaigns/campaign-1')
+    expect(snapshot.executionLinks.paid).toBe('/campaigns/campaign-1/paid-launch')
     expect(snapshot.executionLinks.performance).toBe('/campaigns/campaign-1?tab=performance')
     expect(snapshot.executionLinks.analytics).toBe('/analytics')
   })

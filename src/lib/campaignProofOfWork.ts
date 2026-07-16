@@ -15,6 +15,8 @@
  *   - returns i18n KEYS (+ small interpolation data) — never raw IDs/JSON/enums.
  */
 
+import { deriveContentLifecycleTruth } from './contentLifecycleTruth'
+
 export type ProofStatus = 'done' | 'needs_review' | 'scheduled' | 'published' | 'failed'
 export type ProofMode = 'manual' | 'auto' | null
 export type ProofGroup = 'strategy' | 'content' | 'publishing'
@@ -33,6 +35,13 @@ export interface ProofPostInput {
   platform?: string | null
   scheduledAt?: string | null
   approvedAt?: string | null
+  approvedSnapshotId?: string | null
+  mediaApprovalSnapshotId?: string | null
+  scheduledSnapshotId?: string | null
+  imageUrl?: string | null
+  uploadedMediaId?: string | null
+  mediaSource?: string | null
+  generationStatus?: string | null
   publishedAt?: string | null
   manuallyPublishedAt?: string | null
   platformUrl?: string | null
@@ -136,7 +145,11 @@ export function deriveCampaignProofOfWork(
 
   // 3) Aggregate in-progress states + itemise completed-with-proof states
   const approvedCount = list.filter((p) => norm(p.status) === 'APPROVED').length
-  const scheduledCount = list.filter((p) => norm(p.status) === 'SCHEDULED').length
+  const scheduledTruth = list
+    .filter((p) => norm(p.status) === 'SCHEDULED')
+    .map(deriveContentLifecycleTruth)
+  const scheduledCount = scheduledTruth.filter((truth) => truth.isValidScheduled).length
+  const invalidScheduledCount = scheduledTruth.filter((truth) => truth.isInvalidScheduled).length
 
   if (approvedCount > 0) {
     content.push({
@@ -150,6 +163,13 @@ export function deriveCampaignProofOfWork(
       key: 'scheduled', group: 'publishing', status: 'scheduled', mode: null,
       statusKey: STATUS_KEY.scheduled, modeKey: null, titleKey: `${P}.item.scheduled`,
       count: scheduledCount, platformUrl: null, errorMessage: null, at: null, canViewPost: false,
+    })
+  }
+  if (invalidScheduledCount > 0) {
+    content.push({
+      key: 'invalid-schedule', group: 'content', status: 'needs_review', mode: null,
+      statusKey: STATUS_KEY.needs_review, modeKey: null, titleKey: `${P}.item.invalidSchedule`,
+      count: invalidScheduledCount, platformUrl: null, errorMessage: null, at: null, canViewPost: false,
     })
   }
 

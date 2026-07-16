@@ -8,6 +8,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 import { getBillingDisplayTruth } from '@/lib/billingDisplayTruth'
 import { getPlanDisplayName } from '@/lib/creditDisplay'
+import { actionableApprovalSuggestions, liveApprovalQueue } from '@/lib/approvalInboxTruth'
 import {
   MARKETING_JOURNEY,
   resolveMarketingJourneyStage,
@@ -246,9 +247,10 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       try {
         const token = authHeader()
         if (!token) return
-        const [brainResult, agentResult] = await Promise.allSettled([
+        const [brainResult, agentResult, executionResult] = await Promise.allSettled([
           fetch('/api/brain/proposals?status=pending', { headers: { Authorization: token } }),
           fetch('/api/agents/suggestions?status=PENDING&limit=100', { headers: { Authorization: token } }),
+          fetch('/api/execution/queue', { headers: { Authorization: token } }),
         ])
         let count = 0
         if (brainResult.status === 'fulfilled' && brainResult.value.ok) {
@@ -257,7 +259,13 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         }
         if (agentResult.status === 'fulfilled' && agentResult.value.ok) {
           const data = await agentResult.value.json()
-          count += typeof data.total === 'number' ? data.total : Array.isArray(data.suggestions) ? data.suggestions.length : 0
+          count += actionableApprovalSuggestions(
+            Array.isArray(data.suggestions) ? data.suggestions : [],
+          ).length
+        }
+        if (executionResult.status === 'fulfilled' && executionResult.value.ok) {
+          const data = await executionResult.value.json()
+          count += liveApprovalQueue(data?.truth?.queue).length
         }
         setPendingProposals(count)
       } catch {

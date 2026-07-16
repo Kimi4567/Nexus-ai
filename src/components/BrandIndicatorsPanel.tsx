@@ -7,7 +7,7 @@
  * (getBrandIndicators). Used on BOTH the Brand Brain page and the campaign
  * Strategy panel so the same concept can never show two different numbers again.
  *
- *   1. Core profile completeness (core durable fields only)
+ *   1. Core identity coverage (core durable fields only; not overall readiness)
  *   2. Organic readiness    (minimum organic strategy set)
  *   3. Paid readiness       (approval-gated until prerequisites + tracking exist)
  *   4. Memory richness       (saved signals/memory — NOT readiness)
@@ -83,15 +83,15 @@ export default function BrandIndicatorsPanel({ indicators, locale = 'en', theme 
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        {/* 1. Core profile completeness */}
+        {/* 1. Core identity coverage — deliberately not an overall score */}
         <Cell>
           <div className="flex items-center justify-between">
-            <Label>{ar ? 'اكتمال الملف الأساسي' : 'Core profile completeness'}</Label>
+            <Label>{ar ? 'تغطية الهوية الأساسية' : 'Core identity coverage'}</Label>
             <span className="text-[11px] font-black tabular-nums" style={{ color: barColor(c.score) }}>{c.score}%</span>
           </div>
           <Bar score={c.score} />
           <p className="text-[9px] mt-1" style={{ color: textSub }}>
-            {ar ? 'الحقول الأساسية المؤكدة' : 'Core confirmed fields'}
+            {ar ? 'حقول الهوية المؤكدة — ليست الجاهزية الكلية' : 'Confirmed identity fields — not overall readiness'}
           </p>
         </Cell>
 
@@ -153,8 +153,8 @@ export default function BrandIndicatorsPanel({ indicators, locale = 'en', theme 
         <div className="mt-2 space-y-2 text-[11px] leading-relaxed" style={{ color: textSub }}>
           {([
             ar
-              ? ['اكتمال الملف الأساسي', 'يقيس الحقول الأساسية المحفوظة فقط، وليس كل بيانات التسويق الممكنة. لا تؤثر فيه اقتراحات الذكاء الاصطناعي أو الماسح أو المحلّل إلا إذا حفظتها بنفسك.']
-              : ['Core profile completeness', 'measures saved core fields only, not every possible marketing input. AI suggestions, Scanner, or Analyzer don’t change it unless you save them.'],
+              ? ['تغطية الهوية الأساسية', 'تقيس حقول الهوية المحفوظة فقط، وليست نسبة جاهزية المنتج أو التسويق. لا تؤثر فيها اقتراحات الذكاء الاصطناعي أو الماسح أو المحلّل إلا إذا حفظتها بنفسك.']
+              : ['Core identity coverage', 'measures saved identity fields only, not product or marketing readiness. AI suggestions, Scanner, or Analyzer don’t change it unless you save them.'],
             ar
               ? ['جاهزية المحتوى العضوي', 'تتأثر بالحد الأدنى لحقول الاستراتيجية العضوية. لا تعني أن الإعلانات المدفوعة جاهزة، ولا تَعِد بأي أداء.']
               : ['Organic readiness', 'affected by the minimum organic field set. It does not mean paid ads can execute, and promises no performance.'],

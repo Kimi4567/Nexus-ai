@@ -234,6 +234,17 @@ export default function StrategyPage() {
   const [startFreshStrategyRequest, setStartFreshStrategyRequest] = useState(false)
   const [showReferenceStrategy, setShowReferenceStrategy] = useState(false)
 
+  useEffect(() => {
+    const request = new URLSearchParams(window.location.search).get('request')
+    if (request !== 'new') return
+
+    setStartFreshStrategyRequest(true)
+    setRunStrategyOpen(true)
+    // Keep Back/Forward and refresh predictable after the modal has consumed
+    // the route intent. This does not create a campaign or spend credits.
+    router.replace('/strategy', { scroll: false })
+  }, [router])
+
   const load = useCallback(async () => {
     if (!isAuthenticated) return
     setLoading(true)
@@ -853,6 +864,151 @@ export default function StrategyPage() {
             />
           </div>
         </div>
+      </AppShell>
+    )
+  }
+
+  // Once a campaign strategy exists, /strategy is a compact portfolio and
+  // routing surface. The full decision document has one owner: the campaign
+  // room. This prevents two pages from presenting competing approval states.
+  if (hasStrategy && recent) {
+    const journeyIcons = [Brain, ClipboardList, FileText, Send, TrendingUp]
+    return (
+      <AppShell>
+        <main className="nx-os-page" dir={ar ? 'rtl' : 'ltr'}>
+          <div className="nx-os-container nx-os-stack">
+            <LuxuryWorkspaceHeader
+              journeyStage="strategy"
+              pageTitle={ar ? 'الاستراتيجية والحملات' : 'Strategy & campaigns'}
+              pageSubtitle={ar
+                ? 'مركز متابعة مختصر؛ وثيقة القرار وحالة الاعتماد تعيشان داخل كل حملة.'
+                : 'A compact portfolio; the decision document and approval state live inside each campaign.'}
+              primaryHref={recentStrategyHref}
+              primaryLabel={ar ? 'فتح استراتيجية الحملة الحالية' : 'Open current campaign strategy'}
+              secondaryHref="/campaigns"
+              secondaryLabel={ar ? 'كل الحملات' : 'All campaigns'}
+            />
+
+            {strategyExecutionBlocked && (
+              <section className="rounded-[22px] border border-orange-200 bg-orange-50 p-4 text-orange-950" role="alert">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-black">
+                      {brandTruthBlocked
+                        ? (ar ? 'التنفيذ متوقف حتى تصحيح Brand Brain' : 'Execution is blocked until Brand Brain is corrected')
+                        : (ar ? 'الاستراتيجية الحالية لا تطابق Brand Brain الحالي' : 'The current strategy does not match the current Brand Brain')}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-orange-800">
+                      {ar
+                        ? 'تظل الوثيقة مرجعًا تاريخيًا فقط، ولا يُنشئ NEXUS محتوى أو ينشر أو يخصم كريديت من خلالها.'
+                        : 'The document remains historical reference only; NEXUS will not generate content, publish, or spend credits from it.'}
+                    </p>
+                  </div>
+                  <Link href="/brand" className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-700 px-4 text-xs font-black text-white">
+                    {ar ? 'تصحيح Brand Brain' : 'Fix Brand Brain'}<ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </section>
+            )}
+
+            <section className="nx-os-card overflow-hidden p-5">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-[#EEF2FF] px-3 py-1 text-[11px] font-black text-[#5E63FF]">
+                      {ar ? 'الحملة الحالية' : 'Current campaign'}
+                    </span>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-600">
+                      {campaignSubtitle}
+                    </span>
+                  </div>
+                  <h1 className="mt-3 text-2xl font-black tracking-tight text-[#0B1028]">{campaignTitle}</h1>
+                  <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">{campaignGoal}</p>
+                  <div className="mt-4 flex flex-wrap gap-4 text-xs font-bold text-slate-500">
+                    <span>{ar ? 'Brand Brain' : 'Brand Brain'}: {brandName || (ar ? 'غير مسمى' : 'Unnamed')}</span>
+                    <span>{ar ? 'آخر تحديث' : 'Last updated'}: {formatShortDate(recent.updatedAt, locale)}</span>
+                    <span>{ar ? 'القنوات' : 'Channels'}: {recent.platforms.length > 0 ? recent.platforms.join(' · ') : (ar ? 'غير محددة' : 'Not set')}</span>
+                  </div>
+                  <p className="mt-3 text-[11px] font-semibold text-slate-400">
+                    {ar
+                      ? 'حالة الاعتماد والأدلة والخطوة التالية تُقرأ من داخل الحملة فقط لمنع أي تناقض.'
+                      : 'Approval, evidence, and next action are read only inside the campaign to prevent conflicting states.'}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <Link href={recentStrategyHref} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#101A4D] px-5 text-sm font-black text-white">
+                    {ar ? 'فتح وثيقة القرار' : 'Open decision document'}<ArrowRight className="h-4 w-4" />
+                  </Link>
+                  {!strategyExecutionBlocked && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStartFreshStrategyRequest(true)
+                        setRunStrategyOpen(true)
+                      }}
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 px-5 text-sm font-black text-indigo-700"
+                    >
+                      <Sparkles className="h-4 w-4" />{ar ? 'طلب استراتيجية جديدة' : 'New strategy request'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <section className="grid gap-3 md:grid-cols-5">
+              {operatingModelSteps.map((step, index) => {
+                const Icon = journeyIcons[index] ?? Layers
+                const isCurrent = index === 1
+                return (
+                  <Link
+                    key={step.label}
+                    href={isCurrent ? recentStrategyHref : step.href}
+                    className={`rounded-[20px] border p-4 transition hover:-translate-y-0.5 ${isCurrent ? 'border-indigo-200 bg-indigo-50' : 'border-slate-200 bg-white hover:border-indigo-200'}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${isCurrent ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span className="text-[10px] font-black text-slate-400">{String(index + 1).padStart(2, '0')}</span>
+                    </div>
+                    <h2 className="mt-3 text-[13px] font-black text-[#0B1028]">{step.label}</h2>
+                    <p className="mt-1 text-[11px] font-semibold leading-5 text-slate-500">{step.value}</p>
+                  </Link>
+                )
+              })}
+            </section>
+
+            <section className="nx-os-card p-5">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-black text-[#0B1028]">{ar ? 'الحملات الأخيرة' : 'Recent campaigns'}</h2>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">{ar ? 'افتح الحملة لقراءة الاستراتيجية وحالة الاعتماد من مصدر واحد.' : 'Open a campaign to read strategy and approval from one source.'}</p>
+                </div>
+                <Link href="/campaigns" className="text-xs font-black text-[#5E63FF]">{ar ? 'عرض الكل' : 'View all'}</Link>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {campaigns.slice(0, 5).map((item) => (
+                  <Link key={item.id} href={`/campaigns/${item.id}?tab=strategy`} className="flex flex-col gap-2 py-3 transition hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between sm:px-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-[#0B1028]">{item.name}</p>
+                      <p className="mt-1 text-[11px] font-semibold text-slate-500">{item.goal ? campaignGoalLabel(item.goal, ar) : (ar ? 'لا يوجد هدف محفوظ' : 'No saved goal')}</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3 text-[11px] font-bold text-slate-400">
+                      <span>{formatShortDate(item.updatedAt, locale)}</span>
+                      <ArrowRight className="h-4 w-4 text-[#5E63FF]" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          </div>
+        </main>
+        <RunFullStrategyModal
+          isOpen={runStrategyOpen}
+          startFresh={startFreshStrategyRequest}
+          onClose={() => setRunStrategyOpen(false)}
+          onSuccess={() => { load() }}
+        />
       </AppShell>
     )
   }

@@ -167,11 +167,11 @@ describe('Sidebar credit presentation', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const rendered = render(<Sidebar collapsed={false} setCollapsed={() => {}} />)
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3))
 
     rendered.rerender(<Sidebar collapsed={false} setCollapsed={() => {}} />)
     await Promise.resolve()
 
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 })

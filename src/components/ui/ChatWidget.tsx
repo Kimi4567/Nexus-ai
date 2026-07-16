@@ -304,6 +304,20 @@ export default memo(function ChatWidget() {
   }, []);
 
   const msgWithReplies = messages as Array<ChatMessage & { quickReplies?: string[] }>;
+  const assistantEnabled = Boolean(user) && !(
+    pathname === '/'
+    || pathname.startsWith('/auth/')
+    || pathname === '/privacy'
+    || pathname === '/terms'
+    || pathname === '/cookies'
+    || pathname === '/refund'
+    || pathname === '/data-deletion'
+  );
+
+  // The assistant is an authenticated workspace tool. Keeping it off public
+  // and authentication pages prevents it from covering mobile landing-page
+  // CTAs, FAQ controls, and legal content.
+  if (!assistantEnabled) return null;
 
   return (
     <>
@@ -315,7 +329,7 @@ export default memo(function ChatWidget() {
           ? (isAr ? 'إغلاق مساعد NEXUS' : 'Close NEXUS assistant')
           : (isAr ? 'فتح مساعد NEXUS' : 'Open NEXUS assistant')}
         aria-expanded={open}
-        className="fixed bottom-6 right-6 z-[100] w-14 h-14 rounded-full flex items-center justify-center shadow-2xl chat-btn"
+        className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 z-[100] flex h-12 w-12 items-center justify-center rounded-full shadow-2xl chat-btn sm:bottom-6 sm:right-6 sm:h-[52px] sm:w-[52px]"
         style={{
           background: "linear-gradient(135deg, #6366F1 0%, #5E5CE6 100%)",
           boxShadow: "0 8px 32px rgba(94,92,230,0.35)",

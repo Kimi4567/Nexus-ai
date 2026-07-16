@@ -346,8 +346,9 @@ function debitDescription(action: CreditAction): string {
 
 // ── Free plan starter credits ──────────────────────────────────────────────────
 // Granted on first AI action to brand-new FREE accounts.
-// 12 credits = one activation journey: strategy (8), quality review (2),
-// and one small Content Hub plan (2).
+// 12 credits = the entry activation journey: Organic Light / 30 days (8),
+// quality review (2), and one Content Hub plan (2). Larger confirmed strategy
+// orders are quoted by strategyPricing before any reservation.
 // Adjust here to change the free tier without touching any route.
 
 export const FREE_STARTER_CREDITS = STARTER_CREDITS
@@ -441,6 +442,8 @@ export interface CreditChargeContext {
   entityId: string
   entityType: string
   operationKey?: string
+  /** Exact user-visible scope for variable-price operations. */
+  description?: string
 }
 
 export type CreditSettlementResult =
@@ -581,7 +584,7 @@ export async function checkAndDeductCredits(
         data: {
           userId,
           action,
-          description: debitDescription(action),
+          description: context?.description || debitDescription(action),
           amount: 0,
           creditCost: cost,
           status: 'RESERVED',
@@ -710,7 +713,7 @@ async function _deductScalar(
       data: {
         userId,
         action,
-        description: debitDescription(action),
+        description: context?.description || debitDescription(action),
         amount: -cost,
         creditCost: cost,
         status: 'RESERVED',
@@ -821,7 +824,7 @@ async function _deductFromGrants(
         data: {
           userId,
           action,
-          description: debitDescription(action),
+          description: context?.description || debitDescription(action),
           amount: -cost,
           creditCost: cost,
           status: 'RESERVED',

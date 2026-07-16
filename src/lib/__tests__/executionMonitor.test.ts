@@ -17,7 +17,7 @@ function action(overrides: Partial<ExecutionQueueItem> = {}): ExecutionQueueItem
     href: '/campaigns/c1/content-hub',
     title: { en: 'Review draft content', ar: 'راجع مسودات المحتوى' },
     reason: { en: '2 drafts need approval.', ar: 'مسودتان تحتاجان اعتماداً.' },
-    evidence: { campaignStatus: 'ACTIVE', strategyApprovalState: 'approved', posts },
+    evidence: { campaignStatus: 'ACTIVE', strategyApprovalState: 'approved', strategyEvidenceCount: 4, strategyBlockers: [], posts },
     updatedAt: '2026-07-12T12:00:00.000Z',
     ...overrides,
   }

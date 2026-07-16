@@ -235,9 +235,9 @@ function BrandStatusPanel({ indicators, locale, contract, organicTruthBlocked = 
         : (ar ? 'سجل تغييرات قابل للتتبع' : 'Traceable change history'),
     }] : []),
     {
-      label: ar ? 'اكتمال الملف الأساسي' : 'Core profile completeness',
+      label: ar ? 'تغطية الهوية الأساسية' : 'Core identity coverage',
       value: `${indicators.brandCompleteness.score}%`,
-      helper: ar ? 'حقول أساسية مؤكدة' : 'Core confirmed fields',
+      helper: ar ? 'حقول هوية مؤكدة — ليست الجاهزية الكلية' : 'Confirmed identity fields — not overall readiness',
     },
     {
       label: ar ? 'الجاهزية العضوية' : 'Organic readiness',
@@ -1307,8 +1307,8 @@ function BrandBrainInner() {
                           ? { background: '#FFF7ED', color: '#C2410C', border: '1px solid rgba(234,88,12,0.24)' }
                           : { background: '#ECFDF5', color: '#047857', border: '1px solid rgba(16,185,129,0.24)' }}>
                         {industryTruthConflict
-                          ? (locale === 'ar' ? 'الحقول مكتملة · الاتساق محجوب' : 'Fields complete · consistency blocked')
-                          : (locale === 'ar' ? 'اكتمال الملف الأساسي' : 'Core profile completeness')}
+                          ? (locale === 'ar' ? 'الهوية الأساسية محفوظة · الاتساق محجوب' : 'Core identity saved · consistency blocked')
+                          : (locale === 'ar' ? 'تغطية الهوية الأساسية' : 'Core identity coverage')}
                         <span className="font-semibold tabular-nums">{brandIndicators.brandCompleteness.score}%</span>
                       </span>
                     </div>
@@ -1329,6 +1329,9 @@ function BrandBrainInner() {
                       <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${brandIndicators.paidReadiness.ready ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                         {locale === 'ar' ? 'المدفوع: ' : 'Paid: '}
                         {brandIndicators.paidReadiness.ready ? (locale === 'ar' ? 'جاهز للمراجعة' : 'Review ready') : (locale === 'ar' ? 'يحتاج متطلبات' : 'Needs prerequisites')}
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-600">
+                        {locale === 'ar' ? 'ليست نسبة الجاهزية الكلية' : 'Not an overall readiness score'}
                       </span>
                     </div>
                   </div>
@@ -1725,7 +1728,7 @@ function BrandBrainInner() {
               </p>
               <div className="hidden">
                 {[
-                  [locale === 'ar' ? 'اكتمال الملف الأساسي' : 'Core profile completeness', `${brandIndicators.brandCompleteness.score}%`],
+                  [locale === 'ar' ? 'تغطية الهوية الأساسية' : 'Core identity coverage', `${brandIndicators.brandCompleteness.score}%`],
                   [locale === 'ar' ? 'العضوي' : 'Organic', coreBrandReady ? (locale === 'ar' ? 'جاهز لموجز' : 'Ready for brief') : industryTruthConflict ? (locale === 'ar' ? 'راجع اتساق المجال' : 'Review industry consistency') : (locale === 'ar' ? 'يحتاج بيانات' : 'Needs data')],
                   [locale === 'ar' ? 'المدفوع' : 'Paid', brandIndicators.paidReadiness.ready ? (locale === 'ar' ? 'جاهز لمراجعة المدفوع' : 'Paid review ready') : (locale === 'ar' ? 'يحتاج متطلبات' : 'Needs prerequisites')],
                   [locale === 'ar' ? 'ثراء الذاكرة' : 'Memory richness', brandIndicators.memoryRichness.level === 'high' ? (locale === 'ar' ? 'غنية' : 'Rich') : brandIndicators.memoryRichness.level === 'medium' ? (locale === 'ar' ? 'تتكوّن' : 'Building') : (locale === 'ar' ? 'مبكرة' : 'Early')],

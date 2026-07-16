@@ -13,6 +13,7 @@ function snapshot(overrides: Partial<CampaignExecutionSnapshot> = {}): CampaignE
     updatedAt: '2026-07-12T12:00:00.000Z',
     strategyApprovalState: 'approved',
     strategyBlockers: [],
+    strategyEvidenceCount: 0,
     posts: { draft: 0, approved: 0, scheduled: 0, published: 0, failed: 0, publishedWithoutAnalytics: 0 },
     ...overrides,
   }
@@ -95,6 +96,28 @@ describe('execution truth', () => {
       safety: 'manual_action',
     })
     expect(result.nextAction?.reason.en).toContain('without verified publication')
+  })
+
+  it('does not monitor a scheduled status that lacks immutable execution evidence', () => {
+    const result = buildCampaignExecutionTruth(snapshot({
+      posts: {
+        draft: 0,
+        approved: 0,
+        scheduled: 0,
+        invalidScheduled: 3,
+        published: 0,
+        failed: 0,
+        publishedWithoutAnalytics: 0,
+      },
+    }))
+
+    expect(result.stage).toBe('NEEDS_ATTENTION')
+    expect(result.nextAction).toMatchObject({
+      kind: 'REVIEW_CONTENT',
+      priority: 'critical',
+      safety: 'review_required',
+    })
+    expect(result.nextAction?.reason.en).toContain('does not consider them scheduled')
   })
 
   it('routes approved posts with missing media to media review before scheduling', () => {

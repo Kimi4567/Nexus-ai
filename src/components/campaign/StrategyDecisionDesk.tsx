@@ -114,7 +114,10 @@ type StrategyDecisionDeskProps = {
     helper: string
     label: string
     href: string
+    costLabel?: string | null
   }
+  onNextAction?: () => void
+  nextActionDisabled?: boolean
   qualityState: 'not_reviewed' | 'passed' | 'needs_attention'
   locale: 'ar' | 'en'
   onReadDocument: () => void
@@ -191,6 +194,8 @@ function platformLabel(value: unknown, isArabic: boolean): string {
     TIKTOK: localized('TikTok', 'TikTok'),
     PINTEREST: localized('Pinterest', 'Pinterest'),
     YOUTUBE: localized('YouTube', 'YouTube'),
+    YOUTUBE_SHORTS: localized('YouTube Shorts', 'YouTube Shorts'),
+    INSTAGRAM_REELS: localized('Instagram Reels', 'Instagram Reels'),
     X: localized('X', 'X'),
     THREADS: localized('Threads', 'Threads'),
   }
@@ -211,21 +216,26 @@ function isMissingValue(value: string): boolean {
 
 function statusTone(status: string): Tone {
   const normalized = status.toLowerCase()
+  // Negative compound states must be checked before their positive substrings:
+  // "not_connected" contains "connected" and previously rendered as Ready.
+  if (['blocked', 'failed', 'conflict', 'not_connected', 'not_available'].some(token => normalized.includes(token))) return 'danger'
+  if (['checking', 'pending', 'review', 'needs_', 'permission_unverified', 'planning', 'scheduled'].some(token => normalized.includes(token))) return 'warning'
   if (['ready', 'connected', 'complete', 'published', 'approved', 'passed'].some(token => normalized.includes(token))) return 'positive'
-  if (['blocked', 'failed', 'conflict', 'not_connected'].some(token => normalized.includes(token))) return 'danger'
-  if (['checking', 'pending', 'review', 'needs_', 'scheduled'].some(token => normalized.includes(token))) return 'warning'
   return 'muted'
 }
 
 function statusCopy(status: string, isArabic: boolean): string {
   const normalized = status.toLowerCase()
-  if (normalized.includes('ready') || normalized.includes('connected')) return isArabic ? 'جاهز' : 'Ready'
-  if (normalized.includes('published')) return isArabic ? 'منشور' : 'Published'
-  if (normalized.includes('approved')) return isArabic ? 'معتمد' : 'Approved'
-  if (normalized.includes('blocked') || normalized.includes('failed')) return isArabic ? 'متوقف' : 'Blocked'
   if (normalized.includes('not_connected')) return isArabic ? 'غير متصل' : 'Not connected'
+  if (normalized.includes('not_available')) return isArabic ? 'غير متاح' : 'Not available'
+  if (normalized.includes('permission_unverified')) return isArabic ? 'الصلاحية غير مثبتة' : 'Permission unverified'
+  if (normalized.includes('needs_setup')) return isArabic ? 'يحتاج إعدادًا' : 'Needs setup'
+  if (normalized.includes('blocked') || normalized.includes('failed')) return isArabic ? 'متوقف' : 'Blocked'
   if (normalized.includes('planning')) return isArabic ? 'تخطيط فقط' : 'Planning only'
   if (normalized.includes('pending') || normalized.includes('review') || normalized.includes('needs_')) return isArabic ? 'يحتاج مراجعة' : 'Needs review'
+  if (normalized.includes('ready') || normalized.includes('connected')) return isArabic ? 'جاهز للتنفيذ' : 'Execution ready'
+  if (normalized.includes('published')) return isArabic ? 'منشور' : 'Published'
+  if (normalized.includes('approved')) return isArabic ? 'معتمد' : 'Approved'
   return isArabic ? 'غير متاح' : 'Not available'
 }
 
@@ -234,7 +244,7 @@ function readField(value: unknown, isArabic: boolean): string {
   if (typeof value === 'number') return String(value)
   if (Array.isArray(value)) return compactValue(value, isArabic ? 'غير محدد — مطلوب قبل التنفيذ' : 'Not defined — required before execution')
   if (value && typeof value === 'object') {
-    return readField(recordValue(value, ['label', 'name', 'title', 'description', 'value', 'text', 'objective', 'goal', 'message', 'positioning', 'statement', 'claim', 'proof']), isArabic)
+    return readField(recordValue(value, ['label', 'name', 'title', 'primary', 'marketing', 'description', 'value', 'text', 'objective', 'goal', 'message', 'positioning', 'statement', 'claim', 'proof']), isArabic)
   }
   return ''
 }
@@ -390,11 +400,14 @@ export default function StrategyDecisionDesk({
   actualPosts,
   platformStates,
   nextAction,
+  onNextAction,
+  nextActionDisabled = false,
   qualityState,
   locale,
   onReadDocument,
 }: StrategyDecisionDeskProps) {
   const isArabic = locale === 'ar'
+  const showDeepReviewPanels = false
   const text = (ar: string, en: string) => isArabic ? ar : en
   const truthFlags = operatingState.truthFlags || {}
   const postCount = operatingState.counts.totalPosts || creativeSummary.total || 0
@@ -454,10 +467,21 @@ export default function StrategyDecisionDesk({
     ...listValues(strategyRecord.executionAssumptions),
     ...listValues(strategyRecord.doNotDoYet),
   ]
-  const strategyDuration = readField(strategyRecord.strategyDuration || strategyRecord.duration || strategyRecord.planningHorizon || strategyRecord.timeframe, isArabic) || fallback
+  const strategyDuration = snapshot.planningHorizonDays !== null
+    ? text(`${snapshot.planningHorizonDays} يوم`, `${snapshot.planningHorizonDays} days`)
+    : readField(strategyRecord.strategyDuration || strategyRecord.duration || strategyRecord.planningHorizon || strategyRecord.timeframe, isArabic) || fallback
   const strategyVersion = readField(strategyRecord.version || strategyRecord.snapshotVersion, isArabic) || `v${snapshot.version}`
-  const strategyStatusLabel = readField(strategyRecord.status || strategyRecord.approvalState, isArabic) || (snapshot.approvalState === 'approved' || qualityState === 'passed' ? text('مراجعة مكتملة', 'Review complete') : text('قيد المراجعة', 'In review'))
-  const plannedPostCountValue = recordValue(snapshotContent, ['expectedPostCount', 'plannedPostCount', 'postCount']) || recordValue(strategyRecord, ['expectedPostCount', 'plannedPostCount', 'organicPostCount'])
+  const strategyStatusLabel = {
+    approved: text('معتمدة', 'Approved'),
+    review: text('جاهزة للمراجعة', 'Ready for review'),
+    blocked: text('محجوبة', 'Blocked'),
+    superseded: text('تم إلغاء الاعتماد', 'Approval revoked'),
+    draft: text('مسودة', 'Draft'),
+  }[snapshot.approvalState]
+  const plannedPostCountValue = snapshot.plannedOrganicPostCount
+    ?? fulfillment.expectedDirections
+    ?? recordValue(snapshotContent, ['expectedPostCount', 'plannedPostCount', 'postCount'])
+    ?? recordValue(strategyRecord, ['expectedPostCount', 'plannedPostCount', 'organicPostCount'])
   const plannedPostCount = typeof plannedPostCountValue === 'number' && Number.isFinite(plannedPostCountValue) && plannedPostCountValue > 0
     ? plannedPostCountValue
     : null
@@ -473,7 +497,7 @@ export default function StrategyDecisionDesk({
   ]
   const executiveSummary: DecisionCard[] = [
     { label: localized('الهدف التجاري', 'Business objective'), value: readField(strategyRecord.businessObjective || strategyRecord.businessGoal || campaign.goal, isArabic) || fallback, helper: localized('النتيجة التجارية التي يجب أن تقودها الحملة.', 'The business outcome this campaign should drive.') },
-    { label: localized('هدف التسويق', 'Marketing objective'), value: readField(strategyRecord.marketingObjective || strategyRecord.objective || strategyRecord.goal, isArabic) || fallback, helper: localized('ما الذي سنقيسه قبل أن ننتقل إلى إنتاج المحتوى.', 'What we measure before moving into production.') },
+    { label: localized('هدف التسويق', 'Marketing objective'), value: readField(strategyRecord.marketingObjective || recordValue(strategyRecord.businessObjective, ['marketing']) || strategyRecord.objective || strategyRecord.goal, isArabic) || fallback, helper: localized('ما الذي سنقيسه قبل أن ننتقل إلى إنتاج المحتوى.', 'What we measure before moving into production.') },
     { label: localized('الجمهور الأساسي', 'Primary audience'), value: readField(strategyRecord.targetAudienceRefined || strategyRecord.targetAudience || brandRecord.targetAudience, isArabic) || fallback, helper: localized('الشريحة التي يجب أن ترى الرسالة أولاً.', 'The segment that should see the message first.') },
     { label: localized('المشكلة', 'Problem'), value: readField(recordValue(strategyRecord.diagnosisDetails || strategyRecord.diagnosis, ['pain', 'problem', 'situation']) || strategyRecord.problem, isArabic) || fallback, helper: localized('مشكلة موثقة أو افتراض يحتاج تأكيداً.', 'A documented problem or an assumption that needs confirmation.') },
     { label: localized('العرض', 'Offer'), value: readField(strategyRecord.offer || strategyRecord.primaryOffer || brandRecord.primaryOffer || strategyRecord.valuePropositions, isArabic) || fallback, helper: localized('ما نقدمه، مع قيوده وشروطه الفعلية.', 'What is offered, including its real constraints.') },
@@ -483,18 +507,20 @@ export default function StrategyDecisionDesk({
   ]
   const truthBarItems = [
     { key: 'brand', label: text('Brand Brain', 'Brand Brain'), value: brandTruthBlocked ? text('تعارض', 'Conflict') : typeof brandScore === 'number' ? `${brandScore}/100` : text('تحتاج مراجعة', 'Needs review'), helper: brandTruthBlocked ? text('يتوقف التنفيذ حتى التصحيح.', 'Execution blocked until fixed.') : text('المصدر: ملف البراند.', 'Source: brand profile.'), tone: brandTruthBlocked ? 'danger' as Tone : typeof brandScore === 'number' && brandScore >= 70 ? 'positive' as Tone : 'warning' as Tone },
-    { key: 'strategy', label: text('الاستراتيجية', 'Strategy'), value: truthFlags.hasStrategy ? text('موجودة', 'Present') : text('ناقصة', 'Missing'), helper: text('هذه الصفحة تراجع القرار فقط.', 'This desk reviews the decision only.'), tone: truthFlags.hasStrategy ? 'positive' as Tone : 'danger' as Tone },
+    { key: 'strategy', label: text('اعتماد الاستراتيجية', 'Strategy approval'), value: strategyStatusLabel, helper: qualityState === 'passed' ? text('فحص الجودة مكتمل؛ الحالة من سجل الاعتماد.', 'Quality review passed; state comes from the approval ledger.') : text('فحص الجودة أو الاعتماد ما زال مطلوبًا.', 'Quality review or approval is still required.'), tone: snapshot.approvalState === 'approved' ? 'positive' as Tone : snapshot.approvalState === 'blocked' ? 'danger' as Tone : 'warning' as Tone },
     { key: 'content', label: text('المحتوى', 'Content'), value: `${postCount} ${text('منشور', 'posts')}`, helper: truthFlags.hasContentPlan ? text('المصدر: Content Hub.', 'Source: Content Hub.') : text('الخطة غير موجودة بعد.', 'Plan not built yet.'), tone: truthFlags.hasContentPlan ? 'positive' as Tone : 'warning' as Tone },
     { key: 'creative', label: text('الإبداع', 'Creative'), value: `${creativeSummary.attachedToPost}/${Math.max(creativeSummary.total, postCount)}`, helper: creativeSummary.mediaNeeded > 0 ? text('وسائط ناقصة.', 'Media missing.') : text('الوسائط المرتبطة تقرأ من المنشورات.', 'Reads linked post media.'), tone: creativeSummary.mediaNeeded > 0 ? 'warning' as Tone : 'positive' as Tone },
-    { key: 'approval', label: text('الموافقة', 'Approval'), value: truthFlags.hasReviewedContent ? text('مراجعة موجودة', 'Review recorded') : text('مطلوبة', 'Required'), helper: text('الموافقة لا تُستنتج من وجود مسودة.', 'Approval is not inferred from a draft.'), tone: truthFlags.hasReviewedContent ? 'positive' as Tone : 'warning' as Tone },
+    { key: 'approval', label: text('اعتماد المحتوى', 'Content approval'), value: truthFlags.hasReviewedContent ? text('مراجعة موجودة', 'Review recorded') : text('مطلوبة', 'Required'), helper: text('اعتماد المحتوى مستقل عن اعتماد الاستراتيجية.', 'Content approval is separate from strategy approval.'), tone: truthFlags.hasReviewedContent ? 'positive' as Tone : 'warning' as Tone },
     { key: 'publishing', label: text('النشر', 'Publishing'), value: statusCopy(connectedState, isArabic), helper: text('الاتصالات والصلاحيات من Connections.', 'Connections and permissions come from Connections.'), tone: statusTone(connectedState) },
     { key: 'analytics', label: text('التحليلات', 'Analytics'), value: truthFlags.hasAnalyticsData ? text('بيانات حقيقية', 'Real data') : text('بانتظار البيانات', 'Awaiting data'), helper: text('لا تعلم مباشر دون بيانات منشورة.', 'No direct learning without published data.'), tone: truthFlags.hasAnalyticsData ? 'positive' as Tone : 'muted' as Tone },
   ]
-  const strategyDecisionState: StrategyStep['status'] = brandTruthBlocked
+  const strategyDecisionState: StrategyStep['status'] = snapshot.approvalState === 'blocked' || brandTruthBlocked
     ? 'blocked'
-    : qualityState === 'needs_attention'
+    : snapshot.approvalState === 'approved'
+      ? 'complete'
+      : snapshot.approvalState === 'review'
       ? 'review'
-      : 'complete'
+      : 'pending'
   const brandStatus: StrategyStep['status'] = brandTruthBlocked
     ? 'blocked'
     : typeof brandScore !== 'number'
@@ -627,13 +653,32 @@ export default function StrategyDecisionDesk({
             </div>
             <div className="flex w-full max-w-sm flex-col gap-2">
               <div className="rounded-2xl border border-indigo-100 bg-indigo-50/80 p-4">
-                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-600">{text('القرار التالي', 'Next decision')}</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-600">{text('القرار التالي', 'Next decision')}</p>
+                  {nextAction.costLabel && (
+                    <span className="rounded-full border border-indigo-200 bg-white px-2.5 py-1 text-[10px] font-bold text-indigo-700">
+                      {nextAction.costLabel}
+                    </span>
+                  )}
+                </div>
                 <p className="mt-1 text-base font-bold leading-6 text-slate-950">{nextAction.title}</p>
                 <p className="mt-1 text-xs leading-5 text-slate-600">{nextAction.helper}</p>
-                <Link href={nextAction.href} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800">
-                  {nextAction.label}
-                  <ArrowUpRight className="h-4 w-4" />
-                </Link>
+                {onNextAction ? (
+                  <button
+                    type="button"
+                    onClick={onNextAction}
+                    disabled={nextActionDisabled}
+                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {nextAction.label}
+                    <ArrowUpRight className="h-4 w-4" />
+                  </button>
+                ) : (
+                  <Link href={nextAction.href} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800">
+                    {nextAction.label}
+                    <ArrowUpRight className="h-4 w-4" />
+                  </Link>
+                )}
               </div>
               <button type="button" onClick={onReadDocument} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
                 <FileCheck2 className="h-4 w-4" />
@@ -755,6 +800,7 @@ export default function StrategyDecisionDesk({
         </details>
       </section>
 
+      {showDeepReviewPanels && <>
       <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
         <SectionHeading
           eyebrow={text('الجمهور والتموضع', 'Audience & positioning')}
@@ -826,7 +872,7 @@ export default function StrategyDecisionDesk({
             {(channelStrategy.length > 0 ? channelStrategy : (campaign.platforms || []).map(platform => ({ platform }))).slice(0, 8).map((channel, index) => {
               const platform = recordValue(channel, ['platform', 'channel', 'name']) || channel
               const state = platformStates.find(item => normalizedPlatform(item.key) === normalizedPlatform(platform))
-              return <div key={`${readField(platform, isArabic)}-${index}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3"><div className="flex items-center justify-between gap-2"><p className="text-sm font-bold text-slate-900">{platformLabel(platform, isArabic)}</p><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${TONES[statusTone(state?.status || 'planning')]}`}>{state ? statusCopy(state.status, isArabic) : text('تخطيط فقط', 'Planning only')}</span></div><p className="mt-1 text-xs leading-5 text-slate-600">{readField(recordValue(channel, ['role', 'reason', 'contentType', 'purpose']), isArabic) || text('الدور يحتاج تحديدًا في الاستراتيجية.', 'Channel role needs to be defined in the strategy.')}</p></div>
+              return <div key={`${readField(platform, isArabic)}-${index}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3"><div className="flex items-center justify-between gap-2"><p className="text-sm font-bold text-slate-900">{platformLabel(platform, isArabic)}</p><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${TONES[statusTone(state?.status || 'planning')]}`}>{state ? statusCopy(state.status, isArabic) : text('تخطيط فقط', 'Planning only')}</span></div><p className="mt-1 text-xs leading-5 text-slate-600">{readField(recordValue(channel, ['role', 'rationale', 'reason', 'contentFrequency', 'contentType', 'purpose']), isArabic) || text('الدور يحتاج تحديدًا في الاستراتيجية.', 'Channel role needs to be defined in the strategy.')}</p></div>
             })}
           </div>
         </div>
@@ -894,9 +940,13 @@ export default function StrategyDecisionDesk({
           {handoffLinks.map(({ key, ...link }) => <HandoffLink key={key} {...link} isArabic={isArabic} />)}
         </div>
       </section>
+      </>}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-        <span>{text('هذه الصفحة للقرار والمراجعة فقط. لا نشر أو جدولة أو صرف أو تعلم تلقائي منها.', 'This page is for decision and review only. No publishing, scheduling, spend, or automatic learning happens here.')}</span>
+        <button type="button" onClick={onReadDocument} className="inline-flex items-center gap-1 font-bold text-indigo-700 hover:text-indigo-900">
+          <FileCheck2 className="h-3.5 w-3.5" />
+          {text('افتح الوثيقة الكاملة للجمهور والقنوات والقياس والمخاطر', 'Open the full document for audience, channels, measurement, and risk detail')}
+        </button>
         <span className="font-bold text-slate-800">{campaign.updatedAt ? new Date(campaign.updatedAt).toLocaleDateString(isArabic ? 'ar' : 'en') : ''}</span>
       </div>
     </div>

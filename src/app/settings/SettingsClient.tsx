@@ -126,6 +126,16 @@ export default function SettingsPage() {
     plan: string
     hasActiveSubscription: boolean
     credits: { remaining: number; used: number; max: number }
+    creditBreakdown?: {
+      monthly: number
+      purchased: number
+      trial: number
+      migrated: number
+      referral: number
+      refund: number
+      manual: number
+      other: number
+    }
   } | null>(null)
 
   const [signingOut, setSigningOut] = useState(false)
@@ -346,6 +356,21 @@ export default function SettingsPage() {
     monthlyCredits: billingStatus?.hasActiveSubscription ? billingStatus?.credits?.max ?? 0 : 0,
     locale,
   })
+  const nonMonthlyCredits = billingStatus?.creditBreakdown
+    ? billingStatus.creditBreakdown.purchased
+      + billingStatus.creditBreakdown.trial
+      + billingStatus.creditBreakdown.migrated
+      + billingStatus.creditBreakdown.referral
+      + billingStatus.creditBreakdown.refund
+      + billingStatus.creditBreakdown.manual
+      + billingStatus.creditBreakdown.other
+    : 0
+  const settingsCreditLabel = nonMonthlyCredits > 0
+    ? copyText(
+        `${billingStatus?.credits.remaining ?? 0} كريديت إجمالي متاح`,
+        `${billingStatus?.credits.remaining ?? 0} total credits available`,
+      )
+    : creditDisplay.primary
 
   if (loading) {
     return (
@@ -419,7 +444,7 @@ export default function SettingsPage() {
                 </p>
                 <div className="mt-5 space-y-4 text-start">
                   {[
-                    [copyText('الأرصدة', 'Credits'), billingStatus ? creditDisplay.primary : '…', creditDisplay.percent],
+                    [copyText('الأرصدة', 'Credits'), billingStatus ? settingsCreditLabel : '…', creditDisplay.percent],
                     [copyText('المستخدمون', 'Users'), copyText('1 مستخدم فعلي', '1 actual user'), 100],
                     [copyText('التخزين', 'Storage'), copyText('حسب مكتبة الوسائط', 'Tracked in Media Library'), 0],
                   ].map(([label, value, percent]) => (

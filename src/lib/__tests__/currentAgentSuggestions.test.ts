@@ -21,6 +21,8 @@ const truth: WorkspaceExecutionTruth = {
     evidence: {
       campaignStatus: 'ACTIVE',
       strategyApprovalState: 'approved',
+      strategyEvidenceCount: 4,
+      strategyBlockers: [],
       posts: { draft: 0, approved: 0, scheduled: 3, published: 0, failed: 0, publishedWithoutAnalytics: 0 },
     },
     updatedAt: '2026-07-15T12:00:00.000Z',
@@ -43,5 +45,13 @@ describe('filterCurrentAgentSuggestions', () => {
     ], truth)
 
     expect(rows.map(row => row.id)).toEqual(['research'])
+  })
+
+  it('resolves a legacy strategy campaign id from payload and keeps only live approval truth', () => {
+    const rows = filterCurrentAgentSuggestions([
+      { id: 'legacy-strategy', type: 'STRATEGY', payload: { campaignId: 'campaign-1' } },
+    ], truth)
+
+    expect(rows).toEqual([])
   })
 })

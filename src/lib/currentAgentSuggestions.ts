@@ -13,6 +13,16 @@ function payloadRecord(value: unknown): Record<string, unknown> {
     : {}
 }
 
+function campaignIdForSuggestion(suggestion: AgentSuggestionTruthCandidate): string | null {
+  if (typeof suggestion.campaignId === 'string' && suggestion.campaignId.trim()) {
+    return suggestion.campaignId
+  }
+  const payloadCampaignId = payloadRecord(suggestion.payload).campaignId
+  return typeof payloadCampaignId === 'string' && payloadCampaignId.trim()
+    ? payloadCampaignId
+    : null
+}
+
 /**
  * Keeps approval surfaces and operations counters on the same current-state
  * contract. Persisted monitor suggestions are historical rows; they stop being
@@ -32,10 +42,12 @@ export function filterCurrentAgentSuggestions<T extends AgentSuggestionTruthCand
     }
 
     const researchReview = typeof payload.source === 'string' && payload.source.endsWith('research-monitor')
-    const campaignTruth = typeof suggestion.campaignId === 'string'
-      ? truthByCampaign.get(suggestion.campaignId)
-      : undefined
-    if (suggestion.type === 'STRATEGY' && campaignTruth?.strategyApprovalState === 'approved' && !researchReview) {
+    const campaignId = campaignIdForSuggestion(suggestion)
+    const campaignTruth = campaignId ? truthByCampaign.get(campaignId) : undefined
+    // The execution contract is the only actionable strategy-approval truth.
+    // Legacy STRATEGY suggestion rows remain in history, but must never create
+    // a second approval card or a second evidence count for the same campaign.
+    if (suggestion.type === 'STRATEGY' && campaignTruth && !researchReview) {
       return false
     }
     return true

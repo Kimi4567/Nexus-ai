@@ -527,6 +527,7 @@ export async function POST(req: NextRequest) {
             entityId: workspace.id,
             entityType: 'workspace_strategy_run',
             operationKey: getCreditOperationKey(req, 'RUN_FULL_STRATEGY', 'workspace_strategy_run', workspace.id),
+            description: `${charge.pricing.pricingExplanation} — ${strategyCreditCost} credits`,
           },
         )
         if (!credit.ok) {

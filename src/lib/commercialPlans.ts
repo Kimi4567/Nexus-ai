@@ -8,8 +8,8 @@
 
 export type PublicPaidPlanId = 'pro' | 'business'
 
-// One complete activation journey: strategy (8) + quality review (2) +
-// Content Hub plan (2). Keep the post sample deliberately small.
+// One entry activation journey: Organic Light / 30 days (8) + quality review
+// (2) + Content Hub plan (2). Larger orders need purchased/plan credits.
 export const FREE_TRIAL_CREDITS = 12
 export const FREE_TRIAL_POSTS = 3
 

@@ -302,6 +302,11 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
                       <p className="text-sm font-medium text-slate-950 truncate leading-tight">
                         {transactionLabel(tx, isAr)}
                       </p>
+                      {tx.description && tx.description !== transactionLabel(tx, isAr) && (
+                        <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-500">
+                          {tx.description}
+                        </p>
+                      )}
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <p className="text-[10px] text-slate-500">
                           {formatDate(transactionEventDate(tx), locale)}

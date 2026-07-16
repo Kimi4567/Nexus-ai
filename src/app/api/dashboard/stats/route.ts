@@ -125,7 +125,12 @@ export async function GET(req: NextRequest) {
       workspaceId
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ? (prisma as any).socialPost.count({
-            where: { workspaceId, status: { in: ['APPROVED', 'SCHEDULED', 'PUBLISHED'] } },
+            where: {
+              workspaceId,
+              status: { in: ['APPROVED', 'SCHEDULED', 'PROCESSING', 'PUBLISHED'] },
+              approvedAt: { not: null },
+              approvedSnapshotId: { not: null },
+            },
           })
         : Promise.resolve(0),
 

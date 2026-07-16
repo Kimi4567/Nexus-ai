@@ -13,6 +13,8 @@ export interface StrategySnapshot {
   version: number
   scope: 'organic' | 'paid' | 'full' | string
   goal: string | null
+  planningHorizonDays: number | null
+  plannedOrganicPostCount: number | null
   audiences: unknown[]
   positioning: unknown
   funnel: unknown[]
@@ -50,6 +52,8 @@ export function buildStrategySnapshot(input: {
   campaignId: string
   scope?: string | null
   goal?: unknown
+  planningHorizonDays?: unknown
+  plannedOrganicPostCount?: unknown
   strategy?: Record<string, unknown> | null
   evidenceRefs?: unknown[]
   assumptions?: string[]
@@ -60,10 +64,16 @@ export function buildStrategySnapshot(input: {
   supersedesVersion?: number | null
 }): StrategySnapshot {
   const strategy = input.strategy || {}
+  const positiveInteger = (value: unknown): number | null => {
+    const number = Math.floor(Number(value))
+    return Number.isFinite(number) && number >= 0 ? number : null
+  }
   return {
     version: input.version && input.version > 0 ? input.version : STRATEGY_SNAPSHOT_SCHEMA_VERSION,
     scope: textValue(input.scope) || 'organic',
     goal: textValue(input.goal),
+    planningHorizonDays: positiveInteger(input.planningHorizonDays),
+    plannedOrganicPostCount: positiveInteger(input.plannedOrganicPostCount),
     audiences: listValue(strategy.audienceSegmentsDetailed || strategy.audienceSegments || strategy.targetAudience),
     positioning: strategy.positioning || strategy.differentiation || null,
     funnel: listValue(strategy.funnelStages || strategy.funnel || strategy.funnelStrategy),
@@ -88,7 +98,7 @@ export function buildStrategySnapshot(input: {
       approvals: '/approvals',
       connections: '/connections',
       publish: `/campaigns/${input.campaignId}?tab=publish`,
-      paid: `/paid-campaigns/${input.campaignId}`,
+      paid: `/campaigns/${input.campaignId}/paid-launch`,
       performance: `/campaigns/${input.campaignId}?tab=performance`,
       analytics: '/analytics',
     },

@@ -6,6 +6,17 @@ import {
 } from '@/lib/campaignProofOfWork'
 
 const post = (over: Partial<ProofPostInput>): ProofPostInput => ({ id: Math.random().toString(36).slice(2), ...over })
+const scheduleEvidence: Partial<ProofPostInput> = {
+  status: 'SCHEDULED',
+  approvedAt: '2026-07-01T08:00:00Z',
+  approvedSnapshotId: 'copy-1',
+  imageUrl: 'https://cdn.example.com/post.jpg',
+  mediaSource: 'GENERATE',
+  generationStatus: 'DONE',
+  mediaApprovalSnapshotId: 'media-1',
+  scheduledAt: '2026-07-01T10:00:00Z',
+  scheduledSnapshotId: 'schedule-1',
+}
 
 describe('deriveCampaignProofOfWork — strategy & content plan', () => {
   it('strategy exists → Strategy created (Done)', () => {
@@ -46,11 +57,20 @@ describe('deriveCampaignProofOfWork — per-status honesty', () => {
   })
 
   it('scheduled post → Scheduled, NOT published', () => {
-    const r = deriveCampaignProofOfWork(null, [post({ status: 'SCHEDULED', scheduledAt: '2026-07-01T10:00:00Z' })])
+    const r = deriveCampaignProofOfWork(null, [post(scheduleEvidence)])
     const sched = r.groups.publishing.find((i) => i.status === 'scheduled')
     expect(sched).toBeTruthy()
     expect(sched!.titleKey).toBe('campaign.proof.item.scheduled')
     expect(r.items.some((i) => i.status === 'published')).toBe(false)
+  })
+
+  it('scheduled status without immutable evidence is review work, not scheduling proof', () => {
+    const r = deriveCampaignProofOfWork(null, [post({ status: 'SCHEDULED', scheduledAt: '2026-07-01T10:00:00Z' })])
+    expect(r.groups.publishing.some((item) => item.status === 'scheduled')).toBe(false)
+    expect(r.groups.content).toContainEqual(expect.objectContaining({
+      titleKey: 'campaign.proof.item.invalidSchedule',
+      status: 'needs_review',
+    }))
   })
 
   it('published + MANUAL → Published + Manual, with view link when URL valid', () => {
@@ -124,7 +144,7 @@ describe('deriveCampaignProofOfWork — exclusions & empty', () => {
   it('mixed campaign groups items correctly', () => {
     const r = deriveCampaignProofOfWork({ strategy: { a: 1 } }, [
       post({ status: 'APPROVED' }),
-      post({ status: 'SCHEDULED', scheduledAt: '2026-07-01T10:00:00Z' }),
+      post(scheduleEvidence),
       post({ status: 'PUBLISHED', publishMode: 'MANUAL', platform: 'META', platformUrl: 'https://facebook.com/p/9' }),
       post({ status: 'FAILED', errorMessage: 'rate limited' }),
       post({ status: 'DRAFT' }),

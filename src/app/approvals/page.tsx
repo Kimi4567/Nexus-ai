@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import type { ExecutionQueueItem, WorkspaceExecutionTruth } from '@/lib/executionTruth'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
+import { actionableApprovalSuggestions, liveApprovalQueue } from '@/lib/approvalInboxTruth'
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -60,6 +61,7 @@ interface AgentSuggestion {
     evidence?: unknown[]
     items?: Array<{ url?: string; title?: string; source?: string }>
     safety?: string
+    campaignId?: string
   } | null
   createdAt?: string | null
   updatedAt?: string | null
@@ -120,6 +122,24 @@ function decisionActorLabel(actor: string, ar: boolean): string {
   return actor
 }
 
+function executionStageLabel(stage: ExecutionQueueItem['stage'], ar: boolean): string {
+  const labels: Record<ExecutionQueueItem['stage'], [string, string]> = {
+    ARCHIVED: ['مؤرشفة', 'Archived'],
+    PAUSED: ['متوقفة', 'Paused'],
+    STRATEGY_REQUIRED: ['إنشاء الاستراتيجية', 'Strategy required'],
+    STRATEGY_REVIEW: ['مراجعة الاستراتيجية', 'Strategy review'],
+    CONTENT_PLANNING: ['تخطيط المحتوى', 'Content planning'],
+    CONTENT_REVIEW: ['مراجعة المحتوى', 'Content review'],
+    MEDIA_REVIEW: ['مراجعة الوسائط', 'Media review'],
+    SCHEDULING: ['قرار الجدولة', 'Scheduling'],
+    IN_FLIGHT: ['قيد التنفيذ', 'In flight'],
+    LEARNING: ['جمع الأدلة', 'Evidence collection'],
+    OPTIMIZING: ['مراجعة النتائج', 'Results review'],
+    NEEDS_ATTENTION: ['يحتاج تدخلاً', 'Needs attention'],
+  }
+  return labels[stage][ar ? 0 : 1]
+}
+
 export default function ApprovalsPage() {
   const { isAuthenticated, loading, authHeader } = useAuth()
   const { locale, dir } = useI18n()
@@ -172,7 +192,9 @@ export default function ApprovalsPage() {
         ])
         setBrandTruthBlocked(!brandData?.brandProfile || reviewBrandTruthConsistency(brandData.brandProfile).status === 'blocked')
         setProposals(Array.isArray(proposalData.proposals) ? proposalData.proposals : [])
-        setSuggestions(Array.isArray(suggestionData.suggestions) ? suggestionData.suggestions : [])
+        setSuggestions(actionableApprovalSuggestions(
+          Array.isArray(suggestionData.suggestions) ? suggestionData.suggestions : [],
+        ))
         setProposalHistory(Array.isArray(proposalHistoryData.proposals)
           ? proposalHistoryData.proposals.filter((item: BrainProposal) => item.status !== 'pending')
           : [])
@@ -181,14 +203,7 @@ export default function ApprovalsPage() {
           : [])
         setContentDecisionHistory(Array.isArray(contentLedgerData.events) ? contentLedgerData.events : [])
         const executionTruth = executionData.truth as WorkspaceExecutionTruth | undefined
-        const persistedCampaignIds = new Set(
-          (Array.isArray(suggestionData.suggestions) ? suggestionData.suggestions : [])
-            .map((item: AgentSuggestion) => item.campaignId)
-            .filter((id: string | null | undefined): id is string => typeof id === 'string' && id.length > 0),
-        )
-        setLiveApprovalActions(Array.isArray(executionTruth?.queue)
-          ? executionTruth.queue.filter(action => action.requiresApproval && !persistedCampaignIds.has(action.campaignId))
-          : [])
+        setLiveApprovalActions(liveApprovalQueue(executionTruth?.queue))
       } catch {
         if (!cancelled) setNotice({ tone: 'error', text: copy('تعذر تحميل قائمة القرارات.', 'Could not load the decision queue.') })
       } finally {
@@ -402,7 +417,7 @@ export default function ApprovalsPage() {
                       reason={ar ? action.reason.ar : action.reason.en}
                       badge={copy('حالة حية', 'Live state')}
                       badgeTone="amber"
-                      meta={`${action.stage} · ${action.campaignName}`}
+                      meta={`${executionStageLabel(action.stage, ar)} · ${action.campaignName} · ${action.evidence.strategyEvidenceCount} ${copy('أدلة استراتيجية', 'strategy evidence items')}`}
                       actions={(
                         <Link href={action.href} className="inline-flex h-9 items-center gap-2 rounded-[12px] bg-[#071236] px-3 text-[11px] font-black text-white">
                           {copy('افتح المراجعة المحمية', 'Open guarded review')}<ArrowUpRight size={14} />

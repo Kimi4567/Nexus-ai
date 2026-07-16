@@ -10,8 +10,9 @@ const publishPageSource = readFileSync(
 describe('Publishing page execution truth', () => {
   it('labels scheduled records as NEXUS calendar state rather than platform publishing', () => {
     expect(publishPageSource).toContain('NEXUS schedule records')
-    expect(publishPageSource).toContain('saved in the NEXUS calendar and not published to a platform')
-    expect(publishPageSource).toContain('محفوظ في تقويم NEXUS ولم يُنشر عبر منصة')
+    expect(publishPageSource).toContain('verified schedule decisions are not published')
+    expect(publishPageSource).toContain('قرار جدولة موثق ولم يُنشر')
+    expect(publishPageSource).toContain('need re-approval')
     expect(publishPageSource).not.toContain("title={copy('المنشورات المجدولة', 'Scheduled posts')}")
   })
 

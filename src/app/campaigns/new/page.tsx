@@ -9,5 +9,8 @@ import { redirect } from 'next/navigation'
  * عربي: تُراجع خطة المحتوى قبل أي جدولة أو نشر.
  */
 export default function NewCampaignPage() {
-  redirect('/strategy')
+  // Preserve the public route contract while opening the one canonical
+  // strategy-order flow. A plain /strategy redirect looked like a broken New
+  // Campaign button because it landed on the existing portfolio with no form.
+  redirect('/strategy?request=new')
 }

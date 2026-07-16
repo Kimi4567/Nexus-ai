@@ -7,6 +7,7 @@ import {
   type WorkspaceExecutionTruth,
 } from '@/lib/executionTruth'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
+import { normalizeStrategyEvidenceLedger } from '@/lib/strategy/strategyEvidenceLedger'
 
 type StatusCountRow = {
   campaignId: string | null
@@ -25,7 +26,7 @@ type AdCampaignCountRow = {
 }
 
 function emptyCounts(): ExecutionPostCounts {
-  return { draft: 0, approved: 0, approvedMissingApproval: 0, approvedMissingMedia: 0, scheduled: 0, published: 0, failed: 0, publishedWithoutAnalytics: 0, overdueScheduled: 0 }
+  return { draft: 0, approved: 0, approvedMissingApproval: 0, approvedMissingMedia: 0, scheduled: 0, invalidScheduled: 0, published: 0, failed: 0, publishedWithoutAnalytics: 0, overdueScheduled: 0 }
 }
 
 function normalizeStatus(status: string): 'draft' | 'approved' | 'scheduled' | 'published' | 'failed' | null {
@@ -83,7 +84,7 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
 
   const campaignIds = campaigns.map((campaign) => campaign.id)
   const db = prisma as any
-  const [statusCounts, approvedMissingApprovalCounts, approvedMissingMediaCounts, overdueScheduledCounts, eligibleEvidenceCounts, decisionEvents, activeAdCounts, brandProfile] = await Promise.all([
+  const [statusCounts, approvedMissingApprovalCounts, approvedMissingMediaCounts, invalidScheduledCounts, overdueScheduledCounts, eligibleEvidenceCounts, decisionEvents, activeAdCounts, brandProfile] = await Promise.all([
     db.socialPost.groupBy({
       by: ['campaignId', 'status'],
       where: { workspaceId, campaignId: { in: campaignIds } },
@@ -107,6 +108,7 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
         status: 'APPROVED',
         OR: [
           { imageUrl: null },
+          { generationStatus: null },
           { generationStatus: { not: 'DONE' } },
           { mediaApprovalSnapshotId: null },
         ],
@@ -119,8 +121,33 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
         workspaceId,
         campaignId: { in: campaignIds },
         status: 'SCHEDULED',
+        OR: [
+          { approvedAt: null },
+          { approvedSnapshotId: null },
+          { imageUrl: null },
+          { generationStatus: null },
+          { generationStatus: { not: 'DONE' } },
+          { mediaApprovalSnapshotId: null },
+          { scheduledAt: null },
+          { scheduledSnapshotId: null },
+        ],
+      },
+      _count: { _all: true },
+    }) as Promise<CampaignCountRow[]>,
+    db.socialPost.groupBy({
+      by: ['campaignId'],
+      where: {
+        workspaceId,
+        campaignId: { in: campaignIds },
+        status: 'SCHEDULED',
         scheduledAt: { lt: new Date() },
         publishedAt: null,
+        approvedAt: { not: null },
+        approvedSnapshotId: { not: null },
+        imageUrl: { not: null },
+        generationStatus: 'DONE',
+        mediaApprovalSnapshotId: { not: null },
+        scheduledSnapshotId: { not: null },
       },
       _count: { _all: true },
     }) as Promise<CampaignCountRow[]>,
@@ -171,6 +198,14 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
     const counts = countsByCampaign.get(row.campaignId)
     if (counts) counts.approvedMissingApproval = row._count._all
   }
+  for (const row of invalidScheduledCounts) {
+    if (!row.campaignId) continue
+    const counts = countsByCampaign.get(row.campaignId)
+    if (counts) {
+      counts.invalidScheduled = row._count._all
+      counts.scheduled = Math.max(0, counts.scheduled - row._count._all)
+    }
+  }
   for (const row of overdueScheduledCounts) {
     if (!row.campaignId) continue
     const counts = countsByCampaign.get(row.campaignId)
@@ -202,6 +237,12 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
 
   const snapshots: CampaignExecutionSnapshot[] = campaigns.map((campaign) => {
     const posts = countsByCampaign.get(campaign.id) ?? emptyCounts()
+    const aiOutput = campaign.aiOutput && typeof campaign.aiOutput === 'object' && !Array.isArray(campaign.aiOutput)
+      ? campaign.aiOutput as Record<string, unknown>
+      : {}
+    const strategy = aiOutput.strategy && typeof aiOutput.strategy === 'object' && !Array.isArray(aiOutput.strategy)
+      ? aiOutput.strategy as Record<string, unknown>
+      : {}
     const approval = buildStrategyApprovalContract({
       campaign: {
         ...campaign,
@@ -220,6 +261,7 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
       campaignStatus: campaign.status as string,
       updatedAt: campaign.updatedAt.toISOString(),
       strategyApprovalState: approval.state,
+      strategyEvidenceCount: normalizeStrategyEvidenceLedger(strategy.evidenceLedger).length,
       strategyBlockers: [
         ...approval.approvalBlockers.map((blocker) => blocker.code),
         ...(!brandProfile || brandTruthReport.status === 'blocked'

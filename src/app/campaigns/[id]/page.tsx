@@ -49,6 +49,7 @@ import { deriveStrategyExecutionBridge, type StrategyExecutionRequirement } from
 import { deriveStrategyFulfillmentSummary, type StrategyFulfillmentTone } from '@/lib/strategyFulfillment'
 import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
 import { buildStrategySnapshot } from '@/lib/strategy/strategySnapshot'
+import type { StrategyApprovalState } from '@/lib/strategyApproval'
 
 interface Activity {
   id: string
@@ -490,6 +491,7 @@ function CampaignDetailPageInner() {
   const [strategyPlatformStates, setStrategyPlatformStates] = useState<PlatformState[]>([])
   const [strategyPlatformReadinessLoaded, setStrategyPlatformReadinessLoaded] = useState(false)
   const [pendingLearningCount, setPendingLearningCount] = useState(0)
+  const [strategyApprovalTruth, setStrategyApprovalTruth] = useState<StrategyApprovalState>('draft')
   const [fetching, setFetching] = useState(true)
   const [activeTab, setActiveTab] = useState(() => campaignRoomTabIndexFromQuery(searchParams?.get('tab')))
   const pendingTabKeyRef = useRef<string | null>(null)
@@ -672,9 +674,10 @@ function CampaignDetailPageInner() {
     setOperatingSnapshotsLoaded(false)
     let loadedPosts = false
     try {
-      const [contentPlanRes, proposalsRes] = await Promise.all([
+      const [contentPlanRes, proposalsRes, strategyApprovalRes] = await Promise.all([
         fetch(`/api/campaigns/${campaignId}/content-plan`, { headers: { Authorization: token } }),
         fetch('/api/brain/proposals?status=pending', { headers: { Authorization: token } }),
+        fetch(`/api/campaigns/${campaignId}/strategy-approval`, { headers: { Authorization: token } }),
       ])
 
       if (contentPlanRes.ok) {
@@ -687,6 +690,14 @@ function CampaignDetailPageInner() {
         const data = await proposalsRes.json().catch(() => ({}))
         const proposals = Array.isArray(data.proposals) ? data.proposals : []
         setPendingLearningCount(proposals.filter((proposal: any) => proposal?.campaignId === campaignId).length)
+      }
+
+      if (strategyApprovalRes.ok) {
+        const data = await strategyApprovalRes.json().catch(() => ({}))
+        const state = data?.approval?.state
+        if (['draft', 'blocked', 'ready_for_review', 'approved', 'revoked'].includes(state)) {
+          setStrategyApprovalTruth(state as StrategyApprovalState)
+        }
       }
     } catch {
       // Operating state is display-only. If these optional reads fail, keep the
@@ -974,6 +985,7 @@ function CampaignDetailPageInner() {
         return
       }
       setCampaign(prev => prev ? { ...prev, status: 'ACTIVE' } : prev)
+      setStrategyApprovalTruth('approved')
 
       // Step 2: Check if content plan already exists
       setLaunchState('generating')
@@ -1823,7 +1835,24 @@ function CampaignDetailPageInner() {
     action: 'SENTINEL_REVIEW',
     creditsRemaining: 0,
   }).cost
-  const showFullCampaignOperatingFlow = activeTab !== 0
+  const contentPlanCreditCost = getCreditActionTruth({
+    action: 'CONTENT_PLAN_GENERATION',
+    creditsRemaining: 0,
+  }).cost
+  const strategyDeskCanReviewQuality = !brandTruthBlocked
+    && !engineRunning
+    && operatingState.stage === 'strategy_review_needed'
+  const strategyDeskCanApproveAndBuild = !brandTruthBlocked
+    && !engineRunning
+    && !isPaidOnlyStrategy
+    && sentinelStatus === 'passed'
+    && operatingState.stage === 'content_plan_missing'
+  // The seven-step campaign map is owned by the Strategy desk. Repeating it
+  // above Creative, Publish, Calendar, and Performance made every workspace
+  // feel like an explanation page. Those tabs now show one executable next
+  // action and then their actual tool.
+  const showFullCampaignOperatingFlow = false
+  const showLegacyCampaignSummaryPanels = false
   const firstViewportHref = (href: string) => (
     !showFullCampaignOperatingFlow && href === '#campaign-operating-flow'
       ? '#campaign-room-workspace'
@@ -1927,7 +1956,7 @@ function CampaignDetailPageInner() {
           : (uiIsArabic
             ? 'حضّر أول خطة محتوى بعد مراجعة القرار والافتراضات.'
             : 'Prepare the first content plan after reviewing the decision and assumptions.'),
-      href: isPaidOnlyStrategy ? `/paid-campaigns/new?sourceCampaignId=${campaign.id}` : `/campaigns/${campaign.id}/content-hub`,
+      href: isPaidOnlyStrategy ? `/campaigns/${campaign.id}/paid-launch` : `/campaigns/${campaign.id}/content-hub`,
       cta: isPaidOnlyStrategy
         ? uiText('ابدأ تنفيذ الاستراتيجية', 'Start strategy execution')
         : strategyRoomStateCopy.contentHubCta,
@@ -1993,14 +2022,38 @@ function CampaignDetailPageInner() {
     campaignId: campaign.id,
     scope: strategyScope.type,
     goal: campaign.goal,
+    planningHorizonDays: (aiOutput as any)?.strategyDeliverables?.planningHorizonDays
+      ?? (aiOutput as any)?.strategyOrder?.durationDays,
+    plannedOrganicPostCount: (aiOutput as any)?.strategyDeliverables?.organicPostCount
+      ?? (aiOutput as any)?.strategyDeliverables?.requestedOrganicPostCount
+      ?? (aiOutput as any)?.strategyOrder?.customOrganicPostCount,
     strategy,
     evidenceRefs: evidenceLedger,
     assumptions: [...safeAssumptions, ...safeExecutionAssumptions],
     missingInputs: missingDataLabels,
     riskFlags: [...riskNotes, ...safeExecutionAssumptions],
-    approvalState: campaign.status === 'ACTIVE' && sentinelStatus === 'passed' ? 'approved' : brandTruthBlocked ? 'blocked' : sentinelStatus === 'needs_attention' ? 'review' : 'draft',
+    approvalState: strategyApprovalTruth === 'approved'
+      ? 'approved'
+      : strategyApprovalTruth === 'blocked' || brandTruthBlocked
+        ? 'blocked'
+        : strategyApprovalTruth === 'revoked'
+          ? 'superseded'
+          : strategyApprovalTruth === 'ready_for_review'
+            ? 'review'
+            : 'draft',
     version: typeof (aiOutput as any)?.strategyVersion === 'number' ? (aiOutput as any).strategyVersion : null,
   })
+  const strategyApprovalStatusLabel = !operatingSnapshotsLoaded
+    ? uiText('جارٍ التحقق من قرار الاعتماد', 'Checking approval decision')
+    : strategySnapshot.approvalState === 'approved'
+      ? uiText('معتمدة للتنفيذ', 'Approved for execution')
+      : strategySnapshot.approvalState === 'review'
+        ? uiText('بانتظار مراجعتك', 'Awaiting your review')
+        : strategySnapshot.approvalState === 'blocked'
+          ? uiText('محجوبة حتى حل المتطلبات', 'Blocked pending requirements')
+          : strategySnapshot.approvalState === 'superseded'
+            ? uiText('اعتماد سابق ملغي', 'Previous approval revoked')
+            : uiText('مسودة غير معتمدة', 'Unapproved draft')
   const strategyFulfillmentSummary = deriveStrategyFulfillmentSummary({
     aiOutput: campaign.aiOutput,
     posts: campaignPosts.map((post: any) => ({
@@ -2092,7 +2145,7 @@ function CampaignDetailPageInner() {
       active: activeTab === 0,
       status: brandTruthBlocked
         ? uiText('متوقفة لتصحيح Brand Brain', 'Blocked for Brand Brain correction')
-        : operatingState.truthFlags.hasStrategy ? uiText('جاهزة للمراجعة', 'Ready for review') : uiText('قيد الإعداد', 'Preparing'),
+        : operatingState.truthFlags.hasStrategy ? strategyApprovalStatusLabel : uiText('قيد الإعداد', 'Preparing'),
     },
     {
       number: '2',
@@ -2101,6 +2154,8 @@ function CampaignDetailPageInner() {
       active: false,
       status: brandTruthBlocked
         ? uiText('سجلات مرجعية محجوبة', 'Blocked reference records')
+        : !operatingSnapshotsLoaded
+        ? uiText('جارٍ التحقق من السجلات', 'Checking records')
         : operatingState.truthFlags.hasContentPlan
         ? uiText(`${operatingState.counts.totalPosts} عنصر`, `${operatingState.counts.totalPosts} items`)
         : uiText('غير مبني بعد', 'Not built yet'),
@@ -2112,6 +2167,8 @@ function CampaignDetailPageInner() {
       active: activeTab === 3,
       status: brandTruthBlocked
         ? uiText('متوقف حتى التصحيح', 'Blocked pending fix')
+        : !operatingSnapshotsLoaded
+        ? uiText('جارٍ التحقق من الأصول', 'Checking assets')
         : creativeHasPostRecords
         ? uiText(`${creativeRequirementsSummary.mediaNeeded} تحتاج وسائط`, `${creativeRequirementsSummary.mediaNeeded} need media`)
         : uiText('ينتظر المحتوى', 'Waiting for content'),
@@ -2123,6 +2180,8 @@ function CampaignDetailPageInner() {
       active: activeTab === 4 || activeTab === 5,
       status: brandTruthBlocked
         ? uiText('متوقف حتى التصحيح', 'Blocked pending fix')
+        : !operatingSnapshotsLoaded
+        ? uiText('جارٍ التحقق من التنفيذ', 'Checking execution')
         : uiIsArabic ? publishTabSummary.safeCopy.title.ar : publishTabSummary.safeCopy.title.en,
     },
     {
@@ -2132,7 +2191,9 @@ function CampaignDetailPageInner() {
       active: activeTab === 6,
       status: operatingState.truthFlags.hasAnalyticsData
         ? uiText('بيانات متاحة', 'Data available')
-        : uiText('بانتظار بيانات حقيقية', 'Awaiting real data'),
+        : !operatingSnapshotsLoaded
+          ? uiText('جارٍ التحقق من البيانات', 'Checking data')
+          : uiText('بانتظار بيانات حقيقية', 'Awaiting real data'),
     },
   ]
   // ── Empty section component ──────────────────────────────────────────────
@@ -2363,7 +2424,7 @@ function CampaignDetailPageInner() {
                       <span className={`rounded-full px-3 py-1 ${brandTruthBlocked ? 'bg-orange-50 text-orange-700' : 'bg-emerald-50 text-emerald-700'}`}>
                         {brandTruthBlocked
                           ? uiText('متوقفة حتى تصحيح Brand Brain', 'Blocked until Brand Brain is fixed')
-                          : operatingState.truthFlags.hasStrategy ? uiText('جاهزة للمراجعة', 'Ready for review') : uiText('قيد الإعداد', 'Preparing')}
+                          : operatingState.truthFlags.hasStrategy ? strategyApprovalStatusLabel : uiText('قيد الإعداد', 'Preparing')}
                       </span>
                       <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-500">
                         {strategyScopeTruth}
@@ -2487,7 +2548,32 @@ function CampaignDetailPageInner() {
                   </div>
                 )}
               </div>
-              {firstViewportAction.href.startsWith('#') ? (
+              {activeTab !== 0 && !brandTruthBlocked && !engineRunning && operatingState.stage === 'strategy_review_needed' ? (
+                <button
+                  type="button"
+                  onClick={() => setShowSentinelConfirm(true)}
+                  disabled={sentinelState === 'reviewing'}
+                  className="inline-flex flex-shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {sentinelState === 'reviewing'
+                    ? uiText('يجري الفحص...', 'Reviewing...')
+                    : uiText(`فحص الجودة — ${sentinelCreditCost} كريديت`, `Review quality — ${sentinelCreditCost} credits`)}
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              ) : activeTab !== 0 && !brandTruthBlocked && !isPaidOnlyStrategy && !engineRunning && completeQualityReviewPassed && operatingState.stage === 'content_plan_missing' ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLaunchError('')
+                    setApprovalState('confirming')
+                  }}
+                  disabled={approvalState === 'approving' || launchState === 'approving' || launchState === 'generating'}
+                  className="inline-flex flex-shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {uiText('اعتماد الاستراتيجية وبناء المحتوى', 'Approve strategy and build content')}
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              ) : firstViewportAction.href.startsWith('#') ? (
                 <a
                   href={firstViewportAction.href}
                   className="inline-flex flex-shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
@@ -2509,7 +2595,7 @@ function CampaignDetailPageInner() {
         )}
 
         {/* What NEXUS did here — Proof of Work (Operator Foundation PR-1C1, read-only) */}
-        {activeTab !== 0 && (brandTruthBlocked ? (
+        {activeTab !== 0 && showLegacyCampaignSummaryPanels && (brandTruthBlocked ? (
           <div className="mb-4 rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3" dir={uiIsArabic ? 'rtl' : 'ltr'}>
             <p className="text-sm font-semibold text-orange-950">
               {uiText('المخرجات السابقة محفوظة كمرجع فقط', 'Previous outputs are retained as reference only')}
@@ -2553,7 +2639,7 @@ function CampaignDetailPageInner() {
         )}
 
         {/* Header card — light campaign summary */}
-        {activeTab !== 0 && <div className="mb-4 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+        {activeTab !== 0 && showLegacyCampaignSummaryPanels && <div className="mb-4 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
           <div className="h-px bg-gradient-to-r from-indigo-200 via-sky-100 to-emerald-100" />
           <div className="p-6">
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
@@ -3129,9 +3215,34 @@ function CampaignDetailPageInner() {
                 nextAction={{
                   title: strategyHeaderNextActionTitle,
                   helper: strategyHeaderNextActionHelper,
-                  label: strategyHeaderNextActionLabel,
+                  label: strategyDeskCanReviewQuality
+                    ? (sentinelStatus === 'needs_attention'
+                      ? uiText('طبّق الإصلاح الآمن وأعد الفحص', 'Apply safe correction and re-review')
+                      : uiText('ابدأ فحص الجودة', 'Start quality review'))
+                    : strategyDeskCanApproveAndBuild
+                      ? (campaign.status === 'ACTIVE'
+                        ? uiText('أنشئ خطة المحتوى', 'Build content plan')
+                        : uiText('اعتمد الاستراتيجية وأنشئ الخطة', 'Approve strategy and build plan'))
+                      : strategyHeaderNextActionLabel,
                   href: strategyHeaderNextActionHref,
+                  costLabel: strategyDeskCanReviewQuality
+                    ? uiText(`${sentinelCreditCost} كريديت`, `${sentinelCreditCost} credits`)
+                    : strategyDeskCanApproveAndBuild
+                      ? uiText(`${contentPlanCreditCost} كريديت`, `${contentPlanCreditCost} credits`)
+                      : null,
                 }}
+                onNextAction={strategyDeskCanReviewQuality
+                  ? () => setShowSentinelConfirm(true)
+                  : strategyDeskCanApproveAndBuild
+                    ? () => {
+                      setLaunchError('')
+                      setApprovalState('confirming')
+                    }
+                    : undefined}
+                nextActionDisabled={sentinelState === 'reviewing'
+                  || approvalState === 'approving'
+                  || launchState === 'approving'
+                  || launchState === 'generating'}
                 qualityState={sentinelStatus}
                 locale={uiIsArabic ? 'ar' : 'en'}
                 onReadDocument={() => setShowStrategyDocument(true)}
@@ -4955,7 +5066,7 @@ function CampaignDetailPageInner() {
                         ))}
                       </div>
                       <button
-                        onClick={() => window.open(`/paid-campaigns/new?sourceCampaignId=${campaign.id}`, '_blank')}
+                        onClick={() => window.open(`/campaigns/${campaign.id}/paid-launch`, '_blank')}
                         className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100"
                       >
                         {locale === 'ar' ? 'ابدأ تنفيذ الاستراتيجية المدفوعة' : 'Start paid strategy execution'}

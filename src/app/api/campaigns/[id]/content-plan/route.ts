@@ -48,9 +48,13 @@ export async function GET(req: NextRequest, props: Params) {
         approvedAt: true,
         approvedSnapshotId: true,
         mediaApprovalSnapshotId: true,
+        scheduledSnapshotId: true,
         publishedAt: true,
         manuallyPublishedAt: true,
+        platformPostId: true,
         platformUrl: true,
+        analyticsData: true,
+        analyticsUpdatedAt: true,
         errorMessage: true,
         // A/B Testing fields
         variantGroup: true,

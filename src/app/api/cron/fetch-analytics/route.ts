@@ -407,7 +407,7 @@ export async function GET(req: NextRequest) {
         await (prisma.brainLearning as any).createMany({
           data: plans.map((plan) => ({
             workspaceId,
-            campaignId: null,
+            campaignId: plan.evidenceCampaignIds.length === 1 ? plan.evidenceCampaignIds[0] : null,
             trigger: 'post_performance',
             field: 'winningHooks',
             displayName: 'Evidence-backed Hook Candidates',

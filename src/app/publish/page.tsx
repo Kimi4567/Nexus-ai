@@ -4,8 +4,10 @@ import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState'
+import { deriveContentLifecycleTruth } from '@/lib/contentLifecycleTruth'
 import { useI18n } from '@/lib/i18n-context'
 import { derivePlatformReadiness, type PlatformKey } from '@/lib/platformReadiness'
+import type { PilotProofOverview } from '@/lib/pilotProof'
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -43,9 +45,16 @@ interface PublishingPost {
   status?: string | null
   publishMode?: string | null
   scheduledAt?: string | null
+  approvedAt?: string | null
   publishedAt?: string | null
   manuallyPublishedAt?: string | null
+  platformPostId?: string | null
   platformUrl?: string | null
+  approvedSnapshotId?: string | null
+  mediaApprovalSnapshotId?: string | null
+  scheduledSnapshotId?: string | null
+  analyticsData?: unknown
+  analyticsUpdatedAt?: string | null
   imageUrl?: string | null
   uploadedMediaId?: string | null
   mediaSource?: string | null
@@ -108,6 +117,14 @@ export default function PublishPage() {
   const copy = (arabic: string, english: string) => (ar ? arabic : english)
   const [accounts, setAccounts] = useState<SocialAccount[]>([])
   const [posts, setPosts] = useState<PublishingPost[]>([])
+  const [pilotProof, setPilotProof] = useState<PilotProofOverview>({
+    status: 'not_started',
+    providerPublishedPosts: 0,
+    eligibleAnalyticsPosts: 0,
+    appliedLearningProposals: 0,
+    completedCampaigns: 0,
+    completedCampaignIds: [],
+  })
   const [accountsLoading, setAccountsLoading] = useState(true)
 
   useEffect(() => {
@@ -123,16 +140,19 @@ export default function PublishPage() {
     async function loadPublishingState() {
       setAccountsLoading(true)
       try {
-        const [accountRes, campaignRes] = await Promise.all([
+        const [accountRes, campaignRes, learningRes] = await Promise.all([
           fetch('/api/social/accounts', { headers: { Authorization: token } }),
           fetch('/api/campaigns?limit=20&sort=updatedAt', { headers: { Authorization: token } }),
+          fetch('/api/learning/overview', { headers: { Authorization: token } }),
         ])
-        const [accountData, campaignData] = await Promise.all([
+        const [accountData, campaignData, learningData] = await Promise.all([
           accountRes.json().catch(() => ({})),
           campaignRes.json().catch(() => ({})),
+          learningRes.json().catch(() => ({})),
         ])
         if (cancelled) return
         setAccounts(accountRes.ok && Array.isArray(accountData.accounts) ? accountData.accounts : [])
+        if (learningRes.ok && learningData?.pilot) setPilotProof(learningData.pilot as PilotProofOverview)
 
         const campaigns: CampaignRecord[] = campaignRes.ok && Array.isArray(campaignData.campaigns)
           ? campaignData.campaigns
@@ -183,19 +203,18 @@ export default function PublishPage() {
   const hasVerifiedPublisher = platformStates.some(state => state.status === 'ready' && state.key !== 'paid')
   const publishingState = useMemo(() => {
     const normalizeStatus = (post: PublishingPost) => String(post.status || 'DRAFT').toUpperCase()
+    const lifecycle = posts.map(post => ({ post, truth: deriveContentLifecycleTruth(post) }))
     const drafts = posts.filter(post => normalizeStatus(post) === 'DRAFT').length
-    const approved = posts.filter(post => normalizeStatus(post) === 'APPROVED').length
+    const approved = lifecycle.filter(({ truth }) => truth.status === 'APPROVED' && truth.hasImmutableCopyApproval).length
     const mediaConfirmed = posts.filter(isContentPostMediaReadyForScheduling).length
-    const approvedMissingMedia = posts.filter(post => (
-      normalizeStatus(post) === 'APPROVED' && !isContentPostMediaReadyForScheduling(post)
+    const approvedMissingMedia = lifecycle.filter(({ truth }) => (
+      truth.status === 'APPROVED' && truth.hasImmutableCopyApproval && !truth.hasFinalMediaApproval
     )).length
-    const readyToSchedule = posts.filter(post => (
-      normalizeStatus(post) === 'APPROVED' && isContentPostMediaReadyForScheduling(post)
+    const readyToSchedule = lifecycle.filter(({ truth }) => (
+      truth.status === 'APPROVED' && truth.hasImmutableCopyApproval && truth.hasFinalMediaApproval
     )).length
-    const scheduled = posts.filter(post => (
-      normalizeStatus(post) === 'SCHEDULED'
-      && Boolean(post.scheduledAt && !Number.isNaN(new Date(post.scheduledAt).getTime()))
-    )).length
+    const scheduled = lifecycle.filter(({ truth }) => truth.isValidScheduled).length
+    const invalidScheduled = lifecycle.filter(({ truth }) => truth.isInvalidScheduled).length
     const publishedPosts = posts
       .filter(post => normalizeStatus(post) === 'PUBLISHED')
       .sort((a, b) => String(b.publishedAt || b.manuallyPublishedAt || '').localeCompare(String(a.publishedAt || a.manuallyPublishedAt || '')))
@@ -208,6 +227,7 @@ export default function PublishPage() {
       approvedMissingMedia,
       readyToSchedule,
       scheduled,
+      invalidScheduled,
       publishedPosts,
     }
   }, [posts])
@@ -216,6 +236,8 @@ export default function PublishPage() {
     ? '...'
     : !hasVerifiedPublisher
       ? copy('مقفلة', 'Blocked')
+      : publishingState.invalidScheduled > 0
+        ? copy('إعادة اعتماد مطلوبة', 'Re-approval required')
       : publishingState.total === 0
         ? copy('بانتظار المحتوى', 'Waiting for content')
         : publishingState.approvedMissingMedia > 0
@@ -315,15 +337,84 @@ export default function PublishPage() {
               title={copy('خطة NEXUS الزمنية', 'NEXUS schedule records')}
               value={accountsLoading ? '...' : String(publishingState.scheduled)}
               helper={copy(
-                `${publishingState.scheduled} سجل محفوظ في تقويم NEXUS ولم يُنشر عبر منصة؛ ${publishingState.readyToSchedule} ينتظر قرار الجدولة.`,
-                `${publishingState.scheduled} saved in the NEXUS calendar and not published to a platform; ${publishingState.readyToSchedule} await a scheduling decision.`,
+                `${publishingState.scheduled} قرار جدولة موثق ولم يُنشر؛ ${publishingState.readyToSchedule} ينتظر الجدولة، و${publishingState.invalidScheduled} يحتاج إعادة اعتماد.`,
+                `${publishingState.scheduled} verified schedule decisions are not published; ${publishingState.readyToSchedule} await scheduling and ${publishingState.invalidScheduled} need re-approval.`,
               )}
               icon={<Clock3 size={22} />}
               tone={publishingState.scheduled > 0 ? 'green' : 'violet'}
             />
           </section>
 
+          {publishingState.invalidScheduled > 0 && (
+            <Panel className="border-rose-200 bg-rose-50">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[13px] font-black text-rose-800">
+                    {copy('هذه السجلات ليست جدولة صالحة للتنفيذ', 'These records are not valid execution schedules')}
+                  </p>
+                  <p className="mt-1 text-[12px] font-semibold leading-5 text-rose-700">
+                    {copy(
+                      `${publishingState.invalidScheduled} سجل يفتقد نسخة اعتماد ثابتة للنص أو الوسائط أو قرار الجدولة. أعِد مراجعته؛ لن يرسله NEXUS إلى أي منصة.`,
+                      `${publishingState.invalidScheduled} record${publishingState.invalidScheduled === 1 ? ' lacks' : 's lack'} immutable copy, media, or schedule evidence. Re-review ${publishingState.invalidScheduled === 1 ? 'it' : 'them'}; NEXUS will not send ${publishingState.invalidScheduled === 1 ? 'it' : 'them'} to a platform.`,
+                    )}
+                  </p>
+                </div>
+                <Link href="/content-hub" className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-rose-700 px-4 text-xs font-black text-white">
+                  {copy('إعادة مراجعة الاعتماد', 'Re-review approval')}<ArrowUpRight size={14} />
+                </Link>
+              </div>
+            </Panel>
+          )}
+
           <section className="grid gap-5">
+            <Panel>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#5366f6]">{copy('إثبات الـ Pilot', 'Pilot proof')}</p>
+                  <h2 className="mt-1 text-xl font-black tracking-[-0.03em] text-[#071236]">{copy('سلسلة تنفيذ حقيقية واحدة، بلا استنتاجات', 'One real execution chain, with no inferred proof')}</h2>
+                  <p className="mt-2 max-w-3xl text-[12px] font-semibold leading-5 text-[#7b87a3]">
+                    {copy('يكتمل الـPilot فقط عندما تحفظ المنصة معرّف نشر، ثم تصل Analytics مؤهلة، ثم يطبق المستخدم Learning Proposal مدعومًا بهذه البيانات.', 'The pilot completes only after a provider post ID is saved, eligible analytics arrive, and the user applies a data-backed Learning Proposal.')}
+                  </p>
+                </div>
+                <span className={`w-fit rounded-full border px-3 py-1 text-xs font-black ${pilotProof.completedCampaigns > 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+                  {pilotProof.completedCampaigns > 0
+                    ? copy('مثبت تشغيليًا', 'Operationally proven')
+                    : copy('لم يكتمل بعد', 'Not complete yet')}
+                </span>
+              </div>
+              <div className="mt-5 grid gap-3 md:grid-cols-3">
+                {[
+                  {
+                    label: copy('نشر مؤكد من المنصة', 'Provider-confirmed publish'),
+                    value: pilotProof.providerPublishedPosts,
+                    helper: copy('يتطلب platformPostId ووقت نشر من API؛ السجل اليدوي لا يُحسب.', 'Requires a platformPostId and API publish time; manual records do not count.'),
+                    href: '/content-hub',
+                  },
+                  {
+                    label: copy('Analytics مؤهلة', 'Eligible analytics'),
+                    value: pilotProof.eligibleAnalyticsPosts,
+                    helper: copy('بيانات منصة منظمة اجتازت حد العينة، وليست أرقامًا يدوية.', 'Structured provider data that passed the sample threshold, not manual numbers.'),
+                    href: '/analytics',
+                  },
+                  {
+                    label: copy('تعلم طُبق بعد الموافقة', 'Learning applied after approval'),
+                    value: pilotProof.appliedLearningProposals,
+                    helper: copy('اقتراح أداء قبله المستخدم وسُجل في Brand Brain مع إمكانية التراجع.', 'A performance proposal accepted by the user and recorded in Brand Brain with rollback.'),
+                    href: '/learning',
+                  },
+                ].map(item => (
+                  <Link key={item.label} href={item.href} className="group rounded-[18px] border border-[#e7ecf6] bg-[#fbfcff] p-4 transition hover:border-[#cfd7e8] hover:bg-white">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[12px] font-black text-[#53617f]">{item.label}</p>
+                      <span className={`rounded-full px-2 py-1 text-[11px] font-black ${item.value > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{item.value}</span>
+                    </div>
+                    <p className="mt-2 text-[11px] font-semibold leading-5 text-[#7b87a3]">{item.helper}</p>
+                    <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-black text-[#5366f6]">{copy('فتح مصدر الحقيقة', 'Open source of truth')}<ArrowUpRight size={12} /></span>
+                  </Link>
+                ))}
+              </div>
+            </Panel>
+
             <Panel className="hidden">
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <div>

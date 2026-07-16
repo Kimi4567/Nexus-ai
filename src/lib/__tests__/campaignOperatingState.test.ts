@@ -20,6 +20,25 @@ const strategyCampaign = {
   },
 }
 
+const immutableApproval = {
+  approvedAt: '2026-01-01T08:00:00Z',
+  approvedSnapshotId: 'copy-revision-1',
+}
+
+const finalMediaApproval = {
+  imageUrl: 'https://cdn.example.com/final.jpg',
+  mediaSource: 'GENERATE',
+  generationStatus: 'DONE',
+  mediaApprovalSnapshotId: 'media-revision-1',
+}
+
+const immutableSchedule = {
+  ...immutableApproval,
+  ...finalMediaApproval,
+  scheduledAt: '2026-01-02T09:00:00Z',
+  scheduledSnapshotId: 'schedule-revision-1',
+}
+
 describe('hasStrategyEvidence', () => {
   it('is conservative about empty or missing strategy evidence', () => {
     expect(hasStrategyEvidence(null)).toBe(false)
@@ -84,7 +103,7 @@ describe('deriveCampaignOperatingState', () => {
       campaign: strategyCampaign,
       posts: [
         { status: 'DRAFT', generationStatus: 'DONE' },
-        { status: 'APPROVED', approvedAt: '2026-01-01T00:00:00Z' },
+        { status: 'APPROVED', ...immutableApproval },
       ],
     })
     expect(state.stage).toBe('content_review_needed')
@@ -96,7 +115,7 @@ describe('deriveCampaignOperatingState', () => {
   it('APPROVED posts, no scheduled -> content_approved_not_scheduled', () => {
     const state = deriveCampaignOperatingState({
       campaign: strategyCampaign,
-      posts: [{ status: 'APPROVED', approvedAt: '2026-01-01T00:00:00Z' }],
+      posts: [{ status: 'APPROVED', ...immutableApproval }],
     })
     expect(state.stage).toBe('content_approved_not_scheduled')
     expect(state.counts.approvedPosts).toBe(1)
@@ -110,10 +129,8 @@ describe('deriveCampaignOperatingState', () => {
       campaign: strategyCampaign,
       posts: [{
         status: 'APPROVED',
-        approvedAt: '2026-01-01T00:00:00Z',
-        imageUrl: 'https://cdn.example.com/final.jpg',
-        mediaSource: 'GENERATE',
-        generationStatus: 'DONE',
+        ...immutableApproval,
+        ...finalMediaApproval,
       }],
     })
     expect(state.stage).toBe('content_approved_not_scheduled')
@@ -124,7 +141,7 @@ describe('deriveCampaignOperatingState', () => {
   it('SCHEDULED with scheduledAt + MANUAL -> scheduled_manual', () => {
     const state = deriveCampaignOperatingState({
       campaign: strategyCampaign,
-      posts: [{ status: 'SCHEDULED', approvedAt: '2026-01-01T09:00:00Z', scheduledAt: '2026-01-02T09:00:00Z', publishMode: 'MANUAL' }],
+      posts: [{ status: 'SCHEDULED', ...immutableSchedule, publishMode: 'MANUAL' }],
     })
     expect(state.stage).toBe('scheduled_manual')
     expect(state.counts.scheduledPosts).toBe(1)
@@ -137,8 +154,7 @@ describe('deriveCampaignOperatingState', () => {
       campaign: strategyCampaign,
       posts: [{
         status: 'SCHEDULED',
-        approvedAt: '2026-01-01T08:00:00Z',
-        scheduledAt: '2026-01-02T09:00:00Z',
+        ...immutableSchedule,
         publishMode: 'AUTO',
         autoPublishConsentAt: '2026-01-01T09:00:00Z',
       }],
@@ -151,7 +167,7 @@ describe('deriveCampaignOperatingState', () => {
   it('AUTO without recorded consent remains a manual queue item', () => {
     const state = deriveCampaignOperatingState({
       campaign: strategyCampaign,
-      posts: [{ status: 'SCHEDULED', approvedAt: '2026-01-01T08:00:00Z', scheduledAt: '2026-01-02T09:00:00Z', publishMode: 'AUTO' }],
+      posts: [{ status: 'SCHEDULED', ...immutableSchedule, publishMode: 'AUTO' }],
     })
 
     expect(state.stage).toBe('scheduled_manual')
@@ -184,8 +200,7 @@ describe('deriveCampaignOperatingState', () => {
       campaign: { ...strategyCampaign, platforms: ['INSTAGRAM', 'LINKEDIN'] },
       posts: [{
         status: 'SCHEDULED',
-        approvedAt: '2026-01-01T08:00:00Z',
-        scheduledAt: '2026-01-02T09:00:00Z',
+        ...immutableSchedule,
         publishMode: 'MANUAL',
         platform: 'META',
         publishTarget: 'META',
@@ -203,8 +218,7 @@ describe('deriveCampaignOperatingState', () => {
       campaign: { ...strategyCampaign, platforms: ['INSTAGRAM', 'LINKEDIN'] },
       posts: [{
         status: 'SCHEDULED',
-        approvedAt: '2026-01-01T08:00:00Z',
-        scheduledAt: '2026-01-02T09:00:00Z',
+        ...immutableSchedule,
         publishMode: 'MANUAL',
         platform: 'META',
         publishTarget: 'INSTAGRAM',
@@ -216,22 +230,23 @@ describe('deriveCampaignOperatingState', () => {
     expect(state.truthFlags.hasReviewedContent).toBe(true)
   })
 
-  it('SCHEDULED without scheduledAt is not counted as scheduled', () => {
+  it('SCHEDULED without immutable schedule evidence is not counted as scheduled', () => {
     const state = deriveCampaignOperatingState({
       campaign: strategyCampaign,
-      posts: [{ status: 'SCHEDULED', approvedAt: '2026-01-01T08:00:00Z', publishMode: 'AUTO' }],
+      posts: [{ status: 'SCHEDULED', ...immutableApproval, publishMode: 'AUTO' }],
     })
-    expect(state.stage).toBe('strategy_review_needed')
+    expect(state.stage).toBe('content_review_needed')
     expect(state.counts.scheduledPosts).toBe(0)
     expect(state.truthFlags.hasScheduledContent).toBe(false)
     expect(state.truthFlags.autoPublishEnabled).toBe(false)
-    expect(state.blockers).toContain('scheduled_time')
+    expect(state.counts.invalidScheduledPosts).toBe(1)
+    expect(state.blockers).toContain('schedule_evidence')
   })
 
   it('PUBLISHED with publishedAt but no analytics -> published_waiting_for_analytics', () => {
     const state = deriveCampaignOperatingState({
       campaign: strategyCampaign,
-      posts: [{ status: 'PUBLISHED', approvedAt: '2026-01-01T08:00:00Z', publishedAt: '2026-01-03T09:00:00Z' }],
+      posts: [{ status: 'PUBLISHED', ...immutableApproval, publishedAt: '2026-01-03T09:00:00Z' }],
     })
     expect(state.stage).toBe('published_waiting_for_analytics')
     expect(state.truthFlags.hasPublishedContent).toBe(true)
@@ -244,7 +259,7 @@ describe('deriveCampaignOperatingState', () => {
       campaign: strategyCampaign,
       posts: [{
         status: 'PUBLISHED',
-        approvedAt: '2026-01-01T08:00:00Z',
+        ...immutableApproval,
         publishedAt: '2026-01-03T09:00:00Z',
         platformPostId: 'fb_123',
         analyticsData: { reach: 120 },
@@ -260,7 +275,7 @@ describe('deriveCampaignOperatingState', () => {
       campaign: strategyCampaign,
       posts: [{
         status: 'PUBLISHED',
-        approvedAt: '2026-01-01T08:00:00Z',
+        ...immutableApproval,
         publishedAt: '2026-01-03T09:00:00Z',
         analyticsFetched: true,
       }],
@@ -274,7 +289,7 @@ describe('deriveCampaignOperatingState', () => {
   it('Campaign.autopilotEnabled true but no AUTO scheduled posts is workflow, not auto-publish', () => {
     const state = deriveCampaignOperatingState({
       campaign: { ...strategyCampaign, autopilotEnabled: true },
-      posts: [{ status: 'APPROVED', approvedAt: '2026-01-01T00:00:00Z' }],
+      posts: [{ status: 'APPROVED', ...immutableApproval }],
     })
     expect(state.stage).toBe('content_approved_not_scheduled')
     expect(state.truthFlags.workflowEnabled).toBe(true)
@@ -293,7 +308,7 @@ describe('deriveCampaignOperatingState', () => {
   it('Campaign.status ARCHIVED -> paused_or_archived when no stronger published/performance state exists', () => {
     const state = deriveCampaignOperatingState({
       campaign: { ...strategyCampaign, status: 'ARCHIVED' },
-      posts: [{ status: 'APPROVED', approvedAt: '2026-01-01T00:00:00Z' }],
+      posts: [{ status: 'APPROVED', ...immutableApproval }],
     })
     expect(state.stage).toBe('paused_or_archived')
   })
@@ -301,7 +316,7 @@ describe('deriveCampaignOperatingState', () => {
   it('published/performance state is stronger than archived state', () => {
     const state = deriveCampaignOperatingState({
       campaign: { ...strategyCampaign, status: 'ARCHIVED' },
-      posts: [{ status: 'PUBLISHED', approvedAt: '2026-01-01T08:00:00Z', publishedAt: '2026-01-03T09:00:00Z', analyticsFetched: true }],
+      posts: [{ status: 'PUBLISHED', ...immutableApproval, publishedAt: '2026-01-03T09:00:00Z', analyticsFetched: true }],
     })
     expect(state.stage).toBe('performance_ready')
   })

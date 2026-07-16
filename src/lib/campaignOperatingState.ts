@@ -1,6 +1,6 @@
-import { isContentPostMediaReadyForScheduling } from './contentHubMediaState'
 import { isPersistedMarketingQualityGatePassed } from './ai/marketingQualityGate'
 import { normalizeCampaignPlatforms } from './campaignPlatforms'
+import { deriveContentLifecycleTruth } from './contentLifecycleTruth'
 
 export type CampaignStatusLike =
   | 'DRAFT'
@@ -54,6 +54,9 @@ export interface CampaignOperatingInput {
     scheduledAt?: string | Date | null
     autoPublishConsentAt?: string | Date | null
     approvedAt?: string | Date | null
+    approvedSnapshotId?: string | null
+    mediaApprovalSnapshotId?: string | null
+    scheduledSnapshotId?: string | null
     publishedAt?: string | Date | null
     manuallyPublishedAt?: string | Date | null
     publishMode?: PublishModeLike
@@ -85,6 +88,8 @@ export interface CampaignOperatingState {
     draftPosts: number
     approvedPosts: number
     scheduledPosts: number
+    invalidScheduledPosts: number
+    proposedTimeSlots: number
     autoScheduledPosts: number
     manualScheduledPosts: number
     processingPosts: number
@@ -115,6 +120,7 @@ export interface CampaignOperatingState {
     autoPublishEnabled: boolean
     hasReviewedContent: boolean
     hasApprovalEvidenceGap: boolean
+    hasInvalidScheduleEvidence: boolean
     hasChannelScopeMismatch: boolean
   }
 }
@@ -282,6 +288,8 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     draftPosts: 0,
     approvedPosts: 0,
     scheduledPosts: 0,
+    invalidScheduledPosts: 0,
+    proposedTimeSlots: 0,
     autoScheduledPosts: 0,
     manualScheduledPosts: 0,
     processingPosts: 0,
@@ -296,7 +304,6 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     outOfScopePosts: 0,
   }
 
-  let malformedScheduledPosts = 0
   let unconsentedAutoPosts = 0
   const campaignPlatforms = normalizeCampaignPlatforms(input.campaign?.platforms)
 
@@ -304,23 +311,21 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     const postStatus = String(post.status ?? '').toUpperCase()
     const generationStatus = String(post.generationStatus ?? '').toUpperCase()
     const publishMode = String(post.publishMode ?? 'MANUAL').toUpperCase()
-    const hasScheduledAt = hasValidDate(post.scheduledAt)
     const hasAutoPublishConsent = hasValidDate(post.autoPublishConsentAt)
     const hasPublishedAt = hasValidDate(post.publishedAt)
     const hasPlatformRef = Boolean(post.platformPostId || post.platformUrl)
     const hasAnalytics = Boolean(post.analyticsData || post.analyticsFetched)
-    const hasApprovalEvidence = hasValidDate(post.approvedAt)
-    const requiresApprovalEvidence = ['APPROVED', 'SCHEDULED', 'PROCESSING', 'PUBLISHED'].includes(postStatus)
+    const lifecycle = deriveContentLifecycleTruth(post)
     const target = normalizeCampaignPlatforms([post.publishTarget || post.platform])[0]
 
-    if (requiresApprovalEvidence && hasApprovalEvidence) counts.reviewedPosts += 1
-    if (requiresApprovalEvidence && !hasApprovalEvidence) counts.unreviewedProgressedPosts += 1
+    if (lifecycle.requiresApprovalEvidence && lifecycle.hasImmutableCopyApproval) counts.reviewedPosts += 1
+    if (lifecycle.hasApprovalEvidenceGap) counts.unreviewedProgressedPosts += 1
     if (campaignPlatforms.length > 0 && (!target || !campaignPlatforms.includes(target))) {
       counts.outOfScopePosts += 1
     }
 
     if (postStatus === 'DRAFT') counts.draftPosts += 1
-    if (postStatus === 'APPROVED' && hasApprovalEvidence) counts.approvedPosts += 1
+    if (postStatus === 'APPROVED' && lifecycle.hasImmutableCopyApproval) counts.approvedPosts += 1
     if (postStatus === 'FAILED') counts.failedPosts += 1
     if (postStatus === 'PROCESSING') counts.processingPosts += 1
     if (['PENDING', 'GENERATING', 'REFUND_PENDING', 'AWAITING_UPLOAD'].includes(generationStatus)) {
@@ -328,7 +333,7 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     }
 
     if (postStatus === 'SCHEDULED') {
-      if (hasScheduledAt) {
+      if (lifecycle.isValidScheduled) {
         counts.scheduledPosts += 1
         if (publishMode === 'AUTO' && hasAutoPublishConsent) {
           counts.autoScheduledPosts += 1
@@ -338,9 +343,8 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
           counts.manualScheduledPosts += 1
           if (publishMode === 'AUTO') unconsentedAutoPosts += 1
         }
-      } else {
-        malformedScheduledPosts += 1
-      }
+      } else counts.invalidScheduledPosts += 1
+      if (lifecycle.hasProposedTime) counts.proposedTimeSlots += 1
     }
 
     if (postStatus === 'PUBLISHED' && hasPublishedAt) {
@@ -354,7 +358,7 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
   const truthFlags = {
     hasStrategy,
     hasContentPlan: counts.totalPosts > 0,
-    hasDraftContent: counts.draftPosts > 0 || counts.unreviewedProgressedPosts > 0 || counts.outOfScopePosts > 0,
+    hasDraftContent: counts.draftPosts > 0 || counts.unreviewedProgressedPosts > 0 || counts.invalidScheduledPosts > 0 || counts.outOfScopePosts > 0,
     hasApprovedContent: counts.approvedPosts > 0,
     hasScheduledContent: counts.scheduledPosts > 0,
     hasAutoScheduledContent: counts.autoScheduledPosts > 0,
@@ -369,15 +373,17 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     hasReviewedContent: counts.totalPosts > 0
       && counts.reviewedPosts === counts.totalPosts
       && counts.draftPosts === 0
-      && counts.unreviewedProgressedPosts === 0,
+      && counts.unreviewedProgressedPosts === 0
+      && counts.invalidScheduledPosts === 0,
     hasApprovalEvidenceGap: counts.unreviewedProgressedPosts > 0,
+    hasInvalidScheduleEvidence: counts.invalidScheduledPosts > 0,
     hasChannelScopeMismatch: counts.outOfScopePosts > 0,
   }
 
   const blockers: string[] = []
   const approvedMediaPending = posts.some(post =>
     String(post.status ?? '').toUpperCase() === 'APPROVED' &&
-    !isContentPostMediaReadyForScheduling(post),
+    !deriveContentLifecycleTruth(post).hasFinalMediaApproval,
   )
   if (!hasStrategy) blockers.push('strategy')
   if (counts.totalPosts === 0) blockers.push('content_plan')
@@ -385,7 +391,7 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
   if (counts.unreviewedProgressedPosts > 0) blockers.push('approval_evidence')
   if (counts.outOfScopePosts > 0) blockers.push('channel_scope')
   if (approvedMediaPending) blockers.push('media_review')
-  if (malformedScheduledPosts > 0) blockers.push('scheduled_time')
+  if (counts.invalidScheduledPosts > 0) blockers.push('schedule_evidence')
   if (unconsentedAutoPosts > 0) blockers.push('auto_publish_consent')
   if (counts.publishedPosts > 0 && counts.analyticsReadyPosts === 0) blockers.push('analytics')
   if (pendingLearningCount > 0) blockers.push('learning_review')
@@ -393,7 +399,7 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
   let stage: CampaignOperatingStage
   const pausedOrArchived = status === 'PAUSED' || status === 'ARCHIVED'
 
-  if (truthFlags.hasApprovalEvidenceGap || truthFlags.hasChannelScopeMismatch || counts.draftPosts > 0) {
+  if (truthFlags.hasApprovalEvidenceGap || truthFlags.hasInvalidScheduleEvidence || truthFlags.hasChannelScopeMismatch || counts.draftPosts > 0) {
     stage = 'content_review_needed'
   } else if (truthFlags.hasPendingLearning) {
     stage = 'learning_review_needed'
@@ -426,7 +432,15 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     stage = 'strategy_review_needed'
   }
 
-  const copy = stage === 'content_approved_not_scheduled' && approvedMediaPending
+  const copy = truthFlags.hasInvalidScheduleEvidence
+    ? {
+        stageLabel: 'Schedule decision needs re-review',
+        stageLabelAr: 'قرار الجدولة يحتاج إعادة مراجعة',
+        stageHelper: 'A scheduled status is missing immutable copy, media, time, or scheduling evidence. Reopen and approve it before execution.',
+        stageHelperAr: 'حالة مجدولة تفتقد دليلًا ثابتًا للنص أو الوسائط أو الموعد أو قرار الجدولة. أعد فتحها واعتمادها قبل التنفيذ.',
+        primaryAction: { label: 'Re-review schedule', labelAr: 'أعد مراجعة الجدولة', href: '/content-hub' },
+      }
+    : stage === 'content_approved_not_scheduled' && approvedMediaPending
     ? {
         stageLabel: 'Copy approved, media pending',
         stageLabelAr: 'النصوص معتمدة والوسائط غير مكتملة',

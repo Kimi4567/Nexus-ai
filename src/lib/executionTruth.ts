@@ -38,6 +38,7 @@ export interface ExecutionPostCounts {
   approvedMissingApproval?: number
   approvedMissingMedia?: number
   scheduled: number
+  invalidScheduled?: number
   published: number
   failed: number
   publishedWithoutAnalytics: number
@@ -51,6 +52,7 @@ export interface CampaignExecutionSnapshot {
   updatedAt: string
   strategyApprovalState: StrategyApprovalState
   strategyBlockers: string[]
+  strategyEvidenceCount: number
   posts: ExecutionPostCounts
 }
 
@@ -69,6 +71,8 @@ export interface ExecutionQueueItem {
   evidence: {
     campaignStatus: string
     strategyApprovalState: StrategyApprovalState
+    strategyEvidenceCount: number
+    strategyBlockers: string[]
     posts: ExecutionPostCounts
   }
   updatedAt: string
@@ -131,6 +135,8 @@ function item(
     evidence: {
       campaignStatus: snapshot.campaignStatus,
       strategyApprovalState: snapshot.strategyApprovalState,
+      strategyEvidenceCount: snapshot.strategyEvidenceCount,
+      strategyBlockers: snapshot.strategyBlockers,
       posts: snapshot.posts,
     },
     updatedAt: snapshot.updatedAt,
@@ -173,6 +179,22 @@ export function buildCampaignExecutionTruth(snapshot: CampaignExecutionSnapshot)
       {
         en: `${snapshot.posts.failed} post${snapshot.posts.failed === 1 ? '' : 's'} failed and need a decision before retrying.`,
         ar: `${snapshot.posts.failed} منشور متعثر يحتاج قراراً قبل إعادة المحاولة.`,
+      },
+    )
+  } else if ((snapshot.posts.invalidScheduled ?? 0) > 0) {
+    const invalidScheduled = snapshot.posts.invalidScheduled ?? 0
+    stage = 'NEEDS_ATTENTION'
+    nextAction = item(
+      snapshot,
+      stage,
+      'REVIEW_CONTENT',
+      'critical',
+      'review_required',
+      contentHref,
+      { en: 'Restore schedule approval evidence', ar: 'أعد توثيق اعتماد الجدولة' },
+      {
+        en: `${invalidScheduled} scheduled row${invalidScheduled === 1 ? ' is' : 's are'} missing immutable copy, media, time, or scheduling evidence. NEXUS does not consider ${invalidScheduled === 1 ? 'it' : 'them'} scheduled; reopen and approve ${invalidScheduled === 1 ? 'it' : 'them'} before execution.`,
+        ar: `${invalidScheduled} سجل جدولة يفتقد دليلاً ثابتاً للنص أو الوسائط أو الموعد أو قرار الجدولة. لا يعتبره NEXUS مجدولاً؛ أعد فتحه واعتماده قبل التنفيذ.`,
       },
     )
   } else if ((snapshot.posts.overdueScheduled ?? 0) > 0) {
@@ -248,6 +270,7 @@ export function buildCampaignExecutionTruth(snapshot: CampaignExecutionSnapshot)
     const totalPosts = snapshot.posts.draft
       + snapshot.posts.approved
       + snapshot.posts.scheduled
+      + (snapshot.posts.invalidScheduled ?? 0)
       + snapshot.posts.published
       + snapshot.posts.failed
 

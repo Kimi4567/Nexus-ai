@@ -133,6 +133,8 @@ function replaceUnsupportedCtaText(text: string): string {
   return text
     .replace(/\bDownload\s+now\b/gi, 'Request more information')
     .replace(/\bDownload\s+the\s+demo\b/gi, 'Request more information')
+    .replace(/\bWatch\s+our\s+demo\b/gi, 'Review the workflow')
+    .replace(/شاهد\s+(?:العرض|الديمو)\s+التوضيحي/gi, 'راجع طريقة العمل')
 }
 
 function normalizeArabicFormatText(value: string): string {
@@ -154,6 +156,18 @@ function normalizeArabicFormatText(value: string): string {
 
 function guardBroadStrategyHypeText(value: string): string {
   return value
+    // Product-capability claims must describe the reviewed workflow, not imply
+    // every connector, permission, or analytics source is already operational.
+    .replace(/\bcomplete\s+workflow\s+from\b/gi, 'governed workflow spanning')
+    .replace(/\bcomplete\s+workflow\b/gi, 'governed workflow')
+    .replace(/\bseamless\s+integration\s+capabilities\b/gi, 'reviewed connection capabilities')
+    .replace(/\bseamless\s+integrations?\b/gi, 'reviewed connection setup')
+    .replace(/\bfull\s+platform\s+integration\b/gi, 'reviewed platform connection setup')
+    .replace(/\bpricing\s+details\s+available\s+to\s+discuss(?:\s+Model)?\b/gi, 'Review current pricing and credit options')
+    .replace(/\bIterate\s+if\s+([^.;]+?)\s+increase(?:s)?\b/gi, 'Continue if $1 increase; iterate if the result is inconclusive')
+    .replace(/سير\s+عمل\s+كامل\s+من/gi, 'سير عمل محكوم يمتد من')
+    .replace(/تكاملات?\s+سلس(?:ة|ةً)?/gi, 'إعداد اتصالات خاضع للمراجعة')
+    .replace(/تكامل\s+كامل\s+مع\s+المنصات/gi, 'إعداد اتصالات المنصات بعد المراجعة')
     .replace(/\b(?:the\s+)?most\s+effective\s+(?:platform|channel)\b/gi, 'the selected channel')
     .replace(/(?:هو|هي)\s+المنصة\s+الأكثر\s+(?:فعالية|فاعلية)/g, 'قناة مختارة في Brand Brain')
     .replace(/المنصة\s+الأكثر\s+(?:فعالية|فاعلية)/g, 'القناة المختارة في Brand Brain')

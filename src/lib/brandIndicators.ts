@@ -11,7 +11,7 @@
  * PR-J replaces that single blended figure with FOUR honest, separate concepts,
  * computed in ONE place and rendered identically on every surface:
  *
- *   1. brandCompleteness — core durable, user-confirmed Brand Brain fields only.
+ *   1. brandCompleteness — core durable, user-confirmed identity fields only.
  *      (Does NOT include learned hooks/angles; AI suggestions never inflate it
  *      because only saved profile data reaches this function.)
  *   2. organicReadiness  — whether the minimum Organic strategy set is present.
@@ -141,7 +141,7 @@ export function getBrandIndicators(
   // learningActivity out of 20.
   const maturity = calculateBrandMaturity(p, { acceptedLearningCount, locale: 'en' })
 
-  // ── 1. Brand completeness ── core durable fields only (user-confirmed) ──
+  // ── 1. Core identity coverage ── never an overall readiness percentage ──
   const COMPLETENESS_MAX = 30
   const completenessScore = Math.round((maturity.breakdown.completeness / COMPLETENESS_MAX) * 100)
   const completenessMissingKeys = ([

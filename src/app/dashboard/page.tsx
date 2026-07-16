@@ -420,14 +420,21 @@ export default function DashboardPage() {
       setLoadError(false)
     }
     try {
-      const [statsRes, campaignsRes, intelligenceRes, brandRes, connectionsRes, executionRes] = await Promise.allSettled([
-        fetchWithTimeout('/api/dashboard/stats', { headers: { Authorization: token } }, 9_000),
-        fetchWithTimeout('/api/campaigns?limit=5&sort=updatedAt', { headers: { Authorization: token } }, 9_000),
+      // Start every read together, but unblock the first dashboard paint from
+      // the three enrichment endpoints. Previously one slow intelligence or
+      // connection request held the entire dashboard spinner for up to 9s.
+      const essentialReads = Promise.allSettled([
+        fetchWithTimeout('/api/dashboard/stats', { headers: { Authorization: token } }, 7_000),
+        fetchWithTimeout('/api/campaigns?limit=5&sort=updatedAt', { headers: { Authorization: token } }, 7_000),
+        fetchWithTimeout('/api/brand', { headers: { Authorization: token } }, 7_000),
+      ])
+      const enrichmentReads = Promise.allSettled([
         fetchWithTimeout('/api/dashboard/intelligence', { headers: { Authorization: token } }, 9_000),
-        fetchWithTimeout('/api/brand', { headers: { Authorization: token } }, 9_000),
         fetchWithTimeout('/api/social/accounts', { headers: { Authorization: token } }, 9_000),
         fetchWithTimeout('/api/execution/queue', { headers: { Authorization: token } }, 9_000),
       ])
+
+      const [statsRes, campaignsRes, brandRes] = await essentialReads
 
       const statsReady = statsRes.status === 'fulfilled' && statsRes.value.ok
       if (statsReady) {
@@ -475,17 +482,22 @@ export default function DashboardPage() {
         setCampaigns(d.campaigns || [])
       }
 
-      if (intelligenceRes.status === 'fulfilled' && intelligenceRes.value.ok) {
-        const d = await intelligenceRes.value.json() as IntelligenceResponse
-        setIntelligence(d.brief || null)
-      }
-
       if (brandRes.status === 'fulfilled' && brandRes.value.ok) {
         const data = await brandRes.value.json() as BrandResponse
         setBrandReadiness(getBrandBrainReadiness(data.brandProfile))
         setBrandCompletenessScore(getBrandIndicators(data.brandProfile).brandCompleteness.score)
         setBrandName(data.brandProfile?.brandName || null)
         setBrandTruthBlocked(reviewBrandTruthConsistency(data.brandProfile).status === 'blocked')
+      }
+
+      setLastUpdated(new Date())
+      if (!silent) setLoading(false)
+
+      const [intelligenceRes, connectionsRes, executionRes] = await enrichmentReads
+
+      if (intelligenceRes.status === 'fulfilled' && intelligenceRes.value.ok) {
+        const d = await intelligenceRes.value.json() as IntelligenceResponse
+        setIntelligence(d.brief || null)
       }
 
       if (connectionsRes.status === 'fulfilled' && connectionsRes.value.ok) {
@@ -498,16 +510,15 @@ export default function DashboardPage() {
         setExecutionAction(data.truth?.queue?.[0] ?? null)
       }
 
-      setLastUpdated(new Date())
     } finally {
       setLoading(false)
     }
   }, [authHeader])
 
   useEffect(() => {
-    if (workspaceGate !== 'hasWorkspace') return
+    if (authLoading || !isAuthenticated) return
     load()
-  }, [load, workspaceGate])
+  }, [authLoading, isAuthenticated, load])
 
   useEffect(() => {
     if (workspaceGate !== 'hasWorkspace') return
@@ -967,7 +978,7 @@ export default function DashboardPage() {
               {alerts.length === 0 ? (
                 <div className="rounded-2xl bg-slate-50 px-4 py-6 text-center">
                   <Circle className="mx-auto h-7 w-7 text-slate-300" />
-                  <p className="mt-2 text-[13px] font-bold text-slate-600">{ar ? 'لا يوجد نشاط حديث' : 'No recent activity'}</p>
+                  <p className="mt-2 text-[13px] font-bold text-slate-600">{ar ? 'لا يوجد نشاط حملة حديث' : 'No recent campaign activity'}</p>
                   <p className="mt-1 text-[12px] text-slate-500">{ar ? 'سيظهر هنا النشاط الحقيقي فقط.' : 'Only real activity appears here.'}</p>
                 </div>
               ) : (

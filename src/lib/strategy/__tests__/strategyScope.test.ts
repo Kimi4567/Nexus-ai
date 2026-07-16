@@ -2,17 +2,17 @@ import { describe, expect, it } from 'vitest'
 import { resolveStrategyScope } from '../strategyScope'
 
 describe('resolveStrategyScope', () => {
-  it('uses explicit aiOutput strategyType first', () => {
+  it('uses the confirmed strategy order before a stale duplicated label', () => {
     expect(resolveStrategyScope({ strategyType: 'paid', strategyOrder: { strategyType: 'full' } })).toMatchObject({
-      type: 'paid',
-      includesOrganic: false,
+      type: 'full',
+      includesOrganic: true,
       includesPaid: true,
-      paidOnly: true,
-      source: 'aiOutput.strategyType',
+      paidOnly: false,
+      source: 'aiOutput.strategyOrder.strategyType',
     })
   })
 
-  it('falls back to persisted strategyOrder strategyType', () => {
+  it('reads a persisted strategyOrder strategyType', () => {
     expect(resolveStrategyScope({ strategyOrder: { strategyType: 'full' } })).toMatchObject({
       type: 'full',
       includesOrganic: true,

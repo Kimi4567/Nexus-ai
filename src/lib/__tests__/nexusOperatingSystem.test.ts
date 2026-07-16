@@ -17,6 +17,20 @@ const reviewedStrategyCampaign = {
   },
 }
 
+const immutableApproval = {
+  approvedAt: '2026-07-01T09:00:00Z',
+  approvedSnapshotId: 'copy-revision-1',
+}
+
+const verifiedSchedule = {
+  ...immutableApproval,
+  imageUrl: 'https://cdn.example/ready.png',
+  mediaSource: 'GENERATE',
+  generationStatus: 'DONE',
+  mediaApprovalSnapshotId: 'media-revision-1',
+  scheduledSnapshotId: 'schedule-revision-1',
+}
+
 describe('deriveNexusOperatingSystem', () => {
   it('treats a strategy-only campaign as ready for content planning', () => {
     const os = deriveNexusOperatingSystem({ campaign: reviewedStrategyCampaign })
@@ -39,8 +53,8 @@ describe('deriveNexusOperatingSystem', () => {
         },
       },
       posts: [
-        { status: 'SCHEDULED', approvedAt: '2026-07-01T09:00:00Z', scheduledAt: '2026-07-03T15:00:00Z', publishMode: 'MANUAL' },
-        { status: 'SCHEDULED', approvedAt: '2026-07-01T09:00:00Z', scheduledAt: '2026-07-06T17:00:00Z', publishMode: 'MANUAL' },
+        { status: 'SCHEDULED', ...verifiedSchedule, scheduledAt: '2026-07-03T15:00:00Z', publishMode: 'MANUAL' },
+        { status: 'SCHEDULED', ...verifiedSchedule, scheduledAt: '2026-07-06T17:00:00Z', publishMode: 'MANUAL' },
       ],
     })
 
@@ -64,12 +78,12 @@ describe('deriveNexusOperatingSystem', () => {
       posts: [
         {
           status: 'PUBLISHED',
-          approvedAt: '2026-06-28T09:00:00Z',
+          ...immutableApproval,
           publishedAt: '2026-06-29T07:28:01Z',
           manuallyPublishedAt: '2026-06-29T07:28:01Z',
           publishMode: 'MANUAL',
         },
-        { status: 'SCHEDULED', approvedAt: '2026-07-01T09:00:00Z', scheduledAt: '2026-07-03T15:00:00Z', publishMode: 'MANUAL' },
+        { status: 'SCHEDULED', ...verifiedSchedule, scheduledAt: '2026-07-03T15:00:00Z', publishMode: 'MANUAL' },
       ],
     })
 
@@ -92,12 +106,12 @@ describe('deriveNexusOperatingSystem', () => {
       posts: [
         {
           status: 'PUBLISHED',
-          approvedAt: '2026-06-28T09:00:00Z',
+          ...immutableApproval,
           publishedAt: '2026-06-29T07:28:01Z',
           manuallyPublishedAt: '2026-06-29T07:28:01Z',
           publishMode: 'MANUAL',
         },
-        { status: 'SCHEDULED', approvedAt: '2026-07-01T09:00:00Z', scheduledAt: '2026-07-03T15:00:00Z', publishMode: 'MANUAL' },
+        { status: 'SCHEDULED', ...verifiedSchedule, scheduledAt: '2026-07-03T15:00:00Z', publishMode: 'MANUAL' },
       ],
     })
 
@@ -130,8 +144,8 @@ describe('deriveNexusOperatingSystem', () => {
       campaign: reviewedStrategyCampaign,
       hasConnectedPublishingAccount: false,
       posts: [
-        { status: 'SCHEDULED', approvedAt: '2026-07-01T09:00:00Z', scheduledAt: '2026-07-03T15:00:00Z', publishMode: 'MANUAL' },
-        { status: 'PUBLISHED', approvedAt: '2026-06-28T09:00:00Z', publishedAt: '2026-06-29T07:28:01Z', manuallyPublishedAt: '2026-06-29T07:28:01Z', publishMode: 'MANUAL' },
+        { status: 'SCHEDULED', ...verifiedSchedule, scheduledAt: '2026-07-03T15:00:00Z', publishMode: 'MANUAL' },
+        { status: 'PUBLISHED', ...immutableApproval, publishedAt: '2026-06-29T07:28:01Z', manuallyPublishedAt: '2026-06-29T07:28:01Z', publishMode: 'MANUAL' },
       ],
     })
 
@@ -144,7 +158,7 @@ describe('deriveNexusOperatingSystem', () => {
   it('allows performance learning only when analyticsData exists', () => {
     const waiting = deriveNexusOperatingSystem({
       campaign: reviewedStrategyCampaign,
-      posts: [{ status: 'PUBLISHED', approvedAt: '2026-06-28T09:00:00Z', publishedAt: '2026-06-29T07:28:01Z' }],
+      posts: [{ status: 'PUBLISHED', ...immutableApproval, publishedAt: '2026-06-29T07:28:01Z' }],
     })
     expect(waiting.truth.performanceLearningAllowed).toBe(false)
     expect(waiting.surfaces.performance.status).toBe('waiting')
@@ -152,7 +166,7 @@ describe('deriveNexusOperatingSystem', () => {
 
     const ready = deriveNexusOperatingSystem({
       campaign: reviewedStrategyCampaign,
-      posts: [{ status: 'PUBLISHED', approvedAt: '2026-06-28T09:00:00Z', publishedAt: '2026-06-29T07:28:01Z', analyticsData: { reach: 120 } }],
+      posts: [{ status: 'PUBLISHED', ...immutableApproval, publishedAt: '2026-06-29T07:28:01Z', analyticsData: { reach: 120 } }],
     })
     expect(ready.truth.performanceLearningAllowed).toBe(true)
     expect(ready.surfaces.performance.status).toBe('truth_safe')

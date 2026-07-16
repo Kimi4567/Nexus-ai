@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { summarizePerformanceEvidence } from '@/lib/performanceSummary'
 import { summarizeLearningEvidence } from '@/lib/learningOverview'
+import { buildPilotProofOverview } from '@/lib/pilotProof'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -22,6 +23,7 @@ export async function GET(req: Request) {
       return NextResponse.json({
         ...summarizeLearningEvidence({ learningSignals: [], workflowSignals: [], performanceEvidenceRows: 0 }),
         performance: summarizePerformanceEvidence([], []),
+        pilot: buildPilotProofOverview([], []),
       })
     }
 
@@ -58,7 +60,17 @@ export async function GET(req: Request) {
       }).catch(() => []) ?? [],
       prisma.socialPost.findMany({
         where: { workspaceId: workspace.id, status: 'PUBLISHED' },
-        select: { platform: true, analyticsData: true, analyticsUpdatedAt: true },
+        select: {
+          id: true,
+          campaignId: true,
+          status: true,
+          platform: true,
+          platformPostId: true,
+          publishedAt: true,
+          manuallyPublishedAt: true,
+          analyticsData: true,
+          analyticsUpdatedAt: true,
+        },
       }).catch(() => []),
       db.adPerformanceSnapshot?.findMany({
         where: {
@@ -99,6 +111,7 @@ export async function GET(req: Request) {
         performanceEvidenceRows: performance.totalEvidenceRows,
       }),
       performance,
+      pilot: buildPilotProofOverview(organicRows, learningSignals),
     })
   } catch (error) {
     console.warn('[learning/overview] read failed:', error instanceof Error ? error.message : error)

@@ -21,6 +21,10 @@ import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
 import { PUBLIC_PAID_PLANS } from '@/lib/commercialPlans'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import {
+  getStrategyToDraftsJourneyCost,
+  STRATEGY_PRICING_DISPLAY_TRUTH,
+} from '@/lib/strategy/strategyPricingDisplayTruth'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -74,7 +78,7 @@ Nexus is an AI-powered marketing operating system. Here's what it can do:
 
 **Billing** (/billing): Manage subscription and credits. There are exactly two public paid plans: ${growth.name} ($${growth.priceUsd}/month, ${growth.monthlyCredits} monthly credits) and ${autopilot.name} ($${autopilot.priceUsd}/month, ${autopilot.monthlyCredits} monthly credits). The 12 one-time trial credits are onboarding, not a third paid plan. Legacy plan names may exist only for existing accounts.
 
-**AI Credits**: The main reviewed workflow costs ${CREDIT_COSTS.RUN_FULL_STRATEGY} for strategy + ${CREDIT_COSTS.SENTINEL_REVIEW} for quality review + ${CREDIT_COSTS.CONTENT_PLAN_GENERATION} for content drafts. Images cost ${CREDIT_COSTS.IMAGE_GENERATION} each and chat costs ${CREDIT_COSTS.CHAT_MESSAGE} per message. Larger strategy scopes may show a different exact cost before execution. Failed provider requests are refunded. Monthly subscription credits refresh with the billing cycle; purchased credits have separate validity.
+**AI Credits**: Strategy generation costs ${STRATEGY_PRICING_DISPLAY_TRUTH.range.minimum}–${STRATEGY_PRICING_DISPLAY_TRUTH.range.maximum} credits based on the confirmed scope, horizon, and intensity. The 12-credit trial example is Organic Light / 30 days (${STRATEGY_PRICING_DISPLAY_TRUTH.trialActivation.cost}) + quality review (${CREDIT_COSTS.SENTINEL_REVIEW}) + content plan (${CREDIT_COSTS.CONTENT_PLAN_GENERATION}) = ${getStrategyToDraftsJourneyCost(STRATEGY_PRICING_DISPLAY_TRUTH.trialActivation.cost, CREDIT_COSTS.SENTINEL_REVIEW, CREDIT_COSTS.CONTENT_PLAN_GENERATION)}. The exact quote is shown before execution and saved in the ledger. Images cost ${CREDIT_COSTS.IMAGE_GENERATION} each and chat costs ${CREDIT_COSTS.CHAT_MESSAGE} per message. Failed provider requests are refunded. Monthly subscription credits refresh with the billing cycle; purchased credits have separate validity.
 
 **Settings** (/settings): Account preferences, language (Arabic/English), and notifications; available from the account menu rather than the primary workflow.
 

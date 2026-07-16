@@ -102,6 +102,9 @@ export default function CampaignsPage() {
   const cT = t('campaigns') as Record<string, string>
   const ar = locale === 'ar'
   const copy = (arabic: string, english: string) => (ar ? arabic : english)
+  const campaignCountLabel = (count: number) => ar
+    ? `${count} حملة`
+    : `${count} campaign${count === 1 ? '' : 's'}`
 
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [counts, setCounts] = useState<CampaignCounts | null>(null)
@@ -399,7 +402,7 @@ export default function CampaignsPage() {
 
           <div className="nx-os-action-strip mb-4">
             <div className="min-w-0">
-              <p className="nx-os-section-title">{copy(`${summary.total} حملة في مساحة العمل`, `${summary.total} campaigns in this workspace`)}</p>
+              <p className="nx-os-section-title">{ar ? `${campaignCountLabel(summary.total)} في مساحة العمل` : `${campaignCountLabel(summary.total)} in this workspace`}</p>
               <p className="nx-os-section-copy">
                 {brandTruthBlocked && summary.persistedActive > 0
                   ? copy(`${summary.persistedActive} سجل اعتماد قديم محجوب حتى تصحيح Brand Brain.`, `${summary.persistedActive} older approval record is blocked until Brand Brain is fixed.`)
@@ -638,7 +641,7 @@ export default function CampaignsPage() {
                   <p className="mt-1 text-xs text-[#7b87a3]">{copy('اختر حملة لمراجعة الاستراتيجية والقرار التالي.', 'Choose a campaign to review its strategy and next decision.')}</p>
                 </div>
                 <p className="text-xs font-semibold text-[#7b87a3]">
-                  {copy(`عرض ${campaigns.length} حملة`, `Showing ${campaigns.length} campaigns`)}
+                  {ar ? `عرض ${campaignCountLabel(campaigns.length)}` : `Showing ${campaignCountLabel(campaigns.length)}`}
                 </p>
               </div>
 

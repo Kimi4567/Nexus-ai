@@ -7,6 +7,7 @@ import {
   deriveContentHubMediaState,
   isContentPostMediaReadyForScheduling,
 } from '@/lib/contentHubMediaState'
+import { deriveContentLifecycleTruth } from '@/lib/contentLifecycleTruth'
 import { useI18n } from '@/lib/i18n-context'
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
@@ -47,6 +48,9 @@ interface SocialPostRecord {
   contentPlanIndex?: number | null
   scheduledAt?: string | null
   approvedAt?: string | null
+  approvedSnapshotId?: string | null
+  mediaApprovalSnapshotId?: string | null
+  scheduledSnapshotId?: string | null
   status?: string | null
   publishedAt?: string | null
   manuallyPublishedAt?: string | null
@@ -177,7 +181,6 @@ export default function ContentHubPage() {
       const campaignData = (await campaignRes.json()) as CampaignsResponse
       const campaignList = campaignData.campaigns ?? []
       setCampaigns(campaignList)
-      setLoading(false)
 
       if (!campaignList.length) {
         setPosts([])
@@ -225,23 +228,25 @@ export default function ContentHubPage() {
 
   const stats = useMemo(() => {
     const total = posts.length
-    const approved = posts.filter(post => String(post.status || '').toUpperCase() === 'APPROVED').length
-    const scheduled = posts.filter(post => String(post.status || '').toUpperCase() === 'SCHEDULED' && post.scheduledAt).length
+    const lifecycle = posts.map(post => ({ post, truth: deriveContentLifecycleTruth(post) }))
+    const approved = lifecycle.filter(({ truth }) => truth.status === 'APPROVED' && truth.hasImmutableCopyApproval).length
+    const scheduled = lifecycle.filter(({ truth }) => truth.isValidScheduled).length
+    const invalidScheduled = lifecycle.filter(({ truth }) => truth.isInvalidScheduled).length
     const published = posts.filter(post => String(post.status || '').toUpperCase() === 'PUBLISHED').length
     const mediaReady = posts.filter(isContentPostMediaReadyForScheduling).length
     const copyReady = posts.filter(post => Boolean(String(post.caption || '').trim())).length
     const platformAssigned = posts.filter(post => Boolean(String(post.platform || '').trim())).length
     const drafts = posts.filter(post => String(post.status || 'DRAFT').toUpperCase() === 'DRAFT').length
-    const needsReview = posts.filter(post => {
-      const status = String(post.status || 'DRAFT').toUpperCase()
+    const needsReview = lifecycle.filter(({ post, truth }) => {
+      const status = truth.status
       if (status === 'PUBLISHED') return false
-      const progressedWithoutApproval = ['APPROVED', 'SCHEDULED'].includes(status) && !post.approvedAt
-      return status === 'DRAFT' || progressedWithoutApproval || !isContentPostMediaReadyForScheduling(post)
+      return status === 'DRAFT'
+        || truth.hasApprovalEvidenceGap
+        || truth.isInvalidScheduled
+        || !truth.hasFinalMediaApproval
     }).length
-    const reviewed = posts.filter(post => {
-      const status = String(post.status || 'DRAFT').toUpperCase()
-      return ['APPROVED', 'SCHEDULED', 'PROCESSING', 'PUBLISHED'].includes(status)
-        && Boolean(post.approvedAt)
+    const reviewed = lifecycle.filter(({ truth }) => {
+      return truth.requiresApprovalEvidence && truth.hasImmutableCopyApproval
     }).length
     const productionProgress = total === 0
       ? 0
@@ -251,6 +256,7 @@ export default function ContentHubPage() {
       total,
       approved,
       scheduled,
+      invalidScheduled,
       published,
       mediaReady,
       copyReady,
@@ -276,9 +282,10 @@ export default function ContentHubPage() {
   const latestCampaignContentHref = contentTruthBlocked ? '/brand' : latestCampaign ? `/campaigns/${latestCampaign.id}/content-hub` : '/strategy'
   const samplePost = filteredPosts.find(post => post.imageUrl) ?? filteredPosts[0] ?? posts.find(post => post.imageUrl) ?? posts[0]
   const recentPosts = filteredPosts.filter(post => {
-    const status = String(post.status || 'DRAFT').toUpperCase()
+    const truth = deriveContentLifecycleTruth(post)
+    const status = truth.status
     if (status === 'PUBLISHED') return false
-    return status === 'DRAFT' || !isContentPostMediaReadyForScheduling(post)
+    return status === 'DRAFT' || truth.hasApprovalEvidenceGap || truth.isInvalidScheduled || !truth.hasFinalMediaApproval
   }).slice(0, 5)
   const sampleMediaState = deriveContentHubMediaState(samplePost ?? {})
 
@@ -300,7 +307,7 @@ export default function ContentHubPage() {
     { key: 'videos', label: isAr ? 'منشورات فيديو' : 'Video posts' },
   ]
 
-  if (authLoading || loading) {
+  if (authLoading || loading || plansLoading) {
     return (
       <AppShell>
         <div className="nx-os-page">
@@ -315,7 +322,11 @@ export default function ContentHubPage() {
             />
             <div className="nx-os-card px-7 py-6 text-center">
               <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#5E63FF]" />
-              <p className="mt-3 text-[13px] font-bold text-slate-500">{isAr ? 'جارٍ تحميل قائمة الحملات...' : 'Loading campaign list...'}</p>
+              <p className="mt-3 text-[13px] font-bold text-slate-500">
+                {plansLoading
+                  ? (isAr ? 'جارٍ التحقق من خطط المحتوى وحالات الاعتماد...' : 'Verifying content plans and approval evidence...')
+                  : (isAr ? 'جارٍ تحميل قائمة الحملات...' : 'Loading campaign list...')}
+              </p>
             </div>
           </div>
         </div>
@@ -350,13 +361,6 @@ export default function ContentHubPage() {
             </SoftPanel>
           )}
 
-          {plansLoading && (
-            <SoftPanel className="flex items-center gap-3 p-4 text-[13px] font-bold text-slate-600" dir={isAr ? 'rtl' : 'ltr'}>
-              <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#5E63FF]" />
-              <span>{isAr ? 'ظهرت الحملات؛ جارٍ جمع خطط المحتوى في الخلفية.' : 'Campaigns are ready; content plans are loading in the background.'}</span>
-            </SoftPanel>
-          )}
-
           {contentTruthBlocked && (
             <SoftPanel className="border-orange-200 bg-orange-50 p-4 text-orange-950" dir={isAr ? 'rtl' : 'ltr'}>
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -387,8 +391,13 @@ export default function ContentHubPage() {
                   : isAr ? `${stats.needsReview} منشورات تحتاج قرارك` : `${stats.needsReview} posts need your decision`}
               </p>
               <p className="mt-1 text-[11px] font-bold text-slate-500">
-                {isAr ? `${stats.total} إجمالي · ${stats.reviewed} نصوص موثقة المراجعة · ${stats.mediaReady} وسائط مؤكدة · ${stats.scheduled} مجدول` : `${stats.total} total · ${stats.reviewed} copy revisions reviewed · ${stats.mediaReady} media confirmed · ${stats.scheduled} scheduled`}
+                {isAr ? `${stats.total} إجمالي · ${stats.reviewed} نصوص موثقة · ${stats.mediaReady} وسائط جاهزة · ${stats.scheduled} جدولة موثقة` : `${stats.total} total · ${stats.reviewed} copy revisions evidenced · ${stats.mediaReady} media ready · ${stats.scheduled} verified schedules`}
               </p>
+              {stats.invalidScheduled > 0 && (
+                <p className="mt-1 text-[10px] font-black text-rose-600">
+                  {isAr ? `${stats.invalidScheduled} سجل جدولة غير مكتمل الدليل ويحتاج إعادة اعتماد.` : `${stats.invalidScheduled} schedule record${stats.invalidScheduled === 1 ? ' lacks' : 's lack'} complete evidence and need${stats.invalidScheduled === 1 ? 's' : ''} re-approval.`}
+                </p>
+              )}
               <p className="mt-1 text-[10px] font-semibold text-slate-400">
                 {isAr ? 'تُراجع CTA داخل كل منشور؛ لا يفترض NEXUS دعوة عامة من دون دليل.' : 'CTA is reviewed per post; NEXUS does not assume a generic CTA here.'}
               </p>
@@ -399,7 +408,7 @@ export default function ContentHubPage() {
             </Link>
           </div>
 
-          <SoftPanel className="flex flex-wrap items-center justify-end gap-2 p-3" dir="rtl">
+          <SoftPanel className="flex flex-wrap items-center justify-start gap-2 p-3" dir={isAr ? 'rtl' : 'ltr'}>
             {formatChips.map(chip => (
               <button
                 type="button"
@@ -430,8 +439,11 @@ export default function ContentHubPage() {
                   <div className="space-y-2.5">
                     {recentPosts.slice(0, 3).map(post => {
                       const status = String(post.status || 'DRAFT').toUpperCase()
+                      const lifecycle = deriveContentLifecycleTruth(post)
                       const decisionLabel = contentTruthBlocked
                         ? (isAr ? 'محجوب' : 'Blocked')
+                        : lifecycle.isInvalidScheduled
+                        ? (isAr ? 'أعد اعتماد الجدولة' : 'Re-approve schedule')
                         : status === 'DRAFT'
                         ? (isAr ? 'راجع النص' : 'Review copy')
                         : (isAr ? 'أكمل الوسائط' : 'Complete media')
@@ -478,7 +490,7 @@ export default function ContentHubPage() {
                       </h2>
                     </div>
                   </div>
-                  <Link href={samplePost ? `/campaigns/${samplePost.campaignId}/content-hub` : '/strategy'} className="block overflow-hidden rounded-[18px] border border-slate-200 bg-slate-50">
+                  {samplePost ? <Link href={`/campaigns/${samplePost.campaignId}/content-hub`} className="block overflow-hidden rounded-[18px] border border-slate-200 bg-slate-50">
                     <div className="relative aspect-[16/7] overflow-hidden">
                       <MediaThumb src={samplePost?.imageUrl} label={samplePost?.campaignName || 'Content sample'} />
                       <div className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-black text-slate-600">
@@ -502,7 +514,17 @@ export default function ContentHubPage() {
                       </div>
                       <p className="text-[12px] font-bold text-slate-500">{isAr ? sampleMediaState.explanatoryCopy.ar : sampleMediaState.explanatoryCopy.en}</p>
                     </div>
-                  </Link>
+                  </Link> : (
+                    <div className="rounded-[18px] border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
+                      <LayoutGrid className="mx-auto h-7 w-7 text-slate-400" />
+                      <p className="mt-3 text-sm font-black text-slate-800">{isAr ? 'لا توجد حزمة منشور فعلية بعد' : 'No real post package yet'}</p>
+                      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{isAr ? 'اختر حملة معتمدة وأنشئ خطة المحتوى؛ لن يعرض NEXUS أصلًا وهميًا مكانها.' : 'Choose an approved campaign and build its content plan; NEXUS will not show a placeholder asset as real work.'}</p>
+                      <Link href={latestCampaign ? `/campaigns/${latestCampaign.id}` : '/strategy'} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-xs font-black text-white">
+                        {latestCampaign ? (isAr ? 'فتح الحملة' : 'Open campaign') : (isAr ? 'إنشاء استراتيجية' : 'Create strategy')}
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
+                  )}
                 </SoftPanel>
 
                 <SoftPanel className="p-4" dir={isAr ? 'rtl' : 'ltr'}>

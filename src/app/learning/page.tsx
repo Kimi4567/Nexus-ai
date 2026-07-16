@@ -147,7 +147,11 @@ function workflowLabel(eventType: string, ar: boolean): string {
     POST_FAILED: ['فشلت محاولة نشر', 'Publish attempt failed'],
     POST_AUTO_PUBLISHED: ['نُشر منشور عبر تكامل موثّق', 'Post published through a verified integration'],
   }
-  return labels[eventType]?.[ar ? 0 : 1] || (ar ? 'إشارة سير عمل محفوظة' : 'Saved workflow signal')
+  if (labels[eventType]) return labels[eventType][ar ? 0 : 1]
+  const readable = eventType.trim().replace(/[_-]+/g, ' ').toLowerCase()
+  return readable
+    ? `${ar ? 'حدث تشغيلي:' : 'Workflow event:'} ${readable}`
+    : (ar ? 'حدث تشغيلي غير مصنف' : 'Unclassified workflow event')
 }
 
 export default function LearningPage() {
@@ -227,9 +231,16 @@ export default function LearningPage() {
       }
     }
     if (overview?.stage === 'signals_building') {
+      const hasOnlyWorkflowEvidence = overview.counts.workflowSignals > 0
+        && overview.counts.pendingReview === 0
+        && overview.counts.reviewedSignals === 0
       return {
-        label: ar ? 'ذاكرة الإشارات قيد البناء' : 'Signal memory is building',
-        helper: ar ? 'إشارات المراجعة وسير العمل محفوظة؛ تعلم الأداء ينتظر التحليلات.' : 'Review and workflow signals are saved; performance learning awaits analytics.',
+        label: hasOnlyWorkflowEvidence
+          ? (ar ? 'سجل التشغيل قيد البناء' : 'Workflow history is building')
+          : (ar ? 'ذاكرة الإشارات قيد البناء' : 'Signal memory is building'),
+        helper: hasOnlyWorkflowEvidence
+          ? (ar ? 'توجد أحداث تشغيل محفوظة، لكن لا توجد دروس أو مقترحات تعلم بعد. تعلم الأداء ينتظر التحليلات.' : 'Workflow events exist, but no lessons or learning proposals exist yet. Performance learning awaits analytics.')
+          : (ar ? 'إشارات المراجعة وسير العمل محفوظة؛ تعلم الأداء ينتظر التحليلات.' : 'Review and workflow signals are saved; performance learning awaits analytics.'),
         tone: 'bg-violet-50 text-violet-700 border-violet-100',
       }
     }
