@@ -1,4 +1,5 @@
 import type { Instrumentation } from 'next'
+import * as Sentry from '@sentry/nextjs'
 
 /**
  * Next.js server observability baseline.
@@ -7,10 +8,14 @@ import type { Instrumentation } from 'next'
  * We intentionally avoid request paths, bodies, cookies, authorization headers,
  * and stacks because those may contain customer or workspace data.
  */
-export function register() {
-  // Web Analytics and Speed Insights are initialized in app/layout.tsx.
-  // External error forwarding remains disabled until a real provider and secret
-  // are configured; Runtime Logs remain the source of truth in the meantime.
+export async function register() {
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    await import('./sentry.server.config')
+  }
+
+  if (process.env.NEXT_RUNTIME === 'edge') {
+    await import('./sentry.edge.config')
+  }
 }
 
 function normalizeRequestError(error: unknown): {
@@ -60,4 +65,8 @@ export const onRequestError: Instrumentation.onRequestError = async (
     runtime: process.env.NEXT_RUNTIME ?? 'unknown',
     occurredAt: new Date().toISOString(),
   }))
+
+  // Sentry.captureRequestError is a no-op while the explicit runtime gate is
+  // disabled, so Runtime Logs remain available without sending external data.
+  Sentry.captureRequestError(error, request, context)
 }

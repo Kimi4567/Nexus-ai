@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -42,6 +44,39 @@ const nextConfig = {
   },
 }
 
-// NOTE: To enable Sentry, run: npm install @sentry/nextjs
-// Then replace this file with the withSentryConfig-wrapped version.
-export default nextConfig
+const sentrySourceMapsEnabled = (
+  process.env.SENTRY_SOURCE_MAPS_ENABLED === 'true'
+  && Boolean(process.env.SENTRY_AUTH_TOKEN)
+  && Boolean(process.env.SENTRY_ORG)
+  && Boolean(process.env.SENTRY_PROJECT)
+)
+
+// Runtime event forwarding and build-time source-map upload are intentionally
+// controlled by separate feature gates. This keeps deployments inert until the
+// Sentry project, privacy settings, and keys have been verified together.
+export default withSentryConfig(nextConfig, {
+  org: sentrySourceMapsEnabled ? process.env.SENTRY_ORG : undefined,
+  project: sentrySourceMapsEnabled ? process.env.SENTRY_PROJECT : undefined,
+  authToken: sentrySourceMapsEnabled ? process.env.SENTRY_AUTH_TOKEN : undefined,
+  silent: !sentrySourceMapsEnabled || !process.env.CI,
+  telemetry: false,
+  sourcemaps: {
+    disable: !sentrySourceMapsEnabled,
+    deleteSourcemapsAfterUpload: true,
+  },
+  release: {
+    name: process.env.SENTRY_RELEASE || process.env.VERCEL_GIT_COMMIT_SHA,
+    create: sentrySourceMapsEnabled,
+    finalize: sentrySourceMapsEnabled,
+  },
+  widenClientFileUpload: sentrySourceMapsEnabled,
+  webpack: {
+    automaticVercelMonitors: false,
+    treeshake: {
+      removeDebugLogging: true,
+      excludeReplayCompressionWorker: true,
+      excludeReplayIframe: true,
+      excludeReplayShadowDOM: true,
+    },
+  },
+})

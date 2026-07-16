@@ -1,5 +1,6 @@
 'use client'
 
+import * as Sentry from '@sentry/nextjs'
 import { useEffect } from 'react'
 import Link from 'next/link'
 
@@ -11,7 +12,15 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error('[Global Error]', error)
+    Sentry.captureException(error)
+    console.error(JSON.stringify({
+      level: 'error',
+      message: 'Unhandled App Router segment error',
+      errorName: error.name,
+      errorMessage: error.message,
+      digest: error.digest ?? null,
+      occurredAt: new Date().toISOString(),
+    }))
   }, [error])
 
   return (
@@ -37,11 +46,12 @@ export default function GlobalError({
 
         <h1 className="text-2xl font-bold text-slate-950 mb-3">Something went wrong</h1>
         <p className="text-slate-500 text-sm leading-relaxed mb-8">
-          An unexpected error occurred. It's been logged and we'll look into it.
+          An unexpected error occurred. Please try again or return to the dashboard.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
+            type="button"
             onClick={reset}
             className="px-6 py-3 bg-blue-600 text-[color:#fff] font-bold rounded-xl hover:bg-blue-700 transition text-sm"
           >
