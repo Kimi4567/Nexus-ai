@@ -630,21 +630,27 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
     strategyDuration === 'custom'
       ? (locale === 'ar' ? `${customDurationDays} يوم` : `${customDurationDays} days`)
       : (locale === 'ar' ? `${strategyHorizonDays} يوم` : `${strategyHorizonDays} days`)
-  const strategyPostCountPreviewLabel =
-    strategyType !== 'paid' && useCustomPostCount
-      ? (locale === 'ar'
-        ? `${customOrganicPostCount} اتجاه منشور`
-        : `${customOrganicPostCount} post directions`)
-      : intensityLabel(contentIntensity, locale)
-  const strategyCostActionLabel =
-    strategyCostPreview === null
-      ? (locale === 'ar' ? 'مراجعة النطاق' : 'Review scope')
-      : (locale === 'ar' ? `مراجعة التكلفة — ${strategyCostText}` : `Review cost — ${strategyCostText}`)
   const previewPostsPerMonth = tierToPostsPerMonth(billingStatus?.plan)
   const strategyDeliverablesPreview = getStrategyDeliverables(
     strategyOrderPreview,
     typeof previewPostsPerMonth === 'number' ? { postsPerMonth: previewPostsPerMonth } : undefined,
   )
+  const effectiveOrganicPostCount = strategyDeliverablesPreview.organicPostCount
+  const strategyPostCountPreviewLabel = strategyType === 'paid'
+    ? (locale === 'ar' ? 'حزمة تخطيط مدفوع' : 'Paid planning package')
+    : typeof effectiveOrganicPostCount === 'number'
+      ? (useCustomPostCount && effectiveOrganicPostCount !== customOrganicPostCount
+        ? (locale === 'ar'
+          ? `${effectiveOrganicPostCount} اتجاهات منشورات (طُلب ${customOrganicPostCount})`
+          : `${effectiveOrganicPostCount} post directions (requested ${customOrganicPostCount})`)
+        : (locale === 'ar'
+          ? `${effectiveOrganicPostCount} اتجاهات منشورات`
+          : `${effectiveOrganicPostCount} post directions`))
+      : intensityLabel(contentIntensity, locale)
+  const strategyCostActionLabel =
+    strategyCostPreview === null
+      ? (locale === 'ar' ? 'مراجعة النطاق' : 'Review scope')
+      : (locale === 'ar' ? `مراجعة التكلفة — ${strategyCostText}` : `Review cost — ${strategyCostText}`)
   const strategyReadinessPreview = getStrategyBriefReadiness({
     mode: strategyType,
     brandProfile: strategyBrandProfile,

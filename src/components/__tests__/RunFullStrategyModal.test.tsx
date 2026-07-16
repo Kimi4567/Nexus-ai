@@ -5,13 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import RunFullStrategyModal, { strategyDefaultsFromBrand } from '@/components/RunFullStrategyModal'
 
 const fetchMock = vi.fn()
+const { billingPlan } = vi.hoisted(() => ({ billingPlan: { current: 'growth' } }))
 
 vi.mock('@/lib/auth-context', () => ({
   useAuth: () => ({ authHeader: () => 'Bearer test-token' }),
 }))
 
 vi.mock('@/lib/useBillingStatus', () => ({
-  useBillingStatus: () => ({ status: { plan: 'growth' } }),
+  useBillingStatus: () => ({ status: { plan: billingPlan.current } }),
 }))
 
 vi.mock('@/components/UpgradeModal', () => ({
@@ -84,6 +85,7 @@ function response(body: unknown) {
 
 describe('RunFullStrategyModal preflight', () => {
   beforeEach(() => {
+    billingPlan.current = 'growth'
     sessionStorage.clear()
     fetchMock.mockReset()
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
@@ -144,6 +146,22 @@ describe('RunFullStrategyModal preflight', () => {
     })
     const generationCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')
     expect(String(generationCall?.[0])).toBe('/api/strategy/run-full')
+  })
+
+  it('shows the plan-capped post count on final confirmation', async () => {
+    billingPlan.current = 'free'
+    render(<RunFullStrategyModal isOpen onClose={() => {}} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Set up strategy request' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Set an exact post-direction count for the first 30 days' }))
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Post direction count' }), { target: { value: '9' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Review strategy scope' }))
+
+    expect(await screen.findByText('Your plan caps the first 30 days at 3 post directions; this request will use 3.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Review cost — 12 credits' }))
+
+    expect(await screen.findByText('3 post directions (requested 9)')).toBeTruthy()
+    expect(screen.queryByText('9 post directions')).toBeNull()
   })
 })
 
