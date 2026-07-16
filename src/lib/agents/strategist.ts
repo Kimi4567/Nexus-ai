@@ -500,6 +500,7 @@ async function callOpenAI(
   systemPrompt: string,
   userPrompt: string,
   maxTokens = 4000,
+  responseFormat: Record<string, unknown> = { type: 'json_object' },
 ): Promise<{ output: unknown; usage: OpenAITextUsage }> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -515,7 +516,7 @@ async function callOpenAI(
       ],
       temperature: 0.30,  // PR-2B1: lowered 0.45→0.30 for grounding (less embellishment / number-invention)
       max_tokens: maxTokens,
-      response_format: { type: 'json_object' },
+      response_format: responseFormat,
     }),
   })
   if (!response.ok) throw new Error(`OpenAI error: ${response.status}`)
@@ -957,6 +958,144 @@ export function buildStrategistCountRepairPrompt(
   ].join('\n')
 }
 
+function exactObjectArraySchema(
+  count: number,
+  properties: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    type: 'array',
+    minItems: count,
+    maxItems: count,
+    items: {
+      type: 'object',
+      additionalProperties: false,
+      properties,
+      required: Object.keys(properties),
+    },
+  }
+}
+
+/**
+ * A focused Structured Outputs schema for the paid package. Re-generating the
+ * complete strategy just to repair a 4/9 ad-copy mismatch is expensive and can
+ * damage already-valid sections. Exact array bounds make the commercial order
+ * enforceable at provider-output time instead of hoping a prose instruction is
+ * counted correctly.
+ */
+export function buildPaidPlanningStructuredOutputSchema(
+  deliverables: StrategyDeliverables,
+): Record<string, unknown> {
+  const textField = { type: 'string' }
+  return {
+    type: 'json_schema',
+    json_schema: {
+      name: 'paid_planning_repair',
+      strict: true,
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          paidPlanning: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              planningOnly: { type: 'boolean', enum: [true] },
+              objective: textField,
+              audienceHypotheses: exactObjectArraySchema(deliverables.audienceHypothesisCount, {
+                name: textField,
+                buyingSituation: textField,
+                targetingHypothesis: textField,
+                exclusions: textField,
+                validationNeeded: textField,
+              }),
+              adAngles: exactObjectArraySchema(deliverables.paidAdAngleCount, {
+                name: textField,
+                audienceHypothesis: textField,
+                message: textField,
+                funnelStage: textField,
+                proofNeeded: textField,
+              }),
+              adCopyVariations: exactObjectArraySchema(deliverables.paidAdVariationCount, {
+                id: textField,
+                angle: textField,
+                headline: textField,
+                primaryText: textField,
+                cta: textField,
+                destination: textField,
+                assumption: textField,
+              }),
+              creativeBriefs: exactObjectArraySchema(deliverables.creativeBriefCount, {
+                name: textField,
+                angle: textField,
+                format: textField,
+                visualDirection: textField,
+                requiredAssets: { type: 'array', minItems: 1, items: textField },
+                proofBoundary: textField,
+                reviewGate: textField,
+              }),
+              budgetFramework: textField,
+              trackingChecklist: { type: 'array', minItems: 1, items: textField },
+              launchBlockers: { type: 'array', minItems: 1, items: textField },
+            },
+            required: [
+              'planningOnly',
+              'objective',
+              'audienceHypotheses',
+              'adAngles',
+              'adCopyVariations',
+              'creativeBriefs',
+              'budgetFramework',
+              'trackingChecklist',
+              'launchBlockers',
+            ],
+          },
+        },
+        required: ['paidPlanning'],
+      },
+    },
+  }
+}
+
+export function buildPaidPlanningRepairPrompt(
+  output: StrategyOutput,
+  brief: BusinessBrief,
+  deliverables: StrategyDeliverables,
+): string {
+  return [
+    'Repair ONLY the paidPlanning package. Return the schema object and no other strategy sections.',
+    `Brand: ${brief.companyName}`,
+    `Category: ${brief.businessType}`,
+    `Audience: ${brief.targetAudience}`,
+    `Goal: ${brief.primaryGoal || 'Not provided'}`,
+    `Offer: ${brief.primaryOffer || 'Not provided'}`,
+    `Allowed platforms: ${brief.currentPlatforms?.join(', ') || 'Not provided'}`,
+    `Required counts: ${deliverables.audienceHypothesisCount} audience hypotheses, ${deliverables.paidAdAngleCount} ad angles, ${deliverables.paidAdVariationCount} ad copy variations, and ${deliverables.creativeBriefCount} creative briefs.`,
+    'Every item must be materially distinct and grounded in the same audience, offer, objective, proof limits, and allowed platforms.',
+    'This is planning only. Do not claim launch, spend, publishing, account readiness, conversions, performance, customer proof, or results.',
+    'Never invent a budget, destination, price, proof point, competitor fact, service, or tracking state. Mark unresolved facts as Not enough data or the natural-language equivalent.',
+    `CURRENT PACKAGE TO REPAIR:\n${JSON.stringify(output.paidPlanning ?? null)}`,
+  ].join('\n')
+}
+
+async function repairPaidPlanningPackage(
+  output: StrategyOutput,
+  brief: BusinessBrief,
+  deliverables: StrategyDeliverables,
+  language?: string,
+): Promise<{ paidPlanning: PaidPlanningPackage; usage: OpenAITextUsage }> {
+  const call = await callOpenAI(
+    `${getLanguageInstruction(language ?? brief.language)}\nYou are a senior paid-media planner repairing a reviewed planning package. Follow the exact Structured Outputs schema. Preserve factual uncertainty and produce distinct, reviewable hypotheses rather than invented facts.`,
+    buildPaidPlanningRepairPrompt(output, brief, deliverables),
+    6000,
+    buildPaidPlanningStructuredOutputSchema(deliverables),
+  )
+  const wrapper = call.output as { paidPlanning?: PaidPlanningPackage }
+  if (!wrapper?.paidPlanning) {
+    throw new Error('OpenAI returned no paid planning package')
+  }
+  return { paidPlanning: wrapper.paidPlanning, usage: call.usage }
+}
+
 // ── Main agent function ───────────────────────────────────────────────────────
 
 export async function runStrategistAgent(
@@ -975,7 +1114,7 @@ export async function runStrategistAgent(
   // Models sometimes miss the reviewed count or return too few audience/week
   // records. Repair once before the commercial contract rejects/refunds the
   // run; never pad by cloning generic angles.
-  const contractPreview = validateCampaignStrategyContract(output, {
+  let contractPreview = validateCampaignStrategyContract(output, {
     language: language ?? brief.language,
     expectedOrganicPostCount: brief.organicPostCount,
     strategyType: brief.strategyType,
@@ -984,10 +1123,10 @@ export async function runStrategistAgent(
   const structuralRepairNeeded = contractPreview.weakFields.some(field => (
     field === 'audienceSegmentsDetailed' ||
     field === 'contentAnglesDetailed' ||
-    field === 'weeklyExecutionPlan' ||
-    field.startsWith('paidPlanning')
+    field === 'weeklyExecutionPlan'
   ))
-  if (contractPreview.countViolations.length > 0 || structuralRepairNeeded) {
+  const nonPaidCountRepairNeeded = contractPreview.countViolations.some(field => !field.startsWith('paidPlanning.'))
+  if (nonPaidCountRepairNeeded || structuralRepairNeeded) {
     const repairDirectionCount = typeof brief.organicPostCount === 'number' && brief.organicPostCount > 0
       ? Math.floor(brief.organicPostCount)
       : 4
@@ -998,6 +1137,33 @@ export async function runStrategistAgent(
     )
     providerCalls.push(repairCall.usage)
     output = normalizeStrategyOutput(repairCall.output) as StrategyOutput
+    contractPreview = validateCampaignStrategyContract(output, {
+      language: language ?? brief.language,
+      expectedOrganicPostCount: brief.organicPostCount,
+      strategyType: brief.strategyType,
+      expectedPaidPlanning: brief.strategyDeliverables,
+    })
+  }
+
+  const paidDeliverables = brief.strategyDeliverables
+  const paidRepairNeeded = Boolean(
+    paidDeliverables &&
+    paidDeliverables.paidAdVariationCount > 0 &&
+    (
+      contractPreview.missingFields.some(field => field.startsWith('paidPlanning')) ||
+      contractPreview.weakFields.some(field => field.startsWith('paidPlanning')) ||
+      contractPreview.countViolations.some(field => field.startsWith('paidPlanning.'))
+    )
+  )
+  if (paidRepairNeeded && paidDeliverables) {
+    const paidRepair = await repairPaidPlanningPackage(
+      output,
+      brief,
+      paidDeliverables,
+      language ?? brief.language,
+    )
+    providerCalls.push(paidRepair.usage)
+    output = { ...output, paidPlanning: paidRepair.paidPlanning }
   }
 
   output.providerUsage = summarizeOpenAITextUsage('gpt-4o', providerCalls)

@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { buildStrategistCountRepairPrompt, buildStrategistPrompts, type BusinessBrief, type StrategyOutput } from '@/lib/agents/strategist'
+import {
+  buildPaidPlanningRepairPrompt,
+  buildPaidPlanningStructuredOutputSchema,
+  buildStrategistCountRepairPrompt,
+  buildStrategistPrompts,
+  type BusinessBrief,
+  type StrategyOutput,
+} from '@/lib/agents/strategist'
 import { getStrategyDeliverables } from '@/lib/strategy/deliverablesContract'
 import type { StrategyOrder, StrategyType, ContentIntensity, DurationPreset } from '@/lib/strategy/strategyOrder'
 
@@ -56,6 +63,37 @@ describe('buildStrategistCountRepairPrompt', () => {
     expect(prompt).toContain('exactly 4 weeklyExecutionPlan entries')
     expect(prompt).toContain('Do not invent proof, services, prices, languages')
     expect(prompt).toContain('Dental consultation plan')
+  })
+})
+
+describe('focused paid-planning repair', () => {
+  it('enforces the exact reviewed Paid Standard package through Structured Outputs', () => {
+    const brief = briefWith(order('paid', 'standard', '90'))
+    const deliverables = brief.strategyDeliverables!
+    const responseFormat = buildPaidPlanningStructuredOutputSchema(deliverables) as any
+    const paidProperties = responseFormat.json_schema.schema.properties.paidPlanning.properties
+    const prompt = buildPaidPlanningRepairPrompt({
+      campaignName: 'ClinicFlow paid plan',
+      paidPlanning: {
+        planningOnly: true,
+        objective: 'Generate qualified demo interest',
+        audienceHypotheses: [],
+        adAngles: [],
+        adCopyVariations: [],
+        creativeBriefs: [],
+        budgetFramework: 'Planning envelope only',
+        trackingChecklist: ['Confirm destination'],
+        launchBlockers: ['No approved tracking'],
+      },
+    } as unknown as StrategyOutput, brief, deliverables)
+
+    expect(paidProperties.audienceHypotheses).toMatchObject({ minItems: 3, maxItems: 3 })
+    expect(paidProperties.adAngles).toMatchObject({ minItems: 4, maxItems: 4 })
+    expect(paidProperties.adCopyVariations).toMatchObject({ minItems: 9, maxItems: 9 })
+    expect(paidProperties.creativeBriefs).toMatchObject({ minItems: 4, maxItems: 4 })
+    expect(prompt).toContain('Repair ONLY the paidPlanning package')
+    expect(prompt).toContain('9 ad copy variations')
+    expect(prompt).toContain('Do not claim launch, spend, publishing')
   })
 })
 

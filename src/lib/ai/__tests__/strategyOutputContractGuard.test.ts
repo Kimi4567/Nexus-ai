@@ -693,6 +693,25 @@ describe('guardStrategyOutputContract', () => {
     expect(report.weakFields).toEqual([])
   })
 
+  it('replaces organic publishing work with paid-planning milestones in paid-only mode', () => {
+    const out = guardStrategyOutputContract({
+      weeklyExecutionPlan: [
+        { week: 1, deliverables: ['2 Reels about appointment workflow'], platforms: ['Instagram'] },
+        { week: 2, deliverables: ['1 carousel about clinic reporting'], platforms: ['Instagram'] },
+        { week: 3, deliverables: ['1 post promoting the demo'], platforms: ['LinkedIn'] },
+        { week: 4, deliverables: ['1 caption for the launch'], platforms: ['LinkedIn'] },
+      ],
+    }, {
+      allowedPlatforms: ['INSTAGRAM', 'LINKEDIN'],
+      strategyType: 'paid',
+      language: 'en',
+    })
+
+    expect(out.weeklyExecutionPlan).toHaveLength(4)
+    expect(JSON.stringify(out.weeklyExecutionPlan)).not.toMatch(/\b(posts?|reels?|carousels?|captions?|publishing)\b/i)
+    expect(JSON.stringify(out.weeklyExecutionPlan)).toMatch(/paid|planning|tracking|launch blockers/i)
+  })
+
   it('does not invent response owners when Brand Brain has no lead-handling process', () => {
     const out = guardStrategyOutputContract({
       contentAnglesDetailed: [{

@@ -1536,7 +1536,13 @@ function paidPlanningWeeklyPlan(list: unknown, ctx: NormalizedPlatformContext, l
   const ar = isArabicLanguage(language)
   const platform = firstPlatformLabel(ctx)
   const existing = Array.isArray(list) ? list.filter(isObject) : []
-  if (existing.length >= 4) return list
+  const paidOnlyOrganicDeliverable = /\b(posts?|posting|reels?|carousels?|captions?|content calendar|publish(?:ing|ed)?)\b|(?:منشورات?|ريلز|كاروسيل|كابشن|تقويم\s+محتوى|نشر)/i
+  const existingHasOrganicExecution = existing.some(item => (
+    Array.isArray(item.deliverables)
+    && item.deliverables.some(deliverable => paidOnlyOrganicDeliverable.test(String(deliverable ?? '')))
+  ))
+  const existingIsPaidPlanningOnly = existing.length >= 4 && !existingHasOrganicExecution
+  if (existingIsPaidPlanningOnly) return existing.slice(0, 4)
 
   const fallbacks: JsonObject[] = ar
     ? [
@@ -1552,7 +1558,8 @@ function paidPlanningWeeklyPlan(list: unknown, ctx: NormalizedPlatformContext, l
         { week: 4, objective: 'Review launch blockers', keyMessage: 'No launch happens until readiness and explicit confirmation exist.', deliverables: ['1 planning task: review launch blockers and tracking'], platforms: [platform], assetsNeeded: ['Tracking and account-readiness checklist'], cta: 'Complete readiness requirements', successMetric: 'Clear blocker list', executionNote: 'This is a planning brief only, not paid execution.', reviewPoints: ['Tracking, accounts, approval, and assets'] },
       ]
 
-  return [...existing, ...fallbacks].slice(0, Math.max(4, existing.length))
+  if (existingHasOrganicExecution) return fallbacks
+  return [...existing, ...fallbacks].slice(0, 4)
 }
 
 function guardPaidPlanningMinimums(output: JsonObject, ctx: NormalizedPlatformContext, language?: string | null): void {

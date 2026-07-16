@@ -51,11 +51,21 @@ function isArabicLanguage(language: unknown): boolean {
   return typeof language === 'string' && language.toLowerCase().startsWith('ar')
 }
 
-function sanitizeStrategyRunError(error: string | undefined, language: unknown): string | undefined {
+function sanitizeStrategyRunError(
+  error: string | undefined,
+  language: unknown,
+  strategyType?: 'organic' | 'paid' | 'full',
+): string | undefined {
   if (!error) return undefined
 
   if (/Strategy OS contract/i.test(error)) {
     if (/count:/i.test(error)) {
+      const paidPackageCountFailed = /paidPlanning\./i.test(error) || strategyType === 'paid'
+      if (paidPackageCountFailed) {
+        return isArabicLanguage(language)
+          ? 'أوقف NEXUS الحفظ لأن حزمة التخطيط المدفوع لم تُكمل العدد الذي راجعته من فرضيات الجمهور، الزوايا، النسخ الإعلانية، أو البريفات. لم تُحفظ حملة وتمت إعادة الكريديت إن خُصمت.'
+          : 'NEXUS blocked saving because the paid-planning package did not complete the reviewed number of audience hypotheses, ad angles, ad-copy variations, or creative briefs. No campaign was saved and charged credits were restored.'
+      }
       return isArabicLanguage(language)
         ? 'أوقف NEXUS الحفظ لأن مولّد الاستراتيجية لم يُكمل العدد الذي راجعته من اتجاهات المحتوى والخطة الأسبوعية. لم تُحفظ حملة جديدة وتمت إعادة الكريدت إن خُصمت. أعد المحاولة؛ سيحاول النظام إصلاح العدد تلقائيًا قبل الحفظ.'
         : 'NEXUS blocked saving because the strategy generator did not complete the reviewed number of content directions and weekly deliverables. No campaign was saved and charged credits were restored. Retry; the system will attempt a count repair before saving.'
@@ -231,6 +241,7 @@ export async function POST(req: NextRequest) {
   let deductedCredit: DeductedStrategyCredit | null = null
   let lateCreditFailure: StrategyCreditPreflightFailure | CreditOperationReplayError | null = null
   let preflightVisibleCredits: number | undefined
+  let strategyType: 'organic' | 'paid' | 'full' = 'organic'
 
   try {
     const user = await getAuthUser(req)
@@ -251,7 +262,9 @@ export async function POST(req: NextRequest) {
       ? (body.mediaIds as unknown[]).filter((id): id is string => typeof id === 'string' && id.length > 0)
       : undefined
     // PR-I — generation-time strategy intent (chosen in the modal; safe defaults).
-    const { strategyType, strategyDuration } = normalizeStrategyIntent(body?.strategyType, body?.strategyDuration)
+    const normalizedStrategyIntent = normalizeStrategyIntent(body?.strategyType, body?.strategyDuration)
+    strategyType = normalizedStrategyIntent.strategyType
+    const { strategyDuration } = normalizedStrategyIntent
 
     // ── PR-S1c-2 — variable strategy pricing ───────────────────────────────
     // Rebuild a validated StrategyOrder from the body and RECOMPUTE the cost
@@ -338,6 +351,7 @@ export async function POST(req: NextRequest) {
           message: sanitizeStrategyRunError(
             `BRAND_TRUTH_CONFLICT:${brandTruthReview.blockers.map(item => item.code).join(',')}`,
             body?.language,
+            strategyType,
           ),
           blockers: brandTruthReview.blockers,
           warnings: brandTruthReview.warnings,
@@ -598,8 +612,8 @@ export async function POST(req: NextRequest) {
           : preflightVisibleCredits,
       }, { status: 403 })
     }
-    const publicError = sanitizeStrategyRunError(rawError, body?.language)
-    const publicErrors = result.errors.map(error => sanitizeStrategyRunError(error, body?.language) || error)
+    const publicError = sanitizeStrategyRunError(rawError, body?.language, strategyType)
+    const publicErrors = result.errors.map(error => sanitizeStrategyRunError(error, body?.language, strategyType) || error)
 
     if (success && finalDeductedCredit) {
       const finalization = await finalizeCreditDeduction({
@@ -655,7 +669,7 @@ export async function POST(req: NextRequest) {
     const safeError = rawError && (/Strategy OS contract/i.test(rawError)
       || rawError.startsWith('BRAND_TRUTH_CONFLICT:')
       || rawError.startsWith('MARKETING_QUALITY_GATE_BLOCKED:'))
-      ? sanitizeStrategyRunError(rawError, body?.language) || genericStrategyRunFailureMessage(body?.language)
+      ? sanitizeStrategyRunError(rawError, body?.language, strategyType) || genericStrategyRunFailureMessage(body?.language)
       : genericStrategyRunFailureMessage(body?.language)
 
     return NextResponse.json(
