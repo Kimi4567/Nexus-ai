@@ -138,6 +138,7 @@ async function buildContentHubPostPrompt(campaign: any, post: any): Promise<stri
     differentiation: strategy.differentiation ?? undefined,
     keyMessage: strategy.keyMessage ?? undefined,
     postCaption: postContext,
+    creativeDirection: post.imagePrompt ?? undefined,
     platform: post.platform,
     creativeRequirement: {
       objective: campaign.goal ?? undefined,

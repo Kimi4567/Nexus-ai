@@ -57,6 +57,57 @@ describe('imageGen prompt contract', () => {
     expect(normalizeTextFreeCentralElement(scene, 'agency_consultancy')).toBe(scene)
   })
 
+  it('preserves post-specific SaaS semantics when an unsafe diagram brief is normalized', () => {
+    const creditScene = normalizeTextFreeCentralElement(
+      'Editorial product diagram with an immutable ledger entry',
+      'saas_ai_tech',
+      'quoted cost, confirmed metered action, and immutable ledger entry',
+    )
+    const brandScene = normalizeTextFreeCentralElement(
+      'System diagram connecting Brand Brain inputs to channel draft cards',
+      'saas_ai_tech',
+      'Brand Brain positioning, voice, verified claims, restrictions, and human review checkpoints',
+    )
+    const operationsScene = normalizeTextFreeCentralElement(
+      'Operations diagram showing ownership and capacity',
+      'saas_ai_tech',
+      'campaign ownership, capacity, handoffs, and the next approval decision',
+    )
+
+    expect(creditScene).toContain('three distinct tactile stations')
+    expect(brandScene).toContain('central translucent sculptural core')
+    expect(operationsScene).toContain('clearly separated work lanes')
+    expect(new Set([creditScene, brandScene, operationsScene]).size).toBe(3)
+  })
+
+  it('uses creative direction before a broad SaaS category when building a post prompt', async () => {
+    mockExtractVisualConcept.mockResolvedValueOnce({
+      centralElement: 'editorial dashboard diagram with cards and labels',
+      emotion: 'clear, controlled',
+      headline: 'Review the balance',
+      cta: 'Review',
+      visualMood: 'Premium operational clarity',
+    })
+
+    const { prompt, concept } = await buildImagePrompt({
+      visualType: 'SOCIAL_PREVIEW',
+      visualStyle: 'Premium',
+      brandName: 'NEXUS AI',
+      industry: 'AI marketing SaaS',
+      postCaption: 'Monthly plan credits and purchased credits have different lifecycle rules.',
+      creativeDirection: 'Show monthly and purchased credit pools with a durable separation.',
+      platform: 'LINKEDIN',
+      assetRole: 'post_background',
+    })
+
+    expect(mockExtractVisualConcept).toHaveBeenCalledWith(expect.objectContaining({
+      text: expect.stringContaining('monthly and purchased credit pools'),
+    }))
+    expect(concept?.centralElement).toContain('two clearly separated physical reservoirs')
+    expect(prompt).toContain('durable transparent vault')
+    expect(prompt).not.toContain('focused product and marketing team')
+  })
+
   it('brand-level fallback stays background-only and does not ask for text or logos', async () => {
     const { prompt } = await buildImagePrompt({
       visualType: 'HERO',

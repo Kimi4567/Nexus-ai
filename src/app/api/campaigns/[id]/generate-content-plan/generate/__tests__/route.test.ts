@@ -485,6 +485,10 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
         operationKey: expect.any(String),
       }),
     )
+    expect(mockBuildImagePrompt).toHaveBeenCalledWith(expect.objectContaining({
+      postCaption: expect.stringContaining(postA.caption),
+      creativeDirection: postA.imagePrompt,
+    }))
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })

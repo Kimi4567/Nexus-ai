@@ -72,6 +72,12 @@ export interface VisualContext {
   keyMessage?: string
   // Post-level creative brief — THIS is the primary driver
   postCaption?: string
+  /**
+   * Post-specific art direction produced by the content plan. Keep this
+   * separate from the caption so a broad SaaS category can never flatten five
+   * different posts into the same generic "people around glowing data" scene.
+   */
+  creativeDirection?: string
   // Platform (passed from route for dimension-aware composition)
   platform?: string           // META | INSTAGRAM | TIKTOK | LINKEDIN
   // Creative planning hints from CREATIVE-REQ1 / CREATIVE-TEMPLATE1
@@ -90,7 +96,7 @@ export const TEXT_FREE_BACKGROUND_IMAGE_CONSTRAINTS = `TEXT-FREE BACKGROUND CONT
 - Leave clean negative space for later editable/composited headline, CTA, logo, badge, and proof layers.
 - This generated asset is a draft background visual for review, not final ad creative, not a published post, and not a platform-ready ad.`
 
-const NON_RASTER_SAFE_CONCEPT_PATTERN = /\b(?:ui|screens?|interfaces?|dashboards?|charts?|graphs?|infographics?|icons?|metric\s*cards?|data\s*visualizations?|glass\s*boards?|signage|signs?|logos?|words?|letters?|numbers?|typography|reports?|laptops?|computers?|digital\s*devices?)\b|(?:واجهة|واجهات|شاشة|شاشات|لوحة\s*معلومات|لوحات\s*معلومات|مخطط|مخططات|رسم\s*بياني|رسوم\s*بيانية|إنفوجرافيك|انفوجرافيك|أيقونات|ايقونات|رموز|تقارير|حاسوب|كمبيوتر|لابتوب|أجهزة\s*رقمية|نص|نصوص|شعار|شعارات|حروف|أرقام)/i
+const NON_RASTER_SAFE_CONCEPT_PATTERN = /\b(?:ui|screens?|interfaces?|dashboards?|diagrams?|charts?|graphs?|infographics?|icons?|metric\s*cards?|data\s*visualizations?|glass\s*boards?|signage|signs?|logos?|words?|letters?|numbers?|typography|reports?|laptops?|computers?|digital\s*devices?)\b|(?:واجهة|واجهات|شاشة|شاشات|لوحة\s*معلومات|لوحات\s*معلومات|مخطط|مخططات|رسم\s*بياني|رسوم\s*بيانية|إنفوجرافيك|انفوجرافيك|أيقونات|ايقونات|رموز|تقارير|حاسوب|كمبيوتر|لابتوب|أجهزة\s*رقمية|نص|نصوص|شعار|شعارات|حروف|أرقام)/i
 
 /**
  * Image models often turn dashboards, charts, and infographic requests into
@@ -100,9 +106,35 @@ const NON_RASTER_SAFE_CONCEPT_PATTERN = /\b(?:ui|screens?|interfaces?|dashboards
 export function normalizeTextFreeCentralElement(
   centralElement: string,
   category: BrandCategory,
+  sourceText = centralElement,
 ): string {
   const clean = centralElement.replace(/\s+/g, ' ').trim()
   if (clean && !NON_RASTER_SAFE_CONCEPT_PATTERN.test(clean)) return clean
+
+  const semanticSource = `${sourceText} ${clean}`.toLowerCase()
+
+  // Unsafe diagram/UI requests still carry useful semantic intent. Translate
+  // that intent into a concrete, text-free physical metaphor instead of
+  // replacing every SaaS request with one category-level stock scene.
+  if (/monthly|purchased|billing cycle|credit pools?|plan credits?|شهري|الشهرية|المشت(?:رى|راة)|دورة الباقة|نوع الرصيد/i.test(semanticSource)) {
+    return 'two clearly separated physical reservoirs of blank metallic tokens: one beside a circular renewal ring and one inside a durable transparent vault, with a precise divider between them and generous negative space'
+  }
+
+  if (/credits?|ledger|quoted cost|metered action|pricing|balance|كريديت|أرصدة|رصيد|تكلفة|خصم|سجل/i.test(semanticSource)) {
+    return 'three distinct tactile stations arranged left to right: a small stack of blank metallic tokens beside a quotation tile, one illuminated confirmation gate, and a sealed archive of blank ledger cards, connected by one precise physical path'
+  }
+
+  if (/brand brain|positioning|voice|verified claims?|restrictions?|channel drafts?|تموضع|النبرة|ادعاءات موثقة|القيود|مسودات القنوات/i.test(semanticSource)) {
+    return 'one central translucent sculptural core receiving four distinct blank material inputs, then branching into three differently shaped channel frames, with a visible human review gate before the frames and no screens or lettering'
+  }
+
+  if (/ownership|capacity|handoffs?|approval|assignments?|operations?|ملكية|السعة|تسليم|الموافقات|المهام|التشغيل/i.test(semanticSource)) {
+    return 'three-person operations team passing distinct blank task blocks through clearly separated work lanes toward one physical review gate, with visible unused lane capacity and an uncluttered premium workspace'
+  }
+
+  if (/workflow|strategy|execution|results?|stages?|سير العمل|الاستراتيجية|التنفيذ|النتائج|المراحل/i.test(semanticSource)) {
+    return 'six distinct tactile stages forming one governed physical path from a central brand core through planning blocks and a human review gate to a final measurement vessel, with every stage visually separate and no screens'
+  }
 
   if (category === 'saas_ai_tech' || category === 'agency_consultancy') {
     return 'focused marketing and product team collaborating around a clean table, arranging blank color-coded wooden tiles and luminous physical connection nodes into an orderly path, premium uncluttered workspace'
@@ -534,6 +566,9 @@ export async function buildImagePrompt(ctx: VisualContext): Promise<{
     || ctx.primaryOffer
     || ctx.campaignName
     || ''
+  const conceptText = [ctx.creativeDirection, captionText]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .join('\n')
 
   // 2. Detect language
   const language = detectLanguage(captionText)
@@ -553,7 +588,7 @@ export async function buildImagePrompt(ctx: VisualContext): Promise<{
   }
 
   // 5. No text → use brand-level prompt (no concept extraction needed)
-  if (!captionText.trim()) {
+  if (!conceptText.trim()) {
     const prompt = buildBrandLevelPrompt(ctx, colorMood, style, language)
     return { prompt, language }
   }
@@ -561,14 +596,14 @@ export async function buildImagePrompt(ctx: VisualContext): Promise<{
   // 6. Extract the visual concept deterministically. The only paid provider
   // call in the image action is the image generation request itself.
   const extractedConcept = await extractVisualConcept({
-    text:      captionText,
+    text:      conceptText,
     industry:  ctx.industry || category,
     brandName: ctx.brandName || 'Brand',
     language,
   })
   const concept: VisualConcept = {
     ...extractedConcept,
-    centralElement: normalizeTextFreeCentralElement(extractedConcept.centralElement, category),
+    centralElement: normalizeTextFreeCentralElement(extractedConcept.centralElement, category, conceptText),
   }
 
   if (process.env.NODE_ENV !== 'production') {
