@@ -47,10 +47,17 @@ function text(ar: boolean, arText: string, enText: string): string {
 }
 
 function strategyTypeLabel(strategyType: string | null, ar: boolean): string {
-  if (strategyType === 'paid') return text(ar, 'مدفوع فقط', 'paid-only')
-  if (strategyType === 'full') return text(ar, 'شامل', 'full')
-  if (strategyType === 'organic') return text(ar, 'عضوي فقط', 'organic-only')
-  return text(ar, 'غير محدد', 'unspecified')
+  // Keep the variants as data instead of consecutive calls through `text()`.
+  // The production minifier previously coalesced those same-shaped branches
+  // into the first label, making organic/full helpers display "paid-only"
+  // even though unit tests and the unminified function were correct.
+  const labels: Record<string, readonly [string, string]> = {
+    paid: ['مدفوع فقط', 'paid-only'],
+    full: ['شامل', 'full'],
+    organic: ['عضوي فقط', 'organic-only'],
+  }
+  const [arLabel, enLabel] = strategyType ? labels[strategyType] ?? ['غير محدد', 'unspecified'] : ['غير محدد', 'unspecified']
+  return ar ? arLabel : enLabel
 }
 
 function countLabel(count: number, ar: boolean): string {
