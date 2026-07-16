@@ -258,6 +258,13 @@ describe('contentPlanStructuredRenderer', () => {
       'Achieve seamless operations.',
       'Discover how NEXUS AI enhances resource utilization.',
       'With NEXUS AI, you can trust that every marketing decision is backed by human approval.',
+      'Our system helps you know exactly where your marketing spend is going.',
+      "Limited resources won't hold you back from achieving marketing success.",
+      'See how collaboration enhances marketing solutions.',
+      'Learn how to make the most of your resources.',
+      'يمكنك الوثوق في كل خطوة لضمان دقة وفعالية الاستراتيجيات.',
+      'مع نكسوس AI، يمكنك التحكم الكامل في إنفاقك.',
+      'حلولنا تساعد على تحسين عملياتك التسويقية.',
     ]
 
     for (const caption of captions) {

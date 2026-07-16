@@ -513,6 +513,63 @@ function guardDeliveryClaims(text: string): string {
 function guardDraftCopyQuality(text: string): string {
   return text
     .replace(
+      /اكتشف كيف تعزز الرقابة البشرية التسويق بالذكاء الاصطناعي\.?/g,
+      'راجع أين تتدخل الموافقة البشرية في مسار التسويق المدعوم بالذكاء الاصطناعي.',
+    )
+    .replace(
+      /مع نكسوس AI، يمكنك الوثوق في أن كل خطوة يتم الموافقة عليها من قبل البشر لضمان دقة وفعالية الاستراتيجيات\.?/gi,
+      'في NEXUS AI، تبقى مسودات الاستراتيجية والمحتوى للمراجعة البشرية، ويتطلب النشر والإنفاق الإعلاني موافقة.',
+    )
+    .replace(
+      /اكتشف كيف تحافظ نكسوس AI على صوت علامتك التجارية متسقًا عبر جميع القنوات\.?/gi,
+      'راجع كيف يحمل Brand Brain الرسائل المعتمدة إلى مسودات القنوات المختلفة.',
+    )
+    .replace(
+      /ضمان الاتساق في الرسائل يساعد على من هوية علامتك التجارية\.?/g,
+      'راجع استخدام الرسائل المعتمدة قبل اعتماد محتوى كل قناة.',
+    )
+    .replace(
+      /شاهد كيف يمكن لحلول نكسوس AI المتكاملة تحسين عملياتك التسويقية\.?\s*اكتشف إمكانيات سير العمل المتكامل\.?/gi,
+      'راجع خطوات سير العمل من الاستراتيجية إلى المسودات والموافقة.',
+    )
+    .replace(
+      /فهم نظام الائتمان لدينا يمنحك وضوحًا على نفقاتك التسويقية\.?/g,
+      'راجع تكلفة الكريديت المعروضة قبل كل عملية ذكاء اصطناعي مدفوعة.',
+    )
+    .replace(
+      /مع نكسوس AI، يمكنك التحكم الكامل في إنفاقك\.?/gi,
+      'راجع سجل الكريديت وحدود الإنفاق والموافقات قبل التنفيذ.',
+    )
+    .replace(
+      /\bUnderstanding how ([^.!?]+) credits work can put your budget concerns to rest\.?/gi,
+      'Review the displayed credit cost and ledger entry for each metered action in $1.',
+    )
+    .replace(
+      /\bOur credit system offers transparency and predictability, helping you know exactly where your marketing spend is going\.?/gi,
+      'The product displays the credit cost before each metered AI action and records the result in the ledger.',
+    )
+    .replace(
+      /\bWith our tools, limited resources won't hold you back from achieving marketing success\.?/gi,
+      'Review current capacity, task ownership, and approval handoffs before expanding the plan.',
+    )
+    .replace(
+      /\bDiscover the synergy between AI and human expertise at ([^.!?]+)\.?/gi,
+      'Review where AI drafts and human approval meet in $1.',
+    )
+    .replace(
+      /\bSee how collaboration enhances marketing solutions\.?/gi,
+      'Review the documented draft and approval handoffs.',
+    )
+    .replace(
+      /\bOptimize your resource management with AI-driven solutions from ([^.!?]+)\.?/gi,
+      'Review how marketing tasks and approval ownership are assigned in $1.',
+    )
+    .replace(
+      /\bLearn how to make the most of your resources\.?/gi,
+      'Compare the proposed workload with the available team capacity.',
+    )
+    .replace(/\.\s+with ([A-Z0-9])/g, '. With $1')
+    .replace(
       /\bWith ([^.!?]{1,80}), you can trust that every marketing decision is backed by human approval\.?/gi,
       '$1 requires human approval before publishing or ad spend.',
     )

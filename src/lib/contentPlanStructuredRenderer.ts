@@ -76,11 +76,11 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'malformed_caption',
-    re: /\bhelps that\b|\bhelp consistent\b|\bhelp your [^.!?]{0,80} remains\b|#[\p{L}\p{N}_]*coffeeless\b/iu,
+    re: /\bhelps that\b|\bhelp consistent\b|\bhelp your [^.!?]{0,80} remains\b|\.\s+with\s+[A-Z0-9]|يساعد على من هوية|#[\p{L}\p{N}_]*coffeeless\b/iu,
   },
   {
     reason: 'unsupported_absolute_claim',
-    re: /\beliminat(?:e|es|ed|ing) scattered efforts\b|\bachieve seamless operations\b|\benhances? resource utilization\b|\btrust that every marketing decision\b/i,
+    re: /\beliminat(?:e|es|ed|ing) scattered efforts\b|\bachieve seamless operations\b|\benhances? resource utilization\b|\btrust that every marketing decision\b|\bput your budget concerns to rest\b|\bknow exactly where your marketing spend is going\b|\bwon't hold you back\b|\bachieving marketing success\b|\benhances marketing solutions\b|\bmake the most of your resources\b|ضمان دقة وفعالية الاستراتيجيات|التحكم الكامل في إنفاقك|تحسين عملياتك التسويقية/i,
   },
   {
     reason: 'unsupported_absolute_claim',

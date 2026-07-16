@@ -1003,6 +1003,28 @@ describe('contentDraftTruthGuard', () => {
     expect(serialized).toMatch(/ownership clearer/i)
   })
 
+  it('repairs the exact bilingual NEXUS drafts found by the post-save human audit', () => {
+    const drafts = [
+      'اكتشف كيف تعزز الرقابة البشرية التسويق بالذكاء الاصطناعي. مع نكسوس AI، يمكنك الوثوق في أن كل خطوة يتم الموافقة عليها من قبل البشر لضمان دقة وفعالية الاستراتيجيات.',
+      'Understanding how NEXUS AI credits work can put your budget concerns to rest. Our credit system offers transparency and predictability, helping you know exactly where your marketing spend is going.',
+      'اكتشف كيف تحافظ نكسوس AI على صوت علامتك التجارية متسقًا عبر جميع القنوات. ضمان الاتساق في الرسائل يساعد على من هوية علامتك التجارية.',
+      "With our tools, limited resources won't hold you back from achieving marketing success.",
+      'Discover the synergy between AI and human expertise at NEXUS AI. See how collaboration enhances marketing solutions.',
+      'شاهد كيف يمكن لحلول نكسوس AI المتكاملة تحسين عملياتك التسويقية. اكتشف إمكانيات سير العمل المتكامل.',
+      'Keep approved brand messaging available across the workflow. with NEXUS AI.',
+      'Optimize your resource management with AI-driven solutions from NEXUS AI. Learn how to make the most of your resources.',
+      'فهم نظام الائتمان لدينا يمنحك وضوحًا على نفقاتك التسويقية. مع نكسوس AI، يمكنك التحكم الكامل في إنفاقك.',
+    ]
+    const guarded = drafts.map(draft => guardContentDraftText(draft, {
+      brandFacts: ['AI drafts require human review before publishing or ad spend.'],
+    })).join(' ')
+
+    expect(guarded).toContain('approval handoffs')
+    expect(guarded).toContain('تكلفة الكريديت المعروضة')
+    expect(guarded).not.toMatch(/الوثوق في أن كل خطوة|ضمان دقة وفعالية|budget concerns to rest|know exactly where|يساعد على من هوية|won't hold you back|marketing success|enhances marketing solutions|تحسين عملياتك التسويقية|make the most of your resources|التحكم الكامل/i)
+    expect(guarded).not.toContain('. with NEXUS')
+  })
+
   it('documents the draft-only content plan policy', () => {
     const prompt = buildContentDraftTruthPolicyPrompt()
 
