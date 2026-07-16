@@ -199,6 +199,11 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
   // Close from success screen — clear cache so next open starts a fresh run
   const handleCloseFromSuccess = () => {
     clearResultCache()
+    // Refresh the parent only after the user has seen the success receipt and
+    // leaves this screen. Refreshing immediately can switch the Strategy page
+    // between its empty/populated layouts, remount this modal while it is still
+    // open, and incorrectly send a completed run back to the first gate.
+    onSuccess?.()
     onClose()
   }
 
@@ -462,7 +467,6 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
           } else {
             setPhase('success')
             void refreshBillingStatus()
-            onSuccess?.()
           }
         })
         .catch(() => {

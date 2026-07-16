@@ -112,7 +112,14 @@ function orderContext(aiOutput: unknown, strategyType: string | null): {
 export function deriveStrategyFulfillmentSummary(input: StrategyFulfillmentInput): StrategyFulfillmentSummary {
   const ar = input.locale === 'ar'
   const review = deriveContentPlanOrderReview(input.aiOutput, input.posts)
-  const { planningHorizonDays, helperSuffix } = orderContext(input.aiOutput, review.strategyType)
+  // A positive organic direction promise can never be described as paid-only,
+  // even when a legacy snapshot contains a stale duplicated strategy label.
+  // Keep this invariant at the final presentation boundary as well as inside
+  // the order resolver so the value and helper sentence cannot diverge.
+  const fulfillmentStrategyType = (review.expectedDirections ?? 0) > 0 && review.strategyType === 'paid'
+    ? 'organic'
+    : review.strategyType
+  const { planningHorizonDays, helperSuffix } = orderContext(input.aiOutput, fulfillmentStrategyType)
   const label = text(ar, 'مطابقة وعد التوليد', 'Order fulfillment')
 
   if (!input.operatingSnapshotsLoaded) {

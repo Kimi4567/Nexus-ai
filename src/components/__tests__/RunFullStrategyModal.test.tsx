@@ -12,7 +12,7 @@ vi.mock('@/lib/auth-context', () => ({
 }))
 
 vi.mock('@/lib/useBillingStatus', () => ({
-  useBillingStatus: () => ({ status: { plan: billingPlan.current } }),
+  useBillingStatus: () => ({ status: { plan: billingPlan.current }, invalidate: vi.fn() }),
 }))
 
 vi.mock('@/components/UpgradeModal', () => ({
@@ -45,6 +45,17 @@ vi.mock('@/lib/i18n-context', () => ({
           step4: 'Creating execution plan',
           step5: 'Finalizing brief',
           errorClose: 'Close',
+          successTitle: 'Strategy complete!',
+          successSub: 'Your new campaign is ready and saved.',
+          campaignCreated: 'Campaign created',
+          statCampaign: 'Campaign',
+          statSuggestions: 'Suggestions',
+          statCreditsUsed: 'Credits used',
+          statCreditsLeft: 'Credits left',
+          chipBrandBrain: 'Brand Brain',
+          successCampaign: 'Open strategy decision desk',
+          successCampaigns: 'Open campaigns',
+          successSuggestions: 'Close',
         }
       }
       if (key === 'brandGate') {
@@ -146,6 +157,42 @@ describe('RunFullStrategyModal preflight', () => {
     })
     const generationCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')
     expect(String(generationCall?.[0])).toBe('/api/strategy/run-full')
+  })
+
+  it('keeps the success receipt visible until the user leaves it', async () => {
+    const onSuccess = vi.fn()
+    const onClose = vi.fn()
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/brand') return response({ brandProfile: readyProfile })
+      if (url === '/api/user/credits') return response({ creditsRemaining: 189 })
+      if (url === '/api/strategy/run-full' && init?.method === 'POST') {
+        return response({
+          ok: true,
+          campaignId: 'campaign-success',
+          campaignName: 'Verified strategy',
+          suggestions: 3,
+          creditsUsed: 12,
+          creditsRemaining: 177,
+        })
+      }
+      return Promise.resolve({ ok: false, json: () => Promise.resolve({}) })
+    })
+
+    render(<RunFullStrategyModal isOpen startFresh onClose={onClose} onSuccess={onSuccess} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Set up strategy request' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Review strategy scope' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Review cost — 12 credits' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm and generate strategy — 12 credits' }))
+
+    expect(await screen.findByRole('heading', { name: 'Strategy complete!' })).toBeTruthy()
+    expect(onSuccess).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Close' })[0])
+    expect(onSuccess).toHaveBeenCalledTimes(1)
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   it('shows the plan-capped post count on final confirmation', async () => {
