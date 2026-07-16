@@ -614,7 +614,7 @@ Rules:
     // Arabic for ar/bilingual/unset campaigns; English only when explicitly 'en'.
     const isArabic = (bodyLanguage || '').toLowerCase() !== 'en'
 
-    const postsToCreate = slots.map((slot, i) => {
+    const renderedPostsToCreate = slots.map((slot, i) => {
       const gen = generatedPosts[i] ?? generatedPosts.find((g: any) => g.index === slot.index) ?? {}
       // Video slots return videoCaption (not caption). Prefer real AI copy; only
       // fall back to language-aware brand copy — never an English placeholder.
@@ -707,6 +707,11 @@ Rules:
         variantWinner: false,
       }
     })
+
+    // The renderer may assemble caption/video fields from several model keys.
+    // Apply the field-aware truth policy to the FINAL persistence payload so
+    // the reviewed copy is exactly what the database receives.
+    const postsToCreate = guardContentDraftTruth(renderedPostsToCreate, proofContext)
 
     const saveGateIssues = postsToCreate.flatMap((post, index) =>
       validateContentPlanDraftForSave({
@@ -844,7 +849,7 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
           throw new Error('OpenAI returned an incomplete B-variant set')
         }
 
-        const bVariantsToCreate = imageSlotsWithAB.map(({ slot, i }, bIdx) => {
+        const renderedBVariantsToCreate = imageSlotsWithAB.map(({ slot, i }, bIdx) => {
           const gen = generatedPosts[i] ?? generatedPosts.find((g: any) => g.index === slot.index) ?? {}
           const bGen = bPosts[bIdx] ?? bPosts.find((b: any) => b.index === i) ?? {}
           const caption = guardContentDraftText(bGen.caption, proofContext)
@@ -893,6 +898,8 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
             variantWinner: false,
           }
         })
+
+        const bVariantsToCreate = guardContentDraftTruth(renderedBVariantsToCreate, proofContext)
 
         const bVariantIssues = bVariantsToCreate.flatMap((post, index) =>
           validateContentPlanDraftForSave({

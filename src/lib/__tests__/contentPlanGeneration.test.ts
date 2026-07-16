@@ -292,6 +292,14 @@ describe('resolveContentPlanSlotScope', () => {
     expect(routeSource).toContain('deduction: charge')
     expect(routeSource).toContain("refundContentActionCharge(userId, contentPlanCharge, 'CONTENT_PLAN_GENERATION'")
   })
+
+  it('applies the field-aware truth policy to the final persistence payload', () => {
+    const routeSource = readFileSync('src/app/api/campaigns/[id]/generate-content-plan/route.ts', 'utf8')
+
+    expect(routeSource).toContain('const renderedPostsToCreate = slots.map')
+    expect(routeSource).toContain('const postsToCreate = guardContentDraftTruth(renderedPostsToCreate, proofContext)')
+    expect(routeSource).toContain('const bVariantsToCreate = guardContentDraftTruth(renderedBVariantsToCreate, proofContext)')
+  })
 })
 
 describe('distributeContentPlanSlots', () => {
