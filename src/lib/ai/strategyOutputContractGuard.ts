@@ -19,6 +19,7 @@ export interface StrategyOutputContractContext {
   hasLeadHandling?: boolean
   hasConversionDestination?: boolean
   allowedCompetitors?: string[] | null
+  goal?: string | null
 }
 
 interface NormalizedPlatformContext {
@@ -417,6 +418,65 @@ function normalizeOrganicChannelMix(list: unknown): unknown {
 
 function isArabicLanguage(language: string | null | undefined): boolean {
   return typeof language === 'string' && language.toLowerCase().startsWith('ar')
+}
+
+function guardBusinessObjectiveGoal(
+  value: unknown,
+  goal: string | null | undefined,
+  language?: string | null,
+): unknown {
+  if (!isObject(value) || typeof goal !== 'string' || !goal.trim()) return value
+  const normalizedGoal = goal.trim().toLowerCase()
+  const ar = isArabicLanguage(language)
+  const objective = (() => {
+    if (normalizedGoal === 'lead' || normalizedGoal === 'leads' || normalizedGoal.includes('qualified lead')) {
+      return ar
+        ? {
+            marketing: 'توليد اهتمام مؤهل بالعروض التوضيحية وتسجيله عبر مسار التحويل الذي راجعه المستخدم.',
+            successIn30Days: 'تحديد خط أساس للاهتمام المؤهل واكتمال مسار طلب العرض من بيانات حقيقية.',
+          }
+        : {
+            marketing: 'Generate qualified demo interest and capture it through the user-reviewed conversion path.',
+            successIn30Days: 'Establish a baseline for qualified interest and demo-path completion from real data.',
+          }
+    }
+    if (normalizedGoal === 'sale' || normalizedGoal === 'sales' || normalizedGoal.includes('revenue')) {
+      return ar
+        ? {
+            marketing: 'دعم قرارات الشراء عبر العرض ومسار التحويل اللذين راجعهما المستخدم.',
+            successIn30Days: 'تحديد خط أساس لإشارات نية الشراء واكتمال مسار التحويل من بيانات حقيقية.',
+          }
+        : {
+            marketing: 'Support purchase decisions through the user-reviewed offer and conversion path.',
+            successIn30Days: 'Establish a baseline for purchase-intent signals and conversion-path completion from real data.',
+          }
+    }
+    if (normalizedGoal.includes('traffic')) {
+      return ar
+        ? {
+            marketing: 'جذب زيارات ذات صلة إلى الوجهة التي راجعها المستخدم وقياس جودة الزيارة.',
+            successIn30Days: 'تحديد خط أساس للزيارات ذات الصلة وجودة التفاعل من بيانات حقيقية.',
+          }
+        : {
+            marketing: 'Drive relevant visits to the user-reviewed destination and measure visit quality.',
+            successIn30Days: 'Establish a baseline for relevant visits and engagement quality from real data.',
+          }
+    }
+    if (normalizedGoal.includes('awareness')) {
+      return ar
+        ? {
+            marketing: 'بناء وعي قابل للقياس لدى الجمهور والقنوات اللذين راجعهما المستخدم.',
+            successIn30Days: 'تحديد خط أساس للوصول والتفاعل ذي الصلة من بيانات حقيقية.',
+          }
+        : {
+            marketing: 'Build measurable awareness with the user-reviewed audience and channels.',
+            successIn30Days: 'Establish a baseline for relevant reach and engagement from real data.',
+          }
+    }
+    return null
+  })()
+
+  return objective ? { ...value, ...objective } : value
 }
 
 function firstPlatformLabel(ctx: NormalizedPlatformContext): string {
@@ -1529,6 +1589,7 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
     ? guardUnverifiedConversionActions(leadGuardedValue, context.language)
     : leadGuardedValue) as JsonObject
   output.campaignName = guardCampaignName(output.campaignName, context.strategyType, context.language)
+  output.businessObjective = guardBusinessObjectiveGoal(output.businessObjective, context.goal, context.language)
 
   if (context.strategyType === 'paid') {
     guardPaidPlanningMinimums(output, ctx, context.language)

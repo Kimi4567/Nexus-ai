@@ -217,6 +217,7 @@ export async function runFullAgency(
       hasLeadHandling: Boolean(bp.leadHandling),
       hasConversionDestination: Boolean(bp.conversionDestination),
       allowedCompetitors,
+      goal: brief.primaryGoal,
     })
     // Evidence provenance is a deterministic snapshot of the approved Brand
     // Brain proof available at generation time. Never accept model-authored

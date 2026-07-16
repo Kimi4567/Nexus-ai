@@ -1253,6 +1253,7 @@ function CampaignDetailPageInner() {
       language: strategyLanguage,
       strategyType: strategyScope.type,
       hasConversionDestination: Boolean((brandDNA as any)?.conversionDestination),
+      goal: campaign.goal,
     }) as Record<string, unknown>,
     [(brandDNA as any)?.marketingBudget, (brandDNA as any)?.pastAdResults]
       .filter((value): value is string => typeof value === 'string' && value.trim().length > 0),

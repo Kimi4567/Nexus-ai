@@ -44,6 +44,30 @@ describe('deriveStrategyFulfillmentSummary', () => {
     expect(summary.helper).toContain('draft posts are created later in Content Hub')
   })
 
+  it('never describes positive organic deliverables as paid-only', () => {
+    const summary = deriveStrategyFulfillmentSummary({
+      locale: 'en',
+      operatingSnapshotsLoaded: true,
+      aiOutput: {
+        strategyType: 'paid',
+        strategyOrder: { strategyType: 'organic', durationDays: 30 },
+        strategyDeliverables: {
+          planningHorizonDays: 30,
+          organicPostCount: 3,
+          paidAdAngleCount: 0,
+          paidAdVariationCount: 0,
+          creativeBriefCount: 0,
+          audienceHypothesisCount: 0,
+        },
+      },
+      posts: [],
+    })
+
+    expect(summary.status).toBe('waiting_for_content_hub')
+    expect(summary.helper).toContain('Saved order: organic-only')
+    expect(summary.helper).not.toContain('paid-only')
+  })
+
   it('shows paid planning-only as fulfilled when no organic Content Hub posts are expected', () => {
     const summary = deriveStrategyFulfillmentSummary({
       locale: 'en',

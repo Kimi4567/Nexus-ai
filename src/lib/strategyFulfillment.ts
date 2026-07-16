@@ -67,11 +67,30 @@ function orderContext(aiOutput: unknown, strategyType: string | null): {
   const deliverables = output && isRecord(output.strategyDeliverables) ? output.strategyDeliverables : null
 
   const planningHorizonDays = numberOrNull(deliverables?.planningHorizonDays) ?? numberOrNull(order?.durationDays)
+  const savedStrategyType = typeof order?.strategyType === 'string'
+    ? order.strategyType.trim().toLowerCase()
+    : typeof output?.strategyType === 'string'
+      ? output.strategyType.trim().toLowerCase()
+      : null
+  const hasOrganicDeliverables = (numberOrNull(deliverables?.organicPostCount) ?? 0) > 0
+  const hasPaidDeliverables = Boolean(deliverables && [
+    deliverables.paidAdAngleCount,
+    deliverables.paidAdVariationCount,
+    deliverables.creativeBriefCount,
+    deliverables.audienceHypothesisCount,
+  ].some(value => (numberOrNull(value) ?? 0) > 0))
+  const effectiveStrategyType = hasOrganicDeliverables && hasPaidDeliverables
+    ? 'full'
+    : hasOrganicDeliverables
+      ? 'organic'
+      : hasPaidDeliverables
+        ? 'paid'
+        : savedStrategyType ?? strategyType
 
   return {
     planningHorizonDays,
     helperSuffix: (ar: boolean) => {
-      const scope = strategyTypeLabel(strategyType, ar)
+      const scope = strategyTypeLabel(effectiveStrategyType, ar)
       if (planningHorizonDays !== null) {
         return text(
           ar,

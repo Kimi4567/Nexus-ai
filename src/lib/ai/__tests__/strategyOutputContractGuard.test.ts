@@ -43,6 +43,20 @@ describe('guardStrategyOutputContract', () => {
     expect(JSON.stringify(out.channelMix)).not.toMatch(/budgetPercent/)
   })
 
+  it('aligns the marketing objective with the user-reviewed lead goal', () => {
+    const out = guardStrategyOutputContract({
+      businessObjective: {
+        primary: 'Generate qualified leads',
+        marketing: 'Increase brand awareness and engagement',
+        successIn30Days: 'Grow awareness',
+      },
+    }, { goal: 'LEADS', language: 'en' })
+
+    expect(out.businessObjective.marketing).toContain('qualified demo interest')
+    expect(out.businessObjective.successIn30Days).toContain('baseline')
+    expect(out.businessObjective.marketing).not.toContain('awareness')
+  })
+
   it('keeps budgetPercent available for paid planning mode', () => {
     const out = guardStrategyOutputContract({
       channelMix: [
