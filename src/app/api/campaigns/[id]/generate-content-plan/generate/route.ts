@@ -8,7 +8,7 @@
  * - Exactly 1 post per call so provider latency cannot strand a paid batch
  * - Each post: generate image → upload to Cloudinary → update DB
  * - Frontend polls and re-triggers for remaining posts
- * - Deducts the documented IMAGE_GENERATION cost (currently 3 credits) per image
+ * - Deducts the centralized IMAGE_GENERATION cost per image
  */
 
 import { NextRequest, NextResponse } from 'next/server'

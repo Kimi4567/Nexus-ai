@@ -44,7 +44,7 @@ export const CREDIT_COSTS = {
    * Revenue @ Agency: 5 × $0.198 = $0.990 | Margin: ~99%
    * Revenue @ Starter: 5 × $0.380 = $1.900 | Margin: ~99%
    */
-  CAMPAIGN_GENERATION: 5,
+  CAMPAIGN_GENERATION: 8,
 
   /**
    * Run Full Strategy — fires the Strategist agent (orchestrator, strategy-only path)
@@ -55,7 +55,7 @@ export const CREDIT_COSTS = {
    * Revenue @ Agency: 8 × $0.198 = $1.584 | Margin: ~94–95%
    * Revenue @ Starter: 8 × $0.380 = $3.040 | Margin: ~97%
    */
-  RUN_FULL_STRATEGY: 8,
+  RUN_FULL_STRATEGY: 12,
 
   /**
    * Creative Brief — visual direction: asset analysis + concept generation
@@ -66,7 +66,7 @@ export const CREDIT_COSTS = {
    * Revenue @ Agency: 3 × $0.198 = $0.594 | Margin: ~92–96%
    * Revenue @ Starter: 3 × $0.380 = $1.140 | Margin: ~96–98%
    */
-  CREATIVE_BRIEF: 3,
+  CREATIVE_BRIEF: 5,
 
   /**
    * Sentinel Review — AI quality + risk + Brand Voice gate for a campaign
@@ -77,20 +77,19 @@ export const CREDIT_COSTS = {
    * Revenue @ Agency: 2 × $0.198 = $0.396 | Margin: ~94%
    * Revenue @ Starter: 2 × $0.380 = $0.760 | Margin: ~97%
    */
-  SENTINEL_REVIEW: 2,
+  SENTINEL_REVIEW: 3,
 
   /**
    * Image generation — gpt-image-1 at high quality (platform-native sizing)
    * Routes: /api/visuals/generate, /api/campaigns/[id]/generate-content-plan/generate
    * Model: gpt-image-1, quality: 'high' (upgraded from DALL-E 3 in Sprint IQ)
    * Sizes: 1024×1024 (square), 1024×1536 (portrait), 1536×1024 (landscape — default)
-   * API cost: verify exact rate at platform.openai.com/usage — estimated $0.040–$0.080/image
-   * ⚠️  NOTE: 1536×1024 landscape (default) costs MORE than 1024×1024. Confirm rate.
-   * Revenue @ Agency: 3 × $0.198 = $0.594 | Margin: ~85–93% (depends on verified rate)
-   * Revenue @ Starter: 3 × $0.380 = $1.140 | Margin: ~93–96%
+   * July 2026 planning reserve: up to $0.25 image-output cost for high-quality
+   * 1536×1024 on the configured model, plus prompt/image-input tokens. The
+   * commercial price includes retry, storage, moderation, and support reserve.
    * Fallback: fal.ai Flux 1.1 Pro Ultra when FAL_KEY is set (~$0.06/image)
    */
-  IMAGE_GENERATION: 3,
+  IMAGE_GENERATION: 4,
 
   /**
    * Ad copy generation — gpt-4o-mini ad concepts and copy variants
@@ -102,7 +101,7 @@ export const CREDIT_COSTS = {
    * API cost: ~$0.001 (gpt-4o-mini @ $0.15/M in, $0.60/M out)
    * Revenue @ Agency: 2 × $0.198 = $0.396 | Margin: ~99%
    */
-  AD_COPY: 2,
+  AD_COPY: 3,
 
   /**
    * Small field suggestion — one short gpt-4o-mini response used while filling
@@ -116,7 +115,7 @@ export const CREDIT_COSTS = {
    * platform-specific targeting, budget-allocation, creative, and tracking
    * package. This is distinct from ad-copy drafting and uses the full model.
    */
-  PAID_EXECUTION_PLAN: 4,
+  PAID_EXECUTION_PLAN: 6,
 
   /**
    * Chat message — streaming assistant with campaign/brand context injection
@@ -134,7 +133,7 @@ export const CREDIT_COSTS = {
    * Provider prices are monitored separately; one credit is a commercial unit,
    * not a promise that one credit equals a fixed number of provider tokens.
    */
-  AI_POST_REWRITE: 1,
+  AI_POST_REWRITE: 2,
 
   /**
    * Content plan generation — gpt-4o writes all post captions + scheduling for a full month
@@ -144,18 +143,17 @@ export const CREDIT_COSTS = {
    *   Starter (10 posts): ~2,500 out → cost ~$0.033
    *   Growth  (25 posts): ~4,550 out → cost ~$0.053
    *   Agency  (60 posts): ~8,000 out → cost ~$0.088
-   * Revenue @ Agency: 2 × $0.198 = $0.396 | Margin: ~78%   ← lowest margin action
-   * Revenue @ Starter: 2 × $0.380 = $0.760 | Margin: ~96%
-   * ⚠️  Consider raising to 3 credits for Agency plan users if COGS grows.
+   * Commercial price includes one bounded full-model call, persistence,
+   * validation, and automatic refund when no usable output is created.
    */
-  CONTENT_PLAN_GENERATION: 2,
+  CONTENT_PLAN_GENERATION: 6,
 
   /**
    * A/B caption variants — one additional bounded model call for the reviewed
    * content-plan slots. Kept separate from base planning so the user never pays
    * for experiments they did not request and the product never hides extra COGS.
    */
-  CONTENT_AB_VARIANTS: 2,
+  CONTENT_AB_VARIANTS: 3,
 
   /**
    * Paid campaign pack — gpt-4o writes audience targeting, copy variants, budget plan
@@ -166,7 +164,7 @@ export const CREDIT_COSTS = {
    * Revenue @ Agency: 6 × $0.198 = $1.188 | Margin: ~96%
    * Revenue @ Starter: 6 × $0.380 = $2.280 | Margin: ~98%
    */
-  PAID_PACK_GENERATE: 6,
+  PAID_PACK_GENERATE: 10,
 
   /**
    * Website Intelligence Scanner — fetches + parses brand website, gpt-4o extracts brand DNA
@@ -177,7 +175,7 @@ export const CREDIT_COSTS = {
    * Revenue @ Agency: 3 × $0.198 = $0.594 | Margin: ~89–91%
    * Revenue @ Starter: 3 × $0.380 = $1.140 | Margin: ~94–95%
    */
-  WEBSITE_SCAN: 3,
+  WEBSITE_SCAN: 4,
 
   /**
    * Content Samples Analyzer — gpt-4o extracts hooks, angles, and tone from pasted samples
@@ -188,14 +186,14 @@ export const CREDIT_COSTS = {
    * Revenue @ Agency: 2 × $0.198 = $0.396 | Margin: ~94%
    * Revenue @ Starter: 2 × $0.380 = $0.760 | Margin: ~97%
    */
-  CONTENT_ANALYSIS: 2,
+  CONTENT_ANALYSIS: 3,
 
   /**
    * Brand evidence analysis — extracts source-backed claims from one private
    * document. Upload and human review are free; only this bounded model call is
    * billable. Claims remain candidates until the user explicitly approves them.
    */
-  BRAND_EVIDENCE_ANALYSIS: 2,
+  BRAND_EVIDENCE_ANALYSIS: 3,
 
 } as const
 
@@ -346,9 +344,9 @@ function debitDescription(action: CreditAction): string {
 
 // ── Free plan starter credits ──────────────────────────────────────────────────
 // Granted on first AI action to brand-new FREE accounts.
-// 12 credits = the entry activation journey: Organic Light / 30 days (8),
-// quality review (2), and one Content Hub plan (2). Larger confirmed strategy
-// orders are quoted by strategyPricing before any reservation.
+// 15 credits = one bounded activation journey: Organic Light / 30 days (12)
+// plus a quality review (3). Content production starts after upgrade/top-up.
+// Larger confirmed strategy orders are quoted before any reservation.
 // Adjust here to change the free tier without touching any route.
 
 export const FREE_STARTER_CREDITS = STARTER_CREDITS
@@ -356,17 +354,18 @@ export const FREE_STARTER_CREDITS = STARTER_CREDITS
 // ── Monthly credit totals per plan ─────────────────────────────────────────────
 // Used by the dashboard credit progress bar.
 // Must stay in sync with PLAN_CREDITS in src/lib/stripe.ts.
-// Free=12 (one-time), Starter=50/mo, Growth(PRO)=150/mo, Agency(BUSINESS)=500/mo
+// Free=15 (one-time), Starter=50/mo legacy, Growth(PRO)=60/mo,
+// Autopilot(BUSINESS)=180/mo.
 
 export const PLANS_CREDITS: Record<string, number> = {
   FREE:      FREE_STARTER_CREDITS, // 12 (one-time, never refreshes)
   STARTER:   50,
-  PRO:       150,  // Growth plan
-  GROWTH:    150,  // alias
-  BUSINESS:  500,  // Agency plan
-  AGENCY:    500,  // alias
+  PRO:       60,   // Growth plan
+  GROWTH:    60,   // alias
+  BUSINESS:  180,  // Autopilot plan
+  AGENCY:    180,  // alias
   // Stripe subscription status aliases (subscriptionStatus field values)
-  ACTIVE:    150,  // Stripe active = Growth tier
+  ACTIVE:    60,   // Stripe active = Growth tier
 }
 
 // ── Daily image-generation caps per plan ──────────────────────────────────────
@@ -376,13 +375,13 @@ export const PLANS_CREDITS: Record<string, number> = {
 // Free is deliberately tight; paid tiers scale up. -1 = uncapped.
 
 export const DAILY_IMAGE_CAPS: Record<string, number> = {
-  FREE:      3,
+  FREE:      1,
   STARTER:   20,
-  PRO:       60,   // Growth
-  GROWTH:    60,
-  BUSINESS:  200,  // Agency
-  AGENCY:    200,
-  ACTIVE:    60,   // Stripe active = Growth tier
+  PRO:       12,   // Growth
+  GROWTH:    12,
+  BUSINESS:  30,   // Autopilot
+  AGENCY:    30,
+  ACTIVE:    12,   // Stripe active = Growth tier
 }
 
 // ── Low-credits warning threshold ─────────────────────────────────────────────

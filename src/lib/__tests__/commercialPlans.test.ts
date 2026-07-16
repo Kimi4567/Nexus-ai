@@ -12,24 +12,24 @@ describe('commercial plan contract', () => {
   it('enforces workspace allowances for public and legacy statuses', () => {
     expect(getWorkspaceLimit('FREE')).toBe(1)
     expect(getWorkspaceLimit('STARTER')).toBe(1)
-    expect(getWorkspaceLimit('PRO')).toBe(3)
-    expect(getWorkspaceLimit('BUSINESS')).toBe(10)
+    expect(getWorkspaceLimit('PRO')).toBe(2)
+    expect(getWorkspaceLimit('BUSINESS')).toBe(5)
     expect(getWorkspaceLimit('FREE', 'ADMIN')).toBe(999)
   })
 
   it('enforces the advertised monthly campaign allowances', () => {
     expect(getCampaignLimit('FREE')).toBe(1)
     expect(getCampaignLimit('STARTER')).toBe(2)
-    expect(getCampaignLimit('PRO')).toBe(10)
-    expect(getCampaignLimit('BUSINESS')).toBe(999)
+    expect(getCampaignLimit('PRO')).toBe(4)
+    expect(getCampaignLimit('BUSINESS')).toBe(12)
     expect(getCampaignLimit('FREE', 'ADMIN')).toBe(999)
   })
 
   it('enforces the advertised monthly AI-planned-post allowances', () => {
     expect(getPlannedPostLimit('FREE')).toBe(3)
     expect(getPlannedPostLimit('STARTER')).toBe(10)
-    expect(getPlannedPostLimit('PRO')).toBe(25)
-    expect(getPlannedPostLimit('BUSINESS')).toBe(60)
+    expect(getPlannedPostLimit('PRO')).toBe(16)
+    expect(getPlannedPostLimit('BUSINESS')).toBe(40)
     expect(getPlannedPostLimit('FREE', 'ADMIN')).toBe(999)
   })
 })

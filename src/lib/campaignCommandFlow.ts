@@ -270,6 +270,18 @@ function deriveNextAction(input: DeriveCampaignCommandFlowInput): CampaignComman
     })
   }
 
+  if (input.isPaidOnlyStrategy) {
+    return {
+      titleEn: 'Review the paid package and launch gates',
+      titleAr: 'راجع حزمة Paid وبوابات الإطلاق',
+      helperEn: 'Paid-only orders bypass Content Hub. Review audience, copy, creative, tracking, budget, and the separate launch approval before any spend.',
+      helperAr: 'أوامر Paid فقط لا تمر عبر Content Hub. راجع الجمهور والنسخ والإبداع والتتبع والميزانية وموافقة الإطلاق المنفصلة قبل أي صرف.',
+      labelEn: 'Open paid execution review',
+      labelAr: 'افتح مراجعة التنفيذ المدفوع',
+      href: `/campaigns/${campaignId}/paid-launch`,
+    }
+  }
+
   if (!operatingState.truthFlags.hasContentPlan) {
     return {
       titleEn: 'Turn the strategy into a Content Hub plan',
@@ -531,41 +543,55 @@ export function deriveCampaignCommandFlow(input: DeriveCampaignCommandFlowInput)
       },
       {
         id: 'content',
-        status: contentStatus(operatingState),
-        titleEn: 'Content Hub',
-        titleAr: 'Content Hub',
-        helperEn: 'Post-level copy and platform previews.',
-        helperAr: 'نصوص المنشورات ومعاينات المنصات.',
-        metricEn: operatingState.counts.totalPosts > 0
-          ? `${operatingState.counts.totalPosts} post records`
-          : 'No post plan yet',
-        metricAr: operatingState.counts.totalPosts > 0
-          ? `${operatingState.counts.totalPosts} سجل منشور`
-          : 'لا توجد خطة منشورات بعد',
-        href: `/campaigns/${input.campaignId}/content-hub`,
+        status: isPaidOnly ? strategyStatus(operatingState) : contentStatus(operatingState),
+        titleEn: isPaidOnly ? 'Paid planning package' : 'Content Hub',
+        titleAr: isPaidOnly ? 'حزمة التخطيط المدفوع' : 'Content Hub',
+        helperEn: isPaidOnly ? 'Audience, angles, copy, and briefs for review—no organic posts.' : 'Post-level copy and platform previews.',
+        helperAr: isPaidOnly ? 'الجمهور والزوايا والنسخ والبريفات للمراجعة، دون منشورات عضوية.' : 'نصوص المنشورات ومعاينات المنصات.',
+        metricEn: isPaidOnly
+          ? 'Paid scope only'
+          : operatingState.counts.totalPosts > 0
+            ? `${operatingState.counts.totalPosts} post records`
+            : 'No post plan yet',
+        metricAr: isPaidOnly
+          ? 'نطاق مدفوع فقط'
+          : operatingState.counts.totalPosts > 0
+            ? `${operatingState.counts.totalPosts} سجل منشور`
+            : 'لا توجد خطة منشورات بعد',
+        href: isPaidOnly ? `/campaigns/${input.campaignId}/paid-launch` : `/campaigns/${input.campaignId}/content-hub`,
       },
       {
         id: 'creative',
-        status: creativeStatus(operatingState, creativeSummary),
-        titleEn: 'Creative',
-        titleAr: 'الإبداع',
-        helperEn: 'Media requirements, background ideas, and future editable layers.',
-        helperAr: 'متطلبات الوسائط، أفكار الخلفيات، والطبقات القابلة للتعديل لاحقاً.',
-        metricEn: creativeSummary && creativeSummary.total > 0
-          ? `${creativeSummary.mediaNeeded} need media · ${creativeSummary.attachedToPost} attached`
-          : 'Waiting for post context',
-        metricAr: creativeSummary && creativeSummary.total > 0
-          ? `${creativeSummary.mediaNeeded} تحتاج وسائط · ${creativeSummary.attachedToPost} مرتبطة`
-          : 'ينتظر سياق المنشورات',
-        href: `/campaigns/${input.campaignId}?tab=creative`,
+        status: isPaidOnly ? 'review' : creativeStatus(operatingState, creativeSummary),
+        titleEn: isPaidOnly ? 'Paid creative review' : 'Creative',
+        titleAr: isPaidOnly ? 'مراجعة الإبداع المدفوع' : 'الإبداع',
+        helperEn: isPaidOnly ? 'Review creative briefs and required assets before production.' : 'Media requirements, background ideas, and future editable layers.',
+        helperAr: isPaidOnly ? 'راجع البريفات الإبداعية والأصول المطلوبة قبل الإنتاج.' : 'متطلبات الوسائط، أفكار الخلفيات، والطبقات القابلة للتعديل لاحقاً.',
+        metricEn: isPaidOnly
+          ? 'Briefs are not launch-ready assets'
+          : creativeSummary && creativeSummary.total > 0
+            ? `${creativeSummary.mediaNeeded} need media · ${creativeSummary.attachedToPost} attached`
+            : 'Waiting for post context',
+        metricAr: isPaidOnly
+          ? 'البريفات ليست أصول إطلاق نهائية'
+          : creativeSummary && creativeSummary.total > 0
+            ? `${creativeSummary.mediaNeeded} تحتاج وسائط · ${creativeSummary.attachedToPost} مرتبطة`
+            : 'ينتظر سياق المنشورات',
+        href: isPaidOnly ? `/campaigns/${input.campaignId}/paid-launch` : `/campaigns/${input.campaignId}?tab=creative`,
       },
       {
         id: 'approval',
-        status: approvalStatus(operatingState, creativeSummary),
-        titleEn: 'Approval',
-        titleAr: 'الاعتماد',
+        status: isPaidOnly ? 'review' : approvalStatus(operatingState, creativeSummary),
+        titleEn: isPaidOnly ? 'Budget & launch approval' : 'Approval',
+        titleAr: isPaidOnly ? 'اعتماد الميزانية والإطلاق' : 'الاعتماد',
         ...approval,
-        href: `/campaigns/${input.campaignId}/content-hub`,
+        ...(isPaidOnly ? {
+          helperEn: 'Budget, tracking, creative, and launch require an explicit final approval.',
+          helperAr: 'تحتاج الميزانية والتتبع والإبداع والإطلاق إلى موافقة نهائية صريحة.',
+          metricEn: 'No spend before approval',
+          metricAr: 'لا صرف قبل الموافقة',
+        } : {}),
+        href: isPaidOnly ? `/campaigns/${input.campaignId}/paid-launch` : `/campaigns/${input.campaignId}/content-hub`,
       },
       {
         id: 'publishing',

@@ -54,10 +54,10 @@ vi.mock('@/lib/credits', () => ({
   finalizeCreditDeduction: mockFinalizeDeduction,
   refundCreditDeduction: mockRefundDeduction,
   buildCreditChargeReceipt: (action: string, deduction: any) => ({ action, ...deduction }),
-  FREE_STARTER_CREDITS: 12,
+  FREE_STARTER_CREDITS: 15,
   getCreditActionPolicy: (action: string) => ({
     action,
-    cost: 8,
+    cost: 12,
     label: 'Full marketing strategy',
     reason: 'Creates the strategy, operating plan, and measurable execution brief.',
   }),
@@ -167,21 +167,21 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
   })
 
-  it('7. deducts the server-recomputed variable cost (Organic Standard 90 = 14)', async () => {
+  it('7. deducts the server-recomputed variable cost (Organic Standard 90 = 24)', async () => {
     const res = await POST(makeReq({
       strategyType: 'organic', strategyDuration: '90', contentIntensity: 'standard',
     }))
     expect(res.status).toBe(200)
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 14, expect.objectContaining({
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 24, expect.objectContaining({
       entityId: 'w1', entityType: 'workspace_strategy_run', operationKey: expect.any(String),
     }))
   })
 
-  it('deducts a different recomputed cost for a richer order (Full Daily 180 = 34)', async () => {
+  it('deducts a different recomputed cost for a richer order (Full Daily 180 = 96)', async () => {
     await POST(makeReq({
       strategyType: 'full', strategyDuration: '180', contentIntensity: 'daily',
     }))
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 34, expect.objectContaining({
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 96, expect.objectContaining({
       entityId: 'w1', entityType: 'workspace_strategy_run', operationKey: expect.any(String),
     }))
   })
@@ -192,8 +192,8 @@ describe('POST /api/strategy/run-full — variable charge', () => {
       // adversarial client values that must be ignored:
       cost: 1, price: 0, credits: 999,
     }))
-    // Organic Daily 30 = 14, recomputed — not the client's 1/0/999.
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 14, expect.objectContaining({
+    // Organic Daily 30 = 28, recomputed — not the client's 1/0/999.
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 28, expect.objectContaining({
       entityId: 'w1', entityType: 'workspace_strategy_run', operationKey: expect.any(String),
     }))
   })
@@ -206,7 +206,7 @@ describe('POST /api/strategy/run-full — variable charge', () => {
       customOrganicPostCount: 7,
       price: 1,
     }))
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 8, expect.objectContaining({
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 12, expect.objectContaining({
       entityId: 'w1', entityType: 'workspace_strategy_run', operationKey: expect.any(String),
     }))
   })
@@ -219,12 +219,12 @@ describe('POST /api/strategy/run-full — variable charge', () => {
       monthlyGenerations: 1,
     })
     const res = await POST(makeReq({
-      strategyType: 'full', strategyDuration: '90', contentIntensity: 'standard', // = 21
+      strategyType: 'full', strategyDuration: '90', contentIntensity: 'standard', // = 46
     }))
     expect(res.status).toBe(402)
     const json = await res.json()
     expect(json.error).toBe('INSUFFICIENT_CREDITS')
-    expect(json.requiredCredits).toBe(21)
+    expect(json.requiredCredits).toBe(46)
     expect(json.currentCredits).toBe(7)
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
     expect(mockRunFullAgency).not.toHaveBeenCalled()
@@ -335,7 +335,7 @@ describe('POST /api/strategy/run-full — variable charge', () => {
       ok: false,
       error: 'INSUFFICIENT_CREDITS',
       message: 'Monthly credits exhausted. Upgrade your plan or wait for the next billing cycle.',
-      requiredCredits: 10,
+      requiredCredits: 16,
       currentCredits: 3,
       upgradeUrl: '/billing',
     })
@@ -363,7 +363,7 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     expect(res.status).toBe(402)
     expect(json.error).toBe('INSUFFICIENT_CREDITS')
     expect(json.currentCredits).toBe(3)
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 10, expect.objectContaining({
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 16, expect.objectContaining({
       entityId: 'w1', entityType: 'workspace_strategy_run', operationKey: expect.any(String),
     }))
     expect(mockPrisma.campaign.findFirst).not.toHaveBeenCalled()

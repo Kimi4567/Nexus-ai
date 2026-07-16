@@ -414,6 +414,14 @@ export default function StrategyDecisionDesk({
   const connectedState = executionBridge.overallStatus
   const fallback = text('غير محدد — مطلوب قبل التنفيذ', 'Not defined — required before execution')
   const strategyRecord = strategy || {}
+  const isPaidOnly = snapshot.scope === 'paid'
+  const paidPlanning = strategyRecord.paidPlanning && typeof strategyRecord.paidPlanning === 'object' && !Array.isArray(strategyRecord.paidPlanning)
+    ? strategyRecord.paidPlanning as Record<string, unknown>
+    : null
+  const paidPackageCount = paidPlanning
+    ? ['audienceHypotheses', 'adAngles', 'adCopyVariations', 'creativeBriefs']
+      .reduce((total, key) => total + (Array.isArray(paidPlanning[key]) ? (paidPlanning[key] as unknown[]).length : 0), 0)
+    : 0
   const brandRecord = brandProfile || {}
   const snapshotContent = snapshot.contentSystem && typeof snapshot.contentSystem === 'object' && !Array.isArray(snapshot.contentSystem)
     ? snapshot.contentSystem as Record<string, unknown>
@@ -487,8 +495,8 @@ export default function StrategyDecisionDesk({
     : null
   const handoffLinks = [
     { key: 'brand', label: text('Brand Brain', 'Brand Brain'), href: snapshot.executionLinks.brand, status: brandTruthBlocked ? text('تعارض', 'Conflict') : text('مرجع', 'Source'), tone: brandTruthBlocked ? 'danger' as Tone : 'positive' as Tone, helper: text('الأدلة والقيود التي تحكم كل قرار.', 'Evidence and constraints behind every decision.') },
-    { key: 'content', label: text('Content Hub', 'Content Hub'), href: snapshot.executionLinks.content, status: truthFlags.hasContentPlan ? text('موجود', 'Present') : text('مطلوب', 'Required'), tone: truthFlags.hasContentPlan ? 'positive' as Tone : 'warning' as Tone, helper: text('المنشورات وحالات دورة الحياة الفعلية.', 'Actual posts and lifecycle state.') },
-    { key: 'creative', label: text('Creative Brief', 'Creative Brief'), href: snapshot.executionLinks.creative, status: creativeSummary.mediaNeeded > 0 ? text('وسائط ناقصة', 'Media missing') : text('جاهز للمراجعة', 'Ready for review'), tone: creativeSummary.mediaNeeded > 0 ? 'warning' as Tone : 'positive' as Tone, helper: text('الأصل النهائي قبل الموافقة، وليس Concept فقط.', 'Final asset work—not a concept-only visual.') },
+    { key: 'content', label: isPaidOnly ? text('حزمة Paid', 'Paid package') : text('Content Hub', 'Content Hub'), href: isPaidOnly ? `/campaigns/${campaign.id}/paid-launch` : snapshot.executionLinks.content, status: isPaidOnly ? (paidPackageCount > 0 ? text('موجودة', 'Present') : text('مطلوبة', 'Required')) : (truthFlags.hasContentPlan ? text('موجود', 'Present') : text('مطلوب', 'Required')), tone: (isPaidOnly ? paidPackageCount > 0 : truthFlags.hasContentPlan) ? 'positive' as Tone : 'warning' as Tone, helper: isPaidOnly ? text('الجمهور والزوايا والنسخ والبريفات قبل أي صرف.', 'Audience, angles, copy, and briefs before any spend.') : text('المنشورات وحالات دورة الحياة الفعلية.', 'Actual posts and lifecycle state.') },
+    { key: 'creative', label: text('Creative Brief', 'Creative Brief'), href: isPaidOnly ? `/campaigns/${campaign.id}/paid-launch` : snapshot.executionLinks.creative, status: isPaidOnly ? (Array.isArray(paidPlanning?.creativeBriefs) ? text('للمراجعة', 'For review') : text('مطلوب', 'Required')) : (creativeSummary.mediaNeeded > 0 ? text('وسائط ناقصة', 'Media missing') : text('جاهز للمراجعة', 'Ready for review')), tone: isPaidOnly ? (Array.isArray(paidPlanning?.creativeBriefs) ? 'checking' as Tone : 'warning' as Tone) : (creativeSummary.mediaNeeded > 0 ? 'warning' as Tone : 'positive' as Tone), helper: isPaidOnly ? text('بريفات إعلانية للمراجعة، وليست أصولًا جاهزة للإطلاق.', 'Paid creative briefs for review, not launch-ready assets.') : text('الأصل النهائي قبل الموافقة، وليس Concept فقط.', 'Final asset work—not a concept-only visual.') },
     { key: 'approvals', label: text('الموافقات', 'Approvals'), href: snapshot.executionLinks.approvals, status: truthFlags.hasReviewedContent ? text('مسجل', 'Recorded') : text('مطلوب', 'Required'), tone: truthFlags.hasReviewedContent ? 'positive' as Tone : 'warning' as Tone, helper: text('لا جدولة ولا نشر بلا موافقة موثقة.', 'No scheduling or publishing without recorded approval.') },
     { key: 'connections', label: text('الاتصالات', 'Connections'), href: snapshot.executionLinks.connections, status: statusCopy(connectedState, isArabic), tone: statusTone(connectedState), helper: text('الحسابات والصلاحيات الفعلية للمنصات.', 'Live accounts and platform permissions.') },
     { key: 'publish', label: text('النشر', 'Publishing'), href: snapshot.executionLinks.publish, status: truthFlags.hasPublishedContent ? text('منشور', 'Published') : text('مقفل حتى الجاهزية', 'Locked until ready'), tone: truthFlags.hasPublishedContent ? 'positive' as Tone : 'muted' as Tone, helper: text('النشر يملكه مسار التنفيذ وليس هذه الصفحة.', 'Publishing belongs to execution, not this desk.') },
@@ -508,9 +516,9 @@ export default function StrategyDecisionDesk({
   const truthBarItems = [
     { key: 'brand', label: text('Brand Brain', 'Brand Brain'), value: brandTruthBlocked ? text('تعارض', 'Conflict') : typeof brandScore === 'number' ? `${brandScore}/100` : text('تحتاج مراجعة', 'Needs review'), helper: brandTruthBlocked ? text('يتوقف التنفيذ حتى التصحيح.', 'Execution blocked until fixed.') : text('المصدر: ملف البراند.', 'Source: brand profile.'), tone: brandTruthBlocked ? 'danger' as Tone : typeof brandScore === 'number' && brandScore >= 70 ? 'positive' as Tone : 'warning' as Tone },
     { key: 'strategy', label: text('اعتماد الاستراتيجية', 'Strategy approval'), value: strategyStatusLabel, helper: qualityState === 'passed' ? text('فحص الجودة مكتمل؛ الحالة من سجل الاعتماد.', 'Quality review passed; state comes from the approval ledger.') : text('فحص الجودة أو الاعتماد ما زال مطلوبًا.', 'Quality review or approval is still required.'), tone: snapshot.approvalState === 'approved' ? 'positive' as Tone : snapshot.approvalState === 'blocked' ? 'danger' as Tone : 'warning' as Tone },
-    { key: 'content', label: text('المحتوى', 'Content'), value: `${postCount} ${text('منشور', 'posts')}`, helper: truthFlags.hasContentPlan ? text('المصدر: Content Hub.', 'Source: Content Hub.') : text('الخطة غير موجودة بعد.', 'Plan not built yet.'), tone: truthFlags.hasContentPlan ? 'positive' as Tone : 'warning' as Tone },
-    { key: 'creative', label: text('الإبداع', 'Creative'), value: `${creativeSummary.attachedToPost}/${Math.max(creativeSummary.total, postCount)}`, helper: creativeSummary.mediaNeeded > 0 ? text('وسائط ناقصة.', 'Media missing.') : text('الوسائط المرتبطة تقرأ من المنشورات.', 'Reads linked post media.'), tone: creativeSummary.mediaNeeded > 0 ? 'warning' as Tone : 'positive' as Tone },
-    { key: 'approval', label: text('اعتماد المحتوى', 'Content approval'), value: truthFlags.hasReviewedContent ? text('مراجعة موجودة', 'Review recorded') : text('مطلوبة', 'Required'), helper: text('اعتماد المحتوى مستقل عن اعتماد الاستراتيجية.', 'Content approval is separate from strategy approval.'), tone: truthFlags.hasReviewedContent ? 'positive' as Tone : 'warning' as Tone },
+    { key: 'content', label: isPaidOnly ? text('حزمة Paid', 'Paid package') : text('المحتوى', 'Content'), value: isPaidOnly ? `${paidPackageCount} ${text('مخرج تخطيط', 'planning outputs')}` : `${postCount} ${text('منشور', 'posts')}`, helper: isPaidOnly ? text('لا منشورات عضوية في هذا الأمر.', 'No organic posts in this order.') : (truthFlags.hasContentPlan ? text('المصدر: Content Hub.', 'Source: Content Hub.') : text('الخطة غير موجودة بعد.', 'Plan not built yet.')), tone: (isPaidOnly ? paidPackageCount > 0 : truthFlags.hasContentPlan) ? 'positive' as Tone : 'warning' as Tone },
+    { key: 'creative', label: text('الإبداع', 'Creative'), value: isPaidOnly ? `${Array.isArray(paidPlanning?.creativeBriefs) ? paidPlanning.creativeBriefs.length : 0} ${text('بريف', 'briefs')}` : `${creativeSummary.attachedToPost}/${Math.max(creativeSummary.total, postCount)}`, helper: isPaidOnly ? text('للمراجعة قبل الإنتاج والإطلاق.', 'For review before production or launch.') : (creativeSummary.mediaNeeded > 0 ? text('وسائط ناقصة.', 'Media missing.') : text('الوسائط المرتبطة تقرأ من المنشورات.', 'Reads linked post media.')), tone: isPaidOnly ? 'checking' as Tone : (creativeSummary.mediaNeeded > 0 ? 'warning' as Tone : 'positive' as Tone) },
+    { key: 'approval', label: isPaidOnly ? text('اعتماد Paid', 'Paid approval') : text('اعتماد المحتوى', 'Content approval'), value: isPaidOnly ? (snapshot.approvalState === 'approved' ? text('الاستراتيجية معتمدة', 'Strategy approved') : text('مطلوب قبل الإطلاق', 'Required before launch')) : (truthFlags.hasReviewedContent ? text('مراجعة موجودة', 'Review recorded') : text('مطلوبة', 'Required')), helper: isPaidOnly ? text('اعتماد الميزانية والإطلاق يظل بوابة منفصلة.', 'Budget and launch approval remain a separate gate.') : text('اعتماد المحتوى مستقل عن اعتماد الاستراتيجية.', 'Content approval is separate from strategy approval.'), tone: isPaidOnly && snapshot.approvalState === 'approved' ? 'checking' as Tone : truthFlags.hasReviewedContent ? 'positive' as Tone : 'warning' as Tone },
     { key: 'publishing', label: text('النشر', 'Publishing'), value: statusCopy(connectedState, isArabic), helper: text('الاتصالات والصلاحيات من Connections.', 'Connections and permissions come from Connections.'), tone: statusTone(connectedState) },
     { key: 'analytics', label: text('التحليلات', 'Analytics'), value: truthFlags.hasAnalyticsData ? text('بيانات حقيقية', 'Real data') : text('بانتظار البيانات', 'Awaiting data'), helper: text('لا تعلم مباشر دون بيانات منشورة.', 'No direct learning without published data.'), tone: truthFlags.hasAnalyticsData ? 'positive' as Tone : 'muted' as Tone },
   ]
@@ -565,19 +573,19 @@ export default function StrategyDecisionDesk({
     },
     {
       id: '03',
-      label: localized('المحتوى', 'Content'),
-      helper: localized('Content Hub هو مصدر الحقيقة للمنشورات والنسخ وحالة دورة الحياة.', 'Content Hub is the source of truth for posts, copy, and lifecycle.'),
-      href: `/campaigns/${campaign.id}/content-hub`,
-      status: contentStatus,
-      metric: localized(`${postCount} منشورات`, `${postCount} posts`),
+      label: isPaidOnly ? localized('حزمة التخطيط المدفوع', 'Paid planning package') : localized('المحتوى', 'Content'),
+      helper: isPaidOnly ? localized('فرضيات جمهور وزوايا ونسخ وبريفات إبداعية للمراجعة فقط.', 'Audience hypotheses, angles, copy, and creative briefs for review only.') : localized('Content Hub هو مصدر الحقيقة للمنشورات والنسخ وحالة دورة الحياة.', 'Content Hub is the source of truth for posts, copy, and lifecycle.'),
+      href: isPaidOnly ? `/campaigns/${campaign.id}/paid-launch` : `/campaigns/${campaign.id}/content-hub`,
+      status: isPaidOnly ? (paidPackageCount > 0 ? 'complete' : 'review') : contentStatus,
+      metric: isPaidOnly ? localized(`${paidPackageCount} مخرج تخطيط`, `${paidPackageCount} planning outputs`) : localized(`${postCount} منشورات`, `${postCount} posts`),
     },
     {
       id: '04',
-      label: localized('الإبداع', 'Creative'),
-      helper: localized('تحديد احتياجات الأصول وربط الوسائط النهائية بقرار صريح.', 'Define asset needs and attach final media through an explicit decision.'),
-      href: `/campaigns/${campaign.id}/creative-brief`,
-      status: creativeStatus,
-      metric: localized(`${creativeSummary.attachedToPost} مرتبطة · ${creativeSummary.mediaNeeded} تحتاج وسائط`, `${creativeSummary.attachedToPost} attached · ${creativeSummary.mediaNeeded} need media`),
+      label: isPaidOnly ? localized('اعتماد الحزمة والميزانية', 'Package & budget approval') : localized('الإبداع', 'Creative'),
+      helper: isPaidOnly ? localized('مراجعة التتبع والبريفات والميزانية ثم موافقة إطلاق منفصلة.', 'Review tracking, briefs, and budget, followed by a separate launch approval.') : localized('تحديد احتياجات الأصول وربط الوسائط النهائية بقرار صريح.', 'Define asset needs and attach final media through an explicit decision.'),
+      href: isPaidOnly ? `/campaigns/${campaign.id}/paid-launch` : `/campaigns/${campaign.id}/creative-brief`,
+      status: isPaidOnly ? (snapshot.approvalState === 'approved' ? 'current' : 'review') : creativeStatus,
+      metric: isPaidOnly ? localized('لا صرف قبل الموافقة', 'No spend before approval') : localized(`${creativeSummary.attachedToPost} مرتبطة · ${creativeSummary.mediaNeeded} تحتاج وسائط`, `${creativeSummary.attachedToPost} attached · ${creativeSummary.mediaNeeded} need media`),
     },
     {
       id: '05',

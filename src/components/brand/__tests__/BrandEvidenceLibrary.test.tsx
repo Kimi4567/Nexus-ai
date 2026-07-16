@@ -29,7 +29,7 @@ describe('BrandEvidenceLibrary', () => {
     render(<BrandEvidenceLibrary locale="en" authHeader={() => 'Bearer token'} onProofChanged={() => undefined} />)
 
     expect(screen.getByRole('heading', { name: 'Brand Evidence Library' })).toBeTruthy()
-    expect(screen.getByText('Analysis: 2 credits')).toBeTruthy()
+    expect(screen.getByText('Analysis: 3 credits')).toBeTruthy()
     expect(screen.getByText(/PPTX/)).toBeTruthy()
     expect(screen.getByText('Upload & review are free')).toBeTruthy()
     expect(screen.getByText('10 sources / 50 MB per workspace')).toBeTruthy()

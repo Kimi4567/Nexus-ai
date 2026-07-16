@@ -506,7 +506,7 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
           <div className="-mb-1 text-center text-[10px] text-slate-500">
             {generationLocked
               ? 'Credits are required before generating a campaign concept visual.'
-              : <>Costs <span className="font-semibold text-slate-700">3 credits</span> · failed generations are refunded automatically</>}
+              : <>Costs <span className="font-semibold text-slate-700">{imageGenerationTruth.label}</span> · failed generations are refunded automatically</>}
           </div>
 
           <button

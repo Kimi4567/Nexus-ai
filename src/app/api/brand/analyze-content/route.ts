@@ -7,7 +7,7 @@
  *
  * Returns structured enrichment the client can preview and apply to Brand Brain.
  *
- * Cost: 2 AI credits (CONTENT_ANALYSIS)
+ * Cost: centralized CONTENT_ANALYSIS credit policy
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     const rateLimitResponse = await enforceBillableAiRateLimit(user.id, 'CONTENT_ANALYSIS')
     if (rateLimitResponse) return rateLimitResponse
 
-    // Deduct 2 credits for content analysis
+    // Reserve the centralized content-analysis price before provider usage.
     const creditResult = await checkAndDeductCredits(
       user.id,
       'CONTENT_ANALYSIS',

@@ -81,14 +81,14 @@ describe('checkAndDeductCredits — wallet flag ON', () => {
     asStarter(50)
     tx.$queryRawUnsafe.mockResolvedValue([row({ id: 'g1', remaining: 50 })])
 
-    const res = await checkAndDeductCredits('u1', 'IMAGE_GENERATION') // cost 3
+    const res = await checkAndDeductCredits('u1', 'IMAGE_GENERATION') // cost 4
 
     expect(res.ok).toBe(true)
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1)
     expect(tx.creditGrant.update).toHaveBeenCalledTimes(1)
     expect(tx.creditGrant.update).toHaveBeenCalledWith({
       where: { id: 'g1' },
-      data: { remaining: { decrement: 3 } },
+      data: { remaining: { decrement: 4 } },
     })
   })
 
@@ -96,17 +96,17 @@ describe('checkAndDeductCredits — wallet flag ON', () => {
     asStarter(50)
     tx.$queryRawUnsafe.mockResolvedValue([
       row({ id: 'g1', remaining: 5, expiresAt: days(10) }),
-      row({ id: 'g2', remaining: 5, expiresAt: days(20) }),
+      row({ id: 'g2', remaining: 10, expiresAt: days(20) }),
     ])
 
-    const res = await checkAndDeductCredits('u1', 'RUN_FULL_STRATEGY') // cost 8
+    const res = await checkAndDeductCredits('u1', 'RUN_FULL_STRATEGY') // cost 12
 
     expect(res.ok).toBe(true)
     expect(tx.creditGrant.update).toHaveBeenCalledTimes(2)
     expect(tx.creditTransactionGrantAllocation.createMany).toHaveBeenCalledWith({
       data: [
         { creditTransactionId: 'txn_1', creditGrantId: 'g1', amount: 5 },
-        { creditTransactionId: 'txn_1', creditGrantId: 'g2', amount: 3 },
+        { creditTransactionId: 'txn_1', creditGrantId: 'g2', amount: 7 },
       ],
     })
   })
@@ -115,11 +115,11 @@ describe('checkAndDeductCredits — wallet flag ON', () => {
     asStarter(50)
     tx.$queryRawUnsafe.mockResolvedValue([row({ id: 'g1', remaining: 50 })])
 
-    await checkAndDeductCredits('u1', 'RUN_FULL_STRATEGY') // cost 8
+    await checkAndDeductCredits('u1', 'RUN_FULL_STRATEGY') // cost 12
 
     expect(tx.user.update).toHaveBeenCalledWith({
       where: { id: 'u1' },
-      data: { aiCredits: 42 },
+      data: { aiCredits: 38 },
     })
   })
 
@@ -127,11 +127,11 @@ describe('checkAndDeductCredits — wallet flag ON', () => {
     asStarter(50)
     tx.$queryRawUnsafe.mockResolvedValue([row({ id: 'g1', remaining: 50 })])
 
-    await checkAndDeductCredits('u1', 'IMAGE_GENERATION') // cost 3
+    await checkAndDeductCredits('u1', 'IMAGE_GENERATION') // cost 4
 
     expect(tx.creditTransaction.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ userId: 'u1', action: 'IMAGE_GENERATION', amount: -3 }),
+        data: expect.objectContaining({ userId: 'u1', action: 'IMAGE_GENERATION', amount: -4 }),
       }),
     )
   })
@@ -143,14 +143,14 @@ describe('checkAndDeductCredits — wallet flag ON', () => {
       row({ id: 'g2', remaining: 10, expiresAt: days(9) }),
     ])
 
-    await checkAndDeductCredits('u1', 'IMAGE_GENERATION') // cost 3
+    await checkAndDeductCredits('u1', 'IMAGE_GENERATION') // cost 4
 
     const arg = tx.creditTransactionGrantAllocation.createMany.mock.calls[0][0]
     const sum = arg.data.reduce((s: number, a: { amount: number }) => s + a.amount, 0)
-    expect(sum).toBe(3)
+    expect(sum).toBe(4)
     expect(arg.data).toEqual([
       { creditTransactionId: 'txn_1', creditGrantId: 'g1', amount: 2 },
-      { creditTransactionId: 'txn_1', creditGrantId: 'g2', amount: 1 },
+      { creditTransactionId: 'txn_1', creditGrantId: 'g2', amount: 2 },
     ])
   })
 
@@ -212,15 +212,15 @@ describe('checkAndDeductCredits — wallet flag ON', () => {
     asStarter(50)
     tx.$queryRawUnsafe.mockResolvedValue([
       row({ id: 'expired', remaining: 100, expiresAt: days(-1) }),
-      row({ id: 'live', remaining: 10 }),
+      row({ id: 'live', remaining: 15 }),
     ])
 
-    await checkAndDeductCredits('u1', 'RUN_FULL_STRATEGY') // cost 8
+    await checkAndDeductCredits('u1', 'RUN_FULL_STRATEGY') // cost 12
 
     expect(tx.creditGrant.update).toHaveBeenCalledTimes(1)
     expect(tx.creditGrant.update).toHaveBeenCalledWith({
       where: { id: 'live' },
-      data: { remaining: { decrement: 8 } },
+      data: { remaining: { decrement: 12 } },
     })
   })
 
@@ -228,7 +228,7 @@ describe('checkAndDeductCredits — wallet flag ON', () => {
     asStarter(50)
     tx.$queryRawUnsafe.mockResolvedValue([row({ id: 'g1', remaining: 50 })])
 
-    const res = await checkAndDeductCredits('u1', 'IMAGE_GENERATION') // cost 3
+    const res = await checkAndDeductCredits('u1', 'IMAGE_GENERATION') // cost 4
 
     expect(res).toEqual({
       ok: true,

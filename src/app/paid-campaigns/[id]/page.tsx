@@ -24,6 +24,7 @@ import { paidExecutionErrorMessage } from '@/lib/paidExecutionErrorMessage'
 import NextImage from 'next/image'
 import { AlertTriangle, CheckCircle2, ExternalLink, Image as ImageIcon, X } from 'lucide-react'
 import CreditConfirmModal from '@/components/CreditConfirmModal'
+import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Ad {
@@ -937,7 +938,7 @@ export default function CampaignDetailPage() {
                   disabled={generationLoading !== null || !hasStrategySource}
                   className="mt-4 w-full py-2 rounded-xl text-[12px] font-bold text-white"
                   style={{ background: hasStrategySource ? 'linear-gradient(135deg, #F97316, #EF4444)' : '#cbd5e1' }}>
-                  {generationLoading === 'copy' ? 'Generating ad copy drafts…' : '✨ Generate strategy-aligned ad copy — 2 credits'}
+                  {generationLoading === 'copy' ? 'Generating ad copy drafts…' : `✨ Generate strategy-aligned ad copy — ${CREDIT_ACTION_COSTS.AD_COPY} credits`}
                 </button>
               )}
             </div>

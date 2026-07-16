@@ -31,9 +31,10 @@ describe('Stripe credit wallet line items', () => {
     const { getCreditWalletLineItems } = await loadStripeModule()
 
     expect(getCreditWalletLineItems(500)).toEqual([
-      { price: 'price_1', quantity: 100 },
-      { price: 'price_2', quantity: 200 },
-      { price: 'price_3', quantity: 200 },
+      { price: 'price_1', quantity: 50 },
+      { price: 'price_2', quantity: 100 },
+      { price: 'price_3', quantity: 150 },
+      { price: 'price_4', quantity: 200 },
     ])
   })
 

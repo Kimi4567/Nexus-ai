@@ -11,7 +11,7 @@ describe('planned-post commercial allowance', () => {
     } as any
 
     const allowance = await readLockedPlannedPostAllowance(tx, 'u1', 'campaign-1', new Date('2026-07-12T12:00:00.000Z'))
-    expect(allowance).toMatchObject({ plan: 'PRO', limit: 25, used: 16, remaining: 9 })
+    expect(allowance).toMatchObject({ plan: 'PRO', limit: 16, used: 16, remaining: 0 })
     expect(tx.socialPost.count).toHaveBeenNthCalledWith(1, {
       where: expect.objectContaining({
         workspace: { ownerId: 'u1' },

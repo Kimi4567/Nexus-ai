@@ -208,6 +208,7 @@ export function getStrategyDeliverables(
       planCappedOrganicPostCount: planContext?.postsPerMonth ?? null,
       planCapApplied: false,
       platformVariantCount: 0,
+      paidAdAngleCount: 0,
       paidAdVariationCount: 0,
       creativeBriefCount: 0,
       audienceHypothesisCount: 0,
@@ -249,6 +250,7 @@ export function getStrategyDeliverables(
     : 0
 
   const paidAdVariationCount = includesPaid ? PAID_AD_COPY_VARIATIONS : 0
+  const paidAdAngleCount = includesPaid ? PAID_AD_ANGLE_COUNT : 0
   const creativeBriefCount = includesPaid ? PAID_CREATIVE_BRIEFS : 0
   const audienceHypothesisCount = includesPaid ? PAID_AUDIENCE_HYPOTHESES : 0
 
@@ -289,7 +291,7 @@ export function getStrategyDeliverables(
     included.push('Campaign objective')
     included.push('Funnel structure')
     included.push(`Audience hypotheses (${audienceHypothesisCount})`)
-    included.push(`Ad angles (${PAID_AD_ANGLE_COUNT})`)
+    included.push(`Ad angles (${paidAdAngleCount})`)
     included.push(`Ad copy variations (${paidAdVariationCount})`)
     included.push(`Creative briefs (${creativeBriefCount})`)
     included.push('Budget split')
@@ -373,7 +375,7 @@ export function getStrategyDeliverables(
   }
   if (includesPaid) {
     giParts.push(
-      `Paid is PLANNING-ONLY: campaign objective, funnel, ${audienceHypothesisCount} audience hypotheses, ${PAID_AD_ANGLE_COUNT} ad angles, ${paidAdVariationCount} ad-copy variations, ${creativeBriefCount} creative briefs, budget split, tracking checklist, launch blockers. Never describe how to launch/activate ads, never spend budget, never publish, never invent performance numbers.`,
+      `Paid is PLANNING-ONLY: campaign objective, funnel, ${audienceHypothesisCount} audience hypotheses, ${paidAdAngleCount} ad angles, ${paidAdVariationCount} ad-copy variations, ${creativeBriefCount} creative briefs, budget split, tracking checklist, launch blockers. Return these exact counts inside paidPlanning. Never describe how to launch/activate ads, never spend budget, never publish, never invent performance numbers.`,
     )
   }
   if (order.strategyType === 'full') {
@@ -391,6 +393,7 @@ export function getStrategyDeliverables(
     planCappedOrganicPostCount,
     planCapApplied,
     platformVariantCount,
+    paidAdAngleCount,
     paidAdVariationCount,
     creativeBriefCount,
     audienceHypothesisCount,

@@ -20,6 +20,12 @@ import { checkAndLog } from '@/lib/outputGuardrails'
 import { getPlanContext } from './planContext'
 import { normalizeStrategyOutput } from '@/lib/strategyNormalize'
 import { validateCampaignStrategyContract } from '@/lib/campaignStrategyContract'
+import {
+  readOpenAIChatUsage,
+  summarizeOpenAITextUsage,
+  type OpenAITextUsage,
+  type ProviderUsageSummary,
+} from '@/lib/ai/providerEconomics'
 // PR-S1c-3 — deterministic Strategy Order + Deliverables Contract types (display/scope only).
 import type { StrategyOrder, StrategyDeliverables } from '@/lib/strategy/strategyOrder'
 
@@ -253,6 +259,54 @@ export interface AdSetupPlan {
   notReadyIf: string[]
 }
 
+export interface PaidAudienceHypothesis {
+  name: string
+  buyingSituation: string
+  targetingHypothesis: string
+  exclusions: string
+  validationNeeded: string
+}
+
+export interface PaidAdAngle {
+  name: string
+  audienceHypothesis: string
+  message: string
+  funnelStage: string
+  proofNeeded: string
+}
+
+export interface PaidAdCopyVariation {
+  id: string
+  angle: string
+  headline: string
+  primaryText: string
+  cta: string
+  destination: string
+  assumption: string
+}
+
+export interface PaidCreativeBrief {
+  name: string
+  angle: string
+  format: string
+  visualDirection: string
+  requiredAssets: string[]
+  proofBoundary: string
+  reviewGate: string
+}
+
+export interface PaidPlanningPackage {
+  planningOnly: true
+  objective: string
+  audienceHypotheses: PaidAudienceHypothesis[]
+  adAngles: PaidAdAngle[]
+  adCopyVariations: PaidAdCopyVariation[]
+  creativeBriefs: PaidCreativeBrief[]
+  budgetFramework: string
+  trackingChecklist: string[]
+  launchBlockers: string[]
+}
+
 /** Single readiness checklist item */
 export interface ReadinessItem {
   label: string
@@ -413,6 +467,7 @@ export interface StrategyOutput {
   weeklyExecutionPlan?: WeeklyExecutionItem[]
   assetRequirements?: AssetRequirements
   adSetupPlan?: AdSetupPlan
+  paidPlanning?: PaidPlanningPackage | null
   readinessChecklist?: ReadinessItem[]
   doNotDoYet?: string[]
   successMetricsDetailed?: SuccessMetricDetailed[]
@@ -435,11 +490,17 @@ export interface StrategyOutput {
   confidenceReport?: ConfidenceReport    // SERVER-AUTHORITATIVE
   competitorAnalysisComplete?: boolean   // SERVER-AUTHORITATIVE
   marketContext?: MarketContext          // isAssumption forced true if present
+  /** Server-authored provider meter for margin auditing; never model-authored. */
+  providerUsage?: ProviderUsageSummary
 }
 
 // ── OpenAI call helper ────────────────────────────────────────────────────────
 
-async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 4000): Promise<any> {
+async function callOpenAI(
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens = 4000,
+): Promise<{ output: unknown; usage: OpenAITextUsage }> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -462,7 +523,10 @@ async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 
   const content = data.choices?.[0]?.message?.content?.trim()
   if (!content) throw new Error('OpenAI returned no strategy')
   try {
-    return JSON.parse(content)
+    return {
+      output: JSON.parse(content),
+      usage: readOpenAIChatUsage(data.usage),
+    }
   } catch {
     throw new Error('OpenAI returned invalid strategy JSON')
   }
@@ -549,11 +613,17 @@ export function buildStrategistPrompts(
         brief.strategyType === 'organic'
           ? 'Organic-only mode is not paid planning: channelMix must describe organic effort/rhythm with effortSharePercent only. Do NOT include budgetPercent, paid readiness, ad launch, spend, activation, or platform-execution claims.'
           : '',
+        brief.strategyType === 'paid'
+          ? 'Paid-only mode must NOT create organic post directions, reels, captions, posting cadence, or a Content Hub plan. weeklyExecutionPlan is a four-week paid-planning workplan (research, creative review, tracking readiness, approval gates), not an organic publishing calendar.'
+          : '',
         allowedPlatformLine,
         'Never claim ads will launch, budget will be spent, campaigns will be activated, or that posts are scheduled/published — nothing is published or activated without explicit user approval.',
         typeof brief.organicPostCount === 'number' && brief.organicPostCount > 0
           ? `Organic output count is binding: return exactly ${brief.organicPostCount} contentAnglesDetailed entries and make weeklyExecutionPlan.deliverables add up to exactly ${brief.organicPostCount} countable post directions for the first ${brief.detailedCalendarDays ?? 30} days.`
           : '',
+        d && d.paidAdVariationCount > 0
+          ? `Paid output counts are binding inside paidPlanning: exactly ${d.audienceHypothesisCount} audienceHypotheses, ${d.paidAdAngleCount} adAngles, ${d.paidAdVariationCount} adCopyVariations, and ${d.creativeBriefCount} creativeBriefs. paidPlanning.planningOnly must be true.`
+          : 'paidPlanning must be null because paid planning is outside this order.',
         isArabicOutput
           ? 'Arabic language is binding: follow the ARABIC OUTPUT CONTRACT below for every user-facing JSON value.'
           : '',
@@ -672,6 +742,28 @@ Return ONLY valid JSON. No markdown outside the JSON.`
     ? '{ "platform": "string", "effortSharePercent": number, "rationale": "string", "contentFrequency": "string" }'
     : '{ "platform": "string", "budgetPercent": number, "rationale": "string — planning assumption only", "contentFrequency": "string" }'
 
+  const paidPlanningSchema = d && d.paidAdVariationCount > 0
+    ? `"paidPlanning": {
+    "planningOnly": true,
+    "objective": "string — paid objective from the reviewed brief",
+    "audienceHypotheses": [
+      { "name": "string", "buyingSituation": "string", "targetingHypothesis": "string", "exclusions": "string", "validationNeeded": "string" }
+    ],
+    "adAngles": [
+      { "name": "string", "audienceHypothesis": "string", "message": "string", "funnelStage": "string", "proofNeeded": "string" }
+    ],
+    "adCopyVariations": [
+      { "id": "string", "angle": "string", "headline": "string", "primaryText": "string", "cta": "string", "destination": "string — use Not enough data when unresolved", "assumption": "string" }
+    ],
+    "creativeBriefs": [
+      { "name": "string", "angle": "string", "format": "string", "visualDirection": "string", "requiredAssets": ["string"], "proofBoundary": "string", "reviewGate": "string" }
+    ],
+    "budgetFramework": "string — planning framework only; never invent spend",
+    "trackingChecklist": ["string"],
+    "launchBlockers": ["string"]
+  },`
+    : '"paidPlanning": null,'
+
   const userPrompt = `
 ${extendedBrief}
 ${readinessBlock}
@@ -727,6 +819,8 @@ Return JSON with these exact fields — all specific to this brand:
   "channelMix": [
     ${channelMixSchemaItem}
   ],
+
+  ${paidPlanningSchema}
 
   "topHooks": ["string — 5+ hooks specific to this brand"],
   "ctaVariations": ["string — 5 specific CTAs"],
@@ -838,12 +932,23 @@ Return JSON with these exact fields — all specific to this brand:
   return { systemPrompt, userPrompt }
 }
 
-export function buildStrategistCountRepairPrompt(output: StrategyOutput, expectedCount: number): string {
+export function buildStrategistCountRepairPrompt(
+  output: StrategyOutput,
+  expectedCount: number,
+  paidDeliverables?: StrategyDeliverables,
+  strategyType: BusinessBrief['strategyType'] = 'organic',
+): string {
+  const paidRepair = paidDeliverables && paidDeliverables.paidAdVariationCount > 0
+    ? `Return paidPlanning with planningOnly=true and EXACTLY ${paidDeliverables.audienceHypothesisCount} audienceHypotheses, ${paidDeliverables.paidAdAngleCount} adAngles, ${paidDeliverables.paidAdVariationCount} adCopyVariations, and ${paidDeliverables.creativeBriefCount} creativeBriefs. Every record must contain every schema field. Paid-only weekly deliverables must be paid-planning milestones, never organic posts or a publishing calendar.`
+    : 'paidPlanning must be null because paid planning is outside the reviewed order.'
+  const organicRepair = strategyType === 'paid'
+    ? 'Do not create organic posts. Keep contentAnglesDetailed as paid message directions and weeklyExecutionPlan as four countable paid-planning milestones.'
+    : `The reviewed order requires exactly ${expectedCount} contentAnglesDetailed entries. weeklyExecutionPlan.deliverables must also add up to exactly ${expectedCount} countable organic post directions across the first detailed window.`
   return [
     'REPAIR THE JSON CONTRACT. Return the complete corrected strategy JSON only.',
     'Return at least 2 distinct audienceSegmentsDetailed entries. Each must keep every required operational field and must be framed as a reviewable audience hypothesis when the Brand Brain does not prove it.',
-    `The reviewed order requires exactly ${expectedCount} contentAnglesDetailed entries.`,
-    `weeklyExecutionPlan.deliverables must also add up to exactly ${expectedCount} countable post directions across the first detailed window.`,
+    organicRepair,
+    paidRepair,
     'Return exactly 4 weeklyExecutionPlan entries for a 30-day detailed window. Every week must include at least one countable deliverable, assetsNeeded, executionNote, and reviewPoints.',
     'Preserve the brand, facts, language, strategy type, platforms, proof gaps, and every valid field already present.',
     'Add distinct, executable angles grounded in the same audience, offer, goal, and content pillars. Do not duplicate or merely paraphrase an existing angle.',
@@ -861,8 +966,11 @@ export async function runStrategistAgent(
   readiness?: StrategyReadinessContext
 ): Promise<StrategyOutput> {
   const { systemPrompt, userPrompt } = buildStrategistPrompts(brief, brandContext, language, readiness)
+  const providerCalls: OpenAITextUsage[] = []
 
-  let output = normalizeStrategyOutput(await callOpenAI(systemPrompt, userPrompt, 7500)) as StrategyOutput
+  const initialCall = await callOpenAI(systemPrompt, userPrompt, 7500)
+  providerCalls.push(initialCall.usage)
+  let output = normalizeStrategyOutput(initialCall.output) as StrategyOutput
 
   // Models sometimes miss the reviewed count or return too few audience/week
   // records. Repair once before the commercial contract rejects/refunds the
@@ -870,22 +978,37 @@ export async function runStrategistAgent(
   const contractPreview = validateCampaignStrategyContract(output, {
     language: language ?? brief.language,
     expectedOrganicPostCount: brief.organicPostCount,
+    strategyType: brief.strategyType,
+    expectedPaidPlanning: brief.strategyDeliverables,
   })
   const structuralRepairNeeded = contractPreview.weakFields.some(field => (
     field === 'audienceSegmentsDetailed' ||
     field === 'contentAnglesDetailed' ||
-    field === 'weeklyExecutionPlan'
+    field === 'weeklyExecutionPlan' ||
+    field.startsWith('paidPlanning')
   ))
   if (contractPreview.countViolations.length > 0 || structuralRepairNeeded) {
     const repairDirectionCount = typeof brief.organicPostCount === 'number' && brief.organicPostCount > 0
       ? Math.floor(brief.organicPostCount)
       : 4
-    output = normalizeStrategyOutput(await callOpenAI(
+    const repairCall = await callOpenAI(
       `${systemPrompt}\n\nYou are repairing a previously generated JSON document. The repair instructions and reviewed order are binding.`,
-      buildStrategistCountRepairPrompt(output, repairDirectionCount),
+      buildStrategistCountRepairPrompt(output, repairDirectionCount, brief.strategyDeliverables, brief.strategyType),
       9500,
-    )) as StrategyOutput
+    )
+    providerCalls.push(repairCall.usage)
+    output = normalizeStrategyOutput(repairCall.output) as StrategyOutput
   }
+
+  output.providerUsage = summarizeOpenAITextUsage('gpt-4o', providerCalls)
+  console.info('[AI Economics] strategy', {
+    model: output.providerUsage.model,
+    calls: output.providerUsage.calls,
+    inputTokens: output.providerUsage.inputTokens,
+    outputTokens: output.providerUsage.outputTokens,
+    estimatedProviderCostUsd: output.providerUsage.estimatedProviderCostUsd,
+    pricingVersion: output.providerUsage.pricingVersion,
+  })
 
   // ── Quality guardrail: log if output is too generic ───────────────────────
   const rawText = JSON.stringify(output)

@@ -225,6 +225,8 @@ export async function runFullAgency(
     const contractReport = assertCampaignStrategyContract(strategy, {
       language: brief.language,
       expectedOrganicPostCount: brief.organicPostCount,
+      strategyType: brief.strategyType,
+      expectedPaidPlanning: brief.strategyDeliverables,
     })
     const qualityGate = reviewStrategyGrounding({
       strategy,

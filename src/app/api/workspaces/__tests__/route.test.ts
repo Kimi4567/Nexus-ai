@@ -68,16 +68,16 @@ describe('POST /api/workspaces', () => {
     expect(mocks.workspaceCreate).not.toHaveBeenCalled()
   })
 
-  it('allows Growth up to three owned workspaces', async () => {
+  it('allows Growth up to two owned workspaces', async () => {
     mocks.userFind.mockResolvedValueOnce({ subscriptionStatus: 'PRO', role: 'USER' })
-    mocks.workspaceCount.mockResolvedValueOnce(2)
-    const response = await POST(request({ name: 'Third Brand', slug: 'Third Brand!' }))
+    mocks.workspaceCount.mockResolvedValueOnce(1)
+    const response = await POST(request({ name: 'Second Brand', slug: 'Second Brand!' }))
 
     expect(response.status).toBe(201)
     expect(mocks.workspaceCreate).toHaveBeenCalledWith({
       data: {
-        name: 'Third Brand',
-        slug: 'third-brand',
+        name: 'Second Brand',
+        slug: 'second-brand',
         description: null,
         ownerId: 'user-1',
       },

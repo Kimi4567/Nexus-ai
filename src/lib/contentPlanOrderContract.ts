@@ -66,6 +66,16 @@ function firstCount(...values: unknown[]): number | null {
   return null
 }
 
+function hasPositivePaidDeliverables(deliverables: Record<string, unknown> | null): boolean {
+  if (!deliverables) return false
+  return [
+    deliverables.paidAdAngleCount,
+    deliverables.paidAdVariationCount,
+    deliverables.creativeBriefCount,
+    deliverables.audienceHypothesisCount,
+  ].some(value => (nonNegativeInteger(value) ?? 0) > 0)
+}
+
 export function countContentPlanDirections(posts: ContentPlanOrderPostLike[]): number {
   const keys = new Set<string>()
 
@@ -105,16 +115,22 @@ export function resolveContentPlanOrderScope(aiOutput: unknown): ContentPlanOrde
     order?.organicPostCount,
   )
 
-  // The reviewed order is more authoritative than legacy duplicated labels.
-  // A positive, saved organic deliverable can never truthfully be "paid only";
-  // treat a stale paid label as organic scope instead of hiding valid posts.
+  // Deterministic deliverables are more authoritative than duplicated legacy
+  // labels. Infer the scope from what was actually ordered so a stale label
+  // cannot turn Full into Organic/Paid or expose Content Hub for paid-only.
   const savedType =
     normalizeStrategyType(order?.strategyType) ??
     normalizeStrategyType(aiOutput.strategyType) ??
     normalizeStrategyType(strategy?.strategyType)
-  const strategyType = savedType === 'paid' && (expectedDirections ?? 0) > 0
-    ? 'organic'
-    : savedType
+  const hasOrganicDeliverables = (expectedDirections ?? 0) > 0
+  const hasPaidDeliverables = hasPositivePaidDeliverables(deliverables)
+  const strategyType = hasOrganicDeliverables && hasPaidDeliverables
+    ? 'full'
+    : hasOrganicDeliverables
+      ? 'organic'
+      : hasPaidDeliverables
+        ? 'paid'
+        : savedType
 
   const bound = Boolean(
     order ||

@@ -28,6 +28,7 @@ import {
 import { paidPlatformSupportsObjective } from '@/lib/paidExecutionObjective'
 import CreditConfirmModal from '@/components/CreditConfirmModal'
 import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
+import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface AdAccount {
@@ -1136,7 +1137,7 @@ export default function NewPaidCampaignPage() {
                   type="button"
                   onClick={() => setCreditConfirmation('copy')}
                   disabled={loading}
-                  aria-label={copy('إنشاء مسودات النصوص الإعلانية مقابل رصيدين', 'Generate ad copy drafts for 2 credits')}
+                  aria-label={copy(`إنشاء مسودات النصوص الإعلانية مقابل ${CREDIT_ACTION_COSTS.AD_COPY} أرصدة`, `Generate ad copy drafts for ${CREDIT_ACTION_COSTS.AD_COPY} credits`)}
                   className="flex-1 py-2.5 rounded-xl text-[13px] font-bold transition-all"
                   style={{ background: loading ? '#e2e8f0' : '#F97316', color: loading ? '#94a3b8' : 'white' }}
                 >
@@ -1145,7 +1146,7 @@ export default function NewPaidCampaignPage() {
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
                       {copy('جارٍ إنشاء النصوص...', 'Generating copy...')}
                     </span>
-                ) : copy('إنشاء مسودات النصوص الإعلانية — رصيدان', 'Generate ad copy drafts — 2 credits')}
+                ) : copy(`إنشاء مسودات النصوص الإعلانية — ${CREDIT_ACTION_COSTS.AD_COPY} أرصدة`, `Generate ad copy drafts — ${CREDIT_ACTION_COSTS.AD_COPY} credits`)}
                 </button>
               )}
             </div>

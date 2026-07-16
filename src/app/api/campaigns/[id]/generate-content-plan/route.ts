@@ -341,7 +341,7 @@ export async function POST(req: NextRequest, props: Params) {
     const rateLimitResponse = await enforceBillableAiRateLimit(userId, 'CONTENT_PLAN_GENERATION')
     if (rateLimitResponse) return rateLimitResponse
 
-    // ── 4. Deduct credits (flat 2 credits per content plan generation) ────
+    // ── 4. Reserve the centralized content-plan price ────────────────────
     const creditCheck = await checkAndDeductCredits(
       userId,
       'CONTENT_PLAN_GENERATION',

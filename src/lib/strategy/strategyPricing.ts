@@ -43,24 +43,24 @@ type PriceRow = { 30: number; 90: number; 180: number }
 
 // ── Approved matrices ────────────────────────────────────────────────────────
 const ORGANIC: Record<ContentIntensity, PriceRow> = {
-  light:    { 30: 8,  90: 12, 180: 16 },
-  standard: { 30: 10, 90: 14, 180: 18 },
-  growth:   { 30: 12, 90: 16, 180: 20 },
-  daily:    { 30: 14, 90: 18, 180: 22 },
+  light:    { 30: 12, 90: 18, 180: 24 },
+  standard: { 30: 16, 90: 24, 180: 32 },
+  growth:   { 30: 22, 90: 32, 180: 42 },
+  daily:    { 30: 28, 90: 40, 180: 54 },
 }
 
 // Paid tiers (Basic / Standard / Advanced). Intensity maps onto these tiers.
 const PAID: Record<'basic' | 'standard' | 'advanced', PriceRow> = {
-  basic:    { 30: 10, 90: 14, 180: 18 },
-  standard: { 30: 12, 90: 16, 180: 20 },
-  advanced: { 30: 14, 90: 18, 180: 22 },
+  basic:    { 30: 16, 90: 24, 180: 32 },
+  standard: { 30: 22, 90: 32, 180: 42 },
+  advanced: { 30: 28, 90: 40, 180: 54 },
 }
 
 const FULL: Record<ContentIntensity, PriceRow> = {
-  light:    { 30: 14, 90: 18, 180: 24 },
-  standard: { 30: 16, 90: 21, 180: 27 },
-  growth:   { 30: 18, 90: 24, 180: 30 },
-  daily:    { 30: 20, 90: 27, 180: 34 },
+  light:    { 30: 24, 90: 34, 180: 46 },
+  standard: { 30: 32, 90: 46, 180: 60 },
+  growth:   { 30: 42, 90: 60, 180: 78 },
+  daily:    { 30: 54, 90: 76, 180: 96 },
 }
 
 // Paid intensity → paid tier (light=Basic, standard=Standard, growth/daily=Advanced).

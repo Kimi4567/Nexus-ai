@@ -20,10 +20,10 @@ const cost = (o: StrategyOrder) => getStrategyCreditCost(o).cost
 
 describe('strategyPricing — Organic matrix', () => {
   const M = {
-    light:    { 30: 8,  90: 12, 180: 16 },
-    standard: { 30: 10, 90: 14, 180: 18 },
-    growth:   { 30: 12, 90: 16, 180: 20 },
-    daily:    { 30: 14, 90: 18, 180: 22 },
+    light:    { 30: 12, 90: 18, 180: 24 },
+    standard: { 30: 16, 90: 24, 180: 32 },
+    growth:   { 30: 22, 90: 32, 180: 42 },
+    daily:    { 30: 28, 90: 40, 180: 54 },
   } as const
   for (const intensity of ['light', 'standard', 'growth', 'daily'] as const) {
     for (const dur of ['30', '90', '180'] as const) {
@@ -37,10 +37,10 @@ describe('strategyPricing — Organic matrix', () => {
 describe('strategyPricing — Paid matrix + intensity→tier', () => {
   // light→Basic, standard→Standard, growth/daily→Advanced
   const EXPECT = {
-    light:    { 30: 10, 90: 14, 180: 18, tier: 'Paid Basic' },
-    standard: { 30: 12, 90: 16, 180: 20, tier: 'Paid Standard' },
-    growth:   { 30: 14, 90: 18, 180: 22, tier: 'Paid Advanced' },
-    daily:    { 30: 14, 90: 18, 180: 22, tier: 'Paid Advanced' },
+    light:    { 30: 16, 90: 24, 180: 32, tier: 'Paid Basic' },
+    standard: { 30: 22, 90: 32, 180: 42, tier: 'Paid Standard' },
+    growth:   { 30: 28, 90: 40, 180: 54, tier: 'Paid Advanced' },
+    daily:    { 30: 28, 90: 40, 180: 54, tier: 'Paid Advanced' },
   } as const
   for (const intensity of ['light', 'standard', 'growth', 'daily'] as const) {
     for (const dur of ['30', '90', '180'] as const) {
@@ -55,10 +55,10 @@ describe('strategyPricing — Paid matrix + intensity→tier', () => {
 
 describe('strategyPricing — Full matrix', () => {
   const M = {
-    light:    { 30: 14, 90: 18, 180: 24 },
-    standard: { 30: 16, 90: 21, 180: 27 },
-    growth:   { 30: 18, 90: 24, 180: 30 },
-    daily:    { 30: 20, 90: 27, 180: 34 },
+    light:    { 30: 24, 90: 34, 180: 46 },
+    standard: { 30: 32, 90: 46, 180: 60 },
+    growth:   { 30: 42, 90: 60, 180: 78 },
+    daily:    { 30: 54, 90: 76, 180: 96 },
   } as const
   for (const intensity of ['light', 'standard', 'growth', 'daily'] as const) {
     for (const dur of ['30', '90', '180'] as const) {
@@ -70,31 +70,31 @@ describe('strategyPricing — Full matrix', () => {
 })
 
 describe('strategyPricing — custom duration rules', () => {
-  it('custom 1–30 uses 30-day price (Organic Standard 14d = 10)', () => {
+  it('custom 1–30 uses 30-day price (Organic Standard 14d = 16)', () => {
     const r = getStrategyCreditCost(order('organic', 'standard', 'custom', 14))
-    expect(r.cost).toBe(10)
+    expect(r.cost).toBe(16)
     expect(r.durationBucket).toBe('30')
   })
 
-  it('custom 31–60 uses ceil(30-day price * 1.2) (Organic Standard 45d = 12)', () => {
+  it('custom 31–60 uses ceil(30-day price * 1.2) (Organic Standard 45d = 20)', () => {
     const r = getStrategyCreditCost(order('organic', 'standard', 'custom', 45))
-    expect(r.cost).toBe(12) // ceil(10 * 1.2) = 12
+    expect(r.cost).toBe(20) // ceil(16 * 1.2) = 20
     expect(r.durationBucket).toBe('30')
   })
 
-  it('custom 31–60 +20% rounds UP (Organic Light 45d = ceil(8*1.2)=10)', () => {
-    expect(cost(order('organic', 'light', 'custom', 45))).toBe(10) // ceil(9.6)=10
+  it('custom 31–60 +20% rounds UP (Organic Light 45d = ceil(12*1.2)=15)', () => {
+    expect(cost(order('organic', 'light', 'custom', 45))).toBe(15) // ceil(14.4)=15
   })
 
-  it('custom 61–90 uses 90-day price (Organic Standard 75d = 14)', () => {
+  it('custom 61–90 uses 90-day price (Organic Standard 75d = 24)', () => {
     const r = getStrategyCreditCost(order('organic', 'standard', 'custom', 75))
-    expect(r.cost).toBe(14)
+    expect(r.cost).toBe(24)
     expect(r.durationBucket).toBe('90')
   })
 
-  it('custom 91–180 uses 180-day price (Organic Standard 160d = 18)', () => {
+  it('custom 91–180 uses 180-day price (Organic Standard 160d = 32)', () => {
     const r = getStrategyCreditCost(order('organic', 'standard', 'custom', 160))
-    expect(r.cost).toBe(18)
+    expect(r.cost).toBe(32)
     expect(r.durationBucket).toBe('180')
   })
 
@@ -108,7 +108,7 @@ describe('strategyPricing — custom duration rules', () => {
 
   it('custom boundaries: 30→30col, 60→30col+20%, 61→90col, 90→90col, 180→180col, 181→unsupported', () => {
     expect(getStrategyCreditCost(order('organic', 'standard', 'custom', 30)).durationBucket).toBe('30')
-    expect(getStrategyCreditCost(order('organic', 'standard', 'custom', 60)).cost).toBe(12) // ceil(10*1.2)
+    expect(getStrategyCreditCost(order('organic', 'standard', 'custom', 60)).cost).toBe(20) // ceil(16*1.2)
     expect(getStrategyCreditCost(order('organic', 'standard', 'custom', 61)).durationBucket).toBe('90')
     expect(getStrategyCreditCost(order('organic', 'standard', 'custom', 90)).durationBucket).toBe('90')
     expect(getStrategyCreditCost(order('organic', 'standard', 'custom', 180)).durationBucket).toBe('180')
@@ -122,7 +122,7 @@ describe('strategyPricing — exact organic post count', () => {
       ...order('organic', 'daily', '90'),
       customOrganicPostCount: 7,
     })
-    expect(r.cost).toBe(12)
+    expect(r.cost).toBe(18)
     expect(r.tierLabel).toBe('Organic Light')
     expect(r.pricingExplanation).toMatch(/exact 7 organic post directions/i)
   })
@@ -132,7 +132,7 @@ describe('strategyPricing — exact organic post count', () => {
       ...order('full', 'light', '90'),
       customOrganicPostCount: 17,
     })
-    expect(r.cost).toBe(24)
+    expect(r.cost).toBe(60)
     expect(r.tierLabel).toBe('Full Growth')
   })
 
@@ -141,7 +141,7 @@ describe('strategyPricing — exact organic post count', () => {
       ...order('paid', 'standard', '90'),
       customOrganicPostCount: 7,
     })
-    expect(r.cost).toBe(16)
+    expect(r.cost).toBe(32)
     expect(r.tierLabel).toBe('Paid Standard')
   })
 
@@ -157,20 +157,20 @@ describe('strategyPricing — exact organic post count', () => {
 })
 
 describe('strategyPricing — required examples', () => {
-  it('Organic Standard 160 (custom) = 18', () => {
-    expect(cost(order('organic', 'standard', 'custom', 160))).toBe(18)
+  it('Organic Standard 160 (custom) = 32', () => {
+    expect(cost(order('organic', 'standard', 'custom', 160))).toBe(32)
   })
-  it('Full Standard 90 (preset) = 21', () => {
-    expect(cost(order('full', 'standard', '90'))).toBe(21)
+  it('Full Standard 90 (preset) = 46', () => {
+    expect(cost(order('full', 'standard', '90'))).toBe(46)
   })
-  it('Paid Standard 90 (preset) = 16', () => {
-    expect(cost(order('paid', 'standard', '90'))).toBe(16)
+  it('Paid Standard 90 (preset) = 32', () => {
+    expect(cost(order('paid', 'standard', '90'))).toBe(32)
   })
-  it('Organic Daily 30 (preset) = 14', () => {
-    expect(cost(order('organic', 'daily', '30'))).toBe(14)
+  it('Organic Daily 30 (preset) = 28', () => {
+    expect(cost(order('organic', 'daily', '30'))).toBe(28)
   })
-  it('Custom 45 Organic Standard = 12 (ceil(10*1.2))', () => {
-    expect(cost(order('organic', 'standard', 'custom', 45))).toBe(12)
+  it('Custom 45 Organic Standard = 20 (ceil(16*1.2))', () => {
+    expect(cost(order('organic', 'standard', 'custom', 45))).toBe(20)
   })
 })
 

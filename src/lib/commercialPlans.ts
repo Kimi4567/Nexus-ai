@@ -8,9 +8,11 @@
 
 export type PublicPaidPlanId = 'pro' | 'business'
 
-// One entry activation journey: Organic Light / 30 days (8) + quality review
-// (2) + Content Hub plan (2). Larger orders need purchased/plan credits.
-export const FREE_TRIAL_CREDITS = 12
+// One bounded activation journey: Organic Light / 30 days (12) + quality
+// review (3). Content production is deliberately excluded from the free grant;
+// this prevents disposable accounts from consuming the heaviest workflow while
+// still letting a new customer validate the strategy and review experience.
+export const FREE_TRIAL_CREDITS = 15
 export const FREE_TRIAL_POSTS = 3
 
 export interface PublicPaidPlan {
@@ -30,20 +32,20 @@ export const PUBLIC_PAID_PLANS: readonly PublicPaidPlan[] = [
     slug: 'growth',
     name: 'Growth',
     priceUsd: 49,
-    monthlyCredits: 150,
-    postsPerMonth: 25,
-    workspaces: 3,
-    campaignLimit: 10,
+    monthlyCredits: 60,
+    postsPerMonth: 16,
+    workspaces: 2,
+    campaignLimit: 4,
   },
   {
     id: 'business',
     slug: 'autopilot',
     name: 'Autopilot',
     priceUsd: 99,
-    monthlyCredits: 500,
-    postsPerMonth: 60,
-    workspaces: 10,
-    campaignLimit: 999,
+    monthlyCredits: 180,
+    postsPerMonth: 40,
+    workspaces: 5,
+    campaignLimit: 12,
   },
 ] as const
 
@@ -69,8 +71,8 @@ export function getPublicPaidPlan(value: unknown): PublicPaidPlan | null {
 export function getWorkspaceLimit(plan: unknown, role?: unknown): number {
   if (String(role).toUpperCase() === 'ADMIN') return 999
   const normalized = String(plan || 'FREE').toUpperCase()
-  if (normalized === 'BUSINESS' || normalized === 'AGENCY') return 10
-  if (normalized === 'PRO' || normalized === 'GROWTH' || normalized === 'ACTIVE') return 3
+  if (normalized === 'BUSINESS' || normalized === 'AGENCY') return 5
+  if (normalized === 'PRO' || normalized === 'GROWTH' || normalized === 'ACTIVE') return 2
   return 1 // FREE + legacy STARTER
 }
 
@@ -78,8 +80,8 @@ export function getWorkspaceLimit(plan: unknown, role?: unknown): number {
 export function getCampaignLimit(plan: unknown, role?: unknown): number {
   if (String(role).toUpperCase() === 'ADMIN') return 999
   const normalized = String(plan || 'FREE').toUpperCase()
-  if (normalized === 'BUSINESS' || normalized === 'AGENCY') return 999
-  if (normalized === 'PRO' || normalized === 'GROWTH' || normalized === 'ACTIVE') return 10
+  if (normalized === 'BUSINESS' || normalized === 'AGENCY') return 12
+  if (normalized === 'PRO' || normalized === 'GROWTH' || normalized === 'ACTIVE') return 4
   if (normalized === 'STARTER') return 2
   return 1
 }
@@ -88,8 +90,8 @@ export function getCampaignLimit(plan: unknown, role?: unknown): number {
 export function getPlannedPostLimit(plan: unknown, role?: unknown): number {
   if (String(role).toUpperCase() === 'ADMIN') return 999
   const normalized = String(plan || 'FREE').toUpperCase()
-  if (normalized === 'BUSINESS' || normalized === 'AGENCY') return 60
-  if (normalized === 'PRO' || normalized === 'GROWTH' || normalized === 'ACTIVE') return 25
+  if (normalized === 'BUSINESS' || normalized === 'AGENCY') return 40
+  if (normalized === 'PRO' || normalized === 'GROWTH' || normalized === 'ACTIVE') return 16
   if (normalized === 'STARTER') return 10
   return 3
 }
@@ -99,21 +101,23 @@ export function getPlannedPostLimit(plan: unknown, role?: unknown): number {
 /**
  * Versioned, server-enforced pricing policy for one-time wallet purchases.
  * Progressive blocks keep the total monotonic: buying one more block can never
- * make the whole purchase cheaper. The 100/300 reference points preserve the
- * original $29/$69 commercial offer while allowing any 10-credit increment.
+ * make the whole purchase cheaper. Wallet credit is intentionally more
+ * expensive than the lowest subscription unit price so top-ups cannot undercut
+ * the recurring plans. The minimum also keeps fixed payment fees from eroding
+ * small-purchase margin.
  */
 export const CREDIT_PURCHASE_POLICY = {
-  version: '2026-07-v1',
+  version: '2026-07-16-v2',
   currency: 'usd',
-  minimum: 50,
-  maximum: 5_000,
-  step: 10,
+  minimum: 20,
+  maximum: 500,
+  step: 5,
   validityMonths: 12,
   tiers: [
-    { upTo: 100, unitAmountCents: 29 },
-    { upTo: 300, unitAmountCents: 20 },
-    { upTo: 1_000, unitAmountCents: 17 },
-    { upTo: 5_000, unitAmountCents: 14 },
+    { upTo: 50, unitAmountCents: 100 },
+    { upTo: 150, unitAmountCents: 90 },
+    { upTo: 300, unitAmountCents: 80 },
+    { upTo: 500, unitAmountCents: 70 },
   ],
 } as const
 

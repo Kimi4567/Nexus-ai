@@ -5,6 +5,9 @@ import { Check, FileCheck2, FileText, Loader2, ShieldCheck, Trash2, Upload, X } 
 import { supabase } from '@/lib/supabaseClient'
 import { BRAND_EVIDENCE_MAX_DOCUMENTS, BRAND_EVIDENCE_WORKSPACE_MAX_BYTES } from '@/lib/brandEvidence'
 import { fetchCreditOperation } from '@/lib/creditOperationClient'
+import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
+
+const EVIDENCE_ANALYSIS_COST = CREDIT_ACTION_COSTS.BRAND_EVIDENCE_ANALYSIS
 
 interface EvidenceClaim {
   id: string
@@ -227,7 +230,7 @@ export function BrandEvidenceLibrary({ locale, authHeader, onProofChanged }: Bra
             ? `${BRAND_EVIDENCE_MAX_DOCUMENTS} مصادر / ${BRAND_EVIDENCE_WORKSPACE_MAX_BYTES / (1024 * 1024)} ميجابايت للمساحة`
             : `${BRAND_EVIDENCE_MAX_DOCUMENTS} sources / ${BRAND_EVIDENCE_WORKSPACE_MAX_BYTES / (1024 * 1024)} MB per workspace`}
         </span>
-        <span className="rounded-full bg-white px-2.5 py-1 font-semibold text-emerald-700 ring-1 ring-emerald-200">{ar ? 'التحليل: 2 كريديت' : 'Analysis: 2 credits'}</span>
+        <span className="rounded-full bg-white px-2.5 py-1 font-semibold text-emerald-700 ring-1 ring-emerald-200">{ar ? `التحليل: ${EVIDENCE_ANALYSIS_COST} كريديت` : `Analysis: ${EVIDENCE_ANALYSIS_COST} credits`}</span>
         <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-slate-200">{ar ? 'الرفع والمراجعة مجانًا' : 'Upload & review are free'}</span>
       </div>
 
@@ -266,7 +269,7 @@ export function BrandEvidenceLibrary({ locale, authHeader, onProofChanged }: Bra
                       <button type="button" onClick={() => void analyze(document.id)} disabled={analyzing}
                         className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-violet-600 px-3 text-[11px] font-bold text-white hover:bg-violet-700 disabled:opacity-60">
                         {analyzing ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
-                        {ar ? 'تحليل مقابل 2 كريديت' : 'Analyze for 2 credits'}
+                        {ar ? `تحليل مقابل ${EVIDENCE_ANALYSIS_COST} كريديت` : `Analyze for ${EVIDENCE_ANALYSIS_COST} credits`}
                       </button>
                     )}
                     {document.status === 'ANALYZING' && <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-700"><Loader2 size={13} className="animate-spin" />{ar ? 'جارٍ التحقق…' : 'Verifying…'}</span>}

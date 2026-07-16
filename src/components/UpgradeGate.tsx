@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { PUBLIC_PAID_PLANS } from '@/lib/commercialPlans'
 
 interface UpgradeGateProps {
   feature: string
@@ -14,6 +15,7 @@ interface UpgradeGateProps {
  * Use inline=true for embedded banners, false for modal overlays.
  */
 export default function UpgradeGate({ feature, description, onClose, inline = false }: UpgradeGateProps) {
+  const growthPlan = PUBLIC_PAID_PLANS[0]
   if (inline) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
@@ -24,7 +26,7 @@ export default function UpgradeGate({ feature, description, onClose, inline = fa
           className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition-all">
           Upgrade to Growth →
         </Link>
-        <div className="mt-3 text-xs text-slate-500">From $19/month · Cancel anytime</div>
+        <div className="mt-3 text-xs text-slate-500">From ${growthPlan.priceUsd}/month · Cancel anytime</div>
       </div>
     )
   }
@@ -47,7 +49,7 @@ export default function UpgradeGate({ feature, description, onClose, inline = fa
         <div className="space-y-2">
           <Link href="/billing"
             className="block w-full py-3 bg-slate-950 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition-all">
-            Upgrade to Growth — $49/month
+            Upgrade to Growth — ${growthPlan.priceUsd}/month
           </Link>
           {onClose && (
             <button onClick={onClose}

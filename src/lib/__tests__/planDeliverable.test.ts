@@ -21,9 +21,9 @@ describe('getCampaignDeliverable', () => {
     }
   })
 
-  it('promises the honest per-campaign count, NOT the monthly quota (Growth: 18 generated vs 25/mo)', () => {
+  it('promises the honest per-campaign count, NOT the monthly quota (Growth: 18 slots vs 16 AI-planned posts/mo)', () => {
     expect(getCampaignDeliverable('GROWTH').total).toBe(18)            // 16 posts + 2 video
-    expect(PLAN_QUOTAS['pro'].postsPerMonth).toBe(25)                  // the monthly quota is a different number
+    expect(PLAN_QUOTAS['pro'].postsPerMonth).toBe(16)                  // the monthly quota is a different number
     expect(getCampaignDeliverable('GROWTH').total).not.toBe(PLAN_QUOTAS['pro'].postsPerMonth)
   })
 

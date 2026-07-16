@@ -3,6 +3,9 @@
  * Handles all transactional + retention emails
  */
 import { Resend } from 'resend'
+import { PUBLIC_PAID_PLANS } from '@/lib/commercialPlans'
+
+const [GROWTH_EMAIL_PLAN, AUTOPILOT_EMAIL_PLAN] = PUBLIC_PAID_PLANS
 
 let resendClient: Resend | null = null
 
@@ -165,12 +168,12 @@ export async function sendCreditsLowEmail(to: string, name: string, creditsRemai
   const content = `
     ${h1('Your AI credits are running low.')}
     ${p(`${firstName}, you have <strong style="color:#f59e0b;">${creditsRemaining} credits left</strong>. Action costs vary by scope and are shown before confirmation.`)}
-    ${p('Upgrade to Growth for 150 credits/month, up to 10 campaign creations per billing month, and your weekly planning brief.')}
+    ${p(`Upgrade to Growth for ${GROWTH_EMAIL_PLAN.monthlyCredits} credits/month, up to ${GROWTH_EMAIL_PLAN.campaignLimit} campaign creations per billing month, and your weekly planning brief.`)}
 
     ${card(`
       <div style="font-size:13px;font-weight:700;color:#e8e8f5;margin-bottom:12px;">What you get with Growth:</div>
       <div style="display:flex;flex-direction:column;gap:8px;">
-        ${['150 AI credits every month', 'Up to 10 campaign creations per billing month', 'Weekly planning brief in your inbox', 'Supported-provider publishing after permission checks and explicit approval', 'Printable HTML and JSON campaign exports'].map(f =>
+        ${[`${GROWTH_EMAIL_PLAN.monthlyCredits} AI credits every month`, `Up to ${GROWTH_EMAIL_PLAN.campaignLimit} campaign creations per billing month`, 'Weekly planning brief in your inbox', 'Supported-provider publishing after permission checks and explicit approval', 'Printable HTML and JSON campaign exports'].map(f =>
           `<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#b8b8d8;">
             <span style="color:#FF9500;font-weight:700;">✓</span> ${f}
           </div>`
@@ -439,7 +442,7 @@ export async function sendNurtureDay5(to: string, name: string) {
 
     <div style="margin-top:24px;padding:16px 20px;background:#101010;border:1px solid #1a1a18;border-radius:10px;">
       <div style="font-size:12px;color:#5C5448;margin-bottom:6px;">When you need more capacity:</div>
-      <div style="font-size:13px;color:#9A9080;">Upgrade to Growth for $49/month — 150 credits, up to 10 monthly campaign creations, and a weekly planning brief. <a href="${APP_URL}/billing" style="color:#FF9500;">See plans →</a></div>
+      <div style="font-size:13px;color:#9A9080;">Upgrade to Growth for $${GROWTH_EMAIL_PLAN.priceUsd}/month — ${GROWTH_EMAIL_PLAN.monthlyCredits} credits, up to ${GROWTH_EMAIL_PLAN.campaignLimit} monthly campaign creations, and a weekly planning brief. <a href="${APP_URL}/billing" style="color:#FF9500;">See plans →</a></div>
     </div>
 
     <div style="margin-top:20px;">${p('— Raouf', true)}</div>
@@ -483,7 +486,7 @@ export async function sendNurtureDay7(to: string, name: string) {
       </div>
     `)}
 
-    ${p('Nexus Growth gives you up to 10 campaign creations per billing month, a weekly planning brief, supported-platform publishing after connection, and reviewable Brand Brain learning proposals.')}
+    ${p(`Nexus Growth gives you up to ${GROWTH_EMAIL_PLAN.campaignLimit} campaign creations per billing month, a weekly planning brief, supported-platform publishing after connection, and reviewable Brand Brain learning proposals.`)}
     ${p('If your campaigns perform well, the workflow may pay for itself — results vary by market, offer, and execution.')}
 
     ${btn('Upgrade to Growth — $49/month →', `${APP_URL}/billing`)}
@@ -511,8 +514,8 @@ export async function sendUpgradeConfirmationEmail(to: string, name: string, pla
   const firstName = name?.split(' ')[0] || 'there'
   const isAutopilot = /autopilot|business|agency/i.test(plan)
   const activatedFeatures = isAutopilot
-    ? ['500 AI credits per billing month', 'Unlimited monthly campaign creation', 'Scheduled monitoring', 'Supported-platform publishing after connection and approval', 'Printable HTML and JSON exports', 'Evidence-backed action queue']
-    : ['150 AI credits per billing month', 'Up to 10 campaign creations per billing month', 'Weekly planning brief', 'Supported-platform publishing after connection and approval', 'Printable HTML and JSON exports', 'Reviewable Brand Brain learning proposals']
+    ? [`${AUTOPILOT_EMAIL_PLAN.monthlyCredits} AI credits per billing month`, `Up to ${AUTOPILOT_EMAIL_PLAN.campaignLimit} campaign creations per billing month`, 'Scheduled monitoring', 'Supported-platform publishing after connection and approval', 'Printable HTML and JSON exports', 'Evidence-backed action queue']
+    : [`${GROWTH_EMAIL_PLAN.monthlyCredits} AI credits per billing month`, `Up to ${GROWTH_EMAIL_PLAN.campaignLimit} campaign creations per billing month`, 'Weekly planning brief', 'Supported-platform publishing after connection and approval', 'Printable HTML and JSON exports', 'Reviewable Brand Brain learning proposals']
 
   const content = `
     ${h1(`You're on ${plan}. Let's build.`)}

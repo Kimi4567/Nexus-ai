@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { resolveCreditDisplay } from '@/lib/credits/accountSnapshot'
 
 describe('resolveCreditDisplay', () => {
-  it('shows the pending 12-credit trial consistently before its lazy grant exists', () => {
+  it('shows the pending 15-credit trial consistently before its lazy grant exists', () => {
     expect(resolveCreditDisplay({
       subscriptionStatus: 'FREE',
       aiCredits: 0,
@@ -12,9 +12,9 @@ describe('resolveCreditDisplay', () => {
       walletEnabled: true,
       grants: [],
     })).toMatchObject({
-      remaining: 12,
+      remaining: 15,
       used: 0,
-      max: 12,
+      max: 15,
       isUnlimited: false,
       creditBreakdown: null,
       pendingStarterCredits: true,
@@ -32,8 +32,8 @@ describe('resolveCreditDisplay', () => {
       grants: [{ type: 'TRIAL', remaining: 9, expiresAt: new Date('2026-07-27T00:00:00Z') }],
     })).toMatchObject({
       remaining: 9,
-      used: 3,
-      max: 12,
+      used: 6,
+      max: 15,
       pendingStarterCredits: false,
       creditBreakdown: { trial: 9 },
     })
@@ -42,20 +42,20 @@ describe('resolveCreditDisplay', () => {
   it('keeps purchased credits in the total without treating them as renewable monthly credits', () => {
     expect(resolveCreditDisplay({
       subscriptionStatus: 'ACTIVE',
-      aiCredits: 170,
+      aiCredits: 90,
       monthlyGenerations: 2,
       planName: 'pro',
       hasActiveSubscription: true,
       walletEnabled: true,
       grants: [
-        { type: 'MONTHLY', remaining: 120, expiresAt: new Date('2026-08-01T00:00:00Z') },
+        { type: 'MONTHLY', remaining: 40, expiresAt: new Date('2026-08-01T00:00:00Z') },
         { type: 'PURCHASED', remaining: 50, expiresAt: new Date('2027-07-01T00:00:00Z') },
       ],
     })).toMatchObject({
-      remaining: 170,
-      used: 30,
-      max: 150,
-      creditBreakdown: { monthly: 120, purchased: 50 },
+      remaining: 90,
+      used: 20,
+      max: 60,
+      creditBreakdown: { monthly: 40, purchased: 50 },
     })
   })
 

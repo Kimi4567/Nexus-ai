@@ -133,7 +133,15 @@ function replaceUnsupportedCtaText(text: string): string {
   return text
     .replace(/\bDownload\s+now\b/gi, 'Request more information')
     .replace(/\bDownload\s+the\s+demo\b/gi, 'Request more information')
+    .replace(/\bDownload\s+(?:the\s+|our\s+)?(?:white\s*paper|guide|report|case\s+study|success\s+stor(?:y|ies)|ebook)\b/gi, 'Review the documented details')
+    .replace(/\bRegister\s+for\s+(?:the\s+|our\s+)?webinar\b/gi, 'Review the educational overview')
+    .replace(/\bJoin\s+(?:the\s+|our\s+)?webinar\b/gi, 'Review the educational overview')
+    .replace(/\bRead\s+(?:the\s+|our\s+)?(?:case\s+study|success\s+stor(?:y|ies))\b/gi, 'Review the verified proof when available')
     .replace(/\bWatch\s+our\s+demo\b/gi, 'Review the workflow')
+    .replace(/حم[ّ]?ل\s+(?:الآن|الدليل|التقرير|الكتاب|دراسة\s+الحالة|قصة\s+النجاح)/gi, 'راجع التفاصيل الموثقة')
+    .replace(/سج[ّ]?ل\s+(?:في|لحضور)\s+(?:ال)?ويبنار/gi, 'راجع الملخص التعليمي')
+    .replace(/انضم\s+(?:إلى|الى)\s+(?:ال)?ويبنار/gi, 'راجع الملخص التعليمي')
+    .replace(/اقرأ\s+(?:دراسة\s+الحالة|قصة\s+النجاح)/gi, 'راجع الإثبات الموثق عند توفره')
     .replace(/شاهد\s+(?:العرض|الديمو)\s+التوضيحي/gi, 'راجع طريقة العمل')
 }
 

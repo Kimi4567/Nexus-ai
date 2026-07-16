@@ -19,7 +19,7 @@ describe('campaign commercial window', () => {
     } as any
 
     const result = await readLockedCampaignAllowance(tx, 'owner-1', new Date('2026-07-12T12:00:00.000Z'))
-    expect(result).toMatchObject({ limit: 10, current: 9, plan: 'PRO', periodStart, periodEnd })
+    expect(result).toMatchObject({ limit: 4, current: 9, plan: 'PRO', periodStart, periodEnd })
     expect(tx.$executeRawUnsafe).toHaveBeenCalledWith(expect.any(String), 'campaign-limit:owner-1')
     expect(tx.campaign.count).toHaveBeenCalledWith({
       where: { workspace: { ownerId: 'owner-1' }, createdAt: { gte: periodStart, lt: periodEnd } },

@@ -23,7 +23,7 @@ describe('getCreditActionTruth', () => {
   })
   it('allows IMAGE_GENERATION when enough credits are available', () => {
     const truth = getCreditActionTruth({ action: 'IMAGE_GENERATION', creditsRemaining: 10 })
-    expect(truth.cost).toBe(3)
+    expect(truth.cost).toBe(4)
     expect(truth.canAfford).toBe(true)
     expect(truth.lockedReason).toBeNull()
   })
@@ -51,19 +51,19 @@ describe('getCreditActionTruth', () => {
   })
 
   it('uses the canonical CREATIVE_BRIEF cost', () => {
-    const truth = getCreditActionTruth({ action: 'CREATIVE_BRIEF', creditsRemaining: 3 })
+    const truth = getCreditActionTruth({ action: 'CREATIVE_BRIEF', creditsRemaining: 5 })
     expect(truth.cost).toBe(canonicalCost('CREATIVE_BRIEF'))
     expect(truth.canAfford).toBe(true)
   })
 
   it('uses the canonical CONTENT_PLAN_GENERATION cost', () => {
-    const truth = getCreditActionTruth({ action: 'CONTENT_PLAN_GENERATION', creditsRemaining: 2 })
+    const truth = getCreditActionTruth({ action: 'CONTENT_PLAN_GENERATION', creditsRemaining: 6 })
     expect(truth.cost).toBe(canonicalCost('CONTENT_PLAN_GENERATION'))
     expect(truth.canAfford).toBe(true)
   })
 
   it('uses the canonical RUN_FULL_STRATEGY cost', () => {
-    const truth = getCreditActionTruth({ action: 'RUN_FULL_STRATEGY', creditsRemaining: 8 })
+    const truth = getCreditActionTruth({ action: 'RUN_FULL_STRATEGY', creditsRemaining: 12 })
     expect(truth.cost).toBe(canonicalCost('RUN_FULL_STRATEGY'))
     expect(truth.canAfford).toBe(true)
   })

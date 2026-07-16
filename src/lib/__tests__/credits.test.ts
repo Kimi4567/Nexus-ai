@@ -435,15 +435,15 @@ describe('refundCredits', () => {
 
 describe('checkDailyImageCap', () => {
   it('allows generation below the FREE cap and reports remaining', async () => {
-    mockPrisma.generatedVisual.count.mockResolvedValue(1)
-    const res = await checkDailyImageCap('ws1', 'FREE') // cap 3
+    mockPrisma.generatedVisual.count.mockResolvedValue(0)
+    const res = await checkDailyImageCap('ws1', 'FREE') // cap 1
     expect(res.allowed).toBe(true)
-    expect(res.cap).toBe(3)
-    expect(res.remaining).toBe(2)
+    expect(res.cap).toBe(1)
+    expect(res.remaining).toBe(1)
   })
 
   it('blocks generation once the FREE cap is reached', async () => {
-    mockPrisma.generatedVisual.count.mockResolvedValue(3)
+    mockPrisma.generatedVisual.count.mockResolvedValue(1)
     const res = await checkDailyImageCap('ws1', 'FREE')
     expect(res.allowed).toBe(false)
     expect(res.remaining).toBe(0)
@@ -457,9 +457,9 @@ describe('checkDailyImageCap', () => {
   })
 
   it('defaults unknown / null plans to the FREE cap', async () => {
-    mockPrisma.generatedVisual.count.mockResolvedValue(3)
+    mockPrisma.generatedVisual.count.mockResolvedValue(1)
     const res = await checkDailyImageCap('ws1', null)
-    expect(res.cap).toBe(3)
+    expect(res.cap).toBe(1)
     expect(res.allowed).toBe(false)
   })
 })

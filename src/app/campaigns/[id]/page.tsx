@@ -115,6 +115,11 @@ const PLATFORM_COLORS: Record<string, string> = {
   YOUTUBE_SHORTS: '#FF0000', PINTEREST: '#E60023', SNAPCHAT: '#EAB308',
 }
 
+const CONTENT_PLAN_CREDIT_COST = getCreditActionTruth({
+  action: 'CONTENT_PLAN_GENERATION',
+  creditsRemaining: 0,
+}).cost
+
 function formatCampaignToneLabel(tone: string | null | undefined): string {
   if (!tone) return ''
   return tone
@@ -366,15 +371,15 @@ function ContentPlanApprovalDialog({
               <p className="text-sm leading-6 text-slate-600">
                 {isArabic
                   ? strategyAlreadyApproved
-                    ? 'الاستراتيجية معتمدة بالفعل. سيتحقق NEXUS من القرار المحفوظ، ثم يخصم 2 كريديت لإنشاء مسودات Content Hub للمراجعة. لا يتم نشر أو جدولة أو تشغيل إعلان.'
-                    : 'سيحفظ NEXUS اعتماد وثيقة الاستراتيجية كسير عمل، ثم يخصم 2 كريديت لإنشاء مسودات Content Hub للمراجعة. لا يتم نشر أو جدولة أو تشغيل إعلان.'
+                    ? `الاستراتيجية معتمدة بالفعل. سيتحقق NEXUS من القرار المحفوظ، ثم يخصم ${CONTENT_PLAN_CREDIT_COST} كريديت لإنشاء مسودات Content Hub للمراجعة. لا يتم نشر أو جدولة أو تشغيل إعلان.`
+                    : `سيحفظ NEXUS اعتماد وثيقة الاستراتيجية كسير عمل، ثم يخصم ${CONTENT_PLAN_CREDIT_COST} كريديت لإنشاء مسودات Content Hub للمراجعة. لا يتم نشر أو جدولة أو تشغيل إعلان.`
                   : strategyAlreadyApproved
-                    ? 'The strategy is already approved. NEXUS will verify the saved decision, then spend 2 credits to create Content Hub drafts for review. Nothing is published, scheduled, or launched.'
-                    : 'NEXUS will save workflow approval for the strategy, then spend 2 credits to create Content Hub drafts for review. Nothing is published, scheduled, or launched.'}
+                    ? `The strategy is already approved. NEXUS will verify the saved decision, then spend ${CONTENT_PLAN_CREDIT_COST} credits to create Content Hub drafts for review. Nothing is published, scheduled, or launched.`
+                    : `NEXUS will save workflow approval for the strategy, then spend ${CONTENT_PLAN_CREDIT_COST} credits to create Content Hub drafts for review. Nothing is published, scheduled, or launched.`}
               </p>
               <div className="grid gap-2 sm:grid-cols-3">
                 {[
-                  isArabic ? 'التكلفة: 2 كريديت' : 'Cost: 2 credits',
+                  isArabic ? `التكلفة: ${CONTENT_PLAN_CREDIT_COST} كريديت` : `Cost: ${CONTENT_PLAN_CREDIT_COST} credits`,
                   isArabic ? 'الناتج: مسودات محتوى' : 'Output: content drafts',
                   isArabic ? 'التنفيذ الخارجي: لا شيء' : 'External execution: none',
                 ].map(item => (
@@ -430,8 +435,8 @@ function ContentPlanApprovalDialog({
             </button>
             <button type="button" onClick={onConfirm} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700">
               {strategyAlreadyApproved
-                ? (isArabic ? 'إنشاء خطة المحتوى — 2 كريديت' : 'Build content plan — 2 credits')
-                : (isArabic ? 'تأكيد وإنشاء الخطة — 2 كريديت' : 'Confirm and build plan — 2 credits')}
+                ? (isArabic ? `إنشاء خطة المحتوى — ${CONTENT_PLAN_CREDIT_COST} كريديت` : `Build content plan — ${CONTENT_PLAN_CREDIT_COST} credits`)
+                : (isArabic ? `تأكيد وإنشاء الخطة — ${CONTENT_PLAN_CREDIT_COST} كريديت` : `Confirm and build plan — ${CONTENT_PLAN_CREDIT_COST} credits`)}
             </button>
           </div>
         )}
@@ -1274,6 +1279,9 @@ function CampaignDetailPageInner() {
   const weeklyExecutionPlan: any[] = strategy.weeklyExecutionPlan || []
   const assetRequirements: any = strategy.assetRequirements || null
   const adSetupPlan: any = strategy.adSetupPlan || null
+  const paidPlanning: any = strategy.paidPlanning && typeof strategy.paidPlanning === 'object'
+    ? strategy.paidPlanning
+    : null
   const readinessChecklist: any[] = strategy.readinessChecklist || []
   const doNotDoYet: string[] = strategy.doNotDoYet || []
   const successMetricsDetailed: any[] = strategy.successMetricsDetailed || []
@@ -1329,7 +1337,7 @@ function CampaignDetailPageInner() {
   const hasOrganicContentSection =
     includesOrganicStrategy && !!(strategy.valueProps?.length > 0 || strategy.valuePropositions?.length > 0 || strategy.estimatedResults || topHooks.length > 0 || ctaVariations.length > 0 || strategy.contentPillars?.length > 0 || contentAngles.length > 0 || contentAnglesDetailed.length > 0)
   const hasPaidPlanningAnglesSection =
-    isPaidOnlyStrategy && !!(topHooks.length > 0 || ctaVariations.length > 0 || strategy.contentPillars?.length > 0 || contentAngles.length > 0 || contentAnglesDetailed.length > 0)
+    isPaidOnlyStrategy && !!(paidPlanning || topHooks.length > 0 || ctaVariations.length > 0 || strategy.contentPillars?.length > 0 || contentAngles.length > 0 || contentAnglesDetailed.length > 0)
   const hasStrategyContentSection = hasOrganicContentSection || hasPaidPlanningAnglesSection
   const hasExecutionSection =
     !!(funnelStages.length > 0 || strategy.funnelStrategy || strategy.channelMix?.length > 0 || channelStrategy.length > 0 || strategy.offerCTAStrategy || strategy.visualDirection || weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0)
@@ -3368,7 +3376,7 @@ function CampaignDetailPageInner() {
                             className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
                           >
                             {campaign.status === 'ACTIVE'
-                              ? uiText('إنشاء خطة المحتوى — 2 كريديت', 'Build content plan — 2 credits')
+                              ? uiText(`إنشاء خطة المحتوى — ${CONTENT_PLAN_CREDIT_COST} كريديت`, `Build content plan — ${CONTENT_PLAN_CREDIT_COST} credits`)
                               : uiText('اعتمد الاستراتيجية وأنشئ الخطة', 'Approve strategy and build plan')}
                           </button>
                         ) : (
@@ -3803,7 +3811,54 @@ function CampaignDetailPageInner() {
                         ? 'الرسائل والركائز والخطافات التي تحوّل الاستراتيجية إلى محتوى قابل للمراجعة.'
                         : 'The messages, pillars, hooks, and angles that turn the strategy into reviewable content.')}
                   >
-                    <div className="space-y-5">
+                    {paidPlanning && (
+                      <div className="mb-6 space-y-4 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-indigo-600">{strategyDocText('حزمة التخطيط المدفوع', 'Paid planning package')}</p>
+                            <p className="mt-1 text-sm font-semibold text-slate-950">{strategyDocDisplayValue(paidPlanning.objective)}</p>
+                          </div>
+                          <span className="rounded-full border border-indigo-200 bg-white px-3 py-1 text-[11px] font-bold text-indigo-700">
+                            {strategyDocText('تخطيط فقط · لا صرف أو إطلاق', 'Planning only · no spend or launch')}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                          {[
+                            [strategyDocText('فرضيات الجمهور', 'Audience hypotheses'), paidPlanning.audienceHypotheses?.length || 0],
+                            [strategyDocText('الزوايا', 'Ad angles'), paidPlanning.adAngles?.length || 0],
+                            [strategyDocText('النسخ الإعلانية', 'Ad copy variations'), paidPlanning.adCopyVariations?.length || 0],
+                            [strategyDocText('البريفات الإبداعية', 'Creative briefs'), paidPlanning.creativeBriefs?.length || 0],
+                          ].map(([label, count]) => (
+                            <div key={String(label)} className="rounded-xl border border-indigo-100 bg-white p-3">
+                              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">{label}</p>
+                              <p className="mt-1 text-xl font-black text-slate-950">{count}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="grid gap-3 lg:grid-cols-2">
+                          <StrategyDocCard label={strategyDocText('إطار الميزانية', 'Budget framework')} value={paidPlanning.budgetFramework} locale={strategyDocumentLocale} tone="warning" />
+                          <StrategyDocCard label={strategyDocText('عوائق الإطلاق', 'Launch blockers')} value={paidPlanning.launchBlockers?.length ? <StrategyDocList locale={strategyDocumentLocale} items={paidPlanning.launchBlockers} /> : null} locale={strategyDocumentLocale} tone="warning" />
+                        </div>
+                        {Array.isArray(paidPlanning.adCopyVariations) && paidPlanning.adCopyVariations.length > 0 && (
+                          <details className="rounded-xl border border-indigo-100 bg-white p-3">
+                            <summary className="cursor-pointer text-sm font-bold text-slate-900">
+                              {strategyDocText(`عرض ${paidPlanning.adCopyVariations.length} نسخ إعلانية`, `Show ${paidPlanning.adCopyVariations.length} ad-copy variations`)}
+                            </summary>
+                            <div className="mt-3 grid gap-2 md:grid-cols-2">
+                              {paidPlanning.adCopyVariations.map((copy: any, index: number) => (
+                                <div key={copy.id || index} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                  <p className="text-xs font-bold text-indigo-700">{copy.id || `${index + 1}`}</p>
+                                  <p className="mt-1 text-sm font-semibold text-slate-950">{copy.headline}</p>
+                                  <p className="mt-2 text-xs leading-5 text-slate-600">{copy.primaryText}</p>
+                                  <p className="mt-2 text-[11px] font-semibold text-slate-500">CTA: {copy.cta}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                      </div>
+                    )}
+                    <div className={isPaidOnlyStrategy ? 'hidden' : 'space-y-5'}>
                       {strategy.contentPillars?.length > 0 && (
                         <div>
                           <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">

@@ -80,14 +80,14 @@ const PLANS = [
     limitsAr: [
       `${AUTOPILOT_PLAN.monthlyCredits} رصيد AI / شهر (يتجدد شهرياً)`,
       'مركز عمليات ومراقبة مجدولة للحالات والأعطال',
-      'حملات غير محدودة / شهر',
+      `${AUTOPILOT_PLAN.campaignLimit} حملات / شهر`,
       `${AUTOPILOT_PLAN.postsPerMonth} بوست AI مخطط / شهر`,
       'مراقبة مجدولة + قائمة قرارات مبنية على الأدلة',
     ],
     limitsEn: [
       `${AUTOPILOT_PLAN.monthlyCredits} AI credits / month (renews monthly)`,
       'Operations center with scheduled state and incident monitoring',
-      'Unlimited campaigns / month',
+      `${AUTOPILOT_PLAN.campaignLimit} campaigns / month`,
       `${AUTOPILOT_PLAN.postsPerMonth} AI-planned posts / month`,
       'Scheduled monitoring + evidence-backed action queue',
     ],
@@ -101,11 +101,9 @@ const FULL_STANDARD_90_WORKFLOW_COST = getStrategyToDraftsJourneyCost(
   CREDIT_ACTION_COSTS.SENTINEL_REVIEW,
   CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION,
 )
-const TRIAL_ACTIVATION_WORKFLOW_COST = getStrategyToDraftsJourneyCost(
-  STRATEGY_PRICING_DISPLAY_TRUTH.trialActivation.cost,
-  CREDIT_ACTION_COSTS.SENTINEL_REVIEW,
-  CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION,
-)
+const TRIAL_STRATEGY_REVIEW_COST =
+  STRATEGY_PRICING_DISPLAY_TRUTH.trialActivation.cost
+  + CREDIT_ACTION_COSTS.SENTINEL_REVIEW
 
 const CREDIT_ACTIONS = [
   {
@@ -212,8 +210,8 @@ const FAQS = [
   {
     qAr: 'كيف يعمل نظام الإحالة؟',
     qEn: 'How does the referral program work?',
-    aAr: 'ادعُ صديقاً بالرابط الخاص بك — كلاكما يحصل على +20 رصيداً مجاناً عند إتمام الصديق الإعداد.',
-    aEn: 'Invite a friend with your unique link — you both get +20 free credits when they complete onboarding.',
+    aAr: 'ادعُ صديقاً بالرابط الخاص بك — كلاكما يحصل على +5 أرصدة مجانية عند إتمام الصديق الإعداد.',
+    aEn: 'Invite a friend with your unique link — you both get +5 free credits when they complete onboarding.',
   },
 ]
 
@@ -254,7 +252,7 @@ export default function BillingPage() {
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [upgrading, setUpgrading] = useState<string | null>(null)
-  const [creditQuantity, setCreditQuantity] = useState(100)
+  const [creditQuantity, setCreditQuantity] = useState(50)
   const [buyingCredits, setBuyingCredits] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const [billingMessage, setBillingMessage] = useState<string | null>(null)
@@ -377,8 +375,8 @@ export default function BillingPage() {
     const quote = quoteCreditPurchase(creditQuantity)
     if (!quote) {
       setBillingMessage(ar
-        ? 'اختر كمية صحيحة بين 50 و5,000 رصيد، بزيادة 10 أرصدة.'
-        : 'Choose a valid quantity from 50 to 5,000 credits in increments of 10.')
+        ? `اختر كمية صحيحة بين ${CREDIT_PURCHASE_POLICY.minimum} و${CREDIT_PURCHASE_POLICY.maximum} رصيد، بزيادة ${CREDIT_PURCHASE_POLICY.step} أرصدة.`
+        : `Choose a valid quantity from ${CREDIT_PURCHASE_POLICY.minimum} to ${CREDIT_PURCHASE_POLICY.maximum} credits in increments of ${CREDIT_PURCHASE_POLICY.step}.`)
       return
     }
     setBuyingCredits(true)
@@ -778,7 +776,7 @@ export default function BillingPage() {
                   aria-label={ar ? 'اختر عدد الكريدت' : 'Choose credit amount'}
                 />
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {[100, 300, 500, 1000].map((quantity) => (
+                  {[20, 50, 150, 300].map((quantity) => (
                     <button
                       key={quantity}
                       type="button"
@@ -811,7 +809,7 @@ export default function BillingPage() {
                   </>
                 ) : (
                   <p className="text-sm font-medium text-rose-600">
-                    {ar ? 'أدخل كمية صحيحة بزيادة 10.' : 'Enter a valid 10-credit increment.'}
+                    {ar ? `أدخل كمية صحيحة بزيادة ${CREDIT_PURCHASE_POLICY.step}.` : `Enter a valid ${CREDIT_PURCHASE_POLICY.step}-credit increment.`}
                   </p>
                 )}
                 <button
@@ -876,13 +874,11 @@ export default function BillingPage() {
               <div className="text-sm text-slate-600 leading-relaxed">
                 {ar ? (
                   <>
-                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} رصيد)</span> = حتى {Math.floor(GROWTH_PLAN.monthlyCredits / FULL_STANDARD_90_WORKFLOW_COST)} مسارات Full Standard لمدة 90 يومًا إلى المسودات ({FULL_STANDARD_90_WORKFLOW_COST} كريديت لكل مثال) · أو {Math.floor(GROWTH_PLAN.monthlyCredits / 3)} صورة · أو مزيج من الإجراءات. رحلة التفعيل التجريبية تكلف {TRIAL_ACTIVATION_WORKFLOW_COST} كريديت —
-                     {' '}<span className="text-violet-700">وتناسب فرقًا تحتاج وتيرة نشر أعلى عبر قنوات متعددة</span>
+                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} رصيد)</span> = مسار Full Standard واحد لمدة 90 يومًا إلى المسودات ({FULL_STANDARD_90_WORKFLOW_COST} كريديت) مع هامش صغير للمراجعة · أو {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.IMAGE_GENERATION)} صورة · أو مزيج من الإجراءات. التجربة تغطي استراتيجية Organic Light وفحص الجودة فقط ({TRIAL_STRATEGY_REVIEW_COST} كريديت)، ولا تشمل إنتاج المحتوى.
                   </>
                 ) : (
                   <>
-                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} credits)</span> = up to {Math.floor(GROWTH_PLAN.monthlyCredits / FULL_STANDARD_90_WORKFLOW_COST)} Full Standard 90-day strategy-to-drafts examples ({FULL_STANDARD_90_WORKFLOW_COST} credits each) · or {Math.floor(GROWTH_PLAN.monthlyCredits / 3)} images · or a mix of actions. The trial activation journey costs {TRIAL_ACTIVATION_WORKFLOW_COST} credits —
-                     {' '}<span className="text-violet-700">built for teams that need a higher publishing pace across channels</span>
+                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} credits)</span> = one Full Standard 90-day strategy-to-drafts workflow ({FULL_STANDARD_90_WORKFLOW_COST} credits) with a small review reserve · or {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.IMAGE_GENERATION)} images · or a mix of actions. Trial covers Organic Light strategy plus quality review only ({TRIAL_STRATEGY_REVIEW_COST} credits); content production is excluded.
                   </>
                 )}
               </div>

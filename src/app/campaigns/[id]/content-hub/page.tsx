@@ -4648,7 +4648,7 @@ function PostCard({
             title={creditRestorationPending
               ? (isAr ? 'لن يبدأ خصم جديد حتى اكتمال استرداد المحاولة السابقة.' : 'A new charge is blocked until the previous credit restoration completes.')
               : imageGenerationBlockedByTruthReview ? imageGenerationTruthReviewLabel
-              : imageGenerationLocked ? addCreditsForImagesLabel : 'Generate image · 3 credits · failed generations are refunded'}
+              : imageGenerationLocked ? addCreditsForImagesLabel : `Generate image · ${CONTENT_HUB_IMAGE_COST} credits · failed generations are refunded`}
             className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug transition-all flex items-center justify-center gap-1"
             style={{ borderColor: 'rgba(15,23,42,0.08)', color: imageGenerationBlockedByTruthReview ? '#64748B' : imageGenerationLocked ? '#B91C1C' : isGeneratingImage ? '#8B5CF6' : '#5E5CE6', background: imageGenerationBlockedByTruthReview ? '#F8FAFC' : imageGenerationLocked ? '#FEF2F2' : undefined }}
           >

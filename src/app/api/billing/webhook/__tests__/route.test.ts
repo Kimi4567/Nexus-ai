@@ -33,7 +33,7 @@ const { mockPrisma, tx, stripe, mockStripeHelpers } = vi.hoisted(() => {
       getStripeClient: vi.fn(() => stripe),
       billingNotConfiguredResponse: vi.fn(() => ({ error: 'not configured' })),
       planFromPriceId: vi.fn(() => 'pro'),
-      PLAN_CREDITS: { free: 10, starter: 50, pro: 150, business: 500, agency: 500 } as Record<string, number>,
+      PLAN_CREDITS: { free: 15, starter: 50, pro: 60, business: 180, agency: 180 } as Record<string, number>,
     },
   }
 })
@@ -90,15 +90,15 @@ describe('billing webhook — B1d-c-1 MONTHLY grant on provision', () => {
 
     await POST(makeReq())
 
-    // aiCredits overwrite unchanged (ACTIVE → 150).
+    // aiCredits overwrite follows the Growth monthly allowance.
     expect(tx.user.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'u1' },
-      data: expect.objectContaining({ subscriptionStatus: 'ACTIVE', aiCredits: 150 }),
+      data: expect.objectContaining({ subscriptionStatus: 'ACTIVE', aiCredits: 60 }),
     }))
     // MONTHLY grant created with correct shape.
     expect(tx.creditGrant.createMany).toHaveBeenCalledWith(expect.objectContaining({
       data: [expect.objectContaining({
-        userId: 'u1', type: 'MONTHLY', amount: 150, remaining: 150,
+        userId: 'u1', type: 'MONTHLY', amount: 60, remaining: 60,
         source: SOURCE, billingCycleId: SOURCE, status: 'ACTIVE',
       })],
       skipDuplicates: true,
@@ -121,11 +121,11 @@ describe('billing webhook — B1d-c-1 MONTHLY grant on provision', () => {
     await POST(makeReq())
 
     expect(tx.creditGrant.createMany).toHaveBeenCalledWith(expect.objectContaining({
-      data: [expect.objectContaining({ type: 'MONTHLY', amount: 150, source: SOURCE })],
+      data: [expect.objectContaining({ type: 'MONTHLY', amount: 60, source: SOURCE })],
       skipDuplicates: true,
     }))
     expect(tx.user.update).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ aiCredits: 150 }),
+      data: expect.objectContaining({ aiCredits: 60 }),
     }))
   })
 
@@ -171,15 +171,15 @@ describe('billing webhook — one-time credit packs', () => {
         client_reference_id: 'u1',
         payment_status: 'paid',
         currency: 'usd',
-        amount_subtotal: 6_900,
-        amount_total: 6_900,
+        amount_subtotal: 26_000,
+        amount_total: 26_000,
         created: SECS_START,
         metadata: {
           kind: 'credit_wallet_purchase',
           userId: 'u1',
           credits: '300',
-          amountCents: '6900',
-          pricingVersion: '2026-07-v1',
+          amountCents: '26000',
+          pricingVersion: '2026-07-16-v2',
         },
       } },
     })
@@ -203,11 +203,11 @@ describe('billing webhook — one-time credit packs', () => {
       type: 'checkout.session.completed', id: 'evt_wallet_bad',
       data: { object: {
         id: 'cs_wallet_bad', mode: 'payment', client_reference_id: 'u1',
-        payment_status: 'paid', currency: 'usd', amount_subtotal: 6_900,
+        payment_status: 'paid', currency: 'usd', amount_subtotal: 26_000,
         amount_total: 1, created: SECS_START,
         metadata: {
           kind: 'credit_wallet_purchase', userId: 'u1', credits: '300',
-          amountCents: '6900', pricingVersion: '2026-07-v1',
+          amountCents: '26000', pricingVersion: '2026-07-16-v2',
         },
       } },
     })
@@ -273,15 +273,15 @@ describe('billing webhook — B1d-c-2 renewal MONTHLY grant', () => {
 
     await POST(makeReq())
 
-    // aiCredits overwrite unchanged (forced ACTIVE → 150).
+    // aiCredits overwrite follows the Growth monthly allowance.
     expect(tx.user.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'u1' },
-      data: { subscriptionStatus: 'ACTIVE', aiCredits: 150 },
+      data: { subscriptionStatus: 'ACTIVE', aiCredits: 60 },
     }))
     // MONTHLY grant with correct source/billingCycleId/expiry/amount.
     expect(tx.creditGrant.createMany).toHaveBeenCalledWith(expect.objectContaining({
       data: [expect.objectContaining({
-        userId: 'u1', type: 'MONTHLY', amount: 150, remaining: 150,
+        userId: 'u1', type: 'MONTHLY', amount: 60, remaining: 60,
         source: SOURCE, billingCycleId: SOURCE, status: 'ACTIVE',
       })],
       skipDuplicates: true,
@@ -317,7 +317,7 @@ describe('billing webhook — B1d-c-2 renewal MONTHLY grant', () => {
       data: { subscriptionStatus: 'ACTIVE', aiCredits: 999999 },
     }))
     expect(tx.creditGrant.createMany).not.toHaveBeenCalled()
-    mockStripeHelpers.PLAN_CREDITS.pro = 150 // restore
+    mockStripeHelpers.PLAN_CREDITS.pro = 60 // restore
   })
 
   it('missing invoice.subscription → no transaction, no grant', async () => {
@@ -351,7 +351,7 @@ describe('billing webhook — B1d-c-2 renewal MONTHLY grant', () => {
     await POST(makeReq())
 
     expect(tx.user.update).toHaveBeenCalledWith(expect.objectContaining({
-      data: { subscriptionStatus: 'ACTIVE', aiCredits: 150 },
+      data: { subscriptionStatus: 'ACTIVE', aiCredits: 60 },
     }))
     expect(tx.creditGrant.createMany).not.toHaveBeenCalled() // grant safely skipped
   })

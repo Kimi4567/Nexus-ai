@@ -91,26 +91,26 @@ describe('normalizeStrategyOrder — custom organic post count', () => {
 })
 
 describe('resolveStrategyCharge — required examples', () => {
-  it('4a. Organic Standard 160 days (custom) = 18 credits', () => {
+  it('4a. Organic Standard 160 days (custom) = 32 credits', () => {
     const r = resolveStrategyCharge({ strategyType: 'organic', contentIntensity: 'standard', strategyDuration: 'custom', customDurationDays: 160 })
     expect(r.supported).toBe(true)
-    expect(r.cost).toBe(18)
+    expect(r.cost).toBe(32)
   })
-  it('4b. Full Standard 90 days = 21 credits', () => {
+  it('4b. Full Standard 90 days = 46 credits', () => {
     const r = resolveStrategyCharge({ strategyType: 'full', contentIntensity: 'standard', strategyDuration: '90' })
-    expect(r.cost).toBe(21)
+    expect(r.cost).toBe(46)
   })
-  it('4c. Paid Standard 90 days = 16 credits', () => {
+  it('4c. Paid Standard 90 days = 32 credits', () => {
     const r = resolveStrategyCharge({ strategyType: 'paid', contentIntensity: 'standard', strategyDuration: '90' })
-    expect(r.cost).toBe(16)
+    expect(r.cost).toBe(32)
   })
-  it('4d. Organic Daily 30 days = 14 credits', () => {
+  it('4d. Organic Daily 30 days = 28 credits', () => {
     const r = resolveStrategyCharge({ strategyType: 'organic', contentIntensity: 'daily', strategyDuration: '30' })
-    expect(r.cost).toBe(14)
+    expect(r.cost).toBe(28)
   })
-  it('4e. Custom 45 Organic Standard = 12 credits', () => {
+  it('4e. Custom 45 Organic Standard = 20 credits', () => {
     const r = resolveStrategyCharge({ strategyType: 'organic', contentIntensity: 'standard', strategyDuration: 'custom', customDurationDays: 45 })
-    expect(r.cost).toBe(12)
+    expect(r.cost).toBe(20)
   })
 
   it('4f. Organic exact 7 posts uses the light pricing tier and preserves exact count', () => {
@@ -121,7 +121,7 @@ describe('resolveStrategyCharge — required examples', () => {
       customOrganicPostCount: 7,
     })
     expect(r.supported).toBe(true)
-    expect(r.cost).toBe(8)
+    expect(r.cost).toBe(12)
     expect(r.order.customOrganicPostCount).toBe(7)
     expect(r.pricing.tierLabel).toBe('Organic Light')
   })
@@ -134,7 +134,7 @@ describe('resolveStrategyCharge — required examples', () => {
       customOrganicPostCount: 22,
     })
     expect(r.supported).toBe(true)
-    expect(r.cost).toBe(24)
+    expect(r.cost).toBe(60)
     expect(r.pricing.tierLabel).toBe('Full Growth')
   })
 })
@@ -158,7 +158,7 @@ describe('resolveStrategyCharge — unsupported custom > 180 (no charge)', () =>
   it('5d. custom 180 (boundary) is supported and charged', () => {
     const r = resolveStrategyCharge({ strategyType: 'organic', contentIntensity: 'standard', strategyDuration: 'custom', customDurationDays: 180 })
     expect(r.supported).toBe(true)
-    expect(r.cost).toBe(18) // 91–180 → 180-day price
+    expect(r.cost).toBe(32) // 91–180 → 180-day price
   })
 
   it('5e. custom organic post count > 30 is unsupported and never chargeable', () => {
@@ -181,7 +181,7 @@ describe('resolveStrategyCharge — never trusts a client price', () => {
       // adversarial extras that must be ignored:
       cost: 1, price: 0, credits: 999,
     } as any)
-    expect(r.cost).toBe(10) // Organic Standard 30 = 10, recomputed
+    expect(r.cost).toBe(16) // Organic Standard 30 = 16, recomputed
   })
 
   it('purity — same input yields identical result; no mutation', () => {

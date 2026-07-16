@@ -12,10 +12,11 @@ import {
   getStripeClient,
   isBillingConfigured,
   isCreditWalletPurchaseConfigured,
+  validateCreditWalletStripePrices,
 } from '@/lib/stripe'
 import { isCreditWalletEnabled } from '@/lib/credits/wallet'
 import { checkoutRateLimit } from '@/lib/dbRateLimit'
-import { quoteCreditPurchase } from '@/lib/commercialPlans'
+import { CREDIT_PURCHASE_POLICY, quoteCreditPurchase } from '@/lib/commercialPlans'
 import { getRequestBaseUrl } from '@/lib/requestBaseUrl'
 
 export async function POST(req: NextRequest) {
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
     const quote = quoteCreditPurchase(body?.credits)
     if (!quote) {
       return NextResponse.json({
-        error: 'Choose between 50 and 5,000 credits in increments of 10.',
+        error: `Choose between ${CREDIT_PURCHASE_POLICY.minimum} and ${CREDIT_PURCHASE_POLICY.maximum} credits in increments of ${CREDIT_PURCHASE_POLICY.step}.`,
         code: 'INVALID_CREDIT_QUANTITY',
       }, { status: 400 })
     }
@@ -79,6 +80,12 @@ export async function POST(req: NextRequest) {
     if (!dbUser) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
     const stripe = getStripeClient()
+    if (!await validateCreditWalletStripePrices(stripe)) {
+      return NextResponse.json({
+        error: 'Credit wallet prices do not match the current commercial schedule. Rotate the Stripe tier Price IDs before enabling purchases.',
+        code: 'CREDIT_PRICE_VERSION_MISMATCH',
+      }, { status: 503 })
+    }
     let customerId = dbUser.stripeCustomerId
     if (!customerId) {
       const customer = await stripe.customers.create({

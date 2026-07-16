@@ -108,6 +108,44 @@ describe('content plan order contract', () => {
     })
   })
 
+  it('infers full scope when reviewed deliverables contain both organic and paid work', () => {
+    const scope = resolveContentPlanOrderScope({
+      strategyType: 'paid',
+      strategyOrder: { strategyType: 'paid' },
+      strategyDeliverables: {
+        organicPostCount: 10,
+        paidAdAngleCount: 4,
+        paidAdVariationCount: 9,
+        creativeBriefCount: 4,
+        audienceHypothesisCount: 3,
+      },
+    })
+
+    expect(scope).toEqual({
+      bound: true,
+      expectedDirections: 10,
+      strategyType: 'full',
+    })
+  })
+
+  it('keeps paid-only scope closed to Content Hub when paid deliverables are explicit', () => {
+    const scope = resolveContentPlanOrderScope({
+      strategyType: 'organic',
+      strategyOrder: { strategyType: 'organic' },
+      strategyDeliverables: {
+        organicPostCount: 0,
+        paidAdAngleCount: 4,
+        paidAdVariationCount: 9,
+      },
+    })
+
+    expect(scope).toEqual({
+      bound: true,
+      expectedDirections: 0,
+      strategyType: 'paid',
+    })
+  })
+
   it('does not bind legacy campaigns without a saved order or deliverables', () => {
     const review = deriveContentPlanOrderReview({}, posts(12))
 

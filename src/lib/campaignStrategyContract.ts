@@ -1,3 +1,5 @@
+import type { StrategyDeliverables, StrategyType } from '@/lib/strategy/strategyOrder'
+
 type StrategyRecord = Record<string, unknown>
 
 export interface CampaignStrategyContractReport {
@@ -18,6 +20,9 @@ export interface CampaignStrategyContractOptions {
    * directions and weekly deliverables must add up to the same count.
    */
   expectedOrganicPostCount?: number | null
+  strategyType?: StrategyType | null
+  /** Exact server-authored Paid/Full deliverable counts. */
+  expectedPaidPlanning?: StrategyDeliverables | null
 }
 
 const LEGACY_ENGINE_KEYS = new Set([
@@ -311,6 +316,85 @@ function validateBindingOrganicPostCount(
   return violations
 }
 
+function validateBindingPaidPlanning(
+  strategy: StrategyRecord,
+  expected: StrategyDeliverables | null | undefined,
+): { missing: string[]; weak: string[]; count: string[] } {
+  const result = { missing: [] as string[], weak: [] as string[], count: [] as string[] }
+  if (!expected || expected.paidAdVariationCount <= 0) return result
+
+  const paid = strategy.paidPlanning
+  if (!isRecord(paid)) {
+    result.missing.push('paidPlanning')
+    return result
+  }
+  if (paid.planningOnly !== true) result.weak.push('paidPlanning.planningOnly')
+  if (!hasUsefulText(paid.objective)) result.weak.push('paidPlanning.objective')
+  if (!hasUsefulText(paid.budgetFramework)) result.weak.push('paidPlanning.budgetFramework')
+
+  const exactArrays: Array<{
+    key: string
+    expectedCount: number
+    fields: string[]
+  }> = [
+    {
+      key: 'audienceHypotheses',
+      expectedCount: expected.audienceHypothesisCount,
+      fields: ['name', 'buyingSituation', 'targetingHypothesis', 'exclusions', 'validationNeeded'],
+    },
+    {
+      key: 'adAngles',
+      expectedCount: expected.paidAdAngleCount,
+      fields: ['name', 'audienceHypothesis', 'message', 'funnelStage', 'proofNeeded'],
+    },
+    {
+      key: 'adCopyVariations',
+      expectedCount: expected.paidAdVariationCount,
+      fields: ['id', 'angle', 'headline', 'primaryText', 'cta', 'destination', 'assumption'],
+    },
+    {
+      key: 'creativeBriefs',
+      expectedCount: expected.creativeBriefCount,
+      fields: ['name', 'angle', 'format', 'visualDirection', 'proofBoundary', 'reviewGate'],
+    },
+  ]
+
+  for (const entry of exactArrays) {
+    const value = paid[entry.key]
+    const actual = Array.isArray(value) ? value.length : 0
+    if (!Array.isArray(value)) result.missing.push(`paidPlanning.${entry.key}`)
+    if (actual !== entry.expectedCount) {
+      result.count.push(`paidPlanning.${entry.key}.count:${actual}/${entry.expectedCount}`)
+    }
+    if (Array.isArray(value) && !value.every(item => objectHasUsefulFields(item, entry.fields))) {
+      result.weak.push(`paidPlanning.${entry.key}.operationalDepth`)
+    }
+    if (entry.key === 'creativeBriefs' && Array.isArray(value) && !value.every(item => (
+      isRecord(item) && Array.isArray(item.requiredAssets) && item.requiredAssets.length > 0
+    ))) {
+      result.weak.push('paidPlanning.creativeBriefs.requiredAssets')
+    }
+  }
+
+  for (const key of ['trackingChecklist', 'launchBlockers']) {
+    if (!Array.isArray(paid[key]) || paid[key].length === 0 || !paid[key].every(hasUsefulText)) {
+      result.weak.push(`paidPlanning.${key}`)
+    }
+  }
+  return result
+}
+
+const PAID_ONLY_ORGANIC_DELIVERABLE = /\b(posts?|posting|reels?|carousels?|captions?|content calendar|publish(?:ing|ed)?)\b|(?:منشورات?|ريلز|كاروسيل|كابشن|تقويم\s+محتوى|نشر)/i
+
+function paidOnlyWeeklyPlanContainsOrganicExecution(value: unknown): boolean {
+  if (!Array.isArray(value)) return false
+  return value.some(item => (
+    isRecord(item)
+    && Array.isArray(item.deliverables)
+    && item.deliverables.some(deliverable => PAID_ONLY_ORGANIC_DELIVERABLE.test(text(deliverable)))
+  ))
+}
+
 function objectHasUsefulFields(value: unknown, fields: string[]): boolean {
   if (!isRecord(value)) return false
   return fields.every(field => hasUsefulText(value[field]))
@@ -478,6 +562,13 @@ export function validateCampaignStrategyContract(
     languageViolations.push(...collectArabicLanguageViolations(strategy))
   }
   countViolations.push(...validateBindingOrganicPostCount(strategy, options.expectedOrganicPostCount))
+  const paidReview = validateBindingPaidPlanning(strategy, options.expectedPaidPlanning)
+  missingFields.push(...paidReview.missing)
+  weakFields.push(...paidReview.weak)
+  countViolations.push(...paidReview.count)
+  if (options.strategyType === 'paid' && paidOnlyWeeklyPlanContainsOrganicExecution(strategy.weeklyExecutionPlan)) {
+    weakFields.push('weeklyExecutionPlan.paidOnlyBoundary')
+  }
 
   const legacySchemaDetected = detectLegacyCampaignEngineStrategy(strategy)
   const totalChecks = REQUIRED_STRING_FIELDS.length + REQUIRED_OBJECT_FIELDS.length + REQUIRED_ARRAY_FIELDS.length

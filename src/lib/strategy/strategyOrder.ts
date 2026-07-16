@@ -76,6 +76,7 @@ export interface StrategyDeliverables {
   planCapApplied: boolean
 
   platformVariantCount: number
+  paidAdAngleCount: number
   paidAdVariationCount: number
   creativeBriefCount: number
   audienceHypothesisCount: number

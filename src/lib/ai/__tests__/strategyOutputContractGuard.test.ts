@@ -267,6 +267,23 @@ describe('guardStrategyOutputContract', () => {
     expect(out.weeklyExecutionPlan[0].platforms).toEqual(['Facebook', 'YouTube Shorts'])
   })
 
+  it('does not invent downloadable assets, case studies, or webinars in calls to action', () => {
+    const out = guardStrategyOutputContract({
+      ctaVariations: [
+        'Download our whitepaper',
+        'Register for our webinar',
+        'Read our case study',
+        'حمّل الدليل',
+        'سجّل لحضور ويبنار',
+        'اقرأ قصة النجاح',
+      ],
+    })
+
+    const text = JSON.stringify(out)
+    expect(text).not.toMatch(/whitepaper|webinar|case study|حمّل الدليل|ويبنار|قصة النجاح/i)
+    expect(text).toMatch(/documented details|educational overview|verified proof|التفاصيل الموثقة|الملخص التعليمي|الإثبات الموثق/i)
+  })
+
   it('backfills weak Arabic funnel stages and KPIs with review-safe operating fields', () => {
     const strategy = {
       campaignName: 'استراتيجية نمو عضوي لـ ClinicFlow AI',

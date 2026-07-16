@@ -74,8 +74,8 @@ describe('Campaign Room strategy truth copy', () => {
   it('does not ask users to approve an already-approved strategy again before building content', () => {
     expect(campaignRoomSource).toContain("strategyAlreadyApproved={campaign?.status === 'ACTIVE'}")
     expect(campaignRoomSource).toContain("campaign.status === 'ACTIVE'")
-    expect(campaignRoomSource).toContain('إنشاء خطة المحتوى — 2 كريديت')
-    expect(campaignRoomSource).toContain('Build content plan — 2 credits')
+    expect(campaignRoomSource).toContain('إنشاء خطة المحتوى — ${CONTENT_PLAN_CREDIT_COST} كريديت')
+    expect(campaignRoomSource).toContain('Build content plan — ${CONTENT_PLAN_CREDIT_COST} credits')
     expect(campaignRoomSource).toContain('The strategy is already approved. NEXUS will verify the saved decision')
   })
 

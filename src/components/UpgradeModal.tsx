@@ -15,6 +15,10 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { useI18n } from '@/lib/i18n-context'
+import { PUBLIC_PAID_PLANS } from '@/lib/commercialPlans'
+
+const GROWTH = PUBLIC_PAID_PLANS[0]
+const AUTOPILOT = PUBLIC_PAID_PLANS[1]
 
 interface Props {
   open: boolean
@@ -27,19 +31,19 @@ const PLANS = [
   {
     id: 'pro',
     name: 'Growth',
-    price: '$49',
+    price: `$${GROWTH.priceUsd}`,
     color: '#2563EB',
     featured: true,
-    featuresEn: ['150 AI credits / month', '10 campaigns / month', '25 planned posts / month', 'Separate approvals before execution', 'Analytics + exports'],
-    featuresAr: ['150 كريديت AI شهريًا', '10 حملات شهريًا', '25 منشورًا مخططًا شهريًا', 'موافقات منفصلة قبل التنفيذ', 'تحليلات وتصدير'],
+    featuresEn: [`${GROWTH.monthlyCredits} AI credits / month`, `${GROWTH.campaignLimit} campaigns / month`, `${GROWTH.postsPerMonth} planned posts / month`, 'Separate approvals before execution', 'Analytics + exports'],
+    featuresAr: [`${GROWTH.monthlyCredits} كريديت AI شهريًا`, `${GROWTH.campaignLimit} حملات شهريًا`, `${GROWTH.postsPerMonth} منشورًا مخططًا شهريًا`, 'موافقات منفصلة قبل التنفيذ', 'تحليلات وتصدير'],
   },
   {
     id: 'business',
     name: 'Autopilot',
-    price: '$99',
+    price: `$${AUTOPILOT.priceUsd}`,
     color: '#059669',
-    featuresEn: ['500 AI credits / month', 'Unlimited campaign creation', '60 planned posts / month', 'Operations center', 'Scheduled monitoring + action queue'],
-    featuresAr: ['500 كريديت AI شهريًا', 'إنشاء حملات بلا حد شهري', '60 منشورًا مخططًا شهريًا', 'مركز العمليات', 'مراقبة مجدولة وقائمة قرارات'],
+    featuresEn: [`${AUTOPILOT.monthlyCredits} AI credits / month`, `${AUTOPILOT.campaignLimit} campaigns / month`, `${AUTOPILOT.postsPerMonth} planned posts / month`, 'Operations center', 'Scheduled monitoring + action queue'],
+    featuresAr: [`${AUTOPILOT.monthlyCredits} كريديت AI شهريًا`, `${AUTOPILOT.campaignLimit} حملات شهريًا`, `${AUTOPILOT.postsPerMonth} منشورًا مخططًا شهريًا`, 'مركز العمليات', 'مراقبة مجدولة وقائمة قرارات'],
   },
 ]
 
