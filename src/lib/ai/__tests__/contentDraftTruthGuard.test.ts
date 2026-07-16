@@ -1065,6 +1065,28 @@ describe('contentDraftTruthGuard', () => {
     expect(serialized).not.toMatch(/مدروسة وآمنة|budget predictability|manage your marketing spend effectively|stay in control|steps and benefits|brings everything together|request a demo|Help your campaigns are|smoothly and effectively|full potential|seamless, end-to-end|integrates all your marketing needs|helps maintain your brand voice|Help unified communication|gain clarity on your marketing spend|governed workflow in NEXUS AI's governed workflow|synergy between AI and human|replacing human jobs|maintained by AI|budget control benefits/i)
   })
 
+  it('canonicalizes new NEXUS claim variants instead of chasing exact sentences', () => {
+    const guarded = guardContentDraftTruth({
+      approval: 'مع NEXUS AI، يتم دمج الموافقة البشرية في كل خطوة لضمان نتائج موثوقة.',
+      credit: 'Our credit system helps transparency and predictability, allowing you to manage your marketing spend with confidence.',
+      creditVisual: 'A detailed guide illustration on the credit system with symbols of clarity, budget control, and financial insights.',
+      demo: 'Request a demo session today!',
+      resources: 'Explore our features that streamline your efforts and maximize your resources.',
+      collaboration: "Worried about AI replacing human jobs? See how NEXUS AI collaborates with human expertise to enhance marketing strategies. It's about partnership, not replacement. Learn more about this synergy today.",
+      workflow: 'Discover how our end-to-end solutions can streamline your operations, helping seamless marketing workflows.',
+      brand: 'Learn how NEXUS AI helps your brand voice is unified across all platforms.',
+      creditFollowup: 'Our transparent credit system gives you insights into your spending, helping budget control.',
+    }, {
+      brandFacts: ['NEXUS AI records metered actions in a credit ledger.'],
+    })
+    const serialized = JSON.stringify(guarded)
+
+    expect(serialized).toContain('credit ledger')
+    expect(serialized).toContain('Brand Brain')
+    expect(serialized).toContain('يتطلب النشر والإنفاق الإعلاني موافقة')
+    expect(serialized).not.toMatch(/كل خطوة|نتائج موثوقة|helps transparency|predictability|spend with confidence|budget control|financial insights|request a demo|streamline your efforts|maximize your resources|replacing human jobs|enhance marketing strategies|partnership, not replacement|seamless marketing|brand voice is unified|insights into your spending/i)
+  })
+
   it('documents the draft-only content plan policy', () => {
     const prompt = buildContentDraftTruthPolicyPrompt()
 

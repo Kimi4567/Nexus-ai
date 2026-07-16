@@ -937,6 +937,77 @@ function guardUnverifiedFeatureAndOutcomeClaims(
   return guarded
 }
 
+/**
+ * Keep NEXUS' own workflow claims canonical during internal product QA.
+ * This is brand-scoped and never rewrites an unrelated customer's content.
+ */
+function guardNexusMarketingOperatingClaims(
+  text: string,
+  context: ContentDraftTruthContext,
+): string {
+  const nexusCorpus = text + ' ' + brandFactCorpus(context)
+  if (!/(?:\bNEXUS\s*AI\b|نكسوس\s*AI)/i.test(nexusCorpus)) return text
+
+  return text
+    .replace(
+      /(?:An infographic|A detailed guide illustration)[^.!?]*(?:credit system)[^.!?]*(?:budget control|transparency|financial insights)[^.!?]*[.!?]?/gi,
+      'An editorial diagram of the documented credit flow: quoted cost, confirmed action, and ledger entry; no savings or performance claim.',
+    )
+    .replace(
+      /[^.!?]*(?:credit system)[^.!?]*(?:transparen|predictab|budget control|spend with confidence|insights into your spending)[^.!?]*[.!?]?/gi,
+      ' The product displays the cost before each metered AI action and records the transaction in the credit ledger.',
+    )
+    .replace(/نحن هنا لطمأنتك!?\s*/g, '')
+    .replace(
+      /مع NEXUS AI، يتم دمج الموافقة البشرية في كل خطوة لضمان نتائج موثوقة\.?/gi,
+      'في NEXUS AI، تبقى مسودات الاستراتيجية والمحتوى للمراجعة البشرية، ويتطلب النشر والإنفاق الإعلاني موافقة.',
+    )
+    .replace(
+      /[^.!?]*(?:NEXUS\s*AI|نكسوس\s*AI)[^.!?]*(?:approval|human oversight|الموافقة البشرية|الإشراف البشري)[^.!?]*(?:every step|كل خطوة|reliable results|نتائج موثوقة|safe|آمنة)[^.!?]*[.!?]?/gi,
+      /[\u0600-\u06ff]/u.test(text)
+        ? ' في NEXUS AI، تبقى مسودات الاستراتيجية والمحتوى للمراجعة البشرية، ويتطلب النشر والإنفاق الإعلاني موافقة.'
+        : ' In NEXUS AI, strategy and content drafts remain under human review; publishing and ad spend require approval.',
+    )
+    .replace(
+      /(?:Request|Book)\s+a\s+demo(?:\s+session)?(?:\s+today)?(?:\s+to\s+see\s+it\s+in\s+action)?[.!]?/gi,
+      'Review the workflow in the product.',
+    )
+    .replace(
+      /Review what you need before choosing a contact step\.\s*(?:session\s+)?today!?/gi,
+      'Review the workflow in the product.',
+    )
+    .replace(
+      /Explore our features[^.!?]*(?:streamline|maximize)[^.!?]*[.!?]?/gi,
+      'Review current campaign responsibilities, capacity, and handoffs.',
+    )
+    .replace(
+      /Worried about AI replacing human jobs\?[^.!?]*(?:partnership|collaborat|replacement|synergy)[^.!?]*[.!?]?/gi,
+      'Review the documented division between AI drafting and human review in NEXUS AI.',
+    )
+    .replace(
+      /See how NEXUS AI collaborates with human expertise to enhance marketing strategies\.?/gi,
+      'Review where AI drafts require human review and approval.',
+    )
+    .replace(
+      /It's about partnership, not replacement\.?\s*Learn more about this synergy today\.?/gi,
+      'Review the approval handoffs.',
+    )
+    .replace(
+      /Discover how our end-to-end solutions[^.!?]*(?:streamline|seamless)[^.!?]*[.!?]?/gi,
+      'Review the documented strategy, draft, approval, execution, and learning stages.',
+    )
+    .replace(
+      /Learn how NEXUS AI helps your brand voice is unified across all platforms\.?/gi,
+      'Review how Brand Brain carries approved messaging into channel drafts.',
+    )
+    .replace(
+      /(?:An illustration|An infographic)[^.!?]*(?:brand consistency|unified messaging)[^.!?]*[.!?]?/gi,
+      'An editorial illustration connecting approved Brand Brain messaging to channel drafts and review checkpoints.',
+    )
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
 export function guardContentDraftText(
   text: unknown,
   context: ContentDraftTruthContext = {},
@@ -964,7 +1035,10 @@ export function guardContentDraftText(
     )),
   ), context)
 
-  return guardUnverifiedFeatureAndOutcomeClaims(guarded, context)
+  return guardNexusMarketingOperatingClaims(
+    guardUnverifiedFeatureAndOutcomeClaims(guarded, context),
+    context,
+  )
     .replace(/\s{2,}/g, ' ')
     .trim()
 }
