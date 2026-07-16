@@ -76,7 +76,11 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'malformed_caption',
-    re: /\bhelps that\b|#[\p{L}\p{N}_]*coffeeless\b/iu,
+    re: /\bhelps that\b|\bhelp consistent\b|\bhelp your [^.!?]{0,80} remains\b|#[\p{L}\p{N}_]*coffeeless\b/iu,
+  },
+  {
+    reason: 'unsupported_absolute_claim',
+    re: /\beliminate scattered efforts\b|\bachieve seamless operations\b|\benhances? resource utilization\b|\btrust that every marketing decision\b/i,
   },
   {
     reason: 'unsupported_absolute_claim',

@@ -22,6 +22,7 @@ import {
   contentPlanFailureResponse,
   isRetryableFailure,
   extractPostsArray,
+  distributeContentPlanSlots,
   resolveContentPlanSlotScope,
   type FetchLikeResponse,
 } from '@/lib/contentPlanGeneration'
@@ -290,5 +291,22 @@ describe('resolveContentPlanSlotScope', () => {
     expect(routeSource).toContain('refundCreditDeduction')
     expect(routeSource).toContain('deduction: charge')
     expect(routeSource).toContain("refundContentActionCharge(userId, contentPlanCharge, 'CONTENT_PLAN_GENERATION'")
+  })
+})
+
+describe('distributeContentPlanSlots', () => {
+  it('keeps YouTube Shorts video-native while preserving the reviewed 5/5 media split', () => {
+    const slots = distributeContentPlanSlots(5, 5, ['INSTAGRAM', 'LINKEDIN', 'YOUTUBE_SHORTS'])
+
+    expect(slots).toHaveLength(10)
+    expect(slots.filter(slot => slot.isVideoPost)).toHaveLength(5)
+    expect(slots.filter(slot => !slot.isVideoPost)).toHaveLength(5)
+    expect(slots.filter(slot => slot.publishTarget === 'YOUTUBE_SHORTS').every(slot => slot.isVideoPost)).toBe(true)
+  })
+
+  it('forces a video slot when a video-only campaign has no generic video quota', () => {
+    expect(distributeContentPlanSlots(1, 0, ['YOUTUBE_SHORTS'])).toEqual([
+      { publishTarget: 'YOUTUBE_SHORTS', isVideoPost: true, index: 0 },
+    ])
   })
 })

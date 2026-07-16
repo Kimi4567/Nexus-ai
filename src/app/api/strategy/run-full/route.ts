@@ -408,7 +408,7 @@ export async function POST(req: NextRequest) {
     ))
     if (campaignAllowance.limit !== 999 && campaignAllowance.current >= campaignAllowance.limit) {
       return NextResponse.json(
-        campaignLimitPayload(campaignAllowance, body?.language),
+        campaignLimitPayload(campaignAllowance, body?.uiLocale || body?.language),
         { status: 403 },
       )
     }
@@ -618,7 +618,7 @@ export async function POST(req: NextRequest) {
     const lateCampaignLimit = parseCampaignLimitError(rawError)
     if (lateCampaignLimit) {
       return NextResponse.json({
-        ...campaignLimitPayload(lateCampaignLimit, body?.language),
+        ...campaignLimitPayload(lateCampaignLimit, body?.uiLocale || body?.language),
         refunded,
         creditsRemaining: finalDeductedCredit
           ? finalDeductedCredit.creditsRemaining + (refunded ? finalDeductedCredit.creditsUsed : 0)

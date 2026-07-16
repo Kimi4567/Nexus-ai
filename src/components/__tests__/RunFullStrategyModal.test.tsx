@@ -157,6 +157,37 @@ describe('RunFullStrategyModal preflight', () => {
     })
     const generationCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')
     expect(String(generationCall?.[0])).toBe('/api/strategy/run-full')
+    expect(JSON.parse(String(generationCall?.[1]?.body))).toMatchObject({ uiLocale: 'en' })
+  })
+
+  it('routes a campaign-limit response to the plan recovery action without retrying generation', async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/brand') return response({ brandProfile: readyProfile })
+      if (url === '/api/user/credits') return response({ creditsRemaining: 189 })
+      if (url === '/api/strategy/run-full' && init?.method === 'POST') {
+        return Promise.resolve({
+          ok: false,
+          json: () => Promise.resolve({
+            error: 'CAMPAIGN_LIMIT_REACHED',
+            message: 'Campaign limit reached. Nothing was charged.',
+            upgradeUrl: '/billing',
+            creditsUsed: 0,
+          }),
+        })
+      }
+      return Promise.resolve({ ok: false, json: () => Promise.resolve({}) })
+    })
+
+    render(<RunFullStrategyModal isOpen startFresh onClose={() => {}} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Set up strategy request' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Review strategy scope' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Review cost — 12 credits' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm and generate strategy — 12 credits' }))
+
+    expect((await screen.findByRole('link', { name: 'View plans' })).getAttribute('href')).toBe('/billing')
+    expect(screen.queryByRole('button', { name: /retry/i })).toBeNull()
   })
 
   it('keeps the success receipt visible until the user leaves it', async () => {

@@ -263,7 +263,8 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     })
 
     const res = await POST(makeReq({
-      language: 'ar',
+      language: 'bilingual',
+      uiLocale: 'ar',
       strategyType: 'organic',
       strategyDuration: '30',
       contentIntensity: 'light',

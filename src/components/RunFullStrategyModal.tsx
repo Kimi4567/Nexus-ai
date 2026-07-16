@@ -416,6 +416,10 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
         // the server is the single source of truth for the charged amount.
         body: JSON.stringify({
           language: selectedLanguage,
+          // Output language and interface language are separate concerns.
+          // A bilingual strategy requested from the Arabic UI must still
+          // receive Arabic operational errors and recovery actions.
+          uiLocale: locale,
           mediaIds: [],
           strategyType,
           strategyDuration,
@@ -448,7 +452,9 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
 
           if (!ok || errorMsg) {
             setResult({ ...d, code: errorCode, error: errorMsg || d.error })
-            if (errorMsg === 'INSUFFICIENT_CREDITS' || errorMsg === 'CREDITS_EXHAUSTED' || d.error === 'INSUFFICIENT_CREDITS') {
+            if (d.error === 'CAMPAIGN_LIMIT_REACHED' || d.code === 'CAMPAIGN_LIMIT_REACHED') {
+              setPhase('no_campaign')
+            } else if (errorMsg === 'INSUFFICIENT_CREDITS' || errorMsg === 'CREDITS_EXHAUSTED' || d.error === 'INSUFFICIENT_CREDITS') {
               setPhase('credits')
             } else if (d.error === 'NO_BRAND_PROFILE' || d.error === 'NO_WORKSPACE') {
               setPhase('no_brand')

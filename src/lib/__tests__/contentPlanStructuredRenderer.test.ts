@@ -250,6 +250,21 @@ describe('contentPlanStructuredRenderer', () => {
     expect(result.issues.map(issue => issue.reason)).toContain('unsupported_absolute_claim')
   })
 
+  it('blocks the observed NEXUS workflow overclaims if the truth guard misses them', () => {
+    const captions = [
+      'Help consistent messaging across all platforms.',
+      'Help your brand voice remains consistent across all channels.',
+      'Centralize your operations and eliminate scattered efforts.',
+      'Achieve seamless operations.',
+      'Discover how NEXUS AI enhances resource utilization.',
+      'With NEXUS AI, you can trust that every marketing decision is backed by human approval.',
+    ]
+
+    for (const caption of captions) {
+      expect(validateContentPlanDraftForSave({ caption }).ok).toBe(false)
+    }
+  })
+
   it('rejects weak coffee drafts and invented imagery instead of substituting another campaign', () => {
     const context: ContentPlanRenderContext = {
       isArabic: false,

@@ -473,19 +473,34 @@ function assetBearingPath(keyPath: string): boolean {
   return /(?:^|\.)(?:format|contentType|asset|assets|assetsNeeded|requiredAssets|deliverables|title|name)(?:\.|$)/i.test(keyPath)
 }
 
-function guardUnsupportedPlannedAsset(text: string, context: StrategyProofContext): string {
+function plannedAssetNeedsCreation(text: string, context: StrategyProofContext): boolean {
   const approved = [
     ...(Array.isArray(context.allowedClaimText) ? context.allowedClaimText : []),
     ...(Array.isArray(context.verifiedProof) ? context.verifiedProof : []),
   ].join(' ')
   const assetKinds = [
     /\b(?:webinar|workshop|masterclass)\b|ندوة|ورشة|جلسة تدريب/i,
-    /\b(?:whitepaper|e-?book|guide|checklist)\b|دليل|كتاب إلكتروني|قائمة مراجعة/i,
+    /\b(?:whitepaper|e-?book|guide|checklist|report|template)\b|دليل|كتاب إلكتروني|قائمة مراجعة|تقرير|قالب/i,
     /\b(?:live\s+demo|product\s+tour)\b|عرض توضيحي/i,
-    /\bexplainer\s+video\b|فيديو توضيحي/i,
+    /\b(?:(?:explainer|demo|demonstration|walkthrough|workflow|product|short)\s+)?video\b|فيديو(?:\s+(?:توضيحي|للمنتج|استعراضي|قصير))?/i,
+    /\binfographic\b|إنفوجرافيك|رسم معلوماتي/i,
   ]
-  const hasUnsupportedKind = assetKinds.some(pattern => pattern.test(text) && !pattern.test(approved))
-  if (!hasUnsupportedKind) return text
+  return assetKinds.some(pattern => pattern.test(text) && !pattern.test(approved))
+}
+
+function neutralizeConsumptionCtaForUnbuiltAsset(text: string): string {
+  if (/^[\u0600-\u06FF]/.test(text.trim())) {
+    return /^(?:شاهد|اعرض|اطّلع|اقرأ|حمّل|حمل|نزّل|نزل|سجّل|سجل|انضم)\b/i.test(text.trim())
+      ? 'اطلب إشعارًا بعد إنشاء هذا الأصل واعتماده'
+      : text
+  }
+  return /^(?:watch|view|see|read|open|download|get|grab|join|register)\b/i.test(text.trim())
+    ? 'Request an update after this asset is created and approved'
+    : text
+}
+
+function guardUnsupportedPlannedAsset(text: string, context: StrategyProofContext): string {
+  if (!plannedAssetNeedsCreation(text, context)) return text
 
   // Preserve explicit production tasks. They already tell the reviewer that
   // the item does not exist yet and must be created before a CTA can use it.
@@ -510,7 +525,15 @@ function guardStrategyProofValue(input: unknown, context: StrategyProofContext, 
   }
   if (input && typeof input === 'object') {
     const output: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+    const record = input as Record<string, unknown>
+    const siblingAssetDescriptor = ['format', 'contentType', 'asset']
+      .map(key => record[key])
+      .filter((value): value is string => typeof value === 'string')
+      .join(' ')
+    const siblingAssetNeedsCreation = Boolean(
+      siblingAssetDescriptor && plannedAssetNeedsCreation(siblingAssetDescriptor, context),
+    )
+    for (const [key, value] of Object.entries(record)) {
       const valueKeyPath = keyPath ? `${keyPath}.${key}` : key
       if (typeof value === 'string') {
         const labelCandidates = [
@@ -522,7 +545,9 @@ function guardStrategyProofValue(input: unknown, context: StrategyProofContext, 
         ].filter(Boolean).join(' ')
         const proofGuarded = guardStrategyProofText(guardStructuredStatusValue(labelCandidates, value), context)
         output[key] = actionBearingPath(valueKeyPath)
-          ? guardUnsupportedActionAsset(proofGuarded, context)
+          ? siblingAssetNeedsCreation
+            ? neutralizeConsumptionCtaForUnbuiltAsset(guardUnsupportedActionAsset(proofGuarded, context))
+            : guardUnsupportedActionAsset(proofGuarded, context)
           : assetBearingPath(valueKeyPath)
             ? guardUnsupportedPlannedAsset(proofGuarded, context)
             : proofGuarded

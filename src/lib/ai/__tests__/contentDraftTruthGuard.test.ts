@@ -965,6 +965,32 @@ describe('contentDraftTruthGuard', () => {
     expect(joined).not.toContain('فنجان قهوة مثالي')
   })
 
+  it('repairs the observed NEXUS workflow claims and malformed English before persistence', () => {
+    const drafts = [
+      'With NEXUS AI, you can trust that every marketing decision is backed by human approval.',
+      'Gain confidence in your marketing spend with our transparent credit system.',
+      'Centralize your operations and eliminate scattered efforts.',
+      'Help consistent messaging across all platforms.',
+      'See how collaboration enhances marketing strategies.',
+      'See the full potential of an end-to-end marketing workflow with NEXUS AI. Achieve seamless operations.',
+      'Help your brand voice remains consistent across all channels. Discover our brand consistency assurance.',
+      'Optimize your resources with AI-driven management. Discover how NEXUS AI enhances resource utilization.',
+    ]
+
+    const guarded = drafts.map(draft => guardContentDraftText(draft, {
+      brandFacts: [
+        'NEXUS AI prepares marketing strategy and content drafts for human review.',
+        'Publishing and ad spend require approval.',
+        'Metered AI actions display a credit cost before execution.',
+      ],
+      hasConversionDestination: true,
+    })).join(' ')
+
+    expect(guarded).toContain('approval before publishing or ad spend')
+    expect(guarded).toContain('displayed credit cost')
+    expect(guarded).not.toMatch(/trust that every|gain confidence|eliminate scattered|help consistent|enhances marketing strategies|full potential|seamless operations|brand voice remains|consistency assurance|optimize your resources|enhances resource utilization/i)
+  })
+
   it('documents the draft-only content plan policy', () => {
     const prompt = buildContentDraftTruthPolicyPrompt()
 

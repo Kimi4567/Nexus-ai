@@ -29,6 +29,7 @@ import {
 import { PLAN_QUOTAS } from '@/lib/stripe'
 import { resolvePostCaption } from '@/lib/contentPlanCaption'
 import {
+  distributeContentPlanSlots,
   generateContentPlanWithRetry,
   contentPlanFailureResponse,
   resolveContentPlanSlotScope,
@@ -59,7 +60,7 @@ import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 // Heavy gpt-4o generation (up to 18 posts) + optional media vision can run well
 // past the platform default. Match the sibling routes (engine, /generate) so the
 // function isn't killed mid-generation — the real cause of intermittent 502s.
-export const maxDuration = 60
+export const maxDuration = 180
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -90,41 +91,10 @@ function toIntegrationType(raw: string): string {
   return map[raw.toUpperCase()] ?? 'META'
 }
 
-function normalizedPublishTarget(raw: string): string {
-  const target = raw.toUpperCase()
-  return target === 'TWITTER' ? 'X' : target
-}
-
 // Neutral review-time proposals. Nexus does not label a universal hour as
 // "best" without eligible workspace-specific platform evidence.
 function proposedReviewHour(slotIndex: number): number {
   return [10, 14, 18][slotIndex % 3]
-}
-
-/** Distribute N posts across an array of platforms as evenly as possible */
-function distributePosts(
-  totalPosts: number,
-  totalVideoSlots: number,
-  platforms: string[],
-): Array<{ platform: string; publishTarget: string; isVideoPost: boolean; index: number }> {
-  if (!platforms.length) return []
-
-  const slots: Array<{ platform: string; publishTarget: string; isVideoPost: boolean; index: number }> = []
-  let idx = 0
-
-  // Interleave posts across destinations while retaining the exact channel.
-  for (let i = 0; i < totalPosts; i++) {
-    const publishTarget = normalizedPublishTarget(String(platforms[i % platforms.length]))
-    slots.push({ platform: toIntegrationType(publishTarget), publishTarget, isVideoPost: false, index: idx++ })
-  }
-
-  // Distribute video slots with the same destination contract.
-  for (let i = 0; i < totalVideoSlots; i++) {
-    const publishTarget = normalizedPublishTarget(String(platforms[i % platforms.length]))
-    slots.push({ platform: toIntegrationType(publishTarget), publishTarget, isVideoPost: true, index: idx++ })
-  }
-
-  return slots
 }
 
 // ── Main POST handler ──────────────────────────────────────────────────────────
@@ -454,7 +424,8 @@ export async function POST(req: NextRequest, props: Params) {
     // is binding. If the user reviewed 7 first-window organic post directions,
     // this route must create exactly 7 SocialPost drafts total. Plan quota counts
     // remain only the fallback for legacy campaigns without a saved order.
-    const slots = distributePosts(slotScope.imagePosts, slotScope.videoSlots, platforms)
+    const slots = distributeContentPlanSlots(slotScope.imagePosts, slotScope.videoSlots, platforms)
+      .map(slot => ({ ...slot, platform: toIntegrationType(slot.publishTarget) }))
 
     // ── 7. Generate all post content via GPT-4o-mini ─────────────────────
     const pillarText = contentPillars.length

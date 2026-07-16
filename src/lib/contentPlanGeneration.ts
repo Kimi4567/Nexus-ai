@@ -112,6 +112,62 @@ export interface ContentPlanSlotScope {
   blockedReason?: 'paid-planning-only' | 'no-organic-post-count'
 }
 
+export interface ContentPlanSlot {
+  publishTarget: string
+  isVideoPost: boolean
+  index: number
+}
+
+const VIDEO_ONLY_TARGETS = new Set(['YOUTUBE', 'YOUTUBE_SHORTS', 'TIKTOK', 'REELS', 'STORIES'])
+
+function normalizeContentTarget(raw: string): string {
+  const target = raw.toUpperCase()
+  return target === 'TWITTER' ? 'X' : target
+}
+
+/**
+ * Build a deterministic platform/media matrix while respecting video-native
+ * destinations. The reviewed total remains binding. When possible, a flexible
+ * video slot is swapped to image so the requested image/video totals also stay
+ * unchanged; a video-only destination can never be saved as an image draft.
+ */
+export function distributeContentPlanSlots(
+  imagePosts: number,
+  videoSlots: number,
+  platforms: string[],
+): ContentPlanSlot[] {
+  const destinations = platforms.map(normalizeContentTarget).filter(Boolean)
+  if (destinations.length === 0) return []
+
+  const slots: ContentPlanSlot[] = []
+  const append = (count: number, isVideoPost: boolean) => {
+    for (let i = 0; i < Math.max(0, Math.floor(count)); i++) {
+      slots.push({
+        publishTarget: destinations[slots.length % destinations.length],
+        isVideoPost,
+        index: slots.length,
+      })
+    }
+  }
+  append(imagePosts, false)
+  append(videoSlots, true)
+
+  for (const slot of slots) {
+    if (VIDEO_ONLY_TARGETS.has(slot.publishTarget)) slot.isVideoPost = true
+  }
+
+  let extraVideoSlots = slots.filter(slot => slot.isVideoPost).length - Math.max(0, Math.floor(videoSlots))
+  for (let i = slots.length - 1; i >= 0 && extraVideoSlots > 0; i--) {
+    const slot = slots[i]
+    if (slot.isVideoPost && !VIDEO_ONLY_TARGETS.has(slot.publishTarget)) {
+      slot.isVideoPost = false
+      extraVideoSlots--
+    }
+  }
+
+  return slots
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

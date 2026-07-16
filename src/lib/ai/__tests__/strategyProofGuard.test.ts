@@ -553,6 +553,36 @@ describe('strategyProofGuard', () => {
     expect(joined).toContain('Request an update after the video is created and approved')
   })
 
+  it('labels generic video directions as unbuilt and removes watch CTAs until approval', () => {
+    const guarded = guardStrategyProof({
+      contentAngles: [
+        {
+          title: 'AI and Human Collaboration',
+          format: 'Video',
+          cta: 'Watch how AI and humans work together',
+        },
+        {
+          title: 'Workflow',
+          format: 'Explainer Video',
+          cta: 'Watch our workflow in action',
+        },
+      ],
+    })
+
+    expect(guarded.contentAngles).toEqual([
+      {
+        title: 'AI and Human Collaboration',
+        format: 'Proposed asset to create and approve — Video',
+        cta: 'Request an update after this asset is created and approved',
+      },
+      {
+        title: 'Workflow',
+        format: 'Proposed asset to create and approve — Explainer Video',
+        cta: 'Request an update after this asset is created and approved',
+      },
+    ])
+  })
+
   it('turns a causal cost-reduction promise into an explicit test', () => {
     const guarded = guardStrategyProofText('Credit transparency will reduce cost objections.', {
       verifiedProof: [],
