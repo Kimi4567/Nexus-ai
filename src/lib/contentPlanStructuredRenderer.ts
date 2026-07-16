@@ -80,7 +80,7 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'unsupported_absolute_claim',
-    re: /\beliminate scattered efforts\b|\bachieve seamless operations\b|\benhances? resource utilization\b|\btrust that every marketing decision\b/i,
+    re: /\beliminat(?:e|es|ed|ing) scattered efforts\b|\bachieve seamless operations\b|\benhances? resource utilization\b|\btrust that every marketing decision\b/i,
   },
   {
     reason: 'unsupported_absolute_claim',

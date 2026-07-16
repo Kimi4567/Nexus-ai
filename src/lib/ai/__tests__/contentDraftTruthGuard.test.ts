@@ -975,6 +975,7 @@ describe('contentDraftTruthGuard', () => {
       'See the full potential of an end-to-end marketing workflow with NEXUS AI. Achieve seamless operations.',
       'Help your brand voice remains consistent across all channels. Discover our brand consistency assurance.',
       'Optimize your resources with AI-driven management. Discover how NEXUS AI enhances resource utilization.',
+      'Use NEXUS AI to eliminate scattered efforts across the marketing team.',
     ]
 
     const guarded = drafts.map(draft => guardContentDraftText(draft, {
@@ -989,6 +990,17 @@ describe('contentDraftTruthGuard', () => {
     expect(guarded).toContain('approval before publishing or ad spend')
     expect(guarded).toContain('displayed credit cost')
     expect(guarded).not.toMatch(/trust that every|gain confidence|eliminate scattered|help consistent|enhances marketing strategies|full potential|seamless operations|brand voice remains|consistency assurance|optimize your resources|enhances resource utilization/i)
+  })
+
+  it('recursively repairs workflow overclaims in creative prompts as well as captions', () => {
+    const guarded = guardContentDraftTruth({
+      caption: 'Use the workspace to eliminate scattered efforts.',
+      videoPrompt: 'Show how NEXUS AI eliminates scattered efforts and enhances resource utilization.',
+    })
+    const serialized = JSON.stringify(guarded)
+
+    expect(serialized).not.toMatch(/eliminate(?:s)? scattered efforts|enhances resource utilization/i)
+    expect(serialized).toMatch(/ownership clearer/i)
   })
 
   it('documents the draft-only content plan policy', () => {

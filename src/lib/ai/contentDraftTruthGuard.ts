@@ -518,14 +518,17 @@ function guardDraftCopyQuality(text: string): string {
     )
     .replace(/\bGain confidence in your marketing spend with our transparent credit system\.?/gi, 'Review the displayed credit cost before each metered AI action.')
     .replace(/\bCentralize your operations and eliminate scattered efforts\.?/gi, 'Map the current handoffs and review whether one governed workspace makes ownership clearer.')
+    .replace(/\beliminat(?:e|es|ed|ing) scattered efforts\b/gi, 'review whether the governed workflow makes ownership clearer')
     .replace(/\bHelp consistent messaging across all platforms\.?/gi, 'Keep approved brand messaging available across the workflow.')
     .replace(/\bHelp your brand voice remains consistent across all channels\.?/gi, 'Keep approved brand messaging available across the workflow.')
     .replace(/\bSee how collaboration enhances marketing strategies\.?/gi, 'Review where AI drafts and human approval meet in the workflow.')
     .replace(/\bSee the full potential of an end-to-end marketing workflow with ([^.!?]+)\.?/gi, 'Review the documented end-to-end marketing workflow in $1.')
     .replace(/\bAchieve seamless operations\.?/gi, 'Assess whether the workflow makes handoffs clearer.')
+    .replace(/\bachieve seamless operations\b/gi, 'assess whether the workflow makes handoffs clearer')
     .replace(/\bDiscover our brand consistency assurance\.?/gi, 'Review how Brand Brain carries approved messaging into campaign drafts.')
     .replace(/\bOptimize your resources with AI-driven management\.?/gi, 'Review how current marketing tasks are assigned before changing the workflow.')
     .replace(/\bDiscover how ([^.!?]+) enhances resource utilization\.?/gi, 'Assess whether the governed workflow in $1 makes task ownership clearer.')
+    .replace(/\benhances? resource utilization\b/gi, 'makes task ownership clearer for review')
     // Observed production failure: generic model filler combined unsupported
     // freshness/expertise claims with malformed grammar. These rewrites keep the
     // draft useful without manufacturing proof or a destination that does not exist.
