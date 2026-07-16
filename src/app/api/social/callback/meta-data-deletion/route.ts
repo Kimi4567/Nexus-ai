@@ -21,6 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
 import { prisma } from '@/lib/prisma'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 
 // Meta signs requests using base64url (replaces + with -, / with _)
 function base64UrlDecode(str: string): Buffer {
@@ -60,8 +61,8 @@ function parseSignedRequest(
       algorithm: String(data.algorithm || ''),
       issuedAt: Number(data.issued_at || 0),
     }
-  } catch (err) {
-    console.error('[Meta Data Deletion] Failed to parse signed_request:', err)
+  } catch {
+    console.error('[Meta Data Deletion] Failed to parse signed_request')
     return null
   }
 }
@@ -189,7 +190,15 @@ export async function POST(req: NextRequest) {
       confirmation_code: confirmationCode,
     })
   } catch (err) {
-    console.error('[Meta Data Deletion] Unexpected error:', err)
+    await captureOperationalError(err, {
+      operation: 'oauth.meta-data-deletion',
+      route: '/api/social/callback/meta-data-deletion',
+      component: 'oauth',
+      method: 'POST',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

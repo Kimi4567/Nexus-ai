@@ -5,6 +5,7 @@ import { encryptToken } from '@/lib/tokenCrypto'
 import { verifyOAuthState } from '@/lib/oauthState'
 import { pinterestApiUrl } from '@/lib/socialPlatformConfig'
 import { pinterestOAuthNonceHash, type PinterestBoard } from '@/lib/pinterestPublishing'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -80,7 +81,7 @@ async function readPublicBoards(accessToken: string): Promise<PinterestBoard[]> 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const providerError = searchParams.get('error')
-  if (providerError) return errorRedirect(searchParams.get('error_description') || providerError)
+  if (providerError) return errorRedirect('authorization_not_granted')
   const code = searchParams.get('code')
   const state = searchParams.get('state')
   const nonce = req.cookies.get(OAUTH_COOKIE)?.value
@@ -118,8 +119,20 @@ export async function GET(req: NextRequest) {
     })
     const tokenData = await tokenResponse.json().catch(() => ({})) as PinterestTokenResponse
     if (!tokenResponse.ok || !tokenData.access_token) {
-      console.error('[Pinterest OAuth] Token exchange failed', tokenData.error)
-      return errorRedirect(tokenData.error_description || tokenData.error || 'token_exchange_failed')
+      await captureOperationalError(
+        Object.assign(new Error('Pinterest token exchange rejected'), { code: tokenData.error }),
+        {
+          operation: 'oauth.pinterest-token-exchange',
+          route: '/api/social/callback/pinterest',
+          component: 'oauth',
+          method: 'GET',
+          requestId: req.headers?.get?.('x-vercel-id') ?? null,
+          statusCode: 400,
+          retryable: false,
+          severity: 'warning',
+        },
+      )
+      return errorRedirect('token_exchange_failed')
     }
 
     const [profileResponse, boards] = await Promise.all([
@@ -131,7 +144,15 @@ export async function GET(req: NextRequest) {
     ])
     const profile = await profileResponse.json().catch(() => ({}))
     if (!profileResponse.ok || typeof profile?.id !== 'string' || typeof profile?.username !== 'string') {
-      console.error('[Pinterest OAuth] Profile lookup failed', profile?.message)
+      await captureOperationalError(new Error('Pinterest profile response was incomplete'), {
+        operation: 'oauth.pinterest-profile-fetch',
+        route: '/api/social/callback/pinterest',
+        component: 'oauth',
+        method: 'GET',
+        requestId: req.headers?.get?.('x-vercel-id') ?? null,
+        statusCode: 502,
+        retryable: true,
+      })
       return errorRedirect('pinterest_profile_lookup_failed')
     }
 
@@ -217,7 +238,15 @@ export async function GET(req: NextRequest) {
 
     return redirect('/connections?social=connected&platform=pinterest')
   } catch (error) {
-    console.error('[Pinterest OAuth] Unexpected error', error)
-    return errorRedirect(error instanceof Error ? error.message : 'pinterest_connection_failed')
+    await captureOperationalError(error, {
+      operation: 'oauth.pinterest-callback',
+      route: '/api/social/callback/pinterest',
+      component: 'oauth',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
+    return errorRedirect('pinterest_connection_failed')
   }
 }

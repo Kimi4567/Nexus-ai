@@ -39,6 +39,7 @@ import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { resolveBillingStatusPlan } from '@/lib/billingStatusPlan'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 
 // Strategy generation can legitimately need a second contract-repair pass before
 // anything is charged or persisted. The old 60s ceiling killed successful runs
@@ -235,7 +236,14 @@ async function refundDeductedStrategyCredits(
     })
     return result.ok && result.status === 'refunded'
   } catch (refundErr) {
-    console.error('[strategy/run-full] Credit refund failed:', refundErr)
+    await captureOperationalError(refundErr, {
+      operation: 'credits.full-strategy-refund',
+      route: '/api/strategy/run-full',
+      component: 'credits',
+      method: 'POST',
+      statusCode: 500,
+      retryable: true,
+    })
     return false
   }
 }
@@ -661,8 +669,16 @@ export async function POST(req: NextRequest) {
       errors: publicErrors,
       error: publicError,
     }, { status: success ? 200 : 502 })
-  } catch (err: any) {
-    console.error('[api/strategy/run-full]', err)
+  } catch (err: unknown) {
+    await captureOperationalError(err, {
+      operation: 'ai.full-strategy-run',
+      route: '/api/strategy/run-full',
+      component: 'ai',
+      method: 'POST',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
     if (lateCreditFailure && !deductedCredit) {
       return NextResponse.json(lateCreditFailure, { status: creditCheckHttpStatus(lateCreditFailure) })
     }
@@ -670,7 +686,7 @@ export async function POST(req: NextRequest) {
     const refunded = chargedUserId
       ? await refundDeductedStrategyCredits(chargedUserId, finalDeductedCredit, 'Run Full Strategy exception')
       : false
-    const rawError = typeof err?.message === 'string' ? err.message : undefined
+    const rawError = err instanceof Error ? err.message : undefined
     const safeError = rawError && (/Strategy OS contract/i.test(rawError)
       || rawError.startsWith('BRAND_TRUTH_CONFLICT:')
       || rawError.startsWith('MARKETING_QUALITY_GATE_BLOCKED:'))

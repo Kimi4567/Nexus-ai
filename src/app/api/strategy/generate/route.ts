@@ -16,6 +16,7 @@ import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/a
 import { reviewBrandTruthConsistency, reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 
 async function callOpenAI(prompt: string): Promise<any> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -176,8 +177,16 @@ export async function POST(req: NextRequest) {
       creditsRemaining: credit.creditsRemaining,
       creditCharge: buildCreditChargeReceipt('CAMPAIGN_GENERATION', credit),
     })
-  } catch (err: any) {
-    console.error('[Strategy generate] Error:', err)
+  } catch (err: unknown) {
+    await captureOperationalError(err, {
+      operation: 'ai.strategy-preview-generate',
+      route: '/api/strategy/generate',
+      component: 'ai',
+      method: 'POST',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
     if (chargedCredit && chargedUserId) {
       await refundCreditDeduction({
         userId: chargedUserId,
@@ -186,6 +195,6 @@ export async function POST(req: NextRequest) {
         reason: 'Strategy generation failed before finalization',
       })
     }
-    return NextResponse.json({ error: err.message || 'Failed to generate strategy' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to generate strategy' }, { status: 500 })
   }
 }

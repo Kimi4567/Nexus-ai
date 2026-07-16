@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { encryptToken } from '@/lib/tokenCrypto'
 import { verifyOAuthState } from '@/lib/oauthState'
 import { META_GRAPH_VERSION, metaGraphUrl } from '@/lib/socialPlatformConfig'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -15,13 +16,10 @@ export async function GET(req: NextRequest) {
   const code = searchParams.get('code')
   const state = searchParams.get('state')
   const errorParam = searchParams.get('error')
-  const errorDescription = searchParams.get('error_description')
-
   // Handle user denial or Meta-side error
   if (errorParam) {
-    const desc = errorDescription ? encodeURIComponent(errorDescription.slice(0, 120)) : errorParam
-    console.error('[Meta OAuth] Error from Meta:', errorParam, errorDescription)
-    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=${desc}`)
+    console.warn('[Meta OAuth] Provider authorization was not granted')
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=authorization_not_granted`)
   }
 
   if (!code || !state) {
@@ -32,7 +30,7 @@ export async function GET(req: NextRequest) {
   try {
     userId = verifyOAuthState(state, 'meta').userId
   } catch (e) {
-    console.error('[Meta OAuth] State verification failed:', e)
+    console.warn('[Meta OAuth] State verification failed')
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=invalid_state`)
   }
 
@@ -52,19 +50,33 @@ export async function GET(req: NextRequest) {
     )
     tokenData = await tokenRes.json()
   } catch (fetchErr) {
-    console.error('[Meta OAuth] Token fetch network error:', fetchErr)
+    await captureOperationalError(fetchErr, {
+      operation: 'oauth.meta-token-exchange',
+      route: '/api/social/callback/meta',
+      component: 'oauth',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 502,
+      retryable: true,
+    })
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=network_error`)
   }
 
   if (tokenData.error || !tokenData.access_token) {
-    const errMsg = tokenData.error?.message || tokenData.error?.type || 'token_exchange'
-    // Never log the provider payload wholesale: a malformed error response
-    // must not turn an access token into log data.
-    console.error('[Meta OAuth] Token exchange failed:', {
-      error: tokenData.error?.message || tokenData.error?.type || tokenData.error || 'unknown',
-      code: tokenData.error?.code || null,
-    })
-    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=${encodeURIComponent(errMsg.slice(0, 120))}`)
+    await captureOperationalError(
+      Object.assign(new Error('Meta token exchange rejected'), { code: tokenData.error?.code || tokenData.error?.type }),
+      {
+        operation: 'oauth.meta-token-exchange',
+        route: '/api/social/callback/meta',
+        component: 'oauth',
+        method: 'GET',
+        requestId: req.headers?.get?.('x-vercel-id') ?? null,
+        statusCode: 400,
+        retryable: false,
+        severity: 'warning',
+      },
+    )
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=token_exchange_failed`)
   }
 
   const shortToken = tokenData.access_token
@@ -108,7 +120,15 @@ export async function GET(req: NextRequest) {
       .filter((entry: any) => entry?.status === 'granted' && typeof entry?.permission === 'string')
       .map((entry: any) => entry.permission)
   } catch (fetchErr) {
-    console.error('[Meta OAuth] Profile fetch network error:', fetchErr)
+    await captureOperationalError(fetchErr, {
+      operation: 'oauth.meta-profile-fetch',
+      route: '/api/social/callback/meta',
+      component: 'oauth',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 502,
+      retryable: true,
+    })
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=profile_fetch_failed`)
   }
 
@@ -119,7 +139,7 @@ export async function GET(req: NextRequest) {
     igAccountId: p.instagram_business_account?.id || null,
   }))
 
-  console.log('[Meta OAuth] me:', me?.id, me?.name, '| pages:', pages.length)
+  console.log(`[Meta OAuth] Verified profile with ${pages.length} page connection candidates`)
 
   // FLOW-01 fix: get real email from Supabase Auth — Meta /me doesn't return email
   // by default. Never store a placeholder email that conflicts with the real account.
@@ -147,7 +167,7 @@ export async function GET(req: NextRequest) {
   // Find or create the user's workspace
   let workspace = await prisma.workspace.findFirst({ where: { ownerId: userId } })
   if (!workspace) {
-    console.log('[Meta OAuth] No workspace found, creating one for userId:', userId)
+    console.log('[Meta OAuth] No workspace found; creating one')
     let slug = `workspace-${userId.slice(0, 8)}`
     // ensure slug uniqueness
     const existing = await prisma.workspace.findUnique({ where: { slug } })
@@ -155,10 +175,10 @@ export async function GET(req: NextRequest) {
     workspace = await prisma.workspace.create({
       data: { name: me.name ? `${me.name}'s Workspace` : 'My Workspace', slug, ownerId: userId },
     })
-    console.log('[Meta OAuth] Workspace created:', workspace.id)
+    console.log('[Meta OAuth] Workspace created')
   }
 
-  console.log('[Meta OAuth] workspace found:', workspace.id)
+  console.log('[Meta OAuth] Workspace ready')
 
   // Upsert integration
   try {
@@ -201,13 +221,29 @@ export async function GET(req: NextRequest) {
     })
     console.log('[Meta OAuth] Integration saved successfully!')
   } catch (dbErr) {
-    console.error('[Meta OAuth] DB upsert failed:', dbErr)
+    await captureOperationalError(dbErr, {
+      operation: 'oauth.meta-save-connection',
+      route: '/api/social/callback/meta',
+      component: 'database',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=db_error`)
   }
 
   return NextResponse.redirect(`${baseUrl}/connections?social=connected&platform=meta`)
-  } catch (err: any) {
-    console.error('[Meta OAuth] Unexpected error:', err?.message)
+  } catch (err: unknown) {
+    await captureOperationalError(err, {
+      operation: 'oauth.meta-callback',
+      route: '/api/social/callback/meta',
+      component: 'oauth',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=unexpected_error`)
   }
 }

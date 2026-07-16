@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { getCreditHistory } from '@/lib/credits'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 
 /**
  * GET /api/credits/history
@@ -23,7 +24,15 @@ export async function GET(request: Request) {
     const history = await getCreditHistory(userId, limit)
     return NextResponse.json({ history })
   } catch (error) {
-    console.error('[credits/history] Failed to load credit ledger', error)
+    await captureOperationalError(error, {
+      operation: 'credits.ledger-history',
+      route: '/api/credits/history',
+      component: 'credits',
+      method: 'GET',
+      requestId: request.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
     return NextResponse.json({ error: 'CREDIT_HISTORY_UNAVAILABLE' }, { status: 500 })
   }
 }

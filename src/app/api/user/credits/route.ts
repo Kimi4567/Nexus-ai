@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { getCreditAccountSnapshot } from '@/lib/credits/accountSnapshot'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,8 +27,16 @@ export async function GET(req: NextRequest) {
       isUnlimited: account.credits.isUnlimited,
       isFree,
     })
-  } catch (err: any) {
-    console.error('[api/user/credits]', err)
-    return NextResponse.json({ error: err?.message }, { status: 500 })
+  } catch (err: unknown) {
+    await captureOperationalError(err, {
+      operation: 'credits.account-snapshot',
+      route: '/api/user/credits',
+      component: 'credits',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
+    return NextResponse.json({ error: 'CREDIT_ACCOUNT_UNAVAILABLE' }, { status: 500 })
   }
 }

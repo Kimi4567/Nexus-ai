@@ -12,6 +12,7 @@ import {
   GOOGLE_ADS_SCOPE,
 } from '@/lib/adPlatforms/googleAdsApi'
 import { googleAdsOAuthContextMatches } from '@/lib/googleAdsOAuth'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const providerError = searchParams.get('error')
   if (providerError) {
-    return errorRedirect(searchParams.get('error_description') || providerError)
+    return errorRedirect('authorization_not_granted')
   }
   const code = searchParams.get('code')
   const state = searchParams.get('state')
@@ -70,7 +71,7 @@ export async function GET(req: NextRequest) {
     userId = payload.userId
   } catch (error) {
     const reason = error instanceof Error ? error.message : 'Invalid OAuth state'
-    console.warn('[Google Ads OAuth] invalid_state', { reason })
+    console.warn('[Google Ads OAuth] invalid_state')
     return errorRedirect(
       reason.includes('Expired')
         ? 'The Google Ads connection session expired. Start the connection again.'
@@ -254,16 +255,16 @@ export async function GET(req: NextRequest) {
 
     return redirect(`/connections?social=connected&platform=google_ads&accounts=${accounts.length}`)
   } catch (error) {
-    if (error instanceof GoogleAdsOAuthError) {
-      console.error('[Google Ads OAuth] token_exchange_failed', {
-        status: error.status,
-        code: error.code,
-        description: error.description,
-        redirectOrigin: appUrl(),
-      })
-    } else {
-      console.error('[Google Ads OAuth]', error)
-    }
-    return errorRedirect(error instanceof Error ? error.message : 'google_ads_connection_failed')
+    await captureOperationalError(error, {
+      operation: 'oauth.google-ads-callback',
+      route: '/api/social/callback/google-ads',
+      component: 'oauth',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: error instanceof GoogleAdsOAuthError ? error.status : 500,
+      retryable: error instanceof GoogleAdsOAuthError ? error.status >= 500 : true,
+      severity: error instanceof GoogleAdsOAuthError && error.status < 500 ? 'warning' : 'error',
+    })
+    return errorRedirect(error instanceof GoogleAdsOAuthError ? error.code : 'google_ads_connection_failed')
   }
 }

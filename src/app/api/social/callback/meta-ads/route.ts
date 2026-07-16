@@ -24,6 +24,7 @@ import { prisma } from '@/lib/prisma'
 import { encryptToken } from '@/lib/tokenCrypto'
 import { verifyOAuthState } from '@/lib/oauthState'
 import { META_ADS_SCOPES, META_GRAPH_VERSION, metaGraphUrl } from '@/lib/socialPlatformConfig'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -46,14 +47,9 @@ export async function GET(req: NextRequest) {
   const code = searchParams.get('code')
   const state = searchParams.get('state')
   const errorParam = searchParams.get('error')
-  const errorDescription = searchParams.get('error_description')
-
   if (errorParam) {
-    const desc = errorDescription
-      ? encodeURIComponent(errorDescription.slice(0, 120))
-      : errorParam
-    console.error('[Meta Ads OAuth] Error from Meta:', errorParam, errorDescription)
-    return NextResponse.redirect(`${baseUrl}/paid-campaigns?error=${desc}`)
+    console.warn('[Meta Ads OAuth] Provider authorization was not granted')
+    return NextResponse.redirect(`${baseUrl}/paid-campaigns?error=authorization_not_granted`)
   }
 
   if (!code || !state) {
@@ -64,7 +60,7 @@ export async function GET(req: NextRequest) {
   try {
     userId = verifyOAuthState(state, 'meta_ads').userId
   } catch (e) {
-    console.error('[Meta Ads OAuth] State verification failed:', e)
+    console.warn('[Meta Ads OAuth] State verification failed')
     return NextResponse.redirect(`${baseUrl}/paid-campaigns?error=invalid_state`)
   }
 
@@ -84,20 +80,32 @@ export async function GET(req: NextRequest) {
     )
     const tokenData = await tokenRes.json()
     if (tokenData.error || !tokenData.access_token) {
-      const msg = tokenData.error?.message || 'token_exchange_failed'
-      // Keep OAuth credentials out of logs even when a provider returns a
-      // mixed success/error payload.
-      console.error('[Meta Ads OAuth] Token exchange failed:', {
-        error: tokenData.error?.message || tokenData.error || 'unknown',
-        code: tokenData.error?.code || null,
-      })
-      return NextResponse.redirect(
-        `${baseUrl}/paid-campaigns?error=${encodeURIComponent(msg.slice(0, 120))}`
+      await captureOperationalError(
+        Object.assign(new Error('Meta Ads token exchange rejected'), { code: tokenData.error?.code || tokenData.error?.type }),
+        {
+          operation: 'oauth.meta-ads-token-exchange',
+          route: '/api/social/callback/meta-ads',
+          component: 'oauth',
+          method: 'GET',
+          requestId: req.headers?.get?.('x-vercel-id') ?? null,
+          statusCode: 400,
+          retryable: false,
+          severity: 'warning',
+        },
       )
+      return NextResponse.redirect(`${baseUrl}/paid-campaigns?error=token_exchange_failed`)
     }
     shortToken = tokenData.access_token
   } catch (fetchErr) {
-    console.error('[Meta Ads OAuth] Token fetch network error:', fetchErr)
+    await captureOperationalError(fetchErr, {
+      operation: 'oauth.meta-ads-token-exchange',
+      route: '/api/social/callback/meta-ads',
+      component: 'oauth',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 502,
+      retryable: true,
+    })
     return NextResponse.redirect(`${baseUrl}/paid-campaigns?error=network_error`)
   }
 
@@ -139,9 +147,18 @@ export async function GET(req: NextRequest) {
     )
     const accountsData = await accountsRes.json()
     adAccounts = accountsData.data || []
-    console.log(`[Meta Ads OAuth] Found ${adAccounts.length} ad accounts for user ${userId}`)
+    console.log(`[Meta Ads OAuth] Found ${adAccounts.length} ad accounts`)
   } catch (fetchErr) {
-    console.error('[Meta Ads OAuth] Ad accounts fetch failed:', fetchErr)
+    await captureOperationalError(fetchErr, {
+      operation: 'oauth.meta-ads-account-discovery',
+      route: '/api/social/callback/meta-ads',
+      component: 'oauth',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 502,
+      retryable: true,
+      severity: 'warning',
+    })
     // Non-fatal: save the connection anyway with no accounts yet
   }
 
@@ -156,7 +173,7 @@ export async function GET(req: NextRequest) {
     )
     const pagesData = await pagesRes.json()
     pages = pagesData.data || []
-    console.log(`[Meta Ads OAuth] Found ${pages.length} Facebook Pages for user ${userId}`)
+    console.log(`[Meta Ads OAuth] Found ${pages.length} Facebook Pages`)
   } catch { /* non-fatal */ }
 
   // Step 5: Ensure Prisma user + workspace exist
@@ -251,19 +268,35 @@ export async function GET(req: NextRequest) {
       })
       savedCount++
     } catch (dbErr) {
-      console.error('[Meta Ads OAuth] Failed to save ad account:', account.id, dbErr)
+      await captureOperationalError(dbErr, {
+        operation: 'oauth.meta-ads-save-account',
+        route: '/api/social/callback/meta-ads',
+        component: 'database',
+        method: 'GET',
+        requestId: req.headers?.get?.('x-vercel-id') ?? null,
+        statusCode: 500,
+        retryable: true,
+      })
     }
   }
 
-  console.log(`[Meta Ads OAuth] Saved ${savedCount}/${adAccounts.length} ad accounts for workspace ${workspace.id}`)
+  console.log(`[Meta Ads OAuth] Saved ${savedCount}/${adAccounts.length} ad accounts`)
 
   // Redirect to paid campaigns section with success signal
   const accountCount = adAccounts.length
   return NextResponse.redirect(
     `${baseUrl}/paid-campaigns?connected=meta&accounts=${accountCount}`
   )
-  } catch (err: any) {
-    console.error('[Meta Ads OAuth] Unexpected error:', err?.message)
+  } catch (err: unknown) {
+    await captureOperationalError(err, {
+      operation: 'oauth.meta-ads-callback',
+      route: '/api/social/callback/meta-ads',
+      component: 'oauth',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
     return NextResponse.redirect(`${baseUrl}/paid-campaigns?social=error&msg=unexpected_error`)
   }
 }

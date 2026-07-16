@@ -12,6 +12,7 @@ import {
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 
 /* ═══════════════════════════════════════════════════════════════
    /api/ai/generate
@@ -146,8 +147,20 @@ export async function POST(req: NextRequest) {
     })
 
     if (!response.ok) {
-      const err = await response.json().catch(() => ({}))
-      console.error('[ai/generate] OpenAI error:', response.status, err)
+      await response.body?.cancel().catch(() => undefined)
+      await captureOperationalError(
+        Object.assign(new Error('AI provider rejected request'), { code: `HTTP_${response.status}` }),
+        {
+          operation: 'ai.ad-copy-provider-response',
+          route: '/api/ai/generate',
+          component: 'ai',
+          method: 'POST',
+          requestId: req.headers?.get?.('x-vercel-id') ?? null,
+          statusCode: 502,
+          retryable: response.status === 429 || response.status >= 500,
+          severity: response.status === 429 ? 'warning' : 'error',
+        },
+      )
       if (credit) await refundDeductedCredits(userId, credit, `OpenAI error ${response.status}`)
       return NextResponse.json(
         { error: `OpenAI error ${response.status}. Check API key and quota.` },
@@ -181,7 +194,15 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (err) {
-    console.error('[ai/generate] Unexpected error:', err)
+    await captureOperationalError(err, {
+      operation: 'ai.ad-copy-generate',
+      route: '/api/ai/generate',
+      component: 'ai',
+      method: 'POST',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
     if (credit) await refundDeductedCredits(userId, credit, 'Unexpected AI generation failure')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

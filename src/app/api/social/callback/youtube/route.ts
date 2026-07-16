@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { encryptToken } from '@/lib/tokenCrypto'
 import { verifyOAuthState } from '@/lib/oauthState'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
   const code = searchParams.get('code')
   const state = searchParams.get('state')
   const providerError = searchParams.get('error')
-  if (providerError) return errorRedirect(searchParams.get('error_description') || providerError)
+  if (providerError) return errorRedirect('authorization_not_granted')
   if (!code || !state) return errorRedirect('missing_params')
 
   let userId: string
@@ -58,8 +59,20 @@ export async function GET(req: NextRequest) {
     })
     const tokenData = await tokenResponse.json().catch(() => ({})) as GoogleTokenResponse
     if (!tokenResponse.ok || !tokenData.access_token) {
-      console.error('[YouTube OAuth] Token exchange failed', tokenData.error)
-      return errorRedirect(tokenData.error_description || tokenData.error || 'token_exchange_failed')
+      await captureOperationalError(
+        Object.assign(new Error('YouTube token exchange rejected'), { code: tokenData.error }),
+        {
+          operation: 'oauth.youtube-token-exchange',
+          route: '/api/social/callback/youtube',
+          component: 'oauth',
+          method: 'GET',
+          requestId: req.headers?.get?.('x-vercel-id') ?? null,
+          statusCode: 400,
+          retryable: false,
+          severity: 'warning',
+        },
+      )
+      return errorRedirect('token_exchange_failed')
     }
 
     const channelResponse = await fetch(
@@ -72,7 +85,16 @@ export async function GET(req: NextRequest) {
     const channelData = await channelResponse.json().catch(() => ({}))
     const channel = Array.isArray(channelData?.items) ? channelData.items[0] : null
     if (!channelResponse.ok || !channel?.id) {
-      console.error('[YouTube OAuth] Channel discovery failed', channelData?.error)
+      await captureOperationalError(new Error('YouTube channel discovery failed'), {
+        operation: 'oauth.youtube-channel-discovery',
+        route: '/api/social/callback/youtube',
+        component: 'oauth',
+        method: 'GET',
+        requestId: req.headers?.get?.('x-vercel-id') ?? null,
+        statusCode: channelResponse.ok ? 400 : 502,
+        retryable: !channelResponse.ok,
+        severity: channelResponse.ok ? 'warning' : 'error',
+      })
       return errorRedirect(channelResponse.ok ? 'youtube_channel_required' : 'youtube_channel_lookup_failed')
     }
 
@@ -148,7 +170,15 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.redirect(`${baseUrl()}/connections?social=connected&platform=youtube`)
   } catch (error) {
-    console.error('[YouTube OAuth] Unexpected error', error)
+    await captureOperationalError(error, {
+      operation: 'oauth.youtube-callback',
+      route: '/api/social/callback/youtube',
+      component: 'oauth',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
     return errorRedirect('youtube_connection_failed')
   }
 }

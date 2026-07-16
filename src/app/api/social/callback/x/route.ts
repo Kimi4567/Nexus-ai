@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { encryptToken } from '@/lib/tokenCrypto'
 import { verifyOAuthState } from '@/lib/oauthState'
 import { xCodeVerifierHash } from '@/lib/xPublishing'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -43,7 +44,7 @@ function safeEqual(left: string, right: string): boolean {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const providerError = searchParams.get('error')
-  if (providerError) return errorRedirect(searchParams.get('error_description') || providerError)
+  if (providerError) return errorRedirect('authorization_not_granted')
   const code = searchParams.get('code')
   const state = searchParams.get('state')
   const verifier = req.cookies.get(PKCE_COOKIE)?.value
@@ -81,8 +82,20 @@ export async function GET(req: NextRequest) {
     })
     const tokenData = await tokenResponse.json().catch(() => ({})) as XTokenResponse
     if (!tokenResponse.ok || !tokenData.access_token) {
-      console.error('[X OAuth] Token exchange failed', tokenData.error)
-      return errorRedirect(tokenData.error_description || tokenData.error || 'token_exchange_failed')
+      await captureOperationalError(
+        Object.assign(new Error('X token exchange rejected'), { code: tokenData.error }),
+        {
+          operation: 'oauth.x-token-exchange',
+          route: '/api/social/callback/x',
+          component: 'oauth',
+          method: 'GET',
+          requestId: req.headers?.get?.('x-vercel-id') ?? null,
+          statusCode: 400,
+          retryable: false,
+          severity: 'warning',
+        },
+      )
+      return errorRedirect('token_exchange_failed')
     }
 
     const profileResponse = await fetch('https://api.x.com/2/users/me?user.fields=id,name,username,profile_image_url', {
@@ -92,7 +105,15 @@ export async function GET(req: NextRequest) {
     const profileData = await profileResponse.json().catch(() => ({}))
     const profile = profileData?.data
     if (!profileResponse.ok || !profile?.id || !profile?.username) {
-      console.error('[X OAuth] Profile lookup failed', profileData)
+      await captureOperationalError(new Error('X profile response was incomplete'), {
+        operation: 'oauth.x-profile-fetch',
+        route: '/api/social/callback/x',
+        component: 'oauth',
+        method: 'GET',
+        requestId: req.headers?.get?.('x-vercel-id') ?? null,
+        statusCode: 502,
+        retryable: true,
+      })
       return errorRedirect('x_profile_lookup_failed')
     }
 
@@ -168,7 +189,15 @@ export async function GET(req: NextRequest) {
 
     return redirect('/connections?social=connected&platform=x')
   } catch (error) {
-    console.error('[X OAuth] Unexpected error', error)
+    await captureOperationalError(error, {
+      operation: 'oauth.x-callback',
+      route: '/api/social/callback/x',
+      component: 'oauth',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
     return errorRedirect('x_connection_failed')
   }
 }

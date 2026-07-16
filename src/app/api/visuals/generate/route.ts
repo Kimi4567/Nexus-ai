@@ -50,6 +50,8 @@ import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { captureOperationalError } from '@/lib/observability/operationalError'
+import { sanitizeSentryText } from '@/lib/observability/sentryPrivacy'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -325,8 +327,15 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (dbErr) {
-    const message = dbErr instanceof Error ? dbErr.message : 'Visual record creation failed'
-    console.error('[visuals/generate] DB create error:', message)
+    await captureOperationalError(dbErr, {
+      operation: 'ai.image-create-record',
+      route: '/api/visuals/generate',
+      component: 'database',
+      method: 'POST',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
     return NextResponse.json({
       error: 'Image generation could not start because its media record was not created.',
       code: 'MEDIA_RECORD_CREATE_FAILED',
@@ -419,9 +428,18 @@ export async function POST(req: NextRequest) {
           bufferToDataUri(compositeBuffer),
           finalPublicId
         )
-        console.log(`[visuals/generate] Sharp composite applied for "${ctx.brandName}" on ${overlayPlatform}`)
+        console.log(`[visuals/generate] Sharp composite applied on ${overlayPlatform}`)
       } catch (compositeErr) {
-        console.warn('[visuals/generate] Sharp composite failed — returning raw image:', compositeErr)
+        await captureOperationalError(compositeErr, {
+          operation: 'ai.image-brand-composite',
+          route: '/api/visuals/generate',
+          component: 'ai',
+          method: 'POST',
+          requestId: req.headers?.get?.('x-vercel-id') ?? null,
+          statusCode: 500,
+          retryable: false,
+          severity: 'warning',
+        })
         permanentUrl = cloudinaryUrl
       }
     }
@@ -454,20 +472,31 @@ export async function POST(req: NextRequest) {
       creditsRemaining: credit.creditsRemaining,
       creditCharge: buildCreditChargeReceipt('IMAGE_GENERATION', credit),
     })
-  } catch (err: any) {
-    console.error('[visuals/generate] Generation error:', err)
+  } catch (err: unknown) {
+    await captureOperationalError(err, {
+      operation: 'ai.image-generate',
+      route: '/api/visuals/generate',
+      component: 'ai',
+      method: 'POST',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
+
+    const failureMessage = err instanceof Error ? err.message : 'Image generation failed'
+    const safeFailureMessage = sanitizeSentryText(failureMessage).slice(0, 500)
 
     // Update DB to FAILED (non-blocking)
     await db.generatedVisual.update({
       where: { id: visual.id },
-      data:  { status: 'FAILED', errorMessage: err.message || 'Generation failed' },
+      data:  { status: 'FAILED', errorMessage: safeFailureMessage },
     }).catch(() => {})
 
     // Refund — the user must not be charged for a failed image (skip unlimited plans)
-    const refund = await refundDeductedCredits(userId, credit, err.message || 'Image generation failed')
+    const refund = await refundDeductedCredits(userId, credit, safeFailureMessage)
 
     return NextResponse.json({
-      error: err.message || 'Image generation failed',
+      error: safeFailureMessage,
       message: refund.refundPending
         ? 'Image generation failed. Credit restoration is pending automatic reconciliation.'
         : undefined,
