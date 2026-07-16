@@ -246,12 +246,16 @@ function guardOperationalSaasAndHealthcareClaims(text: string): string {
     .replace(/تجربة متميزة للمرضى/g, 'تجربة إدارية أكثر وضوحًا للمرضى')
     .replace(/#رعاية_المرضى/g, '#متابعة_المرضى')
     .replace(/كفاءة وفعالية أكبر/g, 'وضوحًا أكبر في العمل اليومي')
+    .replace(/(?:تحسين|تعزيز|رفع)\s+كفاءة\s+العمليات\s+اليومية/g, 'زيادة وضوح سير العمل اليومية')
     .replace(/تعزيز كفاءة العيادات/g, 'تنظيم عمل العيادات بوضوح')
     .replace(/تعزيز كفاءة العيادة/g, 'تنظيم عمل العيادة بوضوح')
     .replace(/تعزيز كفاءة/g, 'زيادة وضوح سير العمل')
     .replace(/تحسين كفاءة العيادات/g, 'تنظيم عمل العيادات بوضوح')
     .replace(/تحسين كفاءة العيادة/g, 'تنظيم عمل العيادة بوضوح')
-    .replace(/(?:تحسين|تعزيز|رفع)\s+كفاءة(?:\s+(?:العيادات|العيادة|العمليات|الفريق))?/g, 'زيادة وضوح سير العمل')
+    .replace(/عزز\s+كفاءة\s+عيادتك/g, 'نظّم سير عمل عيادتك بوضوح أكبر')
+    .replace(/نزيد\s+كفاءة\s+عمليات\s+العيادة/g, 'ننظّم عمليات العيادة بوضوح أكبر')
+    .replace(/(?:تحسين|تعزيز|رفع)\s+كفاءة\s+عمليات\s+العيادة/g, 'تنظيم عمليات العيادة بوضوح أكبر')
+    .replace(/(?:تحسين|تعزيز|رفع)\s+كفاءة(?:\s+(?:العيادات|العيادة|العمليات(?:\s+اليومية)?|الفريق))?/g, 'زيادة وضوح سير العمل')
     .replace(/تحسين الكفاءة/g, 'زيادة وضوح سير العمل')
     .replace(/تحسين الكفاءة التشغيلية/g, 'زيادة وضوح سير العمل التشغيلي')
     .replace(/الكفاءة التشغيلية/g, 'وضوح سير العمل التشغيلي')
@@ -318,6 +322,10 @@ function guardOperationalSaasAndHealthcareClaims(text: string): string {
     .replace(/\bmore professional clinic management\b/gi, 'more organized clinic management workflows')
     .replace(/\bimprove patient experience\b/gi, 'organize the administrative patient experience')
     .replace(/\bimproves patient follow[-\s]?up\b/gi, 'helps organize patient follow-up workflows')
+    .replace(/\benhance your clinic(?:'|’)s operations\b/gi, 'review your clinic\'s current operations')
+    .replace(/\benhance communication and streamline operations\b/gi, 'support bilingual communication and review the current workflow')
+    .replace(/\bexperience the transformation\b/gi, 'review the workflow in a demo')
+    .replace(/^review your clinic operations\b/i, 'Review your clinic operations')
     .replace(/\bpremium patient care\b/gi, 'clearer administrative patient workflows')
     .replace(/\bexcellent healthcare\b/gi, 'clearer clinic workflows')
 }
@@ -621,6 +629,24 @@ function guardUnverifiedFeatureAndOutcomeClaims(
 ): string {
   const facts = brandFactCorpus(context)
   let guarded = text
+
+  // Generic security promises are not proof. Keep them out of draft copy
+  // unless the user supplied a concrete security artifact; even then, the
+  // save gate still rejects absolute protection promises and requires specific
+  // reviewed wording instead.
+  const securityProof = verifiedProofText(context)
+  if (!/(?:soc\s*2|iso\s*27001|penetration\s+test|security\s+audit|encryption|تدقيق\s+أمني|اختبار\s+اختراق|تشفير)/i.test(securityProof)) {
+    guarded = replaceMatchingSentences(
+      guarded,
+      /(?:protect|secure|safeguard)\s+(?:your|clinic|patient)?\s*data|our\s+security\s+(?:measures|procedures)|secure\s+(?:and\s+)?integrated\s+data|احمِ?\s+بيانات|حماية\s+بيانات|تأمين\s+بيانات|إجراءات\s+الأمان\s+لدينا|إدارة\s+متكاملة\s+وآمنة/i,
+      /[\u0600-\u06ff]/u.test(guarded)
+        ? 'راجع وثائق الأمان وصلاحيات الوصول قبل اعتماد طريقة التعامل مع بيانات العيادة.'
+        : 'Review documented security controls and access permissions before deciding how clinic data should be handled.',
+    )
+    guarded = guarded
+      .replace(/#(?:DataSecurity|SecureData|CyberSecurity)\b/gi, '#SecurityReview')
+      .replace(/#(?:أمان_البيانات|حماية_البيانات|أمان)\b/g, '#مراجعة_الأمان')
+  }
 
   if (!/(?:integrat|compatib|تكامل|متكامل|ربط\s+(?:مع|ب))/.test(facts)) {
     guarded = replaceMatchingSentences(

@@ -22,6 +22,7 @@ export interface GeneratedContentPlanPostLike {
 
 export type ContentPlanSaveGateReason =
   | 'unsupported_clinic_outcome_claim'
+  | 'unsupported_security_claim'
   | 'unsupported_absolute_claim'
   | 'unsupported_fake_product_visual'
   | 'malformed_caption'
@@ -60,6 +61,10 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   {
     reason: 'unsupported_clinic_outcome_claim',
     re: /(?:تحسين|تعزيز|زيادة|رفع)\s+(?:كفاءة|رضا|تجربة|خدمة|رعاية|نتائج)|(?:رضاهم|ثقتهم|رعاية صحية متميزة|مرضى راضين|نتائج أفضل|توفير وقتك)|(?:improve|boost|increase|enhance)\s+(?:clinic efficiency|patient satisfaction|patient experience|care quality|healthcare outcomes|results)|\bsave(?:s|d|ing)?\s+(?:you\s+)?time\b/i,
+  },
+  {
+    reason: 'unsupported_security_claim',
+    re: /(?:protect|secure|safeguard)\s+(?:your|clinic|patient)?\s*data|our\s+security\s+(?:measures|procedures)|secure\s+(?:and\s+)?integrated\s+data|احمِ?\s+بيانات|حماية\s+بيانات|تأمين\s+بيانات|إجراءات\s+الأمان\s+لدينا|إدارة\s+متكاملة\s+وآمنة/i,
   },
   {
     reason: 'unsupported_absolute_claim',

@@ -278,6 +278,19 @@ describe('contentDraftTruthGuard', () => {
     expect(copy).not.toContain('تحسين كفاءة')
   })
 
+  it('removes unverified clinic security promises and repairs observed draft grammar', () => {
+    const copy = guardContentDraftText(
+      'review your clinic operations. احمِ بيانات عيادتك مع إدارة متكاملة وآمنة. اكتشف إجراءات الأمان لدينا لضمان حماية بياناتك. عزز كفاءة عيادتك. اكتشف كيف نزيد كفاءة عمليات العيادة.',
+      { verifiedProof: [] },
+    )
+
+    expect(copy).toMatch(/^Review your clinic operations/)
+    expect(copy).toContain('راجع وثائق الأمان وصلاحيات الوصول')
+    expect(copy).toContain('نظّم سير عمل عيادتك بوضوح أكبر')
+    expect(copy).toContain('ننظّم عمليات العيادة بوضوح أكبر')
+    expect(copy).not.toMatch(/احمِ بيانات|إدارة متكاملة وآمنة|إجراءات الأمان لدينا|عزز كفاءة|كفاءة عمليات العيادة/)
+  })
+
   it('softens perfectly roasted claims', () => {
     const out = guardContentDraftText('perfectly roasted beans')
 

@@ -89,6 +89,26 @@ export function deriveCreativePlatformFormat(platform?: string | null): { format
   return found ?? { format: 'Square feed image', aspectRatio: '1:1' }
 }
 
+export function deriveCreativePlatformVideoFormat(platform?: string | null): { format: string; aspectRatio: string } {
+  const normalized = normalizePlatform(platform)
+  if (/TIKTOK|REEL|SHORT|STORY/i.test(normalized)) {
+    return { format: 'Vertical short-form video', aspectRatio: '9:16' }
+  }
+  if (/INSTAGRAM|FACEBOOK|META/i.test(normalized)) {
+    return { format: 'Vertical social video', aspectRatio: '9:16' }
+  }
+  if (/LINKEDIN/i.test(normalized)) {
+    return { format: 'LinkedIn feed video', aspectRatio: '16:9' }
+  }
+  if (/YOUTUBE/i.test(normalized)) {
+    return { format: 'YouTube video', aspectRatio: '16:9' }
+  }
+  if (/PINTEREST|\bPIN\b/i.test(normalized)) {
+    return { format: 'Pinterest video Pin', aspectRatio: '9:16' }
+  }
+  return { format: 'Social feed video', aspectRatio: '16:9' }
+}
+
 function deriveSourcePreference(input: CreativeRequirementInput): CreativeSourcePreference {
   const mediaSource = (input.mediaSource || '').toUpperCase()
   if (input.uploadedMediaId || mediaSource.includes('UPLOAD')) return 'uploaded'
@@ -161,13 +181,14 @@ function deriveStatus(input: CreativeRequirementInput): Pick<
 
 export function derivePostCreativeRequirement(input: CreativeRequirementInput): CreativeRequirement {
   const platform = normalizePlatform(input.platform)
-  const { format, aspectRatio } = deriveCreativePlatformFormat(platform)
+  const isVideo = Boolean(input.isVideoPost)
+  const { format, aspectRatio } = isVideo
+    ? deriveCreativePlatformVideoFormat(platform)
+    : deriveCreativePlatformFormat(platform)
   const sourcePreference = deriveSourcePreference(input)
   const status = deriveStatus(input)
   const contentAngle = sentenceFromCaption(input.caption)
   const brand = (input.brandName || input.campaignName || 'the brand').trim()
-  const isVideo = Boolean(input.isVideoPost)
-
   const requiredAssetType: RequiredAssetType = isVideo
     ? 'template_composite_later'
     : input.uploadedMediaId

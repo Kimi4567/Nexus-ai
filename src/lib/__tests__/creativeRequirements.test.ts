@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   deriveCreativePlatformFormat,
+  deriveCreativePlatformVideoFormat,
   derivePostCreativeRequirement,
   summarizeCreativeRequirements,
 } from '../creativeRequirements'
@@ -77,6 +78,23 @@ describe('post-aware creative requirements', () => {
     expect(deriveCreativePlatformFormat('YOUTUBE_SHORTS')).toMatchObject({ aspectRatio: '9:16' })
     expect(deriveCreativePlatformFormat('PINTEREST')).toMatchObject({ format: 'Pinterest standard image Pin', aspectRatio: '2:3' })
     expect(deriveCreativePlatformFormat('UNKNOWN')).toMatchObject({ aspectRatio: '1:1' })
+  })
+
+  it('uses video-native formats for video slots instead of image requirements', () => {
+    expect(deriveCreativePlatformVideoFormat('INSTAGRAM')).toEqual({ format: 'Vertical social video', aspectRatio: '9:16' })
+    expect(deriveCreativePlatformVideoFormat('LINKEDIN')).toEqual({ format: 'LinkedIn feed video', aspectRatio: '16:9' })
+    expect(deriveCreativePlatformVideoFormat('YOUTUBE')).toEqual({ format: 'YouTube video', aspectRatio: '16:9' })
+
+    const requirement = derivePostCreativeRequirement({
+      postId: 'video_1',
+      platform: 'INSTAGRAM',
+      isVideoPost: true,
+      generationStatus: 'AWAITING_UPLOAD',
+    })
+
+    expect(requirement.format).toBe('Vertical social video')
+    expect(requirement.aspectRatio).toBe('9:16')
+    expect(requirement.format).not.toMatch(/image/i)
   })
 
   it('derives generated, uploaded, and either source preference deterministically', () => {

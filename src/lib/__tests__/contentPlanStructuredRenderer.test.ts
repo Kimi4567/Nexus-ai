@@ -162,6 +162,20 @@ describe('contentPlanStructuredRenderer', () => {
     expect(validateContentPlanDraftForSave({ caption }).ok).toBe(true)
   })
 
+  it('blocks unsupported clinic security promises and renders them safely without proof', () => {
+    const unsafe = validateContentPlanDraftForSave({
+      caption: 'احمِ بيانات عيادتك مع إدارة متكاملة وآمنة وإجراءات الأمان لدينا.',
+    })
+    expect(unsafe.ok).toBe(false)
+    expect(unsafe.issues.map(issue => issue.reason)).toContain('unsupported_security_claim')
+
+    const caption = renderContentPlanDraftCaption({
+      caption: 'احمِ بيانات عيادتك مع إدارة متكاملة وآمنة. اكتشف إجراءات الأمان لدينا.',
+    }, clinicCtx)
+    expect(caption).toContain('راجع وثائق الأمان وصلاحيات الوصول')
+    expect(validateContentPlanDraftForSave({ caption }).ok).toBe(true)
+  })
+
   it('save gate blocks first-person Arabic guarantees before persistence', () => {
     const result = validateContentPlanDraftForSave({
       caption: 'نضمن لك خدمات عالية الجودة، واكتشف كيف نضمن الجودة في كل خطوة.',
