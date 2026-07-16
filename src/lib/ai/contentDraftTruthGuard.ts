@@ -950,6 +950,14 @@ function guardNexusMarketingOperatingClaims(
 
   return text
     .replace(
+      /[^.!?]*نتائج موثوقة[^.!?]*[.!?]?/g,
+      ' في NEXUS AI، تبقى المسودات والقرارات قابلة للمراجعة، ويتطلب النشر والإنفاق الإعلاني موافقة.',
+    )
+    .replace(
+      /[^.!?]*\bfull potential\b[^.!?]*[.!?]?/gi,
+      ' Review the documented workflow scope and current limitations.',
+    )
+    .replace(
       /(?:An infographic|A detailed guide illustration)[^.!?]*(?:credit system)[^.!?]*(?:budget control|transparency|financial insights)[^.!?]*[.!?]?/gi,
       'An editorial diagram of the documented credit flow: quoted cost, confirmed action, and ledger entry; no savings or performance claim.',
     )
