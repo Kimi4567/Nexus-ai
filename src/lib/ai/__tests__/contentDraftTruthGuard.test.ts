@@ -291,6 +291,40 @@ describe('contentDraftTruthGuard', () => {
     expect(copy).not.toMatch(/احمِ بيانات|إدارة متكاملة وآمنة|إجراءات الأمان لدينا|عزز كفاءة|كفاءة عمليات العيادة/)
   })
 
+  it('repairs the exact quality defects found in the nine-post production audit', () => {
+    const reviewed = [
+      guardContentDraftText('احمِ بيانات عيادتك. #أمان_البيانات #إدارة_العيادات', { verifiedProof: [] }),
+      guardContentDraftText('Book a demo to experience the transformation.'),
+      guardContentDraftText('اكتشف كيف يمكن لـ #ClinicFlow زيادة وضوح سير العمل عمليات العيادة.'),
+      guardContentDraftText('Enhance communication and streamline operations with ClinicFlow.'),
+      guardContentDraftText('مع #ClinicFlow، يمكنك دمج جميع العمليات في منصة واحدة.'),
+      guardContentDraftText('قل وداعًا للمهام اليدوية مع الأتمتة. عزز كفاءة عيادتك مع تقليل العمل اليدوي.'),
+      guardContentDraftText("Operate seamlessly in both English and Arabic with ClinicFlow. Overcome language barriers and enhance your clinic's operations."),
+      guardContentDraftText("Automate your clinic's reminders and follow-ups with ClinicFlow. أتمتة التذكيرات والمتابعات الخاصة بك."),
+      guardContentDraftText('Break language barriers with our bilingual platform.'),
+      guardContentDraftText('كيف يمكننا تبسيط عملك. #أتمتة_العيادات #كفاءة_العمل #كفاءة'),
+    ]
+
+    expect(reviewed[0]).toContain('#مراجعة_الأمان #إدارة_العيادات')
+    expect(reviewed[0]).not.toContain('#مراجعة_الأمان_البيانات')
+    expect(reviewed[1]).toBe('Book a demo to review the workflow.')
+    expect(reviewed[1]).not.toMatch(/demo to review the workflow in a demo/i)
+    expect(reviewed[2]).toContain('تنظيم عمليات العيادة بوضوح أكبر')
+    expect(reviewed[3]).toMatch(/^Support bilingual communication/)
+    expect(reviewed[4]).toContain('جمع العمليات الأساسية في مساحة عمل واحدة')
+    expect(reviewed[4]).not.toContain('جميع العمليات')
+    expect(reviewed[5]).toContain('راجع المهام اليدوية التي يمكن تنظيمها')
+    expect(reviewed[5]).toContain('مراجعة المهام اليدوية المتكررة')
+    expect(reviewed[6]).toMatch(/^Use English and Arabic workflows/)
+    expect(reviewed[6]).not.toMatch(/seamlessly|overcome language barriers/i)
+    expect(reviewed[7]).toContain("Organize your clinic's reminders and follow-ups")
+    expect(reviewed[7]).toContain('تنظيم التذكيرات والمتابعات')
+    expect(reviewed[8]).toContain('Review your English and Arabic workflows')
+    expect(reviewed[8]).not.toMatch(/break language barriers/i)
+    expect(reviewed[9]).toContain('كيف ننظّم سير العمل الحالي')
+    expect(reviewed[9]).toContain('#تنظيم_العيادات #سير_العمل #تنظيم_العمل')
+  })
+
   it('softens perfectly roasted claims', () => {
     const out = guardContentDraftText('perfectly roasted beans')
 
