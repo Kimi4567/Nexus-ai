@@ -1059,16 +1059,120 @@ export function guardContentDraftTruth<T>(
   input: T,
   context: ContentDraftTruthContext = {},
 ): T {
-  return guardContentDraftValue(input, context) as T
+  return guardContentDraftValue(input, context, '') as T
 }
 
-function guardContentDraftValue(input: unknown, context: ContentDraftTruthContext): unknown {
-  if (typeof input === 'string') return guardContentDraftText(input, context)
-  if (Array.isArray(input)) return input.map(item => guardContentDraftValue(item, context))
+function canonicalNexusDraftField(
+  original: string,
+  guarded: string,
+  keyPath: string,
+  context: ContentDraftTruthContext,
+): string {
+  if (!/(?:^|\.)(?:caption|videoPrompt|imagePrompt)$/.test(keyPath)) return guarded
+  const corpus = original + ' ' + guarded + ' ' + brandFactCorpus(context)
+  if (!/(?:\bNEXUS\s*AI\b|نكسوس\s*AI)/i.test(corpus)) return guarded
+  const topicCorpus = original + ' ' + guarded
+
+  const itemIndex = Number(keyPath.match(/\[(\d+)\]/)?.[1] ?? 0)
+  const isArabic = /[\u0600-\u06ff]/u.test(original)
+  const topic = /credit|budget|spend|expense|ledger|ائتمان|كريديت|ميزانية|إنفاق|نفقات/i.test(topicCorpus)
+    ? 'credit'
+    : /brand voice|brand consistency|brand brain|messaging|صوت العلامة|اتساق|رسائل/i.test(topicCorpus)
+      ? 'brand'
+      : /resource|capacity|ownership|handoff|tasks? (?:are )?assigned|الموارد|السعة|الملكية|تسليم|توزيع المهام/i.test(topicCorpus)
+        ? 'capacity'
+        : /human|approval|approve|people review|human review|AI prepares|collaborat|oversight|الإشراف|الموافقة|المراجعة البشرية|البشر/i.test(topicCorpus)
+          ? 'approval'
+          : /workflow|end-to-end|strategy|execution|سير العمل|الاستراتيجية|التنفيذ/i.test(topicCorpus)
+            ? 'workflow'
+            : null
+  if (!topic) return guarded
+
+  if (keyPath.endsWith('.imagePrompt')) {
+    if (topic === 'credit') {
+      return 'Editorial product diagram of a three-step credit flow: quoted cost, confirmed metered action, and immutable ledger entry. Neutral UI shapes and documented records only; no readable interface.'
+    }
+    if (topic === 'brand') {
+      return 'Editorial system diagram connecting approved Brand Brain inputs—positioning, voice, verified claims, and restrictions—to channel draft cards and human review checkpoints. No automatic-consistency claim.'
+    }
+    if (topic === 'approval') {
+      return 'Editorial workflow illustration showing AI draft preparation followed by distinct human review, publishing approval, and ad-spend approval checkpoints. Use documented stages only.'
+    }
+    return 'Editorial operations diagram showing campaign ownership, capacity, handoffs, and the next review decision. Use abstract labels and documented assignments only.'
+  }
+
+  if (keyPath.endsWith('.videoPrompt')) {
+    if (topic === 'credit') {
+      return '15-second vertical explainer. Scene 1: show a quoted credit cost before a metered AI action. Scene 2: show explicit confirmation. Scene 3: show the completed action linked to its ledger entry. End card: “Review cost and output before the next decision.” Use documented actions and records only.'
+    }
+    if (topic === 'brand') {
+      return '15-second vertical explainer. Scene 1: approved Brand Brain positioning, voice, verified claims, and restrictions. Scene 2: two channel-specific draft cards. Scene 3: human review checkpoints before approval. End card: “Review each adaptation before approval.”'
+    }
+    if (topic === 'capacity') {
+      return '15-second vertical operations explainer. Scene 1: campaign tasks and owners. Scene 2: available production capacity. Scene 3: approval handoffs and the next decision. End card: “Review capacity before expanding the plan.” Use documented workload and ownership only.'
+    }
+    if (topic === 'approval') {
+      return '15-second vertical explainer. Scene 1: AI prepares a strategy or content draft. Scene 2: a person reviews the draft. Scene 3: separate approval checkpoints for publishing and ad spend. End card: “AI prepares; people review and approve.”'
+    }
+    return '15-second vertical workflow explainer. Show Brand Brain, strategy, channel drafts, human approval, execution status, and results as six distinct stages. End card: “Review the current stage and next decision.” Use documented stages and states only.'
+  }
+
+  if (topic === 'credit') {
+    if (isArabic) {
+      return itemIndex % 2 === 0
+        ? 'يعرض NEXUS AI تكلفة الكريديت قبل كل عملية ذكاء اصطناعي مدفوعة، ثم يسجّل الخصم والمخرج في سجل الكريديت. راجع التكلفة والنتيجة قبل الموافقة على الخطوة التالية. #عمليات_التسويق #NEXUSAI'
+        : 'الكريديت الشهري يتبع دورة الباقة، بينما يُعرض الكريديت المشتَرى وسجل استخدامه بصورة منفصلة. راجع نوع الرصيد وتاريخ العملية قبل التنفيذ. #إدارة_الكريديت #NEXUSAI'
+    }
+    return itemIndex % 2 === 0
+      ? 'NEXUS AI shows the credit cost before every metered AI action, then links the debit to its output in the credit ledger. Review both before approving the next step. #MarketingOperations #NEXUSAI'
+      : 'Monthly plan credits follow the billing cycle, while purchased credits and their usage remain visible separately. Review the balance source and ledger entry before execution. #CreditOperations #NEXUSAI'
+  }
+  if (topic === 'brand') {
+    return isArabic
+      ? 'ينقل Brand Brain التموضع والنبرة والادعاءات الموثقة والقيود إلى مسودات القنوات. راجع تكييف الرسالة لكل منصة قبل اعتمادها. #حوكمة_العلامة #NEXUSAI'
+      : 'Brand Brain carries approved positioning, voice, verified claims, and restrictions into channel drafts. Review each platform adaptation before approval. #BrandGovernance #NEXUSAI'
+  }
+  if (topic === 'capacity') {
+    if (isArabic) {
+      return 'حدّد مالك كل مهمة، والسعة المتاحة، وتسلسل الموافقات قبل توسيع إنتاج الحملة. اجعل القرار التالي ظاهرًا وقابلًا للمراجعة. #عمليات_التسويق #NEXUSAI'
+    }
+    return itemIndex < 8
+      ? 'Map task ownership, available capacity, and approval handoffs before expanding campaign production. Keep the next decision visible and reviewable. #MarketingOperations #NEXUSAI'
+      : 'Before adding more campaign work, compare assigned owners, production capacity, and pending approvals. Resolve the next handoff first. #CapacityPlanning #NEXUSAI'
+  }
+  if (topic === 'approval') {
+    if (isArabic) {
+      return 'يُعدّ الذكاء الاصطناعي في NEXUS AI الاستراتيجية ومسودات المحتوى؛ وتبقى المراجعة البشرية مطلوبة، مع موافقة منفصلة قبل النشر أو الإنفاق الإعلاني. #تسويق_مسؤول #NEXUSAI'
+    }
+    return itemIndex % 2 === 0
+      ? 'In NEXUS AI, AI prepares strategy and content drafts; human review remains required, with separate approval before publishing or ad spend. #ResponsibleMarketing #NEXUSAI'
+      : 'AI prepares the draft; people review its claims, channel fit, and next action. Publishing and ad spend stay behind separate approvals. #HumanInTheLoop #NEXUSAI'
+  }
+  if (isArabic) {
+    return 'يتبع العمل مسارًا واحدًا: Brand Brain، ثم الاستراتيجية، ثم مسودات القنوات، فالموافقة، والتنفيذ، والنتائج. تعرض كل مرحلة حالتها والقرار التالي. #سير_عمل_التسويق #NEXUSAI'
+  }
+  return itemIndex < 6
+    ? 'Follow one governed path: Brand Brain, strategy, channel drafts, approval, execution, and results. Each stage shows its status and next decision. #MarketingWorkflow #NEXUSAI'
+    : 'A campaign moves from reviewed strategy to channel drafts, approval, execution status, and measured results. Review the current stage before the next action. #CampaignOperations #NEXUSAI'
+}
+
+function guardContentDraftValue(
+  input: unknown,
+  context: ContentDraftTruthContext,
+  keyPath: string,
+): unknown {
+  if (typeof input === 'string') {
+    const guarded = guardContentDraftText(input, context)
+    return canonicalNexusDraftField(input, guarded, keyPath, context)
+  }
+  if (Array.isArray(input)) {
+    return input.map((item, index) => guardContentDraftValue(item, context, keyPath + '[' + index + ']'))
+  }
   if (input && typeof input === 'object') {
     const output: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
-      output[key] = guardContentDraftValue(value, context)
+      const valuePath = keyPath ? keyPath + '.' + key : key
+      output[key] = guardContentDraftValue(value, context, valuePath)
     }
     return output
   }

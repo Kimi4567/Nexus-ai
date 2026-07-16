@@ -1091,6 +1091,37 @@ describe('contentDraftTruthGuard', () => {
     expect(serialized).not.toMatch(/كل خطوة|نتائج موثوقة|helps transparency|predictability|spend with confidence|manage your marketing spend effectively|budget control|financial insights|request a demo|streamline your efforts|maximize your resources|make the most of your resources|replacing human jobs|enhance marketing strategies|partnership, not replacement|seamless marketing|brand voice is unified|insights into your spending|full potential/i)
   })
 
+  it('renders NEXUS captions and creative directions from a field-aware truth policy', () => {
+    const guarded = guardContentDraftTruth([
+      {
+        caption: 'Amazing AI and human collaboration delivers incredible results.',
+        imagePrompt: 'An illustration about human approval in NEXUS AI.',
+      },
+      {
+        caption: 'Control your budget with the NEXUS AI credit system.',
+        imagePrompt: 'An infographic about NEXUS AI credits and savings.',
+      },
+      {
+        caption: 'Keep the NEXUS AI brand voice consistent everywhere.',
+        videoPrompt: 'Show NEXUS AI brand consistency across every platform.',
+      },
+    ], {
+      brandFacts: [
+        'NEXUS AI drafts require human review.',
+        'NEXUS AI records metered actions in a credit ledger.',
+        'NEXUS AI Brand Brain supplies approved messaging.',
+      ],
+    })
+
+    expect(guarded[0].caption).toContain('human review remains required')
+    expect(guarded[0].imagePrompt).toContain('distinct human review')
+    expect(guarded[1].caption).toContain('Monthly plan credits follow the billing cycle')
+    expect(guarded[1].imagePrompt).toContain('three-step credit flow')
+    expect(guarded[2].caption).toContain('Brand Brain carries approved positioning')
+    expect(guarded[2].videoPrompt).toContain('channel-specific draft cards')
+    expect(JSON.stringify(guarded)).not.toMatch(/amazing|incredible results|control your budget|consistent everywhere/i)
+  })
+
   it('documents the draft-only content plan policy', () => {
     const prompt = buildContentDraftTruthPolicyPrompt()
 
