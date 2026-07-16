@@ -282,18 +282,24 @@ export function reviewBrandTruthConsistency(
     ))
   }
 
-  for (const signature of DOMAIN_SIGNATURES) {
-    if (!signature.business.test(businessText)) continue
-    if (!industry) break
-    if (!signature.industry.test(industry)) {
+  const matchingDomains = DOMAIN_SIGNATURES.filter(signature => signature.business.test(businessText))
+  if (industry && matchingDomains.length > 0) {
+    // A vertical SaaS product naturally contains both the customer's domain
+    // (for example dental/clinic) and the product domain (software/platform).
+    // The previous first-match loop treated whichever keyword appeared in the
+    // DOMAIN_SIGNATURES order as authoritative and falsely blocked valid
+    // profiles such as "clinic operations software" + "Software & Tech".
+    // Accept the profile when the saved industry matches any strongly detected
+    // domain; block only when it matches none of them.
+    const industryMatchesDetectedDomain = matchingDomains.some(signature => signature.industry.test(industry))
+    if (!industryMatchesDetectedDomain) {
       blockers.push(finding(
         'brand_industry_too_broad_or_misaligned',
         'blocker',
         'brand.industry',
-        `The saved industry does not explicitly match the ${signature.id} business described in Brand Brain. Confirm a more precise category.`,
+        `The saved industry does not explicitly match the ${matchingDomains.map(signature => signature.id).join(' or ')} business described in Brand Brain. Confirm a more precise category.`,
       ))
     }
-    break
   }
 
   const competitors = Array.isArray(profile.competitors) ? profile.competitors : []

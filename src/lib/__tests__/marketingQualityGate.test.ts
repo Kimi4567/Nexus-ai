@@ -58,6 +58,20 @@ describe('marketingQualityGate', () => {
     expect(report.blockers.map(item => item.code)).toContain('brand_industry_too_broad_or_misaligned')
   })
 
+  it('accepts vertical SaaS when customer-domain words also appear in the profile', () => {
+    const report = reviewBrandTruthConsistency({
+      brandName: 'ClinicFlow UAE',
+      industry: 'Software & Tech',
+      description: 'A B2B SaaS platform for private dental clinics that manages appointments and front-desk workflows.',
+      primaryOffer: 'Monthly clinic operations software subscription.',
+      targetAudience: 'Owners and managers of dental clinics in the UAE.',
+      verifiedProof: [],
+    }, '2026-07-16T00:00:00.000Z')
+
+    expect(report.status).toBe('passed')
+    expect(report.blockers.map(item => item.code)).not.toContain('brand_industry_too_broad_or_misaligned')
+  })
+
   it('allows missing proof as a visible limitation rather than inventing it', () => {
     const report = reviewStrategyGrounding({
       strategy: groundedStrategy,
