@@ -20,7 +20,7 @@ import {
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-interface Transaction {
+export interface Transaction {
   id: string
   action: string
   description: string | null
@@ -34,6 +34,47 @@ interface Transaction {
   settledAt: string | null
   refundedAt: string | null
   createdAt: string
+}
+
+export interface CreditHistoryRow {
+  transaction: Transaction
+  correction: Transaction | null
+}
+
+/**
+ * Credit transactions are append-only. When an old human-readable description
+ * needs correcting, a zero-value AUDIT_CORRECTION points at the original row.
+ * The UI applies the newest correction without mutating or hiding monetary
+ * history, and does not render the metadata row as a second credit movement.
+ */
+export function applyCreditHistoryCorrections(transactions: Transaction[]): CreditHistoryRow[] {
+  const corrections = new Map<string, Transaction>()
+
+  for (const transaction of transactions) {
+    if (
+      transaction.action !== 'AUDIT_CORRECTION' ||
+      transaction.entityType !== 'credit_transaction' ||
+      !transaction.entityId ||
+      !transaction.description
+    ) continue
+
+    const current = corrections.get(transaction.entityId)
+    if (!current || new Date(transaction.createdAt).getTime() > new Date(current.createdAt).getTime()) {
+      corrections.set(transaction.entityId, transaction)
+    }
+  }
+
+  return transactions
+    .filter(transaction => transaction.action !== 'AUDIT_CORRECTION')
+    .map(transaction => {
+      const correction = corrections.get(transaction.id) ?? null
+      return {
+        transaction: correction
+          ? { ...transaction, description: correction.description }
+          : transaction,
+        correction,
+      }
+    })
 }
 
 interface Props {
@@ -177,6 +218,7 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
   if (!open) return null
 
   const isAr = locale === 'ar'
+  const transactionRows = applyCreditHistoryCorrections(transactions)
 
   return (
     <div
@@ -268,9 +310,9 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
           )}
 
           {/* Transaction list */}
-          {!loading && !error && transactions.length > 0 && (
+          {!loading && !error && transactionRows.length > 0 && (
             <div className="p-3 space-y-1.5">
-              {transactions.map(tx => {
+              {transactionRows.map(({ transaction: tx, correction }) => {
                 const isDeduction = tx.amount < 0 || (tx.amount === 0 && tx.creditCost > 0)
                 const isRefunded = tx.status === 'REFUNDED'
                 const badge = entityBadgeColor(tx.entityType)
@@ -314,6 +356,16 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
                         <span className={`rounded border px-1.5 py-0.5 text-[9px] font-semibold ${status.className}`}>
                           {status.label}
                         </span>
+                        {correction && (
+                          <span
+                            className="rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[9px] font-semibold text-violet-700"
+                            title={isAr
+                              ? 'تم تصحيح الوصف بسجل تدقيق إضافي مع الحفاظ على المعاملة الأصلية'
+                              : 'Description corrected by an append-only audit record; the original transaction remains preserved'}
+                          >
+                            {isAr ? 'وصف مصحّح' : 'Corrected description'}
+                          </span>
+                        )}
                         {tx.entityType && (
                           <span
                             className="text-[9px] font-semibold px-1.5 py-0.5 rounded"
@@ -352,13 +404,13 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
         </div>
 
         {/* ── Footer ── */}
-        {!loading && !error && transactions.length > 0 && (
+        {!loading && !error && transactionRows.length > 0 && (
           <div className="px-5 py-3 flex items-center justify-between"
             style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
             <p className="text-[10px] text-slate-500">
               {isAr
-                ? `${transactions.length} معاملة`
-                : `${transactions.length} transaction${transactions.length !== 1 ? 's' : ''}`}
+                ? `${transactionRows.length} معاملة مالية`
+                : `${transactionRows.length} credit transaction${transactionRows.length !== 1 ? 's' : ''}`}
             </p>
             <button onClick={onClose}
               type="button"
