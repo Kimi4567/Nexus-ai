@@ -4326,12 +4326,19 @@ export default function ContentHubPage() {
         {/* ── Credit action confirmations ───────────────────────────── */}
         {imageGenerationConfirmPost && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.34)', backdropFilter: 'blur(12px)' }} onClick={closeImageGenerationConfirm}>
-            <div className="w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl" style={{ border: '1px solid rgba(15,23,42,0.10)' }} onClick={e => e.stopPropagation()}>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="nexus-image-studio-title"
+              className="w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+              style={{ border: '1px solid rgba(15,23,42,0.10)' }}
+              onClick={e => e.stopPropagation()}
+            >
               <div className="bg-slate-950 px-6 py-5 text-white">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300">NEXUS IMAGE STUDIO · FINAL CREATIVE</p>
-                    <h3 className="mt-1 text-xl font-bold">
+                    <h3 id="nexus-image-studio-title" className="mt-1 text-xl font-bold">
                       {isAr ? 'إنتاج صورة إعلانية احترافية' : 'Produce a professional ad image'}
                     </h3>
                     <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-300">

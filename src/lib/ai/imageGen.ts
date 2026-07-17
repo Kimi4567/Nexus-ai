@@ -680,6 +680,7 @@ export async function generateWithOpenAIImageEdit(
 ): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) throw new Error('OPENAI_API_KEY not configured')
+  const model = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2'
 
   if (!referenceImageUrl.startsWith('https://res.cloudinary.com/')) {
     throw new Error('Reference image must be an owned, durable Cloudinary image')
@@ -697,13 +698,22 @@ export async function generateWithOpenAIImageEdit(
   }
 
   const form = new FormData()
-  form.append('model', process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2')
+  form.append('model', model)
   form.append('prompt', `${prompt}\n\nREFERENCE FIDELITY CONTRACT:\nTreat the supplied image as the exact product source of truth. Preserve its geometry, packaging, colour, label, logo placement, proportions, materials, and distinctive details. Change only the surrounding advertising scene, lighting, and composition. Do not redesign, relabel, recolour, duplicate, deform, or replace the product. Do not add claims or text inside the generated pixels.`)
   form.append('size', size)
   form.append('quality', 'high')
-  form.append('input_fidelity', 'high')
+  // gpt-image-2 always processes references at high fidelity and rejects the
+  // legacy input_fidelity parameter. Earlier GPT Image models still accept it.
+  if (model !== 'gpt-image-2') form.append('input_fidelity', 'high')
   form.append('n', '1')
-  form.append('image', new Blob([referenceBuffer], { type: contentType }), 'reference-image')
+  const extension = contentType.includes('jpeg') || contentType.includes('jpg')
+    ? 'jpg'
+    : contentType.includes('webp')
+      ? 'webp'
+      : 'png'
+  // The current Image Edit multipart contract uses image[] for GPT Image
+  // inputs. A real extension also prevents ambiguous MIME inference upstream.
+  form.append('image[]', new Blob([referenceBuffer], { type: contentType }), `reference-image.${extension}`)
 
   const response = await fetch('https://api.openai.com/v1/images/edits', {
     method: 'POST',
