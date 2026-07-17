@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   CONTENT_HUB_IMAGE_COST,
   CONTENT_HUB_VIDEO_COST,
+  CONTENT_HUB_MOTION_DESIGN_COST,
   CONTENT_HUB_REWRITE_COST,
   CONTENT_HUB_MEDIA_INTELLIGENCE_COST,
   getBulkImageGenerationCost,
@@ -10,6 +11,7 @@ import {
   validateBulkImageGenerationConfirmation,
   validateSingleImageGenerationConfirmation,
   validateVideoGenerationConfirmation,
+  validateMotionDesignConfirmation,
   validateRewriteConfirmation,
   validateMediaIntelligenceConfirmation,
   validateCreativeAdaptationConfirmation,
@@ -165,6 +167,28 @@ describe('contentHubActionSafety', () => {
       acknowledgedNoPublishOrSchedule: true,
       acknowledgedReviewRequired: true,
       acknowledgedAssetRights: true,
+    })).toEqual({ ok: true })
+  })
+
+  it('requires source, rights, exact duration, and the lower deterministic Motion Design price', () => {
+    expect(CONTENT_HUB_MOTION_DESIGN_COST).toBe(6)
+    expect(validateMotionDesignConfirmation({
+      confirmed: true,
+      acknowledgedCreditCost: CONTENT_HUB_MOTION_DESIGN_COST,
+      acknowledgedDurationSeconds: 8,
+      acknowledgedNoPublishOrSchedule: true,
+      acknowledgedReviewRequired: true,
+      acknowledgedAssetRights: true,
+      sourceMediaId: '',
+    })).toMatchObject({ ok: false })
+    expect(validateMotionDesignConfirmation({
+      confirmed: true,
+      acknowledgedCreditCost: CONTENT_HUB_MOTION_DESIGN_COST,
+      acknowledgedDurationSeconds: 8,
+      acknowledgedNoPublishOrSchedule: true,
+      acknowledgedReviewRequired: true,
+      acknowledgedAssetRights: true,
+      sourceMediaId: 'media-1',
     })).toEqual({ ok: true })
   })
 

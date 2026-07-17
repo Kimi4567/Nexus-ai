@@ -48,6 +48,8 @@ type QualityInput = {
   targetFormat?: PlatformImageFormat | null
   formatValidation?: PlatformImageFormatValidation | null
   requireProductAdStructure?: boolean
+  /** Exact user/brand-approved text deliberately typeset by NEXUS. */
+  approvedOverlayTexts?: string[]
 }
 
 function boundedText(value: unknown, max = 280): string {
@@ -241,8 +243,11 @@ export async function reviewGeneratedMediaQuality(
     type: 'text',
     text: `Review one NEXUS ${input.mediaType.toLowerCase()} advertising output before it can be attached or billed as successful.
 
-CAMPAIGN MESSAGE (meaning only; it must not appear as generated raster text):
+CAMPAIGN MESSAGE (meaning only; it must not appear as generated raster text except for the exact approved overlays below):
 ${boundedText(input.campaignMessage, 900) || 'Not specified'}
+
+EXACT APPROVED MOTION-DESIGN OVERLAYS:
+${JSON.stringify((input.approvedOverlayTexts ?? []).map(item => boundedText(item, 80)).filter(Boolean)).slice(0, 800)}
 
 CREATIVE DIRECTION:
 ${boundedText(input.creativeDirection, 900) || 'Premium, brand-safe advertising visual'}
@@ -257,7 +262,7 @@ ${JSON.stringify(input.referenceEvidence ?? {}).slice(0, 2500)}
 
 Reject if any of these are present:
 - the supplied product, packaging, screen, device, person, or distinctive source was replaced, redesigned, relabelled, recoloured, duplicated, distorted, or became unrecognizable;
-- generated gibberish, misspelled words, fake UI, fake metrics, new logos, watermarks, or any new raster text not already present in the reference source;
+- generated gibberish, misspelled words, fake UI, fake metrics, new logos, watermarks, or any new raster text not already present in the reference source and not listed exactly in APPROVED MOTION-DESIGN OVERLAYS;
 - invented claims, statistics, awards, testimonials, certifications, or product capabilities;
 - mismatch with the campaign message, obvious anatomy/object errors, broken geometry, poor cropping, low resolution, jump cuts, flicker, or an amateur composition.
 - a composition that becomes unusable or loses the important subject within the stated final platform canvas.
@@ -266,7 +271,7 @@ ${input.requireProductAdStructure ? `- a generic AI motion clip, product demo, m
 - weak product prominence, random camera movement, dead time, incoherent shot progression, or a final frame that cannot carry an exact separately typeset CTA;
 - art direction that feels interchangeable with another brand rather than specific to the approved message and tone.` : ''}
 
-For reference jobs, text/UI already visible inside the supplied source is allowed only when it is faithfully preserved. "noNewRasterText" means no additional generated text outside that preserved source.
+For reference jobs, text/UI already visible inside the supplied source is allowed only when it is faithfully preserved. Exact text in APPROVED MOTION-DESIGN OVERLAYS is also allowed when it is cleanly typeset. "noNewRasterText" means no additional or corrupted text outside the preserved source and those exact overlays.
 
 Return JSON exactly:
 {

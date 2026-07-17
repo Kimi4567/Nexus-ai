@@ -5,6 +5,7 @@ import { CINEMATIC_PRODUCT_AD_DURATION_SECONDS } from '@/lib/videoAdPreflight'
 // catalog identical to the server billing catalog in src/lib/credits.ts.
 export const CONTENT_HUB_IMAGE_COST = CREDIT_ACTION_COSTS.IMAGE_GENERATION
 export const CONTENT_HUB_VIDEO_COST = CREDIT_ACTION_COSTS.VIDEO_GENERATION
+export const CONTENT_HUB_MOTION_DESIGN_COST = CREDIT_ACTION_COSTS.MOTION_DESIGN_VIDEO
 export const CONTENT_HUB_REWRITE_COST = CREDIT_ACTION_COSTS.AI_POST_REWRITE
 export const CONTENT_HUB_REGENERATION_COST = CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION
 export const CONTENT_HUB_MEDIA_INTELLIGENCE_COST = CREDIT_ACTION_COSTS.MEDIA_INTELLIGENCE_ANALYSIS
@@ -168,6 +169,31 @@ export function validateVideoGenerationConfirmation(input: {
     || input.acknowledgedAssetRights !== true
   ) {
     return { ok: false, error: 'Video generation requires explicit confirmation. No credits were spent.' }
+  }
+
+  return { ok: true }
+}
+
+export function validateMotionDesignConfirmation(input: {
+  confirmed?: unknown
+  acknowledgedCreditCost?: unknown
+  acknowledgedDurationSeconds?: unknown
+  acknowledgedNoPublishOrSchedule?: unknown
+  acknowledgedReviewRequired?: unknown
+  acknowledgedAssetRights?: unknown
+  sourceMediaId?: unknown
+}): ContentHubConfirmationResult {
+  if (
+    input.confirmed !== true
+    || input.acknowledgedCreditCost !== CONTENT_HUB_MOTION_DESIGN_COST
+    || input.acknowledgedDurationSeconds !== CINEMATIC_PRODUCT_AD_DURATION_SECONDS
+    || input.acknowledgedNoPublishOrSchedule !== true
+    || input.acknowledgedReviewRequired !== true
+    || input.acknowledgedAssetRights !== true
+    || typeof input.sourceMediaId !== 'string'
+    || !input.sourceMediaId.trim()
+  ) {
+    return { ok: false, error: 'Motion design requires an up-to-date explicit confirmation. No credits were spent.' }
   }
 
   return { ok: true }

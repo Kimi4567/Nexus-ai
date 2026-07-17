@@ -98,6 +98,14 @@ export const CREDIT_COSTS = {
   VIDEO_GENERATION: 18,
 
   /**
+   * Source-locked motion design — turns one analysed user-owned screen/demo
+   * clip into an eight-second platform master. The route uses deterministic
+   * Cloudinary composition plus one bounded visual QA call; it never calls a
+   * generative-video provider and never performs an automatic retry.
+   */
+  MOTION_DESIGN_VIDEO: 6,
+
+  /**
    * Ad copy generation — gpt-4o-mini ad concepts and copy variants
    * Routes: /api/campaigns/suggest, /api/brand/suggest, /api/ai/generate,
    *         /api/ad-campaigns/[id]/generate-strategy, /api/ad-campaigns/[id]/generate-copy,
@@ -260,6 +268,13 @@ export const CREDIT_ACTION_POLICIES: Record<CreditAction, CreditActionPolicy> = 
     reason: 'Creates one eight-second, multi-shot product-ad master from qualified real product references.',
     includedWork: 'Asset preflight, one NEXUS cinematic product-ad task, durable storage, three-frame quality review, and safe draft attachment. No automatic provider retry, publishing, or scheduling.',
     providerCallLimit: 1,
+    refundableOnNoUsableOutput: true,
+  },
+  MOTION_DESIGN_VIDEO: {
+    label: 'Source-locked motion design ad',
+    reason: 'Turns one approved user-owned screen or demo clip into a platform-ready advertising master without generative-video spend.',
+    includedWork: 'Source preflight, one deterministic eight-second motion-design render, durable storage, five-frame quality review, and safe draft attachment. No generative-video provider, automatic retry, publishing, or scheduling.',
+    providerCallLimit: 2,
     refundableOnNoUsableOutput: true,
   },
   AD_COPY: {
@@ -1513,6 +1528,7 @@ const ACTION_LABELS: Record<string, string> = {
   SENTINEL_REVIEW: 'Sentinel Review',
   IMAGE_GENERATION: 'Image Generation',
   VIDEO_GENERATION: 'Cinematic Product Ad',
+  MOTION_DESIGN_VIDEO: 'Source-Locked Motion Design Ad',
   AD_COPY: 'Ad Copy Generation',
   PAID_EXECUTION_PLAN: 'Paid Execution Plan',
   CHAT_MESSAGE: 'AI Chat Message',

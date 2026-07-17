@@ -93,6 +93,7 @@ const ARABIC_ACTION_LABELS: Record<string, string> = {
   SENTINEL_REVIEW: 'مراجعة Sentinel للجودة',
   IMAGE_GENERATION: 'توليد صورة لمنشور',
   VIDEO_GENERATION: 'توليد فيديو إعلاني احترافي',
+  MOTION_DESIGN_VIDEO: 'إعلان Motion Design من فيديو أصلي',
   AD_COPY: 'توليد نص إعلان',
   AI_FIELD_SUGGESTION: 'اقتراح حقل بالذكاء الاصطناعي',
   PAID_EXECUTION_PLAN: 'خطة تنفيذ مدفوعة للمراجعة',
