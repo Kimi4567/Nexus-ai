@@ -83,7 +83,7 @@ describe('post-aware creative requirements', () => {
   it('uses video-native formats for video slots instead of image requirements', () => {
     expect(deriveCreativePlatformVideoFormat('INSTAGRAM')).toEqual({ format: 'Vertical social video', aspectRatio: '9:16' })
     expect(deriveCreativePlatformVideoFormat('LINKEDIN')).toEqual({ format: 'LinkedIn feed video', aspectRatio: '16:9' })
-    expect(deriveCreativePlatformVideoFormat('YOUTUBE')).toEqual({ format: 'YouTube video', aspectRatio: '16:9' })
+    expect(deriveCreativePlatformVideoFormat('YOUTUBE')).toEqual({ format: 'Vertical short-form video', aspectRatio: '9:16' })
 
     const requirement = derivePostCreativeRequirement({
       postId: 'video_1',

@@ -3,6 +3,10 @@ import {
   summarizeOpenAITextUsage,
   type ProviderUsageSummary,
 } from '@/lib/ai/providerEconomics'
+import type {
+  PlatformImageFormat,
+  PlatformImageFormatValidation,
+} from '@/lib/platformImageFormat'
 
 const QUALITY_MODEL = 'gpt-4o'
 
@@ -15,6 +19,8 @@ export interface GeneratedMediaQualityReview {
   semanticAlignmentScore: number
   professionalQualityScore: number
   technicalIntegrity: boolean
+  formatRequired: boolean
+  formatValidation: PlatformImageFormatValidation | null
   noNewRasterText: boolean
   noInventedClaims: boolean
   issues: string[]
@@ -30,6 +36,8 @@ type QualityInput = {
   campaignMessage?: string | null
   creativeDirection?: string | null
   referenceEvidence?: unknown
+  targetFormat?: PlatformImageFormat | null
+  formatValidation?: PlatformImageFormatValidation | null
 }
 
 function boundedText(value: unknown, max = 280): string {
@@ -69,7 +77,7 @@ function parseJsonObject(value: unknown): Record<string, unknown> {
 
 export function normalizeGeneratedMediaQualityReview(
   value: unknown,
-  input: Pick<QualityInput, 'mediaType' | 'referenceImageUrl'>,
+  input: Pick<QualityInput, 'mediaType' | 'referenceImageUrl' | 'targetFormat' | 'formatValidation'>,
   providerUsage: ProviderUsageSummary,
 ): GeneratedMediaQualityReview {
   const result = value && typeof value === 'object' && !Array.isArray(value)
@@ -84,7 +92,36 @@ export function normalizeGeneratedMediaQualityReview(
   const technicalIntegrity = result.technicalIntegrity === true
   const noNewRasterText = result.noNewRasterText === true
   const noInventedClaims = result.noInventedClaims === true
-  const issues = boundedIssues(result.issues)
+  const formatRequired = Boolean(input.targetFormat)
+  const formatValidation = formatRequired ? input.formatValidation ?? null : null
+  const dimensionsPassed = Boolean(
+    formatValidation
+    && formatValidation.width === formatValidation.expectedWidth
+    && formatValidation.height === formatValidation.expectedHeight,
+  )
+  const videoValidation = formatValidation as (PlatformImageFormatValidation & {
+    durationPassed?: boolean
+    durationSeconds?: number
+    expectedDurationSeconds?: number
+  }) | null
+  const formatIssue = formatRequired && !formatValidation?.passed && !dimensionsPassed
+    ? `Final ${input.mediaType.toLowerCase()} format is ${formatValidation?.width ?? 0}×${formatValidation?.height ?? 0}; required ${input.targetFormat?.width ?? 0}×${input.targetFormat?.height ?? 0} (${input.targetFormat?.aspectRatio ?? 'platform format'}).`
+    : ''
+  const durationIssue = input.mediaType === 'VIDEO' && videoValidation?.durationPassed === false
+    ? `Final video duration is ${videoValidation.durationSeconds ?? 0}s; required ${videoValidation.expectedDurationSeconds ?? 0}s.`
+    : ''
+  const unknownFormatIssue = formatRequired
+    && !formatValidation?.passed
+    && !formatIssue
+    && !durationIssue
+    ? 'Final media delivery validation did not pass.'
+    : ''
+  const issues = boundedIssues([
+    ...(Array.isArray(result.issues) ? result.issues : []),
+    formatIssue,
+    durationIssue,
+    unknownFormatIssue,
+  ])
 
   // The model supplies observations; NEXUS owns the decision. A reference job
   // must preserve the actual product/source, and every output must remain free
@@ -94,6 +131,7 @@ export function normalizeGeneratedMediaQualityReview(
     && semanticAlignmentScore >= 75
     && professionalQualityScore >= 80
     && technicalIntegrity
+    && (!formatRequired || formatValidation?.passed === true)
     && noNewRasterText
     && noInventedClaims
     && issues.length === 0
@@ -108,6 +146,8 @@ export function normalizeGeneratedMediaQualityReview(
     semanticAlignmentScore,
     professionalQualityScore,
     technicalIntegrity,
+    formatRequired,
+    formatValidation,
     noNewRasterText,
     noInventedClaims,
     issues,
@@ -139,6 +179,11 @@ ${boundedText(input.campaignMessage, 900) || 'Not specified'}
 CREATIVE DIRECTION:
 ${boundedText(input.creativeDirection, 900) || 'Premium, brand-safe advertising visual'}
 
+FINAL PLATFORM FORMAT:
+${input.targetFormat
+    ? `${input.targetFormat.platform}: exactly ${input.targetFormat.width}×${input.targetFormat.height} (${input.targetFormat.aspectRatio}). Deterministic delivery check: ${JSON.stringify(input.formatValidation ?? {})}`
+    : 'No image delivery canvas applies to this review.'}
+
 KNOWN REFERENCE EVIDENCE:
 ${JSON.stringify(input.referenceEvidence ?? {}).slice(0, 2500)}
 
@@ -147,6 +192,7 @@ Reject if any of these are present:
 - generated gibberish, misspelled words, fake UI, fake metrics, new logos, watermarks, or any new raster text not already present in the reference source;
 - invented claims, statistics, awards, testimonials, certifications, or product capabilities;
 - mismatch with the campaign message, obvious anatomy/object errors, broken geometry, poor cropping, low resolution, jump cuts, flicker, or an amateur composition.
+- a composition that becomes unusable or loses the important subject within the stated final platform canvas.
 
 For reference jobs, text/UI already visible inside the supplied source is allowed only when it is faithfully preserved. "noNewRasterText" means no additional generated text outside that preserved source.
 

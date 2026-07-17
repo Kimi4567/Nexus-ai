@@ -58,6 +58,11 @@ import { scheduleAfterResponse } from '@/lib/afterResponse'
 import { readMediaIntelligence } from '@/lib/creativeIntelligence'
 import { reviewGeneratedMediaQuality } from '@/lib/ai/generatedMediaQuality'
 import {
+  buildPlatformReadyImageUrl,
+  resolvePlatformImageFormat,
+} from '@/lib/platformImageFormat'
+import { verifyPlatformReadyImage } from '@/lib/platformImageDelivery.server'
+import {
   CONTENT_REVISION_HISTORY_NOTE,
   contentReviewResetData,
   isImmutableExecutionPost,
@@ -326,6 +331,22 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // The owned post destination is the source of truth. Client hints may improve
+  // art direction, but they cannot change the final platform canvas.
+  const targetPlatform = String(
+    generationPost?.publishTarget
+    || generationPost?.platform
+    || platform
+    || 'META',
+  )
+  const targetImageFormat = resolvePlatformImageFormat(targetPlatform)
+  const suppliedCreativeRequirement = typeof creativeRequirement === 'object' && creativeRequirement !== null
+    ? creativeRequirement
+    : {}
+  const suppliedCreativeTemplate = typeof creativeTemplate === 'object' && creativeTemplate !== null
+    ? creativeTemplate
+    : {}
+
   // ── Build rich VisualContext (DB wins over client params for brand fields) ─
   const ctx: VisualContext = {
     visualType,
@@ -357,13 +378,19 @@ export async function POST(req: NextRequest) {
     // Post caption — drives the image subject when generating per-post
     postCaption:     postCaption              || undefined,
     // Platform — passed through for dimension-aware composition in the prompt
-    platform:        platform                 || 'META',
-    creativeRequirement: typeof creativeRequirement === 'object' && creativeRequirement !== null
-      ? creativeRequirement
-      : undefined,
-    creativeTemplate: typeof creativeTemplate === 'object' && creativeTemplate !== null
-      ? creativeTemplate
-      : undefined,
+    platform: targetImageFormat.platform,
+    creativeRequirement: {
+      ...suppliedCreativeRequirement,
+      platform: targetImageFormat.platform,
+      format: targetImageFormat.format,
+      aspectRatio: targetImageFormat.aspectRatio,
+    },
+    creativeTemplate: {
+      ...suppliedCreativeTemplate,
+      aspectRatio: targetImageFormat.aspectRatio,
+      width: targetImageFormat.width,
+      height: targetImageFormat.height,
+    },
     assetRole,
   }
 
@@ -495,14 +522,18 @@ export async function POST(req: NextRequest) {
       if (provider === 'fal-flux') {
         const fluxResult = await generateWithFlux({
           prompt: providerPrompt,
-          aspectRatio: platformToFluxAspectRatio(platform),
+          aspectRatio: platformToFluxAspectRatio(targetImageFormat.platform),
         })
         return fluxResult.imageUrl
       }
       if (referenceMedia) {
-        return generateWithOpenAIImageEdit(providerPrompt, referenceMedia.url, platformToOpenAISize(platform))
+        return generateWithOpenAIImageEdit(
+          providerPrompt,
+          referenceMedia.url,
+          platformToOpenAISize(targetImageFormat.platform),
+        )
       }
-      return generateWithDallE(providerPrompt, platformToOpenAISize(platform))
+      return generateWithDallE(providerPrompt, platformToOpenAISize(targetImageFormat.platform))
     }
 
     try {
@@ -515,27 +546,31 @@ export async function POST(req: NextRequest) {
     // ── Persist raw AI image to Cloudinary (needed for Sharp to fetch it) ──
     const rawPublicId   = `visual_raw_${visual.id}`
     const cloudinaryUrl = await uploadToCloudinary(rawImageUrl, rawPublicId)
-    durableAuditUrl = cloudinaryUrl
+    const platformReadyUrl = buildPlatformReadyImageUrl(cloudinaryUrl, targetImageFormat)
+    durableAuditUrl = platformReadyUrl
+    const formatValidation = await verifyPlatformReadyImage(platformReadyUrl, targetImageFormat)
 
     // Raster typography is never treated as final copy. A strict visual pass
     // compares reference and output, rejects semantic mismatches and malformed
     // text, and owns the pass/fail decision before attachment or settlement.
     const qualityReview = await reviewGeneratedMediaQuality({
       mediaType: 'IMAGE',
-      outputFrames: [cloudinaryUrl],
+      outputFrames: [platformReadyUrl],
       referenceImageUrl: referenceMedia?.url,
       campaignMessage: ctx.postCaption || ctx.keyMessage || ctx.campaignGoal,
       creativeDirection: ctx.creativeRequirement?.visualConcept || ctx.visualDirection,
       referenceEvidence,
+      targetFormat: targetImageFormat,
+      formatValidation,
     })
     if (!qualityReview.passed) {
-      const qualityMessage = 'NEXUS quality review rejected this image because it did not preserve the approved creative truth. Credits will be restored.'
+      const qualityMessage = 'NEXUS quality review rejected this image because it did not meet the approved creative and platform-delivery requirements. Credits will be restored.'
       const refund = await refundDeductedCredits(userId, credit, qualityMessage)
       await db.generatedVisual.update({
         where: { id: visual.id },
         data: {
           status: 'FAILED',
-          imageUrl: cloudinaryUrl,
+          imageUrl: platformReadyUrl,
           errorMessage: qualityMessage,
           provider: providerDecision.provider,
           referenceMediaId: referenceMedia?.id ?? null,
@@ -544,7 +579,7 @@ export async function POST(req: NextRequest) {
           qualityReview,
         },
       })
-      if (generationPost) {
+      if (generationPost && !generationPost.imageUrl && !generationPost.uploadedMediaId) {
         await db.socialPost.update({
           where: { id: generationPost.id },
           data: {
@@ -556,7 +591,7 @@ export async function POST(req: NextRequest) {
       return
     }
 
-    const permanentUrl = cloudinaryUrl
+    const permanentUrl = platformReadyUrl
 
     // Complete the durable asset and, when this job belongs to a post, attach
     // it server-side under the user's explicit generation/attachment consent.

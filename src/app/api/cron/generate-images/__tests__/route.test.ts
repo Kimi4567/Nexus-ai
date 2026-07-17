@@ -19,8 +19,10 @@ const {
   mockRefundForTxn,
   mockGenerateWithFlux,
   mockBuildImagePrompt,
-  mockApplyOverlay,
-  mockPlatformToOverlay,
+  mockReviewGeneratedMediaQuality,
+  mockResolvePlatformImageFormat,
+  mockBuildPlatformReadyImageUrl,
+  mockVerifyPlatformReadyImage,
   mockPrisma,
 } = vi.hoisted(() => ({
   mockCheckAndDeduct: vi.fn(),
@@ -30,8 +32,10 @@ const {
   mockRefundForTxn: vi.fn(),
   mockGenerateWithFlux: vi.fn(),
   mockBuildImagePrompt: vi.fn(),
-  mockApplyOverlay: vi.fn(),
-  mockPlatformToOverlay: vi.fn(),
+  mockReviewGeneratedMediaQuality: vi.fn(),
+  mockResolvePlatformImageFormat: vi.fn(),
+  mockBuildPlatformReadyImageUrl: vi.fn(),
+  mockVerifyPlatformReadyImage: vi.fn(),
   mockPrisma: {
     user: { findUnique: vi.fn() },
     campaign: { findFirst: vi.fn() },
@@ -69,9 +73,15 @@ vi.mock('@/lib/ai/falGen', () => ({
 vi.mock('@/lib/ai/imageGen', () => ({
   buildImagePrompt: mockBuildImagePrompt,
 }))
-vi.mock('@/lib/cloudinaryOverlay', () => ({
-  applyBrandOverlayFromProfile: mockApplyOverlay,
-  platformToOverlay: mockPlatformToOverlay,
+vi.mock('@/lib/ai/generatedMediaQuality', () => ({
+  reviewGeneratedMediaQuality: mockReviewGeneratedMediaQuality,
+}))
+vi.mock('@/lib/platformImageFormat', () => ({
+  resolvePlatformImageFormat: mockResolvePlatformImageFormat,
+  buildPlatformReadyImageUrl: mockBuildPlatformReadyImageUrl,
+}))
+vi.mock('@/lib/platformImageDelivery.server', () => ({
+  verifyPlatformReadyImage: mockVerifyPlatformReadyImage,
 }))
 
 const testCronSecret = 'c'.repeat(40)
@@ -147,8 +157,24 @@ beforeEach(() => {
   mockRefundForTxn.mockResolvedValue({ ok: true, status: 'refunded' })
   mockFinalizeDeduction.mockResolvedValue({ ok: true, status: 'settled' })
   mockGenerateWithFlux.mockResolvedValue({ imageUrl: 'https://fal.cdn/image-a.png' })
-  mockApplyOverlay.mockImplementation((url: string) => `${url}?overlay=1`)
-  mockPlatformToOverlay.mockReturnValue('square')
+  mockResolvePlatformImageFormat.mockImplementation((platform: string) => ({
+    platform: String(platform || 'META').toUpperCase(),
+    format: 'Portrait social feed image',
+    aspectRatio: '4:5',
+    width: 1080,
+    height: 1350,
+  }))
+  mockBuildPlatformReadyImageUrl.mockImplementation((url: string) => url)
+  mockVerifyPlatformReadyImage.mockResolvedValue({
+    passed: true,
+    width: 1080,
+    height: 1350,
+    expectedWidth: 1080,
+    expectedHeight: 1350,
+    aspectRatio: '4:5',
+    contentType: 'image/png',
+  })
+  mockReviewGeneratedMediaQuality.mockResolvedValue({ passed: true })
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
     json: async () => ({ secure_url: 'https://res.cloudinary.com/test/image.png' }),
   }))

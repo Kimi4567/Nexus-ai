@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { applyBrandOverlayFromProfile, platformToOverlay } from '@/lib/cloudinaryOverlay'
 import { generateWithFlux, platformToFluxAspectRatio, platformToOpenAISize } from '@/lib/ai/falGen'
 import { buildImagePrompt, generateWithDallE, type VisualContext } from '@/lib/ai/imageGen'
+import { reviewGeneratedMediaQuality } from '@/lib/ai/generatedMediaQuality'
 import { chooseProfessionalImageProvider } from '@/lib/ai/mediaProviderRouter'
 import { normalizeContentHubImagePromptForPlatform } from '@/lib/contentHubImageFormat'
+import {
+  buildPlatformReadyImageUrl,
+  resolvePlatformImageFormat,
+} from '@/lib/platformImageFormat'
+import { verifyPlatformReadyImage } from '@/lib/platformImageDelivery.server'
 import {
   checkAndDeductCredits,
   checkDailyImageCap,
@@ -17,6 +23,7 @@ import { cronAuthError } from '@/lib/cronAuth'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 300
 
 /* ═══════════════════════════════════════════════════════════════════════════
    GET /api/cron/generate-images
@@ -320,7 +327,8 @@ export async function GET(req: NextRequest) {
       let creditReservation: ImageCreditReservation | undefined
       let visualId: string | null = null
       try {
-        const platform: string = post.platform || 'META'
+        const platform: string = post.publishTarget || post.platform || 'META'
+        const targetFormat = resolvePlatformImageFormat(platform)
         const ownerId: string | undefined = post.workspace?.ownerId
 
         // ── Credit gate: deduct IMAGE_GENERATION from workspace owner ───────
@@ -412,14 +420,32 @@ export async function GET(req: NextRequest) {
         const dataUri = await generateImage(prompt, platform)
 
         // 2. Upload to Cloudinary for permanence (accepts data URI directly)
-        let finalUrl = await uploadToCloudinary(dataUri, post.id)
+        const durableRawUrl = await uploadToCloudinary(dataUri, post.id)
+        const finalUrl = buildPlatformReadyImageUrl(durableRawUrl, targetFormat)
 
-        // 3. Apply brand overlay (Cloudinary URL transformation — zero extra cost)
-        const brand = post.workspace?.brandProfile
-        if (brand?.brandName && finalUrl.includes('res.cloudinary.com')) {
-          const overlayPlatform = platformToOverlay(post.platform || 'META')
-          finalUrl = applyBrandOverlayFromProfile(finalUrl, brand, overlayPlatform)
-          console.log(`[Cron generate-images] Brand overlay applied for ${brand.brandName} (${post.id})`)
+        // 3. Verify the exact platform canvas and visible marketing quality.
+        // Copy/logo remain editable; cron must never burn unreviewed raster text.
+        const formatValidation = await verifyPlatformReadyImage(finalUrl, targetFormat)
+        const qualityReview = await reviewGeneratedMediaQuality({
+          mediaType: 'IMAGE',
+          outputFrames: [finalUrl],
+          campaignMessage: post.caption,
+          creativeDirection: post.imagePrompt,
+          targetFormat,
+          formatValidation,
+        })
+        if (!qualityReview.passed) {
+          await prisma.generatedVisual.update({
+            where: { id: visualId },
+            data: {
+              status: 'FAILED',
+              imageUrl: finalUrl,
+              errorMessage: 'NEXUS quality review rejected this platform-ready image.',
+              qualityStatus: 'REJECTED',
+              qualityReview: qualityReview as unknown as Prisma.InputJsonValue,
+            },
+          })
+          throw new Error('NEXUS quality review rejected this platform-ready image')
         }
 
         // 4. Update the post
@@ -434,7 +460,12 @@ export async function GET(req: NextRequest) {
           })
           await tx.generatedVisual.update({
             where: { id: visualId! },
-            data: { imageUrl: finalUrl, status: 'COMPLETED' },
+            data: {
+              imageUrl: finalUrl,
+              status: 'COMPLETED',
+              qualityStatus: 'PASSED',
+              qualityReview: qualityReview as unknown as Prisma.InputJsonValue,
+            },
           })
         })
 

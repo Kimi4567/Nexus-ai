@@ -290,6 +290,18 @@ describe('GET professional video generation status', () => {
     expect(mocks.uploadVideo).toHaveBeenCalledWith('https://runway.example/video.mp4', 'generation-1')
     expect(mocks.reviewQuality).toHaveBeenCalledWith(expect.objectContaining({
       mediaType: 'VIDEO',
+      targetFormat: expect.objectContaining({
+        platform: 'INSTAGRAM',
+        aspectRatio: '9:16',
+        width: 720,
+        height: 1280,
+      }),
+      formatValidation: expect.objectContaining({
+        passed: true,
+        width: 720,
+        height: 1280,
+        durationPassed: true,
+      }),
       outputFrames: [
         'https://res.cloudinary.com/demo/video/upload/final.mp4#frame-0',
         'https://res.cloudinary.com/demo/video/upload/final.mp4#frame-2',

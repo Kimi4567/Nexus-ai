@@ -20,8 +20,10 @@ const {
   mockGenerateWithFlux,
   mockGenerateWithDallE,
   mockUploadToCloudinary,
-  mockComposeBrandedPost,
-  mockBufferToDataUri,
+  mockReviewGeneratedMediaQuality,
+  mockResolvePlatformImageFormat,
+  mockBuildPlatformReadyImageUrl,
+  mockVerifyPlatformReadyImage,
   mockBuildImagePrompt,
   mockPrisma,
 } = vi.hoisted(() => ({
@@ -34,8 +36,10 @@ const {
   mockGenerateWithFlux: vi.fn(),
   mockGenerateWithDallE: vi.fn(),
   mockUploadToCloudinary: vi.fn(),
-  mockComposeBrandedPost: vi.fn(),
-  mockBufferToDataUri: vi.fn(),
+  mockReviewGeneratedMediaQuality: vi.fn(),
+  mockResolvePlatformImageFormat: vi.fn(),
+  mockBuildPlatformReadyImageUrl: vi.fn(),
+  mockVerifyPlatformReadyImage: vi.fn(),
   mockBuildImagePrompt: vi.fn(),
   mockPrisma: {
     campaign: { findFirst: vi.fn() },
@@ -87,11 +91,16 @@ vi.mock('@/lib/ai/imageGen', () => ({
   generateWithDallE: mockGenerateWithDallE,
   uploadToCloudinary: mockUploadToCloudinary,
 }))
-vi.mock('@/lib/brandComposite', () => ({
-  composeBrandedPost: mockComposeBrandedPost,
-  bufferToDataUri: mockBufferToDataUri,
+vi.mock('@/lib/ai/generatedMediaQuality', () => ({
+  reviewGeneratedMediaQuality: mockReviewGeneratedMediaQuality,
 }))
-vi.mock('@/lib/cloudinaryOverlay', () => ({ platformToOverlay: () => 'square' }))
+vi.mock('@/lib/platformImageFormat', () => ({
+  resolvePlatformImageFormat: mockResolvePlatformImageFormat,
+  buildPlatformReadyImageUrl: mockBuildPlatformReadyImageUrl,
+}))
+vi.mock('@/lib/platformImageDelivery.server', () => ({
+  verifyPlatformReadyImage: mockVerifyPlatformReadyImage,
+}))
 
 const makeReq = (body: unknown = {}) => ({ json: async () => body }) as any
 const params = { params: Promise.resolve({ id: 'campaign_1' }) }
@@ -178,11 +187,25 @@ beforeEach(() => {
     language: 'en',
   }))
   mockGenerateWithDallE.mockResolvedValue('data:image/png;base64,raw-image')
-  mockUploadToCloudinary
-    .mockResolvedValueOnce('https://res.cloudinary.com/test/raw.jpg')
-    .mockResolvedValueOnce('https://res.cloudinary.com/test/final.jpg')
-  mockComposeBrandedPost.mockResolvedValue(Buffer.from('composite'))
-  mockBufferToDataUri.mockReturnValue('data:image/jpeg;base64,composite')
+  mockUploadToCloudinary.mockReset().mockResolvedValue('https://res.cloudinary.com/test/raw.jpg')
+  mockResolvePlatformImageFormat.mockImplementation((platform: string) => ({
+    platform: String(platform || 'META').toUpperCase(),
+    format: 'Portrait social feed image',
+    aspectRatio: '4:5',
+    width: 1080,
+    height: 1350,
+  }))
+  mockBuildPlatformReadyImageUrl.mockImplementation((url: string) => url)
+  mockVerifyPlatformReadyImage.mockResolvedValue({
+    passed: true,
+    width: 1080,
+    height: 1350,
+    expectedWidth: 1080,
+    expectedHeight: 1350,
+    aspectRatio: '4:5',
+    contentType: 'image/jpeg',
+  })
+  mockReviewGeneratedMediaQuality.mockResolvedValue({ passed: true })
   mockCheckAndDeduct
     .mockResolvedValueOnce({ ok: true, creditsUsed: 4, creditsRemaining: 26, transactionId: 'txn_a' })
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {

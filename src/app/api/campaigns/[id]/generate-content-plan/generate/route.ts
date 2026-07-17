@@ -48,10 +48,14 @@ import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { chooseProfessionalImageProvider } from '@/lib/ai/mediaProviderRouter'
-import { composeBrandedPost, bufferToDataUri } from '@/lib/brandComposite'
-import { platformToOverlay } from '@/lib/cloudinaryOverlay'
+import { reviewGeneratedMediaQuality } from '@/lib/ai/generatedMediaQuality'
+import {
+  buildPlatformReadyImageUrl,
+  resolvePlatformImageFormat,
+} from '@/lib/platformImageFormat'
+import { verifyPlatformReadyImage } from '@/lib/platformImageDelivery.server'
 
-export const maxDuration = 60 // Vercel Pro — 60s max
+export const maxDuration = 300
 
 type Params = { params: Promise<{ id: string }> }
 type ImageCreditReservation = {
@@ -421,23 +425,34 @@ export async function POST(req: NextRequest, props: Params) {
         })
         visualId = visual.id
 
-        const rawUrl = await generateImage(preparedPrompt, post.platform)
+        const targetFormat = resolvePlatformImageFormat(post.publishTarget || post.platform)
+        const rawUrl = await generateImage(preparedPrompt, targetFormat.platform)
         // Content Hub media must be durable. Never put a provider-temporary URL
         // or a base64 payload in SocialPost.imageUrl.
         const durableRawUrl = await uploadToCloudinary(rawUrl, `content_hub_raw_${post.id}`)
-        const composite = await composeBrandedPost(durableRawUrl, {
-          brandName: campaign.workspace?.brandProfile?.brandName || campaign.name || 'Brand',
-          logoUrl: campaign.workspace?.brandProfile?.logoUrl || null,
-          accentColor: Array.isArray(campaign.workspace?.brandProfile?.colorPalette)
-            ? campaign.workspace.brandProfile.colorPalette[0]
-            : campaign.workspace?.brandProfile?.colorPalette || null,
-          platform: platformToOverlay(post.platform),
-          adHeadline: post.caption || undefined,
+        const finalUrl = buildPlatformReadyImageUrl(durableRawUrl, targetFormat)
+        const formatValidation = await verifyPlatformReadyImage(finalUrl, targetFormat)
+        const qualityReview = await reviewGeneratedMediaQuality({
+          mediaType: 'IMAGE',
+          outputFrames: [finalUrl],
+          campaignMessage: post.caption,
+          creativeDirection: post.imagePrompt,
+          targetFormat,
+          formatValidation,
         })
-        const finalUrl = await uploadToCloudinary(
-          bufferToDataUri(composite),
-          `content_hub_${post.id}`,
-        )
+        if (!qualityReview.passed) {
+          await (prisma.generatedVisual as any).update({
+            where: { id: visualId },
+            data: {
+              status: 'FAILED',
+              imageUrl: finalUrl,
+              errorMessage: 'NEXUS quality review rejected this platform-ready image.',
+              qualityStatus: 'REJECTED',
+              qualityReview,
+            },
+          })
+          throw new Error('NEXUS quality review rejected this platform-ready image')
+        }
 
         await prisma.$transaction(async (tx) => {
           await (tx.socialPost as any).update({
@@ -446,7 +461,12 @@ export async function POST(req: NextRequest, props: Params) {
           })
           await (tx.generatedVisual as any).update({
             where: { id: visualId! },
-            data: { imageUrl: finalUrl, status: 'COMPLETED' },
+            data: {
+              imageUrl: finalUrl,
+              status: 'COMPLETED',
+              qualityStatus: 'PASSED',
+              qualityReview,
+            },
           })
         })
         if (reservation) {

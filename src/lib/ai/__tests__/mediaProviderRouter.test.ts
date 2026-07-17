@@ -44,7 +44,8 @@ describe('professional media provider routing', () => {
   it('uses platform-native video orientation', () => {
     expect(platformToRunwayRatio('TIKTOK', false)).toBe('720:1280')
     expect(platformToRunwayRatio('LINKEDIN', false)).toBe('1280:720')
-    expect(platformToRunwayRatio('PINTEREST', true)).toBe('960:960')
+    expect(platformToRunwayRatio('PINTEREST', true)).toBe('720:1280')
+    expect(platformToRunwayRatio('FACEBOOK', false)).toBe('720:1280')
   })
 
   it('builds a product-safe, typography-safe commercial prompt', () => {

@@ -1,3 +1,5 @@
+import { resolvePlatformVideoFormat } from '@/lib/platformVideoFormat'
+
 export type ProfessionalImageProvider = 'openai-gpt-image-2' | 'fal-flux'
 
 export type ImageGenerationPurpose =
@@ -73,12 +75,8 @@ export type RunwayVideoRatio = '1280:720' | '720:1280' | '960:960'
 export const PROFESSIONAL_VIDEO_PROMPT_MAX_CHARS = 950
 
 export function platformToRunwayRatio(platform: string, hasReferenceImage: boolean): RunwayVideoRatio {
-  const target = platform.trim().toUpperCase()
-  if (['TIKTOK', 'YOUTUBE', 'YOUTUBE_SHORTS', 'INSTAGRAM', 'META'].includes(target)) {
-    return '720:1280'
-  }
-  if (target === 'PINTEREST' && hasReferenceImage) return '960:960'
-  return '1280:720'
+  void hasReferenceImage
+  return resolvePlatformVideoFormat(platform).ratio
 }
 
 function cleanPromptPart(value: unknown, maxLength: number): string {

@@ -23,6 +23,9 @@ const {
   mockGenerateWithOpenAIImageEdit,
   mockUploadToCloudinary,
   mockReviewGeneratedMediaQuality,
+  mockResolvePlatformImageFormat,
+  mockBuildPlatformReadyImageUrl,
+  mockVerifyPlatformReadyImage,
   mockComposeBrandedPost,
   mockBufferToDataUri,
   mockScheduleAfterResponse,
@@ -41,6 +44,9 @@ const {
   mockGenerateWithOpenAIImageEdit: vi.fn(),
   mockUploadToCloudinary: vi.fn(),
   mockReviewGeneratedMediaQuality: vi.fn(),
+  mockResolvePlatformImageFormat: vi.fn(),
+  mockBuildPlatformReadyImageUrl: vi.fn(),
+  mockVerifyPlatformReadyImage: vi.fn(),
   mockComposeBrandedPost: vi.fn(),
   mockBufferToDataUri: vi.fn(),
   mockScheduleAfterResponse: vi.fn(),
@@ -93,6 +99,13 @@ vi.mock('@/lib/ai/imageGen', () => ({
 }))
 vi.mock('@/lib/ai/generatedMediaQuality', () => ({
   reviewGeneratedMediaQuality: mockReviewGeneratedMediaQuality,
+}))
+vi.mock('@/lib/platformImageFormat', () => ({
+  resolvePlatformImageFormat: mockResolvePlatformImageFormat,
+  buildPlatformReadyImageUrl: mockBuildPlatformReadyImageUrl,
+}))
+vi.mock('@/lib/platformImageDelivery.server', () => ({
+  verifyPlatformReadyImage: mockVerifyPlatformReadyImage,
 }))
 vi.mock('@/lib/ai/falGen', () => ({
   generateWithFlux: vi.fn(),
@@ -172,6 +185,24 @@ beforeEach(() => {
   mockGenerateWithDallE.mockResolvedValue('data:image/png;base64,raw')
   mockGenerateWithOpenAIImageEdit.mockResolvedValue('data:image/png;base64,edited')
   mockUploadToCloudinary.mockReset().mockResolvedValue('https://res.cloudinary.com/demo/raw.jpg')
+  mockResolvePlatformImageFormat.mockImplementation((value: string) => {
+    const platform = String(value || 'META').toUpperCase()
+    return platform === 'LINKEDIN'
+      ? { platform, format: 'Professional landscape feed image', aspectRatio: '1.91:1', width: 1200, height: 628 }
+      : { platform, format: 'Portrait social feed image', aspectRatio: '4:5', width: 1080, height: 1350 }
+  })
+  mockBuildPlatformReadyImageUrl.mockImplementation(
+    () => 'https://res.cloudinary.com/demo/image/upload/c_fill,g_auto,w_1080,h_1350,q_auto/raw.jpg',
+  )
+  mockVerifyPlatformReadyImage.mockResolvedValue({
+    passed: true,
+    width: 1080,
+    height: 1350,
+    expectedWidth: 1080,
+    expectedHeight: 1350,
+    aspectRatio: '4:5',
+    contentType: 'image/jpeg',
+  })
   mockReviewGeneratedMediaQuality.mockResolvedValue({
     version: 1,
     passed: true,
@@ -405,7 +436,7 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     expect(mockPrisma.socialPost.update).toHaveBeenCalledWith({
       where: { id: 'post_1' },
       data: expect.objectContaining({
-        imageUrl: 'https://res.cloudinary.com/demo/raw.jpg',
+        imageUrl: 'https://res.cloudinary.com/demo/image/upload/c_fill,g_auto,w_1080,h_1350,q_auto/raw.jpg',
         uploadedMediaId: null,
         mediaSource: 'GENERATE',
         generationStatus: 'DONE',
@@ -672,6 +703,61 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     expect(mockComposeBrandedPost).not.toHaveBeenCalled()
   })
 
+  it('uses the owned post destination and exact server format instead of client sizing hints', async () => {
+    const post = {
+      id: 'post_1',
+      workspaceId: 'w1',
+      campaignId: 'c1',
+      status: 'DRAFT',
+      platform: 'META',
+      publishTarget: 'LINKEDIN',
+      caption: 'A governed LinkedIn message.',
+      imagePrompt: 'Professional workspace scene.',
+      videoPrompt: null,
+      contentPlanIndex: 3,
+    }
+    mockPrisma.socialPost.findFirst.mockResolvedValue(post)
+    mockBuildPlatformReadyImageUrl.mockReturnValue(
+      'https://res.cloudinary.com/demo/image/upload/c_fill,g_auto,w_1200,h_628,q_auto/raw.jpg',
+    )
+    mockVerifyPlatformReadyImage.mockResolvedValue({
+      passed: true,
+      width: 1200,
+      height: 628,
+      expectedWidth: 1200,
+      expectedHeight: 628,
+      aspectRatio: '1.91:1',
+      contentType: 'image/jpeg',
+    })
+
+    const res = await POST(makeReq({
+      ...confirmedImageBody,
+      campaignId: 'c1',
+      parentId: 'social-post:post_1',
+      platform: 'TIKTOK',
+      creativeRequirement: { aspectRatio: '9:16', visualConcept: 'Professional workspace' },
+      creativeTemplate: { width: 1080, height: 1920, aspectRatio: '9:16' },
+    }))
+    await flushScheduledGeneration()
+
+    expect(res.status).toBe(202)
+    expect(mockResolvePlatformImageFormat).toHaveBeenCalledWith('LINKEDIN')
+    expect(mockBuildImagePrompt).toHaveBeenCalledWith(expect.objectContaining({
+      platform: 'LINKEDIN',
+      creativeRequirement: expect.objectContaining({ aspectRatio: '1.91:1' }),
+      creativeTemplate: expect.objectContaining({ width: 1200, height: 628, aspectRatio: '1.91:1' }),
+    }))
+    expect(mockBuildPlatformReadyImageUrl).toHaveBeenCalledWith(
+      'https://res.cloudinary.com/demo/raw.jpg',
+      expect.objectContaining({ platform: 'LINKEDIN', width: 1200, height: 628 }),
+    )
+    expect(mockReviewGeneratedMediaQuality).toHaveBeenCalledWith(expect.objectContaining({
+      outputFrames: ['https://res.cloudinary.com/demo/image/upload/c_fill,g_auto,w_1200,h_628,q_auto/raw.jpg'],
+      targetFormat: expect.objectContaining({ platform: 'LINKEDIN', aspectRatio: '1.91:1' }),
+      formatValidation: expect.objectContaining({ passed: true, width: 1200, height: 628 }),
+    }))
+  })
+
   it('rejects a failed visual review, restores credits, and never attaches the image', async () => {
     mockCheckAndDeduct.mockResolvedValue({
       ok: true,
@@ -704,7 +790,7 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
       where: { id: 'visual_1' },
       data: expect.objectContaining({
         status: 'FAILED',
-        imageUrl: 'https://res.cloudinary.com/demo/raw.jpg',
+        imageUrl: 'https://res.cloudinary.com/demo/image/upload/c_fill,g_auto,w_1080,h_1350,q_auto/raw.jpg',
         qualityStatus: 'REJECTED',
       }),
     })

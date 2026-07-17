@@ -47,6 +47,11 @@ import {
   reviewGeneratedMediaQuality,
 } from '@/lib/ai/generatedMediaQuality'
 import { readMediaIntelligence } from '@/lib/creativeIntelligence'
+import {
+  resolvePlatformVideoFormat,
+  validatePlatformVideoFormat,
+  type PlatformVideoFormat,
+} from '@/lib/platformVideoFormat'
 
 // Completion includes durable video upload plus a three-frame visual review.
 // Keep this server-side verification window independent from browser polling.
@@ -60,6 +65,7 @@ type StoredGenerationParams = {
   postUpdatedAt?: string
   referenceMediaId?: string | null
   ratio?: string
+  targetFormat?: PlatformVideoFormat
   durationSeconds?: number
   credit?: CreditDeductionOk
 }
@@ -243,7 +249,8 @@ export async function POST(req: NextRequest, props: Params) {
     toneWords: brand?.toneKeywords,
     hasReferenceImage: Boolean(referenceMedia),
   })
-  const ratio = platformToRunwayRatio(post.publishTarget || post.platform, Boolean(referenceMedia))
+  const targetFormat = resolvePlatformVideoFormat(post.publishTarget || post.platform)
+  const ratio = platformToRunwayRatio(targetFormat.platform, Boolean(referenceMedia))
   const generation = await db.generation.create({
     data: {
       campaignId: params.id,
@@ -254,6 +261,7 @@ export async function POST(req: NextRequest, props: Params) {
         postUpdatedAt: post.updatedAt.toISOString(),
         referenceMediaId: referenceMedia?.id ?? null,
         ratio,
+        targetFormat,
         durationSeconds: 5,
       },
       status: 'PENDING',
@@ -469,6 +477,14 @@ export async function GET(req: NextRequest, props: Params) {
     const referenceEvidence = qaReferenceMedia?.intelligenceStatus === 'READY'
       ? readMediaIntelligence(qaReferenceMedia.intelligence)
       : null
+    const targetFormat = storedParams.targetFormat
+      ?? resolvePlatformVideoFormat(context.post.publishTarget || context.post.platform)
+    const formatValidation = validatePlatformVideoFormat({
+      width: stored.width,
+      height: stored.height,
+      durationSeconds: stored.duration,
+      contentType: `video/${stored.format}`,
+    }, targetFormat)
     const qualityReview = await reviewGeneratedMediaQuality({
       mediaType: 'VIDEO',
       outputFrames: cloudinaryVideoReviewFrames(stored.url),
@@ -476,9 +492,11 @@ export async function GET(req: NextRequest, props: Params) {
       campaignMessage: context.post.caption,
       creativeDirection: context.post.videoPrompt,
       referenceEvidence,
+      targetFormat,
+      formatValidation,
     })
     if (!qualityReview.passed) {
-      const message = 'NEXUS quality review rejected this video because it did not preserve the approved creative truth. Credits will be restored.'
+      const message = 'NEXUS quality review rejected this video because it did not meet the approved creative and platform-delivery requirements. Credits will be restored.'
       const refund = await refundGeneration(userId, generation, message)
       await db.generation.update({
         where: { id: generation.id },
