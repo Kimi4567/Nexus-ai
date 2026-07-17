@@ -95,6 +95,18 @@ interface ContentPost {
   variantGroup: string | null
   variantLabel: string | null   // 'A' | 'B' | null
   variantWinner: boolean
+  rejectedVideoReview?: {
+    generationId: string
+    previewUrl: string
+    summary: string
+    issues: string[]
+    reviewedAt: string | null
+    semanticAlignmentScore: number | null
+    professionalQualityScore: number | null
+    referencePreservationScore: number | null
+    attachable: false
+    publishable: false
+  } | null
 }
 
 interface MediaItem {
@@ -5102,6 +5114,44 @@ function PostCard({
               ? 'لم يتم إرفاق مخرج جديد. راجع سجل الكريديت للتسوية النهائية قبل إعادة المحاولة.'
               : 'No new output was attached. Check Credit History for the final settlement before retrying.'}
           </p>
+          {post.rejectedVideoReview && (
+            <div className="mt-3 overflow-hidden rounded-xl border border-rose-200 bg-white text-slate-800 shadow-sm">
+              <div className="border-b border-rose-100 px-3 py-2.5">
+                <p className="font-black text-rose-800">
+                  {isAr ? 'معاينة مرفوضة — للمراجعة فقط' : 'Rejected preview — review only'}
+                </p>
+                <p className="mt-0.5 text-[10px] leading-4 text-slate-500">
+                  {isAr
+                    ? 'هذا الملف محفوظ في سجل التدقيق، ولا يمكن اعتماده أو جدولته أو نشره.'
+                    : 'This file is retained in the audit trail and cannot be approved, scheduled, or published.'}
+                </p>
+              </div>
+              <video
+                className="aspect-video w-full bg-slate-950 object-contain"
+                src={post.rejectedVideoReview.previewUrl}
+                controls
+                playsInline
+                preload="metadata"
+                aria-label={isAr ? 'معاينة الفيديو المرفوض' : 'Rejected video preview'}
+              />
+              <div className="space-y-2 px-3 py-3">
+                <p className="text-[11px] font-semibold text-slate-700">{post.rejectedVideoReview.summary}</p>
+                {post.rejectedVideoReview.issues.length > 0 && (
+                  <ul className="list-disc space-y-1 ps-4 text-[10px] leading-4 text-slate-500">
+                    {post.rejectedVideoReview.issues.map(issue => <li key={issue}>{issue}</li>)}
+                  </ul>
+                )}
+                <a
+                  href={post.rejectedVideoReview.previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
+                >
+                  {isAr ? 'فتح المعاينة في نافذة مستقلة' : 'Open preview in a separate window'}
+                </a>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
