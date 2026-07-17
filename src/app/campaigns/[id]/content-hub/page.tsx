@@ -914,17 +914,17 @@ export default function ContentHubPage() {
     if (approvedOnlyCount) {
       return isAr
         ? `${approvedCount} منشورات معتمدة بانتظار الجدولة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${doneCount} عناصر مرئية جاهزة`
-        : `${approvedCount} approved posts awaiting scheduling · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${doneCount} visuals generated`
+        : `${approvedCount} approved posts awaiting scheduling · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${doneCount} media ready`
     }
     if (scheduledOnlyCount) {
       return isAr
         ? `${scheduledCount} منشورات مجدولة — غير منشورة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${doneCount} عناصر مرئية جاهزة`
-        : `${scheduledCount} scheduled posts — not published · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${doneCount} visuals generated`
+        : `${scheduledCount} scheduled posts — not published · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${doneCount} media ready`
     }
     if (mixedScheduledManualPublishedCount) {
       return isAr
         ? `${manuallyPublishedCount} منشور تم تأكيد نشره يدويًا · ${scheduledCount} منشورات مجدولة — غير منشورة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${doneCount} عناصر مرئية جاهزة`
-        : `${manuallyPublishedCount} manually published post${manuallyPublishedCount === 1 ? '' : 's'} · ${scheduledCount} scheduled posts — not published · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${doneCount} visuals generated`
+        : `${manuallyPublishedCount} manually published post${manuallyPublishedCount === 1 ? '' : 's'} · ${scheduledCount} scheduled posts — not published · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${doneCount} media ready`
     }
 
     return `${posts.length} ${t('contentHub.draftsToReview')} · ${totalImagePosts} ${t('contentHub.imageSlots')} · ${videoPostCount} ${t('contentHub.videoSlots')} · ${doneCount} ${t('contentHub.visualsGenerated')}`
@@ -2452,9 +2452,9 @@ export default function ContentHubPage() {
             <h1 className="text-2xl font-bold text-slate-950">
               {isAr ? 'إنتاج محتوى الحملة' : 'Campaign content production'}
             </h1>
-            {/* PR-1J.2 — every count labeled distinctly so 36/32/4/done can't read as
-                a contradiction: 36 drafts (incl. A/B variants) = 32 image slots + 4
-                video slots; "visuals generated" tracks generation progress separately. */}
+            {/* Every count is labelled distinctly: drafts include A/B variants, image
+                and video slots describe format demand, and "media ready" includes only
+                confirmed generated or uploaded media. Provenance stays on each card. */}
             {posts.length > 0 ? (
               <>
                 <p className="text-sm text-slate-500 mt-0.5">

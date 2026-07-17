@@ -137,8 +137,8 @@ export const translations: Record<Locale, Record<string, any>> = {
       // للمراجعة (منشورات أساسية + نسخ A/B)؛ 32 = خانات صور؛ 4 = خانات فيديو.
       draftsToReview: 'مسودة للمراجعة',
       imageSlots: 'خانة صورة',
-      visualsGenerated: 'عنصر مرئي مولّد',
-      countExplainer: 'تشمل المسودات نسخ A/B. خانات الصور والفيديو أماكن مخصّصة — تُولّد العناصر المرئية لاحقاً ولم تُنشأ بعد.',
+      visualsGenerated: 'وسائط جاهزة',
+      countExplainer: 'تشمل المسودات نسخ A/B. يحسب رقم الوسائط الجاهزة الملفات المولّدة أو المرفوعة المؤكدة فقط، وتعرض كل بطاقة مصدرها بوضوح.',
       generatePrompt: 'أنشئ خطة المحتوى الشهرية',
       approving: 'جارٍ الاعتماد...',
       approveAll: 'اعتماد كل المسودات',
@@ -2304,8 +2304,8 @@ export const translations: Record<Locale, Record<string, any>> = {
       // (base posts + A/B variants); 32 = image slots; 4 = video slots.
       draftsToReview: 'drafts to review',
       imageSlots: 'image slots',
-      visualsGenerated: 'visuals generated',
-      countExplainer: 'Drafts include A/B variants. Image and video slots are placeholders — visuals are generated separately, not created yet.',
+      visualsGenerated: 'media ready',
+      countExplainer: 'Drafts include A/B variants. Media ready counts only confirmed generated or uploaded files, and every card labels its source.',
       generatePrompt: 'Generate your monthly content plan',
       approving: 'Approving…',
       approveAll: 'Approve all drafts',
