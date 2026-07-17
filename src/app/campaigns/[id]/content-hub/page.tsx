@@ -73,6 +73,7 @@ interface ContentPost {
   imageUrl: string | null
   imagePrompt: string | null
   videoPrompt: string | null
+  errorMessage: string | null
   isVideoPost: boolean
   generationStatus: GenStatus
   mediaSource: MediaSource
@@ -5058,6 +5059,29 @@ function PostCard({
       </div>
 
       {creativeMatchPanel}
+
+      {(status === 'FAILED' || status === 'REFUND_PENDING') && post.errorMessage && (
+        <div
+          className={`border-t px-3 py-3 text-[11px] leading-5 ${
+            status === 'REFUND_PENDING'
+              ? 'border-amber-200 bg-amber-50 text-amber-900'
+              : 'border-rose-200 bg-rose-50 text-rose-900'
+          }`}
+          role="status"
+        >
+          <p className="font-black">
+            {status === 'REFUND_PENDING'
+              ? (isAr ? 'استرداد الكريديت قيد المصالحة' : 'Credit restoration is being reconciled')
+              : (isAr ? 'لم يكتمل إنتاج الوسائط' : 'Media production did not complete')}
+          </p>
+          <p>{post.errorMessage}</p>
+          <p className="mt-1 font-semibold">
+            {isAr
+              ? 'لم يتم إرفاق مخرج جديد. راجع سجل الكريديت للتسوية النهائية قبل إعادة المحاولة.'
+              : 'No new output was attached. Check Credit History for the final settlement before retrying.'}
+          </p>
+        </div>
+      )}
 
       {executionBlockedByQuality && (
         <div className="border-t border-rose-200 bg-rose-50 px-3 py-3 text-[11px] leading-5 text-rose-800">
