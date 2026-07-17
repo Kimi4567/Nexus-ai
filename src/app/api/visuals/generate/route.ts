@@ -58,7 +58,10 @@ import { chooseProfessionalImageProvider, type ImageGenerationPurpose } from '@/
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
 
-export const maxDuration = 60 // Vercel function timeout
+// GPT Image 2 high-quality edits can legitimately take close to two minutes.
+// Fluid Compute supports this bounded wait; the provider call still has its
+// own timeout and every failure follows the existing automatic credit refund.
+export const maxDuration = 180
 
 async function refundDeductedCredits(
   userId: string,

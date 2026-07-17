@@ -719,7 +719,7 @@ export async function generateWithOpenAIImageEdit(
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}` },
     body: form,
-    signal: AbortSignal.timeout(45_000),
+    signal: AbortSignal.timeout(120_000),
   })
 
   if (!response.ok) {
