@@ -142,24 +142,23 @@ function postStateCard(input: ContentHubFirstScreenTruthInput, ar: boolean): Con
 }
 
 function mediaStateCard(input: ContentHubFirstScreenTruthInput, ar: boolean): ContentHubFirstScreenTruthCard {
-  if (input.totalImagePosts === 0) {
+  const totalMediaSlots = input.totalImagePosts + input.videoPostCount
+  if (totalMediaSlots === 0) {
     return {
       label: text(ar, 'جاهزية الوسائط', 'Media readiness'),
-      value: text(ar, 'لا توجد خانات صور مطلوبة', 'No image slots required'),
-      helper: input.videoPostCount > 0
-        ? text(ar, `${input.videoPostCount} خانات فيديو تحتاج قرار توليد احترافي أو رفع فيديو ثم مراجعة.`, `${englishPlural(input.videoPostCount, 'video slot')} require a professional generation or upload decision, then review.`)
-        : text(ar, 'لا توجد وسائط منشورات مطلوبة لهذه الحالة.', 'No post media is required for this state.'),
+      value: text(ar, 'لا توجد خانات وسائط مطلوبة', 'No media slots required'),
+      helper: text(ar, 'لا توجد وسائط منشورات مطلوبة لهذه الحالة.', 'No post media is required for this state.'),
       tone: 'muted',
     }
   }
 
-  const pending = Math.max(0, input.totalImagePosts - input.readyMediaCount)
+  const pending = Math.max(0, totalMediaSlots - input.readyMediaCount)
   return {
     label: text(ar, 'جاهزية الوسائط', 'Media readiness'),
     value: text(
       ar,
-      `${input.readyMediaCount} من ${input.totalImagePosts} وسائط جاهزة`,
-      `${input.readyMediaCount} / ${input.totalImagePosts} media ready`,
+      `${input.readyMediaCount} من ${totalMediaSlots} وسائط جاهزة`,
+      `${input.readyMediaCount} / ${totalMediaSlots} media ready`,
     ),
     helper: input.ambiguousPreviewCount > 0
       ? text(

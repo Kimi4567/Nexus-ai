@@ -712,6 +712,7 @@ export default function ContentHubPage() {
 
   const totalImagePosts = posts.filter(p => !p.isVideoPost).length
   const mediaReadiness = summarizeContentHubMediaReadiness(posts.filter(p => !p.isVideoPost))
+  const allMediaReadiness = summarizeContentHubMediaReadiness(posts)
   const doneCount = mediaReadiness.confirmedReady
   const ambiguousPreviewCount = mediaReadiness.ambiguousPreviewCount
   const pendingImagePosts = posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost)
@@ -879,8 +880,8 @@ export default function ContentHubPage() {
     publishedCount,
     manuallyPublishedCount,
     totalImagePosts,
-    readyMediaCount: doneCount,
-    ambiguousPreviewCount,
+    readyMediaCount: allMediaReadiness.confirmedReady,
+    ambiguousPreviewCount: allMediaReadiness.ambiguousPreviewCount,
     videoPostCount,
     hasOrderMismatch: Boolean(contentPlanOrderMismatch),
     hasQualityMismatch: contentReviewRequired,
@@ -911,23 +912,27 @@ export default function ContentHubPage() {
     ? 'قد تظهر بعض معاينات الوسائط، لكنها لا تُحتسب جاهزة حتى يتم تأكيد حالة التوليد أو الربط.'
     : 'Some media previews may be visible, but they are not counted ready until generation or attachment status is confirmed.'
   const contentStatusSummary = (() => {
+    const readyMediaTotal = totalImagePosts + videoPostCount
+    const readyMediaSummary = isAr
+      ? `${allMediaReadiness.confirmedReady} من ${readyMediaTotal} وسائط جاهزة`
+      : `${allMediaReadiness.confirmedReady} / ${readyMediaTotal} media ready`
     if (approvedOnlyCount) {
       return isAr
-        ? `${approvedCount} منشورات معتمدة بانتظار الجدولة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${doneCount} عناصر مرئية جاهزة`
-        : `${approvedCount} approved posts awaiting scheduling · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${doneCount} media ready`
+        ? `${approvedCount} منشورات معتمدة بانتظار الجدولة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${readyMediaSummary}`
+        : `${approvedCount} approved posts awaiting scheduling · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${readyMediaSummary}`
     }
     if (scheduledOnlyCount) {
       return isAr
-        ? `${scheduledCount} منشورات مجدولة — غير منشورة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${doneCount} عناصر مرئية جاهزة`
-        : `${scheduledCount} scheduled posts — not published · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${doneCount} media ready`
+        ? `${scheduledCount} منشورات مجدولة — غير منشورة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${readyMediaSummary}`
+        : `${scheduledCount} scheduled posts — not published · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${readyMediaSummary}`
     }
     if (mixedScheduledManualPublishedCount) {
       return isAr
-        ? `${manuallyPublishedCount} منشور تم تأكيد نشره يدويًا · ${scheduledCount} منشورات مجدولة — غير منشورة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${doneCount} عناصر مرئية جاهزة`
-        : `${manuallyPublishedCount} manually published post${manuallyPublishedCount === 1 ? '' : 's'} · ${scheduledCount} scheduled posts — not published · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${doneCount} media ready`
+        ? `${manuallyPublishedCount} منشور تم تأكيد نشره يدويًا · ${scheduledCount} منشورات مجدولة — غير منشورة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${readyMediaSummary}`
+        : `${manuallyPublishedCount} manually published post${manuallyPublishedCount === 1 ? '' : 's'} · ${scheduledCount} scheduled posts — not published · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${readyMediaSummary}`
     }
 
-    return `${posts.length} ${t('contentHub.draftsToReview')} · ${totalImagePosts} ${t('contentHub.imageSlots')} · ${videoPostCount} ${t('contentHub.videoSlots')} · ${doneCount} ${t('contentHub.visualsGenerated')}`
+    return `${posts.length} ${t('contentHub.draftsToReview')} · ${totalImagePosts} ${t('contentHub.imageSlots')} · ${videoPostCount} ${t('contentHub.videoSlots')} · ${readyMediaSummary}`
   })()
   const contentStatusExplainer = mixedScheduledManualPublishedCount
     ? (isAr
