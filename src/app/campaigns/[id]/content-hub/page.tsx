@@ -2162,7 +2162,7 @@ export default function ContentHubPage() {
           visualStyle: 'Premium',
           postCaption: post.caption || post.imagePrompt || '',
           parentId: `social-post:${post.id}`,
-          assetRole: 'final_composited_ad',
+          assetRole: 'post_background',
           // If the user attached a product/reference image first, preserve it
           // through GPT Image 2 high-fidelity editing instead of replacing it.
           referenceMediaId: imageReferenceMediaId || post.uploadedMediaId || undefined,
@@ -4345,14 +4345,14 @@ export default function ContentHubPage() {
               <div className="bg-slate-950 px-6 py-5 text-white">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300">NEXUS IMAGE STUDIO · FINAL CREATIVE</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300">NEXUS IMAGE STUDIO · QUALITY-GATED VISUAL</p>
                     <h3 id="nexus-image-studio-title" className="mt-1 text-xl font-bold">
                       {isAr ? 'إنتاج صورة إعلانية احترافية' : 'Produce a professional ad image'}
                     </h3>
                     <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-300">
                       {isAr
-                        ? `سينتج NEXUS صورة نهائية للمنشور #${imageGenerationConfirmPost.contentPlanIndex} مع كتابة عربية أو إنجليزية مضبوطة وهوية البراند.`
-                        : `NEXUS will produce one final image for post #${imageGenerationConfirmPost.contentPlanIndex} with controlled Arabic or English typography and brand identity.`}
+                        ? `سينتج NEXUS أصلاً بصريًا احترافيًا للمنشور #${imageGenerationConfirmPost.contentPlanIndex} ويفحصه قبل الربط. يظل النص العربي أو الإنجليزي قابلاً للتحرير في المنشور بدل حرقه داخل البيكسلات.`
+                        : `NEXUS will produce and inspect one professional visual for post #${imageGenerationConfirmPost.contentPlanIndex} before attachment. Arabic or English copy remains editable in the post instead of being burned into pixels.`}
                     </p>
                   </div>
                   <button aria-label={isAr ? 'إغلاق نافذة توليد الصورة' : 'Close image generation'} onClick={closeImageGenerationConfirm} disabled={Boolean(generatingImageId)} className="text-2xl leading-none text-slate-400 hover:text-white disabled:opacity-40">×</button>
@@ -4370,16 +4370,16 @@ export default function ContentHubPage() {
                         )}
                         <p className="text-xs font-semibold leading-relaxed text-emerald-800">
                           {isAr
-                            ? 'جاهزة: سيحافظ NEXUS على شكل المنتج والعبوة والألوان والشعار، ويغيّر المشهد الإعلاني المحيط فقط.'
-                            : 'Ready: NEXUS will preserve product shape, packaging, colours, and logo while changing only the surrounding ad scene.'}
+                            ? 'جاهزة كمصدر حقيقة: سيُرفض الناتج ويُسترد الكريديت إذا لم يحافظ على شكل المنتج أو الشاشة أو العبوة أو الألوان والشعار.'
+                            : 'Ready as source truth: the result will be rejected and refunded if it does not preserve the product, screen, packaging, colours, and logo.'}
                         </p>
                       </div>
                     ) : (
                       <>
                         <p className="mt-1 text-xs leading-relaxed text-slate-500">
                           {isAr
-                            ? 'اختيارية للإعلانات العامة، وموصى بها لأي إعلان منتج حتى لا يخترع الذكاء شكلًا مختلفًا.'
-                            : 'Optional for general brand ads and recommended for every product ad so the model cannot invent a different product.'}
+                            ? 'اختيارية للإعلانات العامة، وموصى بها لأي إعلان منتج حتى يقارن فحص الجودة الناتج بالمصدر الحقيقي ويرفض أي استبدال.'
+                            : 'Optional for general brand ads and recommended for product work so quality review can compare the output with the real source and reject any replacement.'}
                         </p>
                         <button type="button" onClick={chooseProductReferenceForImage} className="mt-3 w-full rounded-xl border border-dashed border-slate-300 bg-white px-3 py-3 text-xs font-semibold text-violet-700 hover:border-violet-300 hover:bg-violet-50">
                           {isAr ? 'اختر صورة المنتج من مكتبة الوسائط' : 'Choose a product image from Media Library'}
@@ -4391,8 +4391,9 @@ export default function ContentHubPage() {
                   <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4">
                     <p className="text-sm font-bold text-violet-950">{isAr ? 'عقد التنفيذ' : 'Execution contract'}</p>
                     <div className="mt-3 space-y-2 text-xs leading-relaxed text-violet-950/75">
-                      <p>✓ {isAr ? 'جودة نهائية: NEXUS Image Studio' : 'Final quality: NEXUS Image Studio'}</p>
-                      <p>✓ {isAr ? 'كتابة عربية/إنجليزية مضبوطة' : 'Controlled Arabic/English typography'}</p>
+                      <p>✓ {isAr ? 'فحص بصري قبل الاعتماد والربط' : 'Visual QA before approval and attachment'}</p>
+                      <p>✓ {isAr ? 'النص يظل قابلاً للتحرير خارج الصورة' : 'Copy stays editable outside the image'}</p>
+                      <p>✓ {isAr ? 'حماية صورة المرجع عند استخدامها' : 'Reference fidelity protection when supplied'}</p>
                       <p>✓ {isAr ? `التكلفة: ${CONTENT_HUB_IMAGE_COST} كريديت` : `Cost: ${CONTENT_HUB_IMAGE_COST} credits`}</p>
                       <p>✓ {isAr ? 'حفظ دائم وربط بالمنشور' : 'Durable storage and post attachment'}</p>
                       <p>✓ {isAr ? 'استرداد تلقائي إذا لم ينتج أصل صالح' : 'Automatic restoration if no usable asset is produced'}</p>
@@ -4473,7 +4474,7 @@ export default function ContentHubPage() {
                       <div>
                         <p className="text-sm font-bold text-slate-950">{isAr ? 'صورة المنتج / أول فريم' : 'Product image / first frame'}</p>
                         <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                          {isAr ? 'اختياري، لكنه موصى به للحفاظ على شكل المنتج والعبوة والألوان.' : 'Optional, but recommended to preserve product shape, packaging, and colours.'}
+                          {isAr ? 'اختياري، لكنه موصى به حتى يقارن فحص الجودة أول وآخر الفريمات بصورة المنتج الحقيقية.' : 'Optional, but recommended so quality review can compare the opening and closing frames with the real product image.'}
                         </p>
                       </div>
                       {videoReferenceMediaId && (
@@ -4505,7 +4506,7 @@ export default function ContentHubPage() {
                   <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4">
                     <p className="text-sm font-bold text-violet-950">{isAr ? 'عقد التنفيذ' : 'Execution contract'}</p>
                     <div className="mt-3 space-y-2 text-xs leading-relaxed text-violet-950/75">
-                      <p>✓ {isAr ? 'جودة نهائية: NEXUS Video Studio' : 'Final quality: NEXUS Video Studio'}</p>
+                      <p>✓ {isAr ? 'فحص 3 فريمات قبل الاعتماد والربط' : 'Three-frame QA before approval and attachment'}</p>
                       <p>✓ {isAr ? 'المدة: 5 ثوانٍ' : 'Duration: 5 seconds'}</p>
                       <p>✓ {isAr ? `التكلفة: ${CONTENT_HUB_VIDEO_COST} كريديت` : `Cost: ${CONTENT_HUB_VIDEO_COST} credits`}</p>
                       <p>✓ {isAr ? 'حفظ دائم في مكتبة الوسائط' : 'Durable Media Library storage'}</p>

@@ -9,12 +9,13 @@ const mocks = vi.hoisted(() => ({
   createTask: vi.fn(),
   retrieveTask: vi.fn(),
   uploadVideo: vi.fn(),
+  reviewQuality: vi.fn(),
   videoProviderReady: vi.fn(),
   storageReady: vi.fn(),
   prisma: {
     campaign: { findFirst: vi.fn() },
     socialPost: { findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
-    generation: { findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
+    generation: { findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     media: { findFirst: vi.fn(), create: vi.fn() },
     postStatusHistory: { create: vi.fn() },
     $transaction: vi.fn(),
@@ -42,6 +43,10 @@ vi.mock('@/lib/ai/runway', () => ({
   retrieveRunwayTask: mocks.retrieveTask,
   uploadRunwayVideoToCloudinary: mocks.uploadVideo,
   cancelRunwayTask: vi.fn(),
+}))
+vi.mock('@/lib/ai/generatedMediaQuality', () => ({
+  cloudinaryVideoReviewFrames: (url: string) => [`${url}#frame-0`, `${url}#frame-2`, `${url}#frame-4`],
+  reviewGeneratedMediaQuality: mocks.reviewQuality,
 }))
 vi.mock('@/lib/strategyApproval', () => ({ canMutateCampaignExecution: () => true }))
 vi.mock('@/lib/ai/marketingQualityGate', () => ({
@@ -118,6 +123,7 @@ beforeEach(() => {
     params: { postId: 'post-1', postUpdatedAt: post.updatedAt.toISOString(), durationSeconds: 5 },
   })
   mocks.prisma.generation.update.mockResolvedValue({ id: 'generation-1' })
+  mocks.prisma.generation.updateMany.mockResolvedValue({ count: 1 })
   mocks.prisma.socialPost.update.mockResolvedValue({ updatedAt: new Date('2026-07-17T08:01:00.000Z') })
   mocks.prisma.$transaction.mockImplementation(async (callback: (tx: any) => unknown) => callback({
     socialPost: mocks.prisma.socialPost,
@@ -146,6 +152,22 @@ beforeEach(() => {
     height: 1280,
     duration: 5,
     format: 'mp4',
+  })
+  mocks.reviewQuality.mockResolvedValue({
+    version: 1,
+    passed: true,
+    mediaType: 'VIDEO',
+    referenceRequired: false,
+    referencePreservationScore: null,
+    semanticAlignmentScore: 94,
+    professionalQualityScore: 92,
+    technicalIntegrity: true,
+    noNewRasterText: true,
+    noInventedClaims: true,
+    issues: [],
+    summary: 'Passed',
+    reviewedAt: '2026-07-17T00:00:00.000Z',
+    providerUsage: {},
   })
   mocks.prisma.media.findFirst.mockResolvedValue(null)
   mocks.prisma.media.create.mockResolvedValue({ id: 'media-1' })
@@ -215,6 +237,30 @@ describe('POST professional video generation', () => {
 })
 
 describe('GET professional video generation status', () => {
+  it('lets only one poller persist and review a completed provider result', async () => {
+    mocks.prisma.generation.findMany.mockResolvedValue([{
+      id: 'generation-1',
+      campaignId: 'campaign-1',
+      type: 'VIDEO',
+      provider: 'runway',
+      status: 'PROCESSING',
+      progress: 99,
+      externalId: 'runway-task-1',
+      params: { postId: 'post-1', durationSeconds: 5, credit: { transactionId: 'credit-1' } },
+      metadata: null,
+    }])
+    mocks.prisma.generation.updateMany.mockResolvedValue({ count: 0 })
+
+    const response = await GET(request({}), {
+      params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
+    })
+
+    expect(response.status).toBe(202)
+    expect(await response.json()).toMatchObject({ status: 'PROCESSING', progress: 99 })
+    expect(mocks.uploadVideo).not.toHaveBeenCalled()
+    expect(mocks.reviewQuality).not.toHaveBeenCalled()
+  })
+
   it('persists a successful provider output and attaches it only as review media', async () => {
     const renderUpdatedAt = new Date('2026-07-17T08:01:00.000Z')
     mocks.prisma.generation.findMany.mockResolvedValue([{
@@ -242,6 +288,14 @@ describe('GET professional video generation status', () => {
 
     expect(response.status).toBe(200)
     expect(mocks.uploadVideo).toHaveBeenCalledWith('https://runway.example/video.mp4', 'generation-1')
+    expect(mocks.reviewQuality).toHaveBeenCalledWith(expect.objectContaining({
+      mediaType: 'VIDEO',
+      outputFrames: [
+        'https://res.cloudinary.com/demo/video/upload/final.mp4#frame-0',
+        'https://res.cloudinary.com/demo/video/upload/final.mp4#frame-2',
+        'https://res.cloudinary.com/demo/video/upload/final.mp4#frame-4',
+      ],
+    }))
     expect(mocks.prisma.socialPost.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'post-1' },
       data: expect.objectContaining({
@@ -259,5 +313,57 @@ describe('GET professional video generation status', () => {
       scheduled: false,
     })
     expect(mocks.deduct).not.toHaveBeenCalled()
+  })
+
+  it('rejects a failed video quality review, restores credits, and does not attach it', async () => {
+    const renderUpdatedAt = new Date('2026-07-17T08:01:00.000Z')
+    mocks.prisma.generation.findMany.mockResolvedValue([{
+      id: 'generation-1',
+      campaignId: 'campaign-1',
+      type: 'VIDEO',
+      provider: 'runway',
+      status: 'PROCESSING',
+      progress: 90,
+      externalId: 'runway-task-1',
+      params: {
+        postId: 'post-1',
+        postUpdatedAt: renderUpdatedAt.toISOString(),
+        durationSeconds: 5,
+        credit: { ok: true, creditsUsed: 6, creditsRemaining: 54, transactionId: 'credit-1' },
+      },
+      metadata: null,
+    }])
+    mocks.reviewQuality.mockResolvedValue({
+      version: 1,
+      passed: false,
+      mediaType: 'VIDEO',
+      referenceRequired: false,
+      referencePreservationScore: null,
+      semanticAlignmentScore: 50,
+      professionalQualityScore: 60,
+      technicalIntegrity: false,
+      noNewRasterText: true,
+      noInventedClaims: true,
+      issues: ['Unstable geometry between frames.'],
+      summary: 'Rejected',
+      reviewedAt: '2026-07-17T00:00:00.000Z',
+      providerUsage: {},
+    })
+
+    const response = await GET(request({}), {
+      params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
+    })
+    const payload = await response.json()
+
+    expect(payload).toMatchObject({ status: 'FAILED', refunded: true, refundPending: false })
+    expect(mocks.prisma.media.create).not.toHaveBeenCalled()
+    expect(mocks.prisma.socialPost.update).toHaveBeenCalledWith({
+      where: { id: 'post-1' },
+      data: expect.objectContaining({ generationStatus: 'FAILED' }),
+    })
+    expect(mocks.refund).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'user-1',
+      action: 'VIDEO_GENERATION',
+    }))
   })
 })

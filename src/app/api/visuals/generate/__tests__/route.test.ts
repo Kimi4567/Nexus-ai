@@ -18,8 +18,11 @@ const {
   mockRefund,
   mockRefundForTxn,
   mockBuildImagePrompt,
+  mockBuildReferencePrompt,
   mockGenerateWithDallE,
+  mockGenerateWithOpenAIImageEdit,
   mockUploadToCloudinary,
+  mockReviewGeneratedMediaQuality,
   mockComposeBrandedPost,
   mockBufferToDataUri,
   mockScheduleAfterResponse,
@@ -33,17 +36,22 @@ const {
   mockRefund: vi.fn(),
   mockRefundForTxn: vi.fn(),
   mockBuildImagePrompt: vi.fn(),
+  mockBuildReferencePrompt: vi.fn(),
   mockGenerateWithDallE: vi.fn(),
+  mockGenerateWithOpenAIImageEdit: vi.fn(),
   mockUploadToCloudinary: vi.fn(),
+  mockReviewGeneratedMediaQuality: vi.fn(),
   mockComposeBrandedPost: vi.fn(),
   mockBufferToDataUri: vi.fn(),
   mockScheduleAfterResponse: vi.fn(),
   pendingAfterTasks: [] as Array<() => Promise<void>>,
   mockPrisma: {
+    $transaction: vi.fn(),
     workspace: { findFirst: vi.fn() },
     user: { findUnique: vi.fn() },
     campaign: { findFirst: vi.fn() },
-    socialPost: { findFirst: vi.fn() },
+    socialPost: { findFirst: vi.fn(), update: vi.fn() },
+    postStatusHistory: { create: vi.fn() },
     generatedVisual: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
   },
 }))
@@ -51,6 +59,10 @@ const {
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 vi.mock('@/lib/afterResponse', () => ({ scheduleAfterResponse: mockScheduleAfterResponse }))
+vi.mock('@/lib/strategyApproval', () => ({ canMutateCampaignExecution: () => true }))
+vi.mock('@/lib/contentPlanApprovalGuard', () => ({
+  reviewContentPlanForApproval: () => ({ ok: true, issues: [] }),
+}))
 vi.mock('@/lib/billableAiRateLimit', () => ({
   enforceBillableAiRateLimit: vi.fn().mockResolvedValue(null),
 }))
@@ -73,9 +85,14 @@ vi.mock('@/lib/credits', () => ({
 }))
 vi.mock('@/lib/ai/imageGen', () => ({
   buildImagePrompt: mockBuildImagePrompt,
+  buildReferencePreservingEditPrompt: mockBuildReferencePrompt,
   generateWithDallE: mockGenerateWithDallE,
+  generateWithOpenAIImageEdit: mockGenerateWithOpenAIImageEdit,
   IMAGE_OUTPUT_CLASSIFICATION: 'draft_background_for_review',
   uploadToCloudinary: mockUploadToCloudinary,
+}))
+vi.mock('@/lib/ai/generatedMediaQuality', () => ({
+  reviewGeneratedMediaQuality: mockReviewGeneratedMediaQuality,
 }))
 vi.mock('@/lib/ai/falGen', () => ({
   generateWithFlux: vi.fn(),
@@ -134,6 +151,7 @@ beforeEach(() => {
   mockScheduleAfterResponse.mockImplementation((task: () => Promise<void>) => {
     pendingAfterTasks.push(task)
   })
+  mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma))
   vi.stubEnv('OPENAI_API_KEY', 'test-openai-key')
   vi.stubEnv('CLOUDINARY_CLOUD_NAME', 'test-cloud')
   vi.stubEnv('CLOUDINARY_API_KEY', 'test-key')
@@ -150,10 +168,26 @@ beforeEach(() => {
     language: 'en',
     concept: { headline: 'Grow faster' },
   })
+  mockBuildReferencePrompt.mockReturnValue('preserve the exact reference source')
   mockGenerateWithDallE.mockResolvedValue('data:image/png;base64,raw')
-  mockUploadToCloudinary
-    .mockResolvedValueOnce('https://res.cloudinary.com/demo/raw.jpg')
-    .mockResolvedValueOnce('https://res.cloudinary.com/demo/final.jpg')
+  mockGenerateWithOpenAIImageEdit.mockResolvedValue('data:image/png;base64,edited')
+  mockUploadToCloudinary.mockReset().mockResolvedValue('https://res.cloudinary.com/demo/raw.jpg')
+  mockReviewGeneratedMediaQuality.mockResolvedValue({
+    version: 1,
+    passed: true,
+    mediaType: 'IMAGE',
+    referenceRequired: false,
+    referencePreservationScore: null,
+    semanticAlignmentScore: 95,
+    professionalQualityScore: 95,
+    technicalIntegrity: true,
+    noNewRasterText: true,
+    noInventedClaims: true,
+    issues: [],
+    summary: 'Passed',
+    reviewedAt: '2026-07-17T00:00:00.000Z',
+    providerUsage: {},
+  })
   mockComposeBrandedPost.mockResolvedValue(Buffer.from('composite'))
   mockBufferToDataUri.mockReturnValue('data:image/jpeg;base64,composite')
   mockPrisma.workspace.findFirst.mockResolvedValue(workspace)
@@ -166,6 +200,8 @@ beforeEach(() => {
     status: 'COMPLETED',
     imageUrl: 'https://res.cloudinary.com/demo/final.jpg',
   })
+  mockPrisma.socialPost.update.mockResolvedValue({ id: 'post_1', status: 'DRAFT' })
+  mockPrisma.postStatusHistory.create.mockResolvedValue({ id: 'history_1' })
 })
 
 afterEach(() => {
@@ -319,6 +355,78 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     expect(mockScheduleAfterResponse).not.toHaveBeenCalled()
   })
 
+  it('blocks immutable published posts before creating or charging a media job', async () => {
+    mockPrisma.socialPost.findFirst.mockResolvedValue({
+      id: 'post_1',
+      workspaceId: 'w1',
+      campaignId: 'c1',
+      status: 'PUBLISHED',
+      caption: 'Published copy',
+      imagePrompt: 'Published visual',
+      contentPlanIndex: 1,
+    })
+
+    const res = await POST(makeReq({
+      ...confirmedImageBody,
+      campaignId: 'c1',
+      parentId: 'social-post:post_1',
+    }))
+    const json = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(json).toMatchObject({ code: 'PUBLISHED_POST_IMMUTABLE' })
+    expect(mockPrisma.generatedVisual.create).not.toHaveBeenCalled()
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+  })
+
+  it('attaches a completed post visual server-side even if the browser closes', async () => {
+    const post = {
+      id: 'post_1',
+      workspaceId: 'w1',
+      campaignId: 'c1',
+      status: 'APPROVED',
+      caption: 'Nexus explains governed credit operations.',
+      imagePrompt: 'A premium governed credit operations scene.',
+      videoPrompt: null,
+      contentPlanIndex: 10,
+    }
+    mockPrisma.socialPost.findFirst.mockResolvedValue(post)
+
+    const res = await POST(makeReq({
+      ...confirmedImageBody,
+      campaignId: 'c1',
+      parentId: 'social-post:post_1',
+      assetRole: 'post_background',
+    }))
+    await flushScheduledGeneration()
+
+    expect(res.status).toBe(202)
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1)
+    expect(mockPrisma.socialPost.update).toHaveBeenCalledWith({
+      where: { id: 'post_1' },
+      data: expect.objectContaining({
+        imageUrl: 'https://res.cloudinary.com/demo/raw.jpg',
+        uploadedMediaId: null,
+        mediaSource: 'GENERATE',
+        generationStatus: 'DONE',
+        sourceType: 'AI_GENERATED',
+        status: 'DRAFT',
+        approvedAt: null,
+      }),
+    })
+    expect(mockPrisma.postStatusHistory.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        socialPostId: 'post_1',
+        fromStatus: 'APPROVED',
+        toStatus: 'DRAFT',
+        actor: 'USER',
+      }),
+    })
+    expect(mockFinalizeDeduction).toHaveBeenCalledTimes(1)
+    expect(mockRefund).not.toHaveBeenCalled()
+    expect(mockRefundForTxn).not.toHaveBeenCalled()
+  })
+
   it('missing no-publish/no-schedule acknowledgement returns 400 before credit deduction', async () => {
     const res = await POST(makeReq({
       explicitImageGenerationConfirmed: true,
@@ -384,7 +492,11 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     expect(json).toMatchObject({ accepted: true })
     expect(mockPrisma.generatedVisual.update).toHaveBeenCalledWith({
       where: { id: 'visual_1' },
-      data: { status: 'FAILED', errorMessage: 'NEXUS Image Studio could not create a usable image. Reserved credits will be restored.' },
+      data: expect.objectContaining({
+        status: 'FAILED',
+        errorMessage: 'NEXUS Image Studio could not create a usable image. Reserved credits will be restored.',
+        qualityStatus: 'ERROR',
+      }),
     })
   })
 
@@ -405,7 +517,11 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     expect(json).toMatchObject({ accepted: true })
     expect(mockPrisma.generatedVisual.update).toHaveBeenCalledWith({
       where: { id: 'visual_1' },
-      data: { status: 'FAILED', errorMessage: 'NEXUS Image Studio could not create a usable image. Reserved credits will be restored.' },
+      data: expect.objectContaining({
+        status: 'FAILED',
+        errorMessage: 'NEXUS Image Studio could not create a usable image. Reserved credits will be restored.',
+        qualityStatus: 'ERROR',
+      }),
     })
     expect(mockPrisma.generatedVisual.update).not.toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: 'COMPLETED' }),
@@ -541,7 +657,7 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
 
-  it('legacy asset role can still use the temporary brand compositor', async () => {
+  it('never burns copy or brand text into generated raster output', async () => {
     const res = await POST(makeReq({
       ...confirmedImageBody,
       campaignId: 'c1',
@@ -553,6 +669,50 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
 
     expect(res.status).toBe(202)
     expect(json).toMatchObject({ accepted: true, visual: { id: 'visual_1' } })
-    expect(mockComposeBrandedPost).toHaveBeenCalledTimes(1)
+    expect(mockComposeBrandedPost).not.toHaveBeenCalled()
+  })
+
+  it('rejects a failed visual review, restores credits, and never attaches the image', async () => {
+    mockCheckAndDeduct.mockResolvedValue({
+      ok: true,
+      creditsUsed: 4,
+      creditsRemaining: 16,
+      transactionId: 'txn_quality',
+    })
+    mockReviewGeneratedMediaQuality.mockResolvedValue({
+      version: 1,
+      passed: false,
+      mediaType: 'IMAGE',
+      referenceRequired: false,
+      referencePreservationScore: null,
+      semanticAlignmentScore: 40,
+      professionalQualityScore: 62,
+      technicalIntegrity: true,
+      noNewRasterText: false,
+      noInventedClaims: true,
+      issues: ['Generated raster text is malformed.'],
+      summary: 'Rejected',
+      reviewedAt: '2026-07-17T00:00:00.000Z',
+      providerUsage: {},
+    })
+
+    const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
+    await flushScheduledGeneration()
+
+    expect(res.status).toBe(202)
+    expect(mockPrisma.generatedVisual.update).toHaveBeenCalledWith({
+      where: { id: 'visual_1' },
+      data: expect.objectContaining({
+        status: 'FAILED',
+        imageUrl: 'https://res.cloudinary.com/demo/raw.jpg',
+        qualityStatus: 'REJECTED',
+      }),
+    })
+    expect(mockFinalizeDeduction).not.toHaveBeenCalled()
+    expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      transactionId: 'txn_quality',
+    }))
+    expect(mockPrisma.socialPost.update).not.toHaveBeenCalled()
   })
 })

@@ -1317,6 +1317,14 @@ model GeneratedVisual {
   errorMessage String?
   retryCount   Int          @default(0)
 
+  // Durable provider + quality evidence. A visual is never marked COMPLETED
+  // until the stored review passes the server-owned quality thresholds.
+  provider            String?
+  referenceMediaId    String?
+  creditTransactionId String?
+  qualityStatus       String  @default("PENDING") // PENDING | PASSED | REJECTED | ERROR
+  qualityReview       Json?
+
   // Metadata
   isPrimary  Boolean @default(false)
   isArchived Boolean @default(false)
@@ -1329,6 +1337,7 @@ model GeneratedVisual {
   @@index([workspaceId])
   @@index([campaignId])
   @@index([status])
+  @@index([qualityStatus])
 }
 
 // ============================================================================

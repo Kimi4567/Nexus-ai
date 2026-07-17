@@ -42,8 +42,15 @@ import {
   reopensContentReview,
 } from '@/lib/contentPostRevision'
 import { sanitizeSentryText } from '@/lib/observability/sentryPrivacy'
+import {
+  cloudinaryVideoReviewFrames,
+  reviewGeneratedMediaQuality,
+} from '@/lib/ai/generatedMediaQuality'
+import { readMediaIntelligence } from '@/lib/creativeIntelligence'
 
-export const maxDuration = 60
+// Completion includes durable video upload plus a three-frame visual review.
+// Keep this server-side verification window independent from browser polling.
+export const maxDuration = 180
 
 type Params = { params: Promise<{ id: string; postId: string }> }
 const db = prisma as any
@@ -203,7 +210,12 @@ export async function POST(req: NextRequest, props: Params) {
     }, { status: 409 })
   }
 
-  let referenceMedia: { id: string; url: string } | null = null
+  let referenceMedia: {
+    id: string
+    url: string
+    intelligenceStatus: string
+    intelligence: unknown
+  } | null = null
   if (typeof body.referenceMediaId === 'string' && body.referenceMediaId.trim()) {
     referenceMedia = await db.media.findFirst({
       where: {
@@ -212,7 +224,7 @@ export async function POST(req: NextRequest, props: Params) {
         type: { in: ['IMAGE', 'LOGO'] },
         OR: [{ campaignId: null }, { campaignId: params.id }],
       },
-      select: { id: true, url: true },
+      select: { id: true, url: true, intelligenceStatus: true, intelligence: true },
     })
     if (!referenceMedia) {
       return NextResponse.json({
@@ -416,8 +428,91 @@ export async function GET(req: NextRequest, props: Params) {
     return NextResponse.json({ status: 'PROCESSING', generationId: generation.id }, { status: 202 })
   }
 
+  // Only one poller may persist and review a successful provider result. A
+  // stale claim can be recovered after two minutes if a worker terminates.
+  const verificationClaim = await db.generation.updateMany({
+    where: {
+      id: generation.id,
+      status: { in: ['PROCESSING', 'QUEUED'] },
+      OR: [
+        { progress: { lt: 99 } },
+        { updatedAt: { lt: new Date(Date.now() - 120_000) } },
+      ],
+    },
+    data: { progress: 99 },
+  })
+  if (verificationClaim.count !== 1) {
+    return NextResponse.json({
+      status: 'PROCESSING',
+      generationId: generation.id,
+      progress: 99,
+      message: 'NEXUS is verifying and storing the completed video.',
+    }, { status: 202 })
+  }
+
   try {
     const stored = await uploadRunwayVideoToCloudinary(providerUrl, generation.id)
+    const storedParams = generationParams(generation.params)
+    const qaReferenceMedia = storedParams.referenceMediaId
+      ? await db.media.findFirst({
+          where: {
+            id: storedParams.referenceMediaId,
+            workspaceId: context.campaign.workspaceId,
+            type: { in: ['IMAGE', 'LOGO'] },
+          },
+          select: { id: true, url: true, intelligenceStatus: true, intelligence: true },
+        })
+      : null
+    if (storedParams.referenceMediaId && !qaReferenceMedia) {
+      throw new Error('The reference image is no longer available for required fidelity review')
+    }
+    const referenceEvidence = qaReferenceMedia?.intelligenceStatus === 'READY'
+      ? readMediaIntelligence(qaReferenceMedia.intelligence)
+      : null
+    const qualityReview = await reviewGeneratedMediaQuality({
+      mediaType: 'VIDEO',
+      outputFrames: cloudinaryVideoReviewFrames(stored.url),
+      referenceImageUrl: qaReferenceMedia?.url,
+      campaignMessage: context.post.caption,
+      creativeDirection: context.post.videoPrompt,
+      referenceEvidence,
+    })
+    if (!qualityReview.passed) {
+      const message = 'NEXUS quality review rejected this video because it did not preserve the approved creative truth. Credits will be restored.'
+      const refund = await refundGeneration(userId, generation, message)
+      await db.generation.update({
+        where: { id: generation.id },
+        data: {
+          status: 'FAILED',
+          progress: 100,
+          output: stored.url,
+          error: message,
+          metadata: {
+            providerTaskId: task.id,
+            durationSeconds: stored.duration ?? 5,
+            reviewRequired: true,
+            qualityStatus: 'REJECTED',
+            qualityReview,
+            retainedForAudit: true,
+          },
+        },
+      })
+      await db.socialPost.update({
+        where: { id: params.postId },
+        data: {
+          generationStatus: refund === 'pending' ? 'REFUND_PENDING' : 'FAILED',
+          errorMessage: message,
+        },
+      })
+      return NextResponse.json({
+        status: 'FAILED',
+        generationId: generation.id,
+        error: message,
+        refunded: refund === 'refunded',
+        refundPending: refund === 'pending',
+      })
+    }
+
     const existingMedia = await db.media.findFirst({
       where: { workspaceId: context.campaign.workspaceId, cloudinaryId: stored.publicId },
     })
@@ -451,6 +546,8 @@ export async function GET(req: NextRequest, props: Params) {
           mediaId: media.id,
           durationSeconds: stored.duration ?? 5,
           reviewRequired: true,
+          qualityStatus: 'PASSED',
+          qualityReview,
         },
       },
     })
@@ -467,6 +564,7 @@ export async function GET(req: NextRequest, props: Params) {
         data: { metadata: {
           model: 'gen4.5', providerTaskId: task.id, mediaId: media.id,
           durationSeconds: stored.duration ?? 5, reviewRequired: true, attached: false,
+          qualityStatus: 'PASSED', qualityReview,
         } },
       })
       await db.socialPost.update({
@@ -520,6 +618,7 @@ export async function GET(req: NextRequest, props: Params) {
       data: { metadata: {
         model: 'gen4.5', providerTaskId: task.id, mediaId: media.id,
         durationSeconds: stored.duration ?? 5, reviewRequired: true, attached: true,
+        qualityStatus: 'PASSED', qualityReview,
       } },
     })
 
@@ -534,9 +633,14 @@ export async function GET(req: NextRequest, props: Params) {
       scheduled: false,
     })
   } catch (error) {
-    const message = sanitizeSentryText(error instanceof Error ? error.message : 'Video storage failed').slice(0, 500)
+    const internalMessage = sanitizeSentryText(error instanceof Error ? error.message : 'Video storage or quality review failed').slice(0, 500)
+    console.error('[generate-video] durable storage or quality review failed', internalMessage)
+    const message = 'NEXUS Video Studio could not verify and store a usable video. Credits will be restored.'
     const refund = await refundGeneration(userId, generation, message)
-    await db.generation.update({ where: { id: generation.id }, data: { status: 'FAILED', error: message } })
+    await db.generation.update({
+      where: { id: generation.id },
+      data: { status: 'FAILED', error: message, metadata: { qualityStatus: 'ERROR', reviewRequired: true } },
+    })
     await db.socialPost.update({
       where: { id: params.postId },
       data: { generationStatus: refund === 'pending' ? 'REFUND_PENDING' : 'FAILED', errorMessage: message },

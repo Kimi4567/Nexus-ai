@@ -9,6 +9,10 @@ export class GeneratedVisualStillProcessingError extends Error {
   readonly code = 'GENERATED_VISUAL_STILL_PROCESSING'
 }
 
+export class GeneratedVisualTerminalError extends Error {
+  readonly code = 'GENERATED_VISUAL_TERMINAL_FAILURE'
+}
+
 interface PollGeneratedVisualOptions {
   visualId: string
   authorization: string
@@ -41,17 +45,15 @@ export async function pollGeneratedVisual<T extends GeneratedVisualPollResult = 
         const visual = payload.visual
         if (visual?.status === 'COMPLETED' && visual.imageUrl) return visual
         if (visual?.status === 'FAILED' || visual?.status === 'ARCHIVED') {
-          throw new Error(visual.errorMessage || 'NEXUS Image Studio could not create a usable image. Reserved credits were restored.')
+          throw new GeneratedVisualTerminalError(
+            visual.errorMessage || 'NEXUS Image Studio could not create a usable image. Reserved credits were restored.',
+          )
         }
       } else if (response.status === 401 || response.status === 404) {
-        throw new Error('The image production job is not available in this workspace.')
+        throw new GeneratedVisualTerminalError('The image production job is not available in this workspace.')
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : ''
-      if (
-        message.includes('could not create a usable image')
-        || message.includes('not available in this workspace')
-      ) throw error
+      if (error instanceof GeneratedVisualTerminalError) throw error
       // Retry transient polling/network failures; the server job continues.
     }
 

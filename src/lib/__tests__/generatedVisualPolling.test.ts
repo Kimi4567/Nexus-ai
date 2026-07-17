@@ -34,7 +34,7 @@ describe('pollGeneratedVisual', () => {
     const fetcher = vi.fn().mockResolvedValue(response(200, {
       id: 'visual_1',
       status: 'FAILED',
-      errorMessage: 'NEXUS Image Studio could not create a usable image. Reserved credits were restored.',
+      errorMessage: 'NEXUS quality review rejected this image. Credits were restored.',
     }))
 
     await expect(pollGeneratedVisual({
@@ -43,7 +43,7 @@ describe('pollGeneratedVisual', () => {
       intervalMs: 1,
       maxWaitMs: 50,
       fetcher,
-    })).rejects.toThrow('Reserved credits were restored')
+    })).rejects.toThrow('quality review rejected')
     expect(fetcher).toHaveBeenCalledTimes(1)
   })
 

@@ -30,6 +30,7 @@ import { validateSingleImageGenerationConfirmation } from '@/lib/contentHubActio
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import {
   buildImagePrompt,
+  buildReferencePreservingEditPrompt,
   generateWithDallE,
   generateWithOpenAIImageEdit,
   IMAGE_OUTPUT_CLASSIFICATION,
@@ -40,8 +41,6 @@ import {
 } from '@/lib/ai/imageGen'
 import type { VisualAssetRole } from '@/lib/ai/imageGen'
 import { generateWithFlux, platformToFluxAspectRatio, platformToOpenAISize } from '@/lib/ai/falGen'
-import { platformToOverlay } from '@/lib/cloudinaryOverlay'
-import { composeBrandedPost, bufferToDataUri } from '@/lib/brandComposite'
 import {
   getImageProviderUnavailablePayload,
   getMediaStorageUnavailablePayload,
@@ -56,6 +55,14 @@ import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { captureOperationalError } from '@/lib/observability/operationalError'
 import { chooseProfessionalImageProvider, type ImageGenerationPurpose } from '@/lib/ai/mediaProviderRouter'
 import { scheduleAfterResponse } from '@/lib/afterResponse'
+import { readMediaIntelligence } from '@/lib/creativeIntelligence'
+import { reviewGeneratedMediaQuality } from '@/lib/ai/generatedMediaQuality'
+import {
+  CONTENT_REVISION_HISTORY_NOTE,
+  contentReviewResetData,
+  isImmutableExecutionPost,
+  reopensContentReview,
+} from '@/lib/contentPostRevision'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -168,9 +175,7 @@ export async function POST(req: NextRequest) {
         visual: activeVisual,
         pollUrl: `/api/visuals/${activeVisual.id}`,
         assetRole,
-        outputClassification: assetRole === 'final_composited_ad'
-          ? 'final_composited_ad_for_review'
-          : IMAGE_OUTPUT_CLASSIFICATION,
+        outputClassification: IMAGE_OUTPUT_CLASSIFICATION,
         creditsReserved: 0,
       }, { status: 202 })
     }
@@ -201,7 +206,14 @@ export async function POST(req: NextRequest) {
   // If no campaignId, we still fetch the brand profile for workspace-level generation
   let campaign: any = null
   let brand: any = null
-  let referenceMedia: { id: string; url: string; type: string } | null = null
+  let referenceMedia: {
+    id: string
+    url: string
+    type: string
+    intelligenceStatus: string
+    intelligence: unknown
+  } | null = null
+  let generationPost: any = null
 
   try {
     if (campaignId) {
@@ -232,7 +244,7 @@ export async function POST(req: NextRequest) {
         type: { in: ['IMAGE', 'LOGO'] },
         OR: [{ campaignId: null }, { campaignId: campaignId || null }],
       },
-      select: { id: true, url: true, type: true },
+      select: { id: true, url: true, type: true, intelligenceStatus: true, intelligence: true },
     })
     if (!referenceMedia) {
       return NextResponse.json({
@@ -279,6 +291,13 @@ export async function POST(req: NextRequest) {
     if (!post) {
       return NextResponse.json({ error: 'Post not found', code: 'POST_NOT_FOUND' }, { status: 404 })
     }
+    if (isImmutableExecutionPost(post.status)) {
+      return NextResponse.json({
+        error: 'Published or provider-processing posts are immutable. Create a new draft for new media.',
+        code: 'PUBLISHED_POST_IMMUTABLE',
+      }, { status: 409 })
+    }
+    generationPost = post
 
     const contentReview = reviewContentPlanForApproval(
       [{
@@ -351,7 +370,19 @@ export async function POST(req: NextRequest) {
   // ── Build the caption-driven, brand-adaptive ad prompt (async) ───────────
   // Prompt output is background-only; text/logo/CTA/proof layers are handled by
   // future editable/template composition, not trusted inside AI raster output.
-  const { prompt, language, concept } = await buildImagePrompt(ctx)
+  const { prompt, language } = await buildImagePrompt(ctx)
+  const referenceEvidence = referenceMedia?.intelligenceStatus === 'READY'
+    ? readMediaIntelligence(referenceMedia.intelligence)
+    : null
+  const providerPrompt = referenceMedia
+    ? buildReferencePreservingEditPrompt({
+        campaignMessage: ctx.postCaption || ctx.keyMessage || ctx.campaignGoal,
+        creativeDirection: ctx.creativeRequirement?.visualConcept || ctx.visualDirection,
+        platform: ctx.platform,
+        brandName: ctx.brandName,
+        referenceEvidence,
+      })
+    : prompt
 
   if (!isImageProviderConfigured()) {
     return NextResponse.json(getImageProviderUnavailablePayload(language), { status: 503 })
@@ -380,7 +411,7 @@ export async function POST(req: NextRequest) {
         visualType,
         visualStyle,
         prompt:       `${visualStyle} ${visualType.toLowerCase().replace('_', ' ')} for ${ctx.campaignName || 'campaign'}`,
-        enhancedPrompt: prompt,
+        enhancedPrompt: providerPrompt,
         campaignName:  ctx.campaignName || null,
         campaignGoal:  ctx.campaignGoal || null,
         campaignTone:  ctx.campaignTone || null,
@@ -445,6 +476,7 @@ export async function POST(req: NextRequest) {
   // The GeneratedVisual row is the durable polling and audit record. The
   // browser never needs to keep an expensive provider request open.
   scheduleAfterResponse(async () => {
+    let durableAuditUrl: string | null = null
     try {
     let rawImageUrl: string
     const purpose: ImageGenerationPurpose = referenceMedia
@@ -462,15 +494,15 @@ export async function POST(req: NextRequest) {
     const runProvider = async (provider: typeof providerDecision.provider) => {
       if (provider === 'fal-flux') {
         const fluxResult = await generateWithFlux({
-          prompt,
+          prompt: providerPrompt,
           aspectRatio: platformToFluxAspectRatio(platform),
         })
         return fluxResult.imageUrl
       }
       if (referenceMedia) {
-        return generateWithOpenAIImageEdit(prompt, referenceMedia.url, platformToOpenAISize(platform))
+        return generateWithOpenAIImageEdit(providerPrompt, referenceMedia.url, platformToOpenAISize(platform))
       }
-      return generateWithDallE(prompt, platformToOpenAISize(platform))
+      return generateWithDallE(providerPrompt, platformToOpenAISize(platform))
     }
 
     try {
@@ -483,60 +515,121 @@ export async function POST(req: NextRequest) {
     // ── Persist raw AI image to Cloudinary (needed for Sharp to fetch it) ──
     const rawPublicId   = `visual_raw_${visual.id}`
     const cloudinaryUrl = await uploadToCloudinary(rawImageUrl, rawPublicId)
+    durableAuditUrl = cloudinaryUrl
 
-    // ── Optional legacy Sharp brand composite ─────────────────────────────
-    // New asset roles are background/draft assets for review. They intentionally
-    // skip the hardcoded text/logo compositor so generated output does not look
-    // like final editable ad creative before the template/layer system exists.
-    let permanentUrl = cloudinaryUrl
-    const overlayPlatform = platformToOverlay(platform)
-    const shouldApplyLegacyComposite = ![
-      'post_background',
-      'campaign_concept_background',
-      'hero_visual',
-      'draft_visual_asset',
-    ].includes(assetRole)
-
-    if (shouldApplyLegacyComposite) {
-      try {
-        const compositeBuffer = await composeBrandedPost(cloudinaryUrl, {
-          brandName:   brand?.brandName || ctx.brandName || 'Brand',
-          logoUrl:     brand?.logoUrl   || null,
-          accentColor: brand?.colorPalette
-            ? (Array.isArray(brand.colorPalette) ? brand.colorPalette[0] : brand.colorPalette)
-            : null,
-          platform:    overlayPlatform,
-          // Use reviewed Arabic/English post copy as the deterministic layer;
-          // the prompt concept headline is only a final fallback.
-          adHeadline: postCaption || concept?.headline || undefined,
+    // Raster typography is never treated as final copy. A strict visual pass
+    // compares reference and output, rejects semantic mismatches and malformed
+    // text, and owns the pass/fail decision before attachment or settlement.
+    const qualityReview = await reviewGeneratedMediaQuality({
+      mediaType: 'IMAGE',
+      outputFrames: [cloudinaryUrl],
+      referenceImageUrl: referenceMedia?.url,
+      campaignMessage: ctx.postCaption || ctx.keyMessage || ctx.campaignGoal,
+      creativeDirection: ctx.creativeRequirement?.visualConcept || ctx.visualDirection,
+      referenceEvidence,
+    })
+    if (!qualityReview.passed) {
+      const qualityMessage = 'NEXUS quality review rejected this image because it did not preserve the approved creative truth. Credits will be restored.'
+      const refund = await refundDeductedCredits(userId, credit, qualityMessage)
+      await db.generatedVisual.update({
+        where: { id: visual.id },
+        data: {
+          status: 'FAILED',
+          imageUrl: cloudinaryUrl,
+          errorMessage: qualityMessage,
+          provider: providerDecision.provider,
+          referenceMediaId: referenceMedia?.id ?? null,
+          creditTransactionId: credit.transactionId ?? null,
+          qualityStatus: 'REJECTED',
+          qualityReview,
+        },
+      })
+      if (generationPost) {
+        await db.socialPost.update({
+          where: { id: generationPost.id },
+          data: {
+            generationStatus: refund.refundPending ? 'REFUND_PENDING' : 'FAILED',
+            errorMessage: qualityMessage,
+          },
         })
-
-        const finalPublicId = `visual_${visual.id}`
-        permanentUrl = await uploadToCloudinary(
-          bufferToDataUri(compositeBuffer),
-          finalPublicId
-        )
-        console.log(`[visuals/generate] Sharp composite applied on ${overlayPlatform}`)
-      } catch (compositeErr) {
-        await captureOperationalError(compositeErr, {
-          operation: 'ai.image-brand-composite',
-          route: '/api/visuals/generate',
-          component: 'ai',
-          method: 'POST',
-          requestId,
-          statusCode: 500,
-          retryable: false,
-          severity: 'warning',
-        })
-        permanentUrl = cloudinaryUrl
       }
+      return
     }
 
-    // Update DB to COMPLETED
-    await db.generatedVisual.update({
-      where: { id: visual.id },
-      data:  { status: 'COMPLETED', imageUrl: permanentUrl },
-    })
+    const permanentUrl = cloudinaryUrl
+
+    // Complete the durable asset and, when this job belongs to a post, attach
+    // it server-side under the user's explicit generation/attachment consent.
+    // The result therefore survives a closed tab and never depends on the
+    // polling client issuing a second mutation.
+    if (generationPost) {
+      await prisma.$transaction(async (tx) => {
+        await (tx.generatedVisual as any).update({
+          where: { id: visual.id },
+          data: {
+            status: 'COMPLETED',
+            imageUrl: permanentUrl,
+            errorMessage: null,
+            provider: providerDecision.provider,
+            referenceMediaId: referenceMedia?.id ?? null,
+            creditTransactionId: credit.transactionId ?? null,
+            qualityStatus: 'PASSED',
+            qualityReview,
+          },
+        })
+
+        const currentPost = await (tx.socialPost as any).findFirst({
+          where: {
+            id: generationPost.id,
+            workspaceId: workspace.id,
+            campaignId: campaign.id,
+          },
+        })
+        if (!currentPost || isImmutableExecutionPost(currentPost.status)) return
+
+        const reopensReview = reopensContentReview(currentPost.status)
+        await (tx.socialPost as any).update({
+          where: { id: currentPost.id },
+          data: {
+            imageUrl: permanentUrl,
+            uploadedMediaId: null,
+            mediaSource: 'GENERATE',
+            generationStatus: 'DONE',
+            sourceType: 'AI_GENERATED',
+            sourceMediaId: null,
+            creativeMatch: null,
+            creativeMatchedAt: null,
+            ...contentReviewResetData(currentPost.status),
+          },
+        })
+        if (reopensReview) {
+          await tx.postStatusHistory.create({
+            data: {
+              socialPostId: currentPost.id,
+              workspaceId: currentPost.workspaceId,
+              fromStatus: currentPost.status,
+              toStatus: 'DRAFT',
+              actor: 'USER',
+              note: CONTENT_REVISION_HISTORY_NOTE,
+            },
+          })
+        }
+      })
+    } else {
+      await db.generatedVisual.update({
+        where: { id: visual.id },
+        data: {
+          status: 'COMPLETED',
+          imageUrl: permanentUrl,
+          errorMessage: null,
+          provider: providerDecision.provider,
+          referenceMediaId: referenceMedia?.id ?? null,
+          creditTransactionId: credit.transactionId ?? null,
+          qualityStatus: 'PASSED',
+          qualityReview,
+        },
+      })
+    }
 
     const finalization = await finalizeCreditDeduction({
       userId,
@@ -570,7 +663,13 @@ export async function POST(req: NextRequest) {
 
       await db.generatedVisual.update({
         where: { id: visual.id },
-        data:  { status: 'FAILED', errorMessage: publicFailureMessage },
+        data:  {
+          status: 'FAILED',
+          errorMessage: publicFailureMessage,
+          ...(durableAuditUrl ? { imageUrl: durableAuditUrl } : {}),
+          creditTransactionId: credit.transactionId ?? null,
+          qualityStatus: 'ERROR',
+        },
       }).catch(() => {})
 
       // If the immediate refund fails, the existing cron sees this FAILED
@@ -584,9 +683,7 @@ export async function POST(req: NextRequest) {
     visual,
     pollUrl: `/api/visuals/${visual.id}`,
     assetRole,
-    outputClassification: assetRole === 'final_composited_ad'
-      ? 'final_composited_ad_for_review'
-      : IMAGE_OUTPUT_CLASSIFICATION,
+    outputClassification: IMAGE_OUTPUT_CLASSIFICATION,
     creditsReserved: credit.creditsUsed,
     creditsRemaining: credit.creditsRemaining,
     creditCharge: buildCreditChargeReceipt('IMAGE_GENERATION', credit),

@@ -14,6 +14,7 @@ vi.mock('@/lib/ai/conceptExtractor', async () => {
 
 import {
   buildImagePrompt,
+  buildReferencePreservingEditPrompt,
   IMAGE_OUTPUT_CLASSIFICATION,
   normalizeTextFreeCentralElement,
   TEXT_FREE_BACKGROUND_IMAGE_CONSTRAINTS,
@@ -27,6 +28,26 @@ afterEach(() => {
 })
 
 describe('imageGen prompt contract', () => {
+  it('keeps reference screens and product labels immutable instead of replacing them with metaphors', () => {
+    const prompt = buildReferencePreservingEditPrompt({
+      campaignMessage: 'Explain how approved credit deductions stay traceable.',
+      creativeDirection: 'Premium product-led operating-system ad.',
+      platform: 'INSTAGRAM',
+      brandName: 'NEXUS',
+      referenceEvidence: {
+        assetKind: 'SCREEN',
+        visibleSummary: 'Tablet displaying the real NEXUS analytics interface.',
+      },
+    })
+
+    expect(prompt).toContain('immutable hero asset')
+    expect(prompt).toContain('keep that source content legible and unchanged')
+    expect(prompt).toContain('Do not replace the source with a metaphor')
+    expect(prompt).toContain('do not render this copy')
+    expect(prompt).not.toContain('metallic tokens')
+    expect(prompt).not.toContain('transparent vault')
+  })
+
   it('converts dashboard and infographic directions into a raster-safe physical scene', () => {
     const normalized = normalizeTextFreeCentralElement(
       'إنفوجرافيك مع مخططات وأيقونات تحليل البيانات',

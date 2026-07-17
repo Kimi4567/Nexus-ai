@@ -405,6 +405,49 @@ export function wrapPromptWithTextFreeBackgroundContract(prompt: string): string
 ${TEXT_FREE_BACKGROUND_IMAGE_CONSTRAINTS}`.trim()
 }
 
+/**
+ * Reference work is not ordinary text-to-image generation. The uploaded asset
+ * is immutable evidence, including any real UI or packaging text already
+ * visible inside it. Keep this prompt separate from the background prompt so
+ * "no dashboards/screens" can never fight the user's source of truth.
+ */
+export function buildReferencePreservingEditPrompt(input: {
+  campaignMessage?: string | null
+  creativeDirection?: string | null
+  platform?: string | null
+  brandName?: string | null
+  referenceEvidence?: unknown
+}): string {
+  const clean = (value: unknown, max: number) => typeof value === 'string'
+    ? value.replace(/\s+/g, ' ').trim().slice(0, max)
+    : ''
+  const message = clean(input.campaignMessage, 900)
+  const direction = clean(input.creativeDirection, 700)
+  const brandName = clean(input.brandName, 80) || 'the brand'
+  const platform = clean(input.platform, 40) || 'social feed'
+
+  return `Create one premium ${platform} advertising visual for ${brandName} using the supplied image as an immutable hero asset.
+
+SOURCE-OF-TRUTH CONTRACT:
+- Preserve the supplied product, packaging, device, screen, person, geometry, colours, labels, logo placement, proportions, materials, and distinctive details exactly.
+- If the source contains a real screen, dashboard, interface, logo, label, or text, keep that source content legible and unchanged. Never redraw or rewrite it.
+- Do not replace the source with a metaphor, illustration, different device, different product, or newly invented interface.
+- Do not add new raster text, captions, CTA buttons, badges, metrics, logos, watermarks, claims, awards, testimonials, or certifications.
+- Change only the surrounding scene, lighting, depth, and crop needed to create a disciplined premium composition. Keep the source clearly dominant and recognizable.
+
+CAMPAIGN MEANING (art direction only; do not render this copy):
+${message || 'A premium, trustworthy brand moment.'}
+
+CREATIVE DIRECTION:
+${direction || 'Realistic commercial lighting, controlled depth, clean negative space, and a high-budget editorial advertising finish.'}
+
+KNOWN SOURCE EVIDENCE:
+${JSON.stringify(input.referenceEvidence ?? {}).slice(0, 2200)}
+
+QUALITY BAR:
+The result must look like a real agency-produced advertisement while remaining visibly the exact supplied source. Product/source fidelity is more important than novelty.`
+}
+
 // ─── English prompt builder ───────────────────────────────────────────────────
 
 function buildEnglishAdPrompt(
@@ -650,7 +693,10 @@ export async function generateWithDallE(
       size,
       quality: 'high',
     }),
-    signal: AbortSignal.timeout(35_000),
+    // High-quality output can take several minutes. Callers run this behind a
+    // durable polled job, so a short browser-style timeout would create false
+    // failures and unnecessary provider retries.
+    signal: AbortSignal.timeout(240_000),
   })
 
   if (!response.ok) {
