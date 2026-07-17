@@ -208,7 +208,7 @@ describe('POST professional video generation', () => {
     expect(mocks.refund).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'user-1',
       action: 'VIDEO_GENERATION',
-      reason: 'provider unavailable',
+      reason: 'NEXUS Video Studio could not start production. Reserved credits will be restored.',
     }))
     expect(await response.json()).toMatchObject({ refunded: true, refundPending: false })
   })

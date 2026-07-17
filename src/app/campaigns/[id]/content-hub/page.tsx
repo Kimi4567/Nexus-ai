@@ -4050,7 +4050,7 @@ export default function ContentHubPage() {
               <div className="bg-slate-950 px-6 py-5 text-white">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300">GPT Image 2 · final creative</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300">NEXUS IMAGE STUDIO · FINAL CREATIVE</p>
                     <h3 className="mt-1 text-xl font-bold">
                       {isAr ? 'إنتاج صورة إعلانية احترافية' : 'Produce a professional ad image'}
                     </h3>
@@ -4075,8 +4075,8 @@ export default function ContentHubPage() {
                         )}
                         <p className="text-xs font-semibold leading-relaxed text-emerald-800">
                           {isAr
-                            ? 'جاهزة: سيحافظ GPT Image 2 على شكل المنتج والعبوة والألوان والشعار، ويغيّر المشهد الإعلاني المحيط فقط.'
-                            : 'Ready: GPT Image 2 will preserve product shape, packaging, colours, and logo while changing only the surrounding ad scene.'}
+                            ? 'جاهزة: سيحافظ NEXUS على شكل المنتج والعبوة والألوان والشعار، ويغيّر المشهد الإعلاني المحيط فقط.'
+                            : 'Ready: NEXUS will preserve product shape, packaging, colours, and logo while changing only the surrounding ad scene.'}
                         </p>
                       </div>
                     ) : (
@@ -4096,7 +4096,7 @@ export default function ContentHubPage() {
                   <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4">
                     <p className="text-sm font-bold text-violet-950">{isAr ? 'عقد التنفيذ' : 'Execution contract'}</p>
                     <div className="mt-3 space-y-2 text-xs leading-relaxed text-violet-950/75">
-                      <p>✓ {isAr ? 'جودة نهائية: GPT Image 2' : 'Final quality: GPT Image 2'}</p>
+                      <p>✓ {isAr ? 'جودة نهائية: NEXUS Image Studio' : 'Final quality: NEXUS Image Studio'}</p>
                       <p>✓ {isAr ? 'كتابة عربية/إنجليزية مضبوطة' : 'Controlled Arabic/English typography'}</p>
                       <p>✓ {isAr ? `التكلفة: ${CONTENT_HUB_IMAGE_COST} كريديت` : `Cost: ${CONTENT_HUB_IMAGE_COST} credits`}</p>
                       <p>✓ {isAr ? 'حفظ دائم وربط بالمنشور' : 'Durable storage and post attachment'}</p>
@@ -4152,7 +4152,7 @@ export default function ContentHubPage() {
               <div className="bg-slate-950 px-6 py-5 text-white">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300">Runway Gen-4.5 · 5s master</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300">NEXUS VIDEO STUDIO · 5S MASTER</p>
                     <h3 className="mt-1 text-xl font-bold">{isAr ? 'إنتاج فيديو إعلاني احترافي' : 'Produce a professional ad video'}</h3>
                     <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-300">
                       {isAr
@@ -4203,7 +4203,7 @@ export default function ContentHubPage() {
                   <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4">
                     <p className="text-sm font-bold text-violet-950">{isAr ? 'عقد التنفيذ' : 'Execution contract'}</p>
                     <div className="mt-3 space-y-2 text-xs leading-relaxed text-violet-950/75">
-                      <p>✓ {isAr ? 'جودة نهائية: Runway Gen-4.5' : 'Final quality: Runway Gen-4.5'}</p>
+                      <p>✓ {isAr ? 'جودة نهائية: NEXUS Video Studio' : 'Final quality: NEXUS Video Studio'}</p>
                       <p>✓ {isAr ? 'المدة: 5 ثوانٍ' : 'Duration: 5 seconds'}</p>
                       <p>✓ {isAr ? `التكلفة: ${CONTENT_HUB_VIDEO_COST} كريديت` : `Cost: ${CONTENT_HUB_VIDEO_COST} credits`}</p>
                       <p>✓ {isAr ? 'حفظ دائم في مكتبة الوسائط' : 'Durable Media Library storage'}</p>
@@ -4930,8 +4930,8 @@ function PostCard({
             onClick={videoGenerationLocked ? onAddCredits : onGenerateVideo}
             disabled={isGeneratingVideo || creditRestorationPending || imageGenerationBlockedByTruthReview}
             title={isAr
-              ? `Runway Gen-4.5 · 5 ثوانٍ · ${CONTENT_HUB_VIDEO_COST} كريديت · للمراجعة فقط`
-              : `Runway Gen-4.5 · 5 seconds · ${CONTENT_HUB_VIDEO_COST} credits · review only`}
+              ? `NEXUS Video Studio · 5 ثوانٍ · ${CONTENT_HUB_VIDEO_COST} كريديت · للمراجعة فقط`
+              : `NEXUS Video Studio · 5 seconds · ${CONTENT_HUB_VIDEO_COST} credits · review only`}
             className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug transition-all flex items-center justify-center gap-1"
             style={{
               borderColor: 'rgba(15,23,42,0.08)',

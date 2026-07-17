@@ -128,7 +128,7 @@ describe('POST /api/brand/suggest — RF-2 refund safety', () => {
     const res = await POST(makeReq({ field: 'description', brandName: 'Nexus', locale: 'en' }))
 
     expect(res.status).toBe(502)
-    expect(mockRefund).toHaveBeenCalledWith('u1', 'AI_FIELD_SUGGESTION', 'OpenAI error 500')
+    expect(mockRefund).toHaveBeenCalledWith('u1', 'AI_FIELD_SUGGESTION', 'NEXUS AI service error')
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
 

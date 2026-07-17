@@ -467,12 +467,13 @@ export async function POST(req: NextRequest, props: Params) {
         results.push({ id: post.id, success: true, imageUrl: finalUrl })
       } catch (err: any) {
         console.error(`[Content Hub] Image generation failed for ${post.id}:`, err)
+        const publicMessage = 'NEXUS Image Studio could not create a usable image.'
         // Refund this post's image credit — a failed image must not be charged
-        const refunded = await refundImageReservation(userId, reservation, err.message ?? 'Image generation failed')
+        const refunded = await refundImageReservation(userId, reservation, publicMessage)
         if (visualId) {
           await (prisma.generatedVisual as any).update({
             where: { id: visualId },
-            data: { status: 'FAILED', errorMessage: String(err.message ?? 'Image generation failed').slice(0, 500) },
+            data: { status: 'FAILED', errorMessage: publicMessage },
           }).catch(() => {})
         }
         await (prisma.socialPost as any).update({
@@ -480,7 +481,7 @@ export async function POST(req: NextRequest, props: Params) {
           data: { generationStatus: refunded ? 'FAILED' : 'REFUND_PENDING' },
         })
         claimedPosts.delete(post.id)
-        results.push({ id: post.id, success: false, error: err.message, refunded })
+        results.push({ id: post.id, success: false, error: publicMessage, refunded })
       }
     }
 

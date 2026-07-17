@@ -53,7 +53,6 @@ import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { captureOperationalError } from '@/lib/observability/operationalError'
-import { sanitizeSentryText } from '@/lib/observability/sentryPrivacy'
 import { chooseProfessionalImageProvider, type ImageGenerationPurpose } from '@/lib/ai/mediaProviderRouter'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -324,7 +323,7 @@ export async function POST(req: NextRequest) {
   }
   if (referenceMedia && !isAiProviderConfigured()) {
     return NextResponse.json({
-      error: 'Product-to-ad generation requires GPT Image 2 so NEXUS can preserve the selected reference. No credits were charged.',
+      error: 'NEXUS high-fidelity product rendering is temporarily unavailable. No credits were charged.',
       code: 'REFERENCE_IMAGE_PROVIDER_UNAVAILABLE',
       creditsCharged: false,
       retryable: false,
@@ -534,20 +533,19 @@ export async function POST(req: NextRequest) {
       retryable: true,
     })
 
-    const failureMessage = err instanceof Error ? err.message : 'Image generation failed'
-    const safeFailureMessage = sanitizeSentryText(failureMessage).slice(0, 500)
+    const publicFailureMessage = 'NEXUS Image Studio could not create a usable image. Reserved credits will be restored.'
 
     // Update DB to FAILED (non-blocking)
     await db.generatedVisual.update({
       where: { id: visual.id },
-      data:  { status: 'FAILED', errorMessage: safeFailureMessage },
+      data:  { status: 'FAILED', errorMessage: publicFailureMessage },
     }).catch(() => {})
 
     // Refund — the user must not be charged for a failed image (skip unlimited plans)
-    const refund = await refundDeductedCredits(userId, credit, safeFailureMessage)
+    const refund = await refundDeductedCredits(userId, credit, publicFailureMessage)
 
     return NextResponse.json({
-      error: safeFailureMessage,
+      error: publicFailureMessage,
       message: refund.refundPending
         ? 'Image generation failed. Credit restoration is pending automatic reconciliation.'
         : undefined,

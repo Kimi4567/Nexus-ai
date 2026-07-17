@@ -62,9 +62,12 @@ function generationParams(value: unknown): StoredGenerationParams {
 }
 
 function safeFailure(task: RunwayTask): string {
-  return sanitizeSentryText(
-    task.failure || task.failureCode || 'Runway could not create a usable video.',
-  ).slice(0, 500)
+  console.error('[generate-video] NEXUS video provider task failed', {
+    status: task.status,
+    failureCode: sanitizeSentryText(task.failureCode || '').slice(0, 120),
+    providerFailure: sanitizeSentryText(task.failure || '').slice(0, 300),
+  })
+  return 'NEXUS Video Studio could not create a usable video. Reserved credits will be restored.'
 }
 
 async function findCampaignContext(userId: string, campaignId: string, postId: string) {
@@ -312,8 +315,6 @@ export async function POST(req: NextRequest, props: Params) {
     return NextResponse.json({
       generationId: generation.id,
       status: task.status,
-      provider: 'runway',
-      model: 'gen4.5',
       durationSeconds: 5,
       ratio,
       creditsUsed: credit.creditsUsed,
@@ -324,7 +325,9 @@ export async function POST(req: NextRequest, props: Params) {
       scheduled: false,
     }, { status: 202 })
   } catch (error) {
-    const message = sanitizeSentryText(error instanceof Error ? error.message : 'Video generation failed').slice(0, 500)
+    const internalMessage = sanitizeSentryText(error instanceof Error ? error.message : 'Video generation failed').slice(0, 500)
+    console.error('[generate-video] NEXUS Video Studio start failed', internalMessage)
+    const message = 'NEXUS Video Studio could not start production. Reserved credits will be restored.'
     const refund = await refundCreditDeduction({
       userId,
       action: 'VIDEO_GENERATION',
@@ -378,7 +381,7 @@ export async function GET(req: NextRequest, props: Params) {
       status: 'PROCESSING',
       generationId: generation.id,
       retryable: true,
-      message: 'Runway status is temporarily unavailable; the task remains active.',
+      message: 'NEXUS Video Studio status is temporarily unavailable; the task remains active.',
     }, { status: 202 })
   }
 
@@ -432,7 +435,7 @@ export async function GET(req: NextRequest, props: Params) {
         height: stored.height,
         duration: stored.duration,
         category: 'ai-generated-ad-master',
-        tags: ['runway', 'gen4.5', 'review-required'],
+        tags: ['nexus-video-studio', 'ad-master', 'review-required'],
       },
     })
 

@@ -161,9 +161,9 @@ export async function POST(req: NextRequest) {
           severity: response.status === 429 ? 'warning' : 'error',
         },
       )
-      if (credit) await refundDeductedCredits(userId, credit, `OpenAI error ${response.status}`)
+      if (credit) await refundDeductedCredits(userId, credit, 'NEXUS AI service error')
       return NextResponse.json(
-        { error: `OpenAI error ${response.status}. Check API key and quota.` },
+        { error: 'NEXUS AI could not create content. Reserved credits were restored.' },
         { status: 502 }
       )
     }
@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
     const data = await response.json()
     const content = data.choices?.[0]?.message?.content ?? ''
     if (typeof content !== 'string' || !content.trim()) {
-      await refundDeductedCredits(userId, credit, 'OpenAI returned no usable content')
+      await refundDeductedCredits(userId, credit, 'NEXUS AI returned no usable content')
       return NextResponse.json({ error: 'AI returned no usable content', refunded: true }, { status: 502 })
     }
 

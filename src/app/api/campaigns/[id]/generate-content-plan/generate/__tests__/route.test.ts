@@ -387,7 +387,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'user_1',
       transactionId: 'txn_a',
-      reason: 'provider down for A',
+      reason: 'NEXUS Image Studio could not create a usable image.',
     }))
     expect(mockRefund).not.toHaveBeenCalled()
   })
@@ -426,7 +426,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'user_1',
       transactionId: 'txn_a',
-      reason: 'done update failed',
+      reason: 'NEXUS Image Studio could not create a usable image.',
     }))
   })
 
@@ -440,7 +440,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     const res = await POST(makeReq(confirmedBody), params)
 
     expect(res.status).toBe(200)
-    expect(mockRefund).toHaveBeenCalledWith('user_1', 'IMAGE_GENERATION', 'provider failed without txn')
+    expect(mockRefund).toHaveBeenCalledWith('user_1', 'IMAGE_GENERATION', 'NEXUS Image Studio could not create a usable image.')
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
 

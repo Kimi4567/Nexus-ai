@@ -456,11 +456,12 @@ export async function GET(req: NextRequest) {
         return { postId: post.id, status: 'ok', url: finalUrl }
       } catch (err: any) {
         console.error(`[Cron generate-images] Failed for post ${post.id}:`, err)
-        const refunded = await refundImageReservation(creditReservation, err.message ?? 'Cron image generation failed')
+        const publicMessage = 'NEXUS Image Studio could not create a usable image.'
+        const refunded = await refundImageReservation(creditReservation, publicMessage)
         if (visualId) {
           await prisma.generatedVisual.update({
             where: { id: visualId },
-            data: { status: 'FAILED', errorMessage: String(err.message ?? 'Cron image generation failed').slice(0, 500) },
+            data: { status: 'FAILED', errorMessage: publicMessage },
           }).catch(() => {})
         }
         await prisma.socialPost.update({
@@ -470,7 +471,7 @@ export async function GET(req: NextRequest) {
         return {
           postId: post.id,
           status: 'failed',
-          error: err.message,
+          error: publicMessage,
           refundStatus: refunded ? 'restored' : 'pending_reconciliation',
         }
       }

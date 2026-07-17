@@ -250,7 +250,7 @@ export const CREDIT_ACTION_POLICIES: Record<CreditAction, CreditActionPolicy> = 
   VIDEO_GENERATION: {
     label: 'Professional video generation',
     reason: 'Creates one five-second, reviewable campaign video master for a specific video post.',
-    includedWork: 'One Runway Gen-4.5 task, durable video storage, and safe attachment to the post draft. Publishing and scheduling are excluded.',
+    includedWork: 'One NEXUS Video Studio task, durable video storage, and safe attachment to the post draft. Publishing and scheduling are excluded.',
     providerCallLimit: 2,
     refundableOnNoUsableOutput: true,
   },

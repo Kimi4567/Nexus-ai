@@ -261,12 +261,12 @@ describe('GET /api/cron/generate-images — RF-6B refund safety', () => {
 
     expect(res.status).toBe(200)
     expect(json.results).toEqual([
-      expect.objectContaining({ postId: 'post_a', status: 'failed', error: 'provider down', refundStatus: 'restored' }),
+      expect.objectContaining({ postId: 'post_a', status: 'failed', error: 'NEXUS Image Studio could not create a usable image.', refundStatus: 'restored' }),
     ])
     expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'user_1',
       transactionId: 'txn_a',
-      reason: 'provider down',
+      reason: 'NEXUS Image Studio could not create a usable image.',
     }))
     expect(mockRefund).not.toHaveBeenCalled()
   })
@@ -282,12 +282,12 @@ describe('GET /api/cron/generate-images — RF-6B refund safety', () => {
     expect(json.results[0]).toMatchObject({
       postId: 'post_a',
       status: 'failed',
-      error: 'db update failed',
+      error: 'NEXUS Image Studio could not create a usable image.',
     })
     expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'user_1',
       transactionId: 'txn_a',
-      reason: 'db update failed',
+      reason: 'NEXUS Image Studio could not create a usable image.',
     }))
   })
 
@@ -393,7 +393,7 @@ describe('GET /api/cron/generate-images — RF-6B refund safety', () => {
     expect(mockRefundForTxn).toHaveBeenCalledTimes(1)
     expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
       transactionId: 'txn_first',
-      reason: 'first run failed',
+      reason: 'NEXUS Image Studio could not create a usable image.',
     }))
     expect(mockRefundForTxn).not.toHaveBeenCalledWith(expect.objectContaining({ transactionId: 'txn_retry' }))
   })
@@ -406,7 +406,7 @@ describe('GET /api/cron/generate-images — RF-6B refund safety', () => {
     const res = await GET(makeReq())
 
     expect(res.status).toBe(200)
-    expect(mockRefund).toHaveBeenCalledWith('user_1', 'IMAGE_GENERATION', 'provider failed without txn')
+    expect(mockRefund).toHaveBeenCalledWith('user_1', 'IMAGE_GENERATION', 'NEXUS Image Studio could not create a usable image.')
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
 

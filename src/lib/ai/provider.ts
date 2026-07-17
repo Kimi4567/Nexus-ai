@@ -47,8 +47,8 @@ export function getAiProviderUnavailablePayload(language: unknown = 'ar') {
 
   return {
     error: isArabic
-      ? 'خدمة الذكاء الاصطناعي غير متاحة حالياً لأن مزود OpenAI غير مُهيأ. لم يتم إنشاء محتوى ولم يُخصم أي كريدت.'
-      : 'AI generation is currently unavailable because the OpenAI provider is not configured. No content was created and no credits were charged.',
+      ? 'محرك NEXUS للذكاء الاصطناعي غير متاح مؤقتاً. لم يتم إنشاء محتوى ولم يُخصم أي كريديت.'
+      : 'The NEXUS AI engine is temporarily unavailable. No content was created and no credits were charged.',
     code: AI_PROVIDER_UNAVAILABLE_CODE,
     providerConfigured: false,
     creditsCharged: false,
@@ -89,8 +89,8 @@ export function getVideoProviderUnavailablePayload(language: unknown = 'ar') {
 
   return {
     error: isArabic
-      ? 'إنشاء الفيديو غير متاح حالياً لأن مزود Runway غير مُهيأ. لم يتم إنشاء فيديو ولم يُخصم أي كريديت.'
-      : 'Video generation is currently unavailable because Runway is not configured. No video was created and no credits were charged.',
+      ? 'محرك NEXUS للفيديو غير متاح مؤقتاً. لم يتم إنشاء فيديو ولم يُخصم أي كريديت.'
+      : 'The NEXUS video engine is temporarily unavailable. No video was created and no credits were charged.',
     code: VIDEO_PROVIDER_UNAVAILABLE_CODE,
     providerConfigured: false,
     creditsCharged: false,

@@ -312,7 +312,7 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'u1',
       transactionId: 'txn_img',
-      reason: 'image provider down',
+      reason: 'NEXUS Image Studio could not create a usable image. Reserved credits will be restored.',
     }))
     expect(mockRefund).not.toHaveBeenCalled()
   })
@@ -351,10 +351,10 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     const json = await res.json()
 
     expect(res.status).toBe(500)
-    expect(json).toMatchObject({ error: 'Cloudinary upload failed', refunded: true })
+    expect(json).toMatchObject({ error: 'NEXUS Image Studio could not create a usable image. Reserved credits will be restored.', refunded: true })
     expect(mockPrisma.generatedVisual.update).toHaveBeenCalledWith({
       where: { id: 'visual_1' },
-      data: { status: 'FAILED', errorMessage: 'Cloudinary upload failed' },
+      data: { status: 'FAILED', errorMessage: 'NEXUS Image Studio could not create a usable image. Reserved credits will be restored.' },
     })
     expect(mockPrisma.generatedVisual.update).not.toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: 'COMPLETED' }),
@@ -363,7 +363,7 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'u1',
       transactionId: 'txn_storage',
-      reason: 'Cloudinary upload failed',
+      reason: 'NEXUS Image Studio could not create a usable image. Reserved credits will be restored.',
     }))
     expect(mockRefund).not.toHaveBeenCalled()
   })
@@ -392,7 +392,7 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
 
     expect(res.status).toBe(500)
-    expect(mockRefund).toHaveBeenCalledWith('u1', 'IMAGE_GENERATION', 'update failed')
+    expect(mockRefund).toHaveBeenCalledWith('u1', 'IMAGE_GENERATION', 'NEXUS Image Studio could not create a usable image. Reserved credits will be restored.')
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
 

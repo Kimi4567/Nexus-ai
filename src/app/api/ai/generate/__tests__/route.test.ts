@@ -101,7 +101,7 @@ describe('POST /api/ai/generate — RF-2 refund safety', () => {
     expect(mockRefundCreditDeduction).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'u1',
       action: 'AD_COPY',
-      reason: 'OpenAI error 500',
+      reason: 'NEXUS AI service error',
     }))
   })
 
