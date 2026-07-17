@@ -228,7 +228,7 @@ describe('generated media quality gate', () => {
 
     expect(result.passed).toBe(false)
     expect(result.issues).toContain('The result reads as a generic generated clip rather than a paid-social product advertisement.')
-    expect(result.issues).toContain('The eight-second edit lacks purposeful commercial pacing or coherent shot progression.')
+    expect(result.issues).toContain('The video edit lacks purposeful commercial pacing or coherent shot progression.')
   })
 
   it('builds three durable Cloudinary review frames for a video', () => {

@@ -175,7 +175,7 @@ describe('contentHubActionSafety', () => {
     expect(validateMotionDesignConfirmation({
       confirmed: true,
       acknowledgedCreditCost: CONTENT_HUB_MOTION_DESIGN_COST,
-      acknowledgedDurationSeconds: 8,
+      acknowledgedDurationSeconds: 6,
       acknowledgedNoPublishOrSchedule: true,
       acknowledgedReviewRequired: true,
       acknowledgedAssetRights: true,
@@ -184,7 +184,7 @@ describe('contentHubActionSafety', () => {
     expect(validateMotionDesignConfirmation({
       confirmed: true,
       acknowledgedCreditCost: CONTENT_HUB_MOTION_DESIGN_COST,
-      acknowledgedDurationSeconds: 8,
+      acknowledgedDurationSeconds: 6,
       acknowledgedNoPublishOrSchedule: true,
       acknowledgedReviewRequired: true,
       acknowledgedAssetRights: true,

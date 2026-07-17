@@ -8,7 +8,7 @@ export type PlatformVideoFormat = {
   width: number
   height: number
   ratio: '1280:720' | '720:1280' | '960:960'
-  durationSeconds: typeof CINEMATIC_PRODUCT_AD_DURATION_SECONDS
+  durationSeconds: number
 }
 
 export type PlatformVideoFormatValidation = {

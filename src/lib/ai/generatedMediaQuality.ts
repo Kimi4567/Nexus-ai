@@ -140,8 +140,14 @@ export function normalizeGeneratedMediaQualityReview(
     && !durationIssue
     ? 'Final media delivery validation did not pass.'
     : ''
+  const providerIssues = boundedIssues(Array.isArray(result.issues) ? result.issues : [])
+  const verifiedFormatPassed = formatValidation?.passed === true
+  const evidenceConsistentProviderIssues = providerIssues.filter(issue => !(
+    verifiedFormatPassed
+    && /(?:incorrect|wrong|invalid|mismatch|does not match).{0,28}(?:dimensions?|aspect ratio|duration)|(?:dimensions?|aspect ratio|duration).{0,28}(?:incorrect|wrong|invalid|mismatch|does not match)/i.test(issue)
+  ))
   const issues = boundedIssues([
-    ...(Array.isArray(result.issues) ? result.issues : []),
+    ...evidenceConsistentProviderIssues,
     formatIssue,
     durationIssue,
     unknownFormatIssue,
@@ -161,7 +167,7 @@ export function normalizeGeneratedMediaQualityReview(
       ? 'The benefit or payoff is not visually understandable without inventing unsupported claims.'
       : '',
     input.requireProductAdStructure && (commercialPacingScore ?? 0) < 85
-      ? 'The eight-second edit lacks purposeful commercial pacing or coherent shot progression.'
+      ? 'The video edit lacks purposeful commercial pacing or coherent shot progression.'
       : '',
     input.requireProductAdStructure && (endFrameReadinessScore ?? 0) < 85
       ? 'The final hero frame is not clean, deliberate, and usable with an exact separately typeset CTA.'
@@ -254,7 +260,7 @@ ${boundedText(input.creativeDirection, 900) || 'Premium, brand-safe advertising 
 
 FINAL PLATFORM FORMAT:
 ${input.targetFormat
-    ? `${input.targetFormat.platform}: exactly ${input.targetFormat.width}×${input.targetFormat.height} (${input.targetFormat.aspectRatio}). Deterministic delivery check: ${JSON.stringify(input.formatValidation ?? {})}`
+    ? `${input.targetFormat.platform}: exactly ${input.targetFormat.width}×${input.targetFormat.height} (${input.targetFormat.aspectRatio}). Deterministic delivery check: ${JSON.stringify(input.formatValidation ?? {})}. This machine-readable delivery check is authoritative for dimensions, aspect ratio, content type, and duration; do not contradict a passed check from visual estimation.`
     : 'No image delivery canvas applies to this review.'}
 
 KNOWN REFERENCE EVIDENCE:
@@ -271,7 +277,7 @@ ${input.requireProductAdStructure ? `- a generic AI motion clip, product demo, m
 - weak product prominence, random camera movement, dead time, incoherent shot progression, or a final frame that cannot carry an exact separately typeset CTA;
 - art direction that feels interchangeable with another brand rather than specific to the approved message and tone.` : ''}
 
-For reference jobs, text/UI already visible inside the supplied source is allowed only when it is faithfully preserved. Exact text in APPROVED MOTION-DESIGN OVERLAYS is also allowed when it is cleanly typeset. "noNewRasterText" means no additional or corrupted text outside the preserved source and those exact overlays.
+For reference jobs, every text/UI element already visible inside the supplied source is approved source evidence when faithfully preserved; do not require it to be repeated in APPROVED MOTION-DESIGN OVERLAYS. Exact text in APPROVED MOTION-DESIGN OVERLAYS is also allowed when it is cleanly typeset. Padding the preserved source inside a platform-safe canvas and typesetting approved overlays outside it are intentional and must not reduce reference-preservation scoring. "noNewRasterText" means no additional or corrupted text outside the preserved source and those exact overlays.
 
 Return JSON exactly:
 {

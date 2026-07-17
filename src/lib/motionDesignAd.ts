@@ -1,7 +1,10 @@
 import { readMediaIntelligence } from '@/lib/creativeIntelligence'
 
-export const MOTION_DESIGN_DURATION_SECONDS = 8
-export const MOTION_DESIGN_SAFE_SOURCE_SECONDS = 3.25
+// Six seconds is a native paid-media bumper length and lets NEXUS stretch only
+// the verified opening three seconds of a source. This avoids looping into an
+// unrelated later scene or using a provider-generated filler shot.
+export const MOTION_DESIGN_DURATION_SECONDS = 6
+export const MOTION_DESIGN_SAFE_SOURCE_SECONDS = 3
 
 export type MotionDesignAssetInput = {
   id: string
@@ -64,9 +67,13 @@ function firstClause(value: string): string {
   const sentence = value.split(/[.!?؟]/u)[0]?.trim() || value.trim()
   const clause = sentence.split(/\s+(?:with|while|and see|so that|because)\s+/i)[0]?.trim() || sentence
   if (/\p{Script=Arabic}/u.test(clause)) {
-    return clause.split(/\s+/).slice(0, 9).join(' ').slice(0, 58).trim()
+    return clause.split(/\s+/).slice(0, 6).join(' ').slice(0, 42).trim()
   }
-  return clause.split(/\s+/).slice(0, 7).join(' ').slice(0, 58).trim()
+  const words = clause.split(/\s+/).filter(Boolean).slice(0, 4)
+  while (words.length > 1 && /^(?:and|or|with|for|to|the)$/i.test(words.at(-1) || '')) {
+    words.pop()
+  }
+  return words.join(' ').slice(0, 34).trim()
 }
 
 /**
@@ -114,7 +121,7 @@ export function assessMotionDesignVideoAsset(asset: MotionDesignAssetInput | nul
 
   const duration = Math.max(0, Number(asset.duration || 0))
   if (duration < 4) {
-    issues.push({ code: 'DURATION_REQUIRED', message: 'The source must contain at least four seconds so NEXUS can build a stable eight-second master.' })
+    issues.push({ code: 'DURATION_REQUIRED', message: 'The source must contain at least four seconds so NEXUS can verify a stable six-second bumper master.' })
   }
 
   const qualityScore = intelligence?.qualityScore ?? null

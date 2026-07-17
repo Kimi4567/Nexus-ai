@@ -1,5 +1,6 @@
 import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
 import { CINEMATIC_PRODUCT_AD_DURATION_SECONDS } from '@/lib/videoAdPreflight'
+import { MOTION_DESIGN_DURATION_SECONDS } from '@/lib/motionDesignAd'
 
 // Client-safe aliases of the one client catalog. A contract test keeps that
 // catalog identical to the server billing catalog in src/lib/credits.ts.
@@ -186,7 +187,7 @@ export function validateMotionDesignConfirmation(input: {
   if (
     input.confirmed !== true
     || input.acknowledgedCreditCost !== CONTENT_HUB_MOTION_DESIGN_COST
-    || input.acknowledgedDurationSeconds !== CINEMATIC_PRODUCT_AD_DURATION_SECONDS
+    || input.acknowledgedDurationSeconds !== MOTION_DESIGN_DURATION_SECONDS
     || input.acknowledgedNoPublishOrSchedule !== true
     || input.acknowledgedReviewRequired !== true
     || input.acknowledgedAssetRights !== true

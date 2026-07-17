@@ -4,7 +4,7 @@ import {
   buildMotionDesignCopy,
   MOTION_DESIGN_DURATION_SECONDS,
 } from '@/lib/motionDesignAd'
-import { buildMotionDesignTransformationUrl } from '@/lib/motionDesignAd.server'
+import { buildMotionDesignFfmpegArgs } from '@/lib/motionDesignAd.server'
 import { resolvePlatformVideoFormat } from '@/lib/platformVideoFormat'
 
 function screenVideo(overrides: Record<string, unknown> = {}) {
@@ -76,26 +76,25 @@ describe('source-locked motion design', () => {
       caption: 'Organize content scheduling and execution with a clear view of your publishing plan. #NEXUSAI https://example.com',
     })).toEqual({
       brandLabel: 'NEXUS AI',
-      hook: 'Organize content scheduling and execution',
+      hook: 'Organize content scheduling',
     })
   })
 
-  it('builds a source-locked eight-second vertical transformation with no audio', () => {
-    const url = buildMotionDesignTransformationUrl({
-      sourcePublicId: 'workspace/product-demo',
+  it('builds a source-locked six-second edit with a three-second end-card hold and no audio', () => {
+    const args = buildMotionDesignFfmpegArgs({
+      sourcePath: '/tmp/source.mp4',
+      outputPath: '/tmp/master.mp4',
       target: resolvePlatformVideoFormat('INSTAGRAM'),
-      copy: { brandLabel: 'NEXUS AI', hook: 'Review before publishing' },
-      brandColor: '#7C3AED',
-      cloudName: 'demo',
     })
-    expect(MOTION_DESIGN_DURATION_SECONDS).toBe(8)
-    expect(url).toContain('/video/upload/')
-    expect(url).toContain('e_boomerang')
-    expect(url).toContain('e_accelerate:-19')
-    expect(url).toContain('h_1280')
-    expect(url).toContain('w_720')
-    expect(url).toContain('ac_none')
-    expect(url).toContain('NEXUS%20AI')
-    expect(url).toContain('Review%20before%20publishing')
+    const command = args.join(' ')
+    expect(MOTION_DESIGN_DURATION_SECONDS).toBe(6)
+    expect(command).toContain('-ss 0 -t 3 -i /tmp/source.mp4')
+    expect(command).toContain('scale=660:920:force_original_aspect_ratio=decrease')
+    expect(command).toContain('pad=720:1280')
+    expect(command).toContain('tpad=stop_mode=clone:stop_duration=3')
+    expect(command).toContain('trim=duration=6')
+    expect(command).toContain('-an')
+    expect(command).toContain('-c:v libx264')
+    expect(command).not.toContain('Review before publishing')
   })
 })

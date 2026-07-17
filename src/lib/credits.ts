@@ -99,8 +99,8 @@ export const CREDIT_COSTS = {
 
   /**
    * Source-locked motion design — turns one analysed user-owned screen/demo
-   * clip into an eight-second platform master. The route uses deterministic
-   * Cloudinary composition plus one bounded visual QA call; it never calls a
+   * clip into a six-second bumper master. The route uses deterministic
+   * packaged FFmpeg edit plus one bounded visual QA call; it never calls a
    * generative-video provider and never performs an automatic retry.
    */
   MOTION_DESIGN_VIDEO: 6,
@@ -273,7 +273,7 @@ export const CREDIT_ACTION_POLICIES: Record<CreditAction, CreditActionPolicy> = 
   MOTION_DESIGN_VIDEO: {
     label: 'Source-locked motion design ad',
     reason: 'Turns one approved user-owned screen or demo clip into a platform-ready advertising master without generative-video spend.',
-    includedWork: 'Source preflight, one deterministic eight-second motion-design render, durable storage, five-frame quality review, and safe draft attachment. No generative-video provider, automatic retry, publishing, or scheduling.',
+    includedWork: 'Source preflight, one deterministic six-second motion-design bumper, durable storage, five-frame quality review, and safe draft attachment. No generative-video provider, automatic retry, publishing, or scheduling.',
     providerCallLimit: 2,
     refundableOnNoUsableOutput: true,
   },

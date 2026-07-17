@@ -141,8 +141,8 @@ const CREDIT_ACTIONS = [
   },
   {
     icon: Video,
-    labelAr: 'Motion Design من فيديو حقيقي — 8 ثوانٍ',
-    labelEn: 'Source-locked Motion Design — 8 seconds',
+    labelAr: 'Motion Design من فيديو حقيقي — 6 ثوانٍ',
+    labelEn: 'Source-locked Motion Design — 6 seconds',
     cost: CREDIT_ACTION_COSTS.MOTION_DESIGN_VIDEO,
     noteAr: 'يحافظ على فيديو الواجهة أو الـDemo كما هو؛ لا يستخدم مزود فيديو توليدي، مع فحص 5 لقطات قبل الربط',
     noteEn: 'Preserves the supplied screen/demo video; no generative-video provider, with five-frame QA before attachment',

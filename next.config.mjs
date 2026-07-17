@@ -5,6 +5,14 @@ const nextConfig = {
   reactStrictMode: true,
   compress: true,
   poweredByHeader: false,
+  // The deterministic Motion Design route uses the packaged FFmpeg binary.
+  // Keep it in the traced serverless function instead of relying on a host
+  // installation that differs between local, preview, and production.
+  outputFileTracingIncludes: {
+    '/api/campaigns/[id]/content-plan/[postId]/generate-motion-design': [
+      './node_modules/ffmpeg-static/ffmpeg',
+    ],
+  },
   images: {
     domains: [
       'res.cloudinary.com',

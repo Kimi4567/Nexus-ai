@@ -35,11 +35,11 @@ import {
   buildMotionDesignCopy,
   cloudinarySourceReviewFrames,
   MOTION_DESIGN_DURATION_SECONDS,
+  MOTION_DESIGN_SAFE_SOURCE_SECONDS,
 } from '@/lib/motionDesignAd'
 import {
-  buildMotionDesignTransformationUrl,
   destroyMotionDesignAd,
-  persistMotionDesignAd,
+  renderAndPersistMotionDesignAd,
 } from '@/lib/motionDesignAd.server'
 import {
   resolvePlatformVideoFormat,
@@ -270,7 +270,10 @@ export async function POST(req: NextRequest, props: Params) {
     campaignName: campaign.name,
     caption: post.caption,
   })
-  const targetFormat = resolvePlatformVideoFormat(post.publishTarget || post.platform)
+  const targetFormat = {
+    ...resolvePlatformVideoFormat(post.publishTarget || post.platform),
+    durationSeconds: MOTION_DESIGN_DURATION_SECONDS,
+  }
   const generation = await db.generation.create({
     data: {
       campaignId: params.id,
@@ -283,7 +286,7 @@ export async function POST(req: NextRequest, props: Params) {
         productionRoute: 'SOURCE_LOCKED_MOTION_DESIGN',
         targetFormat,
         durationSeconds: MOTION_DESIGN_DURATION_SECONDS,
-        safeSourceSeconds: 3.25,
+        safeSourceSeconds: MOTION_DESIGN_SAFE_SOURCE_SECONDS,
         automaticProviderRetries: 0,
         generativeVideoProviderCalls: 0,
         operationKey,
@@ -298,7 +301,7 @@ export async function POST(req: NextRequest, props: Params) {
     entityId: post.id,
     entityType: 'social_post_motion_design',
     operationKey,
-    description: `Eight-second source-locked Motion Design ad — post #${post.contentPlanIndex ?? post.id}; no generative-video provider`,
+    description: `Six-second source-locked Motion Design bumper — post #${post.contentPlanIndex ?? post.id}; no generative-video provider`,
   })
   if (!credit.ok) {
     await db.generation.update({
@@ -308,16 +311,14 @@ export async function POST(req: NextRequest, props: Params) {
     return NextResponse.json(credit, { status: creditCheckHttpStatus(credit) })
   }
 
-  let stored: Awaited<ReturnType<typeof persistMotionDesignAd>> | null = null
+  let stored: Awaited<ReturnType<typeof renderAndPersistMotionDesignAd>> | null = null
   try {
     await db.generation.update({ where: { id: generation.id }, data: { status: 'PROCESSING', progress: 10 } })
-    const transformedUrl = buildMotionDesignTransformationUrl({
-      sourcePublicId: source.cloudinaryId,
+    stored = await renderAndPersistMotionDesignAd({
+      sourceUrl: source.url,
       target: targetFormat,
-      copy,
-      brandColor: Array.isArray(brand?.colorPalette) ? brand.colorPalette[0] : null,
+      generationId: generation.id,
     })
-    stored = await persistMotionDesignAd({ transformedUrl, generationId: generation.id })
     const formatValidation = validatePlatformVideoFormat({
       width: stored.width,
       height: stored.height,
@@ -330,12 +331,12 @@ export async function POST(req: NextRequest, props: Params) {
       outputFrames: cloudinaryVideoReviewFrames(stored.url, stored.duration ?? MOTION_DESIGN_DURATION_SECONDS),
       referenceImageUrls: cloudinarySourceReviewFrames(source.url),
       campaignMessage: post.caption,
-      creativeDirection: 'Source-locked paid-social motion design. Preserve the selected screen/demo pixels, use the exact approved brand label and hook, and show no unrelated subject.',
+      creativeDirection: 'Source-locked paid-social motion design. Preserve the verified source pixels inside a platform-safe canvas for the opening motion, then hold its last clean frame as a deliberate CTA/end card. Add no synthetic product pixels, no generated text, no unrelated subject, and no new claim.',
       referenceEvidence: intelligence,
       targetFormat,
       formatValidation,
       requireProductAdStructure: true,
-      approvedOverlayTexts: [copy.brandLabel, copy.hook],
+      approvedOverlayTexts: [],
     })
     if (!qualityReview.passed) {
       const message = 'NEXUS quality review rejected this Motion Design render. Reserved credits will be restored.'
@@ -447,7 +448,7 @@ export async function POST(req: NextRequest, props: Params) {
           output: stored!.url,
           params: { ...generationParams(generation.params), credit },
           metadata: {
-            model: 'source-locked-motion-design-2026-07',
+            model: 'source-locked-motion-design-ffmpeg-2026-07',
             productionRoute: 'SOURCE_LOCKED_MOTION_DESIGN',
             sourceMediaId: source.id,
             mediaId: media.id,
@@ -484,6 +485,9 @@ export async function POST(req: NextRequest, props: Params) {
   } catch (error) {
     const internalMessage = sanitizeSentryText(error instanceof Error ? error.message : 'Motion design failed').slice(0, 500)
     console.error('[generate-motion-design] production failed', internalMessage)
+    if (stored?.publicId) {
+      await destroyMotionDesignAd(stored.publicId).catch(() => undefined)
+    }
     const message = 'NEXUS could not verify and store a usable Motion Design video. Reserved credits will be restored.'
     const refund = await restoreCredits({ userId, deduction: credit, reason: message })
     await db.generation.update({
@@ -491,7 +495,7 @@ export async function POST(req: NextRequest, props: Params) {
       data: {
         status: 'FAILED',
         progress: 100,
-        output: stored?.url ?? null,
+        output: null,
         error: message,
         params: { ...generationParams(generation.params), credit },
         metadata: {
