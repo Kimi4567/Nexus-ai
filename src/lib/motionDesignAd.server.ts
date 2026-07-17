@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { createWriteStream } from 'node:fs'
+import { createWriteStream, existsSync } from 'node:fs'
 import { mkdtemp, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -28,6 +28,17 @@ const execFileAsync = promisify(execFile)
 const MAX_SOURCE_BYTES = 100 * 1024 * 1024
 const RENDER_TIMEOUT_MS = 90_000
 const MOTION_DESIGN_FRAME_RATE = 24
+
+function resolveFfmpegBinary(): string {
+  // Next bundles ffmpeg-static's JS shim into the route, so its default export
+  // can point beside route.js on Vercel even though output tracing correctly
+  // ships the executable under node_modules. Prefer that traced runtime path.
+  const tracedRuntimePath = path.join(process.cwd(), 'node_modules', 'ffmpeg-static', 'ffmpeg')
+  const candidates = [tracedRuntimePath, ffmpegPath].filter((value): value is string => Boolean(value))
+  const available = candidates.find(candidate => existsSync(candidate))
+  if (!available) throw new Error('NEXUS Motion Design render engine is unavailable on this platform')
+  return available
+}
 
 function configureCloudinary() {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
@@ -136,14 +147,14 @@ export async function renderAndPersistMotionDesignAd(input: {
   generationId: string
 }): Promise<StoredMotionDesignVideo> {
   configureCloudinary()
-  if (!ffmpegPath) throw new Error('NEXUS Motion Design render engine is unavailable on this platform')
+  const executable = resolveFfmpegBinary()
 
   const workDir = await mkdtemp(path.join(tmpdir(), 'nexus-motion-'))
   const sourcePath = path.join(workDir, 'source.mp4')
   const outputPath = path.join(workDir, 'master.mp4')
   try {
     await downloadSourceVideo(input.sourceUrl, sourcePath)
-    await execFileAsync(ffmpegPath, buildMotionDesignFfmpegArgs({
+    await execFileAsync(executable, buildMotionDesignFfmpegArgs({
       sourcePath,
       outputPath,
       target: input.target,
