@@ -13,7 +13,8 @@ describe('Runway adapter', () => {
   })
 
   it('starts an exact five-second Gen-4.5 image-to-video task', async () => {
-    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ id: 'task_123456', status: 'PENDING' }), { status: 200 }))
+    // Runway creation responses contain the task ID only; status is fetched separately.
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ id: 'task_123456' }), { status: 200 }))
 
     await expect(createRunwayVideoTask({
       promptText: 'Premium product reveal',

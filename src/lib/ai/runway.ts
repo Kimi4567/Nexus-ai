@@ -28,7 +28,23 @@ function runwayKey(): string {
   return key.trim()
 }
 
-async function runwayRequest(path: string, init: RequestInit): Promise<RunwayTask> {
+function isRunwayTaskStatus(value: unknown): value is RunwayTaskStatus {
+  return typeof value === 'string' && [
+    'PENDING',
+    'THROTTLED',
+    'RUNNING',
+    'SUCCEEDED',
+    'FAILED',
+    'CANCELED',
+    'CANCELLED',
+  ].includes(value)
+}
+
+async function runwayRequest(
+  path: string,
+  init: RequestInit,
+  options: { defaultStatus?: RunwayTaskStatus } = {},
+): Promise<RunwayTask> {
   const response = await fetch(`${RUNWAY_API_ROOT}${path}`, {
     ...init,
     headers: {
@@ -66,9 +82,21 @@ async function runwayRequest(path: string, init: RequestInit): Promise<RunwayTas
     throw new Error([primary, validationText].filter(Boolean).join(' — ').slice(0, 1_200))
   }
 
-  const task = await response.json() as RunwayTask
-  if (!task?.id || !task.status) throw new Error('Runway returned an invalid task response')
-  return task
+  const payload = await response.json() as Record<string, unknown>
+  if (!payload || typeof payload.id !== 'string' || !payload.id.trim()) {
+    throw new Error('Runway returned an invalid task response')
+  }
+
+  const status = isRunwayTaskStatus(payload.status)
+    ? payload.status
+    : options.defaultStatus
+  if (!status) throw new Error('Runway returned an invalid task response')
+
+  return {
+    ...payload,
+    id: payload.id,
+    status,
+  } as RunwayTask
 }
 
 export async function createRunwayVideoTask(input: {
@@ -86,7 +114,7 @@ export async function createRunwayVideoTask(input: {
       ratio: input.ratio,
       duration: input.duration ?? 5,
     }),
-  })
+  }, { defaultStatus: 'PENDING' })
 }
 
 export async function retrieveRunwayTask(taskId: string): Promise<RunwayTask> {
