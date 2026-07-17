@@ -4428,12 +4428,19 @@ export default function ContentHubPage() {
 
         {videoGenerationConfirmPost && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.34)', backdropFilter: 'blur(12px)' }} onClick={closeVideoGenerationConfirm}>
-            <div className="w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl" style={{ border: '1px solid rgba(15,23,42,0.10)' }} onClick={event => event.stopPropagation()}>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="nexus-video-studio-title"
+              className="w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+              style={{ border: '1px solid rgba(15,23,42,0.10)' }}
+              onClick={event => event.stopPropagation()}
+            >
               <div className="bg-slate-950 px-6 py-5 text-white">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300">NEXUS VIDEO STUDIO · 5S MASTER</p>
-                    <h3 className="mt-1 text-xl font-bold">{isAr ? 'إنتاج فيديو إعلاني احترافي' : 'Produce a professional ad video'}</h3>
+                    <h3 id="nexus-video-studio-title" className="mt-1 text-xl font-bold">{isAr ? 'إنتاج فيديو إعلاني احترافي' : 'Produce a professional ad video'}</h3>
                     <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-300">
                       {isAr
                         ? `ينتج NEXUS لقطة إعلانية سينمائية مدتها 5 ثوانٍ للمنشور #${videoGenerationConfirmPost.contentPlanIndex}. النص العربي أو الإنجليزي يظل في طبقة النص/الكابشن حتى لا يشوه الذكاء الحروف داخل الفيديو.`

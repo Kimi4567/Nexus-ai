@@ -67,6 +67,11 @@ export function chooseProfessionalImageProvider(
 
 export type RunwayVideoRatio = '1280:720' | '720:1280' | '960:960'
 
+// Keep a margin below the provider's 1,000-character validation limit. The
+// safety suffix is appended after truncation so long campaign copy can never
+// cut off product-fidelity or typography protections.
+export const PROFESSIONAL_VIDEO_PROMPT_MAX_CHARS = 950
+
 export function platformToRunwayRatio(platform: string, hasReferenceImage: boolean): RunwayVideoRatio {
   const target = platform.trim().toUpperCase()
   if (['TIKTOK', 'YOUTUBE', 'YOUTUBE_SHORTS', 'INSTAGRAM', 'META'].includes(target)) {
@@ -90,26 +95,32 @@ export function buildProfessionalVideoPrompt(input: {
   toneWords?: string[] | null
   hasReferenceImage: boolean
 }): string {
-  const brandName = cleanPromptPart(input.brandName, 80) || 'the brand'
-  const direction = cleanPromptPart(input.videoDirection, 900)
-  const caption = cleanPromptPart(input.caption, 700)
-  const industry = cleanPromptPart(input.industry, 100)
+  const brandName = cleanPromptPart(input.brandName, 60) || 'the brand'
+  const direction = cleanPromptPart(input.videoDirection, 280)
+  const caption = cleanPromptPart(input.caption, 140)
+  const industry = cleanPromptPart(input.industry, 60)
   const tone = Array.isArray(input.toneWords)
-    ? input.toneWords.map(item => cleanPromptPart(item, 40)).filter(Boolean).slice(0, 5).join(', ')
+    ? input.toneWords.map(item => cleanPromptPart(item, 24)).filter(Boolean).slice(0, 4).join(', ')
     : ''
 
   const sourceRule = input.hasReferenceImage
-    ? 'Use the supplied image as the exact product and first-frame source of truth. Preserve product geometry, packaging, colours, labels, logo placement, proportions, and distinctive details. Do not redesign, replace, or hallucinate the product.'
-    : 'Create a brand-safe cinematic scene without inventing a specific product, interface, customer result, award, testimonial, statistic, or certification that is not visible in the source.'
+    ? 'The supplied image is the exact first-frame source of truth. Preserve its geometry, colours, labels, logo placement, proportions, and distinctive details; do not redesign or replace it.'
+    : 'Create a brand-safe scene without inventing a product, interface, result, award, testimonial, statistic, or certification.'
 
-  return [
+  const safetySuffix = 'Use realistic light, plausible motion, stable composition, controlled camera movement, and a clean ad-ready end frame. No generated text, captions, subtitles, watermarks, extra logos, distorted details, duplicate products, or jump cuts.'
+  const base = [
     `Create one premium five-second commercial master shot for ${brandName}.`,
-    industry ? `Industry context: ${industry}.` : '',
+    industry ? `Industry: ${industry}.` : '',
     tone ? `Visual tone: ${tone}.` : '',
-    direction ? `Creative direction: ${direction}.` : '',
-    caption ? `Message context only (do not render as text): ${caption}.` : '',
+    direction ? `Scene and motion: ${direction}.` : '',
+    caption ? `Message context only; never render it as text: ${caption}.` : '',
     sourceRule,
-    'Use deliberate cinematic motion, realistic lighting, physically plausible reflections and shadows, stable composition, controlled camera movement, and a clean ending frame suitable for an ad edit.',
-    'No generated captions, typography, subtitles, watermarks, extra logos, distorted hands, morphing labels, duplicate products, or jump cuts. Keep any Arabic or English copy outside the generated pixels so NEXUS can preserve correct typography during review.',
   ].filter(Boolean).join(' ')
+
+  const availableBaseChars = PROFESSIONAL_VIDEO_PROMPT_MAX_CHARS - safetySuffix.length - 1
+  const boundedBase = base.length <= availableBaseChars
+    ? base
+    : base.slice(0, availableBaseChars).replace(/\s+\S*$/, '').trim()
+
+  return `${boundedBase} ${safetySuffix}`.trim()
 }

@@ -3,6 +3,7 @@ import {
   buildProfessionalVideoPrompt,
   chooseProfessionalImageProvider,
   platformToRunwayRatio,
+  PROFESSIONAL_VIDEO_PROMPT_MAX_CHARS,
 } from '../mediaProviderRouter'
 
 describe('professional media provider routing', () => {
@@ -55,9 +56,25 @@ describe('professional media provider routing', () => {
       toneWords: ['premium', 'clear'],
       hasReferenceImage: true,
     })
-    expect(prompt).toContain('exact product and first-frame source of truth')
-    expect(prompt).toContain('Preserve product geometry')
-    expect(prompt).toContain('No generated captions')
-    expect(prompt).toContain('Arabic or English copy outside the generated pixels')
+    expect(prompt).toContain('exact first-frame source of truth')
+    expect(prompt).toContain('Preserve its geometry')
+    expect(prompt).toContain('No generated text')
+    expect(prompt.length).toBeLessThanOrEqual(PROFESSIONAL_VIDEO_PROMPT_MAX_CHARS)
+  })
+
+  it('keeps the safety suffix when strategy and caption inputs are very long', () => {
+    const prompt = buildProfessionalVideoPrompt({
+      brandName: 'NEXUS',
+      caption: 'Long campaign copy '.repeat(100),
+      videoDirection: 'Detailed cinematic direction '.repeat(100),
+      industry: 'AI marketing software',
+      toneWords: ['premium', 'precise', 'confident', 'clear'],
+      hasReferenceImage: true,
+    })
+
+    expect(prompt.length).toBeLessThanOrEqual(PROFESSIONAL_VIDEO_PROMPT_MAX_CHARS)
+    expect(prompt).toContain('source of truth')
+    expect(prompt).toContain('No generated text')
+    expect(prompt).toContain('extra logos')
   })
 })

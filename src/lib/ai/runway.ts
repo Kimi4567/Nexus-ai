@@ -42,10 +42,28 @@ async function runwayRequest(path: string, init: RequestInit): Promise<RunwayTas
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({})) as {
-      error?: string
-      message?: string
+      error?: unknown
+      message?: unknown
+      details?: unknown
+      issues?: unknown
     }
-    throw new Error(payload.message || payload.error || `Runway API error: ${response.status}`)
+    const primary = typeof payload.message === 'string'
+      ? payload.message
+      : typeof payload.error === 'string'
+        ? payload.error
+        : `Video provider request failed: ${response.status}`
+    const validation = payload.details ?? payload.issues
+    let validationText = ''
+    if (typeof validation === 'string') {
+      validationText = validation
+    } else if (validation) {
+      try {
+        validationText = JSON.stringify(validation)
+      } catch {
+        validationText = 'Provider returned non-serializable validation details.'
+      }
+    }
+    throw new Error([primary, validationText].filter(Boolean).join(' — ').slice(0, 1_200))
   }
 
   const task = await response.json() as RunwayTask

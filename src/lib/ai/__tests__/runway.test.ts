@@ -49,4 +49,17 @@ describe('Runway adapter', () => {
     })
     expect(vi.mocked(fetch).mock.calls[0][0]).toBe('https://api.dev.runwayml.com/v1/tasks/task_123456')
   })
+
+  it('preserves provider validation details for internal diagnostics', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({
+      error: 'Validation of body failed',
+      issues: [{ path: ['promptText'], message: 'String must contain at most 1000 characters' }],
+    }), { status: 400 }))
+
+    await expect(createRunwayVideoTask({
+      promptText: 'Too long',
+      ratio: '1280:720',
+      duration: 5,
+    })).rejects.toThrow(/promptText.*at most 1000 characters/)
+  })
 })
