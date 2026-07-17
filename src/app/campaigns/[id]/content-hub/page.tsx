@@ -4595,7 +4595,8 @@ export default function ContentHubPage() {
                     <p className="text-sm font-bold text-violet-950">{isAr ? 'عقد التنفيذ' : 'Execution contract'}</p>
                     <div className="mt-3 space-y-2 text-xs leading-relaxed text-violet-950/75">
                       <p>✓ {isAr ? 'تسلسل إعلاني: Hook ← Product ← Benefit ← End frame' : 'Ad sequence: Hook → Product → Benefit → End frame'}</p>
-                      <p>✓ {isAr ? 'فحص 3 فريمات وحفظ المنتج قبل الربط' : 'Three-frame QA and product-fidelity gate before attachment'}</p>
+                      <p>✓ {isAr ? 'فحص 5 لقطات: Hook والمنتج والمنفعة والإيقاع والفريم الختامي' : 'Five-point QA: hook, product, benefit, pacing, and end frame'}</p>
+                      <p>✓ {isAr ? 'رفض أي فيديو جميل لكنه يبدو كـB-roll مولّد وليس إعلان Paid Social' : 'Reject polished B-roll that does not read as a paid-social advertisement'}</p>
                       <p>✓ {isAr ? `المدة: ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ` : `Duration: ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} seconds`}</p>
                       <p>✓ {isAr ? `التكلفة: ${CONTENT_HUB_VIDEO_COST} كريديت` : `Cost: ${CONTENT_HUB_VIDEO_COST} credits`}</p>
                       <p>✓ {isAr ? 'حفظ دائم في مكتبة الوسائط' : 'Durable Media Library storage'}</p>

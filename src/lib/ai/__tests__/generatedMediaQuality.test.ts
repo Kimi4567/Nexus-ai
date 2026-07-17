@@ -175,12 +175,70 @@ describe('generated media quality gate', () => {
     expect(result.issues[0]).toContain('hook, product reveal, benefit moment')
   })
 
+  it('accepts a product video only when it reads as a finished paid-social advertisement', () => {
+    const result = normalizeGeneratedMediaQualityReview({
+      referencePreservationScore: 97,
+      semanticAlignmentScore: 94,
+      professionalQualityScore: 95,
+      technicalIntegrity: true,
+      noNewRasterText: true,
+      noInventedClaims: true,
+      advertisingStructure: true,
+      paidSocialAdReadiness: true,
+      commercialHookScore: 91,
+      productHeroScore: 96,
+      benefitCommunicationScore: 88,
+      commercialPacingScore: 92,
+      endFrameReadinessScore: 94,
+      brandAlignmentScore: 93,
+      issues: [],
+    }, {
+      mediaType: 'VIDEO',
+      referenceImageUrl: 'https://res.cloudinary.com/demo/reference.png',
+      requireProductAdStructure: true,
+    }, usage)
+
+    expect(result.passed).toBe(true)
+    expect(result.paidSocialAdReadiness).toBe(true)
+    expect(result.productHeroScore).toBe(96)
+  })
+
+  it('rejects beautiful AI B-roll when commercial readiness is below threshold', () => {
+    const result = normalizeGeneratedMediaQualityReview({
+      referencePreservationScore: 96,
+      semanticAlignmentScore: 93,
+      professionalQualityScore: 94,
+      technicalIntegrity: true,
+      noNewRasterText: true,
+      noInventedClaims: true,
+      advertisingStructure: true,
+      paidSocialAdReadiness: false,
+      commercialHookScore: 72,
+      productHeroScore: 94,
+      benefitCommunicationScore: 74,
+      commercialPacingScore: 70,
+      endFrameReadinessScore: 78,
+      brandAlignmentScore: 91,
+      issues: [],
+    }, {
+      mediaType: 'VIDEO',
+      referenceImageUrl: 'https://res.cloudinary.com/demo/reference.png',
+      requireProductAdStructure: true,
+    }, usage)
+
+    expect(result.passed).toBe(false)
+    expect(result.issues).toContain('The result reads as a generic generated clip rather than a paid-social product advertisement.')
+    expect(result.issues).toContain('The eight-second edit lacks purposeful commercial pacing or coherent shot progression.')
+  })
+
   it('builds three durable Cloudinary review frames for a video', () => {
     expect(cloudinaryVideoReviewFrames(
       'https://res.cloudinary.com/demo/video/upload/v1/nexus/video.mp4',
     )).toEqual([
       'https://res.cloudinary.com/demo/video/upload/so_0,f_jpg,q_auto/v1/nexus/video.jpg',
+      'https://res.cloudinary.com/demo/video/upload/so_1,f_jpg,q_auto/v1/nexus/video.jpg',
       'https://res.cloudinary.com/demo/video/upload/so_2,f_jpg,q_auto/v1/nexus/video.jpg',
+      'https://res.cloudinary.com/demo/video/upload/so_3,f_jpg,q_auto/v1/nexus/video.jpg',
       'https://res.cloudinary.com/demo/video/upload/so_4,f_jpg,q_auto/v1/nexus/video.jpg',
     ])
     expect(cloudinaryVideoReviewFrames(
@@ -188,7 +246,9 @@ describe('generated media quality gate', () => {
       8,
     )).toEqual([
       'https://res.cloudinary.com/demo/video/upload/so_0,f_jpg,q_auto/v1/nexus/video.jpg',
-      'https://res.cloudinary.com/demo/video/upload/so_4,f_jpg,q_auto/v1/nexus/video.jpg',
+      'https://res.cloudinary.com/demo/video/upload/so_1,f_jpg,q_auto/v1/nexus/video.jpg',
+      'https://res.cloudinary.com/demo/video/upload/so_3,f_jpg,q_auto/v1/nexus/video.jpg',
+      'https://res.cloudinary.com/demo/video/upload/so_5,f_jpg,q_auto/v1/nexus/video.jpg',
       'https://res.cloudinary.com/demo/video/upload/so_7,f_jpg,q_auto/v1/nexus/video.jpg',
     ])
   })

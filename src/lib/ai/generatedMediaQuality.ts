@@ -24,6 +24,13 @@ export interface GeneratedMediaQualityReview {
   noNewRasterText: boolean
   noInventedClaims: boolean
   advertisingStructure: boolean | null
+  paidSocialAdReadiness: boolean | null
+  commercialHookScore: number | null
+  productHeroScore: number | null
+  benefitCommunicationScore: number | null
+  commercialPacingScore: number | null
+  endFrameReadinessScore: number | null
+  brandAlignmentScore: number | null
   issues: string[]
   summary: string
   reviewedAt: string
@@ -98,6 +105,15 @@ export function normalizeGeneratedMediaQualityReview(
   const advertisingStructure = input.requireProductAdStructure
     ? result.advertisingStructure === true
     : null
+  const paidSocialAdReadiness = input.requireProductAdStructure
+    ? result.paidSocialAdReadiness === true
+    : null
+  const commercialHookScore = input.requireProductAdStructure ? score(result.commercialHookScore) : null
+  const productHeroScore = input.requireProductAdStructure ? score(result.productHeroScore) : null
+  const benefitCommunicationScore = input.requireProductAdStructure ? score(result.benefitCommunicationScore) : null
+  const commercialPacingScore = input.requireProductAdStructure ? score(result.commercialPacingScore) : null
+  const endFrameReadinessScore = input.requireProductAdStructure ? score(result.endFrameReadinessScore) : null
+  const brandAlignmentScore = input.requireProductAdStructure ? score(result.brandAlignmentScore) : null
   const formatRequired = Boolean(input.targetFormat)
   const formatValidation = formatRequired ? input.formatValidation ?? null : null
   const dimensionsPassed = Boolean(
@@ -130,20 +146,50 @@ export function normalizeGeneratedMediaQualityReview(
     input.requireProductAdStructure && !advertisingStructure
       ? 'The video does not visibly deliver the required advertising sequence: hook, product reveal, benefit moment, and deliberate end frame.'
       : '',
+    input.requireProductAdStructure && !paidSocialAdReadiness
+      ? 'The result reads as a generic generated clip rather than a paid-social product advertisement.'
+      : '',
+    input.requireProductAdStructure && (commercialHookScore ?? 0) < 85
+      ? 'The opening two seconds do not create a clear, scroll-stopping commercial hook.'
+      : '',
+    input.requireProductAdStructure && (productHeroScore ?? 0) < 90
+      ? 'The real product is not presented as a stable, unmistakable hero throughout the advertisement.'
+      : '',
+    input.requireProductAdStructure && (benefitCommunicationScore ?? 0) < 80
+      ? 'The benefit or payoff is not visually understandable without inventing unsupported claims.'
+      : '',
+    input.requireProductAdStructure && (commercialPacingScore ?? 0) < 85
+      ? 'The eight-second edit lacks purposeful commercial pacing or coherent shot progression.'
+      : '',
+    input.requireProductAdStructure && (endFrameReadinessScore ?? 0) < 85
+      ? 'The final hero frame is not clean, deliberate, and usable with an exact separately typeset CTA.'
+      : '',
+    input.requireProductAdStructure && (brandAlignmentScore ?? 0) < 85
+      ? 'The visible art direction does not match the approved brand and campaign intent closely enough.'
+      : '',
   ])
 
   // The model supplies observations; NEXUS owns the decision. A reference job
   // must preserve the actual product/source, and every output must remain free
   // of invented claims and unusable raster typography.
   const passed = (
-    (!referenceRequired || (referencePreservationScore ?? 0) >= 90)
-    && semanticAlignmentScore >= 75
-    && professionalQualityScore >= 80
+    (!referenceRequired || (referencePreservationScore ?? 0) >= (input.requireProductAdStructure ? 92 : 90))
+    && semanticAlignmentScore >= (input.requireProductAdStructure ? 85 : 75)
+    && professionalQualityScore >= (input.requireProductAdStructure ? 88 : 80)
     && technicalIntegrity
     && (!formatRequired || formatValidation?.passed === true)
     && noNewRasterText
     && noInventedClaims
-    && (!input.requireProductAdStructure || advertisingStructure === true)
+    && (!input.requireProductAdStructure || (
+      advertisingStructure === true
+      && paidSocialAdReadiness === true
+      && (commercialHookScore ?? 0) >= 85
+      && (productHeroScore ?? 0) >= 90
+      && (benefitCommunicationScore ?? 0) >= 80
+      && (commercialPacingScore ?? 0) >= 85
+      && (endFrameReadinessScore ?? 0) >= 85
+      && (brandAlignmentScore ?? 0) >= 85
+    ))
     && issues.length === 0
   )
 
@@ -161,6 +207,13 @@ export function normalizeGeneratedMediaQualityReview(
     noNewRasterText,
     noInventedClaims,
     advertisingStructure,
+    paidSocialAdReadiness,
+    commercialHookScore,
+    productHeroScore,
+    benefitCommunicationScore,
+    commercialPacingScore,
+    endFrameReadinessScore,
+    brandAlignmentScore,
     issues,
     summary: boundedText(result.summary, 300) || (passed
       ? 'NEXUS quality review passed.'
@@ -177,7 +230,7 @@ export async function reviewGeneratedMediaQuality(
   if (!apiKey) throw new Error('NEXUS media quality review is unavailable')
   const frames = input.outputFrames
     .filter(url => typeof url === 'string' && url.startsWith('https://'))
-    .slice(0, input.mediaType === 'VIDEO' ? 3 : 1)
+    .slice(0, input.mediaType === 'VIDEO' ? 5 : 1)
   if (frames.length === 0) throw new Error('NEXUS media quality review received no durable output')
 
   const referenceUrls = Array.from(new Set([
@@ -208,7 +261,10 @@ Reject if any of these are present:
 - invented claims, statistics, awards, testimonials, certifications, or product capabilities;
 - mismatch with the campaign message, obvious anatomy/object errors, broken geometry, poor cropping, low resolution, jump cuts, flicker, or an amateur composition.
 - a composition that becomes unusable or loses the important subject within the stated final platform canvas.
-${input.requireProductAdStructure ? '- a generic motion clip that lacks a visible opening hook, coherent product reveal, benefit/payoff moment, or deliberate final hero frame with CTA space.' : ''}
+${input.requireProductAdStructure ? `- a generic AI motion clip, product demo, mood reel, slideshow, or attractive B-roll that would not function as a paid-social advertisement;
+- an opening that fails to stop attention within the first two seconds;
+- weak product prominence, random camera movement, dead time, incoherent shot progression, or a final frame that cannot carry an exact separately typeset CTA;
+- art direction that feels interchangeable with another brand rather than specific to the approved message and tone.` : ''}
 
 For reference jobs, text/UI already visible inside the supplied source is allowed only when it is faithfully preserved. "noNewRasterText" means no additional generated text outside that preserved source.
 
@@ -221,6 +277,13 @@ Return JSON exactly:
   "noNewRasterText": true,
   "noInventedClaims": true,
   "advertisingStructure": ${input.requireProductAdStructure ? 'true' : 'null'},
+  "paidSocialAdReadiness": ${input.requireProductAdStructure ? 'true' : 'null'},
+  "commercialHookScore": ${input.requireProductAdStructure ? '0' : 'null'},
+  "productHeroScore": ${input.requireProductAdStructure ? '0' : 'null'},
+  "benefitCommunicationScore": ${input.requireProductAdStructure ? '0' : 'null'},
+  "commercialPacingScore": ${input.requireProductAdStructure ? '0' : 'null'},
+  "endFrameReadinessScore": ${input.requireProductAdStructure ? '0' : 'null'},
+  "brandAlignmentScore": ${input.requireProductAdStructure ? '0' : 'null'},
   "issues": [],
   "summary": "short evidence-based verdict"
 }`,
@@ -277,6 +340,12 @@ export function cloudinaryVideoReviewFrames(videoUrl: string, durationSeconds = 
   }
   const jpegUrl = videoUrl.replace(/\.[a-z0-9]+(?:\?.*)?$/i, '.jpg')
   const duration = Math.max(2, Math.round(durationSeconds))
-  const seconds = Array.from(new Set([0, Math.floor(duration / 2), duration - 1]))
+  const seconds = Array.from(new Set([
+    0,
+    Math.min(1, duration - 1),
+    Math.max(1, Math.floor(duration * 0.4)),
+    Math.max(1, Math.floor(duration * 0.7)),
+    duration - 1,
+  ])).sort((a, b) => a - b)
   return seconds.map(second => jpegUrl.replace('/video/upload/', `/video/upload/so_${second},f_jpg,q_auto/`))
 }
