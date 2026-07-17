@@ -80,7 +80,7 @@ describe('source-locked motion design', () => {
     })
   })
 
-  it('builds a source-locked six-second edit with a three-second end-card hold and no audio', () => {
+  it('builds a source-locked six-second edit with a kinetic hook, CTA push-in, and no audio', () => {
     const args = buildMotionDesignFfmpegArgs({
       sourcePath: '/tmp/source.mp4',
       outputPath: '/tmp/master.mp4',
@@ -92,6 +92,8 @@ describe('source-locked motion design', () => {
     expect(command).toContain('scale=660:920:force_original_aspect_ratio=decrease')
     expect(command).toContain('pad=720:1280')
     expect(command).toContain('tpad=stop_mode=clone:stop_duration=3')
+    expect(command).toContain("zoompan=z='if(lt(on,12),1.08-(on/12)*0.08")
+    expect(command).toContain(')*0.06)')
     expect(command).toContain('trim=duration=6')
     expect(command).toContain('-an')
     expect(command).toContain('-c:v libx264')

@@ -4627,8 +4627,8 @@ export default function ContentHubPage() {
                     <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-300">
                       {videoProductionMode === 'MOTION_DESIGN'
                         ? (isAr
-                          ? `يحافظ NEXUS على بكسلات الفيديو ونصوصه الموثقة، ويحوّل الجزء الافتتاحي الآمن إلى إعلان مدته ${MOTION_DESIGN_DURATION_SECONDS} ثوانٍ مع End Card ثابتة، من دون توليد المنتج أو إضافة ادعاءات.`
-                          : `NEXUS preserves the verified video pixels and source text, turns the safe opening into an ${MOTION_DESIGN_DURATION_SECONDS}-second ad with a deliberate end card, and generates no product pixels or new claims.`)
+                          ? `يحافظ NEXUS على بكسلات الفيديو ونصوصه الموثقة، ويحوّل الجزء الافتتاحي الآمن إلى إعلان مدته ${MOTION_DESIGN_DURATION_SECONDS} ثوانٍ بدخول سريع ثم Push-in هادئ على CTA، من دون توليد المنتج أو إضافة ادعاءات.`
+                          : `NEXUS preserves the verified video pixels and source text, turns the safe opening into an ${MOTION_DESIGN_DURATION_SECONDS}-second ad with a fast settle and restrained CTA push-in, and generates no product pixels or new claims.`)
                         : (isAr
                           ? `يبني NEXUS إعلانًا مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ من صور منتج مادية مؤهلة فقط. لا يبدأ أي إنفاق مزود قبل اجتياز الفحص.`
                           : `NEXUS builds an ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second ad only from qualified physical-product photos. No provider spend starts before preflight passes.`)}
@@ -4723,7 +4723,7 @@ export default function ContentHubPage() {
                       {videoProductionMode === 'MOTION_DESIGN' ? (
                         <>
                           <p>✓ {isAr ? 'الحفاظ على بكسلات المنتج والواجهة' : 'Exact product and interface pixel preservation'}</p>
-                          <p>✓ {isAr ? `${MOTION_DESIGN_DURATION_SECONDS} ثوانٍ بمقاس المنصة مع End Card من المصدر نفسه` : `${MOTION_DESIGN_DURATION_SECONDS}-second platform master with a source-locked end card`}</p>
+                          <p>✓ {isAr ? `${MOTION_DESIGN_DURATION_SECONDS} ثوانٍ بمقاس المنصة مع Hook وCTA متحركين من المصدر نفسه` : `${MOTION_DESIGN_DURATION_SECONDS}-second platform master with a source-locked hook and CTA motion`}</p>
                           <p>✓ {isAr ? 'فحص 5 لقطات قبل الربط' : 'Five-frame QA before attachment'}</p>
                           <p>✓ {isAr ? 'صفر استهلاك لمزود فيديو توليدي' : 'Zero generative-video provider spend'}</p>
                           <p>✓ {isAr ? `التكلفة: ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت` : `Cost: ${CONTENT_HUB_MOTION_DESIGN_COST} credits`}</p>

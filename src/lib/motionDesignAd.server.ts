@@ -74,12 +74,19 @@ export function buildMotionDesignFfmpegArgs(input: {
   const sourceWidth = vertical ? input.target.width - 60 : Math.round(input.target.width * 0.78)
   const sourceHeight = vertical ? input.target.height - 360 : input.target.height - 160
   const holdSeconds = MOTION_DESIGN_DURATION_SECONDS - MOTION_DESIGN_SAFE_SOURCE_SECONDS
+  const sourceEndFrame = MOTION_DESIGN_SAFE_SOURCE_SECONDS * MOTION_DESIGN_FRAME_RATE - 1
+  const endMotionFrames = holdSeconds * MOTION_DESIGN_FRAME_RATE
+  const zoomExpression = `if(lt(on,12),1.08-(on/12)*0.08,if(lte(on,${sourceEndFrame}),1,1+min((on-${sourceEndFrame})/${endMotionFrames},1)*0.06))`
   const filter = [
     '[0:v]setpts=PTS-STARTPTS',
     `scale=${sourceWidth}:${sourceHeight}:force_original_aspect_ratio=decrease`,
     `pad=${input.target.width}:${input.target.height}:(ow-iw)/2:(oh-ih)/2:color=0x090B13`,
     `fps=${MOTION_DESIGN_FRAME_RATE}`,
     `tpad=stop_mode=clone:stop_duration=${holdSeconds}`,
+    // A half-second punch-out creates an immediate hook; the verified source
+    // then plays at rest before a restrained six-percent CTA push-in. This is
+    // real editorial motion over source pixels, not a static hold or AI fill.
+    `zoompan=z='${zoomExpression}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${input.target.width}x${input.target.height}:fps=${MOTION_DESIGN_FRAME_RATE}`,
     `trim=duration=${MOTION_DESIGN_DURATION_SECONDS}`,
     'setpts=PTS-STARTPTS',
     'format=yuv420p[outv]',
@@ -137,9 +144,10 @@ async function downloadSourceVideo(sourceUrl: string, destination: string): Prom
 
 /**
  * Render a deterministic paid-social master with a real video editor. NEXUS
- * preserves the verified opening source pixels for three seconds, then holds
- * the last clean frame as a deliberate CTA/end card. No generative-video
- * provider or synthetic product pixels are involved.
+ * preserves the verified opening source pixels for three seconds, adds a fast
+ * source-locked opening settle, then gives the last clean CTA frame a restrained
+ * editorial push-in. No generative-video provider or synthetic product pixels
+ * are involved.
  */
 export async function renderAndPersistMotionDesignAd(input: {
   sourceUrl: string

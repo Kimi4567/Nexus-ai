@@ -331,7 +331,7 @@ export async function POST(req: NextRequest, props: Params) {
       outputFrames: cloudinaryVideoReviewFrames(stored.url, stored.duration ?? MOTION_DESIGN_DURATION_SECONDS),
       referenceImageUrls: cloudinarySourceReviewFrames(source.url),
       campaignMessage: post.caption,
-      creativeDirection: 'Source-locked paid-social motion design. Preserve the verified source pixels inside a platform-safe canvas for the opening motion, then hold its last clean frame as a deliberate CTA/end card. Add no synthetic product pixels, no generated text, no unrelated subject, and no new claim.',
+      creativeDirection: 'Source-locked paid-social motion design with three intentional phases: a fast opening settle for the hook, the verified source motion at rest, then a restrained source-locked push-in on the last clean CTA frame. Add no synthetic product pixels, no generated text, no unrelated subject, and no new claim.',
       referenceEvidence: intelligence,
       targetFormat,
       formatValidation,
