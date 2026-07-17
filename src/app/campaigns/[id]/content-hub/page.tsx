@@ -49,7 +49,10 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { PostPlatformPublisher } from '@/components/publishing/PostPlatformPublisher'
 import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
-import { pollGeneratedVisual } from '@/lib/generatedVisualPolling'
+import {
+  GeneratedVisualTerminalError,
+  pollGeneratedVisual,
+} from '@/lib/generatedVisualPolling'
 import {
   type CreativeIntelligencePayload,
   type CreativeMediaCandidate,
@@ -2206,6 +2209,15 @@ export default function ContentHubPage() {
           : `The image was generated and ${CONTENT_HUB_IMAGE_COST} credits were charged, but attachment failed. The image is saved; retry attachment with no new charge.`)
       }
     } catch (err: any) {
+      if (err instanceof GeneratedVisualTerminalError) {
+        // A terminal provider/QA failure is final for this paid attempt. Close
+        // the consent modal so the visible page can show the failure instead
+        // of inviting an accidental duplicate charge while the refund settles.
+        setImageGenerationConfirmPostId(null)
+        setImageGenerationAcknowledged(false)
+        setImageReferenceMediaId(null)
+        await Promise.all([loadData(), refreshBillingStatus()])
+      }
       setError(err.message)
     } finally {
       setGeneratingImageId(null)

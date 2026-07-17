@@ -505,6 +505,38 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     expect(mockRefund).not.toHaveBeenCalled()
   })
 
+  it('marks an exhausted provider account as unavailable and restores the reservation', async () => {
+    mockCheckAndDeduct.mockResolvedValue({
+      ok: true,
+      creditsUsed: 4,
+      creditsRemaining: 16,
+      transactionId: 'txn_capacity',
+    })
+    const capacityError = Object.assign(new Error('provider billing detail'), {
+      code: 'OPENAI_IMAGE_EDIT_400_billing_hard_limit_reached',
+    })
+    mockGenerateWithDallE.mockRejectedValue(capacityError)
+
+    const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
+    await flushScheduledGeneration()
+
+    expect(res.status).toBe(202)
+    const capacityMessage = 'NEXUS Image Studio is temporarily unavailable because generation capacity is exhausted. Reserved credits will be restored before another attempt.'
+    expect(mockPrisma.generatedVisual.update).toHaveBeenCalledWith({
+      where: { id: 'visual_1' },
+      data: expect.objectContaining({
+        status: 'FAILED',
+        errorMessage: capacityMessage,
+        qualityStatus: 'ERROR',
+      }),
+    })
+    expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      transactionId: 'txn_capacity',
+      reason: capacityMessage,
+    }))
+  })
+
   it('reports pending reconciliation instead of claiming a failed refund succeeded', async () => {
     mockCheckAndDeduct.mockResolvedValue({
       ok: true,

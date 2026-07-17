@@ -684,17 +684,23 @@ export async function POST(req: NextRequest) {
       })
     }
     } catch (err: unknown) {
+      const providerErrorCode = typeof err === 'object' && err !== null && 'code' in err
+        ? String((err as { code?: unknown }).code || '')
+        : ''
+      const providerCapacityExhausted = providerErrorCode.includes('billing_hard_limit_reached')
       await captureOperationalError(err, {
         operation: 'ai.image-generate',
         route: '/api/visuals/generate',
         component: 'ai',
         method: 'POST',
         requestId,
-        statusCode: 500,
-        retryable: true,
+        statusCode: providerCapacityExhausted ? 503 : 500,
+        retryable: !providerCapacityExhausted,
       })
 
-      const publicFailureMessage = 'NEXUS Image Studio could not create a usable image. Reserved credits will be restored.'
+      const publicFailureMessage = providerCapacityExhausted
+        ? 'NEXUS Image Studio is temporarily unavailable because generation capacity is exhausted. Reserved credits will be restored before another attempt.'
+        : 'NEXUS Image Studio could not create a usable image. Reserved credits will be restored.'
 
       await db.generatedVisual.update({
         where: { id: visual.id },

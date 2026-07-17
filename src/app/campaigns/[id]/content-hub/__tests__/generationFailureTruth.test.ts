@@ -18,4 +18,10 @@ describe('Content Hub — generation failure truth', () => {
     expect(SRC).toMatch(/Credit restoration is being reconciled/)
     expect(SRC).toMatch(/Check Credit History for the final settlement before retrying/)
   })
+
+  it('closes the paid consent modal after a terminal job failure', () => {
+    expect(SRC).toMatch(/err instanceof GeneratedVisualTerminalError/)
+    expect(SRC).toMatch(/setImageGenerationConfirmPostId\(null\)/)
+    expect(SRC).toMatch(/Promise\.all\(\[loadData\(\), refreshBillingStatus\(\)\]\)/)
+  })
 })
