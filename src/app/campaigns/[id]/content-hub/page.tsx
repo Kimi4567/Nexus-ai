@@ -12,7 +12,7 @@
  * - Progress bar showing generation status
  */
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef, type ReactNode } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -26,6 +26,7 @@ import {
   CONTENT_HUB_VIDEO_COST,
   CONTENT_HUB_REGENERATION_COST,
   CONTENT_HUB_REWRITE_COST,
+  CONTENT_HUB_MEDIA_INTELLIGENCE_COST,
   getBulkImageGenerationCost,
   summarizeBulkImageGenerationOutcome,
   type BulkImageGenerationSummary,
@@ -48,6 +49,14 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { PostPlatformPublisher } from '@/components/publishing/PostPlatformPublisher'
 import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
+import {
+  type CreativeIntelligencePayload,
+  type CreativeMediaCandidate,
+  type CreativeMediaMatch,
+} from '@/lib/creativeIntelligence'
+import { CreativeIntelligencePanel } from '@/components/content/CreativeIntelligencePanel'
+import { PostCreativeMatch } from '@/components/content/PostCreativeMatch'
+import { CreativeAdaptationModal } from '@/components/content/CreativeAdaptationModal'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -90,6 +99,20 @@ interface MediaItem {
   type: string
   assetKind?: 'UPLOADED_MEDIA' | 'GENERATED_VISUAL'
   generatedVisualId?: string
+  mimeType?: string | null
+  width?: number | null
+  height?: number | null
+  duration?: number | null
+  category?: string | null
+  tags?: string[]
+  intelligenceStatus?: string | null
+  intelligence?: unknown
+}
+
+interface CreativeAdaptationSelection {
+  postId: string
+  match: CreativeMediaMatch
+  media: CreativeMediaCandidate
 }
 
 interface ScheduleAccount {
@@ -366,6 +389,13 @@ export default function ContentHubPage() {
   })
   const [posts, setPosts] = useState<ContentPost[]>([])
   const [mediaLibrary, setMediaLibrary] = useState<MediaItem[]>([])
+  const [creativeIntelligence, setCreativeIntelligence] = useState<CreativeIntelligencePayload | null>(null)
+  const [creativeScanning, setCreativeScanning] = useState(false)
+  const [showCreativeScanConfirm, setShowCreativeScanConfirm] = useState(false)
+  const [creativeScanAcknowledged, setCreativeScanAcknowledged] = useState(false)
+  const [creativeAdaptation, setCreativeAdaptation] = useState<CreativeAdaptationSelection | null>(null)
+  const [creativeAdaptationAcknowledged, setCreativeAdaptationAcknowledged] = useState(false)
+  const [adaptingCreativePostId, setAdaptingCreativePostId] = useState<string | null>(null)
   const [activePlatform, setActivePlatform] = useState<Platform>('ALL')
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -431,6 +461,7 @@ export default function ContentHubPage() {
   const [retryingGeneratedAttachment, setRetryingGeneratedAttachment] = useState(false)
   const [imageGenerationConfirmPostId, setImageGenerationConfirmPostId] = useState<string | null>(null)
   const [imageGenerationAcknowledged, setImageGenerationAcknowledged] = useState(false)
+  const [imageReferenceMediaId, setImageReferenceMediaId] = useState<string | null>(null)
   const [videoGenerationConfirmPostId, setVideoGenerationConfirmPostId] = useState<string | null>(null)
   const [videoGenerationAcknowledged, setVideoGenerationAcknowledged] = useState(false)
   const [videoReferenceMediaId, setVideoReferenceMediaId] = useState<string | null>(null)
@@ -464,11 +495,12 @@ export default function ContentHubPage() {
     try {
       // These resources are independent. Load them concurrently so a slow media
       // library cannot block the campaign and its content plan from appearing.
-      const [campaignResult, planResult, mediaResult, brandResult] = await Promise.allSettled([
+      const [campaignResult, planResult, mediaResult, brandResult, creativeIntelligenceResult] = await Promise.allSettled([
         fetchWithTimeout(`/api/campaigns/${campaignId}`, { headers: { Authorization: authorization } }, 9_000),
         fetchWithTimeout(`/api/campaigns/${campaignId}/content-plan`, { headers: { Authorization: authorization } }, 9_000),
         fetchWithTimeout(`/api/media?campaignId=${encodeURIComponent(campaignId)}`, { headers: { Authorization: authorization } }, 9_000),
         fetchWithTimeout('/api/brand', { headers: { Authorization: authorization } }, 9_000),
+        fetchWithTimeout(`/api/campaigns/${campaignId}/creative-intelligence`, { headers: { Authorization: authorization } }, 9_000),
       ])
 
       if (campaignResult.status !== 'fulfilled') {
@@ -524,6 +556,10 @@ export default function ContentHubPage() {
             verifiedProof: bData.brandProfile.verifiedProof ?? [],
           })
         }
+      }
+
+      if (creativeIntelligenceResult.status === 'fulfilled' && creativeIntelligenceResult.value.ok) {
+        setCreativeIntelligence(await creativeIntelligenceResult.value.json())
       }
     } catch (err) {
       setLoadError(err instanceof Error
@@ -921,8 +957,14 @@ export default function ContentHubPage() {
     creditsRemaining,
     isUnlimited,
   })
+  const mediaIntelligenceTruth = getCreditActionTruth({
+    action: 'MEDIA_INTELLIGENCE_ANALYSIS',
+    creditsRemaining,
+    isUnlimited,
+  })
   const imageGenerationLocked = !billingLoading && !imageGenerationTruth.canAfford
   const videoGenerationLocked = !billingLoading && !videoGenerationTruth.canAfford
+  const mediaIntelligenceLocked = !billingLoading && !mediaIntelligenceTruth.canAfford
   const selectedContentPlanCost = contentPlanTruth.cost + (enableABTesting ? abVariantTruth.cost : 0)
   const contentPlanCanAfford = isUnlimited || creditsRemaining >= selectedContentPlanCost
   const contentPlanLocked = !billingLoading && !contentPlanCanAfford
@@ -1174,9 +1216,15 @@ export default function ContentHubPage() {
   const mediaPickerItems = mediaLibrary.filter(media => mediaPickerPost?.isVideoPost
     ? ['video', 'VIDEO'].includes(media.type)
     : ['image', 'IMAGE', 'logo', 'LOGO'].includes(media.type))
-  const videoReferenceImages = mediaLibrary
-    .filter(media => ['image', 'IMAGE', 'logo', 'LOGO'].includes(media.type))
-    .slice(0, 8)
+  const videoReferenceImages = Array.from(new Map([
+    ...mediaLibrary,
+    ...Object.values(creativeIntelligence?.assetsById ?? {}),
+  ].filter(media => ['image', 'IMAGE', 'logo', 'LOGO'].includes(media.type)).map(media => [media.id, media])).values()).slice(0, 8)
+  const imageReferenceMedia = imageReferenceMediaId
+    ? mediaLibrary.find(media => media.id === imageReferenceMediaId)
+      ?? creativeIntelligence?.assetsById[imageReferenceMediaId]
+      ?? null
+    : null
   const imageGenerationReopensReview = Boolean(
     imageGenerationConfirmPost && ['APPROVED', 'SCHEDULED', 'FAILED'].includes(imageGenerationConfirmPost.status),
   )
@@ -1370,7 +1418,7 @@ export default function ContentHubPage() {
   async function confirmMediaAttachment() {
     if (!pendingMediaAttachment || !mediaAttachmentAcknowledged) return
     const { postId, media, action } = pendingMediaAttachment
-    await savePostEdit(postId, media.assetKind === 'GENERATED_VISUAL' && media.generatedVisualId
+    const attached = await savePostEdit(postId, media.assetKind === 'GENERATED_VISUAL' && media.generatedVisualId
       ? {
           generatedVisualId: media.generatedVisualId,
           explicitGeneratedMediaAttachConfirmed: true,
@@ -1381,6 +1429,7 @@ export default function ContentHubPage() {
             ? { explicitMediaReplaceConfirmed: true }
             : { explicitMediaAttachConfirmed: true }),
         })
+    if (attached) await loadData()
     setPendingMediaAttachment(null)
     setMediaAttachmentAcknowledged(false)
   }
@@ -1408,6 +1457,135 @@ export default function ContentHubPage() {
   function closeMediaRemovalConfirm() {
     setMediaRemovalPostId(null)
     setMediaRemovalAcknowledged(false)
+  }
+
+  // ── NEXUS Creative Intelligence ────────────────────────────────────────────
+
+  function openCreativeScanConfirm() {
+    const batchSize = creativeIntelligence?.summary.batchSize ?? 0
+    if (batchSize < 1) {
+      if ((creativeIntelligence?.summary.totalAssets ?? 0) < 1) router.push('/media')
+      else setError(isAr ? 'لا توجد أصول جديدة قابلة للتحليل الآن.' : 'No new previewable assets need analysis right now.')
+      return
+    }
+    if (mediaIntelligenceLocked) {
+      router.push('/billing')
+      return
+    }
+    setCreativeScanAcknowledged(false)
+    setShowCreativeScanConfirm(true)
+  }
+
+  function closeCreativeScanConfirm() {
+    if (creativeScanning) return
+    setShowCreativeScanConfirm(false)
+    setCreativeScanAcknowledged(false)
+  }
+
+  async function confirmCreativeScan() {
+    const batchSize = creativeIntelligence?.summary.batchSize ?? 0
+    if (!creativeScanAcknowledged || batchSize < 1 || creativeScanning) return
+    setCreativeScanning(true)
+    setError(null)
+    try {
+      const response = await fetchCreditOperation(
+        creditOperationScope('campaign:creative-intelligence', JSON.stringify({ campaignId, batchSize })),
+        `/api/campaigns/${campaignId}/creative-intelligence`,
+        {
+          method: 'POST',
+          headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            locale,
+            explicitAnalysisConfirmed: true,
+            acknowledgedCreditCost: CONTENT_HUB_MEDIA_INTELLIGENCE_COST,
+            acknowledgedAssetCount: batchSize,
+            acknowledgedNoAutomaticChanges: true,
+          }),
+        },
+      )
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'Creative Intelligence could not analyze the media')
+      if (data.payload) setCreativeIntelligence(data.payload)
+      setSuccessMsg(isAr
+        ? `تم تحليل ${data.analyzedAssets ?? batchSize} أصول وترتيب أفضل تطابق لكل بوست. لم يتم إرفاق أو تعديل أو نشر أي شيء.`
+        : `${data.analyzedAssets ?? batchSize} assets analyzed and ranked against the posts. Nothing was attached, changed, or published.`)
+      setShowCreativeScanConfirm(false)
+      setCreativeScanAcknowledged(false)
+      await refreshBillingStatus()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Creative Intelligence failed')
+      await refreshBillingStatus()
+    } finally {
+      setCreativeScanning(false)
+    }
+  }
+
+  function requestCreativeAdaptation(postId: string, match: CreativeMediaMatch, media: CreativeMediaCandidate) {
+    if (!getCreditActionTruth({ action: 'AI_POST_REWRITE', creditsRemaining, isUnlimited }).canAfford) {
+      router.push('/billing')
+      return
+    }
+    setCreativeAdaptation({ postId, match, media })
+    setCreativeAdaptationAcknowledged(false)
+  }
+
+  function closeCreativeAdaptation() {
+    if (adaptingCreativePostId) return
+    setCreativeAdaptation(null)
+    setCreativeAdaptationAcknowledged(false)
+  }
+
+  async function confirmCreativeAdaptation() {
+    if (!creativeAdaptation || !creativeAdaptationAcknowledged || adaptingCreativePostId) return
+    const { postId, media } = creativeAdaptation
+    setAdaptingCreativePostId(postId)
+    setError(null)
+    try {
+      const response = await fetchCreditOperation(
+        creditOperationScope('campaign:creative-copy-adaptation', JSON.stringify({ campaignId, postId, mediaId: media.id })),
+        `/api/campaigns/${campaignId}/creative-intelligence/adapt`,
+        {
+          method: 'POST',
+          headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            postId,
+            mediaId: media.id,
+            locale,
+            explicitAdaptationConfirmed: true,
+            acknowledgedCreditCost: CONTENT_HUB_REWRITE_COST,
+            acknowledgedReopensReview: true,
+            acknowledgedNoPublishOrSchedule: true,
+          }),
+        },
+      )
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'NEXUS could not adapt the copy')
+      setCreativeAdaptation(null)
+      setCreativeAdaptationAcknowledged(false)
+      setSuccessMsg(isAr
+        ? 'تمت ملاءمة النص مع الأصل الحقيقي وحفظهما كمسودة جديدة للمراجعة. لم تتم الجدولة أو النشر.'
+        : 'The copy was adapted to the real asset and saved as a new review draft. Nothing was scheduled or published.')
+      await Promise.all([loadData(), refreshBillingStatus()])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'NEXUS could not adapt the copy')
+      await refreshBillingStatus()
+    } finally {
+      setAdaptingCreativePostId(null)
+    }
+  }
+
+  function generateFromCreativeReference(post: ContentPost, media: CreativeMediaCandidate) {
+    const mediaType = String(media.type).toUpperCase()
+    if (post.isVideoPost) {
+      if (!['IMAGE', 'LOGO'].includes(mediaType)) {
+        setError(isAr ? 'اختر صورة منتج كمرجع لتوليد الفيديو، أو استخدم الفيديو الحقيقي مباشرة.' : 'Choose a product image as a video reference, or use the real video directly.')
+        return
+      }
+      openVideoGenerationConfirm(post.id, media.id)
+      return
+    }
+    if (!['IMAGE', 'LOGO'].includes(mediaType)) return
+    openImageGenerationConfirm(post.id, media.id)
   }
 
   // ── Bulk generate images ─────────────────────────────────────────────────────
@@ -1864,7 +2042,7 @@ export default function ContentHubPage() {
   // ── Generate real AI image for a single post ─────────────────────────────────
   // Calls /api/visuals/generate → gpt-image-1 or Flux → Cloudinary + brand overlay
 
-  function openImageGenerationConfirm(postId: string) {
+  function openImageGenerationConfirm(postId: string, referenceMediaId: string | null = null) {
     if (strategyApprovalRequired || contentIssueCountByPostId.has(postId)) {
       setError(strategyApprovalRequired
         ? strategyApprovalRequiredLabel
@@ -1888,6 +2066,7 @@ export default function ContentHubPage() {
         : 'The previous attempt\'s credit restoration is pending automatic reconciliation. A new charge is blocked until it completes.')
       return
     }
+    setImageReferenceMediaId(referenceMediaId)
     setImageGenerationAcknowledged(false)
     setImageGenerationConfirmPostId(postId)
   }
@@ -1896,6 +2075,7 @@ export default function ContentHubPage() {
     if (generatingImageId) return
     setImageGenerationConfirmPostId(null)
     setImageGenerationAcknowledged(false)
+    setImageReferenceMediaId(null)
   }
 
   function chooseProductReferenceForImage() {
@@ -1982,7 +2162,7 @@ export default function ContentHubPage() {
           assetRole: 'final_composited_ad',
           // If the user attached a product/reference image first, preserve it
           // through GPT Image 2 high-fidelity editing instead of replacing it.
-          referenceMediaId: post.uploadedMediaId || undefined,
+          referenceMediaId: imageReferenceMediaId || post.uploadedMediaId || undefined,
           creativeRequirement,
           creativeTemplate,
           explicitImageGenerationConfirmed: true,
@@ -2009,6 +2189,7 @@ export default function ContentHubPage() {
       await refreshBillingStatus()
       setImageGenerationConfirmPostId(null)
       setImageGenerationAcknowledged(false)
+      setImageReferenceMediaId(null)
       if (!attached) {
         setPendingGeneratedAttachment({ postId, generatedVisualId })
         setError(isAr
@@ -2041,7 +2222,7 @@ export default function ContentHubPage() {
 
   // ── Generate a professional five-second Runway video master ───────────────
 
-  function openVideoGenerationConfirm(postId: string) {
+  function openVideoGenerationConfirm(postId: string, referenceMediaId: string | null = null) {
     const post = posts.find(item => item.id === postId)
     if (!post?.isVideoPost) return
     if (strategyApprovalRequired || contentIssueCountByPostId.has(postId)) {
@@ -2064,7 +2245,7 @@ export default function ContentHubPage() {
         : 'The previous video credit restoration is pending; no new charge can start.')
       return
     }
-    setVideoReferenceMediaId(null)
+    setVideoReferenceMediaId(referenceMediaId)
     setVideoGenerationAcknowledged(false)
     setVideoGenerationConfirmPostId(postId)
   }
@@ -2686,6 +2867,25 @@ export default function ContentHubPage() {
           </div>
         )}
 
+        {posts.length > 0 && creativeIntelligence && (
+          <div className="mb-5">
+            <CreativeIntelligencePanel
+              isAr={isAr}
+              totalAssets={creativeIntelligence.summary.totalAssets}
+              analyzedAssets={creativeIntelligence.summary.analyzedAssets}
+              pendingAssets={creativeIntelligence.summary.pendingAssets}
+              batchSize={creativeIntelligence.summary.batchSize}
+              matchedPosts={creativeIntelligence.summary.matchedPosts}
+              totalPosts={creativeIntelligence.summary.totalPosts}
+              creditCost={CONTENT_HUB_MEDIA_INTELLIGENCE_COST}
+              scanning={creativeScanning}
+              locked={mediaIntelligenceLocked}
+              onAnalyze={openCreativeScanConfirm}
+              onOpenMedia={() => router.push('/media')}
+            />
+          </div>
+        )}
+
         {/* ── Progress bar ─────────────────────────────────────────── */}
         {totalImagePosts > 0 && (
           <div className="mb-5 p-3 rounded-xl" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
@@ -2884,8 +3084,29 @@ export default function ContentHubPage() {
             seen.add(post.id)
           }
 
-          const renderCard = (post: ContentPost) => (
-            <PostCard
+          const renderCard = (post: ContentPost) => {
+            const creativeMatch = creativeIntelligence?.matchesByPostId[post.id]?.[0] ?? null
+            const creativeMedia = creativeMatch
+              ? creativeIntelligence?.assetsById[creativeMatch.mediaId] ?? null
+              : null
+            const creativeMatchPanel = creativeMatch && creativeMedia?.intelligenceStatus === 'READY'
+              ? (
+                  <PostCreativeMatch
+                    isAr={isAr}
+                    match={creativeMatch}
+                    media={creativeMedia}
+                    postIsVideo={post.isVideoPost}
+                    immutable={post.status === 'PUBLISHED' || post.status === 'PROCESSING'}
+                    adapting={adaptingCreativePostId === post.id}
+                    onUseExisting={() => requestMediaAttachment(post.id, creativeMedia as MediaItem)}
+                    onAdaptCopy={() => requestCreativeAdaptation(post.id, creativeMatch, creativeMedia)}
+                    onGenerateFromReference={() => generateFromCreativeReference(post, creativeMedia)}
+                    onChooseManually={() => setMediaPickerOpen(post.id)}
+                  />
+                )
+              : undefined
+            return (
+              <PostCard
               key={post.id}
               post={post}
               campaignId={campaignId}
@@ -2927,8 +3148,10 @@ export default function ContentHubPage() {
               onManualPublish={contentIssueCountByPostId.has(post.id) ? undefined : () => openManualPublishModal(post)}
               qualityIssueCount={contentIssueCountByPostId.get(post.id) ?? 0}
               onPlatformPublished={() => loadData().then(() => undefined)}
+              creativeMatchPanel={creativeMatchPanel}
             />
-          )
+            )
+          }
 
           // Pre-group: consecutive singles share a grid row; A/B pairs break out full-width
           type RenderGroup =
@@ -3824,6 +4047,63 @@ export default function ContentHubPage() {
           </div>
         )}
 
+        {showCreativeScanConfirm && creativeIntelligence && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.36)', backdropFilter: 'blur(12px)' }} onClick={closeCreativeScanConfirm}>
+            <div role="dialog" aria-modal="true" aria-labelledby="creative-scan-title" className="w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-2xl" onClick={event => event.stopPropagation()}>
+              <div className="bg-slate-950 px-6 py-5 text-white">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-300">NEXUS CREATIVE INTELLIGENCE</p>
+                    <h3 id="creative-scan-title" className="mt-1 text-xl font-black">{isAr ? 'تحليل ومطابقة وسائط الحملة' : 'Analyze and match campaign media'}</h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">
+                      {isAr
+                        ? `سيحلل NEXUS الأدلة المرئية في ${creativeIntelligence.summary.batchSize} أصول ثم يرتب أفضل تطابق لكل بوست.`
+                        : `NEXUS will analyze visible evidence in ${creativeIntelligence.summary.batchSize} assets and rank the best match for each post.`}
+                    </p>
+                  </div>
+                  <button type="button" aria-label={isAr ? 'إغلاق نافذة تحليل الوسائط' : 'Close media analysis'} onClick={closeCreativeScanConfirm} disabled={creativeScanning} className="text-2xl text-slate-400 hover:text-white disabled:opacity-40">×</button>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-xs leading-6 text-violet-950/80">
+                  <p>✓ {isAr ? 'وصف ما يظهر فعليًا في الصور ولقطات الفيديو' : 'Describe only what is visibly present in images and video frames'}</p>
+                  <p>✓ {isAr ? 'درجة مطابقة وأسباب وفجوات لكل بوست' : 'Match score, reasons, and gaps for each post'}</p>
+                  <p>✓ {isAr ? `التكلفة الإجمالية: ${CONTENT_HUB_MEDIA_INTELLIGENCE_COST} كريديت` : `Total cost: ${CONTENT_HUB_MEDIA_INTELLIGENCE_COST} credits`}</p>
+                  <p>— {isAr ? 'لا تأكيد لحقوق الاستخدام ولا تحليل للصوت في هذه المرحلة' : 'Usage rights are not confirmed and audio is not analyzed in this pass'}</p>
+                  <p>— {isAr ? 'لا إرفاق أو تعديل أو موافقة أو نشر تلقائي' : 'No automatic attachment, editing, approval, or publishing'}</p>
+                </div>
+                <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 p-4">
+                  <input type="checkbox" checked={creativeScanAcknowledged} onChange={event => setCreativeScanAcknowledged(event.target.checked)} disabled={creativeScanning} className="mt-1" />
+                  <span className="text-xs font-semibold leading-6 text-slate-700">
+                    {isAr
+                      ? `أوافق على خصم ${CONTENT_HUB_MEDIA_INTELLIGENCE_COST} كريديت لتحليل ${creativeIntelligence.summary.batchSize} أصول، وأفهم أن النتائج اقتراحات للمراجعة فقط.`
+                      : `I approve a ${CONTENT_HUB_MEDIA_INTELLIGENCE_COST}-credit charge to analyze ${creativeIntelligence.summary.batchSize} assets and understand the results are review-only recommendations.`}
+                  </span>
+                </label>
+                <div className="mt-5 flex gap-3">
+                  <button type="button" onClick={closeCreativeScanConfirm} disabled={creativeScanning} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600">{isAr ? 'إلغاء' : 'Cancel'}</button>
+                  <button type="button" onClick={confirmCreativeScan} disabled={!creativeScanAcknowledged || creativeScanning} className="flex-1 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40">
+                    {creativeScanning ? (isAr ? 'جارٍ التحليل…' : 'Analyzing…') : (isAr ? `ابدأ — ${CONTENT_HUB_MEDIA_INTELLIGENCE_COST} كريديت` : `Start — ${CONTENT_HUB_MEDIA_INTELLIGENCE_COST} credits`)}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {creativeAdaptation && (
+          <CreativeAdaptationModal
+            isAr={isAr}
+            postIndex={posts.find(post => post.id === creativeAdaptation.postId)?.contentPlanIndex ?? 0}
+            media={creativeAdaptation.media}
+            acknowledged={creativeAdaptationAcknowledged}
+            adapting={adaptingCreativePostId === creativeAdaptation.postId}
+            onAcknowledgedChange={setCreativeAdaptationAcknowledged}
+            onClose={closeCreativeAdaptation}
+            onConfirm={confirmCreativeAdaptation}
+          />
+        )}
+
         {/* ── Media picker overlay ───────────────────────────────────── */}
         {mediaPickerOpen && (
           <div
@@ -4068,10 +4348,10 @@ export default function ContentHubPage() {
                 <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <p className="text-sm font-bold text-slate-950">{isAr ? 'صورة المنتج المرجعية' : 'Product reference image'}</p>
-                    {imageGenerationConfirmPost.uploadedMediaId ? (
+                    {imageReferenceMedia || imageGenerationConfirmPost.uploadedMediaId ? (
                       <div className="mt-3 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                        {imageGenerationConfirmPost.imageUrl && (
-                          <img src={imageGenerationConfirmPost.imageUrl} alt="" className="h-14 w-14 rounded-lg object-cover" />
+                        {(imageReferenceMedia?.url || imageGenerationConfirmPost.imageUrl) && (
+                          <img src={imageReferenceMedia?.url || imageGenerationConfirmPost.imageUrl || ''} alt={imageReferenceMedia?.fileName || ''} className="h-14 w-14 rounded-lg object-cover" />
                         )}
                         <p className="text-xs font-semibold leading-relaxed text-emerald-800">
                           {isAr
@@ -4549,6 +4829,7 @@ interface PostCardProps {
   onManualPublish?: () => void
   qualityIssueCount: number
   onPlatformPublished: () => void | Promise<void>
+  creativeMatchPanel?: ReactNode
 }
 
 function PostCard({
@@ -4583,6 +4864,7 @@ function PostCard({
   onManualPublish,
   qualityIssueCount,
   onPlatformPublished,
+  creativeMatchPanel,
 }: PostCardProps) {
   const { t, locale } = useI18n()
   const isAr = locale === 'ar'
@@ -4751,6 +5033,8 @@ function PostCard({
           </div>
         </div>
       </div>
+
+      {creativeMatchPanel}
 
       {executionBlockedByQuality && (
         <div className="border-t border-rose-200 bg-rose-50 px-3 py-3 text-[11px] leading-5 text-rose-800">

@@ -6,6 +6,7 @@ export const CONTENT_HUB_IMAGE_COST = CREDIT_ACTION_COSTS.IMAGE_GENERATION
 export const CONTENT_HUB_VIDEO_COST = CREDIT_ACTION_COSTS.VIDEO_GENERATION
 export const CONTENT_HUB_REWRITE_COST = CREDIT_ACTION_COSTS.AI_POST_REWRITE
 export const CONTENT_HUB_REGENERATION_COST = CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION
+export const CONTENT_HUB_MEDIA_INTELLIGENCE_COST = CREDIT_ACTION_COSTS.MEDIA_INTELLIGENCE_ANALYSIS
 
 export type ContentHubConfirmationResult =
   | { ok: true }
@@ -177,6 +178,43 @@ export function validateRewriteConfirmation(input: {
     return { ok: false, error: 'Rewrite requires explicit confirmation. No credits were spent.' }
   }
 
+  return { ok: true }
+}
+
+export function validateMediaIntelligenceConfirmation(input: {
+  confirmed?: unknown
+  acknowledgedCreditCost?: unknown
+  acknowledgedAssetCount?: unknown
+  expectedAssetCount: number
+  acknowledgedNoAutomaticChanges?: unknown
+}): ContentHubConfirmationResult {
+  const expectedAssetCount = Math.max(0, Math.trunc(input.expectedAssetCount))
+  if (
+    input.confirmed !== true
+    || input.acknowledgedCreditCost !== CONTENT_HUB_MEDIA_INTELLIGENCE_COST
+    || input.acknowledgedAssetCount !== expectedAssetCount
+    || input.acknowledgedNoAutomaticChanges !== true
+    || expectedAssetCount < 1
+  ) {
+    return { ok: false, error: 'Media intelligence requires an up-to-date explicit confirmation. No credits were spent.' }
+  }
+  return { ok: true }
+}
+
+export function validateCreativeAdaptationConfirmation(input: {
+  confirmed?: unknown
+  acknowledgedCreditCost?: unknown
+  acknowledgedReopensReview?: unknown
+  acknowledgedNoPublishOrSchedule?: unknown
+}): ContentHubConfirmationResult {
+  if (
+    input.confirmed !== true
+    || input.acknowledgedCreditCost !== CONTENT_HUB_REWRITE_COST
+    || input.acknowledgedReopensReview !== true
+    || input.acknowledgedNoPublishOrSchedule !== true
+  ) {
+    return { ok: false, error: 'Creative adaptation requires explicit confirmation. No credits were spent.' }
+  }
   return { ok: true }
 }
 

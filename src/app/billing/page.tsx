@@ -156,6 +156,14 @@ const CREDIT_ACTIONS = [
     noteEn: 'Asset analysis + visual direction for campaign',
   },
   {
+    icon: Sparkles,
+    labelAr: 'تحليل ومطابقة وسائط الحملة',
+    labelEn: 'Campaign media intelligence',
+    cost: CREDIT_ACTION_COSTS.MEDIA_INTELLIGENCE_ANALYSIS,
+    noteAr: 'تحليل مرئي حتى 8 أصول وترتيب أفضل تطابق لكل بوست؛ لا يرفق أو ينشر شيئًا تلقائيًا',
+    noteEn: 'Visual analysis for up to 8 assets and ranked post matching; nothing is attached or published automatically',
+  },
+  {
     icon: Globe,
     labelAr: 'نسخ إعلانية (Ad Copy)',
     labelEn: 'Ad copy generation',

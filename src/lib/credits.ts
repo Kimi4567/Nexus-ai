@@ -187,6 +187,14 @@ export const CREDIT_COSTS = {
   CONTENT_ANALYSIS: 3,
 
   /**
+   * Creative media intelligence — one bounded visual-evidence pass over up to
+   * eight uploaded campaign assets, followed by post-to-asset matching. The
+   * result is advisory only: it never attaches, approves, schedules, or
+   * publishes media. Audio transcription is explicitly outside this action.
+   */
+  MEDIA_INTELLIGENCE_ANALYSIS: 3,
+
+  /**
    * Brand evidence analysis — extracts source-backed claims from one private
    * document. Upload and human review are free; only this bounded model call is
    * billable. Claims remain candidates until the user explicitly approves them.
@@ -321,6 +329,13 @@ export const CREDIT_ACTION_POLICIES: Record<CreditAction, CreditActionPolicy> = 
     label: 'Content sample analysis',
     reason: 'Extracts candidate tone, hooks, and angles from supplied content samples.',
     includedWork: 'One bounded content analysis.',
+    providerCallLimit: 1,
+    refundableOnNoUsableOutput: true,
+  },
+  MEDIA_INTELLIGENCE_ANALYSIS: {
+    label: 'Creative media intelligence',
+    reason: 'Analyzes visible evidence in uploaded assets and ranks honest matches for campaign posts.',
+    includedWork: 'One bounded NEXUS visual-analysis pass for up to eight assets plus deterministic post matching. No attachment, generation, approval, scheduling, or publishing.',
     providerCallLimit: 1,
     refundableOnNoUsableOutput: true,
   },
@@ -1507,6 +1522,7 @@ const ACTION_LABELS: Record<string, string> = {
   PAID_PACK_GENERATE: 'Paid Campaign Pack',
   WEBSITE_SCAN: 'Website Intelligence Scan',
   CONTENT_ANALYSIS: 'Content Samples Analysis',
+  MEDIA_INTELLIGENCE_ANALYSIS: 'Creative Media Intelligence',
   BRAND_EVIDENCE_ANALYSIS: 'Brand Evidence Analysis',
   CREDIT: 'Credits Added',
   REFUND: 'Refund',

@@ -3,6 +3,7 @@ import {
   CONTENT_HUB_IMAGE_COST,
   CONTENT_HUB_VIDEO_COST,
   CONTENT_HUB_REWRITE_COST,
+  CONTENT_HUB_MEDIA_INTELLIGENCE_COST,
   getBulkImageGenerationCost,
   getMediaPendingVisualStateCopy,
   summarizeBulkImageGenerationOutcome,
@@ -10,6 +11,8 @@ import {
   validateSingleImageGenerationConfirmation,
   validateVideoGenerationConfirmation,
   validateRewriteConfirmation,
+  validateMediaIntelligenceConfirmation,
+  validateCreativeAdaptationConfirmation,
 } from '../contentHubActionSafety'
 
 describe('contentHubActionSafety', () => {
@@ -101,6 +104,39 @@ describe('contentHubActionSafety', () => {
     expect(validateRewriteConfirmation({
       confirmed: true,
       acknowledgedCreditCost: CONTENT_HUB_REWRITE_COST,
+    })).toEqual({ ok: true })
+  })
+
+  it('locks media analysis to the confirmed batch, price, and no-change boundary', () => {
+    expect(CONTENT_HUB_MEDIA_INTELLIGENCE_COST).toBe(3)
+    expect(validateMediaIntelligenceConfirmation({
+      confirmed: true,
+      acknowledgedCreditCost: CONTENT_HUB_MEDIA_INTELLIGENCE_COST,
+      acknowledgedAssetCount: 7,
+      expectedAssetCount: 8,
+      acknowledgedNoAutomaticChanges: true,
+    })).toMatchObject({ ok: false })
+    expect(validateMediaIntelligenceConfirmation({
+      confirmed: true,
+      acknowledgedCreditCost: CONTENT_HUB_MEDIA_INTELLIGENCE_COST,
+      acknowledgedAssetCount: 8,
+      expectedAssetCount: 8,
+      acknowledgedNoAutomaticChanges: true,
+    })).toEqual({ ok: true })
+  })
+
+  it('requires an explicit review reset and no-publish acknowledgement for copy-to-media adaptation', () => {
+    expect(validateCreativeAdaptationConfirmation({
+      confirmed: true,
+      acknowledgedCreditCost: CONTENT_HUB_REWRITE_COST,
+      acknowledgedReopensReview: false,
+      acknowledgedNoPublishOrSchedule: true,
+    })).toMatchObject({ ok: false })
+    expect(validateCreativeAdaptationConfirmation({
+      confirmed: true,
+      acknowledgedCreditCost: CONTENT_HUB_REWRITE_COST,
+      acknowledgedReopensReview: true,
+      acknowledgedNoPublishOrSchedule: true,
     })).toEqual({ ok: true })
   })
 

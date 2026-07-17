@@ -76,6 +76,8 @@ export async function PATCH(req: NextRequest, props: Params) {
         data.imageUrl = null
         data.mediaSource = 'GENERATE'
         data.generationStatus = 'PENDING'
+        data.sourceType = 'NONE'
+        data.sourceMediaId = null
       } else if (typeof body.uploadedMediaId === 'string' && body.uploadedMediaId.trim()) {
         const action = post.imageUrl || post.uploadedMediaId ? 'replace' : 'attach'
         if (!isMediaAttachmentConfirmationComplete({
@@ -120,6 +122,8 @@ export async function PATCH(req: NextRequest, props: Params) {
         data.imageUrl = media.url
         data.mediaSource = CONTENT_HUB_UPLOADED_MEDIA_SOURCE
         data.generationStatus = 'DONE'
+        data.sourceType = 'USER_ASSET'
+        data.sourceMediaId = media.id
       } else {
         return NextResponse.json({ error: 'Invalid uploadedMediaId' }, { status: 400 })
       }
@@ -159,6 +163,8 @@ export async function PATCH(req: NextRequest, props: Params) {
       data.imageUrl = visual.imageUrl
       data.mediaSource = 'GENERATE'
       data.generationStatus = 'DONE'
+      data.sourceType = 'AI_GENERATED'
+      data.sourceMediaId = null
     }
 
     // A changed prompt no longer describes an existing generated image. Clear
@@ -173,6 +179,18 @@ export async function PATCH(req: NextRequest, props: Params) {
       data.imageUrl = null
       data.uploadedMediaId = null
       data.generationStatus = 'PENDING'
+    }
+
+    const invalidatesCreativeMatch = [
+      'caption',
+      'imagePrompt',
+      'videoPrompt',
+      'uploadedMediaId',
+      'generatedVisualId',
+    ].some(field => field in body)
+    if (invalidatesCreativeMatch) {
+      data.creativeMatch = null
+      data.creativeMatchedAt = null
     }
 
     if (Object.keys(data).length === 0) {
