@@ -16,8 +16,11 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const visual = await db.generatedVisual.findUnique({
-      where: { id: params.id },
+    const visual = await db.generatedVisual.findFirst({
+      where: {
+        id: params.id,
+        workspace: { ownerId: userId },
+      },
     })
     if (!visual) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     return NextResponse.json({ visual })
@@ -42,7 +45,10 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
 
     // If setting as primary, unset all others for this campaign
     if (isPrimary === true) {
-      const visual = await db.generatedVisual.findUnique({ where: { id: params.id } })
+      const visual = await db.generatedVisual.findFirst({
+        where: { id: params.id, workspace: { ownerId: userId } },
+      })
+      if (!visual) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       if (visual?.campaignId) {
         await db.generatedVisual.updateMany({
           where: { campaignId: visual.campaignId, id: { not: params.id } },
@@ -51,8 +57,14 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       }
     }
 
+    const owned = await db.generatedVisual.findFirst({
+      where: { id: params.id, workspace: { ownerId: userId } },
+      select: { id: true },
+    })
+    if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
     const updated = await db.generatedVisual.update({
-      where: { id: params.id },
+      where: { id: owned.id },
       data: updateData,
     })
 
@@ -68,8 +80,14 @@ export async function DELETE(req: NextRequest, props: { params: Promise<{ id: st
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
+    const owned = await db.generatedVisual.findFirst({
+      where: { id: params.id, workspace: { ownerId: userId } },
+      select: { id: true },
+    })
+    if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
     await db.generatedVisual.update({
-      where: { id: params.id },
+      where: { id: owned.id },
       data: { isArchived: true, status: 'ARCHIVED' },
     })
     return NextResponse.json({ success: true })

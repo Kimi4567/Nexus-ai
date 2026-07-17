@@ -10,7 +10,8 @@
  *   - Concept draft → configured FAL model, with GPT Image 2 fallback
  *
  * Clients do not choose the provider — it's an infrastructure decision.
- * Returns the completed visual synchronously (Vercel 60s timeout).
+ * Returns an accepted durable job immediately. Provider execution, permanent
+ * upload, and credit settlement/refund continue after the HTTP response.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
@@ -54,14 +55,15 @@ import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { captureOperationalError } from '@/lib/observability/operationalError'
 import { chooseProfessionalImageProvider, type ImageGenerationPurpose } from '@/lib/ai/mediaProviderRouter'
+import { scheduleAfterResponse } from '@/lib/afterResponse'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
 
-// GPT Image 2 high-quality edits can legitimately take close to two minutes.
-// Fluid Compute supports this bounded wait; the provider call still has its
-// own timeout and every failure follows the existing automatic credit refund.
-export const maxDuration = 180
+// A high-quality reference edit can take several minutes. `after()` keeps the
+// accepted job alive inside this bounded Fluid Compute lifetime; a stranded
+// GENERATING row is repaired by the existing image-credit reconciliation cron.
+export const maxDuration = 300
 
 async function refundDeductedCredits(
   userId: string,
@@ -142,6 +144,36 @@ export async function POST(req: NextRequest) {
       },
       { status: 400 },
     )
+  }
+
+  // A reload or transient polling failure must never create a second paid job
+  // for the same post/regeneration target. Return the owned active audit row so
+  // the client resumes polling without another provider call or reservation.
+  const normalizedParentId = typeof parentId === 'string' ? parentId.trim() : ''
+  if (normalizedParentId) {
+    const activeVisual = await db.generatedVisual.findFirst({
+      where: {
+        workspaceId: workspace.id,
+        campaignId: campaignId || null,
+        parentId: normalizedParentId,
+        status: 'GENERATING',
+        isArchived: false,
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+    if (activeVisual) {
+      return NextResponse.json({
+        accepted: true,
+        reused: true,
+        visual: activeVisual,
+        pollUrl: `/api/visuals/${activeVisual.id}`,
+        assetRole,
+        outputClassification: assetRole === 'final_composited_ad'
+          ? 'final_composited_ad_for_review'
+          : IMAGE_OUTPUT_CLASSIFICATION,
+        creditsReserved: 0,
+      }, { status: 202 })
+    }
   }
 
   // ── Daily image cap (per-plan abuse guard, checked BEFORE deduction) ────────
@@ -407,8 +439,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(credit, { status: creditCheckHttpStatus(credit) })
   }
 
-  // ── Run generation — route by marketing task, not environment key order ─
-  try {
+  const requestId = req.headers?.get?.('x-vercel-id') ?? null
+
+  // ── Run generation after the accepted response ───────────────────────────
+  // The GeneratedVisual row is the durable polling and audit record. The
+  // browser never needs to keep an expensive provider request open.
+  scheduleAfterResponse(async () => {
+    try {
     let rawImageUrl: string
     const purpose: ImageGenerationPurpose = referenceMedia
       ? 'product_to_ad'
@@ -486,7 +523,7 @@ export async function POST(req: NextRequest) {
           route: '/api/visuals/generate',
           component: 'ai',
           method: 'POST',
-          requestId: req.headers?.get?.('x-vercel-id') ?? null,
+          requestId,
           statusCode: 500,
           retryable: false,
           severity: 'warning',
@@ -496,7 +533,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update DB to COMPLETED
-    const updated = await db.generatedVisual.update({
+    await db.generatedVisual.update({
       where: { id: visual.id },
       data:  { status: 'COMPLETED', imageUrl: permanentUrl },
     })
@@ -507,53 +544,51 @@ export async function POST(req: NextRequest) {
       deduction: credit,
     })
     if (!finalization.ok) {
-      return NextResponse.json({
-        error: 'Image was saved but the credit operation could not be finalized. Reserved credits were returned; refresh the visual library.',
-        code: 'CREDIT_FINALIZATION_FAILED',
-        refunded: finalization.refundStatus === 'refunded',
-        visual: updated,
-      }, { status: 503 })
+      await captureOperationalError(new Error('Generated image saved but credit finalization failed'), {
+        operation: 'ai.image-credit-finalize',
+        route: '/api/visuals/generate',
+        component: 'billing',
+        method: 'POST',
+        requestId,
+        statusCode: 503,
+        retryable: true,
+        severity: 'warning',
+      })
     }
+    } catch (err: unknown) {
+      await captureOperationalError(err, {
+        operation: 'ai.image-generate',
+        route: '/api/visuals/generate',
+        component: 'ai',
+        method: 'POST',
+        requestId,
+        statusCode: 500,
+        retryable: true,
+      })
 
-    return NextResponse.json({
-      visual: updated,
-      assetRole,
-      outputClassification: assetRole === 'final_composited_ad'
-        ? 'final_composited_ad_for_review'
-        : IMAGE_OUTPUT_CLASSIFICATION,
-      creditsUsed: credit.creditsUsed,
-      creditsRemaining: credit.creditsRemaining,
-      creditCharge: buildCreditChargeReceipt('IMAGE_GENERATION', credit),
-    })
-  } catch (err: unknown) {
-    await captureOperationalError(err, {
-      operation: 'ai.image-generate',
-      route: '/api/visuals/generate',
-      component: 'ai',
-      method: 'POST',
-      requestId: req.headers?.get?.('x-vercel-id') ?? null,
-      statusCode: 500,
-      retryable: true,
-    })
+      const publicFailureMessage = 'NEXUS Image Studio could not create a usable image. Reserved credits will be restored.'
 
-    const publicFailureMessage = 'NEXUS Image Studio could not create a usable image. Reserved credits will be restored.'
+      await db.generatedVisual.update({
+        where: { id: visual.id },
+        data:  { status: 'FAILED', errorMessage: publicFailureMessage },
+      }).catch(() => {})
 
-    // Update DB to FAILED (non-blocking)
-    await db.generatedVisual.update({
-      where: { id: visual.id },
-      data:  { status: 'FAILED', errorMessage: publicFailureMessage },
-    }).catch(() => {})
+      // If the immediate refund fails, the existing cron sees this FAILED
+      // visual and restores the exact reservation idempotently.
+      await refundDeductedCredits(userId, credit, publicFailureMessage)
+    }
+  })
 
-    // Refund — the user must not be charged for a failed image (skip unlimited plans)
-    const refund = await refundDeductedCredits(userId, credit, publicFailureMessage)
-
-    return NextResponse.json({
-      error: publicFailureMessage,
-      message: refund.refundPending
-        ? 'Image generation failed. Credit restoration is pending automatic reconciliation.'
-        : undefined,
-      refunded: refund.refunded,
-      refundPending: refund.refundPending,
-    }, { status: 500 })
-  }
+  return NextResponse.json({
+    accepted: true,
+    visual,
+    pollUrl: `/api/visuals/${visual.id}`,
+    assetRole,
+    outputClassification: assetRole === 'final_composited_ad'
+      ? 'final_composited_ad_for_review'
+      : IMAGE_OUTPUT_CLASSIFICATION,
+    creditsReserved: credit.creditsUsed,
+    creditsRemaining: credit.creditsRemaining,
+    creditCharge: buildCreditChargeReceipt('IMAGE_GENERATION', credit),
+  }, { status: 202 })
 }

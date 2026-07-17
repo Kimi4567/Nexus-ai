@@ -49,6 +49,7 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { PostPlatformPublisher } from '@/components/publishing/PostPlatformPublisher'
 import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
+import { pollGeneratedVisual } from '@/lib/generatedVisualPolling'
 import {
   type CreativeIntelligencePayload,
   type CreativeMediaCandidate,
@@ -2146,11 +2147,13 @@ export default function ContentHubPage() {
         caption: post.caption || post.imagePrompt || '',
         creativeRequirement,
       })
+      const authorization = authHeader()
+      if (!authorization) throw new Error(isAr ? 'تعذّر التحقق من جلسة الدخول.' : 'Could not verify your session.')
       const res = await fetchCreditOperation(creditOperationScope('campaign:post-visual', visualIdentity), '/api/visuals/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: authHeader(),
+          Authorization: authorization,
         },
         body: JSON.stringify({
           campaignId:  campaign?.id,
@@ -2178,8 +2181,13 @@ export default function ContentHubPage() {
       }
 
       const data = await res.json()
-      const imageUrl = data?.visual?.imageUrl
-      const generatedVisualId = data?.visual?.id
+      const acceptedVisual = data?.visual
+      const generatedVisualId = acceptedVisual?.id
+      if (!generatedVisualId) throw new Error('No durable image production job returned')
+      const completedVisual = acceptedVisual?.status === 'COMPLETED' && acceptedVisual?.imageUrl
+        ? acceptedVisual
+        : await pollGeneratedVisual({ visualId: generatedVisualId, authorization })
+      const imageUrl = completedVisual?.imageUrl
       if (!imageUrl || !generatedVisualId) throw new Error('No durable generated media returned')
 
       const attached = await savePostEdit(postId, {

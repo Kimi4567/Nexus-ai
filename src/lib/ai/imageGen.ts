@@ -719,7 +719,10 @@ export async function generateWithOpenAIImageEdit(
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}` },
     body: form,
-    signal: AbortSignal.timeout(120_000),
+    // The caller runs high-quality reference edits as a durable, polled job,
+    // so the provider can use its documented multi-minute completion window
+    // without keeping the browser request open.
+    signal: AbortSignal.timeout(240_000),
   })
 
   if (!response.ok) {

@@ -22,6 +22,8 @@ const {
   mockUploadToCloudinary,
   mockComposeBrandedPost,
   mockBufferToDataUri,
+  mockScheduleAfterResponse,
+  pendingAfterTasks,
   mockPrisma,
 } = vi.hoisted(() => ({
   mockGetServerUserId: vi.fn(),
@@ -35,17 +37,20 @@ const {
   mockUploadToCloudinary: vi.fn(),
   mockComposeBrandedPost: vi.fn(),
   mockBufferToDataUri: vi.fn(),
+  mockScheduleAfterResponse: vi.fn(),
+  pendingAfterTasks: [] as Array<() => Promise<void>>,
   mockPrisma: {
     workspace: { findFirst: vi.fn() },
     user: { findUnique: vi.fn() },
     campaign: { findFirst: vi.fn() },
     socialPost: { findFirst: vi.fn() },
-    generatedVisual: { create: vi.fn(), update: vi.fn() },
+    generatedVisual: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
   },
 }))
 
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
+vi.mock('@/lib/afterResponse', () => ({ scheduleAfterResponse: mockScheduleAfterResponse }))
 vi.mock('@/lib/billableAiRateLimit', () => ({
   enforceBillableAiRateLimit: vi.fn().mockResolvedValue(null),
 }))
@@ -86,6 +91,12 @@ vi.mock('@/lib/brandComposite', () => ({
 import { POST } from '../route'
 
 const makeReq = (body: unknown = {}) => ({ json: async () => body }) as any
+const flushScheduledGeneration = async () => {
+  while (pendingAfterTasks.length > 0) {
+    const task = pendingAfterTasks.shift()
+    if (task) await task()
+  }
+}
 const confirmedImageBody = {
   explicitImageGenerationConfirmed: true,
   acknowledgedCreditCost: 4,
@@ -119,6 +130,10 @@ const campaign = {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  pendingAfterTasks.length = 0
+  mockScheduleAfterResponse.mockImplementation((task: () => Promise<void>) => {
+    pendingAfterTasks.push(task)
+  })
   vi.stubEnv('OPENAI_API_KEY', 'test-openai-key')
   vi.stubEnv('CLOUDINARY_CLOUD_NAME', 'test-cloud')
   vi.stubEnv('CLOUDINARY_API_KEY', 'test-key')
@@ -144,6 +159,7 @@ beforeEach(() => {
   mockPrisma.workspace.findFirst.mockResolvedValue(workspace)
   mockPrisma.user.findUnique.mockResolvedValue({ subscriptionStatus: 'PRO' })
   mockPrisma.campaign.findFirst.mockResolvedValue(campaign)
+  mockPrisma.generatedVisual.findFirst.mockResolvedValue(null)
   mockPrisma.generatedVisual.create.mockResolvedValue({ id: 'visual_1', workspaceId: 'w1' })
   mockPrisma.generatedVisual.update.mockResolvedValue({
     id: 'visual_1',
@@ -271,6 +287,38 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     expect(mockPrisma.generatedVisual.create).not.toHaveBeenCalled()
   })
 
+  it('resumes an active durable job without a second charge or provider call', async () => {
+    mockPrisma.generatedVisual.findFirst.mockResolvedValue({
+      id: 'visual_active',
+      workspaceId: 'w1',
+      campaignId: 'c1',
+      parentId: 'social-post:post_1',
+      status: 'GENERATING',
+    })
+
+    const res = await POST(makeReq({
+      ...confirmedImageBody,
+      campaignId: 'c1',
+      parentId: 'social-post:post_1',
+      assetRole: 'final_composited_ad',
+    }))
+    const json = await res.json()
+
+    expect(res.status).toBe(202)
+    expect(json).toMatchObject({
+      accepted: true,
+      reused: true,
+      visual: { id: 'visual_active', status: 'GENERATING' },
+      pollUrl: '/api/visuals/visual_active',
+      creditsReserved: 0,
+    })
+    expect(mockCheckDailyImageCap).not.toHaveBeenCalled()
+    expect(mockPrisma.generatedVisual.create).not.toHaveBeenCalled()
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockGenerateWithDallE).not.toHaveBeenCalled()
+    expect(mockScheduleAfterResponse).not.toHaveBeenCalled()
+  })
+
   it('missing no-publish/no-schedule acknowledgement returns 400 before credit deduction', async () => {
     const res = await POST(makeReq({
       explicitImageGenerationConfirmed: true,
@@ -306,9 +354,10 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
 
     const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
     const json = await res.json()
+    await flushScheduledGeneration()
 
-    expect(res.status).toBe(500)
-    expect(json.refunded).toBe(true)
+    expect(res.status).toBe(202)
+    expect(json).toMatchObject({ accepted: true, pollUrl: '/api/visuals/visual_1' })
     expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'u1',
       transactionId: 'txn_img',
@@ -329,12 +378,13 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
 
     const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
     const json = await res.json()
+    await flushScheduledGeneration()
 
-    expect(res.status).toBe(500)
-    expect(json).toMatchObject({
-      refunded: false,
-      refundPending: true,
-      message: 'Image generation failed. Credit restoration is pending automatic reconciliation.',
+    expect(res.status).toBe(202)
+    expect(json).toMatchObject({ accepted: true })
+    expect(mockPrisma.generatedVisual.update).toHaveBeenCalledWith({
+      where: { id: 'visual_1' },
+      data: { status: 'FAILED', errorMessage: 'NEXUS Image Studio could not create a usable image. Reserved credits will be restored.' },
     })
   })
 
@@ -349,9 +399,10 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
 
     const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
     const json = await res.json()
+    await flushScheduledGeneration()
 
-    expect(res.status).toBe(500)
-    expect(json).toMatchObject({ error: 'NEXUS Image Studio could not create a usable image. Reserved credits will be restored.', refunded: true })
+    expect(res.status).toBe(202)
+    expect(json).toMatchObject({ accepted: true })
     expect(mockPrisma.generatedVisual.update).toHaveBeenCalledWith({
       where: { id: 'visual_1' },
       data: { status: 'FAILED', errorMessage: 'NEXUS Image Studio could not create a usable image. Reserved credits will be restored.' },
@@ -390,8 +441,9 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     mockPrisma.generatedVisual.update.mockRejectedValue(new Error('update failed'))
 
     const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
+    await flushScheduledGeneration()
 
-    expect(res.status).toBe(500)
+    expect(res.status).toBe(202)
     expect(mockRefund).toHaveBeenCalledWith('u1', 'IMAGE_GENERATION', 'NEXUS Image Studio could not create a usable image. Reserved credits will be restored.')
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
@@ -405,8 +457,10 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     })
     mockPrisma.generatedVisual.update.mockRejectedValue(new Error('update failed'))
 
-    await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
+    const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
+    await flushScheduledGeneration()
 
+    expect(res.status).toBe(202)
     expect(mockRefundForTxn).toHaveBeenCalledTimes(1)
     expect(mockRefund).not.toHaveBeenCalled()
   })
@@ -422,8 +476,9 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     mockGenerateWithDallE.mockRejectedValue(new Error('provider failed'))
 
     const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
+    await flushScheduledGeneration()
 
-    expect(res.status).toBe(500)
+    expect(res.status).toBe(202)
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'u1',
@@ -454,12 +509,14 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
       },
     }))
     const json = await res.json()
+    await flushScheduledGeneration()
 
-    expect(res.status).toBe(200)
-    expect(json.visual).toEqual({
-      id: 'visual_1',
-      status: 'COMPLETED',
-      imageUrl: 'https://res.cloudinary.com/demo/raw.jpg',
+    expect(res.status).toBe(202)
+    expect(json).toMatchObject({
+      accepted: true,
+      visual: { id: 'visual_1' },
+      pollUrl: '/api/visuals/visual_1',
+      creditsReserved: 4,
     })
     expect(json.assetRole).toBe('post_background')
     expect(json.outputClassification).toBe('draft_background_for_review')
@@ -492,9 +549,10 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
       assetRole: 'legacy_composited_post',
     }))
     const json = await res.json()
+    await flushScheduledGeneration()
 
-    expect(res.status).toBe(200)
-    expect(json.visual.imageUrl).toBe('https://res.cloudinary.com/demo/final.jpg')
+    expect(res.status).toBe(202)
+    expect(json).toMatchObject({ accepted: true, visual: { id: 'visual_1' } })
     expect(mockComposeBrandedPost).toHaveBeenCalledTimes(1)
   })
 })
