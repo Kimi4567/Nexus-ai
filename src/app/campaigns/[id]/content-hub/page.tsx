@@ -4693,7 +4693,7 @@ export default function ContentHubPage() {
                       )}
                       <div className={`mt-3 rounded-xl border px-3 py-3 text-xs leading-relaxed ${motionDesignPreflight.eligible ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-600'}`}>
                         <p className="font-bold">{motionDesignPreflight.eligible ? (isAr ? '✓ المصدر مؤهل ومحمي' : '✓ Source qualified and locked') : (isAr ? 'اختر مصدرًا مؤهلاً' : 'Choose a qualified source')}</p>
-                        {!motionDesignPreflight.eligible && motionDesignPreflight.issues.slice(0, 3).map(issue => <p key={issue.code} className="mt-1">• {issue.message}</p>)}
+                        {!motionDesignPreflight.eligible && motionDesignPreflight.issues.slice(0, 3).map(issue => <p key={issue.code} className="mt-1">• {videoPreflightIssueCopy(issue)}</p>)}
                       </div>
                     </div>
                   ) : (
