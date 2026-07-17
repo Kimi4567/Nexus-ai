@@ -164,7 +164,8 @@ export const PLANS: PlanDefinition[] = [
 ]
 
 // ── Monthly video slot quota per plan ─────────────────────────────────────────
-// Video slots = how many user-supplied video posts can be scheduled per month.
+// Video slots = how many video posts can be planned/scheduled per month. Final
+// media can be uploaded or generated as a separately priced credit action.
 // Legacy plan keys remain for existing subscriptions; only Growth and Autopilot
 // are offered to new customers.
 
@@ -332,7 +333,7 @@ export const PLAN_CREDITS: Record<string, number> = {
 
 export interface PlanQuota {
   postsPerMonth: number        // monthly generated-content allowance
-  videoSlotsPerMonth: number   // scheduled slots for user-supplied video
+  videoSlotsPerMonth: number   // scheduled video slots; generation uses separate credits
   postsPerCampaign: number     // how many posts to generate per content plan run
 }
 

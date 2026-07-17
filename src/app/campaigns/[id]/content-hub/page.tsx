@@ -23,6 +23,7 @@ import { useBillingStatus } from '@/lib/useBillingStatus'
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 import {
   CONTENT_HUB_IMAGE_COST,
+  CONTENT_HUB_VIDEO_COST,
   CONTENT_HUB_REGENERATION_COST,
   CONTENT_HUB_REWRITE_COST,
   getBulkImageGenerationCost,
@@ -430,6 +431,10 @@ export default function ContentHubPage() {
   const [retryingGeneratedAttachment, setRetryingGeneratedAttachment] = useState(false)
   const [imageGenerationConfirmPostId, setImageGenerationConfirmPostId] = useState<string | null>(null)
   const [imageGenerationAcknowledged, setImageGenerationAcknowledged] = useState(false)
+  const [videoGenerationConfirmPostId, setVideoGenerationConfirmPostId] = useState<string | null>(null)
+  const [videoGenerationAcknowledged, setVideoGenerationAcknowledged] = useState(false)
+  const [videoReferenceMediaId, setVideoReferenceMediaId] = useState<string | null>(null)
+  const [generatingVideoId, setGeneratingVideoId] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'DONE' | 'SCHEDULED' | 'PUBLISHED'>('ALL')
   const [showBulkImageConfirm, setShowBulkImageConfirm] = useState(false)
   const [bulkImageAcknowledged, setBulkImageAcknowledged] = useState(false)
@@ -628,13 +633,25 @@ export default function ContentHubPage() {
   useEffect(() => {
     const generating = posts.some(p => p.generationStatus === 'GENERATING')
     if (generating && !pollRef.current) {
-      pollRef.current = setInterval(loadData, 4000)
+      const poll = async () => {
+        const authorization = authHeader()
+        const videoPosts = posts.filter(post => post.isVideoPost && post.generationStatus === 'GENERATING')
+        if (authorization && videoPosts.length > 0) {
+          await Promise.all(videoPosts.map(post =>
+            fetch(`/api/campaigns/${campaignId}/content-plan/${post.id}/generate-video`, {
+              headers: { Authorization: authorization },
+            }).catch(() => null),
+          ))
+        }
+        await loadData()
+      }
+      pollRef.current = setInterval(() => { void poll() }, 4000)
     } else if (!generating && pollRef.current) {
       clearInterval(pollRef.current)
       pollRef.current = null
     }
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  }, [posts, loadData])
+  }, [posts, loadData, authHeader, campaignId])
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -889,6 +906,11 @@ export default function ContentHubPage() {
     creditsRemaining,
     isUnlimited,
   })
+  const videoGenerationTruth = getCreditActionTruth({
+    action: 'VIDEO_GENERATION',
+    creditsRemaining,
+    isUnlimited,
+  })
   const contentPlanTruth = getCreditActionTruth({
     action: 'CONTENT_PLAN_GENERATION',
     creditsRemaining,
@@ -900,6 +922,7 @@ export default function ContentHubPage() {
     isUnlimited,
   })
   const imageGenerationLocked = !billingLoading && !imageGenerationTruth.canAfford
+  const videoGenerationLocked = !billingLoading && !videoGenerationTruth.canAfford
   const selectedContentPlanCost = contentPlanTruth.cost + (enableABTesting ? abVariantTruth.cost : 0)
   const contentPlanCanAfford = isUnlimited || creditsRemaining >= selectedContentPlanCost
   const contentPlanLocked = !billingLoading && !contentPlanCanAfford
@@ -915,6 +938,7 @@ export default function ContentHubPage() {
     ? strategyApprovalRequiredLabel
     : (isAr ? 'صحّح النصوص قبل توليد الصور' : 'Fix copy before generating images')
   const addCreditsForImagesLabel = isAr ? 'أضف رصيداً لتوليد الصور' : 'Add credits to generate images'
+  const addCreditsForVideoLabel = isAr ? 'أضف رصيداً لتوليد الفيديو' : 'Add credits to generate video'
   const contentPlanCostLabel = isAr
     ? `${selectedContentPlanCost} كريديت`
     : `${selectedContentPlanCost} credit${selectedContentPlanCost === 1 ? '' : 's'}`
@@ -1141,6 +1165,18 @@ export default function ContentHubPage() {
   const imageGenerationConfirmPost = imageGenerationConfirmPostId
     ? posts.find(p => p.id === imageGenerationConfirmPostId)
     : null
+  const videoGenerationConfirmPost = videoGenerationConfirmPostId
+    ? posts.find(p => p.id === videoGenerationConfirmPostId)
+    : null
+  const mediaPickerPost = mediaPickerOpen
+    ? posts.find(p => p.id === mediaPickerOpen)
+    : null
+  const mediaPickerItems = mediaLibrary.filter(media => mediaPickerPost?.isVideoPost
+    ? ['video', 'VIDEO'].includes(media.type)
+    : ['image', 'IMAGE', 'logo', 'LOGO'].includes(media.type))
+  const videoReferenceImages = mediaLibrary
+    .filter(media => ['image', 'IMAGE', 'logo', 'LOGO'].includes(media.type))
+    .slice(0, 8)
   const imageGenerationReopensReview = Boolean(
     imageGenerationConfirmPost && ['APPROVED', 'SCHEDULED', 'FAILED'].includes(imageGenerationConfirmPost.status),
   )
@@ -1936,7 +1972,10 @@ export default function ContentHubPage() {
           visualStyle: 'Premium',
           postCaption: post.caption || post.imagePrompt || '',
           parentId: `social-post:${post.id}`,
-          assetRole: 'post_background',
+          assetRole: 'final_composited_ad',
+          // If the user attached a product/reference image first, preserve it
+          // through GPT Image 2 high-fidelity editing instead of replacing it.
+          referenceMediaId: post.uploadedMediaId || undefined,
           creativeRequirement,
           creativeTemplate,
           explicitImageGenerationConfirmed: true,
@@ -1991,6 +2030,95 @@ export default function ContentHubPage() {
         : 'The saved image was attached to the post with no new credit charge.')
     }
     setRetryingGeneratedAttachment(false)
+  }
+
+  // ── Generate a professional five-second Runway video master ───────────────
+
+  function openVideoGenerationConfirm(postId: string) {
+    const post = posts.find(item => item.id === postId)
+    if (!post?.isVideoPost) return
+    if (strategyApprovalRequired || contentIssueCountByPostId.has(postId)) {
+      setError(strategyApprovalRequired
+        ? strategyApprovalRequiredLabel
+        : (isAr ? 'صحّح نص هذا الفيديو قبل دفع تكلفة التوليد.' : 'Fix this video post copy before paying for generation.'))
+      return
+    }
+    if (videoGenerationLocked) {
+      setError(addCreditsForVideoLabel)
+      return
+    }
+    if (post.generationStatus === 'GENERATING') {
+      setError(isAr ? 'يتم بالفعل توليد فيديو لهذا المنشور.' : 'A video is already being generated for this post.')
+      return
+    }
+    if (post.generationStatus === 'REFUND_PENDING') {
+      setError(isAr
+        ? 'استرداد كريديت المحاولة السابقة قيد المصالحة؛ لن يبدأ خصم جديد.'
+        : 'The previous video credit restoration is pending; no new charge can start.')
+      return
+    }
+    setVideoReferenceMediaId(null)
+    setVideoGenerationAcknowledged(false)
+    setVideoGenerationConfirmPostId(postId)
+  }
+
+  function closeVideoGenerationConfirm() {
+    if (generatingVideoId) return
+    setVideoGenerationConfirmPostId(null)
+    setVideoGenerationAcknowledged(false)
+    setVideoReferenceMediaId(null)
+  }
+
+  async function confirmPostVideoGeneration() {
+    if (!videoGenerationConfirmPostId || !videoGenerationAcknowledged || !isAuthenticated) return
+    const post = posts.find(item => item.id === videoGenerationConfirmPostId)
+    if (!post) return
+    setGeneratingVideoId(post.id)
+    setError(null)
+    try {
+      const identity = JSON.stringify({
+        campaignId,
+        postId: post.id,
+        videoPrompt: post.videoPrompt,
+        referenceMediaId: videoReferenceMediaId,
+        durationSeconds: 5,
+      })
+      const response = await fetchCreditOperation(
+        creditOperationScope('campaign:post-video', identity),
+        `/api/campaigns/${campaignId}/content-plan/${post.id}/generate-video`,
+        {
+          method: 'POST',
+          headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            referenceMediaId: videoReferenceMediaId,
+            language: isAr ? 'ar' : 'en',
+            explicitVideoGenerationConfirmed: true,
+            acknowledgedCreditCost: CONTENT_HUB_VIDEO_COST,
+            acknowledgedDurationSeconds: 5,
+            acknowledgedNoPublishOrSchedule: true,
+            acknowledgedReviewRequired: true,
+          }),
+        },
+      )
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || data.message || 'Video generation could not start')
+
+      setPosts(current => current.map(item => item.id === post.id
+        ? { ...item, generationStatus: 'GENERATING' }
+        : item))
+      setVideoGenerationConfirmPostId(null)
+      setVideoGenerationAcknowledged(false)
+      setVideoReferenceMediaId(null)
+      setSuccessMsg(isAr
+        ? `بدأ إنتاج فيديو إعلاني احترافي مدته 5 ثوانٍ. تم خصم ${CONTENT_HUB_VIDEO_COST} كريديت؛ سيُرد تلقائيًا إذا فشل الناتج. لا نشر ولا جدولة.`
+        : `A professional 5-second ad video is rendering. ${CONTENT_HUB_VIDEO_COST} credits were charged and will be restored if no usable output is produced. Nothing was published or scheduled.`)
+      await refreshBillingStatus()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Video generation could not start')
+      await refreshBillingStatus()
+    } finally {
+      setGeneratingVideoId(null)
+    }
   }
 
   // ── Select A/B draft variant ─────────────────────────────────────────────────
@@ -2764,13 +2892,17 @@ export default function ContentHubPage() {
               isRewriting={rewritingPost === post.id}
               isPickingWinner={pickingWinner === post.id}
               isGeneratingImage={generatingImageId === post.id}
+              isGeneratingVideo={generatingVideoId === post.id || (post.isVideoPost && post.generationStatus === 'GENERATING')}
               imageGenerationLocked={imageGenerationLocked}
+              videoGenerationLocked={videoGenerationLocked}
               imageGenerationBlockedByTruthReview={strategyApprovalRequired || contentIssueCountByPostId.has(post.id)}
               imageGenerationTruthReviewLabel={strategyApprovalRequired
                 ? strategyApprovalRequiredLabel
                 : (isAr ? 'صحّح النص قبل الصورة' : 'Fix copy before image')}
               addCreditsForImagesLabel={addCreditsForImagesLabel}
+              addCreditsForVideoLabel={addCreditsForVideoLabel}
               onGenerateImage={() => openImageGenerationConfirm(post.id)}
+              onGenerateVideo={() => openVideoGenerationConfirm(post.id)}
               onAddCredits={() => router.push('/billing')}
               onToggleExpand={() => setExpandedPost(expandedPost === post.id ? null : post.id)}
               onEditCaption={() => setEditingCaption(editingCaption === post.id ? null : post.id)}
@@ -3708,9 +3840,11 @@ export default function ContentHubPage() {
                   className="text-slate-400 hover:text-slate-700 text-xl"
                 >×</button>
               </div>
-              {mediaLibrary.length === 0 ? (
+              {mediaPickerItems.length === 0 ? (
                 <div className="text-center py-12 text-slate-500">
-                  <p className="mb-3">{isAr ? 'لا توجد أصول صور جاهزة لهذه الحملة بعد' : 'No image assets are ready for this campaign yet'}</p>
+                  <p className="mb-3">{mediaPickerPost?.isVideoPost
+                    ? (isAr ? 'لا توجد فيديوهات مرفوعة جاهزة لهذه الحملة بعد' : 'No uploaded videos are ready for this campaign yet')
+                    : (isAr ? 'لا توجد أصول صور جاهزة لهذه الحملة بعد' : 'No image assets are ready for this campaign yet')}</p>
                   <button
                     type="button"
                     onClick={() => router.push('/media')}
@@ -3721,16 +3855,16 @@ export default function ContentHubPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-3 gap-3 max-h-80 overflow-y-auto">
-                  {mediaLibrary
-                    .filter(m => ['image', 'IMAGE', 'logo', 'LOGO'].includes(m.type))
-                    .map(m => (
+                  {mediaPickerItems.map(m => (
                       <button
                         type="button"
                         key={m.id}
                         onClick={() => mediaPickerOpen && requestMediaAttachment(mediaPickerOpen, m)}
                         className="relative group aspect-square rounded-xl overflow-hidden transition-all hover:ring-2 hover:ring-purple-500"
                       >
-                        <img src={m.url} alt={m.fileName} className="w-full h-full object-cover" />
+                        {mediaPickerPost?.isVideoPost
+                          ? <video src={m.url} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+                          : <img src={m.url} alt={m.fileName} className="w-full h-full object-cover" />}
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                           <span className="text-white text-xs font-medium">{isAr ? 'استخدم هذا الأصل' : 'Use this'}</span>
                         </div>
@@ -3763,7 +3897,9 @@ export default function ContentHubPage() {
                 </div>
 
                 <div className="mb-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <img src={pendingMediaAttachment.media.url} alt={pendingMediaAttachment.media.fileName} className="h-16 w-16 rounded-lg object-cover" />
+                  {['video', 'VIDEO'].includes(pendingMediaAttachment.media.type)
+                    ? <video src={pendingMediaAttachment.media.url} muted playsInline preload="metadata" className="h-16 w-16 rounded-lg object-cover" />
+                    : <img src={pendingMediaAttachment.media.url} alt={pendingMediaAttachment.media.fileName} className="h-16 w-16 rounded-lg object-cover" />}
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-slate-900">{pendingMediaAttachment.media.fileName}</p>
                     <p className="mt-1 text-xs text-slate-500">
@@ -3919,7 +4055,10 @@ export default function ContentHubPage() {
                   <button onClick={closeImageGenerationConfirm} disabled={Boolean(generatingImageId)} className="text-xl leading-none text-slate-400 hover:text-slate-700 disabled:opacity-40">×</button>
                 </div>
                 <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
-                  <p>{isAr ? 'الصورة المولّدة ستحدّث وسائط معاينة هذا المنشور إذا نجح التوليد.' : 'The generated image will update this post preview media if generation succeeds.'}</p>
+                  <p>{isAr ? 'سينتج GPT Image 2 صورة إعلانية نهائية مع عنوان عربي/إنجليزي واضح وهوية البراند، ثم يحدّث معاينة المنشور إذا نجح التوليد.' : 'GPT Image 2 will create a final ad image with clear Arabic/English headline treatment and brand identity, then update this post preview if generation succeeds.'}</p>
+                  {imageGenerationConfirmPost.uploadedMediaId && (
+                    <p className="font-semibold text-violet-700">{isAr ? 'سيُستخدم الأصل المرفوع كمرجع عالي الدقة للحفاظ على شكل المنتج والعبوة والألوان.' : 'The attached upload will be used as a high-fidelity reference to preserve product shape, packaging, and colours.'}</p>
+                  )}
                   <p>{imageGenerationReopensReview
                     ? (isAr
                         ? 'عند ربط الصورة الجديدة سيعود المنشور لمسودة ويلغى اعتماده وقرار تنفيذه حتى تراجعه من جديد.'
@@ -3955,6 +4094,105 @@ export default function ContentHubPage() {
                     {generatingImageId
                       ? (isAr ? 'جارٍ التوليد...' : 'Generating...')
                       : (isAr ? `تأكيد توليد الصورة — ${CONTENT_HUB_IMAGE_COST} كريديت` : `Confirm image generation — ${CONTENT_HUB_IMAGE_COST} credits`)}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {videoGenerationConfirmPost && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.34)', backdropFilter: 'blur(12px)' }} onClick={closeVideoGenerationConfirm}>
+            <div className="w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl" style={{ border: '1px solid rgba(15,23,42,0.10)' }} onClick={event => event.stopPropagation()}>
+              <div className="bg-slate-950 px-6 py-5 text-white">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300">Runway Gen-4.5 · 5s master</p>
+                    <h3 className="mt-1 text-xl font-bold">{isAr ? 'إنتاج فيديو إعلاني احترافي' : 'Produce a professional ad video'}</h3>
+                    <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-300">
+                      {isAr
+                        ? `ينتج NEXUS لقطة إعلانية سينمائية مدتها 5 ثوانٍ للمنشور #${videoGenerationConfirmPost.contentPlanIndex}. النص العربي أو الإنجليزي يظل في طبقة النص/الكابشن حتى لا يشوه الذكاء الحروف داخل الفيديو.`
+                        : `NEXUS will render a five-second cinematic master for post #${videoGenerationConfirmPost.contentPlanIndex}. Arabic or English copy stays in the reviewed caption/text layer so the model cannot distort typography inside the video.`}
+                    </p>
+                  </div>
+                  <button aria-label={isAr ? 'إغلاق نافذة توليد الفيديو' : 'Close video generation'} onClick={closeVideoGenerationConfirm} disabled={Boolean(generatingVideoId)} className="text-2xl leading-none text-slate-400 hover:text-white disabled:opacity-40">×</button>
+                </div>
+              </div>
+
+              <div className="max-h-[72vh] overflow-y-auto p-6">
+                <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-950">{isAr ? 'صورة المنتج / أول فريم' : 'Product image / first frame'}</p>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                          {isAr ? 'اختياري، لكنه موصى به للحفاظ على شكل المنتج والعبوة والألوان.' : 'Optional, but recommended to preserve product shape, packaging, and colours.'}
+                        </p>
+                      </div>
+                      {videoReferenceMediaId && (
+                        <button onClick={() => setVideoReferenceMediaId(null)} className="text-xs font-semibold text-slate-500 hover:text-slate-900">{isAr ? 'إزالة' : 'Clear'}</button>
+                      )}
+                    </div>
+                    <div className="mt-3 grid grid-cols-4 gap-2">
+                      {videoReferenceImages.map(media => (
+                          <button
+                            key={media.id}
+                            type="button"
+                            onClick={() => setVideoReferenceMediaId(media.id)}
+                            className="relative aspect-square overflow-hidden rounded-xl border-2 transition-all"
+                            style={{ borderColor: videoReferenceMediaId === media.id ? '#5E5CE6' : 'transparent' }}
+                            title={media.fileName}
+                          >
+                            <img src={media.url} alt={media.fileName} className="h-full w-full object-cover" />
+                            {videoReferenceMediaId === media.id && <span className="absolute right-1 top-1 rounded-full bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold text-white">✓</span>}
+                          </button>
+                        ))}
+                    </div>
+                    {videoReferenceImages.length === 0 && (
+                      <button type="button" onClick={() => router.push('/media')} className="mt-3 w-full rounded-xl border border-dashed border-slate-300 bg-white px-3 py-3 text-xs font-semibold text-violet-700">
+                        {isAr ? 'ارفع صورة المنتج أولاً من مكتبة الوسائط' : 'Upload a product image in Media Library first'}
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4">
+                    <p className="text-sm font-bold text-violet-950">{isAr ? 'عقد التنفيذ' : 'Execution contract'}</p>
+                    <div className="mt-3 space-y-2 text-xs leading-relaxed text-violet-950/75">
+                      <p>✓ {isAr ? 'جودة نهائية: Runway Gen-4.5' : 'Final quality: Runway Gen-4.5'}</p>
+                      <p>✓ {isAr ? 'المدة: 5 ثوانٍ' : 'Duration: 5 seconds'}</p>
+                      <p>✓ {isAr ? `التكلفة: ${CONTENT_HUB_VIDEO_COST} كريديت` : `Cost: ${CONTENT_HUB_VIDEO_COST} credits`}</p>
+                      <p>✓ {isAr ? 'حفظ دائم في مكتبة الوسائط' : 'Durable Media Library storage'}</p>
+                      <p>✓ {isAr ? 'استرداد تلقائي إذا لم ينتج ملف صالح' : 'Automatic restoration if no usable file is produced'}</p>
+                      <p>— {isAr ? 'لا نشر، لا جدولة، ولا تحديث تلقائي لـBrand Brain' : 'No publish, schedule, or automatic Brand Brain update'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+                  <input
+                    type="checkbox"
+                    checked={videoGenerationAcknowledged}
+                    onChange={event => setVideoGenerationAcknowledged(event.target.checked)}
+                    disabled={Boolean(generatingVideoId)}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-600"
+                  />
+                  <span className="text-sm font-semibold leading-relaxed text-slate-800">
+                    {isAr
+                      ? `أوافق على خصم ${CONTENT_HUB_VIDEO_COST} كريديت لإنتاج فيديو مدته 5 ثوانٍ للمراجعة فقط، وأفهم أنه لن يُنشر أو يُجدول تلقائيًا.`
+                      : `I approve a ${CONTENT_HUB_VIDEO_COST}-credit charge for one five-second review-only video and understand it will not be published or scheduled automatically.`}
+                  </span>
+                </label>
+
+                <div className="mt-5 flex justify-end gap-3">
+                  <button onClick={closeVideoGenerationConfirm} disabled={Boolean(generatingVideoId)} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-500 hover:text-slate-950">{isAr ? 'إلغاء' : 'Cancel'}</button>
+                  <button
+                    onClick={confirmPostVideoGeneration}
+                    disabled={Boolean(generatingVideoId) || !videoGenerationAcknowledged}
+                    className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {generatingVideoId
+                      ? (isAr ? 'جارٍ بدء الإنتاج...' : 'Starting production...')
+                      : (isAr ? `ابدأ الإنتاج — ${CONTENT_HUB_VIDEO_COST} كريديت` : `Start production — ${CONTENT_HUB_VIDEO_COST} credits`)}
                   </button>
                 </div>
               </div>
@@ -4243,11 +4481,15 @@ interface PostCardProps {
   isRewriting: boolean
   isPickingWinner: boolean
   isGeneratingImage: boolean
+  isGeneratingVideo: boolean
   imageGenerationLocked: boolean
+  videoGenerationLocked: boolean
   imageGenerationBlockedByTruthReview: boolean
   imageGenerationTruthReviewLabel: string
   addCreditsForImagesLabel: string
+  addCreditsForVideoLabel: string
   onGenerateImage: () => void | Promise<void>
+  onGenerateVideo: () => void | Promise<void>
   onAddCredits: () => void
   onToggleExpand: () => void
   onEditCaption: () => void
@@ -4275,11 +4517,15 @@ function PostCard({
   isRewriting,
   isPickingWinner,
   isGeneratingImage,
+  isGeneratingVideo,
   imageGenerationLocked,
+  videoGenerationLocked,
   imageGenerationBlockedByTruthReview,
   imageGenerationTruthReviewLabel,
   addCreditsForImagesLabel,
+  addCreditsForVideoLabel,
   onGenerateImage,
+  onGenerateVideo,
   onAddCredits,
   onToggleExpand,
   onEditCaption,
@@ -4633,14 +4879,29 @@ function PostCard({
             : <>✨ {t('contentHub.rewriteCopyShort')}</>
           }
         </button>
-        {/* Video slots require user-supplied video; never offer or charge for an unrelated image. */}
+        {/* Video generation is a separate, explicitly priced review action. */}
         {isVideo ? (
-          <div
-            className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug flex items-center justify-center gap-1 text-slate-500"
-            style={{ borderColor: 'rgba(15,23,42,0.08)', background: '#F8FAFC' }}
+          <button
+            onClick={videoGenerationLocked ? onAddCredits : onGenerateVideo}
+            disabled={isGeneratingVideo || creditRestorationPending || imageGenerationBlockedByTruthReview}
+            title={isAr
+              ? `Runway Gen-4.5 · 5 ثوانٍ · ${CONTENT_HUB_VIDEO_COST} كريديت · للمراجعة فقط`
+              : `Runway Gen-4.5 · 5 seconds · ${CONTENT_HUB_VIDEO_COST} credits · review only`}
+            className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug transition-all flex items-center justify-center gap-1"
+            style={{
+              borderColor: 'rgba(15,23,42,0.08)',
+              background: videoGenerationLocked ? '#FEF2F2' : '#F5F3FF',
+              color: videoGenerationLocked ? '#B91C1C' : '#5E5CE6',
+            }}
           >
-            🎬 {isAr ? 'خانة فيديو · دون توليد صورة' : 'Video slot · no image generation'}
-          </div>
+            {isGeneratingVideo
+              ? <><span className="h-2.5 w-2.5 animate-spin rounded-full border border-violet-300 border-t-violet-600" />{isAr ? 'جارٍ إنتاج الفيديو' : 'Rendering video'}</>
+              : <>🎬 {imageGenerationBlockedByTruthReview
+                ? imageGenerationTruthReviewLabel
+                : videoGenerationLocked
+                  ? addCreditsForVideoLabel
+                  : (isAr ? `فيديو احترافي · ${CONTENT_HUB_VIDEO_COST} كريديت` : `Professional video · ${CONTENT_HUB_VIDEO_COST} credits`)}</>}
+          </button>
         ) : platform === 'TIKTOK' ? (
           <button onClick={onOpenMediaPicker}
             className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug transition-all flex items-center justify-center gap-1"
@@ -4749,7 +5010,9 @@ function InstagramMockup({ caption, imageUrl, isVideo, status, isExpanded, onExp
       {/* Image — 1:1 square */}
       <div className="relative w-full" style={{ aspectRatio: '1/1', background: '#f3f3f3', overflow: 'hidden' }}>
         {imageUrl ? (
-          <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          isVideo
+            ? <video src={imageUrl} muted playsInline controls preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            : <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
           <ImagePlaceholder isVideo={isVideo} status={status} dark={false} />
         )}
@@ -4820,7 +5083,9 @@ function LinkedInMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpa
       {/* Image — 4:3 */}
       <div className="relative w-full" style={{ aspectRatio: '4/3', background: '#f3f3f3', overflow: 'hidden' }}>
         {imageUrl ? (
-          <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          isVideo
+            ? <video src={imageUrl} muted playsInline controls preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            : <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
           <ImagePlaceholder isVideo={isVideo} status={status} dark={false} />
         )}
@@ -4859,7 +5124,9 @@ function TikTokMockup({ caption, imageUrl, isVideo, status, brandName, brandLogo
     <div className="relative flex" style={{ background: '#000', aspectRatio: '9/14', overflow: 'hidden' }}>
       {/* Background image/video */}
       {imageUrl ? (
-        <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        isVideo
+          ? <video src={imageUrl} muted playsInline controls preload="metadata" className="absolute inset-0 h-full w-full object-cover" />
+          : <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)' }}>
           <ImagePlaceholder isVideo={isVideo} status={status} dark={true} />
@@ -4926,7 +5193,9 @@ function GenericMockup({ caption, imageUrl, isVideo, status, platform, isExpande
       </div>
       <div className="relative w-full" style={{ aspectRatio: isPinterest ? '2/3' : '16/9', maxHeight: isPinterest ? 520 : undefined, background: '#f3f3f3', overflow: 'hidden' }}>
         {imageUrl ? (
-          <img src={imageUrl} alt={isPinterest ? caption.slice(0, 500) : ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          isVideo
+            ? <video src={imageUrl} muted playsInline controls preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            : <img src={imageUrl} alt={isPinterest ? caption.slice(0, 500) : ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
           <ImagePlaceholder isVideo={isVideo} status={status} dark={false} />
         )}

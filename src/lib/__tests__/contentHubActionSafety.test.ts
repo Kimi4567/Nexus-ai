@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   CONTENT_HUB_IMAGE_COST,
+  CONTENT_HUB_VIDEO_COST,
   CONTENT_HUB_REWRITE_COST,
   getBulkImageGenerationCost,
   getMediaPendingVisualStateCopy,
   summarizeBulkImageGenerationOutcome,
   validateBulkImageGenerationConfirmation,
   validateSingleImageGenerationConfirmation,
+  validateVideoGenerationConfirmation,
   validateRewriteConfirmation,
 } from '../contentHubActionSafety'
 
@@ -99,6 +101,31 @@ describe('contentHubActionSafety', () => {
     expect(validateRewriteConfirmation({
       confirmed: true,
       acknowledgedCreditCost: CONTENT_HUB_REWRITE_COST,
+    })).toEqual({ ok: true })
+  })
+
+  it('requires the exact five-second video contract before charging', () => {
+    expect(CONTENT_HUB_VIDEO_COST).toBe(6)
+    expect(validateVideoGenerationConfirmation({
+      confirmed: true,
+      acknowledgedCreditCost: CONTENT_HUB_VIDEO_COST,
+      acknowledgedDurationSeconds: 8,
+      acknowledgedNoPublishOrSchedule: true,
+      acknowledgedReviewRequired: true,
+    })).toMatchObject({ ok: false })
+    expect(validateVideoGenerationConfirmation({
+      confirmed: true,
+      acknowledgedCreditCost: CONTENT_HUB_VIDEO_COST,
+      acknowledgedDurationSeconds: 5,
+      acknowledgedNoPublishOrSchedule: true,
+      acknowledgedReviewRequired: false,
+    })).toMatchObject({ ok: false })
+    expect(validateVideoGenerationConfirmation({
+      confirmed: true,
+      acknowledgedCreditCost: CONTENT_HUB_VIDEO_COST,
+      acknowledgedDurationSeconds: 5,
+      acknowledgedNoPublishOrSchedule: true,
+      acknowledgedReviewRequired: true,
     })).toEqual({ ok: true })
   })
 

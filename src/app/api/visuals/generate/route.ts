@@ -5,9 +5,9 @@
  * Fetches Brand Brain + Strategy from DB to build a rich VisualContext,
  * then routes to the correct brand-category prompt builder.
  *
- * Provider selection is automatic (server-side):
- *   - FAL_KEY present → Flux 1.1 Pro Ultra via fal.ai (best photorealism, ~$0.06/image)
- *   - FAL_KEY absent  → gpt-image-1 high quality (reliable fallback)
+ * Provider selection is automatic and task-aware (server-side):
+ *   - Final/product creative → GPT Image 2 high-fidelity generation/editing
+ *   - Concept draft → configured FAL model, with GPT Image 2 fallback
  *
  * Clients do not choose the provider — it's an infrastructure decision.
  * Returns the completed visual synchronously (Vercel 60s timeout).
@@ -30,6 +30,7 @@ import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import {
   buildImagePrompt,
   generateWithDallE,
+  generateWithOpenAIImageEdit,
   IMAGE_OUTPUT_CLASSIFICATION,
   uploadToCloudinary,
   VisualContext,
@@ -44,6 +45,7 @@ import {
   getImageProviderUnavailablePayload,
   getMediaStorageUnavailablePayload,
   isImageProviderConfigured,
+  isAiProviderConfigured,
   isMediaStorageConfigured,
 } from '@/lib/ai/provider'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
@@ -52,6 +54,7 @@ import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { captureOperationalError } from '@/lib/observability/operationalError'
 import { sanitizeSentryText } from '@/lib/observability/sentryPrivacy'
+import { chooseProfessionalImageProvider, type ImageGenerationPurpose } from '@/lib/ai/mediaProviderRouter'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -102,6 +105,7 @@ export async function POST(req: NextRequest) {
     creativeRequirement,
     creativeTemplate,
     assetRole = 'draft_visual_asset' as VisualAssetRole,
+    referenceMediaId,
     // Explicit credit/action confirmation
     explicitImageGenerationConfirmed,
     acknowledgedCreditCost,
@@ -163,6 +167,7 @@ export async function POST(req: NextRequest) {
   // If no campaignId, we still fetch the brand profile for workspace-level generation
   let campaign: any = null
   let brand: any = null
+  let referenceMedia: { id: string; url: string; type: string } | null = null
 
   try {
     if (campaignId) {
@@ -183,6 +188,25 @@ export async function POST(req: NextRequest) {
     }
   } catch {
     // Non-fatal — proceed without brand context
+  }
+
+  if (typeof referenceMediaId === 'string' && referenceMediaId.trim()) {
+    referenceMedia = await db.media.findFirst({
+      where: {
+        id: referenceMediaId.trim(),
+        workspaceId: workspace.id,
+        type: { in: ['IMAGE', 'LOGO'] },
+        OR: [{ campaignId: null }, { campaignId: campaignId || null }],
+      },
+      select: { id: true, url: true, type: true },
+    })
+    if (!referenceMedia) {
+      return NextResponse.json({
+        error: 'The selected product/reference image was not found in this workspace or campaign.',
+        code: 'REFERENCE_MEDIA_NOT_FOUND',
+        creditsCharged: false,
+      }, { status: 404 })
+    }
   }
 
   // ── Extract Strategy fields from aiOutput ─────────────────────────────────
@@ -298,6 +322,14 @@ export async function POST(req: NextRequest) {
   if (!isImageProviderConfigured()) {
     return NextResponse.json(getImageProviderUnavailablePayload(language), { status: 503 })
   }
+  if (referenceMedia && !isAiProviderConfigured()) {
+    return NextResponse.json({
+      error: 'Product-to-ad generation requires GPT Image 2 so NEXUS can preserve the selected reference. No credits were charged.',
+      code: 'REFERENCE_IMAGE_PROVIDER_UNAVAILABLE',
+      creditsCharged: false,
+      retryable: false,
+    }, { status: 503 })
+  }
   if (!isMediaStorageConfigured()) {
     return NextResponse.json(getMediaStorageUnavailablePayload(language), { status: 503 })
   }
@@ -373,24 +405,40 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(credit, { status: creditCheckHttpStatus(credit) })
   }
 
-  // ── Run generation — server auto-detects provider ────────────────────────
-  // If FAL_KEY is configured → Flux 1.1 Pro Ultra (best photorealism)
-  // Otherwise → gpt-image-1 high quality (default)
-  // Client never controls this — provider is an infrastructure decision, not a UI choice.
+  // ── Run generation — route by marketing task, not environment key order ─
   try {
     let rawImageUrl: string
-    const useFlux = !!process.env.FAL_KEY
+    const purpose: ImageGenerationPurpose = referenceMedia
+      ? 'product_to_ad'
+      : assetRole === 'final_composited_ad'
+        ? 'final_ad_creative'
+        : 'concept_draft'
+    const providerDecision = chooseProfessionalImageProvider({
+      purpose,
+      hasReferenceImage: Boolean(referenceMedia),
+      openAiConfigured: isAiProviderConfigured(),
+      falConfigured: Boolean(process.env.FAL_KEY?.trim()),
+    })
 
-    if (useFlux) {
-      // Flux 1.1 Pro Ultra — best photorealism, returns hosted CDN URL
-      const aspectRatio = platformToFluxAspectRatio(platform)
-      console.log(`[visuals/generate] Using Flux Pro Ultra — aspect ratio: ${aspectRatio}`)
-      const fluxResult = await generateWithFlux({ prompt, aspectRatio })
-      rawImageUrl = fluxResult.imageUrl
-    } else {
-      // gpt-image-1 high quality — returns base64 data URI
-      console.log(`[visuals/generate] Using gpt-image-1 high quality — platform: ${platform}`)
-      rawImageUrl = await generateWithDallE(prompt, platformToOpenAISize(platform))
+    const runProvider = async (provider: typeof providerDecision.provider) => {
+      if (provider === 'fal-flux') {
+        const fluxResult = await generateWithFlux({
+          prompt,
+          aspectRatio: platformToFluxAspectRatio(platform),
+        })
+        return fluxResult.imageUrl
+      }
+      if (referenceMedia) {
+        return generateWithOpenAIImageEdit(prompt, referenceMedia.url, platformToOpenAISize(platform))
+      }
+      return generateWithDallE(prompt, platformToOpenAISize(platform))
+    }
+
+    try {
+      rawImageUrl = await runProvider(providerDecision.provider)
+    } catch (primaryError) {
+      if (!providerDecision.fallback) throw primaryError
+      rawImageUrl = await runProvider(providerDecision.fallback)
     }
 
     // ── Persist raw AI image to Cloudinary (needed for Sharp to fetch it) ──
@@ -419,8 +467,9 @@ export async function POST(req: NextRequest) {
             ? (Array.isArray(brand.colorPalette) ? brand.colorPalette[0] : brand.colorPalette)
             : null,
           platform:    overlayPlatform,
-          // Legacy-only: newer background roles skip this hardcoded text/logo overlay.
-          adHeadline: concept?.headline || undefined,
+          // Use reviewed Arabic/English post copy as the deterministic layer;
+          // the prompt concept headline is only a final fallback.
+          adHeadline: postCaption || concept?.headline || undefined,
         })
 
         const finalPublicId = `visual_${visual.id}`
@@ -467,7 +516,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       visual: updated,
       assetRole,
-      outputClassification: IMAGE_OUTPUT_CLASSIFICATION,
+      outputClassification: assetRole === 'final_composited_ad'
+        ? 'final_composited_ad_for_review'
+        : IMAGE_OUTPUT_CLASSIFICATION,
       creditsUsed: credit.creditsUsed,
       creditsRemaining: credit.creditsRemaining,
       creditCharge: buildCreditChargeReceipt('IMAGE_GENERATION', credit),

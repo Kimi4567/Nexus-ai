@@ -24,7 +24,12 @@ import {
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { generateWithFlux, platformToFluxAspectRatio, platformToOpenAISize } from '@/lib/ai/falGen'
-import { buildImagePrompt, type VisualContext } from '@/lib/ai/imageGen'
+import {
+  buildImagePrompt,
+  generateWithDallE,
+  uploadToCloudinary,
+  type VisualContext,
+} from '@/lib/ai/imageGen'
 import { normalizeContentHubImagePromptForPlatform } from '@/lib/contentHubImageFormat'
 import {
   getBulkImageGenerationCost,
@@ -34,6 +39,7 @@ import {
   getImageProviderUnavailablePayload,
   getMediaStorageUnavailablePayload,
   isImageProviderConfigured,
+  isAiProviderConfigured,
   isMediaStorageConfigured,
 } from '@/lib/ai/provider'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
@@ -41,6 +47,9 @@ import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { chooseProfessionalImageProvider } from '@/lib/ai/mediaProviderRouter'
+import { composeBrandedPost, bufferToDataUri } from '@/lib/brandComposite'
+import { platformToOverlay } from '@/lib/cloudinaryOverlay'
 
 export const maxDuration = 60 // Vercel Pro — 60s max
 
@@ -52,12 +61,7 @@ type ImageCreditReservation = {
   settled: boolean
 }
 
-const CLOUDINARY_CLOUD  = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
-const CLOUDINARY_KEY    = process.env.CLOUDINARY_API_KEY
-const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET
 const MAX_IMAGES_PER_REQUEST = 1
-const IMAGE_PROVIDER_TIMEOUT_MS = 35_000
-const MEDIA_UPLOAD_TIMEOUT_MS = 10_000
 
 // ── Image generation (mirrors cron/generate-images logic) ─────────────────────
 
@@ -67,39 +71,29 @@ async function generateImage(prompt: string, platform: string): Promise<string> 
   // platform normalization here so bulk and single generation stay identical.
   const safePrompt = normalizeContentHubImagePromptForPlatform(prompt, platform)
 
-  if (process.env.FAL_KEY) {
-    const aspectRatio = platformToFluxAspectRatio(platform)
-    const result = await generateWithFlux({ prompt: safePrompt, aspectRatio })
-    return result.imageUrl
-  }
-
-  // Fallback: gpt-image-1 high quality
-  const size = platformToOpenAISize(platform)
-
-  const res = await fetch('https://api.openai.com/v1/images/generations', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-image-1',
-      prompt: safePrompt,
-      n: 1,
-      size,
-      quality: 'high',
-      output_format: 'b64_json',
-    }),
-    signal: AbortSignal.timeout(IMAGE_PROVIDER_TIMEOUT_MS),
+  const decision = chooseProfessionalImageProvider({
+    purpose: 'final_ad_creative',
+    hasReferenceImage: false,
+    openAiConfigured: isAiProviderConfigured(),
+    falConfigured: Boolean(process.env.FAL_KEY?.trim()),
   })
-
-  const data = await res.json()
-  if (!res.ok) {
-    throw new Error(data?.error?.message || `Image API error: ${res.status}`)
+  const run = async (provider: typeof decision.provider) => {
+    if (provider === 'fal-flux') {
+      const result = await generateWithFlux({
+        prompt: safePrompt,
+        aspectRatio: platformToFluxAspectRatio(platform),
+      })
+      return result.imageUrl
+    }
+    return generateWithDallE(safePrompt, platformToOpenAISize(platform))
   }
-  const b64 = data?.data?.[0]?.b64_json
-  if (!b64) throw new Error('Image generation returned no data')
-  return `data:image/png;base64,${b64}`
+
+  try {
+    return await run(decision.provider)
+  } catch (error) {
+    if (!decision.fallback) throw error
+    return run(decision.fallback)
+  }
 }
 
 async function buildContentHubPostPrompt(campaign: any, post: any): Promise<string> {
@@ -147,42 +141,11 @@ async function buildContentHubPostPrompt(campaign: any, post: any): Promise<stri
       textOverlayNeeded: true,
       logoNeeded: true,
     },
-    assetRole: 'post_background',
+    assetRole: 'final_composited_ad',
   }
 
   const result = await buildImagePrompt(context)
   return normalizeContentHubImagePromptForPlatform(result.prompt, post.platform)
-}
-
-async function uploadToCloudinary(imageUrl: string, postId: string): Promise<string> {
-  if (!CLOUDINARY_CLOUD || !CLOUDINARY_KEY || !CLOUDINARY_SECRET) {
-    throw new Error('Cloudinary not configured')
-  }
-
-  const timestamp = Math.round(Date.now() / 1000)
-  const publicId = `content-hub/${postId}`
-  const sigString = `folder=nexus/content-hub&public_id=${publicId}&timestamp=${timestamp}${CLOUDINARY_SECRET}`
-
-  const encoder = new TextEncoder()
-  const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(sigString))
-  const signature = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
-
-  const form = new FormData()
-  form.append('file', imageUrl)
-  form.append('folder', 'nexus/content-hub')
-  form.append('public_id', publicId)
-  form.append('api_key', CLOUDINARY_KEY)
-  form.append('timestamp', String(timestamp))
-  form.append('signature', signature)
-
-  const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
-    method: 'POST',
-    body: form,
-    signal: AbortSignal.timeout(MEDIA_UPLOAD_TIMEOUT_MS),
-  })
-  const uploadData = await uploadRes.json()
-  if (uploadData.error) throw new Error(`Cloudinary: ${uploadData.error.message}`)
-  return uploadData.secure_url as string
 }
 
 async function refundImageReservation(
@@ -461,7 +424,20 @@ export async function POST(req: NextRequest, props: Params) {
         const rawUrl = await generateImage(preparedPrompt, post.platform)
         // Content Hub media must be durable. Never put a provider-temporary URL
         // or a base64 payload in SocialPost.imageUrl.
-        const finalUrl = await uploadToCloudinary(rawUrl, post.id)
+        const durableRawUrl = await uploadToCloudinary(rawUrl, `content_hub_raw_${post.id}`)
+        const composite = await composeBrandedPost(durableRawUrl, {
+          brandName: campaign.workspace?.brandProfile?.brandName || campaign.name || 'Brand',
+          logoUrl: campaign.workspace?.brandProfile?.logoUrl || null,
+          accentColor: Array.isArray(campaign.workspace?.brandProfile?.colorPalette)
+            ? campaign.workspace.brandProfile.colorPalette[0]
+            : campaign.workspace?.brandProfile?.colorPalette || null,
+          platform: platformToOverlay(post.platform),
+          adHeadline: post.caption || undefined,
+        })
+        const finalUrl = await uploadToCloudinary(
+          bufferToDataUri(composite),
+          `content_hub_${post.id}`,
+        )
 
         await prisma.$transaction(async (tx) => {
           await (tx.socialPost as any).update({

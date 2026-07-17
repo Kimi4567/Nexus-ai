@@ -8,7 +8,7 @@
  * - Uses GPT-4o-mini to generate post captions + image prompts for each slot
  * - Detects user's uploaded media and optionally assigns to posts
  * - Creates SocialPost records with status=DRAFT, generationStatus=PENDING
- * - Video slots get isVideoPost=true, no image generation — user uploads their own
+ * - Video slots get isVideoPost=true and remain a separate generate-or-upload media decision
  *
  * DELETE /api/campaigns/[id]/generate-content-plan
  * Clears all PENDING/DRAFT content plan posts (not yet published)
@@ -659,7 +659,7 @@ Rules:
       let uploadedMediaId: string | null = null
       let assignedImageUrl: string | null = null
       let effectiveMediaSource = mediaSource
-      let effectiveGenerationStatus = slot.isVideoPost ? 'AWAITING_UPLOAD' : 'PENDING'
+      let effectiveGenerationStatus = 'PENDING'
 
       const gptAssignedIdx: number = gen.assignedMediaIndex ?? -1
 
@@ -681,7 +681,9 @@ Rules:
           effectiveGenerationStatus = 'DONE'
         }
       } else {
-        effectiveMediaSource = 'UPLOAD' // videos always user-uploaded
+        // A video slot can use the professional Runway workflow or an owned
+        // uploaded video. Neither choice is made automatically here.
+        effectiveMediaSource = 'GENERATE'
       }
 
       return {

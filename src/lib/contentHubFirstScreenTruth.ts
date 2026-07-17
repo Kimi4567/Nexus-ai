@@ -147,7 +147,7 @@ function mediaStateCard(input: ContentHubFirstScreenTruthInput, ar: boolean): Co
       label: text(ar, 'جاهزية الوسائط', 'Media readiness'),
       value: text(ar, 'لا توجد خانات صور مطلوبة', 'No image slots required'),
       helper: input.videoPostCount > 0
-        ? text(ar, `${input.videoPostCount} خانات فيديو تبقى للتخطيط فقط.`, `${englishPlural(input.videoPostCount, 'video slot')} remain planning-only.`)
+        ? text(ar, `${input.videoPostCount} خانات فيديو تحتاج قرار توليد احترافي أو رفع فيديو ثم مراجعة.`, `${englishPlural(input.videoPostCount, 'video slot')} require a professional generation or upload decision, then review.`)
         : text(ar, 'لا توجد وسائط منشورات مطلوبة لهذه الحالة.', 'No post media is required for this state.'),
       tone: 'muted',
     }

@@ -3,6 +3,7 @@ import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
 // Client-safe aliases of the one client catalog. A contract test keeps that
 // catalog identical to the server billing catalog in src/lib/credits.ts.
 export const CONTENT_HUB_IMAGE_COST = CREDIT_ACTION_COSTS.IMAGE_GENERATION
+export const CONTENT_HUB_VIDEO_COST = CREDIT_ACTION_COSTS.VIDEO_GENERATION
 export const CONTENT_HUB_REWRITE_COST = CREDIT_ACTION_COSTS.AI_POST_REWRITE
 export const CONTENT_HUB_REGENERATION_COST = CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION
 
@@ -143,6 +144,26 @@ export function validateSingleImageGenerationConfirmation(input: {
     input.acknowledgedPostMediaForReview !== true
   ) {
     return { ok: false, error: 'Image generation requires explicit confirmation. No credits were spent.' }
+  }
+
+  return { ok: true }
+}
+
+export function validateVideoGenerationConfirmation(input: {
+  confirmed?: unknown
+  acknowledgedCreditCost?: unknown
+  acknowledgedDurationSeconds?: unknown
+  acknowledgedNoPublishOrSchedule?: unknown
+  acknowledgedReviewRequired?: unknown
+}): ContentHubConfirmationResult {
+  if (
+    input.confirmed !== true
+    || input.acknowledgedCreditCost !== CONTENT_HUB_VIDEO_COST
+    || input.acknowledgedDurationSeconds !== 5
+    || input.acknowledgedNoPublishOrSchedule !== true
+    || input.acknowledgedReviewRequired !== true
+  ) {
+    return { ok: false, error: 'Video generation requires explicit confirmation. No credits were spent.' }
   }
 
   return { ok: true }

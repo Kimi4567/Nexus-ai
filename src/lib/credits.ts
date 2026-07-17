@@ -89,6 +89,15 @@ export const CREDIT_COSTS = {
   IMAGE_GENERATION: 4,
 
   /**
+   * Professional video master — one five-second Runway Gen-4.5 task.
+   * Provider cost is currently 60 Runway credits ($0.60 at $0.01/credit),
+   * before durable storage, retries, moderation, and support reserve. Six
+   * NEXUS credits keeps a positive margin at the lowest subscription-credit
+   * selling price while still refunding a provider failure exactly.
+   */
+  VIDEO_GENERATION: 6,
+
+  /**
    * Ad copy generation — gpt-4o-mini ad concepts and copy variants
    * Routes: /api/campaigns/suggest, /api/brand/suggest, /api/ai/generate,
    *         /api/ad-campaigns/[id]/generate-strategy, /api/ad-campaigns/[id]/generate-copy,
@@ -235,6 +244,13 @@ export const CREDIT_ACTION_POLICIES: Record<CreditAction, CreditActionPolicy> = 
     label: 'Image generation',
     reason: 'Creates one reviewable campaign image for a specific post.',
     includedWork: 'One image result with one configured fallback provider attempt.',
+    providerCallLimit: 2,
+    refundableOnNoUsableOutput: true,
+  },
+  VIDEO_GENERATION: {
+    label: 'Professional video generation',
+    reason: 'Creates one five-second, reviewable campaign video master for a specific video post.',
+    includedWork: 'One Runway Gen-4.5 task, durable video storage, and safe attachment to the post draft. Publishing and scheduling are excluded.',
     providerCallLimit: 2,
     refundableOnNoUsableOutput: true,
   },
@@ -1481,6 +1497,7 @@ const ACTION_LABELS: Record<string, string> = {
   CREATIVE_BRIEF: 'Creative Brief',
   SENTINEL_REVIEW: 'Sentinel Review',
   IMAGE_GENERATION: 'Image Generation',
+  VIDEO_GENERATION: 'Professional Video Generation',
   AD_COPY: 'Ad Copy Generation',
   PAID_EXECUTION_PLAN: 'Paid Execution Plan',
   CHAT_MESSAGE: 'AI Chat Message',

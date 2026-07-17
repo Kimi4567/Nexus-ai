@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { applyBrandOverlayFromProfile, platformToOverlay } from '@/lib/cloudinaryOverlay'
 import { generateWithFlux, platformToFluxAspectRatio, platformToOpenAISize } from '@/lib/ai/falGen'
-import { buildImagePrompt, type VisualContext } from '@/lib/ai/imageGen'
+import { buildImagePrompt, generateWithDallE, type VisualContext } from '@/lib/ai/imageGen'
+import { chooseProfessionalImageProvider } from '@/lib/ai/mediaProviderRouter'
 import { normalizeContentHubImagePromptForPlatform } from '@/lib/contentHubImageFormat'
 import {
   checkAndDeductCredits,
@@ -37,7 +38,6 @@ export const dynamic = 'force-dynamic'
 const CLOUDINARY_CLOUD  = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
 const CLOUDINARY_KEY    = process.env.CLOUDINARY_API_KEY
 const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET
-const IMAGE_PROVIDER_TIMEOUT_MS = 35_000
 const MEDIA_UPLOAD_TIMEOUT_MS = 10_000
 
 type ImageCreditReservation = {
@@ -54,55 +54,41 @@ type PendingImageRefund = {
 }
 
 /**
- * Generate image — auto-detects provider:
- *   FAL_KEY set  → Flux 1.1 Pro Ultra (best photorealism, returns CDN URL)
- *   FAL_KEY unset → gpt-image-1 high quality (returns base64 data URI)
- * Platform-aware sizing applied in both paths.
+ * Generate a final ad image using the same quality router as Content Hub.
+ * GPT Image 2 is primary; Flux is a controlled fallback for non-reference work.
  */
 async function generateImage(
   prompt: string,
   platform: string
 ): Promise<string> {
   const safePrompt = normalizeContentHubImagePromptForPlatform(prompt, platform)
-  // Auto-detect provider — FAL_KEY presence is the only signal
-  if (process.env.FAL_KEY) {
-    const aspectRatio = platformToFluxAspectRatio(platform)
-    console.log(`[Cron generate-images] Using Flux Pro Ultra — aspect ratio: ${aspectRatio}`)
-    const result = await generateWithFlux({ prompt: safePrompt, aspectRatio })
-    return result.imageUrl // Hosted CDN URL — no base64 needed
-  }
-
-  // Fallback: gpt-image-1 high quality
-  // Platform-aware sizing — gpt-image-1 supported sizes only
-  const size = platformToOpenAISize(platform)
-
-  const res = await fetch('https://api.openai.com/v1/images/generations', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model:   'gpt-image-1',
-      prompt: safePrompt,
-      n:       1,
-      size,
-      quality: 'high', // always high — production asset
-    }),
-    signal: AbortSignal.timeout(IMAGE_PROVIDER_TIMEOUT_MS),
+  const decision = chooseProfessionalImageProvider({
+    purpose: 'final_ad_creative',
+    hasReferenceImage: false,
+    openAiConfigured: Boolean(process.env.OPENAI_API_KEY),
+    falConfigured: Boolean(process.env.FAL_KEY),
   })
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any)?.error?.message || `Image API error: ${res.status}`)
+  const runFlux = async () => {
+    const aspectRatio = platformToFluxAspectRatio(platform)
+    console.log(`[Cron generate-images] Using Flux fallback — aspect ratio: ${aspectRatio}`)
+    const result = await generateWithFlux({ prompt: safePrompt, aspectRatio })
+    return result.imageUrl
   }
 
-  const data = await res.json()
-  // gpt-image-1 returns b64_json (not a URL)
-  const b64 = data?.data?.[0]?.b64_json
-  if (!b64) throw new Error('Image generation returned no data')
+  if (decision.provider === 'fal-flux') {
+    return runFlux()
+  }
 
-  return `data:image/png;base64,${b64}`
+  try {
+    const size = platformToOpenAISize(platform)
+    console.log(`[Cron generate-images] Using GPT Image 2 — size: ${size}`)
+    return await generateWithDallE(safePrompt, size)
+  } catch (error) {
+    if (decision.fallback !== 'fal-flux') throw error
+    console.warn('[Cron generate-images] GPT Image 2 failed; using controlled Flux fallback')
+    return runFlux()
+  }
 }
 
 async function uploadToCloudinary(imageUrl: string, postId: string): Promise<string> {
@@ -421,8 +407,8 @@ export async function GET(req: NextRequest) {
         })
         visualId = visual.id
 
-        // 1. Generate image — auto-routes to Flux Pro Ultra if FAL_KEY set, else gpt-image-1 high
-        console.log(`[Cron generate-images] Generating for ${post.id} — platform: ${platform}, provider: ${process.env.FAL_KEY ? 'flux' : 'gpt-image-1'}`)
+        // 1. Generate a final creative through the shared professional router.
+        console.log(`[Cron generate-images] Generating final creative for ${post.id} — platform: ${platform}`)
         const dataUri = await generateImage(prompt, platform)
 
         // 2. Upload to Cloudinary for permanence (accepts data URI directly)

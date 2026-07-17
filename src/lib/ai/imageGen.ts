@@ -47,6 +47,7 @@ export type VisualAssetRole =
   | 'campaign_concept_background'
   | 'hero_visual'
   | 'draft_visual_asset'
+  | 'final_composited_ad'
 
 export interface VisualContext {
   // User-selected layout choices (kept for backward compat)
@@ -622,7 +623,7 @@ export async function buildImagePrompt(ctx: VisualContext): Promise<{
 // ─── Image generation ─────────────────────────────────────────────────────────
 
 /**
- * Generate image via gpt-image-1 (same model as ChatGPT).
+ * Generate a final-quality image via GPT Image 2.
  * Returns a data URI (base64 PNG).
  */
 export async function generateWithDallE(
@@ -633,7 +634,7 @@ export async function generateWithDallE(
   if (!apiKey) throw new Error('OPENAI_API_KEY not configured')
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log('[imageGen] gpt-image-1 | size:', size, '| prompt:', prompt.slice(0, 200) + '…')
+    console.log('[imageGen] gpt-image-2 | size:', size, '| prompt:', prompt.slice(0, 200) + '…')
   }
 
   const response = await fetch('https://api.openai.com/v1/images/generations', {
@@ -643,7 +644,7 @@ export async function generateWithDallE(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model:   'gpt-image-1',
+      model:   process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2',
       prompt,
       n:       1,
       size,
@@ -664,6 +665,64 @@ export async function generateWithDallE(
   const b64  = (data as { data?: Array<{ b64_json?: string }> })?.data?.[0]?.b64_json
   if (!b64) throw new Error('Image generation returned no image data')
 
+  return `data:image/png;base64,${b64}`
+}
+
+/**
+ * Turn an owned product/reference image into a campaign scene while preserving
+ * the source object. This intentionally has no text-only fallback: returning a
+ * pretty image with the wrong product is a failed result, not a degradation.
+ */
+export async function generateWithOpenAIImageEdit(
+  prompt: string,
+  referenceImageUrl: string,
+  size: '1024x1024' | '1024x1536' | '1536x1024' = '1536x1024',
+): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) throw new Error('OPENAI_API_KEY not configured')
+
+  if (!referenceImageUrl.startsWith('https://res.cloudinary.com/')) {
+    throw new Error('Reference image must be an owned, durable Cloudinary image')
+  }
+
+  const referenceResponse = await fetch(referenceImageUrl, {
+    signal: AbortSignal.timeout(12_000),
+  })
+  if (!referenceResponse.ok) throw new Error('Reference image could not be loaded')
+  const contentType = referenceResponse.headers.get('content-type') || 'image/png'
+  if (!contentType.startsWith('image/')) throw new Error('Reference asset is not an image')
+  const referenceBuffer = await referenceResponse.arrayBuffer()
+  if (referenceBuffer.byteLength > 20 * 1024 * 1024) {
+    throw new Error('Reference image exceeds the 20 MB editing limit')
+  }
+
+  const form = new FormData()
+  form.append('model', process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2')
+  form.append('prompt', `${prompt}\n\nREFERENCE FIDELITY CONTRACT:\nTreat the supplied image as the exact product source of truth. Preserve its geometry, packaging, colour, label, logo placement, proportions, materials, and distinctive details. Change only the surrounding advertising scene, lighting, and composition. Do not redesign, relabel, recolour, duplicate, deform, or replace the product. Do not add claims or text inside the generated pixels.`)
+  form.append('size', size)
+  form.append('quality', 'high')
+  form.append('input_fidelity', 'high')
+  form.append('n', '1')
+  form.append('image', new Blob([referenceBuffer], { type: contentType }), 'reference-image')
+
+  const response = await fetch('https://api.openai.com/v1/images/edits', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+    signal: AbortSignal.timeout(45_000),
+  })
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(
+      (err as { error?: { message?: string } })?.error?.message
+      || `Image editing API error: ${response.status}`,
+    )
+  }
+
+  const data = await response.json() as { data?: Array<{ b64_json?: string }> }
+  const b64 = data.data?.[0]?.b64_json
+  if (!b64) throw new Error('Image editing returned no image data')
   return `data:image/png;base64,${b64}`
 }
 

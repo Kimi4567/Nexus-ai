@@ -93,10 +93,20 @@ export async function PATCH(req: NextRequest, props: Params) {
             workspaceId: true,
             campaignId: true,
             url: true,
+            type: true,
           },
         })
 
         if (!media) return NextResponse.json({ error: 'Media not found' }, { status: 404 })
+        const mediaIsVideo = String(media.type).toUpperCase() === 'VIDEO'
+        if (Boolean(post.isVideoPost) !== mediaIsVideo) {
+          return NextResponse.json({
+            error: post.isVideoPost
+              ? 'Video posts require a video asset.'
+              : 'Image posts require an image asset.',
+            code: 'POST_MEDIA_TYPE_MISMATCH',
+          }, { status: 409 })
+        }
         if (!isMediaAllowedForPost({
           mediaWorkspaceId: media.workspaceId,
           postWorkspaceId: post.workspaceId,

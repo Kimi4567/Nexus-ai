@@ -140,8 +140,8 @@ function deriveStatus(input: CreativeRequirementInput): Pick<
       status: 'requirement_ready',
       statusLabel: 'Requirement ready',
       statusLabelAr: 'المتطلبات جاهزة',
-      explanation: 'This video slot has a planning requirement; final media remains a separate review step.',
-      explanationAr: 'خانة الفيديو لديها متطلبات تخطيط؛ وتبقى الوسائط النهائية خطوة مراجعة منفصلة.',
+      explanation: 'This video slot has an approved direction; generate a professional master or attach an owned video, then review the final media.',
+      explanationAr: 'خانة الفيديو لديها اتجاه معتمد؛ ولّد فيديو احترافيًا أو أرفق فيديو مملوكًا ثم راجع الوسائط النهائية.',
       countsAsMediaPresent: false,
     }
   }

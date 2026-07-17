@@ -18,6 +18,10 @@ const {
   mockRefund,
   mockRefundForTxn,
   mockGenerateWithFlux,
+  mockGenerateWithDallE,
+  mockUploadToCloudinary,
+  mockComposeBrandedPost,
+  mockBufferToDataUri,
   mockBuildImagePrompt,
   mockPrisma,
 } = vi.hoisted(() => ({
@@ -28,6 +32,10 @@ const {
   mockRefund: vi.fn(),
   mockRefundForTxn: vi.fn(),
   mockGenerateWithFlux: vi.fn(),
+  mockGenerateWithDallE: vi.fn(),
+  mockUploadToCloudinary: vi.fn(),
+  mockComposeBrandedPost: vi.fn(),
+  mockBufferToDataUri: vi.fn(),
   mockBuildImagePrompt: vi.fn(),
   mockPrisma: {
     campaign: { findFirst: vi.fn() },
@@ -76,7 +84,14 @@ vi.mock('@/lib/ai/falGen', () => ({
 }))
 vi.mock('@/lib/ai/imageGen', () => ({
   buildImagePrompt: mockBuildImagePrompt,
+  generateWithDallE: mockGenerateWithDallE,
+  uploadToCloudinary: mockUploadToCloudinary,
 }))
+vi.mock('@/lib/brandComposite', () => ({
+  composeBrandedPost: mockComposeBrandedPost,
+  bufferToDataUri: mockBufferToDataUri,
+}))
+vi.mock('@/lib/cloudinaryOverlay', () => ({ platformToOverlay: () => 'square' }))
 
 const makeReq = (body: unknown = {}) => ({ json: async () => body }) as any
 const params = { params: Promise.resolve({ id: 'campaign_1' }) }
@@ -162,6 +177,12 @@ beforeEach(() => {
     prompt: `Prepared visual for ${context.platform}: ${context.postCaption ?? ''}`,
     language: 'en',
   }))
+  mockGenerateWithDallE.mockResolvedValue('data:image/png;base64,raw-image')
+  mockUploadToCloudinary
+    .mockResolvedValueOnce('https://res.cloudinary.com/test/raw.jpg')
+    .mockResolvedValueOnce('https://res.cloudinary.com/test/final.jpg')
+  mockComposeBrandedPost.mockResolvedValue(Buffer.from('composite'))
+  mockBufferToDataUri.mockReturnValue('data:image/jpeg;base64,composite')
   mockCheckAndDeduct
     .mockResolvedValueOnce({ ok: true, creditsUsed: 4, creditsRemaining: 26, transactionId: 'txn_a' })
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
@@ -333,10 +354,6 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     mockCheckAndDeduct
       .mockReset()
       .mockResolvedValueOnce({ ok: true, creditsUsed: 4, creditsRemaining: 26, transactionId: 'txn_youtube' })
-    const fetchMock = vi.fn(async (input: string | URL | Request) => String(input).includes('cloudinary.com')
-      ? { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/youtube.jpg' }) }
-      : { ok: true, json: async () => ({ data: [{ b64_json: 'raw-youtube' }] }) })
-    vi.stubGlobal('fetch', fetchMock)
     const { POST } = await loadRoute()
 
     const res = await POST(makeReq({
@@ -346,19 +363,15 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     }), params)
 
     expect(res.status).toBe(200)
-    const firstFetchCall = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
-    const requestBody = JSON.parse(firstFetchCall[1].body as string)
-    expect(requestBody.size).toBe('1024x1536')
-    expect(requestBody.prompt).toContain('vertical 9:16 composition')
-    expect(requestBody.prompt).not.toContain('square 1:1 composition')
+    expect(mockGenerateWithDallE).toHaveBeenCalledWith(
+      expect.stringContaining('vertical 9:16 composition'),
+      '1024x1536',
+    )
+    expect(mockGenerateWithDallE.mock.calls[0][0]).not.toContain('square 1:1 composition')
   })
 
   it('refunds the exact failed image transaction', async () => {
-    const fetchMock = vi.fn(async (input: string | URL | Request) => {
-      if (!String(input).includes('cloudinary.com')) throw new Error('provider down for A')
-      return { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/a.jpg' }) }
-    })
-    vi.stubGlobal('fetch', fetchMock)
+    mockGenerateWithDallE.mockRejectedValueOnce(new Error('provider down for A'))
     const { POST } = await loadRoute()
 
     const res = await POST(makeReq(confirmedBody), params)
@@ -381,10 +394,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
 
   it('reports a pending automatic reconciliation when the exact refund fails', async () => {
     mockRefundForTxn.mockResolvedValue({ ok: false, status: 'failed', error: 'db down' })
-    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
-      if (!String(input).includes('cloudinary.com')) throw new Error('provider down')
-      return { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/a.jpg' }) }
-    }))
+    mockGenerateWithDallE.mockRejectedValueOnce(new Error('provider down'))
     const { POST } = await loadRoute()
 
     const res = await POST(makeReq(confirmedBody), params)
@@ -424,10 +434,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     mockCheckAndDeduct
       .mockReset()
       .mockResolvedValueOnce({ ok: true, creditsUsed: 4, creditsRemaining: 26 })
-    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
-      if (!String(input).includes('cloudinary.com')) throw new Error('provider failed without txn')
-      return { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/a.jpg' }) }
-    }))
+    mockGenerateWithDallE.mockRejectedValueOnce(new Error('provider failed without txn'))
     const { POST } = await loadRoute()
 
     const res = await POST(makeReq(confirmedBody), params)
@@ -441,10 +448,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     mockCheckAndDeduct
       .mockReset()
       .mockResolvedValueOnce({ ok: true, creditsUsed: 0, creditsRemaining: -1, isUnlimited: true, transactionId: 'txn_a' })
-    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
-      if (!String(input).includes('cloudinary.com')) throw new Error('provider failed')
-      return { ok: true, json: async () => ({ secure_url: 'https://res.cloudinary.com/test/a.jpg' }) }
-    }))
+    mockGenerateWithDallE.mockRejectedValueOnce(new Error('provider failed'))
     const { POST } = await loadRoute()
 
     const res = await POST(makeReq(confirmedBody), params)
