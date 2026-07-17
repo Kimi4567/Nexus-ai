@@ -691,7 +691,12 @@ export default function ContentHubPage() {
       clearInterval(pollRef.current)
       pollRef.current = null
     }
-    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current)
+        pollRef.current = null
+      }
+    }
   }, [posts, loadData, authHeader, campaignId])
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
