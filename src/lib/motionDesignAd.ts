@@ -5,6 +5,7 @@ import { readMediaIntelligence } from '@/lib/creativeIntelligence'
 // unrelated later scene or using a provider-generated filler shot.
 export const MOTION_DESIGN_DURATION_SECONDS = 6
 export const MOTION_DESIGN_SAFE_SOURCE_SECONDS = 3
+export const MOTION_DESIGN_SOURCE_QUALITY_MIN = 90
 
 export type MotionDesignAssetInput = {
   id: string
@@ -30,6 +31,7 @@ export type MotionDesignPreflightIssue = {
     | 'RESOLUTION_REQUIRED'
     | 'DURATION_REQUIRED'
     | 'QUALITY_TOO_LOW'
+    | 'LANGUAGE_MISMATCH'
     | 'DERIVATIVE_SOURCE_BLOCKED'
   message: string
 }
@@ -48,6 +50,16 @@ export type MotionDesignCopy = {
 }
 
 const DERIVATIVE_PATTERN = /motion[-_ ]design|source[-_ ]locked/i
+
+function primaryTextLanguage(value: string | null | undefined): 'AR' | 'EN' | 'MIXED' | 'NONE' {
+  const text = String(value || '')
+  const hasArabic = /\p{Script=Arabic}/u.test(text)
+  const hasLatin = /[A-Za-z]/.test(text.replace(/https?:\/\/\S+|#[\p{L}\p{N}_-]+/gu, ''))
+  if (hasArabic && hasLatin) return 'MIXED'
+  if (hasArabic) return 'AR'
+  if (hasLatin) return 'EN'
+  return 'NONE'
+}
 
 function cleanText(value: unknown, max: number): string {
   return typeof value === 'string'
@@ -81,7 +93,10 @@ function firstClause(value: string): string {
  * photos belong to the cinematic route; recursively rendering an existing
  * motion-design derivative is blocked so overlays and compression never stack.
  */
-export function assessMotionDesignVideoAsset(asset: MotionDesignAssetInput | null | undefined): MotionDesignPreflightResult {
+export function assessMotionDesignVideoAsset(
+  asset: MotionDesignAssetInput | null | undefined,
+  campaignText?: string | null,
+): MotionDesignPreflightResult {
   const issues: MotionDesignPreflightIssue[] = []
   if (!asset || String(asset.type).toUpperCase() !== 'VIDEO') {
     issues.push({ code: 'VIDEO_REQUIRED', message: 'Choose one analysed user-owned screen or demo video.' })
@@ -125,8 +140,24 @@ export function assessMotionDesignVideoAsset(asset: MotionDesignAssetInput | nul
   }
 
   const qualityScore = intelligence?.qualityScore ?? null
-  if (qualityScore != null && qualityScore < 75) {
-    issues.push({ code: 'QUALITY_TOO_LOW', message: `The source quality score is ${qualityScore}/100; 75/100 is required.` })
+  if (qualityScore != null && qualityScore < MOTION_DESIGN_SOURCE_QUALITY_MIN) {
+    issues.push({
+      code: 'QUALITY_TOO_LOW',
+      message: `The source quality score is ${qualityScore}/100; paid Motion Design requires ${MOTION_DESIGN_SOURCE_QUALITY_MIN}/100 before rendering.`,
+    })
+  }
+
+  const campaignLanguage = primaryTextLanguage(campaignText)
+  const sourceLanguage = intelligence?.language ?? 'NONE'
+  if (
+    ['AR', 'EN'].includes(campaignLanguage)
+    && ['AR', 'EN'].includes(sourceLanguage)
+    && campaignLanguage !== sourceLanguage
+  ) {
+    issues.push({
+      code: 'LANGUAGE_MISMATCH',
+      message: `The source creative is ${sourceLanguage}, while this post is ${campaignLanguage}. Adapt the post or choose a matching source before paid production.`,
+    })
   }
 
   return {

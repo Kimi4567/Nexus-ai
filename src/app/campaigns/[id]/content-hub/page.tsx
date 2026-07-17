@@ -1284,7 +1284,10 @@ export default function ContentHubPage() {
   const motionDesignSource = motionDesignSourceMediaId
     ? motionDesignVideos.find(media => media.id === motionDesignSourceMediaId) ?? null
     : null
-  const motionDesignPreflight = assessMotionDesignVideoAsset(motionDesignSource)
+  const motionDesignPreflight = assessMotionDesignVideoAsset(
+    motionDesignSource,
+    videoGenerationConfirmPost?.caption,
+  )
   const canStartMotionDesign = motionDesignPreflight.eligible
     && videoGenerationAcknowledged
     && videoAssetRightsAcknowledged
@@ -1301,7 +1304,8 @@ export default function ContentHubPage() {
       ANALYSIS_REQUIRED: 'حلّل الأصل أولًا عبر ذكاء الوسائط قبل دفع تكلفة الفيديو.',
       PRODUCT_REFERENCE_REQUIRED: 'هذا الأصل ليس صورة منتج مؤهلة؛ صور الواجهات والشعارات تحتاج Motion Design يحافظ على المصدر.',
       RESOLUTION_REQUIRED: 'الدقة غير كافية: الحد الأدنى 720px للضلع القصير و1024px للضلع الطويل.',
-      QUALITY_TOO_LOW: 'جودة الأصل أقل من 70/100 ولا تصلح لإنتاج إعلان مدفوع.',
+      QUALITY_TOO_LOW: 'جودة الأصل أقل من 90/100؛ لن يبدأ NEXUS الرندر أو فحص الجودة المدفوع.',
+      LANGUAGE_MISMATCH: 'لغة الفيديو لا تطابق لغة نص المنشور؛ لائم النص أو اختر أصلًا بنفس اللغة قبل الإنتاج المدفوع.',
       UNSAFE_SOURCE_GRAPHICS: 'الأصل يحتوي رسومات أو نصوصًا مركبة تجعل التوليد السينمائي غير موثوق.',
       PRODUCT_IDENTITY_MISMATCH: 'لا يستطيع NEXUS تأكيد أن الصور لنفس المنتج؛ اختر زوايا أوضح ومتسقة.',
     }

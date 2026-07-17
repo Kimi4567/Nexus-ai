@@ -214,7 +214,7 @@ export async function POST(req: NextRequest, props: Params) {
     }, { status: 404 })
   }
 
-  const preflight = assessMotionDesignVideoAsset(source)
+  const preflight = assessMotionDesignVideoAsset(source, post.caption)
   if (!preflight.eligible) {
     return NextResponse.json({
       error: 'The selected source did not pass source-locked Motion Design preflight. No credits were spent.',

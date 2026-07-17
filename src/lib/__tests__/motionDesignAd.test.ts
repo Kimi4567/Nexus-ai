@@ -34,7 +34,7 @@ function screenVideo(overrides: Record<string, unknown> = {}) {
       recommendedPlatforms: ['INSTAGRAM'],
       funnelStages: ['CONSIDERATION'],
       evidenceLimits: ['No performance claim is verified.'],
-      qualityScore: 85,
+      qualityScore: 92,
       qualityIssues: [],
       rightsStatus: 'UNCONFIRMED',
       audioStatus: 'NOT_ANALYZED',
@@ -50,7 +50,7 @@ describe('source-locked motion design', () => {
       eligible: true,
       route: 'SOURCE_LOCKED_MOTION_DESIGN',
       sourceKind: 'DEMO',
-      qualityScore: 85,
+      qualityScore: 92,
     })
     expect(assessMotionDesignVideoAsset(screenVideo({ category: 'source-locked-motion-design-ad' }))).toMatchObject({
       eligible: false,
@@ -67,6 +67,20 @@ describe('source-locked motion design', () => {
     expect(assessMotionDesignVideoAsset(physical)).toMatchObject({
       eligible: false,
       issues: expect.arrayContaining([expect.objectContaining({ code: 'SCREEN_OR_DEMO_REQUIRED' })]),
+    })
+  })
+
+  it('blocks marginal paid-ad sources and source/post language mismatch before spend', () => {
+    const marginal = screenVideo()
+    ;(marginal.intelligence as any).qualityScore = 85
+    expect(assessMotionDesignVideoAsset(marginal, 'نظم حملتك')).toMatchObject({
+      eligible: false,
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'QUALITY_TOO_LOW' })]),
+    })
+
+    expect(assessMotionDesignVideoAsset(screenVideo(), 'Organize your publishing plan')).toMatchObject({
+      eligible: false,
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'LANGUAGE_MISMATCH' })]),
     })
   })
 
