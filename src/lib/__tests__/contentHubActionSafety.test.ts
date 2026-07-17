@@ -140,28 +140,31 @@ describe('contentHubActionSafety', () => {
     })).toEqual({ ok: true })
   })
 
-  it('requires the exact five-second video contract before charging', () => {
-    expect(CONTENT_HUB_VIDEO_COST).toBe(6)
+  it('requires the exact eight-second, rights-confirmed video contract before charging', () => {
+    expect(CONTENT_HUB_VIDEO_COST).toBe(18)
+    expect(validateVideoGenerationConfirmation({
+      confirmed: true,
+      acknowledgedCreditCost: CONTENT_HUB_VIDEO_COST,
+      acknowledgedDurationSeconds: 5,
+      acknowledgedNoPublishOrSchedule: true,
+      acknowledgedReviewRequired: true,
+      acknowledgedAssetRights: true,
+    })).toMatchObject({ ok: false })
+    expect(validateVideoGenerationConfirmation({
+      confirmed: true,
+      acknowledgedCreditCost: CONTENT_HUB_VIDEO_COST,
+      acknowledgedDurationSeconds: 8,
+      acknowledgedNoPublishOrSchedule: true,
+      acknowledgedReviewRequired: false,
+      acknowledgedAssetRights: true,
+    })).toMatchObject({ ok: false })
     expect(validateVideoGenerationConfirmation({
       confirmed: true,
       acknowledgedCreditCost: CONTENT_HUB_VIDEO_COST,
       acknowledgedDurationSeconds: 8,
       acknowledgedNoPublishOrSchedule: true,
       acknowledgedReviewRequired: true,
-    })).toMatchObject({ ok: false })
-    expect(validateVideoGenerationConfirmation({
-      confirmed: true,
-      acknowledgedCreditCost: CONTENT_HUB_VIDEO_COST,
-      acknowledgedDurationSeconds: 5,
-      acknowledgedNoPublishOrSchedule: true,
-      acknowledgedReviewRequired: false,
-    })).toMatchObject({ ok: false })
-    expect(validateVideoGenerationConfirmation({
-      confirmed: true,
-      acknowledgedCreditCost: CONTENT_HUB_VIDEO_COST,
-      acknowledgedDurationSeconds: 5,
-      acknowledgedNoPublishOrSchedule: true,
-      acknowledgedReviewRequired: true,
+      acknowledgedAssetRights: true,
     })).toEqual({ ok: true })
   })
 

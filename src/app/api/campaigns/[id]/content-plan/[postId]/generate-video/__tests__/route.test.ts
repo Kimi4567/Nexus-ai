@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
     campaign: { findFirst: vi.fn() },
     socialPost: { findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
     generation: { findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
-    media: { findFirst: vi.fn(), create: vi.fn() },
+    media: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
     postStatusHistory: { create: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -30,7 +30,7 @@ vi.mock('@/lib/credits', () => ({
   creditCheckHttpStatus: () => 402,
   finalizeCreditDeduction: mocks.finalize,
   refundCreditDeduction: mocks.refund,
-  buildCreditChargeReceipt: (_action: string, deduction: any) => ({ action: 'VIDEO_GENERATION', cost: 6, ...deduction }),
+  buildCreditChargeReceipt: (_action: string, deduction: any) => ({ action: 'VIDEO_GENERATION', cost: 18, ...deduction }),
 }))
 vi.mock('@/lib/ai/provider', () => ({
   isVideoProviderConfigured: mocks.videoProviderReady,
@@ -39,13 +39,13 @@ vi.mock('@/lib/ai/provider', () => ({
   getMediaStorageUnavailablePayload: () => ({ code: 'MEDIA_STORAGE_UNAVAILABLE', creditsCharged: false }),
 }))
 vi.mock('@/lib/ai/runway', () => ({
-  createRunwayVideoTask: mocks.createTask,
+  createRunwayProductAdTask: mocks.createTask,
   retrieveRunwayTask: mocks.retrieveTask,
   uploadRunwayVideoToCloudinary: mocks.uploadVideo,
   cancelRunwayTask: vi.fn(),
 }))
 vi.mock('@/lib/ai/generatedMediaQuality', () => ({
-  cloudinaryVideoReviewFrames: (url: string) => [`${url}#frame-0`, `${url}#frame-2`, `${url}#frame-4`],
+  cloudinaryVideoReviewFrames: (url: string, duration = 5) => [`${url}#frame-0`, `${url}#frame-${Math.floor(duration / 2)}`, `${url}#frame-${duration - 1}`],
   reviewGeneratedMediaQuality: mocks.reviewQuality,
 }))
 vi.mock('@/lib/strategyApproval', () => ({ canMutateCampaignExecution: () => true }))
@@ -60,10 +60,12 @@ import { GET, POST } from '../route'
 
 const confirmedBody = {
   explicitVideoGenerationConfirmed: true,
-  acknowledgedCreditCost: 6,
-  acknowledgedDurationSeconds: 5,
+  acknowledgedCreditCost: 18,
+  acknowledgedDurationSeconds: 8,
   acknowledgedNoPublishOrSchedule: true,
   acknowledgedReviewRequired: true,
+  acknowledgedAssetRights: true,
+  referenceMediaIds: ['product-front', 'product-side'],
 }
 
 function request(body: unknown) {
@@ -109,6 +111,36 @@ const post = {
   updatedAt: new Date('2026-07-17T08:00:00.000Z'),
 }
 
+const productReference = (id: string) => ({
+  id,
+  url: `https://res.cloudinary.com/demo/image/upload/${id}.png`,
+  fileName: `${id}.png`,
+  type: 'IMAGE',
+  width: 1600,
+  height: 1200,
+  intelligenceStatus: 'READY',
+  intelligence: {
+    version: 1,
+    visibleSummary: 'Isolated NEXUS product on a neutral background',
+    assetKind: 'PRODUCT',
+    language: 'NONE',
+    products: ['NEXUS Bottle'],
+    visibleObjects: ['bottle'],
+    visibleActions: [],
+    visibleText: [],
+    safeThemes: ['product'],
+    possibleUseCases: ['product ad'],
+    recommendedPlatforms: ['INSTAGRAM'],
+    funnelStages: ['AWARENESS'],
+    evidenceLimits: ['No performance claim is verified.'],
+    qualityScore: 92,
+    qualityIssues: [],
+    rightsStatus: 'UNCONFIRMED',
+    audioStatus: 'NOT_ANALYZED',
+    sourceFrames: [],
+  },
+})
+
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.getUserId.mockResolvedValue('user-1')
@@ -120,7 +152,7 @@ beforeEach(() => {
   mocks.prisma.generation.findMany.mockResolvedValue([])
   mocks.prisma.generation.create.mockResolvedValue({
     id: 'generation-1',
-    params: { postId: 'post-1', postUpdatedAt: post.updatedAt.toISOString(), durationSeconds: 5 },
+    params: { postId: 'post-1', postUpdatedAt: post.updatedAt.toISOString(), durationSeconds: 8 },
   })
   mocks.prisma.generation.update.mockResolvedValue({ id: 'generation-1' })
   mocks.prisma.generation.updateMany.mockResolvedValue({ count: 1 })
@@ -131,8 +163,8 @@ beforeEach(() => {
   }))
   mocks.deduct.mockResolvedValue({
     ok: true,
-    creditsUsed: 6,
-    creditsRemaining: 54,
+    creditsUsed: 18,
+    creditsRemaining: 42,
     isUnlimited: false,
     transactionId: 'credit-1',
   })
@@ -150,7 +182,7 @@ beforeEach(() => {
     bytes: 2048,
     width: 720,
     height: 1280,
-    duration: 5,
+    duration: 8,
     format: 'mp4',
   })
   mocks.reviewQuality.mockResolvedValue({
@@ -170,6 +202,10 @@ beforeEach(() => {
     providerUsage: {},
   })
   mocks.prisma.media.findFirst.mockResolvedValue(null)
+  mocks.prisma.media.findMany.mockResolvedValue([
+    productReference('product-front'),
+    productReference('product-side'),
+  ])
   mocks.prisma.media.create.mockResolvedValue({ id: 'media-1' })
 })
 
@@ -195,7 +231,7 @@ describe('POST professional video generation', () => {
     expect(mocks.deduct).not.toHaveBeenCalled()
   })
 
-  it('starts one Gen-4.5 task, settles six credits, and only marks media as generating', async () => {
+  it('starts one multi-reference product-ad task, settles eighteen credits, and only marks media as generating', async () => {
     const response = await POST(request(confirmedBody), {
       params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
     })
@@ -203,9 +239,24 @@ describe('POST professional video generation', () => {
 
     expect(response.status).toBe(202)
     expect(mocks.createTask).toHaveBeenCalledWith(expect.objectContaining({
-      duration: 5,
+      duration: 8,
       ratio: '720:1280',
-      promptImage: undefined,
+      productImages: [
+        'https://res.cloudinary.com/demo/image/upload/product-front.png',
+        'https://res.cloudinary.com/demo/image/upload/product-side.png',
+      ],
+    }))
+    expect(mocks.createTask).toHaveBeenCalledTimes(1)
+    expect(mocks.prisma.generation.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        params: expect.objectContaining({
+          durationSeconds: 8,
+          referenceMediaIds: ['product-front', 'product-side'],
+          pricingVersion: '2026-07-17-v3',
+          providerCostEstimate: { currency: 'USD', amount: 3.44, providerCredits: 344 },
+          automaticProviderRetries: 0,
+        }),
+      }),
     }))
     expect(mocks.deduct).toHaveBeenCalledWith('user-1', 'VIDEO_GENERATION', undefined, expect.objectContaining({
       entityId: 'post-1',
@@ -217,7 +268,46 @@ describe('POST professional video generation', () => {
       data: { generationStatus: 'GENERATING', errorMessage: null },
       select: { updatedAt: true },
     })
-    expect(payload).toMatchObject({ creditsUsed: 6, reviewRequired: true, published: false, scheduled: false })
+    expect(payload).toMatchObject({ creditsUsed: 18, durationSeconds: 8, productionRoute: 'CINEMATIC_PRODUCT_AD', reviewRequired: true, published: false, scheduled: false })
+  })
+
+  it('blocks screens and UI captures before any provider spend or debit', async () => {
+    const screen = productReference('product-front')
+    screen.intelligence.assetKind = 'SCREEN'
+    screen.intelligence.products = ['NEXUS Dashboard']
+    const second = productReference('product-side')
+    second.intelligence.products = ['NEXUS Dashboard']
+    mocks.prisma.media.findMany.mockResolvedValue([screen, second])
+
+    const response = await POST(request(confirmedBody), {
+      params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
+    })
+
+    expect(response.status).toBe(422)
+    expect(await response.json()).toMatchObject({ code: 'MOTION_DESIGN_REQUIRED', creditsCharged: false })
+    expect(mocks.deduct).not.toHaveBeenCalled()
+    expect(mocks.createTask).not.toHaveBeenCalled()
+  })
+
+  it('pauses before debit when recent workspace failures exceed the provider loss limit', async () => {
+    mocks.prisma.generation.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { status: 'COMPLETED', externalId: 't1', params: { productionRoute: 'CINEMATIC_PRODUCT_AD' }, metadata: { qualityStatus: 'PASSED' } },
+        { status: 'FAILED', externalId: 't2', params: { productionRoute: 'CINEMATIC_PRODUCT_AD' }, metadata: { qualityStatus: 'REJECTED' } },
+        { status: 'COMPLETED', externalId: 't3', params: { productionRoute: 'CINEMATIC_PRODUCT_AD' }, metadata: { qualityStatus: 'PASSED' } },
+        { status: 'FAILED', externalId: 't4', params: { productionRoute: 'CINEMATIC_PRODUCT_AD' }, metadata: { qualityStatus: 'REJECTED' } },
+        { status: 'COMPLETED', externalId: 't5', params: { productionRoute: 'CINEMATIC_PRODUCT_AD' }, metadata: { qualityStatus: 'PASSED' } },
+      ])
+
+    const response = await POST(request(confirmedBody), {
+      params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
+    })
+
+    expect(response.status).toBe(503)
+    expect(await response.json()).toMatchObject({ code: 'VIDEO_ECONOMICS_PAUSED', creditsCharged: false })
+    expect(mocks.deduct).not.toHaveBeenCalled()
+    expect(mocks.createTask).not.toHaveBeenCalled()
   })
 
   it('restores the exact debit when Runway rejects task creation', async () => {
@@ -246,7 +336,7 @@ describe('GET professional video generation status', () => {
       status: 'PROCESSING',
       progress: 99,
       externalId: 'runway-task-1',
-      params: { postId: 'post-1', durationSeconds: 5, credit: { transactionId: 'credit-1' } },
+      params: { postId: 'post-1', durationSeconds: 8, credit: { transactionId: 'credit-1' } },
       metadata: null,
     }])
     mocks.prisma.generation.updateMany.mockResolvedValue({ count: 0 })
@@ -274,8 +364,8 @@ describe('GET professional video generation status', () => {
       params: {
         postId: 'post-1',
         postUpdatedAt: renderUpdatedAt.toISOString(),
-        durationSeconds: 5,
-        credit: { ok: true, creditsUsed: 6, creditsRemaining: 54, transactionId: 'credit-1' },
+        durationSeconds: 8,
+        credit: { ok: true, creditsUsed: 18, creditsRemaining: 42, transactionId: 'credit-1' },
       },
       metadata: null,
     }])
@@ -304,9 +394,10 @@ describe('GET professional video generation status', () => {
       }),
       outputFrames: [
         'https://res.cloudinary.com/demo/video/upload/final.mp4#frame-0',
-        'https://res.cloudinary.com/demo/video/upload/final.mp4#frame-2',
         'https://res.cloudinary.com/demo/video/upload/final.mp4#frame-4',
+        'https://res.cloudinary.com/demo/video/upload/final.mp4#frame-7',
       ],
+      requireProductAdStructure: true,
     }))
     expect(mocks.prisma.socialPost.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'post-1' },
@@ -340,8 +431,8 @@ describe('GET professional video generation status', () => {
       params: {
         postId: 'post-1',
         postUpdatedAt: renderUpdatedAt.toISOString(),
-        durationSeconds: 5,
-        credit: { ok: true, creditsUsed: 6, creditsRemaining: 54, transactionId: 'credit-1' },
+        durationSeconds: 8,
+        credit: { ok: true, creditsUsed: 18, creditsRemaining: 42, transactionId: 'credit-1' },
       },
       metadata: null,
     }])

@@ -23,6 +23,7 @@ export interface GeneratedMediaQualityReview {
   formatValidation: PlatformImageFormatValidation | null
   noNewRasterText: boolean
   noInventedClaims: boolean
+  advertisingStructure: boolean | null
   issues: string[]
   summary: string
   reviewedAt: string
@@ -33,11 +34,13 @@ type QualityInput = {
   mediaType: 'IMAGE' | 'VIDEO'
   outputFrames: string[]
   referenceImageUrl?: string | null
+  referenceImageUrls?: string[]
   campaignMessage?: string | null
   creativeDirection?: string | null
   referenceEvidence?: unknown
   targetFormat?: PlatformImageFormat | null
   formatValidation?: PlatformImageFormatValidation | null
+  requireProductAdStructure?: boolean
 }
 
 function boundedText(value: unknown, max = 280): string {
@@ -77,13 +80,13 @@ function parseJsonObject(value: unknown): Record<string, unknown> {
 
 export function normalizeGeneratedMediaQualityReview(
   value: unknown,
-  input: Pick<QualityInput, 'mediaType' | 'referenceImageUrl' | 'targetFormat' | 'formatValidation'>,
+  input: Pick<QualityInput, 'mediaType' | 'referenceImageUrl' | 'referenceImageUrls' | 'targetFormat' | 'formatValidation' | 'requireProductAdStructure'>,
   providerUsage: ProviderUsageSummary,
 ): GeneratedMediaQualityReview {
   const result = value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {}
-  const referenceRequired = Boolean(input.referenceImageUrl)
+  const referenceRequired = Boolean(input.referenceImageUrl || input.referenceImageUrls?.length)
   const referencePreservationScore = referenceRequired
     ? score(result.referencePreservationScore)
     : null
@@ -92,6 +95,9 @@ export function normalizeGeneratedMediaQualityReview(
   const technicalIntegrity = result.technicalIntegrity === true
   const noNewRasterText = result.noNewRasterText === true
   const noInventedClaims = result.noInventedClaims === true
+  const advertisingStructure = input.requireProductAdStructure
+    ? result.advertisingStructure === true
+    : null
   const formatRequired = Boolean(input.targetFormat)
   const formatValidation = formatRequired ? input.formatValidation ?? null : null
   const dimensionsPassed = Boolean(
@@ -121,6 +127,9 @@ export function normalizeGeneratedMediaQualityReview(
     formatIssue,
     durationIssue,
     unknownFormatIssue,
+    input.requireProductAdStructure && !advertisingStructure
+      ? 'The video does not visibly deliver the required advertising sequence: hook, product reveal, benefit moment, and deliberate end frame.'
+      : '',
   ])
 
   // The model supplies observations; NEXUS owns the decision. A reference job
@@ -134,6 +143,7 @@ export function normalizeGeneratedMediaQualityReview(
     && (!formatRequired || formatValidation?.passed === true)
     && noNewRasterText
     && noInventedClaims
+    && (!input.requireProductAdStructure || advertisingStructure === true)
     && issues.length === 0
   )
 
@@ -150,6 +160,7 @@ export function normalizeGeneratedMediaQualityReview(
     formatValidation,
     noNewRasterText,
     noInventedClaims,
+    advertisingStructure,
     issues,
     summary: boundedText(result.summary, 300) || (passed
       ? 'NEXUS quality review passed.'
@@ -169,6 +180,10 @@ export async function reviewGeneratedMediaQuality(
     .slice(0, input.mediaType === 'VIDEO' ? 3 : 1)
   if (frames.length === 0) throw new Error('NEXUS media quality review received no durable output')
 
+  const referenceUrls = Array.from(new Set([
+    ...(input.referenceImageUrls ?? []),
+    ...(input.referenceImageUrl ? [input.referenceImageUrl] : []),
+  ].filter(url => typeof url === 'string' && url.startsWith('https://')))).slice(0, 4)
   const content: Array<Record<string, unknown>> = [{
     type: 'text',
     text: `Review one NEXUS ${input.mediaType.toLowerCase()} advertising output before it can be attached or billed as successful.
@@ -193,6 +208,7 @@ Reject if any of these are present:
 - invented claims, statistics, awards, testimonials, certifications, or product capabilities;
 - mismatch with the campaign message, obvious anatomy/object errors, broken geometry, poor cropping, low resolution, jump cuts, flicker, or an amateur composition.
 - a composition that becomes unusable or loses the important subject within the stated final platform canvas.
+${input.requireProductAdStructure ? '- a generic motion clip that lacks a visible opening hook, coherent product reveal, benefit/payoff moment, or deliberate final hero frame with CTA space.' : ''}
 
 For reference jobs, text/UI already visible inside the supplied source is allowed only when it is faithfully preserved. "noNewRasterText" means no additional generated text outside that preserved source.
 
@@ -204,18 +220,19 @@ Return JSON exactly:
   "technicalIntegrity": true,
   "noNewRasterText": true,
   "noInventedClaims": true,
+  "advertisingStructure": ${input.requireProductAdStructure ? 'true' : 'null'},
   "issues": [],
   "summary": "short evidence-based verdict"
 }`,
   }]
 
-  if (input.referenceImageUrl) {
-    content.push({ type: 'text', text: 'REFERENCE SOURCE — source of truth:' })
+  referenceUrls.forEach((referenceUrl, index) => {
+    content.push({ type: 'text', text: `REFERENCE SOURCE ${index + 1} — source of truth:` })
     content.push({
       type: 'image_url',
-      image_url: { url: input.referenceImageUrl, detail: 'high' },
+      image_url: { url: referenceUrl, detail: 'high' },
     })
-  }
+  })
   frames.forEach((frame, index) => {
     content.push({ type: 'text', text: `GENERATED OUTPUT${frames.length > 1 ? ` FRAME ${index + 1}` : ''}:` })
     content.push({ type: 'image_url', image_url: { url: frame, detail: 'high' } })
@@ -254,10 +271,12 @@ Return JSON exactly:
   return normalizeGeneratedMediaQualityReview(parsed, input, providerUsage)
 }
 
-export function cloudinaryVideoReviewFrames(videoUrl: string): string[] {
+export function cloudinaryVideoReviewFrames(videoUrl: string, durationSeconds = 5): string[] {
   if (!videoUrl.startsWith('https://res.cloudinary.com/') || !videoUrl.includes('/video/upload/')) {
     throw new Error('NEXUS video QA requires a durable Cloudinary video')
   }
   const jpegUrl = videoUrl.replace(/\.[a-z0-9]+(?:\?.*)?$/i, '.jpg')
-  return [0, 2, 4].map(second => jpegUrl.replace('/video/upload/', `/video/upload/so_${second},f_jpg,q_auto/`))
+  const duration = Math.max(2, Math.round(durationSeconds))
+  const seconds = Array.from(new Set([0, Math.floor(duration / 2), duration - 1]))
+  return seconds.map(second => jpegUrl.replace('/video/upload/', `/video/upload/so_${second},f_jpg,q_auto/`))
 }

@@ -1,4 +1,5 @@
 import { normalizeImagePlatform } from '@/lib/platformImageFormat'
+import { CINEMATIC_PRODUCT_AD_DURATION_SECONDS } from '@/lib/videoAdPreflight'
 
 export type PlatformVideoFormat = {
   platform: string
@@ -7,7 +8,7 @@ export type PlatformVideoFormat = {
   width: number
   height: number
   ratio: '1280:720' | '720:1280' | '960:960'
-  durationSeconds: 5
+  durationSeconds: typeof CINEMATIC_PRODUCT_AD_DURATION_SECONDS
 }
 
 export type PlatformVideoFormatValidation = {
@@ -41,7 +42,7 @@ export function resolvePlatformVideoFormat(platform?: string | null): PlatformVi
         width: 720,
         height: 1280,
         ratio: '720:1280',
-        durationSeconds: 5,
+        durationSeconds: CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
       }
     : {
         platform: normalized,
@@ -50,7 +51,7 @@ export function resolvePlatformVideoFormat(platform?: string | null): PlatformVi
         width: 1280,
         height: 720,
         ratio: '1280:720',
-        durationSeconds: 5,
+        durationSeconds: CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
       }
 }
 

@@ -154,6 +154,27 @@ describe('generated media quality gate', () => {
     expect(result.issues).toContain('Final video format is 1280×720; required 720×1280 (9:16).')
   })
 
+  it('rejects a polished motion clip that lacks the required advertising sequence', () => {
+    const result = normalizeGeneratedMediaQualityReview({
+      referencePreservationScore: 96,
+      semanticAlignmentScore: 95,
+      professionalQualityScore: 95,
+      technicalIntegrity: true,
+      noNewRasterText: true,
+      noInventedClaims: true,
+      advertisingStructure: false,
+      issues: [],
+    }, {
+      mediaType: 'VIDEO',
+      referenceImageUrl: 'https://res.cloudinary.com/demo/reference.png',
+      requireProductAdStructure: true,
+    }, usage)
+
+    expect(result.passed).toBe(false)
+    expect(result.advertisingStructure).toBe(false)
+    expect(result.issues[0]).toContain('hook, product reveal, benefit moment')
+  })
+
   it('builds three durable Cloudinary review frames for a video', () => {
     expect(cloudinaryVideoReviewFrames(
       'https://res.cloudinary.com/demo/video/upload/v1/nexus/video.mp4',
@@ -161,6 +182,14 @@ describe('generated media quality gate', () => {
       'https://res.cloudinary.com/demo/video/upload/so_0,f_jpg,q_auto/v1/nexus/video.jpg',
       'https://res.cloudinary.com/demo/video/upload/so_2,f_jpg,q_auto/v1/nexus/video.jpg',
       'https://res.cloudinary.com/demo/video/upload/so_4,f_jpg,q_auto/v1/nexus/video.jpg',
+    ])
+    expect(cloudinaryVideoReviewFrames(
+      'https://res.cloudinary.com/demo/video/upload/v1/nexus/video.mp4',
+      8,
+    )).toEqual([
+      'https://res.cloudinary.com/demo/video/upload/so_0,f_jpg,q_auto/v1/nexus/video.jpg',
+      'https://res.cloudinary.com/demo/video/upload/so_4,f_jpg,q_auto/v1/nexus/video.jpg',
+      'https://res.cloudinary.com/demo/video/upload/so_7,f_jpg,q_auto/v1/nexus/video.jpg',
     ])
   })
 })

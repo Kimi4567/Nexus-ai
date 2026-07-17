@@ -34,13 +34,13 @@ describe('platform video delivery contract', () => {
     expect(validatePlatformVideoFormat({
       width: 720,
       height: 1280,
-      durationSeconds: 5,
+      durationSeconds: 8,
       contentType: 'video/mp4',
     }, target).passed).toBe(true)
     expect(validatePlatformVideoFormat({
       width: 1280,
       height: 720,
-      durationSeconds: 5,
+      durationSeconds: 8,
     }, target).passed).toBe(false)
     expect(validatePlatformVideoFormat({
       width: 720,

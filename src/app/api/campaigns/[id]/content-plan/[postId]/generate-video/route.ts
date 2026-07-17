@@ -20,12 +20,12 @@ import {
   isVideoProviderConfigured,
 } from '@/lib/ai/provider'
 import {
-  buildProfessionalVideoPrompt,
+  buildCinematicProductAdBrief,
   platformToRunwayRatio,
 } from '@/lib/ai/mediaProviderRouter'
 import {
   cancelRunwayTask,
-  createRunwayVideoTask,
+  createRunwayProductAdTask,
   retrieveRunwayTask,
   uploadRunwayVideoToCloudinary,
   type RunwayTask,
@@ -48,6 +48,14 @@ import {
 } from '@/lib/ai/generatedMediaQuality'
 import { readMediaIntelligence } from '@/lib/creativeIntelligence'
 import {
+  assessCinematicProductAdAssets,
+  CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
+  CINEMATIC_PRODUCT_AD_PROVIDER_COST_USD_ESTIMATE,
+  CINEMATIC_PRODUCT_AD_PROVIDER_CREDITS_ESTIMATE,
+} from '@/lib/videoAdPreflight'
+import { CURRENT_CREDIT_PRICING_VERSION } from '@/lib/credits/pricing'
+import { evaluateVideoEconomicsGuard } from '@/lib/videoEconomicsGuard'
+import {
   resolvePlatformVideoFormat,
   validatePlatformVideoFormat,
   type PlatformVideoFormat,
@@ -64,6 +72,7 @@ type StoredGenerationParams = {
   postId?: string
   postUpdatedAt?: string
   referenceMediaId?: string | null
+  referenceMediaIds?: string[]
   ratio?: string
   targetFormat?: PlatformVideoFormat
   durationSeconds?: number
@@ -133,6 +142,7 @@ export async function POST(req: NextRequest, props: Params) {
     acknowledgedDurationSeconds: body.acknowledgedDurationSeconds,
     acknowledgedNoPublishOrSchedule: body.acknowledgedNoPublishOrSchedule,
     acknowledgedReviewRequired: body.acknowledgedReviewRequired,
+    acknowledgedAssetRights: body.acknowledgedAssetRights,
   })
   if (!confirmation.ok) {
     return NextResponse.json({
@@ -216,53 +226,120 @@ export async function POST(req: NextRequest, props: Params) {
     }, { status: 409 })
   }
 
-  let referenceMedia: {
+  const requestedReferenceIds: unknown[] = Array.isArray(body.referenceMediaIds) ? body.referenceMediaIds : []
+  const referenceMediaIds: string[] = requestedReferenceIds.length > 0
+    ? Array.from(new Set(requestedReferenceIds
+        .filter((id): id is string => typeof id === 'string' && Boolean(id.trim()))
+        .map(id => id.trim())))
+    : []
+  const referenceMediaRows = referenceMediaIds.length > 0
+    ? await db.media.findMany({
+        where: {
+          id: { in: referenceMediaIds },
+          workspaceId: campaign.workspaceId,
+          type: 'IMAGE',
+          OR: [{ campaignId: null }, { campaignId: params.id }],
+        },
+        select: {
+          id: true,
+          url: true,
+          fileName: true,
+          type: true,
+          width: true,
+          height: true,
+          intelligenceStatus: true,
+          intelligence: true,
+        },
+      })
+    : []
+  const referenceById = new Map(referenceMediaRows.map((media: any) => [media.id, media]))
+  const referenceMedia = referenceMediaIds
+    .map(id => referenceById.get(id))
+    .filter(Boolean) as Array<{
     id: string
     url: string
+    fileName: string
+    type: string
+    width: number | null
+    height: number | null
     intelligenceStatus: string
     intelligence: unknown
-  } | null = null
-  if (typeof body.referenceMediaId === 'string' && body.referenceMediaId.trim()) {
-    referenceMedia = await db.media.findFirst({
-      where: {
-        id: body.referenceMediaId.trim(),
-        workspaceId: campaign.workspaceId,
-        type: { in: ['IMAGE', 'LOGO'] },
-        OR: [{ campaignId: null }, { campaignId: params.id }],
-      },
-      select: { id: true, url: true, intelligenceStatus: true, intelligence: true },
-    })
-    if (!referenceMedia) {
-      return NextResponse.json({
-        error: 'The selected first-frame image was not found in this workspace or campaign.',
-        code: 'REFERENCE_MEDIA_NOT_FOUND',
-        creditsCharged: false,
-      }, { status: 404 })
-    }
+  }>
+  if (referenceMedia.length !== referenceMediaIds.length) {
+    return NextResponse.json({
+      error: 'One or more selected product references were not found in this workspace or campaign.',
+      code: 'REFERENCE_MEDIA_NOT_FOUND',
+      creditsCharged: false,
+    }, { status: 404 })
   }
 
-  const prompt = buildProfessionalVideoPrompt({
+  const preflight = assessCinematicProductAdAssets(referenceMedia)
+  if (!preflight.eligible) {
+    const motionDesignRequired = preflight.route === 'MOTION_DESIGN_REQUIRED'
+    return NextResponse.json({
+      error: motionDesignRequired
+        ? 'These assets contain screens, interfaces, demos, or logos. Cinematic generation is blocked because it can distort them; use the source-locked Motion Design route when it is available.'
+        : 'The selected product references did not pass paid video preflight. No credits were spent.',
+      code: motionDesignRequired ? 'MOTION_DESIGN_REQUIRED' : 'VIDEO_ASSET_PREFLIGHT_FAILED',
+      creditsCharged: false,
+      preflight,
+    }, { status: 422 })
+  }
+
+  const recentWorkspaceVideoAttempts = await db.generation.findMany({
+    where: {
+      type: 'VIDEO',
+      provider: 'runway',
+      campaign: { workspaceId: campaign.workspaceId },
+      createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1_000) },
+    },
+    select: { status: true, externalId: true, params: true, metadata: true },
+    orderBy: { createdAt: 'desc' },
+    take: 20,
+  })
+  const economicsGuard = evaluateVideoEconomicsGuard(recentWorkspaceVideoAttempts)
+  if (economicsGuard.paused) {
+    return NextResponse.json({
+      error: 'Cinematic video production is temporarily paused because recent provider or quality failures exceeded the workspace loss limit. No credits were spent.',
+      code: 'VIDEO_ECONOMICS_PAUSED',
+      creditsCharged: false,
+      economicsGuard,
+    }, { status: 503 })
+  }
+
+  const brief = buildCinematicProductAdBrief({
     brandName: brand?.brandName || campaign.name,
+    description: brand?.description,
+    primaryOffer: brand?.primaryOffer,
+    verifiedProof: brand?.verifiedProof,
+    uniqueAdvantages: brand?.uniqueAdvantages,
     caption: post.caption,
     videoDirection: post.videoPrompt,
     industry: brand?.industry,
     toneWords: brand?.toneKeywords,
-    hasReferenceImage: Boolean(referenceMedia),
   })
   const targetFormat = resolvePlatformVideoFormat(post.publishTarget || post.platform)
-  const ratio = platformToRunwayRatio(targetFormat.platform, Boolean(referenceMedia))
+  const ratio = platformToRunwayRatio(targetFormat.platform, true)
   const generation = await db.generation.create({
     data: {
       campaignId: params.id,
       type: 'VIDEO',
-      prompt,
+      prompt: brief.userConcept,
       params: {
         postId: params.postId,
         postUpdatedAt: post.updatedAt.toISOString(),
-        referenceMediaId: referenceMedia?.id ?? null,
+        referenceMediaId: referenceMedia[0].id,
+        referenceMediaIds: referenceMedia.map(media => media.id),
         ratio,
         targetFormat,
-        durationSeconds: 5,
+        durationSeconds: CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
+        pricingVersion: CURRENT_CREDIT_PRICING_VERSION,
+        providerCostEstimate: {
+          currency: 'USD',
+          amount: CINEMATIC_PRODUCT_AD_PROVIDER_COST_USD_ESTIMATE,
+          providerCredits: CINEMATIC_PRODUCT_AD_PROVIDER_CREDITS_ESTIMATE,
+        },
+        automaticProviderRetries: 0,
       },
       status: 'PENDING',
       provider: 'runway',
@@ -279,7 +356,7 @@ export async function POST(req: NextRequest, props: Params) {
     entityId: post.id,
     entityType: 'social_post_video',
     operationKey: getCreditOperationKey(req, 'VIDEO_GENERATION', 'social_post_video', post.id),
-    description: `Professional 5-second campaign video — post #${post.contentPlanIndex ?? post.id}`,
+    description: `Eight-second cinematic product ad from ${referenceMedia.length} qualified product angles — post #${post.contentPlanIndex ?? post.id}`,
   })
   if (!credit.ok) {
     await db.generation.update({ where: { id: generation.id }, data: { status: 'FAILED', error: 'Credits were unavailable before provider execution.' } })
@@ -287,11 +364,12 @@ export async function POST(req: NextRequest, props: Params) {
   }
 
   try {
-    const task = await createRunwayVideoTask({
-      promptText: prompt,
-      promptImage: referenceMedia?.url,
+    const task = await createRunwayProductAdTask({
+      productImages: referenceMedia.map(media => media.url),
+      productInfo: brief.productInfo,
+      userConcept: brief.userConcept,
       ratio,
-      duration: 5,
+      duration: CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
     })
     const generatingPost = await db.socialPost.update({
       where: { id: post.id },
@@ -335,7 +413,8 @@ export async function POST(req: NextRequest, props: Params) {
     return NextResponse.json({
       generationId: generation.id,
       status: task.status,
-      durationSeconds: 5,
+      durationSeconds: CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
+      productionRoute: 'CINEMATIC_PRODUCT_AD',
       ratio,
       creditsUsed: credit.creditsUsed,
       creditsRemaining: credit.creditsRemaining,
@@ -474,9 +553,26 @@ export async function GET(req: NextRequest, props: Params) {
     if (storedParams.referenceMediaId && !qaReferenceMedia) {
       throw new Error('The reference image is no longer available for required fidelity review')
     }
-    const referenceEvidence = qaReferenceMedia?.intelligenceStatus === 'READY'
-      ? readMediaIntelligence(qaReferenceMedia.intelligence)
-      : null
+    const qaReferenceRows = storedParams.referenceMediaIds?.length
+      ? await db.media.findMany({
+          where: {
+            id: { in: storedParams.referenceMediaIds },
+            workspaceId: context.campaign.workspaceId,
+            type: 'IMAGE',
+          },
+          select: { id: true, url: true, intelligenceStatus: true, intelligence: true },
+        })
+      : qaReferenceMedia ? [qaReferenceMedia] : []
+    const qaReferencesById = new Map(qaReferenceRows.map((media: any) => [media.id, media]))
+    const orderedQaReferences = storedParams.referenceMediaIds?.length
+      ? storedParams.referenceMediaIds.map(id => qaReferencesById.get(id)).filter(Boolean)
+      : qaReferenceMedia ? [qaReferenceMedia] : []
+    if ((storedParams.referenceMediaIds?.length ?? 0) > 0 && orderedQaReferences.length !== storedParams.referenceMediaIds?.length) {
+      throw new Error('One or more product references are no longer available for required fidelity review')
+    }
+    const referenceEvidence = orderedQaReferences.map((media: any) => (
+      media.intelligenceStatus === 'READY' ? readMediaIntelligence(media.intelligence) : null
+    )).filter(Boolean)
     const targetFormat = storedParams.targetFormat
       ?? resolvePlatformVideoFormat(context.post.publishTarget || context.post.platform)
     const formatValidation = validatePlatformVideoFormat({
@@ -487,13 +583,15 @@ export async function GET(req: NextRequest, props: Params) {
     }, targetFormat)
     const qualityReview = await reviewGeneratedMediaQuality({
       mediaType: 'VIDEO',
-      outputFrames: cloudinaryVideoReviewFrames(stored.url),
+      outputFrames: cloudinaryVideoReviewFrames(stored.url, stored.duration ?? CINEMATIC_PRODUCT_AD_DURATION_SECONDS),
       referenceImageUrl: qaReferenceMedia?.url,
+      referenceImageUrls: orderedQaReferences.map((media: any) => media.url),
       campaignMessage: context.post.caption,
       creativeDirection: context.post.videoPrompt,
       referenceEvidence,
       targetFormat,
       formatValidation,
+      requireProductAdStructure: true,
     })
     if (!qualityReview.passed) {
       const message = 'NEXUS quality review rejected this video because it did not meet the approved creative and platform-delivery requirements. Credits will be restored.'
@@ -507,7 +605,7 @@ export async function GET(req: NextRequest, props: Params) {
           error: message,
           metadata: {
             providerTaskId: task.id,
-            durationSeconds: stored.duration ?? 5,
+            durationSeconds: stored.duration ?? CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
             reviewRequired: true,
             qualityStatus: 'REJECTED',
             qualityReview,
@@ -547,8 +645,8 @@ export async function GET(req: NextRequest, props: Params) {
         width: stored.width,
         height: stored.height,
         duration: stored.duration,
-        category: 'ai-generated-ad-master',
-        tags: ['nexus-video-studio', 'ad-master', 'review-required'],
+        category: 'cinematic-product-ad-master',
+        tags: ['nexus-video-studio', 'cinematic-product-ad', 'multi-reference', 'review-required'],
       },
     })
 
@@ -559,10 +657,11 @@ export async function GET(req: NextRequest, props: Params) {
         progress: 100,
         output: stored.url,
         metadata: {
-          model: 'gen4.5',
+          model: 'product-ad-2026-06',
+          productionRoute: 'CINEMATIC_PRODUCT_AD',
           providerTaskId: task.id,
           mediaId: media.id,
-          durationSeconds: stored.duration ?? 5,
+          durationSeconds: stored.duration ?? CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
           reviewRequired: true,
           qualityStatus: 'PASSED',
           qualityReview,
@@ -580,8 +679,8 @@ export async function GET(req: NextRequest, props: Params) {
       await db.generation.update({
         where: { id: generation.id },
         data: { metadata: {
-          model: 'gen4.5', providerTaskId: task.id, mediaId: media.id,
-          durationSeconds: stored.duration ?? 5, reviewRequired: true, attached: false,
+          model: 'product-ad-2026-06', productionRoute: 'CINEMATIC_PRODUCT_AD', providerTaskId: task.id, mediaId: media.id,
+          durationSeconds: stored.duration ?? CINEMATIC_PRODUCT_AD_DURATION_SECONDS, reviewRequired: true, attached: false,
           qualityStatus: 'PASSED', qualityReview,
         } },
       })
@@ -634,8 +733,8 @@ export async function GET(req: NextRequest, props: Params) {
     await db.generation.update({
       where: { id: generation.id },
       data: { metadata: {
-        model: 'gen4.5', providerTaskId: task.id, mediaId: media.id,
-        durationSeconds: stored.duration ?? 5, reviewRequired: true, attached: true,
+        model: 'product-ad-2026-06', productionRoute: 'CINEMATIC_PRODUCT_AD', providerTaskId: task.id, mediaId: media.id,
+        durationSeconds: stored.duration ?? CINEMATIC_PRODUCT_AD_DURATION_SECONDS, reviewRequired: true, attached: true,
         qualityStatus: 'PASSED', qualityReview,
       } },
     })

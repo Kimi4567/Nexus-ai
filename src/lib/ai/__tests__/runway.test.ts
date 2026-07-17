@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createRunwayVideoTask, retrieveRunwayTask } from '../runway'
+import { createRunwayProductAdTask, retrieveRunwayTask } from '../runway'
 
 describe('Runway adapter', () => {
   beforeEach(() => {
@@ -12,28 +12,31 @@ describe('Runway adapter', () => {
     vi.unstubAllGlobals()
   })
 
-  it('starts an exact five-second Gen-4.5 image-to-video task', async () => {
-    // Runway creation responses contain the task ID only; status is fetched separately.
-    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ id: 'task_123456' }), { status: 200 }))
+  it('starts one pinned eight-second multi-reference product-ad recipe with no audio', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ id: 'task_product_ad_1' }), { status: 200 }))
 
-    await expect(createRunwayVideoTask({
-      promptText: 'Premium product reveal',
-      promptImage: 'https://res.cloudinary.com/demo/image/upload/product.png',
+    await expect(createRunwayProductAdTask({
+      productImages: [
+        'https://res.cloudinary.com/demo/image/upload/product-front.png',
+        'https://res.cloudinary.com/demo/image/upload/product-side.png',
+      ],
+      productInfo: 'Approved product description.',
+      userConcept: 'Hook, reveal, benefit, and hero end frame.',
       ratio: '720:1280',
-      duration: 5,
-    })).resolves.toMatchObject({ id: 'task_123456', status: 'PENDING' })
+      duration: 8,
+    })).resolves.toMatchObject({ id: 'task_product_ad_1', status: 'PENDING' })
 
     const [url, init] = vi.mocked(fetch).mock.calls[0]
-    expect(url).toBe('https://api.dev.runwayml.com/v1/image_to_video')
-    expect(init?.headers).toMatchObject({
-      Authorization: 'Bearer runway-test-key',
-      'X-Runway-Version': '2024-11-06',
-    })
+    expect(url).toBe('https://api.dev.runwayml.com/v1/recipes/product_ad')
     expect(JSON.parse(String(init?.body))).toMatchObject({
-      model: 'gen4.5',
-      duration: 5,
+      version: '2026-06',
+      productImages: [
+        { uri: 'https://res.cloudinary.com/demo/image/upload/product-front.png' },
+        { uri: 'https://res.cloudinary.com/demo/image/upload/product-side.png' },
+      ],
+      duration: 8,
       ratio: '720:1280',
-      promptImage: 'https://res.cloudinary.com/demo/image/upload/product.png',
+      audio: false,
     })
   })
 
@@ -57,10 +60,12 @@ describe('Runway adapter', () => {
       issues: [{ path: ['promptText'], message: 'String must contain at most 1000 characters' }],
     }), { status: 400 }))
 
-    await expect(createRunwayVideoTask({
-      promptText: 'Too long',
+    await expect(createRunwayProductAdTask({
+      productImages: ['https://example.com/front.png', 'https://example.com/side.png'],
+      productInfo: 'Approved product.',
+      userConcept: 'Premium product ad.',
       ratio: '1280:720',
-      duration: 5,
+      duration: 8,
     })).rejects.toThrow(/promptText.*at most 1000 characters/)
   })
 })

@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
-  buildProfessionalVideoPrompt,
+  buildCinematicProductAdBrief,
   chooseProfessionalImageProvider,
   platformToRunwayRatio,
-  PROFESSIONAL_VIDEO_PROMPT_MAX_CHARS,
 } from '../mediaProviderRouter'
 
 describe('professional media provider routing', () => {
@@ -48,34 +47,38 @@ describe('professional media provider routing', () => {
     expect(platformToRunwayRatio('FACEBOOK', false)).toBe('720:1280')
   })
 
-  it('builds a product-safe, typography-safe commercial prompt', () => {
-    const prompt = buildProfessionalVideoPrompt({
+  it('builds a product-safe, typography-safe advertising brief', () => {
+    const brief = buildCinematicProductAdBrief({
       brandName: 'NEXUS',
+      description: 'A premium product.',
+      primaryOffer: 'One approved offer.',
+      verifiedProof: ['Verified proof'],
+      uniqueAdvantages: ['Clear advantage'],
       caption: 'ابدأ حملتك بوضوح',
       videoDirection: 'Slow product reveal with a premium camera move.',
       industry: 'SaaS',
       toneWords: ['premium', 'clear'],
-      hasReferenceImage: true,
     })
-    expect(prompt).toContain('exact first-frame source of truth')
-    expect(prompt).toContain('Preserve its geometry')
-    expect(prompt).toContain('No generated text')
-    expect(prompt.length).toBeLessThanOrEqual(PROFESSIONAL_VIDEO_PROMPT_MAX_CHARS)
+    expect(brief.productInfo).toContain('sole source of truth')
+    expect(brief.userConcept).toContain('0–2s visual hook')
+    expect(brief.userConcept).toContain('Do not generate text')
+    expect(brief.productInfo.length).toBeLessThanOrEqual(2_500)
+    expect(brief.userConcept.length).toBeLessThanOrEqual(3_500)
   })
 
-  it('keeps the safety suffix when strategy and caption inputs are very long', () => {
-    const prompt = buildProfessionalVideoPrompt({
+  it('keeps the source and advertising rules when strategy and caption inputs are very long', () => {
+    const brief = buildCinematicProductAdBrief({
       brandName: 'NEXUS',
       caption: 'Long campaign copy '.repeat(100),
       videoDirection: 'Detailed cinematic direction '.repeat(100),
       industry: 'AI marketing software',
       toneWords: ['premium', 'precise', 'confident', 'clear'],
-      hasReferenceImage: true,
     })
 
-    expect(prompt.length).toBeLessThanOrEqual(PROFESSIONAL_VIDEO_PROMPT_MAX_CHARS)
-    expect(prompt).toContain('source of truth')
-    expect(prompt).toContain('No generated text')
-    expect(prompt).toContain('extra logos')
+    expect(brief.productInfo.length).toBeLessThanOrEqual(2_500)
+    expect(brief.userConcept.length).toBeLessThanOrEqual(3_500)
+    expect(brief.productInfo).toContain('source of truth')
+    expect(brief.userConcept).toContain('Do not generate text')
+    expect(brief.userConcept).toContain('extra product variants')
   })
 })

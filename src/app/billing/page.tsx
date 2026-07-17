@@ -141,11 +141,11 @@ const CREDIT_ACTIONS = [
   },
   {
     icon: Video,
-    labelAr: 'فيديو إعلاني احترافي — 5 ثوانٍ',
-    labelEn: 'Professional ad video — 5 seconds',
+    labelAr: 'إعلان منتج سينمائي — 8 ثوانٍ',
+    labelEn: 'Cinematic product ad — 8 seconds',
     cost: CREDIT_ACTION_COSTS.VIDEO_GENERATION,
-    noteAr: 'NEXUS Video Studio، حفظ دائم، ومراجعة قبل أي جدولة أو نشر',
-    noteEn: 'NEXUS Video Studio, durable storage, and review before any schedule or publish action',
+    noteAr: 'يتطلب 2–4 زوايا منتج مؤهلة؛ فحص مسبق مجاني، محاولة مزود واحدة، حفظ دائم ومراجعة قبل النشر',
+    noteEn: 'Requires 2–4 qualified product angles; free preflight, one provider call, durable storage, and review before publishing',
   },
   {
     icon: FileText,
@@ -908,11 +908,11 @@ export default function BillingPage() {
               <div className="text-sm text-slate-600 leading-relaxed">
                 {ar ? (
                   <>
-                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} رصيد)</span> = مسار Full Standard واحد لمدة 90 يومًا إلى المسودات ({FULL_STANDARD_90_WORKFLOW_COST} كريديت) مع هامش صغير للمراجعة · أو {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.IMAGE_GENERATION)} صورة · أو {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.VIDEO_GENERATION)} فيديوهات احترافية مدة كل منها 5 ثوانٍ · أو مزيج من الإجراءات. التجربة تغطي استراتيجية Organic Light وفحص الجودة فقط ({TRIAL_STRATEGY_REVIEW_COST} كريديت)، ولا تشمل إنتاج المحتوى.
+                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} رصيد)</span> = مسار Full Standard واحد لمدة 90 يومًا إلى المسودات ({FULL_STANDARD_90_WORKFLOW_COST} كريديت) مع هامش صغير للمراجعة · أو {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.IMAGE_GENERATION)} صورة · أو {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.VIDEO_GENERATION)} إعلانات منتج سينمائية مدة كل منها 8 ثوانٍ · أو مزيج من الإجراءات. التجربة تغطي استراتيجية Organic Light وفحص الجودة فقط ({TRIAL_STRATEGY_REVIEW_COST} كريديت)، ولا تشمل إنتاج المحتوى.
                   </>
                 ) : (
                   <>
-                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} credits)</span> = one Full Standard 90-day strategy-to-drafts workflow ({FULL_STANDARD_90_WORKFLOW_COST} credits) with a small review reserve · or {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.IMAGE_GENERATION)} images · or {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.VIDEO_GENERATION)} professional five-second videos · or a mix of actions. Trial covers Organic Light strategy plus quality review only ({TRIAL_STRATEGY_REVIEW_COST} credits); content production is excluded.
+                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} credits)</span> = one Full Standard 90-day strategy-to-drafts workflow ({FULL_STANDARD_90_WORKFLOW_COST} credits) with a small review reserve · or {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.IMAGE_GENERATION)} images · or {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.VIDEO_GENERATION)} eight-second cinematic product ads · or a mix of actions. Trial covers Organic Light strategy plus quality review only ({TRIAL_STRATEGY_REVIEW_COST} credits); content production is excluded.
                   </>
                 )}
               </div>

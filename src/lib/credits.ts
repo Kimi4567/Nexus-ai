@@ -89,13 +89,13 @@ export const CREDIT_COSTS = {
   IMAGE_GENERATION: 4,
 
   /**
-   * Professional video master — one five-second Runway Gen-4.5 task.
-   * Provider cost is currently 60 Runway credits ($0.60 at $0.01/credit),
-   * before durable storage, retries, moderation, and support reserve. Six
-   * NEXUS credits keeps a positive margin at the lowest subscription-credit
-   * selling price while still refunding a provider failure exactly.
+   * Cinematic product-ad master — one eight-second, multi-reference product-ad
+   * recipe. The expected provider cost is 344 provider credits ($3.44), before
+   * durable storage, visual QA, moderation, and failure reserve. Eighteen NEXUS
+   * credits preserves a positive expected margin at the lowest subscription
+   * unit value without hiding automatic retries (there are none).
    */
-  VIDEO_GENERATION: 6,
+  VIDEO_GENERATION: 18,
 
   /**
    * Ad copy generation — gpt-4o-mini ad concepts and copy variants
@@ -256,10 +256,10 @@ export const CREDIT_ACTION_POLICIES: Record<CreditAction, CreditActionPolicy> = 
     refundableOnNoUsableOutput: true,
   },
   VIDEO_GENERATION: {
-    label: 'Professional video generation',
-    reason: 'Creates one five-second, reviewable campaign video master for a specific video post.',
-    includedWork: 'One NEXUS Video Studio task, durable video storage, and safe attachment to the post draft. Publishing and scheduling are excluded.',
-    providerCallLimit: 2,
+    label: 'Cinematic product ad',
+    reason: 'Creates one eight-second, multi-shot product-ad master from qualified real product references.',
+    includedWork: 'Asset preflight, one NEXUS cinematic product-ad task, durable storage, three-frame quality review, and safe draft attachment. No automatic provider retry, publishing, or scheduling.',
+    providerCallLimit: 1,
     refundableOnNoUsableOutput: true,
   },
   AD_COPY: {
@@ -1512,7 +1512,7 @@ const ACTION_LABELS: Record<string, string> = {
   CREATIVE_BRIEF: 'Creative Brief',
   SENTINEL_REVIEW: 'Sentinel Review',
   IMAGE_GENERATION: 'Image Generation',
-  VIDEO_GENERATION: 'Professional Video Generation',
+  VIDEO_GENERATION: 'Cinematic Product Ad',
   AD_COPY: 'Ad Copy Generation',
   PAID_EXECUTION_PLAN: 'Paid Execution Plan',
   CHAT_MESSAGE: 'AI Chat Message',

@@ -99,20 +99,35 @@ async function runwayRequest(
   } as RunwayTask
 }
 
-export async function createRunwayVideoTask(input: {
-  promptText: string
-  promptImage?: string | null
+/**
+ * Creates one pinned, multi-reference product-ad recipe task. This is the only
+ * generative route sold as a cinematic product ad; callers must complete the
+ * deterministic asset preflight before invoking it.
+ */
+export async function createRunwayProductAdTask(input: {
+  productImages: string[]
+  productInfo: string
+  userConcept: string
   ratio: '1280:720' | '720:1280' | '960:960'
-  duration?: 5
+  duration: 8
 }): Promise<RunwayTask> {
-  return runwayRequest('/image_to_video', {
+  if (input.productImages.length < 2 || input.productImages.length > 4) {
+    throw new Error('PRODUCT_AD_REFERENCE_COUNT_INVALID')
+  }
+  if (input.productImages.some(uri => !uri.startsWith('https://'))) {
+    throw new Error('PRODUCT_AD_REFERENCE_URL_INVALID')
+  }
+
+  return runwayRequest('/recipes/product_ad', {
     method: 'POST',
     body: JSON.stringify({
-      model: 'gen4.5',
-      promptText: input.promptText,
-      ...(input.promptImage ? { promptImage: input.promptImage } : {}),
+      version: '2026-06',
+      productImages: input.productImages.map(uri => ({ uri })),
+      productInfo: input.productInfo.slice(0, 2_500),
+      userConcept: input.userConcept.slice(0, 3_500),
       ratio: input.ratio,
-      duration: input.duration ?? 5,
+      duration: input.duration,
+      audio: false,
     }),
   }, { defaultStatus: 'PENDING' })
 }

@@ -1,4 +1,5 @@
 import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
+import { CINEMATIC_PRODUCT_AD_DURATION_SECONDS } from '@/lib/videoAdPreflight'
 
 // Client-safe aliases of the one client catalog. A contract test keeps that
 // catalog identical to the server billing catalog in src/lib/credits.ts.
@@ -156,13 +157,15 @@ export function validateVideoGenerationConfirmation(input: {
   acknowledgedDurationSeconds?: unknown
   acknowledgedNoPublishOrSchedule?: unknown
   acknowledgedReviewRequired?: unknown
+  acknowledgedAssetRights?: unknown
 }): ContentHubConfirmationResult {
   if (
     input.confirmed !== true
     || input.acknowledgedCreditCost !== CONTENT_HUB_VIDEO_COST
-    || input.acknowledgedDurationSeconds !== 5
+    || input.acknowledgedDurationSeconds !== CINEMATIC_PRODUCT_AD_DURATION_SECONDS
     || input.acknowledgedNoPublishOrSchedule !== true
     || input.acknowledgedReviewRequired !== true
+    || input.acknowledgedAssetRights !== true
   ) {
     return { ok: false, error: 'Video generation requires explicit confirmation. No credits were spent.' }
   }

@@ -69,11 +69,6 @@ export function chooseProfessionalImageProvider(
 
 export type RunwayVideoRatio = '1280:720' | '720:1280' | '960:960'
 
-// Keep a margin below the provider's 1,000-character validation limit. The
-// safety suffix is appended after truncation so long campaign copy can never
-// cut off product-fidelity or typography protections.
-export const PROFESSIONAL_VIDEO_PROMPT_MAX_CHARS = 950
-
 export function platformToRunwayRatio(platform: string, hasReferenceImage: boolean): RunwayVideoRatio {
   void hasReferenceImage
   return resolvePlatformVideoFormat(platform).ratio
@@ -85,40 +80,59 @@ function cleanPromptPart(value: unknown, maxLength: number): string {
     : ''
 }
 
-export function buildProfessionalVideoPrompt(input: {
+function uniqueTextList(value: unknown, maxItems: number, maxLength: number): string[] {
+  if (!Array.isArray(value)) return []
+  return Array.from(new Set(value
+    .map(item => cleanPromptPart(item, maxLength))
+    .filter(Boolean)))
+    .slice(0, maxItems)
+}
+
+/**
+ * Builds a short-form advertising brief rather than a generic motion prompt.
+ * Exact product appearance comes from the qualified reference angles; only
+ * verified Brand Brain claims may enter productInfo.
+ */
+export function buildCinematicProductAdBrief(input: {
   brandName?: string | null
+  description?: string | null
+  primaryOffer?: string | null
+  verifiedProof?: string[] | null
+  uniqueAdvantages?: string[] | null
   caption?: string | null
   videoDirection?: string | null
   industry?: string | null
   toneWords?: string[] | null
-  hasReferenceImage: boolean
-}): string {
-  const brandName = cleanPromptPart(input.brandName, 60) || 'the brand'
-  const direction = cleanPromptPart(input.videoDirection, 280)
-  const caption = cleanPromptPart(input.caption, 140)
-  const industry = cleanPromptPart(input.industry, 60)
-  const tone = Array.isArray(input.toneWords)
-    ? input.toneWords.map(item => cleanPromptPart(item, 24)).filter(Boolean).slice(0, 4).join(', ')
-    : ''
+}): { productInfo: string; userConcept: string } {
+  const brandName = cleanPromptPart(input.brandName, 80) || 'the approved brand'
+  const description = cleanPromptPart(input.description, 500)
+  const primaryOffer = cleanPromptPart(input.primaryOffer, 280)
+  const verifiedProof = uniqueTextList(input.verifiedProof, 4, 180)
+  const advantages = uniqueTextList(input.uniqueAdvantages, 4, 160)
+  const caption = cleanPromptPart(input.caption, 360)
+  const direction = cleanPromptPart(input.videoDirection, 600)
+  const industry = cleanPromptPart(input.industry, 80)
+  const tone = uniqueTextList(input.toneWords, 5, 40)
 
-  const sourceRule = input.hasReferenceImage
-    ? 'The supplied image is the exact first-frame source of truth. Preserve its geometry, colours, labels, logo placement, proportions, and distinctive details; do not redesign or replace it.'
-    : 'Create a brand-safe scene without inventing a product, interface, result, award, testimonial, statistic, or certification.'
+  const productInfo = [
+    `Brand: ${brandName}.`,
+    industry ? `Category: ${industry}.` : '',
+    description ? `Approved description: ${description}.` : '',
+    primaryOffer ? `Approved offer: ${primaryOffer}.` : '',
+    advantages.length ? `Approved advantages: ${advantages.join('; ')}.` : '',
+    verifiedProof.length ? `Verified proof only: ${verifiedProof.join('; ')}.` : '',
+    'The product reference images are the sole source of truth for shape, packaging, colour, labels, proportions, and distinctive details.',
+  ].filter(Boolean).join(' ').slice(0, 2_500)
 
-  const safetySuffix = 'Use realistic light, plausible motion, stable composition, controlled camera movement, and a clean ad-ready end frame. No generated text, captions, subtitles, watermarks, extra logos, distorted details, duplicate products, or jump cuts.'
-  const base = [
-    `Create one premium five-second commercial master shot for ${brandName}.`,
-    industry ? `Industry: ${industry}.` : '',
-    tone ? `Visual tone: ${tone}.` : '',
-    direction ? `Scene and motion: ${direction}.` : '',
-    caption ? `Message context only; never render it as text: ${caption}.` : '',
-    sourceRule,
-  ].filter(Boolean).join(' ')
+  const userConcept = [
+    `Create an eight-second premium product advertisement for ${brandName}, not a generic AI motion clip.`,
+    'Use a coherent three-beat commercial sequence: 0–2s visual hook, 2–6s product reveal or benefit demonstration, 6–8s confident hero end frame with intentional negative space for a separately typeset CTA.',
+    caption ? `Approved campaign message and intent: ${caption}.` : '',
+    direction ? `Approved creative direction: ${direction}.` : '',
+    tone.length ? `Brand mood: ${tone.join(', ')}.` : '',
+    'Show the exact same product consistently across every shot. Use realistic lighting, purposeful camera movement, stable geometry, clean transitions, and paid-social production polish.',
+    'Do not generate text, subtitles, logos, claims, awards, statistics, people, extra product variants, duplicate products, watermarks, or interface elements. Do not redesign the product or its packaging.',
+  ].filter(Boolean).join(' ').slice(0, 3_500)
 
-  const availableBaseChars = PROFESSIONAL_VIDEO_PROMPT_MAX_CHARS - safetySuffix.length - 1
-  const boundedBase = base.length <= availableBaseChars
-    ? base
-    : base.slice(0, availableBaseChars).replace(/\s+\S*$/, '').trim()
-
-  return `${boundedBase} ${safetySuffix}`.trim()
+  return { productInfo, userConcept }
 }
