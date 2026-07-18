@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import sharp from 'sharp'
 import {
   buildProfessionalCampaignFilmFfmpegArgs,
   professionalCampaignFilmOverlaySvgs,
 } from '../professionalCampaignFilm.server'
 
 describe('professional campaign film compositor', () => {
-  it('builds separate Arabic hook, benefit, and end-frame overlays', () => {
+  it('builds separate Arabic hook, benefit, and end-frame overlays', async () => {
     const overlays = professionalCampaignFilmOverlaySvgs({
       brand: 'NOORAYA',
       hook: 'أناقة تتحرك معك',
@@ -15,9 +16,28 @@ describe('professional campaign film compositor', () => {
     })
 
     expect(overlays.hook).toContain('direction="rtl"')
+    expect(overlays.hook).toContain("@font-face")
+    expect(overlays.hook).toContain("font-family:'NEXUS Tajawal'")
+    expect(overlays.hook).toContain('text-anchor="start"')
     expect(overlays.hook).toContain('NOORAYA')
     expect(overlays.benefit).toContain('تفاصيل')
     expect(overlays.end).toContain('اكتشفي')
+    expect(overlays.end).toContain('x="360" y="832" text-anchor="middle"')
+
+    const { data, info } = await sharp(Buffer.from(overlays.end))
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+    let darkCtaPixels = 0
+    for (let y = 770; y < 860; y += 1) {
+      for (let x = 165; x < 555; x += 1) {
+        const offset = (y * info.width + x) * info.channels
+        const red = data[offset]
+        const green = data[offset + 1]
+        const blue = data[offset + 2]
+        if (red < 80 && green < 80 && blue < 80) darkCtaPixels += 1
+      }
+    }
+    expect(darkCtaPixels).toBeGreaterThan(500)
   })
 
   it('preserves generated audio and creates three intentional copy phases', () => {

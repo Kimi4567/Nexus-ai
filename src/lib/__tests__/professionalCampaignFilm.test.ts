@@ -35,4 +35,16 @@ describe('professional campaign film brief', () => {
     expect(brief.creativeDirection).toContain('No generic slideshow or static image motion')
     expect(brief.shots.every(shot => /action|motion|camera|using|subject/i.test(shot.prompt))).toBe(true)
   })
+
+  it('keeps Arabic ad overlays short enough for a premium mobile composition', () => {
+    const brief = buildProfessionalCampaignFilmBrief({
+      brandName: 'NOORAYA',
+      industry: 'Abaya fashion',
+      caption: 'تألقي بأناقة كل يوم مع عباياتنا. اكتشفي المزيد عن الأناقة اليومية.',
+    })
+
+    expect(brief.overlayCopy.hook).toBe('تألقي بأناقة كل يوم')
+    expect(brief.overlayCopy.hook.length).toBeLessThanOrEqual(28)
+    expect(brief.overlayCopy.benefit.length).toBeLessThanOrEqual(36)
+  })
 })

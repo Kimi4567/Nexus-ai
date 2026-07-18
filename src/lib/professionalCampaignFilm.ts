@@ -1,6 +1,7 @@
 export const PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS = 10 as const
 export const PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_CREDITS_ESTIMATE = 130
 export const PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_COST_USD_ESTIMATE = 1.3
+export const PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION = '2026-07-arabic-2' as const
 
 export type ProfessionalCampaignFilmShot = {
   prompt: string
@@ -23,6 +24,17 @@ function compact(value: unknown, limit: number): string {
   return typeof value === 'string'
     ? value.replace(/\s+/g, ' ').trim().slice(0, limit)
     : ''
+}
+
+function compactAtWordBoundary(value: unknown, limit: number): string {
+  const normalized = compact(value, Math.max(limit + 24, limit))
+  if (normalized.length <= limit) return normalized
+  const candidate = normalized.slice(0, limit + 1)
+  const wordBoundary = candidate.lastIndexOf(' ')
+  return candidate
+    .slice(0, wordBoundary >= Math.floor(limit * 0.62) ? wordBoundary : limit)
+    .trim()
+    .replace(/\s+(?:مع|في|من|على|إلى|عن|the|with|for|and|to)$/i, '')
 }
 
 function containsArabic(value: string): boolean {
@@ -110,10 +122,10 @@ export function buildProfessionalCampaignFilmBrief(input: {
     },
   ]
 
-  const hook = compact(lines[0], 62)
+  const hook = compactAtWordBoundary(lines[0], language === 'ar' ? 28 : 40)
     || (language === 'ar' ? 'لحظة تليق بك' : 'Made for your moment')
-  const benefit = compact(lines[1], 74)
-    || compact(input.primaryOffer, 74)
+  const benefit = compactAtWordBoundary(lines[1], language === 'ar' ? 36 : 50)
+    || compactAtWordBoundary(input.primaryOffer, language === 'ar' ? 36 : 50)
     || (language === 'ar' ? 'تفاصيل تصنع الفارق' : 'Details that make the difference')
   const cta = language === 'ar' ? 'اكتشفي المزيد' : 'Discover more'
 
