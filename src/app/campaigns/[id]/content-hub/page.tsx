@@ -2512,7 +2512,7 @@ export default function ContentHubPage() {
       setSuccessMsg(professionalCampaignFilm
         ? (isAr
           ? `بدأ إنتاج فيلم حملة احترافي من 3 لقطات مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ، مع حركة أشخاص وانتقالات وصوت وTypography خاص بالبراند. تم خصم ${CONTENT_HUB_VIDEO_COST} كريديت؛ محاولة واحدة فقط مع استرداد إذا لم يجتز الجودة. لا نشر ولا جدولة.`
-          : `A ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second professional three-shot campaign film is rendering with real subject motion, scene cuts, sound, and brand typography. ${CONTENT_HUB_VIDEO_COST} credits were charged; there is one attempt with restoration if quality fails. Nothing was published or scheduled.`)
+          : `A ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second professional three-shot campaign film is rendering with visible subject motion, scene cuts, sound, and brand typography. ${CONTENT_HUB_VIDEO_COST} credits were charged; there is one attempt with restoration if quality fails. Nothing was published or scheduled.`)
         : (isAr
           ? `بدأ إنتاج إعلان منتج سينمائي مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ من أصول المنتج المؤهلة. تم خصم ${CONTENT_HUB_VIDEO_COST} كريديت؛ لا توجد إعادة محاولة تلقائية، وسيُرد الرصيد إذا لم ينتج أصل صالح. لا نشر ولا جدولة.`
           : `An ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second cinematic product ad is rendering from qualified product assets. ${CONTENT_HUB_VIDEO_COST} credits were charged; there is no automatic provider retry, and the charge will be restored if no usable output is produced. Nothing was published or scheduled.`))
@@ -2770,52 +2770,6 @@ export default function ContentHubPage() {
                       <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                       {t('contentHub.generatingImages')}
                     </>
-                  ) : videoProductionMode === 'CAMPAIGN_FILM' ? (
-                    <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-slate-950 to-slate-900 p-4 text-white">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-bold">{isAr ? 'فيلم إعلاني كامل — وليس صورة متحركة' : 'A complete ad film — not an animated still'}</p>
-                          <p className="mt-1 text-xs leading-relaxed text-slate-300">
-                            {isAr
-                              ? 'يبني NEXUS ثلاث لقطات مولّدة خصيصًا من هدف المنشور وBrand Brain. هذا المسار لا يحتاج صورة مرجعية، ولا يدّعي الحفاظ على شكل منتج بعينه.'
-                              : 'NEXUS builds three purpose-made shots from the post objective and Brand Brain. This route needs no reference image and does not claim exact product fidelity.'}
-                          </p>
-                        </div>
-                        <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold text-emerald-200">
-                          {isAr ? 'جاهز للإنتاج' : 'Production ready'}
-                        </span>
-                      </div>
-                      <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                        {[
-                          {
-                            time: '0–3s',
-                            title: isAr ? 'Hook بصري' : 'Visual hook',
-                            body: isAr ? 'شخص يتحرك + حركة كاميرا تلفت الانتباه.' : 'Moving subject + camera action that earns attention.',
-                          },
-                          {
-                            time: '3–6s',
-                            title: isAr ? 'إظهار المنفعة' : 'Visible benefit',
-                            body: isAr ? 'لقطة مختلفة توضّح القيمة بالفعل لا بالادعاء.' : 'A distinct shot that demonstrates value through action.',
-                          },
-                          {
-                            time: '6–10s',
-                            title: isAr ? 'Hero + CTA' : 'Hero + CTA',
-                            body: isAr ? 'Payoff بصري ثم End Frame بالبراند ودعوة واضحة.' : 'Visual payoff followed by a branded, actionable end frame.',
-                          },
-                        ].map(item => (
-                          <div key={item.time} className="rounded-xl border border-white/10 bg-white/[0.06] p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-violet-300">{item.time}</p>
-                            <p className="mt-1 text-xs font-bold text-white">{item.title}</p>
-                            <p className="mt-1 text-[11px] leading-relaxed text-slate-300">{item.body}</p>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-[11px] leading-relaxed text-amber-100">
-                        {isAr
-                          ? 'تنبيه صريح: هذا Concept Film بمشاهد مولّدة. إذا كان المطلوب نفس المنتج الحقيقي بدقة، استخدم مسار «دقة المنتج» بصور معزولة مؤهلة.'
-                          : 'Truth note: this is a generated concept film. For exact real-product fidelity, use Product fidelity with qualified isolated references.'}
-                      </div>
-                    </div>
                   ) : (
                     <>
                       ✨ {imageGenerationBlockedByTruthReview ? imageGenerationTruthReviewLabel : imageGenerationLocked ? addCreditsForImagesLabel : bulkImageButtonLabel}
@@ -4816,6 +4770,52 @@ export default function ContentHubPage() {
                         {!motionDesignPreflight.eligible && motionDesignPreflight.issues.slice(0, 3).map(issue => <p key={issue.code} className="mt-1">• {videoPreflightIssueCopy(issue)}</p>)}
                       </div>
                     </div>
+                  ) : videoProductionMode === 'CAMPAIGN_FILM' ? (
+                    <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-slate-950 to-slate-900 p-4 text-white">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-bold">{isAr ? 'فيلم إعلاني كامل — وليس صورة متحركة' : 'A complete ad film — not an animated still'}</p>
+                          <p className="mt-1 text-xs leading-relaxed text-slate-300">
+                            {isAr
+                              ? 'يبني NEXUS ثلاث لقطات مولّدة خصيصًا من هدف المنشور وBrand Brain. هذا المسار لا يحتاج صورة مرجعية، ولا يدّعي الحفاظ على شكل منتج بعينه.'
+                              : 'NEXUS builds three purpose-made shots from the post objective and Brand Brain. This route needs no reference image and does not claim exact product fidelity.'}
+                          </p>
+                        </div>
+                        <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold text-emerald-200">
+                          {isAr ? 'جاهز للإنتاج' : 'Production ready'}
+                        </span>
+                      </div>
+                      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                        {[
+                          {
+                            time: '0–3s',
+                            title: isAr ? 'Hook بصري' : 'Visual hook',
+                            body: isAr ? 'شخص يتحرك + حركة كاميرا تلفت الانتباه.' : 'Moving subject + camera action that earns attention.',
+                          },
+                          {
+                            time: '3–6s',
+                            title: isAr ? 'إظهار المنفعة' : 'Visible benefit',
+                            body: isAr ? 'لقطة مختلفة توضّح القيمة بالفعل لا بالادعاء.' : 'A distinct shot that demonstrates value through action.',
+                          },
+                          {
+                            time: '6–10s',
+                            title: isAr ? 'Hero + CTA' : 'Hero + CTA',
+                            body: isAr ? 'Payoff بصري ثم End Frame بالبراند ودعوة واضحة.' : 'Visual payoff followed by a branded, actionable end frame.',
+                          },
+                        ].map(item => (
+                          <div key={item.time} className="rounded-xl border border-white/10 bg-white/[0.06] p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-violet-300">{item.time}</p>
+                            <p className="mt-1 text-xs font-bold text-white">{item.title}</p>
+                            <p className="mt-1 text-[11px] leading-relaxed text-slate-300">{item.body}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-[11px] leading-relaxed text-amber-100">
+                        {isAr
+                          ? 'تنبيه صريح: هذا Concept Film بمشاهد مولّدة. إذا كان المطلوب نفس المنتج الحقيقي بدقة، استخدم مسار «دقة المنتج» بصور معزولة مؤهلة.'
+                          : 'Truth note: this is a generated concept film. For exact real-product fidelity, use Product fidelity with qualified isolated references.'}
+                      </div>
+                    </div>
                   ) : (
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <div className="flex items-center justify-between gap-3">
@@ -4854,7 +4854,7 @@ export default function ContentHubPage() {
                         </>
                       ) : videoProductionMode === 'CAMPAIGN_FILM' ? (
                         <>
-                          <p>✓ {isAr ? '3 مشاهد مختلفة بحركة أشخاص وكاميرا حقيقية داخل المشهد' : 'Three distinct scenes with visible subject and camera motion'}</p>
+                          <p>✓ {isAr ? '3 مشاهد مختلفة بحركة أشخاص وكاميرا واضحة داخل المشهد' : 'Three distinct scenes with visible subject and camera motion'}</p>
                           <p>✓ {isAr ? `${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ: Hook ثم منفعة ثم Hero/CTA` : `${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} seconds: hook, benefit, then hero/CTA`}</p>
                           <p>✓ {isAr ? 'صوت إعلاني وانتقالات مشاهد وTypography متحرك منفصل عن التوليد' : 'Ad sound, scene transitions, and separately composed kinetic typography'}</p>
                           <p>✓ {isAr ? 'فحص جودة متعدد اللقطات قبل الربط' : 'Multi-frame premium QA before attachment'}</p>
