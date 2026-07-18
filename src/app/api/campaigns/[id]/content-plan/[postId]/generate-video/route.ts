@@ -62,6 +62,7 @@ import {
 } from '@/lib/platformVideoFormat'
 import {
   buildProfessionalCampaignFilmBrief,
+  PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
   PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS,
   PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_COST_USD_ESTIMATE,
   PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_CREDITS_ESTIMATE,
@@ -149,6 +150,50 @@ async function refundGeneration(
   })
   if (!result.ok) return 'pending'
   return result.status === 'refunded' ? 'refunded' : 'noop'
+}
+
+function generationMetadata(value: unknown): Record<string, any> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, any>
+    : {}
+}
+
+function retainedProviderMasterUrl(generation: any): string | null {
+  const metadata = generationMetadata(generation.metadata)
+  if (typeof metadata.providerStoredUrl === 'string') {
+    try {
+      const parsed = new URL(metadata.providerStoredUrl)
+      if (parsed.protocol === 'https:' && parsed.hostname === 'res.cloudinary.com' && parsed.pathname.includes('/video/upload/')) {
+        return parsed.toString()
+      }
+    } catch {
+      // Fall through to the deterministic Cloudinary public ID used by NEXUS.
+    }
+  }
+  if (typeof generation.output !== 'string') return null
+  try {
+    const output = new URL(generation.output)
+    const cloudName = output.pathname.split('/').filter(Boolean)[0]
+    if (output.protocol !== 'https:' || output.hostname !== 'res.cloudinary.com' || !cloudName) return null
+    return `https://res.cloudinary.com/${cloudName}/video/upload/nexus/videos/video_${encodeURIComponent(generation.id)}.mp4`
+  } catch {
+    return null
+  }
+}
+
+function isTypographyRepairEligible(generation: any): boolean {
+  const metadata = generationMetadata(generation.metadata)
+  const qualityReview = generationMetadata(metadata.qualityReview)
+  const issues = Array.isArray(qualityReview.issues)
+    ? qualityReview.issues.filter((issue: unknown): issue is string => typeof issue === 'string')
+    : []
+  return generation.status === 'FAILED'
+    && generationParams(generation.params).productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM'
+    && metadata.qualityStatus === 'REJECTED'
+    && metadata.retainedForAudit === true
+    && !metadata.typographyRepairAttemptedAt
+    && metadata.compositorVersion !== PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION
+    && issues.some((issue: string) => /gibberish text|missing approved.*overlay|typography/i.test(issue))
 }
 
 export async function POST(req: NextRequest, props: Params) {
@@ -512,6 +557,282 @@ export async function POST(req: NextRequest, props: Params) {
   }
 }
 
+/**
+ * Re-composes a quarantined campaign film after a NEXUS typography-compositor
+ * defect. It reuses the retained provider master, makes no provider request,
+ * consumes no user credits, and is allowed exactly once for an eligible legacy
+ * output. The repaired file must pass the same premium QA gate before attachment.
+ */
+export async function PATCH(req: NextRequest, props: Params) {
+  const params = await props.params
+  const userId = await getServerUserId(req)
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const body = await req.json().catch(() => ({}))
+  if (body.explicitRetainedRepairConfirmed !== true || body.acknowledgedNoProviderGeneration !== true) {
+    return NextResponse.json({
+      error: 'Explicit retained-footage repair confirmation is required.',
+      code: 'RETAINED_REPAIR_CONFIRMATION_REQUIRED',
+      creditsCharged: false,
+      providerGenerationStarted: false,
+    }, { status: 400 })
+  }
+
+  const context = await findCampaignContext(userId, params.id, params.postId)
+  if (!context) return NextResponse.json({ error: 'Campaign video post not found' }, { status: 404 })
+  if (isImmutableExecutionPost(context.post.status)) {
+    return NextResponse.json({ error: 'Published or provider-processing posts cannot be repaired in place.' }, { status: 409 })
+  }
+
+  const generation = await findLatestPostGeneration(params.id, params.postId)
+  if (!generation || generation.id !== body.generationId || !isTypographyRepairEligible(generation)) {
+    return NextResponse.json({
+      error: 'This rejected output is not eligible for the one-time retained-footage repair.',
+      code: 'RETAINED_REPAIR_NOT_ELIGIBLE',
+      creditsCharged: false,
+      providerGenerationStarted: false,
+    }, { status: 409 })
+  }
+
+  const sourceUrl = retainedProviderMasterUrl(generation)
+  if (!sourceUrl) {
+    return NextResponse.json({
+      error: 'The retained provider master is unavailable; no repair was attempted.',
+      code: 'RETAINED_MASTER_UNAVAILABLE',
+      creditsCharged: false,
+      providerGenerationStarted: false,
+    }, { status: 409 })
+  }
+
+  const claim = await db.generation.updateMany({
+    where: { id: generation.id, status: 'FAILED', progress: 100 },
+    data: { progress: 98 },
+  })
+  if (claim.count !== 1) {
+    return NextResponse.json({
+      error: 'This retained-footage repair is already running or was already used.',
+      code: 'RETAINED_REPAIR_ALREADY_CLAIMED',
+      creditsCharged: false,
+      providerGenerationStarted: false,
+    }, { status: 409 })
+  }
+
+  const attemptedAt = new Date().toISOString()
+  const priorMetadata = generationMetadata(generation.metadata)
+  await db.generation.update({
+    where: { id: generation.id },
+    data: { metadata: {
+      ...priorMetadata,
+      typographyRepairAttemptedAt: attemptedAt,
+      typographyRepairStatus: 'PROCESSING',
+      compositorVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+    } },
+  })
+
+  try {
+    const brief = buildProfessionalCampaignFilmBrief({
+      brandName: context.brand?.brandName || context.campaign.name,
+      description: context.brand?.description,
+      primaryOffer: context.brand?.primaryOffer,
+      caption: context.post.caption,
+      videoDirection: context.post.videoPrompt,
+      industry: context.brand?.industry,
+    })
+    const storedParams = generationParams(generation.params)
+    const targetFormat = storedParams.targetFormat
+      ?? {
+        ...resolvePlatformVideoFormat(context.post.publishTarget || context.post.platform),
+        durationSeconds: PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS,
+      }
+    const stored = await renderAndPersistProfessionalCampaignFilm({
+      sourceUrl,
+      target: targetFormat,
+      generationId: generation.id,
+      overlayCopy: brief.overlayCopy,
+    })
+    const formatValidation = validatePlatformVideoFormat({
+      width: stored.width,
+      height: stored.height,
+      durationSeconds: stored.duration,
+      contentType: `video/${stored.format}`,
+    }, targetFormat)
+    const qualityReview = await reviewGeneratedMediaQuality({
+      mediaType: 'VIDEO',
+      outputFrames: cloudinaryVideoReviewFrames(stored.url, stored.duration ?? PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS),
+      campaignMessage: context.post.caption,
+      creativeDirection: context.post.videoPrompt,
+      referenceEvidence: [],
+      targetFormat,
+      formatValidation,
+      requireProductAdStructure: true,
+      qualityStandard: 'PREMIUM',
+      approvedOverlayTexts: [
+        brief.overlayCopy.brand,
+        brief.overlayCopy.hook,
+        brief.overlayCopy.benefit,
+        brief.overlayCopy.cta,
+      ],
+    })
+
+    if (!qualityReview.passed) {
+      const message = 'NEXUS repaired the retained typography without a new provider request, but the result still did not pass premium advertising review. No credits were charged.'
+      await db.generation.update({
+        where: { id: generation.id },
+        data: {
+          status: 'FAILED',
+          progress: 100,
+          output: stored.url,
+          error: message,
+          metadata: {
+            ...priorMetadata,
+            durationSeconds: stored.duration ?? PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS,
+            reviewRequired: true,
+            qualityStatus: 'REJECTED',
+            qualityReview,
+            retainedForAudit: true,
+            typographyRepairAttemptedAt: attemptedAt,
+            typographyRepairStatus: 'REJECTED',
+            compositorVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+          },
+        },
+      })
+      await db.socialPost.update({
+        where: { id: params.postId },
+        data: { generationStatus: 'FAILED', errorMessage: message },
+      })
+      return NextResponse.json({
+        status: 'FAILED',
+        generationId: generation.id,
+        error: message,
+        creditsUsed: 0,
+        creditsCharged: false,
+        providerGenerationStarted: false,
+      }, { status: 422 })
+    }
+
+    const existingMedia = await db.media.findFirst({
+      where: { workspaceId: context.campaign.workspaceId, cloudinaryId: stored.publicId },
+    })
+    const mediaData = {
+        workspaceId: context.campaign.workspaceId,
+        campaignId: params.id,
+        fileName: `${context.campaign.name || 'campaign'}-video-${generation.id}.${stored.format}`,
+        type: 'VIDEO',
+        mimeType: `video/${stored.format}`,
+        url: stored.url,
+        cloudinaryId: stored.publicId,
+        size: stored.bytes,
+        width: stored.width,
+        height: stored.height,
+        duration: stored.duration,
+        category: 'professional-campaign-film-master',
+        tags: ['nexus-video-studio', 'professional-campaign-film', 'multi-shot', 'branded-typography', 'retained-repair', 'review-required'],
+    }
+    const media = existingMedia
+      ? await db.media.update({ where: { id: existingMedia.id }, data: mediaData })
+      : await db.media.create({ data: mediaData })
+
+    const currentPost = await db.socialPost.findUnique({ where: { id: params.postId } })
+    if (!currentPost || isImmutableExecutionPost(currentPost.status)) {
+      throw new Error('The post changed to an immutable execution state during retained-footage repair')
+    }
+    const reopen = reopensContentReview(currentPost.status)
+    await db.$transaction(async (tx: any) => {
+      await tx.socialPost.update({
+        where: { id: params.postId },
+        data: {
+          imageUrl: stored.url,
+          sourceMediaId: media.id,
+          sourceType: 'AI_GENERATED',
+          uploadedMediaId: null,
+          mediaSource: 'GENERATE',
+          generationStatus: 'DONE',
+          errorMessage: null,
+          ...contentReviewResetData(currentPost.status),
+        },
+      })
+      if (reopen) {
+        await tx.postStatusHistory.create({
+          data: {
+            socialPostId: currentPost.id,
+            workspaceId: currentPost.workspaceId,
+            fromStatus: currentPost.status,
+            toStatus: 'DRAFT',
+            actor: 'SYSTEM',
+            note: `${CONTENT_REVISION_HISTORY_NOTE} Retained campaign footage was re-composed after a NEXUS typography defect; no provider generation was started.`,
+          },
+        })
+      }
+    })
+    await db.generation.update({
+      where: { id: generation.id },
+      data: {
+        status: 'COMPLETED',
+        progress: 100,
+        output: stored.url,
+        error: null,
+        metadata: {
+          ...priorMetadata,
+          model: 'multi-shot-video-2026-06',
+          productionRoute: 'MULTI_SHOT_CAMPAIGN_FILM',
+          mediaId: media.id,
+          durationSeconds: stored.duration ?? PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS,
+          reviewRequired: true,
+          attached: true,
+          qualityStatus: 'PASSED',
+          qualityReview,
+          retainedForAudit: false,
+          typographyRepairAttemptedAt: attemptedAt,
+          typographyRepairStatus: 'PASSED',
+          compositorVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+        },
+      },
+    })
+
+    return NextResponse.json({
+      status: 'SUCCEEDED',
+      generationId: generation.id,
+      output: stored.url,
+      mediaId: media.id,
+      attached: true,
+      reviewRequired: true,
+      creditsUsed: 0,
+      creditsCharged: false,
+      providerGenerationStarted: false,
+      published: false,
+      scheduled: false,
+    })
+  } catch (error) {
+    const internalMessage = sanitizeSentryText(error instanceof Error ? error.message : 'Retained campaign-film repair failed').slice(0, 500)
+    console.error('[generate-video] retained campaign-film repair failed', internalMessage)
+    const message = 'NEXUS could not complete the retained-footage repair. No credits were charged and no provider generation was started.'
+    await db.generation.update({
+      where: { id: generation.id },
+      data: {
+        status: 'FAILED',
+        progress: 100,
+        error: message,
+        metadata: {
+          ...priorMetadata,
+          typographyRepairAttemptedAt: attemptedAt,
+          typographyRepairStatus: 'ERROR',
+          compositorVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+        },
+      },
+    }).catch(() => undefined)
+    await db.socialPost.update({
+      where: { id: params.postId },
+      data: { generationStatus: 'FAILED', errorMessage: message },
+    }).catch(() => undefined)
+    return NextResponse.json({
+      error: message,
+      code: 'RETAINED_REPAIR_FAILED',
+      creditsUsed: 0,
+      creditsCharged: false,
+      providerGenerationStarted: false,
+    }, { status: 502 })
+  }
+}
+
 export async function GET(req: NextRequest, props: Params) {
   const params = await props.params
   const userId = await getServerUserId(req)
@@ -709,11 +1030,14 @@ export async function GET(req: NextRequest, props: Params) {
           error: message,
           metadata: {
             providerTaskId: task.id,
+            providerStoredUrl: providerStored.url,
+            providerStoredPublicId: providerStored.publicId,
             durationSeconds: stored.duration ?? expectedDurationSeconds,
             reviewRequired: true,
             qualityStatus: 'REJECTED',
             qualityReview,
             retainedForAudit: true,
+            compositorVersion: isCampaignFilm ? PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION : null,
           },
         },
       })
@@ -771,6 +1095,7 @@ export async function GET(req: NextRequest, props: Params) {
           reviewRequired: true,
           qualityStatus: 'PASSED',
           qualityReview,
+          compositorVersion: isCampaignFilm ? PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION : null,
         },
       },
     })
@@ -788,6 +1113,7 @@ export async function GET(req: NextRequest, props: Params) {
           model: isCampaignFilm ? 'multi-shot-video-2026-06' : 'product-ad-2026-06', productionRoute, providerTaskId: task.id, mediaId: media.id,
           durationSeconds: stored.duration ?? expectedDurationSeconds, reviewRequired: true, attached: false,
           qualityStatus: 'PASSED', qualityReview,
+          compositorVersion: isCampaignFilm ? PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION : null,
         } },
       })
       await db.socialPost.update({
@@ -842,6 +1168,7 @@ export async function GET(req: NextRequest, props: Params) {
         model: isCampaignFilm ? 'multi-shot-video-2026-06' : 'product-ad-2026-06', productionRoute, providerTaskId: task.id, mediaId: media.id,
         durationSeconds: stored.duration ?? expectedDurationSeconds, reviewRequired: true, attached: true,
         qualityStatus: 'PASSED', qualityReview,
+        compositorVersion: isCampaignFilm ? PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION : null,
       } },
     })
 

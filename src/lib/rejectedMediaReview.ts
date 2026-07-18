@@ -1,3 +1,5 @@
+import { PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION } from '@/lib/professionalCampaignFilm'
+
 type UnknownRecord = Record<string, unknown>
 
 export interface RejectedVideoReview {
@@ -11,6 +13,7 @@ export interface RejectedVideoReview {
   referencePreservationScore: number | null
   attachable: false
   publishable: false
+  repairEligible: boolean
 }
 
 function record(value: unknown): UnknownRecord | null {
@@ -70,6 +73,11 @@ export function readRejectedVideoReview(value: unknown): RejectedVideoReview | n
         .filter(Boolean)))
         .slice(0, 8)
     : []
+  const compositorVersion = boundedText(metadata.compositorVersion, 80)
+  const repairAttempted = Boolean(metadata.typographyRepairAttemptedAt)
+  const typographyFailure = issues.some(issue => /gibberish text|missing approved.*overlay|typography/i.test(issue))
+  const params = record(generation.params)
+  const isCampaignFilm = params?.productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM'
 
   return {
     generationId,
@@ -82,6 +90,9 @@ export function readRejectedVideoReview(value: unknown): RejectedVideoReview | n
     referencePreservationScore: boundedScore(qualityReview.referencePreservationScore),
     attachable: false,
     publishable: false,
+    repairEligible: isCampaignFilm
+      && !repairAttempted
+      && compositorVersion !== PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION
+      && typographyFailure,
   }
 }
-

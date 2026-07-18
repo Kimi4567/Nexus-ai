@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
     campaign: { findFirst: vi.fn() },
     socialPost: { findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
     generation: { findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
-    media: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
+    media: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     postStatusHistory: { create: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -62,7 +62,7 @@ vi.mock('@/lib/contentPlanApprovalGuard', () => ({
   reviewContentPlanForApproval: () => ({ ok: true, issues: [] }),
 }))
 
-import { GET, POST } from '../route'
+import { GET, PATCH, POST } from '../route'
 
 const confirmedBody = {
   explicitVideoGenerationConfirmed: true,
@@ -223,6 +223,7 @@ beforeEach(() => {
     productReference('product-side'),
   ])
   mocks.prisma.media.create.mockResolvedValue({ id: 'media-1' })
+  mocks.prisma.media.update.mockResolvedValue({ id: 'media-1' })
 })
 
 describe('POST professional video generation', () => {
@@ -668,5 +669,96 @@ describe('GET professional video generation status', () => {
       userId: 'user-1',
       action: 'VIDEO_GENERATION',
     }))
+  })
+})
+
+describe('PATCH retained campaign-film typography repair', () => {
+  const legacyTypographyFailure = {
+    id: 'generation-1',
+    campaignId: 'campaign-1',
+    type: 'VIDEO',
+    provider: 'runway',
+    status: 'FAILED',
+    progress: 100,
+    externalId: 'runway-multi-shot-1',
+    output: 'https://res.cloudinary.com/demo/video/upload/v1/nexus/campaign-films/campaign_film_generation-1.mp4',
+    params: {
+      postId: 'post-1',
+      productionRoute: 'MULTI_SHOT_CAMPAIGN_FILM',
+      durationSeconds: 10,
+    },
+    metadata: {
+      qualityStatus: 'REJECTED',
+      retainedForAudit: true,
+      qualityReview: {
+        passed: false,
+        issues: ['Generated gibberish text present', 'Missing approved motion-design overlays'],
+      },
+    },
+  }
+
+  it('reuses the retained master once, charges nothing, and attaches only after premium QA passes', async () => {
+    mocks.prisma.generation.findMany.mockResolvedValue([legacyTypographyFailure])
+    mocks.prisma.socialPost.findUnique.mockResolvedValue(post)
+
+    const response = await PATCH(request({
+      generationId: 'generation-1',
+      explicitRetainedRepairConfirmed: true,
+      acknowledgedNoProviderGeneration: true,
+    }), {
+      params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
+    })
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(mocks.renderCampaignFilm).toHaveBeenCalledWith(expect.objectContaining({
+      sourceUrl: 'https://res.cloudinary.com/demo/video/upload/nexus/videos/video_generation-1.mp4',
+      generationId: 'generation-1',
+      overlayCopy: expect.objectContaining({ brand: 'NEXUS' }),
+    }))
+    expect(mocks.reviewQuality).toHaveBeenCalledWith(expect.objectContaining({
+      qualityStandard: 'PREMIUM',
+      approvedOverlayTexts: expect.arrayContaining(['NEXUS', 'Discover more']),
+    }))
+    expect(mocks.createTask).not.toHaveBeenCalled()
+    expect(mocks.createMultiShotTask).not.toHaveBeenCalled()
+    expect(mocks.deduct).not.toHaveBeenCalled()
+    expect(mocks.prisma.socialPost.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'post-1' },
+      data: expect.objectContaining({ generationStatus: 'DONE', imageUrl: expect.stringContaining('campaign-film.mp4') }),
+    }))
+    expect(payload).toMatchObject({
+      status: 'SUCCEEDED',
+      attached: true,
+      creditsUsed: 0,
+      creditsCharged: false,
+      providerGenerationStarted: false,
+      published: false,
+      scheduled: false,
+    })
+  })
+
+  it('refuses non-typography rejections without rendering or charging', async () => {
+    mocks.prisma.generation.findMany.mockResolvedValue([{
+      ...legacyTypographyFailure,
+      metadata: {
+        qualityStatus: 'REJECTED',
+        retainedForAudit: true,
+        qualityReview: { passed: false, issues: ['Weak product prominence'] },
+      },
+    }])
+
+    const response = await PATCH(request({
+      generationId: 'generation-1',
+      explicitRetainedRepairConfirmed: true,
+      acknowledgedNoProviderGeneration: true,
+    }), {
+      params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
+    })
+
+    expect(response.status).toBe(409)
+    expect(await response.json()).toMatchObject({ code: 'RETAINED_REPAIR_NOT_ELIGIBLE', creditsCharged: false })
+    expect(mocks.renderCampaignFilm).not.toHaveBeenCalled()
+    expect(mocks.deduct).not.toHaveBeenCalled()
   })
 })

@@ -9,6 +9,10 @@ import { promisify } from 'node:util'
 import { v2 as cloudinary } from 'cloudinary'
 import ffmpegPath from 'ffmpeg-static'
 import sharp from 'sharp'
+import {
+  NEXUS_ARABIC_FONT_BASE64,
+  NEXUS_ARABIC_FONT_FAMILY,
+} from '@/lib/assets/nexusArabicFont'
 import type { PlatformVideoFormat } from '@/lib/platformVideoFormat'
 import { PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS } from '@/lib/professionalCampaignFilm'
 
@@ -72,11 +76,22 @@ function wrapText(value: string, maxCharacters: number, maxLines = 2): string[] 
   return lines.slice(0, maxLines)
 }
 
+function embeddedFontStyle(): string {
+  return `<style>@font-face{font-family:'${NEXUS_ARABIC_FONT_FAMILY}';src:url(data:font/truetype;base64,${NEXUS_ARABIC_FONT_BASE64}) format('truetype');font-style:normal;font-weight:700}text{font-family:'${NEXUS_ARABIC_FONT_FAMILY}',sans-serif}</style>`
+}
+
 function textBlock(lines: string[], options: { y: number; size: number; weight?: number; rtl: boolean; color?: string }): string {
-  const anchor = options.rtl ? 'end' : 'start'
+  // In SVG, `start` follows the active text direction. For RTL it anchors the
+  // shaped line to the right edge; using `end` pushes Arabic outside the frame.
+  const anchor = 'start'
   const x = options.rtl ? 650 : 70
   const direction = options.rtl ? 'rtl' : 'ltr'
-  return `<text x="${x}" y="${options.y}" text-anchor="${anchor}" direction="${direction}" unicode-bidi="plaintext" fill="${options.color || '#FFFFFF'}" font-family="DejaVu Sans, Arial, sans-serif" font-size="${options.size}" font-weight="${options.weight || 700}">${lines.map((line, index) => `<tspan x="${x}" dy="${index === 0 ? 0 : options.size * 1.28}">${escapeXml(line)}</tspan>`).join('')}</text>`
+  return `<text x="${x}" y="${options.y}" text-anchor="${anchor}" direction="${direction}" unicode-bidi="plaintext" fill="${options.color || '#FFFFFF'}" font-family="${NEXUS_ARABIC_FONT_FAMILY}" font-size="${options.size}" font-weight="${options.weight || 700}">${lines.map((line, index) => `<tspan x="${x}" dy="${index === 0 ? 0 : options.size * 1.28}">${escapeXml(line)}</tspan>`).join('')}</text>`
+}
+
+function centeredText(value: string, options: { y: number; size: number; rtl: boolean; color: string }): string {
+  const direction = options.rtl ? 'rtl' : 'ltr'
+  return `<text x="360" y="${options.y}" text-anchor="middle" direction="${direction}" unicode-bidi="plaintext" fill="${options.color}" font-family="${NEXUS_ARABIC_FONT_FAMILY}" font-size="${options.size}" font-weight="700">${escapeXml(value)}</text>`
 }
 
 export function professionalCampaignFilmOverlaySvgs(input: {
@@ -92,15 +107,16 @@ export function professionalCampaignFilmOverlaySvgs(input: {
   const height = input.height || 1280
   const rtl = input.language === 'ar'
   const brand = escapeXml(input.brand.toUpperCase())
-  const hook = textBlock(wrapText(input.hook, rtl ? 20 : 24), { y: 170, size: 54, weight: 700, rtl })
-  const benefit = textBlock(wrapText(input.benefit, rtl ? 24 : 30), { y: 940, size: 38, weight: 600, rtl })
-  const cta = textBlock([input.cta], { y: 840, size: 34, weight: 700, rtl, color: '#0A1620' })
+  const hook = textBlock(wrapText(input.hook, rtl ? 16 : 22), { y: 980, size: 50, weight: 700, rtl })
+  const benefit = textBlock(wrapText(input.benefit, rtl ? 20 : 28), { y: 940, size: 38, weight: 600, rtl })
+  const cta = centeredText(input.cta, { y: 832, size: 34, rtl, color: '#0A1620' })
+  const fontStyle = embeddedFontStyle()
   const common = `<defs><linearGradient id="navy" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#06101A" stop-opacity="0.86"/><stop offset="1" stop-color="#06101A" stop-opacity="0"/></linearGradient><linearGradient id="warm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#06101A" stop-opacity="0"/><stop offset="1" stop-color="#06101A" stop-opacity="0.88"/></linearGradient></defs>`
 
   return {
-    hook: `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">${common}<rect width="${width}" height="430" fill="url(#navy)"/><text x="${rtl ? 650 : 70}" y="78" text-anchor="${rtl ? 'end' : 'start'}" fill="#E7D5B3" font-family="DejaVu Sans, Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="5">${brand}</text>${hook}</svg>`,
-    benefit: `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">${common}<rect y="760" width="${width}" height="520" fill="url(#warm)"/><rect x="54" y="850" width="612" height="2" fill="#E7D5B3" opacity="0.75"/>${benefit}</svg>`,
-    end: `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="endbg" cx="50%" cy="40%" r="75%"><stop offset="0" stop-color="#17354A"/><stop offset="1" stop-color="#06101A"/></radialGradient></defs><rect width="${width}" height="${height}" fill="url(#endbg)" fill-opacity="0.94"/><rect x="38" y="38" width="644" height="1204" rx="28" fill="none" stroke="#E7D5B3" stroke-opacity="0.55"/><text x="360" y="520" text-anchor="middle" fill="#E7D5B3" font-family="DejaVu Sans, Arial, sans-serif" font-size="34" font-weight="700" letter-spacing="8">${brand}</text><rect x="150" y="745" width="420" height="132" rx="66" fill="#E7D5B3"/>${cta}</svg>`,
+    hook: `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">${fontStyle}${common}<rect y="760" width="${width}" height="520" fill="url(#warm)"/><text x="${rtl ? 650 : 70}" y="78" text-anchor="start" direction="${rtl ? 'rtl' : 'ltr'}" unicode-bidi="plaintext" fill="#E7D5B3" font-family="${NEXUS_ARABIC_FONT_FAMILY}" font-size="24" font-weight="700" letter-spacing="${rtl ? 0 : 5}">${brand}</text>${hook}</svg>`,
+    benefit: `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">${fontStyle}${common}<rect y="760" width="${width}" height="520" fill="url(#warm)"/><rect x="54" y="850" width="612" height="2" fill="#E7D5B3" opacity="0.75"/>${benefit}</svg>`,
+    end: `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">${fontStyle}<defs><radialGradient id="endbg" cx="50%" cy="40%" r="75%"><stop offset="0" stop-color="#17354A"/><stop offset="1" stop-color="#06101A"/></radialGradient></defs><rect width="${width}" height="${height}" fill="url(#endbg)" fill-opacity="0.94"/><rect x="38" y="38" width="644" height="1204" rx="28" fill="none" stroke="#E7D5B3" stroke-opacity="0.55"/><text x="360" y="520" text-anchor="middle" direction="${rtl ? 'rtl' : 'ltr'}" unicode-bidi="plaintext" fill="#E7D5B3" font-family="${NEXUS_ARABIC_FONT_FAMILY}" font-size="34" font-weight="700" letter-spacing="${rtl ? 0 : 8}">${brand}</text><rect x="150" y="745" width="420" height="132" rx="66" fill="#E7D5B3"/>${cta}</svg>`,
   }
 }
 

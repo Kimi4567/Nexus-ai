@@ -118,6 +118,7 @@ interface ContentPost {
     referencePreservationScore: number | null
     attachable: false
     publishable: false
+    repairEligible: boolean
   } | null
 }
 
@@ -499,6 +500,7 @@ export default function ContentHubPage() {
   const [videoProductionMode, setVideoProductionMode] = useState<'MOTION_DESIGN' | 'CAMPAIGN_FILM' | 'CINEMATIC'>('CAMPAIGN_FILM')
   const [motionDesignSourceMediaId, setMotionDesignSourceMediaId] = useState<string | null>(null)
   const [generatingVideoId, setGeneratingVideoId] = useState<string | null>(null)
+  const [repairingVideoId, setRepairingVideoId] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'DONE' | 'SCHEDULED' | 'PUBLISHED'>('ALL')
   const [showBulkImageConfirm, setShowBulkImageConfirm] = useState(false)
   const [bulkImageAcknowledged, setBulkImageAcknowledged] = useState(false)
@@ -2525,6 +2527,38 @@ export default function ContentHubPage() {
     }
   }
 
+  async function repairRejectedCampaignFilm(post: ContentPost) {
+    const review = post.rejectedVideoReview
+    if (!review?.repairEligible || repairingVideoId || !isAuthenticated) return
+    setRepairingVideoId(post.id)
+    setError(null)
+    try {
+      const response = await fetch(
+        `/api/campaigns/${campaignId}/content-plan/${post.id}/generate-video`,
+        {
+          method: 'PATCH',
+          headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            generationId: review.generationId,
+            explicitRetainedRepairConfirmed: true,
+            acknowledgedNoProviderGeneration: true,
+          }),
+        },
+      )
+      const data = await response.json().catch(() => ({}))
+      await loadData()
+      if (!response.ok) throw new Error(data.error || 'The retained campaign-film repair did not pass review')
+      setSuccessMsg(isAr
+        ? 'تم إصلاح طبقة العربية والـCTA على نفس اللقطات المحفوظة، واجتاز الفيديو فحص الجودة وربط للمراجعة. لم يبدأ توليد جديد ولم يُخصم كريديت.'
+        : 'NEXUS repaired the Arabic typography and CTA on the retained footage, passed premium review, and attached the video for review. No new generation started and no credits were charged.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'The retained campaign-film repair could not finish')
+    } finally {
+      setRepairingVideoId(null)
+      await refreshBillingStatus()
+    }
+  }
+
   // ── Select A/B draft variant ─────────────────────────────────────────────────
 
   async function pickVariant(postId: string) {
@@ -3339,6 +3373,7 @@ export default function ContentHubPage() {
               isPickingWinner={pickingWinner === post.id}
               isGeneratingImage={generatingImageId === post.id}
               isGeneratingVideo={generatingVideoId === post.id || (post.isVideoPost && post.generationStatus === 'GENERATING')}
+              isRepairingVideo={repairingVideoId === post.id}
               imageGenerationLocked={imageGenerationLocked}
               videoGenerationLocked={videoGenerationLocked}
               imageGenerationBlockedByTruthReview={strategyApprovalRequired || contentIssueCountByPostId.has(post.id)}
@@ -3351,6 +3386,7 @@ export default function ContentHubPage() {
               addCreditsForVideoLabel={addCreditsForVideoLabel}
               onGenerateImage={() => openImageGenerationConfirm(post.id)}
               onGenerateVideo={() => openVideoGenerationConfirm(post.id)}
+              onRepairRejectedVideo={() => repairRejectedCampaignFilm(post)}
               onAddCredits={() => router.push('/billing')}
               onToggleExpand={() => setExpandedPost(expandedPost === post.id ? null : post.id)}
               onEditCaption={() => setEditingCaption(editingCaption === post.id ? null : post.id)}
@@ -5194,6 +5230,7 @@ interface PostCardProps {
   isPickingWinner: boolean
   isGeneratingImage: boolean
   isGeneratingVideo: boolean
+  isRepairingVideo: boolean
   imageGenerationLocked: boolean
   videoGenerationLocked: boolean
   imageGenerationBlockedByTruthReview: boolean
@@ -5202,6 +5239,7 @@ interface PostCardProps {
   addCreditsForVideoLabel: string
   onGenerateImage: () => void | Promise<void>
   onGenerateVideo: () => void | Promise<void>
+  onRepairRejectedVideo: () => void | Promise<void>
   onAddCredits: () => void
   onToggleExpand: () => void
   onEditCaption: () => void
@@ -5231,6 +5269,7 @@ function PostCard({
   isPickingWinner,
   isGeneratingImage,
   isGeneratingVideo,
+  isRepairingVideo,
   imageGenerationLocked,
   videoGenerationLocked,
   imageGenerationBlockedByTruthReview,
@@ -5239,6 +5278,7 @@ function PostCard({
   addCreditsForVideoLabel,
   onGenerateImage,
   onGenerateVideo,
+  onRepairRejectedVideo,
   onAddCredits,
   onToggleExpand,
   onEditCaption,
@@ -5486,6 +5526,18 @@ function PostCard({
                 >
                   {isAr ? 'فتح المعاينة في نافذة مستقلة' : 'Open preview in a separate window'}
                 </a>
+                {post.rejectedVideoReview.repairEligible && (
+                  <button
+                    type="button"
+                    onClick={onRepairRejectedVideo}
+                    disabled={isRepairingVideo}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 text-[11px] font-black text-violet-800 transition hover:bg-violet-100 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {isRepairingVideo
+                      ? (isAr ? 'جارٍ إصلاح العربية وفحص نفس اللقطات...' : 'Repairing typography and reviewing the same footage...')
+                      : (isAr ? 'أصلح العربية والـCTA من نفس اللقطات — بلا توليد أو خصم جديد' : 'Repair typography and CTA from the same footage — no new generation or charge')}
+                  </button>
+                )}
               </div>
             </div>
           )}
