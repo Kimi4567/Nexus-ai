@@ -289,6 +289,37 @@ describe('POST professional video generation', () => {
     expect(mocks.createTask).not.toHaveBeenCalled()
   })
 
+  it('blocks visible creator references before debit or provider execution', async () => {
+    const creator = productReference('creator-front')
+    creator.intelligence.visibleSummary = 'A woman wearing the product in a studio portrait.'
+    creator.intelligence.visibleObjects = ['woman', 'abaya']
+    const second = productReference('creator-side')
+    second.intelligence.visibleSummary = 'A side portrait of the same woman wearing the product.'
+    second.intelligence.visibleObjects = ['woman', 'abaya']
+    mocks.prisma.media.findMany.mockResolvedValue([creator, second])
+
+    const response = await POST(request({
+      ...confirmedBody,
+      referenceMediaIds: ['creator-front', 'creator-side'],
+    }), {
+      params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
+    })
+
+    expect(response.status).toBe(422)
+    expect(await response.json()).toMatchObject({
+      code: 'VIDEO_ASSET_PREFLIGHT_FAILED',
+      creditsCharged: false,
+      preflight: {
+        eligible: false,
+        issues: expect.arrayContaining([
+          expect.objectContaining({ code: 'CREATOR_REFERENCE_UNSUPPORTED' }),
+        ]),
+      },
+    })
+    expect(mocks.deduct).not.toHaveBeenCalled()
+    expect(mocks.createTask).not.toHaveBeenCalled()
+  })
+
   it('pauses before debit when recent workspace failures exceed the provider loss limit', async () => {
     mocks.prisma.generation.findMany
       .mockResolvedValueOnce([])
@@ -327,6 +358,51 @@ describe('POST professional video generation', () => {
 })
 
 describe('GET professional video generation status', () => {
+  it('returns a truthful safety category and stores safe provider diagnostics', async () => {
+    mocks.prisma.generation.findMany.mockResolvedValue([{
+      id: 'generation-1',
+      campaignId: 'campaign-1',
+      type: 'VIDEO',
+      provider: 'runway',
+      status: 'PROCESSING',
+      progress: 37,
+      externalId: 'runway-task-1',
+      params: {
+        postId: 'post-1',
+        credit: { ok: true, creditsUsed: 18, creditsRemaining: 42, transactionId: 'credit-1' },
+      },
+      metadata: null,
+    }])
+    mocks.retrieveTask.mockResolvedValue({
+      id: 'runway-task-1',
+      status: 'FAILED',
+      failureCode: 'INPUT_PREPROCESSING.SAFETY.THIRD_PARTY',
+      failure: "The request was blocked by this model provider's content moderation system.",
+    })
+
+    const response = await GET(request({}), {
+      params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
+    })
+    const payload = await response.json()
+
+    expect(payload).toMatchObject({
+      status: 'FAILED',
+      failureCategory: 'INPUT_SAFETY_REJECTED',
+      refunded: true,
+      refundPending: false,
+    })
+    expect(payload.error).toContain('isolated product-only references')
+    expect(mocks.prisma.generation.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        metadata: expect.objectContaining({
+          providerFailureCategory: 'INPUT_SAFETY_REJECTED',
+          providerFailureCode: 'INPUT_PREPROCESSING.SAFETY.THIRD_PARTY',
+          providerOutputCreated: false,
+        }),
+      }),
+    }))
+  })
+
   it('lets only one poller persist and review a completed provider result', async () => {
     mocks.prisma.generation.findMany.mockResolvedValue([{
       id: 'generation-1',
