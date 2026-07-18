@@ -318,6 +318,8 @@ export async function POST(req: NextRequest, props: Params) {
       sourceUrl: source.url,
       target: targetFormat,
       generationId: generation.id,
+      sourceWidth: source.width,
+      sourceHeight: source.height,
     })
     const formatValidation = validatePlatformVideoFormat({
       width: stored.width,

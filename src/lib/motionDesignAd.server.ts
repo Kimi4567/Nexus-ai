@@ -69,10 +69,23 @@ export function buildMotionDesignFfmpegArgs(input: {
   sourcePath: string
   outputPath: string
   target: PlatformVideoFormat
+  sourceWidth?: number | null
+  sourceHeight?: number | null
 }): string[] {
   const vertical = input.target.height > input.target.width
-  const sourceWidth = vertical ? input.target.width - 60 : Math.round(input.target.width * 0.78)
-  const sourceHeight = vertical ? input.target.height - 360 : input.target.height - 160
+  const sourceAspect = Number(input.sourceWidth || 0) / Math.max(1, Number(input.sourceHeight || 0))
+  const targetAspect = input.target.width / input.target.height
+  const sourceMatchesTarget = Number(input.sourceWidth || 0) > 0
+    && Number(input.sourceHeight || 0) > 0
+    && Math.abs(sourceAspect - targetAspect) <= 0.02
+  // A native 9:16/16:9 master already contains its safe typography and CTA.
+  // Preserve it edge-to-edge instead of shrinking it into an unnecessary mat.
+  const sourceWidth = sourceMatchesTarget
+    ? input.target.width
+    : vertical ? input.target.width - 60 : Math.round(input.target.width * 0.78)
+  const sourceHeight = sourceMatchesTarget
+    ? input.target.height
+    : vertical ? input.target.height - 360 : input.target.height - 160
   const holdSeconds = MOTION_DESIGN_DURATION_SECONDS - MOTION_DESIGN_SAFE_SOURCE_SECONDS
   const sourceEndFrame = MOTION_DESIGN_SAFE_SOURCE_SECONDS * MOTION_DESIGN_FRAME_RATE - 1
   const endMotionFrames = holdSeconds * MOTION_DESIGN_FRAME_RATE
@@ -153,6 +166,8 @@ export async function renderAndPersistMotionDesignAd(input: {
   sourceUrl: string
   target: PlatformVideoFormat
   generationId: string
+  sourceWidth?: number | null
+  sourceHeight?: number | null
 }): Promise<StoredMotionDesignVideo> {
   configureCloudinary()
   const executable = resolveFfmpegBinary()
@@ -166,6 +181,8 @@ export async function renderAndPersistMotionDesignAd(input: {
       sourcePath,
       outputPath,
       target: input.target,
+      sourceWidth: input.sourceWidth,
+      sourceHeight: input.sourceHeight,
     }), {
       timeout: RENDER_TIMEOUT_MS,
       maxBuffer: 1024 * 1024,

@@ -5,7 +5,13 @@ import { readMediaIntelligence } from '@/lib/creativeIntelligence'
 // unrelated later scene or using a provider-generated filler shot.
 export const MOTION_DESIGN_DURATION_SECONDS = 6
 export const MOTION_DESIGN_SAFE_SOURCE_SECONDS = 3
-export const MOTION_DESIGN_SOURCE_QUALITY_MIN = 90
+// Creative Intelligence intentionally scores conservatively. A clean 1080p
+// master with no flagged defects is paid-ready at 85+, while lower-resolution
+// sources still need 90+. The final rendered ad must independently pass the
+// stricter multi-frame paid-social quality gate before any credit is settled.
+export const MOTION_DESIGN_SOURCE_QUALITY_MIN = 85
+export const MOTION_DESIGN_SOURCE_QUALITY_PREFERRED = 90
+export const MOTION_DESIGN_SOURCE_PREMIUM_SHORT_EDGE = 1080
 
 export type MotionDesignAssetInput = {
   id: string
@@ -140,10 +146,17 @@ export function assessMotionDesignVideoAsset(
   }
 
   const qualityScore = intelligence?.qualityScore ?? null
-  if (qualityScore != null && qualityScore < MOTION_DESIGN_SOURCE_QUALITY_MIN) {
+  const qualityIssues = intelligence?.qualityIssues ?? []
+  const cleanFullHdException = qualityScore != null
+    && qualityScore >= MOTION_DESIGN_SOURCE_QUALITY_MIN
+    && Math.min(width, height) >= MOTION_DESIGN_SOURCE_PREMIUM_SHORT_EDGE
+    && qualityIssues.length === 0
+  const qualityQualified = qualityScore != null
+    && (qualityScore >= MOTION_DESIGN_SOURCE_QUALITY_PREFERRED || cleanFullHdException)
+  if (qualityScore != null && !qualityQualified) {
     issues.push({
       code: 'QUALITY_TOO_LOW',
-      message: `The source quality score is ${qualityScore}/100; paid Motion Design requires ${MOTION_DESIGN_SOURCE_QUALITY_MIN}/100 before rendering.`,
+      message: `The source scored ${qualityScore}/100. Paid Motion Design requires ${MOTION_DESIGN_SOURCE_QUALITY_PREFERRED}/100, or ${MOTION_DESIGN_SOURCE_QUALITY_MIN}–${MOTION_DESIGN_SOURCE_QUALITY_PREFERRED - 1}/100 with a 1080px short edge and zero flagged quality issues.`,
     })
   }
 

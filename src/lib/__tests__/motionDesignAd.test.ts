@@ -70,10 +70,25 @@ describe('source-locked motion design', () => {
     })
   })
 
-  it('blocks marginal paid-ad sources and source/post language mismatch before spend', () => {
-    const marginal = screenVideo()
-    ;(marginal.intelligence as any).qualityScore = 85
-    expect(assessMotionDesignVideoAsset(marginal, 'نظم حملتك')).toMatchObject({
+  it('accepts clean full-HD 85+ masters and blocks weaker or flagged sources before spend', () => {
+    const cleanFullHd = screenVideo({ width: 1080, height: 1920 })
+    ;(cleanFullHd.intelligence as any).qualityScore = 85
+    expect(assessMotionDesignVideoAsset(cleanFullHd, 'نظم حملتك')).toMatchObject({
+      eligible: true,
+      qualityScore: 85,
+    })
+
+    const flagged = screenVideo({ width: 1080, height: 1920 })
+    ;(flagged.intelligence as any).qualityScore = 85
+    ;(flagged.intelligence as any).qualityIssues = ['Soft small text']
+    expect(assessMotionDesignVideoAsset(flagged, 'نظم حملتك')).toMatchObject({
+      eligible: false,
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'QUALITY_TOO_LOW' })]),
+    })
+
+    const belowFloor = screenVideo({ width: 1080, height: 1920 })
+    ;(belowFloor.intelligence as any).qualityScore = 84
+    expect(assessMotionDesignVideoAsset(belowFloor, 'نظم حملتك')).toMatchObject({
       eligible: false,
       issues: expect.arrayContaining([expect.objectContaining({ code: 'QUALITY_TOO_LOW' })]),
     })
@@ -112,5 +127,19 @@ describe('source-locked motion design', () => {
     expect(command).toContain('-an')
     expect(command).toContain('-c:v libx264')
     expect(command).not.toContain('Review before publishing')
+  })
+
+  it('preserves a native vertical master edge-to-edge', () => {
+    const args = buildMotionDesignFfmpegArgs({
+      sourcePath: '/tmp/source.mp4',
+      outputPath: '/tmp/master.mp4',
+      target: resolvePlatformVideoFormat('YOUTUBE_SHORTS'),
+      sourceWidth: 1080,
+      sourceHeight: 1920,
+    })
+    const command = args.join(' ')
+    expect(command).toContain('scale=720:1280:force_original_aspect_ratio=decrease')
+    expect(command).toContain('pad=720:1280')
+    expect(command).not.toContain('scale=660:920')
   })
 })
