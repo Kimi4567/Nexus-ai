@@ -45,6 +45,19 @@ describe('Content Hub media readiness state', () => {
     expect(state.badgeLabel.en).toBe('Generated image')
   })
 
+  it('labels a generated video as video instead of image', () => {
+    const state = deriveContentHubMediaState({
+      imageUrl: 'https://cdn.example.com/generated.mp4',
+      mediaSource: 'GENERATE',
+      generationStatus: 'DONE',
+    })
+
+    expect(state.key).toBe('generated_ready')
+    expect(state.countsAsReady).toBe(true)
+    expect(state.badgeLabel.en).toBe('Generated video')
+    expect(state.explanatoryCopy.en).toContain('Generated video')
+  })
+
   it('keeps generated previews with PENDING status visible but not ready', () => {
     const state = deriveContentHubMediaState({
       imageUrl: 'https://cdn.example.com/legacy-preview.jpg',

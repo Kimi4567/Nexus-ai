@@ -5807,17 +5807,82 @@ function LinkedInMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpa
 
 // ── TikTok Mockup ──────────────────────────────────────────────────────────────
 
+function PlayableTikTokVideo({ src, locale }: { src: string; locale: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [playbackError, setPlaybackError] = useState(false)
+
+  const togglePlayback = useCallback(async () => {
+    const video = videoRef.current
+    if (!video) return
+
+    setPlaybackError(false)
+    try {
+      if (video.paused) {
+        await video.play()
+      } else {
+        video.pause()
+      }
+    } catch {
+      setPlaybackError(true)
+    }
+  }, [])
+
+  return (
+    <>
+      <video
+        ref={videoRef}
+        src={src}
+        muted
+        playsInline
+        controls
+        preload="metadata"
+        className="absolute inset-0 h-full w-full object-cover"
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => setIsPlaying(false)}
+        aria-label={locale === 'ar' ? 'معاينة الفيديو الإعلاني' : 'Advertising video preview'}
+      />
+      {!isPlaying && (
+        <button
+          type="button"
+          onClick={togglePlayback}
+          className="absolute inset-0 z-30 flex items-center justify-center bg-black/10 transition hover:bg-black/20"
+          aria-label={locale === 'ar' ? 'تشغيل الفيديو' : 'Play video'}
+        >
+          <span className="flex h-16 w-16 items-center justify-center rounded-full border border-white/70 bg-black/65 text-2xl text-white shadow-2xl backdrop-blur">▶</span>
+        </button>
+      )}
+      <a
+        href={src}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="absolute right-2 top-2 z-40 rounded-full border border-white/30 bg-black/65 px-2.5 py-1 text-[10px] font-bold text-white shadow-lg backdrop-blur hover:bg-black/80"
+      >
+        {locale === 'ar' ? 'فتح الفيديو' : 'Open video'}
+      </a>
+      {playbackError && (
+        <div className="absolute inset-x-3 top-14 z-40 rounded-xl bg-rose-600/95 px-3 py-2 text-center text-[10px] font-semibold text-white shadow-xl">
+          {locale === 'ar'
+            ? 'تعذر التشغيل داخل المعاينة. افتح الفيديو مباشرةً.'
+            : 'Preview playback was blocked. Open the video directly.'}
+        </div>
+      )}
+    </>
+  )
+}
+
 function TikTokMockup({ caption, imageUrl, isVideo, status, brandName, brandLogo }: {
   caption: string; imageUrl: string | null; isVideo: boolean; status: string; brandName: string; brandLogo: string | null
 }) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const handle = '@' + brandName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
   return (
     <div className="relative flex" style={{ background: '#000', aspectRatio: '9/14', overflow: 'hidden' }}>
       {/* Background image/video */}
       {imageUrl ? (
         isVideo
-          ? <video src={imageUrl} muted playsInline controls preload="metadata" className="absolute inset-0 h-full w-full object-cover" />
+          ? <PlayableTikTokVideo src={imageUrl} locale={locale} />
           : <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)' }}>
@@ -5825,10 +5890,10 @@ function TikTokMockup({ caption, imageUrl, isVideo, status, brandName, brandLogo
         </div>
       )}
       {/* Overlay gradient */}
-      <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 50%)' }} />
+      <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 50%)' }} />
 
       {/* Right sidebar icons */}
-      <div className="absolute right-2.5 bottom-16 flex flex-col items-center gap-4">
+      <div className="pointer-events-none absolute right-2.5 bottom-16 flex flex-col items-center gap-4">
         <div style={{ width: 36, height: 36, borderRadius: '9999px', border: '2px solid white', overflow: 'hidden', flexShrink: 0 }}>
           <BrandAvatar brandName={brandName} brandLogo={brandLogo} size={36} gradientBg="#fe2c55" />
         </div>
@@ -5844,7 +5909,7 @@ function TikTokMockup({ caption, imageUrl, isVideo, status, brandName, brandLogo
       </div>
 
       {/* Bottom caption */}
-      <div className="absolute bottom-0 left-0 right-10 p-3">
+      <div className="pointer-events-none absolute bottom-0 left-0 right-10 p-3">
         <div className="text-white text-[12px] font-bold mb-1">{handle}</div>
         <p className="text-white text-[11px] leading-relaxed line-clamp-2 drop-shadow">
           {caption || <span className="text-white/60 italic">{t('contentHub.captionPlaceholder')}</span>}
