@@ -61,7 +61,7 @@ const STEPS: Step[] = [
 const STEP_COPY: Record<StepId, { label: { en: string; ar: string }; desc: { en: string; ar: string } }> = {
   identity: {
     label: { en: 'Business Basics', ar: 'أساسيات النشاط' },
-    desc: { en: 'Name, industry, location, language, and a plain business summary.', ar: 'الاسم والمجال والموقع واللغة ووصف واضح للنشاط.' },
+    desc: { en: 'Name, industry, logo, notes, and a plain business summary. Location and language are reviewed in Audience and Goals.', ar: 'الاسم والمجال والشعار والملاحظات ووصف واضح للنشاط. تتم مراجعة الموقع واللغة ضمن الجمهور والأهداف.' },
   },
   goals: {
     label: { en: 'Goals & Direction', ar: 'الأهداف والاتجاه' },
@@ -81,7 +81,7 @@ const STEP_COPY: Record<StepId, { label: { en: string; ar: string }; desc: { en:
   },
   platforms: {
     label: { en: 'Channels & Visual Style', ar: 'القنوات والأسلوب البصري' },
-    desc: { en: 'Choose active channels and the visual direction NEXUS should consider.', ar: 'اختر القنوات النشطة والاتجاه البصري الذي يجب أن يراعيه NEXUS.' },
+    desc: { en: 'Record channels you use now or want the strategy to evaluate; this never marks a connection as active.', ar: 'سجّل القنوات المستخدمة الآن أو التي تريد من الاستراتيجية تقييمها؛ هذا لا يعني أن الاتصال نشط.' },
   },
   competitors: {
     label: { en: 'Competitors & Market Notes', ar: 'المنافسون وملاحظات السوق' },
@@ -109,8 +109,31 @@ const PRICE_OPTIONS = [
   { v: 'premium',   l: 'بريميوم', lEn: 'Premium'   },
   { v: 'luxury',    l: 'فاخر',    lEn: 'Luxury'    },
 ]
-const AGE_OPTIONS_AR = ['13-17','18-24','25-34','35-44','45-54','55+','جميع الأعمار']
-const AGE_OPTIONS_EN = ['13-17','18-24','25-34','35-44','45-54','55+','All ages']
+const AGE_OPTIONS = [
+  { value: '13-17', ar: '13-17', en: '13-17' },
+  { value: '18-24', ar: '18-24', en: '18-24' },
+  { value: '25-34', ar: '25-34', en: '25-34' },
+  { value: '35-44', ar: '35-44', en: '35-44' },
+  { value: '45-54', ar: '45-54', en: '45-54' },
+  { value: '55+', ar: '55+', en: '55+' },
+  { value: 'ALL', ar: 'جميع الأعمار', en: 'All ages' },
+] as const
+
+function selectedAudienceAgeGroups(value: string | null | undefined): string[] {
+  const normalized = value?.trim() ?? ''
+  if (!normalized) return []
+  if (/^(all ages|جميع الأعمار|all)$/i.test(normalized)) return ['ALL']
+  return normalized.split(/[,|،]/).map(item => item.trim()).filter(Boolean)
+}
+
+function toggleAudienceAgeGroup(current: string | null | undefined, value: string): string {
+  if (value === 'ALL') return selectedAudienceAgeGroups(current).includes('ALL') ? '' : 'ALL'
+  const selected = selectedAudienceAgeGroups(current).filter(item => item !== 'ALL')
+  const next = selected.includes(value)
+    ? selected.filter(item => item !== value)
+    : [...selected, value]
+  return next.join(', ')
+}
 
 function getPlatformOptions(selected?: string[] | null): string[] {
   const base = new Set(PLATFORMS_LIST)
@@ -166,7 +189,7 @@ function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest
             // taps elsewhere. Blur fires before those click handlers run, so the
             // committed value is in state before save/navigation reads it.
             onBlur={() => add(input)}
-            placeholder={safeValues.length ? '' : placeholder}
+            placeholder={placeholder}
             className="flex-1 min-w-[120px] bg-transparent text-sm outline-none placeholder:text-slate-400"
             style={{ color: '#0F172A' }} />
         )}
@@ -225,6 +248,8 @@ function BrandStatusPanel({ indicators, locale, contract, organicTruthBlocked = 
 }) {
   const ar = locale === 'ar'
   const organicReady = indicators.organicReadiness.ready && !organicTruthBlocked
+  const identityTotal = 8
+  const identityFilled = Math.max(0, identityTotal - indicators.brandCompleteness.missingKeys.length)
   const rows = [
     ...(contract ? [{
       label: ar ? 'إصدار الذاكرة' : 'Memory revision',
@@ -237,8 +262,8 @@ function BrandStatusPanel({ indicators, locale, contract, organicTruthBlocked = 
     }] : []),
     {
       label: ar ? 'تغطية الهوية الأساسية' : 'Core identity coverage',
-      value: `${indicators.brandCompleteness.score}%`,
-      helper: ar ? 'حقول هوية مؤكدة — ليست الجاهزية الكلية' : 'Confirmed identity fields — not overall readiness',
+      value: `${identityFilled}/${identityTotal || 8}`,
+      helper: ar ? 'حقول هوية مؤكدة — لا تمثل جاهزية التسويق' : 'Confirmed identity fields — not marketing readiness',
     },
     {
       label: ar ? 'الجاهزية العضوية' : 'Organic readiness',
@@ -381,6 +406,8 @@ function BrandSummaryCard({
 }) {
   const ar = locale === 'ar'
   const readiness = getBrandIndicators(form).organicReadiness
+  const truthBlocked = reviewBrandTruthConsistency(form).status === 'blocked'
+  const organicReady = readiness.ready && !truthBlocked
   const chips = [
     form.toneKeywords?.slice(0, 3),
     form.topPlatforms?.slice(0, 3),
@@ -410,7 +437,7 @@ function BrandSummaryCard({
               <div>
                 <h2 className="text-lg font-black text-slate-950">{t('brand.summaryTitle')}</h2>
                 <p className="text-xs mt-0.5 text-slate-500">
-                  {readiness.ready
+                  {organicReady
                     ? t('brand.summarySubtitleActive')
                     : (ar
                         ? 'تم حفظ التغييرات. أكمل الحقول الأساسية قبل طلب أول موجز استراتيجية.'
@@ -434,17 +461,19 @@ function BrandSummaryCard({
             </div>
             <span className="rounded-full px-3 py-1 text-xs font-bold"
               style={{
-                color: readiness.ready ? '#047857' : '#b45309',
-                background: readiness.ready ? '#ECFDF5' : '#FFFBEB',
-                border: `1px solid ${readiness.ready ? 'rgba(5,150,105,0.18)' : 'rgba(245,158,11,0.22)'}`,
+                color: organicReady ? '#047857' : '#b45309',
+                background: organicReady ? '#ECFDF5' : '#FFFBEB',
+                border: `1px solid ${organicReady ? 'rgba(5,150,105,0.18)' : 'rgba(245,158,11,0.22)'}`,
               }}>
-              {readiness.ready
+              {organicReady
                 ? (ar ? 'جاهزة لموجز أولي' : 'Ready for an initial brief')
-                : (ar ? 'تحتاج الحقول الأساسية' : 'Needs core fields')}
+                : truthBlocked
+                  ? (ar ? 'تحتاج حل تعارض البيانات' : 'Needs a data-conflict fix')
+                  : (ar ? 'تحتاج الحقول الأساسية' : 'Needs core fields')}
             </span>
           </div>
 
-          {!readiness.ready && readiness.missingKeys.length > 0 && (
+          {!organicReady && readiness.missingKeys.length > 0 && (
             <p className="-mt-2 mb-5 text-xs text-amber-700">
               {ar ? 'المطلوب الآن: ' : 'Required now: '}
               {readiness.missingKeys.map(key => {
@@ -1139,6 +1168,8 @@ function BrandBrainInner() {
     finding => finding.code === 'brand_industry_too_broad_or_misaligned',
   )
   const coreBrandReady = brandIndicators.organicReadiness.ready && brandTruthReview.status === 'passed'
+  const coreIdentityTotal = 8
+  const coreIdentityFilled = coreIdentityTotal - brandIndicators.brandCompleteness.missingKeys.length
   const generationSafety = getBrandBrainGenerationSafety(form)
   const generationSafetyLabels = generationSafety.excludedFields.map(field =>
     getBrandBrainGenerationFieldLabel(field, locale === 'ar' ? 'ar' : 'en')
@@ -1152,7 +1183,7 @@ function BrandBrainInner() {
     }
     if (step === 'product') return hasText(form.primaryOffer) ? 0 : 1
     if (step === 'audience') return hasText(form.targetAudience) ? 0 : 1
-    if (step === 'platforms') return Array.isArray(form.topPlatforms) && form.topPlatforms.length > 0 ? 0 : 1
+    if (step === 'platforms') return 0
     return 0
   })()
   const hasExistingBrandMemory = Boolean(
@@ -1310,7 +1341,7 @@ function BrandBrainInner() {
                         {industryTruthConflict
                           ? (locale === 'ar' ? 'الهوية الأساسية محفوظة · الاتساق محجوب' : 'Core identity saved · consistency blocked')
                           : (locale === 'ar' ? 'تغطية الهوية الأساسية' : 'Core identity coverage')}
-                        <span className="font-semibold tabular-nums">{brandIndicators.brandCompleteness.score}%</span>
+                        <span className="font-semibold tabular-nums">{coreIdentityFilled}/{coreIdentityTotal}</span>
                       </span>
                     </div>
                     <p className="text-sm text-slate-500 mt-1 max-w-3xl">
@@ -1332,7 +1363,7 @@ function BrandBrainInner() {
                         {brandIndicators.paidReadiness.ready ? (locale === 'ar' ? 'بريف مكتمل' : 'Brief complete') : (locale === 'ar' ? 'يحتاج متطلبات' : 'Needs prerequisites')}
                       </span>
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-600">
-                        {locale === 'ar' ? 'ليست نسبة الجاهزية الكلية' : 'Not an overall readiness score'}
+                        {locale === 'ar' ? 'الجاهزية الكاملة تُقاس أدناه حسب المهمة' : 'Task readiness is evaluated separately below'}
                       </span>
                     </div>
                   </div>
@@ -1356,6 +1387,13 @@ function BrandBrainInner() {
                   </button>
                 </div>
               </div>
+              {saving && (
+                <div className="rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-[12px] font-semibold leading-5 text-indigo-800" role="status" aria-live="polite">
+                  {locale === 'ar'
+                    ? 'جارٍ حفظ Brand Brain والتحقق من الإصدار الجديد. ابقَ في الصفحة؛ لن تُنشأ استراتيجية ولن يُخصم كريديت من هذا الحفظ.'
+                    : 'Saving Brand Brain and verifying the new revision. Stay on this page; this save creates no strategy and spends no credits.'}
+                </div>
+              )}
 
               {industryTruthConflict && (
                 <div
@@ -2493,6 +2531,31 @@ function BrandBrainInner() {
                     <NxInput textarea value={form.strategicNotes||''} onChange={v=>set('strategicNotes',v)}
                       placeholder={t('brand.identityNotesPlaceholder')} accentColor={currentStep.color}/>
                   </Field>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      {locale === 'ar' ? 'سياق التخطيط المحفوظ' : 'Saved planning context'}
+                    </p>
+                    <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <p className="text-[11px] text-slate-500">{locale === 'ar' ? 'السوق / الموقع' : 'Market / location'}</p>
+                        <p className="mt-0.5 text-sm font-semibold text-slate-800">
+                          {form.audienceLocation?.trim() || (locale === 'ar' ? 'لم يُحدَّد — راجعه في الجمهور' : 'Not set — review in Audience')}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-slate-500">{locale === 'ar' ? 'لغة المخرجات' : 'Output language'}</p>
+                        <p className="mt-0.5 text-sm font-semibold text-slate-800">
+                          {form.languagePreference === 'ar'
+                            ? (locale === 'ar' ? 'العربية' : 'Arabic')
+                            : form.languagePreference === 'en'
+                              ? (locale === 'ar' ? 'الإنجليزية' : 'English')
+                              : form.languagePreference === 'both'
+                                ? (locale === 'ar' ? 'العربية والإنجليزية' : 'Arabic and English')
+                                : (locale === 'ar' ? 'لم تُحدَّد — راجعها في الأهداف' : 'Not set — review in Goals')}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -2579,19 +2642,25 @@ function BrandBrainInner() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <Field label={t('brand.audienceAgeLabel')}>
                       <div className="flex flex-wrap gap-2">
-                        {(locale==='ar'?AGE_OPTIONS_AR:AGE_OPTIONS_EN).map(a=>(
-                          <button key={a} onClick={()=>set('audienceAge',a)}
+                        {AGE_OPTIONS.map(option=>{
+                          const selected = selectedAudienceAgeGroups(form.audienceAge).includes(option.value)
+                          return (
+                          <button key={option.value} type="button" onClick={()=>set('audienceAge',toggleAudienceAgeGroup(form.audienceAge, option.value))}
+                            aria-pressed={selected}
                             className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
                             style={{
-                              background:form.audienceAge===a?`${currentStep.color}12`:'#FFFFFF',
-                              border:`1px solid ${form.audienceAge===a?currentStep.color+'45':'rgba(15,23,42,0.10)'}`,
-                              color:form.audienceAge===a?currentStep.color:'#64748b',
-                              boxShadow:form.audienceAge===a?`0 0 10px ${currentStep.color}18`:'none',
+                              background:selected?`${currentStep.color}12`:'#FFFFFF',
+                              border:`1px solid ${selected?currentStep.color+'45':'rgba(15,23,42,0.10)'}`,
+                              color:selected?currentStep.color:'#64748b',
+                              boxShadow:selected?`0 0 10px ${currentStep.color}18`:'none',
                             }}>
-                            {form.audienceAge===a&&'● '}{a}
+                            {selected&&'● '}{locale === 'ar' ? option.ar : option.en}
                           </button>
-                        ))}
+                        )})}
                       </div>
+                      <p className="mt-2 text-[11px] leading-5 text-slate-500">
+                        {locale === 'ar' ? 'يمكنك اختيار أكثر من فئة. استخدم وصف الجمهور أعلاه لأي نطاق أدق مثل 24–40.' : 'Choose multiple groups when needed. Use the audience description above for a precise range such as 24–40.'}
+                      </p>
                     </Field>
                     <Field label={t('brand.audienceLocationLabel')}>
                       <NxInput value={form.audienceLocation||''} onChange={v=>set('audienceLocation',v)}
@@ -2665,6 +2734,11 @@ function BrandBrainInner() {
                   <Field label={t('brand.platformsActiveLabel')}>
                     <ToggleGrid options={getPlatformOptions(form.topPlatforms)} selected={form.topPlatforms||[]}
                       onChange={v=>set('topPlatforms',v)} color={currentStep.color}/>
+                    <p className="mt-2 text-[11px] leading-5 text-slate-500">
+                      {locale === 'ar'
+                        ? 'هذه اختيارات للتخطيط فقط. حالة الاتصال والنشر تُؤخذ من صفحة Connections ولا تتحول أي قناة هنا إلى «نشطة» تلقائياً.'
+                        : 'These are planning choices only. Connection and publishing readiness come from Connections; selecting a channel here never marks it active.'}
+                    </p>
                   </Field>
                   <Field label={t('brand.platformsVisualLabel')}>
                     <div className="flex flex-wrap gap-2">
@@ -2909,7 +2983,7 @@ function BrandBrainInner() {
                     title: ar ? 'الصوت والقنوات' : 'Voice & channels',
                     items: [
                       [ar ? 'أسلوب الكتابة' : 'Writing style', form.writingStyle],
-                      [ar ? 'القنوات' : 'Channels', filledArr(form.topPlatforms) ? (form.topPlatforms || []).join(ar ? '، ' : ', ') : ''],
+                      [ar ? 'القنوات الحالية أو المخطط لها' : 'Current or planned channels', filledArr(form.topPlatforms) ? (form.topPlatforms || []).join(ar ? '، ' : ', ') : ''],
                     ],
                   },
                   {
@@ -2964,6 +3038,8 @@ function BrandBrainInner() {
                   uniqueAdvantages: { ar: 'عناصر التميّز', en: 'Differentiators' },
                   customerObjections: { ar: 'اعتراضات العملاء', en: 'Customer objections' },
                   verifiedProof: { ar: 'إثبات موثّق', en: 'Verified proof' },
+                  averageOrderValue: { ar: 'متوسط قيمة الطلب', en: 'Average order value' },
+                  grossMargin: { ar: 'هامش الربح', en: 'Gross margin' },
                 }
                 const missingItems = [
                   ...selectedBrief.missingRequiredFields.map(key => readinessLabels[key]?.[ar ? 'ar' : 'en'] || key),

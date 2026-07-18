@@ -16,7 +16,13 @@ describe('register error copy', () => {
 
   it('maps invalid email errors', () => {
     expect(getRegisterErrorCopy(new Error('Invalid email address'))).toBe(
-      'Enter a valid email address.',
+      'Use a real, deliverable email address. Reserved or test-only domains may be rejected by the email provider.',
+    )
+  })
+
+  it('explains invalid email provider rejection in Arabic without calling valid syntax malformed', () => {
+    expect(getRegisterErrorCopy(new Error('Email address is invalid'), 'ar')).toBe(
+      'استخدم بريدًا حقيقيًا يمكنه استقبال الرسائل؛ قد يرفض مزود البريد النطاقات المحجوزة أو المخصصة للاختبار.',
     )
   })
 

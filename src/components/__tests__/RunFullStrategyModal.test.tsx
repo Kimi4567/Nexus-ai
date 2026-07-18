@@ -138,6 +138,11 @@ describe('RunFullStrategyModal preflight', () => {
     expect(await screen.findByRole('heading', { name: 'Review cost and confirm' })).toBeTruthy()
     expect(screen.getByText('177')).toBeTruthy()
     expect(screen.getByText(/only action that starts generation/i)).toBeTruthy()
+    expect(screen.getByText('Journey estimate before you start')).toBeTruthy()
+    expect(screen.getByText('No media charge now')).toBeTruthy()
+    expect(screen.getByText('21 credits')).toBeTruthy()
+    expect(screen.getByText('61–201 credits')).toBeTruthy()
+    expect(screen.getByText(/actual mix is quoted and approved per post later/i)).toBeTruthy()
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
   })
 

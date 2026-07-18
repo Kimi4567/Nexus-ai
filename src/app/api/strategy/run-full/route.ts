@@ -633,6 +633,8 @@ export async function POST(req: NextRequest) {
         userId: user.id,
         action: 'RUN_FULL_STRATEGY',
         deduction: finalDeductedCredit,
+        settlementEntityId: campaign.id,
+        settlementEntityType: 'campaign',
       })
       if (!finalization.ok) {
         deductedCredit = null

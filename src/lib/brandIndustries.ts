@@ -21,7 +21,7 @@ export const BRAND_INDUSTRY_OPTIONS: BrandIndustryOption[] = [
   { value: 'Consulting', ar: 'استشارات', en: 'Consulting', aliases: ['consulting'], onboarding: true },
   { value: 'Education & Training', ar: 'تعليم وتدريب', en: 'Education & Training', aliases: ['education'], onboarding: true },
   { value: 'Healthcare & Medical', ar: 'رعاية صحية', en: 'Healthcare', aliases: ['healthcare', 'رعاية صحية وطب'], onboarding: true },
-  { value: 'Fashion & Apparel', ar: 'موضة وأزياء', en: 'Fashion & Apparel' },
+  { value: 'Fashion & Apparel', ar: 'موضة وأزياء', en: 'Fashion & Apparel', onboarding: true },
   { value: 'Dental & Clinics', ar: 'عيادات وطب أسنان', en: 'Dental & Clinics' },
   { value: 'Professional Services', ar: 'خدمات مهنية', en: 'Professional Services', aliases: ['services'] },
   { value: 'Travel & Tourism', ar: 'سياحة وسفر', en: 'Travel & Tourism' },

@@ -398,7 +398,11 @@ describe('guardStrategyOutputContract', () => {
     expect(JSON.stringify(out)).not.toMatch(/Campaign active|published|scheduled|guaranteed|ROI|ROAS/)
 
     const report = validateCampaignStrategyContract(out, { language: 'ar' })
-    expect(report.valid).toBe(true)
+    expect(report, JSON.stringify(report, null, 2)).toMatchObject({ valid: true })
+    expect(out.diagnosisDetails).toMatchObject({
+      basis: 'hypothesis',
+      evidenceBasis: expect.stringMatching(/فرضية تشغيلية/),
+    })
     expect(report.weakFields).not.toContain('funnelStages')
     expect(report.weakFields).not.toContain('kpis')
   })
@@ -490,7 +494,7 @@ describe('guardStrategyOutputContract', () => {
     expect(out.weeklyExecutionPlan.every((week: any) => week.assetsNeeded?.length && week.executionNote && week.reviewPoints?.length)).toBe(true)
 
     const report = validateCampaignStrategyContract(out, { language: 'ar' })
-    expect(report.valid).toBe(true)
+    expect(report, JSON.stringify(report, null, 2)).toMatchObject({ valid: true })
     expect(report.weakFields).toEqual([])
     expect(report.missingFields).toEqual([])
   })
@@ -688,7 +692,7 @@ describe('guardStrategyOutputContract', () => {
     expect(JSON.stringify(out)).not.toMatch(/Organic Content Hub content plan/i)
 
     const report = validateCampaignStrategyContract(out, { language: 'ar' })
-    expect(report.valid).toBe(true)
+    expect(report, JSON.stringify(report, null, 2)).toMatchObject({ valid: true })
     expect(report.languageViolations).toEqual([])
     expect(report.weakFields).toEqual([])
   })
@@ -780,6 +784,29 @@ describe('guardStrategyOutputContract', () => {
     expect(out.funnelStages[0].userMindset).toContain('لم يحدد بعد معايير الاختيار')
     expect(out.funnelStages[0].successMetric).toContain('يحتاج إلى خط أساس')
     expect(out.weeklyExecutionPlan[0].successMetric).toContain('يحتاج إلى خط أساس')
+  })
+
+  it('replaces ecommerce CTAs when the store destination is not verified', () => {
+    const out = guardStrategyOutputContract({
+      ctaVariations: [
+        'Shop the look',
+        'Browse our collection',
+        'Explore the collection',
+        'Add to cart',
+        'تسوق الآن',
+        'اكتشف المجموعة',
+      ],
+      contentAnglesDetailed: [
+        { title: 'Look one', platform: 'Instagram', cta: 'Shop the look' },
+      ],
+    }, {
+      allowedPlatforms: ['Instagram'],
+      hasConversionDestination: false,
+    })
+    const joined = JSON.stringify(out)
+
+    expect(joined).not.toMatch(/shop the look|browse our collection|explore the collection|add to cart|تسوق الآن|اكتشف المجموعة/i)
+    expect(out.ctaVariations).toHaveLength(6)
   })
 })
 

@@ -163,6 +163,7 @@ export async function POST(req: NextRequest, props: Params) {
       strategy,
       brand,
       allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms : [],
+      requireAllReviewedPlatforms: true,
       goal: campaign.goal,
     })
 

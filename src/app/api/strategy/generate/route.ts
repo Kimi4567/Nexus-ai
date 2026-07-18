@@ -138,6 +138,7 @@ export async function POST(req: NextRequest) {
       strategy,
       brand: brandProfile,
       allowedPlatforms: typeof platform === 'string' && platform.trim() ? [platform] : brandProfile?.topPlatforms,
+      requireAllReviewedPlatforms: true,
       goal: typeof goal === 'string' ? goal : null,
     })
     if (qualityGate.status !== 'passed') {

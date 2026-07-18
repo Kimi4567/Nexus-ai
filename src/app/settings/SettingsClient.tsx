@@ -627,6 +627,15 @@ export default function SettingsPage() {
                         {copyText('تأكيد إعادة الضبط', 'Confirm reset')}
                       </SettingsButton>
                     </div>
+                    {resetting && (
+                      <div className="flex items-start gap-3 rounded-[13px] border border-rose-200 bg-white px-3 py-3 text-[12px] font-semibold leading-5 text-rose-800" role="status" aria-live="polite">
+                        <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+                        <span>{copyText(
+                          'جارٍ حذف بيانات رحلة العلامة داخل معاملة واحدة ثم التحقق من البداية الجديدة. ابقَ في الصفحة حتى يتم التحويل إلى الإعداد.',
+                          'Reset is deleting brand-journey data in one transaction, then verifying a clean start. Stay on this page until onboarding opens.',
+                        )}</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

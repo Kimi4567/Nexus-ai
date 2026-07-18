@@ -48,6 +48,9 @@ vi.mock('@/lib/strategy/strategyScope', () => ({ resolveStrategyScope: () => ({ 
 vi.mock('@/lib/campaignStrategyContract', () => ({
   validateCampaignStrategyContract: mockValidateStrategyContract,
 }))
+vi.mock('@/lib/ai/marketingQualityGate', () => ({
+  reviewStrategyGrounding: () => ({ status: 'passed', issues: [], reviewedPlatforms: ['META'] }),
+}))
 
 import { POST } from '../route'
 

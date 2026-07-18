@@ -66,6 +66,22 @@ interface AgentSuggestion {
   updatedAt?: string | null
 }
 
+function isExecutionMonitorNavigation(suggestion: AgentSuggestion): boolean {
+  return suggestion.payload?.source === 'execution-monitor'
+}
+
+function liveApprovalMeta(action: ExecutionQueueItem, ar: boolean): string {
+  if (action.kind === 'REVIEW_MEDIA') {
+    const missing = action.evidence.posts.approvedMissingMedia ?? 0
+    return ar
+      ? `${action.campaignName} · ${missing} منشورًا بلا اعتماد وسائط نهائي`
+      : `${action.campaignName} · ${missing} posts missing final media approval`
+  }
+  return ar
+    ? `${executionStageLabel(action.stage, true)} · ${action.campaignName} · ${action.evidence.strategyEvidenceCount} أدلة استراتيجية`
+    : `${executionStageLabel(action.stage, false)} · ${action.campaignName} · ${action.evidence.strategyEvidenceCount} strategy evidence items`
+}
+
 interface ContentDecisionEvent {
   id: string
   postId: string
@@ -155,6 +171,7 @@ export default function ApprovalsPage() {
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [dataLoading, setDataLoading] = useState(true)
+  const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null)
   const [brandTruthBlocked, setBrandTruthBlocked] = useState(false)
 
   useEffect(() => {
@@ -200,6 +217,7 @@ export default function ApprovalsPage() {
           : [])
         setContentDecisionHistory(Array.isArray(contentLedgerData.events) ? contentLedgerData.events : [])
         setLiveApprovalActions(Array.isArray(inbox.liveApprovalActions) ? inbox.liveApprovalActions : [])
+        setLastLoadedAt(new Date())
       } catch {
         if (!cancelled) setNotice({ tone: 'error', text: copy('تعذر تحميل قائمة القرارات.', 'Could not load the decision queue.') })
       } finally {
@@ -228,9 +246,13 @@ export default function ApprovalsPage() {
     ...suggestionHistory.map(item => ({
       id: `agent-${item.id}`,
       label: ar ? item.payload?.titleAr || item.title : item.title,
-      status: item.status,
+      status: isExecutionMonitorNavigation(item)
+        ? copy('تم فتح الخطوة', 'Guided step opened')
+        : item.status,
       at: item.updatedAt || item.createdAt || '',
-      kind: copy('قرار تشغيلي', 'Operational decision'),
+      kind: isExecutionMonitorNavigation(item)
+        ? copy('سجل تنقل إرشادي', 'Guided navigation record')
+        : copy('قرار تشغيلي', 'Operational decision'),
       evidence: null as string | null,
     })),
     ...contentDecisionHistory.map(item => ({
@@ -351,12 +373,21 @@ export default function ApprovalsPage() {
               <span className="nx-os-icon-box"><ShieldCheck size={17} /></span>
               <div className="min-w-0">
                 <p className="text-[13px] font-black text-[#111b3f]">
-                  {pendingTotal > 0
+                  {dataLoading
+                    ? copy('جارٍ تحديث مصدر الموافقات الموحد…', 'Refreshing the canonical approval queue…')
+                    : pendingTotal > 0
                     ? copy(`${pendingTotal} قرار بانتظار المراجعة`, `${pendingTotal} decisions need review`)
                     : copy('لا توجد قرارات معلقة', 'Nothing is waiting for review')}
                 </p>
                 <p className="text-[11px] font-semibold text-[#7b87a3]">
-                  {copy('لن ينفذ NEXUS أي قرار من دون موافقتك.', 'NEXUS will not execute a decision without your approval.')}
+                  {dataLoading
+                    ? copy('لن نعرض حالة فارغة قبل اكتمال قراءة القرارات الحية والسجل.', 'No empty state is shown until live decisions and history finish loading.')
+                    : lastLoadedAt
+                      ? copy(
+                          `آخر تحقق ${lastLoadedAt.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })} · لن ينفذ NEXUS أي قرار من دون موافقتك.`,
+                          `Verified ${lastLoadedAt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} · NEXUS will not execute a decision without your approval.`,
+                        )
+                      : copy('لن ينفذ NEXUS أي قرار من دون موافقتك.', 'NEXUS will not execute a decision without your approval.')}
                 </p>
               </div>
             </div>
@@ -413,7 +444,7 @@ export default function ApprovalsPage() {
                       reason={ar ? action.reason.ar : action.reason.en}
                       badge={copy('حالة حية', 'Live state')}
                       badgeTone="amber"
-                      meta={`${executionStageLabel(action.stage, ar)} · ${action.campaignName} · ${action.evidence.strategyEvidenceCount} ${copy('أدلة استراتيجية', 'strategy evidence items')}`}
+                      meta={liveApprovalMeta(action, ar)}
                       actions={(
                         <Link href={action.href} className="inline-flex h-9 items-center gap-2 rounded-[12px] bg-[#071236] px-3 text-[11px] font-black text-white">
                           {copy('افتح المراجعة المحمية', 'Open guarded review')}<ArrowUpRight size={14} />

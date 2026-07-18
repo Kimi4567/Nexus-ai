@@ -20,10 +20,12 @@ const richStrategy = {
     conversionAction: 'WhatsApp inquiry',
     expectedUserAction: 'Ask for a roast recommendation',
     whyNow: 'The offer is concrete enough to test demand',
-    successIn30Days: 'A clearer content-to-WhatsApp path is validated',
+    successIn30Days: 'Establish a 30-day baseline for qualified WhatsApp inquiries; continue only when inquiries match the intended buying situation.',
   },
   diagnosisDetails: {
     stage: 'active',
+    basis: 'hypothesis',
+    evidenceBasis: 'Validate the suspected trust and conversion-path gap from qualified WhatsApp inquiries and repeated objections.',
     bottleneck: 'Trust and conversion path clarity',
     trustGap: 'Not enough proof shown',
     offerClarity: 'partial',
@@ -172,23 +174,52 @@ describe('campaign strategy contract', () => {
         objective: 'Review qualified demo-message hypotheses before any launch.',
         audienceHypotheses: Array.from({ length: 3 }, (_, index) => ({
           name: `Audience ${index + 1}`,
-          buyingSituation: 'Reviewing a clinic workflow before requesting a demo.',
-          targetingHypothesis: 'The selected role may respond to clearer workflow evidence.',
+          buyingSituation: [
+            'Reviewing appointment intake before requesting a demo.',
+            'Comparing follow-up ownership before replacing spreadsheets.',
+            'Preparing an approval workflow for a growing clinic team.',
+          ][index],
+          targetingHypothesis: [
+            'Clinic owners may respond to visible intake evidence.',
+            'Operations managers may respond to follow-up accountability.',
+            'Team leads may respond to approval-control evidence.',
+          ][index],
           exclusions: 'Exclude roles outside the reviewed clinic audience.',
-          validationNeeded: 'Validate role fit from qualified demo inquiries.',
+          validationNeeded: [
+            'Validate owner fit from qualified intake-demo inquiries.',
+            'Validate operations fit from follow-up questions.',
+            'Validate team-lead fit from approval-control requests.',
+          ][index],
         })),
         adAngles: Array.from({ length: 4 }, (_, index) => ({
           name: `Angle ${index + 1}`,
           audienceHypothesis: `Audience ${(index % 3) + 1}`,
-          message: 'Review a clearer appointment and follow-up workflow.',
+          message: `Review workflow decision ${index + 1} with one distinct evidence frame.`,
           funnelStage: 'consideration',
           proofNeeded: 'Product workflow evidence and a verified demo destination.',
+          testVariable: ['problem framing', 'workflow visibility', 'handoff clarity', 'approval control'][index],
+          successSignal: `Qualified response signal ${index + 1}`,
+          rejectionRule: `Stop angle ${index + 1} when qualified responses do not match its hypothesis.`,
         })),
         adCopyVariations: Array.from({ length: 9 }, (_, index) => ({
           id: String(index + 1),
           angle: `Angle ${(index % 4) + 1}`,
-          headline: 'Review a clearer clinic workflow',
-          primaryText: 'See how appointment and follow-up steps could be reviewed in one workflow.',
+          headline: [
+            'See the intake handoff', 'Make follow-up ownership visible', 'Review approval delays',
+            'Replace scattered request notes', 'Trace the next patient step', 'Give managers one review view',
+            'Prepare a safer demo decision', 'Compare the current workflow', 'Find the missing owner',
+          ][index],
+          primaryText: [
+            'Review how an intake request moves from first contact to the assigned owner.',
+            'See where follow-up responsibility can be documented before a workflow change.',
+            'Map the approval step that slows a clinic request without claiming a performance gain.',
+            'Compare scattered request notes with one reviewable operating path.',
+            'Trace the next patient step and identify which role must confirm it.',
+            'Give clinic managers one factual view of pending workflow decisions.',
+            'Prepare the questions and evidence needed before requesting a product demo.',
+            'Compare the current handoff against a documented review checklist.',
+            'Identify the unassigned step before changing the clinic workflow.',
+          ][index],
           cta: 'Request a demo',
           destination: 'Verified demo destination required before launch.',
           assumption: 'Message fit remains a hypothesis until real response data exists.',
@@ -197,8 +228,14 @@ describe('campaign strategy contract', () => {
           name: `Creative ${index + 1}`,
           angle: `Angle ${index + 1}`,
           format: 'Static workflow comparison',
-          visualDirection: 'Show a factual product workflow without performance claims.',
+          visualDirection: [
+            'Show a factual intake flow with the source screenshot as the focal evidence.',
+            'Use an annotated follow-up queue with no customer or performance claim.',
+            'Present an approval timeline using only verified interface states.',
+            'Compare two documented workflow states with a neutral evidence caption.',
+          ][index],
           requiredAssets: ['Verified product workflow screenshot'],
+          assetStatus: 'user_upload_required',
           proofBoundary: 'Do not show unverified customer or outcome claims.',
           reviewGate: 'Approve message, proof, destination, and media before execution.',
         })),
@@ -223,6 +260,40 @@ describe('campaign strategy contract', () => {
       .toContain('paidPlanning.adCopyVariations.ids')
   })
 
+  it('rejects repetitive paid test cells and creative briefs with no asset truth status', () => {
+    const expectedPaidPlanning = {
+      audienceHypothesisCount: 3,
+      paidAdAngleCount: 4,
+      paidAdVariationCount: 9,
+      creativeBriefCount: 4,
+    } as any
+    const base = validateCampaignStrategyContract(richStrategy)
+    expect(base.valid).toBe(true)
+
+    const repetitive = {
+      ...richStrategy,
+      paidPlanning: {
+        planningOnly: true,
+        objective: 'Review message hypotheses.',
+        audienceHypotheses: Array.from({ length: 3 }, (_, index) => ({ name: `A${index}`, buyingSituation: 'Reviewing options.', targetingHypothesis: 'Same audience hypothesis.', exclusions: 'Outside scope.', validationNeeded: 'Same validation.' })),
+        adAngles: Array.from({ length: 4 }, (_, index) => ({ name: `X${index}`, audienceHypothesis: 'A0', message: 'Same message.', funnelStage: 'consideration', proofNeeded: 'Proof.', testVariable: 'Same variable', successSignal: 'Same signal', rejectionRule: 'Same rule' })),
+        adCopyVariations: Array.from({ length: 9 }, (_, index) => ({ id: `${index}`, angle: 'X0', headline: 'Same headline', primaryText: 'Same primary copy for every variation.', cta: 'Review', destination: 'Not enough data', assumption: 'Hypothesis' })),
+        creativeBriefs: Array.from({ length: 4 }, (_, index) => ({ name: `C${index}`, angle: 'X0', format: 'Image', visualDirection: 'Same visual.', requiredAssets: ['Product image'], proofBoundary: 'No claims.', reviewGate: 'Review.' })),
+        budgetFramework: 'Planning only.',
+        trackingChecklist: ['Confirm tracking.'],
+        launchBlockers: ['Approval required.'],
+      },
+    }
+    const report = validateCampaignStrategyContract(repetitive, { expectedPaidPlanning })
+    expect(report.valid).toBe(false)
+    expect(report.weakFields).toEqual(expect.arrayContaining([
+      'paidPlanning.audienceHypotheses.distinctTests',
+      'paidPlanning.adAngles.distinctTests',
+      'paidPlanning.adCopyVariations.distinctCopy',
+      'paidPlanning.creativeBriefs.assetStatus',
+    ]))
+  })
+
   it('rejects English-heavy user-facing strategy text when Arabic output is selected', () => {
     const report = validateCampaignStrategyContract(richStrategy, { language: 'ar' })
 
@@ -245,6 +316,28 @@ describe('campaign strategy contract', () => {
     const report = validateCampaignStrategyContract(partial)
     expect(report.valid).toBe(false)
     expect(report.weakFields).toEqual(expect.arrayContaining(['weeklyExecutionPlan', 'contentAnglesDetailed']))
+  })
+
+  it('rejects a vague success definition and an unlabeled diagnosis', () => {
+    const vague = {
+      ...richStrategy,
+      businessObjective: {
+        ...richStrategy.businessObjective,
+        successIn30Days: 'Validate market interest and engagement.',
+      },
+      diagnosisDetails: {
+        ...richStrategy.diagnosisDetails,
+        basis: '',
+        evidenceBasis: '',
+      },
+    }
+
+    const report = validateCampaignStrategyContract(vague)
+    expect(report.valid).toBe(false)
+    expect(report.weakFields).toEqual(expect.arrayContaining([
+      'businessObjective.measurableSuccessDefinition',
+      'diagnosisDetails.truthBasis',
+    ]))
   })
 
   it('rejects strategy output that does not match the reviewed organic post-count promise', () => {

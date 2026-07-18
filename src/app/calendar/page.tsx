@@ -593,7 +593,7 @@ function CalendarPageInner() {
           primaryLabel={calendarTruthLocked
             ? (locale === 'ar' ? 'تصحيح Brand Brain' : 'Fix Brand Brain')
             : nextExecutionAction
-              ? (locale === 'ar' ? nextExecutionAction.title.ar : nextExecutionAction.title.en)
+              ? (locale === 'ar' ? 'افتح القرار التالي' : 'Open next decision')
               : (locale === 'ar' ? 'افتح إنتاج المحتوى' : 'Open Content production')}
           secondaryHref="/campaigns"
           secondaryLabel={locale === 'ar' ? 'الحملات' : 'Campaigns'}
@@ -615,7 +615,7 @@ function CalendarPageInner() {
           </div>
         )}
 
-        {!calendarTruthLocked && (
+        {!calendarTruthLocked && activeTab !== 'queue' && (
           <section className="nx-os-action-strip mb-5" aria-live="polite">
             <div className="min-w-0">
               <p className="text-[13px] font-black text-[#0B1028]">
@@ -632,8 +632,8 @@ function CalendarPageInner() {
               </p>
               <p className="mt-1 text-[10px] font-bold text-slate-400">
                 {locale === 'ar'
-                  ? `${executionTruth?.summary.needsAttention ?? 0} تحتاج انتباه · ${executionTruth?.summary.awaitingApproval ?? 0} بانتظار موافقة · ${executionTruth?.summary.scheduledPosts ?? scheduled.length} منشورات مجدولة`
-                  : `${executionTruth?.summary.needsAttention ?? 0} need attention · ${executionTruth?.summary.awaitingApproval ?? 0} awaiting approval · ${executionTruth?.summary.scheduledPosts ?? scheduled.length} scheduled`}
+                  ? `${executionTruth?.summary.needsAttention ?? 0} تحتاج انتباه · ${executionTruth?.summary.awaitingApproval ?? 0} قرارات تحتاج موافقة · ${executionTruth?.summary.scheduledPosts ?? scheduled.length} منشورات مجدولة`
+                  : `${executionTruth?.summary.needsAttention ?? 0} need attention · ${executionTruth?.summary.awaitingApproval ?? 0} decisions require approval · ${executionTruth?.summary.scheduledPosts ?? scheduled.length} scheduled`}
               </p>
             </div>
             {nextExecutionAction ? (

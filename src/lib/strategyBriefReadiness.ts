@@ -23,6 +23,8 @@ export type StrategyBriefFieldKey =
   | 'platformReadiness'
   | 'budgetApproval'
   | 'verifiedProof'
+  | 'averageOrderValue'
+  | 'grossMargin'
 
 export type StrategyBriefBlocker =
   | 'organic_brief_incomplete'
@@ -53,6 +55,8 @@ export interface StrategyBriefProfileLike {
   uniqueAdvantages?: string[] | null
   customerObjections?: string[] | null
   verifiedProof?: string[] | null
+  averageOrderValue?: string | null
+  grossMargin?: string | null
   strategyType?: StrategyBriefMode | null
   strategyDuration?: '30' | '90' | '180' | 'custom' | null
   strategyCustomDays?: number | null
@@ -119,6 +123,13 @@ const hasList = (value: unknown): boolean =>
 const hasToneOrLanguage = (profile: StrategyBriefProfileLike): boolean =>
   hasText(profile.writingStyle) || hasText(profile.languagePreference)
 
+function hasUsableConversionDestination(profile: StrategyBriefProfileLike): boolean {
+  const value = profile.conversionDestination?.trim() ?? ''
+  if (!value || /\b(?:tbd|todo|not (?:yet )?(?:set|connected|available)|coming soon)\b/i.test(value)) return false
+  if (profile.campaignObjective === 'sales') return /^https?:\/\/\S+$/i.test(value)
+  return /^(?:https?:\/\/\S+|.+(?:whatsapp|form|landing page|dm|phone|booking).*)$/i.test(value)
+}
+
 const unique = <T>(items: T[]): T[] => Array.from(new Set(items))
 
 const organicChecks: Array<{ key: StrategyBriefFieldKey; ok: (p: StrategyBriefProfileLike) => boolean }> = [
@@ -135,7 +146,7 @@ const organicChecks: Array<{ key: StrategyBriefFieldKey; ok: (p: StrategyBriefPr
 
 const paidChecks: Array<{ key: StrategyBriefFieldKey; ok: (p: StrategyBriefProfileLike) => boolean }> = [
   { key: 'businessGoal', ok: (p) => hasText(p.businessGoal) },
-  { key: 'conversionDestination', ok: (p) => hasText(p.conversionDestination) },
+  { key: 'conversionDestination', ok: hasUsableConversionDestination },
   { key: 'marketingBudget', ok: (p) => hasText(p.marketingBudget) },
   { key: 'leadHandling', ok: (p) => hasText(p.leadHandling) },
   { key: 'audienceLocation', ok: (p) => hasText(p.audienceLocation) },
@@ -156,6 +167,14 @@ function missingFor(
   return checks.filter((check) => !check.ok(profile)).map((check) => check.key)
 }
 
+function paidEconomicsMissing(profile: StrategyBriefProfileLike): StrategyBriefFieldKey[] {
+  if (profile.campaignObjective !== 'sales') return []
+  return [
+    ...(!hasText(profile.averageOrderValue) ? ['averageOrderValue' as const] : []),
+    ...(!hasText(profile.grossMargin) ? ['grossMargin' as const] : []),
+  ]
+}
+
 export function getStrategyBriefReadiness(
   input: StrategyBriefReadinessInput,
 ): StrategyBriefReadinessResult {
@@ -164,7 +183,7 @@ export function getStrategyBriefReadiness(
   const mode = input.mode
 
   const organicMissing = missingFor(profile, organicChecks)
-  const paidMissing = missingFor(profile, paidChecks)
+  const paidMissing = unique([...missingFor(profile, paidChecks), ...paidEconomicsMissing(profile)])
   const canGenerateOrganic = organicMissing.length === 0
   const canGeneratePaidPlan = paidMissing.length === 0
 

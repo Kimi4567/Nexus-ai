@@ -41,6 +41,7 @@ export type CreativeStudioCampaignInput = {
   campaignGoal?: string | null
   campaignType?: string | null
   language?: string | null
+  interfaceLocale?: string | null
   brandName?: string | null
   logoUrl?: string | null
   colorPalette?: string[] | string | null
@@ -72,6 +73,7 @@ export type CreativeStudioDecisionStatus =
   | 'review_ready'
   | 'needs_background'
   | 'needs_brand_asset'
+  | 'needs_message'
 
 export type CreativeStudioDecisionBrief = {
   title: string
@@ -104,6 +106,7 @@ export type CreativeStudioPreviewModel = {
   platform: string
   format: string
   outputClassification: 'draft_layered_studio_preview'
+  interfaceLocale: 'ar' | 'en'
   backgroundStatus: CreativeStudioBackgroundStatus
   backgroundLabel: string
   sourcePostText: string
@@ -165,8 +168,8 @@ function deriveCta(post: CreativeStudioPostInput, language?: string | null): str
   const explicit = compact(post.cta)
   if (explicit) return explicit.length > 30 ? `${explicit.slice(0, 27).trim()}...` : explicit
   return (language || '').toLowerCase().startsWith('ar') || /[\u0600-\u06FF]/.test(firstMeaningfulText(post))
-    ? 'راجع الخطوة التالية'
-    : 'Review next step'
+    ? 'الدعوة للإجراء غير محددة'
+    : 'CTA not defined'
 }
 
 function isVideoPost(post: CreativeStudioPostInput): boolean {
@@ -309,7 +312,8 @@ function buildDecisionBrief(params: {
   const isArabic = (params.language || '').toLowerCase().startsWith('ar')
     || isArabicText(params.sourcePostText)
   const headline = layerText(params.editableLayers, 'headline')
-  const cta = layerText(params.editableLayers, 'cta')
+  const rawCta = layerText(params.editableLayers, 'cta')
+  const cta = /^(CTA not defined|الدعوة للإجراء غير محددة)$/i.test(rawCta) ? '' : rawCta
   const brand = layerText(params.editableLayers, 'logo_or_brand_name')
   const hasBackground = params.backgroundStatus === 'background_available_for_preview'
   const safeZonesPass = params.editableLayers.every(layer => layer.safeZoneCompliant)
@@ -330,12 +334,19 @@ function buildDecisionBrief(params: {
       ? 'طبقة العنوان تحتاج رسالة واضحة.'
       : 'Headline layer needs a clear message.')
   }
+  if (!cta) {
+    blockers.push(isArabic
+      ? 'الـ CTA غير محدد في المنشور المعتمد.'
+      : 'The approved post does not define a CTA.')
+  }
 
   const status: CreativeStudioDecisionStatus = !hasBackground
     ? 'needs_background'
     : !brand
       ? 'needs_brand_asset'
-      : 'review_ready'
+      : !headline || !cta
+        ? 'needs_message'
+        : 'review_ready'
   const score = Math.min(95,
     45
     + (hasBackground ? 24 : 0)
@@ -384,7 +395,9 @@ function buildDecisionBrief(params: {
         ? (isArabic ? 'جاهز لمراجعة القرار الإبداعي' : 'Ready for creative decision review')
         : status === 'needs_brand_asset'
           ? (isArabic ? 'يحتاج تثبيت طبقة البراند' : 'Needs brand layer confirmation')
-          : (isArabic ? 'يحتاج قرار الخلفية أولًا' : 'Needs background decision first'),
+          : status === 'needs_message'
+            ? (isArabic ? 'يحتاج عنوانًا وCTA معتمدين' : 'Needs an approved headline and CTA')
+            : (isArabic ? 'يحتاج قرار الخلفية أولًا' : 'Needs background decision first'),
       score,
       blockers,
     },
@@ -430,13 +443,17 @@ function buildDecisionBrief(params: {
           : 'This page does not save, upload, attach, publish, or schedule.',
       },
     ],
-    nextBestAction: hasBackground
+    nextBestAction: !hasBackground
       ? (isArabic
-          ? 'راجع ترتيب الرسالة والبراند هنا، ثم اترك الربط النهائي لقرار منفصل من Content Hub.'
-          : 'Review message hierarchy and brand fit here, then leave final attachment to a separate Content Hub decision.')
-      : (isArabic
           ? 'أكمل قرار الخلفية من Content Hub أو مكتبة الوسائط بتأكيد منفصل، ثم ارجع لمراجعة الطبقات.'
-          : 'Complete the background decision from Content Hub or Media Library with separate confirmation, then return to review layers.'),
+          : 'Complete the background decision from Content Hub or Media Library with separate confirmation, then return to review layers.')
+      : !cta
+        ? (isArabic
+            ? 'حدّد CTA حقيقيًا ووجهة قابلة للقياس في المنشور، ثم راجع الطبقات قبل الربط.'
+            : 'Define a real CTA and measurable destination on the post, then review the layers before attachment.')
+        : (isArabic
+            ? 'راجع ترتيب الرسالة والبراند هنا، ثم اترك الربط النهائي لقرار منفصل من Content Hub.'
+            : 'Review message hierarchy and brand fit here, then leave final attachment to a separate Content Hub decision.'),
   }
 }
 
@@ -552,8 +569,9 @@ function applyDraftControlsToPlan(
 
 export function buildCreativeStudioPreviewModel(input: CreativeStudioPreviewInput): CreativeStudioPreviewModel {
   const requirement = buildRequirement(input)
-  const isArabic = (input.campaign.language || '').toLowerCase().startsWith('ar')
+  const contentIsArabic = (input.campaign.language || '').toLowerCase().startsWith('ar')
     || isArabicText(firstMeaningfulText(input.post))
+  const interfaceLocale: 'ar' | 'en' = (input.campaign.interfaceLocale || '').toLowerCase().startsWith('ar') ? 'ar' : 'en'
   const hasBackground = Boolean(input.post.imageUrl)
   const backgroundStatus: CreativeStudioBackgroundStatus = hasBackground
     ? 'background_available_for_preview'
@@ -577,7 +595,7 @@ export function buildCreativeStudioPreviewModel(input: CreativeStudioPreviewInpu
     plan: compositionPlan,
     options: {
       includeLayerOutlines: false,
-      locale: isArabic ? 'ar' : 'en',
+      locale: contentIsArabic ? 'ar' : 'en',
       previewMode: 'review',
     },
   })
@@ -597,6 +615,7 @@ export function buildCreativeStudioPreviewModel(input: CreativeStudioPreviewInpu
     platform: requirement.platform,
     format: requirement.format,
     outputClassification: 'draft_layered_studio_preview',
+    interfaceLocale,
     backgroundStatus,
     backgroundLabel: backgroundLabel(backgroundStatus),
     sourcePostText: firstMeaningfulText(input.post),
@@ -610,9 +629,9 @@ export function buildCreativeStudioPreviewModel(input: CreativeStudioPreviewInpu
       backgroundStatus,
       editableLayers,
       sourcePostText: firstMeaningfulText(input.post),
-      language: input.campaign.language,
+      language: interfaceLocale,
     }),
-    controlledPath: buildControlledPath(hasBackground, isArabic),
+    controlledPath: buildControlledPath(hasBackground, interfaceLocale === 'ar'),
     safety: {
       reviewOnly: true,
       doesNotGenerateImage: true,
@@ -667,13 +686,13 @@ export function applyCreativeStudioDraftControls(
       text: layer.content.text || null,
       safeZoneCompliant: layer.safeZoneCompliant,
     }))
-  const isArabic = model.compositionPreview.layers.some(layer => layer.content.language === 'ar')
+  const interfaceIsArabic = model.interfaceLocale === 'ar'
   const controlledPath = model.controlledPath.map(step => (
     step.id === 'preview'
       ? {
           ...step,
-          label: `${step.label} · ${(isArabic ? DRAFT_LAYOUT_LABELS_AR : DRAFT_LAYOUT_LABELS)[normalizedControls.layout]}`,
-          description: isArabic
+          label: `${step.label} · ${(interfaceIsArabic ? DRAFT_LAYOUT_LABELS_AR : DRAFT_LAYOUT_LABELS)[normalizedControls.layout]}`,
+          description: interfaceIsArabic
             ? `${step.description} تعديلات المسودة محلية داخل هذا المتصفح ولا يتم حفظها.`
             : `${step.description} Draft edits are local to this browser session and are not saved.`,
         }
@@ -692,7 +711,7 @@ export function applyCreativeStudioDraftControls(
       backgroundStatus: model.backgroundStatus,
       editableLayers,
       sourcePostText: model.sourcePostText,
-      language: isArabic ? 'ar' : 'en',
+      language: model.interfaceLocale,
     }),
     controlledPath,
   }

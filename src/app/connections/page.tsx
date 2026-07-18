@@ -224,7 +224,28 @@ const PLATFORMS: PlatformDef[] = [
   },
 ]
 
-const PRIMARY_PUBLISHING_PLATFORM_IDS = ['LINKEDIN', 'META', 'YOUTUBE'] as const
+const DEFAULT_PUBLISHING_PLATFORM_IDS = ['META', 'LINKEDIN', 'YOUTUBE'] as const
+
+function publishingPlatformIds(platforms: unknown): string[] {
+  if (!Array.isArray(platforms)) return []
+  const mapped = platforms.map(value => {
+    const platform = String(value || '').trim().toUpperCase()
+    if (platform === 'INSTAGRAM' || platform === 'FACEBOOK' || platform === 'META') return 'META'
+    return platform
+  })
+  return [...new Set(mapped)].filter(platform => PLATFORMS.some(item => item.available && item.id === platform))
+}
+
+function adExecutionEligible(
+  account: ConnectedAdAccount,
+  googleConnection: GoogleAdsConnectionState | null,
+): boolean {
+  if (!account.hasApiAccess) return false
+  if (account.platform.toUpperCase() !== 'GOOGLE') return true
+  return account.apiAccessTier !== 'NONE'
+    && Boolean(account.apiAccessTier)
+    && googleConnection?.accessTier !== 'NONE'
+}
 
 function connectionTruth(account: ConnectedAccount, ar: boolean): {
   tone: 'ready' | 'needs'
@@ -464,6 +485,8 @@ export default function ConnectionsPage() {
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([])
   const [adAccounts, setAdAccounts] = useState<ConnectedAdAccount[]>([])
   const [googleAdsConnection, setGoogleAdsConnection] = useState<GoogleAdsConnectionState | null>(null)
+  const [strategyPlatformIds, setStrategyPlatformIds] = useState<string[]>([])
+  const [strategyCampaignName, setStrategyCampaignName] = useState<string | null>(null)
   const [loadingAccounts, setLoadingAccounts] = useState(true)
   const [connecting, setConnecting] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
@@ -478,19 +501,30 @@ export default function ConnectionsPage() {
     }
     setLoadingAccounts(true)
     try {
-      const [socialRes, adRes] = await Promise.all([
+      const [socialRes, adRes, campaignRes] = await Promise.all([
         fetch('/api/social/accounts', { headers: { Authorization: token } }),
         fetch('/api/ad-accounts', { headers: { Authorization: token } }),
+        fetch('/api/campaigns?limit=20&sort=updatedAt&order=desc', { headers: { Authorization: token }, cache: 'no-store' }),
       ])
-      const socialData = await socialRes.json()
-      const adData = await adRes.json()
+      const [socialData, adData, campaignData] = await Promise.all([
+        socialRes.json(),
+        adRes.json(),
+        campaignRes.ok ? campaignRes.json() : Promise.resolve({ campaigns: [] }),
+      ])
       setAccounts(socialData.accounts || [])
       setAdAccounts(adData.accounts || [])
       setGoogleAdsConnection(adData.googleAdsConnection || null)
+      const currentCampaign = Array.isArray(campaignData.campaigns)
+        ? campaignData.campaigns.find((campaign: { status?: string }) => campaign.status === 'ACTIVE') || campaignData.campaigns[0]
+        : null
+      setStrategyPlatformIds(publishingPlatformIds(currentCampaign?.platforms))
+      setStrategyCampaignName(typeof currentCampaign?.name === 'string' ? currentCampaign.name : null)
     } catch {
       setAccounts([])
       setAdAccounts([])
       setGoogleAdsConnection(null)
+      setStrategyPlatformIds([])
+      setStrategyCampaignName(null)
     } finally {
       setLoadingAccounts(false)
     }
@@ -691,11 +725,15 @@ export default function ConnectionsPage() {
   const hasGoogleAdAccount = paidAdAccounts.some((account) => account.platform?.toUpperCase() === 'GOOGLE')
 
   const connectedCount = accounts.length + paidAdAccounts.length + (googleAdsConnection ? 1 : 0)
+  const primaryPublishingPlatformIds = strategyPlatformIds.length > 0
+    ? strategyPlatformIds
+    : [...DEFAULT_PUBLISHING_PLATFORM_IDS]
+  const primaryPublishingPlatformSet = new Set(primaryPublishingPlatformIds)
   const availablePlatforms = PLATFORMS
     .filter(platform => platform.available)
     .sort((left, right) => {
-      const leftPriority = PRIMARY_PUBLISHING_PLATFORM_IDS.indexOf(left.id as typeof PRIMARY_PUBLISHING_PLATFORM_IDS[number])
-      const rightPriority = PRIMARY_PUBLISHING_PLATFORM_IDS.indexOf(right.id as typeof PRIMARY_PUBLISHING_PLATFORM_IDS[number])
+      const leftPriority = primaryPublishingPlatformIds.indexOf(left.id)
+      const rightPriority = primaryPublishingPlatformIds.indexOf(right.id)
       return (leftPriority === -1 ? 99 : leftPriority) - (rightPriority === -1 ? 99 : rightPriority)
     })
 
@@ -768,10 +806,18 @@ export default function ConnectionsPage() {
                     {copy('مسار النشر الأساسي', 'Primary publishing path')}
                   </p>
                   <p className="mt-1 text-[12px] font-semibold leading-5 text-[#64708f]">
-                    {copy('ابدأ بالقنوات ذات الأولوية في استراتيجية التشغيل الحالية، ثم افتح القنوات الإضافية فقط عندما تعطيها الاستراتيجية دورًا واضحًا.', 'Start with the current operating strategy’s priority channels. Add another channel only when the strategy gives it a clear job.')}
+                    {strategyCampaignName
+                      ? copy(
+                          `هذه أولويات النشر المحفوظة في حملة ${strategyCampaignName}. أضف قناة أخرى فقط بعد تحديث الاستراتيجية بدور واضح لها.`,
+                          `These are the publishing priorities saved in ${strategyCampaignName}. Add another channel only after the strategy gives it a clear role.`,
+                        )
+                      : copy(
+                          'لا توجد حملة حالية تحدد الأولوية؛ يعرض NEXUS ترتيب بدء افتراضيًا حتى تُحفظ استراتيجية.',
+                          'No current campaign defines priority, so NEXUS shows a default starting order until a strategy is saved.',
+                        )}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {PRIMARY_PUBLISHING_PLATFORM_IDS.map(platformId => {
+                    {primaryPublishingPlatformIds.map(platformId => {
                       const platform = PLATFORMS.find(item => item.id === platformId)
                       if (!platform) return null
                       return (
@@ -789,7 +835,7 @@ export default function ConnectionsPage() {
                     const truth = connectedAccount ? connectionTruth(connectedAccount, ar) : null
                     const isConnecting = connecting === platform.id
                     const isDisconnecting = disconnecting === connectedAccount?.id
-                    const isPrimary = PRIMARY_PUBLISHING_PLATFORM_IDS.includes(platform.id as typeof PRIMARY_PUBLISHING_PLATFORM_IDS[number])
+                    const isPrimary = primaryPublishingPlatformSet.has(platform.id)
 
                     return (
                       <article id={`platform-${platform.id.toLowerCase()}`} key={platform.id} className={`nx-os-card scroll-mt-24 p-4 ${isPrimary ? 'border-indigo-200 bg-white shadow-[0_16px_44px_rgba(79,70,229,0.08)]' : 'bg-[#fbfcff]'}`}>
@@ -1056,15 +1102,24 @@ export default function ConnectionsPage() {
                             <p className="mt-1 text-[13px] font-black text-[#111b3f]">{account.platformAccountName || account.platformAccountId}</p>
                             {account.businessName ? <p className="mt-1 text-[11px] font-semibold text-[#7b87a3]">{account.businessName}</p> : null}
                           </div>
-                          <StatusPill tone={account.hasApiAccess ? 'ready' : 'needs'}>
-                            {account.hasApiAccess ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Clock3 className="h-3.5 w-3.5" />}
-                            {account.hasApiAccess ? copy('API مثبت', 'API verified') : copy('مراجعة فقط', 'Review only')}
+                          <StatusPill tone={adExecutionEligible(account, googleAdsConnection) ? 'ready' : 'needs'}>
+                            {adExecutionEligible(account, googleAdsConnection) ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Clock3 className="h-3.5 w-3.5" />}
+                            {adExecutionEligible(account, googleAdsConnection)
+                              ? copy('تنفيذ API مؤهل', 'API execution eligible')
+                              : account.hasApiAccess
+                                ? copy('OAuth مثبت · التنفيذ مقفول', 'OAuth verified · execution locked')
+                                : copy('مراجعة فقط', 'Review only')}
                           </StatusPill>
                         </div>
                         <p className="mt-3 text-[11px] font-semibold leading-5 text-[#64708f]">
-                          {account.hasApiAccess
+                          {adExecutionEligible(account, googleAdsConnection)
                             ? copy('الحساب مؤهل لخطوات التنفيذ التي يراجعها المستخدم؛ تظل حالة كل حملة والصلاحيات مطلوبة.', 'The account is eligible for user-reviewed execution steps; campaign state and permissions are still required.')
-                            : copy('يظل التخطيط متاحاً، لكن NEXUS لن يدّعي إطلاق إعلان أو مزامنة نتائج من هذا الحساب.', 'Planning remains available, but NEXUS will not claim to launch ads or sync results from this account.')}
+                            : account.platform === 'GOOGLE' && account.hasApiAccess
+                              ? copy(
+                                  'تم التحقق من OAuth واكتشاف الحساب، لكن مستوى الوصول المكوّن لا يسمح بالتنفيذ. يظل إنشاء المسودات والتفعيل والإنفاق مقفلاً حتى يتطابق مستوى الحساب والـDeveloper Token.',
+                                  'OAuth and account discovery are verified, but the configured access tier does not authorize execution. Platform draft creation, activation, and spend stay locked until the account and developer-token tiers agree.',
+                                )
+                              : copy('يظل التخطيط متاحاً، لكن NEXUS لن يدّعي إطلاق إعلان أو مزامنة نتائج من هذا الحساب.', 'Planning remains available, but NEXUS will not claim to launch ads or sync results from this account.')}
                         </p>
                         {account.platform === 'GOOGLE' ? (
                           <p className="mt-2 text-[10px] font-bold text-[#7b87a3]">

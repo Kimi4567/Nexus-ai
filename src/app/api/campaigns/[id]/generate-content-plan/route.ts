@@ -29,6 +29,7 @@ import {
 import { PLAN_QUOTAS } from '@/lib/stripe'
 import { resolvePostCaption } from '@/lib/contentPlanCaption'
 import {
+  bindContentPlanSlotsToStrategyAngles,
   distributeContentPlanSlots,
   generateContentPlanWithRetry,
   contentPlanFailureResponse,
@@ -211,6 +212,7 @@ export async function POST(req: NextRequest, props: Params) {
       strategy: strategyForContent,
       brand: brandProfile,
       allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms.map(String) : [],
+      requireAllReviewedPlatforms: true,
       goal: campaign.goal,
     })
 
@@ -424,16 +426,20 @@ export async function POST(req: NextRequest, props: Params) {
     // is binding. If the user reviewed 7 first-window organic post directions,
     // this route must create exactly 7 SocialPost drafts total. Plan quota counts
     // remain only the fallback for legacy campaigns without a saved order.
-    const slots = distributeContentPlanSlots(slotScope.imagePosts, slotScope.videoSlots, platforms)
+    const strategyAngles: any[] = Array.isArray(strategyForContent.contentAnglesDetailed)
+      ? strategyForContent.contentAnglesDetailed
+      : []
+    const slots = bindContentPlanSlotsToStrategyAngles(
+      distributeContentPlanSlots(slotScope.imagePosts, slotScope.videoSlots, platforms),
+      strategyAngles,
+      platforms,
+    )
       .map(slot => ({ ...slot, platform: toIntegrationType(slot.publishTarget) }))
 
     // ── 7. Generate all post content via GPT-4o-mini ─────────────────────
     const pillarText = contentPillars.length
       ? contentPillars.slice(0, 5).join(', ')
       : 'brand awareness, engagement, conversion'
-    const strategyAngles: any[] = Array.isArray(strategyForContent.contentAnglesDetailed)
-      ? strategyForContent.contentAnglesDetailed
-      : []
     const operatingStrategyContext = JSON.stringify({
       diagnosis: strategyForContent.diagnosis ?? null,
       differentiation: strategyForContent.differentiation ?? null,

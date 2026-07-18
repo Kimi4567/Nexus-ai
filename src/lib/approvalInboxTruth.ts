@@ -8,6 +8,7 @@
 
 export interface ApprovalSuggestionLike {
   type?: string | null
+  payload?: unknown
 }
 
 export interface ApprovalQueueItemLike {
@@ -26,10 +27,22 @@ export function isLegacyStrategySuggestion(
   return String(suggestion?.type || '').trim().toUpperCase() === 'STRATEGY'
 }
 
+export function isExecutionMonitorNavigationSuggestion(
+  suggestion: ApprovalSuggestionLike | null | undefined,
+): boolean {
+  if (!suggestion?.payload || typeof suggestion.payload !== 'object' || Array.isArray(suggestion.payload)) {
+    return false
+  }
+  return (suggestion.payload as Record<string, unknown>).source === 'execution-monitor'
+}
+
 export function actionableApprovalSuggestions<T extends ApprovalSuggestionLike>(
   suggestions: readonly T[] | null | undefined,
 ): T[] {
-  return (suggestions || []).filter(suggestion => !isLegacyStrategySuggestion(suggestion))
+  return (suggestions || []).filter(suggestion => (
+    !isLegacyStrategySuggestion(suggestion)
+    && !isExecutionMonitorNavigationSuggestion(suggestion)
+  ))
 }
 
 export function liveApprovalQueue<T extends ApprovalQueueItemLike>(

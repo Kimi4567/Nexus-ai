@@ -3757,6 +3757,8 @@ function CampaignDetailPageInner() {
                     {diagnosisDetails && (
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                         <StrategyDocCard label={strategyDocText('مرحلة النشاط', 'Business stage')} value={diagnosisDetails.stage} locale={strategyDocumentLocale} />
+                        <StrategyDocCard label={strategyDocText('حالة التشخيص', 'Diagnosis basis')} value={diagnosisDetails.basis === 'documented' ? strategyDocText('موثق من Brand Brain', 'Documented from Brand Brain') : strategyDocText('فرضية تحتاج تحقق', 'Hypothesis to validate')} locale={strategyDocumentLocale} tone={diagnosisDetails.basis === 'documented' ? 'positive' : 'warning'} />
+                        <StrategyDocCard label={strategyDocText('أساس الدليل / التحقق', 'Evidence or validation basis')} value={diagnosisDetails.evidenceBasis} locale={strategyDocumentLocale} tone="warning" />
                         <StrategyDocCard label={strategyDocText('العائق الأساسي', 'Main bottleneck')} value={diagnosisDetails.bottleneck} locale={strategyDocumentLocale} />
                         <StrategyDocCard label={strategyDocText('فجوة الثقة', 'Trust gap')} value={diagnosisDetails.trustGap} locale={strategyDocumentLocale} tone="warning" />
                         <StrategyDocCard label={strategyDocText('الخطر الأساسي', 'Main risk')} value={diagnosisDetails.mainRisk} locale={strategyDocumentLocale} tone="warning" />
@@ -3907,6 +3909,7 @@ function CampaignDetailPageInner() {
                                   <p className="text-xs font-black text-indigo-700">{index + 1}. {strategyDocDisplayValue(brief.name)}</p>
                                   <p className="mt-2 text-xs leading-5 text-slate-700">{strategyDocDisplayValue(brief.visualDirection)}</p>
                                   <p className="mt-1 text-[11px] leading-5 text-slate-500">{strategyDocText('الصيغة', 'Format')}: {strategyDocDisplayValue(brief.format)}</p>
+                                  <p className="mt-1 text-[11px] leading-5 text-amber-700">{strategyDocText('حالة الأصل', 'Asset status')}: {brief.assetStatus === 'existing_approved' ? strategyDocText('أصل معتمد موجود', 'Existing approved asset') : brief.assetStatus === 'generation_required' ? strategyDocText('أصل مقترح يحتاج توليداً وموافقة', 'Proposed asset requires generation and approval') : strategyDocText('أصل مقترح يحتاج رفعاً وموافقة', 'Proposed asset requires upload and approval')}</p>
                                   <p className="mt-1 text-[11px] leading-5 text-amber-700">{strategyDocText('بوابة المراجعة', 'Review gate')}: {strategyDocDisplayValue(brief.reviewGate)}</p>
                                 </div>
                               ))}
@@ -5085,22 +5088,11 @@ function CampaignDetailPageInner() {
                   </div>
 
                   <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                    <button
-                      onClick={() => window.open(`/campaigns/${campaign.id}/creative-brief`, '_blank')}
-                      className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-all ${
-                        creativeCanUsePostMediaFlow
-                          ? 'bg-purple-600 hover:bg-purple-500'
-                          : 'border border-purple-100 bg-purple-50 text-purple-700 hover:bg-purple-100'
-                      }`}
-                      style={creativeCanUsePostMediaFlow ? { color: '#fff' } : undefined}
-                    >
-                      <span>🎨</span>
-                      {creativeBrief
-                        ? (cdT?.openCreativeBriefBtn || 'Open creative brief planner')
-                        : (locale === 'ar' ? 'افتح مخطط الإبداع' : 'Open creative brief planner')
-                      }
-                      <span className={creativeCanUsePostMediaFlow ? 'text-purple-300 text-xs' : 'text-purple-400 text-xs'}>↗</span>
-                    </button>
+                    <div className="flex items-center rounded-xl border border-purple-100 bg-purple-50 px-4 py-3 text-[12px] font-semibold leading-5 text-purple-800">
+                      {locale === 'ar'
+                        ? 'استخدم القرار الرئيسي أعلى الصفحة لفتح مخطط الإبداع؛ يوجد مسار أساسي واحد فقط لهذه الخطوة.'
+                        : 'Use the primary decision above to open the creative planner; this step has one canonical action.'}
+                    </div>
                     <Link
                       href="/media"
                       className="flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-purple-200 hover:bg-purple-50 hover:text-purple-700"

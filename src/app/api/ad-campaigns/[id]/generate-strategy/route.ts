@@ -428,6 +428,7 @@ Generate a complete paid execution plan as JSON with EXACTLY this structure:
         strategy,
         brand: brandProfile,
         allowedPlatforms: [String(campaign.platform)],
+        requireAllReviewedPlatforms: true,
         goal: String(campaign.objective),
       })
       if (qualityGate.status !== 'passed') {

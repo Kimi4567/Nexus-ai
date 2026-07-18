@@ -102,6 +102,12 @@ interface Campaign {
   aiOutput?: any
 }
 
+interface BrandProfileSnapshot {
+  brandName?: string | null
+  logoUrl?: string | null
+  colorPalette?: string[] | null
+}
+
 interface ContentPlanPost {
   id: string
   platform?: string | null
@@ -226,6 +232,7 @@ export default function CreativeBriefPage() {
   const isArabic = locale === 'ar'
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
+  const [brandProfile, setBrandProfile] = useState<BrandProfileSnapshot | null>(null)
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
   const [contentPosts, setContentPosts] = useState<ContentPlanPost[]>([])
   const [selectedMedia, setSelectedMedia] = useState<Set<string>>(new Set())
@@ -418,7 +425,8 @@ export default function CreativeBriefPage() {
     studioDecisionReadiness: isArabic ? 'جاهزية المراجعة' : 'Review readiness',
     studioDecisionNextAction: isArabic ? 'الخطوة الصحيحة التالية' : 'Correct next action',
     studioDecisionQualitySignals: isArabic ? 'إشارات الجودة' : 'Quality signals',
-    studioDecisionScore: isArabic ? 'فحوص المعاينة الناجحة' : 'preview checks passed',
+    studioDecisionScore: isArabic ? 'إشارات المعاينة الناجحة' : 'preview signals passed',
+    studioDecisionBlocked: isArabic ? 'الإنتاج مقفول' : 'Production blocked',
     studioDecisionNoBlockers: isArabic ? 'لا توجد عوائق حرجة داخل هذه المعاينة.' : 'No critical blockers inside this preview.',
     studioBackgroundReady: isArabic ? 'الخلفية متاحة للمعاينة' : 'Background available for preview',
     studioBackgroundNeeded: isArabic ? 'الخلفية مطلوبة قبل أي render مستقبلي' : 'Background needed before future render',
@@ -456,6 +464,10 @@ export default function CreativeBriefPage() {
     studioCtaControl: isArabic ? 'CTA' : 'CTA',
     studioBrandControl: isArabic ? 'اسم البراند / الشعار النصي' : 'Brand label',
     studioAccentControl: isArabic ? 'لون التمييز' : 'Accent color',
+    studioSavedPalette: isArabic ? 'من لوحة ألوان Brand Brain' : 'From the Brand Brain palette',
+    studioNeutralFallback: isArabic
+      ? 'لون محايد مؤقت — لم يُحفظ لون في Brand Brain'
+      : 'Neutral temporary fallback — no Brand Brain color is saved',
     studioLayoutControl: isArabic ? 'توازن التخطيط' : 'Layout balance',
     studioLayoutBalanced: isArabic ? 'متوازن' : 'Balanced',
     studioLayoutEditorial: isArabic ? 'تحريري' : 'Editorial',
@@ -551,19 +563,22 @@ export default function CreativeBriefPage() {
     const token = authHeader()
     if (!token) return
     try {
-      const [campaignRes, mediaRes, briefRes, contentPlanRes] = await Promise.all([
+      const [campaignRes, mediaRes, briefRes, contentPlanRes, brandRes] = await Promise.all([
         fetch(`/api/campaigns/${campaignId}`, { headers: { Authorization: token } }),
         fetch(`/api/media?limit=50`, { headers: { Authorization: token } }),
         fetch(`/api/campaigns/${campaignId}/creative-brief`, { headers: { Authorization: token } }),
         fetch(`/api/campaigns/${campaignId}/content-plan`, { headers: { Authorization: token } }),
+        fetch('/api/brand', { headers: { Authorization: token }, cache: 'no-store' }),
       ])
-      const [cd, md, bd, pd] = await Promise.all([
+      const [cd, md, bd, pd, brandData] = await Promise.all([
         campaignRes.json(),
         mediaRes.json(),
         briefRes.json(),
         contentPlanRes.ok ? contentPlanRes.json() : Promise.resolve({ posts: [] }),
+        brandRes.ok ? brandRes.json() : Promise.resolve({ brandProfile: null }),
       ])
       if (cd.campaign) setCampaign(cd.campaign)
+      setBrandProfile(brandData.brandProfile || null)
       if (Array.isArray(md.media)) setMediaItems(md.media)
       if (Array.isArray(pd.posts)) setContentPosts(pd.posts)
       if (bd.creativeBrief) {
@@ -725,16 +740,33 @@ export default function CreativeBriefPage() {
     ...(assetRequirements?.forOrganic ?? []),
     ...(assetRequirements?.nextToCreate ?? []),
     ...(assetRequirements?.niceToHave ?? []),
-  ].map((item: string) => assetRequirementText(String(item))).filter(Boolean)
+  ]
+    .map((item: string) => assetRequirementText(String(item)).trim())
+    .filter(Boolean)
   const productionRows = contentPosts
     .slice()
     .sort((a, b) => (a.contentPlanIndex ?? 999) - (b.contentPlanIndex ?? 999))
     .map((post, index) => {
+      const platform = post.platform || campaign.platforms?.[index % Math.max(campaign.platforms.length, 1)] || 'General'
+      const format = post.contentType || (post.caption?.toLowerCase().includes('video') ? 'Video post' : 'Social post')
+      const isVideo = /video|reel|short|story|tiktok|فيديو|ريل/i.test(`${platform} ${format}`)
       const hasLinkedMedia = Boolean(post.imageUrl || post.uploadedMediaId)
       const hasUploadedAssets = mediaItems.length > 0
+      const strategyAssetNeed = String(assetNeedPool[index % Math.max(assetNeedPool.length, 1)] || '').trim()
+      const fallbackAssetNeed = isVideo
+        ? (isArabic
+            ? `فيديو رأسي معتمد أو مملوك بنسبة 9:16 لـ ${platform}، مع لقطة افتتاحية وبطاقة CTA نهائية.`
+            : `An approved or owned 9:16 vertical video for ${platform}, with an opening frame and final CTA card.`)
+        : /pinterest/i.test(platform)
+          ? (isArabic
+              ? 'صورة معتمدة بنسبة 2:3 لـ Pinterest، مع مساحة آمنة للعنوان ووجهة CTA واضحة.'
+              : 'An approved 2:3 Pinterest image with a title-safe area and a clear CTA destination.')
+          : (isArabic
+              ? `صورة معتمدة بالمقاس المناسب لـ ${platform}، مع مساحة آمنة للعنوان والـ CTA والهوية.`
+              : `An approved image sized for ${platform}, with safe space for headline, CTA, and brand.`)
       const assetNeed = hasLinkedMedia
         ? copy.productionDeskLinkedMedia
-        : assetNeedPool[index % Math.max(assetNeedPool.length, 1)] || copy.productionDeskDefaultAsset
+        : strategyAssetNeed || fallbackAssetNeed
       const mediaStatus = hasLinkedMedia
         ? copy.productionDeskLinkedMedia
         : hasUploadedAssets
@@ -750,23 +782,38 @@ export default function CreativeBriefPage() {
       return {
         id: post.id || `post-${index + 1}`,
         number: index + 1,
-        platform: post.platform || campaign.platforms?.[index % Math.max(campaign.platforms.length, 1)] || 'General',
-        format: post.contentType || (post.caption?.toLowerCase().includes('video') ? 'Video post' : 'Social post'),
+        platform,
+        format,
         status: post.status,
         mediaStatus,
         assetNeed,
         nextStep,
         shortCopy,
-        layerPlan: [
-          copy.productionDeskHeadlineLayer,
-          copy.productionDeskCtaLayer,
-          copy.productionDeskLogoLayer,
-          copy.productionDeskSafeZone,
-        ],
+        layerPlan: isVideo
+          ? [
+              isArabic ? 'لقطة افتتاحية مرتبطة بالـ Hook خلال أول ثانيتين' : 'Opening frame tied to the hook in the first two seconds',
+              isArabic ? 'كابتشن داخل المنطقة الآمنة وقابل للقراءة بدون صوت' : 'Caption-safe zone that remains readable without sound',
+              isArabic ? 'بطاقة نهاية تحتوي CTA ووجهة قابلة للقياس' : 'End card with CTA and a measurable destination',
+              copy.productionDeskLogoLayer,
+            ]
+          : /pinterest/i.test(platform)
+            ? [
+                isArabic ? 'صورة رئيسية بنسبة 2:3 دون قص المنتج' : '2:3 hero image without cropping the product',
+                copy.productionDeskHeadlineLayer,
+                copy.productionDeskCtaLayer,
+                copy.productionDeskLogoLayer,
+              ]
+            : [
+                isArabic ? `صورة رئيسية بمقاس ${platform} المعتمد` : `Hero visual in the approved ${platform} size`,
+                copy.productionDeskHeadlineLayer,
+                copy.productionDeskCtaLayer,
+                copy.productionDeskLogoLayer,
+              ],
       }
     })
   const productionRowsNeedingMedia = productionRows.filter(row => row.mediaStatus !== copy.productionDeskLinkedMedia).length
-  const brandSnapshot = (campaign.aiOutput?.brandBrainSnapshot
+  const brandSnapshot = (brandProfile
+    || campaign.aiOutput?.brandBrainSnapshot
     || campaign.aiOutput?.brandProfile
     || campaign.aiOutput?.brand
     || {}) as any
@@ -778,6 +825,14 @@ export default function CreativeBriefPage() {
     || campaign.name
   const studioLogoUrl = brandSnapshot.logoUrl || strategySnapshot.logoUrl || null
   const studioColorPalette = brandSnapshot.colorPalette || strategySnapshot.colorPalette || strategySnapshot.brandColors || []
+  const studioSavedColors = Array.from(new Set(
+    (Array.isArray(studioColorPalette)
+      ? studioColorPalette
+      : String(studioColorPalette).split(/[\s,;|]+/))
+      .map(color => String(color).trim().toUpperCase())
+      .filter(color => /^#[0-9A-F]{6}$/.test(color)),
+  )).slice(0, 6)
+  const studioAccentOptions = studioSavedColors.length > 0 ? studioSavedColors : ['#334155']
   const studioPreviewModels: CreativeStudioPreviewModel[] = contentPosts
     .slice()
     .sort((a, b) => (a.contentPlanIndex ?? 999) - (b.contentPlanIndex ?? 999))
@@ -801,6 +856,7 @@ export default function CreativeBriefPage() {
         campaignGoal: campaign.goal,
         campaignType: strategySnapshot.strategyMode || strategySnapshot.mode || strategySnapshot.type,
         language: campaign.aiOutput?.language || locale,
+        interfaceLocale: locale,
         brandName: studioBrandName,
         logoUrl: studioLogoUrl,
         colorPalette: studioColorPalette,
@@ -917,7 +973,7 @@ export default function CreativeBriefPage() {
   const activeWorkflowStep = workflowSteps.find(step => step.id === activeStep) || workflowSteps[0]
   return (
     <>
-    <div dir={dir} style={{ minHeight: '100vh', background: '#F8FAFC', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <main dir={dir} style={{ minHeight: '100vh', background: '#F8FAFC', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* ── Global print styles ── */}
       <style>{`
         @media print {
@@ -1771,7 +1827,9 @@ export default function CreativeBriefPage() {
                             {selectedStudioPreview.decisionBrief.qualitySignals.filter(signal => signal.status === 'pass').length}/{selectedStudioPreview.decisionBrief.qualitySignals.length}
                           </p>
                           <p style={{ margin: '3px 0 0', fontSize: 9, fontWeight: 850, textTransform: 'uppercase', letterSpacing: 0.3 }}>
-                            {copy.studioDecisionScore}
+                            {selectedStudioPreview.decisionBrief.readiness.status === 'review_ready'
+                              ? copy.studioDecisionScore
+                              : copy.studioDecisionBlocked}
                           </p>
                         </div>
                       </div>
@@ -1988,7 +2046,7 @@ export default function CreativeBriefPage() {
                               }}
                             />
                             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                              {['#334155', '#0F766E', '#4F46E5', '#7C3AED', '#B45309'].map(color => {
+                              {studioAccentOptions.map(color => {
                                 const active = (selectedStudioDraftControls?.accentColor || '#334155').toUpperCase() === color
                                 return (
                                   <button
@@ -2010,6 +2068,9 @@ export default function CreativeBriefPage() {
                                 )
                               })}
                             </div>
+                            <span style={{ fontSize: 10, lineHeight: 1.45, color: studioSavedColors.length > 0 ? '#64748B' : '#B45309', fontWeight: 750 }}>
+                              {studioSavedColors.length > 0 ? copy.studioSavedPalette : copy.studioNeutralFallback}
+                            </span>
                           </div>
 
                           <div style={{ display: 'grid', gap: 5 }}>
@@ -3066,7 +3127,7 @@ export default function CreativeBriefPage() {
         </div>
 
       </div>
-    </div>
+    </main>
 
     <UpgradeModal
       open={showUpgrade}

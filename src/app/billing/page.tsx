@@ -65,7 +65,7 @@ const PLANS = [
       `${GROWTH_PLAN.monthlyCredits} رصيد AI / شهر (يتجدد شهرياً)`,
       'موافقات منفصلة للنص والوسائط والجدولة',
       `حتى ${GROWTH_PLAN.campaignLimit} مساحات حملات / شهر — عمليات AI تُحاسب بالكريديت`,
-      `${GROWTH_PLAN.postsPerMonth} بوست AI مخطط / شهر`,
+      `${GROWTH_PLAN.postsPerMonth} مسودة نص AI مخططة / شهر — الصور والفيديو منفصلة`,
       `مثال سعة: رحلة Full Standard واحدة إلى المسودات (${FULL_STANDARD_90_WORKFLOW_COST} كريديت) أو 4 استراتيجيات Organic Light مراجعة`,
       'Brand Brain الكامل + ذاكرة الحملات',
     ],
@@ -73,7 +73,7 @@ const PLANS = [
       `${GROWTH_PLAN.monthlyCredits} AI credits / month (renews monthly)`,
       'Separate copy, media, and scheduling approvals',
       `Up to ${GROWTH_PLAN.campaignLimit} campaign workspaces / month — AI operations use credits`,
-      `${GROWTH_PLAN.postsPerMonth} AI-planned posts / month`,
+      `${GROWTH_PLAN.postsPerMonth} AI-planned copy drafts / month — image and video actions are separate`,
       `Capacity example: 1 Full Standard workflow to drafts (${FULL_STANDARD_90_WORKFLOW_COST} credits) or 4 reviewed Organic Light strategies`,
       'Full Brand Brain + Campaign Memory (reviewed signals across campaigns)',
     ],
@@ -95,7 +95,7 @@ const PLANS = [
       `${AUTOPILOT_PLAN.monthlyCredits} رصيد AI / شهر (يتجدد شهرياً)`,
       'مركز عمليات ومراقبة مجدولة للحالات والأعطال',
       `حتى ${AUTOPILOT_PLAN.campaignLimit} مساحة حملة / شهر — عمليات AI تُحاسب بالكريديت`,
-      `${AUTOPILOT_PLAN.postsPerMonth} بوست AI مخطط / شهر`,
+      `${AUTOPILOT_PLAN.postsPerMonth} مسودة نص AI مخططة / شهر — الصور والفيديو منفصلة`,
       `مثال سعة: 3 رحلات Full Standard إلى المسودات أو 12 استراتيجية Organic Light مراجعة`,
       'مراقبة مجدولة + قائمة قرارات مبنية على الأدلة',
     ],
@@ -103,7 +103,7 @@ const PLANS = [
       `${AUTOPILOT_PLAN.monthlyCredits} AI credits / month (renews monthly)`,
       'Operations center with scheduled state and incident monitoring',
       `Up to ${AUTOPILOT_PLAN.campaignLimit} campaign workspaces / month — AI operations use credits`,
-      `${AUTOPILOT_PLAN.postsPerMonth} AI-planned posts / month`,
+      `${AUTOPILOT_PLAN.postsPerMonth} AI-planned copy drafts / month — image and video actions are separate`,
       'Capacity example: 3 Full Standard workflows to drafts or 12 reviewed Organic Light strategies',
       'Scheduled monitoring + evidence-backed action queue',
     ],
@@ -223,8 +223,8 @@ const FAQS = [
   {
     qAr: 'ما الفرق بين Growth وAutopilot؟',
     qEn: 'What is the difference between Growth and Autopilot?',
-    aAr: 'Growth مناسب للتخطيط والإنتاج اليومي، بينما Autopilot يضيف سعة أكبر ومراقبة مجدولة وقائمة قرارات تشغيلية.',
-    aEn: 'Growth covers day-to-day planning and production; Autopilot adds more capacity, scheduled monitoring, and an operating action queue.',
+    aAr: 'Growth مناسب للتخطيط وإنتاج مسودات النصوص ومراجعتها؛ إنتاج الصور والفيديو يُحاسب كعمليات منفصلة. Autopilot يضيف سعة أكبر ومراقبة مجدولة وقائمة قرارات تشغيلية.',
+    aEn: 'Growth covers planning plus copy-draft production and review; image and video production are metered separately. Autopilot adds more capacity, scheduled monitoring, and an operating action queue.',
   },
   {
     qAr: 'هل عدد الحملات يعني أن كل حملة Full مشمولة مجانًا؟',
@@ -268,6 +268,13 @@ export default function BillingPage() {
     billingEnabled?: boolean
     billingMode?: 'disabled' | 'sandbox' | 'live'
     creditPurchasesEnabled?: boolean
+    creditPurchasesStatus?:
+      | 'ready'
+      | 'wallet_disabled'
+      | 'billing_disabled'
+      | 'price_ids_missing'
+      | 'price_version_mismatch'
+      | 'verification_failed'
     creditBreakdown?: {
       monthly: number
       purchased: number
@@ -293,6 +300,7 @@ export default function BillingPage() {
   const [buyingCredits, setBuyingCredits] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const [billingMessage, setBillingMessage] = useState<string | null>(null)
+  const [creditCheckoutErrorCode, setCreditCheckoutErrorCode] = useState<string | null>(null)
   const [showCreditHistory, setShowCreditHistory] = useState(false)
 
   useEffect(() => {
@@ -431,7 +439,10 @@ export default function BillingPage() {
       })
       const data = await response.json()
       if (data.url) window.location.href = data.url
-      else setBillingMessage(data.error || (ar ? 'تعذر بدء عملية الشراء.' : 'Could not start checkout.'))
+      else {
+        setCreditCheckoutErrorCode(typeof data.code === 'string' ? data.code : 'CHECKOUT_UNAVAILABLE')
+        setBillingMessage(data.error || (ar ? 'تعذر بدء عملية الشراء.' : 'Could not start checkout.'))
+      }
     } catch (error) {
       console.error(error)
       setBillingMessage(ar ? 'تعذر بدء عملية الشراء.' : 'Could not start checkout.')
@@ -447,6 +458,17 @@ export default function BillingPage() {
   const currentCredits = billingStatus?.credits?.remaining ?? 0
   const monthlyCredits = billingStatus?.credits?.max ?? 20
   const creditPurchaseQuote = quoteCreditPurchase(creditQuantity)
+  const creditCheckoutUnavailable = billingStatus?.creditPurchasesEnabled !== true || Boolean(creditCheckoutErrorCode)
+  const creditCheckoutStatusMessage = creditCheckoutErrorCode === 'CREDIT_PRICE_VERSION_MISMATCH'
+    || billingStatus?.creditPurchasesStatus === 'price_version_mismatch'
+    ? (ar
+        ? 'الشراء مقفول بأمان: أسعار Stripe لا تطابق إصدار التسعير الحالي. يجب تحديث Price IDs قبل استقبال أي دفعة.'
+        : 'Purchasing is safely locked: Stripe prices do not match the current pricing version. Price IDs must be updated before accepting payment.')
+    : billingStatus?.creditPurchasesStatus === 'verification_failed'
+      ? (ar
+          ? 'الشراء مقفول مؤقتًا لأن النظام لم يستطع التحقق من أسعار Stripe.'
+          : 'Purchasing is temporarily locked because Stripe prices could not be verified.')
+      : (ar ? 'بانتظار تفعيل Stripe والمحفظة' : 'Awaiting Stripe + wallet activation')
   const nextPurchasedExpiry = billingStatus?.creditBreakdown?.nextPurchasedExpiry
     ? new Intl.DateTimeFormat(ar ? 'ar-EG' : 'en-US', { dateStyle: 'medium' }).format(
         new Date(billingStatus.creditBreakdown.nextPurchasedExpiry),
@@ -643,8 +665,8 @@ export default function BillingPage() {
           </h2>
           <p className="text-sm text-slate-500 mb-8">
             {ar
-              ? 'Growth للتخطيط والإنتاج اليومي، وAutopilot للسعة الأكبر والمراقبة المجدولة. أرصدة التجربة ليست باقة ثالثة.'
-              : 'Growth covers daily planning and production; Autopilot adds capacity and scheduled monitoring. Trial credits are not a third plan.'
+              ? 'Growth للتخطيط وإنتاج مسودات النصوص ومراجعتها؛ الصور والفيديو عمليات منفصلة. وAutopilot للسعة الأكبر والمراقبة المجدولة. أرصدة التجربة ليست باقة ثالثة.'
+              : 'Growth covers planning plus copy-draft production and review; images and video are separate metered actions. Autopilot adds capacity and scheduled monitoring. Trial credits are not a third plan.'
             }
           </p>
 
@@ -774,9 +796,9 @@ export default function BillingPage() {
                   : 'Buying credits increases AI processing capacity only; it does not change campaign or post limits or unlock plan features.'}
               </p>
             </div>
-            {!loading && !billingStatus?.creditPurchasesEnabled && (
+            {!loading && creditCheckoutUnavailable && (
               <span className="w-fit rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-                {ar ? 'بانتظار تفعيل Stripe والمحفظة' : 'Awaiting Stripe + wallet activation'}
+                {creditCheckoutStatusMessage}
               </span>
             )}
           </div>
@@ -851,10 +873,14 @@ export default function BillingPage() {
                 )}
                 <button
                   onClick={handleBuyCredits}
-                  disabled={loading || !billingStatus?.creditPurchasesEnabled || buyingCredits || !creditPurchaseQuote}
+                  disabled={loading || creditCheckoutUnavailable || buyingCredits || !creditPurchaseQuote}
                   className="mt-4 w-full rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {buyingCredits ? (ar ? 'جاري التحويل...' : 'Redirecting...') : (ar ? 'المتابعة إلى الدفع' : 'Continue to checkout')}
+                  {buyingCredits
+                    ? (ar ? 'جاري التحويل...' : 'Redirecting...')
+                    : creditCheckoutUnavailable
+                      ? (ar ? 'الدفع غير متاح حتى التحقق من الأسعار' : 'Checkout unavailable until prices are verified')
+                      : (ar ? 'المتابعة إلى الدفع' : 'Continue to checkout')}
                 </button>
               </div>
             </div>

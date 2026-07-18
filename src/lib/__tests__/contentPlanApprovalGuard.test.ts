@@ -80,6 +80,22 @@ describe('contentPlanApprovalGuard', () => {
     expect(review.issues.filter(issue => issue.reason === 'generic_hook_formula')).toHaveLength(2)
   })
 
+  it('blocks shopping CTAs when Brand Brain has no verified conversion destination', () => {
+    const review = reviewContentPlanForApproval([
+      { contentPlanIndex: 1, caption: 'Shop the look and browse our collection.' },
+      { contentPlanIndex: 2, caption: 'تسوق الآن واكتشف المجموعة.' },
+    ], {
+      keyMessage: 'Modern abayas for women in the UAE',
+      contentAnglesDetailed: [
+        { title: 'Modern abaya details' },
+        { title: 'Product selection' },
+      ],
+    }, ['Modern abayas for women in the UAE'])
+
+    expect(review.ok).toBe(false)
+    expect(review.issues.map(issue => issue.reason)).toContain('unverified_feature_or_outcome')
+  })
+
   it('blocks polished but non-specific analytics, quality, and help formulas', () => {
     const review = reviewContentPlanForApproval([
       { contentPlanIndex: 1, caption: 'التحليلات ليست مجرد أرقام، بل هي مفتاح النجاح!' },

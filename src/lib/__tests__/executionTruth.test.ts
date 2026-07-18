@@ -126,7 +126,12 @@ describe('execution truth', () => {
     }))
 
     expect(result.stage).toBe('MEDIA_REVIEW')
-    expect(result.nextAction).toMatchObject({ kind: 'REVIEW_MEDIA', href: '/campaigns/campaign-1/content-hub' })
+    expect(result.nextAction).toMatchObject({
+      kind: 'REVIEW_MEDIA',
+      href: '/campaigns/campaign-1/content-hub',
+      safety: 'review_required',
+      requiresApproval: true,
+    })
     expect(result.nextAction?.reason.en).toContain('separately approved media before scheduling')
   })
 

@@ -45,6 +45,24 @@ interface Campaign {
   createdAt: string
   updatedAt: string
   _count: { activities: number }
+  workflowSummary?: {
+    total: number
+    mediaPending: number
+    scheduled: number
+    published: number
+    failed: number
+  }
+}
+
+function campaignWorkflowStage(campaign: Campaign, ar: boolean): string {
+  const workflow = campaign.workflowSummary
+  if (campaign.status !== 'ACTIVE') return campaign.status === 'DRAFT' ? (ar ? 'تخطيط' : 'Plan') : (ar ? 'مراجعة' : 'Review')
+  if (!workflow || workflow.total === 0) return ar ? 'المحتوى لم يُبنَ بعد' : 'Content not built'
+  if (workflow.failed > 0) return ar ? `${workflow.failed} فشل يحتاج تدخلاً` : `${workflow.failed} failed · action needed`
+  if (workflow.mediaPending > 0) return ar ? `${workflow.mediaPending} قرار وسائط متبقٍ` : `${workflow.mediaPending} media decisions left`
+  if (workflow.scheduled > 0) return ar ? `${workflow.scheduled} مجدول` : `${workflow.scheduled} scheduled`
+  if (workflow.published === workflow.total) return ar ? 'منشورة بأدلة المنصة' : 'Provider-evidenced published'
+  return ar ? 'جاهزة لمراجعة التنفيذ' : 'Ready for execution review'
 }
 
 function MetricCard({
@@ -701,7 +719,7 @@ export default function CampaignsPage() {
                             {status.label}
                           </span>
                           <span className="w-max rounded-full bg-[#f3f1ff] px-3 py-1 text-xs font-bold text-[#4f46e5]">
-                            {campaign.status === 'ACTIVE' && brandTruthLocked ? copy('مرجع فقط', 'Reference only') : campaign.status === 'ACTIVE' ? copy('اعتماد', 'Approved') : campaign.status === 'DRAFT' ? copy('تخطيط', 'Plan') : copy('مراجعة', 'Review')}
+                            {campaign.status === 'ACTIVE' && brandTruthLocked ? copy('مرجع فقط', 'Reference only') : campaignWorkflowStage(campaign, ar)}
                           </span>
                           <span className="flex flex-wrap gap-1">
                             {platforms.isEmpty ? (

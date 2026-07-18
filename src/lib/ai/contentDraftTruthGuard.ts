@@ -775,6 +775,53 @@ function guardSaasActivationClaims(text: string, context: ContentDraftTruthConte
       .replace(/\bSign\s+up\s+now[.!]?/gi, 'Review the available details.')
       .replace(/\bRequest\s+(?:a\s+)?demo(?:\s+now)?[.!]?/gi, 'Review what you need before choosing a contact step.')
       .replace(/\bStart\s+(?:now|today)[.!]?/gi, 'Review the next step.')
+      .replace(/\bShop\s+(?:now|the\s+look)[.!]?/gi, 'Review the product details.')
+      .replace(/\b(?:Browse|Explore)\s+(?:our|the)\s+collection[.!]?/gi, 'Review the documented collection details.')
+      .replace(/\bView\s+(?:our\s+)?products?[.!]?/gi, 'Review the documented product details.')
+      .replace(/\bAdd\s+to\s+cart[.!]?/gi, 'Review the product and destination details.')
+      .replace(/(?:تسوّق|تسوق)\s+(?:الآن|الإطلالة|الاطلالة)[!！.]?/g, 'راجع تفاصيل المنتج.')
+      .replace(/(?:تصفّح|تصفح|اكتشف)\s+(?:ال)?مجموعة[!！.]?/g, 'راجع تفاصيل المجموعة الموثقة.')
+      .replace(/أضف\s+إلى\s+السلة[!！.]?/g, 'راجع تفاصيل المنتج ووجهة التحويل.')
+  }
+
+  return guarded
+}
+
+function guardUnverifiedBrandContextClaims(
+  text: string,
+  context: ContentDraftTruthContext,
+): string {
+  const facts = brandFactCorpus(context).toLowerCase()
+  if (!facts.trim()) return text
+  let guarded = text
+
+  if (!/\b(?:work|workplace|office|meeting|professional)\b|(?:العمل|المكتب|الاجتماعات|المهني)/i.test(facts)) {
+    guarded = guarded
+      .replace(/\b(?:for|at)\s+(?:the\s+)?(?:workplace|office|work|meetings?)\b/gi, 'for a use context to validate')
+      .replace(/\b(?:work|office|meeting)[-\s]?(?:ready|wear|look|style)\b/gi, 'use-case direction to validate')
+      .replace(/(?:للعمل|للمكتب|للاجتماعات|إطلالة\s+العمل|اطلالة\s+العمل)/g, 'لسياق استخدام يحتاج إلى تحقق')
+  }
+
+  if (!/\b(?:culture|cultural|heritage|tradition|traditional)\b|(?:الثقافة|ثقافي|التراث|التقاليد|تقليدي)/i.test(facts)) {
+    guarded = guarded
+      .replace(/\b(?:cultural|heritage|traditional)\s+(?:identity|story|value|values|style|inspiration)\b/gi, 'cultural angle to validate')
+      .replace(/\bcultural\s+heritage\b/gi, 'cultural angle to validate')
+      .replace(/\b(?:celebrate|honor|honour)\s+(?:our|the)\s+(?:culture|heritage|traditions?)\b/gi, 'validate the cultural angle before using it')
+      .replace(/(?:الهوية\s+الثقافية|القيم\s+الثقافية|التراث|التقاليد)/g, 'زاوية ثقافية تحتاج إلى تحقق')
+  }
+
+  if (!/\b(?:occasion|versatile|varied|diverse|wide\s+collection|collection\s+range)\b|(?:المناسبات|متنوعة|تشكيلة\s+واسعة|مجموعة\s+واسعة)/i.test(facts)) {
+    guarded = guarded
+      .replace(/\b(?:every|any|all)\s+occasions?\b/gi, 'a use occasion to validate')
+      .replace(/\b(?:wide|diverse|varied|versatile)\s+(?:range|collection|selection)\b/gi, 'documented product selection')
+      .replace(/(?:لكل\s+المناسبات|كل\s+مناسبة|تشكيلة\s+متنوعة|مجموعة\s+متنوعة|تشكيلة\s+واسعة|مجموعة\s+واسعة)/g, 'استخدام أو تشكيلة تحتاج إلى تحقق')
+  }
+
+  if (!/\b(?:comfort|comfortable|fabric|material|durable|durability)\b|(?:الراحة|مريح|القماش|الخامة|متين|المتانة)/i.test(facts)) {
+    guarded = guarded
+      .replace(/\b(?:premium|luxury|breathable|soft)\s+fabrics?\b/gi, 'fabric details to verify')
+      .replace(/\b(?:comfortable|comfort-focused|durable|long-lasting)\b/gi, 'product detail to verify')
+      .replace(/(?:أقمشة\s+فاخرة|خامات\s+فاخرة|قماش\s+مريح|راحة\s+طوال\s+اليوم|متين(?:ة)?|يدوم\s+طويلاً)/g, 'تفصيل منتج يحتاج إلى تحقق')
   }
 
   return guarded
@@ -1048,7 +1095,10 @@ export function guardContentDraftText(
   ), context)
 
   return guardNexusMarketingOperatingClaims(
-    guardUnverifiedFeatureAndOutcomeClaims(guarded, context),
+    guardUnverifiedBrandContextClaims(
+      guardUnverifiedFeatureAndOutcomeClaims(guarded, context),
+      context,
+    ),
     context,
   )
     .replace(/\s{2,}/g, ' ')

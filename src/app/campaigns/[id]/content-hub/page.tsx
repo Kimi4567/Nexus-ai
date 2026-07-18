@@ -752,6 +752,9 @@ export default function ContentHubPage() {
   const bulkImageCreditCost = getBulkImageGenerationCost(pendingImageCount)
   const progress = totalImagePosts > 0 ? Math.round((doneCount / totalImagePosts) * 100) : 0
   const draftCount = posts.filter(p => p.status === 'DRAFT').length
+  const draftMediaDecisionCount = posts.filter(
+    post => post.status === 'DRAFT' && deriveContentHubMediaState(post).needsAttention,
+  ).length
   const approvedCount = posts.filter(p => p.status === 'APPROVED').length
   const approvedPostsWithDates = posts.filter(p => p.status === 'APPROVED' && hasValidDate(p.scheduledAt))
   const approvedAutoTargets = Array.from(new Set(approvedPostsWithDates.map(post => normalizeAutoPublishTarget(post.platform))))
@@ -870,6 +873,17 @@ export default function ContentHubPage() {
       ],
     )
   }, [brandProfile, campaign?.aiOutput, contentReviewPosts])
+  const approvalReviewSummary = useMemo(() => {
+    const claimRisks = contentApprovalPreflight.issues.filter(issue => /unsupported|unverified|claim/i.test(issue.reason)).length
+    const destinationRisks = contentApprovalPreflight.issues.filter(issue => /destination|conversion|cta/i.test(issue.reason)).length
+    const alignmentRisks = Math.max(0, contentApprovalPreflight.issues.length - claimRisks - destinationRisks)
+    return {
+      reviewedDrafts: contentReviewPosts.filter(post => post.status === 'DRAFT').length,
+      claimRisks,
+      destinationRisks,
+      alignmentRisks,
+    }
+  }, [contentApprovalPreflight.issues, contentReviewPosts])
   const contentIssueCountByPostId = useMemo(() => {
     const counts = new Map<string, number>()
     for (const issue of contentApprovalPreflight.issues) {
@@ -3397,11 +3411,25 @@ export default function ContentHubPage() {
               <p className="text-sm text-slate-500 mb-6">
                 {t('contentHub.approveConfirmBody2')}
               </p>
-              {pendingImageCount > 0 && (
+              <div className={`mb-4 rounded-xl border p-3 text-xs leading-relaxed ${contentApprovalPreflight.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-rose-200 bg-rose-50 text-rose-900'}`}>
+                <p className="font-black">{isAr ? 'ملخص فحص ما قبل الاعتماد' : 'Pre-approval review summary'}</p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <span>{isAr ? 'المسودات المفحوصة' : 'Drafts reviewed'}: <b>{approvalReviewSummary.reviewedDrafts}</b></span>
+                  <span>{isAr ? 'مخاطر الادعاءات' : 'Claim risks'}: <b>{approvalReviewSummary.claimRisks}</b></span>
+                  <span>{isAr ? 'مخاطر الوجهة/CTA' : 'Destination/CTA risks'}: <b>{approvalReviewSummary.destinationRisks}</b></span>
+                  <span>{isAr ? 'مشاكل التطابق والجودة' : 'Alignment/quality issues'}: <b>{approvalReviewSummary.alignmentRisks}</b></span>
+                </div>
+                <p className="mt-2 font-semibold">
+                  {contentApprovalPreflight.ok
+                    ? (isAr ? 'اجتازت النسخ الفحص الحالي. يظل اعتماد الوسائط والجدولة والنشر قرارات منفصلة.' : 'Copy passes the current review. Media approval, scheduling, and publishing remain separate decisions.')
+                    : (isAr ? 'الاعتماد مقفل حتى تصبح جميع الأعداد أعلاه صفراً.' : 'Approval stays locked until every risk count above is zero.')}
+                </p>
+              </div>
+              {draftMediaDecisionCount > 0 && (
                 <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
                   {isAr
-                    ? `هذا اعتماد للنصوص فقط. ما زالت ${pendingImageCount} مسودات تحتاج قرار وسائط، ولن تصبح جاهزة للجدولة أو النشر حتى تكتمل مراجعة الوسائط.`
-                    : `This approves copy only. ${pendingImageCount} draft${pendingImageCount === 1 ? '' : 's'} still need a media decision and will not be ready for scheduling or publishing until media review is complete.`}
+                    ? `هذا اعتماد للنصوص فقط. ما زالت ${draftMediaDecisionCount} مسودات تحتاج قرار وسائط، ولن تصبح جاهزة للجدولة أو النشر حتى تكتمل مراجعة الوسائط.`
+                    : `This approves copy only. ${draftMediaDecisionCount} draft${draftMediaDecisionCount === 1 ? '' : 's'} still need a media decision and will not be ready for scheduling or publishing until media review is complete.`}
                 </div>
               )}
               {contentPlanOrderMismatch && (
@@ -5196,6 +5224,9 @@ function PostCard({
   const scheduledDate = post.scheduledAt
     ? new Date(post.scheduledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : null
+  const scheduledDateLabel = post.status === 'SCHEDULED' || post.status === 'PROCESSING' || post.status === 'PUBLISHED'
+    ? (isAr ? 'موعد التنفيذ' : 'Scheduled')
+    : (isAr ? 'تاريخ مقترح — غير مجدول' : 'Proposed date — not scheduled')
 
   // Wrapper with status bar on top + action row on bottom
   return (
@@ -5205,7 +5236,7 @@ function PostCard({
       <div className="flex items-center justify-between px-3 py-2" style={{ background: '#F8FAFC', borderBottom: '1px solid rgba(15,23,42,0.08)' }}>
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">#{post.contentPlanIndex}</span>
-          {scheduledDate && <span className="text-[10px] text-slate-400">· {scheduledDate}</span>}
+          {scheduledDate && <span className="text-[10px] text-slate-400">· {scheduledDateLabel}: {scheduledDate}</span>}
           {/* A/B variant badge */}
           {post.variantLabel && (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"

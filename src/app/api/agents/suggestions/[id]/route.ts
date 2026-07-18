@@ -77,12 +77,23 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
         }, { status: 409 })
       }
     }
-    if (suggestionSource === 'execution-monitor' || guidedResearchReview) {
+    if (suggestionSource === 'execution-monitor') {
       const nextHref = typeof suggestionPayload.href === 'string'
         ? suggestionPayload.href
-        : guidedResearchReview
-          ? '/strategy'
-          : undefined
+        : undefined
+      return NextResponse.json({
+        ok: true,
+        status: 'NAVIGATION_ONLY',
+        executed: false,
+        nextHref,
+        message: 'Execution-monitor items describe live workflow state and cannot be approved as completed work.',
+      }, { status: 409 })
+    }
+
+    if (guidedResearchReview) {
+      const nextHref = typeof suggestionPayload.href === 'string'
+        ? suggestionPayload.href
+        : '/strategy'
       await prisma.$transaction(async (tx) => {
         await (tx as any).agentSuggestion.update({
           where: { id: params.id },
@@ -93,7 +104,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
               executed: false,
               autoExecution: false,
               nextHref,
-              reason: guidedResearchReview ? 'RESEARCH_REVIEW_REQUIRED' : 'GUIDED_WORKFLOW_REQUIRED',
+              reason: 'RESEARCH_REVIEW_REQUIRED',
             },
           },
         })

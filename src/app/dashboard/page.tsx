@@ -208,6 +208,11 @@ function DashboardGateSurface({
             <p className="text-[13px] font-semibold text-slate-500">
               {ar ? 'جار تجهيز لوحة القيادة...' : 'Preparing your command center...'}
             </p>
+            <p className="mt-2 text-[11px] font-medium leading-5 text-slate-400">
+              {ar
+                ? 'نتحقق من Brand Brain والحملات والاتصالات وقرار التنفيذ الحي. لن يظهر رقم جاهزية أو حالة فارغة قبل اكتمال القراءات.'
+                : 'Verifying Brand Brain, campaigns, connections, and the live execution decision. No readiness number or empty state appears before every read settles.'}
+            </p>
           </>
         ) : (
           <>

@@ -833,6 +833,13 @@ export default function OnboardingPage() {
                 ? (ar ? 'متابعة' : 'Continue')
                 : (ar ? 'حفظ وعرض الملخص' : 'Save and view summary')}
           </PrimaryButton>
+          {saving && (
+            <p className="mt-2 text-center text-[11.5px] font-semibold leading-5" style={{ color: '#475569' }} role="status" aria-live="polite">
+              {ar
+                ? 'جارٍ إنشاء مساحة العمل وحفظ الطبقة الأولى من Brand Brain. لا يتم توليد استراتيجية أو خصم كريديت في هذه الخطوة.'
+                : 'Creating the workspace and saving the first Brand Brain layer. This step generates no strategy and spends no credits.'}
+            </p>
+          )}
           <div className="mt-1.5">
             <QuietButton onClick={goBack}>{ar ? 'رجوع' : 'Back'}</QuietButton>
           </div>

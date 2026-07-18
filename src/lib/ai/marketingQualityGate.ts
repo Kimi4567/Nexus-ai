@@ -60,6 +60,7 @@ export interface StrategyQualityInput {
   brand: MarketingBrandProfile | null | undefined
   allowedPlatforms?: string[] | null
   goal?: string | null
+  requireAllReviewedPlatforms?: boolean
   checkedAt?: string
 }
 
@@ -118,6 +119,31 @@ const DOMAIN_SIGNATURES: Array<{
 
 const GENERIC_COMPETITOR_RE = /^(?:premium|leading|local|top|best)?\s*(?:dental|medical|beauty|marketing|real estate|coffee|software|saas)?\s*(?:clinics?|companies|agencies|providers|businesses|brands|stores|shops|firms)(?:\s+in\s+.+)?$/i
 const UNSUPPORTED_QUALITY_SUPERLATIVE_RE = /\b(?:freshest|finest|premium|high[-\s]?quality|optimal|perfect|ultimate|unmatched|unrival(?:l)?ed)\b|(?:الأطزج|الأفضل|الأمثل|مثالي|مثالية|فاخر|فاخرة|عالي(?:ة)?\s+الجودة)/gi
+const UNVERIFIED_DIRECT_RESPONSE_RE = /\b(?:shop(?:\s+now|\s+the\s+look)?|browse\s+(?:our|the)\s+collection|explore\s+(?:our|the)\s+collection|view\s+products?|add\s+to\s+cart|buy\s+now|order\s+now|sign\s+up|register|book|request\s+(?:a\s+)?demo|whatsapp)\b|(?:تسوّق|تسوق|اشتر\s+الآن|اطلب\s+الآن|تصفّح\s+(?:ال)?مجموعة|تصفح\s+(?:ال)?مجموعة|اكتشف\s+(?:ال)?مجموعة|أضف\s+إلى\s+السلة|سجّل|سجل|احجز|واتساب)/i
+const UNSOURCED_CHANNEL_FACT_RE = /\b(?:high(?:est)?[-\s]?engagement|fastest[-\s]?growing|rapidly growing|popular among|best platform|leading platform|dominant platform|most effective platform)\b|(?:تفاعل\s+مرتفع|الأسرع\s+نمواً|ينمو\s+بسرعة|شائع\s+بين|أفضل\s+منصة|المنصة\s+الرائدة|الأكثر\s+فعالية)/i
+const HYPOTHESIS_MARKER_RE = /\b(?:hypothesis|assumption|to validate|test whether|planning assumption)\b|(?:فرضية|افتراض|للتحقق|نختبر\s+ما\s+إذا)/i
+const UNGROUNDED_CONTEXT_CLAIMS: Array<{ code: string; output: RegExp; evidence: RegExp }> = [
+  {
+    code: 'work_or_professional_use',
+    output: /\b(?:style[-\s]?conscious professionals?|working women|workwear|office wear|for (?:the )?(?:office|work|meetings?)|meeting[-\s]?ready)\b|(?:محترفات|نساء\s+عاملات|ملابس\s+العمل|إطلالة\s+العمل|للعمل|للمكتب|للاجتماعات)/i,
+    evidence: /\b(?:professional|work|workplace|office|meeting|workwear)\b|(?:العمل|المكتب|الاجتماعات|المهني|المحترفات)/i,
+  },
+  {
+    code: 'cultural_or_heritage_attribute',
+    output: /\b(?:culturally respectful|cultural values?|cultural fashion|heritage|traditional identity)\b|(?:يحترم\s+الثقافة|القيم\s+الثقافية|أزياء\s+ثقافية|التراث|الهوية\s+التقليدية)/i,
+    evidence: /\b(?:culture|cultural|heritage|tradition|traditional)\b|(?:الثقافة|ثقافي|التراث|التقاليد|تقليدي)/i,
+  },
+  {
+    code: 'collection_variety_or_every_occasion',
+    output: /\b(?:(?:every|any|all) occasions?|varied collection|diverse collection|wide (?:range|collection|selection))\b|(?:لكل\s+المناسبات|كل\s+مناسبة|تشكيلة\s+متنوعة|مجموعة\s+متنوعة|تشكيلة\s+واسعة|مجموعة\s+واسعة)/i,
+    evidence: /\b(?:occasion|varied|diverse|wide (?:range|collection|selection))\b|(?:المناسبات|متنوعة|تشكيلة\s+واسعة|مجموعة\s+واسعة)/i,
+  },
+  {
+    code: 'fabric_comfort_or_durability',
+    output: /\b(?:comfortable|comfort|breathable|soft fabrics?|premium fabrics?|durable|long[-\s]?lasting)\b|(?:مريح|الراحة|أقمشة\s+فاخرة|خامات\s+فاخرة|قماش\s+ناعم|متين|يدوم\s+طويلاً)/i,
+    evidence: /\b(?:comfort|comfortable|fabric|material|breathable|durable|durability)\b|(?:الراحة|مريح|القماش|الخامة|متين|المتانة)/i,
+  },
+]
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -216,6 +242,8 @@ function publicStrategyFields(strategy: unknown): Array<{ path: string; value: u
 
   addObjectFields('audienceSegmentsDetailed', ['segment', 'pain', 'desiredOutcome', 'objection', 'message', 'cta'])
   addObjectFields('contentAnglesDetailed', ['title', 'hook', 'pain', 'desiredOutcome', 'objection', 'cta'])
+  addObjectFields('channelMix', ['rationale'])
+  addObjectFields('channelStrategy', ['rationale', 'role', 'reason'])
   addObjectFields('funnelStages', ['userMindset', 'message', 'cta'])
   addObjectFields('weeklyExecutionPlan', ['objective', 'keyMessage', 'cta'])
   add('strategy.offerCTAStrategy', strategy.offerCTAStrategy)
@@ -368,6 +396,19 @@ export function reviewStrategyGrounding(input: StrategyQualityInput): MarketingQ
   }
 
   const strategyPublicText = publicFields.map(field => normalizedText(field.value)).join(' ')
+  publicFields
+    .filter(field => field.path.includes('channelMix') || field.path.includes('channelStrategy'))
+    .forEach(({ path, value }) => {
+      const channelClaim = normalizedText(value)
+      if (UNSOURCED_CHANNEL_FACT_RE.test(channelClaim) && !HYPOTHESIS_MARKER_RE.test(channelClaim)) {
+        blockers.push(finding(
+          'unsourced_channel_market_claim',
+          'blocker',
+          path,
+          'Channel rationale states a market or engagement claim as fact. Cite reviewed evidence or label it as a hypothesis to validate.',
+        ))
+      }
+    })
   const approvedClaimText = normalizedText([
     input.brand?.brandName,
     input.brand?.description,
@@ -390,6 +431,24 @@ export function reviewStrategyGrounding(input: StrategyQualityInput): MarketingQ
       ))
     }
   })
+  if (!normalizedText(input.brand?.conversionDestination) && UNVERIFIED_DIRECT_RESPONSE_RE.test(strategyPublicText)) {
+    blockers.push(finding(
+      'conversion_cta_without_destination',
+      'blocker',
+      'strategy.cta',
+      'The strategy uses a direct-response CTA without a verified store, booking, contact, or conversion destination.',
+    ))
+  }
+  for (const contextClaim of UNGROUNDED_CONTEXT_CLAIMS) {
+    if (contextClaim.output.test(strategyPublicText) && !contextClaim.evidence.test(brandText)) {
+      blockers.push(finding(
+        'ungrounded_brand_context',
+        'blocker',
+        'strategy.customerFacingClaims',
+        `The strategy adds the unsupported brand context "${contextClaim.code}" without Brand Brain evidence.`,
+      ))
+    }
+  }
   for (const audienceClaim of AUDIENCE_CLAIMS) {
     if (audienceClaim.re.test(strategyPublicText) && !audienceClaim.re.test(brandText)) {
       blockers.push(finding(
@@ -413,6 +472,20 @@ export function reviewStrategyGrounding(input: StrategyQualityInput): MarketingQ
       'blocker',
       'strategy.platforms',
       `${platform} was not included in the reviewed channel scope.`,
+    )))
+    const missingReviewedPlatforms = input.requireAllReviewedPlatforms
+      ? Array.from(allowedPlatforms).filter(platform => {
+          if (platform === 'META') {
+            return !strategyPlatforms.some(strategyPlatform => ['META', 'FACEBOOK', 'INSTAGRAM'].includes(strategyPlatform))
+          }
+          return !strategyPlatforms.includes(platform)
+        })
+      : []
+    missingReviewedPlatforms.forEach(platform => blockers.push(finding(
+      'reviewed_platform_missing_from_strategy',
+      'blocker',
+      'strategy.platforms',
+      `${platform} is in the reviewed campaign scope but has no role, direction, or execution plan in the strategy.`,
     )))
   }
 

@@ -328,7 +328,7 @@ export function buildCampaignExecutionTruth(snapshot: CampaignExecutionSnapshot)
         stage,
         'REVIEW_MEDIA',
         'high',
-        'manual_action',
+        'review_required',
         contentHref,
         { en: 'Complete and approve final media', ar: 'أكمل واعتمد الوسائط النهائية' },
         {

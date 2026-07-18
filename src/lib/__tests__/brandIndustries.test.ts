@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   BRAND_INDUSTRY_OPTIONS,
+  ONBOARDING_INDUSTRY_OPTIONS,
   getBrandIndustryLabel,
   normalizeBrandIndustry,
 } from '@/lib/brandIndustries'
@@ -20,5 +21,9 @@ describe('Brand Brain industry vocabulary', () => {
     expect(getBrandIndustryLabel('Tech & Apps', 'ar')).toBe('برمجيات وتقنية')
     expect(getBrandIndustryLabel('Tech & Apps', 'en')).toBe('Software & Tech')
     expect(BRAND_INDUSTRY_OPTIONS.some(option => option.value === 'Tech & Apps')).toBe(true)
+  })
+
+  it('offers Fashion & Apparel during starter onboarding', () => {
+    expect(ONBOARDING_INDUSTRY_OPTIONS.map(option => option.value)).toContain('Fashion & Apparel')
   })
 })

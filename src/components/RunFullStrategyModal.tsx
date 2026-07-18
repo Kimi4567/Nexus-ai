@@ -28,11 +28,13 @@ import {
 import { useBillingStatus } from '@/lib/useBillingStatus'
 import { getBrandIndustryLabel } from '@/lib/brandIndustries'
 import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
+import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
 // PR-S1b — deterministic Strategy Order Review (display-only; no generation change).
 import { formatStrategyDeliverableForLocale, getStrategyDeliverables } from '@/lib/strategy/deliverablesContract'
 // PR-S1c-2 — variable strategy pricing (display side). The SAME pure function runs
 // server-side before deduction, so the displayed price equals the charged price.
 import { getStrategyCreditCost } from '@/lib/strategy/strategyPricing'
+import { getStrategyToDraftsJourneyCost } from '@/lib/strategy/strategyPricingDisplayTruth'
 import {
   CURRENT_CREDIT_PRICING_EFFECTIVE_DATE,
   CURRENT_CREDIT_PRICING_VERSION,
@@ -561,6 +563,9 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
     result?.creditsRemaining === -1
       ? rs.statUnlimited
       : (result?.creditsRemaining ?? '--')
+  const followUpDecisionLabel = (result?.suggestions ?? 0) === 1
+    ? (locale === 'ar' ? 'قرار متابعة أُنشئ' : 'Follow-up decision created')
+    : (locale === 'ar' ? 'قرارات متابعة أُنشئت' : 'Follow-up decisions created')
 
   // Helper: translate a required field key to a human label
   const fieldLabel = (key: RequiredFieldKey) =>
@@ -588,6 +593,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
       pricePoint: 'Price position',
       uniqueAdvantages: 'Differentiators',
       customerObjections: 'Customer objections',
+      averageOrderValue: 'Average order value',
+      grossMargin: 'Gross margin',
     }
     const ar: Record<StrategyBriefFieldKey, string> = {
       brandName: 'اسم العلامة',
@@ -610,6 +617,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
       pricePoint: 'الشريحة السعرية',
       uniqueAdvantages: 'عوامل التميّز',
       customerObjections: 'اعتراضات العملاء',
+      averageOrderValue: 'متوسط قيمة الطلب',
+      grossMargin: 'هامش الربح',
     }
     return locale === 'ar' ? ar[key] : en[key]
   }
@@ -742,6 +751,27 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
     ? languageLabels[languageKey][locale === 'ar' ? 'ar' : 'en']
     : strategyBrandRecord.languagePreference
   const includesPaidPreview = strategyType === 'paid' || strategyType === 'full'
+  const hasOrganicDraftJourney = strategyDeliverablesPreview.organicPostCount > 0
+  const strategyReviewCostPreview = CREDIT_ACTION_COSTS.SENTINEL_REVIEW
+  const contentPlanCostPreview = hasOrganicDraftJourney
+    ? CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION
+    : 0
+  const copyDraftJourneyCostPreview = strategyCostPreview === null
+    ? null
+    : getStrategyToDraftsJourneyCost(
+        strategyCostPreview,
+        strategyReviewCostPreview,
+        contentPlanCostPreview,
+      )
+  const mediaSlotCountPreview = strategyDeliverablesPreview.organicPostCount
+  const generatedMediaMinimumPreview = mediaSlotCountPreview * CREDIT_ACTION_COSTS.IMAGE_GENERATION
+  const generatedMediaMaximumPreview = mediaSlotCountPreview * CREDIT_ACTION_COSTS.VIDEO_GENERATION
+  const fullProductionMinimumPreview = copyDraftJourneyCostPreview === null
+    ? null
+    : copyDraftJourneyCostPreview + generatedMediaMinimumPreview
+  const fullProductionMaximumPreview = copyDraftJourneyCostPreview === null
+    ? null
+    : copyDraftJourneyCostPreview + generatedMediaMaximumPreview
   const isUnlimitedPreview = creditBalance === -1
   const projectedBalance = strategyCostPreview === null || creditBalance === null
     ? null
@@ -1251,6 +1281,59 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
                 : `Pricing ${CURRENT_CREDIT_PRICING_VERSION} — effective ${CURRENT_CREDIT_PRICING_EFFECTIVE_DATE}. Earlier ledger entries keep their historical amount and are never repriced.`}
             </p>
 
+            <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-slate-950">
+                    {locale === 'ar' ? 'تقدير الرحلة قبل أن تبدأ' : 'Journey estimate before you start'}
+                  </p>
+                  <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-600">
+                    {locale === 'ar'
+                      ? 'يُخصم الآن سعر الاستراتيجية فقط. المراجعة، مسودات النصوص، والصور أو الفيديوهات خطوات منفصلة لا تبدأ دون موافقة جديدة.'
+                      : 'Only the strategy price is charged now. Quality review, copy drafts, and image or video production are separate steps that require a new approval.'}
+                  </p>
+                </div>
+                <span className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10px] font-black text-emerald-800">
+                  {locale === 'ar' ? 'لا يوجد خصم وسائط الآن' : 'No media charge now'}
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                  <p className="text-[10px] font-bold text-slate-500">{locale === 'ar' ? 'الاستراتيجية الآن' : 'Strategy now'}</p>
+                  <p className="mt-1 text-base font-black text-slate-950">{strategyCostText}</p>
+                </div>
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                  <p className="text-[10px] font-bold text-slate-500">
+                    {hasOrganicDraftJourney
+                      ? (locale === 'ar' ? 'حتى مسودات النصوص' : 'Through copy drafts')
+                      : (locale === 'ar' ? 'مع مراجعة الجودة' : 'With quality review')}
+                  </p>
+                  <p className="mt-1 text-base font-black text-slate-950">
+                    {copyDraftJourneyCostPreview === null
+                      ? (locale === 'ar' ? 'عرض مخصص' : 'Custom quote')
+                      : `${copyDraftJourneyCostPreview} ${locale === 'ar' ? 'كريديت' : 'credits'}`}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                  <p className="text-[10px] font-bold text-slate-500">{locale === 'ar' ? 'الإنتاج الكامل التقديري' : 'Estimated full production'}</p>
+                  <p className="mt-1 text-base font-black text-slate-950">
+                    {mediaSlotCountPreview <= 0 || fullProductionMinimumPreview === null || fullProductionMaximumPreview === null
+                      ? (locale === 'ar' ? 'يُسعّر حسب الإبداع المعتمد' : 'Quoted after creative approval')
+                      : `${fullProductionMinimumPreview}–${fullProductionMaximumPreview} ${locale === 'ar' ? 'كريديت' : 'credits'}`}
+                  </p>
+                </div>
+              </div>
+
+              {mediaSlotCountPreview > 0 && (
+                <p className="mt-3 text-[11px] leading-5 text-slate-500">
+                  {locale === 'ar'
+                    ? `التقدير يغطي ${mediaSlotCountPreview} مسودة: يبدأ إذا استُخدمت صورة مولدة لكل مسودة (${CREDIT_ACTION_COSTS.IMAGE_GENERATION} لكل صورة)، ويصل للحد الأعلى فقط إذا اختير فيديو سينمائي مولد لكل مسودة (${CREDIT_ACTION_COSTS.VIDEO_GENERATION} لكل فيديو). تحويل فيديو أصلي مؤهل إلى Motion Design يكلف ${CREDIT_ACTION_COSTS.MOTION_DESIGN_VIDEO} كريديت. المزيج الفعلي يُعرض ويُعتمد لاحقاً لكل منشور.`
+                    : `The estimate covers ${mediaSlotCountPreview} drafts: the lower bound assumes one generated image per draft (${CREDIT_ACTION_COSTS.IMAGE_GENERATION} each), while the upper bound assumes one cinematic generated video per draft (${CREDIT_ACTION_COSTS.VIDEO_GENERATION} each). Converting a qualified owned video into Motion Design costs ${CREDIT_ACTION_COSTS.MOTION_DESIGN_VIDEO} credits. The actual mix is quoted and approved per post later.`}
+                </p>
+              )}
+            </div>
+
             <div className="mb-4 flex flex-wrap justify-center gap-2">
               {[strategyTypePreviewLabel, strategyDurationPreviewLabel, strategyPostCountPreviewLabel, langLabel].map((chip) => (
                 <span key={chip} className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-[11px] font-bold text-indigo-700">{chip}</span>
@@ -1509,7 +1592,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
             <div className="grid grid-cols-4 gap-2 mb-4">
               {[
                 { value: '1',                            label: rs.statCampaign,     color: '#8B5CF6', bg: 'rgba(139,92,246,0.08)',  border: 'rgba(139,92,246,0.18)' },
-                { value: String(result.suggestions ?? 0),label: rs.statSuggestions,  color: '#10B981', bg: 'rgba(16,185,129,0.08)',   border: 'rgba(16,185,129,0.18)' },
+                { value: String(result.suggestions ?? 0),label: followUpDecisionLabel,  color: '#10B981', bg: 'rgba(16,185,129,0.08)',   border: 'rgba(16,185,129,0.18)' },
                 { value: String(result.creditsUsed ?? 8), label: rs.statCreditsUsed,  color: '#FF6B35', bg: 'rgba(255,107,53,0.08)',  border: 'rgba(255,107,53,0.18)' },
                 { value: String(creditsLeftDisplay),      label: rs.statCreditsLeft,  color: '#00D4FF', bg: 'rgba(0,212,255,0.08)',   border: 'rgba(0,212,255,0.18)' },
               ].map(({ value, label, color, bg: cellBg, border }) => (
@@ -1520,6 +1603,14 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
                 </div>
               ))}
             </div>
+
+            {(result.suggestions ?? 0) > 0 && (
+              <p className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-[11px] font-semibold leading-5 text-emerald-800">
+                {locale === 'ar'
+                  ? 'ستجد قرار المتابعة داخل الحملة وفي صفحة الموافقات عندما يحتاج تأكيدك؛ لا يُنفّذ تلقائياً.'
+                  : 'The follow-up decision appears inside the campaign and in Approvals when it needs confirmation; it is not executed automatically.'}
+              </p>
+            )}
 
             <div className="flex gap-2 mb-5">
               <span className="flex items-center gap-1.5 text-[10px] font-medium px-2.5 py-1.5 rounded-lg"

@@ -60,6 +60,34 @@ describe('contentDraftTruthGuard', () => {
       .toContain('جرب النظام الآن')
   })
 
+  it('removes shopping CTAs when no store or conversion destination is verified', () => {
+    const joined = [
+      'Shop the look.',
+      'Browse our collection.',
+      'Explore the collection.',
+      'Add to cart.',
+      'تسوق الآن.',
+      'اكتشف المجموعة.',
+    ].map(text => guardContentDraftText(text, { hasConversionDestination: false })).join(' ')
+
+    expect(joined).not.toMatch(/shop the look|browse our collection|explore the collection|add to cart|تسوق الآن|اكتشف المجموعة/i)
+    expect(joined).toContain('Review the product details')
+    expect(joined).toContain('راجع تفاصيل المجموعة الموثقة')
+  })
+
+  it('marks unsupported fashion use contexts and product claims as unverified details', () => {
+    const out = guardContentDraftText(
+      'A comfortable work-ready abaya in premium fabrics for every occasion, inspired by cultural heritage.',
+      { brandFacts: ['Modern abayas presented in Arabic and English.'] },
+    )
+
+    expect(out).not.toMatch(/comfortable|work-ready|premium fabrics|every occasion|cultural heritage/i)
+    expect(out).toContain('product detail to verify')
+    expect(out).toContain('use-case direction to validate')
+    expect(out).toContain('a use occasion to validate')
+    expect(out).toContain('cultural angle to validate')
+  })
+
   it('grounds sales outcome copy and removes invented product UI from image directions', () => {
     const copy = guardContentDraftText(
       'نظام NEXUS يقدم لك خيار عملي! تابع عملاءك بسهولة وبدون تعقيد تقني. إدارة المبيعات أصبحت أسهل وأسرع. تعرف على كيفية تحسين مبيعاتك الآن! واجهة عربية مصممة خصيصًا لك.',

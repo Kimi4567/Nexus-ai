@@ -44,4 +44,15 @@ describe('strategy decision desk channel truth', () => {
     expect(source).toContain('Show ${paidPlanning.creativeBriefs?.length || 0} creative briefs')
     expect(source).toContain('Show ${paidPlanning.adCopyVariations.length} ad-copy variations')
   })
+
+  it('makes the promised planning horizon and exit gates visible on the decision desk', () => {
+    const source = readFileSync(
+      path.join(process.cwd(), 'src/components/campaign/StrategyDecisionDesk.tsx'),
+      'utf8',
+    )
+
+    expect(source).toContain('Planning-horizon roadmap')
+    expect(source).toContain('Exit gate:')
+    expect(source).toContain('do not treat the horizon promise as fulfilled')
+  })
 })

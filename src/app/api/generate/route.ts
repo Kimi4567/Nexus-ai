@@ -136,6 +136,7 @@ export async function POST(req: NextRequest) {
       strategy,
       brand: brandProfile,
       allowedPlatforms: campaign.platforms || [],
+      requireAllReviewedPlatforms: true,
       goal: String(campaign.goal),
     })
     if (qualityGate.status !== 'passed') {

@@ -14,6 +14,7 @@ const dentalBrand = {
   audienceAge: '25-54',
   audiencePainPoints: ['Unclear treatment options'],
   audienceDesires: ['A confident consultation decision'],
+  conversionDestination: 'https://example.test/book-consultation',
   topPlatforms: ['INSTAGRAM', 'FACEBOOK'],
   verifiedProof: [],
 }
@@ -125,6 +126,51 @@ describe('marketingQualityGate', () => {
     expect(report.blockers.map(item => item.code)).toContain('platform_outside_reviewed_scope')
   })
 
+  it('blocks a reviewed platform that disappears from the strategy plan', () => {
+    const report = reviewStrategyGrounding({
+      strategy: groundedStrategy,
+      brand: dentalBrand,
+      allowedPlatforms: ['INSTAGRAM', 'PINTEREST'],
+      requireAllReviewedPlatforms: true,
+      checkedAt: '2026-07-18T00:00:00.000Z',
+    })
+
+    expect(report.status).toBe('blocked')
+    expect(report.blockers.map(item => item.code)).toContain('reviewed_platform_missing_from_strategy')
+  })
+
+  it('blocks unsourced platform-growth claims and allows an explicit validation hypothesis', () => {
+    const unsourced = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        channelMix: [{
+          platform: 'INSTAGRAM',
+          rationale: 'Instagram is the highest-engagement and most effective platform for this category.',
+          contentFrequency: 'Review after evidence exists',
+        }],
+      },
+      brand: dentalBrand,
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-18T00:00:00.000Z',
+    })
+    expect(unsourced.blockers.map(item => item.code)).toContain('unsourced_channel_market_claim')
+
+    const hypothesis = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        channelMix: [{
+          platform: 'INSTAGRAM',
+          rationale: 'Planning hypothesis to validate: Instagram may be a high-engagement review surface for the saved audience.',
+          contentFrequency: 'Review after evidence exists',
+        }],
+      },
+      brand: dentalBrand,
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-18T00:00:00.000Z',
+    })
+    expect(hypothesis.blockers.map(item => item.code)).not.toContain('unsourced_channel_market_claim')
+  })
+
   it('blocks an unsupported quality superlative before paid review or approval', () => {
     const report = reviewStrategyGrounding({
       strategy: {
@@ -149,6 +195,59 @@ describe('marketingQualityGate', () => {
     })
 
     expect(report.blockers.map(item => item.code)).not.toContain('unsupported_quality_superlative')
+  })
+
+  it('blocks shopping CTAs when no conversion destination exists', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        ctaVariations: ['Shop the look', 'Browse our collection'],
+      },
+      brand: {
+        brandName: 'NOORAYA',
+        industry: 'Fashion',
+        description: 'Modern abayas for women in the UAE.',
+        primaryOffer: 'A reviewed selection of abayas.',
+        targetAudience: 'Women aged 25-34 in the UAE.',
+        topPlatforms: ['INSTAGRAM'],
+        verifiedProof: [],
+      },
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-18T00:00:00.000Z',
+    })
+
+    expect(report.status).toBe('blocked')
+    expect(report.blockers.map(item => item.code)).toContain('conversion_cta_without_destination')
+  })
+
+  it('blocks unsupported fashion use, culture, collection, and material claims', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        positioning: 'Modern abayas for women in the UAE.',
+        targetAudienceRefined: 'Style-conscious professionals seeking office wear.',
+        contentPillars: ['Cultural heritage', 'A varied collection for every occasion'],
+        ctaVariations: ['Review the documented details'],
+        contentAnglesDetailed: [{
+          title: 'Comfortable premium fabrics for meetings',
+          platform: 'INSTAGRAM',
+          cta: 'Review the documented details',
+        }],
+      },
+      brand: {
+        brandName: 'NOORAYA',
+        industry: 'Fashion',
+        description: 'Modern abayas for women in the UAE.',
+        primaryOffer: 'A reviewed selection of abayas.',
+        targetAudience: 'Women aged 25-34 in the UAE.',
+        topPlatforms: ['INSTAGRAM'],
+        verifiedProof: [],
+      },
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-18T00:00:00.000Z',
+    })
+
+    expect(report.status).toBe('blocked')
+    expect(report.blockers.filter(item => item.code === 'ungrounded_brand_context')).toHaveLength(4)
   })
 
   it('does not treat a negated premium statement as approved positioning', () => {

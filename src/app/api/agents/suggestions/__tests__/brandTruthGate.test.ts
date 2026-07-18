@@ -15,4 +15,11 @@ describe('agent suggestion live Brand Brain gate', () => {
     expect(source).toContain("error: 'BRAND_TRUTH_CONFLICT'")
     expect(source).toContain('{ status: 409 }')
   })
+
+  it('never records execution-monitor navigation as an approval', () => {
+    expect(source).toContain("if (suggestionSource === 'execution-monitor')")
+    expect(source).toContain("status: 'NAVIGATION_ONLY'")
+    expect(source).toContain('executed: false')
+    expect(source).toContain('cannot be approved as completed work')
+  })
 })

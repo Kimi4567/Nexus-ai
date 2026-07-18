@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { dedupeLiveApprovalQueue } from '@/lib/approvalInboxTruth'
+import { actionableApprovalSuggestions, dedupeLiveApprovalQueue } from '@/lib/approvalInboxTruth'
 
 describe('dedupeLiveApprovalQueue', () => {
+  it('keeps execution-monitor navigation out of the approval decision list', () => {
+    const suggestions = [
+      { id: 'monitor', type: 'CONTENT_SWAP', payload: { source: 'execution-monitor', href: '/content-hub' } },
+      { id: 'budget', type: 'BUDGET_CHANGE', payload: { source: 'agent-analysis' } },
+    ]
+
+    expect(actionableApprovalSuggestions(suggestions).map(item => item.id)).toEqual(['budget'])
+  })
+
   it('keeps one approval per campaign when a persisted decision exists', () => {
     const queue = [
       { campaignId: 'campaign-1', requiresApproval: true, id: 'live-1' },

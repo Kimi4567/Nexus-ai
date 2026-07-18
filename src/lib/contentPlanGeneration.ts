@@ -118,11 +118,63 @@ export interface ContentPlanSlot {
   index: number
 }
 
+export interface StrategyAngleLike {
+  platform?: unknown
+  format?: unknown
+  contentType?: unknown
+  type?: unknown
+}
+
 const VIDEO_ONLY_TARGETS = new Set(['YOUTUBE', 'YOUTUBE_SHORTS', 'TIKTOK', 'REELS', 'STORIES'])
 
 function normalizeContentTarget(raw: string): string {
-  const target = raw.toUpperCase()
-  return target === 'TWITTER' ? 'X' : target
+  const target = raw.trim().toUpperCase().replace(/[\s-]+/g, '_')
+  if (target === 'TWITTER') return 'X'
+  return target
+}
+
+/**
+ * Bind generated Content Hub slots to the exact reviewed strategy directions.
+ * Campaign platforms define the allowed set; an angle may choose only within
+ * that set. This prevents a later round-robin from silently moving a strategy
+ * direction to another channel.
+ */
+export function bindContentPlanSlotsToStrategyAngles(
+  slots: ContentPlanSlot[],
+  angles: StrategyAngleLike[],
+  allowedPlatforms: string[],
+): ContentPlanSlot[] {
+  if (angles.length === 0) return slots
+  const allowed = new Set(allowedPlatforms.map(normalizeContentTarget))
+
+  return slots.map((slot, index) => {
+    const angle = angles[index % angles.length] || {}
+    const requestedTarget = typeof angle.platform === 'string'
+      ? normalizeContentTarget(angle.platform)
+      : null
+    const requestedTargetAllowed = requestedTarget && (
+      allowed.has(requestedTarget)
+      || (['YOUTUBE_SHORT', 'YOUTUBE_SHORTS'].includes(requestedTarget) && allowed.has('YOUTUBE'))
+      || (requestedTarget === 'YOUTUBE' && (allowed.has('YOUTUBE_SHORT') || allowed.has('YOUTUBE_SHORTS')))
+    )
+    const publishTarget = requestedTargetAllowed
+      ? requestedTarget
+      : normalizeContentTarget(slot.publishTarget)
+    const format = [angle.format, angle.contentType, angle.type]
+      .filter((value): value is string => typeof value === 'string')
+      .join(' ')
+    const explicitlyVideo = /video|reel|short|story|tiktok|فيديو|ريل|ستوري/i.test(format)
+    const explicitlyStatic = /image|static|carousel|photo|post|صورة|كاروسيل|منشور/i.test(format)
+    const isVideoPost = VIDEO_ONLY_TARGETS.has(publishTarget)
+      || explicitlyVideo
+      || (!explicitlyStatic && slot.isVideoPost)
+
+    return {
+      ...slot,
+      publishTarget,
+      isVideoPost,
+    }
+  })
 }
 
 /**

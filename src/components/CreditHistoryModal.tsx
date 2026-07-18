@@ -175,7 +175,11 @@ function transactionEventDate(transaction: Transaction): string {
 
 export function transactionEntityHref(transaction: Pick<Transaction, 'entityId' | 'entityType'>): string | null {
   if (!transaction.entityId) return null
-  if (transaction.entityType === 'campaign' || transaction.entityType === 'strategy') {
+  if (
+    transaction.entityType === 'campaign'
+    || transaction.entityType === 'strategy'
+    || transaction.entityType?.startsWith('campaign_')
+  ) {
     return `/campaigns/${transaction.entityId}?tab=strategy`
   }
   return null

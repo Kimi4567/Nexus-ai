@@ -17,6 +17,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'fs'
 import {
+  bindContentPlanSlotsToStrategyAngles,
   parseContentPlanResponse,
   generateContentPlanWithRetry,
   contentPlanFailureResponse,
@@ -316,5 +317,28 @@ describe('distributeContentPlanSlots', () => {
     expect(distributeContentPlanSlots(1, 0, ['YOUTUBE_SHORTS'])).toEqual([
       { publishTarget: 'YOUTUBE_SHORTS', isVideoPost: true, index: 0 },
     ])
+  })
+
+  it('keeps each content slot on its reviewed strategy platform and format', () => {
+    const distributed = distributeContentPlanSlots(2, 1, ['INSTAGRAM', 'TIKTOK', 'PINTEREST'])
+    const bound = bindContentPlanSlotsToStrategyAngles(distributed, [
+      { platform: 'Instagram', format: 'Carousel' },
+      { platform: 'TikTok', format: 'Short-form video' },
+      { platform: 'Instagram', format: 'Static image' },
+    ], ['INSTAGRAM', 'TIKTOK', 'PINTEREST'])
+
+    expect(bound.map(slot => slot.publishTarget)).toEqual(['INSTAGRAM', 'TIKTOK', 'INSTAGRAM'])
+    expect(bound.map(slot => slot.isVideoPost)).toEqual([false, true, false])
+    expect(bound.some(slot => slot.publishTarget === 'PINTEREST')).toBe(false)
+  })
+
+  it('refuses an angle platform outside the reviewed campaign scope', () => {
+    const [bound] = bindContentPlanSlotsToStrategyAngles(
+      [{ publishTarget: 'INSTAGRAM', isVideoPost: false, index: 0 }],
+      [{ platform: 'LinkedIn', format: 'Post' }],
+      ['INSTAGRAM'],
+    )
+
+    expect(bound.publishTarget).toBe('INSTAGRAM')
   })
 })

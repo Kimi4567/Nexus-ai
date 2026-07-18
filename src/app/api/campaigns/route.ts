@@ -202,7 +202,55 @@ export async function GET(req: NextRequest) {
       prisma.campaign.count({ where: { ...baseWhere, status: 'DRAFT' } }),
     ])
 
-    return NextResponse.json({ campaigns, counts: { total, active, draft } })
+    const campaignIds = campaigns.map(campaign => campaign.id)
+    const contentRows = campaignIds.length > 0
+      ? await prisma.socialPost.findMany({
+          where: {
+            workspace: { ownerId: userId },
+            campaignId: { in: campaignIds },
+          },
+          select: {
+            campaignId: true,
+            status: true,
+            mediaApprovalSnapshotId: true,
+          },
+        })
+      : []
+    const contentByCampaign = new Map<string, {
+      total: number
+      mediaPending: number
+      scheduled: number
+      published: number
+      failed: number
+    }>()
+    for (const post of contentRows) {
+      if (!post.campaignId) continue
+      const summary = contentByCampaign.get(post.campaignId) ?? {
+        total: 0,
+        mediaPending: 0,
+        scheduled: 0,
+        published: 0,
+        failed: 0,
+      }
+      summary.total += 1
+      if (!post.mediaApprovalSnapshotId) summary.mediaPending += 1
+      if (post.status === 'SCHEDULED') summary.scheduled += 1
+      if (post.status === 'PUBLISHED') summary.published += 1
+      if (post.status === 'FAILED') summary.failed += 1
+      contentByCampaign.set(post.campaignId, summary)
+    }
+    const campaignsWithWorkflow = campaigns.map(campaign => ({
+      ...campaign,
+      workflowSummary: contentByCampaign.get(campaign.id) ?? {
+        total: 0,
+        mediaPending: 0,
+        scheduled: 0,
+        published: 0,
+        failed: 0,
+      },
+    }))
+
+    return NextResponse.json({ campaigns: campaignsWithWorkflow, counts: { total, active, draft } })
   } catch (err: any) {
     console.error('[campaigns GET]', err)
     return NextResponse.json({ campaigns: [], counts: { total: 0, active: 0, draft: 0 } })

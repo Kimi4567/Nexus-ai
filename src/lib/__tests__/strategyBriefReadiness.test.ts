@@ -109,6 +109,42 @@ describe('getStrategyBriefReadiness', () => {
     expect(result.safeScope).toContain('outside this run')
   })
 
+  it('blocks a sales strategy without a live destination and unit economics', () => {
+    const result = getStrategyBriefReadiness({
+      mode: 'full',
+      brandProfile: {
+        ...paidReadyBrand,
+        campaignObjective: 'sales',
+        conversionDestination: 'Product page — not connected yet',
+        averageOrderValue: '',
+        grossMargin: '',
+      },
+    })
+
+    expect(result.canGenerate).toBe(false)
+    expect(result.missingRequiredFields).toEqual(expect.arrayContaining([
+      'conversionDestination',
+      'averageOrderValue',
+      'grossMargin',
+    ]))
+  })
+
+  it('accepts a sales brief only with an explicit URL and unit economics', () => {
+    const result = getStrategyBriefReadiness({
+      mode: 'full',
+      brandProfile: {
+        ...paidReadyBrand,
+        campaignObjective: 'sales',
+        conversionDestination: 'https://example.com/collections/abayas',
+        averageOrderValue: 'AED 650',
+        grossMargin: '55%',
+      },
+    })
+
+    expect(result.canGenerate).toBe(true)
+    expect(result.missingRequiredFields).toEqual([])
+  })
+
   it('does not block organic strategy when verified proof is missing', () => {
     const result = getStrategyBriefReadiness({
       mode: 'organic',

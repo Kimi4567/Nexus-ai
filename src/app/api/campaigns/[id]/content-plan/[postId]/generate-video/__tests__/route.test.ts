@@ -252,7 +252,7 @@ describe('POST professional video generation', () => {
         params: expect.objectContaining({
           durationSeconds: 8,
           referenceMediaIds: ['product-front', 'product-side'],
-          pricingVersion: '2026-07-17-v3',
+          pricingVersion: '2026-07-18-v1',
           providerCostEstimate: { currency: 'USD', amount: 3.44, providerCredits: 344 },
           automaticProviderRetries: 0,
         }),

@@ -907,8 +907,10 @@ export async function settleCreditDeduction(args: {
   userId: string
   action: CreditAction
   deduction: CreditDeductionOk | null | undefined
+  settlementEntityId?: string
+  settlementEntityType?: string
 }): Promise<CreditSettlementResult> {
-  const { userId, action, deduction } = args
+  const { userId, action, deduction, settlementEntityId, settlementEntityType } = args
   if (!deduction?.transactionId) {
     return deduction && deduction.creditsUsed > 0
       ? { ok: false, status: 'failed', error: 'credit_reservation_transaction_missing' }
@@ -943,7 +945,13 @@ export async function settleCreditDeduction(args: {
       const now = new Date()
       await tx.creditTransaction.update({
         where: { id: transaction.id },
-        data: { status: 'SETTLED', settledAt: now },
+        data: {
+          status: 'SETTLED',
+          settledAt: now,
+          ...(settlementEntityId && settlementEntityType
+            ? { entityId: settlementEntityId, entityType: settlementEntityType }
+            : {}),
+        },
       })
       const updatedUser = await tx.user.update({
         where: { id: userId },
@@ -981,6 +989,8 @@ export async function finalizeCreditDeduction(args: {
   userId: string
   action: CreditAction
   deduction: CreditDeductionOk | null | undefined
+  settlementEntityId?: string
+  settlementEntityType?: string
 }): Promise<CreditFinalizationResult> {
   const settlement = await settleCreditDeduction(args)
   if (settlement.ok) return settlement

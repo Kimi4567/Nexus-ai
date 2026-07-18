@@ -103,7 +103,8 @@ describe('execution truth service', () => {
     const result = await getWorkspaceExecutionTruth('u1')
 
     expect(result.campaigns[0].stage).toBe('MEDIA_REVIEW')
-    expect(result.queue[0].kind).toBe('REVIEW_MEDIA')
+    expect(result.queue[0]).toMatchObject({ kind: 'REVIEW_MEDIA', requiresApproval: true })
+    expect(result.summary.awaitingApproval).toBe(1)
   })
 
   it('does not query the required generationStatus field as nullable', async () => {

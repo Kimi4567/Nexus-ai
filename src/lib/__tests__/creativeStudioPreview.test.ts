@@ -132,6 +132,7 @@ describe('buildCreativeStudioPreviewModel', () => {
       campaign: {
         ...baseInput.campaign,
         language: 'ar',
+        interfaceLocale: 'ar',
         brandName: 'ClinicFlow AI',
       },
     })
@@ -151,6 +152,22 @@ describe('buildCreativeStudioPreviewModel', () => {
     ])
     expect(JSON.stringify(model.controlledPath)).not.toContain('Draft layered preview')
     expect(JSON.stringify(model.controlledPath)).not.toContain('Attach from Content Hub')
+  })
+
+  it('blocks production when the post has no real CTA', () => {
+    const model = buildCreativeStudioPreviewModel({
+      ...baseInput,
+      post: {
+        ...baseInput.post,
+        cta: null,
+      },
+    })
+
+    expect(model.editableLayers.find(layer => layer.role === 'cta')?.text).toBe('CTA not defined')
+    expect(model.decisionBrief.readiness.status).toBe('needs_message')
+    expect(model.decisionBrief.readiness.blockers).toContain('The approved post does not define a CTA.')
+    expect(model.decisionBrief.qualitySignals.find(signal => signal.id === 'message_clarity')?.status).toBe('review')
+    expect(model.decisionBrief.nextBestAction).toContain('real CTA')
   })
 
   it('does not expose execution fields or final creative claims', () => {

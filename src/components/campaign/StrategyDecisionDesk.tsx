@@ -423,12 +423,22 @@ export default function StrategyDecisionDesk({
     ? ['audienceHypotheses', 'adAngles', 'adCopyVariations', 'creativeBriefs']
       .reduce((total, key) => total + (Array.isArray(paidPlanning[key]) ? (paidPlanning[key] as unknown[]).length : 0), 0)
     : 0
+  const paidPackageOperational = Boolean(
+    paidPlanning
+    && Array.isArray(paidPlanning.adAngles)
+    && paidPlanning.adAngles.every(item => item && typeof item === 'object'
+      && ['testVariable', 'successSignal', 'rejectionRule'].every(field => typeof (item as Record<string, unknown>)[field] === 'string' && String((item as Record<string, unknown>)[field]).trim().length > 2))
+    && Array.isArray(paidPlanning.creativeBriefs)
+    && paidPlanning.creativeBriefs.every(item => item && typeof item === 'object'
+      && ['existing_approved', 'user_upload_required', 'generation_required'].includes(String((item as Record<string, unknown>).assetStatus || '')))
+  )
   const paidPackageComplete = Boolean(
     paidPlanning
     && Array.isArray(paidPlanning.audienceHypotheses) && paidPlanning.audienceHypotheses.length === 3
     && Array.isArray(paidPlanning.adAngles) && paidPlanning.adAngles.length === 4
     && Array.isArray(paidPlanning.adCopyVariations) && paidPlanning.adCopyVariations.length === 9
     && Array.isArray(paidPlanning.creativeBriefs) && paidPlanning.creativeBriefs.length === 4
+    && paidPackageOperational
   )
   const brandRecord = brandProfile || {}
   const snapshotContent = snapshot.contentSystem && typeof snapshot.contentSystem === 'object' && !Array.isArray(snapshot.contentSystem)
@@ -476,6 +486,8 @@ export default function StrategyDecisionDesk({
     ? [...snapshotPillars, ...snapshotAngles]
     : listValues(strategyRecord.contentPillars || strategyRecord.contentAngles)
   const weeklyPlan = listValues(recordValue(snapshotContent, ['calendar', 'weeklyPlan', 'weeklyExecutionPlan']) || strategyRecord.weeklyExecutionPlan || strategyRecord.weeklyPlan || strategyRecord.contentCalendar)
+  const roadmapPhases = listValues(strategyRecord.roadmap30_60_90)
+  const visibleRoadmapPhases = roadmapPhases.slice(0, snapshot.planningHorizonDays !== null && snapshot.planningHorizonDays <= 30 ? 1 : snapshot.planningHorizonDays !== null && snapshot.planningHorizonDays <= 60 ? 2 : 3)
   const kpiValues = listValues(recordValue(snapshotMeasurement, ['kpis', 'metrics', 'successMetrics']) || strategyRecord.successMetricsDetailed || strategyRecord.kpis || strategyRecord.successMetrics)
   const readinessValues = listValues(strategyRecord.readinessChecklist || strategyRecord.assetRequirements)
   const pendingReadinessCount = countPendingReadinessItems(readinessValues)
@@ -512,18 +524,27 @@ export default function StrategyDecisionDesk({
     { key: 'paid', label: text('الحملات المدفوعة', 'Paid campaigns'), href: snapshot.executionLinks.paid, status: snapshot.scope === 'paid' || snapshot.scope === 'full' ? text('تخطيط فقط', 'Planning only') : text('خارج النطاق', 'Out of scope'), tone: snapshot.scope === 'paid' || snapshot.scope === 'full' ? 'checking' as Tone : 'muted' as Tone, helper: text('لا صرف أو إطلاق تلقائي من الاستراتيجية.', 'No spend or automatic launch from strategy.') },
     { key: 'performance', label: text('الأداء والتحليلات', 'Performance & analytics'), href: snapshot.executionLinks.performance, status: truthFlags.hasAnalyticsData ? text('بيانات حقيقية', 'Real data') : text('بانتظار البيانات', 'Awaiting data'), tone: truthFlags.hasAnalyticsData ? 'positive' as Tone : 'muted' as Tone, helper: text('التعلم اقتراح يحتاج بيانات وموافقة.', 'Learning is a proposal backed by data and approval.') },
   ]
+  const diagnosisRecord = strategyRecord.diagnosisDetails && typeof strategyRecord.diagnosisDetails === 'object' && !Array.isArray(strategyRecord.diagnosisDetails)
+    ? strategyRecord.diagnosisDetails as Record<string, unknown>
+    : null
+  const diagnosisBasis = recordValue(diagnosisRecord, ['basis'])
+  const diagnosisEvidenceBasis = readField(recordValue(diagnosisRecord, ['evidenceBasis']), isArabic)
+  const rawProblem = readField(recordValue(diagnosisRecord || strategyRecord.diagnosis, ['pain', 'problem', 'situation', 'bottleneck', 'mainBottleneck', 'trustGap', 'primaryChallenge']) || strategyRecord.problem || strategyRecord.diagnosis || brandRecord.audiencePainPoints, isArabic) || fallback
+  const problemValue = diagnosisBasis === 'hypothesis'
+    ? `${text('فرضية تحتاج تحقق: ', 'Hypothesis to validate: ')}${rawProblem}`
+    : rawProblem
   const executiveSummary: DecisionCard[] = [
     { label: localized('الهدف التجاري', 'Business objective'), value: readField(strategyRecord.businessObjective || strategyRecord.businessGoal || campaign.goal, isArabic) || fallback, helper: localized('النتيجة التجارية التي يجب أن تقودها الحملة.', 'The business outcome this campaign should drive.') },
     { label: localized('هدف التسويق', 'Marketing objective'), value: readField(strategyRecord.marketingObjective || recordValue(strategyRecord.businessObjective, ['marketing']) || strategyRecord.objective || strategyRecord.goal, isArabic) || fallback, helper: localized('ما الذي سنقيسه قبل أن ننتقل إلى إنتاج المحتوى.', 'What we measure before moving into production.') },
     { label: localized('الجمهور الأساسي', 'Primary audience'), value: readField(strategyRecord.targetAudienceRefined || strategyRecord.targetAudience || brandRecord.targetAudience, isArabic) || fallback, helper: localized('الشريحة التي يجب أن ترى الرسالة أولاً.', 'The segment that should see the message first.') },
-    { label: localized('المشكلة', 'Problem'), value: readField(recordValue(strategyRecord.diagnosisDetails || strategyRecord.diagnosis, ['pain', 'problem', 'situation', 'mainBottleneck', 'trustGap', 'primaryChallenge']) || strategyRecord.problem || strategyRecord.diagnosis || brandRecord.audiencePainPoints, isArabic) || fallback, helper: localized('مشكلة موثقة أو افتراض يحتاج تأكيداً.', 'A documented problem or an assumption that needs confirmation.') },
+    { label: localized('المشكلة', 'Problem'), value: problemValue, helper: diagnosisEvidenceBasis || localized('لم يُحفظ أساس الدليل بعد؛ تعامل معها كفرضية.', 'No evidence basis was saved; treat this as a hypothesis.') },
     { label: localized('العرض', 'Offer'), value: readField(strategyRecord.offer || strategyRecord.primaryOffer || brandRecord.primaryOffer || strategyRecord.valuePropositions, isArabic) || fallback, helper: localized('ما نقدمه، مع قيوده وشروطه الفعلية.', 'What is offered, including its real constraints.') },
     { label: localized('الرسالة', 'Core message'), value: readField(strategyRecord.keyMessage || strategyRecord.coreMessage || strategyRecord.message, isArabic) || fallback, helper: localized('تُراجع مقابل Brand Brain قبل إنتاج أي نسخة.', 'Reviewed against Brand Brain before copy production.') },
     { label: localized('وجهة التحويل', 'Conversion destination'), value: readField(strategyRecord.conversionDestination || recordValue(strategyRecord.conversion, ['destination', 'path']) || brandRecord.conversionDestination, isArabic) || fallback, helper: localized('لا يمكن قياس التحويل دون وجهة واضحة.', 'Conversion cannot be measured without a clear destination.') },
-    { label: localized('تعريف النجاح', 'Definition of success'), value: readField(strategyRecord.successDefinition || recordValue(strategyRecord.businessObjective, ['successDefinition', 'success', 'expectedOutcome', 'targetOutcome']) || strategyRecord.successMetric || strategyRecord.successMetrics || recordValue(snapshotMeasurement, ['successDefinition', 'primaryOutcome', 'targetOutcome']), isArabic) || fallback, helper: localized('لا أرقام أداء نهائية قبل Baseline حقيقي.', 'No final performance number before a real baseline.') },
+    { label: localized('تعريف النجاح', 'Definition of success'), value: readField(strategyRecord.successDefinition || recordValue(strategyRecord.businessObjective, ['successIn30Days', 'successDefinition', 'success', 'expectedOutcome', 'targetOutcome']) || strategyRecord.successMetric || strategyRecord.successMetrics || recordValue(snapshotMeasurement, ['successDefinition', 'primaryOutcome', 'targetOutcome']), isArabic) || fallback, helper: localized('يجب أن يحدد الحدث والفترة وقرار الاستمرار أو التعديل؛ لا أرقام أداء نهائية قبل Baseline حقيقي.', 'Must name the event, period, and continue/iterate decision; no final performance number before a real baseline.') },
   ]
   const truthBarItems = [
-    { key: 'brand', label: text('تغطية الهوية الأساسية', 'Core identity coverage'), value: brandTruthBlocked ? text('تعارض', 'Conflict') : typeof brandScore === 'number' ? `${brandScore}%` : text('تحتاج مراجعة', 'Needs review'), helper: brandTruthBlocked ? text('يتوقف التنفيذ حتى التصحيح.', 'Execution blocked until fixed.') : text('حقول الهوية المحفوظة — ليست نسبة الجاهزية الكلية.', 'Saved identity fields — not overall readiness.'), tone: brandTruthBlocked ? 'danger' as Tone : typeof brandScore === 'number' && brandScore >= 70 ? 'positive' as Tone : 'warning' as Tone },
+    { key: 'brand', label: text('مرجع Brand Brain', 'Brand Brain source'), value: brandTruthBlocked ? text('تعارض', 'Conflict') : typeof brandScore === 'number' ? text('محفوظ', 'Saved') : text('تحتاج مراجعة', 'Needs review'), helper: brandTruthBlocked ? text('يتوقف التنفيذ حتى التصحيح.', 'Execution blocked until fixed.') : text('حفظ الهوية لا يعني اكتمال جاهزية التسويق.', 'Saved identity does not mean marketing readiness is complete.'), tone: brandTruthBlocked ? 'danger' as Tone : typeof brandScore === 'number' && brandScore >= 70 ? 'positive' as Tone : 'warning' as Tone },
     { key: 'strategy', label: text('اعتماد الاستراتيجية', 'Strategy approval'), value: strategyStatusLabel, helper: qualityState === 'passed' ? text('فحص الجودة مكتمل؛ الحالة من سجل الاعتماد.', 'Quality review passed; state comes from the approval ledger.') : text('فحص الجودة أو الاعتماد ما زال مطلوبًا.', 'Quality review or approval is still required.'), tone: snapshot.approvalState === 'approved' ? 'positive' as Tone : snapshot.approvalState === 'blocked' ? 'danger' as Tone : 'warning' as Tone },
     { key: 'content', label: isPaidOnly ? text('حزمة Paid', 'Paid package') : text('المحتوى', 'Content'), value: isPaidOnly ? `${paidPackageCount}/20 ${text('مخرجًا تعاقديًا', 'contract outputs')}` : `${postCount} ${text('منشور', 'posts')}`, helper: isPaidOnly ? (paidPackageComplete ? text('3 + 4 + 9 + 4 مكتملة.', '3 + 4 + 9 + 4 complete.') : text('لا اعتماد أو انتقال للتنفيذ قبل اكتمال العقد.', 'No approval or execution handoff until the contract is complete.')) : (truthFlags.hasContentPlan ? text('المصدر: Content Hub.', 'Source: Content Hub.') : text('الخطة غير موجودة بعد.', 'Plan not built yet.')), tone: (isPaidOnly ? paidPackageComplete : truthFlags.hasContentPlan) ? 'positive' as Tone : 'warning' as Tone },
     { key: 'creative', label: text('الإبداع', 'Creative'), value: isPaidOnly ? `${Array.isArray(paidPlanning?.creativeBriefs) ? paidPlanning.creativeBriefs.length : 0} ${text('بريف', 'briefs')}` : `${creativeSummary.attachedToPost}/${Math.max(creativeSummary.total, postCount)}`, helper: isPaidOnly ? text('للمراجعة قبل الإنتاج والإطلاق.', 'For review before production or launch.') : (creativeSummary.mediaNeeded > 0 ? text('وسائط ناقصة.', 'Media missing.') : text('الوسائط المرتبطة تقرأ من المنشورات.', 'Reads linked post media.')), tone: isPaidOnly ? 'checking' as Tone : (creativeSummary.mediaNeeded > 0 ? 'warning' as Tone : 'positive' as Tone) },
@@ -721,6 +742,40 @@ export default function StrategyDecisionDesk({
         <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
           {executiveSummary.map(item => <Card key={getText(item.label, isArabic)} item={{ ...item, tone: isMissingValue(getText(item.value, isArabic)) ? 'warning' : item.tone }} isArabic={isArabic} />)}
         </div>
+      </section>
+
+      <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+        <SectionHeading
+          eyebrow={text('خريطة الأفق', 'Planning-horizon roadmap')}
+          title={text(`كيف يتحول أفق ${strategyDuration} إلى قرارات`, `How the ${strategyDuration} horizon becomes decisions`)}
+          helper={text('أول 30 يوم فقط هو مخطط التنفيذ المفصل. المراحل التالية بوابات تعلم ومراجعة وليست منشورات مجدولة أو نتائج مضمونة.', 'Only the first 30 days are a detailed execution outline. Later phases are learning and review gates—not scheduled posts or guaranteed results.')}
+          icon={<Clock3 className="h-4 w-4" />}
+        />
+        {visibleRoadmapPhases.length > 0 ? (
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {visibleRoadmapPhases.map((phase, index) => {
+              const phaseName = readField(recordValue(phase, ['phase', 'name', 'title']), isArabic)
+                || text(`المرحلة ${index + 1}`, `Phase ${index + 1}`)
+              const objective = readField(recordValue(phase, ['objective', 'goal']), isArabic) || fallback
+              const deliverables = listValues(recordValue(phase, ['deliverables', 'outputs'])).map(item => readField(item, isArabic)).filter(Boolean)
+              const exitGate = readField(recordValue(phase, ['exitGate', 'decisionGate', 'gate']), isArabic) || fallback
+              return (
+                <article key={`${phaseName}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-indigo-600">{phaseName.split('_').join(' ')}</p>
+                  <p className="mt-2 text-sm font-bold leading-6 text-slate-950">{objective}</p>
+                  {deliverables.length > 0 && <ul className="mt-3 space-y-1.5 text-xs leading-5 text-slate-600">{deliverables.slice(0, 4).map(item => <li key={item}>• {item}</li>)}</ul>}
+                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold leading-5 text-amber-900">
+                    <span className="font-black">{text('بوابة الانتقال:', 'Exit gate:')}</span> {exitGate}
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold leading-6 text-rose-900">
+            {text('خريطة الأفق غير موجودة في سجل الاستراتيجية؛ لا تعتبر وعد المدة منفذًا قبل إعادة البناء والمراجعة.', 'The roadmap is missing from the saved strategy; do not treat the horizon promise as fulfilled until it is rebuilt and reviewed.')}
+          </div>
+        )}
       </section>
 
       <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
