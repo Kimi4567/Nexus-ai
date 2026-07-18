@@ -41,7 +41,7 @@ describe('readRejectedVideoReview', () => {
     })
   })
 
-  it('offers one retained-footage repair only for a legacy typography-compositor rejection', () => {
+  it('offers one retained-footage repair per corrected compositor version', () => {
     const repairable = readRejectedVideoReview(rejectedGeneration({
       metadata: {
         qualityStatus: 'REJECTED',
@@ -55,15 +55,27 @@ describe('readRejectedVideoReview', () => {
     }))
     expect(repairable?.repairEligible).toBe(true)
 
-    const alreadyAttempted = readRejectedVideoReview(rejectedGeneration({
+    const alreadyAttemptedWithCurrentCompositor = readRejectedVideoReview(rejectedGeneration({
       metadata: {
         qualityStatus: 'REJECTED',
         retainedForAudit: true,
         typographyRepairAttemptedAt: '2026-07-18T18:00:00.000Z',
+        compositorVersion: '2026-07-arabic-paths-3',
         qualityReview: { passed: false, issues: ['Generated gibberish text present'] },
       },
     }))
-    expect(alreadyAttempted?.repairEligible).toBe(false)
+    expect(alreadyAttemptedWithCurrentCompositor?.repairEligible).toBe(false)
+
+    const priorDefectiveCompositor = readRejectedVideoReview(rejectedGeneration({
+      metadata: {
+        qualityStatus: 'REJECTED',
+        retainedForAudit: true,
+        typographyRepairAttemptedAt: '2026-07-18T18:00:00.000Z',
+        compositorVersion: '2026-07-arabic-2',
+        qualityReview: { passed: false, issues: ['Generated gibberish text present'] },
+      },
+    }))
+    expect(priorDefectiveCompositor?.repairEligible).toBe(true)
 
     const otherVideoRoute = readRejectedVideoReview(rejectedGeneration({
       params: { productionRoute: 'CINEMATIC_PRODUCT_AD' },

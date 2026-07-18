@@ -191,7 +191,6 @@ function isTypographyRepairEligible(generation: any): boolean {
     && generationParams(generation.params).productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM'
     && metadata.qualityStatus === 'REJECTED'
     && metadata.retainedForAudit === true
-    && !metadata.typographyRepairAttemptedAt
     && metadata.compositorVersion !== PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION
     && issues.some((issue: string) => /gibberish text|missing approved.*overlay|typography/i.test(issue))
 }
@@ -560,8 +559,9 @@ export async function POST(req: NextRequest, props: Params) {
 /**
  * Re-composes a quarantined campaign film after a NEXUS typography-compositor
  * defect. It reuses the retained provider master, makes no provider request,
- * consumes no user credits, and is allowed exactly once for an eligible legacy
- * output. The repaired file must pass the same premium QA gate before attachment.
+ * consumes no user credits, and is allowed once per corrected compositor version
+ * for an eligible legacy output. The repaired file must pass the same premium QA
+ * gate before attachment.
  */
 export async function PATCH(req: NextRequest, props: Params) {
   const params = await props.params

@@ -7,7 +7,7 @@ import {
 
 describe('professional campaign film compositor', () => {
   it('builds separate Arabic hook, benefit, and end-frame overlays', async () => {
-    const overlays = professionalCampaignFilmOverlaySvgs({
+    const overlays = await professionalCampaignFilmOverlaySvgs({
       brand: 'NOORAYA',
       hook: 'أناقة تتحرك معك',
       benefit: 'تفاصيل تصنع الفارق',
@@ -15,14 +15,14 @@ describe('professional campaign film compositor', () => {
       language: 'ar',
     })
 
-    expect(overlays.hook).toContain('direction="rtl"')
-    expect(overlays.hook).toContain("@font-face")
-    expect(overlays.hook).toContain("font-family:'NEXUS Tajawal'")
-    expect(overlays.hook).toContain('text-anchor="start"')
-    expect(overlays.hook).toContain('NOORAYA')
-    expect(overlays.benefit).toContain('تفاصيل')
-    expect(overlays.end).toContain('اكتشفي')
-    expect(overlays.end).toContain('x="360" y="832" text-anchor="middle"')
+    expect(overlays.hook).toContain('<path')
+    expect(overlays.benefit).toContain('<path')
+    expect(overlays.end).toContain('<path')
+    expect(overlays.hook).not.toContain('<text')
+    expect(overlays.benefit).not.toContain('<text')
+    expect(overlays.end).not.toContain('<text')
+    expect(overlays.hook).not.toContain('تألقي')
+    expect(overlays.end).not.toContain('اكتشفي')
 
     const { data, info } = await sharp(Buffer.from(overlays.end))
       .raw()
