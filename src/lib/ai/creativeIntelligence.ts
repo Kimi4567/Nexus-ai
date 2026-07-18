@@ -123,6 +123,11 @@ TRUTH RULES:
 - A direct match means the asset can be used as-is in that post type. An image may also be a REFERENCE for generating a video, but a video cannot be attached to an image slot.
 - Match reasons must cite visible subject/action/text or format. Gaps must say what the asset does not show.
 - Scores: 80-100 strong direct support; 55-79 partial and needs adaptation; below 55 weak. Do not inflate scores.
+- When assetKind is PRODUCT or PACKAGING, products must contain one concise,
+  visible-only identity description (for example "black abaya with silver
+  embroidered trim"). This is an appearance label, not a brand, ownership,
+  material, quality, or performance claim. Leave products empty only when no
+  product or packaging is visibly identifiable.
 
 BRAND CONTEXT (user supplied, not visual proof):
 ${JSON.stringify(input.brandContext).slice(0, 5000)}
@@ -140,7 +145,7 @@ Return one JSON object exactly in this shape:
     "visibleSummary": "what is visibly present",
     "assetKind": "PRODUCT|PACKAGING|LIFESTYLE|DEMO|TESTIMONIAL|SCREEN|PERSON|LOGO|OTHER",
     "language": "AR|EN|MIXED|NONE",
-    "products": [],
+    "products": ["concise visible-only product identity when applicable"],
     "visibleObjects": [],
     "visibleActions": [],
     "visibleText": [],

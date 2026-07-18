@@ -43,6 +43,16 @@ export type VideoAdPreflightResult = {
 
 const UNSAFE_GRAPHIC_PATTERN = /watermark|overlaid?\s+text|text\s+overlay|screenshot|screen\s*capture|mockup\s*text|logo\s+overlay|علامة\s+مائية|نص\s+متراكب|لقطة\s+شاشة/i
 
+// Vision models can identify an asset as PRODUCT while omitting the optional
+// `products` label. A visible-description fallback is safe only after generic
+// photography, person, pose, and background words are removed.
+const GENERIC_PRODUCT_IDENTITY_TOKENS = new Set([
+  'against', 'and', 'angle', 'background', 'close', 'detail', 'detailed', 'for',
+  'front', 'from', 'full', 'image', 'into', 'item', 'model', 'neutral', 'packaging',
+  'person', 'photo', 'plain', 'product', 'sitting', 'standing', 'studio', 'that',
+  'the', 'this', 'view', 'wearing', 'with', 'woman',
+])
+
 function normalizedProductTokens(values: string[]): Set<string> {
   return new Set(values
     .join(' ')
@@ -50,15 +60,18 @@ function normalizedProductTokens(values: string[]): Set<string> {
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .split(/\s+/)
-    .filter(token => token.length >= 3))
+    .filter(token => token.length >= 3 && !GENERIC_PRODUCT_IDENTITY_TOKENS.has(token)))
 }
 
 function hasSharedProductIdentity(productLists: string[][]): boolean {
   if (productLists.length < CINEMATIC_PRODUCT_AD_MIN_REFERENCES) return false
   const tokenSets = productLists.map(normalizedProductTokens)
-  if (tokenSets.some(tokens => tokens.size === 0)) return false
+  // One shared category word is not proof that two references show the same
+  // product. Require a category plus at least one visible differentiator.
+  if (tokenSets.some(tokens => tokens.size < 2)) return false
   const [first, ...rest] = tokenSets
-  return Array.from(first).some(token => rest.every(tokens => tokens.has(token)))
+  const shared = Array.from(first).filter(token => rest.every(tokens => tokens.has(token)))
+  return shared.length >= 2
 }
 
 /**
@@ -152,7 +165,9 @@ export function assessCinematicProductAdAssets(
     if (analysis.visibleText.length > 0) {
       warnings.push(`${asset.fileName || 'Reference'} contains product text; NEXUS will verify label fidelity before attachment.`)
     }
-    productLists.push(analysis.products)
+    productLists.push(analysis.products.length > 0
+      ? analysis.products
+      : [analysis.visibleSummary, ...analysis.visibleObjects])
     qualifiedAssetIds.push(asset.id)
   }
 

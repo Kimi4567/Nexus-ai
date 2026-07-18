@@ -56,4 +56,40 @@ describe('cinematic product-ad preflight', () => {
     expect(assessCinematicProductAdAssets([product('front', 'Bottle'), product('side', 'Laptop')]).issues)
       .toEqual(expect.arrayContaining([expect.objectContaining({ code: 'PRODUCT_IDENTITY_MISMATCH' })]))
   })
+
+  it('uses grounded visible evidence when the provider omits an optional product label', () => {
+    const close = product('close')
+    close.intelligence.products = []
+    close.intelligence.visibleSummary = 'A woman wearing a black abaya with detailed silver embroidery on the sleeves.'
+    close.intelligence.visibleObjects = ['black abaya', 'silver embroidery', 'woman']
+
+    const full = product('full')
+    full.intelligence.products = []
+    full.intelligence.visibleSummary = 'A full view of a black abaya with silver embroidery on its sleeves and front trim.'
+    full.intelligence.visibleObjects = ['black abaya', 'silver embroidery', 'woman']
+
+    expect(assessCinematicProductAdAssets([close, full])).toMatchObject({
+      eligible: true,
+      route: 'CINEMATIC_PRODUCT_AD',
+      qualifiedAssetIds: ['close', 'full'],
+    })
+  })
+
+  it('does not treat a shared generic category as proof of the same product', () => {
+    const red = product('red')
+    red.intelligence.products = []
+    red.intelligence.visibleSummary = 'A red silk abaya with a gold belt.'
+    red.intelligence.visibleObjects = ['red abaya', 'gold belt']
+
+    const black = product('black')
+    black.intelligence.products = []
+    black.intelligence.visibleSummary = 'A black abaya with silver embroidered sleeves.'
+    black.intelligence.visibleObjects = ['black abaya', 'silver embroidery']
+
+    const result = assessCinematicProductAdAssets([red, black])
+    expect(result.eligible).toBe(false)
+    expect(result.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'PRODUCT_IDENTITY_MISMATCH' }),
+    ]))
+  })
 })
