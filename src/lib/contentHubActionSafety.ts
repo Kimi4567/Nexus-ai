@@ -1,6 +1,7 @@
 import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
 import { CINEMATIC_PRODUCT_AD_DURATION_SECONDS } from '@/lib/videoAdPreflight'
 import { MOTION_DESIGN_DURATION_SECONDS } from '@/lib/motionDesignAd'
+import { PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS } from '@/lib/professionalCampaignFilm'
 
 // Client-safe aliases of the one client catalog. A contract test keeps that
 // catalog identical to the server billing catalog in src/lib/credits.ts.
@@ -10,6 +11,7 @@ export const CONTENT_HUB_MOTION_DESIGN_COST = CREDIT_ACTION_COSTS.MOTION_DESIGN_
 export const CONTENT_HUB_REWRITE_COST = CREDIT_ACTION_COSTS.AI_POST_REWRITE
 export const CONTENT_HUB_REGENERATION_COST = CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION
 export const CONTENT_HUB_MEDIA_INTELLIGENCE_COST = CREDIT_ACTION_COSTS.MEDIA_INTELLIGENCE_ANALYSIS
+export const CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS = PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS
 
 export type ContentHubConfirmationResult =
   | { ok: true }
@@ -160,11 +162,15 @@ export function validateVideoGenerationConfirmation(input: {
   acknowledgedNoPublishOrSchedule?: unknown
   acknowledgedReviewRequired?: unknown
   acknowledgedAssetRights?: unknown
+  productionRoute?: unknown
 }): ContentHubConfirmationResult {
+  const expectedDuration = input.productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM'
+    ? PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS
+    : CINEMATIC_PRODUCT_AD_DURATION_SECONDS
   if (
     input.confirmed !== true
     || input.acknowledgedCreditCost !== CONTENT_HUB_VIDEO_COST
-    || input.acknowledgedDurationSeconds !== CINEMATIC_PRODUCT_AD_DURATION_SECONDS
+    || input.acknowledgedDurationSeconds !== expectedDuration
     || input.acknowledgedNoPublishOrSchedule !== true
     || input.acknowledgedReviewRequired !== true
     || input.acknowledgedAssetRights !== true

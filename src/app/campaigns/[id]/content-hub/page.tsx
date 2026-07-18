@@ -28,6 +28,7 @@ import {
   CONTENT_HUB_REGENERATION_COST,
   CONTENT_HUB_REWRITE_COST,
   CONTENT_HUB_MEDIA_INTELLIGENCE_COST,
+  CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS,
   getBulkImageGenerationCost,
   summarizeBulkImageGenerationOutcome,
   type BulkImageGenerationSummary,
@@ -495,7 +496,7 @@ export default function ContentHubPage() {
   const [videoGenerationAcknowledged, setVideoGenerationAcknowledged] = useState(false)
   const [videoAssetRightsAcknowledged, setVideoAssetRightsAcknowledged] = useState(false)
   const [videoReferenceMediaIds, setVideoReferenceMediaIds] = useState<string[]>([])
-  const [videoProductionMode, setVideoProductionMode] = useState<'MOTION_DESIGN' | 'CINEMATIC'>('MOTION_DESIGN')
+  const [videoProductionMode, setVideoProductionMode] = useState<'MOTION_DESIGN' | 'CAMPAIGN_FILM' | 'CINEMATIC'>('CAMPAIGN_FILM')
   const [motionDesignSourceMediaId, setMotionDesignSourceMediaId] = useState<string | null>(null)
   const [generatingVideoId, setGeneratingVideoId] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'DONE' | 'SCHEDULED' | 'PUBLISHED'>('ALL')
@@ -1301,6 +1302,9 @@ export default function ContentHubPage() {
     && videoGenerationAcknowledged
     && videoAssetRightsAcknowledged
     && !cinematicVideoLocked
+  const canStartCampaignFilm = videoGenerationAcknowledged
+    && videoAssetRightsAcknowledged
+    && !cinematicVideoLocked
   const motionDesignVideos = mediaLibrary.filter(media => (
     String(media.type).toUpperCase() === 'VIDEO'
     && !/motion[-_ ]design|source[-_ ]locked/i.test([media.category || '', ...(media.tags || [])].join(' '))
@@ -1318,7 +1322,9 @@ export default function ContentHubPage() {
     && !motionDesignLocked
   const canStartSelectedVideoRoute = videoProductionMode === 'MOTION_DESIGN'
     ? canStartMotionDesign
-    : canStartCinematicVideo
+    : videoProductionMode === 'CAMPAIGN_FILM'
+      ? canStartCampaignFilm
+      : canStartCinematicVideo
   const videoPreflightIssueCopy = (issue: { code: string; message: string }) => {
     if (!isAr) return issue.message
     const messages: Record<string, string> = {
@@ -2379,7 +2385,7 @@ export default function ContentHubPage() {
     const currentMotionSource = motionDesignVideos.find(media => media.id === post.uploadedMediaId) ?? null
     const defaultMotionSource = currentMotionSource ?? motionDesignVideos[0] ?? null
     const startsWithMotionDesign = !referenceMediaId && Boolean(defaultMotionSource)
-    setVideoProductionMode(startsWithMotionDesign ? 'MOTION_DESIGN' : 'CINEMATIC')
+    setVideoProductionMode(startsWithMotionDesign ? 'MOTION_DESIGN' : 'CAMPAIGN_FILM')
     setMotionDesignSourceMediaId(defaultMotionSource?.id ?? null)
     setVideoReferenceMediaIds(referenceMediaId ? [referenceMediaId] : [])
     setVideoGenerationAcknowledged(false)
@@ -2394,7 +2400,7 @@ export default function ContentHubPage() {
     setVideoAssetRightsAcknowledged(false)
     setVideoReferenceMediaIds([])
     setMotionDesignSourceMediaId(null)
-    setVideoProductionMode('MOTION_DESIGN')
+    setVideoProductionMode('CAMPAIGN_FILM')
   }
 
   async function confirmPostVideoGeneration() {
@@ -2458,12 +2464,20 @@ export default function ContentHubPage() {
         return
       }
 
+      const professionalCampaignFilm = videoProductionMode === 'CAMPAIGN_FILM'
+      const selectedDurationSeconds = professionalCampaignFilm
+        ? CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS
+        : CINEMATIC_PRODUCT_AD_DURATION_SECONDS
+      const productionRoute = professionalCampaignFilm
+        ? 'MULTI_SHOT_CAMPAIGN_FILM'
+        : 'CINEMATIC_PRODUCT_AD'
       const identity = JSON.stringify({
         campaignId,
         postId: post.id,
         videoPrompt: post.videoPrompt,
-        referenceMediaIds: videoReferenceMediaIds,
-        durationSeconds: CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
+        referenceMediaIds: professionalCampaignFilm ? [] : videoReferenceMediaIds,
+        durationSeconds: selectedDurationSeconds,
+        productionRoute,
       })
       const response = await fetchCreditOperation(
         creditOperationScope('campaign:post-video', identity),
@@ -2472,11 +2486,12 @@ export default function ContentHubPage() {
           method: 'POST',
           headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            referenceMediaIds: videoReferenceMediaIds,
+            referenceMediaIds: professionalCampaignFilm ? [] : videoReferenceMediaIds,
+            productionRoute,
             language: isAr ? 'ar' : 'en',
             explicitVideoGenerationConfirmed: true,
             acknowledgedCreditCost: CONTENT_HUB_VIDEO_COST,
-            acknowledgedDurationSeconds: CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
+            acknowledgedDurationSeconds: selectedDurationSeconds,
             acknowledgedNoPublishOrSchedule: true,
             acknowledgedReviewRequired: true,
             acknowledgedAssetRights: true,
@@ -2494,9 +2509,13 @@ export default function ContentHubPage() {
       setVideoAssetRightsAcknowledged(false)
       setVideoReferenceMediaIds([])
       setMotionDesignSourceMediaId(null)
-      setSuccessMsg(isAr
-        ? `بدأ إنتاج إعلان منتج سينمائي مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ من أصول المنتج المؤهلة. تم خصم ${CONTENT_HUB_VIDEO_COST} كريديت؛ لا توجد إعادة محاولة تلقائية، وسيُرد الرصيد إذا لم ينتج أصل صالح. لا نشر ولا جدولة.`
-        : `An ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second cinematic product ad is rendering from qualified product assets. ${CONTENT_HUB_VIDEO_COST} credits were charged; there is no automatic provider retry, and the charge will be restored if no usable output is produced. Nothing was published or scheduled.`)
+      setSuccessMsg(professionalCampaignFilm
+        ? (isAr
+          ? `بدأ إنتاج فيلم حملة احترافي من 3 لقطات مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ، مع حركة أشخاص وانتقالات وصوت وTypography خاص بالبراند. تم خصم ${CONTENT_HUB_VIDEO_COST} كريديت؛ محاولة واحدة فقط مع استرداد إذا لم يجتز الجودة. لا نشر ولا جدولة.`
+          : `A ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second professional three-shot campaign film is rendering with real subject motion, scene cuts, sound, and brand typography. ${CONTENT_HUB_VIDEO_COST} credits were charged; there is one attempt with restoration if quality fails. Nothing was published or scheduled.`)
+        : (isAr
+          ? `بدأ إنتاج إعلان منتج سينمائي مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ من أصول المنتج المؤهلة. تم خصم ${CONTENT_HUB_VIDEO_COST} كريديت؛ لا توجد إعادة محاولة تلقائية، وسيُرد الرصيد إذا لم ينتج أصل صالح. لا نشر ولا جدولة.`
+          : `An ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second cinematic product ad is rendering from qualified product assets. ${CONTENT_HUB_VIDEO_COST} credits were charged; there is no automatic provider retry, and the charge will be restored if no usable output is produced. Nothing was published or scheduled.`))
       await refreshBillingStatus()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Video generation could not start')
@@ -2751,6 +2770,52 @@ export default function ContentHubPage() {
                       <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                       {t('contentHub.generatingImages')}
                     </>
+                  ) : videoProductionMode === 'CAMPAIGN_FILM' ? (
+                    <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-slate-950 to-slate-900 p-4 text-white">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-bold">{isAr ? 'فيلم إعلاني كامل — وليس صورة متحركة' : 'A complete ad film — not an animated still'}</p>
+                          <p className="mt-1 text-xs leading-relaxed text-slate-300">
+                            {isAr
+                              ? 'يبني NEXUS ثلاث لقطات مولّدة خصيصًا من هدف المنشور وBrand Brain. هذا المسار لا يحتاج صورة مرجعية، ولا يدّعي الحفاظ على شكل منتج بعينه.'
+                              : 'NEXUS builds three purpose-made shots from the post objective and Brand Brain. This route needs no reference image and does not claim exact product fidelity.'}
+                          </p>
+                        </div>
+                        <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold text-emerald-200">
+                          {isAr ? 'جاهز للإنتاج' : 'Production ready'}
+                        </span>
+                      </div>
+                      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                        {[
+                          {
+                            time: '0–3s',
+                            title: isAr ? 'Hook بصري' : 'Visual hook',
+                            body: isAr ? 'شخص يتحرك + حركة كاميرا تلفت الانتباه.' : 'Moving subject + camera action that earns attention.',
+                          },
+                          {
+                            time: '3–6s',
+                            title: isAr ? 'إظهار المنفعة' : 'Visible benefit',
+                            body: isAr ? 'لقطة مختلفة توضّح القيمة بالفعل لا بالادعاء.' : 'A distinct shot that demonstrates value through action.',
+                          },
+                          {
+                            time: '6–10s',
+                            title: isAr ? 'Hero + CTA' : 'Hero + CTA',
+                            body: isAr ? 'Payoff بصري ثم End Frame بالبراند ودعوة واضحة.' : 'Visual payoff followed by a branded, actionable end frame.',
+                          },
+                        ].map(item => (
+                          <div key={item.time} className="rounded-xl border border-white/10 bg-white/[0.06] p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-violet-300">{item.time}</p>
+                            <p className="mt-1 text-xs font-bold text-white">{item.title}</p>
+                            <p className="mt-1 text-[11px] leading-relaxed text-slate-300">{item.body}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-[11px] leading-relaxed text-amber-100">
+                        {isAr
+                          ? 'تنبيه صريح: هذا Concept Film بمشاهد مولّدة. إذا كان المطلوب نفس المنتج الحقيقي بدقة، استخدم مسار «دقة المنتج» بصور معزولة مؤهلة.'
+                          : 'Truth note: this is a generated concept film. For exact real-product fidelity, use Product fidelity with qualified isolated references.'}
+                      </div>
+                    </div>
                   ) : (
                     <>
                       ✨ {imageGenerationBlockedByTruthReview ? imageGenerationTruthReviewLabel : imageGenerationLocked ? addCreditsForImagesLabel : bulkImageButtonLabel}
@@ -4665,17 +4730,23 @@ export default function ContentHubPage() {
                     <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300">NEXUS VIDEO STUDIO</p>
                     <h3 id="nexus-video-studio-title" className="mt-1 text-xl font-bold">
                       {videoProductionMode === 'MOTION_DESIGN'
-                        ? (isAr ? 'حوّل فيديو المنتج إلى إعلان Motion Design' : 'Turn your product video into a Motion Design ad')
-                        : (isAr ? 'إنتاج إعلان منتج سينمائي' : 'Produce a cinematic product ad')}
+                        ? (isAr ? 'حوّل فيديو المنتج إلى Motion Design' : 'Turn your product video into Motion Design')
+                        : videoProductionMode === 'CAMPAIGN_FILM'
+                          ? (isAr ? 'إنتاج فيلم حملة احترافي متعدد اللقطات' : 'Produce a professional multi-shot campaign film')
+                          : (isAr ? 'إنتاج إعلان يحافظ على المنتج' : 'Produce a product-fidelity ad')}
                     </h3>
                     <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-300">
                       {videoProductionMode === 'MOTION_DESIGN'
                         ? (isAr
-                          ? `يحافظ NEXUS على بكسلات الفيديو ونصوصه الموثقة، ويحوّل الجزء الافتتاحي الآمن إلى إعلان مدته ${MOTION_DESIGN_DURATION_SECONDS} ثوانٍ بدخول سريع ثم Push-in هادئ على CTA، من دون توليد المنتج أو إضافة ادعاءات.`
-                          : `NEXUS preserves the verified video pixels and source text, turns the safe opening into an ${MOTION_DESIGN_DURATION_SECONDS}-second ad with a fast settle and restrained CTA push-in, and generates no product pixels or new claims.`)
-                        : (isAr
-                          ? `يبني NEXUS إعلانًا مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ من صور منتج مادية مؤهلة فقط. لا يبدأ أي إنفاق مزود قبل اجتياز الفحص.`
-                          : `NEXUS builds an ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second ad only from qualified physical-product photos. No provider spend starts before preflight passes.`)}
+                          ? `يحافظ NEXUS على الفيديو الأصلي ويضيف حركة تحريرية بسيطة فقط. هذا المسار ليس فيلمًا سينمائيًا ولا يولّد أشخاصًا أو مشاهد جديدة.`
+                          : `NEXUS preserves the source video and adds restrained editorial motion only. This is not a cinematic film and does not generate people or new scenes.`)
+                        : videoProductionMode === 'CAMPAIGN_FILM'
+                          ? (isAr
+                            ? `ينتج NEXUS فيلمًا مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ من 3 لقطات: Hook متحرك، لقطة منفعة، ثم End Frame بالهوية؛ مع حركة أشخاص وصوت وانتقالات وTypography عربي/إنجليزي منفصل عن الصورة.`
+                            : `NEXUS produces a ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second three-shot film: moving hook, benefit shot, and branded end frame—with human motion, sound, cuts, and separately typeset Arabic/English typography.`)
+                          : (isAr
+                            ? `يبني NEXUS إعلانًا مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ من صور منتج معزولة ومؤهلة للحفاظ على تفاصيله. لا يبدأ الإنفاق قبل اجتياز الفحص.`
+                            : `NEXUS builds an ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second ad from isolated qualified product photos to preserve product details. No provider spend starts before preflight passes.`)}
                     </p>
                   </div>
                   <button aria-label={isAr ? 'إغلاق نافذة توليد الفيديو' : 'Close video generation'} onClick={closeVideoGenerationConfirm} disabled={Boolean(generatingVideoId)} className="text-2xl leading-none text-slate-400 hover:text-white disabled:opacity-40">×</button>
@@ -4683,15 +4754,24 @@ export default function ContentHubPage() {
               </div>
 
               <div className="max-h-[72vh] overflow-y-auto p-6">
-                <div className="mb-5 grid gap-3 sm:grid-cols-2">
+                <div className="mb-5 grid gap-3 sm:grid-cols-3">
                   <button
                     type="button"
                     onClick={() => { setVideoProductionMode('MOTION_DESIGN'); setVideoGenerationAcknowledged(false) }}
                     disabled={Boolean(generatingVideoId)}
                     className={`rounded-2xl border p-4 text-left transition-all ${videoProductionMode === 'MOTION_DESIGN' ? 'border-violet-500 bg-violet-50' : 'border-slate-200 bg-white'}`}
                   >
-                    <p className="text-sm font-bold text-slate-950">{isAr ? `واجهات وفيديو حقيقي · ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت` : `Screens & real video · ${CONTENT_HUB_MOTION_DESIGN_COST} credits`}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? 'مسار يحافظ على المصدر ولا يستهلك فيديو توليديًا.' : 'Source-locked route with zero generative-video spend.'}</p>
+                    <p className="text-sm font-bold text-slate-950">{isAr ? `تحريك فيديو أصلي · ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت` : `Animate source video · ${CONTENT_HUB_MOTION_DESIGN_COST} credits`}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? 'مونتاج بسيط يحافظ على المصدر؛ ليس إعلانًا سينمائيًا.' : 'Simple source-preserving edit; not a cinematic advertisement.'}</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setVideoProductionMode('CAMPAIGN_FILM'); setVideoGenerationAcknowledged(false) }}
+                    disabled={Boolean(generatingVideoId)}
+                    className={`rounded-2xl border p-4 text-left transition-all ${videoProductionMode === 'CAMPAIGN_FILM' ? 'border-violet-500 bg-violet-50' : 'border-slate-200 bg-white'}`}
+                  >
+                    <p className="text-sm font-bold text-slate-950">{isAr ? `فيلم حملة احترافي · ${CONTENT_HUB_VIDEO_COST} كريديت` : `Professional campaign film · ${CONTENT_HUB_VIDEO_COST} credits`}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? '3 لقطات، أشخاص يتحركون، انتقالات، صوت، وTypography فاخر.' : 'Three shots, moving people, cuts, sound, and premium typography.'}</p>
                   </button>
                   <button
                     type="button"
@@ -4699,8 +4779,8 @@ export default function ContentHubPage() {
                     disabled={Boolean(generatingVideoId)}
                     className={`rounded-2xl border p-4 text-left transition-all ${videoProductionMode === 'CINEMATIC' ? 'border-violet-500 bg-violet-50' : 'border-slate-200 bg-white'}`}
                   >
-                    <p className="text-sm font-bold text-slate-950">{isAr ? `منتج مادي · ${CONTENT_HUB_VIDEO_COST} كريديت` : `Physical product · ${CONTENT_HUB_VIDEO_COST} credits`}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? 'صور حقيقية متعددة للمنتج ومحاولة مزود واحدة.' : 'Multiple real product angles and one provider attempt.'}</p>
+                    <p className="text-sm font-bold text-slate-950">{isAr ? `دقة المنتج · ${CONTENT_HUB_VIDEO_COST} كريديت` : `Product fidelity · ${CONTENT_HUB_VIDEO_COST} credits`}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? 'للمنتج المعزول من عدة زوايا؛ حركة المنتج أهم من حركة الأشخاص.' : 'For isolated multi-angle products; product fidelity takes priority over people.'}</p>
                   </button>
                 </div>
 
@@ -4772,6 +4852,15 @@ export default function ContentHubPage() {
                           <p>✓ {isAr ? 'صفر استهلاك لمزود فيديو توليدي' : 'Zero generative-video provider spend'}</p>
                           <p>✓ {isAr ? `التكلفة: ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت` : `Cost: ${CONTENT_HUB_MOTION_DESIGN_COST} credits`}</p>
                         </>
+                      ) : videoProductionMode === 'CAMPAIGN_FILM' ? (
+                        <>
+                          <p>✓ {isAr ? '3 مشاهد مختلفة بحركة أشخاص وكاميرا حقيقية داخل المشهد' : 'Three distinct scenes with visible subject and camera motion'}</p>
+                          <p>✓ {isAr ? `${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ: Hook ثم منفعة ثم Hero/CTA` : `${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} seconds: hook, benefit, then hero/CTA`}</p>
+                          <p>✓ {isAr ? 'صوت إعلاني وانتقالات مشاهد وTypography متحرك منفصل عن التوليد' : 'Ad sound, scene transitions, and separately composed kinetic typography'}</p>
+                          <p>✓ {isAr ? 'فحص جودة متعدد اللقطات قبل الربط' : 'Multi-frame premium QA before attachment'}</p>
+                          <p>✓ {isAr ? 'محاولة مزود واحدة بلا إعادة مدفوعة عشوائية' : 'One provider attempt with no blind paid retry'}</p>
+                          <p>✓ {isAr ? `التكلفة: ${CONTENT_HUB_VIDEO_COST} كريديت` : `Cost: ${CONTENT_HUB_VIDEO_COST} credits`}</p>
+                        </>
                       ) : (
                         <>
                           <p>✓ {isAr ? 'Hook ومنتج ومنفعة وفريم ختامي' : 'Hook, product, benefit, and end frame'}</p>
@@ -4795,7 +4884,9 @@ export default function ContentHubPage() {
                   <span className="text-sm font-semibold leading-relaxed text-slate-800">
                     {videoProductionMode === 'MOTION_DESIGN'
                       ? (isAr ? 'أؤكد أنني أملك أو لدي تصريح استخدام الفيديو الأصلي وهوية البراند في إعلان تجاري.' : 'I confirm that I own or am authorised to use the source video and brand identity in commercial advertising.')
-                      : (isAr ? 'أؤكد أنني أملك أو لدي تصريح استخدام صور المنتج المختارة في إعلان تجاري.' : 'I confirm that I own or am authorised to use the selected product images in commercial advertising.')}
+                      : videoProductionMode === 'CAMPAIGN_FILM'
+                        ? (isAr ? 'أؤكد أنني مخوّل باستخدام هوية البراند والنص المعتمد، وأفهم أن المشاهد Concept مولّدة وليست تصويرًا حقيقيًا للمنتج.' : 'I confirm I am authorised to use the brand identity and approved copy, and understand that the concept scenes are generated rather than documentary product footage.')
+                        : (isAr ? 'أؤكد أنني أملك أو لدي تصريح استخدام صور المنتج المختارة في إعلان تجاري.' : 'I confirm that I own or am authorised to use the selected product images in commercial advertising.')}
                   </span>
                 </label>
 
@@ -4804,7 +4895,9 @@ export default function ContentHubPage() {
                   <span className="text-sm font-semibold leading-relaxed text-slate-800">
                     {videoProductionMode === 'MOTION_DESIGN'
                       ? (isAr ? `أوافق على خصم ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت لإنتاج Motion Design مدته ${MOTION_DESIGN_DURATION_SECONDS} ثوانٍ للمراجعة فقط؛ لا نشر ولا جدولة.` : `I approve a ${CONTENT_HUB_MOTION_DESIGN_COST}-credit charge for one ${MOTION_DESIGN_DURATION_SECONDS}-second review-only Motion Design ad; nothing will be published or scheduled.`)
-                      : (isAr ? `أوافق على خصم ${CONTENT_HUB_VIDEO_COST} كريديت لإنتاج إعلان منتج مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ للمراجعة فقط؛ لا نشر ولا جدولة.` : `I approve a ${CONTENT_HUB_VIDEO_COST}-credit charge for one ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second review-only product ad; nothing will be published or scheduled.`)}
+                      : videoProductionMode === 'CAMPAIGN_FILM'
+                        ? (isAr ? `أوافق على خصم ${CONTENT_HUB_VIDEO_COST} كريديت لإنتاج فيلم حملة من 3 لقطات مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ للمراجعة فقط؛ محاولة واحدة، لا نشر ولا جدولة.` : `I approve a ${CONTENT_HUB_VIDEO_COST}-credit charge for one ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second, three-shot review-only campaign film; one attempt, nothing published or scheduled.`)
+                        : (isAr ? `أوافق على خصم ${CONTENT_HUB_VIDEO_COST} كريديت لإنتاج إعلان منتج مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ للمراجعة فقط؛ لا نشر ولا جدولة.` : `I approve a ${CONTENT_HUB_VIDEO_COST}-credit charge for one ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second review-only product ad; nothing will be published or scheduled.`)}
                   </span>
                 </label>
 
@@ -5577,8 +5670,8 @@ function PostCard({
             onClick={videoGenerationLocked ? onAddCredits : onGenerateVideo}
             disabled={isGeneratingVideo || creditRestorationPending || imageGenerationBlockedByTruthReview}
             title={isAr
-              ? `NEXUS Video Studio · Motion Design من ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت أو إعلان منتج سينمائي ${CONTENT_HUB_VIDEO_COST} كريديت · للمراجعة فقط`
-              : `NEXUS Video Studio · Motion Design from ${CONTENT_HUB_MOTION_DESIGN_COST} credits or cinematic product ad ${CONTENT_HUB_VIDEO_COST} credits · review only`}
+              ? `NEXUS Video Studio · Motion Design من ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت أو فيلم حملة/إعلان منتج احترافي ${CONTENT_HUB_VIDEO_COST} كريديت · للمراجعة فقط`
+              : `NEXUS Video Studio · Motion Design from ${CONTENT_HUB_MOTION_DESIGN_COST} credits or a professional campaign/product film for ${CONTENT_HUB_VIDEO_COST} credits · review only`}
             className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug transition-all flex items-center justify-center gap-1"
             style={{
               borderColor: 'rgba(15,23,42,0.08)',

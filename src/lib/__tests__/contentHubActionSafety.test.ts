@@ -142,7 +142,7 @@ describe('contentHubActionSafety', () => {
     })).toEqual({ ok: true })
   })
 
-  it('requires the exact eight-second, rights-confirmed video contract before charging', () => {
+  it('requires the exact route-specific duration and rights-confirmed video contract before charging', () => {
     expect(CONTENT_HUB_VIDEO_COST).toBe(18)
     expect(validateVideoGenerationConfirmation({
       confirmed: true,
@@ -167,6 +167,24 @@ describe('contentHubActionSafety', () => {
       acknowledgedNoPublishOrSchedule: true,
       acknowledgedReviewRequired: true,
       acknowledgedAssetRights: true,
+    })).toEqual({ ok: true })
+    expect(validateVideoGenerationConfirmation({
+      confirmed: true,
+      acknowledgedCreditCost: CONTENT_HUB_VIDEO_COST,
+      acknowledgedDurationSeconds: 8,
+      acknowledgedNoPublishOrSchedule: true,
+      acknowledgedReviewRequired: true,
+      acknowledgedAssetRights: true,
+      productionRoute: 'MULTI_SHOT_CAMPAIGN_FILM',
+    })).toMatchObject({ ok: false })
+    expect(validateVideoGenerationConfirmation({
+      confirmed: true,
+      acknowledgedCreditCost: CONTENT_HUB_VIDEO_COST,
+      acknowledgedDurationSeconds: 10,
+      acknowledgedNoPublishOrSchedule: true,
+      acknowledgedReviewRequired: true,
+      acknowledgedAssetRights: true,
+      productionRoute: 'MULTI_SHOT_CAMPAIGN_FILM',
     })).toEqual({ ok: true })
   })
 

@@ -132,6 +132,48 @@ export async function createRunwayProductAdTask(input: {
   }, { defaultStatus: 'PENDING' })
 }
 
+export type RunwayMultiShot = {
+  prompt: string
+  duration: number
+}
+
+/**
+ * Creates one pinned professional campaign film with an explicit editorial
+ * shot list. Unlike source-locked motion design, this route produces real
+ * subject/camera motion, scene cuts, and provider-generated sound design.
+ */
+export async function createRunwayMultiShotVideoTask(input: {
+  shots: RunwayMultiShot[]
+  ratio: '1280:720' | '720:1280' | '960:960' | '1920:1080' | '1080:1920' | '1440:1440'
+  duration: 5 | 10 | 15
+  audio?: boolean
+}): Promise<RunwayTask> {
+  if (input.shots.length < 3 || input.shots.length > 5) {
+    throw new Error('MULTI_SHOT_COUNT_INVALID')
+  }
+  if (input.shots.some(shot => shot.prompt.trim().length < 3 || shot.prompt.length > 512)) {
+    throw new Error('MULTI_SHOT_PROMPT_INVALID')
+  }
+  if (input.shots.reduce((total, shot) => total + shot.duration, 0) !== input.duration) {
+    throw new Error('MULTI_SHOT_DURATION_INVALID')
+  }
+
+  return runwayRequest('/recipes/multi_shot_video', {
+    method: 'POST',
+    body: JSON.stringify({
+      version: '2026-06',
+      mode: 'custom',
+      duration: input.duration,
+      ratio: input.ratio,
+      audio: input.audio !== false,
+      shots: input.shots.map(shot => ({
+        prompt: shot.prompt.trim(),
+        duration: shot.duration,
+      })),
+    }),
+  }, { defaultStatus: 'PENDING' })
+}
+
 export async function retrieveRunwayTask(taskId: string): Promise<RunwayTask> {
   if (!/^[A-Za-z0-9_-]{6,200}$/.test(taskId)) throw new Error('Invalid Runway task id')
   return runwayRequest(`/tasks/${encodeURIComponent(taskId)}`, { method: 'GET' })

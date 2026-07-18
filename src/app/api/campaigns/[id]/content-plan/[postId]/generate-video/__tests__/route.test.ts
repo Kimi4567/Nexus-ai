@@ -7,8 +7,10 @@ const mocks = vi.hoisted(() => ({
   refund: vi.fn(),
   rateLimit: vi.fn(),
   createTask: vi.fn(),
+  createMultiShotTask: vi.fn(),
   retrieveTask: vi.fn(),
   uploadVideo: vi.fn(),
+  renderCampaignFilm: vi.fn(),
   reviewQuality: vi.fn(),
   videoProviderReady: vi.fn(),
   storageReady: vi.fn(),
@@ -40,9 +42,13 @@ vi.mock('@/lib/ai/provider', () => ({
 }))
 vi.mock('@/lib/ai/runway', () => ({
   createRunwayProductAdTask: mocks.createTask,
+  createRunwayMultiShotVideoTask: mocks.createMultiShotTask,
   retrieveRunwayTask: mocks.retrieveTask,
   uploadRunwayVideoToCloudinary: mocks.uploadVideo,
   cancelRunwayTask: vi.fn(),
+}))
+vi.mock('@/lib/professionalCampaignFilm.server', () => ({
+  renderAndPersistProfessionalCampaignFilm: mocks.renderCampaignFilm,
 }))
 vi.mock('@/lib/ai/generatedMediaQuality', () => ({
   cloudinaryVideoReviewFrames: (url: string, duration = 5) => [`${url}#frame-0`, `${url}#frame-${Math.floor(duration / 2)}`, `${url}#frame-${duration - 1}`],
@@ -169,6 +175,7 @@ beforeEach(() => {
     transactionId: 'credit-1',
   })
   mocks.createTask.mockResolvedValue({ id: 'runway-task-1', status: 'PENDING' })
+  mocks.createMultiShotTask.mockResolvedValue({ id: 'runway-multi-shot-1', status: 'PENDING' })
   mocks.finalize.mockResolvedValue({ ok: true, status: 'settled' })
   mocks.refund.mockResolvedValue({ ok: true, status: 'refunded' })
   mocks.retrieveTask.mockResolvedValue({
@@ -183,6 +190,15 @@ beforeEach(() => {
     width: 720,
     height: 1280,
     duration: 8,
+    format: 'mp4',
+  })
+  mocks.renderCampaignFilm.mockResolvedValue({
+    url: 'https://res.cloudinary.com/demo/video/upload/campaign-film.mp4',
+    publicId: 'nexus/campaign-films/campaign_film_generation-1',
+    bytes: 4096,
+    width: 720,
+    height: 1280,
+    duration: 10,
     format: 'mp4',
   })
   mocks.reviewQuality.mockResolvedValue({
@@ -269,6 +285,53 @@ describe('POST professional video generation', () => {
       select: { updatedAt: true },
     })
     expect(payload).toMatchObject({ creditsUsed: 18, durationSeconds: 8, productionRoute: 'CINEMATIC_PRODUCT_AD', reviewRequired: true, published: false, scheduled: false })
+  })
+
+  it('starts one ten-second three-shot campaign film without requiring product references', async () => {
+    mocks.prisma.media.findMany.mockResolvedValue([])
+    const response = await POST(request({
+      ...confirmedBody,
+      productionRoute: 'MULTI_SHOT_CAMPAIGN_FILM',
+      acknowledgedDurationSeconds: 10,
+      referenceMediaIds: [],
+    }), {
+      params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
+    })
+    const payload = await response.json()
+
+    expect(response.status).toBe(202)
+    expect(mocks.createTask).not.toHaveBeenCalled()
+    expect(mocks.createMultiShotTask).toHaveBeenCalledTimes(1)
+    expect(mocks.createMultiShotTask).toHaveBeenCalledWith(expect.objectContaining({
+      duration: 10,
+      ratio: '720:1280',
+      audio: true,
+      shots: [
+        expect.objectContaining({ duration: 3, prompt: expect.stringContaining('No captions') }),
+        expect.objectContaining({ duration: 3 }),
+        expect.objectContaining({ duration: 4 }),
+      ],
+    }))
+    expect(mocks.prisma.generation.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        params: expect.objectContaining({
+          referenceMediaId: null,
+          referenceMediaIds: [],
+          productionRoute: 'MULTI_SHOT_CAMPAIGN_FILM',
+          durationSeconds: 10,
+          providerCostEstimate: { currency: 'USD', amount: 1.3, providerCredits: 130 },
+          overlayCopy: expect.objectContaining({ brand: 'NEXUS', language: 'en' }),
+        }),
+      }),
+    }))
+    expect(payload).toMatchObject({
+      durationSeconds: 10,
+      productionRoute: 'MULTI_SHOT_CAMPAIGN_FILM',
+      creditsUsed: 18,
+      reviewRequired: true,
+      published: false,
+      scheduled: false,
+    })
   })
 
   it('blocks screens and UI captures before any provider spend or debit', async () => {
@@ -492,6 +555,67 @@ describe('GET professional video generation status', () => {
       scheduled: false,
     })
     expect(mocks.deduct).not.toHaveBeenCalled()
+  })
+
+  it('finishes a multi-shot master with branded typography before QA and attachment', async () => {
+    const renderUpdatedAt = new Date('2026-07-17T08:01:00.000Z')
+    const overlayCopy = {
+      brand: 'NEXUS',
+      hook: 'Strategy that moves',
+      benefit: 'From plan to reviewed execution',
+      cta: 'Discover more',
+      language: 'en',
+    }
+    mocks.prisma.generation.findMany.mockResolvedValue([{
+      id: 'generation-1',
+      campaignId: 'campaign-1',
+      type: 'VIDEO',
+      provider: 'runway',
+      status: 'PROCESSING',
+      progress: 70,
+      externalId: 'runway-multi-shot-1',
+      params: {
+        postId: 'post-1',
+        postUpdatedAt: renderUpdatedAt.toISOString(),
+        durationSeconds: 10,
+        productionRoute: 'MULTI_SHOT_CAMPAIGN_FILM',
+        referenceMediaId: null,
+        referenceMediaIds: [],
+        overlayCopy,
+        credit: { ok: true, creditsUsed: 18, creditsRemaining: 42, transactionId: 'credit-1' },
+      },
+      metadata: null,
+    }])
+    mocks.prisma.socialPost.findUnique.mockResolvedValue({ ...post, updatedAt: renderUpdatedAt })
+
+    const response = await GET(request({}), {
+      params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
+    })
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(mocks.renderCampaignFilm).toHaveBeenCalledWith(expect.objectContaining({
+      sourceUrl: 'https://res.cloudinary.com/demo/video/upload/final.mp4',
+      generationId: 'generation-1',
+      overlayCopy,
+      target: expect.objectContaining({ durationSeconds: 10 }),
+    }))
+    expect(mocks.reviewQuality).toHaveBeenCalledWith(expect.objectContaining({
+      qualityStandard: 'PREMIUM',
+      approvedOverlayTexts: ['NEXUS', 'Strategy that moves', 'From plan to reviewed execution', 'Discover more'],
+      outputFrames: [
+        'https://res.cloudinary.com/demo/video/upload/campaign-film.mp4#frame-0',
+        'https://res.cloudinary.com/demo/video/upload/campaign-film.mp4#frame-5',
+        'https://res.cloudinary.com/demo/video/upload/campaign-film.mp4#frame-9',
+      ],
+    }))
+    expect(mocks.prisma.socialPost.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        imageUrl: 'https://res.cloudinary.com/demo/video/upload/campaign-film.mp4',
+        generationStatus: 'DONE',
+      }),
+    }))
+    expect(payload).toMatchObject({ status: 'SUCCEEDED', attached: true, reviewRequired: true })
   })
 
   it('rejects a failed video quality review, restores credits, and does not attach it', async () => {

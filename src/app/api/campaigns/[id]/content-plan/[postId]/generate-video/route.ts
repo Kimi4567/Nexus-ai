@@ -10,7 +10,6 @@ import {
   type CreditDeductionOk,
 } from '@/lib/credits'
 import {
-  CONTENT_HUB_VIDEO_COST,
   validateVideoGenerationConfirmation,
 } from '@/lib/contentHubActionSafety'
 import {
@@ -25,6 +24,7 @@ import {
 } from '@/lib/ai/mediaProviderRouter'
 import {
   cancelRunwayTask,
+  createRunwayMultiShotVideoTask,
   createRunwayProductAdTask,
   retrieveRunwayTask,
   uploadRunwayVideoToCloudinary,
@@ -60,6 +60,14 @@ import {
   validatePlatformVideoFormat,
   type PlatformVideoFormat,
 } from '@/lib/platformVideoFormat'
+import {
+  buildProfessionalCampaignFilmBrief,
+  PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS,
+  PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_COST_USD_ESTIMATE,
+  PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_CREDITS_ESTIMATE,
+  type ProfessionalCampaignFilmBrief,
+} from '@/lib/professionalCampaignFilm'
+import { renderAndPersistProfessionalCampaignFilm } from '@/lib/professionalCampaignFilm.server'
 
 // Completion includes durable video upload plus a three-frame visual review.
 // Keep this server-side verification window independent from browser polling.
@@ -76,6 +84,8 @@ type StoredGenerationParams = {
   ratio?: string
   targetFormat?: PlatformVideoFormat
   durationSeconds?: number
+  productionRoute?: 'CINEMATIC_PRODUCT_AD' | 'MULTI_SHOT_CAMPAIGN_FILM'
+  overlayCopy?: ProfessionalCampaignFilmBrief['overlayCopy']
   credit?: CreditDeductionOk
 }
 
@@ -90,14 +100,16 @@ function providerFailureCategory(task: RunwayTask): 'INPUT_SAFETY_REJECTED' | 'P
     : 'PROVIDER_FAILED'
 }
 
-function safeFailure(task: RunwayTask): string {
+function safeFailure(task: RunwayTask, productionRoute: StoredGenerationParams['productionRoute']): string {
   console.error('[generate-video] NEXUS video provider task failed', {
     status: task.status,
     failureCode: sanitizeSentryText(task.failureCode || '').slice(0, 120),
     providerFailure: sanitizeSentryText(task.failure || '').slice(0, 300),
   })
   return providerFailureCategory(task) === 'INPUT_SAFETY_REJECTED'
-    ? 'NEXUS stopped this cinematic render because the source media did not pass provider safety. Use isolated product-only references or source-locked image motion. No video was created and reserved credits will be restored.'
+    ? productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM'
+      ? 'NEXUS stopped this campaign-film concept because it did not pass provider safety. No video was created and reserved credits will be restored.'
+      : 'NEXUS stopped this product render because the source media did not pass provider safety. Use isolated product-only references or source-locked Motion Design. No video was created and reserved credits will be restored.'
     : 'NEXUS Video Studio could not create a usable video. Reserved credits will be restored.'
 }
 
@@ -145,6 +157,9 @@ export async function POST(req: NextRequest, props: Params) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json().catch(() => ({}))
+  const productionRoute = body.productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM'
+    ? 'MULTI_SHOT_CAMPAIGN_FILM' as const
+    : 'CINEMATIC_PRODUCT_AD' as const
   const confirmation = validateVideoGenerationConfirmation({
     confirmed: body.explicitVideoGenerationConfirmed,
     acknowledgedCreditCost: body.acknowledgedCreditCost,
@@ -152,6 +167,7 @@ export async function POST(req: NextRequest, props: Params) {
     acknowledgedNoPublishOrSchedule: body.acknowledgedNoPublishOrSchedule,
     acknowledgedReviewRequired: body.acknowledgedReviewRequired,
     acknowledgedAssetRights: body.acknowledgedAssetRights,
+    productionRoute,
   })
   if (!confirmation.ok) {
     return NextResponse.json({
@@ -282,8 +298,10 @@ export async function POST(req: NextRequest, props: Params) {
     }, { status: 404 })
   }
 
-  const preflight = assessCinematicProductAdAssets(referenceMedia)
-  if (!preflight.eligible) {
+  const preflight = productionRoute === 'CINEMATIC_PRODUCT_AD'
+    ? assessCinematicProductAdAssets(referenceMedia)
+    : null
+  if (preflight && !preflight.eligible) {
     const motionDesignRequired = preflight.route === 'MOTION_DESIGN_REQUIRED'
     return NextResponse.json({
       error: motionDesignRequired
@@ -316,7 +334,7 @@ export async function POST(req: NextRequest, props: Params) {
     }, { status: 503 })
   }
 
-  const brief = buildCinematicProductAdBrief({
+  const productAdBrief = buildCinematicProductAdBrief({
     brandName: brand?.brandName || campaign.name,
     description: brand?.description,
     primaryOffer: brand?.primaryOffer,
@@ -327,27 +345,54 @@ export async function POST(req: NextRequest, props: Params) {
     industry: brand?.industry,
     toneWords: brand?.toneKeywords,
   })
-  const targetFormat = resolvePlatformVideoFormat(post.publishTarget || post.platform)
+  const campaignFilmBrief = buildProfessionalCampaignFilmBrief({
+    brandName: brand?.brandName || campaign.name,
+    description: brand?.description,
+    primaryOffer: brand?.primaryOffer,
+    caption: post.caption,
+    videoDirection: post.videoPrompt,
+    industry: brand?.industry,
+  })
+  const durationSeconds = productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM'
+    ? PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS
+    : CINEMATIC_PRODUCT_AD_DURATION_SECONDS
+  const targetFormat = {
+    ...resolvePlatformVideoFormat(post.publishTarget || post.platform),
+    durationSeconds,
+  }
   const ratio = platformToRunwayRatio(targetFormat.platform, true)
+  const providerCostEstimate = productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM'
+    ? {
+        currency: 'USD',
+        amount: PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_COST_USD_ESTIMATE,
+        providerCredits: PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_CREDITS_ESTIMATE,
+      }
+    : {
+        currency: 'USD',
+        amount: CINEMATIC_PRODUCT_AD_PROVIDER_COST_USD_ESTIMATE,
+        providerCredits: CINEMATIC_PRODUCT_AD_PROVIDER_CREDITS_ESTIMATE,
+      }
   const generation = await db.generation.create({
     data: {
       campaignId: params.id,
       type: 'VIDEO',
-      prompt: brief.userConcept,
+      prompt: productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM'
+        ? campaignFilmBrief.creativeDirection
+        : productAdBrief.userConcept,
       params: {
         postId: params.postId,
         postUpdatedAt: post.updatedAt.toISOString(),
-        referenceMediaId: referenceMedia[0].id,
+        referenceMediaId: referenceMedia[0]?.id ?? null,
         referenceMediaIds: referenceMedia.map(media => media.id),
         ratio,
         targetFormat,
-        durationSeconds: CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
+        durationSeconds,
+        productionRoute,
+        overlayCopy: productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM'
+          ? campaignFilmBrief.overlayCopy
+          : undefined,
         pricingVersion: CURRENT_CREDIT_PRICING_VERSION,
-        providerCostEstimate: {
-          currency: 'USD',
-          amount: CINEMATIC_PRODUCT_AD_PROVIDER_COST_USD_ESTIMATE,
-          providerCredits: CINEMATIC_PRODUCT_AD_PROVIDER_CREDITS_ESTIMATE,
-        },
+        providerCostEstimate,
         automaticProviderRetries: 0,
       },
       status: 'PENDING',
@@ -365,7 +410,9 @@ export async function POST(req: NextRequest, props: Params) {
     entityId: post.id,
     entityType: 'social_post_video',
     operationKey: getCreditOperationKey(req, 'VIDEO_GENERATION', 'social_post_video', post.id),
-    description: `Eight-second cinematic product ad from ${referenceMedia.length} qualified product angles — post #${post.contentPlanIndex ?? post.id}`,
+    description: productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM'
+      ? `Ten-second professional three-shot campaign film with sound and branded typography — post #${post.contentPlanIndex ?? post.id}`
+      : `Eight-second cinematic product ad from ${referenceMedia.length} qualified product angles — post #${post.contentPlanIndex ?? post.id}`,
   })
   if (!credit.ok) {
     await db.generation.update({ where: { id: generation.id }, data: { status: 'FAILED', error: 'Credits were unavailable before provider execution.' } })
@@ -373,13 +420,20 @@ export async function POST(req: NextRequest, props: Params) {
   }
 
   try {
-    const task = await createRunwayProductAdTask({
-      productImages: referenceMedia.map(media => media.url),
-      productInfo: brief.productInfo,
-      userConcept: brief.userConcept,
-      ratio,
-      duration: CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
-    })
+    const task = productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM'
+      ? await createRunwayMultiShotVideoTask({
+          shots: campaignFilmBrief.shots,
+          ratio,
+          duration: PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS,
+          audio: true,
+        })
+      : await createRunwayProductAdTask({
+          productImages: referenceMedia.map(media => media.url),
+          productInfo: productAdBrief.productInfo,
+          userConcept: productAdBrief.userConcept,
+          ratio,
+          duration: CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
+        })
     const generatingPost = await db.socialPost.update({
       where: { id: post.id },
       data: { generationStatus: 'GENERATING', errorMessage: null },
@@ -422,8 +476,8 @@ export async function POST(req: NextRequest, props: Params) {
     return NextResponse.json({
       generationId: generation.id,
       status: task.status,
-      durationSeconds: CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
-      productionRoute: 'CINEMATIC_PRODUCT_AD',
+      durationSeconds,
+      productionRoute,
       ratio,
       creditsUsed: credit.creditsUsed,
       creditsRemaining: credit.creditsRemaining,
@@ -484,7 +538,7 @@ export async function GET(req: NextRequest, props: Params) {
   let task: RunwayTask
   try {
     task = await retrieveRunwayTask(generation.externalId)
-  } catch (error) {
+  } catch {
     return NextResponse.json({
       status: 'PROCESSING',
       generationId: generation.id,
@@ -503,7 +557,7 @@ export async function GET(req: NextRequest, props: Params) {
   }
 
   if (['FAILED', 'CANCELED', 'CANCELLED'].includes(task.status)) {
-    const message = safeFailure(task)
+    const message = safeFailure(task, generationParams(generation.params).productionRoute)
     const failureCategory = providerFailureCategory(task)
     const refund = await refundGeneration(userId, generation, message)
     await db.generation.update({
@@ -562,8 +616,27 @@ export async function GET(req: NextRequest, props: Params) {
   }
 
   try {
-    const stored = await uploadRunwayVideoToCloudinary(providerUrl, generation.id)
+    const providerStored = await uploadRunwayVideoToCloudinary(providerUrl, generation.id)
     const storedParams = generationParams(generation.params)
+    const productionRoute = storedParams.productionRoute ?? 'CINEMATIC_PRODUCT_AD'
+    const isCampaignFilm = productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM'
+    const expectedDurationSeconds = storedParams.durationSeconds ?? CINEMATIC_PRODUCT_AD_DURATION_SECONDS
+    if (isCampaignFilm && !storedParams.overlayCopy) {
+      throw new Error('The approved campaign-film typography contract is unavailable')
+    }
+    const targetFormat = storedParams.targetFormat
+      ?? {
+        ...resolvePlatformVideoFormat(context.post.publishTarget || context.post.platform),
+        durationSeconds: expectedDurationSeconds,
+      }
+    const stored = isCampaignFilm
+      ? await renderAndPersistProfessionalCampaignFilm({
+          sourceUrl: providerStored.url,
+          target: targetFormat,
+          generationId: generation.id,
+          overlayCopy: storedParams.overlayCopy!,
+        })
+      : providerStored
     const qaReferenceMedia = storedParams.referenceMediaId
       ? await db.media.findFirst({
           where: {
@@ -597,8 +670,6 @@ export async function GET(req: NextRequest, props: Params) {
     const referenceEvidence = orderedQaReferences.map((media: any) => (
       media.intelligenceStatus === 'READY' ? readMediaIntelligence(media.intelligence) : null
     )).filter(Boolean)
-    const targetFormat = storedParams.targetFormat
-      ?? resolvePlatformVideoFormat(context.post.publishTarget || context.post.platform)
     const formatValidation = validatePlatformVideoFormat({
       width: stored.width,
       height: stored.height,
@@ -607,7 +678,7 @@ export async function GET(req: NextRequest, props: Params) {
     }, targetFormat)
     const qualityReview = await reviewGeneratedMediaQuality({
       mediaType: 'VIDEO',
-      outputFrames: cloudinaryVideoReviewFrames(stored.url, stored.duration ?? CINEMATIC_PRODUCT_AD_DURATION_SECONDS),
+      outputFrames: cloudinaryVideoReviewFrames(stored.url, stored.duration ?? expectedDurationSeconds),
       referenceImageUrl: qaReferenceMedia?.url,
       referenceImageUrls: orderedQaReferences.map((media: any) => media.url),
       campaignMessage: context.post.caption,
@@ -616,6 +687,15 @@ export async function GET(req: NextRequest, props: Params) {
       targetFormat,
       formatValidation,
       requireProductAdStructure: true,
+      qualityStandard: 'PREMIUM',
+      approvedOverlayTexts: isCampaignFilm && storedParams.overlayCopy
+        ? [
+            storedParams.overlayCopy.brand,
+            storedParams.overlayCopy.hook,
+            storedParams.overlayCopy.benefit,
+            storedParams.overlayCopy.cta,
+          ]
+        : [],
     })
     if (!qualityReview.passed) {
       const message = 'NEXUS quality review rejected this video because it did not meet the approved creative and platform-delivery requirements. Credits will be restored.'
@@ -629,7 +709,7 @@ export async function GET(req: NextRequest, props: Params) {
           error: message,
           metadata: {
             providerTaskId: task.id,
-            durationSeconds: stored.duration ?? CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
+            durationSeconds: stored.duration ?? expectedDurationSeconds,
             reviewRequired: true,
             qualityStatus: 'REJECTED',
             qualityReview,
@@ -669,8 +749,10 @@ export async function GET(req: NextRequest, props: Params) {
         width: stored.width,
         height: stored.height,
         duration: stored.duration,
-        category: 'cinematic-product-ad-master',
-        tags: ['nexus-video-studio', 'cinematic-product-ad', 'multi-reference', 'review-required'],
+        category: isCampaignFilm ? 'professional-campaign-film-master' : 'cinematic-product-ad-master',
+        tags: isCampaignFilm
+          ? ['nexus-video-studio', 'professional-campaign-film', 'multi-shot', 'branded-typography', 'review-required']
+          : ['nexus-video-studio', 'cinematic-product-ad', 'multi-reference', 'review-required'],
       },
     })
 
@@ -681,11 +763,11 @@ export async function GET(req: NextRequest, props: Params) {
         progress: 100,
         output: stored.url,
         metadata: {
-          model: 'product-ad-2026-06',
-          productionRoute: 'CINEMATIC_PRODUCT_AD',
+          model: isCampaignFilm ? 'multi-shot-video-2026-06' : 'product-ad-2026-06',
+          productionRoute,
           providerTaskId: task.id,
           mediaId: media.id,
-          durationSeconds: stored.duration ?? CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
+          durationSeconds: stored.duration ?? expectedDurationSeconds,
           reviewRequired: true,
           qualityStatus: 'PASSED',
           qualityReview,
@@ -703,8 +785,8 @@ export async function GET(req: NextRequest, props: Params) {
       await db.generation.update({
         where: { id: generation.id },
         data: { metadata: {
-          model: 'product-ad-2026-06', productionRoute: 'CINEMATIC_PRODUCT_AD', providerTaskId: task.id, mediaId: media.id,
-          durationSeconds: stored.duration ?? CINEMATIC_PRODUCT_AD_DURATION_SECONDS, reviewRequired: true, attached: false,
+          model: isCampaignFilm ? 'multi-shot-video-2026-06' : 'product-ad-2026-06', productionRoute, providerTaskId: task.id, mediaId: media.id,
+          durationSeconds: stored.duration ?? expectedDurationSeconds, reviewRequired: true, attached: false,
           qualityStatus: 'PASSED', qualityReview,
         } },
       })
@@ -757,8 +839,8 @@ export async function GET(req: NextRequest, props: Params) {
     await db.generation.update({
       where: { id: generation.id },
       data: { metadata: {
-        model: 'product-ad-2026-06', productionRoute: 'CINEMATIC_PRODUCT_AD', providerTaskId: task.id, mediaId: media.id,
-        durationSeconds: stored.duration ?? CINEMATIC_PRODUCT_AD_DURATION_SECONDS, reviewRequired: true, attached: true,
+        model: isCampaignFilm ? 'multi-shot-video-2026-06' : 'product-ad-2026-06', productionRoute, providerTaskId: task.id, mediaId: media.id,
+        durationSeconds: stored.duration ?? expectedDurationSeconds, reviewRequired: true, attached: true,
         qualityStatus: 'PASSED', qualityReview,
       } },
     })
