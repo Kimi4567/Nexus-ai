@@ -37,6 +37,8 @@ export interface ExecutionPostCounts {
   approved: number
   approvedMissingApproval?: number
   approvedMissingMedia?: number
+  qualityReviewIssueCount?: number
+  qualityReviewPostCount?: number
   scheduled: number
   invalidScheduled?: number
   published: number
@@ -318,6 +320,23 @@ export function buildCampaignExecutionTruth(snapshot: CampaignExecutionSnapshot)
         {
           en: `${missingApproval} approved post${missingApproval === 1 ? '' : 's'} do not have an immutable copy-approval revision. Reopen and approve them before any execution decision.`,
           ar: `${missingApproval} منشور معتمد بلا نسخة ثابتة لاعتماد النص. أعد فتحه واعتماده قبل أي قرار تنفيذ.`,
+        },
+      )
+    } else if ((snapshot.posts.qualityReviewIssueCount ?? 0) > 0) {
+      const qualityIssues = snapshot.posts.qualityReviewIssueCount ?? 0
+      const affectedPosts = snapshot.posts.qualityReviewPostCount ?? 0
+      stage = 'CONTENT_REVIEW'
+      nextAction = item(
+        snapshot,
+        stage,
+        'REVIEW_CONTENT',
+        'critical',
+        'review_required',
+        contentHref,
+        { en: 'Repair content quality before media', ar: 'أصلح جودة النص قبل الوسائط' },
+        {
+          en: `${qualityIssues} quality finding${qualityIssues === 1 ? '' : 's'} affect ${affectedPosts} post${affectedPosts === 1 ? '' : 's'}. Prior approval remains in the audit record, but execution is locked until the affected copy is edited and re-approved.`,
+          ar: `${qualityIssues} ملاحظة جودة تؤثر في ${affectedPosts} منشور. يبقى الاعتماد السابق في سجل التدقيق، لكن التنفيذ مقفول حتى تعديل النصوص المتأثرة وإعادة اعتمادها.`,
         },
       )
     } else if ((snapshot.posts.approvedMissingMedia ?? 0) > 0) {

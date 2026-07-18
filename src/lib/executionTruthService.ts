@@ -7,6 +7,7 @@ import {
   type WorkspaceExecutionTruth,
 } from '@/lib/executionTruth'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
+import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { normalizeStrategyEvidenceLedger } from '@/lib/strategy/strategyEvidenceLedger'
 
 type StatusCountRow = {
@@ -25,8 +26,16 @@ type AdCampaignCountRow = {
   _count: { _all: number }
 }
 
+type ContentReviewPostRow = {
+  campaignId: string | null
+  caption: string | null
+  imagePrompt: string | null
+  videoPrompt: string | null
+  contentPlanIndex: number | null
+}
+
 function emptyCounts(): ExecutionPostCounts {
-  return { draft: 0, approved: 0, approvedMissingApproval: 0, approvedMissingMedia: 0, scheduled: 0, invalidScheduled: 0, published: 0, failed: 0, publishedWithoutAnalytics: 0, overdueScheduled: 0 }
+  return { draft: 0, approved: 0, approvedMissingApproval: 0, approvedMissingMedia: 0, qualityReviewIssueCount: 0, qualityReviewPostCount: 0, scheduled: 0, invalidScheduled: 0, published: 0, failed: 0, publishedWithoutAnalytics: 0, overdueScheduled: 0 }
 }
 
 function normalizeStatus(status: string): 'draft' | 'approved' | 'scheduled' | 'published' | 'failed' | null {
@@ -84,7 +93,7 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
 
   const campaignIds = campaigns.map((campaign) => campaign.id)
   const db = prisma as any
-  const [statusCounts, approvedMissingApprovalCounts, approvedMissingMediaCounts, invalidScheduledCounts, overdueScheduledCounts, eligibleEvidenceCounts, decisionEvents, activeAdCounts, brandProfile] = await Promise.all([
+  const [statusCounts, approvedMissingApprovalCounts, approvedMissingMediaCounts, invalidScheduledCounts, overdueScheduledCounts, eligibleEvidenceCounts, contentReviewPosts, decisionEvents, activeAdCounts, brandProfile] = await Promise.all([
     db.socialPost.groupBy({
       by: ['campaignId', 'status'],
       where: { workspaceId, campaignId: { in: campaignIds } },
@@ -159,6 +168,21 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
       },
       _count: { _all: true },
     }) as Promise<CampaignCountRow[]>,
+    db.socialPost.findMany({
+      where: {
+        workspaceId,
+        campaignId: { in: campaignIds },
+        status: { in: ['DRAFT', 'APPROVED', 'SCHEDULED'] },
+      },
+      orderBy: [{ campaignId: 'asc' }, { contentPlanIndex: 'asc' }],
+      select: {
+        campaignId: true,
+        caption: true,
+        imagePrompt: true,
+        videoPrompt: true,
+        contentPlanIndex: true,
+      },
+    }) as Promise<ContentReviewPostRow[]>,
     db.marketingLearningEvent.findMany({
       where: {
         workspaceId,
@@ -233,6 +257,14 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
     if (row.organicCampaignId) activeAds.set(row.organicCampaignId, row._count._all)
   }
 
+  const contentReviewPostsByCampaign = new Map<string, ContentReviewPostRow[]>()
+  for (const post of contentReviewPosts) {
+    if (!post.campaignId) continue
+    const current = contentReviewPostsByCampaign.get(post.campaignId) ?? []
+    current.push(post)
+    contentReviewPostsByCampaign.set(post.campaignId, current)
+  }
+
   const snapshots: CampaignExecutionSnapshot[] = campaigns.map((campaign) => {
     const posts = countsByCampaign.get(campaign.id) ?? emptyCounts()
     const aiOutput = campaign.aiOutput && typeof campaign.aiOutput === 'object' && !Array.isArray(campaign.aiOutput)
@@ -241,6 +273,21 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
     const strategy = aiOutput.strategy && typeof aiOutput.strategy === 'object' && !Array.isArray(aiOutput.strategy)
       ? aiOutput.strategy as Record<string, unknown>
       : {}
+    const contentReview = reviewContentPlanForApproval(
+      contentReviewPostsByCampaign.get(campaign.id) ?? [],
+      strategy,
+      [
+        brandProfile?.brandName,
+        brandProfile?.industry,
+        brandProfile?.description,
+        brandProfile?.primaryOffer,
+        brandProfile?.uniqueAdvantages,
+        brandProfile?.complianceNotes,
+        brandProfile?.verifiedProof,
+      ],
+    )
+    posts.qualityReviewIssueCount = contentReview.issues.length
+    posts.qualityReviewPostCount = new Set(contentReview.issues.map((issue) => issue.index)).size
     const approval = buildStrategyApprovalContract({
       campaign: {
         ...campaign,

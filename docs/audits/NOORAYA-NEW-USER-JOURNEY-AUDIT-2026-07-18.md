@@ -143,7 +143,7 @@ The end-to-end observation reached Brand Brain → Full Strategy → paid qualit
 
 ### Verification completed
 
-- Full test suite: **316 test files / 2,400 tests passed**.
+- Full test suite: **316 test files / 2,402 tests passed**.
 - TypeScript: **passed**.
 - Production build: **passed**, including 123 static pages and all dynamic/API routes.
 - Local browser: registration rejection copy rendered correctly in Arabic and no console warnings/errors were captured on that checked page.
