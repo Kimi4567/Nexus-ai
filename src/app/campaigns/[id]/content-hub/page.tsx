@@ -1336,9 +1336,10 @@ export default function ContentHubPage() {
       ANALYSIS_REQUIRED: 'حلّل الأصل أولًا عبر ذكاء الوسائط قبل دفع تكلفة الفيديو.',
       PRODUCT_REFERENCE_REQUIRED: 'هذا الأصل ليس صورة منتج مؤهلة؛ صور الواجهات والشعارات تحتاج Motion Design يحافظ على المصدر.',
       RESOLUTION_REQUIRED: 'الدقة غير كافية: الحد الأدنى 720px للضلع القصير و1024px للضلع الطويل.',
-      QUALITY_TOO_LOW: 'جودة الأصل غير مؤهلة: يلزم 90/100، أو 85–89/100 مع دقة Full HD وبلا أي مشكلة جودة مسجلة. لن يبدأ أي إنفاق.',
+      QUALITY_TOO_LOW: 'جودة الأصل غير مؤهلة: يلزم 70/100 على الأقل قبل إنتاج الفيديو المدفوع. لن يبدأ أي إنفاق.',
       LANGUAGE_MISMATCH: 'لغة الفيديو لا تطابق لغة نص المنشور؛ لائم النص أو اختر أصلًا بنفس اللغة قبل الإنتاج المدفوع.',
       UNSAFE_SOURCE_GRAPHICS: 'الأصل يحتوي رسومات أو نصوصًا مركبة تجعل التوليد السينمائي غير موثوق.',
+      CREATOR_REFERENCE_UNSUPPORTED: 'تظهر شخصية أو عارضة في الصورة. للحفاظ على المنتج استخدم صورًا معزولة للمنتج من زوايا واضحة، أو ارفع فيديو حقيقيًا تملك حق استخدامه لمسار Motion Design.',
       PRODUCT_IDENTITY_MISMATCH: 'لا يستطيع NEXUS تأكيد أن الصور لنفس المنتج؛ اختر زوايا أوضح ومتسقة.',
     }
     return messages[issue.code] || 'هذا الأصل لم يجتز فحص الفيديو المدفوع.'
@@ -2387,7 +2388,11 @@ export default function ContentHubPage() {
     const currentMotionSource = motionDesignVideos.find(media => media.id === post.uploadedMediaId) ?? null
     const defaultMotionSource = currentMotionSource ?? motionDesignVideos[0] ?? null
     const startsWithMotionDesign = !referenceMediaId && Boolean(defaultMotionSource)
-    setVideoProductionMode(startsWithMotionDesign ? 'MOTION_DESIGN' : 'CAMPAIGN_FILM')
+    setVideoProductionMode(startsWithMotionDesign
+      ? 'MOTION_DESIGN'
+      : referenceMediaId
+        ? 'CINEMATIC'
+        : 'CAMPAIGN_FILM')
     setMotionDesignSourceMediaId(defaultMotionSource?.id ?? null)
     setVideoReferenceMediaIds(referenceMediaId ? [referenceMediaId] : [])
     setVideoGenerationAcknowledged(false)
@@ -2477,7 +2482,7 @@ export default function ContentHubPage() {
         campaignId,
         postId: post.id,
         videoPrompt: post.videoPrompt,
-        referenceMediaIds: professionalCampaignFilm ? [] : videoReferenceMediaIds,
+        referenceMediaIds: videoReferenceMediaIds,
         durationSeconds: selectedDurationSeconds,
         productionRoute,
       })
@@ -2488,7 +2493,7 @@ export default function ContentHubPage() {
           method: 'POST',
           headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            referenceMediaIds: professionalCampaignFilm ? [] : videoReferenceMediaIds,
+            referenceMediaIds: videoReferenceMediaIds,
             productionRoute,
             language: isAr ? 'ar' : 'en',
             explicitVideoGenerationConfirmed: true,
@@ -2513,8 +2518,8 @@ export default function ContentHubPage() {
       setMotionDesignSourceMediaId(null)
       setSuccessMsg(professionalCampaignFilm
         ? (isAr
-          ? `بدأ إنتاج فيلم حملة احترافي من 3 لقطات مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ، مع حركة أشخاص وانتقالات وصوت وTypography خاص بالبراند. تم خصم ${CONTENT_HUB_VIDEO_COST} كريديت؛ محاولة واحدة فقط مع استرداد إذا لم يجتز الجودة. لا نشر ولا جدولة.`
-          : `A ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second professional three-shot campaign film is rendering with visible subject motion, scene cuts, sound, and brand typography. ${CONTENT_HUB_VIDEO_COST} credits were charged; there is one attempt with restoration if quality fails. Nothing was published or scheduled.`)
+          ? `بدأ إنتاج Concept Film مولّد من 3 لقطات مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ، مع حركة أشخاص وانتقالات وصوت وTypography خاص بالبراند. لا يدّعي الحفاظ على منتج حقيقي. تم خصم ${CONTENT_HUB_VIDEO_COST} كريديت؛ محاولة واحدة فقط مع استرداد إذا لم يجتز الجودة. لا نشر ولا جدولة.`
+          : `A ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second generated three-shot concept film is rendering with visible subject motion, scene cuts, sound, and brand typography. It does not claim real-product fidelity. ${CONTENT_HUB_VIDEO_COST} credits were charged; there is one attempt with restoration if quality fails. Nothing was published or scheduled.`)
         : (isAr
           ? `بدأ إنتاج إعلان منتج سينمائي مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ من أصول المنتج المؤهلة. تم خصم ${CONTENT_HUB_VIDEO_COST} كريديت؛ لا توجد إعادة محاولة تلقائية، وسيُرد الرصيد إذا لم ينتج أصل صالح. لا نشر ولا جدولة.`
           : `An ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second cinematic product ad is rendering from qualified product assets. ${CONTENT_HUB_VIDEO_COST} credits were charged; there is no automatic provider retry, and the charge will be restored if no usable output is produced. Nothing was published or scheduled.`))
@@ -4722,8 +4727,8 @@ export default function ContentHubPage() {
                       {videoProductionMode === 'MOTION_DESIGN'
                         ? (isAr ? 'حوّل فيديو المنتج إلى Motion Design' : 'Turn your product video into Motion Design')
                         : videoProductionMode === 'CAMPAIGN_FILM'
-                          ? (isAr ? 'إنتاج فيلم حملة احترافي متعدد اللقطات' : 'Produce a professional multi-shot campaign film')
-                          : (isAr ? 'إنتاج إعلان يحافظ على المنتج' : 'Produce a product-fidelity ad')}
+                          ? (isAr ? 'إنتاج Concept Film مولّد متعدد اللقطات' : 'Produce a generated multi-shot concept film')
+                          : (isAr ? 'إنتاج إعلان يستند إلى صور المنتج' : 'Produce a product-referenced ad')}
                     </h3>
                     <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-300">
                       {videoProductionMode === 'MOTION_DESIGN'
@@ -4735,8 +4740,8 @@ export default function ContentHubPage() {
                             ? `ينتج NEXUS فيلمًا مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ من 3 لقطات: Hook متحرك، لقطة منفعة، ثم End Frame بالهوية؛ مع حركة أشخاص وصوت وانتقالات وTypography عربي/إنجليزي منفصل عن الصورة.`
                             : `NEXUS produces a ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second three-shot film: moving hook, benefit shot, and branded end frame—with human motion, sound, cuts, and separately typeset Arabic/English typography.`)
                           : (isAr
-                            ? `يبني NEXUS إعلانًا مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ من صور منتج معزولة ومؤهلة للحفاظ على تفاصيله. لا يبدأ الإنفاق قبل اجتياز الفحص.`
-                            : `NEXUS builds an ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second ad from isolated qualified product photos to preserve product details. No provider spend starts before preflight passes.`)}
+                            ? `يبني NEXUS إعلانًا مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ من صور منتج معزولة ومؤهلة، ثم يرفض الناتج إذا لم يحافظ على المنتج بدرجة كافية. لا يبدأ الإنفاق قبل اجتياز فحص الأصول.`
+                            : `NEXUS builds an ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second ad from qualified isolated product photos, then rejects the output if product consistency is insufficient. Provider spend cannot start before asset preflight passes.`)}
                     </p>
                   </div>
                   <button aria-label={isAr ? 'إغلاق نافذة توليد الفيديو' : 'Close video generation'} onClick={closeVideoGenerationConfirm} disabled={Boolean(generatingVideoId)} className="text-2xl leading-none text-slate-400 hover:text-white disabled:opacity-40">×</button>
@@ -4756,12 +4761,16 @@ export default function ContentHubPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setVideoProductionMode('CAMPAIGN_FILM'); setVideoGenerationAcknowledged(false) }}
+                    onClick={() => {
+                      setVideoProductionMode('CAMPAIGN_FILM')
+                      setVideoReferenceMediaIds([])
+                      setVideoGenerationAcknowledged(false)
+                    }}
                     disabled={Boolean(generatingVideoId)}
                     className={`rounded-2xl border p-4 text-left transition-all ${videoProductionMode === 'CAMPAIGN_FILM' ? 'border-violet-500 bg-violet-50' : 'border-slate-200 bg-white'}`}
                   >
-                    <p className="text-sm font-bold text-slate-950">{isAr ? `فيلم حملة احترافي · ${CONTENT_HUB_VIDEO_COST} كريديت` : `Professional campaign film · ${CONTENT_HUB_VIDEO_COST} credits`}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? '3 لقطات، أشخاص يتحركون، انتقالات، صوت، وTypography فاخر.' : 'Three shots, moving people, cuts, sound, and premium typography.'}</p>
+                    <p className="text-sm font-bold text-slate-950">{isAr ? `Concept Film مولّد · ${CONTENT_HUB_VIDEO_COST} كريديت` : `Generated concept film · ${CONTENT_HUB_VIDEO_COST} credits`}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? '3 لقطات مولّدة، أشخاص يتحركون، انتقالات، صوت، وTypography؛ بلا وعد بتطابق منتج حقيقي.' : 'Three generated shots, moving people, cuts, sound, and typography—with no real-product fidelity promise.'}</p>
                   </button>
                   <button
                     type="button"
@@ -4769,8 +4778,8 @@ export default function ContentHubPage() {
                     disabled={Boolean(generatingVideoId)}
                     className={`rounded-2xl border p-4 text-left transition-all ${videoProductionMode === 'CINEMATIC' ? 'border-violet-500 bg-violet-50' : 'border-slate-200 bg-white'}`}
                   >
-                    <p className="text-sm font-bold text-slate-950">{isAr ? `دقة المنتج · ${CONTENT_HUB_VIDEO_COST} كريديت` : `Product fidelity · ${CONTENT_HUB_VIDEO_COST} credits`}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? 'للمنتج المعزول من عدة زوايا؛ حركة المنتج أهم من حركة الأشخاص.' : 'For isolated multi-angle products; product fidelity takes priority over people.'}</p>
+                    <p className="text-sm font-bold text-slate-950">{isAr ? `إعلان مرجعي للمنتج · ${CONTENT_HUB_VIDEO_COST} كريديت` : `Product-referenced ad · ${CONTENT_HUB_VIDEO_COST} credits`}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? 'لصور منتج معزولة من عدة زوايا؛ الناتج يمر بفحص تطابق قبل أن يُربط.' : 'For isolated multi-angle product photos; the result must pass product-consistency review before attachment.'}</p>
                   </button>
                 </div>
 
@@ -4871,7 +4880,7 @@ export default function ContentHubPage() {
                       </div>
                       {videoReferenceImages.length === 0 && <button type="button" onClick={() => router.push('/media')} className="mt-3 w-full rounded-xl border border-dashed border-slate-300 bg-white px-3 py-3 text-xs font-semibold text-violet-700">{isAr ? 'ارفع صور المنتج من مكتبة الوسائط' : 'Upload product images in Media Library'}</button>}
                       <div className={`mt-3 rounded-xl border px-3 py-3 text-xs leading-relaxed ${cinematicVideoPreflight.eligible ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : cinematicVideoPreflight.route === 'MOTION_DESIGN_REQUIRED' ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-slate-200 bg-white text-slate-600'}`}>
-                        <p className="font-bold">{cinematicVideoPreflight.eligible ? (isAr ? '✓ مؤهل للإنتاج السينمائي' : '✓ Qualified for cinematic production') : cinematicVideoPreflight.route === 'MOTION_DESIGN_REQUIRED' ? (isAr ? 'هذه الأصول تحتاج مسار Motion Design' : 'These assets require Motion Design') : (isAr ? 'اختر زوايا منتج مؤهلة' : 'Choose qualified product angles')}</p>
+                        <p className="font-bold">{cinematicVideoPreflight.eligible ? (isAr ? '✓ الأصول مؤهلة لبدء الإنتاج والفحص' : '✓ Assets qualified for production and review') : cinematicVideoPreflight.route === 'MOTION_DESIGN_REQUIRED' ? (isAr ? 'هذه الأصول تحتاج مسار Motion Design' : 'These assets require Motion Design') : (isAr ? 'اختر زوايا منتج مؤهلة' : 'Choose qualified product angles')}</p>
                         {!cinematicVideoPreflight.eligible && cinematicVideoPreflight.issues.slice(0, 3).map(issue => <p key={`${issue.code}-${issue.mediaId || 'set'}`} className="mt-1">• {videoPreflightIssueCopy(issue)}</p>)}
                       </div>
                     </div>
@@ -4932,7 +4941,7 @@ export default function ContentHubPage() {
                     {videoProductionMode === 'MOTION_DESIGN'
                       ? (isAr ? `أوافق على خصم ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت لإنتاج Motion Design مدته ${MOTION_DESIGN_DURATION_SECONDS} ثوانٍ للمراجعة فقط؛ لا نشر ولا جدولة.` : `I approve a ${CONTENT_HUB_MOTION_DESIGN_COST}-credit charge for one ${MOTION_DESIGN_DURATION_SECONDS}-second review-only Motion Design ad; nothing will be published or scheduled.`)
                       : videoProductionMode === 'CAMPAIGN_FILM'
-                        ? (isAr ? `أوافق على خصم ${CONTENT_HUB_VIDEO_COST} كريديت لإنتاج فيلم حملة من 3 لقطات مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ للمراجعة فقط؛ محاولة واحدة، لا نشر ولا جدولة.` : `I approve a ${CONTENT_HUB_VIDEO_COST}-credit charge for one ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second, three-shot review-only campaign film; one attempt, nothing published or scheduled.`)
+                        ? (isAr ? `أوافق على خصم ${CONTENT_HUB_VIDEO_COST} كريديت لإنتاج Concept Film مولّد من 3 لقطات مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ للمراجعة فقط؛ لا يضمن تطابق منتج حقيقي، محاولة واحدة، لا نشر ولا جدولة.` : `I approve a ${CONTENT_HUB_VIDEO_COST}-credit charge for one ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second, three-shot generated concept film; it does not guarantee real-product fidelity, one attempt, nothing published or scheduled.`)
                         : (isAr ? `أوافق على خصم ${CONTENT_HUB_VIDEO_COST} كريديت لإنتاج إعلان منتج مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ للمراجعة فقط؛ لا نشر ولا جدولة.` : `I approve a ${CONTENT_HUB_VIDEO_COST}-credit charge for one ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second review-only product ad; nothing will be published or scheduled.`)}
                   </span>
                 </label>
