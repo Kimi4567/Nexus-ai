@@ -65,6 +65,19 @@ function postStateCard(input: ContentHubFirstScreenTruthInput, ar: boolean): Con
     }
   }
 
+  if (input.approvedCount > 0 && input.hasQualityMismatch) {
+    return {
+      label: text(ar, 'حالة المنشورات', 'Post state'),
+      value: text(ar, 'الاعتماد مسجل · إعادة فحص الجودة مطلوبة', 'Approval recorded · quality recheck required'),
+      helper: text(
+        ar,
+        'ظهرت ملاحظات جودة بعد الاعتماد. يبقى التنفيذ مقفلاً حتى تعديل النصوص المتأثرة وإعادة اعتمادها.',
+        'Quality findings appeared after approval. Execution stays locked until the affected copy is edited and re-approved.',
+      ),
+      tone: 'danger',
+    }
+  }
+
   if (input.approvedCount > 0) {
     return {
       label: text(ar, 'حالة المنشورات', 'Post state'),

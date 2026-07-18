@@ -220,4 +220,30 @@ describe('deriveContentHubFirstScreenTruth', () => {
     })
     expect(cards[3].helper).toContain('Brand Brain and approved strategy')
   })
+
+  it('does not call approved copy ready for scheduling when a later quality check fails', () => {
+    const cards = deriveContentHubFirstScreenTruth({
+      locale: 'en',
+      fulfillmentSummary: fulfillment(7),
+      totalPosts: 7,
+      draftCount: 0,
+      approvedCount: 7,
+      scheduledCount: 0,
+      publishedCount: 0,
+      manuallyPublishedCount: 0,
+      totalImagePosts: 4,
+      readyMediaCount: 0,
+      ambiguousPreviewCount: 0,
+      videoPostCount: 3,
+      hasOrderMismatch: false,
+      hasQualityMismatch: true,
+    })
+
+    expect(cards[1]).toMatchObject({
+      value: 'Approval recorded · quality recheck required',
+      tone: 'danger',
+    })
+    expect(cards[1].helper).toContain('Execution stays locked')
+    expect(cards[1].value).not.toContain('awaiting scheduling')
+  })
 })

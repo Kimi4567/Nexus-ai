@@ -963,6 +963,12 @@ export default function ContentHubPage() {
       ? `${allMediaReadiness.confirmedReady} من ${readyMediaTotal} وسائط جاهزة`
       : `${allMediaReadiness.confirmedReady} / ${readyMediaTotal} media ready`
     if (approvedOnlyCount) {
+      if (contentReviewRequired) {
+        const affectedPosts = contentIssueCountByPostId.size
+        return isAr
+          ? `${approvedCount} سجلات اعتماد · ${affectedPosts} منشورات تحتاج إعادة فحص الجودة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${readyMediaSummary}`
+          : `${approvedCount} approval records · ${affectedPosts} posts need a quality recheck · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${readyMediaSummary}`
+      }
       return isAr
         ? `${approvedCount} منشورات معتمدة بانتظار الجدولة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${readyMediaSummary}`
         : `${approvedCount} approved posts awaiting scheduling · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${readyMediaSummary}`
@@ -988,6 +994,10 @@ export default function ContentHubPage() {
     ? (isAr
       ? 'المحتوى مجدول فقط. النشر والوسائط والأوتوبايلوت ما زالت خطوات منفصلة.'
       : 'Content is scheduled only. Publishing, media generation, and Autopilot remain separate steps.')
+    : approvedOnlyCount && contentReviewRequired
+      ? (isAr
+        ? 'الاعتماد السابق محفوظ في السجل، لكن ملاحظات الجودة أعادت فتح النصوص المتأثرة للمراجعة. لا جدولة ولا نشر حتى تعديلها وإعادة اعتمادها.'
+        : 'The prior approval remains in the audit record, but quality findings reopened affected copy for review. Scheduling and publishing stay locked until it is edited and re-approved.')
     : approvedOnlyCount
       ? (isAr
         ? 'تم اعتماد المحتوى. الصور والوسائط ما زالت مرحلة منفصلة، والجدولة والنشر يحتاجان قراراً منفصلاً.'
@@ -3315,7 +3325,9 @@ export default function ContentHubPage() {
               imageGenerationBlockedByTruthReview={strategyApprovalRequired || contentIssueCountByPostId.has(post.id)}
               imageGenerationTruthReviewLabel={strategyApprovalRequired
                 ? strategyApprovalRequiredLabel
-                : (isAr ? 'صحّح النص قبل الصورة' : 'Fix copy before image')}
+                : post.isVideoPost
+                  ? (isAr ? 'صحّح النص قبل الفيديو' : 'Fix copy before video')
+                  : (isAr ? 'صحّح النص قبل الصورة' : 'Fix copy before image')}
               addCreditsForImagesLabel={addCreditsForImagesLabel}
               addCreditsForVideoLabel={addCreditsForVideoLabel}
               onGenerateImage={() => openImageGenerationConfirm(post.id)}
@@ -5194,32 +5206,37 @@ function PostCard({
     either: isAr ? 'وسائط مولّدة أو مرفوعة' : 'generated or uploaded media',
   }[creativeRequirement.sourcePreference]
 
-  const lifecycleBadge = {
-    DRAFT: {
-      label: isAr ? 'مسودة للمراجعة' : 'Draft for review',
-      color: '#7c3aed',
-    },
-    APPROVED: {
-      label: isAr ? 'معتمد، غير مجدول' : 'Approved, not scheduled',
-      color: '#059669',
-    },
-    SCHEDULED: {
-      label: isAr ? 'مجدول' : 'Scheduled',
-      color: '#6366f1',
-    },
-    PROCESSING: {
-      label: isAr ? 'قيد تأكيد المنصة' : 'Awaiting platform confirmation',
-      color: '#7c3aed',
-    },
-    PUBLISHED: {
-      label: isAr ? 'منشور' : 'Published',
-      color: '#10b981',
-    },
-    FAILED: {
-      label: isAr ? 'يحتاج مراجعة' : 'Needs review',
-      color: '#ef4444',
-    },
-  }[post.status]
+  const lifecycleBadge = executionBlockedByQuality && ['APPROVED', 'SCHEDULED'].includes(post.status)
+    ? {
+        label: isAr ? 'الاعتماد مسجل · أعد فحص الجودة' : 'Approval recorded · quality recheck required',
+        color: '#be123c',
+      }
+    : ({
+      DRAFT: {
+        label: isAr ? 'مسودة للمراجعة' : 'Draft for review',
+        color: '#7c3aed',
+      },
+      APPROVED: {
+        label: isAr ? 'معتمد، غير مجدول' : 'Approved, not scheduled',
+        color: '#059669',
+      },
+      SCHEDULED: {
+        label: isAr ? 'مجدول' : 'Scheduled',
+        color: '#6366f1',
+      },
+      PROCESSING: {
+        label: isAr ? 'قيد تأكيد المنصة' : 'Awaiting platform confirmation',
+        color: '#7c3aed',
+      },
+      PUBLISHED: {
+        label: isAr ? 'منشور' : 'Published',
+        color: '#10b981',
+      },
+      FAILED: {
+        label: isAr ? 'يحتاج مراجعة' : 'Needs review',
+        color: '#ef4444',
+      },
+    }[post.status])
 
   const scheduledDate = post.scheduledAt
     ? new Date(post.scheduledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
