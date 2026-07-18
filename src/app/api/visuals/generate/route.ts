@@ -557,6 +557,7 @@ export async function POST(req: NextRequest) {
       mediaType: 'IMAGE',
       outputFrames: [platformReadyUrl],
       referenceImageUrl: referenceMedia?.url,
+      allowAdvertisingSceneTransformation: Boolean(referenceMedia),
       campaignMessage: ctx.postCaption || ctx.keyMessage || ctx.campaignGoal,
       creativeDirection: ctx.creativeRequirement?.visualConcept || ctx.visualDirection,
       referenceEvidence,
