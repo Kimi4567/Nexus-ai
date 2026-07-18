@@ -1811,6 +1811,9 @@ function CampaignDetailPageInner() {
       brandName: brandDNA?.brandName,
     })),
   )
+  const creativeMediaNeedLabel = uiIsArabic
+    ? `${creativeRequirementsSummary.imageNeeded || 0} صور · ${creativeRequirementsSummary.videoNeeded || 0} فيديو تحتاج وسائط`
+    : `${creativeRequirementsSummary.imageNeeded || 0} images · ${creativeRequirementsSummary.videoNeeded || 0} videos need media`
   const commandFlowCurrentStepId: CampaignCommandFlowStepId | undefined = (() => {
     if (activeTab === 0) return 'strategy'
     if (activeTab === 3) return 'creative'
@@ -2000,8 +2003,8 @@ function CampaignDetailPageInner() {
       title: uiText('جاهزية الإبداع والوسائط', 'Creative and media readiness'),
       status: creativeHasPostRecords
         ? (uiIsArabic
-          ? `${creativeRequirementsSummary.mediaNeeded} تحتاج وسائط · ${creativeRequirementsSummary.attachedToPost} مرتبطة`
-          : `${creativeRequirementsSummary.mediaNeeded} need media · ${creativeRequirementsSummary.attachedToPost} attached`)
+          ? `${creativeMediaNeedLabel} · ${creativeRequirementsSummary.attachedToPost} مرتبطة`
+          : `${creativeMediaNeedLabel} · ${creativeRequirementsSummary.attachedToPost} attached`)
         : uiText('ينتظر منشورات Content Hub', 'Waiting for Content Hub posts'),
       helper: creativeHasPostRecords
         ? (uiIsArabic
@@ -2203,7 +2206,7 @@ function CampaignDetailPageInner() {
         : !operatingSnapshotsLoaded
         ? uiText('جارٍ التحقق من الأصول', 'Checking assets')
         : creativeHasPostRecords
-        ? uiText(`${creativeRequirementsSummary.mediaNeeded} تحتاج وسائط`, `${creativeRequirementsSummary.mediaNeeded} need media`)
+        ? creativeMediaNeedLabel
         : uiText('ينتظر المحتوى', 'Waiting for content'),
     },
     {

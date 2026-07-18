@@ -83,6 +83,8 @@ type StrategyDecisionDeskProps = {
   creativeSummary: {
     total: number
     mediaNeeded: number
+    imageNeeded?: number
+    videoNeeded?: number
     readinessPending: number
     attachedToPost: number
   }
@@ -514,6 +516,16 @@ export default function StrategyDecisionDesk({
   const plannedPostCount = typeof plannedPostCountValue === 'number' && Number.isFinite(plannedPostCountValue) && plannedPostCountValue > 0
     ? plannedPostCountValue
     : null
+  const identityFieldTotal = 8
+  const identityFieldCount = typeof brandScore === 'number'
+    ? Math.max(0, Math.min(identityFieldTotal, Math.round((brandScore / 100) * identityFieldTotal)))
+    : null
+  const creativeMediaNeedMetric = creativeSummary.imageNeeded !== undefined || creativeSummary.videoNeeded !== undefined
+    ? localized(
+        `${creativeSummary.imageNeeded || 0} صور · ${creativeSummary.videoNeeded || 0} فيديو تحتاج وسائط`,
+        `${creativeSummary.imageNeeded || 0} images · ${creativeSummary.videoNeeded || 0} videos need media`,
+      )
+    : localized(`${creativeSummary.mediaNeeded} تحتاج وسائط`, `${creativeSummary.mediaNeeded} need media`)
   const handoffLinks = [
     { key: 'brand', label: text('Brand Brain', 'Brand Brain'), href: snapshot.executionLinks.brand, status: brandTruthBlocked ? text('تعارض', 'Conflict') : text('مرجع', 'Source'), tone: brandTruthBlocked ? 'danger' as Tone : 'positive' as Tone, helper: text('الأدلة والقيود التي تحكم كل قرار.', 'Evidence and constraints behind every decision.') },
     { key: 'content', label: isPaidOnly ? text('حزمة Paid', 'Paid package') : text('Content Hub', 'Content Hub'), href: isPaidOnly ? `/paid-campaigns/new?sourceCampaignId=${campaign.id}` : snapshot.executionLinks.content, status: isPaidOnly ? (paidPackageComplete ? text('مكتملة بالعقد', 'Contract complete') : text('ناقصة — لا تُعتمد', 'Incomplete — not approvable')) : (truthFlags.hasContentPlan ? text('موجود', 'Present') : text('مطلوب', 'Required')), tone: (isPaidOnly ? paidPackageComplete : truthFlags.hasContentPlan) ? 'positive' as Tone : 'warning' as Tone, helper: isPaidOnly ? text('المطلوب: 3 جماهير، 4 زوايا، 9 نسخ، و4 بريفات قبل أي صرف.', 'Required: 3 audiences, 4 angles, 9 copy variations, and 4 briefs before any spend.') : text('المنشورات وحالات دورة الحياة الفعلية.', 'Actual posts and lifecycle state.') },
@@ -591,7 +603,7 @@ export default function StrategyDecisionDesk({
       helper: localized('المعلومات والأدلة والقيود التي يجب أن تبقى مرجعًا لكل قرار.', 'Evidence, context, and constraints that ground every decision.'),
       href: '/brand',
       status: brandStatus,
-      metric: typeof brandScore === 'number' ? localized(`تغطية الهوية ${brandScore}%`, `Identity coverage ${brandScore}%`) : localized('يحتاج مراجعة', 'Needs review'),
+      metric: identityFieldCount !== null ? localized(`حقول الهوية ${identityFieldCount}/${identityFieldTotal}`, `Identity fields ${identityFieldCount}/${identityFieldTotal}`) : localized('يحتاج مراجعة', 'Needs review'),
     },
     {
       id: '02',
@@ -615,7 +627,10 @@ export default function StrategyDecisionDesk({
       helper: isPaidOnly ? localized('مراجعة التتبع والبريفات والميزانية ثم موافقة إطلاق منفصلة.', 'Review tracking, briefs, and budget, followed by a separate launch approval.') : localized('تحديد احتياجات الأصول وربط الوسائط النهائية بقرار صريح.', 'Define asset needs and attach final media through an explicit decision.'),
       href: isPaidOnly ? `/paid-campaigns/new?sourceCampaignId=${campaign.id}` : `/campaigns/${campaign.id}/creative-brief`,
       status: isPaidOnly ? (snapshot.approvalState === 'approved' ? 'current' : 'review') : creativeStatus,
-      metric: isPaidOnly ? localized('لا صرف قبل الموافقة', 'No spend before approval') : localized(`${creativeSummary.attachedToPost} مرتبطة · ${creativeSummary.mediaNeeded} تحتاج وسائط`, `${creativeSummary.attachedToPost} attached · ${creativeSummary.mediaNeeded} need media`),
+      metric: isPaidOnly ? localized('لا صرف قبل الموافقة', 'No spend before approval') : localized(
+        `${creativeSummary.attachedToPost} مرتبطة · ${creativeMediaNeedMetric.ar}`,
+        `${creativeSummary.attachedToPost} attached · ${creativeMediaNeedMetric.en}`,
+      ),
     },
     {
       id: '05',

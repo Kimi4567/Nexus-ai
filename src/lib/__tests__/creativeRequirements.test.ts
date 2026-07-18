@@ -167,8 +167,25 @@ describe('post-aware creative requirements', () => {
     expect(summary).toEqual({
       total: 3,
       mediaNeeded: 1,
+      imageNeeded: 1,
+      videoNeeded: 0,
       readinessPending: 1,
       attachedToPost: 1,
+    })
+  })
+
+  it('counts video requirements as missing media and keeps image/video counts separate', () => {
+    const summary = summarizeCreativeRequirements([
+      { postId: 'image', platform: 'INSTAGRAM', imageUrl: null, isVideoPost: false },
+      { postId: 'video', platform: 'TIKTOK', imageUrl: null, isVideoPost: true },
+    ])
+
+    expect(summary).toMatchObject({
+      total: 2,
+      mediaNeeded: 2,
+      imageNeeded: 1,
+      videoNeeded: 1,
+      attachedToPost: 0,
     })
   })
 })

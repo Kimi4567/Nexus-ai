@@ -1767,7 +1767,7 @@ function BrandBrainInner() {
               </p>
               <div className="hidden">
                 {[
-                  [locale === 'ar' ? 'تغطية الهوية الأساسية' : 'Core identity coverage', `${brandIndicators.brandCompleteness.score}%`],
+                  [locale === 'ar' ? 'تغطية الهوية الأساسية' : 'Core identity coverage', `${coreIdentityFilled}/${coreIdentityTotal}`],
                   [locale === 'ar' ? 'العضوي' : 'Organic', coreBrandReady ? (locale === 'ar' ? 'جاهز لموجز' : 'Ready for brief') : industryTruthConflict ? (locale === 'ar' ? 'راجع اتساق المجال' : 'Review industry consistency') : (locale === 'ar' ? 'يحتاج بيانات' : 'Needs data')],
                   [locale === 'ar' ? 'المدفوع' : 'Paid', brandIndicators.paidReadiness.ready ? (locale === 'ar' ? 'جاهز لمراجعة المدفوع' : 'Paid review ready') : (locale === 'ar' ? 'يحتاج متطلبات' : 'Needs prerequisites')],
                   [locale === 'ar' ? 'ثراء الذاكرة' : 'Memory richness', brandIndicators.memoryRichness.level === 'high' ? (locale === 'ar' ? 'غنية' : 'Rich') : brandIndicators.memoryRichness.level === 'medium' ? (locale === 'ar' ? 'تتكوّن' : 'Building') : (locale === 'ar' ? 'مبكرة' : 'Early')],

@@ -55,4 +55,15 @@ describe('strategy decision desk channel truth', () => {
     expect(source).toContain('Exit gate:')
     expect(source).toContain('do not treat the horizon promise as fulfilled')
   })
+
+  it('uses field and media-type counts instead of misleading percentages or image-only totals', () => {
+    const source = readFileSync(
+      path.join(process.cwd(), 'src/components/campaign/StrategyDecisionDesk.tsx'),
+      'utf8',
+    )
+
+    expect(source).toContain('Identity fields ${identityFieldCount}/${identityFieldTotal}')
+    expect(source).toContain('images · ${creativeSummary.videoNeeded || 0} videos need media')
+    expect(source).not.toContain('Identity coverage ${brandScore}%')
+  })
 })

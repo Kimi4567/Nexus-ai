@@ -64,6 +64,8 @@ export type CreativeRequirement = {
 export type CreativeRequirementsSummary = {
   total: number
   mediaNeeded: number
+  imageNeeded?: number
+  videoNeeded?: number
   readinessPending: number
   attachedToPost: number
 }
@@ -208,13 +210,19 @@ export function summarizeCreativeRequirements(inputs: CreativeRequirementInput[]
   return inputs.reduce<CreativeRequirementsSummary>((summary, input) => {
     const requirement = derivePostCreativeRequirement(input)
     summary.total += 1
-    if (requirement.status === 'media_needed') summary.mediaNeeded += 1
+    if (requirement.status === 'media_needed' || requirement.status === 'requirement_ready') {
+      summary.mediaNeeded += 1
+      if (input.isVideoPost) summary.videoNeeded = (summary.videoNeeded || 0) + 1
+      else summary.imageNeeded = (summary.imageNeeded || 0) + 1
+    }
     if (requirement.status === 'media_preview_needs_confirmation') summary.readinessPending += 1
     if (requirement.status === 'attached_to_post') summary.attachedToPost += 1
     return summary
   }, {
     total: 0,
     mediaNeeded: 0,
+    imageNeeded: 0,
+    videoNeeded: 0,
     readinessPending: 0,
     attachedToPost: 0,
   })
