@@ -43,6 +43,7 @@ function normalize(value?: string | null): string {
 export function deriveContentHubMediaState(input: ContentHubMediaStateInput): ContentHubMediaState {
   const imageUrl = (input.imageUrl ?? '').trim()
   const hasPreview = imageUrl.length > 0
+  const isVideoPreview = /\.(mp4|mov|webm|m4v)(?:\?|$)/i.test(imageUrl)
   const generationStatus = normalize(input.generationStatus)
   const mediaSource = normalize(input.mediaSource)
   const hasUploadedMedia = Boolean(input.uploadedMediaId)
@@ -85,10 +86,16 @@ export function deriveContentHubMediaState(input: ContentHubMediaStateInput): Co
       countsAsReady: true,
       needsAttention: false,
       hasPreview: true,
-      badgeLabel: { en: 'Generated image', ar: 'صورة مولّدة' },
+      badgeLabel: isVideoPreview
+        ? { en: 'Generated video', ar: 'فيديو مولّد' }
+        : { en: 'Generated image', ar: 'صورة مولّدة' },
       explanatoryCopy: {
-        en: 'Generated image is confirmed ready for this post preview.',
-        ar: 'تم تأكيد جاهزية الصورة المولّدة لمعاينة هذا المنشور.',
+        en: isVideoPreview
+          ? 'Generated video is confirmed ready for this post preview.'
+          : 'Generated image is confirmed ready for this post preview.',
+        ar: isVideoPreview
+          ? 'تم تأكيد جاهزية الفيديو المولّد لمعاينة هذا المنشور.'
+          : 'تم تأكيد جاهزية الصورة المولّدة لمعاينة هذا المنشور.',
       },
     }
   }
