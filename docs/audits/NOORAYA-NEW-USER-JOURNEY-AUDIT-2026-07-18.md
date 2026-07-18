@@ -146,7 +146,7 @@ The end-to-end observation reached Brand Brain → Full Strategy → paid qualit
 - Full test suite: **316 test files / 2,402 tests passed**.
 - TypeScript: **passed**.
 - Production build: **passed**, including 123 static pages and all dynamic/API routes.
-- Local browser: registration rejection copy rendered correctly in Arabic and no console warnings/errors were captured on that checked page.
+- Deployed browser: the authenticated Brand Brain → Strategy → Content Hub → Approvals → Execution → Operations → Billing → Analytics/Learning path was rechecked on preview commit `a909a94`; no browser warnings or errors were captured.
 
 ### Still not proven by this journey
 

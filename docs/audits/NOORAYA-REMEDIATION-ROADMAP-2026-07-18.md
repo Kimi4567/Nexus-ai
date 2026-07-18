@@ -34,8 +34,10 @@ The complete observation log and evidence classification are recorded in
 - [x] Make navigation-only actions non-approvable.
 - [x] Explain reset scope: brand journey data is deleted; account billing,
   ledger, purchase, and connection history is preserved.
-- [ ] Re-run the complete new-user journey after deployment and record one
-  traceable artifact ID at every transition.
+- [x] Re-run the deployed internal journey and trace Brand Brain → strategy →
+  campaign `cmrq2o2c50008fdc3t7zhjnqo` → 12 Content Hub records → approval
+  ledger → execution queue → honest analytics/learning lock. Real provider
+  artifacts remain explicitly separated in Gate E.
 
 ## Gate C — premium clarity and latency (P1)
 
@@ -77,3 +79,15 @@ the relevant platform permissions and real data exist.
 The internal build is releasable only when Gates A–D pass automated and browser
 verification. “100% live marketing company” is not claimed until Gate E is also
 completed with real provider evidence.
+
+## Verification record
+
+- Preview commit: `a909a94`.
+- Vercel deployment: `dpl_EEKeD4mSpRycmoQfDnq2jzhA6rWD` — Ready.
+- Full suite: 316 test files, 2,402 tests passed.
+- TypeScript and production build: passed; 123 static pages generated.
+- Browser: Brand Brain, Strategy, Content Hub, Approvals, Today, Execution,
+  Operations, Connections, Billing, Analytics, and Learning checked against the
+  same authenticated workspace; browser warning/error log was empty.
+- Unified decision verified: the four copy-quality findings take priority over
+  media production in Content Hub, Approvals, Today, and Operations.
