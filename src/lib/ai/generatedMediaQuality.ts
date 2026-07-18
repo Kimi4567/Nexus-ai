@@ -13,6 +13,7 @@ const QUALITY_MODEL = 'gpt-4o'
 export interface GeneratedMediaQualityReview {
   version: 1
   passed: boolean
+  qualityStandard: 'GENERAL' | 'PAID_SOCIAL' | 'PREMIUM'
   mediaType: 'IMAGE' | 'VIDEO'
   referenceRequired: boolean
   referencePreservationScore: number | null
@@ -48,6 +49,12 @@ type QualityInput = {
   targetFormat?: PlatformImageFormat | null
   formatValidation?: PlatformImageFormatValidation | null
   requireProductAdStructure?: boolean
+  /**
+   * PAID_SOCIAL is the truthful delivery bar for deterministic source-locked
+   * software/UI motion. PREMIUM remains the default for provider-generated
+   * physical-product advertising.
+   */
+  qualityStandard?: 'PAID_SOCIAL' | 'PREMIUM'
   /** Exact user/brand-approved text deliberately typeset by NEXUS. */
   approvedOverlayTexts?: string[]
 }
@@ -89,7 +96,7 @@ function parseJsonObject(value: unknown): Record<string, unknown> {
 
 export function normalizeGeneratedMediaQualityReview(
   value: unknown,
-  input: Pick<QualityInput, 'mediaType' | 'referenceImageUrl' | 'referenceImageUrls' | 'targetFormat' | 'formatValidation' | 'requireProductAdStructure'>,
+  input: Pick<QualityInput, 'mediaType' | 'referenceImageUrl' | 'referenceImageUrls' | 'targetFormat' | 'formatValidation' | 'requireProductAdStructure' | 'qualityStandard'>,
   providerUsage: ProviderUsageSummary,
 ): GeneratedMediaQualityReview {
   const result = value && typeof value === 'object' && !Array.isArray(value)
@@ -116,6 +123,21 @@ export function normalizeGeneratedMediaQualityReview(
   const commercialPacingScore = input.requireProductAdStructure ? score(result.commercialPacingScore) : null
   const endFrameReadinessScore = input.requireProductAdStructure ? score(result.endFrameReadinessScore) : null
   const brandAlignmentScore = input.requireProductAdStructure ? score(result.brandAlignmentScore) : null
+  const qualityStandard = input.requireProductAdStructure
+    ? input.qualityStandard ?? 'PREMIUM'
+    : 'GENERAL'
+  const paidSocialStandard = qualityStandard === 'PAID_SOCIAL'
+  const thresholds = {
+    referencePreservation: paidSocialStandard ? 90 : 92,
+    semanticAlignment: paidSocialStandard ? 80 : 85,
+    professionalQuality: paidSocialStandard ? 80 : 88,
+    commercialHook: paidSocialStandard ? 80 : 85,
+    productHero: paidSocialStandard ? 80 : 90,
+    benefitCommunication: 80,
+    commercialPacing: paidSocialStandard ? 80 : 85,
+    endFrameReadiness: paidSocialStandard ? 80 : 85,
+    brandAlignment: paidSocialStandard ? 80 : 85,
+  }
   const formatRequired = Boolean(input.targetFormat)
   const formatValidation = formatRequired ? input.formatValidation ?? null : null
   const dimensionsPassed = Boolean(
@@ -157,22 +179,22 @@ export function normalizeGeneratedMediaQualityReview(
     input.requireProductAdStructure && !paidSocialAdReadiness
       ? 'The result reads as a generic generated clip rather than a paid-social product advertisement.'
       : '',
-    input.requireProductAdStructure && (commercialHookScore ?? 0) < 85
+    input.requireProductAdStructure && (commercialHookScore ?? 0) < thresholds.commercialHook
       ? 'The opening two seconds do not create a clear, scroll-stopping commercial hook.'
       : '',
-    input.requireProductAdStructure && (productHeroScore ?? 0) < 90
+    input.requireProductAdStructure && (productHeroScore ?? 0) < thresholds.productHero
       ? 'The real product is not presented as a stable, unmistakable hero throughout the advertisement.'
       : '',
-    input.requireProductAdStructure && (benefitCommunicationScore ?? 0) < 80
+    input.requireProductAdStructure && (benefitCommunicationScore ?? 0) < thresholds.benefitCommunication
       ? 'The benefit or payoff is not visually understandable without inventing unsupported claims.'
       : '',
-    input.requireProductAdStructure && (commercialPacingScore ?? 0) < 85
+    input.requireProductAdStructure && (commercialPacingScore ?? 0) < thresholds.commercialPacing
       ? 'The video edit lacks purposeful commercial pacing or coherent shot progression.'
       : '',
-    input.requireProductAdStructure && (endFrameReadinessScore ?? 0) < 85
+    input.requireProductAdStructure && (endFrameReadinessScore ?? 0) < thresholds.endFrameReadiness
       ? 'The final hero frame is not clean, deliberate, and usable with an exact separately typeset CTA.'
       : '',
-    input.requireProductAdStructure && (brandAlignmentScore ?? 0) < 85
+    input.requireProductAdStructure && (brandAlignmentScore ?? 0) < thresholds.brandAlignment
       ? 'The visible art direction does not match the approved brand and campaign intent closely enough.'
       : '',
   ])
@@ -181,9 +203,9 @@ export function normalizeGeneratedMediaQualityReview(
   // must preserve the actual product/source, and every output must remain free
   // of invented claims and unusable raster typography.
   const passed = (
-    (!referenceRequired || (referencePreservationScore ?? 0) >= (input.requireProductAdStructure ? 92 : 90))
-    && semanticAlignmentScore >= (input.requireProductAdStructure ? 85 : 75)
-    && professionalQualityScore >= (input.requireProductAdStructure ? 88 : 80)
+    (!referenceRequired || (referencePreservationScore ?? 0) >= (input.requireProductAdStructure ? thresholds.referencePreservation : 90))
+    && semanticAlignmentScore >= (input.requireProductAdStructure ? thresholds.semanticAlignment : 75)
+    && professionalQualityScore >= (input.requireProductAdStructure ? thresholds.professionalQuality : 80)
     && technicalIntegrity
     && (!formatRequired || formatValidation?.passed === true)
     && noNewRasterText
@@ -191,19 +213,25 @@ export function normalizeGeneratedMediaQualityReview(
     && (!input.requireProductAdStructure || (
       advertisingStructure === true
       && paidSocialAdReadiness === true
-      && (commercialHookScore ?? 0) >= 85
-      && (productHeroScore ?? 0) >= 90
-      && (benefitCommunicationScore ?? 0) >= 80
-      && (commercialPacingScore ?? 0) >= 85
-      && (endFrameReadinessScore ?? 0) >= 85
-      && (brandAlignmentScore ?? 0) >= 85
+      && (commercialHookScore ?? 0) >= thresholds.commercialHook
+      && (productHeroScore ?? 0) >= thresholds.productHero
+      && (benefitCommunicationScore ?? 0) >= thresholds.benefitCommunication
+      && (commercialPacingScore ?? 0) >= thresholds.commercialPacing
+      && (endFrameReadinessScore ?? 0) >= thresholds.endFrameReadiness
+      && (brandAlignmentScore ?? 0) >= thresholds.brandAlignment
     ))
     && issues.length === 0
   )
 
+  const providerSummary = boundedText(result.summary, 300)
+  const summary = passed
+    ? `NEXUS ${qualityStandard === 'PAID_SOCIAL' ? 'paid-social' : 'quality'} gate passed.${providerSummary && !/(?:reject|fail|not ready|unusable)/i.test(providerSummary) ? ` ${providerSummary}` : ''}`
+    : `NEXUS quality review rejected this output.${issues[0] ? ` ${issues[0]}` : ''}`
+
   return {
     version: 1,
     passed,
+    qualityStandard,
     mediaType: input.mediaType,
     referenceRequired,
     referencePreservationScore,
@@ -223,9 +251,7 @@ export function normalizeGeneratedMediaQualityReview(
     endFrameReadinessScore,
     brandAlignmentScore,
     issues,
-    summary: boundedText(result.summary, 300) || (passed
-      ? 'NEXUS quality review passed.'
-      : 'NEXUS quality review rejected this output.'),
+    summary,
     reviewedAt: new Date().toISOString(),
     providerUsage,
   }

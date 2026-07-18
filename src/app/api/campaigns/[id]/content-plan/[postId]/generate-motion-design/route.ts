@@ -338,6 +338,7 @@ export async function POST(req: NextRequest, props: Params) {
       targetFormat,
       formatValidation,
       requireProductAdStructure: true,
+      qualityStandard: 'PAID_SOCIAL',
       approvedOverlayTexts: [],
     })
     if (!qualityReview.passed) {
