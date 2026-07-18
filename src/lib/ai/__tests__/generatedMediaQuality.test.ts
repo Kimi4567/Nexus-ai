@@ -49,6 +49,48 @@ describe('generated media quality gate', () => {
     expect(result.referenceRequired).toBe(true)
   })
 
+  it('allows an advertising-scene change when the protected product remains intact', () => {
+    const result = normalizeGeneratedMediaQualityReview({
+      referencePreservationScore: 96,
+      semanticAlignmentScore: 92,
+      professionalQualityScore: 91,
+      technicalIntegrity: true,
+      noNewRasterText: true,
+      noInventedClaims: true,
+      issues: [
+        'Background changed from plain to textured with a vase and directional lighting.',
+        'The setting was altered for a premium advertising composition.',
+      ],
+      summary: 'Product identity and garment details remain intact.',
+    }, {
+      mediaType: 'IMAGE',
+      referenceImageUrl: 'https://res.cloudinary.com/demo/reference.png',
+      allowAdvertisingSceneTransformation: true,
+    }, usage)
+
+    expect(result.passed).toBe(true)
+    expect(result.issues).toEqual([])
+  })
+
+  it('still rejects a product change during an advertising-scene transformation', () => {
+    const result = normalizeGeneratedMediaQualityReview({
+      referencePreservationScore: 96,
+      semanticAlignmentScore: 92,
+      professionalQualityScore: 91,
+      technicalIntegrity: true,
+      noNewRasterText: true,
+      noInventedClaims: true,
+      issues: ['The product colour changed while the background was replaced.'],
+    }, {
+      mediaType: 'IMAGE',
+      referenceImageUrl: 'https://res.cloudinary.com/demo/reference.png',
+      allowAdvertisingSceneTransformation: true,
+    }, usage)
+
+    expect(result.passed).toBe(false)
+    expect(result.issues).toContain('The product colour changed while the background was replaced.')
+  })
+
   it('rejects malformed raster text even when visual scores are high', () => {
     const result = normalizeGeneratedMediaQualityReview({
       semanticAlignmentScore: 96,

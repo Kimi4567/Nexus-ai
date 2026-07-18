@@ -57,6 +57,12 @@ type QualityInput = {
   qualityStandard?: 'PAID_SOCIAL' | 'PREMIUM'
   /** Exact user/brand-approved text deliberately typeset by NEXUS. */
   approvedOverlayTexts?: string[]
+  /**
+   * Product-to-ad image edits intentionally replace the surrounding scene.
+   * Reference preservation must score the protected subject/product only —
+   * never the original background, lighting, crop, or staging.
+   */
+  allowAdvertisingSceneTransformation?: boolean
 }
 
 function boundedText(value: unknown, max = 280): string {
@@ -96,7 +102,7 @@ function parseJsonObject(value: unknown): Record<string, unknown> {
 
 export function normalizeGeneratedMediaQualityReview(
   value: unknown,
-  input: Pick<QualityInput, 'mediaType' | 'referenceImageUrl' | 'referenceImageUrls' | 'targetFormat' | 'formatValidation' | 'requireProductAdStructure' | 'qualityStandard'>,
+  input: Pick<QualityInput, 'mediaType' | 'referenceImageUrl' | 'referenceImageUrls' | 'targetFormat' | 'formatValidation' | 'requireProductAdStructure' | 'qualityStandard' | 'allowAdvertisingSceneTransformation'>,
   providerUsage: ProviderUsageSummary,
 ): GeneratedMediaQualityReview {
   const result = value && typeof value === 'object' && !Array.isArray(value)
@@ -164,10 +170,18 @@ export function normalizeGeneratedMediaQualityReview(
     : ''
   const providerIssues = boundedIssues(Array.isArray(result.issues) ? result.issues : [])
   const verifiedFormatPassed = formatValidation?.passed === true
-  const evidenceConsistentProviderIssues = providerIssues.filter(issue => !(
-    verifiedFormatPassed
-    && /(?:incorrect|wrong|invalid|mismatch|does not match).{0,28}(?:dimensions?|aspect ratio|duration)|(?:dimensions?|aspect ratio|duration).{0,28}(?:incorrect|wrong|invalid|mismatch|does not match)/i.test(issue)
-  ))
+  const evidenceConsistentProviderIssues = providerIssues.filter(issue => {
+    if (
+      verifiedFormatPassed
+      && /(?:incorrect|wrong|invalid|mismatch|does not match).{0,28}(?:dimensions?|aspect ratio|duration)|(?:dimensions?|aspect ratio|duration).{0,28}(?:incorrect|wrong|invalid|mismatch|does not match)/i.test(issue)
+    ) return false
+    if (
+      input.allowAdvertisingSceneTransformation
+      && /(?:background|setting|scene|staging|lighting|composition).{0,48}(?:changed|different|altered|replaced|mismatch)|(?:changed|different|altered|replaced).{0,48}(?:background|setting|scene|staging|lighting|composition)/i.test(issue)
+      && !/(?:product|garment|packag|label|logo|colour|color|geometry|material|distinctive|person|face|identity).{0,36}(?:changed|different|altered|replaced|mismatch|distort)/i.test(issue)
+    ) return false
+    return true
+  })
   const issues = boundedIssues([
     ...evidenceConsistentProviderIssues,
     formatIssue,
@@ -304,6 +318,13 @@ ${input.requireProductAdStructure ? `- a generic AI motion clip, product demo, m
 - art direction that feels interchangeable with another brand rather than specific to the approved message and tone.` : ''}
 
 For reference jobs, every text/UI element already visible inside the supplied source is approved source evidence when faithfully preserved; do not require it to be repeated in APPROVED MOTION-DESIGN OVERLAYS. Exact text in APPROVED MOTION-DESIGN OVERLAYS is also allowed when it is cleanly typeset. Padding the preserved source inside a platform-safe canvas and typesetting approved overlays outside it are intentional and must not reduce reference-preservation scoring. "noNewRasterText" means no additional or corrupted text outside the preserved source and those exact overlays.
+${input.allowAdvertisingSceneTransformation ? `
+PRODUCT-TO-AD TRANSFORMATION CONTRACT:
+- Replacing or upgrading the surrounding background, setting, lighting, crop, and composition is explicitly required and must not be reported as an issue.
+- Score reference preservation only on the protected subject/product identity: its garment/product design, colour, geometry, materials, embroidery/details, logos/labels, proportions, and recognizability.
+- Do not lower referencePreservationScore merely because the source was transformed from an ordinary product photo into a premium advertising scene.
+- Still reject any change to the protected subject/product, face/identity where relevant, or distinctive product details.
+` : ''}
 
 Return JSON exactly:
 {
