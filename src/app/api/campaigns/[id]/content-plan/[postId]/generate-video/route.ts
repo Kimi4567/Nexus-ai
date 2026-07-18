@@ -301,6 +301,14 @@ export async function POST(req: NextRequest, props: Params) {
         .filter((id): id is string => typeof id === 'string' && Boolean(id.trim()))
         .map(id => id.trim())))
     : []
+  if (productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM' && referenceMediaIds.length > 0) {
+    return NextResponse.json({
+      error: 'Concept Film does not use product-reference images. Choose Product Fidelity to use real product photos, or remove the references and continue with generated concept scenes.',
+      code: 'CAMPAIGN_FILM_REFERENCE_UNSUPPORTED',
+      creditsCharged: false,
+      providerGenerationStarted: false,
+    }, { status: 400 })
+  }
   const referenceMediaRows = referenceMediaIds.length > 0
     ? await db.media.findMany({
         where: {

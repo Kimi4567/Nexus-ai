@@ -84,7 +84,7 @@ export function PostCreativeMatch({
           {isReference || (match.recommendedDecision === 'CREATE_NEW' && canGenerateFromReference) ? (
             <button type="button" onClick={onGenerateFromReference} className="col-span-2 min-h-10 rounded-xl bg-slate-950 px-3 text-[11px] font-bold text-white">
               {postIsVideo
-                ? (isAr ? 'حوّل هذا الأصل إلى فيديو مطابق للنص' : 'Turn this asset into a video matching the copy')
+                ? (isAr ? 'افحص خيارات الفيديو الآمنة بهذا الأصل' : 'Check product-safe video options with this asset')
                 : (isAr ? 'حوّل الأصل إلى إعلان مطابق للنص' : 'Turn this asset into an ad matching the copy')}
             </button>
           ) : needsDifferentAsset ? (
@@ -110,7 +110,9 @@ export function PostCreativeMatch({
               </button>
               <button type="button" onClick={onGenerateFromReference} className="col-span-2 inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-700">
                 <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-                {isAr ? 'احتفظ بالنص وأنشئ إعلانًا من هذا المرجع' : 'Keep copy and create an ad from this reference'}
+                {postIsVideo
+                  ? (isAr ? 'افحص خيارات الفيديو الآمنة بهذا الأصل' : 'Check product-safe video options with this asset')
+                  : (isAr ? 'احتفظ بالنص وأنشئ إعلانًا من هذا المرجع' : 'Keep copy and create an ad from this reference')}
               </button>
             </>
           )}

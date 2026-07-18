@@ -335,6 +335,26 @@ describe('POST professional video generation', () => {
     })
   })
 
+  it('never silently discards product references in the concept-film route', async () => {
+    const response = await POST(request({
+      ...confirmedBody,
+      productionRoute: 'MULTI_SHOT_CAMPAIGN_FILM',
+      acknowledgedDurationSeconds: 10,
+    }), {
+      params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
+    })
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({
+      code: 'CAMPAIGN_FILM_REFERENCE_UNSUPPORTED',
+      creditsCharged: false,
+      providerGenerationStarted: false,
+    })
+    expect(mocks.deduct).not.toHaveBeenCalled()
+    expect(mocks.createMultiShotTask).not.toHaveBeenCalled()
+    expect(mocks.createTask).not.toHaveBeenCalled()
+  })
+
   it('blocks screens and UI captures before any provider spend or debit', async () => {
     const screen = productReference('product-front')
     screen.intelligence.assetKind = 'SCREEN'
