@@ -1328,8 +1328,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
               {mediaSlotCountPreview > 0 && (
                 <p className="mt-3 text-[11px] leading-5 text-slate-500">
                   {locale === 'ar'
-                    ? `التقدير يغطي ${mediaSlotCountPreview} مسودة: يبدأ إذا استُخدمت صورة مولدة لكل مسودة (${CREDIT_ACTION_COSTS.IMAGE_GENERATION} لكل صورة)، ويصل للحد الأعلى فقط إذا اختير فيديو سينمائي مولد لكل مسودة (${CREDIT_ACTION_COSTS.VIDEO_GENERATION} لكل فيديو). تحويل فيديو أصلي مؤهل إلى Motion Design يكلف ${CREDIT_ACTION_COSTS.MOTION_DESIGN_VIDEO} كريديت. المزيج الفعلي يُعرض ويُعتمد لاحقاً لكل منشور.`
-                    : `The estimate covers ${mediaSlotCountPreview} drafts: the lower bound assumes one generated image per draft (${CREDIT_ACTION_COSTS.IMAGE_GENERATION} each), while the upper bound assumes one cinematic generated video per draft (${CREDIT_ACTION_COSTS.VIDEO_GENERATION} each). Converting a qualified owned video into Motion Design costs ${CREDIT_ACTION_COSTS.MOTION_DESIGN_VIDEO} credits. The actual mix is quoted and approved per post later.`}
+                    ? `التقدير يغطي ${mediaSlotCountPreview} مسودة: يبدأ إذا استُخدمت صورة مولدة لكل مسودة (${CREDIT_ACTION_COSTS.IMAGE_GENERATION} لكل صورة)، ويصل للحد الأعلى فقط إذا اختير فيديو إعلاني احترافي مولد لكل مسودة (${CREDIT_ACTION_COSTS.VIDEO_GENERATION} لكل فيديو). تحويل فيديو أصلي مؤهل إلى Motion Design يكلف ${CREDIT_ACTION_COSTS.MOTION_DESIGN_VIDEO} كريديت. المزيج الفعلي يُعرض ويُعتمد لاحقاً لكل منشور.`
+                    : `The estimate covers ${mediaSlotCountPreview} drafts: the lower bound assumes one generated image per draft (${CREDIT_ACTION_COSTS.IMAGE_GENERATION} each), while the upper bound assumes one professional generated video per draft (${CREDIT_ACTION_COSTS.VIDEO_GENERATION} each). Converting a qualified owned video into Motion Design costs ${CREDIT_ACTION_COSTS.MOTION_DESIGN_VIDEO} credits. The actual mix is quoted and approved per post later.`}
                 </p>
               )}
             </div>

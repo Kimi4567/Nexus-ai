@@ -89,11 +89,11 @@ export const CREDIT_COSTS = {
   IMAGE_GENERATION: 4,
 
   /**
-   * Cinematic product-ad master — one eight-second, multi-reference product-ad
-   * recipe. The expected provider cost is 344 provider credits ($3.44), before
-   * durable storage, visual QA, moderation, and failure reserve. Eighteen NEXUS
-   * credits preserves a positive expected margin at the lowest subscription
-   * unit value without hiding automatic retries (there are none).
+   * Professional video-ad master — either a ten-second, three-shot campaign
+   * film (about $1.30 provider cost) or an eight-second, multi-reference
+   * product-ad recipe (about $3.44), before durable storage, visual QA,
+   * moderation, and failure reserve. Eighteen NEXUS credits preserves a
+   * positive expected margin while funding one provider attempt only.
    */
   VIDEO_GENERATION: 18,
 
@@ -264,9 +264,9 @@ export const CREDIT_ACTION_POLICIES: Record<CreditAction, CreditActionPolicy> = 
     refundableOnNoUsableOutput: true,
   },
   VIDEO_GENERATION: {
-    label: 'Cinematic product ad',
-    reason: 'Creates one eight-second, multi-shot product-ad master from qualified real product references.',
-    includedWork: 'Asset preflight, one NEXUS cinematic product-ad task, durable storage, three-frame quality review, and safe draft attachment. No automatic provider retry, publishing, or scheduling.',
+    label: 'Professional video ad',
+    reason: 'Creates one review-only campaign film or product-fidelity ad with a documented production route.',
+    includedWork: 'Route-specific preflight, one NEXUS production task, durable storage, multi-frame quality review, branded finishing, and safe draft attachment. No automatic provider retry, publishing, or scheduling.',
     providerCallLimit: 1,
     refundableOnNoUsableOutput: true,
   },
@@ -1537,7 +1537,7 @@ const ACTION_LABELS: Record<string, string> = {
   CREATIVE_BRIEF: 'Creative Brief',
   SENTINEL_REVIEW: 'Sentinel Review',
   IMAGE_GENERATION: 'Image Generation',
-  VIDEO_GENERATION: 'Cinematic Product Ad',
+  VIDEO_GENERATION: 'Professional Video Ad',
   MOTION_DESIGN_VIDEO: 'Source-Locked Motion Design Ad',
   AD_COPY: 'Ad Copy Generation',
   PAID_EXECUTION_PLAN: 'Paid Execution Plan',

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createRunwayProductAdTask, retrieveRunwayTask } from '../runway'
+import { createRunwayMultiShotVideoTask, createRunwayProductAdTask, retrieveRunwayTask } from '../runway'
 
 describe('Runway adapter', () => {
   beforeEach(() => {
@@ -38,6 +38,44 @@ describe('Runway adapter', () => {
       ratio: '720:1280',
       audio: false,
     })
+  })
+
+  it('starts one pinned custom multi-shot campaign film with audio', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ id: 'task_multishot_1' }), { status: 200 }))
+
+    await expect(createRunwayMultiShotVideoTask({
+      duration: 10,
+      ratio: '720:1280',
+      audio: true,
+      shots: [
+        { prompt: 'Wide luxury fashion establishing shot.', duration: 3 },
+        { prompt: 'Macro detail shot with natural fabric motion.', duration: 3 },
+        { prompt: 'Confident hero shot with a cinematic camera arc.', duration: 4 },
+      ],
+    })).resolves.toMatchObject({ id: 'task_multishot_1', status: 'PENDING' })
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(url).toBe('https://api.dev.runwayml.com/v1/recipes/multi_shot_video')
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      version: '2026-06',
+      mode: 'custom',
+      duration: 10,
+      ratio: '720:1280',
+      audio: true,
+    })
+  })
+
+  it('rejects an invalid multi-shot duration before provider spend', async () => {
+    await expect(createRunwayMultiShotVideoTask({
+      duration: 10,
+      ratio: '720:1280',
+      shots: [
+        { prompt: 'Opening fashion shot.', duration: 2 },
+        { prompt: 'Product detail shot.', duration: 2 },
+        { prompt: 'Closing brand shot.', duration: 2 },
+      ],
+    })).rejects.toThrow('MULTI_SHOT_DURATION_INVALID')
+    expect(fetch).not.toHaveBeenCalled()
   })
 
   it('retrieves an existing task in a separate request', async () => {
