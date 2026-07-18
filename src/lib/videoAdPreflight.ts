@@ -25,6 +25,7 @@ export type VideoAdPreflightIssueCode =
   | 'RESOLUTION_REQUIRED'
   | 'QUALITY_TOO_LOW'
   | 'UNSAFE_SOURCE_GRAPHICS'
+  | 'CREATOR_REFERENCE_UNSUPPORTED'
   | 'PRODUCT_IDENTITY_MISMATCH'
 
 export type VideoAdPreflightIssue = {
@@ -42,6 +43,7 @@ export type VideoAdPreflightResult = {
 }
 
 const UNSAFE_GRAPHIC_PATTERN = /watermark|overlaid?\s+text|text\s+overlay|screenshot|screen\s*capture|mockup\s*text|logo\s+overlay|علامة\s+مائية|نص\s+متراكب|لقطة\s+شاشة/i
+const CREATOR_REFERENCE_PATTERN = /\b(?:person|people|woman|women|man|men|girl|boy|model|creator|human|face|portrait)\b|(?:امرأة|امراه|نساء|رجل|رجال|شخص|وجه|عارض|عارضة)/iu
 
 // Vision models can identify an asset as PRODUCT while omitting the optional
 // `products` label. A visible-description fallback is safe only after generic
@@ -129,6 +131,25 @@ export function assessCinematicProductAdAssets(
         code: 'PRODUCT_REFERENCE_REQUIRED',
         mediaId: asset.id,
         message: `${asset.fileName || 'Reference'} is not verified as a clear product or packaging photo.`,
+      })
+      continue
+    }
+
+    // The pinned Product Ad recipe is a product-shot workflow, not a creator
+    // or likeness workflow. Sending a visible person can trigger an expensive
+    // third-party safety failure after the task has already started. Fail
+    // closed before debit/provider execution and route these assets toward a
+    // source-locked image-motion or consented creator workflow instead.
+    const visibleEvidence = [
+      analysis.visibleSummary,
+      ...analysis.visibleObjects,
+      ...analysis.visibleActions,
+    ].join(' ')
+    if (CREATOR_REFERENCE_PATTERN.test(visibleEvidence)) {
+      issues.push({
+        code: 'CREATOR_REFERENCE_UNSUPPORTED',
+        mediaId: asset.id,
+        message: `${asset.fileName || 'Reference'} visibly contains a person or creator. Cinematic Product Ad requires isolated product-only photos; use source-locked image motion, or a consented creator workflow with separate product evidence.`,
       })
       continue
     }

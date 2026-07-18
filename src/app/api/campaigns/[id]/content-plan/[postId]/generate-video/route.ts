@@ -83,13 +83,22 @@ function generationParams(value: unknown): StoredGenerationParams {
   return value && typeof value === 'object' ? value as StoredGenerationParams : {}
 }
 
+function providerFailureCategory(task: RunwayTask): 'INPUT_SAFETY_REJECTED' | 'PROVIDER_FAILED' {
+  return /SAFETY/i.test(task.failureCode || '')
+    || /content moderation|safety/i.test(task.failure || '')
+    ? 'INPUT_SAFETY_REJECTED'
+    : 'PROVIDER_FAILED'
+}
+
 function safeFailure(task: RunwayTask): string {
   console.error('[generate-video] NEXUS video provider task failed', {
     status: task.status,
     failureCode: sanitizeSentryText(task.failureCode || '').slice(0, 120),
     providerFailure: sanitizeSentryText(task.failure || '').slice(0, 300),
   })
-  return 'NEXUS Video Studio could not create a usable video. Reserved credits will be restored.'
+  return providerFailureCategory(task) === 'INPUT_SAFETY_REJECTED'
+    ? 'NEXUS stopped this cinematic render because the source media did not pass provider safety. Use isolated product-only references or source-locked image motion. No video was created and reserved credits will be restored.'
+    : 'NEXUS Video Studio could not create a usable video. Reserved credits will be restored.'
 }
 
 async function findCampaignContext(userId: string, campaignId: string, postId: string) {
@@ -495,8 +504,22 @@ export async function GET(req: NextRequest, props: Params) {
 
   if (['FAILED', 'CANCELED', 'CANCELLED'].includes(task.status)) {
     const message = safeFailure(task)
+    const failureCategory = providerFailureCategory(task)
     const refund = await refundGeneration(userId, generation, message)
-    await db.generation.update({ where: { id: generation.id }, data: { status: task.status === 'FAILED' ? 'FAILED' : 'CANCELLED', error: message } })
+    await db.generation.update({
+      where: { id: generation.id },
+      data: {
+        status: task.status === 'FAILED' ? 'FAILED' : 'CANCELLED',
+        error: message,
+        metadata: {
+          providerTaskId: task.id,
+          providerFailureCategory: failureCategory,
+          providerFailureCode: sanitizeSentryText(task.failureCode || '').slice(0, 120) || null,
+          providerOutputCreated: false,
+          reviewRequired: true,
+        },
+      },
+    })
     await db.socialPost.update({
       where: { id: params.postId },
       data: { generationStatus: refund === 'pending' ? 'REFUND_PENDING' : 'FAILED', errorMessage: message },
@@ -507,6 +530,7 @@ export async function GET(req: NextRequest, props: Params) {
       error: message,
       refunded: refund === 'refunded',
       refundPending: refund === 'pending',
+      failureCategory,
     })
   }
 
