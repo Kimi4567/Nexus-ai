@@ -47,6 +47,7 @@ export type VisualAssetRole =
   | 'campaign_concept_background'
   | 'hero_visual'
   | 'draft_visual_asset'
+  | 'final_composited_ad'
 
 export interface VisualContext {
   // User-selected layout choices (kept for backward compat)
@@ -72,6 +73,12 @@ export interface VisualContext {
   keyMessage?: string
   // Post-level creative brief — THIS is the primary driver
   postCaption?: string
+  /**
+   * Post-specific art direction produced by the content plan. Keep this
+   * separate from the caption so a broad SaaS category can never flatten five
+   * different posts into the same generic "people around glowing data" scene.
+   */
+  creativeDirection?: string
   // Platform (passed from route for dimension-aware composition)
   platform?: string           // META | INSTAGRAM | TIKTOK | LINKEDIN
   // Creative planning hints from CREATIVE-REQ1 / CREATIVE-TEMPLATE1
@@ -90,7 +97,7 @@ export const TEXT_FREE_BACKGROUND_IMAGE_CONSTRAINTS = `TEXT-FREE BACKGROUND CONT
 - Leave clean negative space for later editable/composited headline, CTA, logo, badge, and proof layers.
 - This generated asset is a draft background visual for review, not final ad creative, not a published post, and not a platform-ready ad.`
 
-const NON_RASTER_SAFE_CONCEPT_PATTERN = /\b(?:ui|screens?|interfaces?|dashboards?|charts?|graphs?|infographics?|icons?|metric\s*cards?|data\s*visualizations?|glass\s*boards?|signage|signs?|logos?|words?|letters?|numbers?|typography|reports?|laptops?|computers?|digital\s*devices?)\b|(?:واجهة|واجهات|شاشة|شاشات|لوحة\s*معلومات|لوحات\s*معلومات|مخطط|مخططات|رسم\s*بياني|رسوم\s*بيانية|إنفوجرافيك|انفوجرافيك|أيقونات|ايقونات|رموز|تقارير|حاسوب|كمبيوتر|لابتوب|أجهزة\s*رقمية|نص|نصوص|شعار|شعارات|حروف|أرقام)/i
+const NON_RASTER_SAFE_CONCEPT_PATTERN = /\b(?:ui|screens?|interfaces?|dashboards?|diagrams?|charts?|graphs?|infographics?|icons?|metric\s*cards?|data\s*visualizations?|glass\s*boards?|signage|signs?|logos?|words?|letters?|numbers?|typography|reports?|laptops?|computers?|digital\s*devices?)\b|(?:واجهة|واجهات|شاشة|شاشات|لوحة\s*معلومات|لوحات\s*معلومات|مخطط|مخططات|رسم\s*بياني|رسوم\s*بيانية|إنفوجرافيك|انفوجرافيك|أيقونات|ايقونات|رموز|تقارير|حاسوب|كمبيوتر|لابتوب|أجهزة\s*رقمية|نص|نصوص|شعار|شعارات|حروف|أرقام)/i
 
 /**
  * Image models often turn dashboards, charts, and infographic requests into
@@ -100,9 +107,35 @@ const NON_RASTER_SAFE_CONCEPT_PATTERN = /\b(?:ui|screens?|interfaces?|dashboards
 export function normalizeTextFreeCentralElement(
   centralElement: string,
   category: BrandCategory,
+  sourceText = centralElement,
 ): string {
   const clean = centralElement.replace(/\s+/g, ' ').trim()
   if (clean && !NON_RASTER_SAFE_CONCEPT_PATTERN.test(clean)) return clean
+
+  const semanticSource = `${sourceText} ${clean}`.toLowerCase()
+
+  // Unsafe diagram/UI requests still carry useful semantic intent. Translate
+  // that intent into a concrete, text-free physical metaphor instead of
+  // replacing every SaaS request with one category-level stock scene.
+  if (/monthly|purchased|billing cycle|credit pools?|plan credits?|شهري|الشهرية|المشت(?:رى|راة)|دورة الباقة|نوع الرصيد/i.test(semanticSource)) {
+    return 'two clearly separated physical reservoirs of blank metallic tokens: one beside a circular renewal ring and one inside a durable transparent vault, with a precise divider between them and generous negative space'
+  }
+
+  if (/credits?|ledger|quoted cost|metered action|pricing|balance|كريديت|أرصدة|رصيد|تكلفة|خصم|سجل/i.test(semanticSource)) {
+    return 'three distinct tactile stations arranged left to right: a small stack of blank metallic tokens beside a quotation tile, one illuminated confirmation gate, and a sealed archive of blank ledger cards, connected by one precise physical path'
+  }
+
+  if (/brand brain|positioning|voice|verified claims?|restrictions?|channel drafts?|تموضع|النبرة|ادعاءات موثقة|القيود|مسودات القنوات/i.test(semanticSource)) {
+    return 'one central translucent sculptural core receiving four distinct blank material inputs, then branching into three differently shaped channel frames, with a visible human review gate before the frames and no screens or lettering'
+  }
+
+  if (/ownership|capacity|handoffs?|approval|assignments?|operations?|ملكية|السعة|تسليم|الموافقات|المهام|التشغيل/i.test(semanticSource)) {
+    return 'three-person operations team passing distinct blank task blocks through clearly separated work lanes toward one physical review gate, with visible unused lane capacity and an uncluttered premium workspace'
+  }
+
+  if (/workflow|strategy|execution|results?|stages?|سير العمل|الاستراتيجية|التنفيذ|النتائج|المراحل/i.test(semanticSource)) {
+    return 'six distinct tactile stages forming one governed physical path from a central brand core through planning blocks and a human review gate to a final measurement vessel, with every stage visually separate and no screens'
+  }
 
   if (category === 'saas_ai_tech' || category === 'agency_consultancy') {
     return 'focused marketing and product team collaborating around a clean table, arranging blank color-coded wooden tiles and luminous physical connection nodes into an orderly path, premium uncluttered workspace'
@@ -372,6 +405,49 @@ export function wrapPromptWithTextFreeBackgroundContract(prompt: string): string
 ${TEXT_FREE_BACKGROUND_IMAGE_CONSTRAINTS}`.trim()
 }
 
+/**
+ * Reference work is not ordinary text-to-image generation. The uploaded asset
+ * is immutable evidence, including any real UI or packaging text already
+ * visible inside it. Keep this prompt separate from the background prompt so
+ * "no dashboards/screens" can never fight the user's source of truth.
+ */
+export function buildReferencePreservingEditPrompt(input: {
+  campaignMessage?: string | null
+  creativeDirection?: string | null
+  platform?: string | null
+  brandName?: string | null
+  referenceEvidence?: unknown
+}): string {
+  const clean = (value: unknown, max: number) => typeof value === 'string'
+    ? value.replace(/\s+/g, ' ').trim().slice(0, max)
+    : ''
+  const message = clean(input.campaignMessage, 900)
+  const direction = clean(input.creativeDirection, 700)
+  const brandName = clean(input.brandName, 80) || 'the brand'
+  const platform = clean(input.platform, 40) || 'social feed'
+
+  return `Create one premium ${platform} advertising visual for ${brandName} using the supplied image as an immutable hero asset.
+
+SOURCE-OF-TRUTH CONTRACT:
+- Preserve the supplied product, packaging, device, screen, person, geometry, colours, labels, logo placement, proportions, materials, and distinctive details exactly.
+- If the source contains a real screen, dashboard, interface, logo, label, or text, keep that source content legible and unchanged. Never redraw or rewrite it.
+- Do not replace the source with a metaphor, illustration, different device, different product, or newly invented interface.
+- Do not add new raster text, captions, CTA buttons, badges, metrics, logos, watermarks, claims, awards, testimonials, or certifications.
+- Change only the surrounding scene, lighting, depth, and crop needed to create a disciplined premium composition. Keep the source clearly dominant and recognizable.
+
+CAMPAIGN MEANING (art direction only; do not render this copy):
+${message || 'A premium, trustworthy brand moment.'}
+
+CREATIVE DIRECTION:
+${direction || 'Realistic commercial lighting, controlled depth, clean negative space, and a high-budget editorial advertising finish.'}
+
+KNOWN SOURCE EVIDENCE:
+${JSON.stringify(input.referenceEvidence ?? {}).slice(0, 2200)}
+
+QUALITY BAR:
+The result must look like a real agency-produced advertisement while remaining visibly the exact supplied source. Product/source fidelity is more important than novelty.`
+}
+
 // ─── English prompt builder ───────────────────────────────────────────────────
 
 function buildEnglishAdPrompt(
@@ -534,6 +610,9 @@ export async function buildImagePrompt(ctx: VisualContext): Promise<{
     || ctx.primaryOffer
     || ctx.campaignName
     || ''
+  const conceptText = [ctx.creativeDirection, captionText]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .join('\n')
 
   // 2. Detect language
   const language = detectLanguage(captionText)
@@ -553,7 +632,7 @@ export async function buildImagePrompt(ctx: VisualContext): Promise<{
   }
 
   // 5. No text → use brand-level prompt (no concept extraction needed)
-  if (!captionText.trim()) {
+  if (!conceptText.trim()) {
     const prompt = buildBrandLevelPrompt(ctx, colorMood, style, language)
     return { prompt, language }
   }
@@ -561,14 +640,14 @@ export async function buildImagePrompt(ctx: VisualContext): Promise<{
   // 6. Extract the visual concept deterministically. The only paid provider
   // call in the image action is the image generation request itself.
   const extractedConcept = await extractVisualConcept({
-    text:      captionText,
+    text:      conceptText,
     industry:  ctx.industry || category,
     brandName: ctx.brandName || 'Brand',
     language,
   })
   const concept: VisualConcept = {
     ...extractedConcept,
-    centralElement: normalizeTextFreeCentralElement(extractedConcept.centralElement, category),
+    centralElement: normalizeTextFreeCentralElement(extractedConcept.centralElement, category, conceptText),
   }
 
   if (process.env.NODE_ENV !== 'production') {
@@ -587,7 +666,7 @@ export async function buildImagePrompt(ctx: VisualContext): Promise<{
 // ─── Image generation ─────────────────────────────────────────────────────────
 
 /**
- * Generate image via gpt-image-1 (same model as ChatGPT).
+ * Generate a final-quality image via GPT Image 2.
  * Returns a data URI (base64 PNG).
  */
 export async function generateWithDallE(
@@ -598,7 +677,7 @@ export async function generateWithDallE(
   if (!apiKey) throw new Error('OPENAI_API_KEY not configured')
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log('[imageGen] gpt-image-1 | size:', size, '| prompt:', prompt.slice(0, 200) + '…')
+    console.log('[imageGen] gpt-image-2 | size:', size, '| prompt:', prompt.slice(0, 200) + '…')
   }
 
   const response = await fetch('https://api.openai.com/v1/images/generations', {
@@ -608,13 +687,16 @@ export async function generateWithDallE(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model:   'gpt-image-1',
+      model:   process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2',
       prompt,
       n:       1,
       size,
       quality: 'high',
     }),
-    signal: AbortSignal.timeout(35_000),
+    // High-quality output can take several minutes. Callers run this behind a
+    // durable polled job, so a short browser-style timeout would create false
+    // failures and unnecessary provider retries.
+    signal: AbortSignal.timeout(240_000),
   })
 
   if (!response.ok) {
@@ -629,6 +711,99 @@ export async function generateWithDallE(
   const b64  = (data as { data?: Array<{ b64_json?: string }> })?.data?.[0]?.b64_json
   if (!b64) throw new Error('Image generation returned no image data')
 
+  return `data:image/png;base64,${b64}`
+}
+
+/**
+ * Turn an owned product/reference image into a campaign scene while preserving
+ * the source object. This intentionally has no text-only fallback: returning a
+ * pretty image with the wrong product is a failed result, not a degradation.
+ */
+export async function generateWithOpenAIImageEdit(
+  prompt: string,
+  referenceImageUrl: string,
+  size: '1024x1024' | '1024x1536' | '1536x1024' = '1536x1024',
+): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) throw new Error('OPENAI_API_KEY not configured')
+  const model = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2'
+
+  if (!referenceImageUrl.startsWith('https://res.cloudinary.com/')) {
+    throw new Error('Reference image must be an owned, durable Cloudinary image')
+  }
+
+  const referenceResponse = await fetch(referenceImageUrl, {
+    signal: AbortSignal.timeout(12_000),
+  })
+  if (!referenceResponse.ok) throw new Error('Reference image could not be loaded')
+  const contentType = referenceResponse.headers.get('content-type') || 'image/png'
+  if (!contentType.startsWith('image/')) throw new Error('Reference asset is not an image')
+  const referenceBuffer = await referenceResponse.arrayBuffer()
+  if (referenceBuffer.byteLength > 20 * 1024 * 1024) {
+    throw new Error('Reference image exceeds the 20 MB editing limit')
+  }
+
+  const fidelityPrompt = `${prompt}\n\nREFERENCE FIDELITY CONTRACT:\nTreat the supplied image as the exact product source of truth. Preserve its geometry, packaging, colour, label, logo placement, proportions, materials, and distinctive details. Change only the surrounding advertising scene, lighting, and composition. Do not redesign, relabel, recolour, duplicate, deform, or replace the product. Do not add claims or text inside the generated pixels.`
+  const headers: Record<string, string> = { Authorization: `Bearer ${apiKey}` }
+  let requestBody: BodyInit
+
+  if (model === 'gpt-image-2') {
+    // GPT Image 2 supports the current JSON edit contract with durable image
+    // URL references. Prefer it over re-uploading identical bytes through
+    // multipart: it uses less function memory and avoids a second large binary
+    // transfer after the owned Cloudinary validation above.
+    headers['Content-Type'] = 'application/json'
+    requestBody = JSON.stringify({
+      model,
+      prompt: fidelityPrompt,
+      images: [{ image_url: referenceImageUrl }],
+      size,
+      quality: 'high',
+      n: 1,
+    })
+  } else {
+    const form = new FormData()
+    form.append('model', model)
+    form.append('prompt', fidelityPrompt)
+    form.append('size', size)
+    form.append('quality', 'high')
+    form.append('input_fidelity', 'high')
+    form.append('n', '1')
+    const extension = contentType.includes('jpeg') || contentType.includes('jpg')
+      ? 'jpg'
+      : contentType.includes('webp')
+        ? 'webp'
+        : 'png'
+    form.append('image[]', new Blob([referenceBuffer], { type: contentType }), `reference-image.${extension}`)
+    requestBody = form
+  }
+
+  const response = await fetch('https://api.openai.com/v1/images/edits', {
+    method: 'POST',
+    headers,
+    body: requestBody,
+    // The caller runs high-quality reference edits as a durable, polled job,
+    // so the provider can use its documented multi-minute completion window
+    // without keeping the browser request open.
+    signal: AbortSignal.timeout(240_000),
+  })
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({})) as {
+      error?: { code?: unknown; type?: unknown }
+    }
+    const providerCode = String(payload.error?.code || payload.error?.type || 'UNKNOWN')
+      .replace(/[^a-zA-Z0-9_.-]/g, '')
+      .slice(0, 60) || 'UNKNOWN'
+    const providerError = new Error(`OpenAI image edit request failed with HTTP ${response.status}`) as Error & { code: string }
+    providerError.name = 'OpenAIImageEditError'
+    providerError.code = `OPENAI_IMAGE_EDIT_${response.status}_${providerCode}`
+    throw providerError
+  }
+
+  const data = await response.json() as { data?: Array<{ b64_json?: string }> }
+  const b64 = data.data?.[0]?.b64_json
+  if (!b64) throw new Error('Image editing returned no image data')
   return `data:image/png;base64,${b64}`
 }
 

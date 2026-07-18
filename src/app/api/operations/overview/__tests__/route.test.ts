@@ -7,8 +7,7 @@ const mocks = vi.hoisted(() => ({
   agentRunFindFirst: vi.fn(),
   integrationFindMany: vi.fn(),
   adAccountFindMany: vi.fn(),
-  agentSuggestionFindMany: vi.fn(),
-  brainLearningFindMany: vi.fn(),
+  getApprovalInbox: vi.fn(),
   creditTransactionFindMany: vi.fn(),
   adCampaignFindMany: vi.fn(),
   socialPostFindFirst: vi.fn(),
@@ -21,14 +20,13 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mocks.getUserId }))
 vi.mock('@/lib/executionTruthService', () => ({ getWorkspaceExecutionTruthByWorkspaceId: mocks.getTruth }))
 vi.mock('@/lib/operationsOverview', () => ({ buildOperationsOverview: mocks.buildOverview }))
+vi.mock('@/lib/approvalInboxService', () => ({ getCanonicalApprovalInbox: mocks.getApprovalInbox }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     workspace: { findFirst: mocks.workspaceFindFirst },
     agentRun: { findFirst: mocks.agentRunFindFirst },
     integration: { findMany: mocks.integrationFindMany },
     adAccount: { findMany: mocks.adAccountFindMany },
-    agentSuggestion: { findMany: mocks.agentSuggestionFindMany },
-    brainLearning: { findMany: mocks.brainLearningFindMany },
     creditTransaction: { findMany: mocks.creditTransactionFindMany },
     adCampaign: { findMany: mocks.adCampaignFindMany },
     socialPost: { findFirst: mocks.socialPostFindFirst },
@@ -54,8 +52,12 @@ beforeEach(() => {
   mocks.agentRunFindFirst.mockResolvedValue(null)
   mocks.integrationFindMany.mockResolvedValue([])
   mocks.adAccountFindMany.mockResolvedValue([])
-  mocks.agentSuggestionFindMany.mockResolvedValue([{ campaignId: 'campaign-persisted', createdAt: new Date(0) }])
-  mocks.brainLearningFindMany.mockResolvedValue([{ createdAt: new Date(0) }])
+  mocks.getApprovalInbox.mockResolvedValue({
+    suggestions: [{ createdAt: new Date(0) }],
+    proposals: [{ createdAt: new Date(0) }],
+    liveApprovalActions: [{ campaignId: 'campaign-live' }],
+    summary: { total: 3, brandBrain: 1, operational: 1, live: 1 },
+  })
   mocks.creditTransactionFindMany.mockResolvedValue([])
   mocks.adCampaignFindMany.mockResolvedValue([])
   mocks.socialPostFindFirst.mockResolvedValue(null)
@@ -81,6 +83,7 @@ describe('GET /api/operations/overview', () => {
     expect(response.status).toBe(200)
     expect(body.overview).toEqual({ version: 1, summary: { incidents: 0 } })
     expect(mocks.getTruth).toHaveBeenCalledWith('workspace-1')
+    expect(mocks.getApprovalInbox).toHaveBeenCalledWith('user-1')
     expect(mocks.integrationFindMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { workspaceId: 'workspace-1', status: { not: 'DISCONNECTED' } },
     }))

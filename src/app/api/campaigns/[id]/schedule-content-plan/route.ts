@@ -142,6 +142,7 @@ export async function POST(req: NextRequest, props: Params) {
       strategy,
       brand: brandProfile,
       allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms.map(String) : [],
+      requireAllReviewedPlatforms: true,
       goal: String(campaign.goal),
     })
     if (strategyQuality.status !== 'passed') {

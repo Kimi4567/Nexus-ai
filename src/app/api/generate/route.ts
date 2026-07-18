@@ -19,6 +19,7 @@ import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import { assertCampaignStrategyContract } from '@/lib/campaignStrategyContract'
 import { reviewBrandTruthConsistency, reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 
 export async function POST(req: NextRequest) {
   const userId = await getServerUserId(req)
@@ -135,6 +136,7 @@ export async function POST(req: NextRequest) {
       strategy,
       brand: brandProfile,
       allowedPlatforms: campaign.platforms || [],
+      requireAllReviewedPlatforms: true,
       goal: String(campaign.goal),
     })
     if (qualityGate.status !== 'passed') {
@@ -223,7 +225,15 @@ export async function POST(req: NextRequest) {
       qualityGate,
     })
   } catch (error) {
-    console.error('Generate failed:', error)
+    await captureOperationalError(error, {
+      operation: 'ai.campaign-generate',
+      route: '/api/generate',
+      component: 'ai',
+      method: 'POST',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
     // Refund — failed generation must not charge the user (skip unlimited plans)
     await refundCreditDeduction({
       userId,

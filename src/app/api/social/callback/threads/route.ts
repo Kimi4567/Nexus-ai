@@ -5,6 +5,7 @@ import { encryptToken } from '@/lib/tokenCrypto'
 import { verifyOAuthState } from '@/lib/oauthState'
 import { threadsApiUrl } from '@/lib/socialPlatformConfig'
 import { threadsOAuthNonceHash } from '@/lib/threadsPublishing'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -103,7 +104,7 @@ async function debugAccessToken(input: {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const providerError = searchParams.get('error')
-  if (providerError) return errorRedirect(searchParams.get('error_description') || providerError)
+  if (providerError) return errorRedirect('authorization_not_granted')
   const code = searchParams.get('code')
   const state = searchParams.get('state')
   const nonce = req.cookies.get(OAUTH_COOKIE)?.value
@@ -137,8 +138,20 @@ export async function GET(req: NextRequest) {
     const shortResponse = await fetch(tokenUrl, { method: 'POST', cache: 'no-store' })
     const shortToken = await json(shortResponse) as TokenResponse
     if (!shortResponse.ok || !shortToken.access_token || !shortToken.user_id) {
-      console.error('[Threads OAuth] Short token exchange failed', shortToken.error)
-      return errorRedirect(shortToken.error_description || shortToken.error || 'token_exchange_failed')
+      await captureOperationalError(
+        Object.assign(new Error('Threads short token exchange rejected'), { code: shortToken.error }),
+        {
+          operation: 'oauth.threads-short-token-exchange',
+          route: '/api/social/callback/threads',
+          component: 'oauth',
+          method: 'GET',
+          requestId: req.headers?.get?.('x-vercel-id') ?? null,
+          statusCode: 400,
+          retryable: false,
+          severity: 'warning',
+        },
+      )
+      return errorRedirect('token_exchange_failed')
     }
 
     const longUrl = new URL(threadsApiUrl('access_token'))
@@ -152,8 +165,19 @@ export async function GET(req: NextRequest) {
     })
     const longToken = await json(longResponse) as TokenResponse
     if (!longResponse.ok || !longToken.access_token || !longToken.expires_in) {
-      console.error('[Threads OAuth] Long token exchange failed', longToken.error)
-      return errorRedirect(longToken.error_description || longToken.error || 'long_lived_token_exchange_failed')
+      await captureOperationalError(
+        Object.assign(new Error('Threads long token exchange rejected'), { code: longToken.error }),
+        {
+          operation: 'oauth.threads-long-token-exchange',
+          route: '/api/social/callback/threads',
+          component: 'oauth',
+          method: 'GET',
+          requestId: req.headers?.get?.('x-vercel-id') ?? null,
+          statusCode: 502,
+          retryable: true,
+        },
+      )
+      return errorRedirect('long_lived_token_exchange_failed')
     }
 
     const profileUrl = new URL(threadsApiUrl('me'))
@@ -167,7 +191,15 @@ export async function GET(req: NextRequest) {
     ])
     const profile = await json(profileResponse)
     if (!profileResponse.ok || typeof profile.id !== 'string' || typeof profile.username !== 'string') {
-      console.error('[Threads OAuth] Profile lookup failed', profile.error?.message || profile.message)
+      await captureOperationalError(new Error('Threads profile response was incomplete'), {
+        operation: 'oauth.threads-profile-fetch',
+        route: '/api/social/callback/threads',
+        component: 'oauth',
+        method: 'GET',
+        requestId: req.headers?.get?.('x-vercel-id') ?? null,
+        statusCode: 502,
+        retryable: true,
+      })
       return errorRedirect('threads_profile_lookup_failed')
     }
     if (String(profile.id) !== String(shortToken.user_id)) {
@@ -245,7 +277,15 @@ export async function GET(req: NextRequest) {
 
     return redirect('/connections?social=connected&platform=threads')
   } catch (error) {
-    console.error('[Threads OAuth] Unexpected error', error)
-    return errorRedirect(error instanceof Error ? error.message : 'threads_connection_failed')
+    await captureOperationalError(error, {
+      operation: 'oauth.threads-callback',
+      route: '/api/social/callback/threads',
+      component: 'oauth',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
+    return errorRedirect('threads_connection_failed')
   }
 }

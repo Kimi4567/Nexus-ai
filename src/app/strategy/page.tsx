@@ -60,6 +60,35 @@ interface CampaignLite {
   updatedAt: string
 }
 
+function brandTruthConflictView(
+  code: string,
+  profile: Record<string, unknown> | null | undefined,
+  ar: boolean,
+): { title: string; values: string[] } {
+  if (code === 'brand_age_range_conflict') {
+    return {
+      title: ar ? 'نطاق عمر الجمهور متعارض' : 'Audience age range conflicts',
+      values: [
+        `${ar ? 'الحقل المنظم' : 'Structured field'}: ${firstString(profile?.audienceAge) || (ar ? 'فارغ' : 'empty')}`,
+        `${ar ? 'وصف الجمهور' : 'Audience description'}: ${firstString(profile?.targetAudience) || (ar ? 'فارغ' : 'empty')}`,
+      ],
+    }
+  }
+  if (code === 'brand_industry_too_broad_or_misaligned') {
+    return {
+      title: ar ? 'المجال لا يطابق وصف النشاط' : 'Industry does not match the business description',
+      values: [
+        `${ar ? 'المجال' : 'Industry'}: ${firstString(profile?.industry) || (ar ? 'فارغ' : 'empty')}`,
+        `${ar ? 'وصف النشاط' : 'Business description'}: ${firstString(profile?.description) || (ar ? 'فارغ' : 'empty')}`,
+      ],
+    }
+  }
+  return {
+    title: ar ? 'تعارض يحتاج مراجعة في Brand Brain' : 'Brand Brain conflict needs review',
+    values: [],
+  }
+}
+
 type StrategyPrimaryAction =
   | { label: string; description: string; href: string }
   | { label: string; description: string; onClick: () => void }
@@ -378,6 +407,11 @@ export default function StrategyPage() {
   const strategyBrandMismatch = hasStrategy && strategyBrandAlignment.isStale
   const brandTruthReview = reviewBrandTruthConsistency(brandProfile)
   const brandTruthBlocked = brandTruthReview.status === 'blocked'
+  const brandTruthConflictDetails = brandTruthReview.blockers.map(finding => ({
+    ...brandTruthConflictView(finding.code, brandProfile, ar),
+    code: finding.code,
+    path: finding.path,
+  }))
   const strategyExecutionBlocked = strategyBrandMismatch || brandTruthBlocked
   const hasCurrentBrandOrganicData = hasOrganicData && !strategyExecutionBlocked
   const recentStrategyHref = recent?.id ? `/campaigns/${recent.id}?tab=strategy` : '/strategy'
@@ -903,6 +937,16 @@ export default function StrategyPage() {
                         ? 'تظل الوثيقة مرجعًا تاريخيًا فقط، ولا يُنشئ NEXUS محتوى أو ينشر أو يخصم كريديت من خلالها.'
                         : 'The document remains historical reference only; NEXUS will not generate content, publish, or spend credits from it.'}
                     </p>
+                    {brandTruthBlocked && brandTruthConflictDetails.length > 0 && (
+                      <ul className="mt-3 space-y-2">
+                        {brandTruthConflictDetails.map(detail => (
+                          <li key={`${detail.code}-${detail.path}`} className="rounded-xl border border-orange-200 bg-white/80 px-3 py-2 text-[11px] font-semibold text-orange-900">
+                            <p className="font-black">{detail.title}</p>
+                            {detail.values.map(value => <p key={value} className="mt-0.5 break-words text-orange-800">{value}</p>)}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                   <Link href="/brand" className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-700 px-4 text-xs font-black text-white">
                     {ar ? 'تصحيح Brand Brain' : 'Fix Brand Brain'}<ArrowRight className="h-4 w-4" />
@@ -1044,8 +1088,20 @@ export default function StrategyPage() {
                   </span>
                   <div>
                     <p className="text-sm font-black">
-                      {ar ? 'الاستراتيجية الحالية للمرجع فقط — التنفيذ متوقف' : 'Current strategy is reference-only — execution is blocked'}
+                      {hasStrategy
+                        ? (ar ? 'الاستراتيجية الحالية للمرجع فقط — التنفيذ متوقف' : 'Current strategy is reference-only — execution is blocked')
+                        : (ar ? 'إنشاء الاستراتيجية متوقف حتى تصحيح Brand Brain' : 'Strategy creation is blocked until Brand Brain is fixed')}
                     </p>
+                    {brandTruthConflictDetails.length > 0 && (
+                      <ul className="mt-3 grid gap-2 lg:grid-cols-2">
+                        {brandTruthConflictDetails.map(detail => (
+                          <li key={`${detail.code}-${detail.path}`} className="rounded-xl border border-orange-200 bg-white/80 px-3 py-2 text-[11px] font-semibold text-orange-900">
+                            <p className="font-black">{detail.title}</p>
+                            {detail.values.map(value => <p key={value} className="mt-0.5 break-words text-orange-800">{value}</p>)}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     <p className="mt-1 max-w-4xl text-[13px] font-semibold leading-6 text-orange-900/80">
                       {ar
                         ? `وجد NEXUS ${brandTruthReview.blockers.length} تعارضاً في Brand Brain. لن يُنشئ استراتيجية أو محتوى أو صوراً ولن يخصم كريديت حتى تصحيح مصدر الحقيقة ثم إنشاء استراتيجية جديدة.`
@@ -1233,7 +1289,7 @@ export default function StrategyPage() {
                 })}
               </div>
 
-              {brandTruthBlocked && (
+              {brandTruthBlocked && hasStrategy && (
                 <SoftCard className="border-orange-200 bg-white p-4" dir={ar ? 'rtl' : 'ltr'}>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-start gap-3">

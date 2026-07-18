@@ -14,6 +14,10 @@ import { formatCreditDisplay } from '@/lib/creditDisplay'
 import { getBillingDisplayTruth } from '@/lib/billingDisplayTruth'
 import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
 import {
+  CURRENT_CREDIT_PRICING_EFFECTIVE_DATE,
+  CURRENT_CREDIT_PRICING_VERSION,
+} from '@/lib/credits/pricing'
+import {
   getStrategyToDraftsJourneyCost,
   STRATEGY_PRICING_DISPLAY_TRUTH,
 } from '@/lib/strategy/strategyPricingDisplayTruth'
@@ -26,7 +30,7 @@ import {
 import Link from 'next/link'
 import {
   Sparkles, CheckCircle2, Settings2,
-  Rocket, Brain, Shield, Globe, Image,
+  Rocket, Brain, Shield, Globe, Image, Video,
   MessageSquare, FileText, Gift, Zap, History,
 } from 'lucide-react'
 
@@ -34,6 +38,14 @@ import {
 
 const GROWTH_PLAN = PUBLIC_PAID_PLANS.find((plan) => plan.slug === 'growth') ?? PUBLIC_PAID_PLANS[0]
 const AUTOPILOT_PLAN = PUBLIC_PAID_PLANS.find((plan) => plan.slug === 'autopilot') ?? PUBLIC_PAID_PLANS[1]
+const FULL_STANDARD_90_WORKFLOW_COST = getStrategyToDraftsJourneyCost(
+  STRATEGY_PRICING_DISPLAY_TRUTH.fullStandard90.cost,
+  CREDIT_ACTION_COSTS.SENTINEL_REVIEW,
+  CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION,
+)
+const TRIAL_STRATEGY_REVIEW_COST =
+  STRATEGY_PRICING_DISPLAY_TRUTH.trialActivation.cost
+  + CREDIT_ACTION_COSTS.SENTINEL_REVIEW
 
 const PLANS = [
   {
@@ -52,15 +64,17 @@ const PLANS = [
     limitsAr: [
       `${GROWTH_PLAN.monthlyCredits} رصيد AI / شهر (يتجدد شهرياً)`,
       'موافقات منفصلة للنص والوسائط والجدولة',
-      `${GROWTH_PLAN.campaignLimit} حملات / شهر`,
-      `${GROWTH_PLAN.postsPerMonth} بوست AI مخطط / شهر`,
+      `حتى ${GROWTH_PLAN.campaignLimit} مساحات حملات / شهر — عمليات AI تُحاسب بالكريديت`,
+      `${GROWTH_PLAN.postsPerMonth} مسودة نص AI مخططة / شهر — الصور والفيديو منفصلة`,
+      `مثال سعة: رحلة Full Standard واحدة إلى المسودات (${FULL_STANDARD_90_WORKFLOW_COST} كريديت) أو 4 استراتيجيات Organic Light مراجعة`,
       'Brand Brain الكامل + ذاكرة الحملات',
     ],
     limitsEn: [
       `${GROWTH_PLAN.monthlyCredits} AI credits / month (renews monthly)`,
       'Separate copy, media, and scheduling approvals',
-      `${GROWTH_PLAN.campaignLimit} campaigns / month`,
-      `${GROWTH_PLAN.postsPerMonth} AI-planned posts / month`,
+      `Up to ${GROWTH_PLAN.campaignLimit} campaign workspaces / month — AI operations use credits`,
+      `${GROWTH_PLAN.postsPerMonth} AI-planned copy drafts / month — image and video actions are separate`,
+      `Capacity example: 1 Full Standard workflow to drafts (${FULL_STANDARD_90_WORKFLOW_COST} credits) or 4 reviewed Organic Light strategies`,
       'Full Brand Brain + Campaign Memory (reviewed signals across campaigns)',
     ],
   },
@@ -80,30 +94,23 @@ const PLANS = [
     limitsAr: [
       `${AUTOPILOT_PLAN.monthlyCredits} رصيد AI / شهر (يتجدد شهرياً)`,
       'مركز عمليات ومراقبة مجدولة للحالات والأعطال',
-      `${AUTOPILOT_PLAN.campaignLimit} حملات / شهر`,
-      `${AUTOPILOT_PLAN.postsPerMonth} بوست AI مخطط / شهر`,
+      `حتى ${AUTOPILOT_PLAN.campaignLimit} مساحة حملة / شهر — عمليات AI تُحاسب بالكريديت`,
+      `${AUTOPILOT_PLAN.postsPerMonth} مسودة نص AI مخططة / شهر — الصور والفيديو منفصلة`,
+      `مثال سعة: 3 رحلات Full Standard إلى المسودات أو 12 استراتيجية Organic Light مراجعة`,
       'مراقبة مجدولة + قائمة قرارات مبنية على الأدلة',
     ],
     limitsEn: [
       `${AUTOPILOT_PLAN.monthlyCredits} AI credits / month (renews monthly)`,
       'Operations center with scheduled state and incident monitoring',
-      `${AUTOPILOT_PLAN.campaignLimit} campaigns / month`,
-      `${AUTOPILOT_PLAN.postsPerMonth} AI-planned posts / month`,
+      `Up to ${AUTOPILOT_PLAN.campaignLimit} campaign workspaces / month — AI operations use credits`,
+      `${AUTOPILOT_PLAN.postsPerMonth} AI-planned copy drafts / month — image and video actions are separate`,
+      'Capacity example: 3 Full Standard workflows to drafts or 12 reviewed Organic Light strategies',
       'Scheduled monitoring + evidence-backed action queue',
     ],
   },
 ]
 
 // ─── Credit cost breakdown ────────────────────────────────────────────────────
-
-const FULL_STANDARD_90_WORKFLOW_COST = getStrategyToDraftsJourneyCost(
-  STRATEGY_PRICING_DISPLAY_TRUTH.fullStandard90.cost,
-  CREDIT_ACTION_COSTS.SENTINEL_REVIEW,
-  CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION,
-)
-const TRIAL_STRATEGY_REVIEW_COST =
-  STRATEGY_PRICING_DISPLAY_TRUTH.trialActivation.cost
-  + CREDIT_ACTION_COSTS.SENTINEL_REVIEW
 
 const CREDIT_ACTIONS = [
   {
@@ -129,8 +136,24 @@ const CREDIT_ACTIONS = [
     labelAr: 'توليد صورة AI',
     labelEn: 'AI image generation',
     cost: CREDIT_ACTION_COSTS.IMAGE_GENERATION,
-    noteAr: '1024×1024، مبنية على السياق البصري المحفوظ وتحتاج مراجعتك',
-    noteEn: '1024×1024, based on saved visual context and subject to your review',
+    noteAr: 'NEXUS Image Studio بجودة نهائية، مع هوية البراند ونص عربي/إنجليزي للمراجعة',
+    noteEn: 'Final-quality NEXUS Image Studio creative with brand identity and reviewed Arabic/English copy',
+  },
+  {
+    icon: Video,
+    labelAr: 'Motion Design من فيديو حقيقي — 6 ثوانٍ',
+    labelEn: 'Source-locked Motion Design — 6 seconds',
+    cost: CREDIT_ACTION_COSTS.MOTION_DESIGN_VIDEO,
+    noteAr: 'يحافظ على فيديو الواجهة أو الـDemo كما هو؛ لا يستخدم مزود فيديو توليدي، مع فحص 5 لقطات قبل الربط',
+    noteEn: 'Preserves the supplied screen/demo video; no generative-video provider, with five-frame QA before attachment',
+  },
+  {
+    icon: Video,
+    labelAr: 'إعلان منتج سينمائي — 8 ثوانٍ',
+    labelEn: 'Cinematic product ad — 8 seconds',
+    cost: CREDIT_ACTION_COSTS.VIDEO_GENERATION,
+    noteAr: 'يتطلب 2–4 زوايا منتج مؤهلة؛ فحص مسبق مجاني، محاولة مزود واحدة، حفظ دائم ومراجعة قبل النشر',
+    noteEn: 'Requires 2–4 qualified product angles; free preflight, one provider call, durable storage, and review before publishing',
   },
   {
     icon: FileText,
@@ -139,6 +162,14 @@ const CREDIT_ACTIONS = [
     cost: CREDIT_ACTION_COSTS.CREATIVE_BRIEF,
     noteAr: 'تحليل الأصول + توجيه بصري للحملة',
     noteEn: 'Asset analysis + visual direction for campaign',
+  },
+  {
+    icon: Sparkles,
+    labelAr: 'تحليل ومطابقة وسائط الحملة',
+    labelEn: 'Campaign media intelligence',
+    cost: CREDIT_ACTION_COSTS.MEDIA_INTELLIGENCE_ANALYSIS,
+    noteAr: 'تحليل مرئي حتى 8 أصول وترتيب أفضل تطابق لكل بوست؛ لا يرفق أو ينشر شيئًا تلقائيًا',
+    noteEn: 'Visual analysis for up to 8 assets and ranked post matching; nothing is attached or published automatically',
   },
   {
     icon: Globe,
@@ -192,8 +223,14 @@ const FAQS = [
   {
     qAr: 'ما الفرق بين Growth وAutopilot؟',
     qEn: 'What is the difference between Growth and Autopilot?',
-    aAr: 'Growth مناسب للتخطيط والإنتاج اليومي، بينما Autopilot يضيف سعة أكبر ومراقبة مجدولة وقائمة قرارات تشغيلية.',
-    aEn: 'Growth covers day-to-day planning and production; Autopilot adds more capacity, scheduled monitoring, and an operating action queue.',
+    aAr: 'Growth مناسب للتخطيط وإنتاج مسودات النصوص ومراجعتها؛ إنتاج الصور والفيديو يُحاسب كعمليات منفصلة. Autopilot يضيف سعة أكبر ومراقبة مجدولة وقائمة قرارات تشغيلية.',
+    aEn: 'Growth covers planning plus copy-draft production and review; image and video production are metered separately. Autopilot adds more capacity, scheduled monitoring, and an operating action queue.',
+  },
+  {
+    qAr: 'هل عدد الحملات يعني أن كل حملة Full مشمولة مجانًا؟',
+    qEn: 'Does the campaign limit include that many Full workflows for free?',
+    aAr: `لا. حد الحملات هو عدد مساحات العمل التي يمكن إنشاؤها شهريًا، بينما التوليد والمراجعة والمحتوى تُخصم بالكريديت حسب السعر الظاهر قبل التنفيذ. Growth يكفي مثلًا لرحلة Full Standard واحدة إلى المسودات (${FULL_STANDARD_90_WORKFLOW_COST} كريديت) أو 4 استراتيجيات Organic Light مراجعة.`,
+    aEn: `No. The campaign limit is the number of campaign workspaces you can create each month. Generation, review, and content use credits at the quote shown before execution. Growth covers, for example, one Full Standard workflow to drafts (${FULL_STANDARD_90_WORKFLOW_COST} credits) or four reviewed Organic Light strategies.`,
   },
   {
     qAr: 'ماذا يحدث إذا نفدت أرصدتي قبل نهاية الشهر؟',
@@ -231,6 +268,13 @@ export default function BillingPage() {
     billingEnabled?: boolean
     billingMode?: 'disabled' | 'sandbox' | 'live'
     creditPurchasesEnabled?: boolean
+    creditPurchasesStatus?:
+      | 'ready'
+      | 'wallet_disabled'
+      | 'billing_disabled'
+      | 'price_ids_missing'
+      | 'price_version_mismatch'
+      | 'verification_failed'
     creditBreakdown?: {
       monthly: number
       purchased: number
@@ -256,6 +300,7 @@ export default function BillingPage() {
   const [buyingCredits, setBuyingCredits] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const [billingMessage, setBillingMessage] = useState<string | null>(null)
+  const [creditCheckoutErrorCode, setCreditCheckoutErrorCode] = useState<string | null>(null)
   const [showCreditHistory, setShowCreditHistory] = useState(false)
 
   useEffect(() => {
@@ -394,7 +439,10 @@ export default function BillingPage() {
       })
       const data = await response.json()
       if (data.url) window.location.href = data.url
-      else setBillingMessage(data.error || (ar ? 'تعذر بدء عملية الشراء.' : 'Could not start checkout.'))
+      else {
+        setCreditCheckoutErrorCode(typeof data.code === 'string' ? data.code : 'CHECKOUT_UNAVAILABLE')
+        setBillingMessage(data.error || (ar ? 'تعذر بدء عملية الشراء.' : 'Could not start checkout.'))
+      }
     } catch (error) {
       console.error(error)
       setBillingMessage(ar ? 'تعذر بدء عملية الشراء.' : 'Could not start checkout.')
@@ -410,6 +458,17 @@ export default function BillingPage() {
   const currentCredits = billingStatus?.credits?.remaining ?? 0
   const monthlyCredits = billingStatus?.credits?.max ?? 20
   const creditPurchaseQuote = quoteCreditPurchase(creditQuantity)
+  const creditCheckoutUnavailable = billingStatus?.creditPurchasesEnabled !== true || Boolean(creditCheckoutErrorCode)
+  const creditCheckoutStatusMessage = creditCheckoutErrorCode === 'CREDIT_PRICE_VERSION_MISMATCH'
+    || billingStatus?.creditPurchasesStatus === 'price_version_mismatch'
+    ? (ar
+        ? 'الشراء مقفول بأمان: أسعار Stripe لا تطابق إصدار التسعير الحالي. يجب تحديث Price IDs قبل استقبال أي دفعة.'
+        : 'Purchasing is safely locked: Stripe prices do not match the current pricing version. Price IDs must be updated before accepting payment.')
+    : billingStatus?.creditPurchasesStatus === 'verification_failed'
+      ? (ar
+          ? 'الشراء مقفول مؤقتًا لأن النظام لم يستطع التحقق من أسعار Stripe.'
+          : 'Purchasing is temporarily locked because Stripe prices could not be verified.')
+      : (ar ? 'بانتظار تفعيل Stripe والمحفظة' : 'Awaiting Stripe + wallet activation')
   const nextPurchasedExpiry = billingStatus?.creditBreakdown?.nextPurchasedExpiry
     ? new Intl.DateTimeFormat(ar ? 'ar-EG' : 'en-US', { dateStyle: 'medium' }).format(
         new Date(billingStatus.creditBreakdown.nextPurchasedExpiry),
@@ -606,8 +665,8 @@ export default function BillingPage() {
           </h2>
           <p className="text-sm text-slate-500 mb-8">
             {ar
-              ? 'Growth للتخطيط والإنتاج اليومي، وAutopilot للسعة الأكبر والمراقبة المجدولة. أرصدة التجربة ليست باقة ثالثة.'
-              : 'Growth covers daily planning and production; Autopilot adds capacity and scheduled monitoring. Trial credits are not a third plan.'
+              ? 'Growth للتخطيط وإنتاج مسودات النصوص ومراجعتها؛ الصور والفيديو عمليات منفصلة. وAutopilot للسعة الأكبر والمراقبة المجدولة. أرصدة التجربة ليست باقة ثالثة.'
+              : 'Growth covers planning plus copy-draft production and review; images and video are separate metered actions. Autopilot adds capacity and scheduled monitoring. Trial credits are not a third plan.'
             }
           </p>
 
@@ -737,9 +796,9 @@ export default function BillingPage() {
                   : 'Buying credits increases AI processing capacity only; it does not change campaign or post limits or unlock plan features.'}
               </p>
             </div>
-            {!loading && !billingStatus?.creditPurchasesEnabled && (
+            {!loading && creditCheckoutUnavailable && (
               <span className="w-fit rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-                {ar ? 'بانتظار تفعيل Stripe والمحفظة' : 'Awaiting Stripe + wallet activation'}
+                {creditCheckoutStatusMessage}
               </span>
             )}
           </div>
@@ -814,10 +873,14 @@ export default function BillingPage() {
                 )}
                 <button
                   onClick={handleBuyCredits}
-                  disabled={loading || !billingStatus?.creditPurchasesEnabled || buyingCredits || !creditPurchaseQuote}
+                  disabled={loading || creditCheckoutUnavailable || buyingCredits || !creditPurchaseQuote}
                   className="mt-4 w-full rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {buyingCredits ? (ar ? 'جاري التحويل...' : 'Redirecting...') : (ar ? 'المتابعة إلى الدفع' : 'Continue to checkout')}
+                  {buyingCredits
+                    ? (ar ? 'جاري التحويل...' : 'Redirecting...')
+                    : creditCheckoutUnavailable
+                      ? (ar ? 'الدفع غير متاح حتى التحقق من الأسعار' : 'Checkout unavailable until prices are verified')
+                      : (ar ? 'المتابعة إلى الدفع' : 'Continue to checkout')}
                 </button>
               </div>
             </div>
@@ -835,6 +898,11 @@ export default function BillingPage() {
               : `Monthly credit value: Growth ≈ $${(GROWTH_PLAN.priceUsd / GROWTH_PLAN.monthlyCredits).toFixed(2)}/cr · Autopilot ≈ $${(AUTOPILOT_PLAN.priceUsd / AUTOPILOT_PLAN.monthlyCredits).toFixed(2)}/cr. Strategy cost varies by scope.`
             }
           </p>
+          <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold leading-5 text-slate-600">
+            {ar
+              ? `نسخة التسعير الحالية ${CURRENT_CREDIT_PRICING_VERSION}، سارية من ${CURRENT_CREDIT_PRICING_EFFECTIVE_DATE}. كل عملية تحفظ نسختها؛ لذلك قد يختلف سعر عملية قديمة عن عرض جديد مماثل دون تغيير السجل التاريخي.`
+              : `Current pricing version ${CURRENT_CREDIT_PRICING_VERSION}, effective ${CURRENT_CREDIT_PRICING_EFFECTIVE_DATE}. Every operation stores its version, so a historical row can differ from a new quote without rewriting the ledger.`}
+          </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
             {CREDIT_ACTIONS.map((action, i) => {
@@ -874,11 +942,11 @@ export default function BillingPage() {
               <div className="text-sm text-slate-600 leading-relaxed">
                 {ar ? (
                   <>
-                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} رصيد)</span> = مسار Full Standard واحد لمدة 90 يومًا إلى المسودات ({FULL_STANDARD_90_WORKFLOW_COST} كريديت) مع هامش صغير للمراجعة · أو {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.IMAGE_GENERATION)} صورة · أو مزيج من الإجراءات. التجربة تغطي استراتيجية Organic Light وفحص الجودة فقط ({TRIAL_STRATEGY_REVIEW_COST} كريديت)، ولا تشمل إنتاج المحتوى.
+                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} رصيد)</span> = مسار Full Standard واحد لمدة 90 يومًا إلى المسودات ({FULL_STANDARD_90_WORKFLOW_COST} كريديت) مع هامش صغير للمراجعة · أو {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.IMAGE_GENERATION)} صورة · أو {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.MOTION_DESIGN_VIDEO)} إعلانات Motion Design من فيديو حقيقي · أو {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.VIDEO_GENERATION)} إعلانات منتج سينمائية · أو مزيج من الإجراءات. التجربة تغطي استراتيجية Organic Light وفحص الجودة فقط ({TRIAL_STRATEGY_REVIEW_COST} كريديت)، ولا تشمل إنتاج المحتوى.
                   </>
                 ) : (
                   <>
-                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} credits)</span> = one Full Standard 90-day strategy-to-drafts workflow ({FULL_STANDARD_90_WORKFLOW_COST} credits) with a small review reserve · or {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.IMAGE_GENERATION)} images · or a mix of actions. Trial covers Organic Light strategy plus quality review only ({TRIAL_STRATEGY_REVIEW_COST} credits); content production is excluded.
+                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} credits)</span> = one Full Standard 90-day strategy-to-drafts workflow ({FULL_STANDARD_90_WORKFLOW_COST} credits) with a small review reserve · or {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.IMAGE_GENERATION)} images · or {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.MOTION_DESIGN_VIDEO)} source-locked Motion Design ads · or {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.VIDEO_GENERATION)} cinematic product ads · or a mix of actions. Trial covers Organic Light strategy plus quality review only ({TRIAL_STRATEGY_REVIEW_COST} credits); content production is excluded.
                   </>
                 )}
               </div>

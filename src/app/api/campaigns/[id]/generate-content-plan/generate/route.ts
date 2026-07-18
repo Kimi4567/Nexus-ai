@@ -24,7 +24,12 @@ import {
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { generateWithFlux, platformToFluxAspectRatio, platformToOpenAISize } from '@/lib/ai/falGen'
-import { buildImagePrompt, type VisualContext } from '@/lib/ai/imageGen'
+import {
+  buildImagePrompt,
+  generateWithDallE,
+  uploadToCloudinary,
+  type VisualContext,
+} from '@/lib/ai/imageGen'
 import { normalizeContentHubImagePromptForPlatform } from '@/lib/contentHubImageFormat'
 import {
   getBulkImageGenerationCost,
@@ -34,6 +39,7 @@ import {
   getImageProviderUnavailablePayload,
   getMediaStorageUnavailablePayload,
   isImageProviderConfigured,
+  isAiProviderConfigured,
   isMediaStorageConfigured,
 } from '@/lib/ai/provider'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
@@ -41,8 +47,15 @@ import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { chooseProfessionalImageProvider } from '@/lib/ai/mediaProviderRouter'
+import { reviewGeneratedMediaQuality } from '@/lib/ai/generatedMediaQuality'
+import {
+  buildPlatformReadyImageUrl,
+  resolvePlatformImageFormat,
+} from '@/lib/platformImageFormat'
+import { verifyPlatformReadyImage } from '@/lib/platformImageDelivery.server'
 
-export const maxDuration = 60 // Vercel Pro — 60s max
+export const maxDuration = 300
 
 type Params = { params: Promise<{ id: string }> }
 type ImageCreditReservation = {
@@ -52,12 +65,7 @@ type ImageCreditReservation = {
   settled: boolean
 }
 
-const CLOUDINARY_CLOUD  = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
-const CLOUDINARY_KEY    = process.env.CLOUDINARY_API_KEY
-const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET
 const MAX_IMAGES_PER_REQUEST = 1
-const IMAGE_PROVIDER_TIMEOUT_MS = 35_000
-const MEDIA_UPLOAD_TIMEOUT_MS = 10_000
 
 // ── Image generation (mirrors cron/generate-images logic) ─────────────────────
 
@@ -67,39 +75,29 @@ async function generateImage(prompt: string, platform: string): Promise<string> 
   // platform normalization here so bulk and single generation stay identical.
   const safePrompt = normalizeContentHubImagePromptForPlatform(prompt, platform)
 
-  if (process.env.FAL_KEY) {
-    const aspectRatio = platformToFluxAspectRatio(platform)
-    const result = await generateWithFlux({ prompt: safePrompt, aspectRatio })
-    return result.imageUrl
-  }
-
-  // Fallback: gpt-image-1 high quality
-  const size = platformToOpenAISize(platform)
-
-  const res = await fetch('https://api.openai.com/v1/images/generations', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-image-1',
-      prompt: safePrompt,
-      n: 1,
-      size,
-      quality: 'high',
-      output_format: 'b64_json',
-    }),
-    signal: AbortSignal.timeout(IMAGE_PROVIDER_TIMEOUT_MS),
+  const decision = chooseProfessionalImageProvider({
+    purpose: 'final_ad_creative',
+    hasReferenceImage: false,
+    openAiConfigured: isAiProviderConfigured(),
+    falConfigured: Boolean(process.env.FAL_KEY?.trim()),
   })
-
-  const data = await res.json()
-  if (!res.ok) {
-    throw new Error(data?.error?.message || `Image API error: ${res.status}`)
+  const run = async (provider: typeof decision.provider) => {
+    if (provider === 'fal-flux') {
+      const result = await generateWithFlux({
+        prompt: safePrompt,
+        aspectRatio: platformToFluxAspectRatio(platform),
+      })
+      return result.imageUrl
+    }
+    return generateWithDallE(safePrompt, platformToOpenAISize(platform))
   }
-  const b64 = data?.data?.[0]?.b64_json
-  if (!b64) throw new Error('Image generation returned no data')
-  return `data:image/png;base64,${b64}`
+
+  try {
+    return await run(decision.provider)
+  } catch (error) {
+    if (!decision.fallback) throw error
+    return run(decision.fallback)
+  }
 }
 
 async function buildContentHubPostPrompt(campaign: any, post: any): Promise<string> {
@@ -138,6 +136,7 @@ async function buildContentHubPostPrompt(campaign: any, post: any): Promise<stri
     differentiation: strategy.differentiation ?? undefined,
     keyMessage: strategy.keyMessage ?? undefined,
     postCaption: postContext,
+    creativeDirection: post.imagePrompt ?? undefined,
     platform: post.platform,
     creativeRequirement: {
       objective: campaign.goal ?? undefined,
@@ -146,42 +145,11 @@ async function buildContentHubPostPrompt(campaign: any, post: any): Promise<stri
       textOverlayNeeded: true,
       logoNeeded: true,
     },
-    assetRole: 'post_background',
+    assetRole: 'final_composited_ad',
   }
 
   const result = await buildImagePrompt(context)
   return normalizeContentHubImagePromptForPlatform(result.prompt, post.platform)
-}
-
-async function uploadToCloudinary(imageUrl: string, postId: string): Promise<string> {
-  if (!CLOUDINARY_CLOUD || !CLOUDINARY_KEY || !CLOUDINARY_SECRET) {
-    throw new Error('Cloudinary not configured')
-  }
-
-  const timestamp = Math.round(Date.now() / 1000)
-  const publicId = `content-hub/${postId}`
-  const sigString = `folder=nexus/content-hub&public_id=${publicId}&timestamp=${timestamp}${CLOUDINARY_SECRET}`
-
-  const encoder = new TextEncoder()
-  const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(sigString))
-  const signature = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
-
-  const form = new FormData()
-  form.append('file', imageUrl)
-  form.append('folder', 'nexus/content-hub')
-  form.append('public_id', publicId)
-  form.append('api_key', CLOUDINARY_KEY)
-  form.append('timestamp', String(timestamp))
-  form.append('signature', signature)
-
-  const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
-    method: 'POST',
-    body: form,
-    signal: AbortSignal.timeout(MEDIA_UPLOAD_TIMEOUT_MS),
-  })
-  const uploadData = await uploadRes.json()
-  if (uploadData.error) throw new Error(`Cloudinary: ${uploadData.error.message}`)
-  return uploadData.secure_url as string
 }
 
 async function refundImageReservation(
@@ -457,10 +425,34 @@ export async function POST(req: NextRequest, props: Params) {
         })
         visualId = visual.id
 
-        const rawUrl = await generateImage(preparedPrompt, post.platform)
+        const targetFormat = resolvePlatformImageFormat(post.publishTarget || post.platform)
+        const rawUrl = await generateImage(preparedPrompt, targetFormat.platform)
         // Content Hub media must be durable. Never put a provider-temporary URL
         // or a base64 payload in SocialPost.imageUrl.
-        const finalUrl = await uploadToCloudinary(rawUrl, post.id)
+        const durableRawUrl = await uploadToCloudinary(rawUrl, `content_hub_raw_${post.id}`)
+        const finalUrl = buildPlatformReadyImageUrl(durableRawUrl, targetFormat)
+        const formatValidation = await verifyPlatformReadyImage(finalUrl, targetFormat)
+        const qualityReview = await reviewGeneratedMediaQuality({
+          mediaType: 'IMAGE',
+          outputFrames: [finalUrl],
+          campaignMessage: post.caption,
+          creativeDirection: post.imagePrompt,
+          targetFormat,
+          formatValidation,
+        })
+        if (!qualityReview.passed) {
+          await (prisma.generatedVisual as any).update({
+            where: { id: visualId },
+            data: {
+              status: 'FAILED',
+              imageUrl: finalUrl,
+              errorMessage: 'NEXUS quality review rejected this platform-ready image.',
+              qualityStatus: 'REJECTED',
+              qualityReview,
+            },
+          })
+          throw new Error('NEXUS quality review rejected this platform-ready image')
+        }
 
         await prisma.$transaction(async (tx) => {
           await (tx.socialPost as any).update({
@@ -469,7 +461,12 @@ export async function POST(req: NextRequest, props: Params) {
           })
           await (tx.generatedVisual as any).update({
             where: { id: visualId! },
-            data: { imageUrl: finalUrl, status: 'COMPLETED' },
+            data: {
+              imageUrl: finalUrl,
+              status: 'COMPLETED',
+              qualityStatus: 'PASSED',
+              qualityReview,
+            },
           })
         })
         if (reservation) {
@@ -490,12 +487,13 @@ export async function POST(req: NextRequest, props: Params) {
         results.push({ id: post.id, success: true, imageUrl: finalUrl })
       } catch (err: any) {
         console.error(`[Content Hub] Image generation failed for ${post.id}:`, err)
+        const publicMessage = 'NEXUS Image Studio could not create a usable image.'
         // Refund this post's image credit — a failed image must not be charged
-        const refunded = await refundImageReservation(userId, reservation, err.message ?? 'Image generation failed')
+        const refunded = await refundImageReservation(userId, reservation, publicMessage)
         if (visualId) {
           await (prisma.generatedVisual as any).update({
             where: { id: visualId },
-            data: { status: 'FAILED', errorMessage: String(err.message ?? 'Image generation failed').slice(0, 500) },
+            data: { status: 'FAILED', errorMessage: publicMessage },
           }).catch(() => {})
         }
         await (prisma.socialPost as any).update({
@@ -503,7 +501,7 @@ export async function POST(req: NextRequest, props: Params) {
           data: { generationStatus: refunded ? 'FAILED' : 'REFUND_PENDING' },
         })
         claimedPosts.delete(post.id)
-        results.push({ id: post.id, success: false, error: err.message, refunded })
+        results.push({ id: post.id, success: false, error: publicMessage, refunded })
       }
     }
 

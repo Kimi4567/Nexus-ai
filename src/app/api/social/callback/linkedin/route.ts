@@ -12,6 +12,7 @@ import {
   LINKEDIN_API_VERSION,
   linkedInHeaders,
 } from '@/lib/socialPlatformConfig'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -26,9 +27,8 @@ export async function GET(req: NextRequest) {
 
   // User denied access or LinkedIn-side error
   if (errorParam) {
-    const desc = searchParams.get('error_description') || errorParam
-    console.error('[LinkedIn OAuth] Error from LinkedIn:', errorParam, desc)
-    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=${encodeURIComponent(desc.slice(0, 120))}`)
+    console.warn('[LinkedIn OAuth] Provider authorization was not granted')
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=authorization_not_granted`)
   }
 
   if (!code || !state) {
@@ -62,17 +62,33 @@ export async function GET(req: NextRequest) {
     })
     tokenData = await tokenRes.json()
   } catch (fetchErr) {
-    console.error('[LinkedIn OAuth] Token fetch network error:', fetchErr)
+    await captureOperationalError(fetchErr, {
+      operation: 'oauth.linkedin-token-exchange',
+      route: '/api/social/callback/linkedin',
+      component: 'oauth',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 502,
+      retryable: true,
+    })
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=network_error`)
   }
 
   if (!tokenData.access_token) {
-    const errMsg = tokenData.error_description || tokenData.error || 'token_exchange'
-    console.error('[LinkedIn OAuth] Token exchange failed:', {
-      error: tokenData.error_description || tokenData.error || 'unknown',
-      code: tokenData.error_code || null,
-    })
-    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=${encodeURIComponent(errMsg.slice(0, 120))}`)
+    await captureOperationalError(
+      Object.assign(new Error('LinkedIn token exchange rejected'), { code: tokenData.error_code || tokenData.error }),
+      {
+        operation: 'oauth.linkedin-token-exchange',
+        route: '/api/social/callback/linkedin',
+        component: 'oauth',
+        method: 'GET',
+        requestId: req.headers?.get?.('x-vercel-id') ?? null,
+        statusCode: 400,
+        retryable: false,
+        severity: 'warning',
+      },
+    )
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=token_exchange_failed`)
   }
 
   const accessToken = tokenData.access_token as string
@@ -89,14 +105,29 @@ export async function GET(req: NextRequest) {
     })
     profile = await profileRes.json()
   } catch (fetchErr) {
-    console.error('[LinkedIn OAuth] Profile fetch network error:', fetchErr)
+    await captureOperationalError(fetchErr, {
+      operation: 'oauth.linkedin-profile-fetch',
+      route: '/api/social/callback/linkedin',
+      component: 'oauth',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 502,
+      retryable: true,
+    })
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=profile_fetch_failed`)
   }
 
   if (!profile.sub) {
-    const errMsg = profile.message || profile.error || 'profile_fetch'
-    console.error('[LinkedIn OAuth] Profile fetch failed:', profile)
-    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=${encodeURIComponent(errMsg.slice(0, 120))}`)
+    await captureOperationalError(new Error('LinkedIn profile response was incomplete'), {
+      operation: 'oauth.linkedin-profile-invalid',
+      route: '/api/social/callback/linkedin',
+      component: 'oauth',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 502,
+      retryable: true,
+    })
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=profile_fetch_failed`)
   }
 
   const personId   = profile.sub as string          // LinkedIn member URN id
@@ -165,7 +196,7 @@ export async function GET(req: NextRequest) {
     : 'unavailable'
   const defaultOrganizationId = organizations.length === 1 ? organizations[0].id : null
 
-  console.log('[LinkedIn OAuth] userId:', userId, '| personId:', personId, '| name:', name)
+  console.log('[LinkedIn OAuth] Verified member profile')
 
   // ── Ensure User + Workspace exist ────────────────────────────────────────
   await prisma.user.upsert({
@@ -242,13 +273,29 @@ export async function GET(req: NextRequest) {
     })
     console.log('[LinkedIn OAuth] Integration saved!')
   } catch (dbErr) {
-    console.error('[LinkedIn OAuth] DB upsert failed:', dbErr)
+    await captureOperationalError(dbErr, {
+      operation: 'oauth.linkedin-save-connection',
+      route: '/api/social/callback/linkedin',
+      component: 'database',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=db_error`)
   }
 
   return NextResponse.redirect(`${baseUrl}/connections?social=connected&platform=linkedin`)
-  } catch (err: any) {
-    console.error('[LinkedIn OAuth] Unexpected error:', err?.message)
+  } catch (err: unknown) {
+    await captureOperationalError(err, {
+      operation: 'oauth.linkedin-callback',
+      route: '/api/social/callback/linkedin',
+      component: 'oauth',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=unexpected_error`)
   }
 }

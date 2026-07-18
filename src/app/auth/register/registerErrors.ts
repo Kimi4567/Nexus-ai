@@ -21,7 +21,7 @@ export type RegisterErrorReason =
 const REGISTER_ERROR_COPY: Record<RegisterErrorLocale, Record<RegisterErrorReason, string>> = {
   en: {
     duplicate: 'An account with this email may already exist. Try logging in instead.',
-    invalidEmail: 'Enter a valid email address.',
+    invalidEmail: 'Use a real, deliverable email address. Reserved or test-only domains may be rejected by the email provider.',
     signupDisabled: 'Account creation is currently unavailable. Please contact support.',
     emailDelivery: 'We could not send the verification email. Please try again in a few minutes.',
     rateLimit: 'Too many signup attempts. Please wait a few minutes and try again.',
@@ -32,7 +32,7 @@ const REGISTER_ERROR_COPY: Record<RegisterErrorLocale, Record<RegisterErrorReaso
   },
   ar: {
     duplicate: 'قد يكون هناك حساب بهذا البريد. جرّب تسجيل الدخول.',
-    invalidEmail: 'أدخل بريدًا إلكترونيًا صالحًا.',
+    invalidEmail: 'استخدم بريدًا حقيقيًا يمكنه استقبال الرسائل؛ قد يرفض مزود البريد النطاقات المحجوزة أو المخصصة للاختبار.',
     signupDisabled: 'إنشاء الحسابات غير متاح حاليًا. تواصل مع الدعم.',
     emailDelivery: 'لم نتمكن من إرسال رسالة التحقق. حاول مرة أخرى بعد دقائق.',
     rateLimit: 'محاولات التسجيل كثيرة جدًا. انتظر بضع دقائق ثم حاول مرة أخرى.',

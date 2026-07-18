@@ -117,7 +117,7 @@ Return JSON with this exact structure:
     })
 
     if (!openaiRes.ok) {
-      await refundCreditDeduction({ userId: user.id, action: 'CONTENT_ANALYSIS', deduction: creditResult, reason: `OpenAI error ${openaiRes.status}` })
+      await refundCreditDeduction({ userId: user.id, action: 'CONTENT_ANALYSIS', deduction: creditResult, reason: 'NEXUS AI service error' })
       return NextResponse.json({ error: 'AI analysis failed', refunded: !!chargedUserId }, { status: 500 })
     }
 

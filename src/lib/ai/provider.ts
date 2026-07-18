@@ -1,6 +1,7 @@
 export const AI_PROVIDER_UNAVAILABLE_CODE = 'AI_PROVIDER_UNAVAILABLE' as const
 export const IMAGE_PROVIDER_UNAVAILABLE_CODE = 'IMAGE_PROVIDER_UNAVAILABLE' as const
 export const MEDIA_STORAGE_UNAVAILABLE_CODE = 'MEDIA_STORAGE_UNAVAILABLE' as const
+export const VIDEO_PROVIDER_UNAVAILABLE_CODE = 'VIDEO_PROVIDER_UNAVAILABLE' as const
 
 export class AiProviderUnavailableError extends Error {
   readonly code = AI_PROVIDER_UNAVAILABLE_CODE
@@ -22,6 +23,11 @@ export function isImageProviderConfigured(): boolean {
   return (typeof falKey === 'string' && falKey.trim().length > 0) || isAiProviderConfigured()
 }
 
+export function isVideoProviderConfigured(): boolean {
+  const runwayKey = process.env.RUNWAYML_API_SECRET || process.env.RUNWAY_API_KEY
+  return typeof runwayKey === 'string' && runwayKey.trim().length > 0
+}
+
 export function isMediaStorageConfigured(): boolean {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
   const apiKey = process.env.CLOUDINARY_API_KEY
@@ -41,8 +47,8 @@ export function getAiProviderUnavailablePayload(language: unknown = 'ar') {
 
   return {
     error: isArabic
-      ? 'خدمة الذكاء الاصطناعي غير متاحة حالياً لأن مزود OpenAI غير مُهيأ. لم يتم إنشاء محتوى ولم يُخصم أي كريدت.'
-      : 'AI generation is currently unavailable because the OpenAI provider is not configured. No content was created and no credits were charged.',
+      ? 'محرك NEXUS للذكاء الاصطناعي غير متاح مؤقتاً. لم يتم إنشاء محتوى ولم يُخصم أي كريديت.'
+      : 'The NEXUS AI engine is temporarily unavailable. No content was created and no credits were charged.',
     code: AI_PROVIDER_UNAVAILABLE_CODE,
     providerConfigured: false,
     creditsCharged: false,
@@ -73,6 +79,20 @@ export function getMediaStorageUnavailablePayload(language: unknown = 'ar') {
       : 'Image generation is currently unavailable because permanent media storage is not configured. No image was created and no credits were charged.',
     code: MEDIA_STORAGE_UNAVAILABLE_CODE,
     storageConfigured: false,
+    creditsCharged: false,
+    retryable: false,
+  }
+}
+
+export function getVideoProviderUnavailablePayload(language: unknown = 'ar') {
+  const isArabic = typeof language !== 'string' || language.toLowerCase().startsWith('ar')
+
+  return {
+    error: isArabic
+      ? 'محرك NEXUS للفيديو غير متاح مؤقتاً. لم يتم إنشاء فيديو ولم يُخصم أي كريديت.'
+      : 'The NEXUS video engine is temporarily unavailable. No video was created and no credits were charged.',
+    code: VIDEO_PROVIDER_UNAVAILABLE_CODE,
+    providerConfigured: false,
     creditsCharged: false,
     retryable: false,
   }

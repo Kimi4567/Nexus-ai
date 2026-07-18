@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyCreditHistoryCorrections,
+  creditHistoryDisplayLabel,
+  transactionEntityHref,
   type Transaction,
 } from '@/components/CreditHistoryModal'
 
@@ -52,5 +54,36 @@ describe('applyCreditHistoryCorrections', () => {
     const rows = applyCreditHistoryCorrections([original])
 
     expect(rows).toEqual([{ transaction: original, correction: null }])
+  })
+})
+
+describe('transactionEntityHref', () => {
+  it('links only entity types whose route contract is known', () => {
+    expect(transactionEntityHref({ entityId: 'campaign-1', entityType: 'campaign' }))
+      .toBe('/campaigns/campaign-1?tab=strategy')
+    expect(transactionEntityHref({ entityId: 'campaign-1', entityType: 'strategy' }))
+      .toBe('/campaigns/campaign-1?tab=strategy')
+    expect(transactionEntityHref({ entityId: 'campaign-1', entityType: 'campaign_sentinel_review' }))
+      .toBe('/campaigns/campaign-1?tab=strategy')
+    expect(transactionEntityHref({ entityId: 'campaign-1', entityType: 'campaign_content_plan' }))
+      .toBe('/campaigns/campaign-1?tab=strategy')
+    expect(transactionEntityHref({ entityId: 'image-1', entityType: 'image' })).toBeNull()
+    expect(transactionEntityHref({ entityId: null, entityType: 'campaign' })).toBeNull()
+  })
+})
+
+describe('creditHistoryDisplayLabel', () => {
+  it('does not repeat the settled amount inside the reason and amount columns', () => {
+    expect(creditHistoryDisplayLabel(transaction({
+      description: 'Full Light · 30-day price = 14 credits — 14 credits',
+      amount: -14,
+    }), false)).toBe('Full Light · 30-day price = 14 credits')
+  })
+
+  it('preserves a suffix when it is not the transaction amount', () => {
+    expect(creditHistoryDisplayLabel(transaction({
+      description: 'Campaign adjustment — 9 credits',
+      amount: -14,
+    }), false)).toBe('Campaign adjustment — 9 credits')
   })
 })

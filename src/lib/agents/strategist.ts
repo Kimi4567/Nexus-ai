@@ -152,6 +152,10 @@ export interface LaunchPhase {
 /** Practical business diagnosis — machine-readable breakdown */
 export interface DiagnosisDetails {
   stage: 'pre-launch' | 'early-stage' | 'active' | 'scaling' | 'recovery'
+  /** Whether the diagnosis is directly supported by Brand Brain or still a testable hypothesis. */
+  basis: 'documented' | 'hypothesis'
+  /** Exact Brand Brain field/evidence used, or the validation needed for a hypothesis. */
+  evidenceBasis: string
   bottleneck: string
   trustGap: string
   offerClarity: 'clear' | 'unclear' | 'partial'
@@ -273,6 +277,9 @@ export interface PaidAdAngle {
   message: string
   funnelStage: string
   proofNeeded: string
+  testVariable: string
+  successSignal: string
+  rejectionRule: string
 }
 
 export interface PaidAdCopyVariation {
@@ -291,6 +298,7 @@ export interface PaidCreativeBrief {
   format: string
   visualDirection: string
   requiredAssets: string[]
+  assetStatus: 'existing_approved' | 'user_upload_required' | 'generation_required'
   proofBoundary: string
   reviewGate: string
 }
@@ -680,6 +688,10 @@ ANTI-HALLUCINATION RULES (strict — these override any urge to sound complete):
 24. Audience preferences, tone, positioning, or common industry practice are not proof of a service policy. Never invent no-hidden-fee or transparent-pricing promises, bilingual service, family/children services, pain-free or stress-free care, or clinic/facility tours unless that exact fact appears in Brand Context.
 25. Before returning JSON, perform a final fluency pass on every user-facing value. Reject sentence fragments, missing nouns, literal translations, and malformed Arabic. Every hook, CTA, positioning line, funnel message, and weekly key message must be a complete natural sentence or phrase.
 26. If no conversion destination is provided, do not invent trials, demos, bookings, registrations, downloads, purchases, WhatsApp, or contact paths. Use review-safe awareness actions that the content itself can satisfy, and keep the conversion destination explicitly unresolved.
+27. Diagnosis truth is explicit: diagnosisDetails.basis must be "documented" only when the stated bottleneck is supported by a named Brand Brain field; otherwise use "hypothesis" and put the exact validation needed in evidenceBasis.
+28. Channel rationale is a planning hypothesis unless a source-linked evidence item supports it. Never state that a platform is popular, growing, high-engagement, best, or category-leading as an unsourced fact.
+29. Paid angles are test cells, not paraphrases. Every angle must test one different variable, name an observable success signal, and include a rejection rule. Ad-copy variations must be materially different in message or framing, not word swaps.
+30. Every paid creative brief must declare assetStatus. Use existing_approved only when the supplied context proves an approved asset exists; otherwise use user_upload_required or generation_required. Never present a missing image or video as an existing asset.
 
 Return ONLY valid JSON. No markdown outside the JSON.`
 
@@ -751,13 +763,13 @@ Return ONLY valid JSON. No markdown outside the JSON.`
       { "name": "string", "buyingSituation": "string", "targetingHypothesis": "string", "exclusions": "string", "validationNeeded": "string" }
     ],
     "adAngles": [
-      { "name": "string", "audienceHypothesis": "string", "message": "string", "funnelStage": "string", "proofNeeded": "string" }
+      { "name": "string", "audienceHypothesis": "string", "message": "string", "funnelStage": "string", "proofNeeded": "string", "testVariable": "string — one variable only", "successSignal": "string — observable evidence", "rejectionRule": "string — when to stop this angle" }
     ],
     "adCopyVariations": [
       { "id": "string", "angle": "string", "headline": "string", "primaryText": "string", "cta": "string", "destination": "string — use Not enough data when unresolved", "assumption": "string" }
     ],
     "creativeBriefs": [
-      { "name": "string", "angle": "string", "format": "string", "visualDirection": "string", "requiredAssets": ["string"], "proofBoundary": "string", "reviewGate": "string" }
+      { "name": "string", "angle": "string", "format": "string", "visualDirection": "string", "requiredAssets": ["string"], "assetStatus": "existing_approved|user_upload_required|generation_required", "proofBoundary": "string", "reviewGate": "string" }
     ],
     "budgetFramework": "string — planning framework only; never invent spend",
     "trackingChecklist": ["string"],
@@ -870,6 +882,8 @@ Return JSON with these exact fields — all specific to this brand:
   },
   "diagnosisDetails": {
     "stage": "pre-launch|early-stage|active|scaling|recovery",
+    "basis": "documented|hypothesis — use documented only when the diagnosis is explicitly supported by Brand Brain",
+    "evidenceBasis": "string — cite the saved Brand Brain field, or state the exact validation needed for a hypothesis",
     "bottleneck": "string", "trustGap": "string", "offerClarity": "clear|unclear|partial",
     "contentGap": "string", "assetReadiness": "string", "conversionReadiness": "string",
     "readyForPaidAds": boolean, "readyForPaidAdsReason": "string", "mainRisk": "string"
@@ -953,6 +967,7 @@ export function buildStrategistCountRepairPrompt(
     'Return exactly 4 weeklyExecutionPlan entries for a 30-day detailed window. Every week must include at least one countable deliverable, assetsNeeded, executionNote, and reviewPoints.',
     'Preserve the brand, facts, language, strategy type, platforms, proof gaps, and every valid field already present.',
     'Add distinct, executable angles grounded in the same audience, offer, goal, and content pillars. Do not duplicate or merely paraphrase an existing angle.',
+    'Every paid angle must have one distinct testVariable, an observable successSignal, and a rejectionRule. Every creative brief must declare assetStatus as existing_approved, user_upload_required, or generation_required.',
     'Do not invent proof, services, prices, languages, guarantees, competitors, performance numbers, budgets, or execution status while repairing the count.',
     `JSON TO REPAIR:\n${JSON.stringify(output)}`,
   ].join('\n')
@@ -1014,6 +1029,9 @@ export function buildPaidPlanningStructuredOutputSchema(
                 message: textField,
                 funnelStage: textField,
                 proofNeeded: textField,
+                testVariable: textField,
+                successSignal: textField,
+                rejectionRule: textField,
               }),
               adCopyVariations: exactObjectArraySchema(deliverables.paidAdVariationCount, {
                 id: textField,
@@ -1030,6 +1048,7 @@ export function buildPaidPlanningStructuredOutputSchema(
                 format: textField,
                 visualDirection: textField,
                 requiredAssets: { type: 'array', minItems: 1, items: textField },
+                assetStatus: { type: 'string', enum: ['existing_approved', 'user_upload_required', 'generation_required'] },
                 proofBoundary: textField,
                 reviewGate: textField,
               }),

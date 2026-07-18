@@ -82,6 +82,10 @@ describe('paidReadiness — honest planning-only', () => {
       conversionDestination: 'Landing page',
       audienceLocation: 'UAE',
       leadHandling: 'Sales team responds within one business day',
+      pricePoint: 'premium',
+      uniqueAdvantages: ['Faster marketing operations'],
+      customerObjections: ['Concern about switching tools'],
+      verifiedProof: ['Owner-confirmed product capabilities'],
     }
     const r = getBrandIndicators(paidComplete)
     expect(r.paidReadiness.ready).toBe(true)
@@ -97,6 +101,10 @@ describe('paidReadiness — honest planning-only', () => {
       conversionDestination: 'Landing page',
       audienceLocation: 'UAE',
       leadHandling: 'Sales team responds within one business day',
+      pricePoint: 'premium',
+      uniqueAdvantages: ['Faster marketing operations'],
+      customerObjections: ['Concern about switching tools'],
+      verifiedProof: ['Owner-confirmed product capabilities'],
     }, { hasPixel: false })
 
     expect(r.paidReadiness.ready).toBe(true)
@@ -114,6 +122,20 @@ describe('paidReadiness — honest planning-only', () => {
     }, { hasPixel: true })
     expect(r.paidReadiness.ready).toBe(false)
     expect(r.paidReadiness.missingKeys).toContain('leadHandling')
+  })
+
+  it('does not claim paid readiness without offer economics, differentiation, objections, and proof', () => {
+    const r = getBrandIndicators({
+      ...organicComplete,
+      marketingBudget: '$1,000 / month',
+      conversionDestination: 'Landing page',
+      audienceLocation: 'UAE',
+      leadHandling: 'Sales team responds within one business day',
+    })
+    expect(r.paidReadiness.ready).toBe(false)
+    expect(r.paidReadiness.missingKeys).toEqual(expect.arrayContaining([
+      'pricePoint', 'uniqueAdvantages', 'customerObjections', 'verifiedProof',
+    ]))
   })
 })
 

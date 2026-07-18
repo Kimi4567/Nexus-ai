@@ -34,16 +34,16 @@ const PLANS = [
     price: `$${GROWTH.priceUsd}`,
     color: '#2563EB',
     featured: true,
-    featuresEn: [`${GROWTH.monthlyCredits} AI credits / month`, `${GROWTH.campaignLimit} campaigns / month`, `${GROWTH.postsPerMonth} planned posts / month`, 'Separate approvals before execution', 'Analytics + exports'],
-    featuresAr: [`${GROWTH.monthlyCredits} كريديت AI شهريًا`, `${GROWTH.campaignLimit} حملات شهريًا`, `${GROWTH.postsPerMonth} منشورًا مخططًا شهريًا`, 'موافقات منفصلة قبل التنفيذ', 'تحليلات وتصدير'],
+    featuresEn: [`${GROWTH.monthlyCredits} AI credits / month`, `Up to ${GROWTH.campaignLimit} campaign workspaces; AI operations use credits`, '1 Full Standard workflow to drafts or 4 reviewed Organic Light strategies', `${GROWTH.postsPerMonth} planned posts / month`, 'Separate approvals before execution', 'Analytics + exports'],
+    featuresAr: [`${GROWTH.monthlyCredits} كريديت AI شهريًا`, `حتى ${GROWTH.campaignLimit} مساحات حملات؛ عمليات AI بالكريديت`, 'رحلة Full Standard واحدة إلى المسودات أو 4 استراتيجيات Organic Light مراجعة', `${GROWTH.postsPerMonth} منشورًا مخططًا شهريًا`, 'موافقات منفصلة قبل التنفيذ', 'تحليلات وتصدير'],
   },
   {
     id: 'business',
     name: 'Autopilot',
     price: `$${AUTOPILOT.priceUsd}`,
     color: '#059669',
-    featuresEn: [`${AUTOPILOT.monthlyCredits} AI credits / month`, `${AUTOPILOT.campaignLimit} campaigns / month`, `${AUTOPILOT.postsPerMonth} planned posts / month`, 'Operations center', 'Scheduled monitoring + action queue'],
-    featuresAr: [`${AUTOPILOT.monthlyCredits} كريديت AI شهريًا`, `${AUTOPILOT.campaignLimit} حملات شهريًا`, `${AUTOPILOT.postsPerMonth} منشورًا مخططًا شهريًا`, 'مركز العمليات', 'مراقبة مجدولة وقائمة قرارات'],
+    featuresEn: [`${AUTOPILOT.monthlyCredits} AI credits / month`, `Up to ${AUTOPILOT.campaignLimit} campaign workspaces; AI operations use credits`, '3 Full Standard workflows to drafts or 12 reviewed Organic Light strategies', `${AUTOPILOT.postsPerMonth} planned posts / month`, 'Operations center', 'Scheduled monitoring + action queue'],
+    featuresAr: [`${AUTOPILOT.monthlyCredits} كريديت AI شهريًا`, `حتى ${AUTOPILOT.campaignLimit} مساحة حملة؛ عمليات AI بالكريديت`, '3 رحلات Full Standard إلى المسودات أو 12 استراتيجية Organic Light مراجعة', `${AUTOPILOT.postsPerMonth} منشورًا مخططًا شهريًا`, 'مركز العمليات', 'مراقبة مجدولة وقائمة قرارات'],
   },
 ]
 

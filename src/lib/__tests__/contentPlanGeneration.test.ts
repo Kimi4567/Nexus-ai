@@ -17,11 +17,13 @@
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'fs'
 import {
+  bindContentPlanSlotsToStrategyAngles,
   parseContentPlanResponse,
   generateContentPlanWithRetry,
   contentPlanFailureResponse,
   isRetryableFailure,
   extractPostsArray,
+  distributeContentPlanSlots,
   resolveContentPlanSlotScope,
   type FetchLikeResponse,
 } from '@/lib/contentPlanGeneration'
@@ -290,5 +292,53 @@ describe('resolveContentPlanSlotScope', () => {
     expect(routeSource).toContain('refundCreditDeduction')
     expect(routeSource).toContain('deduction: charge')
     expect(routeSource).toContain("refundContentActionCharge(userId, contentPlanCharge, 'CONTENT_PLAN_GENERATION'")
+  })
+
+  it('applies the field-aware truth policy to the final persistence payload', () => {
+    const routeSource = readFileSync('src/app/api/campaigns/[id]/generate-content-plan/route.ts', 'utf8')
+
+    expect(routeSource).toContain('const renderedPostsToCreate = slots.map')
+    expect(routeSource).toContain('const postsToCreate = guardContentDraftTruth(renderedPostsToCreate, proofContext)')
+    expect(routeSource).toContain('const bVariantsToCreate = guardContentDraftTruth(renderedBVariantsToCreate, proofContext)')
+  })
+})
+
+describe('distributeContentPlanSlots', () => {
+  it('keeps YouTube Shorts video-native while preserving the reviewed 5/5 media split', () => {
+    const slots = distributeContentPlanSlots(5, 5, ['INSTAGRAM', 'LINKEDIN', 'YOUTUBE_SHORTS'])
+
+    expect(slots).toHaveLength(10)
+    expect(slots.filter(slot => slot.isVideoPost)).toHaveLength(5)
+    expect(slots.filter(slot => !slot.isVideoPost)).toHaveLength(5)
+    expect(slots.filter(slot => slot.publishTarget === 'YOUTUBE_SHORTS').every(slot => slot.isVideoPost)).toBe(true)
+  })
+
+  it('forces a video slot when a video-only campaign has no generic video quota', () => {
+    expect(distributeContentPlanSlots(1, 0, ['YOUTUBE_SHORTS'])).toEqual([
+      { publishTarget: 'YOUTUBE_SHORTS', isVideoPost: true, index: 0 },
+    ])
+  })
+
+  it('keeps each content slot on its reviewed strategy platform and format', () => {
+    const distributed = distributeContentPlanSlots(2, 1, ['INSTAGRAM', 'TIKTOK', 'PINTEREST'])
+    const bound = bindContentPlanSlotsToStrategyAngles(distributed, [
+      { platform: 'Instagram', format: 'Carousel' },
+      { platform: 'TikTok', format: 'Short-form video' },
+      { platform: 'Instagram', format: 'Static image' },
+    ], ['INSTAGRAM', 'TIKTOK', 'PINTEREST'])
+
+    expect(bound.map(slot => slot.publishTarget)).toEqual(['INSTAGRAM', 'TIKTOK', 'INSTAGRAM'])
+    expect(bound.map(slot => slot.isVideoPost)).toEqual([false, true, false])
+    expect(bound.some(slot => slot.publishTarget === 'PINTEREST')).toBe(false)
+  })
+
+  it('refuses an angle platform outside the reviewed campaign scope', () => {
+    const [bound] = bindContentPlanSlotsToStrategyAngles(
+      [{ publishTarget: 'INSTAGRAM', isVideoPost: false, index: 0 }],
+      [{ platform: 'LinkedIn', format: 'Post' }],
+      ['INSTAGRAM'],
+    )
+
+    expect(bound.publishTarget).toBe('INSTAGRAM')
   })
 })

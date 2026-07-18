@@ -233,6 +233,7 @@ export async function runFullAgency(
       strategy,
       brand: safeBrandProfile,
       allowedPlatforms: Array.isArray(brief.currentPlatforms) ? brief.currentPlatforms : [],
+      requireAllReviewedPlatforms: true,
       goal: brief.primaryGoal,
     })
     if (qualityGate.status === 'blocked') {

@@ -6,8 +6,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import {
   getBillingMode,
+  getStripeClient,
   isBillingConfigured,
   isCreditWalletPurchaseConfigured,
+  validateCreditWalletStripePrices,
 } from '@/lib/stripe'
 import { getCreditAccountSnapshot } from '@/lib/credits/accountSnapshot'
 
@@ -35,15 +37,41 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
     const { user: dbUser, subscription, credits, walletEnabled } = account
+    const billingConfigured = isBillingConfigured()
+    const walletPriceIdsConfigured = isCreditWalletPurchaseConfigured()
+    let creditPurchasesStatus:
+      | 'ready'
+      | 'wallet_disabled'
+      | 'billing_disabled'
+      | 'price_ids_missing'
+      | 'price_version_mismatch'
+      | 'verification_failed' = !walletEnabled
+        ? 'wallet_disabled'
+        : !billingConfigured
+          ? 'billing_disabled'
+          : !walletPriceIdsConfigured
+            ? 'price_ids_missing'
+            : 'verification_failed'
+
+    if (walletEnabled && billingConfigured && walletPriceIdsConfigured) {
+      try {
+        creditPurchasesStatus = await validateCreditWalletStripePrices(getStripeClient())
+          ? 'ready'
+          : 'price_version_mismatch'
+      } catch (error) {
+        console.error('[Billing Status] Could not verify wallet Stripe prices', error)
+        creditPurchasesStatus = 'verification_failed'
+      }
+    }
 
     return NextResponse.json({
       plan: account.planName,
       status: dbUser.subscriptionStatus,
       hasActiveSubscription: account.hasActiveSubscription,
-      billingEnabled: isBillingConfigured(),
+      billingEnabled: billingConfigured,
       billingMode: getBillingMode(),
-      creditPurchasesEnabled:
-        walletEnabled && isBillingConfigured() && isCreditWalletPurchaseConfigured(),
+      creditPurchasesEnabled: creditPurchasesStatus === 'ready',
+      creditPurchasesStatus,
       creditBreakdown: credits.creditBreakdown,
       credits: {
         remaining: credits.remaining,

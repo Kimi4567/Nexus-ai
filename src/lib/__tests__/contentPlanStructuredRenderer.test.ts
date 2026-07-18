@@ -250,6 +250,37 @@ describe('contentPlanStructuredRenderer', () => {
     expect(result.issues.map(issue => issue.reason)).toContain('unsupported_absolute_claim')
   })
 
+  it('blocks the observed NEXUS workflow overclaims if the truth guard misses them', () => {
+    const captions = [
+      'Help consistent messaging across all platforms.',
+      'Help your brand voice remains consistent across all channels.',
+      'Centralize your operations and eliminate scattered efforts.',
+      'Achieve seamless operations.',
+      'Discover how NEXUS AI enhances resource utilization.',
+      'With NEXUS AI, you can trust that every marketing decision is backed by human approval.',
+      'Our system helps you know exactly where your marketing spend is going.',
+      "Limited resources won't hold you back from achieving marketing success.",
+      'See how collaboration enhances marketing solutions.',
+      'Learn how to make the most of your resources.',
+      'يمكنك الوثوق في كل خطوة لضمان دقة وفعالية الاستراتيجيات.',
+      'مع نكسوس AI، يمكنك التحكم الكامل في إنفاقك.',
+      'حلولنا تساعد على تحسين عملياتك التسويقية.',
+    ]
+
+    for (const caption of captions) {
+      expect(validateContentPlanDraftForSave({ caption }).ok).toBe(false)
+    }
+  })
+
+  it('rejects lowercase sentence starts without blocking valid title case', () => {
+    expect(validateContentPlanDraftForSave({
+      caption: 'Keep approved messaging in the workflow. with NEXUS AI.',
+    }).ok).toBe(false)
+    expect(validateContentPlanDraftForSave({
+      caption: 'Keep approved messaging in the workflow. With NEXUS AI, review the next handoff.',
+    }).ok).toBe(true)
+  })
+
   it('rejects weak coffee drafts and invented imagery instead of substituting another campaign', () => {
     const context: ContentPlanRenderContext = {
       isArabic: false,

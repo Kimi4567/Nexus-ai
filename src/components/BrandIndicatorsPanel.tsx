@@ -51,6 +51,8 @@ export default function BrandIndicatorsPanel({ indicators, locale = 'en', theme 
   const trackBg = dark ? 'rgba(255,255,255,0.08)' : '#e2e8f0'
 
   const { brandCompleteness: c, organicReadiness: o, paidReadiness: paid, memoryRichness: m } = indicators
+  const identityTotal = 8
+  const identityFilled = identityTotal - c.missingKeys.length
 
   const Cell = ({ children }: { children: React.ReactNode }) => (
     <div className="rounded-xl p-3" style={{ background: cardBg, border: `1px solid ${cardBorder}` }}>
@@ -87,11 +89,11 @@ export default function BrandIndicatorsPanel({ indicators, locale = 'en', theme 
         <Cell>
           <div className="flex items-center justify-between">
             <Label>{ar ? 'تغطية الهوية الأساسية' : 'Core identity coverage'}</Label>
-            <span className="text-[11px] font-black tabular-nums" style={{ color: barColor(c.score) }}>{c.score}%</span>
+            <span className="text-[11px] font-black tabular-nums" style={{ color: barColor(c.score) }}>{identityFilled}/{identityTotal}</span>
           </div>
           <Bar score={c.score} />
           <p className="text-[9px] mt-1" style={{ color: textSub }}>
-            {ar ? 'حقول الهوية المؤكدة — ليست الجاهزية الكلية' : 'Confirmed identity fields — not overall readiness'}
+            {ar ? 'حقول هوية مؤكدة — لا تمثل جاهزية التسويق' : 'Confirmed identity fields — not marketing readiness'}
           </p>
         </Cell>
 

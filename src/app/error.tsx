@@ -1,8 +1,8 @@
 'use client'
 
-import * as Sentry from '@sentry/nextjs'
 import { useEffect } from 'react'
 import Link from 'next/link'
+import { captureClientBoundaryError } from '@/lib/observability/clientError'
 
 export default function GlobalError({
   error,
@@ -12,15 +12,7 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    Sentry.captureException(error)
-    console.error(JSON.stringify({
-      level: 'error',
-      message: 'Unhandled App Router segment error',
-      errorName: error.name,
-      errorMessage: error.message,
-      digest: error.digest ?? null,
-      occurredAt: new Date().toISOString(),
-    }))
+    captureClientBoundaryError(error, 'segment')
   }, [error])
 
   return (

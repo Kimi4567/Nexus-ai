@@ -16,7 +16,7 @@ import { useEffect, useState, Suspense } from 'react'
 import Link from 'next/link'
 
 type DeletionStatus = {
-  status: 'pending' | 'completed' | 'not_found' | 'loading' | 'error'
+  status: 'instructions' | 'pending' | 'completed' | 'not_found' | 'loading' | 'error'
   requestedAt?: string
   completedAt?: string
   confirmationCode?: string
@@ -29,7 +29,7 @@ function DataDeletionContent() {
 
   useEffect(() => {
     if (!id) {
-      setState({ status: 'not_found' })
+      setState({ status: 'instructions' })
       return
     }
 
@@ -68,8 +68,34 @@ function DataDeletionContent() {
             Data Deletion Request
           </h1>
           <p className="text-sm text-white/50 mb-8">
-            Status of your Facebook data deletion request
+            {id ? 'Status of your Facebook data deletion request' : 'Delete connected-platform data or request deletion of your NEXUS account data'}
           </p>
+
+          {state.status === 'instructions' && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-violet-400/20 bg-violet-400/10 p-4">
+                <p className="text-sm font-semibold text-violet-200">For connected social or ad accounts</p>
+                <p className="mt-2 text-xs leading-5 text-white/60">
+                  Open Connections and disconnect the provider. NEXUS removes the stored integration record and its encrypted OAuth token; data retained by the provider remains subject to that provider&apos;s controls and policy.
+                </p>
+                <Link href="/connections" className="mt-3 inline-flex rounded-lg bg-white px-3 py-2 text-xs font-bold text-black">
+                  Open Connections
+                </Link>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <p className="text-sm font-semibold text-white">For your NEXUS account and workspace data</p>
+                <p className="mt-2 text-xs leading-5 text-white/60">
+                  Email privacy@nexus-grow.com from the address on your account with the subject “Account deletion request”. We will verify ownership, explain any legally required retention, and confirm when the request is completed. Do not send passwords, access tokens, or payment-card details.
+                </p>
+                <a href="mailto:privacy@nexus-grow.com?subject=Account%20deletion%20request" className="mt-3 inline-flex rounded-lg border border-white/15 px-3 py-2 text-xs font-bold text-white">
+                  Email a deletion request
+                </a>
+              </div>
+              <p className="text-xs leading-5 text-white/40">
+                Meta callback requests include a confirmation code in this page URL. When a code is present, this page switches to the callback-status view automatically.
+              </p>
+            </div>
+          )}
 
           {/* Status display */}
           {state.status === 'loading' && (
@@ -129,7 +155,7 @@ function DataDeletionContent() {
             </div>
           )}
 
-          {(state.status === 'not_found' || state.status === 'error') && (
+          {(state.status === 'not_found' || state.status === 'error') && id && (
             <div className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
               <div className="w-8 h-8 bg-red-500/20 rounded-full flex items-center justify-center flex-shrink-0">
                 <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">

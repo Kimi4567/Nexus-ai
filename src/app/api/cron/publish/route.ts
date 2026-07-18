@@ -13,6 +13,7 @@ import { YOUTUBE_READ_SCOPE, YOUTUBE_UPLOAD_SCOPE } from '@/lib/youtubePublishin
 import { PINTEREST_PUBLISH_SCOPES } from '@/lib/pinterestPublishing'
 import { THREADS_OPERATIONAL_SCOPES } from '@/lib/threadsPublishing'
 import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 import {
   CAMPAIGN_SNAPSHOT_SCOPE,
   buildStrategyApprovalSnapshotPayload,
@@ -153,6 +154,7 @@ async function runPublishJob() {
           strategy: aiOutput.strategy ?? aiOutput,
           brand,
           allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms.map(String) : [],
+          requireAllReviewedPlatforms: true,
           goal: String(campaign.goal),
         })
         if (strategyQuality.status !== 'passed') {
@@ -251,7 +253,15 @@ async function runPublishJob() {
         const message = err instanceof Error ? err.message : 'Unknown publishing failure'
         const previousRetries = Array.isArray((post as any).statusHistory) ? (post as any).statusHistory.length : 0
         const shouldRetry = isRetryableSocialPublishError(err) && previousRetries < 2
-        console.error(`[Cron:publish] Provider failed for ${post.id}:`, message)
+        await captureOperationalError(err, {
+          operation: 'publishing.scheduled-provider-submit',
+          route: '/api/cron/publish',
+          component: 'publishing',
+          method: 'CRON',
+          statusCode: 502,
+          retryable: shouldRetry,
+          severity: shouldRetry ? 'warning' : 'error',
+        })
 
         if (shouldRetry) {
           await prisma.socialPost.update({
@@ -356,7 +366,14 @@ async function runPublishJob() {
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Database persistence failed'
         const reconciliationMessage = `RECONCILIATION_REQUIRED: platform confirmed ${providerResult.platformPostId}, but local persistence failed: ${message}`
-        console.error(`[Cron:publish] ${reconciliationMessage}`)
+        await captureOperationalError(err, {
+          operation: 'publishing.persist-provider-result',
+          route: '/api/cron/publish',
+          component: 'database',
+          method: 'CRON',
+          statusCode: 500,
+          retryable: true,
+        })
         await prisma.socialPost.update({
           where: { id: post.id },
           data: {
@@ -403,9 +420,17 @@ export async function GET(req: NextRequest) {
   try {
     const result = await runPublishJob()
     return NextResponse.json({ ok: true, ...result })
-  } catch (err: any) {
-    console.error('[Cron:publish] Fatal:', err.message)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  } catch (err: unknown) {
+    await captureOperationalError(err, {
+      operation: 'publishing.scheduled-job',
+      route: '/api/cron/publish',
+      component: 'publishing',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
+    return NextResponse.json({ error: 'PUBLISH_JOB_FAILED' }, { status: 500 })
   }
 }
 
@@ -416,8 +441,16 @@ export async function POST(req: NextRequest) {
   try {
     const result = await runPublishJob()
     return NextResponse.json({ ok: true, ...result })
-  } catch (err: any) {
-    console.error('[Cron:publish] Fatal:', err.message)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  } catch (err: unknown) {
+    await captureOperationalError(err, {
+      operation: 'publishing.scheduled-job',
+      route: '/api/cron/publish',
+      component: 'publishing',
+      method: 'POST',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
+    return NextResponse.json({ error: 'PUBLISH_JOB_FAILED' }, { status: 500 })
   }
 }

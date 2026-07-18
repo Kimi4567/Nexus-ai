@@ -60,6 +60,34 @@ describe('contentDraftTruthGuard', () => {
       .toContain('جرب النظام الآن')
   })
 
+  it('removes shopping CTAs when no store or conversion destination is verified', () => {
+    const joined = [
+      'Shop the look.',
+      'Browse our collection.',
+      'Explore the collection.',
+      'Add to cart.',
+      'تسوق الآن.',
+      'اكتشف المجموعة.',
+    ].map(text => guardContentDraftText(text, { hasConversionDestination: false })).join(' ')
+
+    expect(joined).not.toMatch(/shop the look|browse our collection|explore the collection|add to cart|تسوق الآن|اكتشف المجموعة/i)
+    expect(joined).toContain('Review the product details')
+    expect(joined).toContain('راجع تفاصيل المجموعة الموثقة')
+  })
+
+  it('marks unsupported fashion use contexts and product claims as unverified details', () => {
+    const out = guardContentDraftText(
+      'A comfortable work-ready abaya in premium fabrics for every occasion, inspired by cultural heritage.',
+      { brandFacts: ['Modern abayas presented in Arabic and English.'] },
+    )
+
+    expect(out).not.toMatch(/comfortable|work-ready|premium fabrics|every occasion|cultural heritage/i)
+    expect(out).toContain('product detail to verify')
+    expect(out).toContain('use-case direction to validate')
+    expect(out).toContain('a use occasion to validate')
+    expect(out).toContain('cultural angle to validate')
+  })
+
   it('grounds sales outcome copy and removes invented product UI from image directions', () => {
     const copy = guardContentDraftText(
       'نظام NEXUS يقدم لك خيار عملي! تابع عملاءك بسهولة وبدون تعقيد تقني. إدارة المبيعات أصبحت أسهل وأسرع. تعرف على كيفية تحسين مبيعاتك الآن! واجهة عربية مصممة خصيصًا لك.',
@@ -963,6 +991,180 @@ describe('contentDraftTruthGuard', () => {
     expect(joined).not.toContain('قهوة صباحية مثالية')
     expect(joined).not.toContain('كوب قهوة مثالي')
     expect(joined).not.toContain('فنجان قهوة مثالي')
+  })
+
+  it('repairs the observed NEXUS workflow claims and malformed English before persistence', () => {
+    const drafts = [
+      'With NEXUS AI, you can trust that every marketing decision is backed by human approval.',
+      'Gain confidence in your marketing spend with our transparent credit system.',
+      'Centralize your operations and eliminate scattered efforts.',
+      'Help consistent messaging across all platforms.',
+      'See how collaboration enhances marketing strategies.',
+      'See the full potential of an end-to-end marketing workflow with NEXUS AI. Achieve seamless operations.',
+      'Help your brand voice remains consistent across all channels. Discover our brand consistency assurance.',
+      'Optimize your resources with AI-driven management. Discover how NEXUS AI enhances resource utilization.',
+      'Use NEXUS AI to eliminate scattered efforts across the marketing team.',
+    ]
+
+    const guarded = drafts.map(draft => guardContentDraftText(draft, {
+      brandFacts: [
+        'NEXUS AI prepares marketing strategy and content drafts for human review.',
+        'Publishing and ad spend require approval.',
+        'Metered AI actions display a credit cost before execution.',
+      ],
+      hasConversionDestination: true,
+    })).join(' ')
+
+    expect(guarded).toContain('approval before publishing or ad spend')
+    expect(guarded).toContain('displayed credit cost')
+    expect(guarded).not.toMatch(/trust that every|gain confidence|eliminate scattered|help consistent|enhances marketing strategies|full potential|seamless operations|brand voice remains|consistency assurance|optimize your resources|enhances resource utilization/i)
+  })
+
+  it('recursively repairs workflow overclaims in creative prompts as well as captions', () => {
+    const guarded = guardContentDraftTruth({
+      caption: 'Use the workspace to eliminate scattered efforts.',
+      videoPrompt: 'Show how NEXUS AI eliminates scattered efforts and enhances resource utilization.',
+    })
+    const serialized = JSON.stringify(guarded)
+
+    expect(serialized).not.toMatch(/eliminate(?:s)? scattered efforts|enhances resource utilization/i)
+    expect(serialized).toMatch(/ownership clearer/i)
+  })
+
+  it('repairs the exact bilingual NEXUS drafts found by the post-save human audit', () => {
+    const drafts = [
+      'اكتشف كيف تعزز الرقابة البشرية التسويق بالذكاء الاصطناعي. مع نكسوس AI، يمكنك الوثوق في أن كل خطوة يتم الموافقة عليها من قبل البشر لضمان دقة وفعالية الاستراتيجيات.',
+      'Understanding how NEXUS AI credits work can put your budget concerns to rest. Our credit system offers transparency and predictability, helping you know exactly where your marketing spend is going.',
+      'اكتشف كيف تحافظ نكسوس AI على صوت علامتك التجارية متسقًا عبر جميع القنوات. ضمان الاتساق في الرسائل يساعد على من هوية علامتك التجارية.',
+      "With our tools, limited resources won't hold you back from achieving marketing success.",
+      'Discover the synergy between AI and human expertise at NEXUS AI. See how collaboration enhances marketing solutions.',
+      'شاهد كيف يمكن لحلول نكسوس AI المتكاملة تحسين عملياتك التسويقية. اكتشف إمكانيات سير العمل المتكامل.',
+      'Keep approved brand messaging available across the workflow. with NEXUS AI.',
+      'Optimize your resource management with AI-driven solutions from NEXUS AI. Learn how to make the most of your resources.',
+      'فهم نظام الائتمان لدينا يمنحك وضوحًا على نفقاتك التسويقية. مع نكسوس AI، يمكنك التحكم الكامل في إنفاقك.',
+    ]
+    const guarded = drafts.map(draft => guardContentDraftText(draft, {
+      brandFacts: ['AI drafts require human review before publishing or ad spend.'],
+    })).join(' ')
+
+    expect(guarded).toContain('approval handoffs')
+    expect(guarded).toContain('تكلفة الكريديت المعروضة')
+    expect(guarded).not.toMatch(/الوثوق في أن كل خطوة|ضمان دقة وفعالية|budget concerns to rest|know exactly where|يساعد على من هوية|won't hold you back|marketing success|enhances marketing solutions|تحسين عملياتك التسويقية|make the most of your resources|التحكم الكامل/i)
+    expect(guarded).not.toContain('. with NEXUS')
+  })
+
+  it('bounds NEXUS approval, credit, workflow, and Brand Brain claims across all draft fields', () => {
+    const guarded = guardContentDraftTruth({
+      caption: 'اكتشف كيف يمكن للإشراف البشري تعزيز التسويق بالذكاء الاصطناعي. نحن هنا لنوضح لك كيف تدعم عملية الموافقة البشرية أن تكون جهودك التسويقية مدروسة وآمنة.',
+      imagePrompt: 'A clean and professional infographic illustrating the NEXUS AI credit system, showing steps and benefits of using credits for budget management.',
+      nested: [
+        {
+          caption: 'Understand how NEXUS AI credits work to give you budget predictability. With our transparent credit system, you can manage your marketing spend effectively and confidently. Stay in control of your budget with NEXUS AI.',
+          videoPrompt: 'Discover how NEXUS AI brings everything together in one streamlined workflow. Request a demo today to see it in action!',
+        },
+        {
+          caption: 'اكتشف كيف يحافظ NEXUS AI على صوت علامتك التجارية. نحن نسعى إلى دعم أن تظل رسائلك متسقة عبر جميع القنوات.',
+          videoPrompt: 'Our tools Help your campaigns are run smoothly and effectively. Explore our features today!',
+        },
+        {
+          caption: "Streamline your marketing with NEXUS AI's governed workflow. See the full potential of an end-to-end marketing workflow.",
+          videoPrompt: 'NEXUS AI offers a seamless, end-to-end workflow that integrates all your marketing needs into one platform. Discover the benefits today!',
+        },
+        {
+          caption: 'Explore the synergy between AI and human expertise. Gain clarity on your marketing spend with our credit system.',
+          imagePrompt: 'A creative illustration of a megaphone with various brand elements flowing out, symbolizing consistent brand messaging maintained by AI.',
+          videoPrompt: 'Worried about AI replacing human jobs? At NEXUS AI, we believe in collaboration. NEXUS AI helps maintain your brand voice across all platforms. Learn how we Help unified communication for your brand.',
+        },
+        {
+          imagePrompt: 'A clear and informative infographic showing the NEXUS AI credit system, highlighting transparency and budget control benefits.',
+        },
+      ],
+    }, {
+      brandFacts: [
+        'Publishing and ad spend require approval.',
+        'Metered AI actions display a credit cost and create a ledger entry.',
+        'Brand Brain supplies approved messaging to campaign drafts.',
+      ],
+    })
+    const serialized = JSON.stringify(guarded)
+
+    expect(serialized).toContain('quoted cost')
+    expect(serialized).toContain('Brand Brain')
+    expect(serialized).not.toMatch(/مدروسة وآمنة|budget predictability|manage your marketing spend effectively|stay in control|steps and benefits|brings everything together|request a demo|Help your campaigns are|smoothly and effectively|full potential|seamless, end-to-end|integrates all your marketing needs|helps maintain your brand voice|Help unified communication|gain clarity on your marketing spend|governed workflow in NEXUS AI's governed workflow|synergy between AI and human|replacing human jobs|maintained by AI|budget control benefits/i)
+  })
+
+  it('canonicalizes new NEXUS claim variants instead of chasing exact sentences', () => {
+    const guarded = guardContentDraftTruth({
+      approval: 'مع NEXUS AI، يتم دمج الموافقة البشرية في كل خطوة لضمان نتائج موثوقة.',
+      credit: 'Our credit system helps transparency and predictability, allowing you to manage your marketing spend with confidence.',
+      creditVisual: 'A detailed guide illustration on the credit system with symbols of clarity, budget control, and financial insights.',
+      demo: 'Request a demo session today!',
+      resources: 'Explore our features that streamline your efforts and maximize your resources.',
+      collaboration: "Worried about AI replacing human jobs? See how NEXUS AI collaborates with human expertise to enhance marketing strategies. It's about partnership, not replacement. Learn more about this synergy today.",
+      workflow: 'Discover how our end-to-end solutions can streamline your operations, helping seamless marketing workflows.',
+      brand: 'Learn how NEXUS AI helps your brand voice is unified across all platforms.',
+      creditFollowup: 'Our transparent credit system gives you insights into your spending, helping budget control.',
+      reliableOutcome: 'نحن نضيف الإشراف البشري لضمان نتائج موثوقة في NEXUS AI.',
+      potential: 'Unlock the full potential of NEXUS AI for your marketing team.',
+      effectiveSpend: 'The NEXUS AI credit system helps you manage your marketing spend effectively.',
+      resourcesVariant: 'Use NEXUS AI to make the most of your resources across campaigns.',
+    }, {
+      brandFacts: ['NEXUS AI records metered actions in a credit ledger.'],
+    })
+    const serialized = JSON.stringify(guarded)
+
+    expect(serialized).toContain('credit ledger')
+    expect(serialized).toContain('Brand Brain')
+    expect(serialized).toContain('يتطلب النشر والإنفاق الإعلاني موافقة')
+    expect(serialized).not.toMatch(/كل خطوة|نتائج موثوقة|helps transparency|predictability|spend with confidence|manage your marketing spend effectively|budget control|financial insights|request a demo|streamline your efforts|maximize your resources|make the most of your resources|replacing human jobs|enhance marketing strategies|partnership, not replacement|seamless marketing|brand voice is unified|insights into your spending|full potential/i)
+  })
+
+  it('renders NEXUS captions and creative directions from a field-aware truth policy', () => {
+    const guarded = guardContentDraftTruth([
+      {
+        caption: 'Amazing AI and human collaboration delivers incredible results.',
+        imagePrompt: 'An illustration about human approval in NEXUS AI.',
+      },
+      {
+        caption: 'Control your budget with the NEXUS AI credit system.',
+        imagePrompt: 'An infographic about NEXUS AI credits and savings.',
+      },
+      {
+        caption: 'Keep the NEXUS AI brand voice consistent everywhere.',
+        videoPrompt: 'Show NEXUS AI brand consistency across every platform.',
+      },
+    ], {
+      brandFacts: [
+        'NEXUS AI drafts require human review.',
+        'NEXUS AI records metered actions in a credit ledger.',
+        'NEXUS AI Brand Brain supplies approved messaging.',
+      ],
+    })
+
+    expect(guarded[0].caption).toContain('human review remains required')
+    expect(guarded[0].imagePrompt).toContain('distinct human review')
+    expect(guarded[1].caption).toContain('Monthly plan credits follow the billing cycle')
+    expect(guarded[1].imagePrompt).toContain('three-step credit flow')
+    expect(guarded[2].caption).toContain('Brand Brain carries approved positioning')
+    expect(guarded[2].videoPrompt).toContain('channel-specific draft cards')
+    expect(JSON.stringify(guarded)).not.toMatch(/amazing|incredible results|control your budget|consistent everywhere/i)
+  })
+
+  it('inherits the topic from sibling creative fields and preserves Date values', () => {
+    const scheduledAt = new Date('2026-07-18T10:00:00.000Z')
+    const [guarded] = guardContentDraftTruth([{
+      caption: 'شاهد الإمكانيات الكاملة لعملية تسويق شاملة مع NEXUS AI.',
+      videoPrompt: 'Show the NEXUS AI workflow from strategy to execution.',
+      scheduledAt,
+    }], {
+      brandFacts: ['NEXUS AI records campaign workflow stages.'],
+    })
+
+    expect(guarded.caption).toContain('Brand Brain')
+    expect(guarded.caption).toContain('القرار التالي')
+    expect(guarded.videoPrompt).toContain('six distinct stages')
+    expect(guarded.scheduledAt).toBe(scheduledAt)
+    expect(guarded.scheduledAt).toBeInstanceOf(Date)
   })
 
   it('documents the draft-only content plan policy', () => {

@@ -72,7 +72,10 @@
   ],
   "functions": {
     "src/app/api/visuals/generate/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 300
+    },
+    "src/app/api/campaigns/[id]/content-plan/[postId]/generate-video/route.ts": {
+      "maxDuration": 180
     },
     "src/app/api/generate/preview/route.ts": {
       "maxDuration": 60

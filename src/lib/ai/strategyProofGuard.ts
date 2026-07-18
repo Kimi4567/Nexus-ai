@@ -211,6 +211,11 @@ function cleanProofCollectionArtifacts(text: string): string {
 function softenUnsupportedPerformancePromises(text: string): string {
   const startedCapitalized = /^[A-Z]/.test(text.trimStart())
   const guarded = text
+    .replace(
+      /\b([^.!?\n]{2,80}?)\s+will\s+(?:reduce|cut|lower|increase|boost|grow|maximi[sz]e)\s+(?:your\s+)?(sales|revenue|profits?|conversions?|leads?|traffic|income|costs?)([^.!?\n]*)/gi,
+      (_match, subject: string, metric: string, suffix: string) =>
+        `Test whether ${subject.trim()} changes ${metric}${suffix}`,
+    )
     .replace(/\b(?:increase|boost|grow|maximi[sz]e|double|triple)\s+your\s+(sales|revenue|profits?|conversions?|leads?|traffic)\b/gi, 'support your $1 goals')
     .replace(/\b(?:increase|boost|grow|maximi[sz]e|double|triple)\s+(sales|revenue|profits?|conversions?|leads?|traffic)\b/gi, 'support $1 goals')
   return startedCapitalized ? guarded.replace(/^([a-z])/, char => char.toUpperCase()) : guarded
@@ -342,6 +347,8 @@ export function buildProofPolicyPrompt(context: StrategyProofContext): string {
     '- Use only the verified proof above as factual proof.',
     '- Do not invent testimonials, customer/client stories, before/after transformations, awards, reviews, satisfaction claims, case studies, guarantees, or performance claims.',
     '- Do not phrase proof gaps as if they already exist.',
+    '- A webinar, workshop, whitepaper, guide, checklist, demo, product tour, explainer video, or success story may be presented as an existing conversion asset only when it appears in the user-provided Brand Brain or Evidence Library.',
+    '- When one of those assets would help but is not provided, label it explicitly as a proposed asset to create and approve. Never attach a download, registration, watch, or booking CTA to it yet.',
     '- Do not create "Customer Testimonials" as a content pillar unless verified proof includes real testimonials.',
     '- Do not write "Hear from satisfied customers", "Read their stories", "Client Stories", or "Before and After Transformations" unless those proof/assets were provided.',
     '- If proof is missing, recommend collecting proof, asking customers for feedback, or using available factual proof only.',
@@ -371,6 +378,8 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
       .replace(/\bclient story\b/gi, 'client story to collect')
       .replace(/\bcustomer stories\b/gi, 'customer stories to collect')
       .replace(/\bcustomer story\b/gi, 'customer story to collect')
+      .replace(/\bsuccess stories\b/gi, 'customer proof stories to collect and approve')
+      .replace(/\bsuccess story\b/gi, 'customer proof story to collect and approve')
       .replace(/\bRead their stories\b/gi, 'Collect customer stories for future use')
   }
 
@@ -420,14 +429,111 @@ export function guardStrategyProof<T>(input: T, context: StrategyProofContext = 
   return guardStrategyProofValue(input, context) as T
 }
 
+function guardUnsupportedActionAsset(text: string, context: StrategyProofContext): string {
+  const approved = [
+    ...(Array.isArray(context.allowedClaimText) ? context.allowedClaimText : []),
+    ...(Array.isArray(context.verifiedProof) ? context.verifiedProof : []),
+  ].join(' ').toLowerCase()
+
+  let guarded = text
+  const hasDownloadAsset = /\b(?:guide|ebook|e-book|whitepaper|checklist|report|template)\b|دليل|كتاب إلكتروني|قائمة مراجعة|تقرير|قالب/i.test(approved)
+  const hasWebinar = /\b(?:webinar|workshop|masterclass)\b|ندوة|ورشة|جلسة تدريب/i.test(approved)
+  const hasDemo = /\b(?:demo|product tour)\b|عرض توضيحي|تجربة المنتج/i.test(approved)
+  const hasExplainerVideo = /\b(?:explainer|product|demonstration|walkthrough)\s+video\b|فيديو (?:توضيحي|للمنتج|استعراضي)/i.test(approved)
+
+  if (!hasDownloadAsset) {
+    guarded = guarded
+      .replace(/\b(?:download|get|grab|read|open|view)\s+(?:(?:the|our|your|a)\s+)?(?:[\w-]+\s+){0,5}(?:guide|ebook|e-book|whitepaper|checklist|report|template)\b/gi, 'Request details after the resource is created and approved')
+      .replace(/(?:حمّل|حمل|نزّل|نزل)\s+(?:ال)?(?:دليل|كتاب إلكتروني|قائمة مراجعة|تقرير|قالب)/gi, 'اطلب التفاصيل بعد إنشاء الأصل واعتماده')
+  }
+  if (!hasWebinar) {
+    guarded = guarded
+      .replace(/\b(?:join|register for|reserve (?:a|your) (?:seat|spot) (?:for|in))\s+(?:(?:the|our|a)\s+)?(?:[\w-]+\s+){0,5}(?:webinar|workshop|masterclass)\b/gi, 'Request an update after the session is created and scheduled')
+      .replace(/(?:سجّل|سجل|انضم)\s+(?:في|إلى|لل)?\s*(?:ال)?(?:ندوة|ورشة|جلسة تدريب)/gi, 'اطلب إشعارًا بعد إنشاء الجلسة وجدولتها')
+  }
+  if (!hasDemo) {
+    guarded = guarded
+      .replace(/\b(?:book|watch|request)\s+(?:a\s+|the\s+|our\s+)?(?:demo|product tour)\b/gi, 'Request product details')
+      .replace(/(?:احجز|شاهد|اطلب)\s+(?:عرضًا|عرضا|الـ)?\s*(?:توضيحيًا|توضيحيا|تجريبيًا|تجريبيا)/gi, 'اطلب تفاصيل المنتج')
+  }
+  if (!hasExplainerVideo) {
+    guarded = guarded
+      .replace(/\b(?:watch|view|see)\s+(?:(?:the|our|a)\s+)?(?:[\w-]+\s+){0,4}(?:explainer|product|demonstration|walkthrough)\s+video\b/gi, 'Request an update after the video is created and approved')
+      .replace(/(?:شاهد|اعرض|اطّلع على)\s+(?:ال)?فيديو\s+(?:التوضيحي|الخاص بالمنتج|الاستعراضي)/gi, 'اطلب إشعارًا بعد إنشاء الفيديو واعتماده')
+  }
+
+  return guarded
+}
+
+function actionBearingPath(keyPath: string): boolean {
+  return /(?:^|\.)(?:cta|callToAction|nextStep|offerCTAStrategy|ctaVariations)(?:\.|$)/i.test(keyPath)
+}
+
+function assetBearingPath(keyPath: string): boolean {
+  return /(?:^|\.)(?:format|contentType|asset|assets|assetsNeeded|requiredAssets|deliverables|title|name)(?:\.|$)/i.test(keyPath)
+}
+
+function plannedAssetNeedsCreation(text: string, context: StrategyProofContext): boolean {
+  const approved = [
+    ...(Array.isArray(context.allowedClaimText) ? context.allowedClaimText : []),
+    ...(Array.isArray(context.verifiedProof) ? context.verifiedProof : []),
+  ].join(' ')
+  const assetKinds = [
+    /\b(?:webinar|workshop|masterclass)\b|ندوة|ورشة|جلسة تدريب/i,
+    /\b(?:whitepaper|e-?book|guide|checklist|report|template)\b|دليل|كتاب إلكتروني|قائمة مراجعة|تقرير|قالب/i,
+    /\b(?:live\s+demo|product\s+tour)\b|عرض توضيحي/i,
+    /\b(?:(?:explainer|demo|demonstration|walkthrough|workflow|product|short)\s+)?video\b|فيديو(?:\s+(?:توضيحي|للمنتج|استعراضي|قصير))?/i,
+    /\binfographic\b|إنفوجرافيك|رسم معلوماتي/i,
+  ]
+  return assetKinds.some(pattern => pattern.test(text) && !pattern.test(approved))
+}
+
+function neutralizeConsumptionCtaForUnbuiltAsset(text: string): string {
+  if (/^[\u0600-\u06FF]/.test(text.trim())) {
+    return /^(?:شاهد|اعرض|اطّلع|اقرأ|حمّل|حمل|نزّل|نزل|سجّل|سجل|انضم)\b/i.test(text.trim())
+      ? 'اطلب إشعارًا بعد إنشاء هذا الأصل واعتماده'
+      : text
+  }
+  return /^(?:watch|view|see|read|open|download|get|grab|join|register)\b/i.test(text.trim())
+    ? 'Request an update after this asset is created and approved'
+    : text
+}
+
+function guardUnsupportedPlannedAsset(text: string, context: StrategyProofContext): string {
+  if (!plannedAssetNeedsCreation(text, context)) return text
+
+  // Preserve explicit production tasks. They already tell the reviewer that
+  // the item does not exist yet and must be created before a CTA can use it.
+  if (/\b(?:proposed|create|produce|develop|record|draft|to create|to produce|needs creation|collect and approve)\b|(?:مقترح|إنشاء|أنشئ|إنتاج|سجّل|تطوير|مطلوب إنشاؤه|لإنشائه|وجمعه واعتماده)/i.test(text)) {
+    return text
+  }
+
+  const isArabic = /[\u0600-\u06FF]/.test(text)
+  return isArabic
+    ? `أصل مقترح مطلوب إنشاؤه واعتماده — ${text}`
+    : `Proposed asset to create and approve — ${text}`
+}
+
 function guardStrategyProofValue(input: unknown, context: StrategyProofContext, keyPath = ''): unknown {
-  if (typeof input === 'string') return guardStrategyProofText(input, context)
+  if (typeof input === 'string') {
+    const proofGuarded = guardStrategyProofText(input, context)
+    if (actionBearingPath(keyPath)) return guardUnsupportedActionAsset(proofGuarded, context)
+    return assetBearingPath(keyPath) ? guardUnsupportedPlannedAsset(proofGuarded, context) : proofGuarded
+  }
   if (Array.isArray(input)) {
     return input.map((item, index) => guardStrategyProofValue(item, context, `${keyPath}.${index}`))
   }
   if (input && typeof input === 'object') {
     const output: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+    const record = input as Record<string, unknown>
+    const siblingAssetDescriptor = ['format', 'contentType', 'asset']
+      .map(key => record[key])
+      .filter((value): value is string => typeof value === 'string')
+      .join(' ')
+    const siblingAssetNeedsCreation = Boolean(
+      siblingAssetDescriptor && plannedAssetNeedsCreation(siblingAssetDescriptor, context),
+    )
+    for (const [key, value] of Object.entries(record)) {
       const valueKeyPath = keyPath ? `${keyPath}.${key}` : key
       if (typeof value === 'string') {
         const labelCandidates = [
@@ -437,7 +543,14 @@ function guardStrategyProofValue(input: unknown, context: StrategyProofContext, 
           typeof (input as Record<string, unknown>).title === 'string' ? (input as Record<string, unknown>).title as string : '',
           typeof (input as Record<string, unknown>).name === 'string' ? (input as Record<string, unknown>).name as string : '',
         ].filter(Boolean).join(' ')
-        output[key] = guardStrategyProofText(guardStructuredStatusValue(labelCandidates, value), context)
+        const proofGuarded = guardStrategyProofText(guardStructuredStatusValue(labelCandidates, value), context)
+        output[key] = actionBearingPath(valueKeyPath)
+          ? siblingAssetNeedsCreation
+            ? neutralizeConsumptionCtaForUnbuiltAsset(guardUnsupportedActionAsset(proofGuarded, context))
+            : guardUnsupportedActionAsset(proofGuarded, context)
+          : assetBearingPath(valueKeyPath)
+            ? guardUnsupportedPlannedAsset(proofGuarded, context)
+            : proofGuarded
       } else {
         output[key] = guardStrategyProofValue(value, context, valueKeyPath)
       }

@@ -83,7 +83,7 @@ describe('post-aware creative requirements', () => {
   it('uses video-native formats for video slots instead of image requirements', () => {
     expect(deriveCreativePlatformVideoFormat('INSTAGRAM')).toEqual({ format: 'Vertical social video', aspectRatio: '9:16' })
     expect(deriveCreativePlatformVideoFormat('LINKEDIN')).toEqual({ format: 'LinkedIn feed video', aspectRatio: '16:9' })
-    expect(deriveCreativePlatformVideoFormat('YOUTUBE')).toEqual({ format: 'YouTube video', aspectRatio: '16:9' })
+    expect(deriveCreativePlatformVideoFormat('YOUTUBE')).toEqual({ format: 'Vertical short-form video', aspectRatio: '9:16' })
 
     const requirement = derivePostCreativeRequirement({
       postId: 'video_1',
@@ -167,8 +167,25 @@ describe('post-aware creative requirements', () => {
     expect(summary).toEqual({
       total: 3,
       mediaNeeded: 1,
+      imageNeeded: 1,
+      videoNeeded: 0,
       readinessPending: 1,
       attachedToPost: 1,
+    })
+  })
+
+  it('counts video requirements as missing media and keeps image/video counts separate', () => {
+    const summary = summarizeCreativeRequirements([
+      { postId: 'image', platform: 'INSTAGRAM', imageUrl: null, isVideoPost: false },
+      { postId: 'video', platform: 'TIKTOK', imageUrl: null, isVideoPost: true },
+    ])
+
+    expect(summary).toMatchObject({
+      total: 2,
+      mediaNeeded: 2,
+      imageNeeded: 1,
+      videoNeeded: 1,
+      attachedToPost: 0,
     })
   })
 })

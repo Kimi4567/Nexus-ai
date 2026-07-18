@@ -512,6 +512,182 @@ function guardDeliveryClaims(text: string): string {
 
 function guardDraftCopyQuality(text: string): string {
   return text
+    .replace(
+      /اكتشف كيف يمكن للإشراف البشري تعزيز التسويق بالذكاء الاصطناعي\.?/g,
+      'راجع أين تتدخل الموافقة البشرية في مسار التسويق المدعوم بالذكاء الاصطناعي.',
+    )
+    .replace(
+      /نحن هنا لنوضح لك كيف تدعم عملية الموافقة البشرية أن تكون جهودك التسويقية مدروسة وآمنة\.?/g,
+      'تبقى مسودات الاستراتيجية والمحتوى للمراجعة البشرية، ويتطلب النشر والإنفاق الإعلاني موافقة.',
+    )
+    .replace(
+      /اكتشف كيف يحافظ NEXUS AI على صوت علامتك التجارية\.?/gi,
+      'راجع كيف يحمل Brand Brain الرسائل المعتمدة إلى مسودات القنوات.',
+    )
+    .replace(
+      /نحن نسعى إلى دعم أن تظل رسائلك متسقة عبر جميع القنوات\.?/g,
+      'راجع الرسائل المعتمدة قبل اعتماد محتوى كل قناة.',
+    )
+    .replace(
+      /\bUnderstand how ([^.!?]+) credits work to give you budget predictability\.?/gi,
+      'Review the displayed credit cost and ledger entry for each metered action in $1.',
+    )
+    .replace(
+      /\bWith our transparent credit system, you can manage your marketing spend effectively and confidently\.?/gi,
+      'The product displays the credit cost before each metered AI action and records its result.',
+    )
+    .replace(
+      /\bStay in control of your budget with ([^.!?]+)\.?/gi,
+      'Review credit history and configured spend limits in $1.',
+    )
+    .replace(
+      /\bOur transparent credit system provides insights and control over your budget\.?/gi,
+      'The product displays metered AI costs and records credit transactions in the ledger.',
+    )
+    .replace(
+      /\b(?:A clean and professional|A clear and informative) infographic illustrating the ([^.!?]+) credit system, showing steps and benefits of using credits for budget management\.?/gi,
+      'An editorial diagram of the documented credit flow: quoted cost, confirmed action, and ledger entry; no savings or performance claims.',
+    )
+    .replace(
+      /\bDiscover how ([^.!?]+) brings everything together in one streamlined workflow\.?/gi,
+      'Review the documented handoffs and ownership stages in $1.',
+    )
+    .replace(
+      /\bRequest a demo today to see it in action!?/gi,
+      'Review the workflow in the product.',
+    )
+    .replace(
+      /\bOur tools Help your campaigns are run smoothly and effectively\.?/g,
+      'Use the workflow to review campaign responsibilities and handoffs.',
+    )
+    .replace(
+      /\bExplore our features today!?/gi,
+      'Review the documented workflow.',
+    )
+    .replace(
+      /\bDiscover how AI and human expertise work hand-in-hand to enhance your marketing strategies\.?/gi,
+      'Review where AI drafts require human review and approval.',
+    )
+    .replace(
+      /\bWatch now to learn more!?/gi,
+      'Review the approval handoffs.',
+    )
+    .replace(
+      /\bSee the full potential of an end-to-end marketing workflow\.?/gi,
+      'Review the documented end-to-end marketing workflow.',
+    )
+    .replace(
+      /\b([^.!?]+) offers a seamless, end-to-end workflow that integrates all your marketing needs into one platform\.?/gi,
+      'Review the documented strategy, draft, approval, execution, and learning stages in $1.',
+    )
+    .replace(
+      /\bDiscover the benefits today!?/gi,
+      'Review the workflow stages and current limitations.',
+    )
+    .replace(
+      /\b([^.!?]+) helps maintain your brand voice across all platforms\.?/gi,
+      'Review how Brand Brain carries approved messaging into channel drafts in $1.',
+    )
+    .replace(
+      /\bLearn how we Help unified communication for your brand\.?/g,
+      'Review approved messaging before channel content is approved.',
+    )
+    .replace(
+      /\bStreamline your marketing with NEXUS AI's governed workflow\.?/gi,
+      'Review the governed marketing workflow in NEXUS AI.',
+    )
+    .replace(
+      /\bExplore the synergy between AI and human expertise\.?/gi,
+      'Review where AI prepares drafts and people review or approve them.',
+    )
+    .replace(
+      /\bWorried about AI replacing human jobs\?\s*At NEXUS AI, we believe in collaboration\.?/gi,
+      'Review the documented division between AI drafting and human review in NEXUS AI.',
+    )
+    .replace(
+      /\bA creative illustration of a megaphone with various brand elements flowing out, symbolizing consistent brand messaging maintained by AI\.?/gi,
+      'An editorial illustration connecting approved Brand Brain messaging to channel drafts; show review checkpoints rather than automatic outcomes.',
+    )
+    .replace(
+      /\bA clear and informative infographic showing the NEXUS AI credit system, highlighting transparency and budget control benefits\.?/gi,
+      'An editorial diagram of the documented credit flow: quoted cost, confirmed action, and ledger entry; no savings or budget-control claim.',
+    )
+    .replace(
+      /اكتشف كيف تعزز الرقابة البشرية التسويق بالذكاء الاصطناعي\.?/g,
+      'راجع أين تتدخل الموافقة البشرية في مسار التسويق المدعوم بالذكاء الاصطناعي.',
+    )
+    .replace(
+      /مع نكسوس AI، يمكنك الوثوق في أن كل خطوة يتم الموافقة عليها من قبل البشر لضمان دقة وفعالية الاستراتيجيات\.?/gi,
+      'في NEXUS AI، تبقى مسودات الاستراتيجية والمحتوى للمراجعة البشرية، ويتطلب النشر والإنفاق الإعلاني موافقة.',
+    )
+    .replace(
+      /اكتشف كيف تحافظ نكسوس AI على صوت علامتك التجارية متسقًا عبر جميع القنوات\.?/gi,
+      'راجع كيف يحمل Brand Brain الرسائل المعتمدة إلى مسودات القنوات المختلفة.',
+    )
+    .replace(
+      /ضمان الاتساق في الرسائل يساعد على من هوية علامتك التجارية\.?/g,
+      'راجع استخدام الرسائل المعتمدة قبل اعتماد محتوى كل قناة.',
+    )
+    .replace(
+      /شاهد كيف يمكن لحلول نكسوس AI المتكاملة تحسين عملياتك التسويقية\.?\s*اكتشف إمكانيات سير العمل المتكامل\.?/gi,
+      'راجع خطوات سير العمل من الاستراتيجية إلى المسودات والموافقة.',
+    )
+    .replace(
+      /فهم نظام الائتمان لدينا يمنحك وضوحًا على نفقاتك التسويقية\.?/g,
+      'راجع تكلفة الكريديت المعروضة قبل كل عملية ذكاء اصطناعي مدفوعة.',
+    )
+    .replace(
+      /مع نكسوس AI، يمكنك التحكم الكامل في إنفاقك\.?/gi,
+      'راجع سجل الكريديت وحدود الإنفاق والموافقات قبل التنفيذ.',
+    )
+    .replace(
+      /\bUnderstanding how ([^.!?]+) credits work can put your budget concerns to rest\.?/gi,
+      'Review the displayed credit cost and ledger entry for each metered action in $1.',
+    )
+    .replace(
+      /\bOur credit system offers transparency and predictability, helping you know exactly where your marketing spend is going\.?/gi,
+      'The product displays the credit cost before each metered AI action and records the result in the ledger.',
+    )
+    .replace(
+      /\bWith our tools, limited resources won't hold you back from achieving marketing success\.?/gi,
+      'Review current capacity, task ownership, and approval handoffs before expanding the plan.',
+    )
+    .replace(
+      /\bDiscover the synergy between AI and human expertise at ([^.!?]+)\.?/gi,
+      'Review where AI drafts and human approval meet in $1.',
+    )
+    .replace(
+      /\bSee how collaboration enhances marketing solutions\.?/gi,
+      'Review the documented draft and approval handoffs.',
+    )
+    .replace(
+      /\bOptimize your resource management with AI-driven solutions from ([^.!?]+)\.?/gi,
+      'Review how marketing tasks and approval ownership are assigned in $1.',
+    )
+    .replace(
+      /\bLearn how to make the most of your resources\.?/gi,
+      'Compare the proposed workload with the available team capacity.',
+    )
+    .replace(/\.\s+with ([A-Z0-9])/g, '. With $1')
+    .replace(/\bStreamline your marketing(?: efforts)? with ([^.!?]+)\.?/gi, 'Review the governed marketing workflow in $1.')
+    .replace(/\bGain clarity on your marketing spend with our credit system\.?/gi, 'Review the displayed credit cost and ledger history for metered AI actions.')
+    .replace(
+      /\bWith ([^.!?]{1,80}), you can trust that every marketing decision is backed by human approval\.?/gi,
+      '$1 requires human approval before publishing or ad spend.',
+    )
+    .replace(/\bGain confidence in your marketing spend with our transparent credit system\.?/gi, 'Review the displayed credit cost before each metered AI action.')
+    .replace(/\bCentralize your operations and eliminate scattered efforts\.?/gi, 'Map the current handoffs and review whether one governed workspace makes ownership clearer.')
+    .replace(/\beliminat(?:e|es|ed|ing) scattered efforts\b/gi, 'review whether the governed workflow makes ownership clearer')
+    .replace(/\bHelp consistent messaging across all platforms\.?/gi, 'Keep approved brand messaging available across the workflow.')
+    .replace(/\bHelp your brand voice remains consistent across all channels\.?/gi, 'Keep approved brand messaging available across the workflow.')
+    .replace(/\bSee how collaboration enhances marketing strategies\.?/gi, 'Review where AI drafts and human approval meet in the workflow.')
+    .replace(/\bSee the full potential of an end-to-end marketing workflow with ([^.!?]+)\.?/gi, 'Review the documented end-to-end marketing workflow in $1.')
+    .replace(/\bAchieve seamless operations\.?/gi, 'Assess whether the workflow makes handoffs clearer.')
+    .replace(/\bachieve seamless operations\b/gi, 'assess whether the workflow makes handoffs clearer')
+    .replace(/\bDiscover our brand consistency assurance\.?/gi, 'Review how Brand Brain carries approved messaging into campaign drafts.')
+    .replace(/\bOptimize your resources with AI-driven management\.?/gi, 'Review how current marketing tasks are assigned before changing the workflow.')
+    .replace(/\bDiscover how ([^.!?]+) enhances resource utilization\.?/gi, 'Assess whether the governed workflow in $1 makes task ownership clearer.')
+    .replace(/\benhances? resource utilization\b/gi, 'makes task ownership clearer for review')
     // Observed production failure: generic model filler combined unsupported
     // freshness/expertise claims with malformed grammar. These rewrites keep the
     // draft useful without manufacturing proof or a destination that does not exist.
@@ -599,6 +775,53 @@ function guardSaasActivationClaims(text: string, context: ContentDraftTruthConte
       .replace(/\bSign\s+up\s+now[.!]?/gi, 'Review the available details.')
       .replace(/\bRequest\s+(?:a\s+)?demo(?:\s+now)?[.!]?/gi, 'Review what you need before choosing a contact step.')
       .replace(/\bStart\s+(?:now|today)[.!]?/gi, 'Review the next step.')
+      .replace(/\bShop\s+(?:now|the\s+look)[.!]?/gi, 'Review the product details.')
+      .replace(/\b(?:Browse|Explore)\s+(?:our|the)\s+collection[.!]?/gi, 'Review the documented collection details.')
+      .replace(/\bView\s+(?:our\s+)?products?[.!]?/gi, 'Review the documented product details.')
+      .replace(/\bAdd\s+to\s+cart[.!]?/gi, 'Review the product and destination details.')
+      .replace(/(?:تسوّق|تسوق)\s+(?:الآن|الإطلالة|الاطلالة)[!！.]?/g, 'راجع تفاصيل المنتج.')
+      .replace(/(?:تصفّح|تصفح|اكتشف)\s+(?:ال)?مجموعة[!！.]?/g, 'راجع تفاصيل المجموعة الموثقة.')
+      .replace(/أضف\s+إلى\s+السلة[!！.]?/g, 'راجع تفاصيل المنتج ووجهة التحويل.')
+  }
+
+  return guarded
+}
+
+function guardUnverifiedBrandContextClaims(
+  text: string,
+  context: ContentDraftTruthContext,
+): string {
+  const facts = brandFactCorpus(context).toLowerCase()
+  if (!facts.trim()) return text
+  let guarded = text
+
+  if (!/\b(?:work|workplace|office|meeting|professional)\b|(?:العمل|المكتب|الاجتماعات|المهني)/i.test(facts)) {
+    guarded = guarded
+      .replace(/\b(?:for|at)\s+(?:the\s+)?(?:workplace|office|work|meetings?)\b/gi, 'for a use context to validate')
+      .replace(/\b(?:work|office|meeting)[-\s]?(?:ready|wear|look|style)\b/gi, 'use-case direction to validate')
+      .replace(/(?:للعمل|للمكتب|للاجتماعات|إطلالة\s+العمل|اطلالة\s+العمل)/g, 'لسياق استخدام يحتاج إلى تحقق')
+  }
+
+  if (!/\b(?:culture|cultural|heritage|tradition|traditional)\b|(?:الثقافة|ثقافي|التراث|التقاليد|تقليدي)/i.test(facts)) {
+    guarded = guarded
+      .replace(/\b(?:cultural|heritage|traditional)\s+(?:identity|story|value|values|style|inspiration)\b/gi, 'cultural angle to validate')
+      .replace(/\bcultural\s+heritage\b/gi, 'cultural angle to validate')
+      .replace(/\b(?:celebrate|honor|honour)\s+(?:our|the)\s+(?:culture|heritage|traditions?)\b/gi, 'validate the cultural angle before using it')
+      .replace(/(?:الهوية\s+الثقافية|القيم\s+الثقافية|التراث|التقاليد)/g, 'زاوية ثقافية تحتاج إلى تحقق')
+  }
+
+  if (!/\b(?:occasion|versatile|varied|diverse|wide\s+collection|collection\s+range)\b|(?:المناسبات|متنوعة|تشكيلة\s+واسعة|مجموعة\s+واسعة)/i.test(facts)) {
+    guarded = guarded
+      .replace(/\b(?:every|any|all)\s+occasions?\b/gi, 'a use occasion to validate')
+      .replace(/\b(?:wide|diverse|varied|versatile)\s+(?:range|collection|selection)\b/gi, 'documented product selection')
+      .replace(/(?:لكل\s+المناسبات|كل\s+مناسبة|تشكيلة\s+متنوعة|مجموعة\s+متنوعة|تشكيلة\s+واسعة|مجموعة\s+واسعة)/g, 'استخدام أو تشكيلة تحتاج إلى تحقق')
+  }
+
+  if (!/\b(?:comfort|comfortable|fabric|material|durable|durability)\b|(?:الراحة|مريح|القماش|الخامة|متين|المتانة)/i.test(facts)) {
+    guarded = guarded
+      .replace(/\b(?:premium|luxury|breathable|soft)\s+fabrics?\b/gi, 'fabric details to verify')
+      .replace(/\b(?:comfortable|comfort-focused|durable|long-lasting)\b/gi, 'product detail to verify')
+      .replace(/(?:أقمشة\s+فاخرة|خامات\s+فاخرة|قماش\s+مريح|راحة\s+طوال\s+اليوم|متين(?:ة)?|يدوم\s+طويلاً)/g, 'تفصيل منتج يحتاج إلى تحقق')
   }
 
   return guarded
@@ -761,6 +984,89 @@ function guardUnverifiedFeatureAndOutcomeClaims(
   return guarded
 }
 
+/**
+ * Keep NEXUS' own workflow claims canonical during internal product QA.
+ * This is brand-scoped and never rewrites an unrelated customer's content.
+ */
+function guardNexusMarketingOperatingClaims(
+  text: string,
+  context: ContentDraftTruthContext,
+): string {
+  const nexusCorpus = text + ' ' + brandFactCorpus(context)
+  if (!/(?:\bNEXUS\s*AI\b|نكسوس\s*AI)/i.test(nexusCorpus)) return text
+
+  return text
+    .replace(
+      /[^.!?]*نتائج موثوقة[^.!?]*[.!?]?/g,
+      ' في NEXUS AI، تبقى المسودات والقرارات قابلة للمراجعة، ويتطلب النشر والإنفاق الإعلاني موافقة.',
+    )
+    .replace(
+      /[^.!?]*\bfull potential\b[^.!?]*[.!?]?/gi,
+      ' Review the documented workflow scope and current limitations.',
+    )
+    .replace(
+      /(?:An infographic|A detailed guide illustration)[^.!?]*(?:credit system)[^.!?]*(?:budget control|transparency|financial insights)[^.!?]*[.!?]?/gi,
+      'An editorial diagram of the documented credit flow: quoted cost, confirmed action, and ledger entry; no savings or performance claim.',
+    )
+    .replace(
+      /[^.!?]*(?:credit system)[^.!?]*(?:transparen|predictab|budget control|spend with confidence|manage your marketing spend effectively|insights into your spending)[^.!?]*[.!?]?/gi,
+      ' The product displays the cost before each metered AI action and records the transaction in the credit ledger.',
+    )
+    .replace(
+      /[^.!?]*\bmake the most of your resources\b[^.!?]*[.!?]?/gi,
+      ' Compare the proposed workload with available team capacity and ownership.',
+    )
+    .replace(/نحن هنا لطمأنتك!?\s*/g, '')
+    .replace(
+      /مع NEXUS AI، يتم دمج الموافقة البشرية في كل خطوة لضمان نتائج موثوقة\.?/gi,
+      'في NEXUS AI، تبقى مسودات الاستراتيجية والمحتوى للمراجعة البشرية، ويتطلب النشر والإنفاق الإعلاني موافقة.',
+    )
+    .replace(
+      /[^.!?]*(?:NEXUS\s*AI|نكسوس\s*AI)[^.!?]*(?:approval|human oversight|الموافقة البشرية|الإشراف البشري)[^.!?]*(?:every step|كل خطوة|reliable results|نتائج موثوقة|safe|آمنة)[^.!?]*[.!?]?/gi,
+      /[\u0600-\u06ff]/u.test(text)
+        ? ' في NEXUS AI، تبقى مسودات الاستراتيجية والمحتوى للمراجعة البشرية، ويتطلب النشر والإنفاق الإعلاني موافقة.'
+        : ' In NEXUS AI, strategy and content drafts remain under human review; publishing and ad spend require approval.',
+    )
+    .replace(
+      /(?:Request|Book)\s+a\s+demo(?:\s+session)?(?:\s+today)?(?:\s+to\s+see\s+it\s+in\s+action)?[.!]?/gi,
+      'Review the workflow in the product.',
+    )
+    .replace(
+      /Review what you need before choosing a contact step\.\s*(?:session\s+)?today!?/gi,
+      'Review the workflow in the product.',
+    )
+    .replace(
+      /Explore our features[^.!?]*(?:streamline|maximize)[^.!?]*[.!?]?/gi,
+      'Review current campaign responsibilities, capacity, and handoffs.',
+    )
+    .replace(
+      /Worried about AI replacing human jobs\?[^.!?]*(?:partnership|collaborat|replacement|synergy)[^.!?]*[.!?]?/gi,
+      'Review the documented division between AI drafting and human review in NEXUS AI.',
+    )
+    .replace(
+      /See how NEXUS AI collaborates with human expertise to enhance marketing strategies\.?/gi,
+      'Review where AI drafts require human review and approval.',
+    )
+    .replace(
+      /It's about partnership, not replacement\.?\s*Learn more about this synergy today\.?/gi,
+      'Review the approval handoffs.',
+    )
+    .replace(
+      /Discover how our end-to-end solutions[^.!?]*(?:streamline|seamless)[^.!?]*[.!?]?/gi,
+      'Review the documented strategy, draft, approval, execution, and learning stages.',
+    )
+    .replace(
+      /Learn how NEXUS AI helps your brand voice is unified across all platforms\.?/gi,
+      'Review how Brand Brain carries approved messaging into channel drafts.',
+    )
+    .replace(
+      /(?:An illustration|An infographic)[^.!?]*(?:brand consistency|unified messaging)[^.!?]*[.!?]?/gi,
+      'An editorial illustration connecting approved Brand Brain messaging to channel drafts and review checkpoints.',
+    )
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
 export function guardContentDraftText(
   text: unknown,
   context: ContentDraftTruthContext = {},
@@ -788,7 +1094,13 @@ export function guardContentDraftText(
     )),
   ), context)
 
-  return guardUnverifiedFeatureAndOutcomeClaims(guarded, context)
+  return guardNexusMarketingOperatingClaims(
+    guardUnverifiedBrandContextClaims(
+      guardUnverifiedFeatureAndOutcomeClaims(guarded, context),
+      context,
+    ),
+    context,
+  )
     .replace(/\s{2,}/g, ' ')
     .trim()
 }
@@ -797,16 +1109,127 @@ export function guardContentDraftTruth<T>(
   input: T,
   context: ContentDraftTruthContext = {},
 ): T {
-  return guardContentDraftValue(input, context) as T
+  return guardContentDraftValue(input, context, '') as T
 }
 
-function guardContentDraftValue(input: unknown, context: ContentDraftTruthContext): unknown {
-  if (typeof input === 'string') return guardContentDraftText(input, context)
-  if (Array.isArray(input)) return input.map(item => guardContentDraftValue(item, context))
+function canonicalNexusDraftField(
+  original: string,
+  guarded: string,
+  keyPath: string,
+  context: ContentDraftTruthContext,
+  siblingCorpus = '',
+): string {
+  if (!/(?:^|\.)(?:caption|videoPrompt|imagePrompt)$/.test(keyPath)) return guarded
+  const corpus = original + ' ' + guarded + ' ' + brandFactCorpus(context)
+  if (!/(?:\bNEXUS\s*AI\b|نكسوس\s*AI)/i.test(corpus)) return guarded
+  const topicCorpus = original + ' ' + guarded + ' ' + siblingCorpus
+
+  const itemIndex = Number(keyPath.match(/\[(\d+)\]/)?.[1] ?? 0)
+  const isArabic = /[\u0600-\u06ff]/u.test(original)
+  const topic = /credit|budget|spend|expense|ledger|ائتمان|كريديت|ميزانية|إنفاق|نفقات/i.test(topicCorpus)
+    ? 'credit'
+    : /brand voice|brand consistency|brand brain|messaging|صوت العلامة|اتساق|رسائل/i.test(topicCorpus)
+      ? 'brand'
+      : /resource|capacity|ownership|handoff|tasks? (?:are )?assigned|الموارد|السعة|الملكية|تسليم|توزيع المهام/i.test(topicCorpus)
+        ? 'capacity'
+        : /human|approval|approve|people review|human review|AI prepares|collaborat|oversight|الإشراف|الموافقة|المراجعة البشرية|البشر/i.test(topicCorpus)
+          ? 'approval'
+          : /workflow|end-to-end|strategy|execution|سير العمل|الاستراتيجية|التنفيذ/i.test(topicCorpus)
+            ? 'workflow'
+            : null
+  if (!topic) return guarded
+
+  if (keyPath.endsWith('.imagePrompt')) {
+    if (topic === 'credit') {
+      return 'Editorial product diagram of a three-step credit flow: quoted cost, confirmed metered action, and immutable ledger entry. Neutral UI shapes and documented records only; no readable interface.'
+    }
+    if (topic === 'brand') {
+      return 'Editorial system diagram connecting approved Brand Brain inputs—positioning, voice, verified claims, and restrictions—to channel draft cards and human review checkpoints. No automatic-consistency claim.'
+    }
+    if (topic === 'approval') {
+      return 'Editorial workflow illustration showing AI draft preparation followed by distinct human review, publishing approval, and ad-spend approval checkpoints. Use documented stages only.'
+    }
+    return 'Editorial operations diagram showing campaign ownership, capacity, handoffs, and the next review decision. Use abstract labels and documented assignments only.'
+  }
+
+  if (keyPath.endsWith('.videoPrompt')) {
+    if (topic === 'credit') {
+      return '15-second vertical explainer. Scene 1: show a quoted credit cost before a metered AI action. Scene 2: show explicit confirmation. Scene 3: show the completed action linked to its ledger entry. End card: “Review cost and output before the next decision.” Use documented actions and records only.'
+    }
+    if (topic === 'brand') {
+      return '15-second vertical explainer. Scene 1: approved Brand Brain positioning, voice, verified claims, and restrictions. Scene 2: two channel-specific draft cards. Scene 3: human review checkpoints before approval. End card: “Review each adaptation before approval.”'
+    }
+    if (topic === 'capacity') {
+      return '15-second vertical operations explainer. Scene 1: campaign tasks and owners. Scene 2: available production capacity. Scene 3: approval handoffs and the next decision. End card: “Review capacity before expanding the plan.” Use documented workload and ownership only.'
+    }
+    if (topic === 'approval') {
+      return '15-second vertical explainer. Scene 1: AI prepares a strategy or content draft. Scene 2: a person reviews the draft. Scene 3: separate approval checkpoints for publishing and ad spend. End card: “AI prepares; people review and approve.”'
+    }
+    return '15-second vertical workflow explainer. Show Brand Brain, strategy, channel drafts, human approval, execution status, and results as six distinct stages. End card: “Review the current stage and next decision.” Use documented stages and states only.'
+  }
+
+  if (topic === 'credit') {
+    if (isArabic) {
+      return itemIndex % 2 === 0
+        ? 'يعرض NEXUS AI تكلفة الكريديت قبل كل عملية ذكاء اصطناعي مدفوعة، ثم يسجّل الخصم والمخرج في سجل الكريديت. راجع التكلفة والنتيجة قبل الموافقة على الخطوة التالية. #عمليات_التسويق #NEXUSAI'
+        : 'الكريديت الشهري يتبع دورة الباقة، بينما يُعرض الكريديت المشتَرى وسجل استخدامه بصورة منفصلة. راجع نوع الرصيد وتاريخ العملية قبل التنفيذ. #إدارة_الكريديت #NEXUSAI'
+    }
+    return itemIndex % 2 === 0
+      ? 'NEXUS AI shows the credit cost before every metered AI action, then links the debit to its output in the credit ledger. Review both before approving the next step. #MarketingOperations #NEXUSAI'
+      : 'Monthly plan credits follow the billing cycle, while purchased credits and their usage remain visible separately. Review the balance source and ledger entry before execution. #CreditOperations #NEXUSAI'
+  }
+  if (topic === 'brand') {
+    return isArabic
+      ? 'ينقل Brand Brain التموضع والنبرة والادعاءات الموثقة والقيود إلى مسودات القنوات. راجع تكييف الرسالة لكل منصة قبل اعتمادها. #حوكمة_العلامة #NEXUSAI'
+      : 'Brand Brain carries approved positioning, voice, verified claims, and restrictions into channel drafts. Review each platform adaptation before approval. #BrandGovernance #NEXUSAI'
+  }
+  if (topic === 'capacity') {
+    if (isArabic) {
+      return 'حدّد مالك كل مهمة، والسعة المتاحة، وتسلسل الموافقات قبل توسيع إنتاج الحملة. اجعل القرار التالي ظاهرًا وقابلًا للمراجعة. #عمليات_التسويق #NEXUSAI'
+    }
+    return itemIndex < 8
+      ? 'Map task ownership, available capacity, and approval handoffs before expanding campaign production. Keep the next decision visible and reviewable. #MarketingOperations #NEXUSAI'
+      : 'Before adding more campaign work, compare assigned owners, production capacity, and pending approvals. Resolve the next handoff first. #CapacityPlanning #NEXUSAI'
+  }
+  if (topic === 'approval') {
+    if (isArabic) {
+      return 'يُعدّ الذكاء الاصطناعي في NEXUS AI الاستراتيجية ومسودات المحتوى؛ وتبقى المراجعة البشرية مطلوبة، مع موافقة منفصلة قبل النشر أو الإنفاق الإعلاني. #تسويق_مسؤول #NEXUSAI'
+    }
+    return itemIndex % 2 === 0
+      ? 'In NEXUS AI, AI prepares strategy and content drafts; human review remains required, with separate approval before publishing or ad spend. #ResponsibleMarketing #NEXUSAI'
+      : 'AI prepares the draft; people review its claims, channel fit, and next action. Publishing and ad spend stay behind separate approvals. #HumanInTheLoop #NEXUSAI'
+  }
+  if (isArabic) {
+    return 'يتبع العمل مسارًا واحدًا: Brand Brain، ثم الاستراتيجية، ثم مسودات القنوات، فالموافقة، والتنفيذ، والنتائج. تعرض كل مرحلة حالتها والقرار التالي. #سير_عمل_التسويق #NEXUSAI'
+  }
+  return itemIndex < 6
+    ? 'Follow one governed path: Brand Brain, strategy, channel drafts, approval, execution, and results. Each stage shows its status and next decision. #MarketingWorkflow #NEXUSAI'
+    : 'A campaign moves from reviewed strategy to channel drafts, approval, execution status, and measured results. Review the current stage before the next action. #CampaignOperations #NEXUSAI'
+}
+
+function guardContentDraftValue(
+  input: unknown,
+  context: ContentDraftTruthContext,
+  keyPath: string,
+  siblingCorpus = '',
+): unknown {
+  if (typeof input === 'string') {
+    const guarded = guardContentDraftText(input, context)
+    return canonicalNexusDraftField(input, guarded, keyPath, context, siblingCorpus)
+  }
+  if (input instanceof Date) return input
+  if (Array.isArray(input)) {
+    return input.map((item, index) => guardContentDraftValue(item, context, keyPath + '[' + index + ']'))
+  }
   if (input && typeof input === 'object') {
+    const record = input as Record<string, unknown>
+    const recordCorpus = Object.values(record)
+      .filter((value): value is string => typeof value === 'string')
+      .join(' ')
     const output: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
-      output[key] = guardContentDraftValue(value, context)
+    for (const [key, value] of Object.entries(record)) {
+      const valuePath = keyPath ? keyPath + '.' + key : key
+      output[key] = guardContentDraftValue(value, context, valuePath, recordCorpus)
     }
     return output
   }

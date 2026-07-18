@@ -8,6 +8,7 @@ import { getCreditActionTruth } from '@/lib/creditActionTruth'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 import { getDefaultTemplateForPlatform } from '@/lib/creativeTemplates'
 import { fetchCreditOperation } from '@/lib/creditOperationClient'
+import { pollGeneratedVisual } from '@/lib/generatedVisualPolling'
 
 type VisualStyle =
   | 'Minimal' | 'Luxury' | 'Corporate' | 'Editorial' | 'Cinematic'
@@ -357,7 +358,11 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
       // Prefer the friendly `message` (e.g. daily image limit) over the error code.
       if (!res.ok) throw new Error(data.message || data.error || 'Generation failed')
 
-      const newVisual = data.visual
+      const acceptedVisual = data.visual as Visual | undefined
+      if (!acceptedVisual?.id) throw new Error('No durable image production job returned')
+      const newVisual = acceptedVisual.status === 'COMPLETED' && acceptedVisual.imageUrl
+        ? acceptedVisual
+        : await pollGeneratedVisual<Visual>({ visualId: acceptedVisual.id, authorization: token })
       setVisuals(prev => [newVisual, ...prev])
       onVisualSaved?.(newVisual)
       await refreshBillingStatus()

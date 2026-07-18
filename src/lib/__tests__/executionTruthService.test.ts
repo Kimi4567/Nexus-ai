@@ -5,7 +5,7 @@ const { prismaMock } = vi.hoisted(() => ({
     workspace: { findFirst: vi.fn() },
     campaign: { findMany: vi.fn() },
     brandProfile: { findUnique: vi.fn() },
-    socialPost: { groupBy: vi.fn() },
+    socialPost: { groupBy: vi.fn(), findMany: vi.fn() },
     marketingLearningEvent: { findMany: vi.fn() },
     adCampaign: { groupBy: vi.fn() },
   },
@@ -52,12 +52,13 @@ beforeEach(() => {
     .mockResolvedValueOnce([])
     .mockResolvedValueOnce([])
     .mockResolvedValueOnce([])
+  prismaMock.socialPost.findMany.mockResolvedValue([])
   prismaMock.marketingLearningEvent.findMany.mockResolvedValue([])
   prismaMock.adCampaign.groupBy.mockResolvedValue([])
 })
 
 describe('execution truth service', () => {
-  it('aggregates campaign and post states into one queue without loading post bodies', async () => {
+  it('aggregates campaign and post states into one queue with bounded review fields', async () => {
     prismaMock.campaign.findMany.mockResolvedValue([
       { ...campaignBase, id: 'c1', name: 'Draft strategy', status: 'DRAFT' },
       { ...campaignBase, id: 'c2', name: 'Content ready', status: 'ACTIVE' },
@@ -81,6 +82,15 @@ describe('execution truth service', () => {
     expect(result.queue.find((item) => item.campaignId === 'c1')?.evidence.strategyEvidenceCount).toBe(0)
     expect(prismaMock.socialPost.groupBy).toHaveBeenCalledTimes(6)
     expect(prismaMock.campaign.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 100 }))
+    expect(prismaMock.socialPost.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      select: {
+        campaignId: true,
+        caption: true,
+        imagePrompt: true,
+        videoPrompt: true,
+        contentPlanIndex: true,
+      },
+    }))
   })
 
   it('counts approved posts missing media as a media-review action', async () => {
@@ -103,7 +113,40 @@ describe('execution truth service', () => {
     const result = await getWorkspaceExecutionTruth('u1')
 
     expect(result.campaigns[0].stage).toBe('MEDIA_REVIEW')
-    expect(result.queue[0].kind).toBe('REVIEW_MEDIA')
+    expect(result.queue[0]).toMatchObject({ kind: 'REVIEW_MEDIA', requiresApproval: true })
+    expect(result.summary.awaitingApproval).toBe(1)
+  })
+
+  it('puts deterministic copy quality review ahead of missing media', async () => {
+    prismaMock.campaign.findMany.mockResolvedValue([
+      { ...campaignBase, id: 'c2', name: 'Content drift', status: 'ACTIVE' },
+    ])
+    prismaMock.socialPost.groupBy
+      .mockReset()
+      .mockResolvedValueOnce([{ campaignId: 'c2', status: 'APPROVED', _count: { _all: 1 } }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ campaignId: 'c2', _count: { _all: 1 } }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+    prismaMock.socialPost.findMany.mockResolvedValue([
+      {
+        campaignId: 'c2',
+        contentPlanIndex: 1,
+        caption: 'Did you know analytics can transform your business?',
+        imagePrompt: null,
+        videoPrompt: null,
+      },
+    ])
+
+    const result = await getWorkspaceExecutionTruth('u1')
+
+    expect(result.campaigns[0].posts).toMatchObject({
+      qualityReviewIssueCount: expect.any(Number),
+      qualityReviewPostCount: 1,
+    })
+    expect(result.campaigns[0].posts.qualityReviewIssueCount).toBeGreaterThan(0)
+    expect(result.queue[0]).toMatchObject({ kind: 'REVIEW_CONTENT', priority: 'critical' })
   })
 
   it('does not query the required generationStatus field as nullable', async () => {

@@ -222,6 +222,14 @@ model Media {
   tags     String[] @default([])
   category String? // "product", "lifestyle", "logo", etc.
 
+  // NEXUS Creative Intelligence. The JSON contains only observed visual
+  // evidence and explicit limitations; campaign-specific matching stays on
+  // SocialPost so this reusable asset never inherits one campaign's meaning.
+  intelligenceStatus     String    @default("UNANALYZED") // UNANALYZED | READY | FAILED | NEEDS_PREVIEW
+  intelligence           Json?
+  intelligenceVersion    Int       @default(1)
+  intelligenceAnalyzedAt DateTime?
+
   // Usage
   campaignId      String?
   campaign        Campaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
@@ -236,6 +244,7 @@ model Media {
   @@index([type])
   @@index([campaignId])
   @@index([uploadSessionId])
+  @@index([workspaceId, intelligenceStatus])
 }
 
 model UploadSession {
@@ -995,8 +1004,8 @@ model SocialPost {
   // Short-lived atomic lease held by the publish worker. This prevents two
   // overlapping cron invocations from sending the same post to a provider.
   // A crashed worker is recoverable after the lease expires.
-  publishLeaseUntil     DateTime?
-  publishLeaseToken     String?
+  publishLeaseUntil    DateTime?
+  publishLeaseToken    String?
   statusHistory        PostStatusHistory[]
 
   // Immutable decision evidence. Editing reviewed copy/media clears both links
@@ -1024,6 +1033,11 @@ model SocialPost {
   mediaSource      String  @default("GENERATE") // GENERATE | UPLOAD | MIXED
   uploadedMediaId  String? // user's own uploaded asset (Media.id)
   contentPlanIndex Int? // position in the monthly content plan (1-N)
+
+  // Campaign-specific ranked media candidates. This is advisory evidence,
+  // never an approval or an automatic attachment decision.
+  creativeMatch     Json?
+  creativeMatchedAt DateTime?
 
   // A/B Testing (Sprint FL2-E)
   variantGroup  String? // shared ID linking A + B variants
@@ -1054,6 +1068,7 @@ model SocialPost {
   @@index([approvedSnapshotId])
   @@index([mediaApprovalSnapshotId])
   @@index([scheduledSnapshotId])
+  @@index([campaignId, creativeMatchedAt])
 }
 
 // Append-only campaign decision ledger. The payload captures the exact reviewed
@@ -1302,6 +1317,14 @@ model GeneratedVisual {
   errorMessage String?
   retryCount   Int          @default(0)
 
+  // Durable provider + quality evidence. A visual is never marked COMPLETED
+  // until the stored review passes the server-owned quality thresholds.
+  provider            String?
+  referenceMediaId    String?
+  creditTransactionId String?
+  qualityStatus       String  @default("PENDING") // PENDING | PASSED | REJECTED | ERROR
+  qualityReview       Json?
+
   // Metadata
   isPrimary  Boolean @default(false)
   isArchived Boolean @default(false)
@@ -1314,6 +1337,7 @@ model GeneratedVisual {
   @@index([workspaceId])
   @@index([campaignId])
   @@index([status])
+  @@index([qualityStatus])
 }
 
 // ============================================================================

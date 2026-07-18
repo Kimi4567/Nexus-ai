@@ -75,6 +75,59 @@ function buildFallbackConcept(
 
   const isAr = language === 'ar'
 
+  // Post-level operational themes must be resolved before broad industry
+  // categories such as "AI" or "marketing". Otherwise every NEXUS post falls
+  // into the same generic SaaS scene regardless of its actual creative brief.
+  if (check.match(/monthly|purchased|billing cycle|credit pools?|plan credits?|شهري|الشهرية|المشت(?:رى|راة)|دورة الباقة|نوع الرصيد/)) {
+    return {
+      centralElement: 'two clearly separated physical reservoirs of blank metallic tokens: one beside a circular renewal ring and one inside a durable transparent vault, with a precise divider between them and generous negative space',
+      emotion: 'clear, controlled, durable',
+      headline: isAr ? 'رصيدان بقواعد واضحة' : 'Two Balances, Clear Rules',
+      cta: isAr ? 'راجع الرصيد' : 'Review Balance',
+      visualMood: 'Premium financial-operations still life with disciplined separation and calm violet-blue depth',
+    }
+  }
+
+  if (check.match(/credits?|ledger|quoted cost|metered action|pricing|balance|كريديت|أرصدة|رصيد|تكلفة|خصم|سجل/)) {
+    return {
+      centralElement: 'three distinct tactile stations arranged left to right: a small stack of blank metallic tokens beside a quotation tile, one illuminated confirmation gate, and a sealed archive of blank ledger cards, connected by one precise physical path',
+      emotion: 'transparent, controlled, precise',
+      headline: isAr ? 'التكلفة واضحة قبل التنفيذ' : 'Know Cost Before Execution',
+      cta: isAr ? 'راجع العملية' : 'Review Operation',
+      visualMood: 'Precise premium product-operations scene with one legible physical flow and generous negative space',
+    }
+  }
+
+  if (check.match(/brand brain|positioning|voice|verified claims?|restrictions?|channel drafts?|تموضع|النبرة|ادعاءات موثقة|القيود|مسودات القنوات/)) {
+    return {
+      centralElement: 'one central translucent sculptural core receiving four distinct blank material inputs, then branching into three differently shaped channel frames, with a visible human review gate before the frames and no screens or lettering',
+      emotion: 'governed, coherent, intentional',
+      headline: isAr ? 'مصدر واحد لكل رسالة' : 'One Source for Every Message',
+      cta: isAr ? 'راجع التكييف' : 'Review Adaptation',
+      visualMood: 'Editorial brand-governance sculpture with disciplined branches, visible review control and premium depth',
+    }
+  }
+
+  if (check.match(/ownership|capacity|handoffs?|approval|assignments?|operations?|ملكية|السعة|تسليم|الموافقات|المهام|التشغيل/)) {
+    return {
+      centralElement: 'three-person operations team passing distinct blank task blocks through clearly separated work lanes toward one physical review gate, with visible unused lane capacity and an uncluttered premium workspace',
+      emotion: 'organized, accountable, calm',
+      headline: isAr ? 'الملكية والسعة قبل التوسع' : 'Ownership Before Expansion',
+      cta: isAr ? 'راجع السعة' : 'Review Capacity',
+      visualMood: 'Premium operations editorial with clear handoffs, visible capacity and a single review decision',
+    }
+  }
+
+  if (check.match(/workflow|strategy|execution|results?|stages?|سير العمل|الاستراتيجية|التنفيذ|النتائج|المراحل/)) {
+    return {
+      centralElement: 'six distinct tactile stages forming one governed physical path from a central brand core through planning blocks and a human review gate to a final measurement vessel, with every stage visually separate and no screens',
+      emotion: 'guided, connected, reviewable',
+      headline: isAr ? 'مسار واحد وقرار واضح' : 'One Path, Clear Decisions',
+      cta: isAr ? 'راجع المرحلة' : 'Review Stage',
+      visualMood: 'Cinematic governed-workflow metaphor with distinct stages, human control and measured progression',
+    }
+  }
+
   if (check.match(/restaurant|cafe|food|beverage|coffee|bakery|مطعم|مقهى|طعام|طبخ|وجبة/)) {
     return {
       centralElement: 'beautifully plated signature dish bathed in warm candlelight, steam rising, shallow depth of field with restaurant ambiance in soft bokeh background',

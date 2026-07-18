@@ -24,6 +24,7 @@ import {
 } from '@/lib/commercialPlans'
 import { isCreditWalletEnabled } from '@/lib/credits/wallet'
 import { sendUpgradeConfirmationEmail } from '@/lib/email/resend'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 // B1d-c-1 — create the cycle's MONTHLY CreditGrant in parallel with the existing
 // aiCredits overwrite (flag-independent, additive; never read while the flag is OFF).
 import {
@@ -157,9 +158,8 @@ export async function POST(req: NextRequest) {
     const rawBody = await req.text()
     event = stripe.webhooks.constructEvent(rawBody, sig, secret)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('[Webhook] Signature verification failed:', msg)
-    return NextResponse.json({ error: `Webhook error: ${msg}` }, { status: 400 })
+    console.warn('[Webhook] Signature verification failed')
+    return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 400 })
   }
 
   console.log('[Webhook] Event received:', event.type, event.id)
@@ -450,7 +450,15 @@ export async function POST(req: NextRequest) {
         console.log('[Webhook] Unhandled event type:', event.type)
     }
   } catch (err) {
-    console.error('[Webhook] Handler error for', event.type, err)
+    await captureOperationalError(err, {
+      operation: 'billing.webhook.process',
+      route: '/api/billing/webhook',
+      component: 'billing',
+      method: 'POST',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
     // Billing fulfilment must be retryable. All handled writes use stable Stripe
     // IDs / grant sources, so returning 500 is safe and prevents paid purchases
     // or renewals from being silently acknowledged without fulfilment.

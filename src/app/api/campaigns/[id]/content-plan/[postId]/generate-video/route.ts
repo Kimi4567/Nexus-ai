@@ -1,0 +1,772 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { getServerUserId } from '@/lib/apiAuth'
+import {
+  buildCreditChargeReceipt,
+  checkAndDeductCredits,
+  creditCheckHttpStatus,
+  finalizeCreditDeduction,
+  refundCreditDeduction,
+  type CreditDeductionOk,
+} from '@/lib/credits'
+import {
+  CONTENT_HUB_VIDEO_COST,
+  validateVideoGenerationConfirmation,
+} from '@/lib/contentHubActionSafety'
+import {
+  getMediaStorageUnavailablePayload,
+  getVideoProviderUnavailablePayload,
+  isMediaStorageConfigured,
+  isVideoProviderConfigured,
+} from '@/lib/ai/provider'
+import {
+  buildCinematicProductAdBrief,
+  platformToRunwayRatio,
+} from '@/lib/ai/mediaProviderRouter'
+import {
+  cancelRunwayTask,
+  createRunwayProductAdTask,
+  retrieveRunwayTask,
+  uploadRunwayVideoToCloudinary,
+  type RunwayTask,
+} from '@/lib/ai/runway'
+import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
+import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { canMutateCampaignExecution } from '@/lib/strategyApproval'
+import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
+import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
+import {
+  CONTENT_REVISION_HISTORY_NOTE,
+  contentReviewResetData,
+  isImmutableExecutionPost,
+  reopensContentReview,
+} from '@/lib/contentPostRevision'
+import { sanitizeSentryText } from '@/lib/observability/sentryPrivacy'
+import {
+  cloudinaryVideoReviewFrames,
+  reviewGeneratedMediaQuality,
+} from '@/lib/ai/generatedMediaQuality'
+import { readMediaIntelligence } from '@/lib/creativeIntelligence'
+import {
+  assessCinematicProductAdAssets,
+  CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
+  CINEMATIC_PRODUCT_AD_PROVIDER_COST_USD_ESTIMATE,
+  CINEMATIC_PRODUCT_AD_PROVIDER_CREDITS_ESTIMATE,
+} from '@/lib/videoAdPreflight'
+import { CURRENT_CREDIT_PRICING_VERSION } from '@/lib/credits/pricing'
+import { evaluateVideoEconomicsGuard } from '@/lib/videoEconomicsGuard'
+import {
+  resolvePlatformVideoFormat,
+  validatePlatformVideoFormat,
+  type PlatformVideoFormat,
+} from '@/lib/platformVideoFormat'
+
+// Completion includes durable video upload plus a three-frame visual review.
+// Keep this server-side verification window independent from browser polling.
+export const maxDuration = 180
+
+type Params = { params: Promise<{ id: string; postId: string }> }
+const db = prisma as any
+
+type StoredGenerationParams = {
+  postId?: string
+  postUpdatedAt?: string
+  referenceMediaId?: string | null
+  referenceMediaIds?: string[]
+  ratio?: string
+  targetFormat?: PlatformVideoFormat
+  durationSeconds?: number
+  credit?: CreditDeductionOk
+}
+
+function generationParams(value: unknown): StoredGenerationParams {
+  return value && typeof value === 'object' ? value as StoredGenerationParams : {}
+}
+
+function safeFailure(task: RunwayTask): string {
+  console.error('[generate-video] NEXUS video provider task failed', {
+    status: task.status,
+    failureCode: sanitizeSentryText(task.failureCode || '').slice(0, 120),
+    providerFailure: sanitizeSentryText(task.failure || '').slice(0, 300),
+  })
+  return 'NEXUS Video Studio could not create a usable video. Reserved credits will be restored.'
+}
+
+async function findCampaignContext(userId: string, campaignId: string, postId: string) {
+  const campaign = await db.campaign.findFirst({
+    where: { id: campaignId, workspace: { ownerId: userId } },
+    include: { workspace: { include: { brandProfile: true } } },
+  })
+  if (!campaign) return null
+  const post = await db.socialPost.findFirst({
+    where: { id: postId, campaignId, workspaceId: campaign.workspaceId },
+  })
+  if (!post) return null
+  return { campaign, post, brand: campaign.workspace?.brandProfile ?? null }
+}
+
+async function findLatestPostGeneration(campaignId: string, postId: string) {
+  const rows = await db.generation.findMany({
+    where: { campaignId, type: 'VIDEO', provider: 'runway' },
+    orderBy: { createdAt: 'desc' },
+    take: 30,
+  })
+  return rows.find((row: any) => generationParams(row.params).postId === postId) ?? null
+}
+
+async function refundGeneration(
+  userId: string,
+  generation: any,
+  reason: string,
+): Promise<'refunded' | 'pending' | 'noop'> {
+  const deduction = generationParams(generation.params).credit
+  const result = await refundCreditDeduction({
+    userId,
+    action: 'VIDEO_GENERATION',
+    deduction,
+    reason,
+  })
+  if (!result.ok) return 'pending'
+  return result.status === 'refunded' ? 'refunded' : 'noop'
+}
+
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params
+  const userId = await getServerUserId(req)
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const body = await req.json().catch(() => ({}))
+  const confirmation = validateVideoGenerationConfirmation({
+    confirmed: body.explicitVideoGenerationConfirmed,
+    acknowledgedCreditCost: body.acknowledgedCreditCost,
+    acknowledgedDurationSeconds: body.acknowledgedDurationSeconds,
+    acknowledgedNoPublishOrSchedule: body.acknowledgedNoPublishOrSchedule,
+    acknowledgedReviewRequired: body.acknowledgedReviewRequired,
+    acknowledgedAssetRights: body.acknowledgedAssetRights,
+  })
+  if (!confirmation.ok) {
+    return NextResponse.json({
+      error: confirmation.error,
+      code: 'VIDEO_GENERATION_CONFIRMATION_REQUIRED',
+      creditsCharged: false,
+    }, { status: 400 })
+  }
+
+  const context = await findCampaignContext(userId, params.id, params.postId)
+  if (!context) return NextResponse.json({ error: 'Campaign video post not found' }, { status: 404 })
+  const { campaign, post, brand } = context
+  if (!post.isVideoPost) {
+    return NextResponse.json({ error: 'This action is available only for video posts.', code: 'VIDEO_POST_REQUIRED' }, { status: 409 })
+  }
+  if (isImmutableExecutionPost(post.status)) {
+    return NextResponse.json({
+      error: 'Published or provider-processing posts are immutable. Create a new draft for a video revision.',
+      code: 'PUBLISHED_POST_IMMUTABLE',
+    }, { status: 409 })
+  }
+  if (post.generationStatus === 'REFUND_PENDING') {
+    return NextResponse.json({
+      error: 'The previous video credit restoration is still pending reconciliation.',
+      code: 'CREDIT_RECONCILIATION_PENDING',
+    }, { status: 409 })
+  }
+  if (!canMutateCampaignExecution(String(campaign.status ?? ''), campaign.aiOutput, brand)) {
+    return NextResponse.json({
+      error: 'Approve the current strategy truth review before generating campaign video.',
+      code: 'STRATEGY_TRUTH_REVIEW_REQUIRED',
+      redirectTo: `/campaigns/${campaign.id}?tab=strategy`,
+    }, { status: 409 })
+  }
+
+  const brandReview = reviewBrandTruthConsistency(brand)
+  if (brandReview.status === 'blocked') {
+    return NextResponse.json({
+      error: 'Brand Brain contains contradictory source data. Correct it before generating video.',
+      code: 'BRAND_TRUTH_REVIEW_REQUIRED',
+      blockers: brandReview.blockers.map(item => item.code),
+    }, { status: 409 })
+  }
+
+  const strategy = (campaign.aiOutput as any)?.strategy ?? {}
+  const contentReview = reviewContentPlanForApproval([{
+    caption: post.caption,
+    imagePrompt: post.imagePrompt,
+    videoPrompt: post.videoPrompt,
+    contentPlanIndex: post.contentPlanIndex,
+  }], strategy, [
+    brand?.brandName,
+    brand?.industry,
+    brand?.description,
+    brand?.primaryOffer,
+    Array.isArray(brand?.uniqueAdvantages) ? brand.uniqueAdvantages : [],
+    brand?.complianceNotes,
+    Array.isArray(brand?.verifiedProof) ? brand.verifiedProof : [],
+  ])
+  if (!contentReview.ok) {
+    return NextResponse.json({
+      error: 'Fix this video post truth review before paying for media.',
+      code: 'CONTENT_TRUTH_REVIEW_REQUIRED',
+      issues: contentReview.issues,
+    }, { status: 409 })
+  }
+
+  if (!isVideoProviderConfigured()) {
+    return NextResponse.json(getVideoProviderUnavailablePayload(body.language), { status: 503 })
+  }
+  if (!isMediaStorageConfigured()) {
+    return NextResponse.json(getMediaStorageUnavailablePayload(body.language), { status: 503 })
+  }
+
+  const active = await findLatestPostGeneration(params.id, params.postId)
+  if (active && ['PENDING', 'QUEUED', 'PROCESSING'].includes(active.status)) {
+    return NextResponse.json({
+      error: 'A professional video is already being generated for this post.',
+      code: 'VIDEO_GENERATION_IN_PROGRESS',
+      generationId: active.id,
+    }, { status: 409 })
+  }
+
+  const requestedReferenceIds: unknown[] = Array.isArray(body.referenceMediaIds) ? body.referenceMediaIds : []
+  const referenceMediaIds: string[] = requestedReferenceIds.length > 0
+    ? Array.from(new Set(requestedReferenceIds
+        .filter((id): id is string => typeof id === 'string' && Boolean(id.trim()))
+        .map(id => id.trim())))
+    : []
+  const referenceMediaRows = referenceMediaIds.length > 0
+    ? await db.media.findMany({
+        where: {
+          id: { in: referenceMediaIds },
+          workspaceId: campaign.workspaceId,
+          type: 'IMAGE',
+          OR: [{ campaignId: null }, { campaignId: params.id }],
+        },
+        select: {
+          id: true,
+          url: true,
+          fileName: true,
+          type: true,
+          width: true,
+          height: true,
+          intelligenceStatus: true,
+          intelligence: true,
+        },
+      })
+    : []
+  const referenceById = new Map(referenceMediaRows.map((media: any) => [media.id, media]))
+  const referenceMedia = referenceMediaIds
+    .map(id => referenceById.get(id))
+    .filter(Boolean) as Array<{
+    id: string
+    url: string
+    fileName: string
+    type: string
+    width: number | null
+    height: number | null
+    intelligenceStatus: string
+    intelligence: unknown
+  }>
+  if (referenceMedia.length !== referenceMediaIds.length) {
+    return NextResponse.json({
+      error: 'One or more selected product references were not found in this workspace or campaign.',
+      code: 'REFERENCE_MEDIA_NOT_FOUND',
+      creditsCharged: false,
+    }, { status: 404 })
+  }
+
+  const preflight = assessCinematicProductAdAssets(referenceMedia)
+  if (!preflight.eligible) {
+    const motionDesignRequired = preflight.route === 'MOTION_DESIGN_REQUIRED'
+    return NextResponse.json({
+      error: motionDesignRequired
+        ? 'These assets contain screens, interfaces, demos, or logos. Cinematic generation is blocked because it can distort them; use the source-locked Motion Design route when it is available.'
+        : 'The selected product references did not pass paid video preflight. No credits were spent.',
+      code: motionDesignRequired ? 'MOTION_DESIGN_REQUIRED' : 'VIDEO_ASSET_PREFLIGHT_FAILED',
+      creditsCharged: false,
+      preflight,
+    }, { status: 422 })
+  }
+
+  const recentWorkspaceVideoAttempts = await db.generation.findMany({
+    where: {
+      type: 'VIDEO',
+      provider: 'runway',
+      campaign: { workspaceId: campaign.workspaceId },
+      createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1_000) },
+    },
+    select: { status: true, externalId: true, params: true, metadata: true },
+    orderBy: { createdAt: 'desc' },
+    take: 20,
+  })
+  const economicsGuard = evaluateVideoEconomicsGuard(recentWorkspaceVideoAttempts)
+  if (economicsGuard.paused) {
+    return NextResponse.json({
+      error: 'Cinematic video production is temporarily paused because recent provider or quality failures exceeded the workspace loss limit. No credits were spent.',
+      code: 'VIDEO_ECONOMICS_PAUSED',
+      creditsCharged: false,
+      economicsGuard,
+    }, { status: 503 })
+  }
+
+  const brief = buildCinematicProductAdBrief({
+    brandName: brand?.brandName || campaign.name,
+    description: brand?.description,
+    primaryOffer: brand?.primaryOffer,
+    verifiedProof: brand?.verifiedProof,
+    uniqueAdvantages: brand?.uniqueAdvantages,
+    caption: post.caption,
+    videoDirection: post.videoPrompt,
+    industry: brand?.industry,
+    toneWords: brand?.toneKeywords,
+  })
+  const targetFormat = resolvePlatformVideoFormat(post.publishTarget || post.platform)
+  const ratio = platformToRunwayRatio(targetFormat.platform, true)
+  const generation = await db.generation.create({
+    data: {
+      campaignId: params.id,
+      type: 'VIDEO',
+      prompt: brief.userConcept,
+      params: {
+        postId: params.postId,
+        postUpdatedAt: post.updatedAt.toISOString(),
+        referenceMediaId: referenceMedia[0].id,
+        referenceMediaIds: referenceMedia.map(media => media.id),
+        ratio,
+        targetFormat,
+        durationSeconds: CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
+        pricingVersion: CURRENT_CREDIT_PRICING_VERSION,
+        providerCostEstimate: {
+          currency: 'USD',
+          amount: CINEMATIC_PRODUCT_AD_PROVIDER_COST_USD_ESTIMATE,
+          providerCredits: CINEMATIC_PRODUCT_AD_PROVIDER_CREDITS_ESTIMATE,
+        },
+        automaticProviderRetries: 0,
+      },
+      status: 'PENDING',
+      provider: 'runway',
+    },
+  })
+
+  const rateLimitResponse = await enforceBillableAiRateLimit(userId, 'VIDEO_GENERATION')
+  if (rateLimitResponse) {
+    await db.generation.update({ where: { id: generation.id }, data: { status: 'FAILED', error: 'Rate limit reached before provider execution.' } })
+    return rateLimitResponse
+  }
+
+  const credit = await checkAndDeductCredits(userId, 'VIDEO_GENERATION', undefined, {
+    entityId: post.id,
+    entityType: 'social_post_video',
+    operationKey: getCreditOperationKey(req, 'VIDEO_GENERATION', 'social_post_video', post.id),
+    description: `Eight-second cinematic product ad from ${referenceMedia.length} qualified product angles — post #${post.contentPlanIndex ?? post.id}`,
+  })
+  if (!credit.ok) {
+    await db.generation.update({ where: { id: generation.id }, data: { status: 'FAILED', error: 'Credits were unavailable before provider execution.' } })
+    return NextResponse.json(credit, { status: creditCheckHttpStatus(credit) })
+  }
+
+  try {
+    const task = await createRunwayProductAdTask({
+      productImages: referenceMedia.map(media => media.url),
+      productInfo: brief.productInfo,
+      userConcept: brief.userConcept,
+      ratio,
+      duration: CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
+    })
+    const generatingPost = await db.socialPost.update({
+      where: { id: post.id },
+      data: { generationStatus: 'GENERATING', errorMessage: null },
+      select: { updatedAt: true },
+    })
+    const nextParams = {
+      ...generationParams(generation.params),
+      postUpdatedAt: generatingPost.updatedAt.toISOString(),
+      credit,
+    }
+    await db.generation.update({
+      where: { id: generation.id },
+      data: {
+        status: task.status === 'THROTTLED' ? 'QUEUED' : 'PROCESSING',
+        progress: 1,
+        externalId: task.id,
+        params: nextParams,
+      },
+    })
+
+    const finalization = await finalizeCreditDeduction({
+      userId,
+      action: 'VIDEO_GENERATION',
+      deduction: credit,
+    })
+    if (!finalization.ok) {
+      await cancelRunwayTask(task.id)
+      await db.generation.update({
+        where: { id: generation.id },
+        data: { status: 'CANCELLED', error: 'Credit finalization failed; provider task cancellation was requested.' },
+      })
+      await db.socialPost.update({ where: { id: post.id }, data: { generationStatus: 'FAILED' } })
+      return NextResponse.json({
+        error: 'Video generation was stopped because the credit operation could not be finalized.',
+        code: 'CREDIT_FINALIZATION_FAILED',
+        refunded: finalization.refundStatus === 'refunded',
+      }, { status: 503 })
+    }
+
+    return NextResponse.json({
+      generationId: generation.id,
+      status: task.status,
+      durationSeconds: CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
+      productionRoute: 'CINEMATIC_PRODUCT_AD',
+      ratio,
+      creditsUsed: credit.creditsUsed,
+      creditsRemaining: credit.creditsRemaining,
+      creditCharge: buildCreditChargeReceipt('VIDEO_GENERATION', credit),
+      reviewRequired: true,
+      published: false,
+      scheduled: false,
+    }, { status: 202 })
+  } catch (error) {
+    const internalMessage = sanitizeSentryText(error instanceof Error ? error.message : 'Video generation failed').slice(0, 500)
+    console.error('[generate-video] NEXUS Video Studio start failed', internalMessage)
+    const message = 'NEXUS Video Studio could not start production. Reserved credits will be restored.'
+    const refund = await refundCreditDeduction({
+      userId,
+      action: 'VIDEO_GENERATION',
+      deduction: credit,
+      reason: message,
+    })
+    await db.generation.update({
+      where: { id: generation.id },
+      data: { status: 'FAILED', error: message, params: { ...generationParams(generation.params), credit } },
+    })
+    await db.socialPost.update({
+      where: { id: post.id },
+      data: { generationStatus: refund.ok ? 'FAILED' : 'REFUND_PENDING', errorMessage: message },
+    })
+    return NextResponse.json({
+      error: message,
+      refunded: refund.ok && refund.status === 'refunded',
+      refundPending: !refund.ok,
+    }, { status: 502 })
+  }
+}
+
+export async function GET(req: NextRequest, props: Params) {
+  const params = await props.params
+  const userId = await getServerUserId(req)
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const context = await findCampaignContext(userId, params.id, params.postId)
+  if (!context) return NextResponse.json({ error: 'Campaign video post not found' }, { status: 404 })
+
+  const generation = await findLatestPostGeneration(params.id, params.postId)
+  if (!generation) return NextResponse.json({ status: 'NOT_STARTED', generation: null })
+  if (generation.status === 'COMPLETED') {
+    return NextResponse.json({
+      status: 'SUCCEEDED',
+      generationId: generation.id,
+      output: generation.output,
+      mediaId: (generation.metadata as any)?.mediaId ?? null,
+      attached: (generation.metadata as any)?.attached === true,
+      reviewRequired: true,
+    })
+  }
+  if (['FAILED', 'CANCELLED'].includes(generation.status) || !generation.externalId) {
+    return NextResponse.json({ status: generation.status, generationId: generation.id, error: generation.error })
+  }
+
+  let task: RunwayTask
+  try {
+    task = await retrieveRunwayTask(generation.externalId)
+  } catch (error) {
+    return NextResponse.json({
+      status: 'PROCESSING',
+      generationId: generation.id,
+      retryable: true,
+      message: 'NEXUS Video Studio status is temporarily unavailable; the task remains active.',
+    }, { status: 202 })
+  }
+
+  if (['PENDING', 'THROTTLED', 'RUNNING'].includes(task.status)) {
+    const status = task.status === 'THROTTLED' ? 'QUEUED' : 'PROCESSING'
+    const progress = typeof task.progress === 'number'
+      ? Math.max(1, Math.min(95, Math.round(task.progress * (task.progress <= 1 ? 100 : 1))))
+      : generation.progress
+    await db.generation.update({ where: { id: generation.id }, data: { status, progress } })
+    return NextResponse.json({ status: task.status, generationId: generation.id, progress }, { status: 202 })
+  }
+
+  if (['FAILED', 'CANCELED', 'CANCELLED'].includes(task.status)) {
+    const message = safeFailure(task)
+    const refund = await refundGeneration(userId, generation, message)
+    await db.generation.update({ where: { id: generation.id }, data: { status: task.status === 'FAILED' ? 'FAILED' : 'CANCELLED', error: message } })
+    await db.socialPost.update({
+      where: { id: params.postId },
+      data: { generationStatus: refund === 'pending' ? 'REFUND_PENDING' : 'FAILED', errorMessage: message },
+    })
+    return NextResponse.json({
+      status: task.status,
+      generationId: generation.id,
+      error: message,
+      refunded: refund === 'refunded',
+      refundPending: refund === 'pending',
+    })
+  }
+
+  const providerUrl = task.output?.[0]
+  if (task.status !== 'SUCCEEDED' || !providerUrl) {
+    return NextResponse.json({ status: 'PROCESSING', generationId: generation.id }, { status: 202 })
+  }
+
+  // Only one poller may persist and review a successful provider result. A
+  // stale claim can be recovered after two minutes if a worker terminates.
+  const verificationClaim = await db.generation.updateMany({
+    where: {
+      id: generation.id,
+      status: { in: ['PROCESSING', 'QUEUED'] },
+      OR: [
+        { progress: { lt: 99 } },
+        { updatedAt: { lt: new Date(Date.now() - 120_000) } },
+      ],
+    },
+    data: { progress: 99 },
+  })
+  if (verificationClaim.count !== 1) {
+    return NextResponse.json({
+      status: 'PROCESSING',
+      generationId: generation.id,
+      progress: 99,
+      message: 'NEXUS is verifying and storing the completed video.',
+    }, { status: 202 })
+  }
+
+  try {
+    const stored = await uploadRunwayVideoToCloudinary(providerUrl, generation.id)
+    const storedParams = generationParams(generation.params)
+    const qaReferenceMedia = storedParams.referenceMediaId
+      ? await db.media.findFirst({
+          where: {
+            id: storedParams.referenceMediaId,
+            workspaceId: context.campaign.workspaceId,
+            type: { in: ['IMAGE', 'LOGO'] },
+          },
+          select: { id: true, url: true, intelligenceStatus: true, intelligence: true },
+        })
+      : null
+    if (storedParams.referenceMediaId && !qaReferenceMedia) {
+      throw new Error('The reference image is no longer available for required fidelity review')
+    }
+    const qaReferenceRows = storedParams.referenceMediaIds?.length
+      ? await db.media.findMany({
+          where: {
+            id: { in: storedParams.referenceMediaIds },
+            workspaceId: context.campaign.workspaceId,
+            type: 'IMAGE',
+          },
+          select: { id: true, url: true, intelligenceStatus: true, intelligence: true },
+        })
+      : qaReferenceMedia ? [qaReferenceMedia] : []
+    const qaReferencesById = new Map(qaReferenceRows.map((media: any) => [media.id, media]))
+    const orderedQaReferences = storedParams.referenceMediaIds?.length
+      ? storedParams.referenceMediaIds.map(id => qaReferencesById.get(id)).filter(Boolean)
+      : qaReferenceMedia ? [qaReferenceMedia] : []
+    if ((storedParams.referenceMediaIds?.length ?? 0) > 0 && orderedQaReferences.length !== storedParams.referenceMediaIds?.length) {
+      throw new Error('One or more product references are no longer available for required fidelity review')
+    }
+    const referenceEvidence = orderedQaReferences.map((media: any) => (
+      media.intelligenceStatus === 'READY' ? readMediaIntelligence(media.intelligence) : null
+    )).filter(Boolean)
+    const targetFormat = storedParams.targetFormat
+      ?? resolvePlatformVideoFormat(context.post.publishTarget || context.post.platform)
+    const formatValidation = validatePlatformVideoFormat({
+      width: stored.width,
+      height: stored.height,
+      durationSeconds: stored.duration,
+      contentType: `video/${stored.format}`,
+    }, targetFormat)
+    const qualityReview = await reviewGeneratedMediaQuality({
+      mediaType: 'VIDEO',
+      outputFrames: cloudinaryVideoReviewFrames(stored.url, stored.duration ?? CINEMATIC_PRODUCT_AD_DURATION_SECONDS),
+      referenceImageUrl: qaReferenceMedia?.url,
+      referenceImageUrls: orderedQaReferences.map((media: any) => media.url),
+      campaignMessage: context.post.caption,
+      creativeDirection: context.post.videoPrompt,
+      referenceEvidence,
+      targetFormat,
+      formatValidation,
+      requireProductAdStructure: true,
+    })
+    if (!qualityReview.passed) {
+      const message = 'NEXUS quality review rejected this video because it did not meet the approved creative and platform-delivery requirements. Credits will be restored.'
+      const refund = await refundGeneration(userId, generation, message)
+      await db.generation.update({
+        where: { id: generation.id },
+        data: {
+          status: 'FAILED',
+          progress: 100,
+          output: stored.url,
+          error: message,
+          metadata: {
+            providerTaskId: task.id,
+            durationSeconds: stored.duration ?? CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
+            reviewRequired: true,
+            qualityStatus: 'REJECTED',
+            qualityReview,
+            retainedForAudit: true,
+          },
+        },
+      })
+      await db.socialPost.update({
+        where: { id: params.postId },
+        data: {
+          generationStatus: refund === 'pending' ? 'REFUND_PENDING' : 'FAILED',
+          errorMessage: message,
+        },
+      })
+      return NextResponse.json({
+        status: 'FAILED',
+        generationId: generation.id,
+        error: message,
+        refunded: refund === 'refunded',
+        refundPending: refund === 'pending',
+      })
+    }
+
+    const existingMedia = await db.media.findFirst({
+      where: { workspaceId: context.campaign.workspaceId, cloudinaryId: stored.publicId },
+    })
+    const media = existingMedia ?? await db.media.create({
+      data: {
+        workspaceId: context.campaign.workspaceId,
+        campaignId: params.id,
+        fileName: `${context.campaign.name || 'campaign'}-video-${generation.id}.${stored.format}`,
+        type: 'VIDEO',
+        mimeType: `video/${stored.format}`,
+        url: stored.url,
+        cloudinaryId: stored.publicId,
+        size: stored.bytes,
+        width: stored.width,
+        height: stored.height,
+        duration: stored.duration,
+        category: 'cinematic-product-ad-master',
+        tags: ['nexus-video-studio', 'cinematic-product-ad', 'multi-reference', 'review-required'],
+      },
+    })
+
+    await db.generation.update({
+      where: { id: generation.id },
+      data: {
+        status: 'COMPLETED',
+        progress: 100,
+        output: stored.url,
+        metadata: {
+          model: 'product-ad-2026-06',
+          productionRoute: 'CINEMATIC_PRODUCT_AD',
+          providerTaskId: task.id,
+          mediaId: media.id,
+          durationSeconds: stored.duration ?? CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
+          reviewRequired: true,
+          qualityStatus: 'PASSED',
+          qualityReview,
+        },
+      },
+    })
+
+    const currentPost = await db.socialPost.findUnique({ where: { id: params.postId } })
+    const started = generationParams(generation.params)
+    const revisionStillCurrent = currentPost
+      && currentPost.updatedAt.toISOString() === started.postUpdatedAt
+      && !isImmutableExecutionPost(currentPost.status)
+
+    if (!revisionStillCurrent) {
+      await db.generation.update({
+        where: { id: generation.id },
+        data: { metadata: {
+          model: 'product-ad-2026-06', productionRoute: 'CINEMATIC_PRODUCT_AD', providerTaskId: task.id, mediaId: media.id,
+          durationSeconds: stored.duration ?? CINEMATIC_PRODUCT_AD_DURATION_SECONDS, reviewRequired: true, attached: false,
+          qualityStatus: 'PASSED', qualityReview,
+        } },
+      })
+      await db.socialPost.update({
+        where: { id: params.postId },
+        data: {
+          generationStatus: 'AWAITING_UPLOAD',
+          errorMessage: 'The generated video is in Media Library; the post changed before attachment.',
+        },
+      })
+      return NextResponse.json({
+        status: 'SUCCEEDED',
+        generationId: generation.id,
+        output: stored.url,
+        mediaId: media.id,
+        attached: false,
+        reviewRequired: true,
+        message: 'The video is saved in Media Library, but the post changed while it was rendering, so NEXUS did not overwrite the newer revision.',
+      })
+    }
+
+    const reopen = reopensContentReview(currentPost.status)
+    await db.$transaction(async (tx: any) => {
+      await tx.socialPost.update({
+        where: { id: params.postId },
+        data: {
+          imageUrl: stored.url,
+          sourceMediaId: media.id,
+          sourceType: 'AI_GENERATED',
+          uploadedMediaId: null,
+          mediaSource: 'GENERATE',
+          generationStatus: 'DONE',
+          errorMessage: null,
+          ...contentReviewResetData(currentPost.status),
+        },
+      })
+      if (reopen) {
+        await tx.postStatusHistory.create({
+          data: {
+            socialPostId: currentPost.id,
+            workspaceId: currentPost.workspaceId,
+            fromStatus: currentPost.status,
+            toStatus: 'DRAFT',
+            actor: 'SYSTEM',
+            note: CONTENT_REVISION_HISTORY_NOTE,
+          },
+        })
+      }
+    })
+    await db.generation.update({
+      where: { id: generation.id },
+      data: { metadata: {
+        model: 'product-ad-2026-06', productionRoute: 'CINEMATIC_PRODUCT_AD', providerTaskId: task.id, mediaId: media.id,
+        durationSeconds: stored.duration ?? CINEMATIC_PRODUCT_AD_DURATION_SECONDS, reviewRequired: true, attached: true,
+        qualityStatus: 'PASSED', qualityReview,
+      } },
+    })
+
+    return NextResponse.json({
+      status: 'SUCCEEDED',
+      generationId: generation.id,
+      output: stored.url,
+      mediaId: media.id,
+      attached: true,
+      reviewRequired: true,
+      published: false,
+      scheduled: false,
+    })
+  } catch (error) {
+    const internalMessage = sanitizeSentryText(error instanceof Error ? error.message : 'Video storage or quality review failed').slice(0, 500)
+    console.error('[generate-video] durable storage or quality review failed', internalMessage)
+    const message = 'NEXUS Video Studio could not verify and store a usable video. Credits will be restored.'
+    const refund = await refundGeneration(userId, generation, message)
+    await db.generation.update({
+      where: { id: generation.id },
+      data: { status: 'FAILED', error: message, metadata: { qualityStatus: 'ERROR', reviewRequired: true } },
+    })
+    await db.socialPost.update({
+      where: { id: params.postId },
+      data: { generationStatus: refund === 'pending' ? 'REFUND_PENDING' : 'FAILED', errorMessage: message },
+    })
+    return NextResponse.json({
+      error: message,
+      code: 'VIDEO_STORAGE_FAILED',
+      refunded: refund === 'refunded',
+      refundPending: refund === 'pending',
+    }, { status: 502 })
+  }
+}

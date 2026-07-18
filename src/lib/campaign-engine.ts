@@ -442,6 +442,7 @@ export async function runCampaignEngine(params: {
         strategy,
         brand,
         allowedPlatforms: campaign.platforms || [],
+        requireAllReviewedPlatforms: true,
         goal: campaign.goal,
       })
       if (qualityGate.status === 'blocked') {
@@ -475,6 +476,7 @@ export async function runCampaignEngine(params: {
           strategy: aiOutput.strategy,
           brand,
           allowedPlatforms: campaign.platforms || [],
+          requireAllReviewedPlatforms: true,
           goal: campaign.goal,
         }),
       }

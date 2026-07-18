@@ -31,7 +31,7 @@ const scopes = [
     name: 'pages_manage_posts',
     purpose: 'Publish a post the user has created to their selected Page.',
     data: 'post caption (and optional image URL), returned post id + permalink',
-    usage: 'NEXUS publishes to the Page ONLY when the user clicks Publish. No automatic posting; no paid ads.',
+    usage: 'In this submitted review flow, NEXUS publishes only after the user clicks Publish. Separately, the product can schedule an already reviewed and approved post only when the user explicitly chooses AUTO mode; no paid ads are created here.',
     Icon: Send,
     color: '#A78BFA',
   },
@@ -83,7 +83,7 @@ const walkthrough = [
 const verify = [
   'Open the returned Facebook permalink — the organic post is live on the connected Page.',
   'In NEXUS, the Publish tab → Post History shows the post as Published with a View link.',
-  'No post is created until the user clicks Publish (no automatic/scheduled posting in this flow).',
+  'No post is created until the user clicks Publish in this submitted review flow. The separate approved-schedule AUTO workflow is not part of this recording.',
   'No paid ad or ad spend is created — this is organic publishing only.',
 ]
 
@@ -126,7 +126,7 @@ export default function MetaReviewDemoPage() {
               Human approval gate
             </div>
             <p className="text-sm leading-relaxed text-slate-300">
-              NEXUS never publishes automatically. A post is sent to Facebook only after the user reviews the caption and clicks Publish. NEXUS does not run paid ads or ad spend without explicit user action.
+              This submitted review flow is manual: a post is sent to Facebook only after the user reviews the caption and clicks Publish. Elsewhere in the product, AUTO scheduling is available only for a post the user has already reviewed, approved, scheduled, and explicitly placed in AUTO mode. No paid ad or spend is created by this flow.
             </p>
           </div>
         </div>
@@ -138,7 +138,7 @@ export default function MetaReviewDemoPage() {
           <p className="mb-3 text-xs font-bold uppercase tracking-[3px] text-blue-300">Requested permissions</p>
           <h2 className="text-3xl font-black">What each permission is used for</h2>
           <p className="mt-3 text-sm leading-relaxed text-slate-400">
-            We are submitting the three Facebook permissions below first, because each is fully demonstrable in this flow. Instagram permissions (instagram_basic, instagram_content_publish) are requested in OAuth but are <strong className="text-white">not demonstrated</strong> in this review — Instagram publishing is deferred to a later submission when we can demonstrate it. Reach/impressions (read_insights) are also out of scope here.
+            We are submitting the three Facebook permissions below first, because each is fully demonstrable in this flow. Instagram permissions (instagram_basic, instagram_content_publish) are <strong className="text-white">not requested in this review deployment</strong>; they remain behind a separate configuration flag until an Instagram-specific recording and approval submission are ready. Reach/impressions (read_insights) are also out of scope here.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

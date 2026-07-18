@@ -14,6 +14,7 @@ import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { encryptToken } from '@/lib/tokenCrypto'
 import { verifyOAuthState } from '@/lib/oauthState'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 
 /** Normalize app base URL — no trailing slash */
 function getBaseUrl() {
@@ -81,11 +82,6 @@ async function attemptTokenExchange(
 
   if (!flat.access_token) {
     const errCode = (flat.error as string) ?? (flat.error_code as string) ?? (data.error as string) ?? 'unknown'
-    const errMsg  = (flat.error_description as string) ?? (flat.message as string) ?? ''
-    console.error(`[TikTok] method=${method} token error: ${errCode} — ${errMsg}`, {
-      error: flat.error ?? data.error ?? null,
-      errorCode: flat.error_code ?? data.error_code ?? null,
-    })
     throw new Error(`token_${errCode}`)
   }
 
@@ -132,15 +128,21 @@ export async function GET(req: NextRequest) {
 
     try {
       tokenData = await attemptTokenExchange('body', exchangeParams)
-    } catch (bodyErr) {
-      const bodyErrMsg = bodyErr instanceof Error ? bodyErr.message : String(bodyErr)
-      console.warn('[TikTok] Body method failed:', bodyErrMsg, '— trying Basic Auth...')
+    } catch {
+      console.warn('[TikTok] Primary token exchange method failed; trying fallback')
       try {
         tokenData = await attemptTokenExchange('basic_auth', exchangeParams)
       } catch (basicErr) {
-        const basicErrMsg = basicErr instanceof Error ? basicErr.message : String(basicErr)
-        console.error('[TikTok] Both token exchange methods failed. body:', bodyErrMsg, '| basic:', basicErrMsg)
-        return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=${encodeURIComponent(bodyErrMsg)}`)
+        await captureOperationalError(basicErr, {
+          operation: 'oauth.tiktok-token-exchange',
+          route: '/api/social/callback/tiktok',
+          component: 'oauth',
+          method: 'GET',
+          requestId: req.headers?.get?.('x-vercel-id') ?? null,
+          statusCode: 502,
+          retryable: true,
+        })
+        return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=token_exchange_failed`)
       }
     }
 
@@ -180,7 +182,16 @@ export async function GET(req: NextRequest) {
       displayName = profile.display_name || 'TikTok User'
       avatarUrl   = profile.avatar_url   || null
     } catch (profileErr) {
-      console.error('[TikTok] Profile fetch failed (non-fatal):', profileErr)
+      await captureOperationalError(profileErr, {
+        operation: 'oauth.tiktok-profile-fetch',
+        route: '/api/social/callback/tiktok',
+        component: 'oauth',
+        method: 'GET',
+        requestId: req.headers?.get?.('x-vercel-id') ?? null,
+        statusCode: 502,
+        retryable: true,
+        severity: 'warning',
+      })
     }
 
     // ── Ensure User + Workspace exist ─────────────────────────────────────
@@ -188,7 +199,16 @@ export async function GET(req: NextRequest) {
       where: { id: userId },
       create: { id: userId, email: `user-${userId.slice(0, 8)}@nexus.internal`, name: displayName },
       update: {},
-    }).catch((e) => console.error('[TikTok] User upsert failed:', e))
+    }).catch((error) => captureOperationalError(error, {
+      operation: 'oauth.tiktok-user-upsert',
+      route: '/api/social/callback/tiktok',
+      component: 'database',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+      severity: 'warning',
+    }))
 
     let workspace = await prisma.workspace.findFirst({ where: { ownerId: userId } })
     if (!workspace) {
@@ -250,8 +270,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${baseUrl}/connections?social=connected&platform=tiktok`)
 
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message.slice(0, 100) : String(err).slice(0, 100)
-    console.error('[TikTok] Unhandled error:', err)
-    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=${encodeURIComponent(errMsg)}`)
+    await captureOperationalError(err, {
+      operation: 'oauth.tiktok-callback',
+      route: '/api/social/callback/tiktok',
+      component: 'oauth',
+      method: 'GET',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=tiktok_connection_failed`)
   }
 }

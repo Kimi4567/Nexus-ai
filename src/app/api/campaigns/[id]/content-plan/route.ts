@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
+import { readRejectedVideoReview } from '@/lib/rejectedMediaReview'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -63,9 +64,42 @@ export async function GET(req: NextRequest, props: Params) {
       },
     })
 
+    // Rejected generated videos are retained for audit, but never attached to
+    // the post. Return a safe read-only preview so the user can see what was
+    // produced and why NEXUS blocked it instead of making the output disappear.
+    const videoGenerations = await (prisma.generation as any).findMany({
+      where: {
+        campaignId: params.id,
+        type: 'VIDEO',
+        provider: 'runway',
+        status: 'FAILED',
+        output: { not: null },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      select: {
+        id: true,
+        status: true,
+        output: true,
+        metadata: true,
+        params: true,
+      },
+    })
+    const rejectedVideoByPostId = new Map<string, ReturnType<typeof readRejectedVideoReview>>()
+    for (const generation of videoGenerations) {
+      const generationParams = generation.params && typeof generation.params === 'object' && !Array.isArray(generation.params)
+        ? generation.params as Record<string, unknown>
+        : null
+      const postId = typeof generationParams?.postId === 'string' ? generationParams.postId : null
+      if (!postId || rejectedVideoByPostId.has(postId)) continue
+      const review = readRejectedVideoReview(generation)
+      if (review) rejectedVideoByPostId.set(postId, review)
+    }
+
     return NextResponse.json({
       posts: posts.map((post: any) => ({
         ...post,
+        rejectedVideoReview: rejectedVideoByPostId.get(post.id) ?? null,
         providerPlatform: post.platform,
         // Legacy META rows remain explicitly ambiguous; the UI must ask for a
         // channel instead of silently claiming Instagram or Facebook.

@@ -90,7 +90,7 @@ describe('deriveContentHubFirstScreenTruth', () => {
 
     expect(cards[0].value).toBe('Matched: no organic posts expected')
     expect(cards[1].value).toBe('No Content Hub drafts yet')
-    expect(cards[2].value).toBe('No image slots required')
+    expect(cards[2].value).toBe('No media slots required')
     expect(cards[3].value).toBe('Review the paid planning brief')
     expect(cards[3].helper).toContain('No organic Content Hub posts are required')
   })
@@ -139,6 +139,28 @@ describe('deriveContentHubFirstScreenTruth', () => {
     expect(cards[2].value).toBe('1 / 7 media ready')
     expect(cards[2].helper).toContain('not counted ready')
     expect(cards[2].tone).toBe('warning')
+  })
+
+  it('counts ready image and video media against all required post media slots', () => {
+    const cards = deriveContentHubFirstScreenTruth({
+      locale: 'en',
+      fulfillmentSummary: fulfillment(10, 10),
+      totalPosts: 10,
+      draftCount: 10,
+      approvedCount: 0,
+      scheduledCount: 0,
+      publishedCount: 0,
+      manuallyPublishedCount: 0,
+      totalImagePosts: 5,
+      readyMediaCount: 6,
+      ambiguousPreviewCount: 0,
+      videoPostCount: 5,
+      hasOrderMismatch: false,
+      hasQualityMismatch: false,
+    })
+
+    expect(cards[2].value).toBe('6 / 10 media ready')
+    expect(cards[2].helper).toContain('4 slots')
   })
 
   it('uses Arabic word-based ratios so RTL rendering cannot flip media counts', () => {
@@ -197,5 +219,31 @@ describe('deriveContentHubFirstScreenTruth', () => {
       tone: 'danger',
     })
     expect(cards[3].helper).toContain('Brand Brain and approved strategy')
+  })
+
+  it('does not call approved copy ready for scheduling when a later quality check fails', () => {
+    const cards = deriveContentHubFirstScreenTruth({
+      locale: 'en',
+      fulfillmentSummary: fulfillment(7),
+      totalPosts: 7,
+      draftCount: 0,
+      approvedCount: 7,
+      scheduledCount: 0,
+      publishedCount: 0,
+      manuallyPublishedCount: 0,
+      totalImagePosts: 4,
+      readyMediaCount: 0,
+      ambiguousPreviewCount: 0,
+      videoPostCount: 3,
+      hasOrderMismatch: false,
+      hasQualityMismatch: true,
+    })
+
+    expect(cards[1]).toMatchObject({
+      value: 'Approval recorded · quality recheck required',
+      tone: 'danger',
+    })
+    expect(cards[1].helper).toContain('Execution stays locked')
+    expect(cards[1].value).not.toContain('awaiting scheduling')
   })
 })

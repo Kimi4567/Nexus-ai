@@ -89,6 +89,23 @@ export const CREDIT_COSTS = {
   IMAGE_GENERATION: 4,
 
   /**
+   * Cinematic product-ad master — one eight-second, multi-reference product-ad
+   * recipe. The expected provider cost is 344 provider credits ($3.44), before
+   * durable storage, visual QA, moderation, and failure reserve. Eighteen NEXUS
+   * credits preserves a positive expected margin at the lowest subscription
+   * unit value without hiding automatic retries (there are none).
+   */
+  VIDEO_GENERATION: 18,
+
+  /**
+   * Source-locked motion design — turns one analysed user-owned screen/demo
+   * clip into a six-second bumper master. The route uses deterministic
+   * packaged FFmpeg edit plus one bounded visual QA call; it never calls a
+   * generative-video provider and never performs an automatic retry.
+   */
+  MOTION_DESIGN_VIDEO: 6,
+
+  /**
    * Ad copy generation — gpt-4o-mini ad concepts and copy variants
    * Routes: /api/campaigns/suggest, /api/brand/suggest, /api/ai/generate,
    *         /api/ad-campaigns/[id]/generate-strategy, /api/ad-campaigns/[id]/generate-copy,
@@ -178,6 +195,14 @@ export const CREDIT_COSTS = {
   CONTENT_ANALYSIS: 3,
 
   /**
+   * Creative media intelligence — one bounded visual-evidence pass over up to
+   * eight uploaded campaign assets, followed by post-to-asset matching. The
+   * result is advisory only: it never attaches, approves, schedules, or
+   * publishes media. Audio transcription is explicitly outside this action.
+   */
+  MEDIA_INTELLIGENCE_ANALYSIS: 3,
+
+  /**
    * Brand evidence analysis — extracts source-backed claims from one private
    * document. Upload and human review are free; only this bounded model call is
    * billable. Claims remain candidates until the user explicitly approves them.
@@ -235,6 +260,20 @@ export const CREDIT_ACTION_POLICIES: Record<CreditAction, CreditActionPolicy> = 
     label: 'Image generation',
     reason: 'Creates one reviewable campaign image for a specific post.',
     includedWork: 'One image result with one configured fallback provider attempt.',
+    providerCallLimit: 2,
+    refundableOnNoUsableOutput: true,
+  },
+  VIDEO_GENERATION: {
+    label: 'Cinematic product ad',
+    reason: 'Creates one eight-second, multi-shot product-ad master from qualified real product references.',
+    includedWork: 'Asset preflight, one NEXUS cinematic product-ad task, durable storage, three-frame quality review, and safe draft attachment. No automatic provider retry, publishing, or scheduling.',
+    providerCallLimit: 1,
+    refundableOnNoUsableOutput: true,
+  },
+  MOTION_DESIGN_VIDEO: {
+    label: 'Source-locked motion design ad',
+    reason: 'Turns one approved user-owned screen or demo clip into a platform-ready advertising master without generative-video spend.',
+    includedWork: 'Source preflight, one deterministic six-second motion-design bumper, durable storage, five-frame quality review, and safe draft attachment. No generative-video provider, automatic retry, publishing, or scheduling.',
     providerCallLimit: 2,
     refundableOnNoUsableOutput: true,
   },
@@ -305,6 +344,13 @@ export const CREDIT_ACTION_POLICIES: Record<CreditAction, CreditActionPolicy> = 
     label: 'Content sample analysis',
     reason: 'Extracts candidate tone, hooks, and angles from supplied content samples.',
     includedWork: 'One bounded content analysis.',
+    providerCallLimit: 1,
+    refundableOnNoUsableOutput: true,
+  },
+  MEDIA_INTELLIGENCE_ANALYSIS: {
+    label: 'Creative media intelligence',
+    reason: 'Analyzes visible evidence in uploaded assets and ranks honest matches for campaign posts.',
+    includedWork: 'One bounded NEXUS visual-analysis pass for up to eight assets plus deterministic post matching. No attachment, generation, approval, scheduling, or publishing.',
     providerCallLimit: 1,
     refundableOnNoUsableOutput: true,
   },
@@ -861,8 +907,10 @@ export async function settleCreditDeduction(args: {
   userId: string
   action: CreditAction
   deduction: CreditDeductionOk | null | undefined
+  settlementEntityId?: string
+  settlementEntityType?: string
 }): Promise<CreditSettlementResult> {
-  const { userId, action, deduction } = args
+  const { userId, action, deduction, settlementEntityId, settlementEntityType } = args
   if (!deduction?.transactionId) {
     return deduction && deduction.creditsUsed > 0
       ? { ok: false, status: 'failed', error: 'credit_reservation_transaction_missing' }
@@ -897,7 +945,13 @@ export async function settleCreditDeduction(args: {
       const now = new Date()
       await tx.creditTransaction.update({
         where: { id: transaction.id },
-        data: { status: 'SETTLED', settledAt: now },
+        data: {
+          status: 'SETTLED',
+          settledAt: now,
+          ...(settlementEntityId && settlementEntityType
+            ? { entityId: settlementEntityId, entityType: settlementEntityType }
+            : {}),
+        },
       })
       const updatedUser = await tx.user.update({
         where: { id: userId },
@@ -935,6 +989,8 @@ export async function finalizeCreditDeduction(args: {
   userId: string
   action: CreditAction
   deduction: CreditDeductionOk | null | undefined
+  settlementEntityId?: string
+  settlementEntityType?: string
 }): Promise<CreditFinalizationResult> {
   const settlement = await settleCreditDeduction(args)
   if (settlement.ok) return settlement
@@ -1481,6 +1537,8 @@ const ACTION_LABELS: Record<string, string> = {
   CREATIVE_BRIEF: 'Creative Brief',
   SENTINEL_REVIEW: 'Sentinel Review',
   IMAGE_GENERATION: 'Image Generation',
+  VIDEO_GENERATION: 'Cinematic Product Ad',
+  MOTION_DESIGN_VIDEO: 'Source-Locked Motion Design Ad',
   AD_COPY: 'Ad Copy Generation',
   PAID_EXECUTION_PLAN: 'Paid Execution Plan',
   CHAT_MESSAGE: 'AI Chat Message',
@@ -1490,6 +1548,7 @@ const ACTION_LABELS: Record<string, string> = {
   PAID_PACK_GENERATE: 'Paid Campaign Pack',
   WEBSITE_SCAN: 'Website Intelligence Scan',
   CONTENT_ANALYSIS: 'Content Samples Analysis',
+  MEDIA_INTELLIGENCE_ANALYSIS: 'Creative Media Intelligence',
   BRAND_EVIDENCE_ANALYSIS: 'Brand Evidence Analysis',
   CREDIT: 'Credits Added',
   REFUND: 'Refund',

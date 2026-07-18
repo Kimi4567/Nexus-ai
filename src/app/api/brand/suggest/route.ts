@@ -291,13 +291,13 @@ Rules:
         }),
       })
       if (!res.ok) {
-        await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: `OpenAI error ${res.status}` })
-        return NextResponse.json({ error: `OpenAI error ${res.status}` }, { status: 502 })
+        await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'NEXUS AI service error' })
+        return NextResponse.json({ error: 'NEXUS AI could not create a suggestion. Credits were restored.' }, { status: 502 })
       }
       const completion = await res.json()
       const rawSuggestion: string = completion.choices?.[0]?.message?.content?.trim() || ''
       if (!rawSuggestion) {
-        await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'OpenAI returned no suggestion' })
+        await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'NEXUS AI returned no suggestion' })
         return NextResponse.json({ error: 'AI returned no suggestion' }, { status: 502 })
       }
       // PR-G: deterministic truth guard — scrub invented metrics, downgrade fake
@@ -343,14 +343,14 @@ Rules:
       }),
     })
     if (!res.ok) {
-      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: `OpenAI error ${res.status}` })
-      return NextResponse.json({ error: `OpenAI error ${res.status}` }, { status: 502 })
+      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'NEXUS AI service error' })
+      return NextResponse.json({ error: 'NEXUS AI could not create suggestions. Credits were restored.' }, { status: 502 })
     }
     const completion = await res.json()
 
     const raw: string = completion.choices?.[0]?.message?.content?.trim() || ''
     if (!raw) {
-      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'OpenAI returned no suggestions' })
+      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'NEXUS AI returned no suggestions' })
       return NextResponse.json({ error: 'AI returned no suggestions' }, { status: 502 })
     }
     const cleaned = raw.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim()
@@ -377,7 +377,7 @@ Rules:
       suggestions = []
     }
     if (suggestions.length === 0) {
-      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'OpenAI returned no usable suggestions' })
+      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'NEXUS AI returned no usable suggestions' })
       return NextResponse.json({ error: 'AI returned no usable suggestions' }, { status: 502 })
     }
 

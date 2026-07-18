@@ -261,7 +261,7 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).toContain("uiText('اقرأ وثيقة الاستراتيجية', 'Read strategy document')")
     expect(campaignRoomSource).toContain("uiText('⚠ نتيجة فحص الجودة: المعالجة مطلوبة', '⚠ Quality review result: action required')")
     expect(campaignRoomSource).toContain("uiText('النص الذي يمنع الاعتماد', 'Text blocking approval')")
-    expect(campaignRoomSource).toContain('Apply safe correction and re-review')
+    expect(campaignRoomSource).toContain('Apply deterministic correction and re-review')
     expect(campaignRoomSource).toContain("open={sentinelStatus === 'needs_attention'}")
     expect(campaignRoomSource).toContain("uiText('مسار التشغيل التالي', 'Next operating path')")
     expect(campaignRoomSource).toContain("uiText('اتبع هذا الترتيب: محتوى، إبداع، ثم جاهزية المنصات.', 'Follow this order: content, creative, then platform readiness.')")

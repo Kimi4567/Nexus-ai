@@ -39,9 +39,9 @@ describe('Content Hub image format normalization', () => {
     expect(platformToOpenAISize('YOUTUBE_SHORTS')).toBe('1024x1536')
   })
 
-  it('maps Content Hub META feed visuals to the square preview used by the UI', () => {
-    expect(platformToFluxAspectRatio('META')).toBe('1:1')
-    expect(platformToOpenAISize('META')).toBe('1024x1024')
+  it('maps META feed sources to portrait before the exact 4:5 delivery crop', () => {
+    expect(platformToFluxAspectRatio('META')).toBe('4:5')
+    expect(platformToOpenAISize('META')).toBe('1024x1536')
   })
 
   it('maps landscape feeds to the Ultra API 3:2 aspect ratio', () => {

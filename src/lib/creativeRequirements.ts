@@ -2,6 +2,8 @@ import {
   deriveContentHubMediaState,
   type ContentHubMediaStateInput,
 } from './contentHubMediaState'
+import { resolvePlatformImageFormat } from './platformImageFormat'
+import { resolvePlatformVideoFormat } from './platformVideoFormat'
 
 export type CreativeRequirementStatus =
   | 'media_needed'
@@ -62,51 +64,33 @@ export type CreativeRequirement = {
 export type CreativeRequirementsSummary = {
   total: number
   mediaNeeded: number
+  imageNeeded?: number
+  videoNeeded?: number
   readinessPending: number
   attachedToPost: number
 }
-
-const PLATFORM_FORMATS: Array<{
-  match: RegExp
-  format: string
-  aspectRatio: string
-}> = [
-  { match: /TIKTOK|REEL|SHORT|YOUTUBE(?:_SHORTS)?|STORY/i, format: 'Vertical short-form image/video cover', aspectRatio: '9:16' },
-  { match: /PINTEREST|\bPIN\b/i, format: 'Pinterest standard image Pin', aspectRatio: '2:3' },
-  { match: /LINKEDIN/i, format: 'LinkedIn feed image', aspectRatio: '1.91:1' },
-  { match: /FACEBOOK|META/i, format: 'Meta feed image', aspectRatio: '4:5' },
-  { match: /INSTAGRAM/i, format: 'Instagram feed image', aspectRatio: '4:5' },
-  { match: /X|TWITTER/i, format: 'Social feed image', aspectRatio: '1.91:1' },
-]
 
 function normalizePlatform(platform?: string | null): string {
   return (platform || 'GENERAL').trim().toUpperCase() || 'GENERAL'
 }
 
 export function deriveCreativePlatformFormat(platform?: string | null): { format: string; aspectRatio: string } {
-  const normalized = normalizePlatform(platform)
-  const found = PLATFORM_FORMATS.find(item => item.match.test(normalized))
-  return found ?? { format: 'Square feed image', aspectRatio: '1:1' }
+  const target = resolvePlatformImageFormat(platform)
+  return { format: target.format, aspectRatio: target.aspectRatio }
 }
 
 export function deriveCreativePlatformVideoFormat(platform?: string | null): { format: string; aspectRatio: string } {
-  const normalized = normalizePlatform(platform)
-  if (/TIKTOK|REEL|SHORT|STORY/i.test(normalized)) {
-    return { format: 'Vertical short-form video', aspectRatio: '9:16' }
-  }
-  if (/INSTAGRAM|FACEBOOK|META/i.test(normalized)) {
-    return { format: 'Vertical social video', aspectRatio: '9:16' }
-  }
-  if (/LINKEDIN/i.test(normalized)) {
-    return { format: 'LinkedIn feed video', aspectRatio: '16:9' }
-  }
-  if (/YOUTUBE/i.test(normalized)) {
-    return { format: 'YouTube video', aspectRatio: '16:9' }
-  }
-  if (/PINTEREST|\bPIN\b/i.test(normalized)) {
-    return { format: 'Pinterest video Pin', aspectRatio: '9:16' }
-  }
-  return { format: 'Social feed video', aspectRatio: '16:9' }
+  const target = resolvePlatformVideoFormat(platform)
+  const format = target.platform === 'LINKEDIN'
+    ? 'LinkedIn feed video'
+    : target.platform === 'PINTEREST'
+      ? 'Pinterest video Pin'
+      : ['META', 'FACEBOOK', 'INSTAGRAM'].includes(target.platform)
+        ? 'Vertical social video'
+        : target.aspectRatio === '9:16'
+          ? 'Vertical short-form video'
+          : 'Social feed video'
+  return { format, aspectRatio: target.aspectRatio }
 }
 
 function deriveSourcePreference(input: CreativeRequirementInput): CreativeSourcePreference {
@@ -140,8 +124,8 @@ function deriveStatus(input: CreativeRequirementInput): Pick<
       status: 'requirement_ready',
       statusLabel: 'Requirement ready',
       statusLabelAr: 'المتطلبات جاهزة',
-      explanation: 'This video slot has a planning requirement; final media remains a separate review step.',
-      explanationAr: 'خانة الفيديو لديها متطلبات تخطيط؛ وتبقى الوسائط النهائية خطوة مراجعة منفصلة.',
+      explanation: 'This video slot has an approved direction; generate a professional master or attach an owned video, then review the final media.',
+      explanationAr: 'خانة الفيديو لديها اتجاه معتمد؛ ولّد فيديو احترافيًا أو أرفق فيديو مملوكًا ثم راجع الوسائط النهائية.',
       countsAsMediaPresent: false,
     }
   }
@@ -226,13 +210,19 @@ export function summarizeCreativeRequirements(inputs: CreativeRequirementInput[]
   return inputs.reduce<CreativeRequirementsSummary>((summary, input) => {
     const requirement = derivePostCreativeRequirement(input)
     summary.total += 1
-    if (requirement.status === 'media_needed') summary.mediaNeeded += 1
+    if (requirement.status === 'media_needed' || requirement.status === 'requirement_ready') {
+      summary.mediaNeeded += 1
+      if (input.isVideoPost) summary.videoNeeded = (summary.videoNeeded || 0) + 1
+      else summary.imageNeeded = (summary.imageNeeded || 0) + 1
+    }
     if (requirement.status === 'media_preview_needs_confirmation') summary.readinessPending += 1
     if (requirement.status === 'attached_to_post') summary.attachedToPost += 1
     return summary
   }, {
     total: 0,
     mediaNeeded: 0,
+    imageNeeded: 0,
+    videoNeeded: 0,
     readinessPending: 0,
     attachedToPost: 0,
   })

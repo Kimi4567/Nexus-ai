@@ -12,7 +12,7 @@
  * - Progress bar showing generation status
  */
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef, type ReactNode } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -23,8 +23,11 @@ import { useBillingStatus } from '@/lib/useBillingStatus'
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
 import {
   CONTENT_HUB_IMAGE_COST,
+  CONTENT_HUB_VIDEO_COST,
+  CONTENT_HUB_MOTION_DESIGN_COST,
   CONTENT_HUB_REGENERATION_COST,
   CONTENT_HUB_REWRITE_COST,
+  CONTENT_HUB_MEDIA_INTELLIGENCE_COST,
   getBulkImageGenerationCost,
   summarizeBulkImageGenerationOutcome,
   type BulkImageGenerationSummary,
@@ -47,6 +50,28 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { PostPlatformPublisher } from '@/components/publishing/PostPlatformPublisher'
 import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
+import {
+  GeneratedVisualTerminalError,
+  pollGeneratedVisual,
+} from '@/lib/generatedVisualPolling'
+import {
+  type CreativeIntelligencePayload,
+  type CreativeMediaCandidate,
+  type CreativeMediaMatch,
+} from '@/lib/creativeIntelligence'
+import { CreativeIntelligencePanel } from '@/components/content/CreativeIntelligencePanel'
+import { PostCreativeMatch } from '@/components/content/PostCreativeMatch'
+import { CreativeAdaptationModal } from '@/components/content/CreativeAdaptationModal'
+import {
+  assessCinematicProductAdAssets,
+  CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
+  CINEMATIC_PRODUCT_AD_MAX_REFERENCES,
+  CINEMATIC_PRODUCT_AD_MIN_REFERENCES,
+} from '@/lib/videoAdPreflight'
+import {
+  assessMotionDesignVideoAsset,
+  MOTION_DESIGN_DURATION_SECONDS,
+} from '@/lib/motionDesignAd'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -62,6 +87,7 @@ interface ContentPost {
   imageUrl: string | null
   imagePrompt: string | null
   videoPrompt: string | null
+  errorMessage: string | null
   isVideoPost: boolean
   generationStatus: GenStatus
   mediaSource: MediaSource
@@ -80,6 +106,18 @@ interface ContentPost {
   variantGroup: string | null
   variantLabel: string | null   // 'A' | 'B' | null
   variantWinner: boolean
+  rejectedVideoReview?: {
+    generationId: string
+    previewUrl: string
+    summary: string
+    issues: string[]
+    reviewedAt: string | null
+    semanticAlignmentScore: number | null
+    professionalQualityScore: number | null
+    referencePreservationScore: number | null
+    attachable: false
+    publishable: false
+  } | null
 }
 
 interface MediaItem {
@@ -89,6 +127,21 @@ interface MediaItem {
   type: string
   assetKind?: 'UPLOADED_MEDIA' | 'GENERATED_VISUAL'
   generatedVisualId?: string
+  mimeType?: string | null
+  cloudinaryId?: string | null
+  width?: number | null
+  height?: number | null
+  duration?: number | null
+  category?: string | null
+  tags?: string[]
+  intelligenceStatus?: string | null
+  intelligence?: unknown
+}
+
+interface CreativeAdaptationSelection {
+  postId: string
+  match: CreativeMediaMatch
+  media: CreativeMediaCandidate
 }
 
 interface ScheduleAccount {
@@ -365,6 +418,13 @@ export default function ContentHubPage() {
   })
   const [posts, setPosts] = useState<ContentPost[]>([])
   const [mediaLibrary, setMediaLibrary] = useState<MediaItem[]>([])
+  const [creativeIntelligence, setCreativeIntelligence] = useState<CreativeIntelligencePayload | null>(null)
+  const [creativeScanning, setCreativeScanning] = useState(false)
+  const [showCreativeScanConfirm, setShowCreativeScanConfirm] = useState(false)
+  const [creativeScanAcknowledged, setCreativeScanAcknowledged] = useState(false)
+  const [creativeAdaptation, setCreativeAdaptation] = useState<CreativeAdaptationSelection | null>(null)
+  const [creativeAdaptationAcknowledged, setCreativeAdaptationAcknowledged] = useState(false)
+  const [adaptingCreativePostId, setAdaptingCreativePostId] = useState<string | null>(null)
   const [activePlatform, setActivePlatform] = useState<Platform>('ALL')
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -430,6 +490,14 @@ export default function ContentHubPage() {
   const [retryingGeneratedAttachment, setRetryingGeneratedAttachment] = useState(false)
   const [imageGenerationConfirmPostId, setImageGenerationConfirmPostId] = useState<string | null>(null)
   const [imageGenerationAcknowledged, setImageGenerationAcknowledged] = useState(false)
+  const [imageReferenceMediaId, setImageReferenceMediaId] = useState<string | null>(null)
+  const [videoGenerationConfirmPostId, setVideoGenerationConfirmPostId] = useState<string | null>(null)
+  const [videoGenerationAcknowledged, setVideoGenerationAcknowledged] = useState(false)
+  const [videoAssetRightsAcknowledged, setVideoAssetRightsAcknowledged] = useState(false)
+  const [videoReferenceMediaIds, setVideoReferenceMediaIds] = useState<string[]>([])
+  const [videoProductionMode, setVideoProductionMode] = useState<'MOTION_DESIGN' | 'CINEMATIC'>('MOTION_DESIGN')
+  const [motionDesignSourceMediaId, setMotionDesignSourceMediaId] = useState<string | null>(null)
+  const [generatingVideoId, setGeneratingVideoId] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'DONE' | 'SCHEDULED' | 'PUBLISHED'>('ALL')
   const [showBulkImageConfirm, setShowBulkImageConfirm] = useState(false)
   const [bulkImageAcknowledged, setBulkImageAcknowledged] = useState(false)
@@ -459,11 +527,12 @@ export default function ContentHubPage() {
     try {
       // These resources are independent. Load them concurrently so a slow media
       // library cannot block the campaign and its content plan from appearing.
-      const [campaignResult, planResult, mediaResult, brandResult] = await Promise.allSettled([
+      const [campaignResult, planResult, mediaResult, brandResult, creativeIntelligenceResult] = await Promise.allSettled([
         fetchWithTimeout(`/api/campaigns/${campaignId}`, { headers: { Authorization: authorization } }, 9_000),
         fetchWithTimeout(`/api/campaigns/${campaignId}/content-plan`, { headers: { Authorization: authorization } }, 9_000),
         fetchWithTimeout(`/api/media?campaignId=${encodeURIComponent(campaignId)}`, { headers: { Authorization: authorization } }, 9_000),
         fetchWithTimeout('/api/brand', { headers: { Authorization: authorization } }, 9_000),
+        fetchWithTimeout(`/api/campaigns/${campaignId}/creative-intelligence`, { headers: { Authorization: authorization } }, 9_000),
       ])
 
       if (campaignResult.status !== 'fulfilled') {
@@ -519,6 +588,10 @@ export default function ContentHubPage() {
             verifiedProof: bData.brandProfile.verifiedProof ?? [],
           })
         }
+      }
+
+      if (creativeIntelligenceResult.status === 'fulfilled' && creativeIntelligenceResult.value.ok) {
+        setCreativeIntelligence(await creativeIntelligenceResult.value.json())
       }
     } catch (err) {
       setLoadError(err instanceof Error
@@ -628,13 +701,30 @@ export default function ContentHubPage() {
   useEffect(() => {
     const generating = posts.some(p => p.generationStatus === 'GENERATING')
     if (generating && !pollRef.current) {
-      pollRef.current = setInterval(loadData, 4000)
+      const poll = async () => {
+        const authorization = authHeader()
+        const videoPosts = posts.filter(post => post.isVideoPost && post.generationStatus === 'GENERATING')
+        if (authorization && videoPosts.length > 0) {
+          await Promise.all(videoPosts.map(post =>
+            fetch(`/api/campaigns/${campaignId}/content-plan/${post.id}/generate-video`, {
+              headers: { Authorization: authorization },
+            }).catch(() => null),
+          ))
+        }
+        await loadData()
+      }
+      pollRef.current = setInterval(() => { void poll() }, 4000)
     } else if (!generating && pollRef.current) {
       clearInterval(pollRef.current)
       pollRef.current = null
     }
-    return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  }, [posts, loadData])
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current)
+        pollRef.current = null
+      }
+    }
+  }, [posts, loadData, authHeader, campaignId])
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -654,6 +744,7 @@ export default function ContentHubPage() {
 
   const totalImagePosts = posts.filter(p => !p.isVideoPost).length
   const mediaReadiness = summarizeContentHubMediaReadiness(posts.filter(p => !p.isVideoPost))
+  const allMediaReadiness = summarizeContentHubMediaReadiness(posts)
   const doneCount = mediaReadiness.confirmedReady
   const ambiguousPreviewCount = mediaReadiness.ambiguousPreviewCount
   const pendingImagePosts = posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost)
@@ -661,6 +752,9 @@ export default function ContentHubPage() {
   const bulkImageCreditCost = getBulkImageGenerationCost(pendingImageCount)
   const progress = totalImagePosts > 0 ? Math.round((doneCount / totalImagePosts) * 100) : 0
   const draftCount = posts.filter(p => p.status === 'DRAFT').length
+  const draftMediaDecisionCount = posts.filter(
+    post => post.status === 'DRAFT' && deriveContentHubMediaState(post).needsAttention,
+  ).length
   const approvedCount = posts.filter(p => p.status === 'APPROVED').length
   const approvedPostsWithDates = posts.filter(p => p.status === 'APPROVED' && hasValidDate(p.scheduledAt))
   const approvedAutoTargets = Array.from(new Set(approvedPostsWithDates.map(post => normalizeAutoPublishTarget(post.platform))))
@@ -779,6 +873,17 @@ export default function ContentHubPage() {
       ],
     )
   }, [brandProfile, campaign?.aiOutput, contentReviewPosts])
+  const approvalReviewSummary = useMemo(() => {
+    const claimRisks = contentApprovalPreflight.issues.filter(issue => /unsupported|unverified|claim/i.test(issue.reason)).length
+    const destinationRisks = contentApprovalPreflight.issues.filter(issue => /destination|conversion|cta/i.test(issue.reason)).length
+    const alignmentRisks = Math.max(0, contentApprovalPreflight.issues.length - claimRisks - destinationRisks)
+    return {
+      reviewedDrafts: contentReviewPosts.filter(post => post.status === 'DRAFT').length,
+      claimRisks,
+      destinationRisks,
+      alignmentRisks,
+    }
+  }, [contentApprovalPreflight.issues, contentReviewPosts])
   const contentIssueCountByPostId = useMemo(() => {
     const counts = new Map<string, number>()
     for (const issue of contentApprovalPreflight.issues) {
@@ -821,8 +926,8 @@ export default function ContentHubPage() {
     publishedCount,
     manuallyPublishedCount,
     totalImagePosts,
-    readyMediaCount: doneCount,
-    ambiguousPreviewCount,
+    readyMediaCount: allMediaReadiness.confirmedReady,
+    ambiguousPreviewCount: allMediaReadiness.ambiguousPreviewCount,
     videoPostCount,
     hasOrderMismatch: Boolean(contentPlanOrderMismatch),
     hasQualityMismatch: contentReviewRequired,
@@ -853,23 +958,33 @@ export default function ContentHubPage() {
     ? 'قد تظهر بعض معاينات الوسائط، لكنها لا تُحتسب جاهزة حتى يتم تأكيد حالة التوليد أو الربط.'
     : 'Some media previews may be visible, but they are not counted ready until generation or attachment status is confirmed.'
   const contentStatusSummary = (() => {
+    const readyMediaTotal = totalImagePosts + videoPostCount
+    const readyMediaSummary = isAr
+      ? `${allMediaReadiness.confirmedReady} من ${readyMediaTotal} وسائط جاهزة`
+      : `${allMediaReadiness.confirmedReady} / ${readyMediaTotal} media ready`
     if (approvedOnlyCount) {
+      if (contentReviewRequired) {
+        const affectedPosts = contentIssueCountByPostId.size
+        return isAr
+          ? `${approvedCount} سجلات اعتماد · ${affectedPosts} منشورات تحتاج إعادة فحص الجودة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${readyMediaSummary}`
+          : `${approvedCount} approval records · ${affectedPosts} posts need a quality recheck · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${readyMediaSummary}`
+      }
       return isAr
-        ? `${approvedCount} منشورات معتمدة بانتظار الجدولة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${doneCount} عناصر مرئية جاهزة`
-        : `${approvedCount} approved posts awaiting scheduling · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${doneCount} visuals generated`
+        ? `${approvedCount} منشورات معتمدة بانتظار الجدولة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${readyMediaSummary}`
+        : `${approvedCount} approved posts awaiting scheduling · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${readyMediaSummary}`
     }
     if (scheduledOnlyCount) {
       return isAr
-        ? `${scheduledCount} منشورات مجدولة — غير منشورة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${doneCount} عناصر مرئية جاهزة`
-        : `${scheduledCount} scheduled posts — not published · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${doneCount} visuals generated`
+        ? `${scheduledCount} منشورات مجدولة — غير منشورة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${readyMediaSummary}`
+        : `${scheduledCount} scheduled posts — not published · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${readyMediaSummary}`
     }
     if (mixedScheduledManualPublishedCount) {
       return isAr
-        ? `${manuallyPublishedCount} منشور تم تأكيد نشره يدويًا · ${scheduledCount} منشورات مجدولة — غير منشورة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${doneCount} عناصر مرئية جاهزة`
-        : `${manuallyPublishedCount} manually published post${manuallyPublishedCount === 1 ? '' : 's'} · ${scheduledCount} scheduled posts — not published · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${doneCount} visuals generated`
+        ? `${manuallyPublishedCount} منشور تم تأكيد نشره يدويًا · ${scheduledCount} منشورات مجدولة — غير منشورة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${readyMediaSummary}`
+        : `${manuallyPublishedCount} manually published post${manuallyPublishedCount === 1 ? '' : 's'} · ${scheduledCount} scheduled posts — not published · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${readyMediaSummary}`
     }
 
-    return `${posts.length} ${t('contentHub.draftsToReview')} · ${totalImagePosts} ${t('contentHub.imageSlots')} · ${videoPostCount} ${t('contentHub.videoSlots')} · ${doneCount} ${t('contentHub.visualsGenerated')}`
+    return `${posts.length} ${t('contentHub.draftsToReview')} · ${totalImagePosts} ${t('contentHub.imageSlots')} · ${videoPostCount} ${t('contentHub.videoSlots')} · ${readyMediaSummary}`
   })()
   const contentStatusExplainer = mixedScheduledManualPublishedCount
     ? (isAr
@@ -879,6 +994,10 @@ export default function ContentHubPage() {
     ? (isAr
       ? 'المحتوى مجدول فقط. النشر والوسائط والأوتوبايلوت ما زالت خطوات منفصلة.'
       : 'Content is scheduled only. Publishing, media generation, and Autopilot remain separate steps.')
+    : approvedOnlyCount && contentReviewRequired
+      ? (isAr
+        ? 'الاعتماد السابق محفوظ في السجل، لكن ملاحظات الجودة أعادت فتح النصوص المتأثرة للمراجعة. لا جدولة ولا نشر حتى تعديلها وإعادة اعتمادها.'
+        : 'The prior approval remains in the audit record, but quality findings reopened affected copy for review. Scheduling and publishing stay locked until it is edited and re-approved.')
     : approvedOnlyCount
       ? (isAr
         ? 'تم اعتماد المحتوى. الصور والوسائط ما زالت مرحلة منفصلة، والجدولة والنشر يحتاجان قراراً منفصلاً.'
@@ -886,6 +1005,16 @@ export default function ContentHubPage() {
       : t('contentHub.countExplainer')
   const imageGenerationTruth = getCreditActionTruth({
     action: 'IMAGE_GENERATION',
+    creditsRemaining,
+    isUnlimited,
+  })
+  const videoGenerationTruth = getCreditActionTruth({
+    action: 'VIDEO_GENERATION',
+    creditsRemaining,
+    isUnlimited,
+  })
+  const motionDesignTruth = getCreditActionTruth({
+    action: 'MOTION_DESIGN_VIDEO',
     creditsRemaining,
     isUnlimited,
   })
@@ -899,7 +1028,16 @@ export default function ContentHubPage() {
     creditsRemaining,
     isUnlimited,
   })
+  const mediaIntelligenceTruth = getCreditActionTruth({
+    action: 'MEDIA_INTELLIGENCE_ANALYSIS',
+    creditsRemaining,
+    isUnlimited,
+  })
   const imageGenerationLocked = !billingLoading && !imageGenerationTruth.canAfford
+  const cinematicVideoLocked = !billingLoading && !videoGenerationTruth.canAfford
+  const motionDesignLocked = !billingLoading && !motionDesignTruth.canAfford
+  const videoGenerationLocked = cinematicVideoLocked && motionDesignLocked
+  const mediaIntelligenceLocked = !billingLoading && !mediaIntelligenceTruth.canAfford
   const selectedContentPlanCost = contentPlanTruth.cost + (enableABTesting ? abVariantTruth.cost : 0)
   const contentPlanCanAfford = isUnlimited || creditsRemaining >= selectedContentPlanCost
   const contentPlanLocked = !billingLoading && !contentPlanCanAfford
@@ -915,6 +1053,7 @@ export default function ContentHubPage() {
     ? strategyApprovalRequiredLabel
     : (isAr ? 'صحّح النصوص قبل توليد الصور' : 'Fix copy before generating images')
   const addCreditsForImagesLabel = isAr ? 'أضف رصيداً لتوليد الصور' : 'Add credits to generate images'
+  const addCreditsForVideoLabel = isAr ? 'أضف رصيداً لتوليد الفيديو' : 'Add credits to generate video'
   const contentPlanCostLabel = isAr
     ? `${selectedContentPlanCost} كريديت`
     : `${selectedContentPlanCost} credit${selectedContentPlanCost === 1 ? '' : 's'}`
@@ -1141,6 +1280,66 @@ export default function ContentHubPage() {
   const imageGenerationConfirmPost = imageGenerationConfirmPostId
     ? posts.find(p => p.id === imageGenerationConfirmPostId)
     : null
+  const videoGenerationConfirmPost = videoGenerationConfirmPostId
+    ? posts.find(p => p.id === videoGenerationConfirmPostId)
+    : null
+  const mediaPickerPost = mediaPickerOpen
+    ? posts.find(p => p.id === mediaPickerOpen)
+    : null
+  const mediaPickerItems = mediaLibrary.filter(media => mediaPickerPost?.isVideoPost
+    ? ['video', 'VIDEO'].includes(media.type)
+    : ['image', 'IMAGE', 'logo', 'LOGO'].includes(media.type))
+  const videoReferenceImages = Array.from(new Map([
+    ...mediaLibrary,
+    ...Object.values(creativeIntelligence?.assetsById ?? {}),
+  ].filter(media => ['image', 'IMAGE'].includes(media.type)).map(media => [media.id, media])).values()).slice(0, 8)
+  const selectedVideoReferenceMedia = videoReferenceMediaIds
+    .map(id => videoReferenceImages.find(media => media.id === id))
+    .filter((media): media is CreativeMediaCandidate => Boolean(media))
+  const cinematicVideoPreflight = assessCinematicProductAdAssets(selectedVideoReferenceMedia)
+  const canStartCinematicVideo = cinematicVideoPreflight.eligible
+    && videoGenerationAcknowledged
+    && videoAssetRightsAcknowledged
+    && !cinematicVideoLocked
+  const motionDesignVideos = mediaLibrary.filter(media => (
+    String(media.type).toUpperCase() === 'VIDEO'
+    && !/motion[-_ ]design|source[-_ ]locked/i.test([media.category || '', ...(media.tags || [])].join(' '))
+  )).slice(0, 8)
+  const motionDesignSource = motionDesignSourceMediaId
+    ? motionDesignVideos.find(media => media.id === motionDesignSourceMediaId) ?? null
+    : null
+  const motionDesignPreflight = assessMotionDesignVideoAsset(
+    motionDesignSource,
+    videoGenerationConfirmPost?.caption,
+  )
+  const canStartMotionDesign = motionDesignPreflight.eligible
+    && videoGenerationAcknowledged
+    && videoAssetRightsAcknowledged
+    && !motionDesignLocked
+  const canStartSelectedVideoRoute = videoProductionMode === 'MOTION_DESIGN'
+    ? canStartMotionDesign
+    : canStartCinematicVideo
+  const videoPreflightIssueCopy = (issue: { code: string; message: string }) => {
+    if (!isAr) return issue.message
+    const messages: Record<string, string> = {
+      REFERENCE_COUNT: `اختر ${CINEMATIC_PRODUCT_AD_MIN_REFERENCES}–${CINEMATIC_PRODUCT_AD_MAX_REFERENCES} صور محللة لنفس المنتج من زوايا مختلفة.`,
+      DUPLICATE_REFERENCE: 'كل زاوية يجب أن تكون أصلًا مختلفًا.',
+      IMAGE_REQUIRED: 'المسار السينمائي يقبل صور منتج ثابتة فقط.',
+      ANALYSIS_REQUIRED: 'حلّل الأصل أولًا عبر ذكاء الوسائط قبل دفع تكلفة الفيديو.',
+      PRODUCT_REFERENCE_REQUIRED: 'هذا الأصل ليس صورة منتج مؤهلة؛ صور الواجهات والشعارات تحتاج Motion Design يحافظ على المصدر.',
+      RESOLUTION_REQUIRED: 'الدقة غير كافية: الحد الأدنى 720px للضلع القصير و1024px للضلع الطويل.',
+      QUALITY_TOO_LOW: 'جودة الأصل غير مؤهلة: يلزم 90/100، أو 85–89/100 مع دقة Full HD وبلا أي مشكلة جودة مسجلة. لن يبدأ أي إنفاق.',
+      LANGUAGE_MISMATCH: 'لغة الفيديو لا تطابق لغة نص المنشور؛ لائم النص أو اختر أصلًا بنفس اللغة قبل الإنتاج المدفوع.',
+      UNSAFE_SOURCE_GRAPHICS: 'الأصل يحتوي رسومات أو نصوصًا مركبة تجعل التوليد السينمائي غير موثوق.',
+      PRODUCT_IDENTITY_MISMATCH: 'لا يستطيع NEXUS تأكيد أن الصور لنفس المنتج؛ اختر زوايا أوضح ومتسقة.',
+    }
+    return messages[issue.code] || 'هذا الأصل لم يجتز فحص الفيديو المدفوع.'
+  }
+  const imageReferenceMedia = imageReferenceMediaId
+    ? mediaLibrary.find(media => media.id === imageReferenceMediaId)
+      ?? creativeIntelligence?.assetsById[imageReferenceMediaId]
+      ?? null
+    : null
   const imageGenerationReopensReview = Boolean(
     imageGenerationConfirmPost && ['APPROVED', 'SCHEDULED', 'FAILED'].includes(imageGenerationConfirmPost.status),
   )
@@ -1334,7 +1533,7 @@ export default function ContentHubPage() {
   async function confirmMediaAttachment() {
     if (!pendingMediaAttachment || !mediaAttachmentAcknowledged) return
     const { postId, media, action } = pendingMediaAttachment
-    await savePostEdit(postId, media.assetKind === 'GENERATED_VISUAL' && media.generatedVisualId
+    const attached = await savePostEdit(postId, media.assetKind === 'GENERATED_VISUAL' && media.generatedVisualId
       ? {
           generatedVisualId: media.generatedVisualId,
           explicitGeneratedMediaAttachConfirmed: true,
@@ -1345,6 +1544,7 @@ export default function ContentHubPage() {
             ? { explicitMediaReplaceConfirmed: true }
             : { explicitMediaAttachConfirmed: true }),
         })
+    if (attached) await loadData()
     setPendingMediaAttachment(null)
     setMediaAttachmentAcknowledged(false)
   }
@@ -1372,6 +1572,135 @@ export default function ContentHubPage() {
   function closeMediaRemovalConfirm() {
     setMediaRemovalPostId(null)
     setMediaRemovalAcknowledged(false)
+  }
+
+  // ── NEXUS Creative Intelligence ────────────────────────────────────────────
+
+  function openCreativeScanConfirm() {
+    const batchSize = creativeIntelligence?.summary.batchSize ?? 0
+    if (batchSize < 1) {
+      if ((creativeIntelligence?.summary.totalAssets ?? 0) < 1) router.push('/media')
+      else setError(isAr ? 'لا توجد أصول جديدة قابلة للتحليل الآن.' : 'No new previewable assets need analysis right now.')
+      return
+    }
+    if (mediaIntelligenceLocked) {
+      router.push('/billing')
+      return
+    }
+    setCreativeScanAcknowledged(false)
+    setShowCreativeScanConfirm(true)
+  }
+
+  function closeCreativeScanConfirm() {
+    if (creativeScanning) return
+    setShowCreativeScanConfirm(false)
+    setCreativeScanAcknowledged(false)
+  }
+
+  async function confirmCreativeScan() {
+    const batchSize = creativeIntelligence?.summary.batchSize ?? 0
+    if (!creativeScanAcknowledged || batchSize < 1 || creativeScanning) return
+    setCreativeScanning(true)
+    setError(null)
+    try {
+      const response = await fetchCreditOperation(
+        creditOperationScope('campaign:creative-intelligence', JSON.stringify({ campaignId, batchSize })),
+        `/api/campaigns/${campaignId}/creative-intelligence`,
+        {
+          method: 'POST',
+          headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            locale,
+            explicitAnalysisConfirmed: true,
+            acknowledgedCreditCost: CONTENT_HUB_MEDIA_INTELLIGENCE_COST,
+            acknowledgedAssetCount: batchSize,
+            acknowledgedNoAutomaticChanges: true,
+          }),
+        },
+      )
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'Creative Intelligence could not analyze the media')
+      if (data.payload) setCreativeIntelligence(data.payload)
+      setSuccessMsg(isAr
+        ? `تم تحليل ${data.analyzedAssets ?? batchSize} أصول وترتيب أفضل تطابق لكل بوست. لم يتم إرفاق أو تعديل أو نشر أي شيء.`
+        : `${data.analyzedAssets ?? batchSize} assets analyzed and ranked against the posts. Nothing was attached, changed, or published.`)
+      setShowCreativeScanConfirm(false)
+      setCreativeScanAcknowledged(false)
+      await refreshBillingStatus()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Creative Intelligence failed')
+      await refreshBillingStatus()
+    } finally {
+      setCreativeScanning(false)
+    }
+  }
+
+  function requestCreativeAdaptation(postId: string, match: CreativeMediaMatch, media: CreativeMediaCandidate) {
+    if (!getCreditActionTruth({ action: 'AI_POST_REWRITE', creditsRemaining, isUnlimited }).canAfford) {
+      router.push('/billing')
+      return
+    }
+    setCreativeAdaptation({ postId, match, media })
+    setCreativeAdaptationAcknowledged(false)
+  }
+
+  function closeCreativeAdaptation() {
+    if (adaptingCreativePostId) return
+    setCreativeAdaptation(null)
+    setCreativeAdaptationAcknowledged(false)
+  }
+
+  async function confirmCreativeAdaptation() {
+    if (!creativeAdaptation || !creativeAdaptationAcknowledged || adaptingCreativePostId) return
+    const { postId, media } = creativeAdaptation
+    setAdaptingCreativePostId(postId)
+    setError(null)
+    try {
+      const response = await fetchCreditOperation(
+        creditOperationScope('campaign:creative-copy-adaptation', JSON.stringify({ campaignId, postId, mediaId: media.id })),
+        `/api/campaigns/${campaignId}/creative-intelligence/adapt`,
+        {
+          method: 'POST',
+          headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            postId,
+            mediaId: media.id,
+            locale,
+            explicitAdaptationConfirmed: true,
+            acknowledgedCreditCost: CONTENT_HUB_REWRITE_COST,
+            acknowledgedReopensReview: true,
+            acknowledgedNoPublishOrSchedule: true,
+          }),
+        },
+      )
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'NEXUS could not adapt the copy')
+      setCreativeAdaptation(null)
+      setCreativeAdaptationAcknowledged(false)
+      setSuccessMsg(isAr
+        ? 'تمت ملاءمة النص مع الأصل الحقيقي وحفظهما كمسودة جديدة للمراجعة. لم تتم الجدولة أو النشر.'
+        : 'The copy was adapted to the real asset and saved as a new review draft. Nothing was scheduled or published.')
+      await Promise.all([loadData(), refreshBillingStatus()])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'NEXUS could not adapt the copy')
+      await refreshBillingStatus()
+    } finally {
+      setAdaptingCreativePostId(null)
+    }
+  }
+
+  function generateFromCreativeReference(post: ContentPost, media: CreativeMediaCandidate) {
+    const mediaType = String(media.type).toUpperCase()
+    if (post.isVideoPost) {
+      if (mediaType !== 'IMAGE') {
+        setError(isAr ? 'اختر صور منتج حقيقية؛ الشعارات والواجهات تحتاج مسار Motion Design ولا تُرسل للتوليد السينمائي.' : 'Choose real product photos; logos and interfaces require source-locked Motion Design and are not sent to cinematic generation.')
+        return
+      }
+      openVideoGenerationConfirm(post.id, media.id)
+      return
+    }
+    if (!['IMAGE', 'LOGO'].includes(mediaType)) return
+    openImageGenerationConfirm(post.id, media.id)
   }
 
   // ── Bulk generate images ─────────────────────────────────────────────────────
@@ -1828,7 +2157,7 @@ export default function ContentHubPage() {
   // ── Generate real AI image for a single post ─────────────────────────────────
   // Calls /api/visuals/generate → gpt-image-1 or Flux → Cloudinary + brand overlay
 
-  function openImageGenerationConfirm(postId: string) {
+  function openImageGenerationConfirm(postId: string, referenceMediaId: string | null = null) {
     if (strategyApprovalRequired || contentIssueCountByPostId.has(postId)) {
       setError(strategyApprovalRequired
         ? strategyApprovalRequiredLabel
@@ -1852,6 +2181,7 @@ export default function ContentHubPage() {
         : 'The previous attempt\'s credit restoration is pending automatic reconciliation. A new charge is blocked until it completes.')
       return
     }
+    setImageReferenceMediaId(referenceMediaId)
     setImageGenerationAcknowledged(false)
     setImageGenerationConfirmPostId(postId)
   }
@@ -1860,6 +2190,14 @@ export default function ContentHubPage() {
     if (generatingImageId) return
     setImageGenerationConfirmPostId(null)
     setImageGenerationAcknowledged(false)
+    setImageReferenceMediaId(null)
+  }
+
+  function chooseProductReferenceForImage() {
+    if (!imageGenerationConfirmPostId || generatingImageId) return
+    const postId = imageGenerationConfirmPostId
+    closeImageGenerationConfirm()
+    setMediaPickerOpen(postId)
   }
 
   async function confirmPostImageGeneration() {
@@ -1923,11 +2261,13 @@ export default function ContentHubPage() {
         caption: post.caption || post.imagePrompt || '',
         creativeRequirement,
       })
+      const authorization = authHeader()
+      if (!authorization) throw new Error(isAr ? 'تعذّر التحقق من جلسة الدخول.' : 'Could not verify your session.')
       const res = await fetchCreditOperation(creditOperationScope('campaign:post-visual', visualIdentity), '/api/visuals/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: authHeader(),
+          Authorization: authorization,
         },
         body: JSON.stringify({
           campaignId:  campaign?.id,
@@ -1937,6 +2277,9 @@ export default function ContentHubPage() {
           postCaption: post.caption || post.imagePrompt || '',
           parentId: `social-post:${post.id}`,
           assetRole: 'post_background',
+          // If the user attached a product/reference image first, preserve it
+          // through GPT Image 2 high-fidelity editing instead of replacing it.
+          referenceMediaId: imageReferenceMediaId || post.uploadedMediaId || undefined,
           creativeRequirement,
           creativeTemplate,
           explicitImageGenerationConfirmed: true,
@@ -1952,8 +2295,13 @@ export default function ContentHubPage() {
       }
 
       const data = await res.json()
-      const imageUrl = data?.visual?.imageUrl
-      const generatedVisualId = data?.visual?.id
+      const acceptedVisual = data?.visual
+      const generatedVisualId = acceptedVisual?.id
+      if (!generatedVisualId) throw new Error('No durable image production job returned')
+      const completedVisual = acceptedVisual?.status === 'COMPLETED' && acceptedVisual?.imageUrl
+        ? acceptedVisual
+        : await pollGeneratedVisual({ visualId: generatedVisualId, authorization })
+      const imageUrl = completedVisual?.imageUrl
       if (!imageUrl || !generatedVisualId) throw new Error('No durable generated media returned')
 
       const attached = await savePostEdit(postId, {
@@ -1963,6 +2311,7 @@ export default function ContentHubPage() {
       await refreshBillingStatus()
       setImageGenerationConfirmPostId(null)
       setImageGenerationAcknowledged(false)
+      setImageReferenceMediaId(null)
       if (!attached) {
         setPendingGeneratedAttachment({ postId, generatedVisualId })
         setError(isAr
@@ -1970,6 +2319,15 @@ export default function ContentHubPage() {
           : `The image was generated and ${CONTENT_HUB_IMAGE_COST} credits were charged, but attachment failed. The image is saved; retry attachment with no new charge.`)
       }
     } catch (err: any) {
+      if (err instanceof GeneratedVisualTerminalError) {
+        // A terminal provider/QA failure is final for this paid attempt. Close
+        // the consent modal so the visible page can show the failure instead
+        // of inviting an accidental duplicate charge while the refund settles.
+        setImageGenerationConfirmPostId(null)
+        setImageGenerationAcknowledged(false)
+        setImageReferenceMediaId(null)
+        await Promise.all([loadData(), refreshBillingStatus()])
+      }
       setError(err.message)
     } finally {
       setGeneratingImageId(null)
@@ -1991,6 +2349,161 @@ export default function ContentHubPage() {
         : 'The saved image was attached to the post with no new credit charge.')
     }
     setRetryingGeneratedAttachment(false)
+  }
+
+  // ── Generate one quality-gated, multi-reference cinematic product ad ──────
+
+  function openVideoGenerationConfirm(postId: string, referenceMediaId: string | null = null) {
+    const post = posts.find(item => item.id === postId)
+    if (!post?.isVideoPost) return
+    if (strategyApprovalRequired || contentIssueCountByPostId.has(postId)) {
+      setError(strategyApprovalRequired
+        ? strategyApprovalRequiredLabel
+        : (isAr ? 'صحّح نص هذا الفيديو قبل دفع تكلفة التوليد.' : 'Fix this video post copy before paying for generation.'))
+      return
+    }
+    if (videoGenerationLocked) {
+      setError(addCreditsForVideoLabel)
+      return
+    }
+    if (post.generationStatus === 'GENERATING') {
+      setError(isAr ? 'يتم بالفعل توليد فيديو لهذا المنشور.' : 'A video is already being generated for this post.')
+      return
+    }
+    if (post.generationStatus === 'REFUND_PENDING') {
+      setError(isAr
+        ? 'استرداد كريديت المحاولة السابقة قيد المصالحة؛ لن يبدأ خصم جديد.'
+        : 'The previous video credit restoration is pending; no new charge can start.')
+      return
+    }
+    const currentMotionSource = motionDesignVideos.find(media => media.id === post.uploadedMediaId) ?? null
+    const defaultMotionSource = currentMotionSource ?? motionDesignVideos[0] ?? null
+    const startsWithMotionDesign = !referenceMediaId && Boolean(defaultMotionSource)
+    setVideoProductionMode(startsWithMotionDesign ? 'MOTION_DESIGN' : 'CINEMATIC')
+    setMotionDesignSourceMediaId(defaultMotionSource?.id ?? null)
+    setVideoReferenceMediaIds(referenceMediaId ? [referenceMediaId] : [])
+    setVideoGenerationAcknowledged(false)
+    setVideoAssetRightsAcknowledged(false)
+    setVideoGenerationConfirmPostId(postId)
+  }
+
+  function closeVideoGenerationConfirm() {
+    if (generatingVideoId) return
+    setVideoGenerationConfirmPostId(null)
+    setVideoGenerationAcknowledged(false)
+    setVideoAssetRightsAcknowledged(false)
+    setVideoReferenceMediaIds([])
+    setMotionDesignSourceMediaId(null)
+    setVideoProductionMode('MOTION_DESIGN')
+  }
+
+  async function confirmPostVideoGeneration() {
+    if (!videoGenerationConfirmPostId || !canStartSelectedVideoRoute || !isAuthenticated) return
+    const post = posts.find(item => item.id === videoGenerationConfirmPostId)
+    if (!post) return
+    setGeneratingVideoId(post.id)
+    setError(null)
+    try {
+      if (videoProductionMode === 'MOTION_DESIGN') {
+        if (!motionDesignSourceMediaId) return
+        const identity = JSON.stringify({
+          campaignId,
+          postId: post.id,
+          caption: post.caption,
+          sourceMediaId: motionDesignSourceMediaId,
+          durationSeconds: MOTION_DESIGN_DURATION_SECONDS,
+        })
+        const response = await fetchCreditOperation(
+          creditOperationScope('campaign:post-motion-design', identity),
+          `/api/campaigns/${campaignId}/content-plan/${post.id}/generate-motion-design`,
+          {
+            method: 'POST',
+            headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sourceMediaId: motionDesignSourceMediaId,
+              language: isAr ? 'ar' : 'en',
+              explicitMotionDesignConfirmed: true,
+              acknowledgedCreditCost: CONTENT_HUB_MOTION_DESIGN_COST,
+              acknowledgedDurationSeconds: MOTION_DESIGN_DURATION_SECONDS,
+              acknowledgedNoPublishOrSchedule: true,
+              acknowledgedReviewRequired: true,
+              acknowledgedAssetRights: true,
+            }),
+          },
+        )
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(data.error || data.message || 'Motion Design could not finish')
+
+        if (data.attached) {
+          setPosts(current => current.map(item => item.id === post.id
+            ? {
+                ...item,
+                imageUrl: data.output,
+                uploadedMediaId: data.mediaId,
+                mediaSource: 'UPLOAD',
+                generationStatus: 'DONE',
+                status: ['APPROVED', 'SCHEDULED', 'FAILED'].includes(item.status) ? 'DRAFT' : item.status,
+              }
+            : item))
+        }
+        setVideoGenerationConfirmPostId(null)
+        setVideoGenerationAcknowledged(false)
+        setVideoAssetRightsAcknowledged(false)
+        setVideoReferenceMediaIds([])
+        setMotionDesignSourceMediaId(null)
+        setSuccessMsg(isAr
+          ? `تم إنتاج إعلان Motion Design مدته ${MOTION_DESIGN_DURATION_SECONDS} ثوانٍ من الفيديو الأصلي وربطه للمراجعة. تم خصم ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت، ولم يُستخدم أي مزود فيديو توليدي. لا نشر ولا جدولة.`
+          : `An ${MOTION_DESIGN_DURATION_SECONDS}-second source-locked Motion Design ad was produced and attached for review. ${CONTENT_HUB_MOTION_DESIGN_COST} credits were charged; no generative-video provider was used. Nothing was published or scheduled.`)
+        await refreshBillingStatus()
+        return
+      }
+
+      const identity = JSON.stringify({
+        campaignId,
+        postId: post.id,
+        videoPrompt: post.videoPrompt,
+        referenceMediaIds: videoReferenceMediaIds,
+        durationSeconds: CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
+      })
+      const response = await fetchCreditOperation(
+        creditOperationScope('campaign:post-video', identity),
+        `/api/campaigns/${campaignId}/content-plan/${post.id}/generate-video`,
+        {
+          method: 'POST',
+          headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            referenceMediaIds: videoReferenceMediaIds,
+            language: isAr ? 'ar' : 'en',
+            explicitVideoGenerationConfirmed: true,
+            acknowledgedCreditCost: CONTENT_HUB_VIDEO_COST,
+            acknowledgedDurationSeconds: CINEMATIC_PRODUCT_AD_DURATION_SECONDS,
+            acknowledgedNoPublishOrSchedule: true,
+            acknowledgedReviewRequired: true,
+            acknowledgedAssetRights: true,
+          }),
+        },
+      )
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || data.message || 'Video generation could not start')
+
+      setPosts(current => current.map(item => item.id === post.id
+        ? { ...item, generationStatus: 'GENERATING' }
+        : item))
+      setVideoGenerationConfirmPostId(null)
+      setVideoGenerationAcknowledged(false)
+      setVideoAssetRightsAcknowledged(false)
+      setVideoReferenceMediaIds([])
+      setMotionDesignSourceMediaId(null)
+      setSuccessMsg(isAr
+        ? `بدأ إنتاج إعلان منتج سينمائي مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ من أصول المنتج المؤهلة. تم خصم ${CONTENT_HUB_VIDEO_COST} كريديت؛ لا توجد إعادة محاولة تلقائية، وسيُرد الرصيد إذا لم ينتج أصل صالح. لا نشر ولا جدولة.`
+        : `An ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second cinematic product ad is rendering from qualified product assets. ${CONTENT_HUB_VIDEO_COST} credits were charged; there is no automatic provider retry, and the charge will be restored if no usable output is produced. Nothing was published or scheduled.`)
+      await refreshBillingStatus()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Video generation could not start')
+      await refreshBillingStatus()
+    } finally {
+      setGeneratingVideoId(null)
+    }
   }
 
   // ── Select A/B draft variant ─────────────────────────────────────────────────
@@ -2115,9 +2628,9 @@ export default function ContentHubPage() {
             <h1 className="text-2xl font-bold text-slate-950">
               {isAr ? 'إنتاج محتوى الحملة' : 'Campaign content production'}
             </h1>
-            {/* PR-1J.2 — every count labeled distinctly so 36/32/4/done can't read as
-                a contradiction: 36 drafts (incl. A/B variants) = 32 image slots + 4
-                video slots; "visuals generated" tracks generation progress separately. */}
+            {/* Every count is labelled distinctly: drafts include A/B variants, image
+                and video slots describe format demand, and "media ready" includes only
+                confirmed generated or uploaded media. Provenance stays on each card. */}
             {posts.length > 0 ? (
               <>
                 <p className="text-sm text-slate-500 mt-0.5">
@@ -2551,6 +3064,25 @@ export default function ContentHubPage() {
           </div>
         )}
 
+        {posts.length > 0 && creativeIntelligence && (
+          <div className="mb-5">
+            <CreativeIntelligencePanel
+              isAr={isAr}
+              totalAssets={creativeIntelligence.summary.totalAssets}
+              analyzedAssets={creativeIntelligence.summary.analyzedAssets}
+              pendingAssets={creativeIntelligence.summary.pendingAssets}
+              batchSize={creativeIntelligence.summary.batchSize}
+              matchedPosts={creativeIntelligence.summary.matchedPosts}
+              totalPosts={creativeIntelligence.summary.totalPosts}
+              creditCost={CONTENT_HUB_MEDIA_INTELLIGENCE_COST}
+              scanning={creativeScanning}
+              locked={mediaIntelligenceLocked}
+              onAnalyze={openCreativeScanConfirm}
+              onOpenMedia={() => router.push('/media')}
+            />
+          </div>
+        )}
+
         {/* ── Progress bar ─────────────────────────────────────────── */}
         {totalImagePosts > 0 && (
           <div className="mb-5 p-3 rounded-xl" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
@@ -2667,6 +3199,7 @@ export default function ContentHubPage() {
                 <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
                   <button
                     type="button"
+                    aria-pressed={videoProductionMode === 'MOTION_DESIGN'}
                     onClick={() => router.push(`/campaigns/${campaignId}?tab=strategy`)}
                     className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-violet-200 hover:text-violet-700"
                   >
@@ -2674,6 +3207,7 @@ export default function ContentHubPage() {
                   </button>
                   <button
                     type="button"
+                    aria-pressed={videoProductionMode === 'CINEMATIC'}
                     onClick={strategyApprovalRequired ? () => router.push(`/campaigns/${campaignId}?tab=strategy`) : contentPlanLocked ? () => router.push('/billing') : openGeneratePlanConfirm}
                     disabled={generatingPlan}
                     className="rounded-xl px-4 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-60"
@@ -2749,8 +3283,29 @@ export default function ContentHubPage() {
             seen.add(post.id)
           }
 
-          const renderCard = (post: ContentPost) => (
-            <PostCard
+          const renderCard = (post: ContentPost) => {
+            const creativeMatch = creativeIntelligence?.matchesByPostId[post.id]?.[0] ?? null
+            const creativeMedia = creativeMatch
+              ? creativeIntelligence?.assetsById[creativeMatch.mediaId] ?? null
+              : null
+            const creativeMatchPanel = creativeMatch && creativeMedia?.intelligenceStatus === 'READY'
+              ? (
+                  <PostCreativeMatch
+                    isAr={isAr}
+                    match={creativeMatch}
+                    media={creativeMedia}
+                    postIsVideo={post.isVideoPost}
+                    immutable={post.status === 'PUBLISHED' || post.status === 'PROCESSING'}
+                    adapting={adaptingCreativePostId === post.id}
+                    onUseExisting={() => requestMediaAttachment(post.id, creativeMedia as MediaItem)}
+                    onAdaptCopy={() => requestCreativeAdaptation(post.id, creativeMatch, creativeMedia)}
+                    onGenerateFromReference={() => generateFromCreativeReference(post, creativeMedia)}
+                    onChooseManually={() => setMediaPickerOpen(post.id)}
+                  />
+                )
+              : undefined
+            return (
+              <PostCard
               key={post.id}
               post={post}
               campaignId={campaignId}
@@ -2764,13 +3319,19 @@ export default function ContentHubPage() {
               isRewriting={rewritingPost === post.id}
               isPickingWinner={pickingWinner === post.id}
               isGeneratingImage={generatingImageId === post.id}
+              isGeneratingVideo={generatingVideoId === post.id || (post.isVideoPost && post.generationStatus === 'GENERATING')}
               imageGenerationLocked={imageGenerationLocked}
+              videoGenerationLocked={videoGenerationLocked}
               imageGenerationBlockedByTruthReview={strategyApprovalRequired || contentIssueCountByPostId.has(post.id)}
               imageGenerationTruthReviewLabel={strategyApprovalRequired
                 ? strategyApprovalRequiredLabel
-                : (isAr ? 'صحّح النص قبل الصورة' : 'Fix copy before image')}
+                : post.isVideoPost
+                  ? (isAr ? 'صحّح النص قبل الفيديو' : 'Fix copy before video')
+                  : (isAr ? 'صحّح النص قبل الصورة' : 'Fix copy before image')}
               addCreditsForImagesLabel={addCreditsForImagesLabel}
+              addCreditsForVideoLabel={addCreditsForVideoLabel}
               onGenerateImage={() => openImageGenerationConfirm(post.id)}
+              onGenerateVideo={() => openVideoGenerationConfirm(post.id)}
               onAddCredits={() => router.push('/billing')}
               onToggleExpand={() => setExpandedPost(expandedPost === post.id ? null : post.id)}
               onEditCaption={() => setEditingCaption(editingCaption === post.id ? null : post.id)}
@@ -2788,8 +3349,10 @@ export default function ContentHubPage() {
               onManualPublish={contentIssueCountByPostId.has(post.id) ? undefined : () => openManualPublishModal(post)}
               qualityIssueCount={contentIssueCountByPostId.get(post.id) ?? 0}
               onPlatformPublished={() => loadData().then(() => undefined)}
+              creativeMatchPanel={creativeMatchPanel}
             />
-          )
+            )
+          }
 
           // Pre-group: consecutive singles share a grid row; A/B pairs break out full-width
           type RenderGroup =
@@ -2860,11 +3423,25 @@ export default function ContentHubPage() {
               <p className="text-sm text-slate-500 mb-6">
                 {t('contentHub.approveConfirmBody2')}
               </p>
-              {pendingImageCount > 0 && (
+              <div className={`mb-4 rounded-xl border p-3 text-xs leading-relaxed ${contentApprovalPreflight.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-rose-200 bg-rose-50 text-rose-900'}`}>
+                <p className="font-black">{isAr ? 'ملخص فحص ما قبل الاعتماد' : 'Pre-approval review summary'}</p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <span>{isAr ? 'المسودات المفحوصة' : 'Drafts reviewed'}: <b>{approvalReviewSummary.reviewedDrafts}</b></span>
+                  <span>{isAr ? 'مخاطر الادعاءات' : 'Claim risks'}: <b>{approvalReviewSummary.claimRisks}</b></span>
+                  <span>{isAr ? 'مخاطر الوجهة/CTA' : 'Destination/CTA risks'}: <b>{approvalReviewSummary.destinationRisks}</b></span>
+                  <span>{isAr ? 'مشاكل التطابق والجودة' : 'Alignment/quality issues'}: <b>{approvalReviewSummary.alignmentRisks}</b></span>
+                </div>
+                <p className="mt-2 font-semibold">
+                  {contentApprovalPreflight.ok
+                    ? (isAr ? 'اجتازت النسخ الفحص الحالي. يظل اعتماد الوسائط والجدولة والنشر قرارات منفصلة.' : 'Copy passes the current review. Media approval, scheduling, and publishing remain separate decisions.')
+                    : (isAr ? 'الاعتماد مقفل حتى تصبح جميع الأعداد أعلاه صفراً.' : 'Approval stays locked until every risk count above is zero.')}
+                </p>
+              </div>
+              {draftMediaDecisionCount > 0 && (
                 <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
                   {isAr
-                    ? `هذا اعتماد للنصوص فقط. ما زالت ${pendingImageCount} مسودات تحتاج قرار وسائط، ولن تصبح جاهزة للجدولة أو النشر حتى تكتمل مراجعة الوسائط.`
-                    : `This approves copy only. ${pendingImageCount} draft${pendingImageCount === 1 ? '' : 's'} still need a media decision and will not be ready for scheduling or publishing until media review is complete.`}
+                    ? `هذا اعتماد للنصوص فقط. ما زالت ${draftMediaDecisionCount} مسودات تحتاج قرار وسائط، ولن تصبح جاهزة للجدولة أو النشر حتى تكتمل مراجعة الوسائط.`
+                    : `This approves copy only. ${draftMediaDecisionCount} draft${draftMediaDecisionCount === 1 ? '' : 's'} still need a media decision and will not be ready for scheduling or publishing until media review is complete.`}
                 </div>
               )}
               {contentPlanOrderMismatch && (
@@ -3685,6 +4262,63 @@ export default function ContentHubPage() {
           </div>
         )}
 
+        {showCreativeScanConfirm && creativeIntelligence && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.36)', backdropFilter: 'blur(12px)' }} onClick={closeCreativeScanConfirm}>
+            <div role="dialog" aria-modal="true" aria-labelledby="creative-scan-title" className="w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-2xl" onClick={event => event.stopPropagation()}>
+              <div className="bg-slate-950 px-6 py-5 text-white">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-300">NEXUS CREATIVE INTELLIGENCE</p>
+                    <h3 id="creative-scan-title" className="mt-1 text-xl font-black">{isAr ? 'تحليل ومطابقة وسائط الحملة' : 'Analyze and match campaign media'}</h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">
+                      {isAr
+                        ? `سيحلل NEXUS الأدلة المرئية في ${creativeIntelligence.summary.batchSize} أصول ثم يرتب أفضل تطابق لكل بوست.`
+                        : `NEXUS will analyze visible evidence in ${creativeIntelligence.summary.batchSize} assets and rank the best match for each post.`}
+                    </p>
+                  </div>
+                  <button type="button" aria-label={isAr ? 'إغلاق نافذة تحليل الوسائط' : 'Close media analysis'} onClick={closeCreativeScanConfirm} disabled={creativeScanning} className="text-2xl text-slate-400 hover:text-white disabled:opacity-40">×</button>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-xs leading-6 text-violet-950/80">
+                  <p>✓ {isAr ? 'وصف ما يظهر فعليًا في الصور ولقطات الفيديو' : 'Describe only what is visibly present in images and video frames'}</p>
+                  <p>✓ {isAr ? 'درجة مطابقة وأسباب وفجوات لكل بوست' : 'Match score, reasons, and gaps for each post'}</p>
+                  <p>✓ {isAr ? `التكلفة الإجمالية: ${CONTENT_HUB_MEDIA_INTELLIGENCE_COST} كريديت` : `Total cost: ${CONTENT_HUB_MEDIA_INTELLIGENCE_COST} credits`}</p>
+                  <p>— {isAr ? 'لا تأكيد لحقوق الاستخدام ولا تحليل للصوت في هذه المرحلة' : 'Usage rights are not confirmed and audio is not analyzed in this pass'}</p>
+                  <p>— {isAr ? 'لا إرفاق أو تعديل أو موافقة أو نشر تلقائي' : 'No automatic attachment, editing, approval, or publishing'}</p>
+                </div>
+                <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 p-4">
+                  <input type="checkbox" checked={creativeScanAcknowledged} onChange={event => setCreativeScanAcknowledged(event.target.checked)} disabled={creativeScanning} className="mt-1" />
+                  <span className="text-xs font-semibold leading-6 text-slate-700">
+                    {isAr
+                      ? `أوافق على خصم ${CONTENT_HUB_MEDIA_INTELLIGENCE_COST} كريديت لتحليل ${creativeIntelligence.summary.batchSize} أصول، وأفهم أن النتائج اقتراحات للمراجعة فقط.`
+                      : `I approve a ${CONTENT_HUB_MEDIA_INTELLIGENCE_COST}-credit charge to analyze ${creativeIntelligence.summary.batchSize} assets and understand the results are review-only recommendations.`}
+                  </span>
+                </label>
+                <div className="mt-5 flex gap-3">
+                  <button type="button" onClick={closeCreativeScanConfirm} disabled={creativeScanning} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600">{isAr ? 'إلغاء' : 'Cancel'}</button>
+                  <button type="button" onClick={confirmCreativeScan} disabled={!creativeScanAcknowledged || creativeScanning} className="flex-1 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40">
+                    {creativeScanning ? (isAr ? 'جارٍ التحليل…' : 'Analyzing…') : (isAr ? `ابدأ — ${CONTENT_HUB_MEDIA_INTELLIGENCE_COST} كريديت` : `Start — ${CONTENT_HUB_MEDIA_INTELLIGENCE_COST} credits`)}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {creativeAdaptation && (
+          <CreativeAdaptationModal
+            isAr={isAr}
+            postIndex={posts.find(post => post.id === creativeAdaptation.postId)?.contentPlanIndex ?? 0}
+            media={creativeAdaptation.media}
+            acknowledged={creativeAdaptationAcknowledged}
+            adapting={adaptingCreativePostId === creativeAdaptation.postId}
+            onAcknowledgedChange={setCreativeAdaptationAcknowledged}
+            onClose={closeCreativeAdaptation}
+            onConfirm={confirmCreativeAdaptation}
+          />
+        )}
+
         {/* ── Media picker overlay ───────────────────────────────────── */}
         {mediaPickerOpen && (
           <div
@@ -3708,9 +4342,11 @@ export default function ContentHubPage() {
                   className="text-slate-400 hover:text-slate-700 text-xl"
                 >×</button>
               </div>
-              {mediaLibrary.length === 0 ? (
+              {mediaPickerItems.length === 0 ? (
                 <div className="text-center py-12 text-slate-500">
-                  <p className="mb-3">{isAr ? 'لا توجد أصول صور جاهزة لهذه الحملة بعد' : 'No image assets are ready for this campaign yet'}</p>
+                  <p className="mb-3">{mediaPickerPost?.isVideoPost
+                    ? (isAr ? 'لا توجد فيديوهات مرفوعة جاهزة لهذه الحملة بعد' : 'No uploaded videos are ready for this campaign yet')
+                    : (isAr ? 'لا توجد أصول صور جاهزة لهذه الحملة بعد' : 'No image assets are ready for this campaign yet')}</p>
                   <button
                     type="button"
                     onClick={() => router.push('/media')}
@@ -3721,16 +4357,16 @@ export default function ContentHubPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-3 gap-3 max-h-80 overflow-y-auto">
-                  {mediaLibrary
-                    .filter(m => ['image', 'IMAGE', 'logo', 'LOGO'].includes(m.type))
-                    .map(m => (
+                  {mediaPickerItems.map(m => (
                       <button
                         type="button"
                         key={m.id}
                         onClick={() => mediaPickerOpen && requestMediaAttachment(mediaPickerOpen, m)}
                         className="relative group aspect-square rounded-xl overflow-hidden transition-all hover:ring-2 hover:ring-purple-500"
                       >
-                        <img src={m.url} alt={m.fileName} className="w-full h-full object-cover" />
+                        {mediaPickerPost?.isVideoPost
+                          ? <video src={m.url} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+                          : <img src={m.url} alt={m.fileName} className="w-full h-full object-cover" />}
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                           <span className="text-white text-xs font-medium">{isAr ? 'استخدم هذا الأصل' : 'Use this'}</span>
                         </div>
@@ -3763,7 +4399,9 @@ export default function ContentHubPage() {
                 </div>
 
                 <div className="mb-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <img src={pendingMediaAttachment.media.url} alt={pendingMediaAttachment.media.fileName} className="h-16 w-16 rounded-lg object-cover" />
+                  {['video', 'VIDEO'].includes(pendingMediaAttachment.media.type)
+                    ? <video src={pendingMediaAttachment.media.url} muted playsInline preload="metadata" className="h-16 w-16 rounded-lg object-cover" />
+                    : <img src={pendingMediaAttachment.media.url} alt={pendingMediaAttachment.media.fileName} className="h-16 w-16 rounded-lg object-cover" />}
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-slate-900">{pendingMediaAttachment.media.fileName}</p>
                     <p className="mt-1 text-xs text-slate-500">
@@ -3902,59 +4540,278 @@ export default function ContentHubPage() {
 
         {/* ── Credit action confirmations ───────────────────────────── */}
         {imageGenerationConfirmPost && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.30)', backdropFilter: 'blur(10px)' }} onClick={closeImageGenerationConfirm}>
-            <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl" style={{ border: '1px solid rgba(15,23,42,0.10)' }} onClick={e => e.stopPropagation()}>
-              <div className="p-5">
-                <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.34)', backdropFilter: 'blur(12px)' }} onClick={closeImageGenerationConfirm}>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="nexus-image-studio-title"
+              className="w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+              style={{ border: '1px solid rgba(15,23,42,0.10)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="bg-slate-950 px-6 py-5 text-white">
+                <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h3 className="text-base font-bold text-slate-950">
-                      {isAr ? 'تأكيد توليد صورة المنشور' : 'Confirm post image generation'}
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300">NEXUS IMAGE STUDIO · QUALITY-GATED VISUAL</p>
+                    <h3 id="nexus-image-studio-title" className="mt-1 text-xl font-bold">
+                      {isAr ? 'إنتاج صورة إعلانية احترافية' : 'Produce a professional ad image'}
                     </h3>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-300">
                       {isAr
-                        ? `سيولّد NEXUS صورة واحدة للمنشور #${imageGenerationConfirmPost.contentPlanIndex} للمراجعة. التكلفة: ${CONTENT_HUB_IMAGE_COST} كريديت.`
-                        : `NEXUS will generate one image for post #${imageGenerationConfirmPost.contentPlanIndex} for review. Cost: ${CONTENT_HUB_IMAGE_COST} credits.`}
+                        ? `سينتج NEXUS أصلاً بصريًا احترافيًا للمنشور #${imageGenerationConfirmPost.contentPlanIndex} ويفحصه قبل الربط. يظل النص العربي أو الإنجليزي قابلاً للتحرير في المنشور بدل حرقه داخل البيكسلات.`
+                        : `NEXUS will produce and inspect one professional visual for post #${imageGenerationConfirmPost.contentPlanIndex} before attachment. Arabic or English copy remains editable in the post instead of being burned into pixels.`}
                     </p>
                   </div>
-                  <button onClick={closeImageGenerationConfirm} disabled={Boolean(generatingImageId)} className="text-xl leading-none text-slate-400 hover:text-slate-700 disabled:opacity-40">×</button>
+                  <button aria-label={isAr ? 'إغلاق نافذة توليد الصورة' : 'Close image generation'} onClick={closeImageGenerationConfirm} disabled={Boolean(generatingImageId)} className="text-2xl leading-none text-slate-400 hover:text-white disabled:opacity-40">×</button>
                 </div>
-                <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
-                  <p>{isAr ? 'الصورة المولّدة ستحدّث وسائط معاينة هذا المنشور إذا نجح التوليد.' : 'The generated image will update this post preview media if generation succeeds.'}</p>
-                  <p>{imageGenerationReopensReview
-                    ? (isAr
-                        ? 'عند ربط الصورة الجديدة سيعود المنشور لمسودة ويلغى اعتماده وقرار تنفيذه حتى تراجعه من جديد.'
-                        : 'Attaching the new image reopens this post as a draft and clears approval and execution assignment until it is reviewed again.')
-                    : (isAr
-                        ? 'لا يتم النشر أو إنشاء جدولة من توليد الصورة.'
-                        : 'Image generation does not publish or create a schedule.')}</p>
-                  <p>{isAr ? 'لا يتم تحديث إشارات Brand Brain من توليد الصورة.' : 'This does not update Brand Brain signals.'}</p>
-                  <p>{isAr ? 'يتم رد تكلفة عمليات التوليد الفاشلة عندما تدعمها آلية المنتج الحالية.' : 'Failed generations are refunded when the existing product refund logic supports it.'}</p>
+              </div>
+
+              <div className="max-h-[72vh] overflow-y-auto p-6">
+                <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-sm font-bold text-slate-950">{isAr ? 'صورة المنتج المرجعية' : 'Product reference image'}</p>
+                    {imageReferenceMedia || imageGenerationConfirmPost.uploadedMediaId ? (
+                      <div className="mt-3 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                        {(imageReferenceMedia?.url || imageGenerationConfirmPost.imageUrl) && (
+                          <img src={imageReferenceMedia?.url || imageGenerationConfirmPost.imageUrl || ''} alt={imageReferenceMedia?.fileName || ''} className="h-14 w-14 rounded-lg object-cover" />
+                        )}
+                        <p className="text-xs font-semibold leading-relaxed text-emerald-800">
+                          {isAr
+                            ? 'جاهزة كمصدر حقيقة: سيُرفض الناتج ويُسترد الكريديت إذا لم يحافظ على شكل المنتج أو الشاشة أو العبوة أو الألوان والشعار.'
+                            : 'Ready as source truth: the result will be rejected and refunded if it does not preserve the product, screen, packaging, colours, and logo.'}
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                          {isAr
+                            ? 'اختيارية للإعلانات العامة، وموصى بها لأي إعلان منتج حتى يقارن فحص الجودة الناتج بالمصدر الحقيقي ويرفض أي استبدال.'
+                            : 'Optional for general brand ads and recommended for product work so quality review can compare the output with the real source and reject any replacement.'}
+                        </p>
+                        <button type="button" onClick={chooseProductReferenceForImage} className="mt-3 w-full rounded-xl border border-dashed border-slate-300 bg-white px-3 py-3 text-xs font-semibold text-violet-700 hover:border-violet-300 hover:bg-violet-50">
+                          {isAr ? 'اختر صورة المنتج من مكتبة الوسائط' : 'Choose a product image from Media Library'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4">
+                    <p className="text-sm font-bold text-violet-950">{isAr ? 'عقد التنفيذ' : 'Execution contract'}</p>
+                    <div className="mt-3 space-y-2 text-xs leading-relaxed text-violet-950/75">
+                      <p>✓ {isAr ? 'فحص بصري قبل الاعتماد والربط' : 'Visual QA before approval and attachment'}</p>
+                      <p>✓ {isAr ? 'النص يظل قابلاً للتحرير خارج الصورة' : 'Copy stays editable outside the image'}</p>
+                      <p>✓ {isAr ? 'حماية صورة المرجع عند استخدامها' : 'Reference fidelity protection when supplied'}</p>
+                      <p>✓ {isAr ? `التكلفة: ${CONTENT_HUB_IMAGE_COST} كريديت` : `Cost: ${CONTENT_HUB_IMAGE_COST} credits`}</p>
+                      <p>✓ {isAr ? 'حفظ دائم وربط بالمنشور' : 'Durable storage and post attachment'}</p>
+                      <p>✓ {isAr ? 'استرداد تلقائي إذا لم ينتج أصل صالح' : 'Automatic restoration if no usable asset is produced'}</p>
+                      <p>— {isAr ? 'لا نشر، لا جدولة، ولا تحديث تلقائي لـBrand Brain' : 'No publish, schedule, or automatic Brand Brain update'}</p>
+                    </div>
+                  </div>
                 </div>
-                <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-3">
+
+                {imageGenerationReopensReview && (
+                  <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold leading-relaxed text-amber-800">
+                    {isAr
+                      ? 'ربط الصورة الجديدة سيعيد المنشور لمسودة ويلغي الاعتماد وقرار التنفيذ حتى تراجعه من جديد.'
+                      : 'Attaching the new image reopens this post as a draft and clears approval and execution assignment until you review it again.'}
+                  </p>
+                )}
+
+                <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
                   <input
                     type="checkbox"
                     checked={imageGenerationAcknowledged}
                     onChange={e => setImageGenerationAcknowledged(e.target.checked)}
                     disabled={Boolean(generatingImageId)}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#4F46E5] focus:ring-[#4F46E5]"
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-600"
                   />
-                  <span className="text-xs font-semibold text-slate-800">
+                  <span className="text-sm font-semibold leading-relaxed text-slate-800">
                     {isAr
-                      ? `أفهم أن هذا يكلف ${CONTENT_HUB_IMAGE_COST} كريديت وسيولّد وسائط المنشور للمراجعة.`
-                      : `I understand this costs ${CONTENT_HUB_IMAGE_COST} credits and will generate post media for review.`}
+                      ? `أوافق على خصم ${CONTENT_HUB_IMAGE_COST} كريديت لإنتاج صورة إعلانية للمراجعة فقط، وأفهم أنها لن تُنشر أو تُجدول تلقائيًا.`
+                      : `I approve a ${CONTENT_HUB_IMAGE_COST}-credit charge for one review-only ad image and understand it will not be published or scheduled automatically.`}
                   </span>
                 </label>
-                <div className="mt-4 flex justify-end gap-2">
-                  <button onClick={closeImageGenerationConfirm} disabled={Boolean(generatingImageId)} className="rounded-xl px-4 py-2 text-sm text-slate-500 hover:text-slate-950">{t('contentHub.cancel')}</button>
+
+                <div className="mt-5 flex justify-end gap-3">
+                  <button onClick={closeImageGenerationConfirm} disabled={Boolean(generatingImageId)} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-500 hover:text-slate-950">{t('contentHub.cancel')}</button>
                   <button
                     onClick={confirmPostImageGeneration}
                     disabled={Boolean(generatingImageId) || !imageGenerationAcknowledged}
-                    className="rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed"
-                    style={{ background: '#111827', opacity: Boolean(generatingImageId) || !imageGenerationAcknowledged ? 0.45 : 1 }}
+                    className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {generatingImageId
                       ? (isAr ? 'جارٍ التوليد...' : 'Generating...')
-                      : (isAr ? `تأكيد توليد الصورة — ${CONTENT_HUB_IMAGE_COST} كريديت` : `Confirm image generation — ${CONTENT_HUB_IMAGE_COST} credits`)}
+                      : (isAr ? `ابدأ الإنتاج — ${CONTENT_HUB_IMAGE_COST} كريديت` : `Start production — ${CONTENT_HUB_IMAGE_COST} credits`)}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {videoGenerationConfirmPost && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.34)', backdropFilter: 'blur(12px)' }} onClick={closeVideoGenerationConfirm}>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="nexus-video-studio-title"
+              className="w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+              style={{ border: '1px solid rgba(15,23,42,0.10)' }}
+              onClick={event => event.stopPropagation()}
+            >
+              <div className="bg-slate-950 px-6 py-5 text-white">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300">NEXUS VIDEO STUDIO</p>
+                    <h3 id="nexus-video-studio-title" className="mt-1 text-xl font-bold">
+                      {videoProductionMode === 'MOTION_DESIGN'
+                        ? (isAr ? 'حوّل فيديو المنتج إلى إعلان Motion Design' : 'Turn your product video into a Motion Design ad')
+                        : (isAr ? 'إنتاج إعلان منتج سينمائي' : 'Produce a cinematic product ad')}
+                    </h3>
+                    <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-300">
+                      {videoProductionMode === 'MOTION_DESIGN'
+                        ? (isAr
+                          ? `يحافظ NEXUS على بكسلات الفيديو ونصوصه الموثقة، ويحوّل الجزء الافتتاحي الآمن إلى إعلان مدته ${MOTION_DESIGN_DURATION_SECONDS} ثوانٍ بدخول سريع ثم Push-in هادئ على CTA، من دون توليد المنتج أو إضافة ادعاءات.`
+                          : `NEXUS preserves the verified video pixels and source text, turns the safe opening into an ${MOTION_DESIGN_DURATION_SECONDS}-second ad with a fast settle and restrained CTA push-in, and generates no product pixels or new claims.`)
+                        : (isAr
+                          ? `يبني NEXUS إعلانًا مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ من صور منتج مادية مؤهلة فقط. لا يبدأ أي إنفاق مزود قبل اجتياز الفحص.`
+                          : `NEXUS builds an ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second ad only from qualified physical-product photos. No provider spend starts before preflight passes.`)}
+                    </p>
+                  </div>
+                  <button aria-label={isAr ? 'إغلاق نافذة توليد الفيديو' : 'Close video generation'} onClick={closeVideoGenerationConfirm} disabled={Boolean(generatingVideoId)} className="text-2xl leading-none text-slate-400 hover:text-white disabled:opacity-40">×</button>
+                </div>
+              </div>
+
+              <div className="max-h-[72vh] overflow-y-auto p-6">
+                <div className="mb-5 grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => { setVideoProductionMode('MOTION_DESIGN'); setVideoGenerationAcknowledged(false) }}
+                    disabled={Boolean(generatingVideoId)}
+                    className={`rounded-2xl border p-4 text-left transition-all ${videoProductionMode === 'MOTION_DESIGN' ? 'border-violet-500 bg-violet-50' : 'border-slate-200 bg-white'}`}
+                  >
+                    <p className="text-sm font-bold text-slate-950">{isAr ? `واجهات وفيديو حقيقي · ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت` : `Screens & real video · ${CONTENT_HUB_MOTION_DESIGN_COST} credits`}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? 'مسار يحافظ على المصدر ولا يستهلك فيديو توليديًا.' : 'Source-locked route with zero generative-video spend.'}</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setVideoProductionMode('CINEMATIC'); setVideoGenerationAcknowledged(false) }}
+                    disabled={Boolean(generatingVideoId)}
+                    className={`rounded-2xl border p-4 text-left transition-all ${videoProductionMode === 'CINEMATIC' ? 'border-violet-500 bg-violet-50' : 'border-slate-200 bg-white'}`}
+                  >
+                    <p className="text-sm font-bold text-slate-950">{isAr ? `منتج مادي · ${CONTENT_HUB_VIDEO_COST} كريديت` : `Physical product · ${CONTENT_HUB_VIDEO_COST} credits`}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? 'صور حقيقية متعددة للمنتج ومحاولة مزود واحدة.' : 'Multiple real product angles and one provider attempt.'}</p>
+                  </button>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
+                  {videoProductionMode === 'MOTION_DESIGN' ? (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-sm font-bold text-slate-950">{isAr ? 'الفيديو الأصلي' : 'Original source video'}</p>
+                      <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                        {isAr ? 'اختر تسجيل شاشة أو Demo محللاً. NEXUS يستخدم الجزء الافتتاحي الآمن فقط، ويمنع إعادة معالجة ناتج Motion Design سابق.' : 'Choose one analysed screen recording or demo. NEXUS uses only the safe opening segment and blocks recursive rendering of a prior derivative.'}
+                      </p>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        {motionDesignVideos.map(media => (
+                          <button
+                            key={media.id}
+                            type="button"
+                            aria-pressed={motionDesignSourceMediaId === media.id}
+                            onClick={() => setMotionDesignSourceMediaId(media.id)}
+                            className="overflow-hidden rounded-xl border-2 bg-slate-950 text-left transition-all"
+                            style={{ borderColor: motionDesignSourceMediaId === media.id ? '#5E5CE6' : 'transparent' }}
+                          >
+                            <video src={media.url} muted playsInline preload="metadata" className="aspect-video w-full object-cover" />
+                            <span className="block truncate bg-white px-2 py-2 text-[10px] font-semibold text-slate-700">{media.fileName}</span>
+                          </button>
+                        ))}
+                      </div>
+                      {motionDesignVideos.length === 0 && (
+                        <button type="button" onClick={() => router.push('/media')} className="mt-3 w-full rounded-xl border border-dashed border-slate-300 bg-white px-3 py-3 text-xs font-semibold text-violet-700">
+                          {isAr ? 'ارفع فيديو المنتج من مكتبة الوسائط ثم حلّله' : 'Upload and analyse a product video in Media Library'}
+                        </button>
+                      )}
+                      <div className={`mt-3 rounded-xl border px-3 py-3 text-xs leading-relaxed ${motionDesignPreflight.eligible ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-600'}`}>
+                        <p className="font-bold">{motionDesignPreflight.eligible ? (isAr ? '✓ المصدر مؤهل ومحمي' : '✓ Source qualified and locked') : (isAr ? 'اختر مصدرًا مؤهلاً' : 'Choose a qualified source')}</p>
+                        {!motionDesignPreflight.eligible && motionDesignPreflight.issues.slice(0, 3).map(issue => <p key={issue.code} className="mt-1">• {videoPreflightIssueCopy(issue)}</p>)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-bold text-slate-950">{isAr ? 'زوايا المنتج الحقيقية' : 'Real product angles'}</p>
+                          <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? `مطلوب ${CINEMATIC_PRODUCT_AD_MIN_REFERENCES}–${CINEMATIC_PRODUCT_AD_MAX_REFERENCES} صور محللة لنفس المنتج المادي. الواجهات والشعارات لا تدخل هذا المسار.` : `${CINEMATIC_PRODUCT_AD_MIN_REFERENCES}–${CINEMATIC_PRODUCT_AD_MAX_REFERENCES} analysed photos of the same physical product are required. Screens and logos do not enter this route.`}</p>
+                        </div>
+                        {videoReferenceMediaIds.length > 0 && <button type="button" onClick={() => setVideoReferenceMediaIds([])} className="text-xs font-semibold text-slate-500 hover:text-slate-900">{isAr ? 'إزالة الكل' : 'Clear all'}</button>}
+                      </div>
+                      <div className="mt-3 grid grid-cols-4 gap-2">
+                        {videoReferenceImages.map(media => (
+                          <button key={media.id} type="button" aria-pressed={videoReferenceMediaIds.includes(media.id)} onClick={() => setVideoReferenceMediaIds(current => current.includes(media.id) ? current.filter(id => id !== media.id) : current.length < CINEMATIC_PRODUCT_AD_MAX_REFERENCES ? [...current, media.id] : current)} className="relative aspect-square overflow-hidden rounded-xl border-2 transition-all" style={{ borderColor: videoReferenceMediaIds.includes(media.id) ? '#5E5CE6' : 'transparent' }} title={media.fileName}>
+                            <img src={media.url} alt={media.fileName} className="h-full w-full object-cover" />
+                            {videoReferenceMediaIds.includes(media.id) && <span className="absolute right-1 top-1 rounded-full bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold text-white">{videoReferenceMediaIds.indexOf(media.id) + 1}</span>}
+                          </button>
+                        ))}
+                      </div>
+                      {videoReferenceImages.length === 0 && <button type="button" onClick={() => router.push('/media')} className="mt-3 w-full rounded-xl border border-dashed border-slate-300 bg-white px-3 py-3 text-xs font-semibold text-violet-700">{isAr ? 'ارفع صور المنتج من مكتبة الوسائط' : 'Upload product images in Media Library'}</button>}
+                      <div className={`mt-3 rounded-xl border px-3 py-3 text-xs leading-relaxed ${cinematicVideoPreflight.eligible ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : cinematicVideoPreflight.route === 'MOTION_DESIGN_REQUIRED' ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-slate-200 bg-white text-slate-600'}`}>
+                        <p className="font-bold">{cinematicVideoPreflight.eligible ? (isAr ? '✓ مؤهل للإنتاج السينمائي' : '✓ Qualified for cinematic production') : cinematicVideoPreflight.route === 'MOTION_DESIGN_REQUIRED' ? (isAr ? 'هذه الأصول تحتاج مسار Motion Design' : 'These assets require Motion Design') : (isAr ? 'اختر زوايا منتج مؤهلة' : 'Choose qualified product angles')}</p>
+                        {!cinematicVideoPreflight.eligible && cinematicVideoPreflight.issues.slice(0, 3).map(issue => <p key={`${issue.code}-${issue.mediaId || 'set'}`} className="mt-1">• {videoPreflightIssueCopy(issue)}</p>)}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4">
+                    <p className="text-sm font-bold text-violet-950">{isAr ? 'عقد التنفيذ' : 'Execution contract'}</p>
+                    <div className="mt-3 space-y-2 text-xs leading-relaxed text-violet-950/75">
+                      {videoProductionMode === 'MOTION_DESIGN' ? (
+                        <>
+                          <p>✓ {isAr ? 'الحفاظ على بكسلات المنتج والواجهة' : 'Exact product and interface pixel preservation'}</p>
+                          <p>✓ {isAr ? `${MOTION_DESIGN_DURATION_SECONDS} ثوانٍ بمقاس المنصة مع Hook وCTA متحركين من المصدر نفسه` : `${MOTION_DESIGN_DURATION_SECONDS}-second platform master with a source-locked hook and CTA motion`}</p>
+                          <p>✓ {isAr ? 'فحص 5 لقطات قبل الربط' : 'Five-frame QA before attachment'}</p>
+                          <p>✓ {isAr ? 'صفر استهلاك لمزود فيديو توليدي' : 'Zero generative-video provider spend'}</p>
+                          <p>✓ {isAr ? `التكلفة: ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت` : `Cost: ${CONTENT_HUB_MOTION_DESIGN_COST} credits`}</p>
+                        </>
+                      ) : (
+                        <>
+                          <p>✓ {isAr ? 'Hook ومنتج ومنفعة وفريم ختامي' : 'Hook, product, benefit, and end frame'}</p>
+                          <p>✓ {isAr ? 'فحص 5 لقطات قبل الربط' : 'Five-frame QA before attachment'}</p>
+                          <p>✓ {isAr ? 'محاولة مزود واحدة بلا إعادة عشوائية' : 'One provider attempt with no blind retry'}</p>
+                          <p>✓ {isAr ? `التكلفة: ${CONTENT_HUB_VIDEO_COST} كريديت` : `Cost: ${CONTENT_HUB_VIDEO_COST} credits`}</p>
+                        </>
+                      )}
+                      <p>✓ {isAr ? 'حفظ دائم واسترداد إذا لم ينتج أصل صالح' : 'Durable storage and restoration if no usable asset is produced'}</p>
+                      <p>— {isAr ? 'لا نشر ولا جدولة ولا تعديل تلقائي للبراند' : 'No publish, schedule, or automatic Brand Brain update'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {(videoProductionMode === 'MOTION_DESIGN' ? motionDesignLocked : cinematicVideoLocked) && (
+                  <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-800">{addCreditsForVideoLabel}</p>
+                )}
+
+                <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+                  <input type="checkbox" checked={videoAssetRightsAcknowledged} onChange={event => setVideoAssetRightsAcknowledged(event.target.checked)} disabled={Boolean(generatingVideoId)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-600" />
+                  <span className="text-sm font-semibold leading-relaxed text-slate-800">
+                    {videoProductionMode === 'MOTION_DESIGN'
+                      ? (isAr ? 'أؤكد أنني أملك أو لدي تصريح استخدام الفيديو الأصلي وهوية البراند في إعلان تجاري.' : 'I confirm that I own or am authorised to use the source video and brand identity in commercial advertising.')
+                      : (isAr ? 'أؤكد أنني أملك أو لدي تصريح استخدام صور المنتج المختارة في إعلان تجاري.' : 'I confirm that I own or am authorised to use the selected product images in commercial advertising.')}
+                  </span>
+                </label>
+
+                <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+                  <input type="checkbox" checked={videoGenerationAcknowledged} onChange={event => setVideoGenerationAcknowledged(event.target.checked)} disabled={Boolean(generatingVideoId)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-600" />
+                  <span className="text-sm font-semibold leading-relaxed text-slate-800">
+                    {videoProductionMode === 'MOTION_DESIGN'
+                      ? (isAr ? `أوافق على خصم ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت لإنتاج Motion Design مدته ${MOTION_DESIGN_DURATION_SECONDS} ثوانٍ للمراجعة فقط؛ لا نشر ولا جدولة.` : `I approve a ${CONTENT_HUB_MOTION_DESIGN_COST}-credit charge for one ${MOTION_DESIGN_DURATION_SECONDS}-second review-only Motion Design ad; nothing will be published or scheduled.`)
+                      : (isAr ? `أوافق على خصم ${CONTENT_HUB_VIDEO_COST} كريديت لإنتاج إعلان منتج مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ للمراجعة فقط؛ لا نشر ولا جدولة.` : `I approve a ${CONTENT_HUB_VIDEO_COST}-credit charge for one ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second review-only product ad; nothing will be published or scheduled.`)}
+                  </span>
+                </label>
+
+                <div className="mt-5 flex justify-end gap-3">
+                  <button onClick={closeVideoGenerationConfirm} disabled={Boolean(generatingVideoId)} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-500 hover:text-slate-950">{isAr ? 'إلغاء' : 'Cancel'}</button>
+                  <button onClick={confirmPostVideoGeneration} disabled={Boolean(generatingVideoId) || !canStartSelectedVideoRoute} className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">
+                    {generatingVideoId ? (isAr ? 'جارٍ الإنتاج والفحص...' : 'Rendering and reviewing...') : (isAr ? `ابدأ الإنتاج — ${videoProductionMode === 'MOTION_DESIGN' ? CONTENT_HUB_MOTION_DESIGN_COST : CONTENT_HUB_VIDEO_COST} كريديت` : `Start production — ${videoProductionMode === 'MOTION_DESIGN' ? CONTENT_HUB_MOTION_DESIGN_COST : CONTENT_HUB_VIDEO_COST} credits`)}
                   </button>
                 </div>
               </div>
@@ -4243,11 +5100,15 @@ interface PostCardProps {
   isRewriting: boolean
   isPickingWinner: boolean
   isGeneratingImage: boolean
+  isGeneratingVideo: boolean
   imageGenerationLocked: boolean
+  videoGenerationLocked: boolean
   imageGenerationBlockedByTruthReview: boolean
   imageGenerationTruthReviewLabel: string
   addCreditsForImagesLabel: string
+  addCreditsForVideoLabel: string
   onGenerateImage: () => void | Promise<void>
+  onGenerateVideo: () => void | Promise<void>
   onAddCredits: () => void
   onToggleExpand: () => void
   onEditCaption: () => void
@@ -4262,6 +5123,7 @@ interface PostCardProps {
   onManualPublish?: () => void
   qualityIssueCount: number
   onPlatformPublished: () => void | Promise<void>
+  creativeMatchPanel?: ReactNode
 }
 
 function PostCard({
@@ -4275,11 +5137,15 @@ function PostCard({
   isRewriting,
   isPickingWinner,
   isGeneratingImage,
+  isGeneratingVideo,
   imageGenerationLocked,
+  videoGenerationLocked,
   imageGenerationBlockedByTruthReview,
   imageGenerationTruthReviewLabel,
   addCreditsForImagesLabel,
+  addCreditsForVideoLabel,
   onGenerateImage,
+  onGenerateVideo,
   onAddCredits,
   onToggleExpand,
   onEditCaption,
@@ -4292,6 +5158,7 @@ function PostCard({
   onManualPublish,
   qualityIssueCount,
   onPlatformPublished,
+  creativeMatchPanel,
 }: PostCardProps) {
   const { t, locale } = useI18n()
   const isAr = locale === 'ar'
@@ -4339,36 +5206,44 @@ function PostCard({
     either: isAr ? 'وسائط مولّدة أو مرفوعة' : 'generated or uploaded media',
   }[creativeRequirement.sourcePreference]
 
-  const lifecycleBadge = {
-    DRAFT: {
-      label: isAr ? 'مسودة للمراجعة' : 'Draft for review',
-      color: '#7c3aed',
-    },
-    APPROVED: {
-      label: isAr ? 'معتمد، غير مجدول' : 'Approved, not scheduled',
-      color: '#059669',
-    },
-    SCHEDULED: {
-      label: isAr ? 'مجدول' : 'Scheduled',
-      color: '#6366f1',
-    },
-    PROCESSING: {
-      label: isAr ? 'قيد تأكيد المنصة' : 'Awaiting platform confirmation',
-      color: '#7c3aed',
-    },
-    PUBLISHED: {
-      label: isAr ? 'منشور' : 'Published',
-      color: '#10b981',
-    },
-    FAILED: {
-      label: isAr ? 'يحتاج مراجعة' : 'Needs review',
-      color: '#ef4444',
-    },
-  }[post.status]
+  const lifecycleBadge = executionBlockedByQuality && ['APPROVED', 'SCHEDULED'].includes(post.status)
+    ? {
+        label: isAr ? 'الاعتماد مسجل · أعد فحص الجودة' : 'Approval recorded · quality recheck required',
+        color: '#be123c',
+      }
+    : ({
+      DRAFT: {
+        label: isAr ? 'مسودة للمراجعة' : 'Draft for review',
+        color: '#7c3aed',
+      },
+      APPROVED: {
+        label: isAr ? 'معتمد، غير مجدول' : 'Approved, not scheduled',
+        color: '#059669',
+      },
+      SCHEDULED: {
+        label: isAr ? 'مجدول' : 'Scheduled',
+        color: '#6366f1',
+      },
+      PROCESSING: {
+        label: isAr ? 'قيد تأكيد المنصة' : 'Awaiting platform confirmation',
+        color: '#7c3aed',
+      },
+      PUBLISHED: {
+        label: isAr ? 'منشور' : 'Published',
+        color: '#10b981',
+      },
+      FAILED: {
+        label: isAr ? 'يحتاج مراجعة' : 'Needs review',
+        color: '#ef4444',
+      },
+    }[post.status])
 
   const scheduledDate = post.scheduledAt
     ? new Date(post.scheduledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : null
+  const scheduledDateLabel = post.status === 'SCHEDULED' || post.status === 'PROCESSING' || post.status === 'PUBLISHED'
+    ? (isAr ? 'موعد التنفيذ' : 'Scheduled')
+    : (isAr ? 'تاريخ مقترح — غير مجدول' : 'Proposed date — not scheduled')
 
   // Wrapper with status bar on top + action row on bottom
   return (
@@ -4378,7 +5253,7 @@ function PostCard({
       <div className="flex items-center justify-between px-3 py-2" style={{ background: '#F8FAFC', borderBottom: '1px solid rgba(15,23,42,0.08)' }}>
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">#{post.contentPlanIndex}</span>
-          {scheduledDate && <span className="text-[10px] text-slate-400">· {scheduledDate}</span>}
+          {scheduledDate && <span className="text-[10px] text-slate-400">· {scheduledDateLabel}: {scheduledDate}</span>}
           {/* A/B variant badge */}
           {post.variantLabel && (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
@@ -4460,6 +5335,69 @@ function PostCard({
           </div>
         </div>
       </div>
+
+      {creativeMatchPanel}
+
+      {(status === 'FAILED' || status === 'REFUND_PENDING') && post.errorMessage && (
+        <div
+          className={`border-t px-3 py-3 text-[11px] leading-5 ${
+            status === 'REFUND_PENDING'
+              ? 'border-amber-200 bg-amber-50 text-amber-900'
+              : 'border-rose-200 bg-rose-50 text-rose-900'
+          }`}
+          role="status"
+        >
+          <p className="font-black">
+            {status === 'REFUND_PENDING'
+              ? (isAr ? 'استرداد الكريديت قيد المصالحة' : 'Credit restoration is being reconciled')
+              : (isAr ? 'لم يكتمل إنتاج الوسائط' : 'Media production did not complete')}
+          </p>
+          <p>{post.errorMessage}</p>
+          <p className="mt-1 font-semibold">
+            {isAr
+              ? 'لم يتم إرفاق مخرج جديد. راجع سجل الكريديت للتسوية النهائية قبل إعادة المحاولة.'
+              : 'No new output was attached. Check Credit History for the final settlement before retrying.'}
+          </p>
+          {post.rejectedVideoReview && (
+            <div className="mt-3 overflow-hidden rounded-xl border border-rose-200 bg-white text-slate-800 shadow-sm">
+              <div className="border-b border-rose-100 px-3 py-2.5">
+                <p className="font-black text-rose-800">
+                  {isAr ? 'معاينة مرفوضة — للمراجعة فقط' : 'Rejected preview — review only'}
+                </p>
+                <p className="mt-0.5 text-[10px] leading-4 text-slate-500">
+                  {isAr
+                    ? 'هذا الملف محفوظ في سجل التدقيق، ولا يمكن اعتماده أو جدولته أو نشره.'
+                    : 'This file is retained in the audit trail and cannot be approved, scheduled, or published.'}
+                </p>
+              </div>
+              <video
+                className="aspect-video w-full bg-slate-950 object-contain"
+                src={post.rejectedVideoReview.previewUrl}
+                controls
+                playsInline
+                preload="metadata"
+                aria-label={isAr ? 'معاينة الفيديو المرفوض' : 'Rejected video preview'}
+              />
+              <div className="space-y-2 px-3 py-3">
+                <p className="text-[11px] font-semibold text-slate-700">{post.rejectedVideoReview.summary}</p>
+                {post.rejectedVideoReview.issues.length > 0 && (
+                  <ul className="list-disc space-y-1 ps-4 text-[10px] leading-4 text-slate-500">
+                    {post.rejectedVideoReview.issues.map(issue => <li key={issue}>{issue}</li>)}
+                  </ul>
+                )}
+                <a
+                  href={post.rejectedVideoReview.previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
+                >
+                  {isAr ? 'فتح المعاينة في نافذة مستقلة' : 'Open preview in a separate window'}
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {executionBlockedByQuality && (
         <div className="border-t border-rose-200 bg-rose-50 px-3 py-3 text-[11px] leading-5 text-rose-800">
@@ -4633,14 +5571,29 @@ function PostCard({
             : <>✨ {t('contentHub.rewriteCopyShort')}</>
           }
         </button>
-        {/* Video slots require user-supplied video; never offer or charge for an unrelated image. */}
+        {/* Video generation is a separate, explicitly priced review action. */}
         {isVideo ? (
-          <div
-            className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug flex items-center justify-center gap-1 text-slate-500"
-            style={{ borderColor: 'rgba(15,23,42,0.08)', background: '#F8FAFC' }}
+          <button
+            onClick={videoGenerationLocked ? onAddCredits : onGenerateVideo}
+            disabled={isGeneratingVideo || creditRestorationPending || imageGenerationBlockedByTruthReview}
+            title={isAr
+              ? `NEXUS Video Studio · Motion Design من ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت أو إعلان منتج سينمائي ${CONTENT_HUB_VIDEO_COST} كريديت · للمراجعة فقط`
+              : `NEXUS Video Studio · Motion Design from ${CONTENT_HUB_MOTION_DESIGN_COST} credits or cinematic product ad ${CONTENT_HUB_VIDEO_COST} credits · review only`}
+            className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug transition-all flex items-center justify-center gap-1"
+            style={{
+              borderColor: 'rgba(15,23,42,0.08)',
+              background: videoGenerationLocked ? '#FEF2F2' : '#F5F3FF',
+              color: videoGenerationLocked ? '#B91C1C' : '#5E5CE6',
+            }}
           >
-            🎬 {isAr ? 'خانة فيديو · دون توليد صورة' : 'Video slot · no image generation'}
-          </div>
+            {isGeneratingVideo
+              ? <><span className="h-2.5 w-2.5 animate-spin rounded-full border border-violet-300 border-t-violet-600" />{isAr ? 'جارٍ إنتاج الفيديو' : 'Rendering video'}</>
+              : <>🎬 {imageGenerationBlockedByTruthReview
+                ? imageGenerationTruthReviewLabel
+                : videoGenerationLocked
+                  ? addCreditsForVideoLabel
+                  : (isAr ? `استوديو الفيديو · من ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت` : `Video Studio · from ${CONTENT_HUB_MOTION_DESIGN_COST} credits`)}</>}
+          </button>
         ) : platform === 'TIKTOK' ? (
           <button onClick={onOpenMediaPicker}
             className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug transition-all flex items-center justify-center gap-1"
@@ -4749,7 +5702,9 @@ function InstagramMockup({ caption, imageUrl, isVideo, status, isExpanded, onExp
       {/* Image — 1:1 square */}
       <div className="relative w-full" style={{ aspectRatio: '1/1', background: '#f3f3f3', overflow: 'hidden' }}>
         {imageUrl ? (
-          <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          isVideo
+            ? <video src={imageUrl} muted playsInline controls preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            : <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
           <ImagePlaceholder isVideo={isVideo} status={status} dark={false} />
         )}
@@ -4820,7 +5775,9 @@ function LinkedInMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpa
       {/* Image — 4:3 */}
       <div className="relative w-full" style={{ aspectRatio: '4/3', background: '#f3f3f3', overflow: 'hidden' }}>
         {imageUrl ? (
-          <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          isVideo
+            ? <video src={imageUrl} muted playsInline controls preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            : <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
           <ImagePlaceholder isVideo={isVideo} status={status} dark={false} />
         )}
@@ -4859,7 +5816,9 @@ function TikTokMockup({ caption, imageUrl, isVideo, status, brandName, brandLogo
     <div className="relative flex" style={{ background: '#000', aspectRatio: '9/14', overflow: 'hidden' }}>
       {/* Background image/video */}
       {imageUrl ? (
-        <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        isVideo
+          ? <video src={imageUrl} muted playsInline controls preload="metadata" className="absolute inset-0 h-full w-full object-cover" />
+          : <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)' }}>
           <ImagePlaceholder isVideo={isVideo} status={status} dark={true} />
@@ -4926,7 +5885,9 @@ function GenericMockup({ caption, imageUrl, isVideo, status, platform, isExpande
       </div>
       <div className="relative w-full" style={{ aspectRatio: isPinterest ? '2/3' : '16/9', maxHeight: isPinterest ? 520 : undefined, background: '#f3f3f3', overflow: 'hidden' }}>
         {imageUrl ? (
-          <img src={imageUrl} alt={isPinterest ? caption.slice(0, 500) : ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          isVideo
+            ? <video src={imageUrl} muted playsInline controls preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            : <img src={imageUrl} alt={isPinterest ? caption.slice(0, 500) : ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
           <ImagePlaceholder isVideo={isVideo} status={status} dark={false} />
         )}

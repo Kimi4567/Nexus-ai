@@ -8,7 +8,7 @@
  * - Uses GPT-4o-mini to generate post captions + image prompts for each slot
  * - Detects user's uploaded media and optionally assigns to posts
  * - Creates SocialPost records with status=DRAFT, generationStatus=PENDING
- * - Video slots get isVideoPost=true, no image generation — user uploads their own
+ * - Video slots get isVideoPost=true and remain a separate generate-or-upload media decision
  *
  * DELETE /api/campaigns/[id]/generate-content-plan
  * Clears all PENDING/DRAFT content plan posts (not yet published)
@@ -29,6 +29,8 @@ import {
 import { PLAN_QUOTAS } from '@/lib/stripe'
 import { resolvePostCaption } from '@/lib/contentPlanCaption'
 import {
+  bindContentPlanSlotsToStrategyAngles,
+  distributeContentPlanSlots,
   generateContentPlanWithRetry,
   contentPlanFailureResponse,
   resolveContentPlanSlotScope,
@@ -59,7 +61,7 @@ import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 // Heavy gpt-4o generation (up to 18 posts) + optional media vision can run well
 // past the platform default. Match the sibling routes (engine, /generate) so the
 // function isn't killed mid-generation — the real cause of intermittent 502s.
-export const maxDuration = 60
+export const maxDuration = 180
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -90,41 +92,10 @@ function toIntegrationType(raw: string): string {
   return map[raw.toUpperCase()] ?? 'META'
 }
 
-function normalizedPublishTarget(raw: string): string {
-  const target = raw.toUpperCase()
-  return target === 'TWITTER' ? 'X' : target
-}
-
 // Neutral review-time proposals. Nexus does not label a universal hour as
 // "best" without eligible workspace-specific platform evidence.
 function proposedReviewHour(slotIndex: number): number {
   return [10, 14, 18][slotIndex % 3]
-}
-
-/** Distribute N posts across an array of platforms as evenly as possible */
-function distributePosts(
-  totalPosts: number,
-  totalVideoSlots: number,
-  platforms: string[],
-): Array<{ platform: string; publishTarget: string; isVideoPost: boolean; index: number }> {
-  if (!platforms.length) return []
-
-  const slots: Array<{ platform: string; publishTarget: string; isVideoPost: boolean; index: number }> = []
-  let idx = 0
-
-  // Interleave posts across destinations while retaining the exact channel.
-  for (let i = 0; i < totalPosts; i++) {
-    const publishTarget = normalizedPublishTarget(String(platforms[i % platforms.length]))
-    slots.push({ platform: toIntegrationType(publishTarget), publishTarget, isVideoPost: false, index: idx++ })
-  }
-
-  // Distribute video slots with the same destination contract.
-  for (let i = 0; i < totalVideoSlots; i++) {
-    const publishTarget = normalizedPublishTarget(String(platforms[i % platforms.length]))
-    slots.push({ platform: toIntegrationType(publishTarget), publishTarget, isVideoPost: true, index: idx++ })
-  }
-
-  return slots
 }
 
 // ── Main POST handler ──────────────────────────────────────────────────────────
@@ -241,6 +212,7 @@ export async function POST(req: NextRequest, props: Params) {
       strategy: strategyForContent,
       brand: brandProfile,
       allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms.map(String) : [],
+      requireAllReviewedPlatforms: true,
       goal: campaign.goal,
     })
 
@@ -454,15 +426,20 @@ export async function POST(req: NextRequest, props: Params) {
     // is binding. If the user reviewed 7 first-window organic post directions,
     // this route must create exactly 7 SocialPost drafts total. Plan quota counts
     // remain only the fallback for legacy campaigns without a saved order.
-    const slots = distributePosts(slotScope.imagePosts, slotScope.videoSlots, platforms)
+    const strategyAngles: any[] = Array.isArray(strategyForContent.contentAnglesDetailed)
+      ? strategyForContent.contentAnglesDetailed
+      : []
+    const slots = bindContentPlanSlotsToStrategyAngles(
+      distributeContentPlanSlots(slotScope.imagePosts, slotScope.videoSlots, platforms),
+      strategyAngles,
+      platforms,
+    )
+      .map(slot => ({ ...slot, platform: toIntegrationType(slot.publishTarget) }))
 
     // ── 7. Generate all post content via GPT-4o-mini ─────────────────────
     const pillarText = contentPillars.length
       ? contentPillars.slice(0, 5).join(', ')
       : 'brand awareness, engagement, conversion'
-    const strategyAngles: any[] = Array.isArray(strategyForContent.contentAnglesDetailed)
-      ? strategyForContent.contentAnglesDetailed
-      : []
     const operatingStrategyContext = JSON.stringify({
       diagnosis: strategyForContent.diagnosis ?? null,
       differentiation: strategyForContent.differentiation ?? null,
@@ -643,7 +620,7 @@ Rules:
     // Arabic for ar/bilingual/unset campaigns; English only when explicitly 'en'.
     const isArabic = (bodyLanguage || '').toLowerCase() !== 'en'
 
-    const postsToCreate = slots.map((slot, i) => {
+    const renderedPostsToCreate = slots.map((slot, i) => {
       const gen = generatedPosts[i] ?? generatedPosts.find((g: any) => g.index === slot.index) ?? {}
       // Video slots return videoCaption (not caption). Prefer real AI copy; only
       // fall back to language-aware brand copy — never an English placeholder.
@@ -688,7 +665,7 @@ Rules:
       let uploadedMediaId: string | null = null
       let assignedImageUrl: string | null = null
       let effectiveMediaSource = mediaSource
-      let effectiveGenerationStatus = slot.isVideoPost ? 'AWAITING_UPLOAD' : 'PENDING'
+      let effectiveGenerationStatus = 'PENDING'
 
       const gptAssignedIdx: number = gen.assignedMediaIndex ?? -1
 
@@ -710,7 +687,9 @@ Rules:
           effectiveGenerationStatus = 'DONE'
         }
       } else {
-        effectiveMediaSource = 'UPLOAD' // videos always user-uploaded
+        // A video slot can use the professional Runway workflow or an owned
+        // uploaded video. Neither choice is made automatically here.
+        effectiveMediaSource = 'GENERATE'
       }
 
       return {
@@ -736,6 +715,11 @@ Rules:
         variantWinner: false,
       }
     })
+
+    // The renderer may assemble caption/video fields from several model keys.
+    // Apply the field-aware truth policy to the FINAL persistence payload so
+    // the reviewed copy is exactly what the database receives.
+    const postsToCreate = guardContentDraftTruth(renderedPostsToCreate, proofContext)
 
     const saveGateIssues = postsToCreate.flatMap((post, index) =>
       validateContentPlanDraftForSave({
@@ -873,7 +857,7 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
           throw new Error('OpenAI returned an incomplete B-variant set')
         }
 
-        const bVariantsToCreate = imageSlotsWithAB.map(({ slot, i }, bIdx) => {
+        const renderedBVariantsToCreate = imageSlotsWithAB.map(({ slot, i }, bIdx) => {
           const gen = generatedPosts[i] ?? generatedPosts.find((g: any) => g.index === slot.index) ?? {}
           const bGen = bPosts[bIdx] ?? bPosts.find((b: any) => b.index === i) ?? {}
           const caption = guardContentDraftText(bGen.caption, proofContext)
@@ -922,6 +906,8 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
             variantWinner: false,
           }
         })
+
+        const bVariantsToCreate = guardContentDraftTruth(renderedBVariantsToCreate, proofContext)
 
         const bVariantIssues = bVariantsToCreate.flatMap((post, index) =>
           validateContentPlanDraftForSave({

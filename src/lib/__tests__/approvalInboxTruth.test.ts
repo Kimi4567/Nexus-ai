@@ -1,23 +1,31 @@
 import { describe, expect, it } from 'vitest'
-import {
-  actionableApprovalSuggestions,
-  isLegacyStrategySuggestion,
-  liveApprovalQueue,
-} from '@/lib/approvalInboxTruth'
+import { actionableApprovalSuggestions, dedupeLiveApprovalQueue } from '@/lib/approvalInboxTruth'
 
-describe('approval inbox truth', () => {
-  it('never exposes a legacy strategy notification as an approval action', () => {
-    expect(isLegacyStrategySuggestion({ type: 'STRATEGY' })).toBe(true)
-    expect(actionableApprovalSuggestions([
-      { id: 'old', type: 'STRATEGY' },
-      { id: 'pause', type: 'CAMPAIGN_PAUSE' },
-    ])).toEqual([{ id: 'pause', type: 'CAMPAIGN_PAUSE' }])
+describe('dedupeLiveApprovalQueue', () => {
+  it('keeps execution-monitor navigation out of the approval decision list', () => {
+    const suggestions = [
+      { id: 'monitor', type: 'CONTENT_SWAP', payload: { source: 'execution-monitor', href: '/content-hub' } },
+      { id: 'budget', type: 'BUDGET_CHANGE', payload: { source: 'agent-analysis' } },
+    ]
+
+    expect(actionableApprovalSuggestions(suggestions).map(item => item.id)).toEqual(['budget'])
   })
 
-  it('counts only live queue entries that truly require approval', () => {
-    expect(liveApprovalQueue([
-      { id: 'review', requiresApproval: true },
-      { id: 'manual', requiresApproval: false },
-    ])).toEqual([{ id: 'review', requiresApproval: true }])
+  it('keeps one approval per campaign when a persisted decision exists', () => {
+    const queue = [
+      { campaignId: 'campaign-1', requiresApproval: true, id: 'live-1' },
+      { campaignId: 'campaign-2', requiresApproval: true, id: 'live-2' },
+      { campaignId: 'campaign-3', requiresApproval: false, id: 'not-reviewable' },
+    ]
+    const suggestions = [{ campaignId: 'campaign-1', type: 'PAUSE' }]
+
+    expect(dedupeLiveApprovalQueue(suggestions, queue).map(item => item.id)).toEqual(['live-2'])
+  })
+
+  it('reads the campaign id from persisted payloads', () => {
+    const queue = [{ campaignId: 'campaign-1', requiresApproval: true, id: 'live-1' }]
+    const suggestions = [{ payload: { campaignId: 'campaign-1' }, type: 'PAUSE' }]
+
+    expect(dedupeLiveApprovalQueue(suggestions, queue)).toEqual([])
   })
 })

@@ -125,7 +125,8 @@ export const PLANS: PlanDefinition[] = [
     features: [
       `${PUBLIC_PAID_PLANS[0].monthlyCredits} AI credits / month (refreshes monthly)`,
       'Separate copy, media, scheduling, and publishing approvals',
-      `${PUBLIC_PAID_PLANS[0].campaignLimit} campaigns / month`,
+      `Up to ${PUBLIC_PAID_PLANS[0].campaignLimit} campaign workspaces / month; AI operations use credits`,
+      'Capacity example: 1 Full Standard workflow to drafts or 4 reviewed Organic Light strategies',
       `${PUBLIC_PAID_PLANS[0].postsPerMonth} planned posts / month`,
       'Supported platforms based on connected provider access',
       'Campaign Memory — reviewed signals across campaigns',
@@ -149,7 +150,8 @@ export const PLANS: PlanDefinition[] = [
     features: [
       `${PUBLIC_PAID_PLANS[1].monthlyCredits} AI credits / month (refreshes monthly)`,
       'Operations center with scheduled state and incident monitoring',
-      `${PUBLIC_PAID_PLANS[1].campaignLimit} campaigns / month`,
+      `Up to ${PUBLIC_PAID_PLANS[1].campaignLimit} campaign workspaces / month; AI operations use credits`,
+      'Capacity example: 3 Full Standard workflows to drafts or 12 reviewed Organic Light strategies',
       `${PUBLIC_PAID_PLANS[1].postsPerMonth} AI posts / month`,
       'Supported platform publishing when provider access allows',
       'Human approval queue before execution',
@@ -162,7 +164,8 @@ export const PLANS: PlanDefinition[] = [
 ]
 
 // ── Monthly video slot quota per plan ─────────────────────────────────────────
-// Video slots = how many user-supplied video posts can be scheduled per month.
+// Video slots = how many video posts can be planned/scheduled per month. Final
+// media can be uploaded or generated as a separately priced credit action.
 // Legacy plan keys remain for existing subscriptions; only Growth and Autopilot
 // are offered to new customers.
 
@@ -330,7 +333,7 @@ export const PLAN_CREDITS: Record<string, number> = {
 
 export interface PlanQuota {
   postsPerMonth: number        // monthly generated-content allowance
-  videoSlotsPerMonth: number   // scheduled slots for user-supplied video
+  videoSlotsPerMonth: number   // scheduled video slots; generation uses separate credits
   postsPerCampaign: number     // how many posts to generate per content plan run
 }
 

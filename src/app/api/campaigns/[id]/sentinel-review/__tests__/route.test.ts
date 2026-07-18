@@ -7,12 +7,14 @@ const {
   mockRunSentinelReview,
   mockPrisma,
   mockFinalizeCreditDeduction,
+  mockValidateStrategyContract,
 } = vi.hoisted(() => ({
   mockGetServerUserId: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
   mockRefund: vi.fn(),
   mockRunSentinelReview: vi.fn(),
   mockFinalizeCreditDeduction: vi.fn(),
+  mockValidateStrategyContract: vi.fn(),
   mockPrisma: {
     campaign: { findFirst: vi.fn(), update: vi.fn() },
     campaignActivity: { create: vi.fn() },
@@ -43,6 +45,12 @@ vi.mock('@/lib/ai/strategyKpiGuard', () => ({ guardStrategyKpis: (value: unknown
 vi.mock('@/lib/ai/strategyProofGuard', () => ({ guardStrategyProof: (value: unknown) => value }))
 vi.mock('@/lib/ai/strategyOutputContractGuard', () => ({ guardStrategyOutputContract: (value: unknown) => value }))
 vi.mock('@/lib/strategy/strategyScope', () => ({ resolveStrategyScope: () => ({ type: 'organic' }) }))
+vi.mock('@/lib/campaignStrategyContract', () => ({
+  validateCampaignStrategyContract: mockValidateStrategyContract,
+}))
+vi.mock('@/lib/ai/marketingQualityGate', () => ({
+  reviewStrategyGrounding: () => ({ status: 'passed', issues: [], reviewedPlatforms: ['META'] }),
+}))
 
 import { POST } from '../route'
 
@@ -76,6 +84,15 @@ beforeEach(() => {
     riskScore: 5,
     brandConsistencyScore: 92,
     recommendedFixes: [],
+  })
+  mockValidateStrategyContract.mockReturnValue({
+    valid: true,
+    score: 100,
+    legacySchemaDetected: false,
+    missingFields: [],
+    weakFields: [],
+    languageViolations: [],
+    countViolations: [],
   })
 })
 
@@ -137,5 +154,35 @@ describe('POST /api/campaigns/[id]/sentinel-review — provider and credit order
       },
     }))
     expect(mockRefund).not.toHaveBeenCalled()
+  })
+
+  it('does not charge when the user requests an automatic correction but nothing changes', async () => {
+    const res = await POST(makeReq({ language: 'en', applySafeCorrections: true }), params)
+    const json = await res.json()
+
+    expect(res.status).toBe(422)
+    expect(json).toMatchObject({ code: 'NO_SAFE_CORRECTION_AVAILABLE', creditsUsed: 0 })
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockRunSentinelReview).not.toHaveBeenCalled()
+  })
+
+  it('blocks a strategy that no longer matches its saved promise before charging', async () => {
+    mockValidateStrategyContract.mockReturnValueOnce({
+      valid: false,
+      score: 62,
+      legacySchemaDetected: false,
+      missingFields: ['paidPlanning'],
+      weakFields: [],
+      languageViolations: [],
+      countViolations: ['paidPlanning.adCopyVariations.count:0/9'],
+    })
+
+    const res = await POST(makeReq({ language: 'en' }), params)
+    const json = await res.json()
+
+    expect(res.status).toBe(422)
+    expect(json).toMatchObject({ code: 'STRATEGY_CONTRACT_BLOCKED', creditsUsed: 0 })
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockRunSentinelReview).not.toHaveBeenCalled()
   })
 })

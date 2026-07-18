@@ -112,6 +112,36 @@ function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+function normalizedFingerprint(value: unknown): string {
+  return text(value)
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function tokenSimilarity(left: unknown, right: unknown): number {
+  const a = new Set(normalizedFingerprint(left).split(' ').filter(token => token.length > 2))
+  const b = new Set(normalizedFingerprint(right).split(' ').filter(token => token.length > 2))
+  if (a.size === 0 || b.size === 0) return 0
+  const intersection = [...a].filter(token => b.has(token)).length
+  return intersection / new Set([...a, ...b]).size
+}
+
+function hasNearDuplicateRecords(value: unknown, fields: string[], threshold = 0.88): boolean {
+  if (!Array.isArray(value)) return false
+  const fingerprints = value.map(item => isRecord(item)
+    ? fields.map(field => text(item[field])).join(' ')
+    : '')
+  for (let left = 0; left < fingerprints.length; left += 1) {
+    for (let right = left + 1; right < fingerprints.length; right += 1) {
+      if (normalizedFingerprint(fingerprints[left]) === normalizedFingerprint(fingerprints[right])) return true
+      if (tokenSimilarity(fingerprints[left], fingerprints[right]) >= threshold) return true
+    }
+  }
+  return false
+}
+
 function isArabicLanguage(language: string | null | undefined): boolean {
   return typeof language === 'string' && language.toLowerCase().startsWith('ar')
 }
@@ -345,7 +375,7 @@ function validateBindingPaidPlanning(
     {
       key: 'adAngles',
       expectedCount: expected.paidAdAngleCount,
-      fields: ['name', 'audienceHypothesis', 'message', 'funnelStage', 'proofNeeded'],
+      fields: ['name', 'audienceHypothesis', 'message', 'funnelStage', 'proofNeeded', 'testVariable', 'successSignal', 'rejectionRule'],
     },
     {
       key: 'adCopyVariations',
@@ -358,7 +388,7 @@ function validateBindingPaidPlanning(
     {
       key: 'creativeBriefs',
       expectedCount: expected.creativeBriefCount,
-      fields: ['name', 'angle', 'format', 'visualDirection', 'proofBoundary', 'reviewGate'],
+      fields: ['name', 'angle', 'format', 'visualDirection', 'assetStatus', 'proofBoundary', 'reviewGate'],
     },
   ]
 
@@ -383,6 +413,25 @@ function validateBindingPaidPlanning(
         result.weak.push('paidPlanning.adCopyVariations.ids')
       }
     }
+  }
+
+  if (hasNearDuplicateRecords(paid.audienceHypotheses, ['targetingHypothesis', 'validationNeeded'])) {
+    result.weak.push('paidPlanning.audienceHypotheses.distinctTests')
+  }
+  if (hasNearDuplicateRecords(paid.adAngles, ['message', 'testVariable', 'rejectionRule'])) {
+    result.weak.push('paidPlanning.adAngles.distinctTests')
+  }
+  if (hasNearDuplicateRecords(paid.adCopyVariations, ['headline', 'primaryText'], 0.82)) {
+    result.weak.push('paidPlanning.adCopyVariations.distinctCopy')
+  }
+  if (hasNearDuplicateRecords(paid.creativeBriefs, ['angle', 'format', 'visualDirection'])) {
+    result.weak.push('paidPlanning.creativeBriefs.distinctTreatments')
+  }
+  if (Array.isArray(paid.creativeBriefs) && paid.creativeBriefs.some(item => (
+    !isRecord(item)
+    || !['existing_approved', 'user_upload_required', 'generation_required'].includes(text(item.assetStatus))
+  ))) {
+    result.weak.push('paidPlanning.creativeBriefs.assetStatus')
   }
 
   for (const key of ['trackingChecklist', 'launchBlockers']) {
@@ -494,6 +543,22 @@ function hasOperationalAgencySystem(strategy: StrategyRecord): boolean {
   return true
 }
 
+const MEASURABLE_SUCCESS_SIGNAL = /\b(?:baseline|qualified|purchase|order|lead|inquir|booking|signup|click|conversion|revenue|event|attribution|continue|iterate|stop)\b|(?:خط\s+أساس|طلب|شراء|عميل\s+محتمل|استفسار|حجز|نقرة|تحويل|إيراد|حدث|إسناد|استمرار|تعديل|إيقاف)/i
+const GENERIC_SUCCESS_DEFINITION = /validate (?:market )?(?:interest|engagement)|clearer .+ validated|تحقق من (?:اهتمام|تفاعل)/i
+
+function hasOperationalBusinessObjective(value: unknown): boolean {
+  if (!objectHasUsefulFields(value, ['primary', 'marketing', 'conversionAction', 'expectedUserAction', 'whyNow', 'successIn30Days'])) return false
+  if (!isRecord(value)) return false
+  const definition = text(value.successIn30Days)
+  return MEASURABLE_SUCCESS_SIGNAL.test(definition) && !GENERIC_SUCCESS_DEFINITION.test(definition)
+}
+
+function hasTruthLabeledDiagnosis(value: unknown): boolean {
+  if (!objectHasUsefulFields(value, ['stage', 'basis', 'evidenceBasis', 'bottleneck', 'trustGap', 'offerClarity', 'contentGap', 'assetReadiness', 'conversionReadiness', 'readyForPaidAdsReason', 'mainRisk'])) return false
+  if (!isRecord(value)) return false
+  return ['documented', 'hypothesis'].includes(text(value.basis))
+}
+
 export function detectLegacyCampaignEngineStrategy(strategy: unknown): boolean {
   if (!isRecord(strategy)) return false
   const keys = Object.keys(strategy)
@@ -565,6 +630,12 @@ export function validateCampaignStrategyContract(
 
   if (!hasOperationalAgencySystem(strategy)) {
     weakFields.push('agencyOperatingSystem.operationalDepth')
+  }
+  if (!hasOperationalBusinessObjective(strategy.businessObjective)) {
+    weakFields.push('businessObjective.measurableSuccessDefinition')
+  }
+  if (!hasTruthLabeledDiagnosis(strategy.diagnosisDetails)) {
+    weakFields.push('diagnosisDetails.truthBasis')
   }
 
   if (isArabicLanguage(options.language)) {

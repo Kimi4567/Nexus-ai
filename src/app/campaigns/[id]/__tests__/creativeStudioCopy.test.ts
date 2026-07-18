@@ -39,7 +39,8 @@ describe('CS-1 creative IA copy', () => {
     expect(CAMPAIGN_SRC).toMatch(/Final post media is reviewed in Content Hub/)
     expect(CAMPAIGN_SRC).toMatch(/not automatically attached to posts/)
     expect(CAMPAIGN_SRC).toMatch(/Campaign concept visuals are gallery assets for review/)
-    expect(CAMPAIGN_SRC).toMatch(/NEXUS does not publish, schedule, or start paid campaigns from this tab/)
+    expect(CAMPAIGN_SRC).toMatch(/previews are never attached or published automatically/)
+    expect(CAMPAIGN_SRC).toContain('Advanced creative tools and details')
   })
 
   it('makes the Creative tab follow the selected strategy scope and campaign state', () => {
@@ -49,7 +50,7 @@ describe('CS-1 creative IA copy', () => {
     expect(CAMPAIGN_SRC).toContain('Creative path for a full strategy')
     expect(CAMPAIGN_SRC).toContain('Review strategy quality first')
     expect(CAMPAIGN_SRC).toContain('Prepare the content plan before creative decisions')
-    expect(CAMPAIGN_SRC).toContain('This is an organic-only strategy. Paid ad creative, budget, and platform launch decisions are outside this run.')
+    expect(CAMPAIGN_SRC).toContain('This is an organic-only run, so paid creative is not presented as an active execution step.')
     expect(CAMPAIGN_SRC).toContain('Paid creative is outside this strategy run')
   })
 

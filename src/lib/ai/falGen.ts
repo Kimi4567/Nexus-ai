@@ -14,7 +14,8 @@
  */
 
 export type FluxAspectRatio =
-  | '1:1'  // Instagram / Meta feed
+  | '1:1'  // Generic square feed
+  | '4:5'  // Instagram / Meta portrait feed
   | '9:16' // TikTok / YouTube Shorts
   | '3:2'  // LinkedIn / X landscape
   | '2:3'  // Pinterest standard Pin
@@ -37,14 +38,14 @@ export interface FluxGenerateResult {
  * Map platform string to the FLUX 1.1 Ultra `aspect_ratio` contract.
  * Platform-native sizing:
  *   TIKTOK/YOUTUBE_SHORTS/YOUTUBE → 9:16 vertical short-form
- *   META/INSTAGRAM → 1:1 feed square
+ *   META/INSTAGRAM/FACEBOOK → 4:5 portrait feed
  *   All others     → 3:2 landscape
  */
 export function platformToFluxAspectRatio(platform: string): FluxAspectRatio {
   const p = platform.toUpperCase()
   if (p === 'TIKTOK' || p === 'YOUTUBE' || p === 'YOUTUBE_SHORTS') return '9:16'
   if (p === 'PINTEREST') return '2:3'
-  if (p === 'META' || p === 'INSTAGRAM') return '1:1'
+  if (p === 'META' || p === 'INSTAGRAM' || p === 'FACEBOOK') return '4:5'
   return '3:2'
 }
 
@@ -52,13 +53,13 @@ export function platformToFluxAspectRatio(platform: string): FluxAspectRatio {
  * Map platform string to gpt-image-1 size string.
  * Platform-native sizing:
  *   TIKTOK/YOUTUBE_SHORTS/YOUTUBE → 1024×1536 (portrait)
- *   META/INSTAGRAM → 1024×1024 (square 1:1)
+ *   META/INSTAGRAM/FACEBOOK → 1024×1536 (portrait source, cropped to 4:5)
  *   All others  → 1536×1024 (landscape 3:2 — LinkedIn, Facebook, Twitter/X)
  */
 export function platformToOpenAISize(platform: string): '1024x1024' | '1024x1536' | '1536x1024' {
   const p = platform.toUpperCase()
   if (p === 'TIKTOK' || p === 'YOUTUBE' || p === 'YOUTUBE_SHORTS' || p === 'PINTEREST') return '1024x1536'       // portrait
-  if (p === 'META' || p === 'INSTAGRAM') return '1024x1024' // square Content Hub feed
+  if (p === 'META' || p === 'INSTAGRAM' || p === 'FACEBOOK') return '1024x1536'
   return '1536x1024'                            // landscape for LinkedIn/Facebook/X/Twitter/default
 }
 

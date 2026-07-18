@@ -126,8 +126,37 @@ describe('execution truth', () => {
     }))
 
     expect(result.stage).toBe('MEDIA_REVIEW')
-    expect(result.nextAction).toMatchObject({ kind: 'REVIEW_MEDIA', href: '/campaigns/campaign-1/content-hub' })
+    expect(result.nextAction).toMatchObject({
+      kind: 'REVIEW_MEDIA',
+      href: '/campaigns/campaign-1/content-hub',
+      safety: 'review_required',
+      requiresApproval: true,
+    })
     expect(result.nextAction?.reason.en).toContain('separately approved media before scheduling')
+  })
+
+  it('routes quality drift back to copy review before media approval', () => {
+    const result = buildCampaignExecutionTruth(snapshot({
+      posts: {
+        draft: 0,
+        approved: 12,
+        approvedMissingMedia: 12,
+        qualityReviewIssueCount: 4,
+        qualityReviewPostCount: 4,
+        scheduled: 0,
+        published: 0,
+        failed: 0,
+        publishedWithoutAnalytics: 0,
+      },
+    }))
+
+    expect(result.stage).toBe('CONTENT_REVIEW')
+    expect(result.nextAction).toMatchObject({
+      kind: 'REVIEW_CONTENT',
+      priority: 'critical',
+      title: { en: 'Repair content quality before media', ar: 'أصلح جودة النص قبل الوسائط' },
+    })
+    expect(result.nextAction?.reason.en).toContain('4 quality findings affect 4 posts')
   })
 
   it('fails closed when an approved status has no immutable copy approval', () => {

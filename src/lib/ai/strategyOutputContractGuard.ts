@@ -276,8 +276,8 @@ const CONVERSION_ACTION_KEYS = new Set(['conversionAction', 'expectedUserAction'
 const CONVERSION_METRIC_KEYS = new Set(['metric', 'target', 'successMetric'])
 
 function unsupportedConversionAction(value: string): boolean {
-  return /\b(?:try|start now|get started|sign up|register|book|schedule|request|contact|call|message|whatsapp|buy|purchase|order|download|demo)\b/i.test(value)
-    || /(?:جرّب|جرب|ابدأ الآن|سجّل|سجل الآن|احجز|اطلب|تواصل|راسل|واتساب|اشتر|حمّل|حمل الآن|احصل على (?:عرض|استشارة|تجربة)|استفسر)/i.test(value)
+  return /\b(?:try|start now|get started|sign up|register|book|schedule|request|contact|call|message|whatsapp|buy|purchase|order|download|demo|shop(?:\s+now|\s+the\s+look)?|browse\s+(?:our|the)\s+collection|explore\s+(?:our|the)\s+collection|view\s+products?|add\s+to\s+cart)\b/i.test(value)
+    || /(?:جرّب|جرب|ابدأ الآن|سجّل|سجل الآن|احجز|اطلب|تواصل|راسل|واتساب|اشتر|تسوّق|تسوق|تصفّح\s+(?:ال)?مجموعة|تصفح\s+(?:ال)?مجموعة|اكتشف\s+(?:ال)?مجموعة|أضف\s+إلى\s+السلة|حمّل|حمل الآن|احصل على (?:عرض|استشارة|تجربة)|استفسر)/i.test(value)
     || /(?:تحسين|زيادة)\s+(?:ال)?مبيعات(?:ك|كم|هم|ها)?/i.test(value)
 }
 
@@ -477,6 +477,25 @@ function guardBusinessObjectiveGoal(
   })()
 
   return objective ? { ...value, ...objective } : value
+}
+
+function guardDiagnosisTruthBasis(value: unknown, language?: string | null): unknown {
+  if (!isObject(value)) return value
+
+  const basis = value.basis === 'documented' || value.basis === 'hypothesis'
+    ? value.basis
+    : 'hypothesis'
+  const evidenceBasis = hasUsefulText(value.evidenceBasis)
+    ? value.evidenceBasis
+    : isArabicLanguage(language)
+      ? 'فرضية تشغيلية مستنتجة من مدخلات Brand Brain الحالية؛ يجب التحقق منها ببيانات أو دليل موثق قبل اعتمادها كحقيقة.'
+      : 'Operating hypothesis inferred from the current Brand Brain inputs; validate it with data or documented evidence before treating it as fact.'
+
+  return {
+    ...value,
+    basis,
+    evidenceBasis,
+  }
 }
 
 function firstPlatformLabel(ctx: NormalizedPlatformContext): string {
@@ -1597,6 +1616,7 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
     : leadGuardedValue) as JsonObject
   output.campaignName = guardCampaignName(output.campaignName, context.strategyType, context.language)
   output.businessObjective = guardBusinessObjectiveGoal(output.businessObjective, context.goal, context.language)
+  output.diagnosisDetails = guardDiagnosisTruthBasis(output.diagnosisDetails, context.language)
 
   if (context.strategyType === 'paid') {
     guardPaidPlanningMinimums(output, ctx, context.language)

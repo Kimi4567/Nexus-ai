@@ -114,11 +114,54 @@ export function stripUrlQueryAndFragment(value: string): string {
 
 export function sanitizeSentryText(value: string): string {
   return value
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, FILTERED_VALUE)
+    .replace(/\beyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\b/g, FILTERED_VALUE)
     .replace(/(bearer\s+)[a-z0-9._~+/=-]+/gi, `$1${FILTERED_VALUE}`)
+    .replace(
+      /\b(password|passwd|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|authorization[_-]?code)\s*[:=]\s*[^\s,;]+/gi,
+      `$1=${FILTERED_VALUE}`,
+    )
     .replace(
       /([?&](?:access_token|api_key|apikey|authorization_code|code|id_token|nonce|refresh_token|secret|session|state|token)=)[^&#\s]+/gi,
       `$1${FILTERED_VALUE}`,
     )
+}
+
+export function getPrivacySafeErrorName(error: unknown): string {
+  const candidate = error instanceof Error && error.name ? error.name : 'UnknownError'
+  const normalized = candidate.replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 80)
+  return normalized || 'UnknownError'
+}
+
+export function getPrivacySafeErrorCode(error: unknown): string | null {
+  if (!isRecord(error)) return null
+  const candidate = error.code
+  if (typeof candidate !== 'string' && typeof candidate !== 'number') return null
+  const normalized = String(candidate).replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 80)
+  return normalized || null
+}
+
+/**
+ * Preserves stack frames for debugging without forwarding the provider/database
+ * message, which may contain customer content, credentials, or query values.
+ */
+export function createPrivacySafeError(error: unknown, operation: string): Error {
+  const safeOperation = operation.replace(/[^a-zA-Z0-9_.:/ -]/g, '').trim().slice(0, 120)
+    || 'Operational request'
+  const safeError = new Error(`${safeOperation} failed`)
+  safeError.name = getPrivacySafeErrorName(error)
+
+  if (error instanceof Error && typeof error.stack === 'string') {
+    const frames = error.stack
+      .split('\n')
+      .filter((line) => line.trimStart().startsWith('at '))
+      .slice(0, 50)
+    if (frames.length > 0) {
+      safeError.stack = `${safeError.name}: ${safeError.message}\n${frames.join('\n')}`
+    }
+  }
+
+  return safeError
 }
 
 function sanitizeValue(
@@ -130,7 +173,10 @@ function sanitizeValue(
   if (key && isSensitiveKey(key)) return FILTERED_VALUE
   if (typeof value === 'string') {
     const normalizedKey = key ? normalizeKey(key) : ''
-    const safeValue = normalizedKey === 'url' || normalizedKey.endsWith('_url')
+    const safeValue = normalizedKey === 'url'
+      || normalizedKey.endsWith('_url')
+      || normalizedKey === 'from'
+      || normalizedKey === 'to'
       ? stripUrlQueryAndFragment(value)
       : value
     return sanitizeSentryText(safeValue)
@@ -210,7 +256,9 @@ export function sanitizeSentryEvent<T>(event: T): T {
   }
 
   if (Array.isArray(mutableEvent.breadcrumbs)) {
-    mutableEvent.breadcrumbs = mutableEvent.breadcrumbs.map((breadcrumb) => sanitizeSentryBreadcrumb(breadcrumb))
+    mutableEvent.breadcrumbs = mutableEvent.breadcrumbs
+      .map((breadcrumb) => sanitizeSentryBreadcrumb(breadcrumb))
+      .filter((breadcrumb) => breadcrumb !== null)
   }
 
   if (mutableEvent.exception !== undefined) {
@@ -228,10 +276,15 @@ export function sanitizeSentryEvent<T>(event: T): T {
   return event as T
 }
 
-/** Removes sensitive values from automatic navigation, fetch, and console breadcrumbs. */
-export function sanitizeSentryBreadcrumb<T>(breadcrumb: T): T {
+/** Removes console breadcrumbs and sensitive values from navigation/fetch breadcrumbs. */
+export function sanitizeSentryBreadcrumb<T>(breadcrumb: T): T | null {
   if (!isRecord(breadcrumb)) return breadcrumb
   const mutableBreadcrumb: Record<string, unknown> = breadcrumb
+
+  const category = typeof mutableBreadcrumb.category === 'string'
+    ? mutableBreadcrumb.category.toLowerCase()
+    : ''
+  if (category === 'console' || category.startsWith('console.')) return null
 
   if (typeof mutableBreadcrumb.message === 'string') {
     mutableBreadcrumb.message = sanitizeSentryText(mutableBreadcrumb.message)

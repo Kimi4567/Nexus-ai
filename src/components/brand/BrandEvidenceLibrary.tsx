@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useId, useState } from 'react'
+import Link from 'next/link'
 import { Check, FileCheck2, FileText, Loader2, ShieldCheck, Trash2, Upload, X } from 'lucide-react'
 import { supabase } from '@/lib/supabaseClient'
 import { BRAND_EVIDENCE_MAX_DOCUMENTS, BRAND_EVIDENCE_WORKSPACE_MAX_BYTES } from '@/lib/brandEvidence'
@@ -232,6 +233,20 @@ export function BrandEvidenceLibrary({ locale, authHeader, onProofChanged }: Bra
         </span>
         <span className="rounded-full bg-white px-2.5 py-1 font-semibold text-emerald-700 ring-1 ring-emerald-200">{ar ? `التحليل: ${EVIDENCE_ANALYSIS_COST} كريديت` : `Analysis: ${EVIDENCE_ANALYSIS_COST} credits`}</span>
         <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-slate-200">{ar ? 'الرفع والمراجعة مجانًا' : 'Upload & review are free'}</span>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-3 rounded-xl border border-sky-200 bg-sky-50/70 p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-bold text-sky-950">{ar ? 'لديك صور منتجات أو فيديوهات؟' : 'Have product images or videos?'}</p>
+          <p className="mt-1 text-[11px] leading-5 text-sky-800">
+            {ar
+              ? 'ارفع الأدلة البصرية في مكتبة الوسائط ثم حلّلها واربطها بالحملة. الصورة وحدها لا تثبت السعر أو الخامة أو المخزون أو نتائج العملاء.'
+              : 'Upload visual evidence in Media Library, then analyse and attach it to the campaign. An image alone never proves price, material, stock, or customer results.'}
+          </p>
+        </div>
+        <Link href="/media" className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg border border-sky-300 bg-white px-3 text-[11px] font-bold text-sky-800 hover:border-sky-400">
+          {ar ? 'فتح مكتبة الوسائط' : 'Open Media Library'}
+        </Link>
       </div>
 
       {error && (

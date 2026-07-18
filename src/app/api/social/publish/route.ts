@@ -10,6 +10,8 @@ import { YOUTUBE_UPLOAD_SCOPE } from '@/lib/youtubePublishing'
 import { PINTEREST_PUBLISH_SCOPES, parsePinterestPostOptions } from '@/lib/pinterestPublishing'
 import { parseThreadsPostOptions, THREADS_MAX_TEXT_LENGTH, THREADS_PUBLISH_SCOPES } from '@/lib/threadsPublishing'
 import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
+import { captureOperationalError } from '@/lib/observability/operationalError'
+import { sanitizeSentryText } from '@/lib/observability/sentryPrivacy'
 import {
   CAMPAIGN_SNAPSHOT_SCOPE,
   buildStrategyApprovalSnapshotPayload,
@@ -284,6 +286,7 @@ export async function POST(req: NextRequest) {
     strategy: aiOutput.strategy ?? aiOutput,
     brand: campaign.workspace.brandProfile,
     allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms.map(String) : [],
+    requireAllReviewedPlatforms: true,
     goal: String(campaign.goal),
   })
   if (strategyQuality.status !== 'passed') {
@@ -383,8 +386,16 @@ export async function POST(req: NextRequest) {
       link,
     })
   } catch (error) {
-    publishError = error instanceof Error ? error.message : 'Publish failed'
-    console.error('[Social Publish] Provider error:', publishError)
+    publishError = sanitizeSentryText(error instanceof Error ? error.message : 'Publish failed').slice(0, 500)
+    await captureOperationalError(error, {
+      operation: 'publishing.manual-provider-submit',
+      route: '/api/social/publish',
+      component: 'publishing',
+      method: 'POST',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 502,
+      retryable: true,
+    })
   }
 
   try {
@@ -463,9 +474,16 @@ export async function POST(req: NextRequest) {
         { status: nextStatus === 'PROCESSING' ? 202 : 200 },
       )
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Persistence failed'
+    await captureOperationalError(error, {
+      operation: 'publishing.persist-manual-result',
+      route: '/api/social/publish',
+      component: 'database',
+      method: 'POST',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
     if (published) {
-      console.error(`[Social Publish] RECONCILIATION_REQUIRED provider=${published.platformPostId}:`, message)
       return NextResponse.json({
         error: 'Platform confirmed publication, but local persistence failed. Manual reconciliation is required.',
         platformPostId: published.platformPostId,

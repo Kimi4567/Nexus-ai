@@ -112,6 +112,114 @@ export interface ContentPlanSlotScope {
   blockedReason?: 'paid-planning-only' | 'no-organic-post-count'
 }
 
+export interface ContentPlanSlot {
+  publishTarget: string
+  isVideoPost: boolean
+  index: number
+}
+
+export interface StrategyAngleLike {
+  platform?: unknown
+  format?: unknown
+  contentType?: unknown
+  type?: unknown
+}
+
+const VIDEO_ONLY_TARGETS = new Set(['YOUTUBE', 'YOUTUBE_SHORTS', 'TIKTOK', 'REELS', 'STORIES'])
+
+function normalizeContentTarget(raw: string): string {
+  const target = raw.trim().toUpperCase().replace(/[\s-]+/g, '_')
+  if (target === 'TWITTER') return 'X'
+  return target
+}
+
+/**
+ * Bind generated Content Hub slots to the exact reviewed strategy directions.
+ * Campaign platforms define the allowed set; an angle may choose only within
+ * that set. This prevents a later round-robin from silently moving a strategy
+ * direction to another channel.
+ */
+export function bindContentPlanSlotsToStrategyAngles(
+  slots: ContentPlanSlot[],
+  angles: StrategyAngleLike[],
+  allowedPlatforms: string[],
+): ContentPlanSlot[] {
+  if (angles.length === 0) return slots
+  const allowed = new Set(allowedPlatforms.map(normalizeContentTarget))
+
+  return slots.map((slot, index) => {
+    const angle = angles[index % angles.length] || {}
+    const requestedTarget = typeof angle.platform === 'string'
+      ? normalizeContentTarget(angle.platform)
+      : null
+    const requestedTargetAllowed = requestedTarget && (
+      allowed.has(requestedTarget)
+      || (['YOUTUBE_SHORT', 'YOUTUBE_SHORTS'].includes(requestedTarget) && allowed.has('YOUTUBE'))
+      || (requestedTarget === 'YOUTUBE' && (allowed.has('YOUTUBE_SHORT') || allowed.has('YOUTUBE_SHORTS')))
+    )
+    const publishTarget = requestedTargetAllowed
+      ? requestedTarget
+      : normalizeContentTarget(slot.publishTarget)
+    const format = [angle.format, angle.contentType, angle.type]
+      .filter((value): value is string => typeof value === 'string')
+      .join(' ')
+    const explicitlyVideo = /video|reel|short|story|tiktok|فيديو|ريل|ستوري/i.test(format)
+    const explicitlyStatic = /image|static|carousel|photo|post|صورة|كاروسيل|منشور/i.test(format)
+    const isVideoPost = VIDEO_ONLY_TARGETS.has(publishTarget)
+      || explicitlyVideo
+      || (!explicitlyStatic && slot.isVideoPost)
+
+    return {
+      ...slot,
+      publishTarget,
+      isVideoPost,
+    }
+  })
+}
+
+/**
+ * Build a deterministic platform/media matrix while respecting video-native
+ * destinations. The reviewed total remains binding. When possible, a flexible
+ * video slot is swapped to image so the requested image/video totals also stay
+ * unchanged; a video-only destination can never be saved as an image draft.
+ */
+export function distributeContentPlanSlots(
+  imagePosts: number,
+  videoSlots: number,
+  platforms: string[],
+): ContentPlanSlot[] {
+  const destinations = platforms.map(normalizeContentTarget).filter(Boolean)
+  if (destinations.length === 0) return []
+
+  const slots: ContentPlanSlot[] = []
+  const append = (count: number, isVideoPost: boolean) => {
+    for (let i = 0; i < Math.max(0, Math.floor(count)); i++) {
+      slots.push({
+        publishTarget: destinations[slots.length % destinations.length],
+        isVideoPost,
+        index: slots.length,
+      })
+    }
+  }
+  append(imagePosts, false)
+  append(videoSlots, true)
+
+  for (const slot of slots) {
+    if (VIDEO_ONLY_TARGETS.has(slot.publishTarget)) slot.isVideoPost = true
+  }
+
+  let extraVideoSlots = slots.filter(slot => slot.isVideoPost).length - Math.max(0, Math.floor(videoSlots))
+  for (let i = slots.length - 1; i >= 0 && extraVideoSlots > 0; i--) {
+    const slot = slots[i]
+    if (slot.isVideoPost && !VIDEO_ONLY_TARGETS.has(slot.publishTarget)) {
+      slot.isVideoPost = false
+      extraVideoSlots--
+    }
+  }
+
+  return slots
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

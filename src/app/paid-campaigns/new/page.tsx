@@ -164,6 +164,7 @@ export default function NewPaidCampaignPage() {
   const [accounts, setAccounts] = useState<AdAccount[]>([])
   const [strategySources, setStrategySources] = useState<PaidStrategySource[]>([])
   const [selectedStrategyId, setSelectedStrategyId] = useState('')
+  const [requestedStrategyId, setRequestedStrategyId] = useState('')
   const [strategySourcesLoading, setStrategySourcesLoading] = useState(true)
   const [campaignId, setCampaignId] = useState<string | null>(null)
 
@@ -172,6 +173,7 @@ export default function NewPaidCampaignPage() {
   const [creditConfirmation, setCreditConfirmation] = useState<'plan' | 'copy' | null>(null)
 
   const selectedStrategy = strategySources.find(source => source.id === selectedStrategyId) ?? null
+  const requestedStrategy = strategySources.find(source => source.id === requestedStrategyId) ?? null
   const strategyReasonLabel = (source: PaidStrategySource) => {
     if (source.reason === 'READY') return copy('معتمدة وجاهزة للتنفيذ', 'Approved and execution-ready')
     if (source.reason === 'PAID_SCOPE_REQUIRED') return copy('استراتيجية Organic فقط', 'Organic-only strategy')
@@ -234,9 +236,10 @@ export default function NewPaidCampaignPage() {
           const sources = (sourcesData.sources || []) as PaidStrategySource[]
           setStrategySources(sources)
           const requestedId = new URLSearchParams(window.location.search).get('sourceCampaignId')
-          const requested = sources.find(source => source.id === requestedId && source.eligible)
+          const requested = sources.find(source => source.id === requestedId)
+          setRequestedStrategyId(requested?.id || '')
           const eligible = sources.filter(source => source.eligible)
-          const initialSource = requested || (eligible.length === 1 ? eligible[0] : null)
+          const initialSource = requested?.eligible ? requested : (eligible.length === 1 ? eligible[0] : null)
           setSelectedStrategyId(initialSource?.id || '')
           if (initialSource) {
             setData(previous => ({ ...previous, objective: initialSource.executionObjective }))
@@ -560,8 +563,26 @@ export default function NewPaidCampaignPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
+                  {requestedStrategy && !requestedStrategy.eligible && (
+                    <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12px] leading-6 text-amber-900">
+                      <p className="font-bold">
+                        {copy('وصلت من استراتيجية محددة، لكنها ليست قابلة للتنفيذ المدفوع بعد.', 'You arrived from a specific strategy, but it is not eligible for paid execution yet.')}
+                      </p>
+                      <p className="mt-1 text-amber-800">
+                        {requestedStrategy.name} · {strategyReasonLabel(requestedStrategy)}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/campaigns/${requestedStrategy.id}?tab=strategy`)}
+                        className="mt-2 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-[11px] font-bold text-amber-900"
+                      >
+                        {copy('العودة لإكمال المراجعة والاعتماد', 'Return to complete review and approval')}
+                      </button>
+                    </div>
+                  )}
                   {strategySources.map(source => {
                     const selected = selectedStrategyId === source.id
+                    const requested = requestedStrategyId === source.id
                     return (
                       <button
                         type="button"
@@ -584,7 +605,11 @@ export default function NewPaidCampaignPage() {
                           </p>
                         </div>
                         <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${source.eligible ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                          {selected ? copy('محددة', 'Selected') : strategyReasonLabel(source)}
+                          {selected
+                            ? copy('محددة', 'Selected')
+                            : requested
+                              ? copy(`المصدر المطلوب · ${strategyReasonLabel(source)}`, `Requested source · ${strategyReasonLabel(source)}`)
+                              : strategyReasonLabel(source)}
                         </span>
                       </button>
                     )
@@ -1465,9 +1490,9 @@ export default function NewPaidCampaignPage() {
               <div className="mb-2 inline-flex rounded-full border border-orange-100 bg-orange-50 px-3 py-1 text-xs font-bold text-orange-600">
                 {locale === 'ar' ? 'مسار موافقة مدفوع' : 'Approval-gated paid path'}
               </div>
-              <h1 className="text-2xl font-black tracking-tight text-slate-950">
+              <h2 className="text-2xl font-black tracking-tight text-slate-950">
                 {locale === 'ar' ? 'مسودة تنفيذ مدفوع جديدة' : 'New Paid Execution Draft'}
-              </h1>
+              </h2>
               <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
                 {locale === 'ar'
                   ? 'ابدأ بالمسودة، ثم أنشئ مسودة منصة متوقفة، ثم فعّل فقط بعد موافقة نهائية.'

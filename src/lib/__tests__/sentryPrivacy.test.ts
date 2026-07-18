@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  createPrivacySafeError,
+  getPrivacySafeErrorCode,
   isSentryRuntimeEnabled,
   isValidSentryDsn,
   resolveSentryEnvironment,
@@ -127,6 +129,51 @@ describe('Sentry privacy filter', () => {
         method: 'GET',
       },
     })
+  })
+
+  it('drops console breadcrumbs instead of forwarding application logs', () => {
+    expect(sanitizeSentryBreadcrumb({
+      category: 'console',
+      message: 'customer content that must stay local',
+      data: { arguments: ['private brand brief'] },
+    })).toBeNull()
+
+    const event = sanitizeSentryEvent({
+      breadcrumbs: [
+        { category: 'console', message: 'private console output' },
+        { category: 'navigation', data: { from: '/brand?workspace=private', to: '/strategy' } },
+      ],
+    })
+    expect(event.breadcrumbs).toEqual([
+      { category: 'navigation', data: { from: '/brand', to: '/strategy' } },
+    ])
+  })
+
+  it('redacts common identity and credential shapes from text', () => {
+    const event = sanitizeSentryEvent({
+      message: 'Failed for owner@example.com password=hunter2',
+      exception: {
+        values: [{ value: 'Bearer secret-token for owner@example.com' }],
+      },
+    })
+    const serialized = JSON.stringify(event)
+    expect(serialized).not.toContain('owner@example.com')
+    expect(serialized).not.toContain('hunter2')
+    expect(serialized).not.toContain('secret-token')
+  })
+
+  it('creates a stable error without forwarding the original message', () => {
+    const original = Object.assign(
+      new Error('Database rejected owner@example.com token=private-token'),
+      { code: 'P2002' },
+    )
+    const safe = createPrivacySafeError(original, 'billing.webhook.process')
+
+    expect(safe.name).toBe('Error')
+    expect(safe.message).toBe('billing.webhook.process failed')
+    expect(safe.stack).not.toContain('owner@example.com')
+    expect(safe.stack).not.toContain('private-token')
+    expect(getPrivacySafeErrorCode(original)).toBe('P2002')
   })
 
   it('strips query strings and fragments from absolute and relative URLs', () => {

@@ -180,14 +180,14 @@ Rules:
       }),
     })
     if (!res.ok) {
-      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: `OpenAI error ${res.status}` })
-      return NextResponse.json({ error: `OpenAI error ${res.status}` }, { status: 502 })
+      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'NEXUS AI service error' })
+      return NextResponse.json({ error: 'NEXUS AI could not create a suggestion. Credits were restored.' }, { status: 502 })
     }
 
     const completion = await res.json()
     const rawSuggestion: string = completion.choices?.[0]?.message?.content?.trim() || ''
     if (!rawSuggestion) {
-      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'OpenAI returned no suggestion' })
+      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'NEXUS AI returned no suggestion' })
       return NextResponse.json({ error: 'AI returned no suggestion' }, { status: 502 })
     }
     const allowedClaims = [

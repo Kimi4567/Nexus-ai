@@ -11,11 +11,12 @@
  */
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import {
   X, History, Zap, RefreshCw, AlertCircle,
-  TrendingDown, TrendingUp, Loader2,
+  TrendingDown, TrendingUp, Loader2, Search, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -82,12 +83,17 @@ interface Props {
   onClose: () => void
 }
 
+type HistoryFilter = 'all' | 'spent' | 'added' | 'refunded' | 'legacy'
+const HISTORY_PAGE_SIZE = 10
+
 const ARABIC_ACTION_LABELS: Record<string, string> = {
   CAMPAIGN_GENERATION: 'إنشاء حزمة حملة للمراجعة',
   RUN_FULL_STRATEGY: 'إنشاء استراتيجية تسويق كاملة',
   CREATIVE_BRIEF: 'إنشاء البريف الإبداعي',
   SENTINEL_REVIEW: 'مراجعة Sentinel للجودة',
   IMAGE_GENERATION: 'توليد صورة لمنشور',
+  VIDEO_GENERATION: 'توليد فيديو إعلاني احترافي',
+  MOTION_DESIGN_VIDEO: 'إعلان Motion Design من فيديو أصلي',
   AD_COPY: 'توليد نص إعلان',
   AI_FIELD_SUGGESTION: 'اقتراح حقل بالذكاء الاصطناعي',
   PAID_EXECUTION_PLAN: 'خطة تنفيذ مدفوعة للمراجعة',
@@ -107,6 +113,14 @@ const ARABIC_ACTION_LABELS: Record<string, string> = {
 function transactionLabel(transaction: Transaction, isArabic: boolean): string {
   if (isArabic) return ARABIC_ACTION_LABELS[transaction.action] || transaction.description || transaction.action
   return transaction.description || transaction.action
+}
+
+export function creditHistoryDisplayLabel(transaction: Transaction, isArabic: boolean): string {
+  const rawLabel = transactionLabel(transaction, isArabic)
+  return rawLabel.replace(
+    /\s+[—-]\s+(\d+(?:\.\d+)?)\s+(?:credits?|كريديت)\s*$/i,
+    (suffix, displayedAmount: string) => Number(displayedAmount) === Math.abs(transaction.amount) ? '' : suffix,
+  ).trim()
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -159,6 +173,18 @@ function transactionEventDate(transaction: Transaction): string {
   return transaction.reservedAt || transaction.createdAt
 }
 
+export function transactionEntityHref(transaction: Pick<Transaction, 'entityId' | 'entityType'>): string | null {
+  if (!transaction.entityId) return null
+  if (
+    transaction.entityType === 'campaign'
+    || transaction.entityType === 'strategy'
+    || transaction.entityType?.startsWith('campaign_')
+  ) {
+    return `/campaigns/${transaction.entityId}?tab=strategy`
+  }
+  return null
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function CreditHistoryModal({ open, onClose }: Props) {
@@ -169,6 +195,9 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState<string | null>(null)
   const [reloadKey, setReloadKey]       = useState(0)
+  const [query, setQuery]               = useState('')
+  const [filter, setFilter]             = useState<HistoryFilter>('all')
+  const [page, setPage]                 = useState(1)
 
   useEffect(() => {
     if (!open) return
@@ -215,10 +244,35 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
     return () => window.removeEventListener('keydown', closeOnEscape)
   }, [onClose, open])
 
+  useEffect(() => {
+    setPage(1)
+  }, [filter, query])
+
   if (!open) return null
 
   const isAr = locale === 'ar'
   const transactionRows = applyCreditHistoryCorrections(transactions)
+  const hasLegacyPricingRows = transactionRows.some(({ transaction }) => !transaction.pricingVersion)
+  const normalizedQuery = query.trim().toLowerCase()
+  const filteredRows = transactionRows.filter(({ transaction }) => {
+    const matchesFilter = filter === 'all'
+      || (filter === 'spent' && (transaction.amount < 0 || transaction.creditCost > 0))
+      || (filter === 'added' && transaction.amount > 0)
+      || (filter === 'refunded' && transaction.status === 'REFUNDED')
+      || (filter === 'legacy' && !transaction.pricingVersion)
+    if (!matchesFilter) return false
+    if (!normalizedQuery) return true
+    return [
+      creditHistoryDisplayLabel(transaction, isAr),
+      transaction.description,
+      transaction.action,
+      transaction.entityType,
+      transaction.pricingVersion,
+    ].filter(Boolean).join(' ').toLowerCase().includes(normalizedQuery)
+  })
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / HISTORY_PAGE_SIZE))
+  const safePage = Math.min(page, pageCount)
+  const visibleRows = filteredRows.slice((safePage - 1) * HISTORY_PAGE_SIZE, safePage * HISTORY_PAGE_SIZE)
 
   return (
     <div
@@ -312,12 +366,58 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
           {/* Transaction list */}
           {!loading && !error && transactionRows.length > 0 && (
             <div className="p-3 space-y-1.5">
-              {transactionRows.map(({ transaction: tx, correction }) => {
+              {hasLegacyPricingRows && (
+                <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] leading-5 text-amber-800">
+                  {isAr
+                    ? 'المعاملات المعلّمة «تسعير قديم» سبقت سجل نسخ التسعير الحالي. نحافظ على قيمتها التاريخية كما حدثت ولا ننسب لها نسخة أو مخرجًا لم يكن محفوظًا. السعر الحالي يظهر دائمًا قبل أي تشغيل جديد.'
+                    : 'Rows marked “Legacy price” predate the current versioned pricing ledger. Their historical amount is preserved exactly; NEXUS does not invent a pricing version or artifact that was not stored. Current pricing is always confirmed before a new run.'}
+                </div>
+              )}
+              <div className="sticky top-0 z-10 mb-3 space-y-2 rounded-xl border border-slate-200 bg-white/95 p-2.5 shadow-sm backdrop-blur">
+                <label className="relative block">
+                  <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <span className="sr-only">{isAr ? 'ابحث في سجل الكريديت' : 'Search credit history'}</span>
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={event => setQuery(event.target.value)}
+                    placeholder={isAr ? 'ابحث بالعملية أو المخرج...' : 'Search action or output...'}
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 ps-9 pe-3 text-xs text-slate-900 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                  />
+                </label>
+                <div className="flex gap-1.5 overflow-x-auto pb-0.5" aria-label={isAr ? 'فلترة المعاملات' : 'Filter transactions'}>
+                  {([
+                    ['all', isAr ? 'الكل' : 'All'],
+                    ['spent', isAr ? 'المستخدم' : 'Spent'],
+                    ['added', isAr ? 'المضاف' : 'Added'],
+                    ['refunded', isAr ? 'المسترد' : 'Refunded'],
+                    ['legacy', isAr ? 'قديم' : 'Legacy'],
+                  ] as Array<[HistoryFilter, string]>).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setFilter(value)}
+                      aria-pressed={filter === value}
+                      className={`shrink-0 rounded-lg border px-2.5 py-1 text-[10px] font-bold transition ${filter === value ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-500 hover:text-slate-800'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {visibleRows.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 px-4 py-10 text-center text-xs font-medium text-slate-500">
+                  {isAr ? 'لا توجد معاملات تطابق البحث أو الفلتر.' : 'No transactions match this search or filter.'}
+                </div>
+              ) : visibleRows.map(({ transaction: tx, correction }) => {
                 const isDeduction = tx.amount < 0 || (tx.amount === 0 && tx.creditCost > 0)
                 const isRefunded = tx.status === 'REFUNDED'
                 const badge = entityBadgeColor(tx.entityType)
                 const status = transactionStatus(tx.status, isAr)
                 const includedUsage = tx.amount === 0 && tx.creditCost > 0
+                const entityHref = transactionEntityHref(tx)
+                const displayLabel = creditHistoryDisplayLabel(tx, isAr)
 
                 return (
                   <div key={tx.id}
@@ -342,12 +442,21 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
                     {/* Label + date */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-950 truncate leading-tight">
-                        {transactionLabel(tx, isAr)}
+                        {displayLabel}
                       </p>
-                      {tx.description && tx.description !== transactionLabel(tx, isAr) && (
+                      {tx.description && tx.description !== displayLabel && tx.description !== transactionLabel(tx, isAr) && (
                         <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-500">
                           {tx.description}
                         </p>
+                      )}
+                      {entityHref && (
+                        <Link
+                          href={entityHref}
+                          onClick={onClose}
+                          className="mt-1 inline-flex text-[10px] font-semibold text-indigo-700 hover:underline"
+                        >
+                          {isAr ? 'فتح المخرج المرتبط' : 'Open linked output'}
+                        </Link>
                       )}
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <p className="text-[10px] text-slate-500">
@@ -408,20 +517,29 @@ export default function CreditHistoryModal({ open, onClose }: Props) {
           <div className="px-5 py-3 flex items-center justify-between"
             style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
             <p className="text-[10px] text-slate-500">
-              {isAr
-                ? `${transactionRows.length} معاملة مالية`
-                : `${transactionRows.length} credit transaction${transactionRows.length !== 1 ? 's' : ''}`}
+              {isAr ? `${filteredRows.length} من ${transactionRows.length} معاملة` : `${filteredRows.length} of ${transactionRows.length} transactions`}
             </p>
-            <button onClick={onClose}
-              type="button"
-              className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all hover:bg-slate-100"
-              style={{
-                background: '#F8FAFC',
-                border: '1px solid rgba(15,23,42,0.08)',
-                color: '#334155',
-              }}>
-              {isAr ? 'إغلاق' : 'Close'}
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setPage(current => Math.max(1, current - 1))}
+                disabled={safePage <= 1}
+                aria-label={isAr ? 'الصفحة السابقة' : 'Previous page'}
+                className="rounded-lg border border-slate-200 p-1.5 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                {dir === 'rtl' ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+              </button>
+              <span className="min-w-12 text-center text-[10px] font-semibold text-slate-600">{safePage}/{pageCount}</span>
+              <button
+                type="button"
+                onClick={() => setPage(current => Math.min(pageCount, current + 1))}
+                disabled={safePage >= pageCount}
+                aria-label={isAr ? 'الصفحة التالية' : 'Next page'}
+                className="rounded-lg border border-slate-200 p-1.5 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                {dir === 'rtl' ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              </button>
+            </div>
           </div>
         )}
       </div>

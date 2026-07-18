@@ -65,6 +65,19 @@ function postStateCard(input: ContentHubFirstScreenTruthInput, ar: boolean): Con
     }
   }
 
+  if (input.approvedCount > 0 && input.hasQualityMismatch) {
+    return {
+      label: text(ar, 'حالة المنشورات', 'Post state'),
+      value: text(ar, 'الاعتماد مسجل · إعادة فحص الجودة مطلوبة', 'Approval recorded · quality recheck required'),
+      helper: text(
+        ar,
+        'ظهرت ملاحظات جودة بعد الاعتماد. يبقى التنفيذ مقفلاً حتى تعديل النصوص المتأثرة وإعادة اعتمادها.',
+        'Quality findings appeared after approval. Execution stays locked until the affected copy is edited and re-approved.',
+      ),
+      tone: 'danger',
+    }
+  }
+
   if (input.approvedCount > 0) {
     return {
       label: text(ar, 'حالة المنشورات', 'Post state'),
@@ -142,24 +155,23 @@ function postStateCard(input: ContentHubFirstScreenTruthInput, ar: boolean): Con
 }
 
 function mediaStateCard(input: ContentHubFirstScreenTruthInput, ar: boolean): ContentHubFirstScreenTruthCard {
-  if (input.totalImagePosts === 0) {
+  const totalMediaSlots = input.totalImagePosts + input.videoPostCount
+  if (totalMediaSlots === 0) {
     return {
       label: text(ar, 'جاهزية الوسائط', 'Media readiness'),
-      value: text(ar, 'لا توجد خانات صور مطلوبة', 'No image slots required'),
-      helper: input.videoPostCount > 0
-        ? text(ar, `${input.videoPostCount} خانات فيديو تبقى للتخطيط فقط.`, `${englishPlural(input.videoPostCount, 'video slot')} remain planning-only.`)
-        : text(ar, 'لا توجد وسائط منشورات مطلوبة لهذه الحالة.', 'No post media is required for this state.'),
+      value: text(ar, 'لا توجد خانات وسائط مطلوبة', 'No media slots required'),
+      helper: text(ar, 'لا توجد وسائط منشورات مطلوبة لهذه الحالة.', 'No post media is required for this state.'),
       tone: 'muted',
     }
   }
 
-  const pending = Math.max(0, input.totalImagePosts - input.readyMediaCount)
+  const pending = Math.max(0, totalMediaSlots - input.readyMediaCount)
   return {
     label: text(ar, 'جاهزية الوسائط', 'Media readiness'),
     value: text(
       ar,
-      `${input.readyMediaCount} من ${input.totalImagePosts} وسائط جاهزة`,
-      `${input.readyMediaCount} / ${input.totalImagePosts} media ready`,
+      `${input.readyMediaCount} من ${totalMediaSlots} وسائط جاهزة`,
+      `${input.readyMediaCount} / ${totalMediaSlots} media ready`,
     ),
     helper: input.ambiguousPreviewCount > 0
       ? text(

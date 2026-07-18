@@ -12,6 +12,7 @@ import {
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { captureOperationalError } from '@/lib/observability/operationalError'
 
 /* ═══════════════════════════════════════════════════════════════
    /api/ai/generate
@@ -146,11 +147,23 @@ export async function POST(req: NextRequest) {
     })
 
     if (!response.ok) {
-      const err = await response.json().catch(() => ({}))
-      console.error('[ai/generate] OpenAI error:', response.status, err)
-      if (credit) await refundDeductedCredits(userId, credit, `OpenAI error ${response.status}`)
+      await response.body?.cancel().catch(() => undefined)
+      await captureOperationalError(
+        Object.assign(new Error('AI provider rejected request'), { code: `HTTP_${response.status}` }),
+        {
+          operation: 'ai.ad-copy-provider-response',
+          route: '/api/ai/generate',
+          component: 'ai',
+          method: 'POST',
+          requestId: req.headers?.get?.('x-vercel-id') ?? null,
+          statusCode: 502,
+          retryable: response.status === 429 || response.status >= 500,
+          severity: response.status === 429 ? 'warning' : 'error',
+        },
+      )
+      if (credit) await refundDeductedCredits(userId, credit, 'NEXUS AI service error')
       return NextResponse.json(
-        { error: `OpenAI error ${response.status}. Check API key and quota.` },
+        { error: 'NEXUS AI could not create content. Reserved credits were restored.' },
         { status: 502 }
       )
     }
@@ -158,7 +171,7 @@ export async function POST(req: NextRequest) {
     const data = await response.json()
     const content = data.choices?.[0]?.message?.content ?? ''
     if (typeof content !== 'string' || !content.trim()) {
-      await refundDeductedCredits(userId, credit, 'OpenAI returned no usable content')
+      await refundDeductedCredits(userId, credit, 'NEXUS AI returned no usable content')
       return NextResponse.json({ error: 'AI returned no usable content', refunded: true }, { status: 502 })
     }
 
@@ -181,7 +194,15 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (err) {
-    console.error('[ai/generate] Unexpected error:', err)
+    await captureOperationalError(err, {
+      operation: 'ai.ad-copy-generate',
+      route: '/api/ai/generate',
+      component: 'ai',
+      method: 'POST',
+      requestId: req.headers?.get?.('x-vercel-id') ?? null,
+      statusCode: 500,
+      retryable: true,
+    })
     if (credit) await refundDeductedCredits(userId, credit, 'Unexpected AI generation failure')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

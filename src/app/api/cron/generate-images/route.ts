@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { applyBrandOverlayFromProfile, platformToOverlay } from '@/lib/cloudinaryOverlay'
 import { generateWithFlux, platformToFluxAspectRatio, platformToOpenAISize } from '@/lib/ai/falGen'
-import { buildImagePrompt, type VisualContext } from '@/lib/ai/imageGen'
+import { buildImagePrompt, generateWithDallE, type VisualContext } from '@/lib/ai/imageGen'
+import { reviewGeneratedMediaQuality } from '@/lib/ai/generatedMediaQuality'
+import { chooseProfessionalImageProvider } from '@/lib/ai/mediaProviderRouter'
 import { normalizeContentHubImagePromptForPlatform } from '@/lib/contentHubImageFormat'
+import {
+  buildPlatformReadyImageUrl,
+  resolvePlatformImageFormat,
+} from '@/lib/platformImageFormat'
+import { verifyPlatformReadyImage } from '@/lib/platformImageDelivery.server'
 import {
   checkAndDeductCredits,
   checkDailyImageCap,
@@ -16,6 +23,7 @@ import { cronAuthError } from '@/lib/cronAuth'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 300
 
 /* ═══════════════════════════════════════════════════════════════════════════
    GET /api/cron/generate-images
@@ -37,7 +45,6 @@ export const dynamic = 'force-dynamic'
 const CLOUDINARY_CLOUD  = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
 const CLOUDINARY_KEY    = process.env.CLOUDINARY_API_KEY
 const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET
-const IMAGE_PROVIDER_TIMEOUT_MS = 35_000
 const MEDIA_UPLOAD_TIMEOUT_MS = 10_000
 
 type ImageCreditReservation = {
@@ -54,55 +61,41 @@ type PendingImageRefund = {
 }
 
 /**
- * Generate image — auto-detects provider:
- *   FAL_KEY set  → Flux 1.1 Pro Ultra (best photorealism, returns CDN URL)
- *   FAL_KEY unset → gpt-image-1 high quality (returns base64 data URI)
- * Platform-aware sizing applied in both paths.
+ * Generate a final ad image using the same quality router as Content Hub.
+ * GPT Image 2 is primary; Flux is a controlled fallback for non-reference work.
  */
 async function generateImage(
   prompt: string,
   platform: string
 ): Promise<string> {
   const safePrompt = normalizeContentHubImagePromptForPlatform(prompt, platform)
-  // Auto-detect provider — FAL_KEY presence is the only signal
-  if (process.env.FAL_KEY) {
-    const aspectRatio = platformToFluxAspectRatio(platform)
-    console.log(`[Cron generate-images] Using Flux Pro Ultra — aspect ratio: ${aspectRatio}`)
-    const result = await generateWithFlux({ prompt: safePrompt, aspectRatio })
-    return result.imageUrl // Hosted CDN URL — no base64 needed
-  }
-
-  // Fallback: gpt-image-1 high quality
-  // Platform-aware sizing — gpt-image-1 supported sizes only
-  const size = platformToOpenAISize(platform)
-
-  const res = await fetch('https://api.openai.com/v1/images/generations', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model:   'gpt-image-1',
-      prompt: safePrompt,
-      n:       1,
-      size,
-      quality: 'high', // always high — production asset
-    }),
-    signal: AbortSignal.timeout(IMAGE_PROVIDER_TIMEOUT_MS),
+  const decision = chooseProfessionalImageProvider({
+    purpose: 'final_ad_creative',
+    hasReferenceImage: false,
+    openAiConfigured: Boolean(process.env.OPENAI_API_KEY),
+    falConfigured: Boolean(process.env.FAL_KEY),
   })
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any)?.error?.message || `Image API error: ${res.status}`)
+  const runFlux = async () => {
+    const aspectRatio = platformToFluxAspectRatio(platform)
+    console.log(`[Cron generate-images] Using Flux fallback — aspect ratio: ${aspectRatio}`)
+    const result = await generateWithFlux({ prompt: safePrompt, aspectRatio })
+    return result.imageUrl
   }
 
-  const data = await res.json()
-  // gpt-image-1 returns b64_json (not a URL)
-  const b64 = data?.data?.[0]?.b64_json
-  if (!b64) throw new Error('Image generation returned no data')
+  if (decision.provider === 'fal-flux') {
+    return runFlux()
+  }
 
-  return `data:image/png;base64,${b64}`
+  try {
+    const size = platformToOpenAISize(platform)
+    console.log(`[Cron generate-images] Using GPT Image 2 — size: ${size}`)
+    return await generateWithDallE(safePrompt, size)
+  } catch (error) {
+    if (decision.fallback !== 'fal-flux') throw error
+    console.warn('[Cron generate-images] GPT Image 2 failed; using controlled Flux fallback')
+    return runFlux()
+  }
 }
 
 async function uploadToCloudinary(imageUrl: string, postId: string): Promise<string> {
@@ -334,7 +327,8 @@ export async function GET(req: NextRequest) {
       let creditReservation: ImageCreditReservation | undefined
       let visualId: string | null = null
       try {
-        const platform: string = post.platform || 'META'
+        const platform: string = post.publishTarget || post.platform || 'META'
+        const targetFormat = resolvePlatformImageFormat(platform)
         const ownerId: string | undefined = post.workspace?.ownerId
 
         // ── Credit gate: deduct IMAGE_GENERATION from workspace owner ───────
@@ -421,19 +415,37 @@ export async function GET(req: NextRequest) {
         })
         visualId = visual.id
 
-        // 1. Generate image — auto-routes to Flux Pro Ultra if FAL_KEY set, else gpt-image-1 high
-        console.log(`[Cron generate-images] Generating for ${post.id} — platform: ${platform}, provider: ${process.env.FAL_KEY ? 'flux' : 'gpt-image-1'}`)
+        // 1. Generate a final creative through the shared professional router.
+        console.log(`[Cron generate-images] Generating final creative for ${post.id} — platform: ${platform}`)
         const dataUri = await generateImage(prompt, platform)
 
         // 2. Upload to Cloudinary for permanence (accepts data URI directly)
-        let finalUrl = await uploadToCloudinary(dataUri, post.id)
+        const durableRawUrl = await uploadToCloudinary(dataUri, post.id)
+        const finalUrl = buildPlatformReadyImageUrl(durableRawUrl, targetFormat)
 
-        // 3. Apply brand overlay (Cloudinary URL transformation — zero extra cost)
-        const brand = post.workspace?.brandProfile
-        if (brand?.brandName && finalUrl.includes('res.cloudinary.com')) {
-          const overlayPlatform = platformToOverlay(post.platform || 'META')
-          finalUrl = applyBrandOverlayFromProfile(finalUrl, brand, overlayPlatform)
-          console.log(`[Cron generate-images] Brand overlay applied for ${brand.brandName} (${post.id})`)
+        // 3. Verify the exact platform canvas and visible marketing quality.
+        // Copy/logo remain editable; cron must never burn unreviewed raster text.
+        const formatValidation = await verifyPlatformReadyImage(finalUrl, targetFormat)
+        const qualityReview = await reviewGeneratedMediaQuality({
+          mediaType: 'IMAGE',
+          outputFrames: [finalUrl],
+          campaignMessage: post.caption,
+          creativeDirection: post.imagePrompt,
+          targetFormat,
+          formatValidation,
+        })
+        if (!qualityReview.passed) {
+          await prisma.generatedVisual.update({
+            where: { id: visualId },
+            data: {
+              status: 'FAILED',
+              imageUrl: finalUrl,
+              errorMessage: 'NEXUS quality review rejected this platform-ready image.',
+              qualityStatus: 'REJECTED',
+              qualityReview: qualityReview as unknown as Prisma.InputJsonValue,
+            },
+          })
+          throw new Error('NEXUS quality review rejected this platform-ready image')
         }
 
         // 4. Update the post
@@ -448,7 +460,12 @@ export async function GET(req: NextRequest) {
           })
           await tx.generatedVisual.update({
             where: { id: visualId! },
-            data: { imageUrl: finalUrl, status: 'COMPLETED' },
+            data: {
+              imageUrl: finalUrl,
+              status: 'COMPLETED',
+              qualityStatus: 'PASSED',
+              qualityReview: qualityReview as unknown as Prisma.InputJsonValue,
+            },
           })
         })
 
@@ -470,11 +487,12 @@ export async function GET(req: NextRequest) {
         return { postId: post.id, status: 'ok', url: finalUrl }
       } catch (err: any) {
         console.error(`[Cron generate-images] Failed for post ${post.id}:`, err)
-        const refunded = await refundImageReservation(creditReservation, err.message ?? 'Cron image generation failed')
+        const publicMessage = 'NEXUS Image Studio could not create a usable image.'
+        const refunded = await refundImageReservation(creditReservation, publicMessage)
         if (visualId) {
           await prisma.generatedVisual.update({
             where: { id: visualId },
-            data: { status: 'FAILED', errorMessage: String(err.message ?? 'Cron image generation failed').slice(0, 500) },
+            data: { status: 'FAILED', errorMessage: publicMessage },
           }).catch(() => {})
         }
         await prisma.socialPost.update({
@@ -484,7 +502,7 @@ export async function GET(req: NextRequest) {
         return {
           postId: post.id,
           status: 'failed',
-          error: err.message,
+          error: publicMessage,
           refundStatus: refunded ? 'restored' : 'pending_reconciliation',
         }
       }

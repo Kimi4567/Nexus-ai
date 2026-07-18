@@ -9,14 +9,24 @@
 export const META_GRAPH_VERSION = process.env.META_GRAPH_API_VERSION || 'v25.0'
 export const LINKEDIN_API_VERSION = process.env.LINKEDIN_API_VERSION || '202606'
 
-export const META_ORGANIC_SCOPES = [
+export const META_FACEBOOK_ORGANIC_SCOPES = [
   'public_profile',
   'pages_show_list',
   'pages_read_engagement',
   'pages_manage_posts',
+] as const
+
+export const META_INSTAGRAM_SCOPES = [
   'instagram_basic',
   'instagram_content_publish',
 ] as const
+
+/** Keep the first Facebook review flow least-privilege. */
+export function getMetaOrganicScopes(instagramEnabled = process.env.META_ENABLE_INSTAGRAM_SCOPES === 'true'): string[] {
+  return instagramEnabled
+    ? [...META_FACEBOOK_ORGANIC_SCOPES, ...META_INSTAGRAM_SCOPES]
+    : [...META_FACEBOOK_ORGANIC_SCOPES]
+}
 
 export const META_ADS_SCOPES = [
   'public_profile',
@@ -45,7 +55,6 @@ export const LINKEDIN_ORGANIZATION_SCOPES = [
 export const TIKTOK_CONTENT_SCOPES = [
   'user.info.basic',
   'video.publish',
-  'video.list',
 ] as const
 
 export const YOUTUBE_CONTENT_SCOPES = [

@@ -50,6 +50,7 @@ import { deriveStrategyFulfillmentSummary, type StrategyFulfillmentTone } from '
 import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
 import { buildStrategySnapshot } from '@/lib/strategy/strategySnapshot'
 import type { StrategyApprovalState } from '@/lib/strategyApproval'
+import { validateCampaignStrategyContract } from '@/lib/campaignStrategyContract'
 
 interface Activity {
   id: string
@@ -1051,7 +1052,10 @@ function CampaignDetailPageInner() {
         headers: { 'Content-Type': 'application/json', Authorization: token },
         // The API treats the saved strategy language as authoritative. Passing
         // the UI locale is only a fallback for legacy campaigns.
-        body: JSON.stringify({ language: locale }),
+        body: JSON.stringify({
+          language: locale,
+          applySafeCorrections: sentinelStatus === 'needs_attention',
+        }),
       })
       const d = await res.json()
       if (d.qualityGate) {
@@ -1075,8 +1079,10 @@ function CampaignDetailPageInner() {
             ...prev,
             aiOutput: {
               ...existing,
+              ...(d.reviewedStrategy ? { strategy: d.reviewedStrategy } : {}),
               sentinelReview: d.sentinelReview,
               ...(d.qualityGate ? { qualityGate: d.qualityGate } : {}),
+              ...(d.strategyContract ? { strategyContract: d.strategyContract } : {}),
             },
           }
         })
@@ -1259,6 +1265,26 @@ function CampaignDetailPageInner() {
       .filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
     { language: strategyLanguage },
   ) as any
+  const savedStrategyDeliverables = aiOutput?.strategyDeliverables && typeof aiOutput.strategyDeliverables === 'object'
+    ? aiOutput.strategyDeliverables
+    : null
+  const strategyContractReport = validateCampaignStrategyContract(strategy, {
+    language: strategyLanguage,
+    expectedOrganicPostCount: typeof savedStrategyDeliverables?.organicPostCount === 'number'
+      ? savedStrategyDeliverables.organicPostCount
+      : null,
+    strategyType: strategyScope.type,
+    expectedPaidPlanning: savedStrategyDeliverables,
+  })
+  const openSentinelReview = () => {
+    if (!strategyContractReport.valid) {
+      setSentinelError(uiIsArabic
+        ? 'هذه الاستراتيجية لا تطابق المخرجات المحفوظة في أمرها. أعد بناء حزمة الحملة قبل فحص الجودة؛ لن يُخصم أي كريديت.'
+        : 'This strategy no longer matches its saved order. Rebuild the campaign package before quality review; no credits will be charged.')
+      return
+    }
+    setShowSentinelConfirm(true)
+  }
   const topHooks: string[] = strategy.topHooks || guardedAiOutput?.topHooks || []
   const ctaVariations: string[] = strategy.ctaVariations || guardedAiOutput?.ctaVariations || []
   const captionFormulas: string[] = guardedAiOutput?.captionFormulas || []
@@ -1305,6 +1331,9 @@ function CampaignDetailPageInner() {
     primaryOffer: { en: 'primary offer', ar: 'العرض الأساسي' },
     audienceLocation: { en: 'location', ar: 'الموقع الجغرافي' },
     uniqueAdvantages: { en: 'differentiator', ar: 'الميزة التنافسية' },
+    pricePoint: { en: 'price position', ar: 'الشريحة السعرية' },
+    customerObjections: { en: 'customer objections', ar: 'اعتراضات العملاء' },
+    verifiedProof: { en: 'user-confirmed proof', ar: 'إثبات مؤكد من المستخدم' },
     marketingBudget: { en: 'monthly budget', ar: 'الميزانية الشهرية' },
     conversionDestination: { en: 'conversion destination', ar: 'وجهة التحويل' },
     leadHandling: { en: 'lead handling', ar: 'إدارة العملاء المحتملين' },
@@ -1313,7 +1342,7 @@ function CampaignDetailPageInner() {
   }
   const missingDataLabels: string[] = missingDataKeys.map(k => MISSING_KEY_LABELS[k] ? (locale === 'ar' ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)
   const strategyDocMissingDataLabels: string[] = missingDataKeys.map(k => MISSING_KEY_LABELS[k] ? (strategyDocIsArabic ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)
-  const paidPlanningMissingKeys = missingDataKeys.filter(k => ['marketingBudget', 'conversionDestination', 'leadHandling', 'pixel'].includes(k))
+  const paidPlanningMissingKeys = missingDataKeys.filter(k => ['marketingBudget', 'conversionDestination', 'leadHandling', 'audienceLocation', 'pricePoint', 'uniqueAdvantages', 'customerObjections', 'verifiedProof', 'pixel'].includes(k))
   const paidPlanningMissingLabels = paidPlanningMissingKeys.map(k => MISSING_KEY_LABELS[k] ? (locale === 'ar' ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)
   const strategyDocPaidPlanningMissingLabels = paidPlanningMissingKeys.map(k => MISSING_KEY_LABELS[k] ? (strategyDocIsArabic ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)
   const campaignToneLabel = formatCampaignToneForLocale(campaign.tone, locale)
@@ -1782,6 +1811,9 @@ function CampaignDetailPageInner() {
       brandName: brandDNA?.brandName,
     })),
   )
+  const creativeMediaNeedLabel = uiIsArabic
+    ? `${creativeRequirementsSummary.imageNeeded || 0} صور · ${creativeRequirementsSummary.videoNeeded || 0} فيديو تحتاج وسائط`
+    : `${creativeRequirementsSummary.imageNeeded || 0} images · ${creativeRequirementsSummary.videoNeeded || 0} videos need media`
   const commandFlowCurrentStepId: CampaignCommandFlowStepId | undefined = (() => {
     if (activeTab === 0) return 'strategy'
     if (activeTab === 3) return 'creative'
@@ -1913,13 +1945,6 @@ function CampaignDetailPageInner() {
     locked: 'border-slate-200 bg-slate-50 text-slate-500',
     optional: 'border-purple-200 bg-purple-50 text-purple-800',
   }
-  const creativeOperatingStepLabel: Record<(typeof creativeOperatingSequence)[number]['status'], string> = {
-    complete: uiText('تم', 'Done'),
-    current: uiText('الآن', 'Now'),
-    pending: uiText('بعد ذلك', 'Next'),
-    locked: uiText('مقفل', 'Locked'),
-    optional: uiText('اختياري', 'Optional'),
-  }
   const renderCommandFlowIcon = (status: CampaignCommandFlowStepStatus) => {
     const iconClass = 'h-4 w-4 flex-shrink-0'
     if (status === 'complete') return <CheckCircle2 className={iconClass} />
@@ -1967,7 +1992,7 @@ function CampaignDetailPageInner() {
           : (uiIsArabic
             ? 'حضّر أول خطة محتوى بعد مراجعة القرار والافتراضات.'
             : 'Prepare the first content plan after reviewing the decision and assumptions.'),
-      href: isPaidOnlyStrategy ? `/campaigns/${campaign.id}/paid-launch` : `/campaigns/${campaign.id}/content-hub`,
+      href: isPaidOnlyStrategy ? `/paid-campaigns/new?sourceCampaignId=${campaign.id}` : `/campaigns/${campaign.id}/content-hub`,
       cta: isPaidOnlyStrategy
         ? uiText('ابدأ تنفيذ الاستراتيجية', 'Start strategy execution')
         : strategyRoomStateCopy.contentHubCta,
@@ -1978,8 +2003,8 @@ function CampaignDetailPageInner() {
       title: uiText('جاهزية الإبداع والوسائط', 'Creative and media readiness'),
       status: creativeHasPostRecords
         ? (uiIsArabic
-          ? `${creativeRequirementsSummary.mediaNeeded} تحتاج وسائط · ${creativeRequirementsSummary.attachedToPost} مرتبطة`
-          : `${creativeRequirementsSummary.mediaNeeded} need media · ${creativeRequirementsSummary.attachedToPost} attached`)
+          ? `${creativeMediaNeedLabel} · ${creativeRequirementsSummary.attachedToPost} مرتبطة`
+          : `${creativeMediaNeedLabel} · ${creativeRequirementsSummary.attachedToPost} attached`)
         : uiText('ينتظر منشورات Content Hub', 'Waiting for Content Hub posts'),
       helper: creativeHasPostRecords
         ? (uiIsArabic
@@ -2181,7 +2206,7 @@ function CampaignDetailPageInner() {
         : !operatingSnapshotsLoaded
         ? uiText('جارٍ التحقق من الأصول', 'Checking assets')
         : creativeHasPostRecords
-        ? uiText(`${creativeRequirementsSummary.mediaNeeded} تحتاج وسائط`, `${creativeRequirementsSummary.mediaNeeded} need media`)
+        ? creativeMediaNeedLabel
         : uiText('ينتظر المحتوى', 'Waiting for content'),
     },
     {
@@ -2562,7 +2587,7 @@ function CampaignDetailPageInner() {
               {activeTab !== 0 && !brandTruthBlocked && !engineRunning && operatingState.stage === 'strategy_review_needed' ? (
                 <button
                   type="button"
-                  onClick={() => setShowSentinelConfirm(true)}
+                  onClick={openSentinelReview}
                   disabled={sentinelState === 'reviewing'}
                   className="inline-flex flex-shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
                 >
@@ -2917,7 +2942,7 @@ function CampaignDetailPageInner() {
                 {/* Primary CTA — context aware, one at a time */}
                 {activeTab !== 0 && !brandTruthBlocked && !engineRunning && operatingState.stage === 'strategy_review_needed' && (
                   <button
-                    onClick={() => setShowSentinelConfirm(true)}
+                    onClick={openSentinelReview}
                     disabled={sentinelState === 'reviewing'}
                     className="px-4 py-2 rounded-xl text-sm font-semibold transition disabled:opacity-60"
                     style={{ background: '#2563eb', color: '#fff' }}
@@ -2926,8 +2951,8 @@ function CampaignDetailPageInner() {
                       ? '⏳...'
                       : sentinelStatus === 'needs_attention'
                         ? (locale === 'ar'
-                          ? `طبّق الإصلاح الآمن وأعد الفحص — ${sentinelCreditCost} كريديت`
-                          : `Apply safe correction and re-review — ${sentinelCreditCost} credits`)
+                          ? `طبّق التصحيح الحتمي وأعد الفحص — ${sentinelCreditCost} كريديت`
+                          : `Apply deterministic correction and re-review — ${sentinelCreditCost} credits`)
                         : (locale === 'ar'
                           ? `🔍 فحص الجودة — ${sentinelCreditCost} كريديت`
                           : `🔍 Review quality — ${sentinelCreditCost} credits`)}
@@ -3228,7 +3253,7 @@ function CampaignDetailPageInner() {
                   helper: strategyHeaderNextActionHelper,
                   label: strategyDeskCanReviewQuality
                     ? (sentinelStatus === 'needs_attention'
-                      ? uiText('طبّق الإصلاح الآمن وأعد الفحص', 'Apply safe correction and re-review')
+                      ? uiText('طبّق التصحيح الحتمي وأعد الفحص', 'Apply deterministic correction and re-review')
                       : uiText('ابدأ فحص الجودة', 'Start quality review'))
                     : strategyDeskCanApproveAndBuild
                       ? (campaign.status === 'ACTIVE'
@@ -3243,7 +3268,7 @@ function CampaignDetailPageInner() {
                       : null,
                 }}
                 onNextAction={strategyDeskCanReviewQuality
-                  ? () => setShowSentinelConfirm(true)
+                  ? openSentinelReview
                   : strategyDeskCanApproveAndBuild
                     ? () => {
                       setLaunchError('')
@@ -3352,7 +3377,7 @@ function CampaignDetailPageInner() {
                         ) : !engineRunning && operatingState.stage === 'strategy_review_needed' ? (
                           <button
                             type="button"
-                            onClick={() => setShowSentinelConfirm(true)}
+                            onClick={openSentinelReview}
                             disabled={sentinelState === 'reviewing'}
                             className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
                           >
@@ -3360,8 +3385,8 @@ function CampaignDetailPageInner() {
                               ? uiText('جارٍ فحص الجودة...', 'Reviewing quality...')
                               : sentinelStatus === 'needs_attention'
                                 ? uiText(
-                                  `طبّق الإصلاح الآمن وأعد الفحص — ${sentinelCreditCost} كريديت`,
-                                  `Apply safe correction and re-review — ${sentinelCreditCost} credits`,
+                                  `طبّق التصحيح الحتمي وأعد الفحص — ${sentinelCreditCost} كريديت`,
+                                  `Apply deterministic correction and re-review — ${sentinelCreditCost} credits`,
                                 )
                                 : uiText(
                                   `فحص الجودة — ${sentinelCreditCost} كريديت`,
@@ -3480,8 +3505,8 @@ function CampaignDetailPageInner() {
                           {sentinelStatus === 'needs_attention' && (
                             <p className="rounded-xl border border-amber-300 bg-amber-100 px-3 py-2 text-xs font-semibold leading-5 text-amber-950">
                               {uiText(
-                                'لن يتم الاعتماد بهذه الحالة. زر «طبّق الإصلاح الآمن» يزيل الأرقام الأدائية غير الموثقة قبل إعادة الفحص؛ ولا ينشر أو يعتمد شيئًا تلقائيًا.',
-                                'Approval remains blocked. Apply safe correction removes unsupported performance numbers before the re-review; it does not publish or approve anything automatically.',
+                                'لن يتم الاعتماد بهذه الحالة. التصحيح الحتمي يغيّر فقط الأنماط غير الآمنة التي يستطيع النظام إثباتها. إذا لم يوجد تعديل حقيقي فلن يبدأ فحص مدفوع ولن يُخصم أي كريديت.',
+                                'Approval remains blocked. Deterministic correction changes only unsafe patterns the system can prove. If no real correction is available, no paid review starts and no credits are charged.',
                               )}
                             </p>
                           )}
@@ -3735,6 +3760,8 @@ function CampaignDetailPageInner() {
                     {diagnosisDetails && (
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                         <StrategyDocCard label={strategyDocText('مرحلة النشاط', 'Business stage')} value={diagnosisDetails.stage} locale={strategyDocumentLocale} />
+                        <StrategyDocCard label={strategyDocText('حالة التشخيص', 'Diagnosis basis')} value={diagnosisDetails.basis === 'documented' ? strategyDocText('موثق من Brand Brain', 'Documented from Brand Brain') : strategyDocText('فرضية تحتاج تحقق', 'Hypothesis to validate')} locale={strategyDocumentLocale} tone={diagnosisDetails.basis === 'documented' ? 'positive' : 'warning'} />
+                        <StrategyDocCard label={strategyDocText('أساس الدليل / التحقق', 'Evidence or validation basis')} value={diagnosisDetails.evidenceBasis} locale={strategyDocumentLocale} tone="warning" />
                         <StrategyDocCard label={strategyDocText('العائق الأساسي', 'Main bottleneck')} value={diagnosisDetails.bottleneck} locale={strategyDocumentLocale} />
                         <StrategyDocCard label={strategyDocText('فجوة الثقة', 'Trust gap')} value={diagnosisDetails.trustGap} locale={strategyDocumentLocale} tone="warning" />
                         <StrategyDocCard label={strategyDocText('الخطر الأساسي', 'Main risk')} value={diagnosisDetails.mainRisk} locale={strategyDocumentLocale} tone="warning" />
@@ -3843,6 +3870,54 @@ function CampaignDetailPageInner() {
                               <p className="mt-1 text-xl font-black text-slate-950">{count}</p>
                             </div>
                           ))}
+                        </div>
+                        <div className="grid gap-3 lg:grid-cols-3">
+                          <details className="rounded-xl border border-indigo-100 bg-white p-3" open={isPaidOnlyStrategy || undefined}>
+                            <summary className="cursor-pointer text-sm font-bold text-slate-900">
+                              {strategyDocText(`عرض ${paidPlanning.audienceHypotheses?.length || 0} فرضيات جمهور`, `Show ${paidPlanning.audienceHypotheses?.length || 0} audience hypotheses`)}
+                            </summary>
+                            <div className="mt-3 space-y-2">
+                              {(paidPlanning.audienceHypotheses || []).map((audience: any, index: number) => (
+                                <div key={audience.name || index} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                  <p className="text-xs font-black text-indigo-700">{index + 1}. {strategyDocDisplayValue(audience.name)}</p>
+                                  <p className="mt-2 text-xs leading-5 text-slate-700">{strategyDocDisplayValue(audience.buyingSituation)}</p>
+                                  <p className="mt-1 text-[11px] leading-5 text-slate-500">{strategyDocText('فرضية الاستهداف', 'Targeting hypothesis')}: {strategyDocDisplayValue(audience.targetingHypothesis)}</p>
+                                  <p className="mt-1 text-[11px] leading-5 text-amber-700">{strategyDocText('التحقق المطلوب', 'Validation needed')}: {strategyDocDisplayValue(audience.validationNeeded)}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                          <details className="rounded-xl border border-indigo-100 bg-white p-3" open={isPaidOnlyStrategy || undefined}>
+                            <summary className="cursor-pointer text-sm font-bold text-slate-900">
+                              {strategyDocText(`عرض ${paidPlanning.adAngles?.length || 0} زوايا إعلانية`, `Show ${paidPlanning.adAngles?.length || 0} ad angles`)}
+                            </summary>
+                            <div className="mt-3 space-y-2">
+                              {(paidPlanning.adAngles || []).map((angle: any, index: number) => (
+                                <div key={angle.name || index} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                  <p className="text-xs font-black text-indigo-700">{index + 1}. {strategyDocDisplayValue(angle.name)}</p>
+                                  <p className="mt-2 text-xs leading-5 text-slate-700">{strategyDocDisplayValue(angle.message)}</p>
+                                  <p className="mt-1 text-[11px] leading-5 text-slate-500">{strategyDocText('مرحلة القمع', 'Funnel stage')}: {strategyDocDisplayValue(angle.funnelStage)}</p>
+                                  <p className="mt-1 text-[11px] leading-5 text-amber-700">{strategyDocText('الإثبات المطلوب', 'Proof needed')}: {strategyDocDisplayValue(angle.proofNeeded)}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                          <details className="rounded-xl border border-indigo-100 bg-white p-3" open={isPaidOnlyStrategy || undefined}>
+                            <summary className="cursor-pointer text-sm font-bold text-slate-900">
+                              {strategyDocText(`عرض ${paidPlanning.creativeBriefs?.length || 0} بريفات إبداعية`, `Show ${paidPlanning.creativeBriefs?.length || 0} creative briefs`)}
+                            </summary>
+                            <div className="mt-3 space-y-2">
+                              {(paidPlanning.creativeBriefs || []).map((brief: any, index: number) => (
+                                <div key={brief.name || index} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                  <p className="text-xs font-black text-indigo-700">{index + 1}. {strategyDocDisplayValue(brief.name)}</p>
+                                  <p className="mt-2 text-xs leading-5 text-slate-700">{strategyDocDisplayValue(brief.visualDirection)}</p>
+                                  <p className="mt-1 text-[11px] leading-5 text-slate-500">{strategyDocText('الصيغة', 'Format')}: {strategyDocDisplayValue(brief.format)}</p>
+                                  <p className="mt-1 text-[11px] leading-5 text-amber-700">{strategyDocText('حالة الأصل', 'Asset status')}: {brief.assetStatus === 'existing_approved' ? strategyDocText('أصل معتمد موجود', 'Existing approved asset') : brief.assetStatus === 'generation_required' ? strategyDocText('أصل مقترح يحتاج توليداً وموافقة', 'Proposed asset requires generation and approval') : strategyDocText('أصل مقترح يحتاج رفعاً وموافقة', 'Proposed asset requires upload and approval')}</p>
+                                  <p className="mt-1 text-[11px] leading-5 text-amber-700">{strategyDocText('بوابة المراجعة', 'Review gate')}: {strategyDocDisplayValue(brief.reviewGate)}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
                         </div>
                         <div className="grid gap-3 lg:grid-cols-2">
                           <StrategyDocCard label={strategyDocText('إطار الميزانية', 'Budget framework')} value={paidPlanning.budgetFramework} locale={strategyDocumentLocale} tone="warning" />
@@ -4848,35 +4923,24 @@ function CampaignDetailPageInner() {
                       <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">
                         {nextCreativeAction.helper}
                       </p>
-                      <p className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
-                        {locale === 'ar'
-                          ? 'يتبع العمل الإبداعي حالة الحملة. لا ينشر NEXUS أو يجدول المحتوى أو يطلق إعلانات من هذا التبويب. وسائط المنشورات النهائية تُراجع في Content Hub؛ المعاينات والأصول المفهومية لا تُرفق بالمنشورات تلقائياً.'
-                          : 'Creative work follows the campaign state. NEXUS does not publish, schedule, or start paid campaigns from this tab. Final post media is reviewed in Content Hub; previews and concept assets are not automatically attached to posts.'}
-                      </p>
-                      {!includesPaidPlanningStrategy && (
-                        <p className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] leading-5 text-slate-600">
+                      <details className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
+                        <summary className="cursor-pointer font-bold text-slate-700">
+                          {locale === 'ar' ? 'لماذا هذه هي الخطوة التالية؟' : 'Why is this the next step?'}
+                        </summary>
+                        <p className="mt-2 leading-5">
                           {locale === 'ar'
-                            ? 'هذه استراتيجية عضوية فقط. متطلبات الإعلانات المدفوعة والميزانية وإطلاق المنصات خارج نطاق هذا التشغيل.'
-                            : 'This is an organic-only strategy. Paid ad creative, budget, and platform launch decisions are outside this run.'}
+                            ? 'يتبع العمل الإبداعي حالة الحملة. وسائط المنشورات النهائية تُراجع في Content Hub؛ المعاينات لا تُرفق أو تُنشر تلقائياً.'
+                            : 'Creative work follows campaign state. Final post media is reviewed in Content Hub; previews are never attached or published automatically.'}
                         </p>
-                      )}
-                      <div className="mt-4 grid gap-2 lg:grid-cols-3">
-                        {creativeOperatingSequence.map((step) => (
-                          <div
-                            key={step.step}
-                            className={`rounded-xl border px-3 py-3 ${creativeOperatingStepTone[step.status]}`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <span className="text-[11px] font-bold opacity-55">{step.step}</span>
-                              <span className="rounded-full border border-current/20 bg-white/70 px-2 py-0.5 text-[10px] font-semibold">
-                                {creativeOperatingStepLabel[step.status]}
-                              </span>
+                        <div className="mt-3 grid gap-2 lg:grid-cols-3">
+                          {creativeOperatingSequence.map((step) => (
+                            <div key={step.step} className={`rounded-xl border px-3 py-3 ${creativeOperatingStepTone[step.status]}`}>
+                              <p className="font-semibold">{step.step}. {step.title}</p>
+                              <p className="mt-1 leading-5 opacity-75">{step.helper}</p>
                             </div>
-                            <p className="mt-2 text-sm font-semibold leading-5">{step.title}</p>
-                            <p className="mt-1 text-[11px] leading-5 opacity-75">{step.helper}</p>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      </details>
                     </div>
                     <a
                       href={nextCreativeAction.href}
@@ -4890,6 +4954,14 @@ function CampaignDetailPageInner() {
                   </div>
                 </div>
 
+                <details className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <summary className="cursor-pointer list-none px-5 py-4 text-sm font-black text-slate-800 marker:hidden">
+                    <span className="flex items-center justify-between gap-3">
+                      {locale === 'ar' ? 'أدوات وتفاصيل الإبداع المتقدمة' : 'Advanced creative tools and details'}
+                      <span className="text-xs font-semibold text-indigo-600">{locale === 'ar' ? 'اختياري' : 'Optional'} ↓</span>
+                    </span>
+                  </summary>
+                  <div className="space-y-4 border-t border-slate-100 p-4">
                 <div className="rounded-2xl border border-indigo-100 bg-white p-6 shadow-sm">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div>
@@ -5019,22 +5091,11 @@ function CampaignDetailPageInner() {
                   </div>
 
                   <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                    <button
-                      onClick={() => window.open(`/campaigns/${campaign.id}/creative-brief`, '_blank')}
-                      className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-all ${
-                        creativeCanUsePostMediaFlow
-                          ? 'bg-purple-600 hover:bg-purple-500'
-                          : 'border border-purple-100 bg-purple-50 text-purple-700 hover:bg-purple-100'
-                      }`}
-                      style={creativeCanUsePostMediaFlow ? { color: '#fff' } : undefined}
-                    >
-                      <span>🎨</span>
-                      {creativeBrief
-                        ? (cdT?.openCreativeBriefBtn || 'Open creative brief planner')
-                        : (locale === 'ar' ? 'افتح مخطط الإبداع' : 'Open creative brief planner')
-                      }
-                      <span className={creativeCanUsePostMediaFlow ? 'text-purple-300 text-xs' : 'text-purple-400 text-xs'}>↗</span>
-                    </button>
+                    <div className="flex items-center rounded-xl border border-purple-100 bg-purple-50 px-4 py-3 text-[12px] font-semibold leading-5 text-purple-800">
+                      {locale === 'ar'
+                        ? 'استخدم القرار الرئيسي أعلى الصفحة لفتح مخطط الإبداع؛ يوجد مسار أساسي واحد فقط لهذه الخطوة.'
+                        : 'Use the primary decision above to open the creative planner; this step has one canonical action.'}
+                    </div>
                     <Link
                       href="/media"
                       className="flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-purple-200 hover:bg-purple-50 hover:text-purple-700"
@@ -5136,7 +5197,7 @@ function CampaignDetailPageInner() {
                         ))}
                       </div>
                       <button
-                        onClick={() => window.open(`/campaigns/${campaign.id}/paid-launch`, '_blank')}
+                        onClick={() => window.open(`/paid-campaigns/new?sourceCampaignId=${campaign.id}`, '_blank')}
                         className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100"
                       >
                         {locale === 'ar' ? 'راجع جاهزية التنفيذ المدفوع' : 'Review paid execution readiness'}
@@ -5186,12 +5247,43 @@ function CampaignDetailPageInner() {
                   )}
                 </div>
 
+                  </div>
+                </details>
+
               </div>
             )}
 
             {/* ── Tab 4: Publish to Social ─────────────────────────────────── */}
             {activeTab === 4 && (
               <div id="campaign-publish-work" className="space-y-4 scroll-mt-24">
+                <section className="overflow-hidden rounded-2xl border border-emerald-200 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.14),transparent_34%),linear-gradient(135deg,#ffffff,#f0fdf9)] p-6 shadow-sm">
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-emerald-700">
+                        {locale === 'ar' ? 'قرار التنفيذ التالي' : 'Next execution decision'}
+                      </p>
+                      <h3 className="mt-2 text-xl font-black text-slate-950">{effectiveDisplayOperatingLabel}</h3>
+                      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{effectiveDisplayOperatingHelper}</p>
+                      <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-bold">
+                        <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-700">{publishTabSummary.totalPosts} {locale === 'ar' ? 'منشور' : 'posts'}</span>
+                        <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-amber-800">{publishTabSummary.scheduledNotPublished} {locale === 'ar' ? 'مجدول وغير منشور' : 'scheduled, not live'}</span>
+                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-emerald-800">{publishTabSummary.apiPublished} {locale === 'ar' ? 'نشر مثبت من المنصة' : 'provider-evidenced publishes'}</span>
+                      </div>
+                    </div>
+                    <Link href={operatingActionHref} className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-xl bg-slate-950 px-5 text-sm font-black text-white shadow-[0_14px_32px_rgba(15,23,42,0.18)] transition hover:bg-slate-800">
+                      {operatingActionLabel} <span className="ms-2">→</span>
+                    </Link>
+                  </div>
+                </section>
+
+                <details className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <summary className="cursor-pointer list-none px-5 py-4 text-sm font-black text-slate-800 marker:hidden">
+                    <span className="flex items-center justify-between gap-3">
+                      {locale === 'ar' ? 'تفاصيل الجاهزية والاتصالات والأتمتة' : 'Readiness, connections, and automation details'}
+                      <span className="text-xs font-semibold text-emerald-700">{locale === 'ar' ? 'للتدقيق' : 'Audit details'} ↓</span>
+                    </span>
+                  </summary>
+                  <div className="space-y-4 border-t border-slate-100 p-4">
                 <div className="rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm">
                   <div className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -5337,6 +5429,8 @@ function CampaignDetailPageInner() {
                     </Link>
                   </div>
                 </div>
+                  </div>
+                </details>
               </div>
             )}
 

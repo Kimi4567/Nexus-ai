@@ -1,5 +1,10 @@
 import type { Instrumentation } from 'next'
-import * as Sentry from '@sentry/nextjs'
+import {
+  createPrivacySafeError,
+  getPrivacySafeErrorName,
+  isSentryRuntimeEnabled,
+} from '@/lib/observability/sentryPrivacy'
+import { normalizeSentryModule } from '@/lib/observability/sentryModule'
 
 /**
  * Next.js server observability baseline.
@@ -9,6 +14,9 @@ import * as Sentry from '@sentry/nextjs'
  * and stacks because those may contain customer or workspace data.
  */
 export async function register() {
+  const dsn = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN
+  if (!isSentryRuntimeEnabled(process.env.SENTRY_ENABLED, dsn)) return
+
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     await import('./sentry.server.config')
   }
@@ -18,26 +26,20 @@ export async function register() {
   }
 }
 
-function normalizeRequestError(error: unknown): {
-  name: string
-  message: string
-  digest: string | null
-} {
+function normalizeRequestError(error: unknown): { name: string; digest: string | null } {
   if (error instanceof Error) {
     const digest = 'digest' in error && typeof error.digest === 'string'
       ? error.digest
       : null
 
     return {
-      name: error.name || 'Error',
-      message: error.message || 'Unhandled request error',
+      name: getPrivacySafeErrorName(error),
       digest,
     }
   }
 
   return {
     name: 'UnknownError',
-    message: typeof error === 'string' ? error : 'Unhandled request error',
     digest: null,
   }
 }
@@ -55,7 +57,6 @@ export const onRequestError: Instrumentation.onRequestError = async (
     level: 'error',
     message: 'Unhandled server request error',
     errorName: normalizedError.name,
-    errorMessage: normalizedError.message,
     digest: normalizedError.digest,
     requestId: requestId ?? null,
     method: request.method,
@@ -66,7 +67,13 @@ export const onRequestError: Instrumentation.onRequestError = async (
     occurredAt: new Date().toISOString(),
   }))
 
-  // Sentry.captureRequestError is a no-op while the explicit runtime gate is
-  // disabled, so Runtime Logs remain available without sending external data.
-  Sentry.captureRequestError(error, request, context)
+  const dsn = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN
+  if (!isSentryRuntimeEnabled(process.env.SENTRY_ENABLED, dsn)) return
+
+  const Sentry = normalizeSentryModule(await import('@sentry/nextjs'))
+  Sentry.captureRequestError(
+    createPrivacySafeError(error, 'unhandled-server-request'),
+    request,
+    context,
+  )
 }

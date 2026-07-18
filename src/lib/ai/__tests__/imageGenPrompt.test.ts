@@ -14,6 +14,7 @@ vi.mock('@/lib/ai/conceptExtractor', async () => {
 
 import {
   buildImagePrompt,
+  buildReferencePreservingEditPrompt,
   IMAGE_OUTPUT_CLASSIFICATION,
   normalizeTextFreeCentralElement,
   TEXT_FREE_BACKGROUND_IMAGE_CONSTRAINTS,
@@ -27,6 +28,26 @@ afterEach(() => {
 })
 
 describe('imageGen prompt contract', () => {
+  it('keeps reference screens and product labels immutable instead of replacing them with metaphors', () => {
+    const prompt = buildReferencePreservingEditPrompt({
+      campaignMessage: 'Explain how approved credit deductions stay traceable.',
+      creativeDirection: 'Premium product-led operating-system ad.',
+      platform: 'INSTAGRAM',
+      brandName: 'NEXUS',
+      referenceEvidence: {
+        assetKind: 'SCREEN',
+        visibleSummary: 'Tablet displaying the real NEXUS analytics interface.',
+      },
+    })
+
+    expect(prompt).toContain('immutable hero asset')
+    expect(prompt).toContain('keep that source content legible and unchanged')
+    expect(prompt).toContain('Do not replace the source with a metaphor')
+    expect(prompt).toContain('do not render this copy')
+    expect(prompt).not.toContain('metallic tokens')
+    expect(prompt).not.toContain('transparent vault')
+  })
+
   it('converts dashboard and infographic directions into a raster-safe physical scene', () => {
     const normalized = normalizeTextFreeCentralElement(
       'إنفوجرافيك مع مخططات وأيقونات تحليل البيانات',
@@ -55,6 +76,57 @@ describe('imageGen prompt contract', () => {
   it('keeps an already tangible text-free scene intact', () => {
     const scene = 'three strategists arranging blank planning cards around a clean table'
     expect(normalizeTextFreeCentralElement(scene, 'agency_consultancy')).toBe(scene)
+  })
+
+  it('preserves post-specific SaaS semantics when an unsafe diagram brief is normalized', () => {
+    const creditScene = normalizeTextFreeCentralElement(
+      'Editorial product diagram with an immutable ledger entry',
+      'saas_ai_tech',
+      'quoted cost, confirmed metered action, and immutable ledger entry',
+    )
+    const brandScene = normalizeTextFreeCentralElement(
+      'System diagram connecting Brand Brain inputs to channel draft cards',
+      'saas_ai_tech',
+      'Brand Brain positioning, voice, verified claims, restrictions, and human review checkpoints',
+    )
+    const operationsScene = normalizeTextFreeCentralElement(
+      'Operations diagram showing ownership and capacity',
+      'saas_ai_tech',
+      'campaign ownership, capacity, handoffs, and the next approval decision',
+    )
+
+    expect(creditScene).toContain('three distinct tactile stations')
+    expect(brandScene).toContain('central translucent sculptural core')
+    expect(operationsScene).toContain('clearly separated work lanes')
+    expect(new Set([creditScene, brandScene, operationsScene]).size).toBe(3)
+  })
+
+  it('uses creative direction before a broad SaaS category when building a post prompt', async () => {
+    mockExtractVisualConcept.mockResolvedValueOnce({
+      centralElement: 'editorial dashboard diagram with cards and labels',
+      emotion: 'clear, controlled',
+      headline: 'Review the balance',
+      cta: 'Review',
+      visualMood: 'Premium operational clarity',
+    })
+
+    const { prompt, concept } = await buildImagePrompt({
+      visualType: 'SOCIAL_PREVIEW',
+      visualStyle: 'Premium',
+      brandName: 'NEXUS AI',
+      industry: 'AI marketing SaaS',
+      postCaption: 'Monthly plan credits and purchased credits have different lifecycle rules.',
+      creativeDirection: 'Show monthly and purchased credit pools with a durable separation.',
+      platform: 'LINKEDIN',
+      assetRole: 'post_background',
+    })
+
+    expect(mockExtractVisualConcept).toHaveBeenCalledWith(expect.objectContaining({
+      text: expect.stringContaining('monthly and purchased credit pools'),
+    }))
+    expect(concept?.centralElement).toContain('two clearly separated physical reservoirs')
+    expect(prompt).toContain('durable transparent vault')
+    expect(prompt).not.toContain('focused product and marketing team')
   })
 
   it('brand-level fallback stays background-only and does not ask for text or logos', async () => {
