@@ -1,19 +1,9 @@
 'use client'
 
 /**
- * PR-M3.3A — Review Suggestions UI shell (display-only).
- *
- * Presentational surface that PROVES the safe assisted-setup review UX before any
- * real Scanner/Analyzer extraction or apply logic is connected (PR-M3.3B/C/D).
- *
- * Hard guarantees for this shell:
- *  - No API calls, no OpenAI, no Scanner/Analyzer routes.
- *  - No credit deduction.
- *  - No mutation of Brand Brain form data, no save.
- *  - "Apply selected" is a disabled no-op; nothing is applied to Brand Brain.
- *
- * It only manages its own local Apply/Skip selection state to demonstrate the
- * intended defaults (keep existing values; skip low-confidence / inferred).
+ * Review surface for evidence-aware suggestions returned by the assisted setup
+ * routes. Applying a selection updates the parent form draft only; Brand Brain is
+ * not persisted until the user explicitly saves it.
  */
 
 import { useState } from 'react'
@@ -31,11 +21,11 @@ export interface AssistSuggestion {
   label: string
   /** Current value already in Brand Brain ('' if empty) */
   currentValue: string
-  /** Proposed value from the (future) scan/analyze */
+  /** Proposed value returned by the website/content analysis */
   suggestedValue: string
   /** Raw array items (PR-M3.3D) — used so array applies merge real items, not a split string. */
   items?: string[]
-  /** Short evidence snippet / source quote (optional; placeholder in the shell) */
+  /** Short evidence snippet / source quote when the analysis returned one */
   evidence?: string
   /** Optional per-field safety note from the server (e.g. "limited support — review"). */
   safetyNote?: string
@@ -213,7 +203,9 @@ export default function ReviewSuggestions({
                   <div className="mt-2 flex items-start gap-1.5">
                     <span className="text-[10px] font-semibold tracking-wide text-slate-400 mt-0.5">{ar ? 'الدليل' : 'EVIDENCE'}</span>
                     <p className="text-[11px] text-slate-500 italic break-words">
-                      {s.evidence || (ar ? 'سيظهر مقتطف الدليل والمصدر هنا عند ربط المسح/التحليل لاحقاً.' : 'Evidence snippet & source will appear here once scan/analyze is connected.')}
+                      {s.evidence || (ar
+                        ? 'لم يُرجع التحليل مقتطف مصدر لهذا الاقتراح؛ عامله كاقتراح غير موثّق ولا تطبّقه قبل المراجعة.'
+                        : 'The analysis returned no source excerpt for this suggestion; treat it as unverified and do not apply it before review.')}
                     </p>
                   </div>
 

@@ -146,7 +146,7 @@ export default function TikTokReviewDemoPage() {
                   <UserCircle className="mb-4 text-cyan-200" size={28} />
                   <p className="text-xs uppercase tracking-[2px] text-cyan-200">user.info.basic</p>
                   <p className="mt-2 text-xl font-black">@example_creator</p>
-                  <p className="mt-1 text-xs text-slate-400">Placeholder for the nickname returned by creator info</p>
+                  <p className="mt-1 text-xs text-slate-400">Illustrative display name — the connected account value is returned after OAuth</p>
                 </div>
                 <div className="rounded-xl border border-pink-300/20 bg-pink-300/10 p-4">
                   <Film className="mb-4 text-pink-200" size={28} />

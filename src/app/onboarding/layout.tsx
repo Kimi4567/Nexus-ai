@@ -1,10 +1,12 @@
-import { Metadata } from 'next'
+import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
 
 export const metadata: Metadata = {
   title: 'Onboarding — Nexus AI',
-  description: 'Complete your Nexus AI onboarding. Set up your brand, connect platforms, and launch your first AI campaign.',
+  description: 'Create a reviewed Brand Brain foundation before strategy, content, or execution begins.',
   robots: { index: false, follow: false },
 }
 
-export { /* @next-codemod-error `default` export is re-exported. Check if this component uses `params` or `searchParams`*/
-default } from './page'
+export default function OnboardingLayout({ children }: { children: ReactNode }) {
+  return children
+}

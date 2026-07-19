@@ -1,10 +1,12 @@
-import { Metadata } from 'next'
+import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
 
 export const metadata: Metadata = {
   title: 'Analytics — Nexus AI',
-  description: 'Campaign performance analytics, engagement metrics, conversion tracking, and AI-suggested optimizations.',
+  description: 'Review verified platform metrics, measurement gaps, and evidence-backed learning when eligible data exists.',
   robots: { index: false, follow: false },
 }
 
-export { /* @next-codemod-error `default` export is re-exported. Check if this component uses `params` or `searchParams`*/
-default } from './page'
+export default function AnalyticsLayout({ children }: { children: ReactNode }) {
+  return children
+}

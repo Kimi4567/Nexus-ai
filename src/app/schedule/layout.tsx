@@ -1,10 +1,12 @@
-import { Metadata } from 'next'
+import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
 
 export const metadata: Metadata = {
-  title: 'Schedule — Nexus AI',
-  description: 'Schedule and automate your content publishing across Instagram, TikTok, Facebook, LinkedIn, and YouTube.',
+  title: 'Execution Queue — Nexus AI',
+  description: 'Legacy scheduling route forwarding to the approval-gated execution queue and verified publishing records.',
   robots: { index: false, follow: false },
 }
 
-export { /* @next-codemod-error `default` export is re-exported. Check if this component uses `params` or `searchParams`*/
-default } from './page'
+export default function ScheduleLayout({ children }: { children: ReactNode }) {
+  return children
+}

@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Campaigns — Nexus AI',
-  description: 'Manage your AI-generated marketing campaigns. View pipeline status, performance metrics, and content calendar.',
+  description: 'Review campaign scope, workflow state, content production, paid planning, and verified performance when data exists.',
   robots: { index: false, follow: false },
 }
 

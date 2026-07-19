@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 
 export const metadata: Metadata = {
   title: 'Strategy — Nexus AI',
-  description: 'AI-generated marketing strategy, audience research, competitor analysis, and campaign planning.',
+  description: 'Create and review a Brand Brain-grounded strategy, audience hypotheses, channel roles, and campaign plan.',
   robots: { index: false, follow: false },
 }
 

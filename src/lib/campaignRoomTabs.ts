@@ -12,6 +12,8 @@ export type CampaignRoomTabKey = typeof CAMPAIGN_ROOM_TAB_KEYS[number]
 
 const CAMPAIGN_ROOM_TAB_ALIASES: Record<string, CampaignRoomTabKey> = {
   visuals: 'creative',
+  analytics: 'performance',
+  results: 'performance',
 }
 
 export function normalizeCampaignRoomTab(value?: string | null): CampaignRoomTabKey {
