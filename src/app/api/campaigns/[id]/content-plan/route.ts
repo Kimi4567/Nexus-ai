@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { readRejectedVideoReview } from '@/lib/rejectedMediaReview'
+import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -18,6 +19,9 @@ export async function GET(req: NextRequest, props: Params) {
   try {
     const campaign = await prisma.campaign.findFirst({
       where: { id: params.id, workspace: { ownerId: userId } },
+      include: {
+        workspace: { select: { brandProfile: true } },
+      },
     })
     if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
@@ -96,6 +100,19 @@ export async function GET(req: NextRequest, props: Params) {
       if (review) rejectedVideoByPostId.set(postId, review)
     }
 
+    const aiOutput = campaign.aiOutput && typeof campaign.aiOutput === 'object' && !Array.isArray(campaign.aiOutput)
+      ? campaign.aiOutput as Record<string, unknown>
+      : {}
+    const strategy = aiOutput.strategy && typeof aiOutput.strategy === 'object' && !Array.isArray(aiOutput.strategy)
+      ? aiOutput.strategy
+      : aiOutput
+    const reviewablePosts = posts.filter((post: any) => ['DRAFT', 'APPROVED', 'SCHEDULED'].includes(post.status))
+    const qualityReview = reviewContentPlanForApproval(
+      reviewablePosts,
+      strategy,
+      buildContentPlanTruthContext(campaign.workspace.brandProfile),
+    )
+
     return NextResponse.json({
       posts: posts.map((post: any) => ({
         ...post,
@@ -105,6 +122,7 @@ export async function GET(req: NextRequest, props: Params) {
         // channel instead of silently claiming Instagram or Facebook.
         platform: post.publishTarget || post.platform,
       })),
+      qualityReview,
     })
   } catch (err: any) {
     console.error('[content-plan GET]', err)

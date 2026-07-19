@@ -44,7 +44,11 @@ import { deriveContentHubFirstScreenTruth } from '@/lib/contentHubFirstScreenTru
 import { deriveStrategyFulfillmentSummary, type StrategyFulfillmentTone } from '@/lib/strategyFulfillment'
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
-import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
+import {
+  buildContentPlanTruthContext,
+  reviewContentPlanForApproval,
+  type ContentPlanApprovalIssue,
+} from '@/lib/contentPlanApprovalGuard'
 import { derivePostCreativeRequirement } from '@/lib/creativeRequirements'
 import { getDefaultTemplateForPlatform } from '@/lib/creativeTemplates'
 import AppShell from '@/components/AppShell'
@@ -440,6 +444,7 @@ export default function ContentHubPage() {
     verifiedProof: [],
   })
   const [posts, setPosts] = useState<ContentPost[]>([])
+  const [authoritativeContentQualityIssues, setAuthoritativeContentQualityIssues] = useState<ContentPlanApprovalIssue[] | null>(null)
   const [mediaLibrary, setMediaLibrary] = useState<MediaItem[]>([])
   const [creativeIntelligence, setCreativeIntelligence] = useState<CreativeIntelligencePayload | null>(null)
   const [creativeScanning, setCreativeScanning] = useState(false)
@@ -551,6 +556,7 @@ export default function ContentHubPage() {
     try {
       // These resources are independent. Load them concurrently so a slow media
       // library cannot block the campaign and its content plan from appearing.
+      setAuthoritativeContentQualityIssues(null)
       const [campaignResult, planResult, mediaResult, brandResult, creativeIntelligenceResult] = await Promise.allSettled([
         fetchWithTimeout(`/api/campaigns/${campaignId}`, { headers: { Authorization: authorization } }, 9_000),
         fetchWithTimeout(`/api/campaigns/${campaignId}/content-plan`, { headers: { Authorization: authorization } }, 9_000),
@@ -588,9 +594,15 @@ export default function ContentHubPage() {
       if (planResult.status !== 'fulfilled' || !planResult.value.ok) {
         throw new Error(isAr ? 'تم تحميل الحملة، لكن تعذّر تحميل خطة المحتوى.' : 'The campaign loaded, but its content plan did not.')
       }
-      const { posts: rawPosts } = await planResult.value.json()
+      const planData = await planResult.value.json()
+      const rawPosts = planData.posts
       loadedPosts = rawPosts ?? []
       setPosts(loadedPosts)
+      if (Array.isArray(planData?.qualityReview?.issues)) {
+        setAuthoritativeContentQualityIssues(planData.qualityReview.issues
+          .filter((issue: any) => Number.isInteger(issue?.index) && typeof issue?.reason === 'string')
+          .map((issue: any) => ({ index: issue.index, reason: issue.reason })))
+      }
 
       if (mediaResult.status === 'fulfilled' && mediaResult.value.ok) {
         const mData = await mediaResult.value.json()
@@ -625,6 +637,7 @@ export default function ContentHubPage() {
       if (creativeIntelligenceResult.status === 'fulfilled' && creativeIntelligenceResult.value.ok) {
         setCreativeIntelligence(await creativeIntelligenceResult.value.json())
       }
+
     } catch (err) {
       setLoadError(err instanceof Error
         ? err.message
@@ -884,7 +897,7 @@ export default function ContentHubPage() {
     () => posts.filter(post => ['DRAFT', 'APPROVED', 'SCHEDULED'].includes(post.status)),
     [posts],
   )
-  const contentApprovalPreflight = useMemo(() => {
+  const locallyComputedContentApprovalPreflight = useMemo(() => {
     const aiOutput = campaign?.aiOutput && typeof campaign.aiOutput === 'object'
       ? campaign.aiOutput as Record<string, unknown>
       : {}
@@ -897,6 +910,12 @@ export default function ContentHubPage() {
       buildContentPlanTruthContext(brandProfile),
     )
   }, [brandProfile, campaign?.aiOutput, contentReviewPosts])
+  const contentApprovalPreflight = useMemo(() => authoritativeContentQualityIssues === null
+    ? locallyComputedContentApprovalPreflight
+    : {
+        ok: authoritativeContentQualityIssues.length === 0,
+        issues: authoritativeContentQualityIssues,
+      }, [authoritativeContentQualityIssues, locallyComputedContentApprovalPreflight])
   const approvalReviewSummary = useMemo(() => {
     const claimRisks = contentApprovalPreflight.issues.filter(issue => /unsupported|unverified|claim/i.test(issue.reason)).length
     const destinationRisks = contentApprovalPreflight.issues.filter(issue => /destination|conversion|cta/i.test(issue.reason)).length

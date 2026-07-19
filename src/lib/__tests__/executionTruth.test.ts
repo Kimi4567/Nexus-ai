@@ -137,6 +137,10 @@ describe('execution truth', () => {
 
   it('routes quality drift back to copy review before media approval', () => {
     const result = buildCampaignExecutionTruth(snapshot({
+      contentQualityIssues: [
+        { index: 4, reason: 'unsupported_claim' },
+        { index: 7, reason: 'generic_hook_formula' },
+      ],
       posts: {
         draft: 0,
         approved: 12,
@@ -157,6 +161,10 @@ describe('execution truth', () => {
       title: { en: 'Repair content quality before media', ar: 'أصلح جودة النص قبل الوسائط' },
     })
     expect(result.nextAction?.reason.en).toContain('4 quality findings affect 4 posts')
+    expect(result.contentQualityIssues).toEqual([
+      { index: 4, reason: 'unsupported_claim' },
+      { index: 7, reason: 'generic_hook_formula' },
+    ])
   })
 
   it('fails closed when an approved status has no immutable copy approval', () => {

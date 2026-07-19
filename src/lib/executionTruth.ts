@@ -56,6 +56,7 @@ export interface CampaignExecutionSnapshot {
   strategyBlockers: string[]
   strategyEvidenceCount: number
   posts: ExecutionPostCounts
+  contentQualityIssues?: Array<{ index: number; reason: string }>
 }
 
 export interface ExecutionQueueItem {
@@ -87,6 +88,7 @@ export interface CampaignExecutionTruth {
   stage: ExecutionStage
   strategyApprovalState: StrategyApprovalState
   posts: ExecutionPostCounts
+  contentQualityIssues?: Array<{ index: number; reason: string }>
   nextAction: ExecutionQueueItem | null
   updatedAt: string
 }
@@ -427,6 +429,7 @@ export function buildCampaignExecutionTruth(snapshot: CampaignExecutionSnapshot)
     stage,
     strategyApprovalState: snapshot.strategyApprovalState,
     posts: snapshot.posts,
+    contentQualityIssues: snapshot.contentQualityIssues ?? [],
     nextAction,
     updatedAt: snapshot.updatedAt,
   }
