@@ -59,6 +59,7 @@ vi.mock('@/lib/ai/marketingQualityGate', () => ({
   reviewBrandTruthConsistency: () => ({ status: 'ready', blockers: [] }),
 }))
 vi.mock('@/lib/contentPlanApprovalGuard', () => ({
+  buildContentPlanTruthContext: () => ({ brandFacts: [], verifiedProof: [] }),
   reviewContentPlanForApproval: () => ({ ok: true, issues: [] }),
 }))
 

@@ -1332,7 +1332,7 @@ export default function StrategyPage() {
                               {detail ? (
                                 <div className="mt-3 space-y-2 text-[12px] leading-5">
                                   <p><span className="font-black text-slate-700">{ar ? 'الموقف: ' : 'Situation: '}</span><span className="font-semibold text-slate-500">{firstString(detail.situation)}</span></p>
-                                  <p><span className="font-black text-slate-700">{ar ? 'الألم: ' : 'Pain: '}</span><span className="font-semibold text-slate-500">{firstString(detail.pain)}</span></p>
+                                  <p><span className="font-black text-slate-700">{ar ? 'فرضية ألم الجمهور: ' : 'Audience pain hypothesis: '}</span><span className="font-semibold text-slate-500">{firstString(detail.pain)}</span></p>
                                   <p><span className="font-black text-slate-700">{ar ? 'الاعتراض: ' : 'Objection: '}</span><span className="font-semibold text-slate-500">{firstString(detail.objection)}</span></p>
                                   <p className="rounded-xl bg-white px-3 py-2 font-bold text-[#4F46E5]">{firstString(detail.message, detail.cta)}</p>
                                 </div>

@@ -25,7 +25,7 @@ import {
 import { validateRewriteConfirmation } from '@/lib/contentHubActionSafety'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { guardContentDraftText } from '@/lib/ai/contentDraftTruthGuard'
-import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
+import { buildContentPlanTruthContext, reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
 import {
   CONTENT_REVISION_HISTORY_NOTE,
   contentReviewResetData,
@@ -243,7 +243,11 @@ ${post.caption}${instruction ? `\n\nRewrite instruction: ${instruction}` : '\n\n
         brand?.complianceNotes,
       ],
     })
-    const publishReview = reviewContentPostForPublishing({ caption: guardedCaption })
+    const publishReview = reviewContentPostForPublishing(
+      { caption: guardedCaption },
+      1,
+      buildContentPlanTruthContext(brand),
+    )
     if (publishReview.length > 0) {
       await refundCreditDeduction({
         userId,

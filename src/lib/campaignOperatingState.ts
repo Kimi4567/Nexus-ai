@@ -69,6 +69,13 @@ export interface CampaignOperatingInput {
     publishTarget?: string | null
   }>
   pendingLearningCount?: number
+  /**
+   * Deterministic content-quality findings from contentPlanApprovalGuard.
+   * These are supplied by the page/service that has the strategy + Brand Brain
+   * context; lifecycle status alone cannot prove that approved copy is safe.
+   */
+  contentQualityIssueCount?: number
+  contentQualityPostCount?: number
 }
 
 export interface CampaignOperatingState {
@@ -102,6 +109,8 @@ export interface CampaignOperatingState {
     reviewedPosts: number
     unreviewedProgressedPosts: number
     outOfScopePosts: number
+    contentQualityIssues: number
+    contentQualityPosts: number
   }
   truthFlags: {
     hasStrategy: boolean
@@ -122,6 +131,7 @@ export interface CampaignOperatingState {
     hasApprovalEvidenceGap: boolean
     hasInvalidScheduleEvidence: boolean
     hasChannelScopeMismatch: boolean
+    hasContentQualityIssues: boolean
   }
 }
 
@@ -282,6 +292,8 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
   const hasStrategyReview = strategyReviewPassed(input.campaign?.aiOutput)
   const workflowEnabled = Boolean(input.campaign?.autopilotEnabled || input.campaign?.autopilotActivatedAt)
   const pendingLearningCount = Math.max(0, Math.trunc(input.pendingLearningCount ?? 0))
+  const contentQualityIssueCount = Math.max(0, Math.trunc(input.contentQualityIssueCount ?? 0))
+  const contentQualityPostCount = Math.max(0, Math.trunc(input.contentQualityPostCount ?? 0))
 
   const counts = {
     totalPosts: posts.length,
@@ -302,6 +314,8 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     reviewedPosts: 0,
     unreviewedProgressedPosts: 0,
     outOfScopePosts: 0,
+    contentQualityIssues: contentQualityIssueCount,
+    contentQualityPosts: contentQualityPostCount,
   }
 
   let unconsentedAutoPosts = 0
@@ -358,7 +372,7 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
   const truthFlags = {
     hasStrategy,
     hasContentPlan: counts.totalPosts > 0,
-    hasDraftContent: counts.draftPosts > 0 || counts.unreviewedProgressedPosts > 0 || counts.invalidScheduledPosts > 0 || counts.outOfScopePosts > 0,
+    hasDraftContent: counts.draftPosts > 0 || counts.unreviewedProgressedPosts > 0 || counts.invalidScheduledPosts > 0 || counts.outOfScopePosts > 0 || counts.contentQualityIssues > 0,
     hasApprovedContent: counts.approvedPosts > 0,
     hasScheduledContent: counts.scheduledPosts > 0,
     hasAutoScheduledContent: counts.autoScheduledPosts > 0,
@@ -374,10 +388,12 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
       && counts.reviewedPosts === counts.totalPosts
       && counts.draftPosts === 0
       && counts.unreviewedProgressedPosts === 0
-      && counts.invalidScheduledPosts === 0,
+      && counts.invalidScheduledPosts === 0
+      && counts.contentQualityIssues === 0,
     hasApprovalEvidenceGap: counts.unreviewedProgressedPosts > 0,
     hasInvalidScheduleEvidence: counts.invalidScheduledPosts > 0,
     hasChannelScopeMismatch: counts.outOfScopePosts > 0,
+    hasContentQualityIssues: counts.contentQualityIssues > 0,
   }
 
   const blockers: string[] = []
@@ -390,6 +406,7 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
   if (counts.draftPosts > 0) blockers.push('content_review')
   if (counts.unreviewedProgressedPosts > 0) blockers.push('approval_evidence')
   if (counts.outOfScopePosts > 0) blockers.push('channel_scope')
+  if (counts.contentQualityIssues > 0) blockers.push('content_quality')
   if (approvedMediaPending) blockers.push('media_review')
   if (counts.invalidScheduledPosts > 0) blockers.push('schedule_evidence')
   if (unconsentedAutoPosts > 0) blockers.push('auto_publish_consent')
@@ -399,7 +416,7 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
   let stage: CampaignOperatingStage
   const pausedOrArchived = status === 'PAUSED' || status === 'ARCHIVED'
 
-  if (truthFlags.hasApprovalEvidenceGap || truthFlags.hasInvalidScheduleEvidence || truthFlags.hasChannelScopeMismatch || counts.draftPosts > 0) {
+  if (truthFlags.hasApprovalEvidenceGap || truthFlags.hasInvalidScheduleEvidence || truthFlags.hasChannelScopeMismatch || truthFlags.hasContentQualityIssues || counts.draftPosts > 0) {
     stage = 'content_review_needed'
   } else if (truthFlags.hasPendingLearning) {
     stage = 'learning_review_needed'
@@ -432,7 +449,15 @@ export function deriveCampaignOperatingState(input: CampaignOperatingInput): Cam
     stage = 'strategy_review_needed'
   }
 
-  const copy = truthFlags.hasInvalidScheduleEvidence
+  const copy = truthFlags.hasContentQualityIssues
+    ? {
+        stageLabel: 'Content quality recheck required',
+        stageLabelAr: 'مطلوب إعادة فحص جودة المحتوى',
+        stageHelper: `${counts.contentQualityIssues} finding${counts.contentQualityIssues === 1 ? '' : 's'} affect ${counts.contentQualityPosts} post${counts.contentQualityPosts === 1 ? '' : 's'}. Prior approval remains recorded, but execution is locked until the copy is repaired and approved again.`,
+        stageHelperAr: `${counts.contentQualityIssues} ملاحظة جودة تؤثر في ${counts.contentQualityPosts} منشور. يظل الاعتماد السابق مسجلاً، لكن التنفيذ مقفول حتى إصلاح النص واعتماده من جديد.`,
+        primaryAction: { label: 'Repair and re-review content', labelAr: 'أصلح المحتوى وأعد مراجعته', href: '/content-hub' },
+      }
+    : truthFlags.hasInvalidScheduleEvidence
     ? {
         stageLabel: 'Schedule decision needs re-review',
         stageLabelAr: 'قرار الجدولة يحتاج إعادة مراجعة',

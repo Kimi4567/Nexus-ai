@@ -60,6 +60,7 @@ vi.mock('@/lib/ai/marketingQualityGate', () => ({
   reviewStrategyGrounding: mockReviewStrategyGrounding,
 }))
 vi.mock('@/lib/contentPlanApprovalGuard', () => ({
+  buildContentPlanTruthContext: () => ({ brandFacts: [], verifiedProof: [] }),
   reviewContentPostForPublishing: mockReviewContentPostForPublishing,
 }))
 

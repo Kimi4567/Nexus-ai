@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
+import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 
 const strategy = {
   keyMessage: 'Prepare for a clear dental consultation',
@@ -115,5 +115,32 @@ describe('contentPlanApprovalGuard', () => {
     ], strategy, facts)
 
     expect(review).toEqual({ ok: true, issues: [] })
+  })
+
+  it('accepts an exact social-proof statement only when it is in verified proof', () => {
+    const truth = buildContentPlanTruthContext({
+      brandName: 'Northstar',
+      verifiedProof: ['Trusted by thousands of verified business customers'],
+    })
+    const review = reviewContentPlanForApproval([
+      { caption: 'Trusted by thousands of verified business customers.' },
+    ], { keyMessage: 'Verified business adoption' }, truth)
+
+    expect(review.issues.map(issue => issue.reason)).not.toContain('unsupported_socialProof')
+    expect(review.issues.map(issue => issue.reason)).not.toContain('unverified_feature_or_outcome')
+  })
+
+  it('still blocks guarantees and provider-live status even when repeated in Brand Brain', () => {
+    const truth = buildContentPlanTruthContext({
+      verifiedProof: ['Guaranteed results', 'Campaign is live'],
+    })
+    const review = reviewContentPlanForApproval([
+      { caption: 'Guaranteed results. Campaign is live.' },
+    ], {}, truth)
+
+    expect(review.issues.map(issue => issue.reason)).toEqual(expect.arrayContaining([
+      'unsupported_guarantee',
+      'unsupported_platformStatus',
+    ]))
   })
 })

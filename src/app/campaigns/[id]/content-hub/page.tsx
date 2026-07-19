@@ -44,7 +44,7 @@ import { deriveContentHubFirstScreenTruth } from '@/lib/contentHubFirstScreenTru
 import { deriveStrategyFulfillmentSummary, type StrategyFulfillmentTone } from '@/lib/strategyFulfillment'
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
-import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
+import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { derivePostCreativeRequirement } from '@/lib/creativeRequirements'
 import { getDefaultTemplateForPlatform } from '@/lib/creativeTemplates'
 import AppShell from '@/components/AppShell'
@@ -870,15 +870,7 @@ export default function ContentHubPage() {
     return reviewContentPlanForApproval(
       contentReviewPosts,
       strategy,
-      [
-        brandProfile.brandName,
-        brandProfile.industry,
-        brandProfile.description,
-        brandProfile.primaryOffer,
-        brandProfile.uniqueAdvantages,
-        brandProfile.complianceNotes,
-        brandProfile.verifiedProof,
-      ],
+      buildContentPlanTruthContext(brandProfile),
     )
   }, [brandProfile, campaign?.aiOutput, contentReviewPosts])
   const approvalReviewSummary = useMemo(() => {
@@ -954,6 +946,8 @@ export default function ContentHubPage() {
   const operatingState = deriveCampaignOperatingState({
     campaign,
     posts,
+    contentQualityIssueCount: contentApprovalPreflight.issues.length,
+    contentQualityPostCount: contentIssueCountByPostId.size,
   })
   const operatingLabel = isAr ? operatingState.stageLabelAr : operatingState.stageLabel
   const operatingHelper = isAr ? operatingState.stageHelperAr : operatingState.stageHelper

@@ -210,6 +210,21 @@ function guardBroadStrategyHypeText(value: string): string {
     .replace(/\b([A-Za-z][A-Za-z\s-]{1,30})\s+هو\s+المنصة\s+المثلى\s+للوصول\s+إلى/gi, '$1 قناة مختارة في Brand Brain للوصول إلى')
     .replace(/إعداد\s+المحتوى\s+الأولي\s+للنشر\s+على/gi, 'مراجعة أول اتجاهات المحتوى على')
     .replace(/\bprepare\s+initial\s+content\s+for\s+publishing\s+on\b/gi, 'review the first content directions for')
+    // Channel popularity, engagement, and audience adoption require real
+    // analytics or research. A selected channel can have a planned role, but
+    // the strategy must not present unverified performance as fact.
+    .replace(/\b(?:a\s+)?high[-\s]?engagement\s+platform(?:\s+for\s+([^.!?]+))?/gi, (_match, audience: string | undefined) => (
+      `Channel role hypothesis${audience ? ` for ${audience.trim()}` : ''}; validate engagement with real analytics`
+    ))
+    .replace(/\b(?:a\s+)?(?:growing|popular|widely used)\s+platform\s+(?:among|for)\s+([^.!?]+)/gi, (_match, audience: string) => (
+      `Audience-platform fit hypothesis for ${audience.trim()}; validate with real audience data`
+    ))
+    .replace(/منصة\s+(?:عالية|مرتفعة)\s+التفاعل(?:\s+لـ?|\s+لدى)?\s*([^.؟!]*)/gi, (_match, audience: string) => (
+      `فرضية دور للقناة${audience?.trim() ? ` لدى ${audience.trim()}` : ''}؛ يجب التحقق من التفاعل ببيانات فعلية`
+    ))
+    .replace(/منصة\s+(?:نامية|شائعة|واسعة\s+الاستخدام)\s+(?:بين|لدى)\s+([^.؟!]+)/gi, (_match, audience: string) => (
+      `فرضية ملاءمة القناة لدى ${audience.trim()}؛ يجب التحقق منها ببيانات جمهور فعلية`
+    ))
 }
 
 function guardArabicFluencyText(value: string): string {

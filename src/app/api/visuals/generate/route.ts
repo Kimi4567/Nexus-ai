@@ -49,7 +49,7 @@ import {
   isMediaStorageConfigured,
 } from '@/lib/ai/provider'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
-import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
+import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { captureOperationalError } from '@/lib/observability/operationalError'
@@ -312,15 +312,7 @@ export async function POST(req: NextRequest) {
         contentPlanIndex: post.contentPlanIndex,
       }],
       strategy,
-      [
-        brand?.brandName,
-        brand?.industry,
-        brand?.description,
-        brand?.primaryOffer,
-        Array.isArray(brand?.uniqueAdvantages) ? brand.uniqueAdvantages : [],
-        brand?.complianceNotes,
-        Array.isArray(brand?.verifiedProof) ? brand.verifiedProof : [],
-      ],
+      buildContentPlanTruthContext(brand),
     )
     if (!contentReview.ok) {
       return NextResponse.json({
