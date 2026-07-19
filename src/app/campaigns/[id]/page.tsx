@@ -495,6 +495,10 @@ function CampaignDetailPageInner() {
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [campaignPosts, setCampaignPosts] = useState<CampaignOperatingPost[]>([])
   const [operatingSnapshotsLoaded, setOperatingSnapshotsLoaded] = useState(false)
+  const [executionContentQualityTruth, setExecutionContentQualityTruth] = useState<{
+    issueCount: number
+    postCount: number
+  } | null>(null)
   const [strategyPlatformStates, setStrategyPlatformStates] = useState<PlatformState[]>([])
   const [strategyPlatformReadinessLoaded, setStrategyPlatformReadinessLoaded] = useState(false)
   const [pendingLearningCount, setPendingLearningCount] = useState(0)
@@ -679,12 +683,14 @@ function CampaignDetailPageInner() {
     }
 
     setOperatingSnapshotsLoaded(false)
+    setExecutionContentQualityTruth(null)
     let loadedPosts = false
     try {
-      const [contentPlanRes, proposalsRes, strategyApprovalRes] = await Promise.all([
+      const [contentPlanRes, proposalsRes, strategyApprovalRes, executionTruthRes] = await Promise.all([
         fetch(`/api/campaigns/${campaignId}/content-plan`, { headers: { Authorization: token } }),
         fetch('/api/brain/proposals?status=pending', { headers: { Authorization: token } }),
         fetch(`/api/campaigns/${campaignId}/strategy-approval`, { headers: { Authorization: token } }),
+        fetch(`/api/execution/queue?campaignId=${encodeURIComponent(campaignId)}`, { headers: { Authorization: token } }),
       ])
 
       if (contentPlanRes.ok) {
@@ -704,6 +710,21 @@ function CampaignDetailPageInner() {
         const state = data?.approval?.state
         if (['draft', 'blocked', 'ready_for_review', 'approved', 'revoked'].includes(state)) {
           setStrategyApprovalTruth(state as StrategyApprovalState)
+        }
+      }
+
+      if (executionTruthRes.ok) {
+        const data = await executionTruthRes.json().catch(() => ({}))
+        const campaignTruth = Array.isArray(data?.truth?.campaigns)
+          ? data.truth.campaigns.find((item: any) => item?.campaignId === campaignId)
+          : null
+        const issueCount = Number(campaignTruth?.posts?.qualityReviewIssueCount)
+        const postCount = Number(campaignTruth?.posts?.qualityReviewPostCount)
+        if (Number.isFinite(issueCount) && Number.isFinite(postCount)) {
+          setExecutionContentQualityTruth({
+            issueCount: Math.max(0, Math.trunc(issueCount)),
+            postCount: Math.max(0, Math.trunc(postCount)),
+          })
         }
       }
     } catch {
@@ -1492,8 +1513,10 @@ function CampaignDetailPageInner() {
     },
     posts: campaignPosts,
     pendingLearningCount,
-    contentQualityIssueCount: campaignContentQualityReview.issues.length,
-    contentQualityPostCount: campaignContentQualityPostCount,
+    contentQualityIssueCount: executionContentQualityTruth?.issueCount
+      ?? campaignContentQualityReview.issues.length,
+    contentQualityPostCount: executionContentQualityTruth?.postCount
+      ?? campaignContentQualityPostCount,
   })
   const strategyDocOperatingLabel = brandTruthBlocked
     ? (strategyDocIsArabic ? 'مخرجات مرجعية محجوبة' : 'Blocked reference outputs')

@@ -204,8 +204,16 @@ interface BrandProfile {
   industry: string | null
   description: string | null
   primaryOffer: string | null
+  targetAudience: string | null
+  audienceAge: string | null
+  audienceLocation: string | null
+  audiencePainPoints: string[]
+  audienceDesires: string[]
   uniqueAdvantages: string[]
+  pricePoint: string | null
   complianceNotes: string | null
+  conversionDestination: string | null
+  leadHandling: string | null
   verifiedProof: string[]
 }
 
@@ -419,8 +427,16 @@ export default function ContentHubPage() {
     industry: null,
     description: null,
     primaryOffer: null,
+    targetAudience: null,
+    audienceAge: null,
+    audienceLocation: null,
+    audiencePainPoints: [],
+    audienceDesires: [],
     uniqueAdvantages: [],
+    pricePoint: null,
     complianceNotes: null,
+    conversionDestination: null,
+    leadHandling: null,
     verifiedProof: [],
   })
   const [posts, setPosts] = useState<ContentPost[]>([])
@@ -591,8 +607,16 @@ export default function ContentHubPage() {
             industry: bData.brandProfile.industry ?? null,
             description: bData.brandProfile.description ?? null,
             primaryOffer: bData.brandProfile.primaryOffer ?? null,
+            targetAudience: bData.brandProfile.targetAudience ?? null,
+            audienceAge: bData.brandProfile.audienceAge ?? null,
+            audienceLocation: bData.brandProfile.audienceLocation ?? null,
+            audiencePainPoints: bData.brandProfile.audiencePainPoints ?? [],
+            audienceDesires: bData.brandProfile.audienceDesires ?? [],
             uniqueAdvantages: bData.brandProfile.uniqueAdvantages ?? [],
+            pricePoint: bData.brandProfile.pricePoint ?? null,
             complianceNotes: bData.brandProfile.complianceNotes ?? null,
+            conversionDestination: bData.brandProfile.conversionDestination ?? null,
+            leadHandling: bData.brandProfile.leadHandling ?? null,
             verifiedProof: bData.brandProfile.verifiedProof ?? [],
           })
         }
