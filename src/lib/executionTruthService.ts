@@ -299,6 +299,10 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
       updatedAt: campaign.updatedAt.toISOString(),
       strategyApprovalState: approval.state,
       strategyEvidenceCount: normalizeStrategyEvidenceLedger(strategy.evidenceLedger).length,
+      contentQualityIssues: contentReview.issues.map((issue) => ({
+        index: issue.index,
+        reason: issue.reason,
+      })),
       strategyBlockers: [
         ...approval.approvalBlockers.map((blocker) => blocker.code),
         ...(!brandProfile || brandTruthReport.status === 'blocked'
