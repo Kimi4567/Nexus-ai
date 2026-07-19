@@ -609,6 +609,8 @@ export default function MediaLibraryPage() {
   const [previewMedia, setPreviewMedia] = useState<MediaRecord | null>(null)
   const [brandItMedia, setBrandItMedia] = useState<MediaRecord | null>(null)
   const [brandProfile, setBrandProfile] = useState<{ brandName?: string | null; logoUrl?: string | null } | null>(null)
+  const [campaignContextId, setCampaignContextId] = useState('')
+  const [returnTo, setReturnTo] = useState('')
   const [uploadInProgress, setUploadInProgress] = useState(false)
   const uploadInProgressRef = useRef(false) // ref-based guard for sequential multi-file uploads
   const dropRef = useRef<HTMLDivElement | null>(null)
@@ -620,6 +622,14 @@ export default function MediaLibraryPage() {
     if (!loading && !isAuthenticated) router.replace('/auth/login')
   }, [loading, isAuthenticated, router])
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const requestedCampaignId = params.get('campaignId')?.trim() || ''
+    const requestedReturnTo = params.get('returnTo')?.trim() || ''
+    setCampaignContextId(requestedCampaignId)
+    setReturnTo(requestedReturnTo.startsWith('/paid-campaigns/') ? requestedReturnTo : '')
+  }, [])
+
   const loadMedia = useCallback(async (currentPage = 1, currentQuery = '', currentType = 'ALL') => {
     setIsLoadingMedia(true)
     setErrorMessage(null)
@@ -627,6 +637,7 @@ export default function MediaLibraryPage() {
       const params = new URLSearchParams({ page: String(currentPage), limit: String(pageSize) })
       if (currentQuery) params.set('query', currentQuery)
       if (currentType !== 'ALL') params.set('type', currentType)
+      if (campaignContextId) params.set('campaignId', campaignContextId)
       const res = await fetch(`/api/media?${params.toString()}`, {
         headers: { Authorization: authHeader() },
       })
@@ -643,7 +654,7 @@ export default function MediaLibraryPage() {
     } finally {
       setIsLoadingMedia(false)
     }
-  }, [authHeader, pageSize])
+  }, [authHeader, campaignContextId, pageSize])
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -951,6 +962,18 @@ export default function MediaLibraryPage() {
             secondaryHref="/studio"
             secondaryLabel={locale === 'ar' ? 'استوديو الإبداع' : 'Creative Studio'}
           />
+
+          {returnTo && (
+            <div className="mb-6 flex flex-col gap-3 rounded-[20px] border border-indigo-200 bg-indigo-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[13px] font-black text-indigo-950">{locale === 'ar' ? 'أنت تختار أصلًا لمسودة إعلان مدفوع' : 'You are selecting an asset for a paid ad draft'}</p>
+                <p className="mt-1 text-[11px] font-semibold leading-5 text-indigo-800">{locale === 'ar' ? 'ارفع الأصل هنا، ثم ارجع إلى Paid Workspace لإرفاقه صراحةً بالإعلان ومراجعته قبل أي إنشاء على المنصة.' : 'Upload the asset here, then return to Paid Workspace to attach it explicitly and review it before any platform creation.'}</p>
+              </div>
+              <button type="button" onClick={() => router.push(returnTo)} className="shrink-0 rounded-xl bg-indigo-700 px-4 py-2.5 text-xs font-black text-white hover:bg-indigo-800">
+                {locale === 'ar' ? 'العودة إلى Paid Workspace' : 'Return to Paid Workspace'}
+              </button>
+            </div>
+          )}
 
           <div className="nx-os-action-strip mb-6">
             <div className="flex min-w-0 items-center gap-3">

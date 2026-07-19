@@ -38,6 +38,7 @@ import {
   getPaidStrategySourceForUser,
   PaidStrategySourceError,
 } from '@/lib/paidStrategySourceServer'
+import { paidStrategyAllowsPlatform } from '@/lib/paidStrategyPlatforms'
 import { getStrategyBriefReadiness } from '@/lib/strategyBriefReadiness'
 import { paidOptimizationGoal } from '@/lib/paidExecutionObjective'
 import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
@@ -130,6 +131,13 @@ export async function POST(
       strategySnapshotId: typeof campaign.strategySnapshotId === 'string' ? campaign.strategySnapshotId : null,
       requirePinnedSnapshot: true,
     })
+    if (!paidStrategyAllowsPlatform(paidSource.truth, campaign.platform)) {
+      return NextResponse.json({
+        error: 'PAID_PLATFORM_STRATEGY_MISMATCH',
+        code: 'PAID_PLATFORM_STRATEGY_MISMATCH',
+        approvedPlatforms: paidSource.truth.approvedPlatforms,
+      }, { status: 422 })
+    }
     if (campaign.objective !== paidSource.truth.executionObjective) {
       return NextResponse.json({
         error: 'PAID_OBJECTIVE_STRATEGY_MISMATCH',

@@ -51,6 +51,16 @@ interface PaidStrategySource {
   approvalState: 'draft' | 'blocked' | 'ready_for_review' | 'approved' | 'revoked'
   eligible: boolean
   reason: 'READY' | 'STRATEGY_MISSING' | 'PAID_SCOPE_REQUIRED' | 'QUALITY_REVIEW_REQUIRED' | 'APPROVAL_REQUIRED'
+  approvedPlatforms: Array<'META' | 'GOOGLE' | 'TIKTOK' | 'LINKEDIN'>
+  planningOnlyPlatforms: string[]
+  platformDecisionSource: 'paid_planning' | 'paid_channel_mix' | 'campaign_platforms' | 'missing'
+  paidPackage: {
+    audienceHypotheses: number
+    adAngles: number
+    adCopyVariations: number
+    creativeBriefs: number
+    complete: boolean
+  }
   updatedAt: string | null
 }
 
@@ -260,7 +270,11 @@ export default function NewPaidCampaignPage() {
 
   const handlePlatformSelect = (platformValue: string) => {
     const platform = normalizePaidPlanningPlatform(platformValue)
-    if (!selectedStrategy || !paidPlatformSupportsObjective(platform, selectedStrategy.executionObjective)) return
+    if (
+      !selectedStrategy
+      || !selectedStrategy.approvedPlatforms.includes(platform)
+      || !paidPlatformSupportsObjective(platform, selectedStrategy.executionObjective)
+    ) return
     const selectedAccount = selectSinglePaidPlanningAccount(accounts, platform)
 
     setData(previous => ({
@@ -603,6 +617,11 @@ export default function NewPaidCampaignPage() {
                           <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             {source.scope} · {source.goal.replace(/_/g, ' ')}
                           </p>
+                          {source.scope !== 'organic' && (
+                            <p className="mt-1 text-[10px] font-semibold text-indigo-600">
+                              {copy('Paid:', 'Paid:')} {source.paidPackage.audienceHypotheses} {copy('جماهير', 'audiences')} · {source.paidPackage.adAngles} {copy('زوايا', 'angles')} · {source.paidPackage.adCopyVariations} {copy('نسخ', 'copy')} · {source.paidPackage.creativeBriefs} {copy('بريفات', 'briefs')}
+                            </p>
+                          )}
                         </div>
                         <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${source.eligible ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                           {selected
@@ -666,10 +685,12 @@ export default function NewPaidCampaignPage() {
 
             <div className="grid grid-cols-2 gap-3 mb-6">
               {PLATFORMS.map(p => {
-                const compatible = Boolean(
+                const objectiveCompatible = Boolean(
                   selectedStrategy
                   && paidPlatformSupportsObjective(p.id, selectedStrategy.executionObjective)
                 )
+                const approvedByStrategy = Boolean(selectedStrategy?.approvedPlatforms.includes(p.id as PaidStrategySource['approvedPlatforms'][number]))
+                const compatible = objectiveCompatible && approvedByStrategy
                 return (
                 <button
                   type="button"
@@ -701,7 +722,9 @@ export default function NewPaidCampaignPage() {
                   <span className="text-[11px] text-slate-500">{isArabic ? p.subAr : p.subEn}</span>
                   {selectedStrategyId && !compatible && (
                     <span className="text-[10px] font-semibold text-amber-700">
-                      {copy('غير متوافق مع الهدف المعتمد', 'Not compatible with approved objective')}
+                      {!approvedByStrategy
+                        ? copy('غير معتمد داخل هذه الاستراتيجية', 'Not approved by this strategy')
+                        : copy('غير متوافق مع الهدف المعتمد', 'Not compatible with approved objective')}
                     </span>
                   )}
                   {data.platform === p.id && (
@@ -712,6 +735,30 @@ export default function NewPaidCampaignPage() {
                 )
               })}
             </div>
+
+            {selectedStrategy && (
+              <div className="mb-6 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-indigo-700">
+                    {copy('قرار المنصات من الاستراتيجية', 'Strategy platform decision')}
+                  </p>
+                  <span className="text-[10px] font-bold text-indigo-500">
+                    {selectedStrategy.paidPackage.audienceHypotheses} + {selectedStrategy.paidPackage.adAngles} + {selectedStrategy.paidPackage.adCopyVariations} + {selectedStrategy.paidPackage.creativeBriefs}
+                  </span>
+                </div>
+                <p className="mt-2 text-[11px] leading-5 text-slate-600">
+                  {copy('المتاح للتنفيذ:', 'Executable:')} {selectedStrategy.approvedPlatforms.map(platform => PLATFORMS.find(item => item.id === platform)?.label || platform).join(', ') || copy('لا توجد منصة معتمدة', 'No approved platform')}
+                </p>
+                {selectedStrategy.planningOnlyPlatforms.length > 0 && (
+                  <p className="mt-1 text-[11px] leading-5 text-amber-700">
+                    {copy('تخطيط/تصدير فقط حاليًا:', 'Planning/export only today:')} {selectedStrategy.planningOnlyPlatforms.join(', ')}
+                  </p>
+                )}
+                <p className="mt-2 text-[10px] leading-4 text-slate-500">
+                  {copy('الحساب المتصل بمنصة أخرى لا يغيّر قرار الاستراتيجية تلقائيًا.', 'A connected account on another platform never changes the approved strategy automatically.')}
+                </p>
+              </div>
+            )}
 
             {/* Ad Account selection */}
             {selectedStrategyId && data.platform && (

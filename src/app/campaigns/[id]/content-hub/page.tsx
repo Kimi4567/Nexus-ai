@@ -42,6 +42,7 @@ import {
 import { deriveContentPlanOrderReview } from '@/lib/contentPlanOrderContract'
 import { deriveContentHubFirstScreenTruth } from '@/lib/contentHubFirstScreenTruth'
 import { deriveStrategyFulfillmentSummary, type StrategyFulfillmentTone } from '@/lib/strategyFulfillment'
+import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { derivePostCreativeRequirement } from '@/lib/creativeRequirements'
@@ -407,6 +408,10 @@ export default function ContentHubPage() {
   const isAr = locale === 'ar'
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
+  const campaignStrategyScope = useMemo(
+    () => resolveStrategyScope(campaign?.aiOutput),
+    [campaign?.aiOutput],
+  )
   const [brandProfile, setBrandProfile] = useState<BrandProfile>({
     brandName: null,
     logoUrl: null,
@@ -2881,6 +2886,33 @@ export default function ContentHubPage() {
             )}
           </div>
         </div>
+
+        {campaignStrategyScope.includesPaid && (
+          <section className="mb-5 overflow-hidden rounded-[22px] border border-indigo-200 bg-gradient-to-r from-indigo-50 via-white to-orange-50 shadow-sm">
+            <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-700">
+                  {isAr ? 'أنت داخل المسار العضوي' : 'You are in the organic lane'}
+                </p>
+                <h2 className="mt-1 text-sm font-bold text-slate-950">
+                  {isAr ? 'هذه الاستراتيجية تشمل مسار إعلانات منفصلًا' : 'This strategy also includes a separate paid-ad lane'}
+                </h2>
+                <p className="mt-1 text-xs leading-5 text-slate-600">
+                  {isAr
+                    ? 'الإعلانات لا تتحول تلقائيًا إلى منشورات. افتح مركز التنفيذ لمراجعة المنصات والتتبع والنسخ والإبداع والميزانية.'
+                    : 'Ads do not become organic posts automatically. Open execution to review platforms, tracking, copy, creative, and budget.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push(`/campaigns/${campaignId}/execution`)}
+                className="inline-flex flex-none items-center justify-center rounded-xl bg-indigo-700 px-4 py-2.5 text-xs font-black text-white transition hover:bg-indigo-800"
+              >
+                {isAr ? 'فتح Organic + Paid' : 'Open Organic + Paid'}
+              </button>
+            </div>
+          </section>
+        )}
 
         {posts.length > 0 && (
           <section className="hidden">

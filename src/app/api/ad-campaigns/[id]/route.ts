@@ -12,6 +12,7 @@ import {
   PaidStrategySourceError,
 } from '@/lib/paidStrategySourceServer'
 import { resolvePaidStrategyRevisionTruth } from '@/lib/paidStrategyRevision'
+import { paidStrategyAllowsPlatform } from '@/lib/paidStrategyPlatforms'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -153,6 +154,14 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       strategySnapshotId: typeof existing.strategySnapshotId === 'string' ? existing.strategySnapshotId : null,
       requirePinnedSnapshot: true,
     })
+    if (!paidStrategyAllowsPlatform(paidSource.truth, existing.platform)) {
+      return NextResponse.json({
+        error: 'PAID_PLATFORM_STRATEGY_MISMATCH',
+        code: 'PAID_PLATFORM_STRATEGY_MISMATCH',
+        approvedPlatforms: paidSource.truth.approvedPlatforms,
+        planningOnlyPlatforms: paidSource.truth.planningOnlyPlatforms,
+      }, { status: 422 })
+    }
 
     const body = await req.json()
     const {

@@ -48,6 +48,7 @@ import {
   approvePaidBudgetDecision,
   PaidApprovalError,
 } from '@/lib/paidApprovalService'
+import { paidStrategyAllowsPlatform } from '@/lib/paidStrategyPlatforms'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -96,6 +97,20 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
       return NextResponse.json({
         error: 'PAID_PLATFORM_OBJECTIVE_UNSUPPORTED',
         code: 'PAID_PLATFORM_OBJECTIVE_UNSUPPORTED',
+      }, { status: 422 })
+    }
+    if (!paidStrategyAllowsPlatform(paidSource.truth, campaign.platform)) {
+      return NextResponse.json({
+        error: 'PAID_PLATFORM_STRATEGY_MISMATCH',
+        code: 'PAID_PLATFORM_STRATEGY_MISMATCH',
+        approvedPlatforms: paidSource.truth.approvedPlatforms,
+      }, { status: 422 })
+    }
+    if (paidSource.truth.launchReadiness && !paidSource.truth.launchReadiness.ready) {
+      return NextResponse.json({
+        error: 'PAID_STRATEGY_LAUNCH_INPUTS_REQUIRED',
+        code: 'PAID_STRATEGY_LAUNCH_INPUTS_REQUIRED',
+        blockers: paidSource.truth.launchReadiness.blockers,
       }, { status: 422 })
     }
 

@@ -246,10 +246,13 @@ export default function PaidLaunchPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  // This route is retained only to review historical PaidCampaignPack records.
-  // New work always enters the canonical strategy-linked AdCampaign workflow.
+  // One canonical paid workspace: normal navigation always enters AdCampaign.
+  // Historical PaidCampaignPack rows remain read-only behind ?history=1 so
+  // legacy evidence is preserved without creating a second user journey.
   useEffect(() => {
-    if (!loading && campaign && !pack) {
+    const historyMode = typeof window !== 'undefined'
+      && new URLSearchParams(window.location.search).get('history') === '1'
+    if (!loading && campaign && !historyMode) {
       router.replace(`/paid-campaigns/new?sourceCampaignId=${id}`)
     }
   }, [campaign, id, loading, pack, router])

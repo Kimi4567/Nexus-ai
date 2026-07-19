@@ -18,6 +18,7 @@ import {
   normalizePaidPlanningRationale,
 } from '@/lib/paidPlanningSuggestion'
 import { paidPlatformSupportsObjective } from '@/lib/paidExecutionObjective'
+import { paidStrategyAllowsPlatform } from '@/lib/paidStrategyPlatforms'
 import {
   getPaidStrategySourceForUser,
   PaidStrategySourceError,
@@ -79,14 +80,17 @@ export async function POST(req: NextRequest) {
     })
     const compatibleAccounts = activeAccounts.filter((account: { platform: string }) => (
       paidPlatformSupportsObjective(account.platform, paidSource.truth.executionObjective)
+      && paidStrategyAllowsPlatform(paidSource.truth, account.platform)
     ))
     const connectedPlatforms: string[] = Array.from(new Set<string>(
       compatibleAccounts.map((account: { platform: string }) => account.platform),
     ))
     if (connectedPlatforms.length === 0) {
       return NextResponse.json({
-        error: activeAccounts.length > 0 ? 'PAID_NO_COMPATIBLE_ACCOUNT' : 'PAID_AD_ACCOUNT_REQUIRED',
-        code: activeAccounts.length > 0 ? 'PAID_NO_COMPATIBLE_ACCOUNT' : 'PAID_AD_ACCOUNT_REQUIRED',
+        error: activeAccounts.length > 0 ? 'PAID_STRATEGY_ACCOUNT_MISMATCH' : 'PAID_AD_ACCOUNT_REQUIRED',
+        code: activeAccounts.length > 0 ? 'PAID_STRATEGY_ACCOUNT_MISMATCH' : 'PAID_AD_ACCOUNT_REQUIRED',
+        approvedPlatforms: paidSource.truth.approvedPlatforms,
+        planningOnlyPlatforms: paidSource.truth.planningOnlyPlatforms,
       }, { status: 422 })
     }
 
