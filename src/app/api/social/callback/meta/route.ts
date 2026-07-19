@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 export async function GET(req: NextRequest) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')
   try {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get('code')
@@ -34,12 +34,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=invalid_state`)
   }
 
-  const appId = process.env.META_APP_ID!
-  const appSecret = process.env.META_APP_SECRET!
+  const appId = process.env.META_APP_ID
+  const appSecret = process.env.META_APP_SECRET
+  if (!appId || !appSecret) {
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=missing_env`)
+  }
   const redirectUri = `${baseUrl}/api/social/callback/meta`
 
   // Exchange code for access token
   let tokenData: any
+  let tokenResponseOk = false
   try {
     const tokenRes = await fetch(
       `${metaGraphUrl('oauth/access_token')}` +
@@ -49,6 +53,7 @@ export async function GET(req: NextRequest) {
       `&code=${code}`
     )
     tokenData = await tokenRes.json()
+    tokenResponseOk = tokenRes.ok
   } catch (fetchErr) {
     await captureOperationalError(fetchErr, {
       operation: 'oauth.meta-token-exchange',
@@ -62,7 +67,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=network_error`)
   }
 
-  if (tokenData.error || !tokenData.access_token) {
+  if (!tokenResponseOk || tokenData.error || !tokenData.access_token) {
     await captureOperationalError(
       Object.assign(new Error('Meta token exchange rejected'), { code: tokenData.error?.code || tokenData.error?.type }),
       {
@@ -107,6 +112,7 @@ export async function GET(req: NextRequest) {
   let me: any = {}
   let pagesData: any = { data: [] }
   let grantedScopes: string[] = []
+  let scopeEvidence: 'provider_response' | 'unavailable' = 'unavailable'
   try {
     const [meRes, pagesRes, permissionsRes] = await Promise.all([
       fetch(`${metaGraphUrl('me')}?fields=id,name,picture&access_token=${encodeURIComponent(longToken)}`),
@@ -114,8 +120,12 @@ export async function GET(req: NextRequest) {
       fetch(`${metaGraphUrl('me/permissions')}?access_token=${encodeURIComponent(longToken)}`),
     ])
     me = await meRes.json()
-    pagesData = await pagesRes.json()
+    if (!meRes.ok || !me?.id) throw new Error('Meta profile response was incomplete')
+    pagesData = pagesRes.ok ? await pagesRes.json() : { data: [] }
     const permissionsData = permissionsRes.ok ? await permissionsRes.json() : { data: [] }
+    scopeEvidence = permissionsRes.ok && Array.isArray(permissionsData?.data)
+      ? 'provider_response'
+      : 'unavailable'
     grantedScopes = (Array.isArray(permissionsData?.data) ? permissionsData.data : [])
       .filter((entry: any) => entry?.status === 'granted' && typeof entry?.permission === 'string')
       .map((entry: any) => entry.permission)
@@ -132,12 +142,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=profile_fetch_failed`)
   }
 
-  const pages = (pagesData.data || []).map((p: any) => ({
-    id: p.id,
-    name: p.name,
-    accessToken: encryptToken(p.access_token),    // Encrypted at rest
-    igAccountId: p.instagram_business_account?.id || null,
-  }))
+  const pages = (Array.isArray(pagesData?.data) ? pagesData.data : [])
+    .filter((page: any) => page?.id && page?.name && page?.access_token)
+    .map((page: any) => ({
+      id: page.id,
+      name: page.name,
+      accessToken: encryptToken(page.access_token),
+      igAccountId: page.instagram_business_account?.id || null,
+    }))
 
   console.log(`[Meta OAuth] Verified profile with ${pages.length} page connection candidates`)
 
@@ -195,7 +207,7 @@ export async function GET(req: NextRequest) {
           pages,
           pictureUrl: me.picture?.data?.url || null,
           scopes: grantedScopes,
-          scopeEvidence: 'provider_response',
+          scopeEvidence,
           graphVersion: META_GRAPH_VERSION,
           expiresAt: tokenExpiresAt?.toISOString() || null,
           connectedAt: new Date().toISOString(),
@@ -211,7 +223,7 @@ export async function GET(req: NextRequest) {
           pages,
           pictureUrl: me.picture?.data?.url || null,
           scopes: grantedScopes,
-          scopeEvidence: 'provider_response',
+          scopeEvidence,
           graphVersion: META_GRAPH_VERSION,
           expiresAt: tokenExpiresAt?.toISOString() || null,
           connectedAt: new Date().toISOString(),

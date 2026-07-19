@@ -5,7 +5,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
-import { createOAuthState } from '@/lib/oauthState'
+import { createOAuthState, isOAuthStateConfigured } from '@/lib/oauthState'
 import { TIKTOK_CONTENT_SCOPES } from '@/lib/socialPlatformConfig'
 
 export const dynamic = 'force-dynamic'
@@ -19,11 +19,15 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const clientKey = process.env.TIKTOK_CLIENT_KEY
-    if (!clientKey) {
-      return NextResponse.json({ error: 'TikTok App not configured' }, { status: 500 })
+    const clientSecret = process.env.TIKTOK_CLIENT_SECRET
+    if (!clientKey || !clientSecret || !isOAuthStateConfigured()) {
+      return NextResponse.json({
+        code: 'TIKTOK_OAUTH_NOT_CONFIGURED',
+        error: 'TikTok OAuth is not configured',
+      }, { status: 503 })
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')
     const redirectUri = `${baseUrl}/api/social/callback/tiktok`
 
     const state = createOAuthState(user.id, 'tiktok')

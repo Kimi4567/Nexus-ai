@@ -5,7 +5,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
-import { createOAuthState } from '@/lib/oauthState'
+import { createOAuthState, isOAuthStateConfigured } from '@/lib/oauthState'
 import { LINKEDIN_MEMBER_SCOPES, LINKEDIN_ORGANIZATION_SCOPES } from '@/lib/socialPlatformConfig'
 
 export const dynamic = 'force-dynamic'
@@ -20,11 +20,15 @@ export async function GET(req: NextRequest) {
     if (error || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const clientId = process.env.LINKEDIN_CLIENT_ID
-    if (!clientId) {
-      return NextResponse.json({ error: 'LinkedIn App not configured' }, { status: 500 })
+    const clientSecret = process.env.LINKEDIN_CLIENT_SECRET
+    if (!clientId || !clientSecret || !isOAuthStateConfigured()) {
+      return NextResponse.json({
+        code: 'LINKEDIN_OAUTH_NOT_CONFIGURED',
+        error: 'LinkedIn OAuth is not configured',
+      }, { status: 503 })
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')
     const redirectUri = `${baseUrl}/api/social/callback/linkedin`
 
     const state = createOAuthState(user.id, 'linkedin')

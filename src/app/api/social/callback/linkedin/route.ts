@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 export async function GET(req: NextRequest) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')
   try {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get('code')
@@ -42,12 +42,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=invalid_state`)
   }
 
-  const clientId     = process.env.LINKEDIN_CLIENT_ID!
-  const clientSecret = process.env.LINKEDIN_CLIENT_SECRET!
+  const clientId     = process.env.LINKEDIN_CLIENT_ID
+  const clientSecret = process.env.LINKEDIN_CLIENT_SECRET
+  if (!clientId || !clientSecret) {
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=missing_env`)
+  }
   const redirectUri  = `${baseUrl}/api/social/callback/linkedin`
 
   // ── Exchange code for access token ────────────────────────────────────────
   let tokenData: any
+  let tokenResponseOk = false
   try {
     const tokenRes = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
       method: 'POST',
@@ -61,6 +65,7 @@ export async function GET(req: NextRequest) {
       }),
     })
     tokenData = await tokenRes.json()
+    tokenResponseOk = tokenRes.ok
   } catch (fetchErr) {
     await captureOperationalError(fetchErr, {
       operation: 'oauth.linkedin-token-exchange',
@@ -74,7 +79,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=network_error`)
   }
 
-  if (!tokenData.access_token) {
+  if (!tokenResponseOk || !tokenData.access_token) {
     await captureOperationalError(
       Object.assign(new Error('LinkedIn token exchange rejected'), { code: tokenData.error_code || tokenData.error }),
       {
@@ -92,9 +97,13 @@ export async function GET(req: NextRequest) {
   }
 
   const accessToken = tokenData.access_token as string
+  const refreshToken = typeof tokenData.refresh_token === 'string' ? tokenData.refresh_token : null
   // LinkedIn tokens last 60 days by default
   const expiresAt = tokenData.expires_in
     ? new Date(Date.now() + tokenData.expires_in * 1000)
+    : null
+  const refreshExpiresAt = tokenData.refresh_token_expires_in
+    ? new Date(Date.now() + Number(tokenData.refresh_token_expires_in) * 1000)
     : null
 
   // ── Fetch member profile via OIDC userinfo ────────────────────────────────
@@ -104,6 +113,7 @@ export async function GET(req: NextRequest) {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
     profile = await profileRes.json()
+    if (!profileRes.ok) throw new Error('LinkedIn profile endpoint rejected the request')
   } catch (fetchErr) {
     await captureOperationalError(fetchErr, {
       operation: 'oauth.linkedin-profile-fetch',
@@ -147,11 +157,19 @@ export async function GET(req: NextRequest) {
   const email = profile.email || authEmail || existingUser?.email || `user-${userId.slice(0, 8)}@nexus.internal`
   const pictureUrl = profile.picture || null
 
+  const grantedScopes = typeof tokenData.scope === 'string' && tokenData.scope.trim()
+    ? tokenData.scope.split(/[ ,]+/).filter(Boolean)
+    : []
+  const scopeEvidence = typeof tokenData.scope === 'string' && tokenData.scope.trim()
+    ? 'provider_response'
+    : 'unavailable'
+
   // Company Page identities are separate from the member identity. This call
   // succeeds for approved Community Management scopes and degrades to an empty
   // list during pre-approval development without breaking member publishing.
   const organizations: Array<{ id: string; name: string; urn: string }> = []
   try {
+    if (!grantedScopes.includes('r_organization_admin')) throw new Error('organization_scope_not_granted')
     const aclUrl = new URL('https://api.linkedin.com/rest/organizationAcls')
     aclUrl.searchParams.set('q', 'roleAssignee')
     aclUrl.searchParams.set('role', 'ADMINISTRATOR')
@@ -185,15 +203,10 @@ export async function GET(req: NextRequest) {
       organizations.push(...details.filter((item): item is { id: string; name: string; urn: string } => Boolean(item)))
     }
   } catch (organizationError) {
-    console.warn('[LinkedIn OAuth] Organization discovery unavailable:', organizationError)
+    if (organizationError instanceof Error && organizationError.message !== 'organization_scope_not_granted') {
+      console.warn('[LinkedIn OAuth] Organization discovery unavailable:', organizationError)
+    }
   }
-
-  const grantedScopes = typeof tokenData.scope === 'string' && tokenData.scope.trim()
-    ? tokenData.scope.split(/[ ,]+/).filter(Boolean)
-    : []
-  const scopeEvidence = typeof tokenData.scope === 'string' && tokenData.scope.trim()
-    ? 'provider_response'
-    : 'unavailable'
   const defaultOrganizationId = organizations.length === 1 ? organizations[0].id : null
 
   console.log('[LinkedIn OAuth] Verified member profile')
@@ -235,6 +248,7 @@ export async function GET(req: NextRequest) {
         type: LI_TYPE,
         status: 'CONNECTED',
         accessToken: encryptToken(accessToken),
+        refreshToken: refreshToken ? encryptToken(refreshToken) : null,
         accountId: personId,
         accountName: name,
         config: {
@@ -247,6 +261,7 @@ export async function GET(req: NextRequest) {
           organizations,
           organizationId: defaultOrganizationId,
           expiresAt: expiresAt?.toISOString() || null,
+          refreshExpiresAt: refreshExpiresAt?.toISOString() || null,
           connectedAt: new Date().toISOString(),
         },
         lastSyncedAt: new Date(),
@@ -254,6 +269,7 @@ export async function GET(req: NextRequest) {
       update: {
         status: 'CONNECTED',
         accessToken: encryptToken(accessToken),
+        refreshToken: refreshToken ? encryptToken(refreshToken) : null,
         accountId: personId,
         accountName: name,
         config: {
@@ -266,6 +282,7 @@ export async function GET(req: NextRequest) {
           organizations,
           organizationId: defaultOrganizationId,
           expiresAt: expiresAt?.toISOString() || null,
+          refreshExpiresAt: refreshExpiresAt?.toISOString() || null,
           connectedAt: new Date().toISOString(),
         } as any,
         lastSyncedAt: new Date(),

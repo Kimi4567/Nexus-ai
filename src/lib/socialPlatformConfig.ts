@@ -43,8 +43,9 @@ export const LINKEDIN_MEMBER_SCOPES = [
 ] as const
 
 /**
- * Requested now so the complete Company Page workflow can be demonstrated in
- * Development tier and submitted for Community Management review later.
+ * Product-gated Company Page scopes. They are deliberately excluded from the
+ * default member flow until Community Management access is available; asking
+ * for unavailable scopes would break an otherwise valid OAuth connection.
  */
 export const LINKEDIN_ORGANIZATION_SCOPES = [
   'r_organization_admin',
