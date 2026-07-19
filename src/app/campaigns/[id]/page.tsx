@@ -1030,10 +1030,13 @@ function CampaignDetailPageInner() {
         await refreshBillingStatus()
       }
 
-      // Step 3: Navigate to Content Hub
+      // Full/Paid strategies branch into the execution center so neither lane
+      // disappears after approval. Organic-only continues to Content Hub.
       setApprovalState('done')
       setLaunchState('done')
-      router.push(`/campaigns/${campaignId}/content-hub`)
+      router.push(includesPaidPlanningStrategy
+        ? `/campaigns/${campaignId}/execution`
+        : `/campaigns/${campaignId}/content-hub`)
     } catch {
       setApprovalState('confirming')
       setLaunchState('idle')
@@ -2020,7 +2023,7 @@ function CampaignDetailPageInner() {
     {
       step: '03',
       title: includesPaidPlanningStrategy
-        ? uiText('جاهزية المنصات والمدفوع', 'Platform and paid readiness')
+        ? uiText('مركز التنفيذ العضوي والمدفوع', 'Organic and paid execution center')
         : uiText('جاهزية منصات النشر', 'Publishing platform readiness'),
       status: strategyExecutionPathStatus,
       helper: strategyExecutionBridge.overallStatus === 'ready'
@@ -2030,8 +2033,10 @@ function CampaignDetailPageInner() {
         : (uiIsArabic
           ? 'راجع الاتصالات والصلاحيات قبل اعتبار النشر أو الإعلانات قابلة للتنفيذ.'
           : 'Review connections and permissions before treating publishing or ads as executable.'),
-      href: '/connections',
-      cta: uiText('راجع الاتصالات', 'Review Connections'),
+      href: includesPaidPlanningStrategy ? `/campaigns/${campaign.id}/execution` : '/connections',
+      cta: includesPaidPlanningStrategy
+        ? uiText('افتح مركز التنفيذ', 'Open execution center')
+        : uiText('راجع الاتصالات', 'Review Connections'),
       tone: strategyExecutionBridge.overallStatus === 'ready'
         ? 'positive'
         : strategyExecutionBridge.overallStatus === 'not_in_scope'
@@ -2047,7 +2052,7 @@ function CampaignDetailPageInner() {
   const strategyScopeTruth = isPaidOnlyStrategy
     ? uiText('تخطيط مدفوع فقط — لا محتوى عضوي', 'Paid planning only — no organic content')
     : includesPaidPlanningStrategy
-      ? uiText('استراتيجية كاملة — المدفوع تخطيط فقط', 'Full strategy — paid is planning only')
+      ? uiText('استراتيجية كاملة — عضوي + تنفيذ مدفوع بموافقات', 'Full strategy — organic + approval-gated paid execution')
       : uiText('استراتيجية عضوية فقط — لا صرف إعلاني', 'Organic strategy only — no ad spend')
   const strategyConfidenceTruth = displayedConfidenceLevel
     ? `${confLevelLabel(displayedConfidenceLevel, locale)}${missingDataLabels.length > 0
@@ -2542,6 +2547,30 @@ function CampaignDetailPageInner() {
             </div>
           )
         })()}
+
+        {aiOutput && includesPaidPlanningStrategy && (
+          <section className="mb-4 overflow-hidden rounded-[22px] border border-indigo-200 bg-gradient-to-r from-indigo-50 via-white to-orange-50 shadow-sm">
+            <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-700">
+                  {uiText('استراتيجية Full لها مساران', 'Full strategy has two execution lanes')}
+                </p>
+                <h3 className="mt-1 text-sm font-bold text-slate-950">
+                  {uiText('Content Hub للعضوي، وPaid Workspace للإعلانات', 'Content Hub for organic, Paid Workspace for ads')}
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-slate-600">
+                  {uiText('راجع حالة كل مسار وحواجز التتبع والمنصات والإبداع قبل أي نشر أو إنفاق.', 'Review each lane, including tracking, platform, and creative gates, before publishing or spend.')}
+                </p>
+              </div>
+              <Link
+                href={`/campaigns/${campaign.id}/execution`}
+                className="inline-flex flex-none items-center justify-center rounded-xl bg-indigo-700 px-4 py-2.5 text-xs font-black text-white transition hover:bg-indigo-800"
+              >
+                {uiText('فتح مركز تنفيذ الحملة', 'Open campaign execution')}
+              </Link>
+            </div>
+          </section>
+        )}
 
         {/* Above-the-fold operating decision — keep the real next step visible before summary/proof detail. */}
         {aiOutput && activeTab !== 0 && (

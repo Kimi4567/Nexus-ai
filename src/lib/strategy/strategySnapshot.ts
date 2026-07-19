@@ -98,7 +98,7 @@ export function buildStrategySnapshot(input: {
       approvals: '/approvals',
       connections: '/connections',
       publish: `/campaigns/${input.campaignId}?tab=publish`,
-      paid: `/campaigns/${input.campaignId}/paid-launch`,
+      paid: `/campaigns/${input.campaignId}/execution`,
       performance: `/campaigns/${input.campaignId}?tab=performance`,
       analytics: '/analytics',
     },

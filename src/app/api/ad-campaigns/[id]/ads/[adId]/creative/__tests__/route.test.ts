@@ -5,6 +5,7 @@ const { mockGetAuthUser, mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
     ad: { findFirst: vi.fn(), update: vi.fn() },
     media: { findFirst: vi.fn() },
+    generatedVisual: { findFirst: vi.fn() },
   },
 }))
 
@@ -93,5 +94,68 @@ describe('PATCH paid ad creative attachment', () => {
       }),
     }))
     expect(body).toMatchObject({ attached: true, draftOnly: true, platformMutation: false, creditsUsed: 0 })
+  })
+
+  it('accepts a campaign-owned generated visual only after its deterministic quality gate passed', async () => {
+    mockPrisma.ad.findFirst.mockResolvedValue({
+      id: 'ad_1',
+      platformAdId: null,
+      platformCreativeId: null,
+      adSet: { adCampaign: { workspaceId: 'workspace_1', organicCampaignId: 'organic_1' } },
+    })
+    mockPrisma.generatedVisual.findFirst.mockResolvedValue({
+      id: 'visual_1',
+      imageUrl: safeMedia.url,
+      campaignName: 'Launch',
+      visualType: 'AD_CREATIVE',
+      qualityReview: {
+        passed: true,
+        qualityStatus: 'PASSED',
+        reviewedAt: '2026-07-19T00:00:00.000Z',
+        semanticAlignmentScore: 94,
+        professionalQualityScore: 93,
+        technicalIntegrity: true,
+        noNewRasterText: true,
+        noInventedClaims: true,
+        formatValidation: {
+          passed: true,
+          width: 1080,
+          height: 1350,
+          contentType: 'image/jpeg',
+        },
+      },
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ 'content-length': '1000000' }),
+    }))
+
+    const response = await PATCH(makeReq({
+      mediaId: 'generated:visual_1',
+      explicitCreativeAttachConfirmed: true,
+      reviewedAssetRightsConfirmed: true,
+    }), params)
+
+    expect(response.status).toBe(200)
+    expect(mockPrisma.media.findFirst).not.toHaveBeenCalled()
+    expect(mockPrisma.generatedVisual.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        id: 'visual_1',
+        workspaceId: 'workspace_1',
+        qualityStatus: 'PASSED',
+      }),
+    }))
+    expect(mockPrisma.ad.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        imageUrl: safeMedia.url,
+        specsValidated: true,
+        creativeSpecs: expect.objectContaining({
+          sourceType: 'NEXUS_GENERATED_VISUAL',
+          sourceGeneratedVisualId: 'visual_1',
+          generatedQualityGate: 'PREMIUM_STATIC_AD_PASSED',
+        }),
+      }),
+    }))
+    vi.unstubAllGlobals()
   })
 })

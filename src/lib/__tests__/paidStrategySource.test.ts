@@ -74,4 +74,35 @@ describe('paid strategy source truth', () => {
     expect(context).toContain('Abu Dhabi families')
     expect(context).not.toContain('internalDebugTrace')
   })
+
+  it('reports the paid package, platform decision, and launch blockers from one source', () => {
+    const truth = inspectPaidStrategySource({
+      ...baseCampaign,
+      aiOutput: {
+        strategyType: 'full',
+        strategy: {
+          paidPlanning: {
+            platforms: ['Instagram', 'Pinterest'],
+            audienceHypotheses: [{}, {}, {}],
+            adAngles: [{}, {}, {}, {}],
+            adCopyVariations: Array.from({ length: 9 }, () => ({})),
+            creativeBriefs: [{}, {}, {}, {}],
+            launchBlockers: ['Connect conversion tracking'],
+          },
+          readyForPaidAds: false,
+          readyForPaidAdsReason: 'Pixel is missing',
+        },
+        qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
+        sentinelReview: { status: 'passed' },
+      },
+    })
+
+    expect(truth.paidPackage).toMatchObject({ complete: true, adCopyVariations: 9, creativeBriefs: 4 })
+    expect(truth.approvedPlatforms).toEqual(['META'])
+    expect(truth.planningOnlyPlatforms).toEqual(['Pinterest Ads'])
+    expect(truth.launchReadiness).toEqual({
+      ready: false,
+      blockers: ['Connect conversion tracking', 'Pixel is missing'],
+    })
+  })
 })

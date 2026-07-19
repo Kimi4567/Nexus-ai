@@ -39,6 +39,18 @@ const MESSAGES: Record<string, { en: string; ar: string }> = {
     en: 'This platform path cannot execute the approved objective. Choose a compatible platform without changing the strategy.',
     ar: 'مسار المنصة هذا لا ينفذ الهدف المعتمد. اختر منصة متوافقة بدون تغيير الاستراتيجية.',
   },
+  PAID_PLATFORM_STRATEGY_MISMATCH: {
+    en: 'This platform was not approved by the strategy. Return to the strategy and record a reviewed channel change before using it.',
+    ar: 'هذه المنصة غير معتمدة في الاستراتيجية. ارجع إلى الاستراتيجية وسجّل تغيير قناة خاضعاً للمراجعة قبل استخدامها.',
+  },
+  PAID_STRATEGY_ACCOUNT_MISMATCH: {
+    en: 'Connected ad accounts do not match the platforms approved by this strategy. Connect an approved platform account or review a strategy revision.',
+    ar: 'الحسابات الإعلانية المتصلة لا تطابق المنصات المعتمدة في هذه الاستراتيجية. اربط حساب منصة معتمدة أو راجع إصداراً جديداً للاستراتيجية.',
+  },
+  PAID_STRATEGY_LAUNCH_INPUTS_REQUIRED: {
+    en: 'Tracking, conversion events, destination, and other launch inputs in the approved strategy must be complete before creating or activating platform objects.',
+    ar: 'يجب إكمال التتبع وأحداث التحويل ووجهة التحويل وبقية مدخلات الإطلاق داخل الاستراتيجية المعتمدة قبل إنشاء أو تفعيل أي كيان على المنصة.',
+  },
   PAID_NO_COMPATIBLE_ACCOUNT: {
     en: 'No connected account supports this approved objective in the current execution paths.',
     ar: 'لا يوجد حساب متصل يدعم الهدف المعتمد ضمن مسارات التنفيذ الحالية.',

@@ -13,6 +13,8 @@ describe('paid execution objective contract', () => {
     expect(paidPlatformSupportsObjective('GOOGLE', 'BRAND_AWARENESS')).toBe(false)
     expect(paidPlatformSupportsObjective('GOOGLE', 'ENGAGEMENT')).toBe(false)
     expect(paidPlatformSupportsObjective('META', 'ENGAGEMENT')).toBe(true)
+    expect(paidPlatformSupportsObjective('TIKTOK', 'CONVERSIONS')).toBe(false)
+    expect(paidPlatformSupportsObjective('LINKEDIN', 'LEAD_GENERATION')).toBe(false)
   })
 
   it('maps strategy objectives to matching optimization and Google bidding modes', () => {

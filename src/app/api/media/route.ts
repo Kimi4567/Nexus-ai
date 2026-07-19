@@ -84,6 +84,8 @@ export async function GET(req: Request) {
               campaignName: true,
               brandName: true,
               visualType: true,
+              qualityStatus: true,
+              qualityReview: true,
               createdAt: true,
             },
           })
@@ -91,18 +93,32 @@ export async function GET(req: Request) {
       includeGeneratedVisuals ? prisma.generatedVisual.count({ where: generatedWhere }) : Promise.resolve(0),
     ])
 
-    const generatedMedia = generatedVisuals.flatMap(visual => visual.imageUrl ? [{
+    const generatedMedia = generatedVisuals.flatMap(visual => {
+      if (!visual.imageUrl) return []
+      const review = visual.qualityReview && typeof visual.qualityReview === 'object' && !Array.isArray(visual.qualityReview)
+        ? visual.qualityReview as Record<string, unknown>
+        : {}
+      const paidCreativeEligible = visual.qualityStatus === 'PASSED'
+        && review.passed === true
+        && Number(review.semanticAlignmentScore) >= 85
+        && Number(review.professionalQualityScore) >= 88
+        && review.technicalIntegrity === true
+        && review.noNewRasterText === true
+        && review.noInventedClaims === true
+      return [{
       id: `generated:${visual.id}`,
       generatedVisualId: visual.id,
       assetKind: 'GENERATED_VISUAL' as const,
       readOnly: true,
+      paidCreativeEligible,
       fileName: `${visual.campaignName || visual.brandName || 'NEXUS'} — ${String(visual.visualType).toLowerCase()} visual`,
       mimeType: 'image/generated',
       type: 'IMAGE',
       url: visual.imageUrl,
       thumbnailUrl: visual.thumbnailUrl,
       createdAt: visual.createdAt,
-    }] : [])
+      }]
+    })
     const uploaded = uploadedMedia.map(item => ({
       ...item,
       assetKind: 'UPLOADED_MEDIA' as const,

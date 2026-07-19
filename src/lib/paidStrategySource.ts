@@ -1,6 +1,10 @@
 import { buildStrategyApprovalContract, type StrategyDecisionEvent } from '@/lib/strategyApproval'
 import { resolveStrategyScope, type StrategyScopeType } from '@/lib/strategy/strategyScope'
 import type { PaidExecutionObjective } from '@/lib/paidExecutionObjective'
+import {
+  resolvePaidStrategyPlatforms,
+  type PaidStrategyPlatformEvidence,
+} from '@/lib/paidStrategyPlatforms'
 
 type JsonRecord = Record<string, unknown>
 
@@ -34,6 +38,20 @@ export interface PaidStrategySourceTruth {
   approvalState: 'draft' | 'blocked' | 'ready_for_review' | 'approved' | 'revoked'
   eligible: boolean
   reason: PaidStrategySourceReason
+  approvedPlatforms: PaidStrategyPlatformEvidence['approvedPlatforms']
+  planningOnlyPlatforms: string[]
+  platformDecisionSource: PaidStrategyPlatformEvidence['source']
+  paidPackage: {
+    audienceHypotheses: number
+    adAngles: number
+    adCopyVariations: number
+    creativeBriefs: number
+    complete: boolean
+  }
+  launchReadiness: {
+    ready: boolean
+    blockers: string[]
+  }
   updatedAt: string | null
 }
 
@@ -86,6 +104,37 @@ export function inspectPaidStrategySource(
       : approval.state !== 'approved'
         ? 'APPROVAL_REQUIRED'
         : 'READY'
+  const platformTruth = resolvePaidStrategyPlatforms({
+    aiOutput: campaign.aiOutput,
+    campaignPlatforms: campaign.platforms,
+  })
+  const paidPlanning = record(nestedStrategy?.paidPlanning)
+  const count = (value: unknown) => Array.isArray(value) ? value.length : 0
+  const paidPackage = {
+    audienceHypotheses: count(paidPlanning?.audienceHypotheses),
+    adAngles: count(paidPlanning?.adAngles),
+    adCopyVariations: count(paidPlanning?.adCopyVariations),
+    creativeBriefs: count(paidPlanning?.creativeBriefs),
+    complete: count(paidPlanning?.audienceHypotheses) >= 3
+      && count(paidPlanning?.adAngles) >= 4
+      && count(paidPlanning?.adCopyVariations) >= 9
+      && count(paidPlanning?.creativeBriefs) >= 4,
+  }
+  const missingData = Array.isArray(nestedStrategy?.missingData)
+    ? nestedStrategy.missingData.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : []
+  const launchBlockers = Array.isArray(paidPlanning?.launchBlockers)
+    ? paidPlanning.launchBlockers.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : []
+  const readyForPaidAdsReason = typeof nestedStrategy?.readyForPaidAdsReason === 'string'
+    && nestedStrategy.readyForPaidAdsReason.trim()
+    ? nestedStrategy.readyForPaidAdsReason.trim()
+    : null
+  const launchReadinessBlockers = [...new Set([
+    ...missingData,
+    ...launchBlockers,
+    ...(nestedStrategy?.readyForPaidAds === true || !readyForPaidAdsReason ? [] : [readyForPaidAdsReason]),
+  ])]
 
   return {
     id: campaign.id,
@@ -98,6 +147,14 @@ export function inspectPaidStrategySource(
     approvalState: approval.state,
     eligible: reason === 'READY',
     reason,
+    approvedPlatforms: platformTruth.approvedPlatforms,
+    planningOnlyPlatforms: platformTruth.planningOnlyPlatforms,
+    platformDecisionSource: platformTruth.source,
+    paidPackage,
+    launchReadiness: {
+      ready: nestedStrategy?.readyForPaidAds === true && launchReadinessBlockers.length === 0,
+      blockers: launchReadinessBlockers,
+    },
     updatedAt: dateString(campaign.updatedAt),
   }
 }

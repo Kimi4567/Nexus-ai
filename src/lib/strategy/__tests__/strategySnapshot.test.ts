@@ -33,7 +33,7 @@ describe('buildStrategySnapshot', () => {
     expect(snapshot.channels).toEqual([{ platform: 'LINKEDIN' }])
     expect(snapshot.evidenceRefs).toHaveLength(1)
     expect(snapshot.executionLinks.content).toBe('/campaigns/campaign-1/content-hub')
-    expect(snapshot.executionLinks.paid).toBe('/campaigns/campaign-1/paid-launch')
+    expect(snapshot.executionLinks.paid).toBe('/campaigns/campaign-1/execution')
     expect(snapshot.executionLinks.performance).toBe('/campaigns/campaign-1?tab=performance')
     expect(snapshot.executionLinks.analytics).toBe('/analytics')
   })

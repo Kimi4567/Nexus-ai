@@ -16,6 +16,7 @@ import {
 } from '@/lib/paidStrategySourceServer'
 import { paidPlatformSupportsObjective } from '@/lib/paidExecutionObjective'
 import { resolvePaidStrategyRevisionTruth } from '@/lib/paidStrategyRevision'
+import { paidStrategyAllowsPlatform } from '@/lib/paidStrategyPlatforms'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -160,6 +161,14 @@ export async function POST(req: NextRequest) {
         code: 'PAID_PLATFORM_OBJECTIVE_UNSUPPORTED',
         objective: paidSource.truth.executionObjective,
         platform,
+      }, { status: 422 })
+    }
+    if (!paidStrategyAllowsPlatform(paidSource.truth, platform)) {
+      return NextResponse.json({
+        error: 'PAID_PLATFORM_STRATEGY_MISMATCH',
+        code: 'PAID_PLATFORM_STRATEGY_MISMATCH',
+        approvedPlatforms: paidSource.truth.approvedPlatforms,
+        planningOnlyPlatforms: paidSource.truth.planningOnlyPlatforms,
       }, { status: 422 })
     }
     const normalizedBudgetType = budgetType === 'LIFETIME' ? 'LIFETIME' : 'DAILY'

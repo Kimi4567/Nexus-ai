@@ -75,9 +75,13 @@ interface MediaAsset {
   type: string
   mimeType: string
   url: string
+  assetKind?: 'UPLOADED_MEDIA' | 'GENERATED_VISUAL'
+  generatedVisualId?: string
+  readOnly?: boolean
+  paidCreativeEligible?: boolean
   width?: number | null
   height?: number | null
-  size: number
+  size?: number
 }
 
 interface Campaign {
@@ -294,16 +298,22 @@ export default function CampaignDetailPage() {
     setMediaLoading(true)
     try {
       const token = await getToken()
-      // Paid creative validation currently requires stored upload metadata
-      // (dimensions, size, and MIME type). Generated visuals stay visible in
-      // the global library but are excluded here until that metadata contract
-      // is persisted for them as well.
-      const response = await fetch('/api/media?type=IMAGE&limit=50&source=UPLOADED_MEDIA', {
+      // Uploaded assets and NEXUS-generated visuals share one picker. The API
+      // revalidates ownership, quality evidence, dimensions, MIME type, and
+      // delivery URL before an asset can become execution-ready.
+      const campaignFilter = campaign?.organicCampaignId
+        ? `&campaignId=${encodeURIComponent(campaign.organicCampaignId)}`
+        : ''
+      const response = await fetch(`/api/media?type=IMAGE&limit=50${campaignFilter}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.error || 'Could not load Media Library images.')
-      const assets = Array.isArray(data.media) ? data.media : []
+      const assets = Array.isArray(data.media)
+        ? data.media.filter((asset: MediaAsset) => (
+            asset.assetKind !== 'GENERATED_VISUAL' || asset.paidCreativeEligible === true
+          ))
+        : []
       setMediaAssets(assets)
       const current = assets.find((asset: MediaAsset) => asset.url === ad.imageUrl)
       if (current) setSelectedMediaId(current.id)
@@ -1558,12 +1568,12 @@ export default function CampaignDetailPage() {
                     <span className="text-[11px] font-bold uppercase tracking-wider">{ar ? 'أصل إعلاني لمسودة مدفوعة' : 'Paid draft creative asset'}</span>
                   </div>
                   <h3 className="text-lg font-black text-slate-950">
-                    {ar ? 'إرفاق صورة تمت مراجعتها' : 'Attach a reviewed image'}
+                    {ar ? 'إرفاق أصل إعلاني اجتاز المراجعة' : 'Attach a quality-gated ad creative'}
                   </h3>
                   <p className="mt-1 text-xs leading-5 text-slate-500">
                     {ar
-                      ? 'هذا يربط أصل مكتبة الوسائط بمسودة الإعلان داخل NEXUS فقط. لا ينشئ كائن منصة، ولا يطلق إعلانًا، ولا ينفق ميزانية.'
-                      : 'This links a Media Library asset to the local NEXUS ad draft only. It creates no platform object, launches no ad, and spends no budget.'}
+                      ? 'اختر ملفًا مرفوعًا أو صورة ولّدها NEXUS واجتازت فحص الجودة. الإرفاق يحدّث المسودة المحلية فقط؛ لا ينشئ كائن منصة، ولا يطلق إعلانًا، ولا ينفق ميزانية.'
+                      : 'Choose an uploaded asset or a NEXUS-generated visual that passed quality review. Attachment updates the local draft only; it creates no platform object, launches no ad, and spends no budget.'}
                   </p>
                 </div>
                 <button type="button" onClick={() => closeCreativeAttach()} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label={ar ? 'إغلاق' : 'Close'}>
@@ -1580,15 +1590,17 @@ export default function CampaignDetailPage() {
                 ) : mediaAssets.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
                     <ImageIcon className="mx-auto h-8 w-8 text-slate-400" />
-                    <p className="mt-3 text-sm font-bold text-slate-900">{ar ? 'لا توجد صور صالحة في مكتبة الوسائط' : 'No image assets are available in Media Library'}</p>
-                    <p className="mt-1 text-xs text-slate-500">{ar ? 'ارفع أو أنشئ الأصل أولًا، ثم عد لاختياره ومراجعته هنا.' : 'Upload or create the asset first, then return to select and review it here.'}</p>
+                    <p className="mt-3 text-sm font-bold text-slate-900">{ar ? 'لا توجد أصول إعلانية صالحة لهذه الحملة' : 'No eligible ad creative exists for this campaign'}</p>
+                    <p className="mt-1 text-xs text-slate-500">{ar ? 'ارفع أصلًا حقيقيًا أو ولّد اتجاهًا بصريًا من نفس الاستراتيجية، ثم عد لاختياره هنا.' : 'Upload a real asset or generate a visual from this same strategy, then return to select it here.'}</p>
                     <div className="mt-4 flex flex-wrap justify-center gap-2">
-                      <button type="button" onClick={() => router.push('/media')} className="inline-flex items-center gap-1.5 rounded-xl bg-[#071236] px-4 py-2 text-xs font-bold text-white">
+                      <button type="button" onClick={() => router.push(campaign.organicCampaignId ? `/media?campaignId=${encodeURIComponent(campaign.organicCampaignId)}&returnTo=${encodeURIComponent(`/paid-campaigns/${campaign.id}`)}` : '/media')} className="inline-flex items-center gap-1.5 rounded-xl bg-[#071236] px-4 py-2 text-xs font-bold text-white">
                         {ar ? 'افتح مكتبة الوسائط' : 'Open Media Library'} <ExternalLink className="h-3 w-3" />
                       </button>
-                      <button type="button" onClick={() => router.push('/studio')} className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
-                        {ar ? 'افتح استوديو الإبداع' : 'Open Creative Studio'}
-                      </button>
+                      {campaign.organicCampaignId && (
+                        <button type="button" onClick={() => router.push(`/campaigns/${campaign.organicCampaignId}?tab=creative#campaign-visual-generator`)} className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
+                          {ar ? 'ولّد اتجاهًا بصريًا من الاستراتيجية' : 'Generate from strategy'}
+                        </button>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -1605,6 +1617,11 @@ export default function CampaignDetailPage() {
                           >
                             <div className="relative aspect-square bg-slate-100">
                               <NextImage src={asset.url} alt={asset.fileName} fill unoptimized className="object-cover" sizes="(max-width: 640px) 50vw, 180px" />
+                              <span className="absolute bottom-2 start-2 rounded-full bg-slate-950/80 px-2 py-1 text-[9px] font-bold text-white backdrop-blur">
+                                {asset.assetKind === 'GENERATED_VISUAL'
+                                  ? (ar ? 'مولّد + QA' : 'Generated + QA')
+                                  : (ar ? 'مرفوع' : 'Uploaded')}
+                              </span>
                               {selected && (
                                 <span className="absolute end-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-white shadow">
                                   <CheckCircle2 className="h-4 w-4" />
@@ -1613,7 +1630,11 @@ export default function CampaignDetailPage() {
                             </div>
                             <div className="p-2.5">
                               <p className="truncate text-[11px] font-bold text-slate-900">{asset.fileName}</p>
-                              <p className="mt-0.5 text-[10px] text-slate-500">{asset.width || '?'} × {asset.height || '?'} · {Math.max(0.1, asset.size / 1024 / 1024).toFixed(1)} MB</p>
+                              <p className="mt-0.5 text-[10px] text-slate-500">
+                                {asset.assetKind === 'GENERATED_VISUAL'
+                                  ? (ar ? 'اجتاز بوابة الجودة المدفوعة' : 'Paid quality gate passed')
+                                  : `${asset.width || '?'} × ${asset.height || '?'} · ${Math.max(0.1, (asset.size ?? 0) / 1024 / 1024).toFixed(1)} MB`}
+                              </p>
                             </div>
                           </button>
                         )

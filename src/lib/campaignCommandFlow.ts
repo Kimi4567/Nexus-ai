@@ -278,7 +278,7 @@ function deriveNextAction(input: DeriveCampaignCommandFlowInput): CampaignComman
       helperAr: 'أوامر Paid فقط لا تمر عبر Content Hub. راجع الجمهور والنسخ والإبداع والتتبع والميزانية وموافقة الإطلاق المنفصلة قبل أي صرف.',
       labelEn: 'Open paid execution review',
       labelAr: 'افتح مراجعة التنفيذ المدفوع',
-      href: `/campaigns/${campaignId}/paid-launch`,
+      href: `/campaigns/${campaignId}/execution`,
     }
   }
 
@@ -558,7 +558,7 @@ export function deriveCampaignCommandFlow(input: DeriveCampaignCommandFlowInput)
           : operatingState.counts.totalPosts > 0
             ? `${operatingState.counts.totalPosts} سجل منشور`
             : 'لا توجد خطة منشورات بعد',
-        href: isPaidOnly ? `/campaigns/${input.campaignId}/paid-launch` : `/campaigns/${input.campaignId}/content-hub`,
+        href: isPaidOnly ? `/campaigns/${input.campaignId}/execution` : `/campaigns/${input.campaignId}/content-hub`,
       },
       {
         id: 'creative',
@@ -577,7 +577,7 @@ export function deriveCampaignCommandFlow(input: DeriveCampaignCommandFlowInput)
           : creativeSummary && creativeSummary.total > 0
             ? `${creativeSummary.mediaNeeded} تحتاج وسائط · ${creativeSummary.attachedToPost} مرتبطة`
             : 'ينتظر سياق المنشورات',
-        href: isPaidOnly ? `/campaigns/${input.campaignId}/paid-launch` : `/campaigns/${input.campaignId}?tab=creative`,
+        href: isPaidOnly ? `/campaigns/${input.campaignId}/execution` : `/campaigns/${input.campaignId}?tab=creative`,
       },
       {
         id: 'approval',
@@ -591,7 +591,7 @@ export function deriveCampaignCommandFlow(input: DeriveCampaignCommandFlowInput)
           metricEn: 'No spend before approval',
           metricAr: 'لا صرف قبل الموافقة',
         } : {}),
-        href: isPaidOnly ? `/campaigns/${input.campaignId}/paid-launch` : `/campaigns/${input.campaignId}/content-hub`,
+        href: isPaidOnly ? `/campaigns/${input.campaignId}/execution` : `/campaigns/${input.campaignId}/content-hub`,
       },
       {
         id: 'publishing',

@@ -35,7 +35,9 @@ export function paidPlatformSupportsObjective(
   const normalizedObjective = normalizePaidExecutionObjective(objective)
   if (!normalizedObjective || typeof platform !== 'string') return false
   const normalizedPlatform = platform.trim().toUpperCase()
-  if (!['META', 'GOOGLE', 'TIKTOK', 'LINKEDIN'].includes(normalizedPlatform)) return false
+  // Paid API draft creation is implemented only for Meta and Google Search.
+  // TikTok and LinkedIn stay planning/export-only until their adapters exist.
+  if (!['META', 'GOOGLE'].includes(normalizedPlatform)) return false
   return normalizedPlatform !== 'GOOGLE' || GOOGLE_SEARCH_OBJECTIVES.has(normalizedObjective)
 }
 
