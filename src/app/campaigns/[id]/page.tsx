@@ -495,6 +495,10 @@ function CampaignDetailPageInner() {
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [campaignPosts, setCampaignPosts] = useState<CampaignOperatingPost[]>([])
   const [operatingSnapshotsLoaded, setOperatingSnapshotsLoaded] = useState(false)
+  const [executionContentQualityTruth, setExecutionContentQualityTruth] = useState<{
+    issueCount: number
+    postCount: number
+  } | null>(null)
   const [strategyPlatformStates, setStrategyPlatformStates] = useState<PlatformState[]>([])
   const [strategyPlatformReadinessLoaded, setStrategyPlatformReadinessLoaded] = useState(false)
   const [pendingLearningCount, setPendingLearningCount] = useState(0)
@@ -679,12 +683,14 @@ function CampaignDetailPageInner() {
     }
 
     setOperatingSnapshotsLoaded(false)
+    setExecutionContentQualityTruth(null)
     let loadedPosts = false
     try {
-      const [contentPlanRes, proposalsRes, strategyApprovalRes] = await Promise.all([
+      const [contentPlanRes, proposalsRes, strategyApprovalRes, executionTruthRes] = await Promise.all([
         fetch(`/api/campaigns/${campaignId}/content-plan`, { headers: { Authorization: token } }),
         fetch('/api/brain/proposals?status=pending', { headers: { Authorization: token } }),
         fetch(`/api/campaigns/${campaignId}/strategy-approval`, { headers: { Authorization: token } }),
+        fetch(`/api/execution/queue?campaignId=${encodeURIComponent(campaignId)}`, { headers: { Authorization: token } }),
       ])
 
       if (contentPlanRes.ok) {
@@ -704,6 +710,21 @@ function CampaignDetailPageInner() {
         const state = data?.approval?.state
         if (['draft', 'blocked', 'ready_for_review', 'approved', 'revoked'].includes(state)) {
           setStrategyApprovalTruth(state as StrategyApprovalState)
+        }
+      }
+
+      if (executionTruthRes.ok) {
+        const data = await executionTruthRes.json().catch(() => ({}))
+        const campaignTruth = Array.isArray(data?.truth?.campaigns)
+          ? data.truth.campaigns.find((item: any) => item?.campaignId === campaignId)
+          : null
+        const issueCount = Number(campaignTruth?.posts?.qualityReviewIssueCount)
+        const postCount = Number(campaignTruth?.posts?.qualityReviewPostCount)
+        if (Number.isFinite(issueCount) && Number.isFinite(postCount)) {
+          setExecutionContentQualityTruth({
+            issueCount: Math.max(0, Math.trunc(issueCount)),
+            postCount: Math.max(0, Math.trunc(postCount)),
+          })
         }
       }
     } catch {
@@ -1461,6 +1482,13 @@ function CampaignDetailPageInner() {
   const campaignContentReviewPosts = campaignPosts.filter(post =>
     ['DRAFT', 'APPROVED', 'SCHEDULED'].includes(String(post.status ?? '').toUpperCase()),
   )
+  // Approval and execution gates must review the immutable saved strategy,
+  // not the presentation-only guarded copy rendered by the Strategy desk.
+  // Using the display copy here made the campaign page disagree with Content
+  // Hub and the server-side publish gates for the same post batch.
+  const campaignContentApprovalStrategy = aiOutput?.strategy && typeof aiOutput.strategy === 'object'
+    ? aiOutput.strategy
+    : aiOutput
   const campaignContentQualityReview = reviewContentPlanForApproval(
     campaignContentReviewPosts.map((post: any) => ({
       caption: post.caption,
@@ -1469,7 +1497,7 @@ function CampaignDetailPageInner() {
       contentPlanIndex: post.contentPlanIndex,
       platform: post.publishTarget || post.platform,
     })),
-    strategy,
+    campaignContentApprovalStrategy,
     buildContentPlanTruthContext(brandDNA),
   )
   const campaignContentQualityPostCount = new Set(
@@ -1485,8 +1513,10 @@ function CampaignDetailPageInner() {
     },
     posts: campaignPosts,
     pendingLearningCount,
-    contentQualityIssueCount: campaignContentQualityReview.issues.length,
-    contentQualityPostCount: campaignContentQualityPostCount,
+    contentQualityIssueCount: executionContentQualityTruth?.issueCount
+      ?? campaignContentQualityReview.issues.length,
+    contentQualityPostCount: executionContentQualityTruth?.postCount
+      ?? campaignContentQualityPostCount,
   })
   const strategyDocOperatingLabel = brandTruthBlocked
     ? (strategyDocIsArabic ? 'مخرجات مرجعية محجوبة' : 'Blocked reference outputs')
@@ -2487,8 +2517,8 @@ function CampaignDetailPageInner() {
           <section className="mb-5 overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.05)]">
             <div className="p-4 lg:p-5">
               <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-                <div className="flex min-w-0 flex-1 items-center gap-4">
-                  <div className="min-w-0">
+                <div className="flex w-full min-w-0 flex-1 items-center gap-4">
+                  <div className="min-w-0 flex-1">
                     <div className="mb-3 flex flex-wrap items-center gap-2 text-xs font-semibold">
                       <span className={`rounded-full px-3 py-1 ${brandTruthBlocked ? 'bg-orange-50 text-orange-700' : 'bg-emerald-50 text-emerald-700'}`}>
                         {brandTruthBlocked
@@ -2513,7 +2543,7 @@ function CampaignDetailPageInner() {
                   </div>
                 </div>
 
-                <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-5 xl:min-w-[500px]">
+                <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:grid-cols-5 xl:w-[500px] xl:flex-none">
                   {luxuryStrategySteps.map((step) => (
                     <Link
                       key={step.number}
