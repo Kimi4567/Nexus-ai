@@ -3,14 +3,11 @@
  * TikTok OAuth 2.0 callback — exchanges code for token,
  * fetches user info, saves Integration.
  *
- * Strategy: tries two token-exchange methods in order:
- *   1. Body params (standard)
- *   2. Basic Auth (client_key:client_secret in Authorization header)
- * Uses redirect:'manual' to prevent fetch from silently following
- * TikTok's error redirects to HTML pages.
+ * Uses TikTok's documented form-encoded authorization-code exchange only.
+ * A failed provider charge or response must never be hidden by a second,
+ * undocumented exchange attempt.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { encryptToken } from '@/lib/tokenCrypto'
 import { verifyOAuthState } from '@/lib/oauthState'
@@ -21,9 +18,8 @@ function getBaseUrl() {
   return (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')
 }
 
-/** Attempt a single token exchange and return { tokenData } or throw */
-async function attemptTokenExchange(
-  method: 'body' | 'basic_auth',
+/** Exchange a code exactly once using TikTok's documented request shape. */
+async function exchangeAuthorizationCode(
   params: {
     clientKey: string
     clientSecret: string
@@ -33,40 +29,25 @@ async function attemptTokenExchange(
 ): Promise<Record<string, unknown>> {
   const { clientKey, clientSecret, code, redirectUri } = params
 
-  const commonHeaders: Record<string, string> = {
-    'Content-Type': 'application/x-www-form-urlencoded',
-    'Accept': 'application/json',
-    'User-Agent': 'Mozilla/5.0 (compatible; NexusAI/1.0)',
-  }
-
-  let body: URLSearchParams
-  if (method === 'body') {
-    body = new URLSearchParams({ client_key: clientKey, client_secret: clientSecret, code, grant_type: 'authorization_code', redirect_uri: redirectUri })
-  } else {
-    // Basic Auth — credentials in Authorization header, not body
-    const creds = Buffer.from(`${clientKey}:${clientSecret}`).toString('base64')
-    commonHeaders['Authorization'] = `Basic ${creds}`
-    body = new URLSearchParams({ code, grant_type: 'authorization_code', redirect_uri: redirectUri })
-  }
-
-  // redirect:'follow' — let fetch follow any redirects, then inspect the final URL
   const res = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
     method: 'POST',
-    headers: commonHeaders,
-    body,
-    redirect: 'follow',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+    },
+    body: new URLSearchParams({
+      client_key: clientKey,
+      client_secret: clientSecret,
+      code,
+      grant_type: 'authorization_code',
+      redirect_uri: redirectUri,
+    }),
+    redirect: 'manual',
     cache: 'no-store',
   })
 
   const status     = res.status
-  const redirected = res.redirected
-  const finalUrl   = res.url
   const text       = await res.text()
-
-  // If we were redirected to an HTML page, reject immediately
-  if (redirected) {
-    throw new Error(`token_redirected_to_${finalUrl.slice(0, 80)}`)
-  }
 
   if (!text.trim().startsWith('{') && !text.trim().startsWith('[')) {
     throw new Error(`token_html_${status}`)
@@ -80,7 +61,7 @@ async function attemptTokenExchange(
     ? (data.data as Record<string, unknown>)
     : data
 
-  if (!flat.access_token) {
+  if (!res.ok || !flat.access_token || !flat.open_id) {
     const errCode = (flat.error as string) ?? (flat.error_code as string) ?? (data.error as string) ?? 'unknown'
     throw new Error(`token_${errCode}`)
   }
@@ -122,28 +103,21 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=missing_env`)
     }
 
-    // ── Exchange code for access token — try body method first, then Basic Auth ──
+    // One deterministic exchange prevents duplicate or untraceable attempts.
     let tokenData: Record<string, unknown>
-    const exchangeParams = { clientKey, clientSecret, code, redirectUri }
-
     try {
-      tokenData = await attemptTokenExchange('body', exchangeParams)
-    } catch {
-      console.warn('[TikTok] Primary token exchange method failed; trying fallback')
-      try {
-        tokenData = await attemptTokenExchange('basic_auth', exchangeParams)
-      } catch (basicErr) {
-        await captureOperationalError(basicErr, {
-          operation: 'oauth.tiktok-token-exchange',
-          route: '/api/social/callback/tiktok',
-          component: 'oauth',
-          method: 'GET',
-          requestId: req.headers?.get?.('x-vercel-id') ?? null,
-          statusCode: 502,
-          retryable: true,
-        })
-        return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=token_exchange_failed`)
-      }
+      tokenData = await exchangeAuthorizationCode({ clientKey, clientSecret, code, redirectUri })
+    } catch (exchangeError) {
+      await captureOperationalError(exchangeError, {
+        operation: 'oauth.tiktok-token-exchange',
+        route: '/api/social/callback/tiktok',
+        component: 'oauth',
+        method: 'GET',
+        requestId: req.headers?.get?.('x-vercel-id') ?? null,
+        statusCode: 502,
+        retryable: false,
+      })
+      return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=token_exchange_failed`)
     }
 
     const accessToken  = tokenData.access_token as string
@@ -165,6 +139,7 @@ export async function GET(req: NextRequest) {
     // ── Fetch TikTok user info ──────────────────────────────────────────────
     let displayName = 'TikTok User'
     let avatarUrl: string | null = null
+    let profileEvidence: 'provider_response' | 'unavailable' = 'unavailable'
     try {
       const profileRes = await fetch(
         'https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name,avatar_url',
@@ -176,11 +151,13 @@ export async function GET(req: NextRequest) {
           cache: 'no-store',
         }
       )
+      if (!profileRes.ok) throw new Error(`TikTok profile request failed with ${profileRes.status}`)
       const profileText = await profileRes.text()
       const profileData = JSON.parse(profileText)
       const profile = profileData.data?.user || {}
       displayName = profile.display_name || 'TikTok User'
       avatarUrl   = profile.avatar_url   || null
+      profileEvidence = profile.open_id === openId ? 'provider_response' : 'unavailable'
     } catch (profileErr) {
       await captureOperationalError(profileErr, {
         operation: 'oauth.tiktok-profile-fetch',
@@ -239,6 +216,7 @@ export async function GET(req: NextRequest) {
         config: {
           openId,
           avatarUrl,
+          profileEvidence,
           scopes,
           scopeEvidence,
           expiresAt:   expiresAt?.toISOString() ?? null,
@@ -257,6 +235,7 @@ export async function GET(req: NextRequest) {
         config: {
           openId,
           avatarUrl,
+          profileEvidence,
           scopes,
           scopeEvidence,
           expiresAt: expiresAt?.toISOString() ?? null,

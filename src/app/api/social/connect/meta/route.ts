@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
-import { createOAuthState } from '@/lib/oauthState'
+import { createOAuthState, isOAuthStateConfigured } from '@/lib/oauthState'
 import { getMetaOrganicScopes, META_GRAPH_VERSION } from '@/lib/socialPlatformConfig'
 
 export const dynamic = 'force-dynamic'
@@ -15,11 +15,15 @@ export async function GET(req: NextRequest) {
     if (error || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const appId = process.env.META_APP_ID
-    if (!appId) {
-      return NextResponse.json({ error: 'Meta App ID not configured' }, { status: 500 })
+    const appSecret = process.env.META_APP_SECRET
+    if (!appId || !appSecret || !isOAuthStateConfigured()) {
+      return NextResponse.json({
+        code: 'META_OAUTH_NOT_CONFIGURED',
+        error: 'Meta OAuth is not configured',
+      }, { status: 503 })
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')
     const redirectUri = `${baseUrl}/api/social/callback/meta`
 
     const state = createOAuthState(user.id, 'meta')

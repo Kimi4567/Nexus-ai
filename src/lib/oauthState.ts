@@ -23,9 +23,14 @@ export function oauthStateMaxAgeSeconds(provider: OAuthProvider): number {
   return PROVIDER_MAX_AGE_SECONDS[provider] || DEFAULT_MAX_AGE_SECONDS
 }
 
+export function isOAuthStateConfigured(): boolean {
+  return typeof process.env.OAUTH_STATE_SECRET === 'string'
+    && process.env.OAUTH_STATE_SECRET.length >= 32
+}
+
 function stateSecret(): string {
   const secret = process.env.OAUTH_STATE_SECRET
-  if (!secret || secret.length < 32) {
+  if (!isOAuthStateConfigured() || !secret) {
     throw new Error('OAUTH_STATE_SECRET must be configured with at least 32 characters')
   }
   return secret

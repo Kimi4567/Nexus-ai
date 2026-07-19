@@ -94,6 +94,16 @@ interface GoogleAdsConnectionState {
   connectedAt: string
 }
 
+interface ProviderReadiness {
+  platform: 'META' | 'LINKEDIN' | 'TIKTOK'
+  credentialsConfigured: boolean
+  callbackUrl: string
+  requestedScopes: string[]
+  deferredScopes: string[]
+  testBoundary: string
+  publicAccess: 'PROVIDER_REVIEW_REQUIRED' | 'PROVIDER_PRODUCT_ACCESS_REQUIRED' | 'PROVIDER_AUDIT_REQUIRED'
+}
+
 interface PlatformDef {
   id: string
   name: { ar: string; en: string }
@@ -247,7 +257,7 @@ function adExecutionEligible(
     && googleConnection?.accessTier !== 'NONE'
 }
 
-function connectionTruth(account: ConnectedAccount, ar: boolean): {
+function connectionTruth(account: ConnectedAccount, ar: boolean, readiness?: ProviderReadiness): {
   tone: 'ready' | 'needs'
   label: string
   checks: Array<{ ok: boolean; text: string }>
@@ -265,32 +275,48 @@ function connectionTruth(account: ConnectedAccount, ar: boolean): {
   if (account.platform === 'META') {
     const facebook = capability.facebookPublishing === true
     const instagram = capability.instagramPublishing === true
+    const instagramDeferred = readiness?.deferredScopes.includes('instagram_content_publish') === true
     return {
       tone: facebook && instagram ? 'ready' : 'needs',
       label: facebook && instagram
         ? (ar ? 'النشر جاهز للوجهتين' : 'Both destinations ready')
         : facebook
-          ? (ar ? 'Facebook جاهز · Instagram ناقص' : 'Facebook ready · Instagram missing')
+          ? instagramDeferred
+            ? (ar ? 'Facebook اختباري جاهز · Instagram مؤجل للتصريح' : 'Facebook test-ready · Instagram deferred for review')
+            : (ar ? 'Facebook جاهز · Instagram ناقص' : 'Facebook ready · Instagram missing')
           : (ar ? 'إعداد الوجهة مطلوب' : 'Destination setup required'),
       checks: [
         { ok: facebook, text: ar ? 'صفحة Facebook مخولة للنشر' : 'Facebook Page authorized for publishing' },
-        { ok: instagram, text: ar ? 'حساب Instagram احترافي مربوط بالصفحة' : 'Professional Instagram account linked to the Page' },
+        {
+          ok: instagram,
+          text: instagramDeferred
+            ? (ar ? 'نشر Instagram مؤجل حتى مسار التصريح' : 'Instagram publishing deferred until provider review')
+            : (ar ? 'حساب Instagram احترافي مربوط بالصفحة' : 'Professional Instagram account linked to the Page'),
+        },
       ],
     }
   }
   if (account.platform === 'LINKEDIN') {
     const member = capability.linkedInMemberPublishing === true
     const organization = capability.linkedInOrganizationPublishing === true
+    const organizationDeferred = readiness?.deferredScopes.includes('w_organization_social') === true
     return {
       tone: member || organization ? 'ready' : 'needs',
       label: organization
         ? (ar ? 'نشر العضو وصفحة الشركة متاح' : 'Member and Company Page ready')
         : member
-          ? (ar ? 'نشر العضو جاهز · لا صفحة شركة' : 'Member ready · no Company Page')
+          ? organizationDeferred
+            ? (ar ? 'نشر العضو جاهز · صفحة الشركة مؤجلة للتصريح' : 'Member ready · Company Page deferred for review')
+            : (ar ? 'نشر العضو جاهز · لا صفحة شركة' : 'Member ready · no Company Page')
           : (ar ? 'صلاحية النشر غير مثبتة' : 'Publishing permission unverified'),
       checks: [
         { ok: member, text: ar ? 'هوية العضو متاحة للنشر' : 'Member publishing identity available' },
-        { ok: organization, text: ar ? 'صفحة شركة بإدارة مثبتة' : 'Admin-authorized Company Page available' },
+        {
+          ok: organization,
+          text: organizationDeferred
+            ? (ar ? 'نشر صفحة الشركة مؤجل حتى تصريح Community Management' : 'Company Page publishing deferred until Community Management access')
+            : (ar ? 'صفحة شركة بإدارة مثبتة' : 'Admin-authorized Company Page available'),
+        },
       ],
     }
   }
@@ -487,6 +513,7 @@ export default function ConnectionsPage() {
   const [googleAdsConnection, setGoogleAdsConnection] = useState<GoogleAdsConnectionState | null>(null)
   const [strategyPlatformIds, setStrategyPlatformIds] = useState<string[]>([])
   const [strategyCampaignName, setStrategyCampaignName] = useState<string | null>(null)
+  const [providerReadiness, setProviderReadiness] = useState<ProviderReadiness[]>([])
   const [loadingAccounts, setLoadingAccounts] = useState(true)
   const [connecting, setConnecting] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
@@ -501,19 +528,22 @@ export default function ConnectionsPage() {
     }
     setLoadingAccounts(true)
     try {
-      const [socialRes, adRes, campaignRes] = await Promise.all([
+      const [socialRes, adRes, campaignRes, readinessRes] = await Promise.all([
         fetch('/api/social/accounts', { headers: { Authorization: token } }),
         fetch('/api/ad-accounts', { headers: { Authorization: token } }),
         fetch('/api/campaigns?limit=20&sort=updatedAt&order=desc', { headers: { Authorization: token }, cache: 'no-store' }),
+        fetch('/api/social/readiness', { headers: { Authorization: token }, cache: 'no-store' }),
       ])
-      const [socialData, adData, campaignData] = await Promise.all([
+      const [socialData, adData, campaignData, readinessData] = await Promise.all([
         socialRes.json(),
         adRes.json(),
         campaignRes.ok ? campaignRes.json() : Promise.resolve({ campaigns: [] }),
+        readinessRes.ok ? readinessRes.json() : Promise.resolve({ providers: [] }),
       ])
       setAccounts(socialData.accounts || [])
       setAdAccounts(adData.accounts || [])
       setGoogleAdsConnection(adData.googleAdsConnection || null)
+      setProviderReadiness(Array.isArray(readinessData.providers) ? readinessData.providers : [])
       const currentCampaign = Array.isArray(campaignData.campaigns)
         ? campaignData.campaigns.find((campaign: { status?: string }) => campaign.status === 'ACTIVE') || campaignData.campaigns[0]
         : null
@@ -523,6 +553,7 @@ export default function ConnectionsPage() {
       setAccounts([])
       setAdAccounts([])
       setGoogleAdsConnection(null)
+      setProviderReadiness([])
       setStrategyPlatformIds([])
       setStrategyCampaignName(null)
     } finally {
@@ -630,6 +661,21 @@ export default function ConnectionsPage() {
                   'ربط Google Ads غير متاح حتى تكتمل مفاتيح OAuth وDeveloper Token. لم يتم تغيير أي بيانات.',
                   'Google Ads connection is unavailable until OAuth credentials and the developer token are configured. No data was changed.',
                 )
+            : data.code === 'META_OAUTH_NOT_CONFIGURED'
+              ? copy(
+                  'مفاتيح Meta على الخادم غير مكتملة. لم يبدأ OAuth ولم تتغير أي بيانات.',
+                  'Meta server credentials are incomplete. OAuth did not start and no data was changed.',
+                )
+            : data.code === 'LINKEDIN_OAUTH_NOT_CONFIGURED'
+              ? copy(
+                  'مفاتيح LinkedIn على الخادم غير مكتملة. لم يبدأ OAuth ولم تتغير أي بيانات.',
+                  'LinkedIn server credentials are incomplete. OAuth did not start and no data was changed.',
+                )
+            : data.code === 'TIKTOK_OAUTH_NOT_CONFIGURED'
+              ? copy(
+                  'مفاتيح TikTok على الخادم غير مكتملة. لم يبدأ OAuth ولم تتغير أي بيانات.',
+                  'TikTok server credentials are incomplete. OAuth did not start and no data was changed.',
+                )
             : data.error || copy('تعذر بدء الربط من NEXUS.', 'NEXUS could not start the connection.'),
         })
         setConnecting(null)
@@ -724,7 +770,7 @@ export default function ConnectionsPage() {
   const hasMetaAdAccount = paidAdAccounts.some((account) => account.platform?.toUpperCase() === 'META')
   const hasGoogleAdAccount = paidAdAccounts.some((account) => account.platform?.toUpperCase() === 'GOOGLE')
 
-  const providerOAuthCount = googleAdsConnection ? 1 : 0
+  const providerOAuthCount = accounts.length + (googleAdsConnection ? 1 : 0)
   const primaryPublishingPlatformIds = strategyPlatformIds.length > 0
     ? strategyPlatformIds
     : [...DEFAULT_PUBLISHING_PLATFORM_IDS]
@@ -797,6 +843,73 @@ export default function ConnectionsPage() {
             </div>
           ) : null}
 
+          {providerReadiness.length ? (
+            <Panel
+              title={copy('جاهزية الربط قبل التصريحات', 'Pre-approval connection readiness')}
+              icon={<KeyRound size={18} />}
+              className="mb-5"
+              action={<StatusPill tone="needs">{copy('النشر العام مقفول', 'Public access locked')}</StatusPill>}
+            >
+              <p className="mb-4 text-[12px] font-semibold leading-6 text-[#64708f]">
+                {copy(
+                  'هذه اللوحة تثبت إعداد NEXUS نفسه فقط: المفاتيح، رابط العودة، والصلاحيات المطلوبة. لا تدّعي اعتماد التطبيق أو النشر العام قبل إثباته من المنصة.',
+                  'This panel proves NEXUS configuration only: credentials, callback URL, and requested scopes. It never claims provider approval or public publishing before the provider proves it.',
+                )}
+              </p>
+              <div className="grid gap-3 lg:grid-cols-3">
+                {providerReadiness.map((provider) => {
+                  const account = accounts.find(item => item.platform === provider.platform)
+                  const connected = account?.status === 'CONNECTED'
+                  const platform = PLATFORMS.find(item => item.id === provider.platform)
+                  return (
+                    <article key={provider.platform} className="rounded-[18px] border border-[#e3e8f3] bg-[#fbfcff] p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[13px] font-black text-[#111b3f]">{platform ? copy(platform.name.ar, platform.name.en) : provider.platform}</p>
+                          <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[#7b87a3]">
+                            {connected
+                              ? copy('اتصال اختباري محفوظ', 'Test connection saved')
+                              : provider.credentialsConfigured
+                                ? copy('جاهز لفتح موافقة المزود', 'Ready for provider consent')
+                                : copy('مفاتيح الخادم ناقصة', 'Server credentials missing')}
+                          </p>
+                        </div>
+                        {connected ? <CheckCircle2 className="h-5 w-5 text-emerald-500" /> : <Clock3 className="h-5 w-5 text-amber-500" />}
+                      </div>
+                      <div className="mt-3 space-y-2 text-[11px] font-semibold leading-5 text-[#586684]">
+                        <p className="flex gap-2">
+                          {provider.credentialsConfigured ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" /> : <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />}
+                          {provider.credentialsConfigured ? copy('مفاتيح الخادم موجودة', 'Server credentials configured') : copy('المفاتيح غير مكتملة', 'Credentials are incomplete')}
+                        </p>
+                        <p className="flex gap-2">
+                          {connected ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" /> : <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />}
+                          {connected ? copy('هوية وصلاحيات المزود محفوظة', 'Provider identity and scopes saved') : copy('لم يكتمل OAuth لهذا الحساب', 'Account OAuth is not complete')}
+                        </p>
+                        <p className="flex gap-2 text-amber-700">
+                          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          {copy('الوصول العام يحتاج موافقة المنصة', 'Public access requires provider approval')}
+                        </p>
+                        <p className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] leading-5 text-slate-600">
+                          {provider.testBoundary}
+                        </p>
+                      </div>
+                      <details className="mt-3 rounded-[13px] border border-slate-200 bg-white p-3">
+                        <summary className="cursor-pointer text-[10px] font-black text-[#5366f6]">{copy('التفاصيل التقنية', 'Technical details')}</summary>
+                        <p dir="ltr" className="mt-2 break-all text-[9px] font-semibold text-slate-500">{provider.callbackUrl}</p>
+                        <p dir="ltr" className="mt-2 break-words text-[9px] font-semibold text-slate-500">{provider.requestedScopes.join(', ')}</p>
+                        {provider.deferredScopes.length ? (
+                          <p dir="ltr" className="mt-2 break-words text-[9px] font-semibold text-amber-600">
+                            Deferred: {provider.deferredScopes.join(', ')}
+                          </p>
+                        ) : null}
+                      </details>
+                    </article>
+                  )
+                })}
+              </div>
+            </Panel>
+          ) : null}
+
           <div>
               <Panel
                 title={copy('حسابات المنصات', 'Platform accounts')}
@@ -835,7 +948,8 @@ export default function ConnectionsPage() {
                   {availablePlatforms.map((platform) => {
                     const connectedAccount = accounts.find((account) => account.platform === platform.id)
                     const isConnected = connectedAccount?.status === 'CONNECTED'
-                    const truth = connectedAccount ? connectionTruth(connectedAccount, ar) : null
+                    const readiness = providerReadiness.find(item => item.platform === platform.id)
+                    const truth = connectedAccount ? connectionTruth(connectedAccount, ar, readiness) : null
                     const isConnecting = connecting === platform.id
                     const isDisconnecting = disconnecting === connectedAccount?.id
                     const isPrimary = primaryPublishingPlatformSet.has(platform.id)
