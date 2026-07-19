@@ -765,6 +765,8 @@ export default function BillingPage() {
                         ? (ar ? 'جارٍ التحقق من حالة الدفع...' : 'Checking billing status...')
                         : isAuthenticated && !billingEnabled
                         ? (ar ? 'قريبا' : 'Coming soon')
+                        : billingStatus?.billingMode === 'sandbox'
+                        ? (ar ? `اختبر Checkout لـ ${plan.nameAr}` : `Test ${plan.nameEn} checkout`)
                         : (ar ? `ابدأ ${plan.nameAr} — $${plan.price}/شهر` : `Start ${plan.nameEn} — $${plan.price}/mo`)
                       }
                     </button>
@@ -989,6 +991,10 @@ export default function BillingPage() {
             ? (ar
                 ? 'جارٍ التحقق من حالة Stripe والمحفظة...'
                 : 'Checking Stripe and wallet status...')
+            : billingStatus?.billingMode === 'sandbox'
+            ? (ar
+                ? 'Stripe Sandbox فقط · لا تُخصم أموال حقيقية · استخدم بيانات الاختبار'
+                : 'Stripe Sandbox only · no real money is charged · use test payment details')
             : billingEnabled
             ? (ar
                 ? 'المدفوعات معالجة بأمان عبر Stripe · يمكن الإلغاء في أي وقت · لا رسوم خفية'

@@ -42,4 +42,10 @@ describe('billing plan copy truth', () => {
     expect(BILLING_SRC).toContain('disabled={loading || creditCheckoutUnavailable')
     expect(BILLING_SRC).toContain('Checkout unavailable until prices are verified')
   })
+
+  it('labels sandbox checkout as a test instead of a live subscription', () => {
+    expect(BILLING_SRC).toContain("billingStatus?.billingMode === 'sandbox'")
+    expect(BILLING_SRC).toContain('Test ${plan.nameEn} checkout')
+    expect(BILLING_SRC).toContain('Stripe Sandbox only · no real money is charged')
+  })
 })
