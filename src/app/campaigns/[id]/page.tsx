@@ -1461,6 +1461,13 @@ function CampaignDetailPageInner() {
   const campaignContentReviewPosts = campaignPosts.filter(post =>
     ['DRAFT', 'APPROVED', 'SCHEDULED'].includes(String(post.status ?? '').toUpperCase()),
   )
+  // Approval and execution gates must review the immutable saved strategy,
+  // not the presentation-only guarded copy rendered by the Strategy desk.
+  // Using the display copy here made the campaign page disagree with Content
+  // Hub and the server-side publish gates for the same post batch.
+  const campaignContentApprovalStrategy = aiOutput?.strategy && typeof aiOutput.strategy === 'object'
+    ? aiOutput.strategy
+    : aiOutput
   const campaignContentQualityReview = reviewContentPlanForApproval(
     campaignContentReviewPosts.map((post: any) => ({
       caption: post.caption,
@@ -1469,7 +1476,7 @@ function CampaignDetailPageInner() {
       contentPlanIndex: post.contentPlanIndex,
       platform: post.publishTarget || post.platform,
     })),
-    strategy,
+    campaignContentApprovalStrategy,
     buildContentPlanTruthContext(brandDNA),
   )
   const campaignContentQualityPostCount = new Set(
