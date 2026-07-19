@@ -557,13 +557,12 @@ export default function ContentHubPage() {
       // These resources are independent. Load them concurrently so a slow media
       // library cannot block the campaign and its content plan from appearing.
       setAuthoritativeContentQualityIssues(null)
-      const [campaignResult, planResult, mediaResult, brandResult, creativeIntelligenceResult, executionTruthResult] = await Promise.allSettled([
+      const [campaignResult, planResult, mediaResult, brandResult, creativeIntelligenceResult] = await Promise.allSettled([
         fetchWithTimeout(`/api/campaigns/${campaignId}`, { headers: { Authorization: authorization } }, 9_000),
         fetchWithTimeout(`/api/campaigns/${campaignId}/content-plan`, { headers: { Authorization: authorization } }, 9_000),
         fetchWithTimeout(`/api/media?campaignId=${encodeURIComponent(campaignId)}`, { headers: { Authorization: authorization } }, 9_000),
         fetchWithTimeout('/api/brand', { headers: { Authorization: authorization } }, 9_000),
         fetchWithTimeout(`/api/campaigns/${campaignId}/creative-intelligence`, { headers: { Authorization: authorization } }, 9_000),
-        fetchWithTimeout(`/api/execution/queue?campaignId=${encodeURIComponent(campaignId)}`, { headers: { Authorization: authorization } }, 9_000),
       ])
 
       if (campaignResult.status !== 'fulfilled') {
@@ -595,9 +594,15 @@ export default function ContentHubPage() {
       if (planResult.status !== 'fulfilled' || !planResult.value.ok) {
         throw new Error(isAr ? 'تم تحميل الحملة، لكن تعذّر تحميل خطة المحتوى.' : 'The campaign loaded, but its content plan did not.')
       }
-      const { posts: rawPosts } = await planResult.value.json()
+      const planData = await planResult.value.json()
+      const rawPosts = planData.posts
       loadedPosts = rawPosts ?? []
       setPosts(loadedPosts)
+      if (Array.isArray(planData?.qualityReview?.issues)) {
+        setAuthoritativeContentQualityIssues(planData.qualityReview.issues
+          .filter((issue: any) => Number.isInteger(issue?.index) && typeof issue?.reason === 'string')
+          .map((issue: any) => ({ index: issue.index, reason: issue.reason })))
+      }
 
       if (mediaResult.status === 'fulfilled' && mediaResult.value.ok) {
         const mData = await mediaResult.value.json()
@@ -633,17 +638,6 @@ export default function ContentHubPage() {
         setCreativeIntelligence(await creativeIntelligenceResult.value.json())
       }
 
-      if (executionTruthResult.status === 'fulfilled' && executionTruthResult.value.ok) {
-        const executionData = await executionTruthResult.value.json()
-        const campaignTruth = Array.isArray(executionData?.truth?.campaigns)
-          ? executionData.truth.campaigns.find((item: any) => item?.campaignId === campaignId)
-          : null
-        if (Array.isArray(campaignTruth?.contentQualityIssues)) {
-          setAuthoritativeContentQualityIssues(campaignTruth.contentQualityIssues
-            .filter((issue: any) => Number.isInteger(issue?.index) && typeof issue?.reason === 'string')
-            .map((issue: any) => ({ index: issue.index, reason: issue.reason })))
-        }
-      }
     } catch (err) {
       setLoadError(err instanceof Error
         ? err.message
