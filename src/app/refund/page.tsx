@@ -2,13 +2,14 @@
 
 import { useI18n } from '@/lib/i18n-context'
 import LegalDocumentPage from '@/components/legal/LegalDocumentPage'
+import { FREE_TRIAL_CREDITS } from '@/lib/commercialPlans'
 
 const SECTIONS = [
   {
     titleAr: 'التجربة المجانية',
     titleEn: 'Free Trial',
-    bodyAr: 'تتضمن التجربة 12 كريديت لمرة واحدة ولا تتطلب بطاقة ائتمان. راجع تكلفة كل إجراء داخل المنتج قبل التنفيذ.',
-    bodyEn: 'The trial includes 15 one-time credits and requires no credit card. Review each action cost inside the product before running it.',
+    bodyAr: `تتضمن التجربة ${FREE_TRIAL_CREDITS} كريديت لمرة واحدة ولا تتطلب بطاقة ائتمان. راجع تكلفة كل إجراء داخل المنتج قبل التنفيذ.`,
+    bodyEn: `The trial includes ${FREE_TRIAL_CREDITS} one-time credits and requires no credit card. Review each action cost inside the product before running it.`,
   },
   {
     titleAr: 'الاسترداد خلال 14 يوماً',
@@ -31,8 +32,8 @@ const SECTIONS = [
   {
     titleAr: 'الإلغاء بدون استرداد',
     titleEn: 'Cancellation Without Refund',
-    bodyAr: 'يمكنك إلغاء اشتراكك في أي وقت عبر إعدادات الحساب. الإلغاء يسري في نهاية الفترة الحالية — تستطيع استخدام الخدمة حتى آخر يوم مدفوع.',
-    bodyEn: 'You may cancel your subscription at any time via account settings. Cancellation takes effect at the end of the current billing period — you retain access until the last paid day.',
+    bodyAr: 'بعد تفعيل الإطلاق التجاري والفوترة الحقيقية، يمكنك إلغاء اشتراكك عبر إعدادات الحساب. يسري الإلغاء في نهاية الفترة الحالية — وتستطيع استخدام الخدمة حتى آخر يوم مدفوع.',
+    bodyEn: 'After commercial launch and live billing are activated, you may cancel through account settings. Cancellation takes effect at the end of the current billing period — you retain access until the last paid day.',
   },
 ]
 

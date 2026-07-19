@@ -65,7 +65,7 @@ const PLANS = [
       `${GROWTH_PLAN.monthlyCredits} رصيد AI / شهر (يتجدد شهرياً)`,
       'موافقات منفصلة للنص والوسائط والجدولة',
       `حتى ${GROWTH_PLAN.campaignLimit} مساحات حملات / شهر — عمليات AI تُحاسب بالكريديت`,
-      `${GROWTH_PLAN.postsPerMonth} مسودة نص AI مخططة / شهر — الصور والفيديو منفصلة`,
+      `حتى ${GROWTH_PLAN.postsPerMonth} مسودة نص AI مخططة / شهر — الصور والفيديو منفصلة`,
       `مثال سعة: رحلة Full Standard واحدة إلى المسودات (${FULL_STANDARD_90_WORKFLOW_COST} كريديت) أو 4 استراتيجيات Organic Light مراجعة`,
       'Brand Brain الكامل + ذاكرة الحملات',
     ],
@@ -73,7 +73,7 @@ const PLANS = [
       `${GROWTH_PLAN.monthlyCredits} AI credits / month (renews monthly)`,
       'Separate copy, media, and scheduling approvals',
       `Up to ${GROWTH_PLAN.campaignLimit} campaign workspaces / month — AI operations use credits`,
-      `${GROWTH_PLAN.postsPerMonth} AI-planned copy drafts / month — image and video actions are separate`,
+      `Up to ${GROWTH_PLAN.postsPerMonth} AI-planned copy drafts / month — image and video actions are separate`,
       `Capacity example: 1 Full Standard workflow to drafts (${FULL_STANDARD_90_WORKFLOW_COST} credits) or 4 reviewed Organic Light strategies`,
       'Full Brand Brain + Campaign Memory (reviewed signals across campaigns)',
     ],
@@ -95,7 +95,7 @@ const PLANS = [
       `${AUTOPILOT_PLAN.monthlyCredits} رصيد AI / شهر (يتجدد شهرياً)`,
       'مركز عمليات ومراقبة مجدولة للحالات والأعطال',
       `حتى ${AUTOPILOT_PLAN.campaignLimit} مساحة حملة / شهر — عمليات AI تُحاسب بالكريديت`,
-      `${AUTOPILOT_PLAN.postsPerMonth} مسودة نص AI مخططة / شهر — الصور والفيديو منفصلة`,
+      `حتى ${AUTOPILOT_PLAN.postsPerMonth} مسودة نص AI مخططة / شهر — الصور والفيديو منفصلة`,
       `مثال سعة: 3 رحلات Full Standard إلى المسودات أو 12 استراتيجية Organic Light مراجعة`,
       'مراقبة مجدولة + قائمة قرارات مبنية على الأدلة',
     ],
@@ -103,7 +103,7 @@ const PLANS = [
       `${AUTOPILOT_PLAN.monthlyCredits} AI credits / month (renews monthly)`,
       'Operations center with scheduled state and incident monitoring',
       `Up to ${AUTOPILOT_PLAN.campaignLimit} campaign workspaces / month — AI operations use credits`,
-      `${AUTOPILOT_PLAN.postsPerMonth} AI-planned copy drafts / month — image and video actions are separate`,
+      `Up to ${AUTOPILOT_PLAN.postsPerMonth} AI-planned copy drafts / month — image and video actions are separate`,
       'Capacity example: 3 Full Standard workflows to drafts or 12 reviewed Organic Light strategies',
       'Scheduled monitoring + evidence-backed action queue',
     ],
@@ -217,8 +217,8 @@ const FAQS = [
   {
     qAr: 'هل تتجدد الأرصدة كل شهر؟',
     qEn: 'Do credits renew every month?',
-    aAr: 'نعم، في Growth وAutopilot. أرصدة التجربة لا تتجدد، والأرصدة الإضافية المشتراة صالحة لمدة 12 شهراً.',
-    aEn: 'Yes, on Growth and Autopilot. Trial credits do not renew; purchased credits remain valid for 12 months.',
+    aAr: 'بعد تفعيل الإطلاق التجاري والاشتراك المدفوع: تتجدد أرصدة Growth وAutopilot كل دورة شهرية. أرصدة التجربة لا تتجدد، والأرصدة الإضافية المشتراة صالحة لمدة 12 شهراً.',
+    aEn: 'After commercial launch and activation of a paid subscription, Growth and Autopilot credits renew each monthly cycle. Trial credits do not renew; purchased credits remain valid for 12 months.',
   },
   {
     qAr: 'ما الفرق بين Growth وAutopilot؟',
@@ -241,8 +241,8 @@ const FAQS = [
   {
     qAr: 'هل يمكنني إلغاء اشتراكي في أي وقت؟',
     qEn: 'Can I cancel anytime?',
-    aAr: 'نعم، من إعدادات الفوترة في أي وقت. ستبقى مشتركاً حتى نهاية دورة الفوترة الحالية.',
-    aEn: 'Yes, cancel anytime from your billing settings. You retain access until the end of the current billing period.',
+    aAr: 'بعد تفعيل الإطلاق التجاري والفوترة الحقيقية، يمكنك الإلغاء من إعدادات الفوترة. ستبقى مشتركاً حتى نهاية دورة الفوترة الحالية.',
+    aEn: 'After commercial launch and live billing are enabled, you can cancel from billing settings and retain access until the end of the current billing period.',
   },
   {
     qAr: 'كيف يعمل نظام الإحالة؟',
@@ -510,7 +510,7 @@ export default function BillingPage() {
 
   // Honest, overflow-safe credit display. When the balance exceeds the monthly
   // grant (rollover / bonus / refunds), we show "N credits" + an explanation
-  // instead of a confusing "246 / 150" with an overflowing bar.
+  // instead of a confusing "246 / 60" with an overflowing bar.
   // No active subscription → one-time credits → no monthly denominator.
   const creditGrant = billingStatus?.hasActiveSubscription ? monthlyCredits : 0
   const creditDisp = formatCreditDisplay({

@@ -310,18 +310,19 @@ Return JSON with exactly these fields:
     throw new Error('No selected assets could be analyzed')
   }
 
-  // ── Video stubs (vision not supported for video in V1) ──
+  // This brief analyses still images and logos. Keep selected videos visible
+  // as unevaluated inputs so the UI never implies that frames were inspected.
   for (const vid of videoAssets) {
     assetAnalyses.push({
       mediaId: vid.mediaId,
       fileName: vid.fileName,
       url: vid.url,
       type: vid.type,
-      brandAlignment: 'Video analysis coming in V2',
+      brandAlignment: 'Not evaluated in this image-based brief',
       contentType: 'Video',
-      suggestedUse: ['Instagram Reels', 'TikTok', 'YouTube Shorts', 'Stories'],
-      qualityNotes: 'Video file — frame-level analysis requires transcoding pipeline (coming soon)',
-      campaignFit: 'Please review manually and add to campaign calendar',
+      suggestedUse: [],
+      qualityNotes: 'No video frames were inspected here. Run Campaign media intelligence before deciding whether this asset fits the campaign.',
+      campaignFit: 'Not assessed in this brief',
       adCopyHook: '',
       captionSuggestion: '',
     })

@@ -24,9 +24,11 @@ export default function UpgradeGate({ feature, description, onClose, inline = fa
         <p className="text-sm text-slate-500 mb-5 max-w-sm mx-auto">{description}</p>
         <Link href="/billing"
           className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition-all">
-          Upgrade to Growth →
+          Review Growth →
         </Link>
-        <div className="mt-3 text-xs text-slate-500">From ${growthPlan.priceUsd}/month · Cancel anytime</div>
+        <div className="mt-3 text-xs text-slate-500">
+          Planned price: ${growthPlan.priceUsd}/month · Checkout opens after commercial launch
+        </div>
       </div>
     )
   }
@@ -49,7 +51,7 @@ export default function UpgradeGate({ feature, description, onClose, inline = fa
         <div className="space-y-2">
           <Link href="/billing"
             className="block w-full py-3 bg-slate-950 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition-all">
-            Upgrade to Growth — ${growthPlan.priceUsd}/month
+            Review Growth — ${growthPlan.priceUsd}/month planned price
           </Link>
           {onClose && (
             <button onClick={onClose}
@@ -58,7 +60,7 @@ export default function UpgradeGate({ feature, description, onClose, inline = fa
             </button>
           )}
         </div>
-        <div className="mt-4 text-xs text-slate-400">Cancel anytime · Access continues through the paid period</div>
+        <div className="mt-4 text-xs text-slate-400">Live subscriptions and cancellation controls appear after commercial launch</div>
       </div>
     </div>
   )

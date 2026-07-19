@@ -45,14 +45,7 @@ const jsonLd = {
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Web',
   url: 'https://nexus-grow.com',
-  description: 'AI-powered marketing operating system. Strategy, content, campaigns, and analytics — all in one platform with full human approval control.',
-  offers: {
-    '@type': 'AggregateOffer',
-    priceCurrency: 'USD',
-    lowPrice: '49',
-    highPrice: '99',
-    offerCount: '2',
-  },
+  description: 'AI-powered marketing operating system for reviewed strategy, content planning, approval-gated execution, and evidence-backed analytics.',
 }
 
 export default function RootLayout({

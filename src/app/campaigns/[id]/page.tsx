@@ -42,6 +42,7 @@ import { summarizeCreativeRequirements } from '@/lib/creativeRequirements'
 import { formatStrategyPlatformLabel, guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
+import { guardStrategyProofText } from '@/lib/ai/strategyProofGuard'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { deriveStrategyRoomStateCopy } from '@/lib/strategyRoomStateCopy'
 import { derivePlatformReadiness, type PlatformState } from '@/lib/platformReadiness'
@@ -2533,7 +2534,10 @@ function CampaignDetailPageInner() {
                       {campaign.name}
                     </h1>
                     <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                      {strategy.positioning || strategy.keyMessage || campaign.description || effectiveDisplayOperatingHelper}
+                      {guardStrategyProofText(
+                        strategy.positioning || strategy.keyMessage || campaign.description || effectiveDisplayOperatingHelper,
+                        proofContext,
+                      )}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500">
                       <span>{uiText('أُنشئت', 'Created')}: {timeAgo(campaign.createdAt)}</span>

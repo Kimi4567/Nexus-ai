@@ -1,10 +1,12 @@
-import { Metadata } from 'next'
+import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
 
 export const metadata: Metadata = {
-  title: 'Agency Hub — Nexus AI',
-  description: 'Multi-client agency dashboard. Manage multiple brands, campaigns, and client reports from one unified workspace.',
+  title: 'Workspace — Nexus AI',
+  description: 'Legacy workspace route. Account-level operations continue in the main dashboard.',
   robots: { index: false, follow: false },
 }
 
-export { /* @next-codemod-error `default` export is re-exported. Check if this component uses `params` or `searchParams`*/
-default } from './page'
+export default function AgencyLayout({ children }: { children: ReactNode }) {
+  return children
+}

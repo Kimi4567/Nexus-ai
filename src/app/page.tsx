@@ -403,10 +403,10 @@ export default function LandingPage() {
               name="Growth"
               price={`$${PUBLIC_PAID_PLANS[0].priceUsd}`}
               credits={ar ? `${PUBLIC_PAID_PLANS[0].monthlyCredits} كريدت شهرياً` : `${PUBLIC_PAID_PLANS[0].monthlyCredits} credits monthly`}
-              posts={ar ? `${PUBLIC_PAID_PLANS[0].postsPerMonth} منشوراً مخططاً شهرياً` : `${PUBLIC_PAID_PLANS[0].postsPerMonth} planned posts monthly`}
+              posts={ar ? `حتى ${PUBLIC_PAID_PLANS[0].postsPerMonth} مسودة نص مخططة شهرياً` : `Up to ${PUBLIC_PAID_PLANS[0].postsPerMonth} planned copy drafts monthly`}
               governance={ar ? 'موافقات منفصلة قبل التنفيذ' : 'Separate approvals before execution'}
               featured
-              cta={ar ? 'ابدأ Growth' : 'Start Growth'}
+              cta={ar ? 'استكشف Growth' : 'Review Growth'}
               href="/auth/register?plan=growth"
             />
             <PriceCard
@@ -414,12 +414,17 @@ export default function LandingPage() {
               name="Autopilot"
               price={`$${PUBLIC_PAID_PLANS[1].priceUsd}`}
               credits={ar ? `${PUBLIC_PAID_PLANS[1].monthlyCredits} كريدت شهرياً` : `${PUBLIC_PAID_PLANS[1].monthlyCredits} credits monthly`}
-              posts={ar ? `${PUBLIC_PAID_PLANS[1].postsPerMonth} منشوراً مخططاً شهرياً` : `${PUBLIC_PAID_PLANS[1].postsPerMonth} planned posts monthly`}
+              posts={ar ? `حتى ${PUBLIC_PAID_PLANS[1].postsPerMonth} مسودة نص مخططة شهرياً` : `Up to ${PUBLIC_PAID_PLANS[1].postsPerMonth} planned copy drafts monthly`}
               governance={ar ? 'مراقبة مجدولة وقائمة قرارات' : 'Scheduled monitoring and action queue'}
-              cta={ar ? 'ابدأ Autopilot' : 'Start Autopilot'}
+              cta={ar ? 'استكشف Autopilot' : 'Review Autopilot'}
               href="/auth/register?plan=autopilot"
             />
           </div>
+          <p className="mx-auto mt-5 max-w-3xl text-center text-[13px] leading-6 text-slate-500">
+            {ar
+              ? 'الأسعار والسعات معروضة للتقييم قبل الإطلاق التجاري. لا يبدأ اشتراك أو خصم حقيقي حتى تفعيل Stripe Live ونشر بيانات الجهة المتعاقدة وشروط الفوترة النهائية.'
+              : 'Pricing and capacity are shown for pre-launch evaluation. No live subscription or real-money charge starts until Stripe Live and the final contracting and billing terms are activated.'}
+          </p>
         </div>
       </section>
 

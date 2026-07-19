@@ -3,12 +3,12 @@
  *
  * Pure, dependency-free formatter so every surface (dashboard card, billing,
  * sidebar) renders AI credits the same honest way and NEVER shows a confusing
- * "numerator > denominator" value like "246 / 150".
+ * "numerator > denominator" value like "246 / 60".
  *
  * Rules:
- *   - available ≤ monthly grant → "87 / 150 credits available this month"
+ *   - available ≤ monthly grant → "42 / 60 credits available this month"
  *   - available > monthly grant → "246 credits available" (+ a helper line that
- *     explains the extra is rollover / bonus / refund — never "246 / 150")
+ *     explains the extra is purchased / bonus / refund — never "246 / 60")
  *   - no monthly grant (≤ 0)    → "12 credits available" (no denominator)
  *   - unlimited (-1)            → "Unlimited" / "غير محدود"
  *   - progress percent is ALWAYS clamped to 0..100 so bars can't overflow.

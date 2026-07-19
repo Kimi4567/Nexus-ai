@@ -15,6 +15,8 @@ describe('campaignRoomTabs', () => {
     ['publish', 'publish', 4],
     ['autopilot', 'autopilot', 5],
     ['performance', 'performance', 6],
+    ['analytics', 'performance', 6],
+    ['results', 'performance', 6],
   ] as const)('maps ?tab=%s to %s', (query, expected, index) => {
     expect(normalizeCampaignRoomTab(query)).toBe(expected)
     expect(campaignRoomTabIndexFromQuery(query)).toBe(index)

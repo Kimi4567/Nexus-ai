@@ -1,4 +1,5 @@
-import { Metadata } from 'next'
+import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
 
 export const metadata: Metadata = {
   title: 'Login — Nexus AI',
@@ -6,5 +7,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-export { /* @next-codemod-error `default` export is re-exported. Check if this component uses `params` or `searchParams`*/
-default } from './page'
+export default function LoginLayout({ children }: { children: ReactNode }) {
+  return children
+}

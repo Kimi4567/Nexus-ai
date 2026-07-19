@@ -19,8 +19,8 @@ const SECTIONS = [
   {
     titleAr: '2. وصف الخدمة',
     titleEn: '2. Description of Service',
-    bodyAr: `NEXUS AI هي منصة تشغيل تسويقي مدعومة بالذكاء الاصطناعي تضم وكلاء متخصصين:\n• NEX — مسودات المحتوى والـstoryboards\n• VEX — تخطيط الإعلانات وحمولات التنفيذ\n• PULSE — تحليلات مبنية على الأدلة المتاحة\n• Sentinel — فحوص المراقبة والتنبيهات\n\nتتوفر باقتان مدفوعتان (Growth وAutopilot)، إضافة إلى أرصدة تجربة ليست اشتراكاً مدفوعاً. تعتمد خصائص النشر والتحليلات على صلاحيات المنصات المتصلة وتوفر بيانات مؤهلة.`,
-    bodyEn: 'NEXUS AI is an AI-powered marketing operating platform with specialized agents: NEX (content drafts and storyboards), VEX (ad planning and execution payloads), PULSE (analytics based on available evidence), and Sentinel (scheduled checks and alerts). Two paid plans are offered (Growth and Autopilot), plus trial credits that are not a paid subscription. Publishing and analytics features depend on connected-provider permissions and eligible data availability.',
+    bodyAr: `NEXUS AI هي منصة تشغيل تسويقي مدعومة بالذكاء الاصطناعي تضم وكلاء متخصصين:\n• NEX — مسودات المحتوى والـstoryboards\n• VEX — تخطيط الإعلانات وحمولات التنفيذ\n• PULSE — تحليلات مبنية على الأدلة المتاحة\n• Sentinel — فحوص المراقبة والتنبيهات\n\nتُعرض باقتا Growth وAutopilot حالياً للتقييم قبل الإطلاق، إضافة إلى أرصدة تجربة ليست اشتراكاً مدفوعاً. لا يبدأ اشتراك أو دفع حقيقي حتى تفعيل الإطلاق التجاري وفق القسم 0. تعتمد خصائص النشر والتحليلات على صلاحيات المنصات المتصلة وتوفر بيانات مؤهلة.`,
+    bodyEn: 'NEXUS AI is an AI-powered marketing operating platform with specialized agents: NEX (content drafts and storyboards), VEX (ad planning and execution payloads), PULSE (analytics based on available evidence), and Sentinel (scheduled checks and alerts). Growth and Autopilot are currently displayed for pre-launch evaluation, plus trial credits that are not a paid subscription. No live subscription or real-money payment starts until commercial launch is activated under Section 0. Publishing and analytics features depend on connected-provider permissions and eligible data availability.',
   },
   {
     titleAr: '3. التسجيل والحساب',

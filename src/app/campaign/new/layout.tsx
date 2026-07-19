@@ -1,10 +1,12 @@
-import { Metadata } from 'next'
+import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
 
 export const metadata: Metadata = {
-  title: 'New Campaign — Nexus AI',
-  description: 'Create a new AI-powered marketing campaign. Choose your platforms, goals, and let Nexus AI build your strategy.',
+  title: 'Strategy Setup — Nexus AI',
+  description: 'Legacy campaign setup route forwarding to the current strategy workflow.',
   robots: { index: false, follow: false },
 }
 
-export { /* @next-codemod-error `default` export is re-exported. Check if this component uses `params` or `searchParams`*/
-default } from './page'
+export default function LegacyCampaignNewLayout({ children }: { children: ReactNode }) {
+  return children
+}

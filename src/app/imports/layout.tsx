@@ -1,10 +1,12 @@
-import { Metadata } from 'next'
+import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
 
 export const metadata: Metadata = {
-  title: 'Imports — Nexus AI',
-  description: 'Import existing marketing assets, campaigns, and data into Nexus AI for seamless AI-powered management.',
+  title: 'Asset Library — Nexus AI',
+  description: 'Legacy import route forwarding to the asset library; no campaign or analytics import is implied.',
   robots: { index: false, follow: false },
 }
 
-export { /* @next-codemod-error `default` export is re-exported. Check if this component uses `params` or `searchParams`*/
-default } from './page'
+export default function ImportsLayout({ children }: { children: ReactNode }) {
+  return children
+}
