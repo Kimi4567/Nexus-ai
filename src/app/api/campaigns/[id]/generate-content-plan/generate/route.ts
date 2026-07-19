@@ -44,7 +44,7 @@ import {
 } from '@/lib/ai/provider'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
-import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
+import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { chooseProfessionalImageProvider } from '@/lib/ai/mediaProviderRouter'
@@ -264,15 +264,7 @@ export async function POST(req: NextRequest, props: Params) {
         contentPlanIndex: post.contentPlanIndex,
       })),
       strategy,
-      [
-        brandProfile?.brandName,
-        brandProfile?.industry,
-        brandProfile?.description,
-        brandProfile?.primaryOffer,
-        Array.isArray(brandProfile?.uniqueAdvantages) ? brandProfile.uniqueAdvantages : [],
-        brandProfile?.complianceNotes,
-        Array.isArray(brandProfile?.verifiedProof) ? brandProfile.verifiedProof : [],
-      ],
+      buildContentPlanTruthContext(brandProfile),
     )
     if (!contentReview.ok) {
       return NextResponse.json({

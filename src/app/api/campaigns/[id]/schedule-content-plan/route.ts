@@ -25,7 +25,7 @@ import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState
 import { decryptToken } from '@/lib/tokenCrypto'
 import { queryTikTokCreatorInfo } from '@/lib/tiktokPublishing'
 import { hasVerifiedProviderScope } from '@/lib/socialPlatformConfig'
-import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
+import { buildContentPlanTruthContext, reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
 import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 import {
   parseYouTubePostOptions,
@@ -248,7 +248,7 @@ export async function POST(req: NextRequest, props: Params) {
     }
 
     const contentIssues = approvedPosts.flatMap((post: any, index: number) =>
-      reviewContentPostForPublishing(post, index + 1),
+      reviewContentPostForPublishing(post, index + 1, buildContentPlanTruthContext(brandProfile)),
     )
     if (contentIssues.length > 0) {
       return NextResponse.json({

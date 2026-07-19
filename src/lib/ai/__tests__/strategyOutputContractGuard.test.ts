@@ -68,6 +68,19 @@ describe('guardStrategyOutputContract', () => {
     expect(JSON.stringify(out.channelMix)).not.toMatch(/effortSharePercent/)
   })
 
+  it('turns unsupported channel popularity and engagement claims into hypotheses', () => {
+    const out = guardStrategyOutputContract({
+      channelStrategy: [
+        { platform: 'Instagram', role: 'High engagement platform for fashion content.' },
+        { platform: 'TikTok', role: 'Growing platform among young professionals.' },
+      ],
+    }, { allowedPlatforms: allowed, language: 'en' })
+
+    expect(out.channelStrategy[0].role).toBe('Channel role hypothesis for fashion content; validate engagement with real analytics.')
+    expect(out.channelStrategy[1].role).toBe('Audience-platform fit hypothesis for young professionals; validate with real audience data.')
+    expect(JSON.stringify(out)).not.toMatch(/high engagement platform|growing platform among/i)
+  })
+
   it('rewrites unsupported platform text in angles and weekly deliverables', () => {
     const out = guardStrategyOutputContract({
       contentAnglesDetailed: [

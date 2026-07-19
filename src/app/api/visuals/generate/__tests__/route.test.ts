@@ -67,6 +67,7 @@ vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 vi.mock('@/lib/afterResponse', () => ({ scheduleAfterResponse: mockScheduleAfterResponse }))
 vi.mock('@/lib/strategyApproval', () => ({ canMutateCampaignExecution: () => true }))
 vi.mock('@/lib/contentPlanApprovalGuard', () => ({
+  buildContentPlanTruthContext: () => ({ brandFacts: [], verifiedProof: [] }),
   reviewContentPlanForApproval: () => ({ ok: true, issues: [] }),
 }))
 vi.mock('@/lib/billableAiRateLimit', () => ({

@@ -51,6 +51,7 @@ import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperatio
 import { buildStrategySnapshot } from '@/lib/strategy/strategySnapshot'
 import type { StrategyApprovalState } from '@/lib/strategyApproval'
 import { validateCampaignStrategyContract } from '@/lib/campaignStrategyContract'
+import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 
 interface Activity {
   id: string
@@ -1261,7 +1262,9 @@ function CampaignDetailPageInner() {
       allowedPlatforms: campaign.platforms,
       language: strategyLanguage,
       strategyType: strategyScope.type,
+      hasLeadHandling: Boolean((brandDNA as any)?.leadHandling),
       hasConversionDestination: Boolean((brandDNA as any)?.conversionDestination),
+      allowedCompetitors: Array.isArray((brandDNA as any)?.competitors) ? (brandDNA as any).competitors : [],
       goal: campaign.goal,
     }) as Record<string, unknown>,
     [(brandDNA as any)?.marketingBudget, (brandDNA as any)?.pastAdResults]
@@ -1408,7 +1411,7 @@ function CampaignDetailPageInner() {
     const isArabicLabel = labelLocale === 'ar'
     const labels: Record<string, string> = {
       situation: (useRuntimeTranslations && cdT?.fieldSituation) || (isArabicLabel ? 'الموقف' : 'Situation'),
-      pain: (useRuntimeTranslations && cdT?.fieldPain) || (isArabicLabel ? 'الألم' : 'Pain'),
+      pain: isArabicLabel ? 'فرضية ألم الجمهور' : 'Audience pain hypothesis',
       desiredoutcome: (useRuntimeTranslations && cdT?.fieldDesiredOutcome) || (isArabicLabel ? 'النتيجة المطلوبة' : 'Desired Outcome'),
       want: (useRuntimeTranslations && cdT?.fieldDesiredOutcome) || (isArabicLabel ? 'النتيجة المطلوبة' : 'Desired Outcome'),
       objection: (useRuntimeTranslations && cdT?.fieldObjection) || (isArabicLabel ? 'الاعتراض' : 'Objection'),
@@ -1455,6 +1458,23 @@ function CampaignDetailPageInner() {
   const brandTruthReview = reviewBrandTruthConsistency(brandDNA)
   const brandTruthBlocked = Boolean(brandDNA) && brandTruthReview.status === 'blocked'
   const completeQualityReviewPassed = sentinelStatus === 'passed' && qualityGatePassed && !brandTruthBlocked
+  const campaignContentReviewPosts = campaignPosts.filter(post =>
+    ['DRAFT', 'APPROVED', 'SCHEDULED'].includes(String(post.status ?? '').toUpperCase()),
+  )
+  const campaignContentQualityReview = reviewContentPlanForApproval(
+    campaignContentReviewPosts.map((post: any) => ({
+      caption: post.caption,
+      imagePrompt: post.imagePrompt,
+      videoPrompt: post.videoPrompt,
+      contentPlanIndex: post.contentPlanIndex,
+      platform: post.publishTarget || post.platform,
+    })),
+    strategy,
+    buildContentPlanTruthContext(brandDNA),
+  )
+  const campaignContentQualityPostCount = new Set(
+    campaignContentQualityReview.issues.map(issue => issue.index),
+  ).size
   const operatingState = deriveCampaignOperatingState({
     campaign: {
       status: campaign.status,
@@ -1465,6 +1485,8 @@ function CampaignDetailPageInner() {
     },
     posts: campaignPosts,
     pendingLearningCount,
+    contentQualityIssueCount: campaignContentQualityReview.issues.length,
+    contentQualityPostCount: campaignContentQualityPostCount,
   })
   const strategyDocOperatingLabel = brandTruthBlocked
     ? (strategyDocIsArabic ? 'مخرجات مرجعية محجوبة' : 'Blocked reference outputs')
@@ -2087,7 +2109,13 @@ function CampaignDetailPageInner() {
   const strategyApprovalStatusLabel = !operatingSnapshotsLoaded
     ? uiText('جارٍ التحقق من قرار الاعتماد', 'Checking approval decision')
     : strategySnapshot.approvalState === 'approved'
-      ? uiText('معتمدة للتنفيذ', 'Approved for execution')
+      ? isPaidOnlyStrategy
+        ? uiText('الاستراتيجية معتمدة · يلزم قرار تنفيذ مدفوع منفصل', 'Strategy approved · separate paid execution decision required')
+        : operatingState.truthFlags.hasContentQualityIssues
+        ? uiText('الاستراتيجية معتمدة · المحتوى يحتاج إعادة مراجعة', 'Strategy approved · content re-review required')
+        : operatingState.blockers.length > 0
+          ? uiText('الاستراتيجية معتمدة · التنفيذ ما زال مقفولاً', 'Strategy approved · execution still gated')
+          : uiText('الاستراتيجية معتمدة للتسليم', 'Strategy approved for handoff')
       : strategySnapshot.approvalState === 'review'
         ? uiText('بانتظار مراجعتك', 'Awaiting your review')
         : strategySnapshot.approvalState === 'blocked'
@@ -4098,6 +4126,11 @@ function CampaignDetailPageInner() {
                               <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                                 <p className="text-sm font-semibold capitalize text-slate-950">{formatStrategyPlatformLabel(ch.platform) || ch.platform}</p>
                                 <p className="mt-1 text-sm leading-6 text-slate-600">{ch.role || ch.rationale || ch.postingApproach}</p>
+                                <p className="mt-2 text-[11px] font-semibold text-amber-700">
+                                  {ch.evidenceRef || ch.source || ch.basis === 'evidence'
+                                    ? strategyDocText('دور مرتبط بدليل محفوظ', 'Role linked to saved evidence')
+                                    : strategyDocText('فرضية دور للقناة — تُراجع بعد ظهور بيانات فعلية', 'Channel role hypothesis — validate after real data exists')}
+                                </p>
                                 <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
                                   {ch.contentType && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyDocDisplayValue(ch.contentType)}</span>}
                                   {ch.cta && <span className="rounded-full bg-white px-2 py-1 font-semibold text-indigo-600 ring-1 ring-indigo-100">{ch.cta}</span>}
@@ -4110,6 +4143,14 @@ function CampaignDetailPageInner() {
                       {strategy.offerCTAStrategy && (
                         <div>
                           <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{strategyDocText('العرض والدعوة للإجراء', 'Offer & CTA')}</p>
+                          {!(brandDNA as any)?.conversionDestination && (
+                            <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-800">
+                              {strategyDocText(
+                                'وجهة التحويل غير مؤكدة؛ الدعوات أدناه صيغ للمراجعة وليست أوامر إطلاق أو روابط جاهزة.',
+                                'The conversion destination is not confirmed; the CTAs below are review-safe directions, not launch-ready actions or links.',
+                              )}
+                            </p>
+                          )}
                           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                             {[
                               { label: strategyDocText('الدعوة الأساسية', 'Primary CTA'), value: strategy.offerCTAStrategy.primaryCTA },

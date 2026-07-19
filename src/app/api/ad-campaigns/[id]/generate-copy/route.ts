@@ -42,7 +42,7 @@ import { paidStrategyAllowsPlatform } from '@/lib/paidStrategyPlatforms'
 import { getStrategyBriefReadiness } from '@/lib/strategyBriefReadiness'
 import { paidOptimizationGoal } from '@/lib/paidExecutionObjective'
 import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
-import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
+import { buildContentPlanTruthContext, reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -403,7 +403,7 @@ Generate 5 review-ready ad copy variants in JSON:
       caption: [variant.hook, variant.primaryText, variant.headline, variant.description]
         .filter(value => typeof value === 'string')
         .join(' '),
-    }, index + 1))
+    }, index + 1, buildContentPlanTruthContext(brandProfile)))
     const copyQualityGate = reviewStrategyGrounding({
       strategy: {
         topHooks: variants.map(variant => [variant.hook, variant.primaryText, variant.headline, variant.description]

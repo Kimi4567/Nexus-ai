@@ -12,7 +12,7 @@ import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { getStrategyApprovalContract, StrategyApprovalError } from '@/lib/strategyApprovalService'
 import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
-import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
+import { buildContentPlanTruthContext, reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
 import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState'
 
 export async function POST(req: NextRequest) {
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
       if (!isContentPostMediaReadyForScheduling(post)) {
         blockers.push({ postId: post.id, reason: 'media_review_required' })
       }
-      reviewContentPostForPublishing(post, index + 1).forEach(issue => {
+      reviewContentPostForPublishing(post, index + 1, buildContentPlanTruthContext(brandProfile)).forEach(issue => {
         blockers.push({ postId: post.id, reason: issue.reason })
       })
       return blockers

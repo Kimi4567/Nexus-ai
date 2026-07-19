@@ -138,6 +138,26 @@ describe('deriveCampaignOperatingState', () => {
     expect(state.blockers).not.toContain('media_review')
   })
 
+  it('content quality findings override an old copy approval and lock execution', () => {
+    const state = deriveCampaignOperatingState({
+      campaign: strategyCampaign,
+      posts: [{
+        status: 'APPROVED',
+        ...immutableApproval,
+        ...finalMediaApproval,
+      }],
+      contentQualityIssueCount: 4,
+      contentQualityPostCount: 1,
+    })
+
+    expect(state.stage).toBe('content_review_needed')
+    expect(state.stageLabel).toBe('Content quality recheck required')
+    expect(state.stageHelper).toContain('4 findings affect 1 post')
+    expect(state.truthFlags.hasContentQualityIssues).toBe(true)
+    expect(state.truthFlags.hasReviewedContent).toBe(false)
+    expect(state.blockers).toContain('content_quality')
+  })
+
   it('SCHEDULED with scheduledAt + MANUAL -> scheduled_manual', () => {
     const state = deriveCampaignOperatingState({
       campaign: strategyCampaign,

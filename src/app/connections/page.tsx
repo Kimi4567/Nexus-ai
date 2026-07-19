@@ -724,7 +724,7 @@ export default function ConnectionsPage() {
   const hasMetaAdAccount = paidAdAccounts.some((account) => account.platform?.toUpperCase() === 'META')
   const hasGoogleAdAccount = paidAdAccounts.some((account) => account.platform?.toUpperCase() === 'GOOGLE')
 
-  const connectedCount = accounts.length + paidAdAccounts.length + (googleAdsConnection ? 1 : 0)
+  const providerOAuthCount = googleAdsConnection ? 1 : 0
   const primaryPublishingPlatformIds = strategyPlatformIds.length > 0
     ? strategyPlatformIds
     : [...DEFAULT_PUBLISHING_PLATFORM_IDS]
@@ -765,7 +765,10 @@ export default function ConnectionsPage() {
                 <p className="text-[13px] font-black text-[#111b3f]">
                   {loadingAccounts
                     ? copy('جار فحص الحسابات', 'Checking accounts')
-                    : copy(`${connectedCount} اتصال محفوظ`, `${connectedCount} saved connections`)}
+                    : copy(
+                        `${accounts.length} حسابات نشر · ${paidAdAccounts.length} حسابات إعلانات · ${providerOAuthCount} اتصالات OAuth للمزود`,
+                        `${accounts.length} publishing accounts · ${paidAdAccounts.length} ad accounts · ${providerOAuthCount} provider OAuth connections`,
+                      )}
                 </p>
                 <p className="text-[11px] font-semibold text-[#7b87a3]">{copy('الربط وحده لا ينشر أو يصرف ميزانية.', 'A connection never publishes or spends by itself.')}</p>
               </div>

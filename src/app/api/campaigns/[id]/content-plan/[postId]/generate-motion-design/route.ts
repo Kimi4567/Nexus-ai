@@ -17,7 +17,7 @@ import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
-import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
+import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import {
   CONTENT_REVISION_HISTORY_NOTE,
   contentReviewResetData,
@@ -162,15 +162,7 @@ export async function POST(req: NextRequest, props: Params) {
     imagePrompt: post.imagePrompt,
     videoPrompt: post.videoPrompt,
     contentPlanIndex: post.contentPlanIndex,
-  }], strategy, [
-    brand?.brandName,
-    brand?.industry,
-    brand?.description,
-    brand?.primaryOffer,
-    Array.isArray(brand?.uniqueAdvantages) ? brand.uniqueAdvantages : [],
-    brand?.complianceNotes,
-    Array.isArray(brand?.verifiedProof) ? brand.verifiedProof : [],
-  ])
+  }], strategy, buildContentPlanTruthContext(brand))
   if (!contentReview.ok) {
     return NextResponse.json({
       error: 'Fix this video post truth review before paying for motion design.',

@@ -5,7 +5,7 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { publishSocialPost } from '@/lib/socialPublishers'
 import { hasVerifiedProviderScope, X_CONTENT_SCOPES } from '@/lib/socialPlatformConfig'
 import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState'
-import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
+import { buildContentPlanTruthContext, reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
 import { YOUTUBE_UPLOAD_SCOPE } from '@/lib/youtubePublishing'
 import { PINTEREST_PUBLISH_SCOPES, parsePinterestPostOptions } from '@/lib/pinterestPublishing'
 import { parseThreadsPostOptions, THREADS_MAX_TEXT_LENGTH, THREADS_PUBLISH_SCOPES } from '@/lib/threadsPublishing'
@@ -237,15 +237,6 @@ export async function POST(req: NextRequest) {
   if (!caption) {
     return NextResponse.json({ error: 'Approved post caption is required' }, { status: 400 })
   }
-  const publishReview = reviewContentPostForPublishing(existingPost)
-  if (publishReview.length > 0) {
-    return NextResponse.json({
-      error: 'This saved post needs copy review before it can be sent to a platform.',
-      code: 'CONTENT_REVIEW_REQUIRED',
-      issues: publishReview,
-    }, { status: 409 })
-  }
-
   const integration = await prisma.integration.findFirst({
     where: {
       id: integrationId,
@@ -279,6 +270,18 @@ export async function POST(req: NextRequest) {
     },
   })
   if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  const publishReview = reviewContentPostForPublishing(
+    existingPost,
+    1,
+    buildContentPlanTruthContext(campaign.workspace.brandProfile),
+  )
+  if (publishReview.length > 0) {
+    return NextResponse.json({
+      error: 'This saved post needs copy review before it can be sent to a platform.',
+      code: 'CONTENT_REVIEW_REQUIRED',
+      issues: publishReview,
+    }, { status: 409 })
+  }
   const aiOutput = campaign.aiOutput && typeof campaign.aiOutput === 'object' && !Array.isArray(campaign.aiOutput)
     ? campaign.aiOutput as Record<string, unknown>
     : {}

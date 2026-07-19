@@ -59,7 +59,7 @@ function campaignWorkflowStage(campaign: Campaign, ar: boolean): string {
   if (campaign.status !== 'ACTIVE') return campaign.status === 'DRAFT' ? (ar ? 'تخطيط' : 'Plan') : (ar ? 'مراجعة' : 'Review')
   if (!workflow || workflow.total === 0) return ar ? 'المحتوى لم يُبنَ بعد' : 'Content not built'
   if (workflow.failed > 0) return ar ? `${workflow.failed} فشل يحتاج تدخلاً` : `${workflow.failed} failed · action needed`
-  if (workflow.mediaPending > 0) return ar ? `${workflow.mediaPending} قرار وسائط متبقٍ` : `${workflow.mediaPending} media decisions left`
+  if (workflow.mediaPending > 0) return ar ? `${workflow.mediaPending} اعتماد وسائط متبقٍ` : `${workflow.mediaPending} media approvals remaining`
   if (workflow.scheduled > 0) return ar ? `${workflow.scheduled} مجدول` : `${workflow.scheduled} scheduled`
   if (workflow.published === workflow.total) return ar ? 'منشورة بأدلة المنصة' : 'Provider-evidenced published'
   return ar ? 'جاهزة لمراجعة التنفيذ' : 'Ready for execution review'

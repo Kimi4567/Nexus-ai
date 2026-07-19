@@ -7,7 +7,7 @@ import {
   type WorkspaceExecutionTruth,
 } from '@/lib/executionTruth'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
-import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
+import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { normalizeStrategyEvidenceLedger } from '@/lib/strategy/strategyEvidenceLedger'
 
 type StatusCountRow = {
@@ -276,15 +276,7 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
     const contentReview = reviewContentPlanForApproval(
       contentReviewPostsByCampaign.get(campaign.id) ?? [],
       strategy,
-      [
-        brandProfile?.brandName,
-        brandProfile?.industry,
-        brandProfile?.description,
-        brandProfile?.primaryOffer,
-        brandProfile?.uniqueAdvantages,
-        brandProfile?.complianceNotes,
-        brandProfile?.verifiedProof,
-      ],
+      buildContentPlanTruthContext(brandProfile),
     )
     posts.qualityReviewIssueCount = contentReview.issues.length
     posts.qualityReviewPostCount = new Set(contentReview.issues.map((issue) => issue.index)).size

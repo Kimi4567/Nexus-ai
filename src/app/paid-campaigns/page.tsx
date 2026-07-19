@@ -14,6 +14,7 @@ import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
+import type { PaidStrategySourceTruth } from '@/lib/paidStrategySource'
 
 interface AdCampaign {
   id: string
@@ -139,6 +140,8 @@ export default function PaidCampaignsPage() {
 
   const [campaigns, setCampaigns] = useState<AdCampaign[]>([])
   const [accounts, setAccounts] = useState<AdAccount[]>([])
+  const [strategySources, setStrategySources] = useState<PaidStrategySourceTruth[]>([])
+  const [strategySourcesStatus, setStrategySourcesStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [loading, setLoading] = useState(true)
   const [platformFilter, setPlatformFilter] = useState<string>('ALL')
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
@@ -152,6 +155,7 @@ export default function PaidCampaignsPage() {
       return
     }
     setLoading(true)
+    setStrategySourcesStatus('loading')
     try {
       const session = await import('@/lib/supabaseClient').then((module) => module.supabase.auth.getSession())
       const token = session.data?.session?.access_token
@@ -161,9 +165,10 @@ export default function PaidCampaignsPage() {
       }
 
       const headers = { Authorization: `Bearer ${token}` }
-      const [campaignsRes, accountsRes] = await Promise.all([
+      const [campaignsRes, accountsRes, sourcesRes] = await Promise.all([
         fetch('/api/ad-campaigns', { headers }),
         fetch('/api/ad-accounts', { headers }),
+        fetch('/api/paid-strategy-sources', { headers }),
       ])
 
       if (campaignsRes.ok) {
@@ -174,8 +179,16 @@ export default function PaidCampaignsPage() {
         const data = await accountsRes.json()
         setAccounts(data.accounts || [])
       }
+      if (sourcesRes.ok) {
+        const data = await sourcesRes.json()
+        setStrategySources(data.sources || [])
+        setStrategySourcesStatus('ready')
+      } else {
+        setStrategySourcesStatus('error')
+      }
     } catch (error) {
       console.error('[PaidCampaigns]', error)
+      setStrategySourcesStatus('error')
     } finally {
       setLoading(false)
     }
@@ -246,6 +259,18 @@ export default function PaidCampaignsPage() {
       planningDrafts: campaigns.filter((campaign) => campaign.status === 'DRAFT' || campaign.status === 'PENDING_REVIEW').length,
     }
   }, [campaigns])
+  const eligibleStrategySources = useMemo(
+    () => strategySources.filter(source => source.eligible),
+    [strategySources],
+  )
+  const approvedExecutionPlatforms = useMemo(() => new Set(
+    eligibleStrategySources.flatMap(source => source.approvedPlatforms),
+  ), [eligibleStrategySources])
+  const hasApprovedPaidSource = strategySourcesStatus === 'ready' && eligibleStrategySources.length > 0
+  const metaInApprovedStrategy = approvedExecutionPlatforms.has('META')
+  const googleInApprovedStrategy = approvedExecutionPlatforms.has('GOOGLE')
+  const hasMetaAccount = accounts.some(account => account.platform.toUpperCase() === 'META')
+  const hasGoogleAccount = accounts.some(account => account.platform.toUpperCase() === 'GOOGLE')
 
   return (
     <AppShell>
@@ -267,34 +292,64 @@ export default function PaidCampaignsPage() {
               </span>
               <div>
                 <p className="text-[13px] font-black text-[#071236]">
-                  {ar ? `${summary.planningDrafts} مسودات تنفيذ للمراجعة` : `${summary.planningDrafts} execution drafts for review`}
+                  {strategySourcesStatus === 'error'
+                    ? ar
+                      ? 'تعذر التحقق من مصادر الاستراتيجية الآن'
+                      : 'Approved strategy sources could not be verified right now'
+                    : hasApprovedPaidSource
+                    ? ar
+                      ? `${eligibleStrategySources.length} استراتيجية معتمدة جاهزة للترجمة إلى تنفيذ`
+                      : `${eligibleStrategySources.length} approved strateg${eligibleStrategySources.length === 1 ? 'y is' : 'ies are'} ready for execution translation`
+                    : ar
+                      ? 'لا توجد استراتيجية Paid أو Full معتمدة للتنفيذ'
+                      : 'No approved Paid or Full strategy is ready for execution'}
                 </p>
                 <p className="mt-0.5 text-[11px] font-bold text-[#64708f]">
                   {ar
-                    ? `${accounts.length} حسابات متصلة · ${summary.activeRecords} سجلات نشطة على المنصات`
-                    : `${accounts.length} connected accounts · ${summary.activeRecords} platform-active records`}
+                    ? `${accounts.length} حسابات إعلانية متصلة · ${summary.planningDrafts} مسودات مراجعة · ${summary.activeRecords} سجلات نشطة على المنصات`
+                    : `${accounts.length} connected ad accounts · ${summary.planningDrafts} review drafts · ${summary.activeRecords} platform-active records`}
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={handleConnectGoogle}
-                disabled={connectingGoogle}
-                className="inline-flex h-11 items-center gap-2 rounded-[15px] border border-[#d7def0] bg-white px-4 text-[13px] font-black text-[#111b3f] shadow-sm transition hover:border-[#bfc9df] disabled:opacity-60"
-              >
-                <span className="text-[#4285f4]">G</span>
-                {connectingGoogle ? (ar ? 'جاري فتح Google...' : 'Opening Google...') : (ar ? 'راجع ربط Google Ads' : 'Review Google Ads connection')}
-              </button>
-              <button
-                type="button"
-                onClick={handleConnectMeta}
-                disabled={connectingMeta}
-                className="inline-flex h-11 items-center gap-2 rounded-[15px] border border-[#d7def0] bg-white px-4 text-[13px] font-black text-[#111b3f] shadow-sm transition hover:border-[#bfc9df] disabled:opacity-60"
-              >
-                <ShieldCheck className="h-4 w-4 text-[#5366f6]" />
-                {connectingMeta ? (ar ? 'جاري فتح الربط...' : 'Opening connection...') : (ar ? 'راجع ربط Meta Ads' : 'Review Meta Ads connection')}
-              </button>
+              {strategySourcesStatus === 'ready' && googleInApprovedStrategy ? (
+                <button
+                  type="button"
+                  onClick={handleConnectGoogle}
+                  disabled={connectingGoogle}
+                  className="inline-flex h-11 items-center gap-2 rounded-[15px] border border-[#d7def0] bg-white px-4 text-[13px] font-black text-[#111b3f] shadow-sm transition hover:border-[#bfc9df] disabled:opacity-60"
+                >
+                  <span className="text-[#4285f4]">G</span>
+                  {connectingGoogle
+                    ? (ar ? 'جاري فتح Google...' : 'Opening Google...')
+                    : hasGoogleAccount
+                      ? (ar ? 'تحقق من Google المعتمد' : 'Verify approved Google account')
+                      : (ar ? 'اربط Google للاستراتيجية' : 'Connect Google for strategy')}
+                </button>
+              ) : strategySourcesStatus === 'ready' && hasGoogleAccount ? (
+                <span className="inline-flex h-11 items-center rounded-[15px] border border-slate-200 bg-slate-50 px-4 text-[12px] font-bold text-slate-600">
+                  {ar ? 'Google متصل · خارج الاستراتيجية المعتمدة' : 'Google connected · outside approved strategy'}
+                </span>
+              ) : null}
+              {strategySourcesStatus === 'ready' && metaInApprovedStrategy ? (
+                <button
+                  type="button"
+                  onClick={handleConnectMeta}
+                  disabled={connectingMeta}
+                  className="inline-flex h-11 items-center gap-2 rounded-[15px] border border-[#d7def0] bg-white px-4 text-[13px] font-black text-[#111b3f] shadow-sm transition hover:border-[#bfc9df] disabled:opacity-60"
+                >
+                  <ShieldCheck className="h-4 w-4 text-[#5366f6]" />
+                  {connectingMeta
+                    ? (ar ? 'جاري فتح الربط...' : 'Opening connection...')
+                    : hasMetaAccount
+                      ? (ar ? 'تحقق من Meta المعتمد' : 'Verify approved Meta account')
+                      : (ar ? 'اربط Meta للاستراتيجية' : 'Connect Meta for strategy')}
+                </button>
+              ) : strategySourcesStatus === 'ready' && hasMetaAccount ? (
+                <span className="inline-flex h-11 items-center rounded-[15px] border border-slate-200 bg-slate-50 px-4 text-[12px] font-bold text-slate-600">
+                  {ar ? 'Meta متصل · خارج الاستراتيجية المعتمدة' : 'Meta connected · outside approved strategy'}
+                </span>
+              ) : null}
               <Link
                 href="/paid-campaigns/new"
                 className="inline-flex h-11 items-center gap-2 rounded-[15px] bg-[#071236] px-5 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,18,54,0.2)] transition hover:bg-[#111f4b]"

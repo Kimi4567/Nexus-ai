@@ -8,7 +8,7 @@ import { isRetryableSocialPublishError, publishSocialPost } from '@/lib/socialPu
 import { hasVerifiedProviderScope, X_CONTENT_SCOPES } from '@/lib/socialPlatformConfig'
 import { buildLearningEvent } from '@/lib/brandBrainEvents'
 import { isContentPostMediaReadyForScheduling } from '@/lib/contentHubMediaState'
-import { reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
+import { buildContentPlanTruthContext, reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
 import { YOUTUBE_READ_SCOPE, YOUTUBE_UPLOAD_SCOPE } from '@/lib/youtubePublishing'
 import { PINTEREST_PUBLISH_SCOPES } from '@/lib/pinterestPublishing'
 import { THREADS_OPERATIONAL_SCOPES } from '@/lib/threadsPublishing'
@@ -184,7 +184,7 @@ async function runPublishJob() {
         if (!isContentPostMediaReadyForScheduling(post)) {
           throw new Error('CONTENT_REVIEW_REQUIRED: scheduled media is no longer ready for publishing')
         }
-        const publishReview = reviewContentPostForPublishing(post)
+        const publishReview = reviewContentPostForPublishing(post, 1, buildContentPlanTruthContext(brand))
         if (publishReview.length > 0) {
           throw new Error(`CONTENT_REVIEW_REQUIRED: ${publishReview.map(issue => issue.reason).join(', ')}`)
         }

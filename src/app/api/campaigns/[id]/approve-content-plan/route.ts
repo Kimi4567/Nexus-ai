@@ -22,7 +22,7 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { planApproval, planRevert } from '@/lib/approvalPlan'
 import { buildLearningEvents } from '@/lib/brandBrainEvents'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
-import { reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
+import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 import {
   CAMPAIGN_SNAPSHOT_SCOPE,
@@ -163,20 +163,6 @@ export async function POST(req: NextRequest, props: Params) {
       : {}
     const strategy = aiOutput.strategy ?? aiOutput
     const brand = campaign.workspace?.brandProfile
-    const brandFacts = [
-      brand?.brandName,
-      brand?.industry,
-      brand?.description,
-      brand?.primaryOffer,
-      brand?.targetAudience,
-      brand?.audienceAge,
-      brand?.audienceLocation,
-      brand?.audiencePainPoints ?? [],
-      brand?.audienceDesires ?? [],
-      brand?.uniqueAdvantages ?? [],
-      brand?.complianceNotes,
-      brand?.verifiedProof ?? [],
-    ]
     const strategyQualityGate = reviewStrategyGrounding({
       strategy,
       brand,
@@ -191,7 +177,7 @@ export async function POST(req: NextRequest, props: Params) {
         qualityGate: strategyQualityGate,
       }, { status: 422 })
     }
-    const approvalReview = reviewContentPlanForApproval(draftPosts, strategy, brandFacts)
+    const approvalReview = reviewContentPlanForApproval(draftPosts, strategy, buildContentPlanTruthContext(brand))
 
     if (!approvalReview.ok) {
       return NextResponse.json({
