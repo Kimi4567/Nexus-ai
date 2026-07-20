@@ -22,8 +22,6 @@ export async function GET(req: NextRequest) {
     const now = new Date()
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 86_400_000)
     const oneDayAgo = new Date(now.getTime() - 86_400_000)
-    const db = prisma as any
-
     const [
       truth,
       latestMonitor,
@@ -37,29 +35,29 @@ export async function GET(req: NextRequest) {
       latestRetry,
     ] = await Promise.all([
       getWorkspaceExecutionTruthByWorkspaceId(workspace.id),
-      db.agentRun.findFirst({
+      prisma.agentRun.findFirst({
         where: { workspaceId: workspace.id, triggeredBy: 'execution-monitor' },
         orderBy: { createdAt: 'desc' },
         select: { status: true, createdAt: true, completedAt: true, outputData: true, error: true },
       }),
-      db.integration.findMany({
+      prisma.integration.findMany({
         where: { workspaceId: workspace.id, status: { not: 'DISCONNECTED' } },
         select: { id: true, type: true, status: true, updatedAt: true, config: true },
       }),
-      db.adAccount.findMany({
+      prisma.adAccount.findMany({
         where: { workspaceId: workspace.id, status: { not: 'DISCONNECTED' } },
         select: { id: true, platform: true, status: true, tokenExpiresAt: true, lastError: true },
       }),
       // Approvals, Operations, and the sidebar all read the same canonical
       // inbox. No surface is allowed to recalculate or double-count decisions.
       getCanonicalApprovalInbox(userId),
-      db.creditTransaction.findMany({
+      prisma.creditTransaction.findMany({
         where: { userId, createdAt: { gte: thirtyDaysAgo } },
         select: { amount: true, pricingVersion: true, entityId: true, entityType: true },
         orderBy: { createdAt: 'desc' },
         take: 1000,
       }),
-      db.adCampaign.findMany({
+      prisma.adCampaign.findMany({
         where: { workspaceId: workspace.id, status: 'ACTIVE' },
         select: {
           id: true,
@@ -77,7 +75,7 @@ export async function GET(req: NextRequest) {
           lastSyncError: true,
         },
       }),
-      db.socialPost.findFirst({
+      prisma.socialPost.findFirst({
         where: {
           workspaceId: workspace.id,
           status: 'PUBLISHED',
@@ -87,10 +85,10 @@ export async function GET(req: NextRequest) {
         orderBy: { analyticsUpdatedAt: 'desc' },
         select: { analyticsUpdatedAt: true },
       }),
-      db.postStatusHistory.count({
+      prisma.postStatusHistory.count({
         where: { workspaceId: workspace.id, createdAt: { gte: oneDayAgo }, note: { startsWith: '[PUBLISH_RETRY]' } },
       }),
-      db.postStatusHistory.findFirst({
+      prisma.postStatusHistory.findFirst({
         where: { workspaceId: workspace.id, note: { startsWith: '[PUBLISH_RETRY]' } },
         orderBy: { createdAt: 'desc' },
         select: { createdAt: true },

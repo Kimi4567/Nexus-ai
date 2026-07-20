@@ -4,6 +4,7 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { summarizePerformanceEvidence } from '@/lib/performanceSummary'
 import { summarizeLearningEvidence } from '@/lib/learningOverview'
 import { buildPilotProofOverview } from '@/lib/pilotProof'
+import { readPerformanceEvidence } from '@/lib/performanceEvidence'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -37,6 +38,9 @@ export async function GET(req: Request) {
           trigger: true,
           field: true,
           displayName: true,
+          icon: true,
+          current: true,
+          proposed: true,
           reason: true,
           evidence: true,
           status: true,
@@ -103,12 +107,21 @@ export async function GET(req: Request) {
         platform: String((row.adCampaign as { platform?: unknown } | null)?.platform ?? 'UNKNOWN'),
       })),
     )
+    const eligiblePerformancePostIds = organicRows.flatMap(row => {
+      const evidence = readPerformanceEvidence(row.analyticsData)
+      return evidence
+        && evidence.quality === 'eligible'
+        && evidence.platformPostId === row.platformPostId
+        ? [row.id]
+        : []
+    })
 
     return NextResponse.json({
       ...summarizeLearningEvidence({
         learningSignals,
         workflowSignals,
         performanceEvidenceRows: performance.totalEvidenceRows,
+        eligiblePerformancePostIds,
       }),
       performance,
       pilot: buildPilotProofOverview(organicRows, learningSignals),

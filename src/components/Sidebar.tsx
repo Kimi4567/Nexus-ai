@@ -316,7 +316,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       labelEn: 'System',
       separatorBefore: true,
       items: [
-        { href: '/automation#operations-center', labelAr: 'مركز العمليات', labelEn: 'Operations center', icon: Icons.dashboard, badgeKey: '24/7', badgeColor: '#22C55E' },
+        { href: '/operations', labelAr: 'مركز العمليات', labelEn: 'Operations center', icon: Icons.dashboard, badgeKey: '24/7', badgeColor: '#22C55E' },
         { href: '/connections', labelAr: 'الربط', labelEn: 'Connections', icon: Icons.connections },
       ],
     },

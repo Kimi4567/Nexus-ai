@@ -1,4 +1,4 @@
-import type { ExecutionQueueItem, WorkspaceExecutionTruth } from '@/lib/executionTruth'
+import type { ExecutionQueueItem, ExecutionStage, WorkspaceExecutionTruth } from '@/lib/executionTruth'
 
 export type OperationsHealth = 'healthy' | 'attention' | 'critical' | 'not_started'
 
@@ -29,7 +29,32 @@ export interface OperationsOverview {
     pendingApprovals: number
     overdueApprovals: number
   }
-  connections: { total: number; connected: number; attention: number }
+  execution: {
+    generatedAt: string
+    campaigns: number
+    needsAttention: number
+    awaitingApproval: number
+    scheduledPosts: number
+    publishedPosts: number
+    stages: Partial<Record<ExecutionStage, number>>
+    queue: ExecutionQueueItem[]
+    autopilot: {
+      enabledCampaigns: number
+      campaigns: Array<{
+        id: string
+        name: string
+        activatedAt: string | null
+        scheduledPosts: number
+      }>
+    }
+  }
+  connections: {
+    total: number
+    connected: number
+    attention: number
+    social: { total: number; connected: number }
+    ads: { total: number; connected: number }
+  }
   analytics: { publishedAwaitingEvidence: number; latestEvidenceAt: string | null }
   credits: {
     spent30d: number
@@ -171,7 +196,7 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
       id: 'monitor:execution-heartbeat',
       source: 'monitor',
       priority: monitorFailed || monitorStale ? 'critical' : 'high',
-      href: '/automation',
+      href: '/operations',
       title: {
         en: monitorFailed ? 'Execution monitor failed' : monitorStale ? 'Execution monitor heartbeat is overdue' : 'Execution monitor has not run yet',
         ar: monitorFailed ? 'فشل مراقب التنفيذ' : monitorStale ? 'تأخر نبض مراقب التنفيذ' : 'لم يعمل مراقب التنفيذ بعد',
@@ -192,12 +217,17 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
   }
 
   let connected = 0
+  let connectedSocial = 0
+  let connectedAds = 0
   let connectionAttention = 0
   for (const integration of input.integrations) {
     const expiry = connectionExpiry(integration.config)
     const expiring = Boolean(expiry && expiry.getTime() <= input.now.getTime() + 7 * 86_400_000)
     const unhealthy = integration.status !== 'CONNECTED' || expiring
-    if (integration.status === 'CONNECTED' && !expiring) connected++
+    if (integration.status === 'CONNECTED' && !expiring) {
+      connected++
+      connectedSocial++
+    }
     if (!unhealthy) continue
     connectionAttention++
     issues.push({
@@ -215,7 +245,10 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
   for (const account of input.adAccounts) {
     const expiring = Boolean(account.tokenExpiresAt && account.tokenExpiresAt.getTime() <= input.now.getTime() + 7 * 86_400_000)
     const unhealthy = account.status !== 'ACTIVE' || expiring || Boolean(account.lastError)
-    if (account.status === 'ACTIVE' && !expiring && !account.lastError) connected++
+    if (account.status === 'ACTIVE' && !expiring && !account.lastError) {
+      connected++
+      connectedAds++
+    }
     if (!unhealthy) continue
     connectionAttention++
     issues.push({
@@ -311,6 +344,18 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
   const priorityOrder = { critical: 0, high: 1, medium: 2 } as const
   issues.sort((left, right) => priorityOrder[left.priority] - priorityOrder[right.priority])
   const monitorStats = monitorNumbers(input.latestMonitor?.outputData)
+  const stages = input.truth.campaigns.reduce<Partial<Record<ExecutionStage, number>>>((result, campaign) => {
+    result[campaign.stage] = (result[campaign.stage] ?? 0) + 1
+    return result
+  }, {})
+  const autopilotCampaigns = input.truth.campaigns
+    .filter(campaign => campaign.autopilotEnabled)
+    .map(campaign => ({
+      id: campaign.campaignId,
+      name: campaign.campaignName,
+      activatedAt: campaign.autopilotActivatedAt ?? null,
+      scheduledPosts: campaign.posts.scheduled,
+    }))
 
   return {
     version: 1,
@@ -323,16 +368,32 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
       ...monitorStats,
     },
     summary: {
-      incidents: issues.filter(issue => issue.source !== 'execution' || issue.priority === 'critical').length,
+      incidents: issues.filter(issue => issue.priority !== 'medium' && (issue.source !== 'execution' || issue.priority === 'critical')).length,
       attentionItems: issues.length,
       critical: issues.filter(issue => issue.priority === 'critical').length,
       pendingApprovals: input.pendingApprovals,
       overdueApprovals: input.overdueApprovals,
     },
+    execution: {
+      generatedAt: input.truth.generatedAt,
+      campaigns: input.truth.summary.campaigns,
+      needsAttention: input.truth.summary.needsAttention,
+      awaitingApproval: input.truth.summary.awaitingApproval,
+      scheduledPosts: input.truth.summary.scheduledPosts,
+      publishedPosts: input.truth.summary.publishedPosts,
+      stages,
+      queue: input.truth.queue.slice(0, 25),
+      autopilot: {
+        enabledCampaigns: autopilotCampaigns.length,
+        campaigns: autopilotCampaigns,
+      },
+    },
     connections: {
       total: input.integrations.length + input.adAccounts.length,
       connected,
       attention: connectionAttention,
+      social: { total: input.integrations.length, connected: connectedSocial },
+      ads: { total: input.adAccounts.length, connected: connectedAds },
     },
     analytics: { publishedAwaitingEvidence: input.publishedAwaitingEvidence, latestEvidenceAt: input.latestAnalyticsAt?.toISOString() ?? null },
     credits: { spent30d, refunded30d, transactions30d: input.creditTransactions.length, unversionedCharges30d, chargesWithoutArtifact30d },

@@ -145,7 +145,7 @@ describe('Sidebar credit presentation', () => {
     expect(screen.getByText('Operations center')).toBeTruthy()
     expect(document.querySelector('a[href="/billing"]')).toBeTruthy()
     expect(document.querySelector('a[href="/calendar?tab=queue"]')).toBeTruthy()
-    expect(document.querySelector('a[href="/automation#operations-center"]')).toBeTruthy()
+    expect(document.querySelector('a[href="/operations"]')).toBeTruthy()
 
     expect(screen.queryByText('Campaigns')).toBeNull()
     expect(screen.queryByText('Publish')).toBeNull()

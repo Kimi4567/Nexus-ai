@@ -362,7 +362,7 @@ export default function ApprovalsPage() {
           <LuxuryWorkspaceHeader
             pageTitle={copy('الموافقات', 'Approvals')}
             pageSubtitle={copy('راجع فقط القرارات التي تحتاج تأكيدك.', 'Review only the decisions that need your confirmation.')}
-            primaryHref="/automation"
+            primaryHref="/operations"
             primaryLabel={copy('عرض الأتمتة', 'View automation')}
             secondaryHref="/content-hub"
             secondaryLabel={copy('مراجعة المحتوى', 'Review content')}

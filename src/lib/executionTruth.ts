@@ -57,6 +57,8 @@ export interface CampaignExecutionSnapshot {
   strategyEvidenceCount: number
   posts: ExecutionPostCounts
   contentQualityIssues?: Array<{ index: number; reason: string }>
+  autopilotEnabled?: boolean | null
+  autopilotActivatedAt?: Date | string | null
 }
 
 export interface ExecutionQueueItem {
@@ -89,6 +91,8 @@ export interface CampaignExecutionTruth {
   strategyApprovalState: StrategyApprovalState
   posts: ExecutionPostCounts
   contentQualityIssues?: Array<{ index: number; reason: string }>
+  autopilotEnabled?: boolean
+  autopilotActivatedAt?: string | null
   nextAction: ExecutionQueueItem | null
   updatedAt: string
 }
@@ -430,6 +434,10 @@ export function buildCampaignExecutionTruth(snapshot: CampaignExecutionSnapshot)
     strategyApprovalState: snapshot.strategyApprovalState,
     posts: snapshot.posts,
     contentQualityIssues: snapshot.contentQualityIssues ?? [],
+    autopilotEnabled: Boolean(snapshot.autopilotEnabled),
+    autopilotActivatedAt: snapshot.autopilotActivatedAt
+      ? new Date(snapshot.autopilotActivatedAt).toISOString()
+      : null,
     nextAction,
     updatedAt: snapshot.updatedAt,
   }
