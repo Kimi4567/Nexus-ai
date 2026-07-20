@@ -250,6 +250,11 @@ export async function POST(req: NextRequest, props: Params) {
       userId,
       action: 'MEDIA_INTELLIGENCE_ANALYSIS',
       deduction: credit,
+      providerEconomics: {
+        providerCostUsd: analysis.usage.estimatedProviderCostUsd,
+        providerPricingVersion: analysis.usage.pricingVersion,
+        providerUsage: analysis.usage,
+      },
     })
     if (!finalization.ok) {
       chargedCredit = null

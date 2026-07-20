@@ -23,10 +23,19 @@ import { randomUUID } from 'crypto'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { createOpenAIProviderUsageCollector } from '@/lib/ai/providerUsageContext'
+import { summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
 
 export async function POST(req: NextRequest) {
   let chargedCredit: CreditDeductionOk | null = null
   let chargedUserId: string | null = null
+  const usageCollector = createOpenAIProviderUsageCollector()
+  const currentProviderEconomics = () => {
+    const calls = usageCollector.snapshot()
+    if (calls.length === 0) return undefined
+    const usage = summarizeOpenAITextUsage('gpt-4o', calls)
+    return { providerCostUsd: usage.estimatedProviderCostUsd, providerPricingVersion: usage.pricingVersion, providerUsage: usage }
+  }
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -123,13 +132,14 @@ export async function POST(req: NextRequest) {
     // Run agents (10-20s -- consider background queue for prod)
     let result
     try {
-      result = await runFullAgency(workspace.id, brief)
+      result = await usageCollector.run(() => runFullAgency(workspace.id, brief))
     } catch (genErr) {
       await refundCreditDeduction({
         userId: user.id,
         action: 'RUN_FULL_STRATEGY',
         deduction: credit,
         reason: 'Full strategy generation failed',
+        providerEconomics: currentProviderEconomics(),
       })
       throw genErr
     }
@@ -140,6 +150,7 @@ export async function POST(req: NextRequest) {
         action: 'RUN_FULL_STRATEGY',
         deduction: credit,
         reason: 'No usable strategy was created',
+        providerEconomics: currentProviderEconomics(),
       })
       const limitError = result.errors.find((message) => message.startsWith('CAMPAIGN_LIMIT_REACHED:'))
       if (limitError) {
@@ -172,6 +183,7 @@ export async function POST(req: NextRequest) {
       userId: user.id,
       action: 'RUN_FULL_STRATEGY',
       deduction: credit,
+      providerEconomics: currentProviderEconomics(),
     })
     if (!finalization.ok) {
       chargedCredit = null
@@ -203,6 +215,7 @@ export async function POST(req: NextRequest) {
         action: 'RUN_FULL_STRATEGY',
         deduction: chargedCredit,
         reason: 'Full strategy route failed before finalization',
+        providerEconomics: currentProviderEconomics(),
       })
     }
     return NextResponse.json({ error: err?.message || 'Failed' }, { status: 500 })

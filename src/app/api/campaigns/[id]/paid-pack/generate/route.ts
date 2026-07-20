@@ -27,11 +27,12 @@ import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { readOpenAIChatUsage, summarizeOpenAITextUsage, type OpenAITextUsage } from '@/lib/ai/providerEconomics'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
 
-async function callGPT(system: string, user: string): Promise<string> {
+async function callGPT(system: string, user: string): Promise<{ content: string; usage: OpenAITextUsage }> {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
@@ -47,7 +48,7 @@ async function callGPT(system: string, user: string): Promise<string> {
   const data = await res.json()
   const content = data.choices?.[0]?.message?.content?.trim()
   if (!content) throw new Error('OpenAI returned no paid planning pack')
-  return content
+  return { content, usage: readOpenAIChatUsage(data.usage) }
 }
 
 function buildSlug(name: string): string {
@@ -419,7 +420,8 @@ Generate a complete paid campaign pack as JSON with this exact structure:
     }
 
     try {
-      const raw = await callGPT(systemPrompt, userPrompt)
+      const generatedResponse = await callGPT(systemPrompt, userPrompt)
+      const raw = generatedResponse.content
       let generated: {
         audienceBrief?: Record<string, unknown>
         copyVariants?: unknown[]
@@ -485,10 +487,16 @@ Generate a complete paid campaign pack as JSON with this exact structure:
         },
       })
 
+      const providerUsage = summarizeOpenAITextUsage('gpt-4o', [generatedResponse.usage])
       const finalization = await finalizeCreditDeduction({
         userId: user.id,
         action: 'PAID_PACK_GENERATE',
         deduction: creditResult,
+        providerEconomics: {
+          providerCostUsd: providerUsage.estimatedProviderCostUsd,
+          providerPricingVersion: providerUsage.pricingVersion,
+          providerUsage,
+        },
       })
       if (!finalization.ok) {
         return NextResponse.json({

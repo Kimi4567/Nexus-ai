@@ -125,4 +125,27 @@ describe('credit reservation lifecycle', () => {
       create: expect.objectContaining({ aiCreditsUsed: 8, generationsCount: 1 }),
     }))
   })
+
+  it('persists sanitized provider economics only when the reservation settles', async () => {
+    const result = await settleCreditDeduction({
+      userId: 'user_1',
+      action: 'RUN_FULL_STRATEGY',
+      deduction,
+      providerEconomics: {
+        providerCostUsd: 0.12345678,
+        providerPricingVersion: 'openai-standard-2026-07-20',
+        providerUsage: { model: 'gpt-4o', inputTokens: 1200, outputTokens: 800 },
+      },
+    })
+
+    expect(result).toEqual({ ok: true, status: 'settled' })
+    expect(tx.creditTransaction.update).toHaveBeenCalledWith({
+      where: { id: 'txn_1' },
+      data: expect.objectContaining({
+        providerCostUsd: 0.123457,
+        providerPricingVersion: 'openai-standard-2026-07-20',
+        providerUsage: { model: 'gpt-4o', inputTokens: 1200, outputTokens: 800 },
+      }),
+    })
+  })
 })

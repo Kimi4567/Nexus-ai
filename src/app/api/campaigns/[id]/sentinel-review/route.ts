@@ -241,7 +241,8 @@ export async function POST(req: NextRequest, props: Params) {
     if (!credit.ok) return NextResponse.json(credit, { status: creditCheckHttpStatus(credit) })
     chargedCredit = credit
 
-    const sentinelReview = await runSentinelReview(input)
+    const sentinelReviewResult = await runSentinelReview(input)
+    const { providerUsage, ...sentinelReview } = sentinelReviewResult
 
     // Save to aiOutput.sentinelReview
     const updatedOutput = {
@@ -279,6 +280,13 @@ export async function POST(req: NextRequest, props: Params) {
       userId,
       action: 'SENTINEL_REVIEW',
       deduction: credit,
+      providerEconomics: providerUsage
+        ? {
+            providerCostUsd: providerUsage.estimatedProviderCostUsd,
+            providerPricingVersion: providerUsage.pricingVersion,
+            providerUsage,
+          }
+        : undefined,
     })
     if (!finalization.ok) {
       chargedCredit = null

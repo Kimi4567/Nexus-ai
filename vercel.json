@@ -30,6 +30,14 @@
       "schedule": "*/10 * * * *"
     },
     {
+      "path": "/api/cron/reconcile-credit-reservations",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/reconcile-video-generations",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/weekly-brief",
       "schedule": "0 8 * * 1"
     },
@@ -91,6 +99,12 @@
     },
     "src/app/api/cron/generate-images/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/cron/reconcile-credit-reservations/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/reconcile-video-generations/route.ts": {
+      "maxDuration": 300
     },
     "src/app/api/cron/publish/route.ts": {
       "maxDuration": 180

@@ -21,11 +21,12 @@ import { paidMetricsCompleteness } from '@/lib/paidMetrics'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { readOpenAIChatUsage, summarizeOpenAITextUsage, type ProviderUsageSummary } from '@/lib/ai/providerEconomics'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
 
-async function callGPT(system: string, user: string): Promise<string> {
+async function callGPT(system: string, user: string): Promise<{ content: string; usage: ProviderUsageSummary }> {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
@@ -41,11 +42,21 @@ async function callGPT(system: string, user: string): Promise<string> {
   const data = await res.json()
   const content = data.choices?.[0]?.message?.content?.trim()
   if (!content) throw new Error('OpenAI returned no paid metrics analysis')
-  return content
+  return { content, usage: summarizeOpenAITextUsage('gpt-4o', [readOpenAIChatUsage(data.usage)]) }
 }
 
-async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
-  await refundCreditDeduction({ userId, action: 'AD_COPY', deduction: credit, reason })
+async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string, usage?: ProviderUsageSummary) {
+  await refundCreditDeduction({
+    userId,
+    action: 'AD_COPY',
+    deduction: credit,
+    reason,
+    providerEconomics: usage ? {
+      providerCostUsd: usage.estimatedProviderCostUsd,
+      providerPricingVersion: usage.pricingVersion,
+      providerUsage: usage,
+    } : undefined,
+  })
 }
 
 function hasAttributionBreakdown(metrics: unknown): boolean {
@@ -219,7 +230,8 @@ Extract a paid metrics signal as JSON:
     chargedUserId = user.id
     chargedCredit = creditResult
 
-    const raw = await callGPT(systemPrompt, userPrompt)
+    const generatedLearning = await callGPT(systemPrompt, userPrompt)
+    const raw = generatedLearning.content
     let parsed: {
       learnings?: Record<string, unknown>
       brandBrainUpdates?: {
@@ -237,7 +249,7 @@ Extract a paid metrics signal as JSON:
         throw new Error('Incomplete paid metrics analysis')
       }
     } catch {
-      await refundDeductedCredits(user.id, creditResult, 'AI returned invalid JSON')
+      await refundDeductedCredits(user.id, creditResult, 'AI returned invalid JSON', generatedLearning.usage)
       return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })
     }
 
@@ -324,6 +336,11 @@ Extract a paid metrics signal as JSON:
       userId: user.id,
       action: 'AD_COPY',
       deduction: creditResult,
+      providerEconomics: {
+        providerCostUsd: generatedLearning.usage.estimatedProviderCostUsd,
+        providerPricingVersion: generatedLearning.usage.pricingVersion,
+        providerUsage: generatedLearning.usage,
+      },
     })
     if (!finalization.ok) {
       chargedUserId = null

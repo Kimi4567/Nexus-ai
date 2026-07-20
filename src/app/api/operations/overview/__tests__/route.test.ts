@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   creditTransactionFindMany: vi.fn(),
   adCampaignFindMany: vi.fn(),
   socialPostFindFirst: vi.fn(),
+  socialPostFindMany: vi.fn(),
+  brainLearningFindMany: vi.fn(),
   historyCount: vi.fn(),
   historyFindFirst: vi.fn(),
   getTruth: vi.fn(),
@@ -29,7 +31,8 @@ vi.mock('@/lib/prisma', () => ({
     adAccount: { findMany: mocks.adAccountFindMany },
     creditTransaction: { findMany: mocks.creditTransactionFindMany },
     adCampaign: { findMany: mocks.adCampaignFindMany },
-    socialPost: { findFirst: mocks.socialPostFindFirst },
+    socialPost: { findFirst: mocks.socialPostFindFirst, findMany: mocks.socialPostFindMany },
+    brainLearning: { findMany: mocks.brainLearningFindMany },
     postStatusHistory: { count: mocks.historyCount, findFirst: mocks.historyFindFirst },
   },
 }))
@@ -61,6 +64,8 @@ beforeEach(() => {
   mocks.creditTransactionFindMany.mockResolvedValue([])
   mocks.adCampaignFindMany.mockResolvedValue([])
   mocks.socialPostFindFirst.mockResolvedValue(null)
+  mocks.socialPostFindMany.mockResolvedValue([])
+  mocks.brainLearningFindMany.mockResolvedValue([])
   mocks.historyCount.mockResolvedValue(0)
   mocks.historyFindFirst.mockResolvedValue(null)
   mocks.buildOverview.mockReturnValue({ version: 1, summary: { incidents: 0 } })
@@ -92,6 +97,7 @@ describe('GET /api/operations/overview', () => {
       pendingApprovals: 3,
       overdueApprovals: 2,
       publishedAwaitingEvidence: 1,
+      pilotProof: expect.objectContaining({ status: 'not_started', completedCampaigns: 0 }),
     }))
   })
 })

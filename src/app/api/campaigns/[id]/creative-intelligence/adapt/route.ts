@@ -188,6 +188,11 @@ export async function POST(req: NextRequest, props: Params) {
       userId,
       action: 'AI_POST_REWRITE',
       deduction: credit,
+      providerEconomics: {
+        providerCostUsd: adapted.usage.estimatedProviderCostUsd,
+        providerPricingVersion: adapted.usage.pricingVersion,
+        providerUsage: adapted.usage,
+      },
     })
     if (!finalization.ok) {
       chargedCredit = null

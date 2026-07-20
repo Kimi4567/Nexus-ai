@@ -17,8 +17,9 @@ import { reviewBrandTruthConsistency, reviewStrategyGrounding } from '@/lib/ai/m
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { captureOperationalError } from '@/lib/observability/operationalError'
+import { readOpenAIChatUsage, summarizeOpenAITextUsage, type OpenAITextUsage } from '@/lib/ai/providerEconomics'
 
-async function callOpenAI(prompt: string): Promise<any> {
+async function callOpenAI(prompt: string): Promise<{ result: any; usage: OpenAITextUsage }> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -41,7 +42,7 @@ async function callOpenAI(prompt: string): Promise<any> {
   }
   const content = data?.choices?.[0]?.message?.content
   if (!content) throw new Error('OpenAI returned no content')
-  return JSON.parse(content)
+  return { result: JSON.parse(content), usage: readOpenAIChatUsage(data.usage) }
 }
 
 export async function POST(req: NextRequest) {
@@ -115,17 +116,28 @@ export async function POST(req: NextRequest) {
     chargedUserId = user.id
 
     let strategy
+    let strategyUsage: OpenAITextUsage | null = null
     try {
-      strategy = await callOpenAI(prompt)
+      const generated = await callOpenAI(prompt)
+      strategy = generated.result
+      strategyUsage = generated.usage
       if (!strategy || typeof strategy !== 'object' || Object.keys(strategy).length === 0) {
         throw new Error('OpenAI returned an incomplete strategy')
       }
     } catch (genErr) {
+      const failedUsage = strategyUsage
+        ? summarizeOpenAITextUsage('gpt-4o-mini', [strategyUsage])
+        : null
       await refundCreditDeduction({
         userId: user.id,
         action: 'CAMPAIGN_GENERATION',
         deduction: credit,
         reason: 'Strategy generation returned no usable output',
+        providerEconomics: failedUsage ? {
+          providerCostUsd: failedUsage.estimatedProviderCostUsd,
+          providerPricingVersion: failedUsage.pricingVersion,
+          providerUsage: failedUsage,
+        } : undefined,
       })
       throw genErr
     }
@@ -133,6 +145,9 @@ export async function POST(req: NextRequest) {
     // PR-C — defence-in-depth: neutralize any fabricated KPI/budget numbers the
     // model still emitted. Only the user-provided budget is allowed to appear.
     strategy = guardGeneratedStrategy(strategy, extractAllowedNumbers(budget))
+    const providerUsage = strategyUsage
+      ? summarizeOpenAITextUsage('gpt-4o-mini', [strategyUsage])
+      : null
 
     const qualityGate = reviewStrategyGrounding({
       strategy,
@@ -147,6 +162,11 @@ export async function POST(req: NextRequest) {
         action: 'CAMPAIGN_GENERATION',
         deduction: credit,
         reason: 'Generated strategy failed the Brand Brain and scope quality gate',
+        providerEconomics: providerUsage ? {
+          providerCostUsd: providerUsage.estimatedProviderCostUsd,
+          providerPricingVersion: providerUsage.pricingVersion,
+          providerUsage,
+        } : undefined,
       })
       return NextResponse.json({
         error: 'MARKETING_QUALITY_GATE_BLOCKED',
@@ -160,6 +180,11 @@ export async function POST(req: NextRequest) {
       userId: user.id,
       action: 'CAMPAIGN_GENERATION',
       deduction: credit,
+      providerEconomics: providerUsage ? {
+        providerCostUsd: providerUsage.estimatedProviderCostUsd,
+        providerPricingVersion: providerUsage.pricingVersion,
+        providerUsage,
+      } : undefined,
     })
     if (!finalization.ok) {
       chargedCredit = null

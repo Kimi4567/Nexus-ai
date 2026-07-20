@@ -23,3 +23,12 @@ export function cronAuthError(req: Request): NextResponse | null {
   }
   return null
 }
+
+/**
+ * Boolean form for trusted server-to-server delegation. The same fail-closed
+ * production rules as public cron routes apply; callers must never implement a
+ * second, weaker comparison for internal workers.
+ */
+export function isCronRequestAuthorized(req: Request): boolean {
+  return cronAuthError(req) === null
+}

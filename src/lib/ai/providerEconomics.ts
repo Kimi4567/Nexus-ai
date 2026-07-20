@@ -7,7 +7,7 @@
  * work, support, and operating margin.
  */
 
-export const PROVIDER_PRICING_VERSION = 'openai-standard-2026-07-16'
+export const PROVIDER_PRICING_VERSION = 'openai-standard-2026-07-20'
 
 export const OPENAI_TEXT_RATES_USD_PER_MILLION = {
   'gpt-4o': { input: 2.5, cachedInput: 1.25, output: 10 },
@@ -86,7 +86,53 @@ export function summarizeOpenAITextUsage(
 }
 
 export const OPENAI_IMAGE_OUTPUT_RESERVE_USD = {
+  'gpt-image-2:high:1024x1024': 0.211,
+  'gpt-image-2:high:1024x1536': 0.165,
+  'gpt-image-2:high:1536x1024': 0.165,
   'gpt-image-1:high:1024x1024': 0.167,
   'gpt-image-1:high:1024x1536': 0.25,
   'gpt-image-1:high:1536x1024': 0.25,
 } as const
+
+export const FAL_FLUX_PRO_1_1_ULTRA_IMAGE_USD = 0.06
+export const IMAGE_PROVIDER_ECONOMICS_VERSION = 'image-provider-estimate-2026-07-20-v1'
+
+export type ImageProviderName = 'openai-gpt-image-2' | 'fal-flux'
+export type OpenAIImageSize = '1024x1024' | '1024x1536' | '1536x1024'
+
+export function estimateProfessionalImageCostUsd(input: {
+  provider: ImageProviderName
+  size: OpenAIImageSize
+  model?: string | null
+  qualityReviewCostUsd?: number | null
+}): { providerCostUsd: number; providerPricingVersion: string; providerUsage: Record<string, unknown> } {
+  const model = String(input.model || 'gpt-image-2').trim() || 'gpt-image-2'
+  const openAiKey = `${model}:high:${input.size}` as keyof typeof OPENAI_IMAGE_OUTPUT_RESERVE_USD
+  const generationEstimate = input.provider === 'fal-flux'
+    ? FAL_FLUX_PRO_1_1_ULTRA_IMAGE_USD
+    : OPENAI_IMAGE_OUTPUT_RESERVE_USD[openAiKey]
+      ?? OPENAI_IMAGE_OUTPUT_RESERVE_USD[`gpt-image-2:high:${input.size}`]
+  const qualityReviewCost = Number(input.qualityReviewCostUsd)
+  const normalizedReviewCost = Number.isFinite(qualityReviewCost) && qualityReviewCost >= 0
+    ? qualityReviewCost
+    : 0
+  return {
+    providerCostUsd: Number((generationEstimate + normalizedReviewCost).toFixed(6)),
+    providerPricingVersion: IMAGE_PROVIDER_ECONOMICS_VERSION,
+    providerUsage: {
+      generation: {
+        provider: input.provider,
+        model: input.provider === 'fal-flux' ? 'fal-ai/flux-pro/v1.1-ultra' : model,
+        quality: 'high',
+        size: input.size,
+        estimateUsd: generationEstimate,
+        estimateBasis: input.provider === 'fal-flux'
+          ? 'official per-image price'
+          : 'official high-quality output estimate; image/text input tokens may add cost',
+      },
+      qualityReview: {
+        estimateUsd: normalizedReviewCost,
+      },
+    },
+  }
+}

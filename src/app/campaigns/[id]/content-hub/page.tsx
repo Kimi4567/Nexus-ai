@@ -2560,11 +2560,11 @@ export default function ContentHubPage() {
       setMotionDesignSourceMediaId(null)
       setSuccessMsg(professionalCampaignFilm
         ? (isAr
-          ? `بدأ إنتاج Concept Film مولّد من 3 لقطات مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ، مع حركة أشخاص وانتقالات وصوت وTypography خاص بالبراند. لا يدّعي الحفاظ على منتج حقيقي. تم خصم ${CONTENT_HUB_VIDEO_COST} كريديت؛ محاولة واحدة فقط مع استرداد إذا لم يجتز الجودة. لا نشر ولا جدولة.`
-          : `A ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second generated three-shot concept film is rendering with visible subject motion, scene cuts, sound, and brand typography. It does not claim real-product fidelity. ${CONTENT_HUB_VIDEO_COST} credits were charged; there is one attempt with restoration if quality fails. Nothing was published or scheduled.`)
+          ? `بدأ إنتاج Concept Film مولّد من 3 لقطات مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ، مع حركة أشخاص وانتقالات وصوت وTypography خاص بالبراند. لا يدّعي الحفاظ على منتج حقيقي. تم حجز ${CONTENT_HUB_VIDEO_COST} كريديت، ولن يتحول الحجز إلى خصم نهائي إلا بعد حفظ فيديو صالح واجتيازه فحص الجودة. لا نشر ولا جدولة.`
+          : `A ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second generated three-shot concept film is rendering with visible subject motion, scene cuts, sound, and brand typography. It does not claim real-product fidelity. ${CONTENT_HUB_VIDEO_COST} credits are reserved and will be charged only after a usable video is stored and passes quality review. Nothing was published or scheduled.`)
         : (isAr
-          ? `بدأ إنتاج إعلان منتج سينمائي مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ من أصول المنتج المؤهلة. تم خصم ${CONTENT_HUB_VIDEO_COST} كريديت؛ لا توجد إعادة محاولة تلقائية، وسيُرد الرصيد إذا لم ينتج أصل صالح. لا نشر ولا جدولة.`
-          : `An ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second cinematic product ad is rendering from qualified product assets. ${CONTENT_HUB_VIDEO_COST} credits were charged; there is no automatic provider retry, and the charge will be restored if no usable output is produced. Nothing was published or scheduled.`))
+          ? `بدأ إنتاج إعلان منتج سينمائي مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ من أصول المنتج المؤهلة. تم حجز ${CONTENT_HUB_VIDEO_COST} كريديت، ولا توجد إعادة محاولة تلقائية؛ يتم الخصم النهائي فقط بعد حفظ أصل صالح واجتيازه الجودة. لا نشر ولا جدولة.`
+          : `An ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second cinematic product ad is rendering from qualified product assets. ${CONTENT_HUB_VIDEO_COST} credits are reserved with no automatic provider retry; the charge settles only after a usable output is stored and passes review. Nothing was published or scheduled.`))
       await refreshBillingStatus()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Video generation could not start')
@@ -2835,42 +2835,54 @@ export default function ContentHubPage() {
                   </div>
                 )}
 
-                <button
-                  onClick={imageGenerationLocked ? () => router.push('/billing') : openBulkImageConfirm}
-                  disabled={generating || pendingImageCount === 0 || imageGenerationBlockedByTruthReview}
-                  className="flex max-w-full min-w-0 items-center justify-center gap-2 rounded-xl px-4 py-2 text-center text-sm font-semibold leading-tight transition-all whitespace-normal break-words"
-                  style={{
-                    background: imageGenerationBlockedByTruthReview || imageGenerationLocked ? '#F8FAFC' : '#111827',
-                    color: imageGenerationBlockedByTruthReview || imageGenerationLocked ? '#475569' : 'white',
-                    border: imageGenerationBlockedByTruthReview || imageGenerationLocked ? '1px solid rgba(15,23,42,0.12)' : '1px solid transparent',
-                    opacity: generating || imageGenerationBlockedByTruthReview ? 0.6 : 1,
-                  }}
-                >
-                  {generating ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                      {t('contentHub.generatingImages')}
-                    </>
-                  ) : (
-                    <>
-                      ✨ {imageGenerationBlockedByTruthReview ? imageGenerationTruthReviewLabel : imageGenerationLocked ? addCreditsForImagesLabel : bulkImageButtonLabel}
-                    </>
-                  )}
-                </button>
-                <div className="flex max-w-sm flex-col items-start gap-1 sm:items-end">
-                  <button
-                    onClick={strategyApprovalRequired ? () => router.push(`/campaigns/${campaignId}?tab=strategy`) : contentPlanLocked ? () => router.push('/billing') : openRegenerateConfirm}
-                    disabled={generatingPlan}
-                    className="max-w-full min-w-0 rounded-xl border px-4 py-2 text-center text-sm leading-tight transition-all whitespace-normal break-words"
-                    style={{ borderColor: contentPlanLocked ? 'rgba(239,68,68,0.18)' : 'rgba(15,23,42,0.14)', color: contentPlanLocked ? '#B91C1C' : '#374151', background: contentPlanLocked ? '#FEF2F2' : '#FFFFFF' }}
-                  >
-                    {generatingPlan ? t('contentHub.regenerating') : strategyApprovalRequired ? strategyApprovalRequiredLabel : contentPlanLocked ? addCreditsForRegenerateDraftPlanLabel : `↻ ${regenerateDraftPlanLabel}`}
-                  </button>
-                  <p className="text-xs leading-relaxed text-slate-500 sm:text-right">
-                    {contentPlanLocked ? `${contentPlanRequirementDisclosure} ` : ''}{contentPlanDisclosure} {contentPlanAutopilotDisclosure}
-                  </p>
-                  <p className="text-[11px] text-slate-400">{creditBalanceLabel}</p>
-                </div>
+                <details className="group relative z-20 max-w-full sm:max-w-xs">
+                  <summary className="flex cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950">
+                    <span aria-hidden="true">⚙</span>
+                    {isAr ? 'أدوات الإنتاج' : 'Production tools'}
+                    <span className="text-[10px] text-slate-400 transition group-open:rotate-180">▼</span>
+                  </summary>
+                  <div className="absolute right-0 top-full mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_24px_60px_rgba(15,23,42,0.18)]" dir={isAr ? 'rtl' : 'ltr'}>
+                    <p className="px-1 pb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                      {isAr ? 'اختياري — لا يغيّر حالة النشر' : 'Optional — does not change publish state'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={imageGenerationLocked ? () => router.push('/billing') : openBulkImageConfirm}
+                      disabled={generating || pendingImageCount === 0 || imageGenerationBlockedByTruthReview}
+                      className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-start transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <span className="mt-0.5" aria-hidden="true">✨</span>
+                      <span>
+                        <span className="block text-sm font-bold text-slate-900">
+                          {generating ? t('contentHub.generatingImages') : imageGenerationBlockedByTruthReview ? imageGenerationTruthReviewLabel : imageGenerationLocked ? addCreditsForImagesLabel : bulkImageButtonLabel}
+                        </span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-500">
+                          {isAr ? 'ينشئ وسائط للخانات الناقصة فقط بعد تأكيد التكلفة.' : 'Creates media only for missing slots after cost confirmation.'}
+                        </span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={strategyApprovalRequired ? () => router.push(`/campaigns/${campaignId}?tab=strategy`) : contentPlanLocked ? () => router.push('/billing') : openRegenerateConfirm}
+                      disabled={generatingPlan}
+                      className="mt-1 flex w-full items-start gap-3 rounded-xl px-3 py-3 text-start transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <span className="mt-0.5" aria-hidden="true">↻</span>
+                      <span>
+                        <span className="block text-sm font-bold text-slate-900">
+                          {generatingPlan ? t('contentHub.regenerating') : strategyApprovalRequired ? strategyApprovalRequiredLabel : contentPlanLocked ? addCreditsForRegenerateDraftPlanLabel : regenerateDraftPlanLabel}
+                        </span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-500">
+                          {contentPlanLocked ? contentPlanRequirementDisclosure : contentPlanDisclosure}
+                        </span>
+                      </span>
+                    </button>
+                    <div className="mt-2 border-t border-slate-100 px-3 pt-3 text-[11px] leading-5 text-slate-500">
+                      <p>{creditBalanceLabel}</p>
+                      <p>{contentPlanAutopilotDisclosure}</p>
+                    </div>
+                  </div>
+                </details>
               </>
             )}
 
@@ -2923,6 +2935,23 @@ export default function ContentHubPage() {
             )}
           </div>
         </div>
+
+        {posts.length > 0 && (
+          <section
+            className="mb-5 rounded-[22px] border border-slate-200 bg-white px-5 py-4 shadow-sm"
+            aria-label={isAr ? 'القرار التالي' : 'Next decision'}
+            dir={isAr ? 'rtl' : 'ltr'}
+          >
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-[#EEF0FF] text-[#5E63FF]" aria-hidden="true">✦</span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#5E63FF]">{productionDecision.eyebrow}</p>
+                <h2 className="mt-1 text-base font-black text-slate-950">{productionDecision.title}</h2>
+                <p className="mt-1 text-xs font-medium leading-5 text-slate-600">{productionDecision.body}</p>
+              </div>
+            </div>
+          </section>
+        )}
 
         {campaignStrategyScope.includesPaid && (
           <section className="mb-5 overflow-hidden rounded-[22px] border border-indigo-200 bg-gradient-to-r from-indigo-50 via-white to-orange-50 shadow-sm">

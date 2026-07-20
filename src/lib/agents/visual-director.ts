@@ -18,6 +18,12 @@
 
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { checkAndLog } from '@/lib/outputGuardrails'
+import {
+  readOpenAIChatUsage,
+  summarizeOpenAITextUsage,
+  type OpenAITextUsage,
+  type ProviderUsageSummary,
+} from '@/lib/ai/providerEconomics'
 
 // ─── Input Types ─────────────────────────────────────────────────────────────
 
@@ -105,6 +111,8 @@ export interface CreativeBrief {
   colorDirections?: string[]
   platformLayouts?: Record<string, string>
   creativeNotes?: string
+  /** Internal provider meter; API callers remove it before persistence/response. */
+  providerUsage?: ProviderUsageSummary
 }
 
 // ─── Internal API Helpers ─────────────────────────────────────────────────────
@@ -113,7 +121,7 @@ async function callGPT4oVision(
   systemPrompt: string,
   userText: string,
   imageUrl: string
-): Promise<any> {
+): Promise<{ result: any; usage: OpenAITextUsage }> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -142,7 +150,7 @@ async function callGPT4oVision(
   const raw = data.choices?.[0]?.message?.content?.trim()
   if (!raw) throw new Error('OpenAI returned no asset analysis')
   try {
-    return JSON.parse(raw)
+    return { result: JSON.parse(raw), usage: readOpenAIChatUsage(data.usage) }
   } catch {
     throw new Error('OpenAI returned invalid asset analysis JSON')
   }
@@ -152,7 +160,7 @@ async function callOpenAI(
   systemPrompt: string,
   userPrompt: string,
   maxTokens = 2500
-): Promise<any> {
+): Promise<{ result: any; usage: OpenAITextUsage }> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -175,7 +183,7 @@ async function callOpenAI(
   const raw = data.choices?.[0]?.message?.content?.trim()
   if (!raw) throw new Error('OpenAI returned no visual direction')
   try {
-    return JSON.parse(raw)
+    return { result: JSON.parse(raw), usage: readOpenAIChatUsage(data.usage) }
   } catch {
     throw new Error('OpenAI returned invalid visual direction JSON')
   }
@@ -251,6 +259,7 @@ Always output valid JSON.`
 
   const imageAssets = assets.filter(a => a.type === 'IMAGE' || a.type === 'LOGO')
   const videoAssets = assets.filter(a => a.type === 'VIDEO')
+  const providerUsages: OpenAITextUsage[] = []
 
   // ── Per-asset vision analysis ──
   const assetAnalyses: AssetAnalysis[] = []
@@ -273,7 +282,9 @@ Return JSON with exactly these fields:
 }`
 
     try {
-      const result = await callGPT4oVision(visionSystemPrompt, userText, asset.url)
+      const response = await callGPT4oVision(visionSystemPrompt, userText, asset.url)
+      const result = response.result
+      providerUsages.push(response.usage)
       assetAnalyses.push({
         mediaId: asset.mediaId,
         fileName: asset.fileName,
@@ -386,7 +397,9 @@ Return JSON with exactly these fields:
   ]
 }`
 
-    const result = await callOpenAI(overallSystemPrompt, overallPrompt, 1800)
+    const response = await callOpenAI(overallSystemPrompt, overallPrompt, 1800)
+    const result = response.result
+    providerUsages.push(response.usage)
     if (typeof result.overallCreativeDirection !== 'string' || !result.overallCreativeDirection.trim()) {
       throw new Error('OpenAI returned an incomplete asset-based creative direction')
     }
@@ -406,6 +419,7 @@ Return JSON with exactly these fields:
     captionFormulas,
     topAssetsForCampaign,
     assetBasedScripts,
+    providerUsage: summarizeOpenAITextUsage('gpt-4o', providerUsages),
   }
 }
 
@@ -496,7 +510,8 @@ Return JSON with exactly these fields:
 
 Generate 6 imagePrompts and 5 storyboardScenes.`
 
-  const result = await callOpenAI(systemPrompt, userPrompt, 3200)
+  const response = await callOpenAI(systemPrompt, userPrompt, 3200)
+  const result = response.result
   if (
     !Array.isArray(result.imagePrompts) || result.imagePrompts.length === 0 ||
     !Array.isArray(result.storyboardScenes) || result.storyboardScenes.length === 0 ||
@@ -521,5 +536,6 @@ Generate 6 imagePrompts and 5 storyboardScenes.`
       ? result.platformLayouts
       : {},
     creativeNotes: result.creativeNotes || '',
+    providerUsage: summarizeOpenAITextUsage('gpt-4o', [response.usage]),
   }
 }

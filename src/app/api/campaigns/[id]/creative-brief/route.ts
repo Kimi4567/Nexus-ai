@@ -203,7 +203,7 @@ export async function POST(req: NextRequest, props: Params) {
     if (!credit.ok) return NextResponse.json(credit, { status: creditCheckHttpStatus(credit) })
     chargedCredit = credit
 
-    let creativeBrief
+    let generatedBrief
 
     if (mode === 'asset') {
 
@@ -214,10 +214,11 @@ export async function POST(req: NextRequest, props: Params) {
         type: m.type,
       }))
 
-      creativeBrief = await analyzeAssets(assets, ctx)
+      generatedBrief = await analyzeAssets(assets, ctx)
     } else {
-      creativeBrief = await generateVisualConcepts(ctx)
+      generatedBrief = await generateVisualConcepts(ctx)
     }
+    const { providerUsage, ...creativeBrief } = generatedBrief
 
     // Persist to campaign.aiOutput.creativeBrief
     const updatedOutput = {
@@ -247,6 +248,13 @@ export async function POST(req: NextRequest, props: Params) {
       userId,
       action: 'CREATIVE_BRIEF',
       deduction: credit,
+      providerEconomics: providerUsage
+        ? {
+            providerCostUsd: providerUsage.estimatedProviderCostUsd,
+            providerPricingVersion: providerUsage.pricingVersion,
+            providerUsage,
+          }
+        : undefined,
     })
     if (!finalization.ok) {
       chargedCredit = null

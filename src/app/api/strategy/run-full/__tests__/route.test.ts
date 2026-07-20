@@ -131,7 +131,23 @@ beforeEach(() => {
   mockPrisma.user.update.mockResolvedValue({})
   mockPrisma.creditTransaction.create.mockResolvedValue({})
   mockPrisma.media.findMany.mockResolvedValue([])
-  mockPrisma.campaign.findFirst.mockResolvedValue({ id: 'camp1', name: 'New Strategy' })
+  mockPrisma.campaign.findFirst.mockResolvedValue({
+    id: 'camp1',
+    name: 'New Strategy',
+    aiOutput: {
+      strategy: {
+        providerUsage: {
+          model: 'gpt-4o',
+          calls: 2,
+          inputTokens: 12000,
+          cachedInputTokens: 0,
+          outputTokens: 6000,
+          estimatedProviderCostUsd: 0.09,
+          pricingVersion: 'openai-standard-2026-07-20',
+        },
+      },
+    },
+  })
   mockRunFullAgency.mockImplementation(async (_workspaceId: string, _brief: Record<string, unknown>, options?: { beforePersistStrategy?: () => Promise<void> }) => {
     await options?.beforePersistStrategy?.()
     return { strategyCreated: true, agentRunId: 'run1', suggestions: 3, errors: [] }
@@ -519,6 +535,13 @@ describe('POST /api/strategy/run-full — variable charge', () => {
       userId: 'u1',
       action: 'RUN_FULL_STRATEGY',
       deduction: expect.objectContaining({ transactionId: 'txn_ok' }),
+      providerEconomics: {
+        providerCostUsd: 0.09,
+        providerPricingVersion: 'openai-standard-2026-07-20',
+        providerUsage: {
+          strategyText: expect.objectContaining({ model: 'gpt-4o', calls: 2 }),
+        },
+      },
     }))
     expect(mockRefundDeduction).not.toHaveBeenCalled()
     expect(mockPrisma.user.update).not.toHaveBeenCalled()

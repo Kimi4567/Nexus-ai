@@ -22,6 +22,7 @@ import { FREE_TRIAL_CREDITS, PUBLIC_PAID_PLANS } from '@/lib/commercialPlans'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { STRATEGY_PRICING_DISPLAY_TRUTH } from '@/lib/strategy/strategyPricingDisplayTruth'
+import { readOpenAIChatUsage, summarizeOpenAITextUsage, type OpenAITextUsage } from '@/lib/ai/providerEconomics'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -247,6 +248,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           stream: true,
+          stream_options: { include_usage: true },
           max_tokens: 400,
           temperature: 0.7,
           messages: [
@@ -295,6 +297,7 @@ export async function POST(req: NextRequest) {
         let buffer = ''
         let emittedContent = false
         let completed = false
+        let openAiUsage: OpenAITextUsage | null = null
 
         try {
           while (true) {
@@ -315,6 +318,7 @@ export async function POST(req: NextRequest) {
 
               try {
                 const json = JSON.parse(trimmed.slice(6))
+                if (json.usage) openAiUsage = readOpenAIChatUsage(json.usage)
                 const delta = json.choices?.[0]?.delta?.content
                 if (delta) {
                   emittedContent = true
@@ -333,10 +337,18 @@ export async function POST(req: NextRequest) {
               ? 'Chat response stream failed before completion'
               : 'Chat provider returned no usable response')
           } else {
+            const providerUsage = openAiUsage
+              ? summarizeOpenAITextUsage('gpt-4o-mini', [openAiUsage])
+              : null
             const finalization = await finalizeCreditDeduction({
               userId: authUser.id,
               action: 'CHAT_MESSAGE',
               deduction: credit,
+              providerEconomics: providerUsage ? {
+                providerCostUsd: providerUsage.estimatedProviderCostUsd,
+                providerPricingVersion: providerUsage.pricingVersion,
+                providerUsage,
+              } : undefined,
             })
             if (!finalization.ok) {
               console.error('[chat] Credit finalization failed; reservation was returned:', finalization.error)

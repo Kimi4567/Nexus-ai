@@ -20,6 +20,7 @@ import { prisma } from '@/lib/prisma'
 import { getSupabaseAdmin } from '@/lib/supabaseAuth'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { readOpenAIChatUsage, summarizeOpenAITextUsage, type ProviderUsageSummary } from '@/lib/ai/providerEconomics'
 
 export const runtime = 'nodejs'
 
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   let chargedUserId: string | null = null
   let chargedCredit: CreditDeductionOk | null = null
   let activeDocumentId: string | null = null
+  let providerUsage: ProviderUsageSummary | null = null
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -133,6 +135,7 @@ Return JSON: {"claims":[{"claim":"concise factual claim","category":"CATEGORY","
 
     if (!aiResponse.ok) throw new Error(`evidence_provider_${aiResponse.status}`)
     const aiData = await aiResponse.json()
+    providerUsage = summarizeOpenAITextUsage('gpt-4o-mini', [readOpenAIChatUsage(aiData.usage)])
     const raw = aiData.choices?.[0]?.message?.content
     let parsed: unknown
     try {
@@ -181,6 +184,11 @@ Return JSON: {"claims":[{"claim":"concise factual claim","category":"CATEGORY","
       userId: user.id,
       action: 'BRAND_EVIDENCE_ANALYSIS',
       deduction: credit,
+      providerEconomics: {
+        providerCostUsd: providerUsage.estimatedProviderCostUsd,
+        providerPricingVersion: providerUsage.pricingVersion,
+        providerUsage,
+      },
     })
     if (!finalization.ok) {
       chargedUserId = null
@@ -212,6 +220,11 @@ Return JSON: {"claims":[{"claim":"concise factual claim","category":"CATEGORY","
           action: 'BRAND_EVIDENCE_ANALYSIS',
           deduction: chargedCredit,
           reason: error instanceof Error ? error.message : 'Evidence analysis failed',
+          providerEconomics: providerUsage ? {
+            providerCostUsd: providerUsage.estimatedProviderCostUsd,
+            providerPricingVersion: providerUsage.pricingVersion,
+            providerUsage,
+          } : undefined,
         })
         refunded = true
       } catch (refundError) {

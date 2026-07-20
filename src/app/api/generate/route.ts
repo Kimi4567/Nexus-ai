@@ -20,6 +20,8 @@ import { assertCampaignStrategyContract } from '@/lib/campaignStrategyContract'
 import { reviewBrandTruthConsistency, reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { captureOperationalError } from '@/lib/observability/operationalError'
+import { createOpenAIProviderUsageCollector } from '@/lib/ai/providerUsageContext'
+import { summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
 
 export async function POST(req: NextRequest) {
   const userId = await getServerUserId(req)
@@ -101,12 +103,24 @@ export async function POST(req: NextRequest) {
   }
   // ────────────────────────────────────────────────────────────────────────────
 
+  const usageCollector = createOpenAIProviderUsageCollector()
+  const currentProviderEconomics = () => {
+    const calls = usageCollector.snapshot()
+    if (calls.length === 0) return undefined
+    const usage = summarizeOpenAITextUsage('gpt-4o-mini', calls)
+    return {
+      providerCostUsd: usage.estimatedProviderCostUsd,
+      providerPricingVersion: usage.pricingVersion,
+      providerUsage: usage,
+    }
+  }
+
   try {
     // Run both AI calls in parallel — halves execution time vs sequential
-    let [strategy, concepts] = await Promise.all([
+    let [strategy, concepts] = await usageCollector.run(() => Promise.all([
       ai.generateMarketingStrategy(campaignWithLang, project as any),
       ai.generateAdConcepts(campaignWithLang, project as any),
-    ])
+    ]))
 
     // Legacy campaign generation now passes through the same persistence
     // contract as Strategy OS. This route may remain for old campaigns, but it
@@ -145,6 +159,7 @@ export async function POST(req: NextRequest) {
         action: 'CAMPAIGN_GENERATION',
         deduction: credit,
         reason: 'Generated campaign failed the Brand Brain and scope quality gate',
+        providerEconomics: currentProviderEconomics(),
       })
       return NextResponse.json({
         error: 'MARKETING_QUALITY_GATE_BLOCKED',
@@ -206,6 +221,7 @@ export async function POST(req: NextRequest) {
       userId,
       action: 'CAMPAIGN_GENERATION',
       deduction: credit,
+      providerEconomics: currentProviderEconomics(),
     })
     if (!finalization.ok) {
       return NextResponse.json({
@@ -240,6 +256,7 @@ export async function POST(req: NextRequest) {
       action: 'CAMPAIGN_GENERATION',
       deduction: credit,
       reason: 'Campaign generation failed',
+      providerEconomics: currentProviderEconomics(),
     })
     return NextResponse.json({ error: 'Generation failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
   }

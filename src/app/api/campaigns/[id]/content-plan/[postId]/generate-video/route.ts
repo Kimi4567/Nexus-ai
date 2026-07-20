@@ -23,7 +23,6 @@ import {
   platformToRunwayRatio,
 } from '@/lib/ai/mediaProviderRouter'
 import {
-  cancelRunwayTask,
   createRunwayMultiShotVideoTask,
   createRunwayProductAdTask,
   retrieveRunwayTask,
@@ -42,6 +41,7 @@ import {
   reopensContentReview,
 } from '@/lib/contentPostRevision'
 import { sanitizeSentryText } from '@/lib/observability/sentryPrivacy'
+import { isCronRequestAuthorized } from '@/lib/cronAuth'
 import {
   cloudinaryVideoReviewFrames,
   reviewGeneratedMediaQuality,
@@ -73,9 +73,22 @@ import { renderAndPersistProfessionalCampaignFilm } from '@/lib/professionalCamp
 // Completion includes durable video upload plus a three-frame visual review.
 // Keep this server-side verification window independent from browser polling.
 export const maxDuration = 180
+const VIDEO_PROVIDER_ECONOMICS_VERSION = 'nexus-video-provider-estimate-2026-07-20-v1'
 
 type Params = { params: Promise<{ id: string; postId: string }> }
 const db = prisma as any
+
+async function getVideoActorUserId(req: NextRequest): Promise<string | null> {
+  const delegatedUserId = req.headers.get('x-nexus-internal-user-id')?.trim()
+  if (
+    delegatedUserId
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(delegatedUserId)
+    && isCronRequestAuthorized(req)
+  ) {
+    return delegatedUserId
+  }
+  return getServerUserId(req)
+}
 
 type StoredGenerationParams = {
   postId?: string
@@ -87,6 +100,8 @@ type StoredGenerationParams = {
   durationSeconds?: number
   productionRoute?: 'CINEMATIC_PRODUCT_AD' | 'MULTI_SHOT_CAMPAIGN_FILM'
   overlayCopy?: ProfessionalCampaignFilmBrief['overlayCopy']
+  pricingVersion?: string
+  providerCostEstimate?: { currency: 'USD'; amount: number; providerCredits: number }
   credit?: CreditDeductionOk
 }
 
@@ -140,13 +155,45 @@ async function refundGeneration(
   userId: string,
   generation: any,
   reason: string,
+  qualityReviewUsage?: { estimatedProviderCostUsd?: number } | null,
 ): Promise<'refunded' | 'pending' | 'noop'> {
-  const deduction = generationParams(generation.params).credit
+  const params = generationParams(generation.params)
+  const deduction = params.credit
+  const isCampaignFilm = params.productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM'
+  const estimatedVideoCost = Number(params.providerCostEstimate?.amount ?? (
+    isCampaignFilm
+      ? PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_COST_USD_ESTIMATE
+      : CINEMATIC_PRODUCT_AD_PROVIDER_COST_USD_ESTIMATE
+  ))
+  const qaCost = Number(qualityReviewUsage?.estimatedProviderCostUsd)
+  const providerCostUsd = Math.max(0, Number.isFinite(estimatedVideoCost) ? estimatedVideoCost : 0)
+    + Math.max(0, Number.isFinite(qaCost) ? qaCost : 0)
   const result = await refundCreditDeduction({
     userId,
     action: 'VIDEO_GENERATION',
     deduction,
     reason,
+    providerEconomics: {
+      providerCostUsd,
+      providerPricingVersion: VIDEO_PROVIDER_ECONOMICS_VERSION,
+      providerUsage: {
+        videoProvider: {
+          provider: 'runway',
+          productionRoute: params.productionRoute ?? null,
+          estimate: params.providerCostEstimate ?? {
+            currency: 'USD',
+            amount: estimatedVideoCost,
+            providerCredits: isCampaignFilm
+              ? PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_CREDITS_ESTIMATE
+              : CINEMATIC_PRODUCT_AD_PROVIDER_CREDITS_ESTIMATE,
+          },
+          chargeAssumption: 'conservative-full-provider-estimate; reconcile against provider invoice',
+          automaticRetries: 0,
+        },
+        qualityReview: qualityReviewUsage ?? null,
+        customerCreditsRestored: true,
+      },
+    },
   })
   if (!result.ok) return 'pending'
   return result.status === 'refunded' ? 'refunded' : 'noop'
@@ -498,34 +545,23 @@ export async function POST(req: NextRequest, props: Params) {
       },
     })
 
-    const finalization = await finalizeCreditDeduction({
-      userId,
-      action: 'VIDEO_GENERATION',
-      deduction: credit,
-    })
-    if (!finalization.ok) {
-      await cancelRunwayTask(task.id)
-      await db.generation.update({
-        where: { id: generation.id },
-        data: { status: 'CANCELLED', error: 'Credit finalization failed; provider task cancellation was requested.' },
-      })
-      await db.socialPost.update({ where: { id: post.id }, data: { generationStatus: 'FAILED' } })
-      return NextResponse.json({
-        error: 'Video generation was stopped because the credit operation could not be finalized.',
-        code: 'CREDIT_FINALIZATION_FAILED',
-        refunded: finalization.refundStatus === 'refunded',
-      }, { status: 503 })
-    }
-
     return NextResponse.json({
       generationId: generation.id,
       status: task.status,
       durationSeconds,
       productionRoute,
       ratio,
-      creditsUsed: credit.creditsUsed,
+      creditsReserved: credit.creditsUsed,
+      creditsUsed: 0,
       creditsRemaining: credit.creditsRemaining,
-      creditCharge: buildCreditChargeReceipt('VIDEO_GENERATION', credit),
+      creditsCharged: false,
+      creditReservation: {
+        action: 'VIDEO_GENERATION',
+        creditsReserved: credit.creditsUsed,
+        creditsRemaining: credit.creditsRemaining,
+        transactionId: credit.transactionId ?? null,
+        operationStatus: 'RESERVED',
+      },
       reviewRequired: true,
       published: false,
       scheduled: false,
@@ -835,7 +871,7 @@ export async function PATCH(req: NextRequest, props: Params) {
 
 export async function GET(req: NextRequest, props: Params) {
   const params = await props.params
-  const userId = await getServerUserId(req)
+  const userId = await getVideoActorUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const context = await findCampaignContext(userId, params.id, params.postId)
   if (!context) return NextResponse.json({ error: 'Campaign video post not found' }, { status: 404 })
@@ -843,6 +879,7 @@ export async function GET(req: NextRequest, props: Params) {
   const generation = await findLatestPostGeneration(params.id, params.postId)
   if (!generation) return NextResponse.json({ status: 'NOT_STARTED', generation: null })
   if (generation.status === 'COMPLETED') {
+    const settledCredit = generationParams(generation.params).credit
     return NextResponse.json({
       status: 'SUCCEEDED',
       generationId: generation.id,
@@ -850,6 +887,11 @@ export async function GET(req: NextRequest, props: Params) {
       mediaId: (generation.metadata as any)?.mediaId ?? null,
       attached: (generation.metadata as any)?.attached === true,
       reviewRequired: true,
+      creditsUsed: settledCredit?.creditsUsed ?? 0,
+      creditsCharged: Boolean(settledCredit),
+      creditCharge: settledCredit
+        ? buildCreditChargeReceipt('VIDEO_GENERATION', settledCredit)
+        : null,
     })
   }
   if (['FAILED', 'CANCELLED'].includes(generation.status) || !generation.externalId) {
@@ -1020,7 +1062,7 @@ export async function GET(req: NextRequest, props: Params) {
     })
     if (!qualityReview.passed) {
       const message = 'NEXUS quality review rejected this video because it did not meet the approved creative and platform-delivery requirements. Credits will be restored.'
-      const refund = await refundGeneration(userId, generation, message)
+      const refund = await refundGeneration(userId, generation, message, qualityReview.providerUsage ?? null)
       await db.generation.update({
         where: { id: generation.id },
         data: {
@@ -1080,6 +1122,89 @@ export async function GET(req: NextRequest, props: Params) {
       },
     })
 
+    // Provider acceptance is not a billable result. Settle only after the
+    // video is durably stored and has passed NEXUS quality review. If the
+    // reservation was already reconciled or settlement fails, retain the
+    // output for audit but never attach or expose it as a completed delivery.
+    const settledCredit = generationParams(generation.params).credit
+    const videoProviderCost = Number(storedParams.providerCostEstimate?.amount ?? (
+      isCampaignFilm
+        ? PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_COST_USD_ESTIMATE
+        : CINEMATIC_PRODUCT_AD_PROVIDER_COST_USD_ESTIMATE
+    ))
+    const qualityReviewCost = Number(qualityReview.providerUsage?.estimatedProviderCostUsd)
+    const providerCostUsd = Math.max(0, Number.isFinite(videoProviderCost) ? videoProviderCost : 0)
+      + Math.max(0, Number.isFinite(qualityReviewCost) ? qualityReviewCost : 0)
+    const finalization = await finalizeCreditDeduction({
+      userId,
+      action: 'VIDEO_GENERATION',
+      deduction: settledCredit,
+      settlementEntityId: media.id,
+      settlementEntityType: 'media_video',
+      providerEconomics: {
+        providerCostUsd,
+        providerPricingVersion: VIDEO_PROVIDER_ECONOMICS_VERSION,
+        providerUsage: {
+          videoProvider: {
+            provider: 'runway',
+            productionRoute,
+            estimate: storedParams.providerCostEstimate ?? {
+              currency: 'USD',
+              amount: videoProviderCost,
+              providerCredits: isCampaignFilm
+                ? PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_CREDITS_ESTIMATE
+                : CINEMATIC_PRODUCT_AD_PROVIDER_CREDITS_ESTIMATE,
+            },
+            automaticRetries: 0,
+          },
+          qualityReview: qualityReview.providerUsage ?? null,
+        },
+      },
+    })
+    if (!finalization.ok) {
+      const refundPending = finalization.refundStatus === 'failed'
+      const message = refundPending
+        ? 'NEXUS produced a reviewable video but could not reconcile its credit reservation. The output is quarantined while credit restoration is retried.'
+        : 'NEXUS produced a reviewable video but could not finalize its credit reservation. The reservation was restored and the output was not attached.'
+      await db.generation.update({
+        where: { id: generation.id },
+        data: {
+          status: 'FAILED',
+          progress: 100,
+          output: stored.url,
+          error: message,
+          metadata: {
+            model: isCampaignFilm ? 'multi-shot-video-2026-06' : 'product-ad-2026-06',
+            productionRoute,
+            providerTaskId: task.id,
+            mediaId: media.id,
+            durationSeconds: stored.duration ?? expectedDurationSeconds,
+            reviewRequired: true,
+            qualityStatus: 'PASSED',
+            qualityReview,
+            creditFinalizationStatus: 'FAILED',
+            retainedForAudit: true,
+            attached: false,
+            compositorVersion: isCampaignFilm ? PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION : null,
+          },
+        },
+      })
+      await db.socialPost.update({
+        where: { id: params.postId },
+        data: {
+          generationStatus: refundPending ? 'REFUND_PENDING' : 'FAILED',
+          errorMessage: message,
+        },
+      })
+      return NextResponse.json({
+        error: message,
+        code: 'CREDIT_FINALIZATION_FAILED',
+        refunded: finalization.refundStatus === 'refunded',
+        refundPending,
+        creditsCharged: false,
+      }, { status: 503 })
+    }
+
     await db.generation.update({
       where: { id: generation.id },
       data: {
@@ -1095,6 +1220,7 @@ export async function GET(req: NextRequest, props: Params) {
           reviewRequired: true,
           qualityStatus: 'PASSED',
           qualityReview,
+          creditFinalizationStatus: finalization.status.toUpperCase(),
           compositorVersion: isCampaignFilm ? PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION : null,
         },
       },
@@ -1113,6 +1239,7 @@ export async function GET(req: NextRequest, props: Params) {
           model: isCampaignFilm ? 'multi-shot-video-2026-06' : 'product-ad-2026-06', productionRoute, providerTaskId: task.id, mediaId: media.id,
           durationSeconds: stored.duration ?? expectedDurationSeconds, reviewRequired: true, attached: false,
           qualityStatus: 'PASSED', qualityReview,
+          creditFinalizationStatus: finalization.status.toUpperCase(),
           compositorVersion: isCampaignFilm ? PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION : null,
         } },
       })
@@ -1130,6 +1257,11 @@ export async function GET(req: NextRequest, props: Params) {
         mediaId: media.id,
         attached: false,
         reviewRequired: true,
+        creditsUsed: settledCredit?.creditsUsed ?? 0,
+        creditsCharged: Boolean(settledCredit),
+        creditCharge: settledCredit
+          ? buildCreditChargeReceipt('VIDEO_GENERATION', settledCredit)
+          : null,
         message: 'The video is saved in Media Library, but the post changed while it was rendering, so NEXUS did not overwrite the newer revision.',
       })
     }
@@ -1168,6 +1300,7 @@ export async function GET(req: NextRequest, props: Params) {
         model: isCampaignFilm ? 'multi-shot-video-2026-06' : 'product-ad-2026-06', productionRoute, providerTaskId: task.id, mediaId: media.id,
         durationSeconds: stored.duration ?? expectedDurationSeconds, reviewRequired: true, attached: true,
         qualityStatus: 'PASSED', qualityReview,
+        creditFinalizationStatus: finalization.status.toUpperCase(),
         compositorVersion: isCampaignFilm ? PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION : null,
       } },
     })
@@ -1179,6 +1312,11 @@ export async function GET(req: NextRequest, props: Params) {
       mediaId: media.id,
       attached: true,
       reviewRequired: true,
+      creditsUsed: settledCredit?.creditsUsed ?? 0,
+      creditsCharged: Boolean(settledCredit),
+      creditCharge: settledCredit
+        ? buildCreditChargeReceipt('VIDEO_GENERATION', settledCredit)
+        : null,
       published: false,
       scheduled: false,
     })

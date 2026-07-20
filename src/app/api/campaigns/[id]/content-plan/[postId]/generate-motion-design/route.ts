@@ -368,6 +368,17 @@ export async function POST(req: NextRequest, props: Params) {
       userId,
       action: 'MOTION_DESIGN_VIDEO',
       deduction: credit,
+      providerEconomics: qualityReview.providerUsage
+        ? {
+            providerCostUsd: qualityReview.providerUsage.estimatedProviderCostUsd,
+            providerPricingVersion: qualityReview.providerUsage.pricingVersion,
+            providerUsage: {
+              productionRoute: 'SOURCE_LOCKED_MOTION_DESIGN',
+              generativeVideoProviderCalls: 0,
+              qualityReview: qualityReview.providerUsage,
+            },
+          }
+        : undefined,
     })
     if (!finalization.ok) {
       await destroyMotionDesignAd(stored.publicId).catch(() => undefined)

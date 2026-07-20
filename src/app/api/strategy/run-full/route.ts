@@ -48,6 +48,23 @@ import { captureOperationalError } from '@/lib/observability/operationalError'
 // headroom for the AI call, the atomic credit charge, and the persistence work.
 export const maxDuration = 180
 
+function readStrategyProviderEconomics(aiOutput: unknown) {
+  if (!aiOutput || typeof aiOutput !== 'object' || Array.isArray(aiOutput)) return null
+  const strategy = (aiOutput as Record<string, unknown>).strategy
+  if (!strategy || typeof strategy !== 'object' || Array.isArray(strategy)) return null
+  const usage = (strategy as Record<string, unknown>).providerUsage
+  if (!usage || typeof usage !== 'object' || Array.isArray(usage)) return null
+  const record = usage as Record<string, unknown>
+  const providerCostUsd = Number(record.estimatedProviderCostUsd)
+  const providerPricingVersion = typeof record.pricingVersion === 'string' ? record.pricingVersion.trim() : ''
+  if (!Number.isFinite(providerCostUsd) || providerCostUsd < 0 || !providerPricingVersion) return null
+  return {
+    providerCostUsd,
+    providerPricingVersion,
+    providerUsage: { strategyText: record },
+  }
+}
+
 function isArabicLanguage(language: unknown): boolean {
   return typeof language === 'string' && language.toLowerCase().startsWith('ar')
 }
@@ -591,7 +608,7 @@ export async function POST(req: NextRequest) {
       ? await (prisma as any).campaign.findFirst({
           where: { workspaceId: workspace.id },
           orderBy: { createdAt: 'desc' },
-          select: { id: true, name: true },
+          select: { id: true, name: true, aiOutput: true },
         })
       : null
 
@@ -635,6 +652,7 @@ export async function POST(req: NextRequest) {
         deduction: finalDeductedCredit,
         settlementEntityId: campaign.id,
         settlementEntityType: 'campaign',
+        providerEconomics: readStrategyProviderEconomics(campaign.aiOutput) ?? undefined,
       })
       if (!finalization.ok) {
         deductedCredit = null

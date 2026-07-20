@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { generateWithFlux, platformToFluxAspectRatio, platformToOpenAISize } from '@/lib/ai/falGen'
 import { buildImagePrompt, generateWithDallE, type VisualContext } from '@/lib/ai/imageGen'
 import { reviewGeneratedMediaQuality } from '@/lib/ai/generatedMediaQuality'
+import { estimateProfessionalImageCostUsd } from '@/lib/ai/providerEconomics'
 import { chooseProfessionalImageProvider } from '@/lib/ai/mediaProviderRouter'
 import { normalizeContentHubImagePromptForPlatform } from '@/lib/contentHubImageFormat'
 import {
@@ -67,7 +68,12 @@ type PendingImageRefund = {
 async function generateImage(
   prompt: string,
   platform: string
-): Promise<string> {
+): Promise<{
+  url: string
+  provider: 'openai-gpt-image-2' | 'fal-flux'
+  size: '1024x1024' | '1024x1536' | '1536x1024'
+  fallbackUsed: boolean
+}> {
   const safePrompt = normalizeContentHubImagePromptForPlatform(prompt, platform)
   const decision = chooseProfessionalImageProvider({
     purpose: 'final_ad_creative',
@@ -75,6 +81,7 @@ async function generateImage(
     openAiConfigured: Boolean(process.env.OPENAI_API_KEY),
     falConfigured: Boolean(process.env.FAL_KEY),
   })
+  const size = platformToOpenAISize(platform)
 
   const runFlux = async () => {
     const aspectRatio = platformToFluxAspectRatio(platform)
@@ -84,17 +91,16 @@ async function generateImage(
   }
 
   if (decision.provider === 'fal-flux') {
-    return runFlux()
+    return { url: await runFlux(), provider: 'fal-flux', size, fallbackUsed: false }
   }
 
   try {
-    const size = platformToOpenAISize(platform)
     console.log(`[Cron generate-images] Using GPT Image 2 — size: ${size}`)
-    return await generateWithDallE(safePrompt, size)
+    return { url: await generateWithDallE(safePrompt, size), provider: 'openai-gpt-image-2', size, fallbackUsed: false }
   } catch (error) {
     if (decision.fallback !== 'fal-flux') throw error
     console.warn('[Cron generate-images] GPT Image 2 failed; using controlled Flux fallback')
-    return runFlux()
+    return { url: await runFlux(), provider: 'fal-flux', size, fallbackUsed: true }
   }
 }
 
@@ -417,7 +423,8 @@ export async function GET(req: NextRequest) {
 
         // 1. Generate a final creative through the shared professional router.
         console.log(`[Cron generate-images] Generating final creative for ${post.id} — platform: ${platform}`)
-        const dataUri = await generateImage(prompt, platform)
+        const generatedImage = await generateImage(prompt, platform)
+        const dataUri = generatedImage.url
 
         // 2. Upload to Cloudinary for permanence (accepts data URI directly)
         const durableRawUrl = await uploadToCloudinary(dataUri, post.id)
@@ -469,10 +476,24 @@ export async function GET(req: NextRequest) {
           })
         })
 
+        const providerEconomics = estimateProfessionalImageCostUsd({
+          provider: generatedImage.provider,
+          size: generatedImage.size,
+          model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2',
+          qualityReviewCostUsd: qualityReview.providerUsage?.estimatedProviderCostUsd,
+        })
         const finalization = await finalizeCreditDeduction({
           userId: ownerId,
           action: 'IMAGE_GENERATION',
           deduction: creditResult,
+          providerEconomics: {
+            ...providerEconomics,
+            providerUsage: {
+              ...providerEconomics.providerUsage,
+              qualityReview: qualityReview.providerUsage ?? null,
+              fallbackUsed: generatedImage.fallbackUsed,
+            },
+          },
         })
         if (!finalization.ok) {
           creditReservation.refunded = true

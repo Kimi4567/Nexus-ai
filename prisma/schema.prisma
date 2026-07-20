@@ -525,6 +525,12 @@ model CreditTransaction {
   // whose historical price version cannot be proven.
   pricingVersion String?
 
+  // Internal provider economics captured only when a reservation settles.
+  // These values are operational cost evidence, never a customer price claim.
+  providerCostUsd        Decimal? @db.Decimal(12, 6)
+  providerPricingVersion String?
+  providerUsage          Json?
+
   // Billable AI debits move RESERVED -> SETTLED or REFUNDED. Non-AI grants,
   // purchases, and legacy rows are immediately SETTLED.
   status       String    @default("SETTLED")

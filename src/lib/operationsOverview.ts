@@ -1,4 +1,5 @@
 import type { ExecutionQueueItem, ExecutionStage, WorkspaceExecutionTruth } from '@/lib/executionTruth'
+import type { PilotProofOverview } from '@/lib/pilotProof'
 
 export type OperationsHealth = 'healthy' | 'attention' | 'critical' | 'not_started'
 
@@ -60,11 +61,28 @@ export interface OperationsOverview {
     spent30d: number
     refunded30d: number
     transactions30d: number
+    settledDebits30d: number
+    reservationsInFlight: number
+    staleReservations: number
     unversionedCharges30d: number
     chargesWithoutArtifact30d: number
   }
   paid: { activeCampaigns: number; reportedSpend: number; staleSyncs: number; budgetIncidents: number }
   retries: { last24h: number; latestAt: string | null }
+  readiness: {
+    scope: 'workspace_prelaunch'
+    status: 'ready' | 'blocked' | 'not_verified'
+    passed: number
+    total: number
+    checks: Array<{
+      id: 'strategy_to_content' | 'approval_evidence' | 'monitoring' | 'credit_traceability' | 'failure_recovery'
+      status: 'ready' | 'blocked' | 'not_verified'
+      href: string
+      title: { en: string; ar: string }
+      evidence: { en: string; ar: string }
+    }>
+    pilot: PilotProofOverview
+  }
   issues: OperationsIssue[]
 }
 
@@ -95,7 +113,10 @@ export interface OperationsOverviewInput {
   pendingApprovals: number
   overdueApprovals: number
   creditTransactions: Array<{
+    action: string
     amount: number
+    status: string
+    createdAt: Date
     pricingVersion: string | null
     entityId: string | null
     entityType: string | null
@@ -119,6 +140,7 @@ export interface OperationsOverviewInput {
   latestAnalyticsAt: Date | null
   retriesLast24h: number
   latestRetryAt: Date | null
+  pilotProof: PilotProofOverview
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -320,11 +342,19 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
     })
   }
 
-  const debits = input.creditTransactions.filter(transaction => transaction.amount < 0)
+  // Economic truth uses finalized ledger state only. A reservation is not
+  // revenue/spend yet, and positive grants or purchases are never refunds.
+  const debits = input.creditTransactions.filter(transaction => (
+    transaction.amount < 0 && transaction.status === 'SETTLED'
+  ))
   const spent30d = debits.reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0)
   const refunded30d = input.creditTransactions
-    .filter(transaction => transaction.amount > 0)
+    .filter(transaction => transaction.action === 'REFUND' && transaction.amount > 0 && transaction.status === 'SETTLED')
     .reduce((sum, transaction) => sum + transaction.amount, 0)
+  const reservations = input.creditTransactions.filter(transaction => transaction.status === 'RESERVED')
+  const staleReservations = reservations.filter(transaction => (
+    input.now.getTime() - transaction.createdAt.getTime() > 30 * 60 * 1000
+  ))
   const unversionedCharges30d = debits.filter(transaction => !transaction.pricingVersion).length
   const chargesWithoutArtifact30d = debits.filter(transaction => !transaction.entityId || !transaction.entityType).length
   if (unversionedCharges30d > 0 || chargesWithoutArtifact30d > 0) {
@@ -337,6 +367,19 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
       reason: {
         en: `${unversionedCharges30d} charge(s) lack a pricing version and ${chargesWithoutArtifact30d} lack an artifact link.`,
         ar: `${unversionedCharges30d} خصم بلا إصدار تسعير و${chargesWithoutArtifact30d} بلا رابط للمخرج.`,
+      },
+    })
+  }
+  if (staleReservations.length > 0) {
+    issues.push({
+      id: 'credits:stale-reservations',
+      source: 'credits',
+      priority: 'critical',
+      href: '/billing',
+      title: { en: 'Credit reservations are stuck', ar: 'حجوزات كريديت عالقة' },
+      reason: {
+        en: `${staleReservations.length} reservation(s) have remained unsettled for more than 30 minutes and require reconciliation.`,
+        ar: `${staleReservations.length} حجز ظل بلا تسوية لأكثر من 30 دقيقة ويحتاج مطابقة فورية.`,
       },
     })
   }
@@ -356,6 +399,91 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
       activatedAt: campaign.autopilotActivatedAt ?? null,
       scheduledPosts: campaign.posts.scheduled,
     }))
+
+  const hasCampaign = input.truth.summary.campaigns > 0
+  const hasApprovedStrategyWithContent = input.truth.campaigns.some(campaign => {
+    const posts = campaign.posts
+    const totalPosts = posts.draft + posts.approved + posts.scheduled + posts.published + posts.failed
+    return campaign.strategyApprovalState === 'approved' && totalPosts > 0
+  })
+  const invalidScheduled = input.truth.campaigns.reduce((sum, campaign) => sum + (campaign.posts.invalidScheduled ?? 0), 0)
+  const validExecutedPosts = input.truth.summary.scheduledPosts + input.truth.summary.publishedPosts
+  const approvalEvidencePosts = input.truth.campaigns.reduce((sum, campaign) => {
+    const approved = campaign.posts.approved
+    const hasBrokenApprovalEvidence = (campaign.posts.approvedMissingApproval ?? 0) > 0
+      || (campaign.posts.approvedMissingMedia ?? 0) > 0
+    return sum + (hasBrokenApprovalEvidence ? 0 : approved)
+  }, 0)
+  const validApprovalEvidence = approvalEvidencePosts + validExecutedPosts
+  const readinessChecks: OperationsOverview['readiness']['checks'] = [
+    {
+      id: 'strategy_to_content',
+      status: hasApprovedStrategyWithContent ? 'ready' : hasCampaign ? 'blocked' : 'not_verified',
+      href: '/strategy',
+      title: { en: 'Strategy-to-content handoff', ar: 'تسليم الاستراتيجية إلى المحتوى' },
+      evidence: hasApprovedStrategyWithContent
+        ? { en: 'At least one approved strategy has persisted content artifacts.', ar: 'توجد استراتيجية معتمدة واحدة على الأقل لها مخرجات محتوى محفوظة.' }
+        : hasCampaign
+          ? { en: 'No campaign has yet proven an approved strategy with persisted content.', ar: 'لم تثبت أي حملة بعد انتقال استراتيجية معتمدة إلى محتوى محفوظ.' }
+          : { en: 'Create a sandbox campaign to verify this boundary.', ar: 'أنشئ حملة Sandbox للتحقق من هذه الحدود.' },
+    },
+    {
+      id: 'approval_evidence',
+      status: invalidScheduled > 0 ? 'blocked' : validApprovalEvidence > 0 ? 'ready' : 'not_verified',
+      href: '/approvals',
+      title: { en: 'Immutable approval evidence', ar: 'دليل موافقة ثابت' },
+      evidence: invalidScheduled > 0
+        ? { en: `${invalidScheduled} scheduled record(s) lack complete immutable approval evidence.`, ar: `${invalidScheduled} سجل جدولة يفتقد دليل موافقة ثابتًا ومتكاملًا.` }
+        : validApprovalEvidence > 0
+          ? {
+              en: `${validApprovalEvidence} approved, scheduled, or published record(s) have immutable copy and media approval evidence.`,
+              ar: `${validApprovalEvidence} سجل معتمد أو مجدول أو منشور لديه دليل ثابت لاعتماد النص والوسائط.`,
+            }
+          : { en: 'No content record has complete immutable copy and media approval evidence yet.', ar: 'لا يوجد سجل محتوى لديه دليل ثابت ومتكامل لاعتماد النص والوسائط بعد.' },
+    },
+    {
+      id: 'monitoring',
+      status: input.latestMonitor?.status === 'COMPLETED' && !monitorStale ? 'ready' : hasCampaign ? 'blocked' : 'not_verified',
+      href: '/operations',
+      title: { en: 'Execution monitoring', ar: 'مراقبة التنفيذ' },
+      evidence: input.latestMonitor?.status === 'COMPLETED' && !monitorStale
+        ? { en: 'A recent successful monitor heartbeat is persisted.', ar: 'يوجد نبض ناجح وحديث محفوظ لمراقب التنفيذ.' }
+        : hasCampaign
+          ? { en: 'A campaign exists without a recent successful monitor heartbeat.', ar: 'توجد حملة بلا نبض ناجح وحديث لمراقب التنفيذ.' }
+          : { en: 'Monitoring will be verified after the first sandbox campaign.', ar: 'سيتم التحقق من المراقبة بعد أول حملة Sandbox.' },
+    },
+    {
+      id: 'credit_traceability',
+      status: staleReservations.length > 0 || unversionedCharges30d > 0 || chargesWithoutArtifact30d > 0
+        ? 'blocked'
+        : debits.length > 0 ? 'ready' : 'not_verified',
+      href: '/billing',
+      title: { en: 'Credit traceability', ar: 'تتبع الكريديت' },
+      evidence: staleReservations.length > 0
+        ? { en: `${staleReservations.length} stale reservation(s) require reconciliation.`, ar: `${staleReservations.length} حجز عالق يحتاج مطابقة.` }
+        : unversionedCharges30d > 0 || chargesWithoutArtifact30d > 0
+          ? { en: 'One or more settled debits lack pricing or artifact evidence.', ar: 'يوجد خصم نهائي واحد أو أكثر بلا إصدار تسعير أو دليل مخرج.' }
+          : debits.length > 0
+            ? { en: `${debits.length} settled debit(s) are versioned and linked to outputs.`, ar: `${debits.length} خصم نهائي مرتبط بمخرجات وإصدار تسعير.` }
+            : { en: 'No settled sandbox debit has exercised the ledger yet.', ar: 'لا يوجد خصم Sandbox نهائي اختبر السجل بعد.' },
+    },
+    {
+      id: 'failure_recovery',
+      status: staleReservations.length > 0 ? 'blocked' : refunded30d > 0 ? 'ready' : 'not_verified',
+      href: '/billing',
+      title: { en: 'Failure recovery and refund', ar: 'استرداد الفشل والكريديت' },
+      evidence: staleReservations.length > 0
+        ? { en: 'A stuck reservation proves recovery is not fully closed.', ar: 'وجود حجز عالق يعني أن مسار الاسترداد غير مغلق بالكامل.' }
+        : refunded30d > 0
+          ? { en: `${refunded30d} credit(s) were returned through explicit REFUND transactions.`, ar: `تمت إعادة ${refunded30d} كريديت من خلال معاملات REFUND صريحة.` }
+          : { en: 'No explicit refund has exercised the failure path in the last 30 days.', ar: 'لم تختبر أي معاملة Refund صريحة مسار الفشل خلال آخر 30 يومًا.' },
+    },
+  ]
+  const readinessStatus: OperationsOverview['readiness']['status'] = readinessChecks.some(check => check.status === 'blocked')
+    ? 'blocked'
+    : readinessChecks.every(check => check.status === 'ready')
+      ? 'ready'
+      : 'not_verified'
 
   return {
     version: 1,
@@ -396,9 +524,26 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
       ads: { total: input.adAccounts.length, connected: connectedAds },
     },
     analytics: { publishedAwaitingEvidence: input.publishedAwaitingEvidence, latestEvidenceAt: input.latestAnalyticsAt?.toISOString() ?? null },
-    credits: { spent30d, refunded30d, transactions30d: input.creditTransactions.length, unversionedCharges30d, chargesWithoutArtifact30d },
+    credits: {
+      spent30d,
+      refunded30d,
+      transactions30d: input.creditTransactions.length,
+      settledDebits30d: debits.length,
+      reservationsInFlight: reservations.length,
+      staleReservations: staleReservations.length,
+      unversionedCharges30d,
+      chargesWithoutArtifact30d,
+    },
     paid: { activeCampaigns: input.paidCampaigns.length, reportedSpend, staleSyncs: paidStaleSyncs, budgetIncidents },
     retries: { last24h: input.retriesLast24h, latestAt: input.latestRetryAt?.toISOString() ?? null },
+    readiness: {
+      scope: 'workspace_prelaunch',
+      status: readinessStatus,
+      passed: readinessChecks.filter(check => check.status === 'ready').length,
+      total: readinessChecks.length,
+      checks: readinessChecks,
+      pilot: input.pilotProof,
+    },
     issues,
   }
 }

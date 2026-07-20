@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
+import { FREE_TRIAL_CREDITS } from '@/lib/commercialPlans'
 import {
   Users, CreditCard, TrendingUp, RefreshCw, Plus, Minus,
   Search, ShieldAlert, X, Crown, Zap, Building2, Trash2,
@@ -25,6 +26,12 @@ interface AdminUser {
   company: string | null
   campaignCount: number
   _count: { workspaces: number }
+  subscription: {
+    plan: string
+    status: string
+    amount: number | null
+    currency: string
+  } | null
 }
 
 interface PlanCount {
@@ -37,11 +44,41 @@ interface RecentSignup {
   subscriptionStatus: string
 }
 
-/* ─── Constants ──────────────────────────────────────────── */
-const PLAN_PRICES: Record<string, number> = {
-  ACTIVE: 49,
+interface BillingSummary {
+  activeSubscriptions: number
+  mrrUsd: number
+  currency: string
+  source: string
 }
 
+interface ProviderEconomicsSummary {
+  periodDays: number
+  billableOperations: number
+  meteredOperations: number
+  unmeteredOperations: number
+  meterCoveragePercent: number
+  refundedOperations: number
+  meteredRefundedOperations: number
+  settledCredits: number
+  meteredCredits: number
+  settledProviderCostUsd: number
+  failedProviderCostUsd: number
+  providerCostUsd: number
+  commercialValueFloorUsd: number
+  contributionBufferUsd: number
+  contributionMarginPercent: number | null
+  recurringCreditValueFloorUsd: number
+  breakdown: Array<{
+    action: string
+    operations: number
+    refundedOperations: number
+    credits: number
+    providerCostUsd: number
+    failedProviderCostUsd: number
+  }>
+}
+
+/* ─── Constants ──────────────────────────────────────────── */
 const SUBSCRIPTION_OPTIONS = ['FREE', 'ACTIVE', 'PAST_DUE', 'CANCELLED', 'EXPIRED']
 
 /* ─── Helpers ────────────────────────────────────────────── */
@@ -218,89 +255,6 @@ function CreditsModal({ user, token, onClose, onSuccess }: {
   )
 }
 
-/* ─── Change Plan Modal ──────────────────────────────────── */
-function ChangePlanModal({ user, token, onClose, onSuccess }: {
-  user: AdminUser; token: string
-  onClose: () => void
-  onSuccess: (userId: string, newStatus: string) => void
-}) {
-  const [selected, setSelected] = useState(user.subscriptionStatus)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-
-  async function submit() {
-    if (selected === user.subscriptionStatus) { onClose(); return }
-    setLoading(true); setError('')
-    try {
-      const res = await fetch(`/api/admin/users/${user.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ subscriptionStatus: selected }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      onSuccess(user.id, data.user.subscriptionStatus)
-      onClose()
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed')
-    } finally { setLoading(false) }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="rounded-2xl w-full max-w-sm p-6 shadow-2xl"
-        style={{ background: '#0F1332', border: '1px solid rgba(139,92,246,0.25)' }}>
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h3 className="text-[16px] font-bold text-white">Change Plan</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">{user.email}</p>
-          </div>
-          <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition-all">
-            <X size={15} />
-          </button>
-        </div>
-
-        <div className="space-y-2 mb-5">
-          {SUBSCRIPTION_OPTIONS.map(opt => (
-            <button key={opt} onClick={() => setSelected(opt)}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] transition-all"
-              style={{
-                background: selected === opt ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.03)',
-                border: selected === opt ? '1px solid rgba(139,92,246,0.35)' : '1px solid rgba(255,255,255,0.06)',
-              }}>
-              <div className="flex items-center gap-3">
-                <div className={`w-2 h-2 rounded-full ${planDot(opt)}`} />
-                <span className="font-semibold text-white">{opt}</span>
-              </div>
-              {selected === opt && <Check size={14} className="text-purple-400" />}
-            </button>
-          ))}
-        </div>
-
-        {error && (
-          <div className="flex items-center gap-2 text-red-400 text-[12px] mb-3 bg-red-400/10 rounded-lg px-3 py-2">
-            <AlertTriangle size={12} /> {error}
-          </div>
-        )}
-
-        <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 py-3 rounded-xl text-[13px] font-semibold text-slate-400 hover:text-white transition-colors"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            Cancel
-          </button>
-          <button onClick={submit} disabled={loading}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold transition-all disabled:opacity-50"
-            style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)', color: '#A78BFA' }}>
-            {loading ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
-            Apply
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 /* ─── Delete Confirm Modal ───────────────────────────────── */
 function DeleteModal({ user, token, onClose, onSuccess }: {
   user: AdminUser; token: string
@@ -430,8 +384,9 @@ function ResetModal({ user, token, onClose, onSuccess }: {
           style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
           All workspaces, campaigns, media, and credits for{' '}
           <span className="text-white font-semibold">{user.email}</span> will be deleted.
-          The account will be restored to a fresh <span className="font-semibold text-amber-400">FREE</span> state
-          with 30 starter credits. Their login credentials are preserved.
+          The account will be restored to a fresh <span className="font-semibold text-amber-400">FREE</span> state.
+          It will be eligible for the standard {FREE_TRIAL_CREDITS}-credit trial on the first eligible action;
+          login credentials are preserved.
         </div>
 
         <p className="text-[12px] text-slate-500 mb-2">Type <span className="text-amber-400 font-mono font-bold">RESET</span> to confirm:</p>
@@ -469,10 +424,9 @@ function ResetModal({ user, token, onClose, onSuccess }: {
 }
 
 /* ─── Row Action Menu ────────────────────────────────────── */
-function RowMenu({ user, onCredits, onPlan, onDelete, onCopyId, onReset }: {
+function RowMenu({ user, onCredits, onDelete, onCopyId, onReset }: {
   user: AdminUser
   onCredits: () => void
-  onPlan: () => void
   onDelete: () => void
   onCopyId: () => void
   onReset: () => void
@@ -499,7 +453,6 @@ function RowMenu({ user, onCredits, onPlan, onDelete, onCopyId, onReset }: {
           style={{ background: '#111827', border: '1px solid rgba(255,255,255,0.1)' }}>
           {[
             { icon: CreditCard, label: 'Adjust Credits',  action: onCredits, color: '#A78BFA' },
-            { icon: Crown,      label: 'Change Plan',     action: onPlan,    color: '#10B981' },
             { icon: Copy,       label: 'Copy User ID',    action: onCopyId,  color: '#64748B' },
             { icon: RefreshCw,  label: 'Reset Account',   action: onReset,   color: '#F59E0B' },
             { icon: Trash2,     label: 'Delete User',     action: onDelete,  color: '#EF4444' },
@@ -539,6 +492,13 @@ export default function AdminPage() {
   const [users, setUsers]             = useState<AdminUser[]>([])
   const [planCounts, setPlanCounts]   = useState<PlanCount[]>([])
   const [recentSignups, setRecentSignups] = useState<RecentSignup[]>([])
+  const [billing, setBilling] = useState<BillingSummary>({
+    activeSubscriptions: 0,
+    mrrUsd: 0,
+    currency: 'usd',
+    source: 'active_subscription_records',
+  })
+  const [providerEconomics, setProviderEconomics] = useState<ProviderEconomicsSummary | null>(null)
   const [loading, setLoading]         = useState(true)
   const [accessState, setAccessState] = useState<'checking' | 'allowed' | 'denied' | 'failed'>('checking')
   const [error, setError]             = useState('')
@@ -551,7 +511,6 @@ export default function AdminPage() {
 
   // Modals
   const [creditsUser, setCreditsUser] = useState<AdminUser | null>(null)
-  const [planUser, setPlanUser]       = useState<AdminUser | null>(null)
   const [deleteUser, setDeleteUser]   = useState<AdminUser | null>(null)
   const [resetUser, setResetUser]     = useState<AdminUser | null>(null)
 
@@ -580,6 +539,8 @@ export default function AdminPage() {
       setUsers(data.users)
       setPlanCounts(data.planCounts)
       setRecentSignups(data.recentSignups || [])
+      setBilling(data.billing || { activeSubscriptions: 0, mrrUsd: 0, currency: 'usd', source: 'unavailable' })
+      setProviderEconomics(data.providerEconomics || null)
     } catch (e: unknown) {
       setAccessState('failed')
       setError(e instanceof Error ? e.message : 'Error loading')
@@ -635,11 +596,6 @@ export default function AdminPage() {
     showToast('Credits updated')
   }
 
-  function handlePlanSuccess(userId: string, newStatus: string) {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, subscriptionStatus: newStatus } : u))
-    showToast('Plan updated')
-  }
-
   function handleDeleteSuccess(userId: string) {
     setUsers(prev => prev.filter(u => u.id !== userId))
     showToast('User deleted')
@@ -647,7 +603,7 @@ export default function AdminPage() {
 
   function handleResetSuccess(userId: string) {
     setUsers(prev => prev.map(u => u.id === userId
-      ? { ...u, subscriptionStatus: 'FREE', aiCredits: 30, campaignCount: 0, _count: { workspaces: 0 } }
+      ? { ...u, subscriptionStatus: 'FREE', aiCredits: 0, campaignCount: 0, _count: { workspaces: 0 } }
       : u
     ))
     showToast('Account reset — user can start fresh')
@@ -662,7 +618,6 @@ export default function AdminPage() {
   const paidUsers    = users.filter(u => u.subscriptionStatus === 'ACTIVE').length
   const freeUsers    = users.filter(u => u.subscriptionStatus === 'FREE').length
   const totalCredits = users.reduce((s, u) => s + u.aiCredits, 0)
-  const mrrEstimate  = paidUsers * (PLAN_PRICES.ACTIVE || 49)
   const conversionRate = totalUsers > 0 ? ((paidUsers / totalUsers) * 100).toFixed(1) : '0'
 
   // Monthly signup sparkline (last 6 months)
@@ -822,7 +777,7 @@ export default function AdminPage() {
           <StatCard icon={Users}      label="Total Users"     value={totalUsers}        color="#8B5CF6" />
           <StatCard icon={Crown}      label="Paid"            value={paidUsers}          color="#10B981" sub={`${conversionRate}% conversion`} />
           <StatCard icon={Zap}        label="Free"            value={freeUsers}          color="#FFB800" />
-          <StatCard icon={TrendingUp} label="MRR (est.)"      value={`$${mrrEstimate}`}  color="#00D4FF" sub="Active users × $49" />
+          <StatCard icon={TrendingUp} label="MRR"            value={`$${billing.mrrUsd.toFixed(2)}`} color="#00D4FF" sub="Active subscription records" />
           <StatCard icon={CreditCard} label="Total Credits"   value={totalCredits.toLocaleString()} color="#F59E0B" />
           <StatCard icon={Activity}   label="Campaigns"       value={users.reduce((s, u) => s + (u.campaignCount || 0), 0)} color="#EC4899" />
         </div>
@@ -830,6 +785,72 @@ export default function AdminPage() {
         {/* ── TABS ── */}
         {activeTab === 'growth' && (
           <div className="space-y-6 mb-8">
+            <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Activity size={15} className="text-emerald-400" />
+                    <p className="text-[14px] font-bold text-white">Provider economics · last 30 days</p>
+                  </div>
+                  <p className="mt-1 text-[11px] leading-5 text-slate-500">
+                    Internal measured COGS. Commercial value is a conservative credit-floor proxy, not recognized revenue.
+                  </p>
+                </div>
+                <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${
+                  providerEconomics?.meterCoveragePercent === 100
+                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
+                    : 'border-amber-500/20 bg-amber-500/10 text-amber-400'
+                }`}>
+                  {providerEconomics?.meterCoveragePercent ?? 0}% metered
+                </span>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                {[
+                  ['Settled work', providerEconomics?.billableOperations ?? 0, `${providerEconomics?.settledCredits ?? 0} credits`],
+                  ['Provider COGS', `$${(providerEconomics?.providerCostUsd ?? 0).toFixed(2)}`, `$${(providerEconomics?.failedProviderCostUsd ?? 0).toFixed(2)} failed/refunded`],
+                  ['Value floor', `$${(providerEconomics?.commercialValueFloorUsd ?? 0).toFixed(2)}`, `$${providerEconomics?.recurringCreditValueFloorUsd ?? 0}/credit`],
+                  ['Contribution buffer', `$${(providerEconomics?.contributionBufferUsd ?? 0).toFixed(2)}`, 'Before infrastructure & support'],
+                  ['Unmetered', providerEconomics?.unmeteredOperations ?? 0, 'Must reach zero'],
+                ].map(([label, value, detail]) => (
+                  <div key={String(label)} className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-4">
+                    <p className="text-[10px] font-mono uppercase tracking-wider text-slate-500">{label}</p>
+                    <p className="mt-2 text-lg font-black text-white">{value}</p>
+                    <p className="mt-1 text-[10px] text-slate-600">{detail}</p>
+                  </div>
+                ))}
+              </div>
+
+              {(providerEconomics?.breakdown.length ?? 0) > 0 && (
+                <div className="mt-5 overflow-x-auto rounded-xl border border-white/[0.05]">
+                  <table className="w-full text-left text-[11px]">
+                    <thead className="bg-white/[0.025] text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2 font-mono uppercase">Action</th>
+                        <th className="px-3 py-2 font-mono uppercase">Runs</th>
+                        <th className="px-3 py-2 font-mono uppercase">Refunded</th>
+                        <th className="px-3 py-2 font-mono uppercase">Credits</th>
+                        <th className="px-3 py-2 font-mono uppercase">COGS</th>
+                        <th className="px-3 py-2 font-mono uppercase">Failure COGS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {providerEconomics?.breakdown.map(item => (
+                        <tr key={item.action} className="border-t border-white/[0.04] text-slate-300">
+                          <td className="px-3 py-2 font-mono">{item.action}</td>
+                          <td className="px-3 py-2">{item.operations}</td>
+                          <td className="px-3 py-2">{item.refundedOperations}</td>
+                          <td className="px-3 py-2">{item.credits}</td>
+                          <td className="px-3 py-2">${item.providerCostUsd.toFixed(2)}</td>
+                          <td className="px-3 py-2">${item.failedProviderCostUsd.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
             {/* Plan breakdown */}
             <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="flex items-center gap-2 mb-5">
@@ -970,7 +991,7 @@ export default function AdminPage() {
                       <td className="px-5 py-4">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${planColor(u.subscriptionStatus)}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${planDot(u.subscriptionStatus)}`} />
-                          {u.subscriptionStatus}
+                          {u.subscription?.plan ?? u.subscriptionStatus}
                         </span>
                         {u.role === 'ADMIN' && (
                           <span className="ml-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border"
@@ -1014,7 +1035,6 @@ export default function AdminPage() {
                         <RowMenu
                           user={u}
                           onCredits={() => setCreditsUser(u)}
-                          onPlan={() => setPlanUser(u)}
                           onDelete={() => setDeleteUser(u)}
                           onCopyId={() => copyUserId(u.id)}
                           onReset={() => setResetUser(u)}
@@ -1046,10 +1066,6 @@ export default function AdminPage() {
       {creditsUser && (
         <CreditsModal user={creditsUser} token={token}
           onClose={() => setCreditsUser(null)} onSuccess={handleCreditSuccess} />
-      )}
-      {planUser && (
-        <ChangePlanModal user={planUser} token={token}
-          onClose={() => setPlanUser(null)} onSuccess={handlePlanSuccess} />
       )}
       {deleteUser && (
         <DeleteModal user={deleteUser} token={token}

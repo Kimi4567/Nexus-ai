@@ -18,6 +18,7 @@
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { checkAndLog } from '@/lib/outputGuardrails'
 import { detectUnsupportedClaims, buildClaimFixes, buildClaimWarnings } from '@/lib/ai/claimGuard'
+import { readOpenAIChatUsage, summarizeOpenAITextUsage, type ProviderUsageSummary } from '@/lib/ai/providerEconomics'
 
 // ─── Input ────────────────────────────────────────────────────────────────────
 
@@ -79,6 +80,8 @@ export interface SentinelReviewOutput {
   complianceWarnings: string[]
   recommendedFixes: string[]
   reviewedAt: string
+  /** Internal billing evidence; callers should not persist it as review copy. */
+  providerUsage?: ProviderUsageSummary
 }
 
 interface RawSentinelAssessment {
@@ -215,7 +218,7 @@ async function callOpenAI(
   systemPrompt: string,
   userPrompt: string,
   maxTokens = 2000
-): Promise<any> {
+): Promise<{ result: RawSentinelAssessment; providerUsage: ProviderUsageSummary }> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -238,7 +241,10 @@ async function callOpenAI(
   const raw = data.choices?.[0]?.message?.content?.trim()
   if (!raw) throw new Error('OpenAI returned no Sentinel review')
   try {
-    return JSON.parse(raw)
+    return {
+      result: JSON.parse(raw) as RawSentinelAssessment,
+      providerUsage: summarizeOpenAITextUsage('gpt-4o', [readOpenAIChatUsage(data.usage)]),
+    }
   } catch {
     throw new Error('OpenAI returned invalid Sentinel review JSON')
   }
@@ -395,7 +401,7 @@ Return JSON with exactly these fields:
 
 If the campaign passes all checks cleanly: riskScore should be under 25, brandConsistencyScore above 80, complianceWarnings should be an empty array, and recommendedFixes should be an empty array.`
 
-  const result = await callOpenAI(systemPrompt, userPrompt, 2000)
+  const { result, providerUsage } = await callOpenAI(systemPrompt, userPrompt, 2000)
   if (!Number.isFinite(Number(result.riskScore)) || !Number.isFinite(Number(result.brandConsistencyScore))) {
     throw new Error('OpenAI returned an incomplete Sentinel review')
   }
@@ -458,5 +464,8 @@ If the campaign passes all checks cleanly: riskScore should be under 25, brandCo
 
   const sourceText = collectTextLeaves(input).join('\n')
 
-  return normalizeSentinelAssessment(result, sourceText, claimScan, input.language)
+  return {
+    ...normalizeSentinelAssessment(result, sourceText, claimScan, input.language),
+    providerUsage,
+  }
 }

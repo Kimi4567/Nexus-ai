@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   getUserId: vi.fn(),
@@ -227,6 +227,10 @@ beforeEach(() => {
   mocks.prisma.media.update.mockResolvedValue({ id: 'media-1' })
 })
 
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
+
 describe('POST professional video generation', () => {
   it('requires the full review-only confirmation before any debit', async () => {
     const response = await POST(request({ ...confirmedBody, acknowledgedNoPublishOrSchedule: false }), {
@@ -249,7 +253,7 @@ describe('POST professional video generation', () => {
     expect(mocks.deduct).not.toHaveBeenCalled()
   })
 
-  it('starts one multi-reference product-ad task, settles eighteen credits, and only marks media as generating', async () => {
+  it('starts one multi-reference product-ad task, reserves eighteen credits, and only marks media as generating', async () => {
     const response = await POST(request(confirmedBody), {
       params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
     })
@@ -280,13 +284,23 @@ describe('POST professional video generation', () => {
       entityId: 'post-1',
       entityType: 'social_post_video',
     }))
-    expect(mocks.finalize).toHaveBeenCalledWith(expect.objectContaining({ action: 'VIDEO_GENERATION' }))
+    expect(mocks.finalize).not.toHaveBeenCalled()
     expect(mocks.prisma.socialPost.update).toHaveBeenCalledWith({
       where: { id: 'post-1' },
       data: { generationStatus: 'GENERATING', errorMessage: null },
       select: { updatedAt: true },
     })
-    expect(payload).toMatchObject({ creditsUsed: 18, durationSeconds: 8, productionRoute: 'CINEMATIC_PRODUCT_AD', reviewRequired: true, published: false, scheduled: false })
+    expect(payload).toMatchObject({
+      creditsReserved: 18,
+      creditsUsed: 0,
+      creditsCharged: false,
+      creditReservation: { transactionId: 'credit-1', operationStatus: 'RESERVED' },
+      durationSeconds: 8,
+      productionRoute: 'CINEMATIC_PRODUCT_AD',
+      reviewRequired: true,
+      published: false,
+      scheduled: false,
+    })
   })
 
   it('starts one ten-second three-shot campaign film without requiring product references', async () => {
@@ -329,7 +343,9 @@ describe('POST professional video generation', () => {
     expect(payload).toMatchObject({
       durationSeconds: 10,
       productionRoute: 'MULTI_SHOT_CAMPAIGN_FILM',
-      creditsUsed: 18,
+      creditsReserved: 18,
+      creditsUsed: 0,
+      creditsCharged: false,
       reviewRequired: true,
       published: false,
       scheduled: false,
@@ -443,6 +459,31 @@ describe('POST professional video generation', () => {
 })
 
 describe('GET professional video generation status', () => {
+  it('allows only a CRON_SECRET-authenticated worker to delegate a workspace owner', async () => {
+    const delegatedOwnerId = '7cc7a5d7-f51a-40c8-bbca-acde967b97e1'
+    vi.stubEnv('CRON_SECRET', 'video-worker-secret')
+    mocks.getUserId.mockResolvedValue(null)
+    mocks.prisma.generation.findMany.mockResolvedValue([])
+    const delegatedRequest = {
+      headers: {
+        get: (name: string) => ({
+          authorization: 'Bearer video-worker-secret',
+          'x-nexus-internal-user-id': delegatedOwnerId,
+        })[name.toLowerCase()] ?? null,
+      },
+    } as any
+
+    const response = await GET(delegatedRequest, {
+      params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ status: 'NOT_STARTED' })
+    expect(mocks.prisma.campaign.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'campaign-1', workspace: { ownerId: delegatedOwnerId } },
+    }))
+  })
+
   it('returns a truthful safety category and stores safe provider diagnostics', async () => {
     mocks.prisma.generation.findMany.mockResolvedValue([{
       id: 'generation-1',
@@ -573,9 +614,25 @@ describe('GET professional video generation status', () => {
       status: 'SUCCEEDED',
       attached: true,
       reviewRequired: true,
+      creditsUsed: 18,
+      creditsCharged: true,
       published: false,
       scheduled: false,
     })
+    expect(mocks.finalize).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'user-1',
+      action: 'VIDEO_GENERATION',
+      deduction: expect.objectContaining({ transactionId: 'credit-1' }),
+      settlementEntityId: 'media-1',
+      settlementEntityType: 'media_video',
+      providerEconomics: expect.objectContaining({
+        providerCostUsd: 3.44,
+        providerPricingVersion: 'nexus-video-provider-estimate-2026-07-20-v1',
+        providerUsage: expect.objectContaining({
+          videoProvider: expect.objectContaining({ provider: 'runway', automaticRetries: 0 }),
+        }),
+      }),
+    }))
     expect(mocks.deduct).not.toHaveBeenCalled()
   })
 
@@ -638,6 +695,7 @@ describe('GET professional video generation status', () => {
       }),
     }))
     expect(payload).toMatchObject({ status: 'SUCCEEDED', attached: true, reviewRequired: true })
+    expect(mocks.finalize).toHaveBeenCalledTimes(1)
   })
 
   it('rejects a failed video quality review, restores credits, and does not attach it', async () => {
@@ -689,6 +747,59 @@ describe('GET professional video generation status', () => {
     expect(mocks.refund).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'user-1',
       action: 'VIDEO_GENERATION',
+    }))
+    expect(mocks.finalize).not.toHaveBeenCalled()
+  })
+
+  it('quarantines a quality-passed video when credit settlement cannot be finalized', async () => {
+    const renderUpdatedAt = new Date('2026-07-17T08:01:00.000Z')
+    mocks.prisma.generation.findMany.mockResolvedValue([{
+      id: 'generation-1',
+      campaignId: 'campaign-1',
+      type: 'VIDEO',
+      provider: 'runway',
+      status: 'PROCESSING',
+      progress: 90,
+      externalId: 'runway-task-1',
+      params: {
+        postId: 'post-1',
+        postUpdatedAt: renderUpdatedAt.toISOString(),
+        durationSeconds: 8,
+        credit: { ok: true, creditsUsed: 18, creditsRemaining: 42, transactionId: 'credit-1' },
+      },
+      metadata: null,
+    }])
+    mocks.finalize.mockResolvedValue({
+      ok: false,
+      status: 'failed',
+      error: 'credit_reservation_already_refunded',
+      refundStatus: 'noop',
+    })
+
+    const response = await GET(request({}), {
+      params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
+    })
+    const payload = await response.json()
+
+    expect(response.status).toBe(503)
+    expect(payload).toMatchObject({
+      code: 'CREDIT_FINALIZATION_FAILED',
+      creditsCharged: false,
+      refundPending: false,
+    })
+    expect(mocks.prisma.socialPost.update).not.toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ generationStatus: 'DONE' }),
+    }))
+    expect(mocks.prisma.generation.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        status: 'FAILED',
+        metadata: expect.objectContaining({
+          qualityStatus: 'PASSED',
+          creditFinalizationStatus: 'FAILED',
+          retainedForAudit: true,
+          attached: false,
+        }),
+      }),
     }))
   })
 })
