@@ -53,6 +53,15 @@ describe('operations overview', () => {
     })
     expect(overview.summary.incidents).toBe(0)
     expect(overview.summary.attentionItems).toBe(0)
+    expect(overview.execution).toMatchObject({
+      campaigns: 1,
+      needsAttention: 0,
+      awaitingApproval: 0,
+      scheduledPosts: 0,
+      publishedPosts: 0,
+      queue: [],
+      autopilot: { enabledCampaigns: 0, campaigns: [] },
+    })
   })
 
   it('turns a stale heartbeat, expired connection, missing analytics, and overspend into traceable issues', () => {
@@ -79,7 +88,13 @@ describe('operations overview', () => {
     }))
 
     expect(overview.monitor.health).toBe('attention')
-    expect(overview.connections).toMatchObject({ total: 1, connected: 0, attention: 1 })
+    expect(overview.connections).toMatchObject({
+      total: 1,
+      connected: 0,
+      attention: 1,
+      social: { total: 1, connected: 0 },
+      ads: { total: 0, connected: 0 },
+    })
     expect(overview.paid).toMatchObject({ staleSyncs: 1, budgetIncidents: 1, reportedSpend: 115 })
     expect(overview.analytics.publishedAwaitingEvidence).toBe(2)
     expect(overview.credits).toMatchObject({ spent30d: 5, unversionedCharges30d: 1, chargesWithoutArtifact30d: 1 })
@@ -101,5 +116,48 @@ describe('operations overview', () => {
 
     expect(overview.monitor.health).toBe('not_started')
     expect(overview.issues).toEqual([])
+  })
+
+  it('returns the same canonical execution queue used to derive execution incidents', () => {
+    const queueItem = {
+      id: 'campaign-1:RESOLVE_FAILURE',
+      campaignId: 'campaign-1',
+      campaignName: 'Launch',
+      kind: 'RESOLVE_FAILURE' as const,
+      stage: 'NEEDS_ATTENTION' as const,
+      priority: 'critical' as const,
+      safety: 'manual_action' as const,
+      requiresApproval: false,
+      href: '/campaigns/campaign-1/content-hub',
+      title: { en: 'Resolve failed content', ar: 'عالج المحتوى المتعثر' },
+      reason: { en: 'One post failed.', ar: 'تعثر منشور واحد.' },
+      evidence: {
+        campaignStatus: 'ACTIVE',
+        strategyApprovalState: 'approved' as const,
+        strategyEvidenceCount: 3,
+        strategyBlockers: [],
+        posts: { draft: 0, approved: 0, scheduled: 0, published: 0, failed: 1, publishedWithoutAnalytics: 0 },
+      },
+      updatedAt: now.toISOString(),
+    }
+    const overview = buildOperationsOverview(input({
+      truth: truth({
+        summary: { campaigns: 1, needsAttention: 1, awaitingApproval: 0, scheduledPosts: 0, publishedPosts: 0 },
+        queue: [queueItem],
+        campaigns: [{
+          campaignId: 'campaign-1', campaignName: 'Launch', campaignStatus: 'ACTIVE', stage: 'NEEDS_ATTENTION',
+          strategyApprovalState: 'approved', posts: queueItem.evidence.posts, nextAction: queueItem, updatedAt: now.toISOString(),
+          autopilotEnabled: true, autopilotActivatedAt: '2026-07-15T10:00:00.000Z',
+        }],
+      }),
+    }))
+
+    expect(overview.execution.queue).toEqual([queueItem])
+    expect(overview.execution.stages).toEqual({ NEEDS_ATTENTION: 1 })
+    expect(overview.execution.autopilot).toEqual({
+      enabledCampaigns: 1,
+      campaigns: [{ id: 'campaign-1', name: 'Launch', activatedAt: '2026-07-15T10:00:00.000Z', scheduledPosts: 0 }],
+    })
+    expect(overview.issues[0]).toMatchObject({ id: 'execution:campaign-1:RESOLVE_FAILURE', priority: 'critical' })
   })
 })

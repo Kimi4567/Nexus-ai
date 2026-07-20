@@ -5,6 +5,9 @@ export interface LearningSignalRecord {
   trigger?: string | null
   field?: string | null
   displayName?: string | null
+  icon?: string | null
+  current?: unknown
+  proposed?: unknown
   reason?: string | null
   evidence?: unknown
   status?: string | null
@@ -37,24 +40,32 @@ export function summarizeLearningEvidence({
   learningSignals,
   workflowSignals,
   performanceEvidenceRows,
+  eligiblePerformancePostIds,
 }: {
   learningSignals: LearningSignalRecord[] | null | undefined
   workflowSignals: WorkflowSignalRecord[] | null | undefined
   performanceEvidenceRows: number
+  eligiblePerformancePostIds?: string[]
 }) {
   const signals = Array.isArray(learningSignals) ? learningSignals : []
   const workflow = Array.isArray(workflowSignals) ? workflowSignals : []
   const hasPerformanceEvidence = performanceEvidenceRows > 0
+  const eligiblePostIds = eligiblePerformancePostIds ? new Set(eligiblePerformancePostIds) : null
+
+  const hasMatchingAnalyticsEvidence = (signal: LearningSignalRecord): boolean => {
+    if (signal.trigger !== 'post_performance' || !hasPerformanceEvidence) return false
+    const provenance = inspectBrainSignalProvenance(signal)
+    if (!provenance.canAccept || !('evidence' in provenance) || !provenance.evidence) return false
+    return eligiblePostIds === null
+      ? true
+      : provenance.evidence.sample.evidencePostIds.some(id => eligiblePostIds.has(id))
+  }
 
   const pending = signals.filter(signal => signal.status === 'pending')
   const accepted = signals.filter(signal => signal.status === 'accepted')
   const dismissed = signals.filter(signal => signal.status === 'dismissed')
   const rolledBack = signals.filter(signal => signal.status === 'rolled_back')
-  const analyticsBacked = accepted.filter(signal => (
-    signal.trigger === 'post_performance'
-    && hasPerformanceEvidence
-    && inspectBrainSignalProvenance(signal).canAccept
-  ))
+  const analyticsBacked = accepted.filter(hasMatchingAnalyticsEvidence)
   const reviewedSignals = accepted.filter(signal => signal.trigger !== 'post_performance')
   const untraceableExternalSignals = signals.filter(signal => (
     inspectBrainSignalProvenance(signal).traceability === 'source_not_attached'
@@ -66,20 +77,22 @@ export function summarizeLearningEvidence({
       ? 'signals_building'
       : 'empty'
 
-  const recentSignals = [...signals]
+  const mappedSignals = [...signals]
     .sort((a, b) => timestamp(b.updatedAt ?? b.createdAt) - timestamp(a.updatedAt ?? a.createdAt))
-    .slice(0, 8)
     .map(signal => {
       const provenance = inspectBrainSignalProvenance(signal)
       return {
         id: signal.id,
         status: signal.status || 'unknown',
-        source: signal.trigger === 'post_performance' && hasPerformanceEvidence
+        source: hasMatchingAnalyticsEvidence(signal)
           ? 'analytics'
           : 'review_signal',
         trigger: signal.trigger || null,
         field: signal.field || '',
         displayName: signal.displayName || '',
+        icon: signal.icon || null,
+        current: signal.current ?? null,
+        proposed: signal.proposed ?? null,
         reason: provenance.displayReason,
         traceability: provenance.traceability,
         sourceRefs: provenance.sourceRefs,
@@ -105,6 +118,8 @@ export function summarizeLearningEvidence({
   return {
     stage,
     counts: {
+      totalSignals: signals.length,
+      acceptedSignals: accepted.length,
       pendingReview: pending.length,
       reviewedSignals: reviewedSignals.length,
       dismissedSignals: dismissed.length,
@@ -114,7 +129,8 @@ export function summarizeLearningEvidence({
       performanceEvidenceRows: Math.max(0, performanceEvidenceRows),
       untraceableExternalSignals: untraceableExternalSignals.length,
     },
-    recentSignals,
+    signals: mappedSignals,
+    recentSignals: mappedSignals.slice(0, 8),
     recentWorkflowSignals,
   }
 }

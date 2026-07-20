@@ -41,6 +41,7 @@ describe('summarizeLearningEvidence', () => {
       }],
       workflowSignals: [],
       performanceEvidenceRows: 3,
+      eligiblePerformancePostIds: ['post-1', 'post-2', 'post-3'],
     })
 
     expect(summary.stage).toBe('analytics_backed')
@@ -53,6 +54,7 @@ describe('summarizeLearningEvidence', () => {
       learningSignals: [{ id: 'legacy-performance', trigger: 'post_performance', status: 'accepted' }],
       workflowSignals: [],
       performanceEvidenceRows: 3,
+      eligiblePerformancePostIds: ['post-1'],
     })
 
     expect(summary.stage).toBe('empty')
@@ -70,6 +72,7 @@ describe('summarizeLearningEvidence', () => {
       }],
       workflowSignals: [],
       performanceEvidenceRows: 3,
+      eligiblePerformancePostIds: ['post-1'],
     })
 
     expect(summary.counts.rolledBackLessons).toBe(1)
@@ -93,5 +96,46 @@ describe('summarizeLearningEvidence', () => {
     expect(summary.recentSignals[0].traceability).toBe('source_not_attached')
     expect(summary.recentSignals[0].canAccept).toBe(false)
     expect(summary.recentSignals[0].reason).toBe('')
+  })
+
+  it('does not combine unrelated performance rows with a learning proposal', () => {
+    const summary = summarizeLearningEvidence({
+      learningSignals: [{
+        id: 'performance',
+        trigger: 'post_performance',
+        status: 'accepted',
+        evidence: validPerformanceLearningEvidence(),
+      }],
+      workflowSignals: [],
+      performanceEvidenceRows: 1,
+      eligiblePerformancePostIds: ['another-post'],
+    })
+
+    expect(summary.counts.acceptedSignals).toBe(1)
+    expect(summary.counts.analyticsBackedLessons).toBe(0)
+    expect(summary.recentSignals[0].source).toBe('review_signal')
+    expect(summary.stage).toBe('empty')
+  })
+
+  it('returns the complete decision set while keeping the recent preview bounded', () => {
+    const learningSignals = Array.from({ length: 12 }, (_, index) => ({
+      id: `signal-${index}`,
+      trigger: 'approved_content',
+      status: 'pending',
+      field: 'winningHooks',
+      current: ['Existing hook'],
+      proposed: [`Candidate hook ${index}`],
+      updatedAt: new Date(`2026-07-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`),
+    }))
+    const summary = summarizeLearningEvidence({ learningSignals, workflowSignals: [], performanceEvidenceRows: 0 })
+
+    expect(summary.counts.totalSignals).toBe(12)
+    expect(summary.signals).toHaveLength(12)
+    expect(summary.recentSignals).toHaveLength(8)
+    expect(summary.signals[0]).toMatchObject({
+      id: 'signal-11',
+      current: ['Existing hook'],
+      proposed: ['Candidate hook 11'],
+    })
   })
 })

@@ -29,6 +29,7 @@ describe('marketing journey operating spine', () => {
     ['/media', 'production'],
     ['/publish', 'execution'],
     ['/automation', 'execution'],
+    ['/operations', 'execution'],
     ['/learning', 'results'],
   ] as const)('maps specialist surface %s back to %s', (pathname, expected) => {
     expect(resolveMarketingJourneyStage(pathname)).toBe(expected)

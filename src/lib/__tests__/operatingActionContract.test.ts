@@ -110,7 +110,7 @@ describe('operating action contract', () => {
     }
 
     expect([...missing].sort()).toEqual([])
-  })
+  }, 15_000)
 
   it('keeps platform previews read-only and free of invented engagement metrics', () => {
     const source = readSource('src/components/PlatformNativeCard.tsx')

@@ -1302,7 +1302,7 @@ function CalendarPageInner() {
               <p className="text-[12px] font-black text-[#071236]">{locale === 'ar' ? 'فحص جاهزية النشر' : 'Publishing readiness check'}</p>
               <p className="mt-1 text-[11px] font-semibold leading-5 text-slate-500">{locale === 'ar' ? 'الحسابات والصلاحيات وسجل النشر المؤكد.' : 'Accounts, permissions, and confirmed publishing log.'}</p>
             </Link>
-            <Link href="/automation" className="rounded-[16px] border border-slate-200 bg-slate-50 p-4 transition hover:border-[#C7D2FE]">
+            <Link href="/operations" className="rounded-[16px] border border-slate-200 bg-slate-50 p-4 transition hover:border-[#C7D2FE]">
               <p className="text-[12px] font-black text-[#071236]">{locale === 'ar' ? 'سياسات الأتمتة' : 'Automation policies'}</p>
               <p className="mt-1 text-[11px] font-semibold leading-5 text-slate-500">{locale === 'ar' ? 'ما يعمل الآن، وما يحتاج موافقة أو تكاملاً.' : 'What works now and what needs approval or an integration.'}</p>
             </Link>

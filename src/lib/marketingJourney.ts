@@ -89,7 +89,7 @@ export function resolveMarketingJourneyStage(pathname: string): MarketingJourney
   if (normalized === '/brand' || normalized.startsWith('/brand/')) return 'brand'
   if (normalized === '/content-hub' || normalized.includes('/content-hub') || normalized === '/studio' || normalized.startsWith('/media')) return 'production'
   if (normalized === '/strategy' || normalized.startsWith('/campaigns') || normalized.startsWith('/paid-campaigns')) return 'strategy'
-  if (normalized === '/calendar' || normalized === '/publish' || normalized === '/automation') return 'execution'
+  if (normalized === '/calendar' || normalized === '/publish' || normalized === '/automation' || normalized === '/operations') return 'execution'
   if (normalized === '/analytics' || normalized === '/learning') return 'results'
 
   return null

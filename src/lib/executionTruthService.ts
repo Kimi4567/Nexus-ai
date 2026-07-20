@@ -85,6 +85,8 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
       audience: true,
       platforms: true,
       aiOutput: true,
+      autopilotEnabled: true,
+      autopilotActivatedAt: true,
       updatedAt: true,
     },
   })
@@ -92,6 +94,9 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
   if (campaigns.length === 0) return buildWorkspaceExecutionTruth([])
 
   const campaignIds = campaigns.map((campaign) => campaign.id)
+  // Prisma groupBy's generated conditional generic cannot represent this mixed
+  // Promise.all tuple without collapsing the argument type. Keep the cast local.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = prisma as any
   const [statusCounts, approvedMissingApprovalCounts, approvedMissingMediaCounts, invalidScheduledCounts, overdueScheduledCounts, eligibleEvidenceCounts, contentReviewPosts, decisionEvents, activeAdCounts, brandProfile] = await Promise.all([
     db.socialPost.groupBy({
@@ -297,6 +302,8 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
       campaignName: campaign.name,
       campaignStatus: campaign.status as string,
       updatedAt: campaign.updatedAt.toISOString(),
+      autopilotEnabled: campaign.autopilotEnabled,
+      autopilotActivatedAt: campaign.autopilotActivatedAt,
       strategyApprovalState: approval.state,
       strategyEvidenceCount: normalizeStrategyEvidenceLedger(strategy.evidenceLedger).length,
       contentQualityIssues: contentReview.issues.map((issue) => ({
