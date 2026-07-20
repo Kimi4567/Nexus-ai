@@ -20,6 +20,7 @@ import { guardBrandText, guardBrandList } from '@/lib/ai/brandTruthGuard'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { readOpenAIChatUsage, summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
 
 /* ═══════════════════════════════════════════════════════════════
    POST /api/brand/suggest
@@ -295,22 +296,29 @@ Rules:
         return NextResponse.json({ error: 'NEXUS AI could not create a suggestion. Credits were restored.' }, { status: 502 })
       }
       const completion = await res.json()
+      const providerUsage = summarizeOpenAITextUsage('gpt-4o-mini', [readOpenAIChatUsage(completion.usage)])
+      const providerEconomics = {
+        providerCostUsd: providerUsage.estimatedProviderCostUsd,
+        providerPricingVersion: providerUsage.pricingVersion,
+        providerUsage,
+      }
       const rawSuggestion: string = completion.choices?.[0]?.message?.content?.trim() || ''
       if (!rawSuggestion) {
-        await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'NEXUS AI returned no suggestion' })
+        await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'NEXUS AI returned no suggestion', providerEconomics })
         return NextResponse.json({ error: 'AI returned no suggestion' }, { status: 502 })
       }
       // PR-G: deterministic truth guard — scrub invented metrics, downgrade fake
       // proof / overclaimed automation before it can be saved as brand truth.
       const suggestion = guardBrandText(rawSuggestion, allowedClaims)
       if (!suggestion.trim()) {
-        await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'Truth guard removed the unusable suggestion' })
+        await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'Truth guard removed the unusable suggestion', providerEconomics })
         return NextResponse.json({ error: 'AI returned no safe usable suggestion', refunded: true }, { status: 502 })
       }
       const finalization = await finalizeCreditDeduction({
         userId: user.id,
         action: 'AI_FIELD_SUGGESTION',
         deduction: credit,
+        providerEconomics,
       })
       if (!finalization.ok) {
         chargedCredit = null
@@ -347,10 +355,16 @@ Rules:
       return NextResponse.json({ error: 'NEXUS AI could not create suggestions. Credits were restored.' }, { status: 502 })
     }
     const completion = await res.json()
+    const providerUsage = summarizeOpenAITextUsage('gpt-4o-mini', [readOpenAIChatUsage(completion.usage)])
+    const providerEconomics = {
+      providerCostUsd: providerUsage.estimatedProviderCostUsd,
+      providerPricingVersion: providerUsage.pricingVersion,
+      providerUsage,
+    }
 
     const raw: string = completion.choices?.[0]?.message?.content?.trim() || ''
     if (!raw) {
-      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'NEXUS AI returned no suggestions' })
+      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'NEXUS AI returned no suggestions', providerEconomics })
       return NextResponse.json({ error: 'AI returned no suggestions' }, { status: 502 })
     }
     const cleaned = raw.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim()
@@ -377,7 +391,7 @@ Rules:
       suggestions = []
     }
     if (suggestions.length === 0) {
-      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'NEXUS AI returned no usable suggestions' })
+      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'NEXUS AI returned no usable suggestions', providerEconomics })
       return NextResponse.json({ error: 'AI returned no usable suggestions' }, { status: 502 })
     }
 
@@ -385,7 +399,7 @@ Rules:
     // advantages, etc.) — keeps user-provided figures, scrubs invented ones.
     suggestions = guardBrandList(suggestions, allowedClaims)
     if (suggestions.length === 0) {
-      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'Truth guard removed all unusable suggestions' })
+      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'Truth guard removed all unusable suggestions', providerEconomics })
       return NextResponse.json({ error: 'AI returned no safe usable suggestions', refunded: true }, { status: 502 })
     }
 
@@ -393,6 +407,7 @@ Rules:
       userId: user.id,
       action: 'AI_FIELD_SUGGESTION',
       deduction: credit,
+      providerEconomics,
     })
     if (!finalization.ok) {
       chargedCredit = null

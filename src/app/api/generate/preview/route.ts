@@ -19,6 +19,8 @@ import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import { assertCampaignStrategyContract } from '@/lib/campaignStrategyContract'
 import { reviewBrandTruthConsistency, reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { createOpenAIProviderUsageCollector } from '@/lib/ai/providerUsageContext'
+import { summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
 
 // Simple in-memory rate limiter: 5 generations per user per minute
 const rateMap = new Map<string, { count: number; reset: number }>()
@@ -93,6 +95,18 @@ export async function POST(req: NextRequest) {
   }
   // ────────────────────────────────────────────────────────────────────────────
 
+  const usageCollector = createOpenAIProviderUsageCollector()
+  const currentProviderEconomics = () => {
+    const calls = usageCollector.snapshot()
+    if (calls.length === 0) return undefined
+    const usage = summarizeOpenAITextUsage('gpt-4o-mini', calls)
+    return {
+      providerCostUsd: usage.estimatedProviderCostUsd,
+      providerPricingVersion: usage.pricingVersion,
+      providerUsage: usage,
+    }
+  }
+
   try {
     const campaignData = {
       name: name.trim(),
@@ -106,10 +120,10 @@ export async function POST(req: NextRequest) {
     }
     const projectData = { businessType: description || name }
 
-    let [strategy, concepts] = await Promise.all([
+    let [strategy, concepts] = await usageCollector.run(() => Promise.all([
       generateMarketingStrategy(campaignData, projectData),
       generateAdConcepts(campaignData, projectData),
-    ])
+    ]))
     const verifiedProof = Array.isArray(brandProfile?.verifiedProof) ? brandProfile.verifiedProof : []
     strategy = guardStrategyOutputContract(
       guardStrategyProof(strategy, {
@@ -145,6 +159,7 @@ export async function POST(req: NextRequest) {
         action: 'CAMPAIGN_GENERATION',
         deduction: credit,
         reason: 'Generated preview failed the Brand Brain and scope quality gate',
+        providerEconomics: currentProviderEconomics(),
       })
       return NextResponse.json({
         error: 'MARKETING_QUALITY_GATE_BLOCKED',
@@ -158,6 +173,7 @@ export async function POST(req: NextRequest) {
       userId,
       action: 'CAMPAIGN_GENERATION',
       deduction: credit,
+      providerEconomics: currentProviderEconomics(),
     })
     if (!finalization.ok) {
       return NextResponse.json({
@@ -184,6 +200,7 @@ export async function POST(req: NextRequest) {
       action: 'CAMPAIGN_GENERATION',
       deduction: credit,
       reason: 'Campaign preview generation failed',
+      providerEconomics: currentProviderEconomics(),
     })
     return NextResponse.json({ error: err.message || 'Generation failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
   }

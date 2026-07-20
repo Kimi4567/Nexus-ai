@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { cronAuthError } from '@/lib/cronAuth'
+import { cronAuthError, isCronRequestAuthorized } from '@/lib/cronAuth'
 
 const originalSecret = process.env.CRON_SECRET
 
@@ -28,5 +28,11 @@ describe('cronAuthError', () => {
     expect(cronAuthError(new Request('http://localhost/cron', {
       headers: { Authorization: 'Bearer secret' },
     }))).toBeNull()
+    expect(isCronRequestAuthorized(new Request('http://localhost/cron', {
+      headers: { Authorization: 'Bearer secret' },
+    }))).toBe(true)
+    expect(isCronRequestAuthorized(new Request('http://localhost/cron', {
+      headers: { Authorization: 'Bearer wrong' },
+    }))).toBe(false)
   })
 })

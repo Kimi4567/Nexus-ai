@@ -34,6 +34,7 @@ import {
 } from '@/lib/contentPostRevision'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { readOpenAIChatUsage, summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
 
 type Params = { params: Promise<{ id: string; postId: string }> }
 
@@ -287,10 +288,16 @@ ${post.caption}${instruction ? `\n\nRewrite instruction: ${instruction}` : '\n\n
       return next
     })
 
+    const providerUsage = summarizeOpenAITextUsage('gpt-4o', [readOpenAIChatUsage(chatData.usage)])
     const finalization = await finalizeCreditDeduction({
       userId,
       action: 'AI_POST_REWRITE',
       deduction: creditCheck,
+      providerEconomics: {
+        providerCostUsd: providerUsage.estimatedProviderCostUsd,
+        providerPricingVersion: providerUsage.pricingVersion,
+        providerUsage,
+      },
     })
     if (!finalization.ok) {
       chargedCredit = null

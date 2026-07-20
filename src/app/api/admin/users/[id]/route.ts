@@ -1,6 +1,6 @@
 /**
  * DELETE /api/admin/users/[id]
- * PATCH  /api/admin/users/[id]  — change plan / role
+ * PATCH  /api/admin/users/[id]  — role only. Billing state is Stripe-owned.
  * Admin-only
  */
 import { NextRequest, NextResponse } from 'next/server'
@@ -47,9 +47,20 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
     const body = await req.json()
     const { subscriptionStatus, role } = body
 
+    if (subscriptionStatus !== undefined) {
+      return NextResponse.json({
+        error: 'Subscription status is billing-owned and can only change through Stripe webhooks.',
+        code: 'BILLING_STATE_IMMUTABLE',
+      }, { status: 409 })
+    }
+
     const updateData: Record<string, string> = {}
-    if (subscriptionStatus) updateData.subscriptionStatus = subscriptionStatus
-    if (role) updateData.role = role
+    if (role) {
+      if (!['USER', 'ADMIN'].includes(role)) {
+        return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
+      }
+      updateData.role = role
+    }
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })

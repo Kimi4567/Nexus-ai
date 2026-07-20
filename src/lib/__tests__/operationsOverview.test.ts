@@ -36,6 +36,14 @@ function input(overrides: Partial<OperationsOverviewInput> = {}): OperationsOver
     latestAnalyticsAt: null,
     retriesLast24h: 0,
     latestRetryAt: null,
+    pilotProof: {
+      status: 'not_started',
+      providerPublishedPosts: 0,
+      eligibleAnalyticsPosts: 0,
+      appliedLearningProposals: 0,
+      completedCampaigns: 0,
+      completedCampaignIds: [],
+    },
     ...overrides,
   }
 }
@@ -84,7 +92,10 @@ describe('operations overview', () => {
         lastSyncAt: new Date('2026-07-13T00:00:00.000Z'), lastSyncError: null,
       }],
       publishedAwaitingEvidence: 2,
-      creditTransactions: [{ amount: -5, pricingVersion: null, entityId: null, entityType: null }],
+      creditTransactions: [{
+        action: 'AD_COPY', amount: -5, status: 'SETTLED', createdAt: new Date('2026-07-15T11:00:00.000Z'),
+        pricingVersion: null, entityId: null, entityType: null,
+      }],
     }))
 
     expect(overview.monitor.health).toBe('attention')
@@ -159,5 +170,69 @@ describe('operations overview', () => {
       campaigns: [{ id: 'campaign-1', name: 'Launch', activatedAt: '2026-07-15T10:00:00.000Z', scheduledPosts: 0 }],
     })
     expect(overview.issues[0]).toMatchObject({ id: 'execution:campaign-1:RESOLVE_FAILURE', priority: 'critical' })
+  })
+
+  it('counts only settled debits as spend and only explicit refund rows as refunds', () => {
+    const overview = buildOperationsOverview(input({
+      creditTransactions: [
+        { action: 'AD_COPY', amount: -3, status: 'SETTLED', createdAt: new Date('2026-07-15T10:00:00.000Z'), pricingVersion: 'v1', entityId: 'ad-1', entityType: 'ad' },
+        { action: 'IMAGE_GENERATION', amount: -4, status: 'RESERVED', createdAt: new Date('2026-07-15T12:30:00.000Z'), pricingVersion: 'v1', entityId: 'image-1', entityType: 'image' },
+        { action: 'PURCHASE', amount: 50, status: 'SETTLED', createdAt: new Date('2026-07-15T09:00:00.000Z'), pricingVersion: 'v1', entityId: 'order-1', entityType: 'credit_purchase' },
+        { action: 'REFUND', amount: 2, status: 'SETTLED', createdAt: new Date('2026-07-15T11:30:00.000Z'), pricingVersion: 'v1', entityId: 'txn-1', entityType: 'credit_transaction' },
+      ],
+    }))
+
+    expect(overview.credits).toMatchObject({
+      spent30d: 3,
+      refunded30d: 2,
+      settledDebits30d: 1,
+      reservationsInFlight: 1,
+      staleReservations: 0,
+    })
+  })
+
+  it('raises a critical incident when a credit reservation is stuck', () => {
+    const overview = buildOperationsOverview(input({
+      creditTransactions: [{
+        action: 'VIDEO_GENERATION', amount: -18, status: 'RESERVED', createdAt: new Date('2026-07-15T11:30:00.000Z'),
+        pricingVersion: 'v1', entityId: 'video-1', entityType: 'video',
+      }],
+    }))
+
+    expect(overview.credits).toMatchObject({ spent30d: 0, reservationsInFlight: 1, staleReservations: 1 })
+    expect(overview.issues[0]).toMatchObject({ id: 'credits:stale-reservations', priority: 'critical' })
+    expect(overview.readiness.checks.find(check => check.id === 'failure_recovery')?.status).toBe('blocked')
+  })
+
+  it('proves immutable approvals in sandbox without requiring a live platform schedule', () => {
+    const overview = buildOperationsOverview(input({
+      truth: truth({
+        campaigns: [{
+          campaignId: 'campaign-1',
+          campaignName: 'Sandbox launch',
+          campaignStatus: 'ACTIVE',
+          stage: 'SCHEDULING',
+          strategyApprovalState: 'approved',
+          posts: {
+            draft: 0,
+            approved: 2,
+            approvedMissingApproval: 0,
+            approvedMissingMedia: 0,
+            scheduled: 0,
+            published: 0,
+            failed: 0,
+            publishedWithoutAnalytics: 0,
+          },
+          nextAction: null,
+          updatedAt: now.toISOString(),
+        }],
+      }),
+    }))
+
+    expect(overview.readiness.checks.find(check => check.id === 'approval_evidence')).toMatchObject({
+      status: 'ready',
+      evidence: { en: expect.stringContaining('2 approved') },
+    })
+    expect(overview.readiness.pilot.status).toBe('not_started')
   })
 })

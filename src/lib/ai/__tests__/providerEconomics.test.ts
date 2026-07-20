@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  estimateProfessionalImageCostUsd,
   estimateOpenAITextCostUsd,
   readOpenAIChatUsage,
   summarizeOpenAITextUsage,
@@ -44,5 +45,23 @@ describe('provider economics', () => {
       outputTokens: 17_000,
       estimatedProviderCostUsd: 0.20875,
     })
+  })
+
+  it('records the image generation reserve and measured quality-review cost', () => {
+    expect(estimateProfessionalImageCostUsd({
+      provider: 'fal-flux',
+      size: '1024x1536',
+      qualityReviewCostUsd: 0.012345,
+    })).toEqual(expect.objectContaining({
+      providerCostUsd: 0.072345,
+      providerPricingVersion: 'image-provider-estimate-2026-07-20-v1',
+    }))
+
+    expect(estimateProfessionalImageCostUsd({
+      provider: 'openai-gpt-image-2',
+      model: 'gpt-image-2',
+      size: '1536x1024',
+      qualityReviewCostUsd: 0.01,
+    }).providerCostUsd).toBe(0.175)
   })
 })

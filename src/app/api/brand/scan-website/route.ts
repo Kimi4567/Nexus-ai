@@ -27,6 +27,7 @@ import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/a
 import { assertPublicWebsiteUrl, normalizePublicWebsiteUrl } from '@/lib/publicWebsiteUrl'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { readOpenAIChatUsage, summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -231,9 +232,15 @@ Return JSON with this exact structure:
     }
 
     const openaiData = await openaiRes.json()
+    const providerUsage = summarizeOpenAITextUsage('gpt-4o', [readOpenAIChatUsage(openaiData.usage)])
+    const providerEconomics = {
+      providerCostUsd: providerUsage.estimatedProviderCostUsd,
+      providerPricingVersion: providerUsage.pricingVersion,
+      providerUsage,
+    }
     const raw = openaiData.choices?.[0]?.message?.content?.trim()
     if (!raw) {
-      await refundCreditDeduction({ userId: user.id, action: 'WEBSITE_SCAN', deduction: creditResult, reason: 'Empty AI response' })
+      await refundCreditDeduction({ userId: user.id, action: 'WEBSITE_SCAN', deduction: creditResult, reason: 'Empty AI response', providerEconomics })
       return NextResponse.json({ error: 'AI returned no website analysis', refunded: !!chargedUserId }, { status: 502 })
     }
 
@@ -243,11 +250,11 @@ Return JSON with this exact structure:
       const clean = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim()
       extracted = JSON.parse(clean)
     } catch {
-      await refundCreditDeduction({ userId: user.id, action: 'WEBSITE_SCAN', deduction: creditResult, reason: 'Unparseable AI response' })
+      await refundCreditDeduction({ userId: user.id, action: 'WEBSITE_SCAN', deduction: creditResult, reason: 'Unparseable AI response', providerEconomics })
       return NextResponse.json({ error: 'Failed to parse AI response', refunded: !!chargedUserId }, { status: 500 })
     }
     if (Object.keys(extracted).length === 0) {
-      await refundCreditDeduction({ userId: user.id, action: 'WEBSITE_SCAN', deduction: creditResult, reason: 'Incomplete AI response' })
+      await refundCreditDeduction({ userId: user.id, action: 'WEBSITE_SCAN', deduction: creditResult, reason: 'Incomplete AI response', providerEconomics })
       return NextResponse.json({ error: 'AI returned an incomplete website analysis', refunded: !!chargedUserId }, { status: 502 })
     }
 
@@ -269,6 +276,7 @@ Return JSON with this exact structure:
       userId: user.id,
       action: 'WEBSITE_SCAN',
       deduction: creditResult,
+      providerEconomics,
     })
     if (!finalization.ok) {
       chargedUserId = null

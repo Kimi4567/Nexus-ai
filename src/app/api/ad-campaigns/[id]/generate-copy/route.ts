@@ -43,11 +43,12 @@ import { getStrategyBriefReadiness } from '@/lib/strategyBriefReadiness'
 import { paidOptimizationGoal } from '@/lib/paidExecutionObjective'
 import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 import { buildContentPlanTruthContext, reviewContentPostForPublishing } from '@/lib/contentPlanApprovalGuard'
+import { readOpenAIChatUsage, summarizeOpenAITextUsage, type ProviderUsageSummary } from '@/lib/ai/providerEconomics'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
 
-async function callGPT(system: string, user: string): Promise<string> {
+async function callGPT(system: string, user: string): Promise<{ content: string; usage: ProviderUsageSummary }> {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -69,7 +70,7 @@ async function callGPT(system: string, user: string): Promise<string> {
   const data = await res.json()
   const content = data.choices?.[0]?.message?.content?.trim()
   if (!content) throw new Error('OpenAI returned no ad copy')
-  return content
+  return { content, usage: summarizeOpenAITextUsage('gpt-4o', [readOpenAIChatUsage(data.usage)]) }
 }
 
 const CTA_OPTIONS = {
@@ -93,8 +94,18 @@ function reviewedGoogleTextAssets(value: unknown, maxLength: number): string[] {
     })
 }
 
-async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
-  await refundCreditDeduction({ userId, action: 'AD_COPY', deduction: credit, reason })
+async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string, usage?: ProviderUsageSummary) {
+  await refundCreditDeduction({
+    userId,
+    action: 'AD_COPY',
+    deduction: credit,
+    reason,
+    providerEconomics: usage ? {
+      providerCostUsd: usage.estimatedProviderCostUsd,
+      providerPricingVersion: usage.pricingVersion,
+      providerUsage: usage,
+    } : undefined,
+  })
 }
 
 export async function POST(
@@ -364,7 +375,8 @@ Generate 5 review-ready ad copy variants in JSON:
     chargedUserId = user.id
     chargedCredit = creditResult
 
-    const raw = await callGPT(systemPrompt, userPrompt)
+    const generatedCopy = await callGPT(systemPrompt, userPrompt)
+    const raw = generatedCopy.content
     let generated: { variants?: unknown[]; review_pairing?: unknown }
     try {
       generated = JSON.parse(raw)
@@ -394,7 +406,7 @@ Generate 5 review-ready ad copy variants in JSON:
         }
       }
     } catch {
-      await refundDeductedCredits(user.id, creditResult, 'AI returned invalid JSON')
+      await refundDeductedCredits(user.id, creditResult, 'AI returned invalid JSON', generatedCopy.usage)
       return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })
     }
 
@@ -415,7 +427,7 @@ Generate 5 review-ready ad copy variants in JSON:
       goal: String(objective),
     })
     if (copyIssues.length > 0 || copyQualityGate.status !== 'passed') {
-      await refundDeductedCredits(user.id, creditResult, 'Paid ad drafts failed the copy, Brand Brain, or scope quality gate')
+      await refundDeductedCredits(user.id, creditResult, 'Paid ad drafts failed the copy, Brand Brain, or scope quality gate', generatedCopy.usage)
       return NextResponse.json({
         error: 'PAID_COPY_QUALITY_GATE_BLOCKED',
         code: 'PAID_COPY_QUALITY_GATE_BLOCKED',
@@ -498,6 +510,11 @@ Generate 5 review-ready ad copy variants in JSON:
       userId: user.id,
       action: 'AD_COPY',
       deduction: creditResult,
+      providerEconomics: {
+        providerCostUsd: generatedCopy.usage.estimatedProviderCostUsd,
+        providerPricingVersion: generatedCopy.usage.pricingVersion,
+        providerUsage: generatedCopy.usage,
+      },
     })
     if (!finalization.ok) {
       chargedUserId = null

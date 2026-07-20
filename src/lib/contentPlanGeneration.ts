@@ -96,6 +96,8 @@ export interface RetryOpts {
 export interface RetryResult {
   result: ParseResult
   attempts: number
+  /** Raw provider usage for every HTTP-success attempt, including empty output. */
+  providerUsages: unknown[]
 }
 
 export interface ContentPlanQuotaLike {
@@ -344,6 +346,7 @@ export async function generateContentPlanWithRetry(
   const sleep = opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)))
 
   let last: ParseResult = { ok: false, reason: 'provider' }
+  const providerUsages: unknown[] = []
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     let parsed: ParseResult
@@ -353,21 +356,24 @@ export async function generateContentPlanWithRetry(
         parsed = { ok: false, reason: 'provider' }
       } else {
         const data = await res.json()
+        if (data && typeof data === 'object' && 'usage' in data) {
+          providerUsages.push((data as { usage?: unknown }).usage)
+        }
         parsed = parseContentPlanResponse(data)
       }
     } catch {
       parsed = { ok: false, reason: 'provider' }
     }
 
-    if (parsed.ok) return { result: parsed, attempts: attempt }
+    if (parsed.ok) return { result: parsed, attempts: attempt, providerUsages }
 
     last = parsed
     // Deterministic failure — a retry cannot help. Fail clearly now.
-    if (!isRetryableFailure(parsed.reason)) return { result: parsed, attempts: attempt }
+    if (!isRetryableFailure(parsed.reason)) return { result: parsed, attempts: attempt, providerUsages }
     if (attempt < maxAttempts) await sleep(baseDelayMs * attempt)
   }
 
-  return { result: last, attempts: maxAttempts }
+  return { result: last, attempts: maxAttempts, providerUsages }
 }
 
 export interface ContentPlanFailureHttp {

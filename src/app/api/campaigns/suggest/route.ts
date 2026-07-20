@@ -21,6 +21,7 @@ import {
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { readOpenAIChatUsage, summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
 
 /* ═══════════════════════════════════════════════════════════════
    POST /api/campaigns/suggest
@@ -185,9 +186,15 @@ Rules:
     }
 
     const completion = await res.json()
+    const providerUsage = summarizeOpenAITextUsage('gpt-4o-mini', [readOpenAIChatUsage(completion.usage)])
+    const providerEconomics = {
+      providerCostUsd: providerUsage.estimatedProviderCostUsd,
+      providerPricingVersion: providerUsage.pricingVersion,
+      providerUsage,
+    }
     const rawSuggestion: string = completion.choices?.[0]?.message?.content?.trim() || ''
     if (!rawSuggestion) {
-      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'NEXUS AI returned no suggestion' })
+      await refundCreditDeduction({ userId: user.id, action: 'AI_FIELD_SUGGESTION', deduction: credit, reason: 'NEXUS AI returned no suggestion', providerEconomics })
       return NextResponse.json({ error: 'AI returned no suggestion' }, { status: 502 })
     }
     const allowedClaims = [
@@ -211,6 +218,7 @@ Rules:
         action: 'AI_FIELD_SUGGESTION',
         deduction: credit,
         reason: 'Truth guard removed the unusable suggestion',
+        providerEconomics,
       })
       return NextResponse.json({ error: 'AI returned no safe usable suggestion', refunded: true }, { status: 502 })
     }
@@ -219,6 +227,7 @@ Rules:
       userId: user.id,
       action: 'AI_FIELD_SUGGESTION',
       deduction: credit,
+      providerEconomics,
     })
     if (!finalization.ok) {
       chargedCredit = null

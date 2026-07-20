@@ -57,6 +57,7 @@ import { chooseProfessionalImageProvider, type ImageGenerationPurpose } from '@/
 import { scheduleAfterResponse } from '@/lib/afterResponse'
 import { readMediaIntelligence } from '@/lib/creativeIntelligence'
 import { reviewGeneratedMediaQuality } from '@/lib/ai/generatedMediaQuality'
+import { estimateProfessionalImageCostUsd } from '@/lib/ai/providerEconomics'
 import {
   buildPlatformReadyImageUrl,
   resolvePlatformImageFormat,
@@ -81,12 +82,14 @@ async function refundDeductedCredits(
   userId: string,
   credit: CreditDeductionOk,
   reason: string,
+  providerEconomics?: ReturnType<typeof estimateProfessionalImageCostUsd>,
 ): Promise<{ refunded: boolean; refundPending: boolean }> {
   const result = await refundCreditDeduction({
     userId,
     action: 'IMAGE_GENERATION',
     deduction: credit,
     reason,
+    providerEconomics,
   })
   return result && !result.ok
     ? { refunded: false, refundPending: true }
@@ -509,6 +512,8 @@ export async function POST(req: NextRequest) {
       openAiConfigured: isAiProviderConfigured(),
       falConfigured: Boolean(process.env.FAL_KEY?.trim()),
     })
+    const openAIImageSize = platformToOpenAISize(targetImageFormat.platform)
+    let usedProvider = providerDecision.provider
 
     const runProvider = async (provider: typeof providerDecision.provider) => {
       if (provider === 'fal-flux') {
@@ -522,16 +527,17 @@ export async function POST(req: NextRequest) {
         return generateWithOpenAIImageEdit(
           providerPrompt,
           referenceMedia.url,
-          platformToOpenAISize(targetImageFormat.platform),
+          openAIImageSize,
         )
       }
-      return generateWithDallE(providerPrompt, platformToOpenAISize(targetImageFormat.platform))
+      return generateWithDallE(providerPrompt, openAIImageSize)
     }
 
     try {
       rawImageUrl = await runProvider(providerDecision.provider)
     } catch (primaryError) {
       if (!providerDecision.fallback) throw primaryError
+      usedProvider = providerDecision.fallback
       rawImageUrl = await runProvider(providerDecision.fallback)
     }
 
@@ -558,14 +564,29 @@ export async function POST(req: NextRequest) {
     })
     if (!qualityReview.passed) {
       const qualityMessage = 'NEXUS quality review rejected this image because it did not meet the approved creative and platform-delivery requirements. Credits will be restored.'
-      const refund = await refundDeductedCredits(userId, credit, qualityMessage)
+      const rejectedProviderEconomics = estimateProfessionalImageCostUsd({
+        provider: usedProvider,
+        size: openAIImageSize,
+        model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2',
+        qualityReviewCostUsd: qualityReview.providerUsage?.estimatedProviderCostUsd,
+      })
+      const refund = await refundDeductedCredits(userId, credit, qualityMessage, {
+        ...rejectedProviderEconomics,
+        providerUsage: {
+          ...rejectedProviderEconomics.providerUsage,
+          qualityReview: qualityReview.providerUsage ?? null,
+          fallbackUsed: usedProvider !== providerDecision.provider,
+          requestedProvider: providerDecision.provider,
+          customerCreditsRestored: true,
+        },
+      })
       await db.generatedVisual.update({
         where: { id: visual.id },
         data: {
           status: 'FAILED',
           imageUrl: platformReadyUrl,
           errorMessage: qualityMessage,
-          provider: providerDecision.provider,
+          provider: usedProvider,
           referenceMediaId: referenceMedia?.id ?? null,
           creditTransactionId: credit.transactionId ?? null,
           qualityStatus: 'REJECTED',
@@ -598,7 +619,7 @@ export async function POST(req: NextRequest) {
             status: 'COMPLETED',
             imageUrl: permanentUrl,
             errorMessage: null,
-            provider: providerDecision.provider,
+            provider: usedProvider,
             referenceMediaId: referenceMedia?.id ?? null,
             creditTransactionId: credit.transactionId ?? null,
             qualityStatus: 'PASSED',
@@ -650,7 +671,7 @@ export async function POST(req: NextRequest) {
           status: 'COMPLETED',
           imageUrl: permanentUrl,
           errorMessage: null,
-          provider: providerDecision.provider,
+          provider: usedProvider,
           referenceMediaId: referenceMedia?.id ?? null,
           creditTransactionId: credit.transactionId ?? null,
           qualityStatus: 'PASSED',
@@ -659,10 +680,25 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    const providerEconomics = estimateProfessionalImageCostUsd({
+      provider: usedProvider,
+      size: openAIImageSize,
+      model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2',
+      qualityReviewCostUsd: qualityReview.providerUsage?.estimatedProviderCostUsd,
+    })
     const finalization = await finalizeCreditDeduction({
       userId,
       action: 'IMAGE_GENERATION',
       deduction: credit,
+      providerEconomics: {
+        ...providerEconomics,
+        providerUsage: {
+          ...providerEconomics.providerUsage,
+          qualityReview: qualityReview.providerUsage ?? null,
+          fallbackUsed: usedProvider !== providerDecision.provider,
+          requestedProvider: providerDecision.provider,
+        },
+      },
     })
     if (!finalization.ok) {
       await captureOperationalError(new Error('Generated image saved but credit finalization failed'), {

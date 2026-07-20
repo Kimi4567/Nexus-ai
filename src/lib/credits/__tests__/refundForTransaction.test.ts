@@ -184,4 +184,33 @@ describe('refundCreditsForTransaction', () => {
       error: 'db down',
     })
   })
+
+  it('11. records provider loss on the refunded debit without charging the customer', async () => {
+    state.debit = { id: 'd1', userId: 'u1', amount: -18, creditCost: 18, status: 'RESERVED' }
+
+    await refundCreditsForTransaction({
+      userId: 'u1',
+      transactionId: 'd1',
+      reason: 'quality rejected',
+      providerEconomics: {
+        providerCostUsd: 3.4412349,
+        providerPricingVersion: 'runway-2026-07-20',
+        providerUsage: { provider: 'runway', automaticRetries: 0 },
+      },
+    })
+
+    expect(tx.creditTransaction.update).toHaveBeenCalledWith({
+      where: { id: 'd1' },
+      data: expect.objectContaining({
+        status: 'REFUNDED',
+        providerCostUsd: 3.441235,
+        providerPricingVersion: 'runway-2026-07-20',
+        providerUsage: { provider: 'runway', automaticRetries: 0 },
+      }),
+    })
+    expect(tx.user.update).toHaveBeenCalledWith({
+      where: { id: 'u1' },
+      data: { aiCredits: { increment: 18 } },
+    })
+  })
 })

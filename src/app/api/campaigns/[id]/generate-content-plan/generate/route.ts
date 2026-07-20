@@ -49,6 +49,7 @@ import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { chooseProfessionalImageProvider } from '@/lib/ai/mediaProviderRouter'
 import { reviewGeneratedMediaQuality } from '@/lib/ai/generatedMediaQuality'
+import { estimateProfessionalImageCostUsd } from '@/lib/ai/providerEconomics'
 import {
   buildPlatformReadyImageUrl,
   resolvePlatformImageFormat,
@@ -69,7 +70,12 @@ const MAX_IMAGES_PER_REQUEST = 1
 
 // ── Image generation (mirrors cron/generate-images logic) ─────────────────────
 
-async function generateImage(prompt: string, platform: string): Promise<string> {
+async function generateImage(prompt: string, platform: string): Promise<{
+  url: string
+  provider: 'openai-gpt-image-2' | 'fal-flux'
+  size: '1024x1024' | '1024x1536' | '1536x1024'
+  fallbackUsed: boolean
+}> {
   // The prompt is already produced by the shared Visual Intelligence builder,
   // including its text-free draft-background contract. Keep only the final
   // platform normalization here so bulk and single generation stay identical.
@@ -81,6 +87,7 @@ async function generateImage(prompt: string, platform: string): Promise<string> 
     openAiConfigured: isAiProviderConfigured(),
     falConfigured: Boolean(process.env.FAL_KEY?.trim()),
   })
+  const size = platformToOpenAISize(platform)
   const run = async (provider: typeof decision.provider) => {
     if (provider === 'fal-flux') {
       const result = await generateWithFlux({
@@ -89,14 +96,14 @@ async function generateImage(prompt: string, platform: string): Promise<string> 
       })
       return result.imageUrl
     }
-    return generateWithDallE(safePrompt, platformToOpenAISize(platform))
+    return generateWithDallE(safePrompt, size)
   }
 
   try {
-    return await run(decision.provider)
+    return { url: await run(decision.provider), provider: decision.provider, size, fallbackUsed: false }
   } catch (error) {
     if (!decision.fallback) throw error
-    return run(decision.fallback)
+    return { url: await run(decision.fallback), provider: decision.fallback, size, fallbackUsed: true }
   }
 }
 
@@ -418,7 +425,8 @@ export async function POST(req: NextRequest, props: Params) {
         visualId = visual.id
 
         const targetFormat = resolvePlatformImageFormat(post.publishTarget || post.platform)
-        const rawUrl = await generateImage(preparedPrompt, targetFormat.platform)
+        const generatedImage = await generateImage(preparedPrompt, targetFormat.platform)
+        const rawUrl = generatedImage.url
         // Content Hub media must be durable. Never put a provider-temporary URL
         // or a base64 payload in SocialPost.imageUrl.
         const durableRawUrl = await uploadToCloudinary(rawUrl, `content_hub_raw_${post.id}`)
@@ -462,10 +470,24 @@ export async function POST(req: NextRequest, props: Params) {
           })
         })
         if (reservation) {
+          const providerEconomics = estimateProfessionalImageCostUsd({
+            provider: generatedImage.provider,
+            size: generatedImage.size,
+            model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2',
+            qualityReviewCostUsd: qualityReview.providerUsage?.estimatedProviderCostUsd,
+          })
           const finalization = await finalizeCreditDeduction({
             userId,
             action: 'IMAGE_GENERATION',
             deduction: reservation.deduction,
+            providerEconomics: {
+              ...providerEconomics,
+              providerUsage: {
+                ...providerEconomics.providerUsage,
+                qualityReview: qualityReview.providerUsage ?? null,
+                fallbackUsed: generatedImage.fallbackUsed,
+              },
+            },
           })
           if (finalization.ok) {
             reservation.settled = true

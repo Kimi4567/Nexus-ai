@@ -26,6 +26,7 @@ import {
   type OpenAITextUsage,
   type ProviderUsageSummary,
 } from '@/lib/ai/providerEconomics'
+import { recordOpenAIProviderUsage } from '@/lib/ai/providerUsageContext'
 // PR-S1c-3 — deterministic Strategy Order + Deliverables Contract types (display/scope only).
 import type { StrategyOrder, StrategyDeliverables } from '@/lib/strategy/strategyOrder'
 
@@ -529,6 +530,7 @@ async function callOpenAI(
   })
   if (!response.ok) throw new Error(`OpenAI error: ${response.status}`)
   const data = await response.json()
+  recordOpenAIProviderUsage(data.usage)
   const content = data.choices?.[0]?.message?.content?.trim()
   if (!content) throw new Error('OpenAI returned no strategy')
   try {

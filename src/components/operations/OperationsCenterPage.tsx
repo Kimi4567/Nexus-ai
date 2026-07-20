@@ -308,7 +308,10 @@ export default function OperationsCenterPage() {
       {
         key: 'credits', icon: <Coins className="h-5 w-5" />,
         title: copy('سجل الكريديت والربحية', 'Credit and cost ledger'),
-        detail: copy(`${overview.credits.spent30d} خُصمت و${overview.credits.refunded30d} استُردت خلال 30 يومًا.`, `${overview.credits.spent30d} spent and ${overview.credits.refunded30d} refunded in 30 days.`),
+        detail: copy(
+          `${overview.credits.spent30d} خصم نهائي · ${overview.credits.refunded30d} Refund صريح · ${overview.credits.reservationsInFlight} حجز قيد التسوية.`,
+          `${overview.credits.spent30d} settled spend · ${overview.credits.refunded30d} explicit refund · ${overview.credits.reservationsInFlight} reservation(s) in flight.`,
+        ),
         status: creditHealth,
         statusLabel: creditHealth === 'healthy' ? copy('قابل للتتبع', 'Traceable') : creditHealth === 'attention' ? copy('تتبع ناقص', 'Traceability gap') : copy('لا معاملات', 'No transactions'),
         href: '/billing', actionLabel: copy('فتح السجل', 'Open ledger'),
@@ -410,6 +413,87 @@ export default function OperationsCenterPage() {
                   icon={<Route className="h-5 w-5" />}
                 />
               </section>
+
+              {overview ? (
+                <section className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]" aria-label={copy('بوابة الجاهزية قبل الإطلاق', 'Pre-launch readiness gate')}>
+                  <article className="nx-os-card p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#5366f6]">{copy('Sandbox أولاً', 'Sandbox first')}</p>
+                        <h2 className="mt-1 text-[17px] font-black text-[#071236]">{copy('جاهزية مساحة العمل الداخلية', 'Internal workspace readiness')}</h2>
+                        <p className="mt-1 max-w-2xl text-[10px] font-semibold leading-5 text-[#7b87a3]">
+                          {copy('هذه البوابة تقيس أدلة محفوظة داخل NEXUS فقط. لا تعتبر التصاريح أو النشر الحي مكتملين.', 'This gate measures persisted evidence inside NEXUS only. It never treats provider permissions or live publishing as complete.')}
+                        </p>
+                      </div>
+                      <span className={`rounded-full border px-3 py-1.5 text-[9px] font-black ${overview.readiness.status === 'ready' ? toneForHealth('healthy') : overview.readiness.status === 'blocked' ? toneForHealth('critical') : toneForHealth('not_started')}`}>
+                        {overview.readiness.status === 'ready'
+                          ? copy('جاهزة داخليًا', 'Internally ready')
+                          : overview.readiness.status === 'blocked'
+                            ? copy('محجوبة', 'Blocked')
+                            : copy('غير مثبتة', 'Not verified')}
+                      </span>
+                    </div>
+                    <div
+                      className="mt-4 h-2 overflow-hidden rounded-full bg-[#edf1f7]"
+                      role="progressbar"
+                      aria-label={copy('تقدم الجاهزية الداخلية', 'Internal readiness progress')}
+                      aria-valuemin={0}
+                      aria-valuemax={overview.readiness.total}
+                      aria-valuenow={overview.readiness.passed}
+                    >
+                      <div className="h-full rounded-full bg-[#5366f6] transition-all" style={{ width: `${(overview.readiness.passed / Math.max(1, overview.readiness.total)) * 100}%` }} />
+                    </div>
+                    <p className="mt-2 text-[9px] font-black text-[#7b87a3]">{overview.readiness.passed}/{overview.readiness.total} {copy('حدود مثبتة', 'boundaries verified')}</p>
+                    <div className="mt-3 divide-y divide-[#edf1f7]">
+                      {overview.readiness.checks.map(check => (
+                        <div key={check.id} className="grid gap-2 py-3 md:grid-cols-[auto_1fr_auto] md:items-center">
+                          <span className={`grid h-8 w-8 place-items-center rounded-[11px] ${check.status === 'ready' ? 'bg-emerald-50 text-emerald-600' : check.status === 'blocked' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-500'}`}>
+                            {check.status === 'ready' ? <CheckCircle2 className="h-4 w-4" /> : check.status === 'blocked' ? <AlertTriangle className="h-4 w-4" /> : <Clock3 className="h-4 w-4" />}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-black text-[#111b3f]">{ar ? check.title.ar : check.title.en}</p>
+                            <p className="mt-1 text-[9px] font-semibold leading-4 text-[#7b87a3]">{ar ? check.evidence.ar : check.evidence.en}</p>
+                          </div>
+                          <Link href={check.href} className="inline-flex h-8 w-fit items-center gap-1 rounded-[10px] border border-[#dbe2f0] px-2.5 text-[9px] font-black text-[#5366f6]">
+                            {copy('فتح الدليل', 'Open evidence')}<ArrowUpRight className="h-3 w-3" />
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+
+                  <article className="nx-os-card p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#5366f6]">{copy('بعد التصاريح', 'After permissions')}</p>
+                        <h2 className="mt-1 text-[17px] font-black text-[#071236]">{copy('إثبات Pilot حي', 'Live pilot proof')}</h2>
+                      </div>
+                      <Route className="h-5 w-5 text-[#5366f6]" />
+                    </div>
+                    <p className="mt-2 text-[10px] font-semibold leading-5 text-[#7b87a3]">
+                      {copy('لا تكتمل هذه البطاقة ببيانات اختبار. يجب أن تجتمع نتيجة نشر من الموفر وتحليلات مؤهلة واقتراح تعلم مقبول داخل الحملة نفسها.', 'Test data cannot complete this card. Provider publishing, eligible analytics, and an accepted learning proposal must belong to the same campaign.')}
+                    </p>
+                    <div className="mt-5 space-y-3">
+                      {[
+                        { label: copy('منشورات مؤكدة من الموفر', 'Provider-confirmed posts'), value: overview.readiness.pilot.providerPublishedPosts, ready: overview.readiness.pilot.providerPublishedPosts > 0 },
+                        { label: copy('منشورات بتحليلات مؤهلة', 'Posts with eligible analytics'), value: overview.readiness.pilot.eligibleAnalyticsPosts, ready: overview.readiness.pilot.eligibleAnalyticsPosts > 0 },
+                        { label: copy('اقتراحات تعلم مطبقة', 'Applied learning proposals'), value: overview.readiness.pilot.appliedLearningProposals, ready: overview.readiness.pilot.appliedLearningProposals > 0 },
+                        { label: copy('حملات أغلقت الحلقة', 'Campaigns that closed the loop'), value: overview.readiness.pilot.completedCampaigns, ready: overview.readiness.pilot.completedCampaigns > 0 },
+                      ].map(item => (
+                        <div key={item.label} className="flex items-center justify-between gap-3 rounded-[14px] border border-[#e5ebf5] bg-[#fbfcff] px-3 py-3">
+                          <span className="inline-flex items-center gap-2 text-[10px] font-black text-[#53617f]">
+                            {item.ready ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <Clock3 className="h-4 w-4 text-slate-400" />}{item.label}
+                          </span>
+                          <span className="text-[15px] font-black text-[#071236]">{item.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <Link href="/learning" className="mt-5 inline-flex h-10 items-center gap-2 rounded-[12px] bg-[#071236] px-4 text-[10px] font-black text-white">
+                      {copy('فتح دليل التعلم', 'Open learning evidence')}<ArrowUpRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </article>
+                </section>
+              ) : null}
 
               <section className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
                 <div className="nx-os-card p-5">

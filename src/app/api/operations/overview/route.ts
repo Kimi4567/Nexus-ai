@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getWorkspaceExecutionTruthByWorkspaceId } from '@/lib/executionTruthService'
 import { buildOperationsOverview } from '@/lib/operationsOverview'
 import { getCanonicalApprovalInbox } from '@/lib/approvalInboxService'
+import { buildPilotProofOverview } from '@/lib/pilotProof'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,6 +34,8 @@ export async function GET(req: NextRequest) {
       latestAnalytics,
       retriesLast24h,
       latestRetry,
+      pilotPosts,
+      pilotLearnings,
     ] = await Promise.all([
       getWorkspaceExecutionTruthByWorkspaceId(workspace.id),
       prisma.agentRun.findFirst({
@@ -53,7 +56,7 @@ export async function GET(req: NextRequest) {
       getCanonicalApprovalInbox(userId),
       prisma.creditTransaction.findMany({
         where: { userId, createdAt: { gte: thirtyDaysAgo } },
-        select: { amount: true, pricingVersion: true, entityId: true, entityType: true },
+        select: { action: true, amount: true, status: true, createdAt: true, pricingVersion: true, entityId: true, entityType: true },
         orderBy: { createdAt: 'desc' },
         take: 1000,
       }),
@@ -93,6 +96,26 @@ export async function GET(req: NextRequest) {
         orderBy: { createdAt: 'desc' },
         select: { createdAt: true },
       }),
+      prisma.socialPost.findMany({
+        where: { workspaceId: workspace.id, status: 'PUBLISHED' },
+        select: {
+          id: true,
+          campaignId: true,
+          status: true,
+          platformPostId: true,
+          publishedAt: true,
+          manuallyPublishedAt: true,
+          analyticsData: true,
+        },
+        orderBy: { publishedAt: 'desc' },
+        take: 1000,
+      }),
+      prisma.brainLearning.findMany({
+        where: { workspaceId: workspace.id, trigger: 'post_performance', status: 'accepted' },
+        select: { status: true, trigger: true, evidence: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 1000,
+      }),
     ])
 
     const pendingApprovals = approvalInbox.summary.total
@@ -122,6 +145,7 @@ export async function GET(req: NextRequest) {
       latestAnalyticsAt: latestAnalytics?.analyticsUpdatedAt ?? null,
       retriesLast24h,
       latestRetryAt: latestRetry?.createdAt ?? null,
+      pilotProof: buildPilotProofOverview(pilotPosts, pilotLearnings),
     })
 
     return NextResponse.json({ overview })

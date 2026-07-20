@@ -57,6 +57,7 @@ import { readLockedPlannedPostAllowance } from '@/lib/postCommercial'
 import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 import { normalizeCampaignPlatforms } from '@/lib/campaignPlatforms'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { readOpenAIChatUsage, summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
 
 // Heavy gpt-4o generation (up to 18 posts) + optional media vision can run well
 // past the platform default. Match the sibling routes (engine, /generate) so the
@@ -121,6 +122,8 @@ export async function POST(req: NextRequest, props: Params) {
   let contentPlanCharge: CreditDeductionOk | null = null
   let abVariantsCharged = false
   let abVariantsCharge: CreditDeductionOk | null = null
+  let contentPlanProviderUsages: unknown[] = []
+  let abVariantsProviderUsage: unknown = null
   const refundAbVariants = async (reason: string) => {
     if (!abVariantsCharged) return false
     const refunded = await refundContentActionCharge(userId, abVariantsCharge, 'CONTENT_AB_VARIANTS', reason)
@@ -576,7 +579,7 @@ Rules:
     // slow first response no longer drops the user into a no-plan 502 — we retry
     // before writing any posts, so no duplicates and no second charge.
     // Deterministic failures (truncated/malformed) short-circuit and refund.
-    const { result: planResult, attempts: planAttempts } = await generateContentPlanWithRetry(
+    const { result: planResult, attempts: planAttempts, providerUsages } = await generateContentPlanWithRetry(
       () => fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -586,6 +589,7 @@ Rules:
         body: chatRequestBody,
       }),
     )
+    contentPlanProviderUsages = providerUsages
 
     if (!planResult.ok) {
       // No usable content after retries — refund (skip unlimited plans) and
@@ -845,6 +849,7 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
         if (!bRes.ok) throw new Error(`OpenAI B-variant generation failed (${bRes.status})`)
 
         const bData = await bRes.json()
+        abVariantsProviderUsage = bData?.usage ?? null
         let bPosts: any[] = []
         try {
           const raw = JSON.parse(bData.choices?.[0]?.message?.content ?? '{}')
@@ -960,10 +965,21 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
     const videoSlots  = postsToCreate.filter(p => p.isVideoPost).length
     const uploadSlots = postsToCreate.filter(p => p.mediaSource === 'UPLOAD' && !p.isVideoPost).length
 
+    const contentPlanUsage = summarizeOpenAITextUsage(
+      'gpt-4o',
+      contentPlanProviderUsages.map(readOpenAIChatUsage),
+    )
     const contentPlanFinalization = await finalizeCreditDeduction({
       userId,
       action: 'CONTENT_PLAN_GENERATION',
       deduction: contentPlanCharge,
+      providerEconomics: (contentPlanUsage.inputTokens + contentPlanUsage.outputTokens) > 0
+        ? {
+            providerCostUsd: contentPlanUsage.estimatedProviderCostUsd,
+            providerPricingVersion: contentPlanUsage.pricingVersion,
+            providerUsage: contentPlanUsage,
+          }
+        : undefined,
     })
     if (!contentPlanFinalization.ok) {
       contentPlanCharged = false
@@ -992,10 +1008,18 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
     }
 
     if (enableABTesting && !abVariantsRefunded && bVariantsCreated > 0 && abVariantsCharge) {
+      const abUsage = summarizeOpenAITextUsage('gpt-4o', [readOpenAIChatUsage(abVariantsProviderUsage)])
       const abFinalization = await finalizeCreditDeduction({
         userId,
         action: 'CONTENT_AB_VARIANTS',
         deduction: abVariantsCharge,
+        providerEconomics: (abUsage.inputTokens + abUsage.outputTokens) > 0
+          ? {
+              providerCostUsd: abUsage.estimatedProviderCostUsd,
+              providerPricingVersion: abUsage.pricingVersion,
+              providerUsage: abUsage,
+            }
+          : undefined,
       })
       if (!abFinalization.ok) {
         abVariantsCharged = false

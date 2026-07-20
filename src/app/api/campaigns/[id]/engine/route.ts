@@ -20,6 +20,8 @@ import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/a
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { createOpenAIProviderUsageCollector } from '@/lib/ai/providerUsageContext'
+import { summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
 
 // Strategy generation makes two GPT-4o-mini calls; give the function headroom so
 // a slower-but-valid Arabic response completes instead of being killed mid-run.
@@ -185,19 +187,28 @@ export async function POST(req: NextRequest, props: Params) {
     credit = creditCheck
   }
 
+  const usageCollector = createOpenAIProviderUsageCollector()
+  const currentProviderEconomics = () => {
+    const calls = usageCollector.snapshot()
+    if (calls.length === 0) return undefined
+    const usage = summarizeOpenAITextUsage('gpt-4o-mini', calls)
+    return { providerCostUsd: usage.estimatedProviderCostUsd, providerPricingVersion: usage.pricingVersion, providerUsage: usage }
+  }
+
   try {
-    const result = await runCampaignEngine({
+    const result = await usageCollector.run(() => runCampaignEngine({
       userId,
       campaignId: params.id,
       language,
       force,
-    })
+    }))
 
     if (credit) {
       const finalization = await finalizeCreditDeduction({
         userId,
         action: 'RUN_FULL_STRATEGY',
         deduction: credit,
+        providerEconomics: currentProviderEconomics(),
       })
       if (!finalization.ok) {
         credit = null
@@ -234,6 +245,7 @@ export async function POST(req: NextRequest, props: Params) {
       action: 'RUN_FULL_STRATEGY',
       deduction: credit,
       reason: 'Campaign engine failed before creating a usable strategy',
+      providerEconomics: currentProviderEconomics(),
     })
     return NextResponse.json({
       error: err?.message || 'NEXUS Engine failed',

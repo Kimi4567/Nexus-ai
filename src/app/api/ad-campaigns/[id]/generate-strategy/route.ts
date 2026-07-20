@@ -45,11 +45,12 @@ import {
 } from '@/lib/paidExecutionObjective'
 import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 import { paidStrategyAllowsPlatform } from '@/lib/paidStrategyPlatforms'
+import { readOpenAIChatUsage, summarizeOpenAITextUsage, type ProviderUsageSummary } from '@/lib/ai/providerEconomics'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
 
-async function callGPT(system: string, user: string): Promise<string> {
+async function callGPT(system: string, user: string): Promise<{ content: string; usage: ProviderUsageSummary }> {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -71,7 +72,7 @@ async function callGPT(system: string, user: string): Promise<string> {
   const data = await res.json()
   const content = data.choices?.[0]?.message?.content?.trim()
   if (!content) throw new Error('OpenAI returned no paid strategy')
-  return content
+  return { content, usage: summarizeOpenAITextUsage('gpt-4o', [readOpenAIChatUsage(data.usage)]) }
 }
 
 function positiveNumber(value: unknown): number | null {
@@ -123,8 +124,18 @@ function enforceForecastBoundary(
   }
 }
 
-async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
-  await refundCreditDeduction({ userId, action: 'PAID_EXECUTION_PLAN', deduction: credit, reason })
+async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string, usage?: ProviderUsageSummary) {
+  await refundCreditDeduction({
+    userId,
+    action: 'PAID_EXECUTION_PLAN',
+    deduction: credit,
+    reason,
+    providerEconomics: usage ? {
+      providerCostUsd: usage.estimatedProviderCostUsd,
+      providerPricingVersion: usage.pricingVersion,
+      providerUsage: usage,
+    } : undefined,
+  })
 }
 
 export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -412,7 +423,8 @@ Generate a complete paid execution plan as JSON with EXACTLY this structure:
     chargedUserId = user.id
     chargedCredit = creditResult
 
-    const raw = await callGPT(systemPrompt, userPrompt)
+    const generatedStrategy = await callGPT(systemPrompt, userPrompt)
+    const raw = generatedStrategy.content
     let strategy: Record<string, unknown>
     try {
       const parsed = JSON.parse(raw) as Record<string, unknown>
@@ -440,7 +452,7 @@ Generate a complete paid execution plan as JSON with EXACTLY this structure:
         goal: String(campaign.objective),
       })
       if (qualityGate.status !== 'passed') {
-        await refundDeductedCredits(user.id, creditResult, 'Paid execution plan failed the Brand Brain and scope quality gate')
+        await refundDeductedCredits(user.id, creditResult, 'Paid execution plan failed the Brand Brain and scope quality gate', generatedStrategy.usage)
         return NextResponse.json({
           error: 'MARKETING_QUALITY_GATE_BLOCKED',
           code: 'MARKETING_QUALITY_GATE_BLOCKED',
@@ -450,7 +462,7 @@ Generate a complete paid execution plan as JSON with EXACTLY this structure:
       }
       strategy = { ...strategy, qualityGate }
     } catch {
-      await refundDeductedCredits(user.id, creditResult, 'AI returned invalid JSON')
+      await refundDeductedCredits(user.id, creditResult, 'AI returned invalid JSON', generatedStrategy.usage)
       return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })
     }
 
@@ -481,6 +493,11 @@ Generate a complete paid execution plan as JSON with EXACTLY this structure:
       userId: user.id,
       action: 'PAID_EXECUTION_PLAN',
       deduction: creditResult,
+      providerEconomics: {
+        providerCostUsd: generatedStrategy.usage.estimatedProviderCostUsd,
+        providerPricingVersion: generatedStrategy.usage.pricingVersion,
+        providerUsage: generatedStrategy.usage,
+      },
     })
     if (!finalization.ok) {
       chargedUserId = null

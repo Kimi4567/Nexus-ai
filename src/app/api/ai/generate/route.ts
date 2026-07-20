@@ -13,6 +13,7 @@ import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { captureOperationalError } from '@/lib/observability/operationalError'
+import { readOpenAIChatUsage, summarizeOpenAITextUsage, type ProviderUsageSummary } from '@/lib/ai/providerEconomics'
 
 /* ═══════════════════════════════════════════════════════════════
    /api/ai/generate
@@ -47,8 +48,18 @@ function buildLegacyUserMessage(body: Record<string, unknown>): string {
   }
 }
 
-async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
-  await refundCreditDeduction({ userId, action: 'AD_COPY', deduction: credit, reason })
+async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string, usage?: ProviderUsageSummary) {
+  await refundCreditDeduction({
+    userId,
+    action: 'AD_COPY',
+    deduction: credit,
+    reason,
+    providerEconomics: usage ? {
+      providerCostUsd: usage.estimatedProviderCostUsd,
+      providerPricingVersion: usage.pricingVersion,
+      providerUsage: usage,
+    } : undefined,
+  })
 }
 
 // ── Main handler ───────────────────────────────────────────────
@@ -169,13 +180,23 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await response.json()
+    const providerUsage = summarizeOpenAITextUsage('gpt-4o-mini', [readOpenAIChatUsage(data.usage)])
     const content = data.choices?.[0]?.message?.content ?? ''
     if (typeof content !== 'string' || !content.trim()) {
-      await refundDeductedCredits(userId, credit, 'NEXUS AI returned no usable content')
+      await refundDeductedCredits(userId, credit, 'NEXUS AI returned no usable content', providerUsage)
       return NextResponse.json({ error: 'AI returned no usable content', refunded: true }, { status: 502 })
     }
 
-    const finalization = await finalizeCreditDeduction({ userId, action: 'AD_COPY', deduction: credit })
+    const finalization = await finalizeCreditDeduction({
+      userId,
+      action: 'AD_COPY',
+      deduction: credit,
+      providerEconomics: {
+        providerCostUsd: providerUsage.estimatedProviderCostUsd,
+        providerPricingVersion: providerUsage.pricingVersion,
+        providerUsage,
+      },
+    })
     if (!finalization.ok) {
       return NextResponse.json({
         error: 'AI output could not be finalized. Reserved credits were returned.',

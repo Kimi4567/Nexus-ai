@@ -5,6 +5,7 @@
  */
 
 import { getLanguageInstruction } from './langHelper'
+import { recordOpenAIProviderUsage } from './providerUsageContext'
 
 const MODEL = 'gpt-4o-mini'
 
@@ -51,6 +52,7 @@ async function callOpenAI(
   }
 
   const data = await response.json()
+  recordOpenAIProviderUsage(data?.usage)
   const choice = data?.choices?.[0]
   const content = choice?.message?.content
   const finishReason = choice?.finish_reason

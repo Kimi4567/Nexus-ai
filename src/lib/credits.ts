@@ -480,6 +480,29 @@ export interface CreditChargeContext {
   description?: string
 }
 
+export interface CreditProviderEconomics {
+  /** Internal variable provider cost; never presented as the customer price. */
+  providerCostUsd: number
+  /** Immutable provider-rate catalog or estimate identifier. */
+  providerPricingVersion: string
+  /** Sanitized components needed to reproduce the estimate. */
+  providerUsage?: object
+}
+
+function normalizeProviderEconomics(value: CreditProviderEconomics | null | undefined) {
+  const providerCostUsd = Number(value?.providerCostUsd)
+  const providerPricingVersion = value?.providerPricingVersion?.trim()
+  return Number.isFinite(providerCostUsd)
+    && providerCostUsd >= 0
+    && Boolean(providerPricingVersion)
+    ? {
+        providerCostUsd: Number(providerCostUsd.toFixed(6)),
+        providerPricingVersion: providerPricingVersion!,
+        providerUsage: value?.providerUsage ?? undefined,
+      }
+    : null
+}
+
 export type CreditSettlementResult =
   | { ok: true; status: 'settled' | 'already_settled' | 'noop' }
   | { ok: false; status: 'failed'; error: string }
@@ -909,8 +932,10 @@ export async function settleCreditDeduction(args: {
   deduction: CreditDeductionOk | null | undefined
   settlementEntityId?: string
   settlementEntityType?: string
+  providerEconomics?: CreditProviderEconomics
 }): Promise<CreditSettlementResult> {
   const { userId, action, deduction, settlementEntityId, settlementEntityType } = args
+  const providerEconomics = normalizeProviderEconomics(args.providerEconomics)
   if (!deduction?.transactionId) {
     return deduction && deduction.creditsUsed > 0
       ? { ok: false, status: 'failed', error: 'credit_reservation_transaction_missing' }
@@ -951,6 +976,7 @@ export async function settleCreditDeduction(args: {
           ...(settlementEntityId && settlementEntityType
             ? { entityId: settlementEntityId, entityType: settlementEntityType }
             : {}),
+          ...(providerEconomics ?? {}),
         },
       })
       const updatedUser = await tx.user.update({
@@ -991,6 +1017,7 @@ export async function finalizeCreditDeduction(args: {
   deduction: CreditDeductionOk | null | undefined
   settlementEntityId?: string
   settlementEntityType?: string
+  providerEconomics?: CreditProviderEconomics
 }): Promise<CreditFinalizationResult> {
   const settlement = await settleCreditDeduction(args)
   if (settlement.ok) return settlement
@@ -1183,9 +1210,16 @@ export async function refundCredits(
  * No schema change: double-refund prevention reuses entityId/entityType.
  */
 export async function refundCreditsForTransaction(
-  args: { userId: string; transactionId: string; reason?: string },
+  args: {
+    userId: string
+    transactionId: string
+    reason?: string
+    /** Provider spend already incurred even though the customer is refunded. */
+    providerEconomics?: CreditProviderEconomics
+  },
 ): Promise<CreditRefundResult> {
   const { userId, transactionId, reason } = args
+  const providerEconomics = normalizeProviderEconomics(args.providerEconomics)
   try {
     const outcome = await (prisma as any).$transaction(async (tx: any) => {
       // 1. Lock the debit row for the duration so two refunds of the same debit
@@ -1209,6 +1243,12 @@ export async function refundCreditsForTransaction(
         return { status: 'noop' as const, wasSettled: false, creditCost: 0 }
       }
       if (debit.status === 'REFUNDED') {
+        if (providerEconomics) {
+          await tx.creditTransaction.update({
+            where: { id: debit.id },
+            data: providerEconomics,
+          })
+        }
         return { status: 'noop' as const, wasSettled: false, creditCost: 0 }
       }
 
@@ -1220,7 +1260,11 @@ export async function refundCreditsForTransaction(
       if (already) {
         await tx.creditTransaction.update({
           where: { id: debit.id },
-          data: { status: 'REFUNDED', refundedAt: new Date() },
+          data: {
+            status: 'REFUNDED',
+            refundedAt: new Date(),
+            ...(providerEconomics ?? {}),
+          },
         })
         return { status: 'noop' as const, wasSettled: false, creditCost: 0 }
       }
@@ -1289,7 +1333,11 @@ export async function refundCreditsForTransaction(
 
       await tx.creditTransaction.update({
         where: { id: debit.id },
-        data: { status: 'REFUNDED', refundedAt: now },
+        data: {
+          status: 'REFUNDED',
+          refundedAt: now,
+          ...(providerEconomics ?? {}),
+        },
       })
       await tx.creditTransaction.create({
         data: {
@@ -1335,14 +1383,17 @@ export async function refundCreditDeduction(args: {
   action: CreditAction
   deduction: CreditDeductionOk | null | undefined
   reason: string
+  /** Provider spend already incurred even though the customer is refunded. */
+  providerEconomics?: CreditProviderEconomics
 }): Promise<CreditRefundResult> {
-  const { userId, action, deduction, reason } = args
+  const { userId, action, deduction, reason, providerEconomics } = args
   if (!deduction) return { ok: true, status: 'noop' }
   if (deduction.transactionId) {
     return refundCreditsForTransaction({
       userId,
       transactionId: deduction.transactionId,
       reason,
+      providerEconomics,
     })
   }
   if (deduction.creditsUsed <= 0) return { ok: true, status: 'noop' }

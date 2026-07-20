@@ -28,6 +28,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { FREE_TRIAL_CREDITS } from '@/lib/commercialPlans'
 
 export async function POST(req: NextRequest) {
   // ── Admin guard ────────────────────────────────────────────────────────────
@@ -108,13 +109,15 @@ export async function POST(req: NextRequest) {
       `Deleted ${summary.subscriptions} subscription row(s) and ${summary.usage} usage row(s)`,
       `Deleted ${summary.creditTransactions} credit transaction(s) and ${summary.creditGrants} grant bucket(s)`,
       `Deleted ${summary.rateLimits} rate-limit record(s)`,
-      'Reset user to FREE / 0 cached credits; the standard 15-credit trial is created on first use',
+      `Reset user to FREE / 0 cached credits; the standard ${FREE_TRIAL_CREDITS}-credit trial is created on first eligible use`,
     ]
 
     return NextResponse.json({
       ok:     true,
       userId,
       email:  target.email,
+      cachedCredits: 0,
+      eligibleTrialCredits: FREE_TRIAL_CREDITS,
       log,
       message: 'Account reset complete. User can log in with the same credentials and start fresh.',
     })
