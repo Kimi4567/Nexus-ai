@@ -1610,6 +1610,29 @@
     box-shadow: 0 20px 42px rgba(2,6,23,0.34), 0 0 0 5px rgba(255,255,255,0.07);
   }
 
+  .nx-dashboard-command-secondary {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 13px;
+    background: rgba(255,255,255,0.07);
+    color: #E8ECFF;
+    padding-inline: 16px;
+    font-size: 12px;
+    font-weight: 800;
+    backdrop-filter: blur(12px);
+    transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+  }
+
+  .nx-dashboard-command-secondary:hover {
+    transform: translateY(-1px);
+    border-color: rgba(255,255,255,0.28);
+    background: rgba(255,255,255,0.11);
+  }
+
   .nx-dashboard-command-side {
     position: relative;
     overflow: hidden;
@@ -1695,6 +1718,10 @@
     }
     .nx-dashboard-page .nx-os-container {
       gap: 16px;
+    }
+    .nx-dashboard-command-action,
+    .nx-dashboard-command-secondary {
+      min-height: 42px;
     }
   }
 

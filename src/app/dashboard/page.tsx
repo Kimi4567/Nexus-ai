@@ -185,6 +185,15 @@ const STATUS_MAP: Record<string, { ar: string; en: string; color: string; bg: st
   ARCHIVED: { ar: 'مؤرشفة', en: 'Archived', color: '#64748b', bg: '#f8fafc' },
 }
 
+const GOAL_MAP: Record<string, { ar: string; en: string }> = {
+  SALES: { ar: 'المبيعات', en: 'Sales' },
+  AWARENESS: { ar: 'الوعي بالعلامة', en: 'Brand awareness' },
+  LEADS: { ar: 'العملاء المحتملون', en: 'Lead generation' },
+  TRAFFIC: { ar: 'الزيارات', en: 'Traffic' },
+  ENGAGEMENT: { ar: 'التفاعل', en: 'Engagement' },
+  BRAND_BUILDING: { ar: 'بناء العلامة', en: 'Brand building' },
+}
+
 function DashboardGateSurface({
   mode,
   ar,
@@ -655,18 +664,17 @@ export default function DashboardPage() {
             pageTitle={ar ? 'اليوم' : 'Today'}
             pageSubtitle={ar ? 'قرار واحد واضح الآن، ثم يتحرك NEXUS معك إلى الخطوة التالية.' : 'One clear decision now, then NEXUS moves with you to the next step.'}
             primaryHref={null}
-            secondaryHref="/approvals"
-            secondaryLabel={ar ? 'الموافقات' : 'Approvals'}
+            secondaryHref={null}
           />
 
-          <SoftCard className="nx-dashboard-command overflow-hidden p-5 sm:p-7">
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center">
+          <SoftCard className="nx-dashboard-command overflow-hidden p-5 sm:p-6">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-center">
               <div dir={ar ? 'rtl' : 'ltr'}>
                 <div className="nx-dashboard-ai-chip">
                   <span className="nx-ai-core" aria-hidden="true" />
                   {ar ? 'قرارك التالي' : 'Your next decision'}
                 </div>
-                <h2 className="mt-4 max-w-3xl text-[26px] font-semibold leading-tight tracking-[-0.035em] text-white sm:text-[34px]">
+                <h2 className="mt-3.5 max-w-3xl text-[25px] font-semibold leading-tight tracking-[-0.035em] text-white sm:text-[32px]">
                   {nextAction.title}
                 </h2>
                 <p className="mt-3 max-w-2xl text-[13px] font-medium leading-6 text-slate-300">
@@ -680,13 +688,17 @@ export default function DashboardPage() {
                     {nextAction.cta}
                     <ArrowUpRight className="h-4 w-4" />
                   </Link>
+                  <Link href="/approvals" className="nx-dashboard-command-secondary">
+                    <ShieldCheck className="h-4 w-4" />
+                    {ar ? 'مراجعة الموافقات' : 'Review approvals'}
+                  </Link>
                   <span className="text-[11px] font-semibold text-slate-400/90">
                     {ar ? `آخر تحديث ${timeStr}` : `Updated ${timeStr}`}
                   </span>
                 </div>
               </div>
 
-              <div className="nx-dashboard-command-side p-5" dir={ar ? 'rtl' : 'ltr'}>
+              <div className="nx-dashboard-command-side p-[18px]" dir={ar ? 'rtl' : 'ltr'}>
                 <div className="flex items-end justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-cyan-200">{ar ? 'ذكاء NEXUS التشغيلي' : 'NEXUS operating intelligence'}</p>
@@ -694,10 +706,10 @@ export default function DashboardPage() {
                   </div>
                   <span className="font-mono text-[30px] font-semibold leading-none text-white" dir="ltr">{workflowCoverage}%</span>
                 </div>
-                <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/10">
+                <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
                   <div className="h-full rounded-full bg-[linear-gradient(90deg,#8B82FF,#21C5DF)] shadow-[0_0_18px_rgba(33,197,223,0.6)]" style={{ width: `${workflowCoverage}%` }} />
                 </div>
-                <div className="mt-4 grid grid-cols-5 gap-2" aria-label={ar ? 'حالة مراحل مسار العمل' : 'Workflow stage status'}>
+                <div className="mt-3.5 grid grid-cols-5 gap-2" aria-label={ar ? 'حالة مراحل مسار العمل' : 'Workflow stage status'}>
                   {workflowChecks.map((ready, index) => (
                     <span
                       key={index}
@@ -728,12 +740,12 @@ export default function DashboardPage() {
                 <div className="min-w-0" dir={ar ? 'rtl' : 'ltr'}>
                   <div className="nx-ai-chip mb-3"><span className="nx-ai-core" aria-hidden="true" />{ar ? 'قراءة النظام الآن' : 'Live system read'}</div>
                   <h2 className="max-w-3xl text-[22px] font-semibold leading-tight tracking-[-0.03em] text-[#0B1028] sm:text-[26px]">
-                    {ar ? 'حالة نظام التسويق الذكي' : 'AI marketing system status'}
+                    {ar ? 'ملخص التشغيل' : 'Operating summary'}
                   </h2>
                   <p className="mt-2 max-w-xl text-[12px] leading-5 text-slate-600">
                     {ar
-                      ? 'يقرأ NEXUS السجلات المحفوظة عبر Brand Brain والاستراتيجية والمحتوى والربط والتحليلات. كل حالة هنا مرتبطة بدليل فعلي.'
-                      : 'NEXUS reads saved records across Brand Brain, strategy, content, connections, and analytics. Every status here traces to real evidence.'}
+                      ? 'ملخص لحالة Brand Brain والاستراتيجية والمحتوى والربط والتحليلات. كل رقم هنا مرتبط بسجل فعلي.'
+                      : 'A summary of Brand Brain, strategy, content, connections, and analytics. Every number here traces to a real record.'}
                   </p>
                 </div>
               </div>
@@ -816,7 +828,7 @@ export default function DashboardPage() {
                   <ChevronDown className="h-3.5 w-3.5" />
                 </Link>
                 <div className="text-right">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#5E63FF]">{ar ? 'الحملات النشطة' : 'Current campaigns'}</p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#5E63FF]">{ar ? 'أحدث الحملات' : 'Recent campaigns'}</p>
                   <h3 className="mt-1 text-[19px] font-semibold tracking-[-0.025em] text-[#0B1028]">{ar ? 'مسارات العمل الحالية' : 'Current workstreams'}</h3>
                 </div>
               </div>
@@ -833,12 +845,13 @@ export default function DashboardPage() {
                     ? { ar: 'محجوبة حتى التصحيح', en: 'Blocked pending fix', color: '#c2410c', bg: '#fff7ed' }
                     : STATUS_MAP[campaign.status] || STATUS_MAP.DRAFT
                   const platform = getCampaignPlatformSummary(campaign.platforms, locale)
-                  const updatedLabel = new Date(campaign.createdAt).toLocaleDateString(ar ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric' })
+                  const goal = GOAL_MAP[campaign.goal]
+                  const goalLabel = goal ? (ar ? goal.ar : goal.en) : campaign.goal
                   return (
                     <Link
                       key={campaign.id}
                       href={`/campaigns/${campaign.id}`}
-                      className="nx-dashboard-row grid grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-3 p-2.5 md:grid-cols-[42px_minmax(0,1fr)_90px_80px]"
+                      className="nx-dashboard-row grid grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-3 p-2.5 md:grid-cols-[42px_minmax(0,1fr)_110px_110px]"
                     >
                       <div className="h-[42px] w-[42px] overflow-hidden rounded-[13px]">
                         <EmptyOrImage thumbnail={campaign.thumbnail} label={campaign.name} />
@@ -847,11 +860,12 @@ export default function DashboardPage() {
                         <p className="truncate text-[14px] font-black text-[#0B1028]">{campaign.name}</p>
                         <p className="mt-1 truncate text-[12px] text-slate-500">
                           {platform.isEmpty ? platform.emptyLabel : platform.labels.slice(0, 3).join(' · ')}
+                          <span className="md:hidden"> · {goalLabel}</span>
                         </p>
                       </div>
-                      <div className="hidden text-center md:block">
-                        <p className="text-[9px] font-bold text-slate-400">{ar ? 'أُنشئت' : 'Created'}</p>
-                        <p className="text-[12px] font-black text-[#0B1028]">{updatedLabel}</p>
+                      <div className="hidden min-w-0 text-center md:block">
+                        <p className="text-[9px] font-bold text-slate-400">{ar ? 'الهدف' : 'Goal'}</p>
+                        <p className="truncate text-[11px] font-black text-[#0B1028]">{goalLabel}</p>
                       </div>
                       <span className="rounded-full px-2.5 py-1 text-center text-[10px] font-bold" style={{ background: status.bg, color: status.color }}>
                         {ar ? status.ar : status.en}
@@ -892,7 +906,7 @@ export default function DashboardPage() {
           </div>
 
           <div dir="ltr" className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
-            <SoftCard className="nx-dashboard-panel p-5 sm:p-6" dir={ar ? 'rtl' : 'ltr'}>
+            <SoftCard className="nx-dashboard-panel h-full p-5 sm:p-6" dir={ar ? 'rtl' : 'ltr'}>
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#5E63FF]">{ar ? 'نقاط تحقق التشغيل' : 'Operating checkpoints'}</p>
@@ -972,7 +986,7 @@ export default function DashboardPage() {
               />
             </SoftCard>
 
-            <SoftCard className="nx-dashboard-panel p-5 sm:p-6" dir={ar ? 'rtl' : 'ltr'}>
+            <SoftCard className="nx-dashboard-panel h-full p-5 sm:p-6" dir={ar ? 'rtl' : 'ltr'}>
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#5E63FF]">Nexus</p>
@@ -995,7 +1009,9 @@ export default function DashboardPage() {
                       </div>
                       <div className="min-w-0 border-b border-slate-100 pb-3">
                         <p className="truncate text-[12px] font-bold text-[#0B1028]">{ar ? (alert.bodyAr || alert.body) : (alert.bodyEn || alert.body)}</p>
-                        <p className="mt-1 text-[11px] text-slate-400">{ar ? (alert.timeAr || alert.time) : (alert.timeEn || alert.time)}</p>
+                        <p className="mt-1 truncate text-[11px] text-slate-400">
+                          {alert.campaign ? `${alert.campaign} · ` : ''}{ar ? (alert.timeAr || alert.time) : (alert.timeEn || alert.time)}
+                        </p>
                       </div>
                     </div>
                   ))}

@@ -13,6 +13,7 @@ import { prisma } from '@/lib/prisma'
 import { getUsageSummary } from '@/lib/credits'
 import { getCreditAccountSnapshot } from '@/lib/credits/accountSnapshot'
 import { hasRealPerformanceAnalytics } from '@/lib/performanceEvidence'
+import { getDashboardActivityPresentation } from '@/lib/dashboardActivity'
 
 export async function GET(req: NextRequest) {
   const userId = await getServerUserId(req)
@@ -160,57 +161,20 @@ export async function GET(req: NextRequest) {
         ? 100
         : 0
 
-    // Map activity types to bilingual labels and agent names
-    const agentMap: Record<string, string> = {
-      created: 'NEX',
-      generated: 'NEX',
-      updated: 'VEX',
-      published: 'VEX',
-      analyzed: 'PULSE',
-      scheduled: 'PULSE',
-      monitored: 'Sentinel',
-    }
-
-    const activityLabelMapAr: Record<string, string> = {
-      created:   'تم إنشاء حملة جديدة',
-      generated: 'تم توليد محتوى AI',
-      updated:   'تم تحديث الحملة',
-      published: 'تم نشر الحملة',
-      analyzed:  'تم تحليل الأداء',
-      scheduled: 'تم جدولة المحتوى',
-      monitored: 'تم رصد المنافسين',
-      strategy_approved: 'تم اعتماد اتجاه الاستراتيجية لتخطيط المحتوى',
-      strategy_approval_revoked: 'أُعيد فتح الاستراتيجية للمراجعة',
-      content_media_approved: 'تم اعتماد الوسائط النهائية بشكل منفصل عن النص والجدولة',
-      paid_budget_approved: 'تم اعتماد الميزانية ومسودة المنصة المتوقفة',
-      paid_launch_approved: 'تم اعتماد تنفيذ الحملة المدفوعة والإنفاق',
-    }
-    const activityLabelMapEn: Record<string, string> = {
-      created:   'New campaign created',
-      generated: 'AI content generated',
-      updated:   'Campaign updated',
-      published: 'Campaign published',
-      analyzed:  'Performance analyzed',
-      scheduled: 'Content scheduled',
-      monitored: 'Competitors monitored',
-      strategy_approved: 'Strategy direction approved for content planning',
-      strategy_approval_revoked: 'Strategy reopened for review',
-      content_media_approved: 'Final media approved separately from copy and scheduling',
-      paid_budget_approved: 'Budget and paused platform draft approved',
-      paid_launch_approved: 'Paid delivery and spend approved',
-    }
-
-    const activities = recentActivities.map((a) => ({
-      id: a.id,
-      actionAr: activityLabelMapAr[a.type] || a.description || 'نشاط جديد',
-      actionEn: activityLabelMapEn[a.type] || a.description || 'New activity',
-      action: activityLabelMapAr[a.type] || a.description || 'نشاط جديد', // legacy key
-      agent: agentMap[a.type] || 'NEX',
-      campaign: a.campaign?.name || '',
-      time: getRelativeTime(a.createdAt),
-      timeAr: getRelativeTimeAr(a.createdAt),
-      timeEn: getRelativeTimeEn(a.createdAt),
-    }))
+    const activities = recentActivities.map((activity) => {
+      const presentation = getDashboardActivityPresentation(activity.type, activity.description)
+      return {
+        id: activity.id,
+        actionAr: presentation.actionAr,
+        actionEn: presentation.actionEn,
+        action: presentation.actionAr, // legacy key
+        agent: presentation.agent,
+        campaign: activity.campaign?.name || '',
+        time: getRelativeTime(activity.createdAt),
+        timeAr: getRelativeTimeAr(activity.createdAt),
+        timeEn: getRelativeTimeEn(activity.createdAt),
+      }
+    })
 
     if (!creditAccount) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
