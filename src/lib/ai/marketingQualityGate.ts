@@ -12,6 +12,8 @@
  * recomputed before paid AI work, approval, and downstream content generation.
  */
 
+import { hasUsableConversionDestination } from '@/lib/strategyBriefReadiness'
+
 export const MARKETING_QUALITY_GATE_VERSION = 1 as const
 
 export type MarketingQualitySeverity = 'blocker' | 'warning'
@@ -43,6 +45,8 @@ export interface MarketingBrandProfile {
   audiencePainPoints?: string[] | null
   audienceDesires?: string[] | null
   uniqueAdvantages?: string[] | null
+  pricePoint?: string | null
+  visualStyle?: string | null
   verifiedProof?: string[] | null
   competitors?: string[] | null
   competitorNotes?: string | null
@@ -102,7 +106,10 @@ const DOMAIN_SIGNATURES: Array<{
   },
   {
     id: 'real_estate',
-    business: /real estate|property|properties|brokerage|عقار|عقارات|وساطة عقارية/i,
+    // "property" alone is ordinary language in home services (for example
+    // "confirm property details before cleaning"). Treat it as a real-estate
+    // signature only when the surrounding phrase describes the property market.
+    business: /real estate|brokerage|property (?:brokerage|sales?|purchase|listings?|agents?|investment|management)|properties (?:for sale|to buy|to purchase|listed)|عقارات|وساطة عقارية/i,
     industry: /real estate|property|brokerage|عقار|عقارات|وساطة عقارية/i,
   },
   {
@@ -120,8 +127,76 @@ const DOMAIN_SIGNATURES: Array<{
 const GENERIC_COMPETITOR_RE = /^(?:premium|leading|local|top|best)?\s*(?:dental|medical|beauty|marketing|real estate|coffee|software|saas)?\s*(?:clinics?|companies|agencies|providers|businesses|brands|stores|shops|firms)(?:\s+in\s+.+)?$/i
 const UNSUPPORTED_QUALITY_SUPERLATIVE_RE = /\b(?:freshest|finest|premium|high[-\s]?quality|optimal|perfect|ultimate|unmatched|unrival(?:l)?ed)\b|(?:الأطزج|الأفضل|الأمثل|مثالي|مثالية|فاخر|فاخرة|عالي(?:ة)?\s+الجودة)/gi
 const UNVERIFIED_DIRECT_RESPONSE_RE = /\b(?:shop(?:\s+now|\s+the\s+look)?|browse\s+(?:our|the)\s+collection|explore\s+(?:our|the)\s+collection|view\s+products?|add\s+to\s+cart|buy\s+now|order\s+now|sign\s+up|register|book|request\s+(?:a\s+)?demo|whatsapp)\b|(?:تسوّق|تسوق|اشتر\s+الآن|اطلب\s+الآن|تصفّح\s+(?:ال)?مجموعة|تصفح\s+(?:ال)?مجموعة|اكتشف\s+(?:ال)?مجموعة|أضف\s+إلى\s+السلة|سجّل|سجل|احجز|واتساب)/i
-const UNSOURCED_CHANNEL_FACT_RE = /\b(?:high(?:est)?[-\s]?engagement|fastest[-\s]?growing|rapidly growing|popular among|best platform|leading platform|dominant platform|most effective platform)\b|(?:تفاعل\s+مرتفع|الأسرع\s+نمواً|ينمو\s+بسرعة|شائع\s+بين|أفضل\s+منصة|المنصة\s+الرائدة|الأكثر\s+فعالية)/i
+const UNSOURCED_CHANNEL_FACT_RE = /\b(?:high(?:est)?[-\s]?engagement|fastest[-\s]?growing|rapidly growing|popular among|best platform|leading platform|dominant platform|most effective platform|ideal\s+for|can\s+drive\s+(?:traffic|sales|conversions?))\b|(?:تفاعل\s+مرتفع|الأسرع\s+نمواً|ينمو\s+بسرعة|شائع\s+بين|أفضل\s+منصة|المنصة\s+الرائدة|الأكثر\s+فعالية|مثالي(?:ة)?\s+لـ?|يمكن(?:ها)?\s+زيادة\s+(?:الزيارات|المبيعات|التحويلات))/i
 const HYPOTHESIS_MARKER_RE = /\b(?:hypothesis|assumption|to validate|test whether|planning assumption)\b|(?:فرضية|افتراض|للتحقق|نختبر\s+ما\s+إذا)/i
+
+const UNSUPPORTED_OFFER_ASSURANCE_RULES: Array<{
+  code: string
+  output: RegExp
+  evidence: RegExp
+}> = [
+  {
+    code: 'quality_guarantee',
+    output: /\b(?:guaranteed|assured)\s+quality\b|\bquality\s+(?:guarantee|assurance)\b|ضمان\s+(?:جودة|الخامات?|المنتج|الخدمة)|جودة\s+(?:مضمونة|مؤكدة)/i,
+    evidence: /\b(?:guaranteed|assured)\s+quality\b|\bquality\s+(?:guarantee|assurance)\b|ضمان\s+(?:جودة|الخامات?|المنتج|الخدمة)|جودة\s+(?:مضمونة|مؤكدة)/i,
+  },
+  {
+    code: 'product_quality_showcase',
+    output: /\b(?:discover|learn\s+about|see|explore)\s+(?:the\s+)?quality\s+of\b|(?:تعر[ّ]?في|تعرفي|اكتشفي)\s+(?:على\s+)?جودة\s+/i,
+    // Brand pains and desires are intentionally excluded from
+    // approvedClaimText. A customer's concern about quality is not evidence
+    // that the business has documented product-quality details to showcase.
+    evidence: /\bquality\b|جودة/i,
+  },
+  {
+    code: 'product_quality_trust',
+    output: /\b(?:trust|confidence)\s+in\s+(?:the\s+)?(?:product|service)\s+quality\b|\b(?:product\s+)?quality\s+(?:customers?|you)\s+can\s+trust\b|(?:ال)?ثقة\s+في\s+جودة\s+(?:المنتج|الخدمة|الخامات?)|جودة\s+(?:يمكنك|يمكن|تستطيع)\s+الوثوق\s+بها/i,
+    evidence: /\b(?:trusted|verified|proven)\s+(?:product\s+)?quality\b|\bquality\s+(?:customers?|you)\s+can\s+trust\b|جودة\s+(?:المنتج|الخدمة)\s+موثقة|جودة\s+(?:يمكنك|يمكن)\s+الوثوق\s+بها|ثقة\s+موثقة\s+في\s+جودة/i,
+  },
+  {
+    code: 'shopping_experience_promise',
+    output: /\b(?:easy|safe|secure|smooth|comfortable|organized|seamless|unforgettable|exceptional)(?:\s+and\s+(?:easy|safe|secure|smooth|comfortable|organized|seamless))*\s+(?:shopping|purchase|buying|checkout|ordering)\s+(?:experience|process|journey|flow)\b|تجربة\s+(?:شراء|تسو[ّ]?ق)\s+(?:آمنة(?:\s+ومريحة)?|سلسة|سهلة(?:\s+ومريحة)?|مريحة|منظمة|مميزة|استثنائية|لا\s+ت[ُ]?نسى)/i,
+    evidence: /\b(?:easy|safe|secure|smooth|comfortable|organized|seamless|unforgettable|exceptional)(?:\s+and\s+(?:easy|safe|secure|smooth|comfortable|organized|seamless))*\s+(?:shopping|purchase|buying|checkout|ordering)\s+(?:experience|process|journey|flow)\b|تجربة\s+(?:شراء|تسو[ّ]?ق)\s+(?:آمنة(?:\s+ومريحة)?|سلسة|سهلة(?:\s+ومريحة)?|مريحة|منظمة|مميزة|استثنائية|لا\s+ت[ُ]?نسى)/i,
+  },
+  {
+    code: 'precise_sizing_details',
+    output: /\b(?:accurate|precise|verified|reliable)\s+(?:size|sizing)\s+(?:details|guide|information)\b|\b(?:detailed|verified)\s+size\s+guide\b|تفاصيل\s+(?:دقيقة|موثوقة)\s+للمقاسات|دليل\s+مقاسات\s+(?:دقيق|موثوق)/i,
+    evidence: /\b(?:accurate|precise|verified|reliable)\s+(?:size|sizing)\s+(?:details|guide|information)\b|\b(?:detailed|verified)\s+size\s+guide\b|تفاصيل\s+(?:دقيقة|موثوقة)\s+للمقاسات|دليل\s+مقاسات\s+(?:دقيق|موثوق)/i,
+  },
+  {
+    code: 'easy_sizing_choice',
+    output: /\bchoose\s+(?:the\s+)?(?:right|correct)\s+size\s+(?:easily|with\s+ease|confidently)\b|اختار(?:ي)?\s+المقاس\s+(?:المناسب|الصحيح)\s+(?:بسهولة|بثقة)/i,
+    evidence: /\bchoose\s+(?:the\s+)?(?:right|correct)\s+size\s+(?:easily|with\s+ease|confidently)\b|اختار(?:ي)?\s+المقاس\s+(?:المناسب|الصحيح)\s+(?:بسهولة|بثقة)/i,
+  },
+  {
+    code: 'product_comfort_promise',
+    output: /\b(?:(?:combine|combines|blends?)\s+)?(?:style|elegance)\s+(?:and|with)\s+comfort\b|(?:الأناقة\s+والراحة|(?:تجمع|يجمع)\s+بين\s+(?:الأناقة|التصميم)\s+والراحة)/i,
+    evidence: /\b(?:(?:combine|combines|blends?)\s+)?(?:style|elegance)\s+(?:and|with)\s+comfort\b|(?:الأناقة\s+والراحة|(?:تجمع|يجمع)\s+بين\s+(?:الأناقة|التصميم)\s+والراحة)/i,
+  },
+  {
+    code: 'unique_design_promise',
+    output: /\b(?:unique|distinctive|exclusive)\s+designs?\b|تصاميم(?:\s+[\u0600-\u06ff]{2,30})?\s+(?:ال)?(?:فريدة|مميزة|حصرية)(?:\s+و(?:فريدة|مميزة|حصرية))*/i,
+    evidence: /\b(?:unique|distinctive|exclusive)\s+designs?\b|تصاميم(?:\s+[\u0600-\u06ff]{2,30})?\s+(?:ال)?(?:فريدة|مميزة|حصرية)(?:\s+و(?:فريدة|مميزة|حصرية))*/i,
+  },
+  {
+    code: 'without_compromise_promise',
+    output: /\bwithout\s+compromising\s+on\s+(?:style|quality|comfort)\b|دون\s+(?:التنازل|مساومة)\s+عن\s+(?:الأناقة|الجودة|الراحة)/i,
+    evidence: /\bwithout\s+compromising\s+on\s+(?:style|quality|comfort)\b|دون\s+(?:التنازل|مساومة)\s+عن\s+(?:الأناقة|الجودة|الراحة)/i,
+  },
+]
+
+/**
+ * Shared classifiers keep the deterministic output guard and the persistence
+ * quality gate on the exact same policy. The gate still blocks an unlabelled
+ * market claim; the output guard may only make its uncertainty explicit.
+ */
+export function hasUnsourcedChannelMarketClaim(value: string): boolean {
+  return UNSOURCED_CHANNEL_FACT_RE.test(value)
+}
+
+export function hasChannelHypothesisMarker(value: string): boolean {
+  return HYPOTHESIS_MARKER_RE.test(value)
+}
 const UNGROUNDED_CONTEXT_CLAIMS: Array<{ code: string; output: RegExp; evidence: RegExp }> = [
   {
     code: 'work_or_professional_use',
@@ -131,16 +206,22 @@ const UNGROUNDED_CONTEXT_CLAIMS: Array<{ code: string; output: RegExp; evidence:
   {
     code: 'cultural_or_heritage_attribute',
     output: /\b(?:culturally respectful|cultural values?|cultural fashion|heritage|traditional identity)\b|(?:يحترم\s+الثقافة|القيم\s+الثقافية|أزياء\s+ثقافية|التراث|الهوية\s+التقليدية)/i,
-    evidence: /\b(?:culture|cultural|heritage|tradition|traditional)\b|(?:الثقافة|ثقافي|التراث|التقاليد|تقليدي)/i,
+    evidence: /\b(?:culture|cultural|culturally|heritage|tradition|traditional)\b|(?:الثقافة|ثقافي|التراث|التقاليد|تقليدي)/i,
   },
   {
     code: 'collection_variety_or_every_occasion',
     output: /\b(?:(?:every|any|all) occasions?|varied collection|diverse collection|wide (?:range|collection|selection))\b|(?:لكل\s+المناسبات|كل\s+مناسبة|تشكيلة\s+متنوعة|مجموعة\s+متنوعة|تشكيلة\s+واسعة|مجموعة\s+واسعة)/i,
-    evidence: /\b(?:occasion|varied|diverse|wide (?:range|collection|selection))\b|(?:المناسبات|متنوعة|تشكيلة\s+واسعة|مجموعة\s+واسعة)/i,
+    // "Simple occasions" does not support the universal promise "every
+    // occasion". Require the same unbounded fit/variety fact from Brand Brain.
+    evidence: /\b(?:(?:every|any|all) occasions?|varied collection|diverse collection|wide (?:range|collection|selection))\b|(?:لكل\s+المناسبات|كل\s+مناسبة|تشكيلة\s+متنوعة|مجموعة\s+متنوعة|تشكيلة\s+واسعة|مجموعة\s+واسعة)/i,
   },
   {
     code: 'fabric_comfort_or_durability',
-    output: /\b(?:comfortable|comfort|breathable|soft fabrics?|premium fabrics?|durable|long[-\s]?lasting)\b|(?:مريح|الراحة|أقمشة\s+فاخرة|خامات\s+فاخرة|قماش\s+ناعم|متين|يدوم\s+طويلاً)/i,
+    // This is a material-claim gate, not a ban on the ordinary emotional idea
+    // of comfort. The previous broad "comfort/الراحة" alternatives falsely
+    // blocked home-fragrance and hospitality strategies that never claimed
+    // anything about fabric or product durability.
+    output: /\b(?:breathable|soft fabrics?|premium fabrics?|durable|long[-\s]?lasting)\b|(?:أقمشة\s+فاخرة|خامات\s+فاخرة|قماش\s+ناعم|متين|يدوم\s+طويلاً)/i,
     evidence: /\b(?:comfort|comfortable|fabric|material|breathable|durable|durability)\b|(?:الراحة|مريح|القماش|الخامة|متين|المتانة)/i,
   },
 ]
@@ -158,6 +239,17 @@ function stringify(value: unknown): string {
 
 function normalizedText(value: unknown): string {
   return stringify(value).trim().replace(/\s+/g, ' ')
+}
+
+function normalizedDirectionIdentity(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  return value
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[\u064B-\u065F\u0670]/g, '')
+    .replace(/[\p{P}\p{S}_]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function containsAffirmedClaim(text: string, claim: string): boolean {
@@ -250,15 +342,38 @@ function publicStrategyFields(strategy: unknown): Array<{ path: string; value: u
   return fields
 }
 
-function ageRange(value: unknown): { min: number; max: number } | null {
-  if (typeof value !== 'string') return null
+interface AgeRange {
+  min: number
+  max: number
+}
+
+function ageRanges(value: unknown): AgeRange[] {
+  if (typeof value !== 'string') return []
   const normalized = value.replace(/[–—]/g, '-').replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
-  const match = normalized.match(/\b(\d{1,2})\s*(?:-|to|إلى)\s*(\d{1,2})\b/i)
-  if (!match) return null
-  const min = Number(match[1])
-  const max = Number(match[2])
-  if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) return null
-  return { min, max }
+  const matches = normalized.matchAll(/\b(\d{1,2})\s*(?:-|to|إلى)\s*(\d{1,2})\b/gi)
+  const ranges = Array.from(matches, match => ({ min: Number(match[1]), max: Number(match[2]) }))
+    .filter(range => Number.isFinite(range.min) && Number.isFinite(range.max) && range.min <= range.max)
+    .sort((left, right) => left.min - right.min || left.max - right.max)
+
+  return ranges.reduce<AgeRange[]>((merged, range) => {
+    const previous = merged.at(-1)
+    if (!previous || range.min > previous.max + 1) {
+      merged.push({ ...range })
+    } else {
+      previous.max = Math.max(previous.max, range.max)
+    }
+    return merged
+  }, [])
+}
+
+function ageRangesCover(available: AgeRange[], requested: AgeRange[]): boolean {
+  return requested.every(requestedRange => available.some(availableRange => (
+    availableRange.min <= requestedRange.min && availableRange.max >= requestedRange.max
+  )))
+}
+
+function formatAgeRanges(ranges: AgeRange[]): string {
+  return ranges.map(range => `${range.min}-${range.max}`).join(', ')
 }
 
 function finding(code: string, severity: MarketingQualitySeverity, path: string, message: string): MarketingQualityFinding {
@@ -297,16 +412,18 @@ export function reviewBrandTruthConsistency(
   ])
   const industry = normalizedText(profile.industry)
 
-  const narrativeAge = ageRange(profile.targetAudience)
-  const structuredAge = ageRange(profile.audienceAge)
-  if (narrativeAge && structuredAge && (
-    narrativeAge.min !== structuredAge.min || narrativeAge.max !== structuredAge.max
-  )) {
+  const narrativeAges = ageRanges(profile.targetAudience)
+  const structuredAges = ageRanges(profile.audienceAge)
+  // The narrative may intentionally focus on a subset of reviewed structured
+  // bands. It is contradictory only when it expands beyond those saved bands.
+  // Example: narrative 25-44 is covered by structured 25-34, 35-44, 45-54;
+  // narrative 25-54 is not covered by structured 45-54.
+  if (narrativeAges.length > 0 && structuredAges.length > 0 && !ageRangesCover(structuredAges, narrativeAges)) {
     blockers.push(finding(
       'brand_age_range_conflict',
       'blocker',
       'brand.audienceAge',
-      `Structured audience age ${structuredAge.min}-${structuredAge.max} conflicts with ${narrativeAge.min}-${narrativeAge.max} in the audience description.`,
+      `Structured audience age ${formatAgeRanges(structuredAges)} does not cover ${formatAgeRanges(narrativeAges)} in the audience description.`,
     ))
   }
 
@@ -374,8 +491,13 @@ export function reviewStrategyGrounding(input: StrategyQualityInput): MarketingQ
     input.brand?.audiencePainPoints,
     input.brand?.audienceDesires,
     input.brand?.uniqueAdvantages,
+    input.brand?.pricePoint,
+    input.brand?.visualStyle,
+    input.brand?.toneKeywords,
+    input.brand?.writingStyle,
     input.brand?.businessGoal,
     input.brand?.conversionDestination,
+    input.brand?.verifiedProof,
   ])
   const operationsProduct = OPERATIONS_PRODUCT_RE.test(brandText)
   const publicFields = publicStrategyFields(strategy)
@@ -400,7 +522,7 @@ export function reviewStrategyGrounding(input: StrategyQualityInput): MarketingQ
     .filter(field => field.path.includes('channelMix') || field.path.includes('channelStrategy'))
     .forEach(({ path, value }) => {
       const channelClaim = normalizedText(value)
-      if (UNSOURCED_CHANNEL_FACT_RE.test(channelClaim) && !HYPOTHESIS_MARKER_RE.test(channelClaim)) {
+      if (hasUnsourcedChannelMarketClaim(channelClaim) && !hasChannelHypothesisMarker(channelClaim)) {
         blockers.push(finding(
           'unsourced_channel_market_claim',
           'blocker',
@@ -414,6 +536,10 @@ export function reviewStrategyGrounding(input: StrategyQualityInput): MarketingQ
     input.brand?.description,
     input.brand?.primaryOffer,
     input.brand?.uniqueAdvantages,
+    input.brand?.pricePoint,
+    input.brand?.visualStyle,
+    input.brand?.toneKeywords,
+    input.brand?.writingStyle,
     input.brand?.verifiedProof,
   ]).toLocaleLowerCase()
   publicFields.forEach(({ path, value }) => {
@@ -431,7 +557,48 @@ export function reviewStrategyGrounding(input: StrategyQualityInput): MarketingQ
       ))
     }
   })
-  if (!normalizedText(input.brand?.conversionDestination) && UNVERIFIED_DIRECT_RESPONSE_RE.test(strategyPublicText)) {
+  for (const assurance of UNSUPPORTED_OFFER_ASSURANCE_RULES) {
+    if (assurance.output.test(strategyPublicText) && !assurance.evidence.test(approvedClaimText)) {
+      blockers.push(finding(
+        'unsupported_offer_assurance',
+        'blocker',
+        'strategy.customerFacingClaims',
+        `The strategy adds the unverified commercial assurance "${assurance.code}". Use documented Brand Brain wording or turn it into a proof/review task.`,
+      ))
+    }
+  }
+  const contentDirections = Array.isArray(strategy.contentAnglesDetailed)
+    ? strategy.contentAnglesDetailed.filter(isRecord)
+    : []
+  const placeholderDirectionRe = /\bcontent\s+direction\s+hypothesis\b|\bwhich\s+message\s+should\s+direction\b|فرضية\s+اتجاه\s+المحتوى|ما\s+الرسالة\s+التي\s+يجب\s+التحقق\s+منها\s+في\s+اتجاه\s+المحتوى/i
+  const seenDirectionTitles = new Set<string>()
+  const seenDirectionHooks = new Set<string>()
+  contentDirections.forEach((direction, index) => {
+    const directionText = normalizedText([direction.title, direction.hook])
+    if (placeholderDirectionRe.test(directionText)) {
+      blockers.push(finding(
+        'placeholder_content_direction',
+        'blocker',
+        `strategy.contentAnglesDetailed[${index}]`,
+        'A quoted content direction is only a fallback placeholder. Return a distinct, useful marketing direction or refund the run instead of counting filler as delivered work.',
+      ))
+    }
+    const title = normalizedDirectionIdentity(direction.title)
+    const hook = normalizedDirectionIdentity(direction.hook)
+    const duplicateTitle = Boolean(title && seenDirectionTitles.has(title))
+    const duplicateHook = Boolean(hook && seenDirectionHooks.has(hook))
+    if (duplicateTitle || duplicateHook) {
+      blockers.push(finding(
+        'duplicate_content_direction',
+        'blocker',
+        `strategy.contentAnglesDetailed[${index}]`,
+        'A quoted content direction repeats an earlier title or hook. Replace it with a distinct, reviewable direction before persistence.',
+      ))
+    }
+    if (title) seenDirectionTitles.add(title)
+    if (hook) seenDirectionHooks.add(hook)
+  })
+  if (!hasUsableConversionDestination(input.brand?.conversionDestination, input.goal) && UNVERIFIED_DIRECT_RESPONSE_RE.test(strategyPublicText)) {
     blockers.push(finding(
       'conversion_cta_without_destination',
       'blocker',

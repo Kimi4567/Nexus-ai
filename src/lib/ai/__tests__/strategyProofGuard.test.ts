@@ -75,6 +75,53 @@ describe('strategyProofGuard', () => {
     })).toBe(text)
   })
 
+  it('turns unsupported quality, shopping experience, universal-fit, and no-compromise promises into review tasks', () => {
+    const guarded = guardStrategyProof({
+      positioning: 'NOORAYA offers modern modest abayas without compromising on style.',
+      differentiation: 'تصميم عصري محتشم وتجربة شراء منظمة.',
+      valuePropositions: ['ثقة في جودة المنتج', 'تجربة شراء مريحة'],
+      hooks: [
+        'جودة يمكنك الوثوق بها',
+        'عبايات تلائم كل مناسبة',
+        'تجربة شراء لا تُنسى',
+      ],
+    }, {
+      verifiedProof: [],
+      allowedClaimText: ['Modern modest abayas for women in the UAE.'],
+    })
+    const joined = JSON.stringify(guarded)
+
+    expect(joined).not.toMatch(/without compromising|ثقة في جودة المنتج|جودة يمكنك الوثوق بها|تجربة شراء (?:منظمة|مريحة|لا تُنسى)|تلائم كل مناسبة/i)
+    expect(joined).toContain('تفاصيل المنتج المطلوبة لتقييم الجودة')
+    expect(joined).toContain('خطوات شراء يلزم توثيقها ومراجعتها')
+    expect(joined).toContain('راجعي ملاءمة كل تصميم للمناسبة المحددة')
+  })
+
+  it('removes the remaining live checkout, sizing, comfort, and uniqueness promises without proof', () => {
+    const guarded = guardStrategyProof({
+      funnelMessage: 'Easy and secure buying process',
+      sizingHook: 'اختاري المقاس المناسب بسهولة',
+      comfortAngle: 'عبايات تجمع بين الأناقة والراحة',
+      uniqueAngle: 'تميزي بتصاميم نورايا الفريدة',
+    }, {
+      verifiedProof: [],
+      commercialClaimText: [],
+      allowedClaimText: ['Modern modest abayas for women in the UAE.'],
+    })
+    const joined = JSON.stringify(guarded)
+
+    expect(joined).not.toMatch(/easy\s+and\s+secure\s+buying\s+process|اختاري\s+المقاس\s+المناسب\s+بسهولة|تجمع\s+بين\s+الأناقة\s+والراحة|تصاميم\s+نورايا\s+الفريدة/i)
+    expect(joined).toMatch(/document and review|المقاسات الموثقة|ملاءمة الارتداء|تفاصيل التصميم الموثقة/)
+    expect(joined).not.toMatch(/تميزي\s+براجعي|ومميزة|عبايات\s+راجعي/)
+  })
+
+  it('preserves the same offer assurances when the owner supplied them as facts', () => {
+    const text = 'Trusted product quality and an easy shopping experience for every occasion without compromising on style.'
+    expect(guardStrategyProofText(text, {
+      allowedClaimText: [text],
+    })).toBe(text)
+  })
+
   it('does not treat an avoid instruction as support for a quality claim', () => {
     expect(guardStrategyProofText('Premium coffee for local subscribers.', {
       allowedClaimText: ['Avoid premium wording in public copy.'],
@@ -627,6 +674,26 @@ describe('strategyProofGuard', () => {
     expect(guarded.contentAnglesDetailed[0]).toEqual({ title: 'Easy AI guide', format: 'Whitepaper' })
   })
 
+  it('requires explicit proof before treating commercial reassurance as an established fact', () => {
+    const guarded = guardStrategyProof({
+      valuePropositions: ['ثقة في جودة المنتج', 'تجربة شراء مريحة'],
+      hooks: ['جودة يمكنك الوثوق بها', 'تسوقي بثقة', 'تجربة شراء لا تنسى'],
+    }, {
+      verifiedProof: [],
+      commercialClaimText: [],
+      allowedClaimText: [
+        'AI-suggested advantage: ثقة في جودة المنتج',
+        'Positioning draft: تجربة شراء مريحة',
+      ],
+    })
+
+    const rendered = JSON.stringify(guarded)
+    expect(rendered).not.toMatch(/ثقة في جودة المنتج|جودة يمكنك الوثوق بها|تسوقي بثقة|تجربة شراء (?:مريحة|لا تنسى)/)
+    expect(rendered).toContain('تفاصيل المنتج المطلوبة لتقييم الجودة')
+    expect(rendered).toContain('خطوات شراء يلزم توثيقها ومراجعتها')
+    expect(rendered).toContain('راجعي خطوات الشراء المتاحة')
+  })
+
   it('content-plan route includes proof-policy guard before generation', () => {
     const route = readFileSync(
       path.join(process.cwd(), 'src/app/api/campaigns/[id]/generate-content-plan/route.ts'),
@@ -646,8 +713,8 @@ describe('strategyProofGuard', () => {
 
     expect(page).toContain("import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'")
     expect(page).toContain('const guardedAiOutput = guardStrategyProof(aiOutput || {}, proofContext) as any')
-    expect(page).toContain('guardStrategyOutputContract(guardedAiOutput?.strategy || {}')
+    expect(page).toContain('guardStrategyTruthContract(\n    guardedAiOutput?.strategy || {}')
     expect(page).toContain('const topHooks: string[] = strategy.topHooks || guardedAiOutput?.topHooks || []')
-    expect(page).not.toContain('guardStrategyOutputContract(aiOutput?.strategy || {}')
+    expect(page).not.toContain('guardStrategyTruthContract(aiOutput?.strategy || {}')
   })
 })

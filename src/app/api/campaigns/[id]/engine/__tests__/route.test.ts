@@ -47,7 +47,7 @@ vi.mock('@/lib/credits', () => ({
   }),
   getCreditActionPolicy: () => ({
     action: 'RUN_FULL_STRATEGY',
-    cost: 8,
+    cost: 12,
     label: 'Full marketing strategy',
     reason: 'Creates a reviewed strategy.',
     includedWork: 'One bounded run.',
@@ -72,7 +72,7 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
-import { POST } from '../route'
+import { maxDuration, POST } from '../route'
 
 const ctx = { params: Promise.resolve({ id: 'c1' }) }
 const makeReq = (body: Record<string, unknown> = {}) => ({ json: async () => body }) as any
@@ -97,13 +97,17 @@ beforeEach(() => {
   mockCampaignFindFirst.mockResolvedValue(ownedCampaignWithBrand)
   mockSocialPostCount.mockResolvedValue(0)
   mockGetBrandBrainReadiness.mockReturnValue({ ready: true, missingRequired: [], score: 100 })
-  mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 8, creditsRemaining: 100 })
+  mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 12, creditsRemaining: 100 })
   mockRefund.mockResolvedValue(undefined)
   mockIsAiProviderConfigured.mockReturnValue(true)
   mockFinalizeCreditDeduction.mockResolvedValue({ ok: true, status: 'settled' })
 })
 
 describe('POST /api/campaigns/[id]/engine', () => {
+  it('keeps enough runtime headroom to close the credit lifecycle', () => {
+    expect(maxDuration).toBe(180)
+  })
+
   it('campaign not found short-circuits before credit deduction', async () => {
     mockCampaignFindFirst.mockResolvedValue(null)
 
@@ -179,7 +183,7 @@ describe('POST /api/campaigns/[id]/engine', () => {
       }),
     )
     expect(json.engine.status).toBe('ready_for_approval')
-    expect(json.creditsUsed).toBe(8)
+    expect(json.creditsUsed).toBe(12)
     expect(mockRefund).not.toHaveBeenCalled()
   })
 
@@ -214,7 +218,7 @@ describe('POST /api/campaigns/[id]/engine', () => {
     const res = await POST(makeReq({
       force: true,
       explicitEngineRebuildConfirmed: true,
-      acknowledgedCreditCost: 8,
+      acknowledgedCreditCost: 12,
       acknowledgedOutputOverwrite: true,
     }), ctx)
     const json = await res.json()

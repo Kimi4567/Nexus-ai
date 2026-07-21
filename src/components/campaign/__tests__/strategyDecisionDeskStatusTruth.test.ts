@@ -66,4 +66,15 @@ describe('strategy decision desk channel truth', () => {
     expect(source).toContain('images · ${creativeSummary.videoNeeded || 0} videos need media')
     expect(source).not.toContain('Identity coverage ${brandScore}%')
   })
+
+  it('keeps a blocked next decision visible in summary mode with a recovery action', () => {
+    const source = readFileSync(
+      path.join(process.cwd(), 'src/components/campaign/StrategyDecisionDesk.tsx'),
+      'utf8',
+    )
+
+    expect(source).toContain('nextActionError')
+    expect(source).toContain('role="alert"')
+    expect(source).toContain('onNextActionRecovery')
+  })
 })

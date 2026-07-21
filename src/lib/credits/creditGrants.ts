@@ -104,6 +104,11 @@ export function purchaseSource(checkoutSessionId: string): string {
   return `stripe:checkout:${checkoutSessionId}`
 }
 
+/** Stable link from a purchased grant to the Stripe payment that funded it. */
+export function paymentIntentSource(paymentIntentId: string): string {
+  return `stripe:payment-intent:${paymentIntentId}`
+}
+
 // ── Grant shape builders (pure) ─────────────────────────────────────────────
 
 export interface GrantInput {
@@ -190,6 +195,7 @@ export function buildPurchasedGrant(
   checkoutSessionId: string,
   amount: number,
   purchasedAt: Date = new Date(),
+  paymentIntentId?: string,
 ): GrantInput {
   const expiresAt = new Date(purchasedAt)
   expiresAt.setUTCMonth(expiresAt.getUTCMonth() + PURCHASED_VALIDITY_MONTHS)
@@ -200,6 +206,7 @@ export function buildPurchasedGrant(
     remaining: amount,
     expiresAt,
     source: purchaseSource(checkoutSessionId),
+    ...(paymentIntentId ? { billingCycleId: paymentIntentSource(paymentIntentId) } : {}),
     status: 'ACTIVE',
   }
 }
@@ -405,6 +412,7 @@ export async function fulfilPurchasedCreditPack(
   args: {
     userId: string
     checkoutSessionId: string
+    paymentIntentId?: string
     credits: number
     purchasedAt?: Date
   },
@@ -419,6 +427,7 @@ export async function fulfilPurchasedCreditPack(
       args.checkoutSessionId,
       args.credits,
       args.purchasedAt ?? new Date(),
+      args.paymentIntentId,
     ),
     tx,
   )
@@ -438,4 +447,223 @@ export async function fulfilPurchasedCreditPack(
   }
   const balance = await syncCachedWalletBalance(args.userId, tx)
   return { created, balance }
+}
+
+/**
+ * Revoke the still-unspent share of a refunded Stripe credit purchase.
+ *
+ * `refundedAmountCents` is cumulative on Stripe's Charge. We subtract credit
+ * already revoked for the same charge so multiple partial-refund events cannot
+ * double-revoke. Credits already consumed never make the wallet negative; the
+ * unrecovered amount is returned for operational review.
+ */
+export async function revokePurchasedCreditsForStripeRefund(
+  args: {
+    userId: string
+    paymentIntentId: string
+    stripeChargeId: string
+    stripeEventId: string
+    purchasedCredits: number
+    originalAmountCents: number
+    refundedAmountCents: number
+  },
+  tx: unknown,
+): Promise<{ revoked: number; unrecovered: number; balance: number }> {
+  if (
+    !Number.isInteger(args.purchasedCredits) || args.purchasedCredits <= 0 ||
+    !Number.isInteger(args.originalAmountCents) || args.originalAmountCents <= 0 ||
+    !Number.isInteger(args.refundedAmountCents) || args.refundedAmountCents < 0
+  ) {
+    throw new Error('Invalid Stripe credit refund inputs')
+  }
+
+  const db = tx as any
+  const desiredCumulativeRevocation = args.refundedAmountCents >= args.originalAmountCents
+    ? args.purchasedCredits
+    : Math.min(
+        args.purchasedCredits,
+        Math.floor((args.purchasedCredits * args.refundedAmountCents) / args.originalAmountCents),
+      )
+  const prior = await db.creditTransaction.aggregate({
+    where: {
+      userId: args.userId,
+      action: 'CREDIT_PURCHASE_REFUND',
+      entityId: args.stripeChargeId,
+      entityType: 'stripe_charge_refund',
+      status: 'SETTLED',
+    },
+    _sum: { creditCost: true },
+  })
+  const alreadyRevoked = Math.max(0, prior?._sum?.creditCost ?? 0)
+  const requestedRevocation = Math.max(0, desiredCumulativeRevocation - alreadyRevoked)
+
+  if (requestedRevocation === 0) {
+    const balance = await syncCachedWalletBalance(args.userId, tx)
+    return { revoked: 0, unrecovered: 0, balance }
+  }
+
+  const grant = await db.creditGrant.findFirst({
+    where: {
+      userId: args.userId,
+      type: 'PURCHASED',
+      billingCycleId: paymentIntentSource(args.paymentIntentId),
+    },
+    select: { id: true, remaining: true },
+  })
+  if (!grant) {
+    throw new Error(`Purchased credit grant not found for ${args.paymentIntentId}`)
+  }
+
+  const remaining = Math.max(0, Number(grant.remaining) || 0)
+  const revoked = Math.min(requestedRevocation, remaining)
+  const newRemaining = remaining - revoked
+  if (revoked > 0) {
+    await db.creditGrant.update({
+      where: { id: grant.id },
+      data: {
+        remaining: newRemaining,
+        ...(newRemaining === 0 ? { status: 'VOID' } : {}),
+      },
+    })
+    await db.creditTransaction.create({
+      data: {
+        userId: args.userId,
+        action: 'CREDIT_PURCHASE_REFUND',
+        description: `${revoked} purchased credits revoked after Stripe refund`,
+        amount: -revoked,
+        entityId: args.stripeChargeId,
+        entityType: 'stripe_charge_refund',
+        pricingVersion: CURRENT_CREDIT_PRICING_VERSION,
+        operationKey: `stripe-refund:${args.stripeEventId}`,
+        status: 'SETTLED',
+        creditCost: revoked,
+        settledAt: new Date(),
+      },
+    })
+  }
+  const balance = await syncCachedWalletBalance(args.userId, tx)
+  return {
+    revoked,
+    unrecovered: Math.max(0, requestedRevocation - revoked),
+    balance,
+  }
+}
+
+/**
+ * Revoke only the refundable share of one subscription invoice's MONTHLY grant.
+ *
+ * Stripe reports `Charge.amount_refunded` cumulatively. `creditCost` on the
+ * audit rows records the cumulative share already processed (including credit
+ * that had already been spent), while `amount` records only credit actually
+ * removed from the wallet. This makes sequential partial refunds idempotent and
+ * keeps the balance non-negative without touching purchased, trial, referral,
+ * refund, manual, migrated, or unlimited grants.
+ */
+export async function revokeMonthlyCreditsForStripeInvoiceRefund(
+  args: {
+    userId: string
+    stripeSubscriptionId: string
+    invoicePeriodStart: Date
+    stripeInvoiceId: string
+    stripeChargeId: string
+    stripeEventId: string
+    originalAmountCents: number
+    refundedAmountCents: number
+  },
+  tx: unknown,
+): Promise<{ revoked: number; unrecovered: number; balance: number }> {
+  if (
+    !args.userId ||
+    !args.stripeSubscriptionId ||
+    !args.stripeInvoiceId ||
+    !args.stripeChargeId ||
+    !args.stripeEventId ||
+    !(args.invoicePeriodStart instanceof Date) ||
+    !Number.isFinite(args.invoicePeriodStart.getTime()) ||
+    !Number.isInteger(args.originalAmountCents) ||
+    args.originalAmountCents <= 0 ||
+    !Number.isInteger(args.refundedAmountCents) ||
+    args.refundedAmountCents < 0 ||
+    args.refundedAmountCents > args.originalAmountCents
+  ) {
+    throw new Error('Invalid Stripe subscription invoice refund inputs')
+  }
+
+  const db = tx as any
+  const cycleId = monthlySource(args.stripeSubscriptionId, args.invoicePeriodStart)
+  const grant = await db.creditGrant.findFirst({
+    where: {
+      userId: args.userId,
+      type: 'MONTHLY',
+      billingCycleId: cycleId,
+    },
+    select: { id: true, amount: true, remaining: true, status: true },
+  })
+  if (!grant) {
+    throw new Error(`Monthly credit grant not found for refunded invoice ${args.stripeInvoiceId}`)
+  }
+
+  const grantAmount = Math.max(0, Number(grant.amount) || 0)
+  if (!Number.isInteger(grantAmount) || grantAmount <= 0) {
+    throw new Error(`Invalid monthly credit grant for refunded invoice ${args.stripeInvoiceId}`)
+  }
+
+  const desiredCumulativeRevocation = args.refundedAmountCents >= args.originalAmountCents
+    ? grantAmount
+    : Math.min(
+        grantAmount,
+        Math.floor((grantAmount * args.refundedAmountCents) / args.originalAmountCents),
+      )
+  const prior = await db.creditTransaction.aggregate({
+    where: {
+      userId: args.userId,
+      action: 'SUBSCRIPTION_INVOICE_REFUND',
+      entityId: args.stripeChargeId,
+      entityType: 'stripe_subscription_invoice_refund',
+      status: 'SETTLED',
+    },
+    _sum: { creditCost: true },
+  })
+  const alreadyProcessed = Math.max(0, prior?._sum?.creditCost ?? 0)
+  const requestedRevocation = Math.max(0, desiredCumulativeRevocation - alreadyProcessed)
+  if (requestedRevocation === 0) {
+    const balance = await syncCachedWalletBalance(args.userId, tx)
+    return { revoked: 0, unrecovered: 0, balance }
+  }
+
+  const remaining = Math.max(0, Number(grant.remaining) || 0)
+  const revoked = Math.min(requestedRevocation, remaining)
+  const unrecovered = requestedRevocation - revoked
+  const newRemaining = remaining - revoked
+  const fullyRefunded = args.refundedAmountCents >= args.originalAmountCents
+
+  if (revoked > 0 || fullyRefunded) {
+    await db.creditGrant.update({
+      where: { id: grant.id },
+      data: {
+        remaining: newRemaining,
+        ...(fullyRefunded ? { status: 'VOID' } : {}),
+      },
+    })
+  }
+
+  await db.creditTransaction.create({
+    data: {
+      userId: args.userId,
+      action: 'SUBSCRIPTION_INVOICE_REFUND',
+      description: `${revoked} monthly credits revoked after Stripe invoice refund; ${unrecovered} already spent`,
+      amount: -revoked,
+      entityId: args.stripeChargeId,
+      entityType: 'stripe_subscription_invoice_refund',
+      operationKey: `stripe-invoice-refund:${args.stripeEventId}`,
+      status: 'SETTLED',
+      // Tracks the cumulative refund share already reconciled, including the
+      // spent portion that cannot be removed from the wallet.
+      creditCost: requestedRevocation,
+      settledAt: new Date(),
+    },
+  })
+
+  const balance = await syncCachedWalletBalance(args.userId, tx)
+  return { revoked, unrecovered, balance }
 }

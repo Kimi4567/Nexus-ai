@@ -78,6 +78,8 @@ export interface SocialAccount {
   platform?: string | null // 'META' | 'LINKEDIN' | 'TIKTOK' | 'X' | 'YOUTUBE' | 'PINTEREST' | 'THREADS'
   status?: string | null    // 'CONNECTED' | ...
   accountName?: string | null
+  expiresAt?: string | null
+  refreshExpiresAt?: string | null
   pages?: Array<{ id?: string | null; name?: string | null; igAccountId?: string | null }> | null
   capabilities?: {
     facebookPublishing?: boolean
@@ -130,7 +132,12 @@ const toneFor: Record<ReadinessStatus, PlatformState['tone']> = {
 }
 
 function isConnected(a?: SocialAccount | null): boolean {
-  return !!a && (a.status == null || a.status === 'CONNECTED')
+  if (!a || (a.status != null && a.status !== 'CONNECTED')) return false
+  if (typeof a.expiresAt === 'string' && a.expiresAt.trim()) {
+    const expiresAt = new Date(a.expiresAt).getTime()
+    if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) return false
+  }
+  return true
 }
 
 function find(accounts: SocialAccount[], platform: string): SocialAccount | undefined {
@@ -177,7 +184,7 @@ export function derivePlatformReadiness(
   const metaPages = meta?.pages ?? []
   const hasPage = metaPages.some((p) => !!p?.id)
   const hasIg = metaPages.some((p) => !!p?.igAccountId)
-  const facebookReady = meta?.capabilities?.facebookPublishing ?? hasPage
+  const facebookReady = meta?.capabilities?.facebookPublishing === true
   const instagramReady = meta?.capabilities?.instagramPublishing === true
   const tiktok = find(list, 'TIKTOK')
   const linkedin = find(list, 'LINKEDIN')

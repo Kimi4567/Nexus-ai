@@ -20,7 +20,7 @@ import { deriveCampaignOperatingState } from '@/lib/campaignOperatingState'
 import { summarizeByDisplayState } from '@/lib/postVisibility'
 import { getCreditActionTruth } from '@/lib/creditActionTruth'
 import { useBillingStatus } from '@/lib/useBillingStatus'
-import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
+import { fetchWithTimeout, PRODUCT_READ_TIMEOUT_MS } from '@/lib/fetchWithTimeout'
 import {
   CONTENT_HUB_IMAGE_COST,
   CONTENT_HUB_VIDEO_COST,
@@ -112,6 +112,14 @@ interface ContentPost {
   variantGroup: string | null
   variantLabel: string | null   // 'A' | 'B' | null
   variantWinner: boolean
+  draftComparison?: {
+    hypothesis: string
+    variable: string
+    successSignal: string
+    minimumEvidence: string
+    decisionRule: string
+    measurementState: 'draft_preference_only'
+  } | null
   rejectedVideoReview?: {
     generationId: string
     previewUrl: string
@@ -558,11 +566,11 @@ export default function ContentHubPage() {
       // library cannot block the campaign and its content plan from appearing.
       setAuthoritativeContentQualityIssues(null)
       const [campaignResult, planResult, mediaResult, brandResult, creativeIntelligenceResult] = await Promise.allSettled([
-        fetchWithTimeout(`/api/campaigns/${campaignId}`, { headers: { Authorization: authorization } }, 9_000),
-        fetchWithTimeout(`/api/campaigns/${campaignId}/content-plan`, { headers: { Authorization: authorization } }, 9_000),
-        fetchWithTimeout(`/api/media?campaignId=${encodeURIComponent(campaignId)}`, { headers: { Authorization: authorization } }, 9_000),
-        fetchWithTimeout('/api/brand', { headers: { Authorization: authorization } }, 9_000),
-        fetchWithTimeout(`/api/campaigns/${campaignId}/creative-intelligence`, { headers: { Authorization: authorization } }, 9_000),
+        fetchWithTimeout(`/api/campaigns/${campaignId}`, { headers: { Authorization: authorization } }, PRODUCT_READ_TIMEOUT_MS),
+        fetchWithTimeout(`/api/campaigns/${campaignId}/content-plan`, { headers: { Authorization: authorization } }, PRODUCT_READ_TIMEOUT_MS),
+        fetchWithTimeout(`/api/media?campaignId=${encodeURIComponent(campaignId)}`, { headers: { Authorization: authorization } }, PRODUCT_READ_TIMEOUT_MS),
+        fetchWithTimeout('/api/brand', { headers: { Authorization: authorization } }, PRODUCT_READ_TIMEOUT_MS),
+        fetchWithTimeout(`/api/campaigns/${campaignId}/creative-intelligence`, { headers: { Authorization: authorization } }, PRODUCT_READ_TIMEOUT_MS),
       ])
 
       if (campaignResult.status !== 'fulfilled') {
@@ -2635,9 +2643,9 @@ export default function ContentHubPage() {
       })
 
       setSuccessMsg(
-        data.preferenceSignalSaved
-          ? '✓ Variant selected. Hook preference signal saved.'
-          : '✓ Variant selected.',
+        isAr
+          ? 'تم حفظ المسودة المفضلة. هذا اختيار تحريري وليس فوزًا مبنيًا على الأداء.'
+          : 'Preferred draft saved. This is an editorial choice, not a performance winner.',
       )
     } catch (err: any) {
       setError(err.message)
@@ -3544,9 +3552,35 @@ export default function ContentHubPage() {
                     style={{ border: '1px solid rgba(234,179,8,0.25)', background: 'rgba(234,179,8,0.02)' }}>
                     <div className="flex items-center gap-2 px-4 py-2.5"
                       style={{ background: 'rgba(234,179,8,0.06)', borderBottom: '1px solid rgba(234,179,8,0.15)' }}>
-                      <span className="text-sm font-semibold" style={{ color: '#fbbf24' }}>⚡ A/B Test</span>
-                      <span className="text-xs text-slate-500">· Compare both variants and select a preferred draft</span>
+                      <span className="text-sm font-semibold" style={{ color: '#a16207' }}>
+                        {isAr ? 'مقارنة مسودتي A/B' : 'A/B draft comparison'}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        {isAr
+                          ? 'اختيار تحريري قبل التوزيع — ليس اختبار أداء'
+                          : 'Editorial selection before distribution — not a performance test'}
+                      </span>
                     </div>
+                    {group.a.draftComparison && (
+                      <div className="grid gap-2 border-b border-amber-200/70 bg-amber-50/60 px-4 py-3 text-xs text-slate-700 md:grid-cols-2">
+                        <p>
+                          <span className="font-bold">{isAr ? 'الفرضية: ' : 'Hypothesis: '}</span>
+                          {group.a.draftComparison.hypothesis}
+                        </p>
+                        <p>
+                          <span className="font-bold">{isAr ? 'إشارة النجاح لاحقًا: ' : 'Future success signal: '}</span>
+                          {group.a.draftComparison.successSignal}
+                        </p>
+                        <p>
+                          <span className="font-bold">{isAr ? 'الحد الأدنى للأدلة: ' : 'Minimum evidence: '}</span>
+                          {group.a.draftComparison.minimumEvidence}
+                        </p>
+                        <p>
+                          <span className="font-bold">{isAr ? 'قاعدة القرار: ' : 'Decision rule: '}</span>
+                          {group.a.draftComparison.decisionRule}
+                        </p>
+                      </div>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
                       {renderCard(group.a)}
                       {renderCard(group.b)}

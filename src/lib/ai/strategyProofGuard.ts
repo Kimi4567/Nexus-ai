@@ -11,6 +11,13 @@ export interface StrategyProofContext {
   budgetText?: string | null
   /** User-authored factual Brand Brain fields that may support service-policy claims. */
   allowedClaimText?: string[] | null
+  /**
+   * Facts allowed to support commercial reassurance specifically. When
+   * omitted, allowedClaimText remains the backwards-compatible source.
+   * Production strategy flows set this to explicit proof entries so an
+   * AI-suggested advantage cannot validate another AI-generated promise.
+   */
+  commercialClaimText?: string[] | null
 }
 
 interface ProofAvailability {
@@ -200,6 +207,78 @@ function softenUnsupportedQualityClaims(text: string, context: StrategyProofCont
     .replace(/\bsee\s+our\s+quality\s+promise\b/gi, 'See the product details')
     .replace(/\bquality\s+promise\b/gi, 'product details')
   return startedCapitalized ? cleaned.replace(/^([a-z])/, char => char.toUpperCase()) : cleaned
+}
+
+/**
+ * Product-quality reassurance, shopping-experience adjectives, and universal
+ * fit claims are commercial promises even when they do not use a classic
+ * superlative such as "premium" or "best". Keep them only when Brand Brain
+ * contains the same owner-supplied fact; otherwise turn them into a concrete
+ * review or proof task before the strategy can be saved.
+ */
+function softenUnsupportedOfferAssurances(text: string, context: StrategyProofContext): string {
+  // Commercial reassurance needs an explicit proof entry, not a positioning
+  // field or an AI-suggested advantage. Brand Brain descriptions and unique
+  // advantages can legitimately guide strategy, but they are not evidence
+  // that product quality or the shopping experience has already been proven.
+  const allowed = (Array.isArray(context.commercialClaimText)
+    ? context.commercialClaimText
+    : context.allowedClaimText
+  )?.filter((item): item is string => typeof item === 'string').join(' ') || ''
+  let guarded = text
+
+  if (!hasAffirmedClaim(allowed, /\b(?:trusted|verified|proven)\s+(?:product\s+)?quality\b|\bquality\s+(?:customers?|you)\s+can\s+trust\b|(?:جودة\s+(?:المنتج|الخدمة)\s+موثقة|جودة\s+يمكن(?:ك)?\s+الوثوق\s+بها|ثقة\s+موثقة\s+في\s+جودة)/i)) {
+    guarded = guarded
+      .replace(/\b(?:trust|confidence)\s+in\s+(?:the\s+)?(?:product|service)\s+quality\b/gi, 'Product details needed to evaluate quality')
+      .replace(/\b(?:product\s+)?quality\s+(?:customers?|you)\s+can\s+trust\b/gi, 'Product details to review before evaluating quality')
+      .replace(/\btrusted\s+(?:product\s+)?quality\b/gi, 'Product quality to verify from documented details')
+      .replace(/(?:ال)?ثقة\s+في\s+جودة\s+(?:المنتج|الخدمة|الخامات?)/gi, 'تفاصيل المنتج المطلوبة لتقييم الجودة')
+      .replace(/جودة\s+(?:يمكنك|يمكن|تستطيع)\s+الوثوق\s+بها/gi, 'تفاصيل المنتج التي يلزم مراجعتها قبل تقييم الجودة')
+      .replace(/جودة\s+(?:المنتج|الخدمة)\s+الموثوقة/gi, 'جودة المنتج التي يلزم التحقق منها')
+  }
+
+  if (!hasAffirmedClaim(allowed, /\b(?:easy|safe|secure|smooth|comfortable|organized|seamless|unforgettable|exceptional)(?:\s+and\s+(?:easy|safe|secure|smooth|comfortable|organized|seamless))*\s+(?:shopping|purchase|buying|checkout|ordering)\s+(?:experience|process|journey|flow)\b|تجربة\s+(?:شراء|تسو[ّ]?ق)\s+(?:آمنة|سلسة|سهلة|مريحة|منظمة|مميزة|استثنائية|لا\s+ت[ُ]?نسى)/i)) {
+    guarded = guarded
+      .replace(/\b(?:an?\s+)?(?:easy|safe|secure|smooth|comfortable|organized|seamless|unforgettable|exceptional)(?:\s+and\s+(?:easy|safe|secure|smooth|comfortable|organized|seamless))*\s+(?:shopping|purchase|buying|checkout|ordering)\s+(?:experience|process|journey|flow)\b/gi, 'shopping steps to document and review')
+      .replace(/\bshop\s+(?:easily|comfortably|with ease|with confidence)\b/gi, 'review the available shopping steps')
+      .replace(/تجربة\s+(?:شراء|تسو[ّ]?ق)\s+(?:سهلة\s+ومريحة|لا\s+ت[ُ]?نسى|استثنائية|مميزة|منظمة|مريحة|سهلة)/gi, 'خطوات شراء يلزم توثيقها ومراجعتها')
+      .replace(/تسو[ّ]?ق(?:ي)?\s+(?:بسهولة\s+وراحة|بكل\s+سهولة|بسهولة|بثقة)/gi, 'راجعي خطوات الشراء المتاحة')
+  }
+
+  if (!hasAffirmedClaim(allowed, /\bchoose\s+(?:the\s+)?(?:right|correct)\s+size\s+(?:easily|with\s+ease|confidently)\b|اختار(?:ي)?\s+المقاس\s+(?:المناسب|الصحيح)\s+(?:بسهولة|بثقة)/i)) {
+    guarded = guarded
+      .replace(/\bchoose\s+(?:the\s+)?(?:right|correct)\s+size\s+(?:easily|with\s+ease|confidently)\b/gi, 'review documented sizing details before selection')
+      .replace(/اختار(?:ي)?\s+المقاس\s+(?:المناسب|الصحيح)\s+(?:بسهولة|بثقة)/gi, 'راجعي تفاصيل المقاسات الموثقة قبل الاختيار')
+  }
+
+  if (!hasAffirmedClaim(allowed, /\b(?:(?:combine|combines|blends?)\s+)?(?:style|elegance)\s+(?:and|with)\s+comfort\b|(?:الأناقة\s+والراحة|(?:تجمع|يجمع)\s+بين\s+(?:الأناقة|التصميم)\s+والراحة)/i)) {
+    guarded = guarded
+      .replace(/\b(?:(?:combine|combines|blends?)\s+)?(?:style|elegance)\s+(?:and|with)\s+comfort\b/gi, 'review design details and wear-comfort evidence when available')
+      .replace(/(?:عبايات?|تصاميم)?\s*(?:تجمع|يجمع)\s+بين\s+(?:الأناقة|التصميم)\s+والراحة/gi, 'راجعي تفاصيل التصميم ودليل ملاءمة الارتداء عند توفره')
+      .replace(/الأناقة\s+والراحة/gi, 'تفاصيل التصميم وملاءمة الارتداء للمراجعة')
+  }
+
+  if (!hasAffirmedClaim(allowed, /\b(?:unique|distinctive|exclusive)\s+designs?\b|تصاميم(?:\s+[\u0600-\u06ff]{2,30})?\s+(?:ال)?(?:فريدة|مميزة|حصرية)(?:\s+و(?:فريدة|مميزة|حصرية))*/i)) {
+    guarded = guarded
+      .replace(/\b(?:unique|distinctive|exclusive)\s+designs?\b/gi, 'design details to compare after review')
+      .replace(/(?:تميزي\s+ب)?تصاميم(?:\s+[\u0600-\u06ff]{2,30})?\s+(?:ال)?(?:فريدة|مميزة|حصرية)(?:\s+و(?:فريدة|مميزة|حصرية))*/gi, 'راجعي تفاصيل التصميم الموثقة قبل تقييم التميّز')
+  }
+
+  if (!hasAffirmedClaim(allowed, /\b(?:for|fits?|suits?)\s+(?:every|any|all)\s+occasions?\b|(?:تلائم|تناسب)\s+كل\s+مناسبة|لكل\s+المناسبات/i)) {
+    guarded = guarded
+      .replace(/\b(?:designed|made|styled)?\s*(?:to\s+fit\s+|to\s+suit\s+|for\s+)(?:every|any|all)\s+occasions?\b/gi, ' with fit to review for each stated occasion')
+      .replace(/(?:عبايات?|تصاميم)\s+(?:تلائم|تناسب)\s+كل\s+مناسبة/gi, 'راجعي ملاءمة كل تصميم للمناسبة المحددة')
+      .replace(/(?:تلائم|تناسب)\s+كل\s+مناسبة/gi, 'تحتاج مراجعة ملاءمتها للمناسبة المحددة')
+      .replace(/لكل\s+المناسبات/gi, 'للمناسبات المحددة بعد مراجعة التفاصيل')
+  }
+
+  if (!hasAffirmedClaim(allowed, /\bwithout\s+compromising\s+on\s+(?:style|quality|comfort)\b|دون\s+(?:التنازل|مساومة)\s+عن\s+(?:الأناقة|الجودة|الراحة)/i)) {
+    guarded = guarded
+      .replace(/\bwithout\s+compromising\s+on\s+(?:style|quality|comfort)\b/gi, 'with the fit and product details still to review')
+      .replace(/دون\s+(?:التنازل|مساومة)\s+عن\s+(?:الأناقة|الجودة|الراحة)/gi, 'مع مراجعة الملاءمة وتفاصيل المنتج')
+  }
+
+  return guarded
 }
 
 function cleanProofCollectionArtifacts(text: string): string {
@@ -411,8 +490,11 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
   guarded = cleanProofCollectionArtifacts(guardUnsupportedBudgetAssumptions(
     softenUnsupportedPerformancePromises(
       softenUnsupportedQualityClaims(
-        softenUnsupportedServiceClaims(
-          softenAbsoluteOutcomeClaims(guardUnsafeStatusLanguage(guarded)),
+        softenUnsupportedOfferAssurances(
+          softenUnsupportedServiceClaims(
+            softenAbsoluteOutcomeClaims(guardUnsafeStatusLanguage(guarded)),
+            context,
+          ),
           context,
         ),
         context,

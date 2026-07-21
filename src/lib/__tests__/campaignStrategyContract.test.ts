@@ -340,6 +340,20 @@ describe('campaign strategy contract', () => {
     ]))
   })
 
+  it('accepts a reviewable Arabic success definition with evidence and a decision rule', () => {
+    const strategy = {
+      ...richStrategy,
+      businessObjective: {
+        ...richStrategy.businessObjective,
+        successIn30Days: 'توثيق جودة استجابة الجمهور لإشارات نية الشراء خلال أول 30 يومًا، ثم نعدّل الرسالة إذا بقيت الاستفسارات غير مؤهلة.',
+      },
+    }
+
+    const report = validateCampaignStrategyContract(strategy)
+    expect(report.weakFields).not.toContain('businessObjective.measurableSuccessDefinition')
+    expect(report.valid).toBe(true)
+  })
+
   it('rejects strategy output that does not match the reviewed organic post-count promise', () => {
     const report = validateCampaignStrategyContract(richStrategy, { expectedOrganicPostCount: 7 })
 

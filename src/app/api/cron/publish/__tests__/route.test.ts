@@ -37,7 +37,10 @@ vi.mock('@/lib/socialPublishers', () => ({
   isRetryableSocialPublishError: mocks.retryable,
 }))
 vi.mock('@/lib/tokenCrypto', () => ({ decryptToken: mocks.decrypt }))
-vi.mock('@/lib/ai/marketingQualityGate', () => ({ reviewStrategyGrounding: mocks.reviewStrategyGrounding }))
+vi.mock('@/lib/ai/marketingQualityGate', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/ai/marketingQualityGate')>(),
+  reviewStrategyGrounding: mocks.reviewStrategyGrounding,
+}))
 
 import { GET } from '@/app/api/cron/publish/route'
 import {

@@ -25,6 +25,7 @@ import { fieldLabel, isRenderableField } from '@/lib/brand/assistFieldLabels'
 import { applySelectedSuggestionsToDraft } from '@/lib/brand/applySuggestions'
 import { commitTag } from '@/lib/tagInput'
 import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
+import { isSourceLinkedVerifiedProof } from '@/lib/strategy/strategyEvidenceLedger'
 import {
   Loader2, Brain, Check, ChevronDown, Save,
   Target, Mic, Package, Users, Globe, BarChart2, AlertTriangle,
@@ -268,7 +269,7 @@ function BrandStatusPanel({ indicators, locale, contract, organicTruthBlocked = 
     {
       label: ar ? 'الجاهزية العضوية' : 'Organic readiness',
       value: organicReady ? (ar ? 'جاهزة لموجز عضوي' : 'Ready for organic brief') : organicTruthBlocked ? (ar ? 'تحتاج مراجعة اتساق' : 'Needs consistency review') : (ar ? 'تحتاج بيانات' : 'Needs data'),
-      helper: organicReady ? (ar ? 'الأساس العضوي مكتمل' : 'Minimum organic set complete') : organicTruthBlocked ? (ar ? 'صحّح تعارض المجال مع وصف النشاط' : 'Resolve the industry and business-description conflict') : (ar ? 'أكمل الحقول الناقصة' : 'Complete missing fields'),
+      helper: organicReady ? (ar ? 'الأساس العضوي مكتمل' : 'Minimum organic set complete') : organicTruthBlocked ? (ar ? 'راجع تعارضات البيانات المحفوظة في Brand Brain' : 'Resolve the saved Brand Brain data conflicts') : (ar ? 'أكمل الحقول الناقصة' : 'Complete missing fields'),
     },
     {
       label: ar ? 'التخطيط المدفوع' : 'Paid planning',
@@ -1164,8 +1165,12 @@ function BrandBrainInner() {
     acceptedLearningCount: typeof form?.acceptedLearningCount === 'number' ? form.acceptedLearningCount : 0,
   })
   const brandTruthReview = reviewBrandTruthConsistency(form)
+  const brandTruthBlocked = brandTruthReview.status === 'blocked'
   const industryTruthConflict = brandTruthReview.blockers.some(
     finding => finding.code === 'brand_industry_too_broad_or_misaligned',
+  )
+  const ageTruthConflict = brandTruthReview.blockers.some(
+    finding => finding.code === 'brand_age_range_conflict',
   )
   const coreBrandReady = brandIndicators.organicReadiness.ready && brandTruthReview.status === 'passed'
   const coreIdentityTotal = 8
@@ -1271,8 +1276,8 @@ function BrandBrainInner() {
             primaryHref={coreBrandReady ? '/strategy' : '#brand-profile-workspace'}
             primaryLabel={coreBrandReady
               ? (locale === 'ar' ? 'ابدأ استراتيجية' : 'Start strategy')
-              : industryTruthConflict
-                ? (locale === 'ar' ? 'صحّح تعارض المجال' : 'Resolve industry conflict')
+              : brandTruthBlocked
+                ? (locale === 'ar' ? 'صحّح تعارض البيانات' : 'Resolve data conflict')
                 : (locale === 'ar' ? 'أكمل الحقول الأساسية' : 'Complete core fields')}
             secondaryHref="/campaigns"
             secondaryLabel={locale === 'ar' ? 'الحملات' : 'Campaigns'}
@@ -1335,17 +1340,17 @@ function BrandBrainInner() {
                         {locale === 'ar' ? 'المعلومات التي يعتمد عليها NEXUS' : 'The information NEXUS relies on'}
                       </span>
                       <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold inline-flex items-center gap-1.5"
-                        style={industryTruthConflict
+                        style={brandTruthBlocked
                           ? { background: '#FFF7ED', color: '#C2410C', border: '1px solid rgba(234,88,12,0.24)' }
                           : { background: '#ECFDF5', color: '#047857', border: '1px solid rgba(16,185,129,0.24)' }}>
-                        {industryTruthConflict
+                        {brandTruthBlocked
                           ? (locale === 'ar' ? 'الهوية الأساسية محفوظة · الاتساق محجوب' : 'Core identity saved · consistency blocked')
                           : (locale === 'ar' ? 'تغطية الهوية الأساسية' : 'Core identity coverage')}
                         <span className="font-semibold tabular-nums">{coreIdentityFilled}/{coreIdentityTotal}</span>
                       </span>
                     </div>
                     <p className="text-sm text-slate-500 mt-1 max-w-3xl">
-                      {industryTruthConflict
+                      {brandTruthBlocked
                         ? (locale === 'ar' ? 'الحقول موجودة، لكن NEXUS لن يستخدمها كأساس للتوليد حتى تصحيح التعارض أدناه.' : 'The fields are present, but NEXUS will not use them for generation until the conflict below is corrected.')
                         : (locale === 'ar' ? 'راجع التفاصيل مرة واحدة، ثم استخدمها كأساس ثابت لكل قرار تسويقي.' : 'Review the details once, then use them as the stable foundation for every marketing decision.')}
                     </p>
@@ -1354,8 +1359,8 @@ function BrandBrainInner() {
                         {locale === 'ar' ? 'العضوي: ' : 'Organic: '}
                         {coreBrandReady
                           ? (locale === 'ar' ? 'جاهز' : 'Ready')
-                          : industryTruthConflict
-                            ? (locale === 'ar' ? 'راجع اتساق المجال' : 'Review industry consistency')
+                          : brandTruthBlocked
+                            ? (locale === 'ar' ? 'راجع اتساق البيانات' : 'Review data consistency')
                             : (locale === 'ar' ? 'يحتاج بيانات' : 'Needs data')}
                       </span>
                       <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${brandIndicators.paidReadiness.ready ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
@@ -1395,7 +1400,7 @@ function BrandBrainInner() {
                 </div>
               )}
 
-              {industryTruthConflict && (
+              {brandTruthBlocked && (
                 <div
                   className="rounded-2xl p-4 sm:p-5"
                   style={{ background: '#FFF7ED', border: '1px solid rgba(234,88,12,0.24)' }}
@@ -1406,20 +1411,34 @@ function BrandBrainInner() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-slate-950">
-                        {locale === 'ar' ? 'المجال لا يطابق وصف النشاط' : 'Industry does not match the business description'}
+                        {industryTruthConflict
+                          ? (locale === 'ar' ? 'المجال لا يطابق وصف النشاط' : 'Industry does not match the business description')
+                          : ageTruthConflict
+                            ? (locale === 'ar' ? 'وصف الجمهور يتجاوز نطاقات العمر المحفوظة' : 'Audience description exceeds the saved age ranges')
+                            : (locale === 'ar' ? 'راجع اتساق بيانات Brand Brain' : 'Review Brand Brain data consistency')}
                       </p>
                       <p className="mt-1 text-[13px] leading-relaxed text-slate-700">
-                        {locale === 'ar'
-                          ? `المجال المحفوظ هو «${getBrandIndustryLabel(form.industry, 'ar') || 'غير محدد'}»، بينما وصف النشاط والعرض يشيران إلى مجال مختلف. صحّح المجال قبل إنشاء استراتيجية جديدة حتى لا ينحرف المحتوى.`
-                          : `The saved industry is “${getBrandIndustryLabel(form.industry, 'en') || 'not set'}”, while the business description and offer indicate a different category. Correct it before creating a new strategy so content cannot drift.`}
+                        {industryTruthConflict
+                          ? (locale === 'ar'
+                              ? `المجال المحفوظ هو «${getBrandIndustryLabel(form.industry, 'ar') || 'غير محدد'}»، بينما وصف النشاط والعرض يشيران إلى مجال مختلف. صحّح المجال قبل إنشاء استراتيجية جديدة حتى لا ينحرف المحتوى.`
+                              : `The saved industry is “${getBrandIndustryLabel(form.industry, 'en') || 'not set'}”, while the business description and offer indicate a different category. Correct it before creating a new strategy so content cannot drift.`)
+                          : ageTruthConflict
+                            ? (locale === 'ar'
+                                ? `وصف الجمهور الحالي يذكر نطاقًا أوسع من «${form.audienceAge || 'غير محدد'}». عدّل وصف الجمهور أو نطاقات العمر حتى يعكسا نفس الجمهور قبل إنشاء الاستراتيجية.`
+                                : `The current audience description is broader than “${form.audienceAge || 'not set'}”. Align the description and saved age bands before creating strategy.`)
+                            : (locale === 'ar'
+                                ? 'توجد بيانات محفوظة متعارضة. راجع الحقول المعلّمة قبل إنشاء استراتيجية.'
+                                : 'Saved Brand Brain fields conflict. Review the highlighted fields before creating strategy.')}
                       </p>
                       <button
                         type="button"
-                        onClick={() => { setWizardStage('edit'); setStep('identity') }}
+                        onClick={() => { setWizardStage('edit'); setStep(ageTruthConflict ? 'audience' : 'identity') }}
                         className="mt-3 rounded-xl bg-white px-3.5 py-2 text-xs font-bold text-orange-700"
                         style={{ border: '1px solid rgba(234,88,12,0.24)' }}
                       >
-                        {locale === 'ar' ? 'راجع حقل المجال' : 'Review industry field'}
+                        {ageTruthConflict
+                          ? (locale === 'ar' ? 'راجع بيانات الجمهور' : 'Review audience data')
+                          : (locale === 'ar' ? 'راجع حقل المجال' : 'Review industry field')}
                       </button>
                     </div>
                   </div>
@@ -1768,7 +1787,7 @@ function BrandBrainInner() {
               <div className="hidden">
                 {[
                   [locale === 'ar' ? 'تغطية الهوية الأساسية' : 'Core identity coverage', `${coreIdentityFilled}/${coreIdentityTotal}`],
-                  [locale === 'ar' ? 'العضوي' : 'Organic', coreBrandReady ? (locale === 'ar' ? 'جاهز لموجز' : 'Ready for brief') : industryTruthConflict ? (locale === 'ar' ? 'راجع اتساق المجال' : 'Review industry consistency') : (locale === 'ar' ? 'يحتاج بيانات' : 'Needs data')],
+                  [locale === 'ar' ? 'العضوي' : 'Organic', coreBrandReady ? (locale === 'ar' ? 'جاهز لموجز' : 'Ready for brief') : brandTruthBlocked ? (locale === 'ar' ? 'راجع اتساق البيانات' : 'Review data consistency') : (locale === 'ar' ? 'يحتاج بيانات' : 'Needs data')],
                   [locale === 'ar' ? 'المدفوع' : 'Paid', brandIndicators.paidReadiness.ready ? (locale === 'ar' ? 'جاهز لمراجعة المدفوع' : 'Paid review ready') : (locale === 'ar' ? 'يحتاج متطلبات' : 'Needs prerequisites')],
                   [locale === 'ar' ? 'ثراء الذاكرة' : 'Memory richness', brandIndicators.memoryRichness.level === 'high' ? (locale === 'ar' ? 'غنية' : 'Rich') : brandIndicators.memoryRichness.level === 'medium' ? (locale === 'ar' ? 'تتكوّن' : 'Building') : (locale === 'ar' ? 'مبكرة' : 'Early')],
                 ].map(([label, value]) => (
@@ -1976,7 +1995,7 @@ function BrandBrainInner() {
               <p className="text-sm text-slate-500 mb-4">
                 {locale === 'ar' ? 'هذا ما تعرفه NEXUS عن علامتك حتى الآن.' : 'Here’s what NEXUS knows about your brand so far.'}
               </p>
-              <BrandStatusPanel indicators={brandIndicators} locale={locale} contract={contract} organicTruthBlocked={industryTruthConflict} />
+              <BrandStatusPanel indicators={brandIndicators} locale={locale} contract={contract} organicTruthBlocked={brandTruthBlocked} />
               <div className="mt-5">
                 {coreBrandReady ? (
                   <button onClick={() => router.push('/strategy')}
@@ -2373,7 +2392,7 @@ function BrandBrainInner() {
               </nav>
               {/* Readiness summary */}
               <div className="rounded-2xl p-3" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
-                <BrandStatusPanel indicators={brandIndicators} locale={locale} contract={contract} organicTruthBlocked={industryTruthConflict} />
+                <BrandStatusPanel indicators={brandIndicators} locale={locale} contract={contract} organicTruthBlocked={brandTruthBlocked} />
               </div>
             </aside>
 
@@ -2624,6 +2643,30 @@ function BrandBrainInner() {
                       </div>
                     </div>
                   </details>
+                  <BrandEvidenceLibrary
+                    locale={locale}
+                    authHeader={authHeader}
+                    profile={form}
+                    onProofChanged={() => { void refetch() }}
+                  />
+                  <div className="rounded-xl border border-sky-200 bg-sky-50/60 p-4">
+                    <TagInput
+                      label={locale === 'ar' ? 'حقائق تؤكدها بنفسك — غير موثقة بمصدر' : 'Owner-confirmed facts — not source-backed'}
+                      placeholder={locale === 'ar' ? 'أضف حقيقة يمكنك إثباتها ثم Enter' : 'Add a fact you can substantiate, then Enter'}
+                      values={(form.verifiedProof || []).filter(proof => !isSourceLinkedVerifiedProof(proof))}
+                      onChange={ownerProof => set('verifiedProof', [
+                        ...(form.verifiedProof || []).filter(isSourceLinkedVerifiedProof),
+                        ...ownerProof,
+                      ])}
+                      accentColor="#0ea5e9"
+                      locale={locale}
+                    />
+                    <p className="mt-1.5 text-[11px] leading-5 text-slate-600">
+                      {locale === 'ar'
+                        ? 'تُستخدم كسياق من صاحب المشروع، لكنها لا تفتح ادعاءات العملاء أو الأداء أو ضمانات الجودة للنشر. ارفع مصدرًا حقيقيًا أعلاه لهذه الادعاءات.'
+                        : 'These remain owner context; they do not unlock customer, performance, or quality-assurance claims for publishing. Upload a real source above for those claims.'}
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -2703,26 +2746,6 @@ function BrandBrainInner() {
                   <TagInput label={t('brand.voiceAvoidLabel')} placeholder={t('brand.voiceAvoidPlaceholder')}
                     values={form.avoidKeywords||[]} onChange={v=>set('avoidKeywords',v)} accentColor={currentStep.color}
                     locale={locale}/>
-                  <BrandEvidenceLibrary
-                    locale={locale}
-                    authHeader={authHeader}
-                    onProofChanged={() => { void refetch() }}
-                  />
-                  <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-                    <TagInput
-                      label={locale === 'ar' ? 'إثبات تؤكده بنفسك — بدون ملف مصدر' : 'Self-confirmed proof — no source file'}
-                      placeholder={locale === 'ar' ? 'أضف حقيقة يمكنك إثباتها ثم Enter' : 'Add a fact you can substantiate, then Enter'}
-                      values={form.verifiedProof || []}
-                      onChange={v => set('verifiedProof', v)}
-                      accentColor="#10b981"
-                      locale={locale}
-                    />
-                    <p className="mt-1.5 text-[11px] text-slate-500">
-                      {locale === 'ar'
-                        ? 'الأفضل رفع المصدر أعلاه. هذا الحقل لإثباتاتك المؤكدة فقط؛ لن ينشئ NEXUS أرقامًا أو شهادات من تلقاء نفسه.'
-                        : 'Uploading a source above is preferred. Use this only for facts you personally verify; NEXUS never invents results or testimonials.'}
-                    </p>
-                  </div>
                   {/* PR-H1: winningHooks moved out of the beginner input path into the
                       read-only Learned Memory view — these are observed over time, not
                       asked upfront. */}
@@ -3095,7 +3118,7 @@ function BrandBrainInner() {
 
                         <div className="rounded-xl p-4" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)' }}>
                           <p className="text-sm font-bold text-slate-950 mb-3">{ar ? 'الجاهزية الحالية' : 'Current readiness'}</p>
-                          <BrandStatusPanel indicators={brandIndicators} locale={locale} contract={contract} organicTruthBlocked={industryTruthConflict} />
+                          <BrandStatusPanel indicators={brandIndicators} locale={locale} contract={contract} organicTruthBlocked={brandTruthBlocked} />
                         </div>
                       </div>
                     </div>

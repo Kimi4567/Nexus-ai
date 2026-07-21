@@ -301,6 +301,15 @@ describe('resolveContentPlanSlotScope', () => {
     expect(routeSource).toContain('const postsToCreate = guardContentDraftTruth(renderedPostsToCreate, proofContext)')
     expect(routeSource).toContain('const bVariantsToCreate = guardContentDraftTruth(renderedBVariantsToCreate, proofContext)')
   })
+
+  it('keeps Vercel timeouts aligned with the heavy content and image routes', () => {
+    const deploymentConfig = JSON.parse(readFileSync('vercel.json', 'utf8')) as {
+      functions: Record<string, { maxDuration: number }>
+    }
+
+    expect(deploymentConfig.functions['src/app/api/campaigns/[id]/generate-content-plan/route.ts']?.maxDuration).toBe(180)
+    expect(deploymentConfig.functions['src/app/api/campaigns/[id]/generate-content-plan/generate/route.ts']?.maxDuration).toBe(300)
+  })
 })
 
 describe('distributeContentPlanSlots', () => {

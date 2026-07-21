@@ -14,6 +14,7 @@
  */
 
 import Stripe from 'stripe'
+import { getBillingRuntimeGate } from '@/lib/billingRuntime'
 import {
   CREDIT_PURCHASE_POLICY,
   CREDIT_PACKS,
@@ -27,10 +28,8 @@ import {
   type PublicPaidPlanId,
 } from '@/lib/commercialPlans'
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY
-const billingFlag = process.env.NEXT_PUBLIC_BILLING_ENABLED
-
 let stripeClient: Stripe | null = null
+let stripeClientKey: string | null = null
 
 export function isBillingConfigured(): boolean {
   // Billing is an explicit opt-in.  A secret key alone must never make paid
@@ -41,27 +40,29 @@ export function isBillingConfigured(): boolean {
   // well.  A secret key by itself is not enough to run billing safely: without
   // the webhook Stripe payments cannot be reconciled, and without prices the
   // checkout route would advertise plans that can never be purchased.
-  return billingFlag === 'true' && Boolean(stripeSecretKey) &&
-    Boolean(process.env.STRIPE_WEBHOOK_SECRET) &&
-    Boolean(process.env.STRIPE_PRICE_PRO) &&
-    Boolean(process.env.STRIPE_PRICE_BUSINESS)
+  return getBillingRuntimeGate().ready
 }
 
 export function getBillingMode(): 'disabled' | 'sandbox' | 'live' {
-  if (!isBillingConfigured()) return 'disabled'
-  return stripeSecretKey?.includes('_test_') ? 'sandbox' : 'live'
+  return getBillingRuntimeGate().mode
 }
 
 export function getStripeClient(): Stripe {
-  if (!stripeSecretKey) {
+  const gate = getBillingRuntimeGate()
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim()
+  if (!stripeSecretKey || (gate.keyMode !== 'test' && gate.keyMode !== 'live')) {
     throw new Error('Stripe billing is not configured. Missing STRIPE_SECRET_KEY.')
   }
+  if (gate.liveModeBlocked) {
+    throw new Error('Stripe live mode is blocked until BILLING_LIVE_MODE_APPROVED=true.')
+  }
 
-  if (!stripeClient) {
+  if (!stripeClient || stripeClientKey !== stripeSecretKey) {
     stripeClient = new Stripe(stripeSecretKey, {
       apiVersion: '2023-10-16',
       typescript: true,
     })
+    stripeClientKey = stripeSecretKey
   }
 
   return stripeClient

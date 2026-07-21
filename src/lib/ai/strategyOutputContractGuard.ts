@@ -1,4 +1,8 @@
 import { hasGenericMarketingHook } from '@/lib/marketingCopyGuard'
+import {
+  hasChannelHypothesisMarker,
+  hasUnsourcedChannelMarketClaim,
+} from '@/lib/ai/marketingQualityGate'
 
 /**
  * Strategy output contract guard.
@@ -210,6 +214,24 @@ function guardBroadStrategyHypeText(value: string): string {
     .replace(/\b([A-Za-z][A-Za-z\s-]{1,30})\s+هو\s+المنصة\s+المثلى\s+للوصول\s+إلى/gi, '$1 قناة مختارة في Brand Brain للوصول إلى')
     .replace(/إعداد\s+المحتوى\s+الأولي\s+للنشر\s+على/gi, 'مراجعة أول اتجاهات المحتوى على')
     .replace(/\bprepare\s+initial\s+content\s+for\s+publishing\s+on\b/gi, 'review the first content directions for')
+    // A quality concern in the audience profile is not evidence for a product
+    // quality guarantee. Keep the direction useful, but turn the claim into a
+    // documented-detail review task before the deterministic quality gate runs.
+    .replace(/(?:with\s+)?(?:a\s+)?(?:guaranteed|assured)\s+quality\s+(?:of\s+)?([^.!?]+)/gi, 'after reviewing documented details about $1')
+    .replace(/\b(?:discover|learn\s+about|see|explore)\s+(?:the\s+)?quality\s+of\s+([^.!?]+)/gi, 'Review documented details about $1 when available')
+    .replace(/(?:مع\s+)?ضمان\s+جودة\s+([^.،!؟]+)/gi, 'بعد مراجعة التفاصيل الموثقة عن $1')
+    .replace(/(?:تعر[ّ]?في|تعرفي|اكتشفي)\s+(?:على\s+)?جودة\s+([^.،!؟]+)/gi, 'راجعي التفاصيل الموثقة عن $1 عند توفرها')
+    // Checkout safety, ease, and sizing accuracy require documented store or
+    // product evidence. Convert unsupported assurances into concrete review
+    // tasks instead of letting audience worries become brand promises.
+    .replace(/\b(?:easy|safe|secure|smooth|comfortable|organized|seamless)(?:\s+and\s+(?:easy|safe|secure|smooth|comfortable|organized|seamless))*\s+(?:shopping|purchase|buying|checkout|ordering)\s+(?:experience|process|journey|flow)\b/gi, 'purchase steps that require documentation and review')
+    .replace(/تجربة\s+(?:شراء|تسو[ّ]?ق)\s+(?:آمنة(?:\s+ومريحة)?|سلسة|سهلة(?:\s+ومريحة)?|مريحة|منظمة)/gi, 'خطوات شراء يلزم توثيقها ومراجعتها')
+    .replace(/\b(?:accurate|precise|verified|reliable)\s+(?:size|sizing)\s+(?:details|guide|information)\b/gi, 'sizing details to document before selection')
+    .replace(/\b(?:detailed|verified)\s+size\s+guide\b/gi, 'size guide to document before selection')
+    .replace(/تفاصيل\s+(?:دقيقة|موثوقة)\s+للمقاسات/gi, 'تفاصيل المقاسات المطلوبة قبل الاختيار')
+    .replace(/دليل\s+مقاسات\s+(?:دقيق|موثوق)/gi, 'دليل المقاسات المطلوب توثيقه قبل الاختيار')
+    .replace(/\bchoose\s+(?:the\s+)?(?:right|correct)\s+size\s+(?:easily|with\s+ease|confidently)\b/gi, 'review the documented sizing details before selection')
+    .replace(/اختار(?:ي)?\s+المقاس\s+(?:المناسب|الصحيح)\s+(?:بسهولة|بثقة)/gi, 'راجعي تفاصيل المقاسات الموثقة قبل الاختيار')
     // Channel popularity, engagement, and audience adoption require real
     // analytics or research. A selected channel can have a planned role, but
     // the strategy must not present unverified performance as fact.
@@ -297,21 +319,21 @@ function unsupportedConversionAction(value: string): boolean {
 }
 
 function safeReviewCta(source: string, language?: string | null): string {
-  const ar = isArabicLanguage(language)
+  const ar = /[\u0600-\u06ff]/.test(source) || isArabicLanguage(language)
   const choices = ar
     ? [
-        'تعرّف على طريقة عمل الحل',
-        'راجع خطوات سير العمل',
-        'قارن الطريقة الحالية بالمسار المقترح',
-        'احفظ الفكرة للمراجعة',
-        'اطّلع على تفاصيل العرض',
+        'راجع تفاصيل العرض المتاحة',
+        'قارن التفاصيل الموثقة',
+        'احفظ التفاصيل للمراجعة',
+        'راجع الأدلة قبل الخطوة التالية',
+        'اطّلع على التفاصيل الموثقة',
       ]
     : [
-        'Learn how the solution works',
-        'Review the workflow steps',
-        'Compare the current workflow with the proposed path',
-        'Save this idea for review',
-        'Review the offer details',
+        'Review the available offer details',
+        'Compare the documented details',
+        'Save the details for review',
+        'Review the evidence before the next step',
+        'See the documented details',
       ]
   const index = Array.from(source).reduce((sum, char) => sum + char.charCodeAt(0), 0) % choices.length
   return choices[index]
@@ -354,8 +376,8 @@ function guardUnverifiedConversionActions(value: unknown, language?: string | nu
     }
     if (key === 'userMindset' && typeof child === 'string' && unsupportedConversionAction(child)) {
       output[key] = isArabicLanguage(language)
-        ? 'مقارنة الحل بالطريقة الحالية والبحث عن خطوة تالية واضحة.'
-        : 'Comparing the solution with the current workflow and looking for a clear next step.'
+        ? 'مراجعة تفاصيل العرض والبحث عن خطوة تالية واضحة.'
+        : 'Reviewing the offer details and looking for a clear next step.'
       continue
     }
     if (CONVERSION_METRIC_KEYS.has(key) && typeof child === 'string' && unsupportedConversionMetric(child)) {
@@ -435,6 +457,40 @@ function isArabicLanguage(language: string | null | undefined): boolean {
   return typeof language === 'string' && language.toLowerCase().startsWith('ar')
 }
 
+function prefersArabicFallback(language: string | null | undefined): boolean {
+  if (isArabicLanguage(language)) return true
+  if (typeof language !== 'string') return false
+  const normalized = language.trim().toLowerCase()
+  return normalized === 'bilingual' || normalized === 'smart_mix'
+}
+
+const MEASURABLE_OBJECTIVE_SIGNAL = /\b(?:baseline|qualified|purchase|order|lead|inquir|booking|signup|click|conversion|revenue|event|attribution|signal|intent|response|quality|measure|track|record|continue|iterate|stop)\b|(?:خط\s+أساس|طلب|شراء|عميل\s+محتمل|استفسار|حجز|نقرة|تحويل|إيراد|حدث|إسناد|إشارة|نية|استجابة|جودة|قياس|رصد|تسجيل|توثيق|استمرار|تعديل|إيقاف|نستمر|نعدّل|نتوقف)/i
+const GENERIC_OBJECTIVE_DEFINITION = /validate (?:market )?(?:interest|engagement)|clearer .+ validated|تحقق من (?:اهتمام|تفاعل)/i
+
+function guardBusinessObjectiveOperationalDepth(
+  value: unknown,
+  language?: string | null,
+): unknown {
+  if (!isObject(value)) return value
+  const current = typeof value.successIn30Days === 'string'
+    ? value.successIn30Days.trim()
+    : ''
+  if (
+    current
+    && MEASURABLE_OBJECTIVE_SIGNAL.test(current)
+    && !GENERIC_OBJECTIVE_DEFINITION.test(current)
+  ) {
+    return value
+  }
+
+  return {
+    ...value,
+    successIn30Days: prefersArabicFallback(language)
+      ? 'خلال أول 30 يومًا: سجّل خط أساس للاستجابة وجودتها من بيانات فعلية؛ نستمر مع الرسائل التي تجذب استجابة من الجمهور المقصود، ونعدّل أو نتوقف عندما تظل جودة الاستجابة غير واضحة.'
+      : 'During the first 30 days, record a baseline for response and response quality from real data; continue messages that attract intended-audience responses, and iterate or stop when response quality remains unclear.',
+  }
+}
+
 function guardBusinessObjectiveGoal(
   value: unknown,
   goal: string | null | undefined,
@@ -444,7 +500,13 @@ function guardBusinessObjectiveGoal(
   const normalizedGoal = goal.trim().toLowerCase()
   const ar = isArabicLanguage(language)
   const objective = (() => {
-    if (normalizedGoal === 'lead' || normalizedGoal === 'leads' || normalizedGoal.includes('qualified lead')) {
+    if (
+      normalizedGoal === 'lead'
+      || normalizedGoal === 'leads'
+      || normalizedGoal.includes('lead')
+      || normalizedGoal.includes('qualified lead')
+      || /عم(?:يل|لاء)\s+محتمل|استفسار|طلب\s+عرض/.test(normalizedGoal)
+    ) {
       return ar
         ? {
             marketing: 'توليد اهتمام مؤهل بالعروض التوضيحية وتسجيله عبر مسار التحويل الذي راجعه المستخدم.',
@@ -455,7 +517,15 @@ function guardBusinessObjectiveGoal(
             successIn30Days: 'Establish a baseline for qualified interest and demo-path completion from real data.',
           }
     }
-    if (normalizedGoal === 'sale' || normalizedGoal === 'sales' || normalizedGoal.includes('revenue')) {
+    if (
+      normalizedGoal === 'sale'
+      || normalizedGoal === 'sales'
+      || normalizedGoal.includes('sale')
+      || normalizedGoal.includes('purchase')
+      || normalizedGoal.includes('order')
+      || normalizedGoal.includes('revenue')
+      || /مبيعات|المبيعات|بيع|إيراد/.test(normalizedGoal)
+    ) {
       return ar
         ? {
             marketing: 'دعم قرارات الشراء عبر العرض ومسار التحويل اللذين راجعهما المستخدم.',
@@ -466,7 +536,7 @@ function guardBusinessObjectiveGoal(
             successIn30Days: 'Establish a baseline for purchase-intent signals and conversion-path completion from real data.',
           }
     }
-    if (normalizedGoal.includes('traffic')) {
+    if (normalizedGoal.includes('traffic') || /زيارات|حركة\s+المرور/.test(normalizedGoal)) {
       return ar
         ? {
             marketing: 'جذب زيارات ذات صلة إلى الوجهة التي راجعها المستخدم وقياس جودة الزيارة.',
@@ -477,15 +547,30 @@ function guardBusinessObjectiveGoal(
             successIn30Days: 'Establish a baseline for relevant visits and engagement quality from real data.',
           }
     }
-    if (normalizedGoal.includes('awareness')) {
+    if (normalizedGoal.includes('awareness') || /وعي|الوعي|انتشار/.test(normalizedGoal)) {
       return ar
         ? {
+            primary: 'تحديد استجابة الجمهور ذات الصلة التي يمكن توثيقها ومراجعتها.',
             marketing: 'بناء وعي قابل للقياس لدى الجمهور والقنوات اللذين راجعهما المستخدم.',
-            successIn30Days: 'تحديد خط أساس للوصول والتفاعل ذي الصلة من بيانات حقيقية.',
+            successIn30Days: 'تحديد خط أساس للوصول والتفاعل ذي الصلة من بيانات حقيقية؛ نستمر إذا ظهرت استجابة ذات صلة، ونعدّل الرسالة إذا ظلت جودة الاستجابة غير واضحة.',
           }
         : {
+            primary: 'Establish reviewable evidence of relevant audience response.',
             marketing: 'Build measurable awareness with the user-reviewed audience and channels.',
-            successIn30Days: 'Establish a baseline for relevant reach and engagement from real data.',
+            successIn30Days: 'Establish a baseline for relevant reach and engagement from real data; continue when responses fit the intended audience and iterate when response quality remains unclear.',
+          }
+    }
+    if (normalizedGoal.includes('engagement') || /تفاعل|التفاعل/.test(normalizedGoal)) {
+      return ar
+        ? {
+            primary: 'تحديد الرسائل التي تولّد استجابة ذات صلة ويمكن مراجعتها.',
+            marketing: 'اختبار الرسائل التي تولّد استجابة ذات صلة من الجمهور والقنوات اللذين راجعهما المستخدم.',
+            successIn30Days: 'تحديد خط أساس لجودة الاستجابة وإشارات النية من بيانات حقيقية؛ نستمر إذا طابقت الاستجابات الجمهور المقصود، ونعدّل الرسالة إذا ظلت الجودة غير واضحة.',
+          }
+        : {
+            primary: 'Identify messages that produce relevant, reviewable audience responses.',
+            marketing: 'Test messages that produce relevant responses from the user-reviewed audience and channels.',
+            successIn30Days: 'Establish a baseline for response quality and intent signals from real data; continue when responses fit the intended audience and iterate when quality remains unclear.',
           }
     }
     return null
@@ -680,7 +765,13 @@ function groundedHookFallback(output: JsonObject, language?: string | null, ordi
       `Explain the next reviewable step ${audienceNeed.segment} can take after encountering ${audienceNeed.pain}.`,
     ]
     const fallbacks = isArabicLanguage(language) ? arFallbacks : enFallbacks
-    return fallbacks[ordinal % fallbacks.length]
+    const base = fallbacks[ordinal % fallbacks.length]
+    // A reviewed order can contain more directions than the five semantic
+    // lenses above. Keep every repaired hook distinct so a truthful exact-count
+    // plan never fails the duplicate-direction gate after generic copy repair.
+    return isArabicLanguage(language)
+      ? `${base} — اتجاه ${ordinal + 1}`
+      : `${base} — direction ${ordinal + 1}`
   }
   return isArabicLanguage(language)
     ? 'اربط الرسالة بموقف الشريحة واعتراضها المحدد قبل تقديم العرض.'
@@ -823,8 +914,124 @@ function distributeAnglesAcrossWeeks(angles: unknown[], targetCount: number): un
   return buckets
 }
 
-function fallbackContentAngle(index: number, ctx: NormalizedPlatformContext, language?: string | null): JsonObject {
-  const ar = isArabicLanguage(language)
+function groundedFallbackContentAngle(
+  index: number,
+  output: JsonObject,
+  ctx: NormalizedPlatformContext,
+  language?: string | null,
+): JsonObject | null {
+  const audienceNeed = firstAudienceNeed(output)
+  if (!audienceNeed) return null
+
+  const ar = prefersArabicFallback(language)
+  const platform = firstPlatformLabel(ctx)
+  const desiredOutcome = audienceNeed.desiredOutcome || (ar
+    ? 'فهم الخيارات والخطوة التالية بوضوح'
+    : 'understand the options and next step clearly')
+  const objection = audienceNeed.objection || (ar
+    ? 'ما الذي يلزم مراجعته قبل الاختيار؟'
+    : 'What needs review before choosing?')
+  const lenses = ar
+    ? [
+        {
+          title: `احتياج موثق: ${audienceNeed.pain}`,
+          hook: `كيف يظهر احتياج ${audienceNeed.pain} لدى ${audienceNeed.segment}؟`,
+          format: 'كاروسيل تعليمي للمراجعة',
+        },
+        {
+          title: `قبل الوصول إلى النتيجة المطلوبة: ${desiredOutcome}`,
+          hook: `قارني الوضع الحالي بما تريده ${audienceNeed.segment}: ${desiredOutcome}`,
+          format: 'منشور مقارنة للمراجعة',
+        },
+        {
+          title: `سؤال قبل القرار: ${objection}`,
+          hook: `إجابة واضحة قبل القرار: ${objection}`,
+          format: 'فيديو قصير للأسئلة الشائعة',
+        },
+        {
+          title: `تفاصيل موثقة لمعالجة الاحتياج: ${audienceNeed.pain}`,
+          hook: `ما التفاصيل الموثقة التي تساعد على تقييم الملاءمة عند مواجهة ${audienceNeed.pain}؟`,
+          format: 'كاروسيل تفاصيل للمراجعة',
+        },
+        {
+          title: `قائمة اختيار للوصول إلى: ${desiredOutcome}`,
+          hook: `احفظي هذه الأسئلة لمراجعة التفاصيل المرتبطة بهدفك: ${desiredOutcome}.`,
+          format: 'قائمة تحقق قابلة للحفظ',
+        },
+      ]
+    : [
+        {
+          title: `Documented audience need: ${audienceNeed.pain}`,
+          hook: `How does ${audienceNeed.pain} show up for ${audienceNeed.segment}?`,
+          format: 'Educational carousel for review',
+        },
+        {
+          title: `Before the desired outcome: ${desiredOutcome}`,
+          hook: `Compare the current situation with what ${audienceNeed.segment} wants: ${desiredOutcome}`,
+          format: 'Comparison post for review',
+        },
+        {
+          title: `Decision-stage question: ${objection}`,
+          hook: `Give a clear answer before the decision: ${objection}`,
+          format: 'Short FAQ video',
+        },
+        {
+          title: `Documented details for: ${audienceNeed.pain}`,
+          hook: `Which documented offer details should be reviewed when ${audienceNeed.pain} occurs?`,
+          format: 'Offer-detail carousel for review',
+        },
+        {
+          title: `Selection checklist for: ${desiredOutcome}`,
+          hook: `Save these questions to review the details tied to the desired outcome: ${desiredOutcome}.`,
+          format: 'Saveable checklist',
+        },
+      ]
+  const cycle = Math.floor(index / lenses.length)
+  const cycleLabels = ar
+    ? ['مرحلة الاكتشاف', 'مرحلة الفهم', 'مرحلة المقارنة', 'مرحلة التقييم', 'قبل القرار', 'مرحلة التحقق']
+    : ['discovery stage', 'understanding stage', 'comparison stage', 'evaluation stage', 'decision stage', 'validation stage']
+  const baseLens = lenses[index % lenses.length]
+  const lens = {
+    ...baseLens,
+    title: `${baseLens.title} — ${cycleLabels[cycle % cycleLabels.length]}`,
+    hook: `${baseLens.hook} — ${cycleLabels[cycle % cycleLabels.length]} ${index + 1}`,
+  }
+
+  return {
+    ...lens,
+    pain: audienceNeed.pain,
+    desiredOutcome,
+    objection,
+    platform,
+    cta: ar ? 'راجع التفاصيل الموثقة' : 'Review the documented details',
+    asset: ar
+      ? 'أصل بصري حقيقي للعرض أو الخدمة أو المنتج قبل الإنتاج.'
+      : 'A real offer, service, or product visual before production.',
+    funnelStage: index % 3 === 0 ? 'awareness' : index % 3 === 1 ? 'consideration' : 'conversion',
+    proofNeeded: ar
+      ? 'استخدم فقط تفاصيل Brand Brain والإثباتات الموثقة؛ أي ادعاء إضافي يحتاج تأكيدًا.'
+      : 'Use only Brand Brain details and verified proof; any additional claim needs confirmation.',
+    responseHandoff: ar
+      ? 'أكّد مسؤول الرد وخطوة المتابعة قبل توجيه أي طلبات.'
+      : 'Confirm the response owner and follow-up step before directing inquiries.',
+    reviewPoint: ar
+      ? 'راجع وضوح الرسالة وتوفر الإثبات وملاءمتها للشريحة قبل إنشاء المسودة.'
+      : 'Review message clarity, proof availability, and audience fit before draft creation.',
+  }
+}
+
+function fallbackContentAngle(
+  index: number,
+  ctx: NormalizedPlatformContext,
+  language?: string | null,
+  sourceOutput?: JsonObject,
+): JsonObject {
+  const grounded = sourceOutput
+    ? groundedFallbackContentAngle(index, sourceOutput, ctx, language)
+    : null
+  if (grounded) return grounded
+
+  const ar = prefersArabicFallback(language)
   const platform = firstPlatformLabel(ctx)
   return ar
     ? {
@@ -859,17 +1066,55 @@ function fallbackContentAngle(index: number, ctx: NormalizedPlatformContext, lan
       }
 }
 
+function normalizeDirectionIdentity(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  return value
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[\u064B-\u065F\u0670]/g, '')
+    .replace(/[\p{P}\p{S}_]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Repeated directions make a count-correct plan look complete while giving the
+ * customer less work than was quoted. Remove exact title or hook duplicates;
+ * alignContentAnglesToCount then fills the reviewed count with explicitly
+ * labelled hypotheses instead of silently persisting duplicates.
+ */
+function guardContentAngleUniqueness(value: unknown): unknown[] {
+  if (!Array.isArray(value)) return []
+  const seenTitles = new Set<string>()
+  const seenHooks = new Set<string>()
+  const output: JsonObject[] = []
+
+  for (const item of value) {
+    if (!isObject(item)) continue
+    const title = normalizeDirectionIdentity(item.title)
+    const hook = normalizeDirectionIdentity(item.hook)
+    const duplicate = (title && seenTitles.has(title)) || (hook && seenHooks.has(hook))
+    if (duplicate) continue
+    if (title) seenTitles.add(title)
+    if (hook) seenHooks.add(hook)
+    output.push(item)
+  }
+
+  return output
+}
+
 function alignContentAnglesToCount(
   value: unknown,
   ctx: NormalizedPlatformContext,
   targetCount: number,
   exact: boolean,
   language?: string | null,
+  sourceOutput?: JsonObject,
 ): unknown[] {
   const output = Array.isArray(value) ? value.filter(isObject) : []
   if (exact && output.length > targetCount) output.length = targetCount
   while (output.length < targetCount) {
-    output.push(fallbackContentAngle(output.length, ctx, language))
+    output.push(fallbackContentAngle(output.length, ctx, language, sourceOutput))
   }
   return output
 }
@@ -925,7 +1170,11 @@ function alignWeeklyExecutionPlanToOrganicCount(
   }
   const currentCount = weeklyDeliverableCount(weeklyPlan)
   const requiredWeekCount = Math.min(4, targetCount)
-  if (currentCount === targetCount && Array.isArray(weeklyPlan) && weeklyPlan.length >= requiredWeekCount) return weeklyPlan
+  // A binding reviewed count must be rebuilt from the canonical direction
+  // list even when the model happened to return the right numeric total. The
+  // old shortcut preserved duplicate deliverables after duplicate directions
+  // had been removed and replaced safely.
+  if (!exactCount && currentCount === targetCount && Array.isArray(weeklyPlan) && weeklyPlan.length >= requiredWeekCount) return weeklyPlan
 
   const ar = isArabicLanguage(language)
   const existingWeeks = Array.isArray(weeklyPlan) ? weeklyPlan.filter(isObject) : []
@@ -1135,10 +1384,28 @@ function guardChannelMix(
   list: unknown,
   ctx: NormalizedPlatformContext,
   strategyType?: string | null,
+  language?: string | null,
 ): unknown {
   const organicOnly = strategyType === 'organic'
-  if (!Array.isArray(list)) return list
-  if (!ctx.allowedKeys.size) return organicOnly ? normalizeOrganicChannelMix(list) : list
+  if (!ctx.allowedKeys.size) {
+    return organicOnly ? normalizeOrganicChannelMix(list) : list
+  }
+
+  const arabic = prefersArabicFallback(language)
+  const fallbackEntry = (platform: string) => ({
+    platform,
+    ...(organicOnly ? { effortSharePercent: 0 } : { budgetPercent: 0 }),
+    rationale: arabic
+      ? 'قناة اختارها المستخدم في Brand Brain؛ يجب التحقق من دورها ببيانات أداء حقيقية قبل التنفيذ.'
+      : 'Selected by the user in Brand Brain; validate this channel role with real performance data before execution.',
+    contentFrequency: arabic
+      ? 'يُحدد في خطة Content Hub بعد المراجعة.'
+      : 'Define in the Content Hub plan after review.',
+  })
+
+  if (!Array.isArray(list)) {
+    return ctx.allowedLabels.map(fallbackEntry)
+  }
 
   const seen = new Set<string>()
   const guarded: unknown[] = []
@@ -1150,15 +1417,20 @@ function guardChannelMix(
     guarded.push({ ...item, platform: platformLabel(key, typeof item.platform === 'string' ? item.platform : undefined) })
   }
 
-  if (guarded.length) return organicOnly ? normalizeOrganicChannelMix(guarded) : guarded
+  // A reviewed platform is a binding part of the campaign order. Models may
+  // omit one even when the prompt contains it, so complete the mix
+  // deterministically instead of charging for an otherwise valid package and
+  // then failing the save gate. The zero-share fallback is a review-safe role,
+  // not an invented performance or allocation claim.
+  const completed = [
+    ...guarded,
+    ...ctx.allowedLabels.filter(platform => {
+      const key = normalizePlatform(platform)
+      return Boolean(key && !seen.has(key))
+    }).map(fallbackEntry),
+  ]
 
-  const fallback = ctx.allowedLabels.map(platform => ({
-    platform,
-    ...(organicOnly ? { effortSharePercent: 0 } : { budgetPercent: 0 }),
-    rationale: 'Selected in Brand Brain; refine channel role before execution.',
-    contentFrequency: 'To define in the Content Hub plan.',
-  }))
-  return fallback
+  return organicOnly ? normalizeOrganicChannelMix(completed) : completed
 }
 
 function guardPlatformObjectList(list: unknown, ctx: NormalizedPlatformContext, language?: string | null): unknown {
@@ -1172,6 +1444,34 @@ function guardPlatformObjectList(list: unknown, ctx: NormalizedPlatformContext, 
       platform,
       ...(typeof item.format === 'string' ? { format: normalizeFormatForPlatform(item.format, platform, language) } : {}),
     }
+  })
+}
+
+function guardChannelClaimText(value: string, language?: string | null): string {
+  if (!hasUnsourcedChannelMarketClaim(value) || hasChannelHypothesisMarker(value)) return value
+
+  const hasArabicText = /[\u0600-\u06ff]/.test(value)
+  return hasArabicText || isArabicLanguage(language)
+    ? `فرضية للتّحقق وليست حقيقة سوقية: ${value}`
+    : `Planning hypothesis to validate, not a market fact: ${value}`
+}
+
+function guardChannelClaimFields(
+  list: unknown,
+  fields: string[],
+  language?: string | null,
+): unknown {
+  if (!Array.isArray(list)) return list
+
+  return list.map((item) => {
+    if (!isObject(item)) return item
+    const output = { ...item }
+    for (const field of fields) {
+      if (typeof output[field] === 'string') {
+        output[field] = guardChannelClaimText(output[field], language)
+      }
+    }
+    return output
   })
 }
 
@@ -1631,13 +1931,15 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
     : leadGuardedValue) as JsonObject
   output.campaignName = guardCampaignName(output.campaignName, context.strategyType, context.language)
   output.businessObjective = guardBusinessObjectiveGoal(output.businessObjective, context.goal, context.language)
+  output.businessObjective = guardBusinessObjectiveOperationalDepth(output.businessObjective, context.language)
   output.diagnosisDetails = guardDiagnosisTruthBasis(output.diagnosisDetails, context.language)
 
   if (context.strategyType === 'paid') {
     guardPaidPlanningMinimums(output, ctx, context.language)
   }
 
-  output.channelMix = guardChannelMix(output.channelMix, ctx, context.strategyType)
+  output.channelMix = guardChannelMix(output.channelMix, ctx, context.strategyType, context.language)
+  output.channelMix = guardChannelClaimFields(output.channelMix, ['rationale'], context.language)
   output.kpis = guardKpisMinimum(output.kpis, context.language)
   output.funnelStages = guardFunnelStagesMinimum(output.funnelStages, ctx, context.language)
   const bindingPostCount = typeof context.organicPostCount === 'number'
@@ -1645,14 +1947,16 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
     && context.organicPostCount > 0
     ? Math.floor(context.organicPostCount)
     : null
-  const existingAngleCount = Array.isArray(output.contentAnglesDetailed) ? output.contentAnglesDetailed.length : 0
-  const planningDirectionCount = bindingPostCount ?? Math.max(4, existingAngleCount)
+  const quotedAngleCount = Array.isArray(output.contentAnglesDetailed) ? output.contentAnglesDetailed.length : 0
+  output.contentAnglesDetailed = guardContentAngleUniqueness(output.contentAnglesDetailed)
+  const planningDirectionCount = bindingPostCount ?? Math.max(4, quotedAngleCount)
   output.contentAnglesDetailed = alignContentAnglesToCount(
     output.contentAnglesDetailed,
     ctx,
     planningDirectionCount,
     bindingPostCount !== null,
     context.language,
+    output,
   )
   output.contentAnglesDetailed = guardPlatformObjectList(output.contentAnglesDetailed, ctx, context.language)
   output.contentAnglesDetailed = guardContentAnglesOperationalDepth(output.contentAnglesDetailed, context.language)
@@ -1660,6 +1964,11 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
   output.audienceSegmentsDetailed = guardPlatformObjectList(output.audienceSegmentsDetailed, ctx, context.language)
   output.funnelStages = guardPlatformObjectList(output.funnelStages, ctx, context.language)
   output.channelStrategy = guardPlatformObjectList(output.channelStrategy, ctx, context.language)
+  output.channelStrategy = guardChannelClaimFields(
+    output.channelStrategy,
+    ['rationale', 'role', 'reason'],
+    context.language,
+  )
   output.weeklyExecutionPlan = guardWeeklyExecutionPlan(output.weeklyExecutionPlan, ctx)
   output.weeklyExecutionPlan = alignWeeklyExecutionPlanToOrganicCount(
     output.weeklyExecutionPlan,

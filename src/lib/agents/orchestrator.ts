@@ -9,24 +9,13 @@ import { prisma } from '@/lib/prisma'
 import { runStrategistAgent, BusinessBrief, StrategyOutput } from './strategist'
 import type { ContentDirectorOutput } from './content-director'
 import { saveCampaignMemory } from '@/lib/campaign-memory'
-import { getStrategyCapabilities } from '@/lib/brandReadiness'
-import { applyServerReadiness, collectMissingKeys } from '@/lib/strategyNormalize'
-import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
-import { buildProofPolicyPrompt, guardStrategyProof } from '@/lib/ai/strategyProofGuard'
-import { guardStrategyOutputContract, selectStrategyCampaignPlatforms } from '@/lib/ai/strategyOutputContractGuard'
-import { assertCampaignStrategyContract } from '@/lib/campaignStrategyContract'
-import {
-  formatBrandBrainGenerationSafetyNote,
-  getBrandBrainGenerationSafety,
-} from '@/lib/brandBrainGenerationSafety'
-import type { StrategyReadinessContext } from './strategist'
+import { selectStrategyCampaignPlatforms } from '@/lib/ai/strategyOutputContractGuard'
 import { readLockedCampaignAllowance } from '@/lib/campaignCommercial'
-import {
-  reviewBrandTruthConsistency,
-  reviewStrategyGrounding,
-} from '@/lib/ai/marketingQualityGate'
 import type { BrandTone } from '@prisma/client'
-import { buildStrategyEvidenceLedger } from '@/lib/strategy/strategyEvidenceLedger'
+import {
+  finalizeStrategyQuality,
+  prepareStrategyGenerationContext,
+} from '@/lib/strategy/strategyQualityPipeline'
 
 // Re-export for API routes
 export type { BusinessBrief }
@@ -98,149 +87,20 @@ export async function runFullAgency(
 
     // 1. Brand context — inject Brand Brain fields after generation-safety screening.
     const brandProfile = await prisma.brandProfile.findUnique({ where: { workspaceId } })
-    const brandSafety = getBrandBrainGenerationSafety(brandProfile as any)
-    const safeBrandProfile = brandSafety.safeProfile as any
-    const brandTruthReview = reviewBrandTruthConsistency(safeBrandProfile)
-    if (brandTruthReview.status === 'blocked') {
-      throw new Error(
-        `BRAND_TRUTH_CONFLICT:${brandTruthReview.blockers.map(item => item.code).join(',')}`,
-      )
-    }
-    const brandContext = brandProfile
-      ? [
-          `Brand: ${safeBrandProfile.brandName || 'Unknown'}`,
-          safeBrandProfile.industry ? `Industry: ${safeBrandProfile.industry}` : '',
-          safeBrandProfile.description ? `Business Description: ${safeBrandProfile.description}` : '',
-          safeBrandProfile.primaryOffer ? `Core Offer: ${safeBrandProfile.primaryOffer}` : '',
-          safeBrandProfile.pricePoint ? `Price Positioning: ${safeBrandProfile.pricePoint}` : '',
-          safeBrandProfile.uniqueAdvantages?.length ? `Unique Advantages: ${safeBrandProfile.uniqueAdvantages.join(', ')}` : '',
-          safeBrandProfile.targetAudience ? `Target Audience: ${safeBrandProfile.targetAudience}` : '',
-          safeBrandProfile.audienceAge ? `Audience Age Range: ${safeBrandProfile.audienceAge}` : '',
-          safeBrandProfile.audienceLocation ? `Market / Region: ${safeBrandProfile.audienceLocation}` : '',
-          safeBrandProfile.audiencePainPoints?.length ? `Audience Pain Points: ${safeBrandProfile.audiencePainPoints.join(', ')}` : '',
-          safeBrandProfile.audienceDesires?.length ? `Audience Desires: ${safeBrandProfile.audienceDesires.join(', ')}` : '',
-          safeBrandProfile.toneKeywords?.length ? `Brand Tone: ${safeBrandProfile.toneKeywords.join(', ')}` : '',
-          safeBrandProfile.writingStyle ? `Writing Style: ${safeBrandProfile.writingStyle}` : '',
-          safeBrandProfile.avoidKeywords?.length ? `Never use these words: ${safeBrandProfile.avoidKeywords.join(', ')}` : '',
-          safeBrandProfile.topPlatforms?.length ? `Best Platforms: ${safeBrandProfile.topPlatforms.join(', ')}` : '',
-          safeBrandProfile.winningHooks?.length ? `Reviewed Hook Signals (use as style reference): ${safeBrandProfile.winningHooks.slice(0, 3).join(' | ')}` : '',
-          safeBrandProfile.winningAngles?.length ? `Content Angle Signals: ${safeBrandProfile.winningAngles.slice(0, 3).join(', ')}` : '',
-          buildProofPolicyPrompt({ verifiedProof: safeBrandProfile.verifiedProof }),
-          safeBrandProfile.competitorNotes ? `Competitor Notes: ${safeBrandProfile.competitorNotes}` : '',
-          safeBrandProfile.competitors?.length ? `Named Competitors (use ONLY these — never invent others): ${safeBrandProfile.competitors.join(', ')}` : '',
-          safeBrandProfile.strategicNotes ? `Strategic Notes: ${safeBrandProfile.strategicNotes}` : '',
-          formatBrandBrainGenerationSafetyNote(brandSafety),
-          // PR-2B1 — wire the PR-2A strategy-data fields into the strategist context.
-          safeBrandProfile.businessGoal ? `Business Goal: ${safeBrandProfile.businessGoal}` : '',
-          safeBrandProfile.marketingBudget ? `Marketing Budget (band): ${safeBrandProfile.marketingBudget}` : '',
-          safeBrandProfile.conversionDestination ? `Conversion Destination: ${safeBrandProfile.conversionDestination}` : '',
-          safeBrandProfile.leadHandling ? `Lead Handling / Sales Process: ${safeBrandProfile.leadHandling}` : '',
-          safeBrandProfile.customerObjections?.length ? `Customer Objections: ${safeBrandProfile.customerObjections.join(', ')}` : '',
-          safeBrandProfile.complianceNotes ? `Compliance Notes: ${safeBrandProfile.complianceNotes}` : '',
-          safeBrandProfile.averageOrderValue ? `Average Order Value: ${safeBrandProfile.averageOrderValue}` : '',
-          safeBrandProfile.grossMargin ? `Gross Margin: ${safeBrandProfile.grossMargin}` : '',
-          safeBrandProfile.customerLifetimeValue ? `Customer Lifetime Value: ${safeBrandProfile.customerLifetimeValue}` : '',
-          safeBrandProfile.salesCycleLength ? `Sales Cycle Length: ${safeBrandProfile.salesCycleLength}` : '',
-          safeBrandProfile.seasonality ? `Seasonality: ${safeBrandProfile.seasonality}` : '',
-          safeBrandProfile.pastAdResults ? `Past Ad Results (historical data): ${safeBrandProfile.pastAdResults}` : '',
-        ].filter(Boolean).join('\n')
-      : ''
-
-    // 1b. PR-2B1 — compute capability readiness server-side (single source of truth)
-    //     and build the compact readiness context passed into the strategist.
-    const bp: any = brandProfile ? safeBrandProfile : {}
-    const capabilities = getStrategyCapabilities(bp, { hasPixel: false })
-    const hasHistoricalData = Boolean(bp.pastAdResults)
-    const readiness: StrategyReadinessContext = {
-      capabilities: Object.values(capabilities).map(c => ({
-        id: c.id, ready: c.ready, confidence: c.confidence, missingKeys: c.missingKeys,
-      })),
-      missingKeys: collectMissingKeys(capabilities),
-      hasBudget: Boolean(bp.marketingBudget),
-      budgetText: typeof bp.marketingBudget === 'string' ? bp.marketingBudget : null,
-      hasConversionDestination: Boolean(bp.conversionDestination),
-      hasCompetitors: Boolean(bp.competitors?.length) || Boolean(bp.competitorNotes),
-      hasHistoricalData,
-      hasPixel: false,
-    }
-    // Numbers the model is allowed to echo (user-provided), used by the scrubber.
-    const allowedNumbers = [bp.marketingBudget, bp.pricePoint, bp.averageOrderValue, bp.customerLifetimeValue, bp.grossMargin]
-      .filter(Boolean) as string[]
-    const allowedCompetitors = [
-      ...((bp.competitors as string[] | undefined) || []),
-      ...(bp.competitorNotes ? [bp.competitorNotes as string] : []),
-    ]
-    const proofContext = {
-      verifiedProof: (bp.verifiedProof as string[] | undefined) || [],
-      budgetText: typeof bp.marketingBudget === 'string' ? bp.marketingBudget : null,
-      allowedClaimText: [
-        bp.description,
-        bp.primaryOffer,
-        bp.pricePoint,
-        bp.languagePreference,
-        ...((bp.uniqueAdvantages as string[] | undefined) || []),
-        bp.complianceNotes,
-        ...((bp.verifiedProof as string[] | undefined) || []),
-      ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
-    }
+    const strategyContext = prepareStrategyGenerationContext(brandProfile as any)
 
     // 2. Strategist agent
-    let strategy: StrategyOutput = await runStrategistAgent(brief, brandContext, brief.language, readiness)
-    // 2b. PR-2B1 — server-authoritative readiness + anti-hallucination scrubbing.
-    //     The model's confidenceReport/missingData/competitorAnalysisComplete are
-    //     DISCARDED and replaced from getStrategyCapabilities() here.
-    strategy = applyServerReadiness(strategy, capabilities, {
-      hasHistoricalData, allowedCompetitors, allowedNumbers, strategyType: brief.strategyType, language: brief.language,
-    })
-    // 2c. PR-I — KPI Truth Guard. applyServerReadiness flags KPIs as hypotheses but
-    //     does NOT scrub the KPI/metric `target` strings, so invented figures like
-    //     "Increase by 20%" leaked through. This strips unsupported performance
-    //     numbers from KPI targets / success metrics / estimated results, keeping
-    //     only user/analytics-provided numbers (allowedNumbers) and calendar timeframes.
-    strategy = guardStrategyKpis(
-      strategy as unknown as Record<string, unknown>,
-      allowedNumbers,
-      { language: brief.language },
-    ) as unknown as StrategyOutput
-    // GEN-TRUTH1 — deterministic proof guard. Prompt policy prevents most issues;
-    // this backstop keeps unsupported testimonials/customer stories/awards from
-    // being persisted when Brand Brain has no verified proof.
-    strategy = guardStrategyProof(strategy, proofContext)
-    // STRATEGY-OUTPUT-CONTRACT1 — keep persisted strategy output inside the
-    // user-reviewed strategy contract: selected platforms only, no unverified
-    // readiness "done" states, and no invented platform execution paths.
-    strategy = guardStrategyOutputContract(strategy, {
-      allowedPlatforms: Array.isArray(brief.currentPlatforms) ? brief.currentPlatforms : [],
-      language: brief.language,
-      strategyType: brief.strategyType,
-      organicPostCount: brief.organicPostCount,
-      hasLeadHandling: Boolean(bp.leadHandling),
-      hasConversionDestination: Boolean(bp.conversionDestination),
-      allowedCompetitors,
-      goal: brief.primaryGoal,
-    })
-    // Evidence provenance is a deterministic snapshot of the approved Brand
-    // Brain proof available at generation time. Never accept model-authored
-    // sources or silently promote manual entries to source-linked evidence.
-    strategy.evidenceLedger = buildStrategyEvidenceLedger(proofContext.verifiedProof)
-    const contractReport = assertCampaignStrategyContract(strategy, {
-      language: brief.language,
-      expectedOrganicPostCount: brief.organicPostCount,
-      strategyType: brief.strategyType,
-      expectedPaidPlanning: brief.strategyDeliverables,
-    })
-    const qualityGate = reviewStrategyGrounding({
-      strategy,
-      brand: safeBrandProfile,
-      allowedPlatforms: Array.isArray(brief.currentPlatforms) ? brief.currentPlatforms : [],
-      requireAllReviewedPlatforms: true,
-      goal: brief.primaryGoal,
-    })
-    if (qualityGate.status === 'blocked') {
-      throw new Error(
-        `MARKETING_QUALITY_GATE_BLOCKED:${qualityGate.blockers.map(item => item.code).join(',')}`,
-      )
-    }
+    const generatedStrategy: StrategyOutput = await runStrategistAgent(
+      brief,
+      strategyContext.brandContext,
+      brief.language,
+      strategyContext.readiness,
+    )
+    const { strategy, contractReport, qualityGate } = finalizeStrategyQuality(
+      generatedStrategy,
+      brief,
+      strategyContext,
+    )
     console.log(
       `[Orchestrator] Strategy OS contract passed score=${contractReport.score} quality=${qualityGate.score} workspace=${workspaceId}`,
     )
@@ -330,7 +190,10 @@ export async function runFullAgency(
           description: String(campaignDesc).slice(0, 2_000),
           goal: mapGoal(strategy.goal) as any,
           audience: String(campaignAudience).slice(0, 1_000),
-          tone: mapBrandTone(safeBrandProfile.toneKeywords, safeBrandProfile.writingStyle),
+          tone: mapBrandTone(
+            strategyContext.safeBrandProfile.toneKeywords,
+            strategyContext.safeBrandProfile.writingStyle,
+          ),
           platforms: mapPlatforms(rawPlatforms) as any,
           status: 'DRAFT',
           aiOutput: {
@@ -363,7 +226,10 @@ export async function runFullAgency(
       workspaceId,
       campaignId: campaign.id,
       goal: brief.primaryGoal ?? undefined,
-      tone: mapBrandTone(safeBrandProfile.toneKeywords, safeBrandProfile.writingStyle),
+      tone: mapBrandTone(
+        strategyContext.safeBrandProfile.toneKeywords,
+        strategyContext.safeBrandProfile.writingStyle,
+      ),
       industry: brief.businessType ?? undefined,
       audienceHint: brief.targetAudience ?? undefined,
       strategy,
@@ -410,6 +276,11 @@ export async function runFullAgency(
         completedAt: new Date(),
         durationMs: Date.now() - startedAt,
       },
+    })
+    console.info('[Orchestrator] Strategy run completed', {
+      workspaceId,
+      campaignId: campaign.id,
+      durationMs: Date.now() - startedAt,
     })
 
   } catch (err: unknown) {

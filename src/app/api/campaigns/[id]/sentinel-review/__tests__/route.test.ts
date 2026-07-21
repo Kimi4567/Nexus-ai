@@ -43,7 +43,10 @@ vi.mock('@/lib/agents/sentinel-reviewer', () => ({
 }))
 vi.mock('@/lib/ai/strategyKpiGuard', () => ({ guardStrategyKpis: (value: unknown) => value }))
 vi.mock('@/lib/ai/strategyProofGuard', () => ({ guardStrategyProof: (value: unknown) => value }))
-vi.mock('@/lib/ai/strategyOutputContractGuard', () => ({ guardStrategyOutputContract: (value: unknown) => value }))
+vi.mock('@/lib/ai/strategyTruthContractGuard', () => ({ guardStrategyTruthContract: (value: unknown) => value }))
+vi.mock('@/lib/strategy/strategyProofContext', () => ({
+  buildStrategyProofContextFromBrand: () => ({ recordedProof: [], proofContext: { verifiedProof: [], commercialClaimText: [], allowedClaimText: [] } }),
+}))
 vi.mock('@/lib/strategy/strategyScope', () => ({ resolveStrategyScope: () => ({ type: 'organic' }) }))
 vi.mock('@/lib/campaignStrategyContract', () => ({
   validateCampaignStrategyContract: mockValidateStrategyContract,
@@ -65,7 +68,19 @@ const campaign = {
   audience: 'Founders',
   tone: 'clear',
   platforms: ['META'],
-  aiOutput: { strategy: { keyMessage: 'A clear offer' }, language: 'en' },
+  aiOutput: {
+    strategy: { keyMessage: 'A clear offer' },
+    language: 'en',
+    nexusEngine: {
+      status: 'failed',
+      error: 'old failure',
+      steps: [
+        { key: 'strategy', status: 'done' },
+        { key: 'sentinel', status: 'blocked' },
+        { key: 'approval', status: 'blocked' },
+      ],
+    },
+  },
   workspace: { brandProfile: { brandName: 'Nexus', industry: 'SaaS', verifiedProof: [] } },
 }
 
@@ -150,9 +165,15 @@ describe('POST /api/campaigns/[id]/sentinel-review — provider and credit order
         aiOutput: expect.objectContaining({
           strategy: campaign.aiOutput.strategy,
           sentinelReview: expect.objectContaining({ status: 'passed' }),
+          nexusEngine: expect.objectContaining({
+            status: 'ready_for_approval',
+            sentinelStatus: 'passed',
+          }),
         }),
       },
     }))
+    const persistedOutput = mockPrisma.campaign.update.mock.calls[0][0].data.aiOutput
+    expect(persistedOutput.nexusEngine).not.toHaveProperty('error')
     expect(mockRefund).not.toHaveBeenCalled()
   })
 

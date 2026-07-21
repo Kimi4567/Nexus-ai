@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
@@ -95,13 +96,14 @@ interface GoogleAdsConnectionState {
 }
 
 interface ProviderReadiness {
-  platform: 'META' | 'LINKEDIN' | 'TIKTOK'
+  platform: 'META' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | 'X' | 'PINTEREST' | 'THREADS'
   credentialsConfigured: boolean
   callbackUrl: string
   requestedScopes: string[]
   deferredScopes: string[]
   testBoundary: string
-  publicAccess: 'PROVIDER_REVIEW_REQUIRED' | 'PROVIDER_PRODUCT_ACCESS_REQUIRED' | 'PROVIDER_AUDIT_REQUIRED'
+  publicAccess: string
+  proofState: 'configuration_only'
 }
 
 interface PlatformDef {
@@ -519,6 +521,16 @@ export default function ConnectionsPage() {
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
   const [disconnectConfirmId, setDisconnectConfirmId] = useState<string | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const messageRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!message) return
+    const frame = window.requestAnimationFrame(() => {
+      messageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      messageRef.current?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [message])
 
   const fetchAccounts = useCallback(async () => {
     const token = authHeader()
@@ -606,7 +618,7 @@ export default function ConnectionsPage() {
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       setLoadingAccounts(false)
-      router.push('/auth/login')
+      router.replace('/auth/login')
     }
   }, [isAuthenticated, loading, router])
 
@@ -702,7 +714,10 @@ export default function ConnectionsPage() {
       setDisconnectConfirmId(null)
       setMessage({
         type: 'success',
-        text: copy('تم فصل الحساب. لن يستخدمه NEXUS في النشر أو التنفيذ.', 'Account disconnected. NEXUS will not use it for publishing or execution.'),
+        text: copy(
+          'تم فصل الحساب ومسح رموز الوصول المحفوظة في NEXUS. لا يعني ذلك حذف الحساب أو إلغاء وصول NEXUS من إعدادات المنصة.',
+          'Account disconnected and credentials stored by NEXUS were erased. This does not delete the account or confirm provider-side revocation in the platform settings.',
+        ),
       })
       setTimeout(() => setMessage(null), 3000)
     } catch {
@@ -783,12 +798,36 @@ export default function ConnectionsPage() {
       return (leftPriority === -1 ? 99 : leftPriority) - (rightPriority === -1 ? 99 : rightPriority)
     })
 
-  if (loading || !isAuthenticated) {
+  if (loading) {
     return (
       <AppShell>
         <div className="flex min-h-screen items-center justify-center bg-[#f6f8fc]">
           <Loader2 className="h-9 w-9 animate-spin text-[#4f46e5]" />
         </div>
+      </AppShell>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <AppShell>
+        <main dir={dir} className="nx-os-page flex min-h-screen items-center justify-center px-4">
+          <section role="status" className="w-full max-w-md rounded-[24px] border border-slate-200 bg-white p-7 text-center shadow-sm">
+            <KeyRound className="mx-auto h-8 w-8 text-indigo-600" aria-hidden="true" />
+            <h1 className="mt-4 text-xl font-black text-[#111b3f]">
+              {copy('تسجيل الدخول مطلوب', 'Sign in required')}
+            </h1>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#64708f]">
+              {copy(
+                'انتهت الجلسة أو تعذر استعادتها. سجّل الدخول لمراجعة حسابات المنصات وصلاحياتها.',
+                'Your session ended or could not be restored. Sign in to review platform accounts and permissions.',
+              )}
+            </p>
+            <Link href="/auth/login" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-indigo-600 px-5 text-sm font-black text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2">
+              {copy('الذهاب لتسجيل الدخول', 'Go to sign in')}
+            </Link>
+          </section>
+        </main>
       </AppShell>
     )
   }
@@ -829,6 +868,10 @@ export default function ConnectionsPage() {
 
           {message ? (
             <div
+              ref={messageRef}
+              role="alert"
+              aria-live="assertive"
+              tabIndex={-1}
               className={`mb-6 flex items-center gap-3 rounded-[18px] border px-5 py-4 text-sm font-semibold ${
                 message.type === 'success'
                   ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
@@ -856,7 +899,7 @@ export default function ConnectionsPage() {
                   'This panel proves NEXUS configuration only: credentials, callback URL, and requested scopes. It never claims provider approval or public publishing before the provider proves it.',
                 )}
               </p>
-              <div className="grid gap-3 lg:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {providerReadiness.map((provider) => {
                   const account = accounts.find(item => item.platform === provider.platform)
                   const connected = account?.status === 'CONNECTED'
@@ -1076,8 +1119,8 @@ export default function ConnectionsPage() {
                           <div className="mt-3 rounded-[14px] border border-rose-100 bg-rose-50/70 p-3">
                             <p className="text-[12px] font-bold leading-5 text-rose-700">
                               {copy(
-                                'سيوقف الفصل استخدام هذا الحساب في النشر عبر NEXUS. لن يحذف الحساب أو محتواه من المنصة.',
-                                'Disconnecting stops NEXUS from publishing through this account. It does not delete the platform account or its content.',
+                                'سيوقف الفصل استخدام الحساب ويمسح رموز الوصول المحفوظة في NEXUS. لن يحذف الحساب أو محتواه، وقد تحتاج لإلغاء وصول التطبيق أيضاً من إعدادات المنصة.',
+                                'Disconnecting stops use of this account and erases credentials stored by NEXUS. It does not delete platform content; revoke the app in platform settings if you also want provider-side revocation.',
                               )}
                             </p>
                             <div className="mt-3 flex flex-wrap gap-2">

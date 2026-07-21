@@ -12,6 +12,7 @@ import {
   validateCreditWalletStripePrices,
 } from '@/lib/stripe'
 import { getCreditAccountSnapshot } from '@/lib/credits/accountSnapshot'
+import { getBillingDatabaseReadiness } from '@/lib/billingDatabaseReadiness'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,18 +38,25 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
     const { user: dbUser, subscription, credits, walletEnabled } = account
-    const billingConfigured = isBillingConfigured()
+    const billingProviderConfigured = isBillingConfigured()
+    const billingDatabase = billingProviderConfigured
+      ? await getBillingDatabaseReadiness()
+      : null
+    const billingConfigured = billingProviderConfigured && billingDatabase?.ready === true
     const walletPriceIdsConfigured = isCreditWalletPurchaseConfigured()
     let creditPurchasesStatus:
       | 'ready'
       | 'wallet_disabled'
       | 'billing_disabled'
+      | 'migration_required'
       | 'price_ids_missing'
       | 'price_version_mismatch'
       | 'verification_failed' = !walletEnabled
         ? 'wallet_disabled'
-        : !billingConfigured
+        : !billingProviderConfigured
           ? 'billing_disabled'
+          : billingDatabase?.ready !== true
+            ? 'migration_required'
           : !walletPriceIdsConfigured
             ? 'price_ids_missing'
             : 'verification_failed'
@@ -69,6 +77,7 @@ export async function GET(req: NextRequest) {
       status: dbUser.subscriptionStatus,
       hasActiveSubscription: account.hasActiveSubscription,
       billingEnabled: billingConfigured,
+      billingDatabaseStatus: billingDatabase?.state ?? 'billing_disabled',
       billingMode: getBillingMode(),
       creditPurchasesEnabled: creditPurchasesStatus === 'ready',
       creditPurchasesStatus,

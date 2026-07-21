@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildStrategyEvidenceLedger,
+  isSourceLinkedVerifiedProof,
   normalizeStrategyEvidenceLedger,
+  sourceLinkedProofStatements,
 } from '@/lib/strategy/strategyEvidenceLedger'
 
 describe('strategy evidence ledger', () => {
@@ -39,5 +41,16 @@ describe('strategy evidence ledger', () => {
       sourceName: null,
       sourceLocator: null,
     }])
+  })
+
+  it('allows only source-linked proof to unlock strong commercial claims', () => {
+    const proof = [
+      'Owner says delivery is guaranteed',
+      'Returns are accepted for 14 days. [Source: returns-policy.pdf — Section 2]',
+    ]
+
+    expect(isSourceLinkedVerifiedProof(proof[0])).toBe(false)
+    expect(isSourceLinkedVerifiedProof(proof[1])).toBe(true)
+    expect(sourceLinkedProofStatements(proof)).toEqual(['Returns are accepted for 14 days.'])
   })
 })

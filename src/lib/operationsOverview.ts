@@ -357,6 +357,14 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
   ))
   const unversionedCharges30d = debits.filter(transaction => !transaction.pricingVersion).length
   const chargesWithoutArtifact30d = debits.filter(transaction => !transaction.entityId || !transaction.entityType).length
+  // Pre-versioned ledger rows remain visible as legacy evidence and must never
+  // be rewritten with invented pricing or artifact metadata. For the sandbox
+  // readiness proof, use the latest settled debit as the current-path canary:
+  // it must be fully traceable, while older gaps remain an explicit issue.
+  const latestSettledDebit = debits[0] ?? null
+  const latestSettledDebitTraceable = Boolean(
+    latestSettledDebit?.pricingVersion && latestSettledDebit.entityId && latestSettledDebit.entityType,
+  )
   if (unversionedCharges30d > 0 || chargesWithoutArtifact30d > 0) {
     issues.push({
       id: 'credits:traceability',
@@ -454,17 +462,22 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
     },
     {
       id: 'credit_traceability',
-      status: staleReservations.length > 0 || unversionedCharges30d > 0 || chargesWithoutArtifact30d > 0
+      status: staleReservations.length > 0 || (debits.length > 0 && !latestSettledDebitTraceable)
         ? 'blocked'
-        : debits.length > 0 ? 'ready' : 'not_verified',
+        : latestSettledDebitTraceable ? 'ready' : 'not_verified',
       href: '/billing',
       title: { en: 'Credit traceability', ar: 'تتبع الكريديت' },
       evidence: staleReservations.length > 0
         ? { en: `${staleReservations.length} stale reservation(s) require reconciliation.`, ar: `${staleReservations.length} حجز عالق يحتاج مطابقة.` }
-        : unversionedCharges30d > 0 || chargesWithoutArtifact30d > 0
-          ? { en: 'One or more settled debits lack pricing or artifact evidence.', ar: 'يوجد خصم نهائي واحد أو أكثر بلا إصدار تسعير أو دليل مخرج.' }
+        : latestSettledDebitTraceable
+          ? unversionedCharges30d > 0 || chargesWithoutArtifact30d > 0
+            ? {
+                en: `The latest settled debit is versioned and linked to its output. ${Math.max(unversionedCharges30d, chargesWithoutArtifact30d)} older row(s) remain visible as legacy evidence and are not rewritten.`,
+                ar: `أحدث خصم نهائي مرتبط بالمخرج وإصدار التسعير. تظل ${Math.max(unversionedCharges30d, chargesWithoutArtifact30d)} معاملة أقدم ظاهرة كدليل تاريخي ولا يُعاد اختلاق بياناتها.`,
+              }
+            : { en: `${debits.length} settled debit(s) are versioned and linked to outputs.`, ar: `${debits.length} خصم نهائي مرتبط بمخرجات وإصدار تسعير.` }
           : debits.length > 0
-            ? { en: `${debits.length} settled debit(s) are versioned and linked to outputs.`, ar: `${debits.length} خصم نهائي مرتبط بمخرجات وإصدار تسعير.` }
+            ? { en: 'The latest settled debit lacks pricing or artifact evidence.', ar: 'أحدث خصم نهائي بلا إصدار تسعير أو دليل مخرج.' }
             : { en: 'No settled sandbox debit has exercised the ledger yet.', ar: 'لا يوجد خصم Sandbox نهائي اختبر السجل بعد.' },
     },
     {

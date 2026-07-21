@@ -7,6 +7,7 @@ import { validateContentPlanDraftForSave } from '@/lib/contentPlanStructuredRend
 import { hasGenericMarketingHook } from '@/lib/marketingCopyGuard'
 import { guardContentDraftText } from '@/lib/ai/contentDraftTruthGuard'
 import type { ClaimFinding } from '@/lib/ai/claimGuard'
+import { sourceLinkedProofStatements } from '@/lib/strategy/strategyEvidenceLedger'
 
 export interface ContentPlanApprovalIssue {
   index: number
@@ -61,7 +62,8 @@ export function buildContentPlanTruthContext(brandProfile: unknown): ContentPlan
   const list = (value: unknown): string[] => Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
     : []
-  const verifiedProof = list(brand.verifiedProof)
+  const recordedProof = list(brand.verifiedProof)
+  const verifiedProof = sourceLinkedProofStatements(recordedProof)
 
   return {
     brandFacts: [
@@ -79,7 +81,7 @@ export function buildContentPlanTruthContext(brandProfile: unknown): ContentPlan
       typeof brand.complianceNotes === 'string' ? brand.complianceNotes : null,
       typeof brand.conversionDestination === 'string' ? brand.conversionDestination : null,
       typeof brand.leadHandling === 'string' ? brand.leadHandling : null,
-      verifiedProof,
+      recordedProof,
     ],
     verifiedProof,
   }

@@ -29,4 +29,11 @@ describe('/connections Meta Ads API readiness copy', () => {
     expect(i18nSource).not.toContain('Spend now')
     expect(i18nSource).not.toContain('Activate now')
   })
+
+  it('moves keyboard and visual attention to connection outcomes', () => {
+    expect(connectionsSource).toContain('role="alert"')
+    expect(connectionsSource).toContain('aria-live="assertive"')
+    expect(connectionsSource).toContain("scrollIntoView({ behavior: 'smooth', block: 'center' })")
+    expect(connectionsSource).toContain('focus({ preventScroll: true })')
+  })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { readLockedPlannedPostAllowance } from '@/lib/postCommercial'
+import { readLockedPlannedPostAllowance, readPlannedPostAllowance } from '@/lib/postCommercial'
 
 describe('planned-post commercial allowance', () => {
   it('does not count B variants and subtracts replaceable campaign drafts', async () => {
@@ -22,5 +22,18 @@ describe('planned-post commercial allowance', () => {
     expect(tx.socialPost.count).toHaveBeenNthCalledWith(2, {
       where: expect.objectContaining({ campaignId: 'campaign-1', status: 'DRAFT', publishedAt: null }),
     })
+  })
+
+  it('supports a read-only operational allowance without taking the generation lock', async () => {
+    const tx = {
+      user: { findUnique: vi.fn().mockResolvedValue({ subscriptionStatus: 'PRO', role: 'USER' }) },
+      subscription: { findUnique: vi.fn().mockResolvedValue(null) },
+      socialPost: { count: vi.fn().mockResolvedValue(12) },
+    } as any
+
+    const allowance = await readPlannedPostAllowance(tx, 'u1', undefined, new Date('2026-07-21T12:00:00.000Z'))
+
+    expect(allowance).toMatchObject({ plan: 'PRO', limit: 16, used: 12, remaining: 4 })
+    expect(allowance.periodEnd.toISOString()).toBe('2026-08-01T00:00:00.000Z')
   })
 })

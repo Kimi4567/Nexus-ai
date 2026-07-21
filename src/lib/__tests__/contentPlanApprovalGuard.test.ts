@@ -117,10 +117,22 @@ describe('contentPlanApprovalGuard', () => {
     expect(review).toEqual({ ok: true, issues: [] })
   })
 
-  it('accepts an exact social-proof statement only when it is in verified proof', () => {
+  it('does not treat an owner-only social-proof entry as publishable evidence', () => {
     const truth = buildContentPlanTruthContext({
       brandName: 'Northstar',
       verifiedProof: ['Trusted by thousands of verified business customers'],
+    })
+    const review = reviewContentPlanForApproval([
+      { caption: 'Trusted by thousands of verified business customers.' },
+    ], { keyMessage: 'Verified business adoption' }, truth)
+
+    expect(review.issues.map(issue => issue.reason)).toContain('unsupported_socialProof')
+  })
+
+  it('accepts exact social proof only when it is linked to an inspectable source', () => {
+    const truth = buildContentPlanTruthContext({
+      brandName: 'Northstar',
+      verifiedProof: ['Trusted by thousands of verified business customers [Source: customer-report.pdf — Page 3]'],
     })
     const review = reviewContentPlanForApproval([
       { caption: 'Trusted by thousands of verified business customers.' },

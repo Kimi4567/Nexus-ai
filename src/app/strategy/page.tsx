@@ -24,7 +24,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { BrandReadinessStatus } from '@/lib/brandReadiness'
-import { getStrategyPageReadinessSurface } from '@/lib/strategyBriefReadiness'
+import { getStrategyPageReadinessSurface, hasUsableConversionDestination } from '@/lib/strategyBriefReadiness'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import { getStrategyBrandAlignment } from '@/lib/strategy/strategyBrandAlignment'
 import { selectStrategyWorkbenchCampaign } from '@/lib/strategy/strategyWorkbenchCampaign'
@@ -34,7 +34,7 @@ import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuar
 import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
-import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
+import { fetchWithTimeout, PRODUCT_READ_TIMEOUT_MS } from '@/lib/fetchWithTimeout'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import RunFullStrategyModal from '@/components/RunFullStrategyModal'
@@ -281,8 +281,8 @@ export default function StrategyPage() {
     try {
       const authorization = authHeader()
       const [campaignResult, brandResult] = await Promise.allSettled([
-        fetchWithTimeout('/api/campaigns?limit=20&sort=updatedAt', { headers: { Authorization: authorization } }, 8_000),
-        fetchWithTimeout('/api/brand', { headers: { Authorization: authorization } }, 8_000),
+        fetchWithTimeout('/api/campaigns?limit=20&sort=updatedAt', { headers: { Authorization: authorization } }, PRODUCT_READ_TIMEOUT_MS),
+        fetchWithTimeout('/api/brand', { headers: { Authorization: authorization } }, PRODUCT_READ_TIMEOUT_MS),
       ])
 
       if (campaignResult.status !== 'fulfilled' || !campaignResult.value.ok
@@ -362,7 +362,7 @@ export default function StrategyPage() {
           allowedPlatforms: displayAllowedPlatforms,
           language: strategyLanguage,
           strategyType: strategyScope.type,
-          hasConversionDestination: Boolean(brandProfile?.conversionDestination),
+          hasConversionDestination: hasUsableConversionDestination(brandProfile?.conversionDestination, recent?.goal),
           allowedCompetitors: Array.isArray(brandProfile?.competitors) ? brandProfile.competitors : [],
         },
       ) as Record<string, unknown>
@@ -378,7 +378,7 @@ export default function StrategyPage() {
           allowedPlatforms: displayAllowedPlatforms,
           language: strategyLanguage,
           strategyType: strategyScope.type,
-          hasConversionDestination: Boolean(brandProfile?.conversionDestination),
+          hasConversionDestination: hasUsableConversionDestination(brandProfile?.conversionDestination, recent?.goal),
           allowedCompetitors: Array.isArray(brandProfile?.competitors) ? brandProfile.competitors : [],
         },
       ) as Record<string, unknown>

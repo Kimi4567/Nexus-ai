@@ -200,10 +200,10 @@ function PrimaryButton({ onClick, disabled, children }: { onClick: () => void; d
   )
 }
 
-function QuietButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+function QuietButton({ onClick, disabled, children }: { onClick: () => void; disabled?: boolean; children: ReactNode }) {
   return (
-    <button type="button" onClick={onClick}
-      className="w-full py-2.5 rounded-xl text-[13px] font-medium transition-colors"
+    <button type="button" onClick={onClick} disabled={disabled}
+      className="w-full py-2.5 rounded-xl text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
       style={{ color: '#64748B' }}>
       {children}
     </button>
@@ -216,7 +216,7 @@ export default function OnboardingPage() {
   const { locale, dir } = useI18n()
   const ar = locale === 'ar'
 
-  // view: 'welcome' | 'steps' (1..4) | 'summary' | 'limited'
+  // view: 'welcome' | 'steps' (1..5) | 'summary' | 'limited'
   const [view, setView] = useState<'welcome' | 'steps' | 'summary' | 'limited'>('welcome')
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
@@ -282,33 +282,69 @@ export default function OnboardingPage() {
     })
   }
 
+  const ensureWorkspace = async ({
+    token,
+    name,
+    description,
+  }: {
+    token: string
+    name: string
+    description?: string
+  }) => {
+    const workspaceListResponse = await fetch('/api/workspaces', {
+      headers: { Authorization: token },
+    })
+    if (!workspaceListResponse.ok) throw new Error('Unable to verify workspace')
+    const workspaces = await workspaceListResponse.json()
+
+    if (!Array.isArray(workspaces) || workspaces.length === 0) {
+      const stableOwnerPart = user?.id?.replace(/[^a-z0-9]/gi, '').slice(0, 10).toLowerCase() || 'owner'
+      const workspaceResponse = await fetch('/api/workspaces', {
+        method: 'POST',
+        headers: { Authorization: token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          slug: `workspace-${stableOwnerPart}-${Date.now()}`,
+          description: description?.trim() || null,
+        }),
+      })
+      if (!workspaceResponse.ok) throw new Error('Unable to create workspace')
+    }
+  }
+
+  // The limited dashboard is a real product route, so it still needs the
+  // user's minimum workspace shell. Brand Brain remains empty and every
+  // recommendation stays gated until the user returns to complete setup.
+  const handleOpenLimitedDashboard = async () => {
+    setSaving(true)
+    setSaveError(false)
+    try {
+      const token = authHeader()
+      if (!token) throw new Error('Missing authenticated session')
+      await ensureWorkspace({
+        token,
+        name: ar ? 'مساحة عملي' : 'My Workspace',
+      })
+      router.push('/dashboard')
+    } catch {
+      setSaveError(true)
+      setSaving(false)
+    }
+  }
+
   // ── Save the starter as the first Brand Brain layer (NO strategy generation) ──
   const handleSaveBrandBrain = async () => {
     setSaving(true)
     setSaveError(false)
     const token = authHeader()
     const name = businessName.trim() || (ar ? 'نشاطي التجاري' : 'My Business')
-    const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Date.now()
 
     try {
       if (!token) throw new Error('Missing authenticated session')
 
       // 1) Ensure a workspace exists for this user. Every response is checked so
       // onboarding can never show a saved state when persistence failed.
-      const workspaceListResponse = await fetch('/api/workspaces', {
-        headers: { Authorization: token },
-      })
-      if (!workspaceListResponse.ok) throw new Error('Unable to verify workspace')
-      const workspaces = await workspaceListResponse.json()
-
-      if (!Array.isArray(workspaces) || workspaces.length === 0) {
-        const workspaceResponse = await fetch('/api/workspaces', {
-          method: 'POST',
-          headers: { Authorization: token, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, slug, description: businessDescription.trim() }),
-        })
-        if (!workspaceResponse.ok) throw new Error('Unable to create workspace')
-      }
+      await ensureWorkspace({ token, name, description: businessDescription })
 
       // 2) Save the starter fields as Brand Brain memory. No strategy is created.
       const strategicNotes = buildOnboardingStrategicNotes({
@@ -457,10 +493,19 @@ export default function OnboardingPage() {
             {ar ? 'ابدأ ذاكرة علامتك' : 'Start Brand Brain setup'}
           </PrimaryButton>
           <div className="mt-1.5">
-            <QuietButton onClick={() => router.push('/dashboard')}>
-              {ar ? 'فتح لوحة التحكم بإعداد محدود' : 'Open dashboard with limited setup'}
+            <QuietButton onClick={() => void handleOpenLimitedDashboard()} disabled={saving}>
+              {saving
+                ? (ar ? 'جارٍ تجهيز لوحة التحكم…' : 'Preparing dashboard…')
+                : (ar ? 'فتح لوحة التحكم بإعداد محدود' : 'Open dashboard with limited setup')}
             </QuietButton>
           </div>
+          {saveError && (
+            <div role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
+              {ar
+                ? 'تعذّر تجهيز مساحة العمل المحدودة. لم يتم حفظ إعداد غير مكتمل؛ حاول مرة أخرى.'
+                : 'Could not prepare the limited workspace. No incomplete setup was saved; try again.'}
+            </div>
+          )}
         </Panel>
       </Shell>
     )

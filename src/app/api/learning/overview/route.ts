@@ -5,6 +5,7 @@ import { summarizePerformanceEvidence } from '@/lib/performanceSummary'
 import { summarizeLearningEvidence } from '@/lib/learningOverview'
 import { buildPilotProofOverview } from '@/lib/pilotProof'
 import { readPerformanceEvidence } from '@/lib/performanceEvidence'
+import { readFirstPartyMeasurement } from '@/lib/firstPartyMeasurementService'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -25,10 +26,11 @@ export async function GET(req: Request) {
         ...summarizeLearningEvidence({ learningSignals: [], workflowSignals: [], performanceEvidenceRows: 0 }),
         performance: summarizePerformanceEvidence([], []),
         pilot: buildPilotProofOverview([], []),
+        firstParty: null,
       })
     }
 
-    const [learningSignals, workflowSignals, organicRows, paidRows] = await Promise.all([
+    const [learningSignals, workflowSignals, organicRows, paidRows, firstParty] = await Promise.all([
       db.brainLearning?.findMany({
         where: { workspaceId: workspace.id },
         orderBy: { updatedAt: 'desc' },
@@ -98,6 +100,10 @@ export async function GET(req: Request) {
         orderBy: { date: 'desc' },
         take: 180,
       }).catch(() => []) ?? [],
+      readFirstPartyMeasurement(workspace.id).catch(error => {
+        console.warn('[learning/overview] first-party measurement unavailable:', error instanceof Error ? error.message : error)
+        return null
+      }),
     ])
 
     const performance = summarizePerformanceEvidence(
@@ -125,6 +131,7 @@ export async function GET(req: Request) {
       }),
       performance,
       pilot: buildPilotProofOverview(organicRows, learningSignals),
+      firstParty,
     })
   } catch (error) {
     console.warn('[learning/overview] read failed:', error instanceof Error ? error.message : error)

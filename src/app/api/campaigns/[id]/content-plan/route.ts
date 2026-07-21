@@ -8,6 +8,7 @@ import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { readRejectedVideoReview } from '@/lib/rejectedMediaReview'
 import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
+import { getDraftVariantComparison } from '@/lib/draftVariantComparison'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -116,6 +117,9 @@ export async function GET(req: NextRequest, props: Params) {
     return NextResponse.json({
       posts: posts.map((post: any) => ({
         ...post,
+        draftComparison: post.variantGroup
+          ? getDraftVariantComparison(strategy, post.contentPlanIndex)
+          : null,
         rejectedVideoReview: rejectedVideoByPostId.get(post.id) ?? null,
         providerPlatform: post.platform,
         // Legacy META rows remain explicitly ambiguous; the UI must ask for a

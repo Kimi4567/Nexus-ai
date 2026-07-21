@@ -17,6 +17,7 @@ const metaWithPageAndIg: SocialAccount = {
   platform: 'META',
   status: 'CONNECTED',
   pages: [{ id: 'p1', name: 'My Page', igAccountId: 'ig1' }],
+  capabilities: { facebookPublishing: true },
 }
 const metaWithPageNoIg: SocialAccount = {
   platform: 'META',
@@ -45,10 +46,17 @@ describe('derivePlatformReadiness — honesty rules', () => {
     expect(s.every((x) => x.status !== 'ready')).toBe(true)
   })
 
-  it('Facebook connected WITH page → ready (manual)', () => {
+  it('Facebook becomes ready only with a Page and provider-returned publish evidence', () => {
     const s = derivePlatformReadiness([metaWithPageAndIg])
     expect(get(s, 'facebook').status).toBe('ready')
     expect(get(s, 'facebook').tone).toBe('ready')
+
+    const identityOnly = derivePlatformReadiness([{
+      platform: 'META',
+      status: 'CONNECTED',
+      pages: [{ id: 'p1', name: 'My Page', igAccountId: null }],
+    }])
+    expect(get(identityOnly, 'facebook').status).toBe('permission_unverified')
   })
 
   it('Facebook connected WITHOUT page → needs_setup (select page)', () => {
@@ -129,6 +137,21 @@ describe('derivePlatformReadiness — honesty rules', () => {
       capabilities: { xPublishing: true, xMediaPublishing: true, xReadback: false, tokenRefresh: true },
     }])
     expect(get(noReadback, 'x').status).toBe('permission_unverified')
+  })
+
+  it('an expired access token can never remain ready even if older capability flags exist', () => {
+    const expired = derivePlatformReadiness([{
+      platform: 'X',
+      status: 'CONNECTED',
+      expiresAt: '2020-01-01T00:00:00.000Z',
+      capabilities: {
+        xPublishing: true,
+        xMediaPublishing: true,
+        xReadback: true,
+        tokenRefresh: true,
+      },
+    }])
+    expect(get(expired, 'x').status).toBe('not_connected')
   })
 
   it('Pinterest is review-ready only when technical evidence and Standard access are both present', () => {

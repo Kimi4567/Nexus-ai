@@ -266,6 +266,7 @@ async function refundDeductedStrategyCredits(
 }
 
 export async function POST(req: NextRequest) {
+  const requestStartedAt = Date.now()
   let body: Record<string, unknown> = {}
   let chargedUserId: string | null = null
   let deductedCredit: DeductedStrategyCredit | null = null
@@ -602,6 +603,7 @@ export async function POST(req: NextRequest) {
         deductedCredit = credit
       },
     })
+    const generationDurationMs = Date.now() - requestStartedAt
 
     // Fetch the newly-created campaign
     const campaign = result.strategyCreated
@@ -685,11 +687,13 @@ export async function POST(req: NextRequest) {
           }
         : null,
       refunded,
+      durationMs: generationDurationMs,
       // Both formats for frontend compatibility
       errors: publicErrors,
       error: publicError,
     }, { status: success ? 200 : 502 })
   } catch (err: unknown) {
+    const failureDurationMs = Date.now() - requestStartedAt
     await captureOperationalError(err, {
       operation: 'ai.full-strategy-run',
       route: '/api/strategy/run-full',
@@ -723,6 +727,7 @@ export async function POST(req: NextRequest) {
           ? finalDeductedCredit.creditsRemaining + (refunded ? finalDeductedCredit.creditsUsed : 0)
           : undefined,
         creditsUsed: refunded ? 0 : (finalDeductedCredit?.creditsUsed ?? 0),
+        durationMs: failureDurationMs,
       },
       { status: 500 },
     )

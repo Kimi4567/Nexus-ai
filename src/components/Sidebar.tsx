@@ -207,6 +207,19 @@ const Icons = {
       <path d="M4.25 5.25h2M9.75 5.25h2M4.25 7.75h2M9.75 7.75h2" strokeLinecap="round" />
     </svg>
   ),
+  leads: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="6" cy="5" r="2.5" />
+      <path d="M1.8 13c.35-2.3 1.75-3.7 4.2-3.7s3.85 1.4 4.2 3.7" strokeLinecap="round" />
+      <path d="M11 5.5h3M12.5 4v3" strokeLinecap="round" />
+    </svg>
+  ),
+  landingPages: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="1.5" y="2" width="13" height="12" rx="2" />
+      <path d="M1.5 5.5h13M4 9h5M4 11.5h3M11 9.5l1 1 1.7-2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
 }
 
 const JOURNEY_ICONS: Record<MarketingJourneyStageId, React.ReactNode> = {
@@ -317,6 +330,8 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       separatorBefore: true,
       items: [
         { href: '/operations', labelAr: 'مركز العمليات', labelEn: 'Operations center', icon: Icons.dashboard, badgeKey: '24/7', badgeColor: '#22C55E' },
+        { href: '/leads', labelAr: 'العملاء وCRM', labelEn: 'Leads & CRM', icon: Icons.leads },
+        { href: '/landing-pages', labelAr: 'صفحات الهبوط', labelEn: 'Landing pages', icon: Icons.landingPages },
         { href: '/connections', labelAr: 'الربط', labelEn: 'Connections', icon: Icons.connections },
       ],
     },

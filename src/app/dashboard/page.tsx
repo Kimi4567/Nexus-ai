@@ -4,7 +4,7 @@ import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
-import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
+import { fetchWithTimeout, PRODUCT_READ_TIMEOUT_MS } from '@/lib/fetchWithTimeout'
 import { getBrandBrainReadiness, type BrandReadinessResult } from '@/lib/brandReadiness'
 import { getBrandIndicators } from '@/lib/brandIndicators'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
@@ -392,7 +392,7 @@ export default function DashboardPage() {
     let cancelled = false
     setWorkspaceGate('checking')
 
-    fetchWithTimeout('/api/workspaces', { headers: { Authorization: token } }, 6_000)
+    fetchWithTimeout('/api/workspaces', { headers: { Authorization: token } }, PRODUCT_READ_TIMEOUT_MS)
       .then(r => {
         if (!r.ok) throw new Error('workspace-check-failed')
         return r.json()
@@ -430,14 +430,14 @@ export default function DashboardPage() {
       // settled; showing a fast but false "no strategy / no connection" state
       // is worse than a stable skeleton for an action-oriented dashboard.
       const essentialReads = Promise.allSettled([
-        fetchWithTimeout('/api/dashboard/stats', { headers: { Authorization: token } }, 7_000),
-        fetchWithTimeout('/api/campaigns?limit=5&sort=updatedAt', { headers: { Authorization: token } }, 7_000),
-        fetchWithTimeout('/api/brand', { headers: { Authorization: token } }, 7_000),
+        fetchWithTimeout('/api/dashboard/stats', { headers: { Authorization: token } }, PRODUCT_READ_TIMEOUT_MS),
+        fetchWithTimeout('/api/campaigns?limit=5&sort=updatedAt', { headers: { Authorization: token } }, PRODUCT_READ_TIMEOUT_MS),
+        fetchWithTimeout('/api/brand', { headers: { Authorization: token } }, PRODUCT_READ_TIMEOUT_MS),
       ])
       const enrichmentReads = Promise.allSettled([
-        fetchWithTimeout('/api/dashboard/intelligence', { headers: { Authorization: token } }, 9_000),
-        fetchWithTimeout('/api/social/accounts', { headers: { Authorization: token } }, 9_000),
-        fetchWithTimeout('/api/execution/queue', { headers: { Authorization: token } }, 9_000),
+        fetchWithTimeout('/api/dashboard/intelligence', { headers: { Authorization: token } }, PRODUCT_READ_TIMEOUT_MS),
+        fetchWithTimeout('/api/social/accounts', { headers: { Authorization: token } }, PRODUCT_READ_TIMEOUT_MS),
+        fetchWithTimeout('/api/execution/queue', { headers: { Authorization: token } }, PRODUCT_READ_TIMEOUT_MS),
       ])
 
       const [statsRes, campaignsRes, brandRes] = await essentialReads

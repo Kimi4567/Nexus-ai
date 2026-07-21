@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   validateWalletPrices: vi.fn(),
   walletEnabled: vi.fn(() => true),
   rateLimit: vi.fn(() => true),
+  databaseReadiness: vi.fn(),
 }))
 
 vi.mock('@/lib/supabaseAuth', () => ({
@@ -23,6 +24,13 @@ vi.mock('@/lib/credits/wallet', () => ({
   isCreditWalletEnabled: mocks.walletEnabled,
 }))
 vi.mock('@/lib/dbRateLimit', () => ({ checkoutRateLimit: mocks.rateLimit }))
+vi.mock('@/lib/billingDatabaseReadiness', () => ({
+  getBillingDatabaseReadiness: mocks.databaseReadiness,
+  billingDatabaseUnavailableResponse: () => ({
+    error: 'migration required',
+    code: 'BILLING_MIGRATION_REQUIRED',
+  }),
+}))
 vi.mock('@/lib/stripe', () => ({
   billingNotConfiguredResponse: vi.fn(() => ({ error: 'not configured' })),
   isBillingConfigured: vi.fn(() => true),
@@ -56,6 +64,7 @@ beforeEach(() => {
   mocks.walletEnabled.mockReturnValue(true)
   mocks.rateLimit.mockReturnValue(true)
   mocks.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null })
+  mocks.databaseReadiness.mockResolvedValue({ ready: true, state: 'ready' })
   mocks.findUser.mockResolvedValue({
     stripeCustomerId: 'cus_1',
     email: 'customer@example.com',
@@ -66,6 +75,21 @@ beforeEach(() => {
 })
 
 describe('POST /api/billing/credits/checkout', () => {
+  it('fails closed before pricing or Stripe when the webhook ledger migration is missing', async () => {
+    mocks.databaseReadiness.mockResolvedValue({ ready: false, state: 'migration_required' })
+
+    const response = await POST(request({
+      credits: 100,
+      requestId: '73d6b695-3bd1-46ec-bcfe-44ccfe8a71a1',
+    }))
+    const body = await response.json()
+
+    expect(response.status).toBe(503)
+    expect(body.code).toBe('BILLING_MIGRATION_REQUIRED')
+    expect(mocks.validateWalletPrices).not.toHaveBeenCalled()
+    expect(mocks.createSession).not.toHaveBeenCalled()
+  })
+
   it('uses only the server quote and binds it to signed Stripe metadata', async () => {
     const response = await POST(request({
       credits: 300,

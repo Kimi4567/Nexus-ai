@@ -505,12 +505,26 @@ export interface StrategyOutput {
 
 // ── OpenAI call helper ────────────────────────────────────────────────────────
 
+function openAIRequestError(status: number): Error {
+  if (status === 401 || status === 403) {
+    return new Error(`OpenAI authentication failed (${status}). Replace OPENAI_API_KEY with an active project key before running live generation.`)
+  }
+  if (status === 429) {
+    return new Error('OpenAI request was rate-limited or the project has no available quota (429). Check project limits before retrying.')
+  }
+  return new Error(`OpenAI request failed (${status}).`)
+}
+
 async function callOpenAI(
   systemPrompt: string,
   userPrompt: string,
   maxTokens = 4000,
   responseFormat: Record<string, unknown> = { type: 'json_object' },
 ): Promise<{ output: unknown; usage: OpenAITextUsage }> {
+  // Keep provider calls inside the route's 180-second execution budget even
+  // when a contract-repair pass is needed. A timed-out call is refunded by the
+  // route because credits are charged only after a saveable strategy exists.
+  const providerTimeoutMs = 80_000
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -527,8 +541,9 @@ async function callOpenAI(
       max_tokens: maxTokens,
       response_format: responseFormat,
     }),
+    signal: AbortSignal.timeout(providerTimeoutMs),
   })
-  if (!response.ok) throw new Error(`OpenAI error: ${response.status}`)
+  if (!response.ok) throw openAIRequestError(response.status)
   const data = await response.json()
   recordOpenAIProviderUsage(data.usage)
   const content = data.choices?.[0]?.message?.content?.trim()
@@ -954,6 +969,7 @@ export function buildStrategistCountRepairPrompt(
   expectedCount: number,
   paidDeliverables?: StrategyDeliverables,
   strategyType: BusinessBrief['strategyType'] = 'organic',
+  contractIssues: string[] = [],
 ): string {
   const paidRepair = paidDeliverables && paidDeliverables.paidAdVariationCount > 0
     ? `Return paidPlanning with planningOnly=true and EXACTLY ${paidDeliverables.audienceHypothesisCount} audienceHypotheses, ${paidDeliverables.paidAdAngleCount} adAngles, ${paidDeliverables.paidAdVariationCount} adCopyVariations, and ${paidDeliverables.creativeBriefCount} creativeBriefs. Every record must contain every schema field. Paid-only weekly deliverables must be paid-planning milestones, never organic posts or a publishing calendar.`
@@ -963,6 +979,9 @@ export function buildStrategistCountRepairPrompt(
     : `The reviewed order requires exactly ${expectedCount} contentAnglesDetailed entries. weeklyExecutionPlan.deliverables must also add up to exactly ${expectedCount} countable organic post directions across the first detailed window.`
   return [
     'REPAIR THE JSON CONTRACT. Return the complete corrected strategy JSON only.',
+    contractIssues.length
+      ? `The validator reported these exact issues; repair every one of them: ${contractIssues.join(', ')}.`
+      : '',
     'Return at least 2 distinct audienceSegmentsDetailed entries. Each must keep every required operational field and must be framed as a reviewable audience hypothesis when the Brand Brain does not prove it.',
     organicRepair,
     paidRepair,
@@ -970,6 +989,8 @@ export function buildStrategistCountRepairPrompt(
     'Preserve the brand, facts, language, strategy type, platforms, proof gaps, and every valid field already present.',
     'Add distinct, executable angles grounded in the same audience, offer, goal, and content pillars. Do not duplicate or merely paraphrase an existing angle.',
     'Every paid angle must have one distinct testVariable, an observable successSignal, and a rejectionRule. Every creative brief must declare assetStatus as existing_approved, user_upload_required, or generation_required.',
+    'businessObjective.successIn30Days must define an observable baseline or signal plus a decision rule (continue, iterate, or stop). Never use a vague phrase such as validate interest, build awareness, or improve engagement.',
+    'diagnosisDetails must label its basis as documented or hypothesis and state the exact saved evidence or validation still needed.',
     'Do not invent proof, services, prices, languages, guarantees, competitors, performance numbers, budgets, or execution status while repairing the count.',
     `JSON TO REPAIR:\n${JSON.stringify(output)}`,
   ].join('\n')
@@ -1141,11 +1162,12 @@ export async function runStrategistAgent(
     strategyType: brief.strategyType,
     expectedPaidPlanning: brief.strategyDeliverables,
   })
-  const structuralRepairNeeded = contractPreview.weakFields.some(field => (
-    field === 'audienceSegmentsDetailed' ||
-    field === 'contentAnglesDetailed' ||
-    field === 'weeklyExecutionPlan'
-  ))
+  const nonPaidContractIssues = [
+    ...contractPreview.missingFields,
+    ...contractPreview.weakFields,
+    ...contractPreview.languageViolations,
+  ].filter(field => !field.startsWith('paidPlanning'))
+  const structuralRepairNeeded = nonPaidContractIssues.length > 0
   const nonPaidCountRepairNeeded = contractPreview.countViolations.some(field => !field.startsWith('paidPlanning.'))
   if (nonPaidCountRepairNeeded || structuralRepairNeeded) {
     const repairDirectionCount = typeof brief.organicPostCount === 'number' && brief.organicPostCount > 0
@@ -1153,7 +1175,16 @@ export async function runStrategistAgent(
       : 4
     const repairCall = await callOpenAI(
       `${systemPrompt}\n\nYou are repairing a previously generated JSON document. The repair instructions and reviewed order are binding.`,
-      buildStrategistCountRepairPrompt(output, repairDirectionCount, brief.strategyDeliverables, brief.strategyType),
+      buildStrategistCountRepairPrompt(
+        output,
+        repairDirectionCount,
+        brief.strategyDeliverables,
+        brief.strategyType,
+        [
+          ...nonPaidContractIssues,
+          ...contractPreview.countViolations.filter(field => !field.startsWith('paidPlanning.')),
+        ],
+      ),
       9500,
     )
     providerCalls.push(repairCall.usage)

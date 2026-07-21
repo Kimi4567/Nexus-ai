@@ -31,6 +31,7 @@ import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
+import type { FirstPartyMeasurementSummary } from '@/lib/firstPartyMeasurement'
 
 type SignalStatus = 'pending' | 'accepted' | 'dismissed' | 'rolled_back' | string
 type SignalFilter = 'pending' | 'accepted' | 'dismissed' | 'rolled_back' | 'all'
@@ -144,6 +145,7 @@ interface LearningOverview {
   recentWorkflowSignals: WorkflowSignal[]
   performance: PerformanceSummary
   pilot: PilotProof
+  firstParty: FirstPartyMeasurementSummary | null
 }
 
 const PAGE_SIZE = 6
@@ -339,6 +341,11 @@ export default function LearningPage() {
   const visibleSignals = filteredSignals.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   const stage = useMemo(() => {
+    if (overview?.firstParty?.stage === 'directional' && overview?.stage !== 'analytics_backed') return {
+      label: copy('دليل First-party قابل للمراجعة', 'First-party evidence is reviewable'),
+      helper: copy('الإشارات وصفية واتجاهية فقط؛ لا يوجد ادعاء سببي أو تغيير تلقائي.', 'Signals are descriptive and directional only; no causal claim or automatic change.'),
+      tone: 'border-emerald-100 bg-emerald-50 text-emerald-700',
+    }
     if (overview?.stage === 'analytics_backed') return {
       label: copy('تعلم مدعوم بالتحليلات', 'Analytics-backed learning'),
       helper: copy('توجد نتائج منصة مؤهلة ودروس مطبقة يمكن تتبعها والتراجع عنها.', 'Eligible provider results and applied, reversible lessons are available.'),
@@ -354,7 +361,7 @@ export default function LearningPage() {
       helper: copy('سيظل النظام صامتًا بدل اختلاق تعلم قبل النشر والتحليلات.', 'The system stays silent instead of inventing learning before publishing and analytics.'),
       tone: 'border-slate-200 bg-slate-50 text-slate-600',
     }
-  }, [copy, overview?.stage])
+  }, [copy, overview?.firstParty?.stage, overview?.stage])
 
   const pilotSteps = useMemo(() => {
     const status = overview?.pilot.status ?? 'not_started'
@@ -581,6 +588,42 @@ export default function LearningPage() {
                     </div>
                   </div>
                 ) : null}
+              </section>
+
+              <section className="nx-os-card p-5" aria-labelledby="first-party-learning-title">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 id="first-party-learning-title" className="text-[16px] font-black text-[#071236]">{copy('تعلّم مسار التحويل First-party', 'First-party conversion learning')}</h2>
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[8px] font-black text-emerald-700">{copy('بدون تصريح منصة', 'No platform permission')}</span>
+                    </div>
+                    <p className="mt-1 max-w-3xl text-[9px] font-semibold leading-5 text-[#7b87a3]">{copy('يحلل NEXUS الفجوة بين الزيارة والضغط والنموذج والنتيجة المؤكدة. الملاحظة ليست سببًا، ولا تغيّر Brand Brain تلقائيًا.', 'NEXUS reviews gaps between visit, click, form, and confirmed outcome. Observation is not causation and never changes Brand Brain automatically.')}</p>
+                  </div>
+                  <Link href="/landing-pages" className="inline-flex h-9 items-center gap-2 rounded-[11px] border border-[#dbe2f0] px-3 text-[9px] font-black text-[#5366f6]">{copy('وجهات التحويل', 'Conversion destinations')}<ArrowUpRight className="h-3.5 w-3.5" /></Link>
+                </div>
+
+                {overview?.firstParty ? (
+                  <div className="mt-4 grid gap-4 xl:grid-cols-[0.7fr_1.3fr]">
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        [copy('زيارات', 'Views'), overview.firstParty.funnel.pageViews, 'CLIENT_REPORTED'],
+                        [copy('نماذج مؤكدة', 'Confirmed forms'), overview.firstParty.funnel.confirmedForms, 'SERVER_CONFIRMED'],
+                        [copy('Leads', 'Leads'), overview.firstParty.funnel.leads, copy('مسجلة', 'RECORDED')],
+                        [copy('مكتسب', 'Won'), overview.firstParty.funnel.wonLeads, 'MANUAL_CONFIRMED'],
+                      ].map(([label, value, evidence]) => <div key={String(label)} className="rounded-[15px] border border-[#e8edf5] bg-[#fbfcff] p-3"><p className="text-[8px] font-black text-[#8a95aa]">{label}</p><p className="mt-1 text-[20px] font-black text-[#111b3f]">{value}</p><p className="mt-1 truncate font-mono text-[7px] font-bold text-[#9aa4b6]">{evidence}</p></div>)}
+                    </div>
+                    <div className="space-y-3">
+                      {overview.firstParty.insights.map(insight => (
+                        <article key={insight.code} className={`rounded-[15px] border p-4 ${insight.evidenceLevel === 'directional' ? 'border-emerald-100 bg-emerald-50/50' : 'border-amber-100 bg-amber-50/50'}`}>
+                          <div className="flex flex-wrap items-center gap-2"><p className="text-[11px] font-black text-[#233052]">{ar ? insight.titleAr : insight.title}</p><span className={`rounded-full px-2 py-1 text-[7px] font-black ${insight.evidenceLevel === 'directional' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{insight.evidenceLevel}</span></div>
+                          <p className="mt-2 text-[9px] font-semibold leading-5 text-[#65718a]">{ar ? insight.rationaleAr : insight.rationale}</p>
+                          <p className="mt-2 border-t border-black/5 pt-2 text-[9px] font-black leading-5 text-[#5366f6]">{copy('الخطوة التالية: ', 'Next action: ')}{ar ? insight.nextActionAr : insight.nextAction}</p>
+                          <p className="mt-1 text-[7px] font-bold text-[#8b95a9]">causalClaim=false</p>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                ) : <div className="mt-4 rounded-[16px] border border-dashed border-[#d9e0ed] p-5 text-center text-[10px] font-bold text-[#8792aa]">{copy('طبقة القياس غير متاحة حتى يكتمل تحديث قاعدة البيانات.', 'Measurement is unavailable until the database update is complete.')}</div>}
               </section>
 
               <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">

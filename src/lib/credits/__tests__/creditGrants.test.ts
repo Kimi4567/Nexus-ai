@@ -34,6 +34,8 @@ import {
   voidMonthlyGrants,
   expireCreditGrants,
   fulfilPurchasedCreditPack,
+  revokeMonthlyCreditsForStripeInvoiceRefund,
+  revokePurchasedCreditsForStripeRefund,
   STARTER_CREDITS,
 } from '@/lib/credits/creditGrants'
 
@@ -72,7 +74,7 @@ describe('source builders', () => {
 })
 
 describe('grant shape builders', () => {
-  it('4. buildStarterGrant → TRIAL, 10, 14-day expiry, starter source', () => {
+  it('4. buildStarterGrant → TRIAL, configured allowance, 14-day expiry, starter source', () => {
     const g = buildStarterGrant('u1', NOW)
     expect(g).toMatchObject({
       userId: 'u1', type: 'TRIAL', amount: STARTER_CREDITS, remaining: STARTER_CREDITS,
@@ -112,6 +114,11 @@ describe('grant shape builders', () => {
       source: 'stripe:checkout:cs_123', status: 'ACTIVE',
     })
     expect(g.expiresAt?.toISOString()).toBe('2027-06-19T12:00:00.000Z')
+  })
+
+  it('links a purchased grant to its Stripe PaymentIntent for refund reconciliation', () => {
+    const grant = buildPurchasedGrant('u1', 'cs_123', 100, NOW, 'pi_123')
+    expect(grant.billingCycleId).toBe('stripe:payment-intent:pi_123')
   })
 })
 
@@ -155,6 +162,182 @@ describe('fulfilPurchasedCreditPack', () => {
 
     expect(result.created).toBe(false)
     expect(tx.creditTransaction.create).not.toHaveBeenCalled()
+  })
+})
+
+describe('revokePurchasedCreditsForStripeRefund', () => {
+  const refundTx = (remaining: number, alreadyRevoked = 0) => ({
+    creditGrant: {
+      findFirst: vi.fn().mockResolvedValue({ id: 'grant_1', remaining }),
+      update: vi.fn().mockResolvedValue({}),
+      aggregate: vi.fn().mockResolvedValue({ _sum: { remaining: Math.max(0, remaining) } }),
+    },
+    creditTransaction: {
+      aggregate: vi.fn().mockResolvedValue({ _sum: { creditCost: alreadyRevoked } }),
+      create: vi.fn().mockResolvedValue({ id: 'refund_tx' }),
+    },
+    user: { update: vi.fn().mockResolvedValue({}) },
+  })
+
+  const refundArgs = {
+    userId: 'u1',
+    paymentIntentId: 'pi_1',
+    stripeChargeId: 'ch_1',
+    stripeEventId: 'evt_refund_1',
+    purchasedCredits: 300,
+    originalAmountCents: 26_000,
+    refundedAmountCents: 13_000,
+  }
+
+  it('uses cumulative refund amount and subtracts credit already revoked', async () => {
+    const tx = refundTx(200, 50)
+    const result = await revokePurchasedCreditsForStripeRefund(refundArgs, tx)
+
+    expect(result).toMatchObject({ revoked: 100, unrecovered: 0 })
+    expect(tx.creditGrant.update).toHaveBeenCalledWith({
+      where: { id: 'grant_1' },
+      data: { remaining: 100 },
+    })
+    expect(tx.creditTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ amount: -100, creditCost: 100 }),
+    }))
+  })
+
+  it('never makes the wallet negative when refunded credits were already spent', async () => {
+    const tx = refundTx(40)
+    const result = await revokePurchasedCreditsForStripeRefund({
+      ...refundArgs,
+      refundedAmountCents: 26_000,
+    }, tx)
+
+    expect(result).toMatchObject({ revoked: 40, unrecovered: 260 })
+    expect(tx.creditGrant.update).toHaveBeenCalledWith({
+      where: { id: 'grant_1' },
+      data: { remaining: 0, status: 'VOID' },
+    })
+  })
+
+  it('does not revoke again when prior refund events already cover the cumulative amount', async () => {
+    const tx = refundTx(150, 150)
+    const result = await revokePurchasedCreditsForStripeRefund(refundArgs, tx)
+
+    expect(result).toMatchObject({ revoked: 0, unrecovered: 0 })
+    expect(tx.creditGrant.findFirst).not.toHaveBeenCalled()
+    expect(tx.creditTransaction.create).not.toHaveBeenCalled()
+  })
+})
+
+describe('revokeMonthlyCreditsForStripeInvoiceRefund', () => {
+  const periodStart = new Date('2026-07-01T00:00:00.000Z')
+  const refundArgs = {
+    userId: 'u1',
+    stripeSubscriptionId: 'sub_monthly',
+    invoicePeriodStart: periodStart,
+    stripeInvoiceId: 'in_monthly',
+    stripeChargeId: 'ch_monthly',
+    stripeEventId: 'evt_monthly_refund',
+    originalAmountCents: 9_900,
+    refundedAmountCents: 4_950,
+  }
+  const monthlyRefundTx = (remaining: number, alreadyProcessed = 0, amount = 180) => ({
+    creditGrant: {
+      findFirst: vi.fn().mockResolvedValue({
+        id: 'monthly_grant', amount, remaining, status: 'ACTIVE',
+      }),
+      update: vi.fn().mockResolvedValue({}),
+      aggregate: vi.fn().mockResolvedValue({ _sum: { remaining: remaining + 75 } }),
+    },
+    creditTransaction: {
+      aggregate: vi.fn().mockResolvedValue({ _sum: { creditCost: alreadyProcessed } }),
+      create: vi.fn().mockResolvedValue({ id: 'monthly_refund_tx' }),
+    },
+    user: { update: vi.fn().mockResolvedValue({}) },
+  })
+
+  it('revokes the proportional monthly share for a partial refund', async () => {
+    const tx = monthlyRefundTx(180)
+    const result = await revokeMonthlyCreditsForStripeInvoiceRefund(refundArgs, tx)
+
+    expect(result).toMatchObject({ revoked: 90, unrecovered: 0 })
+    expect(tx.creditGrant.findFirst).toHaveBeenCalledWith({
+      where: {
+        userId: 'u1',
+        type: 'MONTHLY',
+        billingCycleId: 'monthly:sub_monthly:2026-07-01T00:00:00.000Z',
+      },
+      select: { id: true, amount: true, remaining: true, status: true },
+    })
+    expect(tx.creditGrant.update).toHaveBeenCalledWith({
+      where: { id: 'monthly_grant' },
+      data: { remaining: 90 },
+    })
+    expect(tx.creditTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        action: 'SUBSCRIPTION_INVOICE_REFUND',
+        amount: -90,
+        creditCost: 90,
+        entityId: 'ch_monthly',
+      }),
+    }))
+  })
+
+  it('subtracts the prior partial reconciliation before a later full refund', async () => {
+    const tx = monthlyRefundTx(90, 90)
+    const result = await revokeMonthlyCreditsForStripeInvoiceRefund({
+      ...refundArgs,
+      stripeEventId: 'evt_monthly_refund_full',
+      refundedAmountCents: 9_900,
+    }, tx)
+
+    expect(result).toMatchObject({ revoked: 90, unrecovered: 0 })
+    expect(tx.creditGrant.update).toHaveBeenCalledWith({
+      where: { id: 'monthly_grant' },
+      data: { remaining: 0, status: 'VOID' },
+    })
+    expect(tx.creditTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ creditCost: 90, operationKey: 'stripe-invoice-refund:evt_monthly_refund_full' }),
+    }))
+  })
+
+  it('is cumulative-idempotent when another refund event reports the same total', async () => {
+    const tx = monthlyRefundTx(90, 90)
+    const result = await revokeMonthlyCreditsForStripeInvoiceRefund(refundArgs, tx)
+
+    expect(result).toMatchObject({ revoked: 0, unrecovered: 0 })
+    expect(tx.creditGrant.update).not.toHaveBeenCalled()
+    expect(tx.creditTransaction.create).not.toHaveBeenCalled()
+  })
+
+  it('records the already-spent share without making the wallet negative', async () => {
+    const tx = monthlyRefundTx(20)
+    const result = await revokeMonthlyCreditsForStripeInvoiceRefund({
+      ...refundArgs,
+      refundedAmountCents: 9_900,
+    }, tx)
+
+    expect(result).toMatchObject({ revoked: 20, unrecovered: 160 })
+    expect(tx.creditGrant.update).toHaveBeenCalledWith({
+      where: { id: 'monthly_grant' },
+      data: { remaining: 0, status: 'VOID' },
+    })
+    expect(tx.creditTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ amount: -20, creditCost: 180 }),
+    }))
+  })
+
+  it('targets only the exact MONTHLY billing-cycle grant and leaves other grant types untouched', async () => {
+    const tx = monthlyRefundTx(180)
+    await revokeMonthlyCreditsForStripeInvoiceRefund(refundArgs, tx)
+
+    expect(tx.creditGrant.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ type: 'MONTHLY' }),
+    }))
+    expect(tx.creditGrant.update).toHaveBeenCalledTimes(1)
+    expect((tx.creditGrant as any).updateMany).toBeUndefined()
+    expect(tx.user.update).toHaveBeenCalledWith({
+      where: { id: 'u1' },
+      data: { aiCredits: 255 },
+    })
   })
 })
 

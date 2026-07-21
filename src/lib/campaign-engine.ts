@@ -10,6 +10,9 @@ import {
   reviewBrandTruthConsistency,
   reviewStrategyGrounding,
 } from '@/lib/ai/marketingQualityGate'
+import { hasUsableConversionDestination } from '@/lib/strategyBriefReadiness'
+import { buildStrategyProofContextFromBrand } from '@/lib/strategy/strategyProofContext'
+import { clearSuccessfulCampaignEngineError } from '@/lib/campaignEnginePersistence'
 
 const db = prisma as any
 
@@ -26,7 +29,7 @@ export interface EngineStep {
 
 export interface CampaignEngineState {
   version: 1
-  status: 'idle' | 'running' | 'ready_for_approval' | 'ready_for_launch' | 'scheduled' | 'blocked' | 'failed'
+  status: 'idle' | 'running' | 'ready_for_approval' | 'strategy_approved' | 'ready_for_launch' | 'scheduled' | 'blocked' | 'failed'
   currentStep?: EngineStepKey
   steps: EngineStep[]
   score: number
@@ -52,6 +55,42 @@ interface CalendarItem {
   contentType?: string
   status: 'planned'
   source: 'campaign_ai_output'
+}
+
+export interface SavedStrategyContractContext {
+  strategyType: 'organic' | 'paid' | 'full'
+  organicPostCount: number | null
+  strategyDeliverables: Record<string, unknown> | null
+}
+
+/**
+ * Campaign rebuilds must honor the same reviewed order as the original run.
+ * Falling back to the model's returned array length can silently turn a
+ * 10-direction order into nine directions while still looking structurally
+ * valid to the generic campaign contract.
+ */
+export function resolveSavedStrategyContractContext(
+  aiOutput: Record<string, any>,
+): SavedStrategyContractContext {
+  const deliverables = aiOutput.strategyDeliverables
+  const deliverableRecord = deliverables && typeof deliverables === 'object' && !Array.isArray(deliverables)
+    ? deliverables as Record<string, unknown>
+    : null
+  const rawOrganicCount = typeof aiOutput.organicPostCount === 'number'
+    ? aiOutput.organicPostCount
+    : deliverableRecord?.organicPostCount
+  const organicPostCount = typeof rawOrganicCount === 'number'
+    && Number.isFinite(rawOrganicCount)
+    && rawOrganicCount > 0
+    ? Math.floor(rawOrganicCount)
+    : null
+  const savedType = aiOutput.strategyType
+  const strategyType: SavedStrategyContractContext['strategyType'] =
+    savedType === 'paid' || savedType === 'full' || savedType === 'organic'
+      ? savedType
+      : 'organic'
+
+  return { strategyType, organicPostCount, strategyDeliverables: deliverableRecord }
 }
 
 const STEP_LABELS: Record<EngineStepKey, string> = {
@@ -265,7 +304,9 @@ export function deriveCampaignEngineState(campaign: any): CampaignEngineState {
   let status: CampaignEngineState['status'] = 'idle'
   if (!qualityGatePassed && hasStrategy) status = 'blocked'
   else if (isScheduled) status = 'scheduled'
-  else if (isApproved) status = 'ready_for_launch'
+  // Strategy approval authorizes content planning only. It is not evidence that
+  // copy/media drafts exist, passed their own approval, or are launch-ready.
+  else if (isApproved) status = 'strategy_approved'
   else if (sentinelStatus === 'passed' && calendarCount > 0) status = 'ready_for_approval'
   else if (sentinelStatus === 'needs_attention') status = 'blocked'
 
@@ -412,32 +453,31 @@ export async function runCampaignEngine(params: {
     // Creative Brief and Sentinel Review run via their own separate API routes.
     if (needsStrategy) {
       const campaignWithLang = { ...campaign, language: aiOutput.language }
+      const savedContract = resolveSavedStrategyContractContext(aiOutput)
       let [strategy, concepts] = await Promise.all([
         ai.generateMarketingStrategy(campaignWithLang, campaign.project),
         ai.generateAdConcepts(campaignWithLang, campaign.project),
       ])
-      const proofContext = {
-          verifiedProof: brand?.verifiedProof || [],
-          allowedClaimText: [
-            brand?.description,
-            brand?.primaryOffer,
-            ...(brand?.uniqueAdvantages || []),
-            ...(brand?.verifiedProof || []),
-          ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
-      }
+      const { proofContext } = buildStrategyProofContextFromBrand(brand)
       strategy = guardStrategyOutputContract(
         guardStrategyProof(strategy, proofContext),
         {
           allowedPlatforms: campaign.platforms || [],
           allowedCompetitors: brand?.competitors || [],
           language: aiOutput.language,
-          strategyType: 'full',
+          strategyType: savedContract.strategyType,
+          organicPostCount: savedContract.organicPostCount,
           hasLeadHandling: Boolean(brand?.leadHandling),
-          hasConversionDestination: Boolean(brand?.conversionDestination),
+          hasConversionDestination: hasUsableConversionDestination(brand?.conversionDestination, campaign.goal),
         },
       )
       concepts = guardStrategyProof(concepts, proofContext)
-      assertCampaignStrategyContract(strategy, { language: aiOutput.language })
+      assertCampaignStrategyContract(strategy, {
+        language: aiOutput.language,
+        expectedOrganicPostCount: savedContract.organicPostCount,
+        strategyType: savedContract.strategyType,
+        expectedPaidPlanning: savedContract.strategyDeliverables as any,
+      })
       const qualityGate = reviewStrategyGrounding({
         strategy,
         brand,
@@ -496,17 +536,13 @@ export async function runCampaignEngine(params: {
       ...campaign,
       aiOutput,
     }
-    const engine = {
+    const derivedEngine = {
       ...deriveCampaignEngineState(projectedCampaign),
       lastRunAt: aiOutput.nexusEngine.lastRunAt,
       lastCompletedAt: new Date().toISOString(),
     }
-    aiOutput.nexusEngine = {
-      ...engine,
-      status: engine.status,
-      lastRunAt: aiOutput.nexusEngine.lastRunAt,
-      lastCompletedAt: engine.lastCompletedAt,
-    }
+    const engine = clearSuccessfulCampaignEngineError(derivedEngine)
+    aiOutput.nexusEngine = engine
     // Clear the _generatingAt flag — generation is done
     delete aiOutput._generatingAt
 

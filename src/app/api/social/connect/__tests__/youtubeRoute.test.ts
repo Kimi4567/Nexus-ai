@@ -11,6 +11,7 @@ import { GET } from '@/app/api/social/connect/youtube/route'
 
 const original = {
   clientId: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
   baseUrl: process.env.NEXT_PUBLIC_APP_URL,
   secret: process.env.OAUTH_STATE_SECRET,
 }
@@ -18,6 +19,7 @@ const original = {
 beforeEach(() => {
   vi.clearAllMocks()
   process.env.GOOGLE_CLIENT_ID = 'google-client-id'
+  process.env.GOOGLE_CLIENT_SECRET = 'google-client-secret'
   process.env.NEXT_PUBLIC_APP_URL = 'https://preview.nexus.test'
   process.env.OAUTH_STATE_SECRET = 'a-test-oauth-secret-that-is-longer-than-thirty-two-characters'
   mocks.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
@@ -26,6 +28,8 @@ beforeEach(() => {
 afterEach(() => {
   if (original.clientId === undefined) delete process.env.GOOGLE_CLIENT_ID
   else process.env.GOOGLE_CLIENT_ID = original.clientId
+  if (original.clientSecret === undefined) delete process.env.GOOGLE_CLIENT_SECRET
+  else process.env.GOOGLE_CLIENT_SECRET = original.clientSecret
   if (original.baseUrl === undefined) delete process.env.NEXT_PUBLIC_APP_URL
   else process.env.NEXT_PUBLIC_APP_URL = original.baseUrl
   if (original.secret === undefined) delete process.env.OAUTH_STATE_SECRET
@@ -53,10 +57,20 @@ describe('GET /api/social/connect/youtube', () => {
   })
 
   it('fails closed when Google credentials are not configured', async () => {
-    delete process.env.GOOGLE_CLIENT_ID
+    delete process.env.GOOGLE_CLIENT_SECRET
     const response = await GET(new NextRequest('https://preview.nexus.test/api/social/connect/youtube', {
       headers: { Authorization: 'Bearer session' },
     }))
     expect(response.status).toBe(503)
+    expect(await response.json()).toMatchObject({ code: 'YOUTUBE_OAUTH_NOT_CONFIGURED' })
+  })
+
+  it('fails closed when signed OAuth state is unavailable', async () => {
+    delete process.env.OAUTH_STATE_SECRET
+    const response = await GET(new NextRequest('https://preview.nexus.test/api/social/connect/youtube', {
+      headers: { Authorization: 'Bearer session' },
+    }))
+    expect(response.status).toBe(503)
+    expect(await response.json()).toMatchObject({ code: 'YOUTUBE_OAUTH_NOT_CONFIGURED' })
   })
 })

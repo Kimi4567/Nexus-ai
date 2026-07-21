@@ -9,7 +9,7 @@ import {
 } from '@/lib/contentHubMediaState'
 import { deriveContentLifecycleTruth } from '@/lib/contentLifecycleTruth'
 import { useI18n } from '@/lib/i18n-context'
-import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
+import { fetchWithTimeout, PRODUCT_READ_TIMEOUT_MS } from '@/lib/fetchWithTimeout'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { hasBrandTruthVerificationFailure, isBrandTruthExecutionLocked } from '@/lib/brandTruthGate'
 import {
@@ -160,10 +160,10 @@ export default function ContentHubPage() {
       const [overviewRes, brandRes] = await Promise.all([
         fetchWithTimeout('/api/content-hub/overview', {
           headers: { Authorization: token },
-        }, 9_000),
+        }, PRODUCT_READ_TIMEOUT_MS),
         fetchWithTimeout('/api/brand', {
           headers: { Authorization: token },
-        }, 8_000),
+        }, PRODUCT_READ_TIMEOUT_MS),
       ])
 
       if (!overviewRes.ok) throw new Error(isAr ? 'تعذر تحميل مركز المحتوى' : 'Failed to load Content Hub')

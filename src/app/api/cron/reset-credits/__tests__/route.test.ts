@@ -61,7 +61,7 @@ describe('cron/reset-credits — B1d-d grant-aware reset', () => {
     expect(mockPrisma.subscription.findMany).toHaveBeenCalledWith({
       where: {
         status: 'ACTIVE',
-        plan: { in: ['STARTER', 'PRO', 'BUSINESS', 'AGENCY'] },
+        plan: { in: ['STARTER', 'PRO', 'AGENCY'] },
       },
       select: {
         userId: true,
@@ -104,6 +104,21 @@ describe('cron/reset-credits — B1d-d grant-aware reset', () => {
       data: { status: 'RESET', remaining: 0 },
     })
     expect(mockPrisma.user.update).not.toHaveBeenCalled()
+  })
+
+  it('maps the persisted AGENCY enum to the commercial Autopilot allowance', async () => {
+    mockPrisma.subscription.findMany.mockResolvedValueOnce([
+      activeSub({ plan: 'AGENCY', monthlyCredits: 180 }),
+    ])
+
+    const res = await GET(makeReq())
+    const body = await res.json()
+
+    expect(body).toMatchObject({ ok: true, processed: 1, reset: 1, errors: 0 })
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'u1' },
+      data: { aiCredits: 500 },
+    })
   })
 
   it('leaves independent balances untouched by resetting subscription-cycle grants only', async () => {
@@ -164,7 +179,7 @@ describe('cron/reset-credits — B1d-d grant-aware reset', () => {
     const call = mockPrisma.subscription.findMany.mock.calls[0][0]
     expect(call.where).toEqual({
       status: 'ACTIVE',
-      plan: { in: ['STARTER', 'PRO', 'BUSINESS', 'AGENCY'] },
+      plan: { in: ['STARTER', 'PRO', 'AGENCY'] },
     })
   })
 

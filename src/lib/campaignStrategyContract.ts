@@ -543,7 +543,7 @@ function hasOperationalAgencySystem(strategy: StrategyRecord): boolean {
   return true
 }
 
-const MEASURABLE_SUCCESS_SIGNAL = /\b(?:baseline|qualified|purchase|order|lead|inquir|booking|signup|click|conversion|revenue|event|attribution|continue|iterate|stop)\b|(?:خط\s+أساس|طلب|شراء|عميل\s+محتمل|استفسار|حجز|نقرة|تحويل|إيراد|حدث|إسناد|استمرار|تعديل|إيقاف)/i
+const MEASURABLE_SUCCESS_SIGNAL = /\b(?:baseline|qualified|purchase|order|lead|inquir|booking|signup|click|conversion|revenue|event|attribution|signal|intent|response|quality|measure|track|record|continue|iterate|stop)\b|(?:خط\s+أساس|طلب|شراء|عميل\s+محتمل|استفسار|حجز|نقرة|تحويل|إيراد|حدث|إسناد|إشارة|نية|استجابة|جودة|قياس|رصد|تسجيل|توثيق|استمرار|تعديل|إيقاف|نستمر|نعدّل|نتوقف)/i
 const GENERIC_SUCCESS_DEFINITION = /validate (?:market )?(?:interest|engagement)|clearer .+ validated|تحقق من (?:اهتمام|تفاعل)/i
 
 function hasOperationalBusinessObjective(value: unknown): boolean {

@@ -19,6 +19,14 @@ const keys = [
   'LINKEDIN_CLIENT_ID',
   'LINKEDIN_CLIENT_SECRET',
   'LINKEDIN_ORGANIZATION_PUBLISHING_ENABLED',
+  'GOOGLE_CLIENT_ID',
+  'GOOGLE_CLIENT_SECRET',
+  'X_CLIENT_ID',
+  'X_CLIENT_SECRET',
+  'PINTEREST_APP_ID',
+  'PINTEREST_APP_SECRET',
+  'THREADS_APP_ID',
+  'THREADS_APP_SECRET',
   'NEXT_PUBLIC_APP_URL',
   'OAUTH_STATE_SECRET',
 ] as const
@@ -32,6 +40,14 @@ beforeEach(() => {
   process.env.TIKTOK_CLIENT_SECRET = 'tiktok-secret'
   process.env.LINKEDIN_CLIENT_ID = 'linkedin-id'
   process.env.LINKEDIN_CLIENT_SECRET = 'linkedin-secret'
+  process.env.GOOGLE_CLIENT_ID = 'google-id'
+  process.env.GOOGLE_CLIENT_SECRET = 'google-secret'
+  process.env.X_CLIENT_ID = 'x-id'
+  process.env.X_CLIENT_SECRET = 'x-secret'
+  process.env.PINTEREST_APP_ID = 'pinterest-id'
+  process.env.PINTEREST_APP_SECRET = 'pinterest-secret'
+  process.env.THREADS_APP_ID = 'threads-id'
+  process.env.THREADS_APP_SECRET = 'threads-secret'
   process.env.NEXT_PUBLIC_APP_URL = 'https://www.nexus-grow.com'
   process.env.OAUTH_STATE_SECRET = 'a-test-oauth-secret-that-is-longer-than-thirty-two-characters'
   delete process.env.META_ENABLE_INSTAGRAM_SCOPES
@@ -130,7 +146,7 @@ describe('GET /api/social/readiness', () => {
     const body = await response.json()
 
     expect(response.status).toBe(200)
-    expect(body.providers).toHaveLength(3)
+    expect(body.providers).toHaveLength(7)
     expect(body.providers).toEqual(expect.arrayContaining([
       expect.objectContaining({
         platform: 'META',
@@ -148,10 +164,23 @@ describe('GET /api/social/readiness', () => {
         credentialsConfigured: true,
         publicAccess: 'PROVIDER_AUDIT_REQUIRED',
       }),
+      expect.objectContaining({
+        platform: 'YOUTUBE',
+        credentialsConfigured: true,
+        callbackUrl: 'https://www.nexus-grow.com/api/social/callback/youtube',
+        proofState: 'configuration_only',
+      }),
+      expect.objectContaining({ platform: 'X', credentialsConfigured: true }),
+      expect.objectContaining({ platform: 'PINTEREST', credentialsConfigured: true }),
+      expect.objectContaining({ platform: 'THREADS', credentialsConfigured: true }),
     ]))
     expect(JSON.stringify(body)).not.toContain('meta-secret')
     expect(JSON.stringify(body)).not.toContain('tiktok-secret')
     expect(JSON.stringify(body)).not.toContain('linkedin-secret')
+    expect(JSON.stringify(body)).not.toContain('google-secret')
+    expect(JSON.stringify(body)).not.toContain('x-secret')
+    expect(JSON.stringify(body)).not.toContain('pinterest-secret')
+    expect(JSON.stringify(body)).not.toContain('threads-secret')
   })
 
   it('does not report OAuth readiness without a secure state-signing secret', async () => {

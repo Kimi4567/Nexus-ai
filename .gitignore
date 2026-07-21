@@ -28,3 +28,6 @@ app_backup_*
 # Local generated reports
 NEXUS_Credit_Cost_Audit.pdf
 tsconfig.tsbuildinfo
+
+# Local audit/runtime artifacts (may include generated media and pulled env files)
+/tmp/

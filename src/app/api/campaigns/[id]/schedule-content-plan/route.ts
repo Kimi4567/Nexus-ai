@@ -211,6 +211,7 @@ export async function POST(req: NextRequest, props: Params) {
         mediaApprovalSnapshot: { select: { scope: true, payload: true } },
         platformOptions: true,
         autoPublishConsentAt: true,
+        updatedAt: true,
       },
     })
 
@@ -653,6 +654,7 @@ export async function POST(req: NextRequest, props: Params) {
             status: 'APPROVED',
             approvedSnapshotId: source.approvedSnapshotId,
             mediaApprovalSnapshotId: source.mediaApprovalSnapshotId,
+            updatedAt: source.updatedAt,
           },
           data: {
             status: u.data.status,
@@ -661,7 +663,10 @@ export async function POST(req: NextRequest, props: Params) {
             ...assignment,
           },
         })
-        if (changed.count !== 1) continue
+        // Scheduling is a single reviewed decision. If any row changed after
+        // the read/quality-gate phase, abort the whole transaction instead of
+        // silently scheduling only a subset or a revision the user did not see.
+        if (changed.count !== 1) throw new Error('SCHEDULE_CONCURRENT_CHANGE')
 
         changedIds.push(u.id)
         decisionPosts.push({
@@ -742,6 +747,12 @@ export async function POST(req: NextRequest, props: Params) {
       snapshot: scheduleResult.snapshot,
     })
   } catch (err: any) {
+    if (err instanceof Error && err.message === 'SCHEDULE_CONCURRENT_CHANGE') {
+      return NextResponse.json({
+        error: 'A post changed during scheduling. Reload and review the final copy, media, destination, and time again.',
+        code: 'SCHEDULE_CONCURRENT_CHANGE',
+      }, { status: 409 })
+    }
     console.error('[schedule-content-plan POST]', err)
     return NextResponse.json({ error: 'Failed to schedule content plan' }, { status: 500 })
   }
@@ -767,29 +778,41 @@ export async function DELETE(req: NextRequest, props: Params) {
         status: 'SCHEDULED',
         publishedAt: null,
       },
-      select: { id: true },
+      select: { id: true, updatedAt: true },
     })
 
-    let reverted = 0
-    const history: any[] = []
-    for (const p of scheduledPosts) {
-      if (!validateTransition('SCHEDULED', 'APPROVED').ok) continue
-      await (prisma.socialPost as any).update({
-        where: { id: p.id },
-        data: { status: 'APPROVED', scheduledSnapshotId: null },
-      })
-      history.push(buildStatusHistory({ socialPostId: p.id, workspaceId: campaign.workspaceId, fromStatus: 'SCHEDULED', toStatus: 'APPROVED', actor: 'USER', note: 'unschedule' }))
-      reverted++
-    }
-    if (history.length > 0) {
-      await (prisma as any).postStatusHistory
-        .createMany({ data: history })
-        .catch((e: any) => console.error('[schedule-content-plan DELETE] history write failed', e?.message))
-    }
+    const history = scheduledPosts
+      .filter(() => validateTransition('SCHEDULED', 'APPROVED').ok)
+      .map((post: any) => buildStatusHistory({
+        socialPostId: post.id,
+        workspaceId: campaign.workspaceId,
+        fromStatus: 'SCHEDULED',
+        toStatus: 'APPROVED',
+        actor: 'USER',
+        note: 'unschedule',
+      }))
+    const unscheduleResult = await prisma.$transaction(async (tx) => {
+      for (const post of scheduledPosts) {
+        const changed = await tx.socialPost.updateMany({
+          where: {
+            id: post.id,
+            campaignId: campaign.id,
+            workspaceId: campaign.workspaceId,
+            status: 'SCHEDULED',
+            publishedAt: null,
+            updatedAt: post.updatedAt,
+          },
+          data: { status: 'APPROVED', scheduledSnapshotId: null },
+        })
+        if (changed.count !== 1) throw new Error('UNSCHEDULE_CONCURRENT_CHANGE')
+      }
+      if (history.length > 0) await tx.postStatusHistory.createMany({ data: history })
+      return { reverted: scheduledPosts.length, history }
+    })
 
     // Brand Brain (PR1): one POST_UNSCHEDULED event per actual SCHEDULED → APPROVED move.
     const unscheduleEvents = buildLearningEvents(
-      history.map((h: any) => ({
+      unscheduleResult.history.map((h: any) => ({
         workspaceId: h.workspaceId,
         campaignId: campaign.id,
         socialPostId: h.socialPostId,
@@ -805,8 +828,14 @@ export async function DELETE(req: NextRequest, props: Params) {
         .catch((e: any) => console.error('[schedule-content-plan DELETE] learning event write failed', e?.message))
     }
 
-    return NextResponse.json({ success: true, reverted })
+    return NextResponse.json({ success: true, reverted: unscheduleResult.reverted })
   } catch (err: any) {
+    if (err instanceof Error && err.message === 'UNSCHEDULE_CONCURRENT_CHANGE') {
+      return NextResponse.json({
+        error: 'A scheduled post changed while it was being unscheduled. Reload before trying again.',
+        code: 'UNSCHEDULE_CONCURRENT_CHANGE',
+      }, { status: 409 })
+    }
     console.error('[schedule-content-plan DELETE]', err)
     return NextResponse.json({ error: 'Failed to unschedule content plan' }, { status: 500 })
   }

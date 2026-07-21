@@ -5,13 +5,17 @@ import {
   type StrategyApprovalContract,
   type StrategyDecisionEvent,
 } from '@/lib/strategyApproval'
-import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
+import {
+  reviewBrandTruthConsistency,
+  type MarketingBrandProfile,
+} from '@/lib/ai/marketingQualityGate'
 import {
   CAMPAIGN_SNAPSHOT_SCOPE,
   buildStrategyApprovalSnapshotPayload,
   hashCampaignSnapshotPayload,
   sanitizeStrategyApprovalAiOutput,
 } from '@/lib/campaignSnapshots'
+import { applyStrategyApprovalToCampaignEngine } from '@/lib/campaignEnginePersistence'
 
 export class StrategyApprovalError extends Error {
   constructor(
@@ -38,6 +42,32 @@ const campaignSelect = {
   updatedAt: true,
   workspace: { select: { brandProfile: true } },
 } as const
+
+function applyBrandTruthApprovalBlocker(
+  contract: StrategyApprovalContract,
+  brandProfile: MarketingBrandProfile | null | undefined,
+): StrategyApprovalContract {
+  const brandTruthReview = reviewBrandTruthConsistency(brandProfile)
+  if (brandTruthReview.status !== 'blocked') return contract
+
+  const brandTruthBlocker: StrategyApprovalBlocker = {
+    code: 'BRAND_TRUTH_CONFLICT',
+    phase: 'approve',
+    message: {
+      en: 'Brand Brain contains contradictory source data. Correct it before approving or executing this strategy.',
+      ar: 'يحتوي Brand Brain على بيانات مصدر متناقضة. صحّحها قبل اعتماد هذه الاستراتيجية أو تنفيذها.',
+    },
+  }
+  return {
+    ...contract,
+    state: 'blocked',
+    canApprove: false,
+    approvalBlockers: [
+      brandTruthBlocker,
+      ...contract.approvalBlockers.filter(blocker => blocker.code !== 'BRAND_TRUTH_CONFLICT'),
+    ],
+  }
+}
 
 export async function getStrategyApprovalContract(
   campaignId: string,
@@ -84,43 +114,30 @@ export async function getStrategyApprovalContract(
       }
     : null
 
-  const contract = buildStrategyApprovalContract({
+  return applyBrandTruthApprovalBlocker(buildStrategyApprovalContract({
     campaign,
     latestDecision: decision,
     publishedPostCount,
     activeAdCampaignCount,
-  })
-  const brandTruthReview = reviewBrandTruthConsistency(campaign.workspace.brandProfile)
-  if (brandTruthReview.status !== 'blocked') return contract
-
-  const brandTruthBlocker: StrategyApprovalBlocker = {
-    code: 'BRAND_TRUTH_CONFLICT',
-    phase: 'approve',
-    message: {
-      en: 'Brand Brain contains contradictory source data. Correct it before approving or executing this strategy.',
-      ar: 'يحتوي Brand Brain على بيانات مصدر متناقضة. صحّحها قبل اعتماد هذه الاستراتيجية أو تنفيذها.',
-    },
-  }
-  return {
-    ...contract,
-    state: 'blocked',
-    canApprove: false,
-    approvalBlockers: [
-      brandTruthBlocker,
-      ...contract.approvalBlockers.filter(blocker => blocker.code !== 'BRAND_TRUTH_CONFLICT'),
-    ],
-  }
+  }), campaign.workspace.brandProfile as MarketingBrandProfile | null)
 }
 
 export async function approveCampaignStrategy(
   campaignId: string,
   userId: string,
   source = 'CAMPAIGN_REVIEW',
+  expectedStrategyUpdatedAt?: string | null,
 ): Promise<{ contract: StrategyApprovalContract; unchanged: boolean }> {
   const before = await getStrategyApprovalContract(campaignId, userId)
   if (before.state === 'approved') return { contract: before, unchanged: true }
   if (!before.canApprove) {
     throw new StrategyApprovalError('STRATEGY_APPROVAL_BLOCKED', 409, before.approvalBlockers)
+  }
+  if (
+    expectedStrategyUpdatedAt
+    && before.operatingBrief.strategyUpdatedAt !== expectedStrategyUpdatedAt
+  ) {
+    throw new StrategyApprovalError('STRATEGY_REVIEW_STALE', 409)
   }
 
   const changed = await prisma.$transaction(async (tx) => {
@@ -128,15 +145,35 @@ export async function approveCampaignStrategy(
       where: { id: campaignId },
       select: campaignSelect,
     })
+    const currentContract = applyBrandTruthApprovalBlocker(
+      buildStrategyApprovalContract({ campaign: snapshotSource }),
+      snapshotSource.workspace.brandProfile as MarketingBrandProfile | null,
+    )
+    if (!currentContract.canApprove) {
+      throw new StrategyApprovalError('STRATEGY_APPROVAL_BLOCKED', 409, currentContract.approvalBlockers)
+    }
     const safeAiOutput = sanitizeStrategyApprovalAiOutput({
       campaign: snapshotSource,
       brandProfile: snapshotSource.workspace.brandProfile,
     })
+    const approvedAt = new Date().toISOString()
+    safeAiOutput.nexusEngine = applyStrategyApprovalToCampaignEngine(
+      safeAiOutput.nexusEngine,
+      true,
+      approvedAt,
+    )
     const result = await tx.campaign.updateMany({
-      where: { id: campaignId, status: 'DRAFT', workspace: { ownerId: userId } },
+      where: {
+        id: campaignId,
+        status: 'DRAFT',
+        updatedAt: snapshotSource.updatedAt,
+        workspace: { ownerId: userId },
+      },
       data: { status: 'ACTIVE', snapshotVersion: { increment: 1 }, aiOutput: safeAiOutput as any },
     })
-    if (result.count === 0) return false
+    if (result.count === 0) {
+      throw new StrategyApprovalError('STRATEGY_APPROVAL_CONCURRENT_CHANGE', 409)
+    }
 
     const campaign = await tx.campaign.findUniqueOrThrow({
       where: { id: campaignId },
@@ -212,9 +249,26 @@ export async function revokeCampaignStrategyApproval(
 
   const cleanReason = reason?.trim().slice(0, 500) || null
   const changed = await prisma.$transaction(async (tx) => {
+    const current = await tx.campaign.findFirst({
+      where: { id: campaignId, status: 'ACTIVE', workspace: { ownerId: userId } },
+      select: { aiOutput: true },
+    })
+    if (!current) return false
+    const currentOutput = current.aiOutput && typeof current.aiOutput === 'object' && !Array.isArray(current.aiOutput)
+      ? current.aiOutput as Record<string, unknown>
+      : {}
+    const revokedAt = new Date().toISOString()
+    const nextOutput = {
+      ...currentOutput,
+      nexusEngine: applyStrategyApprovalToCampaignEngine(
+        currentOutput.nexusEngine,
+        false,
+        revokedAt,
+      ),
+    }
     const result = await tx.campaign.updateMany({
       where: { id: campaignId, status: 'ACTIVE', workspace: { ownerId: userId } },
-      data: { status: 'DRAFT' },
+      data: { status: 'DRAFT', aiOutput: nextOutput as any },
     })
     if (result.count === 0) return false
 

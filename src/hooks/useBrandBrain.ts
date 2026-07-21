@@ -7,7 +7,7 @@ import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
 import type { BrandBrainContract } from '@/lib/brandBrainContract'
 import { normalizeBrandIndustry } from '@/lib/brandIndustries'
 import { normalizeBusinessGoal } from '@/lib/businessGoals'
-import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
+import { fetchWithTimeout, PRODUCT_READ_TIMEOUT_MS } from '@/lib/fetchWithTimeout'
 
 /* ═══════════════════════════════════════════════════════════════
    useBrandBrain — الذاكرة المشتركة لكل الوكلاء الذكيين
@@ -196,7 +196,7 @@ export function useBrandBrain() {
     try {
       let res = await fetchWithTimeout('/api/brand', {
         headers: { Authorization: gate.authorization },
-      }, 8_000)
+      }, PRODUCT_READ_TIMEOUT_MS)
 
       if (res.status === 401) {
         await wait(BRAND_LOAD_AUTH_RETRY_DELAY_MS)
@@ -225,7 +225,7 @@ export function useBrandBrain() {
 
         res = await fetchWithTimeout('/api/brand', {
           headers: { Authorization: retryGate.authorization },
-        }, 8_000)
+        }, PRODUCT_READ_TIMEOUT_MS)
       }
 
       if (seq !== requestSeq.current) return

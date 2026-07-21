@@ -50,12 +50,16 @@ model User {
   preferences Json? // theme, notifications, etc.
 
   // Relations
-  workspaces     Workspace[]
-  sessions       Session[]
-  accounts       Account[]
-  uploadSessions UploadSession[]
+  workspaces              Workspace[]
+  sessions                Session[]
+  accounts                Account[]
+  uploadSessions          UploadSession[]
   // Credit Wallet ledger (runtime reads/writes are gated by CREDIT_WALLET_ENABLED).
-  creditGrants   CreditGrant[]
+  creditGrants            CreditGrant[]
+  assignedLeads           Lead[]            @relation("LeadAssignee")
+  assignedLeadTasks       LeadTask[]        @relation("LeadTaskAssignee")
+  createdLeadTasks        LeadTask[]        @relation("LeadTaskCreator")
+  createdLeadCaptureForms LeadCaptureForm[] @relation("LeadCaptureFormCreator")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -136,6 +140,13 @@ model Workspace {
   brandEvidenceDocuments BrandEvidenceDocument[]
   brandEvidenceClaims    BrandEvidenceClaim[]
   campaignSnapshots      CampaignSnapshot[]
+  leads                  Lead[]
+  leadCaptureForms       LeadCaptureForm[]
+  contactSuppressions    ContactSuppression[]
+  lifecycleMessages      LifecycleMessage[]
+  landingPages           LandingPage[]
+  landingPageExperiments LandingPageExperiment[]
+  conversionEvents       ConversionEvent[]
 
   // Settings
   settings Json? // branding, integrations, etc.
@@ -357,11 +368,17 @@ model Campaign {
   autopilotActivatedAt DateTime?
 
   // Paid Campaign Pack (one per campaign)
-  paidPack PaidCampaignPack?
+  paidPack               PaidCampaignPack?
+  leads                  Lead[]
+  leadCaptureForms       LeadCaptureForm[]
+  landingPages           LandingPage[]
+  landingPageExperiments LandingPageExperiment[]
+  conversionEvents       ConversionEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([id, workspaceId], map: "Campaign_tenant_ref_key")
   @@index([workspaceId])
   @@index([projectId])
   @@index([status])
@@ -482,6 +499,24 @@ model Subscription {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Durable Stripe webhook idempotency and retry audit. Stripe can deliver the
+// same event more than once and does not guarantee event ordering.
+model BillingWebhookEvent {
+  id String @id // Stripe event id (evt_...)
+
+  type           String
+  status         String    @default("PROCESSING") // PROCESSING | PROCESSED | FAILED
+  attemptCount   Int       @default(1)
+  eventCreatedAt DateTime?
+  processedAt    DateTime?
+  error          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, updatedAt])
 }
 
 model Usage {
@@ -610,6 +645,388 @@ model Analytics {
   updatedAt DateTime @updatedAt
 
   @@index([campaignId])
+}
+
+// ============================================================================
+// LEAD OPERATIONS — workspace-isolated CRM foundation
+// ============================================================================
+
+model Lead {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  assignedToId String?
+  assignedTo   User?   @relation("LeadAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  fullName        String?
+  email           String?
+  emailNormalized String?
+  phone           String?
+  phoneNormalized String?
+  company         String?
+  jobTitle        String?
+
+  source       String  @default("MANUAL") // MANUAL | FORM | IMPORT | SOCIAL | PAID_AD | REFERRAL | OTHER
+  sourceDetail String?
+  stage        String  @default("NEW") // NEW | CONTACTED | QUALIFIED | NURTURING | OPPORTUNITY | WON | LOST | DISQUALIFIED
+  score        Int     @default(0)
+  lostReason   String?
+
+  // A WON stage is the conversion fact. Value remains optional because a
+  // confirmed outcome and its monetary value are separate pieces of evidence.
+  // Values are entered by a workspace operator; NEXUS never estimates them.
+  convertedAt           DateTime?
+  conversionValue       Decimal?  @db.Decimal(12, 2)
+  conversionCurrency    String?
+  conversionValueSource String? // MANUAL_CONFIRMED
+
+  // Consent is evidence, never an inferred marketing permission. UNKNOWN is
+  // deliberately the default and blocks future automated outreach workflows.
+  consentStatus String    @default("UNKNOWN") // UNKNOWN | GRANTED | DENIED | REVOKED
+  consentSource String?
+  consentAt     DateTime?
+
+  attribution         Json                 @default("{}")
+  firstContactedAt    DateTime?
+  responseDueAt       DateTime?
+  nextFollowUpAt      DateTime?
+  lastActivityAt      DateTime?
+  activities          LeadActivity[]
+  tasks               LeadTask[]
+  contactSuppressions ContactSuppression[]
+  lifecycleMessages   LifecycleMessage[]
+  conversionEvents    ConversionEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, emailNormalized])
+  @@unique([workspaceId, phoneNormalized])
+  @@unique([id, workspaceId], map: "Lead_tenant_ref_key")
+  @@index([workspaceId, stage, updatedAt])
+  @@index([workspaceId, source, createdAt])
+  @@index([campaignId])
+  @@index([campaignId, workspaceId], map: "Lead_campaign_tenant_idx")
+  @@index([assignedToId])
+  @@index([workspaceId, assignedToId, stage])
+  @@index([workspaceId, responseDueAt])
+  @@index([workspaceId, nextFollowUpAt])
+  @@index([workspaceId, convertedAt])
+  @@index([lastActivityAt])
+}
+
+model LeadActivity {
+  id String @id @default(cuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  type     String // CREATED | STAGE_CHANGED | CONSENT_CHANGED | NOTE_ADDED | CONTACT_UPDATED
+  actor    String  @default("USER") // USER | SYSTEM | IMPORT
+  note     String? @db.Text
+  metadata Json    @default("{}")
+
+  occurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([leadId, occurredAt])
+  @@index([type, occurredAt])
+}
+
+model LeadTask {
+  id String @id @default(cuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  assignedToId String?
+  assignedTo   User?   @relation("LeadTaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   User?   @relation("LeadTaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  title          String
+  note           String?   @db.Text
+  status         String    @default("OPEN") // OPEN | COMPLETED | CANCELLED
+  priority       String    @default("MEDIUM") // LOW | MEDIUM | HIGH
+  dueAt          DateTime
+  completedAt    DateTime?
+  completionNote String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadId, status, dueAt])
+  @@index([assignedToId, status, dueAt])
+  @@index([createdById])
+}
+
+model LeadCaptureForm {
+  id       String @id @default(cuid())
+  publicId String @unique @default(uuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   User?   @relation("LeadCaptureFormCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  name             String
+  title            String
+  description      String?       @db.Text
+  status           String        @default("ACTIVE") // ACTIVE | PAUSED | ARCHIVED
+  allowedOrigin    String?
+  consentStatement String?       @db.Text
+  submissionCount  Int           @default(0)
+  lastSubmissionAt DateTime?
+  landingPages     LandingPage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([id, workspaceId, campaignId], map: "LeadCaptureForm_tenant_campaign_ref_key")
+  @@index([workspaceId, status, updatedAt])
+  @@index([campaignId])
+  @@index([campaignId, workspaceId], map: "LeadCaptureForm_campaign_tenant_idx")
+  @@index([createdById])
+}
+
+model ContactSuppression {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  // leadId is optional so the suppression survives a lead deletion. The
+  // destination itself is never stored here; only a keyed HMAC is persisted.
+  leadId String?
+  lead   Lead?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  channel         String // EMAIL | SMS
+  destinationHash String
+  status          String    @default("ACTIVE") // ACTIVE | REVOKED
+  reason          String
+  source          String    @default("USER") // USER | UNSUBSCRIBE_LINK | PROVIDER_WEBHOOK
+  createdById     String?
+  revokedById     String?
+  revokedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, channel, destinationHash])
+  @@index([workspaceId, status, channel, updatedAt])
+  @@index([leadId, status])
+  @@index([leadId, workspaceId], map: "ContactSuppression_lead_tenant_idx")
+}
+
+model LifecycleMessage {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  channel String // EMAIL | SMS
+  purpose String // DOUBLE_OPT_IN | FOLLOW_UP | NURTURE | WIN_BACK
+  subject String?
+  body    String  @db.Text
+
+  // Approval covers copy only. This model intentionally has no SENT state and
+  // no provider message ID until a separately-audited delivery layer exists.
+  status                String @default("DRAFT") // DRAFT | APPROVED | CANCELLED
+  providerState         String @default("NOT_CONNECTED") // NOT_CONNECTED only in this release
+  deliveryBlockedReason String @default("PROVIDER_NOT_CONNECTED")
+  version               Int    @default(1)
+
+  createdById   String?
+  approvedById  String?
+  approvedAt    DateTime?
+  cancelledById String?
+  cancelledAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workspaceId, status, updatedAt])
+  @@index([leadId, createdAt])
+  @@index([leadId, workspaceId], map: "LifecycleMessage_lead_tenant_idx")
+}
+
+// ============================================================================
+// LANDING PAGES & CONVERSION EVIDENCE
+// ============================================================================
+
+model LandingPage {
+  id       String @id @default(cuid())
+  publicId String @unique @default(uuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  captureFormId String?
+  captureForm   LeadCaptureForm? @relation(fields: [captureFormId], references: [id], onDelete: SetNull)
+
+  name            String
+  locale          String  @default("AR") // AR | EN | BILINGUAL
+  status          String  @default("DRAFT") // DRAFT | PUBLISHED | ARCHIVED
+  headline        String
+  subheadline     String? @db.Text
+  body            String? @db.Text
+  benefits        Json    @default("[]")
+  proof           String? @db.Text // User-supplied; Nexus never invents proof.
+  primaryCtaLabel String
+  primaryCtaUrl   String?
+  theme           Json    @default("{}")
+
+  // Search visibility is opt-in. Draft SEO fields never affect the live page
+  // until publish copies them into the immutable published snapshot.
+  seoTitle              String?
+  seoDescription        String? @db.Text
+  seoIndexable          Boolean @default(false)
+  publishedSeoIndexable Boolean @default(false)
+
+  // Draft edits advance `version`. Public rendering reads only the immutable
+  // published snapshot so an unreviewed edit can never silently change a live page.
+  version           Int       @default(1)
+  publishedVersion  Int?
+  publishedSnapshot Json?
+  publishedHash     String?
+  createdById       String?
+  publishedById     String?
+  publishedAt       DateTime?
+
+  revisions        LandingPageRevision[]
+  experiments      LandingPageExperiment[]
+  conversionEvents ConversionEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([id, workspaceId, campaignId], map: "LandingPage_tenant_campaign_ref_key")
+  @@index([workspaceId, status, updatedAt])
+  @@index([campaignId])
+  @@index([campaignId, workspaceId], map: "LandingPage_campaign_tenant_idx")
+  @@index([captureFormId])
+  @@index([captureFormId, workspaceId, campaignId], map: "LandingPage_capture_form_context_idx")
+}
+
+model LandingPageRevision {
+  id String @id @default(cuid())
+
+  landingPageId String
+  landingPage   LandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+
+  version       Int
+  snapshot      Json
+  changeNote    String?   @db.Text
+  createdById   String?
+  publishedById String?
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@unique([landingPageId, version])
+  @@index([landingPageId, createdAt])
+}
+
+model LandingPageExperiment {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  landingPageId String
+  landingPage   LandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+
+  status        String @default("DRAFT") // DRAFT | RUNNING | PAUSED | COMPLETED | CANCELLED
+  hypothesis    String @db.Text
+  variable      String // HEADLINE | SUBHEADLINE | CTA_LABEL
+  successMetric String @default("FORM_SUBMITTED")
+  decisionRule  String @default("MANUAL_REVIEW_AFTER_MINIMUM_EVIDENCE")
+
+  minimumVisitorsPerVariant    Int @default(100)
+  minimumConversionsPerVariant Int @default(10)
+  challengerAllocationPercent  Int @default(50)
+
+  controlSnapshot    Json
+  controlHash        String
+  challengerSnapshot Json
+  challengerHash     String
+
+  version          Int       @default(1)
+  startedAt        DateTime?
+  pausedAt         DateTime?
+  endedAt          DateTime?
+  decision         String? // KEEP_CONTROL | APPLY_CHALLENGER_DRAFT | INCONCLUSIVE
+  decisionNote     String?   @db.Text
+  decisionEvidence Json?
+  createdById      String?
+  decidedById      String?
+
+  conversionEvents ConversionEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([id, workspaceId, campaignId, landingPageId], map: "LandingPageExperiment_tenant_context_ref_key")
+  @@index([workspaceId, status, updatedAt])
+  @@index([campaignId, status])
+  @@index([landingPageId, status, createdAt])
+  @@index([landingPageId, workspaceId, campaignId], map: "LandingPageExperiment_page_context_idx")
+}
+
+model ConversionEvent {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  landingPageId String
+  landingPage   LandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+
+  leadId String?
+  lead   Lead?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  experimentId      String?
+  experiment        LandingPageExperiment? @relation(fields: [experimentId], references: [id], onDelete: Restrict)
+  experimentVariant String? // CONTROL | CHALLENGER
+
+  eventType         String // PAGE_VIEW | CTA_CLICK | FORM_SUBMITTED
+  verificationState String // CLIENT_REPORTED | SERVER_CONFIRMED
+  source            String   @default("LANDING_PAGE")
+  attribution       Json     @default("{}")
+  fingerprintHash   String?
+  dedupeKey         String   @unique
+  occurredAt        DateTime @default(now())
+  createdAt         DateTime @default(now())
+
+  @@index([workspaceId, eventType, occurredAt])
+  @@index([campaignId, occurredAt])
+  @@index([landingPageId, eventType, occurredAt])
+  @@index([landingPageId, workspaceId, campaignId], map: "ConversionEvent_page_context_idx")
+  @@index([experimentId, experimentVariant, eventType, occurredAt])
+  @@index([experimentId, workspaceId, campaignId, landingPageId], map: "ConversionEvent_experiment_context_idx")
+  @@index([leadId, occurredAt])
+  @@index([leadId, workspaceId], map: "ConversionEvent_lead_tenant_idx")
 }
 
 // ============================================================================

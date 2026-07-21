@@ -14,13 +14,14 @@ import {
   refundCreditDeduction,
 } from '@/lib/credits'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
-import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
-import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
+import { guardStrategyTruthContract } from '@/lib/ai/strategyTruthContractGuard'
 import { assertCampaignStrategyContract } from '@/lib/campaignStrategyContract'
 import { reviewBrandTruthConsistency, reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { createOpenAIProviderUsageCollector } from '@/lib/ai/providerUsageContext'
 import { summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
+import { hasUsableConversionDestination } from '@/lib/strategyBriefReadiness'
+import { sourceLinkedProofStatements } from '@/lib/strategy/strategyEvidenceLedger'
 
 // Simple in-memory rate limiter: 5 generations per user per minute
 const rateMap = new Map<string, { count: number; reset: number }>()
@@ -125,25 +126,25 @@ export async function POST(req: NextRequest) {
       generateAdConcepts(campaignData, projectData),
     ]))
     const verifiedProof = Array.isArray(brandProfile?.verifiedProof) ? brandProfile.verifiedProof : []
-    strategy = guardStrategyOutputContract(
-      guardStrategyProof(strategy, {
-        verifiedProof,
-        allowedClaimText: [
-          brandProfile?.description,
-          brandProfile?.primaryOffer,
-          ...(Array.isArray(brandProfile?.uniqueAdvantages) ? brandProfile.uniqueAdvantages : []),
-          ...verifiedProof,
-        ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
-      }),
-      {
-        allowedPlatforms: Array.isArray(platforms) ? platforms : [],
-        allowedCompetitors: Array.isArray(brandProfile?.competitors) ? brandProfile.competitors : [],
-        language: campaignData.language,
-        strategyType: 'full',
-        hasLeadHandling: Boolean(brandProfile?.leadHandling),
-        hasConversionDestination: Boolean(brandProfile?.conversionDestination),
-      },
-    )
+    const sourceBackedProof = sourceLinkedProofStatements(verifiedProof)
+    const strategyProofContext = {
+      verifiedProof: sourceBackedProof,
+      commercialClaimText: sourceBackedProof,
+      allowedClaimText: [
+        brandProfile?.description,
+        brandProfile?.primaryOffer,
+        ...(Array.isArray(brandProfile?.uniqueAdvantages) ? brandProfile.uniqueAdvantages : []),
+        ...verifiedProof,
+      ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
+    }
+    strategy = guardStrategyTruthContract(strategy, strategyProofContext, {
+      allowedPlatforms: Array.isArray(platforms) ? platforms : [],
+      allowedCompetitors: Array.isArray(brandProfile?.competitors) ? brandProfile.competitors : [],
+      language: campaignData.language,
+      strategyType: 'full',
+      hasLeadHandling: Boolean(brandProfile?.leadHandling),
+      hasConversionDestination: hasUsableConversionDestination(brandProfile?.conversionDestination, goal || 'SALES'),
+    })
     assertCampaignStrategyContract(strategy, { language: campaignData.language })
 
     const qualityGate = reviewStrategyGrounding({
