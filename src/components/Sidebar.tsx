@@ -94,9 +94,8 @@ function NavItem({ href, label, labelEn, icon, badge, badgeColor, dot, pathname,
   if (collapsed) {
     return (
       <Link href={href} title={label} onClick={onClick}
-        className={`relative flex h-10 w-full items-center justify-center rounded-xl transition-all duration-150
-          ${isActive ? 'text-white' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}
-        style={isActive ? { background: 'linear-gradient(135deg, rgba(94,99,255,0.95), rgba(124,58,237,0.85))', boxShadow: '0 12px 28px rgba(94,99,255,0.25)' } : {}}
+        data-active={isActive}
+        className="nx-sidebar-nav-item relative flex h-10 w-full items-center justify-center rounded-xl transition-all duration-150"
       >
         {icon}
         {dot && <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full" style={{ background: dot, boxShadow: `0 0 4px ${dot}` }} />}
@@ -107,9 +106,8 @@ function NavItem({ href, label, labelEn, icon, badge, badgeColor, dot, pathname,
   return (
     <Link href={href} onClick={onClick}
       aria-label={badge ? `${label} ${badge}` : label}
-      className={`relative flex h-9 items-center gap-2.5 rounded-xl px-3 text-[13px] font-bold transition-all duration-150
-        ${isActive ? 'text-white' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}
-      style={isActive ? { background: 'linear-gradient(135deg, rgba(94,99,255,0.95), rgba(124,58,237,0.85))', boxShadow: '0 14px 34px rgba(94,99,255,0.24), inset 0 0 0 1px rgba(255,255,255,0.14)' } : {}}
+      data-active={isActive}
+      className="nx-sidebar-nav-item relative flex h-10 items-center gap-2.5 rounded-xl px-3 text-[13px] font-semibold transition-all duration-150"
     >
       {isActive && (
         <span className="absolute right-2 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-white/80 shadow-[0_0_14px_rgba(255,255,255,0.7)]" />
@@ -340,13 +338,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   return (
     <aside
       dir={dir}
-      className={`h-full flex flex-col transition-all duration-200 ${collapsed ? 'w-16' : 'w-60'}`}
-      style={{
-        background:
-          'radial-gradient(circle at 25% 4%, rgba(94,99,255,0.34), transparent 28%), linear-gradient(180deg, #050A1D 0%, #071126 52%, #020617 100%)',
-        borderRight: '1px solid rgba(148,163,184,0.18)',
-        boxShadow: '22px 0 70px rgba(2,6,23,0.22)',
-      }}
+      className={`nx-sidebar flex h-full flex-col transition-all duration-200 ${collapsed ? 'w-16' : 'w-60'}`}
     >
 
       {/* Logo */}
@@ -384,7 +376,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
           <div key={group.key} className="space-y-0.5">
             {group.separatorBefore && <div className="mx-2 my-2.5 h-px bg-white/10" />}
             {!collapsed && group.labelEn ? (
-              <p className="px-3 pb-1.5 pt-1 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">
+              <p className="px-3 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">
                 {locale === 'ar' ? group.labelAr : group.labelEn}
               </p>
             ) : null}

@@ -82,11 +82,7 @@ function ResetPasswordForm() {
     }
   }
 
-  const inputStyle = {
-    background: '#FFFFFF',
-    border: '1px solid rgba(15,23,42,0.12)',
-  }
-  const inputClass = `w-full rounded-2xl px-4 py-3 text-slate-950 placeholder-slate-400 outline-none transition ${isRTL ? 'text-right' : 'text-left'}`
+  const inputClass = `nx-auth-input w-full px-4 py-3 placeholder-slate-400 ${isRTL ? 'text-right' : 'text-left'}`
 
   const wrap = (children: React.ReactNode, title?: React.ReactNode, subtitle?: React.ReactNode) => (
     <LuxuryAuthShell
@@ -117,7 +113,7 @@ function ResetPasswordForm() {
       <div className="text-center">
         <Link
           href="/auth/forgot-password"
-          className="block w-full rounded-2xl bg-[#071332] py-3 text-center font-bold text-white shadow-[0_16px_32px_rgba(7,19,50,0.20)] transition hover:-translate-y-0.5"
+          className="nx-auth-primary block w-full py-3 text-center font-bold"
         >
           {rpT?.requestNew}
         </Link>
@@ -133,7 +129,7 @@ function ResetPasswordForm() {
       <div className="text-center">
         <button
           onClick={() => router.push('/auth/login')}
-          className="block w-full rounded-2xl bg-[#071332] py-3 text-center font-bold text-white shadow-[0_16px_32px_rgba(7,19,50,0.20)] transition hover:-translate-y-0.5"
+          className="nx-auth-primary block w-full py-3 text-center font-bold"
         >
           {rpT?.backToLogin}
         </button>
@@ -166,9 +162,6 @@ function ResetPasswordForm() {
               placeholder={rpT?.passwordPlaceholder || '••••••••'}
               autoComplete="new-password"
               className={`${inputClass} ${isRTL ? 'pl-11' : 'pr-11'}`}
-              style={inputStyle}
-              onFocus={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.5)')}
-              onBlur={e => (e.currentTarget.style.border = '1px solid rgba(15,23,42,0.12)')}
             />
             <button
               type="button"
@@ -194,9 +187,6 @@ function ResetPasswordForm() {
               placeholder={rpT?.confirmPlaceholder || '••••••••'}
               autoComplete="new-password"
               className={`${inputClass} ${isRTL ? 'pl-11' : 'pr-11'}`}
-              style={inputStyle}
-              onFocus={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.5)')}
-              onBlur={e => (e.currentTarget.style.border = '1px solid rgba(15,23,42,0.12)')}
             />
             <button
               type="button"
@@ -212,7 +202,7 @@ function ResetPasswordForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-2xl bg-[#071332] py-3 font-bold text-white shadow-[0_16px_32px_rgba(7,19,50,0.20)] transition hover:-translate-y-0.5 disabled:opacity-50"
+          className="nx-auth-primary w-full py-3 font-bold disabled:opacity-50"
         >
           {loading ? rpT?.loading : rpT?.submit}
         </button>
