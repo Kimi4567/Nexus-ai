@@ -121,6 +121,9 @@ type StrategyDecisionDeskProps = {
   }
   onNextAction?: () => void
   nextActionDisabled?: boolean
+  nextActionError?: string | null
+  nextActionRecoveryLabel?: string
+  onNextActionRecovery?: () => void
   qualityState: 'not_reviewed' | 'passed' | 'needs_attention'
   locale: 'ar' | 'en'
   onReadDocument: () => void
@@ -405,6 +408,9 @@ export default function StrategyDecisionDesk({
   nextAction,
   onNextAction,
   nextActionDisabled = false,
+  nextActionError,
+  nextActionRecoveryLabel,
+  onNextActionRecovery,
   qualityState,
   locale,
   onReadDocument,
@@ -731,6 +737,20 @@ export default function StrategyDecisionDesk({
                     {nextAction.label}
                     <ArrowUpRight className="h-4 w-4" />
                   </Link>
+                )}
+                {nextActionError && (
+                  <div role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800">
+                    <p>{nextActionError}</p>
+                    {onNextActionRecovery && nextActionRecoveryLabel && (
+                      <button
+                        type="button"
+                        onClick={onNextActionRecovery}
+                        className="mt-2 rounded-lg border border-rose-300 bg-white px-3 py-1.5 font-bold text-rose-800 transition hover:bg-rose-100"
+                      >
+                        {nextActionRecoveryLabel}
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
               <button type="button" onClick={onReadDocument} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">

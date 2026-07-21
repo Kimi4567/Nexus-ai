@@ -27,6 +27,29 @@ interface ContentPost {
   publishedAt?: string | null
 }
 
+interface DeliveryManifest {
+  state: 'NO_CONTENT' | 'REVIEW_DRAFT' | 'COPY_APPROVED' | 'READY_FOR_SCHEDULING'
+  generatedAt: string
+  counts: {
+    posts: number
+    copyApproved: number
+    mediaApproved: number
+    providerPublicationVerified: number
+  }
+  posts: Array<{
+    id: string
+    copyApproved: boolean
+    mediaApproved: boolean
+    scheduleRecorded: boolean
+    providerPublicationVerified: boolean
+    approvalEvidence: {
+      copy?: { version: number; payloadHash: string } | null
+      media?: { version: number; payloadHash: string } | null
+    }
+  }>
+  approvedStrategy?: { campaign?: Partial<Campaign> } | null
+}
+
 const PLATFORM_LABELS: Record<string, string> = {
   INSTAGRAM: 'Instagram', TIKTOK: 'TikTok', FACEBOOK: 'Facebook',
   YOUTUBE_SHORTS: 'YouTube Shorts', LINKEDIN: 'LinkedIn', SNAPCHAT: 'Snapchat',
@@ -41,6 +64,7 @@ export default function CampaignPrintPage() {
   const ar = locale === 'ar'
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [contentPosts, setContentPosts] = useState<ContentPost[]>([])
+  const [deliveryManifest, setDeliveryManifest] = useState<DeliveryManifest | null>(null)
   const [contentPlanUnavailable, setContentPlanUnavailable] = useState(false)
   const [fetching, setFetching] = useState(true)
   const [loadError, setLoadError] = useState(false)
@@ -55,9 +79,9 @@ export default function CampaignPrintPage() {
     setFetching(true)
     setLoadError(false)
     try {
-      const [response, contentResponse] = await Promise.all([
+      const [response, deliveryResponse] = await Promise.all([
         fetchWithTimeout(`/api/campaigns/${campaignId}`, { headers: { Authorization: token } }),
-        fetchWithTimeout(`/api/campaigns/${campaignId}/content-plan`, { headers: { Authorization: token } }).catch(() => null),
+        fetchWithTimeout(`/api/campaigns/${campaignId}/delivery-package`, { headers: { Authorization: token } }).catch(() => null),
       ])
       if (response.status === 404) {
         setCampaign(null)
@@ -65,12 +89,17 @@ export default function CampaignPrintPage() {
       }
       if (!response.ok) throw new Error('campaign-load-failed')
       const data = await response.json()
-      if (data.campaign) setCampaign(data.campaign)
-      if (contentResponse?.ok) {
-        const contentData = await contentResponse.json().catch(() => ({}))
-        setContentPosts(Array.isArray(contentData.posts) ? contentData.posts : [])
+      if (deliveryResponse?.ok) {
+        const deliveryData = await deliveryResponse.json().catch(() => ({}))
+        const manifest = deliveryData.manifest as DeliveryManifest | undefined
+        const approvedCampaign = manifest?.approvedStrategy?.campaign
+        setCampaign(data.campaign ? { ...data.campaign, ...(approvedCampaign || {}) } : null)
+        setDeliveryManifest(manifest || null)
+        setContentPosts(Array.isArray(deliveryData.posts) ? deliveryData.posts : [])
         setContentPlanUnavailable(false)
       } else {
+        if (data.campaign) setCampaign(data.campaign)
+        setDeliveryManifest(null)
         setContentPosts([])
         setContentPlanUnavailable(true)
       }
@@ -185,6 +214,10 @@ export default function CampaignPrintPage() {
         .brand { font-size: 11px; font-weight: 800; letter-spacing: 0.2em; color: #FF9500; margin-bottom: 6px; }
         .doc-title { font-size: 28px; font-weight: 800; color: #111; line-height: 1.2; }
         .doc-meta { text-align: right; font-size: 12px; color: #888; line-height: 1.9; }
+        .delivery-state { border: 2px solid #FCD34D; background: #FFFBEB; border-radius: 12px; padding: 16px 18px; margin: -18px 0 26px; }
+        .delivery-state.ready { border-color: #86EFAC; background: #F0FDF4; }
+        .delivery-state-title { font-size: 13px; font-weight: 800; color: #111827; margin-bottom: 5px; }
+        .delivery-state-meta { font-size: 10px; color: #64748B; line-height: 1.65; }
 
         /* ── Chapter dividers ───────────────────────────────── */
         .chapter { display: flex; align-items: center; gap: 12px; margin: 32px 0 20px; }
@@ -358,6 +391,27 @@ export default function CampaignPrintPage() {
                 Audience: {campaign.audience}
               </div>
             )}
+          </div>
+        </div>
+
+        <div className={`delivery-state ${deliveryManifest?.state === 'READY_FOR_SCHEDULING' ? 'ready' : ''}`}>
+          <div className="delivery-state-title">
+            {deliveryManifest?.state === 'READY_FOR_SCHEDULING'
+              ? (documentIsArabic ? 'حزمة معتمدة — جاهزة لقرار الجدولة' : 'Approved package — ready for scheduling decision')
+              : deliveryManifest?.state === 'COPY_APPROVED'
+                ? (documentIsArabic ? 'النص معتمد — الوسائط تحتاج مراجعة' : 'Copy approved — media review required')
+                : deliveryManifest?.state === 'NO_CONTENT'
+                  ? (documentIsArabic ? 'لا يوجد محتوى نهائي داخل الحزمة' : 'No final content in this package')
+                  : (documentIsArabic ? 'مسودة مراجعة — غير معتمدة للتنفيذ' : 'Review draft — not approved for execution')}
+          </div>
+          <div className="delivery-state-meta">
+            {deliveryManifest
+              ? `${deliveryManifest.counts.copyApproved}/${deliveryManifest.counts.posts} ${documentIsArabic ? 'نصوص معتمدة' : 'copy approved'} · ${deliveryManifest.counts.mediaApproved}/${deliveryManifest.counts.posts} ${documentIsArabic ? 'وسائط معتمدة' : 'media approved'} · ${deliveryManifest.counts.providerPublicationVerified} ${documentIsArabic ? 'منشورات مثبتة بمعرّف مزود' : 'provider publications verified'}`
+              : (documentIsArabic ? 'تعذّر تحميل دليل الاعتماد؛ يعامل هذا المستند كمسودة فقط.' : 'Approval evidence could not be loaded; treat this document as a draft only.')}
+            <br />
+            {documentIsArabic
+              ? 'لا تثبت هذه الحزمة تصريح المنصة أو النشر أو الإنفاق أو الأداء.'
+              : 'This package does not prove provider permission, publication, spend, or performance.'}
           </div>
         </div>
 
@@ -1058,18 +1112,22 @@ export default function CampaignPrintPage() {
                     ? 'تعذّر تحميل سجلات Content Hub؛ لا يعرض هذا المستند مسودات الاستراتيجية كأنها منشورات نهائية.'
                     : 'Content Hub records could not be loaded; this document will not present strategy drafts as final posts.'}
                 </div>
-              ) : contentPosts.map((post, index) => (
+              ) : contentPosts.map((post, index) => {
+                const evidence = deliveryManifest?.posts.find(item => item.id === post.id)
+                return (
                 <div key={post.id} className="angle-block">
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8, fontSize: 10, color: '#64748B' }}>
                     <strong style={{ color: '#4F46E5' }}>#{index + 1}</strong>
                     <span>{PLATFORM_LABELS[post.publishTarget || post.platform] || post.publishTarget || post.platform}</span>
                     <span>·</span>
                     <strong>{post.status}</strong>
+                    <span>· {evidence?.copyApproved ? (documentIsArabic ? 'نص معتمد' : 'copy approved') : (documentIsArabic ? 'نص غير معتمد' : 'copy unapproved')}</span>
+                    <span>· {evidence?.mediaApproved ? (documentIsArabic ? 'وسائط معتمدة' : 'media approved') : (documentIsArabic ? 'وسائط غير معتمدة' : 'media unapproved')}</span>
                     {post.scheduledAt && <span>· {new Date(post.scheduledAt).toLocaleDateString(documentIsArabic ? 'ar-EG' : 'en-US')}</span>}
                   </div>
                   <div className="block-body" style={{ whiteSpace: 'pre-wrap' }}>{post.caption}</div>
                 </div>
-              ))}
+              )})}
             </div>
           </>
         )}

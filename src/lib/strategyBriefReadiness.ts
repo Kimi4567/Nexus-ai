@@ -123,10 +123,13 @@ const hasList = (value: unknown): boolean =>
 const hasToneOrLanguage = (profile: StrategyBriefProfileLike): boolean =>
   hasText(profile.writingStyle) || hasText(profile.languagePreference)
 
-function hasUsableConversionDestination(profile: StrategyBriefProfileLike): boolean {
-  const value = profile.conversionDestination?.trim() ?? ''
+export function hasUsableConversionDestination(
+  destination: unknown,
+  campaignObjective?: string | null,
+): boolean {
+  const value = typeof destination === 'string' ? destination.trim() : ''
   if (!value || /\b(?:tbd|todo|not (?:yet )?(?:set|connected|available)|coming soon)\b/i.test(value)) return false
-  if (profile.campaignObjective === 'sales') return /^https?:\/\/\S+$/i.test(value)
+  if (campaignObjective?.toLowerCase() === 'sales') return /^https?:\/\/\S+$/i.test(value)
   return /^(?:https?:\/\/\S+|.+(?:whatsapp|form|landing page|dm|phone|booking).*)$/i.test(value)
 }
 
@@ -146,7 +149,7 @@ const organicChecks: Array<{ key: StrategyBriefFieldKey; ok: (p: StrategyBriefPr
 
 const paidChecks: Array<{ key: StrategyBriefFieldKey; ok: (p: StrategyBriefProfileLike) => boolean }> = [
   { key: 'businessGoal', ok: (p) => hasText(p.businessGoal) },
-  { key: 'conversionDestination', ok: hasUsableConversionDestination },
+  { key: 'conversionDestination', ok: (p) => hasUsableConversionDestination(p.conversionDestination, p.campaignObjective) },
   { key: 'marketingBudget', ok: (p) => hasText(p.marketingBudget) },
   { key: 'leadHandling', ok: (p) => hasText(p.leadHandling) },
   { key: 'audienceLocation', ok: (p) => hasText(p.audienceLocation) },

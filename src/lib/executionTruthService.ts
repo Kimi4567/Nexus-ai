@@ -9,6 +9,9 @@ import {
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { normalizeStrategyEvidenceLedger } from '@/lib/strategy/strategyEvidenceLedger'
+import { readPlannedPostAllowance } from '@/lib/postCommercial'
+import { PLAN_QUOTAS } from '@/lib/stripe'
+import { resolveContentPlanSlotScope } from '@/lib/contentPlanGeneration'
 
 type StatusCountRow = {
   campaignId: string | null
@@ -70,6 +73,12 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
   options: { campaignId?: string | null } = {},
 ): Promise<WorkspaceExecutionTruth> {
 
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { ownerId: true },
+  })
+  if (!workspace) return buildWorkspaceExecutionTruth([])
+
   const campaigns = await prisma.campaign.findMany({
     where: {
       workspaceId,
@@ -98,7 +107,7 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
   // Promise.all tuple without collapsing the argument type. Keep the cast local.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = prisma as any
-  const [statusCounts, approvedMissingApprovalCounts, approvedMissingMediaCounts, invalidScheduledCounts, overdueScheduledCounts, eligibleEvidenceCounts, contentReviewPosts, decisionEvents, activeAdCounts, brandProfile] = await Promise.all([
+  const [statusCounts, approvedMissingApprovalCounts, approvedMissingMediaCounts, invalidScheduledCounts, overdueScheduledCounts, eligibleEvidenceCounts, contentReviewPosts, decisionEvents, activeAdCounts, brandProfile, plannedPostAllowance] = await Promise.all([
     db.socialPost.groupBy({
       by: ['campaignId', 'status'],
       where: { workspaceId, campaignId: { in: campaignIds } },
@@ -204,7 +213,9 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
       _count: { _all: true },
     }) as Promise<AdCampaignCountRow[]>,
     prisma.brandProfile.findUnique({ where: { workspaceId } }),
+    readPlannedPostAllowance(prisma, workspace.ownerId),
   ])
+  const planQuota = PLAN_QUOTAS[plannedPostAllowance.plan.toLowerCase()] ?? PLAN_QUOTAS.free
   const brandTruthReport = reviewBrandTruthConsistency(brandProfile)
 
   const countsByCampaign = new Map<string, ExecutionPostCounts>()
@@ -278,6 +289,7 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
     const strategy = aiOutput.strategy && typeof aiOutput.strategy === 'object' && !Array.isArray(aiOutput.strategy)
       ? aiOutput.strategy as Record<string, unknown>
       : {}
+    const contentPlanScope = resolveContentPlanSlotScope(aiOutput, planQuota)
     const contentReview = reviewContentPlanForApproval(
       contentReviewPostsByCampaign.get(campaign.id) ?? [],
       strategy,
@@ -317,6 +329,16 @@ export async function getWorkspaceExecutionTruthByWorkspaceId(
           : []),
       ],
       posts,
+      ...(contentPlanScope.canGenerate ? {
+        contentPlanAllowance: {
+          limit: plannedPostAllowance.limit,
+          used: plannedPostAllowance.used,
+          remaining: plannedPostAllowance.remaining,
+          requested: contentPlanScope.totalSlots,
+          resetsAt: plannedPostAllowance.periodEnd.toISOString(),
+          blocked: contentPlanScope.totalSlots > plannedPostAllowance.remaining,
+        },
+      } : {}),
     }
   })
 

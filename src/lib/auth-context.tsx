@@ -42,8 +42,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // whether a persisted session exists.
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
+    // Customer-facing campaign pages are intentionally public. Avoid booting
+    // Supabase session recovery on them: a stale app refresh token must not add
+    // auth noise or latency to unsubscribe, landing, or lead-intake journeys.
+    const publicCustomerJourney = pathname === '/unsubscribe'
+      || pathname.startsWith('/lead-form/')
+      || pathname.startsWith('/lp/')
+    if (publicCustomerJourney) {
+      setSession(null)
+      setUser(null)
+      setLoading(false)
+      return
+    }
+
     let mounted = true
     // resolved prevents double-setting state from two async sources
     let resolved = false
@@ -106,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (bootTimeout) clearTimeout(bootTimeout)
       subscription.unsubscribe()
     }
-  }, [])
+  }, [pathname])
 
   // ── Auth actions ─────────────────────────────────────────────────────────
 

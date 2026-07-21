@@ -191,6 +191,8 @@ describe('RunFullStrategyModal preflight', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Review cost — 12 credits' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Confirm and generate strategy — 12 credits' }))
 
+    expect(await screen.findByRole('heading', { name: 'Campaign limit reached' })).toBeTruthy()
+    expect(screen.getByText('Campaign limit reached. Nothing was charged.')).toBeTruthy()
     expect((await screen.findByRole('link', { name: 'View plans' })).getAttribute('href')).toBe('/billing')
     expect(screen.queryByRole('button', { name: /retry/i })).toBeNull()
   })

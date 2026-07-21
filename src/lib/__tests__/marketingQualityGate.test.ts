@@ -49,6 +49,16 @@ describe('marketingQualityGate', () => {
     expect(report.blockers.map(item => item.code)).toContain('brand_age_range_conflict')
   })
 
+  it('accepts a narrative age range covered by multiple reviewed age bands', () => {
+    const report = reviewBrandTruthConsistency({
+      ...dentalBrand,
+      targetAudience: 'Adults aged 25-44 in Abu Dhabi who want clear treatment guidance.',
+      audienceAge: '25-34, 35-44, 45-54',
+    }, '2026-07-20T00:00:00.000Z')
+
+    expect(report.blockers.map(item => item.code)).not.toContain('brand_age_range_conflict')
+  })
+
   it('blocks strategy readiness when the saved industry conflicts with the business description', () => {
     const report = reviewBrandTruthConsistency({
       ...dentalBrand,
@@ -70,6 +80,30 @@ describe('marketingQualityGate', () => {
     }, '2026-07-16T00:00:00.000Z')
 
     expect(report.status).toBe('passed')
+    expect(report.blockers.map(item => item.code)).not.toContain('brand_industry_too_broad_or_misaligned')
+  })
+
+  it('does not mistake ordinary property details in a home-service brief for real estate', () => {
+    const report = reviewBrandTruthConsistency({
+      brandName: 'TidyHarbor Home Care',
+      industry: 'Home cleaning services',
+      description: 'A cleaner confirms property details and home size before accepting a booking.',
+      primaryOffer: 'A scoped home-cleaning booking.',
+      targetAudience: 'Apartment and villa residents comparing cleaning services.',
+    })
+
+    expect(report.blockers.map(item => item.code)).not.toContain('brand_industry_too_broad_or_misaligned')
+  })
+
+  it('does not mistake Arabic home property details for an Arabic real-estate business', () => {
+    const report = reviewBrandTruthConsistency({
+      brandName: 'بيت مرتب',
+      industry: 'خدمات تنظيف المنازل',
+      description: 'خدمة تنظيف تؤكد تفاصيل العقار وحجم المنزل قبل قبول الحجز.',
+      primaryOffer: 'حجز تنظيف منزلي محدد النطاق.',
+      targetAudience: 'سكان الشقق والفلل ممن يقارنون خدمات التنظيف.',
+    })
+
     expect(report.blockers.map(item => item.code)).not.toContain('brand_industry_too_broad_or_misaligned')
   })
 
@@ -197,6 +231,72 @@ describe('marketingQualityGate', () => {
     expect(report.blockers.map(item => item.code)).not.toContain('unsupported_quality_superlative')
   })
 
+  it('preserves reviewed price positioning and visual style as approved brand context', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        positioning: 'Premium consultation guidance with a visual direction that feels فاخرة.',
+      },
+      brand: {
+        ...dentalBrand,
+        pricePoint: 'premium',
+        visualStyle: 'فاخرة',
+      },
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-20T00:00:00.000Z',
+    })
+
+    expect(report.blockers.map(item => item.code)).not.toContain('unsupported_quality_superlative')
+  })
+
+  it('does not mistake ordinary comfort language for an unsupported fabric claim', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        positioning: 'شموع منزلية مصنوعة يدويًا للحظات يومية أكثر هدوءًا.',
+        keyMessage: 'اصنع مساحة تمنحك الراحة بعد يوم طويل.',
+      },
+      brand: {
+        brandName: 'بيت نور',
+        industry: 'Home fragrance',
+        description: 'شموع منزلية مصنوعة يدويًا وروائح للمنزل.',
+        primaryOffer: 'شموع وروائح منزلية',
+        targetAudience: 'بالغون من 25-44 في الإمارات.',
+        audienceAge: '25-34, 35-44',
+        topPlatforms: ['INSTAGRAM'],
+        verifiedProof: [],
+      },
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-20T00:00:00.000Z',
+    })
+
+    expect(report.blockers.map(item => item.code)).not.toContain('ungrounded_brand_context')
+  })
+
+  it('treats the saved writing style and tone keywords as grounded brand context', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        positioning: 'Modern modest fashion presented in a culturally respectful way.',
+      },
+      brand: {
+        brandName: 'NOORAYA',
+        industry: 'Fashion',
+        description: 'Modern abayas for women in the UAE.',
+        primaryOffer: 'A reviewed selection of abayas.',
+        targetAudience: 'Women aged 25-34 in the UAE.',
+        writingStyle: 'Elegant, calm, concise, and culturally respectful.',
+        toneKeywords: ['culturally respectful', 'elegant'],
+        topPlatforms: ['INSTAGRAM'],
+        verifiedProof: [],
+      },
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-21T00:00:00.000Z',
+    })
+
+    expect(report.blockers.map(item => item.code)).not.toContain('ungrounded_brand_context')
+  })
+
   it('blocks shopping CTAs when no conversion destination exists', () => {
     const report = reviewStrategyGrounding({
       strategy: {
@@ -248,6 +348,175 @@ describe('marketingQualityGate', () => {
 
     expect(report.status).toBe('blocked')
     expect(report.blockers.filter(item => item.code === 'ungrounded_brand_context')).toHaveLength(4)
+  })
+
+  it('does not let a limited simple-occasion audience note justify universal fit or quality and shopping assurances', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        positioning: 'Modern modest abayas without compromising on style.',
+        contentPillars: ['ثقة في جودة المنتج', 'تجربة شراء مميزة'],
+        topHooks: ['عبايات تلائم كل مناسبة', 'جودة يمكنك الوثوق بها'],
+      },
+      brand: {
+        brandName: 'NOORAYA',
+        industry: 'Fashion',
+        description: 'Modern modest abayas for women in the UAE.',
+        primaryOffer: 'A reviewed selection of abayas.',
+        targetAudience: 'Women who want abayas for daily use and simple occasions.',
+        topPlatforms: ['INSTAGRAM'],
+        verifiedProof: [],
+      },
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-21T00:00:00.000Z',
+    })
+
+    expect(report.status).toBe('blocked')
+    expect(report.blockers.map(item => item.code)).toContain('unsupported_offer_assurance')
+    expect(report.blockers.map(item => item.code)).toContain('ungrounded_brand_context')
+  })
+
+  it('blocks the exact unverified quality claims observed in a live strategy run', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        contentAnglesDetailed: [
+          {
+            ...groundedStrategy.contentAnglesDetailed[0],
+            hook: 'راجعي خطوات الشراء المتاحة مع ضمان جودة نورايا.',
+          },
+          {
+            ...groundedStrategy.contentAnglesDetailed[0],
+            title: 'تعرفي على جودة عبايات نورايا.',
+            hook: 'راجعي التفاصيل قبل الاختيار.',
+          },
+        ],
+      },
+      brand: {
+        brandName: 'NOORAYA',
+        industry: 'Fashion',
+        description: 'Modern modest abayas for women in the UAE.',
+        primaryOffer: 'A reviewed selection of abayas.',
+        targetAudience: 'Women who are concerned about product quality.',
+        audiencePainPoints: ['قلق من جودة المنتج'],
+        topPlatforms: ['INSTAGRAM'],
+        verifiedProof: [],
+      },
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-21T00:00:00.000Z',
+    })
+
+    expect(report.status).toBe('blocked')
+    expect(report.blockers.map(item => item.code)).toContain('unsupported_offer_assurance')
+  })
+
+  it('blocks unverified shopping-safety and sizing promises observed in the follow-up live run', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        audienceSegmentsDetailed: [{
+          segment: 'نساء يتسوقن عبر الإنترنت',
+          message: 'نحن نقدم تفاصيل دقيقة للمقاسات لتسهيل اختيارك.',
+          pain: 'القلق من اختيار المقاس',
+        }],
+        contentAnglesDetailed: [{
+          ...groundedStrategy.contentAnglesDetailed[0],
+          title: 'تجربة شراء آمنة',
+          hook: 'استمتعي بتجربة شراء سلسة.',
+        }],
+      },
+      brand: {
+        brandName: 'NOORAYA',
+        industry: 'Fashion',
+        description: 'Modern modest abayas for women in the UAE.',
+        primaryOffer: 'A reviewed selection of abayas.',
+        targetAudience: 'Women who are concerned about online shopping and sizing.',
+        audiencePainPoints: ['قلق من المقاس وعملية الشراء عبر الإنترنت'],
+        topPlatforms: ['INSTAGRAM'],
+        verifiedProof: [],
+      },
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-21T00:00:00.000Z',
+    })
+
+    expect(report.status).toBe('blocked')
+    expect(report.blockers.filter(item => item.code === 'unsupported_offer_assurance').length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('treats a not-connected product page as missing and blocks the remaining live promises', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        ctaVariations: ['تسوقي الآن'],
+        funnelStages: [{
+          stage: 'Conversion',
+          message: 'Easy and secure buying process',
+          cta: 'Shop now',
+          platform: 'PINTEREST',
+        }],
+        contentAnglesDetailed: [{
+          ...groundedStrategy.contentAnglesDetailed[0],
+          hook: 'اختاري المقاس المناسب بسهولة',
+        }],
+        contentPillars: ['عبايات تجمع بين الأناقة والراحة', 'تصاميم فريدة'],
+      },
+      brand: {
+        brandName: 'NOORAYA',
+        industry: 'Fashion',
+        description: 'Modern modest abayas for women in the UAE.',
+        primaryOffer: 'A reviewed selection of abayas.',
+        targetAudience: 'Women who are concerned about online shopping and sizing.',
+        topPlatforms: ['INSTAGRAM', 'PINTEREST'],
+        conversionDestination: 'Product page and online checkout; actual store URL is not connected yet.',
+        verifiedProof: [],
+      },
+      allowedPlatforms: ['INSTAGRAM', 'PINTEREST'],
+      goal: 'SALES',
+      checkedAt: '2026-07-21T00:00:00.000Z',
+    })
+
+    expect(report.status).toBe('blocked')
+    expect(report.blockers.map(item => item.code)).toContain('conversion_cta_without_destination')
+    expect(report.blockers.filter(item => item.code === 'unsupported_offer_assurance').length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('blocks duplicate quoted content directions even when their total count is correct', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        contentAnglesDetailed: [
+          { title: 'Offer details', hook: 'Review the documented offer', platform: 'INSTAGRAM', cta: 'Review details' },
+          { title: 'Offer details', hook: 'Review the documented offer', platform: 'INSTAGRAM', cta: 'Review details' },
+        ],
+      },
+      brand: dentalBrand,
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-21T00:00:00.000Z',
+    })
+
+    expect(report.blockers.map(item => item.code)).toContain('duplicate_content_direction')
+  })
+
+  it('blocks safe fallback placeholders from counting as delivered content directions', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        contentAnglesDetailed: [
+          ...groundedStrategy.contentAnglesDetailed,
+          {
+            title: 'فرضية اتجاه المحتوى 2',
+            hook: 'ما الرسالة التي يجب التحقق منها في اتجاه المحتوى 2؟',
+            platform: 'INSTAGRAM',
+            cta: 'راجع ملاءمة الرسالة',
+          },
+        ],
+      },
+      brand: dentalBrand,
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-21T00:00:00.000Z',
+    })
+
+    expect(report.blockers.map(item => item.code)).toContain('placeholder_content_direction')
   })
 
   it('does not treat a negated premium statement as approved positioning', () => {

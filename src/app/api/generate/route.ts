@@ -14,14 +14,15 @@ import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { validateOutputObject, logQualityReport } from '@/lib/ai/outputValidator'
 import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from '@/lib/campaign-memory'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
-import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
-import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
+import { guardStrategyTruthContract } from '@/lib/ai/strategyTruthContractGuard'
 import { assertCampaignStrategyContract } from '@/lib/campaignStrategyContract'
 import { reviewBrandTruthConsistency, reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { captureOperationalError } from '@/lib/observability/operationalError'
 import { createOpenAIProviderUsageCollector } from '@/lib/ai/providerUsageContext'
+import { hasUsableConversionDestination } from '@/lib/strategyBriefReadiness'
 import { summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
+import { sourceLinkedProofStatements } from '@/lib/strategy/strategyEvidenceLedger'
 
 export async function POST(req: NextRequest) {
   const userId = await getServerUserId(req)
@@ -125,25 +126,26 @@ export async function POST(req: NextRequest) {
     // Legacy campaign generation now passes through the same persistence
     // contract as Strategy OS. This route may remain for old campaigns, but it
     // can no longer overwrite a campaign with the weaker legacy shape.
-    strategy = guardStrategyOutputContract(
-      guardStrategyProof(strategy, {
-        verifiedProof: brandProfile?.verifiedProof || [],
-        allowedClaimText: [
-          brandProfile?.description,
-          brandProfile?.primaryOffer,
-          ...(brandProfile?.uniqueAdvantages || []),
-          ...(brandProfile?.verifiedProof || []),
-        ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
-      }),
-      {
-        allowedPlatforms: campaign.platforms || [],
-        allowedCompetitors: brandProfile?.competitors || [],
-        language: language || 'ar',
-        strategyType: 'full',
-        hasLeadHandling: Boolean(brandProfile?.leadHandling),
-        hasConversionDestination: Boolean(brandProfile?.conversionDestination),
-      },
-    )
+    const recordedProof = brandProfile?.verifiedProof || []
+    const sourceBackedProof = sourceLinkedProofStatements(recordedProof)
+    const strategyProofContext = {
+      verifiedProof: sourceBackedProof,
+      commercialClaimText: sourceBackedProof,
+      allowedClaimText: [
+        brandProfile?.description,
+        brandProfile?.primaryOffer,
+        ...(brandProfile?.uniqueAdvantages || []),
+        ...recordedProof,
+      ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
+    }
+    strategy = guardStrategyTruthContract(strategy, strategyProofContext, {
+      allowedPlatforms: campaign.platforms || [],
+      allowedCompetitors: brandProfile?.competitors || [],
+      language: language || 'ar',
+      strategyType: 'full',
+      hasLeadHandling: Boolean(brandProfile?.leadHandling),
+      hasConversionDestination: hasUsableConversionDestination(brandProfile?.conversionDestination, campaign.goal),
+    })
     assertCampaignStrategyContract(strategy, { language: language || 'ar' })
 
     const qualityGate = reviewStrategyGrounding({

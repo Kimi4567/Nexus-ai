@@ -55,13 +55,19 @@ describe('buildStrategistCountRepairPrompt', () => {
       campaignName: 'Dental consultation plan',
       contentAnglesDetailed: [{ title: 'Consultation questions' }],
       weeklyExecutionPlan: [],
-    } as unknown as StrategyOutput, 16)
+    } as unknown as StrategyOutput, 16, undefined, 'organic', [
+      'businessObjective.measurableSuccessDefinition',
+      'weeklyExecutionPlan.deliverableCount:1/16',
+    ])
 
     expect(prompt).toContain('exactly 16 contentAnglesDetailed entries')
     expect(prompt).toContain('add up to exactly 16 countable organic post directions')
     expect(prompt).toContain('at least 2 distinct audienceSegmentsDetailed entries')
     expect(prompt).toContain('exactly 4 weeklyExecutionPlan entries')
     expect(prompt).toContain('Do not invent proof, services, prices, languages')
+    expect(prompt).toContain('businessObjective.measurableSuccessDefinition')
+    expect(prompt).toContain('observable baseline or signal plus a decision rule')
+    expect(prompt).toContain('diagnosisDetails must label its basis')
     expect(prompt).toContain('Dental consultation plan')
   })
 })

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
-import { createOAuthState } from '@/lib/oauthState'
+import { createOAuthState, isOAuthStateConfigured } from '@/lib/oauthState'
 import { X_CONTENT_SCOPES } from '@/lib/socialPlatformConfig'
 import { createXCodeVerifier, xCodeChallenge, xCodeVerifierHash } from '@/lib/xPublishing'
 
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
     const clientId = process.env.X_CLIENT_ID
     const clientSecret = process.env.X_CLIENT_SECRET
-    if (!clientId || !clientSecret) {
+    if (!clientId || !clientSecret || !isOAuthStateConfigured()) {
       return NextResponse.json({
         error: 'X OAuth is not configured yet',
         code: 'X_OAUTH_NOT_CONFIGURED',

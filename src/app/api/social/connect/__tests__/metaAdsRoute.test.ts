@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { mockGetUser } = vi.hoisted(() => ({
   mockGetUser: vi.fn(),
@@ -14,6 +14,13 @@ vi.mock('@/lib/supabaseAuth', () => ({
 
 import { GET } from '../meta-ads/route'
 
+const original = {
+  appId: process.env.META_APP_ID,
+  appSecret: process.env.META_APP_SECRET,
+  appUrl: process.env.NEXT_PUBLIC_APP_URL,
+  stateSecret: process.env.OAUTH_STATE_SECRET,
+}
+
 const makeReq = (authorization = 'Bearer test-token') =>
   ({
     headers: {
@@ -25,12 +32,26 @@ describe('Meta Ads connect route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.META_APP_ID = '123456789'
+    process.env.META_APP_SECRET = 'meta-app-secret'
     process.env.NEXT_PUBLIC_APP_URL = 'https://nexus-grow.com'
     process.env.OAUTH_STATE_SECRET = 'test-oauth-state-secret-at-least-32-characters'
     mockGetUser.mockResolvedValue({
       data: { user: { id: 'user_123' } },
       error: null,
     })
+  })
+
+  afterEach(() => {
+    const entries: Array<[string, string | undefined]> = [
+      ['META_APP_ID', original.appId],
+      ['META_APP_SECRET', original.appSecret],
+      ['NEXT_PUBLIC_APP_URL', original.appUrl],
+      ['OAUTH_STATE_SECRET', original.stateSecret],
+    ]
+    for (const [key, value] of entries) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
   })
 
   it('builds a Marketing API OAuth URL with valid paid scopes only', async () => {
@@ -59,5 +80,18 @@ describe('Meta Ads connect route', () => {
   it('requires an authenticated user before returning an OAuth URL', async () => {
     const res = await GET(makeReq(''))
     expect(res.status).toBe(401)
+  })
+
+  it('fails closed without the server secret or signed state', async () => {
+    delete process.env.META_APP_SECRET
+    const missingSecret = await GET(makeReq())
+    expect(missingSecret.status).toBe(503)
+    expect(await missingSecret.json()).toMatchObject({ code: 'META_ADS_OAUTH_NOT_CONFIGURED' })
+
+    process.env.META_APP_SECRET = 'meta-app-secret'
+    delete process.env.OAUTH_STATE_SECRET
+    const missingState = await GET(makeReq())
+    expect(missingState.status).toBe(503)
+    expect(await missingState.json()).toMatchObject({ code: 'META_ADS_OAUTH_NOT_CONFIGURED' })
   })
 })

@@ -8,6 +8,8 @@ import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { FREE_STARTER_CREDITS, PLANS_CREDITS, getUsageSummary, getMonthlyActivity } from '@/lib/credits'
 import { summarizePerformanceEvidence } from '@/lib/performanceSummary'
+import { readFirstPartyMeasurement } from '@/lib/firstPartyMeasurementService'
+import { summarizeFirstPartyMeasurement } from '@/lib/firstPartyMeasurement'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -42,6 +44,7 @@ export async function GET(req: Request) {
 
     if (!workspace) {
       const performance = summarizePerformanceEvidence([], [])
+      const firstParty = summarizeFirstPartyMeasurement([], [])
       return NextResponse.json({
         campaigns: 0, activeCampaigns: 0, draftCampaigns: 0,
         generations: usageSummary.generationsTotal, publishedPosts: 0,
@@ -49,6 +52,7 @@ export async function GET(req: Request) {
         monthlyActivity: [],
         topCampaigns: [],
         performance,
+        firstParty,
       })
     }
 
@@ -66,7 +70,7 @@ export async function GET(req: Request) {
     const generations = usageSummary.generationsTotal
 
     // ── Published posts + trusted performance evidence ──────────────────────
-    const [publishedPosts, organicAnalyticsRows, paidAnalyticsRows] = await Promise.all([
+    const [publishedPosts, organicAnalyticsRows, paidAnalyticsRows, firstParty] = await Promise.all([
       prisma.socialPost.count({
         where: { workspaceId: workspace.id, status: 'PUBLISHED' },
       }).catch(() => 0),
@@ -103,6 +107,10 @@ export async function GET(req: Request) {
         orderBy: { date: 'asc' },
         take: 180,
       }).catch(() => []) ?? [],
+      readFirstPartyMeasurement(workspace.id).catch(error => {
+        console.warn('[analytics/overview] first-party measurement unavailable:', error instanceof Error ? error.message : error)
+        return null
+      }),
     ])
 
     const performance = summarizePerformanceEvidence(
@@ -157,6 +165,7 @@ export async function GET(req: Request) {
       monthlyActivity,
       topCampaigns,
       performance,
+      firstParty,
     })
   } catch (err: unknown) {
     console.warn('[analytics/overview] DB query failed:', err instanceof Error ? err.message : err)
@@ -169,6 +178,7 @@ export async function GET(req: Request) {
       monthlyActivity: [],
       topCampaigns: [],
       performance,
+      firstParty: null,
     })
   }
 }

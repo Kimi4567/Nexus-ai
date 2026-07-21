@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Sidebar from './Sidebar'
 import { useI18n } from '@/lib/i18n-context'
 
@@ -9,6 +9,7 @@ interface AppShellProps {
 }
 
 const SIDEBAR_PREFERENCE_KEY = 'nexus.sidebar.collapsed'
+const MOBILE_SIDEBAR_BREAKPOINT = 768
 // Keep labels visible on normal laptop screens. The previous 1680px threshold
 // collapsed the navigation for almost every real user and reduced the entire
 // product to an unexplained column of icons.
@@ -32,13 +33,24 @@ export default function AppShell({ children }: AppShellProps) {
   // workspace before the real viewport and saved preference are available.
   const [collapsed, setCollapsed] = useState(true)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [mobileViewport, setMobileViewport] = useState(false)
   const [compactViewport, setCompactViewport] = useState(false)
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
+  const mobileSidebarRef = useRef<HTMLDivElement>(null)
   const { dir, t } = useI18n()
+
+  const closeMobileMenu = useCallback(() => {
+    setMobileOpen(false)
+    // Wait until React removes `inert` from the top bar before restoring the
+    // keyboard user's focus to the control that opened the drawer.
+    window.setTimeout(() => mobileMenuButtonRef.current?.focus({ preventScroll: true }), 50)
+  }, [])
 
   useEffect(() => {
     let wasCompact = window.innerWidth < COMPACT_SIDEBAR_BREAKPOINT
     const applyResponsiveSidebar = (initial = false) => {
       const isCompact = window.innerWidth < COMPACT_SIDEBAR_BREAKPOINT
+      setMobileViewport(window.innerWidth < MOBILE_SIDEBAR_BREAKPOINT)
       setCompactViewport(isCompact)
 
       if (isCompact) {
@@ -60,6 +72,41 @@ export default function AppShell({ children }: AppShellProps) {
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
+
+  useEffect(() => {
+    if (!mobileViewport || !mobileOpen) return
+
+    const drawer = mobileSidebarRef.current
+    const focusableSelector = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    window.requestAnimationFrame(() => {
+      drawer?.querySelector<HTMLElement>(focusableSelector)?.focus()
+    })
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        closeMobileMenu()
+        return
+      }
+      if (event.key !== 'Tab' || !drawer) return
+
+      const focusable = Array.from(drawer.querySelectorAll<HTMLElement>(focusableSelector))
+        .filter(element => !element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true')
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [closeMobileMenu, mobileOpen, mobileViewport])
 
   const setCollapsedWithPreference: typeof setCollapsed = (nextValue) => {
     setCollapsed((currentValue) => {
@@ -83,7 +130,7 @@ export default function AppShell({ children }: AppShellProps) {
         <div
           aria-hidden="true"
           className="fixed inset-0 z-20 bg-slate-950/20 backdrop-blur-sm md:hidden"
-          onClick={() => setMobileOpen(false)}
+          onClick={closeMobileMenu}
         />
       )}
 
@@ -101,6 +148,8 @@ export default function AppShell({ children }: AppShellProps) {
       {/* Mobile top bar */}
       <div
         dir="ltr"
+        aria-hidden={mobileOpen ? true : undefined}
+        inert={mobileOpen ? true : undefined}
         className="fixed top-0 left-0 right-0 z-30 md:hidden h-12 flex items-center justify-between px-4"
         style={{
           background: 'rgba(255,255,255,0.92)',
@@ -123,6 +172,7 @@ export default function AppShell({ children }: AppShellProps) {
           <span className="font-bold tracking-[0.16em] text-slate-950 text-[14px]">NEXUS</span>
         </div>
         <button
+          ref={mobileMenuButtonRef}
           type="button"
           aria-label={t('sidebar.openNavigation')}
           aria-expanded={mobileOpen}
@@ -140,7 +190,14 @@ export default function AppShell({ children }: AppShellProps) {
           Mobile: slides off-screen via -translate-x-full unless mobileOpen.
           Desktop: always visible (md:translate-x-0 overrides mobile default).
       ──────────────────────────────────────────────────────────────────── */}
-      <div className={`
+      <div
+        ref={mobileSidebarRef}
+        role={mobileViewport ? 'dialog' : undefined}
+        aria-modal={mobileViewport && mobileOpen ? true : undefined}
+        aria-label={mobileViewport ? t('sidebar.primaryNavigation') : undefined}
+        aria-hidden={mobileViewport && !mobileOpen ? true : undefined}
+        inert={mobileViewport && !mobileOpen ? true : undefined}
+        className={`
         fixed top-0 left-0 h-full z-30
         transition-transform duration-200
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
@@ -149,7 +206,7 @@ export default function AppShell({ children }: AppShellProps) {
           collapsed={displayedSidebarCollapsed}
           setCollapsed={setCollapsedWithPreference}
           onMobileClose={() => {
-            setMobileOpen(false)
+            closeMobileMenu()
             if (compactViewport) setCollapsed(true)
           }}
         />
@@ -162,7 +219,12 @@ export default function AppShell({ children }: AppShellProps) {
       <div className={`hidden md:block flex-shrink-0 transition-all duration-200 ${sidebarW}`} />
 
       {/* Main content — dir driven by locale from useI18n() */}
-      <main dir={dir} className="nx-os-main min-h-screen min-w-0 flex-1 overflow-y-visible pt-12 transition-all duration-200 md:pt-0">
+      <main
+        dir={dir}
+        aria-hidden={mobileViewport && mobileOpen ? true : undefined}
+        inert={mobileViewport && mobileOpen ? true : undefined}
+        className="nx-os-main min-h-screen min-w-0 flex-1 overflow-y-visible pt-12 transition-all duration-200 md:pt-0"
+      >
         {children}
       </main>
     </div>

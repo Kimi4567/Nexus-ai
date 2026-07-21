@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
-import { createOAuthState } from '@/lib/oauthState'
+import { createOAuthState, isOAuthStateConfigured } from '@/lib/oauthState'
 import { THREADS_CONTENT_SCOPES } from '@/lib/socialPlatformConfig'
 import { createThreadsOAuthNonce, threadsOAuthNonceHash } from '@/lib/threadsPublishing'
 
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
     const clientId = process.env.THREADS_APP_ID
     const clientSecret = process.env.THREADS_APP_SECRET
-    if (!clientId || !clientSecret) {
+    if (!clientId || !clientSecret || !isOAuthStateConfigured()) {
       return NextResponse.json({
         error: 'Threads OAuth is not configured yet',
         code: 'THREADS_OAUTH_NOT_CONFIGURED',

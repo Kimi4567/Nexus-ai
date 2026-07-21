@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
-import { createOAuthState } from '@/lib/oauthState'
+import { createOAuthState, isOAuthStateConfigured } from '@/lib/oauthState'
 import { YOUTUBE_CONTENT_SCOPES } from '@/lib/socialPlatformConfig'
 
 export const dynamic = 'force-dynamic'
@@ -14,8 +14,12 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const clientId = process.env.GOOGLE_CLIENT_ID
-    if (!clientId) {
-      return NextResponse.json({ error: 'YouTube OAuth is not configured yet' }, { status: 503 })
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+    if (!clientId || !clientSecret || !isOAuthStateConfigured()) {
+      return NextResponse.json({
+        error: 'YouTube OAuth is not configured yet',
+        code: 'YOUTUBE_OAUTH_NOT_CONFIGURED',
+      }, { status: 503 })
     }
 
     const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')

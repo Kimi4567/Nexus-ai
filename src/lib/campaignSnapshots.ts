@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
+import { hasUsableConversionDestination } from '@/lib/strategyBriefReadiness'
 
 export const CAMPAIGN_SNAPSHOT_SCHEMA_VERSION = 1
 
@@ -104,6 +105,7 @@ export function sanitizeStrategyApprovalAiOutput(input: {
   campaign: {
     platforms?: unknown
     aiOutput?: unknown
+    goal?: unknown
   }
   brandProfile?: unknown
 }): JsonRecord {
@@ -149,7 +151,10 @@ export function sanitizeStrategyApprovalAiOutput(input: {
     strategyType,
     organicPostCount: typeof raw.organicPostCount === 'number' ? raw.organicPostCount : undefined,
     hasLeadHandling: typeof brand.leadHandling === 'string' && brand.leadHandling.trim().length > 0,
-    hasConversionDestination: typeof brand.conversionDestination === 'string' && brand.conversionDestination.trim().length > 0,
+    hasConversionDestination: hasUsableConversionDestination(
+      brand.conversionDestination,
+      typeof input.campaign.goal === 'string' ? input.campaign.goal : null,
+    ),
     allowedCompetitors: Array.isArray(brand.competitors)
       ? brand.competitors.filter((value): value is string => typeof value === 'string')
       : [],

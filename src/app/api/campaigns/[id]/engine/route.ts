@@ -23,9 +23,11 @@ import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { createOpenAIProviderUsageCollector } from '@/lib/ai/providerUsageContext'
 import { summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
 
-// Strategy generation makes two GPT-4o-mini calls; give the function headroom so
-// a slower-but-valid Arabic response completes instead of being killed mid-run.
-export const maxDuration = 60
+// Strategy generation makes two bounded provider calls in parallel. Production
+// evidence shows valid, contract-compliant Arabic packages can take longer than
+// 60 seconds, so keep this aligned with the full-strategy route and the provider
+// timeout instead of letting Vercel kill the request before credits can settle.
+export const maxDuration = 180
 
 type Params = { params: Promise<{ id: string }> }
 

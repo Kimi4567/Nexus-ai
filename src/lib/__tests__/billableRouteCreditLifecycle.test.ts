@@ -1,12 +1,19 @@
-import { readFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
+import { readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const chargedRoutes = execFileSync(
-  'rg',
-  ['-l', 'checkAndDeductCredits', 'src/app/api', '-g', 'route.ts'],
-  { encoding: 'utf8' },
-).trim().split('\n').filter(Boolean)
+function findChargedRoutes(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true })
+    .flatMap((entry) => {
+      const path = join(directory, entry.name)
+      if (entry.isDirectory()) return findChargedRoutes(path)
+      if (!entry.isFile() || entry.name !== 'route.ts') return []
+      return readFileSync(path, 'utf8').includes('checkAndDeductCredits') ? [path] : []
+    })
+    .sort()
+}
+
+const chargedRoutes = findChargedRoutes('src/app/api')
 
 describe('billable route credit lifecycle contract', () => {
   it('covers every charged route with request-scoped idempotency and finalization', () => {

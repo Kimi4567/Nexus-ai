@@ -19,13 +19,16 @@ import {
 } from '@/lib/credits'
 import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
-import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
+import { guardStrategyTruthContract } from '@/lib/ai/strategyTruthContractGuard'
+import { hasUsableConversionDestination } from '@/lib/strategyBriefReadiness'
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { validateCampaignStrategyContract } from '@/lib/campaignStrategyContract'
+import { buildStrategyProofContextFromBrand } from '@/lib/strategy/strategyProofContext'
+import { applySentinelReviewToCampaignEngine } from '@/lib/campaignEnginePersistence'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -86,17 +89,7 @@ export async function POST(req: NextRequest, props: Params) {
       : requestedLanguage
     const rawStrategy = aiOutput.strategy || {}
     const strategyScope = resolveStrategyScope(aiOutput)
-    const proofContext = {
-      verifiedProof: Array.isArray(brand?.verifiedProof) ? brand.verifiedProof : [],
-      allowedClaimText: [
-        brand?.description,
-        brand?.primaryOffer,
-        brand?.pricePoint,
-        ...(Array.isArray(brand?.uniqueAdvantages) ? brand.uniqueAdvantages : []),
-        brand?.complianceNotes,
-        ...(Array.isArray(brand?.verifiedProof) ? brand.verifiedProof : []),
-      ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
-    }
+    const { recordedProof, proofContext } = buildStrategyProofContextFromBrand(brand)
     const allowedPerformanceNumbers = [
       brand?.marketingBudget,
       brand?.pastAdResults,
@@ -105,13 +98,20 @@ export async function POST(req: NextRequest, props: Params) {
       brand?.grossMargin,
     ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
     const strategy = guardStrategyKpis(
-      guardStrategyOutputContract(
-        guardStrategyProof(rawStrategy, proofContext) as Record<string, unknown>,
+      guardStrategyTruthContract(
+        rawStrategy as Record<string, unknown>,
+        proofContext,
         {
           allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms : [],
           language: language || (aiOutput.language as string | undefined) || 'ar',
           strategyType: strategyScope.type,
-          hasConversionDestination: Boolean(brand?.conversionDestination),
+          organicPostCount: typeof aiOutput.strategyDeliverables?.organicPostCount === 'number'
+            ? aiOutput.strategyDeliverables.organicPostCount
+            : null,
+          hasLeadHandling: Boolean(brand?.leadHandling),
+          hasConversionDestination: hasUsableConversionDestination(brand?.conversionDestination, campaign.goal),
+          allowedCompetitors: Array.isArray(brand?.competitors) ? brand.competitors : [],
+          goal: campaign.goal,
         },
       ) as Record<string, unknown>,
       allowedPerformanceNumbers,
@@ -245,6 +245,9 @@ export async function POST(req: NextRequest, props: Params) {
     const { providerUsage, ...sentinelReview } = sentinelReviewResult
 
     // Save to aiOutput.sentinelReview
+    const reviewedAt = typeof sentinelReview.reviewedAt === 'string'
+      ? sentinelReview.reviewedAt
+      : new Date().toISOString()
     const updatedOutput = {
       ...aiOutput,
       // Persist exactly the guarded package that Sentinel reviewed. Legacy
@@ -258,6 +261,11 @@ export async function POST(req: NextRequest, props: Params) {
       sentinelReview,
       qualityGate,
       strategyContract,
+      nexusEngine: applySentinelReviewToCampaignEngine(
+        aiOutput.nexusEngine,
+        sentinelReview.status === 'passed' ? 'passed' : 'needs_attention',
+        reviewedAt,
+      ),
     }
 
     await prisma.campaign.update({

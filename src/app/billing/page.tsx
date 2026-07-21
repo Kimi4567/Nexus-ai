@@ -272,6 +272,7 @@ export default function BillingPage() {
       | 'ready'
       | 'wallet_disabled'
       | 'billing_disabled'
+      | 'migration_required'
       | 'price_ids_missing'
       | 'price_version_mismatch'
       | 'verification_failed'
@@ -336,21 +337,31 @@ export default function BillingPage() {
     if (!token || typeof window === 'undefined') return
 
     const params = new URLSearchParams(window.location.search)
-    const checkoutResult = params.get('credits')
-    if (checkoutResult !== 'success' && checkoutResult !== 'cancelled') return
+    const creditCheckoutResult = params.get('credits')
+    const subscriptionSucceeded = params.get('success') === '1'
+    const subscriptionCancelled = params.get('cancelled') === '1'
+    const creditSucceeded = creditCheckoutResult === 'success'
+    const creditCancelled = creditCheckoutResult === 'cancelled'
+    if (!subscriptionSucceeded && !subscriptionCancelled && !creditSucceeded && !creditCancelled) return
+
+    const succeeded = subscriptionSucceeded || creditSucceeded
 
     setBillingMessage(
-      checkoutResult === 'success'
-        ? ar
-          ? 'تم الدفع في Stripe بنجاح. تتم مزامنة رصيدك الآن.'
-          : 'Stripe payment succeeded. Your wallet is syncing now.'
+      succeeded
+        ? subscriptionSucceeded
+          ? ar
+            ? 'اكتمل الدفع في Stripe. تتم الآن مزامنة حالة الاشتراك والكريديت من الحدث الموقّع.'
+            : 'Stripe checkout completed. Subscription and credits are now syncing from the signed webhook.'
+          : ar
+            ? 'تم الدفع في Stripe بنجاح. تتم مزامنة رصيدك الآن.'
+            : 'Stripe payment succeeded. Your wallet is syncing now.'
         : ar
           ? 'تم إلغاء الدفع ولم يتم خصم أي مبلغ أو إضافة رصيد.'
           : 'Checkout was cancelled. No payment was taken and no credits were added.',
     )
     window.history.replaceState({}, '', window.location.pathname)
 
-    if (checkoutResult !== 'success') return
+    if (!succeeded) return
 
     let cancelled = false
     const refreshStatus = async () => {
@@ -388,16 +399,19 @@ export default function BillingPage() {
     }
     setUpgrading(planId)
     try {
+      const requestId = globalThis.crypto?.randomUUID?.()
+        ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
       const r = await fetch('/api/billing/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ plan: planId }),
+        body: JSON.stringify({ plan: planId, requestId }),
       })
       const data = await r.json()
       if (data.url) window.location.href = data.url
+      else if (data.code === 'MANAGE_EXISTING_SUBSCRIPTION') await handlePortal()
       else if (data.error) setBillingMessage(data.error)
     } catch (e) { console.error(e) }
     finally { setUpgrading(null) }
@@ -464,6 +478,10 @@ export default function BillingPage() {
     ? (ar
         ? 'الشراء مقفول بأمان: أسعار Stripe لا تطابق إصدار التسعير الحالي. يجب تحديث Price IDs قبل استقبال أي دفعة.'
         : 'Purchasing is safely locked: Stripe prices do not match the current pricing version. Price IDs must be updated before accepting payment.')
+    : billingStatus?.creditPurchasesStatus === 'migration_required'
+      ? (ar
+          ? 'الدفع مقفول بأمان حتى تطبيق والتحقق من ترحيل سجل Stripe Webhook.'
+          : 'Checkout is safely locked until the Stripe webhook ledger migration is applied and verified.')
     : billingStatus?.creditPurchasesStatus === 'verification_failed'
       ? (ar
           ? 'الشراء مقفول مؤقتًا لأن النظام لم يستطع التحقق من أسعار Stripe.'
@@ -537,6 +555,12 @@ export default function BillingPage() {
         : 'Monthly credits renew and expire with the cycle; purchased and protected legacy credits follow the separate expiry rules shown below.')
     : billingDisplay.creditHelper
   const creditsPercent = creditDisp.percent
+  const scheduledCancellationDate = billingStatus?.hasActiveSubscription && billingStatus.cancelledAt
+    ? new Date(billingStatus.cancelledAt)
+    : null
+  const scheduledCancellationLabel = scheduledCancellationDate && !Number.isNaN(scheduledCancellationDate.getTime())
+    ? new Intl.DateTimeFormat(ar ? 'ar-EG' : 'en-US', { dateStyle: 'medium' }).format(scheduledCancellationDate)
+    : null
 
   return (
     <AppShell>
@@ -598,8 +622,15 @@ export default function BillingPage() {
                   </span>
                   <span className={`text-xs px-2 py-0.5 rounded-full border ${billingDisplay.statusTone === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : billingDisplay.statusTone === 'warning' ? 'bg-amber-50 text-amber-700 border-amber-200' : billingDisplay.statusTone === 'danger' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
                       {billingDisplay.statusLabel}
-                    </span>
+                  </span>
                 </div>
+                {scheduledCancellationLabel && (
+                  <p className="mt-2 text-xs font-medium text-amber-700" role="status">
+                    {ar
+                      ? `الإلغاء مجدول؛ يظل الوصول فعالًا حتى ${scheduledCancellationLabel}.`
+                      : `Cancellation is scheduled; access remains active through ${scheduledCancellationLabel}.`}
+                  </p>
+                )}
               </div>
 
               <div className="flex-1 max-w-xs">

@@ -1,3 +1,5 @@
+import { getBillingRuntimeGate } from '@/lib/billingRuntime'
+
 /**
  * Runtime configuration diagnostics.
  *
@@ -34,16 +36,28 @@ export type RuntimeConfigSnapshot = ReturnType<typeof getRuntimeConfig>
  */
 export function getRuntimeConfig() {
   const production = process.env.NODE_ENV === 'production'
-  const billingRequested = process.env.NEXT_PUBLIC_BILLING_ENABLED === 'true'
+  const billingGate = getBillingRuntimeGate()
+  const billingRequested = billingGate.requested
   const walletRequested = process.env.CREDIT_WALLET_ENABLED === 'true'
+  const leadCrmRequested = process.env.LEADS_CRM_ENABLED === 'true'
+  const lifecycleMessagingRequested = process.env.LIFECYCLE_MESSAGING_ENABLED === 'true'
+  const landingPagesRequested = process.env.LANDING_PAGES_ENABLED === 'true'
+  const landingPageExperimentsRequested = process.env.LANDING_PAGE_EXPERIMENTS_ENABLED === 'true'
 
-  const billingCore = {
-    secretKey: configured(process.env.STRIPE_SECRET_KEY),
-    webhookSecret: configured(process.env.STRIPE_WEBHOOK_SECRET),
-    growthPrice: configured(process.env.STRIPE_PRICE_PRO),
-    autopilotPrice: configured(process.env.STRIPE_PRICE_BUSINESS),
+  const billingCore = billingGate.core
+  const billingReady = billingGate.ready
+  const walletTierPrices = [
+    process.env.STRIPE_PRICE_CREDIT_WALLET_TIER_1,
+    process.env.STRIPE_PRICE_CREDIT_WALLET_TIER_2,
+    process.env.STRIPE_PRICE_CREDIT_WALLET_TIER_3,
+    process.env.STRIPE_PRICE_CREDIT_WALLET_TIER_4,
+  ].map(configured)
+  const walletCore = {
+    database: configured(process.env.DATABASE_URL),
+    billing: billingReady,
+    tierPrices: walletTierPrices.every(Boolean),
   }
-  const billingReady = billingRequested && Object.values(billingCore).every(Boolean)
+  const walletReady = walletRequested && Object.values(walletCore).every(Boolean)
 
   const requiredMissing = [
     productionOnlyMissing('NEXT_PUBLIC_SUPABASE_URL', process.env.NEXT_PUBLIC_SUPABASE_URL, production),
@@ -58,11 +72,42 @@ export function getRuntimeConfig() {
   ].filter((name): name is string => Boolean(name))
 
   const warnings: string[] = []
-  if (billingRequested && !billingReady) {
-    warnings.push('Billing is requested but Stripe key, webhook secret, or both subscription prices are missing.')
+  if (billingRequested && !billingGate.prerequisitesReady) {
+    warnings.push('Billing is requested but a Stripe key, webhook secret, or distinct subscription Price ID is missing or invalid.')
   }
-  if (walletRequested && !configured(process.env.DATABASE_URL)) {
-    warnings.push('Credit wallet is requested without a configured database.')
+  if (billingGate.liveModeBlocked) {
+    warnings.push('Stripe live mode is blocked until BILLING_LIVE_MODE_APPROVED=true after the Test Mode drill and launch approval.')
+  }
+  if (walletRequested && !walletReady) {
+    warnings.push('Credit wallet is requested but its database, billing core, or four Stripe tier prices are incomplete.')
+  }
+  if (leadCrmRequested && !configured(process.env.DATABASE_URL)) {
+    warnings.push('Lead CRM is requested but DATABASE_URL is missing.')
+  }
+  const lifecycleCore = {
+    database: configured(process.env.DATABASE_URL),
+    suppressionHashKey: configured(process.env.CONTACT_SUPPRESSION_HASH_KEY)
+      && (process.env.CONTACT_SUPPRESSION_HASH_KEY?.trim().length ?? 0) >= 32,
+    unsubscribeSigningSecret: configured(process.env.UNSUBSCRIBE_SIGNING_SECRET)
+      && (process.env.UNSUBSCRIBE_SIGNING_SECRET?.trim().length ?? 0) >= 32,
+  }
+  const lifecycleMessagingReady = lifecycleMessagingRequested && Object.values(lifecycleCore).every(Boolean)
+  if (lifecycleMessagingRequested && !lifecycleMessagingReady) {
+    warnings.push('Customer lifecycle messaging is requested but its database or server-only HMAC keys are incomplete.')
+  }
+  const landingPagesCore = {
+    database: configured(process.env.DATABASE_URL),
+    leadCrm: leadCrmRequested,
+    eventHashKey: configured(process.env.CRO_EVENT_HASH_KEY)
+      && (process.env.CRO_EVENT_HASH_KEY?.trim().length ?? 0) >= 32,
+  }
+  const landingPagesReady = landingPagesRequested && Object.values(landingPagesCore).every(Boolean)
+  if (landingPagesRequested && !landingPagesReady) {
+    warnings.push('Landing pages are requested but their database, Lead CRM dependency, or server-only event HMAC key is incomplete.')
+  }
+  const landingPageExperimentsReady = landingPageExperimentsRequested && landingPagesReady
+  if (landingPageExperimentsRequested && !landingPageExperimentsReady) {
+    warnings.push('Landing page experiments are requested but the Landing Pages conversion layer is not ready.')
   }
   if (production && configured(process.env.CRON_SECRET) && (process.env.CRON_SECRET?.trim().length ?? 0) < 32) {
     warnings.push('CRON_SECRET must be at least 32 characters in production.')
@@ -75,14 +120,56 @@ export function getRuntimeConfig() {
     billing: {
       requested: billingRequested,
       ready: billingReady,
+      mode: billingGate.mode,
+      liveModeApproved: billingGate.liveModeApproved,
       // Keep this redacted: health responses must never include IDs or keys.
       core: billingCore,
     },
     wallet: {
       requested: walletRequested,
+      ready: walletReady,
+      // Booleans only: health must expose readiness without leaking Price IDs.
+      core: walletCore,
       // A migration cannot be inferred without a database round-trip. The
       // explicit flag remains the activation gate; health surfaces that fact.
       activationGate: 'CREDIT_WALLET_ENABLED',
+    },
+    leadCrm: {
+      requested: leadCrmRequested,
+      activationGate: 'LEADS_CRM_ENABLED',
+    },
+    lifecycleMessaging: {
+      requested: lifecycleMessagingRequested,
+      ready: lifecycleMessagingReady,
+      core: lifecycleCore,
+      activationGate: 'LIFECYCLE_MESSAGING_ENABLED',
+      deliveryProvider: 'NOT_CONNECTED' as const,
+    },
+    landingPages: {
+      requested: landingPagesRequested,
+      ready: landingPagesReady,
+      core: landingPagesCore,
+      activationGate: 'LANDING_PAGES_ENABLED',
+      conversionTruth: {
+        pageViews: 'CLIENT_REPORTED' as const,
+        ctaClicks: 'CLIENT_REPORTED' as const,
+        formSubmissions: 'SERVER_CONFIRMED' as const,
+        wonOutcomes: 'MANUAL_CONFIRMED' as const,
+        revenueTracking: 'MANUAL_CONFIRMED' as const,
+        platformPermissionsRequired: false,
+      },
+    },
+    landingPageExperiments: {
+      requested: landingPageExperimentsRequested,
+      ready: landingPageExperimentsReady,
+      activationGate: 'LANDING_PAGE_EXPERIMENTS_ENABLED',
+      decisionTruth: {
+        successMetric: 'SERVER_CONFIRMED_FORM_SUBMISSION' as const,
+        pageViews: 'CLIENT_REPORTED' as const,
+        decision: 'HUMAN_REVIEW_AFTER_MINIMUM_EVIDENCE' as const,
+        statisticalWinnerClaimed: false,
+        revenueTracking: false,
+      },
     },
     cron: {
       configured: configured(process.env.CRON_SECRET),

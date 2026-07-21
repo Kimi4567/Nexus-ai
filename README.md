@@ -28,10 +28,10 @@ NEXUS AI هو نظام تشغيل تسويق ذكي: يحفظ سياق العل�
 
 | الخطة | السعر | الكريدت الشهري |
 | --- | ---: | ---: |
-| Growth | $49 / شهر | 150 |
-| Autopilot | $99 / شهر | 500 |
+| Growth | $49 / شهر | 60 |
+| Autopilot | $99 / شهر | 180 |
 
-الحساب الجديد يحصل على 12 رصيدًا تجريبيًا صالحًا 14 يومًا بدون بطاقة. الأرصدة الإضافية والمحفظة موجودة خلف `CREDIT_WALLET_ENABLED`.
+الحساب الجديد يحصل على 15 رصيدًا تجريبيًا صالحًا 14 يومًا بدون بطاقة. الأرصدة الإضافية والمحفظة موجودة خلف `CREDIT_WALLET_ENABLED`.
 
 لا يفتح الدفع الحقيقي إلا عند توفر كل الآتي:
 
@@ -39,7 +39,9 @@ NEXUS AI هو نظام تشغيل تسويق ذكي: يحفظ سياق العل�
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - أسعار Growth وAutopilot (`STRIPE_PRICE_PRO` و`STRIPE_PRICE_BUSINESS`)
-- مراجعة قانونية واختبار webhook في بيئة production
+- إنشاء/مراجعة أسعار المحفظة في Test Mode فقط عبر `npm run billing:sync-wallet-test-prices -- --product=prod_...` ثم تكرار الأمر مع `--apply` بعد مراجعة الـdry run
+- اجتياز `npm run billing:verify-test-mode` ودورة checkout/webhook/renewal/cancel/refund في Test Mode
+- `BILLING_LIVE_MODE_APPROVED=true` فقط بعد المراجعة القانونية وموافقة الإطلاق
 
 ## التكاملات والصلاحيات
 

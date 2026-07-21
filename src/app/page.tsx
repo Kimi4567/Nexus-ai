@@ -26,6 +26,15 @@ import { useTranslation } from '@/i18n'
 import { FREE_TRIAL_CREDITS, PUBLIC_PAID_PLANS } from '@/lib/commercialPlans'
 
 const blue = '#0071e3'
+const HOME_JSON_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'NEXUS AI',
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
+  url: 'https://nexus-grow.com',
+  description: 'AI-powered marketing operating system for reviewed strategy, content planning, approval-gated execution, and evidence-backed analytics.',
+}
 
 function Header({ ar, setLang }: { ar: boolean; setLang: (lang: 'ar' | 'en') => void }) {
   const [open, setOpen] = useState(false)
@@ -305,6 +314,7 @@ export default function LandingPage() {
 
   return (
     <main dir={dir} className="min-h-screen bg-[#f5f5f7] text-slate-950">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(HOME_JSON_LD) }} />
       <Header ar={ar} setLang={setLang} />
 
       <section id="overview" className="mx-auto max-w-6xl px-4 pb-16 pt-20 text-center sm:px-6 sm:pb-24 sm:pt-28">

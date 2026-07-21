@@ -20,6 +20,7 @@ export type ExecutionActionKind =
   | 'CREATE_STRATEGY'
   | 'REVIEW_STRATEGY'
   | 'GENERATE_CONTENT'
+  | 'WAIT_FOR_CONTENT_ALLOWANCE'
   | 'REVIEW_CONTENT'
   | 'REVIEW_MEDIA'
   | 'SCHEDULE_CONTENT'
@@ -59,6 +60,14 @@ export interface CampaignExecutionSnapshot {
   contentQualityIssues?: Array<{ index: number; reason: string }>
   autopilotEnabled?: boolean | null
   autopilotActivatedAt?: Date | string | null
+  contentPlanAllowance?: {
+    limit: number
+    used: number
+    remaining: number
+    requested: number
+    resetsAt: string
+    blocked: boolean
+  }
 }
 
 export interface ExecutionQueueItem {
@@ -79,6 +88,7 @@ export interface ExecutionQueueItem {
     strategyEvidenceCount: number
     strategyBlockers: string[]
     posts: ExecutionPostCounts
+    contentPlanAllowance?: CampaignExecutionSnapshot['contentPlanAllowance']
   }
   updatedAt: string
 }
@@ -146,6 +156,7 @@ function item(
       strategyEvidenceCount: snapshot.strategyEvidenceCount,
       strategyBlockers: snapshot.strategyBlockers,
       posts: snapshot.posts,
+      contentPlanAllowance: snapshot.contentPlanAllowance,
     },
     updatedAt: snapshot.updatedAt,
   }
@@ -284,19 +295,40 @@ export function buildCampaignExecutionTruth(snapshot: CampaignExecutionSnapshot)
 
     if (totalPosts === 0) {
       stage = 'CONTENT_PLANNING'
-      nextAction = item(
-        snapshot,
-        stage,
-        'GENERATE_CONTENT',
-        'high',
-        'manual_action',
-        `${campaignHref}?action=generate-plan`,
-        { en: 'Generate the content plan', ar: 'ولّد خطة المحتوى' },
-        {
-          en: 'The strategy is approved; the next execution artifact is a reviewable content plan.',
-          ar: 'تم اعتماد الاستراتيجية؛ الخطوة التالية هي خطة محتوى قابلة للمراجعة.',
-        },
-      )
+      const allowance = snapshot.contentPlanAllowance
+      if (allowance?.blocked) {
+        const resetEn = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: 'UTC' })
+          .format(new Date(allowance.resetsAt))
+        const resetAr = new Intl.DateTimeFormat('ar-EG', { dateStyle: 'medium', timeZone: 'UTC' })
+          .format(new Date(allowance.resetsAt))
+        nextAction = item(
+          snapshot,
+          stage,
+          'WAIT_FOR_CONTENT_ALLOWANCE',
+          'low',
+          'monitor_only',
+          campaignHref,
+          { en: 'Wait for the content allowance reset', ar: 'انتظر تجدد حد المحتوى' },
+          {
+            en: `This approved plan needs ${allowance.requested} drafts, but ${allowance.remaining} of ${allowance.limit} remain. The allowance resets on ${resetEn}; generation is blocked before any credit charge, so you can wait without upgrading.`,
+            ar: `تحتاج الخطة المعتمدة ${allowance.requested} مسودة، والمتبقي ${allowance.remaining} من ${allowance.limit}. يتجدد الحد في ${resetAr}؛ الحاجز يوقف التوليد قبل أي خصم، لذلك يمكنك الانتظار دون ترقية.`,
+          },
+        )
+      } else {
+        nextAction = item(
+          snapshot,
+          stage,
+          'GENERATE_CONTENT',
+          'high',
+          'manual_action',
+          `${campaignHref}?action=generate-plan`,
+          { en: 'Generate the content plan', ar: 'ولّد خطة المحتوى' },
+          {
+            en: 'The strategy is approved; the next execution artifact is a reviewable content plan.',
+            ar: 'تم اعتماد الاستراتيجية؛ الخطوة التالية هي خطة محتوى قابلة للمراجعة.',
+          },
+        )
+      }
     } else if (snapshot.posts.draft > 0) {
       stage = 'CONTENT_REVIEW'
       nextAction = item(

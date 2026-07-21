@@ -65,6 +65,31 @@ describe('execution truth', () => {
     expect(result.nextAction).toMatchObject({ kind: 'REVIEW_CONTENT', safety: 'review_required' })
   })
 
+  it('turns an impossible content action into a truthful wait state without an upgrade prompt', () => {
+    const result = buildCampaignExecutionTruth(snapshot({
+      contentPlanAllowance: {
+        limit: 16,
+        used: 12,
+        remaining: 4,
+        requested: 10,
+        resetsAt: '2026-08-01T00:00:00.000Z',
+        blocked: true,
+      },
+    }))
+
+    expect(result.stage).toBe('CONTENT_PLANNING')
+    expect(result.nextAction).toMatchObject({
+      kind: 'WAIT_FOR_CONTENT_ALLOWANCE',
+      priority: 'low',
+      safety: 'monitor_only',
+      href: '/campaigns/campaign-1',
+    })
+    expect(result.nextAction?.reason.en).toContain('4 of 16 remain')
+    expect(result.nextAction?.reason.en).toContain('Aug 1, 2026')
+    expect(result.nextAction?.reason.en).toContain('before any credit charge')
+    expect(result.nextAction?.reason.en).toContain('without upgrading')
+  })
+
   it('distinguishes approved from scheduled content', () => {
     const approved = buildCampaignExecutionTruth(snapshot({
       posts: { draft: 0, approved: 2, scheduled: 0, published: 0, failed: 0, publishedWithoutAnalytics: 0 },

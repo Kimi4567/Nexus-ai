@@ -6,6 +6,10 @@ const metaWithPageAndIg: SocialAccount = {
   platform: 'META',
   status: 'CONNECTED',
   pages: [{ id: 'page_1', name: 'Main Page', igAccountId: 'ig_1' }],
+  capabilities: {
+    facebookPublishing: true,
+    instagramPublishing: true,
+  },
 }
 
 const metaAdsReady: AdAccountReadinessInput = {

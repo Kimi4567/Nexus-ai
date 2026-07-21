@@ -18,6 +18,10 @@ import { isCreditWalletEnabled } from '@/lib/credits/wallet'
 import { checkoutRateLimit } from '@/lib/dbRateLimit'
 import { CREDIT_PURCHASE_POLICY, quoteCreditPurchase } from '@/lib/commercialPlans'
 import { getRequestBaseUrl } from '@/lib/requestBaseUrl'
+import {
+  billingDatabaseUnavailableResponse,
+  getBillingDatabaseReadiness,
+} from '@/lib/billingDatabaseReadiness'
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,6 +40,10 @@ export async function POST(req: NextRequest) {
 
     const { data: { user }, error } = await adminClient.auth.getUser(token)
     if (error || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const billingDatabase = await getBillingDatabaseReadiness()
+    if (!billingDatabase.ready) {
+      return NextResponse.json(billingDatabaseUnavailableResponse(billingDatabase), { status: 503 })
+    }
     if (!checkoutRateLimit(`credit-pack:${user.id}`)) {
       return NextResponse.json({ error: 'Too many requests. Try again in a minute.' }, { status: 429 })
     }
@@ -88,11 +96,14 @@ export async function POST(req: NextRequest) {
     }
     let customerId = dbUser.stripeCustomerId
     if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: dbUser.email,
-        name: dbUser.name ?? undefined,
-        metadata: { userId: user.id },
-      })
+      const customer = await stripe.customers.create(
+        {
+          email: dbUser.email,
+          name: dbUser.name ?? undefined,
+          metadata: { userId: user.id },
+        },
+        { idempotencyKey: `billing-customer:${user.id}` },
+      )
       customerId = customer.id
       await prisma.user.update({
         where: { id: user.id },
@@ -113,6 +124,7 @@ export async function POST(req: NextRequest) {
         customer: customerId,
         client_reference_id: user.id,
         mode: 'payment',
+        payment_method_types: ['card'],
         line_items: lineItems,
         success_url: `${baseUrl}/billing?credits=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${baseUrl}/billing?credits=cancelled`,

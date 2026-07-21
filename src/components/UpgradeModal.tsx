@@ -74,16 +74,22 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
     if (!session) { router.push('/auth/login'); return }
 
     try {
+      const requestId = globalThis.crypto?.randomUUID?.()
+        ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
       const res = await fetch('/api/billing/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ plan: planId }),
+        body: JSON.stringify({ plan: planId, requestId }),
       })
       const { url, code } = await res.json()
       if (url) window.location.href = url
+      else if (code === 'MANAGE_EXISTING_SUBSCRIPTION') {
+        onClose()
+        router.push('/billing')
+      }
       else if (code === 'BILLING_NOT_CONFIGURED') {
         setMessage(ar
           ? 'الباقات المدفوعة متوقفة مؤقتًا في النسخة التجريبية. يظل رصيدك الحالي متاحًا حتى اكتمال إعداد Stripe.'

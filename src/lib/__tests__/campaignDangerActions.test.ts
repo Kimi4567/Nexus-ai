@@ -55,15 +55,15 @@ describe('campaignDangerActions', () => {
     expect(result.reason).toBe('READY')
   })
 
-  it('requires the exact 8-credit acknowledgement', () => {
+  it('requires the exact canonical strategy-cost acknowledgement', () => {
     expect(isEngineRebuildConfirmationComplete({
       ...confirmed,
-      acknowledgedCreditCost: 7,
+      acknowledgedCreditCost: ENGINE_REBUILD_CREDIT_COST - 1,
     })).toBe(false)
 
     expect(isEngineRebuildConfirmationComplete({
       ...confirmed,
-      acknowledgedCreditCost: '8',
+      acknowledgedCreditCost: String(ENGINE_REBUILD_CREDIT_COST),
     })).toBe(false)
   })
 })

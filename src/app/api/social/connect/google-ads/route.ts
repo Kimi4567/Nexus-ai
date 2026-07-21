@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
-import { createOAuthState, oauthStateMaxAgeSeconds } from '@/lib/oauthState'
+import { createOAuthState, isOAuthStateConfigured, oauthStateMaxAgeSeconds } from '@/lib/oauthState'
 import { GOOGLE_ADS_SCOPE } from '@/lib/adPlatforms/googleAdsApi'
 import {
   createGoogleAdsOAuthNonce,
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     const clientId = process.env.GOOGLE_ADS_CLIENT_ID
     const clientSecret = process.env.GOOGLE_ADS_CLIENT_SECRET
     const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN
-    if (!clientId || !clientSecret || !developerToken) {
+    if (!clientId || !clientSecret || !developerToken || !isOAuthStateConfigured()) {
       return NextResponse.json({
         error: 'Google Ads OAuth or developer token is not configured yet',
         code: 'GOOGLE_ADS_NOT_CONFIGURED',

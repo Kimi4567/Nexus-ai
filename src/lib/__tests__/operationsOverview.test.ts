@@ -191,6 +191,32 @@ describe('operations overview', () => {
     })
   })
 
+  it('uses the latest settled debit as the current traceability canary without rewriting legacy rows', () => {
+    const overview = buildOperationsOverview(input({
+      creditTransactions: [
+        { action: 'RUN_FULL_STRATEGY', amount: -12, status: 'SETTLED', createdAt: new Date('2026-07-15T12:00:00.000Z'), pricingVersion: '2026-07-18-v1', entityId: 'campaign-new', entityType: 'campaign' },
+        { action: 'AD_COPY', amount: -3, status: 'SETTLED', createdAt: new Date('2026-07-14T12:00:00.000Z'), pricingVersion: null, entityId: null, entityType: null },
+      ],
+    }))
+
+    expect(overview.issues.map(issue => issue.id)).toContain('credits:traceability')
+    expect(overview.readiness.checks.find(check => check.id === 'credit_traceability')).toMatchObject({
+      status: 'ready',
+      evidence: { en: expect.stringContaining('latest settled debit') },
+    })
+  })
+
+  it('blocks traceability when the latest settled debit is incomplete', () => {
+    const overview = buildOperationsOverview(input({
+      creditTransactions: [
+        { action: 'AD_COPY', amount: -3, status: 'SETTLED', createdAt: new Date('2026-07-15T12:00:00.000Z'), pricingVersion: null, entityId: null, entityType: null },
+        { action: 'RUN_FULL_STRATEGY', amount: -12, status: 'SETTLED', createdAt: new Date('2026-07-15T11:00:00.000Z'), pricingVersion: '2026-07-18-v1', entityId: 'campaign-old', entityType: 'campaign' },
+      ],
+    }))
+
+    expect(overview.readiness.checks.find(check => check.id === 'credit_traceability')?.status).toBe('blocked')
+  })
+
   it('raises a critical incident when a credit reservation is stuck', () => {
     const overview = buildOperationsOverview(input({
       creditTransactions: [{

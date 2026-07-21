@@ -1,0 +1,79 @@
+name: Quality gates
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: quality-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  marketing-migration-contract:
+    name: Marketing database migration contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: nexus_migration_contract
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nexus_migration_contract"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      MARKETING_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexus_migration_contract
+      ALLOW_EPHEMERAL_MARKETING_MIGRATION_TEST: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y postgresql-client
+
+      - name: Apply and verify marketing migrations
+        run: npm run db:verify-marketing-migrations
+
+  verify:
+    name: Lint, type-check, test, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_ci_placeholder
+      SUPABASE_SERVICE_ROLE_KEY: sb_secret_ci_placeholder
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nexus?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/nexus?schema=public
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      OPENAI_API_KEY: sk-proj-ci-placeholder-not-a-provider-credential
+      CRON_SECRET: ci-placeholder-cron-secret-at-least-thirty-two-characters
+      OAUTH_STATE_SECRET: ci-placeholder-oauth-state-at-least-thirty-two-characters
+      TOKEN_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      NEXT_PUBLIC_BILLING_ENABLED: "false"
+      CREDIT_WALLET_ENABLED: "false"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run release gates
+        run: npm run verify

@@ -14,6 +14,23 @@ function clean(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+export function isSourceLinkedVerifiedProof(value: unknown): value is string {
+  return typeof value === 'string' && SOURCE_SUFFIX.test(value.trim())
+}
+
+/**
+ * Commercial and performance claims need an inspectable source, not only a
+ * free-text Brand Brain entry. Return the source-linked statements without the
+ * provenance suffix so deterministic claim guards can match the actual fact.
+ */
+export function sourceLinkedProofStatements(
+  verifiedProof: readonly string[] | null | undefined,
+): string[] {
+  return buildStrategyEvidenceLedger(verifiedProof)
+    .filter(item => item.status === 'source_linked')
+    .map(item => item.statement)
+}
+
 /**
  * Builds a provenance snapshot from Brand Brain proof entries. This is a
  * deterministic server-owned ledger: the strategist model never writes or

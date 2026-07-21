@@ -86,11 +86,15 @@ describe('strategy approval service', () => {
     expect(result.contract.state).toBe('approved')
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
     expect(txMock.campaign.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ id: 'c1', status: 'DRAFT' }),
+      where: expect.objectContaining({ id: 'c1', status: 'DRAFT', updatedAt: draft.updatedAt }),
       data: expect.objectContaining({ status: 'ACTIVE', snapshotVersion: { increment: 1 } }),
     }))
     const updateData = txMock.campaign.updateMany.mock.calls[0][0].data
     expect(JSON.stringify(updateData.aiOutput)).not.toMatch(/10\s*%/)
+    expect(updateData.aiOutput.nexusEngine).toMatchObject({
+      status: 'strategy_approved',
+      currentStep: 'content',
+    })
     expect(txMock.campaignSnapshot.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
         campaignId: 'c1',
@@ -148,5 +152,37 @@ describe('strategy approval service', () => {
       blockers: [expect.objectContaining({ code: 'BRAND_TRUTH_CONFLICT' })],
     })
     expect(prismaMock.$transaction).not.toHaveBeenCalled()
+  })
+
+  it('rejects approval when the revision shown to the user is stale', async () => {
+    prismaMock.campaign.findFirst.mockResolvedValue(draft)
+
+    await expect(approveCampaignStrategy(
+      'c1',
+      'u1',
+      'CAMPAIGN_REVIEW',
+      '2026-07-12T09:59:59.000Z',
+    )).rejects.toMatchObject({
+      code: 'STRATEGY_REVIEW_STALE',
+      status: 409,
+    })
+    expect(prismaMock.$transaction).not.toHaveBeenCalled()
+  })
+
+  it('rolls back when the strategy changes during the approval transaction', async () => {
+    prismaMock.campaign.findFirst.mockResolvedValue(draft)
+    txMock.campaign.updateMany.mockResolvedValue({ count: 0 })
+
+    await expect(approveCampaignStrategy(
+      'c1',
+      'u1',
+      'CAMPAIGN_REVIEW',
+      draft.updatedAt.toISOString(),
+    )).rejects.toMatchObject({
+      code: 'STRATEGY_APPROVAL_CONCURRENT_CHANGE',
+      status: 409,
+    })
+    expect(txMock.campaignSnapshot.create).not.toHaveBeenCalled()
+    expect(txMock.campaignActivity.create).not.toHaveBeenCalled()
   })
 })

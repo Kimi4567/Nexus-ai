@@ -7,6 +7,12 @@ import { supabase } from '@/lib/supabaseClient'
 import { BRAND_EVIDENCE_MAX_DOCUMENTS, BRAND_EVIDENCE_WORKSPACE_MAX_BYTES } from '@/lib/brandEvidence'
 import { fetchCreditOperation } from '@/lib/creditOperationClient'
 import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
+import {
+  buildBrandTruthRegistry,
+  type BrandTruthProfileLike,
+  type BrandTruthSummary,
+} from '@/lib/brandTruthRegistry'
+import { BrandTruthCenter } from '@/components/brand/BrandTruthCenter'
 
 const EVIDENCE_ANALYSIS_COST = CREDIT_ACTION_COSTS.BRAND_EVIDENCE_ANALYSIS
 
@@ -38,6 +44,7 @@ interface BrandEvidenceLibraryProps {
   locale: string
   authHeader: () => string
   onProofChanged: () => void
+  profile?: BrandTruthProfileLike | null
 }
 
 const ACCEPT = '.pdf,.docx,.pptx,.txt,.md,.markdown,.csv,.json'
@@ -69,10 +76,11 @@ async function readError(response: Response, fallback: string): Promise<string> 
   return typeof payload.error === 'string' ? payload.error : fallback
 }
 
-export function BrandEvidenceLibrary({ locale, authHeader, onProofChanged }: BrandEvidenceLibraryProps) {
+export function BrandEvidenceLibrary({ locale, authHeader, onProofChanged, profile }: BrandEvidenceLibraryProps) {
   const ar = locale === 'ar'
   const inputId = useId()
   const [documents, setDocuments] = useState<EvidenceDocument[]>([])
+  const [truthSummary, setTruthSummary] = useState<BrandTruthSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -84,6 +92,7 @@ export function BrandEvidenceLibrary({ locale, authHeader, onProofChanged }: Bra
       if (!response.ok) throw new Error(await readError(response, 'Failed to load evidence'))
       const payload = await response.json()
       setDocuments(Array.isArray(payload.documents) ? payload.documents : [])
+      setTruthSummary(payload.truthSummary && Array.isArray(payload.truthSummary.areas) ? payload.truthSummary : null)
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Failed to load evidence')
     } finally {
@@ -92,6 +101,14 @@ export function BrandEvidenceLibrary({ locale, authHeader, onProofChanged }: Bra
   }, [authHeader])
 
   useEffect(() => { void loadDocuments() }, [loadDocuments])
+
+  const displayedTruthSummary = truthSummary
+    ? buildBrandTruthRegistry({
+        profile,
+        claims: documents.flatMap(document => document.claims),
+        visualAssetCount: truthSummary.visualAssetCount,
+      })
+    : null
 
   const removeDocument = async (documentId: string, silent = false) => {
     if (!silent && !window.confirm(ar ? 'حذف هذا المصدر وكل الأدلة المرتبطة به؟' : 'Remove this source and all proof linked to it?')) return
@@ -234,6 +251,8 @@ export function BrandEvidenceLibrary({ locale, authHeader, onProofChanged }: Bra
         <span className="rounded-full bg-white px-2.5 py-1 font-semibold text-emerald-700 ring-1 ring-emerald-200">{ar ? `التحليل: ${EVIDENCE_ANALYSIS_COST} كريديت` : `Analysis: ${EVIDENCE_ANALYSIS_COST} credits`}</span>
         <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-slate-200">{ar ? 'الرفع والمراجعة مجانًا' : 'Upload & review are free'}</span>
       </div>
+
+      {displayedTruthSummary && <BrandTruthCenter locale={locale} summary={displayedTruthSummary} />}
 
       <div className="mt-4 flex flex-col gap-3 rounded-xl border border-sky-200 bg-sky-50/70 p-3 sm:flex-row sm:items-center sm:justify-between">
         <div>

@@ -73,6 +73,7 @@ interface RunResult {
   redirectUrl?: string
   requiredCredits?: number
   currentCredits?: number
+  durationMs?: number
 }
 
 type Phase =
@@ -325,8 +326,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
 
     const warningMsg =
       locale === 'ar'
-        ? 'الاستراتيجية قيد التوليد. لو خرجت ستحتاج للبدء من جديد.'
-        : 'Strategy generation is in progress. Leaving will require you to start over.'
+        ? 'الاستراتيجية قيد التوليد. أبقِ الصفحة مفتوحة لرؤية النتيجة فورًا؛ وإذا انقطع الاتصال فإعادة المحاولة تستخدم نفس العملية لمنع الخصم المكرر.'
+        : 'Strategy generation is in progress. Keep this page open for the immediate result; if the connection drops, retrying reuses the same operation to prevent a duplicate charge.'
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault()
@@ -480,8 +481,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
             setResult({
               ok: false,
               error: selectedLanguage === 'ar'
-                ? 'تعذر اكتمال الاتصال أثناء إنشاء الاستراتيجية. لم تُحفظ استراتيجية جديدة. تحقق من رصيدك ثم أعد المحاولة.'
-                : 'The connection ended before strategy creation completed. No new strategy was saved. Check your credit balance, then retry.',
+                ? 'انقطع الاتصال قبل استلام النتيجة؛ قد يكون التشغيل اكتمل على الخادم. راجع قائمة الاستراتيجيات أولًا، ثم أعد المحاولة بأمان إذا لم تظهر النتيجة—سيُعاد استخدام نفس معرّف العملية ولن يبدأ خصم مكرر.'
+                : 'The connection ended before the result arrived; the server run may still have completed. Check the strategy list first, then retry safely if no result appears—the same operation ID is reused and a duplicate charge is not started.',
             })
           }
         })
@@ -566,6 +567,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
   const followUpDecisionLabel = (result?.suggestions ?? 0) === 1
     ? (locale === 'ar' ? 'قرار متابعة أُنشئ' : 'Follow-up decision created')
     : (locale === 'ar' ? 'قرارات متابعة أُنشئت' : 'Follow-up decisions created')
+  const campaignLimitReached = result?.code === 'CAMPAIGN_LIMIT_REACHED'
 
   // Helper: translate a required field key to a human label
   const fieldLabel = (key: RequiredFieldKey) =>
@@ -1471,8 +1473,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
                 <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#FFB800' }} />
                 <p className="text-[11px] leading-snug text-amber-800">
                   {locale === 'ar'
-                    ? 'التوليد لا يزال يعمل — لا تغلق هذا التاب حتى ينتهي'
-                    : 'Generation is still running — don\'t close this tab'}
+                    ? 'التوليد لا يزال يعمل — أبقِ الصفحة مفتوحة لعرض النتيجة فورًا؛ إعادة المحاولة محمية من الخصم المكرر'
+                    : 'Generation is still running — keep this page open for the immediate result; retries are protected from duplicate charges'}
                 </p>
                 <button
                   onClick={() => setTabHiddenDuringRun(false)}
@@ -1612,6 +1614,14 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
               </p>
             )}
 
+            {typeof result.durationMs === 'number' && result.durationMs > 0 && (
+              <p className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-center text-[11px] font-semibold text-slate-600">
+                {locale === 'ar'
+                  ? `اكتمل التشغيل وحُفظ خلال ${Math.max(1, Math.round(result.durationMs / 1000))} ثانية.`
+                  : `The run completed and was saved in ${Math.max(1, Math.round(result.durationMs / 1000))} seconds.`}
+              </p>
+            )}
+
             <div className="flex gap-2 mb-5">
               <span className="flex items-center gap-1.5 text-[10px] font-medium px-2.5 py-1.5 rounded-lg"
                 style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', color: '#a5a0ff' }}>
@@ -1675,15 +1685,21 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
               style={{ background: 'rgba(255,184,0,0.1)', border: '1px solid rgba(255,184,0,0.25)' }}>
               <AlertCircle className="w-7 h-7" style={{ color: '#FFB800' }} />
             </div>
-            <h2 className="text-xl font-bold text-slate-950 mb-1">{rs.noResultTitle}</h2>
-            <p className="text-sm text-slate-500 mb-6">{rs.noResultDesc}</p>
+            <h2 className="text-xl font-bold text-slate-950 mb-1">
+              {campaignLimitReached
+                ? (locale === 'ar' ? 'وصلت إلى حد الحملات في باقتك' : 'Campaign limit reached')
+                : rs.noResultTitle}
+            </h2>
+            <p className="text-sm text-slate-500 mb-6">
+              {campaignLimitReached && result?.error ? result.error : rs.noResultDesc}
+            </p>
             <div className="flex gap-3">
               <button onClick={onClose}
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-500 border transition-all hover:text-slate-900"
                 style={{ borderColor: 'rgba(139,92,246,0.2)' }}>
                 {rs.errorClose}
               </button>
-              {result?.code === 'CAMPAIGN_LIMIT_REACHED' ? (
+              {campaignLimitReached ? (
                 <Link href={result.upgradeUrl || '/billing'} onClick={onClose}
                   className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-950 btn-gradient">
                   <ArrowUpRight className="w-4 h-4" />

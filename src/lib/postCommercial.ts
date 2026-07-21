@@ -11,18 +11,19 @@ export interface PlannedPostAllowance {
   periodEnd: Date
 }
 
+type PlannedPostAllowanceReader = Pick<Prisma.TransactionClient, 'user' | 'subscription' | 'socialPost'>
+
 /**
- * Reads the monthly AI-planned-post allowance under an account-level lock.
- * Variant B rows do not consume another planned slot. Replaceable drafts for
- * the current campaign are subtracted so regeneration does not double-charge.
+ * Read the current allowance without taking the generation lock. This is for
+ * read-only operational surfaces; billable generation must keep using the
+ * locked variant below and re-check immediately before it writes.
  */
-export async function readLockedPlannedPostAllowance(
-  tx: Prisma.TransactionClient,
+export async function readPlannedPostAllowance(
+  tx: PlannedPostAllowanceReader,
   ownerId: string,
   replaceableCampaignId?: string,
   now = new Date(),
 ): Promise<PlannedPostAllowance> {
-  await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `post-limit:${ownerId}`)
   const [user, subscription] = await Promise.all([
     tx.user.findUnique({ where: { id: ownerId }, select: { subscriptionStatus: true, role: true } }),
     tx.subscription.findUnique({
@@ -64,4 +65,19 @@ export async function readLockedPlannedPostAllowance(
   ])
   const used = Math.max(0, total - replaceable)
   return { plan, limit, used, remaining: Math.max(0, limit - used), periodStart, periodEnd }
+}
+
+/**
+ * Reads the monthly AI-planned-post allowance under an account-level lock.
+ * Variant B rows do not consume another planned slot. Replaceable drafts for
+ * the current campaign are subtracted so regeneration does not double-charge.
+ */
+export async function readLockedPlannedPostAllowance(
+  tx: Prisma.TransactionClient,
+  ownerId: string,
+  replaceableCampaignId?: string,
+  now = new Date(),
+): Promise<PlannedPostAllowance> {
+  await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `post-limit:${ownerId}`)
+  return readPlannedPostAllowance(tx, ownerId, replaceableCampaignId, now)
 }

@@ -104,12 +104,71 @@ beforeEach(() => {
     name: 'Launch',
     goal: 'leads',
     audience: 'SMBs',
+    platforms: ['INSTAGRAM'],
   })
   mockPrisma.project.findUnique.mockResolvedValue({ id: 'p1', media: [] })
-  mockPrisma.brandProfile.findUnique.mockResolvedValue(null)
+  mockPrisma.brandProfile.findUnique.mockResolvedValue({
+    brandName: 'Noura Dental Studio',
+    industry: 'Dental clinic',
+    description: 'A local dental clinic offering consultations and treatment planning.',
+    primaryOffer: 'Book a dental consultation',
+    targetAudience: 'Adults in Abu Dhabi who want clear treatment guidance.',
+    audienceLocation: 'Abu Dhabi',
+    audiencePainPoints: ['Unclear treatment options'],
+    conversionDestination: 'https://example.test/book-consultation',
+    topPlatforms: ['INSTAGRAM'],
+    verifiedProof: [],
+  })
   mockPrisma.campaign.update.mockResolvedValue({})
   mockPrisma.generation.create.mockResolvedValue({})
-  mockGenerateStrategy.mockResolvedValue({ headline: 'Strategy' })
+  mockGenerateStrategy.mockResolvedValue({
+    headline: 'Strategy',
+    positioning: 'Clear dental consultation guidance for adults in Abu Dhabi.',
+    keyMessage: 'Understand your dental treatment options before booking.',
+    differentiation: 'A consultation-first dental experience with clear next steps.',
+    targetAudienceRefined: 'Adults in Abu Dhabi who want clear treatment guidance.',
+    contentPillars: ['Dental education', 'Consultation preparation', 'Treatment options'],
+    topHooks: ['Not sure what to ask your dentist?'],
+    ctaVariations: ['Book a dental consultation'],
+    contentAnglesDetailed: [
+      {
+        title: 'Questions for your dental consultation',
+        hook: 'Bring these questions to your dentist.',
+        pain: 'Treatment options can feel unclear.',
+        desiredOutcome: 'A more informed consultation.',
+        objection: 'I do not know where to begin.',
+        platform: 'INSTAGRAM',
+        cta: 'Book a dental consultation',
+      },
+      {
+        title: 'How consultation planning works',
+        hook: 'Know the steps before your appointment.',
+        pain: 'The consultation process can feel unfamiliar.',
+        desiredOutcome: 'Clearer expectations before booking.',
+        objection: 'I am unsure what happens next.',
+        platform: 'INSTAGRAM',
+        cta: 'Review the consultation page',
+      },
+      {
+        title: 'Prepare your treatment questions',
+        hook: 'Save a practical appointment checklist.',
+        pain: 'Important questions are easy to forget.',
+        desiredOutcome: 'A prepared conversation with the dentist.',
+        objection: 'I do not know what information to bring.',
+        platform: 'INSTAGRAM',
+        cta: 'Book a dental consultation',
+      },
+      {
+        title: 'Compare treatment options clearly',
+        hook: 'Ask how each option fits your needs.',
+        pain: 'Different options can be difficult to compare.',
+        desiredOutcome: 'A clearer treatment discussion.',
+        objection: 'The choices feel overwhelming.',
+        platform: 'INSTAGRAM',
+        cta: 'Review the consultation page',
+      },
+    ],
+  })
   mockGenerateConcepts.mockResolvedValue([{ hook: 'Concept' }])
   mockValidateOutput.mockReturnValue({ score: 80, issues: [] })
   mockGetMemories.mockResolvedValue([])
@@ -212,7 +271,7 @@ describe('POST /api/generate — RF-1 refund safety', () => {
   it('success deducts once and does not refund', async () => {
     const res = await POST(makeReq({ campaignId: 'c1', language: 'en' }))
     const json = await res.json()
-    expect(res.status).toBe(200)
+    expect(res.status, JSON.stringify(json)).toBe(200)
     expect(json.strategy).toEqual(expect.objectContaining({ headline: 'Strategy' }))
     expect(json.creditsRemaining).toBe(95)
     expect(mockCheckAndDeduct).toHaveBeenCalledTimes(1)

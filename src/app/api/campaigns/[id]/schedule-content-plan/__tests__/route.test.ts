@@ -60,7 +60,7 @@ vi.mock('@/lib/ai/marketingQualityGate', () => ({
   reviewStrategyGrounding: mocks.reviewStrategyGrounding,
 }))
 
-import { POST } from '@/app/api/campaigns/[id]/schedule-content-plan/route'
+import { DELETE, POST } from '@/app/api/campaigns/[id]/schedule-content-plan/route'
 
 const uploadScope = 'https://www.googleapis.com/auth/youtube.upload'
 const readScope = 'https://www.googleapis.com/auth/youtube.readonly'
@@ -155,6 +155,7 @@ function approvedYouTubePost() {
     approvedSnapshot: { scope: 'CONTENT_APPROVAL', payload: {} },
     mediaApprovalSnapshotId: 'media-snapshot-2',
     mediaApprovalSnapshot: { scope: 'CONTENT_MEDIA_APPROVAL', payload: {} },
+    updatedAt: new Date('2026-07-20T10:00:00.000Z'),
   }
 }
 
@@ -233,7 +234,11 @@ describe('POST schedule-content-plan — YouTube', () => {
     expect(response.status).toBe(200)
     expect(body).toMatchObject({ success: true, scheduled: 1, linked: 1, publishMode: 'AUTO' })
     expect(mocks.socialPostUpdateMany).toHaveBeenCalledWith({
-      where: expect.objectContaining({ id: 'youtube-post', status: 'APPROVED' }),
+      where: expect.objectContaining({
+        id: 'youtube-post',
+        status: 'APPROVED',
+        updatedAt: new Date('2026-07-20T10:00:00.000Z'),
+      }),
       data: expect.objectContaining({
         status: 'SCHEDULED',
         publishMode: 'AUTO',
@@ -250,6 +255,18 @@ describe('POST schedule-content-plan — YouTube', () => {
         },
       }),
     })
+  })
+
+  it('fails the whole scheduling decision when a reviewed post changes concurrently', async () => {
+    mocks.socialPostUpdateMany.mockResolvedValueOnce({ count: 0 })
+
+    const response = await POST(request(), { params: Promise.resolve({ id: 'campaign-1' }) })
+    const body = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(body.code).toBe('SCHEDULE_CONCURRENT_CHANGE')
+    expect(mocks.campaignVersionUpdate).not.toHaveBeenCalled()
+    expect(mocks.campaignSnapshotCreate).not.toHaveBeenCalled()
   })
 
   it('blocks scheduling when final media lacks a matching approval snapshot', async () => {
@@ -455,5 +472,44 @@ describe('POST schedule-content-plan — YouTube', () => {
     const body = await response.json()
     expect(response.status).toBe(409)
     expect(body.blockers).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'THREADS_LIVE_ACCESS_REQUIRED' })]))
+  })
+})
+
+describe('DELETE schedule-content-plan', () => {
+  const scheduledRevisionAt = new Date('2026-07-20T11:00:00.000Z')
+
+  it('unschedules only the exact unpublished scheduled revision', async () => {
+    mocks.socialPostFindMany.mockResolvedValue([{
+      id: 'youtube-post',
+      updatedAt: scheduledRevisionAt,
+    }])
+
+    const response = await DELETE(request(), { params: Promise.resolve({ id: 'campaign-1' }) })
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body).toMatchObject({ success: true, reverted: 1 })
+    expect(mocks.socialPostUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        id: 'youtube-post',
+        status: 'SCHEDULED',
+        publishedAt: null,
+        updatedAt: scheduledRevisionAt,
+      }),
+    }))
+  })
+
+  it('does not unschedule a post that changed or started publishing concurrently', async () => {
+    mocks.socialPostFindMany.mockResolvedValue([{
+      id: 'youtube-post',
+      updatedAt: scheduledRevisionAt,
+    }])
+    mocks.socialPostUpdateMany.mockResolvedValueOnce({ count: 0 })
+
+    const response = await DELETE(request(), { params: Promise.resolve({ id: 'campaign-1' }) })
+    const body = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(body.code).toBe('UNSCHEDULE_CONCURRENT_CHANGE')
   })
 })

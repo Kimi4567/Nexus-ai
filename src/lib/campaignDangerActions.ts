@@ -1,4 +1,7 @@
-export const ENGINE_REBUILD_CREDIT_COST = 8
+import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
+
+/** Keep confirmation copy and the server deduction on the same catalog entry. */
+export const ENGINE_REBUILD_CREDIT_COST = CREDIT_ACTION_COSTS.RUN_FULL_STRATEGY
 
 export const ENGINE_REBUILD_LOCKING_STATUSES = ['APPROVED', 'SCHEDULED', 'PUBLISHED'] as const
 

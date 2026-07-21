@@ -38,16 +38,6 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 }
 
-const jsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'SoftwareApplication',
-  name: 'NEXUS AI',
-  applicationCategory: 'BusinessApplication',
-  operatingSystem: 'Web',
-  url: 'https://nexus-grow.com',
-  description: 'AI-powered marketing operating system for reviewed strategy, content planning, approval-gated execution, and evidence-backed analytics.',
-}
-
 export default function RootLayout({
   children,
 }: {
@@ -59,10 +49,6 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+Arabic:wght@400;600;800&display=swap" rel="stylesheet" />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
       </head>
       <body className="antialiased overflow-x-hidden min-h-screen bg-slate-50 text-slate-950" style={{ fontFamily: "'Inter', 'Noto Sans Arabic', system-ui, sans-serif" }}>
         <Providers>

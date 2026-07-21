@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { formatStrategyPlatformLabel, guardStrategyOutputContract, selectStrategyCampaignPlatforms } from '../strategyOutputContractGuard'
 import { validateCampaignStrategyContract } from '@/lib/campaignStrategyContract'
+import { reviewStrategyGrounding } from '../marketingQualityGate'
 
 describe('guardStrategyOutputContract', () => {
   const allowed = ['INSTAGRAM', 'TIKTOK', 'FACEBOOK']
@@ -16,7 +17,7 @@ describe('guardStrategyOutputContract', () => {
     }, 0)
   }
 
-  it('removes unsupported channelMix platforms and keeps selected platforms only', () => {
+  it('removes unsupported channelMix platforms and deterministically restores every reviewed platform', () => {
     const out = guardStrategyOutputContract({
       channelMix: [
         { platform: 'Instagram', budgetPercent: 40, rationale: 'main feed', contentFrequency: '4x/week' },
@@ -25,7 +26,12 @@ describe('guardStrategyOutputContract', () => {
       ],
     }, { allowedPlatforms: allowed })
 
-    expect(out.channelMix.map((c: any) => c.platform)).toEqual(['Instagram', 'TikTok'])
+    expect(out.channelMix.map((c: any) => c.platform)).toEqual(['Instagram', 'TikTok', 'Facebook'])
+    expect(out.channelMix[2]).toMatchObject({
+      platform: 'Facebook',
+      budgetPercent: 0,
+    })
+    expect(out.channelMix[2].rationale).toMatch(/validate this channel role/i)
     expect(JSON.stringify(out)).not.toMatch(/Pinterest/i)
   })
 
@@ -37,10 +43,81 @@ describe('guardStrategyOutputContract', () => {
       ],
     }, { allowedPlatforms: allowed, strategyType: 'organic' })
 
-    expect(out.channelMix.map((c: any) => c.platform)).toEqual(['Instagram', 'TikTok'])
+    expect(out.channelMix.map((c: any) => c.platform)).toEqual(['Instagram', 'TikTok', 'Facebook'])
     expect(out.channelMix[0].effortSharePercent).toBe(40)
     expect(out.channelMix[1].effortSharePercent).toBe(60)
+    expect(out.channelMix[2].effortSharePercent).toBe(0)
     expect(JSON.stringify(out.channelMix)).not.toMatch(/budgetPercent/)
+  })
+
+  it('makes every reviewed platform visible to the save gate even when the model omits one', () => {
+    const out = guardStrategyOutputContract({
+      channelMix: [{
+        platform: 'Instagram',
+        effortSharePercent: 100,
+        rationale: 'Use product detail stories as a planning hypothesis.',
+        contentFrequency: 'Review weekly.',
+      }],
+    }, {
+      allowedPlatforms: ['INSTAGRAM', 'TIKTOK', 'PINTEREST'],
+      strategyType: 'organic',
+      language: 'bilingual',
+    }) as any
+
+    expect(out.channelMix.map((item: any) => item.platform)).toEqual([
+      'Instagram',
+      'TikTok',
+      'Pinterest',
+    ])
+    expect(out.channelMix.slice(1).every((item: any) => item.effortSharePercent === 0)).toBe(true)
+
+    const report = reviewStrategyGrounding({
+      strategy: out,
+      brand: {
+        brandName: 'NOORAYA',
+        description: 'Modest fashion and abaya product details.',
+        targetAudience: 'Women reviewing abaya options.',
+      },
+      allowedPlatforms: ['INSTAGRAM', 'TIKTOK', 'PINTEREST'],
+      requireAllReviewedPlatforms: true,
+    })
+    expect(report.blockers.map(item => item.code)).not.toContain('reviewed_platform_missing_from_strategy')
+  })
+
+  it('labels unsourced channel performance claims as hypotheses before the save gate', () => {
+    const out = guardStrategyOutputContract({
+      channelMix: [{
+        platform: 'Instagram',
+        effortSharePercent: 100,
+        rationale: 'Instagram has the highest engagement and is the most effective platform for this category.',
+        contentFrequency: 'Review after real evidence exists',
+      }],
+      channelStrategy: [{
+        platform: 'Instagram',
+        role: 'المنصة الأكثر فعالية للوصول إلى الجمهور',
+        rationale: 'شائع بين الجمهور المستهدف',
+      }],
+    }, {
+      allowedPlatforms: ['INSTAGRAM'],
+      strategyType: 'organic',
+      language: 'bilingual',
+    })
+
+    expect(out.channelMix[0].rationale).toMatch(/Planning hypothesis to validate/)
+    expect(out.channelStrategy[0].role).toContain('القناة المختارة في Brand Brain')
+    expect(out.channelStrategy[0].role).not.toContain('الأكثر فعالية')
+    expect(out.channelStrategy[0].rationale).toMatch(/فرضية/)
+
+    const report = reviewStrategyGrounding({
+      strategy: out,
+      brand: {
+        brandName: 'NOORAYA',
+        description: 'An abaya brand.',
+        targetAudience: 'Women reviewing abaya options.',
+      },
+      allowedPlatforms: ['INSTAGRAM'],
+    })
+    expect(report.blockers.map(item => item.code)).not.toContain('unsourced_channel_market_claim')
   })
 
   it('aligns the marketing objective with the user-reviewed lead goal', () => {
@@ -55,6 +132,75 @@ describe('guardStrategyOutputContract', () => {
     expect(out.businessObjective.marketing).toContain('qualified demo interest')
     expect(out.businessObjective.successIn30Days).toContain('baseline')
     expect(out.businessObjective.marketing).not.toContain('awareness')
+  })
+
+  it('aligns a localized Arabic sales goal with a measurable baseline', () => {
+    const out = guardStrategyOutputContract({
+      businessObjective: {
+        primary: 'زيادة المبيعات',
+        marketing: 'رفع التفاعل',
+        successIn30Days: 'التحقق من الاهتمام',
+      },
+    }, { goal: 'زيادة المبيعات', language: 'ar' })
+
+    expect(out.businessObjective.marketing).toContain('قرارات الشراء')
+    expect(out.businessObjective.successIn30Days).toContain('خط أساس')
+    expect(out.businessObjective.successIn30Days).toContain('نية الشراء')
+  })
+
+  it('turns an engagement goal into a measurable response-quality decision rule', () => {
+    const out = guardStrategyOutputContract({
+      businessObjective: {
+        primary: 'Increase engagement',
+        marketing: 'Post consistently',
+        conversionAction: 'Reply or save',
+        expectedUserAction: 'Respond to the message',
+        whyNow: 'The launch needs audience feedback',
+        successIn30Days: 'Improve engagement',
+      },
+    }, { goal: 'ENGAGEMENT', language: 'en' })
+
+    expect(out.businessObjective.marketing).toContain('relevant responses')
+    expect(out.businessObjective.successIn30Days).toContain('baseline')
+    expect(out.businessObjective.successIn30Days).toContain('continue')
+    expect(validateCampaignStrategyContract({
+      campaignName: 'placeholder',
+      goal: 'ENGAGEMENT',
+      positioning: 'placeholder',
+      keyMessage: 'placeholder',
+      differentiation: 'placeholder',
+      targetAudienceRefined: 'placeholder',
+      diagnosis: 'placeholder',
+      businessStage: 'active',
+      businessObjective: out.businessObjective,
+    }).weakFields).not.toContain('businessObjective.measurableSuccessDefinition')
+  })
+
+  it('repairs a vague success definition when the saved sales goal is a natural-language phrase', () => {
+    const out = guardStrategyOutputContract({
+      businessObjective: {
+        primary: 'Grow the brand',
+        marketing: 'Validate market interest',
+        conversionAction: 'Review the collection',
+        expectedUserAction: 'Compare the offer',
+        whyNow: 'The brand needs evidence before production',
+        successIn30Days: 'Validate market interest and engagement',
+      },
+    }, { goal: 'Increase online sales', language: 'bilingual' })
+
+    expect(out.businessObjective.marketing).toContain('purchase decisions')
+    expect(out.businessObjective.successIn30Days).toContain('baseline')
+    expect(validateCampaignStrategyContract({
+      campaignName: 'placeholder',
+      goal: 'Increase online sales',
+      positioning: 'placeholder',
+      keyMessage: 'placeholder',
+      differentiation: 'placeholder',
+      targetAudienceRefined: 'placeholder',
+      diagnosis: 'placeholder',
+      businessStage: 'active',
+      businessObjective: out.businessObjective,
+    }).weakFields).not.toContain('businessObjective.measurableSuccessDefinition')
   })
 
   it('keeps budgetPercent available for paid planning mode', () => {
@@ -193,6 +339,159 @@ describe('guardStrategyOutputContract', () => {
     expect(report.countViolations).toEqual([])
   })
 
+  it('replaces duplicate quoted directions with distinct labelled hypotheses and rebuilds the weekly plan', () => {
+    const out = guardStrategyOutputContract({
+      contentAnglesDetailed: [
+        { title: 'ثقة في جودة المنتج', hook: 'راجعي تفاصيل الجودة', platform: 'Instagram', format: 'Post' },
+        { title: 'تجربة شراء واضحة', hook: 'راجعي خطوات الشراء', platform: 'Instagram', format: 'Post' },
+        { title: 'ثقة في جودة المنتج', hook: 'راجعي تفاصيل الجودة', platform: 'TikTok', format: 'Video' },
+        { title: 'تجربة شراء واضحة', hook: 'راجعي خطوات الشراء', platform: 'TikTok', format: 'Video' },
+      ],
+      weeklyExecutionPlan: [
+        { week: 1, deliverables: ['2 منشورات: ثقة في جودة المنتج'] },
+        { week: 2, deliverables: ['2 منشورات: تجربة شراء واضحة'] },
+      ],
+    }, {
+      allowedPlatforms: ['INSTAGRAM', 'TIKTOK'],
+      organicPostCount: 4,
+      language: 'bilingual',
+    }) as any
+
+    expect(out.contentAnglesDetailed).toHaveLength(4)
+    expect(new Set(out.contentAnglesDetailed.map((item: any) => item.title))).toHaveProperty('size', 4)
+    expect(out.contentAnglesDetailed.slice(2).every((item: any) => /فرضية اتجاه المحتوى/.test(item.title))).toBe(true)
+    expect(weeklyCount(out.weeklyExecutionPlan)).toBe(4)
+    expect(out.weeklyExecutionPlan.flatMap((week: any) => week.deliverables).join('\n'))
+      .toMatch(/فرضية اتجاه المحتوى/)
+  })
+
+  it('repairs a short reviewed order with grounded audience directions instead of filler placeholders', () => {
+    const out = guardStrategyOutputContract({
+      audienceSegmentsDetailed: [{
+        segment: 'نساء في الإمارات يراجعن خيارات محتشمة',
+        pain: 'صعوبة تقييم الملاءمة للاستخدام اليومي',
+        desiredOutcome: 'اختيار أوضح مبني على تفاصيل المنتج',
+        objection: 'لا أعرف أي تفاصيل أراجع قبل الاختيار',
+      }],
+      contentAnglesDetailed: [
+        { title: 'تفاصيل الاستخدام اليومي', hook: 'راجعي التفاصيل المتاحة', platform: 'Instagram' },
+        { title: 'تفاصيل الاستخدام اليومي', hook: 'راجعي التفاصيل المتاحة', platform: 'TikTok' },
+      ],
+      weeklyExecutionPlan: [],
+    }, {
+      allowedPlatforms: ['INSTAGRAM', 'TIKTOK'],
+      organicPostCount: 4,
+      language: 'bilingual',
+    }) as any
+
+    expect(out.contentAnglesDetailed).toHaveLength(4)
+    expect(new Set(out.contentAnglesDetailed.map((item: any) => item.title))).toHaveProperty('size', 4)
+    expect(JSON.stringify(out.contentAnglesDetailed)).not.toMatch(/فرضية اتجاه المحتوى|content direction hypothesis/i)
+    expect(JSON.stringify(out.contentAnglesDetailed)).not.toMatch(/تفاصيل العرض المرتبطة بالاحتياج\s+\d|قائمة مراجعة الاختيار\s+\d/i)
+    expect(JSON.stringify(out.contentAnglesDetailed)).toMatch(/صعوبة تقييم الملاءمة|اختيار أوضح/)
+    expect(weeklyCount(out.weeklyExecutionPlan)).toBe(4)
+  })
+
+  it('keeps a ten-direction grounded repair unique through the marketing quality gate', () => {
+    const out = guardStrategyOutputContract({
+      audienceSegmentsDetailed: [{
+        segment: 'نساء في الإمارات يراجعن خيارات محتشمة',
+        pain: 'صعوبة تقييم الملاءمة للاستخدام اليومي',
+        desiredOutcome: 'اختيار أوضح مبني على تفاصيل المنتج',
+        objection: 'لا أعرف أي تفاصيل أراجع قبل الاختيار',
+      }],
+      contentAnglesDetailed: [
+        { title: 'تفاصيل الاستخدام اليومي', hook: 'راجعي التفاصيل المتاحة', platform: 'Instagram' },
+        { title: 'تفاصيل الاستخدام اليومي', hook: 'راجعي التفاصيل المتاحة', platform: 'TikTok' },
+      ],
+      weeklyExecutionPlan: [],
+    }, {
+      allowedPlatforms: ['INSTAGRAM', 'TIKTOK'],
+      organicPostCount: 10,
+      language: 'bilingual',
+    }) as any
+
+    expect(out.contentAnglesDetailed).toHaveLength(10)
+    expect(new Set(out.contentAnglesDetailed.map((item: any) => item.title))).toHaveProperty('size', 10)
+    expect(new Set(out.contentAnglesDetailed.map((item: any) => item.hook))).toHaveProperty('size', 10)
+    expect(weeklyCount(out.weeklyExecutionPlan)).toBe(10)
+
+    const report = reviewStrategyGrounding({
+      strategy: out,
+      brand: {
+        brandName: 'NOORAYA',
+        targetAudience: 'نساء في الإمارات يراجعن خيارات محتشمة',
+      },
+      allowedPlatforms: ['INSTAGRAM', 'TIKTOK'],
+      requireAllReviewedPlatforms: true,
+      goal: 'SALES',
+    })
+    expect(report.blockers.map(item => item.code)).not.toContain('duplicate_content_direction')
+  })
+
+  it('turns unverified quality guarantees into documented-detail review tasks', () => {
+    const out = guardStrategyOutputContract({
+      keyMessage: 'راجعي خطوات الشراء المتاحة مع ضمان جودة نورايا.',
+      contentAnglesDetailed: [{
+        title: 'تعرفي على جودة عبايات نورايا.',
+        hook: 'اكتشفي جودة المجموعة قبل الاختيار.',
+        platform: 'Instagram',
+      }],
+    }, {
+      allowedPlatforms: ['INSTAGRAM'],
+      organicPostCount: 1,
+      language: 'ar',
+    }) as any
+
+    expect(JSON.stringify(out)).not.toMatch(/ضمان\s+جودة|تعر[ّ]?في\s+على\s+جودة|اكتشفي\s+جودة/i)
+    expect(JSON.stringify(out)).toMatch(/التفاصيل الموثقة/)
+  })
+
+  it('turns unverified shopping and sizing assurances into review tasks', () => {
+    const out = guardStrategyOutputContract({
+      audienceSegmentsDetailed: [{
+        segment: 'نساء يتسوقن عبر الإنترنت',
+        message: 'نحن نقدم تفاصيل دقيقة للمقاسات لتسهيل اختيارك.',
+      }],
+      contentAnglesDetailed: [{
+        title: 'تجربة شراء آمنة',
+        hook: 'استمتعي بتجربة شراء سلسة.',
+        platform: 'Instagram',
+      }],
+      funnelStages: [{
+        stage: 'Conversion',
+        message: 'Easy and secure buying process',
+        conversionAction: 'Drive traffic to the product page',
+        cta: 'تسوقي الآن',
+        platform: 'Instagram',
+      }],
+    }, {
+      allowedPlatforms: ['INSTAGRAM'],
+      organicPostCount: 1,
+      language: 'ar',
+      hasConversionDestination: false,
+    }) as any
+
+    expect(JSON.stringify(out)).not.toMatch(/تجربة\s+شراء\s+(?:آمنة|سلسة)|تفاصيل\s+(?:دقيقة|موثوقة)\s+للمقاسات|easy\s+and\s+secure\s+buying\s+process|تسوقي\s+الآن|drive\s+traffic\s+to\s+the\s+product\s+page/i)
+    expect(JSON.stringify(out)).toMatch(/يلزم توثيقها ومراجعتها|المطلوبة قبل الاختيار/)
+    expect(out.funnelStages[0].cta).toMatch(/[\u0600-\u06ff]/)
+    expect(JSON.stringify(out)).not.toMatch(/workflow/i)
+  })
+
+  it('labels channel traffic claims as hypotheses instead of market facts', () => {
+    const out = guardStrategyOutputContract({
+      channelMix: [{
+        platform: 'Pinterest',
+        rationale: 'Pinterest is ideal for visual content and can drive traffic to the product page.',
+      }],
+    }, {
+      allowedPlatforms: ['PINTEREST'],
+      language: 'en',
+    }) as any
+
+    expect(out.channelMix[0].rationale).toMatch(/^Planning hypothesis to validate, not a market fact:/)
+  })
+
   it('forces generated readiness checklist items to review-safe not-done states', () => {
     const out = guardStrategyOutputContract({
       readinessChecklist: [
@@ -290,7 +589,7 @@ describe('guardStrategyOutputContract', () => {
     expect(out.contentAnglesDetailed[0].cta).toBe('Request more information')
     expect(out.funnelStages[0].platform).toBe('Facebook')
     expect(out.funnelStages[0].cta).toBe('Request more information')
-    expect(out.channelMix.map((c: any) => c.platform)).toEqual(['Facebook', 'YouTube Shorts'])
+    expect(out.channelMix.map((c: any) => c.platform)).toEqual(['Facebook', 'YouTube Shorts', 'Instagram'])
     expect(out.weeklyExecutionPlan[0].platforms).toEqual(['Facebook', 'YouTube Shorts'])
   })
 
@@ -893,8 +1192,8 @@ describe('strategy runtime copy contract', () => {
     expect(modal).toContain('Review cost and confirm')
     expect(modal).toContain('Review cost —')
     expect(modal).not.toContain('{rs.langStartBtn}')
-    expect(campaignPage).toContain('guardStrategyOutputContract(guardedAiOutput?.strategy || {}, {')
-    expect(campaignPage).toContain('hasConversionDestination: Boolean((brandDNA as any)?.conversionDestination)')
+    expect(campaignPage).toContain('guardStrategyTruthContract(\n    guardedAiOutput?.strategy || {},')
+    expect(campaignPage).toContain('hasConversionDestination: hasUsableConversionDestination((brandDNA as any)?.conversionDestination, campaign.goal)')
   })
 
   it('keeps paid-only campaign pages separate from the organic content-plan workflow', () => {

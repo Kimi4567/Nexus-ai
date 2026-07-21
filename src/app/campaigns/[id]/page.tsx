@@ -37,12 +37,15 @@ import {
   campaignRoomTabKeyFromIndex,
 } from '@/lib/campaignRoomTabs'
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
-import { normalizeStrategyEvidenceLedger } from '@/lib/strategy/strategyEvidenceLedger'
+import {
+  normalizeStrategyEvidenceLedger,
+} from '@/lib/strategy/strategyEvidenceLedger'
 import { summarizeCreativeRequirements } from '@/lib/creativeRequirements'
-import { formatStrategyPlatformLabel, guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
+import { formatStrategyPlatformLabel } from '@/lib/ai/strategyOutputContractGuard'
 import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import { guardStrategyProofText } from '@/lib/ai/strategyProofGuard'
+import { guardStrategyTruthContract } from '@/lib/ai/strategyTruthContractGuard'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { deriveStrategyRoomStateCopy } from '@/lib/strategyRoomStateCopy'
 import { derivePlatformReadiness, type PlatformState } from '@/lib/platformReadiness'
@@ -53,6 +56,9 @@ import { buildStrategySnapshot } from '@/lib/strategy/strategySnapshot'
 import type { StrategyApprovalState } from '@/lib/strategyApproval'
 import { validateCampaignStrategyContract } from '@/lib/campaignStrategyContract'
 import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
+import { hasUsableConversionDestination } from '@/lib/strategyBriefReadiness'
+import { buildStrategyProofContextFromBrand } from '@/lib/strategy/strategyProofContext'
+import { postLimitReachedMessage } from '@/lib/postLimitMessage'
 
 interface Activity {
   id: string
@@ -1004,7 +1010,10 @@ function CampaignDetailPageInner() {
       const approveRes = await fetch(`/api/campaigns/${campaignId}/strategy-approval`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: token },
-        body: JSON.stringify({ action: 'approve' }),
+        body: JSON.stringify({
+          action: 'approve',
+          expectedStrategyUpdatedAt: campaign.updatedAt,
+        }),
       })
       const approveData = await approveRes.json()
       if (!approveRes.ok || approveData.approval?.state !== 'approved') {
@@ -1038,9 +1047,13 @@ function CampaignDetailPageInner() {
             setUpgradeReason('no_credits')
             setShowUpgrade(true)
           } else if (genData.error === 'POST_LIMIT_REACHED') {
-            setLaunchError(locale === 'ar'
-              ? `وصلت إلى حد الخطة الشهري (${genData.limit ?? 0} منشورات). استُخدم ${genData.current ?? 0}، بينما تحتاج هذه الخطة ${genData.requested ?? 0}. راجع الباقة قبل إعادة المحاولة.`
-              : `Your monthly plan limit is ${genData.limit ?? 0} posts. ${genData.current ?? 0} are already used and this plan needs ${genData.requested ?? 0}. Review your plan before retrying.`)
+            setLaunchError(postLimitReachedMessage({
+              locale,
+              limit: genData.limit ?? 0,
+              current: genData.current ?? 0,
+              requested: genData.requested ?? 0,
+              resetsAt: genData.resetsAt,
+            }))
           } else {
             setLaunchError(
               locale === 'ar' && typeof genData.messageAr === 'string'
@@ -1267,28 +1280,26 @@ function CampaignDetailPageInner() {
   const strategyDocText = (ar: string, en: string): string => strategyDocIsArabic ? ar : en
   const uiIsArabic = locale === 'ar'
   const uiText = (ar: string, en: string): string => uiIsArabic ? ar : en
-  const proofContext = {
-    verifiedProof: Array.isArray((brandDNA as any)?.verifiedProof) ? (brandDNA as any).verifiedProof : [],
-    allowedClaimText: [
-      (brandDNA as any)?.description,
-      (brandDNA as any)?.primaryOffer,
-      (brandDNA as any)?.pricePoint,
-      ...(Array.isArray((brandDNA as any)?.uniqueAdvantages) ? (brandDNA as any).uniqueAdvantages : []),
-      (brandDNA as any)?.complianceNotes,
-      ...(Array.isArray((brandDNA as any)?.verifiedProof) ? (brandDNA as any).verifiedProof : []),
-    ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
-  }
+  const { recordedProof, proofContext } = buildStrategyProofContextFromBrand(brandDNA as any)
   const guardedAiOutput = guardStrategyProof(aiOutput || {}, proofContext) as any
-  const strategy = guardStrategyKpis(
-    guardStrategyOutputContract(guardedAiOutput?.strategy || {}, {
+  const stableStrategy = guardStrategyTruthContract(
+    guardedAiOutput?.strategy || {},
+    proofContext,
+    {
       allowedPlatforms: campaign.platforms,
       language: strategyLanguage,
       strategyType: strategyScope.type,
+      organicPostCount: typeof aiOutput?.strategyDeliverables?.organicPostCount === 'number'
+        ? aiOutput.strategyDeliverables.organicPostCount
+        : null,
       hasLeadHandling: Boolean((brandDNA as any)?.leadHandling),
-      hasConversionDestination: Boolean((brandDNA as any)?.conversionDestination),
+      hasConversionDestination: hasUsableConversionDestination((brandDNA as any)?.conversionDestination, campaign.goal),
       allowedCompetitors: Array.isArray((brandDNA as any)?.competitors) ? (brandDNA as any).competitors : [],
       goal: campaign.goal,
-    }) as Record<string, unknown>,
+    },
+  ) as Record<string, unknown>
+  const strategy = guardStrategyKpis(
+    stableStrategy,
     [(brandDNA as any)?.marketingBudget, (brandDNA as any)?.pastAdResults]
       .filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
     { language: strategyLanguage },
@@ -1306,9 +1317,15 @@ function CampaignDetailPageInner() {
   })
   const openSentinelReview = () => {
     if (!strategyContractReport.valid) {
+      const contractIssues = [
+        ...strategyContractReport.missingFields,
+        ...strategyContractReport.weakFields,
+        ...strategyContractReport.languageViolations,
+        ...strategyContractReport.countViolations,
+      ].slice(0, 4).join(', ')
       setSentinelError(uiIsArabic
-        ? 'هذه الاستراتيجية لا تطابق المخرجات المحفوظة في أمرها. أعد بناء حزمة الحملة قبل فحص الجودة؛ لن يُخصم أي كريديت.'
-        : 'This strategy no longer matches its saved order. Rebuild the campaign package before quality review; no credits will be charged.')
+        ? `هذه الاستراتيجية لا تطابق المخرجات المحفوظة في أمرها (${contractIssues || 'عقد الجودة'}). راجع إعادة بناء الحزمة قبل الفحص؛ لن يُخصم أي كريديت الآن.`
+        : `This strategy no longer matches its saved order (${contractIssues || 'quality contract'}). Review the package rebuild before quality review; no credits will be charged now.`)
       return
     }
     setShowSentinelConfirm(true)
@@ -2862,7 +2879,7 @@ function CampaignDetailPageInner() {
                           className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-slate-50"
                           style={{ color: '#334155' }}
                         >
-                          {`⬇ ${cdT?.btnExportPdf || 'Export PDF'}`}
+                          {locale === 'ar' ? '⬇ فتح مستند التسليم' : '⬇ Open delivery document'}
                         </button>
                         <div className="h-px mx-3 bg-slate-100" />
                         <button
@@ -3370,6 +3387,14 @@ function CampaignDetailPageInner() {
                   || approvalState === 'approving'
                   || launchState === 'approving'
                   || launchState === 'generating'}
+                nextActionError={sentinelState === 'idle' ? sentinelError : null}
+                nextActionRecoveryLabel={uiText('راجع إعادة بناء الحزمة', 'Review package rebuild')}
+                onNextActionRecovery={!strategyContractReport.valid && !engineRebuildStatusPending && !engineRebuildLockedByProgress
+                  ? () => {
+                      setEngineRebuildAcknowledged(false)
+                      setShowEngineRebuildModal(true)
+                    }
+                  : undefined}
                 qualityState={sentinelStatus}
                 locale={uiIsArabic ? 'ar' : 'en'}
                 onReadDocument={() => setShowStrategyDocument(true)}
@@ -3521,9 +3546,21 @@ function CampaignDetailPageInner() {
                           {uiText('اقرأ وثيقة الاستراتيجية', 'Read strategy document')}
                         </button>
                         {sentinelError && sentinelState === 'idle' && (
-                          <p role="alert" className="max-w-sm rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-700">
-                            {sentinelError}
-                          </p>
+                          <div role="alert" className="max-w-md rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-700">
+                            <p>{sentinelError}</p>
+                            {!strategyContractReport.valid && !engineRebuildStatusPending && !engineRebuildLockedByProgress && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEngineRebuildAcknowledged(false)
+                                  setShowEngineRebuildModal(true)
+                                }}
+                                className="mt-2 rounded-lg border border-rose-300 bg-white px-3 py-1.5 font-bold text-rose-800 transition hover:bg-rose-100"
+                              >
+                                {uiText('راجع إعادة بناء الحزمة', 'Review package rebuild')}
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>

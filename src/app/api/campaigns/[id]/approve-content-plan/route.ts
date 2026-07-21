@@ -219,7 +219,11 @@ export async function POST(req: NextRequest, props: Params) {
             ...(match ? { integrationId: match.integrationId, pageId: match.pageId } : {}),
           },
         })
-        if (changed.count === 1) approvedIds.push(postId)
+        // Bulk copy approval is one human decision. A concurrent edit to any
+        // reviewed draft invalidates the whole batch; partial approval would
+        // leave the UI and immutable snapshot describing different scopes.
+        if (changed.count !== 1) throw new Error('CONTENT_APPROVAL_CONCURRENT_CHANGE')
+        approvedIds.push(postId)
       }
 
       if (approvedIds.length === 0) return { approvedIds, snapshot: null, history: [] as typeof plan.history }
@@ -308,6 +312,12 @@ export async function POST(req: NextRequest, props: Params) {
       message,
     })
   } catch (err: any) {
+    if (err instanceof Error && err.message === 'CONTENT_APPROVAL_CONCURRENT_CHANGE') {
+      return NextResponse.json({
+        error: 'A draft changed during approval. Reload and review the complete copy plan again.',
+        code: 'CONTENT_APPROVAL_CONCURRENT_CHANGE',
+      }, { status: 409 })
+    }
     console.error('[approve-content-plan POST]', err)
     return NextResponse.json({ error: 'Failed to approve content plan' }, { status: 500 })
   }
@@ -334,7 +344,7 @@ export async function DELETE(req: NextRequest, props: Params) {
         status: { in: ['APPROVED', 'SCHEDULED'] },
         publishedAt: null,
       },
-      select: { id: true, status: true },
+      select: { id: true, status: true, updatedAt: true },
     })
 
     const plan = planRevert(
@@ -342,27 +352,36 @@ export async function DELETE(req: NextRequest, props: Params) {
       { actor: 'USER' }
     )
 
-    for (const u of plan.updates) {
-      await (prisma.socialPost as any).update({
-        where: { id: u.id },
-        data: {
-          status: u.data.status,
-          approvedAt: u.data.approvedAt ?? null,
-          approvedSnapshotId: null,
-          mediaApprovalSnapshotId: null,
-          scheduledSnapshotId: null,
-        },
-      })
-    }
-    if (plan.history.length > 0) {
-      await (prisma as any).postStatusHistory
-        .createMany({ data: plan.history })
-        .catch((e: any) => console.error('[approve-content-plan revert] history write failed', e?.message))
-    }
+    const revertResult = await prisma.$transaction(async (tx) => {
+      for (const u of plan.updates) {
+        const source = livePosts.find((post: any) => post.id === u.id)
+        if (!source) throw new Error('CONTENT_REVERT_CONCURRENT_CHANGE')
+        const changed = await tx.socialPost.updateMany({
+          where: {
+            id: u.id,
+            campaignId: campaign.id,
+            workspaceId: campaign.workspaceId,
+            status: source.status,
+            publishedAt: null,
+            updatedAt: source.updatedAt,
+          },
+          data: {
+            status: u.data.status,
+            approvedAt: u.data.approvedAt ?? null,
+            approvedSnapshotId: null,
+            mediaApprovalSnapshotId: null,
+            scheduledSnapshotId: null,
+          },
+        })
+        if (changed.count !== 1) throw new Error('CONTENT_REVERT_CONCURRENT_CHANGE')
+      }
+      if (plan.history.length > 0) await tx.postStatusHistory.createMany({ data: plan.history })
+      return { history: plan.history, reverted: plan.updates.length }
+    })
 
     // Brand Brain (PR1): capture unschedule / revert events from the actual transitions.
     const revertEvents = buildLearningEvents(
-      plan.history.map((h: any) => ({
+      revertResult.history.map((h: any) => ({
         workspaceId: h.workspaceId,
         campaignId: campaign.id,
         socialPostId: h.socialPostId,
@@ -378,8 +397,14 @@ export async function DELETE(req: NextRequest, props: Params) {
         .catch((e: any) => console.error('[approve-content-plan revert] learning event write failed', e?.message))
     }
 
-    return NextResponse.json({ success: true, reverted: plan.changed })
+    return NextResponse.json({ success: true, reverted: revertResult.reverted })
   } catch (err: any) {
+    if (err instanceof Error && err.message === 'CONTENT_REVERT_CONCURRENT_CHANGE') {
+      return NextResponse.json({
+        error: 'A post changed while approval was being revoked. Reload before trying again.',
+        code: 'CONTENT_REVERT_CONCURRENT_CHANGE',
+      }, { status: 409 })
+    }
     console.error('[approve-content-plan DELETE]', err)
     return NextResponse.json({ error: 'Failed to revert approval' }, { status: 500 })
   }

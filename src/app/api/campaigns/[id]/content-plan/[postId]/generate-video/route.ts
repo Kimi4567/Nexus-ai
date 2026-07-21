@@ -69,6 +69,7 @@ import {
   type ProfessionalCampaignFilmBrief,
 } from '@/lib/professionalCampaignFilm'
 import { renderAndPersistProfessionalCampaignFilm } from '@/lib/professionalCampaignFilm.server'
+import { sourceLinkedProofStatements } from '@/lib/strategy/strategyEvidenceLedger'
 
 // Completion includes durable video upload plus a three-frame visual review.
 // Keep this server-side verification window independent from browser polling.
@@ -429,7 +430,7 @@ export async function POST(req: NextRequest, props: Params) {
     brandName: brand?.brandName || campaign.name,
     description: brand?.description,
     primaryOffer: brand?.primaryOffer,
-    verifiedProof: brand?.verifiedProof,
+    verifiedProof: sourceLinkedProofStatements(brand?.verifiedProof),
     uniqueAdvantages: brand?.uniqueAdvantages,
     caption: post.caption,
     videoDirection: post.videoPrompt,

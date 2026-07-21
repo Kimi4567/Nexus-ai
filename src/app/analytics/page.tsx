@@ -26,8 +26,9 @@ import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { formatCreditDisplay } from '@/lib/creditDisplay'
-import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
+import { fetchWithTimeout, PRODUCT_READ_TIMEOUT_MS } from '@/lib/fetchWithTimeout'
 import { ErrorState } from '@/components/ui/ErrorState'
+import type { FirstPartyMeasurementSummary } from '@/lib/firstPartyMeasurement'
 
 interface MonthActivity {
   label: string
@@ -95,6 +96,7 @@ interface OverviewData {
     }>
     lastUpdatedAt: string | null
   }
+  firstParty: FirstPartyMeasurementSummary | null
 }
 
 interface SystemInsight {
@@ -127,6 +129,10 @@ function formatNum(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
   if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`
   return String(value)
+}
+
+function formatRate(value: number | null | undefined): string {
+  return typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(2)}%` : '—'
 }
 
 function MetricCard({
@@ -259,9 +265,9 @@ export default function AnalyticsPage() {
     try {
       const headers = { Authorization: authHeader() }
       const [overviewResult, insightsResult, learningResult] = await Promise.allSettled([
-        fetchWithTimeout('/api/analytics/overview', { headers }, 8_000),
-        fetchWithTimeout('/api/analytics/insights', { headers }, 8_000),
-        fetchWithTimeout('/api/learning/overview', { headers }, 8_000),
+        fetchWithTimeout('/api/analytics/overview', { headers }, PRODUCT_READ_TIMEOUT_MS),
+        fetchWithTimeout('/api/analytics/insights', { headers }, PRODUCT_READ_TIMEOUT_MS),
+        fetchWithTimeout('/api/learning/overview', { headers }, PRODUCT_READ_TIMEOUT_MS),
       ])
 
       if (overviewResult.status !== 'fulfilled' || !overviewResult.value.ok) {
@@ -308,17 +314,20 @@ export default function AnalyticsPage() {
       ? ar ? 'منشور، بانتظار تحليلات المنصة' : 'Published, awaiting platform analytics'
       : ar ? 'لا توجد بيانات أداء بعد' : 'No performance data yet'
 
+  const hasFirstPartyMeasurement = Boolean(overview?.firstParty && overview.firstParty.stage !== 'empty')
+  const hasAnyMeasurement = Boolean(overview?.performance.hasEvidence || hasFirstPartyMeasurement)
+
   const pendingLearningReview = learning?.counts.pendingReview ?? 0
   const resultsPrimaryHref = pendingLearningReview > 0
     ? '/approvals'
-    : overview?.performance.hasEvidence
+    : hasAnyMeasurement
       ? '/learning'
-      : '/connections'
+      : '/landing-pages'
   const resultsPrimaryLabel = pendingLearningReview > 0
     ? (ar ? 'مراجعة اقتراحات التعلّم' : 'Review learning proposals')
-    : overview?.performance.hasEvidence
+    : hasAnyMeasurement
       ? (ar ? 'مراجعة التعلّم' : 'Review learning')
-      : (ar ? 'ربط مصدر قياس' : 'Connect measurement source')
+      : (ar ? 'إنشاء مسار قابل للقياس' : 'Create measurable path')
 
   if (authLoading) {
     return (
@@ -372,7 +381,7 @@ export default function AnalyticsPage() {
           <LuxuryWorkspaceHeader
             journeyStage="results"
             pageTitle={ar ? 'النتائج والتعلّم' : 'Results & learning'}
-            pageSubtitle={ar ? 'أداء موثّق من المنصات، ثم اقتراحات تعلّم يراجعها المستخدم قبل اعتمادها.' : 'Verified platform performance, then user-reviewed learning proposals.'}
+            pageSubtitle={ar ? 'قياس First-party مستقل عن تصاريح المنصات، وأداء منصة موثّق عند توفره، ثم تعلّم يراجعه المستخدم.' : 'First-party measurement without platform permissions, verified platform data when available, then user-reviewed learning.'}
             primaryHref={resultsPrimaryHref}
             primaryLabel={resultsPrimaryLabel}
             secondaryHref="/calendar?tab=queue"
@@ -384,16 +393,16 @@ export default function AnalyticsPage() {
               <p className="text-[13px] font-black text-[#0B1028]">
                 {pendingLearningReview > 0
                   ? (ar ? `${pendingLearningReview} اقتراحات تعلّم تنتظر قرارك` : `${pendingLearningReview} learning proposals await your decision`)
-                  : overview?.performance.hasEvidence
+                  : hasAnyMeasurement
                     ? (ar ? 'يوجد أداء موثّق صالح للمراجعة' : 'Verified performance is ready for review')
                     : (ar ? 'التعلّم من الأداء مغلق حتى وصول قياس حقيقي' : 'Performance learning is locked until real measurement arrives')}
               </p>
               <p className="mt-1 max-w-3xl text-[11px] font-semibold leading-5 text-slate-500">
                 {pendingLearningReview > 0
                   ? (ar ? 'لا يغيّر NEXUS ذاكرة البراند تلقائياً؛ راجع الدليل والتغيير المقترح أولاً.' : 'NEXUS never changes brand memory automatically; review the evidence and proposed change first.')
-                  : overview?.performance.hasEvidence
+                  : hasAnyMeasurement
                     ? (ar ? 'النتائج وصفية حتى تُراجع الفرضية والدليل؛ لا يدّعي النظام سببية غير مثبتة.' : 'Results remain descriptive until hypothesis and evidence are reviewed; no unsupported causality is claimed.')
-                    : (ar ? 'سجل التشغيل ليس نتيجة تسويقية. اربط تحليلات المنصة قبل KPI أو ROAS أو التعلّم.' : 'Workflow activity is not a marketing outcome. Connect platform analytics before KPI, ROAS, or learning.')}
+                    : (ar ? 'ابدأ بصفحة هبوط ونموذج ورابط UTM. لا تحتاج هذه الخطوة إلى تصريح منصة.' : 'Start with a landing page, form, and UTM URL. This does not require platform permission.')}
               </p>
               <p className="mt-1 text-[10px] font-bold text-slate-400">
                 {ar
@@ -459,6 +468,51 @@ export default function AnalyticsPage() {
                 {ar ? 'إدارة مصادر البيانات' : 'Manage data sources'}
               </Link>
             </div>
+          </section>
+
+          <section className="nx-os-card mb-5 p-5" aria-labelledby="first-party-measurement-title">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 id="first-party-measurement-title" className="text-[18px] font-black text-[#071236]">{ar ? 'مسار التحويل First-party' : 'First-party conversion path'}</h2>
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[9px] font-black text-emerald-700">{ar ? 'لا يحتاج تصريح منصة' : 'No platform permission required'}</span>
+                </div>
+                <p className="mt-1 max-w-3xl text-[11px] font-semibold leading-5 text-[#73809a]">
+                  {ar ? 'الزيارة والضغط إشارات متصفح؛ إرسال النموذج يؤكده الخادم؛ WON وقيمة الصفقة يؤكدهما مسؤول من الـCRM.' : 'Page views and clicks are browser signals; form submissions are server-confirmed; WON outcomes and values are confirmed by a CRM operator.'}
+                </p>
+              </div>
+              <Link href="/landing-pages" className="inline-flex h-10 items-center gap-2 rounded-[13px] bg-[#071236] px-4 text-[11px] font-black text-white">{ar ? 'إدارة وجهات التحويل' : 'Manage destinations'}<ArrowUpRight className="h-4 w-4" /></Link>
+            </div>
+
+            {dataLoading ? (
+              <div className="mt-5 grid gap-3 md:grid-cols-3 xl:grid-cols-6">{[1,2,3,4,5,6].map(item => <div key={item} className="h-24 animate-pulse rounded-[16px] bg-slate-100" />)}</div>
+            ) : overview?.firstParty ? (
+              <>
+                {overview.firstParty.coverage.partial ? <div className="mt-4 rounded-[14px] border border-amber-100 bg-amber-50 px-4 py-3 text-[10px] font-bold text-amber-800">{ar ? 'العرض جزئي؛ تم إيقاف أي استنتاج اتجاهي حتى تضييق الفترة أو إضافة تجميع تقريري.' : 'This view is partial; directional conclusions are withheld until the period is narrowed or reporting aggregation is added.'}</div> : null}
+                <div className="mt-5 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+                  {[
+                    [ar ? 'زيارات مسجلة' : 'Tracked views', formatNum(overview.firstParty.funnel.pageViews), 'CLIENT_REPORTED'],
+                    [ar ? 'ضغطات CTA' : 'CTA clicks', formatNum(overview.firstParty.funnel.ctaClicks), formatRate(overview.firstParty.funnel.ctaRate)],
+                    [ar ? 'نماذج مؤكدة' : 'Confirmed forms', formatNum(overview.firstParty.funnel.confirmedForms), 'SERVER_CONFIRMED'],
+                    [ar ? 'معدل صفحة ← Lead' : 'Page → lead rate', formatRate(overview.firstParty.funnel.pageToLeadRate), 'SERVER_CONFIRMED'],
+                    [ar ? 'عملاء مكتسبون' : 'Won leads', formatNum(overview.firstParty.funnel.wonLeads), 'MANUAL_CONFIRMED'],
+                    [ar ? 'Lead ← مكتسب' : 'Lead → won rate', formatRate(overview.firstParty.funnel.leadToWonRate), 'MANUAL_CONFIRMED'],
+                  ].map(([label, value, helper]) => <article key={label} className="rounded-[16px] border border-[#e8edf5] bg-[#fbfcff] p-4"><p className="text-[9px] font-black text-[#7b87a3]">{label}</p><p className="mt-2 text-[23px] font-black text-[#111b3f]">{value}</p><p className="mt-1 truncate font-mono text-[8px] font-bold text-[#929db1]">{helper}</p></article>)}
+                </div>
+
+                <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_0.8fr]">
+                  <div className="overflow-hidden rounded-[16px] border border-[#e8edf5]">
+                    <div className="border-b border-[#e8edf5] bg-[#f8faff] px-4 py-3 text-[10px] font-black text-[#53617b]">{ar ? 'الإسناد حسب UTM' : 'Attribution by UTM'}</div>
+                    {overview.firstParty.attribution.length ? <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-[10px]"><thead className="text-[#8a95aa]"><tr><th className="px-4 py-3 text-start">Source / Medium</th><th className="px-3 py-3 text-start">Campaign</th><th className="px-3 py-3 text-start">Views</th><th className="px-3 py-3 text-start">Forms</th><th className="px-3 py-3 text-start">Won</th></tr></thead><tbody>{overview.firstParty.attribution.slice(0, 8).map(row => <tr key={row.key} className="border-t border-[#eef2f8]"><td className="px-4 py-3 font-black text-[#233052]">{row.source}{row.medium ? ` / ${row.medium}` : ''}</td><td className="px-3 py-3 text-[#64708f]">{row.campaign || '—'}</td><td className="px-3 py-3 font-bold text-[#64708f]">{row.pageViews}</td><td className="px-3 py-3 font-bold text-[#64708f]">{row.confirmedForms}</td><td className="px-3 py-3 font-bold text-[#64708f]">{row.wonLeads}</td></tr>)}</tbody></table></div> : <p className="p-5 text-center text-[10px] font-bold text-[#8792aa]">{ar ? 'ستظهر المصادر بعد زيارة رابط يحمل UTM أو وصول Lead.' : 'Sources appear after a UTM-tagged visit or recorded lead.'}</p>}
+                  </div>
+                  <div className="rounded-[16px] border border-[#e8edf5] p-4">
+                    <h3 className="text-[12px] font-black text-[#233052]">{ar ? 'الإيراد المؤكد يدويًا' : 'Manually confirmed revenue'}</h3>
+                    <p className="mt-1 text-[9px] font-semibold leading-5 text-[#8792aa]">{ar ? 'لا نجمع العملات المختلفة ولا نقدّر قيمة ناقصة.' : 'Different currencies are never combined and missing value is never estimated.'}</p>
+                    <div className="mt-3 space-y-2">{overview.firstParty.revenueByCurrency.length ? overview.firstParty.revenueByCurrency.map(row => <div key={row.currency} className="flex items-center justify-between rounded-xl bg-emerald-50 px-3 py-3"><span className="text-[10px] font-black text-emerald-800">{row.currency}</span><span className="text-[15px] font-black text-emerald-800">{row.value.toLocaleString()} <small className="text-[8px]">· {row.outcomes} {ar ? 'نتيجة' : 'outcomes'}</small></span></div>) : <div className="rounded-xl bg-slate-50 p-4 text-center text-[10px] font-bold text-slate-500">{ar ? 'لا توجد قيمة صفقة مؤكدة بعد.' : 'No confirmed outcome value yet.'}</div>}</div>
+                  </div>
+                </div>
+              </>
+            ) : <div className="mt-5 rounded-[16px] bg-amber-50 p-4 text-[11px] font-bold text-amber-800">{ar ? 'طبقة القياس غير متاحة حتى يكتمل تحديث قاعدة البيانات.' : 'Measurement is unavailable until the database update is complete.'}</div>}
           </section>
 
           {dataLoading ? (

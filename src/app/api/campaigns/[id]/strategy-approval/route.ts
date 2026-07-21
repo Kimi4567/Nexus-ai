@@ -11,8 +11,14 @@ type Params = { params: Promise<{ id: string }> }
 
 function errorResponse(error: unknown) {
   if (error instanceof StrategyApprovalError) {
+    const message = error.code === 'STRATEGY_REVIEW_STALE'
+      ? 'The strategy changed after this review was opened. Reload and review the current revision before approval.'
+      : error.code === 'STRATEGY_APPROVAL_CONCURRENT_CHANGE'
+        ? 'The strategy changed during approval. Reload and review the current revision.'
+        : undefined
     return NextResponse.json({
       error: error.code,
+      ...(message ? { message } : {}),
       blockers: error.blockers,
     }, { status: error.status })
   }
@@ -38,9 +44,18 @@ export async function POST(req: NextRequest, props: Params) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const body = await req.json().catch(() => ({})) as { action?: unknown; reason?: unknown }
+    const body = await req.json().catch(() => ({})) as {
+      action?: unknown
+      reason?: unknown
+      expectedStrategyUpdatedAt?: unknown
+    }
     if (body.action === 'approve') {
-      const result = await approveCampaignStrategy(id, userId)
+      const result = await approveCampaignStrategy(
+        id,
+        userId,
+        'CAMPAIGN_REVIEW',
+        typeof body.expectedStrategyUpdatedAt === 'string' ? body.expectedStrategyUpdatedAt : null,
+      )
       return NextResponse.json({ approval: result.contract, unchanged: result.unchanged })
     }
     if (body.action === 'revoke') {

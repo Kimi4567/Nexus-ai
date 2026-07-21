@@ -3,7 +3,7 @@
   "buildCommand": "npx prisma generate && next build",
   "installCommand": "npm install",
   "outputDirectory": ".next",
-  "regions": ["iad1"],
+  "regions": ["lhr1"],
   "crons": [
     {
       "path": "/api/cron/publish",
@@ -119,7 +119,7 @@
       "maxDuration": 60
     },
     "src/app/api/campaigns/[id]/engine/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 180
     },
     "src/app/api/campaigns/[id]/paid-pack/generate/route.ts": {
       "maxDuration": 60
@@ -134,10 +134,10 @@
       "maxDuration": 180
     },
     "src/app/api/campaigns/[id]/generate-content-plan/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 180
     },
     "src/app/api/campaigns/[id]/generate-content-plan/generate/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "src/app/api/campaigns/[id]/approve-content-plan/route.ts": {
       "maxDuration": 60

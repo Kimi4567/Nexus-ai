@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
-    workspace: { findFirst: vi.fn() },
+    workspace: { findFirst: vi.fn(), findUnique: vi.fn() },
     campaign: { findMany: vi.fn() },
     brandProfile: { findUnique: vi.fn() },
-    socialPost: { groupBy: vi.fn(), findMany: vi.fn() },
+    socialPost: { groupBy: vi.fn(), findMany: vi.fn(), count: vi.fn() },
+    user: { findUnique: vi.fn() },
+    subscription: { findUnique: vi.fn() },
     marketingLearningEvent: { findMany: vi.fn() },
     adCampaign: { groupBy: vi.fn() },
   },
@@ -37,6 +39,10 @@ const campaignBase = {
 beforeEach(() => {
   vi.clearAllMocks()
   prismaMock.workspace.findFirst.mockResolvedValue({ id: 'w1' })
+  prismaMock.workspace.findUnique.mockResolvedValue({ ownerId: 'u1' })
+  prismaMock.user.findUnique.mockResolvedValue({ subscriptionStatus: 'PRO', role: 'USER' })
+  prismaMock.subscription.findUnique.mockResolvedValue(null)
+  prismaMock.socialPost.count.mockResolvedValue(0)
   prismaMock.brandProfile.findUnique.mockResolvedValue({
     workspaceId: 'w1',
     brandName: 'Reviewed Brand',

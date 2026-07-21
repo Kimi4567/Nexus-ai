@@ -10,6 +10,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { adminClient } from '@/lib/supabaseAuth'
+import { getCampaignDeliveryPackage } from '@/lib/campaignDeliveryPackageService'
+import type { buildCampaignDeliveryPackage } from '@/lib/campaignDeliveryPackage'
 
 function escapeHtml(value: unknown): string {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -33,12 +35,23 @@ interface ExportedSocialPost {
 }
 
 // ── HTML template ──────────────────────────────────────────────────────────────
-function buildCampaignHTML(campaign: any, socialPosts: ExportedSocialPost[]): string {
-  const strategy   = campaign.aiOutput?.strategy ?? campaign.aiOutput ?? campaign.strategy ?? {}
+type DeliveryManifest = ReturnType<typeof buildCampaignDeliveryPackage>
+
+function buildCampaignHTML(campaign: any, socialPosts: ExportedSocialPost[], delivery: DeliveryManifest): string {
+  const approvedCampaign = delivery.approvedStrategy?.campaign
+  const approvedAiOutput = approvedCampaign?.aiOutput
+  const approvedStrategyOrder = approvedAiOutput?.strategyOrder
+    && typeof approvedAiOutput.strategyOrder === 'object'
+    && !Array.isArray(approvedAiOutput.strategyOrder)
+    ? approvedAiOutput.strategyOrder as Record<string, unknown>
+    : {}
+  const strategy   = approvedAiOutput?.strategy ?? approvedAiOutput ?? campaign.aiOutput?.strategy ?? campaign.aiOutput ?? campaign.strategy ?? {}
   const concepts   = campaign.concepts   ?? []
   const generations = campaign.generations ?? []
   const storedLanguage = String(
-    campaign.aiOutput?.language
+    approvedAiOutput?.language
+      ?? approvedStrategyOrder.language
+      ?? campaign.aiOutput?.language
       ?? campaign.aiOutput?.strategyOrder?.language
       ?? strategy.language
       ?? 'en',
@@ -46,11 +59,12 @@ function buildCampaignHTML(campaign: any, socialPosts: ExportedSocialPost[]): st
   const isArabic = storedLanguage === 'ar'
   const direction = isArabic ? 'rtl' : 'ltr'
 
-  const campaignName = escapeHtml(campaign.name || 'Campaign')
-  const goal      = escapeHtml(campaign.goal ?? '—')
-  const audience  = escapeHtml(campaign.audience ?? '—')
+  const campaignName = escapeHtml(approvedCampaign?.name || campaign.name || 'Campaign')
+  const goal      = escapeHtml(approvedCampaign?.goal ?? campaign.goal ?? '—')
+  const audience  = escapeHtml(approvedCampaign?.audience ?? campaign.audience ?? '—')
   const tone      = escapeHtml(campaign.tone ?? '—')
-  const platforms = escapeHtml((campaign.platforms ?? []).join(', ') || '—')
+  const approvedPlatforms = Array.isArray(approvedCampaign?.platforms) ? approvedCampaign.platforms : campaign.platforms
+  const platforms = escapeHtml((approvedPlatforms ?? []).join(', ') || '—')
 
   // Strategy sections
   const positioning  = strategy.positioning  ?? strategy.brandPositioning  ?? ''
@@ -102,6 +116,13 @@ function buildCampaignHTML(campaign: any, socialPosts: ExportedSocialPost[]): st
   const generationsHTML = generations.length
     ? `<p>${generations.length} generation(s) — content stored in platform.</p>`
     : '<p class="empty">No generations yet.</p>'
+  const packageStateLabel = delivery.state === 'READY_FOR_SCHEDULING'
+    ? (isArabic ? 'حزمة معتمدة وجاهزة لقرار الجدولة' : 'Approved package — ready for scheduling decision')
+    : delivery.state === 'COPY_APPROVED'
+      ? (isArabic ? 'النص معتمد — الوسائط تحتاج مراجعة' : 'Copy approved — media review required')
+      : delivery.state === 'NO_CONTENT'
+        ? (isArabic ? 'لا يوجد محتوى نهائي' : 'No final content')
+        : (isArabic ? 'مسودة مراجعة — غير معتمدة للتنفيذ' : 'Review draft — not approved for execution')
 
   return `<!DOCTYPE html>
 <html lang="${isArabic ? 'ar' : 'en'}" dir="${direction}">
@@ -148,6 +169,13 @@ function buildCampaignHTML(campaign: any, socialPosts: ExportedSocialPost[]): st
     <span class="badge">${tone}</span>
     <span class="badge">${platforms}</span>
   </div>
+</div>
+
+<div class="section" style="border:2px solid ${delivery.state === 'READY_FOR_SCHEDULING' ? '#86efac' : '#fcd34d'}">
+  <h2>${isArabic ? 'حالة حزمة التسليم' : 'Delivery Package State'}</h2>
+  <p><strong>${escapeHtml(packageStateLabel)}</strong></p>
+  <p>${escapeHtml(`${delivery.counts.copyApproved}/${delivery.counts.posts} copy approved · ${delivery.counts.mediaApproved}/${delivery.counts.posts} media approved · ${delivery.counts.providerPublicationVerified} provider publications verified`)}</p>
+  <p class="empty">${isArabic ? 'هذه الحزمة لا تثبت تصاريح المنصة أو النشر أو الإنفاق أو الأداء.' : 'This package does not prove provider permission, publication, spend, or performance.'}</p>
 </div>
 
 <div class="section">
@@ -261,6 +289,8 @@ export async function POST(request: NextRequest) {
         { createdAt: 'asc' },
       ],
     })
+    const delivery = await getCampaignDeliveryPackage(user.id, campaignId)
+    if (!delivery) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
 
     // Create export record (PROCESSING state)
     const exportRecord = await prisma.export.create({
@@ -289,7 +319,9 @@ export async function POST(request: NextRequest) {
           audience: campaign.audience,
           tone: campaign.tone,
           platforms: campaign.platforms,
-          strategy: campaign.aiOutput ?? campaign.strategy,
+          strategy: delivery.manifest.approvedStrategy?.campaign.aiOutput ?? campaign.aiOutput ?? campaign.strategy,
+          deliveryManifest: delivery.manifest,
+          approvedStrategy: delivery.manifest.approvedStrategy,
           finalPostsSource: 'CONTENT_HUB',
           finalPosts: socialPosts,
           concepts: campaign.concepts,
@@ -300,7 +332,7 @@ export async function POST(request: NextRequest) {
       ext = 'json'
     } else {
       // Default: HTML (printable to PDF from browser)
-      fileContent = buildCampaignHTML(campaign, socialPosts)
+      fileContent = buildCampaignHTML(campaign, socialPosts, delivery.manifest)
       contentType = 'text/html; charset=utf-8'
       ext = 'html'
     }

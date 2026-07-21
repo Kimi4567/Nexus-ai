@@ -29,6 +29,17 @@ const analyticsInsightsRouteSource = readFileSync(
 const strategyRuntimeCopySource = `${campaignRoomSource}\n${strategyRoomStateCopySource}`
 
 describe('Campaign Room strategy truth copy', () => {
+  it('removes the closed mobile drawer and covered menu button from the accessibility tree', () => {
+    expect(appShellSource).toContain('inert={mobileViewport && !mobileOpen ? true : undefined}')
+    expect(appShellSource).toContain('aria-hidden={mobileViewport && !mobileOpen ? true : undefined}')
+    expect(appShellSource).toContain('inert={mobileOpen ? true : undefined}')
+    expect(appShellSource).toContain('inert={mobileViewport && mobileOpen ? true : undefined}')
+    expect(appShellSource).toContain('aria-modal={mobileViewport && mobileOpen ? true : undefined}')
+    expect(appShellSource).toContain("if (event.key === 'Escape')")
+    expect(appShellSource).toContain('mobileMenuButtonRef.current?.focus({ preventScroll: true })')
+    expect(appShellSource).toMatch(/ref=\{mobileMenuButtonRef\}[\s\S]{0,180}aria-label=\{t\('sidebar\.openNavigation'\)\}/)
+  })
+
   it('shows the campaign platforms in media readiness instead of a stale hardcoded subset', () => {
     expect(campaignRoomSource).toContain('campaign.platforms.length > 0 ? campaign.platforms.map')
     expect(campaignRoomSource).toContain("THREADS: '@'")

@@ -35,6 +35,8 @@ import {
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { readOpenAIChatUsage, summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
+import { hasUsableConversionDestination } from '@/lib/strategyBriefReadiness'
+import { sourceLinkedProofStatements } from '@/lib/strategy/strategyEvidenceLedger'
 
 type Params = { params: Promise<{ id: string; postId: string }> }
 
@@ -234,8 +236,8 @@ ${post.caption}${instruction ? `\n\nRewrite instruction: ${instruction}` : '\n\n
       ? newCaption.slice(0, charLimit).replace(/\s+\S*$/, '…')
       : newCaption
     const guardedCaption = guardContentDraftText(truncated, {
-      verifiedProof: brand?.verifiedProof,
-      hasConversionDestination: Boolean(brand?.conversionDestination),
+      verifiedProof: sourceLinkedProofStatements(brand?.verifiedProof),
+      hasConversionDestination: hasUsableConversionDestination(brand?.conversionDestination, post.campaign.goal),
       brandFacts: [
         brand?.brandName,
         brand?.description,

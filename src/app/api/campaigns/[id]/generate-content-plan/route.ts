@@ -58,6 +58,8 @@ import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
 import { normalizeCampaignPlatforms } from '@/lib/campaignPlatforms'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { readOpenAIChatUsage, summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
+import { hasUsableConversionDestination } from '@/lib/strategyBriefReadiness'
+import { sourceLinkedProofStatements } from '@/lib/strategy/strategyEvidenceLedger'
 
 // Heavy gpt-4o generation (up to 18 posts) + optional media vision can run well
 // past the platform default. Match the sibling routes (engine, /generate) so the
@@ -204,10 +206,12 @@ export async function POST(req: NextRequest, props: Params) {
     // ── 2. Require real strategy evidence before spending credits ──────────
     const aiOutput = campaign.aiOutput as any
     const strategy = aiOutput?.strategy ?? aiOutput ?? {}
+    const sourceBackedProof = sourceLinkedProofStatements(brandProfile?.verifiedProof ?? [])
     const proofContext = {
-      verifiedProof: brandProfile?.verifiedProof ?? [],
+      verifiedProof: sourceBackedProof,
+      commercialClaimText: sourceBackedProof,
       allowedClaimText: explicitBrandFacts,
-      hasConversionDestination: Boolean(brandProfile?.conversionDestination),
+      hasConversionDestination: hasUsableConversionDestination(brandProfile?.conversionDestination, campaign.goal),
       brandFacts: explicitBrandFacts,
     }
     const strategyForContent = guardStrategyProof(strategy, proofContext)
