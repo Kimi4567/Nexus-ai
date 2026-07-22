@@ -1,6 +1,7 @@
 'use client'
 
 import AppShell from '@/components/AppShell'
+import WorkspaceRouteLoading from '@/components/WorkspaceRouteLoading'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { LandingExperimentPanel } from '@/components/landing-pages/LandingExperimentPanel'
 import { LandingPageQualityGate } from '@/components/landing-pages/LandingPageQualityGate'
@@ -381,7 +382,7 @@ export default function LandingPagesWorkspace() {
       : copy('يلزم تطبيق الـ migration والتحقق منها في Preview قابلة للاسترجاع.', 'The migration must be applied and verified in a recoverable Preview environment.')
 
   if (authLoading || loading || readiness === null) {
-    return <AppShell><div className="grid min-h-[70vh] place-items-center"><Loader2 className="h-8 w-8 animate-spin text-[#5E63FF]" /></div></AppShell>
+    return <WorkspaceRouteLoading labelAr="جارٍ تجهيز صفحات التحويل" labelEn="Preparing conversion pages" />
   }
 
   return (

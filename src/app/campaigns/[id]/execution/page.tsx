@@ -17,6 +17,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import AppShell from '@/components/AppShell'
+import WorkspaceRouteLoading from '@/components/WorkspaceRouteLoading'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { supabase } from '@/lib/supabaseClient'
@@ -190,19 +191,7 @@ export default function CampaignExecutionPage() {
   }, [loadOverview, user])
 
   if (loading || authLoading) {
-    return (
-      <AppShell>
-        <div className="min-h-screen bg-[#f4f7fb] px-5 py-8">
-          <div className="mx-auto max-w-7xl animate-pulse space-y-5">
-            <div className="h-28 rounded-[28px] bg-white" />
-            <div className="grid gap-5 lg:grid-cols-2">
-              <div className="h-[520px] rounded-[28px] bg-white" />
-              <div className="h-[520px] rounded-[28px] bg-white" />
-            </div>
-          </div>
-        </div>
-      </AppShell>
-    )
+    return <WorkspaceRouteLoading labelAr="جارٍ تجهيز مركز التنفيذ" labelEn="Preparing execution center" />
   }
 
   if (!overview || error) {
@@ -233,8 +222,8 @@ export default function CampaignExecutionPage() {
 
   return (
     <AppShell>
-      <main className="min-h-screen bg-[#f4f7fb] px-4 py-5 text-[#071236] sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-[1420px] space-y-5">
+      <main className="nx-os-page text-[#071236]">
+        <div className="nx-os-container space-y-5">
           <section className="overflow-hidden rounded-[30px] border border-white bg-[#071236] text-white shadow-[0_28px_90px_rgba(7,18,54,0.18)]">
             <div className="h-1 bg-gradient-to-r from-[#6478ff] via-[#9b8cff] to-[#45d3ac]" />
             <div className="grid gap-6 p-6 lg:grid-cols-[1fr_auto] lg:items-end lg:p-8">

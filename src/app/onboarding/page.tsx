@@ -84,26 +84,15 @@ function Shell({ children, dir }: { children: ReactNode; dir: 'rtl' | 'ltr' }) {
   return (
     <main
       dir={dir}
-      className="min-h-screen w-full bg-[#f6f8fc] px-4 py-6 text-[#071332] sm:px-6 lg:px-8"
-      style={{
-        backgroundImage:
-          'radial-gradient(circle at 12% 6%, rgba(99,102,241,0.13), transparent 28%), radial-gradient(circle at 88% 12%, rgba(16,185,129,0.10), transparent 24%)',
-      }}
+      className="nx-auth-page w-full px-4 py-6 text-[#071332] sm:px-6 lg:px-8"
     >
-      <div className="mx-auto grid min-h-[calc(100vh-48px)] w-full max-w-[1180px] overflow-hidden rounded-[32px] border border-white/80 bg-white shadow-[0_26px_90px_rgba(15,23,42,0.12)] lg:grid-cols-[340px_1fr]">
-        <aside className="relative hidden overflow-hidden bg-[#020817] p-8 text-white lg:block">
-          <div
-            className="absolute inset-0 opacity-80"
-            style={{
-              background:
-                'radial-gradient(circle at 32% 18%, rgba(99,102,241,0.42), transparent 26%), radial-gradient(circle at 78% 72%, rgba(34,211,238,0.16), transparent 30%)',
-            }}
-          />
+      <div className="nx-auth-shell mx-auto grid min-h-[calc(100vh-48px)] w-full max-w-[1180px] lg:grid-cols-[340px_1fr]">
+        <aside className="nx-auth-intelligence relative hidden p-8 lg:block">
           <div className="relative z-10 flex h-full flex-col justify-between">
             <div>
               <div className="flex items-center gap-3">
-                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/10 shadow-[0_0_30px_rgba(99,102,241,0.45)] ring-1 ring-white/15">
-                  <Sparkles className="h-5 w-5 text-[#a5b4fc]" />
+                <span className="nx-brand-mark h-11 w-11">
+                  <Sparkles className="relative z-10 h-5 w-5" />
                 </span>
                 <span>
                   <span className="block text-2xl font-semibold tracking-[0.28em]">NEXUS</span>
@@ -134,7 +123,7 @@ function Shell({ children, dir }: { children: ReactNode; dir: 'rtl' | 'ltr' }) {
               ].map(item => {
                 const Icon = item.icon
                 return (
-                  <div key={item.label} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
+                  <div key={item.label} className="nx-auth-capability flex items-center gap-3 px-4 py-3">
                     <span className="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-[#a5b4fc]">
                       <Icon className="h-4 w-4" />
                     </span>
@@ -147,7 +136,7 @@ function Shell({ children, dir }: { children: ReactNode; dir: 'rtl' | 'ltr' }) {
           </div>
         </aside>
 
-        <section className="flex items-center justify-center p-5 sm:p-8 lg:p-10">
+        <section className="nx-auth-workspace flex items-center justify-center p-5 sm:p-8 lg:p-10">
           <div className="w-full max-w-[760px]">{children}</div>
         </section>
       </div>
@@ -157,8 +146,7 @@ function Shell({ children, dir }: { children: ReactNode; dir: 'rtl' | 'ltr' }) {
 
 function Panel({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-[28px] bg-white p-6 sm:p-8"
-      style={{ border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 18px 55px rgba(15,23,42,0.08)' }}>
+    <div className="nx-os-panel p-6 sm:p-8">
       {children}
     </div>
   )
@@ -173,18 +161,14 @@ function Helper({ children }: { children: ReactNode }) {
 }
 
 const inputClass =
-  'w-full px-3.5 py-2.5 rounded-xl text-[14px] outline-none transition-colors bg-white'
+  'nx-auth-input w-full px-3.5 py-2.5 text-[14px]'
 const inputStyle = { border: '1px solid rgba(15,23,42,0.12)', color: '#0F172A' } as const
 
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button type="button" onClick={onClick}
-      className="px-3.5 py-2 rounded-xl text-[13px] font-medium transition-all"
-      style={{
-        background: active ? '#EEF2FF' : '#FFFFFF',
-        border: `1px solid ${active ? 'rgba(94,92,230,0.45)' : 'rgba(15,23,42,0.12)'}`,
-        color: active ? '#4F46E5' : '#334155',
-      }}>
+      data-active={active}
+      className="nx-choice-chip px-3.5 py-2 text-[13px] font-medium">
       {children}
     </button>
   )
@@ -193,8 +177,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 function PrimaryButton({ onClick, disabled, children }: { onClick: () => void; disabled?: boolean; children: ReactNode }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled}
-      className="w-full py-3 rounded-xl text-[14px] font-semibold text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-      style={{ background: '#5E5CE6' }}>
+      className="nx-auth-primary w-full py-3 text-[14px] font-semibold disabled:cursor-not-allowed disabled:opacity-40">
       {children}
     </button>
   )

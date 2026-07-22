@@ -10,30 +10,30 @@ const config: Config = {
     extend: {
       colors: {
         // ── NEXUS Core Palette ────────────────────────────────────────
-        'nx-base':        '#F5F5F7',
+        'nx-base':        '#F3F5FA',
         'nx-surface':     '#FFFFFF',
-        'nx-surface-2':   '#F8FAFC',
-        'nx-elevated':    '#F9FAFB',
+        'nx-surface-2':   '#F7F9FD',
+        'nx-elevated':    '#EEF2FA',
         'nx-panel':       '#FFFFFF',
-        'nx-border':      'rgba(15,23,42,0.08)',
-        'nx-border-hi':   'rgba(15,23,42,0.16)',
+        'nx-border':      'rgba(31,45,86,0.11)',
+        'nx-border-hi':   'rgba(63,72,126,0.22)',
 
         // ── NEXUS Accent — violet-blue ────────────────────────────────
-        'nx-violet':      '#5E5CE6',
-        'nx-violet-dark': '#4F46E5',
-        'nx-violet-dim':  'rgba(94,92,230,0.08)',
+        'nx-violet':      '#675CF6',
+        'nx-violet-dark': '#5145E5',
+        'nx-violet-dim':  'rgba(103,92,246,0.09)',
         'nx-blue':        '#2563EB',
-        'nx-cyan':        '#0891B2',
+        'nx-cyan':        '#13B8D7',
 
         // ── NEXUS Orange accent lines ─────────────────────────────────
         'nx-orange':      '#D97706',
         'nx-orange-dim':  'rgba(217,119,6,0.08)',
 
         // ── NEXUS Text ────────────────────────────────────────────────
-        'nx-text-1':      '#111827',
-        'nx-text-2':      '#4B5563',
-        'nx-text-3':      '#6B7280',
-        'nx-text-4':      '#9CA3AF',
+        'nx-text-1':      '#09142F',
+        'nx-text-2':      '#465472',
+        'nx-text-3':      '#6C7A96',
+        'nx-text-4':      '#97A3B8',
 
         // ── Semantic UI state tokens ─────────────────────────────────
         'nx-success':        '#059669',
@@ -60,16 +60,16 @@ const config: Config = {
         'agent-pulse':      '#059669',
 
         // ── Legacy compatibility ──────────────────────────────────────
-        'bg-base':        '#F5F5F7',
+        'bg-base':        '#F3F5FA',
         'bg-surface':     '#FFFFFF',
         'bg-elevated':    '#F9FAFB',
         'bg-sidebar':     '#FFFFFF',
-        'text-primary':   '#111827',
-        'text-secondary': '#4B5563',
-        'text-muted':     '#6B7280',
-        'accent-purple':  '#5E5CE6',
-        'accent-teal':    '#0891B2',
-        'accent-cyan':    '#0891B2',
+        'text-primary':   '#09142F',
+        'text-secondary': '#465472',
+        'text-muted':     '#6C7A96',
+        'accent-purple':  '#675CF6',
+        'accent-teal':    '#13B8D7',
+        'accent-cyan':    '#13B8D7',
         'accent-amber':   '#F59E0B',
         'accent-orange':  '#D97706',
         'accent-gold':    '#CA8A04',
@@ -85,10 +85,10 @@ const config: Config = {
 
         // ── dark-* aliases (used by legacy page components) ───────────
         // These map to the nx-* palette so all pages render correctly
-        'dark':           '#F5F5F7',
+        'dark':           '#F3F5FA',
         'dark-secondary': '#FFFFFF',
         'dark-tertiary':  '#E5E7EB',
-        'accent':         '#5E5CE6',
+        'accent':         '#675CF6',
       },
 
       fontFamily: {
@@ -105,8 +105,8 @@ const config: Config = {
         'nx-lg':   '16px',
         'nx-xl':   '20px',
         'nx-2xl':  '24px',
-        'card':    '12px',
-        'panel':   '16px',
+        'card':    '18px',
+        'panel':   '24px',
       },
 
       boxShadow: {

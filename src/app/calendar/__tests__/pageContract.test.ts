@@ -15,6 +15,13 @@ describe('Execution page contract', () => {
     expect(source).toContain('journeyStage="execution"')
   })
 
+  it('keeps the Brand Brain safety lock without duplicating its repair action', () => {
+    expect(source).toContain("primaryHref={calendarTruthFailure ? '/brand' : calendarTruthLocked ? null")
+    expect(source).toContain("activeTab === 'queue' && !calendarTruthLocked")
+    expect(source).toContain('calendarTruthFailure &&')
+    expect(source).not.toContain("href={calendarTruthLocked ? '/brand' : '/content-hub'}")
+  })
+
   it('shows the exact post destination, localized lifecycle, and truthful relative time', () => {
     expect(source).toContain('post.publishTarget || post.platform')
     expect(source).toContain('t(statusLabelKey(post))')

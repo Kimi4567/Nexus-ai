@@ -17,6 +17,7 @@ import { AlertCircle, Trash2, X } from 'lucide-react'
 import type { WorkspaceExecutionTruth } from '@/lib/executionTruth'
 import { formatScheduledTimeDistance } from '@/lib/scheduleTimeDistance'
 import { hasBrandTruthVerificationFailure, isBrandTruthExecutionLocked } from '@/lib/brandTruthGate'
+import WorkspaceRouteLoading from '@/components/WorkspaceRouteLoading'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -574,11 +575,7 @@ function CalendarPageInner() {
     })
   }
 
-  if (loading) return (
-    <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
-      <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-    </div>
-  )
+  if (loading) return <WorkspaceRouteLoading labelAr="جارٍ تجهيز مساحة التنفيذ" labelEn="Preparing execution workspace" />
   if (!isAuthenticated) return null
 
   return (
@@ -589,8 +586,8 @@ function CalendarPageInner() {
           journeyStage="execution"
           pageTitle={locale === 'ar' ? 'التنفيذ' : 'Execution'}
           pageSubtitle={locale === 'ar' ? 'قائمة قرارات واحدة للجدولة والنشر والمراقبة؛ يبدأ اعتماد النص والوسائط من إنتاج المحتوى.' : 'One decision queue for scheduling, publishing, and monitoring; copy and media approval starts in Content production.'}
-          primaryHref={calendarTruthLocked ? '/brand' : (nextExecutionAction?.requiresApproval ? '/approvals' : nextExecutionAction?.href) || '/content-hub'}
-          primaryLabel={calendarTruthLocked
+          primaryHref={calendarTruthFailure ? '/brand' : calendarTruthLocked ? null : (nextExecutionAction?.requiresApproval ? '/approvals' : nextExecutionAction?.href) || '/content-hub'}
+          primaryLabel={calendarTruthFailure
             ? (locale === 'ar' ? 'تصحيح Brand Brain' : 'Fix Brand Brain')
             : nextExecutionAction
               ? (locale === 'ar' ? 'افتح القرار التالي' : 'Open next decision')
@@ -674,12 +671,12 @@ function CalendarPageInner() {
             </div>
             <button type="button" onClick={nextMonth} aria-label={locale === 'ar' ? 'الشهر التالي' : 'Next month'} className="h-10 w-10 rounded-[14px] border border-[#e3e8f3] bg-white text-[#64708f] shadow-sm">›</button>
           </div>
-          {activeTab === 'queue' ? (
+          {activeTab === 'queue' && !calendarTruthLocked ? (
             <Link
-              href={calendarTruthLocked ? '/brand' : '/content-hub'}
-              className={`inline-flex h-10 items-center gap-2 rounded-[14px] px-4 text-[12px] font-black text-white ${calendarTruthLocked ? 'bg-orange-700' : 'bg-[#071236]'}`}
+              href="/content-hub"
+              className="inline-flex h-10 items-center gap-2 rounded-[14px] bg-[#071236] px-4 text-[12px] font-black text-white"
             >
-              {calendarTruthLocked ? (locale === 'ar' ? 'تصحيح Brand Brain' : 'Fix Brand Brain') : (locale === 'ar' ? 'افتح مركز المحتوى' : 'Open Content Hub')}
+              {locale === 'ar' ? 'افتح مركز المحتوى' : 'Open Content Hub'}
             </Link>
           ) : null}
         </div>

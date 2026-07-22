@@ -1,6 +1,7 @@
 'use client'
 
 import AppShell from '@/components/AppShell'
+import WorkspaceRouteLoading from '@/components/WorkspaceRouteLoading'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -156,13 +157,7 @@ export default function StudioPage() {
   }
 
   if (authLoading) {
-    return (
-      <AppShell>
-        <div className="flex min-h-screen items-center justify-center bg-[#f6f8fc]">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
-        </div>
-      </AppShell>
-    )
+    return <WorkspaceRouteLoading labelAr="جارٍ تجهيز استوديو الإبداع" labelEn="Preparing creative studio" />
   }
 
   if (!isAuthenticated) return null

@@ -15,6 +15,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import AppShell from '@/components/AppShell'
+import WorkspaceRouteLoading from '@/components/WorkspaceRouteLoading'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -211,7 +212,7 @@ function KpiCard({ label, value, sub, accent }: { label: string; value: string; 
 
 // ── Main ───────────────────────────────────────────────────────────────────
 export default function CampaignDetailPage() {
-  const { user, authHeader } = useAuth()
+  const { user, authHeader, isAuthenticated, loading: authLoading } = useAuth()
   const { locale } = useI18n()
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -271,6 +272,10 @@ export default function CampaignDetailPage() {
   }, [user, id])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) router.replace('/auth/login')
+  }, [authLoading, isAuthenticated, router])
 
   const closeCreativeAttach = (force = false) => {
     if (creativeAttachLoading && !force) return
@@ -550,26 +555,19 @@ export default function CampaignDetailPage() {
     }
   }
 
-  if (loading) return (
-    <AppShell>
-      <div className="flex min-h-screen items-center justify-center bg-[#f6f8fc]">
-        <div className="text-center">
-          <div className="w-10 h-10 border-2 border-indigo-100 border-t-indigo-500 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-500 text-[13px]">Loading paid execution draft...</p>
-        </div>
-      </div>
-    </AppShell>
-  )
+  if (!authLoading && !isAuthenticated) return null
+
+  if (authLoading || loading) return <WorkspaceRouteLoading labelAr="جارٍ تجهيز مسودة التنفيذ المدفوع" labelEn="Preparing paid execution draft" />
 
   if (error || !campaign) return (
     <AppShell>
       <div className="flex min-h-screen items-center justify-center bg-[#f6f8fc]">
         <div className="text-center">
-          <p className="text-red-400 mb-4">{error || 'Campaign not found'}</p>
+          <p className="text-red-500 mb-4">{error || (ar ? 'لم يتم العثور على الحملة.' : 'Campaign not found.')}</p>
           <button onClick={() => router.push('/paid-campaigns')}
             className="px-4 py-2 rounded-lg text-[13px] font-bold text-white"
             style={{ background: '#071236' }}>
-            ← Back to Paid Ads Control Center
+            {ar ? 'العودة إلى مركز الإعلانات المدفوعة' : 'Back to Paid Ads Control Center'}
           </button>
         </div>
       </div>
@@ -640,7 +638,7 @@ export default function CampaignDetailPage() {
 
   return (
     <AppShell>
-      <div className="paid-detail-luxury min-h-screen bg-[#f6f8fc] px-4 py-6 text-[#071236] sm:px-6 lg:px-8">
+      <div className="paid-detail-luxury nx-os-page text-[#071236]">
         <style jsx global>{`
           .paid-detail-luxury {
             --nx-surface: #ffffff;
@@ -668,7 +666,7 @@ export default function CampaignDetailPage() {
             background: rgba(94, 92, 230, 0.05) !important;
           }
         `}</style>
-        <div className="mx-auto max-w-[1540px]">
+        <div className="nx-os-container">
         <LuxuryWorkspaceHeader
           pageTitle={ar ? 'تفاصيل التنفيذ المدفوع' : 'Paid execution details'}
           pageSubtitle={ar ? 'راجع مصدر الاستراتيجية، خطة التنفيذ، النصوص، الميزانية، وحالة المنصة قبل أي إنشاء أو تفعيل.' : 'Review strategy source, execution plan, copy, budget, and platform state before creation or activation.'}

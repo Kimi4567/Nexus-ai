@@ -33,26 +33,15 @@ export default function LuxuryAuthShell({
   return (
     <main
       dir={dir}
-      className="min-h-screen overflow-hidden bg-[#f6f8fc] px-4 py-6 text-[#071332] sm:px-6 lg:px-8"
-      style={{
-        backgroundImage:
-          'radial-gradient(circle at 12% 6%, rgba(99,102,241,0.13), transparent 28%), radial-gradient(circle at 88% 12%, rgba(16,185,129,0.10), transparent 24%)',
-      }}
+      className="nx-auth-page px-4 py-6 text-[#071332] sm:px-6 lg:px-8"
     >
-      <div className="mx-auto grid min-h-[calc(100vh-48px)] w-full max-w-[1180px] overflow-hidden rounded-[32px] border border-white/80 bg-white shadow-[0_26px_90px_rgba(15,23,42,0.12)] lg:grid-cols-[1fr_0.88fr]">
-        <section className="relative hidden overflow-hidden bg-[#020817] p-9 text-white lg:block">
-          <div
-            className="absolute inset-0 opacity-80"
-            style={{
-              background:
-                'radial-gradient(circle at 34% 18%, rgba(99,102,241,0.42), transparent 24%), radial-gradient(circle at 78% 72%, rgba(34,211,238,0.16), transparent 28%)',
-            }}
-          />
+      <div className="nx-auth-shell mx-auto grid min-h-[calc(100vh-48px)] w-full max-w-[1180px] lg:grid-cols-[1fr_0.88fr]">
+        <section className="nx-auth-intelligence relative hidden p-9 lg:block">
           <div className="relative z-10 flex h-full flex-col justify-between">
             <div>
               <Link href="/" className="inline-flex items-center gap-3">
-                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/10 shadow-[0_0_30px_rgba(99,102,241,0.45)] ring-1 ring-white/15">
-                  <Sparkles className="h-5 w-5 text-[#a5b4fc]" />
+                <span className="nx-brand-mark h-11 w-11">
+                  <Sparkles className="relative z-10 h-5 w-5" />
                 </span>
                 <span>
                   <span className="block text-2xl font-semibold tracking-[0.28em]">NEXUS</span>
@@ -81,7 +70,7 @@ export default function LuxuryAuthShell({
               {capabilities.map(item => {
                 const Icon = item.icon
                 return (
-                  <div key={item.en} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
+                  <div key={item.en} className="nx-auth-capability flex items-center gap-3 px-4 py-3">
                     <span className="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-[#a5b4fc]">
                       <Icon className="h-4 w-4" />
                     </span>
@@ -94,11 +83,11 @@ export default function LuxuryAuthShell({
           </div>
         </section>
 
-        <section className="flex min-h-[680px] flex-col bg-white p-6 sm:p-9">
+        <section className="nx-auth-workspace flex min-h-[680px] flex-col p-6 sm:p-9">
           <div className="mb-8 flex items-center justify-between gap-3">
             <Link href="/" className="flex items-center gap-2.5 lg:hidden">
-              <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#071332] text-white shadow-lg">
-                <Sparkles className="h-4 w-4" />
+              <span className="nx-brand-mark">
+                <Sparkles className="relative z-10 h-4 w-4" />
               </span>
               <span className="text-lg font-semibold tracking-[0.2em]">NEXUS</span>
             </Link>
@@ -108,11 +97,11 @@ export default function LuxuryAuthShell({
           </div>
 
           <div className="mx-auto flex w-full max-w-[430px] flex-1 flex-col justify-center">
-            <div className="mb-6 inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
-              <ShieldCheck className="h-3.5 w-3.5 text-indigo-500" />
+            <div className="nx-ai-chip mb-6">
+              <ShieldCheck className="h-3.5 w-3.5" />
               <span>{eyebrow ?? (isRTL ? 'دخول آمن إلى مساحة العمل' : 'Secure workspace access')}</span>
             </div>
-            <h2 className="text-3xl font-semibold tracking-[-0.02em] text-[#071332]">{title}</h2>
+            <h2 className="text-3xl font-bold tracking-[-0.035em] text-[#071332]">{title}</h2>
             <p className="mt-3 text-sm leading-7 text-slate-600">{subtitle}</p>
             <div className="mt-8">{children}</div>
             {footer ? <div className="mt-5">{footer}</div> : null}

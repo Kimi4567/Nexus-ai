@@ -14,6 +14,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import AppShell from '@/components/AppShell'
+import WorkspaceRouteLoading from '@/components/WorkspaceRouteLoading'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabaseClient'
@@ -1494,21 +1495,15 @@ export default function NewPaidCampaignPage() {
   }
 
   if (authLoading) {
-    return (
-      <AppShell>
-        <div className="flex min-h-screen items-center justify-center bg-[#f6f8fc]">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
-        </div>
-      </AppShell>
-    )
+    return <WorkspaceRouteLoading labelAr="جارٍ تجهيز التنفيذ المدفوع" labelEn="Preparing paid execution" />
   }
 
   if (!isAuthenticated) return null
 
   return (
     <AppShell>
-      <main className="min-h-screen bg-[#f6f8fc] text-[#071236]">
-        <div className="mx-auto grid w-full max-w-[1540px] gap-6 px-4 py-6 pb-12 sm:px-6 lg:grid-cols-[minmax(0,780px)_360px] lg:px-8">
+      <main className="nx-os-page text-[#071236]">
+        <div className="nx-os-container grid gap-6 pb-12 lg:grid-cols-[minmax(0,780px)_360px]">
           <div className="lg:col-span-2">
             <LuxuryWorkspaceHeader
               pageTitle={locale === 'ar' ? 'تنفيذ مدفوع مرتبط بالاستراتيجية' : 'Strategy-linked paid execution'}

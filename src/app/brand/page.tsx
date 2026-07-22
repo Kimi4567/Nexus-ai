@@ -563,8 +563,8 @@ function BrandRouteLoading({ preparing = false }: { preparing?: boolean }) {
 
   return (
     <AppShell>
-      <div className="min-h-screen bg-[var(--nx-bg)] px-4 py-5 sm:px-6">
-        <div className="mx-auto max-w-[1540px]">
+      <main className="nx-os-page">
+        <div className="nx-os-container">
           <LuxuryWorkspaceHeader
             journeyStage="brand"
             pageTitle="Brand Brain"
@@ -577,7 +577,7 @@ function BrandRouteLoading({ preparing = false }: { preparing?: boolean }) {
             description={preparing ? (ar ? 'نفتح ملف ذاكرة علامتك المحفوظ.' : 'Opening your saved marketing memory file.') : (ar ? 'نجهّز ملف ذاكرة علامتك التسويقية.' : 'Preparing your marketing memory file.')}
           />
         </div>
-      </div>
+      </main>
     </AppShell>
   )
 }
@@ -1260,7 +1260,7 @@ function BrandBrainInner() {
           }}
         />
       )}
-      <div className="relative min-h-screen bg-[#f6f8fc] text-[#071236]" dir={dir}>
+      <main className="nx-os-page relative text-[#071236]" dir={dir}>
 
         {/* PR-L — flex column so enrichment tools (Scanner/Analyzer/Learned) can be
             ordered BELOW the core brand profile via CSS order, without moving large
@@ -1268,7 +1268,7 @@ function BrandBrainInner() {
             footer = 60. PR-M1.1 widened the shell to max-w-6xl so the desktop
             workspace uses the viewport without large empty side-bands. */}
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_4%,rgba(94,92,230,0.09),transparent_30%),radial-gradient(circle_at_92%_10%,rgba(16,185,129,0.07),transparent_28%)]" />
-        <div className="relative z-10 max-w-[1540px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-5">
+        <div className="nx-os-container relative z-10 flex flex-col gap-5">
           <LuxuryWorkspaceHeader
             journeyStage="brand"
             pageTitle="Brand Brain"
@@ -3350,7 +3350,7 @@ function BrandBrainInner() {
            </p>
 
         </div>
-      </div>
+      </main>
     </AppShell>
   )
 }

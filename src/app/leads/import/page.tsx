@@ -1,6 +1,7 @@
 'use client'
 
 import AppShell from '@/components/AppShell'
+import WorkspaceRouteLoading from '@/components/WorkspaceRouteLoading'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { LeadsNav } from '@/components/leads/LeadsNav'
 import { useAuth } from '@/lib/auth-context'
@@ -102,7 +103,7 @@ export default function LeadImportPage() {
   }
 
   if (authLoading || ready === null) {
-    return <AppShell><div className="grid min-h-[70vh] place-items-center"><Loader2 className="h-8 w-8 animate-spin text-[#5E63FF]" /></div></AppShell>
+    return <WorkspaceRouteLoading labelAr="جارٍ تجهيز استيراد العملاء" labelEn="Preparing lead import" />
   }
 
   return (

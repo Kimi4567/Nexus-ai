@@ -852,8 +852,8 @@ export default function StrategyPage() {
   if (authLoading || loading) {
     return (
       <AppShell>
-        <div className="min-h-screen bg-[#F8FAFF]">
-          <div className="mx-auto max-w-[1580px] px-3 py-5 sm:px-5 lg:px-7">
+        <main className="nx-os-page">
+          <div className="nx-os-container">
             <LuxuryWorkspaceHeader
               journeyStage="strategy"
               pageTitle={ar ? 'الاستراتيجية' : 'Strategy'}
@@ -866,7 +866,7 @@ export default function StrategyPage() {
               description={ar ? 'لن نفترض استراتيجية أو نتائج أثناء التحميل.' : 'No strategy or results are assumed while this loads.'}
             />
           </div>
-        </div>
+        </main>
       </AppShell>
     )
   }
@@ -874,8 +874,8 @@ export default function StrategyPage() {
   if (loadError) {
     return (
       <AppShell>
-        <div className="min-h-screen bg-[#F8FAFF]">
-          <div className="mx-auto max-w-[1580px] px-3 py-5 sm:px-5 lg:px-7">
+        <main className="nx-os-page">
+          <div className="nx-os-container">
             <LuxuryWorkspaceHeader
               journeyStage="strategy"
               pageTitle={ar ? 'الاستراتيجية' : 'Strategy'}
@@ -897,7 +897,7 @@ export default function StrategyPage() {
               )}
             />
           </div>
-        </div>
+        </main>
       </AppShell>
     )
   }
@@ -1059,8 +1059,8 @@ export default function StrategyPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen bg-[#F8FAFF]">
-        <div className="mx-auto max-w-[1580px] px-3 py-5 sm:px-5 lg:px-7">
+      <main className="nx-os-page">
+        <div className="nx-os-container">
           <LuxuryWorkspaceHeader
             journeyStage="strategy"
             pageTitle={ar ? 'الاستراتيجية' : 'Strategy'}
@@ -1752,7 +1752,7 @@ export default function StrategyPage() {
             </aside>
           </div>
         </div>
-      </div>
+      </main>
       <RunFullStrategyModal
         isOpen={runStrategyOpen}
         startFresh={startFreshStrategyRequest}

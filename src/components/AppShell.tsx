@@ -150,12 +150,7 @@ export default function AppShell({ children }: AppShellProps) {
         dir="ltr"
         aria-hidden={mobileOpen ? true : undefined}
         inert={mobileOpen ? true : undefined}
-        className="fixed top-0 left-0 right-0 z-30 md:hidden h-12 flex items-center justify-between px-4"
-        style={{
-          background: 'rgba(255,255,255,0.92)',
-          borderBottom: '1px solid var(--nx-border)',
-          backdropFilter: 'blur(20px)',
-        }}
+        className="nx-os-mobile-bar fixed left-0 right-0 top-0 z-30 flex h-12 items-center justify-between px-4 md:hidden"
       >
         <div className="flex items-center gap-2">
           <svg width="22" height="22" viewBox="0 0 30 30" fill="none">

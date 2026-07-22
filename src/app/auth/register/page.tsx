@@ -74,10 +74,7 @@ export default function RegisterPage() {
     }
   }
 
-  // D0.2 — light operator inputs, mirroring /auth/login (white bg, dark readable
-  // text, soft border, violet focus). Replaces the dark-on-light broken styling.
-  const inputStyle = { background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.12)' }
-  const inputClass = `w-full rounded-2xl px-4 py-3 text-slate-950 placeholder-slate-400 outline-none transition ${isRTL ? 'text-right' : 'text-left'}`
+  const inputClass = `nx-auth-input w-full px-4 py-3 placeholder-slate-400 ${isRTL ? 'text-right' : 'text-left'}`
 
   const pageWrap = (
     <LuxuryAuthShell
@@ -127,7 +124,7 @@ export default function RegisterPage() {
                   ))}
                 </div>
               </div>
-              <Link href={done === 'verify' ? '/auth/login' : '/onboarding'} className="block w-full rounded-2xl bg-[#071332] py-3 text-center font-bold text-white shadow-[0_16px_32px_rgba(7,19,50,0.20)] transition hover:-translate-y-0.5">
+              <Link href={done === 'verify' ? '/auth/login' : '/onboarding'} className="nx-auth-primary block w-full py-3 text-center font-bold">
                 {done === 'verify'
                   ? authT?.verifyCta
                   : (isRTL ? 'ابدأ إعداد Brand Brain' : 'Start Brand Brain setup')} →
@@ -141,17 +138,13 @@ export default function RegisterPage() {
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-text-secondary">{authT?.nameLabel}</label>
                   <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder={authT?.namePlaceholder}
-                    autoComplete="name" className={inputClass} style={inputStyle}
-                    onFocus={e => (e.currentTarget.style.border = '1px solid rgba(94,92,230,0.5)')}
-                    onBlur={e => (e.currentTarget.style.border = '1px solid rgba(15,23,42,0.12)')} />
+                    autoComplete="name" className={inputClass} />
                 </div>
                 {/* Email */}
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-text-secondary">{authT?.emailLabel}</label>
                   <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"
-                    autoComplete="email" className={inputClass} style={inputStyle}
-                    onFocus={e => (e.currentTarget.style.border = '1px solid rgba(94,92,230,0.5)')}
-                    onBlur={e => (e.currentTarget.style.border = '1px solid rgba(15,23,42,0.12)')} />
+                    autoComplete="email" className={inputClass} />
                 </div>
                 {/* Password */}
                 <div>
@@ -159,9 +152,7 @@ export default function RegisterPage() {
                   <div className="relative">
                     <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
                       placeholder={authT?.passwordPlaceholder} autoComplete="new-password"
-                      className={`${inputClass} ${isRTL ? 'pl-11' : 'pr-11'}`} style={inputStyle}
-                      onFocus={e => (e.currentTarget.style.border = '1px solid rgba(94,92,230,0.5)')}
-                      onBlur={e => (e.currentTarget.style.border = '1px solid rgba(15,23,42,0.12)')} />
+                      className={`${inputClass} ${isRTL ? 'pl-11' : 'pr-11'}`} />
                     <button type="button" onClick={() => setShowPassword(v => !v)}
                       aria-label={showPassword
                         ? (isRTL ? 'إخفاء كلمة المرور' : 'Hide password')
@@ -177,9 +168,7 @@ export default function RegisterPage() {
                   <div className="relative">
                     <input type={showConfirm ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
                       placeholder={authT?.confirmPlaceholder} autoComplete="new-password"
-                      className={`${inputClass} ${isRTL ? 'pl-11' : 'pr-11'}`} style={inputStyle}
-                      onFocus={e => (e.currentTarget.style.border = '1px solid rgba(94,92,230,0.5)')}
-                      onBlur={e => (e.currentTarget.style.border = '1px solid rgba(15,23,42,0.12)')} />
+                      className={`${inputClass} ${isRTL ? 'pl-11' : 'pr-11'}`} />
                     <button type="button" onClick={() => setShowConfirm(v => !v)}
                       aria-label={showConfirm
                         ? (isRTL ? 'إخفاء تأكيد كلمة المرور' : 'Hide password confirmation')
@@ -203,7 +192,7 @@ export default function RegisterPage() {
                   </label>
                 </div>
                 <button type="submit" disabled={loading}
-                  className="w-full rounded-2xl bg-[#071332] py-3 text-white font-bold shadow-[0_16px_32px_rgba(7,19,50,0.20)] hover:-translate-y-0.5 transition disabled:opacity-50 mt-2">
+                  className="nx-auth-primary mt-2 w-full py-3 font-bold disabled:opacity-50">
                   {loading ? authT?.loading : authT?.submit}
                 </button>
               </form>

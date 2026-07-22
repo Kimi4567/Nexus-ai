@@ -122,8 +122,7 @@ function LoginForm() {
     }
   }
 
-  const inputClass = `w-full rounded-2xl px-4 py-3 text-slate-950 placeholder-slate-400 outline-none transition ${isRTL ? 'text-right' : 'text-left'}`
-  const inputStyle = { background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.12)' }
+  const inputClass = `nx-auth-input w-full px-4 py-3 placeholder-slate-400 ${isRTL ? 'text-right' : 'text-left'}`
 
   return (
     <LuxuryAuthShell
@@ -150,19 +149,13 @@ function LoginForm() {
             <div>
               <label className="block text-sm font-semibold mb-2 text-text-secondary">{loginT?.emailLabel}</label>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"
-                autoComplete="email" className={inputClass}
-                style={inputStyle}
-                onFocus={e => (e.currentTarget.style.border = '1px solid rgba(94,92,230,0.5)')}
-                onBlur={e => (e.currentTarget.style.border = '1px solid rgba(15,23,42,0.12)')} />
+                autoComplete="email" className={inputClass} />
             </div>
             <div>
               <label className="block text-sm font-semibold mb-2 text-text-secondary">{loginT?.passwordLabel}</label>
               <div className="relative">
                 <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••"
-                  autoComplete="current-password" className={`${inputClass} ${isRTL ? 'pl-11' : 'pr-11'}`}
-                  style={inputStyle}
-                  onFocus={e => (e.currentTarget.style.border = '1px solid rgba(94,92,230,0.5)')}
-                  onBlur={e => (e.currentTarget.style.border = '1px solid rgba(15,23,42,0.12)')} />
+                  autoComplete="current-password" className={`${inputClass} ${isRTL ? 'pl-11' : 'pr-11'}`} />
                 <button type="button" onClick={() => setShowPassword(v => !v)}
                   aria-label={showPassword
                     ? (isRTL ? 'إخفاء كلمة المرور' : 'Hide password')
@@ -183,7 +176,7 @@ function LoginForm() {
               </Link>
             </div>
             <button type="submit" disabled={loading}
-              className="w-full rounded-2xl bg-[#071332] py-3 font-bold text-white shadow-[0_16px_32px_rgba(7,19,50,0.20)] transition hover:-translate-y-0.5 disabled:opacity-50">
+              className="nx-auth-primary w-full py-3 font-bold disabled:opacity-50">
               {loading ? (loginT?.loading || 'Signing in...') : loginT?.submit}
             </button>
           </form>
