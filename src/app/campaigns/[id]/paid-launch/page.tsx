@@ -182,7 +182,7 @@ function Tag({ children }: { children: string }) {
 export default function PaidLaunchPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const { authHeader } = useAuth()
+  const { authHeader, isAuthenticated, loading: authLoading } = useAuth()
   const { locale } = useI18n()
   const isArabic = locale === 'ar'
   const copy = (ar: string, en: string) => isArabic ? ar : en
@@ -218,6 +218,7 @@ export default function PaidLaunchPage() {
 
   // ── Fetch ──
   const fetchData = useCallback(async () => {
+    if (!isAuthenticated) return
     try {
       const [campRes, packRes] = await Promise.all([
         fetch(`/api/campaigns/${id}`, { headers: { Authorization: authHeader() } }),
@@ -243,9 +244,15 @@ export default function PaidLaunchPage() {
     } finally {
       setLoading(false)
     }
-  }, [id, authHeader])
+  }, [id, authHeader, isAuthenticated])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) void fetchData()
+  }, [authLoading, fetchData, isAuthenticated])
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) router.replace('/auth/login')
+  }, [authLoading, isAuthenticated, router])
 
   // One canonical paid workspace: normal navigation always enters AdCampaign.
   // Historical PaidCampaignPack rows remain read-only behind ?history=1 so
@@ -395,7 +402,9 @@ export default function PaidLaunchPage() {
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
-  if (loading) {
+  if (!authLoading && !isAuthenticated) return null
+
+  if (authLoading || loading) {
     return <WorkspaceRouteLoading labelAr="جارٍ تجهيز موجز التخطيط المدفوع" labelEn="Preparing paid planning brief" />
   }
 

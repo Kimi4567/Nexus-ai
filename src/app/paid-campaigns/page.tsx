@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   ChevronRight,
   Filter,
@@ -15,6 +16,7 @@ import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import type { PaidStrategySourceTruth } from '@/lib/paidStrategySource'
+import WorkspaceRouteLoading from '@/components/WorkspaceRouteLoading'
 
 interface AdCampaign {
   id: string
@@ -134,8 +136,9 @@ function CampaignRow({ campaign, locale }: { campaign: AdCampaign; locale: strin
 }
 
 export default function PaidCampaignsPage() {
-  const { user } = useAuth()
+  const { user, isAuthenticated, loading: authLoading } = useAuth()
   const { locale } = useI18n()
+  const router = useRouter()
   const ar = locale === 'ar'
 
   const [campaigns, setCampaigns] = useState<AdCampaign[]>([])
@@ -197,6 +200,10 @@ export default function PaidCampaignsPage() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) router.replace('/auth/login')
+  }, [authLoading, isAuthenticated, router])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -271,6 +278,12 @@ export default function PaidCampaignsPage() {
   const googleInApprovedStrategy = approvedExecutionPlatforms.has('GOOGLE')
   const hasMetaAccount = accounts.some(account => account.platform.toUpperCase() === 'META')
   const hasGoogleAccount = accounts.some(account => account.platform.toUpperCase() === 'GOOGLE')
+
+  if (!authLoading && !isAuthenticated) return null
+
+  if (authLoading) {
+    return <WorkspaceRouteLoading labelAr="جارٍ تجهيز مركز الإعلانات المدفوعة" labelEn="Preparing paid campaigns" />
+  }
 
   return (
     <AppShell>

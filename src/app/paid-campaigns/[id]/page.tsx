@@ -212,7 +212,7 @@ function KpiCard({ label, value, sub, accent }: { label: string; value: string; 
 
 // ── Main ───────────────────────────────────────────────────────────────────
 export default function CampaignDetailPage() {
-  const { user, authHeader } = useAuth()
+  const { user, authHeader, isAuthenticated, loading: authLoading } = useAuth()
   const { locale } = useI18n()
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -272,6 +272,10 @@ export default function CampaignDetailPage() {
   }, [user, id])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) router.replace('/auth/login')
+  }, [authLoading, isAuthenticated, router])
 
   const closeCreativeAttach = (force = false) => {
     if (creativeAttachLoading && !force) return
@@ -551,7 +555,9 @@ export default function CampaignDetailPage() {
     }
   }
 
-  if (loading) return <WorkspaceRouteLoading labelAr="جارٍ تجهيز مسودة التنفيذ المدفوع" labelEn="Preparing paid execution draft" />
+  if (!authLoading && !isAuthenticated) return null
+
+  if (authLoading || loading) return <WorkspaceRouteLoading labelAr="جارٍ تجهيز مسودة التنفيذ المدفوع" labelEn="Preparing paid execution draft" />
 
   if (error || !campaign) return (
     <AppShell>

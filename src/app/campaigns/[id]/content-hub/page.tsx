@@ -662,6 +662,10 @@ export default function ContentHubPage() {
   }, [authLoading, isAuthenticated, loadData])
 
   useEffect(() => {
+    if (!authLoading && !isAuthenticated) router.replace('/auth/login')
+  }, [authLoading, isAuthenticated, router])
+
+  useEffect(() => {
     if (!showScheduleConfirm || scheduleMode !== 'AUTO' || scheduleAccountsLoading || scheduleAccounts.length > 0) return
     let cancelled = false
     setScheduleAccountsLoading(true)
@@ -2656,6 +2660,8 @@ export default function ContentHubPage() {
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
+
+  if (!authLoading && !isAuthenticated) return null
 
   if (authLoading || loading) {
     return <WorkspaceRouteLoading labelAr="جارٍ تجهيز مساحة إنتاج الحملة" labelEn="Preparing campaign production" />
