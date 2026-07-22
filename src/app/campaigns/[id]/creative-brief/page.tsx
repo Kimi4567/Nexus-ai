@@ -28,6 +28,7 @@ import {
 } from '@/lib/creativeStudioPreview'
 import UpgradeModal from '@/components/UpgradeModal'
 import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
+import WorkspaceRouteLoading from '@/components/WorkspaceRouteLoading'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -707,9 +708,11 @@ export default function CreativeBriefPage() {
 
   // ── Loading / empty states ──
   if (loading || fetching) return (
-    <div style={{ minHeight: '100vh', background: '#F9FAFB' }}>
-      <Spinner />
-    </div>
+    <WorkspaceRouteLoading
+      framed={false}
+      labelAr="جارٍ تجهيز مساحة الاتجاه الإبداعي"
+      labelEn="Preparing creative direction workspace"
+    />
   )
 
   if (!campaign) return (

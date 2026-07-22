@@ -609,6 +609,101 @@
     padding: 24px;
   }
 
+  .nx-workspace-loading-wrap {
+    display: grid;
+    min-height: min(620px, calc(100vh - 48px));
+    place-items: center;
+  }
+
+  .nx-workspace-loading {
+    position: relative;
+    display: grid;
+    width: min(100%, 620px);
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 18px;
+    overflow: hidden;
+    border: 1px solid var(--nx-divider);
+    border-radius: 24px;
+    background:
+      radial-gradient(circle at 8% 10%, rgba(103,92,246,0.13), transparent 34%),
+      radial-gradient(circle at 94% 90%, rgba(19,184,215,0.10), transparent 35%),
+      rgba(255,255,255,0.95);
+    padding: 26px;
+    box-shadow: var(--shadow-panel);
+  }
+
+  .nx-workspace-loading__core {
+    display: grid;
+    height: 54px;
+    width: 54px;
+    place-items: center;
+    border: 1px solid rgba(103,92,246,0.13);
+    border-radius: 18px;
+    background: rgba(255,255,255,0.82);
+    box-shadow: 0 14px 34px rgba(81,69,229,0.12), inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+
+  .nx-workspace-loading__eyebrow {
+    color: var(--nx-violet-dark);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+  }
+
+  .nx-workspace-loading__title {
+    margin-top: 5px;
+    color: var(--nx-text-1);
+    font-family: var(--nx-font-display);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .nx-workspace-loading__copy {
+    margin-top: 4px;
+    color: var(--nx-text-3);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.7;
+  }
+
+  .nx-workspace-loading__progress {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--nx-violet), var(--nx-cyan), transparent);
+    transform-origin: left;
+    animation: nx-workspace-loading-progress 1.8s ease-in-out infinite;
+  }
+
+  @keyframes nx-workspace-loading-progress {
+    0% { transform: scaleX(0.12) translateX(-55%); opacity: 0.45; }
+    50% { transform: scaleX(0.72) translateX(18%); opacity: 1; }
+    100% { transform: scaleX(0.12) translateX(780%); opacity: 0.35; }
+  }
+
+  @media (max-width: 520px) {
+    .nx-workspace-loading-wrap {
+      min-height: calc(100vh - 76px);
+    }
+
+    .nx-workspace-loading {
+      grid-template-columns: 1fr;
+      gap: 14px;
+      border-radius: 20px;
+      padding: 22px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nx-workspace-loading__progress {
+      animation: none;
+      opacity: 0.7;
+    }
+  }
+
   .nx-error-card {
     border-color: var(--nx-danger-border);
     background: var(--nx-danger-bg);

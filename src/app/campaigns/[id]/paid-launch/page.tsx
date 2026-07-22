@@ -17,6 +17,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
 import AppShell from '@/components/AppShell'
+import WorkspaceRouteLoading from '@/components/WorkspaceRouteLoading'
 import CreditConfirmModal from '@/components/CreditConfirmModal'
 import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
 import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
@@ -395,14 +396,7 @@ export default function PaidLaunchPage() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   if (loading) {
-    return (
-      <AppShell>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: '#64748b', background: '#f6f8fc' }}>
-          <RefreshCw size={20} style={{ animation: 'spin 1s linear infinite', marginRight: 8 }} />
-          {copy('جارٍ تحميل موجز التخطيط المدفوع...', 'Loading paid planning brief...')}
-        </div>
-      </AppShell>
-    )
+    return <WorkspaceRouteLoading labelAr="جارٍ تجهيز موجز التخطيط المدفوع" labelEn="Preparing paid planning brief" />
   }
 
   if (!pack) {
@@ -417,7 +411,7 @@ export default function PaidLaunchPage() {
 
   return (
     <AppShell>
-      <main style={{ minHeight: '100vh', background: '#f6f8fc', color: '#0f172a' }}>
+      <main className="nx-os-page" style={{ color: '#0f172a' }}>
       <div style={{ maxWidth: 1180, margin: '0 auto', padding: '24px 16px 48px', minWidth: 0, overflow: 'hidden' }}>
 
         {/* Header */}

@@ -22,6 +22,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import AppShell from '@/components/AppShell'
+import WorkspaceRouteLoading from '@/components/WorkspaceRouteLoading'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -330,13 +331,7 @@ export default function AnalyticsPage() {
       : (ar ? 'إنشاء مسار قابل للقياس' : 'Create measurable path')
 
   if (authLoading) {
-    return (
-      <AppShell>
-        <div className="flex min-h-screen items-center justify-center bg-[#f6f8fc]">
-          <Loader2 className="h-9 w-9 animate-spin text-[#5366f6]" />
-        </div>
-      </AppShell>
-    )
+    return <WorkspaceRouteLoading labelAr="جارٍ تجهيز النتائج والتحليلات" labelEn="Preparing results and analytics" />
   }
 
   if (!isAuthenticated) return null

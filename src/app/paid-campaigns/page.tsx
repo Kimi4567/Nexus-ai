@@ -274,8 +274,8 @@ export default function PaidCampaignsPage() {
 
   return (
     <AppShell>
-      <main dir={ar ? 'rtl' : 'ltr'} className="min-h-screen bg-[#f6f8fc] text-[#071236]">
-        <div className="mx-auto max-w-[1540px] px-6 py-7 lg:px-8">
+      <main dir={ar ? 'rtl' : 'ltr'} className="nx-os-page text-[#071236]">
+        <div className="nx-os-container">
           <LuxuryWorkspaceHeader
             pageTitle={ar ? 'الإعلانات المدفوعة' : 'Paid campaigns'}
             pageSubtitle={ar ? 'حوّل استراتيجية Paid أو Full معتمدة إلى تنفيذ منصة، ثم راجع كل شيء قبل أي إطلاق أو إنفاق.' : 'Turn an approved Paid or Full strategy into platform execution, then review everything before launch or spend.'}

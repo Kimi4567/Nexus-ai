@@ -28,6 +28,7 @@ import {
   X,
 } from 'lucide-react'
 import AppShell from '@/components/AppShell'
+import WorkspaceRouteLoading from '@/components/WorkspaceRouteLoading'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -375,7 +376,7 @@ export default function LearningPage() {
   }, [copy, overview?.pilot])
 
   if (authLoading) {
-    return <AppShell><div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-[#5366f6]" /></div></AppShell>
+    return <WorkspaceRouteLoading labelAr="جارٍ تجهيز مركز التعلّم" labelEn="Preparing learning center" />
   }
   if (!isAuthenticated) return null
 

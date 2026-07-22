@@ -564,7 +564,8 @@ export default function BillingPage() {
 
   return (
     <AppShell>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-10">
+      <main className="nx-os-page">
+      <div className="nx-os-container space-y-10">
         <LuxuryWorkspaceHeader
           pageTitle={ar ? 'الفوترة والكريدت' : 'Billing & credits'}
           pageSubtitle={ar ? 'اعرف باقتك ورصيدك وتكلفة كل إجراء قبل التشغيل.' : 'Understand your plan, balance, and action costs before you run anything.'}
@@ -1036,6 +1037,7 @@ export default function BillingPage() {
         </p>
 
       </div>
+      </main>
 
       <CreditHistoryModal
         open={showCreditHistory}

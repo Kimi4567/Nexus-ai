@@ -52,6 +52,7 @@ import {
 import { derivePostCreativeRequirement } from '@/lib/creativeRequirements'
 import { getDefaultTemplateForPlatform } from '@/lib/creativeTemplates'
 import AppShell from '@/components/AppShell'
+import WorkspaceRouteLoading from '@/components/WorkspaceRouteLoading'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { PostPlatformPublisher } from '@/components/publishing/PostPlatformPublisher'
@@ -2657,26 +2658,7 @@ export default function ContentHubPage() {
   // ── Render ────────────────────────────────────────────────────────────────────
 
   if (authLoading || loading) {
-    return (
-      <AppShell>
-        <div className="min-h-screen bg-[#F4F7FB] px-4 py-5 sm:px-6">
-          <div className="mx-auto max-w-[1580px]">
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-slate-950">
-                {isAr ? 'إنتاج محتوى الحملة' : 'Campaign content production'}
-              </h1>
-              <p className="mt-1 text-sm text-slate-500">
-                {isAr ? 'نجمع الحملة والخطة والوسائط للمراجعة.' : 'Loading the campaign, plan, and media for review.'}
-              </p>
-            </div>
-            <LoadingState
-              label={isAr ? 'جارٍ تجهيز مساحة الإنتاج' : 'Preparing production workspace'}
-              description={isAr ? 'لن ننشئ أو ننشر أي شيء أثناء التحميل.' : 'Nothing is generated or published while this loads.'}
-            />
-          </div>
-        </div>
-      </AppShell>
-    )
+    return <WorkspaceRouteLoading labelAr="جارٍ تجهيز مساحة إنتاج الحملة" labelEn="Preparing campaign production" />
   }
 
   if (loadError && !campaign) {
@@ -2721,8 +2703,8 @@ export default function ContentHubPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen bg-[#F4F7FB] px-4 py-5 text-[#0B1028] sm:px-6">
-      <div className="mx-auto max-w-[1580px]">
+      <main className="nx-os-page text-[#0B1028]">
+      <div className="nx-os-container">
 
         {/* ── Header ─────────────────────────────────────────────── */}
         <div className="flex min-w-0 items-start justify-between mb-6 gap-4 flex-wrap">
@@ -5348,7 +5330,7 @@ export default function ContentHubPage() {
         )}
 
       </div>
-      </div>
+      </main>
     </AppShell>
   )
 }

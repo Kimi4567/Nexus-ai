@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import AppShell from '@/components/AppShell'
+import WorkspaceRouteLoading from '@/components/WorkspaceRouteLoading'
 import VisualGenerator from '@/components/VisualGenerator'
 import BrandDNABadge, { type BrandDNAData } from '@/components/BrandDNABadge'
 import CampaignProofOfWork from '@/components/campaign/CampaignProofOfWork'
@@ -1249,13 +1250,7 @@ function CampaignDetailPageInner() {
   }
 
   if (loading || fetching) {
-    return (
-      <AppShell>
-        <div className="flex items-center justify-center h-64">
-          <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-        </div>
-      </AppShell>
-    )
+    return <WorkspaceRouteLoading labelAr="جارٍ تجهيز غرفة الحملة" labelEn="Preparing campaign room" />
   }
 
   if (!campaign) {
@@ -2472,7 +2467,7 @@ function CampaignDetailPageInner() {
   return (
     <>
     <AppShell>
-      <div className="max-w-[1200px] mx-auto px-6 py-8 page-enter">
+      <div className="nx-os-container page-enter">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-slate-500 mb-6">
           <Link href="/dashboard" className="transition hover:text-slate-950">{cdT?.breadcrumbHome}</Link>

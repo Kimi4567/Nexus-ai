@@ -7,6 +7,7 @@ import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { applyBrandOverlayFromProfile, type OverlayPlatform } from '@/lib/cloudinaryOverlay'
 import { useRouter } from 'next/navigation'
+import WorkspaceRouteLoading from '@/components/WorkspaceRouteLoading'
 
 // ── Upload limits ──────────────────────────────────────────────────────────────
 // Local path goes through Next.js JSON body: file is base64-encoded → 33% overhead.
@@ -923,11 +924,7 @@ export default function MediaLibraryPage() {
     }
   }, [canUseCloudinary, canUseLocalUploads, uploadInProgress])
 
-  if (loading) return (
-    <div className="min-h-screen bg-bg-base flex items-center justify-center">
-      <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-    </div>
-  )
+  if (loading) return <WorkspaceRouteLoading labelAr="جارٍ تجهيز مكتبة الوسائط" labelEn="Preparing media library" />
   if (!isAuthenticated) return null
 
   return (
@@ -949,8 +946,8 @@ export default function MediaLibraryPage() {
         />
       )}
 
-      <main className="relative min-h-screen bg-[#f6f8fc] text-[#071236]">
-          <div className="relative mx-auto max-w-[1540px] px-6 py-7 lg:px-8">
+      <main className="nx-os-page relative text-[#071236]">
+          <div className="nx-os-container relative">
             <div>
 
           <LuxuryWorkspaceHeader
