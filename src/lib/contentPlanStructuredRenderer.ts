@@ -68,7 +68,7 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'unsupported_absolute_claim',
-    re: /(?:الحل الأمثل|مفتاح النجاح|تحقيق النجاح|يغير منظورك|مضمون|دائمًا|كل مرة|أفضل|مثالي|مثالية|لا تقاوم)|(?:guarantee|guaranteed|ensure|ensures|perfect|best|ultimate|game[-\s]?changer|irresistible|unmatched|extraordinary|as fresh as it gets|taste the difference|richer taste|keep our coffee fresh|expert(?:\s+brewing)? tips|elevate your|transform your|unlock the full potential|hassle[-\s]?free|better cup of coffee)/i,
+    re: /(?:الحل الأمثل|مفتاح النجاح|تحقيق النجاح|يغير منظورك|مضمون|دائمًا|كل مرة|أفضل|مثالي|مثالية|لا تقاوم|تأكد\s+من\s+جودة)|(?:guarantee|guaranteed|ensure|ensures|perfect|best|ultimate|game[-\s]?changer|irresistible|unmatched|extraordinary|as fresh as it gets|taste the difference|richer taste|keep our coffee fresh|expert(?:\s+brewing)? tips|elevate your|transform your|unlock the full potential|hassle[-\s]?free|better cup of coffee)/i,
   },
   {
     reason: 'unsupported_absolute_claim',
@@ -111,7 +111,7 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'unsupported_fake_product_visual',
-    re: /مشهد\s*\d+\s*:\s*شخص|عملية\s+(?:الاشتراك|تحميص|تعبئة|توصيل)|تعبئة\s+القهوة\s+في\s+(?:أكياس|عبوات)|استلام\s+القهوة(?:\s+الطازجة)?\s+(?:في|إلى)\s+المنزل|شخص\s+(?:ينتظر|يستلم|يفتح|يستخدم|يستمتع)/i,
+    re: /مشهد\s*\d+\s*:\s*شخص|عملية\s+(?:ال)?(?:اشتراك|تحميص|تعبئة|تغليف|توصيل)|(?:تعبئة|تغليف)\s+القهوة(?:\s+في\s+(?:أكياس|عبوات))?|استلام\s+القهوة(?:\s+الطازجة)?\s+(?:في|إلى)\s+المنزل|توصيل\s+القهوة\s+إلى\s+باب\s+(?:العميل|المنزل)|(?:شخص|العميل)\s+(?:ينتظر|يستلم|يتسلم|يفتح|يستخدم|يستمتع)/i,
   },
 ]
 

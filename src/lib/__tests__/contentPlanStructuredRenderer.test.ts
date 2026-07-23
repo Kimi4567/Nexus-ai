@@ -274,20 +274,22 @@ describe('contentPlanStructuredRenderer', () => {
       'مشهد 1: شخص يشعر بالإحباط عند نفاذ القهوة. مشهد 2: لقطات لعملية الاشتراك في خدمة القهوة الشهرية. مشهد 3: استلام القهوة الطازجة في المنزل.',
       'مشهد 1: لقطات لعملية تحميص القهوة. مشهد 2: تعبئة القهوة في أكياس. مشهد 3: توصيل ضمن النطاق الموثق.',
       'مشهد 1: شخص ينتظر القهوة بفارغ الصبر. مشهد 2: لقطات لعملية توصيل القهوة السريعة. مشهد 3: التوصيل ضمن النطاق والمدة الموثقين.',
+      'مشهد 1: لقطات من تفاصيل القهوة المحمصة المتاحة في Luma Roast Lab. مشهد 2: تغليف القهوة بعناية. مشهد 3: توصيل القهوة إلى باب العميل. مشهد 4: العميل يفتح العبوة ويستمتع برائحة القهوة الطازجة.',
+      'مشهد 1: لقطات تسلط الضوء على مدة التوصيل الموثقة من Luma Roast Lab. مشهد 2: توضيح نافذة التوصيل خلال 48 ساعة في دبي. مشهد 3: العميل يستلم القهوة في الوقت المحدد.',
     ]
     const prompts = storyboards.map((videoScript, postIndex) =>
       renderContentPlanDraftVideoPrompt({ videoScript }, { ...context, postIndex }),
     )
     const caption = renderContentPlanDraftCaption({
-      caption: 'اكتشف كيف يتم تحميص قهوتنا الطازجة وتوصيلها إليك في دبي. تعرف على عملية تحميص القهوة. استمتع بجودة القهوة المحمصة حديثًا. #قهوة #تحميص',
+      caption: 'اكتشف كيف يتم تحميص قهوتنا الطازجة وتوصيلها إليك في دبي. تعرف على عملية تحميص القهوة. شاهد عملية التحميص وتأكد من جودة القهوة التي تصلك. استمتع بجودة القهوة المحمصة حديثًا. #قهوة #تحميص',
     }, context)
     const deliveryCaption = renderContentPlanDraftCaption({
       caption: 'هل تشعر بالقلق من تأخير توصيل القهوة؟ راجع مدى ملاءمة اشتراكنا الشهري لروتينك. #توصيل_سريع #قهوة',
     }, { ...context, postIndex: 2 })
 
     expect(prompts.every(prompt => prompt.includes('Short-form editorial video concept'))).toBe(true)
-    expect(prompts.join('\n')).not.toMatch(/شخص|عملية الاشتراك|عملية تحميص|تعبئة القهوة|استلام القهوة|عملية توصيل/)
-    expect(caption).not.toMatch(/كيف يتم تحميص قهوتنا|عملية تحميص|استمتع بجودة/)
+    expect(prompts.join('\n')).not.toMatch(/شخص|العميل|عملية الاشتراك|عملية تحميص|عملية التحميص|تعبئة القهوة|تغليف القهوة|استلام القهوة|عملية توصيل|باب العميل/)
+    expect(caption).not.toMatch(/كيف يتم تحميص قهوتنا|عملية تحميص|عملية التحميص|تأكد من جودة|استمتع بجودة/)
     expect(deliveryCaption).toContain('#تفاصيل_التوصيل')
     expect(prompts.every(videoPrompt => validateContentPlanDraftForSave({ videoPrompt }).ok)).toBe(true)
     expect(validateContentPlanDraftForSave({ caption }).ok).toBe(true)
