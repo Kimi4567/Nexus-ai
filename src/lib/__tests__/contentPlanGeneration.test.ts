@@ -302,6 +302,15 @@ describe('resolveContentPlanSlotScope', () => {
     expect(routeSource).toContain('const bVariantsToCreate = guardContentDraftTruth(renderedBVariantsToCreate, proofContext)')
   })
 
+  it('grounds the provider prompt in explicit Brand Brain facts and Arabic grammar rules', () => {
+    const routeSource = readFileSync('src/app/api/campaigns/[id]/generate-content-plan/route.ts', 'utf8')
+
+    expect(routeSource).toContain('User-confirmed Brand Brain facts (the only factual source for claims)')
+    expect(routeSource).toContain('explicitBrandFacts.slice(0, 50)')
+    expect(routeSource).toContain('write short, complete Modern Standard Arabic sentences')
+    expect(routeSource).toContain('Every question hook must be answered')
+  })
+
   it('keeps Vercel timeouts aligned with the heavy content and image routes', () => {
     const deploymentConfig = JSON.parse(readFileSync('vercel.json', 'utf8')) as {
       functions: Record<string, { maxDuration: number }>

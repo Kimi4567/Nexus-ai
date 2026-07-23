@@ -1029,6 +1029,27 @@ describe('contentDraftTruthGuard', () => {
     expect(guarded.join('\n')).not.toMatch(/بكل سهولة|القهوة الطازجة ضمن نطاق|المتاحة راجع|ضمان توصيل|يعتمد على الموقع وموثوق/)
   })
 
+  it('repairs malformed roasting-quality copy and a delivery hook that changes subject', () => {
+    const context = {
+      brandFacts: [
+        'One kilogram of freshly roasted coffee is supplied monthly for AED 149.',
+        'Delivery is limited to Dubai within 48 hours.',
+      ],
+    }
+    const roasting = guardContentDraftText(
+      'استمتع بتوصيل القهوة المحمصة حديثًا مباشرة حسب المناطق المتاحة في دبي. شاهد كيف نحرص على جودة التحميص لتصل إليك في حالاتها مناسب.',
+      context,
+    )
+    const delivery = guardContentDraftText(
+      'هل تتساءل عن سرعة توصيل القهوة؟ راجع مدى ملاءمة اشتراكنا الشهري لروتين القهوة الخاص بك.',
+      context,
+    )
+
+    expect(roasting).toContain('راجع تاريخ التحميص ونطاق التوصيل الموثق قبل الاشتراك')
+    expect(roasting).not.toMatch(/نحرص على جودة التحميص|في حالاتها مناسب/)
+    expect(delivery).toBe('هل يناسبك اشتراك قهوة شهري؟ راجع نطاق التوصيل ومدته الموثقين قبل اختيار الاشتراك.')
+  })
+
   it('removes unsupported Arabic customer reactions and delivery-performance scenes', () => {
     const out = guardContentDraftText(
       'المشهد الأول: عرض أهمية توصيل القهوة في الوقت المناسب. المشهد الثاني: توصيل القهوة إلى المنزل. المشهد الثالث: ردود أفعال العملاء عند استلام القهوة في الوقت المحدد.',

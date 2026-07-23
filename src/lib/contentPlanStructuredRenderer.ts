@@ -68,7 +68,7 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'unsupported_absolute_claim',
-    re: /(?:الحل الأمثل|مفتاح النجاح|تحقيق النجاح|يغير منظورك|مضمون|دائمًا|كل مرة|أفضل|مثالي|مثالية|لا تقاوم|تأكد\s+من\s+جودة|بكل\s+سهولة|ضمان\s+(?:توقيت|التوصيل|الجودة|النتائج))|(?:guarantee|guaranteed|ensure|ensures|perfect|best|ultimate|game[-\s]?changer|irresistible|unmatched|extraordinary|as fresh as it gets|taste the difference|richer taste|keep our coffee fresh|expert(?:\s+brewing)? tips|elevate your|transform your|unlock the full potential|hassle[-\s]?free|better cup of coffee)/i,
+    re: /(?:الحل الأمثل|مفتاح النجاح|تحقيق النجاح|يغير منظورك|مضمون|دائمًا|كل مرة|أفضل|مثالي|مثالية|لا تقاوم|تأكد\s+من\s+جودة|بكل\s+سهولة|ضمان\s+(?:توقيت|التوصيل|الجودة|النتائج)|نحرص\s+على\s+جودة\s+التحميص)|(?:guarantee|guaranteed|ensure|ensures|perfect|best|ultimate|game[-\s]?changer|irresistible|unmatched|extraordinary|as fresh as it gets|taste the difference|richer taste|keep our coffee fresh|expert(?:\s+brewing)? tips|elevate your|transform your|unlock the full potential|hassle[-\s]?free|better cup of coffee)/i,
   },
   {
     reason: 'unsupported_absolute_claim',
@@ -80,7 +80,7 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'malformed_caption',
-    re: /\bhelps that\b|\bhelp consistent\b|\bhelp quality\b|\bhelp your [^.!?]{0,80} remains\b|\bHelp your campaigns are\b|\bHelp unified communication\b|يساعد على من هوية|ندعم? أن تظل|راجع\s+تفاصيل\s+القهوة\s+المحمصة\s+المتاحة\s+راجع|يعتمد\s+على\s+الموقع\s+وموثوق|#[\p{L}\p{N}_]*coffeeless\b/iu,
+    re: /\bhelps that\b|\bhelp consistent\b|\bhelp quality\b|\bhelp your [^.!?]{0,80} remains\b|\bHelp your campaigns are\b|\bHelp unified communication\b|يساعد على من هوية|ندعم? أن تظل|راجع\s+تفاصيل\s+القهوة\s+المحمصة\s+المتاحة\s+راجع|يعتمد\s+على\s+الموقع\s+وموثوق|في\s+حالاتها\s+مناسب|هل\s+تتساءل\s+عن\s+سرعة\s+توصيل\s+القهوة؟\s*راجع\s+مدى\s+ملاءمة\s+اشتراكنا|#[\p{L}\p{N}_]*coffeeless\b/iu,
   },
   {
     reason: 'malformed_caption',

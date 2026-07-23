@@ -445,6 +445,15 @@ describe('contentPlanStructuredRenderer', () => {
     expect(defects.every(caption => !validateContentPlanDraftForSave({ caption }).ok)).toBe(true)
   })
 
+  it('blocks malformed roasting-quality copy and delivery hooks that do not answer their question', () => {
+    const defects = [
+      'شاهد كيف نحرص على جودة التحميص لتصل إليك في حالاتها مناسب.',
+      'هل تتساءل عن سرعة توصيل القهوة؟ راجع مدى ملاءمة اشتراكنا الشهري لروتين القهوة الخاص بك.',
+    ]
+
+    expect(defects.every(caption => !validateContentPlanDraftForSave({ caption }).ok)).toBe(true)
+  })
+
   it('preserves non-clinic guarded copy instead of forcing the clinic template', () => {
     const caption = renderContentPlanDraftCaption({
       caption: 'Choose the right grind size for your brewing method.',

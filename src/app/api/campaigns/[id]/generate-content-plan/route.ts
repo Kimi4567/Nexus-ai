@@ -494,6 +494,8 @@ Target audience: ${targetAudience}
 Content pillars: ${pillarText}
 Tone: ${tone}
 Offer/CTA: ${offer}
+User-confirmed Brand Brain facts (the only factual source for claims):
+${JSON.stringify(explicitBrandFacts.slice(0, 50), null, 2).slice(0, 8_000)}
 Audience pain points: ${(brandProfile?.audiencePainPoints ?? []).join(' | ') || 'Not provided'}
 Audience desires: ${(brandProfile?.audienceDesires ?? []).join(' | ') || 'Not provided'}
 Forbidden brand words/styles: ${(brandProfile?.avoidKeywords ?? []).join(' | ') || 'None provided'}
@@ -512,6 +514,9 @@ Avoid broad Arabic quality/superlative phrases like "أفضل نكهة", "أفض
 Avoid residual broad "best/premium" quality wording such as "أفضل الحبوب", "أفضل حبوب القهوة", "premium experience", "premium quality", "best beans", and "best flavor" unless exact user-provided proof exists. Prefer grounded wording like "حبوب مختارة بعناية", "مذاق متوازن", "more considered experience", "carefully selected beans", or "balanced flavor".
 Avoid English hype such as "irresistible", "extraordinary", "unmatched", and broad "unique coffee experience" claims unless exact user-provided proof exists.
 Do not claim coffee improves productivity, morale, focus, energy, team performance, workplace output, or business results unless the user provided verified proof. For office coffee, frame benefits as easier planning, more consistent coffee routines, and more enjoyable breaks.
+For Arabic output, write short, complete Modern Standard Arabic sentences and check grammatical agreement before returning JSON. Never stitch two rewritten fragments together. Every question hook must be answered with a relevant fact or review step in the same caption.
+If an Arabic hook asks about delivery speed or timing, answer only with the exact user-confirmed delivery scope/window shown above. If that fact is absent, use a neutral hook about reviewing delivery details. Do not ask about speed and then switch to an unrelated subscription-fit sentence.
+Do not write "نحرص على جودة التحميص" or imply a first-party roasting-quality process unless exact first-party evidence appears in the user-confirmed facts. Refer to the roast date and documented product details instead.
 
 CONTENT MIX: Distribute the posts as follows (approximate percentages):
 - Educational/informational posts: ${educationalPct}% (teach, explain, share tips)

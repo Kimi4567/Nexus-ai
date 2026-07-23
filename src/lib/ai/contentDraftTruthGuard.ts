@@ -647,6 +647,14 @@ function guardDraftCopyQuality(text: string): string {
       /شاهد\s+كيف\s+يمكن\s+للاشتراك\s+الشهري\s+لدينا\s+أن\s+ينظم\s+احتياجك\s+للقهوة\s+بكل\s+سهولة\.?/gi,
       'راجع تفاصيل الاشتراك الشهري ومدى ملاءمته لاحتياجك للقهوة.',
     )
+    .replace(
+      /شاهد\s+كيف\s+نحرص\s+على\s+جودة\s+التحميص[^.!؟]*[.!؟]?/gi,
+      'راجع تاريخ التحميص ونطاق التوصيل الموثق قبل الاشتراك.',
+    )
+    .replace(
+      /هل\s+تتساءل\s+عن\s+سرعة\s+توصيل\s+القهوة\؟\s*راجع\s+مدى\s+ملاءمة\s+اشتراكنا\s+الشهري\s+لروتين\s+القهوة\s+الخاص\s+بك\.?/gi,
+      'هل يناسبك اشتراك قهوة شهري؟ راجع نطاق التوصيل ومدته الموثقين قبل اختيار الاشتراك.',
+    )
     .replace(/بكل\s+سهولة/gi, 'بخطوات واضحة')
     .replace(/والتوصيل\s+الطازج(?:ة)?/gi, 'ونطاق التوصيل الموثق')
     .replace(
@@ -1525,6 +1533,9 @@ export function buildContentDraftTruthPolicyPrompt(): string {
     '- For office coffee content, frame benefits as easier planning, more consistent coffee routines, and more enjoyable breaks, not productivity or performance outcomes.',
     '- Arabic output must avoid إنتاجية, معنويات, طاقة, تركيز, and أداء as performance promises unless user-provided proof exists.',
     '- For Arabic output, avoid أفضل, أجود, مثالي, مضمون, دائمًا, and كل مرة as absolute claims unless directly supported by user-provided proof.',
+    '- Arabic captions must use short, complete Modern Standard Arabic sentences with correct agreement and no stitched fragments. Every question hook must be answered by the same caption.',
+    '- If an Arabic hook asks about delivery speed or timing, answer it only with the exact user-confirmed delivery scope/window. Otherwise use a neutral subscription-fit or delivery-details hook.',
+    '- Never write نحرص على جودة التحميص or claim a first-party roasting-quality process unless the user supplied exact first-party evidence. Refer to the roast date and documented product details instead.',
     '- Arabic output must avoid مثالي/مثالية as broad fit claims unless exact proof exists; prefer مناسب/مناسبة, خيار عملي, or خيار مناسب.',
     '- Arabic output must avoid broad perfection wording such as قهوة مثالية, تجربة مثالية, نتائج مثالية, and تحضير مثالي. Prefer قهوة متوازنة, تجربة أكثر اتساقًا, تحضير عملي, or خطوات عملية.',
     '- Arabic output must avoid contextual coffee perfection phrases such as قهوة صباحية مثالية, القهوة الصباحية المثالية, كوب قهوة مثالي, and فنجان قهوة مثالي unless exact user-provided proof exists. Prefer قهوة صباحية أكثر اتساقًا, كوب قهوة متوازن, or فنجان قهوة متوازن.',
