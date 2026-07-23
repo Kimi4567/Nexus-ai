@@ -517,9 +517,11 @@ Avoid residual broad "best/premium" quality wording such as "أفضل الحبو
 Avoid English hype such as "irresistible", "extraordinary", "unmatched", and broad "unique coffee experience" claims unless exact user-provided proof exists.
 Do not claim coffee improves productivity, morale, focus, energy, team performance, workplace output, or business results unless the user provided verified proof. For office coffee, frame benefits as easier planning, more consistent coffee routines, and more enjoyable breaks.
 For Arabic output, write short, complete Modern Standard Arabic sentences and check grammatical agreement before returning JSON. Never stitch two rewritten fragments together. Every question hook must be answered with a relevant fact or review step in the same caption.
+Do not use negative absolutes such as "لا داعي للقلق من النفاد" or "لا مزيد من التأخير في التوصيل". State only the confirmed quantity, delivery area, and service window.
 If an Arabic hook asks about delivery speed or timing, answer only with the exact user-confirmed delivery scope/window shown above. If that fact is absent, use a neutral hook about reviewing delivery details. Do not ask about speed and then switch to an unrelated subscription-fit sentence.
 When the user-confirmed facts provide an exact price, quantity, delivery area, or delivery window, state the exact fact instead of vague phrases such as "التفاصيل الموثقة", "النطاق الموثق", or "المدة الموثقة".
 Do not write "نحرص على جودة التحميص" or imply a first-party roasting-quality process unless exact first-party evidence appears in the user-confirmed facts. Refer to the roast date and documented product details instead.
+Do not write "شاهد كيف يتم تحميص القهوة بعناية", "ضمان جودة", or "جودة لا مثيل لها" without exact first-party process evidence.
 For Arabic video scripts, do not request readable on-screen text, a delivery truck or vehicle, coffee reaching a customer, or arrival "في الوقت المحدد" unless exact owned media and fulfillment evidence appear above. Prefer neutral product details, object motion, and abstract transitions.
 
 CONTENT MIX: Distribute the posts as follows (approximate percentages):

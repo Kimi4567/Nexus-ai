@@ -577,6 +577,10 @@ function guardDeliveryClaims(text: string): string {
       'راجع نطاق التوصيل ومدته الموثقين حسب الموقع',
     )
     .replace(/توصيل مضمون/g, 'التوصيل حسب المناطق المتاحة')
+    .replace(
+      /لا\s+(?:مزيد|مزيدًا)\s+من\s+(?:التأخير|التأخر)\s+في\s+التوصيل[!！.]?/gi,
+      'راجع نطاق ومدة التوصيل الموثقين.',
+    )
     .replace(/توصيل سريع/g, 'توقيت التوصيل يعتمد على الموقع')
     .replace(/التوصيل السريع/gi, 'نطاق ومدة التوصيل الموثقان')
     .replace(/عملية\s+توصيل\s+القهوة\s+السريعة/gi, 'عرض نطاق ومدة توصيل القهوة الموثقين')
@@ -623,6 +627,10 @@ function guardDeliveryClaims(text: string): string {
 
 function guardDraftCopyQuality(text: string): string {
   return text
+    .replace(
+      /لا\s+(?:داعي|حاجة)\s+للقلق\s+(?:بعد\s+الآن\s+)?بشأن\s+نفاد\s+القهوة(?:\s+بشكل\s+غير\s+متوقع)?[.!！]?/gi,
+      'راجع الكمية المناسبة لاحتياجك الشهري قبل الاشتراك.',
+    )
     .replace(
       /اشترك\s+الآن\s+لتضمن\s+حصولك\s+على/gi,
       'راجع تفاصيل الاشتراك للحصول على',
@@ -1068,6 +1076,10 @@ function guardUnverifiedCoffeeProductClaims(
         /\b(?:watch|see|discover)\s+how\s+we\s+roast\s+(?:our\s+)?coffee\b/gi,
         'review the available coffee roasting details',
       )
+      .replace(
+        /(?:شاهد|اكتشف|تعرّف|تعرف)\s+كيف\s+يتم\s+تحميص\s+القهوة[^.!؟]*[.!؟]?/gi,
+        'راجع تاريخ التحميص وتفاصيل القهوة المتاحة.',
+      )
   }
 
   if (!hasAffirmedBrandFact(
@@ -1105,6 +1117,10 @@ function guardUnverifiedCoffeeProductClaims(
       .replace(
         /التوصيل\s+ضمن\s+النطاق\s+والمدة\s+الموثقين\s+(?:ضمن|داخل)\s+دبي/gi,
         'التوصيل داخل دبي فقط خلال 48 ساعة',
+      )
+      .replace(
+        /راجع\s+نطاق\s+ومدة\s+التوصيل\s+الموثقين[.!！؟]?/gi,
+        'التوصيل متاح داخل دبي فقط خلال 48 ساعة.',
       )
   }
 
@@ -1565,10 +1581,12 @@ export function buildContentDraftTruthPolicyPrompt(): string {
     '- Arabic output must avoid إنتاجية, معنويات, طاقة, تركيز, and أداء as performance promises unless user-provided proof exists.',
     '- For Arabic output, avoid أفضل, أجود, مثالي, مضمون, دائمًا, and كل مرة as absolute claims unless directly supported by user-provided proof.',
     '- Arabic captions must use short, complete Modern Standard Arabic sentences with correct agreement and no stitched fragments. Every question hook must be answered by the same caption.',
+    '- Do not use negative absolutes such as لا داعي للقلق من النفاد or لا مزيد من التأخير في التوصيل. State only the confirmed quantity, area, and service window.',
     '- If an Arabic hook asks about delivery speed or timing, answer it only with the exact user-confirmed delivery scope/window. Otherwise use a neutral subscription-fit or delivery-details hook.',
     '- When Brand Brain supplies an exact price, quantity, delivery area, or delivery window, state that fact directly instead of vague placeholders such as documented details, documented scope, or documented window.',
     '- Arabic calls to action must not use لتضمن حصولك or any other guarantee construction. Use a factual review or subscription-details action instead.',
     '- Never write نحرص على جودة التحميص or claim a first-party roasting-quality process unless the user supplied exact first-party evidence. Refer to the roast date and documented product details instead.',
+    '- Also reject generic first-party process claims such as شاهد كيف يتم تحميص القهوة بعناية, ضمان جودة, and جودة لا مثيل لها when no exact owned process evidence exists.',
     '- Arabic output must avoid مثالي/مثالية as broad fit claims unless exact proof exists; prefer مناسب/مناسبة, خيار عملي, or خيار مناسب.',
     '- Arabic output must avoid broad perfection wording such as قهوة مثالية, تجربة مثالية, نتائج مثالية, and تحضير مثالي. Prefer قهوة متوازنة, تجربة أكثر اتساقًا, تحضير عملي, or خطوات عملية.',
     '- Arabic output must avoid contextual coffee perfection phrases such as قهوة صباحية مثالية, القهوة الصباحية المثالية, كوب قهوة مثالي, and فنجان قهوة مثالي unless exact user-provided proof exists. Prefer قهوة صباحية أكثر اتساقًا, كوب قهوة متوازن, or فنجان قهوة متوازن.',

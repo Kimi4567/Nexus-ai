@@ -991,7 +991,7 @@ describe('contentDraftTruthGuard', () => {
 
     expect(out).toContain('راجع تاريخ التحميص وتفاصيل المنتج المتاحة')
     expect(out).toContain('ونطاق التوصيل الموثق')
-    expect(out).toContain('راجع نطاق ومدة التوصيل الموثقين')
+    expect(out).toContain('التوصيل متاح داخل دبي فقط خلال 48 ساعة')
     expect(out).not.toMatch(/نحمي نضارة|التوصيل الطازجة|نسعى إلى دعم مدة التوصيل/)
   })
 
@@ -1275,6 +1275,26 @@ describe('contentDraftTruthGuard', () => {
 
     expect(guarded).toContain('التوصيل متاح داخل دبي فقط خلال 48 ساعة')
     expect(guarded).not.toMatch(/نسعى إلى تقديم|النطاق والمدة الموثقين ضمن دبي/)
+  })
+
+  it('repairs the latest negative absolutes and unverified generic roasting-process claim', () => {
+    const guarded = guardContentDraftTruth({
+      stockCaption: 'لا داعي للقلق بعد الآن بشأن نفاد القهوة بشكل غير متوقع.',
+      roastingCaption: 'شاهد كيف يتم تحميص القهوة بعناية لضمان جودة لا مثيل لها.',
+      deliveryCaption: 'لا مزيد من التأخير في التوصيل!',
+    }, {
+      brandFacts: [
+        'القهوة محمصة حديثًا.',
+        'Delivery is limited to Dubai within 48 hours.',
+        'لا توجد وسائط أو أدلة لعملية التحميص.',
+      ],
+    })
+    const serialized = JSON.stringify(guarded)
+
+    expect(serialized).toContain('راجع الكمية المناسبة لاحتياجك الشهري قبل الاشتراك')
+    expect(serialized).toContain('راجع تاريخ التحميص وتفاصيل القهوة المتاحة')
+    expect(serialized).toContain('التوصيل متاح داخل دبي فقط خلال 48 ساعة')
+    expect(serialized).not.toMatch(/لا داعي للقلق|لا مزيد من التأخير|كيف يتم تحميص|ضمان جودة|لا مثيل لها/)
   })
 
   it('repairs the observed NEXUS workflow claims and malformed English before persistence', () => {

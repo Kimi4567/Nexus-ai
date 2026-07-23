@@ -335,6 +335,16 @@ describe('contentPlanStructuredRenderer', () => {
     expect(result.issues.map(issue => issue.reason)).toContain('unsupported_absolute_claim')
   })
 
+  it('blocks the latest production negative absolutes and unverified roasting process', () => {
+    const captions = [
+      'لا داعي للقلق بعد الآن بشأن نفاد القهوة بشكل غير متوقع.',
+      'شاهد كيف يتم تحميص القهوة بعناية لضمان جودة لا مثيل لها.',
+      'لا مزيد من التأخير في التوصيل!',
+    ]
+
+    expect(captions.every(caption => !validateContentPlanDraftForSave({ caption }).ok)).toBe(true)
+  })
+
   it('save gate blocks observed unsafe regenerated clinic claims before SocialPost persistence', () => {
     const result = validateContentPlanDraftForSave({
       caption: 'وضوح العمليات في العيادة يساعد على من كفاءة العمل. اكتشف كيف يسهل ClinicFlow AI التواصل مع المرضى بلغتهم المفضلة، مما يساعد على من رضاهم وثقتهم.',
