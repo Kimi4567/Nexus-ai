@@ -536,7 +536,7 @@ export default function ContentHubPage() {
   const [videoGenerationAcknowledged, setVideoGenerationAcknowledged] = useState(false)
   const [videoAssetRightsAcknowledged, setVideoAssetRightsAcknowledged] = useState(false)
   const [videoReferenceMediaIds, setVideoReferenceMediaIds] = useState<string[]>([])
-  const [videoProductionMode, setVideoProductionMode] = useState<'MOTION_DESIGN' | 'CAMPAIGN_FILM' | 'CINEMATIC'>('CAMPAIGN_FILM')
+  const [videoProductionMode, setVideoProductionMode] = useState<'MOTION_DESIGN' | 'CAMPAIGN_FILM' | 'CINEMATIC'>('MOTION_DESIGN')
   const [motionDesignSourceMediaId, setMotionDesignSourceMediaId] = useState<string | null>(null)
   const [generatingVideoId, setGeneratingVideoId] = useState<string | null>(null)
   const [repairingVideoId, setRepairingVideoId] = useState<string | null>(null)
@@ -2560,12 +2560,7 @@ export default function ContentHubPage() {
     }
     const currentMotionSource = motionDesignVideos.find(media => media.id === post.uploadedMediaId) ?? null
     const defaultMotionSource = currentMotionSource ?? motionDesignVideos[0] ?? null
-    const startsWithMotionDesign = !referenceMediaId && Boolean(defaultMotionSource)
-    setVideoProductionMode(startsWithMotionDesign
-      ? 'MOTION_DESIGN'
-      : referenceMediaId
-        ? 'CINEMATIC'
-        : 'CAMPAIGN_FILM')
+    setVideoProductionMode(referenceMediaId ? 'CINEMATIC' : 'MOTION_DESIGN')
     setMotionDesignSourceMediaId(defaultMotionSource?.id ?? null)
     setVideoReferenceMediaIds(referenceMediaId ? [referenceMediaId] : [])
     setVideoGenerationAcknowledged(false)
@@ -2580,7 +2575,7 @@ export default function ContentHubPage() {
     setVideoAssetRightsAcknowledged(false)
     setVideoReferenceMediaIds([])
     setMotionDesignSourceMediaId(null)
-    setVideoProductionMode('CAMPAIGN_FILM')
+    setVideoProductionMode('MOTION_DESIGN')
   }
 
   async function confirmPostVideoGeneration() {
@@ -2679,7 +2674,19 @@ export default function ContentHubPage() {
         },
       )
       const data = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(data.error || data.message || 'Video generation could not start')
+      if (!response.ok) {
+        if (data.code === 'CAMPAIGN_FILM_QUALITY_LOCKED') {
+          const fallbackMode = motionDesignVideos.length > 0 ? 'MOTION_DESIGN' : 'CINEMATIC'
+          setVideoProductionMode(fallbackMode)
+          setMotionDesignSourceMediaId(motionDesignVideos[0]?.id ?? null)
+          setVideoGenerationAcknowledged(false)
+          setVideoAssetRightsAcknowledged(false)
+          throw new Error(isAr
+            ? `أوقف NEXUS هذا المسار بعد ${data.rejectedAttempts ?? 2} نتائج رفضها فحص الجودة، ولم يبدأ مزودًا ولم يخصم كريديت. انتقلنا إلى ${fallbackMode === 'MOTION_DESIGN' ? 'Motion Design من فيديو أصلي' : 'إعلان دقة المنتج من أصول حقيقية'}؛ اختر أصلًا مؤهلًا للمتابعة.`
+            : `NEXUS stopped this route after ${data.rejectedAttempts ?? 2} outputs failed quality review. No provider started and no credits were charged. We switched to ${fallbackMode === 'MOTION_DESIGN' ? 'source-locked Motion Design' : 'product fidelity from real assets'}; choose a qualified source to continue.`)
+        }
+        throw new Error(data.error || data.message || 'Video generation could not start')
+      }
 
       setPosts(current => current.map(item => item.id === post.id
         ? { ...item, generationStatus: 'GENERATING' }
@@ -5030,6 +5037,17 @@ export default function ContentHubPage() {
               </div>
 
               <div className="max-h-[72vh] overflow-y-auto p-6">
+                <div className="mb-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                  <p className="text-xs font-bold text-emerald-950">
+                    {isAr ? 'المسار الموصى به: استخدم أصلًا حقيقيًا تملكه' : 'Recommended route: use a real source asset you own'}
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-emerald-900/80">
+                    {isAr
+                      ? 'يحافظ Motion Design على الفيديو الأصلي، بينما يفحص مسار دقة المنتج الصور المرجعية قبل الإنفاق. الـConcept Film خيار تجريبي للمفهوم فقط.'
+                      : 'Motion Design preserves the source video, while Product fidelity preflights reference images before provider spend. Concept Film is an experimental concept-only option.'}
+                  </p>
+                </div>
+
                 <div className="mb-5 grid gap-3 sm:grid-cols-3">
                   <button
                     type="button"
@@ -5038,7 +5056,16 @@ export default function ContentHubPage() {
                     className={`rounded-2xl border p-4 text-left transition-all ${videoProductionMode === 'MOTION_DESIGN' ? 'border-violet-500 bg-violet-50' : 'border-slate-200 bg-white'}`}
                   >
                     <p className="text-sm font-bold text-slate-950">{isAr ? `تحريك فيديو أصلي · ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت` : `Animate source video · ${CONTENT_HUB_MOTION_DESIGN_COST} credits`}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? 'مونتاج بسيط يحافظ على المصدر؛ ليس إعلانًا سينمائيًا.' : 'Simple source-preserving edit; not a cinematic advertisement.'}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? 'المسار الأساسي: مونتاج يحافظ على المصدر الحقيقي.' : 'Primary route: a source-preserving edit from real footage.'}</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setVideoProductionMode('CINEMATIC'); setVideoGenerationAcknowledged(false) }}
+                    disabled={Boolean(generatingVideoId)}
+                    className={`rounded-2xl border p-4 text-left transition-all ${videoProductionMode === 'CINEMATIC' ? 'border-violet-500 bg-violet-50' : 'border-slate-200 bg-white'}`}
+                  >
+                    <p className="text-sm font-bold text-slate-950">{isAr ? `دقة المنتج · ${CONTENT_HUB_VIDEO_COST} كريديت` : `Product fidelity · ${CONTENT_HUB_VIDEO_COST} credits`}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? 'لصور منتج حقيقية من عدة زوايا؛ يبدأ فقط بعد تأهيل الأصول.' : 'For real multi-angle product photos; starts only after asset qualification.'}</p>
                   </button>
                   <button
                     type="button"
@@ -5048,19 +5075,10 @@ export default function ContentHubPage() {
                       setVideoGenerationAcknowledged(false)
                     }}
                     disabled={Boolean(generatingVideoId)}
-                    className={`rounded-2xl border p-4 text-left transition-all ${videoProductionMode === 'CAMPAIGN_FILM' ? 'border-violet-500 bg-violet-50' : 'border-slate-200 bg-white'}`}
+                    className={`rounded-2xl border p-4 text-left transition-all ${videoProductionMode === 'CAMPAIGN_FILM' ? 'border-amber-400 bg-amber-50' : 'border-slate-200 bg-white'}`}
                   >
-                    <p className="text-sm font-bold text-slate-950">{isAr ? `Concept Film مولّد · ${CONTENT_HUB_VIDEO_COST} كريديت` : `Generated concept film · ${CONTENT_HUB_VIDEO_COST} credits`}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? '3 لقطات مولّدة بحركة مشاهد وعناصر وكاميرا، انتقالات، صوت، وTypography؛ بلا وعد بتطابق منتج حقيقي.' : 'Three generated shots with scene, subject, and camera motion, cuts, sound, and typography—with no real-product fidelity promise.'}</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setVideoProductionMode('CINEMATIC'); setVideoGenerationAcknowledged(false) }}
-                    disabled={Boolean(generatingVideoId)}
-                    className={`rounded-2xl border p-4 text-left transition-all ${videoProductionMode === 'CINEMATIC' ? 'border-violet-500 bg-violet-50' : 'border-slate-200 bg-white'}`}
-                  >
-                    <p className="text-sm font-bold text-slate-950">{isAr ? `إعلان مرجعي للمنتج · ${CONTENT_HUB_VIDEO_COST} كريديت` : `Product-referenced ad · ${CONTENT_HUB_VIDEO_COST} credits`}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? 'لصور منتج معزولة من عدة زوايا؛ الناتج يمر بفحص تطابق قبل أن يُربط.' : 'For isolated multi-angle product photos; the result must pass product-consistency review before attachment.'}</p>
+                    <p className="text-sm font-bold text-slate-950">{isAr ? `Concept Film تجريبي · ${CONTENT_HUB_VIDEO_COST} كريديت` : `Experimental concept film · ${CONTENT_HUB_VIDEO_COST} credits`}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? 'للتصور الإبداعي فقط؛ لا يثبت منتجًا أو عملية حقيقية، ويُوقف بعد تكرار رفض الجودة.' : 'Creative exploration only; it proves no real product or process and locks after repeated QA rejection.'}</p>
                   </button>
                 </div>
 
@@ -5107,8 +5125,8 @@ export default function ContentHubPage() {
                               : 'NEXUS builds three purpose-made shots from the post objective and Brand Brain. This route needs no reference image and does not claim exact product fidelity.'}
                           </p>
                         </div>
-                        <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold text-emerald-200">
-                          {isAr ? 'جاهز للإنتاج' : 'Production ready'}
+                        <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-[10px] font-bold text-amber-100">
+                          {isAr ? 'تجريبي · فحص إلزامي' : 'Experimental · QA required'}
                         </span>
                       </div>
                       <div className="mt-4 grid gap-2 sm:grid-cols-3">
@@ -5116,7 +5134,7 @@ export default function ContentHubPage() {
                           {
                             time: '0–3s',
                             title: isAr ? 'Hook بصري' : 'Visual hook',
-                            body: isAr ? 'شخص يتحرك + حركة كاميرا تلفت الانتباه.' : 'Moving subject + camera action that earns attention.',
+                            body: isAr ? 'حركة مشهد أو عنصر مع حركة كاميرا تلفت الانتباه.' : 'Scene or subject motion plus camera action that earns attention.',
                           },
                           {
                             time: '3–6s',

@@ -9,7 +9,8 @@ describe('Content Hub video reference routing truth', () => {
       'utf8',
     )
 
-    expect(source).toContain("referenceMediaId\n        ? 'CINEMATIC'\n        : 'CAMPAIGN_FILM'")
+    expect(source).toContain("setVideoProductionMode(referenceMediaId ? 'CINEMATIC' : 'MOTION_DESIGN')")
+    expect(source).toContain("useState<'MOTION_DESIGN' | 'CAMPAIGN_FILM' | 'CINEMATIC'>('MOTION_DESIGN')")
     expect(source).toContain('referenceMediaIds: videoReferenceMediaIds')
     expect(source).not.toContain('referenceMediaIds: professionalCampaignFilm ? [] : videoReferenceMediaIds')
     expect(source).toContain("setVideoProductionMode('CAMPAIGN_FILM')\n                      setVideoReferenceMediaIds([])")
