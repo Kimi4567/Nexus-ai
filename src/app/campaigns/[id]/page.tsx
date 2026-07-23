@@ -1910,6 +1910,22 @@ function CampaignDetailPageInner() {
     : includesPaidPlanningStrategy
       ? (locale === 'ar' ? 'مسار إبداعي لاستراتيجية شاملة' : 'Creative path for a full strategy')
       : (locale === 'ar' ? 'مسار إبداعي لاستراتيجية عضوية فقط' : 'Creative path for organic strategy only')
+  const creativeRequirementsSummary = summarizeCreativeRequirements(
+    campaignPosts.map((post: any) => ({
+      postId: post.id,
+      platform: post.platform,
+      caption: post.caption,
+      status: post.status,
+      imageUrl: post.imageUrl,
+      uploadedMediaId: post.uploadedMediaId,
+      mediaSource: post.mediaSource,
+      generationStatus: post.generationStatus,
+      isVideoPost: post.isVideoPost,
+      campaignGoal: campaign.goal,
+      campaignName: campaign.name,
+      brandName: brandDNA?.brandName,
+    })),
+  )
 
   const nextCreativeAction = (() => {
     if (brandTruthBlocked) {
@@ -1970,7 +1986,10 @@ function CampaignDetailPageInner() {
     if (
       operatingState.truthFlags.hasContentPlan
       && creativeHasPostRecords
-      && operatingState.counts.pendingGenerationPosts === 0
+      && creativeRequirementsSummary.total > 0
+      && creativeRequirementsSummary.mediaNeeded === 0
+      && creativeRequirementsSummary.readinessPending === 0
+      && creativeRequirementsSummary.attachedToPost === creativeRequirementsSummary.total
     ) {
       return {
         title: locale === 'ar' ? 'وسائط المنشورات مكتملة في Content Hub' : 'Post media is complete in Content Hub',
@@ -2035,22 +2054,6 @@ function CampaignDetailPageInner() {
   const totalPostMediaSlots = operatingState.counts.totalPosts
   const pendingPostMediaSlots = operatingState.counts.pendingGenerationPosts
   const readyPostMediaSlots = Math.max(0, totalPostMediaSlots - pendingPostMediaSlots)
-  const creativeRequirementsSummary = summarizeCreativeRequirements(
-    campaignPosts.map((post: any) => ({
-      postId: post.id,
-      platform: post.platform,
-      caption: post.caption,
-      status: post.status,
-      imageUrl: post.imageUrl,
-      uploadedMediaId: post.uploadedMediaId,
-      mediaSource: post.mediaSource,
-      generationStatus: post.generationStatus,
-      isVideoPost: post.isVideoPost,
-      campaignGoal: campaign.goal,
-      campaignName: campaign.name,
-      brandName: brandDNA?.brandName,
-    })),
-  )
   const creativeMediaNeedLabel = uiIsArabic
     ? `${creativeRequirementsSummary.imageNeeded || 0} صور · ${creativeRequirementsSummary.videoNeeded || 0} فيديو تحتاج وسائط`
     : `${creativeRequirementsSummary.imageNeeded || 0} images · ${creativeRequirementsSummary.videoNeeded || 0} videos need media`

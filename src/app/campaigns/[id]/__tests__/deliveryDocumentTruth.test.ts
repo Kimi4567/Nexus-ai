@@ -16,6 +16,7 @@ describe('campaign delivery document truth', () => {
     expect(campaignPage).toContain('Open delivery document')
     expect(campaignPage).toContain('Post media is complete in Content Hub')
     expect(campaignPage).toContain('platform publishing remains a separate path requiring a connection, permissions, and explicit confirmation')
+    expect(campaignPage).toContain('creativeRequirementsSummary.attachedToPost === creativeRequirementsSummary.total')
     expect(campaignPage).not.toContain("cdT?.btnExportPdf || 'Export PDF'")
   })
 })
