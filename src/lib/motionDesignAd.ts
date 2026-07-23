@@ -61,6 +61,7 @@ export type MotionDesignCopy = {
 const DERIVATIVE_PATTERN = /motion[-_ ]design|source[-_ ]locked/i
 const SUPPORTED_SOURCE_KINDS = new Set(['PRODUCT', 'PACKAGING', 'DEMO', 'SCREEN'])
 const NON_BLOCKING_SCREEN_SOURCE_ISSUE = /\b(?:limited visual engagement|text[- ]based|visual diversity|primarily text)\b/i
+const NON_BLOCKING_CONTENT_GAP_ISSUE = /\b(?:lacks?|missing|limited|insufficient|does not (?:show|provide|include|describe|demonstrate)|no (?:specific|detailed|visible))\b.*\b(?:information|details?|context|subscription|delivery|benefits?|pricing|scope|service|window)\b/i
 
 function primaryTextLanguage(value: string | null | undefined): 'AR' | 'EN' | 'MIXED' | 'NONE' {
   const text = String(value || '')
@@ -70,6 +71,32 @@ function primaryTextLanguage(value: string | null | undefined): 'AR' | 'EN' | 'M
   if (hasArabic) return 'AR'
   if (hasLatin) return 'EN'
   return 'NONE'
+}
+
+function normalizedIdentityText(value: string): string {
+  return value
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function hasMeaningfulVisibleCopy(intelligence: ReturnType<typeof readMediaIntelligence>): boolean {
+  if (!intelligence) return false
+  const identityCorpus = [
+    intelligence.visibleSummary,
+    ...intelligence.products,
+  ].map(normalizedIdentityText)
+
+  return intelligence.visibleText.some((value) => {
+    const normalized = normalizedIdentityText(value)
+    if (!normalized) return false
+    const tokenCount = normalized.split(' ').filter(Boolean).length
+    const isShortProductIdentity = tokenCount <= 4
+      && identityCorpus.some(identity => identity.includes(normalized))
+    return !isShortProductIdentity
+  })
 }
 
 function cleanText(value: unknown, max: number): string {
@@ -156,8 +183,11 @@ export function assessMotionDesignVideoAsset(
   const qualityScore = intelligence?.qualityScore ?? null
   const qualityIssues = intelligence?.qualityIssues ?? []
   const blockingQualityIssues = qualityIssues.filter(issue => !(
-    ['SCREEN', 'DEMO'].includes(sourceKind || '')
-    && NON_BLOCKING_SCREEN_SOURCE_ISSUE.test(issue)
+    NON_BLOCKING_CONTENT_GAP_ISSUE.test(issue)
+    || (
+      ['SCREEN', 'DEMO'].includes(sourceKind || '')
+      && NON_BLOCKING_SCREEN_SOURCE_ISSUE.test(issue)
+    )
   ))
   const cleanFullHdException = qualityScore != null
     && qualityScore >= MOTION_DESIGN_SOURCE_QUALITY_MIN
@@ -178,10 +208,11 @@ export function assessMotionDesignVideoAsset(
     ['AR', 'EN'].includes(campaignLanguage)
     && ['AR', 'EN'].includes(sourceLanguage)
     && campaignLanguage !== sourceLanguage
+    && hasMeaningfulVisibleCopy(intelligence)
   ) {
     issues.push({
       code: 'LANGUAGE_MISMATCH',
-      message: `The source creative is ${sourceLanguage}, while this post is ${campaignLanguage}. Adapt the post or choose a matching source before paid production.`,
+      message: `The source contains ${sourceLanguage} visible copy, while this post is ${campaignLanguage}. Adapt the post or choose a matching source before paid production.`,
     })
   }
 

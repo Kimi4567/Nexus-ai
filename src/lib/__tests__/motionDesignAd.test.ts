@@ -109,6 +109,24 @@ describe('source-locked motion design', () => {
     })
   })
 
+  it('does not mistake a short Latin product identity for conflicting ad copy', () => {
+    const productHero = screenVideo({ width: 1080, height: 1920 })
+    ;(productHero.intelligence as any).assetKind = 'PRODUCT'
+    ;(productHero.intelligence as any).language = 'EN'
+    ;(productHero.intelligence as any).visibleSummary = "Animated product hero for a coffee bag labelled 'Luma Roast Lab'."
+    ;(productHero.intelligence as any).products = ["coffee bag labelled 'Luma Roast Lab'"]
+    ;(productHero.intelligence as any).visibleText = ['Luma Roast Lab']
+    ;(productHero.intelligence as any).qualityScore = 75
+    ;(productHero.intelligence as any).qualityIssues = ['Lacks detailed information about the subscription or delivery.']
+
+    expect(assessMotionDesignVideoAsset(productHero, 'راجع عنوان التوصيل قبل الطلب')).toMatchObject({
+      eligible: true,
+      route: 'SOURCE_LOCKED_MOTION_DESIGN',
+      qualityScore: 75,
+      issues: [],
+    })
+  })
+
   it('derives bounded exact copy without hashtags, URLs, or unsupported new claims', () => {
     expect(buildMotionDesignCopy({
       brandName: 'NEXUS AI',
