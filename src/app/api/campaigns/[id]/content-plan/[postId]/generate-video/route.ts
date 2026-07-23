@@ -35,10 +35,9 @@ import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import {
-  CONTENT_REVISION_HISTORY_NOTE,
-  contentReviewResetData,
+  MEDIA_REVISION_HISTORY_NOTE,
   isImmutableExecutionPost,
-  reopensContentReview,
+  mediaReviewResetData,
 } from '@/lib/contentPostRevision'
 import { sanitizeSentryText } from '@/lib/observability/sentryPrivacy'
 import { isCronRequestAuthorized } from '@/lib/cronAuth'
@@ -836,7 +835,9 @@ export async function PATCH(req: NextRequest, props: Params) {
     if (!currentPost || isImmutableExecutionPost(currentPost.status)) {
       throw new Error('The post changed to an immutable execution state during retained-footage repair')
     }
-    const reopen = reopensContentReview(currentPost.status)
+    const mediaReset = mediaReviewResetData(currentPost)
+    const nextStatus = typeof mediaReset.status === 'string' ? mediaReset.status : currentPost.status
+    const reopen = nextStatus !== currentPost.status
     await db.$transaction(async (tx: any) => {
       await tx.socialPost.update({
         where: { id: params.postId },
@@ -848,7 +849,7 @@ export async function PATCH(req: NextRequest, props: Params) {
           mediaSource: 'GENERATE',
           generationStatus: 'DONE',
           errorMessage: null,
-          ...contentReviewResetData(currentPost.status),
+          ...mediaReset,
         },
       })
       if (reopen) {
@@ -857,9 +858,9 @@ export async function PATCH(req: NextRequest, props: Params) {
             socialPostId: currentPost.id,
             workspaceId: currentPost.workspaceId,
             fromStatus: currentPost.status,
-            toStatus: 'DRAFT',
+            toStatus: nextStatus,
             actor: 'SYSTEM',
-            note: `${CONTENT_REVISION_HISTORY_NOTE} Retained campaign footage was re-composed after a NEXUS typography defect; no provider generation was started.`,
+            note: `${MEDIA_REVISION_HISTORY_NOTE} Retained campaign footage was re-composed after a NEXUS typography defect; no provider generation was started.`,
           },
         })
       }
@@ -1332,7 +1333,9 @@ export async function GET(req: NextRequest, props: Params) {
       })
     }
 
-    const reopen = reopensContentReview(currentPost.status)
+    const mediaReset = mediaReviewResetData(currentPost)
+    const nextStatus = typeof mediaReset.status === 'string' ? mediaReset.status : currentPost.status
+    const reopen = nextStatus !== currentPost.status
     await db.$transaction(async (tx: any) => {
       await tx.socialPost.update({
         where: { id: params.postId },
@@ -1344,7 +1347,7 @@ export async function GET(req: NextRequest, props: Params) {
           mediaSource: 'GENERATE',
           generationStatus: 'DONE',
           errorMessage: null,
-          ...contentReviewResetData(currentPost.status),
+          ...mediaReset,
         },
       })
       if (reopen) {
@@ -1353,9 +1356,9 @@ export async function GET(req: NextRequest, props: Params) {
             socialPostId: currentPost.id,
             workspaceId: currentPost.workspaceId,
             fromStatus: currentPost.status,
-            toStatus: 'DRAFT',
+            toStatus: nextStatus,
             actor: 'SYSTEM',
-            note: CONTENT_REVISION_HISTORY_NOTE,
+            note: MEDIA_REVISION_HISTORY_NOTE,
           },
         })
       }

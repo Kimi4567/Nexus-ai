@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   contentReviewResetData,
   isImmutableExecutionPost,
+  mediaReviewResetData,
   reopensContentReview,
 } from '@/lib/contentPostRevision'
 
@@ -33,5 +34,32 @@ describe('contentPostRevision', () => {
       platformPostId: null,
     })
     expect(contentReviewResetData('DRAFT')).toEqual({})
+  })
+
+  it('retains the copy snapshot when only media changes', () => {
+    expect(mediaReviewResetData({
+      status: 'SCHEDULED',
+      approvedSnapshotId: 'copy-snapshot-2',
+    })).toMatchObject({
+      status: 'APPROVED',
+      mediaApprovalSnapshotId: null,
+      scheduledSnapshotId: null,
+      publishMode: 'MANUAL',
+      integrationId: null,
+      autoPublishConsentAt: null,
+      platformPostId: null,
+    })
+    expect(mediaReviewResetData({
+      status: 'APPROVED',
+      approvedSnapshotId: 'copy-snapshot-2',
+    })).not.toHaveProperty('approvedSnapshotId')
+    expect(mediaReviewResetData({
+      status: 'APPROVED',
+      approvedSnapshotId: null,
+    })).toMatchObject({
+      status: 'DRAFT',
+      approvedAt: null,
+      approvedSnapshotId: null,
+    })
   })
 })

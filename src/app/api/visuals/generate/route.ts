@@ -64,10 +64,9 @@ import {
 } from '@/lib/platformImageFormat'
 import { verifyPlatformReadyImage } from '@/lib/platformImageDelivery.server'
 import {
-  CONTENT_REVISION_HISTORY_NOTE,
-  contentReviewResetData,
+  MEDIA_REVISION_HISTORY_NOTE,
   isImmutableExecutionPost,
-  reopensContentReview,
+  mediaReviewResetData,
 } from '@/lib/contentPostRevision'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -643,7 +642,9 @@ export async function POST(req: NextRequest) {
         })
         if (!currentPost || isImmutableExecutionPost(currentPost.status)) return
 
-        const reopensReview = reopensContentReview(currentPost.status)
+        const mediaReset = mediaReviewResetData(currentPost)
+        const nextStatus = typeof mediaReset.status === 'string' ? mediaReset.status : currentPost.status
+        const reopensReview = nextStatus !== currentPost.status
         await (tx.socialPost as any).update({
           where: { id: currentPost.id },
           data: {
@@ -655,7 +656,7 @@ export async function POST(req: NextRequest) {
             sourceMediaId: null,
             creativeMatch: null,
             creativeMatchedAt: null,
-            ...contentReviewResetData(currentPost.status),
+            ...mediaReset,
           },
         })
         if (reopensReview) {
@@ -664,9 +665,9 @@ export async function POST(req: NextRequest) {
               socialPostId: currentPost.id,
               workspaceId: currentPost.workspaceId,
               fromStatus: currentPost.status,
-              toStatus: 'DRAFT',
+              toStatus: nextStatus,
               actor: 'USER',
-              note: CONTENT_REVISION_HISTORY_NOTE,
+              note: MEDIA_REVISION_HISTORY_NOTE,
             },
           })
         }

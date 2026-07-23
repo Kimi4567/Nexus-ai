@@ -19,10 +19,9 @@ import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import {
-  CONTENT_REVISION_HISTORY_NOTE,
-  contentReviewResetData,
+  MEDIA_REVISION_HISTORY_NOTE,
   isImmutableExecutionPost,
-  reopensContentReview,
+  mediaReviewResetData,
 } from '@/lib/contentPostRevision'
 import { sanitizeSentryText } from '@/lib/observability/sentryPrivacy'
 import {
@@ -414,7 +413,9 @@ export async function POST(req: NextRequest, props: Params) {
     const revisionStillCurrent = currentPost
       && currentPost.updatedAt.toISOString() === post.updatedAt.toISOString()
       && !isImmutableExecutionPost(currentPost.status)
-    const reopen = Boolean(revisionStillCurrent && reopensContentReview(currentPost.status))
+    const mediaReset = revisionStillCurrent ? mediaReviewResetData(currentPost) : {}
+    const nextStatus = typeof mediaReset.status === 'string' ? mediaReset.status : currentPost?.status
+    const reopen = Boolean(revisionStillCurrent && nextStatus !== currentPost.status)
 
     const result = await db.$transaction(async (tx: any) => {
       const media = await tx.media.create({
@@ -446,7 +447,7 @@ export async function POST(req: NextRequest, props: Params) {
             mediaSource: 'UPLOAD',
             generationStatus: 'DONE',
             errorMessage: null,
-            ...contentReviewResetData(currentPost.status),
+            ...mediaReset,
           },
         })
         if (reopen) {
@@ -455,9 +456,9 @@ export async function POST(req: NextRequest, props: Params) {
               socialPostId: currentPost.id,
               workspaceId: currentPost.workspaceId,
               fromStatus: currentPost.status,
-              toStatus: 'DRAFT',
+              toStatus: nextStatus,
               actor: 'SYSTEM',
-              note: CONTENT_REVISION_HISTORY_NOTE,
+              note: MEDIA_REVISION_HISTORY_NOTE,
             },
           })
         }

@@ -28,5 +28,36 @@ export function contentReviewResetData(status: unknown): Record<string, unknown>
   }
 }
 
+export function mediaReviewResetData(post: {
+  status?: unknown
+  approvedSnapshotId?: unknown
+}): Record<string, unknown> {
+  const hasApprovedCopy = typeof post.approvedSnapshotId === 'string'
+    && post.approvedSnapshotId.length > 0
+  return {
+    status: hasApprovedCopy ? 'APPROVED' : 'DRAFT',
+    ...(!hasApprovedCopy ? {
+      approvedAt: null,
+      approvedSnapshotId: null,
+    } : {}),
+    mediaApprovalSnapshotId: null,
+    scheduledSnapshotId: null,
+    publishMode: 'MANUAL',
+    integrationId: null,
+    pageId: null,
+    pageName: null,
+    platformOptions: null,
+    autoPublishConsentAt: null,
+    publishAttemptedAt: null,
+    platformPostId: null,
+    platformUrl: null,
+    publishedAt: null,
+    errorMessage: null,
+  }
+}
+
 export const CONTENT_REVISION_HISTORY_NOTE =
   'Content or media changed; approval snapshot and execution assignment were cleared for review.'
+
+export const MEDIA_REVISION_HISTORY_NOTE =
+  'Media changed; copy approval was retained while media approval and execution assignment were cleared for review.'

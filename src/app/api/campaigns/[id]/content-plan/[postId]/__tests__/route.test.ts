@@ -112,6 +112,49 @@ describe('PATCH Content Hub post media integrity', () => {
     }))
   })
 
+  it('retains copy approval while clearing media execution state for a new attachment', async () => {
+    mocks.postFindFirst.mockResolvedValue({
+      id: 'post-1',
+      workspaceId: 'workspace-1',
+      campaignId: 'campaign-1',
+      status: 'SCHEDULED',
+      approvedAt: new Date('2026-07-23T10:00:00.000Z'),
+      approvedSnapshotId: 'copy-snapshot-1',
+      mediaApprovalSnapshotId: 'media-snapshot-1',
+      scheduledSnapshotId: 'schedule-snapshot-1',
+      imagePrompt: 'Original prompt',
+      imageUrl: 'https://res.cloudinary.com/demo/old.jpg',
+      uploadedMediaId: null,
+      mediaSource: 'GENERATE',
+      generationStatus: 'DONE',
+    })
+
+    const response = await PATCH(request({
+      generatedVisualId: 'visual-1',
+      explicitGeneratedMediaAttachConfirmed: true,
+    }), params)
+
+    expect(response.status).toBe(200)
+    const update = mocks.postUpdate.mock.calls[0][0]
+    expect(update.data).toMatchObject({
+      status: 'APPROVED',
+      mediaApprovalSnapshotId: null,
+      scheduledSnapshotId: null,
+      publishMode: 'MANUAL',
+      integrationId: null,
+    })
+    expect(update.data).not.toHaveProperty('approvedAt')
+    expect(update.data).not.toHaveProperty('approvedSnapshotId')
+    expect(mocks.historyCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        socialPostId: 'post-1',
+        fromStatus: 'SCHEDULED',
+        toStatus: 'APPROVED',
+        actor: 'USER',
+      }),
+    })
+  })
+
   it('does not accept a generated visual that fails the ownership query', async () => {
     mocks.visualFindFirst.mockResolvedValue(null)
     const response = await PATCH(request({

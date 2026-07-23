@@ -16,6 +16,8 @@ import {
   CONTENT_REVISION_HISTORY_NOTE,
   contentReviewResetData,
   isImmutableExecutionPost,
+  MEDIA_REVISION_HISTORY_NOTE,
+  mediaReviewResetData,
   reopensContentReview,
 } from '@/lib/contentPostRevision'
 
@@ -197,8 +199,18 @@ export async function PATCH(req: NextRequest, props: Params) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
 
-    const reopensReview = reopensContentReview(post.status)
-    Object.assign(data, contentReviewResetData(post.status))
+    const changesCopyOrDirection = ['caption', 'imagePrompt', 'videoPrompt']
+      .some(field => field in body)
+    const changesMediaOnly = !changesCopyOrDirection
+      && ['uploadedMediaId', 'generatedVisualId'].some(field => field in body)
+    const resetData = changesMediaOnly
+      ? mediaReviewResetData(post)
+      : contentReviewResetData(post.status)
+    const nextStatus = typeof resetData.status === 'string' ? resetData.status : post.status
+    const reopensReview = changesMediaOnly
+      ? nextStatus !== post.status
+      : reopensContentReview(post.status)
+    Object.assign(data, resetData)
 
     const updated = await prisma.$transaction(async (tx) => {
       const next = await (tx.socialPost as any).update({
@@ -226,9 +238,9 @@ export async function PATCH(req: NextRequest, props: Params) {
             socialPostId: post.id,
             workspaceId: post.workspaceId,
             fromStatus: post.status,
-            toStatus: 'DRAFT',
+            toStatus: nextStatus,
             actor: 'USER',
-            note: CONTENT_REVISION_HISTORY_NOTE,
+            note: changesMediaOnly ? MEDIA_REVISION_HISTORY_NOTE : CONTENT_REVISION_HISTORY_NOTE,
           },
         })
       }
