@@ -79,16 +79,16 @@ describe('source-locked motion design', () => {
     })
   })
 
-  it('accepts clean full-HD 85+ masters and blocks weaker or flagged sources before spend', () => {
+  it('accepts clean full-HD 70+ masters and blocks weaker or flagged sources before spend', () => {
     const cleanFullHd = screenVideo({ width: 1080, height: 1920 })
-    ;(cleanFullHd.intelligence as any).qualityScore = 85
+    ;(cleanFullHd.intelligence as any).qualityScore = 70
     expect(assessMotionDesignVideoAsset(cleanFullHd, 'نظم حملتك')).toMatchObject({
       eligible: true,
-      qualityScore: 85,
+      qualityScore: 70,
     })
 
     const flagged = screenVideo({ width: 1080, height: 1920 })
-    ;(flagged.intelligence as any).qualityScore = 85
+    ;(flagged.intelligence as any).qualityScore = 70
     ;(flagged.intelligence as any).qualityIssues = ['Soft small text']
     expect(assessMotionDesignVideoAsset(flagged, 'نظم حملتك')).toMatchObject({
       eligible: false,
@@ -96,7 +96,7 @@ describe('source-locked motion design', () => {
     })
 
     const belowFloor = screenVideo({ width: 1080, height: 1920 })
-    ;(belowFloor.intelligence as any).qualityScore = 84
+    ;(belowFloor.intelligence as any).qualityScore = 69
     expect(assessMotionDesignVideoAsset(belowFloor, 'نظم حملتك')).toMatchObject({
       eligible: false,
       issues: expect.arrayContaining([expect.objectContaining({ code: 'QUALITY_TOO_LOW' })]),

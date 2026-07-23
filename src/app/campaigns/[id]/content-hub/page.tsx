@@ -1767,6 +1767,7 @@ export default function ContentHubPage() {
         : `${data.analyzedAssets ?? batchSize} assets analyzed and ranked against the posts. Nothing was attached, changed, or published.`)
       setShowCreativeScanConfirm(false)
       setCreativeScanAcknowledged(false)
+      await loadData()
       await refreshBillingStatus()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Creative Intelligence failed')

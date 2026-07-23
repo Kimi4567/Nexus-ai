@@ -5,12 +5,13 @@ import { readMediaIntelligence } from '@/lib/creativeIntelligence'
 // unrelated later scene or using a provider-generated filler shot.
 export const MOTION_DESIGN_DURATION_SECONDS = 6
 export const MOTION_DESIGN_SAFE_SOURCE_SECONDS = 3
-// Creative Intelligence intentionally scores conservatively. A clean 1080p
-// master with no flagged defects is paid-ready at 85+, while lower-resolution
-// sources still need 90+. The final rendered ad must independently pass the
-// stricter multi-frame paid-social quality gate before any credit is settled.
-export const MOTION_DESIGN_SOURCE_QUALITY_MIN = 85
-export const MOTION_DESIGN_SOURCE_QUALITY_PREFERRED = 90
+// Creative Intelligence intentionally scores source videos conservatively. For
+// source-locked Motion Design, a clean 1080p+ demo/screen source can start at
+// 70 because NEXUS preserves the pixels and the final rendered ad still has to
+// pass the stricter multi-frame paid-social quality gate before attachment.
+// Lower-resolution sources still need the preferred score.
+export const MOTION_DESIGN_SOURCE_QUALITY_MIN = 70
+export const MOTION_DESIGN_SOURCE_QUALITY_PREFERRED = 85
 export const MOTION_DESIGN_SOURCE_PREMIUM_SHORT_EDGE = 1080
 
 export type MotionDesignAssetInput = {
