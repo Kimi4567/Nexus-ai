@@ -87,33 +87,32 @@ export async function motionDesignOverlaySvgs(input: MotionDesignCopy & {
       ...root,
       flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      justifyContent: 'flex-start',
       padding: `${Math.round(height * 0.06)}px ${horizontalPadding}px ${Math.round(height * 0.09)}px`,
-      backgroundColor: 'rgba(216,199,255,0.94)',
-      backgroundImage: 'linear-gradient(145deg, rgba(255,255,255,0.24) 0%, rgba(216,199,255,0) 44%, rgba(134,102,214,0.24) 100%)',
+      backgroundImage: 'linear-gradient(to bottom, rgba(7,10,19,0.82) 0%, rgba(7,10,19,0.28) 28%, rgba(7,10,19,0) 48%, rgba(7,10,19,0) 68%, rgba(7,10,19,0.78) 100%)',
     },
   },
   createElement('div', {
     style: {
       ...brandStyle,
       alignSelf: 'center',
-      color: '#0B0E18',
+      color: '#D8C7FF',
       fontSize: Math.round(shortEdge * 0.04),
     },
   }, visualVideoOverlayText(input.brandLabel.toUpperCase(), rtl)),
   createElement('div', {
     style: {
       display: 'flex',
-      width: '100%',
+      width: vertical ? '82%' : '58%',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: Math.round(shortEdge * 0.04),
-      padding: `${Math.round(shortEdge * 0.075)}px ${Math.round(shortEdge * 0.05)}px`,
+      marginTop: Math.round(height * 0.07),
+      padding: `${Math.round(shortEdge * 0.045)}px ${Math.round(shortEdge * 0.04)}px`,
       boxSizing: 'border-box',
-      border: `${Math.max(2, Math.round(shortEdge * 0.004))}px solid rgba(11,14,24,0.8)`,
+      border: `${Math.max(2, Math.round(shortEdge * 0.004))}px solid rgba(255,255,255,0.82)`,
       borderRadius: Math.round(shortEdge * 0.05),
-      backgroundColor: 'rgba(255,255,255,0.25)',
+      backgroundColor: '#D8C7FF',
     },
   },
   hookMetric
@@ -121,7 +120,7 @@ export async function motionDesignOverlaySvgs(input: MotionDesignCopy & {
       style: {
         display: 'flex',
         minWidth: Math.round(width * (vertical ? 0.72 : 0.48)),
-        height: Math.round(shortEdge * 0.25),
+        height: Math.round(shortEdge * 0.21),
         padding: `0 ${Math.round(shortEdge * 0.07)}px`,
         alignItems: 'center',
         justifyContent: 'center',
@@ -131,20 +130,9 @@ export async function motionDesignOverlaySvgs(input: MotionDesignCopy & {
       },
     }, videoOverlayInlineText(hookMetric, {
       rtl,
-      size: Math.round(shortEdge * (vertical ? 0.125 : 0.095)),
+      size: Math.round(shortEdge * (vertical ? 0.112 : 0.09)),
       color: '#FFFFFF',
     }))
-    : null,
-  hookLead && hookMetric
-    ? videoOverlayTextLines(
-      wrapVideoOverlayText(hookLead, rtl ? (vertical ? 18 : 26) : (vertical ? 24 : 34)),
-      {
-        rtl,
-        size: Math.round(shortEdge * (vertical ? 0.052 : 0.046)),
-        color: '#0B0E18',
-        align: 'center',
-      },
-    )
     : null,
   !hookMetric
     ? videoOverlayTextLines(
@@ -162,8 +150,9 @@ export async function motionDesignOverlaySvgs(input: MotionDesignCopy & {
       display: 'flex',
       width: Math.round(shortEdge * 0.22),
       height: Math.max(5, Math.round(shortEdge * 0.012)),
+      marginTop: 'auto',
       borderRadius: Math.round(shortEdge * 0.008),
-      backgroundColor: '#0B0E18',
+      backgroundColor: '#D8C7FF',
     },
   })), width, height)
 
