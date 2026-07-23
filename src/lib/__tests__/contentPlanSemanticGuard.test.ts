@@ -36,6 +36,26 @@ describe('contentPlanSemanticGuard', () => {
     expect(result.alignedPosts).toBe(2)
   })
 
+  it('does not classify a normal delivery handoff as operational SaaS drift', () => {
+    const coffeeStrategy = {
+      keyMessage: 'Monthly coffee subscription delivery in Dubai',
+      contentAnglesDetailed: [{
+        title: 'Review the monthly delivery details',
+        cta: 'Compare the subscription terms',
+      }],
+    }
+    const result = validateContentPlanSemanticAlignment([
+      {
+        caption: 'Review the delivery handoff details for the monthly coffee subscription in Dubai, then compare the subscription terms.',
+      },
+    ], coffeeStrategy, {
+      brandFacts: ['Monthly coffee subscription with delivery limited to Dubai'],
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.issues).toEqual([])
+  })
+
   it('allows operational language when the saved brand explicitly sells clinic software', () => {
     const strategy = {
       keyMessage: 'Clinic workflow visibility',

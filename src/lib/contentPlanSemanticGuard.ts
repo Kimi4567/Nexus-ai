@@ -33,7 +33,13 @@ const CLINIC_RE = /clinic|dental|dentist|healthcare|medical|patient|appointment|
 const OPERATIONS_PRODUCT_RE = /saas|software|platform|dashboard|workflow|clinicflow|clinic\s+management|practice\s+management|appointment\s+management|operations?\s+(?:app|system|tool|platform)|برنامج|منصة|تطبيق|نظام|لوحة\s+تحكم|سير\s+العمل|إدارة\s+(?:العيادات|المواعيد|المرضى)|تشغيل\s+العيادات/i
 
 const STRONG_DRIFT_PATTERNS: Array<{ label: string; re: RegExp }> = [
-  { label: 'front desk handoff', re: /front[-\s]?desk|handoff|hand[-\s]?off/i },
+  {
+    label: 'front desk or administrative handoff',
+    // "Handoff" by itself is normal customer-journey and fulfillment language
+    // (for example, a delivery handoff). Treat it as business-model drift only
+    // when the surrounding words identify an internal administrative workflow.
+    re: /front[-\s]?desk|(?:clinic|patient|admin(?:istrative)?|team|owner|request)\s+hand[-\s]?off|hand[-\s]?off\s+(?:workflow|checklist|between\s+(?:staff|teams?|colleagues)|to\s+(?:an?\s+)?(?:owner|admin|front[-\s]?desk))/i,
+  },
   { label: 'internal ownership workflow', re: /request,?\s+owner,?\s+(?:last|latest)\s+(?:update|note)|status,?\s+owner,?.*next\s+(?:admin\s+)?step/i },
   { label: 'leadership operations', re: /before leadership sees it|team meeting|operating checklist|workflow review/i },
   { label: 'clinic administration', re: /clinic administrative workflow|administrative patient follow[-\s]?up|admin(?:istrative)?\s+(?:workflow|review|step)/i },
