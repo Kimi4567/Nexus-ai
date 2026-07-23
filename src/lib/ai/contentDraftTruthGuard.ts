@@ -568,6 +568,14 @@ function guardDeliveryClaims(text: string): string {
       /(?:شاهد\s+كيف\s+)?نسعى\s+إلى\s+دعم\s+مدة\s+التوصيل\s+الموثقة/gi,
       'راجع نطاق ومدة التوصيل الموثقين',
     )
+    .replace(
+      /(?:اكتشف\s+كيف\s+يمكننا\s+)?ضمان\s+توصيل\s+(?:سريع\s+و)?موثوق/gi,
+      'راجع نطاق التوصيل ومدته الموثقين حسب الموقع',
+    )
+    .replace(
+      /(?:اكتشف\s+كيف\s+يمكننا\s+)?ضمان\s+توقيت\s+التوصيل\s+يعتمد\s+على\s+الموقع(?:\s+و)?موثوق/gi,
+      'راجع نطاق التوصيل ومدته الموثقين حسب الموقع',
+    )
     .replace(/توصيل مضمون/g, 'التوصيل حسب المناطق المتاحة')
     .replace(/توصيل سريع/g, 'توقيت التوصيل يعتمد على الموقع')
     .replace(/التوصيل السريع/gi, 'نطاق ومدة التوصيل الموثقان')
@@ -635,6 +643,11 @@ function guardDraftCopyQuality(text: string): string {
       /شاهد\s+كيف\s+نوفر\s+لك\s+توقيت\s+التوصيل\s+يعتمد\s+على\s+الموقع\s+ضمن\s+نطاق\s+الخدمة\.?/gi,
       'راجع نطاق التوصيل والمدة الموثقة قبل الاشتراك.',
     )
+    .replace(
+      /شاهد\s+كيف\s+يمكن\s+للاشتراك\s+الشهري\s+لدينا\s+أن\s+ينظم\s+احتياجك\s+للقهوة\s+بكل\s+سهولة\.?/gi,
+      'راجع تفاصيل الاشتراك الشهري ومدى ملاءمته لاحتياجك للقهوة.',
+    )
+    .replace(/بكل\s+سهولة/gi, 'بخطوات واضحة')
     .replace(/والتوصيل\s+الطازج(?:ة)?/gi, 'ونطاق التوصيل الموثق')
     .replace(
       /اكتشف كيف يمكن للإشراف البشري تعزيز التسويق بالذكاء الاصطناعي\.?/g,
@@ -1216,6 +1229,21 @@ function guardUnverifiedFeatureAndOutcomeClaims(
   return guarded
 }
 
+function finalizeGuardedDraftCopy(text: string): string {
+  return text
+    .replace(
+      /استمتع\s+بتوصيل\s+القهوة\s+الطازجة\s+ضمن\s+نطاق\s+التوصيل\s+الموثق/gi,
+      'راجع توصيل القهوة المحمصة حديثًا ضمن النطاق الموثق',
+    )
+    .replace(/توصيل\s+القهوة\s+الطازجة/gi, 'توصيل القهوة المحمصة حديثًا')
+    .replace(
+      /راجع\s+تفاصيل\s+القهوة\s+المحمصة\s+المتاحة\s+راجع\s+تفاصيل\s+القهوة\s+والاشتراك\s+المتاحة\.?/gi,
+      'راجع تفاصيل القهوة المحمصة والاشتراك المتاحة.',
+    )
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
 /**
  * Keep NEXUS' own workflow claims canonical during internal product QA.
  * This is brand-scoped and never rewrites an unrelated customer's content.
@@ -1326,13 +1354,13 @@ export function guardContentDraftText(
     )), context),
   ), context)
 
-  return guardNexusMarketingOperatingClaims(
+  return finalizeGuardedDraftCopy(guardNexusMarketingOperatingClaims(
     guardUnverifiedBrandContextClaims(
       guardUnverifiedFeatureAndOutcomeClaims(guarded, context),
       context,
     ),
     context,
-  )
+  ))
     .replace(/\s{2,}/g, ' ')
     .trim()
 }

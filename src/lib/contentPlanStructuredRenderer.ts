@@ -68,7 +68,7 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'unsupported_absolute_claim',
-    re: /(?:الحل الأمثل|مفتاح النجاح|تحقيق النجاح|يغير منظورك|مضمون|دائمًا|كل مرة|أفضل|مثالي|مثالية|لا تقاوم|تأكد\s+من\s+جودة)|(?:guarantee|guaranteed|ensure|ensures|perfect|best|ultimate|game[-\s]?changer|irresistible|unmatched|extraordinary|as fresh as it gets|taste the difference|richer taste|keep our coffee fresh|expert(?:\s+brewing)? tips|elevate your|transform your|unlock the full potential|hassle[-\s]?free|better cup of coffee)/i,
+    re: /(?:الحل الأمثل|مفتاح النجاح|تحقيق النجاح|يغير منظورك|مضمون|دائمًا|كل مرة|أفضل|مثالي|مثالية|لا تقاوم|تأكد\s+من\s+جودة|بكل\s+سهولة|ضمان\s+(?:توقيت|التوصيل|الجودة|النتائج))|(?:guarantee|guaranteed|ensure|ensures|perfect|best|ultimate|game[-\s]?changer|irresistible|unmatched|extraordinary|as fresh as it gets|taste the difference|richer taste|keep our coffee fresh|expert(?:\s+brewing)? tips|elevate your|transform your|unlock the full potential|hassle[-\s]?free|better cup of coffee)/i,
   },
   {
     reason: 'unsupported_absolute_claim',
@@ -80,7 +80,7 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'malformed_caption',
-    re: /\bhelps that\b|\bhelp consistent\b|\bhelp quality\b|\bhelp your [^.!?]{0,80} remains\b|\bHelp your campaigns are\b|\bHelp unified communication\b|يساعد على من هوية|ندعم? أن تظل|#[\p{L}\p{N}_]*coffeeless\b/iu,
+    re: /\bhelps that\b|\bhelp consistent\b|\bhelp quality\b|\bhelp your [^.!?]{0,80} remains\b|\bHelp your campaigns are\b|\bHelp unified communication\b|يساعد على من هوية|ندعم? أن تظل|راجع\s+تفاصيل\s+القهوة\s+المحمصة\s+المتاحة\s+راجع|يعتمد\s+على\s+الموقع\s+وموثوق|#[\p{L}\p{N}_]*coffeeless\b/iu,
   },
   {
     reason: 'malformed_caption',
@@ -126,6 +126,15 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
 
 function normalizeText(value: unknown): string {
   return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : ''
+}
+
+function normalizeEditorialTopic(value: string): string {
+  return value
+    .replace(/\bCoffee documented product details to review\b/gi, 'documented coffee product details')
+    .replace(/^Review\s+the\s+/i, 'the ')
+    .replace(/^Review\s+/i, '')
+    .replace(/[.!؟]+$/u, '')
+    .trim()
 }
 
 function softenResidualContentPlanAbsolutes(text: string): string {
@@ -217,10 +226,10 @@ export function renderContentPlanDraftImagePrompt(
   const pillar = Array.isArray(ctx.contentPillars) && ctx.contentPillars.length > 0
     ? ctx.contentPillars[ctx.postIndex % ctx.contentPillars.length]
     : ''
-  const topic = guardContentDraftText(
+  const topic = normalizeEditorialTopic(guardContentDraftText(
     normalizeText(pillar) || normalizeText(ctx.keyMessage) || normalizeText(ctx.campaignName) || 'the reviewed campaign topic',
     ctx,
-  )
+  ))
   const audience = guardContentDraftText(
     normalizeText(ctx.targetAudience) || 'the intended audience',
     ctx,
@@ -246,10 +255,10 @@ export function renderContentPlanDraftVideoPrompt(
   const pillar = Array.isArray(ctx.contentPillars) && ctx.contentPillars.length > 0
     ? ctx.contentPillars[ctx.postIndex % ctx.contentPillars.length]
     : ''
-  const topic = guardContentDraftText(
+  const topic = normalizeEditorialTopic(guardContentDraftText(
     normalizeText(pillar) || normalizeText(ctx.keyMessage) || normalizeText(ctx.campaignName) || 'the reviewed campaign topic',
     ctx,
-  )
+  ))
   const audience = guardContentDraftText(
     normalizeText(ctx.targetAudience) || 'the intended audience',
     ctx,

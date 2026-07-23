@@ -390,6 +390,61 @@ describe('contentPlanStructuredRenderer', () => {
     expect(validateContentPlanDraftForSave({ videoPrompt }).ok).toBe(true)
   })
 
+  it('repairs the observed production captions and normalizes fallback video topics', () => {
+    const context: ContentPlanRenderContext = {
+      isArabic: true,
+      brand: 'Luma Roast Lab Certification',
+      campaignName: 'Monthly coffee subscription',
+      keyMessage: 'One kilogram monthly coffee subscription for Dubai',
+      targetAudience: 'Dubai residents buying coffee for home',
+      contentPillars: [
+        'Monthly Subscription Benefits',
+        'Coffee documented product details to review',
+        'Delivery Efficiency',
+      ],
+      offer: 'AED 149 for one kilogram monthly',
+      platform: 'META',
+      postIndex: 1,
+      verifiedProof: [],
+      brandFacts: [
+        'One kilogram of freshly roasted coffee is supplied monthly for AED 149.',
+        'Delivery is limited to Dubai within 48 hours.',
+      ],
+    }
+    const rawCaption = 'استمتع بتوصيل القهوة الطازجة ضمن نطاق التوصيل الموثق في دبي. راجع تفاصيل القهوة المحمصة المتاحة راجع تفاصيل القهوة والاشتراك المتاحة. #قهوة_طازجة #دبي'
+    const rawVideoScript = 'مشهد 1: عملية تحميص القهوة. مشهد 2: نص: \'اكتشف المزيد\'.'
+
+    const caption = renderContentPlanDraftCaption({ caption: rawCaption }, context)
+    const productTopicPrompt = renderContentPlanDraftVideoPrompt({ videoScript: rawVideoScript }, context)
+    const deliveryTopicPrompt = renderContentPlanDraftVideoPrompt(
+      { videoScript: rawVideoScript },
+      { ...context, postIndex: 2 },
+    )
+
+    expect(validateContentPlanDraftForSave({ caption: rawCaption }).ok).toBe(false)
+    expect(caption).toContain('راجع توصيل القهوة المحمصة حديثًا ضمن النطاق الموثق في دبي')
+    expect(caption).toContain('راجع تفاصيل القهوة المحمصة والاشتراك المتاحة')
+    expect(validateContentPlanDraftForSave({ caption }).ok).toBe(true)
+    expect(productTopicPrompt).toContain('about documented coffee product details.')
+    expect(productTopicPrompt).not.toContain('Coffee documented product details to review')
+    expect(deliveryTopicPrompt).toContain('about the documented coffee delivery scope and service window.')
+    expect(deliveryTopicPrompt).not.toContain('..')
+    expect(validateContentPlanDraftForSave({
+      productTopicPrompt,
+      deliveryTopicPrompt,
+    }).ok).toBe(true)
+  })
+
+  it('save gate blocks the three observed Arabic production defects before persistence', () => {
+    const defects = [
+      'شاهد كيف يمكن للاشتراك الشهري لدينا أن ينظم احتياجك للقهوة بكل سهولة.',
+      'راجع تفاصيل القهوة المحمصة المتاحة راجع تفاصيل القهوة والاشتراك المتاحة.',
+      'اكتشف كيف يمكننا ضمان توقيت التوصيل يعتمد على الموقع وموثوق.',
+    ]
+
+    expect(defects.every(caption => !validateContentPlanDraftForSave({ caption }).ok)).toBe(true)
+  })
+
   it('preserves non-clinic guarded copy instead of forcing the clinic template', () => {
     const caption = renderContentPlanDraftCaption({
       caption: 'Choose the right grind size for your brewing method.',
