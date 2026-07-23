@@ -1159,7 +1159,7 @@ describe('contentDraftTruthGuard', () => {
 
   it('repairs production-observed Arabic roasting, home-delivery, and fast-delivery wording', () => {
     const guarded = guardContentDraftTruth({
-      caption: 'اكتشف كيف يتم تحميص قهوتنا الطازجة وتوصيلها إليك في دبي. استمتع بجودة القهوة المحمصة حديثًا. #توصيل_سريع',
+      caption: 'اكتشف كيف يتم تحميص قهوتنا الطازجة وتوصيلها إليك في دبي. تعرف على عملية تحميص القهوة. استمتع بجودة القهوة المحمصة حديثًا. #توصيل_سريع',
       videoPrompt: 'مشهد 1: استلام القهوة الطازجة في المنزل. مشهد 2: لقطات لعملية توصيل القهوة السريعة.',
     }, {
       brandFacts: [
@@ -1172,7 +1172,7 @@ describe('contentDraftTruthGuard', () => {
     expect(serialized).toContain('تفاصيل القهوة المحمصة')
     expect(serialized).toContain('نطاق ومدة توصيل القهوة')
     expect(serialized).toContain('#تفاصيل_التوصيل')
-    expect(serialized).not.toMatch(/كيف يتم تحميص قهوتنا|استمتع بجودة|استلام القهوة.*المنزل|عملية توصيل القهوة السريعة|#توصيل_سريع/)
+    expect(serialized).not.toMatch(/كيف يتم تحميص قهوتنا|عملية تحميص|استمتع بجودة|استلام القهوة.*المنزل|عملية توصيل القهوة السريعة|#توصيل_سريع/)
   })
 
   it('repairs the observed NEXUS workflow claims and malformed English before persistence', () => {

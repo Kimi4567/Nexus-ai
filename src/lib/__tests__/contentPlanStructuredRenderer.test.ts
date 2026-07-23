@@ -279,7 +279,7 @@ describe('contentPlanStructuredRenderer', () => {
       renderContentPlanDraftVideoPrompt({ videoScript }, { ...context, postIndex }),
     )
     const caption = renderContentPlanDraftCaption({
-      caption: 'اكتشف كيف يتم تحميص قهوتنا الطازجة وتوصيلها إليك في دبي. استمتع بجودة القهوة المحمصة حديثًا. #قهوة #تحميص',
+      caption: 'اكتشف كيف يتم تحميص قهوتنا الطازجة وتوصيلها إليك في دبي. تعرف على عملية تحميص القهوة. استمتع بجودة القهوة المحمصة حديثًا. #قهوة #تحميص',
     }, context)
     const deliveryCaption = renderContentPlanDraftCaption({
       caption: 'هل تشعر بالقلق من تأخير توصيل القهوة؟ راجع مدى ملاءمة اشتراكنا الشهري لروتينك. #توصيل_سريع #قهوة',
@@ -287,7 +287,7 @@ describe('contentPlanStructuredRenderer', () => {
 
     expect(prompts.every(prompt => prompt.includes('Short-form editorial video concept'))).toBe(true)
     expect(prompts.join('\n')).not.toMatch(/شخص|عملية الاشتراك|عملية تحميص|تعبئة القهوة|استلام القهوة|عملية توصيل/)
-    expect(caption).not.toMatch(/كيف يتم تحميص قهوتنا|استمتع بجودة/)
+    expect(caption).not.toMatch(/كيف يتم تحميص قهوتنا|عملية تحميص|استمتع بجودة/)
     expect(deliveryCaption).toContain('#تفاصيل_التوصيل')
     expect(prompts.every(videoPrompt => validateContentPlanDraftForSave({ videoPrompt }).ok)).toBe(true)
     expect(validateContentPlanDraftForSave({ caption }).ok).toBe(true)
