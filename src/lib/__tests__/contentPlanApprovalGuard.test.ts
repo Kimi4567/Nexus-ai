@@ -186,4 +186,35 @@ describe('contentPlanApprovalGuard', () => {
       'unsupported_platformStatus',
     ]))
   })
+
+  it('blocks production-observed first-party roasting and on-time delivery scenes at approval time', () => {
+    const truth = buildContentPlanTruthContext({
+      brandName: 'Luma Roast Lab Certification',
+      primaryOffer: 'One kilogram of freshly roasted coffee monthly for AED 149',
+      audienceLocation: 'Dubai',
+      complianceNotes: 'Delivery is limited to Dubai within 48 hours. No testimonials or owned production visuals.',
+    })
+    const review = reviewContentPlanForApproval([
+      {
+        contentPlanIndex: 1,
+        caption: 'Experience freshly roasted coffee in Dubai. Watch how we Help quality in every bean.',
+        videoPrompt: "Show coffee beans being roasted and sealed in branded bags. A delivery van with 'Luma Roast Lab' branding drives through Dubai.",
+      },
+      {
+        contentPlanIndex: 2,
+        caption: 'Check how the monthly subscription fits your routine with timely deliveries.',
+        videoPrompt: "A calendar shows a marked delivery date. A person receives a package on the marked date and enjoys a cup of coffee.",
+      },
+    ], {
+      keyMessage: 'One kilogram monthly for AED 149 with delivery in Dubai within 48 hours',
+      contentPillars: ['subscription routine', 'freshly roasted coffee', 'delivery details'],
+    }, truth)
+
+    expect(review.ok).toBe(false)
+    expect(review.issues.map(issue => issue.reason)).toEqual(expect.arrayContaining([
+      'malformed_caption',
+      'unsupported_fake_product_visual',
+      'unsupported_absolute_claim',
+    ]))
+  })
 })

@@ -520,7 +520,7 @@ export default function ConnectionsPage() {
   const [connecting, setConnecting] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
   const [disconnectConfirmId, setDisconnectConfirmId] = useState<string | null>(null)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
   const messageRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -620,10 +620,17 @@ export default function ConnectionsPage() {
       messageTimeout = setTimeout(() => setMessage(null), 5000)
     } else if (social === 'error' || social === 'denied') {
       const rawMsg = params.get('msg')
+      const decodedMsg = rawMsg ? decodeURIComponent(rawMsg) : ''
+      const wasCancelled = social === 'denied' || decodedMsg === 'authorization_not_granted'
       setMessage({
-        type: 'error',
-        text: rawMsg
-          ? copy(`تعذر إكمال الربط: ${decodeURIComponent(rawMsg)}`, `Connection failed: ${decodeURIComponent(rawMsg)}`)
+        type: wasCancelled ? 'info' : 'error',
+        text: wasCancelled
+          ? copy(
+              'تم إلغاء الربط. لم يتم ربط أي حساب أو منح أي صلاحية.',
+              'Connection cancelled. No account was connected and no permission was granted.',
+            )
+          : rawMsg
+            ? copy(`تعذر إكمال الربط: ${decodedMsg}`, `Connection failed: ${decodedMsg}`)
           : copy('تعذر إكمال الربط. حاول مرة أخرى بعد مراجعة إعدادات المنصة.', 'Connection failed. Review platform settings and try again.'),
       })
       window.history.replaceState({}, '', '/connections')
@@ -896,10 +903,16 @@ export default function ConnectionsPage() {
               className={`mb-6 flex items-center gap-3 rounded-[18px] border px-5 py-4 text-sm font-semibold ${
                 message.type === 'success'
                   ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
-                  : 'border-rose-100 bg-rose-50 text-rose-700'
+                  : message.type === 'info'
+                    ? 'border-sky-100 bg-sky-50 text-sky-700'
+                    : 'border-rose-100 bg-rose-50 text-rose-700'
               }`}
             >
-              {message.type === 'success' ? <CheckCircle2 className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+              {message.type === 'success'
+                ? <CheckCircle2 className="h-5 w-5" />
+                : message.type === 'info'
+                  ? <Clock3 className="h-5 w-5" />
+                  : <AlertCircle className="h-5 w-5" />}
               <span>{message.text}</span>
               <button type="button" onClick={() => setMessage(null)} className="ms-auto text-lg opacity-70 hover:opacity-100">
                 ×

@@ -552,6 +552,10 @@ function guardOutcomeClaims(text: string, context: ContentDraftTruthContext): st
 function guardDeliveryClaims(text: string): string {
   return text
     .replace(
+      /\ba person\s+receives?\s+(?:a\s+)?package[^.?!]{0,80}\bon\s+(?:the\s+)?marked\s+date\b/gi,
+      'A neutral package is shown beside the documented delivery-window details',
+    )
+    .replace(
       /أهمية\s+توصيل\s+القهوة\s+في\s+الوقت\s+(?:المناسب|المحدد)/gi,
       'تفاصيل نطاق ومدة توصيل القهوة الموثقة',
     )
@@ -587,12 +591,23 @@ function guardDeliveryClaims(text: string): string {
     .replace(/\buniversal delivery\b/gi, 'delivery in supported zones')
     .replace(/\bfast delivery\b/gi, 'delivery timing depends on location')
     .replace(/\bquick delivery\b/gi, 'delivery timing depends on location')
+    .replace(/\btimely deliver(?:y|ies)\b/gi, 'delivery within the documented service window')
+    .replace(/\bon[-\s]?time deliver(?:y|ies)\b/gi, 'delivery within the documented service window')
+    .replace(/\bdeliver(?:ed|y)\s+on\s+(?:the\s+)?marked\s+date\b/gi, 'delivery within the documented service window')
     .replace(/\bnext-day delivery\b/gi, 'next-day delivery where available')
     .replace(/\bdelivered in 48 hours\b/gi, 'delivery timing depends on location')
 }
 
 function guardDraftCopyQuality(text: string): string {
   return text
+    .replace(
+      /\b(?:watch|see|discover)\s+how\s+we\s+(?:help|ensure)\s+quality\s+in\s+every\s+bean\.?/gi,
+      'Review the freshly roasted coffee subscription details and delivery scope before choosing a plan.',
+    )
+    .replace(
+      /\b(?:help|ensure)\s+quality\s+in\s+every\s+bean\b/gi,
+      'review the documented coffee and subscription details',
+    )
     .replace(
       /شاهد\s+كيف\s+نوفر\s+لك\s+توقيت\s+التوصيل\s+يعتمد\s+على\s+الموقع\s+ضمن\s+نطاق\s+الخدمة\.?/gi,
       'راجع نطاق التوصيل والمدة الموثقة قبل الاشتراك.',
@@ -1412,7 +1427,9 @@ export function buildContentDraftTruthPolicyPrompt(): string {
     '- Avoid "Perfect for...", "perfect choice", "perfect fit", and "perfect way to" style fit claims. Use practical, well-suited, helpful, or designed-for language instead.',
     '- Use delivery language only with bounds such as "where available", "in supported zones", or "timing depends on location".',
     '- Avoid unbounded delivery claims such as doorstep delivery, fast delivery, quick delivery, next-day delivery, or guaranteed delivery unless bounded by availability.',
+    '- Do not promise timely or on-time delivery, depict receipt on a marked calendar date, or imply that a recurring delivery always lands on schedule unless exact fulfillment evidence exists.',
     '- Do not invent testimonials, customer stories, reviews, awards, case studies, guarantees, or performance proof.',
+    '- Do not depict first-party roasting, packing, branded bags, branded delivery vehicles, or a customer receiving and enjoying the product unless the user supplied owned media or exact first-party production evidence. Use neutral editorial product details instead.',
     '- Do not promise a seamless/easy journey, a smooth workflow, or a clear final result. Describe documented stages, review points, and proposed previews instead.',
     '- If proof is missing, ask for feedback, collect proof, or mention proof gaps as future work.',
     '- Do not invent ad spend, ROAS, CAC, paid launch, or budget allocation assumptions.',

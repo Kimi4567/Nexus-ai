@@ -75,8 +75,12 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
     re: /\bdelivered (?:right |straight |directly )?to your (?:door|home)\b|\beasy it is to subscribe\b|\bour (?:brewing )?tutorials\b|\bwatch our (?:brewing )?tips\b/i,
   },
   {
+    reason: 'unsupported_absolute_claim',
+    re: /\btimely deliver(?:y|ies)\b|\bon[-\s]?time deliver(?:y|ies)\b|\bmarked\s+delivery\s+date\b|\bdeliver(?:ed|y)\s+on\s+(?:the\s+)?marked\s+date\b|\bquality\s+in\s+every\s+bean\b/i,
+  },
+  {
     reason: 'malformed_caption',
-    re: /\bhelps that\b|\bhelp consistent\b|\bhelp your [^.!?]{0,80} remains\b|\bHelp your campaigns are\b|\bHelp unified communication\b|يساعد على من هوية|ندعم? أن تظل|#[\p{L}\p{N}_]*coffeeless\b/iu,
+    re: /\bhelps that\b|\bhelp consistent\b|\bhelp quality\b|\bhelp your [^.!?]{0,80} remains\b|\bHelp your campaigns are\b|\bHelp unified communication\b|يساعد على من هوية|ندعم? أن تظل|#[\p{L}\p{N}_]*coffeeless\b/iu,
   },
   {
     reason: 'malformed_caption',
@@ -100,6 +104,10 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   {
     reason: 'unsupported_fake_product_visual',
     re: /\b(?:with|featuring|showing|displaying)\s+(?:the\s+)?[^.?!]{0,60}\blogo\b|\bhappy customer\b|\bbranded (?:roastery|clinic|office|facility|factory)\b|\bexpert (?:barista|doctor|dentist|advisor)\b|ردود\s+أفعال\s+(?:العملاء|العميل)|(?:عملاء|عميل)\s+(?:سعداء|سعيد|راضون|راضين|راضٍ|راضي)|شهادات?\s+(?:العملاء|عميل)|عملية\s+تحميص[^.!؟]{0,100}\s+(?:في|داخل)\s+[\p{L}\p{N}]/iu,
+  },
+  {
+    reason: 'unsupported_fake_product_visual',
+    re: /\b(?:coffee\s+)?beans?\s+being\s+(?:roasted|packed|sealed)\b|\b(?:delivery\s+)?van\b[^.?!]{0,100}\bbranding\b|\bbranded\s+(?:bags?|boxes?|packages?|packaging|vehicles?|vans?)\b|\b(?:bags?|boxes?|packages?)\s+(?:labelled|labeled)\s+['"][^'"]+['"]|\b(?:a|the) person\s+(?:receives?|opens?|unboxes?|uses?|enjoys?)\b/i,
   },
 ]
 

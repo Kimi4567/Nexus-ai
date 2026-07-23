@@ -197,6 +197,60 @@ describe('contentPlanStructuredRenderer', () => {
     expect(validateContentPlanDraftForSave({ videoPrompt: prompt }).ok).toBe(true)
   })
 
+  it('neutralizes the exact production roasting, branded-vehicle, and on-time-delivery drafts', () => {
+    const context: ContentPlanRenderContext = {
+      isArabic: false,
+      brand: 'Luma Roast Lab Certification',
+      campaignName: 'Monthly coffee subscription',
+      keyMessage: 'One kilogram of freshly roasted coffee monthly',
+      targetAudience: 'Dubai residents buying coffee for home',
+      contentPillars: ['subscription routine', 'freshly roasted coffee', 'delivery details'],
+      offer: 'AED 149 for one kilogram monthly',
+      platform: 'INSTAGRAM',
+      postIndex: 1,
+      verifiedProof: [],
+      brandFacts: [
+        'The coffee is freshly roasted.',
+        'The subscription includes one kilogram monthly for AED 149.',
+        'Delivery is limited to Dubai within 48 hours.',
+        'There are no customer testimonials or owned production visuals.',
+      ],
+    }
+    const unsafeRoastingPrompt = "Scene 1: Start with a shot of green coffee beans being roasted. Scene 2: Show the beans being packed and sealed in Luma Roast Lab bags. Scene 3: A delivery van with 'Luma Roast Lab' branding drives through Dubai."
+    const unsafeDeliveryPrompt = "Scene 1: A calendar with a marked delivery date. Scene 2: A person receives a package labeled 'Luma Roast Lab' on the marked date. Scene 3: The person enjoys a cup of coffee. Overlay text: 'Timely deliveries, every month.'"
+    const unsafeCaption = 'Experience freshly roasted coffee in Dubai. Watch how we Help quality in every bean.'
+    const unsafeDeliveryCaption = 'Check how our monthly subscription fits your coffee routine with timely deliveries.'
+
+    const roastingPrompt = renderContentPlanDraftVideoPrompt({ videoScript: unsafeRoastingPrompt }, context)
+    const deliveryPrompt = renderContentPlanDraftVideoPrompt({ videoScript: unsafeDeliveryPrompt }, { ...context, postIndex: 2 })
+    const caption = renderContentPlanDraftCaption({ caption: unsafeCaption }, context)
+    const deliveryCaption = renderContentPlanDraftCaption({ caption: unsafeDeliveryCaption }, { ...context, postIndex: 2 })
+
+    expect(roastingPrompt).toContain('Short-form editorial video concept')
+    expect(deliveryPrompt).toContain('Short-form editorial video concept')
+    expect(roastingPrompt).not.toMatch(/being roasted|Luma Roast Lab bags|delivery van|branding/i)
+    expect(deliveryPrompt).not.toMatch(/marked delivery date|person receives|person enjoys|timely deliveries/i)
+    expect(caption).not.toMatch(/help quality|quality in every bean/i)
+    expect(deliveryCaption).toContain('delivery within the documented service window')
+    expect(validateContentPlanDraftForSave({
+      caption,
+      videoPrompt: roastingPrompt,
+    }).ok).toBe(true)
+    expect(validateContentPlanDraftForSave({
+      caption: deliveryCaption,
+      videoPrompt: deliveryPrompt,
+    }).ok).toBe(true)
+
+    expect(validateContentPlanDraftForSave({
+      caption: unsafeCaption,
+      videoPrompt: unsafeRoastingPrompt,
+    }).ok).toBe(false)
+    expect(validateContentPlanDraftForSave({
+      caption: unsafeDeliveryCaption,
+      videoPrompt: unsafeDeliveryPrompt,
+    }).ok).toBe(false)
+  })
+
   it('save gate blocks observed unsafe regenerated clinic claims before SocialPost persistence', () => {
     const result = validateContentPlanDraftForSave({
       caption: 'وضوح العمليات في العيادة يساعد على من كفاءة العمل. اكتشف كيف يسهل ClinicFlow AI التواصل مع المرضى بلغتهم المفضلة، مما يساعد على من رضاهم وثقتهم.',

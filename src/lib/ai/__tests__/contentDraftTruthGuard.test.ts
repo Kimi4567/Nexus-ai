@@ -1139,6 +1139,24 @@ describe('contentDraftTruthGuard', () => {
     expect(joined).not.toContain('فنجان قهوة مثالي')
   })
 
+  it('repairs production-observed coffee quality and delivery-schedule claims', () => {
+    const guarded = guardContentDraftTruth({
+      caption: 'Experience freshly roasted coffee in Dubai. Watch how we Help quality in every bean.',
+      deliveryCaption: 'Check how our monthly subscription fits your coffee routine with timely deliveries.',
+      videoPrompt: "A person receives a package on the marked date. Overlay text: 'On-time deliveries every month.'",
+    }, {
+      brandFacts: [
+        'The coffee is freshly roasted.',
+        'Delivery is limited to Dubai within 48 hours.',
+      ],
+    })
+    const serialized = JSON.stringify(guarded)
+
+    expect(serialized).toContain('freshly roasted coffee subscription details')
+    expect(serialized).toContain('delivery within the documented service window')
+    expect(serialized).not.toMatch(/help quality|quality in every bean|timely deliveries|on-time deliveries|on the marked date/i)
+  })
+
   it('repairs the observed NEXUS workflow claims and malformed English before persistence', () => {
     const drafts = [
       'With NEXUS AI, you can trust that every marketing decision is backed by human approval.',
@@ -1319,6 +1337,8 @@ describe('contentDraftTruthGuard', () => {
     expect(prompt).toContain('draft content for review only')
     expect(prompt).toContain('Nothing is approved, scheduled, published, or active')
     expect(prompt).toContain('where available')
+    expect(prompt).toContain('timely or on-time delivery')
+    expect(prompt).toContain('first-party roasting')
     expect(prompt).toContain('productivity, morale, focus, energy, team performance')
     expect(prompt).toContain('easier planning, more consistent coffee routines')
     expect(prompt).toContain('Perfect for...')

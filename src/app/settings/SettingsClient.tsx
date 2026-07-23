@@ -119,7 +119,7 @@ export default function SettingsPage() {
 
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([])
   const [socialConnecting, setSocialConnecting] = useState(false)
-  const [socialMessage, setSocialMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [socialMessage, setSocialMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
   const [disconnectConfirmId, setDisconnectConfirmId] = useState<string | null>(null)
 
@@ -195,10 +195,17 @@ export default function SettingsPage() {
       setTimeout(() => setSocialMessage(null), 5000)
     } else if (social === 'denied' || social === 'error') {
       const msg = params.get('msg')
+      const decodedMsg = msg ? decodeURIComponent(msg) : ''
+      const wasCancelled = social === 'denied' || decodedMsg === 'authorization_not_granted'
       setSocialMessage({
-        type: 'error',
-        text: msg
-          ? copyText(`تعذر الربط: ${decodeURIComponent(msg)}`, `Connection failed: ${decodeURIComponent(msg)}`)
+        type: wasCancelled ? 'info' : 'error',
+        text: wasCancelled
+          ? copyText(
+              'تم إلغاء الربط. لم يتم ربط أي حساب أو منح أي صلاحية.',
+              'Connection cancelled. No account was connected and no permission was granted.',
+            )
+          : msg
+            ? copyText(`تعذر الربط: ${decodedMsg}`, `Connection failed: ${decodedMsg}`)
           : copyText('تم إلغاء الربط أو تعذر إكماله.', 'Connection was cancelled or could not be completed.'),
       })
       window.history.replaceState({}, '', '/settings')
@@ -530,7 +537,13 @@ export default function SettingsPage() {
 
             <SettingsCard title={copyText('الربط', 'Connections')} icon={<Link2 size={18} />}>
               {socialMessage ? (
-                <p className={`mb-3 rounded-[13px] px-3 py-2 text-[12px] font-bold ${socialMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                <p className={`mb-3 rounded-[13px] px-3 py-2 text-[12px] font-bold ${
+                  socialMessage.type === 'success'
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : socialMessage.type === 'info'
+                      ? 'bg-sky-50 text-sky-700'
+                      : 'bg-rose-50 text-rose-700'
+                }`}>
                   {socialMessage.text}
                 </p>
               ) : null}
