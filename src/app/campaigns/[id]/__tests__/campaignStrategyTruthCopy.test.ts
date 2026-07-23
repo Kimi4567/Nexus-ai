@@ -90,6 +90,17 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).toContain('The strategy is already approved. NEXUS will verify the saved decision')
   })
 
+  it('provides a zero-credit recovery path when campaign or Brand Brain truth changes after strategy approval', () => {
+    expect(campaignRoomSource).toContain("setCampaignAction('revoke-strategy')")
+    expect(campaignRoomSource).toContain("action: 'revoke'")
+    expect(campaignRoomSource).toContain("setStrategyApprovalTruth('revoked')")
+    expect(campaignRoomSource).toContain("strategySnapshot.approvalState === 'superseded'")
+    expect(campaignRoomSource).toContain('Review and re-approve strategy')
+    expect(campaignRoomSource).toContain('Re-open strategy for review')
+    expect(campaignRoomSource).toContain('contentPlanAlreadyExists={campaignPosts.length > 0}')
+    expect(campaignRoomSource).toContain('retaining the existing Content Hub drafts without regeneration or credit spend')
+  })
+
   it('keeps paid planning diagnosis scope-aware for organic-only strategies', () => {
     expect(campaignRoomSource).toContain('!includesPaidPlanningStrategy')
     expect(campaignRoomSource).toContain('Not included in this organic run')

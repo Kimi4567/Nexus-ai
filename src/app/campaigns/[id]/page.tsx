@@ -337,6 +337,7 @@ function ContentPlanApprovalDialog({
   open,
   locale,
   strategyAlreadyApproved,
+  contentPlanAlreadyExists = false,
   approvalOnly = false,
   launchState,
   launchError,
@@ -346,6 +347,7 @@ function ContentPlanApprovalDialog({
   open: boolean
   locale: string
   strategyAlreadyApproved: boolean
+  contentPlanAlreadyExists?: boolean
   approvalOnly?: boolean
   launchState: 'idle' | 'approving' | 'generating' | 'done'
   launchError: string
@@ -373,6 +375,8 @@ function ContentPlanApprovalDialog({
                   : (isArabic ? 'اعتماد استراتيجية Paid للمراجعة التنفيذية؟' : 'Approve the Paid strategy for execution review?')
                 : isWorking
                 ? (isArabic ? 'يجري إعداد خطة المحتوى' : 'Preparing the content plan')
+                : contentPlanAlreadyExists
+                  ? (isArabic ? 'إعادة اعتماد الاستراتيجية الحالية للمحتوى الموجود؟' : 'Re-approve the current strategy for the existing content?')
                 : strategyAlreadyApproved
                   ? (isArabic ? 'إنشاء خطة محتوى من الاستراتيجية المعتمدة؟' : 'Build a content plan from the approved strategy?')
                   : (isArabic ? 'اعتماد الاستراتيجية وإنشاء خطة المحتوى؟' : 'Approve strategy and build the content plan?')}
@@ -397,6 +401,10 @@ function ContentPlanApprovalDialog({
                   ? (isArabic
                     ? 'سيحفظ NEXUS قرار اعتماد وثيقة الاستراتيجية فقط ثم يفتح مركز التنفيذ المدفوع. التكلفة 0 كريديت، ولا يتم إنشاء محتوى عضوي أو صرف ميزانية أو إطلاق إعلان.'
                     : 'NEXUS will record only the strategy approval decision, then open the paid execution center. Cost: 0 credits. No organic content, budget spend, or ad launch occurs.')
+                  : contentPlanAlreadyExists
+                    ? (isArabic
+                      ? 'سيحفظ NEXUS قرار اعتماد جديدًا للاستراتيجية الحالية، مع الإبقاء على مسودات Content Hub الموجودة دون إعادة توليد أو خصم كريديت. لا يتم نشر أو جدولة أو تشغيل إعلان.'
+                      : 'NEXUS will record a new approval for the current strategy while retaining the existing Content Hub drafts without regeneration or credit spend. Nothing is published, scheduled, or launched.')
                   : isArabic
                   ? strategyAlreadyApproved
                     ? `الاستراتيجية معتمدة بالفعل. سيتحقق NEXUS من القرار المحفوظ، ثم يخصم ${CONTENT_PLAN_CREDIT_COST} كريديت لإنشاء مسودات Content Hub للمراجعة. لا يتم نشر أو جدولة أو تشغيل إعلان.`
@@ -410,6 +418,12 @@ function ContentPlanApprovalDialog({
                   ? [
                       isArabic ? 'التكلفة: 0 كريديت' : 'Cost: 0 credits',
                       isArabic ? 'الناتج: قرار اعتماد موثق' : 'Output: recorded approval',
+                      isArabic ? 'التنفيذ الخارجي: لا شيء' : 'External execution: none',
+                    ]
+                  : contentPlanAlreadyExists
+                    ? [
+                      isArabic ? 'التكلفة: 0 كريديت' : 'Cost: 0 credits',
+                      isArabic ? 'المسودات: محفوظة' : 'Drafts: retained',
                       isArabic ? 'التنفيذ الخارجي: لا شيء' : 'External execution: none',
                     ]
                   : [
@@ -435,6 +449,19 @@ function ContentPlanApprovalDialog({
                 },
                 {
                   label: isArabic ? 'فتح مركز التنفيذ المدفوع' : 'Open paid execution center',
+                  state: 'pending',
+                },
+              ] : contentPlanAlreadyExists ? [
+                {
+                  label: isArabic ? 'حفظ اعتماد الاستراتيجية الحالية' : 'Save current strategy approval',
+                  state: launchState === 'approving' ? 'active' : 'done',
+                },
+                {
+                  label: isArabic ? 'الإبقاء على مسودات Content Hub دون تغيير' : 'Retain existing Content Hub drafts unchanged',
+                  state: 'pending',
+                },
+                {
+                  label: isArabic ? 'فتح مساحة مراجعة المحتوى' : 'Open the content review workspace',
                   state: 'pending',
                 },
               ] : [
@@ -465,7 +492,7 @@ function ContentPlanApprovalDialog({
                 </div>
               ))}
               <p className="text-xs leading-5 text-slate-500">
-                {approvalOnly
+                {approvalOnly || contentPlanAlreadyExists
                   ? (isArabic ? 'هذا القرار لا ينشر ولا يطلق ولا يصرف ميزانية.' : 'This decision does not publish, launch, or spend budget.')
                   : (isArabic ? 'قد يستغرق إنشاء المسودات نحو 20–30 ثانية.' : 'Draft generation may take about 20–30 seconds.')}
               </p>
@@ -481,6 +508,8 @@ function ContentPlanApprovalDialog({
             <button type="button" onClick={onConfirm} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700">
               {approvalOnly
                 ? (isArabic ? 'اعتماد الاستراتيجية — 0 كريديت' : 'Approve strategy — 0 credits')
+                : contentPlanAlreadyExists
+                  ? (isArabic ? 'إعادة اعتماد الاستراتيجية — 0 كريديت' : 'Re-approve strategy — 0 credits')
                 : strategyAlreadyApproved
                 ? (isArabic ? `إنشاء خطة المحتوى — ${CONTENT_PLAN_CREDIT_COST} كريديت` : `Build content plan — ${CONTENT_PLAN_CREDIT_COST} credits`)
                 : (isArabic ? `تأكيد وإنشاء الخطة — ${CONTENT_PLAN_CREDIT_COST} كريديت` : `Confirm and build plan — ${CONTENT_PLAN_CREDIT_COST} credits`)}
@@ -615,7 +644,7 @@ function CampaignDetailPageInner() {
   // UX: header overflow menu
   const [showHeaderMenu, setShowHeaderMenu] = useState(false)
   const [showStrategyDocument, setShowStrategyDocument] = useState(false)
-  const [campaignAction, setCampaignAction] = useState<'duplicate' | 'archive' | 'restore' | null>(null)
+  const [campaignAction, setCampaignAction] = useState<'duplicate' | 'archive' | 'restore' | 'revoke-strategy' | null>(null)
   const [campaignActionBusy, setCampaignActionBusy] = useState(false)
   const [campaignActionError, setCampaignActionError] = useState('')
   const [showEngineRebuildModal, setShowEngineRebuildModal] = useState(false)
@@ -1048,13 +1077,48 @@ function CampaignDetailPageInner() {
     }
   }
 
+  const revokeStrategyApproval = async (): Promise<boolean> => {
+    const token = authHeader()
+    if (!token) return false
+    setCampaignActionError('')
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/strategy-approval`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: token },
+        body: JSON.stringify({
+          action: 'revoke',
+          reason: 'Campaign or Brand Brain strategy fields changed after the previous approval.',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.approval?.state !== 'revoked') {
+        setCampaignActionError(
+          typeof data.message === 'string'
+            ? data.message
+            : typeof data.error === 'string'
+              ? data.error
+              : (locale === 'ar' ? 'تعذر إلغاء اعتماد الاستراتيجية.' : 'Could not revoke strategy approval.'),
+        )
+        return false
+      }
+      setCampaign(prev => prev ? { ...prev, status: 'DRAFT' } : prev)
+      setStrategyApprovalTruth('revoked')
+      return true
+    } catch {
+      setCampaignActionError(locale === 'ar' ? 'تعذر الاتصال. لم يتغير قرار الاستراتيجية.' : 'Could not connect. The strategy decision was not changed.')
+      return false
+    }
+  }
+
   const confirmCampaignAction = async () => {
     if (!campaignAction || campaignActionBusy) return
     setCampaignActionBusy(true)
     setCampaignActionError('')
     const succeeded = campaignAction === 'duplicate'
       ? await duplicate()
-      : await updateCampaign({ status: campaignAction === 'archive' ? 'ARCHIVED' : 'DRAFT' })
+      : campaignAction === 'revoke-strategy'
+        ? await revokeStrategyApproval()
+        : await updateCampaign({ status: campaignAction === 'archive' ? 'ARCHIVED' : 'DRAFT' })
     setCampaignActionBusy(false)
     if (succeeded) setCampaignAction(null)
   }
@@ -3618,6 +3682,20 @@ function CampaignDetailPageInner() {
                           >
                             {uiText('تصحيح Brand Brain', 'Fix Brand Brain')}
                           </Link>
+                        ) : !engineRunning
+                          && strategySnapshot.approvalState === 'superseded'
+                          && completeQualityReviewPassed ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLaunchError('')
+                              setApprovalState('confirming')
+                            }}
+                            disabled={approvalState === 'approving' || launchState === 'approving' || launchState === 'generating'}
+                            className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                          >
+                            {uiText('راجع وأعد اعتماد الاستراتيجية', 'Review and re-approve strategy')}
+                          </button>
                         ) : !engineRunning && operatingState.stage === 'strategy_review_needed' ? (
                           <button
                             type="button"
@@ -3673,6 +3751,18 @@ function CampaignDetailPageInner() {
                         >
                           {uiText('اقرأ وثيقة الاستراتيجية', 'Read strategy document')}
                         </button>
+                        {strategySnapshot.approvalState === 'approved' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCampaignActionError('')
+                              setCampaignAction('revoke-strategy')
+                            }}
+                            className="inline-flex items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-800 transition hover:border-amber-300 hover:bg-amber-100"
+                          >
+                            {uiText('إعادة فتح الاستراتيجية للمراجعة', 'Re-open strategy for review')}
+                          </button>
+                        )}
                         {sentinelError && sentinelState === 'idle' && (
                           <div role="alert" className="max-w-md rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-700">
                             <p>{sentinelError}</p>
@@ -6208,6 +6298,8 @@ function CampaignDetailPageInner() {
               <h3 id="campaign-action-title" className="mt-1 text-lg font-bold text-slate-950">
                 {campaignAction === 'duplicate'
                   ? (locale === 'ar' ? 'إنشاء نسخة مسودة مستقلة؟' : 'Create an independent draft copy?')
+                  : campaignAction === 'revoke-strategy'
+                    ? (locale === 'ar' ? 'إعادة فتح الاستراتيجية للمراجعة؟' : 'Re-open the strategy for review?')
                   : campaignAction === 'archive'
                     ? (locale === 'ar' ? 'أرشفة الحملة؟' : 'Archive this campaign?')
                     : (locale === 'ar' ? 'إعادة الحملة إلى مساحة العمل؟' : 'Return this campaign to the workspace?')}
@@ -6233,6 +6325,10 @@ function CampaignDetailPageInner() {
                 ? (locale === 'ar'
                   ? 'ينشئ NEXUS نسخة DRAFT من إعدادات ووثيقة الحملة الحالية. لا ينسخ منشورات Content Hub أو الموافقات أو الجداول أو حالات النشر، ولا يخصم رصيداً.'
                   : 'NEXUS creates a DRAFT copy of the current campaign settings and document. It does not copy Content Hub posts, approvals, schedules, or publishing states, and it spends no credits.')
+                : campaignAction === 'revoke-strategy'
+                  ? (locale === 'ar'
+                    ? 'يلغي NEXUS قرار اعتماد الاستراتيجية السابق حتى تراجع النسخة الحالية بعد تغييرات الحملة أو Brand Brain. تبقى مسودات Content Hub والوسائط كما هي، ولا يُخصم رصيد ولا يحدث أي تنفيذ خارجي.'
+                    : 'NEXUS revokes the previous strategy approval so you can review the current revision after campaign or Brand Brain changes. Existing Content Hub drafts and media stay unchanged, no credits are spent, and no external execution occurs.')
                 : campaignAction === 'archive'
                   ? (locale === 'ar'
                     ? 'تخرج الحملة من العمل اليومي مع الاحتفاظ بوثيقتها ومنشوراتها وسجلها. الأرشفة داخل NEXUS لا توقف إعلاناً أو نشراً يعمل على منصة خارجية.'
@@ -6249,6 +6345,12 @@ function CampaignDetailPageInner() {
                   locale === 'ar' ? 'الحالة الجديدة: مسودة' : 'New state: Draft',
                   locale === 'ar' ? 'تنفيذ خارجي: لا شيء' : 'External execution: none',
                 ]
+                : campaignAction === 'revoke-strategy'
+                  ? [
+                    locale === 'ar' ? 'التكلفة: 0 كريديت' : 'Cost: 0 credits',
+                    locale === 'ar' ? 'المحتوى والوسائط: محفوظان' : 'Content and media: retained',
+                    locale === 'ar' ? 'المنصات: بلا إجراء' : 'Platforms: no action',
+                  ]
                 : [
                   locale === 'ar' ? 'البيانات: محفوظة' : 'Data: retained',
                   locale === 'ar' ? 'المنشورات: بلا تغيير' : 'Posts: unchanged',
@@ -6283,12 +6385,14 @@ function CampaignDetailPageInner() {
               type="button"
               onClick={confirmCampaignAction}
               disabled={campaignActionBusy}
-              className={`rounded-xl px-4 py-2 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${campaignAction === 'archive' ? 'bg-slate-700 hover:bg-slate-800' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+              className={`rounded-xl px-4 py-2 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${campaignAction === 'archive' || campaignAction === 'revoke-strategy' ? 'bg-amber-700 hover:bg-amber-800' : 'bg-indigo-600 hover:bg-indigo-700'}`}
             >
               {campaignActionBusy
                 ? (locale === 'ar' ? 'جارٍ التنفيذ...' : 'Working...')
                 : campaignAction === 'duplicate'
                   ? (locale === 'ar' ? 'إنشاء نسخة مسودة' : 'Create draft copy')
+                  : campaignAction === 'revoke-strategy'
+                    ? (locale === 'ar' ? 'تأكيد إعادة الفتح' : 'Confirm re-open')
                   : campaignAction === 'archive'
                     ? (locale === 'ar' ? 'تأكيد الأرشفة' : 'Confirm archive')
                     : (locale === 'ar' ? 'إعادة كمسودة' : 'Return as draft')}
@@ -6487,6 +6591,7 @@ function CampaignDetailPageInner() {
       open={approvalState === 'confirming' || approvalState === 'approving'}
       locale={locale}
       strategyAlreadyApproved={campaign?.status === 'ACTIVE'}
+      contentPlanAlreadyExists={campaignPosts.length > 0}
       approvalOnly={isPaidOnlyStrategy}
       launchState={launchState}
       launchError={launchError}
