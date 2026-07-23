@@ -113,6 +113,15 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
     reason: 'unsupported_fake_product_visual',
     re: /مشهد\s*\d+\s*:\s*شخص|عملية\s+(?:ال)?(?:اشتراك|تحميص|تعبئة|تغليف|توصيل)|(?:تعبئة|تغليف)\s+القهوة(?:\s+في\s+(?:أكياس|عبوات))?|استلام\s+القهوة(?:\s+الطازجة)?\s+(?:في|إلى)\s+المنزل|توصيل\s+القهوة\s+إلى\s+باب\s+(?:العميل|المنزل)|(?:شخص|العميل)\s+(?:ينتظر|يستلم|يتسلم|يفتح|يستخدم|يستمتع)/i,
   },
+  {
+    reason: 'unsupported_fake_product_visual',
+    // Generated Arabic storyboards sometimes request exact on-screen copy even
+    // when the campaign has no approved first-party media. Treat that as
+    // unavailable visual evidence so the renderer falls back to a text-free
+    // editorial concept instead of persisting an instruction the media model
+    // cannot reliably reproduce.
+    re: /(?:مشهد\s*\d+\s*:[^.!؟]{0,120})?(?:نص|عبارة|كلمات)\s*(?:مقروء(?:ة)?|على\s+الشاشة)?\s*:\s*['"«][^'"»]{2,120}['"»]|(?:إظهار|عرض|يظهر|اعرض)\s+(?:نص|عبارة|كلمات)\s+(?:مقروء(?:ة)?|على\s+الشاشة)/iu,
+  },
 ]
 
 function normalizeText(value: unknown): string {

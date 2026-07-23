@@ -360,6 +360,36 @@ describe('contentPlanStructuredRenderer', () => {
     expect(result.issues.map(issue => issue.reason)).toContain('unsupported_fake_product_visual')
   })
 
+  it('replaces Arabic storyboard instructions that request exact readable on-screen copy', () => {
+    const context: ContentPlanRenderContext = {
+      isArabic: true,
+      brand: 'Luma Roast Lab Certification',
+      campaignName: 'Monthly coffee subscription',
+      keyMessage: 'One kilogram monthly coffee subscription for Dubai',
+      targetAudience: 'Dubai residents buying coffee for home',
+      contentPillars: ['roast details', 'delivery details'],
+      offer: 'AED 149 for one kilogram monthly',
+      platform: 'META',
+      postIndex: 1,
+      verifiedProof: [],
+      brandFacts: [
+        'The subscription is AED 149 for one kilogram each month.',
+        'Delivery is limited to Dubai within 48 hours.',
+      ],
+    }
+    const rawVideoScript = 'مشهد 1: لقطات من تفاصيل القهوة المحمصة المتاحة. مشهد 2: راجع تاريخ التحميص وتفاصيل المنتج. مشهد 3: نطاق التوصيل في دبي. مشهد 4: نص: \'اكتشف المزيد\' مع دعوة للتواصل.'
+
+    const videoPrompt = renderContentPlanDraftVideoPrompt({
+      videoScript: rawVideoScript,
+    }, context)
+
+    expect(validateContentPlanDraftForSave({ videoPrompt: rawVideoScript }).ok).toBe(false)
+    expect(videoPrompt).toContain('Short-form editorial video concept')
+    expect(videoPrompt).toContain('Use no screens, screenshots, readable text')
+    expect(videoPrompt).not.toMatch(/نص\s*:|اكتشف المزيد/)
+    expect(validateContentPlanDraftForSave({ videoPrompt }).ok).toBe(true)
+  })
+
   it('preserves non-clinic guarded copy instead of forcing the clinic template', () => {
     const caption = renderContentPlanDraftCaption({
       caption: 'Choose the right grind size for your brewing method.',

@@ -564,6 +564,10 @@ function guardDeliveryClaims(text: string): string {
       'التوصيل ضمن النطاق والمدة الموثقين',
     )
     .replace(/سرعة\s+التوصيل/gi, 'مدة التوصيل الموثقة')
+    .replace(
+      /(?:شاهد\s+كيف\s+)?نسعى\s+إلى\s+دعم\s+مدة\s+التوصيل\s+الموثقة/gi,
+      'راجع نطاق ومدة التوصيل الموثقين',
+    )
     .replace(/توصيل مضمون/g, 'التوصيل حسب المناطق المتاحة')
     .replace(/توصيل سريع/g, 'توقيت التوصيل يعتمد على الموقع')
     .replace(/التوصيل السريع/gi, 'نطاق ومدة التوصيل الموثقان')
@@ -631,6 +635,7 @@ function guardDraftCopyQuality(text: string): string {
       /شاهد\s+كيف\s+نوفر\s+لك\s+توقيت\s+التوصيل\s+يعتمد\s+على\s+الموقع\s+ضمن\s+نطاق\s+الخدمة\.?/gi,
       'راجع نطاق التوصيل والمدة الموثقة قبل الاشتراك.',
     )
+    .replace(/والتوصيل\s+الطازج(?:ة)?/gi, 'ونطاق التوصيل الموثق')
     .replace(
       /اكتشف كيف يمكن للإشراف البشري تعزيز التسويق بالذكاء الاصطناعي\.?/g,
       'راجع أين تتدخل الموافقة البشرية في مسار التسويق المدعوم بالذكاء الاصطناعي.',
@@ -1032,9 +1037,13 @@ function guardUnverifiedCoffeeProductClaims(
 
   if (!hasAffirmedBrandFact(
     facts,
-    /\b(?:preserv(?:e|es|ed|ing)|maintain(?:s|ed|ing)?|keep(?:s|ing)?)\b[^.!?]{0,60}\bfresh(?:ness)?\b|الحفاظ\s+على\s+(?:نضارة|طزاجة)|تبقى\s+القهوة\s+طازجة/i,
+    /\b(?:protect(?:s|ed|ing)?|preserv(?:e|es|ed|ing)|maintain(?:s|ed|ing)?|keep(?:s|ing)?)\b[^.!?]{0,60}\bfresh(?:ness)?\b|(?:نحمي|تحمي|حماية|الحفاظ)\s+(?:على\s+)?(?:نضارة|طزاجة)|تبقى\s+القهوة\s+طازجة/i,
   )) {
     guarded = guarded
+      .replace(
+        /(?:اكتشف\s+كيف\s+)?(?:نحمي|تحمي)\s+(?:نضارة|طزاجة)\s+قهوتك/gi,
+        'راجع تاريخ التحميص وتفاصيل المنتج المتاحة',
+      )
       .replace(
         /(?:توضيح\s+)?كيف\s+يتم\s+الحفاظ\s+على\s+(?:نضارة|طزاجة)\s+القهوة\s+حتى\s+تصل\s+إلى\s+العميل/gi,
         'عرض تاريخ التحميص وتفاصيل المنتج المتاحة للمراجعة',
@@ -1044,7 +1053,7 @@ function guardUnverifiedCoffeeProductClaims(
         'مراجعة تاريخ التحميص وتفاصيل المنتج',
       )
       .replace(
-        /\b(?:preserve|maintain|keep)\s+(?:the\s+)?coffee(?:'s)?\s+freshness\b/gi,
+        /\b(?:protect|preserve|maintain|keep)\s+(?:the\s+)?coffee(?:'s)?\s+freshness\b/gi,
         'review the roast date and documented product details',
       )
   }
@@ -1081,6 +1090,7 @@ function guardUnverifiedFeatureAndOutcomeClaims(
 ): string {
   const facts = brandFactCorpus(context)
   let guarded = text
+  const isCoffeeContext = /coffee|roast|beans?|subscription|قهوة|تحميص|اشتراك/i.test(facts)
 
   // Generic security promises are not proof. Keep them out of draft copy
   // unless the user supplied a concrete security artifact; even then, the
@@ -1140,12 +1150,21 @@ function guardUnverifiedFeatureAndOutcomeClaims(
   }
 
   if (!/(?:productiv|efficien|إنتاجي|كفاءة)/.test(facts)) {
+    const isDeliveryContext = /delivery|توصيل/i.test(guarded)
     guarded = replaceMatchingSentences(
       guarded,
       /(?:productiv(?:e|ity)|efficien(?:t|cy)|business\s+efficiency|ارفع\s+إنتاجيتك|إنتاجيتك|زد\s+من\s+كفاءة|زيادة\s+الكفاءة|تحسين\s+الكفاءة)/i,
-      /[\u0600-\u06ff]/u.test(guarded)
-        ? 'ارسم خطوات المتابعة الحالية وراجع هل يجعل النظام الموحد انتقال العمل أوضح.'
-        : 'Map the current handoffs and review whether the unified workflow makes ownership clearer.',
+      isCoffeeContext
+        ? /[\u0600-\u06ff]/u.test(guarded)
+          ? isDeliveryContext
+            ? 'راجع نطاق ومدة توصيل القهوة الموثقين.'
+            : 'راجع تفاصيل القهوة والاشتراك الموثقة بدل افتراض نتيجة أداء.'
+          : isDeliveryContext
+            ? 'Review the documented coffee delivery scope and service window.'
+            : 'Review the documented coffee and subscription details instead of implying a performance outcome.'
+        : /[\u0600-\u06ff]/u.test(guarded)
+          ? 'ارسم خطوات المتابعة الحالية وراجع هل يجعل النظام الموحد انتقال العمل أوضح.'
+          : 'Map the current handoffs and review whether the unified workflow makes ownership clearer.',
     )
     guarded = guarded
       .replace(/#(?:Productivity|Efficiency)\b/gi, '#WorkflowReview')

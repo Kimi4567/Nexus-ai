@@ -56,6 +56,30 @@ describe('contentPlanSemanticGuard', () => {
     expect(result.issues).toEqual([])
   })
 
+  it('blocks workflow ownership drift in a coffee video prompt', () => {
+    const coffeeStrategy = {
+      keyMessage: 'Monthly coffee subscription delivery in Dubai',
+      contentAnglesDetailed: [{
+        title: 'Review the monthly delivery details',
+        cta: 'Compare the subscription terms',
+      }],
+    }
+    const result = validateContentPlanSemanticAlignment([
+      {
+        caption: 'Review the monthly coffee delivery details in Dubai.',
+        videoPrompt: 'Map the current handoffs and review whether the unified workflow makes ownership clearer.',
+      },
+    ], coffeeStrategy, {
+      brandFacts: ['Monthly coffee subscription with delivery limited to Dubai'],
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.issues).toContainEqual(expect.objectContaining({
+      reason: 'unexpected_operational_saas_drift',
+      evidence: expect.arrayContaining(['workflow ownership handoff']),
+    }))
+  })
+
   it('allows operational language when the saved brand explicitly sells clinic software', () => {
     const strategy = {
       keyMessage: 'Clinic workflow visibility',

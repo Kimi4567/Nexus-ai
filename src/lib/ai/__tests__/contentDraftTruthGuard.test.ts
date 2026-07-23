@@ -978,6 +978,35 @@ describe('contentDraftTruthGuard', () => {
     expect(out).not.toContain('توصيل في اليوم التالي.')
   })
 
+  it('grounds coffee freshness protection and cleans observed Arabic delivery grammar', () => {
+    const out = guardContentDraftText(
+      'اكتشف كيف نحمي نضارة قهوتك! راجع تفاصيل القهوة المحمصة المتاحة والتوصيل الطازجة. شاهد كيف نسعى إلى دعم مدة التوصيل الموثقة!',
+      {
+        brandFacts: [
+          'Freshly roasted monthly coffee subscription.',
+          'Delivery is limited to Dubai within 48 hours.',
+        ],
+      },
+    )
+
+    expect(out).toContain('راجع تاريخ التحميص وتفاصيل المنتج المتاحة')
+    expect(out).toContain('ونطاق التوصيل الموثق')
+    expect(out).toContain('راجع نطاق ومدة التوصيل الموثقين')
+    expect(out).not.toMatch(/نحمي نضارة|التوصيل الطازجة|نسعى إلى دعم مدة التوصيل/)
+  })
+
+  it('uses coffee delivery evidence instead of a SaaS workflow template for delivery efficiency', () => {
+    const out = guardContentDraftText('Delivery Efficiency', {
+      brandFacts: [
+        'Monthly coffee subscription.',
+        'Delivery is limited to Dubai within 48 hours.',
+      ],
+    })
+
+    expect(out).toBe('Review the documented coffee delivery scope and service window.')
+    expect(out).not.toMatch(/handoff|unified workflow|ownership/i)
+  })
+
   it('removes unsupported Arabic customer reactions and delivery-performance scenes', () => {
     const out = guardContentDraftText(
       'المشهد الأول: عرض أهمية توصيل القهوة في الوقت المناسب. المشهد الثاني: توصيل القهوة إلى المنزل. المشهد الثالث: ردود أفعال العملاء عند استلام القهوة في الوقت المحدد.',

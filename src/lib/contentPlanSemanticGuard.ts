@@ -40,6 +40,10 @@ const STRONG_DRIFT_PATTERNS: Array<{ label: string; re: RegExp }> = [
     // when the surrounding words identify an internal administrative workflow.
     re: /front[-\s]?desk|(?:clinic|patient|admin(?:istrative)?|team|owner|request)\s+hand[-\s]?off|hand[-\s]?off\s+(?:workflow|checklist|between\s+(?:staff|teams?|colleagues)|to\s+(?:an?\s+)?(?:owner|admin|front[-\s]?desk))/i,
   },
+  {
+    label: 'workflow ownership handoff',
+    re: /(?:map|review|assess)\s+(?:the\s+)?(?:current\s+)?hand[-\s]?offs?\b[^.?!]{0,140}\b(?:workflow|ownership)\b|\bunified\s+workflow\b[^.?!]{0,100}\bownership\b|\bworkflow\s+makes\s+(?:task\s+)?ownership\s+clearer\b/i,
+  },
   { label: 'internal ownership workflow', re: /request,?\s+owner,?\s+(?:last|latest)\s+(?:update|note)|status,?\s+owner,?.*next\s+(?:admin\s+)?step/i },
   { label: 'leadership operations', re: /before leadership sees it|team meeting|operating checklist|workflow review/i },
   { label: 'clinic administration', re: /clinic administrative workflow|administrative patient follow[-\s]?up|admin(?:istrative)?\s+(?:workflow|review|step)/i },
