@@ -334,7 +334,11 @@ function deriveNextAction(input: DeriveCampaignCommandFlowInput): CampaignComman
     })
   }
 
-  if (!hasCreativeBrief && operatingState.truthFlags.hasContentPlan) {
+  if (
+    !hasCreativeBrief
+    && operatingState.truthFlags.hasContentPlan
+    && (!creativeSummary || creativeSummary.attachedToPost === 0)
+  ) {
     return {
       titleEn: 'Add a creative brief before serious production',
       titleAr: 'أضف موجزاً إبداعياً قبل الإنتاج الجاد',

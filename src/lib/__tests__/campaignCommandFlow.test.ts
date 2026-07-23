@@ -286,6 +286,40 @@ describe('deriveCampaignCommandFlow', () => {
     expect(flow.steps.find(step => step.id === 'performance')?.metricEn).toBe('Analytics pending')
   })
 
+  it('does not ask for a creative brief after every post already has final media', () => {
+    const flow = deriveCampaignCommandFlow({
+      campaignId: 'scheduled-with-final-media',
+      operatingState: makeOperatingState({
+        stage: 'scheduled_manual',
+        counts: {
+          totalPosts: 3,
+          draftPosts: 0,
+          approvedPosts: 3,
+          scheduledPosts: 3,
+          pendingGenerationPosts: 0,
+        },
+        truthFlags: {
+          hasDraftContent: false,
+          hasApprovedContent: true,
+          hasScheduledContent: true,
+        },
+      }),
+      creativeSummary: {
+        total: 3,
+        mediaNeeded: 0,
+        readinessPending: 0,
+        attachedToPost: 3,
+      },
+      brandScore: 93,
+      hasCreativeBrief: false,
+      currentStepId: 'publishing',
+    })
+
+    expect(flow.nextAction.titleEn).toBe('Continue here: review publishing readiness')
+    expect(flow.nextAction.helperEn).toContain('explicit API publishing boundaries')
+    expect(flow.nextAction.titleEn).not.toContain('creative brief')
+  })
+
   it('does not claim approval is complete when copy is approved but post media is pending', () => {
     const flow = deriveCampaignCommandFlow({
       campaignId: 'copy-approved-media-pending',
