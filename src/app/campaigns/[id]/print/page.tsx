@@ -190,6 +190,12 @@ export default function CampaignPrintPage() {
   const date = new Date(campaign.createdAt).toLocaleDateString(ar ? 'ar-EG' : 'en-US', {
     year: 'numeric', month: 'long', day: 'numeric'
   })
+  const nextAction = deliveryManifest?.state === 'SCHEDULED'
+    && deliveryManifest.counts.providerPublicationVerified === 0
+    ? (documentIsArabic
+      ? 'احتفظ بالمنشورات ضمن جدول التنفيذ اليدوي. اربط الحسابات وتحقق من الصلاحيات وسجّل موافقة نشر صريحة قبل إرسال أي منشور إلى منصة.'
+      : 'Keep the posts in the manual execution schedule. Connect accounts, verify permissions, and record explicit publishing consent before sending any post to a platform.')
+    : strategy.nextBestAction
 
   return (
     <>
@@ -421,12 +427,12 @@ export default function CampaignPrintPage() {
         </div>
 
         {/* ══ NEXT BEST ACTION BANNER ═════════════════════════════════════ */}
-        {strategy.nextBestAction && (
+        {nextAction && (
           <div className="next-action" style={{ marginBottom: 24 }}>
             <div className="next-action-icon">🚀</div>
             <div>
               <div className="next-action-label">Your Next Action</div>
-              <div className="next-action-text">{strategy.nextBestAction}</div>
+              <div className="next-action-text">{nextAction}</div>
             </div>
           </div>
         )}

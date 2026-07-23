@@ -1967,6 +1967,21 @@ function CampaignDetailPageInner() {
       }
     }
 
+    if (
+      operatingState.truthFlags.hasContentPlan
+      && creativeHasPostRecords
+      && operatingState.counts.pendingGenerationPosts === 0
+    ) {
+      return {
+        title: locale === 'ar' ? 'وسائط المنشورات مكتملة في Content Hub' : 'Post media is complete in Content Hub',
+        helper: locale === 'ar'
+          ? 'كل منشورات الحملة لديها وسائط مؤكدة. راجع الحزمة النهائية هناك؛ النشر عبر المنصات يظل مسارًا منفصلًا ويتطلب اتصالًا وصلاحيات وتأكيدًا صريحًا.'
+          : 'Every campaign post has confirmed media. Review the final package there; platform publishing remains a separate path requiring a connection, permissions, and explicit confirmation.',
+        cta: locale === 'ar' ? 'راجع الحزمة النهائية' : 'Review final package',
+        href: `/campaigns/${campaign.id}/content-hub`,
+      }
+    }
+
     if (!creativeBrief) {
       return {
         title: locale === 'ar' ? 'افتح مخطط الإبداع' : 'Open the creative brief planner',
