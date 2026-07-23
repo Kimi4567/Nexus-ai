@@ -2691,8 +2691,8 @@ export default function ContentHubPage() {
       setMotionDesignSourceMediaId(null)
       setSuccessMsg(professionalCampaignFilm
         ? (isAr
-          ? `بدأ إنتاج Concept Film مولّد من 3 لقطات مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ، مع حركة أشخاص وانتقالات وصوت وTypography خاص بالبراند. لا يدّعي الحفاظ على منتج حقيقي. تم حجز ${CONTENT_HUB_VIDEO_COST} كريديت، ولن يتحول الحجز إلى خصم نهائي إلا بعد حفظ فيديو صالح واجتيازه فحص الجودة. لا نشر ولا جدولة.`
-          : `A ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second generated three-shot concept film is rendering with visible subject motion, scene cuts, sound, and brand typography. It does not claim real-product fidelity. ${CONTENT_HUB_VIDEO_COST} credits are reserved and will be charged only after a usable video is stored and passes quality review. Nothing was published or scheduled.`)
+          ? `بدأ إنتاج Concept Film مولّد من 3 لقطات مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ، مع حركة مشاهد وعناصر وكاميرا وانتقالات وصوت وTypography خاص بالبراند. لا يدّعي الحفاظ على منتج حقيقي. تم حجز ${CONTENT_HUB_VIDEO_COST} كريديت، ولن يتحول الحجز إلى خصم نهائي إلا بعد حفظ فيديو صالح واجتيازه فحص الجودة. لا نشر ولا جدولة.`
+          : `A ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second generated three-shot concept film is rendering with visible scene, subject, and camera motion, cuts, sound, and brand typography. It does not claim real-product fidelity. ${CONTENT_HUB_VIDEO_COST} credits are reserved and will be charged only after a usable video is stored and passes quality review. Nothing was published or scheduled.`)
         : (isAr
           ? `بدأ إنتاج إعلان منتج سينمائي مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ من أصول المنتج المؤهلة. تم حجز ${CONTENT_HUB_VIDEO_COST} كريديت، ولا توجد إعادة محاولة تلقائية؛ يتم الخصم النهائي فقط بعد حفظ أصل صالح واجتيازه الجودة. لا نشر ولا جدولة.`
           : `An ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second cinematic product ad is rendering from qualified product assets. ${CONTENT_HUB_VIDEO_COST} credits are reserved with no automatic provider retry; the charge settles only after a usable output is stored and passes review. Nothing was published or scheduled.`))
@@ -5018,8 +5018,8 @@ export default function ContentHubPage() {
                           : `NEXUS preserves the source video and adds restrained editorial motion only. This is not a cinematic film and does not generate people or new scenes.`)
                         : videoProductionMode === 'CAMPAIGN_FILM'
                           ? (isAr
-                            ? `ينتج NEXUS فيلمًا مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ من 3 لقطات: Hook متحرك، لقطة منفعة، ثم End Frame بالهوية؛ مع حركة أشخاص وصوت وانتقالات وTypography عربي/إنجليزي منفصل عن الصورة.`
-                            : `NEXUS produces a ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second three-shot film: moving hook, benefit shot, and branded end frame—with human motion, sound, cuts, and separately typeset Arabic/English typography.`)
+                            ? `ينتج NEXUS فيلمًا مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ من 3 لقطات: Hook متحرك، لقطة منفعة، ثم End Frame بالهوية؛ مع حركة مشاهد وعناصر وكاميرا وصوت وانتقالات وTypography عربي/إنجليزي منفصل عن الصورة.`
+                            : `NEXUS produces a ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second three-shot film: moving hook, benefit shot, and branded end frame—with scene, subject, and camera motion, sound, cuts, and separately typeset Arabic/English typography.`)
                           : (isAr
                             ? `يبني NEXUS إعلانًا مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ من صور منتج معزولة ومؤهلة، ثم يرفض الناتج إذا لم يحافظ على المنتج بدرجة كافية. لا يبدأ الإنفاق قبل اجتياز فحص الأصول.`
                             : `NEXUS builds an ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second ad from qualified isolated product photos, then rejects the output if product consistency is insufficient. Provider spend cannot start before asset preflight passes.`)}
@@ -5051,7 +5051,7 @@ export default function ContentHubPage() {
                     className={`rounded-2xl border p-4 text-left transition-all ${videoProductionMode === 'CAMPAIGN_FILM' ? 'border-violet-500 bg-violet-50' : 'border-slate-200 bg-white'}`}
                   >
                     <p className="text-sm font-bold text-slate-950">{isAr ? `Concept Film مولّد · ${CONTENT_HUB_VIDEO_COST} كريديت` : `Generated concept film · ${CONTENT_HUB_VIDEO_COST} credits`}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? '3 لقطات مولّدة، أشخاص يتحركون، انتقالات، صوت، وTypography؛ بلا وعد بتطابق منتج حقيقي.' : 'Three generated shots, moving people, cuts, sound, and typography—with no real-product fidelity promise.'}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? '3 لقطات مولّدة بحركة مشاهد وعناصر وكاميرا، انتقالات، صوت، وTypography؛ بلا وعد بتطابق منتج حقيقي.' : 'Three generated shots with scene, subject, and camera motion, cuts, sound, and typography—with no real-product fidelity promise.'}</p>
                   </button>
                   <button
                     type="button"
@@ -5180,7 +5180,7 @@ export default function ContentHubPage() {
                         </>
                       ) : videoProductionMode === 'CAMPAIGN_FILM' ? (
                         <>
-                          <p>✓ {isAr ? '3 مشاهد مختلفة بحركة أشخاص وكاميرا واضحة داخل المشهد' : 'Three distinct scenes with visible subject and camera motion'}</p>
+                          <p>✓ {isAr ? '3 مشاهد مختلفة بحركة عناصر أو Subject وكاميرا واضحة داخل المشهد' : 'Three distinct scenes with visible subject and camera motion'}</p>
                           <p>✓ {isAr ? `${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ: Hook ثم منفعة ثم Hero/CTA` : `${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} seconds: hook, benefit, then hero/CTA`}</p>
                           <p>✓ {isAr ? 'صوت إعلاني وانتقالات مشاهد وTypography متحرك منفصل عن التوليد' : 'Ad sound, scene transitions, and separately composed kinetic typography'}</p>
                           <p>✓ {isAr ? 'فحص جودة متعدد اللقطات قبل الربط' : 'Multi-frame premium QA before attachment'}</p>

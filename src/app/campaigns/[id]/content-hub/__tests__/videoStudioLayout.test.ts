@@ -32,4 +32,11 @@ describe('Content Hub — Video Studio layout', () => {
     expect(videoStudioIndex).toBeGreaterThan(bulkImageButtonIndex)
     expect(bulkImageSection).not.toContain(CAMPAIGN_FILM_PANEL_COPY)
   })
+
+  it('does not promise people in generated concept film copy', () => {
+    expect(SRC).not.toContain('moving people')
+    expect(SRC).not.toContain('human motion')
+    expect(SRC).not.toContain('أشخاص يتحركون')
+    expect(SRC).not.toContain('حركة أشخاص')
+  })
 })
