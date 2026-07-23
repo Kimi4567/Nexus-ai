@@ -159,8 +159,10 @@ describe('source-locked motion design', () => {
       language: 'ar',
     })
 
+    expect(overlays.intro).toContain('<path')
     expect(overlays.hook).toContain('<path')
     expect(overlays.end).toContain('<path')
+    expect(overlays.intro).not.toContain('<text')
     expect(overlays.hook).not.toContain('<text')
     expect(overlays.end).not.toContain('<text')
     expect(overlays.hook).not.toContain('راجع')
@@ -170,6 +172,7 @@ describe('source-locked motion design', () => {
   it('builds a source-locked six-second edit with a kinetic hook, CTA push-in, and no audio', () => {
     const args = buildMotionDesignFfmpegArgs({
       sourcePath: '/tmp/source.mp4',
+      introOverlayPath: '/tmp/intro.png',
       hookOverlayPath: '/tmp/hook.png',
       endOverlayPath: '/tmp/end.png',
       outputPath: '/tmp/master.mp4',
@@ -178,15 +181,19 @@ describe('source-locked motion design', () => {
     const command = args.join(' ')
     expect(MOTION_DESIGN_DURATION_SECONDS).toBe(6)
     expect(command).toContain('-ss 0 -t 3 -i /tmp/source.mp4')
+    expect(command).toContain('-i /tmp/intro.png')
     expect(command).toContain('-i /tmp/hook.png')
     expect(command).toContain('-i /tmp/end.png')
     expect(command).toContain('scale=660:920:force_original_aspect_ratio=decrease')
     expect(command).toContain('pad=720:1280')
     expect(command).toContain('tpad=stop_mode=clone:stop_duration=3')
-    expect(command).toContain("zoompan=z='if(lt(on,12),1.08-(on/12)*0.08")
+    expect(command).toContain("zoompan=z='if(lt(on,10),1.20-(on/10)*0.20")
     expect(command).toContain(')*0.06)')
     expect(command).toContain('trim=duration=6')
-    expect(command).toContain("between(t,0,1.8)")
+    expect(command).toContain("between(t,0,0.9)")
+    expect(command).toContain("between(t,0.72,3.2)")
+    expect(command).toContain('fade=t=out:st=2.9:d=0.3:alpha=1')
+    expect(command).toContain('fade=t=out:st=0.68:d=0.18:alpha=1')
     expect(command).toContain("between(t,3.65,6.0)")
     expect(command).toContain('-an')
     expect(command).toContain('-c:v libx264')
@@ -196,6 +203,7 @@ describe('source-locked motion design', () => {
   it('preserves a native vertical master edge-to-edge', () => {
     const args = buildMotionDesignFfmpegArgs({
       sourcePath: '/tmp/source.mp4',
+      introOverlayPath: '/tmp/intro.png',
       hookOverlayPath: '/tmp/hook.png',
       endOverlayPath: '/tmp/end.png',
       outputPath: '/tmp/master.mp4',

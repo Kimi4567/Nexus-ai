@@ -43,11 +43,14 @@ const MOTION_DESIGN_FRAME_RATE = 24
 export async function motionDesignOverlaySvgs(input: MotionDesignCopy & {
   width?: number
   height?: number
-}): Promise<{ hook: string; end: string }> {
+}): Promise<{ intro: string; hook: string; end: string }> {
   const width = input.width || 720
   const height = input.height || 1280
   const vertical = height > width
   const rtl = input.language === 'ar'
+  const hookMetricMatch = input.hook.match(/^(.*?)(\d+(?:[.,]\d+)?\s+[\p{L}]+)\s*$/u)
+  const hookLead = hookMetricMatch?.[1]?.trim() || ''
+  const hookMetric = hookMetricMatch?.[2]?.trim() || ''
   const shortEdge = Math.min(width, height)
   const horizontalPadding = Math.round(width * (vertical ? 0.08 : 0.065))
   const root: CSSProperties = {
@@ -67,24 +70,156 @@ export async function motionDesignOverlaySvgs(input: MotionDesignCopy & {
     whiteSpace: 'pre',
   }
 
+  const intro = await renderPathOnlyVideoOverlay(createElement('div', {
+    style: {
+      ...root,
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: `${Math.round(height * 0.06)}px ${horizontalPadding}px ${Math.round(height * 0.09)}px`,
+      backgroundImage: 'linear-gradient(145deg, rgba(7,10,19,0.56) 0%, rgba(7,10,19,0.34) 48%, rgba(7,10,19,0.84) 100%)',
+    },
+  },
+  createElement('div', {
+    style: {
+      ...brandStyle,
+      alignSelf: 'center',
+      fontSize: Math.round(shortEdge * 0.04),
+    },
+  }, visualVideoOverlayText(input.brandLabel.toUpperCase(), rtl)),
+  createElement('div', {
+    style: {
+      display: 'flex',
+      width: '100%',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: Math.round(shortEdge * 0.032),
+      padding: `${Math.round(shortEdge * 0.065)}px ${Math.round(shortEdge * 0.05)}px`,
+      border: `${Math.max(2, Math.round(shortEdge * 0.004))}px solid #D8C7FF`,
+      borderRadius: Math.round(shortEdge * 0.05),
+      backgroundColor: 'rgba(7,10,19,0.88)',
+    },
+  },
+  hookLead && hookMetric
+    ? videoOverlayTextLines(
+      wrapVideoOverlayText(hookLead, rtl ? (vertical ? 18 : 26) : (vertical ? 24 : 34)),
+      {
+        rtl,
+        size: Math.round(shortEdge * (vertical ? 0.06 : 0.052)),
+        color: '#FFFFFF',
+      },
+    )
+    : null,
+  hookMetric
+    ? createElement('div', {
+      style: {
+        display: 'flex',
+        minWidth: Math.round(width * (vertical ? 0.66 : 0.42)),
+        height: Math.round(shortEdge * 0.22),
+        padding: `0 ${Math.round(shortEdge * 0.07)}px`,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: Math.round(shortEdge * 0.11),
+        backgroundColor: '#D8C7FF',
+      },
+    }, videoOverlayInlineText(hookMetric, {
+      rtl,
+      size: Math.round(shortEdge * (vertical ? 0.112 : 0.086)),
+      color: '#0B0E18',
+    }))
+    : videoOverlayTextLines(
+      wrapVideoOverlayText(input.hook, rtl ? (vertical ? 13 : 20) : (vertical ? 18 : 28)),
+      {
+        rtl,
+        size: Math.round(shortEdge * (vertical ? 0.09 : 0.072)),
+        color: '#FFFFFF',
+      },
+    )),
+  createElement('div', {
+    style: {
+      display: 'flex',
+      width: Math.round(shortEdge * 0.16),
+      height: Math.max(5, Math.round(shortEdge * 0.012)),
+      borderRadius: Math.round(shortEdge * 0.008),
+      backgroundColor: '#D8C7FF',
+    },
+  })), width, height)
+
   const hook = await renderPathOnlyVideoOverlay(createElement('div', {
     style: {
       ...root,
       flexDirection: 'column',
       justifyContent: 'space-between',
-      padding: `${Math.round(height * 0.055)}px ${horizontalPadding}px ${Math.round(height * (vertical ? 0.16 : 0.12))}px`,
-      backgroundImage: 'linear-gradient(to bottom, rgba(7,10,19,0.18) 0%, rgba(7,10,19,0) 42%, rgba(7,10,19,0.90) 100%)',
+      padding: `${Math.round(height * 0.055)}px ${horizontalPadding}px ${Math.round(height * (vertical ? 0.12 : 0.09))}px`,
+      backgroundImage: 'linear-gradient(to bottom, rgba(7,10,19,0.24) 0%, rgba(7,10,19,0) 38%, rgba(7,10,19,0.94) 100%)',
     },
   },
   createElement('div', { style: brandStyle }, visualVideoOverlayText(input.brandLabel.toUpperCase(), rtl)),
-  videoOverlayTextLines(
-    wrapVideoOverlayText(input.hook, rtl ? (vertical ? 16 : 24) : (vertical ? 22 : 34)),
-    {
-      rtl,
-      size: Math.round(shortEdge * (vertical ? 0.068 : 0.058)),
-      color: '#FFFFFF',
+  createElement('div', {
+    style: {
+      display: 'flex',
+      width: '100%',
+      flexDirection: 'column',
+      alignItems: rtl ? 'flex-end' : 'flex-start',
+      gap: Math.round(shortEdge * 0.026),
+      padding: `${Math.round(shortEdge * 0.044)}px ${Math.round(shortEdge * 0.05)}px`,
+      border: `${Math.max(1, Math.round(shortEdge * 0.002))}px solid rgba(255,255,255,0.72)`,
+      borderRadius: Math.round(shortEdge * 0.038),
+      backgroundColor: '#D8C7FF',
     },
-  )), width, height)
+  },
+  createElement('div', {
+    style: {
+      display: 'flex',
+      width: Math.round(shortEdge * 0.12),
+      height: Math.max(4, Math.round(shortEdge * 0.009)),
+      borderRadius: Math.round(shortEdge * 0.006),
+      backgroundColor: '#0B0E18',
+    },
+  }),
+  hookLead && hookMetric
+    ? createElement('div', {
+      style: {
+        display: 'flex',
+        width: '100%',
+        flexDirection: 'column',
+        alignItems: rtl ? 'flex-end' : 'flex-start',
+        gap: Math.round(shortEdge * 0.025),
+      },
+    },
+    videoOverlayTextLines(
+      wrapVideoOverlayText(hookLead, rtl ? (vertical ? 18 : 26) : (vertical ? 24 : 34)),
+      {
+        rtl,
+        size: Math.round(shortEdge * (vertical ? 0.058 : 0.05)),
+        color: '#0B0E18',
+      },
+    ),
+    createElement('div', {
+      style: {
+        display: 'flex',
+        minWidth: Math.round(width * (vertical ? 0.48 : 0.3)),
+        height: Math.round(shortEdge * 0.145),
+        padding: `0 ${Math.round(shortEdge * 0.055)}px`,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: Math.round(shortEdge * 0.073),
+        backgroundColor: '#0B0E18',
+      },
+    }, videoOverlayInlineText(hookMetric, {
+      rtl,
+      size: Math.round(shortEdge * (vertical ? 0.076 : 0.064)),
+      color: '#D8C7FF',
+    })))
+    : videoOverlayTextLines(
+      wrapVideoOverlayText(input.hook, rtl ? (vertical ? 16 : 24) : (vertical ? 21 : 32)),
+      {
+        rtl,
+        size: Math.round(shortEdge * (vertical ? 0.074 : 0.062)),
+        color: '#0B0E18',
+      },
+    ))), width, height)
 
   const end = await renderPathOnlyVideoOverlay(createElement('div', {
     style: {
@@ -135,7 +270,7 @@ export async function motionDesignOverlaySvgs(input: MotionDesignCopy & {
     color: '#0B0E18',
   })))), width, height)
 
-  return { hook, end }
+  return { intro, hook, end }
 }
 
 function resolveFfmpegBinary(): string {
@@ -176,6 +311,7 @@ function assertSafeCloudinaryVideoUrl(value: string): URL {
 
 export function buildMotionDesignFfmpegArgs(input: {
   sourcePath: string
+  introOverlayPath: string
   hookOverlayPath: string
   endOverlayPath: string
   outputPath: string
@@ -200,14 +336,14 @@ export function buildMotionDesignFfmpegArgs(input: {
   const holdSeconds = MOTION_DESIGN_DURATION_SECONDS - MOTION_DESIGN_SAFE_SOURCE_SECONDS
   const sourceEndFrame = MOTION_DESIGN_SAFE_SOURCE_SECONDS * MOTION_DESIGN_FRAME_RATE - 1
   const endMotionFrames = holdSeconds * MOTION_DESIGN_FRAME_RATE
-  const zoomExpression = `if(lt(on,12),1.08-(on/12)*0.08,if(lte(on,${sourceEndFrame}),1,1+min((on-${sourceEndFrame})/${endMotionFrames},1)*0.06))`
+  const zoomExpression = `if(lt(on,10),1.20-(on/10)*0.20,if(lte(on,${sourceEndFrame}),1,1+min((on-${sourceEndFrame})/${endMotionFrames},1)*0.06))`
   const baseFilter = [
     '[0:v]setpts=PTS-STARTPTS',
     `scale=${sourceWidth}:${sourceHeight}:force_original_aspect_ratio=decrease`,
     `pad=${input.target.width}:${input.target.height}:(ow-iw)/2:(oh-ih)/2:color=0x090B13`,
     `fps=${MOTION_DESIGN_FRAME_RATE}`,
     `tpad=stop_mode=clone:stop_duration=${holdSeconds}`,
-    // A half-second punch-out creates an immediate hook; the verified source
+    // A fast punch-out creates an immediate hook; the verified source
     // then plays at rest before a restrained six-percent CTA push-in. This is
     // real editorial motion over source-derived frames, not AI fill.
     `zoompan=z='${zoomExpression}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${input.target.width}x${input.target.height}:fps=${MOTION_DESIGN_FRAME_RATE}`,
@@ -218,9 +354,11 @@ export function buildMotionDesignFfmpegArgs(input: {
   ].join(',')
   const filter = [
     baseFilter,
-    '[1:v]format=rgba,fade=t=in:st=0.05:d=0.22:alpha=1,fade=t=out:st=1.55:d=0.25:alpha=1[hook]',
-    '[2:v]format=rgba,fade=t=in:st=3.65:d=0.35:alpha=1[end]',
-    "[base][hook]overlay=x='if(lt(t,0.35),(0.35-t)*-160,0)':y=0:enable='between(t,0,1.8)'[v1]",
+    '[1:v]format=rgba,fade=t=out:st=0.68:d=0.18:alpha=1[intro]',
+    '[2:v]format=rgba,fade=t=in:st=0.72:d=0.16:alpha=1,fade=t=out:st=2.9:d=0.3:alpha=1[hook]',
+    '[3:v]format=rgba,fade=t=in:st=3.65:d=0.35:alpha=1[end]',
+    "[base][intro]overlay=x=0:y='if(lt(t,0.22),(0.22-t)*110,0)':enable='between(t,0,0.9)'[v0]",
+    "[v0][hook]overlay=x=0:y='if(lt(t,0.95),(0.95-t)*90,0)':enable='between(t,0.72,3.2)'[v1]",
     "[v1][end]overlay=x=0:y='if(lt(t,4.0),(4.0-t)*70,0)':enable='between(t,3.65,6.0)',format=yuv420p[outv]",
   ].join(';')
 
@@ -234,6 +372,10 @@ export function buildMotionDesignFfmpegArgs(input: {
     '-ss', '0',
     '-t', String(MOTION_DESIGN_SAFE_SOURCE_SECONDS),
     '-i', input.sourcePath,
+    '-loop', '1',
+    '-framerate', String(MOTION_DESIGN_FRAME_RATE),
+    '-t', String(MOTION_DESIGN_DURATION_SECONDS),
+    '-i', input.introOverlayPath,
     '-loop', '1',
     '-framerate', String(MOTION_DESIGN_FRAME_RATE),
     '-t', String(MOTION_DESIGN_DURATION_SECONDS),
@@ -302,6 +444,7 @@ export async function renderAndPersistMotionDesignAd(input: {
 
   const workDir = await mkdtemp(path.join(tmpdir(), 'nexus-motion-'))
   const sourcePath = path.join(workDir, 'source.mp4')
+  const introOverlayPath = path.join(workDir, 'intro.png')
   const hookOverlayPath = path.join(workDir, 'hook.png')
   const endOverlayPath = path.join(workDir, 'end.png')
   const outputPath = path.join(workDir, 'master.mp4')
@@ -313,11 +456,13 @@ export async function renderAndPersistMotionDesignAd(input: {
       height: input.target.height,
     })
     await Promise.all([
+      sharp(Buffer.from(overlays.intro)).png().toFile(introOverlayPath),
       sharp(Buffer.from(overlays.hook)).png().toFile(hookOverlayPath),
       sharp(Buffer.from(overlays.end)).png().toFile(endOverlayPath),
     ])
     await execFileAsync(executable, buildMotionDesignFfmpegArgs({
       sourcePath,
+      introOverlayPath,
       hookOverlayPath,
       endOverlayPath,
       outputPath,

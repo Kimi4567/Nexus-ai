@@ -333,7 +333,7 @@ export async function POST(req: NextRequest, props: Params) {
       formatValidation,
       requireProductAdStructure: true,
       qualityStandard: 'PAID_SOCIAL',
-      approvedOverlayTexts: [copy.brandLabel, copy.hook, copy.cta],
+      approvedOverlayTexts: [copy.brandLabel.toUpperCase(), copy.hook, copy.cta],
     })
     if (!qualityReview.passed) {
       const message = 'NEXUS quality review rejected this Motion Design render. Reserved credits will be restored.'
