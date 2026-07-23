@@ -30,6 +30,7 @@ vi.mock('@/lib/supabaseAuth', () => ({
 }))
 
 import { GET as callbackMeta } from '@/app/api/social/callback/meta/route'
+import { GET as callbackMetaAds } from '@/app/api/social/callback/meta-ads/route'
 import { GET as callbackTikTok } from '@/app/api/social/callback/tiktok/route'
 import { GET as callbackLinkedIn } from '@/app/api/social/callback/linkedin/route'
 
@@ -73,6 +74,18 @@ afterEach(() => {
 })
 
 describe('provider callbacks before public approval', () => {
+  it('returns a cancelled Meta Ads connection to Connections with an explicit no-permission result', async () => {
+    const response = await callbackMetaAds(new NextRequest(
+      'https://www.nexus-grow.com/api/social/callback/meta-ads?error=access_denied',
+    ))
+
+    expect(response.headers.get('location')).toBe(
+      'https://www.nexus-grow.com/connections?social=error&msg=authorization_not_granted',
+    )
+    expect(global.fetch).toBe(originalFetch)
+    expect(mocks.integrationUpsert).not.toHaveBeenCalled()
+  })
+
   it('stores only Meta Pages that include a real Page token and provider-confirmed scopes', async () => {
     global.fetch = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'short-meta-token', expires_in: 3600 }), { status: 200 }))

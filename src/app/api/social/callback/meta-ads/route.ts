@@ -41,7 +41,7 @@ type MetaAdAccount = {
 }
 
 export async function GET(req: NextRequest) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')
   try {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get('code')
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
   const errorParam = searchParams.get('error')
   if (errorParam) {
     console.warn('[Meta Ads OAuth] Provider authorization was not granted')
-    return NextResponse.redirect(`${baseUrl}/paid-campaigns?error=authorization_not_granted`)
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=authorization_not_granted`)
   }
 
   if (!code || !state) {
