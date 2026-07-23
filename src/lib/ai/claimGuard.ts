@@ -51,11 +51,16 @@ const PATTERNS: { category: ClaimCategory; re: RegExp }[] = [
   // boundaries, ordinary phrases such as "ما يتضمنه العرض" (what the offer
   // includes) are incorrectly read as a guarantee and block approval.
   { category: 'guarantee', re: /(?<![\p{L}\p{M}])(?:تضمن|يضمن|نضمن|أضمن)(?:\s+لك)?(?![\p{L}\p{M}])|نتائج\s+مضمونة|تحميك\s+من\s+(?:مشاكل|أمراض)|يغير\s+تجربتك\s+الصحية\s+بالكامل/giu },
+  { category: 'guarantee', re: /(?:لضمان|ضمان)\s+(?:راحة\s+البال|النتائج?|النجاح|الجودة|الرضا|التسليم|عدم\s+التأخير|سير\s+العمل\s+بسلاسة)(?=\s|[،,.!?؟]|$)/giu },
+  { category: 'guarantee', re: /(?:نجعل|تجعل)\s+(?:هذه\s+)?(?:ال)?رحلة\s+(?:سهلة|سلسة)(?:\s+وممتعة)?|رؤية\s+واضحة\s+للنتيجة\s+النهائية/giu },
+  { category: 'guarantee', re: /دون\s+عناء(?:\s+المتابعة\s+اليومية)?|(?:نهتم|سنهتم|نعتني|سنعتني)\s+(?:لك\s+)?بكل\s+(?:شيء|التفاصيل)|(?:اترك|اتركي)\s+لنا\s+(?:كل\s+)?(?:التفاصيل|المشوار)|(?:اطمئن|اطمئني)\s+(?:و)?(?:اترك|اتركي)|تساعد\s+على\s+كل\s+التفاصيل|يحتوي\s+راحتك|راحة\s+البال|تجنب\s+المفاجآت\s+المالية|دراية\s+تامة\s+بكل\s+خطوة|إشراف(?:ًا|ا)?\s+كامل(?:ًا|اً|ا)?\s+على\s+التنفيذ/giu },
+  { category: 'guarantee', re: /\b(?:hassle[-\s]?free|we\s+handle\s+every\s+detail|complete\s+peace\s+of\s+mind|avoid\s+financial\s+surprises|full\s+execution\s+supervision)\b/gi },
   // Social proof without a cited source.
   { category: 'socialProof', re: /\b(?:trusted|used|loved)\s+by\s+(?:thousands|millions|hundreds|leading|top|over\s+\d+)\b/gi },
   { category: 'socialProof', re: /\b(?:thousands|millions)\s+of\s+(?:customers|users|businesses|companies|brands)\b/gi },
   { category: 'socialProof', re: /\bcustomers\s+love\s+(?:us|it|our)\b/gi },
   { category: 'socialProof', re: /\bjoin\s+(?:thousands|millions)\b/gi },
+  { category: 'socialProof', re: /(?:آراء|تجارب)\s+(?:عملائنا|العملاء|زبائننا)|عملاؤنا\s+يحبون|(?:آلاف|مئات|ملايين)\s+(?:العملاء|المستخدمين|الشركات|العلامات)/giu },
   // Awards / superlative rankings.
   { category: 'award', re: /(?:^|[^\w])#1\b/gi },
   { category: 'award', re: /\b(?:award[-\s]?winning|best[-\s]?in[-\s]?class|industry[-\s]?leading|world[-\s]?class|top[-\s]?rated|number\s+one)\b/gi },
@@ -63,6 +68,7 @@ const PATTERNS: { category: ClaimCategory; re: RegExp }[] = [
   // Case-study style outcome claims.
   { category: 'caseStudy', re: /\bhelped\s+(?:companies|businesses|clients|teams|brands)\s+(?:achieve|grow|increase|save|boost|double|triple)\b/gi },
   { category: 'caseStudy', re: /\b(?:real\s+customers\s+achieved|our\s+clients\s+(?:saw|achieved|grew))\b/gi },
+  { category: 'caseStudy', re: /(?:قصص|نماذج)\s+نجاح\s+(?:عملائنا|العملاء|زبائننا)|نجاحات\s+(?:عملائنا|العملاء|زبائننا)/giu },
   // Platform/status claims that require real platform confirmation.
   { category: 'platformStatus', re: /\b(?:published\s+automatically|auto[-\s]?published|campaign\s+is\s+live|ads?\s+are\s+(?:running|live)|now\s+live\s+on)\b/gi },
 ]
@@ -75,16 +81,41 @@ function makeExcerpt(text: string, index: number, matchLen: number): string {
   return (prefix + text.slice(start, end).trim() + suffix).replace(/\s+/g, ' ')
 }
 
-function isNegatedSafetyInstruction(
-  category: ClaimCategory,
+export function hasNegatingSafetyContext(
   text: string,
   matchIndex: number,
 ): boolean {
-  if (category !== 'guarantee') return false
-  const before = text.slice(Math.max(0, matchIndex - 100), matchIndex)
+  const before = text.slice(Math.max(0, matchIndex - 140), matchIndex)
     .toLocaleLowerCase()
+    .replace(/[\u064B-\u065F\u0670]/g, '')
     .replace(/\s+/g, ' ')
-  return /(?:\b(?:do not|don't|never|avoid|without|cannot|can't|must not|should not|is not|are not|no)\s+(?:(?:promise|claim|state|imply|implying|use|offer|make|present|suggest)\s+)?(?:any\s+)?|(?:لا|لن|ليس|غير|بدون|تجنب|تجنّب|يجب ألا)\s*(?:(?:تعد|تَعِد|تدعي|تستخدم|تقدم|توحي|تذكر)\s+)?)$/i.test(before)
+    .trimEnd()
+
+  // Only explicit negation/safety constructions suppress a finding. Keeping
+  // the action verb in these patterns is important: "No risk — guaranteed
+  // results" is still advertising copy, while "do not use guaranteed results"
+  // is an internal instruction and must not block the campaign.
+  const englishSafety = /(?:\b(?:do\s+not|don't|never|avoid|must\s+not|should\s+not)(?:\s+(?:promise|claim|state|imply|use|offer|make|present|suggest|write|mention))?(?:\s+(?:any\s+)?(?:words?|phrases?|language)(?:\s+(?:like|such\s+as))?)?|\bwithout\s+(?:promising|claiming|stating|implying|using|offering|presenting|suggesting|writing|mentioning)|\b(?:cannot|can't)(?:\s+(?:promise|claim|state|imply|use|offer|make|present|suggest))?|\b(?:is|are)\s+not|\bnot|\bno)$/i
+  const arabicSafety = /(?:(?:عدم|ممنوع)(?:\s+(?:استخدام|استعمال|ذكر|كتابة|قول|الوعد|الادعاء|تقديم|عرض))?(?:\s+(?:كلمة|كلمات|عبارة|عبارات)(?:\s+(?:مثل|من\s+قبيل))?)?|(?:تجنب|تجنّب|يجب\s+(?:الا|ألا)|لا|لن|لم|ليس|غير|بدون)(?:\s*(?:تعد|تدعي|تستخدم|تستعمل|تقدم|توحي|تذكر|تكتب|تقول|نعد|ندعي|نستخدم|نقدم|نوحي|نذكر|نكتب|نقول))?(?:\s+(?:انك|أنك|بأنك|باننا|بأننا|اننا|أننا))?)$/iu
+
+  if (englishSafety.test(before) || arabicSafety.test(before)) return true
+
+  // A single safety directive may list several forbidden phrases. Carry the
+  // negation across that list, but never across a sentence/semicolon or an
+  // explicit contrast such as "but" / "لكن".
+  const clause = before.slice(Math.max(
+    before.lastIndexOf('.'),
+    before.lastIndexOf('!'),
+    before.lastIndexOf('?'),
+    before.lastIndexOf(';'),
+    before.lastIndexOf('؛'),
+    before.lastIndexOf('\n'),
+  ) + 1)
+  const hasContrast = /\b(?:but|however|instead)\b|(?:لكن|ولكن|بل)/iu.test(clause)
+  if (hasContrast) return false
+  const englishListDirective = /\b(?:do\s+not|don't|never|avoid|must\s+not|should\s+not)\s+(?:promise|claim|state|imply|use|offer|make|present|suggest|write|mention)\b/i
+  const arabicListDirective = /(?:عدم|ممنوع)\s+(?:استخدام|استعمال|ذكر|كتابة|قول|الوعد|الادعاء|تقديم|عرض)(?![\p{L}\p{M}])|(?:تجنب|تجنّب|يجب\s+(?:الا|ألا)|لا|لن|لم)\s*(?:تعد|تدعي|تستخدم|تستعمل|تقدم|توحي|تذكر|تكتب|تقول)(?![\p{L}\p{M}])/iu
+  return englishListDirective.test(clause) || arabicListDirective.test(clause)
 }
 
 /**
@@ -102,7 +133,7 @@ export function detectUnsupportedClaims(input: string | Array<string | null | un
       re.lastIndex = 0
       let m: RegExpExecArray | null
       while ((m = re.exec(part)) !== null) {
-        if (isNegatedSafetyInstruction(category, part, m.index)) {
+        if (hasNegatingSafetyContext(part, m.index)) {
           if (m.index === re.lastIndex) re.lastIndex++
           continue
         }

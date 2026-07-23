@@ -72,13 +72,20 @@ function buildFallbackConcept(
   language: 'ar' | 'en' = 'en'
 ): VisualConcept {
   const check = (text + ' ' + industry).toLowerCase()
+  const industryContext = industry.toLowerCase()
+  const isNexusProductBrand = /^\s*nexus(?:\s+ai)?\s*$/i.test(brandName)
+  const operationsContext = isNexusProductBrand
+    || /saas|software|ai|artificial intelligence|marketing|agency|consult|platform|automation|crm|analytics|martech|operating system|تسويق|وكالة|منصة|برمج/i.test(industryContext)
 
   const isAr = language === 'ar'
 
   // Post-level operational themes must be resolved before broad industry
   // categories such as "AI" or "marketing". Otherwise every NEXUS post falls
   // into the same generic SaaS scene regardless of its actual creative brief.
-  if (check.match(/monthly|purchased|billing cycle|credit pools?|plan credits?|شهري|الشهرية|المشت(?:رى|راة)|دورة الباقة|نوع الرصيد/)) {
+  // The guard matters just as much in reverse: ordinary service words such as
+  // "cost", "stages", and "execution" must never turn a vertical business
+  // (for example interior design) into a SaaS operations metaphor.
+  if (operationsContext && check.match(/monthly|purchased|billing cycle|credit pools?|plan credits?|شهري|الشهرية|المشت(?:رى|راة)|دورة الباقة|نوع الرصيد/)) {
     return {
       centralElement: 'two clearly separated physical reservoirs of blank metallic tokens: one beside a circular renewal ring and one inside a durable transparent vault, with a precise divider between them and generous negative space',
       emotion: 'clear, controlled, durable',
@@ -88,7 +95,7 @@ function buildFallbackConcept(
     }
   }
 
-  if (check.match(/credits?|ledger|quoted cost|metered action|pricing|balance|كريديت|أرصدة|رصيد|تكلفة|خصم|سجل/)) {
+  if (operationsContext && check.match(/credits?|ledger|quoted cost|metered action|pricing|balance|كريديت|أرصدة|رصيد|تكلفة|خصم|سجل/)) {
     return {
       centralElement: 'three distinct tactile stations arranged left to right: a small stack of blank metallic tokens beside a quotation tile, one illuminated confirmation gate, and a sealed archive of blank ledger cards, connected by one precise physical path',
       emotion: 'transparent, controlled, precise',
@@ -98,7 +105,7 @@ function buildFallbackConcept(
     }
   }
 
-  if (check.match(/brand brain|positioning|voice|verified claims?|restrictions?|channel drafts?|تموضع|النبرة|ادعاءات موثقة|القيود|مسودات القنوات/)) {
+  if (operationsContext && check.match(/brand brain|positioning|voice|verified claims?|restrictions?|channel drafts?|تموضع|النبرة|ادعاءات موثقة|القيود|مسودات القنوات/)) {
     return {
       centralElement: 'one central translucent sculptural core receiving four distinct blank material inputs, then branching into three differently shaped channel frames, with a visible human review gate before the frames and no screens or lettering',
       emotion: 'governed, coherent, intentional',
@@ -108,7 +115,7 @@ function buildFallbackConcept(
     }
   }
 
-  if (check.match(/ownership|capacity|handoffs?|approval|assignments?|operations?|ملكية|السعة|تسليم|الموافقات|المهام|التشغيل/)) {
+  if (operationsContext && check.match(/ownership|capacity|handoffs?|approval|assignments?|operations?|ملكية|السعة|تسليم|الموافقات|المهام|التشغيل/)) {
     return {
       centralElement: 'three-person operations team passing distinct blank task blocks through clearly separated work lanes toward one physical review gate, with visible unused lane capacity and an uncluttered premium workspace',
       emotion: 'organized, accountable, calm',
@@ -118,7 +125,7 @@ function buildFallbackConcept(
     }
   }
 
-  if (check.match(/workflow|strategy|execution|results?|stages?|سير العمل|الاستراتيجية|التنفيذ|النتائج|المراحل/)) {
+  if (operationsContext && check.match(/workflow|strategy|execution|results?|stages?|سير العمل|الاستراتيجية|التنفيذ|النتائج|المراحل/)) {
     return {
       centralElement: 'six distinct tactile stages forming one governed physical path from a central brand core through planning blocks and a human review gate to a final measurement vessel, with every stage visually separate and no screens',
       emotion: 'guided, connected, reviewable',
@@ -135,6 +142,25 @@ function buildFallbackConcept(
       headline:       isAr ? 'طعم لا يُنسى في كل لقمة' : 'Taste Worth Every Moment',
       cta:            isAr ? 'اطلب الآن' : 'Order Now',
       visualMood:     'Warm candlelit restaurant atmosphere with rich food textures and golden ambient light',
+    }
+  }
+
+  if (check.match(/interior design|home furniture|furniture|home decor|space planning|تصميم داخلي|أثاث|ديكور|تخطيط المساحة/)) {
+    const beforeAfter = check.match(/before\s*(?:and|&)\s*after|before\s*\/\s*after|قبل\s*(?:و|\/)?\s*بعد/)
+    const costPlanning = check.match(/cost breakdown|pricing|budget|scope and cost|تكلفة|ميزانية|تسعير/)
+    const teamContext = check.match(/interior designers?|design team|project team|فريق|مصمم(?:ون|ين)/)
+    return {
+      centralElement: beforeAfter
+        ? 'the same residential living room shown from one consistent camera angle as an honest two-state renovation study: the unfinished pre-renovation space on one side and the refined completed interior on the other, with a coordinated materials board in the foreground and generous clean negative space'
+        : costPlanning
+          ? 'an interior designer and homeowner comparing three clearly separated project-phase trays containing blank specification cards, coordinated material samples, and scale-model components, communicating scope and cost planning without visible writing, with generous clean negative space'
+          : teamContext
+            ? 'a focused team of interior designers reviewing a residential scale model and coordinated materials together in a refined studio, with clear professional collaboration, warm natural light, and generous clean negative space'
+        : 'an interior designer reviewing a precise scale model beside a coordinated materials board, with one refined residential room visible in the background and generous clean negative space',
+      emotion:        'considered, clear, refined',
+      headline:       isAr ? 'راجع تصور مساحتك قبل التنفيذ' : 'Review Your Space Concept First',
+      cta:            isAr ? 'راجع التفاصيل' : 'Review Details',
+      visualMood:     'Refined interior-design editorial with tactile materials, spatial clarity and warm natural light',
     }
   }
 
@@ -212,8 +238,8 @@ function buildFallbackConcept(
   return {
     centralElement: `premium brand visual for ${brandName} — professional atmosphere with depth, rich texture and aspirational quality`,
     emotion:        'professional, premium, trustworthy',
-    headline:       isAr ? `${brandName} — الأفضل دائماً` : `${brandName} — Excellence Defined`,
-    cta:            isAr ? 'اكتشف المزيد' : 'Learn More',
+    headline:       isAr ? `${brandName} — تصور بصري للمراجعة` : `${brandName} — Visual Concept for Review`,
+    cta:            isAr ? 'راجع التفاصيل' : 'Review Details',
     visualMood:     'Premium brand atmosphere with dramatic lighting, depth and polished commercial quality',
   }
 }

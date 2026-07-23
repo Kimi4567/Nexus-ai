@@ -116,8 +116,12 @@ function buildCampaignHTML(campaign: any, socialPosts: ExportedSocialPost[], del
   const generationsHTML = generations.length
     ? `<p>${generations.length} generation(s) — content stored in platform.</p>`
     : '<p class="empty">No generations yet.</p>'
-  const packageStateLabel = delivery.state === 'READY_FOR_SCHEDULING'
-    ? (isArabic ? 'حزمة معتمدة وجاهزة لقرار الجدولة' : 'Approved package — ready for scheduling decision')
+  const packageStateLabel = delivery.state === 'PROVIDER_PUBLISHED'
+    ? (isArabic ? 'النشر مثبت من المزوّد' : 'Provider publication verified')
+    : delivery.state === 'SCHEDULED'
+      ? (isArabic ? 'قرار الجدولة موثق' : 'Schedule decision recorded')
+      : delivery.state === 'READY_FOR_SCHEDULING'
+        ? (isArabic ? 'حزمة معتمدة وجاهزة لقرار الجدولة' : 'Approved package — ready for scheduling decision')
     : delivery.state === 'COPY_APPROVED'
       ? (isArabic ? 'النص معتمد — الوسائط تحتاج مراجعة' : 'Copy approved — media review required')
       : delivery.state === 'NO_CONTENT'
@@ -171,10 +175,10 @@ function buildCampaignHTML(campaign: any, socialPosts: ExportedSocialPost[], del
   </div>
 </div>
 
-<div class="section" style="border:2px solid ${delivery.state === 'READY_FOR_SCHEDULING' ? '#86efac' : '#fcd34d'}">
+<div class="section" style="border:2px solid ${['READY_FOR_SCHEDULING', 'SCHEDULED', 'PROVIDER_PUBLISHED'].includes(delivery.state) ? '#86efac' : '#fcd34d'}">
   <h2>${isArabic ? 'حالة حزمة التسليم' : 'Delivery Package State'}</h2>
   <p><strong>${escapeHtml(packageStateLabel)}</strong></p>
-  <p>${escapeHtml(`${delivery.counts.copyApproved}/${delivery.counts.posts} copy approved · ${delivery.counts.mediaApproved}/${delivery.counts.posts} media approved · ${delivery.counts.providerPublicationVerified} provider publications verified`)}</p>
+  <p>${escapeHtml(`${delivery.counts.copyApproved}/${delivery.counts.posts} copy approved · ${delivery.counts.mediaApproved}/${delivery.counts.posts} media approved · ${delivery.counts.scheduleRecorded}/${delivery.counts.posts} schedule decisions recorded · ${delivery.counts.providerPublicationVerified} provider publications verified`)}</p>
   <p class="empty">${isArabic ? 'هذه الحزمة لا تثبت تصاريح المنصة أو النشر أو الإنفاق أو الأداء.' : 'This package does not prove provider permission, publication, spend, or performance.'}</p>
 </div>
 

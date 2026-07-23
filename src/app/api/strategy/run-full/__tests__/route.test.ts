@@ -73,7 +73,12 @@ vi.mock('@/lib/campaign-memory', () => ({
   saveCampaignMemory: vi.fn(),
 }))
 vi.mock('@/lib/ai/strategyKpiGuard', () => ({
-  normalizeStrategyIntent: () => ({ strategyType: 'organic', strategyDuration: '90' }),
+  normalizeStrategyIntent: (strategyType: unknown, strategyDuration: unknown) => ({
+    strategyType: strategyType === 'paid' || strategyType === 'full' ? strategyType : 'organic',
+    strategyDuration: strategyDuration === '30' || strategyDuration === '180' || strategyDuration === 'custom'
+      ? strategyDuration
+      : '90',
+  }),
 }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 vi.mock('@/lib/campaignCommercial', () => ({ readLockedCampaignAllowance: mockReadCampaignAllowance }))
@@ -119,6 +124,9 @@ beforeEach(() => {
     conversionDestination: 'Website lead form',
     leadHandling: 'Sales team follows up within one business day',
     audienceLocation: 'United States',
+    pricePoint: 'Mid-market subscription',
+    uniqueAdvantages: ['Campaign truth gates', 'First-party attribution'],
+    customerObjections: ['Needs a clear review workflow'],
     verifiedProof: ['User-provided proof: internal pilot users reviewed strategy drafts.'],
   })
   mockPrisma.user.findUnique.mockResolvedValue({
@@ -202,6 +210,50 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 96, expect.objectContaining({
       entityId: 'w1', entityType: 'workspace_strategy_run', operationKey: expect.any(String),
     }))
+  })
+
+  it('charges only the delivered organic scope when a Full run preserves a paid-only failure', async () => {
+    mockRunFullAgency.mockImplementation(async (_workspaceId: string, _brief: Record<string, unknown>, options?: { beforePersistStrategy?: (delivery?: any) => Promise<void> }) => {
+      const delivery = {
+        status: 'partial' as const,
+        requestedStrategyType: 'full' as const,
+        deliveredStrategyType: 'organic' as const,
+        failedSection: 'paid_planning' as const,
+      }
+      await options?.beforePersistStrategy?.(delivery)
+      return {
+        strategyCreated: true,
+        contentCreated: true,
+        agentRunId: 'run-partial',
+        suggestions: 1,
+        errors: [],
+        warnings: ['PAID_PLANNING_NOT_DELIVERED'],
+        delivery,
+      }
+    })
+
+    const res = await POST(makeReq({
+      strategyType: 'full',
+      strategyDuration: '90',
+      contentIntensity: 'standard',
+      language: 'en',
+    }))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 24, expect.objectContaining({
+      description: expect.stringContaining('partial delivery: organic contract only, paid planning not charged'),
+    }))
+    expect(json).toMatchObject({
+      ok: true,
+      delivery: {
+        status: 'partial',
+        requestedStrategyType: 'full',
+        deliveredStrategyType: 'organic',
+      },
+      warnings: ['PAID_PLANNING_NOT_DELIVERED'],
+      creditCharge: { cost: 24 },
+    })
   })
 
   it('8. ignores any client-supplied price and recomputes server-side', async () => {
@@ -573,6 +625,77 @@ describe('POST /api/strategy/run-full — generation contract (S1c-3)', () => {
     const brief = briefArg()
     expect(brief.generationInstructions).toMatch(/PLANNING-ONLY/i)
     expect(brief.organicPostCount).toBe(0)
+  })
+
+  it('keeps support-only channels out of executable platform and budget scope', async () => {
+    mockPrisma.brandProfile.findUnique.mockResolvedValue({
+      brandName: 'B',
+      industry: 'Tech',
+      description: 'AI marketing operating system for small businesses.',
+      primaryOffer: 'Strategy and content planning workspace.',
+      targetAudience: 'Small business marketing operators.',
+      audiencePainPoints: ['Inconsistent campaign planning', 'Unclear content priorities'],
+      businessGoal: 'leads',
+      writingStyle: 'clear and practical',
+      topPlatforms: ['Instagram', 'WhatsApp', 'Pinterest'],
+      marketingBudget: '$1,000/month planning budget',
+      conversionDestination: 'Website lead form',
+      leadHandling: 'Sales team follows up within one business day',
+      audienceLocation: 'United States',
+      pricePoint: 'Mid-market subscription',
+      uniqueAdvantages: ['Campaign truth gates', 'First-party attribution'],
+      customerObjections: ['Needs a clear review workflow'],
+      verifiedProof: ['User-provided proof: internal pilot users reviewed strategy drafts.'],
+    })
+
+    const res = await POST(makeReq({
+      strategyType: 'full',
+      strategyDuration: '90',
+      contentIntensity: 'standard',
+      language: 'en',
+    }))
+    const brief = briefArg()
+
+    expect(res.status).toBe(200)
+    expect(brief.currentPlatforms).toEqual(['Instagram', 'Pinterest'])
+    expect(brief.generationInstructions).toMatch(/Support-only conversion\/follow-up channels: WhatsApp/)
+    expect(brief.generationInstructions).toMatch(/Do not allocate content directions, publishing cadence, paid budget/)
+  })
+
+  it('blocks a strategy whose only selected channel cannot receive campaign execution', async () => {
+    mockPrisma.brandProfile.findUnique.mockResolvedValue({
+      brandName: 'B',
+      industry: 'Services',
+      description: 'A local service business.',
+      primaryOffer: 'Consultation service.',
+      targetAudience: 'Local buyers.',
+      audiencePainPoints: ['Needs clarity'],
+      businessGoal: 'leads',
+      writingStyle: 'clear',
+      topPlatforms: ['WhatsApp'],
+      marketingBudget: '$1,000/month planning ceiling',
+      conversionDestination: 'WhatsApp',
+      leadHandling: 'Assigned owner replies manually',
+      audienceLocation: 'Dubai',
+      pricePoint: 'Project based',
+      uniqueAdvantages: ['Reviewed scope'],
+      customerObjections: ['Needs details'],
+      verifiedProof: [],
+    })
+
+    const res = await POST(makeReq({
+      strategyType: 'organic',
+      strategyDuration: '30',
+      contentIntensity: 'light',
+      language: 'ar',
+    }))
+    const json = await res.json()
+
+    expect(res.status).toBe(422)
+    expect(json.code).toBe('STRATEGY_EXECUTION_PLATFORM_REQUIRED')
+    expect(json.supportOnlyChannels).toEqual(['WhatsApp'])
+    expect(mockRunFullAgency).not.toHaveBeenCalled()
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
   })
 
   it('passes exact custom organic post count into the generation contract', async () => {

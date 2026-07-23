@@ -96,6 +96,7 @@ export async function POST(req: NextRequest, props: Params) {
     const currentStrategyPayload = buildStrategyApprovalSnapshotPayload({
       campaign,
       brandProfile: campaign.workspace.brandProfile,
+      persistedApprovedAiOutput: true,
     })
     if (hashCampaignSnapshotPayload(currentStrategyPayload) !== strategySnapshot.payloadHash) {
       return NextResponse.json({

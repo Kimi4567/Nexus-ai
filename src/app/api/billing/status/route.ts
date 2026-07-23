@@ -12,9 +12,20 @@ import {
   validateCreditWalletStripePrices,
 } from '@/lib/stripe'
 import { getCreditAccountSnapshot } from '@/lib/credits/accountSnapshot'
+import { checkDailyImageCap } from '@/lib/credits'
 import { getBillingDatabaseReadiness } from '@/lib/billingDatabaseReadiness'
+import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
+
+const PRIVATE_RESPONSE_HEADERS = {
+  'Cache-Control': 'private, no-store, max-age=0',
+  'X-Content-Type-Options': 'nosniff',
+}
+
+function privateJson(body: unknown, status = 200) {
+  return NextResponse.json(body, { status, headers: PRIVATE_RESPONSE_HEADERS })
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,21 +34,29 @@ export async function GET(req: NextRequest) {
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
 
     if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return privateJson({ error: 'Unauthorized' }, 401)
     }
 
     const { data: { user }, error: authError } = await adminClient.auth.getUser(token)
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return privateJson({ error: 'Unauthorized' }, 401)
     }
 
     // One shared account snapshot powers Billing and Dashboard so a new user
     // cannot see different balances on different product surfaces.
     const account = await getCreditAccountSnapshot(user.id)
     if (!account) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      return privateJson({ error: 'User not found' }, 404)
     }
     const { user: dbUser, subscription, credits, walletEnabled } = account
+    const workspace = await prisma.workspace.findFirst({
+      where: { ownerId: user.id },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    })
+    const imageGenerationCapacity = workspace
+      ? await checkDailyImageCap(workspace.id, dbUser.subscriptionStatus)
+      : null
     const billingProviderConfigured = isBillingConfigured()
     const billingDatabase = billingProviderConfigured
       ? await getBillingDatabaseReadiness()
@@ -72,7 +91,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    return privateJson({
       plan: account.planName,
       status: dbUser.subscriptionStatus,
       hasActiveSubscription: account.hasActiveSubscription,
@@ -87,12 +106,12 @@ export async function GET(req: NextRequest) {
         used: credits.used,
         max: credits.max,         // -1 = unlimited
       },
+      imageGenerationCapacity,
       currentPeriodEnd: subscription?.currentPeriodEnd ?? null,
       cancelledAt: subscription?.cancelledAt ?? null,
-      stripeCustomerId: dbUser.stripeCustomerId ?? null,
     })
   } catch (err: any) {
     console.error('[Billing Status] Error:', err?.message || err)
-    return NextResponse.json({ error: 'Failed to fetch billing status' }, { status: 500 })
+    return privateJson({ error: 'Failed to fetch billing status' }, 500)
   }
 }

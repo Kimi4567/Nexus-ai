@@ -475,6 +475,14 @@ function CalendarPageInner() {
   }, [loadingCal, allPosts])
 
   const getPostsForDay = (day: number) => monthPosts.filter(p => p.day === day)
+  const formatDayItemCount = (count: number) => {
+    if (locale !== 'ar') return `${count} ${count === 1 ? 'item' : 'items'}`
+    if (count === 0) return '0 عناصر'
+    if (count === 1) return 'عنصر واحد'
+    if (count === 2) return 'عنصران'
+    if (count <= 10) return `${count} عناصر`
+    return `${count} عنصرًا`
+  }
 
   const daysInMonth    = getDaysInMonth(viewYear, viewMonth)
   const firstDay       = getFirstDayOfMonth(viewYear, viewMonth)
@@ -747,18 +755,14 @@ function CalendarPageInner() {
                     const day      = i + 1
                     const dayPosts = getPostsForDay(day)
                     const isToday    = isCurrentMonth && day === todayDate
-                    const isSelected = selectedDay === day
                     return (
-                      <button
-                        type="button"
+                      <div
+                        role="group"
                         key={day}
-                        onClick={() => setSelectedDay(isSelected ? null : day)}
-                        aria-pressed={isSelected}
-                        aria-label={`${day} ${monthLabel}, ${dayPosts.length} ${locale === 'ar' ? 'عناصر' : 'items'}`}
-                        className={`h-20 cursor-pointer border-b border-r border-slate-100 p-1.5 text-start transition-all
-                          ${isSelected ? 'bg-orange-50' : 'hover:bg-slate-50'}`}>
+                        aria-label={`${day} ${monthLabel}, ${formatDayItemCount(dayPosts.length)}`}
+                        className="h-20 border-b border-r border-slate-100 p-1.5 text-start">
                         <div className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold mb-1
-                          ${isToday ? 'bg-accent text-white' : isSelected ? 'text-accent' : 'text-slate-400'}`}>
+                          ${isToday ? 'bg-accent text-white' : 'text-slate-400'}`}>
                           {day}
                         </div>
                         <div className="space-y-0.5">
@@ -786,7 +790,7 @@ function CalendarPageInner() {
                             <div className="text-[9px] text-slate-400">+{dayPosts.length - 2} more</div>
                           )}
                         </div>
-                      </button>
+                      </div>
                     )
                   })}
                 </div>
@@ -1084,10 +1088,10 @@ function CalendarPageInner() {
                 content with no schedule yet; it is never shown as scheduled/published. */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               {[
-                { label: calendarTruthLocked ? (locale === 'ar' ? 'سجلات محجوبة' : 'Blocked records') : (locale === 'ar' ? 'غير مجدولة' : 'Not scheduled'), value: queueSummary.notScheduled, color: calendarTruthLocked ? 'text-orange-700' : 'text-slate-600' },
-                { label: scT?.statPending as string || 'Scheduled',  value: scheduled.length, color: 'text-orange-600'  },
-                { label: scT?.statAutoPublished as string || 'API-published', value: autoPublished.length, color: 'text-green-700'   },
-                { label: scT?.statFailed as string || 'Failed',       value: failed.length,    color: 'text-red-600'     },
+                { label: calendarTruthLocked ? (locale === 'ar' ? 'سجلات محجوبة' : 'Blocked records') : (locale === 'ar' ? 'غير مجدولة' : 'Not scheduled'), value: loadingQueue ? '…' : queueSummary.notScheduled, color: calendarTruthLocked ? 'text-orange-700' : 'text-slate-600' },
+                { label: scT?.statPending as string || 'Scheduled',  value: loadingQueue ? '…' : scheduled.length, color: 'text-orange-600'  },
+                { label: scT?.statAutoPublished as string || 'API-published', value: loadingQueue ? '…' : autoPublished.length, color: 'text-green-700'   },
+                { label: scT?.statFailed as string || 'Failed',       value: loadingQueue ? '…' : failed.length,    color: 'text-red-600'     },
               ].map(s => (
                 <div key={s.label} className="rounded-xl bg-white p-4" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
                   <div className={`text-3xl font-black ${s.color}`}>{s.value}</div>

@@ -8,6 +8,7 @@ import { Shield, Eye, EyeOff } from 'lucide-react'
 import { getRegisterErrorCopy, getRegisterErrorMetadata } from './registerErrors'
 import LuxuryAuthShell from '@/components/auth/LuxuryAuthShell'
 import { isSupabaseConfigured } from '@/lib/supabaseClient'
+import { getPublicPaidPlan, type PublicPaidPlan } from '@/lib/commercialPlans'
 
 function warnRegisterSignupFailure(err: unknown) {
   if (process.env.NODE_ENV === 'production') return
@@ -18,13 +19,16 @@ export default function RegisterPage() {
   const { signup } = useAuth()
   const { t, isRTL, dir } = useI18n()
   const [name, setName] = useState('')
+  const [selectedPlanIntent, setSelectedPlanIntent] = useState<PublicPaidPlan | null>(null)
 
-  // Capture referral code from ?ref= query param and persist it for post-signup claim
+  // Capture referral code for post-signup claim and preserve the commercial
+  // context of a pricing CTA without treating plan intent as a subscription.
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     const ref = params.get('ref')
     if (ref) localStorage.setItem('pendingReferralCode', ref)
+    setSelectedPlanIntent(getPublicPaidPlan(params.get('plan')))
   }, [])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -132,6 +136,20 @@ export default function RegisterPage() {
             </div>
           ) : (
             <>
+              {selectedPlanIntent && (
+                <div className="mb-5 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-4 py-3" role="status">
+                  <p className="text-xs font-bold text-indigo-800">
+                    {isRTL
+                      ? `أنت تستكشف باقة ${selectedPlanIntent.slug === 'growth' ? 'جروث' : 'أوتوبايلوت'} — $${selectedPlanIntent.priceUsd}/شهر بعد الإطلاق التجاري`
+                      : `You’re exploring ${selectedPlanIntent.name} — $${selectedPlanIntent.priceUsd}/month after commercial launch`}
+                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-indigo-700/80">
+                    {isRTL
+                      ? 'إنشاء الحساب يبدأ بالتجربة المجانية ذات 15 كريديت، ولا يفعّل اشتراكاً أو خصماً. يمكنك مراجعة الباقة لاحقاً من صفحة الفوترة.'
+                      : 'Account creation starts with the 15-credit free trial and does not activate a subscription or charge. You can review the plan later from Billing.'}
+                  </p>
+                </div>
+              )}
               {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 mb-6 text-sm font-medium text-red-700">{error}</div>}
               <form onSubmit={handleSubmit} className="space-y-4" dir={isRTL ? 'rtl' : 'ltr'}>
                 {/* Name */}

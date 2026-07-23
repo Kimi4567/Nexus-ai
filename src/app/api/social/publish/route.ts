@@ -19,6 +19,7 @@ import {
   readSnapshotStrategyReference,
   reviewPostAgainstApprovalSnapshot,
   reviewPostAgainstMediaApprovalSnapshot,
+  reviewPostAgainstScheduleDecisionSnapshot,
 } from '@/lib/campaignSnapshots'
 
 export const maxDuration = 180
@@ -109,12 +110,19 @@ export async function POST(req: NextRequest) {
           mediaSource: true,
           generationStatus: true,
           isVideoPost: true,
+          integrationId: true,
+          pageId: true,
+          pageName: true,
+          platformOptions: true,
+          publishMode: true,
+          autoPublishConsentAt: true,
           approvedAt: true,
           approvedSnapshotId: true,
           approvedSnapshot: { select: { scope: true, payload: true } },
           mediaApprovalSnapshotId: true,
           mediaApprovalSnapshot: { select: { scope: true, payload: true } },
           scheduledSnapshotId: true,
+          scheduledSnapshot: { select: { scope: true, payload: true } },
           link: true,
           sourceMediaId: true,
           contentPlanIndex: true,
@@ -144,11 +152,17 @@ export async function POST(req: NextRequest) {
       code: mediaApprovalReview.code,
     }, { status: 409 })
   }
-  if (existingPost.status === 'SCHEDULED' && !existingPost.scheduledSnapshotId) {
-    return NextResponse.json({
-      error: 'This scheduled post has no recorded schedule decision. Unschedule and schedule it again before publishing.',
-      code: 'SCHEDULE_DECISION_SNAPSHOT_REQUIRED',
-    }, { status: 409 })
+  if (existingPost.status === 'SCHEDULED') {
+    const scheduleReview = reviewPostAgainstScheduleDecisionSnapshot(
+      existingPost,
+      existingPost.scheduledSnapshot,
+    )
+    if (!scheduleReview.ok) {
+      return NextResponse.json({
+        error: 'This scheduled post no longer matches its reviewed time, destination, or publishing decision. Unschedule and review it again.',
+        code: scheduleReview.code,
+      }, { status: 409 })
+    }
   }
   if (!isContentPostMediaReadyForScheduling(existingPost)) {
     return NextResponse.json({
@@ -318,6 +332,7 @@ export async function POST(req: NextRequest) {
   const currentStrategyPayload = buildStrategyApprovalSnapshotPayload({
     campaign,
     brandProfile: campaign.workspace.brandProfile,
+    persistedApprovedAiOutput: true,
   })
   if (hashCampaignSnapshotPayload(currentStrategyPayload) !== strategySnapshot.payloadHash) {
     return NextResponse.json({

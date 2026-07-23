@@ -18,7 +18,7 @@ import {
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
-import { FREE_TRIAL_CREDITS, PUBLIC_PAID_PLANS } from '@/lib/commercialPlans'
+import { FREE_TRIAL_CREDITS, FREE_TRIAL_POSTS, PUBLIC_PAID_PLANS } from '@/lib/commercialPlans'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { STRATEGY_PRICING_DISPLAY_TRUTH } from '@/lib/strategy/strategyPricingDisplayTruth'
@@ -35,10 +35,21 @@ function buildSystemPrompt(ctx: {
   aiCredits: number
   plan: string
   page: string
+  workspaceTruth: {
+    landingPages: number
+    leadForms: number
+    leads: number
+    wonLeads: number
+    firstPartyEvents: number
+    connectedProviders: number
+    campaignsAwaitingReview: number
+    scheduledPosts: number
+    providerConfirmedPosts: number
+  }
 }): string {
   const {
     userName, brandContext,
-    campaignCount, aiCredits, plan, page,
+    campaignCount, aiCredits, plan, page, workspaceTruth,
   } = ctx
 
   const brandSection = brandContext
@@ -54,6 +65,15 @@ function buildSystemPrompt(ctx: {
 - AI Credits Remaining: ${aiCredits}
 - Campaigns Created: ${campaignCount}
 - Current Page: ${page}
+- Landing Pages: ${workspaceTruth.landingPages}
+- Lead Forms: ${workspaceTruth.leadForms}
+- CRM Leads: ${workspaceTruth.leads}
+- WON Leads: ${workspaceTruth.wonLeads}
+- First-party Conversion Events: ${workspaceTruth.firstPartyEvents}
+- Connected Provider Records: ${workspaceTruth.connectedProviders}
+- Campaigns Awaiting Strategy Review: ${workspaceTruth.campaignsAwaitingReview}
+- Scheduled NEXUS Posts: ${workspaceTruth.scheduledPosts}
+- Provider-confirmed Publications: ${workspaceTruth.providerConfirmedPosts}
 `
 
   const platformKnowledge = `
@@ -62,7 +82,7 @@ Nexus is an AI-powered marketing operating system. Here's what it can do:
 
 **Brand Brain** (/brand): The memory system. Users define their brand identity, tone, audience, offers, and competitors. All AI outputs are scoped to this brand.
 
-**Strategy Studio** (/strategy): The single place to create a new strategy. The strategy is a review artifact: positioning, audience, messages, content directions, risks, and an execution outline. It does not create final posts or publish anything.
+**Strategy workspace** (/strategy): The single place to create a new strategy. The strategy is a review artifact: positioning, audience, messages, content directions, risks, and an execution outline. It does not create final posts or publish anything.
 
 **Strategy & campaigns** (/strategy): The operating path for creating a strategy and continuing its campaign workspace.
 
@@ -70,13 +90,15 @@ Nexus is an AI-powered marketing operating system. Here's what it can do:
 
 **Content Hub**: After strategy approval, users may spend credits to create review-only post drafts. Draft creation does not approve, schedule, publish, or launch ads. Optional image generation is a separate action and cost.
 
+**Landing Pages, Forms, CRM & Attribution**: NEXUS can create first-party landing pages and lead forms, store leads in its CRM, record consented conversion events, and connect UTM/first-touch evidence without ad-platform permissions. Use the exact account counts above. Never say no performance data exists when first-party events, leads, WON outcomes, or revenue evidence are present; also never turn those observations into a causal claim.
+
 **Connections** (/connections): Shows the integrations that are actually available and their current connection state. Never tell a user an account is connected or direct publishing is supported unless current product data explicitly confirms it.
 
-**Analytics** (/analytics): Shows measured performance only when eligible connected data exists. Otherwise it is readiness guidance, not results.
+**Analytics** (/analytics): Separates first-party measurement from provider analytics. First-party landing/form/lead/WON evidence can exist without ad-platform access. Provider reach, spend, and engagement require eligible connected-platform evidence.
 
 **Billing** (/billing): Manage subscription and credits. There are exactly two public paid plans: ${growth.name} ($${growth.priceUsd}/month, ${growth.monthlyCredits} monthly credits) and ${autopilot.name} ($${autopilot.priceUsd}/month, ${autopilot.monthlyCredits} monthly credits). The ${FREE_TRIAL_CREDITS} one-time trial credits are onboarding, not a third paid plan. Legacy plan names may exist only for existing accounts.
 
-**AI Credits**: Strategy generation costs ${STRATEGY_PRICING_DISPLAY_TRUTH.range.minimum}–${STRATEGY_PRICING_DISPLAY_TRUTH.range.maximum} credits based on the confirmed scope, horizon, and intensity. Trial covers Organic Light / 30 days (${STRATEGY_PRICING_DISPLAY_TRUTH.trialActivation.cost}) plus quality review (${CREDIT_COSTS.SENTINEL_REVIEW}); Content Hub generation is a separate paid action (${CREDIT_COSTS.CONTENT_PLAN_GENERATION}). The exact quote is shown before execution and saved in the ledger. Images cost ${CREDIT_COSTS.IMAGE_GENERATION} each and chat costs ${CREDIT_COSTS.CHAT_MESSAGE} per message. Failed provider requests are refunded. Monthly subscription credits refresh with the billing cycle; purchased credits have separate validity.
+**AI Credits**: Strategy generation costs ${STRATEGY_PRICING_DISPLAY_TRUTH.range.minimum}–${STRATEGY_PRICING_DISPLAY_TRUTH.range.maximum} credits based on the confirmed scope, horizon, and intensity. Trial uses Organic Light / 30-day logic (${STRATEGY_PRICING_DISPLAY_TRUTH.trialActivation.cost}) but is capped to ${FREE_TRIAL_POSTS} reviewed strategy directions, plus quality review (${CREDIT_COSTS.SENTINEL_REVIEW}); Content Hub generation is a separate paid action (${CREDIT_COSTS.CONTENT_PLAN_GENERATION}). The exact quote is shown before execution and saved in the ledger. Images cost ${CREDIT_COSTS.IMAGE_GENERATION} each and chat costs ${CREDIT_COSTS.CHAT_MESSAGE} per message. Failed provider requests are refunded. Monthly subscription credits refresh with the billing cycle; purchased credits have separate validity.
 
 **Settings** (/settings): Account preferences, language (Arabic/English), and notifications; available from the account menu rather than the primary workflow.
 
@@ -216,14 +238,48 @@ export async function POST(req: NextRequest) {
     // ── Load Brand Brain + campaign count ───────────────────────
     let brandProfile: Record<string, unknown> | null = null
     let campaignCount = 0
+    let workspaceTruth = {
+      landingPages: 0,
+      leadForms: 0,
+      leads: 0,
+      wonLeads: 0,
+      firstPartyEvents: 0,
+      connectedProviders: 0,
+      campaignsAwaitingReview: 0,
+      scheduledPosts: 0,
+      providerConfirmedPosts: 0,
+    }
 
     if (workspace) {
-      const [bp, cc] = await Promise.all([
+      const safeCount = (run: () => Promise<number>) => Promise.resolve().then(run).catch(() => 0)
+      const [bp, cc, landingPages, leadForms, leads, wonLeads, firstPartyEvents, connectedProviders, campaignsAwaitingReview, scheduledPosts, providerConfirmedPosts] = await Promise.all([
         db.brandProfile.findUnique({ where: { workspaceId: workspace.id } }).catch(() => null),
         prisma.campaign.count({ where: { workspaceId: workspace.id } }).catch(() => 0),
+        safeCount(() => db.landingPage.count({ where: { workspaceId: workspace.id } })),
+        safeCount(() => db.leadCaptureForm.count({ where: { workspaceId: workspace.id } })),
+        safeCount(() => db.lead.count({ where: { workspaceId: workspace.id } })),
+        safeCount(() => db.lead.count({ where: { workspaceId: workspace.id, stage: 'WON' } })),
+        safeCount(() => db.conversionEvent.count({ where: { workspaceId: workspace.id } })),
+        safeCount(() => db.integration.count({ where: { workspaceId: workspace.id, status: 'CONNECTED' } })),
+        safeCount(() => db.campaign.count({ where: { workspaceId: workspace.id, status: 'DRAFT' } })),
+        safeCount(() => db.socialPost.count({ where: { workspaceId: workspace.id, status: 'SCHEDULED' } })),
+        safeCount(() => db.socialPost.count({
+          where: { workspaceId: workspace.id, status: 'PUBLISHED', platformPostId: { not: null } },
+        })),
       ])
       brandProfile = bp
       campaignCount = cc
+      workspaceTruth = {
+        landingPages,
+        leadForms,
+        leads,
+        wonLeads,
+        firstPartyEvents,
+        connectedProviders,
+        campaignsAwaitingReview,
+        scheduledPosts,
+        providerConfirmedPosts,
+      }
     }
 
     // ── Build context ────────────────────────────────────────────
@@ -234,6 +290,7 @@ export async function POST(req: NextRequest) {
       aiCredits: user?.aiCredits ?? 0,
       plan: subscription?.plan ?? 'FREE',
       page: page ?? 'unknown',
+      workspaceTruth,
     })
 
     // ── Streaming OpenAI call ────────────────────────────────────

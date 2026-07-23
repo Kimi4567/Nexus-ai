@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
     }).catch(() => null)
 
     if (existing && ['completed', 'not_found'].includes(existing.status)) {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nexus-grow.com'
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.nexus-grow.com'
       return NextResponse.json({
         url: `${baseUrl}/data-deletion?id=${existing.confirmationCode}`,
         confirmation_code: existing.confirmationCode,
@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
     console.log(`[Meta Data Deletion] ${finalStatus} request ${confirmationCode} for FB user ${fbUserId}`)
 
     // Return the required response format
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nexus-grow.com'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.nexus-grow.com'
     return NextResponse.json({
       url: `${baseUrl}/data-deletion?id=${confirmationCode}`,
       confirmation_code: confirmationCode,

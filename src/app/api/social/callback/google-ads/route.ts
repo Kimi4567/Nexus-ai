@@ -13,6 +13,7 @@ import {
 } from '@/lib/adPlatforms/googleAdsApi'
 import { googleAdsOAuthContextMatches } from '@/lib/googleAdsOAuth'
 import { captureOperationalError } from '@/lib/observability/operationalError'
+import { getRequestBaseUrl } from '@/lib/requestBaseUrl'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -23,15 +24,11 @@ const OAUTH_COOKIE = 'nexus_google_ads_oauth'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
 
-function appUrl(): string {
-  return (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')
-}
-
-function redirect(path: string): NextResponse {
-  const response = NextResponse.redirect(`${appUrl()}${path}`)
+function redirect(baseUrl: string, path: string): NextResponse {
+  const response = NextResponse.redirect(`${baseUrl}${path}`)
   response.cookies.set(OAUTH_COOKIE, '', {
     httpOnly: true,
-    secure: appUrl().startsWith('https://'),
+    secure: baseUrl.startsWith('https://'),
     sameSite: 'lax',
     path: '/api/social/callback/google-ads',
     maxAge: 0,
@@ -39,15 +36,16 @@ function redirect(path: string): NextResponse {
   return response
 }
 
-function errorRedirect(message: string): NextResponse {
-  return redirect(`/connections?social=error&msg=${encodeURIComponent(message.slice(0, 120))}`)
+function errorRedirect(baseUrl: string, message: string): NextResponse {
+  return redirect(baseUrl, `/connections?social=error&msg=${encodeURIComponent(message.slice(0, 120))}`)
 }
 
 export async function GET(req: NextRequest) {
+  const baseUrl = getRequestBaseUrl(req)
   const { searchParams } = new URL(req.url)
   const providerError = searchParams.get('error')
   if (providerError) {
-    return errorRedirect('authorization_not_granted')
+    return errorRedirect(baseUrl, 'authorization_not_granted')
   }
   const code = searchParams.get('code')
   const state = searchParams.get('state')
@@ -59,20 +57,21 @@ export async function GET(req: NextRequest) {
       hasNonce: Boolean(nonce),
       callbackOrigin: new URL(req.url).origin,
     })
-    return errorRedirect('The Google Ads connection session expired. Start the connection again.')
+    return errorRedirect(baseUrl, 'The Google Ads connection session expired. Start the connection again.')
   }
 
   let userId: string
   try {
     const payload = verifyOAuthState(state, 'google_ads')
     if (!payload.context || !googleAdsOAuthContextMatches(payload.context, nonce)) {
-      return errorRedirect('invalid_oauth_context')
+      return errorRedirect(baseUrl, 'invalid_oauth_context')
     }
     userId = payload.userId
   } catch (error) {
     const reason = error instanceof Error ? error.message : 'Invalid OAuth state'
     console.warn('[Google Ads OAuth] invalid_state')
     return errorRedirect(
+      baseUrl,
       reason.includes('Expired')
         ? 'The Google Ads connection session expired. Start the connection again.'
         : 'The Google Ads connection could not be verified. Start the connection again.',
@@ -80,7 +79,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const redirectUri = `${appUrl()}/api/social/callback/google-ads`
+    const redirectUri = `${baseUrl}/api/social/callback/google-ads`
     const token = await exchangeGoogleAdsAuthorizationCode({ code, redirectUri })
     const discovery = await discoverGoogleAdsConnection(token.accessToken)
     const accounts = discovery.accounts
@@ -253,7 +252,7 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    return redirect(`/connections?social=connected&platform=google_ads&accounts=${accounts.length}`)
+    return redirect(baseUrl, `/connections?social=connected&platform=google_ads&accounts=${accounts.length}`)
   } catch (error) {
     await captureOperationalError(error, {
       operation: 'oauth.google-ads-callback',
@@ -265,6 +264,9 @@ export async function GET(req: NextRequest) {
       retryable: error instanceof GoogleAdsOAuthError ? error.status >= 500 : true,
       severity: error instanceof GoogleAdsOAuthError && error.status < 500 ? 'warning' : 'error',
     })
-    return errorRedirect(error instanceof GoogleAdsOAuthError ? error.code : 'google_ads_connection_failed')
+    return errorRedirect(
+      baseUrl,
+      error instanceof GoogleAdsOAuthError ? error.code : 'google_ads_connection_failed',
+    )
   }
 }

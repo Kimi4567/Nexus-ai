@@ -82,6 +82,7 @@ export async function analyzeCampaignMedia(input: {
   media: CreativeMediaCandidate[]
   posts: CreativePostCandidate[]
   brandContext: Record<string, unknown>
+  locale?: 'ar' | 'en'
 }): Promise<AnalysisResult> {
   const providerAssets = boundedProviderAssets(input.media)
   const needsPreviewIds = input.media
@@ -111,6 +112,7 @@ export async function analyzeCampaignMedia(input: {
     creativeDirection: (post.videoPrompt || post.imagePrompt || '').slice(0, 600),
   }))
 
+  const narrativeLanguage = input.locale === 'ar' ? 'Modern Standard Arabic' : 'English'
   const content: Array<Record<string, unknown>> = [{
     type: 'text',
     text: `Analyze the supplied campaign media using visible evidence only, then assess how well each asset supports each post.
@@ -123,6 +125,9 @@ TRUTH RULES:
 - A direct match means the asset can be used as-is in that post type. An image may also be a REFERENCE for generating a video, but a video cannot be attached to an image slot.
 - Match reasons must cite visible subject/action/text or format. Gaps must say what the asset does not show.
 - Scores: 80-100 strong direct support; 55-79 partial and needs adaptation; below 55 weak. Do not inflate scores.
+- Write every user-facing narrative value (summaries, reasons, gaps, limits,
+  quality issues, themes, and use cases) in ${narrativeLanguage}. Keep JSON keys,
+  IDs, enum values, and platform names exactly as specified in English.
 - When assetKind is PRODUCT or PACKAGING, products must contain one concise,
   visible-only identity description (for example "black abaya with silver
   embroidered trim"). This is an appearance label, not a brand, ownership,
@@ -188,7 +193,7 @@ Return one JSON object exactly in this shape:
       messages: [
         {
           role: 'system',
-          content: 'You are NEXUS Creative Intelligence. Return source-grounded JSON only. Missing evidence must stay missing.',
+          content: `You are NEXUS Creative Intelligence. Return source-grounded JSON only. Missing evidence must stay missing. User-facing narrative text must be in ${narrativeLanguage}.`,
         },
         { role: 'user', content },
       ],

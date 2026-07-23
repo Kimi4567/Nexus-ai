@@ -89,7 +89,7 @@ beforeEach(() => {
   vi.stubEnv('OPENAI_API_KEY', 'test-openai-key')
   mockGetServerUserId.mockResolvedValue('user_1')
   mockPrisma.campaign.findFirst.mockResolvedValue(campaign)
-  mockPrisma.campaign.update.mockResolvedValue({})
+  mockPrisma.campaign.update.mockResolvedValue({ updatedAt: new Date('2026-07-22T18:00:00.000Z') })
   mockPrisma.campaignActivity.create.mockResolvedValue({})
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 2, creditsRemaining: 18 })
   mockRefund.mockResolvedValue(undefined)
@@ -144,6 +144,7 @@ describe('POST /api/campaigns/[id]/sentinel-review — provider and credit order
 
     expect(res.status).toBe(200)
     expect(json.creditsRemaining).toBe(18)
+    expect(json.campaignUpdatedAt).toBe('2026-07-22T18:00:00.000Z')
     expect(json.creditCharge).toMatchObject({ action: 'SENTINEL_REVIEW', cost: 2, creditsUsed: 2 })
     expect(mockCheckAndDeduct).toHaveBeenCalledWith(
       'user_1',
@@ -161,6 +162,7 @@ describe('POST /api/campaigns/[id]/sentinel-review — provider and credit order
       strategyReviewSource: campaign.aiOutput.strategy,
     }))
     expect(mockPrisma.campaign.update).toHaveBeenCalledWith(expect.objectContaining({
+      select: { updatedAt: true },
       data: {
         aiOutput: expect.objectContaining({
           strategy: campaign.aiOutput.strategy,

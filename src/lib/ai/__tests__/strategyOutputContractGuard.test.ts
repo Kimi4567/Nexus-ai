@@ -210,8 +210,49 @@ describe('guardStrategyOutputContract', () => {
       ],
     }, { allowedPlatforms: allowed, strategyType: 'paid' })
 
-    expect(out.channelMix[0].budgetPercent).toBe(40)
+    expect(out.channelMix[0].budgetPercent).toBe(100)
+    expect(out.channelMix.reduce((sum: number, item: any) => sum + item.budgetPercent, 0)).toBe(100)
     expect(JSON.stringify(out.channelMix)).not.toMatch(/effortSharePercent/)
+  })
+
+  it('rebalances full-strategy budget across executable platforms after support channels are excluded', () => {
+    const out = guardStrategyOutputContract({
+      channelMix: [
+        { platform: 'Instagram', budgetPercent: 50, rationale: 'High engagement', contentFrequency: 'Test cadence' },
+        { platform: 'WhatsApp', budgetPercent: 30, rationale: 'Direct response', contentFrequency: 'Daily' },
+        { platform: 'Pinterest', budgetPercent: 20, rationale: 'Visual discovery', contentFrequency: 'Test cadence' },
+      ],
+    }, {
+      allowedPlatforms: ['INSTAGRAM', 'PINTEREST'],
+      strategyType: 'full',
+      language: 'en',
+    }) as any
+
+    expect(out.channelMix.map((item: any) => item.platform)).toEqual(['Instagram', 'Pinterest'])
+    expect(out.channelMix.map((item: any) => item.budgetPercent)).toEqual([71, 29])
+    expect(out.channelMix.every((item: any) => /hypothesis/i.test(item.rationale))).toBe(true)
+    expect(JSON.stringify(out.channelMix)).not.toMatch(/WhatsApp/i)
+  })
+
+  it('gives every reviewed platform an organic direction when the promised count allows it', () => {
+    const out = guardStrategyOutputContract({
+      contentAnglesDetailed: [
+        { title: 'A', hook: 'Hook A', platform: 'Instagram', format: 'Carousel' },
+        { title: 'B', hook: 'Hook B', platform: 'Instagram', format: 'Carousel' },
+        { title: 'C', hook: 'Hook C', platform: 'WhatsApp', format: 'Message' },
+      ],
+    }, {
+      allowedPlatforms: ['INSTAGRAM', 'PINTEREST'],
+      strategyType: 'full',
+      organicPostCount: 3,
+      language: 'en',
+    }) as any
+
+    expect(out.contentAnglesDetailed.map((item: any) => item.platform)).toEqual([
+      'Instagram',
+      'Pinterest',
+      'Instagram',
+    ])
   })
 
   it('turns unsupported channel popularity and engagement claims into hypotheses', () => {
@@ -427,6 +468,80 @@ describe('guardStrategyOutputContract', () => {
       goal: 'SALES',
     })
     expect(report.blockers.map(item => item.code)).not.toContain('duplicate_content_direction')
+  })
+
+  it.each([1, 3, 10, 16, 25, 30])(
+    'keeps the %i-direction order identical across directions and weekly delivery',
+    (expectedCount) => {
+      const out = guardStrategyOutputContract({
+        audienceSegmentsDetailed: [{
+          segment: 'سكان دبي الذين يقارنون اشتراكات القهوة المنزلية',
+          pain: 'صعوبة اختيار نوع القهوة المناسب للذوق',
+          desiredOutcome: 'اختيار اشتراك واضح يناسب الاستخدام المنزلي',
+          objection: 'هل تفاصيل الاشتراك مناسبة لي؟',
+        }],
+        channelMix: [
+          { platform: 'Instagram', rationale: 'قناة مختارة للمراجعة', contentFrequency: '7 أسبوعيًا' },
+          { platform: 'TikTok', rationale: 'قناة مختارة للمراجعة', contentFrequency: '5 أسبوعيًا' },
+          { platform: 'LinkedIn', rationale: 'قناة مختارة للمراجعة', contentFrequency: '3 أسبوعيًا' },
+        ],
+        contentAnglesDetailed: [{
+          title: 'اختيار القهوة حسب الذوق',
+          hook: 'ابدأ من تفضيلك للطعم',
+          platform: 'Instagram',
+          format: 'Carousel',
+        }],
+        weeklyExecutionPlan: [{ week: 1, deliverables: ['8 منشورات'] }],
+      }, {
+        allowedPlatforms: ['INSTAGRAM', 'TIKTOK', 'LINKEDIN'],
+        organicPostCount: expectedCount,
+        strategyType: 'organic',
+        language: 'ar',
+      }) as any
+
+      expect(out.contentAnglesDetailed).toHaveLength(expectedCount)
+      expect(weeklyCount(out.weeklyExecutionPlan)).toBe(expectedCount)
+      const report = validateCampaignStrategyContract(out, { expectedOrganicPostCount: expectedCount })
+      expect(report.countViolations).toEqual([])
+      expect(out.channelMix.every((item: any) => (
+        item.contentFrequency.includes(`من أصل ${expectedCount}`)
+        && !item.contentFrequency.includes('أسبوعيًا')
+      ))).toBe(true)
+      if (expectedCount >= 3) {
+        expect(new Set(out.contentAnglesDetailed.map((item: any) => item.platform))).toEqual(
+          new Set(['Instagram', 'TikTok', 'LinkedIn']),
+        )
+      }
+    },
+  )
+
+  it('distributes funnel roles across every reviewed platform when the model collapses them to one', () => {
+    const out = guardStrategyOutputContract({
+      funnelStages: ['awareness', 'consideration', 'conversion', 'followUp'].map(stage => ({
+        stage,
+        userMindset: 'رسالة واضحة للمراجعة',
+        message: 'اشرح العرض بدون وعود.',
+        contentType: 'منشور تعليمي',
+        platform: 'Instagram',
+        cta: 'راجع التفاصيل',
+        successMetric: 'إشارة تحتاج خط أساس',
+        nextStep: 'راجع الاستجابة قبل التكرار',
+        productArea: 'التخطيط',
+      })),
+      contentAnglesDetailed: Array.from({ length: 3 }, (_, index) => ({
+        title: `اتجاه ${index + 1}`,
+        platform: ['Instagram', 'TikTok', 'LinkedIn'][index],
+      })),
+    }, {
+      allowedPlatforms: ['INSTAGRAM', 'TIKTOK', 'LINKEDIN'],
+      organicPostCount: 3,
+      strategyType: 'organic',
+      language: 'ar',
+    }) as any
+
+    expect(new Set(out.funnelStages.map((item: any) => item.platform))).toEqual(
+      new Set(['Instagram', 'TikTok', 'LinkedIn']),
+    )
   })
 
   it('turns unverified quality guarantees into documented-detail review tasks', () => {
@@ -1068,7 +1183,7 @@ describe('guardStrategyOutputContract', () => {
 
   it('repairs broken Arabic phrases and removes unsupported conversion CTAs', () => {
     const out = guardStrategyOutputContract({
-      positioning: 'منصة للمتابعة دون تعقيد التقنيات اليدوية',
+      positioning: 'دار سكنى هو الاستوديو للأصحاب ويعمل كمنصة مرئية ة دون تعقيد التقنيات اليدوية',
       topHooks: [
         'ابدأ باستخدام النظام معدودة',
         'لا تفقد أي فرصة بيع بعد اليوم',
@@ -1088,6 +1203,9 @@ describe('guardStrategyOutputContract', () => {
     const joined = JSON.stringify(out)
 
     expect(joined).toContain('دون تشتت الأدوات اليدوية')
+    expect(joined).toContain('هو استوديو يخدم أصحاب')
+    expect(joined).toContain('منصة مرئية')
+    expect(joined).not.toContain('مرئية ة')
     expect(joined).toContain('ابدأ بخطوات إعداد بسيطة وواضحة')
     expect(joined).toContain('نظّم متابعة فرص البيع بدل تركها بين الأدوات')
     expect(joined).not.toMatch(/جرب النظام|عرض توضيحي|سجل الآن|اطلب تجربة|واتساب|تحسين مبيعاتك/)
@@ -1150,6 +1268,65 @@ describe('formatStrategyPlatformLabel', () => {
   it('formats Threads consistently for runtime display', () => {
     expect(formatStrategyPlatformLabel('threads')).toBe('Threads')
     expect(formatStrategyPlatformLabel('THREADS')).toBe('Threads')
+  })
+})
+
+describe('paid planning truth normalization', () => {
+  it('removes false readiness gaps, invented teams, and speculative targeting exclusions', () => {
+    const out = guardStrategyOutputContract({
+      riskNotes: ['Conversion destination is unverified', 'Pixel setup is incomplete, affecting tracking'],
+      assumptions: ['Audience values clarity'],
+      executionAssumptions: ['Target audience is actively seeking renovation services'],
+      doNotDoYet: ['Use unverified proof to collect'],
+      readyForPaidAds: true,
+      readyForPaidAdsReason: 'Ready to launch',
+      roadmap30_60_90: [
+        { phase: 'days_1_30', objective: 'Create and publish initial content', deliverables: ['Set up tracking'], exitGate: 'Baseline established' },
+        { phase: 'days_31_60', objective: 'Optimize ads', deliverables: ['Change targeting'], exitGate: 'Improved metrics' },
+        { phase: 'days_61_90', objective: 'Scale successful strategies', deliverables: ['Increase ad spend'], exitGate: 'More leads' },
+      ],
+      measurementPlan: { owner: 'Marketing Manager' },
+      contentAnglesDetailed: [{
+        title: 'Project phases',
+        hook: 'Review the phases',
+        platform: 'INSTAGRAM',
+        responseHandoff: 'Sales team follows up',
+      }],
+      paidPlanning: {
+        launchBlockers: ['Creative assets not finalized'],
+        budgetFramework: 'Adjust monthly',
+        audienceHypotheses: [{
+          name: 'Busy professionals',
+          targetingHypothesis: 'Target based on job title and time-saving interests',
+          exclusions: 'Exclude users with ample free time',
+        }],
+        creativeBriefs: [{ reviewGate: 'Finance team to review for accuracy' }],
+      },
+    }, {
+      allowedPlatforms: ['INSTAGRAM'],
+      strategyType: 'paid',
+      language: 'en',
+      hasConversionDestination: true,
+      hasBudget: true,
+      budgetText: 'AED 8,000 monthly planning ceiling; no spend without approval',
+    }) as any
+
+    expect(out.riskNotes).toEqual(['Pixel setup is incomplete, affecting tracking'])
+    expect(out.assumptions[0]).toMatch(/^Hypothesis to validate:/)
+    expect(out.executionAssumptions[0]).toMatch(/^Hypothesis to validate:/)
+    expect(out.doNotDoYet[0]).toContain('published evidence')
+    expect(out.readyForPaidAds).toBe(false)
+    expect(out.readyForPaidAdsReason).toMatch(/connected ad account.*live permissions/i)
+    expect(out.measurementPlan.owner).toMatch(/Assigned measurement owner/)
+    expect(out.contentAnglesDetailed[0].responseHandoff).toMatch(/assigned response owner/i)
+    expect(out.paidPlanning.creativeBriefs[0].reviewGate).toMatch(/assigned campaign reviewer/i)
+    expect(out.paidPlanning.audienceHypotheses[0].targetingHypothesis).toMatch(/verify before launch/i)
+    expect(out.paidPlanning.audienceHypotheses[0].exclusions).toMatch(/user-reviewed audience/i)
+    expect(out.paidPlanning.launchBlockers.join(' ')).toMatch(/live platform permissions/i)
+    expect(out.paidPlanning.budgetFramework).toContain('AED 8,000 monthly planning ceiling')
+    expect(out.paidPlanning.budgetFramework).toMatch(/draft allocation only/i)
+    expect(JSON.stringify(out.roadmap30_60_90)).not.toMatch(/Create and publish|Increase ad spend|Scale successful strategies/i)
+    expect(JSON.stringify(out.roadmap30_60_90)).toMatch(/no launch or spend|fresh approval/i)
   })
 })
 

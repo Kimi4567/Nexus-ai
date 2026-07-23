@@ -329,9 +329,10 @@ export function getStrategyCapabilities(
 
   // ── paid strategy ──
   // A media plan is not professionally reviewable from budget + destination
-  // alone. Price position, differentiation, buying objections, and at least one
-  // user-confirmed proof point are required so the model cannot silently invent
-  // an offer, claim, or objection-handling angle.
+  // alone. Price position, differentiation, and buying objections are required
+  // for a useful plan. Verified proof improves the available claim set, but its
+  // absence must constrain copy to factual offer details and proof-collection
+  // tasks rather than blocking a planning-only package.
   const paidExtra = missingKeysOf(p, [
     { key: 'marketingBudget',       ok: x => hasStr(x.marketingBudget) },
     { key: 'conversionDestination', ok: x => hasStr(x.conversionDestination) },
@@ -340,7 +341,6 @@ export function getStrategyCapabilities(
     { key: 'pricePoint',             ok: x => hasStr(x.pricePoint) },
     { key: 'uniqueAdvantages',       ok: x => hasArr(x.uniqueAdvantages) },
     { key: 'customerObjections',     ok: x => hasArr(x.customerObjections) },
-    { key: 'verifiedProof',          ok: x => hasArr(x.verifiedProof) },
   ])
   const paidMissing = [...contentMissing, ...paidExtra]
   const paidReady = paidMissing.length === 0

@@ -3,6 +3,13 @@ export type BillingMode = 'disabled' | 'sandbox' | 'live'
 
 type RuntimeEnv = Record<string, string | undefined>
 
+const PLACEHOLDER_VALUE = /^(?:your|replace|example|tbd|todo)(?:[-_\s.]|$)/i
+
+function configuredLegalValue(value: string | undefined): boolean {
+  const normalized = value?.trim() ?? ''
+  return normalized.length >= 2 && !PLACEHOLDER_VALUE.test(normalized)
+}
+
 function valueWithPrefix(value: string | undefined, prefix: string): boolean {
   const normalized = value?.trim() ?? ''
   return normalized.length > prefix.length && normalized.startsWith(prefix)
@@ -27,6 +34,7 @@ export function getBillingRuntimeGate(env: RuntimeEnv = process.env) {
   const growthPrice = env.STRIPE_PRICE_PRO?.trim() ?? ''
   const autopilotPrice = env.STRIPE_PRICE_BUSINESS?.trim() ?? ''
   const liveModeApproved = env.BILLING_LIVE_MODE_APPROVED === 'true'
+  const commercialLaunchApproved = env.COMMERCIAL_LAUNCH_APPROVED === 'true'
 
   const core = {
     secretKey: keyMode === 'test' || keyMode === 'live',
@@ -36,7 +44,20 @@ export function getBillingRuntimeGate(env: RuntimeEnv = process.env) {
     pricesDistinct: Boolean(growthPrice && autopilotPrice && growthPrice !== autopilotPrice),
   }
   const prerequisitesReady = Object.values(core).every(Boolean)
-  const liveModeBlocked = keyMode === 'live' && !liveModeApproved
+  const commercialLegal = {
+    launchApproved: commercialLaunchApproved,
+    entityName: configuredLegalValue(env.LEGAL_ENTITY_NAME),
+    entityAddress: configuredLegalValue(env.LEGAL_ENTITY_ADDRESS),
+    jurisdiction: configuredLegalValue(env.LEGAL_ENTITY_JURISDICTION),
+    governingLaw: configuredLegalValue(env.LEGAL_GOVERNING_LAW),
+    termsVersion: configuredLegalValue(env.LEGAL_TERMS_VERSION),
+  }
+  const commercialLegalReady = Object.values(commercialLegal).every(Boolean)
+  const liveBlockers = Object.entries({
+    billingLiveModeApproved: liveModeApproved,
+    ...commercialLegal,
+  }).filter(([, ready]) => !ready).map(([name]) => name)
+  const liveModeBlocked = keyMode === 'live' && liveBlockers.length > 0
   const ready = requested && prerequisitesReady && !liveModeBlocked
   const mode: BillingMode = !ready
     ? 'disabled'
@@ -50,6 +71,10 @@ export function getBillingRuntimeGate(env: RuntimeEnv = process.env) {
     mode,
     keyMode,
     liveModeApproved,
+    commercialLaunchApproved,
+    commercialLegalReady,
+    commercialLegal,
+    liveBlockers,
     liveModeBlocked,
     prerequisitesReady,
     core,

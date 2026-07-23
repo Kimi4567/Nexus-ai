@@ -36,6 +36,7 @@ function input(overrides: Partial<OperationsOverviewInput> = {}): OperationsOver
     latestAnalyticsAt: null,
     retriesLast24h: 0,
     latestRetryAt: null,
+    strategyRuns: [],
     pilotProof: {
       status: 'not_started',
       providerPublishedPosts: 0,
@@ -127,6 +128,36 @@ describe('operations overview', () => {
 
     expect(overview.monitor.health).toBe('not_started')
     expect(overview.issues).toEqual([])
+  })
+
+  it('surfaces documented pre-delivery strategy failures as zero-charge operational history', () => {
+    const overview = buildOperationsOverview(input({
+      strategyRuns: [{
+        id: 'run-paid-1',
+        status: 'FAILED',
+        inputData: { strategyType: 'paid', language: 'ar', organicPostCount: 0 },
+        outputData: {
+          failure: {
+            stage: 'paid_package',
+            issueCodes: ['paid_package_count'],
+            affectedPaths: ['paidPlanning.adCopies'],
+          },
+        },
+        error: 'internal provider detail that must not be exposed',
+        durationMs: 62_000,
+        createdAt: new Date('2026-07-15T10:00:00.000Z'),
+        completedAt: new Date('2026-07-15T10:01:02.000Z'),
+      }],
+    }))
+
+    expect(overview.strategyRuns).toMatchObject({ failed: 1, completed: 0 })
+    expect(overview.strategyRuns.recent[0]).toMatchObject({
+      id: 'run-paid-1',
+      strategyType: 'paid',
+      creditOutcome: 'zero_charge_pre_delivery',
+      reason: { en: expect.stringContaining('paid planning package') },
+    })
+    expect(JSON.stringify(overview.strategyRuns.recent[0])).not.toContain('internal provider detail')
   })
 
   it('returns the same canonical execution queue used to derive execution incidents', () => {

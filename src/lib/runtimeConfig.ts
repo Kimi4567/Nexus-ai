@@ -76,7 +76,7 @@ export function getRuntimeConfig() {
     warnings.push('Billing is requested but a Stripe key, webhook secret, or distinct subscription Price ID is missing or invalid.')
   }
   if (billingGate.liveModeBlocked) {
-    warnings.push('Stripe live mode is blocked until BILLING_LIVE_MODE_APPROVED=true after the Test Mode drill and launch approval.')
+    warnings.push(`Stripe live mode is blocked by ${billingGate.liveBlockers.length} incomplete commercial launch prerequisite(s).`)
   }
   if (walletRequested && !walletReady) {
     warnings.push('Credit wallet is requested but its database, billing core, or four Stripe tier prices are incomplete.')
@@ -122,6 +122,8 @@ export function getRuntimeConfig() {
       ready: billingReady,
       mode: billingGate.mode,
       liveModeApproved: billingGate.liveModeApproved,
+      commercialLegalReady: billingGate.commercialLegalReady,
+      liveBlockers: billingGate.liveBlockers,
       // Keep this redacted: health responses must never include IDs or keys.
       core: billingCore,
     },

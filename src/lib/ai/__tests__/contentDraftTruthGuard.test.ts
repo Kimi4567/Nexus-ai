@@ -117,6 +117,19 @@ describe('contentDraftTruthGuard', () => {
     expect(brew).not.toContain('perfect brew every time')
   })
 
+  it('repairs unsupported interior-design journey and final-result assurances', () => {
+    const out = guardContentDraftText(
+      'نقدم مراحل محددة لضمان سير العمل بسلاسة. نحن هنا لنجعل الرحلة سهلة وممتعة. لا تقلق من عدم تطابق النتيجة مع التوقعات، فنحن نوفر لك رؤية واضحة للنتيجة النهائية قبل البدء.',
+      { hasConversionDestination: true },
+    )
+
+    expect(out).toContain('لدعم وضوح سير العمل')
+    expect(out).toContain('نشرح مراحل الرحلة ونقاط المراجعة بوضوح')
+    expect(out).toContain('راجع مدى تطابق التصور المقترح مع توقعاتك')
+    expect(out).toContain('نقدم تصورًا مقترحًا للمساحة قبل بدء التنفيذ')
+    expect(out).not.toMatch(/لضمان سير العمل بسلاسة|نجعل الرحلة سهلة|لا تقلق من عدم تطابق|رؤية واضحة للنتيجة النهائية/i)
+  })
+
   it('softens English perfection and superlative coffee claims', () => {
     const blend = guardContentDraftText('Discover the perfect blend for your morning routine.')
     expect(blend).toContain('balanced blend')
@@ -820,6 +833,63 @@ describe('contentDraftTruthGuard', () => {
     expect(out).toContain('قهوة أكثر اتساقًا')
     expect(out).not.toContain('تضمن')
     expect(out).not.toContain('المثالية كل مرة')
+  })
+
+  it('softens Arabic guarantee nouns observed in generated follow-up copy', () => {
+    const out = guardContentDraftText('نرسل تحديثات أسبوعية لضمان راحة البال.')
+
+    expect(out).toContain('لدعم وضوح المتابعة')
+    expect(out).not.toContain('لضمان راحة البال')
+  })
+
+  it('grounds broad interior-design service assurances in reviewable scope', () => {
+    const out = guardContentDraftText([
+      'تجديد منزلك دون عناء المتابعة اليومية.',
+      'نحن نهتم بكل التفاصيل، من الاستشارة إلى التنفيذ، لتتمتع براحة البال.',
+      'تجنب المفاجآت المالية مع جدول تكلفة مفصل لكل مرحلة، لتكون على دراية تامة بكل خطوة.',
+      'دعنا نهتم بكل التفاصيل من أجلك. نقدم إشرافًا كاملًا على التنفيذ لتجربة تصميم داخلي تساعد على الجودة والراحة.',
+    ].join(' '))
+
+    expect(out).toMatch(/مراحل متابعة موثقة|تفاصيل النطاق ونقاط المراجعة/)
+    expect(out).toContain('راجع التكلفة والنطاق قبل التنفيذ')
+    expect(out).toContain('إشرافًا على التنفيذ ضمن النطاق المتفق عليه')
+    expect(out).not.toMatch(/دون عناء|نهتم بكل التفاصيل|راحة البال|المفاجآت المالية|دراية تامة|إشرافًا كاملًا|تساعد على الجودة والراحة/)
+  })
+
+  it('blocks paraphrased handle-everything promises and malformed comfort outcomes', () => {
+    const out = guardContentDraftText(
+      'دار سُكنى تمنحك تجربة تصميم داخلي مرتبة ومريحة، حيث نعتني بكل شيء من الاستشارة إلى الإشراف على التنفيذ. استرخِ واترك لنا التفاصيل. احجز جلسة اكتشاف الآن لتحظى بمنزل يعكس ذوقك ويحتوي على راحتك.',
+    )
+
+    expect(out).toContain('خطوات تصميم داخلي موثقة للمراجعة')
+    expect(out).toContain('الإشراف على التنفيذ ضمن النطاق المتفق عليه')
+    expect(out).toContain('راجع معنا تفاصيل النطاق قبل التنفيذ')
+    expect(out).toContain('اطلب جلسة اكتشاف لمراجعة احتياجات المساحة والنطاق المقترح')
+    expect(out).not.toMatch(/نعتني بكل شيء|اترك لنا التفاصيل|يحتوي على راحتك|مرتبة ومريحة/)
+  })
+
+  it('grounds second-order paraphrases from rewrite output', () => {
+    const out = guardContentDraftText(
+      'تجربة منظمة وهادئة تساعد على كل التفاصيل مع خطوات موثقة للمراجعة. اطمئن واترك لنا المشوار من الاستشارة إلى الإشراف. احجز الآن واجعل منزلك ملاذًا يعكس ذوقك ويحتوي راحتك.',
+    )
+
+    expect(out).toContain('توضح النطاق ونقاط المراجعة قبل التنفيذ')
+    expect(out).toContain('راجع المراحل المشمولة من جلسة الاكتشاف إلى الإشراف ضمن النطاق المتفق عليه')
+    expect(out).toContain('تصورًا للمساحة تراجع مدى ملاءمته لاحتياجاتك')
+    expect(out).not.toMatch(/تساعد على كل التفاصيل|اطمئن واترك|اترك لنا المشوار|يحتوي راحتك/)
+  })
+
+  it('cleans grammar artifacts introduced by deterministic claim replacement', () => {
+    const out = guardContentDraftText([
+      'احجز جلسة اكتشاف الآن واجعل منزلك ملاذًا يعكس ذوقك ويحتوي راحتك.',
+      'نقدم لك جدول تكلفة مفصل لكل مرحلة من مراحل التصميم الداخلي.',
+      'نقدم إشرافًا كاملًا على التنفيذ ضمن النطاق المتفق عليه.',
+      'تواصل معنا الآن لتجربة تصميم داخلي تساعد على الجودة والراحة.',
+    ].join(' '))
+
+    expect(out).toContain('واطلب جلسة اكتشاف لمراجعة تصور المساحة ومدى ملاءمته لاحتياجاتك')
+    expect(out).toContain('تفاصيل التكلفة ومراحل التصميم الداخلي المتاحة للمراجعة')
+    expect(out).not.toMatch(/واجعل تصورًا|المتاحة للمراجعة من مراحل|ضمن النطاق المتفق عليه ضمن النطاق المتفق عليه|الآن لخطوات/)
   })
 
   it('preserves safe Arabic كل مرة usage', () => {

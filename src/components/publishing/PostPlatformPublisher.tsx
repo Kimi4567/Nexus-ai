@@ -227,7 +227,7 @@ export function PostPlatformPublisher({ postId, campaignId, platform, status, ap
     <div className="border-t border-slate-200 px-3 pb-3 pt-2">
       {!open ? (
         <button type="button" onClick={() => setOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
-          <Send size={14} /> {copy('نشر هذا المنشور عبر API', 'Publish this post through the platform API')}
+          <Send size={14} /> {copy('نشر الآن عبر المنصة', 'Publish now through the platform')}
         </button>
       ) : (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3">

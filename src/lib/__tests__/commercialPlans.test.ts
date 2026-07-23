@@ -7,6 +7,17 @@ describe('commercial plan contract', () => {
       ['Growth', 49],
       ['Autopilot', 99],
     ])
+    expect(PUBLIC_PAID_PLANS.map((plan) => ({
+      credits: plan.monthlyCredits,
+      posts: plan.postsPerMonth,
+      postsPerCampaign: plan.postsPerCampaign,
+      videoSlots: plan.videoSlotsPerMonth,
+      workspaces: plan.workspaces,
+      campaigns: plan.campaignLimit,
+    }))).toEqual([
+      { credits: 60, posts: 16, postsPerCampaign: 16, videoSlots: 2, workspaces: 2, campaigns: 4 },
+      { credits: 180, posts: 40, postsPerCampaign: 20, videoSlots: 5, workspaces: 5, campaigns: 12 },
+    ])
   })
 
   it('enforces workspace allowances for public and legacy statuses', () => {

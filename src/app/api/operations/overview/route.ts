@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
       latestAnalytics,
       retriesLast24h,
       latestRetry,
+      strategyRuns,
       pilotPosts,
       pilotLearnings,
     ] = await Promise.all([
@@ -96,6 +97,21 @@ export async function GET(req: NextRequest) {
         orderBy: { createdAt: 'desc' },
         select: { createdAt: true },
       }),
+      prisma.agentRun.findMany({
+        where: { workspaceId: workspace.id, agent: 'STRATEGIST', triggeredBy: 'user' },
+        orderBy: { createdAt: 'desc' },
+        take: 12,
+        select: {
+          id: true,
+          status: true,
+          inputData: true,
+          outputData: true,
+          error: true,
+          durationMs: true,
+          createdAt: true,
+          completedAt: true,
+        },
+      }),
       prisma.socialPost.findMany({
         where: { workspaceId: workspace.id, status: 'PUBLISHED' },
         select: {
@@ -145,6 +161,7 @@ export async function GET(req: NextRequest) {
       latestAnalyticsAt: latestAnalytics?.analyticsUpdatedAt ?? null,
       retriesLast24h,
       latestRetryAt: latestRetry?.createdAt ?? null,
+      strategyRuns,
       pilotProof: buildPilotProofOverview(pilotPosts, pilotLearnings),
     })
 

@@ -268,13 +268,13 @@ export default function LeadsPage() {
             </div>
             <h2 className="mt-5 text-xl font-black text-[#0B1028]">
               {readiness?.migrationRequired
-                ? copy('قاعدة CRM تحتاج migration قبل التفعيل', 'CRM database migration is required before activation')
-                : copy('CRM جاهز في الكود لكنه مغلق تشغيليًا', 'CRM is implemented but operationally locked')}
+                ? copy('تجهيز قاعدة العملاء مطلوب قبل التفعيل', 'Customer database setup is required before activation')
+                : copy('مساحة العملاء غير مفعلة بعد', 'The customer workspace is not active yet')}
             </h2>
             <p className="mt-2 max-w-2xl text-sm font-medium leading-7 text-slate-600">
               {readiness?.migrationRequired
-                ? copy('لن نخزن بيانات عملاء قبل تطبيق جداول Lead وLeadActivity وLeadTask وLeadCaptureForm والتحقق من RLS في بيئة Preview قابلة للاسترجاع.', 'No customer data will be stored until Lead, LeadActivity, LeadTask, and LeadCaptureForm plus RLS are verified in a recoverable Preview environment.')
-                : copy('فعّل LEADS_CRM_ENABLED فقط بعد تطبيق migration واختبارات العزل. النظام لا يرسل بريدًا أو رسائل أو حملات تلقائيًا.', 'Enable LEADS_CRM_ENABLED only after the migration and isolation tests pass. The system sends no email, messages, or campaigns automatically.')}
+                ? copy('لن نخزن بيانات عملاء قبل تجهيز سجلات العملاء والنشاطات والمهام والنماذج، والتحقق من عزل كل مساحة عمل في بيئة اختبار قابلة للاسترجاع.', 'No customer data will be stored until customer, activity, task, and form records plus workspace isolation are verified in a recoverable test environment.')
+                : copy('ستظل المساحة مغلقة حتى يكتمل تجهيز قاعدة العملاء واختبارات العزل. النظام لا يرسل بريدًا أو رسائل أو حملات تلقائيًا.', 'The workspace remains closed until customer-data setup and isolation tests pass. The system sends no email, messages, or campaigns automatically.')}
             </p>
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               {[
@@ -283,7 +283,7 @@ export default function LeadsPage() {
                 copy('Consent موثق وليس مفترضًا', 'Documented, never inferred consent'),
               ].map(item => <div key={item} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-700">{item}</div>)}
             </div>
-            <p className="mt-5 font-mono text-[11px] text-slate-500">LEADS_CRM_ENABLED=false · outreachAutomation=false</p>
+            <p className="mt-5 text-[11px] font-bold text-slate-500">{copy('استقبال العملاء: غير مفعّل · الإرسال التلقائي: متوقف', 'Lead intake: inactive · automated outreach: off')}</p>
           </section>
         ) : (
           <>

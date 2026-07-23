@@ -8,10 +8,11 @@
 
 export type PublicPaidPlanId = 'pro' | 'business'
 
-// One bounded activation journey: Organic Light / 30 days (12) + quality
-// review (3). Content production is deliberately excluded from the free grant;
-// this prevents disposable accounts from consuming the heaviest workflow while
-// still letting a new customer validate the strategy and review experience.
+// One bounded activation journey: Organic Light logic / 30 days (12) + quality
+// review (3), capped to three strategy directions by FREE_TRIAL_POSTS. Content
+// production is deliberately excluded from the free grant; this prevents
+// disposable accounts from consuming the heaviest workflow while still letting
+// a new customer validate the strategy and review experience.
 export const FREE_TRIAL_CREDITS = 15
 export const FREE_TRIAL_POSTS = 3
 
@@ -22,6 +23,8 @@ export interface PublicPaidPlan {
   priceUsd: number
   monthlyCredits: number
   postsPerMonth: number
+  postsPerCampaign: number
+  videoSlotsPerMonth: number
   workspaces: number
   campaignLimit: number
 }
@@ -34,6 +37,8 @@ export const PUBLIC_PAID_PLANS: readonly PublicPaidPlan[] = [
     priceUsd: 49,
     monthlyCredits: 60,
     postsPerMonth: 16,
+    postsPerCampaign: 16,
+    videoSlotsPerMonth: 2,
     workspaces: 2,
     campaignLimit: 4,
   },
@@ -44,6 +49,8 @@ export const PUBLIC_PAID_PLANS: readonly PublicPaidPlan[] = [
     priceUsd: 99,
     monthlyCredits: 180,
     postsPerMonth: 40,
+    postsPerCampaign: 20,
+    videoSlotsPerMonth: 5,
     workspaces: 5,
     campaignLimit: 12,
   },
@@ -71,8 +78,8 @@ export function getPublicPaidPlan(value: unknown): PublicPaidPlan | null {
 export function getWorkspaceLimit(plan: unknown, role?: unknown): number {
   if (String(role).toUpperCase() === 'ADMIN') return 999
   const normalized = String(plan || 'FREE').toUpperCase()
-  if (normalized === 'BUSINESS' || normalized === 'AGENCY') return 5
-  if (normalized === 'PRO' || normalized === 'GROWTH' || normalized === 'ACTIVE') return 2
+  if (normalized === 'BUSINESS' || normalized === 'AGENCY') return PUBLIC_PAID_PLANS[1].workspaces
+  if (normalized === 'PRO' || normalized === 'GROWTH' || normalized === 'ACTIVE') return PUBLIC_PAID_PLANS[0].workspaces
   return 1 // FREE + legacy STARTER
 }
 
@@ -80,8 +87,8 @@ export function getWorkspaceLimit(plan: unknown, role?: unknown): number {
 export function getCampaignLimit(plan: unknown, role?: unknown): number {
   if (String(role).toUpperCase() === 'ADMIN') return 999
   const normalized = String(plan || 'FREE').toUpperCase()
-  if (normalized === 'BUSINESS' || normalized === 'AGENCY') return 12
-  if (normalized === 'PRO' || normalized === 'GROWTH' || normalized === 'ACTIVE') return 4
+  if (normalized === 'BUSINESS' || normalized === 'AGENCY') return PUBLIC_PAID_PLANS[1].campaignLimit
+  if (normalized === 'PRO' || normalized === 'GROWTH' || normalized === 'ACTIVE') return PUBLIC_PAID_PLANS[0].campaignLimit
   if (normalized === 'STARTER') return 2
   return 1
 }
@@ -90,8 +97,8 @@ export function getCampaignLimit(plan: unknown, role?: unknown): number {
 export function getPlannedPostLimit(plan: unknown, role?: unknown): number {
   if (String(role).toUpperCase() === 'ADMIN') return 999
   const normalized = String(plan || 'FREE').toUpperCase()
-  if (normalized === 'BUSINESS' || normalized === 'AGENCY') return 40
-  if (normalized === 'PRO' || normalized === 'GROWTH' || normalized === 'ACTIVE') return 16
+  if (normalized === 'BUSINESS' || normalized === 'AGENCY') return PUBLIC_PAID_PLANS[1].postsPerMonth
+  if (normalized === 'PRO' || normalized === 'GROWTH' || normalized === 'ACTIVE') return PUBLIC_PAID_PLANS[0].postsPerMonth
   if (normalized === 'STARTER') return 10
   return 3
 }

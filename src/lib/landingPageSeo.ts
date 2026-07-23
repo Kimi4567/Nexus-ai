@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { publishedSnapshotIsIndexable, type PublicLandingPageSnapshot } from '@/lib/landingPageContract'
 
-const PRODUCTION_FALLBACK_URL = 'https://nexus-grow.com'
+const PRODUCTION_FALLBACK_URL = 'https://www.nexus-grow.com'
 
 export function landingPageCanonicalUrl(publicId: string): string {
   const configured = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, '')

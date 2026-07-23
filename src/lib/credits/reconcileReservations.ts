@@ -8,8 +8,63 @@ export interface CreditReservationReconciliationResult {
   scanned: number
   refunded: number
   alreadyResolved: number
+  artifactsRepaired: number
   failed: number
   failures: Array<{ transactionId: string; error: string }>
+}
+
+const ABANDONED_IMAGE_MESSAGE = 'Image generation was interrupted before a usable asset was produced. Reserved credits were restored automatically.'
+
+async function repairAbandonedGeneratedVisual(reservation: {
+  id: string
+  entityId: string | null
+  entityType: string | null
+}): Promise<boolean> {
+  if (reservation.entityType !== 'generated_visual_image' || !reservation.entityId) return false
+
+  const visual = await prisma.generatedVisual.findUnique({
+    where: { id: reservation.entityId },
+    select: {
+      id: true,
+      workspaceId: true,
+      campaignId: true,
+      parentId: true,
+      status: true,
+    },
+  })
+  if (!visual || visual.status !== 'GENERATING') return false
+
+  const repaired = await prisma.generatedVisual.updateMany({
+    where: { id: visual.id, status: 'GENERATING' },
+    data: {
+      status: 'FAILED',
+      errorMessage: ABANDONED_IMAGE_MESSAGE,
+      creditTransactionId: reservation.id,
+      qualityStatus: 'ERROR',
+    },
+  })
+  if (repaired.count === 0) return false
+
+  const socialPostId = visual.parentId?.startsWith('social-post:')
+    ? visual.parentId.slice('social-post:'.length)
+    : null
+  if (socialPostId) {
+    await prisma.socialPost.updateMany({
+      where: {
+        id: socialPostId,
+        workspaceId: visual.workspaceId,
+        campaignId: visual.campaignId,
+        imageUrl: null,
+        uploadedMediaId: null,
+        generationStatus: { in: ['PENDING', 'GENERATING', 'FAILED', 'REFUND_PENDING'] },
+      },
+      data: {
+        generationStatus: 'FAILED',
+        errorMessage: ABANDONED_IMAGE_MESSAGE,
+      },
+    })
+  }
+  return true
 }
 
 /**
@@ -29,13 +84,14 @@ export async function reconcileStaleCreditReservations(
     where: { status: 'RESERVED', createdAt: { lt: cutoff } },
     orderBy: { createdAt: 'asc' },
     take: CREDIT_RESERVATION_RECONCILE_LIMIT,
-    select: { id: true, userId: true },
+    select: { id: true, userId: true, entityId: true, entityType: true },
   })
 
   const result: CreditReservationReconciliationResult = {
     scanned: stale.length,
     refunded: 0,
     alreadyResolved: 0,
+    artifactsRepaired: 0,
     failed: 0,
     failures: [],
   }
@@ -56,6 +112,16 @@ export async function reconcileStaleCreditReservations(
       result.refunded++
     } else {
       result.alreadyResolved++
+    }
+
+    try {
+      if (await repairAbandonedGeneratedVisual(reservation)) result.artifactsRepaired++
+    } catch (error) {
+      result.failed++
+      result.failures.push({
+        transactionId: reservation.id,
+        error: error instanceof Error ? error.message : 'artifact_repair_failed',
+      })
     }
   }
 

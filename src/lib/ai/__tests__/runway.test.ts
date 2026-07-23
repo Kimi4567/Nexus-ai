@@ -3,7 +3,7 @@ import { createRunwayMultiShotVideoTask, createRunwayProductAdTask, retrieveRunw
 
 describe('Runway adapter', () => {
   beforeEach(() => {
-    vi.stubEnv('RUNWAYML_API_SECRET', 'runway-test-key')
+    vi.stubEnv('RUNWAYML_API_SECRET', 'key_runway-test-key')
     vi.stubGlobal('fetch', vi.fn())
   })
 
@@ -90,6 +90,24 @@ describe('Runway adapter', () => {
       output: ['https://provider.example/video.mp4'],
     })
     expect(vi.mocked(fetch).mock.calls[0][0]).toBe('https://api.dev.runwayml.com/v1/tasks/task_123456')
+  })
+
+  it('accepts the legacy RUNWAY_ML_API_KEY without exposing it', async () => {
+    vi.stubEnv('RUNWAYML_API_SECRET', '')
+    vi.stubEnv('RUNWAY_API_KEY', '')
+    vi.stubEnv('RUNWAY_ML_API_KEY', 'key_legacy-runway-test-key')
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({
+      id: 'task_legacy_key',
+      status: 'RUNNING',
+    }), { status: 200 }))
+
+    await expect(retrieveRunwayTask('task_legacy_key')).resolves.toMatchObject({
+      id: 'task_legacy_key',
+      status: 'RUNNING',
+    })
+
+    const [, init] = vi.mocked(fetch).mock.calls[0]
+    expect(init?.headers).toMatchObject({ Authorization: 'Bearer key_legacy-runway-test-key' })
   })
 
   it('preserves provider validation details for internal diagnostics', async () => {

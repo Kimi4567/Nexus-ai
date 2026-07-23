@@ -22,6 +22,12 @@ export interface BillingStatus {
     used: number
     max: number   // -1 = unlimited
   }
+  imageGenerationCapacity?: {
+    allowed: boolean
+    used: number
+    cap: number
+    remaining: number
+  } | null
   currentPeriodEnd: string | null
   status: string
 }

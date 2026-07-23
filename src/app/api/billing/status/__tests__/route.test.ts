@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   accountSnapshot: vi.fn(),
   databaseReadiness: vi.fn(),
   validatePrices: vi.fn(),
+  checkDailyImageCap: vi.fn(),
+  workspaceFindFirst: vi.fn(),
 }))
 
 vi.mock('@/lib/supabaseAuth', () => ({
@@ -12,6 +14,12 @@ vi.mock('@/lib/supabaseAuth', () => ({
 }))
 vi.mock('@/lib/credits/accountSnapshot', () => ({
   getCreditAccountSnapshot: mocks.accountSnapshot,
+}))
+vi.mock('@/lib/credits', () => ({
+  checkDailyImageCap: mocks.checkDailyImageCap,
+}))
+vi.mock('@/lib/prisma', () => ({
+  prisma: { workspace: { findFirst: mocks.workspaceFindFirst } },
 }))
 vi.mock('@/lib/billingDatabaseReadiness', () => ({
   getBillingDatabaseReadiness: mocks.databaseReadiness,
@@ -48,6 +56,8 @@ beforeEach(() => {
   })
   mocks.databaseReadiness.mockResolvedValue({ ready: true, state: 'ready' })
   mocks.validatePrices.mockResolvedValue(true)
+  mocks.workspaceFindFirst.mockResolvedValue({ id: 'workspace-1' })
+  mocks.checkDailyImageCap.mockResolvedValue({ allowed: true, used: 0, cap: 1, remaining: 1 })
 })
 
 describe('GET /api/billing/status', () => {
@@ -77,6 +87,11 @@ describe('GET /api/billing/status', () => {
       billingDatabaseStatus: 'ready',
       creditPurchasesEnabled: true,
       creditPurchasesStatus: 'ready',
+      imageGenerationCapacity: { allowed: true, used: 0, cap: 1, remaining: 1 },
     })
+    expect(body).not.toHaveProperty('stripeCustomerId')
+    expect(response.headers.get('cache-control')).toContain('private')
+    expect(response.headers.get('cache-control')).toContain('no-store')
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff')
   })
 })

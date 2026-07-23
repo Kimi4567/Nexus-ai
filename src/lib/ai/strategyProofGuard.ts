@@ -63,7 +63,7 @@ function guardUnsafeStatusLanguage(text: string): string {
 function softenAbsoluteOutcomeClaims(text: string): string {
   return text
     .replace(/\bvisual content will (?:drive|build|increase) trust\b[^.?!]*/gi, 'Whether visual content strengthens trust signals is a hypothesis to test')
-    .replace(/\bengagement will (?:lead to|drive|generate) (?:qualified )?(?:inquiries|leads|sales|conversions)\b[^.?!]*/gi, 'Test whether engagement is associated with qualified inquiries')
+    .replace(/\bengagement will (?:lead to|drive|generate) (?:qualified )?(?:inquiries|leads|sales|conversions|consultation requests?)\b[^.?!]*/gi, 'Test whether engagement is associated with qualified inquiries')
     .replace(/\b(?:this|the) (?:content|campaign|strategy) will (?:drive|boost|increase|generate) (?:trust|engagement|inquiries|leads|sales|conversions)\b[^.?!]*/gi, 'Treat the intended outcome as a hypothesis and validate it with real platform evidence')
     .replace(/المحتوى\s+المرئي\s+سي(?:بني|عزز|زيد)\s+الثقة[^.؟!]*/gi, 'مدى دعم المحتوى المرئي لإشارات الثقة فرضية تحتاج إلى اختبار')
     .replace(/التفاعل\s+سيؤدي\s+إلى\s+(?:استفسارات|عملاء\s+محتملين|مبيعات|تحويلات)[^.؟!]*/gi, 'اختبر ما إذا كان التفاعل يرتبط باستفسارات مؤهلة')
@@ -114,6 +114,78 @@ function softenAbsoluteOutcomeClaims(text: string): string {
     .replace(/\b(?:our\s+)?pricing details available to discuss ensures? no surprises\.?/gi, 'Ask for pricing details before confirming the next step.')
     .replace(/\bpricing details to review before booking,\s*(?:just\s+)?clear treatment plans\.?/gi, 'Review pricing details and the proposed treatment plan before booking.')
     .replace(/\bexperience dental care without the stress\.?/gi, 'Explore dental care with clearer next steps.')
+}
+
+function softenUnsupportedExperienceClaims(text: string, context: StrategyProofContext): string {
+  const allowed = (Array.isArray(context.commercialClaimText)
+    ? context.commercialClaimText
+    : context.allowedClaimText
+  )?.filter((item): item is string => typeof item === 'string').join(' ') || ''
+  let guarded = text
+
+  if (!hasAffirmedClaim(allowed, /إشراف(?:ًا|ا)?\s+كامل(?:ًا|اً|ا)?|\bfull\s+(?:execution\s+)?supervision\b/i)) {
+    guarded = guarded
+      .replace(/إشراف(?:ًا|ا)?\s+كامل(?:ًا|اً|ا)?\s+على\s+التنفيذ/giu, 'إشرافًا على التنفيذ ضمن النطاق المتفق عليه')
+      .replace(/\bfull\s+(?:execution\s+)?supervision\b/gi, 'supervision within the agreed execution scope')
+  }
+
+  guarded = guarded
+    .replace(/لضمان\s+الجودة/giu, 'مع نقاط مراجعة للجودة')
+    .replace(/\bto\s+(?:ensure|guarantee)\s+quality\b/gi, 'with documented quality review points')
+
+  if (!hasAffirmedClaim(allowed, /\b(?:seamless|hassle[-\s]?free|smooth)\s+(?:renovation|experience|journey|process)\b|تجربة\s+(?:سلسة|بلا\s+متاعب)/i)) {
+    guarded = guarded
+      .replace(/\bexperience\s+a\s+seamless\s+renovation\b/gi, 'Review a structured renovation plan')
+      .replace(/\bseamless\s+renovation\b/gi, 'structured renovation plan')
+      .replace(/\bhassle[-\s]?free\s+renovation\b/gi, 'renovation with documented stages to review')
+      .replace(/\bsmooth\s+renovation\s+journey\b/gi, 'structured renovation process')
+      .replace(/\bseamless\s+(?:experience|journey|process)\b/gi, 'documented process to review')
+      .replace(/تجربة\s+(?:سلسة|بلا\s+متاعب)/gi, 'خطوات موثقة للمراجعة')
+  }
+
+  if (!hasAffirmedClaim(allowed, /\bno surprises\b|بلا مفاجآت|دون مفاجآت/i)) {
+    guarded = guarded
+      .replace(/\bour\s+(?:clear\s+)?project\s+phases?\s+ensures?\s+no\s+surprises\.?/gi, 'Review the documented project phases before execution.')
+      .replace(/\bour\s+phased\s+approach\s+ensures?\s+no\s+surprises\.?/gi, 'Review the documented project phases before execution.')
+      .replace(/\b(?:ensure|ensures|with)\s+no\s+surprises\b/gi, 'supports a clearer pre-execution review')
+      .replace(/\bno\s+surprises\b/gi, 'items documented for review before execution')
+      .replace(/(?:بلا|دون)\s+مفاجآت/gi, 'مع بنود موثقة للمراجعة قبل التنفيذ')
+  }
+
+  if (!hasAffirmedClaim(allowed, /\bpeace of mind\b|راحة البال/i)) {
+    guarded = guarded
+      .replace(/\b(?:for|with)\s+(?:your\s+)?peace\s+of\s+mind\b/gi, 'to support a clearer decision')
+      .replace(/\bexperience\s+peace\s+of\s+mind\b/gi, 'Review the documented decision details')
+      .replace(/\bpeace\s+of\s+mind\b/gi, 'clearer decision context')
+      .replace(/(?:ل|من أجل)\s*راحة\s+البال/gi, 'لدعم قرار أوضح')
+      .replace(/راحة\s+البال/gi, 'وضوح القرار')
+  }
+
+  guarded = guarded
+    .replace(/\bour\s+clear\s+project\s+phases?\s+ensures?\s+you\s+know\s+exactly\s+what\s+to\s+expect\.?/gi, 'Review the documented project phases before execution.')
+    .replace(/\bknow\s+exactly\s+what\s+to\s+expect\b/gi, 'review the documented project phases')
+    .replace(/\bnever\s+miss\s+a\s+beat\b/gi, 'Review each scheduled project update')
+    .replace(/\bupdates?\s+you\s+can\s+rely\s+on\b/gi, 'Review the weekly update process')
+    .replace(/\bour\s+structured\s+approach\s+ensures?\s+a\s+structured\s+renovation\s+process\.?/gi, 'Our structured approach documents the renovation stages for review.')
+    .replace(/\bour\s+phased\s+approach\s+makes\s+renovation\s+simple\s+and\s+clear\.?/gi, 'Our phased approach documents the renovation stages for review.')
+    .replace(/\bcapitali[sz]e\s+on\s+(?:the\s+)?growing\s+(?:interest|demand)\s+in\b[^.?!]*/gi, 'begin testing the reviewed demand hypothesis with a measurable baseline')
+    .replace(/\bdiscover\s+how\s+we\s+make\s+renovations?\s+with\s+clear\s+next\s+steps\s+with\s+clear\s+phases\b/gi, 'Review how the documented renovation phases connect to each next step')
+    .replace(/\bsee\s+how\s+transparent\s+costs\s+can\s+lead\s+to\s+a\s+with\s+clear\s+next\s+steps\s+renovation\b/gi, 'Review the documented scope and cost details before the next renovation decision')
+    .replace(/\bare\s+and\s+aligned\b/gi, 'are aligned')
+
+  // A timeline or phased plan can make delivery easier to review, but it is
+  // not proof that execution will finish on time. Keep an explicitly supplied
+  // commercial guarantee intact; otherwise neutralize the outcome promise in
+  // any nested audience/copy field before it can be approved or exported.
+  if (!hasAffirmedClaim(allowed, /\bguarantee(?:s|d)?\s+(?:(?:timely|on[-\s]?time)\s+(?:project\s+)?(?:completion|delivery)|(?:project\s+)?delivery\s+on\s+time)\b/i)) {
+    guarded = guarded
+      .replace(
+        /\bour\s+([^.!?]{1,80}?)\s+guarantees?\s+(?:(?:timely|on[-\s]?time)\s+(?:project\s+)?(?:completion|delivery)|(?:project\s+)?delivery\s+on\s+time)\b/gi,
+        'Our $1 supports a clearer pre-execution timeline review',
+      )
+  }
+
+  return guarded
 }
 
 function guardUnsupportedBudgetAssumptions(text: string): string {
@@ -175,7 +247,7 @@ function softenUnsupportedQualityClaims(text: string, context: StrategyProofCont
 
   // Value-for-money and price positioning are factual commercial claims. Keep
   // them only when the Brand Brain explicitly confirms the same positioning.
-  if (!hasAffirmedClaim(allowed, /\b(?:value for money|affordable|competitive pricing|cost[-\s]?effective)\b|قيمة (?:ممتازة|رائعة) مقابل|أسعار تنافسية|سعر مناسب|في المتناول/i)) {
+  if (!hasAffirmedClaim(allowed, /\b(?:value for money|affordable|competitive pricing|cost[-\s]?effective|budget[-\s]?friendly)\b|قيمة (?:ممتازة|رائعة) مقابل|أسعار تنافسية|سعر مناسب|في المتناول/i)) {
     guarded = guarded
       .replace(/(?:نظامنا|الخدمة|العرض)\s+(?:يقدم|تقدم|يوفر|توفر)\s+قيمة (?:ممتازة|رائعة|أفضل) مقابل (?:التكلفة|السعر)/gi, 'تحقق من السعر وما يتضمنه العرض قبل الرد على اعتراض التكلفة')
       .replace(/\b(?:excellent|great|best) value (?:for money|relative to (?:the )?cost|at (?:this|the) price)\b/gi, 'pricing and included value to confirm before using this claim')
@@ -183,6 +255,8 @@ function softenUnsupportedQualityClaims(text: string, context: StrategyProofCont
       .replace(/\bcompetitive pricing\b/gi, 'pricing to compare after confirmation')
       .replace(/\bcost[-\s]?effective\b/gi, 'cost and value to verify')
       .replace(/\baffordable\b/gi, 'priced after confirmation')
+      .replace(/\bbudget[-\s]?friendly\s+renovations?\b/gi, 'Renovation budget review')
+      .replace(/\bbudget[-\s]?friendly\b/gi, 'budget details to review')
       .replace(/قيمة (?:ممتازة|رائعة|أفضل) مقابل (?:التكلفة|السعر)/gi, 'وضّح السعر وما يتضمنه العرض قبل استخدام ادعاء القيمة')
       .replace(/(?:ب)?أسعار تنافسية/gi, 'بتفاصيل سعر تحتاج إلى تأكيد')
       .replace(/سعر مناسب|في المتناول|اقتصادي(?:ة)?/gi, 'سعر يحتاج إلى تأكيد')
@@ -303,6 +377,18 @@ function softenUnsupportedPerformancePromises(text: string): string {
 function softenUnsupportedServiceClaims(text: string, context: StrategyProofContext): string {
   const allowed = allowedClaimsText(context)
   let guarded = text
+
+  if (!/\bfree\b|مجان(?:ية|ي(?:اً|ًا|ا)?)/i.test(allowed)) {
+    guarded = guarded
+      .replace(/\bfree\s+(consultation|discovery session|assessment|audit|quote)\b/gi, '$1')
+      .replace(/((?:جلسة\s+(?:اكتشاف|استشارة)|استشارة|معاينة|تقييم|عرض\s+سعر))\s+مجان(?:ية|ي(?:اً|ًا|ا)?)/giu, '$1')
+  }
+
+  if (!/\b(?:fast|quick|rapid|same[-\s]?day)\b|سريع(?:ة|اً|ًا|ا)?|في\s+نفس\s+اليوم/i.test(allowed)) {
+    guarded = guarded
+      .replace(/\b(?:fast|quick|rapid)\s+renovation\b/gi, 'organized renovation')
+      .replace(/تجديد(?:ًا|ا)?\s+سريع(?:ة|اً|ًا|ا)?(?:\s+وفع[ّ]?ال(?:ة|اً|ًا|ا)?)?/giu, 'تجديد منظم')
+  }
 
   if (!/\b(?:premium|luxury|high[-\s]?end)\b|(?:فاخر|فاخرة|متميز|متميزة)/i.test(allowed)) {
     guarded = guarded
@@ -449,6 +535,9 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
       .replace(/\bcustomer testimonials?\b/gi, 'customer proof to collect')
       .replace(/\btestimonials?\b/gi, 'proof to collect')
       .replace(/\bsatisfied customers\b/gi, 'customers to ask for feedback')
+      .replace(/(?:آراء|تجارب)\s+(?:عملائنا|العملاء|زبائننا)/giu, 'إثبات اجتماعي مطلوب جمعه والتحقق منه')
+      .replace(/عملاؤنا\s+يحبون/giu, 'اطلب ملاحظات العملاء وتحقق منها قبل استخدامها')
+      .replace(/(?:آلاف|مئات|ملايين)\s+(?:العملاء|المستخدمين|الشركات|العلامات)/giu, 'عدد العملاء يحتاج إلى إثبات موثّق')
   }
 
   if (!proof.hasCustomerStories) {
@@ -460,6 +549,8 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
       .replace(/\bsuccess stories\b/gi, 'customer proof stories to collect and approve')
       .replace(/\bsuccess story\b/gi, 'customer proof story to collect and approve')
       .replace(/\bRead their stories\b/gi, 'Collect customer stories for future use')
+      .replace(/(?:قصص|نماذج)\s+نجاح\s+(?:عملائنا|العملاء|زبائننا)/giu, 'أمثلة عملاء مطلوب جمعها واعتمادها')
+      .replace(/نجاحات\s+(?:عملائنا|العملاء|زبائننا)/giu, 'نتائج عملاء مطلوب توثيقها واعتمادها')
   }
 
   if (!proof.hasCustomerStories && !proof.hasCaseStudies) {
@@ -475,6 +566,7 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
       .replace(/\bcustomer reviews?\b/gi, 'customer reviews to collect')
       .replace(/\bratings?\b/gi, 'ratings to collect')
       .replace(/\bstar ratings?\b/gi, 'star ratings to collect')
+      .replace(/(?:تقييمات|مراجعات)\s+(?:عملائنا|العملاء|زبائننا)/giu, 'تقييمات مطلوب جمعها والتحقق منها')
   }
 
   if (!proof.hasCaseStudies) {
@@ -492,7 +584,10 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
       softenUnsupportedQualityClaims(
         softenUnsupportedOfferAssurances(
           softenUnsupportedServiceClaims(
-            softenAbsoluteOutcomeClaims(guardUnsafeStatusLanguage(guarded)),
+            softenUnsupportedExperienceClaims(
+              softenAbsoluteOutcomeClaims(guardUnsafeStatusLanguage(guarded)),
+              context,
+            ),
             context,
           ),
           context,

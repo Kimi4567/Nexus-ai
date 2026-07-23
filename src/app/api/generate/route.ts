@@ -145,6 +145,8 @@ export async function POST(req: NextRequest) {
       strategyType: 'full',
       hasLeadHandling: Boolean(brandProfile?.leadHandling),
       hasConversionDestination: hasUsableConversionDestination(brandProfile?.conversionDestination, campaign.goal),
+      hasBudget: Boolean(brandProfile?.marketingBudget),
+      budgetText: brandProfile?.marketingBudget || null,
     })
     assertCampaignStrategyContract(strategy, { language: language || 'ar' })
 

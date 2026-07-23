@@ -10,6 +10,7 @@ import {
   BrainCircuit,
   CreditCard,
   Database,
+  Download,
   Eye,
   Gauge,
   Loader2,
@@ -29,7 +30,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { formatCreditDisplay } from '@/lib/creditDisplay'
 import { fetchWithTimeout, PRODUCT_READ_TIMEOUT_MS } from '@/lib/fetchWithTimeout'
 import { ErrorState } from '@/components/ui/ErrorState'
-import type { FirstPartyMeasurementSummary } from '@/lib/firstPartyMeasurement'
+import type { FirstPartyAttributionOutcomeRow, FirstPartyMeasurementSummary } from '@/lib/firstPartyMeasurement'
 
 interface MonthActivity {
   label: string
@@ -61,6 +62,12 @@ interface OverviewData {
   plan: string
   monthlyActivity: MonthActivity[]
   topCampaigns: TopCampaign[]
+  measurementCampaigns: Array<{ id: string; name: string; status: string }>
+  measurementScope: {
+    campaignId: string | null
+    campaignName: string | null
+    cohort: 'WORKSPACE' | 'CAMPAIGN_ACQUISITION'
+  }
   performance: {
     hasEvidence: boolean
     organicEvidenceCount: number
@@ -243,6 +250,57 @@ function EvidenceTrend({
   )
 }
 
+function LeadAttributionTable({
+  title,
+  definition,
+  rows,
+  ar,
+}: {
+  title: string
+  definition: string
+  rows: FirstPartyAttributionOutcomeRow[]
+  ar: boolean
+}) {
+  return (
+    <section className="overflow-hidden rounded-[16px] border border-[#e8edf5]">
+      <div className="border-b border-[#e8edf5] bg-[#f8faff] px-4 py-3">
+        <h3 className="text-[11px] font-black text-[#233052]">{title}</h3>
+        <p className="mt-1 text-[9px] font-semibold leading-4 text-[#7b87a3]">{definition}</p>
+      </div>
+      {rows.length ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[540px] text-[10px]">
+            <thead className="text-[#8a95aa]">
+              <tr>
+                <th className="px-4 py-3 text-start">Source / Medium</th>
+                <th className="px-3 py-3 text-start">Campaign</th>
+                <th className="px-3 py-3 text-start">{ar ? 'Leads فريدة' : 'Unique leads'}</th>
+                <th className="px-3 py-3 text-start">{ar ? 'مؤهلة' : 'Qualified'}</th>
+                <th className="px-3 py-3 text-start">{ar ? 'مكتسبة' : 'Won'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.slice(0, 8).map(row => (
+                <tr key={row.key} className="border-t border-[#eef2f8]">
+                  <td className="px-4 py-3 font-black text-[#233052]">{row.source}{row.medium ? ` / ${row.medium}` : ''}</td>
+                  <td className="px-3 py-3 text-[#64708f]">{row.campaign || '—'}</td>
+                  <td className="px-3 py-3 font-bold text-[#64708f]">{row.leads}</td>
+                  <td className="px-3 py-3 font-bold text-[#64708f]">{row.qualifiedLeads}</td>
+                  <td className="px-3 py-3 font-bold text-[#64708f]">{row.wonLeads}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="p-5 text-center text-[10px] font-bold text-[#8792aa]">
+          {ar ? 'لا توجد نتائج Lead مسندة داخل هذا النطاق.' : 'No attributed lead outcomes exist in this scope.'}
+        </p>
+      )}
+    </section>
+  )
+}
+
 export default function AnalyticsPage() {
   const { isAuthenticated, loading: authLoading, authHeader } = useAuth()
   const { locale, dir } = useI18n()
@@ -254,6 +312,9 @@ export default function AnalyticsPage() {
   const [learning, setLearning] = useState<LearningSummary | null>(null)
   const [dataLoading, setDataLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [firstPartyCampaignId, setFirstPartyCampaignId] = useState('')
+  const [exportLoading, setExportLoading] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
@@ -265,8 +326,11 @@ export default function AnalyticsPage() {
     setLoadError(null)
     try {
       const headers = { Authorization: authHeader() }
+      const overviewUrl = firstPartyCampaignId
+        ? `/api/analytics/overview?campaignId=${encodeURIComponent(firstPartyCampaignId)}`
+        : '/api/analytics/overview'
       const [overviewResult, insightsResult, learningResult] = await Promise.allSettled([
-        fetchWithTimeout('/api/analytics/overview', { headers }, PRODUCT_READ_TIMEOUT_MS),
+        fetchWithTimeout(overviewUrl, { headers }, PRODUCT_READ_TIMEOUT_MS),
         fetchWithTimeout('/api/analytics/insights', { headers }, PRODUCT_READ_TIMEOUT_MS),
         fetchWithTimeout('/api/learning/overview', { headers }, PRODUCT_READ_TIMEOUT_MS),
       ])
@@ -297,11 +361,41 @@ export default function AnalyticsPage() {
     } finally {
       setDataLoading(false)
     }
-  }, [ar, authHeader, isAuthenticated])
+  }, [ar, authHeader, firstPartyCampaignId, isAuthenticated])
 
   useEffect(() => {
     loadAnalytics()
   }, [loadAnalytics])
+
+  const exportFirstPartyCsv = useCallback(async () => {
+    if (!isAuthenticated) return
+    setExportLoading(true)
+    setExportError(null)
+    try {
+      const query = firstPartyCampaignId ? `?campaignId=${encodeURIComponent(firstPartyCampaignId)}` : ''
+      const response = await fetchWithTimeout(
+        `/api/analytics/first-party/export${query}`,
+        { headers: { Authorization: authHeader() } },
+        PRODUCT_READ_TIMEOUT_MS,
+      )
+      if (!response.ok) throw new Error(ar ? 'تعذّر إنشاء تقرير القياس.' : 'Could not create the measurement report.')
+      const blob = await response.blob()
+      const disposition = response.headers.get('content-disposition') || ''
+      const filename = disposition.match(/filename="([^"]+)"/)?.[1] || 'nexus-first-party.csv'
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : (ar ? 'تعذّر تصدير التقرير.' : 'Could not export the report.'))
+    } finally {
+      setExportLoading(false)
+    }
+  }, [ar, authHeader, firstPartyCampaignId, isAuthenticated])
 
   const creditDisplay = overview ? formatCreditDisplay({
     availableCredits: overview.creditsRemaining,
@@ -316,6 +410,10 @@ export default function AnalyticsPage() {
       : ar ? 'لا توجد بيانات أداء بعد' : 'No performance data yet'
 
   const hasFirstPartyMeasurement = Boolean(overview?.firstParty && overview.firstParty.stage !== 'empty')
+  const firstPartyBrowserCoverageMismatch = Boolean(
+    overview?.firstParty
+      && overview.firstParty.funnel.confirmedForms > overview.firstParty.funnel.pageViews,
+  )
   const hasAnyMeasurement = Boolean(overview?.performance.hasEvidence || hasFirstPartyMeasurement)
 
   const pendingLearningReview = learning?.counts.pendingReview ?? 0
@@ -471,40 +569,92 @@ export default function AnalyticsPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 id="first-party-measurement-title" className="text-[18px] font-black text-[#071236]">{ar ? 'مسار التحويل First-party' : 'First-party conversion path'}</h2>
                   <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[9px] font-black text-emerald-700">{ar ? 'لا يحتاج تصريح منصة' : 'No platform permission required'}</span>
+                  {overview?.firstParty ? (
+                    <span className={`rounded-full px-2.5 py-1 text-[9px] font-black ${overview.firstParty.sample.readyForDirectionalReview ? 'bg-sky-50 text-sky-700' : 'bg-amber-50 text-amber-700'}`}>
+                      {overview.firstParty.sample.readyForDirectionalReview
+                        ? (ar ? 'عينة اتجاهية قابلة للمراجعة' : 'Directional sample reviewable')
+                        : (ar
+                            ? `العينة تتكوّن · متبقٍ ${overview.firstParty.sample.trackedViewsRemaining} زيارة و${overview.firstParty.sample.confirmedFormsRemaining} نموذج`
+                            : `Sample building · ${overview.firstParty.sample.trackedViewsRemaining} views and ${overview.firstParty.sample.confirmedFormsRemaining} forms remaining`)}
+                    </span>
+                  ) : null}
                 </div>
                 <p className="mt-1 max-w-3xl text-[11px] font-semibold leading-5 text-[#73809a]">
                   {ar ? 'الزيارة والضغط إشارات متصفح؛ إرسال النموذج يؤكده الخادم؛ WON وقيمة الصفقة يؤكدهما مسؤول من الـCRM.' : 'Page views and clicks are browser signals; form submissions are server-confirmed; WON outcomes and values are confirmed by a CRM operator.'}
                 </p>
+                <p className="mt-1 text-[9px] font-bold text-[#9aa5b7]">{ar ? 'الحد الأدنى يتيح قراءة اتجاهية فقط، ولا يمثل دلالة إحصائية أو إثباتًا سببيًا.' : 'The minimum enables directional review only; it is not statistical significance or causal proof.'}</p>
               </div>
-              <Link href="/landing-pages" className="inline-flex h-10 items-center gap-2 rounded-[13px] bg-[#071236] px-4 text-[11px] font-black text-white">{ar ? 'إدارة وجهات التحويل' : 'Manage destinations'}<ArrowUpRight className="h-4 w-4" /></Link>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="sr-only" htmlFor="first-party-campaign-scope">{ar ? 'نطاق حملة القياس' : 'Measurement campaign scope'}</label>
+                <select
+                  id="first-party-campaign-scope"
+                  value={firstPartyCampaignId}
+                  onChange={event => setFirstPartyCampaignId(event.target.value)}
+                  className="h-10 max-w-[240px] rounded-[13px] border border-[#dbe2f0] bg-white px-3 text-[10px] font-black text-[#233052]"
+                >
+                  <option value="">{ar ? 'كل مساحة العمل' : 'Entire workspace'}</option>
+                  {(overview?.measurementCampaigns || []).map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => void exportFirstPartyCsv()}
+                  disabled={exportLoading || dataLoading || !overview?.firstParty}
+                  className="inline-flex h-10 items-center gap-2 rounded-[13px] border border-[#dbe2f0] bg-white px-4 text-[10px] font-black text-[#233052] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {exportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 text-[#5366f6]" />}
+                  {ar ? 'تصدير CSV' : 'Export CSV'}
+                </button>
+                <Link href="/landing-pages" className="inline-flex h-10 items-center gap-2 rounded-[13px] bg-[#071236] px-4 text-[11px] font-black text-white">{ar ? 'إدارة الوجهات' : 'Manage destinations'}<ArrowUpRight className="h-4 w-4" /></Link>
+              </div>
             </div>
 
+            {exportError ? <div role="alert" className="mt-4 rounded-[14px] border border-rose-100 bg-rose-50 px-4 py-3 text-[10px] font-bold text-rose-700">{exportError}</div> : null}
+
             {dataLoading ? (
-              <div className="mt-5 grid gap-3 md:grid-cols-3 xl:grid-cols-6">{[1,2,3,4,5,6].map(item => <div key={item} className="h-24 animate-pulse rounded-[16px] bg-slate-100" />)}</div>
+              <div className="mt-5 grid gap-3 md:grid-cols-4 xl:grid-cols-8">{[1,2,3,4,5,6,7,8].map(item => <div key={item} className="h-24 animate-pulse rounded-[16px] bg-slate-100" />)}</div>
             ) : overview?.firstParty ? (
               <>
                 {overview.firstParty.coverage.partial ? <div className="mt-4 rounded-[14px] border border-amber-100 bg-amber-50 px-4 py-3 text-[10px] font-bold text-amber-800">{ar ? 'العرض جزئي؛ تم إيقاف أي استنتاج اتجاهي حتى تضييق الفترة أو إضافة تجميع تقريري.' : 'This view is partial; directional conclusions are withheld until the period is narrowed or reporting aggregation is added.'}</div> : null}
-                <div className="mt-5 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+                {firstPartyBrowserCoverageMismatch ? <div className="mt-4 rounded-[14px] border border-amber-100 bg-amber-50 px-4 py-3 text-[10px] font-bold leading-5 text-amber-800">{ar ? 'تغطية الزيارات غير مكتملة: عدد النماذج المؤكدة أكبر من زيارات المتصفح المسجلة، لذلك حجبنا معدل التحويل بدل عرض نسبة مضللة.' : 'Visit coverage is incomplete: confirmed forms exceed captured browser views, so the conversion rate is withheld instead of showing a misleading percentage.'}</div> : null}
+                {overview.measurementScope.campaignId ? <div className="mt-4 rounded-[14px] border border-violet-100 bg-violet-50 px-4 py-3 text-[10px] font-bold leading-5 text-violet-800">{ar ? `النطاق: مجموعة الاكتساب الأولى لحملة «${overview.measurementScope.campaignName}». First-touch يحدد دخول الـLead لهذه الحملة؛ Last-touch يعرض أحدث إعادة التقاط مسجلة لنفس المجموعة.` : `Scope: the “${overview.measurementScope.campaignName}” acquisition cohort. First touch places the lead in this campaign; last touch shows the latest recorded recapture for the same cohort.`}</div> : null}
+                <div className="mt-5 grid gap-3 md:grid-cols-4 xl:grid-cols-8">
                   {[
                     [ar ? 'زيارات مسجلة' : 'Tracked views', formatNum(overview.firstParty.funnel.pageViews), 'CLIENT_REPORTED'],
                     [ar ? 'ضغطات CTA' : 'CTA clicks', formatNum(overview.firstParty.funnel.ctaClicks), formatRate(overview.firstParty.funnel.ctaRate)],
-                    [ar ? 'نماذج مؤكدة' : 'Confirmed forms', formatNum(overview.firstParty.funnel.confirmedForms), 'SERVER_CONFIRMED'],
-                    [ar ? 'معدل صفحة ← Lead' : 'Page → lead rate', formatRate(overview.firstParty.funnel.pageToLeadRate), 'SERVER_CONFIRMED'],
-                    [ar ? 'عملاء مكتسبون' : 'Won leads', formatNum(overview.firstParty.funnel.wonLeads), 'MANUAL_CONFIRMED'],
+                    [ar ? 'إرسالات Landing Page مؤكدة' : 'Confirmed landing-page submissions', formatNum(overview.firstParty.funnel.confirmedForms), 'SERVER_CONFIRMED'],
+                    [ar ? 'Leads فريدة' : 'Unique leads', formatNum(overview.firstParty.funnel.leads), 'SERVER_DEDUPLICATED'],
+                    [ar ? 'Leads مؤهلة' : 'Qualified leads', formatNum(overview.firstParty.funnel.qualifiedLeads), 'MANUAL_CONFIRMED'],
+                    [ar ? 'صفقات مكتسبة' : 'Won deals', formatNum(overview.firstParty.funnel.wonLeads), 'MANUAL_CONFIRMED'],
+                    [ar ? 'معدل صفحة ← Lead' : 'Page → lead rate', formatRate(overview.firstParty.funnel.pageToLeadRate), firstPartyBrowserCoverageMismatch ? (ar ? 'محجوب: التتبع غير مكتمل' : 'WITHHELD: INCOMPLETE TRACKING') : 'SERVER_CONFIRMED'],
                     [ar ? 'Lead ← مكتسب' : 'Lead → won rate', formatRate(overview.firstParty.funnel.leadToWonRate), 'MANUAL_CONFIRMED'],
                   ].map(([label, value, helper]) => <article key={label} className="rounded-[16px] border border-[#e8edf5] bg-[#fbfcff] p-4"><p className="text-[9px] font-black text-[#7b87a3]">{label}</p><p className="mt-2 text-[23px] font-black text-[#111b3f]">{value}</p><p className="mt-1 truncate font-mono text-[8px] font-bold text-[#929db1]">{helper}</p></article>)}
                 </div>
 
                 <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_0.8fr]">
                   <div className="overflow-hidden rounded-[16px] border border-[#e8edf5]">
-                    <div className="border-b border-[#e8edf5] bg-[#f8faff] px-4 py-3 text-[10px] font-black text-[#53617b]">{ar ? 'الإسناد حسب UTM' : 'Attribution by UTM'}</div>
-                    {overview.firstParty.attribution.length ? <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-[10px]"><thead className="text-[#8a95aa]"><tr><th className="px-4 py-3 text-start">Source / Medium</th><th className="px-3 py-3 text-start">Campaign</th><th className="px-3 py-3 text-start">Views</th><th className="px-3 py-3 text-start">Forms</th><th className="px-3 py-3 text-start">Won</th></tr></thead><tbody>{overview.firstParty.attribution.slice(0, 8).map(row => <tr key={row.key} className="border-t border-[#eef2f8]"><td className="px-4 py-3 font-black text-[#233052]">{row.source}{row.medium ? ` / ${row.medium}` : ''}</td><td className="px-3 py-3 text-[#64708f]">{row.campaign || '—'}</td><td className="px-3 py-3 font-bold text-[#64708f]">{row.pageViews}</td><td className="px-3 py-3 font-bold text-[#64708f]">{row.confirmedForms}</td><td className="px-3 py-3 font-bold text-[#64708f]">{row.wonLeads}</td></tr>)}</tbody></table></div> : <p className="p-5 text-center text-[10px] font-bold text-[#8792aa]">{ar ? 'ستظهر المصادر بعد زيارة رابط يحمل UTM أو وصول Lead.' : 'Sources appear after a UTM-tagged visit or recorded lead.'}</p>}
+                    <div className="border-b border-[#e8edf5] bg-[#f8faff] px-4 py-3"><h3 className="text-[10px] font-black text-[#53617b]">{ar ? 'إشارات مسار UTM' : 'UTM path signals'}</h3><p className="mt-1 text-[9px] font-semibold text-[#8b96aa]">{ar ? 'زيارات وضغطات صفحات الهبوط من المتصفح، وإرسالاتها مؤكدة من الخادم. نماذج الالتقاط المستقلة تظهر في Leads وليس في Funnel الصفحة.' : 'Landing-page views and clicks are browser-reported, and landing-page submissions are server-confirmed. Standalone capture forms appear under Leads, not in this page funnel.'}</p></div>
+                    {overview.firstParty.attribution.length ? <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-[10px]"><thead className="text-[#8a95aa]"><tr><th className="px-4 py-3 text-start">Source / Medium</th><th className="px-3 py-3 text-start">Campaign</th><th className="px-3 py-3 text-start">Views</th><th className="px-3 py-3 text-start">Clicks</th><th className="px-3 py-3 text-start">Submissions</th></tr></thead><tbody>{overview.firstParty.attribution.slice(0, 8).map(row => <tr key={row.key} className="border-t border-[#eef2f8]"><td className="px-4 py-3 font-black text-[#233052]">{row.source}{row.medium ? ` / ${row.medium}` : ''}</td><td className="px-3 py-3 text-[#64708f]">{row.campaign || '—'}</td><td className="px-3 py-3 font-bold text-[#64708f]">{row.pageViews}</td><td className="px-3 py-3 font-bold text-[#64708f]">{row.ctaClicks}</td><td className="px-3 py-3 font-bold text-[#64708f]">{row.confirmedForms}</td></tr>)}</tbody></table></div> : <p className="p-5 text-center text-[10px] font-bold text-[#8792aa]">{ar ? 'ستظهر المصادر بعد زيارة رابط يحمل UTM.' : 'Sources appear after a UTM-tagged visit.'}</p>}
                   </div>
                   <div className="rounded-[16px] border border-[#e8edf5] p-4">
                     <h3 className="text-[12px] font-black text-[#233052]">{ar ? 'الإيراد المؤكد يدويًا' : 'Manually confirmed revenue'}</h3>
                     <p className="mt-1 text-[9px] font-semibold leading-5 text-[#8792aa]">{ar ? 'لا نجمع العملات المختلفة ولا نقدّر قيمة ناقصة.' : 'Different currencies are never combined and missing value is never estimated.'}</p>
                     <div className="mt-3 space-y-2">{overview.firstParty.revenueByCurrency.length ? overview.firstParty.revenueByCurrency.map(row => <div key={row.currency} className="flex items-center justify-between rounded-xl bg-emerald-50 px-3 py-3"><span className="text-[10px] font-black text-emerald-800">{row.currency}</span><span className="text-[15px] font-black text-emerald-800">{row.value.toLocaleString()} <small className="text-[8px]">· {row.outcomes} {ar ? 'نتيجة' : 'outcomes'}</small></span></div>) : <div className="rounded-xl bg-slate-50 p-4 text-center text-[10px] font-bold text-slate-500">{ar ? 'لا توجد قيمة صفقة مؤكدة بعد.' : 'No confirmed outcome value yet.'}</div>}</div>
                   </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                  <LeadAttributionTable
+                    title={ar ? 'First-touch · مصدر الاكتساب الأول' : 'First touch · original acquisition source'}
+                    definition={ar ? 'ثابت من أول إنشاء للـLead ولا يُعاد كتابته عند تكرار النموذج.' : 'Immutable from initial lead creation and never overwritten by a later form recapture.'}
+                    rows={overview.firstParty.attributionModels.firstTouch}
+                    ar={ar}
+                  />
+                  <LeadAttributionTable
+                    title={ar ? 'Last-touch · أحدث إعادة التقاط' : 'Last touch · latest recorded recapture'}
+                    definition={ar ? 'أحدث UTM محفوظ في FORM_RECAPTURED؛ وعند غيابه يعود إلى First-touch بوضوح.' : 'Latest UTM stored on FORM_RECAPTURED; when absent, it explicitly falls back to first touch.'}
+                    rows={overview.firstParty.attributionModels.lastTouch}
+                    ar={ar}
+                  />
                 </div>
               </>
             ) : <div className="mt-5 rounded-[16px] bg-amber-50 p-4 text-[11px] font-bold text-amber-800">{ar ? 'طبقة القياس غير متاحة حتى يكتمل تحديث قاعدة البيانات.' : 'Measurement is unavailable until the database update is complete.'}</div>}

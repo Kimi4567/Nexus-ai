@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary'
+import { getVideoProviderApiKey } from '@/lib/ai/provider'
 
 const RUNWAY_API_ROOT = 'https://api.dev.runwayml.com/v1'
 const RUNWAY_API_VERSION = '2024-11-06'
@@ -23,9 +24,9 @@ export interface RunwayTask {
 }
 
 function runwayKey(): string {
-  const key = process.env.RUNWAYML_API_SECRET || process.env.RUNWAY_API_KEY
-  if (!key?.trim()) throw new Error('RUNWAY_PROVIDER_UNAVAILABLE')
-  return key.trim()
+  const key = getVideoProviderApiKey()
+  if (!key) throw new Error('RUNWAY_PROVIDER_UNAVAILABLE')
+  return key
 }
 
 function isRunwayTaskStatus(value: unknown): value is RunwayTaskStatus {

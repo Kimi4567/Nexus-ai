@@ -77,4 +77,21 @@ describe('strategy decision desk channel truth', () => {
     expect(source).toContain('role="alert"')
     expect(source).toContain('onNextActionRecovery')
   })
+
+  it('does not call a passed quality review an approval before the decision is recorded', () => {
+    const deskSource = readFileSync(
+      path.join(process.cwd(), 'src/components/campaign/StrategyDecisionDesk.tsx'),
+      'utf8',
+    )
+    const pageSource = readFileSync(
+      path.join(process.cwd(), 'src/app/campaigns/[id]/page.tsx'),
+      'utf8',
+    )
+
+    expect(deskSource).toContain("snapshot.approvalState === 'approved'")
+    expect(deskSource).toContain('Quality review passed; the strategy approval decision is still required.')
+    expect(pageSource).toContain("stage: 'paid_plan_review'")
+    expect(pageSource).toContain('No organic content plan belongs to this run.')
+    expect(pageSource).toContain('operatingState={decisionDeskOperatingState}')
+  })
 })

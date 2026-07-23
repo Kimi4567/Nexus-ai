@@ -55,6 +55,8 @@ type QualityInput = {
    * physical-product advertising.
    */
   qualityStandard?: 'PAID_SOCIAL' | 'PREMIUM'
+  /** Background assets deliberately omit copy; headline/CTA/logo remain editable layers. */
+  backgroundOnly?: boolean
   /** Exact user/brand-approved text deliberately typeset by NEXUS. */
   approvedOverlayTexts?: string[]
   /**
@@ -79,9 +81,32 @@ function boundedIssues(value: unknown): string[] {
     .slice(0, 8)
 }
 
-function score(value: unknown): number {
+function score(value: unknown, scaleFactor = 1): number {
   const parsed = Math.round(Number(value))
-  return Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : 0
+  return Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed * scaleFactor)) : 0
+}
+
+function providerScoreScale(result: Record<string, unknown>): 1 | 10 {
+  const values = [
+    'referencePreservationScore',
+    'semanticAlignmentScore',
+    'professionalQualityScore',
+    'commercialHookScore',
+    'productHeroScore',
+    'benefitCommunicationScore',
+    'commercialPacingScore',
+    'endFrameReadinessScore',
+    'brandAlignmentScore',
+  ]
+    .map(key => Number(result[key]))
+    .filter(value => Number.isFinite(value))
+
+  // The contract is 0–100, but multimodal reviewers occasionally return a
+  // consistent 0–10 rubric (for example 9/10 across both required scores).
+  // Detect the review-level scale instead of treating a strong 9/10 as 9/100.
+  return values.length >= 2 && values.every(value => value >= 0 && value <= 10) && values.some(value => value >= 5)
+    ? 10
+    : 1
 }
 
 function parseJsonObject(value: unknown): Record<string, unknown> {
@@ -102,18 +127,19 @@ function parseJsonObject(value: unknown): Record<string, unknown> {
 
 export function normalizeGeneratedMediaQualityReview(
   value: unknown,
-  input: Pick<QualityInput, 'mediaType' | 'referenceImageUrl' | 'referenceImageUrls' | 'targetFormat' | 'formatValidation' | 'requireProductAdStructure' | 'qualityStandard' | 'allowAdvertisingSceneTransformation'>,
+  input: Pick<QualityInput, 'mediaType' | 'referenceImageUrl' | 'referenceImageUrls' | 'targetFormat' | 'formatValidation' | 'requireProductAdStructure' | 'qualityStandard' | 'backgroundOnly' | 'allowAdvertisingSceneTransformation'>,
   providerUsage: ProviderUsageSummary,
 ): GeneratedMediaQualityReview {
   const result = value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {}
+  const scoreScale = providerScoreScale(result)
   const referenceRequired = Boolean(input.referenceImageUrl || input.referenceImageUrls?.length)
   const referencePreservationScore = referenceRequired
-    ? score(result.referencePreservationScore)
+    ? score(result.referencePreservationScore, scoreScale)
     : null
-  const semanticAlignmentScore = score(result.semanticAlignmentScore)
-  const professionalQualityScore = score(result.professionalQualityScore)
+  const semanticAlignmentScore = score(result.semanticAlignmentScore, scoreScale)
+  const professionalQualityScore = score(result.professionalQualityScore, scoreScale)
   const technicalIntegrity = result.technicalIntegrity === true
   const noNewRasterText = result.noNewRasterText === true
   const noInventedClaims = result.noInventedClaims === true
@@ -123,12 +149,12 @@ export function normalizeGeneratedMediaQualityReview(
   const paidSocialAdReadiness = input.requireProductAdStructure
     ? result.paidSocialAdReadiness === true
     : null
-  const commercialHookScore = input.requireProductAdStructure ? score(result.commercialHookScore) : null
-  const productHeroScore = input.requireProductAdStructure ? score(result.productHeroScore) : null
-  const benefitCommunicationScore = input.requireProductAdStructure ? score(result.benefitCommunicationScore) : null
-  const commercialPacingScore = input.requireProductAdStructure ? score(result.commercialPacingScore) : null
-  const endFrameReadinessScore = input.requireProductAdStructure ? score(result.endFrameReadinessScore) : null
-  const brandAlignmentScore = input.requireProductAdStructure ? score(result.brandAlignmentScore) : null
+  const commercialHookScore = input.requireProductAdStructure ? score(result.commercialHookScore, scoreScale) : null
+  const productHeroScore = input.requireProductAdStructure ? score(result.productHeroScore, scoreScale) : null
+  const benefitCommunicationScore = input.requireProductAdStructure ? score(result.benefitCommunicationScore, scoreScale) : null
+  const commercialPacingScore = input.requireProductAdStructure ? score(result.commercialPacingScore, scoreScale) : null
+  const endFrameReadinessScore = input.requireProductAdStructure ? score(result.endFrameReadinessScore, scoreScale) : null
+  const brandAlignmentScore = input.requireProductAdStructure ? score(result.brandAlignmentScore, scoreScale) : null
   const qualityStandard = input.requireProductAdStructure
     ? input.qualityStandard ?? 'PREMIUM'
     : 'GENERAL'
@@ -171,6 +197,10 @@ export function normalizeGeneratedMediaQualityReview(
   const providerIssues = boundedIssues(Array.isArray(result.issues) ? result.issues : [])
   const verifiedFormatPassed = formatValidation?.passed === true
   const evidenceConsistentProviderIssues = providerIssues.filter(issue => {
+    if (
+      input.backgroundOnly
+      && /(?:missing|no|lacks?).{0,40}(?:campaign message|approved overlay|headline|call.to.action|cta|brand text|logo)|(?:campaign message|approved overlay|headline|call.to.action|cta|brand text|logo).{0,40}(?:missing|absent|not present)/i.test(issue)
+    ) return false
     if (
       verifiedFormatPassed
       && /(?:incorrect|wrong|invalid|mismatch|does not match).{0,28}(?:dimensions?|aspect ratio|duration)|(?:dimensions?|aspect ratio|duration).{0,28}(?:incorrect|wrong|invalid|mismatch|does not match)/i.test(issue)
@@ -295,6 +325,11 @@ ${boundedText(input.campaignMessage, 900) || 'Not specified'}
 EXACT APPROVED MOTION-DESIGN OVERLAYS:
 ${JSON.stringify((input.approvedOverlayTexts ?? []).map(item => boundedText(item, 80)).filter(Boolean)).slice(0, 800)}
 
+OUTPUT ROLE:
+${input.backgroundOnly
+  ? 'BACKGROUND ONLY. This output must contain NO campaign headline, CTA, logo, or overlay text. Those remain separate editable composition layers. Never reject or lower semantic/professional scores because message text or overlays are absent; judge whether the visual scene itself supports the supplied meaning and direction.'
+  : 'FINAL/COMPOSITED MEDIA. Apply the approved-overlay rules below when exact overlay text is supplied.'}
+
 CREATIVE DIRECTION:
 ${boundedText(input.creativeDirection, 900) || 'Premium, brand-safe advertising visual'}
 
@@ -312,6 +347,7 @@ Reject if any of these are present:
 - invented claims, statistics, awards, testimonials, certifications, or product capabilities;
 - mismatch with the campaign message, obvious anatomy/object errors, broken geometry, poor cropping, low resolution, jump cuts, flicker, or an amateur composition.
 - a composition that becomes unusable or loses the important subject within the stated final platform canvas.
+${input.backgroundOnly ? '- Do NOT require campaign copy, a headline, CTA, logo, or overlays in this background-only output. Their absence is correct.' : ''}
 ${input.requireProductAdStructure ? `- a generic AI motion clip, product demo, mood reel, slideshow, or attractive B-roll that would not function as a paid-social advertisement;
 - an opening that fails to stop attention within the first two seconds;
 - weak product prominence, random camera movement, dead time, incoherent shot progression, or a final frame that cannot carry an exact separately typeset CTA;
@@ -344,7 +380,8 @@ Return JSON exactly:
   "brandAlignmentScore": ${input.requireProductAdStructure ? '0' : 'null'},
   "issues": [],
   "summary": "short evidence-based verdict"
-}`,
+}
+All numeric scores MUST be integers on a 0–100 scale; never return a 0–10 score.`,
   }]
 
   referenceUrls.forEach((referenceUrl, index) => {

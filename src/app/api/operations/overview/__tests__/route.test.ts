@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getUserId: vi.fn(),
   workspaceFindFirst: vi.fn(),
   agentRunFindFirst: vi.fn(),
+  agentRunFindMany: vi.fn(),
   integrationFindMany: vi.fn(),
   adAccountFindMany: vi.fn(),
   getApprovalInbox: vi.fn(),
@@ -26,7 +27,7 @@ vi.mock('@/lib/approvalInboxService', () => ({ getCanonicalApprovalInbox: mocks.
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     workspace: { findFirst: mocks.workspaceFindFirst },
-    agentRun: { findFirst: mocks.agentRunFindFirst },
+    agentRun: { findFirst: mocks.agentRunFindFirst, findMany: mocks.agentRunFindMany },
     integration: { findMany: mocks.integrationFindMany },
     adAccount: { findMany: mocks.adAccountFindMany },
     creditTransaction: { findMany: mocks.creditTransactionFindMany },
@@ -53,6 +54,7 @@ beforeEach(() => {
   mocks.workspaceFindFirst.mockResolvedValue({ id: 'workspace-1' })
   mocks.getTruth.mockResolvedValue(executionTruth)
   mocks.agentRunFindFirst.mockResolvedValue(null)
+  mocks.agentRunFindMany.mockResolvedValue([])
   mocks.integrationFindMany.mockResolvedValue([])
   mocks.adAccountFindMany.mockResolvedValue([])
   mocks.getApprovalInbox.mockResolvedValue({
@@ -97,6 +99,7 @@ describe('GET /api/operations/overview', () => {
       pendingApprovals: 3,
       overdueApprovals: 2,
       publishedAwaitingEvidence: 1,
+      strategyRuns: [],
       pilotProof: expect.objectContaining({ status: 'not_started', completedCampaigns: 0 }),
     }))
   })

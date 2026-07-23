@@ -110,6 +110,8 @@ export async function POST(req: NextRequest, props: Params) {
             : null,
           hasLeadHandling: Boolean(brand?.leadHandling),
           hasConversionDestination: hasUsableConversionDestination(brand?.conversionDestination, campaign.goal),
+          hasBudget: Boolean(brand?.marketingBudget),
+          budgetText: brand?.marketingBudget || null,
           allowedCompetitors: Array.isArray(brand?.competitors) ? brand.competitors : [],
           goal: campaign.goal,
         },
@@ -268,9 +270,10 @@ export async function POST(req: NextRequest, props: Params) {
       ),
     }
 
-    await prisma.campaign.update({
+    const updatedCampaign = await prisma.campaign.update({
       where: { id: params.id },
       data: { aiOutput: updatedOutput },
+      select: { updatedAt: true },
     })
 
     // Log activity (non-blocking)
@@ -312,6 +315,7 @@ export async function POST(req: NextRequest, props: Params) {
       reviewedStrategy: strategy,
       strategyContract,
       safeCorrectionsApplied,
+      campaignUpdatedAt: updatedCampaign.updatedAt.toISOString(),
       creditsRemaining: credit.creditsRemaining,
       creditsUsed: credit.creditsUsed,
       creditCharge: {

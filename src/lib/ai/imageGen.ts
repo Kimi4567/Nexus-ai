@@ -113,27 +113,28 @@ export function normalizeTextFreeCentralElement(
   if (clean && !NON_RASTER_SAFE_CONCEPT_PATTERN.test(clean)) return clean
 
   const semanticSource = `${sourceText} ${clean}`.toLowerCase()
+  const operationsCategory = category === 'saas_ai_tech' || category === 'agency_consultancy'
 
   // Unsafe diagram/UI requests still carry useful semantic intent. Translate
   // that intent into a concrete, text-free physical metaphor instead of
   // replacing every SaaS request with one category-level stock scene.
-  if (/monthly|purchased|billing cycle|credit pools?|plan credits?|شهري|الشهرية|المشت(?:رى|راة)|دورة الباقة|نوع الرصيد/i.test(semanticSource)) {
+  if (operationsCategory && /monthly|purchased|billing cycle|credit pools?|plan credits?|شهري|الشهرية|المشت(?:رى|راة)|دورة الباقة|نوع الرصيد/i.test(semanticSource)) {
     return 'two clearly separated physical reservoirs of blank metallic tokens: one beside a circular renewal ring and one inside a durable transparent vault, with a precise divider between them and generous negative space'
   }
 
-  if (/credits?|ledger|quoted cost|metered action|pricing|balance|كريديت|أرصدة|رصيد|تكلفة|خصم|سجل/i.test(semanticSource)) {
+  if (operationsCategory && /credits?|ledger|quoted cost|metered action|pricing|balance|كريديت|أرصدة|رصيد|تكلفة|خصم|سجل/i.test(semanticSource)) {
     return 'three distinct tactile stations arranged left to right: a small stack of blank metallic tokens beside a quotation tile, one illuminated confirmation gate, and a sealed archive of blank ledger cards, connected by one precise physical path'
   }
 
-  if (/brand brain|positioning|voice|verified claims?|restrictions?|channel drafts?|تموضع|النبرة|ادعاءات موثقة|القيود|مسودات القنوات/i.test(semanticSource)) {
+  if (operationsCategory && /brand brain|positioning|voice|verified claims?|restrictions?|channel drafts?|تموضع|النبرة|ادعاءات موثقة|القيود|مسودات القنوات/i.test(semanticSource)) {
     return 'one central translucent sculptural core receiving four distinct blank material inputs, then branching into three differently shaped channel frames, with a visible human review gate before the frames and no screens or lettering'
   }
 
-  if (/ownership|capacity|handoffs?|approval|assignments?|operations?|ملكية|السعة|تسليم|الموافقات|المهام|التشغيل/i.test(semanticSource)) {
+  if (operationsCategory && /ownership|capacity|handoffs?|approval|assignments?|operations?|ملكية|السعة|تسليم|الموافقات|المهام|التشغيل/i.test(semanticSource)) {
     return 'three-person operations team passing distinct blank task blocks through clearly separated work lanes toward one physical review gate, with visible unused lane capacity and an uncluttered premium workspace'
   }
 
-  if (/workflow|strategy|execution|results?|stages?|سير العمل|الاستراتيجية|التنفيذ|النتائج|المراحل/i.test(semanticSource)) {
+  if (operationsCategory && /workflow|strategy|execution|results?|stages?|سير العمل|الاستراتيجية|التنفيذ|النتائج|المراحل/i.test(semanticSource)) {
     return 'six distinct tactile stages forming one governed physical path from a central brand core through planning blocks and a human review gate to a final measurement vessel, with every stage visually separate and no screens'
   }
 
@@ -146,6 +147,9 @@ export function normalizeTextFreeCentralElement(
   if (category === 'education') {
     return 'mentor and learner arranging tactile building blocks in a bright modern studio, warm natural light and generous negative space'
   }
+  if (category === 'interior_design') {
+    return 'an interior designer reviewing a precise scale model beside a coordinated materials board, with a refined residential room in the background, warm natural light and generous clean negative space'
+  }
 
   return 'people arranging blank tactile geometric objects in a polished professional environment to express progress and collaboration, uncluttered surfaces and generous negative space'
 }
@@ -153,6 +157,11 @@ export function normalizeTextFreeCentralElement(
 // ─── Brand category detection ─────────────────────────────────────────────────
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  interior_design: [
+    'interior design', 'home & furniture', 'home and furniture', 'furniture',
+    'home decor', 'space planning', 'renovation', 'interior architecture',
+    'تصميم داخلي', 'أثاث', 'اثاث', 'ديكور', 'تجديد', 'تخطيط المساحة',
+  ],
   saas_ai_tech: [
     'saas', 'software', 'ai', 'artificial intelligence', 'machine learning',
     'platform', 'app', 'application', 'digital', 'tech', 'technology',
@@ -198,6 +207,7 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
 }
 
 export type BrandCategory =
+  | 'interior_design'
   | 'saas_ai_tech'
   | 'real_estate'
   | 'food_beverage'
@@ -245,6 +255,13 @@ interface IndustryStyle {
 }
 
 const INDUSTRY_STYLES: Record<string, IndustryStyle> = {
+  interior_design: {
+    photography: 'refined architectural interior-design editorial photography with accurate materials, realistic spatial proportions, and tactile design details',
+    lighting:    'warm natural window light with controlled soft contrast, truthful material texture, and calm residential depth',
+    mood:        'considered, refined, trustworthy, calm, design-led',
+    atmosphere:  'premium residential interior, coordinated material samples, spatial clarity, restrained styling, and generous clean negative space',
+    benchmark:   'Architectural Digest and Dezeen-quality interior-design campaign photography',
+  },
   food_beverage: {
     photography: 'cinematic food photography, Michelin-star presentation quality, appetizing hero close-up',
     lighting:    'warm golden-hour ambient light, steam effects, shallow depth-of-field bokeh, rich texture',

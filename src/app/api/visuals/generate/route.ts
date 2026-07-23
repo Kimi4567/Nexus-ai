@@ -370,8 +370,14 @@ export async function POST(req: NextRequest) {
     visualDirection: strategy.visualDirection || undefined,
     differentiation: strategy.differentiation || undefined,
     keyMessage:      strategy.keyMessage      || undefined,
-    // Post caption — drives the image subject when generating per-post
-    postCaption:     postCaption              || undefined,
+    // The owned post is authoritative for both copy and art direction. A
+    // browser payload may be stale or omit imagePrompt entirely; using the DB
+    // row keeps single-image generation aligned with bulk generation and with
+    // the same creative direction the quality reviewer will enforce.
+    postCaption:     generationPost?.caption || postCaption || undefined,
+    creativeDirection: generationPost?.imagePrompt
+      || suppliedCreativeRequirement.visualConcept
+      || undefined,
     // Platform — passed through for dimension-aware composition in the prompt
     platform: targetImageFormat.platform,
     creativeRequirement: {
@@ -392,7 +398,7 @@ export async function POST(req: NextRequest) {
   // ── Build the caption-driven, brand-adaptive ad prompt (async) ───────────
   // Prompt output is background-only; text/logo/CTA/proof layers are handled by
   // future editable/template composition, not trusted inside AI raster output.
-  const { prompt, language } = await buildImagePrompt(ctx)
+  const { prompt, language, concept } = await buildImagePrompt(ctx)
   const referenceEvidence = referenceMedia?.intelligenceStatus === 'READY'
     ? readMediaIntelligence(referenceMedia.intelligence)
     : null
@@ -557,10 +563,11 @@ export async function POST(req: NextRequest) {
       referenceImageUrl: referenceMedia?.url,
       allowAdvertisingSceneTransformation: Boolean(referenceMedia),
       campaignMessage: ctx.postCaption || ctx.keyMessage || ctx.campaignGoal,
-      creativeDirection: ctx.creativeRequirement?.visualConcept || ctx.visualDirection,
+      creativeDirection: concept?.centralElement || ctx.creativeRequirement?.visualConcept || ctx.visualDirection,
       referenceEvidence,
       targetFormat: targetImageFormat,
       formatValidation,
+      backgroundOnly: assetRole === 'post_background',
     })
     if (!qualityReview.passed) {
       const qualityMessage = 'NEXUS quality review rejected this image because it did not meet the approved creative and platform-delivery requirements. Credits will be restored.'

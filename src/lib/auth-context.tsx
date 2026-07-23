@@ -198,7 +198,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut()
     setUser(null)
     setSession(null)
-    router.push('/')
+    // The protected shell unmounts as soon as Supabase emits the sign-out
+    // event. A client-side push can be abandoned at that point and leave an
+    // empty protected page behind, so complete sign-out with a hard redirect.
+    if (typeof window !== 'undefined') {
+      window.location.assign('/auth/login')
+      return
+    }
+    router.replace('/auth/login')
   }, [router])
 
   // authHeader reads from the shared session — always up-to-date after token refresh

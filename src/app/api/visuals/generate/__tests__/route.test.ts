@@ -430,6 +430,11 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
       parentId: 'social-post:post_1',
       assetRole: 'post_background',
     }))
+
+    expect(mockBuildImagePrompt).toHaveBeenCalledWith(expect.objectContaining({
+      postCaption: post.caption,
+      creativeDirection: post.imagePrompt,
+    }))
     await flushScheduledGeneration()
 
     expect(res.status).toBe(202)

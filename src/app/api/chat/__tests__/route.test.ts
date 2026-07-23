@@ -19,6 +19,12 @@ const {
     subscription: { findUnique: vi.fn() },
     campaign: { count: vi.fn() },
     brandProfile: { findUnique: vi.fn() },
+    landingPage: { count: vi.fn() },
+    leadCaptureForm: { count: vi.fn() },
+    lead: { count: vi.fn() },
+    conversionEvent: { count: vi.fn() },
+    integration: { count: vi.fn() },
+    socialPost: { count: vi.fn() },
   },
 }))
 
@@ -76,6 +82,12 @@ beforeEach(() => {
   mockPrisma.subscription.findUnique.mockResolvedValue(null)
   mockPrisma.campaign.count.mockResolvedValue(1)
   mockPrisma.brandProfile.findUnique.mockResolvedValue(null)
+  mockPrisma.landingPage.count.mockResolvedValue(0)
+  mockPrisma.leadCaptureForm.count.mockResolvedValue(0)
+  mockPrisma.lead.count.mockResolvedValue(0)
+  mockPrisma.conversionEvent.count.mockResolvedValue(0)
+  mockPrisma.integration.count.mockResolvedValue(0)
+  mockPrisma.socialPost.count.mockResolvedValue(0)
 })
 
 afterEach(() => {
@@ -119,5 +131,34 @@ describe('POST /api/chat credit safety', () => {
       action: 'CHAT_MESSAGE',
       reason: 'Chat provider returned no usable response',
     }))
+  })
+
+  it('grounds the assistant in first-party measurement and execution truth', async () => {
+    mockPrisma.landingPage.count.mockResolvedValue(2)
+    mockPrisma.leadCaptureForm.count.mockResolvedValue(1)
+    mockPrisma.lead.count
+      .mockResolvedValueOnce(7)
+      .mockResolvedValueOnce(2)
+    mockPrisma.conversionEvent.count.mockResolvedValue(14)
+    mockPrisma.integration.count.mockResolvedValue(0)
+    mockPrisma.socialPost.count
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(1)
+    const provider = vi.fn().mockImplementation(async (_url: string, init: RequestInit) => {
+      const requestBody = JSON.parse(String(init.body))
+      const systemPrompt = String(requestBody.messages[0].content)
+      expect(systemPrompt).toContain('Landing Pages: 2')
+      expect(systemPrompt).toContain('CRM Leads: 7')
+      expect(systemPrompt).toContain('WON Leads: 2')
+      expect(systemPrompt).toContain('First-party Conversion Events: 14')
+      expect(systemPrompt).toContain('Provider-confirmed Publications: 1')
+      expect(systemPrompt).toContain('first-party measurement from provider analytics')
+      expect(systemPrompt).not.toContain('Strategy Studio')
+      return openAiStream('data: {"choices":[{"delta":{"content":"Grounded"}}]}\n\ndata: [DONE]\n\n')
+    })
+    vi.stubGlobal('fetch', provider)
+
+    const response = await POST(request([{ role: 'user', content: 'What can Nexus measure now?' }]))
+    expect(await response.text()).toBe('Grounded')
   })
 })

@@ -106,13 +106,82 @@ function normalizedEvidenceText(value: string): string {
   return value.toLocaleLowerCase().replace(/\s+/g, ' ').trim()
 }
 
-function collectTextLeaves(value: unknown, output: string[] = []): string[] {
-  if (typeof value === 'string' && value.trim()) output.push(value)
-  else if (Array.isArray(value)) value.forEach((item) => collectTextLeaves(item, output))
-  else if (value && typeof value === 'object') {
-    Object.values(value as Record<string, unknown>).forEach((item) => collectTextLeaves(item, output))
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+/**
+ * Return only copy and messaging that can reach the customer. Operational
+ * safeguards such as doNotDoYet, proofNeeded, launchBlockers, assumptions, and
+ * review gates are deliberately excluded: those fields describe what must NOT
+ * be claimed and cannot themselves become claim violations.
+ */
+export function collectSentinelCustomerFacingText(input: SentinelReviewInput): string[] {
+  const values: string[] = []
+  const seen = new Set<string>()
+  const add = (value: unknown) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      if (trimmed && !seen.has(trimmed)) {
+        seen.add(trimmed)
+        values.push(trimmed)
+      }
+      return
+    }
+    if (Array.isArray(value)) value.forEach(add)
   }
-  return output
+  const addFields = (source: Record<string, unknown> | null, fields: string[]) => {
+    if (!source) return
+    fields.forEach((field) => add(source[field]))
+  }
+  const addCollectionFields = (
+    source: Record<string, unknown> | null,
+    collectionName: string,
+    fields: string[],
+  ) => {
+    const collection = source?.[collectionName]
+    if (!Array.isArray(collection)) return
+    collection.forEach((item) => addFields(asRecord(item), fields))
+  }
+
+  addFields(asRecord(input.content), [
+    'topHooks',
+    'ctaVariations',
+    'captionFormulas',
+    'scriptTemplate',
+    'contentAngles',
+    'adCopyVariants',
+  ])
+  addCollectionFields(asRecord({ calendar: input.calendar }), 'calendar', ['title', 'hook', 'caption', 'cta'])
+  add(input.creativeBriefDirection)
+
+  const strategySources = [asRecord(input.strategy), asRecord(input.strategyReviewSource)]
+  strategySources.forEach((strategy) => {
+    addFields(strategy, [
+      'positioning',
+      'keyMessage',
+      'differentiation',
+      'targetAudienceRefined',
+      'valueProps',
+      'topHooks',
+      'ctaVariations',
+      'contentPillars',
+      'contentAngles',
+    ])
+    addCollectionFields(strategy, 'audienceSegmentsDetailed', ['message', 'cta'])
+    addCollectionFields(strategy, 'funnelStages', ['message', 'cta'])
+    addCollectionFields(strategy, 'contentAnglesDetailed', ['title', 'hook', 'message', 'cta'])
+    addCollectionFields(strategy, 'weeklyExecutionPlan', ['keyMessage', 'cta'])
+
+    const paidPlanning = asRecord(strategy?.paidPlanning)
+    addCollectionFields(paidPlanning, 'adAngles', ['message'])
+    addCollectionFields(paidPlanning, 'adCopyVariations', ['headline', 'primaryText', 'cta'])
+    addCollectionFields(paidPlanning, 'creativeBriefs', ['visualDirection'])
+  })
+
+  return values
 }
 
 /**
@@ -286,7 +355,7 @@ export async function runSentinelReview(input: SentinelReviewInput): Promise<Sen
   const adSetupSummary = s.adSetupPlan
     ? `Objective: ${s.adSetupPlan.objective || ''} | Platform: ${s.adSetupPlan.platformPriority || ''} | Budget: ${s.adSetupPlan.testBudget || ''} | Target: ${s.adSetupPlan.targeting || ''}`
     : ''
-  const strategyReviewSample = collectTextLeaves(input.strategyReviewSource)
+  const strategyReviewSample = collectSentinelCustomerFacingText(input)
     .slice(0, 40)
     .join('\n')
     .slice(0, 4_000)
@@ -416,53 +485,12 @@ If the campaign passes all checks cleanly: riskScore should be under 25, brandCo
   // gain" once slipped through). Run a conservative pattern scan over the ACTUAL
   // content and force-flag anything risky so it can never silently pass review.
   // This adds no OpenAI call, no credit cost, no data mutation — display/safety only.
-  const claimScan = detectUnsupportedClaims([
-    ...(c.topHooks || []),
-    ...(c.ctaVariations || []),
-    ...(c.captionFormulas || []),
-    ...(c.adCopyVariants || []),
-    c.scriptTemplate,
-    ...(c.contentAngles || []),
-    s.keyMessage,
-    s.positioning,
-    s.differentiation,
-    ...((s.funnelStages || []).flatMap((stage: any) => [
-      stage?.userMindset,
-      stage?.message,
-      stage?.contentType,
-      stage?.cta,
-      stage?.successMetric,
-      stage?.nextStep,
-    ])),
-    ...((s.contentAnglesDetailed || []).flatMap((angle: any) => [
-      angle?.title,
-      angle?.hook,
-      angle?.pain,
-      angle?.desiredOutcome,
-      angle?.objection,
-      angle?.message,
-      angle?.cta,
-      angle?.proofNeeded,
-      angle?.responseHandoff,
-      angle?.reviewPoint,
-    ])),
-    ...((s.weeklyExecutionPlan || []).flatMap((week: any) => [
-      week?.objective,
-      week?.keyMessage,
-      ...(week?.deliverables || []),
-      week?.cta,
-      week?.successMetric,
-      week?.executionNote,
-      ...(week?.reviewPoints || []),
-    ])),
-    ...(s.doNotDoYet || []),
-    ...(s.executionAssumptions || []),
-    ...(s.assumptions || []),
-    ...collectTextLeaves(input.strategyReviewSource),
-    ...((input.calendar || []).flatMap((p: any) => [p?.hook, p?.caption, p?.cta])),
-  ])
+  const customerFacingText = collectSentinelCustomerFacingText(input)
+  const claimScan = detectUnsupportedClaims(customerFacingText)
 
-  const sourceText = collectTextLeaves(input).join('\n')
+  // Model findings may block only when their quote exists in actual customer
+  // copy. A quote found solely in an internal safety instruction is advisory.
+  const sourceText = customerFacingText.join('\n')
 
   return {
     ...normalizeSentinelAssessment(result, sourceText, claimScan, input.language),

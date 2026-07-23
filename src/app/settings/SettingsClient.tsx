@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
+import ReferralWidget from '@/components/ReferralWidget'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { supabase } from '@/lib/supabaseClient'
@@ -101,7 +102,7 @@ function SettingsButton({
 
 export default function SettingsPage() {
   const router = useRouter()
-  const { user, isAuthenticated, loading, authHeader } = useAuth()
+  const { user, isAuthenticated, loading, authHeader, logout } = useAuth()
   const { locale, dir } = useI18n()
   const ar = locale === 'ar'
   const copyText = useCallback((arabic: string, english: string) => (ar ? arabic : english), [ar])
@@ -288,11 +289,7 @@ export default function SettingsPage() {
 
   const handleSignOut = async () => {
     setSigningOut(true)
-    Object.keys(localStorage)
-      .filter((key) => key === 'nexus_chat_v2' || key.startsWith('nexus_chat_v3:'))
-      .forEach((key) => localStorage.removeItem(key))
-    await supabase.auth.signOut()
-    router.push('/')
+    await logout()
   }
 
   const handleResetWorkspace = async () => {
@@ -465,6 +462,8 @@ export default function SettingsPage() {
               </div>
             </SettingsCard>
           </section>
+
+          <ReferralWidget />
 
           <section className="grid min-w-0 gap-6 xl:grid-cols-3">
             <SettingsCard title={copyText('الأمان', 'Security')} icon={<Shield size={18} />}>

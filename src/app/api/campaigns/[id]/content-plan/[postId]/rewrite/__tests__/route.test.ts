@@ -11,6 +11,7 @@ const {
   mockRefund: vi.fn(),
   mockPrisma: {
     socialPost: { findFirst: vi.fn(), update: vi.fn() },
+    campaign: { findFirst: vi.fn() },
     brandProfile: { findUnique: vi.fn() },
   },
 }))
@@ -45,13 +46,15 @@ beforeEach(() => {
     caption: 'Original caption',
     imagePrompt: 'Image prompt',
     platform: 'FACEBOOK',
+    status: 'DRAFT',
     workspaceId: 'workspace_1',
-    campaign: {
-      name: 'Campaign',
-      tone: 'clear',
-      audience: 'office teams',
-      aiOutput: {},
-    },
+  })
+  mockPrisma.campaign.findFirst.mockResolvedValue({
+    name: 'Campaign',
+    tone: 'clear',
+    audience: 'office teams',
+    aiOutput: {},
+    goal: 'LEADS',
   })
 })
 
@@ -90,5 +93,24 @@ describe('POST /api/campaigns/[id]/content-plan/[postId]/rewrite — confirmatio
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockPrisma.brandProfile.findUnique).not.toHaveBeenCalled()
     expect(mockPrisma.socialPost.update).not.toHaveBeenCalled()
+  })
+
+  it('loads campaign context independently because SocialPost has no campaign relation', async () => {
+    vi.stubEnv('OPENAI_API_KEY', '')
+    const { POST } = await loadRoute()
+
+    await POST(makeReq({
+      instruction: 'Make it shorter',
+      explicitRewriteConfirmed: true,
+      acknowledgedCreditCost: 2,
+    }), params)
+
+    expect(mockPrisma.socialPost.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.not.objectContaining({ campaign: expect.anything() }),
+    }))
+    expect(mockPrisma.campaign.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: 'campaign_1' }),
+      select: expect.objectContaining({ goal: true, aiOutput: true }),
+    }))
   })
 })

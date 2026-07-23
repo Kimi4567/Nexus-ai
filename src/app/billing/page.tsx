@@ -18,9 +18,13 @@ import {
   CURRENT_CREDIT_PRICING_VERSION,
 } from '@/lib/credits/pricing'
 import {
-  getStrategyToDraftsJourneyCost,
   STRATEGY_PRICING_DISPLAY_TRUTH,
 } from '@/lib/strategy/strategyPricingDisplayTruth'
+import {
+  FULL_STANDARD_90_DRAFTS,
+  FULL_STANDARD_90_TO_DRAFTS_COST,
+  quoteFullStandard90DraftCapacity,
+} from '@/lib/commercialCapacity'
 import {
   CREDIT_PURCHASE_POLICY,
   FREE_TRIAL_CREDITS,
@@ -38,11 +42,9 @@ import {
 
 const GROWTH_PLAN = PUBLIC_PAID_PLANS.find((plan) => plan.slug === 'growth') ?? PUBLIC_PAID_PLANS[0]
 const AUTOPILOT_PLAN = PUBLIC_PAID_PLANS.find((plan) => plan.slug === 'autopilot') ?? PUBLIC_PAID_PLANS[1]
-const FULL_STANDARD_90_WORKFLOW_COST = getStrategyToDraftsJourneyCost(
-  STRATEGY_PRICING_DISPLAY_TRUTH.fullStandard90.cost,
-  CREDIT_ACTION_COSTS.SENTINEL_REVIEW,
-  CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION,
-)
+const FULL_STANDARD_90_WORKFLOW_COST = FULL_STANDARD_90_TO_DRAFTS_COST
+const GROWTH_FULL_STANDARD_CAPACITY = quoteFullStandard90DraftCapacity(GROWTH_PLAN)
+const AUTOPILOT_FULL_STANDARD_CAPACITY = quoteFullStandard90DraftCapacity(AUTOPILOT_PLAN)
 const TRIAL_STRATEGY_REVIEW_COST =
   STRATEGY_PRICING_DISPLAY_TRUTH.trialActivation.cost
   + CREDIT_ACTION_COSTS.SENTINEL_REVIEW
@@ -96,7 +98,7 @@ const PLANS = [
       'مركز عمليات ومراقبة مجدولة للحالات والأعطال',
       `حتى ${AUTOPILOT_PLAN.campaignLimit} مساحة حملة / شهر — عمليات AI تُحاسب بالكريديت`,
       `حتى ${AUTOPILOT_PLAN.postsPerMonth} مسودة نص AI مخططة / شهر — الصور والفيديو منفصلة`,
-      `مثال سعة: 3 رحلات Full Standard إلى المسودات أو 12 استراتيجية Organic Light مراجعة`,
+      `مثال سعة واقعي: ${AUTOPILOT_FULL_STANDARD_CAPACITY.workflows} رحلات Full Standard إلى ${AUTOPILOT_FULL_STANDARD_CAPACITY.workflows * FULL_STANDARD_90_DRAFTS} مسودة؛ حد المسودات الشهري هو القيد الفعلي، وتبقى الكريديت الأخرى للاستخدامات المنفصلة`,
       'مراقبة مجدولة + قائمة قرارات مبنية على الأدلة',
     ],
     limitsEn: [
@@ -104,7 +106,7 @@ const PLANS = [
       'Operations center with scheduled state and incident monitoring',
       `Up to ${AUTOPILOT_PLAN.campaignLimit} campaign workspaces / month — AI operations use credits`,
       `Up to ${AUTOPILOT_PLAN.postsPerMonth} AI-planned copy drafts / month — image and video actions are separate`,
-      'Capacity example: 3 Full Standard workflows to drafts or 12 reviewed Organic Light strategies',
+      `Real capacity example: ${AUTOPILOT_FULL_STANDARD_CAPACITY.workflows} Full Standard workflows to ${AUTOPILOT_FULL_STANDARD_CAPACITY.workflows * FULL_STANDARD_90_DRAFTS} drafts; the monthly draft allowance is the binding limit and remaining credits stay available for separate actions`,
       'Scheduled monitoring + evidence-backed action queue',
     ],
   },
@@ -976,11 +978,11 @@ export default function BillingPage() {
               <div className="text-sm text-slate-600 leading-relaxed">
                 {ar ? (
                   <>
-                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} رصيد)</span> = مسار Full Standard واحد لمدة 90 يومًا إلى المسودات ({FULL_STANDARD_90_WORKFLOW_COST} كريديت) مع هامش صغير للمراجعة · أو {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.IMAGE_GENERATION)} صورة · أو {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.MOTION_DESIGN_VIDEO)} إعلانات Motion Design من فيديو حقيقي · أو {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.VIDEO_GENERATION)} فيديوهات إعلانية احترافية · أو مزيج من الإجراءات. التجربة تغطي استراتيجية Organic Light وفحص الجودة فقط ({TRIAL_STRATEGY_REVIEW_COST} كريديت)، ولا تشمل إنتاج المحتوى.
+                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} رصيد)</span> = {GROWTH_FULL_STANDARD_CAPACITY.workflows} رحلة Full Standard لمدة 90 يومًا إلى المسودات ({FULL_STANDARD_90_WORKFLOW_COST} كريديت) · أو {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.IMAGE_GENERATION)} صورة · أو {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.MOTION_DESIGN_VIDEO)} إعلانات Motion Design من فيديو حقيقي · أو {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.VIDEO_GENERATION)} فيديوهات إعلانية احترافية · أو مزيج من الإجراءات. التجربة تستخدم منطق Organic Light لكنها تسلّم بحد أقصى 3 اتجاهات استراتيجية بسبب حد Trial، مع فحص الجودة ({TRIAL_STRATEGY_REVIEW_COST} كريديت)، ولا تشمل Content Hub.
                   </>
                 ) : (
                   <>
-                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} credits)</span> = one Full Standard 90-day strategy-to-drafts workflow ({FULL_STANDARD_90_WORKFLOW_COST} credits) with a small review reserve · or {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.IMAGE_GENERATION)} images · or {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.MOTION_DESIGN_VIDEO)} source-locked Motion Design ads · or {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.VIDEO_GENERATION)} professional video ads · or a mix of actions. Trial covers Organic Light strategy plus quality review only ({TRIAL_STRATEGY_REVIEW_COST} credits); content production is excluded.
+                    <span className="text-slate-950 font-semibold">Growth ({GROWTH_PLAN.monthlyCredits} credits)</span> = {GROWTH_FULL_STANDARD_CAPACITY.workflows} Full Standard 90-day strategy-to-drafts workflow ({FULL_STANDARD_90_WORKFLOW_COST} credits) · or {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.IMAGE_GENERATION)} images · or {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.MOTION_DESIGN_VIDEO)} source-locked Motion Design ads · or {Math.floor(GROWTH_PLAN.monthlyCredits / CREDIT_ACTION_COSTS.VIDEO_GENERATION)} professional video ads · or a mix of actions. Trial uses Organic Light logic but delivers at most 3 strategy directions because the Trial post cap applies, plus quality review ({TRIAL_STRATEGY_REVIEW_COST} credits); Content Hub production is excluded.
                   </>
                 )}
               </div>

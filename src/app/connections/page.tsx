@@ -574,6 +574,27 @@ export default function ConnectionsPage() {
   }, [authHeader])
 
   useEffect(() => {
+    // Browsers may restore this page from the back/forward cache after the user
+    // cancels OAuth. React state is restored too, so clear the in-flight label
+    // and re-read provider truth instead of leaving the button disabled forever.
+    const handleOAuthReturn = () => {
+      setConnecting(null)
+      if (document.visibilityState === 'visible') void fetchAccounts()
+    }
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') handleOAuthReturn()
+    }
+    window.addEventListener('pageshow', handleOAuthReturn)
+    window.addEventListener('focus', handleOAuthReturn)
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      window.removeEventListener('pageshow', handleOAuthReturn)
+      window.removeEventListener('focus', handleOAuthReturn)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [fetchAccounts])
+
+  useEffect(() => {
     // Wait for the persisted interface language before converting OAuth query
     // parameters into a visible message. Otherwise the provider's SSR-safe
     // Arabic default can briefly win even when the saved interface is English.

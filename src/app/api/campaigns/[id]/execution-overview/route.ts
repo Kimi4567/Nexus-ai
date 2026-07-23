@@ -157,6 +157,9 @@ export async function GET(req: NextRequest, props: Params) {
     : null
 
   const organicCounts = statusCounts(posts)
+  const organicCopyApproved = posts.filter(post => Boolean(post.approvedSnapshotId)).length
+  const organicMediaApproved = posts.filter(post => Boolean(post.mediaApprovalSnapshotId)).length
+  const organicScheduledDecisions = posts.filter(post => Boolean(post.scheduledSnapshotId)).length
   const organicMediaReady = posts.filter(post => (
     Boolean(post.imageUrl || post.uploadedMediaId)
     && post.generationStatus !== 'FAILED'
@@ -263,6 +266,9 @@ export async function GET(req: NextRequest, props: Params) {
       inScope: sourceTruth.scope !== 'paid',
       total: posts.length,
       counts: organicCounts,
+      copyApproved: organicCopyApproved,
+      mediaApproved: organicMediaApproved,
+      scheduledDecisions: organicScheduledDecisions,
       mediaReady: organicMediaReady,
       mediaPending: Math.max(0, posts.length - organicMediaReady),
       nextAction: organicNextAction,

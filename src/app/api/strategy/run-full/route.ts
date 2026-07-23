@@ -40,6 +40,10 @@ import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { resolveBillingStatusPlan } from '@/lib/billingStatusPlan'
 import { captureOperationalError } from '@/lib/observability/operationalError'
+import {
+  strategyExecutionPlatforms,
+  strategySupportOnlyChannels,
+} from '@/lib/strategy/strategyPlatformScope'
 
 // Strategy generation can legitimately need a second contract-repair pass before
 // anything is charged or persisted. The old 60s ceiling killed successful runs
@@ -327,6 +331,11 @@ export async function POST(req: NextRequest) {
       )
     }
     const strategyCreditCost: number = charge.cost
+    const organicFallbackCharge = strategyType === 'full'
+      ? resolveStrategyCharge({ ...body, strategyType: 'organic' })
+      : null
+    let settledStrategyCreditCost = strategyCreditCost
+    let settledPricingExplanation = charge.pricing.pricingExplanation
 
     // Get workspace
     const workspace = await prisma.workspace.findFirst({
@@ -465,6 +474,23 @@ export async function POST(req: NextRequest) {
     // — never from the AI. (Custom > 180 was already 422-blocked above, so the contract
     // here is always supported; the unsupported branch returns DO-NOT-GENERATE anyway.)
     const safeBrandProfile = getBrandBrainGenerationSafety(brandProfile as any).safeProfile as any
+    const executionPlatforms = strategyExecutionPlatforms(safeBrandProfile.topPlatforms)
+    const supportOnlyChannels = strategySupportOnlyChannels(safeBrandProfile.topPlatforms)
+    if (executionPlatforms.length === 0) {
+      const arabic = isArabicLanguage(language)
+      return NextResponse.json(
+        {
+          error: arabic
+            ? 'اختر منصة محتوى واحدة على الأقل في Brand Brain. واتساب والموقع وصفحة الهبوط قنوات تحويل ومتابعة، وليست منصات تُوزع عليها اتجاهات المحتوى أو الميزانية.'
+            : 'Select at least one content platform in Brand Brain. WhatsApp, websites, and landing pages are conversion or follow-up channels, not destinations for content directions or budget allocation.',
+          code: 'STRATEGY_EXECUTION_PLATFORM_REQUIRED',
+          missingRequiredFields: ['topPlatforms'],
+          supportOnlyChannels,
+          redirectUrl: '/brand',
+        },
+        { status: 422 },
+      )
+    }
     const goalOverride = requestedGoal
       || safeBrandProfile.campaignObjective
       || safeBrandProfile.businessGoal
@@ -523,7 +549,7 @@ export async function POST(req: NextRequest) {
         ? safeBrandProfile.audienceDesires.join(', ')
         : undefined,
       primaryOffer: safeBrandProfile.primaryOffer || undefined,
-      currentPlatforms: safeBrandProfile.topPlatforms?.length ? safeBrandProfile.topPlatforms : undefined,
+      currentPlatforms: executionPlatforms,
       winningHooks: safeBrandProfile.winningHooks?.length
         ? safeBrandProfile.winningHooks.slice(0, 3).join(' | ')
         : undefined,
@@ -544,6 +570,9 @@ export async function POST(req: NextRequest) {
           : '',
         strategyBriefReadiness.warnings.includes('verified_proof_missing')
           ? 'Verified proof is missing. Avoid proof-based claims and recommend collecting proof instead.'
+          : '',
+        supportOnlyChannels.length
+          ? `Support-only conversion/follow-up channels: ${supportOnlyChannels.join(', ')}. They may appear only as reviewed CTA destinations or response handoff channels. Do not allocate content directions, publishing cadence, paid budget, campaign execution, or platform performance claims to them.`
           : '',
       ].filter(Boolean).join('\n'),
       organicPostCount: deliverables.organicPostCount,
@@ -583,16 +612,30 @@ export async function POST(req: NextRequest) {
 
     // Run full orchestration
     const result = await runFullAgency(workspace.id, brief, {
-      beforePersistStrategy: async () => {
+      beforePersistStrategy: async (delivery = {
+        status: 'complete',
+        requestedStrategyType: strategyType,
+        deliveredStrategyType: strategyType,
+      }) => {
+        const partialOrganicDelivery = delivery.status === 'partial'
+          && delivery.requestedStrategyType === 'full'
+          && delivery.deliveredStrategyType === 'organic'
+        if (partialOrganicDelivery) {
+          if (!organicFallbackCharge?.supported || organicFallbackCharge.cost === null) {
+            throw new Error('ORGANIC_PARTIAL_PRICING_UNAVAILABLE')
+          }
+          settledStrategyCreditCost = organicFallbackCharge.cost
+          settledPricingExplanation = organicFallbackCharge.pricing.pricingExplanation
+        }
         const credit = await checkAndDeductCredits(
           user.id,
           'RUN_FULL_STRATEGY',
-          strategyCreditCost,
+          settledStrategyCreditCost,
           {
             entityId: workspace.id,
             entityType: 'workspace_strategy_run',
             operationKey: getCreditOperationKey(req, 'RUN_FULL_STRATEGY', 'workspace_strategy_run', workspace.id),
-            description: `${charge.pricing.pricingExplanation}${planCapLedgerNote} — ${strategyCreditCost} credits`,
+            description: `${settledPricingExplanation}${planCapLedgerNote}${partialOrganicDelivery ? '; partial delivery: organic contract only, paid planning not charged' : ''} — ${settledStrategyCreditCost} credits`,
           },
         )
         if (!credit.ok) {
@@ -683,11 +726,22 @@ export async function POST(req: NextRequest) {
       creditCharge: success && finalDeductedCredit
         ? {
             ...buildCreditChargeReceipt('RUN_FULL_STRATEGY', finalDeductedCredit),
-            cost: strategyCreditCost,
+            cost: settledStrategyCreditCost,
           }
         : null,
       refunded,
       durationMs: generationDurationMs,
+      delivery: result.delivery,
+      warnings: result.warnings,
+      failure: result.failure
+        ? {
+            stage: result.failure.stage,
+            issueCodes: Array.from(new Set(result.failure.issueCodes)),
+            affectedPaths: Array.from(new Set(result.failure.affectedPaths)),
+            outputCounts: result.failure.outputCounts,
+            retryable: true,
+          }
+        : null,
       // Both formats for frontend compatibility
       errors: publicErrors,
       error: publicError,

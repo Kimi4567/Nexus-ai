@@ -6,18 +6,18 @@ import {
 import { prepareStrategyGenerationContext } from '@/lib/strategy/strategyQualityPipeline'
 
 describe('strategy quality evaluation corpus', () => {
-  it('contains 30 unique cases with the intended language and mode coverage', () => {
-    expect(STRATEGY_QUALITY_CASES).toHaveLength(30)
-    expect(new Set(STRATEGY_QUALITY_CASES.map(testCase => testCase.id)).size).toBe(30)
+  it('contains 32 unique cases with the intended language and mode coverage', () => {
+    expect(STRATEGY_QUALITY_CASES).toHaveLength(32)
+    expect(new Set(STRATEGY_QUALITY_CASES.map(testCase => testCase.id)).size).toBe(32)
 
     const count = (predicate: (id: (typeof STRATEGY_QUALITY_CASES)[number]) => boolean) =>
       STRATEGY_QUALITY_CASES.filter(predicate).length
 
     expect(count(testCase => testCase.order.language === 'en')).toBe(15)
-    expect(count(testCase => testCase.order.language === 'ar')).toBe(15)
+    expect(count(testCase => testCase.order.language === 'ar')).toBe(17)
     expect(count(testCase => testCase.order.strategyType === 'organic')).toBe(18)
-    expect(count(testCase => testCase.order.strategyType === 'paid')).toBe(6)
-    expect(count(testCase => testCase.order.strategyType === 'full')).toBe(6)
+    expect(count(testCase => testCase.order.strategyType === 'paid')).toBe(7)
+    expect(count(testCase => testCase.order.strategyType === 'full')).toBe(7)
   })
 
   it.each(STRATEGY_QUALITY_CASES)('$id is truth-consistent and generation-ready', testCase => {

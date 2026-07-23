@@ -22,6 +22,8 @@ export interface StrategyOutputContractContext {
   organicPostCount?: number | null
   hasLeadHandling?: boolean
   hasConversionDestination?: boolean
+  hasBudget?: boolean
+  budgetText?: string | null
   allowedCompetitors?: string[] | null
   goal?: string | null
 }
@@ -261,6 +263,8 @@ function guardArabicFluencyText(value: string): string {
     // Avoid an absolute sales-outcome promise when the product only supports a
     // clearer follow-up workflow.
     .replace(/لا\s+تفقد\s+أي\s+فرصة\s+بيع\s+بعد\s+اليوم/gi, 'نظّم متابعة فرص البيع بدل تركها بين الأدوات')
+    .replace(/(?:هو\s+)?الاستوديو\s+للأصحاب/giu, 'هو استوديو يخدم أصحاب')
+    .replace(/منصة\s+مرئية\s+ة/giu, 'منصة مرئية')
 }
 
 function guardText(value: string, ctx: NormalizedPlatformContext, language?: string | null): string {
@@ -602,6 +606,11 @@ function firstPlatformLabel(ctx: NormalizedPlatformContext): string {
   return ctx.fallbackLabel || 'Instagram'
 }
 
+function platformLabelForIndex(ctx: NormalizedPlatformContext, index: number): string {
+  if (ctx.allowedLabels.length === 0) return firstPlatformLabel(ctx)
+  return ctx.allowedLabels[index % ctx.allowedLabels.length]
+}
+
 function hasUsefulText(value: unknown): boolean {
   return typeof value === 'string' && value.trim().length >= 3
 }
@@ -924,7 +933,7 @@ function groundedFallbackContentAngle(
   if (!audienceNeed) return null
 
   const ar = prefersArabicFallback(language)
-  const platform = firstPlatformLabel(ctx)
+  const platform = platformLabelForIndex(ctx, index)
   const desiredOutcome = audienceNeed.desiredOutcome || (ar
     ? 'فهم الخيارات والخطوة التالية بوضوح'
     : 'understand the options and next step clearly')
@@ -1032,7 +1041,7 @@ function fallbackContentAngle(
   if (grounded) return grounded
 
   const ar = prefersArabicFallback(language)
-  const platform = firstPlatformLabel(ctx)
+  const platform = platformLabelForIndex(ctx, index)
   return ar
     ? {
         title: `فرضية اتجاه المحتوى ${index + 1}`,
@@ -1430,7 +1439,41 @@ function guardChannelMix(
     }).map(fallbackEntry),
   ]
 
-  return organicOnly ? normalizeOrganicChannelMix(completed) : completed
+  if (organicOnly) return normalizeOrganicChannelMix(completed)
+  if (strategyType === 'paid' || strategyType === 'full') {
+    return normalizePaidBudgetChannelMix(completed)
+  }
+  return completed
+}
+
+function normalizePaidBudgetChannelMix(list: unknown[]): unknown[] {
+  const items = list.filter(isObject)
+  if (items.length === 0) return list
+
+  const suppliedWeights = items.map(item => {
+    const value = typeof item.budgetPercent === 'number'
+      ? item.budgetPercent
+      : Number(item.budgetPercent)
+    return Number.isFinite(value) && value > 0 ? value : 0
+  })
+  const totalWeight = suppliedWeights.reduce((sum, value) => sum + value, 0)
+  const weights = totalWeight > 0 ? suppliedWeights : items.map(() => 1)
+  const total = weights.reduce((sum, value) => sum + value, 0)
+  const rawShares = weights.map(value => (value / total) * 100)
+  const budgetShares = rawShares.map(Math.floor)
+  const remainder = 100 - budgetShares.reduce((sum, value) => sum + value, 0)
+  const remainderOrder = rawShares
+    .map((value, index) => ({ index, fraction: value - Math.floor(value) }))
+    .sort((a, b) => b.fraction - a.fraction || a.index - b.index)
+
+  for (let index = 0; index < remainder; index += 1) {
+    budgetShares[remainderOrder[index % remainderOrder.length].index] += 1
+  }
+
+  return items.map((item, index) => ({
+    ...item,
+    budgetPercent: budgetShares[index],
+  }))
 }
 
 function guardPlatformObjectList(list: unknown, ctx: NormalizedPlatformContext, language?: string | null): unknown {
@@ -1447,8 +1490,65 @@ function guardPlatformObjectList(list: unknown, ctx: NormalizedPlatformContext, 
   })
 }
 
-function guardChannelClaimText(value: string, language?: string | null): string {
-  if (!hasUnsourcedChannelMarketClaim(value) || hasChannelHypothesisMarker(value)) return value
+function ensureFunnelPlatformCoverage(list: unknown, ctx: NormalizedPlatformContext): unknown {
+  if (!Array.isArray(list) || ctx.allowedLabels.length <= 1 || list.length < ctx.allowedLabels.length) return list
+  const items = list.filter(isObject)
+  const used = new Set(items.map(item => normalizePlatform(item.platform)).filter(Boolean))
+  const missingCoverage = ctx.allowedLabels.some(label => {
+    const key = normalizePlatform(label)
+    return Boolean(key && !used.has(key))
+  })
+  if (!missingCoverage) return list
+
+  return list.map((item, index) => isObject(item)
+    ? { ...item, platform: platformLabelForIndex(ctx, index) }
+    : item)
+}
+
+function alignChannelMixToOrganicDirections(
+  channelMix: unknown,
+  contentAngles: unknown,
+  strategyType?: string | null,
+  language?: string | null,
+): unknown {
+  if (strategyType === 'paid' || !Array.isArray(channelMix) || !Array.isArray(contentAngles)) return channelMix
+  const directionCounts = new Map<string, number>()
+  contentAngles.forEach((angle) => {
+    if (!isObject(angle)) return
+    const key = normalizePlatform(angle.platform)
+    if (key) directionCounts.set(key, (directionCounts.get(key) || 0) + 1)
+  })
+  const total = Array.from(directionCounts.values()).reduce((sum, count) => sum + count, 0)
+  if (total <= 0) return channelMix
+
+  const ar = prefersArabicFallback(language)
+  let allocatedPercent = 0
+  return channelMix.map((item, index) => {
+    if (!isObject(item)) return item
+    const key = normalizePlatform(item.platform)
+    const count = key ? directionCounts.get(key) || 0 : 0
+    const last = index === channelMix.length - 1
+    const effortSharePercent = last
+      ? Math.max(0, 100 - allocatedPercent)
+      : Math.round((count / total) * 100)
+    allocatedPercent += effortSharePercent
+    return {
+      ...item,
+      ...(strategyType === 'organic' ? { effortSharePercent } : {}),
+      contentFrequency: ar
+        ? `${count} اتجاه محتوى من أصل ${total} في نافذة التخطيط الأولى؛ الجدولة الفعلية تُحدد في Content Hub.`
+        : `${count} of ${total} content directions in the first planning window; actual scheduling is set in Content Hub.`,
+    }
+  })
+}
+
+function guardChannelClaimText(
+  value: string,
+  language?: string | null,
+  forceHypothesis = false,
+): string {
+  if (hasChannelHypothesisMarker(value)) return value
+  if (!forceHypothesis && !hasUnsourcedChannelMarketClaim(value)) return value
 
   const hasArabicText = /[\u0600-\u06ff]/.test(value)
   return hasArabicText || isArabicLanguage(language)
@@ -1460,6 +1560,7 @@ function guardChannelClaimFields(
   list: unknown,
   fields: string[],
   language?: string | null,
+  forceHypothesis = false,
 ): unknown {
   if (!Array.isArray(list)) return list
 
@@ -1468,7 +1569,7 @@ function guardChannelClaimFields(
     const output = { ...item }
     for (const field of fields) {
       if (typeof output[field] === 'string') {
-        output[field] = guardChannelClaimText(output[field], language)
+        output[field] = guardChannelClaimText(output[field], language, forceHypothesis)
       }
     }
     return output
@@ -1701,6 +1802,147 @@ function guardAgencyOperatingSections(
       ? competitor.researchNeeded
       : [ar ? 'جمع رسائل المنافسين وعروضهم وتجربة التحويل من مصادر علنية أو مدخلة من المستخدم.' : 'Collect competitor messaging, offers, and conversion experience from public or user-provided sources.'],
   }
+}
+
+function normalizePlanningHypotheses(value: unknown, language?: string | null): unknown {
+  if (!Array.isArray(value)) return value
+  const ar = isArabicLanguage(language)
+  return value.map((item) => {
+    if (typeof item !== 'string' || !item.trim()) return item
+    if (hasChannelHypothesisMarker(item)) return item
+    return ar
+      ? `فرضية تحتاج إلى تحقق: ${item}`
+      : `Hypothesis to validate: ${item}`
+  })
+}
+
+const INVENTED_ORG_ROLE_RE = /\b(?:marketing manager|marketing team|finance team|sales team|client relations(?: team)?|design team|media buyer|performance team)\b|(?:مدير|فريق)\s+(?:التسويق|المالية|المبيعات|التصميم|الأداء)|فريق\s+علاقات\s+العملاء/i
+
+function referencesInventedOrgRole(value: unknown): boolean {
+  return typeof value === 'string' && INVENTED_ORG_ROLE_RE.test(value)
+}
+
+function guardGeneratedOperatingOwners(output: JsonObject, language?: string | null): void {
+  const ar = isArabicLanguage(language)
+  const responseOwner = ar
+    ? 'مسؤول المتابعة المعيّن ينفّذ خطوة التسليم المحفوظة في Brand Brain بعد التأكيد.'
+    : 'The assigned response owner follows the handoff saved in Brand Brain after confirmation.'
+  const reviewer = ar
+    ? 'مراجع الحملة المعيّن يؤكد الدقة والملاءمة قبل التنفيذ.'
+    : 'The assigned campaign reviewer confirms accuracy and fit before execution.'
+  const measurementOwner = ar
+    ? 'مسؤول قياس معيّن يحتاج إلى تأكيد قبل الإطلاق.'
+    : 'Assigned measurement owner to confirm before launch.'
+
+  if (Array.isArray(output.contentAnglesDetailed)) {
+    output.contentAnglesDetailed = output.contentAnglesDetailed.map((item) => {
+      if (!isObject(item) || !referencesInventedOrgRole(item.responseHandoff)) return item
+      return { ...item, responseHandoff: responseOwner }
+    })
+  }
+
+  if (isObject(output.paidPlanning)) {
+    const paidPlanning = { ...output.paidPlanning }
+    if (Array.isArray(paidPlanning.creativeBriefs)) {
+      paidPlanning.creativeBriefs = paidPlanning.creativeBriefs.map((item) => {
+        if (!isObject(item) || !referencesInventedOrgRole(item.reviewGate)) return item
+        return { ...item, reviewGate: reviewer }
+      })
+    }
+    output.paidPlanning = paidPlanning
+  }
+
+  if (isObject(output.measurementPlan)) {
+    const measurement = { ...output.measurementPlan }
+    if (referencesInventedOrgRole(measurement.owner)) measurement.owner = measurementOwner
+    output.measurementPlan = measurement
+  }
+}
+
+function guardPaidPlanningTruth(
+  output: JsonObject,
+  context: StrategyOutputContractContext,
+): void {
+  if (context.strategyType !== 'paid' && context.strategyType !== 'full') return
+  const ar = isArabicLanguage(context.language)
+
+  output.assumptions = normalizePlanningHypotheses(output.assumptions, context.language)
+  output.executionAssumptions = normalizePlanningHypotheses(output.executionAssumptions, context.language)
+
+  if (context.strategyType === 'paid') {
+    output.roadmap30_60_90 = ar
+      ? [
+          { phase: 'days_1_30', objective: 'إكمال بريف الإطلاق وخط القياس قبل التنفيذ.', deliverables: ['مراجعة فرضيات الجمهور والنسخ والبريفات الإبداعية وأحداث التحويل ووسوم UTM؛ لا إطلاق ولا صرف.'], exitGate: 'اعتماد الأصول والتتبع والحسابات والميزانية في قرار إطلاق منفصل.' },
+          { phase: 'days_31_60', objective: 'مراجعة خط الأساس فقط إذا تم إطلاق حملة لاحقًا بموافقة صريحة.', deliverables: ['عند توفر بيانات فعلية: راجع جودة الطلبات والإسناد وغيّر متغيرًا واحدًا فقط.'], exitGate: 'لا انتقال قبل وجود عينة قابلة للمراجعة وقرار موثق.' },
+          { phase: 'days_61_90', objective: 'توسيع المشمول الذي ثبت فقط بعد تحقق النتائج.', deliverables: ['صياغة توصية توسع مشروطة؛ أي زيادة إنفاق تحتاج موافقة جديدة وصلاحيات حية.'], exitGate: 'دليل أداء موثق، سلامة القياس، وموافقة ميزانية جديدة.' },
+        ]
+      : [
+          { phase: 'days_1_30', objective: 'Complete the launch brief and measurement path before execution.', deliverables: ['Review audience hypotheses, ad copy, creative briefs, conversion events, and UTMs; no launch or spend.'], exitGate: 'Approve assets, tracking, accounts, and budget in a separate launch decision.' },
+          { phase: 'days_31_60', objective: 'Review a baseline only if a campaign is later launched with explicit approval.', deliverables: ['When real data exists, review lead quality and attribution, then change one variable only.'], exitGate: 'Do not advance without a reviewable sample and documented decision.' },
+          { phase: 'days_61_90', objective: 'Scale only validated scope after results are verified.', deliverables: ['Write a conditional scale recommendation; any spend increase needs fresh approval and live permissions.'], exitGate: 'Documented performance evidence, measurement integrity, and renewed budget approval.' },
+        ]
+  }
+
+  if (context.hasConversionDestination === true && Array.isArray(output.riskNotes)) {
+    output.riskNotes = output.riskNotes.filter(item => (
+      typeof item !== 'string'
+      || !/conversion destination (?:is )?(?:unverified|missing|not confirmed)|وجهة التحويل (?:غير موثقة|غير مؤكدة|مفقودة)/i.test(item)
+    ))
+  }
+
+  if (Array.isArray(output.doNotDoYet)) {
+    output.doNotDoYet = output.doNotDoYet.map(item => typeof item === 'string'
+      ? item.replace(/\bunverified proof to collect\b/gi, 'unverified proof or proof-collection placeholders as published evidence')
+      : item)
+  }
+
+  if (!isObject(output.paidPlanning)) return
+  const paidPlanning = { ...output.paidPlanning }
+  if (Array.isArray(paidPlanning.audienceHypotheses)) {
+    paidPlanning.audienceHypotheses = paidPlanning.audienceHypotheses.map((item) => {
+      if (!isObject(item)) return item
+      const hypothesis = { ...item }
+      if (typeof hypothesis.targetingHypothesis === 'string' && !hasChannelHypothesisMarker(hypothesis.targetingHypothesis)) {
+        hypothesis.targetingHypothesis = ar
+          ? `فرضية استهداف يجب تأكيد توفرها داخل المنصة قبل الإطلاق: ${hypothesis.targetingHypothesis}`
+          : `Platform targeting hypothesis to verify before launch: ${hypothesis.targetingHypothesis}`
+      }
+      if (typeof hypothesis.exclusions === 'string' && /ample free time|non[-\s]?luxury interests?|لديهم وقت فراغ|اهتمامات غير فاخرة/i.test(hypothesis.exclusions)) {
+        hypothesis.exclusions = ar
+          ? 'استبعد المواقع والملفات خارج الجمهور الذي راجعه المستخدم، وأكد توفر خيارات الاستهداف داخل المنصة.'
+          : 'Exclude locations and profiles outside the user-reviewed audience; verify targeting availability in-platform.'
+      }
+      return hypothesis
+    })
+  }
+
+  const requiredLaunchBlockers = ar
+    ? [
+        'يجب تأكيد إعداد التتبع أو البكسل قبل الإطلاق.',
+        'يجب إنهاء الأصول الإبداعية ومراجعتها واعتمادها.',
+        'يجب تأكيد ربط الحساب الإعلاني والصلاحيات الحية والموافقة النهائية على الميزانية.',
+      ]
+    : [
+        'Tracking or pixel setup must be confirmed before launch.',
+        'Creative assets must be finalized, reviewed, and approved.',
+        'Connected ad account, live platform permissions, and final budget approval must be confirmed.',
+      ]
+  const existingBlockers = Array.isArray(paidPlanning.launchBlockers)
+    ? paidPlanning.launchBlockers.filter(hasUsefulText)
+    : []
+  paidPlanning.launchBlockers = Array.from(new Set([...existingBlockers, ...requiredLaunchBlockers]))
+
+  if (context.hasBudget && typeof context.budgetText === 'string' && context.budgetText.trim()) {
+    paidPlanning.budgetFramework = ar
+      ? `سقف التخطيط المحفوظ في Brand Brain: ${context.budgetText.trim()}. نسب القنوات مسودة توزيع فقط، ولا يبدأ أي صرف قبل اكتمال التتبع والصلاحيات واعتماد الميزانية.`
+      : `Brand Brain planning ceiling: ${context.budgetText.trim()}. Channel percentages are a draft allocation only; no spend starts before tracking, permissions, and budget approval are confirmed.`
+  }
+  output.paidPlanning = paidPlanning
+
+  output.readyForPaidAds = false
+  output.readyForPaidAdsReason = ar
+    ? 'هذه خطة فقط. يلزم تأكيد التتبع، الأصول، ربط الحساب الإعلاني، الصلاحيات الحية، والموافقة النهائية قبل أي إطلاق أو صرف.'
+    : 'Planning only. Tracking, creative assets, connected ad account, live permissions, and final approval must be confirmed before launch or spend.'
 }
 
 function paidPlanningFallbackStrings(kind: 'pillars' | 'hooks' | 'ctas', language?: string | null): string[] {
@@ -1939,7 +2181,13 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
   }
 
   output.channelMix = guardChannelMix(output.channelMix, ctx, context.strategyType, context.language)
-  output.channelMix = guardChannelClaimFields(output.channelMix, ['rationale'], context.language)
+  const forcePaidChannelHypotheses = context.strategyType === 'paid' || context.strategyType === 'full'
+  output.channelMix = guardChannelClaimFields(
+    output.channelMix,
+    ['rationale'],
+    context.language,
+    forcePaidChannelHypotheses,
+  )
   output.kpis = guardKpisMinimum(output.kpis, context.language)
   output.funnelStages = guardFunnelStagesMinimum(output.funnelStages, ctx, context.language)
   const bindingPostCount = typeof context.organicPostCount === 'number'
@@ -1959,15 +2207,26 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
     output,
   )
   output.contentAnglesDetailed = guardPlatformObjectList(output.contentAnglesDetailed, ctx, context.language)
+  output.contentAnglesDetailed = ensureFunnelPlatformCoverage(output.contentAnglesDetailed, ctx)
   output.contentAnglesDetailed = guardContentAnglesOperationalDepth(output.contentAnglesDetailed, context.language)
+  if (bindingPostCount !== null) {
+    output.channelMix = alignChannelMixToOrganicDirections(
+      output.channelMix,
+      output.contentAnglesDetailed,
+      context.strategyType,
+      context.language,
+    )
+  }
   output.audienceSegmentsDetailed = ensureAudienceSegmentsMinimum(output.audienceSegmentsDetailed, ctx, context.language)
   output.audienceSegmentsDetailed = guardPlatformObjectList(output.audienceSegmentsDetailed, ctx, context.language)
   output.funnelStages = guardPlatformObjectList(output.funnelStages, ctx, context.language)
+  output.funnelStages = ensureFunnelPlatformCoverage(output.funnelStages, ctx)
   output.channelStrategy = guardPlatformObjectList(output.channelStrategy, ctx, context.language)
   output.channelStrategy = guardChannelClaimFields(
     output.channelStrategy,
     ['rationale', 'role', 'reason'],
     context.language,
+    forcePaidChannelHypotheses,
   )
   output.weeklyExecutionPlan = guardWeeklyExecutionPlan(output.weeklyExecutionPlan, ctx)
   output.weeklyExecutionPlan = alignWeeklyExecutionPlanToOrganicCount(
@@ -1982,6 +2241,8 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
   output.assetRequirements = guardAssetRequirements(output.assetRequirements, context.language)
   output.readinessChecklist = guardReadinessChecklist(output.readinessChecklist, context.language)
   guardAgencyOperatingSections(output, context.language, context.allowedCompetitors)
+  guardPaidPlanningTruth(output, context)
+  guardGeneratedOperatingOwners(output, context.language)
   // Run copy specificity last: weekly alignment and fallback construction can
   // reuse legacy messages, so the final document must be checked after every
   // structural transformation has completed.

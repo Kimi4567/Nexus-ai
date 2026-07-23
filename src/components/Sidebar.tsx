@@ -1,9 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { supabase } from '@/lib/supabaseClient'
 import { useI18n } from '@/lib/i18n-context'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 import { getBillingDisplayTruth } from '@/lib/billingDisplayTruth'
@@ -94,6 +93,7 @@ function NavItem({ href, label, labelEn, icon, badge, badgeColor, dot, pathname,
   if (collapsed) {
     return (
       <Link href={href} title={label} onClick={onClick}
+        aria-label={badge ? `${label} ${badge}` : label}
         data-active={isActive}
         className="nx-sidebar-nav-item relative flex h-10 w-full items-center justify-center rounded-xl transition-all duration-150"
       >
@@ -231,8 +231,7 @@ const JOURNEY_ICONS: Record<MarketingJourneyStageId, React.ReactNode> = {
 // ── Main Sidebar ───────────────────────────────────────────────
 export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
-  const router = useRouter()
-  const { user, isAuthenticated, authHeader } = useAuth()
+  const { user, isAuthenticated, authHeader, logout } = useAuth()
   const { locale, setLocale, t, dir } = useI18n()
   // locale is used for language toggle button logic
   const [userMenuOpen, setUserMenuOpen] = React.useState(false)
@@ -277,8 +276,8 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   }, [authHeader])
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/')
+    setUserMenuOpen(false)
+    await logout()
   }
 
   const click = () => { if (onMobileClose) onMobileClose() }
@@ -371,7 +370,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       </div>
 
       {/* Scrollable nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-2" aria-label={t('sidebar.primaryNavigation')}>
+      <nav className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-3 py-2 pb-5" aria-label={t('sidebar.primaryNavigation')}>
         {navGroups.map((group) => (
           <div key={group.key} className="space-y-0.5">
             {group.separatorBefore && <div className="mx-2 my-2.5 h-px bg-white/10" />}
@@ -400,14 +399,14 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       </nav>
 
       {/* Bottom section */}
-      <div className="flex-shrink-0 space-y-1 px-3 pb-2.5"
-        style={{ borderTop: '1px solid rgba(148,163,184,0.12)', paddingTop: '10px' }}>
+      <div className="flex-shrink-0 space-y-1 px-3 pb-[max(0.625rem,env(safe-area-inset-bottom))] pt-1.5 md:pt-2.5"
+        style={{ borderTop: '1px solid rgba(148,163,184,0.12)' }}>
 
         {/* Credits indicator / Upgrade CTA */}
         {!collapsed && billingLoading && (
           <Link href="/billing"
             data-ui="compact-billing-card"
-            className="mb-1 flex flex-col gap-2 rounded-xl px-3 py-2.5 transition-all hover:bg-white/10"
+            className="mb-1 flex flex-col gap-1.5 rounded-xl px-3 py-2 transition-all hover:bg-white/10 md:gap-2 md:py-2.5"
             style={{
               background: 'linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.055))',
               border: '1px solid rgba(148,163,184,0.20)',
@@ -421,7 +420,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
               <span>{locale === 'ar' ? 'جار تحميل حالة الخطة' : 'Loading plan status'}</span>
               <span>{locale === 'ar' ? 'إدارة' : 'Manage'}</span>
             </div>
-            <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
+            <div className="hidden h-1 w-full overflow-hidden rounded-full bg-white/10 md:block">
               <div className="h-full w-2/3 rounded-full bg-[linear-gradient(90deg,#7C83FF,#A78BFA)]" />
             </div>
           </Link>
@@ -429,7 +428,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         {!collapsed && !billingLoading && (
           <Link href="/billing"
             data-ui="compact-billing-card"
-            className="mb-1 flex flex-col gap-2 rounded-xl px-3 py-2.5 transition-all hover:bg-white/10"
+            className="mb-1 flex flex-col gap-1.5 rounded-xl px-3 py-2 transition-all hover:bg-white/10 md:gap-2 md:py-2.5"
             style={{
               background: 'linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.055))',
               border: '1px solid rgba(148,163,184,0.20)',
@@ -456,7 +455,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
               </span>
             </div>
             {!isUnlimited && (
-              <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
+              <div className="hidden h-1 w-full overflow-hidden rounded-full bg-white/10 md:block">
                 <div className="h-full rounded-full transition-all duration-500"
                   style={{
                     width: `${Math.max(0, Math.min(100, (creditsRemaining / Math.max(creditsMax, 1)) * 100))}%`,
@@ -473,7 +472,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
           onClick={() => setCollapsed(c => !c)}
           aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
           aria-expanded={!collapsed}
-          className="mt-0.5 flex h-8 w-full items-center justify-center rounded-lg text-slate-400 transition-all duration-150 hover:bg-white/10 hover:text-white"
+          className="mt-0.5 hidden h-8 w-full items-center justify-center rounded-lg text-slate-400 transition-all duration-150 hover:bg-white/10 hover:text-white md:flex"
           title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}>
           <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
             className={`transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`}>
@@ -497,7 +496,9 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
 
         {/* User menu */}
         <div className="relative mt-0.5">
-          <button onClick={() => setUserMenuOpen(o => !o)}
+          <button type="button" onClick={() => setUserMenuOpen(o => !o)}
+            aria-label={locale === 'ar' ? 'فتح قائمة الحساب' : 'Open account menu'}
+            aria-expanded={userMenuOpen}
             className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2 transition-all duration-150 hover:bg-white/10 ${collapsed ? 'justify-center' : ''}`}>
             <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-black"
               style={{ background: 'rgba(124,131,255,0.18)', border: '1px solid rgba(165,180,252,0.24)', color: '#C7D2FE' }}>
@@ -529,7 +530,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
                       {item.label}
                     </Link>
                   ))}
-                  <button onClick={handleSignOut}
+                  <button type="button" onClick={handleSignOut}
                     className="w-full flex items-center px-2.5 py-2 rounded-[8px] text-[12px] transition-all text-left hover:bg-rose-500/10"
                     style={{ color: '#f43f5e' }}>
                     {t('nav.logout')}

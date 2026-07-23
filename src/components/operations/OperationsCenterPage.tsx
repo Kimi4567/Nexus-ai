@@ -277,7 +277,7 @@ export default function OperationsCenterPage() {
           : copy('لا يوجد نبض محفوظ بعد؛ لن نعرضه كتشغيل نشط.', 'No heartbeat is stored yet, so it is not presented as active.'),
         status: overview.monitor.health,
         statusLabel: overview.monitor.health === 'healthy' ? copy('يعمل', 'Healthy') : overview.monitor.health === 'not_started' ? copy('لم يبدأ', 'Not started') : copy('يحتاج انتباهًا', 'Needs attention'),
-        href: '/operations', actionLabel: copy('التفاصيل', 'Details'),
+        href: '/operations#system-health', actionLabel: copy('عرض النبض', 'View heartbeat'),
       },
       {
         key: 'connections', icon: <PlugZap className="h-5 w-5" />,
@@ -406,7 +406,9 @@ export default function OperationsCenterPage() {
                   icon={<LockKeyhole className="h-5 w-5" />}
                 />
                 <HealthCard
-                  title={copy('حملات قيد التشغيل', 'Campaigns in motion')}
+                  title={overview && overview.execution.needsAttention > 0 && overview.execution.scheduledPosts === 0 && overview.execution.publishedPosts === 0
+                    ? copy('حملات قيد المراجعة', 'Campaigns in review')
+                    : copy('سجلات الحملات', 'Campaign records')}
                   value={overview ? String(overview.execution.campaigns) : '—'}
                   helper={overview ? copy(`${overview.execution.needsAttention} تحتاج تدخلًا · ${overview.execution.scheduledPosts} مجدولة`, `${overview.execution.needsAttention} need intervention · ${overview.execution.scheduledPosts} scheduled`) : copy('جار التحميل', 'Loading')}
                   tone={!overview ? 'neutral' : overview.execution.needsAttention > 0 ? 'warning' : 'ready'}
@@ -545,7 +547,7 @@ export default function OperationsCenterPage() {
                 </div>
 
                 <div className="space-y-5">
-                  <section className="nx-os-card p-5">
+                  <section id="system-health" className="nx-os-card scroll-mt-6 p-5">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <h2 className="text-[17px] font-black text-[#071236]">{copy('صحة النظام', 'System health')}</h2>
@@ -616,6 +618,65 @@ export default function OperationsCenterPage() {
                       )}
                     </div>
                   </section>
+                </div>
+              </section>
+
+              <section id="strategy-run-history" className="nx-os-card scroll-mt-6 p-5" aria-labelledby="strategy-run-history-title">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 id="strategy-run-history-title" className="text-[17px] font-black text-[#071236]">{copy('سجل طلبات الاستراتيجية', 'Strategy request history')}</h2>
+                    <p className="mt-1 text-[10px] font-semibold leading-5 text-[#7b87a3]">{copy('سجل تشغيلي منفصل عن سجل الكريديت: يعرض التسليم أو الفشل، ولا يحوّل محاولة فاشلة إلى حملة.', 'Operational history separate from the credit ledger: it shows delivery or failure without turning a failed attempt into a campaign.')}</p>
+                  </div>
+                  <Link href="/billing" className="inline-flex h-9 items-center gap-1.5 rounded-[11px] border border-[#dbe2f0] px-3 text-[10px] font-black text-[#5366f6]">
+                    {copy('مطابقة الكريديت', 'Reconcile credits')}<ArrowUpRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                  {overview?.strategyRuns.recent.length ? overview.strategyRuns.recent.map(run => {
+                    const typeLabel = run.strategyType === 'organic'
+                      ? copy('عضوية', 'Organic')
+                      : run.strategyType === 'paid'
+                        ? copy('مدفوعة', 'Paid')
+                        : run.strategyType === 'full'
+                          ? copy('كاملة', 'Full')
+                          : copy('النطاق غير مسجل', 'Scope not recorded')
+                    const statusLabel = run.status === 'COMPLETED'
+                      ? copy('تم إنشاء التسليم', 'Delivery created')
+                      : run.status === 'FAILED'
+                        ? copy('لم يتم التسليم', 'Not delivered')
+                        : copy('قيد التنفيذ', 'In progress')
+                    const creditLabel = run.creditOutcome === 'zero_charge_pre_delivery'
+                      ? copy('0 كريديت صافي · توقف قبل التسليم والخصم', '0 net credits · stopped before delivery and debit')
+                      : run.status === 'COMPLETED'
+                        ? copy('طابق المبلغ النهائي في سجل الكريديت', 'Verify the settled amount in the credit ledger')
+                        : run.status === 'RUNNING'
+                          ? copy('لا توجد نتيجة مالية نهائية بعد', 'No final credit outcome yet')
+                          : copy('راجع سجل الكريديت قبل إعادة المحاولة', 'Check the credit ledger before retrying')
+                    return (
+                      <article key={run.id} className="rounded-[17px] border border-[#e6ebf4] bg-[#fbfcff] p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full bg-[#eef1ff] px-2 py-1 text-[8px] font-black text-[#5366f6]">{typeLabel}</span>
+                              {run.organicPostCount !== null && run.organicPostCount > 0 ? <span className="rounded-full bg-slate-100 px-2 py-1 text-[8px] font-black text-slate-600">{copy(`${run.organicPostCount} اتجاه`, `${run.organicPostCount} directions`)}</span> : null}
+                              {run.language ? <span className="rounded-full bg-slate-100 px-2 py-1 text-[8px] font-black uppercase text-slate-600">{run.language}</span> : null}
+                            </div>
+                            <p className="mt-2 text-[11px] font-black text-[#111b3f]">{statusLabel}</p>
+                            {run.reason ? <p className="mt-1 text-[10px] font-semibold leading-5 text-[#6f7b94]">{ar ? run.reason.ar : run.reason.en}</p> : null}
+                            <p className={`mt-2 text-[9px] font-black ${run.creditOutcome === 'zero_charge_pre_delivery' ? 'text-emerald-700' : 'text-[#7b87a3]'}`}>{creditLabel}</p>
+                          </div>
+                          <div className="text-end text-[8px] font-bold leading-4 text-[#909ab0]">
+                            <p>{formatDate(run.createdAt, ar)}</p>
+                            {run.durationMs !== null ? <p>{copy(`${Math.max(1, Math.round(run.durationMs / 1000))} ث`, `${Math.max(1, Math.round(run.durationMs / 1000))}s`)}</p> : null}
+                          </div>
+                        </div>
+                      </article>
+                    )
+                  }) : (
+                    <div className="rounded-[17px] border border-dashed border-[#dfe5ef] bg-[#fbfcff] p-5 text-[10px] font-semibold text-[#7b87a3] lg:col-span-2">
+                      {copy('لا توجد طلبات استراتيجية مسجلة في هذه المساحة بعد.', 'No strategy requests are recorded in this workspace yet.')}
+                    </div>
+                  )}
                 </div>
               </section>
 

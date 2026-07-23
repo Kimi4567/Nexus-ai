@@ -43,8 +43,8 @@ const SECTIONS = [
   {
     titleAr: '7. حقوقك',
     titleEn: '7. Your Rights',
-    bodyAr: `لديك الحق في:\n• الوصول — طلب نسخة من بياناتك الشخصية\n• التصحيح — تحديث معلومات غير دقيقة\n• الحذف — طلب حذف حسابك وبياناتك ("الحق في النسيان")\n• التقييد — طلب تقييد معالجة بياناتك\n• النقل — طلب نسخة قابلة للقراءة آلياً من بياناتك\n• الاعتراض — الاعتراض على معالجة بياناتك لأغراض تسويقية\n\nللممارسة هذه الحقوق: privacy@nexus-grow.com`,
-    bodyEn: `You have the right to:\n• Access — request a copy of your personal data\n• Correction — update inaccurate information\n• Deletion — request account and data deletion ("right to be forgotten")\n• Restriction — request restriction of data processing\n• Portability — request a machine-readable copy of your data\n• Objection — object to processing for marketing purposes\n\nTo exercise these rights: privacy@nexus-grow.com`,
+    bodyAr: `بحسب القانون المطبق عليك، قد يكون لك حق في:\n• الوصول — طلب نسخة من بياناتك الشخصية\n• التصحيح — تحديث معلومات غير دقيقة\n• الحذف — طلب حذف الحساب والبيانات الخاضعة للحذف\n• التقييد — طلب تقييد المعالجة\n• النقل — طلب نسخة قابلة للقراءة آلياً عندما ينطبق ذلك\n• الاعتراض — الاعتراض على معالجة محددة، ومنها التسويق المباشر\n\nقد نحتفظ بسجلات محدودة للفوترة والأمان ومنع الاحتيال والالتزامات القانونية والنسخ الاحتياطية وفق مدد الاحتفاظ المطبقة. سنوضح نطاق الحذف والاستثناءات عند التحقق من الطلب. لتقديم طلب: privacy@nexus-grow.com`,
+    bodyEn: `Depending on the law applicable to you, you may have rights to:\n• Access — request a copy of your personal data\n• Correction — update inaccurate information\n• Deletion — request deletion of the account and data eligible for deletion\n• Restriction — request restriction of processing\n• Portability — request a machine-readable copy where applicable\n• Objection — object to specific processing, including direct marketing\n\nWe may retain limited billing, security, fraud-prevention, legal, and backup records under applicable retention periods. We will explain the deletion scope and any exceptions when verifying a request. To submit a request: privacy@nexus-grow.com`,
   },
   {
     titleAr: '8. حقوق الخصوصية حسب القانون المطبق',
@@ -88,7 +88,7 @@ export default function PrivacyPage() {
       badge="Privacy Policy"
       title={lgT?.privacyTitle as string}
       subtitle={lgT?.privacySubtitle as string}
-      lastUpdated={isAr ? 'آخر تحديث: 16 يوليو 2026' : 'Last updated: July 16, 2026'}
+      lastUpdated={isAr ? 'آخر تحديث: 22 يوليو 2026' : 'Last updated: July 22, 2026'}
       sections={SECTIONS}
       isAr={isAr}
       isRTL={isRTL}

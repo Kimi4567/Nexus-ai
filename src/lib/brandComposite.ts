@@ -307,7 +307,7 @@ export async function composeBrandedPost(
     : null
 
   // ── 4. Composite everything using Sharp ───────────────────────────────────
-  const compositeInputs: sharp.OverlayOptions[] = [
+  const compositeInputs: Parameters<ReturnType<typeof sharp>['composite']>[0] = [
     // Gradient strip — must come first so all text/logo sit above it
     { input: gradientSvg, top: 0, left: 0 },
   ]

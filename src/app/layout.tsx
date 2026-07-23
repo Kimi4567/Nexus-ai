@@ -13,11 +13,11 @@ export const metadata: Metadata = {
     'campaign generator', 'content creation', 'social media marketing',
     'AI marketing platform', 'marketing SaaS', 'Brand Brain',
   ],
-  metadataBase: new URL('https://nexus-grow.com'),
+  metadataBase: new URL('https://www.nexus-grow.com'),
   openGraph: {
     title: 'NEXUS AI — Marketing Operating System',
     description: 'Brand Brain, reviewed strategy, content planning, approvals, and evidence-backed monitoring in one platform. Start with 15 trial credits.',
-    url: 'https://nexus-grow.com',
+    url: 'https://www.nexus-grow.com',
     siteName: 'NEXUS AI',
     type: 'website',
     images: [

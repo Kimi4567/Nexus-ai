@@ -34,6 +34,25 @@ describe('detectUnsupportedClaims (PR-1K)', () => {
     expect(cats('أضمن لك النجاح')).toContain('guarantee')
   })
 
+  it('flags Arabic guarantee nouns that assert an unsupported outcome', () => {
+    expect(cats('نرسل تحديثات أسبوعية لضمان راحة البال.')).toContain('guarantee')
+    expect(cats('نقدم مراحل واضحة لضمان سير العمل بسلاسة.')).toContain('guarantee')
+    expect(cats('نحن هنا لنجعل الرحلة سهلة وممتعة.')).toContain('guarantee')
+    expect(cats('نوفر رؤية واضحة للنتيجة النهائية.')).toContain('guarantee')
+    expect(cats('لا تستخدم عبارات مثل ضمان النتائج.')).not.toContain('guarantee')
+  })
+
+  it('flags broad interior-design service assurances that exceed documented scope', () => {
+    const text = [
+      'تجديد منزلك دون عناء المتابعة اليومية.',
+      'نحن نهتم بكل التفاصيل لتتمتع براحة البال.',
+      'تجنب المفاجآت المالية وكن على دراية تامة بكل خطوة.',
+      'نقدم إشرافًا كاملًا على التنفيذ.',
+    ].join(' ')
+
+    expect(cats(text)).toContain('guarantee')
+  })
+
   it('flags an unsupported percentage claim ("30% productivity gain")', () => {
     const r = detectUnsupportedClaims('30% productivity gain')
     expect(r.hasUnsupportedClaims).toBe(true)
@@ -107,6 +126,11 @@ describe('detectUnsupportedClaims (PR-1K)', () => {
       'لا تستخدم نتائج مضمونة بدون دليل.',
       'لا نضمن النتائج.',
       'لن نضمن لك نتيجة.',
+      'عدم استخدام كلمات مثل نتائج مضمونة.',
+      'ممنوع استخدام عبارة نتائج مضمونة.',
+      'لا تدعي أنك الأفضل في دبي.',
+      'Do not use words like guaranteed results.',
+      'Avoid phrases such as trusted by thousands.',
     ])
 
     expect(result.hasUnsupportedClaims).toBe(false)
@@ -118,6 +142,27 @@ describe('detectUnsupportedClaims (PR-1K)', () => {
 
     expect(result.hasUnsupportedClaims).toBe(true)
     expect(result.findings.some((finding) => finding.category === 'guarantee')).toBe(true)
+  })
+
+  it('detects unsourced Arabic social proof and client-success claims', () => {
+    const result = detectUnsupportedClaims([
+      'اكتشف قصص نجاح عملائنا.',
+      'تعرف على تجارب عملائنا وآرائهم.',
+      'عملاؤنا يحبون هذه الخدمة.',
+    ])
+
+    expect(result.findings.map((finding) => finding.category)).toEqual(
+      expect.arrayContaining(['caseStudy', 'socialProof']),
+    )
+  })
+
+  it('does not flag Arabic social-proof phrases inside explicit safety instructions', () => {
+    const result = detectUnsupportedClaims([
+      'عدم استخدام قصص نجاح عملائنا قبل توثيقها.',
+      'لا تذكر تجارب عملائنا بدون موافقة.',
+    ])
+
+    expect(result.hasUnsupportedClaims).toBe(false)
   })
 
   it('mixed copy: flags only the risky sentence, not the safe one', () => {

@@ -608,7 +608,7 @@ export default function LearningPage() {
                     <div className="grid grid-cols-2 gap-3">
                       {[
                         [copy('زيارات', 'Views'), overview.firstParty.funnel.pageViews, 'CLIENT_REPORTED'],
-                        [copy('نماذج مؤكدة', 'Confirmed forms'), overview.firstParty.funnel.confirmedForms, 'SERVER_CONFIRMED'],
+                        [copy('نماذج Landing Page مؤكدة', 'Confirmed landing-page forms'), overview.firstParty.funnel.confirmedForms, 'SERVER_CONFIRMED'],
                         [copy('Leads', 'Leads'), overview.firstParty.funnel.leads, copy('مسجلة', 'RECORDED')],
                         [copy('مكتسب', 'Won'), overview.firstParty.funnel.wonLeads, 'MANUAL_CONFIRMED'],
                       ].map(([label, value, evidence]) => <div key={String(label)} className="rounded-[15px] border border-[#e8edf5] bg-[#fbfcff] p-3"><p className="text-[8px] font-black text-[#8a95aa]">{label}</p><p className="mt-1 text-[20px] font-black text-[#111b3f]">{value}</p><p className="mt-1 truncate font-mono text-[7px] font-bold text-[#9aa4b6]">{evidence}</p></div>)}

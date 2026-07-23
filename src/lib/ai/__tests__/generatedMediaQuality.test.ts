@@ -31,6 +31,60 @@ describe('generated media quality gate', () => {
     expect(result.referencePreservationScore).toBeNull()
   })
 
+  it('does not reject a background-only asset for correctly omitting editable copy layers', () => {
+    const result = normalizeGeneratedMediaQualityReview({
+      semanticAlignmentScore: 92,
+      professionalQualityScore: 91,
+      technicalIntegrity: true,
+      noNewRasterText: true,
+      noInventedClaims: true,
+      issues: ['Missing campaign message text', 'No approved overlays present'],
+      summary: 'Background scene is aligned but contains no overlays.',
+    }, {
+      mediaType: 'IMAGE',
+      referenceImageUrl: null,
+      backgroundOnly: true,
+    }, usage)
+
+    expect(result.passed).toBe(true)
+    expect(result.issues).toEqual([])
+  })
+
+  it('normalizes a consistent provider 0–10 rubric before applying 0–100 thresholds', () => {
+    const result = normalizeGeneratedMediaQualityReview({
+      semanticAlignmentScore: 9,
+      professionalQualityScore: 9,
+      technicalIntegrity: true,
+      noNewRasterText: true,
+      noInventedClaims: true,
+      issues: ['Missing campaign message text', 'No approved overlays present'],
+      summary: 'Strong background scene scored on a ten-point rubric.',
+    }, {
+      mediaType: 'IMAGE',
+      referenceImageUrl: null,
+      backgroundOnly: true,
+    }, usage)
+
+    expect(result.semanticAlignmentScore).toBe(90)
+    expect(result.professionalQualityScore).toBe(90)
+    expect(result.passed).toBe(true)
+    expect(result.issues).toEqual([])
+  })
+
+  it('still treats missing required copy as an issue outside the background-only contract', () => {
+    const result = normalizeGeneratedMediaQualityReview({
+      semanticAlignmentScore: 92,
+      professionalQualityScore: 91,
+      technicalIntegrity: true,
+      noNewRasterText: true,
+      noInventedClaims: true,
+      issues: ['Missing campaign message text'],
+    }, { mediaType: 'IMAGE', referenceImageUrl: null }, usage)
+
+    expect(result.passed).toBe(false)
+    expect(result.issues).toContain('Missing campaign message text')
+  })
+
   it('rejects reference work below the immutable-source threshold', () => {
     const result = normalizeGeneratedMediaQualityReview({
       referencePreservationScore: 89,

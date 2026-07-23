@@ -80,6 +80,22 @@ const HOME_CLEANING_MARKERS = [
   'حمام', 'مطبخ', 'انتقال', 'ضيوف',
 ]
 
+// Generic words such as "home", "apartment", "villa", and "appointment" also
+// occur in interior design, real estate, hospitality, and many other services.
+// Require at least one service-specific marker before assigning a narrow legacy
+// consistency category; otherwise the safety layer creates a false conflict.
+const CLINIC_STRONG_MARKERS = [
+  'clinic', 'clinics', 'patient', 'patients', 'front-desk', 'front desk',
+  'practice manager', 'healthcare', 'medical',
+  'عيادة', 'عيادات', 'مرضى', 'مريض', 'استقبال', 'رعاية صحية', 'طبي', 'طبية',
+]
+
+const HOME_CLEANING_STRONG_MARKERS = [
+  'cleaning', 'cleaner', 'cleaners', 'deep clean', 'recurring cleaning',
+  'home cleaning', 'maid', 'bathroom', 'kitchen', 'eco-friendly products',
+  'تنظيف', 'خادمة', 'حمام', 'مطبخ',
+]
+
 const SCREENED_FIELDS: BrandBrainGenerationField[] = [
   'competitorNotes',
   'businessGoal',
@@ -126,9 +142,11 @@ function resolveAnchorCategory(profile: BrandBrainGenerationProfile): BrandBrain
 
   const clinicScore = markerScore(anchorText, CLINIC_MARKERS)
   const cleaningScore = markerScore(anchorText, HOME_CLEANING_MARKERS)
+  const hasClinicIdentity = markerScore(anchorText, CLINIC_STRONG_MARKERS) > 0
+  const hasCleaningIdentity = markerScore(anchorText, HOME_CLEANING_STRONG_MARKERS) > 0
 
-  if (clinicScore >= 2 && clinicScore > cleaningScore) return 'clinicOperationsSaas'
-  if (cleaningScore >= 2 && cleaningScore > clinicScore) return 'homeCleaning'
+  if (hasClinicIdentity && clinicScore >= 2 && clinicScore > cleaningScore) return 'clinicOperationsSaas'
+  if (hasCleaningIdentity && cleaningScore >= 2 && cleaningScore > clinicScore) return 'homeCleaning'
   return 'unknown'
 }
 
@@ -140,11 +158,13 @@ function fieldConflictsWithAnchor(
   if (!text.trim() || anchorCategory === 'unknown') return false
 
   if (anchorCategory === 'clinicOperationsSaas') {
-    return markerScore(text, HOME_CLEANING_MARKERS) > 0
+    return markerScore(text, HOME_CLEANING_STRONG_MARKERS) > 0
+      || markerScore(text, HOME_CLEANING_MARKERS) >= 2
   }
 
   if (anchorCategory === 'homeCleaning') {
-    return markerScore(text, CLINIC_MARKERS) > 0
+    return markerScore(text, CLINIC_STRONG_MARKERS) > 0
+      || markerScore(text, CLINIC_MARKERS) >= 2
   }
 
   return false

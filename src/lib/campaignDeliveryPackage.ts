@@ -4,6 +4,7 @@ import {
   readStrategyApprovalSnapshotPayload,
   reviewPostAgainstApprovalSnapshot,
   reviewPostAgainstMediaApprovalSnapshot,
+  reviewPostAgainstScheduleDecisionSnapshot,
   type SnapshotContentPost,
 } from '@/lib/campaignSnapshots'
 
@@ -17,6 +18,15 @@ type SnapshotEvidence = {
 
 export type DeliveryPackagePost = SnapshotContentPost & {
   status: string
+  approvedSnapshotId?: string | null
+  mediaApprovalSnapshotId?: string | null
+  scheduledSnapshotId?: string | null
+  integrationId?: string | null
+  pageId?: string | null
+  pageName?: string | null
+  platformOptions?: unknown
+  publishMode?: string | null
+  autoPublishConsentAt?: string | Date | null
   approvedSnapshot?: SnapshotEvidence | null
   mediaApprovalSnapshot?: SnapshotEvidence | null
   scheduledSnapshot?: SnapshotEvidence | null
@@ -24,7 +34,13 @@ export type DeliveryPackagePost = SnapshotContentPost & {
   platformUrl?: string | null
 }
 
-export type DeliveryPackageState = 'NO_CONTENT' | 'REVIEW_DRAFT' | 'COPY_APPROVED' | 'READY_FOR_SCHEDULING'
+export type DeliveryPackageState =
+  | 'NO_CONTENT'
+  | 'REVIEW_DRAFT'
+  | 'COPY_APPROVED'
+  | 'READY_FOR_SCHEDULING'
+  | 'SCHEDULED'
+  | 'PROVIDER_PUBLISHED'
 
 function verifiedSnapshot(
   snapshot: SnapshotEvidence | null | undefined,
@@ -54,6 +70,7 @@ export function buildCampaignDeliveryPackage(input: {
     const mediaApproved = verifiedSnapshot(post.mediaApprovalSnapshot, CAMPAIGN_SNAPSHOT_SCOPE.CONTENT_MEDIA_APPROVAL)
       && reviewPostAgainstMediaApprovalSnapshot(post, post.mediaApprovalSnapshot).ok
     const scheduleRecorded = verifiedSnapshot(post.scheduledSnapshot, CAMPAIGN_SNAPSHOT_SCOPE.SCHEDULE_DECISION)
+      && reviewPostAgainstScheduleDecisionSnapshot(post, post.scheduledSnapshot).ok
     const providerPublicationVerified = post.status === 'PUBLISHED' && Boolean(post.platformPostId)
 
     return {
@@ -87,6 +104,7 @@ export function buildCampaignDeliveryPackage(input: {
 
   const copyApprovedCount = posts.filter(post => post.copyApproved).length
   const mediaApprovedCount = posts.filter(post => post.mediaApproved).length
+  const scheduleRecordedCount = posts.filter(post => post.scheduleRecorded).length
   const providerPublicationVerifiedCount = posts.filter(post => post.providerPublicationVerified).length
   const state: DeliveryPackageState = posts.length === 0
     ? 'NO_CONTENT'
@@ -94,7 +112,11 @@ export function buildCampaignDeliveryPackage(input: {
       ? 'REVIEW_DRAFT'
       : mediaApprovedCount !== posts.length
         ? 'COPY_APPROVED'
-        : 'READY_FOR_SCHEDULING'
+        : providerPublicationVerifiedCount === posts.length
+          ? 'PROVIDER_PUBLISHED'
+          : scheduleRecordedCount === posts.length
+            ? 'SCHEDULED'
+            : 'READY_FOR_SCHEDULING'
 
   return {
     schemaVersion: 1 as const,
@@ -113,6 +135,7 @@ export function buildCampaignDeliveryPackage(input: {
       posts: posts.length,
       copyApproved: copyApprovedCount,
       mediaApproved: mediaApprovedCount,
+      scheduleRecorded: scheduleRecordedCount,
       providerPublicationVerified: providerPublicationVerifiedCount,
     },
     posts,

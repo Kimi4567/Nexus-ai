@@ -23,9 +23,19 @@ export function isImageProviderConfigured(): boolean {
   return (typeof falKey === 'string' && falKey.trim().length > 0) || isAiProviderConfigured()
 }
 
+export function getVideoProviderApiKey(): string | null {
+  const runwayKey = process.env.RUNWAYML_API_SECRET
+    || process.env.RUNWAY_API_KEY
+    || process.env.RUNWAY_ML_API_KEY
+  const normalizedKey = typeof runwayKey === 'string' ? runwayKey.trim() : ''
+
+  return normalizedKey.startsWith('key_')
+    ? normalizedKey
+    : null
+}
+
 export function isVideoProviderConfigured(): boolean {
-  const runwayKey = process.env.RUNWAYML_API_SECRET || process.env.RUNWAY_API_KEY
-  return typeof runwayKey === 'string' && runwayKey.trim().length > 0
+  return getVideoProviderApiKey() !== null
 }
 
 export function isMediaStorageConfigured(): boolean {

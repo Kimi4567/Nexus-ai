@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  collectSentinelCustomerFacingText,
   hasCampaignEvidenceQuote,
   normalizeSentinelAssessment,
 } from '@/lib/agents/sentinel-reviewer'
@@ -82,5 +83,56 @@ describe('Sentinel evidence grounding', () => {
     expect(review.status).toBe('needs_attention')
     expect(review.complianceWarnings[0]).toContain('guaranteed results')
     expect(review.recommendedFixes[0]).toContain('aims to')
+  })
+
+  it('separates internal safety instructions from customer-facing campaign copy', () => {
+    const customerCopy = collectSentinelCustomerFacingText({
+      campaignName: 'Luma launch',
+      language: 'ar',
+      strategy: {
+        positioning: 'اختيارات يومية بطابع عصري.',
+        doNotDoYet: ['لا تدعي أنك الأفضل في دبي.'],
+        executionAssumptions: ['عدم استخدام كلمات مثل نتائج مضمونة.'],
+      },
+      strategyReviewSource: {
+        doNotDoYet: ['عدم استخدام قصص نجاح عملائنا قبل توثيقها.'],
+        assumptions: ['العملاء يفضلون هذا النمط — فرضية تحتاج اختباراً.'],
+        paidPlanning: {
+          launchBlockers: ['لا تستخدم نتائج مضمونة.'],
+          adCopyVariations: [{
+            headline: 'إطلالة تناسب يومك',
+            primaryText: 'اكتشفي المجموعة واختاري ما يناسبك.',
+            cta: 'تصفحي المجموعة',
+          }],
+        },
+      },
+    })
+
+    expect(customerCopy).toContain('اختيارات يومية بطابع عصري.')
+    expect(customerCopy).toContain('اكتشفي المجموعة واختاري ما يناسبك.')
+    expect(customerCopy).not.toContain('لا تدعي أنك الأفضل في دبي.')
+    expect(customerCopy).not.toContain('عدم استخدام كلمات مثل نتائج مضمونة.')
+    expect(customerCopy).not.toContain('عدم استخدام قصص نجاح عملائنا قبل توثيقها.')
+    expect(customerCopy).not.toContain('العملاء يفضلون هذا النمط — فرضية تحتاج اختباراً.')
+    expect(detectUnsupportedClaims(customerCopy).hasUnsupportedClaims).toBe(false)
+  })
+
+  it('keeps real Arabic social proof inside paid ad copy in the deterministic scan', () => {
+    const customerCopy = collectSentinelCustomerFacingText({
+      campaignName: 'Luma paid test',
+      strategyReviewSource: {
+        paidPlanning: {
+          adCopyVariations: [{
+            headline: 'قصص نجاح عملائنا',
+            primaryText: 'شاهدي تجارب عملائنا قبل الاختيار.',
+            cta: 'اعرفي المزيد',
+          }],
+        },
+      },
+    })
+
+    expect(detectUnsupportedClaims(customerCopy).findings.map((finding) => finding.category)).toEqual(
+      expect.arrayContaining(['caseStudy', 'socialProof']),
+    )
   })
 })

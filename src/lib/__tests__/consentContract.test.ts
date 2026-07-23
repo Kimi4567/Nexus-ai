@@ -20,10 +20,13 @@ describe('optional analytics consent contract', () => {
     expect(banner).toContain('analytics: true')
   })
 
-  it('keeps the consent card compact on desktop so it does not block primary forms', () => {
+  it('keeps the consent card compact across mobile and desktop so it does not block primary forms', () => {
     expect(banner).toContain('lg:w-[min(480px,calc(50vw-3rem))]')
     expect(banner).toContain('lg:start-[max(1.5rem,calc((100vw-1180px)/2+1.5rem))]')
-    expect(banner).toContain('bottom-20')
+    expect(banner).toContain('bottom-3')
+    expect(banner).toContain('sm:bottom-6')
+    expect(banner).toContain('hidden text-[11px] leading-5 text-slate-500 sm:block')
+    expect(banner).toContain('underline sm:hidden')
     expect(banner).not.toContain('max-w-4xl')
     expect(banner).toContain("aria-label={isRTL ? 'إغلاق إشعار ملفات تعريف الارتباط' : 'Close cookie preferences'}")
     expect(banner).toContain('if (!visible) return null')

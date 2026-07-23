@@ -29,6 +29,7 @@ import {
   STARTER_CREDITS,
 } from '@/lib/credits/creditGrants'
 import { CURRENT_CREDIT_PRICING_VERSION } from '@/lib/credits/pricing'
+import { PUBLIC_PAID_PLANS } from '@/lib/commercialPlans'
 
 // ── Credit cost map ────────────────────────────────────────────────────────────
 // All AI actions and their credit costs.
@@ -379,8 +380,9 @@ function debitDescription(action: CreditAction): string {
 
 // ── Free plan starter credits ──────────────────────────────────────────────────
 // Granted on first AI action to brand-new FREE accounts.
-// 15 credits = one bounded activation journey: Organic Light / 30 days (12)
-// plus a quality review (3). Content production starts after upgrade/top-up.
+// 15 credits = one bounded activation journey: Organic Light logic / 30 days
+// (12), capped to three strategy directions by the Trial post allowance, plus a
+// quality review (3). Content production starts after upgrade/top-up.
 // Larger confirmed strategy orders are quoted before any reservation.
 // Adjust here to change the free tier without touching any route.
 
@@ -395,12 +397,12 @@ export const FREE_STARTER_CREDITS = STARTER_CREDITS
 export const PLANS_CREDITS: Record<string, number> = {
   FREE:      FREE_STARTER_CREDITS, // 15 (one-time, never refreshes)
   STARTER:   50,
-  PRO:       60,   // Growth plan
-  GROWTH:    60,   // alias
-  BUSINESS:  180,  // Autopilot plan
-  AGENCY:    180,  // alias
+  PRO:       PUBLIC_PAID_PLANS[0].monthlyCredits,   // Growth plan
+  GROWTH:    PUBLIC_PAID_PLANS[0].monthlyCredits,   // alias
+  BUSINESS:  PUBLIC_PAID_PLANS[1].monthlyCredits,  // Autopilot plan
+  AGENCY:    PUBLIC_PAID_PLANS[1].monthlyCredits,  // alias
   // Stripe subscription status aliases (subscriptionStatus field values)
-  ACTIVE:    60,   // Stripe active = Growth tier
+  ACTIVE:    PUBLIC_PAID_PLANS[0].monthlyCredits,   // Stripe active = Growth tier
 }
 
 // ── Daily image-generation caps per plan ──────────────────────────────────────

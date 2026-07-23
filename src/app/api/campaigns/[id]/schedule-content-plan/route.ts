@@ -167,7 +167,11 @@ export async function POST(req: NextRequest, props: Params) {
         code: 'STRATEGY_APPROVAL_SNAPSHOT_REQUIRED',
       }, { status: 409 })
     }
-    const currentStrategyPayload = buildStrategyApprovalSnapshotPayload({ campaign, brandProfile })
+    const currentStrategyPayload = buildStrategyApprovalSnapshotPayload({
+      campaign,
+      brandProfile,
+      persistedApprovedAiOutput: true,
+    })
     if (hashCampaignSnapshotPayload(currentStrategyPayload) !== strategySnapshot.payloadHash) {
       return NextResponse.json({
         error: 'The campaign or Brand Brain changed after strategy approval. Review the strategy and content again before scheduling.',

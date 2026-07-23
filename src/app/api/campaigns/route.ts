@@ -4,6 +4,7 @@ import { ensureDbUser, getServerUserId } from '@/lib/apiAuth'
 import { readLockedCampaignAllowance } from '@/lib/campaignCommercial'
 import { randomUUID } from 'crypto'
 import type { BrandTone, CampaignGoal, Platform, Prisma } from '@prisma/client'
+import { buildCampaignPortfolioSummary } from '@/lib/campaignPortfolioSummary'
 
 // Map display names → Prisma Platform enum values
 const PLATFORM_MAP: Record<string, string> = {
@@ -160,6 +161,7 @@ export async function GET(req: NextRequest) {
     const sort = searchParams.get('sort') || 'createdAt'
     const order = searchParams.get('order') === 'asc' ? 'asc' : 'desc'
     const limit = parseInt(searchParams.get('limit') || '50')
+    const includeAiOutput = searchParams.get('includeAiOutput') !== 'false'
 
     const where: any = {
       workspace: { ownerId: userId },
@@ -239,16 +241,19 @@ export async function GET(req: NextRequest) {
       if (post.status === 'FAILED') summary.failed += 1
       contentByCampaign.set(post.campaignId, summary)
     }
-    const campaignsWithWorkflow = campaigns.map(campaign => ({
-      ...campaign,
-      workflowSummary: contentByCampaign.get(campaign.id) ?? {
+    const campaignsWithWorkflow = campaigns.map(campaign => {
+      const workflowSummary = contentByCampaign.get(campaign.id) ?? {
         total: 0,
         mediaPending: 0,
         scheduled: 0,
         published: 0,
         failed: 0,
-      },
-    }))
+      }
+      const strategySummary = buildCampaignPortfolioSummary(campaign.aiOutput)
+      if (includeAiOutput) return { ...campaign, workflowSummary, strategySummary }
+      const { aiOutput: _omittedAiOutput, ...portfolioCampaign } = campaign
+      return { ...portfolioCampaign, workflowSummary, strategySummary }
+    })
 
     return NextResponse.json({ campaigns: campaignsWithWorkflow, counts: { total, active, draft } })
   } catch (err: any) {

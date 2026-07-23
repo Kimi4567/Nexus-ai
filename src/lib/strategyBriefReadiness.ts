@@ -128,7 +128,7 @@ export function hasUsableConversionDestination(
   campaignObjective?: string | null,
 ): boolean {
   const value = typeof destination === 'string' ? destination.trim() : ''
-  if (!value || /\b(?:tbd|todo|not (?:yet )?(?:set|connected|available)|coming soon)\b/i.test(value)) return false
+  if (!value || /\b(?:tbd|todo|not (?:yet )?(?:set|connected|available|published)|coming soon|to be (?:created|built|published|connected)|will be (?:created|built|published|connected)|create (?:it|this|the form|the landing page) later)\b/i.test(value)) return false
   if (campaignObjective?.toLowerCase() === 'sales') return /^https?:\/\/\S+$/i.test(value)
   return /^(?:https?:\/\/\S+|.+(?:whatsapp|form|landing page|dm|phone|booking).*)$/i.test(value)
 }
@@ -160,7 +160,6 @@ const paidChecks: Array<{ key: StrategyBriefFieldKey; ok: (p: StrategyBriefProfi
   { key: 'pricePoint', ok: (p) => hasText(p.pricePoint) },
   { key: 'uniqueAdvantages', ok: (p) => hasList(p.uniqueAdvantages) },
   { key: 'customerObjections', ok: (p) => hasList(p.customerObjections) },
-  { key: 'verifiedProof', ok: (p) => hasList(p.verifiedProof) },
 ]
 
 function missingFor(
@@ -197,7 +196,7 @@ export function getStrategyBriefReadiness(
 
   const recommendedFields: StrategyBriefFieldKey[] = []
   const warnings: StrategyBriefWarning[] = []
-  if (mode === 'organic' && !hasList(profile.verifiedProof)) {
+  if (!hasList(profile.verifiedProof)) {
     recommendedFields.push('verifiedProof')
     warnings.push('verified_proof_missing')
   }
@@ -235,10 +234,10 @@ export function getStrategyBriefReadiness(
     }
     safeScope = canGeneratePaidPlan
       ? 'Paid planning brief only. NEXUS will not launch ads or spend budget without tracking, platform readiness, and explicit approval.'
-      : 'Paid strategy is blocked until the paid brief has budget, conversion, lead handling, audience/location, offer economics, differentiation, objections, proof, and platform inputs.'
+      : 'Paid strategy is blocked until the paid brief has budget, conversion, lead handling, audience/location, offer economics, differentiation, objections, and platform inputs.'
     safeScopeAr = canGeneratePaidPlan
       ? 'بريف تخطيط مدفوع فقط. لن يطلق NEXUS إعلانات أو يصرف ميزانية بدون تتبع وجاهزية منصة وموافقة صريحة.'
-      : 'الاستراتيجية المدفوعة متوقفة حتى يكتمل بريف الميزانية والتحويل والتعامل مع العملاء والجمهور/الموقع واقتصاديات العرض والتميّز والاعتراضات والإثبات والمنصات.'
+      : 'الاستراتيجية المدفوعة متوقفة حتى يكتمل بريف الميزانية والتحويل والتعامل مع العملاء والجمهور/الموقع واقتصاديات العرض والتميّز والاعتراضات والمنصات.'
     explanation = canGeneratePaidPlan
       ? 'Paid planning can be generated, but launch and spend remain separate gated actions.'
       : 'Paid planning needs explicit paid inputs. No internal default budget is treated as user-provided.'

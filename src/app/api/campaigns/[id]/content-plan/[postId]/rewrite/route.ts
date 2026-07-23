@@ -76,30 +76,39 @@ export async function POST(req: NextRequest, props: Params) {
     }))
 
     // ── 1. Verify post ownership ───────────────────────────────────────────
-    const post = await (prisma.socialPost as any).findFirst({
-      where: {
-        id: params.postId,
-        campaignId: params.id,
-        workspace: { ownerId: userId },
-      },
-      select: {
-        id: true,
-        caption: true,
-        imagePrompt: true,
-        platform: true,
-        status: true,
-        workspaceId: true,
-        campaign: {
-          select: {
-            name: true,
-            tone: true,
-            audience: true,
-            aiOutput: true,
-          },
+    // SocialPost intentionally stores campaignId without a Prisma relation.
+    // Fetch both records independently and tenant-scope each lookup.
+    const [post, campaign] = await Promise.all([
+      (prisma.socialPost as any).findFirst({
+        where: {
+          id: params.postId,
+          campaignId: params.id,
+          workspace: { ownerId: userId },
         },
-      },
-    })
-    if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+        select: {
+          id: true,
+          caption: true,
+          imagePrompt: true,
+          platform: true,
+          status: true,
+          workspaceId: true,
+        },
+      }),
+      prisma.campaign.findFirst({
+        where: {
+          id: params.id,
+          workspace: { ownerId: userId },
+        },
+        select: {
+          name: true,
+          tone: true,
+          audience: true,
+          aiOutput: true,
+          goal: true,
+        },
+      }),
+    ])
+    if (!post || !campaign) return NextResponse.json({ error: 'Post not found' }, { status: 404 })
     if (isImmutableExecutionPost(post.status)) {
       return NextResponse.json({
         error: 'Published or provider-processing posts are immutable. Create a new draft for a revision.',
@@ -116,14 +125,14 @@ export async function POST(req: NextRequest, props: Params) {
     }
 
     if (!isAiProviderConfigured()) {
-      const outputLanguage = language || (post.campaign as any)?.aiOutput?.language
+      const outputLanguage = language || (campaign.aiOutput as any)?.language
       return NextResponse.json(getAiProviderUnavailablePayload(outputLanguage), { status: 503 })
     }
 
     const rateLimitResponse = await enforceBillableAiRateLimit(userId, 'AI_POST_REWRITE')
     if (rateLimitResponse) return rateLimitResponse
 
-    // ── 2. Deduct 1 credit ─────────────────────────────────────────────────
+    // ── 2. Deduct the displayed rewrite cost ───────────────────────────────
     const creditCheck = await checkAndDeductCredits(
       userId,
       'AI_POST_REWRITE',
@@ -166,8 +175,7 @@ export async function POST(req: NextRequest, props: Params) {
     const charLimit   = PLATFORM_LIMITS[platform] ?? 2200
     const styleGuide  = PLATFORM_STYLE[platform] ?? 'Platform-native social media post'
 
-    const campaign = post.campaign as any
-    const aiOutput = campaign?.aiOutput as any
+    const aiOutput = campaign.aiOutput as any
 
     const brandName    = brand?.brandName ?? campaign?.name ?? 'Brand'
     const toneWords    = brand?.toneKeywords?.join(', ') || campaign?.tone || 'professional'
@@ -237,7 +245,7 @@ ${post.caption}${instruction ? `\n\nRewrite instruction: ${instruction}` : '\n\n
       : newCaption
     const guardedCaption = guardContentDraftText(truncated, {
       verifiedProof: sourceLinkedProofStatements(brand?.verifiedProof),
-      hasConversionDestination: hasUsableConversionDestination(brand?.conversionDestination, post.campaign.goal),
+      hasConversionDestination: hasUsableConversionDestination(brand?.conversionDestination, campaign.goal),
       brandFacts: [
         brand?.brandName,
         brand?.description,

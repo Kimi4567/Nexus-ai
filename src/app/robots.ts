@@ -26,6 +26,6 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
     ],
-    sitemap: 'https://nexus-grow.com/sitemap.xml',
+    sitemap: 'https://www.nexus-grow.com/sitemap.xml',
   }
 }

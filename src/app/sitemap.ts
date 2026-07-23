@@ -4,7 +4,7 @@ import { publishedSnapshotIsIndexable } from '@/lib/landingPageContract'
 import { landingPageCanonicalUrl } from '@/lib/landingPageSeo'
 import { prisma } from '@/lib/prisma'
 
-const BASE_URL = 'https://nexus-grow.com'
+const BASE_URL = 'https://www.nexus-grow.com'
 export const revalidate = 3600
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

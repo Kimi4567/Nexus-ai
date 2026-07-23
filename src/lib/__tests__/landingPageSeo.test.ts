@@ -41,6 +41,6 @@ describe('landing-page SEO metadata', () => {
   it('refuses an unsafe configured canonical origin', () => {
     vi.stubEnv('NODE_ENV', 'production')
     vi.stubEnv('NEXT_PUBLIC_APP_URL', 'javascript:alert(1)')
-    expect(landingPageCanonicalUrl('page one')).toBe('https://nexus-grow.com/lp/page%20one')
+    expect(landingPageCanonicalUrl('page one')).toBe('https://www.nexus-grow.com/lp/page%20one')
   })
 })

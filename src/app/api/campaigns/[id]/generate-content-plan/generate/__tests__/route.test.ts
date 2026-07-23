@@ -290,6 +290,14 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
 
     expect(res.status).toBe(200)
     expect(json).toMatchObject({ success: true, generated: 0 })
+    expect(mockPrisma.socialPost.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        generationStatus: 'PENDING',
+        imageUrl: null,
+        uploadedMediaId: null,
+        mediaSource: { in: ['GENERATE', 'MIXED'] },
+      }),
+    }))
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
   })
 
@@ -309,7 +317,8 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
         id: 'post_a',
         generationStatus: 'PENDING',
         imageUrl: null,
-        mediaSource: 'GENERATE',
+        mediaSource: { in: ['GENERATE', 'MIXED'] },
+        uploadedMediaId: null,
       }),
       data: { generationStatus: 'GENERATING' },
     })

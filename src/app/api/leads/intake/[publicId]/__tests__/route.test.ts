@@ -143,14 +143,21 @@ describe('public lead intake', () => {
 
   it('never reveals a duplicate and logs only a recapture event', async () => {
     mocks.duplicate.mockResolvedValue({ id: 'existing-lead' })
-    const response = await POST(post({ email: 'person@example.com' }), context)
+    const response = await POST(post({
+      email: 'person@example.com',
+      attribution: { source: 'newsletter', medium: 'email', secret: 'drop-me' },
+    }), context)
     const body = await response.json()
 
     expect(response.status).toBe(202)
     expect(body).toEqual({ accepted: true, outreachTriggered: false })
     expect(mocks.leadCreate).not.toHaveBeenCalled()
     expect(mocks.activityCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({ leadId: 'existing-lead', type: 'FORM_RECAPTURED' }),
+      data: expect.objectContaining({
+        leadId: 'existing-lead',
+        type: 'FORM_RECAPTURED',
+        metadata: expect.objectContaining({ attribution: { source: 'newsletter', medium: 'email' } }),
+      }),
     })
     expect(JSON.stringify(body)).not.toContain('existing-lead')
   })

@@ -165,12 +165,13 @@ export function getBrandIndicators(
   // ── 3. Paid readiness ── reuse capability gate + tracking; honest planning-only ──
   const caps = getStrategyCapabilities(p, { hasPixel })
   const paidMissing = [...caps.paidStrategy.missingKeys]
-  // Eight professional organic fields + eight paid-review inputs: budget,
+  // Eight professional organic fields + seven paid-review inputs: budget,
   // destination, location, lead handling, price position, differentiation,
-  // objections, and user-confirmed proof. Tracking belongs to launch readiness.
+  // and objections. Proof is tracked separately and constrains claims; it is
+  // not required to create a planning-only package. Tracking belongs to launch readiness.
   // This denominator matches the runtime paid-planning gate.
   const uniquePaidMissing = Array.from(new Set(paidMissing))
-  const paidPrereqTotal = 16
+  const paidPrereqTotal = 15
   const paidReady = uniquePaidMissing.length === 0
   const paidReadiness: PaidReadinessIndicator = {
     ready: paidReady,

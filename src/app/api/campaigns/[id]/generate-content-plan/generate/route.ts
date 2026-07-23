@@ -203,8 +203,12 @@ export async function POST(req: NextRequest, props: Params) {
         campaignId: params.id,
         workspaceId: campaign.workspaceId,
         isVideoPost: false,
-        mediaSource: 'GENERATE',
+        // Legacy plans created with MIXED kept that policy marker even when no
+        // upload was assigned. Treat those empty slots as generation work too.
+        mediaSource: { in: ['GENERATE', 'MIXED'] },
         generationStatus: 'PENDING',
+        imageUrl: null,
+        uploadedMediaId: null,
         imagePrompt: { not: null },
         ...(requestedIds.length ? { id: { in: requestedIds } } : {}),
       },
@@ -319,8 +323,9 @@ export async function POST(req: NextRequest, props: Params) {
           campaignId: params.id,
           workspaceId: campaign.workspaceId,
           isVideoPost: false,
-          mediaSource: 'GENERATE',
+          mediaSource: { in: ['GENERATE', 'MIXED'] },
           imageUrl: null,
+          uploadedMediaId: null,
           generationStatus: originalStatus,
         },
         data: { generationStatus: 'GENERATING' },
@@ -528,7 +533,9 @@ export async function POST(req: NextRequest, props: Params) {
         workspaceId: campaign.workspaceId,
         generationStatus: 'PENDING',
         isVideoPost: false,
-        mediaSource: 'GENERATE',
+        mediaSource: { in: ['GENERATE', 'MIXED'] },
+        imageUrl: null,
+        uploadedMediaId: null,
       },
     })
 

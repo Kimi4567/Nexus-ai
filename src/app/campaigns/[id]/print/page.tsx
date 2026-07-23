@@ -28,12 +28,13 @@ interface ContentPost {
 }
 
 interface DeliveryManifest {
-  state: 'NO_CONTENT' | 'REVIEW_DRAFT' | 'COPY_APPROVED' | 'READY_FOR_SCHEDULING'
+  state: 'NO_CONTENT' | 'REVIEW_DRAFT' | 'COPY_APPROVED' | 'READY_FOR_SCHEDULING' | 'SCHEDULED' | 'PROVIDER_PUBLISHED'
   generatedAt: string
   counts: {
     posts: number
     copyApproved: number
     mediaApproved: number
+    scheduleRecorded: number
     providerPublicationVerified: number
   }
   posts: Array<{
@@ -394,10 +395,14 @@ export default function CampaignPrintPage() {
           </div>
         </div>
 
-        <div className={`delivery-state ${deliveryManifest?.state === 'READY_FOR_SCHEDULING' ? 'ready' : ''}`}>
+        <div className={`delivery-state ${deliveryManifest && ['READY_FOR_SCHEDULING', 'SCHEDULED', 'PROVIDER_PUBLISHED'].includes(deliveryManifest.state) ? 'ready' : ''}`}>
           <div className="delivery-state-title">
-            {deliveryManifest?.state === 'READY_FOR_SCHEDULING'
-              ? (documentIsArabic ? 'حزمة معتمدة — جاهزة لقرار الجدولة' : 'Approved package — ready for scheduling decision')
+            {deliveryManifest?.state === 'PROVIDER_PUBLISHED'
+              ? (documentIsArabic ? 'النشر مثبت من المزوّد' : 'Provider publication verified')
+              : deliveryManifest?.state === 'SCHEDULED'
+                ? (documentIsArabic ? 'قرار الجدولة موثق' : 'Schedule decision recorded')
+                : deliveryManifest?.state === 'READY_FOR_SCHEDULING'
+                  ? (documentIsArabic ? 'حزمة معتمدة — جاهزة لقرار الجدولة' : 'Approved package — ready for scheduling decision')
               : deliveryManifest?.state === 'COPY_APPROVED'
                 ? (documentIsArabic ? 'النص معتمد — الوسائط تحتاج مراجعة' : 'Copy approved — media review required')
                 : deliveryManifest?.state === 'NO_CONTENT'
@@ -406,7 +411,7 @@ export default function CampaignPrintPage() {
           </div>
           <div className="delivery-state-meta">
             {deliveryManifest
-              ? `${deliveryManifest.counts.copyApproved}/${deliveryManifest.counts.posts} ${documentIsArabic ? 'نصوص معتمدة' : 'copy approved'} · ${deliveryManifest.counts.mediaApproved}/${deliveryManifest.counts.posts} ${documentIsArabic ? 'وسائط معتمدة' : 'media approved'} · ${deliveryManifest.counts.providerPublicationVerified} ${documentIsArabic ? 'منشورات مثبتة بمعرّف مزود' : 'provider publications verified'}`
+              ? `${deliveryManifest.counts.copyApproved}/${deliveryManifest.counts.posts} ${documentIsArabic ? 'نصوص معتمدة' : 'copy approved'} · ${deliveryManifest.counts.mediaApproved}/${deliveryManifest.counts.posts} ${documentIsArabic ? 'وسائط معتمدة' : 'media approved'} · ${deliveryManifest.counts.scheduleRecorded}/${deliveryManifest.counts.posts} ${documentIsArabic ? 'قرارات جدولة موثقة' : 'schedule decisions recorded'} · ${deliveryManifest.counts.providerPublicationVerified} ${documentIsArabic ? 'منشورات مثبتة بمعرّف مزود' : 'provider publications verified'}`
               : (documentIsArabic ? 'تعذّر تحميل دليل الاعتماد؛ يعامل هذا المستند كمسودة فقط.' : 'Approval evidence could not be loaded; treat this document as a draft only.')}
             <br />
             {documentIsArabic

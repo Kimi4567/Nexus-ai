@@ -79,6 +79,22 @@ const VIDEO_PROVIDER_ECONOMICS_VERSION = 'nexus-video-provider-estimate-2026-07-
 type Params = { params: Promise<{ id: string; postId: string }> }
 const db = prisma as any
 
+function isArabicLanguage(language: unknown): boolean {
+  return typeof language !== 'string' || language.toLowerCase().startsWith('ar')
+}
+
+function videoStartFailureMessage(language: unknown, creditsRestored: boolean): string {
+  if (isArabicLanguage(language)) {
+    return creditsRestored
+      ? 'تعذّر على NEXUS بدء إنتاج الفيديو لدى المزوّد. تم رد الرصيد المحجوز بالكامل، ولم يُنشأ فيديو أو يُنشر أو يُجدول شيء.'
+      : 'تعذّر على NEXUS بدء إنتاج الفيديو لدى المزوّد. استرداد الرصيد المحجوز قيد المصالحة التلقائية، ولم يُنشأ فيديو أو يُنشر أو يُجدول شيء.'
+  }
+
+  return creditsRestored
+    ? 'NEXUS could not start video production with the provider. The full credit reservation was restored; no video was created, published, or scheduled.'
+    : 'NEXUS could not start video production with the provider. Credit restoration is pending automatic reconciliation; no video was created, published, or scheduled.'
+}
+
 async function getVideoActorUserId(req: NextRequest): Promise<string | null> {
   const delegatedUserId = req.headers.get('x-nexus-internal-user-id')?.trim()
   if (
@@ -570,13 +586,16 @@ export async function POST(req: NextRequest, props: Params) {
   } catch (error) {
     const internalMessage = sanitizeSentryText(error instanceof Error ? error.message : 'Video generation failed').slice(0, 500)
     console.error('[generate-video] NEXUS Video Studio start failed', internalMessage)
-    const message = 'NEXUS Video Studio could not start production. Reserved credits will be restored.'
+    const refundReason = isArabicLanguage(body.language)
+      ? 'تعذّر بدء إنتاج الفيديو لدى المزوّد قبل إنشاء أي أصل.'
+      : 'The video provider rejected production before any asset was created.'
     const refund = await refundCreditDeduction({
       userId,
       action: 'VIDEO_GENERATION',
       deduction: credit,
-      reason: message,
+      reason: refundReason,
     })
+    const message = videoStartFailureMessage(body.language, refund.ok)
     await db.generation.update({
       where: { id: generation.id },
       data: { status: 'FAILED', error: message, params: { ...generationParams(generation.params), credit } },
@@ -587,8 +606,12 @@ export async function POST(req: NextRequest, props: Params) {
     })
     return NextResponse.json({
       error: message,
+      code: 'VIDEO_PROVIDER_START_FAILED',
       refunded: refund.ok && refund.status === 'refunded',
+      creditsRestored: refund.ok,
       refundPending: !refund.ok,
+      creditsCharged: false,
+      providerGenerationStarted: false,
     }, { status: 502 })
   }
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildContentApprovalSnapshotPayload,
   buildMediaApprovalSnapshotPayload,
+  buildScheduleDecisionSnapshotPayload,
   hashCampaignSnapshotPayload,
 } from '@/lib/campaignSnapshots'
 import { buildCampaignDeliveryPackage, type DeliveryPackagePost } from '@/lib/campaignDeliveryPackage'
@@ -55,6 +56,39 @@ function approvedPost(overrides: Partial<DeliveryPackagePost> = {}): DeliveryPac
   }
 }
 
+function scheduledPost(overrides: Partial<DeliveryPackagePost> = {}): DeliveryPackagePost {
+  const reviewed = approvedPost({
+    status: 'SCHEDULED',
+    scheduledAt: new Date('2026-07-22T09:00:00.000Z'),
+    ...overrides,
+  })
+  const decisionPost = {
+    ...reviewed,
+    approvedSnapshotId: 'copy-2',
+    mediaApprovalSnapshotId: 'media-3',
+    integrationId: 'integration-1',
+    pageId: null,
+    pageName: 'LinkedIn member',
+    platformOptions: null,
+    publishMode: 'MANUAL',
+    autoPublishConsentAt: null,
+  }
+  const schedulePayload = buildScheduleDecisionSnapshotPayload({
+    campaignId: 'campaign-1',
+    strategySnapshot: strategyReference,
+    publishMode: 'MANUAL',
+    posts: [decisionPost],
+  })
+  return {
+    ...decisionPost,
+    scheduledSnapshotId: 'schedule-4',
+    scheduledSnapshot: {
+      id: 'schedule-4', version: 4, scope: 'SCHEDULE_DECISION', payload: schedulePayload,
+      payloadHash: hashCampaignSnapshotPayload(schedulePayload),
+    },
+  }
+}
+
 describe('campaign delivery package', () => {
   it('labels live content without immutable approvals as a review draft', () => {
     const delivery = buildCampaignDeliveryPackage({
@@ -104,5 +138,31 @@ describe('campaign delivery package', () => {
     })
     expect(withoutId.counts.providerPublicationVerified).toBe(0)
     expect(withId.counts.providerPublicationVerified).toBe(1)
+  })
+
+  it('distinguishes a verified schedule decision from provider-confirmed publication', () => {
+    const scheduled = buildCampaignDeliveryPackage({
+      generatedAt: new Date(), campaign: { id: 'campaign-1', name: 'Launch' }, strategySnapshot,
+      posts: [scheduledPost()],
+    })
+    const published = buildCampaignDeliveryPackage({
+      generatedAt: new Date(), campaign: { id: 'campaign-1', name: 'Launch' }, strategySnapshot,
+      posts: [scheduledPost({ status: 'PUBLISHED', platformPostId: 'provider-123' })],
+    })
+
+    expect(scheduled.state).toBe('SCHEDULED')
+    expect(scheduled.counts.scheduleRecorded).toBe(1)
+    expect(published.state).toBe('PROVIDER_PUBLISHED')
+  })
+
+  it('does not trust a schedule snapshot after the reviewed destination changes', () => {
+    const reviewed = scheduledPost()
+    const delivery = buildCampaignDeliveryPackage({
+      generatedAt: new Date(), campaign: { id: 'campaign-1', name: 'Launch' }, strategySnapshot,
+      posts: [{ ...reviewed, pageId: 'changed-destination' }],
+    })
+
+    expect(delivery.state).toBe('READY_FOR_SCHEDULING')
+    expect(delivery.counts.scheduleRecorded).toBe(0)
   })
 })

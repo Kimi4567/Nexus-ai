@@ -45,6 +45,9 @@ interface ExecutionOverview {
     inScope: boolean
     total: number
     counts: Record<string, number>
+    copyApproved: number
+    mediaApproved: number
+    scheduledDecisions: number
     mediaReady: number
     mediaPending: number
     nextAction: ExecutionAction
@@ -110,11 +113,21 @@ function paidLaunchBlockerLabels(values: Array<string | null | undefined>, ar: b
   const normalized = values.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
   const hasTracking = normalized.some(value => /pixel|tracking|conversion\s+events?/i.test(value))
   const unmatched = normalized.filter(value => !/pixel|tracking|conversion\s+events?/i.test(value))
+  const arabicBlockerCopy: Record<string, string> = {
+    'google analytics not activated': 'لم يتم تفعيل Google Analytics.',
+    'creative assets not finalized': 'لم تكتمل الأصول الإبداعية بعد.',
+    'approval for budget allocation pending': 'اعتماد توزيع الميزانية ما زال معلقًا.',
+    'creative assets must be finalized, reviewed, and approved.': 'يجب استكمال الأصول الإبداعية ومراجعتها واعتمادها.',
+    'connected ad account, live platform permissions, and final budget approval must be confirmed.': 'يجب تأكيد حساب إعلاني متصل وصلاحيات منصة فعّالة واعتماد الميزانية النهائية.',
+  }
+  const localizeBlocker = (value: string) => ar
+    ? (arabicBlockerCopy[value.trim().toLowerCase()] ?? value)
+    : value
   const labels = [
     ...(hasTracking
       ? [ar ? 'إعداد Pixel وأحداث التحويل ووجهة القياس' : 'Set up the pixel, conversion events, and measurement destination']
       : []),
-    ...unmatched,
+    ...unmatched.map(localizeBlocker),
   ]
   return [...new Set(labels)]
 }
@@ -210,7 +223,6 @@ export default function CampaignExecutionPage() {
   }
 
   const { campaign, organic, paid } = overview
-  const organicReviewed = (organic.counts.APPROVED ?? 0) + (organic.counts.SCHEDULED ?? 0) + (organic.counts.PUBLISHED ?? 0)
   const latestPaid = paid.campaigns[0] ?? null
   const paidPackageTotal = paid.package.audienceHypotheses + paid.package.adAngles + paid.package.adCopyVariations + paid.package.creativeBriefs
   const paidBlockers = paidLaunchBlockerLabels([
@@ -242,10 +254,15 @@ export default function CampaignExecutionPage() {
                 </div>
                 <h1 className="mt-3 text-2xl font-black tracking-tight sm:text-3xl">{campaign.name}</h1>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-white/65">
-                  {copy(
-                    'الاستراتيجية الواحدة تنقسم هنا إلى خط إنتاج عضوي وخط اكتساب مدفوع. لكل خط حقيقة وحالة وقرار تالٍ مستقلان.',
-                    'One approved strategy branches here into organic production and paid acquisition. Each lane has its own truth, state, and next decision.',
-                  )}
+                  {campaign.scope === 'paid'
+                    ? copy(
+                      'هذه حملة مدفوعة فقط. يظهر المسار العضوي كخارج النطاق للتوضيح، ولا يمكن إنشاء مسوداته من هذا التشغيل.',
+                      'This is a paid-only campaign. The organic lane is shown as out of scope for clarity and cannot create drafts from this run.',
+                    )
+                    : copy(
+                      'الاستراتيجية الواحدة تنقسم هنا إلى خط إنتاج عضوي وخط اكتساب مدفوع. لكل خط حقيقة وحالة وقرار تالٍ مستقلان.',
+                      'One approved strategy branches here into organic production and paid acquisition. Each lane has its own truth, state, and next decision.',
+                    )}
                 </p>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center">
@@ -283,20 +300,32 @@ export default function CampaignExecutionPage() {
                 </div>
               </div>
               <div className="space-y-5 p-6">
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <Metric label={copy('المنشورات', 'Posts')} value={organic.total} tone="emerald" />
-                  <Metric label={copy('مراجعة', 'Reviewed')} value={organicReviewed} />
-                  <Metric label={copy('وسائط جاهزة', 'Media ready')} value={organic.mediaReady} />
-                  <Metric label={copy('منشور', 'Published')} value={organic.counts.PUBLISHED ?? 0} />
-                </div>
-                <div className="space-y-2">
-                  <Step done={organic.total > 0} label={copy('مسودات مرتبطة بالاستراتيجية', 'Strategy-linked drafts')} helper={copy(`${organic.total} سجل فعلي داخل Content Hub.`, `${organic.total} live Content Hub records.`)} />
-                  <Step done={organicReviewed > 0} label={copy('موافقة المحتوى والوسائط', 'Content and media approval')} helper={copy('التعديل بعد الاعتماد يعيد فتح المراجعة.', 'Editing after approval reopens review.')} />
-                  <Step done={(organic.counts.PUBLISHED ?? 0) > 0} label={copy('جدولة ونشر موثق', 'Verified scheduling and publishing')} helper={copy('المجدول ليس منشورًا حتى يعود معرف المنصة.', 'Scheduled is not published until provider evidence returns.')} />
-                </div>
-                <Link href={organic.nextAction.href} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-700">
-                  {ar ? organic.nextAction.labelAr : organic.nextAction.labelEn} {directionArrow}
-                </Link>
+                {!organic.inScope ? (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="text-sm font-black text-slate-950">{copy('لا يوجد عمل عضوي مطلوب', 'No organic work is required')}</p>
+                    <p className="mt-2 text-xs leading-5 text-slate-600">
+                      {copy('عقد هذه الحملة مدفوع فقط: لم تُوعد بمنشورات عضوية، ولن يفتح هذا المركز مسار إنشاء محتوى عضوي.', 'This campaign contract is paid-only: no organic posts were promised, and this center will not open an organic creation flow.')}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <Metric label={copy('المنشورات', 'Posts')} value={organic.total} tone="emerald" />
+                      <Metric label={copy('نصوص معتمدة', 'Copy approved')} value={organic.copyApproved} />
+                      <Metric label={copy('وسائط جاهزة', 'Media ready')} value={organic.mediaReady} />
+                      <Metric label={copy('منشور', 'Published')} value={organic.counts.PUBLISHED ?? 0} />
+                    </div>
+                    <div className="space-y-2">
+                      <Step done={organic.total > 0} label={copy('مسودات مرتبطة بالاستراتيجية', 'Strategy-linked drafts')} helper={copy(`${organic.total} سجل فعلي داخل Content Hub.`, `${organic.total} live Content Hub records.`)} />
+                      <Step done={organic.total > 0 && organic.copyApproved === organic.total} label={copy('اعتماد النصوص', 'Copy approval')} helper={copy(`${organic.copyApproved} من ${organic.total} لها نسخة اعتماد نص ثابتة.`, `${organic.copyApproved} of ${organic.total} have an immutable copy approval.`)} />
+                      <Step done={organic.total > 0 && organic.mediaApproved === organic.total} label={copy('اعتماد الوسائط النهائية', 'Final media approval')} helper={copy(`${organic.mediaApproved} من ${organic.total} لها قرار وسائط منفصل.`, `${organic.mediaApproved} of ${organic.total} have a separate media decision.`)} />
+                      <Step done={organic.scheduledDecisions > 0} label={copy('قرار الجدولة', 'Scheduling decision')} helper={copy(`${organic.scheduledDecisions} قرارات جدولة موثقة. المجدول ليس منشورًا حتى يعود دليل المنصة أو يؤكد المستخدم النشر اليدوي.`, `${organic.scheduledDecisions} recorded scheduling decisions. Scheduled is not published until provider evidence returns or the user confirms manual publishing.`)} />
+                    </div>
+                    <Link href={organic.nextAction.href} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-700">
+                      {ar ? organic.nextAction.labelAr : organic.nextAction.labelEn} {directionArrow}
+                    </Link>
+                  </>
+                )}
               </div>
             </article>
 
@@ -386,7 +415,7 @@ export default function CampaignExecutionPage() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <Link href={`/campaigns/${campaign.id}?tab=strategy`} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700"><BadgeCheck className="h-4 w-4" />{copy('الاستراتيجية', 'Strategy')}</Link>
-                <Link href={`/campaigns/${campaign.id}/content-hub`} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700"><Sparkles className="h-4 w-4" />Content Hub</Link>
+                {organic.inScope && <Link href={`/campaigns/${campaign.id}/content-hub`} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700"><Sparkles className="h-4 w-4" />Content Hub</Link>}
                 <Link href="/paid-campaigns" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700"><Megaphone className="h-4 w-4" />{copy('الحملات المدفوعة', 'Paid campaigns')}</Link>
                 <Link href="/analytics" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700"><BarChart3 className="h-4 w-4" />{copy('النتائج', 'Results')}</Link>
                 {latestPaid && <Link href={`/paid-campaigns/${latestPaid.id}`} className="inline-flex items-center gap-2 rounded-xl bg-[#071236] px-4 py-2 text-xs font-bold text-white"><ExternalLink className="h-4 w-4" />{copy('فتح أحدث مسودة Paid', 'Open latest paid draft')}</Link>}

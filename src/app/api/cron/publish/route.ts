@@ -21,6 +21,7 @@ import {
   readSnapshotStrategyReference,
   reviewPostAgainstApprovalSnapshot,
   reviewPostAgainstMediaApprovalSnapshot,
+  reviewPostAgainstScheduleDecisionSnapshot,
 } from '@/lib/campaignSnapshots'
 
 export const dynamic = 'force-dynamic'
@@ -57,6 +58,7 @@ async function runPublishJob() {
       integration: true,
       approvedSnapshot: { select: { scope: true, payload: true } },
       mediaApprovalSnapshot: { select: { scope: true, payload: true } },
+      scheduledSnapshot: { select: { scope: true, payload: true } },
       statusHistory: {
         where: { actor: 'CRON', toStatus: 'SCHEDULED', note: { startsWith: '[PUBLISH_RETRY]' } },
         orderBy: { createdAt: 'desc' },
@@ -168,12 +170,23 @@ async function runPublishJob() {
         if (!mediaSnapshotReview.ok) {
           throw new Error(`${mediaSnapshotReview.code}: current post media has no matching approval evidence`)
         }
+        const scheduleSnapshotReview = reviewPostAgainstScheduleDecisionSnapshot(
+          post,
+          (post as any).scheduledSnapshot,
+        )
+        if (!scheduleSnapshotReview.ok) {
+          throw new Error(`${scheduleSnapshotReview.code}: current execution decision has no matching schedule evidence`)
+        }
         const strategySnapshot = strategySnapshotByCampaignId.get(campaign.id)
         const approvedStrategy = readSnapshotStrategyReference((post as any).approvedSnapshot?.payload)
         if (!strategySnapshot || approvedStrategy?.id !== strategySnapshot.id) {
           throw new Error('CONTENT_APPROVED_FOR_OLDER_STRATEGY: reopen and approve this post again')
         }
-        const currentStrategyPayload = buildStrategyApprovalSnapshotPayload({ campaign, brandProfile: brand })
+        const currentStrategyPayload = buildStrategyApprovalSnapshotPayload({
+          campaign,
+          brandProfile: brand,
+          persistedApprovedAiOutput: true,
+        })
         if (hashCampaignSnapshotPayload(currentStrategyPayload) !== strategySnapshot.payloadHash) {
           throw new Error('STRATEGY_APPROVAL_SNAPSHOT_STALE: campaign or Brand Brain changed after approval')
         }

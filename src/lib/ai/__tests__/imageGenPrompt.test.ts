@@ -15,6 +15,7 @@ vi.mock('@/lib/ai/conceptExtractor', async () => {
 import {
   buildImagePrompt,
   buildReferencePreservingEditPrompt,
+  detectBrandCategory,
   IMAGE_OUTPUT_CLASSIFICATION,
   normalizeTextFreeCentralElement,
   TEXT_FREE_BACKGROUND_IMAGE_CONSTRAINTS,
@@ -76,6 +77,25 @@ describe('imageGen prompt contract', () => {
   it('keeps an already tangible text-free scene intact', () => {
     const scene = 'three strategists arranging blank planning cards around a clean table'
     expect(normalizeTextFreeCentralElement(scene, 'agency_consultancy')).toBe(scene)
+  })
+
+  it('detects Home & Furniture as interior design instead of a generic category', () => {
+    expect(detectBrandCategory({
+      industry: 'Home & Furniture',
+      brandName: 'دار سكنى',
+    })).toBe('interior_design')
+  })
+
+  it('keeps unsafe interior briefs in the interior-design world even when they mention cost and execution', () => {
+    const normalized = normalizeTextFreeCentralElement(
+      'infographic with renovation stages and reports',
+      'interior_design',
+      'review the cost, renovation stages, and execution before work begins',
+    )
+
+    expect(normalized).toContain('interior designer')
+    expect(normalized).toContain('residential room')
+    expect(normalized).not.toMatch(/tokens|six distinct tactile stages|marketing and product team/)
   })
 
   it('preserves post-specific SaaS semantics when an unsafe diagram brief is normalized', () => {

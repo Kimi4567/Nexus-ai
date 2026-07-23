@@ -193,6 +193,10 @@ export async function POST(req: NextRequest, context: Context) {
               landingPageId: landingContext?.id,
               experimentId: experimentAssignment?.experimentId,
               experimentVariant: experimentAssignment?.variant,
+              // Lead.attribution remains the immutable first touch. Recaptures
+              // carry their own bounded attribution so reporting can expose a
+              // separate last-touch model without rewriting acquisition truth.
+              attribution,
               consentSelfAttested: consentGranted,
             },
             occurredAt: now,

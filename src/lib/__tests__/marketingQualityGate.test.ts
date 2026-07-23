@@ -173,6 +173,75 @@ describe('marketingQualityGate', () => {
     expect(report.blockers.map(item => item.code)).toContain('reviewed_platform_missing_from_strategy')
   })
 
+  it('does not falsely reject a grounded English strategy translated from Arabic Brand Brain', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        positioning: 'Interior-design planning for homeowners reviewing how their space should work before execution.',
+        keyMessage: 'Review the proposed space, materials, and next decision before implementation.',
+        differentiation: 'A design-first review process shaped around the room and the homeowner brief.',
+        targetAudienceRefined: 'Homeowners in the UAE planning an interior-design project.',
+        contentPillars: ['Space planning', 'Material decisions', 'Design review'],
+        topHooks: ['What should you review before approving an interior concept?'],
+        ctaVariations: ['Review the design brief'],
+        contentAnglesDetailed: [{
+          title: 'Review the room before implementation',
+          hook: 'Start with the space and the decisions it needs.',
+          pain: 'Homeowners may struggle to visualize the plan before execution.',
+          desiredOutcome: 'A clearer design review.',
+          objection: 'I am not sure where to start.',
+          platform: 'INSTAGRAM',
+          cta: 'Review the design brief',
+        }],
+      },
+      brand: {
+        brandName: 'دار سُكنى',
+        industry: 'التصميم الداخلي',
+        description: 'استوديو تصميم داخلي يساعد أصحاب المنازل على مراجعة تصور المساحة قبل التنفيذ.',
+        primaryOffer: 'تصميم داخلي وتخطيط المساحات للمنازل.',
+        targetAudience: 'أصحاب المنازل في الإمارات الذين يخططون لمشروع تصميم داخلي.',
+        audiencePainPoints: ['صعوبة تصور المساحة قبل التنفيذ'],
+        audienceDesires: ['قرار تصميم أوضح قبل بدء التنفيذ'],
+        topPlatforms: ['INSTAGRAM'],
+        verifiedProof: [],
+      },
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-22T00:00:00.000Z',
+    })
+
+    expect(report.blockers.map(item => item.code)).not.toContain('strategy_missing_brand_relevance')
+    expect(report.warnings.map(item => item.code)).toContain('cross_language_relevance_requires_review')
+  })
+
+  it('still blocks an unrelated strategy when Brand Brain and output use the same language', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        positioning: 'Monthly roasted-bean deliveries for workplace kitchens.',
+        keyMessage: 'Choose a roast and receive recurring deliveries.',
+        differentiation: 'Curated beans delivered on a monthly cadence.',
+        targetAudienceRefined: 'Workplace managers buying roasted beans.',
+        contentPillars: ['Roast profiles', 'Bean delivery'],
+        topHooks: ['Which roast fits the workplace kitchen?'],
+        ctaVariations: ['Explore roast profiles'],
+        contentAnglesDetailed: [{
+          title: 'Coffee roast selection',
+          hook: 'Review the roast before subscribing.',
+          pain: 'Roast profiles feel confusing.',
+          desiredOutcome: 'A simpler recurring delivery.',
+          objection: 'We do not know which roast to choose.',
+          platform: 'INSTAGRAM',
+          cta: 'Explore roast profiles',
+        }],
+      },
+      brand: dentalBrand,
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-22T00:00:00.000Z',
+    })
+
+    expect(report.blockers.map(item => item.code)).toContain('strategy_missing_brand_relevance')
+  })
+
   it('blocks unsourced platform-growth claims and allows an explicit validation hypothesis', () => {
     const unsourced = reviewStrategyGrounding({
       strategy: {
@@ -205,7 +274,7 @@ describe('marketingQualityGate', () => {
     expect(hypothesis.blockers.map(item => item.code)).not.toContain('unsourced_channel_market_claim')
   })
 
-  it('blocks an unsupported quality superlative before paid review or approval', () => {
+  it('blocks unsupported quality facts but treats unreviewed premium positioning as a warning', () => {
     const report = reviewStrategyGrounding({
       strategy: {
         ...groundedStrategy,
@@ -217,7 +286,8 @@ describe('marketingQualityGate', () => {
     })
 
     expect(report.status).toBe('blocked')
-    expect(report.blockers.filter(item => item.code === 'unsupported_quality_superlative')).toHaveLength(2)
+    expect(report.blockers.filter(item => item.code === 'unsupported_quality_superlative')).toHaveLength(1)
+    expect(report.warnings.filter(item => item.code === 'unverified_premium_positioning')).toHaveLength(1)
   })
 
   it('preserves a user-supplied premium position', () => {
@@ -229,6 +299,7 @@ describe('marketingQualityGate', () => {
     })
 
     expect(report.blockers.map(item => item.code)).not.toContain('unsupported_quality_superlative')
+    expect(report.warnings.map(item => item.code)).not.toContain('unverified_premium_positioning')
   })
 
   it('preserves reviewed price positioning and visual style as approved brand context', () => {
@@ -247,6 +318,108 @@ describe('marketingQualityGate', () => {
     })
 
     expect(report.blockers.map(item => item.code)).not.toContain('unsupported_quality_superlative')
+    expect(report.warnings.map(item => item.code)).not.toContain('unverified_premium_positioning')
+  })
+
+  it('does not treat an explicit do-not-use instruction as customer-facing superiority', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        keyMessage: 'عدم استخدام كلمات مثل الأفضل أو مثالية بدون دليل.',
+      },
+      brand: dentalBrand,
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-22T00:00:00.000Z',
+    })
+
+    expect(report.blockers.map(item => item.code)).not.toContain('unsupported_quality_superlative')
+  })
+
+  it('reviews customer-facing paid copy while excluding paid planning safeguards', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        paidPlanning: {
+          launchBlockers: ['لا تدعي أننا الأفضل قبل توثيق الدليل.'],
+          creativeBriefs: [{
+            visualDirection: 'استخدمي عبارة الأفضل في أبوظبي داخل التصميم.',
+            proofBoundary: 'عدم استخدام نتائج مضمونة.',
+          }],
+          adCopyVariations: [{
+            headline: 'Premium consultation support',
+            primaryText: 'Prepare for a clear dental consultation.',
+            cta: 'Book a dental consultation',
+          }],
+        },
+      },
+      brand: dentalBrand,
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-22T00:00:00.000Z',
+    })
+
+    expect(report.blockers.map(item => item.path)).toContain(
+      'strategy.paidPlanning.creativeBriefs[0].visualDirection',
+    )
+    expect(report.blockers.map(item => item.path)).not.toContain(
+      'strategy.paidPlanning.launchBlockers[0]',
+    )
+    expect(report.warnings.map(item => item.code)).toContain('unverified_premium_positioning')
+  })
+
+  it('blocks the audited Luma semantic drifts with exact customer-copy paths', () => {
+    const lumaBrand = {
+      brandName: 'Luma Roast Lab',
+      industry: 'اشتراك قهوة مختصة',
+      description: 'اشتراك شهري في قهوة محمصة حديثًا داخل دبي.',
+      primaryOffer: 'اشتراك 1 كجم شهريًا مقابل 149 درهمًا مع التوصيل خلال 48 ساعة.',
+      targetAudience: 'سكان دبي الذين يشترون القهوة المختصة للمنزل.',
+      audiencePainPoints: ['صعوبة اختيار نوع القهوة المناسب للذوق'],
+      audienceDesires: ['اختيار أوضح واشتراك شهري بسيط'],
+      conversionDestination: 'https://example.test/luma-subscription',
+      businessGoal: 'طلبات اشتراك مؤهلة داخل دبي.',
+      topPlatforms: ['INSTAGRAM'],
+      verifiedProof: [],
+    }
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        positioning: 'اشتراك قهوة مختصة لسكان دبي.',
+        keyMessage: 'قهوتك تُحمص مباشرة قبل التوصيل.',
+        differentiation: 'اشتراك شهري بوزن 1 كجم مقابل 149 درهمًا.',
+        targetAudienceRefined: 'سكان دبي الذين يشترون القهوة المختصة للمنزل.',
+        contentPillars: ['اختيار القهوة', 'قصص نجاح عملائنا', 'تفاصيل الاشتراك'],
+        topHooks: ['اكتشف الفرق في فنجانك اليوم.'],
+        ctaVariations: ['راجع تفاصيل الاشتراك'],
+        businessObjective: {
+          primary: 'زيادة الحصة السوقية في دبي.',
+          marketing: 'توليد طلبات اشتراك مؤهلة.',
+          conversionAction: 'مراجعة الاشتراك.',
+          expectedUserAction: 'فتح صفحة الاشتراك.',
+        },
+        contentAnglesDetailed: [{
+          title: 'قهوة تساعد على تحسين التركيز في المكتب',
+          hook: 'استمع إلى تجارب عملائنا.',
+          pain: 'عدم معرفة تاريخ التحميص قبل الطلب.',
+          desiredOutcome: 'اختيار قهوة للمنزل.',
+          objection: 'هل يناسبني الاشتراك؟',
+          platform: 'INSTAGRAM',
+          cta: 'راجع تفاصيل الاشتراك',
+        }],
+      },
+      brand: lumaBrand,
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-22T00:00:00.000Z',
+    })
+
+    const blockerPaths = report.blockers.map(item => item.path)
+    expect(blockerPaths).toContain('strategy.keyMessage')
+    expect(blockerPaths).toContain('strategy.contentPillars')
+    expect(blockerPaths).toContain('strategy.businessObjective.primary')
+    expect(blockerPaths).toContain('strategy.contentAnglesDetailed[0].title')
+    expect(blockerPaths).toContain('strategy.contentAnglesDetailed[0].hook')
+    expect(blockerPaths).toContain('strategy.contentAnglesDetailed[0].pain')
+    expect(report.blockers.map(item => item.code)).toContain('unsupported_social_proof')
+    expect(report.warnings.map(item => item.code)).toContain('unverified_comparative_positioning')
   })
 
   it('does not mistake ordinary comfort language for an unsupported fabric claim', () => {
@@ -527,7 +700,7 @@ describe('marketingQualityGate', () => {
       checkedAt: '2026-07-14T00:00:00.000Z',
     })
 
-    expect(report.blockers.map(item => item.code)).toContain('unsupported_quality_superlative')
+    expect(report.warnings.map(item => item.code)).toContain('unverified_premium_positioning')
   })
 
   it('allows workflow language when the saved offer is operations software', () => {

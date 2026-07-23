@@ -236,6 +236,7 @@ export async function POST(req: NextRequest, props: Params) {
     const analysis = await analyzeCampaignMedia({
       media: analyzablePending,
       posts: context.posts,
+      locale: body.locale === 'ar' ? 'ar' : 'en',
       brandContext: {
         campaignName: context.campaign.name,
         goal: context.campaign.goal,

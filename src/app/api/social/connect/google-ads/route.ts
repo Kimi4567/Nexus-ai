@@ -6,14 +6,11 @@ import {
   createGoogleAdsOAuthNonce,
   googleAdsOAuthNonceHash,
 } from '@/lib/googleAdsOAuth'
+import { getRequestBaseUrl } from '@/lib/requestBaseUrl'
 
 export const dynamic = 'force-dynamic'
 
 const OAUTH_COOKIE = 'nexus_google_ads_oauth'
-
-function appUrl(): string {
-  return (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')
-}
 
 export async function GET(req: NextRequest) {
   try {
@@ -35,7 +32,8 @@ export async function GET(req: NextRequest) {
 
     const nonce = createGoogleAdsOAuthNonce()
     const state = createOAuthState(user.id, 'google_ads', googleAdsOAuthNonceHash(nonce))
-    const redirectUri = `${appUrl()}/api/social/callback/google-ads`
+    const baseUrl = getRequestBaseUrl(req)
+    const redirectUri = `${baseUrl}/api/social/callback/google-ads`
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
@@ -51,7 +49,7 @@ export async function GET(req: NextRequest) {
     })
     response.cookies.set(OAUTH_COOKIE, nonce, {
       httpOnly: true,
-      secure: appUrl().startsWith('https://'),
+      secure: baseUrl.startsWith('https://'),
       sameSite: 'lax',
       path: '/api/social/callback/google-ads',
       maxAge: oauthStateMaxAgeSeconds('google_ads'),

@@ -72,6 +72,21 @@ describe('getBrandBrainGenerationSafety', () => {
     expect(safety.safeProfile.leadHandling).toBe('Reply within business hours and qualify the request.')
   })
 
+  it('does not classify interior design as home cleaning from generic property words', () => {
+    const safety = getBrandBrainGenerationSafety({
+      brandName: 'Dar Sukna Interior Design',
+      industry: 'Home & Furniture',
+      description: 'Interior design and renovation for apartments and villas.',
+      primaryOffer: 'Space planning, 3D visualization, materials schedule, and execution supervision.',
+      targetAudience: 'Apartment and villa owners in Dubai.',
+      leadHandling: 'A business-development owner reviews the property, scope, and expected appointment before a discovery call.',
+    })
+
+    expect(safety.anchorCategory).toBe('unknown')
+    expect(safety.excludedFields).toEqual([])
+    expect(safety.safeProfile.leadHandling).toContain('business-development')
+  })
+
   it('formats a prompt-safe note without leaking excluded field values', () => {
     const safety = getBrandBrainGenerationSafety({
       ...clinicProfile,

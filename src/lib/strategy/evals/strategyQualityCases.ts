@@ -401,6 +401,54 @@ export const STRATEGY_QUALITY_CASES: StrategyQualityEvalCase[] = [
     topPlatforms: ['LINKEDIN', 'YOUTUBE'],
     complianceNotes: 'لا تدّعِ تكاملات أو دقة مخزون أو توفير وقت أو خفض تكلفة دون إثبات.',
   }),
+  {
+    id: 'ar-luma-coffee-paid-no-proof',
+    sector: 'specialty coffee subscription',
+    brand: {
+      ...paidProfile('ar', {
+        brandName: 'Luma Roast Lab', industry: 'اشتراك قهوة مختصة',
+        description: 'اشتراك شهري في قهوة محمصة حديثًا ومخصصة للتوصيل داخل دبي.',
+        primaryOffer: 'اشتراك 1 كجم شهريًا مقابل 149 درهمًا مع التوصيل خلال 48 ساعة.',
+        targetAudience: 'سكان دبي الذين يشترون القهوة المختصة للاستخدام المنزلي.',
+        audiencePainPoints: ['صعوبة اختيار نوع القهوة المناسب للذوق'],
+        audienceAge: '25-50',
+        businessGoal: 'توليد طلبات اشتراك مؤهلة داخل دبي.',
+        topPlatforms: ['INSTAGRAM', 'TIKTOK', 'LINKEDIN'],
+        audienceLocation: 'دبي فقط',
+        avoidKeywords: ['خصم', 'نتائج مضمونة', 'قصص نجاح', 'تجارب عملاء'],
+        complianceNotes: 'لا تخترع شهادات أو قصص نجاح، ولا تعد بنتائج، ولا تذكر خصومات أو شحنًا خارج دبي.',
+      }),
+      verifiedProof: [],
+      conversionDestination: 'https://example.com/luma-subscription',
+    },
+    order: order('paid', 'ar', 'طلبات اشتراك مؤهلة', '30'),
+  },
+  {
+    id: 'ar-luma-coffee-full-no-proof',
+    sector: 'specialty coffee subscription',
+    brand: {
+      ...paidProfile('ar', {
+        brandName: 'Luma Roast Lab', industry: 'اشتراك قهوة مختصة',
+        description: 'اشتراك شهري في قهوة محمصة حديثًا ومخصصة للتوصيل داخل دبي.',
+        primaryOffer: 'اشتراك 1 كجم شهريًا مقابل 149 درهمًا مع التوصيل خلال 48 ساعة.',
+        targetAudience: 'سكان دبي الذين يشترون القهوة المختصة للاستخدام المنزلي.',
+        audiencePainPoints: ['صعوبة اختيار نوع القهوة المناسب للذوق'],
+        audienceAge: '25-50',
+        businessGoal: 'توليد طلبات اشتراك مؤهلة داخل دبي.',
+        topPlatforms: ['INSTAGRAM', 'TIKTOK', 'LINKEDIN'],
+        audienceLocation: 'دبي فقط',
+        avoidKeywords: ['خصم', 'نتائج مضمونة', 'قصص نجاح', 'تجارب عملاء'],
+        complianceNotes: 'لا تخترع شهادات أو قصص نجاح، ولا تعد بنتائج، ولا تذكر خصومات أو شحنًا خارج دبي.',
+      }),
+      verifiedProof: [],
+      conversionDestination: 'https://example.com/luma-subscription',
+    },
+    order: {
+      ...order('full', 'ar', 'طلبات اشتراك مؤهلة', '90'),
+      contentIntensity: 'standard',
+      customOrganicPostCount: 16,
+    },
+  },
 ]
 
 /** Build the exact contract/readiness-enriched brief used by the strategy route. */

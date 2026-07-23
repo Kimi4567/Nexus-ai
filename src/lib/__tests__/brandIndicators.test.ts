@@ -124,7 +124,7 @@ describe('paidReadiness — honest planning-only', () => {
     expect(r.paidReadiness.missingKeys).toContain('leadHandling')
   })
 
-  it('does not claim paid readiness without offer economics, differentiation, objections, and proof', () => {
+  it('does not claim paid readiness without offer economics, differentiation, and objections', () => {
     const r = getBrandIndicators({
       ...organicComplete,
       marketingBudget: '$1,000 / month',
@@ -134,8 +134,9 @@ describe('paidReadiness — honest planning-only', () => {
     })
     expect(r.paidReadiness.ready).toBe(false)
     expect(r.paidReadiness.missingKeys).toEqual(expect.arrayContaining([
-      'pricePoint', 'uniqueAdvantages', 'customerObjections', 'verifiedProof',
+      'pricePoint', 'uniqueAdvantages', 'customerObjections',
     ]))
+    expect(r.paidReadiness.missingKeys).not.toContain('verifiedProof')
   })
 })
 

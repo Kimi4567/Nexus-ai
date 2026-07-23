@@ -25,7 +25,7 @@ export const BRAND_INDUSTRY_OPTIONS: BrandIndustryOption[] = [
   { value: 'Dental & Clinics', ar: 'عيادات وطب أسنان', en: 'Dental & Clinics' },
   { value: 'Professional Services', ar: 'خدمات مهنية', en: 'Professional Services', aliases: ['services'] },
   { value: 'Travel & Tourism', ar: 'سياحة وسفر', en: 'Travel & Tourism' },
-  { value: 'Home & Furniture', ar: 'ديكور وأثاث', en: 'Home & Furniture' },
+  { value: 'Home & Furniture', ar: 'ديكور وأثاث', en: 'Home & Furniture', onboarding: true },
   { value: 'Automotive', ar: 'سيارات', en: 'Automotive' },
   { value: 'Other', ar: 'أخرى', en: 'Other', aliases: ['other', 'آخر'], onboarding: true },
 ]

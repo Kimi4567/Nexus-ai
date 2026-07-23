@@ -12,6 +12,7 @@ const original = {
   clientSecret: process.env.GOOGLE_ADS_CLIENT_SECRET,
   developerToken: process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
   appUrl: process.env.NEXT_PUBLIC_APP_URL,
+  vercelEnv: process.env.VERCEL_ENV,
   stateSecret: process.env.OAUTH_STATE_SECRET,
 }
 
@@ -31,6 +32,7 @@ afterEach(() => {
       : key === 'clientSecret' ? 'GOOGLE_ADS_CLIENT_SECRET'
         : key === 'developerToken' ? 'GOOGLE_ADS_DEVELOPER_TOKEN'
           : key === 'appUrl' ? 'NEXT_PUBLIC_APP_URL'
+            : key === 'vercelEnv' ? 'VERCEL_ENV'
             : 'OAUTH_STATE_SECRET'
     if (value === undefined) delete process.env[envKey]
     else process.env[envKey] = value
@@ -64,5 +66,18 @@ describe('GET /api/social/connect/google-ads', () => {
     }))
     expect(response.status).toBe(503)
     expect(await response.json()).toMatchObject({ code: 'GOOGLE_ADS_NOT_CONFIGURED' })
+  })
+
+  it('pins the production authorization callback to the canonical configured origin', async () => {
+    process.env.VERCEL_ENV = 'production'
+    process.env.NEXT_PUBLIC_APP_URL = 'https://www.nexus-grow.com/'
+    const response = await GET(new NextRequest('https://nexus-grow.com/api/social/connect/google-ads', {
+      headers: { Authorization: 'Bearer session' },
+    }))
+    const url = new URL((await response.json()).url)
+
+    expect(url.searchParams.get('redirect_uri')).toBe(
+      'https://www.nexus-grow.com/api/social/callback/google-ads',
+    )
   })
 })

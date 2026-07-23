@@ -243,6 +243,51 @@ describe('strategyProofGuard', () => {
     expect(out).not.toContain('always stocked')
   })
 
+  it('repairs the unsupported renovation assurances observed in a paid live run', () => {
+    const guarded = guardStrategyProof({
+      keyMessage: 'Experience a seamless renovation with clear phases and weekly updates.',
+      headlines: [
+        'Budget-Friendly Renovations',
+        'Updates You Can Rely On',
+      ],
+      copy: [
+        'Our clear project phases ensure you know exactly what to expect.',
+        'Our phased approach ensures no surprises.',
+        'Transparent costs for your peace of mind.',
+        'Never miss a beat with our consistent project updates.',
+        'Our structured approach ensures a smooth renovation journey.',
+        'Our phased approach makes renovation simple and clear.',
+        'Our structured timeline guarantees timely project completion.',
+      ],
+      whyNow: 'To capitalize on the growing interest in home renovations.',
+      assumption: 'Engagement will lead to consultation requests.',
+      malformed: [
+        'Discover how we make renovations with clear next steps with clear phases.',
+        'See how transparent costs can lead to a with clear next steps renovation.',
+        'Ensure 3D renders are and aligned with client expectations.',
+      ],
+    }, {
+      verifiedProof: ['Every project starts with a documented scope and phase plan.'],
+      allowedClaimText: ['Weekly project updates and a scope review are included. Premium positioning.'],
+      commercialClaimText: ['Every project starts with a documented scope and phase plan.'],
+    })
+    const joined = JSON.stringify(guarded)
+
+    expect(joined).not.toMatch(/seamless renovation|budget-friendly|updates you can rely on|exactly what to expect|no surprises|peace of mind|never miss a beat|smooth renovation journey|makes renovation simple|guarantees timely project completion|growing interest|engagement will lead|with clear next steps with clear phases|a with clear next steps|are and aligned/i)
+    expect(joined).toContain('Review the documented project phases before execution')
+    expect(joined).toContain('Renovation budget review')
+    expect(joined).toContain('Test whether engagement is associated with qualified inquiries')
+    expect(joined).toContain('supports a clearer pre-execution timeline review')
+  })
+
+  it('preserves an on-time guarantee only when the user supplied that exact commercial claim', () => {
+    const text = 'Our structured timeline guarantees timely project completion.'
+
+    expect(guardStrategyProofText(text, {
+      commercialClaimText: ['Our contract guarantees timely project completion.'],
+    })).toBe(text)
+  })
+
   it('softens unsupported service health, speed, absolute, and every-visit claims', () => {
     const guarded = guardStrategyProof({
       topHooks: [
@@ -428,6 +473,18 @@ describe('strategyProofGuard', () => {
     expect(joined).not.toContain('Before and After Transformations')
   })
 
+  it('neutralizes unsupported Arabic social proof and customer-success wording', () => {
+    const guarded = guardStrategyProof({
+      contentPillars: ['تجارب عملائنا', 'قصص نجاح العملاء', 'تقييمات زبائننا'],
+      contentAnglesDetailed: [{ title: 'آراء العملاء في تجربة التصميم' }],
+    }, { verifiedProof: [] })
+    const joined = JSON.stringify(guarded)
+
+    expect(joined).not.toMatch(/(?:آراء|تجارب)\s+(?:عملائنا|العملاء|زبائننا)/u)
+    expect(joined).not.toMatch(/(?:قصص|نماذج)\s+نجاح\s+(?:عملائنا|العملاء|زبائننا)/u)
+    expect(joined).toContain('مطلوب')
+  })
+
   it('preserves review wording only when review proof is explicit', () => {
     expect(guardStrategyProofText('Customer reviews', {
       verifiedProof: ['4.8 average review from 120 user-provided reviews'],
@@ -504,6 +561,19 @@ describe('strategyProofGuard', () => {
     expect(joined).toMatch(/احجز موعدك مع العيادة|رعاية أسنان بخطوات واضحة في دبي|موقع العيادة داخل المنطقة المحددة/)
   })
 
+  it('removes invented free and fast offer claims while preserving the supplied service', () => {
+    const guarded = guardStrategyProof([
+      'احجز جلسة اكتشاف مجانية قبل بدء المشروع.',
+      'المهنيون يريدون تجديدًا سريعًا وفعالًا.',
+      'Book a free consultation for a quick renovation.',
+    ], {
+      allowedClaimText: ['The offer includes a discovery session and an organized renovation plan.'],
+    })
+
+    expect(guarded.join(' ')).not.toMatch(/مجانية|تجديدًا سريعًا|free consultation|quick renovation/i)
+    expect(guarded.join(' ')).toMatch(/جلسة اكتشاف|تجديد منظم|consultation|organized renovation/i)
+  })
+
   it('preserves those service claims when the user explicitly supplied them', () => {
     const text = 'احجز موعدك في دقائق من موقعنا المتميز في قلب دبي مع رعاية موثوقة.'
 
@@ -525,6 +595,17 @@ describe('strategyProofGuard', () => {
 
     expect(joined).not.toMatch(/تضمن لك|تحميك من|يغير تجربتك الصحية بالكامل|سيكون كافيًا|يستخدم Instagram بشكل نشط|منصات غير فعالة/)
     expect(joined).toMatch(/فهم الخطوات قبل البدء|فرضية تحتاج إلى بيانات فعلية|عدم توسيع القنوات/)
+  })
+
+  it('does not turn scoped execution supervision into a full-service quality guarantee', () => {
+    const guarded = guardStrategyProofText(
+      'نحن نقدم إشرافًا كاملاً على التنفيذ لضمان الجودة.',
+      { allowedClaimText: ['تشمل الباقة إشرافًا على التنفيذ.'] },
+    )
+
+    expect(guarded).toContain('إشرافًا على التنفيذ ضمن النطاق المتفق عليه')
+    expect(guarded).toContain('نقاط مراجعة للجودة')
+    expect(guarded).not.toMatch(/كاملاً|لضمان الجودة/)
   })
 
   it('turns unsupported causal performance language into testable hypotheses', () => {

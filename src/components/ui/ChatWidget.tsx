@@ -382,7 +382,9 @@ export default memo(function ChatWidget() {
             </div>
             {messages.length > 1 && (
               <button
+                type="button"
                 onClick={handleClear}
+                aria-label={isAr ? 'مسح المحادثة' : 'Clear chat'}
                 className="w-7 h-7 rounded-lg grid place-items-center hover:bg-white/5 transition opacity-50 hover:opacity-100"
                 title={isAr ? "مسح المحادثة" : "Clear chat"}
               >
@@ -390,7 +392,9 @@ export default memo(function ChatWidget() {
               </button>
             )}
             <button
+              type="button"
               onClick={() => setOpen(false)}
+              aria-label={isAr ? 'إغلاق مساعد NEXUS' : 'Close NEXUS assistant'}
               className="w-8 h-8 rounded-lg grid place-items-center hover:bg-white/5 transition"
             >
               <X className="w-4 h-4 text-white/50" />

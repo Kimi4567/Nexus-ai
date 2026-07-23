@@ -133,6 +133,7 @@ export default function LandingPagesWorkspace() {
   const ar = locale === 'ar'
   const copy = useCallback((arabic: string, english: string) => ar ? arabic : english, [ar])
   const [readiness, setReadiness] = useState<Readiness | null>(null)
+  const [experimentsReady, setExperimentsReady] = useState(false)
   const [pages, setPages] = useState<LandingPageRecord[]>([])
   const [campaigns, setCampaigns] = useState<CampaignOption[]>([])
   const [captureForms, setCaptureForms] = useState<CaptureFormOption[]>([])
@@ -162,8 +163,16 @@ export default function LandingPagesWorkspace() {
       const readinessResponse = await fetch('/api/landing-pages/readiness', { headers: { Authorization: token }, cache: 'no-store' })
       const readinessData = await readinessResponse.json().catch(() => ({})) as Readiness
       setReadiness(readinessData)
-      if (!readinessData.ready) return
-      const response = await fetch('/api/landing-pages', { headers: { Authorization: token }, cache: 'no-store' })
+      if (!readinessData.ready) {
+        setExperimentsReady(false)
+        return
+      }
+      const [response, experimentReadinessResponse] = await Promise.all([
+        fetch('/api/landing-pages', { headers: { Authorization: token }, cache: 'no-store' }),
+        fetch('/api/landing-pages/experiments/readiness', { headers: { Authorization: token }, cache: 'no-store' }),
+      ])
+      const experimentReadinessData = await experimentReadinessResponse.json().catch(() => ({})) as { ready?: boolean }
+      setExperimentsReady(experimentReadinessResponse.ok && experimentReadinessData.ready === true)
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.error || copy('تعذر تحميل صفحات الهبوط.', 'Could not load landing pages.'))
       setPages(Array.isArray(data.pages) ? data.pages : [])
@@ -376,10 +385,10 @@ export default function LandingPagesWorkspace() {
 
   const editorVisible = showCreate || Boolean(selected)
   const readinessText = !readiness?.requested
-    ? copy('الميزة موجودة لكنها مغلقة بالـ feature flag في هذه البيئة.', 'The feature is built but its environment flag is off.')
+    ? copy('صفحات التحويل غير مفعلة في هذه البيئة حتى يكتمل تجهيز بيانات العملاء واختبار الرحلة من الزيارة إلى النموذج.', 'Conversion pages are not active in this environment until customer-data readiness and the visit-to-form journey are verified.')
     : !readiness.runtimeConfigured
-      ? copy('يلزم تفعيل CRM وإضافة مفتاح HMAC سري قبل التشغيل.', 'Lead CRM and a server-only HMAC key are required before activation.')
-      : copy('يلزم تطبيق الـ migration والتحقق منها في Preview قابلة للاسترجاع.', 'The migration must be applied and verified in a recoverable Preview environment.')
+      ? copy('يلزم تفعيل استقبال العملاء وتأمين توقيع أحداث التحويل قبل التشغيل.', 'Lead intake and secure conversion-event signing are required before activation.')
+      : copy('يلزم تجهيز جداول البيانات والتحقق منها أولًا في بيئة اختبار قابلة للاسترجاع.', 'The data tables must be prepared and verified in a recoverable test environment first.')
 
   if (authLoading || loading || readiness === null) {
     return <WorkspaceRouteLoading labelAr="جارٍ تجهيز صفحات التحويل" labelEn="Preparing conversion pages" />
@@ -482,7 +491,7 @@ export default function LandingPagesWorkspace() {
               </form>
             ) : null}
 
-            {experimentPage ? <LandingExperimentPanel pageId={experimentPage.id} pageName={experimentPage.name} onClose={() => setExperimentPage(null)} onPageChanged={load} /> : null}
+            {experimentsReady && experimentPage ? <LandingExperimentPanel pageId={experimentPage.id} pageName={experimentPage.name} onClose={() => setExperimentPage(null)} onPageChanged={load} /> : null}
 
             <section className="mt-4 grid gap-4 xl:grid-cols-2">
               {pages.length === 0 ? <div className="nx-os-card p-10 text-center xl:col-span-2"><Globe2 className="mx-auto h-10 w-10 text-slate-300" /><h2 className="mt-4 text-lg font-black text-[#0B1028]">{copy('لا توجد صفحات بعد', 'No landing pages yet')}</h2><p className="mt-2 text-sm text-slate-500">{copy('ابدأ بحملة ونموذج استقبال مرتبط بها.', 'Start with a campaign and a capture form linked to it.')}</p></div> : pages.map(page => (
@@ -495,7 +504,7 @@ export default function LandingPagesWorkspace() {
                     {page.status !== 'ARCHIVED' ? <>
                       <button type="button" onClick={() => editPage(page)} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#101A4D] px-3 text-[11px] font-black text-white"><FilePenLine className="h-3.5 w-3.5" />{copy('تحرير', 'Edit')}</button>
                       {page.status === 'PUBLISHED' ? <>
-                        <button type="button" onClick={() => { setExperimentPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }) }} className="inline-flex h-9 items-center gap-2 rounded-lg border border-indigo-200 px-3 text-[11px] font-black text-indigo-700"><FlaskConical className="h-3.5 w-3.5" />A/B</button>
+                        {experimentsReady ? <button type="button" onClick={() => { setExperimentPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }) }} className="inline-flex h-9 items-center gap-2 rounded-lg border border-indigo-200 px-3 text-[11px] font-black text-indigo-700"><FlaskConical className="h-3.5 w-3.5" />A/B</button> : null}
                         <button type="button" onClick={() => openTrackingBuilder(page)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-emerald-200 px-3 text-[11px] font-black text-emerald-700"><Link2 className="h-3.5 w-3.5" />UTM</button>
                         <button type="button" onClick={() => copyPublicLink(page.publicPath)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-[11px] font-black text-slate-600"><Copy className="h-3.5 w-3.5" />{copy('نسخ الرابط', 'Copy link')}</button>
                         <Link href={page.publicPath} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-[11px] font-black text-slate-600"><ExternalLink className="h-3.5 w-3.5" />{copy('فتح', 'Open')}</Link>

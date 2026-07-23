@@ -31,7 +31,7 @@ const HOME_JSON_LD = {
   name: 'NEXUS AI',
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Web',
-  url: 'https://nexus-grow.com',
+  url: 'https://www.nexus-grow.com',
   description: 'AI-powered marketing operating system for reviewed strategy, content planning, approval-gated execution, and evidence-backed analytics.',
 }
 

@@ -47,6 +47,7 @@ import {
   CAMPAIGN_SNAPSHOT_SCOPE,
   buildContentApprovalSnapshotPayload,
   buildMediaApprovalSnapshotPayload,
+  buildScheduleDecisionSnapshotPayload,
   buildStrategyApprovalSnapshotPayload,
   hashCampaignSnapshotPayload,
 } from '@/lib/campaignSnapshots'
@@ -85,7 +86,7 @@ function withApprovalSnapshot<T extends { id: string }>(value: T): T & {
     id: 'strategy-snapshot-1',
     version: 1,
     scope: CAMPAIGN_SNAPSHOT_SCOPE.STRATEGY_APPROVAL,
-    payloadHash: hashCampaignSnapshotPayload(buildStrategyApprovalSnapshotPayload({ campaign, brandProfile: brand })),
+    payloadHash: hashCampaignSnapshotPayload(buildStrategyApprovalSnapshotPayload({ campaign, brandProfile: brand, persistedApprovedAiOutput: true })),
   }
   const approvedSnapshot = {
       scope: CAMPAIGN_SNAPSHOT_SCOPE.CONTENT_APPROVAL,
@@ -107,7 +108,7 @@ function withApprovalSnapshot<T extends { id: string }>(value: T): T & {
   }
 }
 
-function duePost() {
+function duePost(overrides: Record<string, unknown> = {}) {
   const value = {
     id: 'post-1',
     workspaceId: 'workspace-1',
@@ -131,8 +132,33 @@ function duePost() {
       config: { personId: 'person-1', scopeEvidence: 'provider_response', scopes: ['w_member_social'] },
     },
     statusHistory: [],
+    ...overrides,
   }
-  return withApprovalSnapshot(value)
+  const approved = {
+    ...withApprovalSnapshot(value),
+    integrationId: 'integration-1',
+    pageName: null,
+    platformOptions: null,
+  }
+  const strategySnapshot = {
+    id: 'strategy-snapshot-1',
+    version: 1,
+    scope: CAMPAIGN_SNAPSHOT_SCOPE.STRATEGY_APPROVAL,
+    payloadHash: hashCampaignSnapshotPayload(buildStrategyApprovalSnapshotPayload({ campaign, brandProfile: brand, persistedApprovedAiOutput: true })),
+  }
+  const schedulePayload = buildScheduleDecisionSnapshotPayload({
+    campaignId: campaign.id,
+    strategySnapshot,
+    publishMode: 'AUTO',
+    posts: [approved],
+  })
+  return {
+    ...approved,
+    scheduledSnapshot: {
+      scope: CAMPAIGN_SNAPSHOT_SCOPE.SCHEDULE_DECISION,
+      payload: schedulePayload,
+    },
+  }
 }
 
 beforeEach(() => {
@@ -154,7 +180,7 @@ beforeEach(() => {
     campaignId: campaign.id,
     version: 1,
     scope: CAMPAIGN_SNAPSHOT_SCOPE.STRATEGY_APPROVAL,
-    payloadHash: hashCampaignSnapshotPayload(buildStrategyApprovalSnapshotPayload({ campaign, brandProfile: brand })),
+    payloadHash: hashCampaignSnapshotPayload(buildStrategyApprovalSnapshotPayload({ campaign, brandProfile: brand, persistedApprovedAiOutput: true })),
   }])
   mocks.reviewStrategyGrounding.mockReturnValue({
     schemaVersion: 1, status: 'passed', score: 100, blockers: [], warnings: [], checkedAt: '2026-07-14T00:00:00.000Z',
@@ -255,6 +281,23 @@ describe('GET /api/cron/publish', () => {
     })
   })
 
+  it('blocks provider delivery when the destination changes after the schedule decision', async () => {
+    mocks.findMany.mockResolvedValue([{ ...duePost(), pageId: 'tampered-page' }])
+
+    const response = await GET(request())
+    const body = await response.json()
+
+    expect(body).toMatchObject({ ok: true, processed: 1, succeeded: 0, failed: 1 })
+    expect(mocks.publish).not.toHaveBeenCalled()
+    expect(mocks.update).toHaveBeenCalledWith({
+      where: { id: 'post-1' },
+      data: expect.objectContaining({
+        status: 'FAILED',
+        errorMessage: expect.stringContaining('SCHEDULE_CHANGED_AFTER_APPROVAL'),
+      }),
+    })
+  })
+
   it('does not call the platform adapter when media readiness is incomplete', async () => {
     mocks.findMany.mockResolvedValue([{ ...duePost(), generationStatus: 'PENDING' }])
 
@@ -267,8 +310,7 @@ describe('GET /api/cron/publish', () => {
   })
 
   it('fails closed before provider delivery when scheduled legacy copy is generic', async () => {
-    mocks.findMany.mockResolvedValue([withApprovalSnapshot({
-      ...duePost(),
+    mocks.findMany.mockResolvedValue([duePost({
       caption: 'Did you know analytics can transform your business?',
     })])
 
@@ -335,8 +377,7 @@ describe('GET /api/cron/publish', () => {
   })
 
   it('publishes scheduled Pinterest posts only with Standard access and verified scopes', async () => {
-    mocks.findMany.mockResolvedValue([withApprovalSnapshot({
-      ...duePost(),
+    mocks.findMany.mockResolvedValue([duePost({
       id: 'pinterest-post',
       platform: 'PINTEREST',
       publishTarget: 'PINTEREST',

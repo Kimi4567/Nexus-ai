@@ -452,9 +452,17 @@ describe('POST professional video generation', () => {
     expect(mocks.refund).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'user-1',
       action: 'VIDEO_GENERATION',
-      reason: 'NEXUS Video Studio could not start production. Reserved credits will be restored.',
+      reason: 'تعذّر بدء إنتاج الفيديو لدى المزوّد قبل إنشاء أي أصل.',
     }))
-    expect(await response.json()).toMatchObject({ refunded: true, refundPending: false })
+    expect(await response.json()).toMatchObject({
+      error: 'تعذّر على NEXUS بدء إنتاج الفيديو لدى المزوّد. تم رد الرصيد المحجوز بالكامل، ولم يُنشأ فيديو أو يُنشر أو يُجدول شيء.',
+      code: 'VIDEO_PROVIDER_START_FAILED',
+      refunded: true,
+      creditsRestored: true,
+      refundPending: false,
+      creditsCharged: false,
+      providerGenerationStarted: false,
+    })
   })
 })
 

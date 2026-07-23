@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   getStrategyBriefReadiness,
   getStrategyPageReadinessSurface,
+  hasUsableConversionDestination,
   type StrategyBriefProfileLike,
 } from '@/lib/strategyBriefReadiness'
 
@@ -31,6 +32,12 @@ const paidReadyBrand: StrategyBriefProfileLike = {
 }
 
 describe('getStrategyBriefReadiness', () => {
+  it('rejects placeholder conversion destinations before an AI run starts', () => {
+    expect(hasUsableConversionDestination('Landing page/form to be created', 'leads')).toBe(false)
+    expect(hasUsableConversionDestination('WhatsApp will be connected later', 'leads')).toBe(false)
+    expect(hasUsableConversionDestination('https://example.com/request-design', 'leads')).toBe(true)
+  })
+
   it('allows an organic-ready brand and treats missing proof as a warning only', () => {
     const result = getStrategyBriefReadiness({
       mode: 'organic',
@@ -91,6 +98,23 @@ describe('getStrategyBriefReadiness', () => {
     expect(result.blockers).toEqual([])
     expect(result.warnings).toEqual(expect.arrayContaining(['paid_planning_only', 'no_launch_or_spend']))
     expect(result.safeScope).toContain('Paid planning brief only')
+  })
+
+  it('allows proof-limited paid planning and exposes the missing proof as a warning', () => {
+    const result = getStrategyBriefReadiness({
+      mode: 'paid',
+      brandProfile: { ...paidReadyBrand, verifiedProof: [] },
+    })
+
+    expect(result.canGenerate).toBe(true)
+    expect(result.canGeneratePaidPlan).toBe(true)
+    expect(result.missingRequiredFields).not.toContain('verifiedProof')
+    expect(result.recommendedFields).toContain('verifiedProof')
+    expect(result.warnings).toEqual(expect.arrayContaining([
+      'verified_proof_missing',
+      'paid_planning_only',
+      'no_launch_or_spend',
+    ]))
   })
 
   it('allows full strategy when organic and paid briefs are ready while launch readiness remains gated', () => {

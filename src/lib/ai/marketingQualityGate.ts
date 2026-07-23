@@ -13,6 +13,7 @@
  */
 
 import { hasUsableConversionDestination } from '@/lib/strategyBriefReadiness'
+import { detectUnsupportedClaims, hasNegatingSafetyContext } from '@/lib/ai/claimGuard'
 
 export const MARKETING_QUALITY_GATE_VERSION = 1 as const
 
@@ -125,9 +126,10 @@ const DOMAIN_SIGNATURES: Array<{
 ]
 
 const GENERIC_COMPETITOR_RE = /^(?:premium|leading|local|top|best)?\s*(?:dental|medical|beauty|marketing|real estate|coffee|software|saas)?\s*(?:clinics?|companies|agencies|providers|businesses|brands|stores|shops|firms)(?:\s+in\s+.+)?$/i
-const UNSUPPORTED_QUALITY_SUPERLATIVE_RE = /\b(?:freshest|finest|premium|high[-\s]?quality|optimal|perfect|ultimate|unmatched|unrival(?:l)?ed)\b|(?:الأطزج|الأفضل|الأمثل|مثالي|مثالية|فاخر|فاخرة|عالي(?:ة)?\s+الجودة)/gi
+const UNSUPPORTED_QUALITY_SUPERLATIVE_RE = /\b(?:freshest|finest|high[-\s]?quality|optimal|perfect|ultimate|unmatched|unrival(?:l)?ed)\b|(?:الأطزج|الأفضل|الأمثل|مثالي|مثالية|عالي(?:ة)?\s+الجودة)/gi
+const UNVERIFIED_PREMIUM_POSITIONING_RE = /\bpremium\b|(?:فاخر|فاخرة)/gi
 const UNVERIFIED_DIRECT_RESPONSE_RE = /\b(?:shop(?:\s+now|\s+the\s+look)?|browse\s+(?:our|the)\s+collection|explore\s+(?:our|the)\s+collection|view\s+products?|add\s+to\s+cart|buy\s+now|order\s+now|sign\s+up|register|book|request\s+(?:a\s+)?demo|whatsapp)\b|(?:تسوّق|تسوق|اشتر\s+الآن|اطلب\s+الآن|تصفّح\s+(?:ال)?مجموعة|تصفح\s+(?:ال)?مجموعة|اكتشف\s+(?:ال)?مجموعة|أضف\s+إلى\s+السلة|سجّل|سجل|احجز|واتساب)/i
-const UNSOURCED_CHANNEL_FACT_RE = /\b(?:high(?:est)?[-\s]?engagement|fastest[-\s]?growing|rapidly growing|popular among|best platform|leading platform|dominant platform|most effective platform|ideal\s+for|can\s+drive\s+(?:traffic|sales|conversions?))\b|(?:تفاعل\s+مرتفع|الأسرع\s+نمواً|ينمو\s+بسرعة|شائع\s+بين|أفضل\s+منصة|المنصة\s+الرائدة|الأكثر\s+فعالية|مثالي(?:ة)?\s+لـ?|يمكن(?:ها)?\s+زيادة\s+(?:الزيارات|المبيعات|التحويلات))/i
+const UNSOURCED_CHANNEL_FACT_RE = /\b(?:high(?:est)?[-\s]?engagement|fastest[-\s]?growing|rapidly growing|popular among|best platform|leading platform|dominant platform|most effective platform|ideal\s+for|can\s+drive\s+(?:traffic|sales|conversions?)|(?:platform\s+)?users?\s+(?:actively\s+)?(?:seek|search\s+for|prefer))\b|(?:تفاعل\s+مرتفع|الأسرع\s+نمواً|ينمو\s+بسرعة|شائع\s+بين|أفضل\s+منصة|المنصة\s+الرائدة|الأكثر\s+فعالية|مثالي(?:ة)?\s+لـ?|يمكن(?:ها)?\s+زيادة\s+(?:الزيارات|المبيعات|التحويلات)|مستخدمو?\s+\S+\s+(?:يبحثون|يفضلون))/i
 const HYPOTHESIS_MARKER_RE = /\b(?:hypothesis|assumption|to validate|test whether|planning assumption)\b|(?:فرضية|افتراض|للتحقق|نختبر\s+ما\s+إذا)/i
 
 const UNSUPPORTED_OFFER_ASSURANCE_RULES: Array<{
@@ -197,26 +199,46 @@ export function hasUnsourcedChannelMarketClaim(value: string): boolean {
 export function hasChannelHypothesisMarker(value: string): boolean {
   return HYPOTHESIS_MARKER_RE.test(value)
 }
-const UNGROUNDED_CONTEXT_CLAIMS: Array<{ code: string; output: RegExp; evidence: RegExp }> = [
+const UNGROUNDED_CONTEXT_CLAIMS: Array<{ id: string; output: RegExp; evidence: RegExp }> = [
   {
-    code: 'work_or_professional_use',
+    id: 'freshness_timing_escalation',
+    output: /\b(?:roasted|prepared)\s+(?:immediately|right|just)\s+before\s+(?:delivery|dispatch|shipping)\b|ت[ُ]?حمص\s+(?:مباشرة|فورا|فورًا)\s+قبل\s+(?:التوصيل|الشحن)/i,
+    evidence: /\b(?:roasted|prepared)\s+(?:immediately|right|just)\s+before\s+(?:delivery|dispatch|shipping)\b|ت[ُ]?حمص\s+(?:مباشرة|فورا|فورًا)\s+قبل\s+(?:التوصيل|الشحن)/i,
+  },
+  {
+    id: 'focus_or_concentration_outcome',
+    output: /\b(?:improv(?:e|es|ing)|boost(?:s|ing)?|increase(?:s|ing)?)\s+(?:focus|concentration)\b|(?:تحسين|زيادة|تعزيز)\s+(?:ال)?تركيز/i,
+    evidence: /\b(?:focus|concentration)\b|(?:ال)?تركيز/i,
+  },
+  {
+    id: 'market_share_objective',
+    output: /\bmarket\s+share\b|الحصة\s+السوقية/i,
+    evidence: /\bmarket\s+share\b|الحصة\s+السوقية/i,
+  },
+  {
+    id: 'roast_date_visibility_pain',
+    output: /\b(?:unknown|unclear|missing|not knowing)\s+(?:the\s+)?roast\s+date\b|(?:عدم\s+معرفة|غياب|عدم\s+وضوح)\s+تاريخ\s+التحميص/i,
+    evidence: /\broast\s+date\b|تاريخ\s+التحميص/i,
+  },
+  {
+    id: 'work_or_professional_use',
     output: /\b(?:style[-\s]?conscious professionals?|working women|workwear|office wear|for (?:the )?(?:office|work|meetings?)|meeting[-\s]?ready)\b|(?:محترفات|نساء\s+عاملات|ملابس\s+العمل|إطلالة\s+العمل|للعمل|للمكتب|للاجتماعات)/i,
     evidence: /\b(?:professional|work|workplace|office|meeting|workwear)\b|(?:العمل|المكتب|الاجتماعات|المهني|المحترفات)/i,
   },
   {
-    code: 'cultural_or_heritage_attribute',
+    id: 'cultural_or_heritage_attribute',
     output: /\b(?:culturally respectful|cultural values?|cultural fashion|heritage|traditional identity)\b|(?:يحترم\s+الثقافة|القيم\s+الثقافية|أزياء\s+ثقافية|التراث|الهوية\s+التقليدية)/i,
     evidence: /\b(?:culture|cultural|culturally|heritage|tradition|traditional)\b|(?:الثقافة|ثقافي|التراث|التقاليد|تقليدي)/i,
   },
   {
-    code: 'collection_variety_or_every_occasion',
+    id: 'collection_variety_or_every_occasion',
     output: /\b(?:(?:every|any|all) occasions?|varied collection|diverse collection|wide (?:range|collection|selection))\b|(?:لكل\s+المناسبات|كل\s+مناسبة|تشكيلة\s+متنوعة|مجموعة\s+متنوعة|تشكيلة\s+واسعة|مجموعة\s+واسعة)/i,
     // "Simple occasions" does not support the universal promise "every
     // occasion". Require the same unbounded fit/variety fact from Brand Brain.
     evidence: /\b(?:(?:every|any|all) occasions?|varied collection|diverse collection|wide (?:range|collection|selection))\b|(?:لكل\s+المناسبات|كل\s+مناسبة|تشكيلة\s+متنوعة|مجموعة\s+متنوعة|تشكيلة\s+واسعة|مجموعة\s+واسعة)/i,
   },
   {
-    code: 'fabric_comfort_or_durability',
+    id: 'fabric_comfort_or_durability',
     // This is a material-claim gate, not a ban on the ordinary emotional idea
     // of comfort. The previous broad "comfort/الراحة" alternatives falsely
     // blocked home-fragrance and hospitality strategies that never claimed
@@ -257,8 +279,7 @@ function containsAffirmedClaim(text: string, claim: string): boolean {
   while (cursor < text.length) {
     const index = text.indexOf(claim, cursor)
     if (index < 0) return false
-    const before = text.slice(Math.max(0, index - 48), index)
-    if (!/(?:\b(?:avoid|never|not|no|without|do\s+not\s+use|must\s+not\s+use)\s+|(?:تجنب|تجنّب|لا\s+تستخدم|بدون|غير)\s*)$/i.test(before)) return true
+    if (!hasNegatingSafetyContext(text, index)) return true
     cursor = index + claim.length
   }
   return false
@@ -278,6 +299,17 @@ function overlapCount(left: Set<string>, right: Set<string>): number {
   let count = 0
   for (const token of left) if (right.has(token)) count += 1
   return count
+}
+
+function dominantAlphabet(value: unknown): 'arabic' | 'latin' | 'mixed' | 'unknown' {
+  const text = normalizedText(value)
+  const arabicLetters = (text.match(/[\u0600-\u06FF]/g) ?? []).length
+  const latinLetters = (text.match(/[A-Za-z]/g) ?? []).length
+  const total = arabicLetters + latinLetters
+  if (total === 0) return 'unknown'
+  if (arabicLetters / total >= 0.75) return 'arabic'
+  if (latinLetters / total >= 0.75) return 'latin'
+  return 'mixed'
 }
 
 function normalizePlatform(value: string): string {
@@ -338,6 +370,26 @@ function publicStrategyFields(strategy: unknown): Array<{ path: string; value: u
   addObjectFields('channelStrategy', ['rationale', 'role', 'reason'])
   addObjectFields('funnelStages', ['userMindset', 'message', 'cta'])
   addObjectFields('weeklyExecutionPlan', ['objective', 'keyMessage', 'cta'])
+  const businessObjective = isRecord(strategy.businessObjective) ? strategy.businessObjective : null
+  if (businessObjective) {
+    ;['primary', 'marketing', 'conversionAction', 'expectedUserAction'].forEach(name => (
+      add(`strategy.businessObjective.${name}`, businessObjective[name])
+    ))
+  }
+  const paidPlanning = isRecord(strategy.paidPlanning) ? strategy.paidPlanning : null
+  if (paidPlanning) {
+    const addPaidFields = (key: string, names: string[]) => {
+      const collection = paidPlanning[key]
+      if (!Array.isArray(collection)) return
+      collection.forEach((item, index) => {
+        if (!isRecord(item)) return
+        names.forEach(name => add(`strategy.paidPlanning.${key}[${index}].${name}`, item[name]))
+      })
+    }
+    addPaidFields('adAngles', ['message'])
+    addPaidFields('adCopyVariations', ['headline', 'primaryText', 'cta'])
+    addPaidFields('creativeBriefs', ['visualDirection'])
+  }
   add('strategy.offerCTAStrategy', strategy.offerCTAStrategy)
   return fields
 }
@@ -548,12 +600,26 @@ export function reviewStrategyGrounding(input: StrategyQualityInput): MarketingQ
     let match: RegExpExecArray | null
     while ((match = UNSUPPORTED_QUALITY_SUPERLATIVE_RE.exec(text)) !== null) {
       const claim = match[0].toLocaleLowerCase()
+      if (!containsAffirmedClaim(text.toLocaleLowerCase(), claim)) continue
       if (containsAffirmedClaim(approvedClaimText, claim)) continue
       blockers.push(finding(
         'unsupported_quality_superlative',
         'blocker',
         path,
         `The strategy uses the unverified quality claim "${match[0]}". Use factual Brand Brain wording or add verified proof.`,
+      ))
+    }
+
+    UNVERIFIED_PREMIUM_POSITIONING_RE.lastIndex = 0
+    while ((match = UNVERIFIED_PREMIUM_POSITIONING_RE.exec(text)) !== null) {
+      const claim = match[0].toLocaleLowerCase()
+      if (!containsAffirmedClaim(text.toLocaleLowerCase(), claim)) continue
+      if (containsAffirmedClaim(approvedClaimText, claim)) continue
+      warnings.push(finding(
+        'unverified_premium_positioning',
+        'warning',
+        path,
+        `The strategy introduces the positioning word "${match[0]}" without matching Brand Brain context. Confirm the intended price/brand position before publishing.`,
       ))
     }
   })
@@ -606,26 +672,57 @@ export function reviewStrategyGrounding(input: StrategyQualityInput): MarketingQ
       'The strategy uses a direct-response CTA without a verified store, booking, contact, or conversion destination.',
     ))
   }
-  for (const contextClaim of UNGROUNDED_CONTEXT_CLAIMS) {
-    if (contextClaim.output.test(strategyPublicText) && !contextClaim.evidence.test(brandText)) {
+  const reportedContextClaims = new Set<string>()
+  const reportedAudienceClaims = new Set<string>()
+  publicFields.forEach(({ path, value }) => {
+    const text = normalizedText(value)
+    for (const contextClaim of UNGROUNDED_CONTEXT_CLAIMS) {
+      const match = text.match(contextClaim.output)
+      if (match && !contextClaim.evidence.test(brandText) && !reportedContextClaims.has(contextClaim.id)) {
+        reportedContextClaims.add(contextClaim.id)
+        blockers.push(finding(
+          'ungrounded_brand_context',
+          'blocker',
+          path,
+          `The strategy adds "${match[0]}" (${contextClaim.id}) without matching Brand Brain evidence.`,
+        ))
+      }
+    }
+    for (const audienceClaim of AUDIENCE_CLAIMS) {
+      const match = text.match(audienceClaim.re)
+      if (match && !audienceClaim.re.test(brandText) && !reportedAudienceClaims.has(audienceClaim.code)) {
+        reportedAudienceClaims.add(audienceClaim.code)
+        blockers.push(finding(
+          'ungrounded_audience_expansion',
+          'blocker',
+          path,
+          `The strategy adds the audience segment "${match[0]}" (${audienceClaim.code}) without support in Brand Brain.`,
+        ))
+      }
+    }
+
+    const unsupportedClaims = detectUnsupportedClaims(text).findings
+      .filter(claim => claim.category === 'socialProof' || claim.category === 'caseStudy')
+    unsupportedClaims.forEach((claim) => {
+      if (containsAffirmedClaim(approvedClaimText, claim.match.toLocaleLowerCase())) return
       blockers.push(finding(
-        'ungrounded_brand_context',
+        'unsupported_social_proof',
         'blocker',
-        'strategy.customerFacingClaims',
-        `The strategy adds the unsupported brand context "${contextClaim.code}" without Brand Brain evidence.`,
+        path,
+        `The strategy uses the unverified ${claim.category} phrase "${claim.match}". Attach matching proof or replace it with a proof-collection task.`,
+      ))
+    })
+
+    if (/\b(?:discover|see|experience)\s+the\s+difference\b|(?:اكتشف|شاهدي|شاهد|اختبر)\s+(?:ال)?فرق/i.test(text)
+      && !/\b(?:difference|comparison|compared)\b|(?:ال)?فرق|مقارنة/i.test(approvedClaimText)) {
+      warnings.push(finding(
+        'unverified_comparative_positioning',
+        'warning',
+        path,
+        'The copy invites a comparison without documenting what is being compared. Name a factual product detail or keep this as a message hypothesis.',
       ))
     }
-  }
-  for (const audienceClaim of AUDIENCE_CLAIMS) {
-    if (audienceClaim.re.test(strategyPublicText) && !audienceClaim.re.test(brandText)) {
-      blockers.push(finding(
-        'ungrounded_audience_expansion',
-        'blocker',
-        'strategy.audience',
-        `The strategy adds the audience segment "${audienceClaim.code}" without support in Brand Brain.`,
-      ))
-    }
-  }
+  })
 
   const allowedPlatforms = new Set((input.allowedPlatforms ?? input.brand?.topPlatforms ?? []).map(normalizePlatform))
   const strategyPlatforms = Array.from(new Set(collectPlatformValues(strategy).map(normalizePlatform)))
@@ -665,26 +762,56 @@ export function reviewStrategyGrounding(input: StrategyQualityInput): MarketingQ
     input.brand?.audienceDesires,
   ])
   const strategyTokens = tokens(strategyPublicText)
-  if (brandTokens.size >= 3 && overlapCount(brandTokens, strategyTokens) < 2) {
+  const brandAlphabet = dominantAlphabet([
+    input.brand?.industry,
+    input.brand?.description,
+    input.brand?.primaryOffer,
+    input.brand?.targetAudience,
+    input.brand?.audiencePainPoints,
+    input.brand?.audienceDesires,
+  ])
+  const strategyAlphabet = dominantAlphabet(strategyPublicText)
+  const lexicalComparisonIsReliable = brandAlphabet === strategyAlphabet
+    || brandAlphabet === 'mixed'
+    || strategyAlphabet === 'mixed'
+    || brandAlphabet === 'unknown'
+    || strategyAlphabet === 'unknown'
+
+  if (brandTokens.size >= 3 && lexicalComparisonIsReliable && overlapCount(brandTokens, strategyTokens) < 2) {
     blockers.push(finding(
       'strategy_missing_brand_relevance',
       'blocker',
       'strategy',
       'The customer-facing strategy does not contain enough of the saved business, offer, or audience context.',
     ))
+  } else if (brandTokens.size >= 3 && !lexicalComparisonIsReliable) {
+    // Exact-token overlap is not a valid relevance test when the user asks for
+    // output in a different language from Brand Brain. The surrounding truth,
+    // audience, platform, claim, and output-contract checks still run; record
+    // the limitation instead of falsely rejecting a valid translation.
+    warnings.push(finding(
+      'cross_language_relevance_requires_review',
+      'warning',
+      'strategy',
+      'Brand Brain and strategy use different writing systems, so exact-token relevance could not be verified deterministically. Review the translated offer and audience before approval.',
+    ))
   }
 
   const avoidKeywords = (input.brand?.avoidKeywords ?? [])
     .filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))
   for (const keyword of avoidKeywords) {
-    if (strategyPublicText.toLocaleLowerCase().includes(keyword.toLocaleLowerCase())) {
-      blockers.push(finding(
-        'forbidden_brand_language',
-        'blocker',
-        'strategy',
-        `The strategy uses a Brand Brain avoid-word: "${keyword}".`,
-      ))
-    }
+    const normalizedKeyword = keyword.toLocaleLowerCase()
+    publicFields.forEach(({ path, value }) => {
+      const text = normalizedText(value).toLocaleLowerCase()
+      if (containsAffirmedClaim(text, normalizedKeyword)) {
+        blockers.push(finding(
+          'forbidden_brand_language',
+          'blocker',
+          path,
+          `The strategy uses a Brand Brain avoid-word: "${keyword}".`,
+        ))
+      }
+    })
   }
 
   return buildReport(blockers, warnings, input.checkedAt)

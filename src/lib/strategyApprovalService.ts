@@ -182,6 +182,7 @@ export async function approveCampaignStrategy(
     const payload = buildStrategyApprovalSnapshotPayload({
       campaign: { ...snapshotSource, aiOutput: safeAiOutput },
       brandProfile: snapshotSource.workspace.brandProfile,
+      persistedApprovedAiOutput: true,
     })
     const snapshot = await tx.campaignSnapshot.create({
       data: {

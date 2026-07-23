@@ -15,7 +15,16 @@ import type { BrandTone } from '@prisma/client'
 import {
   finalizeStrategyQuality,
   prepareStrategyGenerationContext,
+  StrategyQualityFailure,
+  type FinalizedStrategyQuality,
+  type StrategyQualityFailureDiagnostics,
 } from '@/lib/strategy/strategyQualityPipeline'
+import {
+  buildOrganicPartialBrief,
+  canPreserveOrganicFromFull,
+  organicPartialStrategy,
+  type StrategyDeliveryOutcome,
+} from '@/lib/strategy/strategyPartialDelivery'
 
 // Re-export for API routes
 export type { BusinessBrief }
@@ -28,6 +37,10 @@ export interface OrchestratorResult {
   contentCreated: boolean
   suggestions: number
   errors: string[]
+  warnings: string[]
+  delivery: StrategyDeliveryOutcome
+  /** Structured, internal-safe failure details for recovery and support UX. */
+  failure?: StrategyQualityFailureDiagnostics
 }
 
 export interface RunFullAgencyOptions {
@@ -37,7 +50,7 @@ export interface RunFullAgencyOptions {
    * routes can use this to charge only when there is a saveable strategy, so
    * upstream AI/provider timeouts never leave a user charged with no campaign.
    */
-  beforePersistStrategy?: () => Promise<void>
+  beforePersistStrategy?: (delivery: StrategyDeliveryOutcome) => Promise<void>
 }
 
 /**
@@ -51,9 +64,16 @@ export async function runFullAgency(
 ): Promise<OrchestratorResult> {
   const startedAt = Date.now()
   const errors: string[] = []
+  const warnings: string[] = []
   let strategyCreated = false
   let contentCreated = false
   let suggestionsCount = 0
+  let failure: StrategyQualityFailureDiagnostics | undefined
+  let delivery: StrategyDeliveryOutcome = {
+    status: 'complete',
+    requestedStrategyType: brief.strategyType ?? 'organic',
+    deliveredStrategyType: brief.strategyType ?? 'organic',
+  }
 
   // AgentRun is non-critical — wrap so it never blocks strategy generation
   let agentRun: { id: string } = { id: 'local-' + Date.now() }
@@ -90,23 +110,47 @@ export async function runFullAgency(
     const strategyContext = prepareStrategyGenerationContext(brandProfile as any)
 
     // 2. Strategist agent
+    const requestedBrief = brief
     const generatedStrategy: StrategyOutput = await runStrategistAgent(
       brief,
       strategyContext.brandContext,
       brief.language,
       strategyContext.readiness,
     )
-    const { strategy, contractReport, qualityGate } = finalizeStrategyQuality(
-      generatedStrategy,
-      brief,
-      strategyContext,
-    )
+    let effectiveBrief = brief
+    let finalized: FinalizedStrategyQuality
+    try {
+      finalized = finalizeStrategyQuality(generatedStrategy, brief, strategyContext)
+    } catch (qualityError) {
+      if (
+        qualityError instanceof StrategyQualityFailure
+        && canPreserveOrganicFromFull(brief, qualityError.diagnostics)
+      ) {
+        effectiveBrief = buildOrganicPartialBrief(brief)
+        finalized = finalizeStrategyQuality(
+          organicPartialStrategy(generatedStrategy),
+          effectiveBrief,
+          strategyContext,
+        )
+        delivery = {
+          status: 'partial',
+          requestedStrategyType: 'full',
+          deliveredStrategyType: 'organic',
+          failedSection: 'paid_planning',
+          failure: qualityError.diagnostics,
+        }
+        warnings.push('PAID_PLANNING_NOT_DELIVERED')
+      } else {
+        throw qualityError
+      }
+    }
+    const { strategy, contractReport, qualityGate } = finalized
     console.log(
       `[Orchestrator] Strategy OS contract passed score=${contractReport.score} quality=${qualityGate.score} workspace=${workspaceId}`,
     )
 
     if (options.beforePersistStrategy) {
-      await options.beforePersistStrategy()
+      await options.beforePersistStrategy(delivery)
     }
 
     // 3. Content Director REMOVED from runFullAgency to avoid Vercel 60s timeout.
@@ -174,9 +218,9 @@ export async function runFullAgency(
         project = await tx.project.create({
           data: {
             workspaceId,
-            name: `${brief.companyName.slice(0, 90)} Marketing`,
-            description: brief.targetAudience?.slice(0, 500),
-            businessType: brief.businessType?.slice(0, 120),
+            name: `${effectiveBrief.companyName.slice(0, 90)} Marketing`,
+            description: effectiveBrief.targetAudience?.slice(0, 500),
+            businessType: effectiveBrief.businessType?.slice(0, 120),
             status: 'ACTIVE',
           },
         })
@@ -204,14 +248,18 @@ export async function runFullAgency(
             captionFormulas: content.captionFormulas || [],
             scriptTemplate: content.scriptTemplate || '',
             contentPillars: content.contentPillars?.length ? content.contentPillars : strategy.contentPillars || [],
-            strategyType: brief.strategyType || 'organic',
-            strategyDuration: brief.strategyDuration || '90',
-            strategyOrder: (brief as any).strategyOrder || null,
-            strategyDeliverables: (brief as any).strategyDeliverables || null,
-            organicPostCount: typeof (brief as any).organicPostCount === 'number' ? (brief as any).organicPostCount : null,
-            detailedCalendarDays: typeof (brief as any).detailedCalendarDays === 'number' ? (brief as any).detailedCalendarDays : null,
-            language: brief.language || 'ar',
-            selectedMediaIds: Array.isArray((brief as any).selectedMediaIds) ? (brief as any).selectedMediaIds : [],
+            strategyType: effectiveBrief.strategyType || 'organic',
+            strategyDuration: effectiveBrief.strategyDuration || '90',
+            strategyOrder: (effectiveBrief as any).strategyOrder || null,
+            strategyDeliverables: (effectiveBrief as any).strategyDeliverables || null,
+            requestedStrategyType: requestedBrief.strategyType || 'organic',
+            requestedStrategyOrder: (requestedBrief as any).strategyOrder || null,
+            requestedStrategyDeliverables: (requestedBrief as any).strategyDeliverables || null,
+            strategyFulfillment: delivery,
+            organicPostCount: typeof (effectiveBrief as any).organicPostCount === 'number' ? (effectiveBrief as any).organicPostCount : null,
+            detailedCalendarDays: typeof (effectiveBrief as any).detailedCalendarDays === 'number' ? (effectiveBrief as any).detailedCalendarDays : null,
+            language: effectiveBrief.language || 'ar',
+            selectedMediaIds: Array.isArray((effectiveBrief as any).selectedMediaIds) ? (effectiveBrief as any).selectedMediaIds : [],
             generatedAt: new Date().toISOString(),
             generatedByAgents: true,
             qualityGate,
@@ -225,13 +273,13 @@ export async function runFullAgency(
     saveCampaignMemory({
       workspaceId,
       campaignId: campaign.id,
-      goal: brief.primaryGoal ?? undefined,
+      goal: effectiveBrief.primaryGoal ?? undefined,
       tone: mapBrandTone(
         strategyContext.safeBrandProfile.toneKeywords,
         strategyContext.safeBrandProfile.writingStyle,
       ),
-      industry: brief.businessType ?? undefined,
-      audienceHint: brief.targetAudience ?? undefined,
+      industry: effectiveBrief.businessType ?? undefined,
+      audienceHint: effectiveBrief.targetAudience ?? undefined,
       strategy,
     }).catch(() => {})
 
@@ -258,8 +306,12 @@ export async function runFullAgency(
         type: 'STRATEGY',
         status: 'PENDING',
         priority: 1,
-        title: `Strategy ready: ${strategy.campaignName}`,
-        reasoning: `Planning hypothesis based on the approved brief for ${strategy.goal.toLowerCase()} and the stated audience. Review the strategy, evidence requirements, and execution package before approval.`,
+        title: delivery.status === 'partial'
+          ? `Organic strategy ready; paid planning needs retry: ${strategy.campaignName}`
+          : `Strategy ready: ${strategy.campaignName}`,
+        reasoning: delivery.status === 'partial'
+          ? `The organic contract passed and was preserved. The paid-planning section failed its quality contract and was not saved or charged. Review the organic strategy now; paid planning remains unavailable until a targeted retry is completed.`
+          : `Planning hypothesis based on the approved brief for ${strategy.goal.toLowerCase()} and the stated audience. Review the strategy, evidence requirements, and execution package before approval.`,
         impact: 'Potential impact is not estimated until eligible platform evidence is available.',
         payload: { strategy, campaignId: campaign.id },
         campaignId: campaign.id,
@@ -272,7 +324,7 @@ export async function runFullAgency(
       where: { id: agentRun.id },
       data: {
         status: 'COMPLETED',
-        outputData: { strategyCreated, contentCreated, campaignId: campaign.id },
+        outputData: { strategyCreated, contentCreated, campaignId: campaign.id, delivery, warnings },
         completedAt: new Date(),
         durationMs: Date.now() - startedAt,
       },
@@ -285,16 +337,32 @@ export async function runFullAgency(
 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error'
+    failure = err instanceof StrategyQualityFailure ? err.diagnostics : undefined
     // Log full error stack so Vercel logs show the real failure point
     console.error('[Orchestrator] runFullAgency FAILED:', message, err)
     errors.push(message)
     await db.agentRun.update({
       where: { id: agentRun.id },
-      data: { status: 'FAILED', error: message, completedAt: new Date(), durationMs: Date.now() - startedAt },
+      data: {
+        status: 'FAILED',
+        error: message,
+        outputData: failure ? { failure } : undefined,
+        completedAt: new Date(),
+        durationMs: Date.now() - startedAt,
+      },
     }).catch(() => {})  // Don't let agentRun update failure mask the real error
   }
 
-  return { agentRunId: agentRun.id, strategyCreated, contentCreated, suggestions: suggestionsCount, errors }
+  return {
+    agentRunId: agentRun.id,
+    strategyCreated,
+    contentCreated,
+    suggestions: suggestionsCount,
+    errors,
+    warnings,
+    delivery,
+    failure,
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────

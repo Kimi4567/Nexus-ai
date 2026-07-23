@@ -3,10 +3,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
   refund: vi.fn(),
+  visualFindUnique: vi.fn(),
+  visualUpdateMany: vi.fn(),
+  socialPostUpdateMany: vi.fn(),
 }))
 
 vi.mock('@/lib/prisma', () => ({
-  prisma: { creditTransaction: { findMany: mocks.findMany } },
+  prisma: {
+    creditTransaction: { findMany: mocks.findMany },
+    generatedVisual: {
+      findUnique: mocks.visualFindUnique,
+      updateMany: mocks.visualUpdateMany,
+    },
+    socialPost: { updateMany: mocks.socialPostUpdateMany },
+  },
 }))
 vi.mock('@/lib/credits', () => ({ refundCreditsForTransaction: mocks.refund }))
 
@@ -32,7 +42,7 @@ describe('stale credit reservation reconciliation', () => {
       },
       orderBy: { createdAt: 'asc' },
       take: CREDIT_RESERVATION_RECONCILE_LIMIT,
-      select: { id: true, userId: true },
+      select: { id: true, userId: true, entityId: true, entityType: true },
     })
   })
 
@@ -58,8 +68,44 @@ describe('stale credit reservation reconciliation', () => {
       scanned: 3,
       refunded: 1,
       alreadyResolved: 1,
+      artifactsRepaired: 0,
       failed: 1,
       failures: [{ transactionId: 'txn-3', error: 'database_unavailable' }],
     })
+  })
+
+  it('closes an abandoned image audit row and its post after restoring the reservation', async () => {
+    mocks.findMany.mockResolvedValue([{
+      id: 'txn-image',
+      userId: 'user-1',
+      entityId: 'visual-1',
+      entityType: 'generated_visual_image',
+    }])
+    mocks.refund.mockResolvedValue({ ok: true, status: 'refunded' })
+    mocks.visualFindUnique.mockResolvedValue({
+      id: 'visual-1',
+      workspaceId: 'workspace-1',
+      campaignId: 'campaign-1',
+      parentId: 'social-post:post-1',
+      status: 'GENERATING',
+    })
+    mocks.visualUpdateMany.mockResolvedValue({ count: 1 })
+    mocks.socialPostUpdateMany.mockResolvedValue({ count: 1 })
+
+    const result = await reconcileStaleCreditReservations(new Date('2026-07-20T12:00:00.000Z'))
+
+    expect(mocks.visualUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'visual-1', status: 'GENERATING' },
+      data: expect.objectContaining({
+        status: 'FAILED',
+        creditTransactionId: 'txn-image',
+        qualityStatus: 'ERROR',
+      }),
+    }))
+    expect(mocks.socialPostUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: 'post-1', imageUrl: null, uploadedMediaId: null }),
+      data: expect.objectContaining({ generationStatus: 'FAILED' }),
+    }))
+    expect(result).toMatchObject({ refunded: 1, artifactsRepaired: 1, failed: 0 })
   })
 })

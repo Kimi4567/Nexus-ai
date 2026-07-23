@@ -421,6 +421,7 @@ export default function ContentHubPage() {
   const { authHeader, isAuthenticated, loading: authLoading } = useAuth()
   const { t, locale } = useI18n()
   const {
+    status: billingStatus,
     creditsRemaining,
     isUnlimited,
     loading: billingLoading,
@@ -489,6 +490,7 @@ export default function ContentHubPage() {
   const [captionCopied, setCaptionCopied] = useState(false)
   const [showApproveConfirm, setShowApproveConfirm] = useState(false)
   const [showMediaApproveConfirm, setShowMediaApproveConfirm] = useState(false)
+  const [weakMediaApprovalAcknowledged, setWeakMediaApprovalAcknowledged] = useState(false)
   const [showScheduleConfirm, setShowScheduleConfirm] = useState(false)
   const [scheduleAcknowledged, setScheduleAcknowledged] = useState(false)
   const [scheduleMode, setScheduleMode] = useState<'MANUAL' | 'AUTO'>('MANUAL')
@@ -512,6 +514,8 @@ export default function ContentHubPage() {
     platforms: string[]
     firstDate: string | null
     lastDate: string | null
+    pendingMedia: number
+    totalMedia: number
     pendingImages: number
     totalImages: number
     videoSlots: number
@@ -548,16 +552,20 @@ export default function ContentHubPage() {
   const [rewriteAcknowledged, setRewriteAcknowledged] = useState(false)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
   const autoBuildStartedRef = useRef(false)
+  const loadRequestIdRef = useRef(0)
 
   // ── Load data ────────────────────────────────────────────────────────────────
 
   const loadData = useCallback(async (): Promise<ContentPost[]> => {
     if (!isAuthenticated) return []
+    const requestId = ++loadRequestIdRef.current
     let loadedPosts: ContentPost[] = []
     const authorization = authHeader()
     if (!authorization) {
-      setLoading(false)
-      setLoadError(isAr ? 'تعذّر التحقق من جلسة الدخول. أعد المحاولة.' : 'Could not verify your session. Retry.')
+      if (requestId === loadRequestIdRef.current) {
+        setLoading(false)
+        setLoadError(isAr ? 'تعذّر التحقق من جلسة الدخول. أعد المحاولة.' : 'Could not verify your session. Retry.')
+      }
       return []
     }
 
@@ -573,6 +581,10 @@ export default function ContentHubPage() {
         fetchWithTimeout('/api/brand', { headers: { Authorization: authorization } }, PRODUCT_READ_TIMEOUT_MS),
         fetchWithTimeout(`/api/campaigns/${campaignId}/creative-intelligence`, { headers: { Authorization: authorization } }, PRODUCT_READ_TIMEOUT_MS),
       ])
+
+      // Several actions deliberately refresh this screen. Ignore a slower,
+      // older request so it cannot replace fresh content with a stale error.
+      if (requestId !== loadRequestIdRef.current) return []
 
       if (campaignResult.status !== 'fulfilled') {
         throw new Error(isAr ? 'تعذّر تحميل الحملة. حاول مرة أخرى.' : 'Could not load the campaign. Try again.')
@@ -601,7 +613,9 @@ export default function ContentHubPage() {
       })
 
       if (planResult.status !== 'fulfilled' || !planResult.value.ok) {
-        throw new Error(isAr ? 'تم تحميل الحملة، لكن تعذّر تحميل خطة المحتوى.' : 'The campaign loaded, but its content plan did not.')
+        throw new Error(isAr
+          ? 'تعذّر تحديث أحدث نسخة من خطة المحتوى؛ المعروض آخر نسخة حمّلها NEXUS. أعد المحاولة.'
+          : 'Could not refresh the latest content plan; the last loaded version remains visible. Retry.')
       }
       const planData = await planResult.value.json()
       const rawPosts = planData.posts
@@ -647,12 +661,16 @@ export default function ContentHubPage() {
         setCreativeIntelligence(await creativeIntelligenceResult.value.json())
       }
 
+      setLoadError(null)
+
     } catch (err) {
-      setLoadError(err instanceof Error
-        ? err.message
-        : (isAr ? 'تعذّر تحميل مركز إنتاج الحملة.' : 'Could not load campaign production.'))
+      if (requestId === loadRequestIdRef.current) {
+        setLoadError(err instanceof Error
+          ? err.message
+          : (isAr ? 'تعذّر تحميل مركز إنتاج الحملة.' : 'Could not load campaign production.'))
+      }
     } finally {
-      setLoading(false)
+      if (requestId === loadRequestIdRef.current) setLoading(false)
     }
     return loadedPosts
   }, [authHeader, campaignId, isAr, isAuthenticated])
@@ -880,6 +898,14 @@ export default function ContentHubPage() {
       && !p.mediaApprovalSnapshotId,
   )
   const approvedPostsNeedingMediaApprovalCount = approvedPostsNeedingMediaApproval.length
+  const weakMediaApprovalRisks = approvedPostsNeedingMediaApproval.flatMap(post => {
+    if (!post.uploadedMediaId) return []
+    const match = creativeIntelligence?.matchesByPostId[post.id]
+      ?.find(candidate => candidate.mediaId === post.uploadedMediaId)
+    return match && ['WEAK', 'REJECTED'].includes(match.verdict)
+      ? [{ post, match }]
+      : []
+  })
   const mediaApprovalRequired = approvedCount > 0
     && approvedPostsNeedingMediaCount === 0
     && approvedPostsNeedingMediaApprovalCount > 0
@@ -1020,29 +1046,46 @@ export default function ContentHubPage() {
     const readyMediaSummary = isAr
       ? `${allMediaReadiness.confirmedReady} من ${readyMediaTotal} وسائط جاهزة`
       : `${allMediaReadiness.confirmedReady} / ${readyMediaTotal} media ready`
+    const mediaDemandSummary = isAr
+      ? `الصور المطلوبة: ${totalImagePosts} · الفيديوهات المطلوبة: ${videoPostCount}`
+      : `${totalImagePosts} image slots · ${videoPostCount} video slots`
     if (approvedOnlyCount) {
       if (contentReviewRequired) {
         const affectedPosts = contentIssueCountByPostId.size
         return isAr
-          ? `${approvedCount} سجلات اعتماد · ${affectedPosts} منشورات تحتاج إعادة فحص الجودة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${readyMediaSummary}`
-          : `${approvedCount} approval records · ${affectedPosts} posts need a quality recheck · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${readyMediaSummary}`
+          ? `${approvedCount} سجلات اعتماد · ${affectedPosts} منشورات تحتاج إعادة فحص الجودة · ${mediaDemandSummary} · ${readyMediaSummary}`
+          : `${approvedCount} approval records · ${affectedPosts} posts need a quality recheck · ${mediaDemandSummary} · ${readyMediaSummary}`
       }
       return isAr
-        ? `${approvedCount} منشورات معتمدة بانتظار الجدولة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${readyMediaSummary}`
-        : `${approvedCount} approved posts awaiting scheduling · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${readyMediaSummary}`
+        ? `${approvedCount} منشورات معتمدة بانتظار الجدولة · ${mediaDemandSummary} · ${readyMediaSummary}`
+        : `${approvedCount} approved posts awaiting scheduling · ${mediaDemandSummary} · ${readyMediaSummary}`
     }
     if (scheduledOnlyCount) {
       return isAr
-        ? `${scheduledCount} منشورات مجدولة — غير منشورة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${readyMediaSummary}`
-        : `${scheduledCount} scheduled posts — not published · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${readyMediaSummary}`
+        ? `${scheduledCount} منشورات مجدولة — غير منشورة · ${mediaDemandSummary} · ${readyMediaSummary}`
+        : `${scheduledCount} scheduled posts — not published · ${mediaDemandSummary} · ${readyMediaSummary}`
     }
     if (mixedScheduledManualPublishedCount) {
       return isAr
-        ? `${manuallyPublishedCount} منشور تم تأكيد نشره يدويًا · ${scheduledCount} منشورات مجدولة — غير منشورة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${readyMediaSummary}`
-        : `${manuallyPublishedCount} manually published post${manuallyPublishedCount === 1 ? '' : 's'} · ${scheduledCount} scheduled posts — not published · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${readyMediaSummary}`
+        ? `${manuallyPublishedCount} منشور تم تأكيد نشره يدويًا · ${scheduledCount} منشورات مجدولة — غير منشورة · ${mediaDemandSummary} · ${readyMediaSummary}`
+        : `${manuallyPublishedCount} manually published post${manuallyPublishedCount === 1 ? '' : 's'} · ${scheduledCount} scheduled posts — not published · ${mediaDemandSummary} · ${readyMediaSummary}`
     }
 
-    return `${posts.length} ${t('contentHub.draftsToReview')} · ${totalImagePosts} ${t('contentHub.imageSlots')} · ${videoPostCount} ${t('contentHub.videoSlots')} · ${readyMediaSummary}`
+    const stateSummary = isAr
+      ? [
+          draftCount > 0 ? `${draftCount} ${draftCount === 1 ? 'مسودة للمراجعة' : 'مسودات للمراجعة'}` : null,
+          approvedCount > 0 ? `${approvedCount} ${approvedCount === 1 ? 'منشور معتمد' : 'منشورات معتمدة'}` : null,
+          scheduledCount > 0 ? `${scheduledCount} ${scheduledCount === 1 ? 'منشور مجدول' : 'منشورات مجدولة'}` : null,
+          publishedCount > 0 ? `${publishedCount} ${publishedCount === 1 ? 'منشور منشور' : 'منشورات منشورة'}` : null,
+        ].filter(Boolean).join(' · ')
+      : [
+          draftCount > 0 ? `${draftCount} draft${draftCount === 1 ? '' : 's'} for review` : null,
+          approvedCount > 0 ? `${approvedCount} approved post${approvedCount === 1 ? '' : 's'}` : null,
+          scheduledCount > 0 ? `${scheduledCount} scheduled post${scheduledCount === 1 ? '' : 's'}` : null,
+          publishedCount > 0 ? `${publishedCount} published post${publishedCount === 1 ? '' : 's'}` : null,
+        ].filter(Boolean).join(' · ')
+
+    return `${stateSummary} · ${mediaDemandSummary} · ${readyMediaSummary}`
   })()
   const contentStatusExplainer = mixedScheduledManualPublishedCount
     ? (isAr
@@ -1195,6 +1238,22 @@ export default function ContentHubPage() {
       : isAr
         ? `رصيدك الحالي: ${Math.max(0, Math.trunc(creditsRemaining))} كريديت`
         : `Current balance: ${Math.max(0, Math.trunc(creditsRemaining))} credits`
+  const imageGenerationCapacity = billingStatus?.imageGenerationCapacity ?? null
+  const imageDailyCapReached = Boolean(
+    imageGenerationCapacity
+    && imageGenerationCapacity.cap !== -1
+    && imageGenerationCapacity.remaining <= 0,
+  )
+  const imageDailyCapacityLabel = imageGenerationCapacity
+    ? imageGenerationCapacity.cap === -1
+      ? (isAr ? 'سعة الصور اليومية غير محدودة في خطتك.' : 'Your plan has no daily image cap.')
+      : isAr
+        ? `سعة الصور اليوم: ${imageGenerationCapacity.remaining} متبقية من ${imageGenerationCapacity.cap}. المحاولات المرفوضة والمستردة لا تُحتسب.`
+        : `Image capacity today: ${imageGenerationCapacity.remaining} of ${imageGenerationCapacity.cap} remaining. Rejected and refunded attempts do not count.`
+    : (isAr ? 'يُتحقق من حد الصور اليومي قبل أي خصم.' : 'The daily image allowance is checked before any charge.')
+  const imageDailyCapReachedLabel = isAr
+    ? `اكتمل حد الصور اليومي في خطتك (${imageGenerationCapacity?.cap ?? 0}/يوم). يعود غدًا، ولم يُخصم رصيد للمحاولة الموقوفة.`
+    : `Your plan's daily image limit is complete (${imageGenerationCapacity?.cap ?? 0}/day). It resets tomorrow, and the blocked attempt was not charged.`
   const finalPreviewTitle = isAr
     ? 'المعاينة النهائية للمنشورات + قرارات الوسائط'
     : 'Final post preview + media decisions'
@@ -1241,15 +1300,28 @@ export default function ContentHubPage() {
         onClick: () => document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
       }
     }
-    if (pendingImageCount > 0 || ambiguousPreviewCount > 0) {
+    if (approvedPostsNeedingMediaCount > 0 || allMediaReadiness.needsAttentionCount > 0) {
       return {
         eyebrow: isAr ? 'قرار وسائط' : 'Media decision',
-        title: isAr ? 'أكمل قرارات الوسائط قبل النشر' : 'Complete media decisions before publishing',
+        title: isAr
+          ? `أكمل وسائط ${approvedPostsNeedingMediaCount || allMediaReadiness.needsAttentionCount} منشورات قبل الجدولة`
+          : `Complete media for ${approvedPostsNeedingMediaCount || allMediaReadiness.needsAttentionCount} post${(approvedPostsNeedingMediaCount || allMediaReadiness.needsAttentionCount) === 1 ? '' : 's'} before scheduling`,
         body: isAr
-          ? 'الاستوديو يصنع الأصول، لكن الربط النهائي بالمنشور يحدث هنا بتأكيد واضح.'
-          : 'Studio creates assets, but final post attachment is confirmed here.',
+          ? 'لم تصبح هذه المنشورات جاهزة للجدولة. ولّد أو اربط الوسائط النهائية، ثم راجع قرار الوسائط صراحةً.'
+          : 'These posts are not ready to schedule. Generate or attach final media, then explicitly review the media decision.',
         label: isAr ? 'راجع خانات الوسائط' : 'Review media slots',
         onClick: () => document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      }
+    }
+    if (approvedPostsNeedingMediaApprovalCount > 0) {
+      return {
+        eyebrow: isAr ? 'مراجعة الوسائط' : 'Media review',
+        title: isAr ? 'راجع واعتمد الوسائط النهائية قبل الجدولة' : 'Review and approve final media before scheduling',
+        body: isAr
+          ? 'الوسائط مرتبطة وجاهزة، لكن قرار اعتمادها لم يُحفظ بعد.'
+          : 'Media is attached and ready, but its explicit approval decision has not been saved yet.',
+        label: isAr ? 'راجع اعتماد الوسائط' : 'Review media approval',
+        onClick: openMediaApprovalConfirm,
       }
     }
     if (approvedCount > 0) {
@@ -1292,9 +1364,9 @@ export default function ContentHubPage() {
     },
     {
       label: isAr ? 'جاهزية الوسائط' : 'Media readiness',
-      value: isAr ? `${doneCount} من ${totalImagePosts}` : `${doneCount} / ${totalImagePosts}`,
+      value: isAr ? `${allMediaReadiness.confirmedReady} من ${allMediaReadiness.total}` : `${allMediaReadiness.confirmedReady} / ${allMediaReadiness.total}`,
       helper: isAr ? 'الأصول النهائية تأتي من الاستوديو أو مكتبة الوسائط ثم تُربط هنا.' : 'Final assets come from Studio or Media Library, then attach here.',
-      tone: doneCount >= totalImagePosts && totalImagePosts > 0 ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : 'text-amber-600 bg-amber-50 border-amber-200',
+      tone: allMediaReadiness.confirmedReady >= allMediaReadiness.total && allMediaReadiness.total > 0 ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : 'text-amber-600 bg-amber-50 border-amber-200',
     },
     {
       label: isAr ? 'حالة النشر' : 'Publishing state',
@@ -1573,6 +1645,11 @@ export default function ContentHubPage() {
         delete next[postId]
         return next
       })
+      // The API recomputes the authoritative content-quality review and may
+      // reopen approval snapshots. Re-read that source of truth immediately;
+      // otherwise old issue badges remain visible after a valid correction or
+      // disappear optimistically before the server has actually accepted it.
+      await loadData()
       return true
     } catch (err: any) {
       console.error('Failed to save edit', err)
@@ -1597,7 +1674,7 @@ export default function ContentHubPage() {
   async function confirmMediaAttachment() {
     if (!pendingMediaAttachment || !mediaAttachmentAcknowledged) return
     const { postId, media, action } = pendingMediaAttachment
-    const attached = await savePostEdit(postId, media.assetKind === 'GENERATED_VISUAL' && media.generatedVisualId
+    await savePostEdit(postId, media.assetKind === 'GENERATED_VISUAL' && media.generatedVisualId
       ? {
           generatedVisualId: media.generatedVisualId,
           explicitGeneratedMediaAttachConfirmed: true,
@@ -1608,7 +1685,6 @@ export default function ContentHubPage() {
             ? { explicitMediaReplaceConfirmed: true }
             : { explicitMediaAttachConfirmed: true }),
         })
-    if (attached) await loadData()
     setPendingMediaAttachment(null)
     setMediaAttachmentAcknowledged(false)
   }
@@ -1779,6 +1855,10 @@ export default function ContentHubPage() {
       setError(addCreditsForImagesLabel)
       return
     }
+    if (imageDailyCapReached) {
+      setError(imageDailyCapReachedLabel)
+      return
+    }
     const imagePostIds = pendingImagePosts.map(p => p.id)
     setGenerating(true)
     setError(null)
@@ -1919,6 +1999,9 @@ export default function ContentHubPage() {
       const pendingFreshImages = freshPosts.filter(
         p => !p.isVideoPost && !isContentPostMediaReadyForScheduling(p),
       ).length
+      const pendingFreshMedia = freshPosts.filter(
+        p => !isContentPostMediaReadyForScheduling(p),
+      ).length
 
       setApproveResult({
         kind: 'approved',
@@ -1932,6 +2015,8 @@ export default function ContentHubPage() {
         platforms: platformsUsed.length > 0 ? platformsUsed : (data.summary?.platforms ?? []),
         firstDate: scheduledDates[0] ?? null,
         lastDate:  scheduledDates[scheduledDates.length - 1] ?? null,
+        pendingMedia: pendingFreshMedia,
+        totalMedia: freshPosts.length,
         pendingImages: pendingFreshImages,
         totalImages: totalFreshImagePosts,
         videoSlots: freshPosts.filter(p => p.isVideoPost).length,
@@ -1945,8 +2030,20 @@ export default function ContentHubPage() {
 
   // ── Approve final media (separate from copy and scheduling) ─────────────────
 
+  function openMediaApprovalConfirm() {
+    setWeakMediaApprovalAcknowledged(false)
+    setShowMediaApproveConfirm(true)
+  }
+
+  function closeMediaApprovalConfirm() {
+    if (mediaApproving) return
+    setShowMediaApproveConfirm(false)
+    setWeakMediaApprovalAcknowledged(false)
+  }
+
   async function approveMedia() {
     if (!isAuthenticated || mediaApproving) return
+    if (weakMediaApprovalRisks.length > 0 && !weakMediaApprovalAcknowledged) return
     setMediaApproving(true)
     setShowMediaApproveConfirm(false)
     setError(null)
@@ -1960,7 +2057,11 @@ export default function ContentHubPage() {
     try {
       const res = await fetch(`/api/campaigns/${campaignId}/approve-media-plan`, {
         method: 'POST',
-        headers: { Authorization: authHeader() },
+        headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          explicitWeakMediaApprovalConfirmed: weakMediaApprovalRisks.length > 0
+            && weakMediaApprovalAcknowledged,
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -2032,6 +2133,7 @@ export default function ContentHubPage() {
     }
     setScheduling(true)
     setError(null)
+    setSuccessMsg(null)
     try {
       const res = await fetch(`/api/campaigns/${campaignId}/schedule-content-plan`, {
         method: 'POST',
@@ -2101,6 +2203,8 @@ export default function ContentHubPage() {
         platforms: platformsUsed,
         firstDate: scheduledDates[0] ?? null,
         lastDate:  scheduledDates[scheduledDates.length - 1] ?? null,
+        pendingMedia: 0,
+        totalMedia: scheduledPosts.length,
         pendingImages: 0,
         totalImages: 0,
         videoSlots: 0,
@@ -2196,9 +2300,17 @@ export default function ContentHubPage() {
       const data = await res.json()
       if (!res.ok) {
         if (data.code === 'INSUFFICIENT_CREDITS') {
-          setError('Not enough credits to rewrite. Upgrade your plan.')
+          setError(isAr
+            ? 'الرصيد غير كافٍ لإعادة الصياغة. أضف رصيدًا أو راجع خطتك.'
+            : 'Not enough credits to rewrite. Add credits or review your plan.')
+        } else if (data.code === 'CONTENT_REVIEW_REQUIRED') {
+          setError(isAr
+            ? 'الصياغة الجديدة لم تجتز مراجعة الجودة، لذلك لم تُحفظ وأُعيدت الكريديت المخصومة. جرّب توجيهًا أكثر تحديدًا أو عدّل النص يدويًا.'
+            : 'The new copy did not pass quality review, so it was not saved and the charged credits were returned. Try a more specific instruction or edit the copy manually.')
         } else {
-          throw new Error(data.error ?? 'Rewrite failed')
+          throw new Error(isAr
+            ? 'تعذّرت إعادة الصياغة. لم يُحفظ أي تعديل؛ أعد المحاولة.'
+            : (data.error ?? 'Rewrite failed. No change was saved; try again.'))
         }
         return
       }
@@ -2230,6 +2342,10 @@ export default function ContentHubPage() {
     }
     if (imageGenerationLocked) {
       setError(addCreditsForImagesLabel)
+      return
+    }
+    if (imageDailyCapReached) {
+      setError(imageDailyCapReachedLabel)
       return
     }
     const post = posts.find(item => item.id === postId)
@@ -2392,7 +2508,9 @@ export default function ContentHubPage() {
         setImageReferenceMediaId(null)
         await Promise.all([loadData(), refreshBillingStatus()])
       }
-      setError(err.message)
+      setError(err instanceof GeneratedVisualTerminalError && isAr
+        ? 'رفض فحص NEXUS هذه الصورة لأنها لم تطابق الاتجاه الإبداعي ومتطلبات المنصة. لم تُربط بالمنشور، ويستعيد النظام الكريديت تلقائيًا.'
+        : err.message)
     } finally {
       setGeneratingImageId(null)
     }
@@ -2779,7 +2897,7 @@ export default function ContentHubPage() {
                   <button
                     onClick={() => {
                       if (mediaApprovalRequired) {
-                        setShowMediaApproveConfirm(true)
+                        openMediaApprovalConfirm()
                         return
                       }
                       if (schedulingBlocked) {
@@ -2837,23 +2955,23 @@ export default function ContentHubPage() {
                     {isAr ? 'أدوات الإنتاج' : 'Production tools'}
                     <span className="text-[10px] text-slate-400 transition group-open:rotate-180">▼</span>
                   </summary>
-                  <div className="absolute right-0 top-full mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_24px_60px_rgba(15,23,42,0.18)]" dir={isAr ? 'rtl' : 'ltr'}>
+                  <div className={`absolute top-full mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_24px_60px_rgba(15,23,42,0.18)] ${isAr ? 'left-0' : 'right-0'}`} dir={isAr ? 'rtl' : 'ltr'}>
                     <p className="px-1 pb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">
                       {isAr ? 'اختياري — لا يغيّر حالة النشر' : 'Optional — does not change publish state'}
                     </p>
                     <button
                       type="button"
                       onClick={imageGenerationLocked ? () => router.push('/billing') : openBulkImageConfirm}
-                      disabled={generating || pendingImageCount === 0 || imageGenerationBlockedByTruthReview}
+                      disabled={generating || pendingImageCount === 0 || imageGenerationBlockedByTruthReview || imageDailyCapReached}
                       className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-start transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <span className="mt-0.5" aria-hidden="true">✨</span>
                       <span>
                         <span className="block text-sm font-bold text-slate-900">
-                          {generating ? t('contentHub.generatingImages') : imageGenerationBlockedByTruthReview ? imageGenerationTruthReviewLabel : imageGenerationLocked ? addCreditsForImagesLabel : bulkImageButtonLabel}
+                          {generating ? t('contentHub.generatingImages') : imageGenerationBlockedByTruthReview ? imageGenerationTruthReviewLabel : imageGenerationLocked ? addCreditsForImagesLabel : imageDailyCapReached ? imageDailyCapReachedLabel : bulkImageButtonLabel}
                         </span>
                         <span className="mt-1 block text-xs leading-5 text-slate-500">
-                          {isAr ? 'ينشئ وسائط للخانات الناقصة فقط بعد تأكيد التكلفة.' : 'Creates media only for missing slots after cost confirmation.'}
+                          {imageDailyCapacityLabel}
                         </span>
                       </span>
                     </button>
@@ -3667,9 +3785,7 @@ export default function ContentHubPage() {
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             style={{ background: 'rgba(15,23,42,0.30)', backdropFilter: 'blur(10px)' }}
-            onClick={() => {
-              if (!mediaApproving) setShowMediaApproveConfirm(false)
-            }}
+            onClick={closeMediaApprovalConfirm}
           >
             <div
               role="dialog"
@@ -3703,18 +3819,58 @@ export default function ContentHubPage() {
                     : 'This costs 0 credits, does not schedule anything, and sends nothing to a platform.'}
                 </p>
               </div>
+              {weakMediaApprovalRisks.length > 0 && (
+                <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
+                  <p className="font-black">
+                    {isAr
+                      ? `${weakMediaApprovalRisks.length} وسائط مرتبطة لها تطابق إبداعي ضعيف`
+                      : `${weakMediaApprovalRisks.length} attached media item${weakMediaApprovalRisks.length === 1 ? '' : 's'} have a weak creative match`}
+                  </p>
+                  <p className="mt-1">
+                    {isAr
+                      ? 'هذه ليست توقعات أداء؛ إنها فجوة معروفة بين ما يظهر في الوسيط ورسالة المنشور. راجع الاستثناء قبل حفظ الاعتماد.'
+                      : 'This is not a performance forecast. It is a known gap between the visible asset and the post message. Review the exception before approval.'}
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {weakMediaApprovalRisks.map(({ post, match }) => (
+                      <li key={post.id}>
+                        {isAr ? `المنشور ${post.contentPlanIndex}` : `Post ${post.contentPlanIndex}`}
+                        {' · '}{match.score}%
+                        {match.gaps[0]
+                          ? (isAr ? ' · توجد فجوة موثقة بين الوسيط ورسالة المنشور.' : ` · ${match.gaps[0]}`)
+                          : ''}
+                      </li>
+                    ))}
+                  </ul>
+                  <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-amber-200 bg-white/80 p-2.5 font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={weakMediaApprovalAcknowledged}
+                      onChange={event => setWeakMediaApprovalAcknowledged(event.target.checked)}
+                      className="mt-0.5 h-4 w-4 accent-amber-600"
+                    />
+                    <span>
+                      {isAr
+                        ? 'راجعت التطابق الضعيف وأختار اعتماد هذه الوسائط كاستثناء يدوي؛ سيُسجّل NEXUS هذا التجاوز في قرار الاعتماد.'
+                        : 'I reviewed the weak match and choose to approve this media as a manual exception; NEXUS will record the override.'}
+                    </span>
+                  </label>
+                </div>
+              )}
               <div className="mt-5 flex gap-3">
                 <button
                   type="button"
                   disabled={mediaApproving}
-                  onClick={() => setShowMediaApproveConfirm(false)}
+                  onClick={closeMediaApprovalConfirm}
                   className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                 >
                   {t('contentHub.cancel')}
                 </button>
                 <button
                   type="button"
-                  disabled={mediaApproving || approvedPostsNeedingMediaApprovalCount === 0}
+                  disabled={mediaApproving
+                    || approvedPostsNeedingMediaApprovalCount === 0
+                    || (weakMediaApprovalRisks.length > 0 && !weakMediaApprovalAcknowledged)}
                   onClick={() => void approveMedia()}
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
                 >
@@ -4206,9 +4362,11 @@ export default function ContentHubPage() {
                     </div>
                     <div>
                       <h3 className="text-lg font-bold text-slate-950">
-                        {approveResult.approved} {approveResult.kind === 'scheduled'
-                          ? t('contentHub.postsScheduled')
-                          : t('contentHub.postsApproved')}
+                        {isAr && approveResult.approved === 1
+                          ? (approveResult.kind === 'scheduled' ? 'تمت جدولة منشور واحد' : 'تم اعتماد منشور واحد')
+                          : `${approveResult.approved} ${approveResult.kind === 'scheduled'
+                            ? t('contentHub.postsScheduled')
+                            : t('contentHub.postsApproved')}`}
                       </h3>
                       <p className="text-sm text-emerald-600">
                         {approveResult.kind === 'scheduled'
@@ -4228,7 +4386,7 @@ export default function ContentHubPage() {
                   <div className="rounded-xl p-3 text-center"
                     style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
                     <div className="text-2xl font-bold text-slate-950">{approveResult.approved}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{isAr ? 'منشورات' : 'Posts'}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{isAr ? (approveResult.approved === 1 ? 'منشور' : 'منشورات') : (approveResult.approved === 1 ? 'Post' : 'Posts')}</div>
                   </div>
                   <div className="rounded-xl p-3 text-center"
                     style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
@@ -4242,7 +4400,7 @@ export default function ContentHubPage() {
                   </div>
                   <div className="rounded-xl p-3 text-center"
                     style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
-                    <div className="text-2xl font-bold text-cyan-600">{approveResult.pendingImages}</div>
+                    <div className="text-2xl font-bold text-cyan-600">{approveResult.pendingMedia}</div>
                     <div className="text-xs text-slate-500 mt-0.5">{isAr ? 'وسائط ناقصة' : 'Media left'}</div>
                   </div>
                 </div>
@@ -4328,14 +4486,14 @@ export default function ContentHubPage() {
                 {/* Next best action */}
                 <div className="rounded-xl p-3 mb-5 flex items-start gap-3"
                   style={{
-                    background: approveResult.pendingImages > 0
+                    background: approveResult.pendingMedia > 0
                       ? '#F5F3FF'
                       : approveResult.kind === 'approved'
                       ? '#F8FAFC'
                       : approveResult.unlinked > 0
                       ? '#FFFBEB'
                       : '#ECFDF5',
-                    border: approveResult.pendingImages > 0
+                    border: approveResult.pendingMedia > 0
                       ? '1px solid rgba(94,92,230,0.18)'
                       : approveResult.kind === 'approved'
                       ? '1px solid rgba(15,23,42,0.10)'
@@ -4344,12 +4502,12 @@ export default function ContentHubPage() {
                       : '1px solid rgba(5,150,105,0.22)',
                   }}>
                   <span className="text-lg mt-0.5">
-                    {approveResult.pendingImages > 0 ? '⚠️' : approveResult.kind === 'approved' ? '📝' : approveResult.unlinked > 0 ? '🔌' : '📅'}
+                    {approveResult.pendingMedia > 0 ? '⚠️' : approveResult.kind === 'approved' ? '📝' : approveResult.unlinked > 0 ? '🔌' : '📅'}
                   </span>
                   <div>
                     <p className="text-sm font-semibold mb-0.5"
-                      style={{ color: approveResult.pendingImages > 0 ? '#5E5CE6' : approveResult.kind === 'approved' ? '#334155' : approveResult.unlinked > 0 ? '#B45309' : '#047857' }}>
-                      {approveResult.pendingImages > 0
+                      style={{ color: approveResult.pendingMedia > 0 ? '#5E5CE6' : approveResult.kind === 'approved' ? '#334155' : approveResult.unlinked > 0 ? '#B45309' : '#047857' }}>
+                      {approveResult.pendingMedia > 0
                         ? (isAr ? 'مطلوب: أكمل وسائط المنشورات قبل الجدولة' : 'Required: complete post media before scheduling')
                         : approveResult.kind === 'approved'
                         ? (isAr ? 'التالي: راجع الخطة قبل الجدولة' : 'Next: review the plan before scheduling')
@@ -4358,10 +4516,10 @@ export default function ContentHubPage() {
                         : (isAr ? 'التالي: راجع المحتوى المجدول' : 'Next: review scheduled content')}
                     </p>
                     <p className="text-xs text-slate-600 leading-relaxed">
-                      {approveResult.pendingImages > 0
+                      {approveResult.pendingMedia > 0
                         ? (isAr
-                          ? `${approveResult.pendingImages} من ${approveResult.totalImages} خانات صور ما زالت تحتاج وسائط مؤكدة. لن يسمح NEXUS بجدولتها أو نشرها قبل اكتمال مراجعة الوسائط.`
-                          : `${approveResult.pendingImages} of ${approveResult.totalImages} image slots still need confirmed media. NEXUS will not allow scheduling or publishing until media review is complete.`)
+                          ? `${approveResult.pendingMedia} من ${approveResult.totalMedia} خانات وسائط ما زالت غير مكتملة (${approveResult.pendingImages} صور و${Math.max(0, approveResult.pendingMedia - approveResult.pendingImages)} فيديو). لن يسمح NEXUS بجدولتها أو نشرها قبل اكتمال مراجعة الوسائط.`
+                          : `${approveResult.pendingMedia} of ${approveResult.totalMedia} media slots remain incomplete (${approveResult.pendingImages} images and ${Math.max(0, approveResult.pendingMedia - approveResult.pendingImages)} videos). NEXUS will not allow scheduling or publishing until media review is complete.`)
                         : approveResult.kind === 'approved'
                         ? (isAr
                           ? 'تم اعتماد المسودات فقط. ما زالت المنشورات تحتاج جدولة قبل النشر، والنشر التلقائي يحتاج تفعيلًا صريحًا منفصلًا.'
@@ -4385,7 +4543,7 @@ export default function ContentHubPage() {
                     <div>
                       <p className="text-xs text-amber-700">
                         {isAr
-                          ? `${approveResult.unlinked} منشورات بلا حساب نشر متصل حتى الآن. اربط الحسابات من `
+                          ? `${approveResult.unlinked === 1 ? 'منشور واحد' : `${approveResult.unlinked} منشورات`} بلا حساب نشر متصل حتى الآن. اربط الحسابات من `
                           : `${approveResult.unlinked} post${approveResult.unlinked !== 1 ? 's have' : ' has'} no connected platform yet. Connect your social accounts in `}
                         <button
                           onClick={() => { setApproveResult(null); router.push('/connections') }}
@@ -4399,23 +4557,25 @@ export default function ContentHubPage() {
 
                 {/* CTA buttons */}
                 <div className="flex gap-3">
-                  {approveResult.pendingImages > 0 ? (
-                    <button
-                      onClick={() => {
-                        setApproveResult(null)
-                        if (imageGenerationLocked) {
-                          router.push('/billing')
-                          return
-                        }
-                        openBulkImageConfirm()
-                      }}
-                      className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
-                      style={{ background: imageGenerationLocked ? '#B45309' : '#111827' }}
-                    >
-                      ✨ {imageGenerationLocked
-                        ? (isAr ? 'أضف رصيداً لتوليد الوسائط' : 'Add credits to generate media')
-                        : (isAr ? `توليد ${approveResult.pendingImages} صور` : `Generate ${approveResult.pendingImages} images`)}
-                    </button>
+                  {approveResult.pendingMedia > 0 ? (
+                    approveResult.pendingImages > 0 ? (
+                      <button
+                        onClick={() => {
+                          setApproveResult(null)
+                          if (imageGenerationLocked) {
+                            router.push('/billing')
+                            return
+                          }
+                          openBulkImageConfirm()
+                        }}
+                        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
+                        style={{ background: imageGenerationLocked ? '#B45309' : '#111827' }}
+                      >
+                        ✨ {imageGenerationLocked
+                          ? (isAr ? 'أضف رصيداً لتوليد الوسائط' : 'Add credits to generate media')
+                          : (isAr ? `توليد ${approveResult.pendingImages} صور` : `Generate ${approveResult.pendingImages} images`)}
+                      </button>
+                    ) : null
                   ) : approveResult.unlinked > 0 ? (
                     <button
                       onClick={() => { setApproveResult(null); router.push('/connections') }}
@@ -4427,10 +4587,10 @@ export default function ContentHubPage() {
                   ) : null}
                   <button
                     onClick={() => { setApproveResult(null); router.push(approveResult.kind === 'approved' ? `/campaigns/${campaignId}/content-hub` : '/schedule') }}
-                    className={`${approveResult.pendingImages > 0 || approveResult.unlinked > 0 ? 'flex-1' : 'w-full'} px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border`}
+                    className={`${approveResult.pendingMedia > 0 || approveResult.unlinked > 0 ? 'flex-1' : 'w-full'} px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border`}
                     style={{ borderColor: 'rgba(5,150,105,0.24)', color: '#047857', background: '#FFFFFF' }}
                   >
-                    {approveResult.pendingImages > 0 ? '🖼️' : '📅'} {approveResult.pendingImages > 0
+                    {approveResult.pendingMedia > 0 ? '🖼️' : '📅'} {approveResult.pendingMedia > 0
                       ? (isAr ? 'العودة لمراجعة الوسائط' : 'Return to media review')
                       : approveResult.kind === 'approved'
                         ? (isAr ? 'مراجعة خطة المحتوى' : 'Review content plan')
@@ -4782,6 +4942,7 @@ export default function ContentHubPage() {
                       <p>✓ {isAr ? 'النص يظل قابلاً للتحرير خارج الصورة' : 'Copy stays editable outside the image'}</p>
                       <p>✓ {isAr ? 'حماية صورة المرجع عند استخدامها' : 'Reference fidelity protection when supplied'}</p>
                       <p>✓ {isAr ? `التكلفة: ${CONTENT_HUB_IMAGE_COST} كريديت` : `Cost: ${CONTENT_HUB_IMAGE_COST} credits`}</p>
+                      <p>✓ {imageDailyCapacityLabel}</p>
                       <p>✓ {isAr ? 'حفظ دائم وربط بالمنشور' : 'Durable storage and post attachment'}</p>
                       <p>✓ {isAr ? 'استرداد تلقائي إذا لم ينتج أصل صالح' : 'Automatic restoration if no usable asset is produced'}</p>
                       <p>— {isAr ? 'لا نشر، لا جدولة، ولا تحديث تلقائي لـBrand Brain' : 'No publish, schedule, or automatic Brand Brain update'}</p>
@@ -5134,6 +5295,9 @@ export default function ContentHubPage() {
                         ? `التكلفة الإجمالية: ${bulkImageCreditCost} كريديت.`
                         : `Total cost: ${bulkImageCreditCost} credits.`}
                     </p>
+                    <p className={`mt-2 text-xs font-semibold ${imageDailyCapReached ? 'text-amber-700' : 'text-slate-500'}`}>
+                      {imageDailyCapacityLabel}
+                    </p>
                   </div>
                   <button onClick={closeBulkImageConfirm} className="text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
                 </div>
@@ -5394,6 +5558,7 @@ function PostCard({
   brandLogo,
   isExpanded,
   isEditingCaption,
+  isEditingPrompt,
   isRewriting,
   isPickingWinner,
   isGeneratingImage,
@@ -5411,6 +5576,7 @@ function PostCard({
   onAddCredits,
   onToggleExpand,
   onEditCaption,
+  onEditPrompt,
   onOpenMediaPicker,
   onRemoveMedia,
   onSaveEdit,
@@ -5429,9 +5595,16 @@ function PostCard({
 
   const platform = post.platform.toUpperCase()
   const caption = pendingEdit.caption ?? post.caption
+  const promptField = post.isVideoPost ? 'videoPrompt' : 'imagePrompt'
+  const creativePrompt = (post.isVideoPost
+    ? pendingEdit.videoPrompt ?? post.videoPrompt
+    : pendingEdit.imagePrompt ?? post.imagePrompt) ?? ''
   const hasImage = !!post.imageUrl
   const isVideo = post.isVideoPost
   const status = post.generationStatus
+  const displayedErrorMessage = isAr && post.errorMessage === 'NEXUS Video Studio could not start production. Reserved credits will be restored.'
+    ? 'تعذّر على NEXUS بدء إنتاج الفيديو لدى المزوّد، ولم يُنشأ أي فيديو. تم طلب رد الرصيد المحجوز.'
+    : post.errorMessage
   const mediaState = deriveContentHubMediaState(post)
   const postImmutable = post.status === 'PUBLISHED' || post.status === 'PROCESSING'
   const editReopensReview = ['APPROVED', 'SCHEDULED', 'FAILED'].includes(post.status)
@@ -5614,7 +5787,7 @@ function PostCard({
               ? (isAr ? 'استرداد الكريديت قيد المصالحة' : 'Credit restoration is being reconciled')
               : (isAr ? 'لم يكتمل إنتاج الوسائط' : 'Media production did not complete')}
           </p>
-          <p>{post.errorMessage}</p>
+          <p>{displayedErrorMessage}</p>
           <p className="mt-1 font-semibold">
             {isAr
               ? 'لم يتم إرفاق مخرج جديد. راجع سجل الكريديت للتسوية النهائية قبل إعادة المحاولة.'
@@ -5762,6 +5935,43 @@ function PostCard({
         </div>
       )}
 
+      {/* Creative direction is part of the authoritative quality review. Keep it
+          editable beside the caption so a flagged post can actually be repaired. */}
+      {isEditingPrompt && (
+        <div className="px-3 pb-3 pt-1" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+            {isAr
+              ? (isVideo ? 'توجيه مشاهد الفيديو' : 'توجيه الصورة')
+              : (isVideo ? 'Video scene direction' : 'Image direction')}
+          </p>
+          <textarea
+            aria-label={isAr ? 'توجيه الوسائط' : 'Media direction'}
+            className="w-full rounded-xl text-sm p-3 resize-none focus:outline-none"
+            style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.28)', color: '#0f172a', minHeight: '110px' }}
+            value={creativePrompt}
+            onChange={e => onPendingEdit({ [promptField]: e.target.value } as Partial<ContentPost>)}
+            autoFocus
+          />
+          <p className="mt-1 text-[10px] leading-4 text-slate-500">
+            {isAr
+              ? 'صف المشاهد أو التكوين البصري فقط. أضف النصوص والعنوان والدعوة لاتخاذ الإجراء كطبقات قابلة للتحرير خارج الوسائط.'
+              : 'Describe scenes or visual composition only. Keep headlines and calls to action as editable layers outside the media.'}
+          </p>
+          <div className="flex justify-end gap-2 mt-2">
+            <button onClick={onEditPrompt} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-950 transition-colors">{t('contentHub.cancel')}</button>
+            <button
+              onClick={async () => {
+                const saved = await onSaveEdit({ [promptField]: creativePrompt } as Partial<ContentPost>)
+                if (saved) onEditPrompt()
+              }}
+              disabled={!creativePrompt.trim()}
+              className="text-xs px-3 py-1.5 rounded-lg font-semibold text-white transition-all disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ background: '#111827' }}
+            >{t('contentHub.save')}</button>
+          </div>
+        </div>
+      )}
+
       {/* ── AI Rewrite input overlay ──────── */}
       {showRewriteInput && !isEditingCaption && (
         <div className="px-3 pb-3 pt-2" style={{ borderTop: '1px solid rgba(94,92,230,0.14)', background: '#F5F3FF' }}>
@@ -5844,6 +6054,16 @@ function PostCard({
             ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />{t('contentHub.rewriting')}</>
             : <>✨ {t('contentHub.rewriteCopyShort')}</>
           }
+        </button>
+        <button
+          onClick={onEditPrompt}
+          className="col-span-2 min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug text-slate-600 transition-all flex items-center justify-center gap-1.5 hover:text-[#5E5CE6] hover:bg-violet-50"
+          style={{ borderColor: 'rgba(15,23,42,0.08)' }}
+        >
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 12.5h10M4 10l4-7 4 7M5.5 7.5h5" /></svg>
+          {isAr
+            ? (isVideo ? 'تعديل توجيه مشاهد الفيديو' : 'تعديل توجيه الصورة')
+            : (isVideo ? 'Edit video scene direction' : 'Edit image direction')}
         </button>
         {/* Video generation is a separate, explicitly priced review action. */}
         {isVideo ? (

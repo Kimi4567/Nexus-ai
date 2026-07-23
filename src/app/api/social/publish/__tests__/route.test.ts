@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   reviewStrategyGrounding: vi.fn(),
   reviewApprovalSnapshot: vi.fn(),
   reviewMediaApprovalSnapshot: vi.fn(),
+  reviewScheduleSnapshot: vi.fn(),
   readStrategyReference: vi.fn(),
   buildStrategySnapshot: vi.fn(),
   hashSnapshot: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock('@/lib/campaignSnapshots', () => ({
   CAMPAIGN_SNAPSHOT_SCOPE: { STRATEGY_APPROVAL: 'STRATEGY_APPROVAL' },
   reviewPostAgainstApprovalSnapshot: mocks.reviewApprovalSnapshot,
   reviewPostAgainstMediaApprovalSnapshot: mocks.reviewMediaApprovalSnapshot,
+  reviewPostAgainstScheduleDecisionSnapshot: mocks.reviewScheduleSnapshot,
   readSnapshotStrategyReference: mocks.readStrategyReference,
   buildStrategyApprovalSnapshotPayload: mocks.buildStrategySnapshot,
   hashCampaignSnapshotPayload: mocks.hashSnapshot,
@@ -101,6 +103,7 @@ beforeEach(() => {
   })
   mocks.reviewApprovalSnapshot.mockReturnValue({ ok: true })
   mocks.reviewMediaApprovalSnapshot.mockReturnValue({ ok: true })
+  mocks.reviewScheduleSnapshot.mockReturnValue({ ok: true })
   mocks.readStrategyReference.mockReturnValue({ id: 'strategy-snapshot-1' })
   mocks.buildStrategySnapshot.mockReturnValue({ scope: 'STRATEGY_APPROVAL' })
   mocks.hashSnapshot.mockReturnValue('strategy-hash')
@@ -168,6 +171,24 @@ describe('POST /api/social/publish', () => {
 
     expect(response.status).toBe(409)
     expect(body.code).toBe('MEDIA_CHANGED_AFTER_APPROVAL')
+    expect(mocks.publish).not.toHaveBeenCalled()
+  })
+
+  it('blocks a scheduled post when its execution decision changed after review', async () => {
+    mocks.socialPostFindFirst.mockResolvedValue({
+      id: 'approved-post-1', campaignId: 'campaign-1', platform: 'META', publishTarget: 'FACEBOOK',
+      status: 'SCHEDULED', caption: 'Saved approved caption', imageUrl: 'https://cdn.example.com/approved.jpg',
+      uploadedMediaId: null, mediaSource: 'GENERATE', generationStatus: 'DONE',
+      approvedAt: new Date('2026-07-12T10:00:00.000Z'), approvedSnapshotId: 'content-snapshot-1',
+      approvedSnapshot: { scope: 'CONTENT_APPROVAL', payload: {} },
+      mediaApprovalSnapshotId: 'media-snapshot-2', mediaApprovalSnapshot: { scope: 'CONTENT_MEDIA_APPROVAL', payload: {} },
+      scheduledSnapshotId: 'schedule-snapshot-3', scheduledSnapshot: { scope: 'SCHEDULE_DECISION', payload: {} },
+    })
+    mocks.reviewScheduleSnapshot.mockReturnValue({ ok: false, code: 'SCHEDULE_CHANGED_AFTER_APPROVAL' })
+
+    const response = await POST(request(validBody))
+    expect(response.status).toBe(409)
+    expect(await response.json()).toMatchObject({ code: 'SCHEDULE_CHANGED_AFTER_APPROVAL' })
     expect(mocks.publish).not.toHaveBeenCalled()
   })
 

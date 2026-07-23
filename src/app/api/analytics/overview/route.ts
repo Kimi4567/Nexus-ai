@@ -17,6 +17,7 @@ const db = prisma as any
 export async function GET(req: Request) {
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const requestedCampaignId = new URL(req.url).searchParams.get('campaignId')?.trim().slice(0, 100) || null
 
   try {
     // ── Core workspace ──────────────────────────────────────────────────────
@@ -51,9 +52,19 @@ export async function GET(req: Request) {
         creditsRemaining, creditsUsedThisMonth, monthlyTotal, isUnlimited, plan,
         monthlyActivity: [],
         topCampaigns: [],
+        measurementCampaigns: [],
+        measurementScope: { campaignId: null, campaignName: null, cohort: 'WORKSPACE' },
         performance,
         firstParty,
       })
+    }
+
+    const requestedCampaign = requestedCampaignId ? await prisma.campaign.findFirst({
+      where: { id: requestedCampaignId, workspaceId: workspace.id },
+      select: { id: true, name: true },
+    }) : null
+    if (requestedCampaignId && !requestedCampaign) {
+      return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
     }
 
     // ── Campaign counts ─────────────────────────────────────────────────────
@@ -70,7 +81,7 @@ export async function GET(req: Request) {
     const generations = usageSummary.generationsTotal
 
     // ── Published posts + trusted performance evidence ──────────────────────
-    const [publishedPosts, organicAnalyticsRows, paidAnalyticsRows, firstParty] = await Promise.all([
+    const [publishedPosts, organicAnalyticsRows, paidAnalyticsRows, firstParty, measurementCampaigns] = await Promise.all([
       prisma.socialPost.count({
         where: { workspaceId: workspace.id, status: 'PUBLISHED' },
       }).catch(() => 0),
@@ -107,10 +118,16 @@ export async function GET(req: Request) {
         orderBy: { date: 'asc' },
         take: 180,
       }).catch(() => []) ?? [],
-      readFirstPartyMeasurement(workspace.id).catch(error => {
+      readFirstPartyMeasurement(workspace.id, requestedCampaign?.id ?? null).catch(error => {
         console.warn('[analytics/overview] first-party measurement unavailable:', error instanceof Error ? error.message : error)
         return null
       }),
+      prisma.campaign.findMany({
+        where: { workspaceId: workspace.id },
+        orderBy: { updatedAt: 'desc' },
+        take: 100,
+        select: { id: true, name: true, status: true },
+      }).catch(() => []),
     ])
 
     const performance = summarizePerformanceEvidence(
@@ -164,6 +181,12 @@ export async function GET(req: Request) {
       plan,
       monthlyActivity,
       topCampaigns,
+      measurementCampaigns,
+      measurementScope: {
+        campaignId: requestedCampaign?.id ?? null,
+        campaignName: requestedCampaign?.name ?? null,
+        cohort: requestedCampaign ? 'CAMPAIGN_ACQUISITION' : 'WORKSPACE',
+      },
       performance,
       firstParty,
     })
@@ -177,6 +200,8 @@ export async function GET(req: Request) {
       isUnlimited: false, plan: 'FREE',
       monthlyActivity: [],
       topCampaigns: [],
+      measurementCampaigns: [],
+      measurementScope: { campaignId: null, campaignName: null, cohort: 'WORKSPACE' },
       performance,
       firstParty: null,
     })

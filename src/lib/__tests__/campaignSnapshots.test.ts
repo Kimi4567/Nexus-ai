@@ -15,6 +15,7 @@ import {
   sanitizeStrategyApprovalAiOutput,
   reviewPostAgainstApprovalSnapshot,
   reviewPostAgainstMediaApprovalSnapshot,
+  reviewPostAgainstScheduleDecisionSnapshot,
 } from '@/lib/campaignSnapshots'
 
 const post = {
@@ -88,6 +89,42 @@ describe('campaign snapshots', () => {
         },
       },
     })
+  })
+
+  it('does not reinterpret a persisted approved strategy with newer guards', () => {
+    const approvedAiOutput = {
+      language: 'ar',
+      strategyType: 'organic',
+      organicPostCount: 1,
+      strategy: {
+        contentAnglesDetailed: [{
+          title: 'تحديثات أسبوعية',
+          platform: 'Instagram',
+          desiredOutcome: 'راحة البال من خلال تحديثات منتظمة',
+        }],
+      },
+      qualityGate: { status: 'passed', blockers: [] },
+    }
+    const input = {
+      campaign: {
+        id: 'campaign-approved',
+        name: 'Approved strategy',
+        goal: 'LEADS',
+        platforms: ['INSTAGRAM', 'PINTEREST'],
+        aiOutput: approvedAiOutput,
+      },
+      brandProfile: { brandName: 'Approved brand' },
+      persistedApprovedAiOutput: true,
+    }
+    const payload = buildStrategyApprovalSnapshotPayload(input)
+
+    expect((payload.strategy as any).contentAnglesDetailed[0]).toMatchObject({
+      platform: 'Instagram',
+      desiredOutcome: 'راحة البال من خلال تحديثات منتظمة',
+    })
+    expect(hashCampaignSnapshotPayload(payload)).toBe(hashCampaignSnapshotPayload(
+      buildStrategyApprovalSnapshotPayload(input),
+    ))
   })
 
   it('sanitizes unsupported thresholds and direct-learning language before approval', () => {
@@ -167,20 +204,22 @@ describe('campaign snapshots', () => {
   })
 
   it('links a schedule decision to both the strategy and exact content revision', () => {
+    const scheduledPost = {
+      ...post,
+      approvedSnapshotId: 'content-snapshot-2',
+      mediaApprovalSnapshotId: 'media-snapshot-3',
+      integrationId: 'integration-1',
+      pageId: 'page-1',
+      pageName: 'NEXUS',
+      platformOptions: { explicitConsent: true },
+      autoPublishConsentAt: new Date('2026-07-15T08:00:00.000Z'),
+      publishMode: 'AUTO',
+    }
     const payload = buildScheduleDecisionSnapshotPayload({
       campaignId: 'campaign-1',
       strategySnapshot,
       publishMode: 'AUTO',
-      posts: [{
-        ...post,
-        approvedSnapshotId: 'content-snapshot-2',
-        mediaApprovalSnapshotId: 'media-snapshot-3',
-        integrationId: 'integration-1',
-        pageId: 'page-1',
-        pageName: 'NEXUS',
-        platformOptions: { explicitConsent: true },
-        autoPublishConsentAt: new Date('2026-07-15T08:00:00.000Z'),
-      }],
+      posts: [scheduledPost],
     })
 
     expect(payload).toMatchObject({
@@ -195,5 +234,15 @@ describe('campaign snapshots', () => {
         destination: { integrationId: 'integration-1', pageId: 'page-1', publishTarget: 'INSTAGRAM' },
       }],
     })
+    const snapshot = { scope: CAMPAIGN_SNAPSHOT_SCOPE.SCHEDULE_DECISION, payload }
+    expect(reviewPostAgainstScheduleDecisionSnapshot(scheduledPost, snapshot)).toEqual({ ok: true })
+    expect(reviewPostAgainstScheduleDecisionSnapshot(
+      { ...scheduledPost, scheduledAt: new Date('2026-07-20T12:00:00.000Z') },
+      snapshot,
+    )).toEqual({ ok: false, code: 'SCHEDULE_CHANGED_AFTER_APPROVAL' })
+    expect(reviewPostAgainstScheduleDecisionSnapshot(
+      { ...scheduledPost, pageId: 'different-page' },
+      snapshot,
+    )).toEqual({ ok: false, code: 'SCHEDULE_CHANGED_AFTER_APPROVAL' })
   })
 })

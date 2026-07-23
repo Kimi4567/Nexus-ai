@@ -20,7 +20,7 @@ function getResend(): Resend {
 const FROM = 'Nexus AI <hello@nexus-grow.com>'
 const REPLY_TO = 'support@nexus-grow.com'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://nexus-grow.com'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.nexus-grow.com'
 
 // ── Shared styles ──────────────────────────────────────────────────────
 const BASE_STYLE = `

@@ -74,6 +74,13 @@ interface RunResult {
   requiredCredits?: number
   currentCredits?: number
   durationMs?: number
+  warnings?: string[]
+  delivery?: {
+    status: 'complete' | 'partial'
+    requestedStrategyType: 'organic' | 'paid' | 'full'
+    deliveredStrategyType: 'organic' | 'paid' | 'full'
+    failedSection?: 'paid_planning'
+  }
 }
 
 type Phase =
@@ -820,7 +827,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
               </h2>
               <p className="mt-2 text-sm text-slate-500">
                 {locale === 'ar'
-                  ? 'راجع السياق الفعلي المحفوظ قبل إعداد أول طلب استراتيجية.'
+                  ? 'راجع السياق الفعلي المحفوظ قبل إعداد طلب الاستراتيجية.'
                   : 'Review the saved context that will inform this strategy request.'}
               </p>
             </div>
@@ -1268,7 +1275,17 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
                 { label: locale === 'ar' ? 'الطلب' : 'Request', value: strategyTypePreviewLabel, tone: 'text-slate-950' },
                 { label: locale === 'ar' ? 'التكلفة' : 'Cost', value: strategyCostText, tone: 'text-indigo-600' },
                 { label: locale === 'ar' ? 'رصيدك الحالي' : 'Current balance', value: creditBalance === null ? '...' : isUnlimitedPreview ? '∞' : String(creditBalance), tone: 'text-slate-950' },
-                { label: locale === 'ar' ? 'الرصيد بعد الإنشاء' : 'Balance after', value: projectedBalance === null ? '...' : projectedBalance === -1 ? '∞' : String(projectedBalance), tone: projectedBalance !== null && projectedBalance >= 0 ? 'text-emerald-600' : 'text-rose-600' },
+                {
+                  label: locale === 'ar' ? 'الرصيد بعد الإنشاء' : 'Balance after',
+                  value: projectedBalance === null
+                    ? '...'
+                    : isUnlimitedPreview
+                      ? '∞'
+                      : !canAffordPreview
+                        ? (locale === 'ar' ? 'غير كافٍ' : 'Insufficient')
+                        : String(projectedBalance),
+                  tone: canAffordPreview ? 'text-emerald-600' : 'text-rose-600',
+                },
               ].map((item) => (
                 <div key={item.label} className="rounded-xl bg-white/80 p-3 text-center">
                   <p className="text-[10px] font-bold text-slate-500">{item.label}</p>
@@ -1588,6 +1605,24 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
                 style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.18)' }}>
                 <p className="text-[10px] text-slate-500 mb-1 uppercase tracking-wide">{rs.campaignCreated}</p>
                 <p className="text-sm font-bold text-slate-950 truncate">{result.campaignName}</p>
+              </div>
+            )}
+
+            {result.delivery?.status === 'partial' && (
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-start" role="status">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                  <div>
+                    <p className="text-sm font-black text-amber-950">
+                      {locale === 'ar' ? 'تم حفظ الجزء العضوي فقط' : 'Only the organic section was saved'}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-amber-900/80">
+                      {locale === 'ar'
+                        ? `حزمة التخطيط المدفوع لم تجتز عقد الجودة، لذلك لم تُحفظ ولم تُخصم تكلفتها. خُصم ${result.creditsUsed ?? 0} كريديت للنطاق العضوي الذي تم تسليمه فقط. يمكنك مراجعته الآن، ثم إنشاء طلب Paid منفصل لاحقاً دون إعادة شراء الجزء العضوي.`
+                        : `The paid-planning package did not pass its quality contract, so it was neither saved nor charged. Only ${result.creditsUsed ?? 0} credits were charged for the delivered organic scope. Review it now, then create a separate Paid request later without buying the organic section again.`}
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
 

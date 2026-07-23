@@ -427,7 +427,7 @@ export default function ApprovalsPage() {
             </section>
           )}
 
-          <section className="grid gap-5 xl:grid-cols-2">
+          <section className="grid items-start gap-5 xl:grid-cols-2">
             <div className="nx-os-card p-5">
               <div className="mb-5">
                 <h2 className="text-xl font-black text-[#071236]">{copy('قرارات التشغيل', 'Operational decisions')}</h2>

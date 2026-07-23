@@ -16,9 +16,11 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { useI18n } from '@/lib/i18n-context'
 import { PUBLIC_PAID_PLANS } from '@/lib/commercialPlans'
+import { FULL_STANDARD_90_DRAFTS, quoteFullStandard90DraftCapacity } from '@/lib/commercialCapacity'
 
 const GROWTH = PUBLIC_PAID_PLANS[0]
 const AUTOPILOT = PUBLIC_PAID_PLANS[1]
+const AUTOPILOT_FULL_STANDARD_CAPACITY = quoteFullStandard90DraftCapacity(AUTOPILOT)
 
 interface Props {
   open: boolean
@@ -42,8 +44,8 @@ const PLANS = [
     name: 'Autopilot',
     price: `$${AUTOPILOT.priceUsd}`,
     color: '#059669',
-    featuresEn: [`${AUTOPILOT.monthlyCredits} AI credits / month`, `Up to ${AUTOPILOT.campaignLimit} campaign workspaces; AI operations use credits`, '3 Full Standard workflows to drafts or 12 reviewed Organic Light strategies', `Up to ${AUTOPILOT.postsPerMonth} planned copy drafts / month`, 'Operations center', 'Scheduled monitoring + action queue'],
-    featuresAr: [`${AUTOPILOT.monthlyCredits} كريديت AI شهريًا`, `حتى ${AUTOPILOT.campaignLimit} مساحة حملة؛ عمليات AI بالكريديت`, '3 رحلات Full Standard إلى المسودات أو 12 استراتيجية Organic Light مراجعة', `حتى ${AUTOPILOT.postsPerMonth} مسودة نص مخططة شهريًا`, 'مركز العمليات', 'مراقبة مجدولة وقائمة قرارات'],
+    featuresEn: [`${AUTOPILOT.monthlyCredits} AI credits / month`, `Up to ${AUTOPILOT.campaignLimit} campaign workspaces; AI operations use credits`, `${AUTOPILOT_FULL_STANDARD_CAPACITY.workflows} Full Standard workflows to ${AUTOPILOT_FULL_STANDARD_CAPACITY.workflows * FULL_STANDARD_90_DRAFTS} drafts; draft allowance is the binding limit`, `Up to ${AUTOPILOT.postsPerMonth} planned copy drafts / month`, 'Operations center', 'Scheduled monitoring + action queue'],
+    featuresAr: [`${AUTOPILOT.monthlyCredits} كريديت AI شهريًا`, `حتى ${AUTOPILOT.campaignLimit} مساحة حملة؛ عمليات AI بالكريديت`, `${AUTOPILOT_FULL_STANDARD_CAPACITY.workflows} رحلات Full Standard إلى ${AUTOPILOT_FULL_STANDARD_CAPACITY.workflows * FULL_STANDARD_90_DRAFTS} مسودة؛ حد المسودات هو القيد الفعلي`, `حتى ${AUTOPILOT.postsPerMonth} مسودة نص مخططة شهريًا`, 'مركز العمليات', 'مراقبة مجدولة وقائمة قرارات'],
   },
 ]
 

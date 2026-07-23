@@ -27,9 +27,13 @@ import {
   type CreditPackId,
   type PublicPaidPlanId,
 } from '@/lib/commercialPlans'
+import { FULL_STANDARD_90_DRAFTS, quoteFullStandard90DraftCapacity } from '@/lib/commercialCapacity'
 
 let stripeClient: Stripe | null = null
 let stripeClientKey: string | null = null
+const GROWTH_PUBLIC_PLAN = PUBLIC_PAID_PLANS[0]
+const AUTOPILOT_PUBLIC_PLAN = PUBLIC_PAID_PLANS[1]
+const AUTOPILOT_FULL_STANDARD_CAPACITY = quoteFullStandard90DraftCapacity(AUTOPILOT_PUBLIC_PLAN)
 
 export function isBillingConfigured(): boolean {
   // Billing is an explicit opt-in.  A secret key alone must never make paid
@@ -54,7 +58,7 @@ export function getStripeClient(): Stripe {
     throw new Error('Stripe billing is not configured. Missing STRIPE_SECRET_KEY.')
   }
   if (gate.liveModeBlocked) {
-    throw new Error('Stripe live mode is blocked until BILLING_LIVE_MODE_APPROVED=true.')
+    throw new Error('Stripe live mode is blocked until all commercial launch prerequisites are approved.')
   }
 
   if (!stripeClient || stripeClientKey !== stripeSecretKey) {
@@ -108,7 +112,7 @@ export const PLANS: PlanDefinition[] = [
       '1 workspace',
       '1 campaign maximum',
       '3 AI posts to try',
-      'Reviewed strategy draft',
+      `Organic Light logic capped to ${FREE_TRIAL_POSTS} reviewed strategy directions`,
       'Printable HTML + JSON export where available',
     ],
   },
@@ -116,19 +120,19 @@ export const PLANS: PlanDefinition[] = [
     id: 'pro',
     name: 'Growth',
     displayName: 'Growth',
-    price: PUBLIC_PAID_PLANS[0].priceUsd,
-    credits: PUBLIC_PAID_PLANS[0].monthlyCredits,
-    postsPerMonth: PUBLIC_PAID_PLANS[0].postsPerMonth,
+    price: GROWTH_PUBLIC_PLAN.priceUsd,
+    credits: GROWTH_PUBLIC_PLAN.monthlyCredits,
+    postsPerMonth: GROWTH_PUBLIC_PLAN.postsPerMonth,
     stripePriceEnvKey: 'STRIPE_PRICE_PRO',
     highlight: 'Core plan',
     cta: 'Start Growth — $49/mo',
     researchNote: 'Built for a founder or small team running a reviewed content operation.',
     features: [
-      `${PUBLIC_PAID_PLANS[0].monthlyCredits} AI credits / month (refreshes monthly)`,
+      `${GROWTH_PUBLIC_PLAN.monthlyCredits} AI credits / month (refreshes monthly)`,
       'Separate copy, media, scheduling, and publishing approvals',
-      `Up to ${PUBLIC_PAID_PLANS[0].campaignLimit} campaign workspaces / month; AI operations use credits`,
+      `Up to ${GROWTH_PUBLIC_PLAN.campaignLimit} campaign workspaces / month; AI operations use credits`,
       'Capacity example: 1 Full Standard workflow to drafts or 4 reviewed Organic Light strategies',
-      `Up to ${PUBLIC_PAID_PLANS[0].postsPerMonth} planned copy drafts / month`,
+      `Up to ${GROWTH_PUBLIC_PLAN.postsPerMonth} planned copy drafts / month`,
       'Supported platforms based on connected provider access',
       'Campaign Memory — reviewed signals across campaigns',
       'Media uploads + Brand overlays',
@@ -142,18 +146,18 @@ export const PLANS: PlanDefinition[] = [
     id: 'business',
     name: 'Autopilot',
     displayName: 'Autopilot',
-    price: PUBLIC_PAID_PLANS[1].priceUsd,
-    credits: PUBLIC_PAID_PLANS[1].monthlyCredits,
-    postsPerMonth: PUBLIC_PAID_PLANS[1].postsPerMonth,
+    price: AUTOPILOT_PUBLIC_PLAN.priceUsd,
+    credits: AUTOPILOT_PUBLIC_PLAN.monthlyCredits,
+    postsPerMonth: AUTOPILOT_PUBLIC_PLAN.postsPerMonth,
     stripePriceEnvKey: 'STRIPE_PRICE_BUSINESS',
     cta: 'Start Autopilot — $99/mo',
     researchNote: 'Built for operators who need monitoring and higher execution capacity.',
     features: [
-      `${PUBLIC_PAID_PLANS[1].monthlyCredits} AI credits / month (refreshes monthly)`,
+      `${AUTOPILOT_PUBLIC_PLAN.monthlyCredits} AI credits / month (refreshes monthly)`,
       'Operations center with scheduled state and incident monitoring',
-      `Up to ${PUBLIC_PAID_PLANS[1].campaignLimit} campaign workspaces / month; AI operations use credits`,
-      'Capacity example: 3 Full Standard workflows to drafts or 12 reviewed Organic Light strategies',
-      `Up to ${PUBLIC_PAID_PLANS[1].postsPerMonth} planned copy drafts / month`,
+      `Up to ${AUTOPILOT_PUBLIC_PLAN.campaignLimit} campaign workspaces / month; AI operations use credits`,
+      `Real capacity example: ${AUTOPILOT_FULL_STANDARD_CAPACITY.workflows} Full Standard workflows to ${AUTOPILOT_FULL_STANDARD_CAPACITY.workflows * FULL_STANDARD_90_DRAFTS} drafts; planned-post allowance is the binding limit`,
+      `Up to ${AUTOPILOT_PUBLIC_PLAN.postsPerMonth} planned copy drafts / month`,
       'Supported platform publishing when provider access allows',
       'Human approval queue before execution',
       'Printable HTML + JSON export',
@@ -173,14 +177,14 @@ export const PLANS: PlanDefinition[] = [
 export const PLAN_VIDEO_QUOTA: Record<string, number> = {
   FREE:     0,
   STARTER:  0,
-  PRO:      2,
-  BUSINESS: 5,
+  PRO:      GROWTH_PUBLIC_PLAN.videoSlotsPerMonth,
+  BUSINESS: AUTOPILOT_PUBLIC_PLAN.videoSlotsPerMonth,
   free:     0,
   starter:  0,
-  pro:      2,
-  business: 5,
-  agency:   5,
-  ACTIVE:   2,
+  pro:      GROWTH_PUBLIC_PLAN.videoSlotsPerMonth,
+  business: AUTOPILOT_PUBLIC_PLAN.videoSlotsPerMonth,
+  agency:   AUTOPILOT_PUBLIC_PLAN.videoSlotsPerMonth,
+  ACTIVE:   GROWTH_PUBLIC_PLAN.videoSlotsPerMonth,
   // Admin / founder accounts — unlimited
   ADMIN:    999,
   admin:    999,
@@ -193,19 +197,19 @@ export const PLAN_VIDEO_QUOTA: Record<string, number> = {
 export const PLAN_CAMPAIGN_LIMIT: Record<string, number> = {
   FREE:     1,
   STARTER:  2,    // legacy plan; no longer sold
-  PRO:      4,
-  GROWTH:   4,    // Alias for PRO display name
-  BUSINESS: 12,
-  AGENCY:   12,
+  PRO:      GROWTH_PUBLIC_PLAN.campaignLimit,
+  GROWTH:   GROWTH_PUBLIC_PLAN.campaignLimit,    // Alias for PRO display name
+  BUSINESS: AUTOPILOT_PUBLIC_PLAN.campaignLimit,
+  AGENCY:   AUTOPILOT_PUBLIC_PLAN.campaignLimit,
   ADMIN:    999,  // Admin / founder — unlimited
   free:     1,
   starter:  2,
-  pro:      4,
-  growth:   4,
-  business: 12,
-  agency:   12,
+  pro:      GROWTH_PUBLIC_PLAN.campaignLimit,
+  growth:   GROWTH_PUBLIC_PLAN.campaignLimit,
+  business: AUTOPILOT_PUBLIC_PLAN.campaignLimit,
+  agency:   AUTOPILOT_PUBLIC_PLAN.campaignLimit,
   admin:    999,
-  ACTIVE:   4,    // Fallback for active subscriptions without explicit plan
+  ACTIVE:   GROWTH_PUBLIC_PLAN.campaignLimit,    // Fallback for active subscriptions without explicit plan
 }
 
 // ── Stripe Price ID mapping ────────────────────────────────────────────────────
@@ -316,14 +320,14 @@ export async function validateSubscriptionStripePrice(
 export const PLAN_CREDITS: Record<string, number> = {
   FREE:     FREE_TRIAL_CREDITS,
   STARTER:  50,
-  PRO:      60,
-  BUSINESS: 180,
+  PRO:      GROWTH_PUBLIC_PLAN.monthlyCredits,
+  BUSINESS: AUTOPILOT_PUBLIC_PLAN.monthlyCredits,
   free:     FREE_TRIAL_CREDITS,
   starter:  50,
-  pro:      60,
-  business: 180,
-  agency:   180,
-  ACTIVE:   60,
+  pro:      GROWTH_PUBLIC_PLAN.monthlyCredits,
+  business: AUTOPILOT_PUBLIC_PLAN.monthlyCredits,
+  agency:   AUTOPILOT_PUBLIC_PLAN.monthlyCredits,
+  ACTIVE:   GROWTH_PUBLIC_PLAN.monthlyCredits,
   ADMIN:    9999,
   admin:    9999,
 }
@@ -341,14 +345,14 @@ export interface PlanQuota {
 export const PLAN_QUOTAS: Record<string, PlanQuota> = {
   FREE:     { postsPerMonth: FREE_TRIAL_POSTS, videoSlotsPerMonth: 0, postsPerCampaign: FREE_TRIAL_POSTS },
   STARTER:  { postsPerMonth: 10,  videoSlotsPerMonth: 0,  postsPerCampaign: 12 },
-  PRO:      { postsPerMonth: 16,  videoSlotsPerMonth: 2,  postsPerCampaign: 16 },
-  BUSINESS: { postsPerMonth: 40,  videoSlotsPerMonth: 5,  postsPerCampaign: 20 },
+  PRO:      { postsPerMonth: GROWTH_PUBLIC_PLAN.postsPerMonth, videoSlotsPerMonth: GROWTH_PUBLIC_PLAN.videoSlotsPerMonth, postsPerCampaign: GROWTH_PUBLIC_PLAN.postsPerCampaign },
+  BUSINESS: { postsPerMonth: AUTOPILOT_PUBLIC_PLAN.postsPerMonth, videoSlotsPerMonth: AUTOPILOT_PUBLIC_PLAN.videoSlotsPerMonth, postsPerCampaign: AUTOPILOT_PUBLIC_PLAN.postsPerCampaign },
   free:     { postsPerMonth: FREE_TRIAL_POSTS, videoSlotsPerMonth: 0, postsPerCampaign: FREE_TRIAL_POSTS },
   starter:  { postsPerMonth: 10,  videoSlotsPerMonth: 0,  postsPerCampaign: 12 },
-  pro:      { postsPerMonth: 16,  videoSlotsPerMonth: 2,  postsPerCampaign: 16 },
-  business: { postsPerMonth: 40,  videoSlotsPerMonth: 5,  postsPerCampaign: 20 },
-  agency:   { postsPerMonth: 40,  videoSlotsPerMonth: 5,  postsPerCampaign: 20 },
-  ACTIVE:   { postsPerMonth: 16,  videoSlotsPerMonth: 2,  postsPerCampaign: 16 },
+  pro:      { postsPerMonth: GROWTH_PUBLIC_PLAN.postsPerMonth, videoSlotsPerMonth: GROWTH_PUBLIC_PLAN.videoSlotsPerMonth, postsPerCampaign: GROWTH_PUBLIC_PLAN.postsPerCampaign },
+  business: { postsPerMonth: AUTOPILOT_PUBLIC_PLAN.postsPerMonth, videoSlotsPerMonth: AUTOPILOT_PUBLIC_PLAN.videoSlotsPerMonth, postsPerCampaign: AUTOPILOT_PUBLIC_PLAN.postsPerCampaign },
+  agency:   { postsPerMonth: AUTOPILOT_PUBLIC_PLAN.postsPerMonth, videoSlotsPerMonth: AUTOPILOT_PUBLIC_PLAN.videoSlotsPerMonth, postsPerCampaign: AUTOPILOT_PUBLIC_PLAN.postsPerCampaign },
+  ACTIVE:   { postsPerMonth: GROWTH_PUBLIC_PLAN.postsPerMonth, videoSlotsPerMonth: GROWTH_PUBLIC_PLAN.videoSlotsPerMonth, postsPerCampaign: GROWTH_PUBLIC_PLAN.postsPerCampaign },
   ADMIN:    { postsPerMonth: 999, videoSlotsPerMonth: 99, postsPerCampaign: 16 },
   admin:    { postsPerMonth: 999, videoSlotsPerMonth: 99, postsPerCampaign: 16 },
 }

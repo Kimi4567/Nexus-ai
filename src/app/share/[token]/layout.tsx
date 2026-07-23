@@ -5,7 +5,7 @@
 import type { Metadata } from 'next'
 import { prisma } from '@/lib/prisma'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://nexus-grow.com'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.nexus-grow.com'
 
 const GOAL_LABELS: Record<string, string> = {
   SALES: 'Sales Campaign',

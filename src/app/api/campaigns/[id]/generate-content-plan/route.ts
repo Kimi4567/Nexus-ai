@@ -672,7 +672,10 @@ Rules:
       // 3. Fall back to image generation if no media
       let uploadedMediaId: string | null = null
       let assignedImageUrl: string | null = null
-      let effectiveMediaSource = mediaSource
+      // MIXED describes the user's selection policy, not the persisted state
+      // of an empty slot. A slot with no owned upload is an AI-generation slot
+      // and must be saved as GENERATE so the image worker can actually claim it.
+      let effectiveMediaSource: 'GENERATE' | 'UPLOAD' = 'GENERATE'
       let effectiveGenerationStatus = 'PENDING'
 
       const gptAssignedIdx: number = gen.assignedMediaIndex ?? -1
@@ -889,9 +892,15 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
           scheduledAt.setHours(proposedReviewHour(i), 0, 0, 0)
 
           let uploadedMediaId: string | null = null
-          let effectiveMediaSource = mediaSource
+          let assignedImageUrl: string | null = null
+          let effectiveMediaSource: 'GENERATE' | 'UPLOAD' = 'GENERATE'
+          let effectiveGenerationStatus = 'PENDING'
           if (mediaSource !== 'GENERATE' && userMedia.length > 0) {
-            uploadedMediaId = userMedia[i % userMedia.length].id
+            const media = userMedia[i % userMedia.length]
+            uploadedMediaId = media.id
+            assignedImageUrl = media.url
+            effectiveMediaSource = 'UPLOAD'
+            effectiveGenerationStatus = 'DONE'
           }
 
           return {
@@ -902,8 +911,9 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
             caption,
             imagePrompt,
             videoPrompt: null,
+            imageUrl: assignedImageUrl,
             isVideoPost: false,
-            generationStatus: 'PENDING',
+            generationStatus: effectiveGenerationStatus,
             mediaSource: effectiveMediaSource,
             uploadedMediaId,
             contentPlanIndex: slot.index + 1, // same index as A — they share a slot

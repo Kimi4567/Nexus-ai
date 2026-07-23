@@ -30,7 +30,7 @@ import {
   type MarketingQualityGateReport,
 } from '@/lib/ai/marketingQualityGate'
 import {
-  assertCampaignStrategyContract,
+  validateCampaignStrategyContract,
   type CampaignStrategyContractReport,
 } from '@/lib/campaignStrategyContract'
 import {
@@ -64,6 +64,63 @@ export interface FinalizedStrategyQuality {
   strategy: StrategyOutput
   contractReport: CampaignStrategyContractReport
   qualityGate: MarketingQualityGateReport
+}
+
+export interface StrategyQualityFailureDiagnostics {
+  stage: 'strategy_contract' | 'marketing_quality'
+  mode: BusinessBrief['strategyType']
+  issueCodes: string[]
+  affectedPaths: string[]
+  outputCounts: {
+    contentDirections: number
+    weeklyDeliverables: number
+    audienceHypotheses: number
+    adAngles: number
+    adCopies: number
+    creativeBriefs: number
+  }
+  contractReport?: CampaignStrategyContractReport
+  qualityGate?: MarketingQualityGateReport
+}
+
+export class StrategyQualityFailure extends Error {
+  readonly diagnostics: StrategyQualityFailureDiagnostics
+
+  constructor(message: string, diagnostics: StrategyQualityFailureDiagnostics) {
+    super(message)
+    this.name = 'StrategyQualityFailure'
+    this.diagnostics = diagnostics
+  }
+}
+
+function countWeeklyDeliverables(strategy: StrategyOutput): number {
+  if (!Array.isArray(strategy.weeklyExecutionPlan)) return 0
+  return strategy.weeklyExecutionPlan.reduce((total, week) => (
+    total + (Array.isArray(week?.deliverables) ? week.deliverables.length : 0)
+  ), 0)
+}
+
+function strategyOutputCounts(strategy: StrategyOutput): StrategyQualityFailureDiagnostics['outputCounts'] {
+  const paid = strategy.paidPlanning
+  return {
+    contentDirections: Array.isArray(strategy.contentAnglesDetailed) ? strategy.contentAnglesDetailed.length : 0,
+    weeklyDeliverables: countWeeklyDeliverables(strategy),
+    audienceHypotheses: Array.isArray(paid?.audienceHypotheses) ? paid.audienceHypotheses.length : 0,
+    adAngles: Array.isArray(paid?.adAngles) ? paid.adAngles.length : 0,
+    adCopies: Array.isArray(paid?.adCopyVariations) ? paid.adCopyVariations.length : 0,
+    creativeBriefs: Array.isArray(paid?.creativeBriefs) ? paid.creativeBriefs.length : 0,
+  }
+}
+
+function strategyContractFailureMessage(report: CampaignStrategyContractReport): string {
+  const details = [
+    report.legacySchemaDetected ? 'legacy engine schema detected' : '',
+    report.missingFields.length ? `missing: ${report.missingFields.join(', ')}` : '',
+    report.weakFields.length ? `weak: ${report.weakFields.join(', ')}` : '',
+    report.languageViolations.length ? `language: ${report.languageViolations.slice(0, 8).join(', ')}` : '',
+    report.countViolations.length ? `count: ${report.countViolations.join(', ')}` : '',
+  ].filter(Boolean).join('; ')
+  return `Campaign engine strategy failed Strategy OS contract (${details || 'unknown reason'})`
 }
 
 function stringArray(value: unknown): string[] {
@@ -218,6 +275,8 @@ export function finalizeStrategyQuality(
     strategyType: brief.strategyType,
     organicPostCount: brief.organicPostCount,
     hasLeadHandling: Boolean((context.safeBrandProfile as Record<string, unknown>).leadHandling),
+    hasBudget: context.readiness.hasBudget,
+    budgetText: context.proofContext.budgetText,
     hasConversionDestination: hasUsableConversionDestination(
       (context.safeBrandProfile as Record<string, unknown>).conversionDestination,
       brief.primaryGoal,
@@ -227,12 +286,32 @@ export function finalizeStrategyQuality(
   })
   strategy.evidenceLedger = buildStrategyEvidenceLedger(context.recordedProof)
 
-  const contractReport = assertCampaignStrategyContract(strategy, {
+  const contractReport = validateCampaignStrategyContract(strategy, {
     language: brief.language,
     expectedOrganicPostCount: brief.organicPostCount,
     strategyType: brief.strategyType,
     expectedPaidPlanning: brief.strategyDeliverables,
   })
+  if (!contractReport.valid) {
+    throw new StrategyQualityFailure(strategyContractFailureMessage(contractReport), {
+      stage: 'strategy_contract',
+      mode: brief.strategyType,
+      issueCodes: [
+        ...contractReport.missingFields.map(path => `missing:${path}`),
+        ...contractReport.weakFields.map(path => `weak:${path}`),
+        ...contractReport.languageViolations.map(path => `language:${path}`),
+        ...contractReport.countViolations.map(path => `count:${path}`),
+      ],
+      affectedPaths: [
+        ...contractReport.missingFields,
+        ...contractReport.weakFields,
+        ...contractReport.languageViolations,
+        ...contractReport.countViolations,
+      ],
+      outputCounts: strategyOutputCounts(strategy),
+      contractReport,
+    })
+  }
   const qualityGate = reviewStrategyGrounding({
     strategy,
     brand: context.safeBrandProfile,
@@ -242,8 +321,16 @@ export function finalizeStrategyQuality(
   })
 
   if (qualityGate.status === 'blocked') {
-    throw new Error(
-      `MARKETING_QUALITY_GATE_BLOCKED:${qualityGate.blockers.map(item => item.code).join(',')}`,
+    throw new StrategyQualityFailure(
+      `MARKETING_QUALITY_GATE_BLOCKED:${qualityGate.blockers.map(item => `${item.code}@${item.path}`).join(',')}`,
+      {
+        stage: 'marketing_quality',
+        mode: brief.strategyType,
+        issueCodes: qualityGate.blockers.map(item => item.code),
+        affectedPaths: qualityGate.blockers.map(item => item.path),
+        outputCounts: strategyOutputCounts(strategy),
+        qualityGate,
+      },
     )
   }
 

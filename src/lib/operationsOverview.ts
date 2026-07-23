@@ -69,6 +69,22 @@ export interface OperationsOverview {
   }
   paid: { activeCampaigns: number; reportedSpend: number; staleSyncs: number; budgetIncidents: number }
   retries: { last24h: number; latestAt: string | null }
+  strategyRuns: {
+    failed: number
+    completed: number
+    recent: Array<{
+      id: string
+      status: 'RUNNING' | 'COMPLETED' | 'FAILED'
+      strategyType: 'organic' | 'paid' | 'full' | 'unknown'
+      language: string | null
+      organicPostCount: number | null
+      createdAt: string
+      completedAt: string | null
+      durationMs: number | null
+      creditOutcome: 'zero_charge_pre_delivery' | 'delivery_created_check_ledger' | 'check_ledger'
+      reason: { en: string; ar: string } | null
+    }>
+  }
   readiness: {
     scope: 'workspace_prelaunch'
     status: 'ready' | 'blocked' | 'not_verified'
@@ -140,6 +156,16 @@ export interface OperationsOverviewInput {
   latestAnalyticsAt: Date | null
   retriesLast24h: number
   latestRetryAt: Date | null
+  strategyRuns: Array<{
+    id: string
+    status: string
+    inputData?: unknown
+    outputData?: unknown
+    error?: string | null
+    durationMs?: number | null
+    createdAt: Date
+    completedAt?: Date | null
+  }>
   pilotProof: PilotProofOverview
 }
 
@@ -173,6 +199,70 @@ function monitorNumbers(value: unknown): { actionsDetected: number | null; sugge
 function connectionExpiry(config: unknown): Date | null {
   const value = record(config)
   return dateValue(value.expiresAt ?? value.expires_at ?? value.token_expiry)
+}
+
+function strategyRunView(run: OperationsOverviewInput['strategyRuns'][number]): OperationsOverview['strategyRuns']['recent'][number] {
+  const input = record(run.inputData)
+  const order = record(input.strategyOrder)
+  const output = record(run.outputData)
+  const failure = record(output.failure)
+  const rawType = order.strategyType ?? input.strategyType
+  const strategyType = rawType === 'organic' || rawType === 'paid' || rawType === 'full'
+    ? rawType
+    : 'unknown'
+  const rawCount = input.organicPostCount ?? record(input.strategyDeliverables).organicPostCount
+  const organicPostCount = typeof rawCount === 'number' && Number.isFinite(rawCount)
+    ? Math.max(0, Math.floor(rawCount))
+    : null
+  const structuredPreDeliveryFailure = run.status === 'FAILED' && Object.keys(failure).length > 0
+  const issueCodes = Array.isArray(failure.issueCodes)
+    ? failure.issueCodes.filter(value => typeof value === 'string').map(String)
+    : []
+  const affectedPaths = Array.isArray(failure.affectedPaths)
+    ? failure.affectedPaths.filter(value => typeof value === 'string').map(String)
+    : []
+  const paidFailure = failure.stage === 'paid_package'
+    || issueCodes.some(code => /paid/i.test(code))
+    || affectedPaths.some(path => /paidPlanning/i.test(path))
+  const contractFailure = failure.stage === 'contract' || /Strategy OS contract/i.test(run.error || '')
+  const reason = run.status !== 'FAILED'
+    ? null
+    : paidFailure
+      ? {
+          en: 'The paid planning package did not pass its saved delivery contract.',
+          ar: 'حزمة التخطيط المدفوع لم تجتز عقد التسليم المحفوظ.',
+        }
+      : contractFailure
+        ? {
+            en: 'The strategy output did not pass the saved structure and count contract.',
+            ar: 'مخرج الاستراتيجية لم يجتز عقد البنية والعدد المحفوظ.',
+          }
+        : structuredPreDeliveryFailure
+          ? {
+              en: 'The generated output was stopped by a documented pre-delivery quality check.',
+              ar: 'أوقف فحص جودة موثق المخرج قبل التسليم.',
+            }
+          : {
+              en: 'The request did not complete. Review the credit ledger before retrying.',
+              ar: 'لم يكتمل الطلب. راجع سجل الكريديت قبل إعادة المحاولة.',
+            }
+
+  return {
+    id: run.id,
+    status: run.status === 'COMPLETED' || run.status === 'FAILED' ? run.status : 'RUNNING',
+    strategyType,
+    language: typeof input.language === 'string' ? input.language : null,
+    organicPostCount,
+    createdAt: run.createdAt.toISOString(),
+    completedAt: run.completedAt?.toISOString() ?? null,
+    durationMs: typeof run.durationMs === 'number' ? run.durationMs : null,
+    creditOutcome: structuredPreDeliveryFailure
+      ? 'zero_charge_pre_delivery'
+      : run.status === 'COMPLETED'
+        ? 'delivery_created_check_ledger'
+        : 'check_ledger',
+    reason,
+  }
 }
 
 function executionIssue(action: ExecutionQueueItem): OperationsIssue | null {
@@ -218,7 +308,7 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
       id: 'monitor:execution-heartbeat',
       source: 'monitor',
       priority: monitorFailed || monitorStale ? 'critical' : 'high',
-      href: '/operations',
+      href: '/operations#system-health',
       title: {
         en: monitorFailed ? 'Execution monitor failed' : monitorStale ? 'Execution monitor heartbeat is overdue' : 'Execution monitor has not run yet',
         ar: monitorFailed ? 'فشل مراقب التنفيذ' : monitorStale ? 'تأخر نبض مراقب التنفيذ' : 'لم يعمل مراقب التنفيذ بعد',
@@ -407,6 +497,7 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
       activatedAt: campaign.autopilotActivatedAt ?? null,
       scheduledPosts: campaign.posts.scheduled,
     }))
+  const recentStrategyRuns = input.strategyRuns.map(strategyRunView)
 
   const hasCampaign = input.truth.summary.campaigns > 0
   const hasApprovedStrategyWithContent = input.truth.campaigns.some(campaign => {
@@ -452,7 +543,7 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
     {
       id: 'monitoring',
       status: input.latestMonitor?.status === 'COMPLETED' && !monitorStale ? 'ready' : hasCampaign ? 'blocked' : 'not_verified',
-      href: '/operations',
+      href: '/operations#system-health',
       title: { en: 'Execution monitoring', ar: 'مراقبة التنفيذ' },
       evidence: input.latestMonitor?.status === 'COMPLETED' && !monitorStale
         ? { en: 'A recent successful monitor heartbeat is persisted.', ar: 'يوجد نبض ناجح وحديث محفوظ لمراقب التنفيذ.' }
@@ -549,6 +640,11 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
     },
     paid: { activeCampaigns: input.paidCampaigns.length, reportedSpend, staleSyncs: paidStaleSyncs, budgetIncidents },
     retries: { last24h: input.retriesLast24h, latestAt: input.latestRetryAt?.toISOString() ?? null },
+    strategyRuns: {
+      failed: recentStrategyRuns.filter(run => run.status === 'FAILED').length,
+      completed: recentStrategyRuns.filter(run => run.status === 'COMPLETED').length,
+      recent: recentStrategyRuns,
+    },
     readiness: {
       scope: 'workspace_prelaunch',
       status: readinessStatus,

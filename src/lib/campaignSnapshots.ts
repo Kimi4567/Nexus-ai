@@ -71,6 +71,17 @@ export interface SnapshotContentPost {
   scheduledAt?: unknown
 }
 
+export interface SnapshotScheduledPost extends SnapshotContentPost {
+  approvedSnapshotId?: unknown
+  mediaApprovalSnapshotId?: unknown
+  integrationId?: unknown
+  pageId?: unknown
+  pageName?: unknown
+  platformOptions?: unknown
+  autoPublishConsentAt?: unknown
+  publishMode?: unknown
+}
+
 function normalizedJson(value: unknown): unknown {
   if (value instanceof Date) return value.toISOString()
   if (Array.isArray(value)) return value.map(normalizedJson)
@@ -230,6 +241,30 @@ export function hashMediaDecision(post: SnapshotContentPost): string {
   return hashCampaignSnapshotPayload(mediaDecision(post))
 }
 
+function schedulePostDecision(
+  post: SnapshotScheduledPost,
+  publishMode: 'MANUAL' | 'AUTO',
+): JsonRecord {
+  return {
+    postId: post.id,
+    approvedSnapshotId: post.approvedSnapshotId ?? null,
+    mediaApprovalSnapshotId: post.mediaApprovalSnapshotId ?? null,
+    contentHash: hashContentDecision(post),
+    scheduledAt: post.scheduledAt instanceof Date ? post.scheduledAt.toISOString() : post.scheduledAt ?? null,
+    publishMode,
+    destination: {
+      integrationId: post.integrationId ?? null,
+      pageId: post.pageId ?? null,
+      pageName: post.pageName ?? null,
+      publishTarget: post.publishTarget ?? post.platform ?? null,
+    },
+    platformOptions: post.platformOptions ?? null,
+    autoPublishConsentAt: post.autoPublishConsentAt instanceof Date
+      ? post.autoPublishConsentAt.toISOString()
+      : post.autoPublishConsentAt ?? null,
+  }
+}
+
 export function buildStrategyApprovalSnapshotPayload(input: {
   campaign: {
     id: string
@@ -242,8 +277,22 @@ export function buildStrategyApprovalSnapshotPayload(input: {
     aiOutput?: unknown
   }
   brandProfile?: unknown
+  /**
+   * The ACTIVE Campaign row already contains the exact guarded strategy that
+   * was approved. Do not run today's guards over that historical decision
+   * again: guard rules evolve and are not guaranteed to be idempotent across
+   * releases. Snapshot verification must compare the persisted decision, not
+   * reinterpret it with newer product policy.
+   */
+  persistedApprovedAiOutput?: boolean
 }): JsonRecord {
-  const aiOutput = sanitizeStrategyApprovalAiOutput(input)
+  const aiOutput = input.persistedApprovedAiOutput
+    ? normalizedJson(
+        input.campaign.aiOutput && typeof input.campaign.aiOutput === 'object' && !Array.isArray(input.campaign.aiOutput)
+          ? input.campaign.aiOutput
+          : {},
+      ) as JsonRecord
+    : sanitizeStrategyApprovalAiOutput(input)
 
   return normalizedJson({
     schemaVersion: CAMPAIGN_SNAPSHOT_SCHEMA_VERSION,
@@ -347,6 +396,16 @@ export function buildMediaApprovalSnapshotPayload(input: {
   strategySnapshot: CampaignSnapshotReference
   copyApprovalSnapshotIds: string[]
   posts: SnapshotContentPost[]
+  qualityOverride?: {
+    explicitlyConfirmed: true
+    weakMedia: Array<{
+      postId: string
+      contentPlanIndex: number | null
+      mediaId: string
+      score: number
+      verdict: string
+    }>
+  }
 }): JsonRecord {
   const posts = input.posts
     .map((post) => {
@@ -366,6 +425,7 @@ export function buildMediaApprovalSnapshotPayload(input: {
     strategySnapshot: input.strategySnapshot,
     copyApprovalSnapshotIds: [...new Set(input.copyApprovalSnapshotIds)].sort(),
     posts,
+    ...(input.qualityOverride ? { qualityOverride: input.qualityOverride } : {}),
   }) as JsonRecord
 }
 
@@ -373,36 +433,14 @@ export function buildScheduleDecisionSnapshotPayload(input: {
   campaignId: string
   strategySnapshot: CampaignSnapshotReference
   publishMode: 'MANUAL' | 'AUTO'
-  posts: Array<SnapshotContentPost & {
+  posts: Array<SnapshotScheduledPost & {
     approvedSnapshotId: string
     mediaApprovalSnapshotId: string
-    integrationId?: unknown
-    pageId?: unknown
-    pageName?: unknown
-    platformOptions?: unknown
-    autoPublishConsentAt?: unknown
   }>
 }): JsonRecord {
   const posts = input.posts
-    .map((post) => ({
-      postId: post.id,
-      approvedSnapshotId: post.approvedSnapshotId,
-      mediaApprovalSnapshotId: post.mediaApprovalSnapshotId,
-      contentHash: hashContentDecision(post),
-      scheduledAt: post.scheduledAt instanceof Date ? post.scheduledAt.toISOString() : post.scheduledAt ?? null,
-      publishMode: input.publishMode,
-      destination: {
-        integrationId: post.integrationId ?? null,
-        pageId: post.pageId ?? null,
-        pageName: post.pageName ?? null,
-        publishTarget: post.publishTarget ?? post.platform ?? null,
-      },
-      platformOptions: post.platformOptions ?? null,
-      autoPublishConsentAt: post.autoPublishConsentAt instanceof Date
-        ? post.autoPublishConsentAt.toISOString()
-        : post.autoPublishConsentAt ?? null,
-    }))
-    .sort((left, right) => left.postId.localeCompare(right.postId))
+    .map((post) => schedulePostDecision(post, input.publishMode))
+    .sort((left, right) => String(left.postId).localeCompare(String(right.postId)))
 
   return normalizedJson({
     schemaVersion: CAMPAIGN_SNAPSHOT_SCHEMA_VERSION,
@@ -489,6 +527,55 @@ export function reviewPostAgainstMediaApprovalSnapshot(
   if (!expected) return { ok: false, code: 'MEDIA_APPROVAL_SNAPSHOT_INVALID' }
   if (expected.decisionHash !== hashMediaDecision(post)) {
     return { ok: false, code: 'MEDIA_CHANGED_AFTER_APPROVAL' }
+  }
+  return { ok: true }
+}
+
+export type ScheduleSnapshotReview =
+  | { ok: true }
+  | {
+      ok: false
+      code:
+        | 'SCHEDULE_DECISION_SNAPSHOT_REQUIRED'
+        | 'SCHEDULE_DECISION_SNAPSHOT_INVALID'
+        | 'SCHEDULE_CHANGED_AFTER_APPROVAL'
+    }
+
+/**
+ * Verifies the exact execution decision immediately before provider submission.
+ * A snapshot ID alone is not evidence: destination, time, publish mode, approved
+ * revisions, provider options, and explicit consent must all still match.
+ */
+export function reviewPostAgainstScheduleDecisionSnapshot(
+  post: SnapshotScheduledPost,
+  snapshot: { scope?: unknown; payload?: unknown } | null | undefined,
+): ScheduleSnapshotReview {
+  if (!snapshot) return { ok: false, code: 'SCHEDULE_DECISION_SNAPSHOT_REQUIRED' }
+  if (snapshot.scope !== CAMPAIGN_SNAPSHOT_SCOPE.SCHEDULE_DECISION) {
+    return { ok: false, code: 'SCHEDULE_DECISION_SNAPSHOT_INVALID' }
+  }
+  if (!snapshot.payload || typeof snapshot.payload !== 'object' || Array.isArray(snapshot.payload)) {
+    return { ok: false, code: 'SCHEDULE_DECISION_SNAPSHOT_INVALID' }
+  }
+
+  const payload = snapshot.payload as JsonRecord
+  const publishMode = payload.publishMode
+  if (publishMode !== 'MANUAL' && publishMode !== 'AUTO') {
+    return { ok: false, code: 'SCHEDULE_DECISION_SNAPSHOT_INVALID' }
+  }
+  const posts = Array.isArray(payload.posts) ? payload.posts : []
+  const expected = posts.find((entry) => (
+    entry
+    && typeof entry === 'object'
+    && !Array.isArray(entry)
+    && (entry as JsonRecord).postId === post.id
+  ))
+  if (!expected) return { ok: false, code: 'SCHEDULE_DECISION_SNAPSHOT_INVALID' }
+
+  const currentMode = post.publishMode === 'AUTO' ? 'AUTO' : 'MANUAL'
+  const actual = schedulePostDecision(post, currentMode)
+  if (canonicalSnapshotJson(expected) !== canonicalSnapshotJson(actual)) {
+    return { ok: false, code: 'SCHEDULE_CHANGED_AFTER_APPROVAL' }
   }
   return { ok: true }
 }

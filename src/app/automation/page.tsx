@@ -1,3 +1,5 @@
-import OperationsCenterPage from '@/components/operations/OperationsCenterPage'
+import { redirect } from 'next/navigation'
 
-export default OperationsCenterPage
+export default function AutomationLegacyRoute() {
+  redirect('/operations')
+}

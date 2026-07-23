@@ -91,6 +91,9 @@ export default function LeadCaptureFormsPage() {
       })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.error || 'Could not create capture form.')
+      if (data.form) {
+        setForms(current => [data.form as CaptureForm, ...current.filter(item => item.id !== data.form.id)])
+      }
       setForm(EMPTY_FORM)
       setShowCreate(false)
       setNotice({ tone: 'success', text: ar ? 'تم إنشاء النموذج. الاستقبال لا يرسل أي تواصل تلقائي.' : 'Form created. Intake triggers no automated outreach.' })

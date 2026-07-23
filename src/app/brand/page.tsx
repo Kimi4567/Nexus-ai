@@ -273,7 +273,7 @@ function BrandStatusPanel({ indicators, locale, contract, organicTruthBlocked = 
     },
     {
       label: ar ? 'التخطيط المدفوع' : 'Paid planning',
-      value: indicators.paidReadiness.ready ? (ar ? 'بريف مدفوع مكتمل' : 'Paid brief complete') : (ar ? 'يحتاج متطلبات' : 'Needs prerequisites'),
+      value: indicators.paidReadiness.ready ? (ar ? 'مدخلات التخطيط مكتملة' : 'Planning inputs complete') : (ar ? 'يحتاج متطلبات' : 'Needs prerequisites'),
       helper: ar ? 'تخطيط فقط؛ التتبع والموافقة مطلوبان قبل أي صرف' : 'Planning only; tracking and approval are required before spend',
     },
     {
@@ -1534,7 +1534,7 @@ function BrandBrainInner() {
                             {ar ? 'أساسك العضوي جاهز.' : 'Your organic foundation is ready.'}
                           </span>{' '}
                           <button onClick={() => router.push('/strategy')} className="font-semibold underline" style={{ color: '#5E5CE6' }}>
-                            {ar ? 'أنشئ أول استراتيجية' : 'Create your first strategy'}
+                            {ar ? 'أنشئ استراتيجية' : 'Create a strategy'}
                           </button>
                           {ar ? ' — سيستخدم NEXUS ذاكرة علامتك.' : ' — NEXUS will use your brand memory.'}
                         </p>
@@ -2001,7 +2001,7 @@ function BrandBrainInner() {
                   <button onClick={() => router.push('/strategy')}
                     className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all"
                     style={{ background:'linear-gradient(135deg,#f59e0b,#d97706)', color:'#0a0a0a' }}>
-                    {locale === 'ar' ? 'أنشئ أول استراتيجية' : 'Create your first strategy'}
+                    {locale === 'ar' ? 'أنشئ استراتيجية' : 'Create a strategy'}
                     <ArrowLeft size={15} className="rtl:rotate-180" />
                   </button>
                 ) : (

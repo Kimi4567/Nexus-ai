@@ -11,6 +11,8 @@ import { resolveCampaignCounts, type CampaignCounts } from '@/lib/campaignSummar
 import { guardStrategyProofText } from '@/lib/ai/strategyProofGuard'
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { hasBrandTruthVerificationFailure, isBrandTruthExecutionLocked } from '@/lib/brandTruthGate'
+import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
+import type { CampaignPortfolioSummary } from '@/lib/campaignPortfolioSummary'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
@@ -44,6 +46,8 @@ interface Campaign {
   platforms: string[]
   createdAt: string
   updatedAt: string
+  aiOutput?: unknown
+  strategySummary?: CampaignPortfolioSummary
   _count: { activities: number }
   workflowSummary?: {
     total: number
@@ -54,15 +58,78 @@ interface Campaign {
   }
 }
 
-function campaignWorkflowStage(campaign: Campaign, ar: boolean): string {
+function jsonRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {}
+}
+
+function campaignWorkflowStage(campaign: Campaign, ar: boolean, brandTruthLocked: boolean): string {
+  if (brandTruthLocked) return ar ? 'تعارض Brand Brain' : 'Brand Brain conflict'
+  if (campaign.strategySummary?.deliveryState === 'organic_partial') {
+    return ar ? 'تم تسليم العضوي · المدفوع يحتاج طلباً منفصلاً' : 'Organic delivered · Paid needs a separate request'
+  }
+  const output = jsonRecord(campaign.aiOutput)
+  const sentinel = jsonRecord(output.sentinelReview)
+  if (campaign.strategySummary?.qualityState === 'needs_attention' || sentinel.status === 'needs_attention') return ar ? 'مراجعة الجودة مطلوبة' : 'Quality review required'
   const workflow = campaign.workflowSummary
-  if (campaign.status !== 'ACTIVE') return campaign.status === 'DRAFT' ? (ar ? 'تخطيط' : 'Plan') : (ar ? 'مراجعة' : 'Review')
+  if (campaign.status !== 'ACTIVE') {
+    if (campaign.status === 'DRAFT') return ar ? 'اعتماد الاستراتيجية مطلوب' : 'Strategy approval required'
+    if (campaign.status === 'ARCHIVED') return ar ? 'لا إجراء — مؤرشفة' : 'No action — archived'
+    if (campaign.status === 'PAUSED') return ar ? 'متوقفة بقرار المستخدم' : 'Paused by user'
+    return ar ? 'مراجعة الحالة' : 'Review status'
+  }
   if (!workflow || workflow.total === 0) return ar ? 'المحتوى لم يُبنَ بعد' : 'Content not built'
   if (workflow.failed > 0) return ar ? `${workflow.failed} فشل يحتاج تدخلاً` : `${workflow.failed} failed · action needed`
   if (workflow.mediaPending > 0) return ar ? `${workflow.mediaPending} اعتماد وسائط متبقٍ` : `${workflow.mediaPending} media approvals remaining`
   if (workflow.scheduled > 0) return ar ? `${workflow.scheduled} مجدول` : `${workflow.scheduled} scheduled`
   if (workflow.published === workflow.total) return ar ? 'منشورة بأدلة المنصة' : 'Provider-evidenced published'
   return ar ? 'جاهزة لمراجعة التنفيذ' : 'Ready for execution review'
+}
+
+function campaignContractMeta(campaign: Campaign, ar: boolean): {
+  type: string
+  scope: string
+  language: string
+} {
+  const output = jsonRecord(campaign.aiOutput)
+  const order = jsonRecord(output.strategyOrder)
+  const deliverables = jsonRecord(output.strategyDeliverables)
+  const hasSavedScope = Boolean(campaign.strategySummary?.strategyType) || ['organic', 'paid', 'full'].includes(String(order.strategyType ?? output.strategyType ?? ''))
+  const scopeType = campaign.strategySummary?.strategyType ?? (hasSavedScope ? resolveStrategyScope(output).type : null)
+  const scope = scopeType ? {
+    type: scopeType,
+    includesOrganic: scopeType !== 'paid',
+    paidOnly: scopeType === 'paid',
+  } : null
+  const type = campaign.strategySummary?.deliveryState === 'organic_partial'
+    ? (ar ? 'عضوية مسلّمة من طلب كامل جزئي' : 'Organic delivered from partial Full request')
+    : scope
+    ? ({
+        organic: ar ? 'عضوية' : 'Organic',
+        paid: ar ? 'مدفوعة' : 'Paid',
+        full: ar ? 'كاملة' : 'Full',
+      } as const)[scope.type]
+    : (ar ? 'النطاق غير مسجل' : 'Scope not recorded')
+  const rawCount = campaign.strategySummary?.organicPostCount ?? output.organicPostCount ?? deliverables.organicPostCount
+  const count = typeof rawCount === 'number' && Number.isFinite(rawCount) && rawCount >= 0
+    ? Math.floor(rawCount)
+    : null
+  const scopeLabel = scope?.includesOrganic && count !== null
+    ? (ar ? `${count} اتجاه منشور` : `${count} post direction${count === 1 ? '' : 's'}`)
+    : scope?.paidOnly
+      ? (ar ? 'بريف تخطيط مدفوع' : 'Paid planning brief')
+      : (ar ? 'العدد غير مسجل' : 'Count not recorded')
+  const languageValue = String(campaign.strategySummary?.language ?? output.language ?? order.language ?? '').toLowerCase()
+  const language = languageValue.startsWith('ar')
+    ? (ar ? 'العربية' : 'Arabic')
+    : languageValue.startsWith('en')
+      ? (ar ? 'الإنجليزية' : 'English')
+      : languageValue === 'bilingual' || languageValue === 'both'
+        ? (ar ? 'ثنائية اللغة' : 'Bilingual')
+        : (ar ? 'اللغة غير مسجلة' : 'Language not recorded')
+
+  return { type, scope: scopeLabel, language }
 }
 
 function MetricCard({
@@ -203,7 +270,7 @@ export default function CampaignsPage() {
       params.set('limit', '50')
 
       const [res, brandRes] = await Promise.all([
-        fetch(`/api/campaigns?${params}`, {
+        fetch(`/api/campaigns?${params}&includeAiOutput=false`, {
           headers: { Authorization: token },
         }),
         fetch('/api/brand', { headers: { Authorization: token } }),
@@ -690,7 +757,7 @@ export default function CampaignsPage() {
                   <div className="grid grid-cols-[minmax(260px,1.8fr)_120px_120px_170px_120px_80px] gap-0 bg-[#fbfcff] px-4 py-3 text-[11px] font-black uppercase tracking-[0.08em] text-[#7b87a3] max-xl:hidden">
                     <span>{copy('الحملة', 'Campaign')}</span>
                     <span>{copy('الحالة', 'Status')}</span>
-                    <span>{copy('المرحلة', 'Stage')}</span>
+                    <span>{copy('العائق / الخطوة', 'Blocker / next step')}</span>
                     <span>{copy('المنصات', 'Platforms')}</span>
                     <span>{copy('آخر تحديث', 'Updated')}</span>
                     <span />
@@ -699,6 +766,7 @@ export default function CampaignsPage() {
                     {campaigns.map((campaign) => {
                       const status = statusMap[campaign.status] || statusMap.DRAFT
                       const platforms = getCampaignPlatformSummary(campaign.platforms, locale)
+                      const contract = campaignContractMeta(campaign, ar)
                       return (
                         <div key={campaign.id} className="grid grid-cols-1 gap-3 px-4 py-4 transition hover:bg-[#fbfcff] xl:grid-cols-[minmax(260px,1.8fr)_120px_120px_170px_120px_80px] xl:items-center">
                           <Link href={`/campaigns/${campaign.id}?tab=strategy`} className="flex min-w-0 items-center gap-3">
@@ -708,9 +776,19 @@ export default function CampaignsPage() {
                             <span className="min-w-0">
                               <span className="block truncate text-sm font-black text-[#111b3f]">{campaign.name}</span>
                               <span className="mt-1 block truncate text-xs text-[#7b87a3]">
-                                {campaign.description
-                                  ? guardStrategyProofText(campaign.description)
-                                  : goalMap[campaign.goal] || campaign.goal}
+                                {ar
+                                  ? goalMap[campaign.goal] || campaign.goal
+                                  : campaign.description
+                                    ? guardStrategyProofText(campaign.description)
+                                    : goalMap[campaign.goal] || campaign.goal}
+                              </span>
+                              <span className="mt-2 flex flex-wrap gap-1.5 text-[9px] font-bold text-[#65718b]">
+                                {[contract.type, contract.scope, contract.language].map((label) => (
+                                  <span key={label} className="rounded-md border border-[#e5eaf4] bg-white px-2 py-1">{label}</span>
+                                ))}
+                                <span className="rounded-md border border-[#e5eaf4] bg-white px-2 py-1">
+                                  {copy('أُنشئت', 'Created')} {new Date(campaign.createdAt).toLocaleString(dateLocale, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
+                                </span>
                               </span>
                             </span>
                           </Link>
@@ -719,7 +797,7 @@ export default function CampaignsPage() {
                             {status.label}
                           </span>
                           <span className="w-max rounded-full bg-[#f3f1ff] px-3 py-1 text-xs font-bold text-[#4f46e5]">
-                            {campaign.status === 'ACTIVE' && brandTruthLocked ? copy('مرجع فقط', 'Reference only') : campaignWorkflowStage(campaign, ar)}
+                            {campaignWorkflowStage(campaign, ar, brandTruthLocked)}
                           </span>
                           <span className="flex flex-wrap gap-1">
                             {platforms.isEmpty ? (
@@ -734,6 +812,9 @@ export default function CampaignsPage() {
                           <div className="relative justify-self-start xl:justify-self-end" ref={openMenuId === campaign.id ? menuRef : undefined}>
                             <button
                               type="button"
+                              aria-label={copy(`إجراءات الحملة ${campaign.name}`, `Actions for campaign ${campaign.name}`)}
+                              aria-haspopup="menu"
+                              aria-expanded={openMenuId === campaign.id}
                               onClick={() => setOpenMenuId((value) => value === campaign.id ? null : campaign.id)}
                               disabled={deletingId === campaign.id}
                               className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#e3e8f3] bg-white text-[#53617f] transition hover:border-[#cbd4ff]"
