@@ -372,6 +372,47 @@ describe('POST professional video generation', () => {
     expect(mocks.createTask).not.toHaveBeenCalled()
   })
 
+  it('locks concept-film generation for a post after repeated rejected quality reviews before any spend', async () => {
+    mocks.prisma.generation.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          status: 'FAILED',
+          params: { postId: 'post-1', productionRoute: 'MULTI_SHOT_CAMPAIGN_FILM' },
+          metadata: { qualityStatus: 'REJECTED' },
+          createdAt: new Date('2026-07-18T00:00:00.000Z'),
+        },
+        {
+          status: 'FAILED',
+          params: { postId: 'post-1', productionRoute: 'MULTI_SHOT_CAMPAIGN_FILM' },
+          metadata: { qualityStatus: 'REJECTED' },
+          createdAt: new Date('2026-07-17T00:00:00.000Z'),
+        },
+      ])
+
+    const response = await POST(request({
+      ...confirmedBody,
+      productionRoute: 'MULTI_SHOT_CAMPAIGN_FILM',
+      acknowledgedDurationSeconds: 10,
+      referenceMediaIds: [],
+    }), {
+      params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
+    })
+
+    expect(response.status).toBe(409)
+    expect(await response.json()).toMatchObject({
+      code: 'CAMPAIGN_FILM_QUALITY_LOCKED',
+      creditsCharged: false,
+      providerGenerationStarted: false,
+      rejectedAttempts: 2,
+      recommendedRoutes: ['UPLOAD_APPROVED_VIDEO', 'MOTION_DESIGN', 'PRODUCT_FIDELITY_WITH_REFERENCES'],
+    })
+    expect(mocks.prisma.generation.create).not.toHaveBeenCalled()
+    expect(mocks.deduct).not.toHaveBeenCalled()
+    expect(mocks.createMultiShotTask).not.toHaveBeenCalled()
+    expect(mocks.createTask).not.toHaveBeenCalled()
+  })
+
   it('blocks screens and UI captures before any provider spend or debit', async () => {
     const screen = productReference('product-front')
     screen.intelligence.assetKind = 'SCREEN'

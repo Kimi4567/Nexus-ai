@@ -78,6 +78,8 @@ const VIDEO_PROVIDER_ECONOMICS_VERSION = 'nexus-video-provider-estimate-2026-07-
 
 type Params = { params: Promise<{ id: string; postId: string }> }
 const db = prisma as any
+const CAMPAIGN_FILM_POST_QA_FAILURE_LIMIT = 2
+const CAMPAIGN_FILM_POST_QA_FAILURE_WINDOW_MS = 7 * 24 * 60 * 60 * 1_000
 
 function isArabicLanguage(language: unknown): boolean {
   return typeof language !== 'string' || language.toLowerCase().startsWith('ar')
@@ -166,6 +168,31 @@ async function findLatestPostGeneration(campaignId: string, postId: string) {
     take: 30,
   })
   return rows.find((row: any) => generationParams(row.params).postId === postId) ?? null
+}
+
+function isRejectedCampaignFilmAttemptForPost(row: any, postId: string): boolean {
+  const params = generationParams(row?.params)
+  const metadata = generationMetadata(row?.metadata)
+  return params.postId === postId
+    && params.productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM'
+    && row?.status === 'FAILED'
+    && metadata.qualityStatus === 'REJECTED'
+}
+
+async function countRecentRejectedCampaignFilmAttempts(campaignId: string, postId: string): Promise<number> {
+  const rows = await db.generation.findMany({
+    where: {
+      campaignId,
+      type: 'VIDEO',
+      provider: 'runway',
+      status: 'FAILED',
+      createdAt: { gte: new Date(Date.now() - CAMPAIGN_FILM_POST_QA_FAILURE_WINDOW_MS) },
+    },
+    select: { status: true, params: true, metadata: true, createdAt: true },
+    orderBy: { createdAt: 'desc' },
+    take: 20,
+  })
+  return rows.filter((row: any) => isRejectedCampaignFilmAttemptForPost(row, postId)).length
 }
 
 async function refundGeneration(
@@ -349,6 +376,19 @@ export async function POST(req: NextRequest, props: Params) {
       code: 'VIDEO_GENERATION_IN_PROGRESS',
       generationId: active.id,
     }, { status: 409 })
+  }
+  if (productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM') {
+    const rejectedAttempts = await countRecentRejectedCampaignFilmAttempts(params.id, params.postId)
+    if (rejectedAttempts >= CAMPAIGN_FILM_POST_QA_FAILURE_LIMIT) {
+      return NextResponse.json({
+        error: 'Concept Film is locked for this post because repeated provider outputs failed NEXUS premium quality review. Upload an approved video asset, use source-locked Motion Design, or switch to Product Fidelity with real references before spending more credits.',
+        code: 'CAMPAIGN_FILM_QUALITY_LOCKED',
+        creditsCharged: false,
+        providerGenerationStarted: false,
+        rejectedAttempts,
+        recommendedRoutes: ['UPLOAD_APPROVED_VIDEO', 'MOTION_DESIGN', 'PRODUCT_FIDELITY_WITH_REFERENCES'],
+      }, { status: 409 })
+    }
   }
 
   const requestedReferenceIds: unknown[] = Array.isArray(body.referenceMediaIds) ? body.referenceMediaIds : []
