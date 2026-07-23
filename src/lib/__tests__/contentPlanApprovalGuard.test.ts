@@ -217,4 +217,31 @@ describe('contentPlanApprovalGuard', () => {
       'unsupported_absolute_claim',
     ]))
   })
+
+  it('blocks the Arabic production and home-delivery scenes observed after regeneration', () => {
+    const truth = buildContentPlanTruthContext({
+      brandName: 'Luma Roast Lab Certification',
+      primaryOffer: 'كيلوغرام واحد من القهوة المحمصة حديثًا شهريًا مقابل 149 درهمًا',
+      audienceLocation: 'دبي',
+      complianceNotes: 'التوصيل داخل دبي فقط خلال 48 ساعة. لا توجد وسائط إنتاج مملوكة.',
+    })
+    const review = reviewContentPlanForApproval([
+      {
+        contentPlanIndex: 1,
+        caption: 'اكتشف كيف يتم تحميص قهوتنا الطازجة وتوصيلها إليك في دبي. استمتع بجودة القهوة المحمصة حديثًا.',
+        videoPrompt: 'مشهد 1: لقطات لعملية تحميص القهوة. مشهد 2: تعبئة القهوة في أكياس.',
+      },
+      {
+        contentPlanIndex: 2,
+        caption: 'راجع مدى ملاءمة اشتراكنا الشهري لروتينك. #توصيل_سريع',
+        videoPrompt: 'مشهد 1: شخص ينتظر القهوة. مشهد 2: لقطات لعملية توصيل القهوة السريعة.',
+      },
+    ], {
+      keyMessage: 'اشتراك شهري في دبي',
+      contentPillars: ['تفاصيل القهوة المحمصة', 'نطاق ومدة التوصيل'],
+    }, truth)
+
+    expect(review.ok).toBe(false)
+    expect(review.issues.map(issue => issue.reason)).toContain('unsupported_fake_product_visual')
+  })
 })

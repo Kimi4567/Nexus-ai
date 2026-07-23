@@ -109,6 +109,10 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
     reason: 'unsupported_fake_product_visual',
     re: /\b(?:coffee\s+)?beans?\s+being\s+(?:roasted|packed|sealed)\b|\b(?:delivery\s+)?van\b[^.?!]{0,100}\bbranding\b|\bbranded\s+(?:bags?|boxes?|packages?|packaging|vehicles?|vans?)\b|\b(?:bags?|boxes?|packages?)\s+(?:labelled|labeled)\s+['"][^'"]+['"]|\b(?:a|the) person\s+(?:receives?|opens?|unboxes?|uses?|enjoys?)\b/i,
   },
+  {
+    reason: 'unsupported_fake_product_visual',
+    re: /مشهد\s*\d+\s*:\s*شخص|عملية\s+(?:الاشتراك|تحميص|تعبئة|توصيل)|تعبئة\s+القهوة\s+في\s+(?:أكياس|عبوات)|استلام\s+القهوة(?:\s+الطازجة)?\s+(?:في|إلى)\s+المنزل|شخص\s+(?:ينتظر|يستلم|يفتح|يستخدم|يستمتع)/i,
+  },
 ]
 
 function normalizeText(value: unknown): string {
@@ -171,9 +175,11 @@ export function renderContentPlanDraftImagePrompt(
   gen: GeneratedContentPlanPostLike,
   ctx: ContentPlanRenderContext,
 ): string {
-  const guardedPrompt = guardContentDraftText(normalizeText(gen.imagePrompt), ctx)
+  const rawPrompt = normalizeText(gen.imagePrompt)
+  const guardedPrompt = guardContentDraftText(rawPrompt, ctx)
   const inventsUnavailableVisualEvidence = UNSAFE_PATTERNS.some((pattern) => (
-    pattern.reason === 'unsupported_fake_product_visual' && pattern.re.test(guardedPrompt)
+    pattern.reason === 'unsupported_fake_product_visual'
+      && (pattern.re.test(rawPrompt) || pattern.re.test(guardedPrompt))
   ))
   if (!inventsUnavailableVisualEvidence) return guardedPrompt
 
@@ -201,12 +207,11 @@ export function renderContentPlanDraftVideoPrompt(
   gen: GeneratedContentPlanPostLike,
   ctx: ContentPlanRenderContext,
 ): string {
-  const guardedPrompt = guardContentDraftText(
-    normalizeText(gen.videoScript) || normalizeText(gen.videoCaption),
-    ctx,
-  )
+  const rawPrompt = normalizeText(gen.videoScript) || normalizeText(gen.videoCaption)
+  const guardedPrompt = guardContentDraftText(rawPrompt, ctx)
   const inventsUnavailableVisualEvidence = UNSAFE_PATTERNS.some((pattern) => (
-    pattern.reason === 'unsupported_fake_product_visual' && pattern.re.test(guardedPrompt)
+    pattern.reason === 'unsupported_fake_product_visual'
+      && (pattern.re.test(rawPrompt) || pattern.re.test(guardedPrompt))
   ))
   if (!inventsUnavailableVisualEvidence) return guardedPrompt
 

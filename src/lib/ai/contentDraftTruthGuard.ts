@@ -566,6 +566,12 @@ function guardDeliveryClaims(text: string): string {
     .replace(/سرعة\s+التوصيل/gi, 'مدة التوصيل الموثقة')
     .replace(/توصيل مضمون/g, 'التوصيل حسب المناطق المتاحة')
     .replace(/توصيل سريع/g, 'توقيت التوصيل يعتمد على الموقع')
+    .replace(/التوصيل السريع/gi, 'نطاق ومدة التوصيل الموثقان')
+    .replace(/عملية\s+توصيل\s+القهوة\s+السريعة/gi, 'عرض نطاق ومدة توصيل القهوة الموثقين')
+    .replace(
+      /استلام\s+القهوة(?:\s+الطازجة)?\s+(?:في|إلى)\s+المنزل/gi,
+      'عرض نطاق ومدة توصيل القهوة الموثقين',
+    )
     .replace(/توصيل لباب البيت/g, 'التوصيل حسب المناطق المتاحة')
     .replace(/لباب البيت/g, 'حسب المناطق المتاحة')
     .replace(/لتصلك إلى باب منزلك/g, 'مع التوصيل حسب المناطق المتاحة')
@@ -608,6 +614,11 @@ function guardDraftCopyQuality(text: string): string {
       /\b(?:help|ensure)\s+quality\s+in\s+every\s+bean\b/gi,
       'review the documented coffee and subscription details',
     )
+    .replace(
+      /استمتع\s+بجودة\s+القهوة\s+المحمصة\s+حديثًا\.?/gi,
+      'راجع تفاصيل القهوة المحمصة حديثًا.',
+    )
+    .replace(/#توصيل_سريع/g, '#تفاصيل_التوصيل')
     .replace(
       /شاهد\s+كيف\s+نوفر\s+لك\s+توقيت\s+التوصيل\s+يعتمد\s+على\s+الموقع\s+ضمن\s+نطاق\s+الخدمة\.?/gi,
       'راجع نطاق التوصيل والمدة الموثقة قبل الاشتراك.',
@@ -981,6 +992,14 @@ function guardUnverifiedCoffeeProductClaims(
     /\b(?:we|our\s+(?:team|roastery|facility))\s+roast\b|\bour\s+roasting\s+process\b|(?:نحمص|نحمّص|نقوم\s+بتحميص|عملية\s+التحميص\s+لدينا|محمصتنا|محمّصتنا)/i,
   )) {
     guarded = guarded
+      .replace(
+        /(?:شاهد|اكتشف|تعرّف|تعرف)?\s*كيف\s+يتم\s+تحميص\s+قهوتنا(?:\s+الطازجة)?/gi,
+        'راجع تفاصيل القهوة المحمصة المتاحة',
+      )
+      .replace(
+        /تحميص\s+قهوتنا(?:\s+الطازجة)?/gi,
+        'تفاصيل القهوة المحمصة المتاحة',
+      )
       .replace(
         /(?:شاهد|اكتشف|تعرّف|تعرف)\s+كيف\s+يتم\s+تحميص\s+القهوة\s+لدينا/gi,
         'راجع تفاصيل تحميص القهوة المتاحة',
@@ -1430,6 +1449,7 @@ export function buildContentDraftTruthPolicyPrompt(): string {
     '- Do not promise timely or on-time delivery, depict receipt on a marked calendar date, or imply that a recurring delivery always lands on schedule unless exact fulfillment evidence exists.',
     '- Do not invent testimonials, customer stories, reviews, awards, case studies, guarantees, or performance proof.',
     '- Do not depict first-party roasting, packing, branded bags, branded delivery vehicles, or a customer receiving and enjoying the product unless the user supplied owned media or exact first-party production evidence. Use neutral editorial product details instead.',
+    '- Apply the same visual-evidence rule to Arabic storyboards: مشاهد الأشخاص، عملية الاشتراك، عملية التحميص، تعبئة القهوة، استلام القهوة في المنزل، and عملية التوصيل are not evidence and must become a neutral editorial direction when owned media is absent.',
     '- Do not promise a seamless/easy journey, a smooth workflow, or a clear final result. Describe documented stages, review points, and proposed previews instead.',
     '- If proof is missing, ask for feedback, collect proof, or mention proof gaps as future work.',
     '- Do not invent ad spend, ROAS, CAC, paid launch, or budget allocation assumptions.',

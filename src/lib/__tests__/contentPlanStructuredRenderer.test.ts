@@ -251,6 +251,51 @@ describe('contentPlanStructuredRenderer', () => {
     }).ok).toBe(false)
   })
 
+  it('neutralizes the exact Arabic production storyboards observed in production', () => {
+    const context: ContentPlanRenderContext = {
+      isArabic: true,
+      brand: 'Luma Roast Lab Certification',
+      campaignName: 'اشتراك القهوة الشهري',
+      keyMessage: 'كيلوغرام واحد من القهوة المحمصة حديثًا شهريًا',
+      targetAudience: 'سكان دبي الذين يشترون القهوة للمنزل',
+      contentPillars: ['روتين الاشتراك', 'تفاصيل القهوة المحمصة', 'نطاق ومدة التوصيل'],
+      offer: '149 درهمًا لكيلوغرام واحد شهريًا',
+      platform: 'INSTAGRAM',
+      postIndex: 1,
+      verifiedProof: [],
+      brandFacts: [
+        'القهوة محمصة حديثًا.',
+        'الاشتراك كيلوغرام واحد شهريًا مقابل 149 درهمًا.',
+        'التوصيل داخل دبي فقط خلال 48 ساعة.',
+        'لا توجد شهادات عملاء أو وسائط إنتاج مملوكة.',
+      ],
+    }
+    const storyboards = [
+      'مشهد 1: شخص يشعر بالإحباط عند نفاذ القهوة. مشهد 2: لقطات لعملية الاشتراك في خدمة القهوة الشهرية. مشهد 3: استلام القهوة الطازجة في المنزل.',
+      'مشهد 1: لقطات لعملية تحميص القهوة. مشهد 2: تعبئة القهوة في أكياس. مشهد 3: توصيل ضمن النطاق الموثق.',
+      'مشهد 1: شخص ينتظر القهوة بفارغ الصبر. مشهد 2: لقطات لعملية توصيل القهوة السريعة. مشهد 3: التوصيل ضمن النطاق والمدة الموثقين.',
+    ]
+    const prompts = storyboards.map((videoScript, postIndex) =>
+      renderContentPlanDraftVideoPrompt({ videoScript }, { ...context, postIndex }),
+    )
+    const caption = renderContentPlanDraftCaption({
+      caption: 'اكتشف كيف يتم تحميص قهوتنا الطازجة وتوصيلها إليك في دبي. استمتع بجودة القهوة المحمصة حديثًا. #قهوة #تحميص',
+    }, context)
+    const deliveryCaption = renderContentPlanDraftCaption({
+      caption: 'هل تشعر بالقلق من تأخير توصيل القهوة؟ راجع مدى ملاءمة اشتراكنا الشهري لروتينك. #توصيل_سريع #قهوة',
+    }, { ...context, postIndex: 2 })
+
+    expect(prompts.every(prompt => prompt.includes('Short-form editorial video concept'))).toBe(true)
+    expect(prompts.join('\n')).not.toMatch(/شخص|عملية الاشتراك|عملية تحميص|تعبئة القهوة|استلام القهوة|عملية توصيل/)
+    expect(caption).not.toMatch(/كيف يتم تحميص قهوتنا|استمتع بجودة/)
+    expect(deliveryCaption).toContain('#تفاصيل_التوصيل')
+    expect(prompts.every(videoPrompt => validateContentPlanDraftForSave({ videoPrompt }).ok)).toBe(true)
+    expect(validateContentPlanDraftForSave({ caption }).ok).toBe(true)
+    expect(validateContentPlanDraftForSave({ caption: deliveryCaption }).ok).toBe(true)
+
+    expect(storyboards.every(videoPrompt => !validateContentPlanDraftForSave({ videoPrompt }).ok)).toBe(true)
+  })
+
   it('save gate blocks observed unsafe regenerated clinic claims before SocialPost persistence', () => {
     const result = validateContentPlanDraftForSave({
       caption: 'وضوح العمليات في العيادة يساعد على من كفاءة العمل. اكتشف كيف يسهل ClinicFlow AI التواصل مع المرضى بلغتهم المفضلة، مما يساعد على من رضاهم وثقتهم.',
