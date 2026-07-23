@@ -193,6 +193,39 @@ describe('source-locked motion design', () => {
     })
   })
 
+  it('keeps the approved commercial lead visible with the metric in the opening frame', async () => {
+    const shared = {
+      brandLabel: 'Luma Roast Lab',
+      cta: 'عرض التفاصيل',
+      language: 'ar' as const,
+    }
+    const priceOffer = await motionDesignOverlaySvgs({
+      ...shared,
+      hook: 'كيلوغرام واحد شهريًا، والسعر 149 درهمًا',
+    })
+    const priceOnly = await motionDesignOverlaySvgs({
+      ...shared,
+      hook: '149 درهمًا',
+    })
+    const deliveryOffer = await motionDesignOverlaySvgs({
+      ...shared,
+      hook: 'داخل دبي فقط خلال 48 ساعة',
+    })
+    const durationOnly = await motionDesignOverlaySvgs({
+      ...shared,
+      hook: '48 ساعة',
+    })
+
+    expect(priceOffer.intro).not.toBe(priceOnly.intro)
+    expect(deliveryOffer.intro).not.toBe(durationOnly.intro)
+    expect(priceOffer.intro.match(/<path/g)?.length ?? 0)
+      .toBeGreaterThan(priceOnly.intro.match(/<path/g)?.length ?? 0)
+    expect(deliveryOffer.intro.match(/<path/g)?.length ?? 0)
+      .toBeGreaterThan(durationOnly.intro.match(/<path/g)?.length ?? 0)
+    expect(priceOffer.intro).not.toContain('<text')
+    expect(deliveryOffer.intro).not.toContain('<text')
+  })
+
   it('builds a source-locked six-second edit with a kinetic hook, CTA push-in, and no audio', () => {
     const args = buildMotionDesignFfmpegArgs({
       sourcePath: '/tmp/source.mp4',

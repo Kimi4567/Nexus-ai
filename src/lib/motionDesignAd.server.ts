@@ -119,6 +119,27 @@ export async function motionDesignOverlaySvgs(input: MotionDesignCopy & {
     ? createElement('div', {
       style: {
         display: 'flex',
+        width: '100%',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Math.round(shortEdge * 0.025),
+      },
+    },
+    hookLead
+      ? videoOverlayTextLines(
+        wrapVideoOverlayText(hookLead, rtl ? (vertical ? 18 : 26) : (vertical ? 24 : 34)),
+        {
+          rtl,
+          size: Math.round(shortEdge * (vertical ? 0.05 : 0.043)),
+          color: '#0B0E18',
+          align: 'center',
+        },
+      )
+      : null,
+    createElement('div', {
+      style: {
+        display: 'flex',
         minWidth: Math.round(width * (vertical ? 0.72 : 0.48)),
         height: Math.round(shortEdge * 0.21),
         padding: `0 ${Math.round(shortEdge * 0.07)}px`,
@@ -132,7 +153,7 @@ export async function motionDesignOverlaySvgs(input: MotionDesignCopy & {
       rtl,
       size: Math.round(shortEdge * (vertical ? 0.112 : 0.09)),
       color: '#FFFFFF',
-    }))
+    })))
     : null,
   !hookMetric
     ? videoOverlayTextLines(
