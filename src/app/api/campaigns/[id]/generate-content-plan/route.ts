@@ -48,6 +48,7 @@ import {
 import {
   renderContentPlanDraftCaption,
   renderContentPlanDraftImagePrompt,
+  renderContentPlanDraftVideoPrompt,
   validateContentPlanDraftForSave,
 } from '@/lib/contentPlanStructuredRenderer'
 import { validateContentPlanSemanticAlignment } from '@/lib/contentPlanSemanticGuard'
@@ -659,7 +660,18 @@ Rules:
         platform: slot.publishTarget,
         postIndex: i,
       })
-      const videoPrompt = guardContentDraftText(gen.videoScript ?? gen.videoCaption ?? '', proofContext)
+      const videoPrompt = renderContentPlanDraftVideoPrompt(gen, {
+        ...proofContext,
+        isArabic,
+        brand: brandName,
+        campaignName,
+        keyMessage,
+        targetAudience,
+        contentPillars,
+        offer,
+        platform: slot.publishTarget,
+        postIndex: i,
+      })
       const dayOffset = Math.max(1, Math.min(30, gen.scheduledDayOffset ?? i + 1))
 
       const scheduledAt = new Date(now)

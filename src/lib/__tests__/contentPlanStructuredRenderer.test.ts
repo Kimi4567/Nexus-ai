@@ -4,6 +4,7 @@ import {
   isCustomerWorkflowSaasContent,
   renderContentPlanDraftCaption,
   renderContentPlanDraftImagePrompt,
+  renderContentPlanDraftVideoPrompt,
   validateContentPlanDraftForSave,
   type ContentPlanRenderContext,
 } from '@/lib/contentPlanStructuredRenderer'
@@ -139,6 +140,34 @@ describe('contentPlanStructuredRenderer', () => {
     expect(prompt).toContain('عيادات صغيرة ومتوسطة')
     expect(prompt).not.toMatch(/واجهة تطبيق|لوحة تحكم/)
     expect(validateContentPlanDraftForSave({ imagePrompt: prompt }).ok).toBe(true)
+  })
+
+  it('converts a fabricated happy-customer video into a truth-safe editorial direction', () => {
+    const context: ContentPlanRenderContext = {
+      isArabic: false,
+      brand: 'Luma Roast Lab Certification',
+      campaignName: 'Monthly coffee subscription',
+      keyMessage: 'One kilogram monthly coffee subscription for Dubai',
+      targetAudience: 'Dubai residents buying coffee for home',
+      contentPillars: ['subscription routine', 'delivery details'],
+      offer: 'AED 149 for one kilogram monthly',
+      platform: 'TIKTOK',
+      postIndex: 2,
+      verifiedProof: [],
+      brandFacts: [
+        'The subscription is AED 149 for one kilogram each month.',
+        'Delivery is limited to Dubai within 48 hours.',
+        'There are no customer testimonials available.',
+      ],
+    }
+    const prompt = renderContentPlanDraftVideoPrompt({
+      videoScript: 'Show a happy customer receiving a branded coffee box and smiling at the Luma Roast Lab logo.',
+    }, context)
+
+    expect(prompt).toContain('Short-form editorial video concept')
+    expect(prompt).toContain('Dubai residents buying coffee for home')
+    expect(prompt).not.toMatch(/happy customer|branded coffee box|Luma Roast Lab logo/i)
+    expect(validateContentPlanDraftForSave({ videoPrompt: prompt }).ok).toBe(true)
   })
 
   it('save gate blocks observed unsafe regenerated clinic claims before SocialPost persistence', () => {

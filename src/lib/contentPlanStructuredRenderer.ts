@@ -189,6 +189,34 @@ export function renderContentPlanDraftImagePrompt(
   return `Editorial conceptual illustration for ${audience} about ${topic}, using abstract cards, connectors, and neutral workflow symbols. Use no screens, screenshots, readable text, logos, customer likenesses, branded facilities, or implied product evidence.`
 }
 
+export function renderContentPlanDraftVideoPrompt(
+  gen: GeneratedContentPlanPostLike,
+  ctx: ContentPlanRenderContext,
+): string {
+  const guardedPrompt = guardContentDraftText(
+    normalizeText(gen.videoScript) || normalizeText(gen.videoCaption),
+    ctx,
+  )
+  const inventsUnavailableVisualEvidence = UNSAFE_PATTERNS.some((pattern) => (
+    pattern.reason === 'unsupported_fake_product_visual' && pattern.re.test(guardedPrompt)
+  ))
+  if (!inventsUnavailableVisualEvidence) return guardedPrompt
+
+  const pillar = Array.isArray(ctx.contentPillars) && ctx.contentPillars.length > 0
+    ? ctx.contentPillars[ctx.postIndex % ctx.contentPillars.length]
+    : ''
+  const topic = guardContentDraftText(
+    normalizeText(pillar) || normalizeText(ctx.keyMessage) || normalizeText(ctx.campaignName) || 'the reviewed campaign topic',
+    ctx,
+  )
+  const audience = guardContentDraftText(
+    normalizeText(ctx.targetAudience) || 'the intended audience',
+    ctx,
+  )
+
+  return `Short-form editorial video concept for ${audience} about ${topic}. Use neutral close-up details, simple object motion, and abstract transitions. Use no screens, screenshots, readable text, logos, customer or expert likenesses, branded facilities, testimonials, or implied product evidence.`
+}
+
 export function validateContentPlanDraftForSave(fields: Record<string, unknown>): ContentPlanSaveGateResult {
   const issues: ContentPlanSaveGateIssue[] = []
 
