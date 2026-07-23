@@ -47,4 +47,41 @@ describe('professional campaign film brief', () => {
     expect(brief.overlayCopy.hook.length).toBeLessThanOrEqual(28)
     expect(brief.overlayCopy.benefit.length).toBeLessThanOrEqual(36)
   })
+
+  it('honors an approved people-free concept direction without inventing a customer or process', () => {
+    const brief = buildProfessionalCampaignFilmBrief({
+      brandName: 'Luma Roast Lab',
+      industry: 'Coffee subscription',
+      primaryOffer: 'One kilogram monthly',
+      caption: 'هل يساعدك الاشتراك الشهري؟ راجع الكمية والسعر قبل الطلب.',
+      videoDirection: 'Use neutral close-up details and abstract transitions. Use no people, hands, customer or expert likenesses, labels, readable text, branded facilities, or implied process evidence.',
+    })
+
+    const prompts = brief.shots.map(shot => shot.prompt).join(' ')
+    expect(prompts).toContain('No people, faces, hands')
+    expect(prompts).toContain('generic unbranded')
+    expect(prompts).not.toContain('same adult lead')
+    expect(prompts).not.toContain('target customer')
+    expect(prompts).not.toContain('real use situation')
+    expect(prompts).toContain('Campaign context: Luma Roast Lab. Coffee subscription')
+    expect(brief.shots.every(shot => shot.prompt.length <= 512)).toBe(true)
+    expect(brief.overlayCopy.cta).toBe('عرض التفاصيل')
+  })
+
+  it('treats long exclusion lists from production directions as people-free concept films', () => {
+    const brief = buildProfessionalCampaignFilmBrief({
+      brandName: 'Luma Roast Lab Certification',
+      industry: 'Coffee subscription',
+      primaryOffer: '1kg freshly roasted monthly, AED149',
+      caption: 'هل يناسبك اشتراك قهوة شهري؟ راجع الكمية والسعر والتوصيل قبل الطلب.',
+      videoDirection: 'Generated concept film only; no real-product fidelity claim. Use no screens, screenshots, readable text, logos, customer or expert likenesses, branded facilities, proof or implied operational evidence.',
+    })
+
+    const prompts = brief.shots.map(shot => shot.prompt).join(' ')
+    expect(prompts).toContain('No people, faces, hands')
+    expect(prompts).toContain('no documentary proof')
+    expect(prompts).toContain('generic unbranded category objects')
+    expect(prompts).not.toMatch(/same adult|target customer|real use situation/i)
+    expect(brief.overlayCopy.cta).toBe('عرض التفاصيل')
+  })
 })

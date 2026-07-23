@@ -724,6 +724,7 @@ export async function PATCH(req: NextRequest, props: Params) {
       targetFormat,
       formatValidation,
       requireProductAdStructure: true,
+      requiresRealProductHero: false,
       qualityStandard: 'PREMIUM',
       approvedOverlayTexts: [
         brief.overlayCopy.brand,
@@ -1074,6 +1075,7 @@ export async function GET(req: NextRequest, props: Params) {
       targetFormat,
       formatValidation,
       requireProductAdStructure: true,
+      requiresRealProductHero: !isCampaignFilm,
       qualityStandard: 'PREMIUM',
       approvedOverlayTexts: isCampaignFilm && storedParams.overlayCopy
         ? [

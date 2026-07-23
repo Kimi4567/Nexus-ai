@@ -64,10 +64,26 @@ function safePromptAnchor(input: {
   ].filter(Boolean).join('. ').slice(0, 480)
 }
 
-function finalizeShotPrompt(creative: string, anchor: string, brand: string): string {
+function finalizeShotPrompt(
+  creative: string,
+  anchor: string,
+  brand: string,
+  options: { peopleMode?: 'ADULT_LEAD' | 'NO_PEOPLE' } = {},
+): string {
+  const noPeople = options.peopleMode === 'NO_PEOPLE'
+  if (noPeople) {
+    const control = 'No people, faces, hands, staff, customers, experts, packaging, logos, labels, readable text, screens, branded facilities, watermarks, or dialogue. Use generic unbranded category objects only; no documentary proof.'
+    const context = compact(anchor || `${brand} approved campaign`, 120)
+    return `${control} Campaign context: ${context}. ${compact(creative, 175)}`.slice(0, 512)
+  }
   const control = 'No captions, logos, watermarks, or spoken dialogue. Generate continuous live-action-style motion; never use a still image, slideshow, framed screenshot, or frozen subject.'
   const continuity = `Campaign: ${anchor || `${brand} approved campaign`}. Keep the same adult lead, featured offer, premium art direction, and colors across all shots. Natural human and camera motion, physically plausible movement, commercial lighting.`
   return `${control} ${creative} ${continuity}`.slice(0, 512)
+}
+
+function requestsPeopleFreeConcept(value: unknown): boolean {
+  const direction = compact(value, 900)
+  return /(?:no|without|avoid).{0,140}(?:people|persons?|humans?|faces?|hands?|customers?|experts?|staff|employees?|likeness)|people[- ]free|person[- ]free|no real-product fidelity|generic unbranded|(?:بدون|لا).{0,80}(?:أشخاص|وجوه|أيدي|عملاء|خبراء|موظفين)/i.test(direction)
 }
 
 /**
@@ -93,8 +109,24 @@ export function buildProfessionalCampaignFilmBrief(input: {
     compact(input.description, 240),
     caption,
   ].join(' '))
-  const anchor = safePromptAnchor(input)
-  const shots = fashion ? [
+  const peopleFreeConcept = requestsPeopleFreeConcept(input.videoDirection)
+  const anchor = safePromptAnchor(peopleFreeConcept
+    ? { ...input, videoDirection: undefined }
+    : input)
+  const shots = peopleFreeConcept ? [
+    {
+      duration: 3,
+      prompt: finalizeShotPrompt('Scroll-stopping vertical editorial opening. Use a decisive macro reveal of generic category materials and objects with immediate purposeful movement, a fast controlled camera push, strong contrast, and clean negative space. The hook must be visually clear inside the first second without showing packaging or process proof.', anchor, brand, { peopleMode: 'NO_PEOPLE' }),
+    },
+    {
+      duration: 3,
+      prompt: finalizeShotPrompt('Benefit concept expressed only through a coherent change in the same generic unbranded objects: measured arrangement, repeatable rhythm, and a clear visual progression. Use polished macro and medium details, restrained abstract transitions, and no documentary or first-party evidence.', anchor, brand, { peopleMode: 'NO_PEOPLE' }),
+    },
+    {
+      duration: 4,
+      prompt: finalizeShotPrompt('Confident concept payoff. Resolve the same generic unbranded category objects into one centered hero composition with deliberate camera motion and generous clean negative space for a later CTA end card. Premium instrumental advertising sound design; no product-fidelity claim.', anchor, brand, { peopleMode: 'NO_PEOPLE' }),
+    },
+  ] : fashion ? [
     {
       duration: 3,
       prompt: finalizeShotPrompt('Scroll-stopping vertical luxury fashion-commercial opening. A confident adult woman enters a refined contemporary setting wearing the hero garment; she walks naturally and the fabric moves with her. Smooth low-angle tracking camera, elegant editorial composition, immediate visual hook.', anchor, brand),
@@ -127,7 +159,7 @@ export function buildProfessionalCampaignFilmBrief(input: {
   const benefit = compactAtWordBoundary(lines[1], language === 'ar' ? 36 : 50)
     || compactAtWordBoundary(input.primaryOffer, language === 'ar' ? 36 : 50)
     || (language === 'ar' ? 'تفاصيل تصنع الفارق' : 'Details that make the difference')
-  const cta = language === 'ar' ? 'اكتشفي المزيد' : 'Discover more'
+  const cta = language === 'ar' ? 'عرض التفاصيل' : 'Discover more'
 
   return {
     shots,

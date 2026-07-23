@@ -50,6 +50,11 @@ type QualityInput = {
   formatValidation?: PlatformImageFormatValidation | null
   requireProductAdStructure?: boolean
   /**
+   * Concept films still need a strong hero subject and paid-social structure,
+   * but they must not be judged as if an exact real product reference exists.
+   */
+  requiresRealProductHero?: boolean
+  /**
    * PAID_SOCIAL is the truthful delivery bar for deterministic source-locked
    * software/UI motion. PREMIUM remains the default for provider-generated
    * physical-product advertising.
@@ -127,7 +132,7 @@ function parseJsonObject(value: unknown): Record<string, unknown> {
 
 export function normalizeGeneratedMediaQualityReview(
   value: unknown,
-  input: Pick<QualityInput, 'mediaType' | 'referenceImageUrl' | 'referenceImageUrls' | 'targetFormat' | 'formatValidation' | 'requireProductAdStructure' | 'qualityStandard' | 'backgroundOnly' | 'allowAdvertisingSceneTransformation'>,
+  input: Pick<QualityInput, 'mediaType' | 'referenceImageUrl' | 'referenceImageUrls' | 'targetFormat' | 'formatValidation' | 'requireProductAdStructure' | 'requiresRealProductHero' | 'qualityStandard' | 'backgroundOnly' | 'allowAdvertisingSceneTransformation'>,
   providerUsage: ProviderUsageSummary,
 ): GeneratedMediaQualityReview {
   const result = value && typeof value === 'object' && !Array.isArray(value)
@@ -159,6 +164,8 @@ export function normalizeGeneratedMediaQualityReview(
     ? input.qualityStandard ?? 'PREMIUM'
     : 'GENERAL'
   const paidSocialStandard = qualityStandard === 'PAID_SOCIAL'
+  const requiresRealProductHero = input.requireProductAdStructure
+    && input.requiresRealProductHero !== false
   const thresholds = {
     referencePreservation: paidSocialStandard ? 90 : 92,
     semanticAlignment: paidSocialStandard ? 80 : 85,
@@ -218,16 +225,20 @@ export function normalizeGeneratedMediaQualityReview(
     durationIssue,
     unknownFormatIssue,
     input.requireProductAdStructure && !advertisingStructure
-      ? 'The video does not visibly deliver the required advertising sequence: hook, product reveal, benefit moment, and deliberate end frame.'
+      ? `The video does not visibly deliver the required advertising sequence: hook, ${requiresRealProductHero ? 'product' : 'hero-subject'} reveal, benefit moment, and deliberate end frame.`
       : '',
     input.requireProductAdStructure && !paidSocialAdReadiness
-      ? 'The result reads as a generic generated clip rather than a paid-social product advertisement.'
+      ? requiresRealProductHero
+        ? 'The result reads as a generic generated clip rather than a paid-social product advertisement.'
+        : 'The result reads as a generic generated clip rather than a finished paid-social concept advertisement.'
       : '',
     input.requireProductAdStructure && (commercialHookScore ?? 0) < thresholds.commercialHook
       ? 'The opening two seconds do not create a clear, scroll-stopping commercial hook.'
       : '',
     input.requireProductAdStructure && (productHeroScore ?? 0) < thresholds.productHero
-      ? 'The real product is not presented as a stable, unmistakable hero throughout the advertisement.'
+      ? requiresRealProductHero
+        ? 'The real product is not presented as a stable, unmistakable hero throughout the advertisement.'
+        : 'The generated concept does not maintain a clear, unmistakable hero subject or use moment throughout the advertisement.'
       : '',
     input.requireProductAdStructure && (benefitCommunicationScore ?? 0) < thresholds.benefitCommunication
       ? 'The benefit or payoff is not visually understandable without inventing unsupported claims.'
@@ -347,11 +358,19 @@ Reject if any of these are present:
 - invented claims, statistics, awards, testimonials, certifications, or product capabilities;
 - mismatch with the campaign message, obvious anatomy/object errors, broken geometry, poor cropping, low resolution, jump cuts, flicker, or an amateur composition.
 - a composition that becomes unusable or loses the important subject within the stated final platform canvas.
+- any visible violation of an explicit exclusion in CREATIVE DIRECTION, including forbidden people, faces, hands, screens, logos, labels, readable text, facilities, vehicles, customer stories, or first-party process evidence.
 ${input.backgroundOnly ? '- Do NOT require campaign copy, a headline, CTA, logo, or overlays in this background-only output. Their absence is correct.' : ''}
 ${input.requireProductAdStructure ? `- a generic AI motion clip, product demo, mood reel, slideshow, or attractive B-roll that would not function as a paid-social advertisement;
 - an opening that fails to stop attention within the first two seconds;
-- weak product prominence, random camera movement, dead time, incoherent shot progression, or a final frame that cannot carry an exact separately typeset CTA;
+- weak ${input.requiresRealProductHero === false ? 'hero-subject clarity' : 'product prominence'}, random camera movement, dead time, incoherent shot progression, or a final frame that cannot carry an exact separately typeset CTA;
 - art direction that feels interchangeable with another brand rather than specific to the approved message and tone.` : ''}
+${input.requireProductAdStructure && input.requiresRealProductHero === false ? `
+CONCEPT-FILM REVIEW CONTRACT:
+- This route explicitly does not promise real-product fidelity and may have no reference product.
+- Do not require packaging, a real product, a real customer, a branded facility, or documentary proof.
+- Interpret productHeroScore as hero-subject clarity: one coherent generic object, material, or use-moment concept carried through the edit.
+- Still reject unclear subject matter, generic B-roll, invented operational evidence, weak pacing, or an unusable end frame.
+` : ''}
 
 For reference jobs, every text/UI element already visible inside the supplied source is approved source evidence when faithfully preserved; do not require it to be repeated in APPROVED MOTION-DESIGN OVERLAYS. Exact text in APPROVED MOTION-DESIGN OVERLAYS is also allowed when it is cleanly typeset. Padding the preserved source inside a platform-safe canvas and typesetting approved overlays outside it are intentional and must not reduce reference-preservation scoring. "noNewRasterText" means no additional or corrupted text outside the preserved source and those exact overlays.
 ${input.allowAdvertisingSceneTransformation ? `
@@ -381,7 +400,8 @@ Return JSON exactly:
   "issues": [],
   "summary": "short evidence-based verdict"
 }
-All numeric scores MUST be integers on a 0–100 scale; never return a 0–10 score.`,
+All numeric scores MUST be integers on a 0–100 scale; never return a 0–10 score.
+${input.requireProductAdStructure && input.requiresRealProductHero === false ? 'For this concept-film contract, productHeroScore means hero-subject clarity, not real-product fidelity.' : ''}`,
   }]
 
   referenceUrls.forEach((referenceUrl, index) => {

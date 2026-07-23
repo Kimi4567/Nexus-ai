@@ -327,6 +327,36 @@ describe('generated media quality gate', () => {
     expect(result.issues).toContain('The video edit lacks purposeful commercial pacing or coherent shot progression.')
   })
 
+  it('judges a concept film by hero-subject clarity without inventing a real-product requirement', () => {
+    const result = normalizeGeneratedMediaQualityReview({
+      semanticAlignmentScore: 94,
+      professionalQualityScore: 95,
+      technicalIntegrity: true,
+      noNewRasterText: true,
+      noInventedClaims: true,
+      advertisingStructure: true,
+      paidSocialAdReadiness: true,
+      commercialHookScore: 92,
+      productHeroScore: 70,
+      benefitCommunicationScore: 90,
+      commercialPacingScore: 92,
+      endFrameReadinessScore: 93,
+      brandAlignmentScore: 91,
+      issues: [],
+    }, {
+      mediaType: 'VIDEO',
+      referenceImageUrl: null,
+      requireProductAdStructure: true,
+      requiresRealProductHero: false,
+    }, usage)
+
+    expect(result.passed).toBe(false)
+    expect(result.issues).toContain(
+      'The generated concept does not maintain a clear, unmistakable hero subject or use moment throughout the advertisement.',
+    )
+    expect(result.issues.join(' ')).not.toContain('real product')
+  })
+
   it('builds three durable Cloudinary review frames for a video', () => {
     expect(cloudinaryVideoReviewFrames(
       'https://res.cloudinary.com/demo/video/upload/v1/nexus/video.mp4',
