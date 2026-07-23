@@ -72,7 +72,7 @@ function finalizeShotPrompt(
 ): string {
   const noPeople = options.peopleMode === 'NO_PEOPLE'
   if (noPeople) {
-    const control = 'No people, faces, hands, staff, customers, experts, packaging, logos, labels, readable text, screens, branded facilities, watermarks, or dialogue. Use generic unbranded category objects only; no documentary proof.'
+    const control = 'No people, faces, hands, staff, customers, experts, packaging, containers, jars, cups, pouring, brewing, serving, tasting, logos, labels, readable text, screens, branded facilities, watermarks, or dialogue. Use generic unbranded category materials only; no documentary proof or process evidence.'
     const context = compact(anchor || `${brand} approved campaign`, 120)
     return `${control} Campaign context: ${context}. ${compact(creative, 175)}`.slice(0, 512)
   }
@@ -116,15 +116,15 @@ export function buildProfessionalCampaignFilmBrief(input: {
   const shots = peopleFreeConcept ? [
     {
       duration: 3,
-      prompt: finalizeShotPrompt('Scroll-stopping vertical editorial opening. Use a decisive macro reveal of generic category materials and objects with immediate purposeful movement, a fast controlled camera push, strong contrast, and clean negative space. The hook must be visually clear inside the first second without showing packaging or process proof.', anchor, brand, { peopleMode: 'NO_PEOPLE' }),
+      prompt: finalizeShotPrompt('Scroll-stopping vertical editorial opening. Use a decisive macro reveal of generic category raw materials with immediate purposeful movement, a fast controlled camera push, strong contrast, and clean negative space. The hook must be visually clear inside the first second without showing packaging, vessels, or process proof.', anchor, brand, { peopleMode: 'NO_PEOPLE' }),
     },
     {
       duration: 3,
-      prompt: finalizeShotPrompt('Benefit concept expressed only through a coherent change in the same generic unbranded objects: measured arrangement, repeatable rhythm, and a clear visual progression. Use polished macro and medium details, restrained abstract transitions, and no documentary or first-party evidence.', anchor, brand, { peopleMode: 'NO_PEOPLE' }),
+      prompt: finalizeShotPrompt('Benefit concept expressed only through a coherent abstract change in the same generic raw materials: measured arrangement, repeatable rhythm, and a clear visual progression. Use polished macro and medium details, restrained abstract transitions, and no documentary, serving, or first-party evidence.', anchor, brand, { peopleMode: 'NO_PEOPLE' }),
     },
     {
       duration: 4,
-      prompt: finalizeShotPrompt('Confident concept payoff. Resolve the same generic unbranded category objects into one centered hero composition with deliberate camera motion and generous clean negative space for a later CTA end card. Premium instrumental advertising sound design; no product-fidelity claim.', anchor, brand, { peopleMode: 'NO_PEOPLE' }),
+      prompt: finalizeShotPrompt('Confident concept payoff. Resolve the same generic unbranded raw materials into one centered abstract hero composition with deliberate camera motion and generous clean negative space for a later CTA end card. Premium instrumental advertising sound design; no product-fidelity claim.', anchor, brand, { peopleMode: 'NO_PEOPLE' }),
     },
   ] : fashion ? [
     {

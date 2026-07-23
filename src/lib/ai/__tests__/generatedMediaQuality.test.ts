@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import fs from 'node:fs'
+import path from 'node:path'
 import {
   cloudinaryVideoReviewFrames,
   normalizeGeneratedMediaQualityReview,
@@ -355,6 +357,13 @@ describe('generated media quality gate', () => {
       'The generated concept does not maintain a clear, unmistakable hero subject or use moment throughout the advertisement.',
     )
     expect(result.issues.join(' ')).not.toContain('real product')
+  })
+
+  it('keeps the concept-film reviewer alert to operational proof and serving drift', () => {
+    const source = fs.readFileSync(path.join(process.cwd(), 'src/lib/ai/generatedMediaQuality.ts'), 'utf8')
+    expect(source).toContain('packaging, containers, jars, cups, pouring, brewing, serving, tasting')
+    expect(source).toContain('first-party process evidence')
+    expect(source).toContain('invented operational evidence')
   })
 
   it('builds three durable Cloudinary review frames for a video', () => {

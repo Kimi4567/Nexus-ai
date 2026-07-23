@@ -358,7 +358,7 @@ Reject if any of these are present:
 - invented claims, statistics, awards, testimonials, certifications, or product capabilities;
 - mismatch with the campaign message, obvious anatomy/object errors, broken geometry, poor cropping, low resolution, jump cuts, flicker, or an amateur composition.
 - a composition that becomes unusable or loses the important subject within the stated final platform canvas.
-- any visible violation of an explicit exclusion in CREATIVE DIRECTION, including forbidden people, faces, hands, screens, logos, labels, readable text, facilities, vehicles, customer stories, or first-party process evidence.
+- any visible violation of an explicit exclusion in CREATIVE DIRECTION, including forbidden people, faces, hands, packaging, containers, jars, cups, pouring, brewing, serving, tasting, screens, logos, labels, readable text, facilities, vehicles, customer stories, or first-party process evidence.
 ${input.backgroundOnly ? '- Do NOT require campaign copy, a headline, CTA, logo, or overlays in this background-only output. Their absence is correct.' : ''}
 ${input.requireProductAdStructure ? `- a generic AI motion clip, product demo, mood reel, slideshow, or attractive B-roll that would not function as a paid-social advertisement;
 - an opening that fails to stop attention within the first two seconds;

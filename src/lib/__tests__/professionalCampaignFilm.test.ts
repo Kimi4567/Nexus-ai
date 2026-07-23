@@ -59,7 +59,9 @@ describe('professional campaign film brief', () => {
 
     const prompts = brief.shots.map(shot => shot.prompt).join(' ')
     expect(prompts).toContain('No people, faces, hands')
-    expect(prompts).toContain('generic unbranded')
+    expect(prompts).toContain('generic unbranded category materials')
+    expect(prompts).toContain('No people, faces, hands, staff, customers, experts, packaging, containers, jars, cups, pouring, brewing, serving, tasting')
+    expect(prompts).toContain('no documentary proof or process evidence')
     expect(prompts).not.toContain('same adult lead')
     expect(prompts).not.toContain('target customer')
     expect(prompts).not.toContain('real use situation')
@@ -79,8 +81,10 @@ describe('professional campaign film brief', () => {
 
     const prompts = brief.shots.map(shot => shot.prompt).join(' ')
     expect(prompts).toContain('No people, faces, hands')
-    expect(prompts).toContain('no documentary proof')
-    expect(prompts).toContain('generic unbranded category objects')
+    expect(prompts).toContain('no documentary proof or process evidence')
+    expect(prompts).toContain('generic unbranded category materials')
+    expect(prompts).toContain('containers, jars, cups, pouring, brewing, serving, tasting')
+    expect(prompts).not.toContain('category objects')
     expect(prompts).not.toMatch(/same adult|target customer|real use situation/i)
     expect(brief.overlayCopy.cta).toBe('عرض التفاصيل')
   })
