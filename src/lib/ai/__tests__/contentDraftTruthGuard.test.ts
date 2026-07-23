@@ -1025,6 +1025,27 @@ describe('contentDraftTruthGuard', () => {
     expect(alternateHype).not.toMatch(/elevate your|transform your/i)
   })
 
+  it('does not turn an unverified coffee freshness detail into draft copy', () => {
+    const ungrounded = guardContentDraftText(
+      'Freshly roasted coffee with fast and reliable delivery means you never run out.',
+      {
+        brandFacts: [
+          'AED 149 for one kilogram each month.',
+          'Delivery is limited to Dubai within 48 hours.',
+          'No freshness guarantee is available.',
+        ],
+      },
+    )
+    expect(ungrounded).not.toMatch(/freshly roasted|reliable delivery|never run out/i)
+    expect(ungrounded).toMatch(/details to verify|documented service window|plan stock more reliably/i)
+
+    const supported = guardContentDraftText(
+      'Freshly roasted coffee from our weekly roasting process.',
+      { brandFacts: ['The coffee is freshly roasted every week.'] },
+    )
+    expect(supported).toBe('Freshly roasted coffee from our weekly roasting process.')
+  })
+
   it('recursively guards generated post fields', () => {
     const guarded = guardContentDraftTruth({
       caption: 'Customer Testimonials: perfect brew every time and Perfect for busy teams with quick delivery guaranteed. هل تبحث عن توصيات لقهوة صباحية مثالية؟',

@@ -375,7 +375,11 @@ function guardRoadmapArray(
     const row = item as Record<string, unknown>
     if (typeof row.exitGate !== 'string') return row
     const guarded = guardResultText(row.exitGate, allowed, options)
-    return guarded === row.exitGate ? row : { ...row, exitGate: fallback }
+    const assertsUndefinedTarget = /(?:\b(?:meet|meets|met|achieve|achieves|achieved|reach|reaches|reached)\s+(?:the\s+)?target\b|\btarget\s+(?:is\s+)?(?:met|achieved|reached)\b|(?:تحقيق|بلوغ|الوصول\s+إلى)\s+الهدف)/i.test(guarded)
+      && !BASELINE_OR_VALIDATION_CONTEXT.test(guarded)
+    return guarded === row.exitGate && !assertsUndefinedTarget
+      ? row
+      : { ...row, exitGate: fallback }
   })
 }
 

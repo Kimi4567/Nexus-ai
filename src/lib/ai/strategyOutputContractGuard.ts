@@ -1791,6 +1791,7 @@ function guardAgencyOperatingSections(
 
   const competitor = isObject(output.competitorFrame) ? { ...output.competitorFrame } : {}
   const allowed = (allowedCompetitors || []).filter(value => typeof value === 'string' && value.trim()).map(value => value.trim())
+  output.competitorAnalysisComplete = allowed.length > 0
   output.competitorFrame = {
     ...competitor,
     analysisStatus: allowed.length > 0 ? 'complete' : 'incomplete',
@@ -1816,7 +1817,7 @@ function normalizePlanningHypotheses(value: unknown, language?: string | null): 
   })
 }
 
-const INVENTED_ORG_ROLE_RE = /\b(?:marketing manager|marketing team|finance team|sales team|client relations(?: team)?|design team|media buyer|performance team)\b|(?:مدير|فريق)\s+(?:التسويق|المالية|المبيعات|التصميم|الأداء)|فريق\s+علاقات\s+العملاء/i
+const INVENTED_ORG_ROLE_RE = /\b(?:marketing manager|marketing team|finance team|sales team|client relations(?: team)?|design team|media buyer|performance team|customer service(?: team)?|support team|logistics team|operations team|fulfilment team|fulfillment team)\b|(?:مدير|فريق)\s+(?:التسويق|المالية|المبيعات|التصميم|الأداء|خدمة العملاء|الدعم|اللوجستيات|العمليات|التوصيل)|فريق\s+علاقات\s+العملاء/i
 
 function referencesInventedOrgRole(value: unknown): boolean {
   return typeof value === 'string' && INVENTED_ORG_ROLE_RE.test(value)

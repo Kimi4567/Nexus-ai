@@ -100,6 +100,11 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).not.toContain('يحتاج إعداداً قبل الصرف')
   })
 
+  it('does not present a paid budget gap as an organic strategy input blocker', () => {
+    expect(campaignRoomSource).toContain('strategyRelevantMissingDataKeys')
+    expect(campaignRoomSource).toContain("missingDataKeys.filter(key => key !== 'marketingBudget')")
+  })
+
   it('frames the strategy tab as a command center rather than a long report', () => {
     expect(campaignRoomSource).toContain('Strategy command center')
     expect(campaignRoomSource).toContain('Strategy review desk')

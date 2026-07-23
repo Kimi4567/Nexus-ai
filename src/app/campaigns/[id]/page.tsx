@@ -1457,8 +1457,14 @@ function CampaignDetailPageInner() {
     competitors: { en: 'competitors', ar: 'المنافسون' },
     pixel: { en: 'pixel / analytics', ar: 'بكسل / تحليلات' },
   }
-  const missingDataLabels: string[] = missingDataKeys.map(k => MISSING_KEY_LABELS[k] ? (locale === 'ar' ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)
-  const strategyDocMissingDataLabels: string[] = missingDataKeys.map(k => MISSING_KEY_LABELS[k] ? (strategyDocIsArabic ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)
+  // Budget is a paid-planning prerequisite, not a blocker or confidence gap
+  // for an organic-only strategy. Keep measurement visible because organic
+  // conversion learning still needs a real analytics baseline.
+  const strategyRelevantMissingDataKeys = strategyScope.includesPaid
+    ? missingDataKeys
+    : missingDataKeys.filter(key => key !== 'marketingBudget')
+  const missingDataLabels: string[] = strategyRelevantMissingDataKeys.map(k => MISSING_KEY_LABELS[k] ? (locale === 'ar' ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)
+  const strategyDocMissingDataLabels: string[] = strategyRelevantMissingDataKeys.map(k => MISSING_KEY_LABELS[k] ? (strategyDocIsArabic ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)
   const paidPlanningMissingKeys = missingDataKeys.filter(k => ['marketingBudget', 'conversionDestination', 'leadHandling', 'audienceLocation', 'pricePoint', 'uniqueAdvantages', 'customerObjections', 'verifiedProof', 'pixel'].includes(k))
   const paidPlanningMissingLabels = paidPlanningMissingKeys.map(k => MISSING_KEY_LABELS[k] ? (locale === 'ar' ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)
   const strategyDocPaidPlanningMissingLabels = paidPlanningMissingKeys.map(k => MISSING_KEY_LABELS[k] ? (strategyDocIsArabic ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)

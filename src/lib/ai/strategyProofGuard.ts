@@ -114,6 +114,14 @@ function softenAbsoluteOutcomeClaims(text: string): string {
     .replace(/\b(?:our\s+)?pricing details available to discuss ensures? no surprises\.?/gi, 'Ask for pricing details before confirming the next step.')
     .replace(/\bpricing details to review before booking,\s*(?:just\s+)?clear treatment plans\.?/gi, 'Review pricing details and the proposed treatment plan before booking.')
     .replace(/\bexperience dental care without the stress\.?/gi, 'Explore dental care with clearer next steps.')
+    .replace(/\bnever (?:want to )?run out of coffee again\b/gi, 'plan your monthly coffee supply more predictably')
+    .replace(/\bnever run out of coffee\b/gi, 'plan your coffee supply more predictably')
+    .replace(/\bwithout running out of coffee\b/gi, 'with a more predictable coffee supply')
+    .replace(/\bpredictable monthly delivery with a more predictable coffee supply\b/gi, 'more predictable monthly coffee supply')
+    .replace(/\bno more worrying about (?:buying|running out of) coffee every month\b/gi, 'review how the monthly subscription fits your coffee routine')
+    .replace(/لا\s+مزيد\s+من\s+القلق\s+بشأن\s+(?:شراء|نفاد)\s+القهوة\s+كل\s+شهر/gi, 'راجع مدى ملاءمة الاشتراك الشهري لروتين القهوة')
+    .replace(/(?:لن|لا)\s+تنفد\s+القهوة\s+(?:مرة\s+أخرى|مجدداً|مجددا)/gi, 'خطط لاحتياج القهوة الشهري بوضوح أكبر')
+    .replace(/(?:تخيل|تخيّل)\s+عدم\s+القلق\s+بشأن\s+نفاد\s+القهوة\s+(?:مرة\s+أخرى|مجدداً|مجددا)!?/gi, 'راجع كيف يساعد الاشتراك على تنظيم احتياج القهوة الشهري.')
 }
 
 function softenUnsupportedExperienceClaims(text: string, context: StrategyProofContext): string {
@@ -245,6 +253,43 @@ function softenUnsupportedQualityClaims(text: string, context: StrategyProofCont
       .replace(/\bfreshest\s+coffee\b/gi, 'freshly roasted coffee')
       .replace(/\bfreshest\b/gi, 'fresh')
       .replace(/الأكثر\s+طزاجة|الأطزج/gi, 'طازج')
+  }
+
+  // Freshness and roasting-process wording is a factual product claim, not a
+  // harmless coffee adjective. Keep it only when the owner supplied the same
+  // fact in Brand Brain; otherwise turn it into a detail to verify.
+  if (!hasAffirmedClaim(allowed, /\bfresh(?:ly)?(?:\s+\w+){0,2}\s+roast(?:ed|ing)?\b|\bweekly\s+roast(?:ed|ing)?\b|\broast(?:ed|ing)\s+(?:weekly|daily)\b|طازج|طازجة|تحميص/i)) {
+    guarded = guarded
+      .replace(/\bfreshly\s+roasted\s+(?:coffee|beans?)\b/gi, 'coffee with roasting details to verify')
+      .replace(/\bfresh\s+(?:coffee|beans?)\b/gi, 'coffee with freshness details to verify')
+      .replace(/\b(?:the\s+)?(?:weekly\s+)?roasting\s+process\b/gi, 'roasting details to verify')
+      .replace(/\bcoffee freshness\b/gi, 'product details to verify')
+      .replace(/\bfreshness\b/gi, 'product details to verify')
+      .replace(/قهوة\s+(?:طازجة|طازج(?:ة)?\s+التحميص)/gi, 'قهوة تحتاج تفاصيل التحميص إلى تحقق')
+      .replace(/عملية\s+التحميص/gi, 'تفاصيل التحميص المطلوب التحقق منها')
+      .replace(/طزاجة\s+القهوة/gi, 'تفاصيل طزاجة القهوة المطلوب التحقق منها')
+  }
+
+  if (!hasAffirmedClaim(allowed, /\breliable\s+delivery\b|توصيل\s+موثوق/i)) {
+    guarded = guarded
+      .replace(/\bfast\s+and\s+reliable\s+delivery\b/gi, 'delivery within the documented service window')
+      .replace(/\breliable\s+delivery\b/gi, 'delivery within the documented service scope')
+      .replace(/توصيل\s+(?:سريع\s+و)?موثوق/gi, 'توصيل ضمن النطاق والمدة الموثقين')
+  }
+
+  if (!hasAffirmedClaim(allowed, /\breliable\s+(?:monthly\s+)?coffee\s+supply\b|إمداد\s+قهوة\s+موثوق/i)) {
+    guarded = guarded
+      .replace(/\breliable\s+monthly\s+coffee\s+supply\b/gi, 'more predictable monthly coffee supply')
+      .replace(/\breliable\s+coffee\s+supply\b/gi, 'more predictable coffee supply')
+      .replace(/إمداد\s+قهوة\s+موثوق/gi, 'احتياج قهوة أكثر قابلية للتخطيط')
+  }
+
+  if (!hasAffirmedClaim(allowed, /\b(?:doorstep|door|home)\s+delivery\b|\bdelivered\s+(?:to|at)\s+(?:your\s+)?(?:doorstep|door|home)\b|توصيل\s+(?:إلى|حتى)\s+(?:باب\s+)?المنزل|إلى\s+باب\s+منزلك/i)) {
+    guarded = guarded
+      .replace(/\bdelivered\s+(?:monthly\s+)?to\s+your\s+(?:doorstep|door|home)\s+in\s+([^.!?]+)/gi, 'available for monthly delivery within $1')
+      .replace(/\bdelivered\s+(?:right\s+|straight\s+|directly\s+)?to\s+your\s+(?:doorstep|door|home)\b/gi, 'available for delivery within the documented service area')
+      .replace(/توصيل\s+القهوة\s+إلى\s+باب\s+منزلك\s+في\s+([^.!؟]+)/gi, 'توصيل القهوة ضمن النطاق الموثق في $1')
+      .replace(/إلى\s+باب\s+منزلك/gi, 'ضمن نطاق التوصيل الموثق')
   }
 
   if (!hasAffirmedClaim(allowed, /\bpremium\b|فاخر|فاخرة/i)) {
@@ -385,6 +430,10 @@ function softenUnsupportedOfferAssurances(text: string, context: StrategyProofCo
 function cleanProofCollectionArtifacts(text: string): string {
   return text
     .replace(/\b((?:(?:customer|client)\s+stor(?:y|ies)|customer\s+proof|customer\s+reviews?|star\s+ratings?|ratings?|proof(?:\s+examples?)?)\s+to\s+collect)(?:\s+to\s+collect)+\b/gi, '$1')
+    .replace(/\bno discounts,\s*proof to collect,\s*or performance guarantees\b/gi, 'no discounts, testimonials, or performance guarantees')
+    .replace(/\bdo not use proof to collect\b/gi, 'do not use unverified testimonials or proof')
+    .replace(/\bdo not use unverified (?:proof to collect|testimonials)(?:\s+or\s+proof)?\b/gi, 'Do not use unverified customer proof')
+    .replace(/\bwithout proof to collect\b/gi, 'without verified customer proof')
     .replace(/\s+([,.;!?])/g, '$1')
 }
 
@@ -687,6 +736,7 @@ function plannedAssetNeedsCreation(text: string, context: StrategyProofContext):
     /\b(?:whitepaper|e-?book|guide|checklist|report|template)\b|دليل|كتاب إلكتروني|قائمة مراجعة|تقرير|قالب/i,
     /\b(?:live\s+demo|product\s+tour)\b|عرض توضيحي/i,
     /\b(?:(?:explainer|demo|demonstration|walkthrough|workflow|product|short)\s+)?video\b|فيديو(?:\s+(?:توضيحي|للمنتج|استعراضي|قصير))?/i,
+    /\b(?:reel|story graphics?|carousel|short[-\s]?form clip|photo(?:graph)?|image)\b|ريلز?|ستوري|قصة|كاروسيل|صورة|صور/i,
     /\binfographic\b|إنفوجرافيك|رسم معلوماتي/i,
   ]
   return assetKinds.some(pattern => pattern.test(text) && !pattern.test(approved))

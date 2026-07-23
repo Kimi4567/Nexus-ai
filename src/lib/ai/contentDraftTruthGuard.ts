@@ -888,6 +888,46 @@ function brandFactCorpus(context: ContentDraftTruthContext): string {
   ].join(' ').toLocaleLowerCase()
 }
 
+function hasAffirmedBrandFact(text: string, pattern: RegExp): boolean {
+  const flags = pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`
+  const scanner = new RegExp(pattern.source, flags)
+  let match: RegExpExecArray | null
+  while ((match = scanner.exec(text)) !== null) {
+    const before = text.slice(Math.max(0, match.index - 56), match.index)
+    if (!/(?:\b(?:avoid|never|not|no|without|do\s+not\s+claim)\s+|(?:تجنب|تجنّب|لا\s+تدّعي|لا\s+تدعي|بدون|غير)\s*)$/i.test(before)) {
+      return true
+    }
+  }
+  return false
+}
+
+function guardUnverifiedCoffeeProductClaims(
+  text: string,
+  context: ContentDraftTruthContext,
+): string {
+  const facts = brandFactCorpus(context)
+  let guarded = text
+
+  if (!hasAffirmedBrandFact(facts, /\bfresh(?:ly)?(?:\s+\w+){0,2}\s+roast(?:ed|ing)?\b|\bweekly\s+roast(?:ed|ing)?\b|\broast(?:ed|ing)\s+(?:weekly|daily)\b|طازج|طازجة|تحميص/i)) {
+    guarded = guarded
+      .replace(/\bfreshly\s+roasted\s+(?:coffee|beans?)\b/gi, 'coffee with roasting details to verify')
+      .replace(/\bfresh\s+(?:coffee|beans?)\b/gi, 'coffee with freshness details to verify')
+      .replace(/\b(?:our\s+)?(?:weekly\s+)?roasting\s+process\b/gi, 'the roasting details to verify')
+      .replace(/\bcoffee freshness\b/gi, 'coffee freshness details to verify')
+      .replace(/قهوة\s+(?:طازجة|طازج(?:ة)?\s+التحميص)/gi, 'قهوة تحتاج تفاصيل التحميص إلى تحقق')
+      .replace(/عملية\s+التحميص/gi, 'تفاصيل التحميص المطلوب التحقق منها')
+  }
+
+  if (!hasAffirmedBrandFact(facts, /\breliable\s+delivery\b|توصيل\s+موثوق/i)) {
+    guarded = guarded
+      .replace(/\bfast\s+and\s+reliable\s+delivery\b/gi, 'delivery within the documented service window')
+      .replace(/\breliable\s+delivery\b/gi, 'delivery within the documented service scope')
+      .replace(/توصيل\s+(?:سريع\s+و)?موثوق/gi, 'توصيل ضمن النطاق والمدة الموثقين')
+  }
+
+  return guarded
+}
+
 function replaceMatchingSentences(text: string, pattern: RegExp, fallback: string): string {
   let inserted = false
   return text
@@ -1123,7 +1163,7 @@ export function guardContentDraftText(
   if (typeof text !== 'string' || !text.trim()) return typeof text === 'string' ? text : ''
 
   const guarded = guardSaasActivationClaims(guardPaidAndStatusClaims(
-    guardDraftCopyQuality(guardCoffeeComplianceClaims(
+    guardUnverifiedCoffeeProductClaims(guardDraftCopyQuality(guardCoffeeComplianceClaims(
       guardDeliveryClaims(
         guardOutcomeClaims(
           guardFitClaims(
@@ -1140,7 +1180,7 @@ export function guardContentDraftText(
           context,
         ),
       ),
-    )),
+    )), context),
   ), context)
 
   return guardNexusMarketingOperatingClaims(

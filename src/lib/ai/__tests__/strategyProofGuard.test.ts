@@ -119,6 +119,40 @@ describe('strategyProofGuard', () => {
     expect(JSON.stringify(claims.slice(0, 3))).not.toMatch(/quality assurance|assured quality|ضمان جودة/i)
   })
 
+  it('grounds live coffee freshness, reliability, and never-run-out claims in owner facts', () => {
+    const ungrounded = guardStrategyProof({
+      keyMessage: 'Enjoy freshly roasted coffee delivered monthly to your doorstep in Dubai.',
+      positioning: 'A subscription for residents who need a predictable monthly delivery without running out of coffee.',
+      angles: [
+        'Highlight coffee freshness and the roasting process.',
+        'Fast and reliable delivery.',
+        'Reliable monthly coffee supply.',
+        'تخيل عدم القلق بشأن نفاد القهوة مرة أخرى!',
+      ],
+      evidence: 'The business currently has no discounts, testimonials, or performance guarantees.',
+      restriction: 'Do not use testimonials',
+    }, {
+      verifiedProof: [],
+      allowedClaimText: [
+        'AED 149 for one kilogram each month.',
+        'Delivery is limited to Dubai within 48 hours.',
+        'No freshness guarantee or customer proof is available.',
+      ],
+    })
+    const joined = JSON.stringify(ungrounded)
+
+    expect(joined).not.toMatch(/freshly roasted|coffee freshness|roasting process|never (?:want to )?run out|reliable (?:delivery|monthly coffee supply)|عدم القلق بشأن نفاد القهوة|doorstep/i)
+    expect(joined).toMatch(/details to verify|more predictably|documented service window/i)
+    expect(joined).toContain('no discounts, testimonials, or performance guarantees')
+    expect(joined).toContain('Do not use unverified customer proof')
+
+    const supported = guardStrategyProofText(
+      'Freshly roasted coffee from our weekly roasting process.',
+      { allowedClaimText: ['The coffee is freshly roasted every week.'] },
+    )
+    expect(supported).toBe('Freshly roasted coffee from our weekly roasting process.')
+  })
+
   it('removes the remaining live checkout, sizing, comfort, and uniqueness promises without proof', () => {
     const guarded = guardStrategyProof({
       funnelMessage: 'Easy and secure buying process',
@@ -562,7 +596,10 @@ describe('strategyProofGuard', () => {
       nextBestAction: 'Review the strategy before generating a content plan.',
     }
 
-    expect(guardStrategyProof(safe, { verifiedProof: [] })).toEqual(safe)
+    expect(guardStrategyProof(safe, {
+      verifiedProof: [],
+      allowedClaimText: ['The coffee is freshly roasted.'],
+    })).toEqual(safe)
   })
 
   it('removes unprovided speed, prime-location, and trust claims from service strategy text', () => {
@@ -731,6 +768,20 @@ describe('strategyProofGuard', () => {
         cta: 'Request an update after this asset is created and approved',
       },
     ])
+  })
+
+  it('labels reel and story directions as proposed assets until they are created', () => {
+    const guarded = guardStrategyProof({
+      contentAnglesDetailed: [
+        { asset: 'Reel demonstrating the roasting process' },
+        { asset: 'Story graphics highlighting the delivery window' },
+      ],
+    }, {
+      allowedClaimText: ['Coffee is freshly roasted. Delivery is limited to Dubai within 48 hours.'],
+    })
+
+    expect(guarded.contentAnglesDetailed[0].asset).toContain('Proposed asset to create and approve')
+    expect(guarded.contentAnglesDetailed[1].asset).toContain('Proposed asset to create and approve')
   })
 
   it('turns a causal cost-reduction promise into an explicit test', () => {

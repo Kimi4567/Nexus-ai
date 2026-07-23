@@ -1290,7 +1290,7 @@ describe('paid planning truth normalization', () => {
         title: 'Project phases',
         hook: 'Review the phases',
         platform: 'INSTAGRAM',
-        responseHandoff: 'Sales team follows up',
+        responseHandoff: 'Customer service team follows up',
       }],
       paidPlanning: {
         launchBlockers: ['Creative assets not finalized'],
@@ -1327,6 +1327,8 @@ describe('paid planning truth normalization', () => {
     expect(out.paidPlanning.budgetFramework).toMatch(/draft allocation only/i)
     expect(JSON.stringify(out.roadmap30_60_90)).not.toMatch(/Create and publish|Increase ad spend|Scale successful strategies/i)
     expect(JSON.stringify(out.roadmap30_60_90)).toMatch(/no launch or spend|fresh approval/i)
+    expect(out.competitorAnalysisComplete).toBe(false)
+    expect(out.competitorFrame.analysisStatus).toBe('incomplete')
   })
 })
 

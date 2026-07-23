@@ -207,6 +207,18 @@ describe('guardStrategyKpis — full strategy object', () => {
     expect(guarded.operatingCadence.monthly[0]).toContain('مراجعتها قبل الاعتماد')
   })
 
+  it('does not present an undefined roadmap target as an achieved exit gate', () => {
+    const guarded = guardStrategyKpis({
+      roadmap30_60_90: [
+        { phase: 'days_1_30', exitGate: 'Engagement metrics meet target' },
+        { phase: 'days_31_60', exitGate: 'Advance after reviewing the documented baseline' },
+      ],
+    })
+
+    expect(guarded.roadmap30_60_90[0].exitGate).toContain('comparable real evidence')
+    expect(guarded.roadmap30_60_90[1].exitGate).toBe('Advance after reviewing the documented baseline')
+  })
+
   it('guards Arabic learning language inside a bilingual strategy', () => {
     const guarded = guardStrategyKpis({
       operatingCadence: {
