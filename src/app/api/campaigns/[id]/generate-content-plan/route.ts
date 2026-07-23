@@ -777,11 +777,17 @@ Rules:
 
     if (!semanticGate.ok) {
       const refunded = await refundAllRequestedContent('Content plan drifted from reviewed strategy')
-      console.warn('[generate-content-plan] blocked strategy drift before save', {
-        alignedPosts: semanticGate.alignedPosts,
-        requiredAlignedPosts: semanticGate.requiredAlignedPosts,
-        issues: semanticGate.issues.slice(0, 8),
-      })
+      console.warn(
+        '[generate-content-plan] blocked strategy drift before save',
+        JSON.stringify({
+          alignedPosts: semanticGate.alignedPosts,
+          requiredAlignedPosts: semanticGate.requiredAlignedPosts,
+          // Evidence contains detector labels only, never generated copy or user data.
+          // Serialize explicitly so production logs preserve nested diagnostics
+          // instead of collapsing them to `[Array]`.
+          issues: semanticGate.issues.slice(0, 8),
+        }),
+      )
       return NextResponse.json(
         {
           error: 'The generated drafts did not stay aligned with the reviewed brand and strategy. No posts were saved, and any charged credits were restored.',
