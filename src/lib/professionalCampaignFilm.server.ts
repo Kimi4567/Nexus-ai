@@ -8,13 +8,16 @@ import { pipeline } from 'node:stream/promises'
 import { promisify } from 'node:util'
 import { v2 as cloudinary } from 'cloudinary'
 import ffmpegPath from 'ffmpeg-static'
-import { createElement, type CSSProperties, type ReactElement } from 'react'
-import satori from 'satori'
+import { createElement, type CSSProperties } from 'react'
 import sharp from 'sharp'
 import {
-  NEXUS_ARABIC_FONT_BASE64,
   NEXUS_ARABIC_FONT_FAMILY,
-} from '@/lib/assets/nexusArabicFont'
+  renderPathOnlyVideoOverlay as renderPathOnlyOverlay,
+  videoOverlayInlineText as inlineText,
+  videoOverlayTextLines as textLines,
+  visualVideoOverlayText as visualText,
+  wrapVideoOverlayText as wrapText,
+} from '@/lib/videoOverlayTypography.server'
 import type { PlatformVideoFormat } from '@/lib/platformVideoFormat'
 import { PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS } from '@/lib/professionalCampaignFilm'
 
@@ -55,77 +58,6 @@ function safeCloudinaryVideoUrl(value: string): URL {
     throw new Error('Campaign-film compositor accepts only durable Cloudinary video')
   }
   return parsed
-}
-
-function wrapText(value: string, maxCharacters: number, maxLines = 2): string[] {
-  const words = value.trim().split(/\s+/).filter(Boolean)
-  const lines: string[] = []
-  for (const word of words) {
-    const current = lines.at(-1)
-    if (!current || (current.length + 1 + word.length > maxCharacters && lines.length < maxLines)) {
-      if (lines.length < maxLines) lines.push(word)
-      else lines[lines.length - 1] = `${lines[lines.length - 1]} ${word}`
-    } else {
-      lines[lines.length - 1] = `${current} ${word}`
-    }
-  }
-  return lines.slice(0, maxLines)
-}
-
-function satoriFontData(): ArrayBuffer {
-  const font = Buffer.from(NEXUS_ARABIC_FONT_BASE64, 'base64')
-  return font.buffer.slice(font.byteOffset, font.byteOffset + font.byteLength) as ArrayBuffer
-}
-
-function visualText(value: string, rtl: boolean): string {
-  // Satori shapes each Arabic word with the supplied font but lays word boxes
-  // left-to-right. Reversing the word boxes produces the correct visual RTL
-  // order while preserving the connected glyphs inside every word.
-  return rtl && /[\u0600-\u06FF]/.test(value)
-    ? value.trim().split(/\s+/).reverse().join(' ')
-    : value
-}
-
-function textLines(lines: string[], options: {
-  rtl: boolean
-  size: number
-  color: string
-  align?: 'flex-start' | 'center' | 'flex-end'
-}): ReactElement {
-  return createElement('div', {
-    style: {
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: options.align || (options.rtl ? 'flex-end' : 'flex-start'),
-      width: '100%',
-      gap: 6,
-      color: options.color,
-      fontFamily: NEXUS_ARABIC_FONT_FAMILY,
-      fontSize: options.size,
-      fontWeight: 700,
-      lineHeight: 1.18,
-    },
-  }, ...lines.map((line, index) => createElement('div', {
-    key: `${index}-${line}`,
-    style: { display: 'flex', whiteSpace: 'pre' },
-  }, visualText(line, options.rtl))))
-}
-
-async function renderPathOnlyOverlay(element: ReactElement, width: number, height: number): Promise<string> {
-  const svg = await satori(element, {
-    width,
-    height,
-    fonts: [{
-      name: NEXUS_ARABIC_FONT_FAMILY,
-      data: satoriFontData(),
-      weight: 700,
-      style: 'normal',
-    }],
-  })
-  if (!svg.includes('<path') || svg.includes('<text')) {
-    throw new Error('NEXUS campaign-film typography was not converted to deterministic vector paths')
-  }
-  return svg
 }
 
 export async function professionalCampaignFilmOverlaySvgs(input: {
@@ -217,11 +149,12 @@ export async function professionalCampaignFilmOverlaySvgs(input: {
       backgroundColor: '#E7D5B3',
       color: '#0A1620',
       fontFamily: NEXUS_ARABIC_FONT_FAMILY,
-      fontSize: 34,
-      fontWeight: 700,
-      whiteSpace: 'pre',
     },
-  }, visualText(input.cta, rtl)))), width, height)
+  }, inlineText(input.cta, {
+    rtl,
+    size: 34,
+    color: '#0A1620',
+  })))), width, height)
 
   return { hook, benefit, end }
 }

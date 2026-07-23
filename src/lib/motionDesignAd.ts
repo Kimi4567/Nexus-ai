@@ -33,7 +33,7 @@ export type MotionDesignPreflightIssue = {
     | 'VIDEO_REQUIRED'
     | 'CLOUDINARY_SOURCE_REQUIRED'
     | 'ANALYSIS_REQUIRED'
-    | 'SCREEN_OR_DEMO_REQUIRED'
+    | 'SUPPORTED_SOURCE_REQUIRED'
     | 'RESOLUTION_REQUIRED'
     | 'DURATION_REQUIRED'
     | 'QUALITY_TOO_LOW'
@@ -53,9 +53,12 @@ export type MotionDesignPreflightResult = {
 export type MotionDesignCopy = {
   brandLabel: string
   hook: string
+  cta: string
+  language: 'ar' | 'en'
 }
 
 const DERIVATIVE_PATTERN = /motion[-_ ]design|source[-_ ]locked/i
+const SUPPORTED_SOURCE_KINDS = new Set(['PRODUCT', 'PACKAGING', 'DEMO', 'SCREEN'])
 
 function primaryTextLanguage(value: string | null | undefined): 'AR' | 'EN' | 'MIXED' | 'NONE' {
   const text = String(value || '')
@@ -130,8 +133,11 @@ export function assessMotionDesignVideoAsset(
   }
 
   const sourceKind = intelligence?.assetKind ?? null
-  if (intelligence && !['SCREEN', 'DEMO'].includes(intelligence.assetKind)) {
-    issues.push({ code: 'SCREEN_OR_DEMO_REQUIRED', message: 'Motion Design accepts verified screen recordings and product demos; use the cinematic route for physical products.' })
+  if (intelligence && !SUPPORTED_SOURCE_KINDS.has(intelligence.assetKind)) {
+    issues.push({
+      code: 'SUPPORTED_SOURCE_REQUIRED',
+      message: 'Motion Design accepts verified product, packaging, demo, or screen-recording videos. Use an original source that clearly shows the approved subject.',
+    })
   }
 
   const width = Math.max(0, Number(asset.width || 0))
@@ -190,7 +196,11 @@ export function buildMotionDesignCopy(input: {
   const brandLabel = cleanText(input.brandName || input.campaignName || 'NEXUS', 28) || 'NEXUS'
   const caption = cleanText(input.caption, 180)
   const hook = firstClause(caption) || brandLabel
-  return { brandLabel, hook }
+  const language = primaryTextLanguage(caption) === 'AR' || /\p{Script=Arabic}/u.test(caption)
+    ? 'ar'
+    : 'en'
+  const cta = language === 'ar' ? 'عرض التفاصيل' : 'View details'
+  return { brandLabel, hook, cta, language }
 }
 
 export function cloudinarySourceReviewFrames(sourceUrl: string): string[] {

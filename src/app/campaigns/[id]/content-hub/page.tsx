@@ -1465,6 +1465,7 @@ export default function ContentHubPage() {
       RESOLUTION_REQUIRED: 'الدقة غير كافية: الحد الأدنى 720px للضلع القصير و1024px للضلع الطويل.',
       QUALITY_TOO_LOW: 'جودة الأصل غير مؤهلة: يلزم 70/100 على الأقل قبل إنتاج الفيديو المدفوع. لن يبدأ أي إنفاق.',
       LANGUAGE_MISMATCH: 'لغة الفيديو لا تطابق لغة نص المنشور؛ لائم النص أو اختر أصلًا بنفس اللغة قبل الإنتاج المدفوع.',
+      SUPPORTED_SOURCE_REQUIRED: 'اختر فيديو أصليًا محللًا يُظهر المنتج أو العبوة أو الديمو أو تسجيل الشاشة بوضوح.',
       UNSAFE_SOURCE_GRAPHICS: 'الأصل يحتوي رسومات أو نصوصًا مركبة تجعل التوليد السينمائي غير موثوق.',
       CREATOR_REFERENCE_UNSUPPORTED: 'تظهر شخصية أو عارضة في الصورة. للحفاظ على المنتج استخدم صورًا معزولة للمنتج من زوايا واضحة، أو ارفع فيديو حقيقيًا تملك حق استخدامه لمسار Motion Design.',
       PRODUCT_IDENTITY_MISMATCH: 'لا يستطيع NEXUS تأكيد أن الصور لنفس المنتج؛ اختر زوايا أوضح ومتسقة.',
@@ -5087,7 +5088,7 @@ export default function ContentHubPage() {
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-sm font-bold text-slate-950">{isAr ? 'الفيديو الأصلي' : 'Original source video'}</p>
                       <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                        {isAr ? 'اختر تسجيل شاشة أو Demo محللاً. NEXUS يستخدم الجزء الافتتاحي الآمن فقط، ويمنع إعادة معالجة ناتج Motion Design سابق.' : 'Choose one analysed screen recording or demo. NEXUS uses only the safe opening segment and blocks recursive rendering of a prior derivative.'}
+                        {isAr ? 'اختر فيديو أصليًا محللًا للمنتج أو العبوة أو الديمو أو تسجيل الشاشة. يستخدم NEXUS الجزء الافتتاحي الآمن فقط ويمنع إعادة معالجة ناتج سابق.' : 'Choose one analysed original product, packaging, demo, or screen-recording video. NEXUS uses only the safe opening segment and blocks recursive rendering.'}
                       </p>
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         {motionDesignVideos.map(media => (
@@ -5190,8 +5191,8 @@ export default function ContentHubPage() {
                     <div className="mt-3 space-y-2 text-xs leading-relaxed text-violet-950/75">
                       {videoProductionMode === 'MOTION_DESIGN' ? (
                         <>
-                          <p>✓ {isAr ? 'الحفاظ على بكسلات المنتج والواجهة' : 'Exact product and interface pixel preservation'}</p>
-                          <p>✓ {isAr ? `${MOTION_DESIGN_DURATION_SECONDS} ثوانٍ بمقاس المنصة مع Hook وCTA متحركين من المصدر نفسه` : `${MOTION_DESIGN_DURATION_SECONDS}-second platform master with a source-locked hook and CTA motion`}</p>
+                          <p>✓ {isAr ? 'لا توجد بكسلات منتج أو واجهة مولّدة؛ يُعاد ترميز المصدر الحقيقي فقط لمقاس المنصة' : 'No synthetic product or interface pixels; the real source is only re-encoded for the platform format'}</p>
+                          <p>✓ {isAr ? `${MOTION_DESIGN_DURATION_SECONDS} ثوانٍ بمقاس المنصة: Hook من النص المعتمد، عرض المصدر، ثم End Card بالبراند وCTA محايد` : `${MOTION_DESIGN_DURATION_SECONDS}-second platform master: approved-copy hook, source showcase, then a branded end card with a neutral CTA`}</p>
                           <p>✓ {isAr ? 'فحص 5 لقطات قبل الربط' : 'Five-frame QA before attachment'}</p>
                           <p>✓ {isAr ? 'صفر استهلاك لمزود فيديو توليدي' : 'Zero generative-video provider spend'}</p>
                           <p>✓ {isAr ? `التكلفة: ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت` : `Cost: ${CONTENT_HUB_MOTION_DESIGN_COST} credits`}</p>

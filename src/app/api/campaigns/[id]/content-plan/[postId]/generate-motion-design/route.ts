@@ -279,6 +279,7 @@ export async function POST(req: NextRequest, props: Params) {
         targetFormat,
         durationSeconds: MOTION_DESIGN_DURATION_SECONDS,
         safeSourceSeconds: MOTION_DESIGN_SAFE_SOURCE_SECONDS,
+        overlayCopy: copy,
         automaticProviderRetries: 0,
         generativeVideoProviderCalls: 0,
         operationKey,
@@ -310,6 +311,7 @@ export async function POST(req: NextRequest, props: Params) {
       sourceUrl: source.url,
       target: targetFormat,
       generationId: generation.id,
+      overlayCopy: copy,
       sourceWidth: source.width,
       sourceHeight: source.height,
     })
@@ -325,13 +327,13 @@ export async function POST(req: NextRequest, props: Params) {
       outputFrames: cloudinaryVideoReviewFrames(stored.url, stored.duration ?? MOTION_DESIGN_DURATION_SECONDS),
       referenceImageUrls: cloudinarySourceReviewFrames(source.url),
       campaignMessage: post.caption,
-      creativeDirection: 'Source-locked paid-social motion design with three intentional phases: a fast opening settle for the hook, the verified source motion at rest, then a restrained source-locked push-in on the last clean CTA frame. Add no synthetic product pixels, no generated text, no unrelated subject, and no new claim.',
+      creativeDirection: 'Source-locked paid-social motion design with three intentional phases: an approved-copy hook over the original source, the verified source motion at rest, then a separately composited brand-and-CTA end card. Add no synthetic product pixels, no unrelated subject, no unapproved raster text, and no new claim.',
       referenceEvidence: intelligence,
       targetFormat,
       formatValidation,
       requireProductAdStructure: true,
       qualityStandard: 'PAID_SOCIAL',
-      approvedOverlayTexts: [],
+      approvedOverlayTexts: [copy.brandLabel, copy.hook, copy.cta],
     })
     if (!qualityReview.passed) {
       const message = 'NEXUS quality review rejected this Motion Design render. Reserved credits will be restored.'
@@ -454,7 +456,7 @@ export async function POST(req: NextRequest, props: Params) {
           output: stored!.url,
           params: { ...generationParams(generation.params), credit },
           metadata: {
-            model: 'source-locked-motion-design-ffmpeg-2026-07',
+            model: 'source-locked-motion-design-ffmpeg-2026-07-v2',
             productionRoute: 'SOURCE_LOCKED_MOTION_DESIGN',
             sourceMediaId: source.id,
             mediaId: media.id,

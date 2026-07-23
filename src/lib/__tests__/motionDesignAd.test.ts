@@ -4,7 +4,10 @@ import {
   buildMotionDesignCopy,
   MOTION_DESIGN_DURATION_SECONDS,
 } from '@/lib/motionDesignAd'
-import { buildMotionDesignFfmpegArgs } from '@/lib/motionDesignAd.server'
+import {
+  buildMotionDesignFfmpegArgs,
+  motionDesignOverlaySvgs,
+} from '@/lib/motionDesignAd.server'
 import { resolvePlatformVideoFormat } from '@/lib/platformVideoFormat'
 
 function screenVideo(overrides: Record<string, unknown> = {}) {
@@ -58,15 +61,21 @@ describe('source-locked motion design', () => {
     })
   })
 
-  it('blocks low-resolution, short, unanalysed, or physical-product sources', () => {
+  it('blocks low-resolution, short, unanalysed, or unsupported sources', () => {
     expect(assessMotionDesignVideoAsset(screenVideo({ width: 640 }))).toMatchObject({ eligible: false })
     expect(assessMotionDesignVideoAsset(screenVideo({ duration: 3 }))).toMatchObject({ eligible: false })
     expect(assessMotionDesignVideoAsset(screenVideo({ intelligenceStatus: 'UNANALYZED' }))).toMatchObject({ eligible: false })
     const physical = screenVideo()
     ;(physical.intelligence as any).assetKind = 'PRODUCT'
     expect(assessMotionDesignVideoAsset(physical)).toMatchObject({
+      eligible: true,
+      sourceKind: 'PRODUCT',
+    })
+    const unsupported = screenVideo()
+    ;(unsupported.intelligence as any).assetKind = 'OTHER'
+    expect(assessMotionDesignVideoAsset(unsupported)).toMatchObject({
       eligible: false,
-      issues: expect.arrayContaining([expect.objectContaining({ code: 'SCREEN_OR_DEMO_REQUIRED' })]),
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'SUPPORTED_SOURCE_REQUIRED' })]),
     })
   })
 
@@ -106,24 +115,48 @@ describe('source-locked motion design', () => {
     })).toEqual({
       brandLabel: 'NEXUS AI',
       hook: 'Organize content scheduling',
+      cta: 'View details',
+      language: 'en',
     })
+  })
+
+  it('renders Arabic hook and CTA as deterministic vector paths', async () => {
+    const overlays = await motionDesignOverlaySvgs({
+      brandLabel: 'Luma Roast Lab',
+      hook: 'راجع تفاصيل الاشتراك الشهري',
+      cta: 'عرض التفاصيل',
+      language: 'ar',
+    })
+
+    expect(overlays.hook).toContain('<path')
+    expect(overlays.end).toContain('<path')
+    expect(overlays.hook).not.toContain('<text')
+    expect(overlays.end).not.toContain('<text')
+    expect(overlays.hook).not.toContain('راجع')
+    expect(overlays.end).not.toContain('التفاصيل')
   })
 
   it('builds a source-locked six-second edit with a kinetic hook, CTA push-in, and no audio', () => {
     const args = buildMotionDesignFfmpegArgs({
       sourcePath: '/tmp/source.mp4',
+      hookOverlayPath: '/tmp/hook.png',
+      endOverlayPath: '/tmp/end.png',
       outputPath: '/tmp/master.mp4',
       target: resolvePlatformVideoFormat('INSTAGRAM'),
     })
     const command = args.join(' ')
     expect(MOTION_DESIGN_DURATION_SECONDS).toBe(6)
     expect(command).toContain('-ss 0 -t 3 -i /tmp/source.mp4')
+    expect(command).toContain('-i /tmp/hook.png')
+    expect(command).toContain('-i /tmp/end.png')
     expect(command).toContain('scale=660:920:force_original_aspect_ratio=decrease')
     expect(command).toContain('pad=720:1280')
     expect(command).toContain('tpad=stop_mode=clone:stop_duration=3')
     expect(command).toContain("zoompan=z='if(lt(on,12),1.08-(on/12)*0.08")
     expect(command).toContain(')*0.06)')
     expect(command).toContain('trim=duration=6')
+    expect(command).toContain("between(t,0,1.8)")
+    expect(command).toContain("between(t,3.65,6.0)")
     expect(command).toContain('-an')
     expect(command).toContain('-c:v libx264')
     expect(command).not.toContain('Review before publishing')
@@ -132,6 +165,8 @@ describe('source-locked motion design', () => {
   it('preserves a native vertical master edge-to-edge', () => {
     const args = buildMotionDesignFfmpegArgs({
       sourcePath: '/tmp/source.mp4',
+      hookOverlayPath: '/tmp/hook.png',
+      endOverlayPath: '/tmp/end.png',
       outputPath: '/tmp/master.mp4',
       target: resolvePlatformVideoFormat('YOUTUBE_SHORTS'),
       sourceWidth: 1080,
