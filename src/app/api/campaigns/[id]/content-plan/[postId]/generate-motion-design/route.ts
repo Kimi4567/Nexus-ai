@@ -40,6 +40,7 @@ import {
 import {
   destroyMotionDesignAd,
   renderAndPersistMotionDesignAd,
+  splitMotionDesignHookMetric,
 } from '@/lib/motionDesignAd.server'
 import {
   resolvePlatformVideoFormat,
@@ -322,6 +323,7 @@ export async function POST(req: NextRequest, props: Params) {
       contentType: `video/${stored.format}`,
     }, targetFormat)
     const intelligence = readMediaIntelligence(source.intelligence)
+    const hookMetric = splitMotionDesignHookMetric(copy.hook)?.metric
     const qualityReview = await reviewGeneratedMediaQuality({
       mediaType: 'VIDEO',
       outputFrames: cloudinaryVideoReviewFrames(stored.url, stored.duration ?? MOTION_DESIGN_DURATION_SECONDS),
@@ -333,7 +335,12 @@ export async function POST(req: NextRequest, props: Params) {
       formatValidation,
       requireProductAdStructure: true,
       qualityStandard: 'PAID_SOCIAL',
-      approvedOverlayTexts: [copy.brandLabel.toUpperCase(), copy.hook, copy.cta],
+      approvedOverlayTexts: [
+        copy.brandLabel.toUpperCase(),
+        copy.hook,
+        ...(hookMetric ? [hookMetric] : []),
+        copy.cta,
+      ],
     })
     if (!qualityReview.passed) {
       const message = 'NEXUS quality review rejected this Motion Design render. Reserved credits will be restored.'

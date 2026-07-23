@@ -113,8 +113,39 @@ function cleanText(value: unknown, max: number): string {
     : ''
 }
 
+const COMMERCIAL_FACT_SIGNAL = /(?:\d|%|درهم|ريال|دولار|جنيه|كيلوغرام|كيلو|غرام|ساعة|يوم|شهري|توصيل|aed|sar|usd|egp|kg|gram|hour|day|month|delivery|save|off|discount)/iu
+const COMMERCIAL_PRICE_SIGNAL = /(?:درهم|ريال|دولار|جنيه|aed|sar|usd|egp|price|سعر)/iu
+const COMMERCIAL_OFFER_SIGNAL = /(?:كيلوغرام|كيلو|غرام|شهري|اشتراك|توصيل|kg|gram|month|subscription|delivery|%|خصم|discount|save|off)/iu
+
+function exactCommercialFactSnippet(value: string): { text: string; score: number } | null {
+  const words = value.split(/\s+/).filter(Boolean)
+  const numberIndex = words.findIndex(word => /\d/u.test(word))
+  if (numberIndex < 0 || !COMMERCIAL_FACT_SIGNAL.test(value)) return null
+
+  // Keep the exact approved words around the metric. This deliberately does
+  // not paraphrase: the visual hook may shorten a caption, but it must never
+  // create a new price, quantity, timing, or performance claim.
+  const start = Math.max(0, numberIndex - 4)
+  const end = Math.min(words.length, numberIndex + 2)
+  const text = words.slice(start, end).join(' ').slice(0, 46).trim()
+  if (!text) return null
+
+  let score = 1
+  if (COMMERCIAL_PRICE_SIGNAL.test(value)) score += 6
+  if (COMMERCIAL_OFFER_SIGNAL.test(value)) score += 3
+  if (/[?؟]/u.test(value)) score -= 2
+  return { text, score }
+}
+
 function firstClause(value: string): string {
   const normalized = value.trim()
+  const commercialFact = normalized
+    .split(/[.!?؟]+/u)
+    .map(sentence => exactCommercialFactSnippet(sentence.trim()))
+    .filter((candidate): candidate is { text: string; score: number } => Boolean(candidate))
+    .sort((a, b) => b.score - a.score)[0]
+  if (commercialFact) return commercialFact.text
+
   const firstBoundary = normalized.search(/[.!?؟]/u)
   const firstSentence = firstBoundary >= 0
     ? normalized.slice(0, firstBoundary).trim()

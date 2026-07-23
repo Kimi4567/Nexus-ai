@@ -40,6 +40,17 @@ const MAX_SOURCE_BYTES = 100 * 1024 * 1024
 const RENDER_TIMEOUT_MS = 90_000
 const MOTION_DESIGN_FRAME_RATE = 24
 
+export function splitMotionDesignHookMetric(hook: string): { lead: string; metric: string } | null {
+  // Arabic unit words can contain combining marks (for example "درهمًا").
+  // Treat those marks as part of the unit so the price/timing metric gets its
+  // own legible visual treatment instead of overflowing as generic body copy.
+  const match = hook.match(/^(.*?)(\d+(?:[.,]\d+)?\s+[\p{L}\p{M}]+)\s*$/u)
+  if (!match) return null
+  const lead = match[1]?.trim() || ''
+  const metric = match[2]?.trim() || ''
+  return metric ? { lead, metric } : null
+}
+
 export async function motionDesignOverlaySvgs(input: MotionDesignCopy & {
   width?: number
   height?: number
@@ -48,15 +59,16 @@ export async function motionDesignOverlaySvgs(input: MotionDesignCopy & {
   const height = input.height || 1280
   const vertical = height > width
   const rtl = input.language === 'ar'
-  const hookMetricMatch = input.hook.match(/^(.*?)(\d+(?:[.,]\d+)?\s+[\p{L}]+)\s*$/u)
-  const hookLead = hookMetricMatch?.[1]?.trim() || ''
-  const hookMetric = hookMetricMatch?.[2]?.trim() || ''
+  const hookMetricParts = splitMotionDesignHookMetric(input.hook)
+  const hookLead = hookMetricParts?.lead || ''
+  const hookMetric = hookMetricParts?.metric || ''
   const shortEdge = Math.min(width, height)
   const horizontalPadding = Math.round(width * (vertical ? 0.08 : 0.065))
   const root: CSSProperties = {
     width,
     height,
     display: 'flex',
+    boxSizing: 'border-box',
     fontFamily: NEXUS_ARABIC_FONT_FAMILY,
   }
   const brandStyle: CSSProperties = {
@@ -77,13 +89,15 @@ export async function motionDesignOverlaySvgs(input: MotionDesignCopy & {
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: `${Math.round(height * 0.06)}px ${horizontalPadding}px ${Math.round(height * 0.09)}px`,
-      backgroundImage: 'linear-gradient(145deg, rgba(7,10,19,0.56) 0%, rgba(7,10,19,0.34) 48%, rgba(7,10,19,0.84) 100%)',
+      backgroundColor: 'rgba(216,199,255,0.94)',
+      backgroundImage: 'linear-gradient(145deg, rgba(255,255,255,0.24) 0%, rgba(216,199,255,0) 44%, rgba(134,102,214,0.24) 100%)',
     },
   },
   createElement('div', {
     style: {
       ...brandStyle,
       alignSelf: 'center',
+      color: '#0B0E18',
       fontSize: Math.round(shortEdge * 0.04),
     },
   }, visualVideoOverlayText(input.brandLabel.toUpperCase(), rtl)),
@@ -94,55 +108,62 @@ export async function motionDesignOverlaySvgs(input: MotionDesignCopy & {
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: Math.round(shortEdge * 0.032),
-      padding: `${Math.round(shortEdge * 0.065)}px ${Math.round(shortEdge * 0.05)}px`,
-      border: `${Math.max(2, Math.round(shortEdge * 0.004))}px solid #D8C7FF`,
+      gap: Math.round(shortEdge * 0.04),
+      padding: `${Math.round(shortEdge * 0.075)}px ${Math.round(shortEdge * 0.05)}px`,
+      boxSizing: 'border-box',
+      border: `${Math.max(2, Math.round(shortEdge * 0.004))}px solid rgba(11,14,24,0.8)`,
       borderRadius: Math.round(shortEdge * 0.05),
-      backgroundColor: 'rgba(7,10,19,0.88)',
+      backgroundColor: 'rgba(255,255,255,0.25)',
     },
   },
+  hookMetric
+    ? createElement('div', {
+      style: {
+        display: 'flex',
+        minWidth: Math.round(width * (vertical ? 0.72 : 0.48)),
+        height: Math.round(shortEdge * 0.25),
+        padding: `0 ${Math.round(shortEdge * 0.07)}px`,
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxSizing: 'border-box',
+        borderRadius: Math.round(shortEdge * 0.125),
+        backgroundColor: '#0B0E18',
+      },
+    }, videoOverlayInlineText(hookMetric, {
+      rtl,
+      size: Math.round(shortEdge * (vertical ? 0.125 : 0.095)),
+      color: '#FFFFFF',
+    }))
+    : null,
   hookLead && hookMetric
     ? videoOverlayTextLines(
       wrapVideoOverlayText(hookLead, rtl ? (vertical ? 18 : 26) : (vertical ? 24 : 34)),
       {
         rtl,
-        size: Math.round(shortEdge * (vertical ? 0.06 : 0.052)),
-        color: '#FFFFFF',
+        size: Math.round(shortEdge * (vertical ? 0.052 : 0.046)),
+        color: '#0B0E18',
+        align: 'center',
       },
     )
     : null,
-  hookMetric
-    ? createElement('div', {
-      style: {
-        display: 'flex',
-        minWidth: Math.round(width * (vertical ? 0.66 : 0.42)),
-        height: Math.round(shortEdge * 0.22),
-        padding: `0 ${Math.round(shortEdge * 0.07)}px`,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: Math.round(shortEdge * 0.11),
-        backgroundColor: '#D8C7FF',
-      },
-    }, videoOverlayInlineText(hookMetric, {
-      rtl,
-      size: Math.round(shortEdge * (vertical ? 0.112 : 0.086)),
-      color: '#0B0E18',
-    }))
-    : videoOverlayTextLines(
+  !hookMetric
+    ? videoOverlayTextLines(
       wrapVideoOverlayText(input.hook, rtl ? (vertical ? 13 : 20) : (vertical ? 18 : 28)),
       {
         rtl,
         size: Math.round(shortEdge * (vertical ? 0.09 : 0.072)),
-        color: '#FFFFFF',
+        color: '#0B0E18',
+        align: 'center',
       },
-    )),
+    )
+    : null),
   createElement('div', {
     style: {
       display: 'flex',
-      width: Math.round(shortEdge * 0.16),
+      width: Math.round(shortEdge * 0.22),
       height: Math.max(5, Math.round(shortEdge * 0.012)),
       borderRadius: Math.round(shortEdge * 0.008),
-      backgroundColor: '#D8C7FF',
+      backgroundColor: '#0B0E18',
     },
   })), width, height)
 
@@ -164,6 +185,7 @@ export async function motionDesignOverlaySvgs(input: MotionDesignCopy & {
       alignItems: rtl ? 'flex-end' : 'flex-start',
       gap: Math.round(shortEdge * 0.026),
       padding: `${Math.round(shortEdge * 0.044)}px ${Math.round(shortEdge * 0.05)}px`,
+      boxSizing: 'border-box',
       border: `${Math.max(1, Math.round(shortEdge * 0.002))}px solid rgba(255,255,255,0.72)`,
       borderRadius: Math.round(shortEdge * 0.038),
       backgroundColor: '#D8C7FF',
@@ -204,6 +226,7 @@ export async function motionDesignOverlaySvgs(input: MotionDesignCopy & {
         padding: `0 ${Math.round(shortEdge * 0.055)}px`,
         alignItems: 'center',
         justifyContent: 'center',
+        boxSizing: 'border-box',
         borderRadius: Math.round(shortEdge * 0.073),
         backgroundColor: '#0B0E18',
       },
@@ -259,6 +282,7 @@ export async function motionDesignOverlaySvgs(input: MotionDesignCopy & {
       padding: `0 ${Math.round(shortEdge * 0.06)}px`,
       alignItems: 'center',
       justifyContent: 'center',
+      boxSizing: 'border-box',
       borderRadius: Math.round(shortEdge * 0.075),
       backgroundColor: '#D8C7FF',
       color: '#0B0E18',
@@ -354,11 +378,11 @@ export function buildMotionDesignFfmpegArgs(input: {
   ].join(',')
   const filter = [
     baseFilter,
-    '[1:v]format=rgba,fade=t=out:st=0.68:d=0.18:alpha=1[intro]',
-    '[2:v]format=rgba,fade=t=in:st=0.72:d=0.16:alpha=1,fade=t=out:st=2.9:d=0.3:alpha=1[hook]',
+    '[1:v]format=rgba,fade=t=out:st=0.42:d=0.12:alpha=1[intro]',
+    '[2:v]format=rgba,fade=t=in:st=0.45:d=0.14:alpha=1,fade=t=out:st=2.9:d=0.3:alpha=1[hook]',
     '[3:v]format=rgba,fade=t=in:st=3.65:d=0.35:alpha=1[end]',
-    "[base][intro]overlay=x=0:y='if(lt(t,0.22),(0.22-t)*110,0)':enable='between(t,0,0.9)'[v0]",
-    "[v0][hook]overlay=x=0:y='if(lt(t,0.95),(0.95-t)*90,0)':enable='between(t,0.72,3.2)'[v1]",
+    "[base][intro]overlay=x=0:y='if(lt(t,0.16),(0.16-t)*150,0)':enable='between(t,0,0.56)'[v0]",
+    "[v0][hook]overlay=x=0:y='if(lt(t,0.72),(0.72-t)*130,0)':enable='between(t,0.45,3.2)'[v1]",
     "[v1][end]overlay=x=0:y='if(lt(t,4.0),(4.0-t)*70,0)':enable='between(t,3.65,6.0)',format=yuv420p[outv]",
   ].join(';')
 

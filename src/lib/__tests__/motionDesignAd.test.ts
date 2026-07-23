@@ -7,6 +7,7 @@ import {
 import {
   buildMotionDesignFfmpegArgs,
   motionDesignOverlaySvgs,
+  splitMotionDesignHookMetric,
 } from '@/lib/motionDesignAd.server'
 import { resolvePlatformVideoFormat } from '@/lib/platformVideoFormat'
 
@@ -151,6 +152,18 @@ describe('source-locked motion design', () => {
     })
   })
 
+  it('prioritizes an exact approved price-and-quantity fact over generic setup copy', () => {
+    expect(buildMotionDesignCopy({
+      brandName: 'Luma Roast Lab',
+      caption: 'هل يساعدك الاشتراك الشهري على تنظيم روتين القهوة؟ ابدأ بتقدير استهلاكك، ثم قارن ذلك بكيلوغرام واحد شهريًا مقابل 149 درهمًا. التوصيل داخل دبي فقط خلال 48 ساعة.',
+    })).toEqual({
+      brandLabel: 'Luma Roast Lab',
+      hook: 'بكيلوغرام واحد شهريًا مقابل 149 درهمًا',
+      cta: 'عرض التفاصيل',
+      language: 'ar',
+    })
+  })
+
   it('renders Arabic hook and CTA as deterministic vector paths', async () => {
     const overlays = await motionDesignOverlaySvgs({
       brandLabel: 'Luma Roast Lab',
@@ -167,6 +180,17 @@ describe('source-locked motion design', () => {
     expect(overlays.end).not.toContain('<text')
     expect(overlays.hook).not.toContain('راجع')
     expect(overlays.end).not.toContain('التفاصيل')
+  })
+
+  it('recognizes a shaped Arabic unit as the hook metric instead of overflowing body copy', () => {
+    expect(splitMotionDesignHookMetric('بكيلوغرام واحد شهريًا مقابل 149 درهمًا')).toEqual({
+      lead: 'بكيلوغرام واحد شهريًا مقابل',
+      metric: '149 درهمًا',
+    })
+    expect(splitMotionDesignHookMetric('داخل دبي فقط خلال 48 ساعة')).toEqual({
+      lead: 'داخل دبي فقط خلال',
+      metric: '48 ساعة',
+    })
   })
 
   it('builds a source-locked six-second edit with a kinetic hook, CTA push-in, and no audio', () => {
@@ -190,10 +214,10 @@ describe('source-locked motion design', () => {
     expect(command).toContain("zoompan=z='if(lt(on,10),1.20-(on/10)*0.20")
     expect(command).toContain(')*0.06)')
     expect(command).toContain('trim=duration=6')
-    expect(command).toContain("between(t,0,0.9)")
-    expect(command).toContain("between(t,0.72,3.2)")
+    expect(command).toContain("between(t,0,0.56)")
+    expect(command).toContain("between(t,0.45,3.2)")
     expect(command).toContain('fade=t=out:st=2.9:d=0.3:alpha=1')
-    expect(command).toContain('fade=t=out:st=0.68:d=0.18:alpha=1')
+    expect(command).toContain('fade=t=out:st=0.42:d=0.12:alpha=1')
     expect(command).toContain("between(t,3.65,6.0)")
     expect(command).toContain('-an')
     expect(command).toContain('-c:v libx264')
