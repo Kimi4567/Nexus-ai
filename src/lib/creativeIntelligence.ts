@@ -56,6 +56,25 @@ export interface CreativePostCandidate {
   contentPlanIndex?: number | null
 }
 
+const VIDEO_STUDIO_OUTPUT_CATEGORIES = new Set([
+  'source-locked-motion-design-ad',
+  'professional-campaign-film-master',
+  'cinematic-product-ad-master',
+])
+
+/**
+ * Creative Intelligence is for original user media that can ground a campaign
+ * decision. Final Video Studio masters remain in the Media Library and on the
+ * post, but must not re-enter analysis or be suggested as recursive sources.
+ */
+export function isCreativeIntelligenceSourceCandidate(
+  media: Pick<CreativeMediaCandidate, 'category' | 'tags'>,
+): boolean {
+  const category = String(media.category ?? '').trim().toLowerCase()
+  const tags = (media.tags ?? []).map(tag => String(tag).trim().toLowerCase())
+  return !VIDEO_STUDIO_OUTPUT_CATEGORIES.has(category) && !tags.includes('nexus-video-studio')
+}
+
 export interface CreativeMediaMatch {
   postId: string
   mediaId: string

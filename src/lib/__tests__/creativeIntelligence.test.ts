@@ -3,6 +3,7 @@ import {
   buildCreativeIntelligencePayload,
   deriveCreativeMatch,
   getCreativeCompatibility,
+  isCreativeIntelligenceSourceCandidate,
   normalizeMediaIntelligence,
   normalizeProviderMatches,
   rankCreativeMediaForPost,
@@ -111,5 +112,17 @@ describe('creative intelligence truth and matching', () => {
     expect(payload.summary).toMatchObject({ totalAssets: 1, analyzedAssets: 1, totalPosts: 1 })
     expect(payload.matchesByPostId['post-1']).toHaveLength(1)
     expect(payload.assetsById['media-1'].id).toBe('media-1')
+  })
+
+  it('keeps final Video Studio masters out of source analysis and recursive matching', () => {
+    expect(isCreativeIntelligenceSourceCandidate(media)).toBe(true)
+    expect(isCreativeIntelligenceSourceCandidate({
+      ...media,
+      category: 'source-locked-motion-design-ad',
+    })).toBe(false)
+    expect(isCreativeIntelligenceSourceCandidate({
+      ...media,
+      tags: ['review-required', 'nexus-video-studio'],
+    })).toBe(false)
   })
 })

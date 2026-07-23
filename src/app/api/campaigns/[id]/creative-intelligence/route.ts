@@ -5,6 +5,7 @@ import {
   buildCreativeIntelligencePayload,
   CREATIVE_INTELLIGENCE_BATCH_LIMIT,
   CREATIVE_INTELLIGENCE_VERSION,
+  isCreativeIntelligenceSourceCandidate,
   parseStoredCreativeMatch,
   rankCreativeMediaForPost,
   type CreativeMediaCandidate,
@@ -141,10 +142,14 @@ async function loadCampaignContext(campaignId: string, userId: string): Promise<
     }),
   ])
 
+  const sourceMedia = media
+    .map(asMediaCandidate)
+    .filter(isCreativeIntelligenceSourceCandidate)
+
   return {
     campaign,
     posts: posts.map(asPostCandidate),
-    media: media.map(asMediaCandidate),
+    media: sourceMedia,
     storedMatches: Object.fromEntries(posts.map((post: any) => [post.id, parseStoredCreativeMatch(post.creativeMatch)])),
   }
 }
