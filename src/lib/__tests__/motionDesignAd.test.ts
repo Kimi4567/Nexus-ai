@@ -82,6 +82,7 @@ describe('source-locked motion design', () => {
   it('accepts clean full-HD 70+ masters and blocks weaker or flagged sources before spend', () => {
     const cleanFullHd = screenVideo({ width: 1080, height: 1920 })
     ;(cleanFullHd.intelligence as any).qualityScore = 70
+    ;(cleanFullHd.intelligence as any).qualityIssues = ['Limited visual engagement, primarily text-based']
     expect(assessMotionDesignVideoAsset(cleanFullHd, 'نظم حملتك')).toMatchObject({
       eligible: true,
       qualityScore: 70,

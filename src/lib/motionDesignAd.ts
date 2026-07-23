@@ -60,6 +60,7 @@ export type MotionDesignCopy = {
 
 const DERIVATIVE_PATTERN = /motion[-_ ]design|source[-_ ]locked/i
 const SUPPORTED_SOURCE_KINDS = new Set(['PRODUCT', 'PACKAGING', 'DEMO', 'SCREEN'])
+const NON_BLOCKING_SCREEN_SOURCE_ISSUE = /\b(?:limited visual engagement|text[- ]based|visual diversity|primarily text)\b/i
 
 function primaryTextLanguage(value: string | null | undefined): 'AR' | 'EN' | 'MIXED' | 'NONE' {
   const text = String(value || '')
@@ -154,16 +155,20 @@ export function assessMotionDesignVideoAsset(
 
   const qualityScore = intelligence?.qualityScore ?? null
   const qualityIssues = intelligence?.qualityIssues ?? []
+  const blockingQualityIssues = qualityIssues.filter(issue => !(
+    ['SCREEN', 'DEMO'].includes(sourceKind || '')
+    && NON_BLOCKING_SCREEN_SOURCE_ISSUE.test(issue)
+  ))
   const cleanFullHdException = qualityScore != null
     && qualityScore >= MOTION_DESIGN_SOURCE_QUALITY_MIN
     && Math.min(width, height) >= MOTION_DESIGN_SOURCE_PREMIUM_SHORT_EDGE
-    && qualityIssues.length === 0
+    && blockingQualityIssues.length === 0
   const qualityQualified = qualityScore != null
     && (qualityScore >= MOTION_DESIGN_SOURCE_QUALITY_PREFERRED || cleanFullHdException)
   if (qualityScore != null && !qualityQualified) {
     issues.push({
       code: 'QUALITY_TOO_LOW',
-      message: `The source scored ${qualityScore}/100. Paid Motion Design requires ${MOTION_DESIGN_SOURCE_QUALITY_PREFERRED}/100, or ${MOTION_DESIGN_SOURCE_QUALITY_MIN}–${MOTION_DESIGN_SOURCE_QUALITY_PREFERRED - 1}/100 with a 1080px short edge and zero flagged quality issues.`,
+      message: `The source scored ${qualityScore}/100. Paid Motion Design requires ${MOTION_DESIGN_SOURCE_QUALITY_PREFERRED}/100, or ${MOTION_DESIGN_SOURCE_QUALITY_MIN}–${MOTION_DESIGN_SOURCE_QUALITY_PREFERRED - 1}/100 with a 1080px short edge and no blocking quality issues.`,
     })
   }
 
