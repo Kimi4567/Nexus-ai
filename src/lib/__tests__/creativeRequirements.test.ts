@@ -188,4 +188,36 @@ describe('post-aware creative requirements', () => {
       attachedToPost: 0,
     })
   })
+
+  it('counts completed video media as attached instead of still missing', () => {
+    const requirement = derivePostCreativeRequirement({
+      postId: 'completed_video',
+      platform: 'INSTAGRAM',
+      isVideoPost: true,
+      uploadedMediaId: 'rendered_video',
+      mediaSource: CONTENT_HUB_UPLOADED_MEDIA_SOURCE,
+      generationStatus: 'DONE',
+      imageUrl: 'https://cdn.example.com/final.mp4',
+    })
+    const summary = summarizeCreativeRequirements([
+      {
+        postId: 'completed_video',
+        platform: 'INSTAGRAM',
+        isVideoPost: true,
+        uploadedMediaId: 'rendered_video',
+        mediaSource: CONTENT_HUB_UPLOADED_MEDIA_SOURCE,
+        generationStatus: 'DONE',
+        imageUrl: 'https://cdn.example.com/final.mp4',
+      },
+    ])
+
+    expect(requirement.status).toBe('attached_to_post')
+    expect(requirement.countsAsMediaPresent).toBe(true)
+    expect(summary).toMatchObject({
+      total: 1,
+      mediaNeeded: 0,
+      videoNeeded: 0,
+      attachedToPost: 1,
+    })
+  })
 })

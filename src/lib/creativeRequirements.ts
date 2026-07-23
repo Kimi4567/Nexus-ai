@@ -119,7 +119,9 @@ function deriveStatus(input: CreativeRequirementInput): Pick<
   CreativeRequirement,
   'status' | 'statusLabel' | 'statusLabelAr' | 'explanation' | 'explanationAr' | 'countsAsMediaPresent'
 > {
-  if (input.isVideoPost) {
+  const mediaState = deriveContentHubMediaState(input)
+
+  if (input.isVideoPost && mediaState.key === 'no_media') {
     return {
       status: 'requirement_ready',
       statusLabel: 'Requirement ready',
@@ -130,7 +132,6 @@ function deriveStatus(input: CreativeRequirementInput): Pick<
     }
   }
 
-  const mediaState = deriveContentHubMediaState(input)
   if (mediaState.key === 'no_media') {
     return {
       status: 'media_needed',
