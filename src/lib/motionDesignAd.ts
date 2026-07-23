@@ -114,10 +114,25 @@ function cleanText(value: unknown, max: number): string {
 }
 
 function firstClause(value: string): string {
-  const sentence = value.split(/[.!?؟]/u)[0]?.trim() || value.trim()
+  const normalized = value.trim()
+  const firstBoundary = normalized.search(/[.!?؟]/u)
+  const firstSentence = firstBoundary >= 0
+    ? normalized.slice(0, firstBoundary).trim()
+    : normalized
+  const firstBoundaryCharacter = firstBoundary >= 0 ? normalized[firstBoundary] : ''
+  const afterQuestion = firstBoundary >= 0 && /[?؟]/u.test(firstBoundaryCharacter)
+    ? normalized.slice(firstBoundary + 1).trim().split(/[.!?؟]/u)[0]?.trim()
+    : ''
+  // A question can earn attention, but it does not communicate the promised
+  // payoff on its own. When the approved caption immediately answers its own
+  // opening question, use that supported answer as the visual hook.
+  const sentence = afterQuestion || firstSentence || normalized
   const clause = sentence.split(/\s+(?:with|while|and see|so that|because)\s+/i)[0]?.trim() || sentence
   if (/\p{Script=Arabic}/u.test(clause)) {
-    return clause.split(/\s+/).slice(0, 6).join(' ').slice(0, 42).trim()
+    const conciseArabic = afterQuestion
+      ? clause.replace(/^التوصيل\s+متاح\s+/u, '')
+      : clause
+    return conciseArabic.split(/\s+/).slice(0, 6).join(' ').slice(0, 42).trim()
   }
   const words = clause.split(/\s+/).filter(Boolean).slice(0, 4)
   while (words.length > 1 && /^(?:and|or|with|for|to|the)$/i.test(words.at(-1) || '')) {

@@ -139,6 +139,18 @@ describe('source-locked motion design', () => {
     })
   })
 
+  it('uses the approved answer instead of leaving a self-answered question unresolved', () => {
+    expect(buildMotionDesignCopy({
+      brandName: 'Luma Roast Lab',
+      caption: 'ما نطاق ومدة التوصيل؟ التوصيل متاح داخل دبي فقط خلال 48 ساعة. راجع عنوان التوصيل قبل الطلب.',
+    })).toEqual({
+      brandLabel: 'Luma Roast Lab',
+      hook: 'داخل دبي فقط خلال 48 ساعة',
+      cta: 'عرض التفاصيل',
+      language: 'ar',
+    })
+  })
+
   it('renders Arabic hook and CTA as deterministic vector paths', async () => {
     const overlays = await motionDesignOverlaySvgs({
       brandLabel: 'Luma Roast Lab',

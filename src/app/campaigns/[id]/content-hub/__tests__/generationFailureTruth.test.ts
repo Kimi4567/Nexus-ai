@@ -24,4 +24,10 @@ describe('Content Hub — generation failure truth', () => {
     expect(SRC).toMatch(/setImageGenerationConfirmPostId\(null\)/)
     expect(SRC).toMatch(/Promise\.all\(\[loadData\(\), refreshBillingStatus\(\)\]\)/)
   })
+
+  it('keeps a synchronous Motion Design rejection visible inside its open modal', () => {
+    expect(SRC).toMatch(/data\.code === 'MOTION_DESIGN_QUALITY_REJECTED'/)
+    expect(SRC).toMatch(/Credits were restored\./)
+    expect(SRC).toMatch(/role="alert" className="mt-4 rounded-xl border border-rose-200/)
+  })
 })

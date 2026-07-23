@@ -338,6 +338,7 @@ export async function POST(req: NextRequest, props: Params) {
     if (!qualityReview.passed) {
       const message = 'NEXUS quality review rejected this Motion Design render. Reserved credits will be restored.'
       const refund = await restoreCredits({ userId, deduction: credit, reason: message })
+      const persistedMessage = `${message} ${qualityReview.summary}`
       await db.generation.update({
         where: { id: generation.id },
         data: {
@@ -355,6 +356,13 @@ export async function POST(req: NextRequest, props: Params) {
             retainedForAudit: true,
             generativeVideoProviderCalls: 0,
           },
+        },
+      })
+      await db.socialPost.update({
+        where: { id: post.id },
+        data: {
+          generationStatus: refund.ok ? 'FAILED' : 'REFUND_PENDING',
+          errorMessage: persistedMessage,
         },
       })
       return NextResponse.json({
@@ -512,6 +520,13 @@ export async function POST(req: NextRequest, props: Params) {
           reviewRequired: true,
           generativeVideoProviderCalls: 0,
         },
+      },
+    })
+    await db.socialPost.update({
+      where: { id: post.id },
+      data: {
+        generationStatus: refund.ok ? 'FAILED' : 'REFUND_PENDING',
+        errorMessage: message,
       },
     })
     return NextResponse.json({

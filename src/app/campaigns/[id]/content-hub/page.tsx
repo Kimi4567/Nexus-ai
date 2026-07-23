@@ -2540,6 +2540,7 @@ export default function ContentHubPage() {
   function openVideoGenerationConfirm(postId: string, referenceMediaId: string | null = null) {
     const post = posts.find(item => item.id === postId)
     if (!post?.isVideoPost) return
+    setError(null)
     if (strategyApprovalRequired || contentIssueCountByPostId.has(postId)) {
       setError(strategyApprovalRequired
         ? strategyApprovalRequiredLabel
@@ -2615,7 +2616,20 @@ export default function ContentHubPage() {
           },
         )
         const data = await response.json().catch(() => ({}))
-        if (!response.ok) throw new Error(data.error || data.message || 'Motion Design could not finish')
+        if (!response.ok) {
+          if (data.code === 'MOTION_DESIGN_QUALITY_REJECTED') {
+            const reviewSummary = typeof data.qualityReview?.summary === 'string'
+              ? data.qualityReview.summary
+              : data.error
+            const creditSettlement = data.refunded
+              ? (isAr ? 'تمت استعادة الكريديت.' : 'Credits were restored.')
+              : (isAr
+                ? 'استعادة الكريديت قيد المصالحة؛ راجع سجل الكريديت قبل إعادة المحاولة.'
+                : 'Credit restoration is being reconciled; check Credit History before retrying.')
+            throw new Error(`${reviewSummary || 'Motion Design did not pass quality review.'} ${creditSettlement}`)
+          }
+          throw new Error(data.error || data.message || 'Motion Design could not finish')
+        }
 
         if (data.attached) {
           setPosts(current => current.map(item => item.id === post.id
@@ -5223,6 +5237,12 @@ export default function ContentHubPage() {
 
                 {(videoProductionMode === 'MOTION_DESIGN' ? motionDesignLocked : cinematicVideoLocked) && (
                   <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-800">{addCreditsForVideoLabel}</p>
+                )}
+
+                {error && (
+                  <div role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-relaxed text-rose-800">
+                    {error}
+                  </div>
                 )}
 
                 <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
