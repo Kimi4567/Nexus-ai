@@ -80,7 +80,7 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'malformed_caption',
-    re: /\bhelps that\b|\bhelp consistent\b|\bhelp quality\b|\bhelp your [^.!?]{0,80} remains\b|\bHelp your campaigns are\b|\bHelp unified communication\b|يساعد على من هوية|ندعم? أن تظل|راجع\s+تفاصيل\s+القهوة\s+المحمصة\s+المتاحة\s+راجع|يعتمد\s+على\s+الموقع\s+وموثوق|في\s+حالاتها\s+مناسب|هل\s+تتساءل\s+عن\s+سرعة\s+توصيل\s+القهوة؟\s*راجع\s+مدى\s+ملاءمة\s+اشتراكنا|#[\p{L}\p{N}_]*coffeeless\b/iu,
+    re: /\bhelps that\b|\bhelp consistent\b|\bhelp quality\b|\bhelp your [^.!?]{0,80} remains\b|\bHelp your campaigns are\b|\bHelp unified communication\b|يساعد على من هوية|ندعم? أن تظل|راجع\s+تفاصيل\s+القهوة\s+المحمصة\s+المتاحة\s+راجع|يعتمد\s+على\s+الموقع\s+وموثوق|في\s+حالاتها\s+مناسب|المتاحةالموثقة|هل\s+تتساءل\s+عن\s+سرعة\s+توصيل\s+القهوة؟\s*راجع\s+مدى\s+ملاءمة\s+اشتراكنا|#[\p{L}\p{N}_]*coffeeless\b/iu,
   },
   {
     reason: 'malformed_caption',
@@ -95,7 +95,11 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   {
     reason: 'unsupported_absolute_claim',
     // Standalone guarantee verbs only. "يتضمن" means "includes" and is safe.
-    re: /(?<![\p{L}\p{M}])(?:تضمن|يضمن|نضمن|أضمن)(?:\s+لك)?(?![\p{L}\p{M}])/iu,
+    re: /(?<![\p{L}\p{M}])(?:ل)?(?:تضمن|يضمن|نضمن|أضمن)(?:\s+لك)?(?![\p{L}\p{M}])/iu,
+  },
+  {
+    reason: 'unsupported_absolute_claim',
+    re: /توصيل\s+(?:القهوة|المنتج|الطلب)[^.!؟]{0,60}\s+إلى\s+(?:منزلك|المنزل)|التوصيل\s+إلى\s+(?:منزلك|المنزل)/iu,
   },
   {
     reason: 'unsupported_fake_product_visual',
@@ -121,6 +125,10 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
     // editorial concept instead of persisting an instruction the media model
     // cannot reliably reproduce.
     re: /(?:مشهد\s*\d+\s*:[^.!؟]{0,120})?(?:نص|عبارة|كلمات)\s*(?:مقروء(?:ة)?|على\s+الشاشة)?\s*:\s*['"«][^'"»]{2,120}['"»]|(?:إظهار|عرض|يظهر|اعرض)\s+(?:نص|عبارة|كلمات)\s+(?:مقروء(?:ة)?|على\s+الشاشة)/iu,
+  },
+  {
+    reason: 'unsupported_fake_product_visual',
+    re: /(?:نص|عبارة|كلمات)[^.!؟]{0,60}(?:على\s+الشاشة|يوضح|توضح|يدعو)|(?:شاحنة|سيارة|مركبة)\s+(?:ال)?توصيل|القهوة\s+تصل\s+إلى\s+(?:العميل|المنزل)|(?:الطلب|القهوة)\s+يصل\s+إلى\s+(?:العميل|المنزل)/iu,
   },
 ]
 

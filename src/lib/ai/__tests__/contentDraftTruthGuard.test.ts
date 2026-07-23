@@ -1247,6 +1247,36 @@ describe('contentDraftTruthGuard', () => {
     expect(serialized).not.toMatch(/كيف يتم تحميص قهوتنا|عملية تحميص|عملية التحميص|تأكد من جودة|استمتع بجودة|استلام القهوة.*المنزل|عملية توصيل القهوة السريعة|#توصيل_سريع/)
   })
 
+  it('repairs the latest production Arabic guarantee, home-delivery, and stitched quality copy', () => {
+    const guarded = guardContentDraftTruth({
+      guaranteeCaption: 'اشترك الآن لتضمن حصولك على كيلوغرام من القهوة الطازجة كل شهر في دبي.',
+      homeCaption: 'استمتع بتوصيل القهوة المحمصة حديثًا إلى منزلك في دبي.',
+      stitchedCaption: 'شاهد كيف نسعى إلى تقديم جودة القهوة من خلال تفاصيل القهوة المحمصة المتاحةالموثقة.',
+    }, {
+      brandFacts: [
+        'القهوة محمصة حديثًا.',
+        'الاشتراك كيلوغرام واحد شهريًا مقابل 149 درهمًا.',
+        'التوصيل داخل دبي فقط خلال 48 ساعة.',
+      ],
+    })
+    const serialized = JSON.stringify(guarded)
+
+    expect(serialized).toContain('راجع تفاصيل الاشتراك للحصول على كيلوغرام')
+    expect(serialized).toContain('توصيل ضمن النطاق الموثق')
+    expect(serialized).toContain('راجع تفاصيل القهوة المحمصة المتاحة ونطاق التوصيل الموثق قبل الاشتراك')
+    expect(serialized).not.toMatch(/لتضمن|إلى منزلك|المتاحةالموثقة|نسعى إلى تقديم جودة القهوة/)
+  })
+
+  it('uses the exact confirmed Dubai delivery window instead of a vague documented placeholder', () => {
+    const guarded = guardContentDraftText(
+      'هل تتساءل عن سرعة توصيل قهوتك؟ شاهد كيف نسعى إلى تقديم التوصيل ضمن النطاق والمدة الموثقين ضمن دبي.',
+      { brandFacts: ['Delivery is limited to Dubai within 48 hours.'] },
+    )
+
+    expect(guarded).toContain('التوصيل متاح داخل دبي فقط خلال 48 ساعة')
+    expect(guarded).not.toMatch(/نسعى إلى تقديم|النطاق والمدة الموثقين ضمن دبي/)
+  })
+
   it('repairs the observed NEXUS workflow claims and malformed English before persistence', () => {
     const drafts = [
       'With NEXUS AI, you can trust that every marketing decision is backed by human approval.',

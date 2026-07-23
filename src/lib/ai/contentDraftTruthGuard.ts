@@ -589,6 +589,11 @@ function guardDeliveryClaims(text: string): string {
     .replace(/لتصلك إلى باب منزلك/g, 'مع التوصيل حسب المناطق المتاحة')
     .replace(/إلى باب منزلك/g, 'حسب المناطق المتاحة')
     .replace(
+      /توصيل\s+(?:القهوة|المنتج|الطلب)[^.!؟]{0,40}\s+إلى\s+منزلك/gi,
+      'توصيل ضمن النطاق الموثق',
+    )
+    .replace(/التوصيل\s+إلى\s+منزلك/gi, 'التوصيل ضمن النطاق الموثق')
+    .replace(
       /توصيل\s+(?:القهوة|المنتج|الطلب)\s+إلى\s+المنزل/gi,
       'توصيل ضمن النطاق الموثق',
     )
@@ -618,6 +623,15 @@ function guardDeliveryClaims(text: string): string {
 
 function guardDraftCopyQuality(text: string): string {
   return text
+    .replace(
+      /اشترك\s+الآن\s+لتضمن\s+حصولك\s+على/gi,
+      'راجع تفاصيل الاشتراك للحصول على',
+    )
+    .replace(
+      /(?:شاهد|اكتشف)\s+كيف\s+نسعى\s+إلى\s+تقديم\s+جودة\s+القهوة\s+من\s+خلال\s+تفاصيل\s+القهوة\s+المحمصة\s+المتاحةالموثقة\.?/gi,
+      'راجع تفاصيل القهوة المحمصة المتاحة ونطاق التوصيل الموثق قبل الاشتراك.',
+    )
+    .replace(/المتاحةالموثقة/gi, 'المتاحة والموثقة')
     .replace(
       /\b(?:watch|see|discover)\s+how\s+we\s+(?:help|ensure)\s+quality\s+in\s+every\s+bean\.?/gi,
       'Review the freshly roasted coffee subscription details and delivery scope before choosing a plan.',
@@ -1079,6 +1093,21 @@ function guardUnverifiedCoffeeProductClaims(
       )
   }
 
+  if (hasAffirmedBrandFact(
+    facts,
+    /(?:delivery|التوصيل)[^.!؟]{0,80}(?:dubai|دبي)[^.!؟]{0,50}48\s*(?:hours?|hrs?|h|ساعة)|48\s*(?:hours?|hrs?|h|ساعة)[^.!؟]{0,80}(?:dubai|دبي)/i,
+  )) {
+    guarded = guarded
+      .replace(
+        /(?:شاهد\s+كيف\s+)?نسعى\s+إلى\s+تقديم\s+التوصيل\s+ضمن\s+النطاق\s+والمدة\s+الموثقين\s+ضمن\s+دبي\.?/gi,
+        'التوصيل متاح داخل دبي فقط خلال 48 ساعة.',
+      )
+      .replace(
+        /التوصيل\s+ضمن\s+النطاق\s+والمدة\s+الموثقين\s+(?:ضمن|داخل)\s+دبي/gi,
+        'التوصيل داخل دبي فقط خلال 48 ساعة',
+      )
+  }
+
   return guarded
 }
 
@@ -1518,9 +1547,11 @@ export function buildContentDraftTruthPolicyPrompt(): string {
     '- Use delivery language only with bounds such as "where available", "in supported zones", or "timing depends on location".',
     '- Avoid unbounded delivery claims such as doorstep delivery, fast delivery, quick delivery, next-day delivery, or guaranteed delivery unless bounded by availability.',
     '- Do not promise timely or on-time delivery, depict receipt on a marked calendar date, or imply that a recurring delivery always lands on schedule unless exact fulfillment evidence exists.',
+    '- Do not turn a supported delivery zone into doorstep or home-delivery proof. Arabic copy must avoid إلى منزلك, إلى المنزل, إلى باب منزلك, and similar receipt claims unless that exact destination is user-confirmed.',
     '- Do not invent testimonials, customer stories, reviews, awards, case studies, guarantees, or performance proof.',
     '- Do not depict first-party roasting, packing, branded bags, branded delivery vehicles, or a customer receiving and enjoying the product unless the user supplied owned media or exact first-party production evidence. Use neutral editorial product details instead.',
     '- Apply the same visual-evidence rule to Arabic storyboards: مشاهد الأشخاص، عملية الاشتراك، عملية التحميص، تعبئة القهوة، استلام القهوة في المنزل، and عملية التوصيل are not evidence and must become a neutral editorial direction when owned media is absent.',
+    '- Arabic storyboards must not request readable on-screen text, a delivery truck or vehicle, coffee reaching a customer, or arrival في الوقت المحدد unless owned media and exact fulfillment evidence were supplied.',
     '- Do not promise a seamless/easy journey, a smooth workflow, or a clear final result. Describe documented stages, review points, and proposed previews instead.',
     '- If proof is missing, ask for feedback, collect proof, or mention proof gaps as future work.',
     '- Do not invent ad spend, ROAS, CAC, paid launch, or budget allocation assumptions.',
@@ -1535,6 +1566,8 @@ export function buildContentDraftTruthPolicyPrompt(): string {
     '- For Arabic output, avoid أفضل, أجود, مثالي, مضمون, دائمًا, and كل مرة as absolute claims unless directly supported by user-provided proof.',
     '- Arabic captions must use short, complete Modern Standard Arabic sentences with correct agreement and no stitched fragments. Every question hook must be answered by the same caption.',
     '- If an Arabic hook asks about delivery speed or timing, answer it only with the exact user-confirmed delivery scope/window. Otherwise use a neutral subscription-fit or delivery-details hook.',
+    '- When Brand Brain supplies an exact price, quantity, delivery area, or delivery window, state that fact directly instead of vague placeholders such as documented details, documented scope, or documented window.',
+    '- Arabic calls to action must not use لتضمن حصولك or any other guarantee construction. Use a factual review or subscription-details action instead.',
     '- Never write نحرص على جودة التحميص or claim a first-party roasting-quality process unless the user supplied exact first-party evidence. Refer to the roast date and documented product details instead.',
     '- Arabic output must avoid مثالي/مثالية as broad fit claims unless exact proof exists; prefer مناسب/مناسبة, خيار عملي, or خيار مناسب.',
     '- Arabic output must avoid broad perfection wording such as قهوة مثالية, تجربة مثالية, نتائج مثالية, and تحضير مثالي. Prefer قهوة متوازنة, تجربة أكثر اتساقًا, تحضير عملي, or خطوات عملية.',

@@ -298,6 +298,43 @@ describe('contentPlanStructuredRenderer', () => {
     expect(storyboards.every(videoPrompt => !validateContentPlanDraftForSave({ videoPrompt }).ok)).toBe(true)
   })
 
+  it('blocks and neutralizes the latest production Arabic delivery storyboard', () => {
+    const context: ContentPlanRenderContext = {
+      isArabic: true,
+      brand: 'Luma Roast Lab Certification',
+      campaignName: 'اشتراك القهوة الشهري',
+      keyMessage: 'كيلوغرام واحد من القهوة المحمصة حديثًا شهريًا',
+      targetAudience: 'سكان دبي الذين يشترون القهوة للمنزل',
+      contentPillars: ['روتين الاشتراك', 'تفاصيل القهوة المحمصة', 'نطاق ومدة التوصيل'],
+      offer: '149 درهمًا لكيلوغرام واحد شهريًا',
+      platform: 'INSTAGRAM',
+      postIndex: 2,
+      verifiedProof: [],
+      brandFacts: [
+        'القهوة محمصة حديثًا.',
+        'الاشتراك كيلوغرام واحد شهريًا مقابل 149 درهمًا.',
+        'التوصيل داخل دبي فقط خلال 48 ساعة.',
+        'لا توجد وسائط إنتاج أو توصيل مملوكة.',
+      ],
+    }
+    const rawStoryboard = 'المشهد الأول: ساعة تشير إلى الوقت مع نص يوضح مدة التوصيل الموثقة. المشهد الثاني: لقطات لشاحنة التوصيل وهي تتحرك في شوارع دبي. المشهد الثالث: القهوة تصل إلى العميل في الوقت المحدد. النهاية: نص على الشاشة يدعو المشاهدين للاطلاع على التفاصيل الموثقة.'
+    const videoPrompt = renderContentPlanDraftVideoPrompt({ videoScript: rawStoryboard }, context)
+
+    expect(validateContentPlanDraftForSave({ videoPrompt: rawStoryboard }).ok).toBe(false)
+    expect(videoPrompt).toContain('Short-form editorial video concept')
+    expect(videoPrompt).not.toMatch(/نص|شاحنة|تصل إلى العميل|الوقت المحدد/)
+    expect(validateContentPlanDraftForSave({ videoPrompt }).ok).toBe(true)
+  })
+
+  it('blocks prefixed Arabic guarantees and direct-to-home delivery', () => {
+    const result = validateContentPlanDraftForSave({
+      caption: 'اشترك الآن لتضمن حصولك على القهوة مع توصيل القهوة إلى منزلك.',
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.issues.map(issue => issue.reason)).toContain('unsupported_absolute_claim')
+  })
+
   it('save gate blocks observed unsafe regenerated clinic claims before SocialPost persistence', () => {
     const result = validateContentPlanDraftForSave({
       caption: 'وضوح العمليات في العيادة يساعد على من كفاءة العمل. اكتشف كيف يسهل ClinicFlow AI التواصل مع المرضى بلغتهم المفضلة، مما يساعد على من رضاهم وثقتهم.',
