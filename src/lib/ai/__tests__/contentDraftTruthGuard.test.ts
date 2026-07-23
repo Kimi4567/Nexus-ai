@@ -535,10 +535,10 @@ describe('contentDraftTruthGuard', () => {
     expect(out).toContain('قهوة أكثر اتساقًا مع إرشادات أوضح')
     expect(out).toContain('التوصيل حسب المناطق المتاحة')
     expect(out).toContain('توقيت التوصيل يعتمد على الموقع')
-    expect(out).toContain('تخطيط أفضل لمخزون القهوة')
+    expect(out).toContain('تخطيط أوضح لمخزون القهوة')
     expect(out).toContain('يساعد على تقليل نفاد القهوة')
     expect(out).toContain('تجربة قهوة أكثر انتظامًا')
-    expect(out).toContain('دعم روتين عمل أفضل للمراجعة')
+    expect(out).toContain('دعم روتين عمل أوضح للمراجعة')
     expect(out).not.toContain('المشروب المثالي كل مرة')
     expect(out).not.toContain('توصيل مضمون')
     expect(out).not.toContain('توصيل سريع')
@@ -556,6 +556,14 @@ describe('contentDraftTruthGuard', () => {
     const doorstep = guardContentDraftText('حبوب طازجة ومحمصة بعناية لتصلك إلى باب منزلك بكل سهولة.')
     expect(doorstep).toContain('التوصيل حسب المناطق المتاحة')
     expect(doorstep).not.toContain('باب منزلك')
+  })
+
+  it('removes residual Arabic best wording even for an unlisted noun', () => {
+    const out = guardContentDraftText('اكتشف أفضل طريقة لتنظيم اشتراك القهوة، فهذا هو الخيار الأفضل.')
+
+    expect(out).toContain('طريقة مناسبة')
+    expect(out).toContain('خيار مناسب بعد مراجعة التفاصيل')
+    expect(out).not.toContain('أفضل')
   })
 
   it('softens observed Arabic قهوة مثالية blocker wording', () => {
@@ -957,7 +965,7 @@ describe('contentDraftTruthGuard', () => {
   it('still softens risky Arabic stock absolutes', () => {
     const out = guardContentDraftText('المكتب مليان قهوة دائمًا')
 
-    expect(out).toContain('تخطيط أفضل لمخزون القهوة')
+    expect(out).toContain('تخطيط أوضح لمخزون القهوة')
     expect(out).not.toContain('مليان قهوة دائمًا')
   })
 

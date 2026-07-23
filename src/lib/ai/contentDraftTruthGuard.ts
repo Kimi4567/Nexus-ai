@@ -184,6 +184,13 @@ function guardBroadQualityClaims(text: string): string {
     .replace(/أفضل طعم/g, 'طعم متوازن')
     .replace(/أفضل تجربة/g, 'تجربة أكثر اتساقًا')
     .replace(/أفضل جودة/g, 'جودة مختارة بعناية')
+    .replace(/تركيز أفضل/g, 'روتين قهوة أوضح')
+    .replace(/(?:الخيار|الحل)\s+الأفضل/g, 'خيار مناسب بعد مراجعة التفاصيل')
+    .replace(/الأفضل/g, 'الأنسب بعد مراجعة التفاصيل')
+    .replace(
+      /أفضل\s+([\p{L}\p{M}]+)/gu,
+      (_match, noun: string) => `${noun} ${/(?:ة|ات|ائج)$/u.test(noun) ? 'مناسبة' : 'مناسب'}`,
+    )
     .replace(/بجودة لا تقاوم/g, 'بجودة مختارة بعناية')
     .replace(/جودة لا تقاوم/g, 'جودة مختارة بعناية')
     .replace(/جودة فريدة/g, 'جودة مختارة بعناية')
@@ -359,7 +366,7 @@ function softenAbsoluteClaims(text: string): string {
   return text
     .replace(/\bSupport more reliable team planning has access to great coffee\b/gi, 'Help teams plan better office coffee routines')
     .replace(/أفضل حبوب القهوة/g, 'حبوب قهوة مختارة بعناية')
-    .replace(/أفضل قهوة كل يوم/g, 'روتين قهوة أفضل وأكثر وضوحًا')
+    .replace(/أفضل قهوة كل يوم/g, 'روتين قهوة أكثر وضوحًا')
     .replace(/أفضل قهوة/g, 'قهوة مختارة بعناية')
     .replace(/أجود قهوة/g, 'قهوة مختارة بعناية')
     .replace(/أجود الحبوب/g, 'حبوب قهوة مختارة بعناية')
@@ -370,10 +377,10 @@ function softenAbsoluteClaims(text: string): string {
     .replace(/القهوة المثالية/g, 'قهوة أكثر اتساقًا')
     .replace(/المشروب المثالي/g, 'تجربة قهوة أوضح')
     .replace(/قهوة مثالية كل مرة/g, 'قهوة أكثر اتساقًا مع إرشادات أوضح')
-    .replace(/المكتب مليان قهوة دائمًا/g, 'تخطيط أفضل لمخزون القهوة')
-    .replace(/القهوة متوفرة دائمًا/g, 'تخطيط أفضل لمخزون القهوة')
-    .replace(/دائمًا متوفر/g, 'تخطيط أفضل لمخزون القهوة')
-    .replace(/متوفر دائمًا/g, 'تخطيط أفضل لمخزون القهوة')
+    .replace(/المكتب مليان قهوة دائمًا/g, 'تخطيط أوضح لمخزون القهوة')
+    .replace(/القهوة متوفرة دائمًا/g, 'تخطيط أوضح لمخزون القهوة')
+    .replace(/دائمًا متوفر/g, 'تخطيط أوضح لمخزون القهوة')
+    .replace(/متوفر دائمًا/g, 'تخطيط أوضح لمخزون القهوة')
     .replace(/لا ينفد دائمًا/g, 'يساعد على تقليل نفاد القهوة')
     .replace(/(?<!لا\s)(?<!لن\s)(?<!غير\s)(?<!بدون\s)(?<![\p{L}\p{M}])نضمن\s+لك(?![\p{L}\p{M}])/giu, 'نسعى إلى تقديم')
     .replace(/(?<!لا\s)(?<!لن\s)(?<!غير\s)(?<!بدون\s)(?<![\p{L}\p{M}])أضمن\s+لك(?![\p{L}\p{M}])/giu, 'أهدف إلى دعم')
@@ -800,8 +807,8 @@ function guardDraftCopyQuality(text: string): string {
 function guardCoffeeComplianceClaims(text: string): string {
   return text
     .replace(/طاقة مضمونة/g, 'يدعم تجربة قهوة أكثر انتظامًا')
-    .replace(/نتائج فورية/g, 'دعم روتين عمل أفضل للمراجعة')
-    .replace(/إنتاجية مضمونة/g, 'دعم روتين عمل أفضل للمراجعة')
+    .replace(/نتائج فورية/g, 'دعم روتين عمل أوضح للمراجعة')
+    .replace(/إنتاجية مضمونة/g, 'دعم روتين عمل أوضح للمراجعة')
     .replace(/\bguaranteed energy\b/gi, 'support for a more enjoyable coffee routine')
     .replace(/\bproductivity guaranteed\b/gi, 'office coffee planning to review')
     .replace(/\bboost productivity guaranteed\b/gi, 'support a better coffee routine')
