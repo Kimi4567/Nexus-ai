@@ -124,6 +124,36 @@ describe('Cloudinary upload registration', () => {
     })
   })
 
+  it('accepts verified video duration from Cloudinary media metadata', async () => {
+    mocks.findUnique.mockResolvedValueOnce({
+      id: 'session-1', token: 'token-1', userId: 'user-1', workspaceId: 'workspace-1',
+      projectId: null, campaignId: null, fileName: 'screen-recording.mp4', resourceType: 'video',
+      status: 'PENDING', expiresAt: new Date(Date.now() + 60_000),
+    })
+    mocks.resource.mockResolvedValueOnce({
+      secure_url: 'https://res.cloudinary.com/cloud/video/upload/nexus/workspace-1/screen-recording.mp4',
+      format: 'mp4', bytes: 2048, resource_type: 'video', width: 720, height: 1280,
+      media_metadata: { duration: 6.0 },
+    })
+
+    const response = await POST(request({
+      sessionToken: 'token-1',
+      publicId: 'nexus/workspace-1/session-1',
+    }))
+
+    expect(response.status).toBe(200)
+    expect(mocks.resource).toHaveBeenCalledWith('nexus/workspace-1/session-1', expect.objectContaining({
+      resource_type: 'video',
+      media_metadata: true,
+    }))
+    expect(mocks.mediaCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        type: 'VIDEO',
+        duration: 6,
+      }),
+    })
+  })
+
   it('rejects videos longer than the enforced five-minute limit', async () => {
     mocks.findUnique.mockResolvedValueOnce({
       id: 'session-1', token: 'token-1', userId: 'user-1', workspaceId: 'workspace-1',

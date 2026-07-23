@@ -29,6 +29,14 @@ function mimeFromAsset(resourceType: string, format: string): string {
   return `image/${format === 'jpg' ? 'jpeg' : format}`
 }
 
+function getVerifiedVideoDuration(asset: any): unknown {
+  return asset?.duration
+    ?? asset?.media_metadata?.duration
+    ?? asset?.media_metadata?.Duration
+    ?? asset?.video?.duration
+    ?? asset?.metadata?.duration
+}
+
 export async function POST(req: Request) {
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json(createUploadError(401, 'Unauthorized', 'UNAUTHORIZED'), { status: 401 })
@@ -70,7 +78,10 @@ export async function POST(req: Request) {
     const expectedResourceType = session.resourceType === 'video' ? 'video' : 'image'
     let asset: any
     try {
-      asset = await cloudinary.api.resource(publicId, { resource_type: expectedResourceType })
+      asset = await cloudinary.api.resource(publicId, {
+        resource_type: expectedResourceType,
+        ...(expectedResourceType === 'video' ? { media_metadata: true, image_metadata: true } : {}),
+      })
     } catch {
       return NextResponse.json(createUploadError(400, 'Cloudinary asset could not be verified', 'ASSET_NOT_VERIFIED'), { status: 400 })
     }
@@ -91,7 +102,7 @@ export async function POST(req: Request) {
       return NextResponse.json(createUploadError(413, sizeCheck.message || 'File too large', 'FILE_TOO_LARGE'), { status: 413 })
     }
 
-    const durationCheck = expectedResourceType === 'video' ? validateVideoDuration(asset.duration) : null
+    const durationCheck = expectedResourceType === 'video' ? validateVideoDuration(getVerifiedVideoDuration(asset)) : null
     if (durationCheck && !durationCheck.valid) {
       return NextResponse.json(
         createUploadError(422, durationCheck.message || 'Invalid video duration', 'INVALID_VIDEO_DURATION'),
