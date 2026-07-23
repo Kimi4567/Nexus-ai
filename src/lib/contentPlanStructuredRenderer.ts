@@ -119,6 +119,20 @@ function normalizeText(value: unknown): string {
   return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : ''
 }
 
+function softenResidualContentPlanAbsolutes(text: string): string {
+  // Content-plan persistence has a stricter policy than the shared draft
+  // guard: even otherwise-benign uses of "always" are rejected because the
+  // surrounding model sentence may turn them into an unverified guarantee.
+  // Apply one narrow lexical softening here so a safe draft can remain usable
+  // without weakening the independent save gate or inventing replacement
+  // facts. The shared guard intentionally keeps procedural uses unchanged in
+  // other product surfaces.
+  return text
+    .replace(/دائمًا|دائما/gu, 'بشكل منتظم')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
 function normalizeBrandHashtag(text: string, brand: string): string {
   const brandTokens = brand.trim().split(/[^\p{L}\p{N}]+/u).filter(Boolean)
   if (brandTokens.length < 2) return text
@@ -132,7 +146,10 @@ function normalizeBrandHashtag(text: string, brand: string): string {
 }
 
 function finalizeCaption(text: string, ctx: ContentPlanRenderContext): string {
-  return normalizeBrandHashtag(guardContentDraftText(text, ctx), ctx.brand)
+  return normalizeBrandHashtag(
+    softenResidualContentPlanAbsolutes(guardContentDraftText(text, ctx)),
+    ctx.brand,
+  )
 }
 
 function stringifyContextValue(value: unknown): string {
@@ -176,7 +193,7 @@ export function renderContentPlanDraftImagePrompt(
   ctx: ContentPlanRenderContext,
 ): string {
   const rawPrompt = normalizeText(gen.imagePrompt)
-  const guardedPrompt = guardContentDraftText(rawPrompt, ctx)
+  const guardedPrompt = softenResidualContentPlanAbsolutes(guardContentDraftText(rawPrompt, ctx))
   const inventsUnavailableVisualEvidence = UNSAFE_PATTERNS.some((pattern) => (
     pattern.reason === 'unsupported_fake_product_visual'
       && (pattern.re.test(rawPrompt) || pattern.re.test(guardedPrompt))
@@ -200,7 +217,9 @@ export function renderContentPlanDraftImagePrompt(
     ctx,
   )
 
-  return `Editorial conceptual illustration for ${audience} about ${topic}, using abstract cards, connectors, and neutral workflow symbols. Use no screens, screenshots, readable text, logos, customer likenesses, branded facilities, or implied product evidence.`
+  return softenResidualContentPlanAbsolutes(
+    `Editorial conceptual illustration for ${audience} about ${topic}, using abstract cards, connectors, and neutral workflow symbols. Use no screens, screenshots, readable text, logos, customer likenesses, branded facilities, or implied product evidence.`,
+  )
 }
 
 export function renderContentPlanDraftVideoPrompt(
@@ -208,7 +227,7 @@ export function renderContentPlanDraftVideoPrompt(
   ctx: ContentPlanRenderContext,
 ): string {
   const rawPrompt = normalizeText(gen.videoScript) || normalizeText(gen.videoCaption)
-  const guardedPrompt = guardContentDraftText(rawPrompt, ctx)
+  const guardedPrompt = softenResidualContentPlanAbsolutes(guardContentDraftText(rawPrompt, ctx))
   const inventsUnavailableVisualEvidence = UNSAFE_PATTERNS.some((pattern) => (
     pattern.reason === 'unsupported_fake_product_visual'
       && (pattern.re.test(rawPrompt) || pattern.re.test(guardedPrompt))
@@ -227,7 +246,9 @@ export function renderContentPlanDraftVideoPrompt(
     ctx,
   )
 
-  return `Short-form editorial video concept for ${audience} about ${topic}. Use neutral close-up details, simple object motion, and abstract transitions. Use no screens, screenshots, readable text, logos, customer or expert likenesses, branded facilities, testimonials, or implied product evidence.`
+  return softenResidualContentPlanAbsolutes(
+    `Short-form editorial video concept for ${audience} about ${topic}. Use neutral close-up details, simple object motion, and abstract transitions. Use no screens, screenshots, readable text, logos, customer or expert likenesses, branded facilities, testimonials, or implied product evidence.`,
+  )
 }
 
 export function validateContentPlanDraftForSave(fields: Record<string, unknown>): ContentPlanSaveGateResult {

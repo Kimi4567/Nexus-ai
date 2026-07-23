@@ -377,6 +377,38 @@ describe('contentPlanStructuredRenderer', () => {
     expect(caption).toBe('Choose the right grind size for your brewing method.')
   })
 
+  it('softens residual Arabic always wording before the strict save gate', () => {
+    const context: ContentPlanRenderContext = {
+      isArabic: true,
+      brand: 'Luma Roast Lab Certification',
+      campaignName: 'Monthly coffee subscription',
+      keyMessage: 'One kilogram monthly coffee subscription for Dubai',
+      targetAudience: 'Dubai residents buying coffee for home',
+      contentPillars: ['subscription routine', 'delivery details'],
+      offer: 'AED 149 for one kilogram monthly',
+      platform: 'TIKTOK',
+      postIndex: 0,
+      verifiedProof: [],
+      brandFacts: [
+        'The subscription is AED 149 for one kilogram each month.',
+        'Delivery is limited to Dubai within 48 hours.',
+      ],
+    }
+
+    const caption = renderContentPlanDraftCaption({
+      caption: 'راجع درجة الطحن دائمًا قبل الطلب الشهري.',
+    }, context)
+    const videoPrompt = renderContentPlanDraftVideoPrompt({
+      videoScript: 'اعرض تفاصيل قهوة محايدة دائمًا من دون شعار أو نص مقروء.',
+    }, context)
+
+    expect(caption).toContain('بشكل منتظم')
+    expect(videoPrompt).toContain('بشكل منتظم')
+    expect(caption).not.toMatch(/دائمًا|دائما/)
+    expect(videoPrompt).not.toMatch(/دائمًا|دائما/)
+    expect(validateContentPlanDraftForSave({ caption, videoPrompt }).ok).toBe(true)
+  })
+
   it('normalizes malformed multi-word brand hashtags and passes the save gate', () => {
     const caption = renderContentPlanDraftCaption({
       caption: 'Review the roast date before choosing your next bag. #FreshCoffee #NEXUSE2ECoffeeless',
