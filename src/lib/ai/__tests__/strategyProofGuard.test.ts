@@ -97,6 +97,28 @@ describe('strategyProofGuard', () => {
     expect(joined).toContain('راجعي ملاءمة كل تصميم للمناسبة المحددة')
   })
 
+  it('neutralizes standalone quality-assurance wording from a live run without corrupting safety disclaimers', () => {
+    const guarded = guardStrategyProof({
+      customerFacingClaims: [
+        'Quality assurance for every monthly coffee delivery.',
+        'Assured quality with each subscription.',
+        'ضمان جودة المنتج مع كل اشتراك.',
+        'No quality guarantee without reviewed evidence.',
+      ],
+    }, {
+      verifiedProof: [],
+      commercialClaimText: [],
+      allowedClaimText: ['Monthly one-kilogram coffee subscription for AED 149.'],
+    })
+    const claims = guarded.customerFacingClaims
+
+    expect(claims[0]).toContain('documented product details to review')
+    expect(claims[1]).toContain('documented product details to review')
+    expect(claims[2]).toContain('تفاصيل المنتج الموثقة المطلوب مراجعتها')
+    expect(claims[3]).toBe('No quality guarantee without reviewed evidence.')
+    expect(JSON.stringify(claims.slice(0, 3))).not.toMatch(/quality assurance|assured quality|ضمان جودة/i)
+  })
+
   it('removes the remaining live checkout, sizing, comfort, and uniqueness promises without proof', () => {
     const guarded = guardStrategyProof({
       funnelMessage: 'Easy and secure buying process',

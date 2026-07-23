@@ -216,6 +216,22 @@ function hasAffirmedClaim(text: string, pattern: RegExp): boolean {
   return false
 }
 
+function replaceAffirmedOfferAssurance(
+  text: string,
+  pattern: RegExp,
+  replacement: string,
+): string {
+  const flags = pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`
+  const scanner = new RegExp(pattern.source, flags)
+  return text.replace(scanner, (...args: unknown[]) => {
+    const match = String(args[0] ?? '')
+    const offset = Number(args[args.length - 2])
+    const before = text.slice(Math.max(0, offset - 48), offset)
+    const negated = /(?:\b(?:avoid|never|not|no|without|do\s+not\s+use|must\s+not\s+use)\s+|(?:تجنب|تجنّب|لا\s+تستخدم|بدون|غير)\s*)$/i.test(before)
+    return negated ? match : replacement
+  })
+}
+
 function softenUnsupportedQualityClaims(text: string, context: StrategyProofContext): string {
   const allowed = allowedClaimsText(context)
   const startedCapitalized = /^[A-Z]/.test(text.trimStart())
@@ -300,6 +316,17 @@ function softenUnsupportedOfferAssurances(text: string, context: StrategyProofCo
     : context.allowedClaimText
   )?.filter((item): item is string => typeof item === 'string').join(' ') || ''
   let guarded = text
+
+  const qualityAssurancePattern = /\b(?:guaranteed|assured)\s+quality\b|\bquality\s+(?:guarantee|assurance)\b|ضمان\s+(?:جودة|الخامات?|المنتج|الخدمة)|جودة\s+(?:مضمونة|مؤكدة)/i
+  if (!hasAffirmedClaim(allowed, qualityAssurancePattern)) {
+    guarded = replaceAffirmedOfferAssurance(
+      guarded,
+      qualityAssurancePattern,
+      /[\u0600-\u06ff]/i.test(guarded)
+        ? 'تفاصيل المنتج الموثقة المطلوب مراجعتها'
+        : 'documented product details to review',
+    )
+  }
 
   if (!hasAffirmedClaim(allowed, /\b(?:trusted|verified|proven)\s+(?:product\s+)?quality\b|\bquality\s+(?:customers?|you)\s+can\s+trust\b|(?:جودة\s+(?:المنتج|الخدمة)\s+موثقة|جودة\s+يمكن(?:ك)?\s+الوثوق\s+بها|ثقة\s+موثقة\s+في\s+جودة)/i)) {
     guarded = guarded
