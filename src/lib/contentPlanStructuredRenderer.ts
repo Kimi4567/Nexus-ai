@@ -99,7 +99,7 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
   },
   {
     reason: 'unsupported_fake_product_visual',
-    re: /\b(?:with|featuring|showing|displaying)\s+(?:the\s+)?[^.?!]{0,60}\blogo\b|\bhappy customer\b|\bbranded (?:roastery|clinic|office|facility|factory)\b|\bexpert (?:barista|doctor|dentist|advisor)\b/i,
+    re: /\b(?:with|featuring|showing|displaying)\s+(?:the\s+)?[^.?!]{0,60}\blogo\b|\bhappy customer\b|\bbranded (?:roastery|clinic|office|facility|factory)\b|\bexpert (?:barista|doctor|dentist|advisor)\b|ردود\s+أفعال\s+(?:العملاء|العميل)|(?:عملاء|عميل)\s+(?:سعداء|سعيد|راضون|راضين|راضٍ|راضي)|شهادات?\s+(?:العملاء|عميل)|عملية\s+تحميص[^.!؟]{0,100}\s+(?:في|داخل)\s+[\p{L}\p{N}]/iu,
   },
 ]
 

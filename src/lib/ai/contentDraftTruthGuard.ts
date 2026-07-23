@@ -64,6 +64,15 @@ function guardProofClaims(text: string, context: ContentDraftTruthContext): stri
       .replace(/\bcustomer testimonials?\b/gi, 'customer proof to collect')
       .replace(/\btestimonials?\b/gi, 'proof to collect')
       .replace(/\bsatisfied customers\b/gi, 'customers to ask for feedback')
+      .replace(
+        /ردود\s+أفعال\s+(?:العملاء|العميل)[^.!؟]*/gi,
+        'عرض تفاصيل المنتج والخدمة الموثقة دون تصوير تجربة عميل غير موثقة',
+      )
+      .replace(
+        /(?:عملاء|عميل)\s+(?:سعداء|سعيد|راضون|راضين|راضٍ|راضي)[^.!؟]*/gi,
+        'تجربة عميل تحتاج إلى دليل موثق قبل استخدامها',
+      )
+      .replace(/شهادات?\s+(?:العملاء|عميل)/gi, 'شهادات عملاء مطلوب جمعها وتوثيقها')
   }
 
   if (!proof.hasCustomerStories) {
@@ -533,12 +542,26 @@ function guardOutcomeClaims(text: string, context: ContentDraftTruthContext): st
 
 function guardDeliveryClaims(text: string): string {
   return text
+    .replace(
+      /أهمية\s+توصيل\s+القهوة\s+في\s+الوقت\s+(?:المناسب|المحدد)/gi,
+      'تفاصيل نطاق ومدة توصيل القهوة الموثقة',
+    )
+    .replace(
+      /(?:توصيل|استلام)[^.!؟]{0,60}\s+في\s+الوقت\s+(?:المناسب|المحدد)/gi,
+      'التوصيل ضمن النطاق والمدة الموثقين',
+    )
+    .replace(/سرعة\s+التوصيل/gi, 'مدة التوصيل الموثقة')
     .replace(/توصيل مضمون/g, 'التوصيل حسب المناطق المتاحة')
     .replace(/توصيل سريع/g, 'توقيت التوصيل يعتمد على الموقع')
     .replace(/توصيل لباب البيت/g, 'التوصيل حسب المناطق المتاحة')
     .replace(/لباب البيت/g, 'حسب المناطق المتاحة')
     .replace(/لتصلك إلى باب منزلك/g, 'مع التوصيل حسب المناطق المتاحة')
     .replace(/إلى باب منزلك/g, 'حسب المناطق المتاحة')
+    .replace(
+      /توصيل\s+(?:القهوة|المنتج|الطلب)\s+إلى\s+المنزل/gi,
+      'توصيل ضمن النطاق الموثق',
+    )
+    .replace(/التوصيل\s+إلى\s+المنزل/gi, 'التوصيل ضمن النطاق الموثق')
     .replace(/توصيل في اليوم التالي/g, 'التوصيل في اليوم التالي حيثما توفر')
     .replace(/\bpromptly delivery where available\b/gi, 'delivery where available')
     .replace(/\bpromptly delivery\b/gi, 'delivery where available')
@@ -923,6 +946,25 @@ function guardUnverifiedCoffeeProductClaims(
       .replace(/\bfast\s+and\s+reliable\s+delivery\b/gi, 'delivery within the documented service window')
       .replace(/\breliable\s+delivery\b/gi, 'delivery within the documented service scope')
       .replace(/توصيل\s+(?:سريع\s+و)?موثوق/gi, 'توصيل ضمن النطاق والمدة الموثقين')
+  }
+
+  if (!hasAffirmedBrandFact(
+    facts,
+    /\b(?:preserv(?:e|es|ed|ing)|maintain(?:s|ed|ing)?|keep(?:s|ing)?)\b[^.!?]{0,60}\bfresh(?:ness)?\b|الحفاظ\s+على\s+(?:نضارة|طزاجة)|تبقى\s+القهوة\s+طازجة/i,
+  )) {
+    guarded = guarded
+      .replace(
+        /(?:توضيح\s+)?كيف\s+يتم\s+الحفاظ\s+على\s+(?:نضارة|طزاجة)\s+القهوة\s+حتى\s+تصل\s+إلى\s+العميل/gi,
+        'عرض تاريخ التحميص وتفاصيل المنتج المتاحة للمراجعة',
+      )
+      .replace(
+        /الحفاظ\s+على\s+(?:نضارة|طزاجة)\s+القهوة/gi,
+        'مراجعة تاريخ التحميص وتفاصيل المنتج',
+      )
+      .replace(
+        /\b(?:preserve|maintain|keep)\s+(?:the\s+)?coffee(?:'s)?\s+freshness\b/gi,
+        'review the roast date and documented product details',
+      )
   }
 
   return guarded

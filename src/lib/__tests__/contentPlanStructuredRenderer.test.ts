@@ -170,6 +170,33 @@ describe('contentPlanStructuredRenderer', () => {
     expect(validateContentPlanDraftForSave({ videoPrompt: prompt }).ok).toBe(true)
   })
 
+  it('converts Arabic customer reactions and a branded roasting scene into a truth-safe direction', () => {
+    const context: ContentPlanRenderContext = {
+      isArabic: true,
+      brand: 'Luma Roast Lab Certification',
+      campaignName: 'Monthly coffee subscription',
+      keyMessage: 'Freshly roasted coffee delivered within Dubai in 48 hours',
+      targetAudience: 'Dubai residents buying coffee for home',
+      contentPillars: ['subscription routine', 'delivery details'],
+      offer: 'AED 149 for one kilogram monthly',
+      platform: 'INSTAGRAM',
+      postIndex: 2,
+      verifiedProof: [],
+      brandFacts: [
+        'The coffee is freshly roasted.',
+        'Delivery is limited to Dubai within 48 hours.',
+        'There are no customer testimonials available.',
+      ],
+    }
+    const prompt = renderContentPlanDraftVideoPrompt({
+      videoScript: 'عرض عملية تحميص حبوب القهوة في لاب روست لاب، ثم ردود أفعال العملاء عند استلام القهوة.',
+    }, context)
+
+    expect(prompt).toContain('Short-form editorial video concept')
+    expect(prompt).not.toMatch(/عملية تحميص.*في لاب روست لاب|ردود أفعال العملاء/)
+    expect(validateContentPlanDraftForSave({ videoPrompt: prompt }).ok).toBe(true)
+  })
+
   it('save gate blocks observed unsafe regenerated clinic claims before SocialPost persistence', () => {
     const result = validateContentPlanDraftForSave({
       caption: 'وضوح العمليات في العيادة يساعد على من كفاءة العمل. اكتشف كيف يسهل ClinicFlow AI التواصل مع المرضى بلغتهم المفضلة، مما يساعد على من رضاهم وثقتهم.',

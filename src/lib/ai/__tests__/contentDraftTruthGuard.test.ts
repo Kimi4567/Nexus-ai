@@ -970,6 +970,34 @@ describe('contentDraftTruthGuard', () => {
     expect(out).not.toContain('توصيل في اليوم التالي.')
   })
 
+  it('removes unsupported Arabic customer reactions and delivery-performance scenes', () => {
+    const out = guardContentDraftText(
+      'المشهد الأول: عرض أهمية توصيل القهوة في الوقت المناسب. المشهد الثاني: توصيل القهوة إلى المنزل. المشهد الثالث: ردود أفعال العملاء عند استلام القهوة في الوقت المحدد.',
+      {
+        brandFacts: [
+          'Freshly roasted coffee subscription.',
+          'Delivery is limited to Dubai within 48 hours.',
+        ],
+        verifiedProof: [],
+      },
+    )
+
+    expect(out).toContain('تفاصيل نطاق ومدة توصيل القهوة الموثقة')
+    expect(out).toContain('توصيل ضمن النطاق الموثق')
+    expect(out).toContain('دون تصوير تجربة عميل غير موثقة')
+    expect(out).not.toMatch(/الوقت المناسب|إلى المنزل|ردود أفعال العملاء|الوقت المحدد/)
+  })
+
+  it('does not infer freshness preservation from freshly roasted alone', () => {
+    const out = guardContentDraftText(
+      'توضيح كيف يتم الحفاظ على نضارة القهوة حتى تصل إلى العميل.',
+      { brandFacts: ['The coffee is freshly roasted.'] },
+    )
+
+    expect(out).toContain('عرض تاريخ التحميص وتفاصيل المنتج المتاحة للمراجعة')
+    expect(out).not.toMatch(/الحفاظ على نضارة القهوة/)
+  })
+
   it('rewrites the observed awkward team-planning phrase', () => {
     const out = guardContentDraftText('Support more reliable team planning has access to great coffee.')
 
