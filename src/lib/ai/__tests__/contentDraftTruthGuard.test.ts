@@ -998,6 +998,25 @@ describe('contentDraftTruthGuard', () => {
     expect(out).not.toMatch(/الحفاظ على نضارة القهوة/)
   })
 
+  it('does not infer first-party roasting or a quality guarantee from freshly roasted alone', () => {
+    const out = guardContentDraftText(
+      'شاهد كيف يتم تحميص القهوة لدينا لضمان الجودة.',
+      { brandFacts: ['The coffee is freshly roasted.'] },
+    )
+
+    expect(out).toContain('راجع تفاصيل تحميص القهوة المتاحة')
+    expect(out).toContain('مع مراجعة تفاصيل الجودة المتاحة')
+    expect(out).not.toMatch(/يتم تحميص القهوة لدينا|لضمان الجودة/)
+  })
+
+  it('repairs the observed malformed delivery CTA after bounding the claim', () => {
+    const out = guardContentDraftText(
+      'شاهد كيف نوفر لك توقيت التوصيل يعتمد على الموقع ضمن نطاق الخدمة.',
+    )
+
+    expect(out).toBe('راجع نطاق التوصيل والمدة الموثقة قبل الاشتراك.')
+  })
+
   it('rewrites the observed awkward team-planning phrase', () => {
     const out = guardContentDraftText('Support more reliable team planning has access to great coffee.')
 

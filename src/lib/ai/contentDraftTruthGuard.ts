@@ -387,6 +387,8 @@ function softenAbsoluteClaims(text: string): string {
     .replace(/ضمان\s+راحة\s+البال/giu, 'وضوح المتابعة')
     .replace(/لضمان\s+سير\s+العمل\s+بسلاسة/giu, 'لدعم وضوح سير العمل')
     .replace(/ضمان\s+سير\s+العمل\s+بسلاسة/giu, 'دعم وضوح سير العمل')
+    .replace(/لضمان\s+الجودة/giu, 'مع مراجعة تفاصيل الجودة المتاحة')
+    .replace(/ضمان\s+الجودة/giu, 'مراجعة تفاصيل الجودة المتاحة')
     .replace(/دون\s+عناء\s+المتابعة\s+اليومية/giu, 'مع مراحل متابعة موثقة للمراجعة')
     .replace(/دون\s+عناء/giu, 'مع خطوات موثقة للمراجعة')
     .replace(/(?:نحن\s+)?نهتم\s+بكل\s+التفاصيل،?\s+من\s+الاستشارة\s+إلى\s+التنفيذ/giu, 'نوضح المراحل المشمولة من جلسة الاكتشاف إلى الإشراف على التنفيذ ضمن النطاق المتفق عليه')
@@ -584,6 +586,10 @@ function guardDeliveryClaims(text: string): string {
 
 function guardDraftCopyQuality(text: string): string {
   return text
+    .replace(
+      /شاهد\s+كيف\s+نوفر\s+لك\s+توقيت\s+التوصيل\s+يعتمد\s+على\s+الموقع\s+ضمن\s+نطاق\s+الخدمة\.?/gi,
+      'راجع نطاق التوصيل والمدة الموثقة قبل الاشتراك.',
+    )
     .replace(
       /اكتشف كيف يمكن للإشراف البشري تعزيز التسويق بالذكاء الاصطناعي\.?/g,
       'راجع أين تتدخل الموافقة البشرية في مسار التسويق المدعوم بالذكاء الاصطناعي.',
@@ -946,6 +952,25 @@ function guardUnverifiedCoffeeProductClaims(
       .replace(/\bfast\s+and\s+reliable\s+delivery\b/gi, 'delivery within the documented service window')
       .replace(/\breliable\s+delivery\b/gi, 'delivery within the documented service scope')
       .replace(/توصيل\s+(?:سريع\s+و)?موثوق/gi, 'توصيل ضمن النطاق والمدة الموثقين')
+  }
+
+  if (!hasAffirmedBrandFact(
+    facts,
+    /\b(?:we|our\s+(?:team|roastery|facility))\s+roast\b|\bour\s+roasting\s+process\b|(?:نحمص|نحمّص|نقوم\s+بتحميص|عملية\s+التحميص\s+لدينا|محمصتنا|محمّصتنا)/i,
+  )) {
+    guarded = guarded
+      .replace(
+        /(?:شاهد|اكتشف|تعرّف|تعرف)\s+كيف\s+يتم\s+تحميص\s+القهوة\s+لدينا/gi,
+        'راجع تفاصيل تحميص القهوة المتاحة',
+      )
+      .replace(
+        /كيف\s+يتم\s+تحميص\s+القهوة\s+لدينا/gi,
+        'تفاصيل تحميص القهوة المتاحة للمراجعة',
+      )
+      .replace(
+        /\b(?:watch|see|discover)\s+how\s+we\s+roast\s+(?:our\s+)?coffee\b/gi,
+        'review the available coffee roasting details',
+      )
   }
 
   if (!hasAffirmedBrandFact(
