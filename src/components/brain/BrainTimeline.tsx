@@ -105,7 +105,6 @@ export function BrainTimeline({ onUpdate }: { onUpdate?: () => void }) {
         return
       }
       await load()
-      onUpdate?.()
       setRefreshMessage(
         data.created > 0
           ? (data.created === 1

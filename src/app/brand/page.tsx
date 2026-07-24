@@ -306,7 +306,9 @@ function BrandStatusPanel({ indicators, locale, contract, organicTruthBlocked = 
             <p>
               {ar
                 ? `${contract.pendingLearning.count} اقتراح تعلم ينتظر مراجعتك؛ لن يدخل كحقيقة قبل موافقتك.`
-                : `${contract.pendingLearning.count} learning proposal${contract.pendingLearning.count === 1 ? '' : 's'} await review; none become truth before approval.`}
+                : contract.pendingLearning.count === 1
+                  ? '1 learning proposal awaits review; it does not become truth before approval.'
+                  : `${contract.pendingLearning.count} learning proposals await review; none become truth before approval.`}
             </p>
           )}
           {contract.inference.available && (
@@ -3070,6 +3072,7 @@ function BrandBrainInner() {
                 ]
 
                 const learnedCount = typeof form?.acceptedLearningCount === 'number' ? form.acceptedLearningCount : 0
+                const pendingLearningCount = contract?.pendingLearning.count ?? 0
 
                 return (
                   <div className="space-y-4">
@@ -3130,7 +3133,11 @@ function BrandBrainInner() {
                           <span className="block text-xs text-slate-500 mt-0.5">
                             {learnedCount > 0
                               ? (ar ? `${learnedCount} إشارة مراجَعة محفوظة.` : `${learnedCount} reviewed signal${learnedCount === 1 ? '' : 's'} saved.`)
-                              : (ar ? 'لا توجد ذاكرة إشارات كافية بعد.' : 'No meaningful signal memory yet.')}
+                              : pendingLearningCount > 0
+                                ? (ar
+                                    ? `${pendingLearningCount} مقترح بانتظار مراجعتك.`
+                                    : `${pendingLearningCount} proposal${pendingLearningCount === 1 ? '' : 's'} awaiting your review.`)
+                                : (ar ? 'لا توجد ذاكرة إشارات كافية بعد.' : 'No meaningful signal memory yet.')}
                           </span>
                         </span>
                         <ChevronDown size={15} className="text-slate-400 transition-transform group-open:rotate-180" />
