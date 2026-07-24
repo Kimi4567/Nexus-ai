@@ -396,7 +396,12 @@ function connectionTruth(account: ConnectedAccount, ar: boolean, readiness?: Pro
         { ok: publishing, text: ar ? 'صلاحيات الهوية والنشر مثبتة' : 'Identity and publishing permissions verified' },
         { ok: readback, text: ar ? 'صلاحية قراءة مؤشرات الأداء مثبتة' : 'Insight readback permission verified' },
         { ok: refresh, text: ar ? 'توكن طويل العمر قابل للتجديد' : 'Renewable long-lived token available' },
-        { ok: publicPublishing, text: ar ? 'تطبيق Meta في وضع Live' : 'Meta app is in Live mode' },
+        {
+          ok: publicPublishing,
+          text: publicPublishing
+            ? (ar ? 'تطبيق Meta في وضع Live' : 'Meta app is in Live mode')
+            : (ar ? 'تطبيق Meta ما زال في وضع التطوير' : 'Meta app remains in Development mode'),
+        },
       ],
     }
   }

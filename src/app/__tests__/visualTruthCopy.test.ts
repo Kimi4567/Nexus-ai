@@ -28,4 +28,11 @@ describe('visual audit truth-copy regressions', () => {
     expect(deletion).not.toContain('removes the stored integration record')
     expect(deletion).toContain('keeps a sanitized disconnect audit record without access or refresh tokens')
   })
+
+  it('does not label a Development-only Threads app as Live', () => {
+    const connections = source('src/app/connections/page.tsx')
+
+    expect(connections).toContain('Meta app remains in Development mode')
+    expect(connections).toContain('تطبيق Meta ما زال في وضع التطوير')
+  })
 })
