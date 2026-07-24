@@ -55,6 +55,7 @@ const STAGE_LABELS: Record<ExecutionStage, { ar: string; en: string }> = {
 
 const SOURCE_LABELS: Record<OperationsIssue['source'], { ar: string; en: string }> = {
   monitor: { ar: 'المراقب', en: 'Monitor' },
+  agents: { ar: 'الوكلاء', en: 'Agents' },
   execution: { ar: 'التنفيذ', en: 'Execution' },
   connection: { ar: 'الربط', en: 'Connection' },
   paid: { ar: 'الإعلانات', en: 'Paid' },

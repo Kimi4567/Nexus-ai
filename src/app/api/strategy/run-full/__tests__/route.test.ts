@@ -401,6 +401,35 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     expect(json.error).not.toMatch(/provider timeout/)
   })
 
+  it('returns a refunded governance rejection as 422 instead of a runtime 500', async () => {
+    mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 10, creditsRemaining: 345, isUnlimited: false })
+    mockRunFullAgency.mockImplementation(async (_workspaceId: string, _brief: Record<string, unknown>, options?: { beforePersistStrategy?: () => Promise<void> }) => {
+      await options?.beforePersistStrategy?.()
+      throw new Error('MARKETING_QUALITY_GATE_BLOCKED:unsupported_claim')
+    })
+
+    const res = await POST(makeReq({
+      language: 'en',
+      strategyType: 'organic',
+      strategyDuration: '30',
+      contentIntensity: 'standard',
+    }))
+    const json = await res.json()
+
+    expect(res.status).toBe(422)
+    expect(mockRefundDeduction).toHaveBeenCalledWith(expect.objectContaining({
+      deduction: expect.objectContaining({ creditsUsed: 10 }),
+      reason: 'Run Full Strategy exception',
+    }))
+    expect(json).toMatchObject({
+      ok: false,
+      refunded: true,
+      creditsUsed: 0,
+    })
+    expect(json.error).toMatch(/refused to save the strategy/)
+    expect(json.error).not.toContain('unsupported_claim')
+  })
+
   it('does not deduct or refund when orchestration fails before the persistence credit gate', async () => {
     mockRunFullAgency.mockRejectedValue(new Error('provider timeout before persist'))
 

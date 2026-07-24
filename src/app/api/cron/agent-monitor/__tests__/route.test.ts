@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   workspaceFindFirst: vi.fn(),
   raw: vi.fn(),
   monitor: vi.fn(),
+  reconcileStaleRuns: vi.fn(),
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -14,6 +15,7 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 vi.mock('@/lib/executionMonitorService', () => ({ monitorWorkspaceExecution: mocks.monitor }))
+vi.mock('@/lib/agents/staleAgentRuns', () => ({ reconcileStaleAgentRuns: mocks.reconcileStaleRuns }))
 
 import { GET } from '@/app/api/cron/agent-monitor/route'
 
@@ -39,6 +41,12 @@ beforeEach(() => {
     skippedBecauseLocked: false,
     dryRun: true,
     signatures: ['sig'],
+  })
+  mocks.reconcileStaleRuns.mockResolvedValue({
+    cutoff: new Date('2026-07-24T05:15:00.000Z'),
+    found: 2,
+    reconciled: 0,
+    dryRun: true,
   })
 })
 
@@ -73,7 +81,13 @@ describe('GET /api/cron/agent-monitor', () => {
       autoExecution: false,
       dryRun: true,
       suggestionsCreated: 1,
+      staleRuns: {
+        found: 2,
+        reconciled: 0,
+        cutoff: '2026-07-24T05:15:00.000Z',
+      },
     })
+    expect(mocks.reconcileStaleRuns).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
     expect(mocks.monitor).toHaveBeenCalledWith('w1', expect.objectContaining({ dryRun: true }))
   })
 })

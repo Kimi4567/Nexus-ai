@@ -25,6 +25,7 @@ import {
   organicPartialStrategy,
   type StrategyDeliveryOutcome,
 } from '@/lib/strategy/strategyPartialDelivery'
+import { isExpectedMarketingGovernanceRejection } from '@/lib/observability/operationalError'
 
 // Re-export for API routes
 export type { BusinessBrief }
@@ -338,8 +339,16 @@ export async function runFullAgency(
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     failure = err instanceof StrategyQualityFailure ? err.diagnostics : undefined
-    // Log full error stack so Vercel logs show the real failure point
-    console.error('[Orchestrator] runFullAgency FAILED:', message, err)
+    if (isExpectedMarketingGovernanceRejection(err)) {
+      console.warn('[Orchestrator] Strategy stopped by governance gate', {
+        workspaceId,
+        stage: failure?.stage ?? 'truth_gate',
+        issueCodes: failure?.issueCodes ?? [],
+      })
+    } else {
+      // Unexpected failures retain the full stack for production diagnosis.
+      console.error('[Orchestrator] runFullAgency FAILED:', message, err)
+    }
     errors.push(message)
     await db.agentRun.update({
       where: { id: agentRun.id },

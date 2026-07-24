@@ -31,6 +31,15 @@ function safeLabel(value: string | undefined, fallback: string): string {
   return normalized || fallback
 }
 
+export function isExpectedMarketingGovernanceRejection(error: unknown): boolean {
+  const name = error instanceof Error ? error.name : ''
+  const message = error instanceof Error ? error.message : String(error ?? '')
+  return name === 'StrategyQualityFailure'
+    || message.startsWith('MARKETING_QUALITY_GATE_BLOCKED:')
+    || message.startsWith('BRAND_TRUTH_CONFLICT:')
+    || /Strategy OS contract/i.test(message)
+}
+
 /**
  * Records a privacy-safe Runtime Log for every operational failure. Sentry is
  * imported only when the explicit server gate and a valid DSN are both present.
@@ -45,7 +54,7 @@ export async function captureOperationalError(
   const errorCode = getPrivacySafeErrorCode(error)
   const severity = context.severity ?? 'error'
 
-  console.error(JSON.stringify({
+  const logPayload = JSON.stringify({
     level: severity,
     message: 'Operational request failed',
     operation,
@@ -59,7 +68,9 @@ export async function captureOperationalError(
     errorCode,
     runtime: process.env.NEXT_RUNTIME ?? 'nodejs',
     occurredAt: new Date().toISOString(),
-  }))
+  })
+  if (severity === 'warning') console.warn(logPayload)
+  else console.error(logPayload)
 
   const dsn = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN
   if (!isSentryRuntimeEnabled(process.env.SENTRY_ENABLED, dsn)) {

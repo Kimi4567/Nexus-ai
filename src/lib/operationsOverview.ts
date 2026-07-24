@@ -5,7 +5,7 @@ export type OperationsHealth = 'healthy' | 'attention' | 'critical' | 'not_start
 
 export interface OperationsIssue {
   id: string
-  source: 'monitor' | 'execution' | 'connection' | 'paid' | 'analytics' | 'credits'
+  source: 'monitor' | 'agents' | 'execution' | 'connection' | 'paid' | 'analytics' | 'credits'
   priority: 'critical' | 'high' | 'medium'
   href: string
   title: { en: string; ar: string }
@@ -57,6 +57,7 @@ export interface OperationsOverview {
     ads: { total: number; connected: number }
   }
   analytics: { publishedAwaitingEvidence: number; latestEvidenceAt: string | null }
+  agents: { staleRuns: number; timeoutMinutes: number }
   credits: {
     spent30d: number
     refunded30d: number
@@ -112,6 +113,7 @@ export interface OperationsOverviewInput {
     outputData?: unknown
     error?: string | null
   } | null
+  staleAgentRuns: number
   integrations: Array<{
     id: string
     type: string
@@ -295,7 +297,7 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
   const monitorAgeMs = lastRunAt ? input.now.getTime() - lastRunAt.getTime() : Number.POSITIVE_INFINITY
   const monitorFailed = Boolean(input.latestMonitor && input.latestMonitor.status !== 'COMPLETED')
   const monitorStale = Boolean(lastRunAt && monitorAgeMs > 2 * 60 * 60 * 1000)
-  const monitorHealth: OperationsHealth = monitorFailed
+  const monitorHealth: OperationsHealth = input.staleAgentRuns > 0 || monitorFailed
     ? 'critical'
     : !lastRunAt
       ? 'not_started'
@@ -324,6 +326,20 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
           : monitorStale
             ? 'لا يوجد نبض ناجح للمراقب خلال آخر ساعتين.'
             : 'توجد حملة، لكن لا يوجد تشغيل ناجح محفوظ للمراقب حتى الآن.',
+      },
+    })
+  }
+
+  if (input.staleAgentRuns > 0) {
+    issues.push({
+      id: 'agents:stale-runs',
+      source: 'agents',
+      priority: 'critical',
+      href: '/operations#strategy-run-history',
+      title: { en: 'Agent runs exceeded their execution lease', ar: 'تجاوزت عمليات الوكلاء مهلة التنفيذ' },
+      reason: {
+        en: `${input.staleAgentRuns} run(s) have remained RUNNING for more than 15 minutes and require cron reconciliation.`,
+        ar: `${input.staleAgentRuns} عملية ما زالت RUNNING لأكثر من 15 دقيقة وتحتاج تسوية الـcron.`,
       },
     })
   }
@@ -542,11 +558,16 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
     },
     {
       id: 'monitoring',
-      status: input.latestMonitor?.status === 'COMPLETED' && !monitorStale ? 'ready' : hasCampaign ? 'blocked' : 'not_verified',
+      status: input.latestMonitor?.status === 'COMPLETED' && !monitorStale && input.staleAgentRuns === 0 ? 'ready' : hasCampaign ? 'blocked' : 'not_verified',
       href: '/operations#system-health',
       title: { en: 'Execution monitoring', ar: 'مراقبة التنفيذ' },
-      evidence: input.latestMonitor?.status === 'COMPLETED' && !monitorStale
+      evidence: input.latestMonitor?.status === 'COMPLETED' && !monitorStale && input.staleAgentRuns === 0
         ? { en: 'A recent successful monitor heartbeat is persisted.', ar: 'يوجد نبض ناجح وحديث محفوظ لمراقب التنفيذ.' }
+        : input.staleAgentRuns > 0
+          ? {
+              en: `${input.staleAgentRuns} agent run(s) exceeded the 15-minute execution lease.`,
+              ar: `${input.staleAgentRuns} عملية وكيل تجاوزت مهلة التنفيذ البالغة 15 دقيقة.`,
+            }
         : hasCampaign
           ? { en: 'A campaign exists without a recent successful monitor heartbeat.', ar: 'توجد حملة بلا نبض ناجح وحديث لمراقب التنفيذ.' }
           : { en: 'Monitoring will be verified after the first sandbox campaign.', ar: 'سيتم التحقق من المراقبة بعد أول حملة Sandbox.' },
@@ -628,6 +649,7 @@ export function buildOperationsOverview(input: OperationsOverviewInput): Operati
       ads: { total: input.adAccounts.length, connected: connectedAds },
     },
     analytics: { publishedAwaitingEvidence: input.publishedAwaitingEvidence, latestEvidenceAt: input.latestAnalyticsAt?.toISOString() ?? null },
+    agents: { staleRuns: input.staleAgentRuns, timeoutMinutes: 15 },
     credits: {
       spent30d,
       refunded30d,

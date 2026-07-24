@@ -52,7 +52,8 @@ export async function GET(req: Request) {
       activeCampaigns,
       recentCampaigns,
       brandProfile,
-      totalVisuals,
+      generatedVisuals,
+      finalMediaPosts,
       acceptedLearningCount,
     ] = await Promise.all([
       prisma.campaign.count({ where: { workspaceId: workspace.id } }).catch(() => 0),
@@ -67,6 +68,16 @@ export async function GET(req: Request) {
       db.brandProfile?.findUnique({ where: { workspaceId: workspace.id } }).catch(() => null) ?? null,
       db.generatedVisual?.count({
         where: { workspaceId: workspace.id, isArchived: false, status: 'COMPLETED' },
+      }).catch(() => 0) ?? 0,
+      // Content Hub final-media truth lives on the post revision, regardless of
+      // whether the media came from Video Studio, image generation, or an owned
+      // upload. GeneratedVisual alone cannot represent that final attachment.
+      db.socialPost?.count({
+        where: {
+          workspaceId: workspace.id,
+          imageUrl: { not: null },
+          generationStatus: 'DONE',
+        },
       }).catch(() => 0) ?? 0,
       // PR-1I: same learning signal the Brand Brain page/score uses, so the
       // readiness status here can never disagree with /api/brand or the Dashboard.
@@ -156,7 +167,7 @@ export async function GET(req: Request) {
     }
 
     // Visual coverage
-    if (totalCampaigns > 0 && totalVisuals === 0) {
+    if (totalCampaigns > 0 && generatedVisuals === 0 && finalMediaPosts === 0) {
       insights.push({
         id: 'no-visuals',
         type: 'action',
@@ -165,13 +176,22 @@ export async function GET(req: Request) {
         messageAr: `${totalCampaigns} ${totalCampaigns === 1 ? 'حملة بدون مرئيات رئيسية' : 'حملات بدون مرئيات رئيسية'} — راجع الاحتياج قبل التوليد`,
         href: recentCampaigns[0]?.id ? `/campaigns/${recentCampaigns[0].id}` : '/campaigns',
       })
-    } else if (totalVisuals > 0) {
+    } else if (finalMediaPosts > 0) {
       insights.push({
-        id: 'visuals-ready',
+        id: 'final-media-ready',
+        type: 'success',
+        icon: '🎨',
+        message: `${finalMediaPosts} post package${finalMediaPosts > 1 ? 's have' : ' has'} confirmed final media linked`,
+        messageAr: `${finalMediaPosts} ${finalMediaPosts === 1 ? 'حزمة منشور مرتبطة بوسائط نهائية مؤكدة' : 'حزم منشورات مرتبطة بوسائط نهائية مؤكدة'}`,
+        href: '/content-hub',
+      })
+    } else if (generatedVisuals > 0) {
+      insights.push({
+        id: 'generated-visuals-available',
         type: 'info',
         icon: '🎨',
-        message: `${totalVisuals} visual asset${totalVisuals > 1 ? 's' : ''} generated across your campaigns`,
-        messageAr: `${totalVisuals} ${totalVisuals === 1 ? 'أصل بصري مُنشأ' : 'أصول بصرية مُنشأة'} عبر حملاتك`,
+        message: `${generatedVisuals} generated visual asset${generatedVisuals > 1 ? 's are' : ' is'} available for review; final post attachment remains separate`,
+        messageAr: `${generatedVisuals} ${generatedVisuals === 1 ? 'أصل بصري مولّد متاح' : 'أصول بصرية مولّدة متاحة'} للمراجعة؛ يظل الربط النهائي بالمنشور خطوة منفصلة`,
         href: '/campaigns',
       })
     }

@@ -7,6 +7,7 @@ describe('captureOperationalError', () => {
   beforeEach(() => {
     process.env = { ...ORIGINAL_ENV, SENTRY_ENABLED: 'false' }
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
   })
 
   afterEach(() => {
@@ -39,5 +40,25 @@ describe('captureOperationalError', () => {
     expect(logged).toContain('PROVIDER_502')
     expect(logged).not.toContain('owner@example.com')
     expect(logged).not.toContain('private')
+  })
+
+  it('records expected governance rejections as warnings instead of runtime errors', async () => {
+    await captureOperationalError(
+      new Error('MARKETING_QUALITY_GATE_BLOCKED:unsupported_claim'),
+      {
+        operation: 'ai.full-strategy-run',
+        route: '/api/strategy/run-full',
+        component: 'ai',
+        method: 'POST',
+        statusCode: 422,
+        retryable: true,
+        severity: 'warning',
+      },
+    )
+
+    expect(console.warn).toHaveBeenCalledTimes(1)
+    expect(console.error).not.toHaveBeenCalled()
+    expect(String(vi.mocked(console.warn).mock.calls[0]?.[0])).toContain('"level":"warning"')
+    expect(String(vi.mocked(console.warn).mock.calls[0]?.[0])).toContain('"statusCode":422')
   })
 })

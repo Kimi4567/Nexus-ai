@@ -5,6 +5,7 @@ import { getWorkspaceExecutionTruthByWorkspaceId } from '@/lib/executionTruthSer
 import { buildOperationsOverview } from '@/lib/operationsOverview'
 import { getCanonicalApprovalInbox } from '@/lib/approvalInboxService'
 import { buildPilotProofOverview } from '@/lib/pilotProof'
+import { STALE_AGENT_RUN_TIMEOUT_MINUTES } from '@/lib/agents/staleAgentRuns'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,9 +24,11 @@ export async function GET(req: NextRequest) {
     const now = new Date()
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 86_400_000)
     const oneDayAgo = new Date(now.getTime() - 86_400_000)
+    const staleAgentRunCutoff = new Date(now.getTime() - STALE_AGENT_RUN_TIMEOUT_MINUTES * 60_000)
     const [
       truth,
       latestMonitor,
+      staleAgentRuns,
       integrations,
       adAccounts,
       approvalInbox,
@@ -43,6 +46,13 @@ export async function GET(req: NextRequest) {
         where: { workspaceId: workspace.id, triggeredBy: 'execution-monitor' },
         orderBy: { createdAt: 'desc' },
         select: { status: true, createdAt: true, completedAt: true, outputData: true, error: true },
+      }),
+      prisma.agentRun.count({
+        where: {
+          workspaceId: workspace.id,
+          status: 'RUNNING',
+          createdAt: { lte: staleAgentRunCutoff },
+        },
       }),
       prisma.integration.findMany({
         where: { workspaceId: workspace.id, status: { not: 'DISCONNECTED' } },
@@ -151,6 +161,7 @@ export async function GET(req: NextRequest) {
       now,
       truth,
       latestMonitor,
+      staleAgentRuns,
       integrations,
       adAccounts,
       pendingApprovals,

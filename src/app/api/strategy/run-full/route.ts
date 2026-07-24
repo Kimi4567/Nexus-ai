@@ -39,7 +39,10 @@ import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { resolveBillingStatusPlan } from '@/lib/billingStatusPlan'
-import { captureOperationalError } from '@/lib/observability/operationalError'
+import {
+  captureOperationalError,
+  isExpectedMarketingGovernanceRejection,
+} from '@/lib/observability/operationalError'
 import {
   strategyExecutionPlatforms,
   strategySupportOnlyChannels,
@@ -748,14 +751,17 @@ export async function POST(req: NextRequest) {
     }, { status: success ? 200 : 502 })
   } catch (err: unknown) {
     const failureDurationMs = Date.now() - requestStartedAt
+    const rawError = err instanceof Error ? err.message : undefined
+    const governanceRejection = isExpectedMarketingGovernanceRejection(err)
     await captureOperationalError(err, {
       operation: 'ai.full-strategy-run',
       route: '/api/strategy/run-full',
       component: 'ai',
       method: 'POST',
       requestId: req.headers?.get?.('x-vercel-id') ?? null,
-      statusCode: 500,
+      statusCode: governanceRejection ? 422 : 500,
       retryable: true,
+      severity: governanceRejection ? 'warning' : 'error',
     })
     if (lateCreditFailure && !deductedCredit) {
       return NextResponse.json(lateCreditFailure, { status: creditCheckHttpStatus(lateCreditFailure) })
@@ -764,7 +770,6 @@ export async function POST(req: NextRequest) {
     const refunded = chargedUserId
       ? await refundDeductedStrategyCredits(chargedUserId, finalDeductedCredit, 'Run Full Strategy exception')
       : false
-    const rawError = err instanceof Error ? err.message : undefined
     const safeError = rawError && (/Strategy OS contract/i.test(rawError)
       || rawError.startsWith('BRAND_TRUTH_CONFLICT:')
       || rawError.startsWith('MARKETING_QUALITY_GATE_BLOCKED:'))
@@ -783,7 +788,7 @@ export async function POST(req: NextRequest) {
         creditsUsed: refunded ? 0 : (finalDeductedCredit?.creditsUsed ?? 0),
         durationMs: failureDurationMs,
       },
-      { status: 500 },
+      { status: governanceRejection ? 422 : 500 },
     )
   }
 }

@@ -26,6 +26,7 @@ function input(overrides: Partial<OperationsOverviewInput> = {}): OperationsOver
       outputData: { actionsDetected: 0, suggestionsCreated: 0 },
       error: null,
     },
+    staleAgentRuns: 0,
     integrations: [],
     adAccounts: [],
     pendingApprovals: 0,
@@ -128,6 +129,20 @@ describe('operations overview', () => {
 
     expect(overview.monitor.health).toBe('not_started')
     expect(overview.issues).toEqual([])
+  })
+
+  it('marks an expired agent execution lease as a critical operational incident', () => {
+    const overview = buildOperationsOverview(input({ staleAgentRuns: 2 }))
+
+    expect(overview.monitor.health).toBe('critical')
+    expect(overview.agents).toEqual({ staleRuns: 2, timeoutMinutes: 15 })
+    expect(overview.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'agents:stale-runs', source: 'agents', priority: 'critical' }),
+    ]))
+    expect(overview.readiness.checks.find(check => check.id === 'monitoring')).toMatchObject({
+      status: 'blocked',
+      evidence: { en: expect.stringContaining('2 agent run') },
+    })
   })
 
   it('surfaces documented pre-delivery strategy failures as zero-charge operational history', () => {

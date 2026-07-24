@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { monitorWorkspaceExecution } from '@/lib/executionMonitorService'
 import { cronAuthError } from '@/lib/cronAuth'
+import { reconcileStaleAgentRuns } from '@/lib/agents/staleAgentRuns'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -86,6 +87,7 @@ export async function GET(req: NextRequest) {
 
   const now = new Date()
   const dryRun = req.nextUrl.searchParams.get('dryRun') === '1'
+  const staleRuns = await reconcileStaleAgentRuns({ now, dryRun })
   const selection = await workspacesForRun(req, now)
   const totals = {
     workspacesSelected: selection.rows.length,
@@ -138,6 +140,11 @@ export async function GET(req: NextRequest) {
     performanceClaims: false,
     autoExecution: false,
     performanceLearningOwner: 'fetch-analytics',
+    staleRuns: {
+      found: staleRuns.found,
+      reconciled: staleRuns.reconciled,
+      cutoff: staleRuns.cutoff.toISOString(),
+    },
     dryRun,
     shard: selection.shard,
     capped: selection.capped,
