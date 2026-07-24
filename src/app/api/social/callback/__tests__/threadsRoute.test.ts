@@ -61,6 +61,12 @@ describe('GET /api/social/callback/threads', () => {
     const response = await GET(new NextRequest(`https://preview.nexus.test/api/social/callback/threads?code=provider-code&state=${encodeURIComponent(state)}`, { headers: { Cookie: `nexus_threads_oauth=${nonce}` } }))
     expect(response.status).toBe(307)
     expect(response.headers.get('location')).toBe('https://preview.nexus.test/connections?social=connected&platform=threads')
+    const longTokenRequest = vi.mocked(global.fetch).mock.calls[1]
+    const longTokenUrl = new URL(String(longTokenRequest[0]))
+    expect(longTokenUrl.origin + longTokenUrl.pathname).toBe('https://graph.threads.net/access_token')
+    expect(longTokenUrl.searchParams.get('grant_type')).toBe('th_exchange_token')
+    expect(longTokenUrl.searchParams.get('access_token')).toBe('short-token')
+    expect(longTokenRequest[1]?.headers).toBeUndefined()
     expect(mocks.integrationUpsert).toHaveBeenCalledWith(expect.objectContaining({
       where: { workspaceId_type: { workspaceId: 'workspace-1', type: 'THREADS' } },
       create: expect.objectContaining({

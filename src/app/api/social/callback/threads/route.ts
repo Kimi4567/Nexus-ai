@@ -158,9 +158,9 @@ export async function GET(req: NextRequest) {
     longUrl.search = new URLSearchParams({
       grant_type: 'th_exchange_token',
       client_secret: clientSecret,
+      access_token: shortToken.access_token,
     }).toString()
     const longResponse = await fetch(longUrl, {
-      headers: { Authorization: `Bearer ${shortToken.access_token}` },
       cache: 'no-store',
     })
     const longToken = await json(longResponse) as TokenResponse
