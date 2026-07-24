@@ -53,7 +53,14 @@ async function json(response: Response): Promise<Record<string, any>> {
   const text = await response.text()
   if (!text) return {}
   try {
-    const value = JSON.parse(text)
+    // Threads may serialize app-scoped IDs as unquoted integers larger than
+    // Number.MAX_SAFE_INTEGER. Preserve those exact identifiers before
+    // JSON.parse so identity verification cannot compare a rounded value.
+    const losslessText = text.replace(
+      /("(?:id|user_id|app_id)"\s*:\s*)(\d{16,})(?=\s*[,}])/g,
+      '$1"$2"',
+    )
+    const value = JSON.parse(losslessText)
     return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
   } catch {
     return { message: text.slice(0, 300) }

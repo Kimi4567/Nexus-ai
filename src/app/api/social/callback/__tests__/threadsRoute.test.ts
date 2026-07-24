@@ -47,13 +47,14 @@ describe('GET /api/social/callback/threads', () => {
   it('stores a long-lived token only after provider scope and identity verification', async () => {
     const nonce = 'cookie-bound-threads-nonce'
     const state = createOAuthState('user-threads', 'threads', threadsOAuthNonceHash(nonce))
+    const providerUserId = '12345678901234567890'
     global.fetch = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'short-token', user_id: 'thread-user-1' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(`{"access_token":"short-token","user_id":${providerUserId}}`, { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'long-token', token_type: 'bearer', expires_in: 5_184_000 }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'thread-user-1', username: 'nexus', name: 'NEXUS', threads_profile_picture_url: 'https://example.com/avatar.jpg' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: providerUserId, username: 'nexus', name: 'NEXUS', threads_profile_picture_url: 'https://example.com/avatar.jpg' }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'TH|app|token', token_type: 'bearer' }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ data: {
-        app_id: 'threads-app-id', user_id: 'thread-user-1', is_valid: true,
+        app_id: 'threads-app-id', user_id: providerUserId, is_valid: true,
         expires_at: Math.floor(Date.now() / 1000) + 5_184_000,
         scopes: ['threads_basic', 'threads_content_publish', 'threads_manage_insights'],
       } }), { status: 200 })) as typeof fetch
@@ -71,7 +72,7 @@ describe('GET /api/social/callback/threads', () => {
       where: { workspaceId_type: { workspaceId: 'workspace-1', type: 'THREADS' } },
       create: expect.objectContaining({
         type: 'THREADS', accessToken: 'encrypted:long-token', refreshToken: null,
-        accountId: 'thread-user-1', accountName: 'NEXUS',
+        accountId: providerUserId, accountName: 'NEXUS',
         config: expect.objectContaining({
           username: 'nexus', accessTier: 'LIVE', scopeEvidence: 'provider_response',
           scopes: ['threads_basic', 'threads_content_publish', 'threads_manage_insights'],
