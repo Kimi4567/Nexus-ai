@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   snapshotCreate: vi.fn(),
   historyCreateMany: vi.fn(),
   learningCreateMany: vi.fn(),
+  refreshApprovalPreferences: vi.fn(),
   reviewBrandTruth: vi.fn(),
   reviewStrategy: vi.fn(),
   reviewContent: vi.fn(),
@@ -28,6 +29,9 @@ vi.mock('@/lib/ai/marketingQualityGate', () => ({
 vi.mock('@/lib/contentPlanApprovalGuard', () => ({
   buildContentPlanTruthContext: vi.fn(() => ({})),
   reviewContentPlanForApproval: mocks.reviewContent,
+}))
+vi.mock('@/lib/approvalPreferenceLearning', () => ({
+  refreshApprovalPreferenceProposals: mocks.refreshApprovalPreferences,
 }))
 vi.mock('@/lib/campaignSnapshots', () => ({
   CAMPAIGN_SNAPSHOT_SCOPE: {
@@ -130,6 +134,7 @@ beforeEach(() => {
   mocks.snapshotCreate.mockResolvedValue({ id: 'content-snapshot-2', version: 2, payloadHash: 'content-hash' })
   mocks.historyCreateMany.mockResolvedValue({ count: 1 })
   mocks.learningCreateMany.mockResolvedValue({ count: 1 })
+  mocks.refreshApprovalPreferences.mockResolvedValue({ created: 1 })
 })
 
 describe('POST approve-content-plan', () => {
@@ -138,10 +143,11 @@ describe('POST approve-content-plan', () => {
     const body = await response.json()
 
     expect(response.status).toBe(200)
-    expect(body).toMatchObject({ success: true, approved: 1 })
+    expect(body).toMatchObject({ success: true, approved: 1, learningProposalQueued: true })
     expect(mocks.postUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ id: 'post-1', status: 'DRAFT', updatedAt: reviewedAt }),
     }))
+    expect(mocks.refreshApprovalPreferences).toHaveBeenCalledWith('workspace-1')
   })
 
   it('rolls back the batch when any reviewed draft changes concurrently', async () => {

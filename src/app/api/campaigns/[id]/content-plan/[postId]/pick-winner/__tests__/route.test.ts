@@ -84,7 +84,7 @@ beforeEach(() => {
   mocks.postUpdateMany.mockResolvedValue({ count: 1 })
   mocks.postDeleteMany.mockResolvedValue({ count: 1 })
   mocks.activityCreate.mockResolvedValue({})
-  mocks.runBrainLearning.mockResolvedValue(null)
+  mocks.runBrainLearning.mockResolvedValue(1)
 })
 
 describe('PATCH draft variant selection', () => {
@@ -98,6 +98,7 @@ describe('PATCH draft variant selection', () => {
       selectionScope: 'draft_preference',
       discardedVariantDeleted: true,
       preferenceSignalSaved: false,
+      preferenceSignalProposalQueued: true,
       draftComparison: { measurementState: 'draft_preference_only' },
     })
     expect(mocks.postUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
@@ -115,6 +116,16 @@ describe('PATCH draft variant selection', () => {
         metadata: expect.objectContaining({ performanceClaim: false }),
       }),
     })
+  })
+
+  it('reports no queued proposal when the deterministic comparison yields no signal', async () => {
+    mocks.runBrainLearning.mockResolvedValue(0)
+
+    const response = await PATCH(request, params)
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.preferenceSignalProposalQueued).toBe(false)
   })
 
   it('blocks selection after either variant enters approval or execution', async () => {

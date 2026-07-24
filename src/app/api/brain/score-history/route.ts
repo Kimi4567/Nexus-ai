@@ -35,6 +35,8 @@ export async function GET(req: NextRequest) {
       trigger: string
       proposed: unknown
       reason: string
+      evidence: unknown
+      campaignId: string | null
       status: string
       updatedAt: Date
     }> = []
@@ -60,6 +62,8 @@ export async function GET(req: NextRequest) {
           trigger: true,
           proposed: true,
           reason: true,
+          evidence: true,
+          campaignId: true,
           status: true,
           updatedAt: true,
         },

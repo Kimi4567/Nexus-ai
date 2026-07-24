@@ -21,6 +21,7 @@ import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { planApproval, planRevert } from '@/lib/approvalPlan'
 import { buildLearningEvents } from '@/lib/brandBrainEvents'
+import { refreshApprovalPreferenceProposals } from '@/lib/approvalPreferenceLearning'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { reviewStrategyGrounding } from '@/lib/ai/marketingQualityGate'
@@ -283,19 +284,23 @@ export async function POST(req: NextRequest, props: Params) {
         approvedAt: updateById.get(h.socialPostId)?.approvedAt ?? null,
       }))
     )
+    let learningProposalQueued = false
     if (approveEvents.length > 0) {
-      await (prisma as any).marketingLearningEvent
-        .createMany({ data: approveEvents })
-        .catch((e: any) => console.error('[approve-content-plan] learning event write failed', e?.message))
+      try {
+        await (prisma as any).marketingLearningEvent.createMany({ data: approveEvents })
+        const preferenceRefresh = await refreshApprovalPreferenceProposals(campaign.workspaceId)
+        learningProposalQueued = preferenceRefresh.created > 0
+      } catch (error) {
+        console.error(
+          '[approve-content-plan] learning signal refresh failed',
+          error instanceof Error ? error.message : error,
+        )
+      }
     }
 
     const approvedIds = new Set(approvalResult.approvedIds)
     const linked   = draftPosts.filter((p: any) => approvedIds.has(p.id) && !!integrationMap[String(p.platform)]).length
     const unlinked = approved - linked
-
-    // Bulk approval is recorded in MarketingLearningEvent as a user decision,
-    // but generated copy is not treated as audience-performance evidence.
-    const learningProposalQueued = false
 
     // Build human-readable message (honest about what actually happened)
     let message = `${approved} post${approved !== 1 ? 's' : ''} approved`

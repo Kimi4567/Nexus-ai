@@ -192,6 +192,59 @@ describe('CTA gating', () => {
     expect(item.canAccept).toBe(true)
     expect(item.sourceRefs).toHaveLength(1)
   })
+
+  it('keeps a valid analytics proposal acceptable by carrying its evidence contract', () => {
+    const [item] = deriveBrainTimeline([{
+      id: 'performance-pending',
+      trigger: 'post_performance',
+      field: 'winningHooks',
+      status: 'pending',
+      reason: 'A directional platform-local association is ready for review.',
+      proposed: ['Question-led opening'],
+      evidence: {
+        schemaVersion: 1,
+        source: 'platform_api',
+        observationType: 'platform_local_association',
+        causalClaim: false,
+        platform: 'META',
+        period: {
+          start: '2026-07-01T00:00:00.000Z',
+          end: '2026-07-20T00:00:00.000Z',
+        },
+        sample: {
+          eligiblePosts: 5,
+          aboveThresholdPosts: 3,
+          evidencePostIds: ['post-1', 'post-2', 'post-3'],
+          campaignIds: ['campaign-1'],
+        },
+        comparison: {
+          metricDefinition: 'engaged_users_over_reach_or_impressions',
+          baselineMethod: 'platform_local_median',
+          baselineEngagementRate: 2,
+          candidateThresholdEngagementRate: 2.4,
+          thresholdRule: 'at_least_20_percent_above_platform_median',
+        },
+        confidence: {
+          level: 'directional',
+          rationale: 'Three posts cleared the platform-local threshold in the reviewed period.',
+        },
+        proposedChange: {
+          field: 'winningHooks',
+          values: ['Question-led opening'],
+          affectsExistingApprovedRevisions: false,
+          affectsFutureStrategyAndContent: true,
+        },
+        rollback: {
+          strategy: 'remove_only_values_added_by_this_proposal',
+          field: 'winningHooks',
+          previousValue: [],
+        },
+      },
+    }], [])
+
+    expect(item.traceability).toBe('analytics_evidence')
+    expect(item.canAccept).toBe(true)
+  })
 })
 
 describe('summarizeLearning — dashboard line', () => {

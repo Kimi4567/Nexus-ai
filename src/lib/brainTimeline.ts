@@ -45,6 +45,8 @@ export interface RawLearning {
   icon?: string | null
   trigger?: string | null
   reason?: string | null
+  proposed?: unknown
+  evidence?: unknown
   status?: string | null
   campaignId?: string | null
   createdAt?: string | null
@@ -157,6 +159,7 @@ function toItem(raw: RawLearning): TimelineItem | null {
     reason: raw.reason,
     campaignId,
     sourceRefs: raw.sourceRefs,
+    evidence: raw.evidence,
   })
   // history items carry updatedAt; pending items carry createdAt
   const at = (status === 'suggested' ? raw.createdAt : raw.updatedAt) || raw.updatedAt || raw.createdAt || null

@@ -44,6 +44,8 @@ export function BrainTimeline({ onUpdate }: { onUpdate?: () => void }) {
   const [history, setHistory] = useState<RawLearning[]>([])
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
 
   const load = useCallback(async () => {
@@ -87,6 +89,37 @@ export function BrainTimeline({ onUpdate }: { onUpdate?: () => void }) {
     finally { setActing(null) }
   }
 
+  const refreshSignals = async () => {
+    setRefreshing(true)
+    setRefreshMessage(null)
+    try {
+      const token = authHeader()
+      if (!token) return
+      const res = await fetch('/api/brain/proposals/refresh', {
+        method: 'POST',
+        headers: { Authorization: token },
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setRefreshMessage(tt('brain.timeline.refreshError'))
+        return
+      }
+      await load()
+      onUpdate?.()
+      setRefreshMessage(
+        data.created > 0
+          ? (data.created === 1
+              ? tt('brain.timeline.refreshCreatedOne')
+              : tt('brain.timeline.refreshCreatedMany').replace('{n}', String(data.created)))
+          : tt('brain.timeline.refreshNone'),
+      )
+    } catch {
+      setRefreshMessage(tt('brain.timeline.refreshError'))
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   if (loading) return null
 
   const items = deriveBrainTimeline(pending, history)
@@ -99,12 +132,24 @@ export function BrainTimeline({ onUpdate }: { onUpdate?: () => void }) {
         <p className="mt-2 text-sm text-[var(--nx-text-2)] leading-relaxed max-w-[60ch]">
           {tt('brain.timeline.emptyBody')}
         </p>
-        <button
-          onClick={() => router.push('/campaigns/new')}
-          className="mt-4 text-sm font-semibold text-accent hover:opacity-80 transition-opacity"
-        >
-          {tt('brain.timeline.emptyCta')}
-        </button>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button
+            disabled={refreshing}
+            onClick={refreshSignals}
+            className="rounded-lg bg-[var(--nx-text-1)] px-3 py-2 text-sm font-semibold text-[var(--nx-surface)] transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {refreshing ? tt('brain.timeline.refreshing') : tt('brain.timeline.refresh')}
+          </button>
+          <button
+            onClick={() => router.push('/campaigns/new')}
+            className="text-sm font-semibold text-accent hover:opacity-80 transition-opacity"
+          >
+            {tt('brain.timeline.emptyCta')}
+          </button>
+        </div>
+        {refreshMessage && (
+          <p className="mt-3 text-xs font-medium text-[var(--nx-text-3)]" role="status">{refreshMessage}</p>
+        )}
       </section>
     )
   }
@@ -113,9 +158,21 @@ export function BrainTimeline({ onUpdate }: { onUpdate?: () => void }) {
 
   return (
     <section className="nx-card overflow-hidden" dir={dir}>
-      <div className="px-5 py-4 border-b border-[var(--nx-border)]">
-        <h3 className="text-sm font-bold text-[var(--nx-text-1)]">{tt('brain.timeline.title')}</h3>
-        <p className="mt-0.5 text-xs text-[var(--nx-text-3)]">{tt('brain.timeline.subtitle')}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--nx-border)] px-5 py-4">
+        <div>
+          <h3 className="text-sm font-bold text-[var(--nx-text-1)]">{tt('brain.timeline.title')}</h3>
+          <p className="mt-0.5 text-xs text-[var(--nx-text-3)]">{tt('brain.timeline.subtitle')}</p>
+          {refreshMessage && (
+            <p className="mt-1.5 text-xs font-medium text-[var(--nx-text-3)]" role="status">{refreshMessage}</p>
+          )}
+        </div>
+        <button
+          disabled={refreshing}
+          onClick={refreshSignals}
+          className="shrink-0 rounded-lg border border-[var(--nx-border)] px-3 py-1.5 text-xs font-semibold text-[var(--nx-text-2)] transition-colors hover:border-[var(--nx-border-hi)] disabled:opacity-50"
+        >
+          {refreshing ? tt('brain.timeline.refreshing') : tt('brain.timeline.refresh')}
+        </button>
       </div>
 
       <ul className="divide-y divide-[var(--nx-border)]">

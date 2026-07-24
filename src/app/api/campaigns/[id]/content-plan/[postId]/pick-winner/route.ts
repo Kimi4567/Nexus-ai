@@ -169,13 +169,13 @@ export async function PATCH(req: NextRequest, props: Params) {
       })
     })
 
-    // ── 5. GPT-4o A/B analysis → Brand Brain proposals ───────────────────
-    // Compares selected vs discarded draft variants to extract editorial preference signals.
+    // ── 5. Deterministic draft comparison → Brand Brain proposal ─────────
+    // Compares selected vs discarded draft variants to extract one editorial preference signal.
     // Creates pending proposals the user reviews in BrainLearningPanel.
     // Requires discarded-variant data — only runs if we captured it before deletion.
     let preferenceSignalProposalQueued = false
     if (loser && loser.caption && loser.caption.trim().length > 10) {
-      runBrainLearning({
+      const proposalsCreated = await runBrainLearning({
         workspaceId: campaign.workspaceId,
         campaignId: campaign.id,
         trigger: 'user_selected_variant',
@@ -194,8 +194,8 @@ export async function PATCH(req: NextRequest, props: Params) {
           draftComparison,
           forbiddenLanguage: ['winner', 'winning', 'best-performing', 'performance winner', 'learned from performance'],
         },
-      }).catch(() => null) // fire-and-forget — never block the pick action
-      preferenceSignalProposalQueued = true
+      })
+      preferenceSignalProposalQueued = proposalsCreated > 0
     }
 
     const variantCopy = getBrandBrainLearningCopy('user_variant_pick')
