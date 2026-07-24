@@ -556,7 +556,14 @@ export default function CampaignPrintPage() {
             {/* Audience Segments */}
             {(audienceSegmentsDetailed.length > 0 || audienceSegments.length > 0) && (
               <div className="block section">
-                <div className="block-label">👥 Audience Segments</div>
+                <div className="block-label">
+                  👥 {documentIsArabic ? 'فرضيات شرائح الجمهور' : 'Audience Planning Hypotheses'}
+                </div>
+                <div className="block-body" style={{ color: '#64748B', fontSize: 10 }}>
+                  {documentIsArabic
+                    ? 'شرائح تخطيطية مشتقة من الموجز المعتمد؛ تحقّق منها ببحث جمهور فعلي قبل الاستهداف.'
+                    : 'Proposed planning segments derived from the approved brief; validate them with real audience research before targeting.'}
+                </div>
                 {audienceSegmentsDetailed.length > 0 ? (
                   <div style={{ marginTop: 8 }}>
                     {audienceSegmentsDetailed.map((seg: any, i: number) => (

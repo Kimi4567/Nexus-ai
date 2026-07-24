@@ -294,18 +294,45 @@ function softenUnsupportedQualityClaims(text: string, context: StrategyProofCont
       .replace(/طزاجة\s+القهوة/gi, 'تفاصيل طزاجة القهوة المطلوب التحقق منها')
   }
 
-  if (!hasAffirmedClaim(allowed, /\breliable\s+delivery\b|توصيل\s+موثوق/i)) {
+  if (!hasAffirmedClaim(allowed, /\breliable\s+(?:(?:monthly\s+)?coffee\s+)?delivery\b|توصيل\s+موثوق/i)) {
     guarded = guarded
       .replace(/\bfast\s+and\s+reliable\s+delivery\b/gi, 'delivery within the documented service window')
+      .replace(/\breliable\s+(?:monthly\s+)?coffee\s+delivery\b/gi, 'monthly coffee delivery within the documented service window')
+      .replace(/\breliable\s+monthly\s+delivery\b/gi, 'the documented monthly delivery window')
       .replace(/\breliable\s+delivery\b/gi, 'delivery within the documented service scope')
       .replace(/توصيل\s+(?:سريع\s+و)?موثوق/gi, 'توصيل ضمن النطاق والمدة الموثقين')
   }
 
-  if (!hasAffirmedClaim(allowed, /\breliable\s+(?:monthly\s+)?coffee\s+supply\b|إمداد\s+قهوة\s+موثوق/i)) {
+  if (!hasAffirmedClaim(allowed, /\breliable\s+(?:(?:monthly\s+)?coffee\s+)?supply\b|إمداد\s+قهوة\s+موثوق/i)) {
     guarded = guarded
       .replace(/\breliable\s+monthly\s+coffee\s+supply\b/gi, 'more predictable monthly coffee supply')
       .replace(/\breliable\s+coffee\s+supply\b/gi, 'more predictable coffee supply')
+      .replace(/\breliable\s+supply\b/gi, 'more predictable supply')
       .replace(/إمداد\s+قهوة\s+موثوق/gi, 'احتياج قهوة أكثر قابلية للتخطيط')
+  }
+
+  if (!hasAffirmedClaim(allowed, /\b(?:hassle[-\s]?free|without\s+(?:the\s+)?hassle)\b/i)) {
+    guarded = guarded
+      .replace(
+        /\bconvenient\s+coffee\s+delivery\s+without\s+(?:the\s+)?hassle\b/gi,
+        'coffee delivery within the documented service window',
+      )
+      .replace(
+        /\b(?:get\s+your\s+)?coffee\s+delivered\s+without\s+interrupting\s+your\s+busy\s+schedule\b/gi,
+        'Review how the documented delivery window fits your schedule',
+      )
+      .replace(/\bwithout\s+(?:the\s+)?hassle\b/gi, 'with the service details to review')
+  }
+
+  if (!hasAffirmedClaim(allowed, /\bdelivery\s+efficiency\b/i)) {
+    guarded = guarded.replace(/\bdelivery\s+efficiency\b/gi, 'Documented Delivery Window')
+  }
+
+  if (!hasAffirmedClaim(allowed, /\bquality\s+of\s+(?:the\s+)?coffee\b/i)) {
+    guarded = guarded.replace(
+      /\bhighlight\s+the\s+quality\s+of\s+(?:the\s+)?coffee\s+and\s+delivery\s+speed\b/gi,
+      'Highlight the reviewed coffee details and documented delivery window',
+    )
   }
 
   if (!hasAffirmedClaim(allowed, /\b(?:doorstep|door|home)\s+delivery\b|\bdelivered\s+(?:to|at)\s+(?:your\s+)?(?:doorstep|door|home)\b|توصيل\s+(?:إلى|حتى)\s+(?:باب\s+)?المنزل|إلى\s+باب\s+منزلك/i)) {
@@ -365,6 +392,7 @@ function softenUnsupportedQualityClaims(text: string, context: StrategyProofCont
   const cleaned = guarded
     .replace(/\bsee\s+our\s+quality\s+promise\b/gi, 'See the product details')
     .replace(/\bquality\s+promise\b/gi, 'product details')
+    .replace(/\bcoffee\s+documented\s+product\s+details\s+to\s+review\b/gi, 'coffee product details to review')
   return startedCapitalized ? cleaned.replace(/^([a-z])/, char => char.toUpperCase()) : cleaned
 }
 

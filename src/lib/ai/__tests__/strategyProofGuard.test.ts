@@ -81,6 +81,17 @@ describe('strategyProofGuard', () => {
       channelReason: 'Reaching a younger audience with engaging video content',
       cta: 'اشترك الآن لتجربة القهوة الة كل شهر.',
       supportedFact: 'Delivery is limited to Dubai within 48 hours.',
+      valueProps: [
+        'Reliable monthly coffee delivery',
+        'Coffee documented product details to review',
+        'Delivery Efficiency',
+      ],
+      segment: {
+        situation: 'Regularly run out of coffee and want a reliable supply.',
+        message: 'Get your coffee delivered without interrupting your busy schedule.',
+        desiredOutcome: 'Convenient coffee delivery without the hassle.',
+      },
+      weeklyFocus: 'Highlight the quality of coffee and delivery speed.',
     }, {
       verifiedProof: ['Delivery is limited to Dubai within 48 hours.'],
       allowedClaimText: [
@@ -93,6 +104,19 @@ describe('strategyProofGuard', () => {
     expect(guarded.channelReason).toBe('Planning hypothesis: test whether video content on this channel reaches the reviewed audience')
     expect(guarded.cta).toBe('راجع تفاصيل الاشتراك الشهري قبل الطلب.')
     expect(guarded.supportedFact).toBe('Delivery is limited to Dubai within 48 hours.')
+    expect(JSON.stringify(guarded)).not.toMatch(/reliable|without (?:the )?hassle|interrupting your busy schedule|delivery efficiency|quality of coffee/i)
+    expect(guarded.valueProps).toContain('Monthly coffee delivery within the documented service window')
+    expect(guarded.valueProps).toContain('Coffee product details to review')
+    expect(guarded.valueProps).toContain('Documented Delivery Window')
+    expect(guarded.segment).toMatchObject({
+      situation: 'Regularly run out of coffee and want a more predictable supply.',
+      message: 'Review how the documented delivery window fits your schedule.',
+      desiredOutcome: 'Coffee delivery within the documented service window.',
+    })
+    expect(guarded.weeklyFocus).toBe('Highlight the reviewed coffee details and documented delivery window.')
+    expect(guardStrategyProofText('Reliable monthly coffee delivery.', {
+      allowedClaimText: ['Reliable monthly coffee delivery.'],
+    })).toBe('Reliable monthly coffee delivery.')
   })
 
   it('turns unsupported quality, shopping experience, universal-fit, and no-compromise promises into review tasks', () => {
@@ -903,6 +927,8 @@ describe('strategyProofGuard', () => {
     expect(page).toContain('buildStrategyProofContextFromBrand(approvedBrandProfile)')
     expect(page).toContain('const guardedAiOutput = guardStrategyProof(aiOutput || {}, proofContext) as any')
     expect(page).toContain('const strategy = guardedAiOutput?.strategy || {}')
+    expect(page).toContain('Audience Planning Hypotheses')
+    expect(page).toContain('validate them with real audience research before targeting')
     expect(page).not.toContain('const strategy = aiOutput?.strategy || {}')
   })
 })
