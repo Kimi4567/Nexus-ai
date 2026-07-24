@@ -13,6 +13,7 @@ import { encryptToken } from '@/lib/tokenCrypto'
 import { verifyOAuthState } from '@/lib/oauthState'
 import { captureOperationalError } from '@/lib/observability/operationalError'
 import { resolveTikTokRedirectUri } from '@/lib/tiktokOAuth'
+import { queryTikTokCreatorInfo } from '@/lib/tiktokPublishing'
 
 /** Normalize app base URL — no trailing slash */
 function getBaseUrl() {
@@ -172,6 +173,33 @@ export async function GET(req: NextRequest) {
       })
     }
 
+    // Direct Post requires a provider-confirmed creator-info response so the
+    // user can review the privacy levels and interaction restrictions that
+    // TikTok currently allows. Reconnecting must be able to complete this
+    // readiness check; otherwise Connections remains permanently unverified.
+    let creatorInfoVerifiedAt: string | null = null
+    let privacyLevelOptions: string[] = []
+    let creatorUsername: string | null = null
+    if (scopes.includes('video.publish')) {
+      try {
+        const creator = await queryTikTokCreatorInfo(accessToken)
+        creatorInfoVerifiedAt = new Date().toISOString()
+        privacyLevelOptions = creator.privacyLevelOptions
+        creatorUsername = creator.creatorUsername
+      } catch (creatorInfoError) {
+        await captureOperationalError(creatorInfoError, {
+          operation: 'oauth.tiktok-creator-info',
+          route: '/api/social/callback/tiktok',
+          component: 'oauth',
+          method: 'GET',
+          requestId: req.headers?.get?.('x-vercel-id') ?? null,
+          statusCode: 502,
+          retryable: true,
+          severity: 'warning',
+        })
+      }
+    }
+
     // ── Ensure User + Workspace exist ─────────────────────────────────────
     await prisma.user.upsert({
       where: { id: userId },
@@ -220,6 +248,9 @@ export async function GET(req: NextRequest) {
           profileEvidence,
           scopes,
           scopeEvidence,
+          creatorInfoVerifiedAt,
+          privacyLevelOptions,
+          creatorUsername,
           expiresAt:   expiresAt?.toISOString() ?? null,
           refreshExpiresAt: refreshExpiresAt?.toISOString() ?? null,
           connectedAt: new Date().toISOString(),
@@ -239,6 +270,9 @@ export async function GET(req: NextRequest) {
           profileEvidence,
           scopes,
           scopeEvidence,
+          creatorInfoVerifiedAt,
+          privacyLevelOptions,
+          creatorUsername,
           expiresAt: expiresAt?.toISOString() ?? null,
           refreshExpiresAt: refreshExpiresAt?.toISOString() ?? null,
           connectedAt: new Date().toISOString(),

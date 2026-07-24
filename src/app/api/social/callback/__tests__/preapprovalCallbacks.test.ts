@@ -132,6 +132,17 @@ describe('provider callbacks before public approval', () => {
       }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         data: { user: { open_id: 'creator-1', display_name: 'NEXUS Creator', avatar_url: 'https://example.com/avatar.jpg' } },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: {
+          creator_username: 'nexus_creator',
+          privacy_level_options: ['SELF_ONLY', 'PUBLIC_TO_EVERYONE'],
+          comment_disabled: false,
+          duet_disabled: true,
+          stitch_disabled: true,
+          max_video_post_duration_sec: 180,
+        },
+        error: { code: 'ok' },
       }), { status: 200 })) as typeof fetch
 
     const state = createOAuthState('user-social', 'tiktok')
@@ -139,13 +150,15 @@ describe('provider callbacks before public approval', () => {
       `https://www.nexus-grow.com/api/social/callback/tiktok?code=provider-code&state=${encodeURIComponent(state)}`,
     ))
 
-    expect(global.fetch).toHaveBeenCalledTimes(2)
+    expect(global.fetch).toHaveBeenCalledTimes(3)
     const tokenCall = vi.mocked(global.fetch).mock.calls[0]
     expect(tokenCall[0]).toBe('https://open.tiktokapis.com/v2/oauth/token/')
     expect(String((tokenCall[1]?.body as URLSearchParams).get('client_key'))).toBe('tiktok-key')
     expect((tokenCall[1]?.body as URLSearchParams).get('redirect_uri'))
       .toBe('https://nexus-grow.com/api/social/callback/tiktok')
     expect((tokenCall[1]?.headers as Record<string, string>).Authorization).toBeUndefined()
+    expect(vi.mocked(global.fetch).mock.calls[2][0])
+      .toBe('https://open.tiktokapis.com/v2/post/publish/creator_info/query/')
     expect(response.headers.get('location')).toBe('https://www.nexus-grow.com/connections?social=connected&platform=tiktok')
     expect(mocks.integrationUpsert).toHaveBeenCalledWith(expect.objectContaining({
       create: expect.objectContaining({
@@ -155,6 +168,9 @@ describe('provider callbacks before public approval', () => {
           scopeEvidence: 'provider_response',
           profileEvidence: 'provider_response',
           scopes: ['user.info.basic', 'video.publish'],
+          creatorInfoVerifiedAt: expect.any(String),
+          privacyLevelOptions: ['SELF_ONLY', 'PUBLIC_TO_EVERYONE'],
+          creatorUsername: 'nexus_creator',
         }),
       }),
     }))
@@ -190,6 +206,40 @@ describe('provider callbacks before public approval', () => {
           scopeEvidence: 'provider_response',
           scopes: ['openid', 'profile', 'email', 'w_member_social'],
           organizations: [],
+        }),
+      }),
+    }))
+  })
+
+  it('keeps TikTok connected but does not invent creator readiness when provider verification fails', async () => {
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        access_token: 'tiktok-token',
+        refresh_token: 'tiktok-refresh',
+        open_id: 'creator-1',
+        expires_in: 86_400,
+        refresh_expires_in: 31_536_000,
+        scope: 'user.info.basic,video.publish',
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: { user: { open_id: 'creator-1', display_name: 'NEXUS Creator' } },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        error: { code: 'access_denied', message: 'Creator info is unavailable for this app' },
+      }), { status: 403 })) as typeof fetch
+
+    const state = createOAuthState('user-social', 'tiktok')
+    const response = await callbackTikTok(new NextRequest(
+      `https://www.nexus-grow.com/api/social/callback/tiktok?code=provider-code&state=${encodeURIComponent(state)}`,
+    ))
+
+    expect(response.headers.get('location')).toBe('https://www.nexus-grow.com/connections?social=connected&platform=tiktok')
+    expect(mocks.integrationUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({
+        config: expect.objectContaining({
+          creatorInfoVerifiedAt: null,
+          privacyLevelOptions: [],
+          creatorUsername: null,
         }),
       }),
     }))
