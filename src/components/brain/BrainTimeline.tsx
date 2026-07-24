@@ -238,6 +238,17 @@ function Row({
             <p className="mt-1.5 text-sm text-[var(--nx-text-2)] leading-relaxed">{item.reason}</p>
           )}
 
+          {item.status === 'suggested' && item.suggestedValue && (
+            <div className="mt-3 rounded-lg border border-[var(--nx-border)] bg-[var(--nx-elevated)] px-3 py-2.5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-[var(--nx-text-3)]">
+                {tt('brain.timeline.suggestedUpdate')}
+              </p>
+              <p className="mt-1 text-sm font-medium leading-relaxed text-[var(--nx-text-1)]">
+                {item.suggestedValue}
+              </p>
+            </div>
+          )}
+
           {item.traceability === 'source_not_attached' && (
             <p className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold leading-relaxed text-amber-800">
               {locale === 'ar'

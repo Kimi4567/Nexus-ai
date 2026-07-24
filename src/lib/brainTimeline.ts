@@ -16,6 +16,8 @@
  *   - Raw `field`, `proposed` JSON, and trigger enums are NEVER exposed; we return
  *     i18n KEYS + a human field label so the UI renders EN/AR plain-business copy.
  *   - External market-intelligence proposals require stored source URLs before acceptance.
+ *   - Reviewable string/list proposals are rendered as concise business copy;
+ *     arbitrary JSON is never exposed.
  *   - Zero rows → zero items (the UI then shows an honest empty state).
  */
 
@@ -70,6 +72,8 @@ export interface TimelineItem {
   displayName: string
   /** the stored, user-facing reason text — rendered verbatim as the body */
   reason: string
+  /** concise human-readable value that Accept would apply; never raw object JSON */
+  suggestedValue: string | null
   /** stored emoji icon for the field, if any */
   icon: string | null
   /** linked campaign id, or null — gates the "View related campaign" CTA */
@@ -141,6 +145,16 @@ function mapSource(trigger?: string | null): TimelineSource {
   return 'unknown'
 }
 
+function readableProposedValue(value: unknown): string | null {
+  if (typeof value === 'string') return value.trim().slice(0, 600) || null
+  if (!Array.isArray(value)) return null
+  const items = value
+    .filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
+    .map(item => item.trim())
+    .slice(0, 8)
+  return items.length > 0 ? items.join(' · ').slice(0, 600) : null
+}
+
 const STATUS_KEY: Record<TimelineStatus, string> = {
   suggested: `${B}.status.suggested`,
   applied: `${B}.status.applied`,
@@ -173,6 +187,7 @@ function toItem(raw: RawLearning): TimelineItem | null {
     field: raw.field || '',
     displayName: raw.displayName || '',
     reason: provenance.displayReason,
+    suggestedValue: readableProposedValue(raw.proposed),
     icon: raw.icon ?? null,
     campaignId,
     at,

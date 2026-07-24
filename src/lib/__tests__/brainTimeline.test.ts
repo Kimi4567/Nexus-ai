@@ -85,6 +85,31 @@ describe('deriveBrainTimeline — status mapping (honesty)', () => {
     )
     expect(items).toHaveLength(0)
   })
+
+  it('shows the exact reviewable string value that Accept would apply', () => {
+    const [item] = deriveBrainTimeline([{
+      ...pendingRow,
+      proposed: 'Editorial preference: keep drafts grounded in confirmed details.',
+    }], [])
+
+    expect(item.suggestedValue).toBe('Editorial preference: keep drafts grounded in confirmed details.')
+  })
+
+  it('renders string-list proposals safely but never exposes arbitrary JSON', () => {
+    const [listItem] = deriveBrainTimeline([{
+      ...pendingRow,
+      id: 'list-proposal',
+      proposed: ['Question-led opening', 'Direct factual opening'],
+    }], [])
+    const [objectItem] = deriveBrainTimeline([{
+      ...pendingRow,
+      id: 'object-proposal',
+      proposed: { secret: 'raw JSON must stay hidden' },
+    }], [])
+
+    expect(listItem.suggestedValue).toBe('Question-led opening · Direct factual opening')
+    expect(objectItem.suggestedValue).toBeNull()
+  })
 })
 
 describe('deriveBrainTimeline — source mapping', () => {
