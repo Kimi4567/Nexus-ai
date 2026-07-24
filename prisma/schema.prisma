@@ -2471,15 +2471,19 @@ model AdPerformanceSnapshot {
 }
 
 // ============================================================================
-// META APP REVIEW COMPLIANCE
+// META PLATFORM APP REVIEW COMPLIANCE
 // ============================================================================
 
-// Tracks Meta Data Deletion Requests (required by Meta Platform Policy)
-// Endpoint: POST /api/social/callback/meta-data-deletion
+// Tracks Facebook/Instagram and Threads data-deletion callbacks required by
+// Meta Platform Policy. The fbUserId column name is retained for compatibility;
+// Threads IDs are stored with a "threads:" namespace to prevent collisions.
+// Endpoints:
+// - POST /api/social/callback/meta-data-deletion
+// - POST /api/social/callback/threads-data-deletion
 model DataDeletionRequest {
   id String @id @default(cuid())
 
-  // Meta's Facebook user ID (from signed_request payload)
+  // Meta account key from signed_request (Facebook ID or namespaced Threads ID)
   fbUserId String
 
   // Our internal user ID (if we can match it)

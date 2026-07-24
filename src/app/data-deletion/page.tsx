@@ -1,14 +1,14 @@
 'use client'
 
 /**
- * /data-deletion — Meta Data Deletion Status Page
+ * /data-deletion — Connected-platform Data Deletion Status Page
  *
  * Public page required by Meta Platform Policy.
- * Users and Meta's reviewers can check the status of a data deletion request
+ * Users and platform reviewers can check the status of a data deletion request
  * by visiting: https://nexus-grow.com/data-deletion?id=<confirmation_code>
  *
- * This page is linked in the Privacy Policy and registered in the Meta App Dashboard
- * as the "Data Deletion Instructions URL".
+ * This page is linked in the Privacy Policy and registered with platform apps
+ * as the data-deletion status URL.
  */
 
 import { useSearchParams } from 'next/navigation'
@@ -68,7 +68,7 @@ function DataDeletionContent() {
             Data Deletion Request
           </h1>
           <p className="text-sm text-white/50 mb-8">
-            {id ? 'Status of your Facebook data deletion request' : 'Delete connected-platform data or request deletion of your NEXUS account data'}
+            {id ? 'Status of your connected-platform data deletion request' : 'Delete connected-platform data or request deletion of your NEXUS account data'}
           </p>
 
           {state.status === 'instructions' && (
@@ -116,7 +116,7 @@ function DataDeletionContent() {
                 <div>
                   <p className="text-green-400 font-medium text-sm">Deletion Completed</p>
                   <p className="text-white/50 text-xs mt-0.5">
-                    Your Facebook data has been removed from our systems.
+                    Your connected-platform data has been removed from our systems.
                   </p>
                 </div>
               </div>

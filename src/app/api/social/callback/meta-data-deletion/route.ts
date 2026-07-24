@@ -19,53 +19,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
+import { randomBytes, timingSafeEqual } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { captureOperationalError } from '@/lib/observability/operationalError'
-
-// Meta signs requests using base64url (replaces + with -, / with _)
-function base64UrlDecode(str: string): Buffer {
-  const padded = str.replace(/-/g, '+').replace(/_/g, '/')
-  return Buffer.from(padded, 'base64')
-}
-
-/**
- * Verify Meta's signed_request parameter.
- * Format: <base64url_signature>.<base64url_payload>
- */
-function parseSignedRequest(
-  signedRequest: string,
-  appSecret: string
-): { userId: string; algorithm: string; issuedAt: number } | null {
-  try {
-    const parts = signedRequest.split('.')
-    if (parts.length !== 2) return null
-
-    const [encodedSig, encodedPayload] = parts
-    const sig = base64UrlDecode(encodedSig)
-    const payload = base64UrlDecode(encodedPayload)
-
-    // Verify HMAC-SHA256 signature
-    const expectedSig = createHmac('sha256', appSecret)
-      .update(encodedPayload)
-      .digest()
-
-    if (sig.length !== expectedSig.length || !timingSafeEqual(sig, expectedSig)) {
-      console.error('[Meta Data Deletion] Signature mismatch — possible forgery')
-      return null
-    }
-
-    const data = JSON.parse(payload.toString('utf8'))
-    return {
-      userId: String(data.user_id || ''),
-      algorithm: String(data.algorithm || ''),
-      issuedAt: Number(data.issued_at || 0),
-    }
-  } catch {
-    console.error('[Meta Data Deletion] Failed to parse signed_request')
-    return null
-  }
-}
+import {
+  isValidFreshMetaSignedRequest,
+  readMetaSignedRequest,
+  verifyMetaSignedRequest,
+} from '@/lib/metaSignedRequest'
 
 /**
  * Generate a unique confirmation code for tracking
@@ -82,44 +43,21 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Meta sends the signed_request as form-encoded body
-    let signedRequest: string | null = null
-
-    const contentType = req.headers.get('content-type') || ''
-    if (contentType.includes('application/x-www-form-urlencoded')) {
-      const body = await req.text()
-      const params = new URLSearchParams(body)
-      signedRequest = params.get('signed_request')
-    } else if (contentType.includes('application/json')) {
-      // Some implementations send JSON
-      const body = await req.json()
-      signedRequest = body.signed_request
-    } else {
-      // Try form data as fallback
-      const formData = await req.formData().catch(() => null)
-      if (formData) signedRequest = formData.get('signed_request') as string | null
-    }
-
+    const signedRequest = await readMetaSignedRequest(req)
     if (!signedRequest) {
       console.error('[Meta Data Deletion] Missing signed_request in body')
       return NextResponse.json({ error: 'Missing signed_request' }, { status: 400 })
     }
 
-    // Verify and parse
-    const payload = parseSignedRequest(signedRequest, appSecret)
+    const payload = verifyMetaSignedRequest(signedRequest, appSecret)
     if (!payload) {
       return NextResponse.json({ error: 'Invalid signed_request' }, { status: 400 })
     }
 
     const { userId: fbUserId, issuedAt } = payload
-    if (!fbUserId || payload.algorithm.toUpperCase() !== 'HMAC-SHA256') {
-      return NextResponse.json({ error: 'Invalid signed_request payload' }, { status: 400 })
-    }
-
-    // Reject stale requests (> 1 hour old)
-    const ageSeconds = Math.floor(Date.now() / 1000) - issuedAt
-    if (ageSeconds < -60 || ageSeconds > 3600) {
-      console.warn('[Meta Data Deletion] Stale request rejected, age:', ageSeconds, 's')
+    if (!isValidFreshMetaSignedRequest(payload)) {
+      const ageSeconds = Math.floor(Date.now() / 1000) - issuedAt
+      console.warn('[Meta Data Deletion] Invalid or stale request rejected, age:', ageSeconds, 's')
       return NextResponse.json({ error: 'Request too old' }, { status: 400 })
     }
 
