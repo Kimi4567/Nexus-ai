@@ -67,7 +67,7 @@
     },
     {
       "path": "/api/cron/competitor-monitor",
-      "schedule": "0 9 * * *"
+      "schedule": "35 * * * *"
     },
     {
       "path": "/api/cron/trend-monitor",

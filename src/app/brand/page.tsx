@@ -2801,9 +2801,17 @@ function BrandBrainInner() {
                     />
                     <p className="mt-1.5 text-[11px]" style={{ color: '#334155' }}>
                       {locale === 'ar'
-                        ? 'أضف المنافسين الذين تريد أن يأخذهم NEXUS في الاعتبار. تجري فحوص أخبار مجدولة بمصادر وروابط عند حفظ أسماء المنافسين، لكنها لا تغيّر Brand Brain تلقائياً.'
-                        : 'Add competitors you want NEXUS to consider. Scheduled source-linked news checks run when competitor names are saved, but they never change Brand Brain automatically.'}
+                        ? 'الأسماء هنا سياق تخطيط فقط. لتفعيل مراقبة حقيقية أكّد الموقع العام للمنافس وأنشئ Baseline في مركز المنافسين؛ ولا يتغير Brand Brain تلقائياً.'
+                        : 'Names here are planning context only. For real monitoring, confirm the competitor’s public website and capture a baseline in Competitor Center; Brand Brain never changes automatically.'}
                     </p>
+                    <Link
+                      href="/brand/competitors"
+                      className="mt-3 inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-xs font-black text-violet-700 transition hover:bg-violet-100"
+                    >
+                      <ScanSearch className="h-4 w-4" />
+                      {locale === 'ar' ? 'فتح مركز مراقبة المنافسين' : 'Open Competitor Center'}
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Link>
                   </div>
 
                   {/* ── Competitor Notes (freeform context) ─────────── */}

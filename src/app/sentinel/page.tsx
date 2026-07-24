@@ -3,9 +3,9 @@ import { redirect } from 'next/navigation'
 /**
  * Legacy standalone Sentinel route.
  *
- * Market intelligence and performance review now live in Analytics and
- * campaign-level strategy surfaces, where evidence boundaries are explicit.
+ * Competitor intelligence now lives inside Brand Brain, where public-source
+ * evidence is reviewed before it can become a separate learning proposal.
  */
 export default function SentinelPage() {
-  redirect('/analytics')
+  redirect('/brand/competitors')
 }

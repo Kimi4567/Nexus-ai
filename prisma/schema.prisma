@@ -147,6 +147,11 @@ model Workspace {
   landingPages           LandingPage[]
   landingPageExperiments LandingPageExperiment[]
   conversionEvents       ConversionEvent[]
+  competitors            Competitor[]
+  competitorSources      CompetitorSource[]
+  competitorSnapshots    CompetitorSnapshot[]
+  competitorSignals      CompetitorSignal[]
+  competitorResearchRuns CompetitorResearchRun[]
 
   // Settings
   settings Json? // branding, integrations, etc.
@@ -1916,6 +1921,155 @@ model BrainScoreSnapshot {
   createdAt DateTime @default(now())
 
   @@index([workspaceId, createdAt])
+}
+
+// ============================================================================
+// COMPETITOR INTELLIGENCE — source-linked, review-first public web monitoring
+// ============================================================================
+
+model Competitor {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  name           String
+  normalizedName String
+  websiteUrl     String
+  domain         String
+  aliases        String[]  @default([])
+  status         String    @default("ACTIVE") // ACTIVE | PAUSED
+  baselineStatus String    @default("NOT_STARTED") // NOT_STARTED | RUNNING | READY | FAILED
+  baselineAt     DateTime?
+  lastScanAt     DateTime?
+  nextScanAt     DateTime?
+  lastError      String?   @db.Text
+
+  sources CompetitorSource[]
+  signals CompetitorSignal[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, domain])
+  @@index([workspaceId, status])
+  @@index([workspaceId, updatedAt])
+}
+
+model CompetitorSource {
+  id String @id @default(cuid())
+
+  workspaceId  String
+  workspace    Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  competitorId String
+  competitor   Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+
+  type          String  @default("HOME") // HOME | PRICING | PRODUCT | BLOG | NEWSROOM | CUSTOM
+  url           String
+  normalizedUrl String
+  enabled       Boolean @default(true)
+  cadenceHours  Int     @default(24)
+
+  nextScanAt     DateTime  @default(now())
+  lastCheckedAt  DateTime?
+  lastSuccessAt  DateTime?
+  lastStatusCode Int?
+  etag           String?
+  lastModified   String?
+  lastHash       String?
+  robotsAllowed  Boolean?
+  lastError      String?   @db.Text
+  leaseUntil     DateTime?
+  leaseToken     String?
+
+  snapshots CompetitorSnapshot[]
+  signals   CompetitorSignal[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([competitorId, normalizedUrl])
+  @@index([workspaceId, enabled, nextScanAt])
+  @@index([competitorId, enabled])
+  @@index([leaseUntil])
+}
+
+model CompetitorSnapshot {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sourceId    String
+  source      CompetitorSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  contentHash    String
+  title          String?
+  normalizedText String   @db.Text
+  extracted      Json
+  capturedAt     DateTime @default(now())
+
+  previousSignals CompetitorSignal[] @relation("CompetitorSignalPreviousSnapshot")
+  currentSignals  CompetitorSignal[] @relation("CompetitorSignalCurrentSnapshot")
+
+  @@unique([sourceId, contentHash])
+  @@index([workspaceId, capturedAt])
+  @@index([sourceId, capturedAt])
+}
+
+model CompetitorSignal {
+  id String @id @default(cuid())
+
+  workspaceId  String
+  workspace    Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  competitorId String
+  competitor   Competitor       @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  sourceId     String
+  source       CompetitorSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  previousSnapshotId String?
+  previousSnapshot   CompetitorSnapshot? @relation("CompetitorSignalPreviousSnapshot", fields: [previousSnapshotId], references: [id], onDelete: SetNull)
+  currentSnapshotId  String
+  currentSnapshot    CompetitorSnapshot  @relation("CompetitorSignalCurrentSnapshot", fields: [currentSnapshotId], references: [id], onDelete: Restrict)
+  fingerprint        String              @unique
+  type               String // MESSAGE_CHANGE | PRICE_CHANGE | OFFER_CHANGE | CTA_CHANGE | PAGE_CHANGE
+  title              String
+  summary            String              @db.Text
+  beforeText         String?             @db.Text
+  afterText          String?             @db.Text
+  evidence           Json
+  confidence         Int                 @default(70)
+  importance         Int                 @default(2) // 1 high, 2 normal, 3 low
+  status             String              @default("NEW") // NEW | REVIEWED | DISMISSED | PROPOSED
+  proposalId         String?
+  reviewedAt         DateTime?
+  reviewedBy         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workspaceId, status, createdAt])
+  @@index([competitorId, createdAt])
+  @@index([sourceId, createdAt])
+}
+
+model CompetitorResearchRun {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  trigger         String // BASELINE | MANUAL | CRON
+  status          String    @default("RUNNING") // RUNNING | COMPLETED | PARTIAL | FAILED
+  sourcesSelected Int       @default(0)
+  sourcesChecked  Int       @default(0)
+  changesDetected Int       @default(0)
+  signalsCreated  Int       @default(0)
+  errors          Json      @default("[]")
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+
+  @@index([workspaceId, startedAt])
+  @@index([status, startedAt])
 }
 
 // ============================================================================
