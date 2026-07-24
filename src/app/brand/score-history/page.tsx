@@ -12,8 +12,8 @@ import { Brain, ArrowLeft, TrendingUp, TrendingDown, Minus, Trophy, Target, Spar
    ───────────────────────────────────────────────────────────────
    PR-N2: This page shows the *maturity* score trajectory. Maturity is a
    long-term DEPTH signal (saved setup + reviewed signals over time). It is
-   explicitly NOT "memory completeness" and NOT organic readiness — so it can
-   read 45 while all eight core identity fields are saved. Light + calm theme to match the
+   explicitly NOT "memory completeness" and NOT organic readiness, so it can
+   differ from the number of saved core identity fields. Light + calm theme to match the
    Brand Brain workspace. No score/snapshot math changed — display only.
    ═══════════════════════════════════════════════════════════════ */
 
@@ -313,8 +313,8 @@ export default function ScoreHistoryPage() {
                 {ar ? 'ما معنى النضج؟ ' : 'What maturity means: '}
               </span>
               {ar
-                ? 'النضج مؤشر عمق طويل المدى يعتمد على إعدادك المحفوظ وإشارات Brand Brain المراجَعة بمرور الوقت. إنه ليس عدد حقول الهوية المحفوظة وليس الجاهزية العضوية — لذلك قد يكون 45 حتى مع حفظ حقول الهوية الأساسية الثمانية. تعلّم الأداء لا يبدأ إلا بعد توفر analyticsData أو مقاييس منصة موثوقة.'
-                : 'Maturity is a long-term depth signal based on your saved setup plus reviewed Brand Brain signals over time. It is not the count of saved identity fields and not organic readiness — so it can read 45 even when all eight core identity fields are saved. Performance learning starts only after analyticsData or trusted platform metrics exist.'}
+                ? 'النضج مؤشر عمق طويل المدى يعتمد على إعدادك المحفوظ وإشارات Brand Brain المراجَعة بمرور الوقت. إنه ليس عدد حقول الهوية المحفوظة وليس الجاهزية العضوية، لذلك قد يختلف عن اكتمال حقول الهوية الأساسية الثمانية. تعلّم الأداء لا يبدأ إلا بعد توفر analyticsData أو مقاييس منصة موثوقة.'
+                : 'Maturity is a long-term depth signal based on your saved setup plus reviewed Brand Brain signals over time. It is not the count of saved identity fields and not organic readiness, so it can differ from completeness even when all eight core identity fields are saved. Performance learning starts only after analyticsData or trusted platform metrics exist.'}
             </p>
           </div>
 

@@ -176,7 +176,6 @@ function softenUnsupportedExperienceClaims(text: string, context: StrategyProofC
     .replace(/\bupdates?\s+you\s+can\s+rely\s+on\b/gi, 'Review the weekly update process')
     .replace(/\bour\s+structured\s+approach\s+ensures?\s+a\s+structured\s+renovation\s+process\.?/gi, 'Our structured approach documents the renovation stages for review.')
     .replace(/\bour\s+phased\s+approach\s+makes\s+renovation\s+simple\s+and\s+clear\.?/gi, 'Our phased approach documents the renovation stages for review.')
-    .replace(/\bcapitali[sz]e\s+on\s+(?:the\s+)?growing\s+(?:interest|demand)\s+in\b[^.?!]*/gi, 'begin testing the reviewed demand hypothesis with a measurable baseline')
     .replace(/\bdiscover\s+how\s+we\s+make\s+renovations?\s+with\s+clear\s+next\s+steps\s+with\s+clear\s+phases\b/gi, 'Review how the documented renovation phases connect to each next step')
     .replace(/\bsee\s+how\s+transparent\s+costs\s+can\s+lead\s+to\s+a\s+with\s+clear\s+next\s+steps\s+renovation\b/gi, 'Review the documented scope and cost details before the next renovation decision')
     .replace(/\bare\s+and\s+aligned\b/gi, 'are aligned')
@@ -194,6 +193,31 @@ function softenUnsupportedExperienceClaims(text: string, context: StrategyProofC
   }
 
   return guarded
+}
+
+function softenUnsupportedMarketAssumptions(text: string, context: StrategyProofContext): string {
+  const allowed = allowedClaimsText(context)
+  let guarded = text
+
+  if (!hasAffirmedClaim(allowed, /\bgrowing\s+(?:interest|demand)\s+(?:in|for)\b/i)) {
+    guarded = guarded.replace(
+      /\bcapitali[sz]e\s+on\s+(?:the\s+)?growing\s+(?:interest|demand)\s+(?:in|for)\b[^.?!]*/gi,
+      'Test demand for the reviewed offer with a measurable baseline',
+    )
+  }
+
+  if (!hasAffirmedClaim(allowed, /\b(?:younger|young)\s+(?:audience|adults?|customers?|people)\b/i)) {
+    guarded = guarded.replace(
+      /\breach(?:ing)?\s+(?:a\s+)?younger\s+audience\s+with\s+engaging\s+video\s+content\b/gi,
+      'Planning hypothesis: test whether video content on this channel reaches the reviewed audience',
+    )
+  }
+
+  return guarded
+    .replace(
+      /اشترك\s+الآن\s+لتجربة\s+القهوة\s+الة\s+كل\s+شهر[.!؟]?/giu,
+      'راجع تفاصيل الاشتراك الشهري قبل الطلب.',
+    )
 }
 
 function guardUnsupportedBudgetAssumptions(text: string): string {
@@ -660,8 +684,11 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
       softenUnsupportedQualityClaims(
         softenUnsupportedOfferAssurances(
           softenUnsupportedServiceClaims(
-            softenUnsupportedExperienceClaims(
-              softenAbsoluteOutcomeClaims(guardUnsafeStatusLanguage(guarded)),
+            softenUnsupportedMarketAssumptions(
+              softenUnsupportedExperienceClaims(
+                softenAbsoluteOutcomeClaims(guardUnsafeStatusLanguage(guarded)),
+                context,
+              ),
               context,
             ),
             context,

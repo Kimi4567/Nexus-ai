@@ -75,6 +75,26 @@ describe('strategyProofGuard', () => {
     })).toBe(text)
   })
 
+  it('neutralizes unsupported live market assumptions and repairs malformed subscription copy', () => {
+    const guarded = guardStrategyProof({
+      opportunity: 'Capitalize on growing demand for convenient coffee solutions.',
+      channelReason: 'Reaching a younger audience with engaging video content',
+      cta: 'اشترك الآن لتجربة القهوة الة كل شهر.',
+      supportedFact: 'Delivery is limited to Dubai within 48 hours.',
+    }, {
+      verifiedProof: ['Delivery is limited to Dubai within 48 hours.'],
+      allowedClaimText: [
+        'Monthly one-kilogram coffee subscription for AED 149.',
+        'Delivery is limited to Dubai within 48 hours.',
+      ],
+    })
+
+    expect(guarded.opportunity).toBe('Test demand for the reviewed offer with a measurable baseline.')
+    expect(guarded.channelReason).toBe('Planning hypothesis: test whether video content on this channel reaches the reviewed audience')
+    expect(guarded.cta).toBe('راجع تفاصيل الاشتراك الشهري قبل الطلب.')
+    expect(guarded.supportedFact).toBe('Delivery is limited to Dubai within 48 hours.')
+  })
+
   it('turns unsupported quality, shopping experience, universal-fit, and no-compromise promises into review tasks', () => {
     const guarded = guardStrategyProof({
       positioning: 'NOORAYA offers modern modest abayas without compromising on style.',
@@ -870,5 +890,19 @@ describe('strategyProofGuard', () => {
     expect(page).toContain('guardStrategyTruthContract(\n    guardedAiOutput?.strategy || {}')
     expect(page).toContain('const topHooks: string[] = strategy.topHooks || guardedAiOutput?.topHooks || []')
     expect(page).not.toContain('guardStrategyTruthContract(aiOutput?.strategy || {}')
+  })
+
+  it('delivery document applies the proof guard using the approved Brand Brain snapshot', () => {
+    const page = readFileSync(
+      path.join(process.cwd(), 'src/app/campaigns/[id]/print/page.tsx'),
+      'utf8',
+    )
+
+    expect(page).toContain("import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'")
+    expect(page).toContain('deliveryManifest?.approvedStrategy?.brandProfile')
+    expect(page).toContain('buildStrategyProofContextFromBrand(approvedBrandProfile)')
+    expect(page).toContain('const guardedAiOutput = guardStrategyProof(aiOutput || {}, proofContext) as any')
+    expect(page).toContain('const strategy = guardedAiOutput?.strategy || {}')
+    expect(page).not.toContain('const strategy = aiOutput?.strategy || {}')
   })
 })

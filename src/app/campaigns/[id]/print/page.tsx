@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout'
+import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
+import { buildStrategyProofContextFromBrand } from '@/lib/strategy/strategyProofContext'
 
 interface Campaign {
   id: string
@@ -48,7 +50,10 @@ interface DeliveryManifest {
       media?: { version: number; payloadHash: string } | null
     }
   }>
-  approvedStrategy?: { campaign?: Partial<Campaign> } | null
+  approvedStrategy?: {
+    campaign?: Partial<Campaign>
+    brandProfile?: Record<string, unknown> | null
+  } | null
 }
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -156,7 +161,10 @@ export default function CampaignPrintPage() {
   }
 
   const aiOutput = campaign.aiOutput as any
-  const strategy = aiOutput?.strategy || {}
+  const approvedBrandProfile = deliveryManifest?.approvedStrategy?.brandProfile
+  const { proofContext } = buildStrategyProofContextFromBrand(approvedBrandProfile)
+  const guardedAiOutput = guardStrategyProof(aiOutput || {}, proofContext) as any
+  const strategy = guardedAiOutput?.strategy || {}
 
   // Sprint M fields
   const businessObjective: any = strategy.businessObjective || null
@@ -174,13 +182,13 @@ export default function CampaignPrintPage() {
   const channelStrategy: any[] = strategy.channelStrategy || []
 
   // Legacy / shared fields
-  const topHooks: string[] = aiOutput?.topHooks || strategy.topHooks || []
-  const ctaVariations: string[] = aiOutput?.ctaVariations || strategy.ctaVariations || []
-  const captionFormulas: string[] = aiOutput?.captionFormulas || []
-  const calendar: any[] = aiOutput?.contentCalendar || strategy.contentCalendar || []
+  const topHooks: string[] = guardedAiOutput?.topHooks || strategy.topHooks || []
+  const ctaVariations: string[] = guardedAiOutput?.ctaVariations || strategy.ctaVariations || []
+  const captionFormulas: string[] = guardedAiOutput?.captionFormulas || []
+  const calendar: any[] = guardedAiOutput?.contentCalendar || strategy.contentCalendar || []
   const storedLanguage = String(
-    aiOutput?.language
-    ?? aiOutput?.strategyOrder?.language
+    guardedAiOutput?.language
+    ?? guardedAiOutput?.strategyOrder?.language
     ?? strategy?.language
     ?? '',
   ).toLowerCase()
@@ -451,7 +459,11 @@ export default function CampaignPrintPage() {
             {/* Diagnosis */}
             {strategy.diagnosis && (
               <div className="block block-amber section">
-                <div className="block-label amber">🔎 Marketing Diagnosis</div>
+                <div className="block-label amber">
+                  🔎 {diagnosisDetails?.basis === 'hypothesis'
+                    ? (documentIsArabic ? 'تشخيص تخطيطي — فرضية للمراجعة' : 'Planning Diagnosis — Hypothesis to Review')
+                    : (documentIsArabic ? 'تشخيص تسويقي' : 'Marketing Diagnosis')}
+                </div>
                 <div className="block-body">{strategy.diagnosis}</div>
 
                 {diagnosisDetails && (

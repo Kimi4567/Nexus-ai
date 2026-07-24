@@ -41,6 +41,7 @@ export interface CampaignSnapshotReference {
 }
 
 export interface StrategyApprovalSnapshotView {
+  brandProfile: JsonRecord | null
   campaign: {
     id: string
     name: string
@@ -348,8 +349,12 @@ export function readStrategyApprovalSnapshotPayload(payload: unknown): StrategyA
     ? value.strategy as JsonRecord
     : null
   if (!strategy) return null
+  const brandProfile = value.brandProfile && typeof value.brandProfile === 'object' && !Array.isArray(value.brandProfile)
+    ? normalizedJson(value.brandProfile) as JsonRecord
+    : null
 
   return {
+    brandProfile,
     campaign: {
       id: campaignValue.id,
       name: campaignValue.name,

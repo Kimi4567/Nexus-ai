@@ -78,6 +78,10 @@ describe('campaign snapshots', () => {
       brandProfile: { brandName: 'NEXUS' },
     })
     expect(readStrategyApprovalSnapshotPayload(payload)).toMatchObject({
+      brandProfile: {
+        brandName: 'NEXUS',
+        conversionDestination: 'https://example.com/demo',
+      },
       campaign: {
         id: 'campaign-1',
         goal: 'LEADS',

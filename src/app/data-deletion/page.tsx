@@ -76,7 +76,7 @@ function DataDeletionContent() {
               <div className="rounded-xl border border-violet-400/20 bg-violet-400/10 p-4">
                 <p className="text-sm font-semibold text-violet-200">For connected social or ad accounts</p>
                 <p className="mt-2 text-xs leading-5 text-white/60">
-                  Open Connections and disconnect the provider. NEXUS removes the stored integration record and its encrypted OAuth token; data retained by the provider remains subject to that provider&apos;s controls and policy.
+                  Open Connections and disconnect the provider. NEXUS clears the stored OAuth credentials and keeps a sanitized disconnect audit record without access or refresh tokens. Data retained by the provider remains subject to that provider&apos;s controls and policy.
                 </p>
                 <Link href="/connections" className="mt-3 inline-flex rounded-lg bg-white px-3 py-2 text-xs font-bold text-black">
                   Open Connections

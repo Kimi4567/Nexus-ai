@@ -6117,10 +6117,10 @@ function CampaignDetailPageInner() {
                         <p className="mx-auto max-w-xl text-sm text-slate-500">
                           {locale === 'ar'
                             ? operatingState.truthFlags.hasContentPlan
-                              ? 'تحتوي الحملة على محتوى مخطط أو مسودات، لكن الأداء لا يظهر إلا بعد النشر وجلب التحليلات الفعلية.'
+                              ? 'تحتوي الحملة على سجلات محتوى، لكن الأداء لا يظهر إلا بعد النشر وجلب التحليلات الفعلية.'
                               : 'تحتوي الحملة على مادة تخطيط استراتيجية فقط، ولا توجد تحليلات لمحتوى منشور بعد. يظهر الأداء بعد النشر وجلب التحليلات الفعلية.'
                             : operatingState.truthFlags.hasContentPlan
-                              ? 'This campaign has planned or draft post records, but performance appears only after posts are published and analytics are fetched.'
+                              ? 'This campaign has content records, but performance appears only after posts are published and analytics are fetched.'
                               : 'This campaign has strategy planning material, but no published post analytics yet. Performance appears only after posts are published and analytics are fetched.'}
                         </p>
                       </div>
