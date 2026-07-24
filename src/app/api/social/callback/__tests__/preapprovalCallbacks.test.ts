@@ -40,6 +40,7 @@ const keys = [
   'META_APP_SECRET',
   'TIKTOK_CLIENT_KEY',
   'TIKTOK_CLIENT_SECRET',
+  'TIKTOK_REDIRECT_URI',
   'LINKEDIN_CLIENT_ID',
   'LINKEDIN_CLIENT_SECRET',
   'NEXT_PUBLIC_APP_URL',
@@ -53,6 +54,7 @@ beforeEach(() => {
   process.env.META_APP_SECRET = 'meta-secret'
   process.env.TIKTOK_CLIENT_KEY = 'tiktok-key'
   process.env.TIKTOK_CLIENT_SECRET = 'tiktok-secret'
+  process.env.TIKTOK_REDIRECT_URI = 'https://nexus-grow.com/api/social/callback/tiktok'
   process.env.LINKEDIN_CLIENT_ID = 'linkedin-id'
   process.env.LINKEDIN_CLIENT_SECRET = 'linkedin-secret'
   process.env.NEXT_PUBLIC_APP_URL = 'https://www.nexus-grow.com'
@@ -141,6 +143,8 @@ describe('provider callbacks before public approval', () => {
     const tokenCall = vi.mocked(global.fetch).mock.calls[0]
     expect(tokenCall[0]).toBe('https://open.tiktokapis.com/v2/oauth/token/')
     expect(String((tokenCall[1]?.body as URLSearchParams).get('client_key'))).toBe('tiktok-key')
+    expect((tokenCall[1]?.body as URLSearchParams).get('redirect_uri'))
+      .toBe('https://nexus-grow.com/api/social/callback/tiktok')
     expect((tokenCall[1]?.headers as Record<string, string>).Authorization).toBeUndefined()
     expect(response.headers.get('location')).toBe('https://www.nexus-grow.com/connections?social=connected&platform=tiktok')
     expect(mocks.integrationUpsert).toHaveBeenCalledWith(expect.objectContaining({

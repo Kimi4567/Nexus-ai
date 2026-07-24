@@ -9,6 +9,7 @@ import {
   X_CONTENT_SCOPES,
   YOUTUBE_CONTENT_SCOPES,
 } from '@/lib/socialPlatformConfig'
+import { resolveTikTokRedirectUri } from '@/lib/tiktokOAuth'
 
 export type SocialProviderReadinessPlatform =
   | 'META'
@@ -91,7 +92,7 @@ export function buildSocialProviderReadiness(input: {
     {
       platform: 'TIKTOK',
       credentialsConfigured: configured(['TIKTOK_CLIENT_KEY', 'TIKTOK_CLIENT_SECRET']),
-      callbackUrl: `${baseUrl}/api/social/callback/tiktok`,
+      callbackUrl: resolveTikTokRedirectUri(baseUrl, environment),
       requestedScopes: [...TIKTOK_CONTENT_SCOPES],
       deferredScopes: [],
       testBoundary: 'Unaudited Direct Post testing remains provider-limited; public visibility is not treated as available before audit evidence.',

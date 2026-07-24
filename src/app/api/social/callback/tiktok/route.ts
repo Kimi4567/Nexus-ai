@@ -12,6 +12,7 @@ import { prisma } from '@/lib/prisma'
 import { encryptToken } from '@/lib/tokenCrypto'
 import { verifyOAuthState } from '@/lib/oauthState'
 import { captureOperationalError } from '@/lib/observability/operationalError'
+import { resolveTikTokRedirectUri } from '@/lib/tiktokOAuth'
 
 /** Normalize app base URL — no trailing slash */
 function getBaseUrl() {
@@ -96,7 +97,7 @@ export async function GET(req: NextRequest) {
   try {
     const clientKey    = process.env.TIKTOK_CLIENT_KEY!
     const clientSecret = process.env.TIKTOK_CLIENT_SECRET!
-    const redirectUri  = `${baseUrl}/api/social/callback/tiktok`
+    const redirectUri  = resolveTikTokRedirectUri(baseUrl)
 
     if (!clientKey || !clientSecret) {
       console.error('[TikTok] Missing env vars — TIKTOK_CLIENT_KEY or TIKTOK_CLIENT_SECRET not set')

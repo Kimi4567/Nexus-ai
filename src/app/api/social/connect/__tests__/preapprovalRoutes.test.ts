@@ -16,6 +16,7 @@ const keys = [
   'META_ENABLE_INSTAGRAM_SCOPES',
   'TIKTOK_CLIENT_KEY',
   'TIKTOK_CLIENT_SECRET',
+  'TIKTOK_REDIRECT_URI',
   'LINKEDIN_CLIENT_ID',
   'LINKEDIN_CLIENT_SECRET',
   'LINKEDIN_ORGANIZATION_PUBLISHING_ENABLED',
@@ -38,6 +39,7 @@ beforeEach(() => {
   process.env.META_APP_SECRET = 'meta-secret'
   process.env.TIKTOK_CLIENT_KEY = 'tiktok-key'
   process.env.TIKTOK_CLIENT_SECRET = 'tiktok-secret'
+  process.env.TIKTOK_REDIRECT_URI = 'https://nexus-grow.com/api/social/callback/tiktok'
   process.env.LINKEDIN_CLIENT_ID = 'linkedin-id'
   process.env.LINKEDIN_CLIENT_SECRET = 'linkedin-secret'
   process.env.GOOGLE_CLIENT_ID = 'google-id'
@@ -87,7 +89,7 @@ describe('pre-approval OAuth initiation', () => {
     const url = new URL(body.url)
 
     expect(response.status).toBe(200)
-    expect(url.searchParams.get('redirect_uri')).toBe('https://www.nexus-grow.com/api/social/callback/tiktok')
+    expect(url.searchParams.get('redirect_uri')).toBe('https://nexus-grow.com/api/social/callback/tiktok')
     expect((url.searchParams.get('scope') || '').split(',')).toEqual(['user.info.basic', 'video.publish'])
     expect(verifyOAuthState(url.searchParams.get('state') || '', 'tiktok').userId).toBe('user-social')
   })
@@ -162,6 +164,7 @@ describe('GET /api/social/readiness', () => {
       expect.objectContaining({
         platform: 'TIKTOK',
         credentialsConfigured: true,
+        callbackUrl: 'https://nexus-grow.com/api/social/callback/tiktok',
         publicAccess: 'PROVIDER_AUDIT_REQUIRED',
       }),
       expect.objectContaining({

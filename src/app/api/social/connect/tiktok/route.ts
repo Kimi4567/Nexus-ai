@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { createOAuthState, isOAuthStateConfigured } from '@/lib/oauthState'
 import { TIKTOK_CONTENT_SCOPES } from '@/lib/socialPlatformConfig'
+import { resolveTikTokRedirectUri } from '@/lib/tiktokOAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
     }
 
     const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')
-    const redirectUri = `${baseUrl}/api/social/callback/tiktok`
+    const redirectUri = resolveTikTokRedirectUri(baseUrl)
 
     const state = createOAuthState(user.id, 'tiktok')
 
