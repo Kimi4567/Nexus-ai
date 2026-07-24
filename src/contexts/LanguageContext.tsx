@@ -11,13 +11,13 @@ interface LanguageContextType {
 }
 
 export const LanguageContext = createContext<LanguageContextType>({
-  lang: 'ar',
+  lang: 'en',
   setLang: () => {},
-  dir: 'rtl',
+  dir: 'ltr',
 })
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>('ar')
+  const [lang, setLangState] = useState<Lang>('en')
 
   useEffect(() => {
     const saved = localStorage.getItem('nexus-lang') as Lang | null
@@ -26,8 +26,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       document.documentElement.dir = saved === 'ar' ? 'rtl' : 'ltr'
       document.documentElement.lang = saved
     } else {
-      document.documentElement.dir = 'rtl'
-      document.documentElement.lang = 'ar'
+      document.documentElement.dir = 'ltr'
+      document.documentElement.lang = 'en'
     }
   }, [])
 

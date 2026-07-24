@@ -48,7 +48,7 @@ export function writeStoredLocale(storage: Pick<Storage, 'setItem'> | null | und
 }
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>('ar');
+  const [locale, setLocaleState] = useState<Locale>('en');
   const [localeReady, setLocaleReady] = useState(false);
 
   useEffect(() => {
@@ -56,8 +56,9 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     if (saved) {
       setLocaleState(saved);
     } else {
-      // Default to Arabic for Middle East
-      setLocaleState('ar');
+      // English is the public product default. Arabic remains a first-class,
+      // persisted user choice through the language switcher.
+      setLocaleState('en');
     }
     setLocaleReady(true);
   }, []);

@@ -44,13 +44,13 @@ describe('I18nProvider browser locale hydration', () => {
     await waitFor(() => expect(screen.getByText('ready:en')).toBeTruthy())
   })
 
-  it('marks the Arabic default ready when no preference exists', async () => {
+  it('marks the English default ready when no preference exists', async () => {
     render(
       <I18nProvider>
         <LocaleProbe />
       </I18nProvider>,
     )
 
-    await waitFor(() => expect(screen.getByText('ready:ar')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('ready:en')).toBeTruthy())
   })
 })
