@@ -87,7 +87,14 @@ export async function POST(req: NextRequest) {
     if (name.length < 2 || !websiteInput) {
       return NextResponse.json({ error: 'Competitor name and the public website you confirm as official are required.' }, { status: 400 })
     }
-    const normalized = normalizeCompetitorUrl(websiteInput)
+    let normalized: ReturnType<typeof normalizeCompetitorUrl>
+    try {
+      normalized = normalizeCompetitorUrl(websiteInput)
+    } catch (error) {
+      return NextResponse.json({
+        error: error instanceof Error ? error.message : 'A valid public HTTP or HTTPS website is required.',
+      }, { status: 400 })
+    }
     const [activeCount, duplicate, profile] = await Promise.all([
       db.competitor.count({ where: { workspaceId: workspace.id, status: 'ACTIVE' } }),
       db.competitor.findUnique({
