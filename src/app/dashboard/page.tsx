@@ -186,12 +186,10 @@ interface BrandResponse {
 
 interface SocialPublishingAccount {
   status?: string
-  capabilities?: Record<string, boolean>
 }
 
 interface ConnectionSummary {
   connected: number
-  publishingCapable: number
 }
 
 type WorkspaceGateState = 'checking' | 'hasWorkspace' | 'noWorkspace' | 'error'
@@ -205,18 +203,6 @@ const EMPTY_CONTENT_RUNWAY_SUMMARY: DashboardContentRunwaySummary = {
   mediaApproved: 0,
   approvedReady: 0,
 }
-
-const PUBLISHING_CAPABILITY_KEYS = new Set([
-  'facebookPublishing',
-  'instagramPublishing',
-  'linkedInMemberPublishing',
-  'linkedInOrganizationPublishing',
-  'tikTokDirectPosting',
-  'youtubeVideoPublishing',
-  'xPublishing',
-  'pinterestPinPublishing',
-  'threadsPostPublishing',
-])
 
 const STATUS_MAP: Record<string, { ar: string; en: string; color: string; bg: string }> = {
   DRAFT: { ar: 'مسودة', en: 'Draft', color: '#64748b', bg: '#f8fafc' },
@@ -567,14 +553,8 @@ export default function DashboardPage() {
         const connectedAccounts = Array.isArray(data.accounts)
           ? data.accounts.filter(account => account.status === 'CONNECTED')
           : []
-        const publishingCapable = connectedAccounts.filter(account =>
-          Object.entries(account.capabilities ?? {}).some(([key, value]) =>
-            PUBLISHING_CAPABILITY_KEYS.has(key) && value === true
-          )
-        ).length
         setConnectionSummary({
           connected: connectedAccounts.length,
-          publishingCapable,
         })
       }
 
@@ -602,7 +582,6 @@ export default function DashboardPage() {
   const timeStr = lastUpdated.toLocaleTimeString(ar ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' })
   const topCampaign = campaigns[0]
   const connectedAccountCount = connectionSummary?.connected ?? 0
-  const publishingCapableConnectionCount = connectionSummary?.publishingCapable ?? 0
   const platformConnected = connectedAccountCount > 0
   // Display the same core-profile completeness score used by Brand Brain.
   // getBrandBrainReadiness remains a functional generation gate and must not be
@@ -862,7 +841,9 @@ export default function DashboardPage() {
                   icon={<Users className="h-5 w-5" />}
                   label={ar ? 'سجلات التشغيل' : 'Operating records'}
                   value={contentCount + campaignCount}
-                  helper={ar ? `الحملات: ${campaignCount} · المنشورات: ${contentCount}` : `${campaignCount} campaigns · ${contentCount} posts`}
+                  helper={ar
+                    ? `الحملات: ${campaignCount} · المنشورات: ${contentCount}`
+                    : `${campaignCount} ${campaignCount === 1 ? 'campaign' : 'campaigns'} · ${contentCount} ${contentCount === 1 ? 'post' : 'posts'}`}
                   accent="#2563EB"
                 />
                 <MetricCard
@@ -905,8 +886,8 @@ export default function DashboardPage() {
                       label: ar ? 'اتصالات المنصات' : 'Platform connections',
                       value: connectedAccountCount > 0
                         ? (ar
-                            ? `المتصلة: ${connectedAccountCount} · بصلاحية نشر: ${publishingCapableConnectionCount}`
-                            : `${connectedAccountCount} connected · ${publishingCapableConnectionCount} publish-capable`)
+                            ? `المتصلة: ${connectedAccountCount} · التسليم مقيّد لكل منشور`
+                            : `${connectedAccountCount} connected · delivery gated per post`)
                         : (ar ? 'لا توجد' : 'None'),
                       good: connectedAccountCount > 0,
                     },
