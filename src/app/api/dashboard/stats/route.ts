@@ -13,7 +13,10 @@ import { prisma } from '@/lib/prisma'
 import { getUsageSummary } from '@/lib/credits'
 import { getCreditAccountSnapshot } from '@/lib/credits/accountSnapshot'
 import { hasRealPerformanceAnalytics } from '@/lib/performanceEvidence'
-import { getDashboardActivityPresentation } from '@/lib/dashboardActivity'
+import {
+  getDashboardActivityPresentation,
+  getDashboardRelativeTimeAr,
+} from '@/lib/dashboardActivity'
 import {
   deriveDashboardContentRunwayItem,
   sortDashboardContentRunway,
@@ -353,7 +356,7 @@ export async function GET(req: NextRequest) {
         agent: presentation.agent,
         campaign: activity.campaign?.name || '',
         time: getRelativeTime(activity.createdAt),
-        timeAr: getRelativeTimeAr(activity.createdAt),
+        timeAr: getDashboardRelativeTimeAr(activity.createdAt),
         timeEn: getRelativeTimeEn(activity.createdAt),
       }
     })
@@ -412,17 +415,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-function getRelativeTimeAr(date: Date): string {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
-  if (seconds < 60) return 'منذ لحظات'
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `منذ ${minutes} دقيقة`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `منذ ${hours} ساعة`
-  const days = Math.floor(hours / 24)
-  return `منذ ${days} يوم`
-}
-
 function getRelativeTimeEn(date: Date): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
   if (seconds < 60) return 'just now'
@@ -434,4 +426,4 @@ function getRelativeTimeEn(date: Date): string {
   return `${days}d ago`
 }
 
-function getRelativeTime(date: Date): string { return getRelativeTimeAr(date) }
+function getRelativeTime(date: Date): string { return getDashboardRelativeTimeAr(date) }

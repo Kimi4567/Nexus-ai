@@ -75,6 +75,6 @@ describe('Dashboard onboarding gating', () => {
     expect(SRC).not.toContain('${campaignCount} حملات')
     expect(SRC).not.toContain('${contentCount} سجل محفوظ')
     expect(RUNWAY_SRC).toContain('قرارات الجدولة الموثقة')
-    expect(SIDEBAR_SRC).toContain("locale === 'ar' ? 'ترقية' : 'Upgrade'")
+    expect(SIDEBAR_SRC).toContain("locale === 'ar' ? 'مجانية' : 'Free'")
   })
 })

@@ -440,7 +440,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
               </span>
               {billingTruth.showUpgrade && !billingTruth.isUnknown && (
                 <span className="rounded-md bg-white/10 px-2 py-0.5 text-[9px] font-black text-white">
-                  {locale === 'ar' ? 'ترقية' : 'Upgrade'}
+                  {locale === 'ar' ? 'مجانية' : 'Free'}
                 </span>
               )}
             </div>

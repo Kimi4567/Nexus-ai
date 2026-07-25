@@ -46,3 +46,33 @@ export function getDashboardActivityPresentation(
     agent: 'NEX',
   }
 }
+
+function arabicRelativeUnit(
+  value: number,
+  singular: string,
+  dual: string,
+  plural: string,
+): string {
+  if (value === 1) return singular
+  if (value === 2) return dual
+  if (value >= 3 && value <= 10) return `${value} ${plural}`
+  return `${value} ${singular}`
+}
+
+export function getDashboardRelativeTimeAr(
+  date: Date,
+  nowMs = Date.now(),
+): string {
+  const seconds = Math.max(0, Math.floor((nowMs - date.getTime()) / 1000))
+  if (seconds < 60) return 'منذ لحظات'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) {
+    return `منذ ${arabicRelativeUnit(minutes, 'دقيقة', 'دقيقتين', 'دقائق')}`
+  }
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) {
+    return `منذ ${arabicRelativeUnit(hours, 'ساعة', 'ساعتين', 'ساعات')}`
+  }
+  const days = Math.floor(hours / 24)
+  return `منذ ${arabicRelativeUnit(days, 'يوم', 'يومين', 'أيام')}`
+}
