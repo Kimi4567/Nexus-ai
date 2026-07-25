@@ -438,7 +438,11 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
               <span className="text-[11px] font-black text-amber-200">
                 {isPaid ? getPlanDisplayName(billingStatus?.plan, locale) : (locale === 'ar' ? 'خطة NEXUS' : 'NEXUS Plan')}
               </span>
-              {billingTruth.showUpgrade && !billingTruth.isUnknown && <span className="rounded-md bg-white/10 px-2 py-0.5 text-[9px] font-black text-white">Upgrade</span>}
+              {billingTruth.showUpgrade && !billingTruth.isUnknown && (
+                <span className="rounded-md bg-white/10 px-2 py-0.5 text-[9px] font-black text-white">
+                  {locale === 'ar' ? 'ترقية' : 'Upgrade'}
+                </span>
+              )}
             </div>
             <div className="flex items-center justify-between gap-3 text-[10px] font-semibold text-slate-300">
               <span className="truncate">

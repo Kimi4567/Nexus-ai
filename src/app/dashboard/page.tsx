@@ -674,7 +674,7 @@ export default function DashboardPage() {
           href: '/calendar?tab=queue',
           title: ar ? 'راقب خطة التسليم الداخلية' : 'Monitor the internal delivery plan',
           body: ar
-            ? `${manualScheduled} منشور مجدول داخل NEXUS بأدلة قرار ثابتة. التسليم يدوي، ولا يوجد نشر خارجي موثق أو تلقائي لهذه المنشورات.`
+            ? `عدد المنشورات المجدولة داخل NEXUS: ${manualScheduled}. لكل قرار دليل ثابت، والتسليم يدوي؛ لا يوجد نشر خارجي موثق أو تلقائي لهذه المنشورات.`
             : `${manualScheduled} posts have immutable schedule evidence inside NEXUS. Delivery is manual; these posts have no verified or automatic external publication.`,
           cta: ar ? 'فتح خطة التنفيذ' : 'Open execution plan',
         }
@@ -862,7 +862,7 @@ export default function DashboardPage() {
                   icon={<Users className="h-5 w-5" />}
                   label={ar ? 'سجلات التشغيل' : 'Operating records'}
                   value={contentCount + campaignCount}
-                  helper={ar ? `${campaignCount} حملات · ${contentCount} منشورات` : `${campaignCount} campaigns · ${contentCount} posts`}
+                  helper={ar ? `الحملات: ${campaignCount} · المنشورات: ${contentCount}` : `${campaignCount} campaigns · ${contentCount} posts`}
                   accent="#2563EB"
                 />
                 <MetricCard
@@ -905,7 +905,7 @@ export default function DashboardPage() {
                       label: ar ? 'اتصالات المنصات' : 'Platform connections',
                       value: connectedAccountCount > 0
                         ? (ar
-                            ? `${connectedAccountCount} متصل · ${publishingCapableConnectionCount} بصلاحية نشر`
+                            ? `المتصلة: ${connectedAccountCount} · بصلاحية نشر: ${publishingCapableConnectionCount}`
                             : `${connectedAccountCount} connected · ${publishingCapableConnectionCount} publish-capable`)
                         : (ar ? 'لا توجد' : 'None'),
                       good: connectedAccountCount > 0,
@@ -1021,12 +1021,12 @@ export default function DashboardPage() {
                 {[
                   { title: 'Brand Brain', meta: brandTruthBlocked ? (ar ? 'المجال لا يطابق وصف النشاط' : 'Industry conflicts with the business description') : brandReadiness?.ready ? (ar ? 'السياق الأساسي جاهز' : 'Core context is ready') : (ar ? 'يحتاج استكمال السياق الأساسي' : 'Core context needs completion'), tone: brandTruthBlocked ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600', state: brandTruthBlocked ? (ar ? 'تعارض' : 'Conflict') : brandReadiness?.ready ? (ar ? 'جاهز' : 'Ready') : (ar ? 'يحتاج إدخالاً' : 'Needs input'), stateTone: brandTruthBlocked ? 'text-orange-700' : brandReadiness?.ready ? 'text-emerald-700' : 'text-amber-700' },
                   { title: ar ? 'الاستراتيجية' : 'Strategy', meta: strategyAvailable ? (ar ? 'يوجد سجل محفوظ، لكن صلاحيته تتبع Brand Brain الحالي' : 'A record exists, but its validity follows the current Brand Brain') : (ar ? 'لا يوجد سجل استراتيجية بعد' : 'No strategy record yet'), tone: 'bg-violet-50 text-violet-600', state: brandTruthBlocked && strategyAvailable ? (ar ? 'مرجعية فقط' : 'Reference only') : strategyAvailable ? (ar ? 'موثق' : 'Evidenced') : (ar ? 'الخطوة التالية' : 'Next step'), stateTone: brandTruthBlocked ? 'text-orange-700' : strategyAvailable ? 'text-emerald-700' : 'text-violet-700' },
-                  { title: ar ? 'حزم المنشورات' : 'Post packages', meta: ar ? `${contentCount} سجل محفوظ في Content Hub` : `${contentCount} records saved in Content Hub`, tone: 'bg-[#EEF2FF] text-[#5E63FF]', state: brandTruthBlocked && contentCount > 0 ? (ar ? 'موقوفة للمراجعة' : 'Held for review') : contentCount > 0 ? (ar ? 'سجل موثق' : 'Verified record') : (ar ? 'لا توجد سجلات' : 'No records'), stateTone: brandTruthBlocked ? 'text-orange-700' : contentCount > 0 ? 'text-emerald-700' : 'text-slate-500' },
+                  { title: ar ? 'حزم المنشورات' : 'Post packages', meta: ar ? `السجلات المحفوظة في Content Hub: ${contentCount}` : `${contentCount} records saved in Content Hub`, tone: 'bg-[#EEF2FF] text-[#5E63FF]', state: brandTruthBlocked && contentCount > 0 ? (ar ? 'موقوفة للمراجعة' : 'Held for review') : contentCount > 0 ? (ar ? 'سجل موثق' : 'Verified record') : (ar ? 'لا توجد سجلات' : 'No records'), stateTone: brandTruthBlocked ? 'text-orange-700' : contentCount > 0 ? 'text-emerald-700' : 'text-slate-500' },
                   {
                     title: ar ? 'دليل خطة التنفيذ' : 'Execution schedule evidence',
                     meta: scheduledWithEvidence > 0
                       ? (ar
-                          ? `${scheduledWithEvidence} جدولات داخلية موثقة · ${manualScheduled} تسليم يدوي · ${autoDeliveryConfigured} تسليم تلقائي مهيأ`
+                          ? `قرارات الجدولة الداخلية: ${scheduledWithEvidence} · التسليم اليدوي: ${manualScheduled} · التلقائي المهيأ: ${autoDeliveryConfigured}`
                           : `${scheduledWithEvidence} evidenced internal schedules · ${manualScheduled} manual · ${autoDeliveryConfigured} auto configured`)
                       : (ar ? 'لا يوجد قرار جدولة ثابت حتى الآن' : 'No immutable scheduling decision yet'),
                     tone: 'bg-amber-50 text-amber-600',

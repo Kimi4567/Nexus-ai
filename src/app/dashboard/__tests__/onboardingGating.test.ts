@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const SRC = readFileSync(resolve(process.cwd(), 'src/app/dashboard/page.tsx'), 'utf8')
+const RUNWAY_SRC = readFileSync(resolve(process.cwd(), 'src/components/dashboard/ContentRunway.tsx'), 'utf8')
+const SIDEBAR_SRC = readFileSync(resolve(process.cwd(), 'src/components/Sidebar.tsx'), 'utf8')
 describe('Dashboard onboarding gating', () => {
   it('D0.3 gates dashboard rendering until workspace check completes', () => {
     expect(SRC).toMatch(/WorkspaceGateState = 'checking' \| 'hasWorkspace' \| 'noWorkspace' \| 'error'/)
@@ -63,5 +65,16 @@ describe('Dashboard onboarding gating', () => {
     expect(SRC).toMatch(/draftCampaigns: d\.stats\?\.campaigns\?\.draft \?\? 0/)
     expect(SRC).toMatch(/const draftCount = stats\?\.draftCampaigns \?\? campaigns\.filter/)
     expect(SRC).toMatch(/label: ar \? 'مسودات حملات' : 'Campaign drafts', value: draftCount/)
+  })
+
+  it('keeps Arabic dashboard quantities grammatical and the shell localized', () => {
+    expect(SRC).toContain('عدد المنشورات المجدولة داخل NEXUS:')
+    expect(SRC).toContain('الحملات: ${campaignCount} · المنشورات: ${contentCount}')
+    expect(SRC).toContain('السجلات المحفوظة في Content Hub:')
+    expect(SRC).not.toContain('${manualScheduled} منشور مجدول')
+    expect(SRC).not.toContain('${campaignCount} حملات')
+    expect(SRC).not.toContain('${contentCount} سجل محفوظ')
+    expect(RUNWAY_SRC).toContain('قرارات الجدولة الموثقة')
+    expect(SIDEBAR_SRC).toContain("locale === 'ar' ? 'ترقية' : 'Upgrade'")
   })
 })

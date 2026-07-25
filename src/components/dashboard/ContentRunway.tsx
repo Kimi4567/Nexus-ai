@@ -181,18 +181,21 @@ export function ContentRunway({
         <div className="flex flex-wrap gap-2">
           <span className="nx-dashboard-runway-summary">
             <CalendarClock className="h-3.5 w-3.5 text-violet-600" />
+            {ar ? 'قرارات الجدولة الموثقة' : null}
             <b dir="ltr">{summary.scheduledWithEvidence}</b>
-            {ar ? 'جدولات موثقة' : 'evidenced schedules'}
+            {!ar ? 'evidenced schedules' : null}
           </span>
           <span className="nx-dashboard-runway-summary">
             <LockKeyhole className="h-3.5 w-3.5 text-amber-600" />
+            {ar ? 'التسليم اليدوي' : null}
             <b dir="ltr">{summary.manualScheduled}</b>
-            {ar ? 'تسليم يدوي' : 'manual delivery'}
+            {!ar ? 'manual delivery' : null}
           </span>
           <span className="nx-dashboard-runway-summary">
             <Radio className="h-3.5 w-3.5 text-emerald-600" />
+            {ar ? 'النشر الخارجي الموثق' : null}
             <b dir="ltr">{summary.externallyPublished}</b>
-            {ar ? 'نشر موثق خارجيًا' : 'provider-verified live'}
+            {!ar ? 'provider-verified live' : null}
           </span>
         </div>
       </div>
