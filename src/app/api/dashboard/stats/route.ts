@@ -14,6 +14,21 @@ import { getUsageSummary } from '@/lib/credits'
 import { getCreditAccountSnapshot } from '@/lib/credits/accountSnapshot'
 import { hasRealPerformanceAnalytics } from '@/lib/performanceEvidence'
 import { getDashboardActivityPresentation } from '@/lib/dashboardActivity'
+import {
+  deriveDashboardContentRunwayItem,
+  sortDashboardContentRunway,
+  type DashboardContentPostInput,
+} from '@/lib/dashboardContentRunway'
+
+interface DashboardContentTotalsRow {
+  scheduledWithEvidence: number
+  manualScheduled: number
+  autoDeliveryConfigured: number
+  externallyPublished: number
+  manuallyPublished: number
+  mediaApproved: number
+  approvedReady: number
+}
 
 export async function GET(req: NextRequest) {
   const userId = await getServerUserId(req)
@@ -28,6 +43,36 @@ export async function GET(req: NextRequest) {
     // Get user's workspace
     const workspace = await prisma.workspace.findFirst({ where: { ownerId: userId } })
     const workspaceId = workspace?.id
+    const db = prisma as any
+    const dashboardPostSelect = {
+      id: true,
+      campaignId: true,
+      platform: true,
+      publishTarget: true,
+      caption: true,
+      imageUrl: true,
+      isVideoPost: true,
+      contentPlanIndex: true,
+      status: true,
+      approvedAt: true,
+      approvedSnapshotId: true,
+      mediaApprovalSnapshotId: true,
+      scheduledAt: true,
+      scheduledSnapshotId: true,
+      publishMode: true,
+      integrationId: true,
+      integration: { select: { status: true } },
+      autoPublishConsentAt: true,
+      publishedAt: true,
+      manuallyPublishedAt: true,
+      platformPostId: true,
+      platformUrl: true,
+      generationStatus: true,
+      mediaSource: true,
+      uploadedMediaId: true,
+      errorMessage: true,
+      updatedAt: true,
+    }
 
     const [
       creditAccount,
@@ -42,6 +87,9 @@ export async function GET(req: NextRequest) {
       contentPostsTotal,
       approvedOrLaterPostsTotal,
       analyticsRows,
+      scheduledContentCandidates,
+      recentContentCandidates,
+      contentRunwayTotalsRows,
     ] = await Promise.all([
       getCreditAccountSnapshot(userId),
 
@@ -144,6 +192,102 @@ export async function GET(req: NextRequest) {
             select: { analyticsData: true },
           })
         : Promise.resolve([]),
+
+      // The dashboard content runway prioritizes execution work instead of
+      // fetching every post in a growing workspace.
+      workspaceId
+        ? db.socialPost.findMany({
+            where: { workspaceId, status: { in: ['SCHEDULED', 'PROCESSING', 'FAILED'] } },
+            orderBy: [{ scheduledAt: 'asc' }, { updatedAt: 'desc' }],
+            take: 12,
+            select: dashboardPostSelect,
+          })
+        : Promise.resolve([]),
+
+      workspaceId
+        ? db.socialPost.findMany({
+            where: { workspaceId, status: { in: ['APPROVED', 'DRAFT', 'PUBLISHED'] } },
+            orderBy: { updatedAt: 'desc' },
+            take: 12,
+            select: dashboardPostSelect,
+          })
+        : Promise.resolve([]),
+
+      // One filtered aggregate keeps the dashboard truthful without issuing a
+      // separate database round-trip for every status tile.
+      workspaceId
+        ? prisma.$queryRaw<DashboardContentTotalsRow[]>`
+            SELECT
+              COUNT(*) FILTER (
+                WHERE sp."status" = 'SCHEDULED'
+                  AND sp."approvedAt" IS NOT NULL
+                  AND sp."approvedSnapshotId" IS NOT NULL
+                  AND sp."imageUrl" IS NOT NULL
+                  AND sp."generationStatus" = 'DONE'
+                  AND sp."mediaApprovalSnapshotId" IS NOT NULL
+                  AND sp."scheduledAt" IS NOT NULL
+                  AND sp."scheduledSnapshotId" IS NOT NULL
+                  AND NULLIF(BTRIM(sp."errorMessage"), '') IS NULL
+              )::int AS "scheduledWithEvidence",
+              COUNT(*) FILTER (
+                WHERE sp."status" = 'SCHEDULED'
+                  AND sp."publishMode" = 'MANUAL'
+                  AND sp."approvedAt" IS NOT NULL
+                  AND sp."approvedSnapshotId" IS NOT NULL
+                  AND sp."imageUrl" IS NOT NULL
+                  AND sp."generationStatus" = 'DONE'
+                  AND sp."mediaApprovalSnapshotId" IS NOT NULL
+                  AND sp."scheduledAt" IS NOT NULL
+                  AND sp."scheduledSnapshotId" IS NOT NULL
+                  AND NULLIF(BTRIM(sp."errorMessage"), '') IS NULL
+              )::int AS "manualScheduled",
+              COUNT(*) FILTER (
+                WHERE sp."status" = 'SCHEDULED'
+                  AND sp."publishMode" = 'AUTO'
+                  AND sp."approvedAt" IS NOT NULL
+                  AND sp."approvedSnapshotId" IS NOT NULL
+                  AND sp."imageUrl" IS NOT NULL
+                  AND sp."generationStatus" = 'DONE'
+                  AND sp."mediaApprovalSnapshotId" IS NOT NULL
+                  AND sp."scheduledAt" IS NOT NULL
+                  AND sp."scheduledSnapshotId" IS NOT NULL
+                  AND sp."integrationId" IS NOT NULL
+                  AND sp."autoPublishConsentAt" IS NOT NULL
+                  AND NULLIF(BTRIM(sp."errorMessage"), '') IS NULL
+                  AND EXISTS (
+                    SELECT 1
+                    FROM "Integration" integration
+                    WHERE integration."id" = sp."integrationId"
+                      AND integration."workspaceId" = sp."workspaceId"
+                      AND integration."status" = 'CONNECTED'
+                  )
+              )::int AS "autoDeliveryConfigured",
+              COUNT(*) FILTER (
+                WHERE sp."status" = 'PUBLISHED'
+                  AND sp."publishedAt" IS NOT NULL
+                  AND (sp."platformPostId" IS NOT NULL OR sp."platformUrl" IS NOT NULL)
+              )::int AS "externallyPublished",
+              COUNT(*) FILTER (
+                WHERE sp."status" = 'PUBLISHED'
+                  AND sp."manuallyPublishedAt" IS NOT NULL
+              )::int AS "manuallyPublished",
+              COUNT(*) FILTER (
+                WHERE sp."imageUrl" IS NOT NULL
+                  AND sp."generationStatus" = 'DONE'
+                  AND sp."mediaApprovalSnapshotId" IS NOT NULL
+              )::int AS "mediaApproved",
+              COUNT(*) FILTER (
+                WHERE sp."status" = 'APPROVED'
+                  AND sp."approvedAt" IS NOT NULL
+                  AND sp."approvedSnapshotId" IS NOT NULL
+                  AND sp."imageUrl" IS NOT NULL
+                  AND sp."generationStatus" = 'DONE'
+                  AND sp."mediaApprovalSnapshotId" IS NOT NULL
+              )::int AS "approvedReady"
+            FROM "SocialPost" sp
+            WHERE sp."workspaceId" = ${workspaceId}
+          `
+        : Promise.resolve([]),
     ])
 
     const postsWithAnalytics = analyticsRows.filter((row: { analyticsData: unknown }) =>
@@ -152,6 +296,44 @@ export async function GET(req: NextRequest) {
 
     // AI generations + credits-used from the ledger (shared with analytics).
     const usageSummary = await getUsageSummary(userId)
+    const contentRunwaySummary: DashboardContentTotalsRow = contentRunwayTotalsRows[0] ?? {
+      scheduledWithEvidence: 0,
+      manualScheduled: 0,
+      autoDeliveryConfigured: 0,
+      externallyPublished: 0,
+      manuallyPublished: 0,
+      mediaApproved: 0,
+      approvedReady: 0,
+    }
+
+    const candidateMap = new Map<string, Record<string, any>>()
+    for (const post of [...scheduledContentCandidates, ...recentContentCandidates]) {
+      candidateMap.set(post.id, post)
+    }
+    const contentCandidates = Array.from(candidateMap.values())
+    const contentCampaignIds = Array.from(new Set(
+      contentCandidates
+        .map(post => post.campaignId)
+        .filter((campaignId): campaignId is string => typeof campaignId === 'string' && campaignId.length > 0),
+    ))
+    const contentCampaigns = workspaceId && contentCampaignIds.length > 0
+      ? await db.campaign.findMany({
+          where: { workspaceId, id: { in: contentCampaignIds } },
+          select: { id: true, name: true },
+        })
+      : []
+    const contentCampaignNames = new Map<string, string>(
+      contentCampaigns.map((campaign: { id: string; name: string }) => [campaign.id, campaign.name]),
+    )
+    const contentRunwayItems = sortDashboardContentRunway(
+      contentCandidates.map(post => deriveDashboardContentRunwayItem({
+          ...post,
+          campaignName: post.campaignId
+            ? contentCampaignNames.get(post.campaignId) || 'Campaign'
+            : 'Campaign',
+          integrationStatus: post.integration?.status || null,
+        } as DashboardContentPostInput, now)),
+    ).slice(0, 6)
 
     // Calculate % change for campaigns
     const campaignChange =
@@ -214,6 +396,12 @@ export async function GET(req: NextRequest) {
         performanceEvidence: {
           postsWithAnalytics,
         },
+      },
+      contentRunway: {
+        summary: {
+          ...contentRunwaySummary,
+        },
+        items: contentRunwayItems,
       },
       activities,
       recentCampaigns,

@@ -2,6 +2,10 @@
 
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
+import {
+  ContentRunway,
+  type DashboardContentRunwaySummary,
+} from '@/components/dashboard/ContentRunway'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { fetchWithTimeout, PRODUCT_READ_TIMEOUT_MS } from '@/lib/fetchWithTimeout'
@@ -11,6 +15,7 @@ import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { type PublishingState } from '@/lib/operatingBriefStatus'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import type { ExecutionQueueItem } from '@/lib/executionTruth'
+import type { DashboardContentRunwayItem } from '@/lib/dashboardContentRunway'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -144,6 +149,10 @@ interface DashboardStatsResponse {
       postsWithAnalytics?: number
     }
   }
+  contentRunway?: {
+    summary?: Partial<DashboardContentRunwaySummary>
+    items?: DashboardContentRunwayItem[]
+  }
   activities?: Array<{
     id?: string
     agent?: string
@@ -175,7 +184,39 @@ interface BrandResponse {
   brandProfile?: Parameters<typeof getBrandBrainReadiness>[0]
 }
 
+interface SocialPublishingAccount {
+  status?: string
+  capabilities?: Record<string, boolean>
+}
+
+interface ConnectionSummary {
+  connected: number
+  publishingCapable: number
+}
+
 type WorkspaceGateState = 'checking' | 'hasWorkspace' | 'noWorkspace' | 'error'
+
+const EMPTY_CONTENT_RUNWAY_SUMMARY: DashboardContentRunwaySummary = {
+  scheduledWithEvidence: 0,
+  manualScheduled: 0,
+  autoDeliveryConfigured: 0,
+  externallyPublished: 0,
+  manuallyPublished: 0,
+  mediaApproved: 0,
+  approvedReady: 0,
+}
+
+const PUBLISHING_CAPABILITY_KEYS = new Set([
+  'facebookPublishing',
+  'instagramPublishing',
+  'linkedInMemberPublishing',
+  'linkedInOrganizationPublishing',
+  'tikTokDirectPosting',
+  'youtubeVideoPublishing',
+  'xPublishing',
+  'pinterestPinPublishing',
+  'threadsPostPublishing',
+])
 
 const STATUS_MAP: Record<string, { ar: string; en: string; color: string; bg: string }> = {
   DRAFT: { ar: 'مسودة', en: 'Draft', color: '#64748b', bg: '#f8fafc' },
@@ -371,9 +412,11 @@ export default function DashboardPage() {
   const [alerts, setAlerts] = useState<ActivityAlert[]>([])
   const [intelligence, setIntelligence] = useState<MarketingIntelligenceBrief | null>(null)
   const [executionAction, setExecutionAction] = useState<ExecutionQueueItem | null>(null)
+  const [contentRunwayItems, setContentRunwayItems] = useState<DashboardContentRunwayItem[]>([])
+  const [contentRunwaySummary, setContentRunwaySummary] = useState<DashboardContentRunwaySummary>(EMPTY_CONTENT_RUNWAY_SUMMARY)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
-  const [hasConnections, setHasConnections] = useState<boolean | null>(null)
+  const [connectionSummary, setConnectionSummary] = useState<ConnectionSummary | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
   const [brandCompletenessScore, setBrandCompletenessScore] = useState(0)
@@ -469,6 +512,11 @@ export default function DashboardPage() {
           contentPostsTotal: d.stats?.contentPosts?.total ?? 0,
           postsWithAnalytics: d.stats?.performanceEvidence?.postsWithAnalytics ?? 0,
         })
+        setContentRunwayItems(Array.isArray(d.contentRunway?.items) ? d.contentRunway.items : [])
+        setContentRunwaySummary({
+          ...EMPTY_CONTENT_RUNWAY_SUMMARY,
+          ...d.contentRunway?.summary,
+        })
 
         const seen = new Set<string>()
         const activities = (d.activities ?? []).filter(a => {
@@ -515,8 +563,19 @@ export default function DashboardPage() {
       }
 
       if (connectionsRes.status === 'fulfilled' && connectionsRes.value.ok) {
-        const data = await connectionsRes.value.json() as { accounts?: unknown[] }
-        setHasConnections(Array.isArray(data.accounts) && data.accounts.length > 0)
+        const data = await connectionsRes.value.json() as { accounts?: SocialPublishingAccount[] }
+        const connectedAccounts = Array.isArray(data.accounts)
+          ? data.accounts.filter(account => account.status === 'CONNECTED')
+          : []
+        const publishingCapable = connectedAccounts.filter(account =>
+          Object.entries(account.capabilities ?? {}).some(([key, value]) =>
+            PUBLISHING_CAPABILITY_KEYS.has(key) && value === true
+          )
+        ).length
+        setConnectionSummary({
+          connected: connectedAccounts.length,
+          publishingCapable,
+        })
       }
 
       if (executionRes.status === 'fulfilled' && executionRes.value.ok) {
@@ -542,7 +601,9 @@ export default function DashboardPage() {
 
   const timeStr = lastUpdated.toLocaleTimeString(ar ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' })
   const topCampaign = campaigns[0]
-  const platformConnected = hasConnections === true
+  const connectedAccountCount = connectionSummary?.connected ?? 0
+  const publishingCapableConnectionCount = connectionSummary?.publishingCapable ?? 0
+  const platformConnected = connectedAccountCount > 0
   // Display the same core-profile completeness score used by Brand Brain.
   // getBrandBrainReadiness remains a functional generation gate and must not be
   // relabelled as completeness; the two answer different questions.
@@ -551,6 +612,10 @@ export default function DashboardPage() {
   const campaignCount = stats?.campaigns ?? campaigns.length
   const publishedCount = stats?.publishedPostsTotal ?? 0
   const postsWithAnalytics = stats?.postsWithAnalytics ?? 0
+  const scheduledWithEvidence = contentRunwaySummary.scheduledWithEvidence
+  const manualScheduled = contentRunwaySummary.manualScheduled
+  const autoDeliveryConfigured = contentRunwaySummary.autoDeliveryConfigured
+  const externallyPublished = contentRunwaySummary.externallyPublished
   const draftCount = stats?.draftCampaigns ?? campaigns.filter(c => c.status === 'DRAFT').length
   const brandContextLabel = !brandReadiness
     ? (ar ? 'بانتظار البيانات' : 'Waiting for data')
@@ -563,13 +628,14 @@ export default function DashboardPage() {
         : (ar ? 'السياق مكتمل' : 'Context complete')
   const strategyAvailable = intelligence?.loop.strategy ?? false
   const brandUsable = brandReadiness?.ready === true && !brandTruthBlocked
-  const workflowChecks = [
-    brandUsable,
-    strategyAvailable && brandUsable,
-    contentCount > 0 && brandUsable,
-    platformConnected,
-    postsWithAnalytics > 0,
+  const workflowStages = [
+    { label: ar ? 'العلامة' : 'Brand', ready: brandUsable },
+    { label: ar ? 'الاستراتيجية' : 'Strategy', ready: strategyAvailable && brandUsable },
+    { label: ar ? 'المحتوى' : 'Content', ready: contentCount > 0 && brandUsable },
+    { label: ar ? 'التنفيذ' : 'Execution', ready: scheduledWithEvidence > 0 },
+    { label: ar ? 'التعلّم' : 'Learning', ready: postsWithAnalytics > 0 },
   ]
+  const workflowChecks = workflowStages.map(stage => stage.ready)
   const workflowCoverage = Math.round((workflowChecks.filter(Boolean).length / workflowChecks.length) * 100)
   const requiredBrandFields = 5 - (brandReadiness?.missingRequired.length ?? 5)
   const recommendedBrandFields = 5 - (brandReadiness?.missingRecommended.length ?? 5)
@@ -603,6 +669,16 @@ export default function DashboardPage() {
       const monitorSchedule = executionAction.kind === 'MONITOR_SCHEDULE'
       const analyticsAction = executionAction.kind === 'SYNC_ANALYTICS'
         || executionAction.kind === 'REVIEW_PERFORMANCE'
+      if (monitorSchedule && manualScheduled > 0) {
+        return {
+          href: '/calendar?tab=queue',
+          title: ar ? 'راقب خطة التسليم الداخلية' : 'Monitor the internal delivery plan',
+          body: ar
+            ? `${manualScheduled} منشور مجدول داخل NEXUS بأدلة قرار ثابتة. التسليم يدوي، ولا يوجد نشر خارجي موثق أو تلقائي لهذه المنشورات.`
+            : `${manualScheduled} posts have immutable schedule evidence inside NEXUS. Delivery is manual; these posts have no verified or automatic external publication.`,
+          cta: ar ? 'فتح خطة التنفيذ' : 'Open execution plan',
+        }
+      }
       return {
         href: monitorSchedule ? '/calendar?tab=queue' : executionAction.href,
         title: ar ? executionAction.title.ar : executionAction.title.en,
@@ -636,7 +712,7 @@ export default function DashboardPage() {
       body: ar ? 'التعلّم الحقيقي يبدأ فقط بعد وصول بيانات أداء من المنشورات أو الحملات.' : 'Real learning starts only after published content or campaigns collect performance data.',
       cta: ar ? 'فتح التحليلات' : 'Open Analytics',
     }
-  }, [ar, brandName, brandTruthBlocked, campaignCount, contentCount, executionAction, platformConnected, publishedCount, topCampaign])
+  }, [ar, brandName, brandTruthBlocked, campaignCount, contentCount, executionAction, manualScheduled, platformConnected, publishedCount, topCampaign])
 
   if (authLoading || workspaceGate === 'checking' || workspaceGate === 'noWorkspace') {
     return <DashboardGateSurface mode="loading" ar={ar} framed={!authLoading && isAuthenticated} />
@@ -688,9 +764,16 @@ export default function DashboardPage() {
                     {nextAction.cta}
                     <ArrowUpRight className="h-4 w-4" />
                   </Link>
-                  <Link href="/approvals" className="nx-dashboard-command-secondary">
+                  <Link
+                    href={topCampaign && scheduledWithEvidence > 0
+                      ? `/campaigns/${topCampaign.id}/content-hub`
+                      : '/approvals'}
+                    className="nx-dashboard-command-secondary"
+                  >
                     <ShieldCheck className="h-4 w-4" />
-                    {ar ? 'مراجعة الموافقات' : 'Review approvals'}
+                    {topCampaign && scheduledWithEvidence > 0
+                      ? (ar ? 'مراجعة المحتوى والأدلة' : 'Review content evidence')
+                      : (ar ? 'مراجعة الموافقات' : 'Review approvals')}
                   </Link>
                   <span className="text-[11px] font-semibold text-slate-400/90">
                     {ar ? `آخر تحديث ${timeStr}` : `Updated ${timeStr}`}
@@ -710,17 +793,27 @@ export default function DashboardPage() {
                   <div className="h-full rounded-full bg-[linear-gradient(90deg,#8B82FF,#21C5DF)] shadow-[0_0_18px_rgba(33,197,223,0.6)]" style={{ width: `${workflowCoverage}%` }} />
                 </div>
                 <div className="mt-3.5 grid grid-cols-5 gap-2" aria-label={ar ? 'حالة مراحل مسار العمل' : 'Workflow stage status'}>
-                  {workflowChecks.map((ready, index) => (
-                    <span
-                      key={index}
-                      className={`h-1.5 rounded-full ${ready ? 'bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.55)]' : 'bg-white/10'}`}
-                      title={ready ? (ar ? 'موثق' : 'Evidenced') : (ar ? 'بانتظار بيانات' : 'Waiting for data')}
-                    />
+                  {workflowStages.map(stage => (
+                    <div key={stage.label} className="min-w-0">
+                      <span
+                        className={`block h-1.5 rounded-full ${stage.ready ? 'bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.55)]' : 'bg-white/10'}`}
+                        title={stage.ready ? (ar ? 'موثق' : 'Evidenced') : (ar ? 'بانتظار بيانات' : 'Waiting for data')}
+                      />
+                      <span className={`mt-1.5 block truncate text-center text-[8px] font-bold ${stage.ready ? 'text-cyan-100' : 'text-slate-500'}`}>
+                        {stage.label}
+                      </span>
+                    </div>
                   ))}
                 </div>
               </div>
             </div>
           </SoftCard>
+
+          <ContentRunway
+            ar={ar}
+            items={contentRunwayItems}
+            summary={contentRunwaySummary}
+          />
 
           <SoftCard className="nx-dashboard-intelligence relative p-5 sm:p-6">
             <Link
@@ -744,8 +837,8 @@ export default function DashboardPage() {
                   </h2>
                   <p className="mt-2 max-w-xl text-[12px] leading-5 text-slate-600">
                     {ar
-                      ? 'ملخص لحالة Brand Brain والاستراتيجية والمحتوى والربط والتحليلات. كل رقم هنا مرتبط بسجل فعلي.'
-                      : 'A summary of Brand Brain, strategy, content, connections, and analytics. Every number here traces to a real record.'}
+                      ? 'ملخص لحالة Brand Brain والاستراتيجية والمحتوى والتنفيذ والتعلّم. كل رقم هنا مرتبط بسجل فعلي.'
+                      : 'A summary of Brand Brain, strategy, content, execution, and learning. Every number here traces to a real record.'}
                   </p>
                 </div>
               </div>
@@ -755,12 +848,12 @@ export default function DashboardPage() {
                   icon={<Activity className="h-5 w-5" />}
                   label={ar ? 'اكتمال سياق العلامة' : 'Brand context completeness'}
                   value={`${brandScore}%`}
-                  helper={brandContextLabel}
+                  helper={ar ? `${brandContextLabel} · لا يمثل أداء السوق` : `${brandContextLabel} · not market performance`}
                   accent="#10B981"
                 />
                 <MetricCard
                   icon={<Sparkles className="h-5 w-5" />}
-                  label={ar ? 'التغطية التشغيلية' : 'Workflow coverage'}
+                  label={ar ? 'تغطية دورة التشغيل' : 'Operating loop coverage'}
                   value={`${workflowCoverage}%`}
                   helper={ar ? `${workflowChecks.filter(Boolean).length} من 5 مراحل موثقة` : `${workflowChecks.filter(Boolean).length} of 5 evidenced stages`}
                   accent="#7C3AED"
@@ -773,10 +866,10 @@ export default function DashboardPage() {
                   accent="#2563EB"
                 />
                 <MetricCard
-                  icon={<Zap className="h-5 w-5" />}
-                  label={ar ? 'النشاطات المسجلة' : 'Recorded activities'}
-                  value={alerts.length}
-                  helper={ar ? 'من سجل النشاط الحقيقي' : 'From the activity ledger'}
+                  icon={<Radio className="h-5 w-5" />}
+                  label={ar ? 'نشر خارجي موثق' : 'Provider-verified publications'}
+                  value={externallyPublished}
+                  helper={ar ? 'يتطلب مرجع نشر صادرًا من المنصة' : 'Requires a provider publication reference'}
                   accent="#F59E0B"
                 />
               </div>
@@ -808,7 +901,15 @@ export default function DashboardPage() {
                     { label: ar ? 'الحقول الأساسية' : 'Required context', value: `${requiredBrandFields}/5`, good: requiredBrandFields === 5 },
                     { label: ar ? 'السياق الداعم' : 'Supporting context', value: `${recommendedBrandFields}/5`, good: recommendedBrandFields === 5 },
                     { label: ar ? 'وثيقة استراتيجية' : 'Strategy document', value: strategyAvailable ? (ar ? 'متاحة' : 'Available') : (ar ? 'غير متاحة' : 'Missing'), good: strategyAvailable },
-                    { label: ar ? 'حسابات متصلة' : 'Connected accounts', value: platformConnected ? (ar ? 'نعم' : 'Yes') : (ar ? 'لا' : 'No'), good: platformConnected },
+                    {
+                      label: ar ? 'اتصالات المنصات' : 'Platform connections',
+                      value: connectedAccountCount > 0
+                        ? (ar
+                            ? `${connectedAccountCount} متصل · ${publishingCapableConnectionCount} بصلاحية نشر`
+                            : `${connectedAccountCount} connected · ${publishingCapableConnectionCount} publish-capable`)
+                        : (ar ? 'لا توجد' : 'None'),
+                      good: connectedAccountCount > 0,
+                    },
                     { label: ar ? 'دليل أداء' : 'Performance evidence', value: postsWithAnalytics > 0 ? String(postsWithAnalytics) : (ar ? 'بانتظار' : 'Waiting'), good: postsWithAnalytics > 0 },
                   ].map(item => (
                     <div key={item.label} className="grid grid-cols-[1fr_minmax(42px,auto)_8px] items-center gap-2 text-[12px]">
@@ -921,7 +1022,19 @@ export default function DashboardPage() {
                   { title: 'Brand Brain', meta: brandTruthBlocked ? (ar ? 'المجال لا يطابق وصف النشاط' : 'Industry conflicts with the business description') : brandReadiness?.ready ? (ar ? 'السياق الأساسي جاهز' : 'Core context is ready') : (ar ? 'يحتاج استكمال السياق الأساسي' : 'Core context needs completion'), tone: brandTruthBlocked ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600', state: brandTruthBlocked ? (ar ? 'تعارض' : 'Conflict') : brandReadiness?.ready ? (ar ? 'جاهز' : 'Ready') : (ar ? 'يحتاج إدخالاً' : 'Needs input'), stateTone: brandTruthBlocked ? 'text-orange-700' : brandReadiness?.ready ? 'text-emerald-700' : 'text-amber-700' },
                   { title: ar ? 'الاستراتيجية' : 'Strategy', meta: strategyAvailable ? (ar ? 'يوجد سجل محفوظ، لكن صلاحيته تتبع Brand Brain الحالي' : 'A record exists, but its validity follows the current Brand Brain') : (ar ? 'لا يوجد سجل استراتيجية بعد' : 'No strategy record yet'), tone: 'bg-violet-50 text-violet-600', state: brandTruthBlocked && strategyAvailable ? (ar ? 'مرجعية فقط' : 'Reference only') : strategyAvailable ? (ar ? 'موثق' : 'Evidenced') : (ar ? 'الخطوة التالية' : 'Next step'), stateTone: brandTruthBlocked ? 'text-orange-700' : strategyAvailable ? 'text-emerald-700' : 'text-violet-700' },
                   { title: ar ? 'حزم المنشورات' : 'Post packages', meta: ar ? `${contentCount} سجل محفوظ في Content Hub` : `${contentCount} records saved in Content Hub`, tone: 'bg-[#EEF2FF] text-[#5E63FF]', state: brandTruthBlocked && contentCount > 0 ? (ar ? 'موقوفة للمراجعة' : 'Held for review') : contentCount > 0 ? (ar ? 'سجل موثق' : 'Verified record') : (ar ? 'لا توجد سجلات' : 'No records'), stateTone: brandTruthBlocked ? 'text-orange-700' : contentCount > 0 ? 'text-emerald-700' : 'text-slate-500' },
-                  { title: ar ? 'جاهزية النشر العضوي' : 'Organic publishing readiness', meta: platformConnected ? (ar ? 'يوجد حساب نشر عضوي متصل واحد على الأقل' : 'At least one organic publishing account is connected') : (ar ? 'لا توجد حسابات نشر عضوي متصلة؛ حسابات الإعلانات تُراجع منفصلة في الربط' : 'No organic publishing accounts are connected; ad accounts are reviewed separately in Connections'), tone: 'bg-amber-50 text-amber-600', state: platformConnected ? (ar ? 'موثق' : 'Verified') : (ar ? 'مفقود' : 'Missing'), stateTone: platformConnected ? 'text-emerald-700' : 'text-amber-700' },
+                  {
+                    title: ar ? 'دليل خطة التنفيذ' : 'Execution schedule evidence',
+                    meta: scheduledWithEvidence > 0
+                      ? (ar
+                          ? `${scheduledWithEvidence} جدولات داخلية موثقة · ${manualScheduled} تسليم يدوي · ${autoDeliveryConfigured} تسليم تلقائي مهيأ`
+                          : `${scheduledWithEvidence} evidenced internal schedules · ${manualScheduled} manual · ${autoDeliveryConfigured} auto configured`)
+                      : (ar ? 'لا يوجد قرار جدولة ثابت حتى الآن' : 'No immutable scheduling decision yet'),
+                    tone: 'bg-amber-50 text-amber-600',
+                    state: scheduledWithEvidence > 0
+                      ? (manualScheduled > 0 ? (ar ? 'داخلي · يدوي' : 'Internal · manual') : (ar ? 'موثق' : 'Evidenced'))
+                      : (ar ? 'بانتظار قرار' : 'Waiting for decision'),
+                    stateTone: scheduledWithEvidence > 0 ? 'text-violet-700' : 'text-amber-700',
+                  },
                   { title: ar ? 'دليل الأداء' : 'Performance evidence', meta: postsWithAnalytics > 0 ? (ar ? `${postsWithAnalytics} منشور بتحليلات حقيقية` : `${postsWithAnalytics} posts with real analytics`) : (ar ? 'بانتظار تحليلات حقيقية' : 'Waiting for real analytics'), tone: 'bg-slate-100 text-slate-500', state: postsWithAnalytics > 0 ? (ar ? 'موثق' : 'Verified') : (ar ? 'بانتظار البيانات' : 'Waiting for data'), stateTone: postsWithAnalytics > 0 ? 'text-emerald-700' : 'text-slate-500' },
                 ].map(item => (
                   <div key={item.title} className="nx-dashboard-row grid grid-cols-[42px_1fr_auto] items-center gap-3 px-3 py-3">

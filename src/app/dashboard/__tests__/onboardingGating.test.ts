@@ -22,11 +22,15 @@ describe('Dashboard onboarding gating', () => {
 
   it('uses real stats and explicit evidence stages for the command center', () => {
     expect(SRC).toMatch(/postsWithAnalytics: d\.stats\?\.performanceEvidence\?\.postsWithAnalytics \?\? 0/)
-    expect(SRC).toMatch(/const workflowChecks = \[/)
+    expect(SRC).toMatch(/const workflowStages = \[/)
+    expect(SRC).toMatch(/const workflowChecks = workflowStages\.map/)
     expect(SRC).toMatch(/brandReadiness\?\.ready === true/)
     expect(SRC).toMatch(/strategyAvailable/)
+    expect(SRC).toMatch(/ready: scheduledWithEvidence > 0/)
     expect(SRC).toMatch(/postsWithAnalytics > 0/)
-    expect(SRC).toMatch(/Recorded activities/)
+    expect(SRC).toMatch(/Provider-verified publications/)
+    expect(SRC).toContain('<ContentRunway')
+    expect(SRC).not.toContain('Organic publishing readiness')
   })
 
   it('does not route past a contradictory Brand Brain', () => {

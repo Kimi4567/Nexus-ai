@@ -2259,6 +2259,65 @@
       linear-gradient(145deg, rgba(255,255,255,0.98), rgba(248,250,255,0.94));
   }
 
+  .nx-dashboard-content-runway {
+    position: relative;
+    border-radius: 24px;
+    background:
+      radial-gradient(circle at 5% 0%, rgba(103,92,246,0.10), transparent 31%),
+      radial-gradient(circle at 100% 100%, rgba(19,184,215,0.07), transparent 28%),
+      linear-gradient(145deg, rgba(255,255,255,0.99), rgba(247,249,254,0.96));
+    box-shadow: 0 22px 58px rgba(31,45,86,0.09), inset 0 1px 0 #fff;
+  }
+
+  .nx-dashboard-runway-summary {
+    display: inline-flex;
+    min-height: 32px;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid rgba(31,45,86,0.08);
+    border-radius: 999px;
+    background: rgba(255,255,255,0.82);
+    padding-inline: 10px;
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 700;
+    box-shadow: 0 8px 20px rgba(31,45,86,0.045), inset 0 1px 0 #fff;
+  }
+
+  .nx-dashboard-runway-summary b {
+    color: #0B1028;
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 12px;
+  }
+
+  .nx-dashboard-content-card {
+    overflow: hidden;
+    border: 1px solid rgba(31,45,86,0.09);
+    border-radius: 18px;
+    background: rgba(255,255,255,0.94);
+    box-shadow: 0 14px 34px rgba(31,45,86,0.07), inset 0 1px 0 #fff;
+    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .nx-dashboard-content-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(103,92,246,0.22);
+    box-shadow: 0 20px 42px rgba(31,45,86,0.11), inset 0 1px 0 #fff;
+  }
+
+  .nx-dashboard-content-media {
+    position: relative;
+    min-height: 176px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 20% 12%, rgba(103,92,246,0.60), transparent 36%),
+      radial-gradient(circle at 90% 100%, rgba(19,184,215,0.30), transparent 38%),
+      linear-gradient(145deg, #101A4D, #071027);
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+  }
+
   .nx-dashboard-orb {
     position: relative;
     display: flex;
