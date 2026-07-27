@@ -304,6 +304,11 @@ export default memo(function ChatWidget() {
   }, []);
 
   const msgWithReplies = messages as Array<ChatMessage & { quickReplies?: string[] }>;
+  const isPublicOrPrintSurface = (
+    pathname.startsWith('/lead-form/')
+    || pathname.startsWith('/share/')
+    || /^\/campaigns\/[^/]+\/print\/?$/.test(pathname)
+  );
   const assistantEnabled = Boolean(user) && !(
     pathname === '/'
     || pathname.startsWith('/auth/')
@@ -312,6 +317,7 @@ export default memo(function ChatWidget() {
     || pathname === '/cookies'
     || pathname === '/refund'
     || pathname === '/data-deletion'
+    || isPublicOrPrintSurface
   );
 
   // The assistant is an authenticated workspace tool. Keeping it off public

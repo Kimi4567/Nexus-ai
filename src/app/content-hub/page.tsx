@@ -111,8 +111,38 @@ function PlatformMark({ platform }: { platform: string }) {
   )
 }
 
-function MediaThumb({ src, label }: { src?: string | null; label: string }) {
+function cloudinaryVideoPoster(src: string): string | undefined {
+  if (!src.includes('/video/upload/')) return undefined
+  const [path, query = ''] = src.split('?')
+  const posterPath = path
+    .replace('/video/upload/', '/video/upload/so_0,f_jpg/')
+    .replace(/\.[a-z0-9]+$/i, '.jpg')
+  return query ? `${posterPath}?${query}` : posterPath
+}
+
+function MediaThumb({
+  src,
+  label,
+  isVideo = false,
+}: {
+  src?: string | null
+  label: string
+  isVideo?: boolean
+}) {
   if (src) {
+    if (isVideo) {
+      return (
+        <video
+          src={src}
+          aria-label={label}
+          muted
+          playsInline
+          preload="metadata"
+          poster={cloudinaryVideoPoster(src)}
+          className="h-full w-full object-cover"
+        />
+      )
+    }
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img src={src} alt={label} className="h-full w-full object-cover" />
@@ -420,7 +450,7 @@ export default function ContentHubPage() {
                         className="grid grid-cols-[42px_1fr_auto] items-center gap-3 rounded-[16px] bg-slate-50 px-3 py-2.5"
                       >
                         <div className="h-10 w-10 overflow-hidden rounded-xl">
-                          <MediaThumb src={post.imageUrl} label={post.campaignName} />
+                          <MediaThumb src={post.imageUrl} label={post.campaignName} isVideo={post.isVideoPost} />
                         </div>
                         <div className="min-w-0">
                           <p className="truncate text-[13px] font-black text-[#0B1028]">
@@ -458,7 +488,11 @@ export default function ContentHubPage() {
                   </div>
                   {samplePost ? <Link href={`/campaigns/${samplePost.campaignId}/content-hub`} className="block overflow-hidden rounded-[18px] border border-slate-200 bg-slate-50">
                     <div className="relative aspect-[16/7] overflow-hidden">
-                      <MediaThumb src={samplePost?.imageUrl} label={samplePost?.campaignName || 'Content sample'} />
+                      <MediaThumb
+                        src={samplePost?.imageUrl}
+                        label={samplePost?.campaignName || 'Content sample'}
+                        isVideo={samplePost?.isVideoPost}
+                      />
                       <div className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-black text-slate-600">
                         {samplePost?.isVideoPost ? (isAr ? 'فيديو' : 'Video') : (isAr ? 'صورة / منشور' : 'Post asset')}
                       </div>
@@ -572,7 +606,11 @@ export default function ContentHubPage() {
                       const post = visualPosts[index]
                       return (
                         <Link key={index} href={post ? `/campaigns/${post.campaignId}/content-hub` : '/studio'} className="aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                          <MediaThumb src={post?.imageUrl} label={post?.campaignName || 'Creative slot'} />
+                          <MediaThumb
+                            src={post?.imageUrl}
+                            label={post?.campaignName || 'Creative slot'}
+                            isVideo={post?.isVideoPost}
+                          />
                         </Link>
                       )
                     })}

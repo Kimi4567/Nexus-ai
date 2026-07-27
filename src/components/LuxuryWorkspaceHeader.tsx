@@ -47,7 +47,7 @@ export default function LuxuryWorkspaceHeader({
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <div className="nx-ai-chip mb-3">
+          <div className="nx-ai-chip mb-3 max-w-full">
             <span className="nx-ai-core" aria-hidden="true" />
             <span>
               {stage

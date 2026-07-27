@@ -376,7 +376,9 @@ export default function ApprovalsPage() {
                   {dataLoading
                     ? copy('جارٍ تحديث مصدر الموافقات الموحد…', 'Refreshing the canonical approval queue…')
                     : pendingTotal > 0
-                    ? copy(`${pendingTotal} قرار بانتظار المراجعة`, `${pendingTotal} decisions need review`)
+                    ? pendingTotal === 1
+                      ? copy('قرار واحد بانتظار المراجعة', '1 decision needs review')
+                      : copy(`${pendingTotal} قرارات بانتظار المراجعة`, `${pendingTotal} decisions need review`)
                     : copy('لا توجد قرارات معلقة', 'Nothing is waiting for review')}
                 </p>
                 <p className="text-[11px] font-semibold text-[#7b87a3]">

@@ -43,9 +43,11 @@ describe('billing plan copy truth', () => {
     expect(BILLING_SRC).toContain('Checkout unavailable until prices are verified')
   })
 
-  it('labels sandbox checkout as a test instead of a live subscription', () => {
-    expect(BILLING_SRC).toContain("billingStatus?.billingMode === 'sandbox'")
-    expect(BILLING_SRC).toContain('Test ${plan.nameEn} checkout')
-    expect(BILLING_SRC).toContain('Stripe Sandbox only · no real money is charged')
+  it('keeps non-live billing visible but blocks commercial checkout controls', () => {
+    expect(BILLING_SRC).toContain("billingStatus?.billingMode === 'live'")
+    expect(BILLING_SRC).toContain('Commercial billing is not active yet')
+    expect(BILLING_SRC).toContain('Commercial checkout not available yet')
+    expect(BILLING_SRC).not.toContain('Test ${plan.nameEn} checkout')
+    expect(BILLING_SRC).not.toContain('use test payment details')
   })
 })

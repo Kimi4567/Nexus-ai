@@ -908,6 +908,12 @@
     text-transform: uppercase;
   }
 
+  .nx-ai-chip > span:last-child {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
   .nx-ai-core {
     position: relative;
     display: inline-block;

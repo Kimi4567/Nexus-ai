@@ -63,6 +63,7 @@ describe('strategy decision desk channel truth', () => {
     )
 
     expect(source).toContain('Identity fields ${identityFieldCount}/${identityFieldTotal}')
+    expect(source).toContain('${creativeSummary.mediaReady || 0}/${creativeSummary.mediaTotal} media ready')
     expect(source).toContain('images · ${creativeSummary.videoNeeded || 0} videos need media')
     expect(source).not.toContain('Identity coverage ${brandScore}%')
   })

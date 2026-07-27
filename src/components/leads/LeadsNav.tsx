@@ -19,7 +19,10 @@ export function LeadsNav() {
   const ar = locale === 'ar'
 
   return (
-    <nav aria-label={ar ? 'أقسام CRM' : 'CRM sections'} className="mb-5 flex gap-2 overflow-x-auto pb-1">
+    <nav
+      aria-label={ar ? 'أقسام CRM' : 'CRM sections'}
+      className="mb-5 flex flex-wrap gap-2 pb-1 sm:flex-nowrap sm:overflow-x-auto"
+    >
       {ITEMS.map(item => {
         const active = 'exact' in item && item.exact ? pathname === item.href : pathname.startsWith(item.href)
         const Icon = item.icon

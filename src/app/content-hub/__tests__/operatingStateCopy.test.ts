@@ -44,6 +44,13 @@ describe('Content Hub operating-state copy', () => {
     expect(MEDIA_STATE_SRC).toMatch(/needs a media decision/)
   })
 
+  it('renders saved video media as video instead of passing an MP4 to an image element', () => {
+    expect(OVERVIEW_SRC).toContain('function cloudinaryVideoPoster')
+    expect(OVERVIEW_SRC).toContain('<video')
+    expect(OVERVIEW_SRC).toContain('isVideo={samplePost?.isVideoPost}')
+    expect(OVERVIEW_SRC).toContain('poster={cloudinaryVideoPoster(src)}')
+  })
+
   it('does not invent generic CTA choices outside campaign and post evidence', () => {
     expect(OVERVIEW_SRC).toContain('CTA is reviewed per post')
     expect(OVERVIEW_SRC).toContain('NEXUS does not assume a generic CTA here')

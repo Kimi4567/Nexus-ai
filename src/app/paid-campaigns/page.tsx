@@ -292,7 +292,7 @@ export default function PaidCampaignsPage() {
           <LuxuryWorkspaceHeader
             pageTitle={ar ? 'الإعلانات المدفوعة' : 'Paid campaigns'}
             pageSubtitle={ar ? 'حوّل استراتيجية Paid أو Full معتمدة إلى تنفيذ منصة، ثم راجع كل شيء قبل أي إطلاق أو إنفاق.' : 'Turn an approved Paid or Full strategy into platform execution, then review everything before launch or spend.'}
-            primaryHref="/paid-campaigns/new"
+            primaryHref={hasApprovedPaidSource ? '/paid-campaigns/new' : null}
             primaryLabel={ar ? 'ابدأ من استراتيجية معتمدة' : 'Start from approved strategy'}
             secondaryHref="/connections"
             secondaryLabel={ar ? 'التكاملات' : 'Integrations'}
@@ -363,13 +363,23 @@ export default function PaidCampaignsPage() {
                   {ar ? 'Meta متصل · خارج الاستراتيجية المعتمدة' : 'Meta connected · outside approved strategy'}
                 </span>
               ) : null}
-              <Link
-                href="/paid-campaigns/new"
-                className="inline-flex h-11 items-center gap-2 rounded-[15px] bg-[#071236] px-5 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,18,54,0.2)] transition hover:bg-[#111f4b]"
-              >
-                <Plus className="h-4 w-4" />
-                {ar ? 'تنفيذ استراتيجية معتمدة' : 'Execute approved strategy'}
-              </Link>
+              {hasApprovedPaidSource ? (
+                <Link
+                  href="/paid-campaigns/new"
+                  className="inline-flex h-11 items-center gap-2 rounded-[15px] bg-[#071236] px-5 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,18,54,0.2)] transition hover:bg-[#111f4b]"
+                >
+                  <Plus className="h-4 w-4" />
+                  {ar ? 'تنفيذ استراتيجية معتمدة' : 'Execute approved strategy'}
+                </Link>
+              ) : (
+                <Link
+                  href="/strategy"
+                  className="inline-flex h-11 items-center gap-2 rounded-[15px] border border-[#d7def0] bg-white px-5 text-[13px] font-black text-[#5366f6] shadow-sm transition hover:border-[#aeb9d3]"
+                >
+                  <Plus className="h-4 w-4" />
+                  {ar ? 'أنشئ واعتمد استراتيجية Paid أولًا' : 'Create and approve a Paid strategy first'}
+                </Link>
+              )}
             </div>
           </section>
 

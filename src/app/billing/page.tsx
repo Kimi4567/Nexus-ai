@@ -392,10 +392,10 @@ export default function BillingPage() {
       window.location.href = `/auth/register?plan=${encodeURIComponent(planId)}`
       return
     }
-    if (billingStatus?.billingEnabled === false) {
+    if (billingStatus?.billingEnabled !== true || billingStatus.billingMode !== 'live') {
       setBillingMessage(ar
-        ? 'الاشتراكات المدفوعة غير مفعلة مؤقتا أثناء مرحلة البيتا. يمكنك استخدام الأرصدة المجانية الآن.'
-        : 'Paid subscriptions are temporarily disabled during beta. You can keep using the free credits for now.'
+        ? 'الدفع التجاري غير مفعّل بعد. يمكنك استخدام الأرصدة الحالية، ولن نفتح Checkout قبل اكتمال إعداد Stripe الحقيقي.'
+        : 'Commercial billing is not active yet. You can use your current credits; checkout will stay locked until live Stripe setup is complete.'
       )
       return
     }
@@ -471,10 +471,13 @@ export default function BillingPage() {
   const currentPlan = rawCurrentPlan === 'starter' ? 'pro' : rawCurrentPlan === 'agency' ? 'business' : rawCurrentPlan
   const isAuthenticated = Boolean(session?.access_token)
   const billingEnabled = billingStatus?.billingEnabled === true
+  const commercialCheckoutEnabled = billingEnabled && billingStatus?.billingMode === 'live'
   const currentCredits = billingStatus?.credits?.remaining ?? 0
   const monthlyCredits = billingStatus?.credits?.max ?? 20
   const creditPurchaseQuote = quoteCreditPurchase(creditQuantity)
-  const creditCheckoutUnavailable = billingStatus?.creditPurchasesEnabled !== true || Boolean(creditCheckoutErrorCode)
+  const creditCheckoutUnavailable = !commercialCheckoutEnabled
+    || billingStatus?.creditPurchasesEnabled !== true
+    || Boolean(creditCheckoutErrorCode)
   const creditCheckoutStatusMessage = creditCheckoutErrorCode === 'CREDIT_PRICE_VERSION_MISMATCH'
     || billingStatus?.creditPurchasesStatus === 'price_version_mismatch'
     ? (ar
@@ -578,24 +581,18 @@ export default function BillingPage() {
         />
 
         {/* ── Current plan status ─────────────────────────────────────────── */}
-        {!loading && (billingStatus?.billingMode === 'sandbox' || !billingEnabled) && (
+        {!loading && !commercialCheckoutEnabled && (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <div className="flex items-start gap-3">
               <Shield className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold text-amber-900">
-                  {billingStatus?.billingMode === 'sandbox'
-                    ? ar ? 'وضع Stripe التجريبي مفعّل' : 'Stripe Sandbox is active'
-                    : ar ? 'وضع البيتا مفعّل' : 'Beta billing mode'}
+                  {ar ? 'الدفع التجاري غير مفعّل بعد' : 'Commercial billing is not active yet'}
                 </p>
                 <p className="text-sm text-amber-800 mt-1">
-                  {billingStatus?.billingMode === 'sandbox'
-                    ? ar
-                      ? 'كل عمليات الدفع هنا تجريبية ولا تخصم أموالاً حقيقية. استخدم بيانات اختبار Stripe فقط.'
-                      : 'All payments here are tests and no real money is charged. Use Stripe test payment details only.'
-                    : ar
-                      ? 'الدفع الحقيقي غير مفعّل حتى اكتمال الإعدادات القانونية وStripe. الحسابات المجانية والأرصدة التجريبية تعمل بشكل طبيعي.'
-                      : 'Live payments are disabled until legal and Stripe setup is complete. Free accounts and trial credits continue to work normally.'}
+                  {ar
+                    ? 'لن تستقبل هذه الصفحة أي دفعة قبل اكتمال الإعدادات القانونية وربط Stripe الحقيقي والتحقق منه. الحسابات المجانية والأرصدة الحالية تعمل بشكل طبيعي.'
+                    : 'This page will not accept payment until legal setup and a verified live Stripe connection are complete. Free accounts and current credits continue to work normally.'}
                 </p>
               </div>
             </div>
@@ -786,7 +783,7 @@ export default function BillingPage() {
                   ) : (
                     <button
                       onClick={() => handleUpgrade(plan.id)}
-                      disabled={upgrading === plan.id || (isAuthenticated && (loading || !billingEnabled))}
+                      disabled={upgrading === plan.id || (isAuthenticated && (loading || !commercialCheckoutEnabled))}
                       className={`w-full py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 ${
                         isPopular
                           ? 'bg-slate-950 hover:bg-slate-800 shadow-[0_12px_28px_rgba(15,23,42,0.16)]'
@@ -797,10 +794,8 @@ export default function BillingPage() {
                         ? (ar ? 'جاري التحويل...' : 'Redirecting...')
                         : isAuthenticated && loading
                         ? (ar ? 'جارٍ التحقق من حالة الدفع...' : 'Checking billing status...')
-                        : isAuthenticated && !billingEnabled
-                        ? (ar ? 'قريبا' : 'Coming soon')
-                        : billingStatus?.billingMode === 'sandbox'
-                        ? (ar ? `اختبر Checkout لـ ${plan.nameAr}` : `Test ${plan.nameEn} checkout`)
+                        : isAuthenticated && !commercialCheckoutEnabled
+                        ? (ar ? 'الدفع التجاري غير متاح بعد' : 'Commercial checkout not available yet')
                         : (ar ? `ابدأ ${plan.nameAr} — $${plan.price}/شهر` : `Start ${plan.nameEn} — $${plan.price}/mo`)
                       }
                     </button>
@@ -1025,17 +1020,13 @@ export default function BillingPage() {
             ? (ar
                 ? 'جارٍ التحقق من حالة Stripe والمحفظة...'
                 : 'Checking Stripe and wallet status...')
-            : billingStatus?.billingMode === 'sandbox'
-            ? (ar
-                ? 'Stripe Sandbox فقط · لا تُخصم أموال حقيقية · استخدم بيانات الاختبار'
-                : 'Stripe Sandbox only · no real money is charged · use test payment details')
-            : billingEnabled
+            : commercialCheckoutEnabled
             ? (ar
                 ? 'المدفوعات معالجة بأمان عبر Stripe · يمكن الإلغاء في أي وقت · لا رسوم خفية'
                 : 'Payments processed securely via Stripe · Cancel anytime · No hidden fees')
             : (ar
-                ? 'بنية الدفع والمحفظة جاهزة · يتم فتح الشراء بعد تفعيل إعدادات Stripe'
-                : 'Billing and wallet infrastructure is ready · purchasing opens after Stripe configuration')}
+                ? 'لا يتم قبول مدفوعات الآن · يفتح الشراء فقط بعد تفعيل Stripe الحقيقي والتحقق منه'
+                : 'No payments are accepted now · purchasing opens only after live Stripe is enabled and verified')}
         </p>
 
       </div>

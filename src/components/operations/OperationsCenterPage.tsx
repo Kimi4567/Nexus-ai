@@ -277,7 +277,7 @@ export default function OperationsCenterPage() {
           ? copy(`آخر نبض محفوظ ${formatDate(overview.monitor.lastRunAt, true)}. التشغيل القادم ${formatDate(overview.monitor.nextRunAt, true)}.`, `Last persisted heartbeat ${formatDate(overview.monitor.lastRunAt, false)}. Next run ${formatDate(overview.monitor.nextRunAt, false)}.`)
           : copy('لا يوجد نبض محفوظ بعد؛ لن نعرضه كتشغيل نشط.', 'No heartbeat is stored yet, so it is not presented as active.'),
         status: overview.monitor.health,
-        statusLabel: overview.monitor.health === 'healthy' ? copy('يعمل', 'Healthy') : overview.monitor.health === 'not_started' ? copy('لم يبدأ', 'Not started') : copy('يحتاج انتباهًا', 'Needs attention'),
+        statusLabel: overview.monitor.health === 'healthy' ? copy('النبض يعمل', 'Heartbeat running') : overview.monitor.health === 'not_started' ? copy('لم يبدأ', 'Not started') : copy('يحتاج انتباهًا', 'Needs attention'),
         href: '/operations#system-health', actionLabel: copy('عرض النبض', 'View heartbeat'),
       },
       {
@@ -387,8 +387,8 @@ export default function OperationsCenterPage() {
               <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label={copy('صحة التشغيل', 'Operations health')}>
                 <HealthCard
                   title={copy('نبض 24/7', '24/7 heartbeat')}
-                  value={!overview ? '—' : overview.monitor.health === 'healthy' ? copy('يعمل', 'Healthy') : overview.monitor.health === 'not_started' ? copy('لم يبدأ', 'Not started') : copy('انتباه', 'Attention')}
-                  helper={overview ? copy(`آخر تشغيل: ${formatDate(overview.monitor.lastRunAt, true)}`, `Last run: ${formatDate(overview.monitor.lastRunAt, false)}`) : copy('جار التحميل', 'Loading')}
+                  value={!overview ? '—' : overview.monitor.health === 'healthy' ? copy('النبض يعمل', 'Running') : overview.monitor.health === 'not_started' ? copy('لم يبدأ', 'Not started') : copy('انتباه', 'Attention')}
+                  helper={overview ? copy(`آخر تشغيل: ${formatDate(overview.monitor.lastRunAt, true)} · الحوادث التشغيلية تُعرض منفصلة`, `Last run: ${formatDate(overview.monitor.lastRunAt, false)} · workflow incidents are tracked separately`) : copy('جار التحميل', 'Loading')}
                   tone={!overview ? 'neutral' : overview.monitor.health === 'healthy' ? 'ready' : overview.monitor.health === 'critical' ? 'critical' : 'warning'}
                   icon={<Activity className="h-5 w-5" />}
                 />

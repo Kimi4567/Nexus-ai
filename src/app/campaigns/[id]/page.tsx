@@ -1389,13 +1389,24 @@ function CampaignDetailPageInner() {
   if (!campaign) {
     return (
       <AppShell>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="text-5xl mb-4">😕</div>
-            <h2 className="mb-2 text-xl font-bold text-slate-950">{cdT?.notFoundTitle}</h2>
-            <Link href="/campaigns" className="text-accent hover:text-accent-light transition text-sm">{cdT?.notFoundBack}</Link>
+        <main className="nx-os-page">
+          <div className="nx-os-container grid min-h-[60vh] place-items-center">
+            <section className="nx-os-card w-full max-w-lg p-8 text-center">
+              <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-amber-50 text-amber-700">
+                <AlertTriangle className="h-7 w-7" />
+              </span>
+              <h1 className="mt-5 text-xl font-black text-[#0B1028]">{cdT?.notFoundTitle}</h1>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                {locale === 'ar'
+                  ? 'قد تكون الحملة حُذفت أو لا تنتمي إلى مساحة العمل الحالية.'
+                  : 'This campaign may have been removed or may not belong to the current workspace.'}
+              </p>
+              <Link href="/campaigns" className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-[#101A4D] px-5 text-sm font-black text-white">
+                {cdT?.notFoundBack}
+              </Link>
+            </section>
           </div>
-        </div>
+        </main>
       </AppShell>
     )
   }
@@ -2054,9 +2065,13 @@ function CampaignDetailPageInner() {
   const totalPostMediaSlots = operatingState.counts.totalPosts
   const pendingPostMediaSlots = operatingState.counts.pendingGenerationPosts
   const readyPostMediaSlots = Math.max(0, totalPostMediaSlots - pendingPostMediaSlots)
-  const creativeMediaNeedLabel = uiIsArabic
-    ? `${creativeRequirementsSummary.imageNeeded || 0} صور · ${creativeRequirementsSummary.videoNeeded || 0} فيديو تحتاج وسائط`
-    : `${creativeRequirementsSummary.imageNeeded || 0} images · ${creativeRequirementsSummary.videoNeeded || 0} videos need media`
+  const creativeMediaNeedLabel = totalPostMediaSlots > 0
+    ? uiIsArabic
+      ? `${readyPostMediaSlots}/${totalPostMediaSlots} وسائط جاهزة${pendingPostMediaSlots > 0 ? ` · ${pendingPostMediaSlots} تحتاج قرارًا` : ''}`
+      : `${readyPostMediaSlots}/${totalPostMediaSlots} media ready${pendingPostMediaSlots > 0 ? ` · ${pendingPostMediaSlots} need a decision` : ''}`
+    : uiIsArabic
+      ? `${creativeRequirementsSummary.imageNeeded || 0} صور · ${creativeRequirementsSummary.videoNeeded || 0} فيديو تحتاج وسائط`
+      : `${creativeRequirementsSummary.imageNeeded || 0} images · ${creativeRequirementsSummary.videoNeeded || 0} videos need media`
   const commandFlowCurrentStepId: CampaignCommandFlowStepId | undefined = (() => {
     if (activeTab === 0) return 'strategy'
     if (activeTab === 3) return 'creative'
@@ -3541,7 +3556,12 @@ function CampaignDetailPageInner() {
                 operatingState={decisionDeskOperatingState}
                 fulfillment={strategyFulfillmentSummary}
                 executionBridge={strategyExecutionBridge}
-                creativeSummary={creativeRequirementsSummary}
+                creativeSummary={{
+                  ...creativeRequirementsSummary,
+                  mediaReady: readyPostMediaSlots,
+                  mediaTotal: totalPostMediaSlots,
+                  mediaPending: pendingPostMediaSlots,
+                }}
                 brandScore={brandScore}
                 brandTruthBlocked={brandTruthBlocked}
                 missingData={missingDataLabels}

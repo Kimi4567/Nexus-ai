@@ -28,7 +28,9 @@ describe('customer lifecycle control-plane contract', () => {
   })
 
   it('makes pre-permission truth visible in the operator UI', () => {
-    expect(lifecyclePage).toContain('sendsEnabled=false')
+    expect(lifecyclePage).toContain('Pre-permission mode — sending locked')
+    expect(lifecyclePage).not.toContain('sendsEnabled=false')
+    expect(lifecyclePage).not.toContain('LIFECYCLE_MESSAGING_ENABLED')
     expect(lifecyclePage).toContain('DELIVERY BLOCKED')
     expect(lifecyclePage).toContain('Approved, not sent')
     expect(lifecyclePage).toContain('DOUBLE_OPT_IN (copy only)')

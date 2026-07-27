@@ -1,6 +1,7 @@
 'use client'
 
-import { CheckCircle2, Loader2, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react'
+import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
@@ -87,44 +88,54 @@ export default function PublicLeadFormPage() {
   }
 
   return (
-    <main dir="rtl" className="min-h-screen bg-[radial-gradient(circle_at_top,#EEF1FF_0%,#F7F8FC_45%,#FFFFFF_100%)] px-4 py-10 sm:py-16">
+    <main dir="ltr" className="min-h-screen bg-[radial-gradient(circle_at_top,#EEF1FF_0%,#F7F8FC_45%,#FFFFFF_100%)] px-4 py-10 sm:py-16">
       <section className="mx-auto w-full max-w-xl rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_30px_80px_-40px_rgba(31,42,99,0.45)] sm:p-9">
         <div className="flex items-center justify-between gap-4">
           <div className="inline-flex items-center gap-2 rounded-full bg-[#EEF1FF] px-3 py-1.5 text-xs font-black text-[#4C51CF]">
-            <ShieldCheck className="h-4 w-4" /> نموذج آمن · Secure form
+            <ShieldCheck className="h-4 w-4" /> Secure form · نموذج آمن
           </div>
           <span className="font-mono text-xs font-black tracking-[0.18em] text-[#101A4D]">NEXUS</span>
         </div>
 
         {error && !config ? (
-          <div className="mt-8 rounded-2xl border border-rose-100 bg-rose-50 p-5 text-sm font-bold leading-7 text-rose-700">{error}</div>
+          <div className="py-12 text-center" role="alert">
+            <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-50 text-rose-600">
+              <AlertTriangle className="h-7 w-7" />
+            </span>
+            <h1 className="mt-5 text-2xl font-black text-[#0B1028]">This form is unavailable</h1>
+            <p className="mt-2 text-sm leading-7 text-slate-500">It may have been closed or the link may be incorrect. No information was submitted.</p>
+            <p className="mt-2 text-xs font-bold text-rose-600">{error}</p>
+            <Link href="/" className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#101A4D] px-5 text-sm font-black text-white">
+              <ArrowLeft className="h-4 w-4" /> Back to NEXUS
+            </Link>
+          </div>
         ) : submitted ? (
           <div className="py-12 text-center" aria-live="polite">
             <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-500" />
-            <h1 className="mt-5 text-2xl font-black text-[#0B1028]">تم استلام طلبك</h1>
-            <p className="mt-2 text-sm leading-7 text-slate-500">Your information was received. No message, subscription, or automated outreach was triggered.</p>
+            <h1 className="mt-5 text-2xl font-black text-[#0B1028]">Your request was received</h1>
+            <p className="mt-2 text-sm leading-7 text-slate-500">تم استلام بياناتك. No message, subscription, or automated outreach was triggered.</p>
           </div>
         ) : config ? (
           <>
             <h1 className="mt-8 text-2xl font-black leading-tight text-[#0B1028] sm:text-3xl">{config.title}</h1>
             {config.description ? <p className="mt-3 text-sm font-medium leading-7 text-slate-600">{config.description}</p> : null}
             <form onSubmit={submit} className="mt-7 space-y-4">
-              <label className="block text-sm font-black text-slate-700">الاسم / Full name
+              <label className="block text-sm font-black text-slate-700">Full name / الاسم
                 <input value={form.fullName} onChange={event => setForm(current => ({ ...current, fullName: event.target.value }))} className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 font-medium outline-none focus:border-indigo-400" maxLength={140} autoComplete="name" />
               </label>
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block text-sm font-black text-slate-700">البريد / Email
+                <label className="block text-sm font-black text-slate-700">Email / البريد
                   <input value={form.email} onChange={event => setForm(current => ({ ...current, email: event.target.value }))} className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 font-medium outline-none focus:border-indigo-400" type="email" maxLength={254} autoComplete="email" />
                 </label>
-                <label className="block text-sm font-black text-slate-700">الهاتف / Phone
+                <label className="block text-sm font-black text-slate-700">Phone / الهاتف
                   <input value={form.phone} onChange={event => setForm(current => ({ ...current, phone: event.target.value }))} className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 font-medium outline-none focus:border-indigo-400" maxLength={40} autoComplete="tel" />
                 </label>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block text-sm font-black text-slate-700">الشركة / Company
+                <label className="block text-sm font-black text-slate-700">Company / الشركة
                   <input value={form.company} onChange={event => setForm(current => ({ ...current, company: event.target.value }))} className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 font-medium outline-none focus:border-indigo-400" maxLength={140} autoComplete="organization" />
                 </label>
-                <label className="block text-sm font-black text-slate-700">المسمى / Job title
+                <label className="block text-sm font-black text-slate-700">Job title / المسمى
                   <input value={form.jobTitle} onChange={event => setForm(current => ({ ...current, jobTitle: event.target.value }))} className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 font-medium outline-none focus:border-indigo-400" maxLength={140} autoComplete="organization-title" />
                 </label>
               </div>
@@ -140,7 +151,7 @@ export default function PublicLeadFormPage() {
               {error ? <p role="alert" className="rounded-xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{error}</p> : null}
               <button disabled={submitting || (!form.email.trim() && !form.phone.trim())} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#101A4D] px-5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                إرسال / Submit
+                Submit / إرسال
               </button>
               <p className="text-center text-[11px] font-medium leading-5 text-slate-400">Submission records evidence only. It does not prove identity or trigger automated outreach.</p>
             </form>

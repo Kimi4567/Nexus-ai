@@ -40,7 +40,6 @@ const SECTIONS = [
 export default function RefundPage() {
   const { t, locale, isRTL } = useI18n()
   const lgT = t('legal')
-  const year = new Date().getFullYear()
   const isAr = locale === 'ar'
 
   return (
@@ -48,7 +47,7 @@ export default function RefundPage() {
       badge="Refund Policy"
       title={lgT?.refundTitle as string}
       subtitle={lgT?.refundSubtitle as string}
-      lastUpdated={(lgT?.lastUpdated as string)?.replace('{year}', String(year))}
+      lastUpdated={isAr ? 'آخر تحديث: 27 يوليو 2026' : 'Last updated: July 27, 2026'}
       sections={SECTIONS}
       isAr={isAr}
       isRTL={isRTL}

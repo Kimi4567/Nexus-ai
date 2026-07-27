@@ -81,7 +81,7 @@ export default function LeadAlertsPage() {
         </section>
 
         <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4 text-xs leading-6 text-indigo-900 sm:flex-row sm:items-center sm:justify-between">
-          <p><strong>{ar ? 'حد التشغيل:' : 'Operating boundary:'}</strong> {ar ? 'التنبيه يوجّه الفريق فقط. outreachTriggered=false ولا يوجد إرسال خارجي.' : 'Alerts guide the team only. outreachTriggered=false and no external delivery occurs.'}</p>
+          <p><strong>{ar ? 'حد التشغيل:' : 'Operating boundary:'}</strong> {ar ? 'التنبيهات توجه فريقك فقط. لا يرسل NEXUS رسائل ولا يجري مكالمات من هذه القائمة.' : 'Alerts guide your team only. NEXUS does not send messages or place calls from this queue.'}</p>
           <button type="button" onClick={() => void load()} disabled={loading} className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-3 font-black text-indigo-700 shadow-sm disabled:opacity-50"><RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />{ar ? 'تحديث' : 'Refresh'}</button>
         </div>
 

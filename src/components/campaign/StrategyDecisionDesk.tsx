@@ -87,6 +87,9 @@ type StrategyDecisionDeskProps = {
     videoNeeded?: number
     readinessPending: number
     attachedToPost: number
+    mediaReady?: number
+    mediaTotal?: number
+    mediaPending?: number
   }
   brandScore: number | null
   brandTruthBlocked: boolean
@@ -526,12 +529,17 @@ export default function StrategyDecisionDesk({
   const identityFieldCount = typeof brandScore === 'number'
     ? Math.max(0, Math.min(identityFieldTotal, Math.round((brandScore / 100) * identityFieldTotal)))
     : null
-  const creativeMediaNeedMetric = creativeSummary.imageNeeded !== undefined || creativeSummary.videoNeeded !== undefined
+  const creativeMediaNeedMetric = typeof creativeSummary.mediaTotal === 'number' && creativeSummary.mediaTotal > 0
     ? localized(
-        `${creativeSummary.imageNeeded || 0} صور · ${creativeSummary.videoNeeded || 0} فيديو تحتاج وسائط`,
-        `${creativeSummary.imageNeeded || 0} images · ${creativeSummary.videoNeeded || 0} videos need media`,
+        `${creativeSummary.mediaReady || 0}/${creativeSummary.mediaTotal} وسائط جاهزة${creativeSummary.mediaPending ? ` · ${creativeSummary.mediaPending} تحتاج قرارًا` : ''}`,
+        `${creativeSummary.mediaReady || 0}/${creativeSummary.mediaTotal} media ready${creativeSummary.mediaPending ? ` · ${creativeSummary.mediaPending} need a decision` : ''}`,
       )
-    : localized(`${creativeSummary.mediaNeeded} تحتاج وسائط`, `${creativeSummary.mediaNeeded} need media`)
+    : creativeSummary.imageNeeded !== undefined || creativeSummary.videoNeeded !== undefined
+      ? localized(
+          `${creativeSummary.imageNeeded || 0} صور · ${creativeSummary.videoNeeded || 0} فيديو تحتاج وسائط`,
+          `${creativeSummary.imageNeeded || 0} images · ${creativeSummary.videoNeeded || 0} videos need media`,
+        )
+      : localized(`${creativeSummary.mediaNeeded} تحتاج وسائط`, `${creativeSummary.mediaNeeded} need media`)
   const handoffLinks = [
     { key: 'brand', label: text('Brand Brain', 'Brand Brain'), href: snapshot.executionLinks.brand, status: brandTruthBlocked ? text('تعارض', 'Conflict') : text('مرجع', 'Source'), tone: brandTruthBlocked ? 'danger' as Tone : 'positive' as Tone, helper: text('الأدلة والقيود التي تحكم كل قرار.', 'Evidence and constraints behind every decision.') },
     { key: 'content', label: isPaidOnly ? text('حزمة Paid', 'Paid package') : text('Content Hub', 'Content Hub'), href: isPaidOnly ? `/paid-campaigns/new?sourceCampaignId=${campaign.id}` : snapshot.executionLinks.content, status: isPaidOnly ? (paidPackageComplete ? text('مكتملة بالعقد', 'Contract complete') : text('ناقصة — لا تُعتمد', 'Incomplete — not approvable')) : (truthFlags.hasContentPlan ? text('موجود', 'Present') : text('مطلوب', 'Required')), tone: (isPaidOnly ? paidPackageComplete : truthFlags.hasContentPlan) ? 'positive' as Tone : 'warning' as Tone, helper: isPaidOnly ? text('المطلوب: 3 جماهير، 4 زوايا، 9 نسخ، و4 بريفات قبل أي صرف.', 'Required: 3 audiences, 4 angles, 9 copy variations, and 4 briefs before any spend.') : text('المنشورات وحالات دورة الحياة الفعلية.', 'Actual posts and lifecycle state.') },

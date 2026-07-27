@@ -39,7 +39,6 @@ const SECTIONS = [
 export default function CookiePolicyPage() {
   const { t, locale, isRTL } = useI18n()
   const lgT = t('legal')
-  const year = new Date().getFullYear()
   const isAr = locale === 'ar'
 
   return (
@@ -47,7 +46,7 @@ export default function CookiePolicyPage() {
       badge="Cookie Policy"
       title={lgT?.cookiesTitle as string}
       subtitle={lgT?.cookiesSubtitle as string}
-      lastUpdated={(lgT?.lastUpdated as string)?.replace('{year}', String(year))}
+      lastUpdated={isAr ? 'آخر تحديث: 27 يوليو 2026' : 'Last updated: July 27, 2026'}
       sections={SECTIONS}
       isAr={isAr}
       isRTL={isRTL}
