@@ -59,6 +59,10 @@ describe('Shotstack campaign-film compositor', () => {
       start: 0,
       transition: { in: 'slideRightFast', out: 'fadeFast' },
     })
+    expect(result.timeline.tracks[0].clips[2]).toMatchObject({
+      asset: { type: 'svg' },
+      transition: { in: 'zoom', out: 'fadeFast' },
+    })
     expect(result.timeline.tracks[1].clips[0]).toMatchObject({
       asset: { type: 'audio', volume: 1 },
       start: 0,

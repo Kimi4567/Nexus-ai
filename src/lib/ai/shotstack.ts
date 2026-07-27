@@ -143,7 +143,7 @@ export function buildShotstackCampaignFilmEdit(input: {
           width,
           height,
           fit: 'cover',
-          transition: { in: 'zoomFast', out: 'fadeFast' },
+          transition: { in: 'zoom', out: 'fadeFast' },
         },
       ],
     },
