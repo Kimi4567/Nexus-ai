@@ -92,4 +92,46 @@ describe('professional campaign film brief', () => {
     expect(prompts).not.toMatch(/same adult|target customer|real use situation/i)
     expect(brief.overlayCopy.cta).toBe('عرض التفاصيل')
   })
+
+  it('keeps the reviewed Arabic subscription quantity and price complete and readable', () => {
+    const brief = buildProfessionalCampaignFilmBrief({
+      brandName: 'Luma Roast Lab',
+      industry: 'Coffee subscription',
+      primaryOffer: 'Monthly one-kilogram coffee subscription for AED 149',
+      caption: 'كيلوغرام واحد شهريًا مقابل 149 درهمًا. القهوة محمصة حديثًا. راجع تفاصيل الاشتراك قبل الطلب.',
+      videoDirection: 'Use neutral close-up details and abstract transitions. Use no people, packaging, labels, readable text, delivery scenes, or implied product evidence.',
+    })
+
+    expect(brief.overlayCopy).toMatchObject({
+      hook: 'تفاصيل الاشتراك الشهري',
+      benefit: 'كيلوغرام واحد شهريًا مقابل 149 درهمًا',
+      cta: 'راجع التفاصيل',
+      language: 'ar',
+    })
+    expect(buildProfessionalCampaignFilmVoiceoverScript(brief.overlayCopy)).toBe(
+      'تفاصيل الاشتراك الشهري، كيلوغرام واحد شهريًا مقابل 149 درهمًا، راجع التفاصيل',
+    )
+    expect(brief.creativeDirection).toContain('reviewed offer-details concept')
+    expect(brief.shots.map(shot => shot.prompt).join(' ')).toContain('measured repeating rhythm')
+  })
+
+  it('frames the reviewed Dubai service window as a concept instead of delivery proof', () => {
+    const brief = buildProfessionalCampaignFilmBrief({
+      brandName: 'Luma Roast Lab',
+      industry: 'Coffee subscription',
+      caption: 'داخل دبي فقط خلال 48 ساعة. راجع عنوان التوصيل وتفاصيل الاشتراك قبل الطلب.',
+      videoDirection: 'Use neutral close-up details and abstract transitions. Use no people, packaging, labels, readable text, delivery scenes, or implied operational evidence.',
+    })
+
+    expect(brief.overlayCopy).toMatchObject({
+      hook: 'تفاصيل التوصيل',
+      benefit: 'داخل دبي فقط خلال 48 ساعة',
+      cta: 'راجع التفاصيل',
+      language: 'ar',
+    })
+    expect(brief.creativeDirection).toContain('reviewed service-window concept')
+    const prompts = brief.shots.map(shot => shot.prompt).join(' ')
+    expect(prompts).toContain('not operational or delivery proof')
+    expect(prompts).toContain('no vehicle, courier, parcel, address, map, or documentary evidence')
+  })
 })

@@ -1,7 +1,7 @@
 export const PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS = 10 as const
 export const PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_CREDITS_ESTIMATE = 130
 export const PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_COST_USD_ESTIMATE = 1.3
-export const PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION = '2026-07-professional-layers-4' as const
+export const PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION = '2026-07-professional-layers-5' as const
 
 export type ProfessionalCampaignFilmShot = {
   prompt: string
@@ -59,6 +59,18 @@ function sentences(value: string): string[] {
     .filter(Boolean)
 }
 
+function isOfferDetailClaim(value: string): boolean {
+  const hasPrice = /(?:\bAED\b|\bد\.?\s*إ\b|درهم|dirhams?|\$|€|£)\s*\d+(?:[.,]\d+)?|\d+(?:[.,]\d+)?\s*(?:\bAED\b|\bد\.?\s*إ\b|درهم|dirhams?|\$|€|£)/iu.test(value)
+  const hasQuantity = /(?:\d+\s*(?:kg|kgs|kilograms?|g|grams?|كجم|كيلو(?:غرام)?|غرام)|كيلوغرام\s+(?:واحد|واحدة)|one\s+kilogram)/iu.test(value)
+  return hasPrice && hasQuantity
+}
+
+function isDeliveryWindowClaim(value: string): boolean {
+  const hasLocation = /(?:دبي|dubai)/iu.test(value)
+  const hasWindow = /(?:\b48\b|٤٨)\s*(?:ساعة|ساعات|hours?|hrs?)/iu.test(value)
+  return hasLocation && hasWindow
+}
+
 function safePromptAnchor(input: {
   brandName?: unknown
   industry?: unknown
@@ -84,8 +96,8 @@ function finalizeShotPrompt(
   const noPeople = options.peopleMode === 'NO_PEOPLE'
   if (noPeople) {
     const control = 'No people, faces, hands, staff, customers, experts, packaging, containers, jars, cups, pouring, brewing, serving, tasting, logos, labels, readable text, screens, branded facilities, watermarks, or dialogue. Use generic unbranded category materials only; no documentary proof or process evidence.'
-    const context = compact(anchor || `${brand} approved campaign`, 120)
-    return `${control} Campaign context: ${context}. ${compact(creative, 175)}`.slice(0, 512)
+    const context = compact(anchor || `${brand} approved campaign`, 40)
+    return `${control} ${compact(creative, 160)} Campaign context: ${context}.`.slice(0, 512)
   }
   const control = 'No captions, logos, watermarks, or spoken dialogue. Generate continuous live-action-style motion; never use a still image, slideshow, framed screenshot, or frozen subject.'
   const continuity = `Campaign: ${anchor || `${brand} approved campaign`}. Keep the same adult lead, featured offer, premium art direction, and colors across all shots. Natural human and camera motion, physically plausible movement, commercial lighting.`
@@ -121,10 +133,38 @@ export function buildProfessionalCampaignFilmBrief(input: {
     caption,
   ].join(' '))
   const peopleFreeConcept = requestsPeopleFreeConcept(input.videoDirection)
+  const offerDetailClaim = lines.find(isOfferDetailClaim) ?? ''
+  const deliveryWindowClaim = lines.find(isDeliveryWindowClaim) ?? ''
   const anchor = safePromptAnchor(peopleFreeConcept
     ? { ...input, videoDirection: undefined }
     : input)
-  const shots = peopleFreeConcept ? [
+  const peopleFreeShots = deliveryWindowClaim ? [
+    {
+      duration: 3,
+      prompt: finalizeShotPrompt('Abstract service-window concept, not operational or delivery proof: generic coffee beans and warm light cross a refined geometric city grid with a fast camera push.', anchor, brand, { peopleMode: 'NO_PEOPLE' }),
+    },
+    {
+      duration: 3,
+      prompt: finalizeShotPrompt('Conceptual timing only: no vehicle, courier, parcel, address, map, or documentary evidence. Continue the coffee-and-city geometry with precise circular motion and a match cut.', anchor, brand, { peopleMode: 'NO_PEOPLE' }),
+    },
+    {
+      duration: 4,
+      prompt: finalizeShotPrompt('Premium abstract payoff: resolve the same generic beans, light path, and city geometry into a centered moving composition with negative space for the reviewed service-window CTA.', anchor, brand, { peopleMode: 'NO_PEOPLE' }),
+    },
+  ] : offerDetailClaim ? [
+    {
+      duration: 3,
+      prompt: finalizeShotPrompt('Monthly coffee-subscription concept: generic beans enter a measured repeating rhythm with a decisive macro reveal, fast camera push, contrast, and clean negative space.', anchor, brand, { peopleMode: 'NO_PEOPLE' }),
+    },
+    {
+      duration: 3,
+      prompt: finalizeShotPrompt('Continue the same beans in measured repeating rhythm and monthly cadence. Use polished macro and overhead motion with a match cut; exact price and quantity come later as typography.', anchor, brand, { peopleMode: 'NO_PEOPLE' }),
+    },
+    {
+      duration: 4,
+      prompt: finalizeShotPrompt('Offer-details payoff: resolve the same generic beans and rhythm into a centered moving composition with negative space for the reviewed quantity-and-price end card.', anchor, brand, { peopleMode: 'NO_PEOPLE' }),
+    },
+  ] : [
     {
       duration: 3,
       prompt: finalizeShotPrompt('Scroll-stopping vertical editorial opening. Use a decisive macro reveal of generic category raw materials with immediate purposeful movement, a fast controlled camera push, strong contrast, and clean negative space. The hook must be visually clear inside the first second without showing packaging, vessels, or process proof.', anchor, brand, { peopleMode: 'NO_PEOPLE' }),
@@ -137,7 +177,8 @@ export function buildProfessionalCampaignFilmBrief(input: {
       duration: 4,
       prompt: finalizeShotPrompt('Confident concept payoff. Resolve the same generic unbranded raw materials into one centered abstract hero composition with deliberate camera motion and generous clean negative space for a later CTA end card. Premium instrumental advertising sound design; no product-fidelity claim.', anchor, brand, { peopleMode: 'NO_PEOPLE' }),
     },
-  ] : fashion ? [
+  ]
+  const shots = peopleFreeConcept ? peopleFreeShots : fashion ? [
     {
       duration: 3,
       prompt: finalizeShotPrompt('Scroll-stopping vertical luxury fashion-commercial opening. A confident adult woman enters a refined contemporary setting wearing the hero garment; she walks naturally and the fabric moves with her. Smooth low-angle tracking camera, elegant editorial composition, immediate visual hook.', anchor, brand),
@@ -165,16 +206,31 @@ export function buildProfessionalCampaignFilmBrief(input: {
     },
   ]
 
-  const hook = compactAtWordBoundary(lines[0], language === 'ar' ? 28 : 40)
-    || (language === 'ar' ? 'لحظة تليق بك' : 'Made for your moment')
-  const benefit = compactAtWordBoundary(lines[1], language === 'ar' ? 36 : 50)
-    || compactAtWordBoundary(input.primaryOffer, language === 'ar' ? 36 : 50)
-    || (language === 'ar' ? 'تفاصيل تصنع الفارق' : 'Details that make the difference')
-  const cta = language === 'ar' ? 'عرض التفاصيل' : 'Discover more'
+  const hook = offerDetailClaim
+    ? (language === 'ar' ? 'تفاصيل الاشتراك الشهري' : 'Monthly subscription details')
+    : deliveryWindowClaim
+      ? (language === 'ar' ? 'تفاصيل التوصيل' : 'Delivery details')
+      : compactAtWordBoundary(lines[0], language === 'ar' ? 28 : 40)
+        || (language === 'ar' ? 'لحظة تليق بك' : 'Made for your moment')
+  const benefit = offerDetailClaim
+    ? compactAtWordBoundary(offerDetailClaim, language === 'ar' ? 64 : 72)
+    : deliveryWindowClaim
+      ? compactAtWordBoundary(deliveryWindowClaim, language === 'ar' ? 56 : 64)
+      : compactAtWordBoundary(lines[1], language === 'ar' ? 36 : 50)
+        || compactAtWordBoundary(input.primaryOffer, language === 'ar' ? 36 : 50)
+        || (language === 'ar' ? 'تفاصيل تصنع الفارق' : 'Details that make the difference')
+  const cta = offerDetailClaim || deliveryWindowClaim
+    ? (language === 'ar' ? 'راجع التفاصيل' : 'Review the details')
+    : (language === 'ar' ? 'عرض التفاصيل' : 'Discover more')
+  const conceptLabel = offerDetailClaim
+    ? 'reviewed offer-details concept'
+    : deliveryWindowClaim
+      ? 'reviewed service-window concept'
+      : 'hook, visible benefit, and deliberate branded end frame'
 
   return {
     shots,
     overlayCopy: { brand, hook, benefit, cta, language },
-    creativeDirection: `${brand} professional three-shot campaign film: hook, visible benefit, and deliberate branded end frame. No generic slideshow or static image motion.`,
+    creativeDirection: `${brand} professional three-shot campaign film: ${conceptLabel}. No generic slideshow or static image motion.`,
   }
 }

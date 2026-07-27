@@ -164,10 +164,22 @@ export async function professionalCampaignFilmOverlaySvgs(input: {
       fontSize: 34,
       fontWeight: 700,
       letterSpacing: rtl ? 0 : 8,
-      marginBottom: 180,
+      marginBottom: 84,
       whiteSpace: 'pre',
     },
   }, visualText(input.brand.toUpperCase(), rtl)),
+  createElement('div', {
+    style: {
+      display: 'flex',
+      width: 540,
+      marginBottom: 70,
+    },
+  }, textLines(wrapText(input.benefit, rtl ? 22 : 30), {
+    rtl,
+    size: 34,
+    color: '#FFFFFF',
+    align: 'center',
+  })),
   createElement('div', {
     style: {
       display: 'flex',
