@@ -65,9 +65,11 @@ export function isRetainedCampaignFilmRepairEligible(value: unknown): boolean {
   ) return false
 
   if (generation.status === 'COMPLETED') {
+    const currentRepairAlreadyConsumed = metadata.compositorRepairVersion === PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION
+      && metadata.compositorRepairStatus !== 'ERROR'
     return metadata.qualityStatus === 'PASSED'
       && metadata.attached === true
-      && metadata.compositorRepairVersion !== PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION
+      && !currentRepairAlreadyConsumed
   }
 
   const qualityReview = record(metadata.qualityReview)

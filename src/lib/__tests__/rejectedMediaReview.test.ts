@@ -126,7 +126,7 @@ describe('readRetainedVideoRepair', () => {
     })
   })
 
-  it('does not re-offer the current compositor or a completed failed repair attempt', () => {
+  it('does not re-offer a consumed repair but permits retry after a provider configuration error', () => {
     const base = {
       id: 'generation-completed',
       status: 'COMPLETED',
@@ -153,5 +153,13 @@ describe('readRetainedVideoRepair', () => {
         compositorRepairStatus: 'REJECTED',
       },
     })).toBeNull()
+    expect(readRetainedVideoRepair({
+      ...base,
+      metadata: {
+        ...base.metadata,
+        compositorRepairVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+        compositorRepairStatus: 'ERROR',
+      },
+    })).toEqual(expect.objectContaining({ generationId: 'generation-completed' }))
   })
 })
