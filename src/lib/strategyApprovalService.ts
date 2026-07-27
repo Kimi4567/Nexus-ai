@@ -16,6 +16,7 @@ import {
   sanitizeStrategyApprovalAiOutput,
 } from '@/lib/campaignSnapshots'
 import { applyStrategyApprovalToCampaignEngine } from '@/lib/campaignEnginePersistence'
+import { contentReviewResetData } from '@/lib/contentPostRevision'
 
 export class StrategyApprovalError extends Error {
   constructor(
@@ -195,6 +196,35 @@ export async function approveCampaignStrategy(
         createdById: userId,
       },
     })
+    const postsToReopen = await (tx.socialPost as any).findMany({
+      where: {
+        workspaceId: campaign.workspaceId,
+        campaignId,
+        status: { in: ['APPROVED', 'SCHEDULED', 'FAILED'] },
+        publishedAt: null,
+      },
+      select: {
+        id: true,
+        workspaceId: true,
+        status: true,
+      },
+    })
+    if (postsToReopen.length > 0) {
+      await (tx.socialPost as any).updateMany({
+        where: { id: { in: postsToReopen.map((post: any) => post.id) } },
+        data: contentReviewResetData('APPROVED') as any,
+      })
+      await (tx.postStatusHistory as any).createMany({
+        data: postsToReopen.map((post: any) => ({
+          socialPostId: post.id,
+          workspaceId: post.workspaceId,
+          fromStatus: post.status,
+          toStatus: 'DRAFT',
+          actor: 'SYSTEM',
+          note: 'Strategy revision re-approved; content, media, and schedule decisions were reopened for explicit review.',
+        })),
+      })
+    }
     await tx.campaignActivity.create({
       data: {
         campaignId,

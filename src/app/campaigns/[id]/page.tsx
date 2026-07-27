@@ -403,8 +403,8 @@ function ContentPlanApprovalDialog({
                     : 'NEXUS will record only the strategy approval decision, then open the paid execution center. Cost: 0 credits. No organic content, budget spend, or ad launch occurs.')
                   : contentPlanAlreadyExists
                     ? (isArabic
-                      ? 'سيحفظ NEXUS قرار اعتماد جديدًا للاستراتيجية الحالية، مع الإبقاء على مسودات Content Hub الموجودة دون إعادة توليد أو خصم كريديت. لا يتم نشر أو جدولة أو تشغيل إعلان.'
-                      : 'NEXUS will record a new approval for the current strategy while retaining the existing Content Hub drafts without regeneration or credit spend. Nothing is published, scheduled, or launched.')
+                      ? 'سيحفظ NEXUS قرار اعتماد جديدًا للاستراتيجية الحالية، مع الإبقاء على نصوص ووسائط Content Hub دون إعادة توليد أو خصم كريديت. ستُفتح قرارات اعتماد المحتوى والوسائط والجدولة القديمة للمراجعة من جديد. لا يتم نشر أو جدولة أو تشغيل إعلان.'
+                      : 'NEXUS will record a new approval for the current strategy while retaining the existing Content Hub drafts without regeneration or credit spend. Previous content, media, and schedule decisions will reopen for explicit review. Nothing is published, scheduled, or launched.')
                   : isArabic
                   ? strategyAlreadyApproved
                     ? `الاستراتيجية معتمدة بالفعل. سيتحقق NEXUS من القرار المحفوظ، ثم يخصم ${CONTENT_PLAN_CREDIT_COST} كريديت لإنشاء مسودات Content Hub للمراجعة. لا يتم نشر أو جدولة أو تشغيل إعلان.`
@@ -423,7 +423,7 @@ function ContentPlanApprovalDialog({
                   : contentPlanAlreadyExists
                     ? [
                       isArabic ? 'التكلفة: 0 كريديت' : 'Cost: 0 credits',
-                      isArabic ? 'المسودات: محفوظة' : 'Drafts: retained',
+                      isArabic ? 'النصوص والوسائط: محفوظة' : 'Content and media: retained',
                       isArabic ? 'التنفيذ الخارجي: لا شيء' : 'External execution: none',
                     ]
                   : [
@@ -457,7 +457,7 @@ function ContentPlanApprovalDialog({
                   state: launchState === 'approving' ? 'active' : 'done',
                 },
                 {
-                  label: isArabic ? 'الإبقاء على مسودات Content Hub دون تغيير' : 'Retain existing Content Hub drafts unchanged',
+                  label: isArabic ? 'الإبقاء على النصوص والوسائط وفتح القرارات القديمة للمراجعة' : 'Retain content and media; reopen old decisions for review',
                   state: 'pending',
                 },
                 {

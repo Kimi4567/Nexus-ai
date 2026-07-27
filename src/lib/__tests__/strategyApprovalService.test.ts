@@ -6,6 +6,8 @@ const { prismaMock, txMock } = vi.hoisted(() => {
     campaignSnapshot: { create: vi.fn() },
     campaignActivity: { create: vi.fn() },
     marketingLearningEvent: { create: vi.fn() },
+    socialPost: { findMany: vi.fn(), updateMany: vi.fn() },
+    postStatusHistory: { createMany: vi.fn() },
   }
   return {
     txMock: tx,
@@ -65,6 +67,9 @@ beforeEach(() => {
   })
   txMock.campaignActivity.create.mockResolvedValue({})
   txMock.marketingLearningEvent.create.mockResolvedValue({})
+  txMock.socialPost.findMany.mockResolvedValue([])
+  txMock.socialPost.updateMany.mockResolvedValue({ count: 0 })
+  txMock.postStatusHistory.createMany.mockResolvedValue({ count: 0 })
 })
 
 describe('strategy approval service', () => {
@@ -118,6 +123,62 @@ describe('strategy approval service', () => {
     expect(result.unchanged).toBe(true)
     expect(result.contract.state).toBe('approved')
     expect(prismaMock.$transaction).not.toHaveBeenCalled()
+  })
+
+  it('retains post content and media but reopens stale review decisions for the new strategy revision', async () => {
+    prismaMock.campaign.findFirst
+      .mockResolvedValueOnce(draft)
+      .mockResolvedValueOnce({ ...draft, status: 'ACTIVE' })
+    prismaMock.marketingLearningEvent.findFirst
+      .mockResolvedValueOnce({
+        eventType: 'STRATEGY_APPROVAL_REVOKED',
+        createdAt: new Date('2026-07-12T10:30:00.000Z'),
+        source: 'CAMPAIGN_REVIEW',
+      })
+      .mockResolvedValueOnce({
+        eventType: 'STRATEGY_APPROVED',
+        createdAt: new Date('2026-07-12T11:00:00.000Z'),
+        source: 'CAMPAIGN_REVIEW',
+      })
+    txMock.socialPost.findMany.mockResolvedValue([
+      { id: 'post-approved', workspaceId: 'w1', status: 'APPROVED' },
+      { id: 'post-scheduled', workspaceId: 'w1', status: 'SCHEDULED' },
+    ])
+    txMock.socialPost.updateMany.mockResolvedValue({ count: 2 })
+    txMock.postStatusHistory.createMany.mockResolvedValue({ count: 2 })
+
+    const result = await approveCampaignStrategy('c1', 'u1')
+
+    expect(result.contract.state).toBe('approved')
+    expect(txMock.socialPost.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['post-approved', 'post-scheduled'] } },
+      data: expect.objectContaining({
+        status: 'DRAFT',
+        approvedAt: null,
+        approvedSnapshotId: null,
+        mediaApprovalSnapshotId: null,
+        scheduledSnapshotId: null,
+        publishMode: 'MANUAL',
+        integrationId: null,
+        publishAttemptedAt: null,
+        platformPostId: null,
+        publishedAt: null,
+      }),
+    })
+    expect(txMock.postStatusHistory.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          socialPostId: 'post-approved',
+          fromStatus: 'APPROVED',
+          toStatus: 'DRAFT',
+        }),
+        expect.objectContaining({
+          socialPostId: 'post-scheduled',
+          fromStatus: 'SCHEDULED',
+          toStatus: 'DRAFT',
+        }),
+      ],
+    })
   })
 
   it('returns explicit blockers instead of activating an unreviewed strategy', async () => {

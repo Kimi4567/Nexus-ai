@@ -99,6 +99,7 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).toContain('Re-open strategy for review')
     expect(campaignRoomSource).toContain('contentPlanAlreadyExists={campaignPosts.length > 0}')
     expect(campaignRoomSource).toContain('retaining the existing Content Hub drafts without regeneration or credit spend')
+    expect(campaignRoomSource).toContain('Previous content, media, and schedule decisions will reopen for explicit review')
     expect(campaignRoomSource).toMatch(
       /action: 'revoke'[\s\S]{0,1800}await fetchCampaign\(\)[\s\S]{0,300}setStrategyApprovalTruth\('revoked'\)/,
     )
