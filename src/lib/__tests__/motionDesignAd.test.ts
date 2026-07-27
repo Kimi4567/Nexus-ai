@@ -226,7 +226,7 @@ describe('source-locked motion design', () => {
     expect(deliveryOffer.intro).not.toContain('<text')
   })
 
-  it('builds a source-locked six-second edit with a kinetic hook, CTA push-in, and no audio', () => {
+  it('builds a layered six-second edit with three source scenes, transitions, and original sound design', () => {
     const args = buildMotionDesignFfmpegArgs({
       sourcePath: '/tmp/source.mp4',
       introOverlayPath: '/tmp/intro.png',
@@ -241,18 +241,18 @@ describe('source-locked motion design', () => {
     expect(command).toContain('-i /tmp/intro.png')
     expect(command).toContain('-i /tmp/hook.png')
     expect(command).toContain('-i /tmp/end.png')
-    expect(command).toContain('scale=660:920:force_original_aspect_ratio=decrease')
-    expect(command).toContain('pad=720:1280')
-    expect(command).toContain('tpad=stop_mode=clone:stop_duration=3')
-    expect(command).toContain("zoompan=z='if(lt(on,10),1.20-(on/10)*0.20")
-    expect(command).toContain(')*0.06)')
-    expect(command).toContain('trim=duration=6')
-    expect(command).toContain("between(t,0,0.56)")
-    expect(command).toContain("between(t,0.45,3.2)")
-    expect(command).toContain('fade=t=out:st=2.9:d=0.3:alpha=1')
-    expect(command).toContain('fade=t=out:st=0.42:d=0.12:alpha=1')
-    expect(command).toContain("between(t,3.65,6.0)")
-    expect(command).toContain('-an')
+    expect(command).toContain('scale=720:1280:force_original_aspect_ratio=increase')
+    expect(command).toContain('gblur=sigma=32')
+    expect(command).toContain('trim=start=0:duration=2')
+    expect(command).toContain('trim=start=0.5:duration=2.5')
+    expect(command).toContain('trim=start=0.8:duration=2.2')
+    expect(command).toContain('xfade=transition=smoothleft:duration=0.35:offset=1.65')
+    expect(command).toContain('xfade=transition=fade:duration=0.35:offset=3.8')
+    expect(command).toContain('anoisesrc=color=pink')
+    expect(command).toContain('sine=frequency=92')
+    expect(command).toContain('loudnorm=I=-18:TP=-2:LRA=7')
+    expect(command).toContain('-map [outa]')
+    expect(command).toContain('-c:a aac')
     expect(command).toContain('-c:v libx264')
     expect(command).not.toContain('Review before publishing')
   })
@@ -269,8 +269,8 @@ describe('source-locked motion design', () => {
       sourceHeight: 1920,
     })
     const command = args.join(' ')
-    expect(command).toContain('scale=720:1280:force_original_aspect_ratio=decrease')
-    expect(command).toContain('pad=720:1280')
-    expect(command).not.toContain('scale=660:920')
+    expect(command).toContain('scale=720:1280:force_original_aspect_ratio=increase')
+    expect(command).toContain('crop=720:1280')
+    expect(command).not.toContain('gblur=sigma=32')
   })
 })

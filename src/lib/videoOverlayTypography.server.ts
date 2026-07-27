@@ -61,21 +61,37 @@ export function videoOverlayInlineText(value: string, options: {
 }): ReactElement {
   const words = value.trim().split(/\s+/).filter(Boolean)
   const visualWords = options.rtl ? words.reverse() : words
+  const explicitGap = options.gap ?? Math.max(8, Math.round(options.size * 0.3))
   return createElement('div', {
     style: {
       display: 'flex',
       alignItems: 'center',
-      gap: options.gap ?? Math.max(8, Math.round(options.size * 0.3)),
+      gap: 0,
       color: options.color,
       fontFamily: NEXUS_ARABIC_FONT_FAMILY,
       fontSize: options.size,
       fontWeight: 700,
       lineHeight: 1,
     },
-  }, ...visualWords.map((word, index) => createElement('div', {
-    key: `${index}-${word}`,
-    style: { display: 'flex', whiteSpace: 'pre' },
-  }, word)))
+  }, ...visualWords.flatMap((word, index) => {
+    const wordElement = createElement('div', {
+      key: `${index}-${word}`,
+      style: { display: 'flex', whiteSpace: 'pre' },
+    }, word)
+    if (index === visualWords.length - 1) return [wordElement]
+    return [
+      wordElement,
+      createElement('div', {
+        key: `${index}-gap`,
+        style: {
+          display: 'flex',
+          width: explicitGap,
+          height: 1,
+          flexShrink: 0,
+        },
+      }),
+    ]
+  }))
 }
 
 function satoriFontData(): ArrayBuffer {

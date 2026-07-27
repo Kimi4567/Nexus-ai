@@ -1,8 +1,8 @@
 import { readMediaIntelligence } from '@/lib/creativeIntelligence'
 
-// Six seconds is a native paid-media bumper length and lets NEXUS stretch only
-// the verified opening three seconds of a source. This avoids looping into an
-// unrelated later scene or using a provider-generated filler shot.
+// Six seconds is a native paid-media bumper length. NEXUS re-edits only the
+// visually verified opening three seconds into three source-derived scenes.
+// This avoids drifting into an unrelated later shot or inventing filler pixels.
 export const MOTION_DESIGN_DURATION_SECONDS = 6
 export const MOTION_DESIGN_SAFE_SOURCE_SECONDS = 3
 // Creative Intelligence intentionally scores source videos conservatively. For

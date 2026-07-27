@@ -79,6 +79,7 @@ import {
   assessMotionDesignVideoAsset,
   MOTION_DESIGN_DURATION_SECONDS,
 } from '@/lib/motionDesignAd'
+import { PROFESSIONAL_VIDEO_TIMELINE_VERSION } from '@/lib/professionalVideoTimeline'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -2596,6 +2597,7 @@ export default function ContentHubPage() {
           caption: post.caption,
           sourceMediaId: motionDesignSourceMediaId,
           durationSeconds: MOTION_DESIGN_DURATION_SECONDS,
+          timelineVersion: PROFESSIONAL_VIDEO_TIMELINE_VERSION,
         })
         const response = await fetchCreditOperation(
           creditOperationScope('campaign:post-motion-design', identity),
@@ -5037,8 +5039,8 @@ export default function ContentHubPage() {
                     <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-300">
                       {videoProductionMode === 'MOTION_DESIGN'
                         ? (isAr
-                          ? `يحافظ NEXUS على الفيديو الأصلي ويضيف حركة تحريرية بسيطة فقط. هذا المسار ليس فيلمًا سينمائيًا ولا يولّد أشخاصًا أو مشاهد جديدة.`
-                          : `NEXUS preserves the source video and adds restrained editorial motion only. This is not a cinematic film and does not generate people or new scenes.`)
+                          ? `يبني NEXUS إعلانًا بطبقات ومشاهد وانتقالات وTypography وصوت أصلي فوق الفيديو الحقيقي، مع إبقاء كل ادعاء مطابقًا للنص المعتمد. لا يولّد أشخاصًا أو منتجًا أو مشاهد توصيل جديدة.`
+                          : `NEXUS builds a layered ad with scenes, transitions, typography, and original sound design over the real source while keeping every claim grounded in approved copy. It generates no people, product, or delivery scenes.`)
                         : videoProductionMode === 'CAMPAIGN_FILM'
                           ? (isAr
                             ? `ينتج NEXUS فيلمًا مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ من 3 لقطات: Hook متحرك، لقطة منفعة، ثم End Frame بالهوية؛ مع حركة مشاهد وعناصر وكاميرا وصوت وانتقالات وTypography عربي/إنجليزي منفصل عن الصورة.`
@@ -5206,8 +5208,10 @@ export default function ContentHubPage() {
                     <div className="mt-3 space-y-2 text-xs leading-relaxed text-violet-950/75">
                       {videoProductionMode === 'MOTION_DESIGN' ? (
                         <>
-                          <p>✓ {isAr ? 'لا توجد بكسلات منتج أو واجهة مولّدة؛ يُعاد ترميز المصدر الحقيقي فقط لمقاس المنصة' : 'No synthetic product or interface pixels; the real source is only re-encoded for the platform format'}</p>
-                          <p>✓ {isAr ? `${MOTION_DESIGN_DURATION_SECONDS} ثوانٍ بمقاس المنصة: Hook من النص المعتمد، عرض المصدر، ثم End Card بالبراند وCTA محايد` : `${MOTION_DESIGN_DURATION_SECONDS}-second platform master: approved-copy hook, source showcase, then a branded end card with a neutral CTA`}</p>
+                          <p>✓ {isAr ? '3 مشاهد مونتاج حقيقية من المصدر: Hook ثم Proof ثم CTA، مع انتقالين وتدرّج حركة مختلف' : 'Three real source-derived edit scenes: Hook, Proof, and CTA, with two transitions and distinct motion treatments'}</p>
+                          <p>✓ {isAr ? 'خلفية ممتدة أو Blurred Canvas بدل المساحات السوداء، مع إبقاء المنتج أو الواجهة الأصلية واضحة' : 'Full-bleed or blurred-canvas treatment instead of black letterboxing while preserving the original product or interface'}</p>
+                          <p>✓ {isAr ? 'طبقات Typography منفصلة تستخرج السعر والكمية أو النطاق والمدة حرفيًا من النص المعتمد' : 'Separate typography layers extract price and quantity or scope and duration verbatim from approved copy'}</p>
+                          <p>✓ {isAr ? 'Sound Design أصلي إجرائي مع ضبط مستوى الصوت؛ لا موسيقى Stock بلا ترخيص' : 'Original procedural sound design with loudness control; no unlicensed stock music'}</p>
                           <p>✓ {isAr ? 'فحص 5 لقطات قبل الربط' : 'Five-frame QA before attachment'}</p>
                           <p>✓ {isAr ? 'صفر استهلاك لمزود فيديو توليدي' : 'Zero generative-video provider spend'}</p>
                           <p>✓ {isAr ? `التكلفة: ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت` : `Cost: ${CONTENT_HUB_MOTION_DESIGN_COST} credits`}</p>

@@ -24,6 +24,11 @@ import {
   visualVideoOverlayText,
   wrapVideoOverlayText,
 } from '@/lib/videoOverlayTypography.server'
+import {
+  PROFESSIONAL_VIDEO_DURATION_SECONDS,
+  PROFESSIONAL_VIDEO_FRAME_RATE,
+  type ProfessionalVideoTimeline,
+} from '@/lib/professionalVideoTimeline'
 
 export type StoredMotionDesignVideo = {
   url: string
@@ -38,7 +43,6 @@ export type StoredMotionDesignVideo = {
 const execFileAsync = promisify(execFile)
 const MAX_SOURCE_BYTES = 100 * 1024 * 1024
 const RENDER_TIMEOUT_MS = 90_000
-const MOTION_DESIGN_FRAME_RATE = 24
 
 export function splitMotionDesignHookMetric(hook: string): { lead: string; metric: string } | null {
   // Arabic unit words can contain combining marks (for example "درهمًا").
@@ -49,6 +53,205 @@ export function splitMotionDesignHookMetric(hook: string): { lead: string; metri
   const lead = match[1]?.trim() || ''
   const metric = match[2]?.trim() || ''
   return metric ? { lead, metric } : null
+}
+
+export async function professionalMotionDesignOverlaySvgs(input: {
+  timeline: ProfessionalVideoTimeline
+  width?: number
+  height?: number
+}): Promise<{ intro: string; hook: string; end: string }> {
+  const width = input.width || 720
+  const height = input.height || 1280
+  const vertical = height > width
+  const { copy, palette } = input.timeline
+  const rtl = copy.language === 'ar'
+  const shortEdge = Math.min(width, height)
+  const horizontalPadding = Math.round(width * (vertical ? 0.075 : 0.06))
+  const root: CSSProperties = {
+    width,
+    height,
+    display: 'flex',
+    boxSizing: 'border-box',
+    fontFamily: NEXUS_ARABIC_FONT_FAMILY,
+  }
+  const brand = createElement('div', {
+    style: {
+      display: 'flex',
+      alignSelf: rtl ? 'flex-end' : 'flex-start',
+      padding: `${Math.round(shortEdge * 0.014)}px ${Math.round(shortEdge * 0.024)}px`,
+      border: `${Math.max(1, Math.round(shortEdge * 0.0015))}px solid rgba(255,255,255,0.46)`,
+      borderRadius: Math.round(shortEdge * 0.05),
+      backgroundColor: 'rgba(12,10,9,0.48)',
+      color: '#FFFFFF',
+      fontSize: Math.round(shortEdge * 0.026),
+      fontWeight: 700,
+      letterSpacing: rtl ? 0 : Math.round(shortEdge * 0.003),
+      whiteSpace: 'pre',
+    },
+  }, visualVideoOverlayText(copy.brand.toUpperCase(), rtl))
+
+  const intro = await renderPathOnlyVideoOverlay(createElement('div', {
+    style: {
+      ...root,
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      padding: `${Math.round(height * 0.055)}px ${horizontalPadding}px ${Math.round(height * (vertical ? 0.16 : 0.10))}px`,
+      backgroundImage: 'linear-gradient(to bottom, rgba(10,8,7,0.36) 0%, rgba(10,8,7,0) 35%, rgba(10,8,7,0.08) 52%, rgba(10,8,7,0.88) 100%)',
+    },
+  },
+  brand,
+  createElement('div', {
+    style: {
+      display: 'flex',
+      width: vertical ? '94%' : '70%',
+      alignSelf: rtl ? 'flex-end' : 'flex-start',
+      flexDirection: 'column',
+      alignItems: rtl ? 'flex-end' : 'flex-start',
+      gap: Math.round(shortEdge * 0.024),
+    },
+  },
+  createElement('div', {
+    style: {
+      display: 'flex',
+      width: Math.round(shortEdge * 0.16),
+      height: Math.max(5, Math.round(shortEdge * 0.009)),
+      borderRadius: Math.round(shortEdge * 0.01),
+      backgroundColor: palette.accent,
+    },
+  }),
+  videoOverlayTextLines(
+    wrapVideoOverlayText(copy.eyebrow, rtl ? (vertical ? 20 : 28) : (vertical ? 26 : 36), 2),
+    {
+      rtl,
+      size: Math.round(shortEdge * (vertical ? 0.043 : 0.036)),
+      color: palette.paper,
+    },
+  ),
+  createElement('div', {
+    style: {
+      display: 'flex',
+      maxWidth: '100%',
+      padding: `${Math.round(shortEdge * 0.016)}px ${Math.round(shortEdge * 0.03)}px`,
+      borderRadius: Math.round(shortEdge * 0.018),
+      backgroundColor: palette.paper,
+      color: palette.ink,
+      boxShadow: `0 ${Math.round(shortEdge * 0.02)}px ${Math.round(shortEdge * 0.07)}px rgba(0,0,0,0.30)`,
+    },
+  }, videoOverlayInlineText(copy.headline, {
+    rtl,
+    size: Math.round(shortEdge * (vertical ? 0.105 : 0.082)),
+    color: palette.ink,
+    gap: Math.max(14, Math.round(shortEdge * 0.026)),
+  })))), width, height)
+
+  const hook = await renderPathOnlyVideoOverlay(createElement('div', {
+    style: {
+      ...root,
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      padding: `${Math.round(height * 0.055)}px ${horizontalPadding}px ${Math.round(height * (vertical ? 0.15 : 0.09))}px`,
+      backgroundImage: 'linear-gradient(to bottom, rgba(10,8,7,0.42) 0%, rgba(10,8,7,0) 34%, rgba(10,8,7,0) 50%, rgba(10,8,7,0.82) 100%)',
+    },
+  },
+  brand,
+  createElement('div', {
+    style: {
+      display: 'flex',
+      width: vertical ? '88%' : '64%',
+      alignSelf: rtl ? 'flex-end' : 'flex-start',
+      flexDirection: 'column',
+      alignItems: rtl ? 'flex-end' : 'flex-start',
+      padding: `${Math.round(shortEdge * 0.035)}px ${Math.round(shortEdge * 0.04)}px`,
+      gap: Math.round(shortEdge * 0.024),
+      boxSizing: 'border-box',
+      border: `${Math.max(1, Math.round(shortEdge * 0.0015))}px solid rgba(255,255,255,0.34)`,
+      borderRadius: Math.round(shortEdge * 0.03),
+      backgroundColor: 'rgba(17,13,11,0.78)',
+    },
+  },
+  createElement('div', {
+    style: {
+      display: 'flex',
+      width: Math.round(shortEdge * 0.11),
+      height: Math.max(4, Math.round(shortEdge * 0.007)),
+      borderRadius: Math.round(shortEdge * 0.008),
+      backgroundColor: palette.accent,
+    },
+  }),
+  videoOverlayTextLines(
+    wrapVideoOverlayText(copy.eyebrow, rtl ? (vertical ? 18 : 28) : (vertical ? 24 : 34), 2),
+    {
+      rtl,
+      size: Math.round(shortEdge * (vertical ? 0.06 : 0.048)),
+      color: '#FFFFFF',
+    },
+  ),
+  copy.supporting
+    ? videoOverlayTextLines(
+      wrapVideoOverlayText(copy.supporting, rtl ? (vertical ? 24 : 34) : (vertical ? 30 : 42), 2),
+      {
+        rtl,
+        size: Math.round(shortEdge * (vertical ? 0.038 : 0.032)),
+        color: palette.paper,
+      },
+    )
+    : null)), width, height)
+
+  const end = await renderPathOnlyVideoOverlay(createElement('div', {
+    style: {
+      ...root,
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      padding: `${Math.round(height * 0.07)}px ${horizontalPadding}px ${Math.round(height * (vertical ? 0.16 : 0.10))}px`,
+      backgroundImage: 'linear-gradient(to bottom, rgba(10,8,7,0.16) 0%, rgba(10,8,7,0.08) 38%, rgba(10,8,7,0.92) 100%)',
+    },
+  },
+  createElement('div', {
+    style: {
+      display: 'flex',
+      width: vertical ? '88%' : '58%',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: Math.round(shortEdge * 0.035),
+    },
+  },
+  createElement('div', {
+    style: {
+      display: 'flex',
+      color: '#FFFFFF',
+      fontSize: Math.round(shortEdge * 0.052),
+      fontWeight: 700,
+      letterSpacing: rtl ? 0 : Math.round(shortEdge * 0.006),
+      whiteSpace: 'pre',
+    },
+  }, visualVideoOverlayText(copy.brand.toUpperCase(), rtl)),
+  createElement('div', {
+    style: {
+      display: 'flex',
+      width: Math.round(shortEdge * 0.13),
+      height: Math.max(5, Math.round(shortEdge * 0.008)),
+      borderRadius: Math.round(shortEdge * 0.01),
+      backgroundColor: palette.accent,
+    },
+  }),
+  createElement('div', {
+    style: {
+      display: 'flex',
+      minWidth: Math.round(width * (vertical ? 0.52 : 0.32)),
+      padding: `${Math.round(shortEdge * 0.015)}px ${Math.round(shortEdge * 0.045)}px ${Math.round(shortEdge * 0.022)}px`,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderBottom: `${Math.max(3, Math.round(shortEdge * 0.006))}px solid ${palette.accent}`,
+    },
+  }, videoOverlayInlineText(copy.cta, {
+    rtl,
+    size: Math.round(shortEdge * 0.043),
+    color: '#FFFFFF',
+    gap: Math.max(10, Math.round(shortEdge * 0.018)),
+  })))), width, height)
+
+  return { intro, hook, end }
 }
 
 export async function motionDesignOverlaySvgs(input: MotionDesignCopy & {
@@ -350,50 +553,51 @@ export function buildMotionDesignFfmpegArgs(input: {
   endOverlayPath: string
   outputPath: string
   target: PlatformVideoFormat
+  timeline?: ProfessionalVideoTimeline
   sourceWidth?: number | null
   sourceHeight?: number | null
 }): string[] {
-  const vertical = input.target.height > input.target.width
   const sourceAspect = Number(input.sourceWidth || 0) / Math.max(1, Number(input.sourceHeight || 0))
   const targetAspect = input.target.width / input.target.height
   const sourceMatchesTarget = Number(input.sourceWidth || 0) > 0
     && Number(input.sourceHeight || 0) > 0
     && Math.abs(sourceAspect - targetAspect) <= 0.02
-  // Preserve a native 9:16/16:9 master edge-to-edge instead of shrinking it
-  // into an unnecessary mat. Typography is composited in separate vector layers.
-  const sourceWidth = sourceMatchesTarget
-    ? input.target.width
-    : vertical ? input.target.width - 60 : Math.round(input.target.width * 0.78)
-  const sourceHeight = sourceMatchesTarget
-    ? input.target.height
-    : vertical ? input.target.height - 360 : input.target.height - 160
-  const holdSeconds = MOTION_DESIGN_DURATION_SECONDS - MOTION_DESIGN_SAFE_SOURCE_SECONDS
-  const sourceEndFrame = MOTION_DESIGN_SAFE_SOURCE_SECONDS * MOTION_DESIGN_FRAME_RATE - 1
-  const endMotionFrames = holdSeconds * MOTION_DESIGN_FRAME_RATE
-  const zoomExpression = `if(lt(on,10),1.20-(on/10)*0.20,if(lte(on,${sourceEndFrame}),1,1+min((on-${sourceEndFrame})/${endMotionFrames},1)*0.06))`
-  const baseFilter = [
-    '[0:v]setpts=PTS-STARTPTS',
-    `scale=${sourceWidth}:${sourceHeight}:force_original_aspect_ratio=decrease`,
-    `pad=${input.target.width}:${input.target.height}:(ow-iw)/2:(oh-ih)/2:color=0x090B13`,
-    `fps=${MOTION_DESIGN_FRAME_RATE}`,
-    `tpad=stop_mode=clone:stop_duration=${holdSeconds}`,
-    // A fast punch-out creates an immediate hook; the verified source
-    // then plays at rest before a restrained six-percent CTA push-in. This is
-    // real editorial motion over source-derived frames, not AI fill.
-    `zoompan=z='${zoomExpression}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${input.target.width}x${input.target.height}:fps=${MOTION_DESIGN_FRAME_RATE}`,
-    `trim=duration=${MOTION_DESIGN_DURATION_SECONDS}`,
-    'setpts=PTS-STARTPTS',
-    'setsar=1',
-    'format=yuv420p[base]',
-  ].join(',')
+  const frameRate = input.timeline?.frameRate || PROFESSIONAL_VIDEO_FRAME_RATE
+  const durationSeconds = input.timeline?.durationSeconds || PROFESSIONAL_VIDEO_DURATION_SECONDS
+  const width = input.target.width
+  const height = input.target.height
+  const fullBleed = sourceMatchesTarget || input.timeline?.sourceLayout === 'FULL_BLEED'
+  const sourceCanvas = fullBleed
+    ? [
+        `[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase`,
+        `crop=${width}:${height}`,
+        `fps=${frameRate}`,
+        'setsar=1',
+        'format=yuv420p[canvas]',
+      ].join(',')
+    : [
+        '[0:v]split=2[background_source][hero_source]',
+        `[background_source]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},gblur=sigma=32,eq=brightness=-0.24:saturation=0.72[background]`,
+        `[hero_source]scale=${width}:${height}:force_original_aspect_ratio=decrease[hero]`,
+        `[background][hero]overlay=x=(W-w)/2:y=(H-h)/2,fps=${frameRate},setsar=1,format=yuv420p[canvas]`,
+      ].join(';')
   const filter = [
-    baseFilter,
-    '[1:v]format=rgba,fade=t=out:st=0.42:d=0.12:alpha=1[intro]',
-    '[2:v]format=rgba,fade=t=in:st=0.45:d=0.14:alpha=1,fade=t=out:st=2.9:d=0.3:alpha=1[hook]',
-    '[3:v]format=rgba,fade=t=in:st=3.65:d=0.35:alpha=1[end]',
-    "[base][intro]overlay=x=0:y='if(lt(t,0.16),(0.16-t)*150,0)':enable='between(t,0,0.56)'[v0]",
-    "[v0][hook]overlay=x=0:y='if(lt(t,0.72),(0.72-t)*130,0)':enable='between(t,0.45,3.2)'[v1]",
-    "[v1][end]overlay=x=0:y='if(lt(t,4.0),(4.0-t)*70,0)':enable='between(t,3.65,6.0)',format=yuv420p[outv]",
+    sourceCanvas,
+    '[canvas]split=3[hook_source][proof_source][cta_source]',
+    `[hook_source]trim=start=0:duration=2,setpts=PTS-STARTPTS,zoompan=z='if(lt(on,12),1.12-(on/12)*0.12,1)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${width}x${height}:fps=${frameRate},settb=AVTB,format=yuv420p[scene_hook]`,
+    `[proof_source]trim=start=0.5:duration=2.5,setpts=PTS-STARTPTS,zoompan=z='1.025':x='min(on*0.35,iw-iw/zoom)':y='ih/2-(ih/zoom/2)':d=1:s=${width}x${height}:fps=${frameRate},settb=AVTB,format=yuv420p[scene_proof]`,
+    `[cta_source]trim=start=0.8:duration=2.2,setpts=PTS-STARTPTS,zoompan=z='1+min(on/${Math.round(2.2 * frameRate)},1)*0.045':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${width}x${height}:fps=${frameRate},eq=contrast=1.04:saturation=1.04,settb=AVTB,format=yuv420p[scene_cta]`,
+    '[scene_hook][scene_proof]xfade=transition=smoothleft:duration=0.35:offset=1.65[edit_a]',
+    '[edit_a][scene_cta]xfade=transition=fade:duration=0.35:offset=3.8[base]',
+    '[1:v]format=rgba,fade=t=in:st=0:d=0.12:alpha=1,fade=t=out:st=1.52:d=0.18:alpha=1[intro]',
+    '[2:v]format=rgba,fade=t=in:st=1.58:d=0.18:alpha=1,fade=t=out:st=3.58:d=0.2:alpha=1[hook]',
+    '[3:v]format=rgba,fade=t=in:st=3.72:d=0.24:alpha=1[end]',
+    "[base][intro]overlay=x=0:y='if(lt(t,0.24),(0.24-t)*220,0)':enable='between(t,0,1.72)'[v0]",
+    "[v0][hook]overlay=x='if(lt(t,1.82),(1.82-t)*100,0)':y=0:enable='between(t,1.58,3.82)'[v1]",
+    `[v1][end]overlay=x=0:y='if(lt(t,4.02),(4.02-t)*90,0)':enable='between(t,3.72,${durationSeconds})',trim=duration=${durationSeconds},format=yuv420p[outv]`,
+    `[4:a]highpass=f=180,lowpass=f=4200,volume='0.012+0.052*between(t\\,0\\,0.34)+0.064*between(t\\,1.48\\,1.94)+0.058*between(t\\,3.64\\,4.12)':eval=frame,afade=t=in:st=0:d=0.08,afade=t=out:st=5.65:d=0.35[whoosh]`,
+    '[5:a]volume=0.16,afade=t=out:st=0.12:d=0.1,adelay=3780|3780[impact]',
+    `[whoosh][impact]amix=inputs=2:duration=longest:normalize=0,loudnorm=I=${input.timeline?.soundDesign.targetLufs || -18}:TP=${input.timeline?.soundDesign.truePeakDb || -2}:LRA=7,atrim=duration=${durationSeconds}[outa]`,
   ].join(';')
 
   return [
@@ -407,28 +611,36 @@ export function buildMotionDesignFfmpegArgs(input: {
     '-t', String(MOTION_DESIGN_SAFE_SOURCE_SECONDS),
     '-i', input.sourcePath,
     '-loop', '1',
-    '-framerate', String(MOTION_DESIGN_FRAME_RATE),
-    '-t', String(MOTION_DESIGN_DURATION_SECONDS),
+    '-framerate', String(frameRate),
+    '-t', String(durationSeconds),
     '-i', input.introOverlayPath,
     '-loop', '1',
-    '-framerate', String(MOTION_DESIGN_FRAME_RATE),
-    '-t', String(MOTION_DESIGN_DURATION_SECONDS),
+    '-framerate', String(frameRate),
+    '-t', String(durationSeconds),
     '-i', input.hookOverlayPath,
     '-loop', '1',
-    '-framerate', String(MOTION_DESIGN_FRAME_RATE),
-    '-t', String(MOTION_DESIGN_DURATION_SECONDS),
+    '-framerate', String(frameRate),
+    '-t', String(durationSeconds),
     '-i', input.endOverlayPath,
+    '-f', 'lavfi',
+    '-t', String(durationSeconds),
+    '-i', 'anoisesrc=color=pink:sample_rate=48000:amplitude=0.12',
+    '-f', 'lavfi',
+    '-t', '0.22',
+    '-i', 'sine=frequency=92:sample_rate=48000',
     '-filter_complex', filter,
     '-map', '[outv]',
-    '-an',
+    '-map', '[outa]',
     '-c:v', 'libx264',
     '-preset', 'medium',
     '-crf', '18',
     '-profile:v', 'high',
     '-level', '4.1',
     '-pix_fmt', 'yuv420p',
+    '-c:a', 'aac',
+    '-b:a', '160k',
     '-movflags', '+faststart',
-    '-t', String(MOTION_DESIGN_DURATION_SECONDS),
+    '-t', String(durationSeconds),
     input.outputPath,
   ]
 }
@@ -470,6 +682,7 @@ export async function renderAndPersistMotionDesignAd(input: {
   target: PlatformVideoFormat
   generationId: string
   overlayCopy: MotionDesignCopy
+  timeline: ProfessionalVideoTimeline
   sourceWidth?: number | null
   sourceHeight?: number | null
 }): Promise<StoredMotionDesignVideo> {
@@ -484,8 +697,8 @@ export async function renderAndPersistMotionDesignAd(input: {
   const outputPath = path.join(workDir, 'master.mp4')
   try {
     await downloadSourceVideo(input.sourceUrl, sourcePath)
-    const overlays = await motionDesignOverlaySvgs({
-      ...input.overlayCopy,
+    const overlays = await professionalMotionDesignOverlaySvgs({
+      timeline: input.timeline,
       width: input.target.width,
       height: input.target.height,
     })
@@ -501,6 +714,7 @@ export async function renderAndPersistMotionDesignAd(input: {
       endOverlayPath,
       outputPath,
       target: input.target,
+      timeline: input.timeline,
       sourceWidth: input.sourceWidth,
       sourceHeight: input.sourceHeight,
     }), {

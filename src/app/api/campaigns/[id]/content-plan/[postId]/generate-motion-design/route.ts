@@ -39,8 +39,12 @@ import {
 import {
   destroyMotionDesignAd,
   renderAndPersistMotionDesignAd,
-  splitMotionDesignHookMetric,
 } from '@/lib/motionDesignAd.server'
+import {
+  buildProfessionalVideoTimeline,
+  PROFESSIONAL_VIDEO_TIMELINE_VERSION,
+  validateProfessionalVideoTimeline,
+} from '@/lib/professionalVideoTimeline'
 import {
   resolvePlatformVideoFormat,
   validatePlatformVideoFormat,
@@ -266,6 +270,32 @@ export async function POST(req: NextRequest, props: Params) {
     ...resolvePlatformVideoFormat(post.publishTarget || post.platform),
     durationSeconds: MOTION_DESIGN_DURATION_SECONDS,
   }
+  const sourceAspect = Number(source.width || 0) / Math.max(1, Number(source.height || 0))
+  const targetAspect = targetFormat.width / targetFormat.height
+  const sourceMatchesTarget = Number(source.width || 0) > 0
+    && Number(source.height || 0) > 0
+    && Math.abs(sourceAspect - targetAspect) <= 0.02
+  const intelligence = readMediaIntelligence(source.intelligence)
+  const sourceCanCropSafely = /(?:close[- ]?up|macro|texture|abstract)/i
+    .test(intelligence?.visibleSummary || '')
+  const timeline = buildProfessionalVideoTimeline({
+    copy,
+    caption: post.caption,
+    colorPalette: Array.isArray(brand?.colorPalette) ? brand.colorPalette : [],
+    sourceMatchesTarget,
+    sourceLayout: sourceMatchesTarget || sourceCanCropSafely
+      ? 'FULL_BLEED'
+      : 'BLURRED_CANVAS',
+  })
+  const timelineValidation = validateProfessionalVideoTimeline(timeline, post.caption)
+  if (!timelineValidation.ok) {
+    return NextResponse.json({
+      error: 'NEXUS could not build a truth-grounded professional ad timeline. No credits were spent.',
+      code: 'PROFESSIONAL_VIDEO_TIMELINE_REJECTED',
+      creditsCharged: false,
+      issues: timelineValidation.issues,
+    }, { status: 422 })
+  }
   const generation = await db.generation.create({
     data: {
       campaignId: params.id,
@@ -280,6 +310,7 @@ export async function POST(req: NextRequest, props: Params) {
         durationSeconds: MOTION_DESIGN_DURATION_SECONDS,
         safeSourceSeconds: MOTION_DESIGN_SAFE_SOURCE_SECONDS,
         overlayCopy: copy,
+        professionalTimeline: timeline,
         automaticProviderRetries: 0,
         generativeVideoProviderCalls: 0,
         operationKey,
@@ -312,6 +343,7 @@ export async function POST(req: NextRequest, props: Params) {
       target: targetFormat,
       generationId: generation.id,
       overlayCopy: copy,
+      timeline,
       sourceWidth: source.width,
       sourceHeight: source.height,
     })
@@ -321,24 +353,23 @@ export async function POST(req: NextRequest, props: Params) {
       durationSeconds: stored.duration,
       contentType: `video/${stored.format}`,
     }, targetFormat)
-    const intelligence = readMediaIntelligence(source.intelligence)
-    const hookMetric = splitMotionDesignHookMetric(copy.hook)?.metric
     const qualityReview = await reviewGeneratedMediaQuality({
       mediaType: 'VIDEO',
       outputFrames: cloudinaryVideoReviewFrames(stored.url, stored.duration ?? MOTION_DESIGN_DURATION_SECONDS),
       referenceImageUrls: cloudinarySourceReviewFrames(source.url),
       campaignMessage: post.caption,
-      creativeDirection: 'Source-locked paid-social motion design with three intentional phases: an exact approved metric paired with the original source hero from frame zero, the original source action with the approved offer context, then a separately composited brand-and-CTA end card. Add no synthetic product pixels, no unrelated subject, no unapproved raster text, and no new claim.',
+      creativeDirection: 'Professional source-locked paid-social edit built from a deterministic three-scene timeline: full-bleed or blurred-canvas source treatment, a scroll-stopping exact approved offer or service metric, a separate supporting proof layer, two intentional scene transitions, moving source imagery through the CTA, procedural original sound design, and a separately composited branded end frame. Reject black letterbox presentation, frozen filler, awkward Arabic word spacing, UI-like buttons, illegible copy, synthetic product pixels, unrelated subjects, or any new claim.',
       referenceEvidence: intelligence,
       targetFormat,
       formatValidation,
       requireProductAdStructure: true,
       qualityStandard: 'PAID_SOCIAL',
       approvedOverlayTexts: [
-        copy.brandLabel.toUpperCase(),
-        copy.hook,
-        ...(hookMetric ? [hookMetric] : []),
-        copy.cta,
+        timeline.copy.brand.toUpperCase(),
+        timeline.copy.eyebrow,
+        timeline.copy.headline,
+        ...(timeline.copy.supporting ? [timeline.copy.supporting] : []),
+        timeline.copy.cta,
       ],
     })
     if (!qualityReview.passed) {
@@ -472,11 +503,12 @@ export async function POST(req: NextRequest, props: Params) {
           output: stored!.url,
           params: { ...generationParams(generation.params), credit },
           metadata: {
-            model: 'source-locked-motion-design-ffmpeg-2026-07-v2',
+            model: `source-locked-motion-design-ffmpeg-${PROFESSIONAL_VIDEO_TIMELINE_VERSION}`,
             productionRoute: 'SOURCE_LOCKED_MOTION_DESIGN',
             sourceMediaId: source.id,
             mediaId: media.id,
             durationSeconds: stored!.duration,
+            professionalTimeline: timeline,
             reviewRequired: true,
             qualityStatus: 'PASSED',
             qualityReview,
@@ -501,6 +533,7 @@ export async function POST(req: NextRequest, props: Params) {
       creditsRemaining: credit.creditsRemaining,
       creditCharge: buildCreditChargeReceipt('MOTION_DESIGN_VIDEO', credit),
       qualityReview,
+      professionalTimeline: timeline,
       reviewRequired: true,
       generativeVideoProviderCalls: 0,
       published: false,
