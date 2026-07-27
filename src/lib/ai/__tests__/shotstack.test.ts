@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   buildShotstackCampaignFilmEdit,
+  estimateShotstackRenderCredits,
   estimateShotstackRenderCostUsd,
   getShotstackEnvironment,
   isShotstackProductionConfigured,
@@ -61,13 +62,14 @@ describe('Shotstack campaign-film compositor', () => {
     })
     expect(result.timeline.tracks[0].clips[2]).toMatchObject({
       asset: { type: 'svg' },
-      transition: { in: 'zoom', out: 'fadeFast' },
+      transition: { in: 'fade', out: 'fadeFast' },
     })
     expect(result.timeline.tracks[1].clips[0]).toMatchObject({
       asset: { type: 'audio', volume: 1 },
       start: 0,
       length: 10,
     })
+    expect(result.timeline.tracks[1].clips[0].asset).not.toHaveProperty('effect')
     expect(result.timeline.tracks[2].clips[0]).toMatchObject({
       asset: { type: 'video', volume: 0.16 },
       fit: 'cover',
@@ -119,6 +121,7 @@ describe('Shotstack campaign-film compositor', () => {
       status: 'done',
       environment: 'stage',
       estimatedCostUsd: 0,
+      estimatedCredits: 0,
     })
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
@@ -126,5 +129,7 @@ describe('Shotstack campaign-film compositor', () => {
   it('meters a ten-second production render at the configured per-minute rate', () => {
     expect(estimateShotstackRenderCostUsd(10, 'v1')).toBe(0.05)
     expect(estimateShotstackRenderCostUsd(10, 'stage')).toBe(0)
+    expect(estimateShotstackRenderCredits(10, 'v1')).toBe(0.166667)
+    expect(estimateShotstackRenderCredits(10, 'stage')).toBe(0)
   })
 })

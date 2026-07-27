@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { createWriteStream, existsSync } from 'node:fs'
-import { mkdtemp, rm, stat } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { Readable, Transform } from 'node:stream'
@@ -37,6 +37,7 @@ export type ProfessionalCampaignFilmCompositorUsage = {
   provider: 'local-ffmpeg' | 'shotstack'
   environment: 'local' | 'v1'
   estimatedCostUsd: number
+  estimatedCredits: number
   renderId: string | null
   voiceover: {
     provider: 'elevenlabs'
@@ -221,6 +222,39 @@ export function buildProfessionalCampaignFilmFfmpegArgs(input: {
   ]
 }
 
+export function buildProfessionalCampaignVoiceoverFfmpegArgs(input: {
+  sourcePath: string
+  outputPath: string
+}): string[] {
+  return [
+    '-y', '-hide_banner', '-loglevel', 'error',
+    '-i', input.sourcePath,
+    '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',
+    '-ac', '1',
+    '-ar', '48000',
+    '-codec:a', 'libmp3lame',
+    '-b:a', '192k',
+    input.outputPath,
+  ]
+}
+
+async function normalizeCampaignFilmVoiceover(audio: Buffer): Promise<Buffer> {
+  const tempDirectory = await mkdtemp(path.join(tmpdir(), 'nexus-campaign-voiceover-'))
+  const sourcePath = path.join(tempDirectory, 'source.mp3')
+  const outputPath = path.join(tempDirectory, 'normalized.mp3')
+  try {
+    await writeFile(sourcePath, audio, { flag: 'wx' })
+    await execFileAsync(
+      resolveFfmpegBinary(),
+      buildProfessionalCampaignVoiceoverFfmpegArgs({ sourcePath, outputPath }),
+      { timeout: 45_000, maxBuffer: 4 * 1024 * 1024 },
+    )
+    return await readFile(outputPath)
+  } finally {
+    await rm(tempDirectory, { recursive: true, force: true })
+  }
+}
+
 async function downloadSourceVideo(sourceUrl: string, destination: string): Promise<void> {
   const response = await fetch(safeCloudinaryVideoUrl(sourceUrl), { signal: AbortSignal.timeout(45_000) })
   if (!response.ok || !response.body) throw new Error('Campaign-film compositor could not read the generated master')
@@ -305,8 +339,11 @@ async function renderAndPersistShotstackCampaignFilm(
         language: input.overlayCopy.language,
       })
     : null
-  const voiceoverUrl = voiceover
-    ? await uploadVoiceoverToCloudinary(voiceover.audio, input.generationId)
+  const normalizedVoiceover = voiceover
+    ? await normalizeCampaignFilmVoiceover(voiceover.audio)
+    : null
+  const voiceoverUrl = normalizedVoiceover
+    ? await uploadVoiceoverToCloudinary(normalizedVoiceover, input.generationId)
     : null
   const edit = buildShotstackCampaignFilmEdit({
     sourceUrl: input.sourceUrl,
@@ -323,6 +360,7 @@ async function renderAndPersistShotstackCampaignFilm(
       provider: 'shotstack',
       environment: 'v1',
       estimatedCostUsd: render.estimatedCostUsd,
+      estimatedCredits: render.estimatedCredits,
       renderId: render.id,
       voiceover: voiceover
         ? {
@@ -388,6 +426,7 @@ async function renderAndPersistLocalProfessionalCampaignFilm(
         provider: 'local-ffmpeg',
         environment: 'local',
         estimatedCostUsd: 0,
+        estimatedCredits: 0,
         renderId: null,
         voiceover: null,
       },

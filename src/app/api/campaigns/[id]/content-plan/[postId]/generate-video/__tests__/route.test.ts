@@ -205,6 +205,7 @@ beforeEach(() => {
       provider: 'shotstack',
       environment: 'v1',
       estimatedCostUsd: 0.05,
+      estimatedCredits: 0.166667,
       renderId: 'shotstack-render-1',
       voiceover: {
         provider: 'elevenlabs',
@@ -767,6 +768,7 @@ describe('GET professional video generation status', () => {
           compositor: expect.objectContaining({
             provider: 'shotstack',
             estimatedCostUsd: 0.05,
+            estimatedCredits: 0.166667,
             voiceover: expect.objectContaining({
               provider: 'elevenlabs',
               estimatedCostUsd: 0.006,

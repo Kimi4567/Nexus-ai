@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import sharp from 'sharp'
 import {
   buildProfessionalCampaignFilmFfmpegArgs,
+  buildProfessionalCampaignVoiceoverFfmpegArgs,
   professionalCampaignFilmOverlaySvgs,
 } from '../professionalCampaignFilm.server'
 
@@ -64,5 +65,20 @@ describe('professional campaign film compositor', () => {
     expect(args.join(' ')).toContain("between(t,7.5,10.0)")
     expect(args.join(' ')).toContain("(0.48-t)*-250")
     expect(args.join(' ')).toContain("(3.45-t)*120")
+  })
+
+  it('normalizes generated voiceover for social-video delivery before upload', () => {
+    const args = buildProfessionalCampaignVoiceoverFfmpegArgs({
+      sourcePath: '/tmp/source.mp3',
+      outputPath: '/tmp/normalized.mp3',
+    })
+    const command = args.join(' ')
+
+    expect(command).toContain('loudnorm=I=-16:TP=-1.5:LRA=11')
+    expect(command).toContain('-ac 1')
+    expect(command).toContain('-ar 48000')
+    expect(command).toContain('-codec:a libmp3lame')
+    expect(command).toContain('-b:a 192k')
+    expect(args.at(-1)).toBe('/tmp/normalized.mp3')
   })
 })

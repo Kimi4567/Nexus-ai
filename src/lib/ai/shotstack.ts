@@ -2,6 +2,7 @@ import type { PlatformVideoFormat } from '@/lib/platformVideoFormat'
 
 const SHOTSTACK_API_ROOT = 'https://api.shotstack.io/edit'
 export const SHOTSTACK_RENDER_COST_USD_PER_MINUTE = 0.3
+export const SHOTSTACK_RENDER_CREDITS_PER_MINUTE = 1
 const DEFAULT_RENDER_TIMEOUT_MS = 140_000
 const DEFAULT_POLL_INTERVAL_MS = 1_500
 
@@ -34,6 +35,7 @@ export type ShotstackRenderResult = {
   url: string
   environment: ShotstackEnvironment
   estimatedCostUsd: number
+  estimatedCredits: number
 }
 
 function normalized(value: unknown): string {
@@ -72,6 +74,15 @@ export function estimateShotstackRenderCostUsd(
   if (environment === 'stage') return 0
   const safeDuration = Number.isFinite(durationSeconds) ? Math.max(0, durationSeconds) : 0
   return Number(((safeDuration / 60) * SHOTSTACK_RENDER_COST_USD_PER_MINUTE).toFixed(6))
+}
+
+export function estimateShotstackRenderCredits(
+  durationSeconds: number,
+  environment: ShotstackEnvironment,
+): number {
+  if (environment === 'stage') return 0
+  const safeDuration = Number.isFinite(durationSeconds) ? Math.max(0, durationSeconds) : 0
+  return Number(((safeDuration / 60) * SHOTSTACK_RENDER_CREDITS_PER_MINUTE).toFixed(6))
 }
 
 function safeHttpsUrl(value: unknown, errorCode: string): string {
@@ -143,7 +154,7 @@ export function buildShotstackCampaignFilmEdit(input: {
           width,
           height,
           fit: 'cover',
-          transition: { in: 'zoom', out: 'fadeFast' },
+          transition: { in: 'fade', out: 'fadeFast' },
         },
       ],
     },
@@ -158,7 +169,6 @@ export function buildShotstackCampaignFilmEdit(input: {
           trim: 0,
           volume: 1,
           speed: 1,
-          effect: 'fadeInFadeOut',
         },
         start: 0,
         length: duration,
@@ -271,6 +281,7 @@ export async function renderShotstackEdit(
         url: safeHttpsUrl(render.url, 'SHOTSTACK_RENDER_URL_INVALID'),
         environment,
         estimatedCostUsd: estimateShotstackRenderCostUsd(edit.output.range.length, environment),
+        estimatedCredits: estimateShotstackRenderCredits(edit.output.range.length, environment),
       }
     }
     await wait(pollIntervalMs)
