@@ -46,6 +46,7 @@ describe('visual audit regressions', () => {
     expect(paid).toContain("primaryHref={hasApprovedPaidSource ? '/paid-campaigns/new' : null}")
     expect(paid).toContain('Create and approve a Paid strategy first')
     expect(paid).toContain('{hasApprovedPaidSource ? (')
+    expect(paid.match(/\{hasApprovedPaidSource \? \(/g)).toHaveLength(2)
   })
 
   it('distinguishes runtime heartbeat from workflow incidents', () => {

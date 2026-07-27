@@ -453,10 +453,17 @@ export default function PaidCampaignsPage() {
                         : 'Start with a Paid or Full strategy, review and approve it, then translate it into platform execution. Standalone drafts without a source are not allowed.'}
                     </p>
                     <div className="mt-6 flex justify-center">
-                      <Link href="/paid-campaigns/new" className="inline-flex h-11 items-center gap-2 rounded-[15px] bg-[#071236] px-5 text-[13px] font-black text-white">
-                        <Plus className="h-4 w-4" />
-                        {ar ? 'اختر الاستراتيجية المعتمدة' : 'Choose approved strategy'}
-                      </Link>
+                      {hasApprovedPaidSource ? (
+                        <Link href="/paid-campaigns/new" className="inline-flex h-11 items-center gap-2 rounded-[15px] bg-[#071236] px-5 text-[13px] font-black text-white">
+                          <Plus className="h-4 w-4" />
+                          {ar ? 'اختر الاستراتيجية المعتمدة' : 'Choose approved strategy'}
+                        </Link>
+                      ) : (
+                        <Link href="/strategy" className="inline-flex h-11 items-center gap-2 rounded-[15px] border border-[#d7def0] bg-white px-5 text-[13px] font-black text-[#5366f6]">
+                          <Plus className="h-4 w-4" />
+                          {ar ? 'أنشئ واعتمد استراتيجية Paid أولًا' : 'Create and approve a Paid strategy first'}
+                        </Link>
+                      )}
                     </div>
                   </div>
                 ) : filteredCampaigns.length === 0 ? (
