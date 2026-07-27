@@ -1,7 +1,7 @@
 export const PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS = 10 as const
 export const PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_CREDITS_ESTIMATE = 130
 export const PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_COST_USD_ESTIMATE = 1.3
-export const PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION = '2026-07-arabic-paths-3' as const
+export const PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION = '2026-07-professional-layers-4' as const
 
 export type ProfessionalCampaignFilmShot = {
   prompt: string
@@ -18,6 +18,17 @@ export type ProfessionalCampaignFilmBrief = {
     language: 'ar' | 'en'
   }
   creativeDirection: string
+}
+
+export function buildProfessionalCampaignFilmVoiceoverScript(
+  overlayCopy: ProfessionalCampaignFilmBrief['overlayCopy'],
+): string {
+  const separator = overlayCopy.language === 'ar' ? '، ' : '. '
+  return [overlayCopy.hook, overlayCopy.benefit, overlayCopy.cta]
+    .map(value => compact(value, 90))
+    .filter((value, index, values) => Boolean(value) && values.indexOf(value) === index)
+    .join(separator)
+    .slice(0, 240)
 }
 
 function compact(value: unknown, limit: number): string {

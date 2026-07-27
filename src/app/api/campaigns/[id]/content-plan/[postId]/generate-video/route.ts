@@ -67,13 +67,17 @@ import {
   PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_CREDITS_ESTIMATE,
   type ProfessionalCampaignFilmBrief,
 } from '@/lib/professionalCampaignFilm'
-import { renderAndPersistProfessionalCampaignFilm } from '@/lib/professionalCampaignFilm.server'
+import {
+  renderAndPersistProfessionalCampaignFilm,
+  type ProfessionalCampaignFilmCompositorUsage,
+  type StoredProfessionalCampaignFilm,
+} from '@/lib/professionalCampaignFilm.server'
 import { sourceLinkedProofStatements } from '@/lib/strategy/strategyEvidenceLedger'
 
 // Completion includes durable video upload plus a three-frame visual review.
 // Keep this server-side verification window independent from browser polling.
 export const maxDuration = 180
-const VIDEO_PROVIDER_ECONOMICS_VERSION = 'nexus-video-provider-estimate-2026-07-20-v1'
+const VIDEO_PROVIDER_ECONOMICS_VERSION = 'nexus-video-provider-estimate-2026-07-27-v2'
 
 type Params = { params: Promise<{ id: string; postId: string }> }
 const db = prisma as any
@@ -199,6 +203,7 @@ async function refundGeneration(
   generation: any,
   reason: string,
   qualityReviewUsage?: { estimatedProviderCostUsd?: number } | null,
+  compositorUsage?: ProfessionalCampaignFilmCompositorUsage | null,
 ): Promise<'refunded' | 'pending' | 'noop'> {
   const params = generationParams(generation.params)
   const deduction = params.credit
@@ -209,8 +214,12 @@ async function refundGeneration(
       : CINEMATIC_PRODUCT_AD_PROVIDER_COST_USD_ESTIMATE
   ))
   const qaCost = Number(qualityReviewUsage?.estimatedProviderCostUsd)
+  const compositorCost = Number(compositorUsage?.estimatedCostUsd)
+  const voiceoverCost = Number(compositorUsage?.voiceover?.estimatedCostUsd)
   const providerCostUsd = Math.max(0, Number.isFinite(estimatedVideoCost) ? estimatedVideoCost : 0)
     + Math.max(0, Number.isFinite(qaCost) ? qaCost : 0)
+    + Math.max(0, Number.isFinite(compositorCost) ? compositorCost : 0)
+    + Math.max(0, Number.isFinite(voiceoverCost) ? voiceoverCost : 0)
   const result = await refundCreditDeduction({
     userId,
     action: 'VIDEO_GENERATION',
@@ -233,6 +242,7 @@ async function refundGeneration(
           chargeAssumption: 'conservative-full-provider-estimate; reconcile against provider invoice',
           automaticRetries: 0,
         },
+        compositor: compositorUsage ?? null,
         qualityReview: qualityReviewUsage ?? null,
         customerCreditsRestored: true,
       },
@@ -792,6 +802,7 @@ export async function PATCH(req: NextRequest, props: Params) {
             typographyRepairAttemptedAt: attemptedAt,
             typographyRepairStatus: 'REJECTED',
             compositorVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+            compositorUsage: stored.compositorUsage,
           },
         },
       })
@@ -886,6 +897,7 @@ export async function PATCH(req: NextRequest, props: Params) {
           typographyRepairAttemptedAt: attemptedAt,
           typographyRepairStatus: 'PASSED',
           compositorVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+          compositorUsage: stored.compositorUsage,
         },
       },
     })
@@ -1044,6 +1056,7 @@ export async function GET(req: NextRequest, props: Params) {
     }, { status: 202 })
   }
 
+  let compositorUsage: ProfessionalCampaignFilmCompositorUsage | null = null
   try {
     const providerStored = await uploadRunwayVideoToCloudinary(providerUrl, generation.id)
     const storedParams = generationParams(generation.params)
@@ -1066,6 +1079,9 @@ export async function GET(req: NextRequest, props: Params) {
           overlayCopy: storedParams.overlayCopy!,
         })
       : providerStored
+    compositorUsage = isCampaignFilm
+      ? (stored as StoredProfessionalCampaignFilm).compositorUsage
+      : null
     const qaReferenceMedia = storedParams.referenceMediaId
       ? await db.media.findFirst({
           where: {
@@ -1129,7 +1145,13 @@ export async function GET(req: NextRequest, props: Params) {
     })
     if (!qualityReview.passed) {
       const message = 'NEXUS quality review rejected this video because it did not meet the approved creative and platform-delivery requirements. Credits will be restored.'
-      const refund = await refundGeneration(userId, generation, message, qualityReview.providerUsage ?? null)
+      const refund = await refundGeneration(
+        userId,
+        generation,
+        message,
+        qualityReview.providerUsage ?? null,
+        compositorUsage,
+      )
       await db.generation.update({
         where: { id: generation.id },
         data: {
@@ -1147,6 +1169,7 @@ export async function GET(req: NextRequest, props: Params) {
             qualityReview,
             retainedForAudit: true,
             compositorVersion: isCampaignFilm ? PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION : null,
+            compositorUsage,
           },
         },
       })
@@ -1200,8 +1223,12 @@ export async function GET(req: NextRequest, props: Params) {
         : CINEMATIC_PRODUCT_AD_PROVIDER_COST_USD_ESTIMATE
     ))
     const qualityReviewCost = Number(qualityReview.providerUsage?.estimatedProviderCostUsd)
+    const compositorCost = Number(compositorUsage?.estimatedCostUsd)
+    const voiceoverCost = Number(compositorUsage?.voiceover?.estimatedCostUsd)
     const providerCostUsd = Math.max(0, Number.isFinite(videoProviderCost) ? videoProviderCost : 0)
       + Math.max(0, Number.isFinite(qualityReviewCost) ? qualityReviewCost : 0)
+      + Math.max(0, Number.isFinite(compositorCost) ? compositorCost : 0)
+      + Math.max(0, Number.isFinite(voiceoverCost) ? voiceoverCost : 0)
     const finalization = await finalizeCreditDeduction({
       userId,
       action: 'VIDEO_GENERATION',
@@ -1224,6 +1251,7 @@ export async function GET(req: NextRequest, props: Params) {
             },
             automaticRetries: 0,
           },
+          compositor: compositorUsage,
           qualityReview: qualityReview.providerUsage ?? null,
         },
       },
@@ -1253,6 +1281,7 @@ export async function GET(req: NextRequest, props: Params) {
             retainedForAudit: true,
             attached: false,
             compositorVersion: isCampaignFilm ? PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION : null,
+            compositorUsage,
           },
         },
       })
@@ -1289,6 +1318,7 @@ export async function GET(req: NextRequest, props: Params) {
           qualityReview,
           creditFinalizationStatus: finalization.status.toUpperCase(),
           compositorVersion: isCampaignFilm ? PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION : null,
+          compositorUsage,
         },
       },
     })
@@ -1308,6 +1338,7 @@ export async function GET(req: NextRequest, props: Params) {
           qualityStatus: 'PASSED', qualityReview,
           creditFinalizationStatus: finalization.status.toUpperCase(),
           compositorVersion: isCampaignFilm ? PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION : null,
+          compositorUsage,
         } },
       })
       await db.socialPost.update({
@@ -1371,6 +1402,7 @@ export async function GET(req: NextRequest, props: Params) {
         qualityStatus: 'PASSED', qualityReview,
         creditFinalizationStatus: finalization.status.toUpperCase(),
         compositorVersion: isCampaignFilm ? PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION : null,
+        compositorUsage,
       } },
     })
 
@@ -1393,7 +1425,7 @@ export async function GET(req: NextRequest, props: Params) {
     const internalMessage = sanitizeSentryText(error instanceof Error ? error.message : 'Video storage or quality review failed').slice(0, 500)
     console.error('[generate-video] durable storage or quality review failed', internalMessage)
     const message = 'NEXUS Video Studio could not verify and store a usable video. Credits will be restored.'
-    const refund = await refundGeneration(userId, generation, message)
+    const refund = await refundGeneration(userId, generation, message, null, compositorUsage)
     await db.generation.update({
       where: { id: generation.id },
       data: { status: 'FAILED', error: message, metadata: { qualityStatus: 'ERROR', reviewRequired: true } },

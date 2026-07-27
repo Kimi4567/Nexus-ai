@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { readRejectedVideoReview } from '@/lib/rejectedMediaReview'
+import { PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION } from '@/lib/professionalCampaignFilm'
 
 function rejectedGeneration(overrides: Record<string, unknown> = {}) {
   return {
@@ -60,7 +61,7 @@ describe('readRejectedVideoReview', () => {
         qualityStatus: 'REJECTED',
         retainedForAudit: true,
         typographyRepairAttemptedAt: '2026-07-18T18:00:00.000Z',
-        compositorVersion: '2026-07-arabic-paths-3',
+        compositorVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
         qualityReview: { passed: false, issues: ['Generated gibberish text present'] },
       },
     }))

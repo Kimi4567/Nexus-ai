@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildProfessionalCampaignFilmBrief,
+  buildProfessionalCampaignFilmVoiceoverScript,
   PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS,
 } from '../professionalCampaignFilm'
 
@@ -46,6 +47,9 @@ describe('professional campaign film brief', () => {
     expect(brief.overlayCopy.hook).toBe('تألقي بأناقة كل يوم')
     expect(brief.overlayCopy.hook.length).toBeLessThanOrEqual(28)
     expect(brief.overlayCopy.benefit.length).toBeLessThanOrEqual(36)
+    expect(buildProfessionalCampaignFilmVoiceoverScript(brief.overlayCopy)).toBe(
+      `${brief.overlayCopy.hook}، ${brief.overlayCopy.benefit}، ${brief.overlayCopy.cta}`,
+    )
   })
 
   it('honors an approved people-free concept direction without inventing a customer or process', () => {

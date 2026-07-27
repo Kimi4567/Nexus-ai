@@ -201,6 +201,21 @@ beforeEach(() => {
     height: 1280,
     duration: 10,
     format: 'mp4',
+    compositorUsage: {
+      provider: 'shotstack',
+      environment: 'v1',
+      estimatedCostUsd: 0.05,
+      renderId: 'shotstack-render-1',
+      voiceover: {
+        provider: 'elevenlabs',
+        modelId: 'eleven_multilingual_v2',
+        voiceId: 'ArabicVoice123',
+        characters: 30,
+        characterCost: 30,
+        estimatedCostUsd: 0.006,
+        requestId: 'voice-request-1',
+      },
+    },
   })
   mocks.reviewQuality.mockResolvedValue({
     version: 1,
@@ -676,7 +691,7 @@ describe('GET professional video generation status', () => {
       settlementEntityType: 'media_video',
       providerEconomics: expect.objectContaining({
         providerCostUsd: 3.44,
-        providerPricingVersion: 'nexus-video-provider-estimate-2026-07-20-v1',
+        providerPricingVersion: 'nexus-video-provider-estimate-2026-07-27-v2',
         providerUsage: expect.objectContaining({
           videoProvider: expect.objectContaining({ provider: 'runway', automaticRetries: 0 }),
         }),
@@ -745,6 +760,21 @@ describe('GET professional video generation status', () => {
     }))
     expect(payload).toMatchObject({ status: 'SUCCEEDED', attached: true, reviewRequired: true })
     expect(mocks.finalize).toHaveBeenCalledTimes(1)
+    expect(mocks.finalize).toHaveBeenCalledWith(expect.objectContaining({
+      providerEconomics: expect.objectContaining({
+        providerCostUsd: 1.356,
+        providerUsage: expect.objectContaining({
+          compositor: expect.objectContaining({
+            provider: 'shotstack',
+            estimatedCostUsd: 0.05,
+            voiceover: expect.objectContaining({
+              provider: 'elevenlabs',
+              estimatedCostUsd: 0.006,
+            }),
+          }),
+        }),
+      }),
+    }))
   })
 
   it('rejects a failed video quality review, restores credits, and does not attach it', async () => {

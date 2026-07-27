@@ -11,6 +11,15 @@ import ffmpegPath from 'ffmpeg-static'
 import { createElement, type CSSProperties } from 'react'
 import sharp from 'sharp'
 import {
+  generateElevenLabsSpeech,
+  isElevenLabsVoiceoverConfigured,
+} from '@/lib/ai/elevenlabs'
+import {
+  buildShotstackCampaignFilmEdit,
+  isShotstackProductionConfigured,
+  renderShotstackEdit,
+} from '@/lib/ai/shotstack'
+import {
   NEXUS_ARABIC_FONT_FAMILY,
   renderPathOnlyVideoOverlay as renderPathOnlyOverlay,
   videoOverlayInlineText as inlineText,
@@ -19,7 +28,26 @@ import {
   wrapVideoOverlayText as wrapText,
 } from '@/lib/videoOverlayTypography.server'
 import type { PlatformVideoFormat } from '@/lib/platformVideoFormat'
-import { PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS } from '@/lib/professionalCampaignFilm'
+import {
+  buildProfessionalCampaignFilmVoiceoverScript,
+  PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS,
+} from '@/lib/professionalCampaignFilm'
+
+export type ProfessionalCampaignFilmCompositorUsage = {
+  provider: 'local-ffmpeg' | 'shotstack'
+  environment: 'local' | 'v1'
+  estimatedCostUsd: number
+  renderId: string | null
+  voiceover: {
+    provider: 'elevenlabs'
+    modelId: string
+    voiceId: string
+    characters: number
+    characterCost: number | null
+    estimatedCostUsd: number
+    requestId: string | null
+  } | null
+}
 
 export type StoredProfessionalCampaignFilm = {
   url: string
@@ -29,6 +57,7 @@ export type StoredProfessionalCampaignFilm = {
   height: number | null
   duration: number | null
   format: string
+  compositorUsage: ProfessionalCampaignFilmCompositorUsage
 }
 
 const execFileAsync = promisify(execFile)
@@ -209,12 +238,110 @@ async function downloadSourceVideo(sourceUrl: string, destination: string): Prom
   await pipeline(Readable.fromWeb(response.body as never), byteLimit, createWriteStream(destination, { flags: 'wx' }))
 }
 
-export async function renderAndPersistProfessionalCampaignFilm(input: {
+type ProfessionalCampaignFilmRenderInput = {
   sourceUrl: string
   target: PlatformVideoFormat
   generationId: string
   overlayCopy: { brand: string; hook: string; benefit: string; cta: string; language: 'ar' | 'en' }
-}): Promise<StoredProfessionalCampaignFilm> {
+}
+
+async function uploadVoiceoverToCloudinary(audio: Buffer, generationId: string): Promise<string> {
+  configureCloudinary()
+  const result = await new Promise<any>((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream({
+      resource_type: 'video',
+      folder: 'nexus/campaign-voiceovers',
+      public_id: `campaign_voice_${generationId}`,
+      overwrite: true,
+      unique_filename: false,
+      format: 'mp3',
+    }, (error, uploadResult) => {
+      if (error || !uploadResult) reject(error || new Error('Cloudinary returned no voiceover asset'))
+      else resolve(uploadResult)
+    })
+    stream.end(audio)
+  })
+  if (!result.secure_url?.startsWith('https://')) throw new Error('Cloudinary returned no durable voiceover URL')
+  return result.secure_url
+}
+
+async function persistRemoteCampaignFilm(
+  providerUrl: string,
+  generationId: string,
+): Promise<Omit<StoredProfessionalCampaignFilm, 'compositorUsage'>> {
+  configureCloudinary()
+  const parsed = new URL(providerUrl)
+  if (parsed.protocol !== 'https:') throw new Error('Campaign-film compositor returned an unsafe video URL')
+  const result = await cloudinary.uploader.upload(parsed.toString(), {
+    resource_type: 'video',
+    folder: 'nexus/campaign-films',
+    public_id: `campaign_film_${generationId}`,
+    overwrite: true,
+    unique_filename: false,
+  })
+  if (!result.secure_url?.startsWith('https://')) throw new Error('Cloudinary returned no durable campaign film')
+  return {
+    url: result.secure_url,
+    publicId: result.public_id,
+    bytes: Number(result.bytes || 0),
+    width: Number.isFinite(result.width) ? result.width : null,
+    height: Number.isFinite(result.height) ? result.height : null,
+    duration: Number.isFinite(result.duration) ? Math.round(result.duration) : null,
+    format: result.format || 'mp4',
+  }
+}
+
+async function renderAndPersistShotstackCampaignFilm(
+  input: ProfessionalCampaignFilmRenderInput,
+): Promise<StoredProfessionalCampaignFilm> {
+  const overlays = await professionalCampaignFilmOverlaySvgs({
+    ...input.overlayCopy,
+    width: input.target.width,
+    height: input.target.height,
+  })
+  const voiceover = isElevenLabsVoiceoverConfigured(input.overlayCopy.language)
+    ? await generateElevenLabsSpeech({
+        text: buildProfessionalCampaignFilmVoiceoverScript(input.overlayCopy),
+        language: input.overlayCopy.language,
+      })
+    : null
+  const voiceoverUrl = voiceover
+    ? await uploadVoiceoverToCloudinary(voiceover.audio, input.generationId)
+    : null
+  const edit = buildShotstackCampaignFilmEdit({
+    sourceUrl: input.sourceUrl,
+    target: input.target,
+    durationSeconds: PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS,
+    overlays,
+    voiceoverUrl,
+  })
+  const render = await renderShotstackEdit(edit, { environment: 'v1' })
+  const stored = await persistRemoteCampaignFilm(render.url, input.generationId)
+  return {
+    ...stored,
+    compositorUsage: {
+      provider: 'shotstack',
+      environment: 'v1',
+      estimatedCostUsd: render.estimatedCostUsd,
+      renderId: render.id,
+      voiceover: voiceover
+        ? {
+            provider: 'elevenlabs',
+            modelId: voiceover.modelId,
+            voiceId: voiceover.voiceId,
+            characters: voiceover.characters,
+            characterCost: voiceover.characterCost,
+            estimatedCostUsd: voiceover.estimatedCostUsd,
+            requestId: voiceover.requestId,
+          }
+        : null,
+    },
+  }
+}
+
+async function renderAndPersistLocalProfessionalCampaignFilm(
+  input: ProfessionalCampaignFilmRenderInput,
+): Promise<StoredProfessionalCampaignFilm> {
   configureCloudinary()
   const executable = resolveFfmpegBinary()
   const workDir = await mkdtemp(path.join(tmpdir(), 'nexus-campaign-film-'))
@@ -257,8 +384,24 @@ export async function renderAndPersistProfessionalCampaignFilm(input: {
       height: Number.isFinite(result.height) ? result.height : null,
       duration: Number.isFinite(result.duration) ? Math.round(result.duration) : null,
       format: result.format || 'mp4',
+      compositorUsage: {
+        provider: 'local-ffmpeg',
+        environment: 'local',
+        estimatedCostUsd: 0,
+        renderId: null,
+        voiceover: null,
+      },
     }
   } finally {
     await rm(workDir, { recursive: true, force: true }).catch(() => undefined)
   }
+}
+
+export async function renderAndPersistProfessionalCampaignFilm(
+  input: ProfessionalCampaignFilmRenderInput,
+): Promise<StoredProfessionalCampaignFilm> {
+  if (isShotstackProductionConfigured()) {
+    return renderAndPersistShotstackCampaignFilm(input)
+  }
+  return renderAndPersistLocalProfessionalCampaignFilm(input)
 }
