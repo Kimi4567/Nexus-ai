@@ -309,6 +309,60 @@ describe('GET /api/cron/publish', () => {
     expect(mocks.update).not.toHaveBeenCalled()
   })
 
+  it('does not call the platform adapter without explicit auto-publish consent', async () => {
+    mocks.findMany.mockResolvedValue([duePost({ autoPublishConsentAt: null })])
+
+    const response = await GET(request())
+    const body = await response.json()
+
+    expect(body).toMatchObject({ ok: true, processed: 0, succeeded: 0, failed: 0 })
+    expect(mocks.publish).not.toHaveBeenCalled()
+    expect(mocks.update).not.toHaveBeenCalled()
+  })
+
+  it('does not call the platform adapter without a connected integration', async () => {
+    mocks.findMany.mockResolvedValue([duePost({
+      integrationId: null,
+      integration: null,
+    })])
+
+    const response = await GET(request())
+    const body = await response.json()
+
+    expect(body).toMatchObject({ ok: true, processed: 1, succeeded: 0, failed: 1 })
+    expect(mocks.publish).not.toHaveBeenCalled()
+    expect(mocks.update).toHaveBeenCalledWith({
+      where: { id: 'post-1' },
+      data: expect.objectContaining({
+        status: 'FAILED',
+        errorMessage: 'No access token',
+      }),
+    })
+  })
+
+  it('does not call the platform adapter without verified provider permission', async () => {
+    mocks.findMany.mockResolvedValue([duePost({
+      integration: {
+        accessToken: 'encrypted-token',
+        accountId: 'person-1',
+        config: { personId: 'person-1', scopeEvidence: 'provider_response', scopes: [] },
+      },
+    })])
+
+    const response = await GET(request())
+    const body = await response.json()
+
+    expect(body).toMatchObject({ ok: true, processed: 1, succeeded: 0, failed: 1 })
+    expect(mocks.publish).not.toHaveBeenCalled()
+    expect(mocks.update).toHaveBeenCalledWith({
+      where: { id: 'post-1' },
+      data: expect.objectContaining({
+        status: 'FAILED',
+        errorMessage: expect.stringContaining('permission is unavailable'),
+      }),
+    })
+  })
+
   it('fails closed before provider delivery when scheduled legacy copy is generic', async () => {
     mocks.findMany.mockResolvedValue([duePost({
       caption: 'Did you know analytics can transform your business?',
