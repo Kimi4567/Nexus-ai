@@ -114,6 +114,42 @@ function providerScoreScale(result: Record<string, unknown>): 1 | 10 {
     : 1
 }
 
+function qualityThresholds(qualityStandard: 'PAID_SOCIAL' | 'PREMIUM' | 'GENERAL') {
+  const paidSocialStandard = qualityStandard === 'PAID_SOCIAL'
+  return {
+    referencePreservation: paidSocialStandard ? 90 : 92,
+    semanticAlignment: paidSocialStandard ? 80 : 85,
+    professionalQuality: paidSocialStandard ? 80 : 88,
+    commercialHook: paidSocialStandard ? 80 : 85,
+    productHero: paidSocialStandard ? 80 : 90,
+    benefitCommunication: 80,
+    commercialPacing: paidSocialStandard ? 80 : 85,
+    endFrameReadiness: paidSocialStandard ? 80 : 85,
+    brandAlignment: paidSocialStandard ? 80 : 85,
+  }
+}
+
+export function generatedMediaQualityNeedsConsistencyRepair(
+  value: unknown,
+  input: Pick<QualityInput, 'requireProductAdStructure' | 'qualityStandard'>,
+): boolean {
+  if (!input.requireProductAdStructure || !value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+  const result = value as Record<string, unknown>
+  if (result.paidSocialAdReadiness !== true) return false
+
+  const scoreScale = providerScoreScale(result)
+  const thresholds = qualityThresholds(input.qualityStandard ?? 'PREMIUM')
+  return result.advertisingStructure !== true
+    || score(result.commercialHookScore, scoreScale) < thresholds.commercialHook
+    || score(result.productHeroScore, scoreScale) < thresholds.productHero
+    || score(result.benefitCommunicationScore, scoreScale) < thresholds.benefitCommunication
+    || score(result.commercialPacingScore, scoreScale) < thresholds.commercialPacing
+    || score(result.endFrameReadinessScore, scoreScale) < thresholds.endFrameReadiness
+    || score(result.brandAlignmentScore, scoreScale) < thresholds.brandAlignment
+}
+
 function parseJsonObject(value: unknown): Record<string, unknown> {
   if (typeof value !== 'string' || !value.trim()) {
     throw new Error('NEXUS media quality review returned no result')
@@ -163,20 +199,9 @@ export function normalizeGeneratedMediaQualityReview(
   const qualityStandard = input.requireProductAdStructure
     ? input.qualityStandard ?? 'PREMIUM'
     : 'GENERAL'
-  const paidSocialStandard = qualityStandard === 'PAID_SOCIAL'
   const requiresRealProductHero = input.requireProductAdStructure
     && input.requiresRealProductHero !== false
-  const thresholds = {
-    referencePreservation: paidSocialStandard ? 90 : 92,
-    semanticAlignment: paidSocialStandard ? 80 : 85,
-    professionalQuality: paidSocialStandard ? 80 : 88,
-    commercialHook: paidSocialStandard ? 80 : 85,
-    productHero: paidSocialStandard ? 80 : 90,
-    benefitCommunication: 80,
-    commercialPacing: paidSocialStandard ? 80 : 85,
-    endFrameReadiness: paidSocialStandard ? 80 : 85,
-    brandAlignment: paidSocialStandard ? 80 : 85,
-  }
+  const thresholds = qualityThresholds(qualityStandard)
   const formatRequired = Boolean(input.targetFormat)
   const formatValidation = formatRequired ? input.formatValidation ?? null : null
   const dimensionsPassed = Boolean(
@@ -326,6 +351,10 @@ export async function reviewGeneratedMediaQuality(
     ...(input.referenceImageUrls ?? []),
     ...(input.referenceImageUrl ? [input.referenceImageUrl] : []),
   ].filter(url => typeof url === 'string' && url.startsWith('https://')))).slice(0, 4)
+  const activeQualityStandard = input.requireProductAdStructure
+    ? input.qualityStandard ?? 'PREMIUM'
+    : 'GENERAL'
+  const activeThresholds = qualityThresholds(activeQualityStandard)
   const content: Array<Record<string, unknown>> = [{
     type: 'text',
     text: `Review one NEXUS ${input.mediaType.toLowerCase()} advertising output before it can be attached or billed as successful.
@@ -380,6 +409,13 @@ PRODUCT-TO-AD TRANSFORMATION CONTRACT:
 - Do not lower referencePreservationScore merely because the source was transformed from an ordinary product photo into a premium advertising scene.
 - Still reject any change to the protected subject/product, face/identity where relevant, or distinctive product details.
 ` : ''}
+${input.requireProductAdStructure ? `
+SCORING CONSISTENCY CONTRACT:
+- The active ${activeQualityStandard} delivery minimums are: commercial hook ${activeThresholds.commercialHook}, product/hero clarity ${activeThresholds.productHero}, benefit communication ${activeThresholds.benefitCommunication}, commercial pacing ${activeThresholds.commercialPacing}, end-frame readiness ${activeThresholds.endFrameReadiness}, and brand alignment ${activeThresholds.brandAlignment}.
+- paidSocialAdReadiness may be true only when advertisingStructure is true and every commercial score meets its active minimum. A ready=true verdict with any lower commercial score is invalid.
+- Judge the opening from GENERATED OUTPUT FRAME 1 and FRAME 2. A prominently typeset exact approved offer, price, quantity, or service metric visible from frame zero can be a clear paid-social hook when hierarchy, contrast, source motion, and the following edit are professional. Do not require invented spectacle or unsupported proof.
+- Do not inflate scores to create consistency. If visible evidence misses a minimum, set paidSocialAdReadiness=false and explain the concrete visible defect.
+` : ''}
 
 Return JSON exactly:
 {
@@ -416,36 +452,54 @@ ${input.requireProductAdStructure && input.requiresRealProductHero === false ? '
     content.push({ type: 'image_url', image_url: { url: frame, detail: 'high' } })
   })
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
+  const messages: Array<Record<string, unknown>> = [
+    {
+      role: 'system',
+      content: 'You are NEXUS Media QA. Inspect only visible evidence. Be strict, concise, and return JSON only. Never infer product truth from the campaign copy.',
     },
-    body: JSON.stringify({
-      model: QUALITY_MODEL,
-      temperature: 0.1,
-      max_tokens: 800,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content: 'You are NEXUS Media QA. Inspect only visible evidence. Be strict, concise, and return JSON only. Never infer product truth from the campaign copy.',
-        },
-        { role: 'user', content },
-      ],
-    }),
-    signal: AbortSignal.timeout(45_000),
-  })
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '')
-    console.error('[generated-media-quality] provider review failed', response.status, detail.slice(0, 240))
-    throw new Error('NEXUS media quality review is temporarily unavailable')
+    { role: 'user', content },
+  ]
+  const usageCalls: ReturnType<typeof readOpenAIChatUsage>[] = []
+  const requestReview = async () => {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: QUALITY_MODEL,
+        temperature: 0.1,
+        max_tokens: 800,
+        response_format: { type: 'json_object' },
+        messages,
+      }),
+      signal: AbortSignal.timeout(45_000),
+    })
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      console.error('[generated-media-quality] provider review failed', response.status, detail.slice(0, 240))
+      throw new Error('NEXUS media quality review is temporarily unavailable')
+    }
+    const payload = await response.json()
+    usageCalls.push(readOpenAIChatUsage(payload?.usage))
+    return parseJsonObject(payload?.choices?.[0]?.message?.content)
   }
 
-  const payload = await response.json()
-  const parsed = parseJsonObject(payload?.choices?.[0]?.message?.content)
-  const providerUsage = summarizeOpenAITextUsage(QUALITY_MODEL, [readOpenAIChatUsage(payload?.usage)])
+  let parsed = await requestReview()
+  if (generatedMediaQualityNeedsConsistencyRepair(parsed, input)) {
+    messages.push({
+      role: 'assistant',
+      content: JSON.stringify(parsed),
+    })
+    messages.push({
+      role: 'user',
+      content: `Your paidSocialAdReadiness=true verdict conflicts with at least one required ${activeQualityStandard} commercial minimum. Re-inspect the same visible frames once and return the complete JSON object again. Do not inflate a score merely to pass: either correct a score when the visible evidence supports the active rubric, or set paidSocialAdReadiness=false and name the concrete visible defect.`,
+    })
+    parsed = await requestReview()
+  }
+
+  const providerUsage = summarizeOpenAITextUsage(QUALITY_MODEL, usageCalls)
   return normalizeGeneratedMediaQualityReview(parsed, input, providerUsage)
 }
 

@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {
   cloudinaryVideoReviewFrames,
+  generatedMediaQualityNeedsConsistencyRepair,
   normalizeGeneratedMediaQualityReview,
 } from '@/lib/ai/generatedMediaQuality'
 import { resolvePlatformImageFormat } from '@/lib/platformImageFormat'
@@ -301,6 +302,31 @@ describe('generated media quality gate', () => {
     expect(result.productHeroScore).toBe(96)
   })
 
+  it('repairs a contradictory ready verdict instead of silently lowering the paid-social bar', () => {
+    expect(generatedMediaQualityNeedsConsistencyRepair({
+      advertisingStructure: true,
+      paidSocialAdReadiness: true,
+      commercialHookScore: 75,
+      productHeroScore: 85,
+      benefitCommunicationScore: 80,
+      commercialPacingScore: 80,
+      endFrameReadinessScore: 85,
+      brandAlignmentScore: 90,
+    }, {
+      requireProductAdStructure: true,
+      qualityStandard: 'PAID_SOCIAL',
+    })).toBe(true)
+
+    expect(generatedMediaQualityNeedsConsistencyRepair({
+      advertisingStructure: true,
+      paidSocialAdReadiness: false,
+      commercialHookScore: 75,
+    }, {
+      requireProductAdStructure: true,
+      qualityStandard: 'PAID_SOCIAL',
+    })).toBe(false)
+  })
+
   it('rejects beautiful AI B-roll when commercial readiness is below threshold', () => {
     const result = normalizeGeneratedMediaQualityReview({
       referencePreservationScore: 96,
@@ -364,6 +390,8 @@ describe('generated media quality gate', () => {
     expect(source).toContain('packaging, containers, jars, cups, pouring, brewing, serving, tasting')
     expect(source).toContain('first-party process evidence')
     expect(source).toContain('invented operational evidence')
+    expect(source).toContain('paidSocialAdReadiness may be true only when advertisingStructure is true')
+    expect(source).toContain('Do not inflate scores to create consistency')
   })
 
   it('builds three durable Cloudinary review frames for a video', () => {
