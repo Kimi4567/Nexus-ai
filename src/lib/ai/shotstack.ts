@@ -155,7 +155,7 @@ export function buildShotstackCampaignFilmEdit(input: {
           width,
           height,
           fit: 'cover',
-          transition: { in: 'fade', out: 'fadeFast' },
+          transition: { in: 'fade' },
         },
       ],
     },

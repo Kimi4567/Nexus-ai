@@ -1,7 +1,7 @@
 export const PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS = 10 as const
 export const PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_CREDITS_ESTIMATE = 130
 export const PROFESSIONAL_CAMPAIGN_FILM_PROVIDER_COST_USD_ESTIMATE = 1.3
-export const PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION = '2026-07-professional-layers-6' as const
+export const PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION = '2026-07-professional-layers-7' as const
 
 export type ProfessionalCampaignFilmShot = {
   prompt: string
