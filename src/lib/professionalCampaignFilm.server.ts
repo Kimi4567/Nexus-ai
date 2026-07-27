@@ -251,7 +251,7 @@ export function buildProfessionalCampaignVoiceoverFfmpegArgs(input: {
   ]
 }
 
-async function normalizeCampaignFilmVoiceover(audio: Buffer): Promise<Buffer> {
+export async function normalizeCampaignFilmVoiceover(audio: Buffer): Promise<Buffer> {
   const tempDirectory = await mkdtemp(path.join(tmpdir(), 'nexus-campaign-voiceover-'))
   const sourcePath = path.join(tempDirectory, 'source.mp3')
   const outputPath = path.join(tempDirectory, 'normalized.mp3')
@@ -301,7 +301,7 @@ type ProfessionalCampaignFilmRenderInput = {
   }) => void | Promise<void>
 }
 
-async function uploadVoiceoverToCloudinary(audio: Buffer, generationId: string): Promise<string> {
+export async function uploadVoiceoverToCloudinary(audio: Buffer, generationId: string): Promise<string> {
   configureCloudinary()
   const result = await new Promise<any>((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream({
@@ -321,7 +321,7 @@ async function uploadVoiceoverToCloudinary(audio: Buffer, generationId: string):
   return result.secure_url
 }
 
-async function persistRemoteCampaignFilm(
+export async function persistRemoteCampaignFilm(
   providerUrl: string,
   generationId: string,
 ): Promise<Omit<StoredProfessionalCampaignFilm, 'compositorUsage'>> {
@@ -345,6 +345,11 @@ async function persistRemoteCampaignFilm(
     duration: Number.isFinite(result.duration) ? Math.round(result.duration) : null,
     format: result.format || 'mp4',
   }
+}
+
+export async function destroyStoredCampaignFilm(publicId: string): Promise<void> {
+  configureCloudinary()
+  await cloudinary.uploader.destroy(publicId, { resource_type: 'video', invalidate: true })
 }
 
 async function renderAndPersistShotstackCampaignFilm(

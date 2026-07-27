@@ -133,6 +133,12 @@ TRUTH RULES:
   embroidered trim"). This is an appearance label, not a brand, ownership,
   material, quality, or performance claim. Leave products empty only when no
   product or packaging is visibly identifiable.
+- Use assetKind PROPERTY only for a photograph whose primary visible subject is
+  a residential or commercial property exterior, room, architectural space, or
+  permanent property feature. Describe only what is visible. Never infer the
+  address, development, price, room count, area, view name, availability,
+  ownership, ROI, amenities outside the frame, or that multiple photos show the
+  same property.
 
 BRAND CONTEXT (user supplied, not visual proof):
 ${JSON.stringify(input.brandContext).slice(0, 5000)}
@@ -148,7 +154,7 @@ Return one JSON object exactly in this shape:
   "assets": [{
     "mediaId": "known id",
     "visibleSummary": "what is visibly present",
-    "assetKind": "PRODUCT|PACKAGING|LIFESTYLE|DEMO|TESTIMONIAL|SCREEN|PERSON|LOGO|OTHER",
+    "assetKind": "PRODUCT|PACKAGING|PROPERTY|LIFESTYLE|DEMO|TESTIMONIAL|SCREEN|PERSON|LOGO|OTHER",
     "language": "AR|EN|MIXED|NONE",
     "products": ["concise visible-only product identity when applicable"],
     "visibleObjects": [],

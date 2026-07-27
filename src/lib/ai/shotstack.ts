@@ -30,6 +30,8 @@ export type ShotstackCampaignFilmEdit = {
   }
 }
 
+export type ShotstackPropertyPhotoFilmEdit = ShotstackCampaignFilmEdit
+
 export type ShotstackRenderResult = {
   id: string
   status: 'done'
@@ -209,6 +211,113 @@ export function buildShotstackCampaignFilmEdit(input: {
   return {
     timeline: {
       background: '#06101A',
+      tracks,
+    },
+    output: {
+      format: 'mp4',
+      size: { width, height },
+      fps: 30,
+      quality: 'high',
+      range: { start: 0, length: duration },
+    },
+  }
+}
+
+/**
+ * Builds a source-locked property film. Every visual clip points to one of the
+ * selected durable photos; Shotstack may crop, transition, and animate the
+ * camera framing, but no generative provider creates or changes property pixels.
+ */
+export function buildShotstackPropertyPhotoFilmEdit(input: {
+  sourceImageUrls: string[]
+  target: PlatformVideoFormat
+  durationSeconds: number
+  overlays: { intro: string; detail: string; end: string }
+  voiceoverUrl?: string | null
+}): ShotstackPropertyPhotoFilmEdit {
+  const sourceImageUrls = input.sourceImageUrls.map(url => (
+    safeHttpsUrl(url, 'SHOTSTACK_PROPERTY_SOURCE_URL_INVALID')
+  ))
+  if (sourceImageUrls.length < 3 || sourceImageUrls.length > 6) {
+    throw new Error('SHOTSTACK_PROPERTY_SOURCE_COUNT_INVALID')
+  }
+  const voiceoverUrl = input.voiceoverUrl
+    ? safeHttpsUrl(input.voiceoverUrl, 'SHOTSTACK_VOICEOVER_URL_INVALID')
+    : null
+  const duration = Math.max(3, Math.min(60, input.durationSeconds))
+  const width = Math.max(2, Math.min(1_920, Math.round(input.target.width / 2) * 2))
+  const height = Math.max(2, Math.min(1_920, Math.round(input.target.height / 2) * 2))
+  const clipLength = duration / sourceImageUrls.length
+
+  const tracks: ShotstackPropertyPhotoFilmEdit['timeline']['tracks'] = [
+    {
+      clips: [
+        {
+          asset: { type: 'svg', src: input.overlays.intro },
+          start: 0,
+          length: Math.min(3.2, duration),
+          width,
+          height,
+          fit: 'cover',
+          transition: { in: 'fade', out: 'fadeFast' },
+        },
+        {
+          asset: { type: 'svg', src: input.overlays.detail },
+          start: Math.min(3.2, duration),
+          length: Math.max(0.1, Math.min(3.6, duration - Math.min(3.2, duration))),
+          width,
+          height,
+          fit: 'cover',
+          transition: { in: 'slideUpFast', out: 'fadeFast' },
+        },
+        {
+          asset: { type: 'svg', src: input.overlays.end },
+          start: Math.min(7, duration),
+          length: Math.max(0.1, duration - Math.min(7, duration)),
+          width,
+          height,
+          fit: 'cover',
+          transition: { in: 'fade' },
+        },
+      ],
+    },
+  ]
+
+  if (voiceoverUrl) {
+    tracks.push({
+      clips: [{
+        asset: {
+          type: 'audio',
+          src: voiceoverUrl,
+          trim: 0,
+          volume: 1,
+          speed: 1,
+        },
+        start: 0,
+        length: duration,
+      }],
+    })
+  }
+
+  tracks.push({
+    clips: sourceImageUrls.map((src, index) => ({
+      asset: { type: 'image', src },
+      start: Number((index * clipLength).toFixed(3)),
+      length: Number(clipLength.toFixed(3)),
+      width,
+      height,
+      fit: 'cover',
+      effect: index % 2 === 0 ? 'zoomIn' : 'zoomOut',
+      transition: {
+        in: index === 0 ? 'none' : 'fade',
+        out: index === sourceImageUrls.length - 1 ? 'none' : 'fade',
+      },
+    })),
+  })
+
+  return {
+    timeline: {
+      background: '#07100F',
       tracks,
     },
     output: {

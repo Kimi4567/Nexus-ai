@@ -145,6 +145,20 @@ function normalizeEditorialTopic(value: string): string {
     .trim()
 }
 
+function isRealEstateContentContext(ctx: ContentPlanRenderContext): boolean {
+  const facts = Array.isArray(ctx.brandFacts)
+    ? ctx.brandFacts.flat(Infinity).filter((value): value is string => typeof value === 'string')
+    : []
+  const context = [
+    ...facts,
+    ctx.brand,
+    ctx.campaignName,
+    ctx.keyMessage,
+    ctx.offer,
+  ].filter((value): value is string => typeof value === 'string').join(' ')
+  return /\b(?:real estate|realty|property marketing|property brokerage|estate agency|realtor|brokerage)\b|(?:تسويق عقاري|عقارات|وساطة عقارية|شركة عقارية|مكتب عقاري)/iu.test(context)
+}
+
 function softenResidualContentPlanAbsolutes(text: string): string {
   // Content-plan persistence has a stricter policy than the shared draft
   // guard: even otherwise-benign uses of "always" are rejected because the
@@ -252,6 +266,12 @@ export function renderContentPlanDraftVideoPrompt(
   gen: GeneratedContentPlanPostLike,
   ctx: ContentPlanRenderContext,
 ): string {
+  if (isRealEstateContentContext(ctx)) {
+    return ctx.isArabic
+      ? 'فيلم صور عقاري يحافظ على المصدر. استخدم فقط 3–6 صور محللة يختارها المستخدم ويؤكد أنها لنفس العقار وأن لديه حق استخدامها. رتّب الصور بحركة كاميرا وانتقالات وطبقات نص منفصلة. لا تولّد أو تضف أو تستنتج غرفًا أو واجهات أو أشخاصًا أو موقعًا أو سعرًا أو مساحة أو عدد غرف أو إطلالة أو وسائل راحة أو توفرًا أو عائدًا استثماريًا. أي معلومة عقارية ظاهرة يجب أن تطابق نصًا معتمدًا ودليلًا موثقًا.'
+      : 'Source-locked property photo film. Use only 3–6 analysed photographs selected by the user, who confirms they show the same property and are rights-cleared. Sequence those photos with camera motion, transitions, and separate typography layers. Do not generate, add, or infer rooms, facades, people, location, price, area, room count, view, amenities, availability, or investment performance. Any visible listing fact must match approved copy and source-linked evidence.'
+  }
+
   const rawPrompt = normalizeText(gen.videoScript) || normalizeText(gen.videoCaption)
   const guardedPrompt = softenResidualContentPlanAbsolutes(guardContentDraftText(rawPrompt, ctx))
   const inventsUnavailableVisualEvidence = UNSAFE_PATTERNS.some((pattern) => (

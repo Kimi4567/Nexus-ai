@@ -3,6 +3,7 @@ import {
   CONTENT_HUB_IMAGE_COST,
   CONTENT_HUB_VIDEO_COST,
   CONTENT_HUB_MOTION_DESIGN_COST,
+  CONTENT_HUB_PROPERTY_PHOTO_FILM_COST,
   CONTENT_HUB_REWRITE_COST,
   CONTENT_HUB_MEDIA_INTELLIGENCE_COST,
   getBulkImageGenerationCost,
@@ -12,6 +13,7 @@ import {
   validateSingleImageGenerationConfirmation,
   validateVideoGenerationConfirmation,
   validateMotionDesignConfirmation,
+  validatePropertyPhotoFilmConfirmation,
   validateRewriteConfirmation,
   validateMediaIntelligenceConfirmation,
   validateCreativeAdaptationConfirmation,
@@ -207,6 +209,27 @@ describe('contentHubActionSafety', () => {
       acknowledgedReviewRequired: true,
       acknowledgedAssetRights: true,
       sourceMediaId: 'media-1',
+    })).toEqual({ ok: true })
+  })
+
+  it('requires rights and an explicit same-property assertion for the low-cost photo film', () => {
+    const base = {
+      confirmed: true,
+      acknowledgedCreditCost: CONTENT_HUB_PROPERTY_PHOTO_FILM_COST,
+      acknowledgedDurationSeconds: 10,
+      acknowledgedNoPublishOrSchedule: true,
+      acknowledgedReviewRequired: true,
+      acknowledgedAssetRights: true,
+      referenceMediaIds: ['exterior', 'living', 'terrace'],
+    }
+    expect(CONTENT_HUB_PROPERTY_PHOTO_FILM_COST).toBe(6)
+    expect(validatePropertyPhotoFilmConfirmation({
+      ...base,
+      acknowledgedSameProperty: false,
+    })).toMatchObject({ ok: false })
+    expect(validatePropertyPhotoFilmConfirmation({
+      ...base,
+      acknowledgedSameProperty: true,
     })).toEqual({ ok: true })
   })
 

@@ -25,6 +25,7 @@ import {
   CONTENT_HUB_IMAGE_COST,
   CONTENT_HUB_VIDEO_COST,
   CONTENT_HUB_MOTION_DESIGN_COST,
+  CONTENT_HUB_PROPERTY_PHOTO_FILM_COST,
   CONTENT_HUB_REGENERATION_COST,
   CONTENT_HUB_REWRITE_COST,
   CONTENT_HUB_MEDIA_INTELLIGENCE_COST,
@@ -79,6 +80,12 @@ import {
   assessMotionDesignVideoAsset,
   MOTION_DESIGN_DURATION_SECONDS,
 } from '@/lib/motionDesignAd'
+import {
+  assessPropertyPhotoFilmAssets,
+  PROPERTY_PHOTO_FILM_DURATION_SECONDS,
+  PROPERTY_PHOTO_FILM_MAX_REFERENCES,
+  PROPERTY_PHOTO_FILM_MIN_REFERENCES,
+} from '@/lib/propertyPhotoFilm'
 import { PROFESSIONAL_VIDEO_TIMELINE_VERSION } from '@/lib/professionalVideoTimeline'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -556,8 +563,9 @@ export default function ContentHubPage() {
   const [videoGenerationConfirmPostId, setVideoGenerationConfirmPostId] = useState<string | null>(null)
   const [videoGenerationAcknowledged, setVideoGenerationAcknowledged] = useState(false)
   const [videoAssetRightsAcknowledged, setVideoAssetRightsAcknowledged] = useState(false)
+  const [videoSamePropertyAcknowledged, setVideoSamePropertyAcknowledged] = useState(false)
   const [videoReferenceMediaIds, setVideoReferenceMediaIds] = useState<string[]>([])
-  const [videoProductionMode, setVideoProductionMode] = useState<'MOTION_DESIGN' | 'CAMPAIGN_FILM' | 'CINEMATIC'>('MOTION_DESIGN')
+  const [videoProductionMode, setVideoProductionMode] = useState<'PHOTO_FILM' | 'MOTION_DESIGN' | 'CAMPAIGN_FILM' | 'CINEMATIC'>('PHOTO_FILM')
   const [motionDesignSourceMediaId, setMotionDesignSourceMediaId] = useState<string | null>(null)
   const [generatingVideoId, setGeneratingVideoId] = useState<string | null>(null)
   const [repairingVideoId, setRepairingVideoId] = useState<string | null>(null)
@@ -802,11 +810,21 @@ export default function ContentHubPage() {
         const authorization = authHeader()
         const videoPosts = posts.filter(post => post.isVideoPost && post.generationStatus === 'GENERATING')
         if (authorization && videoPosts.length > 0) {
-          await Promise.all(videoPosts.map(post =>
-            fetch(`/api/campaigns/${campaignId}/content-plan/${post.id}/generate-video`, {
-              headers: { Authorization: authorization },
-            }).catch(() => null),
-          ))
+          await Promise.all(videoPosts.map(async (post) => {
+            try {
+              return Promise.allSettled([
+                fetch(
+                  `/api/campaigns/${campaignId}/content-plan/${post.id}/generate-property-photo-film`,
+                  { headers: { Authorization: authorization } },
+                ),
+                fetch(`/api/campaigns/${campaignId}/content-plan/${post.id}/generate-video`, {
+                  headers: { Authorization: authorization },
+                }),
+              ])
+            } catch {
+              return null
+            }
+          }))
         }
         await loadData()
       }
@@ -1466,10 +1484,16 @@ export default function ContentHubPage() {
     .map(id => videoReferenceImages.find(media => media.id === id))
     .filter((media): media is CreativeMediaCandidate => Boolean(media))
   const cinematicVideoPreflight = assessCinematicProductAdAssets(selectedVideoReferenceMedia)
+  const propertyPhotoFilmPreflight = assessPropertyPhotoFilmAssets(selectedVideoReferenceMedia)
   const canStartCinematicVideo = cinematicVideoPreflight.eligible
     && videoGenerationAcknowledged
     && videoAssetRightsAcknowledged
     && !cinematicVideoLocked
+  const canStartPropertyPhotoFilm = propertyPhotoFilmPreflight.eligible
+    && videoGenerationAcknowledged
+    && videoAssetRightsAcknowledged
+    && videoSamePropertyAcknowledged
+    && !motionDesignLocked
   const canStartCampaignFilm = videoGenerationAcknowledged
     && videoAssetRightsAcknowledged
     && !cinematicVideoLocked
@@ -1488,11 +1512,13 @@ export default function ContentHubPage() {
     && videoGenerationAcknowledged
     && videoAssetRightsAcknowledged
     && !motionDesignLocked
-  const canStartSelectedVideoRoute = videoProductionMode === 'MOTION_DESIGN'
-    ? canStartMotionDesign
-    : videoProductionMode === 'CAMPAIGN_FILM'
-      ? canStartCampaignFilm
-      : canStartCinematicVideo
+  const canStartSelectedVideoRoute = videoProductionMode === 'PHOTO_FILM'
+    ? canStartPropertyPhotoFilm
+    : videoProductionMode === 'MOTION_DESIGN'
+      ? canStartMotionDesign
+      : videoProductionMode === 'CAMPAIGN_FILM'
+        ? canStartCampaignFilm
+        : canStartCinematicVideo
   const videoPreflightIssueCopy = (issue: { code: string; message: string }) => {
     if (!isAr) return issue.message
     const messages: Record<string, string> = {
@@ -2615,11 +2641,18 @@ export default function ContentHubPage() {
     }
     const currentMotionSource = motionDesignVideos.find(media => media.id === post.uploadedMediaId) ?? null
     const defaultMotionSource = currentMotionSource ?? motionDesignVideos[0] ?? null
-    setVideoProductionMode(referenceMediaId ? 'CINEMATIC' : 'MOTION_DESIGN')
+    setVideoProductionMode(
+      referenceMediaId
+        ? 'CINEMATIC'
+        : videoReferenceImages.length >= PROPERTY_PHOTO_FILM_MIN_REFERENCES
+          ? 'PHOTO_FILM'
+          : 'MOTION_DESIGN',
+    )
     setMotionDesignSourceMediaId(defaultMotionSource?.id ?? null)
     setVideoReferenceMediaIds(referenceMediaId ? [referenceMediaId] : [])
     setVideoGenerationAcknowledged(false)
     setVideoAssetRightsAcknowledged(false)
+    setVideoSamePropertyAcknowledged(false)
     setVideoGenerationConfirmPostId(postId)
   }
 
@@ -2628,9 +2661,10 @@ export default function ContentHubPage() {
     setVideoGenerationConfirmPostId(null)
     setVideoGenerationAcknowledged(false)
     setVideoAssetRightsAcknowledged(false)
+    setVideoSamePropertyAcknowledged(false)
     setVideoReferenceMediaIds([])
     setMotionDesignSourceMediaId(null)
-    setVideoProductionMode('MOTION_DESIGN')
+    setVideoProductionMode('PHOTO_FILM')
   }
 
   async function confirmPostVideoGeneration() {
@@ -2640,6 +2674,81 @@ export default function ContentHubPage() {
     setGeneratingVideoId(post.id)
     setError(null)
     try {
+      if (videoProductionMode === 'PHOTO_FILM') {
+        const identity = JSON.stringify({
+          campaignId,
+          postId: post.id,
+          caption: post.caption,
+          referenceMediaIds: videoReferenceMediaIds,
+          durationSeconds: PROPERTY_PHOTO_FILM_DURATION_SECONDS,
+        })
+        const response = await fetchCreditOperation(
+          creditOperationScope('campaign:post-property-photo-film', identity),
+          `/api/campaigns/${campaignId}/content-plan/${post.id}/generate-property-photo-film`,
+          {
+            method: 'POST',
+            headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              referenceMediaIds: videoReferenceMediaIds,
+              language: isAr ? 'ar' : 'en',
+              explicitPropertyPhotoFilmConfirmed: true,
+              acknowledgedCreditCost: CONTENT_HUB_PROPERTY_PHOTO_FILM_COST,
+              acknowledgedDurationSeconds: PROPERTY_PHOTO_FILM_DURATION_SECONDS,
+              acknowledgedNoPublishOrSchedule: true,
+              acknowledgedReviewRequired: true,
+              acknowledgedAssetRights: true,
+              acknowledgedSameProperty: true,
+            }),
+          },
+        )
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          if (data.code === 'PROPERTY_PHOTO_FILM_QUALITY_REJECTED') {
+            const creditSettlement = data.refunded
+              ? (isAr ? 'تمت استعادة الكريديت.' : 'Credits were restored.')
+              : (isAr
+                ? 'استعادة الكريديت قيد المصالحة؛ راجع سجل الكريديت قبل إعادة المحاولة.'
+                : 'Credit restoration is being reconciled; check Credit History before retrying.')
+            throw new Error(`${data.qualityReview?.summary || data.error || 'Property film did not pass quality review.'} ${creditSettlement}`)
+          }
+          throw new Error(data.error || data.message || 'Property photo film could not finish')
+        }
+
+        if (data.status === 'PROCESSING' || response.status === 202) {
+          setPosts(current => current.map(item => item.id === post.id
+            ? { ...item, generationStatus: 'GENERATING' }
+            : item))
+          setSuccessMsg(isAr
+            ? `بدأ مونتاج Property Photo Film من الصور الأصلية. تم حفظ رقم الرندر؛ سيُستأنف نفس العمل بلا توليد أو خصم جديد. لا نشر ولا جدولة.`
+            : 'The source-locked property photo film is rendering. Its render ID is saved and the same job will resume without a new generation or charge. Nothing was published or scheduled.')
+        } else if (data.attached) {
+          setPosts(current => current.map(item => item.id === post.id
+            ? {
+                ...item,
+                imageUrl: data.output,
+                uploadedMediaId: data.mediaId,
+                mediaSource: 'UPLOAD',
+                generationStatus: 'DONE',
+                status: ['APPROVED', 'SCHEDULED', 'FAILED'].includes(item.status) ? 'DRAFT' : item.status,
+              }
+            : item))
+          setSuccessMsg(isAr
+            ? `تم إنتاج Property Photo Film مدته ${PROPERTY_PHOTO_FILM_DURATION_SECONDS} ثوانٍ من الصور الأصلية وربطه للمراجعة. تم خصم ${CONTENT_HUB_PROPERTY_PHOTO_FILM_COST} كريديت؛ لم يُستخدم أي مزود فيديو توليدي. لا نشر ولا جدولة.`
+            : `A ${PROPERTY_PHOTO_FILM_DURATION_SECONDS}-second source-locked property photo film was produced and attached for review. ${CONTENT_HUB_PROPERTY_PHOTO_FILM_COST} credits were charged; no generative-video provider was used. Nothing was published or scheduled.`)
+        } else {
+          setSuccessMsg(isAr
+            ? 'تم حفظ Property Photo Film في مكتبة الوسائط، لكن المنشور تغيّر أثناء التنفيذ فلم يستبدل NEXUS المراجعة الأحدث.'
+            : 'The property photo film was saved in Media Library, but the post changed during production, so NEXUS did not overwrite the newer revision.')
+        }
+        setVideoGenerationConfirmPostId(null)
+        setVideoGenerationAcknowledged(false)
+        setVideoAssetRightsAcknowledged(false)
+        setVideoSamePropertyAcknowledged(false)
+        setVideoReferenceMediaIds([])
+        await refreshBillingStatus()
+        return
+      }
+
       if (videoProductionMode === 'MOTION_DESIGN') {
         if (!motionDesignSourceMediaId) return
         const identity = JSON.stringify({
@@ -2699,6 +2808,7 @@ export default function ContentHubPage() {
         setVideoGenerationConfirmPostId(null)
         setVideoGenerationAcknowledged(false)
         setVideoAssetRightsAcknowledged(false)
+        setVideoSamePropertyAcknowledged(false)
         setVideoReferenceMediaIds([])
         setMotionDesignSourceMediaId(null)
         setSuccessMsg(isAr
@@ -2750,6 +2860,7 @@ export default function ContentHubPage() {
           setMotionDesignSourceMediaId(motionDesignVideos[0]?.id ?? null)
           setVideoGenerationAcknowledged(false)
           setVideoAssetRightsAcknowledged(false)
+          setVideoSamePropertyAcknowledged(false)
           throw new Error(isAr
             ? `أوقف NEXUS هذا المسار بعد ${data.rejectedAttempts ?? 2} نتائج رفضها فحص الجودة، ولم يبدأ مزودًا ولم يخصم كريديت. انتقلنا إلى ${fallbackMode === 'MOTION_DESIGN' ? 'Motion Design من فيديو أصلي' : 'إعلان دقة المنتج من أصول حقيقية'}؛ اختر أصلًا مؤهلًا للمتابعة.`
             : `NEXUS stopped this route after ${data.rejectedAttempts ?? 2} outputs failed quality review. No provider started and no credits were charged. We switched to ${fallbackMode === 'MOTION_DESIGN' ? 'source-locked Motion Design' : 'product fidelity from real assets'}; choose a qualified source to continue.`)
@@ -2763,6 +2874,7 @@ export default function ContentHubPage() {
       setVideoGenerationConfirmPostId(null)
       setVideoGenerationAcknowledged(false)
       setVideoAssetRightsAcknowledged(false)
+      setVideoSamePropertyAcknowledged(false)
       setVideoReferenceMediaIds([])
       setMotionDesignSourceMediaId(null)
       setSuccessMsg(professionalCampaignFilm
@@ -5145,24 +5257,30 @@ export default function ContentHubPage() {
                   <div>
                     <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300">NEXUS VIDEO STUDIO</p>
                     <h3 id="nexus-video-studio-title" className="mt-1 text-xl font-bold">
-                      {videoProductionMode === 'MOTION_DESIGN'
-                        ? (isAr ? 'حوّل فيديو المنتج إلى Motion Design' : 'Turn your product video into Motion Design')
-                        : videoProductionMode === 'CAMPAIGN_FILM'
-                          ? (isAr ? 'إنتاج Concept Film مولّد متعدد اللقطات' : 'Produce a generated multi-shot concept film')
-                          : (isAr ? 'إنتاج إعلان يستند إلى صور المنتج' : 'Produce a product-referenced ad')}
+                      {videoProductionMode === 'PHOTO_FILM'
+                        ? (isAr ? 'حوّل صور العقار إلى إعلان احترافي' : 'Turn property photos into a professional ad')
+                        : videoProductionMode === 'MOTION_DESIGN'
+                          ? (isAr ? 'حوّل فيديو المنتج إلى Motion Design' : 'Turn your product video into Motion Design')
+                          : videoProductionMode === 'CAMPAIGN_FILM'
+                            ? (isAr ? 'إنتاج Concept Film مولّد متعدد اللقطات' : 'Produce a generated multi-shot concept film')
+                            : (isAr ? 'إنتاج إعلان يستند إلى صور المنتج' : 'Produce a product-referenced ad')}
                     </h3>
                     <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-300">
-                      {videoProductionMode === 'MOTION_DESIGN'
+                      {videoProductionMode === 'PHOTO_FILM'
                         ? (isAr
-                          ? `يبني NEXUS إعلانًا بطبقات ومشاهد وانتقالات وTypography وصوت أصلي فوق الفيديو الحقيقي، مع إبقاء كل ادعاء مطابقًا للنص المعتمد. لا يولّد أشخاصًا أو منتجًا أو مشاهد توصيل جديدة.`
-                          : `NEXUS builds a layered ad with scenes, transitions, typography, and original sound design over the real source while keeping every claim grounded in approved copy. It generates no people, product, or delivery scenes.`)
-                        : videoProductionMode === 'CAMPAIGN_FILM'
+                          ? `يرتب NEXUS من ${PROPERTY_PHOTO_FILM_MIN_REFERENCES} إلى ${PROPERTY_PHOTO_FILM_MAX_REFERENCES} صور محللة لنفس العقار في فيلم مدته ${PROPERTY_PHOTO_FILM_DURATION_SECONDS} ثوانٍ بحركة كاميرا وانتقالات وTypography وصوت. لا يولّد غرفة أو واجهة أو سعرًا أو موقعًا جديدًا.`
+                          : `NEXUS edits ${PROPERTY_PHOTO_FILM_MIN_REFERENCES}–${PROPERTY_PHOTO_FILM_MAX_REFERENCES} analysed photos of the same property into a ${PROPERTY_PHOTO_FILM_DURATION_SECONDS}-second film with camera motion, transitions, typography, and voice. It generates no room, facade, price, or location.`)
+                        : videoProductionMode === 'MOTION_DESIGN'
                           ? (isAr
-                            ? `ينتج NEXUS فيلمًا مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ من 3 لقطات: Hook متحرك، لقطة منفعة، ثم End Frame بالهوية؛ مع حركة مشاهد وعناصر وكاميرا وصوت وانتقالات وTypography عربي/إنجليزي منفصل عن الصورة.`
-                            : `NEXUS produces a ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second three-shot film: moving hook, benefit shot, and branded end frame—with scene, subject, and camera motion, sound, cuts, and separately typeset Arabic/English typography.`)
-                          : (isAr
-                            ? `يبني NEXUS إعلانًا مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ من صور منتج معزولة ومؤهلة، ثم يرفض الناتج إذا لم يحافظ على المنتج بدرجة كافية. لا يبدأ الإنفاق قبل اجتياز فحص الأصول.`
-                            : `NEXUS builds an ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second ad from qualified isolated product photos, then rejects the output if product consistency is insufficient. Provider spend cannot start before asset preflight passes.`)}
+                            ? `يبني NEXUS إعلانًا بطبقات ومشاهد وانتقالات وTypography وصوت أصلي فوق الفيديو الحقيقي، مع إبقاء كل ادعاء مطابقًا للنص المعتمد. لا يولّد أشخاصًا أو منتجًا أو مشاهد توصيل جديدة.`
+                            : `NEXUS builds a layered ad with scenes, transitions, typography, and original sound design over the real source while keeping every claim grounded in approved copy. It generates no people, product, or delivery scenes.`)
+                          : videoProductionMode === 'CAMPAIGN_FILM'
+                            ? (isAr
+                              ? `ينتج NEXUS فيلمًا مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ من 3 لقطات: Hook متحرك، لقطة منفعة، ثم End Frame بالهوية؛ مع حركة مشاهد وعناصر وكاميرا وصوت وانتقالات وTypography عربي/إنجليزي منفصل عن الصورة.`
+                              : `NEXUS produces a ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second three-shot film: moving hook, benefit shot, and branded end frame—with scene, subject, and camera motion, sound, cuts, and separately typeset Arabic/English typography.`)
+                            : (isAr
+                              ? `يبني NEXUS إعلانًا مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ من صور منتج معزولة ومؤهلة، ثم يرفض الناتج إذا لم يحافظ على المنتج بدرجة كافية. لا يبدأ الإنفاق قبل اجتياز فحص الأصول.`
+                              : `NEXUS builds an ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second ad from qualified isolated product photos, then rejects the output if product consistency is insufficient. Provider spend cannot start before asset preflight passes.`)}
                     </p>
                   </div>
                   <button aria-label={isAr ? 'إغلاق نافذة توليد الفيديو' : 'Close video generation'} onClick={closeVideoGenerationConfirm} disabled={Boolean(generatingVideoId)} className="text-2xl leading-none text-slate-400 hover:text-white disabled:opacity-40">×</button>
@@ -5176,15 +5294,34 @@ export default function ContentHubPage() {
                   </p>
                   <p className="mt-1 text-xs leading-relaxed text-emerald-900/80">
                     {isAr
-                      ? 'يحافظ Motion Design على الفيديو الأصلي، بينما يفحص مسار دقة المنتج الصور المرجعية قبل الإنفاق. الـConcept Film خيار تجريبي للمفهوم فقط.'
-                      : 'Motion Design preserves the source video, while Product fidelity preflights reference images before provider spend. Concept Film is an experimental concept-only option.'}
+                      ? 'Property Photo Film وMotion Design يحافظان على الأصول الأصلية. مسارا المنتج والـConcept يستخدمان توليدًا خارجيًا ويظلان خيارات متخصصة.'
+                      : 'Property Photo Film and Motion Design preserve original assets. Product and Concept routes use external generation and remain specialist options.'}
                   </p>
                 </div>
 
-                <div className="mb-5 grid gap-3 sm:grid-cols-3">
+                <div className="mb-5 grid gap-3 sm:grid-cols-2">
                   <button
                     type="button"
-                    onClick={() => { setVideoProductionMode('MOTION_DESIGN'); setVideoGenerationAcknowledged(false) }}
+                    onClick={() => {
+                      setVideoProductionMode('PHOTO_FILM')
+                      setMotionDesignSourceMediaId(null)
+                      setVideoGenerationAcknowledged(false)
+                      setVideoSamePropertyAcknowledged(false)
+                    }}
+                    disabled={Boolean(generatingVideoId)}
+                    className={`rounded-2xl border p-4 text-left transition-all ${videoProductionMode === 'PHOTO_FILM' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 bg-white'}`}
+                  >
+                    <p className="text-sm font-bold text-slate-950">{isAr ? `فيلم صور عقاري · ${CONTENT_HUB_PROPERTY_PHOTO_FILM_COST} كريديت` : `Property photo film · ${CONTENT_HUB_PROPERTY_PHOTO_FILM_COST} credits`}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{isAr ? 'الموصى به للعقار: يحافظ على الصور ويمنع اختراع تفاصيل القائمة.' : 'Recommended for real estate: preserves photos and blocks invented listing facts.'}</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVideoProductionMode('MOTION_DESIGN')
+                      setVideoReferenceMediaIds([])
+                      setVideoGenerationAcknowledged(false)
+                      setVideoSamePropertyAcknowledged(false)
+                    }}
                     disabled={Boolean(generatingVideoId)}
                     className={`rounded-2xl border p-4 text-left transition-all ${videoProductionMode === 'MOTION_DESIGN' ? 'border-violet-500 bg-violet-50' : 'border-slate-200 bg-white'}`}
                   >
@@ -5193,7 +5330,11 @@ export default function ContentHubPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setVideoProductionMode('CINEMATIC'); setVideoGenerationAcknowledged(false) }}
+                    onClick={() => {
+                      setVideoProductionMode('CINEMATIC')
+                      setVideoGenerationAcknowledged(false)
+                      setVideoSamePropertyAcknowledged(false)
+                    }}
                     disabled={Boolean(generatingVideoId)}
                     className={`rounded-2xl border p-4 text-left transition-all ${videoProductionMode === 'CINEMATIC' ? 'border-violet-500 bg-violet-50' : 'border-slate-200 bg-white'}`}
                   >
@@ -5206,6 +5347,7 @@ export default function ContentHubPage() {
                       setVideoProductionMode('CAMPAIGN_FILM')
                       setVideoReferenceMediaIds([])
                       setVideoGenerationAcknowledged(false)
+                      setVideoSamePropertyAcknowledged(false)
                     }}
                     disabled={Boolean(generatingVideoId)}
                     className={`rounded-2xl border p-4 text-left transition-all ${videoProductionMode === 'CAMPAIGN_FILM' ? 'border-amber-400 bg-amber-50' : 'border-slate-200 bg-white'}`}
@@ -5216,7 +5358,66 @@ export default function ContentHubPage() {
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
-                  {videoProductionMode === 'MOTION_DESIGN' ? (
+                  {videoProductionMode === 'PHOTO_FILM' ? (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-bold text-slate-950">{isAr ? 'صور نفس العقار — بالترتيب' : 'Same-property photos — in sequence'}</p>
+                          <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                            {isAr
+                              ? `اختر ${PROPERTY_PHOTO_FILM_MIN_REFERENCES}–${PROPERTY_PHOTO_FILM_MAX_REFERENCES} صور محللة. ترتيب الاختيار هو ترتيب ظهورها. الصور فقط هي الدليل؛ لا يولّد NEXUS أي مشهد عقاري.`
+                              : `Choose ${PROPERTY_PHOTO_FILM_MIN_REFERENCES}–${PROPERTY_PHOTO_FILM_MAX_REFERENCES} analysed photos. Selection order is playback order. The photos are the only visual evidence; NEXUS generates no property scene.`}
+                          </p>
+                        </div>
+                        {videoReferenceMediaIds.length > 0 && (
+                          <button type="button" onClick={() => setVideoReferenceMediaIds([])} className="text-xs font-semibold text-slate-500 hover:text-slate-900">
+                            {isAr ? 'إزالة الكل' : 'Clear all'}
+                          </button>
+                        )}
+                      </div>
+                      <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                        {videoReferenceImages.map(media => (
+                          <button
+                            key={media.id}
+                            type="button"
+                            aria-pressed={videoReferenceMediaIds.includes(media.id)}
+                            onClick={() => setVideoReferenceMediaIds(current => (
+                              current.includes(media.id)
+                                ? current.filter(id => id !== media.id)
+                                : current.length < PROPERTY_PHOTO_FILM_MAX_REFERENCES
+                                  ? [...current, media.id]
+                                  : current
+                            ))}
+                            className="relative aspect-square overflow-hidden rounded-xl border-2 bg-white transition-all"
+                            style={{ borderColor: videoReferenceMediaIds.includes(media.id) ? '#059669' : 'transparent' }}
+                            title={media.fileName}
+                          >
+                            <img src={media.url} alt={media.fileName} className="h-full w-full object-cover" />
+                            {videoReferenceMediaIds.includes(media.id) && (
+                              <span className="absolute right-1 top-1 rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                                {videoReferenceMediaIds.indexOf(media.id) + 1}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      {videoReferenceImages.length === 0 && (
+                        <button type="button" onClick={() => router.push('/media')} className="mt-3 w-full rounded-xl border border-dashed border-emerald-300 bg-white px-3 py-3 text-xs font-semibold text-emerald-800">
+                          {isAr ? 'ارفع صور العقار في مكتبة الوسائط ثم حلّلها' : 'Upload and analyse property photos in Media Library'}
+                        </button>
+                      )}
+                      <div className={`mt-3 rounded-xl border px-3 py-3 text-xs leading-relaxed ${propertyPhotoFilmPreflight.eligible ? 'border-emerald-200 bg-white text-emerald-900' : 'border-slate-200 bg-white text-slate-600'}`}>
+                        <p className="font-bold">
+                          {propertyPhotoFilmPreflight.eligible
+                            ? (isAr ? '✓ الصور مؤهلة لمسار يحافظ على المصدر' : '✓ Photos qualify for source-locked production')
+                            : (isAr ? 'اختر مجموعة صور عقارية مؤهلة' : 'Choose a qualified property photo set')}
+                        </p>
+                        {!propertyPhotoFilmPreflight.eligible && propertyPhotoFilmPreflight.issues.slice(0, 3).map(issue => (
+                          <p key={`${issue.code}-${issue.mediaId || 'set'}`} className="mt-1">• {issue.message}</p>
+                        ))}
+                      </div>
+                    </div>
+                  ) : videoProductionMode === 'MOTION_DESIGN' ? (
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-sm font-bold text-slate-950">{isAr ? 'الفيديو الأصلي' : 'Original source video'}</p>
                       <p className="mt-1 text-xs leading-relaxed text-slate-500">
@@ -5321,7 +5522,17 @@ export default function ContentHubPage() {
                   <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4">
                     <p className="text-sm font-bold text-violet-950">{isAr ? 'عقد التنفيذ' : 'Execution contract'}</p>
                     <div className="mt-3 space-y-2 text-xs leading-relaxed text-violet-950/75">
-                      {videoProductionMode === 'MOTION_DESIGN' ? (
+                      {videoProductionMode === 'PHOTO_FILM' ? (
+                        <>
+                          <p>✓ {isAr ? 'الصور المختارة فقط: لا توليد غرف أو واجهات أو أشخاص أو تفاصيل عقار جديدة' : 'Selected photos only: no generated rooms, facades, people, or property details'}</p>
+                          <p>✓ {isAr ? 'حركة كاميرا متبادلة وانتقالات مدروسة مع بقاء الصورة الأصلية خلف الفريم الختامي' : 'Alternating camera motion and considered transitions, with the original image held behind the final frame'}</p>
+                          <p>✓ {isAr ? 'أي سعر أو موقع أو مساحة أو غرف أو توفر يُرفض ما لم يطابق دليلاً موثقًا' : 'Price, location, area, room count, or availability is rejected without source-linked proof'}</p>
+                          <p>✓ {isAr ? 'Typography عقاري هادئ وصوت منفصلان عن الصور الأصلية' : 'Restrained property typography and voice remain separate from original images'}</p>
+                          <p>✓ {isAr ? 'فحص الناتج مقابل كل الصور المرجعية قبل الربط' : 'Final output is checked against every reference photo before attachment'}</p>
+                          <p>✓ {isAr ? 'صفر استهلاك لمزود فيديو توليدي' : 'Zero generative-video provider spend'}</p>
+                          <p>✓ {isAr ? `التكلفة: ${CONTENT_HUB_PROPERTY_PHOTO_FILM_COST} كريديت` : `Cost: ${CONTENT_HUB_PROPERTY_PHOTO_FILM_COST} credits`}</p>
+                        </>
+                      ) : videoProductionMode === 'MOTION_DESIGN' ? (
                         <>
                           <p>✓ {isAr ? '3 مشاهد مونتاج حقيقية من المصدر: Hook ثم Proof ثم CTA، مع انتقالين وتدرّج حركة مختلف' : 'Three real source-derived edit scenes: Hook, Proof, and CTA, with two transitions and distinct motion treatments'}</p>
                           <p>✓ {isAr ? 'خلفية ممتدة أو Blurred Canvas بدل المساحات السوداء، مع إبقاء المنتج أو الواجهة الأصلية واضحة' : 'Full-bleed or blurred-canvas treatment instead of black letterboxing while preserving the original product or interface'}</p>
@@ -5354,7 +5565,7 @@ export default function ContentHubPage() {
                   </div>
                 </div>
 
-                {(videoProductionMode === 'MOTION_DESIGN' ? motionDesignLocked : cinematicVideoLocked) && (
+                {(['PHOTO_FILM', 'MOTION_DESIGN'].includes(videoProductionMode) ? motionDesignLocked : cinematicVideoLocked) && (
                   <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-800">{addCreditsForVideoLabel}</p>
                 )}
 
@@ -5367,29 +5578,44 @@ export default function ContentHubPage() {
                 <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
                   <input type="checkbox" checked={videoAssetRightsAcknowledged} onChange={event => setVideoAssetRightsAcknowledged(event.target.checked)} disabled={Boolean(generatingVideoId)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-600" />
                   <span className="text-sm font-semibold leading-relaxed text-slate-800">
-                    {videoProductionMode === 'MOTION_DESIGN'
-                      ? (isAr ? 'أؤكد أنني أملك أو لدي تصريح استخدام الفيديو الأصلي وهوية البراند في إعلان تجاري.' : 'I confirm that I own or am authorised to use the source video and brand identity in commercial advertising.')
-                      : videoProductionMode === 'CAMPAIGN_FILM'
-                        ? (isAr ? 'أؤكد أنني مخوّل باستخدام هوية البراند والنص المعتمد، وأفهم أن المشاهد Concept مولّدة وليست تصويرًا حقيقيًا للمنتج.' : 'I confirm I am authorised to use the brand identity and approved copy, and understand that the concept scenes are generated rather than documentary product footage.')
-                        : (isAr ? 'أؤكد أنني أملك أو لدي تصريح استخدام صور المنتج المختارة في إعلان تجاري.' : 'I confirm that I own or am authorised to use the selected product images in commercial advertising.')}
+                    {videoProductionMode === 'PHOTO_FILM'
+                      ? (isAr ? 'أؤكد أنني أملك أو لدي تصريح تجاري لاستخدام صور العقار المختارة وهوية البراند.' : 'I confirm that I own or have commercial permission to use the selected property photos and brand identity.')
+                      : videoProductionMode === 'MOTION_DESIGN'
+                        ? (isAr ? 'أؤكد أنني أملك أو لدي تصريح استخدام الفيديو الأصلي وهوية البراند في إعلان تجاري.' : 'I confirm that I own or am authorised to use the source video and brand identity in commercial advertising.')
+                        : videoProductionMode === 'CAMPAIGN_FILM'
+                          ? (isAr ? 'أؤكد أنني مخوّل باستخدام هوية البراند والنص المعتمد، وأفهم أن المشاهد Concept مولّدة وليست تصويرًا حقيقيًا للمنتج.' : 'I confirm I am authorised to use the brand identity and approved copy, and understand that the concept scenes are generated rather than documentary product footage.')
+                          : (isAr ? 'أؤكد أنني أملك أو لدي تصريح استخدام صور المنتج المختارة في إعلان تجاري.' : 'I confirm that I own or am authorised to use the selected product images in commercial advertising.')}
                   </span>
                 </label>
+
+                {videoProductionMode === 'PHOTO_FILM' && (
+                  <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                    <input type="checkbox" checked={videoSamePropertyAcknowledged} onChange={event => setVideoSamePropertyAcknowledged(event.target.checked)} disabled={Boolean(generatingVideoId)} className="mt-0.5 h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-600" />
+                    <span className="text-sm font-semibold leading-relaxed text-emerald-950">
+                      {isAr
+                        ? 'أؤكد أن الصور المختارة لنفس العقار، وأن نص المنشور لا يحتوي سعرًا أو موقعًا أو مساحة أو غرفًا أو إتاحة غير موثقة.'
+                        : 'I confirm the selected photos show the same property and the post contains no unverified price, location, area, room count, or availability claim.'}
+                    </span>
+                  </label>
+                )}
 
                 <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
                   <input type="checkbox" checked={videoGenerationAcknowledged} onChange={event => setVideoGenerationAcknowledged(event.target.checked)} disabled={Boolean(generatingVideoId)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-600" />
                   <span className="text-sm font-semibold leading-relaxed text-slate-800">
-                    {videoProductionMode === 'MOTION_DESIGN'
-                      ? (isAr ? `أوافق على خصم ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت لإنتاج Motion Design مدته ${MOTION_DESIGN_DURATION_SECONDS} ثوانٍ للمراجعة فقط؛ لا نشر ولا جدولة.` : `I approve a ${CONTENT_HUB_MOTION_DESIGN_COST}-credit charge for one ${MOTION_DESIGN_DURATION_SECONDS}-second review-only Motion Design ad; nothing will be published or scheduled.`)
-                      : videoProductionMode === 'CAMPAIGN_FILM'
-                        ? (isAr ? `أوافق على خصم ${CONTENT_HUB_VIDEO_COST} كريديت لإنتاج Concept Film مولّد من 3 لقطات مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ للمراجعة فقط؛ لا يضمن تطابق منتج حقيقي، محاولة واحدة، لا نشر ولا جدولة.` : `I approve a ${CONTENT_HUB_VIDEO_COST}-credit charge for one ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second, three-shot generated concept film; it does not guarantee real-product fidelity, one attempt, nothing published or scheduled.`)
-                        : (isAr ? `أوافق على خصم ${CONTENT_HUB_VIDEO_COST} كريديت لإنتاج إعلان منتج مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ للمراجعة فقط؛ لا نشر ولا جدولة.` : `I approve a ${CONTENT_HUB_VIDEO_COST}-credit charge for one ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second review-only product ad; nothing will be published or scheduled.`)}
+                    {videoProductionMode === 'PHOTO_FILM'
+                      ? (isAr ? `أوافق على خصم ${CONTENT_HUB_PROPERTY_PHOTO_FILM_COST} كريديت لإنتاج Property Photo Film مدته ${PROPERTY_PHOTO_FILM_DURATION_SECONDS} ثوانٍ للمراجعة فقط؛ لا نشر ولا جدولة.` : `I approve a ${CONTENT_HUB_PROPERTY_PHOTO_FILM_COST}-credit charge for one ${PROPERTY_PHOTO_FILM_DURATION_SECONDS}-second review-only property photo film; nothing will be published or scheduled.`)
+                      : videoProductionMode === 'MOTION_DESIGN'
+                        ? (isAr ? `أوافق على خصم ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت لإنتاج Motion Design مدته ${MOTION_DESIGN_DURATION_SECONDS} ثوانٍ للمراجعة فقط؛ لا نشر ولا جدولة.` : `I approve a ${CONTENT_HUB_MOTION_DESIGN_COST}-credit charge for one ${MOTION_DESIGN_DURATION_SECONDS}-second review-only Motion Design ad; nothing will be published or scheduled.`)
+                        : videoProductionMode === 'CAMPAIGN_FILM'
+                          ? (isAr ? `أوافق على خصم ${CONTENT_HUB_VIDEO_COST} كريديت لإنتاج Concept Film مولّد من 3 لقطات مدته ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS} ثوانٍ للمراجعة فقط؛ لا يضمن تطابق منتج حقيقي، محاولة واحدة، لا نشر ولا جدولة.` : `I approve a ${CONTENT_HUB_VIDEO_COST}-credit charge for one ${CONTENT_HUB_CAMPAIGN_FILM_DURATION_SECONDS}-second, three-shot generated concept film; it does not guarantee real-product fidelity, one attempt, nothing published or scheduled.`)
+                          : (isAr ? `أوافق على خصم ${CONTENT_HUB_VIDEO_COST} كريديت لإنتاج إعلان منتج مدته ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS} ثوانٍ للمراجعة فقط؛ لا نشر ولا جدولة.` : `I approve a ${CONTENT_HUB_VIDEO_COST}-credit charge for one ${CINEMATIC_PRODUCT_AD_DURATION_SECONDS}-second review-only product ad; nothing will be published or scheduled.`)}
                   </span>
                 </label>
 
                 <div className="mt-5 flex justify-end gap-3">
                   <button onClick={closeVideoGenerationConfirm} disabled={Boolean(generatingVideoId)} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-500 hover:text-slate-950">{isAr ? 'إلغاء' : 'Cancel'}</button>
                   <button onClick={confirmPostVideoGeneration} disabled={Boolean(generatingVideoId) || !canStartSelectedVideoRoute} className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">
-                    {generatingVideoId ? (isAr ? 'جارٍ الإنتاج والفحص...' : 'Rendering and reviewing...') : (isAr ? `ابدأ الإنتاج — ${videoProductionMode === 'MOTION_DESIGN' ? CONTENT_HUB_MOTION_DESIGN_COST : CONTENT_HUB_VIDEO_COST} كريديت` : `Start production — ${videoProductionMode === 'MOTION_DESIGN' ? CONTENT_HUB_MOTION_DESIGN_COST : CONTENT_HUB_VIDEO_COST} credits`)}
+                    {generatingVideoId ? (isAr ? 'جارٍ الإنتاج والفحص...' : 'Rendering and reviewing...') : (isAr ? `ابدأ الإنتاج — ${['PHOTO_FILM', 'MOTION_DESIGN'].includes(videoProductionMode) ? CONTENT_HUB_MOTION_DESIGN_COST : CONTENT_HUB_VIDEO_COST} كريديت` : `Start production — ${['PHOTO_FILM', 'MOTION_DESIGN'].includes(videoProductionMode) ? CONTENT_HUB_MOTION_DESIGN_COST : CONTENT_HUB_VIDEO_COST} credits`)}
                   </button>
                 </div>
               </div>

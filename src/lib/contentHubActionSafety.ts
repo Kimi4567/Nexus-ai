@@ -2,12 +2,14 @@ import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
 import { CINEMATIC_PRODUCT_AD_DURATION_SECONDS } from '@/lib/videoAdPreflight'
 import { MOTION_DESIGN_DURATION_SECONDS } from '@/lib/motionDesignAd'
 import { PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS } from '@/lib/professionalCampaignFilm'
+import { PROPERTY_PHOTO_FILM_DURATION_SECONDS } from '@/lib/propertyPhotoFilm'
 
 // Client-safe aliases of the one client catalog. A contract test keeps that
 // catalog identical to the server billing catalog in src/lib/credits.ts.
 export const CONTENT_HUB_IMAGE_COST = CREDIT_ACTION_COSTS.IMAGE_GENERATION
 export const CONTENT_HUB_VIDEO_COST = CREDIT_ACTION_COSTS.VIDEO_GENERATION
 export const CONTENT_HUB_MOTION_DESIGN_COST = CREDIT_ACTION_COSTS.MOTION_DESIGN_VIDEO
+export const CONTENT_HUB_PROPERTY_PHOTO_FILM_COST = CREDIT_ACTION_COSTS.MOTION_DESIGN_VIDEO
 export const CONTENT_HUB_REWRITE_COST = CREDIT_ACTION_COSTS.AI_POST_REWRITE
 export const CONTENT_HUB_REGENERATION_COST = CREDIT_ACTION_COSTS.CONTENT_PLAN_GENERATION
 export const CONTENT_HUB_MEDIA_INTELLIGENCE_COST = CREDIT_ACTION_COSTS.MEDIA_INTELLIGENCE_ANALYSIS
@@ -201,6 +203,34 @@ export function validateMotionDesignConfirmation(input: {
     || !input.sourceMediaId.trim()
   ) {
     return { ok: false, error: 'Motion design requires an up-to-date explicit confirmation. No credits were spent.' }
+  }
+
+  return { ok: true }
+}
+
+export function validatePropertyPhotoFilmConfirmation(input: {
+  confirmed?: unknown
+  acknowledgedCreditCost?: unknown
+  acknowledgedDurationSeconds?: unknown
+  acknowledgedNoPublishOrSchedule?: unknown
+  acknowledgedReviewRequired?: unknown
+  acknowledgedAssetRights?: unknown
+  acknowledgedSameProperty?: unknown
+  referenceMediaIds?: unknown
+}): ContentHubConfirmationResult {
+  if (
+    input.confirmed !== true
+    || input.acknowledgedCreditCost !== CONTENT_HUB_PROPERTY_PHOTO_FILM_COST
+    || input.acknowledgedDurationSeconds !== PROPERTY_PHOTO_FILM_DURATION_SECONDS
+    || input.acknowledgedNoPublishOrSchedule !== true
+    || input.acknowledgedReviewRequired !== true
+    || input.acknowledgedAssetRights !== true
+    || input.acknowledgedSameProperty !== true
+    || !Array.isArray(input.referenceMediaIds)
+    || input.referenceMediaIds.length < 3
+    || input.referenceMediaIds.some(id => typeof id !== 'string' || !id.trim())
+  ) {
+    return { ok: false, error: 'Property photo film requires an up-to-date asset, rights, and same-property confirmation. No credits were spent.' }
   }
 
   return { ok: true }

@@ -24,6 +24,24 @@ const clinicCtx: ContentPlanRenderContext = {
 }
 
 describe('contentPlanStructuredRenderer', () => {
+  it('replaces real-estate storyboard invention with a source-locked photo contract', () => {
+    const prompt = renderContentPlanDraftVideoPrompt({
+      videoScript: 'Generate a realtor walking through a new Dubai villa with a private pool and marina view.',
+    }, {
+      ...clinicCtx,
+      isArabic: false,
+      brand: 'Northline Property Marketing',
+      campaignName: 'Property film demo',
+      brandFacts: ['Northline is a real estate marketing company.'],
+    })
+
+    expect(prompt).toContain('Source-locked property photo film')
+    expect(prompt).toContain('Do not generate, add, or infer rooms')
+    expect(prompt).not.toContain('realtor walking')
+    expect(prompt).not.toContain('private pool')
+    expect(prompt).not.toContain('marina view')
+  })
+
   it('detects healthcare / clinic SaaS content from strategy context', () => {
     expect(isClinicOperationalSaasContent(clinicCtx, {})).toBe(true)
     expect(isClinicOperationalSaasContent({

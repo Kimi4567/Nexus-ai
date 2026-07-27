@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   buildShotstackCampaignFilmEdit,
+  buildShotstackPropertyPhotoFilmEdit,
   estimateShotstackRenderCredits,
   estimateShotstackRenderCostUsd,
   getShotstackEnvironment,
@@ -92,6 +93,57 @@ describe('Shotstack campaign-film compositor', () => {
     expect(result.timeline.tracks[1].clips[0]).toMatchObject({
       asset: { type: 'video', volume: 1, volumeEffect: 'none' },
     })
+  })
+
+  it('builds a source-locked multi-photo property edit with moving image clips', () => {
+    const result = buildShotstackPropertyPhotoFilmEdit({
+      sourceImageUrls: [
+        'https://res.cloudinary.com/demo/image/upload/property-1.jpg',
+        'https://res.cloudinary.com/demo/image/upload/property-2.jpg',
+        'https://res.cloudinary.com/demo/image/upload/property-3.jpg',
+        'https://res.cloudinary.com/demo/image/upload/property-4.jpg',
+      ],
+      target: TARGET,
+      durationSeconds: 10,
+      overlays: {
+        intro: '<svg><path d="M0 0"/></svg>',
+        detail: '<svg><path d="M0 0"/></svg>',
+        end: '<svg><path d="M0 0"/></svg>',
+      },
+      voiceoverUrl: 'https://res.cloudinary.com/demo/video/upload/property-voice.mp3',
+    })
+
+    expect(result.timeline.tracks).toHaveLength(3)
+    const imageClips = result.timeline.tracks[2].clips
+    expect(imageClips).toHaveLength(4)
+    expect(imageClips.map(clip => (clip.asset as { type: string }).type))
+      .toEqual(['image', 'image', 'image', 'image'])
+    expect(imageClips.map(clip => clip.effect))
+      .toEqual(['zoomIn', 'zoomOut', 'zoomIn', 'zoomOut'])
+    expect(imageClips[0]).toMatchObject({
+      start: 0,
+      length: 2.5,
+      fit: 'cover',
+      transition: { in: 'none', out: 'fade' },
+    })
+    expect(imageClips[3]).toMatchObject({
+      start: 7.5,
+      length: 2.5,
+      transition: { in: 'fade', out: 'none' },
+    })
+    expect(result.output.range).toEqual({ start: 0, length: 10 })
+  })
+
+  it('rejects a property edit without a complete photo set', () => {
+    expect(() => buildShotstackPropertyPhotoFilmEdit({
+      sourceImageUrls: [
+        'https://res.cloudinary.com/demo/image/upload/property-1.jpg',
+        'https://res.cloudinary.com/demo/image/upload/property-2.jpg',
+      ],
+      target: TARGET,
+      durationSeconds: 10,
+      overlays: { intro: '<svg/>', detail: '<svg/>', end: '<svg/>' },
+    })).toThrow('SHOTSTACK_PROPERTY_SOURCE_COUNT_INVALID')
   })
 
   it('queues and resolves a sandbox render without assigning a production cost', async () => {

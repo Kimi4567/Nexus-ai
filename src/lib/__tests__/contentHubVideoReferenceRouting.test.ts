@@ -9,9 +9,12 @@ describe('Content Hub video reference routing truth', () => {
       'utf8',
     )
 
-    expect(source).toContain("setVideoProductionMode(referenceMediaId ? 'CINEMATIC' : 'MOTION_DESIGN')")
-    expect(source).toContain("useState<'MOTION_DESIGN' | 'CAMPAIGN_FILM' | 'CINEMATIC'>('MOTION_DESIGN')")
+    expect(source).toMatch(/setVideoProductionMode\(\s*referenceMediaId\s*\?\s*'CINEMATIC'/)
+    expect(source).toContain("useState<'PHOTO_FILM' | 'MOTION_DESIGN' | 'CAMPAIGN_FILM' | 'CINEMATIC'>('PHOTO_FILM')")
+    expect(source).toContain("videoReferenceImages.length >= PROPERTY_PHOTO_FILM_MIN_REFERENCES")
     expect(source).toContain('referenceMediaIds: videoReferenceMediaIds')
+    expect(source).toContain('generate-property-photo-film')
+    expect(source).toContain('acknowledgedSameProperty: true')
     expect(source).not.toContain('referenceMediaIds: professionalCampaignFilm ? [] : videoReferenceMediaIds')
     expect(source).toContain("setVideoProductionMode('CAMPAIGN_FILM')\n                      setVideoReferenceMediaIds([])")
     expect(source).toContain('CREATOR_REFERENCE_UNSUPPORTED')

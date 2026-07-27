@@ -13,7 +13,7 @@ export type CreativeMatchDecision =
 export interface MediaIntelligenceAnalysis {
   version: number
   visibleSummary: string
-  assetKind: 'PRODUCT' | 'PACKAGING' | 'LIFESTYLE' | 'DEMO' | 'TESTIMONIAL' | 'SCREEN' | 'PERSON' | 'LOGO' | 'OTHER'
+  assetKind: 'PRODUCT' | 'PACKAGING' | 'PROPERTY' | 'LIFESTYLE' | 'DEMO' | 'TESTIMONIAL' | 'SCREEN' | 'PERSON' | 'LOGO' | 'OTHER'
   language: 'AR' | 'EN' | 'MIXED' | 'NONE'
   products: string[]
   visibleObjects: string[]
@@ -58,6 +58,7 @@ export interface CreativePostCandidate {
 
 const VIDEO_STUDIO_OUTPUT_CATEGORIES = new Set([
   'source-locked-motion-design-ad',
+  'source-locked-property-photo-film',
   'professional-campaign-film-master',
   'cinematic-product-ad-master',
 ])
@@ -148,7 +149,7 @@ export function normalizeMediaIntelligence(
   return {
     version: CREATIVE_INTELLIGENCE_VERSION,
     visibleSummary: boundedText(input.visibleSummary, 360) || 'Visual evidence was not described clearly enough.',
-    assetKind: oneOf(input.assetKind, ['PRODUCT', 'PACKAGING', 'LIFESTYLE', 'DEMO', 'TESTIMONIAL', 'SCREEN', 'PERSON', 'LOGO', 'OTHER'] as const, 'OTHER'),
+    assetKind: oneOf(input.assetKind, ['PRODUCT', 'PACKAGING', 'PROPERTY', 'LIFESTYLE', 'DEMO', 'TESTIMONIAL', 'SCREEN', 'PERSON', 'LOGO', 'OTHER'] as const, 'OTHER'),
     language: oneOf(input.language, ['AR', 'EN', 'MIXED', 'NONE'] as const, 'NONE'),
     products: boundedList(input.products),
     visibleObjects: boundedList(input.visibleObjects),
