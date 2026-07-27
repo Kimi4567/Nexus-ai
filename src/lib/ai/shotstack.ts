@@ -10,6 +10,7 @@ export type ShotstackEnvironment = 'stage' | 'v1'
 export type ShotstackRenderStatus =
   | 'queued'
   | 'fetching'
+  | 'processing'
   | 'rendering'
   | 'saving'
   | 'done'
@@ -108,7 +109,7 @@ function shotstackHeaders(environment: ShotstackEnvironment): Record<string, str
 
 function isShotstackStatus(value: unknown): value is ShotstackRenderStatus {
   return typeof value === 'string'
-    && ['queued', 'fetching', 'rendering', 'saving', 'done', 'failed'].includes(value)
+    && ['queued', 'fetching', 'processing', 'rendering', 'saving', 'done', 'failed'].includes(value)
 }
 
 export function buildShotstackCampaignFilmEdit(input: {
