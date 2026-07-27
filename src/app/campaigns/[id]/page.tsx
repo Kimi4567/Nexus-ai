@@ -1101,7 +1101,10 @@ function CampaignDetailPageInner() {
         )
         return false
       }
-      setCampaign(prev => prev ? { ...prev, status: 'DRAFT' } : prev)
+      // Revocation advances the campaign revision. Refresh it before the
+      // zero-credit re-approval flow so expectedStrategyUpdatedAt is never
+      // sent from the pre-revocation page state.
+      await fetchCampaign()
       setStrategyApprovalTruth('revoked')
       return true
     } catch {

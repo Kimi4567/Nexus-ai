@@ -99,6 +99,9 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).toContain('Re-open strategy for review')
     expect(campaignRoomSource).toContain('contentPlanAlreadyExists={campaignPosts.length > 0}')
     expect(campaignRoomSource).toContain('retaining the existing Content Hub drafts without regeneration or credit spend')
+    expect(campaignRoomSource).toMatch(
+      /action: 'revoke'[\s\S]{0,1800}await fetchCampaign\(\)[\s\S]{0,300}setStrategyApprovalTruth\('revoked'\)/,
+    )
   })
 
   it('keeps paid planning diagnosis scope-aware for organic-only strategies', () => {
