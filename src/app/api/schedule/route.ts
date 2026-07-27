@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
+import { buildStatusHistory } from '@/lib/postStatus'
 
 async function getUser(req: NextRequest) {
   const token = req.headers.get('authorization')?.replace('Bearer ', '')
@@ -73,7 +75,13 @@ export async function DELETE(req: NextRequest) {
 
     const post = await prisma.socialPost.findFirst({
       where: { id: postId, workspaceId: workspace.id },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        workspaceId: true,
+        campaignId: true,
+        updatedAt: true,
+      },
     })
     if (!post) return NextResponse.json({ error: 'Scheduled record not found' }, { status: 404 })
 
@@ -96,10 +104,66 @@ export async function DELETE(req: NextRequest) {
       }, { status: 400 })
     }
 
-    await prisma.socialPost.delete({ where: { id: post.id } })
+    if (post.status === 'SCHEDULED') {
+      const result = await prisma.$transaction(async tx => {
+        const changed = await tx.socialPost.updateMany({
+          where: {
+            id: post.id,
+            workspaceId: workspace.id,
+            status: 'SCHEDULED',
+            publishedAt: null,
+            updatedAt: post.updatedAt,
+          },
+          data: {
+            status: 'APPROVED',
+            publishMode: 'MANUAL',
+            scheduledSnapshotId: null,
+            integrationId: null,
+            pageId: null,
+            pageName: null,
+            platformOptions: Prisma.DbNull,
+            autoPublishConsentAt: null,
+            publishAttemptedAt: null,
+            publishLeaseUntil: null,
+            publishLeaseToken: null,
+            platformPostId: null,
+            platformUrl: null,
+          },
+        })
+        if (changed.count !== 1) throw new Error('SCHEDULE_CANCEL_CONCURRENT_CHANGE')
 
+        await tx.postStatusHistory.create({
+          data: buildStatusHistory({
+            socialPostId: post.id,
+            workspaceId: post.workspaceId,
+            fromStatus: 'SCHEDULED',
+            toStatus: 'APPROVED',
+            actor: 'USER',
+            note: 'cancel_schedule',
+          }),
+        })
+        return changed
+      })
+
+      return NextResponse.json({
+        success: true,
+        reverted: result.count,
+        status: 'APPROVED',
+        mode: 'schedule_cancelled',
+      })
+    }
+
+    // Failed execution records are the only records this endpoint actually
+    // dismisses. Scheduled campaign content is retained and returned to review.
+    await prisma.socialPost.delete({ where: { id: post.id } })
     return NextResponse.json({ success: true })
   } catch (err: any) {
+    if (err instanceof Error && err.message === 'SCHEDULE_CANCEL_CONCURRENT_CHANGE') {
+      return NextResponse.json({
+        error: 'The scheduled post changed while it was being cancelled. Reload before trying again.',
+        code: 'SCHEDULE_CANCEL_CONCURRENT_CHANGE',
+      }, { status: 409 })
+    }
     console.error('[Schedule DELETE] Error:', err?.message || err)
     return NextResponse.json({ error: 'Failed to delete post' }, { status: 500 })
   }
