@@ -108,6 +108,10 @@ describe('Shotstack campaign-film compositor', () => {
       }), { status: 200, headers: { 'content-type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         success: true,
+        response: { status: 'preprocessing-assets' },
+      }), { status: 200, headers: { 'content-type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
         response: {
           status: 'done',
           url: 'https://shotstack-output.example/render.mp4',
@@ -127,7 +131,7 @@ describe('Shotstack campaign-film compositor', () => {
       estimatedCostUsd: 0,
       estimatedCredits: 0,
     })
-    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(fetchMock).toHaveBeenCalledTimes(5)
   })
 
   it('meters a ten-second production render at the configured per-minute rate', () => {

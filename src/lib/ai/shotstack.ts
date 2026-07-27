@@ -234,7 +234,7 @@ async function queueShotstackRender(
 async function getShotstackRender(
   id: string,
   environment: ShotstackEnvironment,
-): Promise<{ status: ShotstackRenderStatus; url?: string }> {
+): Promise<{ status: ShotstackRenderStatus | 'pending'; url?: string }> {
   const response = await fetch(
     `${SHOTSTACK_API_ROOT}/${environment}/render/${encodeURIComponent(id)}?data=false`,
     {
@@ -245,9 +245,19 @@ async function getShotstackRender(
   )
   if (!response.ok) throw new Error(`SHOTSTACK_RENDER_STATUS_FAILED_${response.status}`)
   const payload = await response.json().catch(() => null) as {
+    success?: unknown
     response?: { status?: unknown; url?: unknown }
   } | null
-  if (!isShotstackStatus(payload?.response?.status)) throw new Error('SHOTSTACK_RENDER_STATUS_INVALID')
+  if (!payload || payload.success !== true || !payload.response || typeof payload.response !== 'object') {
+    throw new Error('SHOTSTACK_RENDER_STATUS_INVALID')
+  }
+  if (!isShotstackStatus(payload.response.status)) {
+    // Shotstack can briefly return an undocumented transitional status while
+    // preprocessing input assets. Treat it only as "still pending": completion
+    // still requires an explicit `done` plus a valid HTTPS output URL, and the
+    // existing timeout remains the fail-closed boundary.
+    return { status: 'pending' }
+  }
   return {
     status: payload.response.status,
     url: typeof payload.response.url === 'string' ? payload.response.url : undefined,
