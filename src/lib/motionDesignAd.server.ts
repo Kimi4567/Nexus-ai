@@ -589,10 +589,13 @@ export function buildMotionDesignFfmpegArgs(input: {
     `[cta_source]trim=start=0.8:duration=2.2,setpts=PTS-STARTPTS,zoompan=z='1+min(on/${Math.round(2.2 * frameRate)},1)*0.045':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${width}x${height}:fps=${frameRate},eq=contrast=1.04:saturation=1.04,settb=AVTB,format=yuv420p[scene_cta]`,
     '[scene_hook][scene_proof]xfade=transition=smoothleft:duration=0.35:offset=1.65[edit_a]',
     '[edit_a][scene_cta]xfade=transition=fade:duration=0.35:offset=3.8[base]',
-    '[1:v]format=rgba,fade=t=in:st=0:d=0.12:alpha=1,fade=t=out:st=1.52:d=0.18:alpha=1[intro]',
+    // The commercial fact must be legible on frame zero. A fade-in here makes
+    // the first QA frame look like unbranded source footage and weakens the
+    // real-world scroll stop even when the rest of the edit is strong.
+    '[1:v]format=rgba,fade=t=out:st=1.52:d=0.18:alpha=1[intro]',
     '[2:v]format=rgba,fade=t=in:st=1.58:d=0.18:alpha=1,fade=t=out:st=3.58:d=0.2:alpha=1[hook]',
     '[3:v]format=rgba,fade=t=in:st=3.72:d=0.24:alpha=1[end]',
-    "[base][intro]overlay=x=0:y='if(lt(t,0.24),(0.24-t)*220,0)':enable='between(t,0,1.72)'[v0]",
+    "[base][intro]overlay=x=0:y=0:enable='between(t,0,1.72)'[v0]",
     "[v0][hook]overlay=x='if(lt(t,1.82),(1.82-t)*100,0)':y=0:enable='between(t,1.58,3.82)'[v1]",
     `[v1][end]overlay=x=0:y='if(lt(t,4.02),(4.02-t)*90,0)':enable='between(t,3.72,${durationSeconds})',trim=duration=${durationSeconds},format=yuv420p[outv]`,
     `[4:a]highpass=f=180,lowpass=f=4200,volume='0.012+0.052*between(t\\,0\\,0.34)+0.064*between(t\\,1.48\\,1.94)+0.058*between(t\\,3.64\\,4.12)':eval=frame,afade=t=in:st=0:d=0.08,afade=t=out:st=5.65:d=0.35[whoosh]`,
