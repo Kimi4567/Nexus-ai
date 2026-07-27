@@ -2803,6 +2803,12 @@ export default function ContentHubPage() {
       const data = await response.json().catch(() => ({}))
       await loadData()
       if (!response.ok) throw new Error(data.error || 'The retained campaign-film repair did not pass review')
+      if (response.status === 202 || data.status === 'PROCESSING') {
+        setSuccessMsg(isAr
+          ? 'ما زال Shotstack ينفّذ نفس الرندر. حفظ NEXUS رقم العملية، وزر الاستئناف سيكمل نفس الفيديو والصوت من دون توليد جديد أو خصم كريديت.'
+          : 'Shotstack is still rendering the same job. NEXUS saved its ID, so Resume will continue the same video and voiceover without a new generation or credit charge.')
+        return
+      }
       setSuccessMsg(isAr
         ? 'تم تحديث التركيب والصوت على نفس اللقطات المحفوظة، واجتاز الفيديو فحص الجودة وربط للمراجعة. لم يبدأ توليد جديد ولم يُخصم كريديت.'
         : 'NEXUS upgraded the composition and audio on the retained footage, passed premium review, and attached the video for review. No new generation started and no credits were charged.')

@@ -74,6 +74,7 @@ import {
 } from '@/lib/professionalCampaignFilm.server'
 import { isRetainedCampaignFilmRepairEligible } from '@/lib/rejectedMediaReview'
 import { sourceLinkedProofStatements } from '@/lib/strategy/strategyEvidenceLedger'
+import { ShotstackRenderPendingError } from '@/lib/ai/shotstack'
 
 // Completion includes durable video upload plus a three-frame visual review.
 // Keep this server-side verification window independent from browser polling.
@@ -257,6 +258,29 @@ function generationMetadata(value: unknown): Record<string, any> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, any>
     : {}
+}
+
+type PendingCampaignFilmCompositor = {
+  version: string
+  renderId: string
+  voiceover: ProfessionalCampaignFilmCompositorUsage['voiceover']
+}
+
+function readPendingCampaignFilmCompositor(value: unknown): PendingCampaignFilmCompositor | null {
+  const pending = generationMetadata(value)
+  const renderId = typeof pending.renderId === 'string' ? pending.renderId.trim() : ''
+  if (
+    pending.version !== PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION
+    || !/^[0-9a-f-]{36}$/i.test(renderId)
+  ) return null
+  const voiceover = pending.voiceover === null
+    ? null
+    : generationMetadata(pending.voiceover) as NonNullable<ProfessionalCampaignFilmCompositorUsage['voiceover']>
+  return {
+    version: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+    renderId,
+    voiceover,
+  }
 }
 
 function retainedProviderMasterUrl(generation: any): string | null {
@@ -715,6 +739,7 @@ export async function PATCH(req: NextRequest, props: Params) {
 
   const attemptedAt = new Date().toISOString()
   const priorMetadata = generationMetadata(generation.metadata)
+  let pendingCompositor = readPendingCampaignFilmCompositor(priorMetadata.compositorPending)
   await db.generation.update({
     where: { id: generation.id },
     data: { metadata: {
@@ -746,6 +771,25 @@ export async function PATCH(req: NextRequest, props: Params) {
       generationId: generation.id,
       storageKey: `${generation.id}_compositor_${PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION.replace(/[^a-zA-Z0-9_-]/g, '_')}`,
       overlayCopy: brief.overlayCopy,
+      resumeCompositor: pendingCompositor,
+      onCompositorQueued: async queued => {
+        pendingCompositor = {
+          version: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+          ...queued,
+        }
+        await db.generation.update({
+          where: { id: generation.id },
+          data: {
+            metadata: {
+              ...priorMetadata,
+              compositorRepairAttemptedAt: attemptedAt,
+              compositorRepairStatus: 'PROCESSING',
+              compositorRepairVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+              compositorPending: pendingCompositor,
+            },
+          },
+        })
+      },
     })
     const formatValidation = validatePlatformVideoFormat({
       width: stored.width,
@@ -802,6 +846,7 @@ export async function PATCH(req: NextRequest, props: Params) {
               compositorRepairQualityReview: qualityReview,
               compositorRepairUsage: stored.compositorUsage,
               compositorRepairProviderUsage,
+              compositorPending: null,
             },
           },
         })
@@ -837,6 +882,7 @@ export async function PATCH(req: NextRequest, props: Params) {
             compositorVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
             compositorUsage: stored.compositorUsage,
             compositorRepairProviderUsage,
+            compositorPending: null,
           },
         },
       })
@@ -936,6 +982,7 @@ export async function PATCH(req: NextRequest, props: Params) {
           compositorVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
           compositorUsage: stored.compositorUsage,
           compositorRepairProviderUsage,
+          compositorPending: null,
         },
       },
     })
@@ -956,6 +1003,40 @@ export async function PATCH(req: NextRequest, props: Params) {
   } catch (error) {
     const internalMessage = sanitizeSentryText(error instanceof Error ? error.message : 'Retained campaign-film repair failed').slice(0, 500)
     console.error('[generate-video] retained campaign-film repair failed', internalMessage)
+    if (error instanceof ShotstackRenderPendingError) {
+      const retainedPending = pendingCompositor ?? {
+        version: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+        renderId: error.renderId,
+        voiceover: null,
+      }
+      await db.generation.update({
+        where: { id: generation.id },
+        data: {
+          status: generation.status,
+          progress: generation.progress,
+          output: generation.output,
+          error: generation.error,
+          metadata: {
+            ...priorMetadata,
+            compositorRepairAttemptedAt: attemptedAt,
+            compositorRepairStatus: 'ERROR',
+            compositorRepairVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+            compositorPending: retainedPending,
+          },
+        },
+      }).catch(() => undefined)
+      return NextResponse.json({
+        status: 'PROCESSING',
+        generationId: generation.id,
+        retryable: true,
+        resumeAvailable: true,
+        retainedAttachmentPreserved: wasCompleted,
+        creditsUsed: 0,
+        creditsCharged: false,
+        providerGenerationStarted: false,
+        message: 'Shotstack is still rendering. NEXUS saved the render ID and will resume the same job without generating a new video or voiceover.',
+      }, { status: 202 })
+    }
     const message = 'NEXUS could not complete the retained-footage repair. No credits were charged and no provider generation was started.'
     await db.generation.update({
       where: { id: generation.id },
@@ -970,6 +1051,7 @@ export async function PATCH(req: NextRequest, props: Params) {
               compositorRepairAttemptedAt: attemptedAt,
               compositorRepairStatus: 'ERROR',
               compositorRepairVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+              compositorPending: pendingCompositor,
             },
           }
         : {
@@ -984,6 +1066,7 @@ export async function PATCH(req: NextRequest, props: Params) {
               compositorRepairStatus: 'ERROR',
               compositorRepairVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
               compositorVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+              compositorPending: pendingCompositor,
             },
           },
     }).catch(() => undefined)
@@ -1114,6 +1197,9 @@ export async function GET(req: NextRequest, props: Params) {
   }
 
   let compositorUsage: ProfessionalCampaignFilmCompositorUsage | null = null
+  let pendingCompositor = readPendingCampaignFilmCompositor(
+    generationMetadata(generation.metadata).compositorPending,
+  )
   try {
     const providerStored = await uploadRunwayVideoToCloudinary(providerUrl, generation.id)
     const storedParams = generationParams(generation.params)
@@ -1134,6 +1220,28 @@ export async function GET(req: NextRequest, props: Params) {
           target: targetFormat,
           generationId: generation.id,
           overlayCopy: storedParams.overlayCopy!,
+          resumeCompositor: pendingCompositor,
+          onCompositorQueued: async queued => {
+            pendingCompositor = {
+              version: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+              ...queued,
+            }
+            await db.generation.update({
+              where: { id: generation.id },
+              data: {
+                metadata: {
+                  ...generationMetadata(generation.metadata),
+                  providerTaskId: task.id,
+                  providerStoredUrl: providerStored.url,
+                  providerStoredPublicId: providerStored.publicId,
+                  compositorVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+                  compositorPending: pendingCompositor,
+                  qualityStatus: 'PROCESSING',
+                  reviewRequired: true,
+                },
+              },
+            })
+          },
         })
       : providerStored
     compositorUsage = isCampaignFilm
@@ -1227,6 +1335,7 @@ export async function GET(req: NextRequest, props: Params) {
             retainedForAudit: true,
             compositorVersion: isCampaignFilm ? PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION : null,
             compositorUsage,
+            compositorPending: null,
           },
         },
       })
@@ -1339,6 +1448,7 @@ export async function GET(req: NextRequest, props: Params) {
             attached: false,
             compositorVersion: isCampaignFilm ? PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION : null,
             compositorUsage,
+            compositorPending: null,
           },
         },
       })
@@ -1376,6 +1486,7 @@ export async function GET(req: NextRequest, props: Params) {
           creditFinalizationStatus: finalization.status.toUpperCase(),
           compositorVersion: isCampaignFilm ? PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION : null,
           compositorUsage,
+          compositorPending: null,
         },
       },
     })
@@ -1396,6 +1507,7 @@ export async function GET(req: NextRequest, props: Params) {
           creditFinalizationStatus: finalization.status.toUpperCase(),
           compositorVersion: isCampaignFilm ? PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION : null,
           compositorUsage,
+          compositorPending: null,
         } },
       })
       await db.socialPost.update({
@@ -1460,6 +1572,7 @@ export async function GET(req: NextRequest, props: Params) {
         creditFinalizationStatus: finalization.status.toUpperCase(),
         compositorVersion: isCampaignFilm ? PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION : null,
         compositorUsage,
+        compositorPending: null,
       } },
     })
 
@@ -1481,6 +1594,39 @@ export async function GET(req: NextRequest, props: Params) {
   } catch (error) {
     const internalMessage = sanitizeSentryText(error instanceof Error ? error.message : 'Video storage or quality review failed').slice(0, 500)
     console.error('[generate-video] durable storage or quality review failed', internalMessage)
+    if (error instanceof ShotstackRenderPendingError) {
+      const retainedPending = pendingCompositor ?? {
+        version: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+        renderId: error.renderId,
+        voiceover: null,
+      }
+      await db.generation.update({
+        where: { id: generation.id },
+        data: {
+          status: 'PROCESSING',
+          progress: 98,
+          error: null,
+          metadata: {
+            ...generationMetadata(generation.metadata),
+            providerTaskId: task.id,
+            compositorVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+            compositorPending: retainedPending,
+            qualityStatus: 'PROCESSING',
+            reviewRequired: true,
+          },
+        },
+      })
+      return NextResponse.json({
+        status: 'PROCESSING',
+        generationId: generation.id,
+        progress: 98,
+        retryable: true,
+        compositorQueued: true,
+        providerGenerationStarted: true,
+        creditsCharged: false,
+        message: 'Shotstack is still rendering. NEXUS saved the job and will resume it without another provider render or voiceover.',
+      }, { status: 202 })
+    }
     const message = 'NEXUS Video Studio could not verify and store a usable video. Credits will be restored.'
     const refund = await refundGeneration(userId, generation, message, null, compositorUsage)
     await db.generation.update({

@@ -64,6 +64,7 @@ vi.mock('@/lib/contentPlanApprovalGuard', () => ({
 }))
 
 import { GET, PATCH, POST } from '../route'
+import { ShotstackRenderPendingError } from '@/lib/ai/shotstack'
 
 const confirmedBody = {
   explicitVideoGenerationConfirmed: true,
@@ -779,6 +780,78 @@ describe('GET professional video generation status', () => {
     }))
   })
 
+  it('keeps a completed Runway result active and resumes the same queued compositor job without refunding', async () => {
+    const renderUpdatedAt = new Date('2026-07-17T08:01:00.000Z')
+    const overlayCopy = {
+      brand: 'NEXUS',
+      hook: 'Strategy that moves',
+      benefit: 'From plan to reviewed execution',
+      cta: 'Discover more',
+      language: 'en',
+    }
+    const renderId = '2abd5c11-0f3d-4c6d-ba20-235fc9b8e8b7'
+    mocks.prisma.generation.findMany.mockResolvedValue([{
+      id: 'generation-1',
+      campaignId: 'campaign-1',
+      type: 'VIDEO',
+      provider: 'runway',
+      status: 'PROCESSING',
+      progress: 70,
+      externalId: 'runway-multi-shot-1',
+      params: {
+        postId: 'post-1',
+        postUpdatedAt: renderUpdatedAt.toISOString(),
+        durationSeconds: 10,
+        productionRoute: 'MULTI_SHOT_CAMPAIGN_FILM',
+        referenceMediaId: null,
+        referenceMediaIds: [],
+        overlayCopy,
+        credit: { ok: true, creditsUsed: 18, creditsRemaining: 42, transactionId: 'credit-1' },
+      },
+      metadata: null,
+    }])
+    mocks.renderCampaignFilm.mockImplementationOnce(async input => {
+      await input.onCompositorQueued({
+        renderId,
+        voiceover: {
+          provider: 'elevenlabs',
+          modelId: 'eleven_multilingual_v2',
+          voiceId: 'ArabicVoice123',
+          characters: 30,
+          characterCost: 30,
+          estimatedCostUsd: 0.006,
+          requestId: 'voice-request-1',
+        },
+      })
+      throw new ShotstackRenderPendingError(renderId)
+    })
+
+    const response = await GET(request({}), {
+      params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
+    })
+    const payload = await response.json()
+
+    expect(response.status).toBe(202)
+    expect(payload).toMatchObject({
+      status: 'PROCESSING',
+      progress: 98,
+      compositorQueued: true,
+      creditsCharged: false,
+    })
+    expect(mocks.prisma.generation.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        status: 'PROCESSING',
+        progress: 98,
+        metadata: expect.objectContaining({
+          compositorPending: expect.objectContaining({ renderId }),
+        }),
+      }),
+    }))
+    expect(mocks.refund).not.toHaveBeenCalled()
+    expect(mocks.finalize).not.toHaveBeenCalled()
+    expect(mocks.prisma.socialPost.update).not.toHaveBeenCalled()
+  })
+
   it('rejects a failed video quality review, restores credits, and does not attach it', async () => {
     const renderUpdatedAt = new Date('2026-07-17T08:01:00.000Z')
     mocks.prisma.generation.findMany.mockResolvedValue([{
@@ -1059,6 +1132,60 @@ describe('PATCH retained campaign-film typography repair', () => {
     }))
     expect(mocks.prisma.socialPost.update).not.toHaveBeenCalled()
     expect(mocks.createMultiShotTask).not.toHaveBeenCalled()
+    expect(mocks.deduct).not.toHaveBeenCalled()
+  })
+
+  it('saves a long-running retained render for zero-cost resume and preserves the attachment', async () => {
+    const renderId = '2abd5c11-0f3d-4c6d-ba20-235fc9b8e8b7'
+    const completedLegacy = {
+      ...legacyTypographyFailure,
+      status: 'COMPLETED',
+      error: null,
+      metadata: {
+        qualityStatus: 'PASSED',
+        attached: true,
+        compositorVersion: '2026-07-professional-layers-5',
+      },
+    }
+    mocks.prisma.generation.findMany.mockResolvedValue([completedLegacy])
+    mocks.renderCampaignFilm.mockImplementationOnce(async input => {
+      await input.onCompositorQueued({
+        renderId,
+        voiceover: null,
+      })
+      throw new ShotstackRenderPendingError(renderId)
+    })
+
+    const response = await PATCH(request({
+      generationId: 'generation-1',
+      explicitRetainedRepairConfirmed: true,
+      acknowledgedNoProviderGeneration: true,
+    }), {
+      params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
+    })
+    const payload = await response.json()
+
+    expect(response.status).toBe(202)
+    expect(payload).toMatchObject({
+      status: 'PROCESSING',
+      resumeAvailable: true,
+      retainedAttachmentPreserved: true,
+      creditsUsed: 0,
+      creditsCharged: false,
+      providerGenerationStarted: false,
+    })
+    expect(mocks.prisma.generation.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        status: 'COMPLETED',
+        output: completedLegacy.output,
+        metadata: expect.objectContaining({
+          compositorRepairStatus: 'ERROR',
+          compositorPending: expect.objectContaining({ renderId }),
+        }),
+      }),
+    }))
+    expect(mocks.prisma.socialPost.update).not.toHaveBeenCalled()
+    expect(mocks.refund).not.toHaveBeenCalled()
     expect(mocks.deduct).not.toHaveBeenCalled()
   })
 })

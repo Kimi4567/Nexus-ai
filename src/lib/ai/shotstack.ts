@@ -39,6 +39,16 @@ export type ShotstackRenderResult = {
   estimatedCredits: number
 }
 
+export class ShotstackRenderPendingError extends Error {
+  readonly renderId: string
+
+  constructor(renderId: string) {
+    super('SHOTSTACK_RENDER_PENDING')
+    this.name = 'ShotstackRenderPendingError'
+    this.renderId = renderId
+  }
+}
+
 function normalized(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -274,12 +284,17 @@ export async function renderShotstackEdit(
     environment?: ShotstackEnvironment
     timeoutMs?: number
     pollIntervalMs?: number
+    renderId?: string
+    onQueued?: (renderId: string) => void | Promise<void>
   } = {},
 ): Promise<ShotstackRenderResult> {
   const environment = options.environment ?? getShotstackEnvironment()
   const timeoutMs = Math.max(1_000, options.timeoutMs ?? DEFAULT_RENDER_TIMEOUT_MS)
   const pollIntervalMs = Math.max(0, options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS)
-  const id = await queueShotstackRender(edit, environment)
+  const resumeId = normalized(options.renderId)
+  if (resumeId && !/^[0-9a-f-]{36}$/i.test(resumeId)) throw new Error('SHOTSTACK_RENDER_ID_INVALID')
+  const id = resumeId || await queueShotstackRender(edit, environment)
+  if (!resumeId) await options.onQueued?.(id)
   const deadline = Date.now() + timeoutMs
 
   while (Date.now() < deadline) {
@@ -298,5 +313,5 @@ export async function renderShotstackEdit(
     await wait(pollIntervalMs)
   }
 
-  throw new Error('SHOTSTACK_RENDER_TIMEOUT')
+  throw new ShotstackRenderPendingError(id)
 }

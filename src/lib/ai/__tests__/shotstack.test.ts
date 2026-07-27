@@ -6,6 +6,7 @@ import {
   getShotstackEnvironment,
   isShotstackProductionConfigured,
   renderShotstackEdit,
+  ShotstackRenderPendingError,
 } from '../shotstack'
 
 const TARGET = {
@@ -37,6 +38,7 @@ function edit(withVoiceover = true) {
 afterEach(() => {
   vi.unstubAllEnvs()
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
 })
 
 describe('Shotstack campaign-film compositor', () => {
@@ -133,6 +135,62 @@ describe('Shotstack campaign-film compositor', () => {
       estimatedCredits: 0,
     })
     expect(fetchMock).toHaveBeenCalledTimes(5)
+  })
+
+  it('persists the queued render id when the synchronous polling window expires', async () => {
+    vi.stubEnv('SHOTSTACK_STAGE_API_KEY', 'stage-secret')
+    const onQueued = vi.fn()
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({
+      success: true,
+      response: { id: '2abd5c11-0f3d-4c6d-ba20-235fc9b8e8b7' },
+    }), { status: 200, headers: { 'content-type': 'application/json' } }))
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(Date, 'now')
+      .mockReturnValueOnce(1_000)
+      .mockReturnValueOnce(2_001)
+
+    const promise = renderShotstackEdit(edit(), {
+      environment: 'stage',
+      pollIntervalMs: 0,
+      timeoutMs: 1_000,
+      onQueued,
+    })
+
+    await expect(promise).rejects.toMatchObject({
+      name: 'ShotstackRenderPendingError',
+      renderId: '2abd5c11-0f3d-4c6d-ba20-235fc9b8e8b7',
+    })
+    await expect(promise).rejects.toBeInstanceOf(ShotstackRenderPendingError)
+    expect(onQueued).toHaveBeenCalledWith('2abd5c11-0f3d-4c6d-ba20-235fc9b8e8b7')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('resumes an existing render without queueing or billing a second render', async () => {
+    vi.stubEnv('SHOTSTACK_STAGE_API_KEY', 'stage-secret')
+    const renderId = '2abd5c11-0f3d-4c6d-ba20-235fc9b8e8b7'
+    const onQueued = vi.fn()
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({
+      success: true,
+      response: {
+        status: 'done',
+        url: 'https://shotstack-output.example/render.mp4',
+      },
+    }), { status: 200, headers: { 'content-type': 'application/json' } }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await renderShotstackEdit(edit(), {
+      environment: 'stage',
+      renderId,
+      pollIntervalMs: 0,
+      timeoutMs: 2_000,
+      onQueued,
+    })
+
+    expect(result).toMatchObject({ id: renderId, status: 'done' })
+    expect(onQueued).not.toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(`https://api.shotstack.io/edit/stage/render/${renderId}?data=false`)
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: 'GET' })
   })
 
   it('meters a ten-second production render at the configured per-minute rate', () => {

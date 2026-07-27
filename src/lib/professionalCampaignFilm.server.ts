@@ -291,6 +291,14 @@ type ProfessionalCampaignFilmRenderInput = {
   generationId: string
   storageKey?: string
   overlayCopy: { brand: string; hook: string; benefit: string; cta: string; language: 'ar' | 'en' }
+  resumeCompositor?: {
+    renderId: string
+    voiceover: ProfessionalCampaignFilmCompositorUsage['voiceover']
+  } | null
+  onCompositorQueued?: (pending: {
+    renderId: string
+    voiceover: ProfessionalCampaignFilmCompositorUsage['voiceover']
+  }) => void | Promise<void>
 }
 
 async function uploadVoiceoverToCloudinary(audio: Buffer, generationId: string): Promise<string> {
@@ -348,12 +356,23 @@ async function renderAndPersistShotstackCampaignFilm(
     width: input.target.width,
     height: input.target.height,
   })
-  const voiceover = isElevenLabsVoiceoverConfigured(input.overlayCopy.language)
+  const voiceover = !input.resumeCompositor && isElevenLabsVoiceoverConfigured(input.overlayCopy.language)
     ? await generateElevenLabsSpeech({
         text: buildProfessionalCampaignFilmVoiceoverScript(input.overlayCopy),
         language: input.overlayCopy.language,
       })
     : null
+  const voiceoverUsage: ProfessionalCampaignFilmCompositorUsage['voiceover'] = voiceover
+    ? {
+        provider: 'elevenlabs',
+        modelId: voiceover.modelId,
+        voiceId: voiceover.voiceId,
+        characters: voiceover.characters,
+        characterCost: voiceover.characterCost,
+        estimatedCostUsd: voiceover.estimatedCostUsd,
+        requestId: voiceover.requestId,
+      }
+    : input.resumeCompositor?.voiceover ?? null
   const normalizedVoiceover = voiceover
     ? await normalizeCampaignFilmVoiceover(voiceover.audio)
     : null
@@ -367,7 +386,11 @@ async function renderAndPersistShotstackCampaignFilm(
     overlays,
     voiceoverUrl,
   })
-  const render = await renderShotstackEdit(edit, { environment: 'v1' })
+  const render = await renderShotstackEdit(edit, {
+    environment: 'v1',
+    renderId: input.resumeCompositor?.renderId,
+    onQueued: renderId => input.onCompositorQueued?.({ renderId, voiceover: voiceoverUsage }),
+  })
   const stored = await persistRemoteCampaignFilm(render.url, storageKey)
   return {
     ...stored,
@@ -377,17 +400,7 @@ async function renderAndPersistShotstackCampaignFilm(
       estimatedCostUsd: render.estimatedCostUsd,
       estimatedCredits: render.estimatedCredits,
       renderId: render.id,
-      voiceover: voiceover
-        ? {
-            provider: 'elevenlabs',
-            modelId: voiceover.modelId,
-            voiceId: voiceover.voiceId,
-            characters: voiceover.characters,
-            characterCost: voiceover.characterCost,
-            estimatedCostUsd: voiceover.estimatedCostUsd,
-            requestId: voiceover.requestId,
-          }
-        : null,
+      voiceover: voiceoverUsage,
     },
   }
 }
