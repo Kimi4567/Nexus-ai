@@ -251,7 +251,8 @@ describe('POST schedule-content-plan — YouTube', () => {
     const body = await response.json()
 
     expect(response.status).toBe(200)
-    expect(body).toMatchObject({ success: true, scheduled: 1, publishMode: 'MANUAL' })
+    expect(body).toMatchObject({ success: true, scheduled: 1, linked: 0, publishMode: 'MANUAL' })
+    expect(mocks.integrationFindMany).not.toHaveBeenCalled()
     expect(mocks.socialPostUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ id: 'youtube-post', status: 'APPROVED' }),
       data: expect.objectContaining({
@@ -260,6 +261,12 @@ describe('POST schedule-content-plan — YouTube', () => {
         scheduledAt: reviewedFutureDate,
       }),
     }))
+    const scheduledUpdate = mocks.socialPostUpdateMany.mock.calls.find(
+      ([call]) => call?.data?.status === 'SCHEDULED',
+    )?.[0]
+    expect(scheduledUpdate?.data).not.toHaveProperty('integrationId')
+    expect(scheduledUpdate?.data).not.toHaveProperty('pageId')
+    expect(scheduledUpdate?.data).not.toHaveProperty('autoPublishConsentAt')
   })
 
   it('blocks scheduling when the current Brand Brain no longer grounds the strategy', async () => {

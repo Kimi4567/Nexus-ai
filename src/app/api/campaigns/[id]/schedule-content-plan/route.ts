@@ -6,7 +6,8 @@
  * - moves only APPROVED posts (a DRAFT post can never be scheduled directly here),
  * - requires an explicitly reviewed future scheduledAt for every post,
  * - accepts user-reviewed date corrections when an earlier proposed date expired,
- * - assigns integrationId + pageId per platform if still missing,
+ * - keeps MANUAL schedules unlinked and assigns a provider destination only
+ *   when AUTO mode passes explicit consent, scope, and destination checks,
  * - records APPROVED → SCHEDULED in PostStatusHistory (actor USER),
  * - never marks anything PUBLISHED and never touches cron/publishing behaviour.
  *
@@ -319,17 +320,19 @@ export async function POST(req: NextRequest, props: Params) {
       }, { status: 409 })
     }
 
-    // Build exact destination assignments only after execution readiness passes.
-    // MANUAL scheduling may stay unlinked. AUTO scheduling is fail-closed: every
-    // post needs a supported, unambiguous destination and provider permission.
-    const connectedIntegrations = await prisma.integration.findMany({
-      where: {
-        workspaceId: campaign.workspaceId,
-        status: 'CONNECTED' as any,
-        type: { notIn: ['STRIPE', 'CLOUDINARY', 'GOOGLE', 'SLACK'] as any[] },
-      },
-      select: { id: true, type: true, config: true, accountId: true, accountName: true, accessToken: true, refreshToken: true },
-    })
+    // MANUAL is an internal execution schedule and must not silently acquire a
+    // provider destination. AUTO is fail-closed and may assign one only after
+    // explicit consent plus provider permission and destination checks.
+    const connectedIntegrations = publishMode === 'AUTO'
+      ? await prisma.integration.findMany({
+          where: {
+            workspaceId: campaign.workspaceId,
+            status: 'CONNECTED' as any,
+            type: { notIn: ['STRIPE', 'CLOUDINARY', 'GOOGLE', 'SLACK'] as any[] },
+          },
+          select: { id: true, type: true, config: true, accountId: true, accountName: true, accessToken: true, refreshToken: true },
+        })
+      : []
 
     const assignmentById = new Map<string, {
       integrationId: string
@@ -342,6 +345,7 @@ export async function POST(req: NextRequest, props: Params) {
     let tiktokCreator: Awaited<ReturnType<typeof queryTikTokCreatorInfo>> | null = null
 
     for (const post of approvedPosts as any[]) {
+      if (publishMode === 'MANUAL') continue
       const target = normalizedTarget(String(post.publishTarget || post.platform))
       const provider = providerForTarget(target)
       if (!provider) {
@@ -680,8 +684,6 @@ export async function POST(req: NextRequest, props: Params) {
       })
     }
     const platformById = new Map(approvedPosts.map((p: any) => [p.id, String(p.publishTarget || p.platform)]))
-    const hasIntegrationById = new Map(approvedPosts.map((p: any) => [p.id, !!p.integrationId]))
-
     const scheduleResult = await prisma.$transaction(async (tx) => {
       const changedIds: string[] = []
       const decisionPosts: any[] = []
@@ -690,8 +692,7 @@ export async function POST(req: NextRequest, props: Params) {
         const source = approvedPosts.find((post: any) => post.id === u.id)
         if (!source) continue
         const match = assignmentById.get(u.id)
-        const needsIntegration = !hasIntegrationById.get(u.id)
-        const assignment = (publishMode === 'AUTO' || needsIntegration) && match
+        const assignment = publishMode === 'AUTO' && match
           ? {
               integrationId: match.integrationId,
               pageId: match.pageId,
