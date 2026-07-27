@@ -16,6 +16,13 @@ export interface RejectedVideoReview {
   repairEligible: boolean
 }
 
+export interface RetainedVideoRepair {
+  generationId: string
+  reason: 'COMPOSITOR_UPGRADE'
+  creditsUsed: 0
+  providerGenerationStarted: false
+}
+
 function record(value: unknown): UnknownRecord | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as UnknownRecord
@@ -42,6 +49,55 @@ function safeCloudinaryVideoUrl(value: unknown): string | null {
     return url.toString()
   } catch {
     return null
+  }
+}
+
+export function isRetainedCampaignFilmRepairEligible(value: unknown): boolean {
+  const generation = record(value)
+  if (!generation) return false
+  const metadata = record(generation.metadata)
+  const params = record(generation.params)
+  if (
+    !metadata
+    || params?.productionRoute !== 'MULTI_SHOT_CAMPAIGN_FILM'
+    || metadata.compositorVersion === PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION
+    || !safeCloudinaryVideoUrl(generation.output)
+  ) return false
+
+  if (generation.status === 'COMPLETED') {
+    return metadata.qualityStatus === 'PASSED'
+      && metadata.attached === true
+      && metadata.compositorRepairVersion !== PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION
+  }
+
+  const qualityReview = record(metadata.qualityReview)
+  const issues = Array.isArray(qualityReview?.issues)
+    ? qualityReview.issues.filter((issue): issue is string => typeof issue === 'string')
+    : []
+  return generation.status === 'FAILED'
+    && metadata.qualityStatus === 'REJECTED'
+    && metadata.retainedForAudit === true
+    && qualityReview?.passed === false
+    && issues.some(issue => /gibberish text|missing approved.*overlay|typography/i.test(issue))
+}
+
+/**
+ * Marks an attached, previously approved campaign film for a one-time,
+ * zero-credit compositor upgrade. The retained provider master is reused and
+ * no generative-video provider call is permitted.
+ */
+export function readRetainedVideoRepair(value: unknown): RetainedVideoRepair | null {
+  const generation = record(value)
+  if (!generation || generation.status !== 'COMPLETED' || !isRetainedCampaignFilmRepairEligible(generation)) {
+    return null
+  }
+  const generationId = boundedText(generation.id, 120)
+  if (!generationId) return null
+  return {
+    generationId,
+    reason: 'COMPOSITOR_UPGRADE',
+    creditsUsed: 0,
+    providerGenerationStarted: false,
   }
 }
 
@@ -73,11 +129,6 @@ export function readRejectedVideoReview(value: unknown): RejectedVideoReview | n
         .filter(Boolean)))
         .slice(0, 8)
     : []
-  const compositorVersion = boundedText(metadata.compositorVersion, 80)
-  const typographyFailure = issues.some(issue => /gibberish text|missing approved.*overlay|typography/i.test(issue))
-  const params = record(generation.params)
-  const isCampaignFilm = params?.productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM'
-
   return {
     generationId,
     previewUrl,
@@ -89,8 +140,6 @@ export function readRejectedVideoReview(value: unknown): RejectedVideoReview | n
     referencePreservationScore: boundedScore(qualityReview.referencePreservationScore),
     attachable: false,
     publishable: false,
-    repairEligible: isCampaignFilm
-      && compositorVersion !== PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION
-      && typographyFailure,
+    repairEligible: isRetainedCampaignFilmRepairEligible(generation),
   }
 }

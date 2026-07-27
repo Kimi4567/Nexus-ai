@@ -228,6 +228,7 @@ export function buildProfessionalCampaignFilmFfmpegArgs(input: {
     '-filter_complex', filter,
     '-map', '[outv]', '-map', '0:a?',
     '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-profile:v', 'high', '-level', '4.1',
+    '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',
     '-c:a', 'aac', '-b:a', '192k', '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
     '-t', String(PROFESSIONAL_CAMPAIGN_FILM_DURATION_SECONDS),
     input.outputPath,
@@ -288,6 +289,7 @@ type ProfessionalCampaignFilmRenderInput = {
   sourceUrl: string
   target: PlatformVideoFormat
   generationId: string
+  storageKey?: string
   overlayCopy: { brand: string; hook: string; benefit: string; cta: string; language: 'ar' | 'en' }
 }
 
@@ -340,6 +342,7 @@ async function persistRemoteCampaignFilm(
 async function renderAndPersistShotstackCampaignFilm(
   input: ProfessionalCampaignFilmRenderInput,
 ): Promise<StoredProfessionalCampaignFilm> {
+  const storageKey = input.storageKey ?? input.generationId
   const overlays = await professionalCampaignFilmOverlaySvgs({
     ...input.overlayCopy,
     width: input.target.width,
@@ -355,7 +358,7 @@ async function renderAndPersistShotstackCampaignFilm(
     ? await normalizeCampaignFilmVoiceover(voiceover.audio)
     : null
   const voiceoverUrl = normalizedVoiceover
-    ? await uploadVoiceoverToCloudinary(normalizedVoiceover, input.generationId)
+    ? await uploadVoiceoverToCloudinary(normalizedVoiceover, storageKey)
     : null
   const edit = buildShotstackCampaignFilmEdit({
     sourceUrl: input.sourceUrl,
@@ -365,7 +368,7 @@ async function renderAndPersistShotstackCampaignFilm(
     voiceoverUrl,
   })
   const render = await renderShotstackEdit(edit, { environment: 'v1' })
-  const stored = await persistRemoteCampaignFilm(render.url, input.generationId)
+  const stored = await persistRemoteCampaignFilm(render.url, storageKey)
   return {
     ...stored,
     compositorUsage: {
@@ -421,7 +424,7 @@ async function renderAndPersistLocalProfessionalCampaignFilm(
     const result = await cloudinary.uploader.upload(outputPath, {
       resource_type: 'video',
       folder: 'nexus/campaign-films',
-      public_id: `campaign_film_${input.generationId}`,
+      public_id: `campaign_film_${input.storageKey ?? input.generationId}`,
       overwrite: true,
       unique_filename: false,
     })

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { readRejectedVideoReview } from '@/lib/rejectedMediaReview'
+import {
+  isRetainedCampaignFilmRepairEligible,
+  readRejectedVideoReview,
+  readRetainedVideoRepair,
+} from '@/lib/rejectedMediaReview'
 import { PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION } from '@/lib/professionalCampaignFilm'
 
 function rejectedGeneration(overrides: Record<string, unknown> = {}) {
@@ -96,5 +100,58 @@ describe('readRejectedVideoReview', () => {
     expect(readRejectedVideoReview(rejectedGeneration({
       metadata: { qualityStatus: 'REJECTED', retainedForAudit: false },
     }))).toBeNull()
+  })
+})
+
+describe('readRetainedVideoRepair', () => {
+  it('offers a one-time zero-credit compositor upgrade for an attached legacy campaign film', () => {
+    const generation = {
+      id: 'generation-completed',
+      status: 'COMPLETED',
+      params: { productionRoute: 'MULTI_SHOT_CAMPAIGN_FILM' },
+      output: 'https://res.cloudinary.com/nexus/video/upload/v1/completed.mp4',
+      metadata: {
+        qualityStatus: 'PASSED',
+        attached: true,
+        compositorVersion: '2026-07-professional-layers-5',
+      },
+    }
+
+    expect(isRetainedCampaignFilmRepairEligible(generation)).toBe(true)
+    expect(readRetainedVideoRepair(generation)).toEqual({
+      generationId: 'generation-completed',
+      reason: 'COMPOSITOR_UPGRADE',
+      creditsUsed: 0,
+      providerGenerationStarted: false,
+    })
+  })
+
+  it('does not re-offer the current compositor or a completed failed repair attempt', () => {
+    const base = {
+      id: 'generation-completed',
+      status: 'COMPLETED',
+      params: { productionRoute: 'MULTI_SHOT_CAMPAIGN_FILM' },
+      output: 'https://res.cloudinary.com/nexus/video/upload/v1/completed.mp4',
+      metadata: {
+        qualityStatus: 'PASSED',
+        attached: true,
+        compositorVersion: '2026-07-professional-layers-5',
+      },
+    }
+    expect(readRetainedVideoRepair({
+      ...base,
+      metadata: {
+        ...base.metadata,
+        compositorVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+      },
+    })).toBeNull()
+    expect(readRetainedVideoRepair({
+      ...base,
+      metadata: {
+        ...base.metadata,
+        compositorRepairVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+        compositorRepairStatus: 'REJECTED',
+      },
+    })).toBeNull()
   })
 })

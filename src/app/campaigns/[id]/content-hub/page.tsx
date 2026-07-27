@@ -135,6 +135,12 @@ interface ContentPost {
     publishable: false
     repairEligible: boolean
   } | null
+  retainedVideoRepair?: {
+    generationId: string
+    reason: 'COMPOSITOR_UPGRADE'
+    creditsUsed: 0
+    providerGenerationStarted: false
+  } | null
 }
 
 interface MediaItem {
@@ -2776,8 +2782,9 @@ export default function ContentHubPage() {
   }
 
   async function repairRejectedCampaignFilm(post: ContentPost) {
-    const review = post.rejectedVideoReview
-    if (!review?.repairEligible || repairingVideoId || !isAuthenticated) return
+    const generationId = post.retainedVideoRepair?.generationId
+      ?? (post.rejectedVideoReview?.repairEligible ? post.rejectedVideoReview.generationId : null)
+    if (!generationId || repairingVideoId || !isAuthenticated) return
     setRepairingVideoId(post.id)
     setError(null)
     try {
@@ -2787,7 +2794,7 @@ export default function ContentHubPage() {
           method: 'PATCH',
           headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            generationId: review.generationId,
+            generationId,
             explicitRetainedRepairConfirmed: true,
             acknowledgedNoProviderGeneration: true,
           }),
@@ -2797,8 +2804,8 @@ export default function ContentHubPage() {
       await loadData()
       if (!response.ok) throw new Error(data.error || 'The retained campaign-film repair did not pass review')
       setSuccessMsg(isAr
-        ? 'تم إصلاح طبقة العربية والـCTA على نفس اللقطات المحفوظة، واجتاز الفيديو فحص الجودة وربط للمراجعة. لم يبدأ توليد جديد ولم يُخصم كريديت.'
-        : 'NEXUS repaired the Arabic typography and CTA on the retained footage, passed premium review, and attached the video for review. No new generation started and no credits were charged.')
+        ? 'تم تحديث التركيب والصوت على نفس اللقطات المحفوظة، واجتاز الفيديو فحص الجودة وربط للمراجعة. لم يبدأ توليد جديد ولم يُخصم كريديت.'
+        : 'NEXUS upgraded the composition and audio on the retained footage, passed premium review, and attached the video for review. No new generation started and no credits were charged.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'The retained campaign-film repair could not finish')
     } finally {
@@ -5918,6 +5925,29 @@ function PostCard({
       </div>
 
       {creativeMatchPanel}
+
+      {post.retainedVideoRepair && status === 'DONE' && (
+        <div className="border-t border-violet-200 bg-violet-50 px-3 py-3 text-[11px] leading-5 text-violet-900">
+          <p className="font-black">
+            {isAr ? 'تحديث جودة متاح من نفس اللقطات' : 'Quality upgrade available from retained footage'}
+          </p>
+          <p>
+            {isAr
+              ? 'يعيد NEXUS تركيب الصوت والطبقات بالنسخة المصححة، ثم يعيد Quality Gate. لا استدعاء Runway ولا خصم كريديت.'
+              : 'NEXUS will recompose audio and layers with the corrected compositor, then rerun the quality gate. No Runway request and no credit charge.'}
+          </p>
+          <button
+            type="button"
+            onClick={onRepairRejectedVideo}
+            disabled={isRepairingVideo}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-white px-3 py-2.5 text-[11px] font-black text-violet-800 transition hover:bg-violet-100 disabled:cursor-wait disabled:opacity-60"
+          >
+            {isRepairingVideo
+              ? (isAr ? 'جارٍ تحديث التركيب وإعادة الفحص...' : 'Upgrading composition and reviewing...')
+              : (isAr ? 'حدّث الفيديو من الـmaster المحفوظ — بلا توليد أو خصم' : 'Upgrade from retained master — no generation or charge')}
+          </button>
+        </div>
+      )}
 
       {(status === 'FAILED' || status === 'REFUND_PENDING') && post.errorMessage && (
         <div

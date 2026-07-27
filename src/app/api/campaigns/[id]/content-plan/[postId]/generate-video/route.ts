@@ -72,6 +72,7 @@ import {
   type ProfessionalCampaignFilmCompositorUsage,
   type StoredProfessionalCampaignFilm,
 } from '@/lib/professionalCampaignFilm.server'
+import { isRetainedCampaignFilmRepairEligible } from '@/lib/rejectedMediaReview'
 import { sourceLinkedProofStatements } from '@/lib/strategy/strategyEvidenceLedger'
 
 // Completion includes durable video upload plus a three-frame visual review.
@@ -279,20 +280,6 @@ function retainedProviderMasterUrl(generation: any): string | null {
   } catch {
     return null
   }
-}
-
-function isTypographyRepairEligible(generation: any): boolean {
-  const metadata = generationMetadata(generation.metadata)
-  const qualityReview = generationMetadata(metadata.qualityReview)
-  const issues = Array.isArray(qualityReview.issues)
-    ? qualityReview.issues.filter((issue: unknown): issue is string => typeof issue === 'string')
-    : []
-  return generation.status === 'FAILED'
-    && generationParams(generation.params).productionRoute === 'MULTI_SHOT_CAMPAIGN_FILM'
-    && metadata.qualityStatus === 'REJECTED'
-    && metadata.retainedForAudit === true
-    && metadata.compositorVersion !== PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION
-    && issues.some((issue: string) => /gibberish text|missing approved.*overlay|typography/i.test(issue))
 }
 
 export async function POST(req: NextRequest, props: Params) {
@@ -666,11 +653,11 @@ export async function POST(req: NextRequest, props: Params) {
 }
 
 /**
- * Re-composes a quarantined campaign film after a NEXUS typography-compositor
- * defect. It reuses the retained provider master, makes no provider request,
- * consumes no user credits, and is allowed once per corrected compositor version
- * for an eligible legacy output. The repaired file must pass the same premium QA
- * gate before attachment.
+ * Re-composes a campaign film after a NEXUS compositor defect or upgrade. It
+ * reuses the retained provider master, makes no generative-video provider
+ * request, consumes no user credits, and is allowed once per corrected
+ * compositor version. A completed legacy attachment remains untouched unless
+ * the replacement passes the same premium QA gate.
  */
 export async function PATCH(req: NextRequest, props: Params) {
   const params = await props.params
@@ -693,9 +680,9 @@ export async function PATCH(req: NextRequest, props: Params) {
   }
 
   const generation = await findLatestPostGeneration(params.id, params.postId)
-  if (!generation || generation.id !== body.generationId || !isTypographyRepairEligible(generation)) {
+  if (!generation || generation.id !== body.generationId || !isRetainedCampaignFilmRepairEligible(generation)) {
     return NextResponse.json({
-      error: 'This rejected output is not eligible for the one-time retained-footage repair.',
+      error: 'This output is not eligible for the one-time retained-footage repair.',
       code: 'RETAINED_REPAIR_NOT_ELIGIBLE',
       creditsCharged: false,
       providerGenerationStarted: false,
@@ -712,8 +699,9 @@ export async function PATCH(req: NextRequest, props: Params) {
     }, { status: 409 })
   }
 
+  const wasCompleted = generation.status === 'COMPLETED'
   const claim = await db.generation.updateMany({
-    where: { id: generation.id, status: 'FAILED', progress: 100 },
+    where: { id: generation.id, status: generation.status, progress: 100 },
     data: { progress: 98 },
   })
   if (claim.count !== 1) {
@@ -731,9 +719,9 @@ export async function PATCH(req: NextRequest, props: Params) {
     where: { id: generation.id },
     data: { metadata: {
       ...priorMetadata,
-      typographyRepairAttemptedAt: attemptedAt,
-      typographyRepairStatus: 'PROCESSING',
-      compositorVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+      compositorRepairAttemptedAt: attemptedAt,
+      compositorRepairStatus: 'PROCESSING',
+      compositorRepairVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
     } },
   })
 
@@ -756,6 +744,7 @@ export async function PATCH(req: NextRequest, props: Params) {
       sourceUrl,
       target: targetFormat,
       generationId: generation.id,
+      storageKey: `${generation.id}_compositor_${PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION.replace(/[^a-zA-Z0-9_-]/g, '_')}`,
       overlayCopy: brief.overlayCopy,
     })
     const formatValidation = validatePlatformVideoFormat({
@@ -782,9 +771,50 @@ export async function PATCH(req: NextRequest, props: Params) {
         brief.overlayCopy.cta,
       ],
     })
+    const repairQaCost = Number(qualityReview.providerUsage?.estimatedProviderCostUsd)
+    const repairCompositorCost = Number(stored.compositorUsage?.estimatedCostUsd)
+    const repairVoiceoverCost = Number(stored.compositorUsage?.voiceover?.estimatedCostUsd)
+    const repairProviderCostUsd = Math.max(0, Number.isFinite(repairQaCost) ? repairQaCost : 0)
+      + Math.max(0, Number.isFinite(repairCompositorCost) ? repairCompositorCost : 0)
+      + Math.max(0, Number.isFinite(repairVoiceoverCost) ? repairVoiceoverCost : 0)
+    const compositorRepairProviderUsage = {
+      providerCostUsd: Number(repairProviderCostUsd.toFixed(6)),
+      compositor: stored.compositorUsage,
+      qualityReview: qualityReview.providerUsage ?? null,
+      videoProvider: null,
+    }
 
     if (!qualityReview.passed) {
       const message = 'NEXUS repaired the retained typography without a new provider request, but the result still did not pass premium advertising review. No credits were charged.'
+      if (wasCompleted) {
+        await db.generation.update({
+          where: { id: generation.id },
+          data: {
+            status: 'COMPLETED',
+            progress: 100,
+            output: generation.output,
+            error: generation.error,
+            metadata: {
+              ...priorMetadata,
+              compositorRepairAttemptedAt: attemptedAt,
+              compositorRepairStatus: 'REJECTED',
+              compositorRepairVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+              compositorRepairQualityReview: qualityReview,
+              compositorRepairUsage: stored.compositorUsage,
+              compositorRepairProviderUsage,
+            },
+          },
+        })
+        return NextResponse.json({
+          status: 'FAILED',
+          generationId: generation.id,
+          error: message,
+          retainedAttachmentPreserved: true,
+          creditsUsed: 0,
+          creditsCharged: false,
+          providerGenerationStarted: false,
+        }, { status: 422 })
+      }
       await db.generation.update({
         where: { id: generation.id },
         data: {
@@ -801,8 +831,12 @@ export async function PATCH(req: NextRequest, props: Params) {
             retainedForAudit: true,
             typographyRepairAttemptedAt: attemptedAt,
             typographyRepairStatus: 'REJECTED',
+            compositorRepairAttemptedAt: attemptedAt,
+            compositorRepairStatus: 'REJECTED',
+            compositorRepairVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
             compositorVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
             compositorUsage: stored.compositorUsage,
+            compositorRepairProviderUsage,
           },
         },
       })
@@ -896,8 +930,12 @@ export async function PATCH(req: NextRequest, props: Params) {
           retainedForAudit: false,
           typographyRepairAttemptedAt: attemptedAt,
           typographyRepairStatus: 'PASSED',
+          compositorRepairAttemptedAt: attemptedAt,
+          compositorRepairStatus: 'PASSED',
+          compositorRepairVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
           compositorVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
           compositorUsage: stored.compositorUsage,
+          compositorRepairProviderUsage,
         },
       },
     })
@@ -921,25 +959,44 @@ export async function PATCH(req: NextRequest, props: Params) {
     const message = 'NEXUS could not complete the retained-footage repair. No credits were charged and no provider generation was started.'
     await db.generation.update({
       where: { id: generation.id },
-      data: {
-        status: 'FAILED',
-        progress: 100,
-        error: message,
-        metadata: {
-          ...priorMetadata,
-          typographyRepairAttemptedAt: attemptedAt,
-          typographyRepairStatus: 'ERROR',
-          compositorVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
-        },
-      },
+      data: wasCompleted
+        ? {
+            status: 'COMPLETED',
+            progress: 100,
+            output: generation.output,
+            error: generation.error,
+            metadata: {
+              ...priorMetadata,
+              compositorRepairAttemptedAt: attemptedAt,
+              compositorRepairStatus: 'ERROR',
+              compositorRepairVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+            },
+          }
+        : {
+            status: 'FAILED',
+            progress: 100,
+            error: message,
+            metadata: {
+              ...priorMetadata,
+              typographyRepairAttemptedAt: attemptedAt,
+              typographyRepairStatus: 'ERROR',
+              compositorRepairAttemptedAt: attemptedAt,
+              compositorRepairStatus: 'ERROR',
+              compositorRepairVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+              compositorVersion: PROFESSIONAL_CAMPAIGN_FILM_COMPOSITOR_VERSION,
+            },
+          },
     }).catch(() => undefined)
-    await db.socialPost.update({
-      where: { id: params.postId },
-      data: { generationStatus: 'FAILED', errorMessage: message },
-    }).catch(() => undefined)
+    if (!wasCompleted) {
+      await db.socialPost.update({
+        where: { id: params.postId },
+        data: { generationStatus: 'FAILED', errorMessage: message },
+      }).catch(() => undefined)
+    }
     return NextResponse.json({
       error: message,
       code: 'RETAINED_REPAIR_FAILED',
+      retainedAttachmentPreserved: wasCompleted,
       creditsUsed: 0,
       creditsCharged: false,
       providerGenerationStarted: false,

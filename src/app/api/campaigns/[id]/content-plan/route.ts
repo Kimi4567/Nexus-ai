@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
-import { readRejectedVideoReview } from '@/lib/rejectedMediaReview'
+import { readRejectedVideoReview, readRetainedVideoRepair } from '@/lib/rejectedMediaReview'
 import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
 import { getDraftVariantComparison } from '@/lib/draftVariantComparison'
 
@@ -70,14 +70,14 @@ export async function GET(req: NextRequest, props: Params) {
     })
 
     // Rejected generated videos are retained for audit, but never attached to
-    // the post. Return a safe read-only preview so the user can see what was
-    // produced and why NEXUS blocked it instead of making the output disappear.
+    // the post. Completed campaign films built by a superseded compositor may
+    // also expose a one-time, zero-credit retained-master repair.
     const videoGenerations = await (prisma.generation as any).findMany({
       where: {
         campaignId: params.id,
         type: 'VIDEO',
         provider: 'runway',
-        status: 'FAILED',
+        status: { in: ['FAILED', 'COMPLETED'] },
         output: { not: null },
       },
       orderBy: { createdAt: 'desc' },
@@ -91,14 +91,21 @@ export async function GET(req: NextRequest, props: Params) {
       },
     })
     const rejectedVideoByPostId = new Map<string, ReturnType<typeof readRejectedVideoReview>>()
+    const retainedRepairByPostId = new Map<string, ReturnType<typeof readRetainedVideoRepair>>()
     for (const generation of videoGenerations) {
       const generationParams = generation.params && typeof generation.params === 'object' && !Array.isArray(generation.params)
         ? generation.params as Record<string, unknown>
         : null
       const postId = typeof generationParams?.postId === 'string' ? generationParams.postId : null
-      if (!postId || rejectedVideoByPostId.has(postId)) continue
-      const review = readRejectedVideoReview(generation)
-      if (review) rejectedVideoByPostId.set(postId, review)
+      if (!postId) continue
+      if (!rejectedVideoByPostId.has(postId)) {
+        const review = readRejectedVideoReview(generation)
+        if (review) rejectedVideoByPostId.set(postId, review)
+      }
+      if (!retainedRepairByPostId.has(postId)) {
+        const repair = readRetainedVideoRepair(generation)
+        if (repair) retainedRepairByPostId.set(postId, repair)
+      }
     }
 
     const aiOutput = campaign.aiOutput && typeof campaign.aiOutput === 'object' && !Array.isArray(campaign.aiOutput)
@@ -121,6 +128,7 @@ export async function GET(req: NextRequest, props: Params) {
           ? getDraftVariantComparison(strategy, post.contentPlanIndex)
           : null,
         rejectedVideoReview: rejectedVideoByPostId.get(post.id) ?? null,
+        retainedVideoRepair: retainedRepairByPostId.get(post.id) ?? null,
         providerPlatform: post.platform,
         // Legacy META rows remain explicitly ambiguous; the UI must ask for a
         // channel instead of silently claiming Instagram or Facebook.

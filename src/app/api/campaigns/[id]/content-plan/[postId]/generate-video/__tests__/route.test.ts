@@ -974,4 +974,91 @@ describe('PATCH retained campaign-film typography repair', () => {
     expect(mocks.renderCampaignFilm).not.toHaveBeenCalled()
     expect(mocks.deduct).not.toHaveBeenCalled()
   })
+
+  it('upgrades a completed legacy compositor from retained footage without Runway or user credits', async () => {
+    const completedLegacy = {
+      ...legacyTypographyFailure,
+      status: 'COMPLETED',
+      error: null,
+      metadata: {
+        qualityStatus: 'PASSED',
+        attached: true,
+        compositorVersion: '2026-07-professional-layers-5',
+      },
+    }
+    mocks.prisma.generation.findMany.mockResolvedValue([completedLegacy])
+    mocks.prisma.socialPost.findUnique.mockResolvedValue({ ...post, status: 'APPROVED', generationStatus: 'DONE' })
+
+    const response = await PATCH(request({
+      generationId: 'generation-1',
+      explicitRetainedRepairConfirmed: true,
+      acknowledgedNoProviderGeneration: true,
+    }), {
+      params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(mocks.prisma.generation.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'generation-1', status: 'COMPLETED', progress: 100 },
+    }))
+    expect(mocks.renderCampaignFilm).toHaveBeenCalledWith(expect.objectContaining({
+      generationId: 'generation-1',
+      storageKey: expect.stringContaining('generation-1_compositor_'),
+    }))
+    expect(mocks.createMultiShotTask).not.toHaveBeenCalled()
+    expect(mocks.deduct).not.toHaveBeenCalled()
+    expect(mocks.prisma.generation.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        status: 'COMPLETED',
+        metadata: expect.objectContaining({
+          compositorRepairStatus: 'PASSED',
+          compositorRepairProviderUsage: expect.objectContaining({
+            providerCostUsd: 0.056,
+            videoProvider: null,
+          }),
+        }),
+      }),
+    }))
+  })
+
+  it('preserves the completed attachment if the compositor upgrade fails premium QA', async () => {
+    const completedLegacy = {
+      ...legacyTypographyFailure,
+      status: 'COMPLETED',
+      error: null,
+      metadata: {
+        qualityStatus: 'PASSED',
+        attached: true,
+        compositorVersion: '2026-07-professional-layers-5',
+      },
+    }
+    mocks.prisma.generation.findMany.mockResolvedValue([completedLegacy])
+    mocks.reviewQuality.mockResolvedValue({
+      passed: false,
+      issues: ['Audio mix is not usable'],
+      providerUsage: { estimatedProviderCostUsd: 0.01 },
+    })
+
+    const response = await PATCH(request({
+      generationId: 'generation-1',
+      explicitRetainedRepairConfirmed: true,
+      acknowledgedNoProviderGeneration: true,
+    }), {
+      params: Promise.resolve({ id: 'campaign-1', postId: 'post-1' }),
+    })
+    const payload = await response.json()
+
+    expect(response.status).toBe(422)
+    expect(payload).toMatchObject({ retainedAttachmentPreserved: true, creditsCharged: false })
+    expect(mocks.prisma.generation.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        status: 'COMPLETED',
+        output: completedLegacy.output,
+        metadata: expect.objectContaining({ compositorRepairStatus: 'REJECTED' }),
+      }),
+    }))
+    expect(mocks.prisma.socialPost.update).not.toHaveBeenCalled()
+    expect(mocks.createMultiShotTask).not.toHaveBeenCalled()
+    expect(mocks.deduct).not.toHaveBeenCalled()
+  })
 })
