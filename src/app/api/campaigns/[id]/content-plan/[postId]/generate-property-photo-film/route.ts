@@ -660,6 +660,7 @@ export async function POST(req: NextRequest, props: Params) {
     brandName: brand?.brandName,
     campaignName: campaign.name,
     caption: post.caption,
+    verifiedFacts,
   })
   const targetFormat = {
     ...resolvePlatformVideoFormat(post.publishTarget || post.platform),
@@ -692,7 +693,7 @@ export async function POST(req: NextRequest, props: Params) {
     entityId: post.id,
     entityType: 'social_post_property_photo_film',
     operationKey,
-    description: `Ten-second source-locked property photo film — post #${post.contentPlanIndex ?? post.id}; no generative-video provider`,
+    description: `${PROPERTY_PHOTO_FILM_DURATION_SECONDS}-second source-locked property photo film — post #${post.contentPlanIndex ?? post.id}; no generative-video provider`,
   })
   if (!credit.ok) {
     await db.generation.update({

@@ -89,18 +89,31 @@ describe('source-locked property photo film', () => {
     })).toEqual({ ok: true, unsupportedClaims: [] })
   })
 
-  it('creates restrained demo copy without inventing a price, location, or amenity', () => {
+  it('creates source-neutral demo copy instead of reusing unsupported strategy prose', () => {
     expect(buildPropertyPhotoFilmCopy({
       brandName: 'Northline Property Marketing',
-      caption: 'See the property, frame by frame. A focused visual tour from selected photography. Demo — not a live listing.',
+      caption: 'An unmatched masterpiece with a life-changing atmosphere. Demo — not a live listing.',
     })).toEqual({
       brand: 'Northline Property Marketing',
-      eyebrow: 'PROPERTY TOUR',
-      hook: 'See the property, frame by frame.',
-      detail: 'A focused visual tour from selected photography.',
-      cta: 'Request verified details',
+      eyebrow: 'PROPERTY FILM',
+      hook: 'A closer look at the property',
+      detail: 'A considered visual tour through selected views',
+      cta: 'Request the verified property brief',
       disclosure: 'DEMO • NOT A LIVE LISTING',
       language: 'en',
+    })
+  })
+
+  it('uses listing copy only when the complete sentence is source-linked proof', () => {
+    const verified = 'A 3 bedroom villa in Dubai Marina.'
+    expect(buildPropertyPhotoFilmCopy({
+      brandName: 'Northline',
+      caption: `${verified} An unmatched investment opportunity.`,
+      verifiedFacts: [`Signed listing brief — ${verified}`],
+    })).toMatchObject({
+      hook: verified,
+      detail: 'A considered visual tour through selected views',
+      cta: 'Request the verified property brief',
     })
   })
 })

@@ -5268,8 +5268,8 @@ export default function ContentHubPage() {
                     <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-300">
                       {videoProductionMode === 'PHOTO_FILM'
                         ? (isAr
-                          ? `يرتب NEXUS من ${PROPERTY_PHOTO_FILM_MIN_REFERENCES} إلى ${PROPERTY_PHOTO_FILM_MAX_REFERENCES} صور محللة لنفس العقار في فيلم مدته ${PROPERTY_PHOTO_FILM_DURATION_SECONDS} ثوانٍ بحركة كاميرا وانتقالات وTypography وصوت. لا يولّد غرفة أو واجهة أو سعرًا أو موقعًا جديدًا.`
-                          : `NEXUS edits ${PROPERTY_PHOTO_FILM_MIN_REFERENCES}–${PROPERTY_PHOTO_FILM_MAX_REFERENCES} analysed photos of the same property into a ${PROPERTY_PHOTO_FILM_DURATION_SECONDS}-second film with camera motion, transitions, typography, and voice. It generates no room, facade, price, or location.`)
+                          ? `يرتب NEXUS من ${PROPERTY_PHOTO_FILM_MIN_REFERENCES} إلى ${PROPERTY_PHOTO_FILM_MAX_REFERENCES} صور محللة لنفس العقار في فيلم مدته ${PROPERTY_PHOTO_FILM_DURATION_SECONDS} ثوانٍ بحركة كاميرا وانتقالات وTypography وصوت اختياري مرخّص تجاريًا. لا يولّد غرفة أو واجهة أو سعرًا أو موقعًا جديدًا.`
+                          : `NEXUS edits ${PROPERTY_PHOTO_FILM_MIN_REFERENCES}–${PROPERTY_PHOTO_FILM_MAX_REFERENCES} analysed photos of the same property into a ${PROPERTY_PHOTO_FILM_DURATION_SECONDS}-second film with camera motion, transitions, typography, and an optional commercially licensed voice. It generates no room, facade, price, or location.`)
                         : videoProductionMode === 'MOTION_DESIGN'
                           ? (isAr
                             ? `يبني NEXUS إعلانًا بطبقات ومشاهد وانتقالات وTypography وصوت أصلي فوق الفيديو الحقيقي، مع إبقاء كل ادعاء مطابقًا للنص المعتمد. لا يولّد أشخاصًا أو منتجًا أو مشاهد توصيل جديدة.`

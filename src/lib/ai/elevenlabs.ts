@@ -26,6 +26,15 @@ function elevenLabsApiKey(): string | null {
   return key || null
 }
 
+/**
+ * ElevenLabs free-plan output is not licensed for commercial use. Keep the
+ * provider fail-closed until the workspace operator has verified a paid plan
+ * and explicitly enabled commercial output in the deployment environment.
+ */
+export function hasElevenLabsCommercialRights(): boolean {
+  return normalized(process.env.ELEVENLABS_COMMERCIAL_LICENSE_CONFIRMED).toLowerCase() === 'true'
+}
+
 export function getElevenLabsVoiceId(language: ElevenLabsVoiceLanguage): string | null {
   const languageVoice = language === 'ar'
     ? process.env.ELEVENLABS_VOICE_ID_AR
@@ -35,7 +44,9 @@ export function getElevenLabsVoiceId(language: ElevenLabsVoiceLanguage): string 
 }
 
 export function isElevenLabsVoiceoverConfigured(language: ElevenLabsVoiceLanguage): boolean {
-  return elevenLabsApiKey() !== null && getElevenLabsVoiceId(language) !== null
+  return hasElevenLabsCommercialRights()
+    && elevenLabsApiKey() !== null
+    && getElevenLabsVoiceId(language) !== null
 }
 
 function estimatedVoiceCostUsd(characters: number): number {
@@ -60,6 +71,9 @@ export async function generateElevenLabsSpeech(input: {
 }): Promise<ElevenLabsSpeechResult> {
   const apiKey = elevenLabsApiKey()
   const voiceId = getElevenLabsVoiceId(input.language)
+  if (!hasElevenLabsCommercialRights()) {
+    throw new Error('ELEVENLABS_COMMERCIAL_LICENSE_REQUIRED')
+  }
   if (!apiKey || !voiceId) throw new Error('ELEVENLABS_VOICEOVER_UNAVAILABLE')
 
   const text = normalized(input.text).replace(/\s+/g, ' ')

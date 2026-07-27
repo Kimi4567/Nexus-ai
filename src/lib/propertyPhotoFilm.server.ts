@@ -78,21 +78,21 @@ export async function propertyPhotoFilmOverlaySvgs(input: {
       display: 'flex',
       color: '#FFFFFF',
       fontFamily: NEXUS_ARABIC_FONT_FAMILY,
-      fontSize: 22,
+      fontSize: 19,
       fontWeight: 700,
-      letterSpacing: rtl ? 0 : 3.5,
+      letterSpacing: rtl ? 0 : 3.2,
       whiteSpace: 'pre',
     },
   }, visualText(copy.brand.toUpperCase(), rtl))
   const eyebrow = createElement('div', {
     style: {
       display: 'flex',
-      color: '#BFD9D1',
+      color: '#DAB98B',
       fontFamily: NEXUS_ARABIC_FONT_FAMILY,
-      fontSize: 18,
+      fontSize: 16,
       fontWeight: 700,
-      letterSpacing: rtl ? 0 : 4,
-      marginBottom: 24,
+      letterSpacing: rtl ? 0 : 4.5,
+      marginBottom: 22,
       whiteSpace: 'pre',
     },
   }, visualText(copy.eyebrow, rtl))
@@ -102,8 +102,8 @@ export async function propertyPhotoFilmOverlaySvgs(input: {
       ...root,
       flexDirection: 'column',
       justifyContent: 'space-between',
-      padding: '56px 58px 126px',
-      backgroundImage: 'linear-gradient(to bottom, rgba(4,14,14,0.68) 0%, rgba(4,14,14,0) 32%, rgba(4,14,14,0) 48%, rgba(4,14,14,0.88) 100%)',
+      padding: '48px 52px 86px',
+      backgroundImage: 'linear-gradient(to bottom, rgba(4,12,12,0.74) 0%, rgba(4,12,12,0) 25%, rgba(4,12,12,0) 54%, rgba(4,12,12,0.94) 82%, rgba(4,12,12,0.98) 100%)',
     },
   },
   createElement('div', {
@@ -120,9 +120,9 @@ export async function propertyPhotoFilmOverlaySvgs(input: {
       flexDirection: 'column',
       alignItems: rtl ? 'flex-end' : 'flex-start',
     },
-  }, eyebrow, textLines(wrapText(copy.hook, rtl ? 17 : 22), {
+  }, eyebrow, textLines(wrapText(copy.hook, rtl ? 18 : 24), {
     rtl,
-    size: 52,
+    size: 45,
     color: '#FFFFFF',
   }))), width, height)
 
@@ -132,8 +132,8 @@ export async function propertyPhotoFilmOverlaySvgs(input: {
       flexDirection: 'column',
       justifyContent: 'flex-end',
       alignItems: rtl ? 'flex-end' : 'flex-start',
-      padding: '0 54px 134px',
-      backgroundImage: 'linear-gradient(to bottom, rgba(4,14,14,0) 55%, rgba(4,14,14,0.83) 100%)',
+      padding: '0 52px 88px',
+      backgroundImage: 'linear-gradient(to bottom, rgba(4,12,12,0) 52%, rgba(4,12,12,0.9) 82%, rgba(4,12,12,0.98) 100%)',
     },
   },
   createElement('div', {
@@ -142,12 +142,12 @@ export async function propertyPhotoFilmOverlaySvgs(input: {
       width: 94,
       height: 3,
       marginBottom: 30,
-      backgroundColor: '#BFD9D1',
+      backgroundColor: '#DAB98B',
     },
   }),
-  textLines(wrapText(copy.detail, rtl ? 22 : 30), {
+  textLines(wrapText(copy.detail, rtl ? 24 : 34), {
     rtl,
-    size: 38,
+    size: 32,
     color: '#FFFFFF',
   })), width, height)
 
@@ -156,8 +156,8 @@ export async function propertyPhotoFilmOverlaySvgs(input: {
       ...root,
       flexDirection: 'column',
       justifyContent: 'space-between',
-      padding: '54px 58px 92px',
-      backgroundImage: 'linear-gradient(to bottom, rgba(4,14,14,0.74) 0%, rgba(4,14,14,0.08) 38%, rgba(4,14,14,0.88) 100%)',
+      padding: '48px 52px 76px',
+      backgroundImage: 'linear-gradient(to bottom, rgba(4,12,12,0.72) 0%, rgba(4,12,12,0) 30%, rgba(4,12,12,0.92) 76%, rgba(4,12,12,0.98) 100%)',
     },
   },
   disclosureElement(copy, rtl),
@@ -175,12 +175,12 @@ export async function propertyPhotoFilmOverlaySvgs(input: {
       width: 120,
       height: 2,
       margin: '28px 0 30px',
-      backgroundColor: '#BFD9D1',
+      backgroundColor: '#DAB98B',
     },
   }),
   inlineText(copy.cta, {
     rtl,
-    size: 38,
+    size: 34,
     color: '#FFFFFF',
   }))), width, height)
 

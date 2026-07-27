@@ -18,6 +18,7 @@ import {
   validateMediaIntelligenceConfirmation,
   validateCreativeAdaptationConfirmation,
 } from '../contentHubActionSafety'
+import { PROPERTY_PHOTO_FILM_DURATION_SECONDS } from '../propertyPhotoFilm'
 
 describe('contentHubActionSafety', () => {
   it('requires explicit bulk image generation confirmation', () => {
@@ -216,7 +217,7 @@ describe('contentHubActionSafety', () => {
     const base = {
       confirmed: true,
       acknowledgedCreditCost: CONTENT_HUB_PROPERTY_PHOTO_FILM_COST,
-      acknowledgedDurationSeconds: 10,
+      acknowledgedDurationSeconds: PROPERTY_PHOTO_FILM_DURATION_SECONDS,
       acknowledgedNoPublishOrSchedule: true,
       acknowledgedReviewRequired: true,
       acknowledgedAssetRights: true,

@@ -34,3 +34,22 @@ Any distributed adaptation must preserve attribution, link the license, indicate
 that the images were adapted into a film, and use the same or a compatible
 license. The experiment must remain internal until those delivery conditions are
 carried into the exported package.
+
+## July 27 visual QA
+
+- The final sandbox proof is 12 seconds at 720 × 1280 and contains all six
+  selected photographs.
+- Foreground photographs use proportional `contain` framing. A dark blurred
+  duplicate of the same source photograph fills the vertical background; it is
+  not a generated room, facade, or extension of the property.
+- Fast crossfades replaced the original one-second fades so a two-second scene
+  no longer spends most of its screen time black.
+- The overlay copy is source-neutral unless a complete sentence exists in
+  source-linked verified proof. Strategy prose is never copied blindly into the
+  property film.
+- The sandbox render contains a Shotstack watermark and is not a deliverable.
+- A 121-character ElevenLabs narration was generated only for local,
+  non-commercial QA. ElevenLabs states that its free plan does not grant
+  commercial rights, so the narration was not attached to Production. NEXUS now
+  requires `ELEVENLABS_COMMERCIAL_LICENSE_CONFIRMED=true` before any provider
+  voiceover can be generated.

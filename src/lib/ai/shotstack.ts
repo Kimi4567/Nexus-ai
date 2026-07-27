@@ -235,9 +235,36 @@ export function buildShotstackPropertyPhotoFilmEdit(input: {
   overlays: { intro: string; detail: string; end: string }
   voiceoverUrl?: string | null
 }): ShotstackPropertyPhotoFilmEdit {
-  const sourceImageUrls = input.sourceImageUrls.map(url => (
-    safeHttpsUrl(url, 'SHOTSTACK_PROPERTY_SOURCE_URL_INVALID')
-  ))
+  const width = Math.max(2, Math.min(1_920, Math.round(input.target.width / 2) * 2))
+  const height = Math.max(2, Math.min(1_920, Math.round(input.target.height / 2) * 2))
+  const foregroundWidth = Math.max(2, Math.round((width * 0.94) / 2) * 2)
+  const foregroundHeight = Math.max(2, Math.round((height * 0.46) / 2) * 2)
+  const sourceImageUrls = input.sourceImageUrls.map(url => {
+    const sourceUrl = safeHttpsUrl(url, 'SHOTSTACK_PROPERTY_SOURCE_URL_INVALID')
+    const uploadMarker = '/image/upload/'
+    if (
+      !sourceUrl.startsWith('https://res.cloudinary.com/')
+      || !sourceUrl.includes(uploadMarker)
+    ) {
+      return { backdrop: sourceUrl, foreground: sourceUrl }
+    }
+
+    // Give Shotstack two small, eagerly derivable versions instead of six
+    // original camera files. The background is a dark visual mat; the
+    // foreground uses `c_fit` and Shotstack `contain`, so the selected property
+    // view remains proportional and complete. Neither transform generates or
+    // changes property features.
+    return {
+      backdrop: sourceUrl.replace(
+        uploadMarker,
+        `${uploadMarker}f_jpg,q_auto:good,c_fill,g_auto,w_${width},h_${height}/`,
+      ),
+      foreground: sourceUrl.replace(
+        uploadMarker,
+        `${uploadMarker}f_jpg,q_auto:good,c_fit,w_${foregroundWidth},h_${foregroundHeight}/`,
+      ),
+    }
+  })
   if (sourceImageUrls.length < 3 || sourceImageUrls.length > 6) {
     throw new Error('SHOTSTACK_PROPERTY_SOURCE_COUNT_INVALID')
   }
@@ -245,8 +272,6 @@ export function buildShotstackPropertyPhotoFilmEdit(input: {
     ? safeHttpsUrl(input.voiceoverUrl, 'SHOTSTACK_VOICEOVER_URL_INVALID')
     : null
   const duration = Math.max(3, Math.min(60, input.durationSeconds))
-  const width = Math.max(2, Math.min(1_920, Math.round(input.target.width / 2) * 2))
-  const height = Math.max(2, Math.min(1_920, Math.round(input.target.height / 2) * 2))
   const clipLength = duration / sourceImageUrls.length
 
   const tracks: ShotstackPropertyPhotoFilmEdit['timeline']['tracks'] = [
@@ -300,17 +325,36 @@ export function buildShotstackPropertyPhotoFilmEdit(input: {
   }
 
   tracks.push({
-    clips: sourceImageUrls.map((src, index) => ({
-      asset: { type: 'image', src },
+    clips: sourceImageUrls.map(({ foreground }, index) => ({
+      asset: { type: 'image', src: foreground },
+      start: Number((index * clipLength).toFixed(3)),
+      length: Number(clipLength.toFixed(3)),
+      width: foregroundWidth,
+      height: foregroundHeight,
+      fit: 'contain',
+      position: 'center',
+      offset: { x: 0, y: 0.12 },
+      effect: index % 2 === 0 ? 'zoomIn' : 'zoomOut',
+      transition: {
+        in: index === 0 ? 'none' : 'fadeFast',
+        out: index === sourceImageUrls.length - 1 ? 'none' : 'fadeFast',
+      },
+    })),
+  })
+
+  tracks.push({
+    clips: sourceImageUrls.map(({ backdrop }, index) => ({
+      asset: { type: 'image', src: backdrop },
       start: Number((index * clipLength).toFixed(3)),
       length: Number(clipLength.toFixed(3)),
       width,
       height,
-      fit: 'cover',
-      effect: index % 2 === 0 ? 'zoomIn' : 'zoomOut',
+      fit: 'crop',
+      filter: 'blur',
+      opacity: 0.68,
       transition: {
-        in: index === 0 ? 'none' : 'fade',
-        out: index === sourceImageUrls.length - 1 ? 'none' : 'fade',
+        in: index === 0 ? 'none' : 'fadeFast',
+        out: index === sourceImageUrls.length - 1 ? 'none' : 'fadeFast',
       },
     })),
   })

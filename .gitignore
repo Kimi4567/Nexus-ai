@@ -31,3 +31,4 @@ tsconfig.tsbuildinfo
 
 # Local audit/runtime artifacts (may include generated media and pulled env files)
 /tmp/
+/.audit-artifacts/

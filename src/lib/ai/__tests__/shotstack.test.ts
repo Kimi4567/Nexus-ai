@@ -113,23 +113,44 @@ describe('Shotstack campaign-film compositor', () => {
       voiceoverUrl: 'https://res.cloudinary.com/demo/video/upload/property-voice.mp3',
     })
 
-    expect(result.timeline.tracks).toHaveLength(3)
+    expect(result.timeline.tracks).toHaveLength(4)
     const imageClips = result.timeline.tracks[2].clips
+    const backdropClips = result.timeline.tracks[3].clips
     expect(imageClips).toHaveLength(4)
     expect(imageClips.map(clip => (clip.asset as { type: string }).type))
       .toEqual(['image', 'image', 'image', 'image'])
     expect(imageClips.map(clip => clip.effect))
       .toEqual(['zoomIn', 'zoomOut', 'zoomIn', 'zoomOut'])
+    expect(imageClips.map(clip => (clip.asset as { src: string }).src))
+      .toEqual([
+        'https://res.cloudinary.com/demo/image/upload/f_jpg,q_auto:good,c_fit,w_1016,h_884/property-1.jpg',
+        'https://res.cloudinary.com/demo/image/upload/f_jpg,q_auto:good,c_fit,w_1016,h_884/property-2.jpg',
+        'https://res.cloudinary.com/demo/image/upload/f_jpg,q_auto:good,c_fit,w_1016,h_884/property-3.jpg',
+        'https://res.cloudinary.com/demo/image/upload/f_jpg,q_auto:good,c_fit,w_1016,h_884/property-4.jpg',
+      ])
     expect(imageClips[0]).toMatchObject({
       start: 0,
       length: 2.5,
-      fit: 'cover',
-      transition: { in: 'none', out: 'fade' },
+      width: 1016,
+      height: 884,
+      fit: 'contain',
+      offset: { x: 0, y: 0.12 },
+      transition: { in: 'none', out: 'fadeFast' },
     })
     expect(imageClips[3]).toMatchObject({
       start: 7.5,
       length: 2.5,
-      transition: { in: 'fade', out: 'none' },
+      transition: { in: 'fadeFast', out: 'none' },
+    })
+    expect(backdropClips).toHaveLength(4)
+    expect(backdropClips[0]).toMatchObject({
+      asset: {
+        type: 'image',
+        src: 'https://res.cloudinary.com/demo/image/upload/f_jpg,q_auto:good,c_fill,g_auto,w_1080,h_1920/property-1.jpg',
+      },
+      fit: 'crop',
+      filter: 'blur',
+      opacity: 0.68,
     })
     expect(result.output.range).toEqual({ start: 0, length: 10 })
   })

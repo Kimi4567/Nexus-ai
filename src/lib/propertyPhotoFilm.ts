@@ -1,9 +1,9 @@
 import { readMediaIntelligence } from '@/lib/creativeIntelligence'
 
-export const PROPERTY_PHOTO_FILM_DURATION_SECONDS = 10
+export const PROPERTY_PHOTO_FILM_DURATION_SECONDS = 12
 export const PROPERTY_PHOTO_FILM_MIN_REFERENCES = 3
 export const PROPERTY_PHOTO_FILM_MAX_REFERENCES = 6
-export const PROPERTY_PHOTO_FILM_VERSION = '2026-07-source-locked-property-1'
+export const PROPERTY_PHOTO_FILM_VERSION = '2026-07-source-locked-property-2'
 
 export type PropertyPhotoFilmAssetInput = {
   id: string
@@ -238,34 +238,42 @@ export function buildPropertyPhotoFilmCopy(input: {
   brandName?: unknown
   campaignName?: unknown
   caption?: unknown
+  verifiedFacts?: unknown
 }): PropertyPhotoFilmCopy {
   const caption = clean(input.caption, 1_200)
   const language: 'ar' | 'en' = /\p{Script=Arabic}/u.test(caption) ? 'ar' : 'en'
-  const sentences = sentenceParts(caption)
+  const evidence = Array.isArray(input.verifiedFacts)
+    ? input.verifiedFacts
+      .map(value => normalizedEvidence(clean(value, 1_200)))
+      .filter(Boolean)
+    : []
+  const verifiedSentences = sentenceParts(caption)
     .filter(sentence => !DEMO_DISCLOSURE.test(sentence))
+    .filter((sentence) => {
+      const normalizedSentence = normalizedEvidence(sentence)
+      return evidence.some(fact => fact.includes(normalizedSentence))
+    })
   const brand = compactAtBoundary(
     clean(input.brandName, 52) || clean(input.campaignName, 52) || (language === 'ar' ? 'عرض عقاري' : 'Property showcase'),
     44,
   )
   const hook = compactAtBoundary(
-    sentences[0] || (language === 'ar' ? 'شاهد العقار كما هو' : 'See the property as it is'),
+    verifiedSentences[0] || (language === 'ar' ? 'نظرة أقرب إلى العقار' : 'A closer look at the property'),
     language === 'ar' ? 40 : 48,
   )
   const detail = compactAtBoundary(
-    sentences[1] || (language === 'ar' ? 'جولة بصرية من الصور المختارة' : 'A visual tour from selected photography'),
+    verifiedSentences[1] || (language === 'ar' ? 'جولة بصرية مدروسة من المشاهد المختارة' : 'A considered visual tour through selected views'),
     language === 'ar' ? 54 : 64,
   )
   const cta = compactAtBoundary(
-    sentences.at(-1) && sentences.at(-1) !== sentences[0] && sentences.at(-1) !== sentences[1]
-      ? sentences.at(-1)!
-      : (language === 'ar' ? 'اطلب التفاصيل الموثقة' : 'Request verified details'),
+    language === 'ar' ? 'اطلب ملف العقار الموثق' : 'Request the verified property brief',
     language === 'ar' ? 34 : 38,
   )
   const isDemo = DEMO_DISCLOSURE.test(caption)
 
   return {
     brand,
-    eyebrow: language === 'ar' ? 'جولة عقارية' : 'PROPERTY TOUR',
+    eyebrow: language === 'ar' ? 'فيلم عقاري' : 'PROPERTY FILM',
     hook,
     detail,
     cta,
