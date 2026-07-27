@@ -87,6 +87,17 @@ function request() {
   })
 }
 
+function manualRequest(scheduledAtByPostId?: Record<string, string>) {
+  return new NextRequest('http://localhost/api/campaigns/campaign-1/schedule-content-plan', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer session', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      publishMode: 'MANUAL',
+      ...(scheduledAtByPostId ? { scheduledAtByPostId } : {}),
+    }),
+  })
+}
+
 function xRequest() {
   return new NextRequest('http://localhost/api/campaigns/campaign-1/schedule-content-plan', {
     method: 'POST',
@@ -209,6 +220,48 @@ beforeEach(() => {
 })
 
 describe('POST schedule-content-plan — YouTube', () => {
+  it('blocks an expired proposed date before it can enter the execution queue', async () => {
+    mocks.socialPostFindMany.mockResolvedValue([{
+      ...approvedYouTubePost(),
+      scheduledAt: new Date(Date.now() - 60_000),
+    }])
+
+    const response = await POST(manualRequest(), { params: Promise.resolve({ id: 'campaign-1' }) })
+    const body = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(body.code).toBe('SCHEDULE_DATE_REVIEW_REQUIRED')
+    expect(body.blockers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ postId: 'youtube-post', code: 'SCHEDULE_DATE_IN_PAST' }),
+    ]))
+    expect(mocks.socialPostUpdateMany).not.toHaveBeenCalled()
+  })
+
+  it('persists a user-reviewed future correction as part of the schedule decision', async () => {
+    const reviewedFutureDate = new Date(Date.now() + 24 * 60 * 60 * 1_000)
+    mocks.socialPostFindMany.mockResolvedValue([{
+      ...approvedYouTubePost(),
+      scheduledAt: new Date(Date.now() - 60_000),
+    }])
+
+    const response = await POST(
+      manualRequest({ 'youtube-post': reviewedFutureDate.toISOString() }),
+      { params: Promise.resolve({ id: 'campaign-1' }) },
+    )
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body).toMatchObject({ success: true, scheduled: 1, publishMode: 'MANUAL' })
+    expect(mocks.socialPostUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: 'youtube-post', status: 'APPROVED' }),
+      data: expect.objectContaining({
+        status: 'SCHEDULED',
+        publishMode: 'MANUAL',
+        scheduledAt: reviewedFutureDate,
+      }),
+    }))
+  })
+
   it('blocks scheduling when the current Brand Brain no longer grounds the strategy', async () => {
     mocks.reviewStrategyGrounding.mockReturnValue({
       schemaVersion: 1,

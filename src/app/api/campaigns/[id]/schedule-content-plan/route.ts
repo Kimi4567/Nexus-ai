@@ -4,7 +4,8 @@
  * Schedules a campaign's APPROVED content-plan posts: APPROVED → SCHEDULED only.
  * This is the SEPARATE scheduling decision that follows approval. It:
  * - moves only APPROVED posts (a DRAFT post can never be scheduled directly here),
- * - requires a valid planned scheduledAt from generation (never invents or overwrites it),
+ * - requires an explicitly reviewed future scheduledAt for every post,
+ * - accepts user-reviewed date corrections when an earlier proposed date expired,
  * - assigns integrationId + pageId per platform if still missing,
  * - records APPROVED → SCHEDULED in PostStatusHistory (actor USER),
  * - never marks anything PUBLISHED and never touches cron/publishing behaviour.
@@ -70,6 +71,7 @@ type DestinationSelection = {
 type ScheduleRequest = {
   publishMode?: 'MANUAL' | 'AUTO'
   explicitAutoPublishConfirmed?: boolean
+  scheduledAtByPostId?: Record<string, string>
   destinationByTarget?: Record<string, DestinationSelection>
   tiktokOptions?: Record<string, unknown>
   youtubeOptionsByPostId?: Record<string, Record<string, unknown>>
@@ -260,6 +262,53 @@ export async function POST(req: NextRequest, props: Params) {
         error: 'Review or regenerate the approved copy before scheduling it.',
         code: 'CONTENT_REVIEW_REQUIRED',
         issues: contentIssues,
+      }, { status: 409 })
+    }
+
+    const decisionAt = new Date()
+    const approvedPostIds = new Set(approvedPosts.map((post: any) => post.id))
+    const submittedScheduleDates = objectConfig(requestBody.scheduledAtByPostId)
+    const unknownSchedulePostIds = Object.keys(submittedScheduleDates)
+      .filter(postId => !approvedPostIds.has(postId))
+    if (unknownSchedulePostIds.length > 0) {
+      return NextResponse.json({
+        error: 'The schedule contains posts outside the reviewed approved batch. Reload and review the dates again.',
+        code: 'SCHEDULE_DATE_POST_MISMATCH',
+        postIds: unknownSchedulePostIds,
+      }, { status: 409 })
+    }
+
+    const effectiveScheduledAtById = new Map<string, Date>()
+    const scheduleDateBlockers = approvedPosts.flatMap((post: any) => {
+      const submittedValue = submittedScheduleDates[post.id]
+      const hasSubmittedValue = Object.prototype.hasOwnProperty.call(submittedScheduleDates, post.id)
+      const candidate = hasSubmittedValue && typeof submittedValue === 'string'
+        ? new Date(submittedValue)
+        : hasSubmittedValue
+          ? new Date(Number.NaN)
+          : new Date(post.scheduledAt)
+      if (Number.isNaN(candidate.getTime())) {
+        return [{
+          postId: post.id,
+          code: 'SCHEDULE_DATE_REQUIRED',
+          message: 'Choose a valid date and time before scheduling this post.',
+        }]
+      }
+      if (candidate.getTime() <= decisionAt.getTime()) {
+        return [{
+          postId: post.id,
+          code: 'SCHEDULE_DATE_IN_PAST',
+          message: 'The proposed date has passed. Review and choose a future date before scheduling.',
+        }]
+      }
+      effectiveScheduledAtById.set(post.id, candidate)
+      return []
+    })
+    if (scheduleDateBlockers.length > 0) {
+      return NextResponse.json({
+        error: 'Review every post date before scheduling. Past or invalid dates cannot enter the execution queue.',
+        code: 'SCHEDULE_DATE_REVIEW_REQUIRED',
+        blockers: scheduleDateBlockers,
       }, { status: 409 })
     }
 
@@ -609,13 +658,15 @@ export async function POST(req: NextRequest, props: Params) {
       }, { status: 409 })
     }
 
-    const skippedInvalidDate = approvedPosts.filter((p: any) => !hasValidPlannedDate(p.scheduledAt)).length
+    const skippedInvalidDate = approvedPosts.filter(
+      (post: any) => !hasValidPlannedDate(effectiveScheduledAtById.get(post.id)),
+    ).length
     const plan = planScheduling(
       approvedPosts.map((p: any) => ({
         id: p.id,
         workspaceId: campaign.workspaceId,
         status: 'APPROVED' as const,
-        scheduledAt: p.scheduledAt,
+        scheduledAt: effectiveScheduledAtById.get(p.id),
       })),
       { actor: 'USER' }
     )
@@ -631,7 +682,6 @@ export async function POST(req: NextRequest, props: Params) {
     const platformById = new Map(approvedPosts.map((p: any) => [p.id, String(p.publishTarget || p.platform)]))
     const hasIntegrationById = new Map(approvedPosts.map((p: any) => [p.id, !!p.integrationId]))
 
-    const decisionAt = new Date()
     const scheduleResult = await prisma.$transaction(async (tx) => {
       const changedIds: string[] = []
       const decisionPosts: any[] = []
@@ -662,6 +712,7 @@ export async function POST(req: NextRequest, props: Params) {
           },
           data: {
             status: u.data.status,
+            scheduledAt: effectiveScheduledAtById.get(u.id),
             publishMode,
             ...(publishMode === 'AUTO' ? { autoPublishConsentAt: decisionAt } : {}),
             ...assignment,
@@ -676,6 +727,7 @@ export async function POST(req: NextRequest, props: Params) {
         decisionPosts.push({
           ...source,
           ...assignment,
+          scheduledAt: effectiveScheduledAtById.get(u.id),
           approvedSnapshotId: source.approvedSnapshotId,
           mediaApprovalSnapshotId: source.mediaApprovalSnapshotId,
           autoPublishConsentAt: publishMode === 'AUTO' ? decisionAt : source.autoPublishConsentAt,

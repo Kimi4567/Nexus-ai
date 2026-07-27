@@ -382,6 +382,19 @@ function hasValidDate(value: string | Date | null | undefined): boolean {
   return !Number.isNaN(date.getTime())
 }
 
+function toLocalScheduleInputValue(value: string | Date | null | undefined): string {
+  if (!hasValidDate(value)) return ''
+  const date = value instanceof Date ? value : new Date(value as string)
+  const localTime = new Date(date.getTime() - (date.getTimezoneOffset() * 60_000))
+  return localTime.toISOString().slice(0, 16)
+}
+
+function scheduleInputToIso(value: string | undefined): string | null {
+  if (!value) return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date.toISOString()
+}
+
 function isUserConfirmedManualPublished(post: Pick<ContentPost, 'status' | 'manuallyPublishedAt' | 'publishMode'>): boolean {
   return post.status === 'PUBLISHED' && Boolean(post.manuallyPublishedAt || post.publishMode !== 'AUTO')
 }
@@ -495,6 +508,7 @@ export default function ContentHubPage() {
   const [showScheduleConfirm, setShowScheduleConfirm] = useState(false)
   const [scheduleAcknowledged, setScheduleAcknowledged] = useState(false)
   const [scheduleMode, setScheduleMode] = useState<'MANUAL' | 'AUTO'>('MANUAL')
+  const [scheduleDateByPostId, setScheduleDateByPostId] = useState<Record<string, string>>({})
   const [scheduleAccounts, setScheduleAccounts] = useState<ScheduleAccount[]>([])
   const [scheduleAccountsLoading, setScheduleAccountsLoading] = useState(false)
   const [destinationByTarget, setDestinationByTarget] = useState<Record<string, { integrationId: string; pageId?: string; pageName?: string }>>({})
@@ -832,8 +846,9 @@ export default function ContentHubPage() {
   const draftMediaDecisionCount = posts.filter(
     post => post.status === 'DRAFT' && deriveContentHubMediaState(post).needsAttention,
   ).length
-  const approvedCount = posts.filter(p => p.status === 'APPROVED').length
-  const approvedPostsWithDates = posts.filter(p => p.status === 'APPROVED' && hasValidDate(p.scheduledAt))
+  const approvedPosts = posts.filter(p => p.status === 'APPROVED')
+  const approvedCount = approvedPosts.length
+  const approvedPostsWithDates = approvedPosts.filter(p => hasValidDate(p.scheduledAt))
   const approvedAutoTargets = Array.from(new Set(approvedPostsWithDates.map(post => normalizeAutoPublishTarget(post.platform))))
   const unsupportedAutoTargets = approvedAutoTargets.filter(target => !['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK', 'X', 'YOUTUBE', 'PINTEREST', 'THREADS'].includes(target))
   const approvedYouTubePosts = approvedPostsWithDates.filter(post => ['YOUTUBE', 'YOUTUBE_SHORTS'].includes(post.platform.toUpperCase()))
@@ -912,8 +927,24 @@ export default function ContentHubPage() {
     && approvedPostsNeedingMediaApprovalCount > 0
   const schedulingBlockedByMedia = approvedPostsNeedingMediaCount > 0
     || approvedPostsNeedingMediaApprovalCount > 0
-  const approvedPostsMissingDates = approvedCount - approvedPostsWithDates.length
-  const approvedScheduleDates = approvedPostsWithDates.map(p => new Date(p.scheduledAt!).getTime()).sort((a, b) => a - b)
+  const reviewedScheduleDates = approvedPosts.map(post => {
+    const inputValue = scheduleDateByPostId[post.id] ?? toLocalScheduleInputValue(post.scheduledAt)
+    const iso = scheduleInputToIso(inputValue)
+    return {
+      post,
+      inputValue,
+      iso,
+      time: iso ? new Date(iso).getTime() : Number.NaN,
+    }
+  })
+  const scheduleDateReviewIssues = reviewedScheduleDates.filter(
+    item => Number.isNaN(item.time) || item.time <= Date.now(),
+  )
+  const approvedPostsMissingDates = reviewedScheduleDates.filter(item => Number.isNaN(item.time)).length
+  const approvedScheduleDates = reviewedScheduleDates
+    .filter(item => !Number.isNaN(item.time))
+    .map(item => item.time)
+    .sort((a, b) => a - b)
   const approvedScheduleRange = approvedScheduleDates.length > 0
     ? {
         first: new Date(approvedScheduleDates[0]).toLocaleDateString(isAr ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
@@ -981,6 +1012,7 @@ export default function ContentHubPage() {
   const schedulingBlockedByTruthReview = approvedCount > 0 && contentReviewRequired
   const schedulingBlocked = schedulingBlockedByMedia || schedulingBlockedByTruthReview
   const schedulingDecisionBlocked = schedulingBlocked
+    || scheduleDateReviewIssues.length > 0
     || (scheduleMode === 'AUTO' && (
       autoDestinationReviewIncomplete
       || unsupportedAutoTargets.length > 0
@@ -2106,6 +2138,18 @@ export default function ContentHubPage() {
 
   async function scheduleAll() {
     if (!isAuthenticated || !scheduleAcknowledged) return
+    const reviewedScheduleByPostId: Record<string, string> = {}
+    for (const post of approvedPosts) {
+      const inputValue = scheduleDateByPostId[post.id] ?? toLocalScheduleInputValue(post.scheduledAt)
+      const iso = scheduleInputToIso(inputValue)
+      if (!iso || new Date(iso).getTime() <= Date.now()) {
+        setError(isAr
+          ? 'راجع تاريخ ووقت كل منشور. لا يمكن إدخال موعد ماضٍ أو غير صالح إلى جدول التنفيذ.'
+          : 'Review every post date and time. A past or invalid date cannot enter the execution schedule.')
+        return
+      }
+      reviewedScheduleByPostId[post.id] = iso
+    }
     if (schedulingBlockedByTruthReview) {
       setShowScheduleConfirm(false)
       setScheduleAcknowledged(false)
@@ -2144,6 +2188,7 @@ export default function ContentHubPage() {
         body: JSON.stringify({
           publishMode: scheduleMode,
           explicitAutoPublishConfirmed: scheduleMode === 'AUTO' && scheduleAcknowledged,
+          scheduledAtByPostId: reviewedScheduleByPostId,
           destinationByTarget,
           tiktokOptions,
           youtubeOptionsByPostId: Object.fromEntries(
@@ -2930,6 +2975,9 @@ export default function ContentHubPage() {
                         return
                       }
                       setScheduleAcknowledged(false)
+                      setScheduleDateByPostId(Object.fromEntries(
+                        approvedPosts.map(post => [post.id, toLocalScheduleInputValue(post.scheduledAt)]),
+                      ))
                       setYouTubeOptionsByPostId(current => {
                         const next = { ...current }
                         for (const post of approvedPostsWithDates) {
@@ -3921,7 +3969,7 @@ export default function ContentHubPage() {
             }}
           >
             <div
-              className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+              className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
               style={{ border: '1px solid rgba(15,23,42,0.10)' }}
               onClick={event => event.stopPropagation()}
             >
@@ -3932,10 +3980,10 @@ export default function ContentHubPage() {
                   </p>
                   <h3 className="mt-1 text-lg font-bold text-slate-950">
                     {isAr
-                      ? approvedPostsWithDates.length === 1
+                      ? approvedCount === 1
                         ? 'جدولة منشور واحد معتمد'
-                        : `جدولة ${approvedPostsWithDates.length} منشورات معتمدة`
-                      : `Schedule ${approvedPostsWithDates.length} approved post${approvedPostsWithDates.length === 1 ? '' : 's'}`}
+                        : `جدولة ${approvedCount} منشورات معتمدة`
+                      : `Schedule ${approvedCount} approved post${approvedCount === 1 ? '' : 's'}`}
                   </h3>
                   <p className="mt-2 text-sm leading-6 text-slate-500">
                     {scheduleMode === 'AUTO'
@@ -4271,6 +4319,52 @@ export default function ContentHubPage() {
                 </div>
               )}
 
+              <div className="mb-4 rounded-xl border border-slate-200 bg-white p-3">
+                <p className="text-xs font-black text-slate-900">
+                  {isAr ? 'راجع تاريخ ووقت كل منشور' : 'Review every post date and time'}
+                </p>
+                <p className="mt-1 text-[11px] leading-5 text-slate-500">
+                  {isAr
+                    ? 'المواعيد المقترحة لا تصبح جدولًا حقيقيًا إلا بعد مراجعتها هنا وتأكيد القرار.'
+                    : 'Proposed dates become a real internal schedule only after you review them here and confirm this decision.'}
+                </p>
+                <div className="mt-3 max-h-48 space-y-2 overflow-y-auto">
+                  {reviewedScheduleDates.map(({ post, inputValue, time }, index) => {
+                    const dateNeedsReview = Number.isNaN(time) || time <= Date.now()
+                    return (
+                      <label
+                        key={post.id}
+                        className={`grid gap-2 rounded-lg border p-2 text-xs sm:grid-cols-[1fr_12rem] sm:items-center ${
+                          dateNeedsReview ? 'border-rose-200 bg-rose-50' : 'border-slate-200 bg-slate-50'
+                        }`}
+                      >
+                        <span>
+                          <span className="block font-bold text-slate-900">
+                            {isAr ? `المنشور ${index + 1}` : `Post ${index + 1}`} · {post.platform.toUpperCase()}
+                          </span>
+                          <span className={dateNeedsReview ? 'text-rose-700' : 'text-slate-500'}>
+                            {dateNeedsReview
+                              ? (isAr ? 'اختر موعدًا مستقبليًا' : 'Choose a future time')
+                              : (isAr ? 'موعد صالح للمراجعة' : 'Future time reviewed')}
+                          </span>
+                        </span>
+                        <input
+                          type="datetime-local"
+                          value={inputValue}
+                          min={toLocalScheduleInputValue(new Date(Date.now() + 60_000))}
+                          disabled={scheduling}
+                          onChange={event => {
+                            setScheduleDateByPostId(current => ({ ...current, [post.id]: event.target.value }))
+                            setScheduleAcknowledged(false)
+                          }}
+                          className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900"
+                        />
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
                 <div>
                   <p className="text-xs font-semibold text-slate-400">{isAr ? 'النطاق' : 'Range'}</p>
@@ -4289,6 +4383,14 @@ export default function ContentHubPage() {
                   {isAr
                     ? `${approvedPostsMissingDates} منشور معتمد بلا تاريخ صالح سيبقى معتمدًا ولن تتم جدولته.`
                     : `${approvedPostsMissingDates} approved posts have no valid date and will remain approved.`}
+                </p>
+              )}
+
+              {scheduleDateReviewIssues.length > 0 && (
+                <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-5 text-rose-900">
+                  {isAr
+                    ? `${scheduleDateReviewIssues.length} منشور يحتاج موعدًا مستقبليًا قبل إنشاء الجدول الداخلي.`
+                    : `${scheduleDateReviewIssues.length} post${scheduleDateReviewIssues.length === 1 ? '' : 's'} need a future time before the internal schedule can be saved.`}
                 </p>
               )}
 
@@ -4316,7 +4418,7 @@ export default function ContentHubPage() {
                 <input
                   type="checkbox"
                   checked={scheduleAcknowledged}
-                  disabled={scheduling || approvedPostsWithDates.length === 0 || schedulingDecisionBlocked}
+                  disabled={scheduling || approvedCount === 0 || schedulingDecisionBlocked}
                   onChange={event => setScheduleAcknowledged(event.target.checked)}
                   className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#5E63FF]"
                 />
@@ -4346,16 +4448,16 @@ export default function ContentHubPage() {
                 <button
                   type="button"
                   onClick={scheduleAll}
-                  disabled={scheduling || !scheduleAcknowledged || approvedPostsWithDates.length === 0 || schedulingDecisionBlocked}
+                  disabled={scheduling || !scheduleAcknowledged || approvedCount === 0 || schedulingDecisionBlocked}
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#4F46E5] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   {scheduling
                     ? t('contentHub.scheduling')
                     : (isAr
-                        ? approvedPostsWithDates.length === 1
+                        ? approvedCount === 1
                           ? 'تأكيد جدولة منشور واحد'
-                          : `تأكيد جدولة ${approvedPostsWithDates.length} منشورات`
-                        : `Confirm scheduling ${approvedPostsWithDates.length} post${approvedPostsWithDates.length === 1 ? '' : 's'}`)}
+                          : `تأكيد جدولة ${approvedCount} منشورات`
+                        : `Confirm scheduling ${approvedCount} post${approvedCount === 1 ? '' : 's'}`)}
                 </button>
               </div>
             </div>
