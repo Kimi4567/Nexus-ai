@@ -1,6 +1,7 @@
 'use client'
 
 import type { PublicLandingPageSnapshot } from '@/lib/landingPageContract'
+import { trustedPublishedCtaHref } from '@/lib/publicLandingPageCta'
 import { ArrowUpLeft, Check, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
@@ -71,12 +72,13 @@ export function PublicLandingPageClient({
   experimentToken: string | null
   measurementEligible: boolean
 }) {
-  const [ctaHref, setCtaHref] = useState(page.primaryCta.href)
+  const trustedCtaHref = trustedPublishedCtaHref(page, publicId)
+  const [ctaHref, setCtaHref] = useState(() => trustedCtaHref)
   const viewRecorded = useRef(false)
 
   useEffect(() => {
-    setCtaHref(ctaWithAttribution(page.primaryCta.href, experimentToken))
-  }, [experimentToken, page.primaryCta.href])
+    setCtaHref(ctaWithAttribution(trustedCtaHref, experimentToken))
+  }, [experimentToken, trustedCtaHref])
 
   useEffect(() => {
     if (!measurementEligible || viewRecorded.current) return
