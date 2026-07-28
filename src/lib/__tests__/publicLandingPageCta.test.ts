@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { PublicLandingPageSnapshot } from '@/lib/landingPageContract'
-import { trustedPublishedCtaHref } from '@/lib/publicLandingPageCta'
+import {
+  trustedPublishedCaptureFormPublicId,
+  trustedPublishedCtaHref,
+} from '@/lib/publicLandingPageCta'
 
 function snapshot(primaryCta: PublicLandingPageSnapshot['primaryCta']): PublicLandingPageSnapshot {
   return {
@@ -51,7 +54,22 @@ describe('trustedPublishedCtaHref', () => {
     })
 
     expect(trustedPublishedCtaHref(page, 'landing-1')).toBe(
-      '/lead-form/legacy-form?utm_source=saved&lp=landing-1',
+      '/lead-form/legacy-form?lp=landing-1',
+    )
+    expect(trustedPublishedCaptureFormPublicId(page)).toBe('legacy-form')
+  })
+
+  it('does not reinterpret third-party URLs as NEXUS capture forms', () => {
+    const page = snapshot({
+      label: 'Visit',
+      href: 'https://example.com/lead-form/external-form',
+      kind: 'EXTERNAL',
+      captureFormPublicId: null,
+    })
+
+    expect(trustedPublishedCaptureFormPublicId(page)).toBeNull()
+    expect(trustedPublishedCtaHref(page, 'landing-1')).toBe(
+      'https://example.com/lead-form/external-form',
     )
   })
 })

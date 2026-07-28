@@ -199,6 +199,38 @@ describe('public lead intake', () => {
     })
   })
 
+  it('accepts a trusted legacy NEXUS form link as landing-page attribution evidence', async () => {
+    mocks.landingRequested.mockReturnValue(true)
+    mocks.landingPage.mockResolvedValue({
+      id: 'page-1',
+      publicId: 'public-page-1',
+      workspaceId: 'workspace-1',
+      campaignId: 'campaign-1',
+      publishedSnapshot: {
+        primaryCta: {
+          kind: 'EXTERNAL',
+          href: 'https://www.nexus-grow.com/lead-form/public-form-1',
+          captureFormPublicId: null,
+        },
+      },
+    })
+
+    const response = await POST(post({
+      email: 'legacy@example.com',
+      landingPagePublicId: 'public-page-1',
+    }), context)
+
+    expect(response.status).toBe(202)
+    expect(mocks.conversionCreateMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({
+        landingPageId: 'page-1',
+        eventType: 'FORM_SUBMITTED',
+        verificationState: 'SERVER_CONFIRMED',
+      })],
+      skipDuplicates: true,
+    })
+  })
+
   it('retries a concurrent duplicate as a recapture instead of acknowledging a lost conversion', async () => {
     mocks.landingRequested.mockReturnValue(true)
     mocks.duplicate

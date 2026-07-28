@@ -1,11 +1,9 @@
 import { getLandingPageGate } from '@/lib/landingPageAccess'
-import {
-  publishedSnapshotCaptureFormPublicId,
-  type PublicLandingPageSnapshot,
-} from '@/lib/landingPageContract'
+import type { PublicLandingPageSnapshot } from '@/lib/landingPageContract'
 import { getPublicLandingExperimentState } from '@/lib/landingPageExperimentAccess'
 import { assignLandingExperimentVariant, createLandingExperimentToken } from '@/lib/landingPageExperiment'
 import { prisma } from '@/lib/prisma'
+import { trustedPublishedCaptureFormPublicId } from '@/lib/publicLandingPageCta'
 
 export interface PublicLandingExperimentAssignment {
   variant: 'CONTROL' | 'CHALLENGER'
@@ -127,7 +125,7 @@ export async function resolvePublicLandingPage(args: {
     }
   }
 
-  const publishedCaptureFormPublicId = publishedSnapshotCaptureFormPublicId(renderedSnapshot)
+  const publishedCaptureFormPublicId = trustedPublishedCaptureFormPublicId(renderedSnapshot)
   if (publishedCaptureFormPublicId) {
     const activeCaptureForm = await prisma.leadCaptureForm.findFirst({
       where: {

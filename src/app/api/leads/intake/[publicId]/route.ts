@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { dbRateLimit } from '@/lib/dbRateLimit'
 import { getLandingPageGate } from '@/lib/landingPageAccess'
-import { conversionFingerprint, publishedSnapshotCaptureFormPublicId } from '@/lib/landingPageContract'
+import { conversionFingerprint } from '@/lib/landingPageContract'
 import { isLandingPagesRequested } from '@/lib/landingPageReadiness'
 import { verifyLandingExperimentToken } from '@/lib/landingPageExperiment'
 import { isLandingPageExperimentsRequested } from '@/lib/landingPageExperimentReadiness'
@@ -14,6 +14,7 @@ import {
   sanitizeLeadAttribution,
 } from '@/lib/leadLifecycle'
 import { prisma } from '@/lib/prisma'
+import { trustedPublishedCaptureFormPublicId } from '@/lib/publicLandingPageCta'
 
 export const dynamic = 'force-dynamic'
 type Context = { params: Promise<{ publicId: string }> }
@@ -140,7 +141,7 @@ export async function POST(req: NextRequest, context: Context) {
       },
       select: { id: true, publicId: true, workspaceId: true, campaignId: true, publishedSnapshot: true },
     })
-    if (!landingContext || publishedSnapshotCaptureFormPublicId(landingContext.publishedSnapshot) !== form.publicId) {
+    if (!landingContext || trustedPublishedCaptureFormPublicId(landingContext.publishedSnapshot) !== form.publicId) {
       return NextResponse.json({ error: 'Landing page attribution context is invalid.' }, { status: 400 })
     }
     if (isLandingPageExperimentsRequested()) {
