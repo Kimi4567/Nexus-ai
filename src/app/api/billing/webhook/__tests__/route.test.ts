@@ -1,7 +1,7 @@
 /**
  * B1d-c-1 — billing webhook provisionSubscription creates a parallel MONTHLY grant.
  *
- * On an ACTIVE paid provision (checkout.session.completed / customer.subscription.updated),
+ * On a verified paid provision (checkout.session.completed / invoice paid),
  * the existing aiCredits overwrite is unchanged AND a MONTHLY CreditGrant is created
  * for the cycle (idempotent), with prior MONTHLY grants reset (except the new one).
  * Stripe + Prisma + email are mocked; no live billing.
@@ -173,7 +173,7 @@ describe('billing webhook — B1d-c-1 MONTHLY grant on provision', () => {
     }))
   })
 
-  it('checkout.session.completed (active) overwrites aiCredits AND creates a MONTHLY grant + reset', async () => {
+  it('checkout.session.completed syncs entitlement but waits for invoice.paid before granting credits', async () => {
     stripe.webhooks.constructEvent.mockReturnValue({
       type: 'checkout.session.completed', id: 'evt_1',
       data: { object: { mode: 'subscription', subscription: 'sub_1', metadata: { userId: 'u1', plan: 'pro' } } },
@@ -181,29 +181,17 @@ describe('billing webhook — B1d-c-1 MONTHLY grant on provision', () => {
 
     await POST(makeReq())
 
-    // aiCredits overwrite follows the Growth monthly allowance.
     expect(tx.user.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'u1' },
-      data: expect.objectContaining({ subscriptionStatus: 'ACTIVE', aiCredits: 60 }),
+      data: expect.objectContaining({ subscriptionStatus: 'ACTIVE' }),
     }))
-    // MONTHLY grant created with correct shape.
-    expect(tx.creditGrant.createMany).toHaveBeenCalledWith(expect.objectContaining({
-      data: [expect.objectContaining({
-        userId: 'u1', type: 'MONTHLY', amount: 60, remaining: 60,
-        source: SOURCE, billingCycleId: SOURCE, status: 'ACTIVE',
-      })],
-      skipDuplicates: true,
-    }))
-    const arg = tx.creditGrant.createMany.mock.calls[0][0] as any
-    expect(arg.data[0].expiresAt).toEqual(new Date(SECS_END * 1000))
-    // Reset prior MONTHLY EXCEPT the new cycle (because it was created).
-    expect(tx.creditGrant.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'u1', status: 'ACTIVE', type: { in: ['MONTHLY', 'MIGRATED'] }, source: { not: SOURCE } },
-      data: { status: 'RESET', remaining: 0 },
-    })
+    const update = (tx.user.update.mock.calls[0][0] as any).data
+    expect(update.aiCredits).toBeUndefined()
+    expect(tx.creditGrant.createMany).not.toHaveBeenCalled()
+    expect(tx.creditGrant.updateMany).not.toHaveBeenCalled()
   })
 
-  it('customer.subscription.updated (active) creates a MONTHLY grant', async () => {
+  it('customer.subscription.updated (active) syncs entitlement state without re-granting credits', async () => {
     stripe.webhooks.constructEvent.mockReturnValue({
       type: 'customer.subscription.updated', id: 'evt_2',
       data: { object: stripeSub('active') },
@@ -211,17 +199,72 @@ describe('billing webhook — B1d-c-1 MONTHLY grant on provision', () => {
 
     await POST(makeReq())
 
-    expect(tx.creditGrant.createMany).toHaveBeenCalledWith(expect.objectContaining({
-      data: [expect.objectContaining({ type: 'MONTHLY', amount: 60, source: SOURCE })],
-      skipDuplicates: true,
-    }))
+    expect(tx.creditGrant.createMany).not.toHaveBeenCalled()
     expect(tx.user.update).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ aiCredits: 60 }),
+      data: expect.objectContaining({ subscriptionStatus: 'ACTIVE' }),
+    }))
+    const update = (tx.user.update.mock.calls[0][0] as any).data
+    expect(update.aiCredits).toBeUndefined()
+  })
+
+  it('accepts Stripe period dates from the subscription item shape', async () => {
+    stripe.webhooks.constructEvent.mockReturnValue({
+      type: 'customer.subscription.updated',
+      id: 'evt_item_periods',
+      data: {
+        object: {
+          ...stripeSub('active'),
+          current_period_start: undefined,
+          current_period_end: undefined,
+          items: {
+            data: [{
+              price: { id: 'price_1', unit_amount: 1500 },
+              current_period_start: SECS_START,
+              current_period_end: SECS_END,
+            }],
+          },
+        },
+      },
+    })
+
+    await POST(makeReq())
+
+    expect(tx.subscription.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      update: expect.objectContaining({
+        currentPeriodStart: new Date(SECS_START * 1000),
+        currentPeriodEnd: new Date(SECS_END * 1000),
+      }),
+    }))
+    expect(tx.creditGrant.createMany).not.toHaveBeenCalled()
+  })
+
+  it('retrieves Stripe truth when an update event omits period dates', async () => {
+    stripe.webhooks.constructEvent.mockReturnValue({
+      type: 'customer.subscription.updated',
+      id: 'evt_missing_periods',
+      data: {
+        object: {
+          ...stripeSub('active'),
+          current_period_start: undefined,
+          current_period_end: undefined,
+        },
+      },
+    })
+
+    await POST(makeReq())
+
+    expect(stripe.subscriptions.retrieve).toHaveBeenCalledWith('sub_1', {
+      expand: ['items.data.price'],
+    })
+    expect(tx.subscription.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      update: expect.objectContaining({
+        currentPeriodStart: new Date(SECS_START * 1000),
+        currentPeriodEnd: new Date(SECS_END * 1000),
+      }),
     }))
   })
 
-  it('duplicate same-cycle provision does not reset monthly again (only retires leftover MIGRATED)', async () => {
-    tx.creditGrant.createMany.mockResolvedValueOnce({ count: 0 }) // grant already exists
+  it('subscription metadata/status updates never mutate the monthly grant ledger', async () => {
     stripe.webhooks.constructEvent.mockReturnValue({
       type: 'customer.subscription.updated', id: 'evt_3',
       data: { object: stripeSub('active') },
@@ -229,10 +272,8 @@ describe('billing webhook — B1d-c-1 MONTHLY grant on provision', () => {
 
     await POST(makeReq())
 
-    expect(tx.creditGrant.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'u1', status: 'ACTIVE', type: 'MIGRATED' },
-      data: { status: 'RESET', remaining: 0 },
-    })
+    expect(tx.creditGrant.createMany).not.toHaveBeenCalled()
+    expect(tx.creditGrant.updateMany).not.toHaveBeenCalled()
   })
 
   it('non-active status (past_due) creates no MONTHLY grant and no aiCredits overwrite', async () => {
@@ -418,6 +459,23 @@ describe('billing webhook — one-time credit packs', () => {
     tx.creditGrant.findFirst.mockResolvedValueOnce({
       id: 'grant_monthly', amount: 180, remaining: 180, status: 'ACTIVE',
     })
+    stripe.invoices.retrieve.mockResolvedValueOnce({
+      id: 'in_subscription_refund',
+      subscription: 'sub_1',
+      // Root invoice period deliberately differs from the service line.
+      period_start: SECS_START - 86_400,
+      period_end: SECS_END - 86_400,
+      amount_paid: 9_900,
+      currency: 'usd',
+      lines: {
+        data: [{
+          type: 'subscription',
+          proration: false,
+          subscription: 'sub_1',
+          period: { start: SECS_START, end: SECS_END },
+        }],
+      },
+    })
     stripe.webhooks.constructEvent.mockReturnValue({
       type: 'charge.refunded', id: 'evt_refund_subscription',
       data: { object: {
@@ -599,7 +657,14 @@ describe('billing webhook — B1d-c-2 renewal MONTHLY grant', () => {
   it('supports Stripe invoice.paid as the authoritative renewal event', async () => {
     stripe.webhooks.constructEvent.mockReturnValue({
       type: 'invoice.paid', id: 'evt_invoice_paid',
-      data: { object: { id: 'in_paid', subscription: 'sub_1' } },
+      data: {
+        object: {
+          id: 'in_paid',
+          subscription: 'sub_1',
+          period_start: SECS_START,
+          period_end: SECS_END,
+        },
+      },
     })
 
     const response = await POST(makeReq())
@@ -607,6 +672,42 @@ describe('billing webhook — B1d-c-2 renewal MONTHLY grant', () => {
     expect(response.status).toBe(200)
     expect(tx.subscription.upsert).toHaveBeenCalled()
     expect(tx.creditGrant.createMany).toHaveBeenCalled()
+  })
+
+  it('uses the paid invoice cycle when the subscription has already advanced', async () => {
+    const invoiceStart = SECS_START - 86_400
+    const invoiceEnd = SECS_END - 86_400
+    stripe.webhooks.constructEvent.mockReturnValue({
+      type: 'invoice.paid',
+      id: 'evt_historical_invoice',
+      data: {
+        object: {
+          id: 'in_historical',
+          subscription: 'sub_1',
+          period_start: SECS_START,
+          period_end: SECS_END,
+          lines: {
+            data: [{
+              type: 'subscription',
+              proration: false,
+              subscription: 'sub_1',
+              period: { start: invoiceStart, end: invoiceEnd },
+            }],
+          },
+        },
+      },
+    })
+
+    await POST(makeReq())
+
+    const source = `monthly:sub_1:${new Date(invoiceStart * 1000).toISOString()}`
+    expect(tx.creditGrant.createMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: [expect.objectContaining({
+        source,
+        billingCycleId: source,
+        expiresAt: new Date(invoiceEnd * 1000),
+      })],
+    }))
   })
 
   it('invalid/missing current_period dates → aiCredits still overwritten, grant skipped', async () => {

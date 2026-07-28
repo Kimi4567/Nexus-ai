@@ -65,4 +65,11 @@ describe('visual audit regressions', () => {
     expect(publicForm).toContain('This form is unavailable')
     expect(publicForm).toContain('Back to NEXUS')
   })
+
+  it('keeps the public lead-form honeypot visually hidden without creating page overflow', () => {
+    const publicForm = source('src/app/lead-form/[publicId]/page.tsx')
+
+    expect(publicForm).toContain('<label aria-hidden="true" className="sr-only">Website')
+    expect(publicForm).not.toContain('-start-[9999px]')
+  })
 })

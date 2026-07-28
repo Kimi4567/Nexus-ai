@@ -214,6 +214,57 @@ interface PendingMediaAttachment {
   action: 'attach' | 'replace'
 }
 
+const EMPTY_QUALITY_ISSUES: string[] = []
+
+function contentQualityIssueLabel(reason: string, isArabic: boolean): string {
+  const labels: Record<string, { ar: string; en: string }> = {
+    generic_hook_formula: {
+      ar: 'افتتاحية عامة يمكن أن تناسب أي براند؛ اذكر موقف الجمهور أو مشكلته بوضوح.',
+      en: 'The opening is generic enough for any brand; name the audience situation or problem clearly.',
+    },
+    unverified_feature_or_outcome: {
+      ar: 'النص أو توجيه الوسائط يتضمن ميزة أو نتيجة غير موثقة في Brand Brain؛ راجع كليهما أو أضف إثباتًا محفوظًا.',
+      en: 'The copy or media direction includes a feature or outcome not verified in Brand Brain; review both or add saved evidence.',
+    },
+    unexpected_operational_saas_drift: {
+      ar: 'النص انجرف إلى وصف منتج SaaS أو سير عمل تشغيلي غير موجود في حقائق البراند.',
+      en: 'The copy drifts into a SaaS or operational workflow not present in the saved brand facts.',
+    },
+    missing_strategy_alignment: {
+      ar: 'النص لا يعكس رسالة أو جمهور أو اتجاهًا واضحًا من الاستراتيجية المعتمدة.',
+      en: 'The copy does not clearly reflect the approved strategy message, audience, or direction.',
+    },
+    malformed_caption: {
+      ar: 'صياغة النص غير مكتملة أو غير صالحة للنشر وتحتاج تحريرًا يدويًا.',
+      en: 'The caption is incomplete or malformed and needs a manual edit.',
+    },
+    unsupported_clinic_outcome_claim: {
+      ar: 'يوجد ادعاء بنتيجة صحية أو علاجية غير موثقة.',
+      en: 'The copy contains an unsupported health or treatment outcome claim.',
+    },
+    unsupported_security_claim: {
+      ar: 'يوجد ادعاء أمني غير موثق.',
+      en: 'The copy contains an unsupported security claim.',
+    },
+    unsupported_absolute_claim: {
+      ar: 'يوجد وعد مطلق أو ضمان لا يدعمه إثبات محفوظ.',
+      en: 'The copy contains an absolute promise or guarantee without saved evidence.',
+    },
+    unsupported_fake_product_visual: {
+      ar: 'التوجيه البصري يطلب واجهة أو منتجًا غير موثق وكأنه حقيقي.',
+      en: 'The visual direction presents an unverified interface or product as real.',
+    },
+  }
+  const known = labels[reason]
+  if (known) return isArabic ? known.ar : known.en
+  if (reason.startsWith('unsupported_')) {
+    return isArabic
+      ? 'يوجد ادعاء في النص أو توجيه الوسائط بلا إثبات محفوظ في Brand Brain.'
+      : 'The copy or media direction contains a claim without supporting evidence saved in Brand Brain.'
+  }
+  return reason.split('_').join(' ')
+}
+
 interface Campaign {
   id: string
   name: string
@@ -499,6 +550,7 @@ export default function ContentHubPage() {
   const [mediaPickerOpen, setMediaPickerOpen] = useState<string | null>(null) // postId
   const [pendingMediaAttachment, setPendingMediaAttachment] = useState<PendingMediaAttachment | null>(null)
   const [mediaAttachmentAcknowledged, setMediaAttachmentAcknowledged] = useState(false)
+  const [mediaAttachmentSaving, setMediaAttachmentSaving] = useState(false)
   const [mediaRemovalPostId, setMediaRemovalPostId] = useState<string | null>(null)
   const [mediaRemovalAcknowledged, setMediaRemovalAcknowledged] = useState(false)
   const [editingCaption, setEditingCaption] = useState<string | null>(null)
@@ -1022,14 +1074,14 @@ export default function ContentHubPage() {
       alignmentRisks,
     }
   }, [contentApprovalPreflight.issues, contentReviewPosts])
-  const contentIssueCountByPostId = useMemo(() => {
-    const counts = new Map<string, number>()
+  const contentIssuesByPostId = useMemo(() => {
+    const issuesByPost = new Map<string, string[]>()
     for (const issue of contentApprovalPreflight.issues) {
       const post = contentReviewPosts[issue.index - 1]
       if (!post) continue
-      counts.set(post.id, (counts.get(post.id) ?? 0) + 1)
+      issuesByPost.set(post.id, [...(issuesByPost.get(post.id) ?? []), issue.reason])
     }
-    return counts
+    return issuesByPost
   }, [contentApprovalPreflight.issues, contentReviewPosts])
   const contentReviewRequired = contentReviewPosts.length > 0 && !contentApprovalPreflight.ok
   const approvalBlockedByTruthReview = draftCount > 0 && contentReviewRequired
@@ -1086,7 +1138,7 @@ export default function ContentHubPage() {
     campaign,
     posts,
     contentQualityIssueCount: contentApprovalPreflight.issues.length,
-    contentQualityPostCount: contentIssueCountByPostId.size,
+    contentQualityPostCount: contentIssuesByPostId.size,
   })
   const operatingLabel = isAr ? operatingState.stageLabelAr : operatingState.stageLabel
   const operatingHelper = isAr ? operatingState.stageHelperAr : operatingState.stageHelper
@@ -1108,7 +1160,7 @@ export default function ContentHubPage() {
       : `${totalImagePosts} image slots · ${videoPostCount} video slots`
     if (approvedOnlyCount) {
       if (contentReviewRequired) {
-        const affectedPosts = contentIssueCountByPostId.size
+        const affectedPosts = contentIssuesByPostId.size
         return isAr
           ? `${approvedCount} سجلات اعتماد · ${affectedPosts} منشورات تحتاج إعادة فحص الجودة · ${mediaDemandSummary} · ${readyMediaSummary}`
           : `${approvedCount} approval records · ${affectedPosts} posts need a quality recheck · ${mediaDemandSummary} · ${readyMediaSummary}`
@@ -1577,7 +1629,9 @@ export default function ContentHubPage() {
     }
     return `${count} ${pluralLabels[label] ?? label}`
   }
-  const rewriteCostLabel = isAr ? `${CONTENT_HUB_REWRITE_COST} كريديت` : `${CONTENT_HUB_REWRITE_COST} credit`
+  const rewriteCostLabel = isAr
+    ? `${CONTENT_HUB_REWRITE_COST} كريديت`
+    : `${CONTENT_HUB_REWRITE_COST} credit${CONTENT_HUB_REWRITE_COST === 1 ? '' : 's'}`
 
   const getPendingEdit = (postId: string) => pendingEdits[postId] ?? {}
 
@@ -1738,21 +1792,31 @@ export default function ContentHubPage() {
   }
 
   async function confirmMediaAttachment() {
-    if (!pendingMediaAttachment || !mediaAttachmentAcknowledged) return
+    if (!pendingMediaAttachment || !mediaAttachmentAcknowledged || mediaAttachmentSaving) return
     const { postId, media, action } = pendingMediaAttachment
-    await savePostEdit(postId, media.assetKind === 'GENERATED_VISUAL' && media.generatedVisualId
-      ? {
-          generatedVisualId: media.generatedVisualId,
-          explicitGeneratedMediaAttachConfirmed: true,
-        }
-      : {
-          uploadedMediaId: media.id,
-          ...(action === 'replace'
-            ? { explicitMediaReplaceConfirmed: true }
-            : { explicitMediaAttachConfirmed: true }),
-        })
-    setPendingMediaAttachment(null)
-    setMediaAttachmentAcknowledged(false)
+    setMediaAttachmentSaving(true)
+    setError(null)
+    try {
+      const saved = await savePostEdit(postId, media.assetKind === 'GENERATED_VISUAL' && media.generatedVisualId
+        ? {
+            generatedVisualId: media.generatedVisualId,
+            explicitGeneratedMediaAttachConfirmed: true,
+          }
+        : {
+            uploadedMediaId: media.id,
+            ...(action === 'replace'
+              ? { explicitMediaReplaceConfirmed: true }
+              : { explicitMediaAttachConfirmed: true }),
+          })
+      if (!saved) return
+      setPendingMediaAttachment(null)
+      setMediaAttachmentAcknowledged(false)
+      setSuccessMsg(isAr
+        ? 'تم ربط الأصل بالمنشور وحفظه. ما زال اعتماد الوسائط النهائي خطوة منفصلة قبل الجدولة.'
+        : 'The asset was attached and saved. Final media approval remains a separate step before scheduling.')
+    } finally {
+      setMediaAttachmentSaving(false)
+    }
   }
 
   function requestMediaRemoval(postId: string) {
@@ -1771,6 +1835,7 @@ export default function ContentHubPage() {
   }
 
   function closeMediaAttachmentConfirm() {
+    if (mediaAttachmentSaving) return
     setPendingMediaAttachment(null)
     setMediaAttachmentAcknowledged(false)
   }
@@ -2098,6 +2163,7 @@ export default function ContentHubPage() {
   // ── Approve final media (separate from copy and scheduling) ─────────────────
 
   function openMediaApprovalConfirm() {
+    setError(null)
     setWeakMediaApprovalAcknowledged(false)
     setShowMediaApproveConfirm(true)
   }
@@ -2112,7 +2178,6 @@ export default function ContentHubPage() {
     if (!isAuthenticated || mediaApproving) return
     if (weakMediaApprovalRisks.length > 0 && !weakMediaApprovalAcknowledged) return
     setMediaApproving(true)
-    setShowMediaApproveConfirm(false)
     setError(null)
     const successMessage = (approved: number, responseRecovered = false) => isAr
       ? responseRecovered
@@ -2143,6 +2208,8 @@ export default function ContentHubPage() {
       setSuccessMsg(data.unchanged
         ? (isAr ? 'الوسائط الحالية معتمدة بالفعل. لم تتم الجدولة أو النشر.' : 'The current media is already approved. Nothing was scheduled or published.')
         : successMessage(approved))
+      setShowMediaApproveConfirm(false)
+      setWeakMediaApprovalAcknowledged(false)
       await loadData()
     } catch (err: any) {
       // A network response can be lost after the server commits the immutable
@@ -2153,6 +2220,8 @@ export default function ContentHubPage() {
         && copyApprovedPosts.every(post => Boolean(post.mediaApprovalSnapshotId))
       if (reconciled) {
         setError(null)
+        setShowMediaApproveConfirm(false)
+        setWeakMediaApprovalAcknowledged(false)
         setSuccessMsg(successMessage(copyApprovedPosts.length, true))
       } else {
         setError(err?.message === 'Failed to fetch'
@@ -2358,13 +2427,14 @@ export default function ContentHubPage() {
 
   async function confirmRewrite() {
     if (!rewriteConfirm || !rewriteAcknowledged) return
-    await rewritePost(rewriteConfirm.postId, rewriteConfirm.instruction)
+    const rewritten = await rewritePost(rewriteConfirm.postId, rewriteConfirm.instruction)
+    if (!rewritten) return
     setRewriteConfirm(null)
     setRewriteAcknowledged(false)
   }
 
-  async function rewritePost(postId: string, instruction: string) {
-    if (!isAuthenticated) return
+  async function rewritePost(postId: string, instruction: string): Promise<boolean> {
+    if (!isAuthenticated) return false
     setRewritingPost(postId)
     setError(null)
     try {
@@ -2384,15 +2454,18 @@ export default function ContentHubPage() {
             ? 'الرصيد غير كافٍ لإعادة الصياغة. أضف رصيدًا أو راجع خطتك.'
             : 'Not enough credits to rewrite. Add credits or review your plan.')
         } else if (data.code === 'CONTENT_REVIEW_REQUIRED') {
+          const firstIssue = Array.isArray(data.issues) && typeof data.issues[0]?.reason === 'string'
+            ? ` ${contentQualityIssueLabel(data.issues[0].reason, isAr)}`
+            : ''
           setError(isAr
-            ? 'الصياغة الجديدة لم تجتز مراجعة الجودة، لذلك لم تُحفظ وأُعيدت الكريديت المخصومة. جرّب توجيهًا أكثر تحديدًا أو عدّل النص يدويًا.'
-            : 'The new copy did not pass quality review, so it was not saved and the charged credits were returned. Try a more specific instruction or edit the copy manually.')
+            ? `الصياغة الجديدة لم تجتز مراجعة الجودة، لذلك لم تُحفظ وأُعيدت الكريديت المخصومة. جرّب توجيهًا أكثر تحديدًا أو عدّل النص يدويًا.${firstIssue}`
+            : `The new copy did not pass quality review, so it was not saved and the charged credits were returned. Try a more specific instruction or edit the copy manually.${firstIssue}`)
         } else {
           throw new Error(isAr
             ? 'تعذّرت إعادة الصياغة. لم يُحفظ أي تعديل؛ أعد المحاولة.'
             : (data.error ?? 'Rewrite failed. No change was saved; try again.'))
         }
-        return
+        return false
       }
       // Update caption in state immediately (no re-fetch needed)
       setPosts(prev => prev.map(p => p.id === postId ? { ...p, ...data.post } : p))
@@ -2402,9 +2475,21 @@ export default function ContentHubPage() {
         delete next[postId]
         return next
       })
-      await refreshBillingStatus()
+      await Promise.all([loadData(), refreshBillingStatus()])
+      const remainingQualityIssueCount = Array.isArray(data.remainingQualityIssues)
+        ? data.remainingQualityIssues.length
+        : 0
+      setSuccessMsg(remainingQualityIssueCount > 0
+        ? (isAr
+            ? `تم حفظ الصياغة الجديدة، لكن بقيت ${remainingQualityIssueCount} ملاحظة في المنشور — غالبًا في توجيه الصورة أو الفيديو الذي لا تغيّره إعادة صياغة النص.`
+            : `The rewritten copy was saved, but ${remainingQualityIssueCount} post quality finding${remainingQualityIssueCount === 1 ? '' : 's'} remain—usually in image or video direction, which a copy rewrite does not change.`)
+        : (isAr
+            ? 'تم حفظ الصياغة الجديدة واجتاز المنشور فحص جودة النص وتوجيه الوسائط.'
+            : 'The rewritten copy was saved and the post passed copy and media-direction quality review.'))
+      return true
     } catch (err: any) {
       setError(err.message)
+      return false
     } finally {
       setRewritingPost(null)
     }
@@ -2414,7 +2499,7 @@ export default function ContentHubPage() {
   // Calls /api/visuals/generate → gpt-image-1 or Flux → Cloudinary + brand overlay
 
   function openImageGenerationConfirm(postId: string, referenceMediaId: string | null = null) {
-    if (strategyApprovalRequired || contentIssueCountByPostId.has(postId)) {
+    if (strategyApprovalRequired || contentIssuesByPostId.has(postId)) {
       setError(strategyApprovalRequired
         ? strategyApprovalRequiredLabel
         : (isAr ? 'صحّح نص هذا المنشور قبل دفع تكلفة الصورة.' : 'Fix this post copy before paying for its image.'))
@@ -2469,7 +2554,7 @@ export default function ContentHubPage() {
 
   async function generatePostImage(postId: string, platform: string) {
     if (!isAuthenticated) return
-    if (strategyApprovalRequired || contentIssueCountByPostId.has(postId)) {
+    if (strategyApprovalRequired || contentIssuesByPostId.has(postId)) {
       setError(strategyApprovalRequired
         ? strategyApprovalRequiredLabel
         : (isAr ? 'صحّح نص هذا المنشور قبل دفع تكلفة الصورة.' : 'Fix this post copy before paying for its image.'))
@@ -2619,7 +2704,7 @@ export default function ContentHubPage() {
     const post = posts.find(item => item.id === postId)
     if (!post?.isVideoPost) return
     setError(null)
-    if (strategyApprovalRequired || contentIssueCountByPostId.has(postId)) {
+    if (strategyApprovalRequired || contentIssuesByPostId.has(postId)) {
       setError(strategyApprovalRequired
         ? strategyApprovalRequiredLabel
         : (isAr ? 'صحّح نص هذا الفيديو قبل دفع تكلفة التوليد.' : 'Fix this video post copy before paying for generation.'))
@@ -3489,7 +3574,7 @@ export default function ContentHubPage() {
         {successMsg && (
           <div className="mb-4 p-3 rounded-xl text-sm text-green-700 bg-green-50 border border-green-200 flex items-center justify-between">
             {successMsg}
-            <button onClick={() => setSuccessMsg(null)} className="text-green-600 hover:text-green-400">×</button>
+            <button type="button" aria-label={isAr ? 'إغلاق رسالة النجاح' : 'Dismiss success message'} onClick={() => setSuccessMsg(null)} className="text-green-600 hover:text-green-400">×</button>
           </div>
         )}
         {bulkImageResult && (
@@ -3791,7 +3876,7 @@ export default function ContentHubPage() {
               isRepairingVideo={repairingVideoId === post.id}
               imageGenerationLocked={imageGenerationLocked}
               videoGenerationLocked={videoGenerationLocked}
-              imageGenerationBlockedByTruthReview={strategyApprovalRequired || contentIssueCountByPostId.has(post.id)}
+              imageGenerationBlockedByTruthReview={strategyApprovalRequired || contentIssuesByPostId.has(post.id)}
               imageGenerationTruthReviewLabel={strategyApprovalRequired
                 ? strategyApprovalRequiredLabel
                 : post.isVideoPost
@@ -3816,8 +3901,9 @@ export default function ContentHubPage() {
               }))}
               onRewrite={(instruction) => requestRewrite(post.id, instruction)}
               onPickWinner={post.variantGroup ? () => pickVariant(post.id) : undefined}
-              onManualPublish={contentIssueCountByPostId.has(post.id) ? undefined : () => openManualPublishModal(post)}
-              qualityIssueCount={contentIssueCountByPostId.get(post.id) ?? 0}
+              onManualPublish={contentIssuesByPostId.has(post.id) ? undefined : () => openManualPublishModal(post)}
+              qualityIssues={(contentIssuesByPostId.get(post.id) ?? EMPTY_QUALITY_ISSUES)
+                .map(reason => contentQualityIssueLabel(reason, isAr))}
               onPlatformPublished={() => loadData().then(() => undefined)}
               creativeMatchPanel={creativeMatchPanel}
             />
@@ -4053,6 +4139,11 @@ export default function ContentHubPage() {
                         : 'I reviewed the weak match and choose to approve this media as a manual exception; NEXUS will record the override.'}
                     </span>
                   </label>
+                </div>
+              )}
+              {error && (
+                <div role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800">
+                  {error}
                 </div>
               )}
               <div className="mt-5 flex gap-3">
@@ -4539,6 +4630,12 @@ export default function ContentHubPage() {
                 </p>
               )}
 
+              {error && (
+                <div role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800">
+                  {error}
+                </div>
+              )}
+
               <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm leading-5 text-slate-600">
                 <input
                   type="checkbox"
@@ -4628,6 +4725,8 @@ export default function ContentHubPage() {
                     </div>
                   </div>
                   <button
+                    type="button"
+                    aria-label={isAr ? 'إغلاق ملخص العملية' : 'Close operation summary'}
                     onClick={() => setApproveResult(null)}
                     className="text-slate-400 hover:text-slate-700 text-xl leading-none"
                   >×</button>
@@ -4971,12 +5070,12 @@ export default function ContentHubPage() {
         )}
 
         {pendingMediaAttachment && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.30)', backdropFilter: 'blur(10px)' }} onClick={closeMediaAttachmentConfirm}>
-            <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl" style={{ border: '1px solid rgba(15,23,42,0.10)' }} onClick={e => e.stopPropagation()}>
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.30)', backdropFilter: 'blur(10px)' }} onClick={closeMediaAttachmentConfirm}>
+            <div role="dialog" aria-modal="true" aria-labelledby="media-attachment-title" className="w-full max-w-lg rounded-2xl bg-white shadow-2xl" style={{ border: '1px solid rgba(15,23,42,0.10)' }} onClick={e => e.stopPropagation()}>
               <div className="p-5">
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-base font-bold text-slate-950">
+                    <h3 id="media-attachment-title" className="text-base font-bold text-slate-950">
                       {pendingMediaAttachment.action === 'replace'
                         ? (isAr ? 'استبدال وسائط المنشور؟' : 'Replace post media?')
                         : (isAr ? 'إرفاق وسائط موجودة بهذا المنشور؟' : 'Attach existing media to this post?')}
@@ -4987,7 +5086,7 @@ export default function ContentHubPage() {
                         : pendingMediaAttachment.media.fileName}
                     </p>
                   </div>
-                  <button onClick={closeMediaAttachmentConfirm} className="text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
+                  <button type="button" aria-label={isAr ? 'إغلاق تأكيد ربط الوسائط' : 'Close media attachment confirmation'} onClick={closeMediaAttachmentConfirm} disabled={mediaAttachmentSaving} className="text-xl leading-none text-slate-400 hover:text-slate-700 disabled:opacity-40">×</button>
                 </div>
 
                 <div className="mb-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -5029,6 +5128,7 @@ export default function ContentHubPage() {
                     className="mt-0.5"
                     checked={mediaAttachmentAcknowledged}
                     onChange={e => setMediaAttachmentAcknowledged(e.target.checked)}
+                    disabled={mediaAttachmentSaving}
                   />
                   <span className="text-xs leading-5 text-slate-600">
                     {pendingAttachmentReopensReview
@@ -5040,20 +5140,27 @@ export default function ContentHubPage() {
                           : 'I understand this changes only the post preview media inside Content Hub.')}
                   </span>
                 </label>
+                {error && (
+                  <div role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800">
+                    {error}
+                  </div>
+                )}
 
                 <div className="mt-5 flex gap-3">
-                  <button onClick={closeMediaAttachmentConfirm} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                  <button type="button" onClick={closeMediaAttachmentConfirm} disabled={mediaAttachmentSaving} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40">
                     {isAr ? 'إلغاء' : 'Cancel'}
                   </button>
                   <button
                     onClick={confirmMediaAttachment}
-                    disabled={!mediaAttachmentAcknowledged}
+                    disabled={!mediaAttachmentAcknowledged || mediaAttachmentSaving}
                     className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                     style={{ background: '#111827' }}
                   >
-                    {pendingMediaAttachment.action === 'replace'
-                      ? (isAr ? 'استبدال الوسائط' : 'Replace media')
-                      : (isAr ? 'إرفاق الوسائط بالمنشور' : 'Attach media to post')}
+                    {mediaAttachmentSaving
+                      ? (isAr ? 'جارٍ حفظ الارتباط...' : 'Saving attachment...')
+                      : pendingMediaAttachment.action === 'replace'
+                        ? (isAr ? 'استبدال الوسائط' : 'Replace media')
+                        : (isAr ? 'إرفاق الوسائط بالمنشور' : 'Attach media to post')}
                   </button>
                 </div>
               </div>
@@ -5074,7 +5181,7 @@ export default function ContentHubPage() {
                       {isAr ? `المنشور #${mediaRemovalPost.contentPlanIndex}` : `Post #${mediaRemovalPost.contentPlanIndex}`}
                     </p>
                   </div>
-                  <button onClick={closeMediaRemovalConfirm} className="text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
+                  <button type="button" aria-label={isAr ? 'إغلاق تأكيد إزالة الوسائط' : 'Close media removal confirmation'} onClick={closeMediaRemovalConfirm} className="text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
                 </div>
 
                 <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
@@ -5632,7 +5739,7 @@ export default function ContentHubPage() {
                     <h3 className="text-base font-bold text-slate-950">{generatePlanConfirmTitle}</h3>
                     <p className="mt-1 text-sm text-slate-500">{generatePlanConfirmBody}</p>
                   </div>
-                  <button onClick={closeGeneratePlanConfirm} disabled={generatingPlan} className="text-xl leading-none text-slate-400 hover:text-slate-700 disabled:opacity-40">×</button>
+                  <button type="button" aria-label={isAr ? 'إغلاق تأكيد إنشاء الخطة' : 'Close plan generation confirmation'} onClick={closeGeneratePlanConfirm} disabled={generatingPlan} className="text-xl leading-none text-slate-400 hover:text-slate-700 disabled:opacity-40">×</button>
                 </div>
                 <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
                   <p className="font-bold text-slate-800">{contentPlanCostBreakdown}</p>
@@ -5684,7 +5791,7 @@ export default function ContentHubPage() {
                       {imageDailyCapacityLabel}
                     </p>
                   </div>
-                  <button onClick={closeBulkImageConfirm} className="text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
+                  <button type="button" aria-label={isAr ? 'إغلاق تأكيد توليد الصور' : 'Close bulk image confirmation'} onClick={closeBulkImageConfirm} className="text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
                 </div>
                 <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
                   <p>{isAr ? 'سيولّد NEXUS وسائط مرتبطة بالمنشورات الحالية للمراجعة داخل Content Hub.' : 'NEXUS will generate post-linked media for the current posts for review inside Content Hub.'}</p>
@@ -5730,7 +5837,7 @@ export default function ContentHubPage() {
                     <h3 className="text-base font-bold text-slate-950">{isAr ? 'تأكيد إعادة توليد خطة محتوى مسودة' : 'Confirm draft content plan regeneration'}</h3>
                     <p className="mt-1 text-sm text-slate-500">{isAr ? `التكلفة: ${CONTENT_HUB_REGENERATION_COST} كريديت.` : `Cost: ${CONTENT_HUB_REGENERATION_COST} credits.`}</p>
                   </div>
-                  <button onClick={closeRegenerateConfirm} className="text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
+                  <button type="button" aria-label={isAr ? 'إغلاق تأكيد إعادة التوليد' : 'Close regeneration confirmation'} onClick={closeRegenerateConfirm} className="text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
                 </div>
                 <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
                   <p>{contentPlanDisclosure} {contentPlanAutopilotDisclosure}</p>
@@ -5775,7 +5882,7 @@ export default function ContentHubPage() {
                     <h3 className="text-base font-bold text-slate-950">{isAr ? 'تأكيد إعادة صياغة المنشور' : 'Confirm post rewrite'}</h3>
                     <p className="mt-1 text-sm text-slate-500">{isAr ? `التكلفة: ${rewriteCostLabel}.` : `Cost: ${rewriteCostLabel}.`}</p>
                   </div>
-                  <button onClick={closeRewriteConfirm} className="text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
+                  <button type="button" aria-label={isAr ? 'إغلاق تأكيد إعادة الصياغة' : 'Close rewrite confirmation'} onClick={closeRewriteConfirm} className="text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
                 </div>
                 <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
                   <p>{isAr ? 'يعيد NEXUS صياغة نص هذا المنشور فقط للمراجعة.' : 'NEXUS rewrites this post copy only, for review.'}</p>
@@ -5798,6 +5905,11 @@ export default function ContentHubPage() {
                       : `I understand this costs ${rewriteCostLabel} and rewrites this post copy for review.`}
                   </span>
                 </label>
+                {error && (
+                  <div role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800">
+                    {error}
+                  </div>
+                )}
                 <div className="mt-4 flex justify-end gap-2">
                   <button onClick={closeRewriteConfirm} disabled={Boolean(rewritingPost)} className="rounded-xl px-4 py-2 text-sm text-slate-500 hover:text-slate-950">{t('contentHub.cancel')}</button>
                   <button
@@ -5824,7 +5936,7 @@ export default function ContentHubPage() {
               <div className="p-5">
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="text-base font-bold text-slate-950">📤 {t('contentHub.manualTitle')}</h3>
-                  <button onClick={closeManualPublishModal} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+                  <button type="button" aria-label={isAr ? 'إغلاق قائمة النشر اليدوي' : 'Close manual publishing checklist'} onClick={closeManualPublishModal} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
                 </div>
                 <p className="text-xs text-slate-500 mb-4">{t('contentHub.manualIntro')}</p>
 
@@ -5930,7 +6042,7 @@ interface PostCardProps {
   onRewrite: (instruction: string) => Promise<void>
   onPickWinner?: () => void
   onManualPublish?: () => void
-  qualityIssueCount: number
+  qualityIssues: string[]
   onPlatformPublished: () => void | Promise<void>
   creativeMatchPanel?: ReactNode
 }
@@ -5969,7 +6081,7 @@ function PostCard({
   onRewrite,
   onPickWinner,
   onManualPublish,
-  qualityIssueCount,
+  qualityIssues,
   onPlatformPublished,
   creativeMatchPanel,
 }: PostCardProps) {
@@ -5977,6 +6089,7 @@ function PostCard({
   const isAr = locale === 'ar'
   const [showRewriteInput, setShowRewriteInput] = useState(false)
   const [rewriteInstruction, setRewriteInstruction] = useState('')
+  const qualityIssueCount = qualityIssues.length
 
   const platform = post.platform.toUpperCase()
   const caption = pendingEdit.caption ?? post.caption
@@ -6260,6 +6373,9 @@ function PostCard({
           <p>{isAr
             ? `رصد NEXUS ${qualityIssueCount} ملاحظة جودة. عدّل النص أو أعد صياغته؛ لن يظهر مسار النشر حتى ينجح الفحص.`
             : `NEXUS found ${qualityIssueCount} quality finding${qualityIssueCount === 1 ? '' : 's'}. Edit or rewrite the copy; publishing stays hidden until the review passes.`}</p>
+          <ul className="mt-2 list-disc space-y-1 ps-4">
+            {qualityIssues.slice(0, 3).map(issue => <li key={issue}>{issue}</li>)}
+          </ul>
         </div>
       )}
 
@@ -6335,8 +6451,12 @@ function PostCard({
           <div className="flex justify-end gap-2 mt-2">
             <button onClick={onEditCaption} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-950 transition-colors">{t('contentHub.cancel')}</button>
             <button
-              onClick={() => { onSaveEdit({ caption }); onEditCaption() }}
-              className="text-xs px-3 py-1.5 rounded-lg font-semibold text-white transition-all"
+              onClick={async () => {
+                const saved = await onSaveEdit({ caption })
+                if (saved) onEditCaption()
+              }}
+              disabled={!caption.trim()}
+              className="text-xs px-3 py-1.5 rounded-lg font-semibold text-white transition-all disabled:cursor-not-allowed disabled:opacity-40"
               style={{ background: '#111827' }}
             >{t('contentHub.save')}</button>
           </div>

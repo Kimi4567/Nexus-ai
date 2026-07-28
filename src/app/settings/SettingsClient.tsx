@@ -422,6 +422,7 @@ export default function SettingsPage() {
                 <input
                   value={displayName}
                   onChange={(event) => setDisplayName(event.target.value)}
+                  aria-label={copyText('اسم العرض', 'Display name')}
                   className="h-11 w-full rounded-[14px] border border-[#e3e8f3] bg-[#fbfcff] px-4 text-sm font-semibold outline-none transition focus:border-[#5366f6]"
                   placeholder={copyText('اسم العرض', 'Display name')}
                 />
@@ -492,6 +493,7 @@ export default function SettingsPage() {
                           type={showPassword ? 'text' : 'password'}
                           value={newPassword}
                           onChange={(event) => setNewPassword(event.target.value)}
+                          aria-label={copyText('كلمة مرور جديدة', 'New password')}
                           className="h-10 w-full rounded-[13px] border border-[#e3e8f3] bg-[#fbfcff] px-3 text-sm outline-none focus:border-[#5366f6]"
                           placeholder={copyText('كلمة مرور جديدة', 'New password')}
                         />
@@ -508,6 +510,7 @@ export default function SettingsPage() {
                         type={showPassword ? 'text' : 'password'}
                         value={confirmPassword}
                         onChange={(event) => setConfirmPassword(event.target.value)}
+                        aria-label={copyText('تأكيد كلمة المرور', 'Confirm password')}
                         className="h-10 w-full rounded-[13px] border border-[#e3e8f3] bg-[#fbfcff] px-3 text-sm outline-none focus:border-[#5366f6]"
                         placeholder={copyText('تأكيد كلمة المرور', 'Confirm password')}
                       />

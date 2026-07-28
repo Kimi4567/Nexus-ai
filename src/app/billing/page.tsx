@@ -392,7 +392,12 @@ export default function BillingPage() {
       window.location.href = `/auth/register?plan=${encodeURIComponent(planId)}`
       return
     }
-    if (billingStatus?.billingEnabled !== true || billingStatus.billingMode !== 'live') {
+    const sandboxPreview = billingStatus?.billingMode === 'sandbox'
+      && process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview'
+    if (
+      billingStatus?.billingEnabled !== true
+      || (billingStatus.billingMode !== 'live' && !sandboxPreview)
+    ) {
       setBillingMessage(ar
         ? 'الدفع التجاري غير مفعّل بعد. يمكنك استخدام الأرصدة الحالية، ولن نفتح Checkout قبل اكتمال إعداد Stripe الحقيقي.'
         : 'Commercial billing is not active yet. You can use your current credits; checkout will stay locked until live Stripe setup is complete.'
@@ -471,7 +476,11 @@ export default function BillingPage() {
   const currentPlan = rawCurrentPlan === 'starter' ? 'pro' : rawCurrentPlan === 'agency' ? 'business' : rawCurrentPlan
   const isAuthenticated = Boolean(session?.access_token)
   const billingEnabled = billingStatus?.billingEnabled === true
-  const commercialCheckoutEnabled = billingEnabled && billingStatus?.billingMode === 'live'
+  const sandboxCheckoutEnabled = billingEnabled
+    && billingStatus?.billingMode === 'sandbox'
+    && process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview'
+  const commercialCheckoutEnabled = billingEnabled
+    && (billingStatus?.billingMode === 'live' || sandboxCheckoutEnabled)
   const currentCredits = billingStatus?.credits?.remaining ?? 0
   const monthlyCredits = billingStatus?.credits?.max ?? 20
   const creditPurchaseQuote = quoteCreditPurchase(creditQuantity)
@@ -581,6 +590,24 @@ export default function BillingPage() {
         />
 
         {/* ── Current plan status ─────────────────────────────────────────── */}
+        {!loading && sandboxCheckoutEnabled && (
+          <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4" role="status">
+            <div className="flex items-start gap-3">
+              <Shield className="w-5 h-5 text-sky-700 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-sky-900">
+                  {ar ? 'وضع اختبار Stripe مفعّل' : 'Stripe test mode enabled'}
+                </p>
+                <p className="text-sm text-sky-800 mt-1">
+                  {ar
+                    ? 'هذه نسخة Preview معزولة. استخدم بيانات Stripe التجريبية فقط؛ لن تُجرى أي دفعة حقيقية.'
+                    : 'This is an isolated Preview. Use Stripe test details only; no real payment can be charged.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {!loading && !commercialCheckoutEnabled && (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <div className="flex items-start gap-3">
@@ -611,7 +638,7 @@ export default function BillingPage() {
 
         {!loading && billingStatus && (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">
                   {ar ? 'خطتك الحالية' : 'Current plan'}
@@ -633,10 +660,10 @@ export default function BillingPage() {
                 )}
               </div>
 
-              <div className="flex-1 max-w-xs">
+              <div className="w-full max-w-lg lg:max-w-xs lg:flex-1">
                 <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
                   <span>{ar ? 'الأرصدة المتبقية' : 'Credits remaining'}</span>
-                  <span className="font-mono text-slate-700">{creditPrimary}</span>
+                  <span className="max-w-[14rem] text-end font-mono text-slate-700">{creditPrimary}</span>
                 </div>
                 <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                   <div
@@ -667,7 +694,7 @@ export default function BillingPage() {
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {billingDisplay.showManageSubscription && (
                   <button
                     onClick={handlePortal}
@@ -796,6 +823,8 @@ export default function BillingPage() {
                         ? (ar ? 'جارٍ التحقق من حالة الدفع...' : 'Checking billing status...')
                         : isAuthenticated && !commercialCheckoutEnabled
                         ? (ar ? 'الدفع التجاري غير متاح بعد' : 'Commercial checkout not available yet')
+                        : sandboxCheckoutEnabled
+                        ? (ar ? `اختبر ${plan.nameAr} — $${plan.price}/شهر` : `Test ${plan.nameEn} checkout — $${plan.price}/mo`)
                         : (ar ? `ابدأ ${plan.nameAr} — $${plan.price}/شهر` : `Start ${plan.nameEn} — $${plan.price}/mo`)
                       }
                     </button>
@@ -1020,6 +1049,10 @@ export default function BillingPage() {
             ? (ar
                 ? 'جارٍ التحقق من حالة Stripe والمحفظة...'
                 : 'Checking Stripe and wallet status...')
+            : sandboxCheckoutEnabled
+            ? (ar
+                ? 'وضع اختبار Stripe · لا توجد مدفوعات حقيقية · بيانات الاختبار فقط'
+                : 'Stripe test mode · No real payments · Test details only')
             : commercialCheckoutEnabled
             ? (ar
                 ? 'المدفوعات معالجة بأمان عبر Stripe · يمكن الإلغاء في أي وقت · لا رسوم خفية'

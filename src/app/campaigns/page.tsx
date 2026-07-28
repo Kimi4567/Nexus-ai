@@ -540,12 +540,14 @@ export default function CampaignsPage() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder={cT?.searchPlaceholder || copy('ابحث باسم الحملة أو الهدف', 'Search by campaign or goal')}
+                aria-label={copy('البحث في الحملات', 'Search campaigns')}
                 className="h-10 w-full rounded-[12px] border border-[#e3e8f3] bg-[#fbfcff] px-11 text-sm font-semibold text-[#111b3f] outline-none transition focus:border-[#b8c2ff]"
               />
             </div>
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
+              aria-label={copy('تصفية الحملات حسب الحالة', 'Filter campaigns by status')}
               className="h-10 rounded-[13px] border border-[#e3e8f3] bg-white px-4 text-sm font-semibold text-[#53617f] outline-none"
             >
               <option value="">{cT?.filterAll || copy('كل الحالات', 'All statuses')}</option>
@@ -556,6 +558,7 @@ export default function CampaignsPage() {
             <select
               value={sortBy}
               onChange={(event) => setSortBy(event.target.value as 'createdAt' | 'updatedAt' | 'name')}
+              aria-label={copy('ترتيب الحملات', 'Sort campaigns')}
               className="h-10 rounded-[13px] border border-[#e3e8f3] bg-white px-4 text-sm font-semibold text-[#53617f] outline-none"
             >
               <option value="updatedAt">{cT?.sortNewest || copy('آخر تحديث', 'Recently updated')}</option>

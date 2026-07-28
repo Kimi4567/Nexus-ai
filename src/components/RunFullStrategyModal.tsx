@@ -1036,9 +1036,9 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
               </div>
               {strategyDuration === 'custom' && (
                 <label className="mt-3 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold text-slate-600">
-                  <input type="number" min={1} max={365} value={customDurationDays}
+                  <input type="number" min={1} max={180} value={customDurationDays}
                     aria-label={locale === 'ar' ? 'مدة الاستراتيجية بالأيام' : 'Strategy duration in days'}
-                    onChange={(event) => setCustomDurationDays(Math.max(1, Math.floor(Number(event.target.value) || 1)))}
+                    onChange={(event) => setCustomDurationDays(Math.min(180, Math.max(1, Math.floor(Number(event.target.value) || 1))))}
                     className="w-24 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm text-slate-950 outline-none focus:border-indigo-500"
                     dir="ltr" />
                   {locale === 'ar' ? 'حتى 180 يوم؛ المدة الأطول تحتاج عرض سعر مخصص.' : 'Up to 180 days; longer horizons require a custom quote.'}

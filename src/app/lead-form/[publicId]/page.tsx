@@ -139,7 +139,7 @@ export default function PublicLeadFormPage() {
                   <input value={form.jobTitle} onChange={event => setForm(current => ({ ...current, jobTitle: event.target.value }))} className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 font-medium outline-none focus:border-indigo-400" maxLength={140} autoComplete="organization-title" />
                 </label>
               </div>
-              <label aria-hidden="true" className="absolute -start-[9999px] h-px w-px overflow-hidden">Website
+              <label aria-hidden="true" className="sr-only">Website
                 <input tabIndex={-1} autoComplete="off" value={form.website} onChange={event => setForm(current => ({ ...current, website: event.target.value }))} />
               </label>
               {config.consentStatement ? (

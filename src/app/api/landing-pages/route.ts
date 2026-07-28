@@ -108,50 +108,77 @@ export async function POST(req: NextRequest) {
     }),
     parsed.value.captureFormId ? prisma.leadCaptureForm.findFirst({
       where: { id: parsed.value.captureFormId, workspaceId: workspace.id },
-      select: { id: true, campaignId: true },
+      select: { id: true, campaignId: true, status: true },
     }) : Promise.resolve(null),
   ])
   if (!campaign) return NextResponse.json({ error: 'Campaign not found in this workspace.' }, { status: 400 })
   if (parsed.value.captureFormId && !captureForm) {
     return NextResponse.json({ error: 'Capture form not found in this workspace.' }, { status: 400 })
   }
-  if (captureForm && captureForm.campaignId !== parsed.value.campaignId) {
+  if (captureForm && captureForm.campaignId && captureForm.campaignId !== parsed.value.campaignId) {
     return NextResponse.json({ error: 'Capture form must belong to the same campaign as the landing page.' }, { status: 400 })
   }
+  if (captureForm && captureForm.campaignId === null && captureForm.status !== 'ACTIVE') {
+    return NextResponse.json({ error: 'Only an active unassigned capture form can be linked to a campaign.' }, { status: 400 })
+  }
 
-  const page = await prisma.$transaction(async tx => {
-    const created = await tx.landingPage.create({
-      data: {
-        workspaceId: workspace.id,
-        campaignId: parsed.value.campaignId,
-        captureFormId: parsed.value.captureFormId,
-        createdById: userId,
-        name: parsed.value.name,
-        locale: parsed.value.locale,
-        headline: parsed.value.headline,
-        subheadline: parsed.value.subheadline,
-        body: parsed.value.body,
-        benefits: parsed.value.benefits as Prisma.InputJsonValue,
-        proof: parsed.value.proof,
-        primaryCtaLabel: parsed.value.primaryCtaLabel,
-        primaryCtaUrl: parsed.value.primaryCtaUrl,
-        theme: parsed.value.theme as Prisma.InputJsonValue,
-        seoTitle: parsed.value.seoTitle,
-        seoDescription: parsed.value.seoDescription,
-        seoIndexable: parsed.value.seoIndexable,
-      },
+  let page
+  try {
+    page = await prisma.$transaction(async tx => {
+      if (captureForm?.campaignId === null) {
+        const linked = await tx.leadCaptureForm.updateMany({
+          where: {
+            id: captureForm.id,
+            workspaceId: workspace.id,
+            campaignId: null,
+            status: 'ACTIVE',
+          },
+          data: { campaignId: parsed.value.campaignId },
+        })
+        if (linked.count !== 1) throw new Error('CAPTURE_FORM_CAMPAIGN_CHANGED')
+      }
+      const created = await tx.landingPage.create({
+        data: {
+          workspaceId: workspace.id,
+          campaignId: parsed.value.campaignId,
+          captureFormId: parsed.value.captureFormId,
+          createdById: userId,
+          name: parsed.value.name,
+          locale: parsed.value.locale,
+          headline: parsed.value.headline,
+          subheadline: parsed.value.subheadline,
+          body: parsed.value.body,
+          benefits: parsed.value.benefits as Prisma.InputJsonValue,
+          proof: parsed.value.proof,
+          primaryCtaLabel: parsed.value.primaryCtaLabel,
+          primaryCtaUrl: parsed.value.primaryCtaUrl,
+          theme: parsed.value.theme as Prisma.InputJsonValue,
+          seoTitle: parsed.value.seoTitle,
+          seoDescription: parsed.value.seoDescription,
+          seoIndexable: parsed.value.seoIndexable,
+        },
+      })
+      await tx.landingPageRevision.create({
+        data: {
+          landingPageId: created.id,
+          version: 1,
+          snapshot: parsed.value as unknown as Prisma.InputJsonValue,
+          changeNote: 'Initial draft',
+          createdById: userId,
+        },
+      })
+      return created
     })
-    await tx.landingPageRevision.create({
-      data: {
-        landingPageId: created.id,
-        version: 1,
-        snapshot: parsed.value as unknown as Prisma.InputJsonValue,
-        changeNote: 'Initial draft',
-        createdById: userId,
-      },
-    })
-    return created
-  })
+  } catch (error) {
+    if (error instanceof Error && error.message === 'CAPTURE_FORM_CAMPAIGN_CHANGED') {
+      return NextResponse.json({
+        error: 'The capture form was linked elsewhere while you were editing. Refresh and choose again.',
+        code: error.message,
+      }, { status: 409 })
+    }
+    console.error('[Landing page create]', error)
+    return NextResponse.json({ error: 'Landing page could not be created.' }, { status: 500 })
+  }
 
   return NextResponse.json({
     page: { ...page, publicPath: publicPagePath(page.publicId), hasUnpublishedChanges: false },

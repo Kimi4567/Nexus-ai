@@ -315,6 +315,7 @@ export default function AnalyticsPage() {
   const [firstPartyCampaignId, setFirstPartyCampaignId] = useState('')
   const [exportLoading, setExportLoading] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
+  const [exportSuccess, setExportSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
@@ -371,6 +372,7 @@ export default function AnalyticsPage() {
     if (!isAuthenticated) return
     setExportLoading(true)
     setExportError(null)
+    setExportSuccess(null)
     try {
       const query = firstPartyCampaignId ? `?campaignId=${encodeURIComponent(firstPartyCampaignId)}` : ''
       const response = await fetchWithTimeout(
@@ -380,16 +382,22 @@ export default function AnalyticsPage() {
       )
       if (!response.ok) throw new Error(ar ? 'تعذّر إنشاء تقرير القياس.' : 'Could not create the measurement report.')
       const blob = await response.blob()
+      if (blob.size === 0) throw new Error(ar ? 'تم إنشاء ملف فارغ؛ لم يبدأ التنزيل.' : 'The generated report was empty; no download was started.')
       const disposition = response.headers.get('content-disposition') || ''
       const filename = disposition.match(/filename="([^"]+)"/)?.[1] || 'nexus-first-party.csv'
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
       link.download = filename
+      link.style.display = 'none'
       document.body.appendChild(link)
       link.click()
       link.remove()
-      URL.revokeObjectURL(url)
+      // Safari and instrumented browsers may consume the object URL after the
+      // synchronous click stack. Keep it alive briefly so a valid export is not
+      // cancelled before the browser opens its download stream.
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000)
+      setExportSuccess(ar ? `بدأ تنزيل ${filename}.` : `Downloading ${filename}.`)
     } catch (error) {
       setExportError(error instanceof Error ? error.message : (ar ? 'تعذّر تصدير التقرير.' : 'Could not export the report.'))
     } finally {
@@ -532,7 +540,7 @@ export default function AnalyticsPage() {
               </span>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-[23px] font-black text-[#071236]">{ar ? 'قياس حقيقي قبل التعلّم' : 'Real measurement before learning'}</h1>
+                  <h2 className="text-[23px] font-black text-[#071236]">{ar ? 'قياس حقيقي قبل التعلّم' : 'Real measurement before learning'}</h2>
                   <span className="rounded-full bg-[#eefaf3] px-2.5 py-1 text-[10px] font-black text-emerald-700">
                     {ar ? 'بيانات NEXUS متاحة' : 'NEXUS data available'}
                   </span>
@@ -609,6 +617,7 @@ export default function AnalyticsPage() {
             </div>
 
             {exportError ? <div role="alert" className="mt-4 rounded-[14px] border border-rose-100 bg-rose-50 px-4 py-3 text-[10px] font-bold text-rose-700">{exportError}</div> : null}
+            {exportSuccess ? <div role="status" className="mt-4 rounded-[14px] border border-emerald-100 bg-emerald-50 px-4 py-3 text-[10px] font-bold text-emerald-700">{exportSuccess}</div> : null}
 
             {dataLoading ? (
               <div className="mt-5 grid gap-3 md:grid-cols-4 xl:grid-cols-8">{[1,2,3,4,5,6,7,8].map(item => <div key={item} className="h-24 animate-pulse rounded-[16px] bg-slate-100" />)}</div>

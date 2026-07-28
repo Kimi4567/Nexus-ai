@@ -71,6 +71,7 @@ export interface StrategyQualityFailureDiagnostics {
   mode: BusinessBrief['strategyType']
   issueCodes: string[]
   affectedPaths: string[]
+  issueDetails?: string[]
   outputCounts: {
     contentDirections: number
     weeklyDeliverables: number
@@ -308,6 +309,12 @@ export function finalizeStrategyQuality(
         ...contractReport.languageViolations,
         ...contractReport.countViolations,
       ],
+      issueDetails: [
+        ...contractReport.missingFields.map(path => `${path}: required field is missing`),
+        ...contractReport.weakFields.map(path => `${path}: field did not meet the strategy contract`),
+        ...contractReport.languageViolations.map(path => `${path}: output language did not match the reviewed order`),
+        ...contractReport.countViolations.map(path => `${path}: output count did not match the reviewed order`),
+      ],
       outputCounts: strategyOutputCounts(strategy),
       contractReport,
     })
@@ -328,6 +335,7 @@ export function finalizeStrategyQuality(
         mode: brief.strategyType,
         issueCodes: qualityGate.blockers.map(item => item.code),
         affectedPaths: qualityGate.blockers.map(item => item.path),
+        issueDetails: qualityGate.blockers.map(item => `${item.path}: ${item.message}`),
         outputCounts: strategyOutputCounts(strategy),
         qualityGate,
       },

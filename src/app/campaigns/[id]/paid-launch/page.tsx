@@ -160,6 +160,7 @@ function CopyButton({ text, isArabic }: { text: string; isArabic: boolean }) {
   return (
     <button
       type="button"
+      aria-label={`${isArabic ? 'نسخ' : 'Copy'}: ${text.replace(/\s+/g, ' ').trim().slice(0, 80)}`}
       onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
       style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(15,23,42,0.1)', background: copied ? 'rgba(34,197,94,0.1)' : '#f8fafc', color: copied ? '#16a34a' : '#64748b', fontSize: 11, cursor: 'pointer' }}
     >

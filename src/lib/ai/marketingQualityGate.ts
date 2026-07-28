@@ -664,13 +664,18 @@ export function reviewStrategyGrounding(input: StrategyQualityInput): MarketingQ
     if (title) seenDirectionTitles.add(title)
     if (hook) seenDirectionHooks.add(hook)
   })
-  if (!hasUsableConversionDestination(input.brand?.conversionDestination, input.goal) && UNVERIFIED_DIRECT_RESPONSE_RE.test(strategyPublicText)) {
-    blockers.push(finding(
-      'conversion_cta_without_destination',
-      'blocker',
-      'strategy.cta',
-      'The strategy uses a direct-response CTA without a verified store, booking, contact, or conversion destination.',
-    ))
+  if (!hasUsableConversionDestination(input.brand?.conversionDestination, input.goal)) {
+    publicFields.forEach(({ path, value }) => {
+      const text = normalizedText(value)
+      const match = text.match(UNVERIFIED_DIRECT_RESPONSE_RE)
+      if (!match) return
+      blockers.push(finding(
+        'conversion_cta_without_destination',
+        'blocker',
+        path,
+        `The strategy uses the direct-response action "${match[0]}" without a verified store, booking, contact, or conversion destination.`,
+      ))
+    })
   }
   const reportedContextClaims = new Set<string>()
   const reportedAudienceClaims = new Set<string>()

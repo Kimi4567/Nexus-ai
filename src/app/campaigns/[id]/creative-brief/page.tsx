@@ -136,6 +136,8 @@ function CopyButton({ text }: { text: string }) {
   const isArabic = locale === 'ar'
   return (
     <button
+      type="button"
+      aria-label={`${isArabic ? 'نسخ' : 'Copy'}: ${text.replace(/\s+/g, ' ').trim().slice(0, 80)}`}
       onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
       style={btnStyle(copied)}
     >

@@ -282,10 +282,10 @@ export default function PublishPage() {
                 <Send size={14} />
                 {copy('جاهزية نشر فقط', 'Publishing readiness only')}
               </div>
-              <h1 className="flex items-center gap-3 text-[22px] font-black text-[#071236]">
+              <h2 className="flex items-center gap-3 text-[22px] font-black text-[#071236]">
                 {copy('مركز النشر', 'Publishing Center')}
                 <Sparkles className="text-[#5366f6]" size={24} />
-              </h1>
+              </h2>
               <p className="mt-1 max-w-3xl text-[12px] font-semibold leading-6 text-[#64708f]">
                 {copy(
                   'تحكم مركزي في جاهزية الحسابات، الموافقات، الجدولة، وحدود النشر. لا يبدأ NEXUS أي نشر تلقائي أو API publish بدون حساب متصل وتأكيد صريح.',

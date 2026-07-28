@@ -966,7 +966,7 @@ export default function StrategyPage() {
                       {campaignSubtitle}
                     </span>
                   </div>
-                  <h1 className="mt-3 text-2xl font-black tracking-tight text-[#0B1028]">{campaignTitle}</h1>
+                  <h2 className="mt-3 text-2xl font-black tracking-tight text-[#0B1028]">{campaignTitle}</h2>
                   <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">{campaignGoal}</p>
                   <div className="mt-4 flex flex-wrap gap-4 text-xs font-bold text-slate-500">
                     <span>{ar ? 'Brand Brain' : 'Brand Brain'}: {brandName || (ar ? 'غير مسمى' : 'Unnamed')}</span>

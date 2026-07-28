@@ -55,14 +55,61 @@ function unixDate(value: unknown): Date | null {
     : null
 }
 
+function subscriptionPeriodDate(
+  subscription: Stripe.Subscription,
+  field: 'current_period_start' | 'current_period_end',
+): Date | null {
+  const rootValue = (subscription as unknown as Record<string, unknown>)[field]
+  const firstItem = subscription.items?.data?.[0] as unknown as Record<string, unknown> | undefined
+  return unixDate(rootValue) ?? unixDate(firstItem?.[field])
+}
+
+function subscriptionPeriodStart(subscription: Stripe.Subscription): Date | null {
+  return subscriptionPeriodDate(subscription, 'current_period_start')
+}
+
+function subscriptionPeriodEnd(subscription: Stripe.Subscription): Date | null {
+  return subscriptionPeriodDate(subscription, 'current_period_end')
+}
+
 function subscriptionCancellationAt(subscription: Stripe.Subscription): Date | null {
   const cancelAt = unixDate(subscription.cancel_at)
   if (subscription.cancel_at_period_end) {
-    return cancelAt ?? unixDate(subscription.current_period_end)
+    return cancelAt ?? subscriptionPeriodEnd(subscription)
   }
   return subscription.status === 'canceled'
     ? unixDate(subscription.canceled_at) ?? cancelAt ?? new Date()
     : null
+}
+
+function stripeObjectId(value: unknown): string | null {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object' && 'id' in value && typeof value.id === 'string') {
+    return value.id
+  }
+  return null
+}
+
+/**
+ * A subscription invoice's root period is the invoice-item collection window,
+ * not necessarily the service cycle being paid. The non-proration subscription
+ * line owns the cycle that must key the monthly credit grant and any refund.
+ */
+function invoiceSubscriptionPeriod(
+  invoice: Stripe.Invoice,
+  subscriptionId: string,
+): { start: Date | null; end: Date | null } {
+  const lines = invoice.lines?.data ?? []
+  const matchingLines = lines.filter((line) => (
+    stripeObjectId(line.subscription) === subscriptionId
+  ))
+  const line = matchingLines.find((item) => item.type === 'subscription' && !item.proration)
+    ?? matchingLines.find((item) => !item.proration)
+    ?? matchingLines[0]
+  return {
+    start: unixDate(line?.period?.start) ?? unixDate(invoice.period_start),
+    end: unixDate(line?.period?.end) ?? unixDate(invoice.period_end),
+  }
 }
 
 async function resolveBillingUserId(subscription: Stripe.Subscription): Promise<string | null> {
@@ -176,6 +223,7 @@ async function provisionSubscription(
   priceAmount: number | null,
   customerId: string,
   cancelledAt: Date | null,
+  grantPaidAllowance: boolean,
 ) {
   const credits = creditsForPlan(plan)
 
@@ -193,10 +241,10 @@ async function provisionSubscription(
   const monthlyExports  = (p === 'agency' || p === 'business') ? 999999 : p === 'pro' ? 100 : 20
   const maxTeamMembers  = (p === 'agency' || p === 'business') ? 20     : p === 'pro' ? 5   : 1
 
-  // Interactive transaction (B1d-c-1): the subscription upsert + the EXACT same
-  // aiCredits overwrite as before, PLUS a parallel MONTHLY CreditGrant for the
-  // billing cycle when the subscription is ACTIVE. The aiCredits behavior and the
-  // ACTIVE-only condition are unchanged.
+  // Interactive transaction (B1d-c-1): every subscription event synchronizes
+  // entitlement state, but only verified paid Checkout/invoice events may grant
+  // the cycle allowance. A metadata or cancellation-schedule update must never
+  // resurrect credits revoked by a refund.
   await (prisma as any).$transaction(async (tx: any) => {
     const walletEnabled = isCreditWalletEnabled()
     await tx.subscription.upsert({
@@ -236,7 +284,7 @@ async function provisionSubscription(
         subscriptionStatus: statusEnum as 'ACTIVE' | 'PAST_DUE' | 'CANCELLED' | 'EXPIRED' | 'FREE',
         stripeCustomerId:   customerId,
         // Only top-up credits on active subscription
-        ...(statusEnum === 'ACTIVE' && (!walletEnabled || credits === -1) && {
+        ...(grantPaidAllowance && statusEnum === 'ACTIVE' && (!walletEnabled || credits === -1) && {
           aiCredits: credits === -1 ? 999999 : credits,
         }),
       },
@@ -244,7 +292,13 @@ async function provisionSubscription(
     // Parallel MONTHLY grant — only when the existing logic actually grants
     // credits (ACTIVE) and the allowance is a finite positive amount. Unlimited
     // (credits === -1) is left to the scalar aiCredits path; no MONTHLY grant.
-    if (statusEnum === 'ACTIVE' && credits > 0 && currentPeriodStart && currentPeriodEnd) {
+    if (
+      grantPaidAllowance
+      && statusEnum === 'ACTIVE'
+      && credits > 0
+      && currentPeriodStart
+      && currentPeriodEnd
+    ) {
       await ensureMonthlyGrant(
         userId,
         {
@@ -433,11 +487,14 @@ export async function POST(req: NextRequest) {
 
         await provisionSubscription(
           userId, subId, plan, sub.status,
-          unixDate(sub.current_period_start),
-          unixDate(sub.current_period_end),
-          priceAmt, customerId, subscriptionCancellationAt(sub),
+          subscriptionPeriodStart(sub),
+          subscriptionPeriodEnd(sub),
+          priceAmt, customerId, subscriptionCancellationAt(sub), false,
         )
-        console.log(`[Webhook] Provisioned subscription for userId=${userId} plan=${plan}`)
+        console.log(
+          `[Webhook] Synchronized Checkout subscription for userId=${userId} plan=${plan}; ` +
+          'monthly credits wait for the paid invoice event',
+        )
 
         upgradeEmail = {
           userId,
@@ -516,7 +573,8 @@ export async function POST(req: NextRequest) {
           : invoice.subscription?.id
         if (!subscriptionId) break
 
-        const periodStart = unixDate(invoice.period_start)
+        const invoicePeriod = invoiceSubscriptionPeriod(invoice, subscriptionId)
+        const periodStart = invoicePeriod.start
         const originalAmountCents = Number(invoice.amount_paid)
         const validSubscriptionRefund = Boolean(
           periodStart &&
@@ -568,7 +626,18 @@ export async function POST(req: NextRequest) {
 
       // ── Subscription changed (upgrade / downgrade / renewal) ──────────
       case 'customer.subscription.updated': {
-        const sub = event.data.object as Stripe.Subscription
+        const eventSubscription = event.data.object as Stripe.Subscription
+        // Some Stripe event snapshots omit billing-period boundaries even
+        // though a direct Subscription retrieve includes them. Do not erase
+        // valid database dates with a partial webhook payload.
+        const sub = (
+          subscriptionPeriodStart(eventSubscription)
+          && subscriptionPeriodEnd(eventSubscription)
+        )
+          ? eventSubscription
+          : await stripe.subscriptions.retrieve(eventSubscription.id, {
+              expand: ['items.data.price'],
+            })
         const userId = await resolveBillingUserId(sub)
         if (!userId) {
           throw new Error(`Subscription ${sub.id} update cannot be linked to a user`)
@@ -589,9 +658,9 @@ export async function POST(req: NextRequest) {
 
         await provisionSubscription(
           userId, sub.id, plan, sub.status,
-          unixDate(sub.current_period_start),
-          unixDate(sub.current_period_end),
-          priceAmt, customerId, subscriptionCancellationAt(sub),
+          subscriptionPeriodStart(sub),
+          subscriptionPeriodEnd(sub),
+          priceAmt, customerId, subscriptionCancellationAt(sub), false,
         )
         console.log(`[Webhook] Updated subscription for userId=${userId} plan=${plan} status=${sub.status}`)
         break
@@ -658,16 +727,21 @@ export async function POST(req: NextRequest) {
         }
         const priceAmount = sub.items.data[0]?.price?.unit_amount ?? null
         const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id ?? ''
+        const invoicePeriod = invoiceSubscriptionPeriod(invoice, subscriptionId)
         await provisionSubscription(
           userId,
           sub.id,
           plan,
           sub.status,
-          unixDate(sub.current_period_start),
-          unixDate(sub.current_period_end),
+          // The subscription invoice line owns the paid service cycle. Its
+          // period remains stable when a historical webhook is retried after
+          // the Subscription object has advanced to a newer cycle.
+          invoicePeriod.start ?? subscriptionPeriodStart(sub),
+          invoicePeriod.end ?? subscriptionPeriodEnd(sub),
           priceAmount,
           customerId,
           subscriptionCancellationAt(sub),
+          true,
         )
         console.log(`[Webhook] Paid invoice reconciled for userId=${userId} plan=${plan}`)
         break

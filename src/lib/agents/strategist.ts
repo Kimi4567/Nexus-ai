@@ -503,16 +503,125 @@ export interface StrategyOutput {
   providerUsage?: ProviderUsageSummary
 }
 
-// ── OpenAI call helper ────────────────────────────────────────────────────────
+// ── AI provider call helper ───────────────────────────────────────────────────
 
-function openAIRequestError(status: number): Error {
+export interface StrategistProviderConfig {
+  endpoint: string
+  token: string
+  model: string
+  providerName: 'Vercel AI Gateway' | 'OpenAI'
+  supportsResponseFormat: boolean
+  fallbackModels: string[]
+}
+
+/**
+ * Production prefers Vercel's short-lived OIDC token so a revoked long-lived
+ * OpenAI key does not take strategy generation down. Direct OpenAI remains a
+ * local/backwards-compatible fallback.
+ */
+export function getStrategistProviderConfig(
+  env: Record<string, string | undefined> = process.env,
+): StrategistProviderConfig {
+  const gatewayToken = env.AI_GATEWAY_API_KEY?.trim() || env.VERCEL_OIDC_TOKEN?.trim()
+  if (gatewayToken) {
+    const primaryModel = env.AI_GATEWAY_STRATEGY_MODEL?.trim() || 'openai/gpt-4o'
+    const fallbackModel = env.AI_GATEWAY_STRATEGY_FALLBACK_MODEL?.trim() || 'openai/gpt-4.1-mini'
+    return {
+      endpoint: env.AI_GATEWAY_BASE_URL?.trim() || 'https://ai-gateway.vercel.sh/v1/chat/completions',
+      token: gatewayToken,
+      model: primaryModel,
+      providerName: 'Vercel AI Gateway',
+      // The OpenAI-compatible Gateway endpoint currently rejects
+      // response_format. The same contract is injected into the system prompt.
+      supportsResponseFormat: false,
+      fallbackModels: fallbackModel === primaryModel ? [] : [fallbackModel],
+    }
+  }
+
+  const openAIKey = env.OPENAI_API_KEY?.trim()
+  if (!openAIKey) {
+    throw new Error(
+      'No AI provider credentials are configured. Set VERCEL_OIDC_TOKEN, AI_GATEWAY_API_KEY, or OPENAI_API_KEY.',
+    )
+  }
+
+  return {
+    endpoint: 'https://api.openai.com/v1/chat/completions',
+    token: openAIKey,
+    model: 'gpt-4o',
+    providerName: 'OpenAI',
+    supportsResponseFormat: true,
+    fallbackModels: [],
+  }
+}
+
+export function buildGatewayJsonSystemPrompt(
+  systemPrompt: string,
+  responseFormat: Record<string, unknown>,
+): string {
+  const jsonSchema = responseFormat.type === 'json_schema'
+    ? (responseFormat.json_schema as { schema?: unknown } | undefined)?.schema
+    : undefined
+  const schemaInstruction = jsonSchema
+    ? `The returned JSON must conform exactly to this schema:\n${JSON.stringify(jsonSchema)}`
+    : 'Return exactly one valid JSON object.'
+
+  return [
+    systemPrompt,
+    '',
+    'JSON OUTPUT CONTRACT (binding):',
+    schemaInstruction,
+    'Return raw JSON only. Do not wrap it in Markdown fences or add commentary.',
+  ].join('\n')
+}
+
+export function parseStrategistJsonContent(content: string): unknown {
+  const normalized = content
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim()
+  return JSON.parse(normalized)
+}
+
+function aiProviderRequestError(status: number, providerName: StrategistProviderConfig['providerName']): Error {
   if (status === 401 || status === 403) {
-    return new Error(`OpenAI authentication failed (${status}). Replace OPENAI_API_KEY with an active project key before running live generation.`)
+    return new Error(
+      `${providerName} authentication failed (${status}). Refresh the configured provider credentials before running live generation.`,
+    )
   }
   if (status === 429) {
-    return new Error('OpenAI request was rate-limited or the project has no available quota (429). Check project limits before retrying.')
+    return new Error(`${providerName} was rate-limited or has no available quota (429). Check provider limits before retrying.`)
   }
-  return new Error(`OpenAI request failed (${status}).`)
+  return new Error(`${providerName} request failed (${status}).`)
+}
+
+async function fetchStrategistCompletion(
+  provider: StrategistProviderConfig,
+  requestBody: Record<string, unknown>,
+  providerTimeoutMs: number,
+): Promise<Response> {
+  const maxAttempts = 3
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const response = await fetch(provider.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${provider.token}`,
+      },
+      body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(providerTimeoutMs),
+    })
+    if (response.status !== 429 || attempt === maxAttempts) return response
+
+    const retryAfterSeconds = Number(response.headers.get('retry-after'))
+    const delayMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+      ? Math.min(retryAfterSeconds * 1000, 60_000)
+      : attempt === 1 ? 15_000 : 45_000
+    await new Promise(resolve => setTimeout(resolve, delayMs))
+  }
+
+  throw new Error(`${provider.providerName} retry loop ended unexpectedly.`)
 }
 
 async function callOpenAI(
@@ -525,36 +634,44 @@ async function callOpenAI(
   // when a contract-repair pass is needed. A timed-out call is refunded by the
   // route because credits are charged only after a saveable strategy exists.
   const providerTimeoutMs = 80_000
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',  // Core strategy output — gpt-4o for maximum quality
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.30,  // PR-2B1: lowered 0.45→0.30 for grounding (less embellishment / number-invention)
-      max_tokens: maxTokens,
-      response_format: responseFormat,
-    }),
-    signal: AbortSignal.timeout(providerTimeoutMs),
-  })
-  if (!response.ok) throw openAIRequestError(response.status)
+  const provider = getStrategistProviderConfig()
+  const requestBody: Record<string, unknown> = {
+    model: provider.model,
+    messages: [
+      {
+        role: 'system',
+        content: provider.supportsResponseFormat
+          ? systemPrompt
+          : buildGatewayJsonSystemPrompt(systemPrompt, responseFormat),
+      },
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: 0.30,  // PR-2B1: lowered 0.45→0.30 for grounding (less embellishment / number-invention)
+    max_tokens: maxTokens,
+  }
+  if (provider.supportsResponseFormat) {
+    requestBody.response_format = responseFormat
+  } else if (provider.fallbackModels.length > 0) {
+    requestBody.providerOptions = {
+      gateway: {
+        models: provider.fallbackModels,
+      },
+    }
+  }
+
+  const response = await fetchStrategistCompletion(provider, requestBody, providerTimeoutMs)
+  if (!response.ok) throw aiProviderRequestError(response.status, provider.providerName)
   const data = await response.json()
   recordOpenAIProviderUsage(data.usage)
   const content = data.choices?.[0]?.message?.content?.trim()
-  if (!content) throw new Error('OpenAI returned no strategy')
+  if (!content) throw new Error(`${provider.providerName} returned no strategy`)
   try {
     return {
-      output: JSON.parse(content),
+      output: parseStrategistJsonContent(content),
       usage: readOpenAIChatUsage(data.usage),
     }
   } catch {
-    throw new Error('OpenAI returned invalid strategy JSON')
+    throw new Error(`${provider.providerName} returned invalid strategy JSON`)
   }
 }
 
@@ -1000,6 +1117,20 @@ export interface StrategistQualityRepairIssues {
   stage: 'strategy_contract' | 'marketing_quality'
   issueCodes: string[]
   affectedPaths: string[]
+  issueDetails?: string[]
+}
+
+export function canUseFocusedPaidQualityRepair(
+  brief: BusinessBrief,
+  issues: StrategistQualityRepairIssues,
+): boolean {
+  return Boolean(
+    (issues.stage === 'strategy_contract' || issues.stage === 'marketing_quality')
+    && brief.strategyDeliverables
+    && brief.strategyDeliverables.paidAdVariationCount > 0
+    && issues.affectedPaths.length > 0
+    && issues.affectedPaths.every(path => /^(?:strategy\.)?paidPlanning(?:\.|$)/.test(path)),
+  )
 }
 
 export function buildStrategistQualityRepairPrompt(
@@ -1021,6 +1152,23 @@ export function buildStrategistQualityRepairPrompt(
       ...issues.affectedPaths.map(path => `path:${path}`),
     ],
   )
+  const issueSpecificRepairs = [
+    issues.issueCodes.includes('conversion_cta_without_destination')
+      ? [
+          'CONVERSION-DESTINATION REPAIR (binding): no verified conversion destination exists.',
+          'Inspect and rewrite EVERY customer-facing CTA in the complete JSON, not only the reported path. This includes offerCTAStrategy, ctaVariations, audienceSegmentsDetailed, contentAnglesDetailed, funnelStages, weeklyExecutionPlan, roadmap, and paidPlanning when present.',
+          'Remove every direct-response instruction such as shop, browse/explore a collection, view products, add to cart, buy, order, sign up, register, book, request a demo, WhatsApp, تسوق، تصفح المجموعة، اكتشف المجموعة، اشتر، اطلب، سجل، احجز، or واتساب.',
+          'Use only destination-free actions the content itself can satisfy, such as review the explained options, compare the criteria in this post, save the checklist, or follow the series for the next explanation. Keep the missing conversion path explicit as an unresolved readiness task.',
+        ].join('\n')
+      : '',
+    issues.issueCodes.includes('ungrounded_brand_context')
+      ? [
+          'UNGROUNDED BRAND-CONTEXT REPAIR (binding): rewrite every affected path using only facts stated in the authoritative Brand Brain context.',
+          'Do not add occupations, work/office/meeting use, lifestyles, cultural or heritage attributes, materials, product properties, freshness timing, or outcomes unless those exact facts are present in the authoritative context.',
+          'For audience segment labels, reuse the reviewed target-audience wording and distinguish segments only by a documented pain, objection, or decision stage. Do not invent a new demographic or use case.',
+        ].join('\n')
+      : '',
+  ].filter(Boolean)
 
   return [
     contractRepair,
@@ -1029,6 +1177,9 @@ export function buildStrategistQualityRepairPrompt(
     `Failed stage: ${issues.stage}.`,
     `Blocking issue codes: ${issues.issueCodes.join(', ') || 'unknown'}.`,
     `Affected paths: ${issues.affectedPaths.join(', ') || 'unknown'}.`,
+    issues.issueDetails?.length
+      ? `Exact validator findings:\n${issues.issueDetails.map(detail => `- ${detail}`).join('\n')}`
+      : '',
     `Authoritative brand: ${brief.companyName}.`,
     `Authoritative category: ${brief.businessType}.`,
     `Authoritative audience: ${brief.targetAudience}.`,
@@ -1041,6 +1192,7 @@ export function buildStrategistQualityRepairPrompt(
     brandContext
       ? `Authoritative Brand Brain context — do not add facts outside it:\n${brandContext}`
       : '',
+    ...issueSpecificRepairs,
     'Repair every blocking path without weakening, deleting, or bypassing the reviewed delivery contract.',
     'Replace unsupported claims, audience expansions, internal workflow copy, and unreviewed platform claims with factual Brand Brain wording or an explicit hypothesis/proof-collection task.',
     'Keep all customer-facing copy useful and specific. Do not solve a blocker with empty text, generic filler, cloned directions, or a claim that the work is already executed.',
@@ -1074,6 +1226,22 @@ export async function repairStrategistQualityFailure(
   language?: string,
   readiness?: StrategyReadinessContext,
 ): Promise<StrategyOutput> {
+  if (canUseFocusedPaidQualityRepair(brief, issues) && brief.strategyDeliverables) {
+    const paidRepair = await repairPaidPlanningPackage(
+      output,
+      brief,
+      brief.strategyDeliverables,
+      language ?? brief.language,
+      issues,
+      brandContext,
+    )
+    return {
+      ...output,
+      paidPlanning: paidRepair.paidPlanning,
+      providerUsage: combineStrategyProviderUsage(output.providerUsage, paidRepair.usage),
+    }
+  }
+
   const { systemPrompt } = buildStrategistPrompts(brief, brandContext, language, readiness)
   const repairCall = await callOpenAI(
     `${systemPrompt}\n\nYou are repairing a rejected strategy document. The listed quality-gate blockers and the reviewed commercial order are binding. Return the complete corrected JSON document only.`,
@@ -1191,17 +1359,38 @@ export function buildPaidPlanningRepairPrompt(
   output: StrategyOutput,
   brief: BusinessBrief,
   deliverables: StrategyDeliverables,
+  issues?: StrategistQualityRepairIssues,
+  brandContext?: string,
 ): string {
   return [
     'Repair ONLY the paidPlanning package. Return the schema object and no other strategy sections.',
+    issues
+      ? `Repair trigger: ${issues.stage}. Blocking issue codes: ${issues.issueCodes.join(', ') || 'unknown'}.`
+      : '',
+    issues?.affectedPaths.length
+      ? `Rewrite every affected paid path: ${issues.affectedPaths.join(', ')}.`
+      : '',
+    issues?.issueDetails?.length
+      ? `Exact validator findings:\n${issues.issueDetails.map(detail => `- ${detail}`).join('\n')}`
+      : '',
     `Brand: ${brief.companyName}`,
     `Category: ${brief.businessType}`,
     `Audience: ${brief.targetAudience}`,
     `Goal: ${brief.primaryGoal || 'Not provided'}`,
     `Offer: ${brief.primaryOffer || 'Not provided'}`,
     `Allowed platforms: ${brief.currentPlatforms?.join(', ') || 'Not provided'}`,
+    brandContext
+      ? `Authoritative Brand Brain context — every factual detail must come from this block:\n${brandContext}`
+      : '',
     `Required counts: ${deliverables.audienceHypothesisCount} audience hypotheses, ${deliverables.paidAdAngleCount} ad angles, ${deliverables.paidAdVariationCount} ad copy variations, and ${deliverables.creativeBriefCount} creative briefs.`,
     'Every item must be materially distinct and grounded in the same audience, offer, objective, proof limits, and allowed platforms.',
+    'Audience hypotheses: give each record a different documented buying situation, targeting hypothesis, and validationNeeded test. A renamed segment with the same test is a duplicate.',
+    'Ad angles: vary the decision barrier, message, single testVariable, successSignal, and rejectionRule. Do not reuse the same experiment with synonyms.',
+    'Ad-copy variations: every headline and primaryText pair must express a materially different message angle and sentence structure. Changing only the CTA, opening phrase, or a synonym is a duplicate.',
+    'Creative briefs: vary the angle, format, visual treatment, and required asset plan; do not clone one concept into four names.',
+    'Creative visualDirection may specify composition, hierarchy, crop, typography treatment, color relationships, and the placement of user-supplied or approved assets. It must not invent a location, lifestyle, occupation, cultural context, material, product property, person, or use case that is absent from the authoritative Brand Brain.',
+    'If the Brand Brain does not prove a visual fact, use a neutral studio/layout direction and mark the exact asset as user_upload_required or generation_required instead of inventing context.',
+    'Before returning JSON, compare every pair inside each array and rewrite any pair that shares the same test or mostly the same wording. Arabic records must also use genuinely different ideas, not translated or reordered duplicates.',
     'This is planning only. Do not claim launch, spend, publishing, account readiness, conversions, performance, customer proof, or results.',
     'Never invent a budget, destination, price, proof point, competitor fact, service, or tracking state. Mark unresolved facts as Not enough data or the natural-language equivalent.',
     `CURRENT PACKAGE TO REPAIR:\n${JSON.stringify(output.paidPlanning ?? null)}`,
@@ -1213,10 +1402,12 @@ async function repairPaidPlanningPackage(
   brief: BusinessBrief,
   deliverables: StrategyDeliverables,
   language?: string,
+  issues?: StrategistQualityRepairIssues,
+  brandContext?: string,
 ): Promise<{ paidPlanning: PaidPlanningPackage; usage: OpenAITextUsage }> {
   const call = await callOpenAI(
     `${getLanguageInstruction(language ?? brief.language)}\nYou are a senior paid-media planner repairing a reviewed planning package. Follow the exact Structured Outputs schema. Preserve factual uncertainty and produce distinct, reviewable hypotheses rather than invented facts.`,
-    buildPaidPlanningRepairPrompt(output, brief, deliverables),
+    buildPaidPlanningRepairPrompt(output, brief, deliverables, issues, brandContext),
     6000,
     buildPaidPlanningStructuredOutputSchema(deliverables),
   )

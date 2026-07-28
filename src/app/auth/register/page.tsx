@@ -203,8 +203,10 @@ export default function RegisterPage() {
                     <span className="text-xs text-text-secondary leading-relaxed">
                       <Shield className="w-3 h-3 inline text-indigo-600 ml-1" />
                       {authT?.termsConsent}{' '}
-                      <Link href="/terms" target="_blank" className="text-indigo-600 hover:underline">{authT?.termsLink}</Link>{' '}
-                      <Link href="/privacy" target="_blank" className="text-indigo-600 hover:underline">{authT?.privacyLink}</Link>{' '}
+                      <Link href="/terms" target="_blank" className="text-indigo-600 hover:underline">{authT?.termsLink}</Link>
+                      <span aria-hidden="true" className="mx-1 text-slate-400">·</span>
+                      <Link href="/privacy" target="_blank" className="text-indigo-600 hover:underline">{authT?.privacyLink}</Link>
+                      <span aria-hidden="true" className="mx-1 text-slate-400">·</span>
                       <Link href="/refund" target="_blank" className="text-indigo-600 hover:underline">{authT?.refundLink}</Link>
                     </span>
                   </label>

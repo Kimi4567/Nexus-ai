@@ -131,18 +131,33 @@ export async function PATCH(req: NextRequest, context: Context) {
     }),
     parsed.value.captureFormId ? prisma.leadCaptureForm.findFirst({
       where: { id: parsed.value.captureFormId, workspaceId: workspace.id },
-      select: { id: true, campaignId: true },
+      select: { id: true, campaignId: true, status: true },
     }) : Promise.resolve(null),
   ])
   if (!campaign) return NextResponse.json({ error: 'Campaign not found in this workspace.' }, { status: 400 })
   if (parsed.value.captureFormId && !captureForm) return NextResponse.json({ error: 'Capture form not found in this workspace.' }, { status: 400 })
-  if (captureForm && captureForm.campaignId !== parsed.value.campaignId) {
+  if (captureForm && captureForm.campaignId && captureForm.campaignId !== parsed.value.campaignId) {
     return NextResponse.json({ error: 'Capture form must belong to the same campaign as the landing page.' }, { status: 400 })
+  }
+  if (captureForm && captureForm.campaignId === null && captureForm.status !== 'ACTIVE') {
+    return NextResponse.json({ error: 'Only an active unassigned capture form can be linked to a campaign.' }, { status: 400 })
   }
 
   const nextVersion = current.version + 1
   try {
     const page = await prisma.$transaction(async tx => {
+      if (captureForm?.campaignId === null) {
+        const linked = await tx.leadCaptureForm.updateMany({
+          where: {
+            id: captureForm.id,
+            workspaceId: workspace.id,
+            campaignId: null,
+            status: 'ACTIVE',
+          },
+          data: { campaignId: parsed.value.campaignId },
+        })
+        if (linked.count !== 1) throw new Error('CAPTURE_FORM_CAMPAIGN_CHANGED')
+      }
       const updated = await tx.landingPage.updateMany({
         where: { id: current.id, workspaceId: workspace.id, version: expectedVersion },
         data: {
@@ -191,6 +206,12 @@ export async function PATCH(req: NextRequest, context: Context) {
       },
     })
   } catch (error) {
+    if (error instanceof Error && error.message === 'CAPTURE_FORM_CAMPAIGN_CHANGED') {
+      return NextResponse.json({
+        error: 'The capture form was linked elsewhere while you were editing. Refresh and choose again.',
+        code: error.message,
+      }, { status: 409 })
+    }
     if (error instanceof Error && error.message === 'LANDING_PAGE_CONCURRENT_CHANGE') {
       return NextResponse.json({ error: 'Landing page changed while you were editing it. Refresh and try again.', code: error.message }, { status: 409 })
     }

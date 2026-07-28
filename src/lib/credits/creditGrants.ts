@@ -626,18 +626,23 @@ export async function revokeMonthlyCreditsForStripeInvoiceRefund(
   })
   const alreadyProcessed = Math.max(0, prior?._sum?.creditCost ?? 0)
   const requestedRevocation = Math.max(0, desiredCumulativeRevocation - alreadyProcessed)
-  if (requestedRevocation === 0) {
-    const balance = await syncCachedWalletBalance(args.userId, tx)
-    return { revoked: 0, unrecovered: 0, balance }
-  }
-
   const remaining = Math.max(0, Number(grant.remaining) || 0)
-  const revoked = Math.min(requestedRevocation, remaining)
-  const unrecovered = requestedRevocation - revoked
+  // Reconciliation must converge to the refunded invoice state even when an
+  // old paid event is replayed after the refund audit row already exists. The
+  // audit delta protects cumulative accounting; the target balance protects
+  // the wallet from resurrecting a refunded cycle.
+  const targetRemaining = Math.max(0, grantAmount - desiredCumulativeRevocation)
+  const convergenceRevocation = Math.max(0, remaining - targetRemaining)
+  const normalRevocation = Math.min(requestedRevocation, remaining)
+  const revoked = Math.max(normalRevocation, convergenceRevocation)
+  const unrecovered = Math.max(0, requestedRevocation - normalRevocation)
   const newRemaining = remaining - revoked
   const fullyRefunded = args.refundedAmountCents >= args.originalAmountCents
 
-  if (revoked > 0 || fullyRefunded) {
+  if (
+    revoked > 0
+    || (fullyRefunded && (grant.status !== 'VOID' || remaining !== 0))
+  ) {
     await db.creditGrant.update({
       where: { id: grant.id },
       data: {
@@ -647,22 +652,25 @@ export async function revokeMonthlyCreditsForStripeInvoiceRefund(
     })
   }
 
-  await db.creditTransaction.create({
-    data: {
-      userId: args.userId,
-      action: 'SUBSCRIPTION_INVOICE_REFUND',
-      description: `${revoked} monthly credits revoked after Stripe invoice refund; ${unrecovered} already spent`,
-      amount: -revoked,
-      entityId: args.stripeChargeId,
-      entityType: 'stripe_subscription_invoice_refund',
-      operationKey: `stripe-invoice-refund:${args.stripeEventId}`,
-      status: 'SETTLED',
-      // Tracks the cumulative refund share already reconciled, including the
-      // spent portion that cannot be removed from the wallet.
-      creditCost: requestedRevocation,
-      settledAt: new Date(),
-    },
-  })
+  if (requestedRevocation > 0 || revoked > 0) {
+    await db.creditTransaction.create({
+      data: {
+        userId: args.userId,
+        action: 'SUBSCRIPTION_INVOICE_REFUND',
+        description: `${revoked} monthly credits revoked after Stripe invoice refund; ${unrecovered} already spent`,
+        amount: -revoked,
+        entityId: args.stripeChargeId,
+        entityType: 'stripe_subscription_invoice_refund',
+        operationKey: `stripe-invoice-refund:${args.stripeEventId}`,
+        status: 'SETTLED',
+        // Only the unprocessed cumulative refund share advances the audit
+        // cursor. A convergence-only repair may remove resurrected credit while
+        // keeping the already-recorded cumulative refund total unchanged.
+        creditCost: requestedRevocation,
+        settledAt: new Date(),
+      },
+    })
+  }
 
   const balance = await syncCachedWalletBalance(args.userId, tx)
   return { revoked, unrecovered, balance }

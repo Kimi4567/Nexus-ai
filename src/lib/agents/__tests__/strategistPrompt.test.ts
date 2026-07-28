@@ -2,9 +2,13 @@ import { describe, it, expect } from 'vitest'
 import {
   buildPaidPlanningRepairPrompt,
   buildPaidPlanningStructuredOutputSchema,
+  buildGatewayJsonSystemPrompt,
   buildStrategistCountRepairPrompt,
   buildStrategistPrompts,
   buildStrategistQualityRepairPrompt,
+  canUseFocusedPaidQualityRepair,
+  getStrategistProviderConfig,
+  parseStrategistJsonContent,
   type BusinessBrief,
   type StrategyOutput,
 } from '@/lib/agents/strategist'
@@ -104,6 +108,58 @@ describe('buildStrategistQualityRepairPrompt', () => {
     expect(prompt).toContain('without weakening, deleting, or bypassing the reviewed delivery contract')
     expect(prompt).toContain('exactly 3 contentAnglesDetailed entries')
   })
+
+  it('directs a destination-less repair across every public CTA surface', () => {
+    const brief = briefWith(order('organic', 'light', '30'))
+    const prompt = buildStrategistQualityRepairPrompt(
+      {
+        campaignName: 'Destination-less plan',
+        ctaVariations: ['Book now'],
+        contentAnglesDetailed: [{ title: 'Offer guide', cta: 'Browse the collection' }],
+        weeklyExecutionPlan: [],
+      } as unknown as StrategyOutput,
+      brief,
+      {
+        stage: 'marketing_quality',
+        issueCodes: ['conversion_cta_without_destination'],
+        affectedPaths: ['strategy.cta'],
+      },
+    )
+
+    expect(prompt).toContain('no verified conversion destination exists')
+    expect(prompt).toContain('rewrite EVERY customer-facing CTA')
+    expect(prompt).toContain('offerCTAStrategy, ctaVariations, audienceSegmentsDetailed')
+    expect(prompt).toContain('Remove every direct-response instruction')
+    expect(prompt).toContain('destination-free actions')
+    expect(prompt).toContain('missing conversion path explicit as an unresolved readiness task')
+  })
+
+  it('constrains ungrounded context repairs to reviewed audience facts', () => {
+    const prompt = buildStrategistQualityRepairPrompt(
+      {
+        campaignName: 'Audience-drifted plan',
+        audienceSegmentsDetailed: [{ segment: 'Working women seeking office wear' }],
+        weeklyExecutionPlan: [],
+      } as unknown as StrategyOutput,
+      briefWith(order('organic', 'light', '30')),
+      {
+        stage: 'marketing_quality',
+        issueCodes: ['ungrounded_brand_context'],
+        affectedPaths: ['strategy.audienceSegmentsDetailed[0].segment'],
+        issueDetails: [
+          'strategy.audienceSegmentsDetailed[0].segment: The strategy adds "office wear" without matching Brand Brain evidence.',
+        ],
+      },
+      'Audience: UAE women aged 25-44 comparing versatile modest wardrobe pieces.',
+    )
+
+    expect(prompt).toContain('UNGROUNDED BRAND-CONTEXT REPAIR')
+    expect(prompt).toContain('Exact validator findings')
+    expect(prompt).toContain('The strategy adds "office wear"')
+    expect(prompt).toContain('Do not add occupations, work/office/meeting use')
+    expect(prompt).toContain('reuse the reviewed target-audience wording')
+    expect(prompt).toContain('Do not invent a new demographic or use case')
+  })
 })
 
 describe('focused paid-planning repair', () => {
@@ -133,12 +189,125 @@ describe('focused paid-planning repair', () => {
     expect(paidProperties.creativeBriefs).toMatchObject({ minItems: 4, maxItems: 4 })
     expect(prompt).toContain('Repair ONLY the paidPlanning package')
     expect(prompt).toContain('9 ad copy variations')
+    expect(prompt).toContain('A renamed segment with the same test is a duplicate')
+    expect(prompt).toContain('Changing only the CTA, opening phrase, or a synonym is a duplicate')
+    expect(prompt).toContain('Arabic records must also use genuinely different ideas')
     expect(prompt).toContain('Do not claim launch, spend, publishing')
+  })
+
+  it('uses a focused second repair when every final contract issue belongs to paidPlanning', () => {
+    const paidBrief = briefWith(order('paid', 'standard', '90'))
+    expect(canUseFocusedPaidQualityRepair(paidBrief, {
+      stage: 'strategy_contract',
+      issueCodes: ['weak:paidPlanning.adCopyVariations.distinctCopy'],
+      affectedPaths: ['paidPlanning.adCopyVariations.distinctCopy'],
+    })).toBe(true)
+
+    expect(canUseFocusedPaidQualityRepair(paidBrief, {
+      stage: 'strategy_contract',
+      issueCodes: ['weak:paidPlanning.adCopyVariations.distinctCopy', 'weak:businessObjective.primary'],
+      affectedPaths: ['paidPlanning.adCopyVariations.distinctCopy', 'businessObjective.primary'],
+    })).toBe(false)
+
+    expect(canUseFocusedPaidQualityRepair(paidBrief, {
+      stage: 'marketing_quality',
+      issueCodes: ['ungrounded_brand_context'],
+      affectedPaths: ['strategy.paidPlanning.creativeBriefs[0].visualDirection'],
+    })).toBe(true)
+  })
+
+  it('directs a focused paid quality repair to the exact grounded visual paths', () => {
+    const paidBrief = briefWith(order('paid', 'standard', '90'))
+    const prompt = buildPaidPlanningRepairPrompt(
+      {
+        campaignName: 'Paid planning',
+        paidPlanning: {
+          planningOnly: true,
+          creativeBriefs: [{
+            name: 'Office concept',
+            angle: 'Trust',
+            format: 'Static',
+            visualDirection: 'A professional in an office',
+            requiredAssets: ['Product image'],
+            assetStatus: 'user_upload_required',
+            proofBoundary: 'No proof supplied',
+            reviewGate: 'User review',
+          }],
+        },
+      } as unknown as StrategyOutput,
+      paidBrief,
+      paidBrief.strategyDeliverables!,
+      {
+        stage: 'marketing_quality',
+        issueCodes: ['ungrounded_brand_context'],
+        affectedPaths: ['strategy.paidPlanning.creativeBriefs[0].visualDirection'],
+        issueDetails: ['The office setting is absent from Brand Brain.'],
+      },
+      'Audience: UAE women comparing modest wardrobe pieces.',
+    )
+
+    expect(prompt).toContain('Repair trigger: marketing_quality')
+    expect(prompt).toContain('strategy.paidPlanning.creativeBriefs[0].visualDirection')
+    expect(prompt).toContain('The office setting is absent from Brand Brain.')
+    expect(prompt).toContain('Authoritative Brand Brain context')
+    expect(prompt).toContain('must not invent a location, lifestyle, occupation')
+    expect(prompt).toContain('use a neutral studio/layout direction')
   })
 })
 
 const sys = (b: BusinessBrief) => buildStrategistPrompts(b).systemPrompt
 const user = (b: BusinessBrief) => buildStrategistPrompts(b).userPrompt
+
+describe('strategist AI provider routing', () => {
+  it('prefers Vercel OIDC and configures a gateway fallback model', () => {
+    expect(getStrategistProviderConfig({
+      VERCEL_OIDC_TOKEN: 'oidc-token',
+      OPENAI_API_KEY: 'revoked-long-lived-key',
+    })).toMatchObject({
+      endpoint: 'https://ai-gateway.vercel.sh/v1/chat/completions',
+      token: 'oidc-token',
+      model: 'openai/gpt-4o',
+      providerName: 'Vercel AI Gateway',
+      supportsResponseFormat: false,
+      fallbackModels: ['openai/gpt-4.1-mini'],
+    })
+  })
+
+  it('retains direct OpenAI as a backwards-compatible fallback', () => {
+    expect(getStrategistProviderConfig({
+      OPENAI_API_KEY: 'active-openai-key',
+    })).toMatchObject({
+      endpoint: 'https://api.openai.com/v1/chat/completions',
+      token: 'active-openai-key',
+      model: 'gpt-4o',
+      providerName: 'OpenAI',
+      supportsResponseFormat: true,
+      fallbackModels: [],
+    })
+  })
+
+  it('injects structured-output schemas into the gateway prompt', () => {
+    const prompt = buildGatewayJsonSystemPrompt('System', {
+      type: 'json_schema',
+      json_schema: {
+        schema: {
+          type: 'object',
+          properties: { paidPlanning: { type: 'object' } },
+          required: ['paidPlanning'],
+        },
+      },
+    })
+
+    expect(prompt).toContain('JSON OUTPUT CONTRACT (binding)')
+    expect(prompt).toContain('"required":["paidPlanning"]')
+    expect(prompt).toContain('Return raw JSON only')
+  })
+
+  it('accepts raw and fenced JSON from OpenAI-compatible providers', () => {
+    expect(parseStrategistJsonContent('{"ok":true}')).toEqual({ ok: true })
+    expect(parseStrategistJsonContent('```json\n{"ok":true}\n```')).toEqual({ ok: true })
+  })
+})
 
 describe('buildStrategistPrompts — binding scope wiring', () => {
   it('includes the binding-scope header when generationInstructions is present', () => {

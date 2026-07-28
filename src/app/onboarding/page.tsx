@@ -104,9 +104,9 @@ function Shell({ children, dir }: { children: ReactNode; dir: 'rtl' | 'ltr' }) {
                 <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-[#a5b4fc]">
                   {isRTL ? 'إعداد أول تشغيل' : 'First-run setup'}
                 </p>
-                <h1 className="text-3xl font-semibold leading-tight tracking-[-0.02em]">
+                <h2 className="text-3xl font-semibold leading-tight tracking-[-0.02em]">
                   {isRTL ? 'نبدأ بذاكرة علامة صحيحة قبل أي استراتيجية أو تنفيذ.' : 'Start with trusted brand memory before any strategy or execution.'}
-                </h1>
+                </h2>
                 <p className="mt-5 text-sm leading-7 text-slate-300">
                   {isRTL
                     ? 'هذه الصفحة تجمع أساسيات النشاط فقط. لا توليد، لا نشر، لا إنفاق، ولا تشغيل تلقائي.'
@@ -167,7 +167,9 @@ const inputStyle = { border: '1px solid rgba(15,23,42,0.12)', color: '#0F172A' }
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button type="button" onClick={onClick}
+      aria-pressed={active}
       data-active={active}
+      data-state={active ? 'selected' : 'unselected'}
       className="nx-choice-chip px-3.5 py-2 text-[13px] font-medium">
       {children}
     </button>

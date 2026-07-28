@@ -43,11 +43,14 @@ describe('billing plan copy truth', () => {
     expect(BILLING_SRC).toContain('Checkout unavailable until prices are verified')
   })
 
-  it('keeps non-live billing visible but blocks commercial checkout controls', () => {
+  it('opens test checkout only in preview while keeping non-live production locked', () => {
     expect(BILLING_SRC).toContain("billingStatus?.billingMode === 'live'")
+    expect(BILLING_SRC).toContain("billingStatus?.billingMode === 'sandbox'")
+    expect(BILLING_SRC).toContain("process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview'")
+    expect(BILLING_SRC).toContain('Stripe test mode enabled')
     expect(BILLING_SRC).toContain('Commercial billing is not active yet')
     expect(BILLING_SRC).toContain('Commercial checkout not available yet')
-    expect(BILLING_SRC).not.toContain('Test ${plan.nameEn} checkout')
-    expect(BILLING_SRC).not.toContain('use test payment details')
+    expect(BILLING_SRC).toContain('Test ${plan.nameEn} checkout')
+    expect(BILLING_SRC).toContain('Use Stripe test details only')
   })
 })

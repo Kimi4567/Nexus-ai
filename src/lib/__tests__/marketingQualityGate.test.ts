@@ -491,6 +491,17 @@ describe('marketingQualityGate', () => {
 
     expect(report.status).toBe('blocked')
     expect(report.blockers.map(item => item.code)).toContain('conversion_cta_without_destination')
+    expect(
+      report.blockers
+        .filter(item => item.code === 'conversion_cta_without_destination')
+        .map(item => item.path),
+    ).toEqual(expect.arrayContaining([
+      'strategy.ctaVariations',
+      'strategy.contentAnglesDetailed[0].cta',
+    ]))
+    expect(
+      report.blockers.find(item => item.code === 'conversion_cta_without_destination')?.message,
+    ).toContain('"Shop the look"')
   })
 
   it('blocks unsupported fashion use, culture, collection, and material claims', () => {

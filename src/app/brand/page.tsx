@@ -179,7 +179,7 @@ function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest
           <span key={i} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold"
             style={{ background: `${accent}15`, border: `1px solid ${accent}35`, color: accent }}>
             {v}
-            <button onClick={() => remove(i)} className="opacity-40 hover:opacity-100 hover:text-red-400 transition-all ml-0.5 text-sm leading-none">×</button>
+            <button type="button" aria-label={isAr ? `إزالة ${v}` : `Remove ${v}`} onClick={() => remove(i)} className="opacity-40 hover:opacity-100 hover:text-red-400 transition-all ml-0.5 text-sm leading-none">×</button>
           </span>
         ))}
         {!suggesting && (
@@ -324,8 +324,9 @@ function BrandStatusPanel({ indicators, locale, contract, organicTruthBlocked = 
   )
 }
 
-function NxInput({ value, onChange, placeholder, textarea, accentColor }: {
+function NxInput({ value, onChange, placeholder, textarea, accentColor, type = 'text', min, max, inputMode }: {
   value: string; onChange: (v: string) => void; placeholder?: string; textarea?: boolean; accentColor?: string
+  type?: 'text' | 'number'; min?: number; max?: number; inputMode?: 'numeric' | 'decimal'
 }) {
   const accent = accentColor || '#8b5cf6'
   const [focused, setFocused] = useState(false)
@@ -342,7 +343,7 @@ function NxInput({ value, onChange, placeholder, textarea, accentColor }: {
       onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} />
   )
   return (
-    <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+    <input type={type} min={min} max={max} inputMode={inputMode} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
       className={cls} style={style}
       onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} />
   )
@@ -2897,6 +2898,10 @@ function BrandBrainInner() {
                       {strategyDuration === 'custom' && (
                         <div className="mt-2 max-w-[220px]">
                           <NxInput
+                            type="number"
+                            min={1}
+                            max={180}
+                            inputMode="numeric"
                             value={String(strategyCustomDays)}
                             onChange={value => {
                               const days = Number(value)

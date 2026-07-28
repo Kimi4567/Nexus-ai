@@ -89,6 +89,7 @@ export async function POST(req: NextRequest, props: Params) {
           id: true,
           caption: true,
           imagePrompt: true,
+          videoPrompt: true,
           platform: true,
           status: true,
           workspaceId: true,
@@ -208,57 +209,69 @@ Rewrite rules:
     const userMsg = `Original caption:
 ${post.caption}${instruction ? `\n\nRewrite instruction: ${instruction}` : '\n\nRewrite this caption with stronger brand voice and a better hook, keeping the same intent and CTA.'}`
 
-    // ── 5. Call GPT-4o-mini ────────────────────────────────────────────────
-    const chatRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',  // Post rewrite — user-facing output, needs full quality
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMsg },
+    // ── 5. Generate, guard, and review before saving ───────────────────────
+    // A rewrite is one priced user action. If the first provider draft misses
+    // the deterministic quality contract, use its exact findings for one
+    // in-request repair attempt without charging the user a second time.
+    const rewriteModel = 'gpt-4o'
+    const providerUsageInputs: Array<ReturnType<typeof readOpenAIChatUsage>> = []
+    let guardedCaption = ''
+    let publishReview: ReturnType<typeof reviewContentPostForPublishing> = []
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const reviewFeedback = attempt > 0 && publishReview.length > 0
+        ? `\n\nThe previous draft was rejected by the saved-content quality gate. Repair every finding below while preserving the original intent:\n${publishReview.map(issue => `- ${issue.reason}`).join('\n')}`
+        : ''
+      const chatRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: rewriteModel,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `${userMsg}${reviewFeedback}` },
+          ],
+          temperature: attempt === 0 ? 0.85 : 0.45,
+          max_tokens: 600,
+        }),
+      })
+
+      if (!chatRes.ok) {
+        const errText = await chatRes.text()
+        console.error('[rewrite] OpenAI error:', errText)
+        throw new Error(`OpenAI rewrite failed (${chatRes.status})`)
+      }
+
+      const chatData = await chatRes.json()
+      providerUsageInputs.push(readOpenAIChatUsage(chatData.usage))
+      const newCaption = chatData.choices?.[0]?.message?.content?.trim()
+      if (!newCaption) throw new Error('OpenAI returned an empty rewrite')
+
+      // Enforce character limit (graceful truncation at word boundary).
+      const truncated = newCaption.length > charLimit
+        ? newCaption.slice(0, charLimit).replace(/\s+\S*$/, '…')
+        : newCaption
+      guardedCaption = guardContentDraftText(truncated, {
+        verifiedProof: sourceLinkedProofStatements(brand?.verifiedProof),
+        hasConversionDestination: hasUsableConversionDestination(brand?.conversionDestination, campaign.goal),
+        brandFacts: [
+          brand?.brandName,
+          brand?.description,
+          brand?.primaryOffer,
+          brand?.uniqueAdvantages,
+          brand?.complianceNotes,
         ],
-        temperature: 0.85,
-        max_tokens: 600,
-      }),
-    })
-
-    if (!chatRes.ok) {
-      const errText = await chatRes.text()
-      console.error('[rewrite] OpenAI error:', errText)
-      throw new Error(`OpenAI rewrite failed (${chatRes.status})`)
+      })
+      publishReview = reviewContentPostForPublishing(
+        { caption: guardedCaption },
+        1,
+        buildContentPlanTruthContext(brand),
+      )
+      if (publishReview.length === 0) break
     }
 
-    const chatData = await chatRes.json()
-    const newCaption = chatData.choices?.[0]?.message?.content?.trim()
-
-    if (!newCaption) {
-      throw new Error('OpenAI returned an empty rewrite')
-    }
-
-    // Enforce character limit (graceful truncation at word boundary)
-    const truncated = newCaption.length > charLimit
-      ? newCaption.slice(0, charLimit).replace(/\s+\S*$/, '…')
-      : newCaption
-    const guardedCaption = guardContentDraftText(truncated, {
-      verifiedProof: sourceLinkedProofStatements(brand?.verifiedProof),
-      hasConversionDestination: hasUsableConversionDestination(brand?.conversionDestination, campaign.goal),
-      brandFacts: [
-        brand?.brandName,
-        brand?.description,
-        brand?.primaryOffer,
-        brand?.uniqueAdvantages,
-        brand?.complianceNotes,
-      ],
-    })
-    const publishReview = reviewContentPostForPublishing(
-      { caption: guardedCaption },
-      1,
-      buildContentPlanTruthContext(brand),
-    )
     if (publishReview.length > 0) {
       await refundCreditDeduction({
         userId,
@@ -298,7 +311,7 @@ ${post.caption}${instruction ? `\n\nRewrite instruction: ${instruction}` : '\n\n
       return next
     })
 
-    const providerUsage = summarizeOpenAITextUsage('gpt-4o', [readOpenAIChatUsage(chatData.usage)])
+    const providerUsage = summarizeOpenAITextUsage(rewriteModel, providerUsageInputs)
     const finalization = await finalizeCreditDeduction({
       userId,
       action: 'AI_POST_REWRITE',
@@ -319,8 +332,19 @@ ${post.caption}${instruction ? `\n\nRewrite instruction: ${instruction}` : '\n\n
     }
     chargedCredit = null
 
+    const remainingQualityIssues = reviewContentPostForPublishing(
+      {
+        caption: guardedCaption,
+        imagePrompt: post.imagePrompt,
+        videoPrompt: post.videoPrompt,
+      },
+      1,
+      buildContentPlanTruthContext(brand),
+    )
+
     return NextResponse.json({
       post: updated,
+      remainingQualityIssues,
       creditsUsed: creditCheck.creditsUsed,
       creditsRemaining: creditCheck.creditsRemaining,
       creditCharge: buildCreditChargeReceipt('AI_POST_REWRITE', creditCheck),

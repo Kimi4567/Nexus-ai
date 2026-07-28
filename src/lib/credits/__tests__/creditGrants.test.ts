@@ -308,6 +308,28 @@ describe('revokeMonthlyCreditsForStripeInvoiceRefund', () => {
     expect(tx.creditTransaction.create).not.toHaveBeenCalled()
   })
 
+  it('converges a recreated grant to an already-recorded full refund', async () => {
+    const tx = monthlyRefundTx(180, 180)
+    const result = await revokeMonthlyCreditsForStripeInvoiceRefund({
+      ...refundArgs,
+      stripeEventId: 'evt_monthly_refund_replayed',
+      refundedAmountCents: 9_900,
+    }, tx)
+
+    expect(result).toMatchObject({ revoked: 180, unrecovered: 0 })
+    expect(tx.creditGrant.update).toHaveBeenCalledWith({
+      where: { id: 'monthly_grant' },
+      data: { remaining: 0, status: 'VOID' },
+    })
+    expect(tx.creditTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        amount: -180,
+        creditCost: 0,
+        operationKey: 'stripe-invoice-refund:evt_monthly_refund_replayed',
+      }),
+    }))
+  })
+
   it('records the already-spent share without making the wallet negative', async () => {
     const tx = monthlyRefundTx(20)
     const result = await revokeMonthlyCreditsForStripeInvoiceRefund({

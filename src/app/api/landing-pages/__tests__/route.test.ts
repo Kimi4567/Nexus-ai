@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   transaction: vi.fn(),
   pageCreate: vi.fn(),
   revisionCreate: vi.fn(),
+  formUpdateMany: vi.fn(),
 }))
 
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mocks.userId }))
@@ -47,11 +48,13 @@ beforeEach(() => {
   mocks.workspace.mockResolvedValue({ id: 'workspace-1' })
   mocks.campaign.mockResolvedValue({ id: 'campaign-1' })
   mocks.form.mockResolvedValue({ id: 'form-1', campaignId: 'campaign-1' })
+  mocks.formUpdateMany.mockResolvedValue({ count: 1 })
   mocks.pageCreate.mockResolvedValue({ id: 'page-1', publicId: 'public-page-1', version: 1 })
   mocks.revisionCreate.mockResolvedValue({ id: 'revision-1' })
   mocks.transaction.mockImplementation(async callback => callback({
     landingPage: { create: mocks.pageCreate },
     landingPageRevision: { create: mocks.revisionCreate },
+    leadCaptureForm: { updateMany: mocks.formUpdateMany },
   }))
 })
 
@@ -80,5 +83,23 @@ describe('POST /api/landing-pages', () => {
     const response = await POST(request())
     expect(response.status).toBe(400)
     expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+
+  it('atomically assigns an active unassigned form to the selected campaign', async () => {
+    mocks.form.mockResolvedValue({ id: 'form-1', campaignId: null, status: 'ACTIVE' })
+
+    const response = await POST(request())
+
+    expect(response.status).toBe(201)
+    expect(mocks.formUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'form-1',
+        workspaceId: 'workspace-1',
+        campaignId: null,
+        status: 'ACTIVE',
+      },
+      data: { campaignId: 'campaign-1' },
+    })
+    expect(mocks.pageCreate).toHaveBeenCalled()
   })
 })
