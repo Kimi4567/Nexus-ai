@@ -41,4 +41,17 @@ describe('trustedPublishedCtaHref', () => {
 
     expect(trustedPublishedCtaHref(page, 'landing-1')).toBe('https://example.com/offer')
   })
+
+  it('repairs legacy NEXUS lead-form URLs that predate typed CTA metadata', () => {
+    const page = snapshot({
+      label: 'Book',
+      href: 'https://www.nexus-grow.com/lead-form/legacy-form?utm_source=saved',
+      kind: 'EXTERNAL',
+      captureFormPublicId: null,
+    })
+
+    expect(trustedPublishedCtaHref(page, 'landing-1')).toBe(
+      '/lead-form/legacy-form?utm_source=saved&lp=landing-1',
+    )
+  })
 })
