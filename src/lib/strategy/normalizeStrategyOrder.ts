@@ -22,6 +22,7 @@ import type {
   DurationPreset,
   ContentIntensity,
   StrategyLanguage,
+  PlanContextLike,
 } from './strategyOrder'
 import { getStrategyCreditCost, type StrategyCreditCost } from './strategyPricing'
 import { normalizeCustomOrganicPostCount } from './strategyPostCount'
@@ -122,9 +123,12 @@ export interface ResolvedStrategyCharge {
  * This is the single source of truth the backend uses before any deduction —
  * the client's displayed price is never trusted.
  */
-export function resolveStrategyCharge(input: StrategyOrderInput | null | undefined): ResolvedStrategyCharge {
+export function resolveStrategyCharge(
+  input: StrategyOrderInput | null | undefined,
+  planContext?: Pick<PlanContextLike, 'postsPerMonth'>,
+): ResolvedStrategyCharge {
   const order = normalizeStrategyOrder(input)
-  const pricing = getStrategyCreditCost(order)
+  const pricing = getStrategyCreditCost(order, planContext)
   return {
     order,
     pricing,

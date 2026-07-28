@@ -156,6 +156,34 @@ describe('strategyPricing — exact organic post count', () => {
   })
 })
 
+describe('strategyPricing — plan-capped output', () => {
+  it('prices Organic from the post count the Free plan can actually deliver', () => {
+    const r = getStrategyCreditCost(order('organic', 'daily', '180'), { postsPerMonth: 3 })
+
+    expect(r.cost).toBe(24)
+    expect(r.tierLabel).toBe('Organic Light')
+    expect(r.pricingExplanation).toMatch(/plan-adjusted to 3 of 30 requested/i)
+  })
+
+  it('prices Full from the post count the Free plan can actually deliver', () => {
+    const r = getStrategyCreditCost({
+      ...order('full', 'daily', '180'),
+      customOrganicPostCount: 30,
+    }, { postsPerMonth: 3 })
+
+    expect(r.cost).toBe(46)
+    expect(r.tierLabel).toBe('Full Light')
+    expect(r.pricingExplanation).toMatch(/plan-adjusted to 3 of 30 requested/i)
+  })
+
+  it('keeps paid-only pricing independent from organic post quotas', () => {
+    const r = getStrategyCreditCost(order('paid', 'standard', '90'), { postsPerMonth: 3 })
+
+    expect(r.cost).toBe(32)
+    expect(r.tierLabel).toBe('Paid Standard')
+  })
+})
+
 describe('strategyPricing — required examples', () => {
   it('Organic Standard 160 (custom) = 32', () => {
     expect(cost(order('organic', 'standard', 'custom', 160))).toBe(32)

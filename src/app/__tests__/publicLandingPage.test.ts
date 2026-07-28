@@ -39,4 +39,11 @@ describe('public landing-page contract', () => {
     expect(page).not.toMatch(/\+\d+%|\d+x\s+(?:ROI|growth|faster)/i)
     expect(page).not.toContain('trusted by')
   })
+
+  it('renders the mobile navigation outside the backdrop-filter header and keeps touch targets usable', () => {
+    expect(page).toContain("import { createPortal } from 'react-dom'")
+    expect(page).toContain('createPortal(')
+    expect(page).toContain('min-h-[100dvh]')
+    expect(page).toContain('h-11 w-11')
+  })
 })

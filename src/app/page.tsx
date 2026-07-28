@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, type ElementType } from 'react'
+import { useEffect, useRef, useState, type ElementType } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ArrowRight,
   BarChart3,
@@ -51,12 +52,29 @@ const HOME_JSON_LD = {
 
 function Header({ ar, setLang }: { ar: boolean; setLang: (lang: 'ar' | 'en') => void }) {
   const [open, setOpen] = useState(false)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
   const links = [
     { href: '#product', label: ar ? 'المنتج' : 'Product' },
     { href: '#capabilities', label: ar ? 'الإمكانات' : 'Capabilities' },
     { href: '#workflow', label: ar ? 'طريقة العمل' : 'Workflow' },
     { href: '#pricing', label: ar ? 'الأسعار' : 'Pricing' },
   ]
+
+  useEffect(() => {
+    if (!open) return
+    const previousOverflow = document.body.style.overflow
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', closeOnEscape)
+    closeButtonRef.current?.focus({ preventScroll: true })
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [open])
 
   return (
     <header className="nx-public-header sticky top-0 z-50">
@@ -100,27 +118,37 @@ function Header({ ar, setLang }: { ar: boolean; setLang: (lang: 'ar' | 'en') => 
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="rounded-xl border border-slate-200/80 bg-white/70 p-2 text-slate-700 hover:bg-white md:hidden"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200/80 bg-white/70 text-slate-700 hover:bg-white md:hidden"
           aria-label={ar ? 'فتح القائمة' : 'Open menu'}
+          aria-expanded={open}
+          aria-controls="public-mobile-navigation"
         >
-          <Menu className="h-5 w-5" />
+          <Menu className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
 
-      {open && (
-        <div className="fixed inset-0 z-50 bg-[#f6f8fc] md:hidden">
+      {open && createPortal(
+        <div
+          id="public-mobile-navigation"
+          className="fixed inset-0 z-[100] min-h-[100dvh] overflow-y-auto bg-[#f6f8fc] md:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label={ar ? 'التنقل على الهاتف' : 'Mobile navigation'}
+          dir={ar ? 'rtl' : 'ltr'}
+        >
           <div className="flex h-16 items-center justify-between border-b border-slate-200/80 px-4">
             <span className="nx-brand-word">NEXUS</span>
             <button
+              ref={closeButtonRef}
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded-xl border border-slate-200 bg-white p-2 text-slate-700"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700"
               aria-label={ar ? 'إغلاق القائمة' : 'Close menu'}
             >
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
-          <nav className="flex flex-col px-4 py-6" aria-label={ar ? 'التنقل على الهاتف' : 'Mobile navigation'}>
+          <nav className="flex flex-col px-4 py-6" aria-label={ar ? 'روابط الهاتف' : 'Mobile links'}>
             {links.map((link) => (
               <a
                 key={link.href}
@@ -137,15 +165,23 @@ function Header({ ar, setLang }: { ar: boolean; setLang: (lang: 'ar' | 'en') => 
                 setLang(ar ? 'en' : 'ar')
                 setOpen(false)
               }}
-              className="mt-6 text-start text-[16px] font-medium text-slate-700"
+              className="mt-6 min-h-11 text-start text-[16px] font-medium text-slate-700"
             >
               {ar ? 'English' : 'العربية'}
             </button>
-            <Link href="/auth/register" className="nx-public-button-primary mt-8">
+            <Link
+              href="/auth/login"
+              onClick={() => setOpen(false)}
+              className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-[14px] font-semibold text-slate-700"
+            >
+              {ar ? 'تسجيل الدخول' : 'Sign in'}
+            </Link>
+            <Link href="/auth/register" onClick={() => setOpen(false)} className="nx-public-button-primary mt-3 min-h-11">
               {ar ? 'ابدأ مجاناً' : 'Start free'}
             </Link>
           </nav>
-        </div>
+        </div>,
+        document.body,
       )}
     </header>
   )

@@ -53,7 +53,8 @@ export const CREDIT_COSTS = {
    * Model: gpt-4o (strategist.ts — Content Director runs separately via CONTENT_PLAN_GENERATION)
    * Measured 2026-07-16 Organic run: 12,298 input + 6,183 output across
    * generation/repair = $0.088735 provider cost. Paid/Full can add one focused
-   * Structured Outputs repair; the provider meter records every call.
+   * Structured Outputs repair and the final save gate can request one bounded,
+   * issue-directed quality repair; the provider meter records every call.
    * Commercial price is variable (12–96 credits) and includes validation,
    * exact-count repair, persistence, refund risk, and operating margin.
    */
@@ -239,8 +240,8 @@ export const CREDIT_ACTION_POLICIES: Record<CreditAction, CreditActionPolicy> = 
   RUN_FULL_STRATEGY: {
     label: 'Full marketing strategy',
     reason: 'Creates the strategy, operating plan, and measurable execution brief.',
-    includedWork: 'Strategy generation, one document repair when required, and one focused paid-package repair when required.',
-    providerCallLimit: 3,
+    includedWork: 'Strategy generation, one document repair, one focused paid-package repair, and one final quality-gate repair when required.',
+    providerCallLimit: 4,
     refundableOnNoUsableOutput: true,
   },
   CREATIVE_BRIEF: {

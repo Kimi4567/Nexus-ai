@@ -203,12 +203,33 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     }))
   })
 
-  it('deducts a different recomputed cost for a richer order (Full Daily 180 = 96)', async () => {
+  it('deducts from the plan-deliverable tier (PRO caps Full Daily 180 to Standard = 60)', async () => {
     await POST(makeReq({
       strategyType: 'full', strategyDuration: '180', contentIntensity: 'daily',
     }))
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 96, expect.objectContaining({
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 60, expect.objectContaining({
       entityId: 'w1', entityType: 'workspace_strategy_run', operationKey: expect.any(String),
+    }))
+  })
+
+  it('does not charge Free users for Full directions their plan cannot deliver', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      preferences: {},
+      subscriptionStatus: 'FREE',
+      aiCredits: 100,
+      monthlyGenerations: 1,
+    })
+    mockPrisma.subscription.findUnique.mockResolvedValue(null)
+
+    await POST(makeReq({
+      strategyType: 'full',
+      strategyDuration: '180',
+      contentIntensity: 'daily',
+      customOrganicPostCount: 30,
+    }))
+
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 46, expect.objectContaining({
+      description: expect.stringContaining('plan-adjusted to 3 of 30 requested'),
     }))
   })
 
@@ -262,8 +283,9 @@ describe('POST /api/strategy/run-full — variable charge', () => {
       // adversarial client values that must be ignored:
       cost: 1, price: 0, credits: 999,
     }))
-    // Organic Daily 30 = 28, recomputed — not the client's 1/0/999.
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 28, expect.objectContaining({
+    // PRO delivers 16 directions, so the server uses Organic Standard = 16 —
+    // never the client's 1/0/999 or the undeliverable Daily tier.
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 16, expect.objectContaining({
       entityId: 'w1', entityType: 'workspace_strategy_run', operationKey: expect.any(String),
     }))
   })
@@ -517,7 +539,8 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     expect(mockPrisma.user.update).not.toHaveBeenCalled()
     expect(mockPrisma.creditTransaction.create).not.toHaveBeenCalled()
     expect(json.error).toMatch(/أوقف NEXUS حفظ هذه الاستراتيجية/)
-    expect(json.error).toMatch(/لم يتم حفظ حملة جديدة/)
+    expect(json.error).toMatch(/لم تُحفظ حملة/)
+    expect(json.error).toMatch(/لم يحتفظ النظام بأي كريديت/)
     expect(json.error).not.toMatch(/Strategy OS contract|strategy\.campaignName|topHooks/)
     expect(json.errors[0]).toBe(json.error)
   })

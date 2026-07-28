@@ -249,6 +249,22 @@ describe('RunFullStrategyModal preflight', () => {
     expect(screen.queryByText('9 post directions')).toBeNull()
   })
 
+  it('quotes the plan-capped Full tier instead of charging for undeliverable directions', async () => {
+    billingPlan.current = 'free'
+    render(<RunFullStrategyModal isOpen onClose={() => {}} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Set up strategy request' }))
+    fireEvent.click(screen.getByRole('button', { name: /Full Organic plus paid planning/ }))
+    fireEvent.click(screen.getByRole('button', { name: /6 months 180 days/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Daily 30/ }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Set an exact post-direction count for the first 30 days' }))
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Post direction count' }), { target: { value: '30' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Review strategy scope' }))
+
+    expect(await screen.findByText('Your plan caps the first 30 days at 3 post directions; this request will use 3.')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Review cost — 46 credits' })).toBeTruthy()
+  })
+
   it('shows both organic and exact paid deliverables for a full request', async () => {
     render(<RunFullStrategyModal isOpen onClose={() => {}} />)
 

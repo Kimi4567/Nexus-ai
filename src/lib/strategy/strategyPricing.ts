@@ -16,11 +16,14 @@
  * Custom > 180 days is NEVER chargeable: returns { supported:false, cost:null }.
  */
 
-import type { StrategyOrder, ContentIntensity } from './strategyOrder'
+import type { StrategyOrder, ContentIntensity, PlanContextLike } from './strategyOrder'
+import { INTENSITY_POST_TARGET } from './deliverablesContract'
 import {
   customOrganicPostCountUnsupported,
   effectiveContentIntensityForOrder,
   includesOrganicScope,
+  intensityForOrganicPostCount,
+  isValidCustomOrganicPostCount,
   MAX_CUSTOM_ORGANIC_POST_COUNT,
 } from './strategyPostCount'
 
@@ -83,23 +86,75 @@ function resolveDays(order: StrategyOrder): number {
 }
 
 /** Pick the price-column row + human tier label for the order. */
-function rowAndLabel(order: StrategyOrder): { row: PriceRow; tierLabel: string } {
+function pricingIntensityForOrder(
+  order: StrategyOrder,
+  planContext?: Pick<PlanContextLike, 'postsPerMonth'>,
+): ContentIntensity {
+  if (!includesOrganicScope(order)) return order.contentIntensity
+
+  const requestedPostCount = isValidCustomOrganicPostCount(order.customOrganicPostCount)
+    ? order.customOrganicPostCount
+    : INTENSITY_POST_TARGET[order.contentIntensity]
+  const rawPlanCap = planContext?.postsPerMonth
+  if (typeof rawPlanCap !== 'number' || !Number.isFinite(rawPlanCap) || rawPlanCap <= 0) {
+    return effectiveContentIntensityForOrder(order)
+  }
+
+  const deliveredPostCount = Math.min(requestedPostCount, Math.floor(rawPlanCap))
+  return intensityForOrganicPostCount(deliveredPostCount)
+}
+
+/** Pick the price row from the scope that can actually be delivered. */
+function rowAndLabel(
+  order: StrategyOrder,
+  planContext?: Pick<PlanContextLike, 'postsPerMonth'>,
+): { row: PriceRow; tierLabel: string; pricingIntensity: ContentIntensity } {
   if (order.strategyType === 'paid') {
     const tier = PAID_TIER_FOR_INTENSITY[order.contentIntensity]
-    return { row: PAID[tier], tierLabel: `Paid ${CAP(tier)}` }
+    return { row: PAID[tier], tierLabel: `Paid ${CAP(tier)}`, pricingIntensity: order.contentIntensity }
   }
-  const effectiveIntensity = effectiveContentIntensityForOrder(order)
+  const effectiveIntensity = pricingIntensityForOrder(order, planContext)
   if (order.strategyType === 'full') {
-    return { row: FULL[effectiveIntensity], tierLabel: `Full ${CAP(effectiveIntensity)}` }
+    return {
+      row: FULL[effectiveIntensity],
+      tierLabel: `Full ${CAP(effectiveIntensity)}`,
+      pricingIntensity: effectiveIntensity,
+    }
   }
-  return { row: ORGANIC[effectiveIntensity], tierLabel: `Organic ${CAP(effectiveIntensity)}` }
+  return {
+    row: ORGANIC[effectiveIntensity],
+    tierLabel: `Organic ${CAP(effectiveIntensity)}`,
+    pricingIntensity: effectiveIntensity,
+  }
+}
+
+function planAdjustedPricingNote(
+  order: StrategyOrder,
+  pricingIntensity: ContentIntensity,
+  planContext?: Pick<PlanContextLike, 'postsPerMonth'>,
+): string {
+  if (!includesOrganicScope(order)) return ''
+  const rawPlanCap = planContext?.postsPerMonth
+  if (typeof rawPlanCap !== 'number' || !Number.isFinite(rawPlanCap) || rawPlanCap <= 0) return ''
+
+  const requestedPostCount = isValidCustomOrganicPostCount(order.customOrganicPostCount)
+    ? order.customOrganicPostCount
+    : INTENSITY_POST_TARGET[order.contentIntensity]
+  const deliveredPostCount = Math.min(requestedPostCount, Math.floor(rawPlanCap))
+  if (deliveredPostCount >= requestedPostCount) return ''
+
+  return ` · plan-adjusted to ${deliveredPostCount} of ${requestedPostCount} requested post directions (${CAP(pricingIntensity)} price)`
 }
 
 /**
  * Compute the credit cost for a confirmed order. Pure; never mutates `order`.
  */
-export function getStrategyCreditCost(order: StrategyOrder): StrategyCreditCost {
-  const { row, tierLabel } = rowAndLabel(order)
+export function getStrategyCreditCost(
+  order: StrategyOrder,
+  planContext?: Pick<PlanContextLike, 'postsPerMonth'>,
+): StrategyCreditCost {
+  const { row, tierLabel, pricingIntensity } = rowAndLabel(order, planContext)
+  const planAdjustedNote = planAdjustedPricingNote(order, pricingIntensity, planContext)
   const days = resolveDays(order)
   const isCustom = order.durationPreset === 'custom'
   const hasOrganicCustomCount = includesOrganicScope(order) && order.customOrganicPostCount != null
@@ -124,8 +179,8 @@ export function getStrategyCreditCost(order: StrategyOrder): StrategyCreditCost 
       tierLabel,
       durationBucket: bucket,
       pricingExplanation: hasOrganicCustomCount
-        ? `${tierLabel} · exact ${order.customOrganicPostCount} organic post directions · ${bucket}-day price = ${cost} credits`
-        : `${tierLabel} · ${bucket}-day price = ${cost} credits`,
+        ? `${tierLabel} · exact ${order.customOrganicPostCount} organic post directions${planAdjustedNote} · ${bucket}-day price = ${cost} credits`
+        : `${tierLabel}${planAdjustedNote} · ${bucket}-day price = ${cost} credits`,
     }
   }
 
@@ -152,8 +207,8 @@ export function getStrategyCreditCost(order: StrategyOrder): StrategyCreditCost 
       tierLabel,
       durationBucket: '30',
       pricingExplanation: hasOrganicCustomCount
-        ? `${tierLabel} · exact ${order.customOrganicPostCount} organic post directions · custom ${days} days = 30-day price = ${row[30]} credits`
-        : `${tierLabel} · custom ${days} days = 30-day price = ${row[30]} credits`,
+        ? `${tierLabel} · exact ${order.customOrganicPostCount} organic post directions${planAdjustedNote} · custom ${days} days = 30-day price = ${row[30]} credits`
+        : `${tierLabel}${planAdjustedNote} · custom ${days} days = 30-day price = ${row[30]} credits`,
     }
   }
   // 31–60 → 30-day price + 20%, rounded up.
@@ -165,8 +220,8 @@ export function getStrategyCreditCost(order: StrategyOrder): StrategyCreditCost 
       tierLabel,
       durationBucket: '30',
       pricingExplanation: hasOrganicCustomCount
-        ? `${tierLabel} · exact ${order.customOrganicPostCount} organic post directions · custom ${days} days = 30-day price +20% (ceil) = ${cost} credits`
-        : `${tierLabel} · custom ${days} days = 30-day price +20% (ceil) = ${cost} credits`,
+        ? `${tierLabel} · exact ${order.customOrganicPostCount} organic post directions${planAdjustedNote} · custom ${days} days = 30-day price +20% (ceil) = ${cost} credits`
+        : `${tierLabel}${planAdjustedNote} · custom ${days} days = 30-day price +20% (ceil) = ${cost} credits`,
     }
   }
   // 61–90 → 90-day price.
@@ -177,8 +232,8 @@ export function getStrategyCreditCost(order: StrategyOrder): StrategyCreditCost 
       tierLabel,
       durationBucket: '90',
       pricingExplanation: hasOrganicCustomCount
-        ? `${tierLabel} · exact ${order.customOrganicPostCount} organic post directions · custom ${days} days = 90-day price = ${row[90]} credits`
-        : `${tierLabel} · custom ${days} days = 90-day price = ${row[90]} credits`,
+        ? `${tierLabel} · exact ${order.customOrganicPostCount} organic post directions${planAdjustedNote} · custom ${days} days = 90-day price = ${row[90]} credits`
+        : `${tierLabel}${planAdjustedNote} · custom ${days} days = 90-day price = ${row[90]} credits`,
     }
   }
   // 91–180 → 180-day price.
@@ -188,7 +243,7 @@ export function getStrategyCreditCost(order: StrategyOrder): StrategyCreditCost 
     tierLabel,
     durationBucket: '180',
     pricingExplanation: hasOrganicCustomCount
-      ? `${tierLabel} · exact ${order.customOrganicPostCount} organic post directions · custom ${days} days = 180-day price = ${row[180]} credits`
-      : `${tierLabel} · custom ${days} days = 180-day price = ${row[180]} credits`,
+      ? `${tierLabel} · exact ${order.customOrganicPostCount} organic post directions${planAdjustedNote} · custom ${days} days = 180-day price = ${row[180]} credits`
+      : `${tierLabel}${planAdjustedNote} · custom ${days} days = 180-day price = ${row[180]} credits`,
   }
 }

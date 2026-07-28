@@ -88,27 +88,27 @@ function sanitizeStrategyRunError(
       const paidPackageCountFailed = /paidPlanning\./i.test(error) || strategyType === 'paid'
       if (paidPackageCountFailed) {
         return isArabicLanguage(language)
-          ? 'أوقف NEXUS الحفظ لأن حزمة التخطيط المدفوع لم تُكمل العدد الذي راجعته من فرضيات الجمهور، الزوايا، النسخ الإعلانية، أو البريفات. لم تُحفظ حملة وتمت إعادة الكريديت إن خُصمت.'
-          : 'NEXUS blocked saving because the paid-planning package did not complete the reviewed number of audience hypotheses, ad angles, ad-copy variations, or creative briefs. No campaign was saved and charged credits were restored.'
+          ? 'أوقف NEXUS الحفظ لأن حزمة التخطيط المدفوع لم تُكمل العدد الذي راجعته من فرضيات الجمهور، الزوايا، النسخ الإعلانية، أو البريفات. لم تُحفظ حملة، ولم يحتفظ النظام بأي كريديت لهذه المحاولة الفاشلة.'
+          : 'NEXUS blocked saving because the paid-planning package did not complete the reviewed number of audience hypotheses, ad angles, ad-copy variations, or creative briefs. No campaign was saved and no credits were kept for this failed run.'
       }
       return isArabicLanguage(language)
-        ? 'أوقف NEXUS الحفظ لأن مولّد الاستراتيجية لم يُكمل العدد الذي راجعته من اتجاهات المحتوى والخطة الأسبوعية. لم تُحفظ حملة جديدة وتمت إعادة الكريدت إن خُصمت. أعد المحاولة؛ سيحاول النظام إصلاح العدد تلقائيًا قبل الحفظ.'
-        : 'NEXUS blocked saving because the strategy generator did not complete the reviewed number of content directions and weekly deliverables. No campaign was saved and charged credits were restored. Retry; the system will attempt a count repair before saving.'
+        ? 'أوقف NEXUS الحفظ لأن مولّد الاستراتيجية لم يُكمل العدد الذي راجعته من اتجاهات المحتوى والخطة الأسبوعية. لم تُحفظ حملة، ولم يحتفظ النظام بأي كريديت لهذه المحاولة الفاشلة. أعد المحاولة؛ سيحاول النظام إصلاح العدد تلقائيًا قبل الحفظ.'
+        : 'NEXUS blocked saving because the strategy generator did not complete the reviewed number of content directions and weekly deliverables. No campaign was saved and no credits were kept for this failed run. Retry; the system will attempt a count repair before saving.'
     }
     if (/paidPlanning\./i.test(error) || strategyType === 'paid') {
       return isArabicLanguage(language)
-        ? 'أوقف NEXUS الحفظ لأن حزمة التخطيط المدفوع لم تجتز فحص جودة النسخ أو البريفات. لم تُحفظ حملة وتمت إعادة الكريديت إن خُصمت.'
-        : 'NEXUS blocked saving because the paid-planning package did not pass copy or creative-brief quality checks. No campaign was saved and charged credits were restored.'
+        ? 'أوقف NEXUS الحفظ لأن حزمة التخطيط المدفوع لم تجتز فحص جودة النسخ أو البريفات. لم تُحفظ حملة، ولم يحتفظ النظام بأي كريديت لهذه المحاولة الفاشلة.'
+        : 'NEXUS blocked saving because the paid-planning package did not pass copy or creative-brief quality checks. No campaign was saved and no credits were kept for this failed run.'
     }
     if (isArabicLanguage(language)) {
       return /language:/i.test(error)
-        ? 'أوقف NEXUS حفظ هذه الاستراتيجية لأن لغة المخرجات لم تطابق اللغة المختارة. لم يتم حفظ حملة جديدة وتمت إعادة الكريدت إن خُصمت. حاول مرة أخرى مع نفس اللغة أو اختر الإنجليزية إذا أردت المخرجات بالإنجليزية.'
-        : 'أوقف NEXUS حفظ هذه الاستراتيجية لأن الوثيقة لم تجتز عقد الجودة البنيوي. لم يتم حفظ حملة جديدة وتمت إعادة الكريدت إن خُصمت. حاول مرة أخرى.'
+        ? 'أوقف NEXUS حفظ هذه الاستراتيجية لأن لغة المخرجات لم تطابق اللغة المختارة. لم تُحفظ حملة، ولم يحتفظ النظام بأي كريديت لهذه المحاولة الفاشلة. حاول مرة أخرى مع نفس اللغة أو اختر الإنجليزية إذا أردت المخرجات بالإنجليزية.'
+        : 'أوقف NEXUS حفظ هذه الاستراتيجية لأن الوثيقة لم تجتز عقد الجودة البنيوي. لم تُحفظ حملة، ولم يحتفظ النظام بأي كريديت لهذه المحاولة الفاشلة. حاول مرة أخرى.'
     }
 
     return /language:/i.test(error)
-      ? 'NEXUS blocked saving because the output language did not match the selected language. No campaign was saved and charged credits were restored. Retry with the same language, or choose English for English output.'
-      : 'NEXUS blocked saving because the strategy document did not pass the structural quality contract. No campaign was saved and charged credits were restored. Please retry.'
+      ? 'NEXUS blocked saving because the output language did not match the selected language. No campaign was saved and no credits were kept for this failed run. Retry with the same language, or choose English for English output.'
+      : 'NEXUS blocked saving because the strategy document did not pass the structural quality contract. No campaign was saved and no credits were kept for this failed run. Please retry.'
   }
 
   if (error.startsWith('BRAND_TRUTH_CONFLICT:')) {
@@ -119,8 +119,8 @@ function sanitizeStrategyRunError(
 
   if (error.startsWith('MARKETING_QUALITY_GATE_BLOCKED:')) {
     return isArabicLanguage(language)
-      ? 'رفض NEXUS حفظ الاستراتيجية لأنها خرجت عن حقائق العلامة أو الجمهور أو القنوات التي راجعتها. لم تُحفظ حملة وتمت إعادة الكريديت إن خُصمت.'
-      : 'NEXUS refused to save the strategy because it drifted from the reviewed brand, audience, or channel facts. No campaign was saved and charged credits were restored.'
+      ? 'رفض NEXUS حفظ الاستراتيجية لأنها خرجت عن حقائق العلامة أو الجمهور أو القنوات التي راجعتها. لم تُحفظ حملة، ولم يحتفظ النظام بأي كريديت لهذه المحاولة الفاشلة.'
+      : 'NEXUS refused to save the strategy because it drifted from the reviewed brand, audience, or channel facts. No campaign was saved and no credits were kept for this failed run.'
   }
 
   return error
@@ -128,10 +128,10 @@ function sanitizeStrategyRunError(
 
 function genericStrategyRunFailureMessage(language: unknown): string {
   if (isArabicLanguage(language)) {
-    return 'تعذر إكمال توليد الاستراتيجية قبل حفظ حملة جديدة. تمت إعادة كريدت هذه المحاولة إن تم خصمها. حاول مرة أخرى.'
+    return 'تعذر إكمال توليد الاستراتيجية قبل حفظ حملة جديدة. لم يحتفظ النظام بأي كريديت لهذه المحاولة الفاشلة. حاول مرة أخرى.'
   }
 
-  return 'Strategy generation could not be completed before a new campaign was saved. Credits for this attempt were restored if they were charged. Please try again.'
+  return 'Strategy generation could not be completed before a new campaign was saved. No credits were kept for this failed run. Please try again.'
 }
 
 function campaignLimitPayload(allowance: CampaignAllowance, language: unknown) {
@@ -309,7 +309,7 @@ export async function POST(req: NextRequest) {
     // server-side. The client only displays a price; it is never trusted here.
     // The body's contentIntensity/customDurationDays feed the order; any
     // client-supplied price is ignored.
-    const charge = resolveStrategyCharge({
+    let charge = resolveStrategyCharge({
       strategyType: body?.strategyType,
       strategyDuration: body?.strategyDuration,
       contentIntensity: body?.contentIntensity,
@@ -333,8 +333,8 @@ export async function POST(req: NextRequest) {
         { status: 422 },
       )
     }
-    const strategyCreditCost: number = charge.cost
-    const organicFallbackCharge = strategyType === 'full'
+    let strategyCreditCost: number = charge.cost
+    let organicFallbackCharge = strategyType === 'full'
       ? resolveStrategyCharge({ ...body, strategyType: 'organic' })
       : null
     let settledStrategyCreditCost = strategyCreditCost
@@ -443,6 +443,36 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Resolve the same subscription quota used by the modal before checking
+    // affordability. Organic/full pricing must follow the post directions the
+    // current plan can actually deliver, not a higher intensity that will be
+    // capped later by the generation contract.
+    const [strategySubscription, strategyBillingUser] = await Promise.all([
+      prisma.subscription.findUnique({
+        where: { userId: user.id },
+        select: { plan: true, status: true },
+      }),
+      prisma.user.findUnique({
+        where: { id: user.id },
+        select: { subscriptionStatus: true },
+      }),
+    ])
+    const strategyPlan = resolveBillingStatusPlan({
+      subscriptionPlan: strategySubscription?.plan,
+      subscriptionStatus: strategySubscription?.status,
+      userSubscriptionStatus: strategyBillingUser?.subscriptionStatus,
+    }).plan
+    const postsPerMonth = tierToPostsPerMonth(strategyPlan)
+    const strategyPlanContext =
+      typeof postsPerMonth === 'number' ? { postsPerMonth } : undefined
+    charge = resolveStrategyCharge(body, strategyPlanContext)
+    strategyCreditCost = charge.cost as number
+    organicFallbackCharge = strategyType === 'full'
+      ? resolveStrategyCharge({ ...body, strategyType: 'organic' }, strategyPlanContext)
+      : null
+    settledStrategyCreditCost = strategyCreditCost
+    settledPricingExplanation = charge.pricing.pricingExplanation
+
     // -- Credit preflight only (no mutation) ---------------------------------
     // Strategy generation can run long enough for provider/platform disconnects.
     // Do not debit credits before AI + deterministic contract guards produce a
@@ -499,23 +529,11 @@ export async function POST(req: NextRequest) {
       || safeBrandProfile.businessGoal
       || 'leads'
     const order = { ...charge.order, goal: charge.order.goal || goalOverride }
-    const strategySubscription = await prisma.subscription.findUnique({
-      where: { userId: user.id },
-      select: { plan: true, status: true },
-    })
-    const strategyPlan = resolveBillingStatusPlan({
-      subscriptionPlan: strategySubscription?.plan,
-      subscriptionStatus: strategySubscription?.status,
-      userSubscriptionStatus: freshUser?.subscriptionStatus,
-    }).plan
-    const postsPerMonth = tierToPostsPerMonth(strategyPlan)
     const deliverables = getStrategyDeliverables(
       order,
-      typeof postsPerMonth === 'number' ? { postsPerMonth } : undefined,
+      strategyPlanContext,
     )
-    const requestedOrganicPostCount = order.strategyType !== 'paid'
-      ? order.customOrganicPostCount
-      : null
+    const requestedOrganicPostCount = deliverables.requestedOrganicPostCount
     const effectiveOrganicPostCount = deliverables.organicPostCount
     const planCapLedgerNote =
       typeof requestedOrganicPostCount === 'number' &&

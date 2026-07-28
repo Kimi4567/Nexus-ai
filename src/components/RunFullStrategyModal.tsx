@@ -647,7 +647,10 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
     goal: '',
     language: strategyOrderLanguage,
   }
-  const strategyPricingPreview = getStrategyCreditCost(strategyOrderPreview)
+  const previewPostsPerMonth = tierToPostsPerMonth(billingStatus?.plan)
+  const previewPlanContext =
+    typeof previewPostsPerMonth === 'number' ? { postsPerMonth: previewPostsPerMonth } : undefined
+  const strategyPricingPreview = getStrategyCreditCost(strategyOrderPreview, previewPlanContext)
   const strategyCostPreview = strategyPricingPreview.cost
   const strategyCostText =
     strategyCostPreview === null
@@ -661,10 +664,9 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess, start
     strategyDuration === 'custom'
       ? (locale === 'ar' ? `${customDurationDays} يوم` : `${customDurationDays} days`)
       : (locale === 'ar' ? `${strategyHorizonDays} يوم` : `${strategyHorizonDays} days`)
-  const previewPostsPerMonth = tierToPostsPerMonth(billingStatus?.plan)
   const strategyDeliverablesPreview = getStrategyDeliverables(
     strategyOrderPreview,
-    typeof previewPostsPerMonth === 'number' ? { postsPerMonth: previewPostsPerMonth } : undefined,
+    previewPlanContext,
   )
   const effectiveOrganicPostCount = strategyDeliverablesPreview.organicPostCount
   const strategyIncludedGroups = [

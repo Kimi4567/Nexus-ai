@@ -6,7 +6,12 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { runStrategistAgent, BusinessBrief, StrategyOutput } from './strategist'
+import {
+  repairStrategistQualityFailure,
+  runStrategistAgent,
+  BusinessBrief,
+  StrategyOutput,
+} from './strategist'
 import type { ContentDirectorOutput } from './content-director'
 import { saveCampaignMemory } from '@/lib/campaign-memory'
 import { selectStrategyCampaignPlatforms } from '@/lib/ai/strategyOutputContractGuard'
@@ -112,7 +117,7 @@ export async function runFullAgency(
 
     // 2. Strategist agent
     const requestedBrief = brief
-    const generatedStrategy: StrategyOutput = await runStrategistAgent(
+    let generatedStrategy: StrategyOutput = await runStrategistAgent(
       brief,
       strategyContext.brandContext,
       brief.language,
@@ -123,26 +128,41 @@ export async function runFullAgency(
     try {
       finalized = finalizeStrategyQuality(generatedStrategy, brief, strategyContext)
     } catch (qualityError) {
-      if (
-        qualityError instanceof StrategyQualityFailure
-        && canPreserveOrganicFromFull(brief, qualityError.diagnostics)
-      ) {
-        effectiveBrief = buildOrganicPartialBrief(brief)
-        finalized = finalizeStrategyQuality(
-          organicPartialStrategy(generatedStrategy),
-          effectiveBrief,
-          strategyContext,
+      if (!(qualityError instanceof StrategyQualityFailure)) throw qualityError
+
+      try {
+        generatedStrategy = await repairStrategistQualityFailure(
+          generatedStrategy,
+          brief,
+          qualityError.diagnostics,
+          strategyContext.brandContext,
+          brief.language,
+          strategyContext.readiness,
         )
-        delivery = {
-          status: 'partial',
-          requestedStrategyType: 'full',
-          deliveredStrategyType: 'organic',
-          failedSection: 'paid_planning',
-          failure: qualityError.diagnostics,
+        finalized = finalizeStrategyQuality(generatedStrategy, brief, strategyContext)
+        warnings.push('STRATEGY_QUALITY_REPAIRED')
+      } catch (repairError) {
+        const finalQualityError = repairError instanceof StrategyQualityFailure
+          ? repairError
+          : qualityError
+        if (canPreserveOrganicFromFull(brief, finalQualityError.diagnostics)) {
+          effectiveBrief = buildOrganicPartialBrief(brief)
+          finalized = finalizeStrategyQuality(
+            organicPartialStrategy(generatedStrategy),
+            effectiveBrief,
+            strategyContext,
+          )
+          delivery = {
+            status: 'partial',
+            requestedStrategyType: 'full',
+            deliveredStrategyType: 'organic',
+            failedSection: 'paid_planning',
+            failure: finalQualityError.diagnostics,
+          }
+          warnings.push('PAID_PLANNING_NOT_DELIVERED')
+        } else {
+          throw finalQualityError
         }
-        warnings.push('PAID_PLANNING_NOT_DELIVERED')
-      } else {
-        throw qualityError
       }
     }
     const { strategy, contractReport, qualityGate } = finalized

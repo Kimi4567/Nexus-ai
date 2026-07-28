@@ -4,6 +4,7 @@ import {
   buildPaidPlanningStructuredOutputSchema,
   buildStrategistCountRepairPrompt,
   buildStrategistPrompts,
+  buildStrategistQualityRepairPrompt,
   type BusinessBrief,
   type StrategyOutput,
 } from '@/lib/agents/strategist'
@@ -69,6 +70,39 @@ describe('buildStrategistCountRepairPrompt', () => {
     expect(prompt).toContain('observable baseline or signal plus a decision rule')
     expect(prompt).toContain('diagnosisDetails must label its basis')
     expect(prompt).toContain('Dental consultation plan')
+  })
+})
+
+describe('buildStrategistQualityRepairPrompt', () => {
+  it('binds the exact quality blockers to authoritative Brand Brain facts', () => {
+    const brief = {
+      ...briefWith(order('full', 'daily', '180'), 3),
+      primaryOffer: 'Modular storage for compact homes',
+      avoidWords: 'guaranteed, best',
+    }
+    const prompt = buildStrategistQualityRepairPrompt(
+      {
+        campaignName: 'Drifted plan',
+        contentAnglesDetailed: [{ title: 'Best guaranteed result' }],
+        weeklyExecutionPlan: [],
+      } as unknown as StrategyOutput,
+      brief,
+      {
+        stage: 'marketing_quality',
+        issueCodes: ['unsupported_quality_superlative', 'platform_outside_reviewed_scope'],
+        affectedPaths: ['strategy.contentAnglesDetailed[0]', 'strategy.platforms'],
+      },
+      'Brand: NEXUS AI\nAudience: SME owners\nOffer: Modular storage for compact homes',
+    )
+
+    expect(prompt).toContain('QUALITY-GATE REPAIR')
+    expect(prompt).toContain('unsupported_quality_superlative')
+    expect(prompt).toContain('path:strategy.contentAnglesDetailed[0]')
+    expect(prompt).toContain('Allowed platforms only: INSTAGRAM, TIKTOK, FACEBOOK')
+    expect(prompt).toContain('Authoritative Brand Brain context')
+    expect(prompt).toContain('do not add facts outside it')
+    expect(prompt).toContain('without weakening, deleting, or bypassing the reviewed delivery contract')
+    expect(prompt).toContain('exactly 3 contentAnglesDetailed entries')
   })
 })
 

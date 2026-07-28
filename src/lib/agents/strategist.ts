@@ -996,6 +996,95 @@ export function buildStrategistCountRepairPrompt(
   ].join('\n')
 }
 
+export interface StrategistQualityRepairIssues {
+  stage: 'strategy_contract' | 'marketing_quality'
+  issueCodes: string[]
+  affectedPaths: string[]
+}
+
+export function buildStrategistQualityRepairPrompt(
+  output: StrategyOutput,
+  brief: BusinessBrief,
+  issues: StrategistQualityRepairIssues,
+  brandContext?: string,
+): string {
+  const expectedCount = typeof brief.organicPostCount === 'number' && brief.organicPostCount > 0
+    ? Math.floor(brief.organicPostCount)
+    : 4
+  const contractRepair = buildStrategistCountRepairPrompt(
+    output,
+    expectedCount,
+    brief.strategyDeliverables,
+    brief.strategyType,
+    [
+      ...issues.issueCodes,
+      ...issues.affectedPaths.map(path => `path:${path}`),
+    ],
+  )
+
+  return [
+    contractRepair,
+    '',
+    'QUALITY-GATE REPAIR — this is the single final repair before persistence.',
+    `Failed stage: ${issues.stage}.`,
+    `Blocking issue codes: ${issues.issueCodes.join(', ') || 'unknown'}.`,
+    `Affected paths: ${issues.affectedPaths.join(', ') || 'unknown'}.`,
+    `Authoritative brand: ${brief.companyName}.`,
+    `Authoritative category: ${brief.businessType}.`,
+    `Authoritative audience: ${brief.targetAudience}.`,
+    `Authoritative offer: ${brief.primaryOffer || 'Not provided'}.`,
+    `Allowed platforms only: ${brief.currentPlatforms?.join(', ') || 'Not provided'}.`,
+    brief.avoidWords ? `Forbidden brand wording: ${brief.avoidWords}.` : '',
+    brief.generationInstructions
+      ? `Binding reviewed delivery contract:\n${brief.generationInstructions}`
+      : '',
+    brandContext
+      ? `Authoritative Brand Brain context — do not add facts outside it:\n${brandContext}`
+      : '',
+    'Repair every blocking path without weakening, deleting, or bypassing the reviewed delivery contract.',
+    'Replace unsupported claims, audience expansions, internal workflow copy, and unreviewed platform claims with factual Brand Brain wording or an explicit hypothesis/proof-collection task.',
+    'Keep all customer-facing copy useful and specific. Do not solve a blocker with empty text, generic filler, cloned directions, or a claim that the work is already executed.',
+  ].filter(Boolean).join('\n')
+}
+
+function combineStrategyProviderUsage(
+  existing: ProviderUsageSummary | undefined,
+  repairUsage: OpenAITextUsage,
+): ProviderUsageSummary {
+  const combined = summarizeOpenAITextUsage(
+    'gpt-4o',
+    existing ? [existing, repairUsage] : [repairUsage],
+  )
+  return {
+    ...combined,
+    calls: (existing?.calls ?? 0) + 1,
+  }
+}
+
+/**
+ * One bounded, issue-directed repair after the deterministic save gate reports
+ * exact blockers. The repaired document is still required to pass the same
+ * contract, truth, and marketing-quality checks in the orchestrator.
+ */
+export async function repairStrategistQualityFailure(
+  output: StrategyOutput,
+  brief: BusinessBrief,
+  issues: StrategistQualityRepairIssues,
+  brandContext?: string,
+  language?: string,
+  readiness?: StrategyReadinessContext,
+): Promise<StrategyOutput> {
+  const { systemPrompt } = buildStrategistPrompts(brief, brandContext, language, readiness)
+  const repairCall = await callOpenAI(
+    `${systemPrompt}\n\nYou are repairing a rejected strategy document. The listed quality-gate blockers and the reviewed commercial order are binding. Return the complete corrected JSON document only.`,
+    buildStrategistQualityRepairPrompt(output, brief, issues, brandContext),
+    9500,
+  )
+  const repaired = normalizeStrategyOutput(repairCall.output) as StrategyOutput
+  repaired.providerUsage = combineStrategyProviderUsage(output.providerUsage, repairCall.usage)
+  return repaired
+}
+
 function exactObjectArraySchema(
   count: number,
   properties: Record<string, unknown>,
