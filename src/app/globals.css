@@ -399,6 +399,13 @@
     }
   }
 
+  /* The authenticated assistant must never sit above the mobile navigation
+     drawer or cover the account controls inside it. */
+  html[data-nexus-mobile-navigation-open] .chat-btn,
+  html[data-nexus-mobile-navigation-open] .chat-panel {
+    display: none !important;
+  }
+
   .nx-os-stack {
     display: flex;
     flex-direction: column;

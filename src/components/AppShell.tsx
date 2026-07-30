@@ -108,6 +108,13 @@ export default function AppShell({ children }: AppShellProps) {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [closeMobileMenu, mobileOpen, mobileViewport])
 
+  useEffect(() => {
+    const root = document.documentElement
+    const drawerOpen = mobileViewport && mobileOpen
+    root.toggleAttribute('data-nexus-mobile-navigation-open', drawerOpen)
+    return () => root.removeAttribute('data-nexus-mobile-navigation-open')
+  }, [mobileOpen, mobileViewport])
+
   const setCollapsedWithPreference: typeof setCollapsed = (nextValue) => {
     setCollapsed((currentValue) => {
       const resolvedValue = typeof nextValue === 'function' ? nextValue(currentValue) : nextValue

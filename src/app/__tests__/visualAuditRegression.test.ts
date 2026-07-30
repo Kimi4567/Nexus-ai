@@ -38,6 +38,29 @@ describe('visual audit regressions', () => {
     expect(widget).not.toContain('bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4')
   })
 
+  it('hides the assistant while the mobile navigation drawer is open', () => {
+    const shell = source('src/components/AppShell.tsx')
+    const styles = source('src/app/globals.css')
+
+    expect(shell).toContain("data-nexus-mobile-navigation-open")
+    expect(styles).toContain("html[data-nexus-mobile-navigation-open] .chat-btn")
+    expect(styles).toContain("html[data-nexus-mobile-navigation-open] .chat-panel")
+  })
+
+  it('keeps internal evidence keys and English flow copy out of the Arabic presentation', () => {
+    const analytics = source('src/app/analytics/page.tsx')
+    const learning = source('src/app/learning/page.tsx')
+    const landingPages = source('src/app/landing-pages/page.tsx')
+    const connections = source('src/app/connections/page.tsx')
+
+    expect(analytics).toContain("measurementEvidenceLabel(helper, ar ? 'ar' : 'en')")
+    expect(learning).toContain("measurementEvidenceLabel(String(evidence), ar ? 'ar' : 'en')")
+    expect(learning).not.toContain('causalClaim=false</p>')
+    expect(landingPages).toContain('حملة · صفحة هبوط · زر أو نموذج · عميل محتمل · إرسال يؤكده الخادم')
+    expect(connections).toContain('PROVIDER_TEST_BOUNDARY_AR')
+    expect(connections).toContain('providerTestBoundary(provider, ar)')
+  })
+
   it('does not expose implementation flags in CRM copy', () => {
     const alerts = source('src/app/leads/alerts/page.tsx')
     const lifecycle = source('src/app/leads/lifecycle/page.tsx')

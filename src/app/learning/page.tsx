@@ -33,6 +33,7 @@ import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import type { FirstPartyMeasurementSummary } from '@/lib/firstPartyMeasurement'
+import { measurementEvidenceLabel } from '@/lib/measurementEvidenceLabel'
 
 type SignalStatus = 'pending' | 'accepted' | 'dismissed' | 'rolled_back' | string
 type SignalFilter = 'pending' | 'accepted' | 'dismissed' | 'rolled_back' | 'all'
@@ -608,18 +609,18 @@ export default function LearningPage() {
                     <div className="grid grid-cols-2 gap-3">
                       {[
                         [copy('زيارات', 'Views'), overview.firstParty.funnel.pageViews, 'CLIENT_REPORTED'],
-                        [copy('نماذج Landing Page مؤكدة', 'Confirmed landing-page forms'), overview.firstParty.funnel.confirmedForms, 'SERVER_CONFIRMED'],
-                        [copy('Leads', 'Leads'), overview.firstParty.funnel.leads, copy('مسجلة', 'RECORDED')],
+                        [copy('نماذج صفحة هبوط مؤكدة', 'Confirmed landing-page forms'), overview.firstParty.funnel.confirmedForms, 'SERVER_CONFIRMED'],
+                        [copy('عملاء محتملون', 'Leads'), overview.firstParty.funnel.leads, copy('مسجل داخل NEXUS', 'Recorded in NEXUS')],
                         [copy('مكتسب', 'Won'), overview.firstParty.funnel.wonLeads, 'MANUAL_CONFIRMED'],
-                      ].map(([label, value, evidence]) => <div key={String(label)} className="rounded-[15px] border border-[#e8edf5] bg-[#fbfcff] p-3"><p className="text-[8px] font-black text-[#8a95aa]">{label}</p><p className="mt-1 text-[20px] font-black text-[#111b3f]">{value}</p><p className="mt-1 truncate font-mono text-[7px] font-bold text-[#9aa4b6]">{evidence}</p></div>)}
+                      ].map(([label, value, evidence]) => <div key={String(label)} className="rounded-[15px] border border-[#e8edf5] bg-[#fbfcff] p-3"><p className="text-[8px] font-black text-[#8a95aa]">{label}</p><p className="mt-1 text-[20px] font-black text-[#111b3f]">{value}</p><p className="mt-1 truncate text-[7px] font-bold text-[#9aa4b6]">{measurementEvidenceLabel(String(evidence), ar ? 'ar' : 'en')}</p></div>)}
                     </div>
                     <div className="space-y-3">
                       {overview.firstParty.insights.map(insight => (
                         <article key={insight.code} className={`rounded-[15px] border p-4 ${insight.evidenceLevel === 'directional' ? 'border-emerald-100 bg-emerald-50/50' : 'border-amber-100 bg-amber-50/50'}`}>
-                          <div className="flex flex-wrap items-center gap-2"><p className="text-[11px] font-black text-[#233052]">{ar ? insight.titleAr : insight.title}</p><span className={`rounded-full px-2 py-1 text-[7px] font-black ${insight.evidenceLevel === 'directional' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{insight.evidenceLevel}</span></div>
+                          <div className="flex flex-wrap items-center gap-2"><p className="text-[11px] font-black text-[#233052]">{ar ? insight.titleAr : insight.title}</p><span className={`rounded-full px-2 py-1 text-[7px] font-black ${insight.evidenceLevel === 'directional' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{insight.evidenceLevel === 'directional' ? copy('اتجاهي', 'Directional') : copy('غير كافٍ', 'Insufficient')}</span></div>
                           <p className="mt-2 text-[9px] font-semibold leading-5 text-[#65718a]">{ar ? insight.rationaleAr : insight.rationale}</p>
                           <p className="mt-2 border-t border-black/5 pt-2 text-[9px] font-black leading-5 text-[#5366f6]">{copy('الخطوة التالية: ', 'Next action: ')}{ar ? insight.nextActionAr : insight.nextAction}</p>
-                          <p className="mt-1 text-[7px] font-bold text-[#8b95a9]">causalClaim=false</p>
+                          <p className="mt-1 text-[7px] font-bold text-[#8b95a9]">{copy('لا توجد دعوى سببية', 'No causal claim')}</p>
                         </article>
                       ))}
                     </div>

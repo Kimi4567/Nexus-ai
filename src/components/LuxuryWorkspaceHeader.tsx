@@ -49,12 +49,27 @@ export default function LuxuryWorkspaceHeader({
         <div className="min-w-0">
           <div className="nx-ai-chip mb-3 max-w-full">
             <span className="nx-ai-core" aria-hidden="true" />
-            <span>
-              {stage
-                ? (ar
-                    ? `المرحلة ${stage.step} من 5 · ${stage.label.ar}`
-                    : `Step ${stage.step} of 5 · ${stage.label.en}`)
-                : (ar ? 'مساحة عمل NEXUS' : 'NEXUS workspace')}
+            <span
+              className="inline-flex min-w-0 items-center gap-1"
+              dir={ar ? 'rtl' : 'ltr'}
+            >
+              {stage ? (
+                <>
+                  <span>{ar ? `المرحلة ${stage.step} من 5` : `Step ${stage.step} of 5`}</span>
+                  <span aria-hidden="true">·</span>
+                  <bdi dir="auto">{ar ? stage.label.ar : stage.label.en}</bdi>
+                </>
+              ) : ar ? (
+                <>
+                  <span>مساحة عمل</span>
+                  <bdi dir="ltr">NEXUS</bdi>
+                </>
+              ) : (
+                <>
+                  <bdi dir="ltr">NEXUS</bdi>
+                  <span>workspace</span>
+                </>
+              )}
             </span>
           </div>
           <h1 className="nx-workspace-title leading-tight">

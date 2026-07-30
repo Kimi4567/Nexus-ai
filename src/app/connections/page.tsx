@@ -106,6 +106,20 @@ interface ProviderReadiness {
   proofState: 'configuration_only'
 }
 
+const PROVIDER_TEST_BOUNDARY_AR: Record<ProviderReadiness['platform'], string> = {
+  META: 'اختبار صفحة Facebook لا يثبت جاهزية Instagram. يجب التحقق من صلاحيات كل هوية ومسار مراجعة المنصة بصورة منفصلة.',
+  LINKEDIN: 'ربط العضو متاح؛ نشر صفحات الشركات مؤجل حتى توفر تصريح Community Management والتحقق منه.',
+  TIKTOK: 'اختبار Direct Post غير المعتمد يظل محدودًا داخل المنصة؛ لا نعتبر الظهور العام متاحًا قبل وجود دليل اعتماد.',
+  YOUTUBE: 'ربط OAuth والرفع الخاص لا يثبتان النشر العام. يلزم إثبات الرفع وقراءة المعالجة وتجديد الرمز واعتماد مشروع API.',
+  X: 'إعداد OAuth لا يثبت أن الخطة تسمح بالنشر. يلزم التحقق من الكتابة والوسائط والقراءة والتجديد ومعرّف المنشور والوصول للحساب.',
+  PINTEREST: 'الوصول التجريبي لا يثبت النشر العام. يلزم Standard access واختيار Board وتجديد الرمز ومعرّف Pin وقراءة النتيجة.',
+  THREADS: 'وضع التطوير لا يثبت النشر العام. يلزم Live access وتجديد الرمز ومعرّف المنشور وقراءة مؤشرات الأداء.',
+}
+
+function providerTestBoundary(provider: ProviderReadiness, ar: boolean): string {
+  return ar ? PROVIDER_TEST_BOUNDARY_AR[provider.platform] : provider.testBoundary
+}
+
 interface PlatformDef {
   id: string
   name: { ar: string; en: string }
@@ -972,7 +986,7 @@ export default function ConnectionsPage() {
                           {copy('الوصول العام يحتاج موافقة المنصة', 'Public access requires provider approval')}
                         </p>
                         <p className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] leading-5 text-slate-600">
-                          {provider.testBoundary}
+                          {providerTestBoundary(provider, ar)}
                         </p>
                       </div>
                       <details className="mt-3 rounded-[13px] border border-slate-200 bg-white p-3">

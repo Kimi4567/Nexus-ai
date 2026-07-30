@@ -31,6 +31,7 @@ import { formatCreditDisplay } from '@/lib/creditDisplay'
 import { fetchWithTimeout, PRODUCT_READ_TIMEOUT_MS } from '@/lib/fetchWithTimeout'
 import { ErrorState } from '@/components/ui/ErrorState'
 import type { FirstPartyAttributionOutcomeRow, FirstPartyMeasurementSummary } from '@/lib/firstPartyMeasurement'
+import { measurementEvidenceLabel } from '@/lib/measurementEvidenceLabel'
 
 interface MonthActivity {
   label: string
@@ -630,19 +631,19 @@ export default function AnalyticsPage() {
                   {[
                     [ar ? 'زيارات مسجلة' : 'Tracked views', formatNum(overview.firstParty.funnel.pageViews), 'CLIENT_REPORTED'],
                     [ar ? 'ضغطات CTA' : 'CTA clicks', formatNum(overview.firstParty.funnel.ctaClicks), formatRate(overview.firstParty.funnel.ctaRate)],
-                    [ar ? 'إرسالات Landing Page مؤكدة' : 'Confirmed landing-page submissions', formatNum(overview.firstParty.funnel.confirmedForms), 'SERVER_CONFIRMED'],
-                    [ar ? 'Leads فريدة' : 'Unique leads', formatNum(overview.firstParty.funnel.leads), 'SERVER_DEDUPLICATED'],
-                    [ar ? 'Leads مؤهلة' : 'Qualified leads', formatNum(overview.firstParty.funnel.qualifiedLeads), 'MANUAL_CONFIRMED'],
+                    [ar ? 'إرسالات صفحة هبوط مؤكدة' : 'Confirmed landing-page submissions', formatNum(overview.firstParty.funnel.confirmedForms), 'SERVER_CONFIRMED'],
+                    [ar ? 'عملاء محتملون فريدون' : 'Unique leads', formatNum(overview.firstParty.funnel.leads), 'SERVER_DEDUPLICATED'],
+                    [ar ? 'عملاء محتملون مؤهلون' : 'Qualified leads', formatNum(overview.firstParty.funnel.qualifiedLeads), 'MANUAL_CONFIRMED'],
                     [ar ? 'صفقات مكتسبة' : 'Won deals', formatNum(overview.firstParty.funnel.wonLeads), 'MANUAL_CONFIRMED'],
-                    [ar ? 'معدل صفحة ← Lead' : 'Page → lead rate', formatRate(overview.firstParty.funnel.pageToLeadRate), firstPartyBrowserCoverageMismatch ? (ar ? 'محجوب: التتبع غير مكتمل' : 'WITHHELD: INCOMPLETE TRACKING') : 'SERVER_CONFIRMED'],
-                    [ar ? 'Lead ← مكتسب' : 'Lead → won rate', formatRate(overview.firstParty.funnel.leadToWonRate), 'MANUAL_CONFIRMED'],
-                  ].map(([label, value, helper]) => <article key={label} className="rounded-[16px] border border-[#e8edf5] bg-[#fbfcff] p-4"><p className="text-[9px] font-black text-[#7b87a3]">{label}</p><p className="mt-2 text-[23px] font-black text-[#111b3f]">{value}</p><p className="mt-1 truncate font-mono text-[8px] font-bold text-[#929db1]">{helper}</p></article>)}
+                    [ar ? 'معدل الصفحة إلى عميل محتمل' : 'Page → lead rate', formatRate(overview.firstParty.funnel.pageToLeadRate), firstPartyBrowserCoverageMismatch ? (ar ? 'محجوب: التتبع غير مكتمل' : 'Withheld: incomplete tracking') : 'SERVER_CONFIRMED'],
+                    [ar ? 'معدل العميل المحتمل إلى صفقة' : 'Lead → won rate', formatRate(overview.firstParty.funnel.leadToWonRate), 'MANUAL_CONFIRMED'],
+                  ].map(([label, value, helper]) => <article key={label} className="rounded-[16px] border border-[#e8edf5] bg-[#fbfcff] p-4"><p className="text-[9px] font-black text-[#7b87a3]">{label}</p><p className="mt-2 text-[23px] font-black text-[#111b3f]">{value}</p><p className="mt-1 truncate text-[8px] font-bold text-[#929db1]">{measurementEvidenceLabel(helper, ar ? 'ar' : 'en')}</p></article>)}
                 </div>
 
                 <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_0.8fr]">
                   <div className="overflow-hidden rounded-[16px] border border-[#e8edf5]">
                     <div className="border-b border-[#e8edf5] bg-[#f8faff] px-4 py-3"><h3 className="text-[10px] font-black text-[#53617b]">{ar ? 'إشارات مسار UTM' : 'UTM path signals'}</h3><p className="mt-1 text-[9px] font-semibold text-[#8b96aa]">{ar ? 'زيارات وضغطات صفحات الهبوط من المتصفح، وإرسالاتها مؤكدة من الخادم. نماذج الالتقاط المستقلة تظهر في Leads وليس في Funnel الصفحة.' : 'Landing-page views and clicks are browser-reported, and landing-page submissions are server-confirmed. Standalone capture forms appear under Leads, not in this page funnel.'}</p></div>
-                    {overview.firstParty.attribution.length ? <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-[10px]"><thead className="text-[#8a95aa]"><tr><th className="px-4 py-3 text-start">Source / Medium</th><th className="px-3 py-3 text-start">Campaign</th><th className="px-3 py-3 text-start">Views</th><th className="px-3 py-3 text-start">Clicks</th><th className="px-3 py-3 text-start">Submissions</th></tr></thead><tbody>{overview.firstParty.attribution.slice(0, 8).map(row => <tr key={row.key} className="border-t border-[#eef2f8]"><td className="px-4 py-3 font-black text-[#233052]">{row.source}{row.medium ? ` / ${row.medium}` : ''}</td><td className="px-3 py-3 text-[#64708f]">{row.campaign || '—'}</td><td className="px-3 py-3 font-bold text-[#64708f]">{row.pageViews}</td><td className="px-3 py-3 font-bold text-[#64708f]">{row.ctaClicks}</td><td className="px-3 py-3 font-bold text-[#64708f]">{row.confirmedForms}</td></tr>)}</tbody></table></div> : <p className="p-5 text-center text-[10px] font-bold text-[#8792aa]">{ar ? 'ستظهر المصادر بعد زيارة رابط يحمل UTM.' : 'Sources appear after a UTM-tagged visit.'}</p>}
+                    {overview.firstParty.attribution.length ? <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-[10px]"><thead className="text-[#8a95aa]"><tr><th className="px-4 py-3 text-start">{ar ? 'المصدر / الوسيط' : 'Source / Medium'}</th><th className="px-3 py-3 text-start">{ar ? 'الحملة' : 'Campaign'}</th><th className="px-3 py-3 text-start">{ar ? 'الزيارات' : 'Views'}</th><th className="px-3 py-3 text-start">{ar ? 'النقرات' : 'Clicks'}</th><th className="px-3 py-3 text-start">{ar ? 'الإرسالات' : 'Submissions'}</th></tr></thead><tbody>{overview.firstParty.attribution.slice(0, 8).map(row => <tr key={row.key} className="border-t border-[#eef2f8]"><td className="px-4 py-3 font-black text-[#233052]">{row.source}{row.medium ? ` / ${row.medium}` : ''}</td><td className="px-3 py-3 text-[#64708f]">{row.campaign || '—'}</td><td className="px-3 py-3 font-bold text-[#64708f]">{row.pageViews}</td><td className="px-3 py-3 font-bold text-[#64708f]">{row.ctaClicks}</td><td className="px-3 py-3 font-bold text-[#64708f]">{row.confirmedForms}</td></tr>)}</tbody></table></div> : <p className="p-5 text-center text-[10px] font-bold text-[#8792aa]">{ar ? 'ستظهر المصادر بعد زيارة رابط يحمل UTM.' : 'Sources appear after a UTM-tagged visit.'}</p>}
                   </div>
                   <div className="rounded-[16px] border border-[#e8edf5] p-4">
                     <h3 className="text-[12px] font-black text-[#233052]">{ar ? 'الإيراد المؤكد يدويًا' : 'Manually confirmed revenue'}</h3>
