@@ -206,6 +206,8 @@ function workflowLabel(eventType: string, ar: boolean): string {
     POST_REVERTED_TO_DRAFT: ['أعيد منشور إلى المسودة', 'Post returned to draft'],
     POST_FAILED: ['فشلت محاولة نشر', 'Publish attempt failed'],
     POST_AUTO_PUBLISHED: ['نُشر عبر تكامل موثّق', 'Published through a verified integration'],
+    BRAND_PROFILE_UPDATED: ['تم تحديث ملف العلامة', 'Brand profile updated'],
+    BRAND_CONTEXT_INVALIDATED: ['تم تحديث سياق Brand Brain', 'Brand Brain context refreshed'],
     BRAND_LEARNING_ACCEPTED: ['طُبّق درس على Brand Brain', 'Learning applied to Brand Brain'],
     BRAND_LEARNING_DISMISSED: ['رُفض مقترح تعلم', 'Learning proposal dismissed'],
     BRAND_LEARNING_ROLLED_BACK: ['تم التراجع عن درس', 'Learning was rolled back'],
@@ -213,6 +215,15 @@ function workflowLabel(eventType: string, ar: boolean): string {
   if (labels[eventType]) return labels[eventType][ar ? 0 : 1]
   const readable = eventType.trim().replace(/[_-]+/g, ' ').toLowerCase()
   return readable ? `${ar ? 'حدث:' : 'Event:'} ${readable}` : (ar ? 'حدث غير مصنف' : 'Unclassified event')
+}
+
+function workflowActorLabel(actor: string, ar: boolean): string {
+  const labels: Record<string, [string, string]> = {
+    USER: ['المستخدم', 'User'],
+    SYSTEM: ['النظام', 'System'],
+    CRON: ['مهمة مجدولة', 'Scheduled task'],
+  }
+  return labels[actor]?.[ar ? 0 : 1] || (ar ? 'جهة تشغيل مسجلة' : 'Recorded actor')
 }
 
 function statusLabel(status: SignalStatus, ar: boolean): string {
@@ -665,7 +676,7 @@ export default function LearningPage() {
                     {overview?.recentWorkflowSignals.length ? overview.recentWorkflowSignals.slice(0, 8).map(event => (
                       <div key={event.id} className="flex items-center gap-3 border-b border-[#eef2f8] py-3 last:border-b-0">
                         <span className="h-2.5 w-2.5 shrink-0 rounded-full border-2 border-[#6f72ff] bg-white" />
-                        <div className="min-w-0 flex-1"><p className="text-[10px] font-black text-[#233052]">{workflowLabel(event.eventType, ar)}</p><p className="mt-1 text-[8px] font-bold text-[#8b95a9]">{formatDate(event.at, ar)} · {event.actor}</p></div>
+                        <div className="min-w-0 flex-1"><p className="text-[10px] font-black text-[#233052]">{workflowLabel(event.eventType, ar)}</p><p className="mt-1 text-[8px] font-bold text-[#8b95a9]">{formatDate(event.at, ar)} · {workflowActorLabel(event.actor, ar)}</p></div>
                         {event.campaignId ? <Link href={`/campaigns/${event.campaignId}`} className="text-[#5366f6]"><ArrowUpRight className="h-3.5 w-3.5" /></Link> : null}
                       </div>
                     )) : <div className="rounded-[16px] border border-dashed border-[#d9e0ed] p-6 text-center"><Activity className="mx-auto h-8 w-8 text-[#abb6ca]" /><p className="mt-3 text-[10px] font-bold text-[#8792aa]">{copy('لم تُسجل أحداث تنفيذ بعد.', 'No execution events have been recorded yet.')}</p></div>}
